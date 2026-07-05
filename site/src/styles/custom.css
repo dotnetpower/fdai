@@ -1,0 +1,47 @@
+/*
+ * custom.css — site-wide style overrides on top of Starlight defaults.
+ *
+ * Layout: narrow the right-hand table-of-contents lane.
+ *
+ * Starlight's default layout gives the right sidebar
+ *   width = var(--sl-sidebar-width) + (100% - content - sidebar) / 2
+ * i.e. the reader's main text takes the content width, and the *entire*
+ * leftover horizontal space is split evenly — half feeds the main pane's
+ * margin, the other half becomes the TOC lane. On wide screens that
+ * pushes the TOC container well past 400 px even though the TOC text
+ * itself only needs ~200 px, and the docs read as a thin ribbon.
+ *
+ * We swap that formula for a fixed narrow lane so long-form docs get the
+ * reclaimed width. The lane is exposed as a CSS variable so a fork can
+ * tune the width in one place if desired.
+ */
+
+@media (min-width: 72rem) {
+  :root {
+    --sl-right-sidebar-width: 16rem;
+    /*
+     * Starlight's default article max-width is 45rem (~720 px). Bumping
+     * it 50% wider (67.5rem, ~1080 px) makes tables and diagrams breathe
+     * on large screens without changing the narrow-viewport experience,
+     * where the article shrinks to the pane width regardless.
+     */
+    --sl-content-width: 67.5rem;
+  }
+
+  .right-sidebar-container {
+    width: var(--sl-right-sidebar-width);
+  }
+
+  [data-has-sidebar][data-has-toc] .main-pane {
+    width: calc(100% - var(--sl-right-sidebar-width));
+    /*
+     * Starlight defaults .main-pane's inner margin to `auto 0`, which
+     * flushes the content to the right edge — fine when the pane is
+     * only slightly wider than the content, but with our slimmer TOC
+     * the surplus space piles up on the left and the article visibly
+     * lists to the right. Switching to `auto` on both sides re-centres
+     * the article inside the widened pane in both locales.
+     */
+    --sl-content-margin-inline: auto;
+  }
+}
