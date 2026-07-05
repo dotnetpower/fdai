@@ -21,6 +21,72 @@ hero:
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 
+## How AIOpsPilot resolves events
+
+<p class="hero-note">A single control loop: normalise, route by confidence, gate by risk, and always audit. LLMs only see the residual minority that the deterministic tiers explicitly abstain on.</p>
+
+```mermaid
+flowchart LR
+  E[Event bus<br/>Kafka on Event Hubs] --> IN[Event ingest<br/>normalise · dedup · correlate]
+  IN --> TR{Trust router<br/>compute confidence}
+  TR -->|rule match| T0[T0 · deterministic<br/>~70–80% target]
+  TR -->|similar to past| T1[T1 · lightweight reuse<br/>~15–20%]
+  TR -->|novel / ambiguous| T2[T2 · reasoning<br/>~5–10%]
+  T2 --> QG{{Quality gate<br/>mixed-model · verifier · grounding}}
+  T0 --> RG{Risk gate}
+  T1 --> RG
+  QG -->|pass| RG
+  QG -->|abstain| HIL
+  RG -->|auto| EX[Executor<br/>stop-condition · rollback · blast-radius]
+  RG -->|hil| HIL[Human approval<br/>Teams · PR · email]
+  RG -->|deny| DENY[No-op<br/>audit]
+  HIL -->|approve| EX
+  HIL -->|reject / timeout| DENY
+  EX --> DEL[GitOps / PR delivery]
+  DEL --> AUD[(Append-only audit log)]
+  DENY --> AUD
+```
+
+## What autonomy earns you (design targets)
+
+<ul class="impact-list">
+  <li>
+    <span class="impact-tick" aria-hidden="true">↳</span>
+    <strong>~70–80% of events resolved deterministically.</strong> Rules,
+    policies, and checklists decide the repeatable majority. No model call.
+  </li>
+  <li>
+    <span class="impact-tick" aria-hidden="true">↳</span>
+    <strong>~15–20% resolved by lightweight pattern reuse (T1).</strong>
+    Embedding similarity to past resolved incidents, small classifiers, no
+    frontier model.
+  </li>
+  <li>
+    <span class="impact-tick" aria-hidden="true">↳</span>
+    <strong>Only ~5–10% reach the reasoning tier (T2).</strong> Mixed-model
+    cross-check plus deterministic verifier — the model proposes, the
+    verifier disposes.
+  </li>
+  <li>
+    <span class="impact-tick" aria-hidden="true">↳</span>
+    <strong>Every autonomous action carries four invariants.</strong>
+    Stop-condition · rollback path · blast-radius limit · audit-log entry.
+    Missing any of the four ⇒ the action is HIL, not AUTO.
+  </li>
+  <li>
+    <span class="impact-tick" aria-hidden="true">↳</span>
+    <strong>New capabilities land in shadow, never as a surprise.</strong>
+    Promotion to enforce is a separate, measurable gate against the Phase 0
+    baseline.
+  </li>
+  <li>
+    <span class="impact-tick" aria-hidden="true">↳</span>
+    <em>All figures above are design targets, not measured results.</em>
+    AIOpsPilot never claims a multiplier without a paired baseline
+    measurement.
+  </li>
+</ul>
+
 ## Three domains, one control plane
 
 <p class="hero-note">Each domain shares the same event-driven, risk-gated core; they differ only in the rules and actions they load.</p>

@@ -148,3 +148,53 @@
   border-radius: 0.75rem;
   padding: 1.25rem 1.5rem;
 }
+
+/*
+ * Impact list — Palantir-style bullet list with a hairline separator
+ * between entries and a coloured arrow marker on the left. Used on the
+ * landing page to highlight the design targets AIOpsPilot commits to.
+ * Scoped to splash so interior <ul> elements stay untouched.
+ */
+[data-page-layout="splash"] .impact-list {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0 2.5rem 0;
+  border-top: 1px solid var(--sl-color-hairline);
+}
+[data-page-layout="splash"] .impact-list li {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--sl-color-hairline);
+  line-height: 1.55;
+}
+[data-page-layout="splash"] .impact-list .impact-tick {
+  color: var(--sl-color-text-accent);
+  font-weight: 700;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding-top: 0.15rem;
+}
+[data-page-layout="splash"] .impact-list li em {
+  color: var(--sl-color-gray-3);
+  font-style: normal;
+}
+
+/*
+ * Mermaid diagram containers on the splash landing get a subtle framed
+ * background so the diagram feels like an intentional visual, not
+ * accidental output. Interior doc pages keep the default (transparent)
+ * so diagrams inline with prose don't look boxed-in.
+ */
+[data-page-layout="splash"] pre.mermaid {
+  background: color-mix(in srgb, var(--sl-color-text-accent) 4%, var(--sl-color-bg));
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 0.75rem;
+  padding: 1.5rem 1rem;
+  margin: 1.5rem 0 2rem 0;
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+}

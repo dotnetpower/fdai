@@ -17,6 +17,68 @@ hero:
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 
+## AIOpsPilot 이 이벤트를 해소하는 방식
+
+<p class="hero-note">하나의 제어 루프: 정규화하고, 신뢰도로 라우팅하고, 리스크로 게이팅하고, 항상 감사합니다. LLM 은 결정론 티어들이 명시적으로 abstain 한 잔여 소수만 봅니다.</p>
+
+```mermaid
+flowchart LR
+  E[이벤트 버스<br/>Event Hubs 위 Kafka] --> IN[Event ingest<br/>정규화 · 중복제거 · 상관관계]
+  IN --> TR{Trust router<br/>신뢰도 계산}
+  TR -->|규칙 히트| T0[T0 · 결정론<br/>목표 ~70–80%]
+  TR -->|과거와 유사| T1[T1 · 경량 재사용<br/>~15–20%]
+  TR -->|새롭거나 애매| T2[T2 · 추론<br/>~5–10%]
+  T2 --> QG{{품질 게이트<br/>mixed-model · verifier · grounding}}
+  T0 --> RG{리스크 게이트}
+  T1 --> RG
+  QG -->|통과| RG
+  QG -->|abstain| HIL
+  RG -->|auto| EX[Executor<br/>stop-condition · 롤백 · blast-radius]
+  RG -->|hil| HIL[사람 승인<br/>Teams · PR · 이메일]
+  RG -->|deny| DENY[No-op<br/>감사]
+  HIL -->|승인| EX
+  HIL -->|거부 / 타임아웃| DENY
+  EX --> DEL[GitOps / PR 전달]
+  DEL --> AUD[(append-only 감사 로그)]
+  DENY --> AUD
+```
+
+## 자율성이 여러분에게 주는 것 (설계 목표)
+
+<ul class="impact-list">
+  <li>
+    <span class="impact-tick" aria-hidden="true">↳</span>
+    <strong>이벤트의 ~70–80% 가 결정론적으로 해소.</strong> 규칙 · 정책 ·
+    체크리스트가 반복 가능한 다수를 결정. 모델 호출 없음.
+  </li>
+  <li>
+    <span class="impact-tick" aria-hidden="true">↳</span>
+    <strong>~15–20% 는 경량 패턴 재사용(T1) 으로 해소.</strong> 과거 해소된
+    인시던트와의 임베딩 유사도, 소형 분류기, frontier 모델 없음.
+  </li>
+  <li>
+    <span class="impact-tick" aria-hidden="true">↳</span>
+    <strong>추론 티어(T2) 에 도달하는 것은 ~5–10% 뿐.</strong> mixed-model
+    교차 검증 + 결정론 verifier — 모델은 제안하고, verifier 가 처분합니다.
+  </li>
+  <li>
+    <span class="impact-tick" aria-hidden="true">↳</span>
+    <strong>모든 자율 액션은 네 불변식을 지닌다.</strong> stop-condition ·
+    롤백 경로 · blast-radius 제한 · 감사 로그 항목. 넷 중 하나라도 없으면
+    액션은 AUTO 가 아니라 HIL 로 갑니다.
+  </li>
+  <li>
+    <span class="impact-tick" aria-hidden="true">↳</span>
+    <strong>새 능력은 shadow 로 시작하며, 결코 깜짝 등장하지 않는다.</strong>
+    Enforce 로의 승격은 Phase 0 기준선 대비 별도의 측정 가능한 게이트입니다.
+  </li>
+  <li>
+    <span class="impact-tick" aria-hidden="true">↳</span>
+    <em>위 수치는 모두 설계 목표이지 측정된 결과가 아닙니다.</em>
+    AIOpsPilot 은 짝을 이룬 기준선 측정 없이 배수를 주장하지 않습니다.
+  </li>
+</ul>
+
 ## 세 도메인, 하나의 제어 평면
 
 <p class="hero-note">세 도메인 모두 같은 이벤트 기반 · 리스크 게이트 코어를 공유한다. 다른 것은 각 도메인이 로드하는 규칙과 액션뿐이다.</p>
