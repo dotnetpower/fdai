@@ -96,9 +96,7 @@ class PackageResourceSchemaRegistry:
 
         rel = _PACKAGE_SCHEMAS.get((name, target_version))
         if rel is None:
-            raise SchemaNotFoundError(
-                f"unknown schema: name={name!r} version={target_version!r}"
-            )
+            raise SchemaNotFoundError(f"unknown schema: name={name!r} version={target_version!r}")
 
         raw = resources.files(self._package).joinpath(rel).read_text(encoding="utf-8")
         loaded = json.loads(raw)

@@ -1,7 +1,8 @@
-"""Ontology types (Resource / Rule / Signal / Finding) plus event / action / rule schemas (versioned).
+"""Ontology types and event / action / rule schemas (versioned).
 
-Public API. Re-exports the *interfaces* (Protocols, data models, errors) that
-core modules depend on. Concrete implementations
+Ontology (Resource / Rule / Signal / Finding) plus event / action / rule
+schemas. Public API. Re-exports the *interfaces* (Protocols, data models,
+errors) that core modules depend on. Concrete implementations
 (``PackageResourceSchemaRegistry``, ``JsonSchemaContractValidator``,
 ``JsonSchemaEventValidator``) are **intentionally not re-exported here** — they
 must be imported from their submodules by the composition root only, so

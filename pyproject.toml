@@ -44,6 +44,8 @@ dev = [
     "pytest>=8.0,<9",
     "mypy>=1.13,<2",
     "ruff>=0.7,<1",
+    # jsonschema ships no inline type hints; the stub package covers mypy --strict.
+    "types-jsonschema>=4.23,<5",
 ]
 
 [project.urls]
@@ -69,6 +71,9 @@ include = ["src/aiopspilot", "README.md", "LICENSE", "pyproject.toml"]
 line-length = 100
 target-version = "py312"
 src = ["src", "tests"]
+# Mock/design assets and design experiments are not part of the shipped
+# monorepo; they live outside the lint gate on purpose.
+extend-exclude = ["mocks", "examples"]
 
 [tool.ruff.lint]
 # Full rule selection is finalized in W1.7. This is a conservative starter set.

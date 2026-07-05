@@ -23,7 +23,11 @@ aiopspilot/
 │   │   ├── executor/          # per-resource lock, idempotent apply via delivery adapters
 │   │   └── audit/             # append-only audit log, tracked state, KPI/metric emission
 │   ├── shared/                # cross-cutting; MUST NOT import from core/
-│   │   ├── contracts/         # ontology types (Resource / Rule / Signal / Finding) + event / action / rule schemas (versioned) + generated types
+│   │   ├── contracts/         # models.py + registry.py + validation.py + JSON Schemas
+│   │   │   ├── event/         # event/schema.json
+│   │   │   ├── action/        # action/schema.json
+│   │   │   ├── rule/          # rule/schema.json
+│   │   │   └── ontology/      # object-type / link-type / action-type JSON Schemas
 │   │   ├── providers/         # CSP-neutral cloud provider interfaces (adapters implement them)
 │   │   ├── telemetry/         # structured logging, tracing, metric helpers
 │   │   └── config/            # config schema + startup validation (fail-fast)
@@ -34,6 +38,7 @@ aiopspilot/
 │       ├── schema/            # rule schema (semver) + validation
 │       ├── sources/           # per-source collectors (WAF, CIS, OPA, IaC scanners, ...)
 │       └── pipeline/          # watch → collect → shadow eval → regression → promote/rollback
+├── src/aiopspilot/composition.py  # composition root: default_container() binds every seam
 ├── rule-catalog/              # catalog-as-code DATA (YAML) — no Python; pipeline lives in src/aiopspilot/rule_catalog/
 │   ├── schema/                # JSON Schema definitions (data)
 │   └── sources/               # per-source rule snapshots + provenance
@@ -91,7 +96,13 @@ clean (see the fork model in
 
 - **Composition root**: `core/` depends only on the CSP-neutral interfaces in `shared/`. A thin
   composition root (outside `core/`) binds concrete implementations at startup. `core/` never
-  news-up a concrete adapter; it receives its dependencies.
+  news-up a concrete adapter; it receives its dependencies. The upstream default binder is
+  [`aiopspilot.composition.default_container`](../../src/aiopspilot/composition.py); a fork's
+  entry point calls its own factory that wraps or replaces those bindings. Concrete adapter
+  classes (e.g. `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`) are
+  **not** re-exported from public sub-packages; they must be imported directly from their
+  submodule, and only by a composition root, so `core/` cannot depend on a concrete by
+  accident.
 - **Config-driven binding**: which implementation binds to which interface is selected by
   configuration, so a fork overrides a binding by supplying its own package + config, not by
   patching core. Invalid or missing bindings **fail fast** at startup (Configuration Model).
@@ -111,6 +122,8 @@ non-Azure phase registers a new implementation at the composition root without e
 | Secret & config | `SecretProvider` / `ConfigProvider` | **CSP-neutrality contract** — [secret](csp-neutrality.md#3-secret-contract--environment--k8s-secret) | env + Container Apps KV-reference bridge | ESO + Key Vault / AWS Secrets Manager / GCP Secret Manager / HashiCorp Vault |
 | Workload identity | `WorkloadIdentity` (audience-scoped OIDC token) | **CSP-neutrality contract** — [workload identity](csp-neutrality.md#4-workload-identity-contract--oidc-token) | user-assigned Managed Identity (IMDS → Entra token) | IRSA, GCP Workload Identity Federation, SPIFFE/SPIRE SVID |
 | Cloud provider | provider client | (uses the four above) | reference/generic Azure adapter | a specific CSP adapter |
+| **Schema source** | `SchemaRegistry` (raw JSON Schema loader) | — | `PackageResourceSchemaRegistry` (schemas ship inside the package) | remote schema-registry adapter; snapshot pinned by content hash |
+| **Boundary validation** | `ContractValidator` / `EventValidator` (fail-closed input check) | — | `JsonSchemaContractValidator` + `JsonSchemaEventValidator` (draft-2020-12) | fork MAY layer domain-specific checks (e.g. source allowlist) without editing `core/` |
 | Rule / policy source | rule-catalog + `policies/` loader | — | bundled generic rules | customer rule set / thresholds |
 | Delivery adapter | delivery interface | — | `gitops-pr` / `chatops` | a different PR host / chat channel |
 | Risk scoring & thresholds | risk-gate config | — | generic thresholds | customer risk policy |

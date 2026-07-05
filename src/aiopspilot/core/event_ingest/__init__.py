@@ -1,1 +1,5 @@
-"""Bus consumers; normalize to event schema; dedup by idempotency key; correlate related events into incidents."""
+"""Bus consumers.
+
+Normalize to the event schema, deduplicate by idempotency key, and correlate
+related events into incidents.
+"""

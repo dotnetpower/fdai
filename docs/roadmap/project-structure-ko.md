@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure.md
-translation_source_sha: 8cd8fe30e8fbb9d7d546aef500bd9fbe7dddb53b
+translation_source_sha: 0e4e2c92aa7badaddd2d8d74ddd77dfbaa41d4fe
 translation_revised: 2026-07-05
 ---
 
@@ -91,7 +91,17 @@ aiopspilot/
 
 - **Composition root**: `core/` 는 `shared/` 의 CSP-중립 인터페이스에만 의존합니다.
   얇은 조립 루트(`core/` 밖)가 시작 시 구체 구현을 바인딩합니다. `core/` 는 절대 구체
-  어댑터를 new-up 하지 않고 의존성을 주입받습니다.
+  어댑터를 new-up 하지 않고 의존성을 주입받습니다. 상류 기본 바인더는
+  [`aiopspilot.composition.default_container`](../../src/aiopspilot/composition.py) 이며,
+  포크의 엔트리 포인트는 해당 바인딩을 감싸거나 교체하는 자체 팩토리를 호출합니다.
+  구체 어댑터 클래스(예: `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`)
+  는 public 서브-패키지에서 re-export **되지 않습니다**; 해당 서브모듈에서 직접, 그리고
+  조립 루트에서만 import 되어야 하므로 `core/` 가 실수로 구체에 의존할 수 없습니다. 상류 기본 바인더는
+  [`aiopspilot.composition.default_container`](../../src/aiopspilot/composition.py) 이며,
+  포크의 엔트리 포인트는 해당 바인딩을 감싸거나 교체하는 자체 팩토리를 호출합니다.
+  구체 어댑터 클래스(예: `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`)
+  는 public 서브-패키지에서 re-export **되지 않습니다**; 해당 서브모듈에서 직접, 그리고
+  조립 루트에서만 import 되어야 하므로 `core/` 가 실수로 구체에 의존할 수 없습니다.
 - **Config-기반 바인딩**: 어떤 구현이 어떤 인터페이스에 바인딩되는지는 설정으로 선택됩니다.
   포크는 core를 패치하지 않고 자신의 패키지 + 설정을 공급함으로써 바인딩을 오버라이드합니다.
   잘못되거나 누락된 바인딩은 시작 시 **fail fast** 합니다(Configuration Model).
@@ -111,6 +121,8 @@ phase 는 `core/` 를 편집하지 않고 composition root 에서 새 구현을 
 | Secret & config | `SecretProvider` / `ConfigProvider` | **CSP-중립성 계약** — [시크릿](csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) | env + Container Apps KV-reference 브릿지 | ESO + Key Vault / AWS Secrets Manager / GCP Secret Manager / HashiCorp Vault |
 | Workload identity | `WorkloadIdentity` (audience-scoped OIDC 토큰) | **CSP-중립성 계약** — [워크로드 아이덴티티](csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) | user-assigned Managed Identity (IMDS → Entra 토큰) | IRSA, GCP Workload Identity Federation, SPIFFE/SPIRE SVID |
 | Cloud provider | provider client | (위 네 개를 사용) | reference/generic Azure 어댑터 | 특정 CSP 어댑터 |
+| **Schema source** | `SchemaRegistry` (원시 JSON Schema 로더) | — | `PackageResourceSchemaRegistry` (패키지 내장 스키마) | 원격 schema-registry 어댑터; content hash 로 핀된 스냅샷 |
+| **Boundary validation** | `ContractValidator` / `EventValidator` (fail-closed 입력 검사) | — | `JsonSchemaContractValidator` + `JsonSchemaEventValidator` (draft-2020-12) | 포크가 `core/` 편집 없이 도메인 특이 체크(예: 소스 allowlist) 추가 가능 |
 | Rule / policy source | rule-catalog + `policies/` 로더 | — | 번들된 범용 규칙 | 고객 규칙 세트 / 임계값 |
 | Delivery adapter | delivery 인터페이스 | — | `gitops-pr` / `chatops` | 다른 PR 호스트 / 채팅 채널 |
 | Risk scoring & thresholds | risk-gate config | — | 범용 임계값 | 고객 리스크 정책 |
