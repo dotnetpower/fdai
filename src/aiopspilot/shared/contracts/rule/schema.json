@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiopspilot.dev/schemas/rule/1.0.0",
+  "title": "Rule",
+  "description": "Normalized, CSP-neutral rule entry in the catalog. Sources map into this shape; runtime never reads a source-specific format.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "version",
+    "source",
+    "severity",
+    "category",
+    "resource_type",
+    "check_logic",
+    "remediation",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$",
+      "description": "Globally unique, source-independent rule identity (basis for dedup)."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Rule semver; a bad set is revertible by version."
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "waf",
+        "aks_baseline",
+        "mcsb",
+        "azure_policy",
+        "azure_advisor",
+        "cis",
+        "opa_gatekeeper",
+        "checkov",
+        "tfsec",
+        "kics",
+        "trivy",
+        "kube_bench",
+        "custom"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "security",
+        "reliability",
+        "cost",
+        "config_drift",
+        "compliance"
+      ]
+    },
+    "resource_type": {
+      "type": "string",
+      "description": "Normalized CSP-neutral type, e.g. compute.vm, database.postgres, network.public_ip."
+    },
+    "check_logic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "rego",
+            "expression"
+          ]
+        },
+        "reference": {
+          "type": "string",
+          "description": "policies/ path or inline expression id."
+        }
+      },
+      "description": "Deterministic predicate. T0 loads and evaluates this without engine changes."
+    },
+    "remediation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "template_ref"
+      ],
+      "properties": {
+        "template_ref": {
+          "type": "string",
+          "description": "IaC/PR remediation template id."
+        },
+        "cost_impact_monthly_usd": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Estimated monthly cost impact. null \u2192 treated as unknown by the risk gate \u2192 HIL."
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_url",
+        "resolved_revision",
+        "content_hash",
+        "license",
+        "redistribution",
+        "imported_at"
+      ],
+      "properties": {
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "resolved_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "license": {
+          "type": "string",
+          "description": "SPDX identifier or upstream text."
+        },
+        "redistribution": {
+          "type": "boolean",
+          "description": "Whether the license permits redistribution in this repo."
+        },
+        "imported_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "Auditable origin. Missing provenance = rule is rejected at load."
+    },
+    "applies_to": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Scope predicates (labels, tags, tenants). CSP-neutral vocabulary."
+    }
+  }
+}

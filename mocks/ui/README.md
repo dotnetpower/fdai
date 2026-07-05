@@ -1,6 +1,6 @@
-# Calm Slate — AzureWatcher UI Kit
+# Calm Slate — AIOpsPilot UI Kit
 
-A static, dependency-free component library and page templates for the AzureWatcher
+A static, dependency-free component library and page templates for the AIOpsPilot
 **read-only operator console** and generated reports. The theme is toned-down and
 report-oriented: a desaturated palette, hairline borders, soft shadows, numbered section
 badges — calm and professional, with no primary/neon colors and no top/bottom color bands.

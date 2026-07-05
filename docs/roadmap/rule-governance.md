@@ -17,10 +17,10 @@ shadow-before-enforce and safety invariants in
 
 ## Model (three layers, like Azure Policy)
 
-Azure Policy separates *definition* from *assignment* from *exemption*. AzureWatcher mirrors that
+Azure Policy separates *definition* from *assignment* from *exemption*. AIOpsPilot mirrors that
 so administrators get a familiar mental model:
 
-| Azure Policy concept | AzureWatcher artifact | What it is |
+| Azure Policy concept | AIOpsPilot artifact | What it is |
 |----------------------|-----------------------|------------|
 | policy definition | **rule** | a single testable control ([rule-catalog-collection.md](rule-catalog-collection.md)) |
 | initiative (policy set) | **rule set** | a named, versioned group of rules (e.g. a security baseline) |
@@ -274,91 +274,97 @@ and Owner-tier reviewer for loosening changes.
   promotion gate scored — so governance changes are regression-tested like rule changes
   ([coding-conventions.instructions.md](../../.github/instructions/coding-conventions.instructions.md)).
 
-## JSON Shapes
+## YAML Shapes
 
 ### Rule Set (initiative)
 
-```json
-{
-  "id": "ruleset.security-baseline",
-  "version": "1.0.0",
-  "kind": "rule-set",
-  "display_name": "Security Baseline",
-  "rules": [
-    { "id": "object-storage.public-access.deny", "version": "1.2.0", "default_effect": "deny" },
-    { "id": "sql-database.encryption.tde-required", "version": "1.0.0", "default_effect": "audit" },
-    { "id": "postgresql-server.dr.pitr-and-geo-replica-required", "version": "2.1.0", "default_effect": "audit" }
-  ],
-  "provenance": { "created_at": "2026-07-03T00:00:00Z", "created_by": "governance-team" }
-}
+```yaml
+id: ruleset.security-baseline
+version: 1.0.0
+kind: rule-set
+display_name: Security Baseline
+rules:
+  - { id: object-storage.public-access.deny, version: 1.2.0, default_effect: deny }
+  - { id: sql-database.encryption.tde-required, version: 1.0.0, default_effect: audit }
+  - { id: postgresql-server.dr.pitr-and-geo-replica-required, version: 2.1.0, default_effect: audit }
+provenance:
+  created_at: 2026-07-03T00:00:00Z
+  created_by: governance-team
 ```
 
 ### Assignment
 
-```json
-{
-  "id": "assignment.security-baseline.prod",
-  "version": "1.0.0",
-  "kind": "assignment",
-  "target": "ruleset.security-baseline",
-  "scope": {
-    "include": ["scope://org/account-000/prod"],
-    "exclude": ["scope://org/account-000/prod/sandbox"],
-    "selectors": { "resource_type": ["sql-database", "postgresql-server", "object-storage"] }
-  },
-  "effect": "audit",
-  "enforcement": "do-not-enforce",
-  "effect_overrides": { "object-storage.public-access.deny": "audit" },
-  "parameter_overrides": { "postgresql-server.dr.pitr-and-geo-replica-required": { "min_backup_retention_days": 14 } },
-  "provenance": { "created_at": "2026-07-03T00:00:00Z", "created_by": "assignment-operator" }
-}
+```yaml
+id: assignment.security-baseline.prod
+version: 1.0.0
+kind: assignment
+target: ruleset.security-baseline
+scope:
+  include:
+    - scope://org/account-000/prod
+  exclude:
+    - scope://org/account-000/prod/sandbox
+  selectors:
+    resource_type: [sql-database, postgresql-server, object-storage]
+effect: audit
+enforcement: do-not-enforce
+effect_overrides:
+  object-storage.public-access.deny: audit
+parameter_overrides:
+  postgresql-server.dr.pitr-and-geo-replica-required:
+    min_backup_retention_days: 14
+provenance:
+  created_at: 2026-07-03T00:00:00Z
+  created_by: assignment-operator
 ```
 
 ### Exemption
 
-```json
-{
-  "id": "exemption.legacy-store.public-access",
-  "version": "1.0.0",
-  "kind": "exemption",
-  "target_assignment": "assignment.security-baseline.prod",
-  "scope": "scope://org/account-000/prod/resource-000",
-  "rule": "object-storage.public-access.deny",
-  "justification": "Documented migration in progress; compensating control in place.",
-  "category": "mitigated",
-  "requested_by": "assignment-operator",
-  "approver": "exemption-approver",
-  "expires_at": "2026-09-30T00:00:00Z",
-  "provenance": { "created_at": "2026-07-03T00:00:00Z", "created_by": "assignment-operator" }
-}
+```yaml
+id: exemption.legacy-store.public-access
+version: 1.0.0
+kind: exemption
+target_assignment: assignment.security-baseline.prod
+scope: scope://org/account-000/prod/resource-000
+rule: object-storage.public-access.deny
+justification: Documented migration in progress; compensating control in place.
+category: mitigated
+requested_by: assignment-operator
+approver: exemption-approver
+expires_at: 2026-09-30T00:00:00Z
+provenance:
+  created_at: 2026-07-03T00:00:00Z
+  created_by: assignment-operator
 ```
 
 ### Override
 
-```json
-{
-  "id": "override.pitr-relaxation.rg-analytics",
-  "version": "1.0.0",
-  "kind": "override",
-  "target_rule": "postgresql-server.dr.pitr-required",
-  "scope": "scope://org/account-000/prod/rg-analytics",
-  "mode": "parameter-relaxation",
-  "parameter_overrides": { "min_backup_retention_days": 3 },
-  "justification": "Non-critical analytics workloads with 3-day retention accepted by the data owner.",
-  "requested_by": "assignment-operator",
-  "approver": "override-approver",
-  "provenance": { "created_at": "2026-07-03T00:00:00Z", "created_by": "assignment-operator" }
-}
+```yaml
+id: override.pitr-relaxation.rg-analytics
+version: 1.0.0
+kind: override
+target_rule: postgresql-server.dr.pitr-required
+scope: scope://org/account-000/prod/rg-analytics
+mode: parameter-relaxation
+parameter_overrides:
+  min_backup_retention_days: 3
+justification: Non-critical analytics workloads with 3-day retention accepted by the data owner.
+requested_by: assignment-operator
+approver: override-approver
+provenance:
+  created_at: 2026-07-03T00:00:00Z
+  created_by: assignment-operator
 ```
 
 > `kind: rule-set | assignment | exemption | override` extends the catalog discriminator set from
 > [rule-catalog-collection.md](rule-catalog-collection.md); each has its own strict per-kind
-> JSON Schema (`additionalProperties: false`) validated in CI. Each rule-set member pins a rule
-> `version`; each `parameter_overrides` value is validated against the type the target rule
-> declares for that parameter (a type mismatch fails CI); `requested_by` must differ from
-> `approver`. The assignment above is intentionally held **fully in shadow** — the rule set's
-> `deny` default for `object-storage.public-access.deny` is overridden to `audit` and
-> `enforcement` is `do-not-enforce` until a separate promotion approval flips it.
+> JSON Schema (`additionalProperties: false`, applied to the parsed YAML document) validated in
+> CI. Each rule-set member pins a rule `version`; each `parameter_overrides` value is validated
+> against the type the target rule declares for that parameter (a type mismatch fails CI);
+> `requested_by` must differ from `approver`. The assignment above is intentionally held **fully
+> in shadow** — the rule set's `deny` default for `object-storage.public-access.deny` is
+> overridden to `audit` and `enforcement` is `do-not-enforce` until a separate promotion approval
+> flips it.
 
 ## Open Decisions
 

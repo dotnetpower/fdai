@@ -40,17 +40,17 @@ and the threat model in [security-and-identity.md](security-and-identity.md).
 
 | Concern | Recommendation | Rationale | Alternatives (neutral / OSS) |
 |---------|----------------|-----------|------------------------------|
-| Core engine runtime | TypeScript (Node) or Python | strong ecosystem for adapters, LLM SDKs, and rule tooling | Go or .NET if perf/typing demands grow |
+| Core engine runtime | **Python (3.12+)** — src-layout under `src/aiopspilot/` | mature LLM / OPA / IaC-scanner SDKs, strong typing via mypy, one language across every subsystem (see [OD-1](#od-1-core-runtime-language)) | TypeScript (Node), Go, .NET — reserved for a future perf-driven split behind the same interface |
 | Policy engine | **OPA / Rego** | CSP-neutral policy-as-code; reused by T0 and the T2 verifier | Gatekeeper (K8s), Cloud Custodian |
-| IaC | **Terraform** / **OpenTofu** (Bicep optional for Azure-only infra) | portable across clouds; large module ecosystem | Pulumi; OpenTofu is the OSS (MPL-2.0) fork of Terraform |
-| Event bus | **Service Bus** (ordered, DLQ-capable queues/topics) + **Event Grid** (resource/activity subscriptions) | reliable ordering and dead-lettering plus a native cloud event source | Kafka (durable log/replay) or NATS JetStream (lightweight pub/sub) — non-Azure options are TBD |
+| IaC | **Terraform** (Azure targeting, HCL) | resolves the OD; Terraform is the entry-command target (`terraform apply`), rendered from the four CSP-neutral contracts in [csp-neutrality.md](csp-neutrality.md); Bicep and OpenTofu remain compatible fallbacks | **OpenTofu** (MPL-2.0 fork) if a strictly OSS toolchain is required; Bicep for Azure-only convenience; Pulumi if a general-purpose language is preferred |
+| Event bus | **Event Hubs** consumed **only via its Kafka endpoint on `:9093`** (Kafka wire protocol is the CSP-neutral contract — see [csp-neutrality.md](csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol)) | one wire protocol serves every managed target (MSK, GCP Managed Kafka, Confluent, Redpanda), so a non-Azure adapter is a config swap | MSK Serverless / GCP Managed Kafka / Confluent / Redpanda / self-hosted Strimzi — non-Azure options are TBD |
 | Event/message schema | JSON Schema (or CloudEvents envelope) in a versioned registry | typed, versioned event contracts; enables safe evolution and validation at ingress | Avro/Protobuf + Confluent-compatible registry |
-| Dead-letter handling | native SB dead-letter queue + a replay/redrive worker | no event is silently dropped; poison messages are quarantined and re-processable | Kafka DLQ topic + redrive |
-| Compute | **Azure Container Apps** (Consumption, KEDA + scale-to-zero) — **one app with sidecar containers** for core subsystems | event scaling without always-on cost; sidecars keep deployment count minimal while preserving code-level SRP (see [deploy-and-onboard.md](deploy-and-onboard.md#compute-shape-sidecar-containers)) | Knative or Cloud Run for portability; AKS when custom networking/DaemonSets/GPU are needed |
-| Light triggers | **Container Apps Jobs** (same environment as Compute) | out-of-band change detection, cost-anomaly hooks, scheduled probes — avoids provisioning a separate Functions plan | Azure Functions if a native binding is required; Knative eventing |
+| Dead-letter handling | Kafka **dead-letter topic** convention (e.g. `<topic>.dlq`) + a replay/redrive worker | no event is silently dropped; poison messages are quarantined and re-processable; identical across providers | vendor-native DLQ **not used** (behavior diverges per provider) |
+| Compute | **Azure Container Apps** (Consumption, KEDA + scale-to-zero) — **one app with sidecar containers** for core subsystems, deployed from an **OCI image + Knative-compatible manifest subset** (see [csp-neutrality.md](csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest)) | event scaling without always-on cost; the manifest also renders to Cloud Run / App Runner / Knative on any K8s so runtime is portable | Cloud Run (native Knative), App Runner, Knative on AKS/EKS/GKE; AKS when custom networking/DaemonSets/GPU are needed |
+| Light triggers | **Container Apps Jobs** (same environment as Compute); renders to K8s `CronJob` / Cloud Run Job / EventBridge on other targets | out-of-band change detection, cost-anomaly hooks, scheduled probes — avoids provisioning a separate Functions plan | Azure Functions if a native binding is required; Knative eventing |
 | State / audit / KPI | **PostgreSQL** (default) or **Cosmos DB** | append-only audit log, pattern library, KPI store; also hosts the runtime ontology instance state ([llm-strategy.md § Ontology Storage Layout](llm-strategy.md#ontology-storage-layout)) | see [Data Store Selection](#data-store-selection-criteria) |
 | Vector search (T1) | pgvector (co-located with PostgreSQL) | keep embeddings next to audit/state; one datastore to operate | dedicated vector DB (Qdrant/Milvus) at higher scale — see [Vector Search Rationale](#vector-search-rationale) |
-| Secret store | **Key Vault** (or HashiCorp Vault) via injected provider | secrets never in source/logs; runtime injection only | SOPS + age for GitOps-managed secrets |
+| Secret store | **Container Apps native secret + Key Vault reference** on Azure; app reads env vars only via the injected `SecretProvider` — see [csp-neutrality.md](csp-neutrality.md#3-secret-contract--environment--k8s-secret) | app never imports a secret SDK; on non-Azure targets **External Secrets Operator (ESO)** bridges AWS Secrets Manager / GCP Secret Manager / HashiCorp Vault to the same env contract | ESO + Secrets Manager / GCP Secret Manager / Vault; SOPS + age for dev/local only |
 | Feature flags / shadow toggles | OSS flag service (OpenFeature + flagd) | gate shadow-vs-enforce promotion per action without redeploy | config-driven flags in the state store |
 | DB migrations | versioned migrations (Flyway / Alembic / Prisma Migrate) | schema changes are reviewed, ordered, and reversible | — |
 | CI/CD | GitHub Actions or Azure Pipelines | runs lint, tests, coverage gate, secret scan (gitleaks), dependency/SBOM audit | GitLab CI |
@@ -118,10 +118,10 @@ These feed the rule catalog ([phase-1-rule-catalog-t0.md](phases/phase-1-rule-ca
 
 - Docker Compose brings up **PostgreSQL with pgvector** so local schema and vector behavior
   match production (SQLite is avoided for integration paths because it lacks pgvector).
-- **Event-bus fidelity gap**: Service Bus has no first-party local emulator, so local runs use
-  an abstraction-compatible substitute (e.g., an in-memory bus or NATS) behind the same event
-  interface. Ordering, DLQ, and idempotency behavior are therefore also covered by a
-  cloud-integration test stage, not local runs alone.
+- **Event-bus fidelity**: local runs use a **Kafka-compatible broker in Docker** (`redpanda`
+  single-node or `apache/kafka` container) so ordering, consumer groups, and DLQ semantics
+  match production behind the same event interface. Cloud-integration tests re-verify
+  against the Event Hubs Kafka endpoint before promotion.
 - Deterministic engine and risk gate run fully offline (no cloud calls) for fast unit tests.
 - Fixtures for rule-catalog entries and event payloads are English and secret-free.
 
@@ -136,7 +136,24 @@ land under the project structure defined in
 - **Context**: adapters, LLM SDKs, and rule tooling drive the choice.
 - **Options**: TypeScript (Node) · Python · Go.
 - **Criteria**: adapter/SDK maturity, team familiarity, typing/perf headroom.
-- **Status**: Open — target decision in Phase 0.
+- **Status**: **Decided — Python (3.12+), single-language monorepo under `src/aiopspilot/`.**
+  Rationale: (i) the richest ecosystem for OPA bindings, LLM providers, and IaC-scanner
+  toolchains (Checkov / tfsec / KICS / Trivy) is in Python; (ii) mypy provides sufficient
+  typing rigor for the safety core; (iii) one language across every subsystem simplifies the
+  ≥ 90% coverage gate on `core/tiers/t0_deterministic` and `core/risk_gate`. A future perf-
+  driven split (e.g. Go for `event_ingest`) is additive because subsystems already sit behind
+  the interfaces in `shared/`.
+- **Package layout**: Python "src layout" — every runtime module lives at
+  `src/aiopspilot/<subsystem>/`. The `core/`, `shared/`, `delivery/`, and `rule_catalog/`
+  subsystem folders in [project-structure.md](project-structure.md) map to
+  `src/aiopspilot/core/`, `src/aiopspilot/shared/`, `src/aiopspilot/delivery/`, and
+  `src/aiopspilot/rule_catalog/` respectively. Directory names use `snake_case` (Python
+  identifier rules); the logical `kebab-case` names remain the vocabulary in docs and rule
+  ids per [language.instructions.md](../../.github/instructions/language.instructions.md).
+- **Lockfile**: one `uv.lock` (or equivalent) at the repo root; the subsystem-per-lockfile
+  guidance in earlier drafts applied to a multi-language layout and is retired for the
+  Python monorepo. Cross-subsystem boundary enforcement is done by import-lint in CI
+  (W1.7), not by separate package boundaries.
 
 ### OD-2: Primary state store
 

@@ -216,3 +216,38 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local design mockups and throwaway experiments (not shipped)
+examples/
+
+# --------------------------------------------------------------------------
+# Terraform (infra/) — NEVER commit tfvars / state; they carry real
+# subscription / tenant / RG values forbidden by
+# .github/instructions/generic-scope.instructions.md.
+# --------------------------------------------------------------------------
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# --------------------------------------------------------------------------
+# Secrets / credentials — the app reads env vars / Key Vault refs only;
+# nothing sensitive belongs in the tree.
+# --------------------------------------------------------------------------
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+.secrets/
+

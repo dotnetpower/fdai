@@ -6,8 +6,9 @@ applyTo: "**"
 # App Shape
 
 Not one big web app. The system is a **headless control plane + thin console + ChatOps**,
-serving three domains — Change Management, DR/Chaos, and FinOps. A large always-on UI would
-contradict the "minimize human intervention" goal.
+serving three initial verticals under an AIOps approach — Resilience, Change Safety, and
+Cost Governance. A large always-on UI would contradict the "minimize human intervention"
+goal.
 
 The layers are **loosely coupled**: they communicate through the event bus and git, not
 direct in-process calls, so any layer can fail or scale independently. See
@@ -46,24 +47,37 @@ shape maps to environments and CI/CD.
 
 Azure is the implemented target (see
 [Implementation Focus](../copilot-instructions.md#implementation-focus-must)); the shape stays
-CSP-neutral in design. The mapping is **minimum-cost-set first** — the concrete inventory,
-tiers, and rationale live in
+CSP-neutral in design by rendering four wire-level contracts (event bus, runtime, secret,
+workload identity) into Azure resources — see
+[../../docs/roadmap/csp-neutrality.md](../../docs/roadmap/csp-neutrality.md). The mapping is
+**minimum-cost-set first** — the concrete inventory, tiers, and rationale live in
 [../../docs/roadmap/deploy-and-onboard.md](../../docs/roadmap/deploy-and-onboard.md#azure-resource-inventory-minimum-set).
 Recommended mapping:
 
+- Event bus: **Event Hubs Standard** consumed **only through its Kafka endpoint on `:9093`**
+  (Kafka wire protocol is the CSP-neutral contract); Service Bus and Event Grid are **not**
+  in the day-zero inventory. Where a native Azure signal is needed (Activity Log, resource
+  events), it is forwarded into a Kafka topic on Event Hubs — the core sees Kafka only.
 - Core consumer: **Azure Container Apps** (Consumption, KEDA scale + scale-to-zero) — **one
   app with sidecar containers** for the core subsystems (`event-ingest` primary, others as
-  sidecars); AKS only if heavier scaling profiles emerge later.
-- Event bus: **Service Bus** (Standard, ordering + dead-lettering) + **Event Grid** system
-  topics (no custom topic on day zero).
+  sidecars); AKS only if heavier scaling profiles emerge later. The app ships as an **OCI
+  image + a Knative-compatible manifest subset**, rendered into `containerapp` resources by
+  IaC. **Dapr sidecars and Envoy-specific ingress rules are prohibited** to keep the runtime
+  contract portable.
 - Light triggers: **Container Apps Jobs** in the same environment for out-of-band change
-  detection and cost-anomaly probes (avoids provisioning a separate Functions plan).
+  detection and cost-anomaly probes (avoids provisioning a separate Functions plan); rendered
+  from the same manifest as a K8s `CronJob` on non-Azure targets.
 - Audit/state/KPI + T1 vectors: **PostgreSQL Flexible** (Burstable, 1 zone) with **pgvector**
   co-located; Cosmos DB only if RU-metering and geo-distribution outgrow a single primary.
-- Secrets: **Key Vault** — never in source; injected at runtime.
+- Secrets: the app reads **environment variables only**; **Key Vault** is bridged in via
+  **Container Apps native secret + Key Vault reference** (K8s targets use External Secrets
+  Operator). The app never calls a secret SDK.
 - PR gate: **GitHub App** (Checks API) or Azure DevOps service hooks.
 - HIL approval: **Bot Framework / Teams** Adaptive Cards (Azure Bot Free tier).
-- Execution identity: **user-assigned Managed Identity** + action whitelist (least privilege).
+- Execution identity: **user-assigned Managed Identity** + action whitelist (least privilege),
+  exposed to the core as an **OIDC token** via a `WorkloadIdentity` interface so IRSA / GCP
+  Workload Identity / SPIRE slot into the same contract later. `DefaultAzureCredential()` and
+  similar SDK entry points are confined to the Azure adapter, never `core/`.
 - Observability: **Log Analytics** workspace with **App Insights bound to it** (no separate
   APM resource); default 30-day retention, UI-configurable.
 

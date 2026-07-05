@@ -56,8 +56,8 @@ a moderately busier month.
 | 1 | Container Apps environment | environment fee = $0; vCPU-second + GB-second consumption | **$0 – $10** | variable | free monthly grant (≈180k vCPU-s + 360k GB-s) often absorbs low traffic |
 | 2 | Container App (unified core, 4 sidecars) | rolled into #1 | rolled into #1 | variable | KEDA scale-to-zero |
 | 3 | Container Apps Job (probes) | rolled into #1 | **$0 – $2** | variable | short scheduled runs share the free grant |
-| 4 | Service Bus **Standard** namespace | base charge (~$0.014/hr × 730h) + operations | **≈ $10** | fixed | operations negligible at low volume |
-| 5 | Event Grid system topic | 100k operations/mo free, then ~$0.60/million | **$0 – $1** | variable | system topic itself is not a separate billable resource |
+| 4 | Event Hubs **Standard** namespace (1 TU, auto-inflate off) | throughput unit hourly (~$0.03/hr × 730h) + ingress events (~$0.028/million) | **≈ $22** | fixed | consumed as the Kafka wire event bus on `:9093`; DLQ is a Kafka `<topic>.dlq` convention, no extra resource |
+| 5 | Diagnostic Settings forwarders (Activity Log / resource events) | free plumbing; the destination Event Hubs TU cost sits in row 4 | **$0** | — | replaces standalone Service Bus + Event Grid custom topics from the previous inventory |
 | 6 | PostgreSQL Flexible **Burstable B1ms** (1 vCore, 2 GB) | compute + storage + backup | **≈ $20 – $25** | fixed | compute ≈$15, 32 GB SSD ≈$4, 7-day backup ≈$3–5 |
 | 7 | Key Vault Standard | ~$0.03 per 10k operations | **≈ $1** | variable (bounded) | low at baseline |
 | 8 | User-assigned Managed Identity | free | **$0** | — | |
@@ -70,7 +70,7 @@ Non-billable elements included in the deployment (see
 - Azure Bot Free tier (Teams Adaptive Cards for HIL).
 - Static Web Apps Free tier (read-only console hosting).
 - App registration + workload identity federation.
-- Diagnostic Settings + Event Grid subscriptions themselves.
+- Diagnostic Settings forwarders themselves (cost sits in the Event Hubs row).
 
 ## Monthly Envelope (Baseline, T2 LLM Excluded)
 
@@ -78,9 +78,9 @@ Combining the categories above under the baseline assumptions:
 
 | Bucket | Contents | Monthly (USD) |
 |--------|----------|---------------|
-| **Fixed** | Service Bus + PostgreSQL + Key Vault + ACR + Log Analytics baseline | **≈ $41** |
-| **Variable** | Container Apps compute + Log Analytics ingestion above baseline + Event Grid delivery | **$5 – $20** |
-| **Total (infrastructure only)** | | **≈ $45 – $70 / month** |
+| **Fixed** | Event Hubs + PostgreSQL + Key Vault + ACR + Log Analytics baseline | **≈ $53** |
+| **Variable** | Container Apps compute + Log Analytics ingestion above baseline | **$5 – $20** |
+| **Total (infrastructure only)** | | **≈ $58 – $75 / month** |
 
 A deployment that stays idle for most of the month (KEDA at 0 replicas, no ingest bursts) is
 closer to the lower bound; a deployment absorbing steady event traffic and telemetry lands
@@ -125,7 +125,7 @@ inventory, not a hard SLA.
 | **Baseline (≤10 k events/mo)** | $45 – $70 | (none) | keep the minimum set |
 | **10 k – 100 k events/mo** | $70 – $150 | Log Analytics ingestion, Container Apps compute | keep tiers; set a Log Analytics **daily cap**; watch ingestion budget alert |
 | **100 k – 1 M events/mo** | $200 – $500 | Log Analytics ingestion (dominant), Container Apps compute, PostgreSQL storage | consider **Basic Logs** for audit stream (~74% ingestion saving vs Analytics logs), PostgreSQL storage tier up, review sidecar → separate Container App graduation |
-| **≥ 1 M events/mo** | re-model | most rows | re-run the inventory review; evaluate Service Bus Premium, PostgreSQL General Purpose, dedicated vector store |
+| **≥ 1 M events/mo** | re-model | most rows | re-run the inventory review; evaluate Event Hubs additional TUs or Dedicated, PostgreSQL General Purpose, dedicated vector store |
 
 The graduation triggers (sidecar → separate Container App, PostgreSQL tier up, Log Analytics
 split) are captured in [Open Decisions](#open-decisions).
@@ -169,7 +169,7 @@ Costs deliberately outside this document:
 ## Open Decisions
 
 - [ ] Concrete tier values within the minimum set (PostgreSQL storage, Log Analytics daily
-      cap, ACR retention window, Service Bus messaging-unit ceiling).
+      cap, ACR retention window, Event Hubs throughput-unit ceiling).
 - [ ] Graduation triggers: **numeric thresholds** at which each cost row is re-tiered
       (event/month rate that triggers PostgreSQL step-up, Basic Logs split, sidecar → its
       own Container App).

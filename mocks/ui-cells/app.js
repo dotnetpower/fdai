@@ -1,4 +1,4 @@
-// AzureWatcher — UI Cells mock.
+// AIOpsPilot — UI Cells mock.
 //
 // A WebGL2 view of a hierarchical tree (WAF pillars / topology / severity)
 // rendered as weighted Voronoi cells filling the viewport.  On cold start
@@ -390,7 +390,7 @@ function resourcesTargetedBy(rule) {
 
 function buildPillarTree() {
   const sk = state.skeleton;
-  const root = { id: 'root', label: 'AzureWatcher', kind: 'root', children: [] };
+  const root = { id: 'root', label: 'AIOpsPilot', kind: 'root', children: [] };
   for (const p of sk.pillars) {
     const pNode = { id: p.id, label: p.label, kind: 'pillar', pillarId: p.id, children: [] };
     for (const c of p.categories) {
@@ -420,7 +420,7 @@ function buildPillarTree() {
 
 function buildTopologyTree() {
   const sk = state.skeleton;
-  const root = { id: 'root', label: 'AzureWatcher', kind: 'root', children: [] };
+  const root = { id: 'root', label: 'AIOpsPilot', kind: 'root', children: [] };
   for (const s of sk.topology.subscriptions) {
     const sNode = { id: s.id, label: s.label, kind: 'subscription', subId: s.id, children: [] };
     for (const rg of s.resourceGroups) {
@@ -445,7 +445,7 @@ function buildTopologyTree() {
 
 function buildSeverityTree() {
   const sk = state.skeleton;
-  const root = { id: 'root', label: 'AzureWatcher', kind: 'root', children: [] };
+  const root = { id: 'root', label: 'AIOpsPilot', kind: 'root', children: [] };
   // Bucket findings by severity → pillar → rule.  Rules with no findings
   // fall into an "unfired" info-severity bucket so the tree stays populated.
   const buckets = new Map(); // sev -> pillar -> rule -> count

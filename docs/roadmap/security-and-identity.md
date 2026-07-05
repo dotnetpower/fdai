@@ -24,11 +24,18 @@ delegates writes to a GitHub App — lives in
 [user-rbac-and-identity.md](user-rbac-and-identity.md). Approval ≠ execution: humans
 never hold the executor identity described below.
 
-- **User-assigned Managed Identity** for the executor, scoped to an explicit **action
-  whitelist**. No broad standing permissions.
-- **Per-domain identity is the target end-state**, phased over the roadmap: Phase 1 ships
-  a single `mi-aw-executor` (Change domain only), Phase 3 splits into
-  `mi-aw-change` / `mi-aw-dr` / `mi-aw-finops` when DR/Chaos and FinOps land — see
+- The executor MUST authenticate through a **`WorkloadIdentity` interface** that exposes only
+  "get a short-lived, audience-scoped OIDC token." This realizes the
+  [Workload Identity contract](csp-neutrality.md#4-workload-identity-contract--oidc-token);
+  concrete issuers (Managed Identity on Azure, IRSA on AWS, Workload Identity Federation on
+  GCP, SPIFFE/SPIRE on any K8s) sit behind that interface, never in `core/`.
+- On Azure the interface is backed by a **User-assigned Managed Identity**, scoped to an
+  explicit **action whitelist**. No broad standing permissions.
+- `DefaultAzureCredential()` (or any similarly named SDK entry point) is **prohibited in
+  `core/`**; it appears only inside the Azure provider adapter behind the interface.
+- **Per-vertical identity is the target end-state**, phased over the roadmap: Phase 1 ships
+  a single `mi-aw-executor` (Change Safety only), Phase 3 splits into
+  `mi-aw-change` / `mi-aw-dr` / `mi-aw-finops` when Resilience and Cost Governance land — see
   [Identity Mapping (Phased)](#identity-mapping-phased) below.
 - Human approval identities (HIL) are distinct from execution identities; approval and
   execution are never the same principal, and no identity may assume another domain's identity
@@ -91,13 +98,19 @@ dispatch fields); no core code change is needed — the delivery layer selects t
 - Never hardcode secrets, connection strings, subscription/tenant IDs, or customer identifiers.
   Secret scanning (e.g. gitleaks) runs in CI and a positive finding blocks the merge
   ([coding-conventions.instructions.md](../../.github/instructions/coding-conventions.instructions.md)).
-- Load all secrets from a secret store at runtime; inject config via env/secret refs. Access
-  secrets through an injected provider, never a global read at import.
+- **The app reads only environment variables (or K8s Secret mounts).** It MUST NOT call a CSP
+  secret SDK (`SecretClient`, `SecretsManagerClient`, `SecretManagerServiceClient`, …); this
+  realizes the [Secret contract](csp-neutrality.md#3-secret-contract--environment--k8s-secret).
+  On Azure the injection layer is **Container Apps native secret + Key Vault reference**; on
+  Kubernetes it is **External Secrets Operator** with a `SecretStore` CRD.
+- Access secrets through an injected `SecretProvider` in `shared/providers/`, never a global
+  read at import.
 - **Lifecycle**: every secret has an owner, a defined rotation interval, and automated rotation;
   compromised or superseded material is revoked immediately. Prefer federated tokens so there
   is no secret to rotate.
-- **Fail-closed**: if the secret store or token issuer is unavailable, the executor does not
-  fall back to a cached or embedded credential — it abstains and escalates to HIL.
+- **Fail-closed**: if the secret injection layer or token issuer is unavailable at startup, the
+  process fails fast — it does not fall back to a cached or embedded credential and never
+  starts in a degraded state.
 - Secrets MUST NOT appear in logs, audit entries, error messages, test fixtures, or LLM prompts.
 - Keep the repo customer-agnostic
   ([generic-scope.instructions.md](../../.github/instructions/generic-scope.instructions.md)).

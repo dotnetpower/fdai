@@ -3,7 +3,7 @@
 The roadmap optimizes for **autonomy with proof**. Every autonomy claim is backed by a
 measured baseline; nothing is asserted from estimation. Improvement factors below (`5×`,
 `large reduction`, `1/5`) are **targets**, not achieved results — they may only be stated as
-achieved once both the reference baseline and the AzureWatcher treatment have been measured on
+achieved once both the reference baseline and the AIOpsPilot treatment have been measured on
 the same scenario set (see [Measurement-First Rule](#measurement-first-rule)).
 
 This document is the source of truth for KPIs. It aligns with the tier coverage targets in
@@ -12,10 +12,11 @@ operationalized by [phase-0-instrumentation.md](phases/phase-0-instrumentation.m
 
 ## Primary Objective
 
-Minimize human intervention in cloud operations across three domains — Change Management,
-DR/Chaos, and FinOps — by resolving most events deterministically (T0/T1) and reserving LLM
-inference (T2) for the residual ambiguous minority, **without regressing the guard metrics**.
-Autonomy that improves a success metric while degrading a guard metric is a failure, not a win.
+Minimize human intervention in cloud operations across three initial verticals under an
+AIOps approach — Resilience, Change Safety, and Cost Governance — by resolving most events
+deterministically (T0/T1) and reserving LLM inference (T2) for the residual ambiguous
+minority, **without regressing the guard metrics**. Autonomy that improves a success metric
+while degrading a guard metric is a failure, not a win.
 
 ## Definitions
 
@@ -23,8 +24,9 @@ Terms used across all metrics, fixed here to avoid ambiguity:
 
 - **Event**: one normalized, deduplicated item entering the control loop (post `event-ingest`),
   identified by its stable idempotency key. All per-event rates are computed over this unit.
-- **Scenario set**: a frozen, versioned collection of Change/DR/FinOps cases used identically
-  for baseline and treatment. Each release records the scenario-set version (e.g. `v2026.07`).
+- **Scenario set**: a frozen, versioned collection of Resilience, Change Safety, and Cost
+  Governance cases used identically for baseline and treatment. Each release records the
+  scenario-set version (e.g. `v2026.07`).
 - **Reference agent**: the fixed comparison system (documented, single-model, no tiering)
   measured in Phase 0. Its version is pinned per baseline run.
 - **Human touchpoint**: any action requiring a human decision or input (HIL approval, manual
@@ -49,7 +51,7 @@ agent on the same scenario-set version and are directional targets pending measu
 
 Notes:
 - Metric 1 cost includes model inference, compute, storage, and event-bus spend attributable to
-  processing; it excludes fixed platform overhead shared with non-AzureWatcher workloads.
+  processing; it excludes fixed platform overhead shared with non-AIOpsPilot workloads.
 - MTTR and lead time are reported as **median and p90** alongside the mean, because latency
   distributions are skewed and a mean alone hides tail regressions.
 - A `5×` target on a ratio (metric 2) is bounded: report both the multiplier and the absolute

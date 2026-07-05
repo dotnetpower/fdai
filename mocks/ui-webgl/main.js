@@ -1,4 +1,4 @@
-// AzureWatcher — full-WebGL card UI. Cards fade in cleanly (no particles).
+// AIOpsPilot — full-WebGL card UI. Cards fade in cleanly (no particles).
 // Text is rendered with SDF glyphs (troika-three-text) so it stays crisp at any scale;
 // card backgrounds/shadows use a canvas texture. English-only, customer-agnostic, synthetic.
 
@@ -160,7 +160,7 @@ function makeTextGroup(cx, cy, formStart, build) {
   cardGroups.push(g);
 }
 makeTextGroup(0, 4.0, 0.0, (g) => {
-  g.add(makeText("AzureWatcher", 0, 0.18, 0.52, COLOR.text, "center"));
+  g.add(makeText("AIOpsPilot", 0, 0.18, 0.52, COLOR.text, "center"));
   g.add(makeText("autonomous cloud operations", 0, -0.42, 0.17, COLOR.soft, "center"));
 });
 makeTextGroup(0, -3.75, 0.7, (g) => {

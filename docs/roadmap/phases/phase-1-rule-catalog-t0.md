@@ -1,7 +1,7 @@
 # Phase 1 — Rule Catalog and T0 Deterministic Engine
 
 **Goal**: stand up the deterministic core (T0) that resolves the majority of events without any
-LLM, and deliver the first autonomous domain — Change Management — entirely in **shadow mode**
+LLM, and deliver the first autonomous vertical — Change Safety — entirely in **shadow mode**
 (judge and log, never execute). This phase builds coverage and measurement, not enforcement;
 promotion to enforce is out of scope and belongs to
 [phase-2-quality-and-t1.md](phase-2-quality-and-t1.md).
@@ -20,7 +20,7 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
 
 - **In scope**: rule-catalog schema and collectors, the T0 deterministic engine (policy-as-code
   + what-if + drift), shadow-mode remediation-PR generation, and out-of-band change detection
-  for Change Management.
+  for Change Safety.
 - **Out of scope**: any enforce-mode execution, auto-revert, the T1/T2 tiers, the LLM quality
   gate, and the continuous rule-update pipeline — all deferred to Phase 2.
 
@@ -68,7 +68,7 @@ source has a collector that maps its native format into the normalized schema an
 one provider can be evaluated against an equivalent resource on another; vendor specifics stay
 behind the provider adapter, not in the rule.
 
-Where each source lives, how it is fetched, its license constraints, and the JSON shapes are
+Where each source lives, how it is fetched, its license constraints, and the YAML shapes are
 detailed in [rule-catalog-collection.md](../rule-catalog-collection.md).
 
 ### Deduplication, Conflict, and Precedence
@@ -127,7 +127,7 @@ so the artifact is enforce-ready when Phase 2 promotes it:
 PRs are labeled `shadow` and opened as draft (or against a shadow branch) so they are reviewable
 but cannot be merged by the normal flow.
 
-## Out-of-Band Detection (Change Management)
+## Out-of-Band Detection (Change Safety)
 
 - **Signals**: Activity Log, Resource Graph, Change Analysis, Deployment Stacks deny-assignment
   events, and IaC drift. Correlate across signals rather than trusting a single feed.

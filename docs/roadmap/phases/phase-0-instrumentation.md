@@ -29,10 +29,11 @@ Each deliverable is a committed, versioned artifact with an acceptance check. De
 | 3 | **Baseline report** — the pinned reference agent measured on the frozen scenario set, recorded as a committed artifact with methodology and raw counts. | Reproducible: re-running the pinned agent on the same scenario-set version yields figures within the reported confidence interval. |
 | 4 | **Identity mapping** — provisioned external IdP ↔ Entra ↔ Managed Identity path ([security-and-identity.md#authorization-model](../security-and-identity.md#authorization-model)). | End-to-end path passes an automated least-privilege probe; deny-by-default verified; access recertification scheduled. |
 | 5 | **Policy-exemption workflow** — a requestable, time-boxed, audited, owner-approved exemption path for compliant autonomous deploys. | Workflow is documented with an owner and SLA; a dry-run request is granted and expires under audit, bypassing no control. |
+| 6 | **Local dev preset** — storage / event-bus / secret / workload-identity provider interfaces in `src/aiopspilot/shared/providers/`, an in-memory fake pair for offline unit tests + debug, and a Docker Compose (`infra/local/`) preset that stands up **pgvector + Redpanda** for wire-level integration tests. Realizes the local-development contract in [tech-stack.md § Local Development](../tech-stack.md#local-development) and the DI seams in [project-structure.md § Injectable Seams](../project-structure.md#injectable-seams). | `pytest` runs green with the in-memory fake and requires no Docker; `scripts/dev-up.sh` brings up healthy `pgvector/pgvector:pg16` + `redpandadata/redpanda` containers; the **same contract-test suite** passes against both the fake and the Compose stack. |
 
 ## Work Items
 
-Ordering encodes dependencies. Items 1, 2, and 5 may proceed in parallel; item 3 **must not
+Ordering encodes dependencies. Items 1, 2, 5, and 6 may proceed in parallel; item 3 **must not
 start** until item 2 (the scenario freeze) is complete; item 4 is the critical path and starts
 on day one.
 
@@ -40,8 +41,9 @@ on day one.
    ([tech-stack.md](../tech-stack.md)), and the versioned event schema in
    `shared/contracts/` carrying at minimum `event_id`, `tier`, `decision`, `mode`
    (shadow/enforce), and detect/resolve timestamps.
-2. **Scenario set**: define and **freeze** a fixed set of Change/DR/FinOps scenarios, balanced
-   across the three domains, tagged with a version (e.g. `v2026.07`) matching the
+2. **Scenario set**: define and **freeze** a fixed set of Resilience, Change Safety, and
+   Cost Governance scenarios, balanced across the three verticals, tagged with a version
+   (e.g. `v2026.07`) matching the
    [goals-and-metrics.md#definitions](../goals-and-metrics.md#definitions) format, and stored as
    customer-agnostic data. The frozen set is used identically for baseline and treatment.
 3. **Baseline measurement**: run the **pinned** reference agent (single-model, no tiering) on
@@ -56,6 +58,11 @@ on day one.
 5. **Policy blocker**: define the policy-exemption workflow (requestable, time-boxed, audited,
    owner-approved) so autonomous deploys stay compliant with platform policy rather than
    bypassing it; assign an owner and SLA.
+6. **Local dev preset**: publish the provider interfaces (state store, event bus, secret,
+   workload identity) and ship **two** implementations behind each — an in-memory fake for
+   unit tests / debugger sessions (no Docker required) and a Docker Compose preset
+   (pgvector + Redpanda) for wire-level integration tests. A single contract-test suite
+   runs against both, so the fake cannot drift from the real backend.
 
 ## Implementation Plan
 
@@ -108,7 +115,7 @@ enforce-mode capability is in scope for P0.
 | **W4.2** | Executor MI (Phase 1 shape) | W4.1 | `mi-aw-executor` with RG-scoped built-in role composition per [security-and-identity.md § Identity Mapping (Phased)](../security-and-identity.md#identity-mapping-phased) | Terraform emits the role assignments; `az role assignment list` matches the declared set | M |
 | **W4.3** | Azure Policy deny-by-default | W4.2 | Policy assignment that denies any executor MI action outside the Phase 1 Change allowlist | A probe attempting a non-allowlisted action is denied at the ARM layer | M |
 | **W4.4** | Least-privilege probe | W4.2, W4.3 | `tools/lpp-probe` — asserts allowed actions succeed and denied actions fail; recorded run in CI | Adding a new permission without updating the probe fails CI | S |
-| **W4.5** | App registrations (dev) | W4.1 | `azurewatcher-console-spa`, `azurewatcher-api`, `azurewatcher-approval-bot` in the dev tenant with App Roles declared per [user-rbac-and-identity.md § 4.4](../user-rbac-and-identity.md#44-app-roles-token-surface) | A dev user assigned to `Contributor` receives a `roles: ["Contributor"]` token | M |
+| **W4.5** | App registrations (dev) | W4.1 | `aiopspilot-console-spa`, `aiopspilot-api`, `aiopspilot-approval-bot` in the dev tenant with App Roles declared per [user-rbac-and-identity.md § 4.4](../user-rbac-and-identity.md#44-app-roles-token-surface) | A dev user assigned to `Contributor` receives a `roles: ["Contributor"]` token | M |
 | **W4.6** | Entra security groups + App Role binding | W4.5 | 5 groups (`aw-readers/contributors/approvers/owners/break-glass`), each bound to the matching App Role in Enterprise Applications | An unassigned dev user gets HTTP 403 with the "administrator assignment required" body ([user-rbac-and-identity.md § 10.3](../user-rbac-and-identity.md#103-first-sign-in-unassigned-users)) | S |
 | **W4.7** | Conditional Access policies | W4.6 | Phishing-resistant MFA on `aw-approvers`/`aw-owners`; compliant device on `aw-owners`; named-location on `aw-break-glass` | A test approver signing in without FIDO2 is blocked | S |
 | **W4.8** | Recertification schedule | W4.6 | Documented cadence (manual quarterly checklist in `docs/runbooks/`, or Entra Access Review if P2 licensed) | Owner-assigned; the next review date is captured in the audit log | S |
@@ -122,6 +129,21 @@ enforce-mode capability is in scope for P0.
 | **W5.3** | Auto-expiry Container Apps Job | W5.1, W4.1 | Daily cron job that emits an audit `expired` entry when `expires_at` passes and re-applies the underlying assignment | Dry-run: create → wait → expire → audit entry present; assignment re-applied | M |
 | **W5.4** | Ahead-of-expiry alert | W5.3 | 14-day lookahead digest ([channels-and-notifications.md § routing](../channels-and-notifications.md#6-routing-policy-config-driven)) `exemption_expiry_lookahead_weekly` wired | Monday morning post lists each expiring exemption with `@mention` to the requester | S |
 | **W5.5** | Owner + SLA documentation | W5.1 | `docs/runbooks/exemption-workflow.md` — owner group, review SLA, escalation path | Owner named; SLA measurable; escalation path resolves | S |
+
+### WI6 — Local Dev Preset (offline fakes + Docker Compose)
+
+Realizes the local-development contract in
+[tech-stack.md § Local Development](../tech-stack.md#local-development) using the injectable
+seams in [project-structure.md § Injectable Seams](../project-structure.md#injectable-seams).
+The in-memory fake is what a developer runs under `pytest` and in the debugger; the Compose
+preset is what integration tests, `event-ingest` smoke runs, and pgvector similarity checks
+run against.
+
+| Task | Title | Deps | Deliverable | Acceptance | Size |
+|------|-------|------|-------------|------------|------|
+| **W6.1** | Storage / bus / secret / identity provider interfaces | W1.2 | Protocol classes in `src/aiopspilot/shared/providers/` for `StateStore`, `EventBus`, `SecretProvider`, `WorkloadIdentity` — each mapping to one of the four CSP-neutral contracts | `mypy --strict` passes; every core module that touches infra imports **only** these protocols (import-lint rule W1.7 enforces the ban on cloud SDKs in `core/`) | S |
+| **W6.2** | In-memory fake adapters + shared contract-test suite | W6.1 | `src/aiopspilot/shared/providers/testing/` with in-memory `StateStore` (dict-backed, with hash-chain semantics for audit), `EventBus` (queue + consumer-group), `SecretProvider`, `WorkloadIdentity`; contract tests in `tests/providers/` parameterized over `[fake, postgres, redpanda]` | Contract-test suite runs green against the fake with **zero Docker** and against the Compose stack when Docker is available; the *same* test file passes both matrices | M |
+| **W6.3** | Docker Compose dev preset + wrapper scripts | W6.1 | `infra/local/docker-compose.yml` running `pgvector/pgvector:pg16` and `redpandadata/redpanda:latest` (single-node, no zookeeper); `scripts/dev-up.sh` / `scripts/dev-down.sh` bringing the stack up/down with health checks; `Makefile` targets `dev-up`, `dev-down`, `dev-logs` | Fresh clone: `scripts/dev-up.sh` returns 0 with both containers healthy; `psql` connects on the exposed port and `CREATE EXTENSION vector` succeeds; a Redpanda producer + consumer roundtrip completes on `localhost:9092`. No Azure / cloud calls made | M |
 
 ### Sequenced Task Timeline
 
@@ -170,6 +192,11 @@ gantt
     W5.3 Expiry job           :w53, after w51, 4
     W5.4 Lookahead digest     :w54, after w53, 1
     W5.5 Runbook              :w55, after w51, 1
+
+    section WI6 local dev preset
+    W6.1 Provider interfaces  :w61, after w12, 1
+    W6.2 In-memory fakes      :w62, after w61, 4
+    W6.3 Docker Compose       :w63, after w61, 3
 ```
 
 ### Critical-Path Rules
@@ -182,6 +209,9 @@ gantt
   with a manually populated source; the fixture proves the source graph works.
 - **Any task that adds an executor permission requires updating W4.4** in the same PR.
   CI enforces this.
+- **W6.2 (in-memory fakes) and the Postgres/Redpanda adapter that lands with W1.5–W1.6 MUST
+  share one contract-test suite.** A test that passes on the fake but fails on the real
+  backend (or vice-versa) means the fake has drifted — fix the fake, not the test.
 
 ### Definition of Done (per task)
 
@@ -212,7 +242,7 @@ Each task is done only when:
 
 All criteria are independently verifiable; a phase gate passes only when every box is checked.
 
-- [ ] The **scenario set is frozen and versioned**, balanced across Change/DR/FinOps, and stored
+- [ ] The **scenario set is frozen and versioned**, balanced across Resilience / Change Safety / Cost Governance, and stored
       as customer-agnostic data.
 - [ ] A **reproducible baseline** exists: the pinned reference agent on the frozen scenario-set
       version yields the same figures within the reported confidence interval on re-run, with
@@ -226,6 +256,10 @@ All criteria are independently verifiable; a phase gate passes only when every b
       scheduled — or explicitly waived with a documented, owner-assigned plan.
 - [ ] The **policy-exemption workflow** is documented, owner-assigned, and dry-run validated
       (grant, audit, auto-expire) — or explicitly waived with a documented plan.
+- [ ] The **local dev preset** works both ways: `pytest` runs green offline against the
+      in-memory fakes, **and** `scripts/dev-up.sh` produces a healthy pgvector + Redpanda
+      stack against which the same contract-test suite also passes. A developer can debug
+      any subsystem in a hosted IDE without provisioning Azure.
 
 ## Risks
 

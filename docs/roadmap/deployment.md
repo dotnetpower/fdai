@@ -41,26 +41,36 @@ prod topology so shadow evaluation is representative.
 - **Drift detection**: scheduled `plan` (read-only) per environment surfaces drift as an alert
   and a reconciliation PR; drift is never silently auto-applied to prod.
 - Provisioned resources — **minimum cost-efficient set** (full inventory + tier decisions in
-  [deploy-and-onboard.md](deploy-and-onboard.md#azure-resource-inventory-minimum-set)):
+  [deploy-and-onboard.md](deploy-and-onboard.md#azure-resource-inventory-minimum-set); the
+  inventory renders the four wire-level contracts in [csp-neutrality.md](csp-neutrality.md)):
   - **Container Apps environment** (Consumption, KEDA scale-to-zero) running **one Container
     App with sidecar containers** for `event-ingest` + `trust-router` + `executor` +
-    `audit-writer`.
+    `audit-writer`, deployed from an **OCI image + Knative-compatible manifest subset** so
+    the runtime is portable ([csp-neutrality.md § Runtime contract](csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest)).
+    No Dapr sidecars, no Envoy-specific ingress rules.
   - **Container Apps Jobs** in the same environment for scheduled probes and light triggers
     (replaces Azure Functions).
-  - **Service Bus** (Standard) for the durable, ordered, DLQ-capable event bus; **Event Grid
-    system topics** for subscription-scoped resource events (no custom topic).
+  - **Event Hubs** (Standard, 1 TU, auto-inflate off) consumed **only via its Kafka endpoint
+    on `:9093`** — the CSP-neutral event bus contract
+    ([csp-neutrality.md § Event bus contract](csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol)).
+    Activity Log / resource events are forwarded via Diagnostic Settings into a Kafka topic;
+    standalone Service Bus and custom Event Grid topics are not provisioned.
   - **PostgreSQL Flexible Server** (Burstable B1ms, 1 zone, 7-day backup) as the single store
     for audit + KPI + pattern library + **pgvector** T1 embeddings.
-  - **Key Vault** (Standard) for secrets.
-  - **User-assigned Managed Identity** with scoped role assignments (see
-    [security-and-identity.md](security-and-identity.md)).
+  - **Key Vault** as the secret backend, consumed by the app via **Container Apps native
+    secret + Key Vault reference** — the app reads env vars only and never imports a secret
+    SDK ([csp-neutrality.md § Secret contract](csp-neutrality.md#3-secret-contract--environment--k8s-secret)).
+  - **User-assigned Managed Identity** with scoped role assignments, exposed to the core as
+    the `WorkloadIdentity` interface (OIDC token) — see
+    [security-and-identity.md](security-and-identity.md) and
+    [csp-neutrality.md § Workload identity contract](csp-neutrality.md#4-workload-identity-contract--oidc-token).
   - **Log Analytics workspace** (30-day retention default, UI-configurable) with App Insights
     bound to it — no separate APM resource.
   - **Azure Container Registry** (Basic) for signed images.
   - Free-tier / non-billable elements: Static Web Apps (console), Azure Bot (HIL Adaptive
     Cards), workload identity federation (CI/CD), app registrations for console SPA + API + approval bot ([user-rbac-and-identity.md](user-rbac-and-identity.md)).
-- Explicitly deferred: separate vector DB, custom Event Grid topics, Front Door / API
-  Management, secondary-region DR resources (Phase 4 — TBD).
+- Explicitly deferred: separate vector DB, standalone Service Bus / custom Event Grid topics,
+  Front Door / API Management, secondary-region DR resources (Phase 4 — TBD).
 - IaC is scanned in CI (Checkov/tfsec/KICS/Trivy) — the same scanners feed the rule catalog.
 
 ## CI/CD Pipeline

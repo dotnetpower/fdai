@@ -1,0 +1,178 @@
+---
+translation_of: risk-classification.md
+translation_source_sha: a5cd957c128e3f6562952c2faa05f7bddc85cbb8
+translation_revised: 2026-07-05
+---
+
+# 리스크 분류 (auto vs HIL vs deny)
+
+리스크 게이트
+([architecture.instructions.md § Control Loop](../../.github/instructions/architecture.instructions.md#control-loop))
+는 모든 후보 액션을 `auto`, `hil`, `deny` 중 하나로 라우팅합니다. 이 문서는 **그 라우팅을
+만드는 분류 규칙** 에 대한 진실 원본입니다: 형상, 초기 규칙 테이블, 소유권, 업데이트 프로세스.
+[security-and-identity-ko.md](security-and-identity-ko.md#open-decisions) 의 P0 Open
+Decision *"Risk-classification policy (auto vs HIL) and initial policy approver"* 를 해결합니다.
+
+> 고객-비종속: 아래 모든 값(비용 임계, 태그 키, 리소스 그룹 이름)은 상류의 **기본값** 입니다;
+> 포크가 config로 튜닝합니다
+> ([generic-scope.instructions.md](../../.github/instructions/generic-scope.instructions.md)).
+
+## 테이블이 사는 곳
+
+- **런타임 경로**: `rule-catalog/risk-classification.yaml` — catalog-as-code, 규칙/할당/예외/
+  오버라이드처럼 PR로 리뷰. 모든 변경에 `aw-approvers` 리뷰어의 **elevated quorum of 2**
+  ([user-rbac-and-identity-ko.md § 5.1](user-rbac-and-identity-ko.md#51-codeowners-single-approver-group-path-based-reviewer-count)).
+- **정책 소유자**: `aw-owners` Entra 보안 그룹. 소유권은 Owner-티어에 있음 — 테이블이 전체
+  자율성 표면을 게이팅.
+- **평가**: first-match wins. 규칙은 가장 엄격(`deny`)부터 가장 관대(`auto`)로 정렬; 어느
+  규칙과도 매칭되지 않는 케이스는 **`default: hil`** fail-close 엔트리로 fall through.
+
+## 분류 차원
+
+리스크 게이트는 이미 가지고 있는 온톨로지 신호로부터 모든 후보 액션에 대해 **특성 벡터**
+를 구성합니다
+([llm-strategy-ko.md § Rule-to-Decision Lookup Pipeline](llm-strategy-ko.md#rule-to-decision-lookup-pipeline)).
+새로운 데이터 수집은 도입되지 않습니다.
+
+| 차원 | 타입 | 소스 |
+|------|------|------|
+| `policy_violation` | bool | OPA/Rego verifier 판정 |
+| `destructive` | bool | 온톨로지 `ActionType.operation ∈ {delete, disable, drop, purge}` |
+| `blast_radius` | enum `resource` \| `resource_group` \| `subscription` | `applies_to` × 영향받은 리소스의 스코프 |
+| `rollback_path` | enum `pr_revert` \| `scripted` \| `none` | `remediates` 액션의 롤백 계약 |
+| `reversible` | bool | `rollback_path ≠ none` 의 지름길 |
+| `environment` | enum `prod` \| `non-prod` | [Environment Detection](#environment-detection) 참조 |
+| `data_plane_touched` | bool | 온톨로지 `ActionType` 인터페이스가 `DataPlaneMutating` 포함 |
+| `cost_impact_monthly` | number (USD/월) | 규칙의 `remediation.cost_impact` 추정, 또는 관찰된 사후 정산 |
+| `verifier_confidence` | number [0..1] | LLM quality-gate 신호 (T2 생산 액션에만 설정) |
+
+차원은 엄격하게 타입 지정; 알려지지 않은 키를 참조하는 규칙은 CI 로드에서 실패합니다.
+
+## 초기 규칙 테이블 (상류 기본)
+
+```yaml
+# rule-catalog/risk-classification.yaml (상류 기본; 포크는 임계값 튜닝 가능)
+version: 1.0.0
+owner_group: aw-owners
+rules:
+  # ── DENY (절대 실행 안 함) ──
+  - if: { policy_violation: true }
+    decision: deny
+    reason: "policy-as-code verifier rejected the action"
+  - if: { blast_radius: subscription }
+    decision: deny
+    reason: "no autonomous change spans a full subscription"
+  - if: { rollback_path: none }
+    decision: deny
+    reason: "safety invariant requires a tested rollback path"
+
+  # ── HIL (사람 승인 필요) ──
+  - if: { destructive: true }
+    decision: hil
+    reason: "delete/disable/drop/purge always requires an approver"
+  - if: { environment: prod, allowlist_prod_auto: false }
+    decision: hil
+    reason: "prod defaults to HIL unless the rule is on the prod-auto allowlist"
+  - if: { data_plane_touched: true }
+    decision: hil
+    reason: "data-plane mutations always require an approver"
+  - if: { cost_impact_monthly: '>= 100' }
+    decision: hil
+    reason: "cost impact above the auto threshold"
+  - if: { blast_radius: resource_group }
+    decision: hil
+    reason: "RG-wide changes require an approver"
+  - if: { verifier_confidence: '< 0.85' }
+    decision: hil
+    reason: "T2 quality-gate confidence below auto threshold"
+
+  # ── AUTO (승인 없이 실행) ──
+  - if:
+      all:
+        - reversible: true
+        - blast_radius: resource
+        - cost_impact_monthly: '< 100'
+        - data_plane_touched: false
+    decision: auto
+    reason: "reversible, resource-scoped, low cost, control-plane only"
+
+  # ── FAIL-CLOSE ──
+  - default: hil
+    reason: "no matching rule — fail toward safety"
+```
+
+**규칙 순서 (MUST)**: `deny` 규칙이 먼저, 다음 `hil`, 다음 `auto`, 다음 `default: hil`
+catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이 지배합니다. CI가 순서를
+검증(deny가 hil보다 앞, hil이 auto보다 앞)하고 선행 광범위 규칙에 의해 dead-code가 될 수
+있는 규칙을 거부합니다.
+
+## 환경 감지(Environment Detection)
+
+`environment: prod` vs `non-prod` 는 대상 **리소스 그룹 태그** 에서 파생됩니다:
+
+- 태그 키: `environment` (대소문자 무시)
+- 값: `prod` / `production` → `prod`; `non-prod` / `dev` / `test` / `staging` / `qa` →
+  `non-prod`
+- **누락 또는 인식되지 않은 태그 → `prod`** (fail-safe: 알려지지 않은 환경은 최고 리스크
+  카테고리로 취급)
+
+강제: Azure Policy 할당이 `environment` 태그 없이 리소스 그룹 생성을 거부해야 하며, 그래서
+거버넌스된 환경에서는 fail-safe 경로가 절대 적용되지 않습니다. 정책 할당은
+[phase-1-rule-catalog-t0-ko.md](phases/phase-1-rule-catalog-t0-ko.md) 의 Phase 1 산출물입니다.
+
+## 비용 영향 임계값
+
+- **Auto 상한**: 액션당 **$100 / 월**.
+- 근거: 큰 폐기를 승인하지 않으면서 작은 right-sizing / stop-idle / tier-adjust remediation을
+  커버. Phase 1 shadow 측정을 위해 보수적으로 선택; 임계값은 config 값이며 측정 후 governance
+  PR로 조정 가능.
+- 추정은 규칙의 `remediation.cost_impact` 필드에서; 규칙이 추정 못 하면 값은 `unknown` →
+  `>= 100` 으로 취급 → HIL.
+
+## Prod-Auto Allowlist
+
+극소수의 매우 낮은 리스크 규칙은 prod에서 auto 자격 표시될 수 있음(`allowlist_prod_auto: true`).
+초기 allowlist 후보 (승격 전 shadow에서 평가):
+
+- 태그 remediation (누락된 owner / cost-center / environment 태그 추가).
+- 미부착 public IP 주소 해제.
+- 데이터 평면 노출 없는 리소스의 NSG allow-any-source 규칙 제거.
+
+**모든 allowlist 엔트리는 별도 승격된 할당** 이며 표준 shadow → enforce 게이트를 통과합니다
+([architecture.instructions.md § Shadow → Enforce Promotion](../../.github/instructions/architecture.instructions.md#safety-invariants)).
+Allowlist는 bypass가 아니라 prod 기본의 opt-in 감소입니다.
+
+## 변경 프로세스
+
+리스크 테이블 업데이트는 표준 governance PR 흐름을 따릅니다:
+
+- **모든 변경** 은 **quorum of 2** `aw-approvers` 와 PR 본문의 `Justification:` 블록 필요.
+- **완화 변경** (auto 확대, 비용 임계 상승, deny 제거)은 quorum에 Owner-티어 리뷰어(`aw-owners`
+  멤버) 필요.
+- **강화 변경** (deny 추가, 비용 임계 하락, auto→HIL 이동)은 일반 quorum으로 머지 가능 —
+  안전-측 변경은 Owner 승인이 필요 없음.
+- 테이블 버전은 모든 변경에 bump되고 카탈로그 버전에 캡처되어, 어떤 과거 액션을 분류한 리스크
+  결정도 재구성 가능
+  ([llm-strategy-ko.md § Signature Composition](llm-strategy-ko.md#signature-composition)).
+
+## 감사
+
+모든 리스크 게이트 결과는 다음을 기록하는 감사 엔트리를 씁니다:
+
+- 매칭된 규칙 id (또는 fail-through 시 `default`).
+- 결정 시점의 특성 벡터 스냅샷.
+- `risk-classification.yaml` 의 `catalog_version`.
+- 라우팅 결과 (`auto` / `hil` / `deny`) 와 하류 승인 id.
+
+향후 회고에서 매칭 규칙 id로 감사 로그를 필터링하여 과도하게 트리거된 규칙(예: "모든 prod
+변경이 HIL — 모든 것이 Rule 5에 걸림")을 식별하고, 같은 governance PR 흐름을 통해 개선을
+제안할 수 있습니다.
+
+## Open Decisions
+
+- [ ] 향후 차원으로 `time_of_day` 게이트(업무 시간 vs 비업무 시간)를 추가할지 — shadow
+      측정이 실제 필요를 보일 때까지 연기.
+- [ ] 결정론적 규칙 테이블에 더해 숫자 `risk_score` 를 계산할지 (동점에서만 또는 tie-breaker
+      로만 작동 — 결정론 테이블이 여전히 권위).
+- [ ] 포크 오버라이드 정책: 포크가 상류 기본을 *완화* (예: 비용 임계 상승)할 수 있는가, 아니면
+      강화만 가능한가? 권장 기본: 강화는 무료, 완화는 감사된 Owner override 필요.

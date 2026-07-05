@@ -1,8 +1,10 @@
-# AzureWatcher Roadmap
+# AIOpsPilot Roadmap
 
-Detailed, phased plan to build the autonomous cloud operations control plane for
-**Change Management**, **DR/Chaos**, and **FinOps**. This folder expands the short-form
-principles in [copilot-instructions.md](../../.github/copilot-instructions.md) and the
+Detailed, phased plan to build the autonomous cloud operations control plane — an **AIOps**
+approach whose initial verticals are **Resilience**, **Change Safety**, and **Cost
+Governance**. Other AIOps domains (posture management, SRE/SLO, etc.) fit the same
+architecture and are future scope. This folder expands the short-form principles in
+[copilot-instructions.md](../../.github/copilot-instructions.md) and the
 control-loop design in
 [architecture.instructions.md](../../.github/instructions/architecture.instructions.md) into an
 actionable engineering roadmap: from goals and structure through deployment and scale-out.
@@ -26,19 +28,20 @@ reference docs first, then the phases in order.
 | 1 | [goals-and-metrics.md](goals-and-metrics.md) | success criteria, KPIs, measurement-first rule |
 | 2 | [project-structure.md](project-structure.md) | repo layout, module boundaries, control-loop wiring |
 | 3 | [tech-stack.md](tech-stack.md) | languages, frameworks, data stores, event bus |
-| 4 | [llm-strategy.md](llm-strategy.md) | which models per tier, mixed-model gate, abstraction |
-| 5 | [security-and-identity.md](security-and-identity.md) | least-privilege identity, secrets, safety invariants |
-| 6 | [deployment.md](deployment.md) | IaC, CI/CD, environments, release/rollback |
-| 7 | [rule-catalog-collection.md](rule-catalog-collection.md) | where rules/checklists/baselines come from and their JSON shape |
-| 8 | [rule-governance.md](rule-governance.md) | how admins author, scope, enable, and exempt rules (Azure Policy-like) |
-| 9 | [observability-and-detection.md](observability-and-detection.md) | event correlation, anomaly detection, forecasting, and root-cause analysis |
-| 10 | [deploy-and-onboard.md](deploy-and-onboard.md) | concrete Azure resource inventory, bootstrap sequence, fork ↔ core split |
-| 11 | [startup-and-lifecycle.md](startup-and-lifecycle.md) | cold start, day-zero catalog, shadow-first rollout, discovery-loop kickoff |
-| 12 | [operating-and-verification.md](operating-and-verification.md) | self-health signals, canary event, smoke tests, alert routing, runbooks |
-| 13 | [cost-model.md](cost-model.md) | illustrative monthly cost envelope for the minimum resource inventory, T2 LLM cost split, traffic scaling triggers |
-| 14 | [user-rbac-and-identity.md](user-rbac-and-identity.md) | human user roles (Reader/Contributor/Approver/Owner + Break-Glass), Entra ID artifacts, console→PR identity flow |
-| 15 | [channels-and-notifications.md](channels-and-notifications.md) | non-web-UI channels (Teams / Slack / email / webhook / pager / SMS), category & trust-tier matrix, routing policy |
-| 16 | [risk-classification.md](risk-classification.md) | auto vs HIL vs deny classification: dimensions, initial rule table, environment detection, change process |
+| 4 | [csp-neutrality.md](csp-neutrality.md) | wire-level contracts (event bus / runtime / secret / workload identity) that keep the core CSP-neutral |
+| 5 | [llm-strategy.md](llm-strategy.md) | which models per tier, mixed-model gate, abstraction |
+| 6 | [security-and-identity.md](security-and-identity.md) | least-privilege identity, secrets, safety invariants |
+| 7 | [deployment.md](deployment.md) | IaC, CI/CD, environments, release/rollback |
+| 8 | [rule-catalog-collection.md](rule-catalog-collection.md) | where rules/checklists/baselines come from and their YAML shape |
+| 9 | [rule-governance.md](rule-governance.md) | how admins author, scope, enable, and exempt rules (Azure Policy-like) |
+| 10 | [observability-and-detection.md](observability-and-detection.md) | event correlation, anomaly detection, forecasting, and root-cause analysis |
+| 11 | [deploy-and-onboard.md](deploy-and-onboard.md) | concrete Azure resource inventory, bootstrap sequence, fork ↔ core split |
+| 12 | [startup-and-lifecycle.md](startup-and-lifecycle.md) | cold start, day-zero catalog, shadow-first rollout, discovery-loop kickoff |
+| 13 | [operating-and-verification.md](operating-and-verification.md) | self-health signals, canary event, smoke tests, alert routing, runbooks |
+| 14 | [cost-model.md](cost-model.md) | illustrative monthly cost envelope for the minimum resource inventory, T2 LLM cost split, traffic scaling triggers |
+| 15 | [user-rbac-and-identity.md](user-rbac-and-identity.md) | human user roles (Reader/Contributor/Approver/Owner + Break-Glass), Entra ID artifacts, console→PR identity flow |
+| 16 | [channels-and-notifications.md](channels-and-notifications.md) | non-web-UI channels (Teams / Slack / email / webhook / pager / SMS), category & trust-tier matrix, routing policy |
+| 17 | [risk-classification.md](risk-classification.md) | auto vs HIL vs deny classification: dimensions, initial rule table, environment detection, change process |
 
 ## Design at a Glance
 
@@ -53,7 +56,7 @@ multiplier are **design targets that require a measured baseline** before they c
 
 ```mermaid
 timeline
-    title AzureWatcher Delivery Phases
+    title AIOpsPilot Delivery Phases
     P0 Instrumentation : KPI telemetry : Baseline vs reference agent : Unblock identity and policy
     P1 Rule Catalog and T0 : Normalize checklists : Policy-as-code gate : Auto remediation PR : Out-of-band detection
     P2 Quality and T1 : Continuous rule update : LLM quality gate and mixed-model : Embedding pattern reuse : Shadow to enforce
@@ -62,8 +65,8 @@ timeline
 ```
 
 Phases are **strictly sequential** — P0 → P1 → P2 → P3 → P4 — and each phase doc names its
-predecessor in a *Dependencies* section. Domain coverage lands incrementally: Change Management
-in P1, DR/Chaos and FinOps in P3. **Multi-cloud is TBD in P4** (Azure is the only implemented
+predecessor in a *Dependencies* section. Vertical coverage lands incrementally: Change Safety
+in P1, Resilience and Cost Governance in P3. **Multi-cloud is TBD in P4** (Azure is the only implemented
 target — see
 [Implementation Focus](../../.github/copilot-instructions.md#implementation-focus-must)).
 
@@ -77,7 +80,7 @@ criteria and its dependencies.
 | **[P0](phases/phase-0-instrumentation.md)** | Instrument & unblock | KPI dashboard, baseline report, identity/policy blockers resolved | reproducible baseline exists |
 | **[P1](phases/phase-1-rule-catalog-t0.md)** | Deterministic core | rule catalog, T0 engine, policy gate, remediation PRs | Change gate runs in shadow |
 | **[P2](phases/phase-2-quality-and-t1.md)** | Quality & lightweight tier | rule-update pipeline, LLM quality gate (guards T2), T1 similarity reuse | auto-resolution rate validated vs P0 baseline |
-| **[P3](phases/phase-3-integrated-loop.md)** | Integrated autonomy | unified loop, DR/Chaos scheduler, FinOps actions | autonomous MVP across all 3 domains |
+| **[P3](phases/phase-3-integrated-loop.md)** | Integrated autonomy | unified loop, DR/chaos scheduler, cost auto-actions | autonomous MVP across all 3 verticals |
 | **[P4](phases/phase-4-scale.md)** | Scale out (Azure) | continuous measurement, pattern-library and model tracking, scalability; **multi-cloud adapters TBD** | guard metrics stable on the Azure baseline |
 
 ## Guardrails Applied Throughout

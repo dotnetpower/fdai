@@ -1,6 +1,6 @@
 # UI Cells — WebGL2 living-organism mock
 
-Exploratory mock for a hierarchical, zoomable view of the AzureWatcher control-plane state.
+Exploratory mock for a hierarchical, zoomable view of the AIOpsPilot control-plane state.
 Renders as one "organism" of weighted Voronoi cells inside a hexagon; users zoom from the
 whole tenant view down to individual rules/resources.
 

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiopspilot.dev/schemas/ontology/link-type/1.0.0",
+  "title": "OntologyLinkType",
+  "description": "Declares a directed relationship between two ObjectTypes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "name",
+    "version",
+    "from_type",
+    "to_type",
+    "cardinality"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "from_type": {
+      "type": "string",
+      "description": "Source ObjectType name."
+    },
+    "to_type": {
+      "type": "string",
+      "description": "Target ObjectType name."
+    },
+    "cardinality": {
+      "type": "string",
+      "enum": [
+        "one_to_one",
+        "one_to_many",
+        "many_to_one",
+        "many_to_many"
+      ]
+    },
+    "description": {
+      "type": "string"
+    }
+  }
+}

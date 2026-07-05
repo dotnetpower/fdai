@@ -1,0 +1,38 @@
+name: check-translations
+
+# Enforces the bilingual doc pair rule from
+# .github/instructions/language.instructions.md.
+# Every in-scope English `foo.md` (root README + docs/**) must have a
+# matching `foo-ko.md` whose front-matter `translation_source_sha` equals
+# `git hash-object foo.md`.
+
+on:
+  pull_request:
+    paths:
+      - "README.md"
+      - "README-ko.md"
+      - "docs/**/*.md"
+      - "scripts/check-translations.sh"
+      - ".github/workflows/check-translations.yml"
+  push:
+    branches: [main]
+    paths:
+      - "README.md"
+      - "README-ko.md"
+      - "docs/**/*.md"
+      - "scripts/check-translations.sh"
+      - ".github/workflows/check-translations.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run translation pair check
+        run: bash scripts/check-translations.sh

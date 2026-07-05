@@ -1,9 +1,11 @@
-# AzureWatcher — Copilot Instructions
+# AIOpsPilot — Copilot Instructions
 
-Autonomous cloud operations control plane for **Change Management** (safe change and drift
-remediation), **DR/Chaos** (disaster-recovery and resilience testing), and **FinOps** (cost
-governance). Goal: minimize human intervention by resolving most events deterministically
-and using LLMs only for the residual ambiguous cases.
+Autonomous cloud operations control plane — an **AIOps** approach whose initial verticals
+are **Resilience** (disaster recovery and chaos/resilience testing), **Change Safety** (safe
+change and drift remediation), and **Cost Governance** (FinOps). The same architecture
+applies to other AIOps domains (posture management, SRE/SLO, etc.), which are future scope.
+Goal: minimize human intervention by resolving most events deterministically and using LLMs
+only for the residual ambiguous cases.
 
 > Source vision: `deep-plan/autonomous-operations.md` (maintainer-only, **not tracked in
 > this repo** — do not treat this as a repo link). This repo implements that plan; keep the
@@ -24,7 +26,7 @@ principles into a phased engineering plan.
 
 ## Implementation Focus (MUST)
 
-- **AzureWatcher's implemented target is Azure.** All engineering work — provider adapters,
+- **AIOpsPilot's implemented target is Azure.** All engineering work — provider adapters,
   event sources, executor identity, rule collectors, and the deployment topology — targets
   Azure first.
 - **Non-Azure providers (AWS, GCP, and multi-cloud expansion) are TBD** and out of scope

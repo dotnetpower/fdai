@@ -1,0 +1,220 @@
+---
+translation_of: csp-neutrality.md
+translation_source_sha: 8a7e6d87b801c98aefbdf73e0df0b331b46e190b
+translation_revised: 2026-07-05
+---
+
+# CSP-중립성 계약
+
+[Azure 가 유일한 구현 대상](../../.github/copilot-instructions.md#implementation-focus-must)
+임에도 코어를 CSP-중립으로 유지하는 구체적인 **계약(contracts)** 을 명명합니다. 계약은
+와이어 수준(프로토콜, 아티팩트, 토큰 포맷)이므로 미래의 비-Azure 어댑터는 코어 재작성이 아니라
+**추가 구성** 으로 붙습니다.
+
+토폴로지는 [app-shape.instructions.md](../../.github/instructions/app-shape.instructions.md),
+모듈 경계는 [project-structure-ko.md](project-structure-ko.md), 기술 선택은
+[tech-stack-ko.md](tech-stack-ko.md), 신원 모델은 [security-and-identity-ko.md](security-and-identity-ko.md)
+를 보완합니다.
+
+## 원칙
+
+코어가 클라우드 프로바이더에서 접근하는 모든 것은 벤더 SDK 가 아니라 **관심사당 하나의
+와이어 수준 계약** 을 통해야 합니다. 각 계약의 Azure 구현이 오늘 우리가 만드는 것이며,
+fork 나 미래 phase 는 `core/` 를 편집하지 않고 **같은 계약** 의 새 구현을 등록해서 다른 CSP 를 추가합니다.
+
+CSP 접촉면을 지배하는 네 개의 계약:
+
+| # | 계약 | 와이어 / 아티팩트 | Azure 구현 |
+|---|-----|------------------|-----------|
+| 1 | **이벤트버스** | Apache Kafka 와이어 프로토콜 | Event Hubs (`9093` 포트의 Kafka endpoint) |
+| 2 | **런타임** | OCI 컨테이너 이미지 + Knative 호환 매니페스트 서브셋 | Container Apps (Consumption, KEDA) |
+| 3 | **시크릿** | 환경변수 (또는 K8s Secret 마운트) — 앱에서 CSP secret SDK 를 직접 호출하지 않음 | Container Apps native secret + Key Vault reference |
+| 4 | **워크로드 아이덴티티** | OIDC 토큰 (federated) | User-assigned Managed Identity + workload identity federation |
+
+네 개 모두 `core/` 로 프로바이더 특이 사항을 흘려서는 안 됩니다. 구체적 위반 사례는
+[Anti-Patterns](#anti-patterns) 참조.
+
+## 1. 이벤트버스 계약 — Kafka 와이어 프로토콜
+
+이벤트버스는 작고 프로바이더 독립적인 표면 (`bootstrap.servers`, `sasl.mechanism`,
+`security.protocol`, 프로바이더별 토큰/자격증명 소스) 을 가진 **Kafka 프로듀서/컨슈머** 로
+표현됩니다. 3대 CSP 모두와 여러 멀티클라우드 벤더가 Kafka 호환 endpoint 를 노출하므로, 같은
+클라이언트 라이브러리와 같은 코드 경로가 모든 대상을 커버합니다.
+
+| CSP / 벤더 | 관리형 Kafka endpoint | 인증 방식 | 비고 |
+|---|---|---|---|
+| Azure | **Event Hubs** (Kafka 1.0+ endpoint, `<ns>.servicebus.windows.net:9093`) | SASL/OAUTHBEARER + Entra 토큰 | 하나의 네임스페이스가 토픽 호스팅; Standard 1 TU 로 idle 비용 낮음 |
+| AWS | **MSK Serverless** | SASL/OAUTHBEARER + AWS IAM SigV4 | 실제 serverless (partition-hour 과금) |
+| GCP | **Managed Service for Apache Kafka** (GA) | SASL/OAUTHBEARER + Google IAM 토큰 | broker fleet 는 항상 켜져있음; 최소 클러스터 사용 |
+| Multi-cloud | **Confluent Cloud** / **Redpanda Cloud** / **Aiven Kafka** | SASL/PLAIN 또는 SASL/OAUTHBEARER | 하이퍼스케일러에 대한 벤더 락인도 받아들일 수 없을 때의 escape hatch |
+| Self-hosted | AKS/EKS/GKE 위의 **Strimzi Kafka**, 또는 **Redpanda** | SASL 또는 mTLS | 최후 수단; 운영 부담 큼 |
+
+**규칙 (MUST):**
+
+- 코어는 **Kafka 클라이언트로만** 프로듀스/컨슘 (예: `librdkafka`, `kafka-python`,
+  `KafkaJS`, `Sarama`); `ServiceBusClient`, `SqsClient`, `PubSubClient`, 기타 어떤
+  벤더 SDK 도 import 하지 않음.
+- 이벤트 스키마는 JSON Schema 위에 **CloudEvents envelope** 사용
+  ([tech-stack-ko.md](tech-stack-ko.md)); 모든 프로바이더에서 동일 유지.
+- **DLQ** = 명명 규약을 따르는 Kafka **dead-letter topic** (예: `<topic>.dlq`) + redrive
+  워커; native DLQ 를 제공하는 프로바이더 (Event Hubs 는 제공 안함) 도 동작을 균일하게
+  유지하기 위해 **무시** 하고 topic 규약 사용.
+- **순서** 는 partition key 로 보장 (per-resource key ⇒ per-resource ordering).
+  프로바이더 특이 순서 프리미티브 (Service Bus sessions, FIFO groups) 는 코어로 흘러선 안됨.
+- **멱등성** 은 이벤트의 앱 수준 idempotency key 로 강제하지 프로바이더의 "exactly-once"
+  플래그로 하지 않음.
+
+**Anti-patterns (MUST NOT):**
+
+- Event Hubs 를 native AMQP SDK (또는 Service Bus SDK) 로 사용. Event Hubs 를 쓸 거면
+  **`:9093` 의 Kafka endpoint 만** 허용.
+- Dapr 의 pub/sub building block 사용 — 사이드카 의존성이 추가되고 런타임 레이어를
+  다시 락인.
+
+## 2. 런타임 계약 — OCI 이미지 + Knative 호환 매니페스트
+
+코어는 하나 이상의 **OCI 컨테이너 이미지** 와 traffic / revisions / autoscaling
+트리거 / health probe / env·secret 바인딩을 기술하는 작은 **Knative 호환 매니페스트 서브셋**
+으로 배포됩니다. 프로바이더 어댑터가 이를 CSP 특이 리소스 모양으로 렌더링합니다.
+
+| CSP / 서브스트레이트 | 런타임 | scale-to-zero | 계약에서 렌더링되는 배포 모양 |
+|---|---|---|---|
+| Azure | **Container Apps** (Consumption + KEDA) | ✓ | Bicep/Terraform 이 매니페스트에서 `containerapp` 리소스 생성 |
+| AWS | **App Runner** (요청 기반) 또는 **ECS Fargate** + KEDA | App Runner ✓ / Fargate — | 같은 매니페스트에서 렌더링 |
+| GCP | **Cloud Run** (services & jobs) | ✓ | Cloud Run 은 native Knative; 매니페스트 직접 적용 |
+| Any K8s (AKS/EKS/GKE) | **Knative Serving** + KEDA | ✓ | 매니페스트 직접 적용 |
+| Fallback | bare `Deployment` + HPA + KEDA | — (idle ≥ 1 replica) | scale-to-zero 불가시 렌더링 |
+
+**규칙 (MUST):**
+
+- 이미지는 표준 **`/healthz` 및 `/readyz`** endpoint 노출. Container Apps probe, K8s
+  probe, App Runner probe, Cloud Run probe 모두 이 둘을 가리킴.
+- **스케일 트리거는 계약 수준 시그널** (예: `scale-on: kafka-lag`, 또는 CPU target).
+  프로바이더 어댑터가 KEDA CRD, App Runner concurrency, Cloud Run CPU utilization 등으로 번역.
+- 코어는 Dapr 사이드카, Envoy-특이 ingress annotation, Container Apps 전용 기능 (예:
+  Container Apps YAML 에만 존재하는 native KEDA scaler reference) 에 의존하지 **않음**.
+- Azure 에서 스케줄 워커를 Container Apps Job 으로 배송하는 곳에서, 다른 프로바이더는 같은
+  계약을 K8s `CronJob`, AWS EventBridge 트리거 태스크, 또는 Cloud Run Job 으로 렌더링 —
+  모두 상호교환 가능.
+
+**Anti-patterns (MUST NOT):**
+
+- 애플리케이션의 자체 레포에 Container Apps 전용 YAML (Dapr components, native KEDA scaler
+  refs) 을 굽는 것.
+- Envoy 스타일 ingress 규칙 요구; 이식 가능한 ingress 추상화를 쓰거나 앱 안에서 라우팅 처리.
+
+## 3. 시크릿 계약 — 환경변수 / K8s Secret
+
+애플리케이션은 **환경변수만** 읽거나, Kubernetes 위에서는 `Secret` 에서 마운트된 파일만
+읽습니다. CSP secret SDK 를 **직접 호출하지 않습니다**. 주입 레이어가 CSP secret backend 를
+컨테이너의 환경으로 이어줍니다.
+
+| CSP / 서브스트레이트 | 주입 레이어 | Backend | 인증 |
+|---|---|---|---|
+| Azure Container Apps | **Key Vault reference** 를 사용하는 native `secret` 필드 | Key Vault | user-assigned MI |
+| Any K8s | `SecretStore` CRD 를 가진 **External Secrets Operator (ESO)** | Key Vault / AWS Secrets Manager / GCP Secret Manager / Vault | CSP 별 Workload Identity |
+| AWS (ECS/App Runner) | native task-def secret reference | Secrets Manager / Parameter Store | IRSA |
+| GCP (Cloud Run) | native environment-from-secret reference | Secret Manager | Workload Identity |
+| Multi-cloud OSS | **ESO + HashiCorp Vault** | Vault | JWT/OIDC |
+| Dev/local | 파일 / `sops`-encrypted git | files | GPG/age |
+
+**규칙 (MUST):**
+
+- 코어는 `shared/providers/` 의 주입된 `SecretProvider` 인터페이스 **를 통해서만** secret
+  을 읽음 ([project-structure-ko.md](project-structure-ko.md#injectable-seams));
+  어떤 벤더 SDK 의 `SecretClient` 도 `core/` 에 나타나지 않음.
+- **Secret 이름은 프로바이더 전체에서 안정적 스키마** 를 따름 (upper-snake env var 이름) —
+  앱이 프로바이더를 모르게.
+- **Fail-closed**: 주입 레이어가 부팅 시 필수 secret 을 해결하지 못하면 프로세스가 fail
+  fast — 캐시된 값이나 임베디드 값으로 fallback 하지 않음
+  ([security-and-identity-ko.md](security-and-identity-ko.md#secrets-and-config)).
+- **로테이션** 은 주입 레이어의 일; 앱은 프로세스 재시작 시 env 를 다시 읽어서 롤된 secret 을
+  수용. 복호화된 secret 자재의 장기 캐시는 금지.
+
+**Anti-patterns (MUST NOT):**
+
+- 애플리케이션 코드에서 `SecretClient.GetSecret()` (또는 동등물) 호출.
+- 평문 또는 암호화된 secret 을 source 에 커밋 (git 내 SOPS 는 dev/local 에서만 허용;
+  staging/prod 에서는 절대 안됨).
+
+## 4. 워크로드 아이덴티티 계약 — OIDC 토큰
+
+executor 는 런타임 서브스트레이트에서 얻은 **짧은 수명의 OIDC 토큰** 으로 CSP 에 인증합니다.
+어댑터 경계에서 이 토큰이 CSP 자격증명으로 교환됩니다. executor 는 장기 키나 공유 시크릿을
+보유하지 않습니다.
+
+| CSP / 서브스트레이트 | 워크로드 아이덴티티 프리미티브 | 토큰 교환 |
+|---|---|---|
+| Azure | User-assigned Managed Identity | IMDS → Entra 토큰 (SASL/OAUTHBEARER, ARM, KV) |
+| AWS | IAM Roles for Service Accounts (IRSA) | pod 토큰 → `AssumeRoleWithWebIdentity` |
+| GCP | Workload Identity Federation | K8s SA 토큰 → GCP STS |
+| Any K8s | **SPIFFE/SPIRE** | SVID (JWT/X.509) 를 어댑터별 교환 |
+| CI/CD | GitHub Actions OIDC / Azure DevOps federated credential | issuer → CSP-side federation trust |
+
+**규칙 (MUST):**
+
+- 코어는 "X 로 audience-scoped 된 토큰을 가져와"를 노출하는 `WorkloadIdentity` 인터페이스만
+  봄; 구체적 토큰 issuer 는 프로바이더 어댑터의 관심사.
+- **승인 신원 ≠ 실행 신원** ([security-and-identity-ko.md](security-and-identity-ko.md#execution-identity)).
+  위 모든 CSP 매핑에서 유지.
+- executor 프로세스, config, secret store 어디에도 **장기 키 없음**. CSP-side 자격증명이
+  불가피한 경우 (예: legacy 서비스) 짧은 수명과 자동 로테이션 필수이며 사용은 audit log 에 기록.
+
+**Anti-patterns (MUST NOT):**
+
+- `core/` 안의 `DefaultAzureCredential()` 또는 유사한 이름의 SDK 진입점 — 그건 벤더 SDK
+  호출이지 계약이 아님. 인터페이스 뒤의 Azure 프로바이더 어댑터에서 **만** 허용.
+- executor 의 신원을 콘솔, ChatOps, 또는 다른 읽기 전용 표면과 공유.
+
+## Azure-Phase 실현 (요약)
+
+오늘의 구현은 네 계약에 다음과 같이 슬롯됩니다. 명명된 각 서비스는 **채택 시점에 재확인할
+권장사항** 이지만 ([tech-stack-ko.md](tech-stack-ko.md)) 계약 자체는 바뀌지 않습니다.
+
+| 계약 | Azure 실현 | Idle 비용 자세 |
+|---|---|---|
+| 이벤트버스 | **Event Hubs Standard** (`:9093` Kafka endpoint, 1 TU, auto-inflate off) | 낮은 idle; TU 로 스케일 |
+| 런타임 | **Container Apps** (Consumption, KEDA scale-to-zero) — 앱 하나 + 사이드카 | idle 시 `$0` |
+| 시크릿 | Container Apps native secret + **Key Vault reference** | 무시할 수준 |
+| 워크로드 아이덴티티 | **User-assigned MI** + CI/CD 를 위한 workload identity federation | 무료 |
+
+`Service Bus` 와 `Event Grid` 는 앞으로 최소 인벤토리에 **포함되지 않습니다**. 이벤트버스는
+Kafka 와이어 전용입니다. 프로바이더 네이티브 pub/sub 은 오직 **Kafka 버스로 이벤트를 넣는
+소스** (예: Event Hubs Kafka 토픽으로 forward 하는 Event Grid subscription) 로만
+사용되고, 절대 `core/` 의 런타임 의존이 아닙니다.
+
+## 비-Azure 경로 (Additive)
+
+다른 CSP 를 추가하는 것은 **fork 수준 config 작업** 이며 코어 변경이 아닙니다:
+
+1. Composition root 에서 `shared/providers/` 의 네 프로바이더 인터페이스의 새 구현을
+   등록 ([project-structure-ko.md](project-structure-ko.md#customization-via-dependency-injection)).
+2. `bootstrap.servers`, `SecretProvider`, `RuntimeAdapter`, `WorkloadIdentity` 바인딩을 새 CSP 로 지시.
+3. 같은 OCI 이미지 + Knative 호환 매니페스트를 대상 런타임으로 렌더링.
+4. Azure 구현과의 parity 가 측정될 때까지 **shadow mode** 로 배송
+   ([architecture.instructions.md](../../.github/instructions/architecture.instructions.md#safety-invariants)).
+
+**비-Azure 대상은 TBD 로 남아있음**
+([Implementation Focus](../../.github/copilot-instructions.md#implementation-focus-must));
+계약은 미래 어댑터가 additive 하도록 존재.
+
+## Anti-Patterns (간결)
+
+- 각 CSP 의 native pub/sub (`Service Bus` + `SQS/SNS` + `Pub/Sub`) 을 하나의 인터페이스
+  뒤에 감싸는 것. Ack 시맨틱, ordering key, DLQ 모양, exactly-once 동작이 충분히 다르므로
+  프로바이더 특이 버그가 새어나옴 — **대신 하나의 와이어 프로토콜 (Kafka) 사용**.
+- **Dapr** 를 portability 레이어로 도입. 락인이 CSP 에서 Dapr 로 옮겨질 뿐이고 사이드카
+  의존이 추가되며 로컬 개발이 복잡해짐.
+- "Kafka 클라이언트 복잡성을 아끼려고" **Event Hubs 를 native AMQP SDK 로** 사용. 코드가
+  다시 Azure 화됨. Kafka endpoint 를 쓰거나 Event Hubs 를 쓰지 마세요.
+- 애플리케이션 코드에서 `SecretClient` 호출로 secret 읽기 (계약 3 참조).
+- `core/` 안의 `DefaultAzureCredential()` (또는 동등물) (계약 4 참조).
+
+## 관련 문서
+
+- [tech-stack-ko.md](tech-stack-ko.md) — 이 계약을 실현하는 구체 스택.
+- [deploy-and-onboard-ko.md](deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set) —
+  계약에서 렌더링되는 Azure 리소스 인벤토리.
+- [security-and-identity-ko.md](security-and-identity-ko.md) — 신원 모델과 secret 취급 심층.
+- [project-structure-ko.md](project-structure-ko.md#injectable-seams) — 각 계약을
+  composition root 에 노출하는 DI 씸.

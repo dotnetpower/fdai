@@ -29,6 +29,14 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
   PR** so docs never drift from the implementation. Any change to behavior, structure, a public
   interface, a DI seam, a config key, or a schema MUST update the corresponding doc. Reviewers
   block a merge that leaves docs stale.
+- **Bilingual docs (MUST)**: user-facing docs (root `README.md` and everything under
+  `docs/**/*.md`) ship as `foo.md` (English canonical) + `foo-ko.md` (Korean translation)
+  pairs. **Any edit to `foo.md` MUST update `foo-ko.md` in the same PR**, and vice versa.
+  Adding a new user-facing doc MUST add both files. The `scripts/check-translations.sh`
+  CI gate blocks merges where a `-ko.md` is missing or its recorded
+  `translation_source_sha` does not match `git hash-object foo.md`. `.github/**` stays
+  English-only (no translation). Full rules:
+  [language.instructions.md](language.instructions.md#user-facing-doc-translations-ko).
 - New modules, interfaces, injectable seams, config keys, and rule/schema changes are reflected
   in [docs/roadmap/](../../docs/roadmap/README.md) and the relevant instruction files.
 

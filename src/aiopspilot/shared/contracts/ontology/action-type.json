@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiopspilot.dev/schemas/ontology/action-type/1.0.0",
+  "title": "OntologyActionType",
+  "description": "Declares a category of autonomous action. Referenced by Action.action_type. The risk gate composes its feature vector partly from these declarations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "name",
+    "version",
+    "operation",
+    "rollback_contract"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "operation": {
+      "type": "string",
+      "enum": [
+        "create",
+        "update",
+        "delete",
+        "disable",
+        "enable",
+        "tag",
+        "drop",
+        "purge"
+      ]
+    },
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "ControlPlane",
+          "DataPlaneMutating",
+          "IdempotentByKey",
+          "RateLimited"
+        ]
+      },
+      "uniqueItems": true,
+      "default": []
+    },
+    "rollback_contract": {
+      "type": "string",
+      "enum": [
+        "pr_revert",
+        "scripted",
+        "none"
+      ],
+      "description": "How instances of this action can be undone."
+    },
+    "description": {
+      "type": "string"
+    }
+  }
+}

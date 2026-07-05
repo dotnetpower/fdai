@@ -1,6 +1,6 @@
 # Startup and Lifecycle
 
-How AzureWatcher **starts from cold and reaches steady state** on a freshly provisioned Azure
+How AIOpsPilot **starts from cold and reaches steady state** on a freshly provisioned Azure
 subscription. Answers: when does the system "start"? What is in the catalog on day zero?
 When does the autonomous discovery loop begin? How is the shadow → enforce lifecycle
 sequenced?
@@ -79,15 +79,16 @@ same open item as Phase 1's "initial target set enumerated per source"
 Before any event can be judged, ingress must be attached to Azure signals:
 
 1. **Diagnostic Settings** — on the target subscription and each in-scope resource group,
-   enable Diagnostic Settings that forward Activity Log (and any resource-specific logs) to
-   the configured observability backend and / or Event Grid.
-2. **Event Grid subscriptions** — create system topics for the target subscription and / or
-   resource groups; subscribe the internal event-ingest handler (via Service Bus) with the
-   configured filter set.
+   enable Diagnostic Settings that forward Activity Log (and any resource-specific logs) into
+   an **Event Hubs Kafka topic** — this is the CSP-neutral event bus contract
+   ([csp-neutrality.md § Event bus contract](csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol)).
+2. **Kafka topics + consumer groups** — create the day-zero topics on the Event Hubs
+   namespace (`aw.change.events`, `aw.dr.events`, `aw.finops.events`, and their `<topic>.dlq`
+   siblings) and register the consumer group for `event-ingest`.
 3. **Idempotency prime** — the event-ingest layer stamps an **idempotency key** on every
    incoming event on first receipt so a replay is a no-op end to end.
-4. **DLQ verified reachable** — dead-letter destinations are exercised (poison-pill probe)
-   before enforce is enabled anywhere.
+4. **DLQ verified reachable** — dead-letter destinations (Kafka `<topic>.dlq`) are exercised
+   (poison-pill probe) before enforce is enabled anywhere.
 
 Concrete event types and filter expressions are **TBD** and captured in
 [deploy-and-onboard.md#event-source-subscription](deploy-and-onboard.md#event-source-subscription).
@@ -158,7 +159,7 @@ Steps (fork responsibility):
    ([user-rbac-and-identity.md#51-codeowners-single-approver-group-path-based-reviewer-count](user-rbac-and-identity.md#51-codeowners-single-approver-group-path-based-reviewer-count)).
 5. Register the approver group id in the executor's Chat adapter config so Adaptive Card
    approvals can validate role claims.
-6. **Provision the Slack workspace** (P1 A1 channel): install the AzureWatcher Slack app,
+6. **Provision the Slack workspace** (P1 A1 channel): install the AIOpsPilot Slack app,
    grant `chat:write`, populate the mandatory Slack userId ↔ Entra OID mapping store; the
    Slack adapter refuses A1 traffic until the mapping is non-empty
    ([channels-and-notifications.md#7-channel-specific-notes](channels-and-notifications.md#7-channel-specific-notes)).
@@ -211,7 +212,7 @@ move between them; each transition is versioned and audited.
 - [ ] Day-zero seed rule set (which sources, which rule ids) — cross-linked to Phase 1.
 - [ ] Discovery-loop kickoff threshold `N` (shadow-decision count) and its regression-safety
       rationale.
-- [ ] Event Grid subscription filter shape and per-source rate caps.
+- [ ] Kafka topic layout + Diagnostic-Settings forwarder filter shape and per-source rate caps.
 - [ ] Bootstrap runbook: the exact command sequence for a fork to reach D+0 (owned by
       [operating-and-verification.md](operating-and-verification.md#runbook-set)).
 - [ ] Dry-run HIL procedure: canary payload, expected timing, teardown.

@@ -1,0 +1,89 @@
+# AIOpsPilot — autonomous cloud operations control plane
+#
+# Python is the core runtime language for the control plane
+# (see docs/roadmap/tech-stack.md — OD-1 resolved).
+# All executable code lives under src/aiopspilot/ (Python "src layout").
+# Non-Python trees (rule-catalog/ YAML data, policies/ Rego, infra/ Terraform)
+# live at the repo root — they are data or IaC, not Python packages.
+#
+# Skeleton scope (Phase 0 W1.1): manifest + package layout only.
+# Runtime dependencies land in W1.2-W1.4 (contracts, config loader, OpenTelemetry wiring);
+# CI tooling (ruff / mypy / pytest / coverage gates) lands in W1.7.
+
+[project]
+name = "aiopspilot"
+version = "0.0.0"
+description = "Autonomous cloud operations control plane"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12"
+authors = [{ name = "AIOpsPilot maintainers" }]
+keywords = ["aiops", "control-plane", "gitops", "opa", "shadow-mode"]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    # W1.2 — contracts: typed models + JSON Schema validation at boundaries only.
+    # Everything else (event bus, state store, telemetry, LLM clients) is deferred
+    # to its own P0 work item so a violation is easy to spot in the lockfile diff.
+    "pydantic>=2.9,<3",
+    "jsonschema>=4.23,<5",
+]
+
+[project.optional-dependencies]
+# Development tooling. Concrete runtime deps still arrive with their own P0 tasks.
+dev = [
+    "pytest>=8.0,<9",
+    "mypy>=1.13,<2",
+    "ruff>=0.7,<1",
+]
+
+[project.urls]
+Homepage = "https://github.com/dotnetpower/aiopspilot"
+Documentation = "https://github.com/dotnetpower/aiopspilot/blob/main/docs/roadmap/README.md"
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aiopspilot"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/aiopspilot", "README.md", "LICENSE", "pyproject.toml"]
+
+# ---------------------------------------------------------------------------
+# Dev-tool config lives here so it is picked up as soon as the tools are added
+# in W1.7; the actual dependencies are still deferred.
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Full rule selection is finalized in W1.7. This is a conservative starter set.
+select = ["E", "F", "I", "B", "UP", "N", "S"]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # asserts are expected in tests
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/aiopspilot"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests", "src/aiopspilot"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]

@@ -498,7 +498,7 @@ surfaces the minimum inventory already provisions
 | Assignments / Exemptions / Overrides | static, versioned | **Git** | `rule-catalog/{assignments,exemptions,overrides}/` |
 | Compiled dispatch indexes (`applies_to`, `triggered_by`) | derived at boot | **In-memory** | `trust-router`, `t0-deterministic` sidecars |
 | `Resource` instances (observed inventory) | discovered at runtime | **PostgreSQL** | `ontology_resource` |
-| `Signal` instances (raw events) | transient | **Service Bus** in flight; only correlation window state persists | queue + `signal_correlation` |
+| `Signal` instances (raw events) | transient | **Event Hubs Kafka topic** in flight; only correlation window state persists | queue + `signal_correlation` |
 | `Finding` instances (rule matches) | audited, persistent | **PostgreSQL** | `ontology_finding` + `audit_log` |
 | `Link` instances (Signal→Resource, Finding→Finding, …) | runtime + audit | **PostgreSQL** | `ontology_link` |
 | Learned actions (L2) | persistent, catalog-version scoped | **PostgreSQL** | `learned_action` |
@@ -686,7 +686,7 @@ Decide each by **measured cost/quality on the scenario set**, not assumption.
       Foundry (weekly is the default recommendation).
 - [ ] Embedding model: hosted vs local (data residency, cost).
 - [ ] Quorum size / N and the disagreement-escalation policy for mixed-model.
-- [ ] Confidence-threshold values per domain (Change, DR/Chaos, FinOps).
+- [ ] Confidence-threshold values per vertical (Resilience, Change Safety, Cost Governance).
 - [ ] Redaction ruleset and residency routing per event class.
 - [ ] Cache TTL and the catalog-version invalidation trigger.
 - [ ] Whether to distill T2 outcomes into T1, and the fork-side training pipeline.

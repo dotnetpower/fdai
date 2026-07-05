@@ -9,45 +9,52 @@ Module names and the control loop follow
 ## Monorepo Layout
 
 ```text
-azurewatcher/
-├── core/                      # headless control plane (no UI, no direct cloud SDK imports)
-│   ├── event-ingest/          # bus consumers; normalize to event schema; dedup by idempotency key; correlate related events into incidents
-│   ├── trust-router/          # routes each event to T0 | T1 | T2 by computed confidence
-│   ├── tiers/
-│   │   ├── t0-deterministic/  # deterministic-engine: policy, checklist, what-if, drift eval
-│   │   ├── t1-lightweight/    # embedding similarity, learned-action reuse, small-model classify
-│   │   └── t2-reasoning/      # frontier-model reasoning for novel/ambiguous cases only
-│   ├── quality-gate/          # mixed-model cross-check, verifier, grounding (guards T2)
-│   ├── risk-gate/             # risk scoring; auto vs HIL; enforces the four safety invariants
-│   ├── executor/              # per-resource lock, idempotent apply via delivery adapters
-│   └── audit/                 # append-only audit log, tracked state, KPI/metric emission
-├── rule-catalog/              # catalog-as-code: normalized, versioned rules
-│   ├── schema/                # rule schema (semver) + validation
-│   ├── sources/               # per-source collectors (WAF, CIS, OPA, IaC scanners, ...)
-│   └── pipeline/              # watch → collect → shadow eval → regression → promote/rollback
+aiopspilot/
+├── src/aiopspilot/            # Python (3.12+, src-layout); one language across the monorepo
+│   ├── core/                  # headless control plane (no UI, no direct cloud SDK imports)
+│   │   ├── event_ingest/      # bus consumers; normalize to event schema; dedup by idempotency key; correlate related events into incidents
+│   │   ├── trust_router/      # routes each event to T0 | T1 | T2 by computed confidence
+│   │   ├── tiers/
+│   │   │   ├── t0_deterministic/  # deterministic-engine: policy, checklist, what-if, drift eval
+│   │   │   ├── t1_lightweight/    # embedding similarity, learned-action reuse, small-model classify
+│   │   │   └── t2_reasoning/      # frontier-model reasoning for novel/ambiguous cases only
+│   │   ├── quality_gate/      # mixed-model cross-check, verifier, grounding (guards T2)
+│   │   ├── risk_gate/         # risk scoring; auto vs HIL; enforces the four safety invariants
+│   │   ├── executor/          # per-resource lock, idempotent apply via delivery adapters
+│   │   └── audit/             # append-only audit log, tracked state, KPI/metric emission
+│   ├── shared/                # cross-cutting; MUST NOT import from core/
+│   │   ├── contracts/         # ontology types (Resource / Rule / Signal / Finding) + event / action / rule schemas (versioned) + generated types
+│   │   ├── providers/         # CSP-neutral cloud provider interfaces (adapters implement them)
+│   │   ├── telemetry/         # structured logging, tracing, metric helpers
+│   │   └── config/            # config schema + startup validation (fail-fast)
+│   ├── delivery/              # action delivery adapters (behind one shared interface)
+│   │   ├── gitops_pr/         # remediation-pr adapter: GitHub App / Azure DevOps, Checks API
+│   │   └── chatops/           # channel adapters (Teams / Slack / email / webhook / pager / SMS)
+│   └── rule_catalog/          # rule-catalog PIPELINE code
+│       ├── schema/            # rule schema (semver) + validation
+│       ├── sources/           # per-source collectors (WAF, CIS, OPA, IaC scanners, ...)
+│       └── pipeline/          # watch → collect → shadow eval → regression → promote/rollback
+├── rule-catalog/              # catalog-as-code DATA (YAML) — no Python; pipeline lives in src/aiopspilot/rule_catalog/
+│   ├── schema/                # JSON Schema definitions (data)
+│   └── sources/               # per-source rule snapshots + provenance
 ├── policies/                  # OPA/Rego policy-as-code consumed by T0 and the verifier
-├── delivery/                  # action delivery adapters (behind one shared interface)
-│   ├── gitops-pr/             # remediation-pr adapter: GitHub App / Azure DevOps, Checks API
-│   └── chatops/               # channel adapters (Teams / Slack / email / webhook / pager / SMS)
-│                              # see channels-and-notifications.md for the Channel contract
-├── console/                   # thin read-only SPA: KPI dashboard, audit, shadow, HIL queue
-├── ui/                        # static UI kit (Calm Slate theme): component gallery + page templates
-├── infra/                     # IaC (Bicep and/or Terraform): environments, pipelines
-├── shared/                    # cross-cutting; MUST NOT import from core/
-│   ├── contracts/             # ontology types (Resource / Rule / Signal / Finding) + event / action / rule schemas (versioned) + generated types
-│   ├── providers/             # CSP-neutral cloud provider interfaces (adapters implement them)
-│   ├── telemetry/             # structured logging, tracing, metric helpers
-│   └── config/                # config schema + startup validation (fail-fast)
+├── infra/                     # IaC: Terraform (HCL); entry command `terraform apply`
+├── console/                   # (future) thin read-only SPA — placeholder
+├── ui/                        # (future) static UI kit (Calm Slate theme) — placeholder
 ├── tests/                     # cross-subsystem regression suites + shared fixtures
 ├── docs/roadmap/              # this roadmap and design docs
+├── pyproject.toml             # single manifest for the Python monorepo
 └── .github/                   # instructions/ and workflows/ (CI: lint, secret-scan, coverage)
 ```
 
 > Directory names are the canonical vocabulary. Keep module names aligned with the domain
 > terms in [language.instructions.md](../../.github/instructions/language.instructions.md)
 > (`trust-router`, `deterministic-engine`, `rule-catalog`, `risk-gate`, `remediation-pr`,
-> `shadow-mode`, `HIL`). Unit tests colocate with each subsystem; `tests/` holds only
-> cross-subsystem regression and property suites.
+> `shadow-mode`, `HIL`). Python identifier rules require `snake_case` on disk
+> (`event_ingest`, `trust_router`, `rule_catalog`); the kebab-case names above are the
+> **logical vocabulary** used in docs, rule ids, config keys, and audit records. Unit
+> tests colocate with each subsystem; `tests/` holds only cross-subsystem regression and
+> property suites.
 
 ## Module Boundaries
 
@@ -63,7 +70,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
 - **policies and rules are data, not code paths**: T0 loads `rule-catalog/` entries and
   `policies/` at runtime; adding a rule or policy never requires an engine change. Rules
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.
-  How sources are collected and normalized into that JSON is in
+  How sources are collected and normalized into that YAML is in
   [rule-catalog-collection.md](rule-catalog-collection.md).
 - **delivery is swappable**: `gitops-pr` and `chatops` are adapters behind one interface, so
   the executor emits an abstract action and the adapter renders it (remediation-pr, Adaptive
@@ -93,14 +100,21 @@ clean (see the fork model in
 
 ### Injectable Seams
 
-| Seam | Interface (in `shared/`) | Default (upstream) | Fork override example |
-|------|--------------------------|--------------------|-----------------------|
-| Cloud provider | provider client | reference/generic adapter | a specific CSP adapter |
-| Rule / policy source | rule-catalog + `policies/` loader | bundled generic rules | customer rule set / thresholds |
-| Secret & config provider | secret/config interface | env + file provider | managed secret store |
-| Delivery adapter | delivery interface | `gitops-pr` / `chatops` | a different PR host / chat channel |
-| Risk scoring & thresholds | risk-gate config | generic thresholds | customer risk policy |
-| Model provider | model client (per capability) | configured default endpoints | customer-approved models |
+The four seams marked **CSP-neutrality contract** below realize the wire-level contracts in
+[csp-neutrality.md](csp-neutrality.md). `core/` sees only the interface; a fork or a future
+non-Azure phase registers a new implementation at the composition root without editing `core/`.
+
+| Seam | Interface (in `shared/`) | Contract | Default (upstream) | Fork override example |
+|------|--------------------------|----------|--------------------|-----------------------|
+| Event bus | `EventBus` (Kafka producer/consumer) | **CSP-neutrality contract** — [event bus](csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol) | librdkafka-based client with SASL/OAUTHBEARER (Entra token source) | AWS IAM SigV4 auth, GCP IAM auth, Confluent SASL/PLAIN, self-hosted Kafka mTLS |
+| Runtime | `RuntimeAdapter` (renders OCI + Knative-compatible manifest) | **CSP-neutrality contract** — [runtime](csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest) | Container Apps IaC renderer (Bicep/Terraform) | Cloud Run YAML, App Runner service, Knative Service on any K8s |
+| Secret & config | `SecretProvider` / `ConfigProvider` | **CSP-neutrality contract** — [secret](csp-neutrality.md#3-secret-contract--environment--k8s-secret) | env + Container Apps KV-reference bridge | ESO + Key Vault / AWS Secrets Manager / GCP Secret Manager / HashiCorp Vault |
+| Workload identity | `WorkloadIdentity` (audience-scoped OIDC token) | **CSP-neutrality contract** — [workload identity](csp-neutrality.md#4-workload-identity-contract--oidc-token) | user-assigned Managed Identity (IMDS → Entra token) | IRSA, GCP Workload Identity Federation, SPIFFE/SPIRE SVID |
+| Cloud provider | provider client | (uses the four above) | reference/generic Azure adapter | a specific CSP adapter |
+| Rule / policy source | rule-catalog + `policies/` loader | — | bundled generic rules | customer rule set / thresholds |
+| Delivery adapter | delivery interface | — | `gitops-pr` / `chatops` | a different PR host / chat channel |
+| Risk scoring & thresholds | risk-gate config | — | generic thresholds | customer risk policy |
+| Model provider | model client (per capability) | — | configured default endpoints | customer-approved models |
 
 Because every seam is an injected interface, adding a customer or a second cloud is a matter of
 registering an implementation — the strict one-way dependency direction above is preserved.
@@ -148,21 +162,29 @@ flowchart LR
 
 ## Repository Conventions
 
-- One language per subsystem where practical; document the choice in
-  [tech-stack.md](tech-stack.md). Each subsystem pins dependencies with a lockfile, and CI
-  installs from the lockfile only.
+- **Python (3.12+) is the single core runtime language** for the whole monorepo; all
+  executable code lives under `src/aiopspilot/` (Python "src layout"). Rationale and the
+  historical choice matrix are in [tech-stack.md § OD-1](tech-stack.md#od-1-core-runtime-language).
+  Non-Python trees are: [rule-catalog/](../../rule-catalog/) (YAML data), [policies/](../../policies/)
+  (Rego), and [infra/](../../infra/) (Terraform HCL).
+- **One lockfile** at the repo root (`uv.lock` or equivalent); CI installs from the lockfile
+  only. The subsystem-per-lockfile guidance in earlier drafts assumed a multi-language
+  layout and is retired for the Python monorepo. Boundaries between subsystems are enforced
+  by an import-lint gate in CI, not by separate package installs.
 - Contracts (event, action, rule schemas, and ontology `ObjectType` / `LinkType` /
-  `ActionType` definitions) live in `shared/contracts/` (types) and `rule-catalog/schema/`
-  (per-kind JSON Schema), carry a **semver** version, and change only in a backward-compatible
-  way within a major version; breaking changes bump the major and ship a migration note.
-  Runtime instance storage for those types is covered in
+  `ActionType` definitions) live in `src/aiopspilot/shared/contracts/` (types) and
+  `rule-catalog/schema/` (per-kind JSON Schema), carry a **semver** version, and change
+  only in a backward-compatible way within a major version; breaking changes bump the
+  major and ship a migration note. Runtime instance storage for those types is covered in
   [llm-strategy.md § Ontology Storage Layout](llm-strategy.md#ontology-storage-layout).
-- Tests for `core/tiers/t0-deterministic` (the deterministic-engine) and `core/risk-gate` are
-  the safety core: they hold a ≥ 90% coverage gate and include property-based tests asserting
-  "high-risk never auto-executes", "shadow-mode never mutates", and "re-applying an action is a
-  no-op". Every action path also has a shadow-mode test and a rollback test.
-- Rule and policy changes ship with a regression test; the `rule-catalog/pipeline/` promotion
-  gate blocks on a failing regression suite or any policy-violation escape.
+- Tests for `src/aiopspilot/core/tiers/t0_deterministic` (the deterministic-engine) and
+  `src/aiopspilot/core/risk_gate` are the safety core: they hold a ≥ 90% coverage gate
+  and include property-based tests asserting "high-risk never auto-executes", "shadow-mode
+  never mutates", and "re-applying an action is a no-op". Every action path also has a
+  shadow-mode test and a rollback test.
+- Rule and policy changes ship with a regression test; the
+  `src/aiopspilot/rule_catalog/pipeline/` promotion gate blocks on a failing regression
+  suite or any policy-violation escape.
 - CI enforces the gates referenced above—formatter/linter, secret scanning, dependency audit,
   coverage, and regression—before review; see
   [coding-conventions.instructions.md](../../.github/instructions/coding-conventions.instructions.md).

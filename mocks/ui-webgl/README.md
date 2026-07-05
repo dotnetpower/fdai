@@ -1,6 +1,6 @@
 # WebGL Sand UI — mock
 
-A full-WebGL concept for the AzureWatcher surface: on a **light, flat canvas**, the title, KPI
+A full-WebGL concept for the AIOpsPilot surface: on a **light, flat canvas**, the title, KPI
 cards, and a status panel **fade in cleanly**. Text is rendered with **SDF glyphs**
 (`troika-three-text`) so it stays **crisp at any scale** (no texture blur / stair-stepping); card
 backgrounds and shadows use a canvas texture. Pure Three.js (loaded from a CDN), no DOM UI.

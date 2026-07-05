@@ -184,5 +184,5 @@ Rigor requirements (apply when a non-Azure adapter is eventually scoped):
 
 ## Dependencies
 
-- P3 integrated autonomous MVP with safety invariants enforced across all three domains
+- P3 integrated autonomous MVP with safety invariants enforced across all three verticals
   ([phase-3-integrated-loop.md](phase-3-integrated-loop.md)).

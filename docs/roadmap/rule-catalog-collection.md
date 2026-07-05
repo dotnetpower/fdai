@@ -1,8 +1,8 @@
 # Rule Catalog Collection
 
-How AzureWatcher **collects** checklists, best practices, policies, and baselines, and
-**normalizes** them into machine-readable JSON for the T0 deterministic engine. This document
-answers: *where do rules come from, how are they fetched, and what JSON shape do they take?*
+How AIOpsPilot **collects** checklists, best practices, policies, and baselines, and
+**normalizes** them into machine-readable YAML for the T0 deterministic engine. This document
+answers: *where do rules come from, how are they fetched, and what YAML shape do they take?*
 
 It complements — and does not restate — the normalized schema and conflict handling in
 [phase-1-rule-catalog-t0.md](phases/phase-1-rule-catalog-t0.md) and the rule-catalog principles
@@ -14,7 +14,7 @@ The continuous update pipeline is [phase-2-quality-and-t1.md](phases/phase-2-qua
 
 ## What We Collect
 
-Four distinct artifact kinds, each normalized to its own JSON shape but sharing `provenance`:
+Four distinct artifact kinds, each normalized to its own YAML shape but sharing `provenance`:
 
 | Kind | Examples | Used by |
 |------|----------|---------|
@@ -44,9 +44,10 @@ schema and stamps `provenance`. `resource-type` is normalized to a CSP-neutral v
 | Detection / signals | anomaly baselines and thresholds, forecast targets, correlation keys (feed the detectors in observability-and-detection) | authored / JSON | authored |
 | AWS / GCP (TBD) | AWS Well-Architected / Config managed rules, GCP Recommender / Policy Controller | JSON | REST API, git — **deferred**, non-Azure targets are TBD (see [Implementation Focus](../../.github/copilot-instructions.md#implementation-focus-must)) |
 
-The FinOps and DR/resilience rows exist because the control plane spans Change, DR/Chaos, and
-FinOps; a sources table covering only security/config would leave two of the three domains
-uncollected. The Detection/signals row supplies the baselines, thresholds, and correlation keys
+The FinOps and DR/resilience rows exist because the control plane spans Resilience, Change
+Safety, and Cost Governance; a sources table covering only security/config would leave two of
+the three verticals uncollected. The Detection/signals row supplies the baselines, thresholds,
+and correlation keys
 consumed by [observability-and-detection.md](observability-and-detection.md) (anomaly, forecast,
 correlation, RCA). Mapping controls to regulatory frameworks (NIST/PCI/ISO) is deferred — see
 [Open Decisions](#open-decisions).
@@ -110,65 +111,56 @@ evidence; the phase-3 scheduler runs the *tests* (the rehearsal and failover the
 
 Two DB rule examples (customer-agnostic placeholders):
 
-```json
-{
-  "id": "sql-database.encryption.tde-required",
-  "version": "1.0.0",
-  "kind": "rule",
-  "source": "example-db-benchmark",
-  "severity": "high",
-  "category": "security",
-  "resource_type": "sql-database",
-  "check_logic": {
-    "engine": "rego",
-    "ref": "policies/sql_database/tde_required.rego",
-    "entrypoint": "deny_tde_disabled"
-  },
-  "remediation": {
-    "kind": "iac-patch",
-    "ref": "remediation/sql_database/enable_tde.tftpl"
-  },
-  "provenance": {
-    "source_url": "https://example.com/db-benchmark/controls/2.1",
-    "source_version": "v1.0.0",
-    "resolved_ref": "0000000000000000000000000000000000000000",
-    "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-    "license": "LicenseRef-reference-only",
-    "retrieved_at": "2026-07-03T00:00:00Z",
-    "mapped_by": "catalog-team"
-  }
-}
+```yaml
+id: sql-database.encryption.tde-required
+version: 1.0.0
+kind: rule
+source: example-db-benchmark
+severity: high
+category: security
+resource_type: sql-database
+check_logic:
+  engine: rego
+  ref: policies/sql_database/tde_required.rego
+  entrypoint: deny_tde_disabled
+remediation:
+  kind: iac-patch
+  ref: remediation/sql_database/enable_tde.tftpl
+provenance:
+  source_url: https://example.com/db-benchmark/controls/2.1
+  source_version: v1.0.0
+  resolved_ref: "0000000000000000000000000000000000000000"
+  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  license: LicenseRef-reference-only
+  retrieved_at: 2026-07-03T00:00:00Z
+  mapped_by: catalog-team
 ```
 
-```json
-{
-  "id": "postgresql-server.dr.pitr-required",
-  "version": "1.0.0",
-  "kind": "rule",
-  "source": "example-dr-catalog",
-  "severity": "high",
-  "category": "reliability",
-  "resource_type": "postgresql-server",
-  "parameters": { "min_backup_retention_days": 7 },
-  "check_logic": {
-    "engine": "rego",
-    "ref": "policies/postgresql/dr_pitr.rego",
-    "entrypoint": "deny_pitr_disabled_or_short_retention"
-  },
-  "remediation": {
-    "kind": "iac-patch",
-    "ref": "remediation/postgresql/enable_pitr.tftpl"
-  },
-  "provenance": {
-    "source_url": "https://example.com/dr-catalog/postgresql",
-    "source_version": "v1.0.0",
-    "resolved_ref": "0000000000000000000000000000000000000000",
-    "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-    "license": "Apache-2.0",
-    "retrieved_at": "2026-07-03T00:00:00Z",
-    "mapped_by": "catalog-team"
-  }
-}
+```yaml
+id: postgresql-server.dr.pitr-required
+version: 1.0.0
+kind: rule
+source: example-dr-catalog
+severity: high
+category: reliability
+resource_type: postgresql-server
+parameters:
+  min_backup_retention_days: 7
+check_logic:
+  engine: rego
+  ref: policies/postgresql/dr_pitr.rego
+  entrypoint: deny_pitr_disabled_or_short_retention
+remediation:
+  kind: iac-patch
+  ref: remediation/postgresql/enable_pitr.tftpl
+provenance:
+  source_url: https://example.com/dr-catalog/postgresql
+  source_version: v1.0.0
+  resolved_ref: "0000000000000000000000000000000000000000"
+  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  license: Apache-2.0
+  retrieved_at: 2026-07-03T00:00:00Z
+  mapped_by: catalog-team
 ```
 
 > DB DR rules encode *checks* (is PITR on within the retention window, is a geo-replica present,
@@ -227,9 +219,9 @@ source manifest ─► fetch ─► verify ─► parse ─► map to schema ─
 - **map**: transform to the normalized schema; unmappable fields are dropped, not invented.
 - **provenance stamp**: record `source_url`, `resolved_ref` (commit/digest), `source_version`,
   `retrieved_at`, `content_hash`, `license`, and `mapped_by`.
-- **validate**: the candidate JSON MUST pass its per-kind JSON Schema (strict,
-  `additionalProperties: false`) or it is rejected; one invalid entry fails the whole source run
-  (fail-closed) rather than landing partially.
+- **validate**: the candidate YAML MUST pass its per-kind JSON Schema (strict,
+  `additionalProperties: false`, applied to the parsed YAML document) or it is rejected; one
+  invalid entry fails the whole source run (fail-closed) rather than landing partially.
 - **dedupe**: collapse by `id`, merging `provenance` for identical authored logic. This is
   **collection-time** dedup; **evaluation-time** conflict/precedence across distinct rules is a
   separate stage in
@@ -243,18 +235,21 @@ referenced by `check_logic.ref`; collectors live under `rule-catalog/sources/<so
 under `rule-catalog/schema/`, and normalized output under `rule-catalog/catalog/`. This aligns
 with [project-structure.md](project-structure.md).
 
-## JSON Normalization
+## YAML Normalization
 
-Yes — the whole catalog is JSON, validated by JSON Schema and stored as catalog-as-code.
+Yes — the whole catalog is **YAML**, validated against JSON Schema (JSON Schema is the schema
+language; the documents it validates are YAML) and stored as catalog-as-code. JSON is retained
+only for wire formats (event/message schemas, API bodies) and runtime artifacts
+(`resolved-models.json` in Key Vault); everything a human authors in `rule-catalog/` is YAML.
 
 ### Field Naming and Schema Conventions
 
-JSON keys are **snake_case**; the normalized schema fields in
+YAML keys are **snake_case**; the normalized schema fields in
 [phase-1-rule-catalog-t0.md](phases/phase-1-rule-catalog-t0.md#normalized-schema) are written
 kebab-case in prose. They are the **same fields** — the mapping is 1:1, so the two docs are not
 contradictory:
 
-| phase-1 field | JSON key |
+| phase-1 field | YAML key |
 |---------------|----------|
 | `resource-type` | `resource_type` |
 | `check-logic` | `check_logic` |
@@ -289,33 +284,32 @@ contradictory:
 
 ### Source Manifest (how to collect one source)
 
-```json
-{
-  "source_id": "example-oss-benchmark",
-  "display_name": "Example OSS Benchmark",
-  "license": "LicenseRef-reference-only",
-  "redistribution": "reference-only",
-  "priority_rank": 40,
-  "fetch": {
-    "method": "git",
-    "location": "https://example.com/benchmark.git",
-    "ref": "v1.4.0",
-    "resolved_ref": "0000000000000000000000000000000000000000",
-    "path": "controls/",
-    "auth": { "secret_ref": "SOURCE_EXAMPLE_TOKEN" },
-    "rate_limit": { "max_rps": 1, "respect_retry_after": true },
-    "paginate": true,
-    "timeout_seconds": 30,
-    "max_retries": 3
-  },
-  "parser": "yaml-benchmark",
-  "cadence": "on-demand",
-  "collect_mode": "incremental",
-  "resource_type_map": {
-    "ExampleObjectStore": "object-storage",
-    "ExampleCluster": "kubernetes-cluster"
-  }
-}
+```yaml
+source_id: example-oss-benchmark
+display_name: Example OSS Benchmark
+license: LicenseRef-reference-only
+redistribution: reference-only
+priority_rank: 40
+fetch:
+  method: git
+  location: https://example.com/benchmark.git
+  ref: v1.4.0
+  resolved_ref: "0000000000000000000000000000000000000000"
+  path: controls/
+  auth:
+    secret_ref: SOURCE_EXAMPLE_TOKEN
+  rate_limit:
+    max_rps: 1
+    respect_retry_after: true
+  paginate: true
+  timeout_seconds: 30
+  max_retries: 3
+parser: yaml-benchmark
+cadence: on-demand
+collect_mode: incremental
+resource_type_map:
+  ExampleObjectStore: object-storage
+  ExampleCluster: kubernetes-cluster
 ```
 
 `ref` is the human-readable tag requested; `resolved_ref` is the **immutable** commit/digest the
@@ -324,108 +318,93 @@ secret-store **key**, never a credential value.
 
 ### Rule / Check (normalized)
 
-```json
-{
-  "id": "object-storage.public-access.deny",
-  "version": "1.2.0",
-  "kind": "rule",
-  "source": "example-oss-benchmark",
-  "severity": "high",
-  "category": "security",
-  "resource_type": "object-storage",
-  "check_logic": {
-    "engine": "rego",
-    "ref": "policies/object_storage/public_access.rego",
-    "entrypoint": "deny_public_access"
-  },
-  "remediation": {
-    "kind": "iac-patch",
-    "ref": "remediation/object_storage/disable_public_access.tftpl"
-  },
-  "provenance": {
-    "source_url": "https://example.com/benchmark/controls/5.1",
-    "source_version": "v1.4.0",
-    "resolved_ref": "0000000000000000000000000000000000000000",
-    "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-    "license": "LicenseRef-reference-only",
-    "retrieved_at": "2026-07-03T00:00:00Z",
-    "mapped_by": "catalog-team"
-  }
-}
+```yaml
+id: object-storage.public-access.deny
+version: 1.2.0
+kind: rule
+source: example-oss-benchmark
+severity: high
+category: security
+resource_type: object-storage
+check_logic:
+  engine: rego
+  ref: policies/object_storage/public_access.rego
+  entrypoint: deny_public_access
+remediation:
+  kind: iac-patch
+  ref: remediation/object_storage/disable_public_access.tftpl
+provenance:
+  source_url: https://example.com/benchmark/controls/5.1
+  source_version: v1.4.0
+  resolved_ref: "0000000000000000000000000000000000000000"
+  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  license: LicenseRef-reference-only
+  retrieved_at: 2026-07-03T00:00:00Z
+  mapped_by: catalog-team
 ```
 
 ### Best Practice (multi-check recommendation)
 
-```json
-{
-  "id": "reliability.multi-zone.recommend",
-  "version": "1.0.0",
-  "kind": "best-practice",
-  "source": "example-waf-checklist",
-  "severity": "medium",
-  "category": "reliability",
-  "resource_type": "kubernetes-cluster",
-  "rationale": "Spreading nodes across zones reduces single-zone failure blast radius.",
-  "checks": ["kubernetes-cluster.zones.count-gte-2"],
-  "provenance": {
-    "source_url": "https://example.com/waf/reliability",
-    "source_version": "2026.06",
-    "resolved_ref": "0000000000000000000000000000000000000000",
-    "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-    "license": "LicenseRef-reference-only",
-    "retrieved_at": "2026-07-03T00:00:00Z",
-    "mapped_by": "catalog-team"
-  }
-}
+```yaml
+id: reliability.multi-zone.recommend
+version: 1.0.0
+kind: best-practice
+source: example-waf-checklist
+severity: medium
+category: reliability
+resource_type: kubernetes-cluster
+rationale: Spreading nodes across zones reduces single-zone failure blast radius.
+checks:
+  - kubernetes-cluster.zones.count-gte-2
+provenance:
+  source_url: https://example.com/waf/reliability
+  source_version: "2026.06"
+  resolved_ref: "0000000000000000000000000000000000000000"
+  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  license: LicenseRef-reference-only
+  retrieved_at: 2026-07-03T00:00:00Z
+  mapped_by: catalog-team
 ```
 
 ### Config Baseline (hardened reference set)
 
-```json
-{
-  "id": "kubernetes-cluster.hardening.baseline",
-  "version": "3.1.0",
-  "kind": "config-baseline",
-  "source": "example-baseline",
-  "resource_type": "kubernetes-cluster",
-  "controls": [
-    "kubernetes-cluster.rbac.enabled",
-    "kubernetes-cluster.api-server.no-public-ip",
-    "kubernetes-cluster.audit-log.enabled"
-  ],
-  "provenance": {
-    "source_url": "https://example.com/baseline/kubernetes",
-    "source_version": "v3.1.0",
-    "resolved_ref": "0000000000000000000000000000000000000000",
-    "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-    "license": "Apache-2.0",
-    "retrieved_at": "2026-07-03T00:00:00Z",
-    "mapped_by": "catalog-team"
-  }
-}
+```yaml
+id: kubernetes-cluster.hardening.baseline
+version: 3.1.0
+kind: config-baseline
+source: example-baseline
+resource_type: kubernetes-cluster
+controls:
+  - kubernetes-cluster.rbac.enabled
+  - kubernetes-cluster.api-server.no-public-ip
+  - kubernetes-cluster.audit-log.enabled
+provenance:
+  source_url: https://example.com/baseline/kubernetes
+  source_version: v3.1.0
+  resolved_ref: "0000000000000000000000000000000000000000"
+  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  license: Apache-2.0
+  retrieved_at: 2026-07-03T00:00:00Z
+  mapped_by: catalog-team
 ```
 
 ### Measurement Baseline (performance reference — separate store)
 
-```json
-{
-  "id": "baseline.reference-agent.2026-07",
-  "kind": "measurement-baseline",
-  "scenario_set": "v2026.07",
-  "reference_agent": "reference-agent@1.0.0",
-  "window": "P30D",
-  "metrics": {
-    "cost_per_incident_usd": 0.0,
-    "auto_resolution_rate": 0.0,
-    "mttr_seconds": 0,
-    "human_touchpoints_per_100_events": 0.0
-  },
-  "sample_size": 0,
-  "provenance": {
-    "measured_at": "2026-07-03T00:00:00Z",
-    "measured_by": "phase-0"
-  }
-}
+```yaml
+id: baseline.reference-agent.2026-07
+kind: measurement-baseline
+scenario_set: v2026.07
+reference_agent: reference-agent@1.0.0
+window: P30D
+metrics:
+  cost_per_incident_usd: 0.0
+  auto_resolution_rate: 0.0
+  mttr_seconds: 0
+  human_touchpoints_per_100_events: 0.0
+sample_size: 0
+provenance:
+  measured_at: 2026-07-03T00:00:00Z
+  measured_by: phase-0
 ```
 
 > Values above are placeholder zeros — real numbers are recorded at measurement time per
@@ -436,17 +415,18 @@ secret-store **key**, never a credential value.
 ## Storage Layout
 
 ```
-azurewatcher/
+aiopspilot/
 ├── policies/              # authored check-logic (OPA/Rego), consumed by T0 + verifier;
 │                         #   referenced by check_logic.ref  (top-level, per project-structure)
-└── rule-catalog/          # catalog-as-code
-    ├── schema/            # per-kind JSON Schema: source-manifest, rule, best-practice, config-baseline
-    ├── sources/           # one folder per source: manifest + collector + parser
+└── rule-catalog/          # catalog-as-code (YAML)
+    ├── schema/            # per-kind JSON Schema (validation language) applied to YAML documents:
+    │                      #   source-manifest, rule, best-practice, config-baseline
+    ├── sources/           # one folder per source: manifest (.yaml) + collector + parser
     │   └── <source>/
     ├── pipeline/          # watch → collect → shadow-eval → regression → promote/rollback (Phase 2)
     ├── remediation/       # remediation templates referenced by remediation.ref
-    ├── catalog/           # normalized, version-pinned JSON output (catalog-as-code)
-    └── baselines/         # measurement baselines (separate namespace + store from rules)
+    ├── catalog/           # normalized, version-pinned YAML output (catalog-as-code)
+    └── baselines/         # measurement baselines (YAML; separate namespace + store from rules)
 ```
 
 Authored Rego is **not** nested under `rule-catalog/`; it lives in the top-level `policies/`

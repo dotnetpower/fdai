@@ -1,6 +1,6 @@
 # Operating and Verification
 
-How to know AzureWatcher is **alive, correct, and behaving** — from a freshly provisioned
+How to know AIOpsPilot is **alive, correct, and behaving** — from a freshly provisioned
 deployment onward. This document is **self-observability**: how the system reports on
 itself. It is distinct from
 [observability-and-detection.md](observability-and-detection.md), which is what the system
@@ -20,8 +20,8 @@ Signals a healthy deployment MUST emit continuously. Every signal maps 1:1 to an
 | Signal | Purpose | Failure mode caught |
 |--------|---------|---------------------|
 | **Liveness probe** (per container) | container process alive | crash loop |
-| **Readiness probe** (per container) | dependencies reachable | boot without Service Bus / Key Vault / DB |
-| **Adapter healthcheck** (per provider adapter) | Service Bus reachable, Key Vault reachable, Event Grid subscription active, catalog loaded in OPA, T2 model endpoints reachable | silent dependency drop |
+| **Readiness probe** (per container) | dependencies reachable | boot without Kafka broker / Key Vault reference / DB |
+| **Adapter healthcheck** (per provider adapter) | Kafka broker reachable (Event Hubs `:9093`), Key Vault reference resolvable, Diagnostic-Settings forwarders healthy, catalog loaded in OPA, T2 model endpoints reachable | silent dependency drop |
 | **Event lag** (ingest to first tier decision) | per-tier latency | ingress backpressure |
 | **DLQ depth** (per queue / topic) | dead-letter accumulation | poison message, consumer failure |
 | **Cold-start rate + duration** | scale-to-zero warm-up cost | deadline misses (routes to HIL) |
@@ -63,8 +63,9 @@ Automated tests run against the live deployment after every promotion. A failing
 **aborts the promotion and rolls traffic back**
 ([deployment.md#release-and-rollback](deployment.md#release-and-rollback)).
 
-1. **Adapter reachability** — Service Bus round-trip, Key Vault get, DB write + delete on a
-   probe table, T2 model endpoint low-cost ping (per model, including cross-check target).
+1. **Adapter reachability** — Kafka round-trip (Event Hubs `:9093` produce + consume on a
+   probe topic), Key Vault reference resolution, DB write + delete on a probe table, T2 model
+   endpoint low-cost ping (per model, including cross-check target).
 2. **Config load** — the deployed image reports its version, catalog ref, and config hash;
    values match the expected release manifest.
 3. **Canary round-trip** — fire one synthetic event, verify the audit entry lands within

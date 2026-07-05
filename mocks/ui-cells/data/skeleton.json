@@ -1,7 +1,7 @@
 {
   "_note": "Synthetic, customer-agnostic. GUIDs are all-zero placeholders; names use example-* prefixes.",
   "id": "root",
-  "label": "AzureWatcher",
+  "label": "AIOpsPilot",
   "subtitle": "Well-Architected view",
   "g_direction": "risk",
   "views": ["pillar", "topology", "severity"],

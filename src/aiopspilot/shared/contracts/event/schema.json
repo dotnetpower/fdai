@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiopspilot.dev/schemas/event/1.0.0",
+  "title": "Event",
+  "description": "Normalized event entering the control loop. Post event-ingest, deduplicated by idempotency_key. Payloads are untrusted; the verifier and policy re-check are the authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "idempotency_key",
+    "source",
+    "event_type",
+    "detected_at",
+    "ingested_at",
+    "mode"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semver of this schema. Producers stamp; consumers check compatibility."
+    },
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique id assigned at ingress."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "Stable per-event key so at-least-once delivery yields at-most-once effect."
+    },
+    "correlation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Groups related events into one incident."
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Origin identifier, e.g. azure_activity_log, azure_resource_health, cost_management. CSP-neutral vocabulary."
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Domain-neutral type, e.g. change_detected, cost_anomaly, health_degraded, drift_detected."
+    },
+    "resource_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Optional pointer to an ontology Resource id."
+    },
+    "payload": {
+      "type": "object",
+      "description": "Untrusted event body. Never persisted verbatim if it may carry PII/secrets.",
+      "additionalProperties": true
+    },
+    "detected_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp of first detection by the upstream signal."
+    },
+    "ingested_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp of arrival at event-ingest."
+    },
+    "tier": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "t0",
+        "t1",
+        "t2",
+        null
+      ],
+      "description": "Tier that decided the event; null before routing."
+    },
+    "decision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "auto",
+        "hil",
+        "abstain",
+        "deny",
+        null
+      ],
+      "description": "Risk-gate outcome; null before decision."
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "shadow",
+        "enforce"
+      ],
+      "description": "Autonomy mode at the time of processing."
+    }
+  }
+}

@@ -1,9 +1,10 @@
-# Phase 3 — Integrated Control Loop (Change · DR/Chaos · FinOps)
+# Phase 3 — Integrated Control Loop (Resilience · Change Safety · Cost Governance)
 
-**Goal**: unify the three domains under one control loop and deliver the autonomous-operations
-MVP — the first release that runs Change, DR/Chaos, and FinOps end to end through a single
-risk-gated loop — including scheduled DR/Chaos testing and FinOps auto-actions. This phase adds
-no new tier; it composes the T0/T1/T2 router, quality gate, and risk gate delivered in P2 (see
+**Goal**: unify the three initial verticals under one control loop and deliver the
+autonomous-operations MVP — the first release that runs Resilience, Change Safety, and Cost
+Governance end to end through a single risk-gated loop — including scheduled DR/chaos testing
+and cost auto-actions. This phase adds no new tier; it composes the T0/T1/T2 router, quality
+gate, and risk gate delivered in P2 (see
 [phase-2-quality-and-t1.md](phase-2-quality-and-t1.md)) into one loop, and enforces the safety
 invariants and control-loop wiring defined in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
@@ -16,33 +17,33 @@ multipliers (see [goals-and-metrics.md](../goals-and-metrics.md)).
 
 Each deliverable maps to a section below.
 
-- **Unified control loop** across Change, DR/Chaos, and FinOps — one `trust-router` →
-  `risk-gate` → `executor` → `audit` path, with per-resource ordering/locking and cross-domain
-  conflict handling ([Unified Control Loop](#unified-control-loop)).
+- **Unified control loop** across Resilience, Change Safety, and Cost Governance — one
+  `trust-router` → `risk-gate` → `executor` → `audit` path, with per-resource ordering/locking
+  and cross-vertical conflict handling ([Unified Control Loop](#unified-control-loop)).
 - **DR/Chaos scheduler** with window-based test failover / game days, deep DB-DR handling, and
   measured RPO/RTO reporting ([#dr--chaos--scheduled-periodic-testing](#dr--chaos--scheduled-periodic-testing)).
 - **FinOps auto-actions** with risk-gated autonomy delivered as remediation PRs
   ([FinOps](#finops)).
-- **Integrated Change management** — low-risk auto-merge/reconcile, high-risk to HIL
-  ([Change Management](#change-management-integrated)).
+- **Integrated Change Safety** — low-risk auto-merge/reconcile, high-risk to HIL
+  ([Change Safety](#change-safety-integrated)).
 
 ## Unified Control Loop
 
 - **Single path**: every domain event is normalized at `event-ingest`, routed by the shared
   `trust-router`, and passes the same `risk-gate` before the `executor` acts. Domains differ in
   rules and identity, not in loop structure.
-- **Per-domain identity**: Change, DR/Chaos, and FinOps each execute under a **separate
-  user-assigned Managed Identity** scoped to its own action whitelist, so blast radius is
-  bounded by domain and no domain can assume another's identity
+- **Per-vertical identity**: Resilience, Change Safety, and Cost Governance each execute under
+  a **separate user-assigned Managed Identity** scoped to its own action whitelist, so blast
+  radius is bounded by vertical and no vertical can assume another's identity
   ([security-and-identity.md](../security-and-identity.md)).
 - **Ordering and locking**: actions that mutate the same resource are serialized on a
   per-resource key; the `executor` holds the per-resource lock for the whole action window.
   Concurrent mutations on one resource are mutually excluded across domains.
-- **Cross-domain conflict handling**: when two domains target the same resource in the same
-  window (e.g. FinOps idle-shutdown vs a DR failover rehearsal, or a Change reconcile vs a
-  rightsizing PR), the loop resolves by precedence **DR/Chaos safety hold > Change > FinOps**;
-  the lower-precedence action is deferred and re-evaluated, or escalated to HIL if it cannot be
-  safely deferred. Conflicts never resolve by racing.
+- **Cross-vertical conflict handling**: when two verticals target the same resource in the
+  same window (e.g. a cost idle-shutdown vs a DR failover rehearsal, or a change reconcile vs
+  a rightsizing PR), the loop resolves by precedence **Resilience safety hold > Change Safety
+  > Cost Governance**; the lower-precedence action is deferred and re-evaluated, or escalated
+  to HIL if it cannot be safely deferred. Conflicts never resolve by racing.
 - **Idempotency**: all P3 actions key off the stable idempotency key; re-delivered events and
   retried actions are no-ops on already-applied state.
 - **Audit**: every terminal outcome — auto-apply, HIL approve/reject/timeout, defer, abstain,
@@ -124,7 +125,7 @@ isolated copy and never on the live production DB.
 - **Outcome**: unit-cost visibility plus an automated savings loop for low-risk actions;
   reported savings are **measured**, not projected.
 
-## Change Management (integrated)
+## Change Safety (integrated)
 
 - Low-risk changes **auto-merge/reconcile**; high-risk changes go to **HIL**, where the human
   approves, rejects, or lets the request time out (reject and timeout are no-ops that still
@@ -152,7 +153,7 @@ isolated copy and never on the live production DB.
 Each criterion is measurable on the fixed scenario set and measurement window
 ([goals-and-metrics.md](../goals-and-metrics.md)):
 
-- Autonomous MVP operates across all three domains with all four safety invariants enforced and
+- Autonomous MVP operates across all three verticals with all four safety invariants enforced and
   **zero policy-violation escapes**.
 - DR/Chaos runs on schedule within approved windows, reporting measured RPO/RTO (median and p90)
   against objectives, with automatic rollback verified.

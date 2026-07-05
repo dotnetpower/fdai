@@ -1,4 +1,4 @@
-// AzureWatcher — full-WebGL operator console (read-only mock).
+// AIOpsPilot — full-WebGL operator console (read-only mock).
 // KPIs, trust-tier split, HIL queue, shadow results, and an audit log — all rendered in WebGL.
 // Card shapes/shadows use canvas textures; all text uses SDF glyphs (troika-three-text) for crisp
 // type. Wheel to scroll, click to replay. English-only, customer-agnostic, synthetic values.
