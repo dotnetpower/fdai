@@ -1,0 +1,12 @@
+# Astro / Starlight build outputs
+node_modules/
+dist/
+.astro/
+
+# Environment overrides (site can be built for a fork without editing config)
+.env
+.env.*
+!.env.example
+
+# Editor
+.DS_Store

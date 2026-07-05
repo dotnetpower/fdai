@@ -1,0 +1,32 @@
+---
+title: AIOpsPilot
+description: Autonomous cloud operations control plane — deterministic-first, event-driven, risk-gated.
+template: splash
+hero:
+  tagline: Deterministic-first autonomous cloud operations.
+  actions:
+    - text: Read the roadmap
+      link: /roadmap/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/dotnetpower/aiopspilot
+      icon: external
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+<CardGrid stagger>
+  <Card title="Change Safety" icon="pencil">
+    Rule catalog, T0 policy gate, remediation PRs. Change gate lands in shadow first.
+  </Card>
+  <Card title="Resilience" icon="rocket">
+    Scheduled resilience testing, DB DR drills, blast-radius-bounded chaos.
+  </Card>
+  <Card title="Cost Governance" icon="approve-check">
+    Cost anomaly detection, right-sizing PRs, budget guardrails per resource group.
+  </Card>
+</CardGrid>
+
+> Scaffold in progress. The full landing page (mirroring `examples/option-b-tailwind.html`) and
+> the mounted roadmap docs land in follow-up commits.

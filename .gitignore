@@ -165,7 +165,12 @@ venv.bak/
 .ropeproject
 
 # mkdocs documentation
-/site
+# (Intentionally not ignoring `/site` at the repo root: the Astro Starlight
+# docs source lives there. Its build artefacts and dependencies are ignored
+# via site/.gitignore and the explicit entries below.)
+site/node_modules/
+site/dist/
+site/.astro/
 
 # mypy
 .mypy_cache/
