@@ -121,8 +121,13 @@ export default defineConfig({
       ],
       sidebar: [
         {
-          label: "Roadmap",
-          autogenerate: { directory: "roadmap" },
+          label: "Reference",
+          items: [
+            {
+              label: "Roadmap",
+              autogenerate: { directory: "reference/roadmap" },
+            },
+          ],
         },
       ],
       editLink: {

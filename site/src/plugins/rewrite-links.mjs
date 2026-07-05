@@ -64,17 +64,17 @@ function mountSlugFrom(absPath) {
 /**
  * Map a mounted slug back to its canonical repo-relative source path.
  *
- *   roadmap/foo.md              → docs/roadmap/foo.md
- *   roadmap/index.md            → docs/roadmap/README.md
- *   roadmap/phases/foo.md       → docs/roadmap/phases/foo.md
- *   ko/roadmap/foo.md           → docs/roadmap/foo-ko.md
- *   ko/roadmap/index.md         → docs/roadmap/README-ko.md
- *   ko/roadmap/phases/foo.md    → docs/roadmap/phases/foo-ko.md
+ *   reference/roadmap/foo.md              → docs/roadmap/foo.md
+ *   reference/roadmap/index.md            → docs/roadmap/README.md
+ *   reference/roadmap/phases/foo.md       → docs/roadmap/phases/foo.md
+ *   ko/reference/roadmap/foo.md           → docs/roadmap/foo-ko.md
+ *   ko/reference/roadmap/index.md         → docs/roadmap/README-ko.md
+ *   ko/reference/roadmap/phases/foo.md    → docs/roadmap/phases/foo-ko.md
  */
 function mountSlugToOriginal(slug) {
   const isKo = slug.startsWith("ko/");
   const withoutLocale = isKo ? slug.slice(3) : slug;
-  const rest = withoutLocale.replace(/^roadmap\//, "");
+  const rest = withoutLocale.replace(/^reference\/roadmap\//, "");
   const parts = rest.split("/");
   const filename = parts[parts.length - 1];
   const dirParts = parts.slice(0, -1);
@@ -101,7 +101,7 @@ function originalToMountSlug(originalPath) {
   const bare = filename.replace(/-ko\.md$/, ".md");
   const asIndex = bare === "README.md" ? "index.md" : bare;
   const locale = isKo ? "ko/" : "";
-  return `${locale}roadmap/${[...dirParts, asIndex].join("/")}`;
+  return `${locale}reference/roadmap/${[...dirParts, asIndex].join("/")}`;
 }
 
 /**

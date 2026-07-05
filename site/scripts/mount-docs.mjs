@@ -31,8 +31,12 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const siteRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(siteRoot, "..");
 const docsSource = resolve(repoRoot, "docs", "roadmap");
-const docsMountEn = resolve(siteRoot, "src", "content", "docs", "roadmap");
-const docsMountKo = resolve(siteRoot, "src", "content", "docs", "ko", "roadmap");
+// The roadmap now lives under /reference/roadmap/ on the site so that the
+// user-facing sections (Get Started, Concepts, Guides) can occupy the top
+// of the sidebar. The canonical Markdown at docs/roadmap/ is unchanged;
+// only its mount location on the site moves.
+const docsMountEn = resolve(siteRoot, "src", "content", "docs", "reference", "roadmap");
+const docsMountKo = resolve(siteRoot, "src", "content", "docs", "ko", "reference", "roadmap");
 const staleListPath = resolve(siteRoot, "src", "data", "stale-translations.json");
 
 /**
@@ -122,9 +126,9 @@ function gitHashObject(filePath) {
  * Mirrors mountTargetFor() but returns the slug (no extension, index
  * collapsed) rather than a filesystem path.
  *
- *   goals-and-metrics-ko.md         → ko/roadmap/goals-and-metrics
- *   phases/phase-0-instrumentation-ko.md → ko/roadmap/phases/phase-0-instrumentation
- *   README-ko.md                    → ko/roadmap
+ *   goals-and-metrics-ko.md              → ko/reference/roadmap/goals-and-metrics
+ *   phases/phase-0-instrumentation-ko.md → ko/reference/roadmap/phases/phase-0-instrumentation
+ *   README-ko.md                         → ko/reference/roadmap
  */
 function mountSlugForKo(relPath) {
   const parts = relPath.split("/");
@@ -132,9 +136,9 @@ function mountSlugForKo(relPath) {
   const bareName = filename.slice(0, -"-ko.md".length);
   const dirParts = parts.slice(0, -1);
   if (bareName === "README") {
-    return ["ko", "roadmap", ...dirParts].join("/");
+    return ["ko", "reference", "roadmap", ...dirParts].join("/");
   }
-  return ["ko", "roadmap", ...dirParts, bareName].join("/");
+  return ["ko", "reference", "roadmap", ...dirParts, bareName].join("/");
 }
 
 async function main() {
