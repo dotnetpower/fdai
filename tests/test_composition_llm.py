@@ -195,3 +195,33 @@ def test_bind_rejects_hil_only_reasoner(tmp_path: Path) -> None:
             http_client=http,
             endpoint="https://oai-test",
         )
+
+
+def test_bind_hil_only_mode_uses_disagree_fake_for_secondary(tmp_path: Path) -> None:
+    """`mixed_model_mode='hil-only'` MUST bind cleanly with an
+    always-disagree fake as the secondary, so every T2 quality-gate
+    call resolves to DISAGREE and routes to HIL by design."""
+    from aiopspilot.core.quality_gate.testing import MismatchCrossCheckModel
+
+    resolved = tmp_path / "resolved-models.json"
+    payload = (
+        _resolved_models_json()
+        .replace('"mixed_model_mode": "azure-foundry"', '"mixed_model_mode": "hil-only"')
+        .replace(
+            '"t2.reasoner.secondary", "status": "resolved"',
+            '"t2.reasoner.secondary", "status": "hil-only"',
+        )
+    )
+    resolved.write_text(payload, encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    finalized = bind_azure_llm_bindings(
+        container,
+        identity=_StaticIdentity(),
+        http_client=http,
+        endpoint="https://oai-test.openai.azure.com",
+    )
+    bindings = finalized.require_llm_bindings()
+    assert len(bindings.cross_check_models) == 2
+    # Second model is the deterministic disagree fake so quorum can never form.
+    assert isinstance(bindings.cross_check_models[1], MismatchCrossCheckModel)

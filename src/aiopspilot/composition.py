@@ -46,7 +46,7 @@ from pathlib import Path
 import httpx
 
 from .core.quality_gate.gate import CrossCheckModel
-from .core.quality_gate.testing import MatchTypeCrossCheckModel
+from .core.quality_gate.testing import MatchTypeCrossCheckModel, MismatchCrossCheckModel
 from .core.tiers.t1_lightweight.testing import DeterministicEmbeddingModel
 from .core.tiers.t1_lightweight.tier import EmbeddingModel
 from .rule_catalog.schema.llm_resolver import (
@@ -218,6 +218,42 @@ def bind_azure_llm_bindings(
             "resolved-models.json lacks a bindable 't1.embedding' capability"
         )
     if primary_cap is None or secondary_cap is None:
+        # `hil-only` mode is a designed opt-out — the region cannot host
+        # a distinct-publisher secondary reasoner. Bind the primary (or a
+        # deterministic fake if even the primary is missing) plus an
+        # always-disagree fake secondary so every T2 quality-gate call
+        # returns DISAGREE and the pipeline routes to HIL by design.
+        if resolved.mixed_model_mode == "hil-only":
+            primary_model: CrossCheckModel
+            if primary_cap is not None:
+                primary_model = AzureOpenAICrossCheckModel(
+                    identity=identity,
+                    http_client=http_client,
+                    config=AzureOpenAICrossCheckModelConfig(
+                        endpoint=endpoint,
+                        deployment=primary_cap.name,
+                    ),
+                )
+            else:
+                primary_model = MatchTypeCrossCheckModel(model_id="hil-only-primary-noop")
+            embedding = AzureOpenAIEmbeddingModel(
+                identity=identity,
+                http_client=http_client,
+                config=AzureOpenAIEmbeddingModelConfig(
+                    endpoint=endpoint,
+                    deployment=embedding_cap.name,
+                    dim=_default_dim_for_family(embedding_cap.family or ""),
+                ),
+            )
+            bindings = LlmBindings(
+                embedding_model=embedding,
+                cross_check_models=(
+                    primary_model,
+                    MismatchCrossCheckModel(model_id="hil-only-force-disagree"),
+                ),
+            )
+            return replace(container, llm_bindings=bindings)
+
         raise LlmBindingsUnavailableError(
             "resolved-models.json lacks bindable T2 reasoner capabilities — "
             "the quality gate cannot form a quorum"
