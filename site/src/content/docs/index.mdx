@@ -3,7 +3,7 @@ title: AIOpsPilot
 description: Autonomous cloud operations control plane — deterministic-first, event-driven, risk-gated.
 template: splash
 hero:
-  tagline: Deterministic-first autonomous cloud operations.
+  tagline: A phased plan to build an autonomous cloud operations control plane for Change Safety, Resilience, and Cost Governance — resolving most events deterministically and reserving LLM inference for the residual ambiguous minority.
   actions:
     - text: Read the roadmap
       link: /roadmap/
@@ -12,21 +12,70 @@ hero:
     - text: View on GitHub
       link: https://github.com/dotnetpower/aiopspilot
       icon: external
+      variant: secondary
 ---
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 
+## Three domains, one control plane
+
+<p class="hero-note">Each domain shares the same event-driven, risk-gated core; they differ only in the rules and actions they load.</p>
+
 <CardGrid stagger>
-  <Card title="Change Safety" icon="pencil">
-    Rule catalog, T0 policy gate, remediation PRs. Change gate lands in shadow first.
+  <Card title="Change Safety · Phase 1" icon="pencil">
+    Rule catalog, T0 policy gate, remediation PRs. Change gate lands in shadow first, then promotes to enforce.
   </Card>
-  <Card title="Resilience" icon="rocket">
-    Scheduled resilience testing, DB DR drills, blast-radius-bounded chaos.
+  <Card title="Resilience · Phase 3" icon="rocket">
+    Scheduled resilience testing, DB DR drills, blast-radius-bounded chaos experiments — always with a stop-condition and rollback path.
   </Card>
-  <Card title="Cost Governance" icon="approve-check">
-    Cost anomaly detection, right-sizing PRs, budget guardrails per resource group.
+  <Card title="Cost Governance · Phase 3" icon="approve-check">
+    Cost anomaly detection, right-sizing PRs, budget guardrails per resource group. Auto vs HIL by risk classification.
   </Card>
 </CardGrid>
 
-> Scaffold in progress. The full landing page (mirroring `examples/option-b-tailwind.html`) and
-> the mounted roadmap docs land in follow-up commits.
+## Delivery phases
+
+<p class="hero-note">Strictly sequential — each phase names its predecessor. Read the reference docs first, then the phases in order.</p>
+
+<ol class="phase-timeline">
+  <li>
+    <span class="phase-marker" aria-hidden="true" />
+    <div class="phase-label">Phase 0</div>
+    <div class="phase-title">Instrument &amp; unblock</div>
+    <p>KPI dashboard, baseline report, identity and policy blockers resolved.</p>
+    <p class="phase-exit"><strong>Exit:</strong> reproducible baseline exists.</p>
+  </li>
+  <li>
+    <span class="phase-marker" aria-hidden="true" />
+    <div class="phase-label">Phase 1</div>
+    <div class="phase-title">Rule catalog &amp; T0</div>
+    <p>Rule catalog normalised, T0 policy gate live, remediation PRs generated automatically.</p>
+    <p class="phase-exit"><strong>Exit:</strong> change gate runs in shadow across the target scope.</p>
+  </li>
+  <li>
+    <span class="phase-marker" aria-hidden="true" />
+    <div class="phase-label">Phase 2</div>
+    <div class="phase-title">Quality gate &amp; T1</div>
+    <p>Continuous rule update, LLM quality gate with mixed-model cross-check, embedding-based pattern reuse (T1).</p>
+    <p class="phase-exit"><strong>Exit:</strong> auto-resolution rate validated vs the Phase 0 baseline.</p>
+  </li>
+  <li>
+    <span class="phase-marker" aria-hidden="true" />
+    <div class="phase-label">Phase 3</div>
+    <div class="phase-title">Integrated autonomy</div>
+    <p>Unified control loop, DR/Chaos scheduler with DB DR drills, FinOps auto-actions with risk-gated approvals.</p>
+    <p class="phase-exit"><strong>Exit:</strong> autonomous MVP across all three domains.</p>
+  </li>
+  <li class="future">
+    <span class="phase-marker" aria-hidden="true" />
+    <div class="phase-label">Phase 4 · TBD</div>
+    <div class="phase-title">Scale</div>
+    <p>Continuous measurement, pattern-library growth, model cost/quality tracking, scalability. Multi-cloud expansion is TBD.</p>
+  </li>
+</ol>
+
+:::note[Scope reminder]
+This repo is **generic and customer-agnostic**. Everything is parameterised;
+per-customer values live in a fork. Azure is the only implemented target — non-Azure
+providers and Phase 4 multi-cloud expansion are TBD.
+:::

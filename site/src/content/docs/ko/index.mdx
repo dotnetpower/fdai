@@ -1,0 +1,81 @@
+---
+title: AIOpsPilot
+description: 결정론 우선(deterministic-first) 자율 클라우드 운영 제어 평면.
+template: splash
+hero:
+  tagline: Change Safety, Resilience, Cost Governance 세 영역을 하나의 이벤트 기반 · 리스크 게이트 코어에서 처리하는 자율 클라우드 운영 제어 평면 — 반복적으로 결정 가능한 이벤트는 결정론적으로 해소하고, 남은 모호한 소수만 LLM 추론으로 넘긴다.
+  actions:
+    - text: 로드맵 읽기
+      link: /ko/roadmap/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub에서 보기
+      link: https://github.com/dotnetpower/aiopspilot
+      icon: external
+      variant: secondary
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+## 세 도메인, 하나의 제어 평면
+
+<p class="hero-note">세 도메인 모두 같은 이벤트 기반 · 리스크 게이트 코어를 공유한다. 다른 것은 각 도메인이 로드하는 규칙과 액션뿐이다.</p>
+
+<CardGrid stagger>
+  <Card title="Change Safety · Phase 1" icon="pencil">
+    규칙 카탈로그, T0 정책 게이트, remediation PR. Change 게이트는 먼저 shadow로 도입한 뒤 enforce로 승격한다.
+  </Card>
+  <Card title="Resilience · Phase 3" icon="rocket">
+    스케줄링된 회복력 검증, DB DR 훈련, blast-radius 제한 카오스 실험 — 항상 stop-condition과 롤백 경로를 갖춘다.
+  </Card>
+  <Card title="Cost Governance · Phase 3" icon="approve-check">
+    비용 이상 탐지, 라이트사이징 PR, 리소스 그룹별 예산 가드레일. 리스크 분류에 따라 auto vs HIL로 나뉜다.
+  </Card>
+</CardGrid>
+
+## 배포 단계 (Delivery Phases)
+
+<p class="hero-note">엄격한 순차 진행 — 각 단계는 이전 단계를 지명한다. 참조 문서를 먼저 읽고 단계 문서를 순서대로 따라가세요.</p>
+
+<ol class="phase-timeline">
+  <li>
+    <span class="phase-marker" aria-hidden="true" />
+    <div class="phase-label">Phase 0</div>
+    <div class="phase-title">Instrument &amp; unblock</div>
+    <p>KPI 대시보드, 기준선 보고서, 아이덴티티 · 정책 블로커 제거.</p>
+    <p class="phase-exit"><strong>Exit:</strong> 재현 가능한 기준선(reproducible baseline) 확보.</p>
+  </li>
+  <li>
+    <span class="phase-marker" aria-hidden="true" />
+    <div class="phase-label">Phase 1</div>
+    <div class="phase-title">Rule catalog &amp; T0</div>
+    <p>규칙 카탈로그 정규화, T0 정책 게이트 가동, remediation PR 자동 생성.</p>
+    <p class="phase-exit"><strong>Exit:</strong> Change 게이트가 대상 스코프에서 shadow 모드로 운영.</p>
+  </li>
+  <li>
+    <span class="phase-marker" aria-hidden="true" />
+    <div class="phase-label">Phase 2</div>
+    <div class="phase-title">Quality gate &amp; T1</div>
+    <p>규칙 지속 업데이트, mixed-model 교차 검증 LLM 품질 게이트, 임베딩 기반 패턴 재사용(T1).</p>
+    <p class="phase-exit"><strong>Exit:</strong> Phase 0 기준선 대비 자동해소율 검증.</p>
+  </li>
+  <li>
+    <span class="phase-marker" aria-hidden="true" />
+    <div class="phase-label">Phase 3</div>
+    <div class="phase-title">Integrated autonomy</div>
+    <p>통합 제어 루프, DR/Chaos 스케줄러(DB DR 훈련 포함), 리스크 게이트가 승인 흐름을 감독하는 FinOps 자동 액션.</p>
+    <p class="phase-exit"><strong>Exit:</strong> 세 도메인 전반의 자율 MVP.</p>
+  </li>
+  <li class="future">
+    <span class="phase-marker" aria-hidden="true" />
+    <div class="phase-label">Phase 4 · TBD</div>
+    <div class="phase-title">Scale</div>
+    <p>지속 측정, 패턴 라이브러리 성장, 모델 비용/품질 추적, 확장성. 멀티 클라우드 확장은 TBD.</p>
+  </li>
+</ol>
+
+:::note[스코프 안내]
+이 리포지토리는 **범용이자 고객 비의존적(customer-agnostic)** 이다. 모든 값은
+매개변수화되어 있으며 고객별 값은 포크(fork)에 존재한다. **Azure만 구현 대상**이며,
+비-Azure 프로바이더와 Phase 4 멀티 클라우드 확장은 TBD.
+:::

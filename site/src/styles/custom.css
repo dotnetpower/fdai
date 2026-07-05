@@ -45,3 +45,61 @@
     --sl-content-margin-inline: auto;
   }
 }
+
+/*
+ * Landing page (splash template) — inline <style> blocks in MDX collide
+ * with the MDX parser because CSS `{}` looks like a JSX expression, so
+ * the styles live here instead. Kept scoped to the landing selectors
+ * so they don't leak into doc pages.
+ */
+.hero-note {
+  color: var(--sl-color-gray-3);
+  margin-top: -0.5rem;
+}
+.phase-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 2rem 0;
+  border-inline-start: 2px solid var(--sl-color-hairline);
+}
+.phase-timeline li {
+  position: relative;
+  padding: 0.25rem 0 1.5rem 1.75rem;
+}
+.phase-timeline li::marker {
+  content: "";
+}
+.phase-marker {
+  position: absolute;
+  left: -0.6rem;
+  top: 0.4rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  background: var(--sl-color-text-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--sl-color-text-accent) 25%, transparent);
+}
+.phase-timeline li.future .phase-marker {
+  background: var(--sl-color-gray-4);
+  box-shadow: 0 0 0 4px var(--sl-color-gray-6, transparent);
+}
+.phase-label {
+  font-size: var(--sl-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--sl-color-text-accent);
+}
+.phase-timeline li.future .phase-label {
+  color: var(--sl-color-gray-3);
+}
+.phase-title {
+  font-size: var(--sl-text-lg);
+  font-weight: 600;
+  margin-top: 0.15rem;
+}
+.phase-exit {
+  color: var(--sl-color-gray-3);
+  font-size: var(--sl-text-sm);
+  margin-top: 0.25rem;
+}
