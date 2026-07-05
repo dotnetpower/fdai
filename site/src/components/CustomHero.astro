@@ -1,0 +1,60 @@
+---
+/*
+ * CustomHero.astro — Starlight <Hero> override for the landing page.
+ *
+ * Adds two visual touches from examples/option-b-tailwind.html that
+ * the default Starlight hero lacks:
+ *
+ *   1. A soft radial-glow backdrop behind the hero, mirroring the
+ *      mockup's `.glow` layer (two overlapping radial gradients in
+ *      the Azure palette). Rendered as an ::before pseudo-element on
+ *      a wrapping <div> so it sits behind the hero content without
+ *      touching Starlight's own layout.
+ *   2. A gradient sweep on the H1 text (from `--sl-color-text-accent`
+ *      to the Azure accent cyan) so the tagline reads as a proper
+ *      landing headline instead of a stock docs title.
+ *
+ * The Starlight default Hero is delegated to for everything else
+ * (buttons, tagline text, image slot, actions), so this override is
+ * additive rather than replacing Starlight's behaviour.
+ */
+
+import Default from "@astrojs/starlight/components/Hero.astro";
+---
+
+<div class="landing-hero">
+  <Default {...Astro.props}><slot /></Default>
+</div>
+
+<style>
+  .landing-hero {
+    position: relative;
+    isolation: isolate;
+    padding-block: 1.5rem;
+  }
+  .landing-hero::before {
+    content: "";
+    position: absolute;
+    inset: -4rem -2rem 0 -2rem;
+    z-index: -1;
+    background:
+      radial-gradient(80% 60% at 15% 10%, rgba(0, 120, 212, 0.18), transparent 60%),
+      radial-gradient(60% 50% at 85% 30%, rgba(80, 230, 255, 0.15), transparent 60%);
+    pointer-events: none;
+  }
+  :global([data-theme="dark"]) .landing-hero::before {
+    background:
+      radial-gradient(80% 60% at 15% 10%, rgba(0, 120, 212, 0.28), transparent 60%),
+      radial-gradient(60% 50% at 85% 30%, rgba(80, 230, 255, 0.10), transparent 60%);
+  }
+  /* Gradient sweep on the hero title. Scoped to the landing hero so
+     it does not leak into interior doc pages. */
+  .landing-hero :global(h1) {
+    background: linear-gradient(90deg, var(--sl-color-text-accent), #50e6ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+</style>

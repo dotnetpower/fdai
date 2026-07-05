@@ -56,6 +56,33 @@
   color: var(--sl-color-gray-3);
   margin-top: -0.5rem;
 }
+
+/*
+ * Splash-template card polish mirroring examples/option-b-tailwind.html:
+ * fluent depth-4 shadow at rest, depth-8 on hover, subtle lift, and a
+ * left-aligned Azure accent icon container. Scoped to the splash layout
+ * so interior doc pages keep Starlight's default card styling.
+ */
+[data-page-layout="splash"] .card {
+  border-radius: 0.75rem;
+  border: 1px solid var(--sl-color-hairline);
+  box-shadow: 0 1.6px 3.6px rgba(0, 0, 0, 0.05), 0 0.3px 0.9px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 160ms ease, transform 160ms ease;
+  background: var(--sl-color-bg);
+}
+[data-page-layout="splash"] .card:hover {
+  box-shadow: 0 6.4px 14.4px rgba(0, 0, 0, 0.10), 0 1.2px 3.6px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+[data-page-layout="splash"] .card .icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--sl-color-text-accent) 12%, transparent);
+  color: var(--sl-color-text-accent);
+}
+
 .phase-timeline {
   list-style: none;
   padding: 0;
@@ -77,11 +104,16 @@
   height: 1.1rem;
   border-radius: 999px;
   background: var(--sl-color-text-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--sl-color-text-accent) 25%, transparent);
+  /* Ring effect from option-b — soft halo around the dot. */
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--sl-color-text-accent) 20%, transparent),
+    0 0 0 8px color-mix(in srgb, var(--sl-color-text-accent) 8%, transparent);
 }
 .phase-timeline li.future .phase-marker {
   background: var(--sl-color-gray-4);
-  box-shadow: 0 0 0 4px var(--sl-color-gray-6, transparent);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--sl-color-gray-4) 20%, transparent),
+    0 0 0 8px color-mix(in srgb, var(--sl-color-gray-4) 8%, transparent);
 }
 .phase-label {
   font-size: var(--sl-text-xs);
@@ -102,4 +134,17 @@
   color: var(--sl-color-gray-3);
   font-size: var(--sl-text-sm);
   margin-top: 0.25rem;
+}
+
+/*
+ * Splash-template <aside> (from Starlight's :::note directive) styled
+ * as a two-column callout in the option-b spirit: a big circular Azure
+ * icon on the left, prose on the right. Only takes effect on the splash
+ * layout so interior asides keep Starlight's default look.
+ */
+[data-page-layout="splash"] .starlight-aside--note {
+  border: 1px solid color-mix(in srgb, var(--sl-color-text-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--sl-color-text-accent) 6%, var(--sl-color-bg));
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem;
 }
