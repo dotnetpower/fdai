@@ -40,7 +40,7 @@ resource "azurerm_cognitive_deployment" "capability" {
 
 # Runtime role: executor MI invokes deployments as an AOAI User (data-plane).
 resource "azurerm_role_assignment" "executor_openai_user" {
-  count                = var.executor_principal_id == null ? 0 : 1
+  count                = var.grant_executor_role ? 1 : 0
   scope                = azurerm_cognitive_account.primary.id
   role_definition_name = "Cognitive Services OpenAI User"
   principal_id         = var.executor_principal_id

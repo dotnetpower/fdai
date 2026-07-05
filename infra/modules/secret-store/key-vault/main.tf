@@ -15,7 +15,7 @@ resource "azurerm_key_vault" "primary" {
 
 # Grant the executor MI runtime read access to secrets.
 resource "azurerm_role_assignment" "executor_secrets_user" {
-  count                = var.executor_principal_id == null ? 0 : 1
+  count                = var.grant_executor_role ? 1 : 0
   scope                = azurerm_key_vault.primary.id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = var.executor_principal_id

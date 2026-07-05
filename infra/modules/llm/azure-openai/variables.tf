@@ -28,11 +28,18 @@ variable "tags" {
 variable "executor_principal_id" {
   description = <<-EOT
     Object id of the executor Managed Identity that will invoke the deployments.
-    When non-null, the module role-assigns `Cognitive Services OpenAI User` on
-    the account so runtime calls succeed without extra plane-shifts.
+    When ``grant_executor_role`` is true, the module role-assigns `Cognitive
+    Services OpenAI User` on the account so runtime calls succeed without
+    extra plane-shifts.
   EOT
   type        = string
   default     = null
+}
+
+variable "grant_executor_role" {
+  description = "Explicit bool guarding the role assignment — kept out of `count` conditions on unknown-at-plan-time values."
+  type        = bool
+  default     = true
 }
 
 variable "resolved_capabilities" {
