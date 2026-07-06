@@ -1,7 +1,7 @@
 ---
 title: AIOpsPilot 로드맵
 translation_of: README.md
-translation_source_sha: ce73f9d932e8394b11d03b1bdcf9e5193c4c1cf5
+translation_source_sha: 1ed8ab794294a89c69426a458bf37d0f1a16e896
 translation_revised: 2026-07-06
 ---
 
@@ -60,6 +60,8 @@ AIOpsPilot 뒤편의 엔지니어링 계획. 이 폴더는
 | 11 | [deploy-and-onboard-ko.md](deploy-and-onboard-ko.md) | 구체적인 Azure 리소스 인벤토리, 부트스트랩 순서, fork vs core 분리 |
 | 12 | [startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md) | 콜드 스타트, day-zero 카탈로그, shadow-first 롤아웃, discovery-loop 킥오프 |
 | 13 | [operating-and-verification-ko.md](operating-and-verification-ko.md) | 자체 헬스 신호, canary 이벤트, 스모크 테스트, 알림 라우팅, 런북 |
+| 20 | [deployment-preflight-ko.md](deployment-preflight-ko.md) | 배포 전 가능성 및 blocker 수집: 프로브 분류법, readiness 리포트, blocker-테라폼-토글 매핑 |
+| 21 | [assurance-twin-ko.md](assurance-twin-ko.md) | 아키텍처 리뷰 / Q&A / assessment를 위한 질의가능 온톨로지 트윈: text-to-query, 선제 리뷰, 그래프 전체 what-if, shadow 제안 |
 
 ### 비용, 사용자, 채널, 위험, 패리티
 
@@ -70,6 +72,7 @@ AIOpsPilot 뒤편의 엔지니어링 계획. 이 폴더는
 | 16 | [channels-and-notifications-ko.md](channels-and-notifications-ko.md) | 비-웹UI 채널(Teams / Slack / email / webhook / pager / SMS), 카테고리와 trust-tier 매트릭스 |
 | 17 | [risk-classification-ko.md](risk-classification-ko.md) | auto vs HIL vs deny 분류: 차원, 초기 규칙 표, 환경 감지 |
 | 18 | [dev-and-deploy-parity-ko.md](dev-and-deploy-parity-ko.md) | dev-mode local-fake vs deploy-mode Azure-first 패리티 계약, 배포자 스코프 LLM 프로비저닝 게이트 |
+| 19 | [operator-console-ko.md](operator-console-ko.md) | 대화형 surface (CLI / Teams / Slack / web), 3-layer 아키텍처, tool 별 RBAC 매트릭스, LLM tier 모델, 세션 지속성 |
 
 ### 프롬프트 서브시스템
 

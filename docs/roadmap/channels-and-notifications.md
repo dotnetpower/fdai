@@ -15,6 +15,14 @@ Teams-specific flows in
 Web-UI (the read-only console) is out of scope for this doc; the console's identity flow
 lives in [user-rbac-and-identity.md](user-rbac-and-identity.md).
 
+> **Direction scope.** This document covers **push** (system → human):
+> notifications, alerts, and approval-card fan-out. The **pull** direction
+> (human → system: conversational queries, tool calls, session-scoped
+> approvals via the same channels) is documented in
+> [operator-console.md](operator-console.md). Push and pull share channel
+> credentials + routing config but ship as distinct adapters so send-only
+> and receive-plus-send blast-radius stay separate.
+
 > Customer-agnostic: every channel id, group name, and endpoint below is a **placeholder**.
 > A fork supplies its own tenant, workspace, and endpoint values via config
 > ([generic-scope.instructions.md](../../.github/instructions/generic-scope.instructions.md)).

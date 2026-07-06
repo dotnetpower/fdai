@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: e9583cc5609f1f9e0a295286aed74d5ecffc398e
+translation_source_sha: 6e070ea568beddd31625b19e494450445015ae89
 translation_revised: 2026-07-06
 ---
 
@@ -18,6 +18,14 @@ Routing 조각들과
 
 웹-UI(읽기 전용 콘솔) 는 이 문서 범위 밖; 콘솔의 아이덴티티 흐름은
 [user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md) 에 있음.
+
+> **방향 범위.** 이 문서는 **push** (시스템 → 사람) 를 다룸: 알림, 알람,
+> approval-card fan-out. **Pull** 방향 (사람 → 시스템: 대화형 query, tool
+> call, 같은 채널을 통한 세션-scoped 승인) 은
+> [operator-console.md](operator-console-ko.md) 에 문서화. Push 와 pull 은
+> 채널 credential + routing config 를 공유하지만 send-only 와
+> receive-plus-send blast-radius 를 별개로 유지하기 위해 별개 adapter 로
+> ship.
 
 > 고객-비종속: 아래 모든 채널 id, 그룹 이름, 엔드포인트는 **placeholder** ; 포크가 config로
 > 자체 tenant, workspace, 엔드포인트 값 공급
