@@ -12,6 +12,7 @@ Nothing in this package is production-safe - mutations vanish on process
 restart. The real Postgres + Kafka adapters land with W1.5 and W6.3.
 """
 
+from .direct_api import RecordingDirectApiExecutor
 from .event_bus import InMemoryEventBus
 from .remediation_pr import RecordingRemediationPrPublisher
 from .secret_provider import InMemorySecretProvider
@@ -24,6 +25,7 @@ __all__ = [
     "InMemorySecretProvider",
     "InMemorySseSink",
     "InMemoryStateStore",
+    "RecordingDirectApiExecutor",
     "RecordingRemediationPrPublisher",
     "StaticWorkloadIdentity",
 ]

@@ -1,7 +1,7 @@
 ---
 title: 구현 계획 (표준 세트)
 translation_of: implementation-plan.md
-translation_source_sha: 0821abeb8a81f5f61cad33ac2dd6bfaa5ac9335c
+translation_source_sha: a4845c8fbcf2f4f1d297c99f63663f9ec5687287
 translation_revised: 2026-07-06
 ---
 
@@ -417,7 +417,16 @@ W1 뒤.
   의 `governance.*` ActionType YAML. 전부 `execution_path: pr_native`.
 - **W2.3** `src/aiopspilot/core/executor/direct_api.py`의 Direct-API
   executor. 아이덤포턴시 키 재사용, `stop_conditions` 강제,
-  `mutation_target=direct` HIL 아이템 지원.
+  `mutation_target=direct` HIL 아이템 지원. **스켈레톤 배송 완료**:
+  CSP-중립 :class:`DirectApiExecutor` Protocol + fake
+  (`shared/providers/direct_api.py` +
+  `shared/providers/testing/direct_api.py`)가 idempotency-by-key,
+  ``enforce`` 프로모션 레이블 체크, outcome enum
+  (`SUCCEEDED / ALREADY_APPLIED / PRECONDITION_FAILED / STOPPED /
+  FAILED`)까지 포함해서 shipping. 남은 단계는 `core/executor/direct_api.py`
+  글루 (composition, audit wiring, HIL enqueue)이며,
+  [execution-model.md § 5.4](execution-model.md#54-executor-selection-at-dispatch)
+  의 fallback-idempotency 불변식을 반드시 준수해야 한다.
 - **W2.4** 배송되는 ops 액션용 Azure ARM 어댑터.
 - **W2.5** Cost Governance vertical이 Axis A에 estimator를 노출
   ([execution-model.md § 2.8](execution-model.md#28-cost-increasing-ops-actions)).

@@ -433,7 +433,16 @@ Follows W1. Implements
 - **W2.3** Direct-API executor at
   `src/aiopspilot/core/executor/direct_api.py` with idempotency-key
   reuse, `stop_conditions` enforcement, and `mutation_target=direct`
-  HIL items.
+  HIL items. **Skeleton shipped**: the CSP-neutral
+  :class:`DirectApiExecutor` Protocol + fake
+  (`shared/providers/direct_api.py` +
+  `shared/providers/testing/direct_api.py`) with idempotency-by-key,
+  the ``enforce`` promotion-label check, and outcome enum
+  (`SUCCEEDED / ALREADY_APPLIED / PRECONDITION_FAILED / STOPPED /
+  FAILED`). The `core/executor/direct_api.py` glue (composition,
+  audit wiring, HIL enqueue) is the remaining step and MUST honour
+  the fallback-idempotency invariant in
+  [execution-model.md § 5.4](execution-model.md#54-executor-selection-at-dispatch).
 - **W2.4** Azure ARM adapters for the shipped ops actions.
 - **W2.5** Cost Governance vertical exposes the estimator to Axis A
   ([execution-model.md § 2.8](execution-model.md#28-cost-increasing-ops-actions)).
