@@ -130,6 +130,17 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
   CSP-neutral records. Link extraction (`contains` / `attached_to` /
   `depends_on`) lands with the risk-gate blast-radius work in P2.
 - **Fixtures and a regression suite** covering the initial rule set and the detection paths.
+- **Frozen scenario replay harness** —
+  [`tests/scenarios/test_v2026_07_replay.py`](../../../tests/scenarios/test_v2026_07_replay.py)
+  parametrizes every scenario under
+  [`tests/scenarios/v2026.07/`](../../../tests/scenarios/v2026.07/) through
+  the real `ControlLoop.process(...)` using the shipped catalog + Rego +
+  IaC templates. Each frozen scenario is either paired with a
+  concrete-payload overlay under
+  [`tests/scenarios/enrichment/v2026.07/`](../../../tests/scenarios/enrichment/v2026.07/)
+  (P1-replayable) or marked `xfail` with an in-code reason (T1/T2 or
+  risk-gate not wired yet). A guard test ensures no scenario is silently
+  skipped without an explicit reason.
 
 ## Rule Catalog
 

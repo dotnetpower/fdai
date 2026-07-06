@@ -1,0 +1,15 @@
+{
+  "scenario_id": "finops.unattached-public-ip.001",
+  "shipped_rule_id": "network.public-ip.orphan",
+  "event_payload_resource": {
+    "resource_id": "example-orphan-pip",
+    "type": "network.public-ip",
+    "props": {
+      "associated_resource_id": ""
+    }
+  },
+  "expected_control_loop_outcome": "executed",
+  "expected_decision": "auto",
+  "expected_citing_rule_id_present": "network.public-ip.orphan",
+  "note": "Maps the placeholder rule id `example.finops.release-unattached-pip` to the shipped `network.public-ip.orphan`; low-severity so P1 ControlLoop opens a shadow PR."
+}

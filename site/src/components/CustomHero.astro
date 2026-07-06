@@ -24,9 +24,40 @@
  * The Starlight default Hero is delegated to for everything else
  * (buttons, tagline text, image slot, actions), so this override is
  * additive rather than replacing Starlight's behaviour.
+ *
+ * One fix-up before delegation: Starlight's Hero renders
+ * `hero.actions[].link` verbatim into `<LinkButton href>`, which does
+ * NOT prepend Astro's configured `base`. On a GitHub Pages project
+ * page (base = "/aiopspilot") that turns a landing CTA authored as
+ * `/get-started/` into a link to the user-site root, giving a 404.
+ * Rewrite each internal action link through `import.meta.env.BASE_URL`
+ * so the base is applied at build time — fork owners that override
+ * `BASE_PATH` via env still get the correct prefix without editing
+ * `index.mdx`. Absolute URLs and links that already start with the
+ * base are left untouched.
  */
 
 import Default from "@astrojs/starlight/components/Hero.astro";
+
+const BASE = import.meta.env.BASE_URL; // trailing-slash form, e.g. "/aiopspilot/"
+
+/** @param {string | undefined} link */
+function withBase(link) {
+  if (!link) return link;
+  if (/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(link)) return link; // external
+  if (link.startsWith("#") || link.startsWith("?")) return link;
+  const base = BASE.endsWith("/") ? BASE : BASE + "/";
+  if (link.startsWith(base)) return link;
+  const normalized = link.startsWith("/") ? link.slice(1) : link;
+  return base + normalized;
+}
+
+const route = Astro.locals.starlightRoute;
+const hero = route?.entry?.data?.hero;
+if (hero?.actions?.length) {
+  // Shallow-clone so we do not mutate the shared route entry data.
+  hero.actions = hero.actions.map((a) => ({ ...a, link: withBase(a.link) }));
+}
 ---
 
 <div class="landing-hero">

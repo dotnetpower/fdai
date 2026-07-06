@@ -1,0 +1,15 @@
+{
+  "scenario_id": "change.tag-owner-missing.001",
+  "shipped_rule_id": "object-storage.owner-tag.required",
+  "event_payload_resource": {
+    "resource_id": "example-storage-account",
+    "type": "object-storage",
+    "props": {
+      "tags": {}
+    }
+  },
+  "expected_control_loop_outcome": "executed",
+  "expected_decision": "auto",
+  "expected_citing_rule_id_present": "object-storage.owner-tag.required",
+  "note": "Maps the placeholder rule id `example.tag.owner-required` to the shipped `object-storage.owner-tag.required`; low-severity so P1 ControlLoop opens a shadow PR."
+}
