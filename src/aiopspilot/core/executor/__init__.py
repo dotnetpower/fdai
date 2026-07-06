@@ -17,6 +17,11 @@ Public exports (P1 W-3 Step 3e):
   template substitution.
 """
 
+from aiopspilot.core.executor.direct_api import (
+    DirectApiExecutionOutcome,
+    DirectApiExecutionResult,
+    DirectApiShadowExecutor,
+)
 from aiopspilot.core.executor.executor import (
     ExecutionResult,
     ExecutorConfig,
@@ -31,6 +36,9 @@ from aiopspilot.core.executor.renderer import (
 )
 
 __all__ = [
+    "DirectApiExecutionOutcome",
+    "DirectApiExecutionResult",
+    "DirectApiShadowExecutor",
     "ExecutionResult",
     "ExecutorConfig",
     "ExecutorOutcome",

@@ -479,16 +479,22 @@ Follows W1. Implements
 - **W2.3** Direct-API executor at
   `src/aiopspilot/core/executor/direct_api.py` with idempotency-key
   reuse, `stop_conditions` enforcement, and `mutation_target=direct`
-  HIL items. **Skeleton shipped**: the CSP-neutral
-  :class:`DirectApiExecutor` Protocol + fake
-  (`shared/providers/direct_api.py` +
+  HIL items. **Shipped**: the CSP-neutral :class:`DirectApiExecutor`
+  Protocol + fake (`shared/providers/direct_api.py` +
   `shared/providers/testing/direct_api.py`) with idempotency-by-key,
-  the ``enforce`` promotion-label check, and outcome enum
-  (`SUCCEEDED / ALREADY_APPLIED / PRECONDITION_FAILED / STOPPED /
-  FAILED`). The `core/executor/direct_api.py` glue (composition,
-  audit wiring, HIL enqueue) is the remaining step and MUST honour
-  the fallback-idempotency invariant in
-  [execution-model.md § 5.4](execution-model.md#54-executor-selection-at-dispatch).
+  the ``enforce`` promotion-label check, and the five-value outcome
+  enum (`SUCCEEDED / ALREADY_APPLIED / PRECONDITION_FAILED / STOPPED
+  / FAILED`) - AND the `core/executor/direct_api.py` glue
+  (:class:`DirectApiShadowExecutor`) that mirrors
+  :class:`~aiopspilot.core.executor.executor.ShadowExecutor`: same
+  per-resource lock, same blast-radius cap, same four-safety-
+  invariant fail-close, same shadow-only refusal for enforce-mode
+  Actions. Every terminal path writes exactly one audit entry with
+  ``action_kind = "executor.direct_api.<outcome>"`` (eight distinct
+  outcomes) and ``execution_path = "direct_api"``, so the audit
+  trail is filterable from the PR-native path.  Composition-root
+  wiring + HIL enqueue on `mutation_target=direct` remains a
+  follow-up.
 - **W2.4** Azure ARM adapters for the shipped ops actions.
 - **W2.5** Cost Governance vertical exposes the estimator to Axis A
   ([execution-model.md § 2.8](execution-model.md#28-cost-increasing-ops-actions)).
