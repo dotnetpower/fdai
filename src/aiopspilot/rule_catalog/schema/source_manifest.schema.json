@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiopspilot.dev/schemas/rule-catalog/source-manifest/1.0.0",
+  "title": "SourceManifest",
+  "description": "One rule-catalog source manifest. Declares WHAT to fetch, from WHERE, at WHICH revision, and under WHICH license. Consumed by the collector pipeline (see docs/roadmap/rule-catalog-collection.md § Collector Architecture). One file per source, lives under rule-catalog/sources/<id>/manifest.yaml.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "name",
+    "license",
+    "redistribution",
+    "fetch",
+    "parser"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{1,63}$",
+      "description": "Stable source id used in every rule's `source` field. Matches the enum documented in the rule schema."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "url_prefix": {
+      "type": "string",
+      "format": "uri",
+      "description": "Canonical documentation URL prefix for the source."
+    },
+    "license": {
+      "type": "string",
+      "description": "SPDX id (e.g. `Apache-2.0`, `MIT`) or `LicenseRef-reference-only` for controls whose text is reserved (CIS, ISO, PCI, ...).",
+      "minLength": 1
+    },
+    "redistribution": {
+      "type": "string",
+      "enum": ["embeddable", "reference-only"],
+      "description": "`embeddable` = original text MAY ship in the normalized rule (permissive OSS license). `reference-only` = the collector authors an independent check and only cites the source via provenance."
+    },
+    "fetch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["git", "local", "http"],
+          "description": "Fetch adapter to use. `git` for a git clone at a pinned revision, `http` for a single-URL download, `local` for a fixture-backed source (tests + a hand-authored source shipped in-repo)."
+        },
+        "repo": {
+          "type": "string",
+          "description": "git clone URL (kind=git)."
+        },
+        "revision": {
+          "type": "string",
+          "description": "Immutable git commit SHA or artifact digest. MUST NOT be a mutable branch/tag."
+        },
+        "subpath": {
+          "type": "string",
+          "description": "Subdirectory within the fetched tree to include in the snapshot."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Fetch URL for kind=http."
+        },
+        "expected_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Optional SHA-256 of the fetched artifact. The verifier compares and refuses on mismatch (kind=http primarily)."
+        },
+        "path": {
+          "type": "string",
+          "description": "Filesystem path for kind=local (relative to repo root or absolute). Used by tests + hand-authored sources."
+        }
+      }
+    },
+    "parser": {
+      "type": "string",
+      "description": "Parser plugin id. Later phases register concrete parsers (`rego`, `azure-policy-json`, `checkov-yaml`, ...); the collector rejects an unknown value at load time.",
+      "minLength": 1
+    },
+    "cadence": {
+      "type": "string",
+      "enum": ["on-demand", "daily", "weekly", "monthly"],
+      "default": "on-demand",
+      "description": "How often the Phase 2 watcher re-fetches. `on-demand` = manual runs only."
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"fetch": {"properties": {"kind": {"const": "git"}}}}},
+      "then": {
+        "properties": {
+          "fetch": {
+            "required": ["repo", "revision"]
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"fetch": {"properties": {"kind": {"const": "http"}}}}},
+      "then": {
+        "properties": {
+          "fetch": {
+            "required": ["url", "expected_sha256"]
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"fetch": {"properties": {"kind": {"const": "local"}}}}},
+      "then": {
+        "properties": {
+          "fetch": {
+            "required": ["path"]
+          }
+        }
+      }
+    }
+  ]
+}
