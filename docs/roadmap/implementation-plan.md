@@ -499,7 +499,20 @@ Follows W1. Implements
 - **W2.5** Cost Governance vertical exposes the estimator to Axis A
   ([execution-model.md § 2.8](execution-model.md#28-cost-increasing-ops-actions)).
 - **W2.6** Executor path selection tests (R7: `require_manual_merge`
-  strictly raises never lowers).
+  strictly raises never lowers). **Shipped**:
+  `core/executor/path_selection.py` exports
+  :func:`strictest_execution_path` (commutative, associative fold
+  over any number of axis outputs; ``None`` acts as no-opinion;
+  ``(None, None)`` fails closed with
+  :class:`ExecutionPathSelectionError`) and
+  :func:`is_strictly_stricter_than` for the raise-only guard. 73
+  property tests fix the strictness ladder (`pr_manual > pr_native
+  > direct_api`), commutativity + associativity across every
+  3-tuple, the axis-can-only-raise invariant, and the "output is
+  always one of the inputs" no-fabrication rule. The RiskGate MAY
+  wire this at ceiling-resolution time once it grows a
+  ``forced_execution_path`` axis output; the executor may re-compose
+  it at dispatch time as defense in depth.
 
 **Exit gate**
 

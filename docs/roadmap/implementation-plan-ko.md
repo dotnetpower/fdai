@@ -1,7 +1,7 @@
 ---
 title: 구현 계획 (표준 세트)
 translation_of: implementation-plan.md
-translation_source_sha: 6d581fa4c817425c2cedee4c1d0c459598f90a5e
+translation_source_sha: d792aa02ca8b3c1d8fb0416e1e1db5873de5e70e
 translation_revised: 2026-07-06
 ---
 
@@ -482,6 +482,17 @@ W1 뒤.
   ([execution-model.md § 2.8](execution-model.md#28-cost-increasing-ops-actions)).
 - **W2.6** Executor 경로 선택 테스트 (R7:
   `require_manual_merge`는 엄격하게 올리기만 하고 내리지 않음).
+  **배송 완료**: `core/executor/path_selection.py`가
+  :func:`strictest_execution_path` (commutative, associative fold;
+  ``None``은 no-opinion; ``(None, None)``은
+  :class:`ExecutionPathSelectionError`로 fail-close)와
+  :func:`is_strictly_stricter_than` (raise-only guard)를 export.
+  73개 property test가 strictness ladder (`pr_manual > pr_native
+  > direct_api`), 모든 3-tuple에 대한 commutativity + associativity,
+  axis-can-only-raise 불변식, "output은 항상 input 중 하나" no-
+  fabrication 규칙을 고정. RiskGate가 `forced_execution_path` axis
+  output을 갖게 되면 ceiling-resolution 시점에 wire하고, executor는
+  dispatch 시점에 defense-in-depth로 재조합 가능.
 
 **Exit gate**
 

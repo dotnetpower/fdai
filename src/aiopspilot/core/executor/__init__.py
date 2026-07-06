@@ -29,6 +29,11 @@ from aiopspilot.core.executor.executor import (
     ShadowExecutor,
 )
 from aiopspilot.core.executor.lock import ResourceLockManager
+from aiopspilot.core.executor.path_selection import (
+    ExecutionPathSelectionError,
+    is_strictly_stricter_than,
+    strictest_execution_path,
+)
 from aiopspilot.core.executor.renderer import (
     RenderError,
     RenderRequest,
@@ -39,6 +44,7 @@ __all__ = [
     "DirectApiExecutionOutcome",
     "DirectApiExecutionResult",
     "DirectApiShadowExecutor",
+    "ExecutionPathSelectionError",
     "ExecutionResult",
     "ExecutorConfig",
     "ExecutorOutcome",
@@ -47,4 +53,6 @@ __all__ = [
     "ResourceLockManager",
     "ShadowExecutor",
     "TemplateRenderer",
+    "is_strictly_stricter_than",
+    "strictest_execution_path",
 ]
