@@ -113,6 +113,24 @@ def _resolve_policies_root(catalog_root: Path) -> Path:
     raise FileNotFoundError("Could not locate the policies/ tree. Set AIOPSPILOT_POLICIES_ROOT.")
 
 
+def _build_audit_store() -> Any:
+    """Select the StateStore backend for this process.
+
+    ``AIOPSPILOT_STATE_STORE_DSN`` (set by the container's KV secret ref)
+    switches to :class:`PostgresStateStore`; without it the in-memory
+    fake is used. The ``StateStore`` Protocol is the contract, so core
+    code neither knows nor cares which backend is active.
+    """
+    dsn = os.environ.get("AIOPSPILOT_STATE_STORE_DSN")
+    if dsn:
+        from .delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
+
+        _LOGGER.info("state_store_backend", extra={"backend": "postgres"})
+        return PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    _LOGGER.info("state_store_backend", extra={"backend": "in-memory"})
+    return InMemoryStateStore()
+
+
 def _summarize_config(container: Container) -> dict[str, Any]:
     """Return a secret-free view of the loaded config for the startup log."""
     cfg = container.config
@@ -191,7 +209,7 @@ def _build_control_loop(container: Container) -> ControlLoop:
     action_types_by_name = {a.name: a for a in action_types}
     action_builder = ActionBuilder(action_types_by_name=action_types_by_name)
 
-    audit_store = InMemoryStateStore()
+    audit_store = _build_audit_store()
     publisher = RecordingRemediationPrPublisher()
     renderer = TemplateRenderer(remediation_root=remediation_root)
     resource_lock = ResourceLockManager()
