@@ -12,6 +12,7 @@ from aiopspilot.core.tiers.t1_lightweight.tier import (
     SimilarityMatch,
     cosine_similarity,
 )
+from aiopspilot.shared.providers.pattern_library_writer import PatternLibraryWriter
 
 
 class DeterministicEmbeddingModel(EmbeddingModel):
@@ -33,7 +34,7 @@ class DeterministicEmbeddingModel(EmbeddingModel):
         return vector
 
 
-class InMemoryPatternLibrary(PatternLibrary):
+class InMemoryPatternLibrary(PatternLibrary, PatternLibraryWriter):
     """Dict-backed pattern library — brute-force cosine over stored actions."""
 
     def __init__(self) -> None:
@@ -41,6 +42,24 @@ class InMemoryPatternLibrary(PatternLibrary):
 
     def add(self, *, vector: Sequence[float], action: LearnedAction) -> None:
         self._entries.append((vector, action))
+
+    async def upsert_pattern(
+        self,
+        *,
+        vector: Sequence[float],
+        action: LearnedAction,
+    ) -> None:
+        """Async upsert keyed by :attr:`LearnedAction.signature`.
+
+        Mirrors the semantics of the production pgvector adapter's
+        ``ON CONFLICT (signature) DO UPDATE`` clause so tests exercise
+        the same replay-safe contract the growth intake runner relies on.
+        """
+        for idx, (_, existing) in enumerate(self._entries):
+            if existing.signature == action.signature:
+                self._entries[idx] = (list(vector), action)
+                return
+        self._entries.append((list(vector), action))
 
     async def search(
         self, query_vector: Sequence[float], *, k: int = 5

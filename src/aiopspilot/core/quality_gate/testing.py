@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import math
 from collections.abc import Mapping
 from typing import Any
 
@@ -11,6 +13,7 @@ from aiopspilot.core.quality_gate.gate import (
     QualityCandidate,
     VerifierPolicy,
 )
+from aiopspilot.core.quality_gate.rag_grounding import RuleEmbeddingIndex
 from aiopspilot.shared.contracts.models import Rule
 
 
@@ -58,7 +61,61 @@ class InMemoryGroundingSource(GroundingSource):
         return self._rules.get(rule_id)
 
 
+class HashedRuleEmbeddingIndex(RuleEmbeddingIndex):
+    """Deterministic bag-of-tokens :class:`RuleEmbeddingIndex` fake.
+
+    Tokenizes ``text`` on whitespace + common punctuation, lower-cases,
+    then increments the bucket ``blake2b(token) mod dim`` for each
+    token. The result is a fixed-``dim``-length vector that:
+
+    - depends only on the input tokens (no per-process randomness — we
+      cannot use built-in :func:`hash`, which is salt-randomized under
+      ``PYTHONHASHSEED=random``);
+    - preserves the token multiplicity, so shared vocabulary drives
+      cosine similarity toward 1.0;
+    - collapses to the zero vector on empty input, which
+      :meth:`cosine` returns as ``0.0``.
+
+    This is a **test fake**: a fork that wants meaningful semantic
+    similarity in production replaces it with a real embedding
+    provider behind the same :class:`RuleEmbeddingIndex` Protocol.
+    """
+
+    _TOKEN_SPLIT_CHARS = " \t\n\r.,;:/_-()[]{}\"'"  # noqa: S105 — punctuation set, not a secret
+
+    def __init__(self, *, dim: int = 64) -> None:
+        if dim < 1:
+            raise ValueError("dim MUST be >= 1")
+        self._dim = dim
+
+    def encode(self, text: str) -> tuple[float, ...]:
+        vec = [0.0] * self._dim
+        for token in self._tokenize(text):
+            digest = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
+            bucket = int.from_bytes(digest, "big") % self._dim
+            vec[bucket] += 1.0
+        return tuple(vec)
+
+    def cosine(self, a: tuple[float, ...], b: tuple[float, ...]) -> float:
+        if len(a) != len(b):
+            raise ValueError("cosine requires equal-length vectors")
+        dot = sum(x * y for x, y in zip(a, b, strict=True))
+        norm_a = math.sqrt(sum(x * x for x in a))
+        norm_b = math.sqrt(sum(y * y for y in b))
+        if norm_a == 0.0 or norm_b == 0.0:
+            return 0.0
+        return dot / (norm_a * norm_b)
+
+    @classmethod
+    def _tokenize(cls, text: str) -> list[str]:
+        normalized = text.lower()
+        for ch in cls._TOKEN_SPLIT_CHARS:
+            normalized = normalized.replace(ch, " ")
+        return [token for token in normalized.split(" ") if token]
+
+
 __all__ = [
+    "HashedRuleEmbeddingIndex",
     "InMemoryGroundingSource",
     "MatchTypeCrossCheckModel",
     "MismatchCrossCheckModel",

@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: cf42aba9a5d511e452760b283846807809f41cf6
-translation_revised: 2026-07-05
+translation_source_sha: 47db6fc2d222dbf83628b60d50467f6bee675e44
+translation_revised: 2026-07-06
 ---
 
 # 프로젝트 구조
@@ -76,7 +76,11 @@ aiopspilot/
 │       ├── dev/
 │       ├── staging/
 │       └── prod/
-├── console/                   # (미래) 읽기 전용 얇은 SPA — placeholder
+├── console/                   # 읽기 전용 얇은 SPA (Vite + Preact) — KPI/감사/HIL 큐
+│   ├── src/                    # main.tsx, app.tsx, api.ts, auth.ts (MSAL.js), routes/
+│   ├── index.html              # Vite 진입점
+│   ├── package.json            # 의존: preact, @azure/msal-browser
+│   └── vite.config.ts          # 빌드 → console/dist/ (git-ignored)
 ├── ui/                        # (미래) 정적 UI 킷 (Calm Slate 테마) — placeholder
 ├── tests/                     # 크로스-서브시스템 회귀 스위트 + 공유 픽스처
 ├── docs/roadmap/              # 이 로드맵과 설계 문서

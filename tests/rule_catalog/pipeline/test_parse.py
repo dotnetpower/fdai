@@ -77,7 +77,7 @@ def test_build_parser_unknown_name_raises_parseerror() -> None:
 
 @pytest.mark.parametrize(
     "declared",
-    ["rego", "azure-policy-json", "checkov-yaml", "kube-bench", "gatekeeper-templates"],
+    ["azure-policy-json", "checkov-yaml", "kube-bench", "gatekeeper-templates"],
 )
 def test_build_parser_declared_but_unimplemented_raises_notimplemented(declared: str) -> None:
     with pytest.raises(ParserNotImplementedError, match=declared):

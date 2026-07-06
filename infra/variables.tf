@@ -130,3 +130,10 @@ variable "resolved_capabilities" {
   }))
   default = []
 }
+
+variable "measurement_scenario_set_version" {
+  description = "Frozen P0 scenario-set version the automated baseline runner replays (e.g. 'v2026.07'). Bump this in lockstep with tests/scenarios/<version>/ contents so a promotion never compares metrics across versions."
+  type        = string
+  default     = "v2026.07"
+}
+

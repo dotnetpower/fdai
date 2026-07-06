@@ -13,10 +13,12 @@ Fail-fast contract:
   missing so a container that was miswired never masquerades as ready.
 - ShadowExecutor + InMemoryStateStore + RecordingRemediationPrPublisher
   are the fake defaults for dev / smoke; setting
-  ``AIOPSPILOT_STATE_STORE_DSN`` switches audit to :class:`PostgresStateStore`
-  and setting ``AIOPSPILOT_GITOPS_TOKEN`` (plus owner/repo) switches
-  the executor to the real :class:`GitOpsPrAdapter`. Every autonomous
-  action is judged and audited regardless of the backend selection.
+  ``AIOPSPILOT_STATE_STORE_DSN`` switches audit to :class:`PostgresStateStore`,
+  setting ``AIOPSPILOT_GITOPS_TOKEN`` (plus owner/repo) switches
+  the executor to the real :class:`GitOpsPrAdapter`, and setting
+  ``AIOPSPILOT_T1_PATTERN_LIBRARY_DSN`` swaps the T1 in-memory library
+  for :class:`PgVectorPatternLibrary`. Every autonomous action is
+  judged and audited regardless of the backend selection.
 """
 
 from __future__ import annotations
@@ -50,6 +52,8 @@ from .core.tiers.t0_deterministic.opa_evaluator import (
     MissingOpaBinaryError,
     OpaRegoEvaluator,
 )
+from .core.tiers.t1_lightweight.testing import InMemoryPatternLibrary
+from .core.tiers.t1_lightweight.tier import PatternLibrary
 from .core.trust_router import TrustRouter
 from .rule_catalog.schema.action_type import load_action_type_catalog
 from .rule_catalog.schema.resource_type import (
@@ -133,6 +137,68 @@ def _build_audit_store() -> Any:
     return InMemoryStateStore()
 
 
+def _build_pattern_library() -> PatternLibrary:
+    """Select the :class:`PatternLibrary` backend for this process.
+
+    ``AIOPSPILOT_T1_PATTERN_LIBRARY_DSN`` (typically the same Postgres
+    the state store points at, but broken out so a fork can move the
+    T1 store to a dedicated instance) switches to
+    :class:`PgVectorPatternLibrary`. Without it the in-memory fake is
+    used — the ``PatternLibrary`` Protocol is the contract, so ``core/``
+    neither knows nor cares which backend is active.
+
+    Optional tuning envs (fail-fast on unparseable values):
+
+    - ``AIOPSPILOT_T1_PATTERN_LIBRARY_STATEMENT_TIMEOUT_MS`` — default 15000.
+    - ``AIOPSPILOT_T1_PATTERN_LIBRARY_IVFFLAT_PROBES`` — default 10.
+
+    The T1 tier is not yet wired into the P1 control loop; this builder
+    is exposed so the composition root can bind it once T1 lands.
+    """
+    dsn = os.environ.get("AIOPSPILOT_T1_PATTERN_LIBRARY_DSN", "").strip()
+    if not dsn:
+        _LOGGER.info("pattern_library_backend", extra={"backend": "in-memory"})
+        return InMemoryPatternLibrary()
+
+    from .delivery.persistence import (
+        PgVectorPatternLibrary,
+        PgVectorPatternLibraryConfig,
+    )
+
+    timeout_raw = os.environ.get("AIOPSPILOT_T1_PATTERN_LIBRARY_STATEMENT_TIMEOUT_MS", "").strip()
+    try:
+        timeout_ms = int(timeout_raw) if timeout_raw else 15_000
+    except ValueError as exc:
+        raise RuntimeError(
+            f"AIOPSPILOT_T1_PATTERN_LIBRARY_STATEMENT_TIMEOUT_MS={timeout_raw!r} is not an integer"
+        ) from exc
+    if timeout_ms < 1:
+        raise RuntimeError(
+            f"AIOPSPILOT_T1_PATTERN_LIBRARY_STATEMENT_TIMEOUT_MS MUST be >= 1; got {timeout_ms}"
+        )
+
+    probes_raw = os.environ.get("AIOPSPILOT_T1_PATTERN_LIBRARY_IVFFLAT_PROBES", "").strip()
+    try:
+        probes = int(probes_raw) if probes_raw else 10
+    except ValueError as exc:
+        raise RuntimeError(
+            f"AIOPSPILOT_T1_PATTERN_LIBRARY_IVFFLAT_PROBES={probes_raw!r} is not an integer"
+        ) from exc
+    if probes < 1:
+        raise RuntimeError(
+            f"AIOPSPILOT_T1_PATTERN_LIBRARY_IVFFLAT_PROBES MUST be >= 1; got {probes}"
+        )
+
+    _LOGGER.info("pattern_library_backend", extra={"backend": "pgvector"})
+    return PgVectorPatternLibrary(
+        config=PgVectorPatternLibraryConfig(
+            dsn=dsn,
+            statement_timeout_ms=timeout_ms,
+            ivfflat_probes=probes,
+        )
+    )
+
+
 def _build_publisher(http_client: httpx.AsyncClient | None) -> Any:
     """Select the :class:`RemediationPrPublisher` backend for this process.
 
@@ -213,6 +279,82 @@ def _build_publisher(http_client: httpx.AsyncClient | None) -> Any:
         ),
         http_client=http_client,
         token=token,
+    )
+
+
+def _build_hil_channel(http_client: httpx.AsyncClient | None) -> Any:
+    """Select the :class:`HilChannel` backend for this process.
+
+    Presence of ``AIOPSPILOT_CHATOPS_WEBHOOK_URL`` opts into the real
+    :class:`TeamsHilAdapter`; missing URL returns ``None`` so the caller
+    falls back to its persisted HIL queue (existing P1 behavior — see
+    ``docs/roadmap/channels-and-notifications.md § 6``). The
+    ``HilChannel`` Protocol is the contract, so ``core/`` neither knows
+    nor cares which backend is active.
+
+    Env vars (Incoming Webhook mode — P1 default):
+
+    - ``AIOPSPILOT_CHATOPS_WEBHOOK_URL`` — Teams channel Incoming
+      Webhook URL. **Required to opt in.**
+    - ``AIOPSPILOT_CHATOPS_WEBHOOK_SECRET`` — optional HMAC-SHA256
+      shared secret; when set the adapter attaches an
+      ``X-AIOpsPilot-Signature`` header for the receiver to verify.
+    - ``AIOPSPILOT_CHATOPS_APPROVE_CALLBACK_URL`` /
+      ``AIOPSPILOT_CHATOPS_REJECT_CALLBACK_URL`` — optional callback
+      URLs rendered as ``Action.Submit`` data on the card buttons.
+    - ``AIOPSPILOT_CHATOPS_TIMEOUT_SECONDS`` — optional per-request
+      timeout (default 15s).
+
+    ``http_client`` MUST be non-None when the URL is set — the adapter
+    never opens its own connection; the composition root owns the
+    client lifecycle.
+    """
+    webhook_url = os.environ.get("AIOPSPILOT_CHATOPS_WEBHOOK_URL", "").strip()
+    if not webhook_url:
+        _LOGGER.info("hil_channel_backend", extra={"backend": "none"})
+        return None
+
+    if http_client is None:
+        raise RuntimeError(
+            "AIOPSPILOT_CHATOPS_WEBHOOK_URL is set but no HTTP client is "
+            "available. The composition root MUST create an httpx.AsyncClient "
+            "before building the HIL channel."
+        )
+
+    from .delivery.chatops.teams_adapter import TeamsHilAdapter, TeamsHilAdapterConfig
+
+    webhook_secret = os.environ.get("AIOPSPILOT_CHATOPS_WEBHOOK_SECRET", "").strip() or None
+    approve_cb = os.environ.get("AIOPSPILOT_CHATOPS_APPROVE_CALLBACK_URL", "").strip() or None
+    reject_cb = os.environ.get("AIOPSPILOT_CHATOPS_REJECT_CALLBACK_URL", "").strip() or None
+
+    timeout_raw = os.environ.get("AIOPSPILOT_CHATOPS_TIMEOUT_SECONDS", "").strip()
+    try:
+        timeout_seconds = float(timeout_raw) if timeout_raw else 15.0
+    except ValueError as exc:
+        raise RuntimeError(
+            f"AIOPSPILOT_CHATOPS_TIMEOUT_SECONDS={timeout_raw!r} is not a float"
+        ) from exc
+    if timeout_seconds <= 0:
+        raise RuntimeError(f"AIOPSPILOT_CHATOPS_TIMEOUT_SECONDS MUST be > 0; got {timeout_seconds}")
+
+    _LOGGER.info(
+        "hil_channel_backend",
+        extra={
+            "backend": "teams-webhook",
+            "signed": webhook_secret is not None,
+            "approve_callback_configured": approve_cb is not None,
+            "reject_callback_configured": reject_cb is not None,
+        },
+    )
+    return TeamsHilAdapter(
+        config=TeamsHilAdapterConfig(
+            webhook_url=webhook_url,
+            webhook_secret=webhook_secret,
+            approve_callback_url=approve_cb,
+            reject_callback_url=reject_cb,
+            timeout_seconds=timeout_seconds,
+        ),
+        http_client=http_client,
     )
 
 
@@ -426,7 +568,17 @@ async def _run() -> int:
             # http_client exists before _build_control_loop needs one.
             if os.environ.get("AIOPSPILOT_GITOPS_TOKEN") and http_client is None:
                 http_client = httpx.AsyncClient()
+            # Same for the HIL channel — an Incoming Webhook URL opts in.
+            if os.environ.get("AIOPSPILOT_CHATOPS_WEBHOOK_URL") and http_client is None:
+                http_client = httpx.AsyncClient()
             control_loop = _build_control_loop(container, http_client=http_client)
+            # Build the HIL channel adjacent to the control loop so the
+            # startup log makes the wiring visible. The channel is
+            # bound at the composition root but not yet consumed by the
+            # P1 loop (risk-gate integration lands in a later phase);
+            # a ``None`` return keeps the existing HIL-queue fallback.
+            _hil_channel = _build_hil_channel(http_client)
+            del _hil_channel  # binding is a future control-loop concern
             _LOGGER.info(
                 "control_loop_ready",
                 extra={

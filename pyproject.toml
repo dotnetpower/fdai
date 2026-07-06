@@ -63,6 +63,13 @@ dependencies = [
     # broker. Only `delivery/<csp>/event_bus.py` imports it — `core/` stays
     # portable behind the `EventBus` Protocol.
     "aiokafka>=0.12,<0.13",
+    # Read-only console API — Starlette is the ASGI micro-framework used by
+    # `delivery/read_api/`. Chosen over FastAPI because the surface is three
+    # GET routes (no OpenAPI generation, no request-body validation via
+    # pydantic-integration) and Starlette carries fewer transitive deps
+    # (see app-shape.instructions.md § Operator console). `core/` never
+    # imports it — the framework touches only the delivery layer.
+    "starlette>=0.41,<1",
 ]
 
 [project.optional-dependencies]

@@ -1,0 +1,256 @@
+/* Console SPA styling — deliberately minimal, no design-system dep.
+ * The console is a low-frequency, read-only surface for operators; a
+ * production fork MAY overlay its own design tokens by targeting the
+ * class selectors below.
+ */
+
+:root {
+  color-scheme: light dark;
+  --bg: #0f1115;
+  --bg-elevated: #171a21;
+  --fg: #e6e8ee;
+  --fg-muted: #a4abb8;
+  --accent: #4f9df5;
+  --accent-strong: #2b7fe0;
+  --danger: #f5764f;
+  --border: #262a33;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f7f7f8;
+    --bg-elevated: #ffffff;
+    --fg: #1c1e24;
+    --fg-muted: #575d69;
+    --border: #dcdfe6;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-strong);
+}
+
+.shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100%;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar h1 {
+  font-size: 16px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.topbar nav {
+  display: flex;
+  gap: 4px;
+}
+
+.topbar nav a {
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--fg-muted);
+}
+
+.topbar nav a.active {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.topbar .principal {
+  margin-left: auto;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.topbar .principal button {
+  margin-left: 8px;
+  background: transparent;
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.topbar .principal button:hover {
+  color: var(--fg);
+}
+
+main {
+  padding: 24px;
+}
+
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.card h2 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpi .value {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.kpi .label {
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+table th,
+table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+table th {
+  color: var(--fg-muted);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+}
+
+.badge.shadow {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.badge.enforce {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.badge.hil {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.muted {
+  color: var(--fg-muted);
+}
+
+.error {
+  color: var(--danger);
+}
+
+button.primary {
+  background: var(--accent);
+  color: white;
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button.primary:hover {
+  background: var(--accent-strong);
+}
+
+.empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--fg-muted);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+details > summary {
+  cursor: pointer;
+  color: var(--fg-muted);
+}
+
+pre {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.notice {
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--fg-muted);
+}

@@ -13,6 +13,10 @@ Public exports (P2-B):
 - :class:`~aiopspilot.core.quality_gate.rule_based.RuleBasedVerifier` —
   the first non-fake :class:`VerifierPolicy`; denies any candidate
   ``action_type`` no cited rule authorizes on the target resource type.
+- :class:`~aiopspilot.core.quality_gate.rag_grounding.RagGroundingSource` —
+  the first non-fake :class:`GroundingSource`; checks each citation is
+  topically relevant to the candidate via an injected
+  :class:`~aiopspilot.core.quality_gate.rag_grounding.RuleEmbeddingIndex`.
 """
 
 from aiopspilot.core.quality_gate.gate import (
@@ -25,6 +29,10 @@ from aiopspilot.core.quality_gate.gate import (
     QualityOutcome,
     VerifierPolicy,
 )
+from aiopspilot.core.quality_gate.rag_grounding import (
+    RagGroundingSource,
+    RuleEmbeddingIndex,
+)
 from aiopspilot.core.quality_gate.rule_based import RuleBasedVerifier
 
 __all__ = [
@@ -35,6 +43,8 @@ __all__ = [
     "QualityGate",
     "QualityGateConfig",
     "QualityOutcome",
+    "RagGroundingSource",
     "RuleBasedVerifier",
+    "RuleEmbeddingIndex",
     "VerifierPolicy",
 ]

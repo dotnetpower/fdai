@@ -71,7 +71,11 @@ aiopspilot/
 │       ├── dev/
 │       ├── staging/
 │       └── prod/
-├── console/                   # (future) thin read-only SPA — placeholder
+├── console/                   # thin read-only SPA (Vite + Preact) — KPI, audit, HIL queue
+│   ├── src/                    # main.tsx, app.tsx, api.ts, auth.ts (MSAL.js), routes/
+│   ├── index.html              # Vite entrypoint
+│   ├── package.json            # deps: preact, @azure/msal-browser
+│   └── vite.config.ts          # build → console/dist/ (git-ignored)
 ├── ui/                        # (future) static UI kit (Calm Slate theme) — placeholder
 ├── tests/                     # cross-subsystem regression suites + shared fixtures
 ├── docs/roadmap/              # this roadmap and design docs

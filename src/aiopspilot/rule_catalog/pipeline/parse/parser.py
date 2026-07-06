@@ -111,8 +111,9 @@ def build_parser(name: ParserName | str) -> Parser:
     not a missing feature). Known-but-not-yet-implemented parsers raise
     :class:`ParserNotImplementedError`.
     """
-    # Local import to break the module-level cycle
-    # (rule_yaml.py imports the Protocol from this module).
+    # Local imports break the module-level cycle
+    # (parser plugins import the Protocol from this module).
+    from aiopspilot.rule_catalog.pipeline.parse.rego_parser import RegoParser
     from aiopspilot.rule_catalog.pipeline.parse.rule_yaml import RuleYamlParser
 
     if isinstance(name, str):
@@ -126,6 +127,8 @@ def build_parser(name: ParserName | str) -> Parser:
 
     if resolved is ParserName.RULE_YAML:
         return RuleYamlParser()
+    if resolved is ParserName.REGO:
+        return RegoParser()
 
     raise ParserNotImplementedError(
         f"parser {resolved.value!r} is declared in the manifest schema but "

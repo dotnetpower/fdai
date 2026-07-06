@@ -61,3 +61,13 @@ output "core_app_name" {
   value       = module.compute.core_app_name
 }
 
+output "measurement_baseline_job_name" {
+  description = "Automated-baseline regression Container Apps Job name (Phase-4 continuous measurement)."
+  value       = module.measurement_runners.baseline_job_name
+}
+
+output "measurement_growth_job_name" {
+  description = "Pattern-growth intake Container Apps Job name (Phase-4 T1 library growth)."
+  value       = module.measurement_runners.growth_job_name
+}
+

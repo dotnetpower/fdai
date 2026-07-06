@@ -1,8 +1,8 @@
 ---
 title: Phase 4 — 스케일 (Azure); 멀티 클라우드 (TBD)
 translation_of: phase-4-scale.md
-translation_source_sha: 4f7b46bd6cf49614e0c4f9694d70a332690a5398
-translation_revised: 2026-07-05
+translation_source_sha: cdd2782a879d4f3ccc1751a65f2e67e805f52fda
+translation_revised: 2026-07-06
 ---
 
 # Phase 4 — 스케일 (Azure); 멀티 클라우드 (TBD)
@@ -41,6 +41,14 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 - Azure에서 확장성/성능 검증(티어별 지연 예산, 이벤트-기반 scale-to-zero 보존).
   모듈:
   [core/measurement/latency_budget.py](../../../src/aiopspilot/core/measurement/latency_budget.py).
+- 두 라이브러리-전용 측정 컴포넌트를 Container Apps Jobs로 배선하는 스케줄 러너 —
+  automated-baseline 회귀 러너(P0 시나리오 세트를 매일 리플레이, 회귀 시 자동 강등)와
+  pattern-growth 인테이크 러너(audit 스트림 드레인, 허용된 패턴을 shadow 로만 인제스트,
+  자동 승격 금지).
+  모듈:
+  [core/measurement/runners.py](../../../src/aiopspilot/core/measurement/runners.py).
+  Infra:
+  [infra/modules/measurement-runners/](../../../infra/modules/measurement-runners/).
 - **TBD (deferred)**: **provider 어댑터** 를 통한 정책과 실행의 멀티 클라우드 확장(새 코어 없음),
   크로스-CSP rule-catalog 정규화, per-CSP 실행 아이덴티티, 멀티 클라우드 이벤트 버스 결정
   ([tech-stack-ko.md](../tech-stack-ko.md) 의 OD-3). 이 항목들은 비-Azure 작업이 스코프될

@@ -156,6 +156,48 @@ class ActionPromotionRegistry:
         self._records[action_type.name] = record
         return record
 
+    def demote(
+        self,
+        action_type_name: str,
+        *,
+        metrics: PromotionMetrics | None = None,
+    ) -> ActionModeRecord:
+        """Force an ActionType back to shadow (regression / override path).
+
+        Idempotent: demoting an ActionType that has never been recorded
+        creates a shadow record; demoting one already in shadow leaves
+        ``demoted_at`` at its prior value. ``demoted_at`` is stamped only
+        when this call transitions the record out of ``ENFORCE`` — that
+        keeps the audit trail meaningful (a "demotion" against an
+        already-shadow entry is not a state change).
+
+        The optional ``metrics`` argument records the measurement that
+        justified the demotion so the audit consumer can render the same
+        reason the regression detector produced.
+        """
+        if not action_type_name:
+            raise ValueError("action_type_name MUST NOT be empty")
+        now = datetime.now(tz=UTC)
+        prior = self._records.get(action_type_name)
+        demoted_at: datetime | None
+        if prior is None:
+            demoted_at = None
+            promoted_at: datetime | None = None
+            prior_metrics = None
+        else:
+            demoted_at = now if prior.mode is Mode.ENFORCE else prior.demoted_at
+            promoted_at = prior.promoted_at
+            prior_metrics = prior.metrics
+        record = ActionModeRecord(
+            action_type=action_type_name,
+            mode=Mode.SHADOW,
+            promoted_at=promoted_at,
+            demoted_at=demoted_at,
+            metrics=metrics if metrics is not None else prior_metrics,
+        )
+        self._records[action_type_name] = record
+        return record
+
 
 @dataclass(frozen=True, slots=True)
 class RiskGateConfig:

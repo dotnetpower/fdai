@@ -902,8 +902,10 @@ def test_cli_verify_flag_reports_not_implemented_parser(
                 "license": "Apache-2.0",
                 "redistribution": "embeddable",
                 "fetch": {"kind": "local", "path": str(source)},
-                # `rego` is a declared parser but has no built-in adapter yet.
-                "parser": "rego",
+                # `azure-policy-json` is a declared parser but has no
+                # built-in adapter yet — swap this to the next-added
+                # parser once implemented.
+                "parser": "azure-policy-json",
             }
         ),
         encoding="utf-8",
@@ -921,7 +923,7 @@ def test_cli_verify_flag_reports_not_implemented_parser(
     )
     assert exit_code == 2
     captured = capsys.readouterr()
-    assert "rego" in captured.err
+    assert "azure-policy-json" in captured.err
     payload = json.loads(captured.out)
     assert "error" in payload["verify"]
 

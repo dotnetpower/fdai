@@ -18,3 +18,13 @@ output "oob_job_name" {
   value       = azurerm_container_app_job.oob.name
 }
 
+output "rule_watcher_job_name" {
+  description = "Rule-catalog source watcher Container Apps Job name."
+  value       = azurerm_container_app_job.rule_watcher.name
+}
+
+output "rule_watcher_job_id" {
+  description = "Rule-catalog source watcher Container Apps Job resource id."
+  value       = azurerm_container_app_job.rule_watcher.id
+}
+

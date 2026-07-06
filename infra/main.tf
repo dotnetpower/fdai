@@ -114,17 +114,18 @@ module "state_store" {
 # Compute — Container Apps env + core app + out-of-band job.
 # -----------------------------------------------------------------------
 module "compute" {
-  source               = "./modules/compute/container-apps"
-  env_name             = "cae-${var.workload}${local.full_suffix}"
-  core_app_name        = "ca-${var.workload}${local.full_suffix}-core"
-  oob_job_name         = "caj-${var.workload}${local.full_suffix}-oob"
-  location             = var.region
-  resource_group_name  = module.resource_group.name
-  log_workspace_id     = module.log_analytics.workspace_id
-  executor_identity_id = module.identity.resource_id
-  image                = var.core_image
-  max_replicas         = var.max_replicas
-  tags                 = local.tags
+  source                = "./modules/compute/container-apps"
+  env_name              = "cae-${var.workload}${local.full_suffix}"
+  core_app_name         = "ca-${var.workload}${local.full_suffix}-core"
+  oob_job_name          = "caj-${var.workload}${local.full_suffix}-oob"
+  rule_watcher_job_name = "caj-${var.workload}${local.full_suffix}-rule-watcher"
+  location              = var.region
+  resource_group_name   = module.resource_group.name
+  log_workspace_id      = module.log_analytics.workspace_id
+  executor_identity_id  = module.identity.resource_id
+  image                 = var.core_image
+  max_replicas          = var.max_replicas
+  tags                  = local.tags
 }
 
 
@@ -143,3 +144,24 @@ module "llm_azure_openai" {
   resolved_capabilities = var.resolved_capabilities
   tags                  = local.tags
 }
+
+# -----------------------------------------------------------------------
+# Phase-4 continuous measurement — two Container Apps Jobs that wire the
+# regression detector + pattern-growth intake into scheduled runs.
+# The jobs share the same Container Apps env + user-assigned MI as the
+# core app + rule watcher (least privilege — no extra role assignments).
+# -----------------------------------------------------------------------
+module "measurement_runners" {
+  source = "./modules/measurement-runners"
+
+  baseline_job_name            = "caj-${var.workload}${local.full_suffix}-measure-baseline"
+  growth_job_name              = "caj-${var.workload}${local.full_suffix}-measure-growth"
+  container_app_environment_id = module.compute.environment_id
+  location                     = var.region
+  resource_group_name          = module.resource_group.name
+  executor_identity_id         = module.identity.resource_id
+  image                        = var.core_image
+  scenario_set_version         = var.measurement_scenario_set_version
+  tags                         = local.tags
+}
+

@@ -41,6 +41,14 @@ customer-agnostic and Azure-only in intent (multi-cloud deliverables below stay 
   scale-to-zero preserved).
   Module:
   [core/measurement/latency_budget.py](../../../src/aiopspilot/core/measurement/latency_budget.py).
+- Scheduled runners that wire the two library-only measurement components into Container
+  Apps Jobs — an automated-baseline regression runner (daily replay of the P0 scenario set,
+  auto-demotes on regression) and a pattern-growth intake runner (drains the audit stream,
+  ingests accepted patterns in shadow only, never auto-promotes).
+  Module:
+  [core/measurement/runners.py](../../../src/aiopspilot/core/measurement/runners.py).
+  Infra:
+  [infra/modules/measurement-runners/](../../../infra/modules/measurement-runners/).
 - **TBD (deferred)**: multi-cloud expansion of policy and execution via **provider adapters**
   (no new core), cross-CSP rule-catalog normalization, per-CSP execution identity, and the
   multi-cloud event-bus decision (OD-3 in [tech-stack.md](../tech-stack.md)). These items

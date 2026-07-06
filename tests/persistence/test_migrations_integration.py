@@ -39,6 +39,7 @@ EXPECTED_TABLES = {
     "t2_cache",
     "t2_cache_default",
     "state_kv",
+    "t1_pattern_library",
 }
 
 

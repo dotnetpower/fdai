@@ -217,11 +217,22 @@ class QualityGate:
         # 2. Grounding (RAG citation validity)
         known = self._grounding.known_rule_ids()
         grounded: list[str] = []
+        # Duck-typed hook: a richer :class:`GroundingSource` (e.g.
+        # :class:`~aiopspilot.core.quality_gate.rag_grounding.RagGroundingSource`)
+        # MAY expose ``supports(candidate, rule_id) -> bool`` to validate
+        # that a citation is topically relevant to the candidate, not
+        # only that its id exists in the catalog. The base Protocol
+        # stays unchanged so older grounding sources fall back to the
+        # ID-exists-only behavior.
+        supports_fn = getattr(self._grounding, "supports", None)
         for rule_id in candidate.cited_rule_ids:
-            if rule_id in known:
-                grounded.append(rule_id)
-            else:
+            if rule_id not in known:
                 reasons.append(f"unknown_cited_rule:{rule_id}")
+                continue
+            if supports_fn is not None and not supports_fn(candidate, rule_id):
+                reasons.append(f"ungrounded_citation:{rule_id}")
+                continue
+            grounded.append(rule_id)
         if self._config.require_grounding and not grounded:
             reasons.append("no_grounded_citation")
 

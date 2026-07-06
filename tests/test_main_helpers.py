@@ -16,6 +16,8 @@ import pytest
 
 from aiopspilot.__main__ import (
     _build_audit_store,
+    _build_hil_channel,
+    _build_pattern_library,
     _build_publisher,
     _resolve_catalog_root,
     _resolve_policies_root,
@@ -232,3 +234,228 @@ def test_build_publisher_honors_env_defaults(monkeypatch: pytest.MonkeyPatch) ->
     assert publisher._config.api_base == "https://ghe.example.com/api/v3"
     assert publisher._config.owner == "example-org"
     assert publisher._config.repo == "example-repo"
+
+
+# ---------------------------------------------------------------------------
+# _build_pattern_library — PatternLibrary selection (T1 similarity reuse)
+# ---------------------------------------------------------------------------
+
+
+def _clear_pattern_library_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in (
+        "AIOPSPILOT_T1_PATTERN_LIBRARY_DSN",
+        "AIOPSPILOT_T1_PATTERN_LIBRARY_STATEMENT_TIMEOUT_MS",
+        "AIOPSPILOT_T1_PATTERN_LIBRARY_IVFFLAT_PROBES",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_build_pattern_library_defaults_to_in_memory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_pattern_library_env(monkeypatch)
+    from aiopspilot.core.tiers.t1_lightweight.testing import InMemoryPatternLibrary
+
+    library = _build_pattern_library()
+    assert isinstance(library, InMemoryPatternLibrary)
+
+
+def test_build_pattern_library_selects_pgvector_when_dsn_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_pattern_library_env(monkeypatch)
+    monkeypatch.setenv(
+        "AIOPSPILOT_T1_PATTERN_LIBRARY_DSN",
+        "postgresql://user:pw@example:5432/db",
+    )
+    from aiopspilot.delivery.persistence import PgVectorPatternLibrary
+
+    library = _build_pattern_library()
+    assert isinstance(library, PgVectorPatternLibrary)
+
+
+def test_build_pattern_library_honors_tuning_envs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_pattern_library_env(monkeypatch)
+    monkeypatch.setenv(
+        "AIOPSPILOT_T1_PATTERN_LIBRARY_DSN",
+        "postgresql://user:pw@example:5432/db",
+    )
+    monkeypatch.setenv("AIOPSPILOT_T1_PATTERN_LIBRARY_STATEMENT_TIMEOUT_MS", "5000")
+    monkeypatch.setenv("AIOPSPILOT_T1_PATTERN_LIBRARY_IVFFLAT_PROBES", "25")
+    from aiopspilot.delivery.persistence import PgVectorPatternLibrary
+
+    library = _build_pattern_library()
+    assert isinstance(library, PgVectorPatternLibrary)
+    assert library._config.statement_timeout_ms == 5000
+    assert library._config.ivfflat_probes == 25
+
+
+def test_build_pattern_library_rejects_non_int_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_pattern_library_env(monkeypatch)
+    monkeypatch.setenv(
+        "AIOPSPILOT_T1_PATTERN_LIBRARY_DSN",
+        "postgresql://user:pw@example:5432/db",
+    )
+    monkeypatch.setenv("AIOPSPILOT_T1_PATTERN_LIBRARY_STATEMENT_TIMEOUT_MS", "abc")
+    with pytest.raises(RuntimeError, match="not an integer"):
+        _build_pattern_library()
+
+
+def test_build_pattern_library_rejects_nonpositive_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_pattern_library_env(monkeypatch)
+    monkeypatch.setenv(
+        "AIOPSPILOT_T1_PATTERN_LIBRARY_DSN",
+        "postgresql://user:pw@example:5432/db",
+    )
+    monkeypatch.setenv("AIOPSPILOT_T1_PATTERN_LIBRARY_STATEMENT_TIMEOUT_MS", "0")
+    with pytest.raises(RuntimeError, match="MUST be >= 1"):
+        _build_pattern_library()
+
+
+def test_build_pattern_library_rejects_non_int_probes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_pattern_library_env(monkeypatch)
+    monkeypatch.setenv(
+        "AIOPSPILOT_T1_PATTERN_LIBRARY_DSN",
+        "postgresql://user:pw@example:5432/db",
+    )
+    monkeypatch.setenv("AIOPSPILOT_T1_PATTERN_LIBRARY_IVFFLAT_PROBES", "not-int")
+    with pytest.raises(RuntimeError, match="not an integer"):
+        _build_pattern_library()
+
+
+def test_build_pattern_library_rejects_nonpositive_probes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_pattern_library_env(monkeypatch)
+    monkeypatch.setenv(
+        "AIOPSPILOT_T1_PATTERN_LIBRARY_DSN",
+        "postgresql://user:pw@example:5432/db",
+    )
+    monkeypatch.setenv("AIOPSPILOT_T1_PATTERN_LIBRARY_IVFFLAT_PROBES", "0")
+    with pytest.raises(RuntimeError, match="MUST be >= 1"):
+        _build_pattern_library()
+
+
+# ---------------------------------------------------------------------------
+# _build_hil_channel — HilChannel selection (ChatOps A1 approvals)
+# ---------------------------------------------------------------------------
+
+
+def _clear_chatops_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in (
+        "AIOPSPILOT_CHATOPS_WEBHOOK_URL",
+        "AIOPSPILOT_CHATOPS_WEBHOOK_SECRET",
+        "AIOPSPILOT_CHATOPS_APPROVE_CALLBACK_URL",
+        "AIOPSPILOT_CHATOPS_REJECT_CALLBACK_URL",
+        "AIOPSPILOT_CHATOPS_TIMEOUT_SECONDS",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_build_hil_channel_returns_none_when_not_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_chatops_env(monkeypatch)
+    assert _build_hil_channel(http_client=None) is None
+
+
+def test_build_hil_channel_returns_teams_adapter_when_url_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_chatops_env(monkeypatch)
+    monkeypatch.setenv(
+        "AIOPSPILOT_CHATOPS_WEBHOOK_URL",
+        "https://teams.example.com/hook/abc",
+    )
+    from aiopspilot.delivery.chatops.teams_adapter import TeamsHilAdapter
+
+    channel = _build_hil_channel(http_client=httpx.AsyncClient())
+    assert isinstance(channel, TeamsHilAdapter)
+
+
+def test_build_hil_channel_requires_http_client_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_chatops_env(monkeypatch)
+    monkeypatch.setenv(
+        "AIOPSPILOT_CHATOPS_WEBHOOK_URL",
+        "https://teams.example.com/hook/abc",
+    )
+    with pytest.raises(RuntimeError, match="no HTTP client is available"):
+        _build_hil_channel(http_client=None)
+
+
+def test_build_hil_channel_passes_secret_and_callbacks_through(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_chatops_env(monkeypatch)
+    monkeypatch.setenv(
+        "AIOPSPILOT_CHATOPS_WEBHOOK_URL",
+        "https://teams.example.com/hook/abc",
+    )
+    monkeypatch.setenv("AIOPSPILOT_CHATOPS_WEBHOOK_SECRET", "shhh")
+    monkeypatch.setenv(
+        "AIOPSPILOT_CHATOPS_APPROVE_CALLBACK_URL",
+        "https://api.example.com/approve",
+    )
+    monkeypatch.setenv(
+        "AIOPSPILOT_CHATOPS_REJECT_CALLBACK_URL",
+        "https://api.example.com/reject",
+    )
+
+    channel = _build_hil_channel(http_client=httpx.AsyncClient())
+    # Internals are inspected only for test purposes.
+    assert channel is not None
+    cfg = channel._config
+    assert cfg.webhook_secret == "shhh"
+    assert cfg.approve_callback_url == "https://api.example.com/approve"
+    assert cfg.reject_callback_url == "https://api.example.com/reject"
+
+
+def test_build_hil_channel_rejects_non_float_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_chatops_env(monkeypatch)
+    monkeypatch.setenv(
+        "AIOPSPILOT_CHATOPS_WEBHOOK_URL",
+        "https://teams.example.com/hook/abc",
+    )
+    monkeypatch.setenv("AIOPSPILOT_CHATOPS_TIMEOUT_SECONDS", "not-a-number")
+    with pytest.raises(RuntimeError, match="not a float"):
+        _build_hil_channel(http_client=httpx.AsyncClient())
+
+
+def test_build_hil_channel_rejects_nonpositive_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_chatops_env(monkeypatch)
+    monkeypatch.setenv(
+        "AIOPSPILOT_CHATOPS_WEBHOOK_URL",
+        "https://teams.example.com/hook/abc",
+    )
+    monkeypatch.setenv("AIOPSPILOT_CHATOPS_TIMEOUT_SECONDS", "0")
+    with pytest.raises(RuntimeError, match="MUST be > 0"):
+        _build_hil_channel(http_client=httpx.AsyncClient())
+
+
+def test_build_hil_channel_honors_timeout_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_chatops_env(monkeypatch)
+    monkeypatch.setenv(
+        "AIOPSPILOT_CHATOPS_WEBHOOK_URL",
+        "https://teams.example.com/hook/abc",
+    )
+    monkeypatch.setenv("AIOPSPILOT_CHATOPS_TIMEOUT_SECONDS", "42.5")
+
+    channel = _build_hil_channel(http_client=httpx.AsyncClient())
+    assert channel is not None
+    assert channel._config.timeout_seconds == 42.5

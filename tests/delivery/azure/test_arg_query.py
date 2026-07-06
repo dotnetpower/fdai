@@ -993,3 +993,346 @@ async def test_full_row_emits_contains_and_attached_to_links_together() -> None:
     assert attached.to_type == "network.subnet"
     (contained,) = [e for e in links if e.link_type == "contains"]
     assert contained.from_type == "resource-group"
+
+
+# ---------------------------------------------------------------------------
+# _extract_depends_on_links_from_row — soft-dependency whitelist
+# ---------------------------------------------------------------------------
+
+
+def test_extract_depends_on_from_storage_account_reference() -> None:
+    """A Function / App Service / AKS row with `properties.storageAccount.id`
+    emits `depends_on(child, storage)`."""
+    from aiopspilot.delivery.azure.arg_query import (
+        _build_arm_to_neutral_map,
+        _extract_depends_on_links_from_row,
+        _to_neutral_id,
+    )
+
+    reverse = _build_arm_to_neutral_map(_vocab())
+    storage_arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Storage/"
+        "storageAccounts/stg1"
+    )
+    child = ResourceRecord(
+        resource_id="resource-group/rg-a/providers/microsoft.web/sites/fn1",
+        type="compute.function",
+        provider_ref=(
+            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+            "resourceGroups/rg-a/providers/Microsoft.Web/sites/fn1"
+        ),
+    )
+    row = {"properties": {"storageAccount": {"id": storage_arm_id}}}
+    (edge,) = _extract_depends_on_links_from_row(row, child=child, arm_to_neutral=reverse)
+    assert edge.link_type == "depends_on"
+    assert edge.from_id == child.resource_id
+    assert edge.from_type == "compute.function"
+    assert edge.to_id == _to_neutral_id(storage_arm_id)
+    assert edge.to_type == "object-storage"
+
+
+def test_extract_depends_on_from_workspace_resource_id() -> None:
+    """A Diagnostic Setting row with `properties.workspaceResourceId`
+    emits `depends_on(setting, log-workspace)`.
+
+    Unlike `storageAccount.id`, this path is a top-level ARM-id string
+    (no `.id` wrapper) — the extractor MUST handle both shapes."""
+    from aiopspilot.delivery.azure.arg_query import (
+        _build_arm_to_neutral_map,
+        _extract_depends_on_links_from_row,
+        _to_neutral_id,
+    )
+
+    reverse = _build_arm_to_neutral_map(_vocab())
+    workspace_arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-obs/providers/Microsoft.OperationalInsights/"
+        "workspaces/law-central"
+    )
+    child = ResourceRecord(
+        resource_id="resource-group/rg-a/providers/microsoft.insights/diagnosticsettings/ds1",
+        type="diagnostic-settings",
+        provider_ref=(
+            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+            "resourceGroups/rg-a/providers/Microsoft.Insights/diagnosticSettings/ds1"
+        ),
+    )
+    row = {"properties": {"workspaceResourceId": workspace_arm_id}}
+    (edge,) = _extract_depends_on_links_from_row(row, child=child, arm_to_neutral=reverse)
+    assert edge.link_type == "depends_on"
+    assert edge.to_id == _to_neutral_id(workspace_arm_id)
+    assert edge.to_type == "log-workspace"
+
+
+def test_extract_depends_on_from_acr_login_server_skipped_when_unresolvable() -> None:
+    """`properties.acrLoginServer` is a DNS name; the current registry
+    lookup returns ``None`` for every value, so the reference is
+    silently dropped ("skip if not resolvable"). This proves the code
+    path is exercised without emitting spurious edges."""
+    from aiopspilot.delivery.azure.arg_query import (
+        _build_arm_to_neutral_map,
+        _extract_depends_on_links_from_row,
+    )
+
+    reverse = _build_arm_to_neutral_map(_vocab())
+    child = ResourceRecord(
+        resource_id="resource-group/rg-a/providers/microsoft.web/sites/fn1",
+        type="compute.function",
+        provider_ref="/subscriptions/.../fn1",
+    )
+    row = {"properties": {"acrLoginServer": "myregistry.azurecr.io"}}
+    assert _extract_depends_on_links_from_row(row, child=child, arm_to_neutral=reverse) == ()
+
+
+def test_extract_depends_on_from_acr_login_server_emits_when_resolver_returns_arm_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Positive-emission path: monkeypatch the placeholder resolver so
+    it returns an ARM id whose type IS in the vocabulary. Uses
+    ``Microsoft.Storage/storageAccounts`` as a stand-in target since
+    ``container-registry`` is not (yet) in the vocabulary — the point
+    is to exercise the emit branch, not the semantics of ACR."""
+    from aiopspilot.delivery.azure import arg_query as arg_query_mod
+    from aiopspilot.delivery.azure.arg_query import (
+        _build_arm_to_neutral_map,
+        _extract_depends_on_links_from_row,
+    )
+
+    resolved_arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Storage/"
+        "storageAccounts/acr-stand-in"
+    )
+    monkeypatch.setattr(
+        arg_query_mod,
+        "_resolve_acr_login_server_to_arm_id",
+        lambda _login_server: resolved_arm_id,
+    )
+
+    reverse = _build_arm_to_neutral_map(_vocab())
+    child = ResourceRecord(
+        resource_id="resource-group/rg-a/providers/microsoft.web/sites/fn1",
+        type="compute.function",
+        provider_ref="/subscriptions/.../fn1",
+    )
+    row = {"properties": {"acrLoginServer": "myregistry.azurecr.io"}}
+    (edge,) = _extract_depends_on_links_from_row(row, child=child, arm_to_neutral=reverse)
+    assert edge.link_type == "depends_on"
+    assert edge.to_type == "object-storage"
+
+
+def test_extract_depends_on_drops_reference_to_unmapped_type() -> None:
+    """A soft-dep reference to an ARM type not in the vocabulary is
+    dropped, not emitted with an unknown to_type — same envelope as
+    `_extract_attached_to_links_from_row`."""
+    from aiopspilot.delivery.azure.arg_query import (
+        _build_arm_to_neutral_map,
+        _extract_depends_on_links_from_row,
+    )
+
+    reverse = _build_arm_to_neutral_map(_vocab())
+    unknown_arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Weird/thingies/x"
+    )
+    child = ResourceRecord(
+        resource_id="resource-group/rg-a/providers/microsoft.web/sites/fn1",
+        type="compute.function",
+        provider_ref="/subscriptions/.../fn1",
+    )
+    # Try each ARM-id-carrying path with an unmapped target.
+    for row in (
+        {"properties": {"storageAccount": {"id": unknown_arm_id}}},
+        {"properties": {"workspaceResourceId": unknown_arm_id}},
+    ):
+        assert _extract_depends_on_links_from_row(row, child=child, arm_to_neutral=reverse) == ()
+
+
+def test_extract_depends_on_drops_reference_without_providers_segment() -> None:
+    """A ref value that IS a non-empty string but lacks the
+    ``/providers/`` segment cannot yield an ARM type — the extractor
+    treats it as un-typable and drops it (never emits an edge with
+    an unknown ``to_type``)."""
+    from aiopspilot.delivery.azure.arg_query import (
+        _build_arm_to_neutral_map,
+        _extract_depends_on_links_from_row,
+    )
+
+    reverse = _build_arm_to_neutral_map(_vocab())
+    child = ResourceRecord(
+        resource_id="resource-group/rg-a/providers/microsoft.web/sites/fn1",
+        type="compute.function",
+        provider_ref="/subscriptions/.../fn1",
+    )
+    junk = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-a"
+    for row in (
+        {"properties": {"storageAccount": {"id": junk}}},
+        {"properties": {"workspaceResourceId": junk}},
+    ):
+        assert _extract_depends_on_links_from_row(row, child=child, arm_to_neutral=reverse) == ()
+
+
+def test_extract_depends_on_returns_empty_when_no_properties() -> None:
+    from aiopspilot.delivery.azure.arg_query import (
+        _build_arm_to_neutral_map,
+        _extract_depends_on_links_from_row,
+    )
+
+    reverse = _build_arm_to_neutral_map(_vocab())
+    child = ResourceRecord(
+        resource_id="resource-group/rg-a/providers/microsoft.web/sites/fn1",
+        type="compute.function",
+        provider_ref="/subscriptions/.../fn1",
+    )
+    assert _extract_depends_on_links_from_row({}, child=child, arm_to_neutral=reverse) == ()
+    # Properties present but not a mapping.
+    assert (
+        _extract_depends_on_links_from_row(
+            {"properties": ["not", "a", "dict"]}, child=child, arm_to_neutral=reverse
+        )
+        == ()
+    )
+    # Nested key present but value is not a mapping (defensive branch).
+    assert (
+        _extract_depends_on_links_from_row(
+            {"properties": {"storageAccount": "not-a-mapping"}},
+            child=child,
+            arm_to_neutral=reverse,
+        )
+        == ()
+    )
+    # Nested key present but `.id` is missing / empty.
+    assert (
+        _extract_depends_on_links_from_row(
+            {"properties": {"storageAccount": {"id": ""}}},
+            child=child,
+            arm_to_neutral=reverse,
+        )
+        == ()
+    )
+    # Top-level string key present but empty / non-string.
+    assert (
+        _extract_depends_on_links_from_row(
+            {"properties": {"workspaceResourceId": ""}},
+            child=child,
+            arm_to_neutral=reverse,
+        )
+        == ()
+    )
+    assert (
+        _extract_depends_on_links_from_row(
+            {"properties": {"workspaceResourceId": 42}},
+            child=child,
+            arm_to_neutral=reverse,
+        )
+        == ()
+    )
+    # acrLoginServer non-string / empty is skipped before hitting the resolver.
+    assert (
+        _extract_depends_on_links_from_row(
+            {"properties": {"acrLoginServer": ""}},
+            child=child,
+            arm_to_neutral=reverse,
+        )
+        == ()
+    )
+
+
+def test_extract_depends_on_deduplicates_within_row() -> None:
+    """Two whitelisted paths pointing at the same target collapse into
+    a single edge — mirrors the `attached_to` dedup contract."""
+    from aiopspilot.delivery.azure.arg_query import (
+        _build_arm_to_neutral_map,
+        _extract_depends_on_links_from_row,
+    )
+
+    reverse = _build_arm_to_neutral_map(_vocab())
+    # Same target advertised twice: once as a nested `storageAccount.id`
+    # and once as a top-level `workspaceResourceId` ARM string. This is
+    # contrived (real rows never mix these keys against the same
+    # target), but the extractor MUST still dedupe deterministically.
+    same_target = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Storage/"
+        "storageAccounts/shared"
+    )
+    child = ResourceRecord(
+        resource_id="resource-group/rg-a/providers/microsoft.web/sites/fn1",
+        type="compute.function",
+        provider_ref="/subscriptions/.../fn1",
+    )
+    row = {
+        "properties": {
+            "storageAccount": {"id": same_target},
+            "workspaceResourceId": same_target,
+        }
+    }
+    edges = _extract_depends_on_links_from_row(row, child=child, arm_to_neutral=reverse)
+    assert len(edges) == 1
+
+
+@pytest.mark.asyncio
+async def test_full_row_emits_contains_attached_to_and_depends_on_together() -> None:
+    """End-to-end via httpx.MockTransport: a single shard surfaces
+    contains(rg, child) + attached_to(child, subnet) + depends_on(child, storage)."""
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=(
+                            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+                            "resourceGroups/rg-example/providers/Microsoft.Web/"
+                            "sites/fn1"
+                        ),
+                        arm_type="Microsoft.Web/sites",
+                        extra={
+                            "properties": {
+                                # attached_to path
+                                "subnet": {
+                                    "id": (
+                                        "/subscriptions/"
+                                        "00000000-0000-0000-0000-000000000001/"
+                                        "resourceGroups/rg-example/providers/"
+                                        "Microsoft.Network/virtualNetworks/"
+                                        "vnet1/subnets/sub1"
+                                    )
+                                },
+                                # depends_on path (nested id)
+                                "storageAccount": {
+                                    "id": (
+                                        "/subscriptions/"
+                                        "00000000-0000-0000-0000-000000000001/"
+                                        "resourceGroups/rg-example/providers/"
+                                        "Microsoft.Storage/storageAccounts/stg1"
+                                    )
+                                },
+                            }
+                        },
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        resources, links = await factory.build_query_fn()("compute.function")
+
+    assert len(resources) == 1
+    link_types = {edge.link_type for edge in links}
+    assert link_types == {"contains", "attached_to", "depends_on"}
+    (depends,) = [e for e in links if e.link_type == "depends_on"]
+    assert depends.to_type == "object-storage"
+    assert depends.from_type == "compute.function"
+    (attached,) = [e for e in links if e.link_type == "attached_to"]
+    assert attached.to_type == "network.subnet"
+    (contained,) = [e for e in links if e.link_type == "contains"]
+    assert contained.from_type == "resource-group"

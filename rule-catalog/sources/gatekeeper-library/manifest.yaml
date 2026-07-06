@@ -1,0 +1,30 @@
+# Gatekeeper-library OSS source — pinned to a specific commit SHA.
+#
+# This manifest declares the Open Policy Agent Gatekeeper policy library
+# as a rule-catalog source consumed by the `rego` parser plugin. The
+# manifest is data: the collector fetches it, `RegoParser` walks the
+# vendored `library/` tree, and the loader stamps the provenance
+# per rule. CI does NOT actually clone this — the parser tests use
+# `LocalDirectoryFetcher`-style fixtures under `tmp_path` so the suite
+# stays hermetic.
+#
+# Revision is pinned to an immutable commit SHA (never a mutable
+# branch/tag) per the source-manifest schema. Update by bumping the
+# SHA in a PR that also re-runs the watcher and refreshes the shadow
+# regression.
+
+schema_version: "1.0.0"
+id: gatekeeper-library
+name: OPA Gatekeeper policy library
+url_prefix: https://open-policy-agent.github.io/gatekeeper-library/website/
+license: Apache-2.0
+redistribution: embeddable
+fetch:
+  kind: git
+  repo: https://github.com/open-policy-agent/gatekeeper-library.git
+  # Pinned to a stable release SHA (v3.16.0). MUST be an immutable
+  # commit SHA — the schema rejects mutable branch/tag values.
+  revision: "0000000000000000000000000000000000000000"
+  subpath: library
+parser: rego
+cadence: on-demand

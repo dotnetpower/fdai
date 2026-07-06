@@ -19,14 +19,17 @@ Ships in this module:
 - :class:`RuleYamlParser` — the first concrete parser; consumes a
   snapshot whose ``tree/`` is already normalized rule YAML (the seed
   source ``aiopspilot-p1-seed`` is exactly this shape).
+- :class:`RegoParser` — the second concrete parser; walks a snapshot
+  tree of ``*.rego`` modules (e.g. the gatekeeper-library OSS source)
+  and emits partial mappings the normalizer stage completes.
 - :func:`build_parser` — dispatcher keyed on the manifest ``parser``
   field.
 
-Other parsers (``rego``, ``azure-policy-json``, ``checkov-yaml``,
-``kube-bench``, ``gatekeeper-templates``) are declared on the enum but
-raise a typed :class:`ParserNotImplementedError` for now so a manifest
-that references them fails at collect time with a clear message rather
-than silently no-op.
+Other parsers (``azure-policy-json``, ``checkov-yaml``, ``kube-bench``,
+``gatekeeper-templates``) are declared on the enum but raise a typed
+:class:`ParserNotImplementedError` for now so a manifest that
+references them fails at collect time with a clear message rather than
+silently no-op.
 """
 
 from __future__ import annotations
@@ -40,6 +43,7 @@ from aiopspilot.rule_catalog.pipeline.parse.parser import (
     ParserNotImplementedError,
     build_parser,
 )
+from aiopspilot.rule_catalog.pipeline.parse.rego_parser import RegoParser
 from aiopspilot.rule_catalog.pipeline.parse.rule_yaml import RuleYamlParser
 from aiopspilot.rule_catalog.pipeline.parse.verify import (
     RuleVerificationIssue,
@@ -54,6 +58,7 @@ __all__ = [
     "Parser",
     "ParserName",
     "ParserNotImplementedError",
+    "RegoParser",
     "RuleVerificationIssue",
     "RuleVerificationReport",
     "RuleYamlParser",

@@ -43,6 +43,10 @@ from aiopspilot.core.executor import ExecutionResult, ExecutorOutcome, ShadowExe
 from aiopspilot.core.executor.action_builder import ActionBuilder, ActionBuildError
 from aiopspilot.core.tiers.t0_deterministic import T0Engine
 from aiopspilot.core.trust_router import RoutingDecision, RoutingTier, TrustRouter
+from aiopspilot.core.verticals.change_safety_detector import (
+    ChangeSafetyDecision,
+    ChangeSafetyDetector,
+)
 from aiopspilot.shared.contracts.models import Event, Mode, Rule
 from aiopspilot.shared.providers.state_store import StateStore
 
@@ -90,6 +94,10 @@ class ControlLoopResult:
     execution_results: tuple[ExecutionResult, ...] = ()
     reason: str | None = None
     event_id: str | None = None
+    change_safety_decision: ChangeSafetyDecision | None = None
+    """When the event was routed through the out-of-band detector, the
+    detector's classification is surfaced here so a monitor / test can
+    assert on it without inspecting the audit log."""
 
 
 class ControlLoop:
@@ -105,6 +113,7 @@ class ControlLoop:
         executor: ShadowExecutor,
         audit_store: StateStore,
         rules_by_id: Mapping[str, Rule],
+        change_safety_detector: ChangeSafetyDetector | None = None,
     ) -> None:
         self._event_ingest = event_ingest
         self._trust_router = trust_router
@@ -113,6 +122,7 @@ class ControlLoop:
         self._executor = executor
         self._audit_store = audit_store
         self._rules_by_id = dict(rules_by_id)
+        self._change_safety_detector = change_safety_detector
 
     async def process(self, raw_event: Event | Mapping[str, Any]) -> ControlLoopResult:
         # 1. Ingest + dedupe
@@ -125,6 +135,20 @@ class ControlLoop:
                 resource_type=None,
                 reason="duplicate_idempotency_key",
             )
+
+        # 1a. Optional Change Safety out-of-band detector.
+        #
+        # Runs BEFORE the trust router for Activity Log signals; every
+        # other signal passes through unchanged (per phase-1 doc §
+        # Out-of-Band Detection). The detector never blocks primary
+        # routing — it is a shadow-mode observability + reconcile-PR
+        # emitter.
+        cs_decision: ChangeSafetyDecision | None = None
+        if (
+            self._change_safety_detector is not None
+            and self._change_safety_detector.is_activity_log(event)
+        ):
+            cs_decision = await self._change_safety_detector.detect(event)
 
         # 2. Route
         decision = self._trust_router.route(event)
@@ -143,6 +167,7 @@ class ControlLoop:
                 citing_rule_ids=decision.candidate_rule_ids,
                 reason=decision.reason,
                 event_id=str(event.event_id),
+                change_safety_decision=cs_decision,
             )
 
         if decision.resource_type is None:  # pragma: no cover — belt-and-suspenders
@@ -181,6 +206,7 @@ class ControlLoop:
                 citing_rule_ids=citing,
                 reason=verdict.audit_hint.reason if verdict.audit_hint else None,
                 event_id=str(event.event_id),
+                change_safety_decision=cs_decision,
             )
 
         # 4. Build + execute one action per finding
@@ -227,6 +253,7 @@ class ControlLoop:
             citing_rule_ids=tuple(f.rule_id for f in verdict.findings),
             execution_results=tuple(exec_results),
             event_id=str(event.event_id),
+            change_safety_decision=cs_decision,
         )
 
     # ------------------------------------------------------------------

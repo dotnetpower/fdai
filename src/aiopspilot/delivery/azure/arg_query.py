@@ -45,8 +45,14 @@ What this cut ships (Step 3d)
   target's CSP-neutral ``resource_type`` is resolved through the
   vocabulary's ``azure_arm_type`` reverse map; targets whose ARM type
   is not in the vocabulary are dropped rather than emitted with an
-  unknown ``to_type``. ``depends_on`` still requires deeper property
-  walking and lands in a follow-up cycle.
+  unknown ``to_type``.
+- **``depends_on`` link extraction** from a separate soft-dependency
+  whitelist (``storageAccount.id`` / ``workspaceResourceId`` /
+  ``acrLoginServer``). The first two carry ARM ids and resolve through
+  the same reverse map as ``attached_to``; ``acrLoginServer`` is a DNS
+  name that requires a login-server → ARM id registry lookup and is
+  skipped when the resolver cannot map it (the current default —
+  positive resolution lands when the ACR registry is wired).
 
 Safety / cost invariants
 ------------------------
@@ -310,6 +316,11 @@ class AzureArgQueryFactory:
                             row, child=record, arm_to_neutral=self._arm_to_neutral
                         )
                     )
+                    collected_links.extend(
+                        _extract_depends_on_links_from_row(
+                            row, child=record, arm_to_neutral=self._arm_to_neutral
+                        )
+                    )
 
             next_token = payload.get("$skipToken")
             if not isinstance(next_token, str) or not next_token:
@@ -558,6 +569,131 @@ def _extract_attached_to_links_from_row(
                 to_type=to_type,
             )
         )
+    return tuple(links)
+
+
+# Well-known `properties.<key>` paths that carry a **soft** dependency —
+# the child cannot function without the target but is not part of its
+# lifecycle (contrast with `contains`). Deliberately narrow so a change
+# here is a reviewable, versioned expansion — never a wildcard walk of
+# untrusted vendor data.
+#
+# Two shapes are supported:
+#
+# 1. Nested ARM-id: `properties.<key>.id` (matches the `attached_to`
+#    shape) — currently used by App Service / Function / AKS storage
+#    account references.
+# 2. Top-level ARM-id string: `properties.<key>` (Diagnostic Settings
+#    `workspaceResourceId` and similar).
+#
+# `properties.acrLoginServer` is a DNS name, not an ARM id; resolving
+# it back to a registry ARM id needs a separate login-server → ARM id
+# lookup that is not wired in this cycle. The code recognises the key
+# and short-circuits ("skip if not resolvable") so the whitelist stays
+# authoritative while the resolver lands in a follow-up cycle.
+_DEPENDS_ON_ID_PROPERTY_KEYS: Final[tuple[str, ...]] = ("storageAccount",)
+_DEPENDS_ON_ARM_ID_STRING_KEYS: Final[tuple[str, ...]] = ("workspaceResourceId",)
+
+
+def _resolve_acr_login_server_to_arm_id(login_server: str) -> str | None:
+    """Placeholder for the ACR login-server → ARM id registry lookup.
+
+    Returns ``None`` in this cycle — no resolver is wired yet, so every
+    ``properties.acrLoginServer`` reference is treated as unresolvable
+    and dropped by :func:`_extract_depends_on_links_from_row`. Tests
+    monkeypatch this hook to exercise the resolvable path when the
+    registry lookup is wired.
+    """
+    # `login_server` is untrusted vendor text; the guard here is
+    # intentionally boring so it stays inert.
+    del login_server
+    return None
+
+
+def _extract_depends_on_links_from_row(
+    row: Mapping[str, Any],
+    *,
+    child: ResourceRecord,
+    arm_to_neutral: Mapping[str, str],
+) -> tuple[LinkRecord, ...]:
+    """Walk the whitelisted soft-dependency property paths.
+
+    Emits one ``depends_on(child, target)`` per resolvable reference:
+
+    - ``properties.storageAccount.id`` (nested ARM id) — App Service /
+      Function / AKS → storage.
+    - ``properties.workspaceResourceId`` (top-level ARM id string) —
+      Diagnostic Setting → log-workspace.
+    - ``properties.acrLoginServer`` (top-level DNS string) — resolved
+      back to an ARM id via
+      :func:`_resolve_acr_login_server_to_arm_id`; dropped when the
+      resolver returns ``None`` (the current default).
+
+    Same safety envelope as :func:`_extract_attached_to_links_from_row`:
+
+    - The referenced value MUST be a non-empty string ARM id.
+    - The referenced ARM type MUST be in the vocabulary's reverse map;
+      unmapped targets are dropped (safer than emitting an unknown
+      ``to_type`` that the ontology would reject at ingest).
+    - Duplicates within one row (across all whitelisted paths) collapse
+      into a single edge — matches the ``LinkRecord`` idempotency
+      contract on :class:`~aiopspilot.shared.providers.inventory.InventoryBatch`.
+    """
+    properties = row.get("properties")
+    if not isinstance(properties, Mapping):
+        return ()
+
+    seen: set[tuple[str, str, str]] = set()
+    links: list[LinkRecord] = []
+
+    def _try_emit(ref_id: str) -> None:
+        arm_type = _arm_id_to_type(ref_id)
+        if arm_type is None:
+            return
+        to_type = arm_to_neutral.get(arm_type.lower())
+        if to_type is None:
+            return
+        target_neutral = _to_neutral_id(ref_id)
+        dedup_key = (child.resource_id, "depends_on", target_neutral)
+        if dedup_key in seen:
+            return
+        seen.add(dedup_key)
+        links.append(
+            LinkRecord(
+                from_id=child.resource_id,
+                from_type=child.type,
+                link_type="depends_on",
+                to_id=target_neutral,
+                to_type=to_type,
+            )
+        )
+
+    # 1. Nested `properties.<key>.id` references.
+    for key in _DEPENDS_ON_ID_PROPERTY_KEYS:
+        nested = properties.get(key)
+        if not isinstance(nested, Mapping):
+            continue
+        ref_id = nested.get("id")
+        if not isinstance(ref_id, str) or not ref_id:
+            continue
+        _try_emit(ref_id)
+
+    # 2. Top-level `properties.<key>` ARM-id string references.
+    for key in _DEPENDS_ON_ARM_ID_STRING_KEYS:
+        ref_id = properties.get(key)
+        if not isinstance(ref_id, str) or not ref_id:
+            continue
+        _try_emit(ref_id)
+
+    # 3. `properties.acrLoginServer` — DNS-name string requiring a
+    # separate registry lookup. Skip when the resolver cannot map the
+    # login-server back to an ARM id (the current default).
+    login_server = properties.get("acrLoginServer")
+    if isinstance(login_server, str) and login_server:
+        resolved = _resolve_acr_login_server_to_arm_id(login_server)
+        if resolved is not None:
+            _try_emit(resolved)
+
     return tuple(links)
 
 
