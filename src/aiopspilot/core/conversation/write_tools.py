@@ -33,7 +33,7 @@ Design invariants (each tool has a matching test):
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
@@ -52,6 +52,10 @@ from aiopspilot.core.executor.renderer import (
 from aiopspilot.core.tiers.t0_deterministic import T0Engine
 from aiopspilot.core.trust_router import RoutingTier, TrustRouter
 from aiopspilot.shared.contracts.models import Event, Mode, Rule
+from aiopspilot.shared.providers.break_glass_pager import (
+    BreakGlassPager,
+    BreakGlassPagerError,
+)
 from aiopspilot.shared.providers.hil_registry import (
     HilApprovalDecision,
     HilApprovalRegistry,
@@ -59,6 +63,12 @@ from aiopspilot.shared.providers.hil_registry import (
     HilItemNotFoundError,
     HilPendingItem,
     HilRegistryError,
+)
+from aiopspilot.shared.providers.runbook_registry import (
+    RunbookError,
+    RunbookNotFoundError,
+    RunbookRegistry,
+    RunbookResult,
 )
 
 
@@ -402,6 +412,85 @@ class AuditWriter:
         asyncio.run(self._audit_store.append_audit_entry(entry))
         return audit_id
 
+    def write_runbook_entry(
+        self,
+        *,
+        name: str,
+        params: Mapping[str, Any],
+        principal: Principal,
+        dry_run: bool,
+        outcome: str,
+        summary: str,
+        detail: Mapping[str, Any] | None = None,
+        error_kind: str | None = None,
+    ) -> str:
+        """Append one ``console.run_runbook`` audit entry.
+
+        ``outcome`` mirrors the tool's :class:`ToolResult` status
+        (`ok` / `error` / `abstain`). ``dry_run`` is recorded so an
+        auditor can distinguish a plan-only run from a live invocation
+        without re-parsing the arguments block.
+        """
+        import asyncio
+
+        audit_id = str(uuid4())
+        entry: dict[str, Any] = {
+            "audit_id": audit_id,
+            "action_kind": "console.run_runbook",
+            "runbook_name": name,
+            "actor": principal.id,
+            "actor_role": principal.role.value,
+            "decision": outcome,
+            "dry_run": dry_run,
+            "mode": Mode.SHADOW.value if dry_run else Mode.ENFORCE.value,
+            "stage": "runbook",
+            "recorded_at": datetime.now(tz=UTC).isoformat(),
+            "params": dict(params),
+            "summary": summary,
+            "detail": dict(detail or {}),
+            "error_kind": error_kind or "",
+        }
+        asyncio.run(self._audit_store.append_audit_entry(entry))
+        return audit_id
+
+    def write_break_glass_entry(
+        self,
+        *,
+        principal: Principal,
+        outcome: str,
+        reason_redacted: str,
+        activated_at: datetime | None,
+        expires_at: datetime | None,
+        pager_receipt: str,
+        refusal_kind: str | None = None,
+    ) -> str:
+        """Append one ``console.activate_break_glass`` audit entry.
+
+        Every path is audited - success AND refusal (chat invariant 7:
+        an attempted grant is itself a security signal). The reason is
+        already redacted by the tool.
+        """
+        import asyncio
+
+        audit_id = str(uuid4())
+        entry: dict[str, Any] = {
+            "audit_id": audit_id,
+            "action_kind": "console.activate_break_glass",
+            "actor": principal.id,
+            "actor_role": principal.role.value,
+            "decision": outcome,
+            "mode": Mode.SHADOW.value,
+            "stage": "break_glass",
+            "recorded_at": datetime.now(tz=UTC).isoformat(),
+            "reason": reason_redacted,
+            "activated_at": activated_at.isoformat() if activated_at else None,
+            "expires_at": expires_at.isoformat() if expires_at else None,
+            "pager_receipt": pager_receipt,
+            "refusal_kind": refusal_kind or "",
+        }
+        asyncio.run(self._audit_store.append_audit_entry(entry))
+        return audit_id
+
 
 # ---------------------------------------------------------------------------
 # ListHilTool - Approver-scoped queue projection
@@ -653,6 +742,433 @@ class ApproveHilTool:
 
 
 # ---------------------------------------------------------------------------
+# RunRunbookTool - dispatch to a named runbook adapter (dry-run or live)
+# ---------------------------------------------------------------------------
+
+
+class RunRunbookTool:
+    """Execute one runbook registered under ``docs/runbooks/``.
+
+    Both the dry-run and live paths ship as ONE tool per
+    operator-console.md 3.2. The static ``rbac_floor`` is Contributor
+    because dry-run is the low-risk path; the tool itself upgrades
+    the check to Owner for a live invocation
+    (``dry_run=False``). This mirrors the doc's
+    "``dry_run=true`` requires Contributor; ``dry_run=false`` requires
+    Owner" rule without splitting the tool into two names.
+
+    Arguments (``arguments`` mapping):
+
+    - ``name`` (str, required) - runbook name; MUST be registered on
+      the injected :class:`RunbookRegistry`.
+    - ``params`` (Mapping, optional; default ``{}``) - forwarded to
+      the runbook adapter verbatim.
+    - ``dry_run`` (bool, optional; default ``True``) - when False, the
+      tool refuses unless ``principal.role`` is Owner.
+
+    Every terminal path writes one ``console.run_runbook`` audit
+    entry (outcome=ok / error / abstain).
+    """
+
+    name = "run_runbook"
+    description = (
+        "Execute one runbook registered under docs/runbooks/. dry_run=True "
+        "is a Contributor-floor plan; dry_run=False is a live invocation and "
+        "requires Owner."
+    )
+    rbac_floor: Role = Role.CONTRIBUTOR
+    side_effect_class: SideEffectClass = "execute"
+
+    def __init__(
+        self,
+        *,
+        registry: RunbookRegistry,
+        audit_writer: AuditWriter,
+    ) -> None:
+        self._registry = registry
+        self._audit_writer = audit_writer
+
+    def call(
+        self,
+        *,
+        arguments: Mapping[str, Any],
+        principal: Principal,
+    ) -> ToolResult:
+        import asyncio
+
+        runbook_name = str(arguments.get("name", "")).strip()
+        raw_params = arguments.get("params", {})
+        dry_run_raw = arguments.get("dry_run", True)
+
+        if not runbook_name:
+            return ToolResult(
+                status="error",
+                preview="run_runbook requires a non-empty 'name'",
+            )
+        if not isinstance(raw_params, Mapping):
+            return ToolResult(
+                status="error",
+                preview="run_runbook 'params' MUST be a mapping",
+            )
+        if not isinstance(dry_run_raw, bool):
+            return ToolResult(
+                status="error",
+                preview="run_runbook 'dry_run' MUST be a boolean",
+            )
+        dry_run: bool = dry_run_raw
+
+        # Live path requires Owner; Contributor / Approver may only
+        # execute dry-run. The static rbac_floor is Contributor so
+        # Contributor CAN invoke - but only in dry-run mode.
+        if not dry_run and principal.role is not Role.OWNER:
+            audit_id = self._audit_writer.write_runbook_entry(
+                name=runbook_name,
+                params=raw_params,
+                principal=principal,
+                dry_run=dry_run,
+                outcome="error",
+                summary="live run refused; caller is not Owner",
+                error_kind="rbac_below_owner_for_live",
+            )
+            return ToolResult(
+                status="error",
+                data={"audit_id": audit_id},
+                preview=(
+                    "run_runbook: live invocation requires Owner "
+                    f"(caller role={principal.role.value})"
+                ),
+                evidence_refs=(f"audit:{audit_id}",),
+            )
+
+        # Unknown runbook -> fail-close with error + audit.
+        if runbook_name not in self._registry.names():
+            available = ", ".join(self._registry.names()) or "(none registered)"
+            audit_id = self._audit_writer.write_runbook_entry(
+                name=runbook_name,
+                params=raw_params,
+                principal=principal,
+                dry_run=dry_run,
+                outcome="error",
+                summary=f"unknown runbook; available: {available}",
+                error_kind="not_found",
+            )
+            return ToolResult(
+                status="error",
+                data={"audit_id": audit_id, "available": list(self._registry.names())},
+                preview=f"run_runbook: unknown runbook {runbook_name!r}",
+                evidence_refs=(f"audit:{audit_id}",),
+            )
+
+        try:
+            result: RunbookResult = asyncio.run(
+                self._registry.execute(
+                    name=runbook_name,
+                    params=dict(raw_params),
+                    dry_run=dry_run,
+                )
+            )
+        except RunbookNotFoundError:
+            # Race between names() and execute(); fail closed.
+            audit_id = self._audit_writer.write_runbook_entry(
+                name=runbook_name,
+                params=raw_params,
+                principal=principal,
+                dry_run=dry_run,
+                outcome="error",
+                summary="runbook disappeared between name check and execute",
+                error_kind="not_found",
+            )
+            return ToolResult(
+                status="error",
+                data={"audit_id": audit_id},
+                preview=(
+                    f"run_runbook: {runbook_name!r} disappeared between "
+                    "existence check and dispatch"
+                ),
+                evidence_refs=(f"audit:{audit_id}",),
+            )
+        except RunbookError as exc:
+            audit_id = self._audit_writer.write_runbook_entry(
+                name=runbook_name,
+                params=raw_params,
+                principal=principal,
+                dry_run=dry_run,
+                outcome="error",
+                summary=str(exc),
+                error_kind=exc.kind,
+            )
+            return ToolResult(
+                status="error",
+                data={"audit_id": audit_id, "error_kind": exc.kind},
+                preview=f"run_runbook[{runbook_name}]: {exc}",
+                evidence_refs=(f"audit:{audit_id}",),
+            )
+
+        outcome: Literal["ok", "error", "abstain"] = "ok" if result.ok else "error"
+        audit_id = self._audit_writer.write_runbook_entry(
+            name=runbook_name,
+            params=raw_params,
+            principal=principal,
+            dry_run=dry_run,
+            outcome=outcome,
+            summary=result.summary,
+            detail=dict(result.detail),
+        )
+        preview = (
+            f"run_runbook[{runbook_name}]: {'dry-run ' if dry_run else ''}"
+            f"{'ok' if result.ok else 'failed'} - {result.summary}"
+        )
+        return ToolResult(
+            status=outcome,
+            data={
+                "audit_id": audit_id,
+                "runbook": runbook_name,
+                "dry_run": dry_run,
+                "summary": result.summary,
+                "detail": dict(result.detail),
+            },
+            preview=preview,
+            evidence_refs=(f"audit:{audit_id}",),
+        )
+
+
+# ---------------------------------------------------------------------------
+# ActivateBreakGlassTool - explicit, time-boxed, fail-closed on pager
+# ---------------------------------------------------------------------------
+
+
+_SECRET_PATTERNS: tuple[str, ...] = (
+    "AccountKey=",  # Azure Storage
+    "SharedAccessKey=",  # Azure Service Bus / Event Hubs
+    "AKIA",  # AWS access key prefix
+    "-----BEGIN",  # PEM key
+    "ghp_",  # GitHub personal token
+    "xox",  # Slack tokens
+)
+
+
+def _redact_secrets(text: str) -> str:
+    """Best-effort secret scrub - a match on any pattern replaces the
+    whole line with a fixed placeholder so the reason never leaks."""
+    if not text:
+        return text
+    lines = text.splitlines()
+    cleaned = []
+    for line in lines:
+        if any(pat in line for pat in _SECRET_PATTERNS):
+            cleaned.append("[REDACTED-SUSPECTED-SECRET]")
+        else:
+            cleaned.append(line)
+    return "\n".join(cleaned)
+
+
+class ActivateBreakGlassTool:
+    """Explicitly promote the current session to BreakGlass.
+
+    Chat invariant 7 (operator-console.md 7.2) requires:
+
+    - the reason to be at least ``min_reason_length`` characters
+      (default 20) and pass a defense-in-depth secret scrub;
+    - the TTL to be ``<= max_ttl_seconds`` (default 14400 = 4h);
+    - the pager to confirm delivery via :class:`BreakGlassPager` - if
+      it raises :class:`BreakGlassPagerError`, the grant is refused
+      (fail-closed on notification).
+
+    Every path is audited: success writes the grant details, refusals
+    (short reason, too-long TTL, pager failure) write an audit entry
+    with a distinct ``refusal_kind`` so Owners see the attempt.
+
+    Any authenticated caller (Reader-floor) may attempt to activate,
+    which mirrors the doc's "Any authenticated user" audience. BreakGlass
+    membership itself is NOT granted at the console layer - this tool
+    records intent and pages Owners; the RBAC resolver
+    (:mod:`aiopspilot.core.rbac.resolver`) grants the role for the
+    session.
+    """
+
+    name = "activate_break_glass"
+    description = (
+        "Request session-scoped BreakGlass elevation. Time-boxed (<=4h), "
+        "explicit reason required, fail-closed on pager delivery. Always "
+        "audited whether granted or refused."
+    )
+    rbac_floor: Role = Role.READER
+    side_effect_class: SideEffectClass = "breakglass"
+
+    _DEFAULT_MAX_TTL_SECONDS: int = 14400
+    _DEFAULT_MIN_REASON_LENGTH: int = 20
+
+    def __init__(
+        self,
+        *,
+        pager: BreakGlassPager,
+        audit_writer: AuditWriter,
+        max_ttl_seconds: int = _DEFAULT_MAX_TTL_SECONDS,
+        min_reason_length: int = _DEFAULT_MIN_REASON_LENGTH,
+        clock: Any = None,
+    ) -> None:
+        if max_ttl_seconds > self._DEFAULT_MAX_TTL_SECONDS:
+            raise ValueError(
+                "max_ttl_seconds MUST NOT exceed the shipped ceiling "
+                f"{self._DEFAULT_MAX_TTL_SECONDS} (chat invariant 7); "
+                f"got {max_ttl_seconds}"
+            )
+        if max_ttl_seconds < 60:
+            raise ValueError("max_ttl_seconds MUST be at least 60")
+        if min_reason_length < 1:
+            raise ValueError("min_reason_length MUST be at least 1")
+        self._pager = pager
+        self._audit_writer = audit_writer
+        self._max_ttl_seconds = max_ttl_seconds
+        self._min_reason_length = min_reason_length
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
+
+    def call(
+        self,
+        *,
+        arguments: Mapping[str, Any],
+        principal: Principal,
+    ) -> ToolResult:
+        import asyncio
+
+        raw_reason = str(arguments.get("reason", ""))
+        raw_expiry = arguments.get("expiry_seconds", self._max_ttl_seconds)
+
+        # Redact BEFORE any comparison so a rejected secret is never
+        # quoted in an error message.
+        reason_redacted = _redact_secrets(raw_reason).strip()
+
+        if len(reason_redacted) < self._min_reason_length:
+            audit_id = self._audit_writer.write_break_glass_entry(
+                principal=principal,
+                outcome="error",
+                reason_redacted=reason_redacted,
+                activated_at=None,
+                expires_at=None,
+                pager_receipt="",
+                refusal_kind="short_reason",
+            )
+            return ToolResult(
+                status="error",
+                data={"audit_id": audit_id, "refusal_kind": "short_reason"},
+                preview=(
+                    f"activate_break_glass: reason MUST be >= "
+                    f"{self._min_reason_length} chars after redaction"
+                ),
+                evidence_refs=(f"audit:{audit_id}",),
+            )
+
+        try:
+            expiry_seconds = int(raw_expiry)
+        except (TypeError, ValueError):
+            audit_id = self._audit_writer.write_break_glass_entry(
+                principal=principal,
+                outcome="error",
+                reason_redacted=reason_redacted,
+                activated_at=None,
+                expires_at=None,
+                pager_receipt="",
+                refusal_kind="invalid_expiry",
+            )
+            return ToolResult(
+                status="error",
+                data={"audit_id": audit_id, "refusal_kind": "invalid_expiry"},
+                preview=("activate_break_glass 'expiry_seconds' MUST be an integer"),
+                evidence_refs=(f"audit:{audit_id}",),
+            )
+        if expiry_seconds < 60:
+            audit_id = self._audit_writer.write_break_glass_entry(
+                principal=principal,
+                outcome="error",
+                reason_redacted=reason_redacted,
+                activated_at=None,
+                expires_at=None,
+                pager_receipt="",
+                refusal_kind="expiry_below_minimum",
+            )
+            return ToolResult(
+                status="error",
+                data={"audit_id": audit_id, "refusal_kind": "expiry_below_minimum"},
+                preview=("activate_break_glass 'expiry_seconds' MUST be >= 60"),
+                evidence_refs=(f"audit:{audit_id}",),
+            )
+        if expiry_seconds > self._max_ttl_seconds:
+            audit_id = self._audit_writer.write_break_glass_entry(
+                principal=principal,
+                outcome="error",
+                reason_redacted=reason_redacted,
+                activated_at=None,
+                expires_at=None,
+                pager_receipt="",
+                refusal_kind="expiry_above_ceiling",
+            )
+            return ToolResult(
+                status="error",
+                data={"audit_id": audit_id, "refusal_kind": "expiry_above_ceiling"},
+                preview=(
+                    "activate_break_glass 'expiry_seconds' exceeds the shipped "
+                    f"ceiling {self._max_ttl_seconds}"
+                ),
+                evidence_refs=(f"audit:{audit_id}",),
+            )
+
+        activated_at = self._clock()
+        expires_at = activated_at + timedelta(seconds=expiry_seconds)
+
+        try:
+            pager_receipt = asyncio.run(
+                self._pager.notify_owners(
+                    actor_oid=principal.id,
+                    actor_display=principal.display_name or principal.id,
+                    reason_redacted=reason_redacted,
+                    activated_at=activated_at,
+                    expires_at=expires_at,
+                )
+            )
+        except BreakGlassPagerError as exc:
+            audit_id = self._audit_writer.write_break_glass_entry(
+                principal=principal,
+                outcome="error",
+                reason_redacted=reason_redacted,
+                activated_at=activated_at,
+                expires_at=expires_at,
+                pager_receipt="",
+                refusal_kind=f"pager_{exc.kind}",
+            )
+            return ToolResult(
+                status="error",
+                data={"audit_id": audit_id, "refusal_kind": f"pager_{exc.kind}"},
+                preview=(f"activate_break_glass refused: pager delivery failed ({exc.kind})"),
+                evidence_refs=(f"audit:{audit_id}",),
+            )
+
+        audit_id = self._audit_writer.write_break_glass_entry(
+            principal=principal,
+            outcome="ok",
+            reason_redacted=reason_redacted,
+            activated_at=activated_at,
+            expires_at=expires_at,
+            pager_receipt=pager_receipt,
+            refusal_kind=None,
+        )
+        return ToolResult(
+            status="ok",
+            data={
+                "audit_id": audit_id,
+                "activated_at": activated_at.isoformat(),
+                "expires_at": expires_at.isoformat(),
+                "pager_receipt": pager_receipt,
+                "reason_redacted": reason_redacted,
+            },
+            preview=(
+                f"activate_break_glass: granted (expires "
+                f"{expires_at.isoformat()}); pager={pager_receipt}"
+            ),
+            evidence_refs=(f"audit:{audit_id}", f"pager:{pager_receipt}"),
+        )
+
+
+# ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
 
@@ -747,8 +1263,10 @@ _ = UUID
 
 
 __all__ = [
+    "ActivateBreakGlassTool",
     "ApproveHilTool",
     "AuditWriter",
     "ListHilTool",
+    "RunRunbookTool",
     "SimulateChangeTool",
 ]

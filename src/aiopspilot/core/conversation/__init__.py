@@ -60,14 +60,17 @@ from aiopspilot.core.conversation.tools import (
     ToolResult,
 )
 from aiopspilot.core.conversation.write_tools import (
+    ActivateBreakGlassTool,
     ApproveHilTool,
     AuditWriter,
     ListHilTool,
+    RunRunbookTool,
     SimulateChangeTool,
 )
 
 __all__ = [
     "AbstainResult",
+    "ActivateBreakGlassTool",
     "ApproveHilTool",
     "AuditReader",
     "AuditWriter",
@@ -83,6 +86,7 @@ __all__ = [
     "QueryAuditTool",
     "QueryInventoryTool",
     "Role",
+    "RunRunbookTool",
     "SimulateChangeTool",
     "SystemConsoleTool",
     "ToolResult",

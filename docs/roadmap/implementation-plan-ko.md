@@ -1,7 +1,7 @@
 ---
 title: 구현 계획 (표준 세트)
 translation_of: implementation-plan.md
-translation_source_sha: 0d654b70b63415ffbfa9a9667aeb65bdb2df641c
+translation_source_sha: 2c693bbff97ea631fe25f778361c7ffaf7cd0cd5
 translation_revised: 2026-07-06
 ---
 
@@ -404,7 +404,25 @@ prompt-composition Wave 3 step B pipeline slice 3 잔재
   (`principal.id == submitter_oid` 거부), terminal-state 존중
   (`HilItemAlreadyResolvedError`는 두 번째 write 없이 short-circuit).
   모든 terminal path가 정확히 하나의 `console.approve_hil` 감사
-  엔트리를 기록. `run_runbook` / `activate_break_glass`는 남은 슬라이스.
+  엔트리를 기록. **`run_runbook` + `activate_break_glass` 배송 완료**
+  (같은 모듈): `run_runbook`은 operator-console.md 3.2의 단일 툴
+  설계를 그대로 shipping - dry-run 경로는 정적 `rbac_floor =
+  Contributor`, 라이브 실행 (`dry_run=False`)은 caller가 Owner가
+  아니면 거부. 새 CSP-중립 `RunbookRegistry` Protocol을 통해
+  이름으로 라우팅; 모든 terminal path (unknown-name, registry error,
+  dry/live 성공 또는 실패)가 `dry_run` boolean과
+  `mode=shadow|enforce`를 담은 `console.run_runbook` 감사 엔트리를
+  기록. `activate_break_glass`는 chat invariant 7
+  (operator-console.md 7.2)을 강제: 방어적-다층 secret scrub
+  (Azure/AWS/PEM/GH/Slack 패턴) 이후 reason이 반드시 20자 이상,
+  TTL은 [60s, 4h] 범위로 bound (ctor 시점에 ceiling 강제), 새
+  `BreakGlassPager` Protocol을 통한 pager 배송이 필수 - raise 시
+  grant 거부 ("fail-closed on notification"). 모든 path가 감사됨 -
+  성공과 거부 둘 다, 명확한 `refusal_kind` (`short_reason` /
+  `invalid_expiry` / `expiry_below_minimum` /
+  `expiry_above_ceiling` / `pager_no_channel` / `pager_delivery`)
+  포함. Reader floor - 인증된 사용자면 누구나 시도 가능하며, RBAC
+  resolver가 role membership을 여전히 gate.
 - **W1.2** `TeamsBotChannel`과 `SlackBotChannel` (pull).
   [config/notifications-matrix.yaml](../../config/notifications-matrix.yaml)
   의 push 채널 자격증명 재사용.

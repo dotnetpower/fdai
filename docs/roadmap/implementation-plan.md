@@ -418,8 +418,26 @@ prompt-composition Wave 3 step B pipeline slice 3 leftover
   submitter_oid` refused), and terminal-state respect
   (`HilItemAlreadyResolvedError` short-circuits without a second
   write). Every terminal path writes exactly one
-  `console.approve_hil` audit entry. `run_runbook` /
-  `activate_break_glass` are the remaining slices.
+  `console.approve_hil` audit entry. **`run_runbook` +
+  `activate_break_glass` shipped** (same module): `run_runbook` ships
+  the single-tool design from operator-console.md 3.2 - static
+  `rbac_floor = Contributor` for the dry-run path, live invocation
+  (`dry_run=False`) refused unless the caller is Owner. Routes by
+  name through a new CSP-neutral `RunbookRegistry` Protocol; every
+  terminal path (unknown-name, registry error, dry/live success or
+  failure) audits a `console.run_runbook` entry with the
+  `dry_run` boolean and `mode=shadow|enforce`. `activate_break_glass`
+  enforces chat invariant 7 (operator-console.md 7.2): reason MUST be
+  >= 20 chars AFTER a defense-in-depth secret scrub
+  (Azure/AWS/PEM/GH/Slack patterns), TTL bounded to [60s, 4h] with a
+  ceiling enforced at ctor time, and pager delivery via the new
+  `BreakGlassPager` Protocol is REQUIRED - a raise refuses the grant
+  ("fail-closed on notification"). Every path is audited, success
+  AND refusal, with a distinct `refusal_kind` (`short_reason` /
+  `invalid_expiry` / `expiry_below_minimum` / `expiry_above_ceiling`
+  / `pager_no_channel` / `pager_delivery`). Reader floor - any
+  authenticated user MAY attempt, the RBAC resolver still gates
+  role membership.
 - **W1.2** `TeamsBotChannel` and `SlackBotChannel` (pull). Reuse the
   push channel credentials in
   [config/notifications-matrix.yaml](../../config/notifications-matrix.yaml).
