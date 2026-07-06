@@ -1,7 +1,7 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: 3d0fa5a6893522ab54e414e88c0c831b627140e1
+translation_source_sha: 25a7ab7db5e1ad4f940157a3eb9c904f87283f31
 translation_revised: 2026-07-06
 ---
 
@@ -47,6 +47,10 @@ translation_revised: 2026-07-06
   `RiskGate.evaluate` 는 그 레지스트리를 read - shadow-mode ActionType 은 `hil` 반환,
   enforce-mode + clean invariants 면 `auto`, 어떤 invariant miss (blast-radius over cap,
   stale precondition, irreversible ActionType) 든 mode 에 관계없이 `hil` 강제.
+- **어슈어런스 트윈 (query 슬라이스)**: inventory로부터 투영된 읽기 전용 온톨로지 트윈으로,
+  계층과 이 phase의 quality gate를 거치는 검증된 text-to-query 응답; 근거 댓 수 없는 질문은
+  abstain하고 규칙 발견 루프로 투입. 전체 설계는 [assurance-twin-ko.md](../assurance-twin-ko.md);
+  ambient 리뷰와 그래프 전체 시뮬레이션은 P3에 랜딩.
 
 ## 지속적 규칙 업데이트 파이프라인
 

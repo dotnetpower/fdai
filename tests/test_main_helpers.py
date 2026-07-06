@@ -459,3 +459,59 @@ def test_build_hil_channel_honors_timeout_env(
     channel = _build_hil_channel(http_client=httpx.AsyncClient())
     assert channel is not None
     assert channel._config.timeout_seconds == 42.5
+
+
+# ---------------------------------------------------------------------------
+# Wave 3 step B pipeline slice 2: operator-memory store composition wire
+# ---------------------------------------------------------------------------
+
+
+def test_build_operator_memory_store_defaults_to_in_memory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without ``AIOPSPILOT_OPERATOR_MEMORY_DSN`` the composition root
+    MUST wire the deterministic in-memory fake so the operator-memory
+    layer is fully reachable without a database."""
+
+    monkeypatch.delenv("AIOPSPILOT_OPERATOR_MEMORY_DSN", raising=False)
+    from aiopspilot.__main__ import _build_operator_memory_store
+    from aiopspilot.core.operator_memory import InMemoryOperatorMemoryStore
+
+    store = _build_operator_memory_store()
+    assert isinstance(store, InMemoryOperatorMemoryStore)
+
+
+def test_build_operator_memory_store_selects_postgres_when_dsn_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A DSN opts the process into the durable Postgres backend so
+    operator notes survive restarts. Adapter is constructed lazily -
+    the DSN is validated but no connection is opened here."""
+
+    monkeypatch.setenv(
+        "AIOPSPILOT_OPERATOR_MEMORY_DSN",
+        "postgresql://user:pw@example:5432/db",
+    )
+    from aiopspilot.__main__ import _build_operator_memory_store
+    from aiopspilot.delivery.persistence import PostgresOperatorMemoryStore
+
+    store = _build_operator_memory_store()
+    assert isinstance(store, PostgresOperatorMemoryStore)
+
+
+def test_build_operator_memory_store_rejects_empty_dsn_via_postgres_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Blank DSN is treated as unset (env var absent) so the wire falls
+    back to in-memory rather than instantiating a broken Postgres
+    adapter."""
+
+    monkeypatch.setenv("AIOPSPILOT_OPERATOR_MEMORY_DSN", "")
+    from aiopspilot.__main__ import _build_operator_memory_store
+    from aiopspilot.core.operator_memory import InMemoryOperatorMemoryStore
+
+    store = _build_operator_memory_store()
+    # ``os.environ.get`` returns "" here; ``if dsn:`` treats "" as falsy
+    # so we land on the in-memory branch. Guarding against a future
+    # regression that would accept "" as a real DSN.
+    assert isinstance(store, InMemoryOperatorMemoryStore)

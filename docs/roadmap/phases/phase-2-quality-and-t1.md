@@ -43,6 +43,11 @@ are **targets to validate**, not guarantees ([goals-and-metrics.md](../goals-and
   reads that registry - a shadow-mode ActionType returns `hil`, an enforce-mode
   ActionType with clean invariants returns `auto`, and any invariant miss (blast-radius
   over cap, stale precondition, irreversible ActionType) forces `hil` regardless of mode.
+- **Assurance Twin (query slice)**: a read-only ontology twin projected from inventory,
+  with verified text-to-query answering that routes through the tiers and this phase's
+  quality gate; ungroundable questions abstain and feed the rule discovery loop. Full
+  design in [assurance-twin.md](../assurance-twin.md); ambient review and whole-graph
+  simulation land in P3.
 
 ## Continuous Rule Update Pipeline
 

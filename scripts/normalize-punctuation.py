@@ -35,9 +35,9 @@ import sys
 from pathlib import Path
 
 REPLACEMENTS = {
-    "\u2014": "-",   # em-dash
-    "\u2013": "-",   # en-dash
-    "\u2026": "...", # ellipsis
+    "\u2014": "-",  # em-dash
+    "\u2013": "-",  # en-dash
+    "\u2026": "...",  # ellipsis
     "\u201c": '"',
     "\u201d": '"',
     "\u2018": "'",
@@ -96,9 +96,7 @@ def collect_targets(paths: list[str]) -> list[Path]:
     if paths:
         return [Path(p) for p in paths]
     # Default: every git-tracked *.md file.
-    result = subprocess.run(
-        ["git", "ls-files", "*.md"], check=True, capture_output=True, text=True
-    )
+    result = subprocess.run(["git", "ls-files", "*.md"], check=True, capture_output=True, text=True)
     return [Path(p) for p in result.stdout.splitlines() if p]
 
 
@@ -136,8 +134,7 @@ def main() -> int:
         else:
             rewritten = process_text(original)
         if rewritten != original:
-            counts = count_targets(original)
-            # Recompute against the delta (prose only) for accurate reporting.
+            # Report the delta (prose only) for accurate reporting.
             delta = {}
             for ch in REPLACEMENTS:
                 orig_c = original.count(ch)

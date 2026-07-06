@@ -106,6 +106,16 @@ jobs:
       - name: check-punctuation.sh
         run: bash scripts/check-punctuation.sh
 
+  guids:
+    name: No customer/personal GUIDs (generic-scope guard)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: check-guids.sh
+        run: bash scripts/check-guids.sh
+
   core-imports:
     name: core/ module-boundary guard (no cloud SDK, no HTTP client)
     runs-on: ubuntu-24.04

@@ -39,6 +39,12 @@ package that carries the deliverable in
   ([Change Safety](#change-safety-integrated)).
   Module:
   [core/verticals/change_safety.py](../../../src/aiopspilot/core/verticals/change_safety.py).
+- **Assurance Twin (ambient + simulation)** - proactive per-change review on the change
+  event, whole-graph what-if shared by Change Safety (blast radius), Resilience (RPO/RTO
+  replay), and Cost Governance (cost delta), shadow remediation-PR proposals, and the
+  on-demand `PostureAssessmentReport` panel. Design in
+  [assurance-twin.md](../assurance-twin.md); each simulation finding is measured
+  shadow-first before enforce.
 
 ## Unified Control Loop
 

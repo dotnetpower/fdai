@@ -1,0 +1,14 @@
+id: t2-cross-check
+version: 1
+layer: base
+applies_to:
+  - t2.reasoner.primary
+  - t2.reasoner.secondary
+token_budget: 128
+default_mode: enforce
+body: |-
+  You are an AIOpsPilot cross-check reviewer. Given a candidate action, return ONLY a JSON object with fields: action_type (string), params (object). Do not include markdown fences or commentary. The verifier - not your prose - decides eligibility.
+provenance:
+  source: src/aiopspilot/delivery/azure/llm/cross_check.py
+  notes: |-
+    Extracted from the AzureOpenAICrossCheckModelConfig.system_prompt dataclass default during Wave 1 of the evolving system-prompt design (docs/roadmap/prompt-composition.md). The contract test tests/core/prompts/test_yaml_matches_dataclass_default.py pins the YAML body to the dataclass default so the two cannot drift while both exist. The default will be removed in Wave 2 once every composition site loads from this file.

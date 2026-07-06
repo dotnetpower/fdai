@@ -61,9 +61,7 @@ def _rule_yaml(entry: dict[str, Any]) -> str:
             "reference": f"policies/{entry['policy_dir']}/{entry['policy_stem']}.rego",
         },
         "remediation": {
-            "template_ref": (
-                f"remediation/{entry['template_dir']}/{entry['template_stem']}.tftpl"
-            ),
+            "template_ref": (f"remediation/{entry['template_dir']}/{entry['template_stem']}.tftpl"),
             "cost_impact_monthly_usd": float(entry.get("cost_impact", 0)),
         },
         "remediates": entry["remediates"],
@@ -133,9 +131,7 @@ def main() -> int:
     for entry in entries:
         rule_path = CATALOG_ROOT / f"{entry['id']}.yaml"
         policy_path = POLICIES_ROOT / entry["policy_dir"] / f"{entry['policy_stem']}.rego"
-        template_path = (
-            REMEDIATION_ROOT / entry["template_dir"] / f"{entry['template_stem']}.tftpl"
-        )
+        template_path = REMEDIATION_ROOT / entry["template_dir"] / f"{entry['template_stem']}.tftpl"
         _write(rule_path, _rule_yaml(entry))
         _write(policy_path, _rego_body(entry))
         _write(template_path, _tftpl_body(entry))

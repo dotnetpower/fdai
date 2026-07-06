@@ -16,14 +16,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 FM_RE = re.compile(r"\A(---\r?\n)(.*?)(\r?\n---\r?\n)", re.DOTALL)
 
 
 def git_hash(path: Path) -> str:
-    return subprocess.check_output(
-        ["git", "hash-object", str(path)], text=True
-    ).strip()
+    return subprocess.check_output(["git", "hash-object", str(path)], text=True).strip()
 
 
 def rewrite_field(fm: str, key: str, value: str) -> tuple[str, bool]:
@@ -56,7 +53,7 @@ def process(ko_path: Path) -> tuple[bool, str]:
     fm_new, changed_date = rewrite_field(fm_new, "translation_revised", today)
     if not (changed_sha or changed_date):
         return False, f"ok (unchanged): {ko_path}"
-    body = text[m.end():]
+    body = text[m.end() :]
     ko_path.write_text(head + fm_new + tail + body, encoding="utf-8")
     return True, f"rewrote: {ko_path}  sha={new_sha}  revised={today}"
 

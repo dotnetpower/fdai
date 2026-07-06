@@ -70,6 +70,7 @@ principles into a phased engineering plan.
 - [instructions/architecture.instructions.md](instructions/architecture.instructions.md) - 3-tier trust routing, control loop, rule catalog.
 - [instructions/app-shape.instructions.md](instructions/app-shape.instructions.md) - deployment topology and anti-patterns.
 - [instructions/coding-conventions.instructions.md](instructions/coding-conventions.instructions.md) - code style, safety, and testing rules.
+- [instructions/documentation-style.instructions.md](instructions/documentation-style.instructions.md) - required layout for every markdown doc (Tier A entry points, Tier B reference, Tier C subsystem READMEs). Full authoring reference in the [documentation-writing skill](skills/documentation-writing/SKILL.md).
 
 ## Generic-Only Scope (MUST)
 

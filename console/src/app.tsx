@@ -4,12 +4,8 @@ import type { AuthContext } from "./auth";
 import { initAuth } from "./auth";
 import { loadConfig, type ConsoleConfig } from "./config";
 import { Shell } from "./components/shell";
-import { AuditRoute } from "./routes/audit";
-import { DashboardRoute } from "./routes/dashboard";
-import { HilQueueRoute } from "./routes/hil-queue";
 import { LoginRoute } from "./routes/login";
-
-type View = "dashboard" | "audit" | "hil-queue";
+import { DEFAULT_PANEL_ID, panelForId, resolvePanels } from "./panels";
 
 interface AppState {
   readonly status: "loading" | "ready" | "error";
@@ -19,15 +15,15 @@ interface AppState {
   readonly error?: string;
 }
 
-function currentView(): View {
+function currentPanelId(): string {
   const hash = window.location.hash.replace(/^#\/?/, "");
-  if (hash === "audit" || hash === "hil-queue") return hash;
-  return "dashboard";
+  const known = resolvePanels().some((p) => p.id === hash);
+  return known ? hash : DEFAULT_PANEL_ID;
 }
 
 export function App() {
   const [state, setState] = useState<AppState>({ status: "loading" });
-  const [view, setView] = useState<View>(currentView());
+  const [panelId, setPanelId] = useState<string>(currentPanelId());
 
   useEffect(() => {
     let cancelled = false;
@@ -54,7 +50,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const onHashChange = () => setView(currentView());
+    const onHashChange = () => setPanelId(currentPanelId());
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
@@ -81,15 +77,12 @@ export function App() {
     return <LoginRoute auth={auth} />;
   }
 
+  const panel = panelForId(panelId);
+  const PanelComponent = panel.component;
+
   return (
-    <Shell view={view} auth={auth}>
-      {view === "dashboard" ? (
-        <DashboardRoute client={client} />
-      ) : view === "audit" ? (
-        <AuditRoute client={client} />
-      ) : (
-        <HilQueueRoute client={client} />
-      )}
+    <Shell activePanelId={panel.id} auth={auth}>
+      <PanelComponent client={client} />
     </Shell>
   );
 }

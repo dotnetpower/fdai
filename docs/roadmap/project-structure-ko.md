@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 6879bfd088765763d268848b313392dff43ebb19
+translation_source_sha: 2299a09225ae2a73df30cf212d7b5df084886d24
 translation_revised: 2026-07-06
 ---
 
@@ -29,7 +29,8 @@ aiopspilot/
 │   │   ├── quality_gate/      # mixed-model 교차 검사, verifier, grounding (T2 방어)
 │   │   ├── risk_gate/         # 리스크 스코어링; auto vs HIL; 4개 안전 불변식 강제
 │   │   ├── executor/          # 리소스별 락, 딜리버리 어댑터로 멱등 적용
-│   │   └── audit/             # append-only 감사 로그, 추적 상태, KPI/메트릭 발행
+│   │   ├── audit/             # append-only 감사 로그, 추적 상태, KPI/메트릭 발행
+│   │   └── assurance_twin/    # 읽기 전용 온톨로지 트윈: text-to-query 리뷰 / Q&A / assessment (제안만, 실행 안 함)
 │   ├── shared/                # 크로스컷팅; core/ 로부터 import 금지
 │   │   ├── contracts/         # models.py + registry.py + validation.py + JSON 스키마들
 │   │   │   ├── event/         # event/schema.json
@@ -166,6 +167,7 @@ phase 는 `core/` 를 편집하지 않고 composition root 에서 새 구현을 
 | Risk scoring & thresholds | risk-gate config | - | 범용 임계값 | 고객 리스크 정책 |
 | Model provider | model client (capability별) | - | 설정된 기본 엔드포인트 | 고객 승인 모델 |
 | **실시간 아웃바운드 스트림** | `SseSink` (async publish + async-iterator subscribe, SSE 페이로드) | - | `InMemorySseSink` (테스트/데브); HTTP `text/event-stream` 어댑터는 콘솔 read-only 표면과 함께 랜딩 | 양방향 표면이 필요하면 WebSocket 어댑터로 교체; 헤드리스 observer는 webhook 전용. `shared/streaming/SseBroadcaster` 가 `EventBus` 토픽을 채널로 릴레이. |
+| **콘솔 read 패널** | `ReadPanel` (`delivery/read_api/panels.py`) | - | 코어 라우트만 (`/audit`, `/kpi`, `/hil-queue`); `ExampleFinOpsPanel` 은 참조용으로 제공되지만 UI 최소화를 위해 **미등록** | 포크가 `ReadApiConfig.extra_panels` (각각 GET 전용 라우트로 래핑, 빌드 시 path 검증) + 콘솔 `panels.tsx` 레지스트리 항목으로 버티컬 대시보드(FinOps 비용, 드리프트 보드, DR 드릴 이력) 추가 |
 | **Infra module** | `infra/modules/<seam>/` (Terraform 서브-모듈, `var.<seam>_kind` 로 선택) | - | Container Apps + PostgreSQL Flex + Event Hubs Kafka + Key Vault + Log Analytics | [csp-neutrality-ko.md § 승인된 대안 Azure 구현](csp-neutrality-ko.md#승인된-대안-azure-구현approved-alternative-azure-implementations) 에 따라 다른 서브-모듈 선택; 모듈의 output 계약은 고정 유지 |
 
 모든 seam이 주입되는 인터페이스이므로 고객 추가나 두 번째 클라우드는 구현 등록 문제입니다 -

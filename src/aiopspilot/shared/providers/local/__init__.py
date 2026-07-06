@@ -12,6 +12,11 @@ no network), so tests + dev runs produce reproducible audit trails.
 
 from __future__ import annotations
 
+from aiopspilot.shared.providers.local.feasibility import (
+    DenylistResourceTypeProbe,
+    EgressDenylistProbe,
+    ToggleResolution,
+)
 from aiopspilot.shared.providers.local.identity import (
     LocalWorkloadIdentity,
     LocalWorkloadIdentityConfig,
@@ -23,9 +28,12 @@ from aiopspilot.shared.providers.local.inventory import (
 from aiopspilot.shared.providers.local.secret import EnvSecretProvider
 
 __all__ = [
+    "DenylistResourceTypeProbe",
+    "EgressDenylistProbe",
     "EnvSecretProvider",
     "FileFixtureInventory",
     "LocalWorkloadIdentity",
     "LocalWorkloadIdentityConfig",
+    "ToggleResolution",
     "load_inventory_fixture",
 ]

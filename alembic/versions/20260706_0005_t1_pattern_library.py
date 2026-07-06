@@ -85,10 +85,7 @@ def upgrade() -> None:
         );
     """)
 
-    op.execute(
-        "CREATE INDEX idx_t1_pattern_library_rule_id "
-        "ON t1_pattern_library(rule_id);"
-    )
+    op.execute("CREATE INDEX idx_t1_pattern_library_rule_id ON t1_pattern_library(rule_id);")
 
     # IVFFlat cosine index. Creating on an empty table only emits a NOTICE
     # ("ivfflat index created on empty table"); it does not fail. The

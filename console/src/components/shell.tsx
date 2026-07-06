@@ -1,8 +1,9 @@
 import type { ComponentChildren } from "preact";
 import type { AuthContext } from "../auth";
+import { resolvePanels } from "../panels";
 
 interface ShellProps {
-  readonly view: "dashboard" | "audit" | "hil-queue";
+  readonly activePanelId: string;
   readonly auth: AuthContext;
   readonly children: ComponentChildren;
 }
@@ -15,15 +16,15 @@ function navLink(target: string, label: string, active: boolean) {
   );
 }
 
-export function Shell({ view, auth, children }: ShellProps) {
+export function Shell({ activePanelId, auth, children }: ShellProps) {
   return (
     <div class="shell">
       <header class="topbar">
         <h1>AIOpsPilot Console</h1>
         <nav>
-          {navLink("dashboard", "Dashboard", view === "dashboard")}
-          {navLink("audit", "Audit", view === "audit")}
-          {navLink("hil-queue", "HIL Queue", view === "hil-queue")}
+          {resolvePanels().map((panel) =>
+            navLink(panel.id, panel.label, panel.id === activePanelId),
+          )}
         </nav>
         <div class="principal">
           {auth.devMode ? (

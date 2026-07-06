@@ -22,6 +22,11 @@ from aiopspilot.shared.providers.workload_identity import (
     WorkloadIdentity,
 )
 
+# Non-empty placeholder for the required Wave 2 ``system_prompt`` argument.
+# The real prompt is composed from ``rule-catalog/prompts/`` via the
+# PromptComposer; these tests only care that the wiring threads it through.
+_TEST_SYSTEM_PROMPT = "unit-test system prompt"
+
 
 def _config(*, mode: str = LlmMode.LOCAL_FAKE, resolved_path: str | None = None) -> AppConfig:
     llm: dict[str, Any] = {"mode": mode}
@@ -129,6 +134,7 @@ def test_bind_azure_llm_bindings_attaches_adapters(tmp_path: Path) -> None:
         identity=_StaticIdentity(),
         http_client=http,
         endpoint="https://oai-test.openai.azure.com",
+        system_prompt=_TEST_SYSTEM_PROMPT,
     )
     bindings = finalized.require_llm_bindings()
     assert bindings.embedding_model is not None
@@ -148,6 +154,7 @@ def test_bind_accepts_inline_json_in_resolved_models_path() -> None:
         identity=_StaticIdentity(),
         http_client=http,
         endpoint="https://oai-test.openai.azure.com",
+        system_prompt=_TEST_SYSTEM_PROMPT,
     )
     bindings = finalized.require_llm_bindings()
     assert bindings.embedding_model is not None
@@ -163,6 +170,7 @@ def test_bind_rejects_non_azure_mode() -> None:
             identity=_StaticIdentity(),
             http_client=http,
             endpoint="https://x",
+            system_prompt=_TEST_SYSTEM_PROMPT,
         )
 
 
@@ -177,6 +185,7 @@ def test_bind_rejects_missing_resolved_file(tmp_path: Path) -> None:
             identity=_StaticIdentity(),
             http_client=http,
             endpoint="https://x",
+            system_prompt=_TEST_SYSTEM_PROMPT,
         )
 
 
@@ -195,6 +204,7 @@ def test_bind_rejects_hil_only_embedding(tmp_path: Path) -> None:
             identity=_StaticIdentity(),
             http_client=http,
             endpoint="https://oai-test",
+            system_prompt=_TEST_SYSTEM_PROMPT,
         )
 
 
@@ -213,6 +223,7 @@ def test_bind_rejects_hil_only_reasoner(tmp_path: Path) -> None:
             identity=_StaticIdentity(),
             http_client=http,
             endpoint="https://oai-test",
+            system_prompt=_TEST_SYSTEM_PROMPT,
         )
 
 
@@ -239,8 +250,199 @@ def test_bind_hil_only_mode_uses_disagree_fake_for_secondary(tmp_path: Path) -> 
         identity=_StaticIdentity(),
         http_client=http,
         endpoint="https://oai-test.openai.azure.com",
+        system_prompt=_TEST_SYSTEM_PROMPT,
     )
     bindings = finalized.require_llm_bindings()
     assert len(bindings.cross_check_models) == 2
     # Second model is the deterministic disagree fake so quorum can never form.
     assert isinstance(bindings.cross_check_models[1], MismatchCrossCheckModel)
+
+
+def test_bind_rejects_empty_system_prompt(tmp_path: Path) -> None:
+    """Wave 2 requires a composed prompt; a bare empty string means the
+    entry point forgot to invoke PromptComposer and MUST fail fast."""
+
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient()
+    with pytest.raises(ValueError, match="system_prompt"):
+        bind_azure_llm_bindings(
+            container,
+            identity=_StaticIdentity(),
+            http_client=http,
+            endpoint="https://oai-test.openai.azure.com",
+            system_prompt="",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Wave 3 step C-2: per-event composer threaded to both T2 reasoners
+# ---------------------------------------------------------------------------
+
+
+def test_bind_forwards_composer_and_capability_id_to_both_reasoners(
+    tmp_path: Path,
+) -> None:
+    """When ``prompt_composer`` is supplied, both T2 reasoners MUST be
+    constructed with their role-specific capability id so cross-check
+    sees consistent instruction context per role, not a shared prompt.
+    """
+
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+
+    class _Sentinel:
+        async def compose(
+            self, *, capability_id: str, scope: object = None
+        ) -> object:  # pragma: no cover - never awaited in this test
+            raise AssertionError("not used")
+
+    composer = _Sentinel()
+    finalized = bind_azure_llm_bindings(
+        container,
+        identity=_StaticIdentity(),
+        http_client=http,
+        endpoint="https://oai-test.openai.azure.com",
+        system_prompt=_TEST_SYSTEM_PROMPT,
+        prompt_composer=composer,
+    )
+    bindings = finalized.require_llm_bindings()
+    primary, secondary = bindings.cross_check_models
+    # Narrow to the concrete adapter for private-attribute inspection.
+    from aiopspilot.delivery.azure.llm.cross_check import AzureOpenAICrossCheckModel
+
+    assert isinstance(primary, AzureOpenAICrossCheckModel)
+    assert isinstance(secondary, AzureOpenAICrossCheckModel)
+    # The composer must be the same object for both reasoners.
+    assert primary._prompt_composer is composer
+    assert secondary._prompt_composer is composer
+    # Capability ids differ per role (primary vs secondary).
+    assert primary._capability_id == "t2.reasoner.primary"
+    assert secondary._capability_id == "t2.reasoner.secondary"
+    # ``scope_resolver`` stays None upstream (fork-only).
+    assert primary._scope_resolver is None
+    assert secondary._scope_resolver is None
+
+
+def test_bind_omits_composer_wiring_when_not_supplied(tmp_path: Path) -> None:
+    """Backwards compat: no composer -> both reasoners fall back to
+    ``system_prompt`` and carry no capability id / scope resolver."""
+
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    finalized = bind_azure_llm_bindings(
+        container,
+        identity=_StaticIdentity(),
+        http_client=http,
+        endpoint="https://oai-test.openai.azure.com",
+        system_prompt=_TEST_SYSTEM_PROMPT,
+    )
+    primary, secondary = finalized.require_llm_bindings().cross_check_models
+    from aiopspilot.delivery.azure.llm.cross_check import AzureOpenAICrossCheckModel
+
+    assert isinstance(primary, AzureOpenAICrossCheckModel)
+    assert isinstance(secondary, AzureOpenAICrossCheckModel)
+    assert primary._prompt_composer is None
+    assert secondary._prompt_composer is None
+    assert primary._capability_id is None
+    assert secondary._capability_id is None
+
+
+# ---------------------------------------------------------------------------
+# Wave 4 beta-2: Critic binding is opt-in (capability + system prompt)
+# ---------------------------------------------------------------------------
+
+
+def _resolved_models_json_with_critic() -> str:
+    """The upstream ``rule-catalog/llm-registry.yaml`` now declares a
+    ``t2.critic`` capability; the resolver output has to include a
+    matching entry when the region can provide it."""
+
+    return """{
+  "schema_version": "1.0.0",
+  "region": "koreacentral",
+  "subscription_id": "00000000-0000-0000-0000-000000000000",
+  "deployer_object_id": "00000000-0000-0000-0000-000000000001",
+  "mixed_model_mode": "azure-foundry",
+  "capabilities": [
+    {"name": "t1.embedding", "status": "resolved", "publisher": "OpenAI",
+     "family": "text-embedding-3-small", "sku": "Standard",
+     "capacity_tpm": 100000, "invocation": "always", "reasons": []},
+    {"name": "t2.reasoner.primary", "status": "resolved", "publisher": "OpenAI",
+     "family": "gpt-4o", "sku": "Standard",
+     "capacity_tpm": 20000, "invocation": "always", "reasons": []},
+    {"name": "t2.reasoner.secondary", "status": "resolved",
+     "publisher": "Anthropic", "family": "claude-opus-4", "sku": "Standard",
+     "capacity_tpm": 10000, "invocation": "always", "reasons": []},
+    {"name": "t2.critic", "status": "resolved",
+     "publisher": "Anthropic", "family": "claude-opus-4", "sku": "Standard",
+     "capacity_tpm": 5000, "invocation": "on_disagreement", "reasons": []}
+  ]
+}
+"""
+
+
+def test_bind_wires_critic_when_capability_resolves_and_prompt_supplied(
+    tmp_path: Path,
+) -> None:
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json_with_critic(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    finalized = bind_azure_llm_bindings(
+        container,
+        identity=_StaticIdentity(),
+        http_client=http,
+        endpoint="https://oai-test.openai.azure.com",
+        system_prompt=_TEST_SYSTEM_PROMPT,
+        critic_system_prompt="unit-test critic system prompt",
+    )
+    bindings = finalized.require_llm_bindings()
+    from aiopspilot.delivery.azure.llm.critic import AzureOpenAICriticModel
+
+    assert isinstance(bindings.critic_model, AzureOpenAICriticModel)
+
+
+def test_bind_leaves_critic_none_when_capability_missing(tmp_path: Path) -> None:
+    """Baseline resolver output (no ``t2.critic``) MUST NOT bind a
+    critic even when the caller supplies a prompt - the capability
+    absence is the authoritative opt-out signal."""
+
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    finalized = bind_azure_llm_bindings(
+        container,
+        identity=_StaticIdentity(),
+        http_client=http,
+        endpoint="https://oai-test.openai.azure.com",
+        system_prompt=_TEST_SYSTEM_PROMPT,
+        critic_system_prompt="unit-test critic system prompt",
+    )
+    assert finalized.require_llm_bindings().critic_model is None
+
+
+def test_bind_leaves_critic_none_when_prompt_missing(tmp_path: Path) -> None:
+    """Capability resolved but no prompt supplied -> no critic. This
+    lets a fork that ships the capability but hasn't authored a critic
+    prompt yet still boot cleanly."""
+
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json_with_critic(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    finalized = bind_azure_llm_bindings(
+        container,
+        identity=_StaticIdentity(),
+        http_client=http,
+        endpoint="https://oai-test.openai.azure.com",
+        system_prompt=_TEST_SYSTEM_PROMPT,
+        # critic_system_prompt omitted
+    )
+    assert finalized.require_llm_bindings().critic_model is None

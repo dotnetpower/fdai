@@ -1,0 +1,18 @@
+id: t2-cross-check-output-contract
+version: 1
+layer: pack
+applies_to:
+  - t2.reasoner.primary
+  - t2.reasoner.secondary
+token_budget: 96
+default_mode: shadow
+body: |-
+  Output contract reminder:
+  - The JSON object MUST NOT include null, empty, or missing 'action_type'.
+  - The 'params' object MUST NOT contain secrets, connection strings, tenant / subscription ids, or resource ids as literals.
+  - Any value referring to a resource MUST use the caller-provided target_resource_ref token.
+  - If uncertainty about the correct action_type is HIGH, emit action_type='hil.escalate' with params={"reason": "<short cause>"} rather than guessing.
+provenance:
+  source: docs/roadmap/prompt-composition.md
+  notes: |-
+    Wave 2.5 shadow-mode task pack proving the composer end-to-end. Kept in shadow so the production T2 prompt does not shift until recognition-probe KPIs (Wave 3) confirm the pack helps. Promotion to enforce is a separately reviewed change.

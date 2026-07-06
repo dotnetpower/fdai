@@ -24,7 +24,7 @@ from aiopspilot.delivery.read_api.read_model import (
 
 def _entry(**overrides: object) -> dict[str, object]:
     base: dict[str, object] = {
-        "event_id": "11111111-1111-1111-1111-111111111111",
+        "event_id": "00000000-0000-0000-0000-000000000001",
         "actor": "test",
         "action_kind": "control_loop.abstain",
         "mode": "shadow",

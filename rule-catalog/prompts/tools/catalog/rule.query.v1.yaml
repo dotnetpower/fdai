@@ -1,0 +1,28 @@
+id: rule.query
+version: 1
+description: |-
+  Look up a rule catalog entry by its rule_id. Returns the rule's
+  severity, category, remediation reference, and provenance. Use this
+  before proposing an action so the cited_rule_ids in your output are
+  grounded in real catalog entries.
+input_schema:
+  type: object
+  additionalProperties: false
+  required: [rule_id]
+  properties:
+    rule_id:
+      type: string
+      description: The exact rule id, e.g. "object-storage.owner-tag.required".
+capability_gate:
+  requires_tier: T2
+  cost_budget_usd_per_call: 0.0
+output_wrapper: '<tool_result trusted="false" tool="rule.query">{}</tool_result>'
+default_mode: shadow
+provider: RuleCatalogQueryProvider
+provenance:
+  source: docs/roadmap/prompt-composition.md
+  notes: |-
+    Wave 2.5-B step 1 catalog scaffolding. The provider is not yet wired -
+    the tool description appears in the composer's tool manifest layer so
+    the model can see it exists, but any actual dispatch happens after the
+    ToolExecutor lands in Wave 2.5-B step 2.

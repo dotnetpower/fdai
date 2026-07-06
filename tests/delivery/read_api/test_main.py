@@ -35,6 +35,7 @@ from aiopspilot.delivery.read_api.auth import (
     build_authenticator,
 )
 from aiopspilot.delivery.read_api.main import ReadApiConfig, build_app
+from aiopspilot.delivery.read_api.panels import ExampleFinOpsPanel
 from aiopspilot.delivery.read_api.read_model import (
     HilQueueItem,
     InMemoryConsoleReadModel,
@@ -80,6 +81,7 @@ def _bad_token() -> str:
 def _build_stack(
     *,
     dev_mode: bool = False,
+    extra_panels: tuple[Any, ...] = (),
 ) -> tuple[Starlette, InMemoryConsoleReadModel]:
     resolver = RoleResolver(group_mapping=_mapping())
     verifier: Any
@@ -96,7 +98,7 @@ def _build_stack(
         verifier = UnsafeClaimsExtractor()
     authenticator = build_authenticator(verifier=verifier, resolver=resolver)
     read_model = InMemoryConsoleReadModel()
-    config = ReadApiConfig(dev_mode=dev_mode)
+    config = ReadApiConfig(dev_mode=dev_mode, extra_panels=extra_panels)
     app = build_app(authenticator=authenticator, read_model=read_model, config=config)
     return app, read_model
 
@@ -503,6 +505,167 @@ class TestDevModeEnvValidation:
         client = TestClient(app)
         response = client.get("/audit")
         assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Fork-extensible read panels (ReadPanel seam)
+# ---------------------------------------------------------------------------
+
+
+class _FakePanel:
+    """Minimal :class:`ReadPanel` used to drive path-validation tests.
+
+    Unlike :class:`ExampleFinOpsPanel`, it does not validate its own path -
+    that is the point: it lets the tests prove ``build_app`` fails fast on
+    a malformed / colliding path.
+    """
+
+    def __init__(
+        self,
+        path: str,
+        *,
+        name: str = "fake",
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        self._path = path
+        self._name = name
+        self._payload = payload or {"ok": True}
+
+    @property
+    def path(self) -> str:
+        return self._path
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    async def render(self, *, params: dict[str, str]) -> dict[str, Any]:
+        del params
+        return self._payload
+
+
+def _build_with_panels(
+    *panels: Any, dev_mode: bool = True
+) -> tuple[Starlette, InMemoryConsoleReadModel]:
+    resolver = RoleResolver(group_mapping=_mapping())
+
+    def verifier(_: str) -> dict[str, Any]:
+        raise AssertionError("verifier MUST NOT run in these tests")
+
+    authenticator = build_authenticator(verifier=verifier, resolver=resolver)
+    read_model = InMemoryConsoleReadModel()
+    config = ReadApiConfig(dev_mode=dev_mode, extra_panels=tuple(panels))
+    app = build_app(authenticator=authenticator, read_model=read_model, config=config)
+    return app, read_model
+
+
+class TestExtensionPanels:
+    """The ``ReadPanel`` seam: forks add read-only routes without editing core."""
+
+    def test_no_panels_by_default_keeps_ui_minimal(self, dev_env: None) -> None:
+        del dev_env
+        app, _ = _build_stack(dev_mode=True)
+        registered = sorted(r.path for r in app.routes if hasattr(r, "path"))
+        assert registered == ["/audit", "/healthz", "/hil-queue", "/kpi"]
+
+    def test_panel_registered_as_get_route(self, dev_env: None) -> None:
+        del dev_env
+        app, _ = _build_with_panels(_FakePanel("/finops", payload={"vertical": "finops"}))
+        client = TestClient(app)
+        response = client.get("/finops")
+        assert response.status_code == 200
+        assert response.json() == {"vertical": "finops"}
+
+    @pytest.mark.parametrize("method", ["POST", "PUT", "DELETE", "PATCH"])
+    def test_panel_is_get_only(self, dev_env: None, method: str) -> None:
+        del dev_env
+        app, _ = _build_with_panels(_FakePanel("/finops"))
+        client = TestClient(app)
+        response = client.request(method, "/finops")
+        assert response.status_code == 405, (
+            f"{method} /finops must be 405 - panels are read-only too"
+        )
+
+    def test_panel_requires_reader_role(self, no_dev_env: None) -> None:
+        del no_dev_env
+        resolver = RoleResolver(group_mapping=_mapping())
+        from aiopspilot.delivery.read_api.auth import UnsafeClaimsExtractor
+
+        authenticator = build_authenticator(verifier=UnsafeClaimsExtractor(), resolver=resolver)
+        app = build_app(
+            authenticator=authenticator,
+            read_model=InMemoryConsoleReadModel(),
+            config=ReadApiConfig(dev_mode=False, extra_panels=(_FakePanel("/finops"),)),
+        )
+        client = TestClient(app)
+        # No token -> 401; token without role -> 403.
+        assert client.get("/finops").status_code == 401
+        assert (
+            client.get(
+                "/finops", headers={"authorization": f"Bearer {_no_role_token()}"}
+            ).status_code
+            == 403
+        )
+        assert (
+            client.get(
+                "/finops", headers={"authorization": f"Bearer {_reader_token()}"}
+            ).status_code
+            == 200
+        )
+
+    def test_panel_path_must_start_with_slash(self) -> None:
+        with pytest.raises(ValueError, match="MUST start with"):
+            _build_with_panels(_FakePanel("finops"), dev_mode=False)
+
+    def test_panel_path_collision_with_core_rejected(self) -> None:
+        with pytest.raises(ValueError, match="collides with a core route"):
+            _build_with_panels(_FakePanel("/kpi"), dev_mode=False)
+
+    def test_duplicate_panel_paths_rejected(self) -> None:
+        with pytest.raises(ValueError, match="duplicate panel path"):
+            _build_with_panels(
+                _FakePanel("/finops"), _FakePanel("/finops", name="other"), dev_mode=False
+            )
+
+    def test_example_finops_panel_derives_from_audit(self, dev_env: None) -> None:
+        del dev_env
+        read_model = InMemoryConsoleReadModel()
+        read_model.record_audit_entry(
+            {"event_id": "e1", "action_kind": "shutdown", "estimated_savings": 12.5},
+            mode="enforce",
+        )
+        read_model.record_audit_entry(
+            {"event_id": "e2", "action_kind": "right_size", "estimated_savings": 7.25},
+            mode="enforce",
+        )
+        read_model.record_audit_entry(
+            {"event_id": "e3", "action_kind": "shutdown"},
+            mode="shadow",
+        )
+        # A non-FinOps action is ignored by the panel.
+        read_model.record_audit_entry(
+            {"event_id": "e4", "action_kind": "restart"},
+            mode="shadow",
+        )
+        panel = ExampleFinOpsPanel(read_model)
+        app = build_app(
+            authenticator=build_authenticator(
+                verifier=lambda _: {"oid": "u"},
+                resolver=RoleResolver(group_mapping=_mapping()),
+            ),
+            read_model=read_model,
+            config=ReadApiConfig(dev_mode=True, extra_panels=(panel,)),
+        )
+        client = TestClient(app)
+        body = client.get("/finops").json()
+        assert body["vertical"] == "finops"
+        assert body["total_actions"] == 3
+        assert body["by_kind"] == {"shutdown": 2, "right_size": 1}
+        assert body["estimated_monthly_savings"] == 19.75
+
+    def test_example_finops_panel_rejects_bad_path(self) -> None:
+        with pytest.raises(ValueError, match="MUST start with"):
+            ExampleFinOpsPanel(InMemoryConsoleReadModel(), path="finops")
 
 
 def _clear_env() -> None:

@@ -36,7 +36,9 @@ from aiopspilot.shared.config.models import AppConfig, LlmMode
 from aiopspilot.shared.config.provider import EnvVarConfigProvider
 
 # ---------------------------------------------------------------------------
-# Live-deploy env shape - mirrors the moonchoi rg-aiopspilot-dev-krc deploy
+# Live-deploy env shape - generic rg-aiopspilot-dev-krc-shaped env with
+# placeholder GUIDs. The fork substitutes real tenant/subscription ids at
+# deploy time; tests only verify the config loader round-trips the shape.
 # ---------------------------------------------------------------------------
 
 _LIVE_DEPLOY_ENV_LOCAL_FAKE: Mapping[str, str] = {

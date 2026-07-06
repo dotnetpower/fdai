@@ -73,8 +73,13 @@ To keep examples concrete without leaking anything, use synthetic placeholders:
 Do not rely on human review alone. Gate every change:
 
 - **Secret scanning** in CI (e.g., `gitleaks` or `trufflehog`) blocks known secret patterns.
-- **Custom regex check** in CI for repo-specific tokens (GUID-shaped IDs outside the allowed
-  all-zero placeholder, known resource-name prefixes, `*.azure.com`/cloud endpoints).
+- **GUID gate**: `scripts/check-guids.sh` blocks any GUID-shaped id (8-4-4-4-12 hex)
+  outside the all-zero placeholder pattern (`00000000-0000-0000-0000-XXXXXXXXXXXX`).
+  Runs in CI as the `guids` job. Rationale: Azure tenant, subscription, and
+  resource ids all share this shape; blocking them at commit time is the only
+  reliable way to keep the repo customer-agnostic.
+- **Custom regex check** in CI for other repo-specific tokens (known resource-name
+  prefixes, `*.azure.com`/cloud endpoints) is future work.
 - **Pre-commit hook** running the same checks locally so violations never reach a push.
 - Checks run on the **full diff and on new/changed fixtures**, and fail the build on match.
 

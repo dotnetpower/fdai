@@ -93,9 +93,7 @@ async def _main(idempotency_key: str) -> int:
             value=json.dumps(payload, sort_keys=True).encode("utf-8"),
             key=idempotency_key.encode("utf-8"),
         )
-        print(
-            f"published: topic={meta.topic} partition={meta.partition} offset={meta.offset}"
-        )
+        print(f"published: topic={meta.topic} partition={meta.partition} offset={meta.offset}")
     finally:
         await producer.stop()
     return 0

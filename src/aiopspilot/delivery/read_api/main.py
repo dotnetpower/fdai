@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -45,6 +46,7 @@ from aiopspilot.delivery.read_api.auth import (
     AuthenticationError,
     Authenticator,
 )
+from aiopspilot.delivery.read_api.panels import ReadPanel
 from aiopspilot.delivery.read_api.read_model import (
     DEFAULT_LIMIT,
     ConsoleReadModel,
@@ -52,6 +54,8 @@ from aiopspilot.delivery.read_api.read_model import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+_CORE_ROUTE_PATHS: frozenset[str] = frozenset({"/audit", "/kpi", "/hil-queue", "/healthz"})
 
 _READER_ROLES: tuple[Role, ...] = (Role.READER, Role.CONTRIBUTOR, Role.APPROVER, Role.OWNER)
 
@@ -77,6 +81,14 @@ class ReadApiConfig:
     cors_allow_origins: tuple[str, ...] = ()
     """Origins the console SPA is served from. Empty tuple disables CORS
     (same-origin deployment). MUST NOT be ``('*',)`` in production."""
+
+    extra_panels: tuple[ReadPanel, ...] = ()
+    """Fork-supplied read-only console panels (see
+    :mod:`aiopspilot.delivery.read_api.panels`). Empty by default so the
+    upstream UI stays minimal; a fork registers vertical dashboards here.
+    Each panel is registered as a ``GET``-only route, preserving the
+    read-only invariant. The app factory fails fast on a malformed or
+    colliding panel path."""
 
 
 def build_app(
@@ -147,6 +159,15 @@ def build_app(
     async def healthz(_: Request) -> Response:
         return JSONResponse({"status": "ok"})
 
+    def _make_panel_handler(panel: ReadPanel) -> Callable[[Request], Awaitable[Response]]:
+        async def get_panel(request: Request) -> Response:
+            oid = await _authorize(request)
+            payload = await panel.render(params=dict(request.query_params))
+            _LOGGER.info("panel_served", extra={"actor": oid, "panel": panel.name})
+            return JSONResponse(dict(payload))
+
+        return get_panel
+
     # ------------------------------------------------------------------
     # Exception handlers translate RBAC primitives to HTTP status codes.
     # ------------------------------------------------------------------
@@ -168,6 +189,20 @@ def build_app(
         Route("/hil-queue", get_hil_queue, methods=["GET"]),
         Route("/healthz", healthz, methods=["GET"]),
     ]
+
+    # Fork-supplied panels: registered GET-only, after fail-fast validation
+    # so a colliding or malformed path cannot ship a broken revision.
+    seen_panel_paths: set[str] = set()
+    for panel in resolved_config.extra_panels:
+        path = panel.path
+        if not path.startswith("/"):
+            raise ValueError(f"panel path MUST start with '/', got {path!r} ({panel.name!r})")
+        if path in _CORE_ROUTE_PATHS:
+            raise ValueError(f"panel path {path!r} collides with a core route ({panel.name!r})")
+        if path in seen_panel_paths:
+            raise ValueError(f"duplicate panel path {path!r} ({panel.name!r})")
+        seen_panel_paths.add(path)
+        routes.append(Route(path, _make_panel_handler(panel), methods=["GET"]))
 
     middleware: list[Middleware] = []
     if resolved_config.cors_allow_origins:

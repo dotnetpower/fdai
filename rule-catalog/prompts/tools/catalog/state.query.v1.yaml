@@ -1,0 +1,35 @@
+id: state.query
+version: 1
+description: |-
+  Read the current state of a resource from the state store. Use this
+  when the event payload alone is insufficient to reason about the
+  target resource's actual configuration. NEVER use this to look up a
+  secret; secrets are never in the state store.
+input_schema:
+  type: object
+  additionalProperties: false
+  required: [target_resource_ref]
+  properties:
+    target_resource_ref:
+      type: string
+      description: |-
+        Opaque resource reference token from the event payload (e.g.
+        "resource:example/rg/x"). Do not fabricate this - it must have
+        been provided by the caller.
+    fields:
+      type: array
+      description: |-
+        Optional projection: names of state fields to return. Omit to
+        get a small default set (kind, location, tags, provisioningState).
+      items:
+        type: string
+capability_gate:
+  requires_tier: T2
+  cost_budget_usd_per_call: 0.0
+output_wrapper: '<tool_result trusted="false" tool="state.query">{}</tool_result>'
+default_mode: shadow
+provider: StateStoreQueryProvider
+provenance:
+  source: docs/roadmap/prompt-composition.md
+  notes: |-
+    Wave 2.5-B step 1 catalog scaffolding. The provider is not yet wired.

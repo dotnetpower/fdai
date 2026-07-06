@@ -137,6 +137,38 @@ def _build_audit_store() -> Any:
     return InMemoryStateStore()
 
 
+def _build_operator_memory_store() -> Any:
+    """Select the OperatorMemoryStore backend for this process.
+
+    Mirrors :func:`_build_audit_store`. ``AIOPSPILOT_OPERATOR_MEMORY_DSN``
+    (set by the container's KV secret ref) switches to
+    :class:`PostgresOperatorMemoryStore`; without it the deterministic
+    in-memory fake is used. The ``OperatorMemoryStore`` Protocol is the
+    contract, so :class:`DefaultPromptComposer` neither knows nor cares
+    which backend is active.
+
+    Upstream ships with the in-memory backend so the composer is fully
+    wired end-to-end even without a database - a fork gets the
+    operator-memory layer working the moment it seeds an entry, and
+    only needs to set the DSN when it wants durability across
+    restarts.
+    """
+
+    from .core.operator_memory import InMemoryOperatorMemoryStore
+
+    dsn = os.environ.get("AIOPSPILOT_OPERATOR_MEMORY_DSN")
+    if dsn:
+        from .delivery.persistence import (
+            PostgresOperatorMemoryStore,
+            PostgresOperatorMemoryStoreConfig,
+        )
+
+        _LOGGER.info("operator_memory_store_backend", extra={"backend": "postgres"})
+        return PostgresOperatorMemoryStore(config=PostgresOperatorMemoryStoreConfig(dsn=dsn))
+    _LOGGER.info("operator_memory_store_backend", extra={"backend": "in-memory"})
+    return InMemoryOperatorMemoryStore()
+
+
 def _build_pattern_library() -> PatternLibrary:
     """Select the :class:`PatternLibrary` backend for this process.
 
@@ -390,11 +422,92 @@ async def _finalize_llm_bindings(
             "llm.mode='azure' requires AIOPSPILOT_LLM_ENDPOINT env "
             "(e.g. https://oai-aiopspilot-dev-krc.openai.azure.com)"
         )
+    # Wave 2 of the evolving-system-prompt design: compose the T2 cross-check
+    # prompt from the ``rule-catalog/prompts/`` tree (Base + Task Skill Pack).
+    # Wave 2.5-B step 2b: build the tool registry + a default executor with
+    # no providers wired upstream. Every shipped tool is currently in
+    # ``default_mode: shadow``, so the adapter advertises zero tools and
+    # runtime behavior is unchanged. Fork composition roots inject real
+    # providers to light up function calling.
+    #
+    # Wave 3 step C-2: pass the composer through so each T2 reasoner
+    # re-composes its system message per event. The startup ``compose``
+    # call (below) stays as a startup-safety fallback + observability
+    # signal; per-event composition kicks in inside the adapter. Forks
+    # that ship an ``OperatorMemoryStore`` and a ``ScopeResolver`` wire
+    # them into the composer / adapter here and light up the operator
+    # memory layer. See docs/roadmap/prompt-composition.md.
+    #
+    # Wave 3 step B pipeline slice 2: the composer now takes an
+    # ``operator_memory_store`` upstream. Env var
+    # ``AIOPSPILOT_OPERATOR_MEMORY_DSN`` picks the Postgres backend;
+    # otherwise the in-memory fake is wired so a fork that seeds an
+    # entry sees the operator-memory layer materialize immediately
+    # without touching a database.
+    from .core.prompts import DefaultPromptComposer, FileSystemPromptRegistry
+    from .core.tools import DefaultToolExecutor, FileSystemToolRegistry
+
+    catalog_root = _resolve_catalog_root()
+    prompt_registry = FileSystemPromptRegistry(catalog_root)
+    operator_memory_store = _build_operator_memory_store()
+    composer = DefaultPromptComposer(
+        registry=prompt_registry,
+        operator_memory_store=operator_memory_store,
+    )
+    composed = await composer.compose(capability_id="t2.reasoner.primary")
+    tool_registry = FileSystemToolRegistry(catalog_root)
+    tool_executor = DefaultToolExecutor(
+        registry=tool_registry,
+        providers={},  # upstream: no providers wired; forks inject their own
+    )
+    # Wave 4 beta-2: compose the Critic system prompt from the shipped
+    # ``rule-catalog/prompts/base/t2-critic.v1.yaml`` seed. When no
+    # critic base prompt is found we log and skip - the bind step then
+    # leaves ``LlmBindings.critic_model = None`` and the future debate
+    # orchestrator degrades to the pre-Wave-4 cross-check flow.
+    critic_system_prompt: str | None = None
+    try:
+        critic_composed = await composer.compose(capability_id="t2.critic")
+    except LookupError:
+        _LOGGER.info(
+            "critic_prompt_missing",
+            extra={"capability_id": "t2.critic"},
+        )
+    else:
+        critic_system_prompt = critic_composed.system_text
+        _LOGGER.info(
+            "critic_prompt_composed",
+            extra={
+                "capability_id": "t2.critic",
+                "layer_count": len(critic_composed.layer_manifest),
+                "token_estimate": critic_composed.token_estimate,
+            },
+        )
+    _LOGGER.info(
+        "prompt_composed",
+        extra={
+            "capability_id": "t2.reasoner.primary",
+            "layer_count": len(composed.layer_manifest),
+            "token_estimate": composed.token_estimate,
+            "layer_ids": [ref.id for ref in composed.layer_manifest],
+            "tool_count": len(tool_registry.artifacts()),
+            "operator_memory_store": type(operator_memory_store).__name__,
+        },
+    )
     return bind_azure_llm_bindings(
         container,
         identity=identity,
         http_client=http_client,
         endpoint=endpoint,
+        system_prompt=composed.system_text,
+        tool_registry=tool_registry,
+        tool_executor=tool_executor,
+        prompt_composer=composer,
+        # ``scope_resolver`` stays None upstream - the ARM-id parser
+        # lives in a fork's composition root. Without it, operator
+        # memory entries never enter the composer output.
+        scope_resolver=None,
+        critic_system_prompt=critic_system_prompt,
     )
 
 

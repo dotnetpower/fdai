@@ -27,6 +27,10 @@ adapter refuses (raises) on non-JSON responses; this is intentional -
 
 from __future__ import annotations
 
+from aiopspilot.delivery.azure.llm.critic import (
+    AzureOpenAICriticModel,
+    AzureOpenAICriticModelConfig,
+)
 from aiopspilot.delivery.azure.llm.cross_check import (
     AzureOpenAICrossCheckModel,
     AzureOpenAICrossCheckModelConfig,
@@ -35,10 +39,18 @@ from aiopspilot.delivery.azure.llm.embeddings import (
     AzureOpenAIEmbeddingModel,
     AzureOpenAIEmbeddingModelConfig,
 )
+from aiopspilot.delivery.azure.llm.judge import (
+    AzureOpenAIJudgeModel,
+    AzureOpenAIJudgeModelConfig,
+)
 
 __all__ = [
+    "AzureOpenAICriticModel",
+    "AzureOpenAICriticModelConfig",
     "AzureOpenAICrossCheckModel",
     "AzureOpenAICrossCheckModelConfig",
     "AzureOpenAIEmbeddingModel",
     "AzureOpenAIEmbeddingModelConfig",
+    "AzureOpenAIJudgeModel",
+    "AzureOpenAIJudgeModelConfig",
 ]

@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aiopspilot.dev/schemas/rule-catalog/prompt/1.0.0",
+  "title": "Prompt Artifact",
+  "description": "One layer of the composable T2 prompt. Base and pack layers are catalog-as-code; runtime layers (domain context, operator memory, agent transcript) are data and are not authored as prompt artifacts. See docs/roadmap/prompt-composition.md for the full layer catalog and role x layer matrix.",
+  "type": "object",
+  "required": ["id", "version", "layer", "body", "provenance"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.\\-]*$",
+      "description": "Stable identifier. Case-insensitive lower kebab / dot-separated. Version is a separate field so id stays stable across versions."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic per-id version. Promotion demotes the previous version to shadow, never edits it in place."
+    },
+    "layer": {
+      "description": "Which composition slot this artifact fills. See docs/roadmap/prompt-composition.md § Role x Layer matrix.",
+      "enum": ["base", "pack", "critic", "judge", "tool", "role-header"]
+    },
+    "applies_to": {
+      "type": "array",
+      "description": "Capability ids (matching rule-catalog/llm-registry.yaml capability slots) this artifact binds to. Empty means it can bind to any capability the composer selects.",
+      "items": {"type": "string"}
+    },
+    "token_budget": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Soft budget contributed by this layer. The composer fails closed (abstain -> HIL) when the assembled prompt exceeds the capability's total token_budget."
+    },
+    "body": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The prompt fragment. Composer wraps runtime-injected text (tool output, web snippets, operator memory) in trusted='false' XML tags outside this body."
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["source"],
+      "additionalProperties": false,
+      "description": "Grounded origin. Every prompt fragment MUST cite where its text came from, mirroring the rule-catalog provenance rule (architecture.instructions.md § Rule Catalog).",
+      "properties": {
+        "source": {"type": "string", "minLength": 1},
+        "notes": {"type": "string"}
+      }
+    },
+    "default_mode": {
+      "enum": ["shadow", "enforce"],
+      "description": "Ships in shadow (judge and log only) by default; explicit promotion moves to enforce. Matches the shadow-before-enforce rule."
+    },
+    "promotion_gate": {
+      "type": "object",
+      "description": "Optional measured gates that must pass before promotion to enforce. See docs/roadmap/prompt-composition.md § Recognition measurement.",
+      "additionalProperties": true
+    }
+  }
+}

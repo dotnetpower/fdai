@@ -1,0 +1,35 @@
+id: audit.query
+version: 1
+description: |-
+  Search past-audit entries for a similar case. Use this to check
+  whether the same rule has fired on the same scope recently, and how
+  the last occurrence was resolved. Do not use this for authorization -
+  the risk gate reads the audit log directly, not through this tool.
+input_schema:
+  type: object
+  additionalProperties: false
+  required: [rule_id]
+  properties:
+    rule_id:
+      type: string
+      description: The exact rule id whose past occurrences you want to see.
+    target_resource_ref:
+      type: string
+      description: |-
+        Optional filter narrowing the search to one resource. Same opaque
+        token you would pass to state.query.
+    limit:
+      type: integer
+      minimum: 1
+      maximum: 20
+      description: Max number of audit entries to return. Default 5.
+capability_gate:
+  requires_tier: T2
+  cost_budget_usd_per_call: 0.0
+output_wrapper: '<tool_result trusted="false" tool="audit.query">{}</tool_result>'
+default_mode: shadow
+provider: AuditLogQueryProvider
+provenance:
+  source: docs/roadmap/prompt-composition.md
+  notes: |-
+    Wave 2.5-B step 1 catalog scaffolding. The provider is not yet wired.

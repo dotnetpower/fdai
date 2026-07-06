@@ -132,6 +132,14 @@ ignore = []
 # Tests intentionally include hardcoded strings like "token" that trip the
 # bandit-style S1xx rules; asserts (S101) are the whole point of the suite.
 "tests/**" = ["S101", "S105", "S106"]
+# Developer helper scripts shell out to `git` / `python3` with hardcoded
+# argument lists - the S6xx subprocess warnings assume attacker-controlled
+# input, which does not apply here.
+"scripts/**" = ["S603", "S607"]
+# Alembic migrations construct DELETE-IN-list queries from hardcoded module
+# constants (`_LINK_TYPES`, `_OBJECT_TYPES`); no user input flows into the
+# string, so S608 is a false positive in this scope.
+"alembic/**" = ["S608"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -156,3 +164,12 @@ markers = [
 # `asyncio_mode = "auto"` lets `async def test_...` functions run without a
 # per-test marker. Sync tests (CPU boundary validation) still run as-is.
 asyncio_mode = "auto"
+# Silence third-party deprecation notices we've reviewed but can't reasonably
+# act on in this branch. Each filter names the exact source class + module so
+# a real regression (a warning from OUR code) still surfaces.
+filterwarnings = [
+    # starlette 1.3.1 asks TestClient users to switch to httpx2. httpx is used
+    # extensively across src/aiopspilot/delivery/**; migrating to httpx2 is a
+    # separate work item and does not affect correctness.
+    "ignore::starlette.exceptions.StarletteDeprecationWarning",
+]

@@ -28,6 +28,11 @@ from aiopspilot.core.prompts.types import PromptArtifact, PromptLayer, PromptMod
 _SCHEMA_FILE = "prompt.schema.json"
 _PROMPTS_DIRNAME = "prompts"
 _SCHEMA_DIRNAME = "schema"
+# Sibling subsystems that live under ``prompts/`` but validate against a
+# different schema (their own registries handle them). Listing them here
+# keeps the prompt registry's rglob from picking up peer artifacts as
+# malformed prompts.
+_PEER_SUBSYSTEM_DIRNAMES = frozenset({"tools", "scenarios"})
 
 
 # ---------------------------------------------------------------------------
@@ -66,10 +71,10 @@ class PromptRegistryError(ValueError):
 class PromptRegistry(Protocol):
     """Read-only lookup surface consumed by the composition root.
 
-    The interface stays deliberately small in Wave 1: callers need the
-    base prompt for a given capability and, occasionally, the full
-    catalog for diagnostics. Task-pack / role-header lookups arrive in
-    later waves.
+    Wave 1 exposed :meth:`get_base` only; Wave 2 adds :meth:`get_packs`
+    so :class:`~aiopspilot.core.prompts.composer.DefaultPromptComposer`
+    can assemble Base + Task Skill Pack layers. Later waves add lookups
+    for critic / judge / tool artifacts as they land.
     """
 
     def get_base(self, capability_id: str) -> PromptArtifact:
@@ -78,6 +83,14 @@ class PromptRegistry(Protocol):
         Raises :class:`LookupError` when nothing matches - the caller
         MUST decide whether that is fatal (production) or a soft skip
         (tests wiring only a subset).
+        """
+
+    def get_packs(self, capability_id: str) -> tuple[PromptArtifact, ...]:
+        """Return every task-pack artifact bound to ``capability_id``.
+
+        Packs are optional: an empty tuple means the composer emits
+        only the base layer. Duplicate ``id`` values keep the highest
+        version; ties break on id so the ordering stays reproducible.
         """
 
     def artifacts(self) -> tuple[PromptArtifact, ...]:
@@ -168,6 +181,20 @@ class FileSystemPromptRegistry(PromptRegistry):
         candidates.sort(key=lambda a: (a.version, a.id), reverse=True)
         return candidates[0]
 
+    def get_packs(self, capability_id: str) -> tuple[PromptArtifact, ...]:
+        # Group by id and keep the highest version so a legacy pack
+        # sitting next to a bumped one does not double-inject.
+        by_id: dict[str, PromptArtifact] = {}
+        for art in self._artifacts:
+            if art.layer is not PromptLayer.PACK:
+                continue
+            if not art.matches(capability_id):
+                continue
+            current = by_id.get(art.id)
+            if current is None or art.version > current.version:
+                by_id[art.id] = art
+        return tuple(sorted(by_id.values(), key=lambda a: (a.id, a.version)))
+
     def artifacts(self) -> tuple[PromptArtifact, ...]:
         return self._artifacts
 
@@ -178,14 +205,20 @@ class FileSystemPromptRegistry(PromptRegistry):
 
 
 def _iter_prompt_files(prompts_dir: Path) -> Iterator[Path]:
-    """Yield every YAML file under ``prompts/`` except the schema tree.
+    """Yield every YAML file under ``prompts/`` except peer subsystems.
 
     The schema directory holds JSON, but a defensive filter keeps a
-    stray YAML there from being mistaken for an artifact.
+    stray YAML there from being mistaken for an artifact. Peer
+    subsystems (currently only ``tools/``) live under the same tree
+    with their own schema and their own registry - excluding them here
+    prevents the prompt schema validator from choking on a tool YAML.
     """
 
     for path in sorted(prompts_dir.rglob("*.yaml")):
-        if _SCHEMA_DIRNAME in path.relative_to(prompts_dir).parts:
+        parts = path.relative_to(prompts_dir).parts
+        if _SCHEMA_DIRNAME in parts:
+            continue
+        if parts and parts[0] in _PEER_SUBSYSTEM_DIRNAMES:
             continue
         yield path
 

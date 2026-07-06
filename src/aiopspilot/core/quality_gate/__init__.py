@@ -19,6 +19,22 @@ Public exports (P2-B):
   :class:`~aiopspilot.core.quality_gate.rag_grounding.RuleEmbeddingIndex`.
 """
 
+from aiopspilot.core.quality_gate.critic import (
+    CriticModel,
+    CriticObjection,
+    CriticOutput,
+    CriticSeverity,
+    CriticStance,
+    CriticVerdict,
+    evaluate_critic_output,
+)
+from aiopspilot.core.quality_gate.debate import (
+    DebateOrchestrator,
+    DebateOrchestratorConfig,
+    DebateOutcome,
+    DebateVerdict,
+    ProposerRetry,
+)
 from aiopspilot.core.quality_gate.gate import (
     CrossCheckModel,
     GroundingSource,
@@ -29,6 +45,13 @@ from aiopspilot.core.quality_gate.gate import (
     QualityOutcome,
     VerifierPolicy,
 )
+from aiopspilot.core.quality_gate.judge import (
+    JudgeDecision,
+    JudgeModel,
+    JudgeOutput,
+    JudgeVerdict,
+    evaluate_judge_output,
+)
 from aiopspilot.core.quality_gate.rag_grounding import (
     RagGroundingSource,
     RuleEmbeddingIndex,
@@ -36,8 +59,23 @@ from aiopspilot.core.quality_gate.rag_grounding import (
 from aiopspilot.core.quality_gate.rule_based import RuleBasedVerifier
 
 __all__ = [
+    "CriticModel",
+    "CriticObjection",
+    "CriticOutput",
+    "CriticSeverity",
+    "CriticStance",
+    "CriticVerdict",
     "CrossCheckModel",
+    "DebateOrchestrator",
+    "DebateOrchestratorConfig",
+    "DebateOutcome",
+    "DebateVerdict",
     "GroundingSource",
+    "JudgeDecision",
+    "JudgeModel",
+    "JudgeOutput",
+    "JudgeVerdict",
+    "ProposerRetry",
     "QualityCandidate",
     "QualityDecision",
     "QualityGate",
@@ -47,4 +85,6 @@ __all__ = [
     "RuleBasedVerifier",
     "RuleEmbeddingIndex",
     "VerifierPolicy",
+    "evaluate_critic_output",
+    "evaluate_judge_output",
 ]

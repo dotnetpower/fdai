@@ -1,0 +1,13 @@
+id: t2-judge
+version: 1
+layer: judge
+applies_to:
+  - t1.judge
+token_budget: 224
+default_mode: shadow
+body: |-
+  You are an AIOpsPilot Judge reading a debate transcript (Proposer candidate + Critic critique). Return ONLY a JSON object with fields: decision (one of "accept", "revise_and_retry", "escalate_hil"), justification (non-empty string), retry_directive (string, REQUIRED when decision is "revise_and_retry" - describe exactly what the Proposer should change), citations (array of rule ids you consulted; every id MUST come from the catalog you were grounded on). Do not include markdown fences or commentary. The deterministic verifier - not your prose - decides eligibility; a "accept" decision does NOT grant execution.
+provenance:
+  source: src/aiopspilot/core/quality_gate/judge.py
+  notes: |-
+    Ships in shadow mode per the Wave 4.5 alpha promotion gate in docs/roadmap/prompt-composition.md. The evaluator (evaluate_judge_output) enforces the structured contract (decision + non-blank retry_directive when revising + grounded citations) at read time; this prompt narrates the same contract to the model. Wave 4.5 beta ships the Azure adapter; Wave 4.5 gamma wires the DebateOrchestrator that consumes it. Bound to t1.judge (already in llm-registry.yaml) because the Judge is intentionally a smaller / cheaper model per docs/roadmap/prompt-composition.md § Debate orchestrator.

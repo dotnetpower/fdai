@@ -1,7 +1,7 @@
 ---
 title: Phase 3 - 통합 컨트롤 루프 (Resilience · Change Safety · Cost Governance)
 translation_of: phase-3-integrated-loop.md
-translation_source_sha: 22e05f8098cde8f47de55e16eed521418eff3c69
+translation_source_sha: d436c6f0dd9d5a45b2611e1124393d11faacbb68
 translation_revised: 2026-07-06
 ---
 
@@ -39,6 +39,11 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality gate, 리스크 게이트
   ([Change Safety](#change-safety-integrated)).
   모듈:
   [core/verticals/change_safety.py](../../../src/aiopspilot/core/verticals/change_safety.py).
+- **어슈어런스 트윈 (ambient + 시뮬레이션)** - 변경 이벤트에서의 선제적 변경별 리뷰,
+  Change Safety(blast radius) · Resilience(RPO/RTO replay) · Cost Governance(비용 델타)가
+  공유하는 그래프 전체 what-if, shadow remediation-PR 제안, 그리고 온디맨드
+  `PostureAssessmentReport` 패널. 설계는 [assurance-twin-ko.md](../assurance-twin-ko.md);
+  각 시뮬레이션 finding은 enforce 전에 shadow-first로 측정.
 
 ## 통합 컨트롤 루프
 

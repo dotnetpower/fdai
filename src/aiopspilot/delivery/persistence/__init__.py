@@ -19,10 +19,16 @@ from aiopspilot.delivery.persistence.postgres import (
     PostgresStateStore,
     PostgresStateStoreConfig,
 )
+from aiopspilot.delivery.persistence.postgres_operator_memory import (
+    PostgresOperatorMemoryStore,
+    PostgresOperatorMemoryStoreConfig,
+)
 
 __all__ = [
     "PgVectorPatternLibrary",
     "PgVectorPatternLibraryConfig",
+    "PostgresOperatorMemoryStore",
+    "PostgresOperatorMemoryStoreConfig",
     "PostgresStateStore",
     "PostgresStateStoreConfig",
 ]

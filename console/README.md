@@ -35,6 +35,32 @@ No mutating verb (`POST` / `PUT` / `DELETE` / `PATCH`) is called anywhere in
 `src/**`. The pytest suite for the API enforces `405` on mutating verbs
 (`tests/delivery/read_api/test_main.py::TestReadOnlyInvariant`).
 
+## Extending the console (fork panels)
+
+The upstream console ships a deliberately minimal UI - the three core panels
+above. A fork adds vertical-specific dashboards (a FinOps cost board, a drift
+board, a DR-drill history) **without editing `app.tsx` or `shell.tsx`**, through
+two matching seams:
+
+1. **API side** - implement the `ReadPanel` Protocol
+   (`src/aiopspilot/delivery/read_api/panels.py`) and register it at the
+   composition root via `ReadApiConfig.extra_panels`. The app factory wraps
+   each panel as a **GET-only** route, authorizes it with the same reader-role
+   gate as the core routes, and fails fast on a malformed / colliding path -
+   so the read-only invariant holds for extensions exactly as for core routes.
+2. **Console side** - add a `ConsolePanel` entry to `EXTRA_PANELS` in
+   [`src/panels.tsx`](src/panels.tsx). The nav bar and router iterate the
+   registry, so a new panel appears with no other change. Panels fetch their
+   data through the GET-only `client.panel<T>(path)` helper.
+
+Both halves ship a copy-paste reference that is **not** registered upstream
+(so the default UI stays minimal): `ExampleFinOpsPanel` in `panels.py` and
+[`src/routes/example-finops.tsx`](src/routes/example-finops.tsx). A fork opts
+in by registering both.
+
+Panels are read-only like the rest of the console: no action / approval button.
+Cost / change actions still flow through remediation PRs and ChatOps HIL.
+
 ## Layout
 
 ```text
@@ -48,15 +74,17 @@ console/
     ├── app.tsx         - top-level router + init
     ├── config.ts       - env-var-driven runtime config
     ├── auth.ts         - MSAL.js wrapper + dev-mode bypass
-    ├── api.ts          - read-only ReadApiClient (three GET methods)
+    ├── api.ts          - read-only ReadApiClient (three GET methods + panel())
     ├── types.ts        - TS mirrors of read_model.py shapes
+    ├── panels.tsx      - panel registry (core panels + fork extension point)
     ├── styles.css      - minimal, no design-system dep
     ├── components/
-    │   └── shell.tsx   - top bar + nav
+    │   └── shell.tsx   - top bar + nav (iterates the panel registry)
     └── routes/
         ├── dashboard.tsx
         ├── audit.tsx
         ├── hil-queue.tsx
+        ├── example-finops.tsx  - reference fork panel (opt-in, not registered)
         └── login.tsx
 ```
 

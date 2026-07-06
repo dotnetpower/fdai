@@ -24,7 +24,8 @@ aiopspilot/
 │   │   ├── quality_gate/      # mixed-model cross-check, verifier, grounding (guards T2)
 │   │   ├── risk_gate/         # risk scoring; auto vs HIL; enforces the four safety invariants
 │   │   ├── executor/          # per-resource lock, idempotent apply via delivery adapters
-│   │   └── audit/             # append-only audit log, tracked state, KPI/metric emission
+│   │   ├── audit/             # append-only audit log, tracked state, KPI/metric emission
+│   │   └── assurance_twin/    # read-only ontology twin: text-to-query review / Q&A / assessment (proposes, never executes)
 │   ├── shared/                # cross-cutting; MUST NOT import from core/
 │   │   ├── contracts/         # models.py + registry.py + validation.py + JSON Schemas
 │   │   │   ├── event/         # event/schema.json
@@ -161,6 +162,7 @@ non-Azure phase registers a new implementation at the composition root without e
 | Risk scoring & thresholds | risk-gate config | - | generic thresholds | customer risk policy |
 | Model provider | model client (per capability) | - | configured default endpoints | customer-approved models |
 | **Real-time outbound stream** | `SseSink` (async publish + async-iterator subscribe over an SSE-shaped payload) | - | `InMemorySseSink` (test/dev); HTTP `text/event-stream` adapter lands with the console read-only surface | replace with a WebSocket adapter for a two-way surface; a webhook-only variant for headless observers. `shared/streaming/SseBroadcaster` relays `EventBus` topics into channels. |
+| **Console read panel** | `ReadPanel` (in `delivery/read_api/panels.py`) | - | core routes only (`/audit`, `/kpi`, `/hil-queue`); `ExampleFinOpsPanel` ships as reference but is **not** registered, so the upstream UI stays minimal | fork adds vertical dashboards (FinOps cost, drift board, DR-drill history) via `ReadApiConfig.extra_panels` (each wrapped as a GET-only route, path validated at build) + a matching entry in the console `panels.tsx` registry |
 | **Infra module** | `infra/modules/<seam>/` (Terraform sub-module selected by `var.<seam>_kind`) | - | Container Apps + PostgreSQL Flex + Event Hubs Kafka + Key Vault + Log Analytics | pick a different sub-module per [csp-neutrality.md § Approved Alternative Azure Implementations](csp-neutrality.md#approved-alternative-azure-implementations); the module's output contract stays fixed |
 
 Because every seam is an injected interface, adding a customer or a second cloud is a matter of

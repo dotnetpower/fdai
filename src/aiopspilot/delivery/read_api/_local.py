@@ -43,7 +43,7 @@ def _seed(read_model: InMemoryConsoleReadModel) -> None:
     """Seed a few audit entries + one pending HIL so the SPA renders data."""
     read_model.record_audit_entry(
         {
-            "event_id": "11111111-1111-1111-1111-111111111111",
+            "event_id": "00000000-0000-0000-0000-000000000001",
             "actor": "aiopspilot.core.control_loop",
             "action_kind": "control_loop.abstain",
             "mode": "shadow",
@@ -54,7 +54,7 @@ def _seed(read_model: InMemoryConsoleReadModel) -> None:
     )
     read_model.record_audit_entry(
         {
-            "event_id": "22222222-2222-2222-2222-222222222222",
+            "event_id": "00000000-0000-0000-0000-000000000002",
             "actor": "aiopspilot.core.executor.shadow",
             "action_kind": "enable-encryption",
             "mode": "shadow",
@@ -65,7 +65,7 @@ def _seed(read_model: InMemoryConsoleReadModel) -> None:
     read_model.record_hil_pending(
         HilQueueItem(
             idempotency_key="hil-dev-0001",
-            event_id="33333333-3333-3333-3333-333333333333",
+            event_id="00000000-0000-0000-0000-000000000003",
             action_kind="restrict-network-access",
             reason="blast-radius exceeds executor cap",
             requested_at="2026-07-06T10:10:00+00:00",

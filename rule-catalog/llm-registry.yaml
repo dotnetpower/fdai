@@ -52,3 +52,17 @@ models:
     sku: Standard
     capacity_tpm: 5000
     invocation: on_disagreement
+
+  # Wave 4 beta-2: Critic role for the debate orchestrator. Distinct-
+  # publisher preference (Anthropic first) so the Critic reviews the
+  # Proposer's output with independent model weights, per
+  # docs/roadmap/prompt-composition.md § Debate orchestrator.
+  # ``invocation: on_disagreement`` so the Critic only fires when the
+  # T2 cross-check pair disagrees - keeps token cost bounded.
+  t2.critic:
+    preferences:
+      - {publisher: Anthropic, family: claude-opus-4}
+      - {publisher: OpenAI, family: gpt-4o}
+    sku: Standard
+    capacity_tpm: 5000
+    invocation: on_disagreement

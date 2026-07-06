@@ -41,6 +41,18 @@ export class ReadApiClient {
     return this.#get<HilQueuePage>("/hil-queue", params);
   }
 
+  /**
+   * Fetch a fork-supplied read-only panel payload. Backs the `ReadPanel`
+   * seam in `src/aiopspilot/delivery/read_api/panels.py`: a fork registers
+   * a GET route on the API and a matching console panel, then reads it
+   * here. This is GET-only like every other call - a panel MUST NOT mutate
+   * state (see app-shape.instructions.md § Operator console).
+   */
+  async panel<T>(path: string, params?: Record<string, string>): Promise<T> {
+    const search = params ? new URLSearchParams(params) : undefined;
+    return this.#get<T>(path, search);
+  }
+
   async #get<T>(path: string, params?: URLSearchParams): Promise<T> {
     const url = new URL(path, this.#config.readApiBaseUrl);
     if (params && params.toString().length > 0) {
