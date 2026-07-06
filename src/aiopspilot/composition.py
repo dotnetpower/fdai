@@ -175,6 +175,7 @@ def bind_azure_llm_bindings(
     identity: WorkloadIdentity,
     http_client: httpx.AsyncClient,
     endpoint: str,
+    system_prompt: str | None = None,
 ) -> Container:
     """Return a new :class:`Container` with the Azure OpenAI adapters attached.
 
@@ -188,6 +189,14 @@ def bind_azure_llm_bindings(
     Deliberately kept a plain function (not a method) so ``core/`` can
     never call it accidentally: the imports below pull in
     ``delivery.azure.llm``, which is prohibited from ``core/``.
+
+    ``system_prompt``: Wave 1 wiring for the evolving-system-prompt
+    catalog (docs/roadmap/prompt-composition.md). When provided it is
+    passed through to every cross-check model config so the production
+    prompt comes from ``rule-catalog/prompts/`` instead of the dataclass
+    default. Left ``None`` for backward compatibility while callers migrate;
+    a contract test (``tests/core/prompts/test_yaml_matches_dataclass_default.py``)
+    pins the two together during the transition.
     """
     from .delivery.azure.llm.cross_check import (
         AzureOpenAICrossCheckModel,
@@ -196,6 +205,14 @@ def bind_azure_llm_bindings(
     from .delivery.azure.llm.embeddings import (
         AzureOpenAIEmbeddingModel,
         AzureOpenAIEmbeddingModelConfig,
+    )
+
+    # Kwargs collected once so every cross-check config in this function
+    # applies the same prompt override consistently. When ``system_prompt``
+    # is ``None``, the dataclass default kicks in and behavior matches the
+    # pre-Wave-1 code path exactly.
+    cross_check_prompt_kwargs: dict[str, str] = (
+        {"system_prompt": system_prompt} if system_prompt is not None else {}
     )
 
     if container.config.llm.mode != LlmMode.AZURE:
@@ -232,6 +249,7 @@ def bind_azure_llm_bindings(
                     config=AzureOpenAICrossCheckModelConfig(
                         endpoint=endpoint,
                         deployment=primary_cap.name,
+                        **cross_check_prompt_kwargs,  # type: ignore[arg-type]
                     ),
                 )
             else:
@@ -274,6 +292,7 @@ def bind_azure_llm_bindings(
         config=AzureOpenAICrossCheckModelConfig(
             endpoint=endpoint,
             deployment=primary_cap.name,
+            **cross_check_prompt_kwargs,  # type: ignore[arg-type]
         ),
     )
     secondary = AzureOpenAICrossCheckModel(
@@ -282,6 +301,7 @@ def bind_azure_llm_bindings(
         config=AzureOpenAICrossCheckModelConfig(
             endpoint=endpoint,
             deployment=secondary_cap.name,
+            **cross_check_prompt_kwargs,  # type: ignore[arg-type]
         ),
     )
     bindings = LlmBindings(

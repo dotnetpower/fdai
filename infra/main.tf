@@ -71,6 +71,40 @@ module "identity" {
 }
 
 # -----------------------------------------------------------------------
+# Per-vertical Managed Identities - phase-3 § Unified Control Loop.
+# Each vertical (Change / Resilience / FinOps) executes under its own MI
+# so blast radius is bounded by vertical (no vertical can assume
+# another's identity). The executor MI above stays as the aggregate
+# "action-router" identity; individual verticals attach these MIs when
+# invoking their delivery adapters. Role assignments (per-vertical
+# action whitelists) land in fork-specific policy modules — this
+# module only guarantees the MI resources exist.
+# -----------------------------------------------------------------------
+module "identity_change" {
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-change"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { vertical = "change" })
+}
+
+module "identity_resilience" {
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-resilience"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { vertical = "resilience" })
+}
+
+module "identity_finops" {
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-finops"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { vertical = "finops" })
+}
+
+# -----------------------------------------------------------------------
 # Key Vault - secret store. Executor MI has 'Secrets User' via role assignment.
 # -----------------------------------------------------------------------
 module "key_vault" {
@@ -118,7 +152,7 @@ module "compute" {
   env_name              = "cae-${var.workload}${local.full_suffix}"
   core_app_name         = "ca-${var.workload}${local.full_suffix}-core"
   oob_job_name          = "caj-${var.workload}${local.full_suffix}-oob"
-  rule_watcher_job_name = "caj-${var.workload}${local.full_suffix}-rule-watcher"
+  rule_watcher_job_name = "caj-${var.workload}${local.full_suffix}-watcher"
   location              = var.region
   resource_group_name   = module.resource_group.name
   log_workspace_id      = module.log_analytics.workspace_id
@@ -154,8 +188,8 @@ module "llm_azure_openai" {
 module "measurement_runners" {
   source = "./modules/measurement-runners"
 
-  baseline_job_name            = "caj-${var.workload}${local.full_suffix}-measure-baseline"
-  growth_job_name              = "caj-${var.workload}${local.full_suffix}-measure-growth"
+  baseline_job_name            = "caj-${var.workload}${local.full_suffix}-baseline"
+  growth_job_name              = "caj-${var.workload}${local.full_suffix}-growth"
   container_app_environment_id = module.compute.environment_id
   location                     = var.region
   resource_group_name          = module.resource_group.name

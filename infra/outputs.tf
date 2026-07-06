@@ -71,3 +71,34 @@ output "measurement_growth_job_name" {
   value       = module.measurement_runners.growth_job_name
 }
 
+
+# Per-vertical Managed Identities (phase-3 § Unified Control Loop).
+output "identity_change_resource_id" {
+  description = "Change Safety vertical Managed Identity resource id."
+  value       = module.identity_change.resource_id
+}
+
+output "identity_change_principal_id" {
+  description = "Change Safety vertical MI object id (assign action-whitelist roles here)."
+  value       = module.identity_change.principal_id
+}
+
+output "identity_resilience_resource_id" {
+  description = "Resilience vertical Managed Identity resource id."
+  value       = module.identity_resilience.resource_id
+}
+
+output "identity_resilience_principal_id" {
+  description = "Resilience vertical MI object id."
+  value       = module.identity_resilience.principal_id
+}
+
+output "identity_finops_resource_id" {
+  description = "FinOps vertical Managed Identity resource id."
+  value       = module.identity_finops.resource_id
+}
+
+output "identity_finops_principal_id" {
+  description = "FinOps vertical MI object id."
+  value       = module.identity_finops.principal_id
+}
