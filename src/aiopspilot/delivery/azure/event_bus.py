@@ -36,8 +36,6 @@ from aiopspilot.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
 
-_EVENT_HUBS_AUDIENCE: Final[str] = "https://eventhubs.azure.net/.default"
-
 
 def _default_ssl_context() -> ssl.SSLContext:
     """Standard TLS context for the Event Hubs Kafka endpoint.
@@ -48,6 +46,29 @@ def _default_ssl_context() -> ssl.SSLContext:
     hostname, matching what a browser would do.
     """
     return ssl.create_default_context()
+
+
+def _audience_from_bootstrap(bootstrap_servers: str) -> str:
+    """Derive the namespace-scoped OAUTHBEARER audience.
+
+    Event Hubs data-plane REJECTS a token whose ``aud`` is the generic
+    ``https://eventhubs.azure.net`` — it parses "eventhubs" as a
+    tenant/namespace name and fails with
+    ``SaslAuthenticationFailed: Invalid tenant name 'eventhubs'``. The
+    working audience is the namespace FQDN, which every Event Hubs
+    tenant accepts:
+
+        https://<namespace>.servicebus.windows.net/.default
+
+    We strip an optional port (``:9093``) from the first bootstrap
+    entry and prepend ``https://`` + append ``/.default`` so the scope
+    lands in the OIDC-compatible shape.
+    """
+    first = bootstrap_servers.split(",")[0].strip()
+    host = first.split(":", 1)[0]
+    if not host:
+        raise ValueError(f"cannot derive audience from bootstrap_servers={bootstrap_servers!r}")
+    return f"https://{host}/.default"
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,15 +87,22 @@ class EventHubsKafkaBusConfig:
     """Kafka has no native DLQ; ``<topic>.dlq`` is the convention documented
     in csp-neutrality.md § 1. MUST match ``KafkaConfig.topic_dlq_suffix``."""
 
+    audience: str | None = None
+    """OAUTHBEARER token audience. Default derives it from the namespace
+    FQDN in ``bootstrap_servers`` (see :func:`_audience_from_bootstrap`).
+    A fork MAY pin it explicitly for a non-Azure endpoint (Confluent,
+    Redpanda, ...)."""
+
 
 class _EntraTokenProvider(AbstractTokenProvider):  # type: ignore[misc]
     """Bridge :class:`WorkloadIdentity` into aiokafka's token contract."""
 
-    def __init__(self, identity: WorkloadIdentity) -> None:
+    def __init__(self, identity: WorkloadIdentity, audience: str) -> None:
         self._identity = identity
+        self._audience = audience
 
     async def token(self) -> str:
-        entra = await self._identity.get_token(_EVENT_HUBS_AUDIENCE)
+        entra = await self._identity.get_token(self._audience)
         return entra.token
 
 
@@ -91,6 +119,9 @@ class EventHubsKafkaBus(EventBus):
             raise ValueError("bootstrap_servers MUST NOT be empty")
         self._identity: Final[WorkloadIdentity] = identity
         self._config: Final[EventHubsKafkaBusConfig] = config
+        self._audience: Final[str] = config.audience or _audience_from_bootstrap(
+            config.bootstrap_servers
+        )
         self._producer: AIOKafkaProducer | None = None
         self._producer_lock = asyncio.Lock()
 
@@ -102,7 +133,7 @@ class EventHubsKafkaBus(EventBus):
                     client_id=self._config.client_id,
                     security_protocol="SASL_SSL",
                     sasl_mechanism="OAUTHBEARER",
-                    sasl_oauth_token_provider=_EntraTokenProvider(self._identity),
+                    sasl_oauth_token_provider=_EntraTokenProvider(self._identity, self._audience),
                     ssl_context=_default_ssl_context(),
                     api_version="2.0.0",
                     enable_idempotence=True,
@@ -144,6 +175,7 @@ class EventHubsKafkaBus(EventBus):
             group_id=group_id,
             config=self._config,
             identity=self._identity,
+            audience=self._audience,
         )
 
     async def dead_letter(
@@ -176,6 +208,7 @@ async def _iter_consumer(
     group_id: str,
     config: EventHubsKafkaBusConfig,
     identity: WorkloadIdentity,
+    audience: str,
 ) -> AsyncIterator[EventEnvelope]:
     """Own its consumer lifecycle so the caller only sees the envelopes."""
     consumer = AIOKafkaConsumer(
@@ -185,7 +218,7 @@ async def _iter_consumer(
         client_id=config.client_id,
         security_protocol="SASL_SSL",
         sasl_mechanism="OAUTHBEARER",
-        sasl_oauth_token_provider=_EntraTokenProvider(identity),
+        sasl_oauth_token_provider=_EntraTokenProvider(identity, audience),
         ssl_context=_default_ssl_context(),
         api_version="2.0.0",
         session_timeout_ms=config.session_timeout_ms,

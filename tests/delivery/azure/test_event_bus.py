@@ -83,11 +83,52 @@ def test_decode_key_utf8() -> None:
 @pytest.mark.asyncio
 async def test_entra_token_provider_delegates_to_workload_identity() -> None:
     identity = _StaticIdentity(token="entra-token-abc")
-    provider = _EntraTokenProvider(identity)
+    provider = _EntraTokenProvider(identity, "https://evhns-test.servicebus.windows.net/.default")
     token = await provider.token()
     assert token == "entra-token-abc"
-    # Audience MUST be the Event Hubs OIDC scope so the broker accepts it.
-    assert identity.calls == ["https://eventhubs.azure.net/.default"]
+    # Namespace-scoped audience — Event Hubs rejects a generic
+    # `https://eventhubs.azure.net` aud with `Invalid tenant name`.
+    assert identity.calls == ["https://evhns-test.servicebus.windows.net/.default"]
+
+
+def test_audience_defaults_to_namespace_fqdn() -> None:
+    """The default audience MUST be derived from the bootstrap host."""
+    from aiopspilot.delivery.azure.event_bus import (  # type: ignore[attr-defined]
+        _audience_from_bootstrap,
+    )
+
+    assert (
+        _audience_from_bootstrap("evhns-test.servicebus.windows.net:9093")
+        == "https://evhns-test.servicebus.windows.net/.default"
+    )
+    # Multi-host bootstrap: take the first entry.
+    assert (
+        _audience_from_bootstrap(
+            "evhns-a.servicebus.windows.net:9093,evhns-b.servicebus.windows.net:9093"
+        )
+        == "https://evhns-a.servicebus.windows.net/.default"
+    )
+
+
+def test_audience_from_bootstrap_rejects_empty() -> None:
+    from aiopspilot.delivery.azure.event_bus import (  # type: ignore[attr-defined]
+        _audience_from_bootstrap,
+    )
+
+    with pytest.raises(ValueError, match="audience"):
+        _audience_from_bootstrap(":9093")
+
+
+def test_config_audience_override_wins() -> None:
+    """A caller MAY pin the audience for non-Azure Kafka endpoints."""
+    override = "https://custom-broker.example/.default"
+    bus = EventHubsKafkaBus(
+        identity=_StaticIdentity(),
+        config=_cfg(audience=override),
+    )
+    # Access via the private attribute so the invariant is enforced at
+    # construction; production code never touches `_audience` directly.
+    assert bus._audience == override  # type: ignore[attr-defined]
 
 
 @pytest.mark.asyncio
