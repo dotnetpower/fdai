@@ -38,6 +38,7 @@ EXPECTED_TABLES = {
     "ontology_embedding",
     "t2_cache",
     "t2_cache_default",
+    "state_kv",
 }
 
 
