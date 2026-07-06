@@ -379,7 +379,14 @@ Follows F. Implements
   `SystemConsoleTool` (R2: not ActionType-derived).
 - **D1.5** RBAC gate before narrator sees the tool schema; Chat T0
   intent matcher.
-- **D1.6** `CliReplChannel` and `tools/chat.py`.
+- **D1.6** `CliReplChannel` and `tools/chat.py`. **CLI wired for the
+  full write set**: `tools/chat.py` now composes all five write tools
+  (`simulate_change`, `list_hil`, `approve_hil`, `run_runbook`,
+  `activate_break_glass`) alongside the five read tools with the
+  shipped in-memory fakes; the coordinator recognises each verb via
+  new Chat T0 intent patterns (JSON scenarios, positional-shorthand
+  approve, params_json runbook, natural-language break-glass reasons)
+  so an operator can drive every W1.1 tool end-to-end from the shell.
 - **D1.7** Tests: RBAC matrix, escalation triggers, verifier re-check,
   golden transcript, session recovery.
 

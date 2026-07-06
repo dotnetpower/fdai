@@ -1,7 +1,7 @@
 ---
 title: 구현 계획 (표준 세트)
 translation_of: implementation-plan.md
-translation_source_sha: 2c693bbff97ea631fe25f778361c7ffaf7cd0cd5
+translation_source_sha: f0e3ae8f0e4391fb96da522c53505125eda525fa
 translation_revised: 2026-07-06
 ---
 
@@ -366,7 +366,14 @@ F 뒤. [operator-console.md § Day 1](operator-console.md#day-1-this-session)
   `SystemConsoleTool`로 구현 (R2: ActionType 파생이 아님).
 - **D1.5** 나레이터가 툴 스키마를 보기 전에 RBAC 게이트; Chat T0
   인텐트 매처.
-- **D1.6** `CliReplChannel` 및 `tools/chat.py`.
+- **D1.6** `CliReplChannel` 및 `tools/chat.py`. **전체 write set에 대해
+  CLI 배선 완료**: `tools/chat.py`가 이제 5개 read tool과 함께 5개 write
+  tool (`simulate_change`, `list_hil`, `approve_hil`, `run_runbook`,
+  `activate_break_glass`)을 shipped in-memory fake로 조립; coordinator는
+  각 verb를 새 Chat T0 intent 패턴으로 인식 (JSON 시나리오,
+  positional-shorthand approve, params_json 런북, 자연어 break-glass
+  reason 등) 하여 operator가 shell에서 모든 W1.1 tool을 end-to-end로
+  구동 가능.
 - **D1.7** 테스트: RBAC 매트릭스, escalation 트리거, verifier
   리체크, 골든 트랜스크립트, 세션 복구.
 

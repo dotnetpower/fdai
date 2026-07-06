@@ -83,6 +83,25 @@ _VERB_PATTERNS: tuple[tuple[str, str], ...] = (
     # query_inventory: query_inventory <resource_type> [substring]
     (r"^\s*(?P<verb>query[_\s-]?inventory)\b\s*(?P<rest>.*)$", "query_inventory"),
     (r"^\s*(?P<verb>list[_\s-]?resources)\b\s*(?P<rest>.*)$", "query_inventory"),
+    # simulate_change: simulate_change <JSON scenario>
+    #   Anchored BEFORE the more specific approve_hil so a stray
+    #   "simulate" verb never falls through.
+    (r"^\s*(?P<verb>simulate[_\s-]?change)\b\s*(?P<rest>.*)$", "simulate_change"),
+    (r"^\s*(?P<verb>what[_\s-]?if)\b\s*(?P<rest>.*)$", "simulate_change"),
+    # list_hil: list_hil [limit=N]
+    (r"^\s*(?P<verb>list[_\s-]?hil)\b\s*(?P<rest>.*)$", "list_hil"),
+    (r"^\s*(?P<verb>pending[_\s-]?approvals)\b\s*(?P<rest>.*)$", "list_hil"),
+    # approve_hil: approve_hil idempotency_key=... decision=approve|reject
+    (r"^\s*(?P<verb>approve[_\s-]?hil)\b\s*(?P<rest>.*)$", "approve_hil"),
+    (r"^\s*(?P<verb>resolve[_\s-]?hil)\b\s*(?P<rest>.*)$", "approve_hil"),
+    # run_runbook: run_runbook name=... [dry_run=true|false] [params_json=...]
+    (r"^\s*(?P<verb>run[_\s-]?runbook)\b\s*(?P<rest>.*)$", "run_runbook"),
+    # activate_break_glass: activate_break_glass reason="..." expiry_seconds=N
+    (
+        r"^\s*(?P<verb>activate[_\s-]?break[_\s-]?glass)\b\s*(?P<rest>.*)$",
+        "activate_break_glass",
+    ),
+    (r"^\s*(?P<verb>break[_\s-]?glass)\b\s*(?P<rest>.*)$", "activate_break_glass"),
 )
 
 
@@ -301,6 +320,88 @@ def _extract_tool_arguments(tool_name: str, query: str) -> dict[str, Any]:
             args["resource_type"] = positional[0]
         if "id_substring" not in args and len(positional) >= 2:
             args["id_substring"] = positional[1]
+        return args
+    if tool_name == "simulate_change":
+        # Accept a JSON-shaped scenario ("simulate_change {...}") OR
+        # key=value tokens whose values compose into ``scenario``
+        # (e.g. ``resource_type=object-storage resource_id=x``).
+        args = {}
+        stripped = query.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            import json as _json
+
+            try:
+                scenario = _json.loads(stripped)
+                if isinstance(scenario, dict):
+                    return {"scenario": scenario}
+            except _json.JSONDecodeError:
+                # Fall through to the kv-token path so the tool's own
+                # validator surfaces a useful error.
+                pass
+        kv = _parse_kv_tokens(query)
+        if kv:
+            scenario_dict: dict[str, Any] = {
+                k: v for k, v in kv.items() if k not in ("signal_type",)
+            }
+            if scenario_dict:
+                args["scenario"] = scenario_dict
+            if "signal_type" in kv:
+                args["signal_type"] = kv["signal_type"]
+        return args
+    if tool_name == "list_hil":
+        args = _parse_kv_tokens(query)
+        # Coerce limit to int; tool clamps [1, 100].
+        if "limit" in args:
+            try:
+                args["limit"] = int(args["limit"])
+            except (TypeError, ValueError):
+                # Leave as-is; the tool returns error.
+                pass
+        return args
+    if tool_name == "approve_hil":
+        args = _parse_kv_tokens(query)
+        positional = [tok for tok in query.split() if "=" not in tok]
+        # Positional shorthand: "approve_hil <ik> approve|reject [justification words...]".
+        if "idempotency_key" not in args and positional:
+            args["idempotency_key"] = positional[0]
+        if "decision" not in args and len(positional) >= 2:
+            args["decision"] = positional[1]
+        if "justification" not in args and len(positional) >= 3:
+            args["justification"] = " ".join(positional[2:])
+        return args
+    if tool_name == "run_runbook":
+        args = _parse_kv_tokens(query)
+        positional = [tok for tok in query.split() if "=" not in tok]
+        if "name" not in args and positional:
+            args["name"] = positional[0]
+        if "dry_run" in args:
+            raw = str(args["dry_run"]).lower()
+            args["dry_run"] = raw in ("true", "1", "yes", "y")
+        if "params_json" in args:
+            import json as _json
+
+            try:
+                loaded = _json.loads(args.pop("params_json"))
+                if isinstance(loaded, dict):
+                    args["params"] = loaded
+            except _json.JSONDecodeError:
+                # Leave params absent; tool will accept default {}.
+                pass
+        return args
+    if tool_name == "activate_break_glass":
+        args = _parse_kv_tokens(query)
+        if "expiry_seconds" in args:
+            try:
+                args["expiry_seconds"] = int(args["expiry_seconds"])
+            except (TypeError, ValueError):
+                pass
+        # If no reason came through kv-tokens, accept the whole query
+        # as the reason (natural-language friendly).
+        if "reason" not in args and query.strip():
+            # Strip any k=v tokens so we do not double-count them.
+            leftover = " ".join(tok for tok in query.split() if "=" not in tok)
+            if leftover:
+                args["reason"] = leftover
         return args
     return {}
 
