@@ -102,3 +102,30 @@ output "identity_finops_principal_id" {
   description = "FinOps vertical MI object id."
   value       = module.identity_finops.principal_id
 }
+
+# ---------------------------------------------------------------------------
+# LLM (Azure OpenAI) - present only when `enable_llm = true`.
+# One-of null-coalesce lets composition roots read the values without a
+# conditional in every call site: an empty deployments map means "no LLM
+# provisioned in this env".
+# ---------------------------------------------------------------------------
+
+output "llm_endpoint" {
+  description = "AOAI account endpoint (custom-subdomain URL). Empty string when enable_llm=false."
+  value       = length(module.llm_azure_openai) > 0 ? module.llm_azure_openai[0].endpoint : ""
+}
+
+output "llm_resource_id" {
+  description = "Cognitive Services account ARM id. Empty string when enable_llm=false."
+  value       = length(module.llm_azure_openai) > 0 ? module.llm_azure_openai[0].resource_id : ""
+}
+
+output "llm_deployments" {
+  description = "Map of capability name -> deployment name. Empty map when enable_llm=false."
+  value       = length(module.llm_azure_openai) > 0 ? module.llm_azure_openai[0].deployments : {}
+}
+
+output "llm_capacity_units" {
+  description = "Map of capability name -> provisioned capacity units (thousand TPM)."
+  value       = length(module.llm_azure_openai) > 0 ? module.llm_azure_openai[0].capacity_units : {}
+}
