@@ -43,9 +43,11 @@ from aiopspilot.core.conversation import (
     CoordinatorConfig,
     CorrelateIncidentTool,
     DescribeEventTool,
+    DeterministicKeywordNarrator,
     ExplainVerdictTool,
     ExploreCatalogTool,
     ListHilTool,
+    Narrator,
     Principal,
     QueryAuditTool,
     QueryDeploymentsTool,
@@ -57,6 +59,7 @@ from aiopspilot.core.conversation import (
     RunRunbookTool,
     SimulateChangeTool,
     ToolResult,
+    default_tool_schemas,
 )
 from aiopspilot.core.executor.action_builder import ActionBuilder
 from aiopspilot.core.executor.renderer import TemplateRenderer
@@ -296,6 +299,60 @@ def _build_tools(
     return tools
 
 
+def _build_narrator() -> Narrator | None:
+    """Select a narrator based on env vars.
+
+    - Default: :class:`DeterministicKeywordNarrator` (bilingual keyword
+      table). Zero external dependency, so the CLI always accepts at
+      least the curated set of Korean / English phrases even without
+      an LLM binding.
+    - ``LLM_MODE=azure`` + ``AIOPSPILOT_LLM_ENDPOINT=<url>``:
+      :class:`AzureOpenAINarratorModel` fronted by
+      :class:`AzureCliWorkloadIdentity` (piggybacks on ``az login``).
+      Deployment name defaults to ``t2.reasoner.primary`` (matches
+      llm-registry.yaml); override via
+      ``AIOPSPILOT_LLM_NARRATOR_DEPLOYMENT``.
+    - ``AIOPSPILOT_LLM_MODE=none``: no narrator (regex-only).
+
+    Fail-soft: any Azure adapter construction error falls back to the
+    deterministic narrator with a warning on stderr - the CLI must
+    stay usable when 'az login' has not been run.
+    """
+    mode = os.environ.get("LLM_MODE") or os.environ.get("AIOPSPILOT_LLM_MODE") or "local"
+    if mode == "none":
+        return None
+    if mode.lower() != "azure":
+        return DeterministicKeywordNarrator()
+
+    endpoint = os.environ.get("AIOPSPILOT_LLM_ENDPOINT", "").strip()
+    if not endpoint:
+        sys.stderr.write(
+            "chat: LLM_MODE=azure requires AIOPSPILOT_LLM_ENDPOINT "
+            "(e.g. https://oai-aiopspilot-dev-krc.openai.azure.com/); "
+            "falling back to deterministic keyword narrator.\n"
+        )
+        return DeterministicKeywordNarrator()
+    deployment = os.environ.get("AIOPSPILOT_LLM_NARRATOR_DEPLOYMENT", "t2.reasoner.primary")
+    try:
+        import httpx
+
+        from aiopspilot.delivery.azure.dev_workload_identity import (
+            AzureCliWorkloadIdentity,
+        )
+        from aiopspilot.delivery.azure.llm.narrator import (
+            AzureOpenAINarratorModel,
+            AzureOpenAINarratorModelConfig,
+        )
+    except ImportError as exc:  # pragma: no cover - stdlib deps ship
+        sys.stderr.write(f"chat: azure narrator unavailable ({exc}); using keyword narrator.\n")
+        return DeterministicKeywordNarrator()
+    return AzureOpenAINarratorModel(
+        identity=AzureCliWorkloadIdentity(),
+        http_client=httpx.Client(),
+        config=AzureOpenAINarratorModelConfig(endpoint=endpoint, deployment=deployment),
+    )
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="aiopspilot-chat",
@@ -347,7 +404,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     tools = _build_tools(rules=rules, action_types=action_types, repo_root=repo_root)
-    coordinator = ConversationCoordinator(tools=tools, config=CoordinatorConfig())
+    narrator = _build_narrator()
+    coordinator = ConversationCoordinator(
+        tools=tools,
+        config=CoordinatorConfig(),
+        narrator=narrator,
+        narrator_tool_schemas=default_tool_schemas() if narrator is not None else None,
+    )
     principal = Principal(id=args.principal_id, role=args.role, display_name=args.principal_id)
     session = ConversationSession(
         session_id=str(uuid.uuid4()),
@@ -356,10 +419,12 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     if not args.json_mode:
+        narrator_label = type(narrator).__name__ if narrator is not None else "regex-only"
         sys.stdout.write(
             f"aiopspilot-chat: session={session.session_id[:8]} "
             f"role={principal.role.value} "
-            f"rules={len(rules)} action_types={len(action_types)}\n"
+            f"rules={len(rules)} action_types={len(action_types)} "
+            f"narrator={narrator_label}\n"
         )
         sys.stdout.write(f"tools: {', '.join(coordinator.tool_names)}\n")
         sys.stdout.write("type an intent (e.g. 'explore_catalog storage'), ':quit' to exit.\n")

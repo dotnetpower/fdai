@@ -79,6 +79,13 @@ class AzureCliWorkloadIdentity:
         return token
 
     def _fetch(self, audience: str) -> IdentityToken:
+        # `az account get-access-token --resource` expects an AAD
+        # *resource URI* (e.g. https://cognitiveservices.azure.com),
+        # NOT a scope with a `/.default` suffix (MSAL scope form).
+        # Callers pass the scope form to line up with the Managed
+        # Identity adapter; normalize here so the same audience works
+        # against both backends.
+        resource = audience[: -len("/.default")] if audience.endswith("/.default") else audience
         try:
             proc = subprocess.run(  # noqa: S603 - executable path validated + timeout enforced
                 [
@@ -86,7 +93,7 @@ class AzureCliWorkloadIdentity:
                     "account",
                     "get-access-token",
                     "--resource",
-                    audience,
+                    resource,
                     "--output",
                     "json",
                 ],

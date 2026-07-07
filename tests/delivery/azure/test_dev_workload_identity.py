@@ -153,3 +153,27 @@ class TestGetTokenSync:
         ):
             token = wi.get_token_sync("s")
         assert token.expires_at.tzinfo is UTC
+
+    def test_msal_default_suffix_stripped_before_shelling(self) -> None:
+        """`az account get-access-token --resource` rejects the MSAL
+        `.default` scope form; the adapter MUST strip it so callers
+        can pass the same audience they would to a Managed-Identity
+        adapter.
+        """
+        wi = AzureCliWorkloadIdentity()
+        captured: dict[str, list[str]] = {}
+
+        def _side_effect(*args, **kwargs):  # type: ignore[no-untyped-def]
+            captured["argv"] = list(args[0])
+            return _completed(_valid_payload())
+
+        with patch(
+            "aiopspilot.delivery.azure.dev_workload_identity.subprocess.run",
+            side_effect=_side_effect,
+        ):
+            wi.get_token_sync("https://cognitiveservices.azure.com/.default")
+
+        argv = captured["argv"]
+        assert "--resource" in argv
+        resource = argv[argv.index("--resource") + 1]
+        assert resource == "https://cognitiveservices.azure.com"
