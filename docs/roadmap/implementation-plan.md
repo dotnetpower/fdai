@@ -449,14 +449,32 @@ prompt-composition Wave 3 step B pipeline slice 3 leftover
   push channel credentials in
   [config/notifications-matrix.yaml](../../config/notifications-matrix.yaml).
 - **W1.3** Read-API HIL callback (`POST /hil/{approval_id}/decision`,
-  HMAC-verified). Only allowed POST on the read API.
+  HMAC-verified). Only allowed POST on the read API. **Shipped**:
+  `delivery/read_api/hil_callback.py` is the sole POST route carve-out,
+  gated OFF by default (opt-in via `ReadApiConfig.hil_callback` +
+  `hil_registry`). HMAC-SHA256 over `timestamp.body`, replay window
+  configurable (300s default), body size cap, no-self-approval
+  enforcement, and mandatory `X-AIOpsPilot-Signature` +
+  `X-AIOpsPilot-Timestamp` headers - the exact same shape the Teams
+  adapter signs with. Missing config -> fail-fast at `build_app`; if
+  neither `hil_callback` nor `hil_registry` is set the 4 GET routes are
+  the only registered surface (existing read-only invariant test
+  passes).
 - **W1.4** BreakGlass fail-closed on notification: refuse when no
   channel confirms delivery.
 - **W1.5** Prompt-composition Wave 3 step B pipeline slice 3
   (fork-first second-approval channel).
 - **W1.6** Operator memory exposed to the console via
   `OperatorMemoryStore` (per R6, backed by audit log). Scope-bounded
-  reads/writes only; never merged into narrator memory.
+  reads/writes only; never merged into narrator memory. **Shipped**:
+  the Reader-floor `query_operator_memory` console tool
+  (`core/conversation/system_tools.py::QueryOperatorMemoryTool`,
+  `side_effect_class='read'`) delegates to
+  `OperatorMemoryStore.list_active_for_scope` so the store's
+  active-only filter (superseded / expired dropped) is the single
+  policy surface. Reads only - never writes audit or state; every
+  returned row surfaces its `operator-memory:<uuid>` evidence ref.
+  Wired through the coordinator + CLI at Wave M1.5c.
 
 **Exit gate**
 
@@ -498,6 +516,17 @@ Follows W1. Implements
 - **W2.4** Azure ARM adapters for the shipped ops actions.
 - **W2.5** Cost Governance vertical exposes the estimator to Axis A
   ([execution-model.md § 2.8](execution-model.md#28-cost-increasing-ops-actions)).
+  **Shipped**: `shared/providers/cost_estimator.py` (CSP-neutral
+  `CostEstimator` Protocol + `CostEstimate` + `CostConfidence` +
+  `CostEstimatorError`) with the invariant `ABSTAIN <-> monthly_usd is
+  None`. `resolve_cost_impact_monthly()` adapter returns `None` on
+  abstain / raise / unwired estimator - Axis A treats "unknown" as HIL
+  fail-closed. `InMemoryCostEstimator` fake (`seed(key, usd)` /
+  `seed_abstain` / `next_error`) + control-loop wiring in
+  `ControlLoop._resolve_cost_override`: rule-declared
+  `remediation.cost_impact_monthly_usd` is authoritative (including
+  $0); when the rule is silent the estimator is consulted, otherwise
+  `None`. Live Azure Cost Management adapter stays fork territory.
 - **W2.6** Executor path selection tests (R7: `require_manual_merge`
   strictly raises never lowers). **Shipped**:
   `core/executor/path_selection.py` exports
@@ -543,12 +572,42 @@ Follows W2. Implements
 - **M1.3** ActionTypes opt into `live_probe_ref`. Probe failure ->
   `active`; repeated failure -> `shadow_only`
   ([execution-model.md § 4.2](execution-model.md#42-runtime-shape)).
+  **Shipped**: `ops.restart-service` + `ops.scale-in` both opt in with
+  `live_probe_ref: vm_traffic_last_5m`. `load_action_type_catalog(...,
+  probes_root=...)` cross-checks every declared probe id against the
+  shipped probe catalog and hard-fails on unknown ids or a broken
+  probe catalog (surfaces the `probes:` issue key, no silent skip).
+  Wired at `__main__` + `collect_cli`.
 - **M1.4** `governance.override-ceiling` runtime (Rego fragment writer
   under `policies/action_types/`), time-boxed via the exemption
-  workflow.
+  workflow. **Shipped**: `core/risk_gate/override_writer.py` is a pure
+  renderer - `OverrideRequest -> RegoOverlay(path, content)` with no
+  filesystem I/O (caller PR-writes the file). Fail-closed on
+  `target_level` not in `{enforce_hil, shadow_only}`, scope not in
+  `{resource, resource-group}`, malformed ISO-8601 `expires_at`,
+  justification outside `[20, 500]` chars, self-approval, and `'..'`
+  in `override_id`. Rendered Rego carries METADATA front-matter +
+  a namespaced `package aiopspilot.action_types.<slug>.<override_slug>`
+  + `applies` (action_type/scope match + `now <= expires_at`) + verdict
+  block; all string interpolation goes through the backslash +
+  double-quote escaper.
 - **M1.5** Observation-depth tools (`query_log`, `query_metric`,
   `query_deployments`, `correlate_incident`) via `AzureMonitorAdapter`
-  and `DeploymentHistoryAdapter`.
+  and `DeploymentHistoryAdapter`. **Shipped upstream** in three
+  layers: (1) `shared/providers/observation.py` +
+  `shared/providers/testing/observation.py` - four CSP-neutral
+  Protocols (`LogQueryProvider` / `MetricQueryProvider` /
+  `DeploymentHistoryProvider` / `IncidentCorrelator`) + fakes, all
+  errors inheriting `ObservationError`, all methods fail-close raise;
+  (2) four Reader-floor console tools
+  (`QueryLogTool` / `QueryMetricTool` / `QueryDeploymentsTool` /
+  `CorrelateIncidentTool`, `side_effect_class='read'`) that catch
+  `ObservationError` -> `abstain` + preview (never surface raw
+  stacktraces) and treat empty results as `abstain` (so the narrator
+  cannot summarize zero rows as "nothing wrong"); (3) coordinator +
+  CLI wire (`tools/chat.py` composes 15 tools = 10 previous + 5 new
+  read verbs). Real Azure Monitor / DeploymentHistory adapters stay
+  fork territory.
 - **M1.6** `WebChatChannel` on the read-only console SPA.
 - **M1.7** Prompt-composition Wave 5 beta (concrete `WebSearchProvider`
   fork adapter + composition wire).
@@ -580,9 +639,24 @@ Independent of Waves D1..M1 once Wave F ships. Implements
   routes residual questions through the T2 quality gate; its output
   MUST pass through the same shipped `QueryVerifier`.
 - **A.4** `core/assurance_twin/review.py` posts ambient reviews on IaC
-  PRs via the GitHub Checks API adapter.
+  PRs via the GitHub Checks API adapter. **Shipped upstream**:
+  `shared/providers/iac_review.py` (`IacReviewPublisher` Protocol +
+  `IacReview` + `ReviewReceipt` + `IacReviewPublishError`) is
+  idempotent by `review_key`; `shared/providers/testing/iac_review.py`
+  provides `InMemoryIacReviewPublisher` (records, idempotency,
+  `next_error` hook). The `publish_review()` orchestrator returns one
+  of three outcomes (`POSTED / ALREADY_POSTED / PUBLISH_ERROR`) and
+  fails-closed - it never raises up into the twin. The GitHub Checks
+  adapter (real HTTP calls) is fork territory.
 - **A.5** `core/assurance_twin/report.py` assembles the
   `PostureAssessmentReport`; the console SPA gains a read-only panel.
+  **Shipped upstream**: `PostureAssessmentReport` produces a
+  whole-estate verdict (`CLEAR / NEEDS_REVIEW / BLOCKED`) derived from
+  findings; callers cannot spoof the verdict. Shadow-first:
+  `blocks_action` is `True` only for `ENFORCE + BLOCKED`. Aggregate
+  stats: `resource_count`, `rule_count`, `highest_severity`,
+  `severity_counts`, `blocking_findings`. The console SPA panel
+  landing remains fork territory.
 
 **Exit gate**
 
@@ -614,8 +688,27 @@ increments in
   Preflight analyzer's `terraform_toggle` finding a 1:1 map to a
   single variable override.
 - **P.3** GitHub Check that posts the report on infrastructure PRs.
+  **Shipped upstream**: `shared/providers/preflight_check.py` mirrors
+  the A.4 seam - `PreflightCheckPublisher` Protocol +
+  `PreflightCheck` intent + `ReviewReceipt` +
+  `PreflightCheckPublishError`, idempotent by `check_key`, guarded by
+  a `TYPE_CHECKING` reference to `DeploymentReadinessReport` so
+  `shared/` has no runtime dependency on `core/`.
+  `InMemoryPreflightCheckPublisher` fake +
+  `core/deploy_preflight/check_publish.py::publish_preflight_check()`
+  orchestrator with the same three outcomes (`POSTED / ALREADY_POSTED /
+  PUBLISH_ERROR`), fail-closed. Real GitHub Check REST call is fork
+  territory.
 - **P.4** Deployment Environment Profile cache refreshed via the
-  `Inventory` delta stream.
+  `Inventory` delta stream. **Shipped**:
+  `core/deploy_preflight/environment_profile.py` -
+  `DeploymentEnvironmentProfile` (frozen dataclass with sorted
+  `rule_ids` + non-negative `resource_type_counts`) and a thread-safe
+  `DeploymentEnvironmentProfileCache` (`Lock`). `get_fresh(scope, now,
+  max_age_seconds)` returns `None` on missing / stale / unparseable
+  ISO-8601 (fail-closed); `apply_inventory_delta(cache,
+  changed_scopes)` is the invalidate helper that Inventory delta
+  callbacks call.
 
 ## 5. Dependency graph
 

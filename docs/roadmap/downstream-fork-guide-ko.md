@@ -2,7 +2,7 @@
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
 translation_source_sha: f1a22a771f150653992e0a25319e11d107dd5f55
-translation_revised: 2026-07-06
+translation_revised: 2026-07-07
 ---
 
 # Downstream Fork 가이드

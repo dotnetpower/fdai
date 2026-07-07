@@ -1,8 +1,8 @@
 ---
 title: 구현 계획 (표준 세트)
 translation_of: implementation-plan.md
-translation_source_sha: 31473f177ec0447b4eed32cb1b60cff767b6f258
-translation_revised: 2026-07-06
+translation_source_sha: 6970883649b3988ef9e8019bb819349fc8ac13ea
+translation_revised: 2026-07-07
 ---
 
 # 구현 계획 (표준 세트)
@@ -434,14 +434,29 @@ prompt-composition Wave 3 step B pipeline slice 3 잔재
   [config/notifications-matrix.yaml](../../config/notifications-matrix.yaml)
   의 push 채널 자격증명 재사용.
 - **W1.3** Read-API HIL 콜백 (`POST /hil/{approval_id}/decision`,
-  HMAC 검증). 읽기 API에서 유일하게 허용된 POST.
+  HMAC 검증). 읽기 API에서 유일하게 허용된 POST. **Shipped**:
+  `delivery/read_api/hil_callback.py`가 POST 라우트의 유일한 카모-아웃이며,
+  기본값은 OFF (opt-in은 `ReadApiConfig.hil_callback` + `hil_registry`).
+  `timestamp.body`에 대한 HMAC-SHA256, 재생 윈도우 설정 가능(기본 300s),
+  바디 사이즈 측, no-self-approval 강제, 그리고 필수
+  `X-AIOpsPilot-Signature` + `X-AIOpsPilot-Timestamp` 헤더 - Teams
+  어댑터가 서명하는 것과 동일한 셔이프. 설정 누락 시 `build_app`에서
+  fail-fast; `hil_callback`도 `hil_registry`도 없으면 4개 GET 라우트만
+  등록된다 (기존 읽기-전용 불변식 테스트 계속 통과).
 - **W1.4** 알림 실패 시 fail-close하는 BreakGlass: 어떤 채널도 배송
   확인을 못하면 거부.
 - **W1.5** Prompt-composition Wave 3 step B pipeline slice 3
   (fork-first 두 번째 승인 채널).
 - **W1.6** `OperatorMemoryStore`를 통해 콘솔에 operator memory 노출
   (R6에 따라 감사 로그로 뒷받침). 스코프-바운디드 읽기/쓰기만; 결코
-  나레이터 메모리에 병합되지 않음.
+  나레이터 메모리에 병합되지 않음. **Shipped**: Reader-floor
+  `query_operator_memory` 콘솔 툴
+  (`core/conversation/system_tools.py::QueryOperatorMemoryTool`,
+  `side_effect_class='read'`)이
+  `OperatorMemoryStore.list_active_for_scope`에 위임 - 스토어의
+  active-only 필터(superseded / expired 제거)가 단일 정책 면. 읽기 전용
+  - 감사 또는 상태를 쓰지 않음; 매 생성 로우는 `operator-memory:<uuid>`
+  evidence ref를 노출. Wave M1.5c에서 coordinator + CLI 배선.
 
 **Exit gate**
 
@@ -480,6 +495,17 @@ W1 뒤.
 - **W2.4** 배송되는 ops 액션용 Azure ARM 어댑터.
 - **W2.5** Cost Governance vertical이 Axis A에 estimator를 노출
   ([execution-model.md § 2.8](execution-model.md#28-cost-increasing-ops-actions)).
+  **Shipped**: `shared/providers/cost_estimator.py` (CSP-neutral
+  `CostEstimator` Protocol + `CostEstimate` + `CostConfidence` +
+  `CostEstimatorError`), 불변식은 `ABSTAIN <-> monthly_usd is None`.
+  `resolve_cost_impact_monthly()` 어댑터는 abstain / raise / 미배선
+  estimator 모두 `None` 반환 - Axis A는 "unknown"을 HIL fail-closed로
+  다룸. `InMemoryCostEstimator` 페이크 (`seed(key, usd)` /
+  `seed_abstain` / `next_error`) + control-loop 배선을
+  `ControlLoop._resolve_cost_override`에서: rule-declared
+  `remediation.cost_impact_monthly_usd`가 authoritative (`$0` 포함);
+  rule이 침묵하면 estimator 조회, 그 외에는 `None`. 라이브 Azure Cost
+  Management 어댑터는 fork territory.
 - **W2.6** Executor 경로 선택 테스트 (R7:
   `require_manual_merge`는 엄격하게 올리기만 하고 내리지 않음).
   **배송 완료**: `core/executor/path_selection.py`가
@@ -521,11 +547,41 @@ W2 뒤. [execution-model.md § Month 1](execution-model.md#month-1) 과
 - **M1.3** ActionType이 `live_probe_ref`에 opt-in. 프로브 실패 ->
   `active`; 반복 실패 -> `shadow_only`
   ([execution-model.md § 4.2](execution-model.md#42-runtime-shape)).
+  **Shipped**: `ops.restart-service` + `ops.scale-in` 둘 다
+  `live_probe_ref: vm_traffic_last_5m`로 opt-in.
+  `load_action_type_catalog(..., probes_root=...)`가 선언된 모든 probe
+  id를 배송된 probe 카탈로그와 cross-check하여 알 수 없는 id 또는 broken
+  probe 카탈로그에서 hard-fail (`probes:` 이슈 키를 surface, silent skip
+  없음). `__main__` + `collect_cli`에 배선.
 - **M1.4** `governance.override-ceiling` 런타임 (`policies/action_types/`
   하의 Rego fragment 작성기), exemption 워크플로우를 통해 시간-상자화.
+  **Shipped**: `core/risk_gate/override_writer.py`는 순수 렌더러 -
+  `OverrideRequest -> RegoOverlay(path, content)`이며 파일시스템 I/O 없음
+  (caller가 PR로 파일 씀). Fail-closed: `target_level`이
+  `{enforce_hil, shadow_only}` 밖, scope가 `{resource, resource-group}`
+  밖, 잘못된 ISO-8601 `expires_at`, `[20, 500]` chars 밖의 justification,
+  self-approval, `override_id`의 `'..'`. 렌더된 Rego는 METADATA
+  front-matter + 네임스페이스화된
+  `package aiopspilot.action_types.<slug>.<override_slug>` +
+  `applies` (action_type/scope 매치 + `now <= expires_at`) + verdict
+  블록; 모든 string interpolation은 backslash + double-quote escaper
+  통과.
 - **M1.5** 관측 심도 툴(`query_log`, `query_metric`,
   `query_deployments`, `correlate_incident`)을 `AzureMonitorAdapter`와
-  `DeploymentHistoryAdapter`로.
+  `DeploymentHistoryAdapter`로. **Upstream shipped**를 세 계층으로:
+  (1) `shared/providers/observation.py` +
+  `shared/providers/testing/observation.py` - 네 개 CSP-neutral
+  Protocol (`LogQueryProvider` / `MetricQueryProvider` /
+  `DeploymentHistoryProvider` / `IncidentCorrelator`) + 페이크, 모든
+  에러가 `ObservationError`를 상속, 모든 메소드는 fail-close raise;
+  (2) 네 개 Reader-floor 콘솔 툴
+  (`QueryLogTool` / `QueryMetricTool` / `QueryDeploymentsTool` /
+  `CorrelateIncidentTool`, `side_effect_class='read'`)이
+  `ObservationError`를 catch -> `abstain` + preview (raw stacktrace
+  노출 없음) 및 empty result를 `abstain`으로 취급 (나레이터가 zero rows를
+  "이상 없음"으로 요약 못하도록); (3) coordinator + CLI 배선
+  (`tools/chat.py`가 15개 툴 조립 = 기존 10개 + 5개 신규 read 버브).
+  실제 Azure Monitor / DeploymentHistory 어댑터는 fork territory.
 - **M1.6** 읽기 전용 콘솔 SPA 위의 `WebChatChannel`.
 - **M1.7** Prompt-composition Wave 5 beta (concrete `WebSearchProvider`
   fork 어댑터 + 컴포지션 와이어).
@@ -557,9 +613,23 @@ Wave F 배송 이후에는 Waves D1..M1과 독립.
   quality gate로 라우팅하는 자체 `NlQueryCompiler`를 설치하며,
   그 출력은 반드시 동일한 shipped `QueryVerifier`를 통과해야 한다.
 - **A.4** `core/assurance_twin/review.py`가 GitHub Checks API
-  어댑터로 IaC PR에 ambient 리뷰 게시.
+  어댑터로 IaC PR에 ambient 리뷰 게시. **Upstream shipped**:
+  `shared/providers/iac_review.py` (`IacReviewPublisher` Protocol +
+  `IacReview` + `ReviewReceipt` + `IacReviewPublishError`)는
+  `review_key`로 idempotent; `shared/providers/testing/iac_review.py`가
+  `InMemoryIacReviewPublisher` (records, idempotency, `next_error`
+  훅) 제공. `publish_review()` 오케스트레이터는 세 outcome 중 하나
+  (`POSTED / ALREADY_POSTED / PUBLISH_ERROR`) 반환하고 fail-closed -
+  트윈으로 raise 안 됨. GitHub Checks 어댑터 (실제 HTTP 호출)는
+  fork territory.
 - **A.5** `core/assurance_twin/report.py`가
   `PostureAssessmentReport` 조립; 콘솔 SPA가 읽기 전용 패널 획득.
+  **Upstream shipped**: `PostureAssessmentReport`는 findings로부터
+  파생된 whole-estate verdict (`CLEAR / NEEDS_REVIEW / BLOCKED`)를
+  생성; 호출자가 verdict를 spoof 못 함. Shadow-first: `blocks_action`은
+  `ENFORCE + BLOCKED`일 때만 `True`. 집계 통계: `resource_count`,
+  `rule_count`, `highest_severity`, `severity_counts`,
+  `blocking_findings`. 콘솔 SPA 패널 landing은 fork territory.
 
 **Exit gate**
 
@@ -588,9 +658,27 @@ Wave F 배송 이후에는 Waves D1..M1과 독립.
   읽어 실제 resource shape를 결정 - toggle 모듈 자체는 live
   resource를 emit하지 않으므로 Preflight 분석기의
   `terraform_toggle` finding이 단일 변수 override에 1:1로 매핑.
-- **P.3** 인프라 PR에 리포트를 게시하는 GitHub Check.
+- **P.3** 인프라 PR에 리포트를 게시하는 GitHub Check. **Upstream
+  shipped**: `shared/providers/preflight_check.py`가 A.4 seam을
+  미러링 - `PreflightCheckPublisher` Protocol + `PreflightCheck`
+  intent + `ReviewReceipt` + `PreflightCheckPublishError`,
+  `check_key`로 idempotent, `TYPE_CHECKING` 가드로
+  `DeploymentReadinessReport` 참조하여 `shared/`가 `core/`에
+  런타임 의존 없음. `InMemoryPreflightCheckPublisher` 페이크 +
+  `core/deploy_preflight/check_publish.py::publish_preflight_check()`
+  오케스트레이터는 동일한 세 outcome (`POSTED / ALREADY_POSTED /
+  PUBLISH_ERROR`), fail-closed. 실제 GitHub Check REST 호출은
+  fork territory.
 - **P.4** `Inventory` delta 스트림으로 새로고침되는 Deployment
-  Environment Profile 캐시.
+  Environment Profile 캐시. **Shipped**:
+  `core/deploy_preflight/environment_profile.py` -
+  `DeploymentEnvironmentProfile` (frozen dataclass with sorted
+  `rule_ids` + 비-음수 `resource_type_counts`) 및 thread-safe
+  `DeploymentEnvironmentProfileCache` (`Lock`). `get_fresh(scope, now,
+  max_age_seconds)`는 missing / stale / 파싱 불가한 ISO-8601 모두
+  `None` (fail-closed); `apply_inventory_delta(cache,
+  changed_scopes)`가 Inventory delta 콜백이 호출하는 invalidate
+  helper.
 
 ## 5. 의존 그래프
 
