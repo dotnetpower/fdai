@@ -223,10 +223,10 @@ def bind_azure_llm_bindings(
     http_client: httpx.AsyncClient,
     endpoint: str,
     system_prompt: str,
-    tool_registry: object | None = None,
-    tool_executor: object | None = None,
-    prompt_composer: object | None = None,
-    scope_resolver: object | None = None,
+    tool_registry: Any | None = None,
+    tool_executor: Any | None = None,
+    prompt_composer: Any | None = None,
+    scope_resolver: Any | None = None,
     critic_system_prompt: str | None = None,
     judge_system_prompt: str | None = None,
 ) -> Container:
@@ -350,11 +350,11 @@ def bind_azure_llm_bindings(
                         deployment=primary_cap.name,
                         system_prompt=system_prompt,
                     ),
-                    tool_registry=tool_registry,  # type: ignore[arg-type]
-                    tool_executor=tool_executor,  # type: ignore[arg-type]
-                    prompt_composer=prompt_composer,  # type: ignore[arg-type]
+                    tool_registry=tool_registry,
+                    tool_executor=tool_executor,
+                    prompt_composer=prompt_composer,
                     capability_id=("t2.reasoner.primary" if prompt_composer is not None else None),
-                    scope_resolver=scope_resolver,  # type: ignore[arg-type]
+                    scope_resolver=scope_resolver,
                 )
             else:
                 primary_model = MatchTypeCrossCheckModel(model_id="hil-only-primary-noop")
@@ -398,11 +398,11 @@ def bind_azure_llm_bindings(
             deployment=primary_cap.name,
             system_prompt=system_prompt,
         ),
-        tool_registry=tool_registry,  # type: ignore[arg-type]
-        tool_executor=tool_executor,  # type: ignore[arg-type]
-        prompt_composer=prompt_composer,  # type: ignore[arg-type]
+        tool_registry=tool_registry,
+        tool_executor=tool_executor,
+        prompt_composer=prompt_composer,
         capability_id=("t2.reasoner.primary" if prompt_composer is not None else None),
-        scope_resolver=scope_resolver,  # type: ignore[arg-type]
+        scope_resolver=scope_resolver,
     )
     secondary = AzureOpenAICrossCheckModel(
         identity=identity,
@@ -412,11 +412,11 @@ def bind_azure_llm_bindings(
             deployment=secondary_cap.name,
             system_prompt=system_prompt,
         ),
-        tool_registry=tool_registry,  # type: ignore[arg-type]
-        tool_executor=tool_executor,  # type: ignore[arg-type]
-        prompt_composer=prompt_composer,  # type: ignore[arg-type]
+        tool_registry=tool_registry,
+        tool_executor=tool_executor,
+        prompt_composer=prompt_composer,
         capability_id=("t2.reasoner.secondary" if prompt_composer is not None else None),
-        scope_resolver=scope_resolver,  # type: ignore[arg-type]
+        scope_resolver=scope_resolver,
     )
     # Wave 4 beta-2: opt-in Critic binding. Only bind when both the
     # ``t2.critic`` capability resolves AND the caller supplied a

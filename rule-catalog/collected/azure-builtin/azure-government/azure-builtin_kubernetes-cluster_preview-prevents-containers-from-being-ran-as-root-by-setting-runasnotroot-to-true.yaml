@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.kubernetes-cluster.preview-prevents-containers-from-being-ran-as-root-by-setting-runasnotroot-to-true
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: kubernetes-cluster
+check_logic:
+  kind: expression
+  reference: azure-policy://2fe7ba7d-f670-41f5-8b70-b61dc7dfbe18
+remediation:
+  template_ref: remediation/azure-builtin/2fe7ba7d-f670-41f5-8b70-b61dc7dfbe18.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 2fe7ba7d-f670-41f5-8b70-b61dc7dfbe18
+  azure_policy_display_name: '[Preview]: Prevents containers from being ran as root
+    by setting runAsNotRoot to true.'
+  azure_policy_effect_default: Mutate
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/MutateRunAsNonRoot_Mutate.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

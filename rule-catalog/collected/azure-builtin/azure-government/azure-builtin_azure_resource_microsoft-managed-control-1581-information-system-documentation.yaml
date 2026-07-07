@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1581-information-system-documentation
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://742b549b-7a25-465f-b83c-ea1ffb4f4e0e
+remediation:
+  template_ref: remediation/azure-builtin/742b549b-7a25-465f-b83c-ea1ffb4f4e0e.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 742b549b-7a25-465f-b83c-ea1ffb4f4e0e
+  azure_policy_display_name: Microsoft Managed Control 1581 - Information System Documentation
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1581.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

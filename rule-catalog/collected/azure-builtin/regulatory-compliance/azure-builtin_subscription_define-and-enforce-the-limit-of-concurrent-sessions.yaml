@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.define-and-enforce-the-limit-of-concurrent-sessions
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://d8350d4c-9314-400b-288f-20ddfce04fbd
+remediation:
+  template_ref: remediation/azure-builtin/d8350d4c-9314-400b-288f-20ddfce04fbd.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d8350d4c-9314-400b-288f-20ddfce04fbd
+  azure_policy_display_name: Define and enforce the limit of concurrent sessions
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_C1050.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

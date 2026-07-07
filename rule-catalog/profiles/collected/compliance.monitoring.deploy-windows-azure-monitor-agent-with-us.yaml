@@ -1,0 +1,25 @@
+schema_version: 1.0.0
+id: compliance.monitoring.deploy-windows-azure-monitor-agent-with-us
+title: (Azure Initiative) Deploy Windows Azure Monitor Agent with user-assigned managed
+  identity-based auth and associate with Data Collection Rule
+description: Monitor your Windows virtual machines and virtual machine scale sets
+  by deploying the Azure Monitor Agent extension with user-assigned managed identity
+  authentication and associating with specified Data Collection Rule. Azure Monitor
+  Agent Deployment will occur on machines with supported OS images (or machines matching
+  the provided list of images) in supported regions.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AzureMonitor_WindowsPlatform_UAI_EnableDCR
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.preview-assign-built-in-user-assigned-managed-identity-to-virtual-machines
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.preview-assign-built-in-user-assigned-managed-identity-to-virtual-machine-scale-sets
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-windows-virtual-machines-to-run-azure-monitor-agent-with-user-assigned-managed-identity-ba
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.configure-windows-virtual-machine-scale-sets-to-run-azure-monitor-agent-with-user-assigned-ma
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-windows-machines-to-be-associated-with-a-data-collection-rule-or-a-data-col
+  mode: shadow

@@ -220,9 +220,7 @@ def _build_pattern_library() -> PatternLibrary:
             f"FDAI_T1_PATTERN_LIBRARY_IVFFLAT_PROBES={probes_raw!r} is not an integer"
         ) from exc
     if probes < 1:
-        raise RuntimeError(
-            f"FDAI_T1_PATTERN_LIBRARY_IVFFLAT_PROBES MUST be >= 1; got {probes}"
-        )
+        raise RuntimeError(f"FDAI_T1_PATTERN_LIBRARY_IVFFLAT_PROBES MUST be >= 1; got {probes}")
 
     _LOGGER.info("pattern_library_backend", extra={"backend": "pgvector"})
     return PgVectorPatternLibrary(
@@ -276,8 +274,7 @@ def _build_publisher(http_client: httpx.AsyncClient | None) -> Any:
 
     default_branch = os.environ.get("FDAI_GITOPS_DEFAULT_BRANCH", "main").strip() or "main"
     branch_prefix = (
-        os.environ.get("FDAI_GITOPS_BRANCH_PREFIX", "fdai/shadow").strip()
-        or "fdai/shadow"
+        os.environ.get("FDAI_GITOPS_BRANCH_PREFIX", "fdai/shadow").strip() or "fdai/shadow"
     )
     api_base = (
         os.environ.get("FDAI_GITOPS_API_BASE", "https://api.github.com").strip()
@@ -287,9 +284,7 @@ def _build_publisher(http_client: httpx.AsyncClient | None) -> Any:
     try:
         timeout_seconds = float(timeout_raw) if timeout_raw else 15.0
     except ValueError as exc:
-        raise RuntimeError(
-            f"FDAI_GITOPS_TIMEOUT_SECONDS={timeout_raw!r} is not a float"
-        ) from exc
+        raise RuntimeError(f"FDAI_GITOPS_TIMEOUT_SECONDS={timeout_raw!r} is not a float") from exc
     if timeout_seconds <= 0:
         raise RuntimeError(f"FDAI_GITOPS_TIMEOUT_SECONDS MUST be > 0; got {timeout_seconds}")
 
@@ -366,9 +361,7 @@ def _build_hil_channel(http_client: httpx.AsyncClient | None) -> Any:
     try:
         timeout_seconds = float(timeout_raw) if timeout_raw else 15.0
     except ValueError as exc:
-        raise RuntimeError(
-            f"FDAI_CHATOPS_TIMEOUT_SECONDS={timeout_raw!r} is not a float"
-        ) from exc
+        raise RuntimeError(f"FDAI_CHATOPS_TIMEOUT_SECONDS={timeout_raw!r} is not a float") from exc
     if timeout_seconds <= 0:
         raise RuntimeError(f"FDAI_CHATOPS_TIMEOUT_SECONDS MUST be > 0; got {timeout_seconds}")
 

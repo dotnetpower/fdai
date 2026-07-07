@@ -1,0 +1,18 @@
+schema_version: 1.0.0
+id: compliance.security-center.configure-sql-vms-and-arc-en-1-0-0
+title: (Azure Initiative) Configure SQL VMs and Arc-enabled SQL Servers to install
+  Microsoft Defender extension
+description: Microsoft Defender for SQL collects events from the agents and uses them
+  to provide security alerts and tailored hardening tasks (recommendations).
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://MDC_DfSQL_Extension
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.sqlvirtualmachine.sqlvirtualmachines.assign-system-assigned-identity-to-sql-virtual-machines
+  mode: shadow
+- id: azure-builtin.azure.sqlvirtualmachine.sqlvirtualmachines.configure-sql-virtual-machines-to-automatic.mdc_dfsql_microsoftd
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-arc-enabled-sql-servers-to-automatically-instal.mdc_dfsql_deploymicr
+  mode: shadow

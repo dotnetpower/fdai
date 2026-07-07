@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.batch.batchaccounts.private-endpoint-connections-on-batch-accounts-should-be-enabled
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.batch.batchaccounts
+check_logic:
+  kind: expression
+  reference: azure-policy://009a0c92-f5b4-4776-9b66-4ed2b4775563
+remediation:
+  template_ref: remediation/azure-builtin/009a0c92-f5b4-4776-9b66-4ed2b4775563.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 009a0c92-f5b4-4776-9b66-4ed2b4775563
+  azure_policy_display_name: Private endpoint connections on Batch accounts should
+    be enabled
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Batch
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Batch/PrivateEndpoints_AINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

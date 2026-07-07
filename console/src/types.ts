@@ -29,6 +29,7 @@ export interface DashboardKpi {
   readonly hil_pending: number;
   readonly by_action_kind: Record<string, number>;
   readonly by_outcome: Record<string, number>;
+  readonly by_tier: Record<string, number>;
   readonly last_recorded_at: string | null;
 }
 

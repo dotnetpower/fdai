@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.network.virtualnetworkgateways.enable-logging-by-category-group-for-virtual-network-gateways-microsoft-n
+version: 1.2.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.network.virtualnetworkgateways
+check_logic:
+  kind: expression
+  reference: azure-policy://6ccd32f6-0a9a-40cf-9c5b-6cfd6aba33e9
+remediation:
+  template_ref: remediation/azure-builtin/6ccd32f6-0a9a-40cf-9c5b-6cfd6aba33e9.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 6ccd32f6-0a9a-40cf-9c5b-6cfd6aba33e9
+  azure_policy_display_name: Enable logging by category group for Virtual network
+    gateways (microsoft.network/virtualnetworkgateways) to Event Hub
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_EH_network-virtualnetworkgateways_DINE.json
+  source_version: 1.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

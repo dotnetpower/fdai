@@ -47,8 +47,16 @@ mapfile -t files < <(
     ':(exclude)*.otf' \
     ':(exclude)uv.lock' \
     ':(exclude)*.jsonl' \
+    ':(exclude)rule-catalog/collected/**' \
     | sort -u
 )
+
+# `rule-catalog/collected/**` is machine-generated from public upstream
+# reference material (e.g. Azure/azure-policy). It carries thousands of
+# Microsoft-published Policy definition GUIDs which are catalog-item
+# identifiers (like SKU codes), NOT customer / tenant / subscription
+# ids. Excluding the whole tree keeps the guard focused on the surface
+# the generic-scope contract actually protects (human-authored files).
 
 # GUID pattern: 8-4-4-4-12 lowercase hex (Azure canonical form). Uppercase
 # is unusual for Azure IDs; if a case-insensitive match is needed later,

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.web.app-service.app-service-apps-should-have-authentication-enabled
+version: 2.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: web.app-service
+check_logic:
+  kind: expression
+  reference: azure-policy://95bccee9-a7f8-4bec-9ee9-62c3473701fc
+remediation:
+  template_ref: remediation/azure-builtin/95bccee9-a7f8-4bec-9ee9-62c3473701fc.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 95bccee9-a7f8-4bec-9ee9-62c3473701fc
+  azure_policy_display_name: App Service apps should have authentication enabled
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/Authentication_WebApp_Audit.json
+  source_version: 2.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

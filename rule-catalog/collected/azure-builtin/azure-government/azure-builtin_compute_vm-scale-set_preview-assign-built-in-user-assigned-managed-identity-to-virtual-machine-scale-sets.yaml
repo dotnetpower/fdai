@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm-scale-set.preview-assign-built-in-user-assigned-managed-identity-to-virtual-machine-scale-sets
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: compute.vm-scale-set
+check_logic:
+  kind: expression
+  reference: azure-policy://516187d4-ef64-4a1b-ad6b-a7348502976c
+remediation:
+  template_ref: remediation/azure-builtin/516187d4-ef64-4a1b-ad6b-a7348502976c.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 516187d4-ef64-4a1b-ad6b-a7348502976c
+  azure_policy_display_name: '[Preview]: Assign Built-In User-Assigned Managed Identity
+    to Virtual Machine Scale Sets'
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Managed Identity
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Managed Identity/VMSS_UAI_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: kube-bench.rke-cis-1.23.1-1-8.ensure-that-the-etcd-pod-specification-file-ownership-is-set-to-root-root-automa
+version: 1.0.0
+source: kube_bench
+severity: medium
+category: security
+resource_type: kubernetes-cluster.control-plane
+check_logic:
+  kind: expression
+  reference: kube-bench://rke-cis-1.23/1.1.8
+remediation:
+  template_ref: remediation/kube-bench/rke-cis-1.23/1.1.8.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 1.1.8
+  kube_bench_ruleset: rke-cis-1.23
+  kube_bench_group_id: '1.1'
+  kube_bench_scored: true
+  kube_bench_audit: /bin/sh -c 'if test -e $etcdconf; then find $etcdconf -name '*etcd*'
+    | xargs stat -c %U:%G; fi'
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/rke-cis-1.23/master.yaml
+  source_version: rke-cis-1.23
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:40Z'

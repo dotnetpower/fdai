@@ -1,0 +1,25 @@
+schema_version: 1.0.0
+id: compliance.monitoring.deprecated-enable-azure-monitor-for-vms-wi
+title: '(Azure Initiative) [Deprecated]: Enable Azure Monitor for VMs with Azure Monitoring
+  Agent(AMA)'
+description: Enable Azure Monitor for the virtual machines (VMs) with AMA. Takes Log
+  Analytics workspace as parameter and asks for an option to enable Processes and
+  Dependencies.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AzureMonitor_VM_AMA
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.preview-assign-built-in-user-assigned-managed-identity-to-virtual-machines
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-linux-virtual-machines-to-run-azure-monitor-agent-with-user-assigned-managed-identity-base
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-windows-virtual-machines-to-run-azure-monitor-agent-with-user-assigned-managed-identity-ba
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-dependency-agent-to-be-enabled-on-windows-virtual-machines-with-azure-monitoring-a
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-dependency-agent-for-linux-virtual-machines-with-azure-monitoring-agent-settings
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-a-vminsights-data-collection-rule-and-data-collection-rule-association-for-all-the
+  mode: shadow

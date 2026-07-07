@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.machinelearningservices.workspaces.configure-diagnostic-settings-for-azure-machine-learning-workspaces-to-lo
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.machinelearningservices.workspaces
+check_logic:
+  kind: expression
+  reference: azure-policy://f59276f0-5740-4aaf-821d-45d185aa210e
+remediation:
+  template_ref: remediation/azure-builtin/f59276f0-5740-4aaf-821d-45d185aa210e.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f59276f0-5740-4aaf-821d-45d185aa210e
+  azure_policy_display_name: Configure diagnostic settings for Azure Machine Learning
+    Workspaces to Log Analytics workspace
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Machine Learning
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Machine
+    Learning/AuditDiagnosticLog_DINE.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

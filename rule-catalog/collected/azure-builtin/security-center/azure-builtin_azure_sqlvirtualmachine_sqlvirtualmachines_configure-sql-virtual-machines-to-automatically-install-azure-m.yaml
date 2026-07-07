@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.sqlvirtualmachine.sqlvirtualmachines.configure-sql-virtual-machines-to-automatically-install-azure-monitor-a
+version: 1.6.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.sqlvirtualmachine.sqlvirtualmachines
+check_logic:
+  kind: expression
+  reference: azure-policy://f91991d1-5383-4c95-8ee5-5ac423dd8bb1
+remediation:
+  template_ref: remediation/azure-builtin/f91991d1-5383-4c95-8ee5-5ac423dd8bb1.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f91991d1-5383-4c95-8ee5-5ac423dd8bb1
+  azure_policy_display_name: Configure SQL Virtual Machines to automatically install
+    Azure Monitor Agent
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/MDC_DfSQL_DeployWindowsAMA_VM.json
+  source_version: 1.6.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

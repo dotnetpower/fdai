@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.web.app-service.deprecated-ensure-that-net-framework-version-is-the-latest-if-used-as-a-part-of-the-api-app
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: web.app-service
+check_logic:
+  kind: expression
+  reference: azure-policy://c2e7ca55-f62c-49b2-89a4-d41eb661d2f0
+remediation:
+  template_ref: remediation/azure-builtin/c2e7ca55-f62c-49b2-89a4-d41eb661d2f0.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: c2e7ca55-f62c-49b2-89a4-d41eb661d2f0
+  azure_policy_display_name: '[Deprecated]: Ensure that ''.NET Framework'' version
+    is the latest, if used as a part of the API app'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/ApiApp_Audit_NETFrameWork_Latest.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

@@ -1,0 +1,62 @@
+schema_version: 1.0.0
+id: compliance.virtualenclaves.preview-control-the-use-of-diagnostic
+title: '(Azure Initiative) [Preview]: Control the use of diagnostic settings for specific
+  resources in a Virtual Enclave'
+description: This initiative deploys Azure policies to ensure configuration of specific
+  resource types in Azure Virtual Enclaves. https://aka.ms/VirtualEnclaves
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://MonitoringInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.web.app-service.enable-logging-by-category-group-for-app-service-microsoft-web-sites-to-log-analytics
+  mode: shadow
+- id: azure-builtin.microsoft.desktopvirtualization.applicationgroups.enable-logging-by-category-group-for-application-group-microsoft
+  mode: shadow
+- id: azure-builtin.microsoft.insights.components.enable-logging-by-category-group-for-application-insights-microsoft-insights-compone
+  mode: shadow
+- id: azure-builtin.microsoft.documentdb.databaseaccounts.enable-logging-by-category-group-for-azure-cosmos-db-microsoft-documentdb-da
+  mode: shadow
+- id: azure-builtin.microsoft.network.azurefirewalls.enable-logging-by-category-group-for-firewall-microsoft-network-azurefirewalls-to
+  mode: shadow
+- id: azure-builtin.web.app-service.enable-logging-by-category-group-for-function-app-microsoft-web-sites-to-log-analytics
+  mode: shadow
+- id: azure-builtin.azure.desktopvirtualization.hostpools.enable-logging-by-category-group-for-host-pool-microsoft-desktopvirtualizati
+  mode: shadow
+- id: azure-builtin.microsoft.dbforpostgresql.flexibleservers.enable-logging-by-category-group-for-postgresql-flexible-server-microsof
+  mode: shadow
+- id: azure-builtin.azure.desktopvirtualization.workspaces.enable-logging-by-category-group-for-workspace-microsoft-desktopvirtualizat
+  mode: shadow
+- id: azure-builtin.secret-store.deploy-diagnostic-settings-for-key-vault-to-log-analytics-workspace
+  mode: shadow
+- id: azure-builtin.azure.logic.workflows.deploy-diagnostic-settings-for-logic-apps-to-log-analytics-workspace
+  mode: shadow
+- id: azure-builtin.sql-database.deploy-configure-diagnostic-settings-for-sql-databases-to-log-analytics-workspace
+  mode: shadow
+- id: azure-builtin.sql-server.configure-azure-sql-database-servers-diagnostic-settings-to-log-analytics-workspace
+  mode: shadow
+- id: azure-builtin.microsoft.network.publicipaddresses.enable-logging-by-category-group-for-public-ip-addresses-microsoft-network-pub
+  mode: shadow
+- id: azure-builtin.object-storage.configure-diagnostic-settings-for-storage-accounts-to-log-analytics-workspace
+  mode: shadow
+- id: azure-builtin.azure.storage.storageaccounts.blobservices.configure-diagnostic-settings-for-blob-services-to-log-analytics-worksp
+  mode: shadow
+- id: azure-builtin.azure.storage.storageaccounts.fileservices.configure-diagnostic-settings-for-file-services-to-log-analytics-worksp
+  mode: shadow
+- id: azure-builtin.azure.storage.storageaccounts.queueservices.configure-diagnostic-settings-for-queue-services-to-log-analytics-work
+  mode: shadow
+- id: azure-builtin.azure.storage.storageaccounts.tableservices.configure-diagnostic-settings-for-table-services-to-log-analytics-work
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.deploy-configure-diagnostic-settings-for-azure-kubernetes-service-to-log-analytics-workspace
+  mode: shadow
+- id: azure-builtin.microsoft.containerregistry.registries.enable-logging-by-category-group-for-container-registries-microsoft-contain
+  mode: shadow
+- id: azure-builtin.microsoft.operationalinsights.workspaces.enable-logging-by-category-group-for-log-analytics-workspaces-microsoft-o
+  mode: shadow
+- id: azure-builtin.microsoft.sql.managedinstances.enable-logging-by-category-group-for-sql-managed-instances-microsoft-sql-managedins
+  mode: shadow
+- id: azure-builtin.network.nsg.configure-diagnostic-settings-for-azure-network-security-groups-to-log-analytics-workspace
+  mode: shadow
+- id: azure-builtin.microsoft.servicebus.namespaces.enable-logging-by-category-group-for-service-bus-namespaces-microsoft-servicebus-n
+  mode: shadow

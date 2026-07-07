@@ -1,0 +1,68 @@
+# Pre-commit hooks - fulfil the promise in
+# .github/instructions/generic-scope.instructions.md § Enforcement that
+# "the same checks that CI runs" also run locally before a push.
+#
+# Install once:
+#   uv run pre-commit install
+# (pre-commit ships in the `dev` extra; no extra pip install needed.)
+#
+# Run explicitly against everything:
+#   uv run pre-commit run --all-files
+#
+# The hooks mirror the CI jobs in .github/workflows/ci.yml. New CI gates
+# should land here in the same PR so a contributor sees the same failure
+# locally that CI would surface.
+
+repos:
+  # 1. Ruff - fast Python lint + format check. `ruff format --check`
+  #    replaces black; `ruff` replaces isort + flake8-* stack per
+  #    pyproject.toml [tool.ruff].
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  # 2. Baseline hygiene - trailing whitespace, missing newline at EOF,
+  #    large-file guard, merge-conflict marker guard.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+
+  # 3. Repo-specific gates - the five scripts wired into CI as separate
+  #    jobs. Kept as `system` hooks so the exact CI script runs (no
+  #    shim). `pass_filenames: false` because each script walks the
+  #    tracked file set itself.
+  - repo: local
+    hooks:
+      - id: check-english-only
+        name: check-english-only.sh
+        entry: bash scripts/check-english-only.sh
+        language: system
+        pass_filenames: false
+      - id: check-punctuation
+        name: check-punctuation.sh
+        entry: bash scripts/check-punctuation.sh
+        language: system
+        pass_filenames: false
+      - id: check-guids
+        name: check-guids.sh
+        entry: bash scripts/check-guids.sh
+        language: system
+        pass_filenames: false
+      - id: check-translations
+        name: check-translations.sh
+        entry: bash scripts/check-translations.sh
+        language: system
+        pass_filenames: false
+      - id: check-core-imports
+        name: check-core-imports.sh
+        entry: bash scripts/check-core-imports.sh
+        language: system
+        pass_filenames: false

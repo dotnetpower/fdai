@@ -1,0 +1,35 @@
+schema_version: 1.0.0
+id: compliance.mission.control-the-use-of-postgresql-in-mission-plat
+title: (Azure Initiative) Control the use of PostgreSQL in Mission Platforms
+description: This policy applies exclusively to Mission Platform products and services;
+  usage outside of these scopes is not supported. This initiative enforces PostgreSQL
+  boundary protections to maintain security and compliance requirements. For more
+  information, visit https://aka.ms/mission-platforms
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://PostgreSqlInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.postgresql-server.enforce-ssl-connection-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.public-network-access-should-be-disabled-for-postgresql-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.log-duration-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.log-checkpoints-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.log-connections-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.connection-throttling-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.disconnections-should-be-logged-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.postgresql-servers-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.postgresql-server.infrastructure-encryption-should-be-enabled-for-azure-database-for-postgresql-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.configure-advanced-threat-protection-to-be-enabled-on-azure-database-for-postgresql-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.private-endpoint-should-be-enabled-for-postgresql-servers
+  mode: shadow

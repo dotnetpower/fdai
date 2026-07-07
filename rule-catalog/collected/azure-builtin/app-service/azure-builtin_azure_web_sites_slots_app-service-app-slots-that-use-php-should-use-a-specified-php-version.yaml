@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.web.sites.slots.app-service-app-slots-that-use-php-should-use-a-specified-php-version
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.web.sites.slots
+check_logic:
+  kind: expression
+  reference: azure-policy://f466b2a6-823d-470d-8ea5-b031e72d79ae
+remediation:
+  template_ref: remediation/azure-builtin/f466b2a6-823d-470d-8ea5-b031e72d79ae.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f466b2a6-823d-470d-8ea5-b031e72d79ae
+  azure_policy_display_name: App Service app slots that use PHP should use a specified
+    'PHP version'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/Webapp_Slot_Audit_PHP_Latest.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

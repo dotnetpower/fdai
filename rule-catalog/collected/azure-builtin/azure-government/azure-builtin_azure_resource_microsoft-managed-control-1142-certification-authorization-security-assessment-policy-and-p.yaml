@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1142-certification-authorization-security-assessment-policy-and-procedure
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://01524fa8-4555-48ce-ba5f-c3b8dcef5147
+remediation:
+  template_ref: remediation/azure-builtin/01524fa8-4555-48ce-ba5f-c3b8dcef5147.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 01524fa8-4555-48ce-ba5f-c3b8dcef5147
+  azure_policy_display_name: Microsoft Managed Control 1142 - Certification, Authorization,
+    Security Assessment Policy And Procedures
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1142.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

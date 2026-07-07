@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.streamanalytics.streamingjobs.outputs.stream-analytics-job-should-use-managed-identity-to-authenticate-endpo
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.streamanalytics.streamingjobs.outputs
+check_logic:
+  kind: expression
+  reference: azure-policy://ea6c4923-510a-4346-be26-1894919a5b97
+remediation:
+  template_ref: remediation/azure-builtin/ea6c4923-510a-4346-be26-1894919a5b97.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ea6c4923-510a-4346-be26-1894919a5b97
+  azure_policy_display_name: Stream Analytics job should use managed identity to authenticate
+    endpoints
+  azure_policy_effect_default: Audit
+  azure_policy_category: Stream Analytics
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Stream
+    Analytics/ManagedIdentity_Audit.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

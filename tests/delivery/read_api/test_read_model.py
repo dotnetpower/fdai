@@ -153,6 +153,7 @@ class TestDashboardMetrics:
         assert kpi.shadow_share == 0.0
         assert kpi.enforce_share == 0.0
         assert kpi.hil_pending == 0
+        assert kpi.by_tier == {}
         assert kpi.last_recorded_at is None
 
     async def test_shadow_and_enforce_shares(self) -> None:
@@ -174,6 +175,23 @@ class TestDashboardMetrics:
         kpi = await model.dashboard_metrics()
         assert kpi.by_action_kind == {"a": 2, "b": 1}
         assert kpi.by_outcome == {"ok": 2, "failed": 1}
+
+    async def test_tier_counts(self) -> None:
+        model = InMemoryConsoleReadModel()
+        model.record_audit_entry(_entry(tier="t0"))
+        model.record_audit_entry(_entry(tier="t0"))
+        model.record_audit_entry(_entry(tier="t1"))
+        model.record_audit_entry(_entry(tier="t2"))
+        kpi = await model.dashboard_metrics()
+        assert kpi.by_tier == {"t0": 2, "t1": 1, "t2": 1}
+
+    async def test_tier_absent_is_not_counted(self) -> None:
+        model = InMemoryConsoleReadModel()
+        # _entry() carries no "tier" key -> it must not appear in by_tier.
+        model.record_audit_entry(_entry())
+        kpi = await model.dashboard_metrics()
+        assert kpi.by_tier == {}
+        assert kpi.event_count == 1
 
     async def test_hil_pending_counted(self) -> None:
         model = InMemoryConsoleReadModel()

@@ -1,0 +1,67 @@
+schema_version: 1.0.0
+id: compliance.regulatory-compliance.motion-picture-association-of-a
+title: (Azure Initiative) Motion Picture Association of America (MPAA)
+description: This initiative includes audit and virtual machine extension deployment
+  policies that address a subset of Motion Picture Association of America (MPAA) security
+  and guidelines controls. Additional policies will be added in upcoming releases.
+  For more information, visit https://aka.ms/mpaa-init.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://Media_audit
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.audit-windows-machines-that-do-not-restrict-the-minimum-password-length-to-specified-number-of-chara
+  mode: shadow
+- id: azure-builtin.compute.vm.deploy-default-microsoft-iaasantimalware-extension-for-windows-server
+  mode: shadow
+- id: azure-builtin.compute.vm.add-system-assigned-managed-identity-to-enable-guest-configuration-assignments-on-virtual-machines-w
+  mode: shadow
+- id: azure-builtin.compute.vm.add-system-assigned-managed-identity-to-enable-guest-configuration-assignments-on-vms-with-a-user-as
+  mode: shadow
+- id: azure-builtin.compute.vm.deploy-the-windows-guest-configuration-extension-to-enable-guest-configuration-assignments-on-window
+  mode: shadow
+- id: azure-builtin.compute.vm.deploy-the-linux-guest-configuration-extension-to-enable-guest-configuration-assignments-on-linux-vm
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-restrict-network-access
+  mode: shadow
+- id: azure-builtin.azure.logic.workflows.resource-logs-in-logic-apps-should-be-enabled
+  mode: shadow
+- id: azure-builtin.sql-server.configure-azure-defender-to-be-enabled-on-sql-servers
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-system-settings
+  mode: shadow
+- id: azure-builtin.azure.resource.a-vulnerability-assessment-solution-should-be-enabled-on-your-virtual-machines
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-user-rights-assignment
+  mode: shadow
+- id: azure-builtin.azure.network.networkinterfaces.network-interfaces-should-disable-ip-forwarding
+  mode: shadow
+- id: azure-builtin.sql-server.sql-servers-with-auditing-to-storage-account-destination-should-be-configured-with-90-days-retention
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-windows-firewall-properties
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.authorizationrules.all-authorization-rules-except-rootmanagesharedaccesskey-should-be
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.role-based-access-control-rbac-should-be-used-on-kubernetes-services
+  mode: shadow
+- id: azure-builtin.azure.search.searchservices.resource-logs-in-search-services-should-be-enabled
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-microsoft-network-client
+  mode: shadow
+- id: azure-builtin.azure.resource.ip-forwarding-on-your-virtual-machine-should-be-disabled
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-contain-certificates-expiring-within-the-specified-number-of-days
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-recovery-console
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-accounts
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-linux-machines-that-allow-remote-connections-from-accounts-without-passwords
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-network-access
+  mode: shadow
+- id: azure-builtin.subscription.guest-accounts-with-owner-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.azure.resource.sql-databases-should-have-vulnerability-findings-resolved
+  mode: shadow

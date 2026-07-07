@@ -14,11 +14,7 @@ from jsonschema import Draft202012Validator
 
 
 def _load_schema() -> dict[str, Any]:
-    raw = (
-        resources.files("fdai.shared.config")
-        .joinpath("schema.json")
-        .read_text(encoding="utf-8")
-    )
+    raw = resources.files("fdai.shared.config").joinpath("schema.json").read_text(encoding="utf-8")
     return cast(dict[str, Any], json.loads(raw))
 
 

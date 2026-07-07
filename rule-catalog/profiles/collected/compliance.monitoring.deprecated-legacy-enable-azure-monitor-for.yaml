@@ -1,0 +1,23 @@
+schema_version: 1.0.0
+id: compliance.monitoring.deprecated-legacy-enable-azure-monitor-for
+title: '(Azure Initiative) [Deprecated]: Legacy - Enable Azure Monitor for VMs'
+description: 'Legacy - Enable Azure Monitor for the virtual machines (VMs) in the
+  specified scope (management group, subscription or resource group). Takes Log Analytics
+  workspace as parameter. Use the new initiative named: Enable Azure Monitor for VMs
+  with Azure Monitoring Agent(AMA)'
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AzureMonitor_VM
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.deprecated-deploy-configure-dependency-agent-to-be-enabled-on-windows-virtual-machines
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.deprecated-configure-dependency-agent-on-azure-arc-enabled-windows-servers
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-dependency-agent-for-linux-virtual-machines
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.deprecated-configure-dependency-agent-on-azure-arc-enabled-linux-servers
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-dependency-agent-should-be-enabled-for-listed-virtual-machine-images
+  mode: shadow

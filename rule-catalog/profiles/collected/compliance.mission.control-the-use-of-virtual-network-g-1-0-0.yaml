@@ -1,0 +1,24 @@
+schema_version: 1.0.0
+id: compliance.mission.control-the-use-of-virtual-network-g-1-0-0
+title: (Azure Initiative) Control the use of Virtual Network Guardrails for Cloud
+  in Mission Platforms
+description: This policy applies exclusively to Mission Platform products and services;
+  usage outside of these scopes is not supported. This policy set deploys the required
+  policy guardrails governing the use of Azure Virtual Networks within the Environment.
+  See the list of policies of the services that are included.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://VNETInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.network.virtualnetworks.subnets.virtual-network-should-specify-allowed-service-endpoints
+  mode: shadow
+- id: azure-builtin.azure.network.virtualnetworks.subnets.virtual-network-should-specify-the-allowed-service-delegations-for-subnets
+  mode: shadow
+- id: azure-builtin.network.vnet.virtual-network-should-specify-allowed-vnet-peers
+  mode: shadow
+- id: azure-builtin.network.vnet.virtual-network-should-ensure-subnets-are-secure-by-default-by-preventing-default-outbound-access
+  mode: shadow
+- id: azure-builtin.network.private-endpoint.virtual-network-should-deny-private-endpoints-linked-to-services-in-other-tenants
+  mode: shadow

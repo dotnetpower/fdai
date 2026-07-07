@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.devices.provisioningservices.configure-iot-hub-device-provisioning-service-instances-with-private-endpoints
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.devices.provisioningservices
+check_logic:
+  kind: expression
+  reference: azure-policy://9b75ea5b-c796-4c99-aaaf-21c204daac43
+remediation:
+  template_ref: remediation/azure-builtin/9b75ea5b-c796-4c99-aaaf-21c204daac43.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 9b75ea5b-c796-4c99-aaaf-21c204daac43
+  azure_policy_display_name: Configure IoT Hub device provisioning service instances
+    with private endpoints
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Internet of Things
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Internet
+    of Things/IoTDps_DeployPrivateEndpoint_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

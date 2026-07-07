@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.log-workspace.saved-queries-in-azure-monitor-should-be-saved-in-customer-storage-account-for-logs-encryption
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: log-workspace
+check_logic:
+  kind: expression
+  reference: azure-policy://fa298e57-9444-42ba-bf04-86e8470e32c7
+remediation:
+  template_ref: remediation/azure-builtin/fa298e57-9444-42ba-bf04-86e8470e32c7.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: fa298e57-9444-42ba-bf04-86e8470e32c7
+  azure_policy_display_name: Saved-queries in Azure Monitor should be saved in customer
+    storage account for logs encryption
+  azure_policy_effect_default: Audit
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/LogAnalyticsWorkspaces_CMKBYOSQueryEnabled_Deny.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1513-personnel-screening-information-with-special-protection-measures
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://c416970d-b12b-49eb-8af4-fb144cd7c290
+remediation:
+  template_ref: remediation/azure-builtin/c416970d-b12b-49eb-8af4-fb144cd7c290.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: c416970d-b12b-49eb-8af4-fb144cd7c290
+  azure_policy_display_name: Microsoft Managed Control 1513 - Personnel Screening
+    | Information With Special Protection Measures
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1513.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

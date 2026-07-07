@@ -1,0 +1,37 @@
+schema_version: 1.0.0
+id: kube-bench.gke-1.9.0.4-1-8.avoid-bindings-to-system-anonymous-automated
+version: 1.0.0
+source: kube_bench
+severity: medium
+category: security
+resource_type: kubernetes-cluster.policies
+check_logic:
+  kind: expression
+  reference: kube-bench://gke-1.9.0/4.1.8
+remediation:
+  template_ref: remediation/kube-bench/gke-1.9.0/4.1.8.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 4.1.8
+  kube_bench_ruleset: gke-1.9.0
+  kube_bench_group_id: '4.1'
+  kube_bench_scored: true
+  kube_bench_audit: "# Flags any ClusterRoleBinding/RoleBinding that targets the user\
+    \ \"system:anonymous\".\n# Prints \"NO_ANONYMOUS_BINDINGS\" when none are found.\n\
+    (\n  kubectl get clusterrolebindings -o json | jq -r '\n    .items[]\n    | select((.subjects\
+    \ | length) > 0)\n    | select(any(.subjects[]?;\n        .kind==\"User\" and\
+    \ .name==\"system:anonymous\"\n      ))\n    | \"FOUND_ANONYMOUS:ClusterRoleBinding:\\\
+    (.metadata.name):ROLE=\\(.roleRef.kind)/\\(.roleRef.name)\"\n  ';\n  kubectl get\
+    \ rolebindings -A -o json | jq -r '\n    .items[]\n    | select((.subjects | length)\
+    \ > 0)\n    | select(any(.subjects[]?;\n        .kind==\"User\" and .name==\"\
+    system:anonymous\"\n      ))\n    | \"FOUND_ANONYMOUS:RoleBinding:\\(.metadata.namespace):\\\
+    (.metadata.name):ROLE=\\(.roleRef.kind)/\\(.roleRef.name)\"\n  '\n) | (grep -q\
+    \ '^FOUND_ANONYMOUS:' && cat || echo 'NO_ANONYMOUS_BINDINGS')\n"
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/gke-1.9.0/policies.yaml
+  source_version: gke-1.9.0
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:40Z'

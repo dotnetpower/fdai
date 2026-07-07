@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.update-contingency-plan
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://14a4fd0a-9100-1e12-1362-792014a28155
+remediation:
+  template_ref: remediation/azure-builtin/14a4fd0a-9100-1e12-1362-792014a28155.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 14a4fd0a-9100-1e12-1362-792014a28155
+  azure_policy_display_name: Update contingency plan
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_C1248.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

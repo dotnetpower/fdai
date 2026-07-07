@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.append-a-tag-and-its-value-from-the-resource-group
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: config_drift
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://9ea02ca2-71db-412d-8b00-7c7ca9fcd32d
+remediation:
+  template_ref: remediation/azure-builtin/9ea02ca2-71db-412d-8b00-7c7ca9fcd32d.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 9ea02ca2-71db-412d-8b00-7c7ca9fcd32d
+  azure_policy_display_name: Append a tag and its value from the resource group
+  azure_policy_effect_default: append
+  azure_policy_category: Tags
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Tags/InheritTag_Append.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.add-a-tag-to-subscriptions
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: config_drift
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://96d9a89c-0d67-41fc-899d-2b9599f76a24
+remediation:
+  template_ref: remediation/azure-builtin/96d9a89c-0d67-41fc-899d-2b9599f76a24.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 96d9a89c-0d67-41fc-899d-2b9599f76a24
+  azure_policy_display_name: Add a tag to subscriptions
+  azure_policy_effect_default: modify
+  azure_policy_category: Tags
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Tags/AddTag_Subscription_Modify.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,117 @@
+schema_version: 1.0.0
+id: compliance.guest-configuration.deprecated-audit-windows-vms-that
+title: '(Azure Initiative) [Deprecated]: Audit Windows VMs that do not match Azure
+  compute security baseline settings'
+description: This initiative deploys the policy requirements and audits Windows virtual
+  machines with non-compliant Azure compute security baseline configurations. For
+  more information on Guest Configuration policies, please visit https://aka.ms/gcpol
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AzureBaseline_Deprecated
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-administrative-templates-mss
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-options-accounts
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-options-audit
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-options-devices
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-options-interactive
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-options-microsoft-ne
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-secu.securityoptionsmicro
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-options-network-secu
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-options-recovery-con
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-options-shutdown
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-options-system-setti
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-options-user-account
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-settings-account-pol
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-system-audit-policies-account
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-syst.systemauditpoliciesa
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-system-audit-policies-detaile
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-system-audit-policies-logon-l
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-system-audit-policies-object
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-system-audit-policies-policy
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-system-audit-policies-privile
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-system-audit-policies-system
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-user-rights-assignment
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-windows-components
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-windows-firewall-properties
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-administrative-templates-control-pa
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-administrative-templates-network
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-administrative-templates-system
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-administrative-templates-mss-legacy
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-options-accounts
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-options-audit
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-options-devices
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-options-interactive-logon
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-options-microsoft-network
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-o.securityoptionsmicro
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-options-network-access
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-options-network-security
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-options-recovery-console
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-options-shutdown
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-options-system-objects
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-options-system-settings
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-options-user-account-contr
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-security-settings-account-policies
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-system-audit-policies-account-manag
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-system-audit-policies-detailed-trac
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-system-audit-policies-logon-logoff
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-system-audit-policies-object-access
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-system-audit-policies-policy-change
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-system-audit-policies-privilege-use
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-system-audit-policies-system
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-user-rights-assignment
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-windows-components
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-configurations-in-windows-firewall-properties
+  mode: shadow

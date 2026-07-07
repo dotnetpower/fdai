@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.network.private-endpoint.configure-azure-databricks-workspace-to-use-private-dns-zones
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: network.private-endpoint
+check_logic:
+  kind: expression
+  reference: azure-policy://0eddd7f3-3d9b-4927-a07a-806e8ac9486c
+remediation:
+  template_ref: remediation/azure-builtin/0eddd7f3-3d9b-4927-a07a-806e8ac9486c.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 0eddd7f3-3d9b-4927-a07a-806e8ac9486c
+  azure_policy_display_name: Configure Azure Databricks workspace to use private DNS
+    zones
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Azure Databricks
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Databricks/Databricks_PrivateDNSZone_DINE.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

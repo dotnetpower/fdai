@@ -40,32 +40,35 @@ _DEV_ENV = "FDAI_READ_API_DEV_MODE"
 
 
 def _seed(read_model: InMemoryConsoleReadModel) -> None:
-    """Seed a few audit entries + one pending HIL so the SPA renders data."""
-    read_model.record_audit_entry(
-        {
-            "event_id": "00000000-0000-0000-0000-000000000001",
-            "actor": "fdai.core.control_loop",
-            "action_kind": "control_loop.abstain",
-            "mode": "shadow",
-            "outcome": "abstained_t0",
-            "reason": "no matching rule",
-            "recorded_at": "2026-07-06T10:00:00+00:00",
-        }
+    """Seed audit entries (with trust tiers) + one pending HIL so the SPA renders data."""
+    # (tier, action_kind, outcome, recorded_at time) - a realistic T0-heavy split.
+    entries: tuple[tuple[str, str, str, str], ...] = (
+        ("t0", "control_loop.abstain", "abstained_t0", "10:00:00"),
+        ("t0", "enable-encryption", "shadow_pr_opened", "10:05:00"),
+        ("t0", "tag-compliance", "shadow_pr_opened", "10:12:00"),
+        ("t0", "control_loop.abstain", "abstained_t0", "10:20:00"),
+        ("t0", "right-size-disk", "shadow_pr_opened", "10:31:00"),
+        ("t0", "close-idle-endpoint", "shadow_pr_opened", "10:38:00"),
+        ("t1", "reuse-learned-action", "shadow_pr_opened", "10:42:00"),
+        ("t1", "correlate-incident", "matched_prior", "10:48:00"),
+        ("t2", "root-cause-reasoning", "escalated_hil", "10:55:00"),
     )
-    read_model.record_audit_entry(
-        {
-            "event_id": "00000000-0000-0000-0000-000000000002",
-            "actor": "fdai.core.executor.shadow",
-            "action_kind": "enable-encryption",
-            "mode": "shadow",
-            "outcome": "shadow_pr_opened",
-            "recorded_at": "2026-07-06T10:05:00+00:00",
-        }
-    )
+    for i, (tier, action_kind, outcome, hhmmss) in enumerate(entries, start=1):
+        read_model.record_audit_entry(
+            {
+                "event_id": f"00000000-0000-0000-0000-{i:012d}",
+                "actor": "fdai.core.control_loop",
+                "action_kind": action_kind,
+                "mode": "shadow",
+                "outcome": outcome,
+                "tier": tier,
+                "recorded_at": f"2026-07-06T{hhmmss}+00:00",
+            }
+        )
     read_model.record_hil_pending(
         HilQueueItem(
             idempotency_key="hil-dev-0001",
-            event_id="00000000-0000-0000-0000-000000000003",
+            event_id="00000000-0000-0000-0000-000000000010",
             action_kind="restrict-network-access",
             reason="blast-radius exceeds executor cap",
             requested_at="2026-07-06T10:10:00+00:00",

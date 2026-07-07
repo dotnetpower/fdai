@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.sql.servers.privateendpointconnections.azure-sql-servers-in-this-tenant-should-deny-private-endpoints-in-ext
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.sql.servers.privateendpointconnections
+check_logic:
+  kind: expression
+  reference: azure-policy://b9ea0c2d-5c16-4d86-8e09-af82a239a0a4
+remediation:
+  template_ref: remediation/azure-builtin/b9ea0c2d-5c16-4d86-8e09-af82a239a0a4.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: b9ea0c2d-5c16-4d86-8e09-af82a239a0a4
+  azure_policy_display_name: Azure SQL servers in this tenant should deny private
+    endpoints in external subscriptions
+  azure_policy_effect_default: Audit
+  azure_policy_category: Mission
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Mission/sqlDenyExternalPrivateEndPointsToSQLServers.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

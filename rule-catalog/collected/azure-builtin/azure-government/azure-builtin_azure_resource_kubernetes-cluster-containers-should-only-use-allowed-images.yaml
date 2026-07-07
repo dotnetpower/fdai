@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-only-use-allowed-images
+version: 10.3.0
+source: azure_policy
+severity: high
+category: security
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://febd0533-8e55-448f-b837-bd0e06f16469
+remediation:
+  template_ref: remediation/azure-builtin/febd0533-8e55-448f-b837-bd0e06f16469.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: febd0533-8e55-448f-b837-bd0e06f16469
+  azure_policy_display_name: Kubernetes cluster containers should only use allowed
+    images
+  azure_policy_effect_default: Deny
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/ContainerAllowedImages.json
+  source_version: 10.3.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

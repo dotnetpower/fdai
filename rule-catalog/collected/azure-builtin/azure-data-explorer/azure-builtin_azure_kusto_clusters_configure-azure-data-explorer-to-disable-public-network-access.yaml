@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.kusto.clusters.configure-azure-data-explorer-to-disable-public-network-access
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.kusto.clusters
+check_logic:
+  kind: expression
+  reference: azure-policy://7b32f193-cb28-4e15-9a98-b9556db0bafa
+remediation:
+  template_ref: remediation/azure-builtin/7b32f193-cb28-4e15-9a98-b9556db0bafa.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 7b32f193-cb28-4e15-9a98-b9556db0bafa
+  azure_policy_display_name: Configure Azure Data Explorer to disable public network
+    access
+  azure_policy_effect_default: Modify
+  azure_policy_category: Azure Data Explorer
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Data Explorer/ADX_DisablePublicAccess_Modify.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

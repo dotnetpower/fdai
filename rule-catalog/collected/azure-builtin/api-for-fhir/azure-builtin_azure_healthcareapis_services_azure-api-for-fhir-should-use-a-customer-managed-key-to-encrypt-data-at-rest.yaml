@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.healthcareapis.services.azure-api-for-fhir-should-use-a-customer-managed-key-to-encrypt-data-at-rest
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.healthcareapis.services
+check_logic:
+  kind: expression
+  reference: azure-policy://051cba44-2429-45b9-9649-46cec11c7119
+remediation:
+  template_ref: remediation/azure-builtin/051cba44-2429-45b9-9649-46cec11c7119.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 051cba44-2429-45b9-9649-46cec11c7119
+  azure_policy_display_name: Azure API for FHIR should use a customer-managed key
+    to encrypt data at rest
+  azure_policy_effect_default: Audit
+  azure_policy_category: API for FHIR
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/API
+    for FHIR/HealthcareAPIs_EnableByok_Audit.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

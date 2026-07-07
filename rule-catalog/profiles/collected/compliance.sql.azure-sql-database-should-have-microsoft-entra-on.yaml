@@ -1,0 +1,17 @@
+schema_version: 1.0.0
+id: compliance.sql.azure-sql-database-should-have-microsoft-entra-on
+title: (Azure Initiative) Azure SQL Database should have Microsoft Entra-only authentication
+description: Require Microsoft Entra-only authentication for Azure SQL Database, disabling
+  local authentication methods. This allows access exclusively via Microsoft Entra
+  identities, enhancing security with modern authentication enhancements including
+  MFA, SSO, and secret-less programmatic access with managed identities.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://SqlServer_ADOnlyEnforcement_Deny
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.sql-server.azure-sql-logical-servers-should-have-microsoft-entra-only-authentication-enabled-during-creation
+  mode: shadow
+- id: azure-builtin.azure.sql.servers.azureadonlyauthentications.azure-sql-database-should-have-microsoft-entra-only-authentication-en
+  mode: shadow

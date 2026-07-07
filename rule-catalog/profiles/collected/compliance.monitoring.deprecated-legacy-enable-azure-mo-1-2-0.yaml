@@ -1,0 +1,22 @@
+schema_version: 1.0.0
+id: compliance.monitoring.deprecated-legacy-enable-azure-mo-1-2-0
+title: '(Azure Initiative) [Deprecated]: Legacy - Enable Azure Monitor for Virtual
+  Machine Scale Sets'
+description: 'Legacy - Enable Azure Monitor for the Virtual Machine Scale Sets in
+  the specified scope (Management group, Subscription or resource group). Takes Log
+  Analytics workspace as parameter. Use the new initiative named: Enable Azure Monitor
+  for VMSS with Azure Monitoring Agent(AMA). Note: if your scale set upgradePolicy
+  is set to Manual, you need to apply the extension to the all VMs in the set by calling
+  upgrade on them. In CLI this would be az vmss update-instances.'
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AzureMonitor_VMSS
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm-scale-set.deprecated-deploy-configure-dependency-agent-to-be-enabled-on-windows-virtual-machine-scale-s
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.deprecated-deploy-dependency-agent-for-linux-virtual-machine-scale-sets
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.deprecated-dependency-agent-should-be-enabled-in-virtual-machine-scale-sets-for-listed-virtua
+  mode: shadow

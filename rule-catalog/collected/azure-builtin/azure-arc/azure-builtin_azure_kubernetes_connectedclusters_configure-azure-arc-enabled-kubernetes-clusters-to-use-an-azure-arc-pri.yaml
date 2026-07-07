@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.kubernetes.connectedclusters.configure-azure-arc-enabled-kubernetes-clusters-to-use-an-azure-arc-private-lin
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.kubernetes.connectedclusters
+check_logic:
+  kind: expression
+  reference: azure-policy://4002015b-1272-4dfb-8943-fed4aeec39b6
+remediation:
+  template_ref: remediation/azure-builtin/4002015b-1272-4dfb-8943-fed4aeec39b6.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 4002015b-1272-4dfb-8943-fed4aeec39b6
+  azure_policy_display_name: Configure Azure Arc-enabled Kubernetes clusters to use
+    an Azure Arc Private Link Scope
+  azure_policy_effect_default: Modify
+  azure_policy_category: Azure Arc
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Arc/Arc_KubernetesCluster_PrivateLinkEnabled_Modify.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

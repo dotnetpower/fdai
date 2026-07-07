@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.establish-relationship-between-incident-response-capability-and-external-providers
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://b470a37a-7a47-3792-34dd-7a793140702e
+remediation:
+  template_ref: remediation/azure-builtin/b470a37a-7a47-3792-34dd-7a793140702e.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: b470a37a-7a47-3792-34dd-7a793140702e
+  azure_policy_display_name: Establish relationship between incident response capability
+    and external providers
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_C1376.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: compliance.kubernetes.preview-kubernetes-cluster-should-follow-t
+title: '(Azure Initiative) [Preview]: Kubernetes cluster should follow the security
+  control recommendations of Center for Internet Security (CIS) Kubernetes benchmark'
+description: 'This initiative includes the policies for the security recommendation
+  for Center for Internet Security (CIS) Kubernetes benchmark, you can use this initiative
+  to stay compliant with CIS Kubernetes benchmark. For more information of CIS compliance,
+  visit: https://aka.ms/aks/cis-kubernetes'
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AKS_CISBenchmark
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.kubernetes-cluster.kubernetes-clusters-should-minimize-wildcard-use-in-role-and-cluster-role
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.kubernetes-clusters-should-ensure-that-the-cluster-admin-role-is-only-used-where-required
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-should-not-allow-privileged-containers
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-not-share-host-namespaces
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pods-should-only-use-approved-host-network-and-port-list
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-clusters-should-not-allow-container-privilege-escalation
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pod-hostpath-volumes-should-only-use-allowed-host-paths
+  mode: shadow

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.servicebus.namespaces.configure-service-bus-namespaces-with-private-endpoints
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.servicebus.namespaces
+check_logic:
+  kind: expression
+  reference: azure-policy://7d890f7f-100c-473d-baa1-2777e2266535
+remediation:
+  template_ref: remediation/azure-builtin/7d890f7f-100c-473d-baa1-2777e2266535.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 7d890f7f-100c-473d-baa1-2777e2266535
+  azure_policy_display_name: Configure Service Bus namespaces with private endpoints
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Service Bus
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Service
+    Bus/PrivateEndpoint_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

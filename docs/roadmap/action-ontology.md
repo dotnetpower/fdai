@@ -256,17 +256,27 @@ reviewable diff.
 
 ### 3.3 `governance.*`
 
-Ontology / catalog / exemption / promotion changes. Shipped Day 1:
+Ontology / catalog / exemption / promotion changes. Four entries are
+authored in the ontology today; **only one currently has a live
+dispatcher** (the other three are catalog-as-code artifacts waiting on
+a PR-native writer to land in P2):
 
 - `governance.promote-action-type` - flip `default_mode` from shadow →
   enforce for one ActionType (bounded by that ActionType's
   `promotion_gate`).
+  **Dispatcher: not yet implemented (P2 backlog).**
 - `governance.retire-rule` - remove a rule from the enforce set
   (shadow-only or full retire).
+  **Dispatcher: not yet implemented (P2 backlog).**
 - `governance.grant-exemption` - create a time-boxed exemption
-  ([rule-governance.md](rule-governance.md)).
+  ([rule-governance.md](rule-governance.md)). Existing exemptions are
+  authored as JSON under `rule-catalog/exemptions/` and consumed by
+  the risk gate via `ExemptionRegistry`; the runtime **create-a-new-
+  exemption** operator flow lands with the same P2 PR-native writer.
 - `governance.override-ceiling` - operator-side override on the tier
   ceiling for a specific resource / tag scope (fork extension).
+  **Dispatcher shipped** in
+  [`src/fdai/core/risk_gate/override_writer.py`](../../src/fdai/core/risk_gate/override_writer.py).
 
 Governance actions always use `execution_path: pr_native` - they are
 catalog-as-code changes and MUST land as a reviewed diff.

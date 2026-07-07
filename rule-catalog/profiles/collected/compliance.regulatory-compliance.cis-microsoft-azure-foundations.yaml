@@ -1,0 +1,120 @@
+schema_version: 1.0.0
+id: compliance.regulatory-compliance.cis-microsoft-azure-foundations
+title: (Azure Initiative) CIS Microsoft Azure Foundations Benchmark v1.1.0
+description: The Center for Internet Security (CIS) is a nonprofit entity whose mission
+  is to 'identify, develop, validate, promote, and sustain best practice solutions
+  for cyberdefense.' CIS benchmarks are configuration baselines and best practices
+  for securely configuring a system. These policies address a subset of CIS Microsoft
+  Azure Foundations Benchmark v1.1.0 controls. For more information, visit https://aka.ms/cisazure110-initiative
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://CISv1_1_0
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.subscription.guest-accounts-with-read-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.subscription.guest-accounts-with-write-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.subscription.guest-accounts-with-owner-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.subscription.azure-defender-for-servers-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.azure-defender-for-azure-sql-database-servers-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.microsoft-defender-for-storage-classic-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.microsoft-defender-for-containers-should-be-enabled
+  mode: shadow
+- id: azure-builtin.azure.network.virtualnetworks.subnets.subnets-should-be-associated-with-a-network-security-group
+  mode: shadow
+- id: azure-builtin.azure.resource.internet-facing-virtual-machines-should-be-protected-with-network-security-groups
+  mode: shadow
+- id: azure-builtin.compute.vm.management-ports-of-virtual-machines-should-be-protected-with-just-in-time-network-access-control
+  mode: shadow
+- id: azure-builtin.sql-server.auditing-on-sql-server-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.subscriptions-should-have-a-contact-email-address-for-security-issues
+  mode: shadow
+- id: azure-builtin.subscription.email-notification-for-high-severity-alerts-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.email-notification-to-subscription-owner-for-high-severity-alerts-should-be-enabled
+  mode: shadow
+- id: azure-builtin.object-storage.secure-transfer-to-storage-accounts-should-be-enabled
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-restrict-network-access
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-allow-access-from-trusted-microsoft-services
+  mode: shadow
+- id: azure-builtin.sql-server.sql-auditing-settings-should-have-action-groups-configured-to-capture-critical-activities
+  mode: shadow
+- id: azure-builtin.sql-server.sql-servers-with-auditing-to-storage-account-destination-should-be-configured-with-90-days-retention
+  mode: shadow
+- id: azure-builtin.sql-server.azure-defender-for-sql-should-be-enabled-for-unprotected-azure-sql-servers
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.azure-defender-for-sql-should-be-enabled-for-unprotected-sql-managed-instances
+  mode: shadow
+- id: azure-builtin.sql-server.an-azure-active-directory-administrator-should-be-provisioned-for-sql-servers
+  mode: shadow
+- id: azure-builtin.sql-server.sql-servers-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.sql-managed-instances-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.mysql-server.enforce-ssl-connection-should-be-enabled-for-mysql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.log-checkpoints-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.enforce-ssl-connection-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.log-connections-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.disconnections-should-be-logged-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.connection-throttling-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.subscription.azure-subscriptions-should-have-a-log-profile-for-activity-log
+  mode: shadow
+- id: azure-builtin.subscription.activity-log-should-be-retained-for-at-least-one-year
+  mode: shadow
+- id: azure-builtin.subscription.azure-monitor-log-profile-should-collect-logs-for-categories-write-delete-and-action
+  mode: shadow
+- id: azure-builtin.subscription.azure-monitor-should-collect-activity-logs-from-all-regions
+  mode: shadow
+- id: azure-builtin.azure.insights.logprofiles.storage-account-containing-the-container-with-activity-logs-must-be-encrypted-with-byok
+  mode: shadow
+- id: azure-builtin.secret-store.resource-logs-in-key-vault-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.an-activity-log-alert-should-exist-for-specific-policy-operations
+  mode: shadow
+- id: azure-builtin.subscription.an-activity-log-alert-should-exist-for-specific-administrative-operations
+  mode: shadow
+- id: azure-builtin.subscription.an-activity-log-alert-should-exist-for-specific-security-operations
+  mode: shadow
+- id: azure-builtin.network.vnet.network-watcher-should-be-enabled
+  mode: shadow
+- id: azure-builtin.azure.compute.virtualmachines.extensions.only-approved-vm-extensions-should-be-installed
+  mode: shadow
+- id: azure-builtin.secret-store.key-vaults-should-have-deletion-protection-enabled
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.role-based-access-control-rbac-should-be-used-on-kubernetes-services
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-have-authentication-enabled
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-have-authentication-enabled
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-only-be-accessible-over-https
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-use-the-latest-tls-version
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-use-the-latest-tls-version
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-have-client-certificates-incoming-client-certificates-enabled
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-use-managed-identity
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-use-managed-identity
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-use-latest-http-version
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-use-latest-http-version
+  mode: shadow

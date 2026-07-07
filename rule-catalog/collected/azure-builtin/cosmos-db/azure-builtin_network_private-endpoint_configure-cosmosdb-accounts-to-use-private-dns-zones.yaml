@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.network.private-endpoint.configure-cosmosdb-accounts-to-use-private-dns-zones
+version: 2.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: network.private-endpoint
+check_logic:
+  kind: expression
+  reference: azure-policy://a63cc0bd-cda4-4178-b705-37dc439d3e0f
+remediation:
+  template_ref: remediation/azure-builtin/a63cc0bd-cda4-4178-b705-37dc439d3e0f.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: a63cc0bd-cda4-4178-b705-37dc439d3e0f
+  azure_policy_display_name: Configure CosmosDB accounts to use private DNS zones
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Cosmos DB
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Cosmos
+    DB/Cosmos_PrivateDNSZone_DINE.json
+  source_version: 2.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

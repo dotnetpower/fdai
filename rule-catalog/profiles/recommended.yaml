@@ -1,0 +1,85 @@
+schema_version: "1.0.0"
+id: recommended
+title: FDAI Recommended (Standard Azure Best-Practice Posture)
+description: >
+  Standard best-practice posture for a general-purpose Azure workload.
+  Extends `baseline` and adds diagnostic-settings, private-endpoint,
+  purge-protection, RBAC-authorization on secret stores, and the
+  full tag matrix. All rules stay shadow-only; a fork elevates
+  individual rules to enforce via its own overlay.
+provenance:
+  authored_by: fdai-upstream
+  based_on:
+    - MCSB
+    - Azure Well-Architected Framework (Security + Reliability)
+    - Azure Advisor (Security recommendations)
+  review_cadence_days: 60
+extends: [baseline]
+rules:
+  - id: object-storage.private-endpoint.required
+    mode: shadow
+    severity_override: high
+  - id: object-storage.shared-key-access.disabled
+    mode: shadow
+    severity_override: high
+  - id: object-storage.diagnostic-settings-required
+    mode: shadow
+  - id: object-storage.versioning-enabled
+    mode: shadow
+  - id: object-storage.soft-delete-blob
+    mode: shadow
+  - id: object-storage.owner-tag.required
+    mode: shadow
+  - id: object-storage.cost-center-tag.required
+    mode: shadow
+  - id: sql-database.diagnostic-settings-required
+    mode: shadow
+  - id: sql-database.geo-redundant-backup
+    mode: shadow
+  - id: kubernetes-cluster.diagnostic-settings-required
+    mode: shadow
+  - id: kubernetes-cluster.network-policy
+    mode: shadow
+  - id: kubernetes-cluster.private-cluster
+    mode: shadow
+    severity_override: high
+  - id: kubernetes-node-pool.multi-zone
+    mode: shadow
+  - id: postgresql-server.encryption-at-rest
+    mode: shadow
+    severity_override: high
+  - id: postgresql-server.ssl-enforcement
+    mode: shadow
+    severity_override: high
+  - id: postgresql-server.diagnostic-settings-required
+    mode: shadow
+  - id: postgresql-server.point-in-time-restore
+    mode: shadow
+  - id: postgresql-server.high-availability
+    mode: shadow
+  - id: secret-store.rbac-authorization.enabled
+    mode: shadow
+    severity_override: high
+  - id: secret-store.purge-protection.enabled
+    mode: shadow
+    severity_override: high
+  - id: secret-store.diagnostic-settings-required
+    mode: shadow
+  - id: secret-store.rotation-overdue
+    mode: shadow
+  - id: network.nsg.no-inbound-any-ssh
+    mode: shadow
+    severity_override: critical
+  - id: network.nsg.no-inbound-any-rdp
+    mode: shadow
+    severity_override: critical
+  - id: network.vnet.ddos-plan.required
+    mode: shadow
+  - id: network.public-ip.unassociated
+    mode: shadow
+  - id: log-workspace.retention-excessive
+    mode: shadow
+  - id: resource-group.environment-tag.required
+    mode: shadow
+  - id: resource-group.cost-center-tag.required
+    mode: shadow

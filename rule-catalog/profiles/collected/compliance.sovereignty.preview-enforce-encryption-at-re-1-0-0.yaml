@@ -1,0 +1,14 @@
+schema_version: 1.0.0
+id: compliance.sovereignty.preview-enforce-encryption-at-re-1-0-0
+title: '(Azure Initiative) [Preview]: Enforce Encryption-at-Rest with Customer Managed
+  Keys (CMK) with Azure Key Vault Managed HSM Keys across Azure Services'
+description: Help restrict and audit Azure Services to use CMK with Azure Key Vault
+  Premium Managed HSM keys
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://EnforceCMKWithHSM
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.keyvault.data.vaults.keys.keys-should-be-the-specified-cryptographic-type-rsa-or-ec
+  mode: shadow

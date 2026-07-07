@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.disk.managed-disks-and-images-should-use-customer-managed-keys-for-encryption-at-rest
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: disk
+check_logic:
+  kind: expression
+  reference: azure-policy://59953f11-df7f-48b1-870f-1780ed07348e
+remediation:
+  template_ref: remediation/azure-builtin/59953f11-df7f-48b1-870f-1780ed07348e.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 59953f11-df7f-48b1-870f-1780ed07348e
+  azure_policy_display_name: Managed Disks and Images should use customer-managed
+    keys for encryption at rest
+  azure_policy_effect_default: Audit
+  azure_policy_category: Mission
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Mission/ComputeEncryptDiskAndImages_Audit.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

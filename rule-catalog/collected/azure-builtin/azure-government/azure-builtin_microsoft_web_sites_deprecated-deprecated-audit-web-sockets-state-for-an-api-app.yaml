@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.web.sites.deprecated-deprecated-audit-web-sockets-state-for-an-api-app
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: microsoft.web.sites
+check_logic:
+  kind: expression
+  reference: azure-policy://b48334a4-911b-4084-b1ab-3e6a4e50b951
+remediation:
+  template_ref: remediation/azure-builtin/b48334a4-911b-4084-b1ab-3e6a4e50b951.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: b48334a4-911b-4084-b1ab-3e6a4e50b951
+  azure_policy_display_name: '[Deprecated]: [Deprecated]: Audit Web Sockets state
+    for an API App'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Security Center/ASC_DisableWebSockets_ApiApp_Audit_Deprecated.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

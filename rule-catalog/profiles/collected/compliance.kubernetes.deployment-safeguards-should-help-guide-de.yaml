@@ -1,0 +1,69 @@
+schema_version: 1.0.0
+id: compliance.kubernetes.deployment-safeguards-should-help-guide-de
+title: (Azure Initiative) Deployment safeguards should help guide developers towards
+  AKS recommended best practices
+description: 'A collection of Kubernetes best practices that are recommended by Azure
+  Kubernetes Service (AKS). For the best experience, use deployment safeguards to
+  assign this policy initiative: https://aka.ms/aks/deployment-safeguards. Azure Policy
+  Add-On for AKS is a pre-requisite for applying these best practices to your clusters.
+  For instructions on enabling the Azure Policy Add-On, go to aka.ms/akspolicydoc'
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AKS_Safeguards
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.kubernetes-cluster.cannot-edit-individual-nodes
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-cpu-and-memory-resource-requests-must-be-defined
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.must-have-anti-affinity-rules-or-topology-spread-constraints-set
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.no-aks-specific-labels
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-only-use-allowed-images
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.reserved-system-pool-taints
+  mode: shadow
+- id: azure-builtin.azure.resource.ensure-cluster-containers-have-readiness-or-liveness-probes-configured
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-clusters-should-use-container-storage-interface-csi-driver-storageclass
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.kubernetes-cluster-services-should-use-unique-selectors
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.kubernetes-cluster-container-images-should-not-include-latest-image-tag
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.restricts-the-criticaladdonsonly-taint-to-just-the-system-pool
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.prints-a-message-if-a-mutation-is-applied
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-not-share-host-namespaces
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pods-should-only-use-approved-host-network-and-port-list
+  mode: shadow
+- id: azure-builtin.azure.resource.preview-kubernetes-cluster-containers-should-use-only-allowed-sysctl-interfaces
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pods-and-containers-should-only-run-with-approved-user-and-group-ids
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-windows-containers-should-not-run-as-containeradministrator
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-clusters-should-not-allow-container-privilege-escalation
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pod-hostpath-volumes-should-only-use-allowed-host-paths
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-only-use-allowed-apparmor-profiles
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pods-and-containers-should-follow-selinux-security-standards
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-windows-pods-should-not-run-hostprocess-containers
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-should-not-allow-privileged-containers
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-only-use-allowed-procmounttype
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-only-use-allowed-capabilities
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-only-use-allowed-seccomp-profiles
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pods-should-only-use-allowed-volume-types
+  mode: shadow

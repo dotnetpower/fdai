@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.kubernetes-cluster.sets-maxunavailable-pods-to-1-for-poddisruptionbudget-resources
+version: 1.3.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: kubernetes-cluster
+check_logic:
+  kind: expression
+  reference: azure-policy://d77f191e-2338-45d0-b6d4-4ee1c586a192
+remediation:
+  template_ref: remediation/azure-builtin/d77f191e-2338-45d0-b6d4-4ee1c586a192.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d77f191e-2338-45d0-b6d4-4ee1c586a192
+  azure_policy_display_name: Sets maxUnavailable pods to 1 for PodDisruptionBudget
+    resources
+  azure_policy_effect_default: Mutate
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/MutateMaxUnavailablePods.json
+  source_version: 1.3.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

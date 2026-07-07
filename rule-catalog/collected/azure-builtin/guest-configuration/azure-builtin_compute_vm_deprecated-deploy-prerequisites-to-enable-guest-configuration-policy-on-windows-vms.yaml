@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-enable-guest-configuration-policy-on-windows-vms
+version: 1.2.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://0ecd903d-91e7-4726-83d3-a229d7f2e293
+remediation:
+  template_ref: remediation/azure-builtin/0ecd903d-91e7-4726-83d3-a229d7f2e293.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 0ecd903d-91e7-4726-83d3-a229d7f2e293
+  azure_policy_display_name: '[Deprecated]: Deploy prerequisites to enable Guest Configuration
+    Policy on Windows VMs.'
+  azure_policy_effect_default: deployIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Guest
+    Configuration/PrerequisitePolicyWindows_DINE.json
+  source_version: 1.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

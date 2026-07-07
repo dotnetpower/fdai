@@ -1,0 +1,70 @@
+schema_version: 1.0.0
+id: compliance.regulatory-compliance.pci-v3-2-1-2018
+title: (Azure Initiative) PCI v3.2.1:2018
+description: This initiative includes policies that address a subset of PCI v3.2.1:2018
+  controls. Additional policies will be added in upcoming releases. For more information,
+  visit https://aka.ms/pciv321-init.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://PCIv3_2_1_2018_audit
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.subscription.blocked-accounts-with-read-and-write-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.subscription.blocked-accounts-with-owner-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.subscription.guest-accounts-with-owner-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.subscription.guest-accounts-with-read-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.subscription.guest-accounts-with-write-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.compute.vm.add-system-assigned-managed-identity-to-enable-guest-configuration-assignments-on-virtual-machines-w
+  mode: shadow
+- id: azure-builtin.compute.vm.add-system-assigned-managed-identity-to-enable-guest-configuration-assignments-on-vms-with-a-user-as
+  mode: shadow
+- id: azure-builtin.compute.vm.deploy-the-windows-guest-configuration-extension-to-enable-guest-configuration-assignments-on-window
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-do-not-have-the-maximum-password-age-set-to-specified-number-of-days
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-do-not-restrict-the-minimum-password-length-to-specified-number-of-chara
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-allow-re-use-of-the-passwords-after-the-specified-number-of-unique-passw
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-only-be-accessible-over-https
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-only-be-accessible-over-https
+  mode: shadow
+- id: azure-builtin.subscription.a-maximum-of-3-owners-should-be-designated-for-your-subscription
+  mode: shadow
+- id: azure-builtin.subscription.there-should-be-more-than-one-owner-assigned-to-your-subscription
+  mode: shadow
+- id: azure-builtin.azure.resource.sql-databases-should-have-vulnerability-findings-resolved
+  mode: shadow
+- id: azure-builtin.sql-server.auditing-on-sql-server-should-be-enabled
+  mode: shadow
+- id: azure-builtin.azure.resource.all-network-ports-should-be-restricted-on-network-security-groups-associated-to-your-virtual-machin
+  mode: shadow
+- id: azure-builtin.azure.resource.a-vulnerability-assessment-solution-should-be-enabled-on-your-virtual-machines
+  mode: shadow
+- id: azure-builtin.azure.resource.audit-diagnostic-setting-for-selected-resource-types
+  mode: shadow
+- id: azure-builtin.azure.automation.automationaccounts.variables.automation-account-variables-should-be-encrypted
+  mode: shadow
+- id: azure-builtin.cache.only-secure-connections-to-your-azure-cache-for-redis-should-be-enabled
+  mode: shadow
+- id: azure-builtin.sql-server.an-azure-active-directory-administrator-should-be-provisioned-for-sql-servers
+  mode: shadow
+- id: azure-builtin.object-storage.secure-transfer-to-storage-accounts-should-be-enabled
+  mode: shadow
+- id: azure-builtin.azure.servicefabric.clusters.service-fabric-clusters-should-have-the-clusterprotectionlevel-property-set-to-encryp
+  mode: shadow
+- id: azure-builtin.azure.resource.storage-accounts-should-be-migrated-to-new-azure-resource-manager-resources
+  mode: shadow
+- id: azure-builtin.azure.resource.virtual-machines-should-be-migrated-to-new-azure-resource-manager-resources
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-restrict-network-access
+  mode: shadow
+- id: azure-builtin.azure.authorization.roledefinitions.audit-usage-of-custom-rbac-roles
+  mode: shadow

@@ -1,0 +1,32 @@
+schema_version: 1.0.0
+id: compliance.mission.control-the-use-of-container-registr-1-0-0
+title: (Azure Initiative) Control the use of Container Registry in Mission Platforms
+description: This policy set applies exclusively to Mission Platform products and
+  services; usage outside of these scopes is not supported. It deploys coordinated
+  Container Registry controls that enforce private network access, tenant isolation,
+  and boundary protection across Mission Platform workloads; refer to https://learn.microsoft.com/azure/container-registry/container-registry-private-link
+  for architectural guidance.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://ACRInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.container-registry.configure-container-registries-to-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.container-registry.container-registries-should-not-allow-unrestricted-network-access
+  mode: shadow
+- id: azure-builtin.container-registry.container-registries-should-have-anonymous-authentication-disabled
+  mode: shadow
+- id: azure-builtin.container-registry.configure-container-registries-to-disable-anonymous-authentication
+  mode: shadow
+- id: azure-builtin.container-registry.container-registries-should-have-skus-that-support-private-links
+  mode: shadow
+- id: azure-builtin.container-registry.container-registries-should-use-private-link
+  mode: shadow
+- id: azure-builtin.container-registry.public-network-access-should-be-disabled-for-container-registries
+  mode: shadow
+- id: azure-builtin.container-registry.container-registries-should-be-encrypted-with-a-customer-managed-key
+  mode: shadow
+- id: azure-builtin.azure.containerregistry.registries.privateendpointconnections.container-registry-should-restrict-external-private
+  mode: shadow

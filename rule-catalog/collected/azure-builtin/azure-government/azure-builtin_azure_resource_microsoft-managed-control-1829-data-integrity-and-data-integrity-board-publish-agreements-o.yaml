@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1829-data-integrity-and-data-integrity-board-publish-agreements-on-websit
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://66632c7c-d0b3-4945-a8ae-e5c62cbea386
+remediation:
+  template_ref: remediation/azure-builtin/66632c7c-d0b3-4945-a8ae-e5c62cbea386.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 66632c7c-d0b3-4945-a8ae-e5c62cbea386
+  azure_policy_display_name: Microsoft Managed Control 1829 - Data Integrity And Data
+    Integrity Board | Publish Agreements on Website
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1829.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

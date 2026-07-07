@@ -1,0 +1,16 @@
+schema_version: 1.0.0
+id: compliance.virtualenclaves.preview-control-the-use-of-k-1-0-0
+title: '(Azure Initiative) [Preview]: Control the use of Key Vault in a Virtual Enclave'
+description: This initiative deploys Azure policies for Key Vaults ensuring boundary
+  protection of this resource while it operates within the logically separated structure
+  of Azure Virtual Enclaves. https://aka.ms/VirtualEnclaves
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://KeyVaultInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.secret-store.azure-key-vault-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.secret-store.key-vaults-should-have-soft-delete-enabled
+  mode: shadow

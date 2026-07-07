@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.web.app-service.deprecated-ensure-that-register-with-azure-active-directory-is-enabled-on-web-app
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: web.app-service
+check_logic:
+  kind: expression
+  reference: azure-policy://aa81768c-cb87-4ce2-bfaa-00baa10d760c
+remediation:
+  template_ref: remediation/azure-builtin/aa81768c-cb87-4ce2-bfaa-00baa10d760c.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: aa81768c-cb87-4ce2-bfaa-00baa10d760c
+  azure_policy_display_name: '[Deprecated]: Ensure that Register with Azure Active
+    Directory is enabled on WEB App'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/Webapp_Audit_AD_Enabled.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

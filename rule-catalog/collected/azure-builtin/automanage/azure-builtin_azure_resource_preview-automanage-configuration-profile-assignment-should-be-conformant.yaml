@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.preview-automanage-configuration-profile-assignment-should-be-conformant
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: reliability
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://fd4726f4-a5fc-4540-912d-67c96fc992d5
+remediation:
+  template_ref: remediation/azure-builtin/fd4726f4-a5fc-4540-912d-67c96fc992d5.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: fd4726f4-a5fc-4540-912d-67c96fc992d5
+  azure_policy_display_name: '[Preview]: Automanage Configuration Profile Assignment
+    should be Conformant'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Automanage
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Automanage/Conformance_AINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

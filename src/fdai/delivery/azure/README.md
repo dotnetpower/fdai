@@ -12,7 +12,7 @@ Current adapters
 - [`inventory.py`](inventory.py) - Azure Resource Graph (ARG) implementation
   of the `Inventory` Protocol
   ([contract](../../shared/providers/inventory.py),
-  [design](../../../../../docs/roadmap/csp-neutrality.md#5-inventory-contract--resource-graph)).
+  [design](../../../../docs/roadmap/csp-neutrality.md#5-inventory-contract--resource-graph)).
   Provides bounded-concurrency parallel-shard fan-out, the `final=True`
   atomic-promote fence, and the idempotent-upsert dedup precondition; the
   per-shard fetch behind it is a `ResourceQueryFn` bound at the composition

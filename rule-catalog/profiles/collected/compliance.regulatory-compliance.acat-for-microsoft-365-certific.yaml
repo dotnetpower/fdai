@@ -1,0 +1,47 @@
+schema_version: 1.0.0
+id: compliance.regulatory-compliance.acat-for-microsoft-365-certific
+title: (Azure Initiative) ACAT for Microsoft 365 Certification
+description: App Compliance Automation Tool for Microsoft 365 (ACAT) simplifies the
+  process to achieve Microsoft 365 Certification, see https://aka.ms/acat. This certification
+  ensures that apps have strong security and compliance practices in place to protect
+  customer data, security, and privacy. This initiative includes policies that address
+  a subset of the Microsoft 365 Certification controls. Additional policies will be
+  added in upcoming releases.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://ACAT_M365_Cert
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.web.hostingenvironments.app-service-environment-should-have-tls-1-0-and-1-1-disabled
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.sql-managed-instance-should-have-the-minimal-tls-version-of-1-2
+  mode: shadow
+- id: azure-builtin.azure.network.applicationgatewaywebapplicationfirewallpolicies.web-application-firewall-waf-should-use-the-specifi
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-virtual-machines-should-have-azure-monitor-agent-installed
+  mode: shadow
+- id: azure-builtin.compute.vm.linux-virtual-machines-should-have-azure-monitor-agent-installed
+  mode: shadow
+- id: azure-builtin.azure.kusto.clusters.disk-encryption-should-be-enabled-on-azure-data-explorer
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-enable-windows-defender-real-time-protection
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-configure-windows-defender-to-update-protection-signatures-within-one-day
+  mode: shadow
+- id: azure-builtin.sql-server.azure-sql-database-should-be-running-tls-version-1-2-or-newer
+  mode: shadow
+- id: azure-builtin.compute.vm.add-system-assigned-managed-identity-to-enable-guest-configuration-assignments-on-virtual-machines-w
+  mode: shadow
+- id: azure-builtin.compute.vm.add-system-assigned-managed-identity-to-enable-guest-configuration-assignments-on-vms-with-a-user-as
+  mode: shadow
+- id: azure-builtin.compute.vm.deploy-the-windows-guest-configuration-extension-to-enable-guest-configuration-assignments-on-window
+  mode: shadow
+- id: azure-builtin.compute.vm.deploy-the-linux-guest-configuration-extension-to-enable-guest-configuration-assignments-on-linux-vm
+  mode: shadow
+- id: azure-builtin.azure.synapse.workspaces.sqlpools.azure-synapse-analytics-dedicated-sql-pools-should-enable-encryption
+  mode: shadow
+- id: azure-builtin.azure.synapse.workspaces.vulnerability-assessment-should-be-enabled-on-your-synapse-workspaces
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-have-the-specified-minimum-tls-version
+  mode: shadow

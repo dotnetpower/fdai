@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.audit-windows-machines-that-have-not-restarted-within-the-specified-number-of-days
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://beb6ccee-b6b8-4e91-9801-a5fa4260a104
+remediation:
+  template_ref: remediation/azure-builtin/beb6ccee-b6b8-4e91-9801-a5fa4260a104.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: beb6ccee-b6b8-4e91-9801-a5fa4260a104
+  azure_policy_display_name: Audit Windows machines that have not restarted within
+    the specified number of days
+  azure_policy_effect_default: auditIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/MachineLastBootUpTime_AINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

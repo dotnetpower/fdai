@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.container-registry.container-registries-should-have-skus-that-support-private-links
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: container-registry
+check_logic:
+  kind: expression
+  reference: azure-policy://bd560fc0-3c69-498a-ae9f-aa8eb7de0e13
+remediation:
+  template_ref: remediation/azure-builtin/bd560fc0-3c69-498a-ae9f-aa8eb7de0e13.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: bd560fc0-3c69-498a-ae9f-aa8eb7de0e13
+  azure_policy_display_name: Container registries should have SKUs that support Private
+    Links
+  azure_policy_effect_default: Audit
+  azure_policy_category: Container Registry
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Container
+    Registry/ACR_SkuSupportsPrivateEndpoints_AuditDeny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.cosmos-db.preview-cosmos-database-accounts-should-be-zone-redundant
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: cosmos-db
+check_logic:
+  kind: expression
+  reference: azure-policy://44c5a1f9-7ef6-4c38-880c-273e8f7a3c24
+remediation:
+  template_ref: remediation/azure-builtin/44c5a1f9-7ef6-4c38-880c-273e8f7a3c24.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 44c5a1f9-7ef6-4c38-880c-273e8f7a3c24
+  azure_policy_display_name: '[Preview]: Cosmos Database Accounts should be Zone Redundant'
+  azure_policy_effect_default: Audit
+  azure_policy_category: Resilience
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Resilience/DocumentDB_databaseAccounts_ZoneRedundant_Audit.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

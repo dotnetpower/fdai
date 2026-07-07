@@ -1,0 +1,32 @@
+schema_version: 1.0.0
+id: kube-bench.cis-1.6-k3s.2-7.ensure-that-a-unique-certificate-authority-is-used-for-etcd-manual
+version: 1.0.0
+source: kube_bench
+severity: low
+category: security
+resource_type: kubernetes-cluster.etcd
+check_logic:
+  kind: expression
+  reference: kube-bench://cis-1.6-k3s/2.7
+remediation:
+  template_ref: remediation/kube-bench/cis-1.6-k3s/2.7.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: '2.7'
+  kube_bench_ruleset: cis-1.6-k3s
+  kube_bench_group_id: '2'
+  kube_bench_scored: false
+  kube_bench_audit: "if [ -f \"$etcdconf\" ];then\n  etcd_ca=$(grep 'trusted-ca-file'\
+    \ $etcdconf | awk -F \":|: *\" '{print $NF}');\n  apiserver_ca=$(journalctl -u\
+    \ k3s | grep \"Running kube-apiserver\" | tail -n1 | grep \"trusted-ca-file\"\
+    \ | awk -F \"=\" '{print $NF}')\n  if [ \"$etcd_ca\" == \"$apiserver_ca\" ]; then\n\
+    \    echo 'etcd_and_apiserver_have_same_ca';\n  else\n    echo 'etcd_and_apiserver_ca_not_same1'\
+    \ ;\n  fi\nelse\n  echo 'etcd_and_apiserver_ca_not_same'; return ;\nfi\n"
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/cis-1.6-k3s/etcd.yaml
+  source_version: cis-1.6-k3s
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:39Z'

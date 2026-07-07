@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.reissue-authenticators-for-changed-groups-and-accounts
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://2f204e72-1896-3bf8-75c9-9128b8683a36
+remediation:
+  template_ref: remediation/azure-builtin/2f204e72-1896-3bf8-75c9-9128b8683a36.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 2f204e72-1896-3bf8-75c9-9128b8683a36
+  azure_policy_display_name: Reissue authenticators for changed groups and accounts
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_0426.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: compliance.virtualenclaves.preview-control-the-use-of-s-1-0-0
+title: '(Azure Initiative) [Preview]: Control the use of Service Bus in a Virtual
+  Enclave'
+description: This initiative deploys Azure policies for Service Bus ensuring boundary
+  protection of this resource while it operates within the logically separated structure
+  of Azure Virtual Enclaves. https://aka.ms/VirtualEnclaves
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://ServiceBusInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.servicebus.namespaces.service-bus-premium-namespaces-should-use-a-customer-managed-key-for-encryption
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.service-bus-namespaces-should-have-double-encryption-enabled
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.azure-service-bus-namespaces-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.networkrulesets.service-bus-namespaces-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.resource-logs-in-service-bus-should-be-enabled
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.azure-service-bus-namespaces-should-have-local-authentication-methods-disabled
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.configure-azure-service-bus-namespaces-to-disable-local-authentication
+  mode: shadow

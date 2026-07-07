@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.containerregistry.registries.tokens.container-registries-should-have-repository-scoped-access-token-disabled
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.containerregistry.registries.tokens
+check_logic:
+  kind: expression
+  reference: azure-policy://ff05e24e-195c-447e-b322-5e90c9f9f366
+remediation:
+  template_ref: remediation/azure-builtin/ff05e24e-195c-447e-b322-5e90c9f9f366.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ff05e24e-195c-447e-b322-5e90c9f9f366
+  azure_policy_display_name: Container registries should have repository scoped access
+    token disabled.
+  azure_policy_effect_default: Audit
+  azure_policy_category: Container Registry
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Container
+    Registry/ACR_TokenDisabled_AuditDeny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

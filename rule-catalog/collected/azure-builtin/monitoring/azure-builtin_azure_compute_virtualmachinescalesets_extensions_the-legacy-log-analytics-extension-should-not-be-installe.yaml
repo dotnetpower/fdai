@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.compute.virtualmachinescalesets.extensions.the-legacy-log-analytics-extension-should-not-be-installed-on-vir
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.compute.virtualmachinescalesets.extensions
+check_logic:
+  kind: expression
+  reference: azure-policy://ba6881f9-ab93-498b-8bad-bb91b1d755bf
+remediation:
+  template_ref: remediation/azure-builtin/ba6881f9-ab93-498b-8bad-bb91b1d755bf.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ba6881f9-ab93-498b-8bad-bb91b1d755bf
+  azure_policy_display_name: The legacy Log Analytics extension should not be installed
+    on virtual machine scale sets
+  azure_policy_effect_default: Audit
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/LogAnalyticsExtension_Windows_VMSS_Deny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

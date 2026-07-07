@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/slo/1.0.0",
+  "title": "SLO",
+  "description": "Workload-facing Service Level Objective. Distinct from the control-plane SLOs in docs/roadmap/deployment.md (which measure FDAI itself); this schema describes the SLIs / objectives / error budgets of the workloads FDAI operates on, so incident priority and change-freeze decisions can be ranked by real user impact. Design contract: docs/roadmap/sre-agent-scope.md § 3.3.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "objective_ratio",
+    "window_days",
+    "sli"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable dotted id, e.g. `api.checkout.availability`."
+    },
+    "description": {
+      "type": ["string", "null"]
+    },
+    "objective_ratio": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "description": "Target compliance fraction over the rolling window, e.g. 0.999 = 99.9% good events."
+    },
+    "window_days": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Rolling window in days (typically 7, 28, or 30)."
+    },
+    "sli": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "good_query", "total_query"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["availability", "latency", "correctness", "freshness"],
+          "description": "Category (Google SRE Ch. 4 taxonomy)."
+        },
+        "good_query": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Vendor-specific query (KQL, PromQL, LogQL) that counts `good` events."
+        },
+        "total_query": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Vendor-specific query that counts total valid events. Ratio = good / total."
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "default": {},
+          "description": "CSP-neutral pre-filter passed to the MetricProvider layer 6 seam."
+        }
+      }
+    },
+    "burn_rate_alerts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "short_window_minutes", "long_window_minutes", "burn_rate_threshold"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "short_window_minutes": { "type": "integer", "minimum": 1 },
+          "long_window_minutes": { "type": "integer", "minimum": 1 },
+          "burn_rate_threshold": { "type": "number", "exclusiveMinimum": 0 },
+          "severity": {
+            "type": "string",
+            "enum": ["sev1", "sev2", "sev3", "sev4", "sev5"],
+            "default": "sev3"
+          }
+        }
+      },
+      "default": [],
+      "description": "Multi-window multi-burn-rate alerts per Google SRE Ch. 5. A burn-rate alert fires when BOTH windows exceed the threshold; the short window catches fast burns, the long window suppresses noise on transient spikes."
+    }
+  }
+}

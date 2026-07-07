@@ -1,0 +1,34 @@
+schema_version: 1.0.0
+id: kube-bench.cis-1.10.5-2-3.minimize-the-admission-of-containers-wishing-to-share-the-host-process-id-namesp
+version: 1.0.0
+source: kube_bench
+severity: low
+category: security
+resource_type: kubernetes-cluster.policies
+check_logic:
+  kind: expression
+  reference: kube-bench://cis-1.10/5.2.3
+remediation:
+  template_ref: remediation/kube-bench/cis-1.10/5.2.3.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 5.2.3
+  kube_bench_ruleset: cis-1.10
+  kube_bench_group_id: '5.2'
+  kube_bench_scored: false
+  kube_bench_audit: "kubectl get pods --all-namespaces -o custom-columns=POD_NAME:.metadata.name,POD_NAMESPACE:.metadata.namespace\
+    \ --no-headers | while read -r pod_name pod_namespace\ndo\n  # Retrieve spec.hostPID\
+    \ for each pod.\n  pod_hostpid=$(kubectl get pod \"${pod_name}\" --namespace \"\
+    ${pod_namespace}\" -o jsonpath='{.spec.hostPID}' 2>/dev/null)\n  if [ -z \"${pod_hostpid}\"\
+    \ ]; then\n    pod_hostpid=\"false\"\n    echo \"***pod_name: ${pod_name} pod_namespace:\
+    \ ${pod_namespace} is_pod_hostpid: ${pod_hostpid} is_compliant: true\"\n  else\n\
+    \    echo \"***pod_name: ${pod_name} pod_namespace: ${pod_namespace} is_pod_hostpid:\
+    \ ${pod_hostpid} is_compliant: false\"\n  fi\ndone\n"
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/cis-1.10/policies.yaml
+  source_version: cis-1.10
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:39Z'

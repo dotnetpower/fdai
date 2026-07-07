@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 83f6163fe1743e83ac2cd8732eeb20f3956a3c54
+translation_source_sha: 9b6fa91d9d89ba8b9a4524273d04a815f718b4a7
 translation_revised: 2026-07-07
 ---
 
@@ -82,6 +82,11 @@ fdai/
 │   ├── index.html              # Vite 진입점
 │   ├── package.json            # 의존: preact, @azure/msal-browser
 │   └── vite.config.ts          # 빌드 → console/dist/ (git-ignored)
+├── cli/                       # operator-console CLI (Ink) - 뷰모델 하나, 렌더러 여럿
+│   ├── src/view-model/         # 표현 중립 브리핑 계약 + 블록 IR + 빌더
+│   ├── src/renderers/          # ink (터미널) / text / slack (Block Kit) / teams (Adaptive Card)
+│   ├── src/cli.tsx             # 진입점: 브리핑을 한 번 빌드하고 --surface 별로 렌더
+│   └── package.json            # 의존: ink, react (tsx로 실행, 빌드 단계 없음)
 ├── ui/                        # (미래) 정적 UI 킷 (Calm Slate 테마) - placeholder
 ├── tests/                     # 크로스-서브시스템 회귀 스위트 + 공유 픽스처
 ├── docs/roadmap/              # 이 로드맵과 설계 문서

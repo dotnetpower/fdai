@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-configure-supported-linux-virtual-machines-to-automatically-install-the-azure-security-ag
+version: 7.1.0
+source: azure_policy
+severity: low
+category: security
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://5f8eb305-9c9f-4abe-9bb0-df220d9faba2
+remediation:
+  template_ref: remediation/azure-builtin/5f8eb305-9c9f-4abe-9bb0-df220d9faba2.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 5f8eb305-9c9f-4abe-9bb0-df220d9faba2
+  azure_policy_display_name: '[Deprecated]: Configure supported Linux virtual machines
+    to automatically install the Azure Security agent'
+  azure_policy_effect_default: Disabled
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/ASC_AzureSecurityLinuxAgent_DINE.json
+  source_version: 7.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

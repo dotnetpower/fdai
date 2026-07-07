@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: compliance.mission.control-the-use-of-service-bus-in-mi-1-0-0
+title: (Azure Initiative) Control the use of Service Bus in Mission Platforms
+description: This initiative deploys Azure policies for Service Bus ensuring boundary
+  protection of this resource while it operates within the logically separated structure
+  of Mission Platforms.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://ServiceBusInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.servicebus.namespaces.service-bus-namespaces-should-have-double-encryption-enabled
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.azure-service-bus-namespaces-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.networkrulesets.service-bus-namespaces-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.resource-logs-in-service-bus-should-be-enabled
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.azure-service-bus-namespaces-should-have-local-authentication-methods-disabled
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.configure-azure-service-bus-namespaces-to-disable-local-authentication
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.service-bus-premium-namespaces-should-use-a-customer-managed-key-for-encryption-in-mis
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.privateendpointconnections.service-bus-should-restrict-access-to-external-private-endp
+  mode: shadow

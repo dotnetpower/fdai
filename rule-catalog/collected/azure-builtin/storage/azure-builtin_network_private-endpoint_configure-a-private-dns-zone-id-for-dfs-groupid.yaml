@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.network.private-endpoint.configure-a-private-dns-zone-id-for-dfs-groupid
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: network.private-endpoint
+check_logic:
+  kind: expression
+  reference: azure-policy://83c6fe0f-2316-444a-99a1-1ecd8a7872ca
+remediation:
+  template_ref: remediation/azure-builtin/83c6fe0f-2316-444a-99a1-1ecd8a7872ca.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 83c6fe0f-2316-444a-99a1-1ecd8a7872ca
+  azure_policy_display_name: Configure a private DNS Zone ID for dfs groupID
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Storage
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Storage/StoragePrivateDnsZoneGroup_DFS.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

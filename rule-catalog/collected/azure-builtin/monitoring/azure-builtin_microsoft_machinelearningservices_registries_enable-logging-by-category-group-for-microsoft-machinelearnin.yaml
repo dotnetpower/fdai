@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.machinelearningservices.registries.enable-logging-by-category-group-for-microsoft-machinelearningservice
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.machinelearningservices.registries
+check_logic:
+  kind: expression
+  reference: azure-policy://12000b3e-e38b-4bef-9098-38785f06ea32
+remediation:
+  template_ref: remediation/azure-builtin/12000b3e-e38b-4bef-9098-38785f06ea32.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 12000b3e-e38b-4bef-9098-38785f06ea32
+  azure_policy_display_name: Enable logging by category group for microsoft.machinelearningservices/registries
+    to Event Hub
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_EH_machinelearningservices-registries_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

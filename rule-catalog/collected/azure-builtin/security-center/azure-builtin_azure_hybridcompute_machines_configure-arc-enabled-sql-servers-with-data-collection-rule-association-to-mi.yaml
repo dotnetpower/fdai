@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.hybridcompute.machines.configure-arc-enabled-sql-servers-with-data-collection-rule-association-to-microsoft
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.hybridcompute.machines
+check_logic:
+  kind: expression
+  reference: azure-policy://cbdd12e1-193a-445c-9926-560118c6daaa
+remediation:
+  template_ref: remediation/azure-builtin/cbdd12e1-193a-445c-9926-560118c6daaa.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: cbdd12e1-193a-445c-9926-560118c6daaa
+  azure_policy_display_name: Configure Arc-enabled SQL Servers with Data Collection
+    Rule Association to Microsoft Defender for SQL DCR
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/MDC_DfSQL_AMA_DefaultPipeline_DCRA_Arc.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

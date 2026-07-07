@@ -1,0 +1,42 @@
+schema_version: 1.0.0
+id: compliance.security-center.deprecated-configure-machine-1-0-2
+title: '(Azure Initiative) [Deprecated]: Configure machines to create the user-defined
+  Microsoft Defender for Cloud pipeline using Azure Monitor Agent'
+description: 'This policy initiative is deprecated as part of Microsoft Defender for
+  Cloud updated strategy. As part of this strategy, Azure Monitor agent is no longer
+  required to receive Defender for Servers security features, but is required for
+  Defender for SQL Server on machines. For more information visit: https://aka.ms/MdcAgentStrategy.
+  Configure machines to automatically install the Azure Monitor and Azure Security
+  agents. Use the user-provided Log Analytics workspace to store audit records.'
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://MDC_AzureMonitoring_UAI_UserWorkspace
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.preview-assign-built-in-user-assigned-managed-identity-to-virtual-machines
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-linux-virtual-machines-to-run-azure-monitor-agent-with-user-assigned-managed-identity-base
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-windows-virtual-machines-to-run-azure-monitor-agent-with-user-assigned-managed-identity-ba
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-configure-supported-linux-virtual-machines-to-automatically-install-the-azure-security-ag
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-configure-supported-windows-machines-to-automatically-install-the-azure-security-agent
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-configure-machines-to-create-the-microsoft-defender-for-cloud-user-defined-pipeline-using
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-configure-association-to-link-virtual-machines-to-user-defined-microsoft-defender-for-clo
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-linux-arc-enabled-machines-to-run-azure-monitor-agent
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-windows-arc-enabled-machines-to-run-azure-monitor-agent
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.deprecated-configure-supported-linux-arc-machines-to-automatically-install-the-azure
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.deprecated-configure-supported-windows-arc-machines-to-automatically-install-the-azur
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.deprecated-configure-arc-machines-to-create-the-microsoft-defender-for-cloud-user-def
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.deprecated-configure-association-to-link-arc-machines-to-user-defined-microsoft-defen
+  mode: shadow

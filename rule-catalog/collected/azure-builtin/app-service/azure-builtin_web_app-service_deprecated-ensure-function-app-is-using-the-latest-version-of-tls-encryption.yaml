@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.web.app-service.deprecated-ensure-function-app-is-using-the-latest-version-of-tls-encryption
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: web.app-service
+check_logic:
+  kind: expression
+  reference: azure-policy://58d94fc1-a072-47c2-bd37-9cdb38e77453
+remediation:
+  template_ref: remediation/azure-builtin/58d94fc1-a072-47c2-bd37-9cdb38e77453.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 58d94fc1-a072-47c2-bd37-9cdb38e77453
+  azure_policy_display_name: '[Deprecated]: Ensure Function app is using the latest
+    version of TLS encryption'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/FunctionApp_Audit_Tls_Ver.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

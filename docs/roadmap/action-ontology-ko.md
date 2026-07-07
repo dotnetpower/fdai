@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 8269676a63de7d860dba45a5295a50a5b50ece2d
+translation_source_sha: 63b842d1bfc04e0a627f7a6c55b52538fcda2309
 translation_revised: 2026-07-07
 ---
 
@@ -252,17 +252,27 @@ landing 해야 하는 compliance-heavy 환경에서 `pr_manual` 을 강제 MAY.
 
 ### 3.3 `governance.*`
 
-온톨로지 / 카탈로그 / 예외 / promotion 변경. Day 1 shipping:
+온톨로지 / 카탈로그 / 예외 / promotion 변경. 네 entry 가 오늘의
+온톨로지에 authored; **오직 하나만 현재 live dispatcher 를 가짐**
+(나머지 셋은 P2 에서 land 될 PR-native writer 대기 중인
+catalog-as-code artifact):
 
 - `governance.promote-action-type` - 하나의 ActionType 의 `default_mode`
   를 shadow → enforce 로 flip (해당 ActionType 의 `promotion_gate` 로
   bounded).
+  **Dispatcher: not yet implemented (P2 backlog).**
 - `governance.retire-rule` - enforce 집합에서 룰 제거 (shadow-only 또는
   full retire).
+  **Dispatcher: not yet implemented (P2 backlog).**
 - `governance.grant-exemption` - time-boxed 예외 생성
-  ([rule-governance.md](rule-governance-ko.md)).
+  ([rule-governance.md](rule-governance-ko.md)). 기존 예외는
+  `rule-catalog/exemptions/` 아래 JSON 으로 authored 되어 risk gate 가
+  `ExemptionRegistry` 를 통해 소비; 런타임 **create-a-new-exemption**
+  operator flow 는 동일한 P2 PR-native writer 와 함께 land.
 - `governance.override-ceiling` - 특정 resource / tag 스코프에 대한 tier
   ceiling 의 operator-측 override (fork extension).
+  **Dispatcher shipped**:
+  [`src/fdai/core/risk_gate/override_writer.py`](../../src/fdai/core/risk_gate/override_writer.py).
 
 Governance 액션은 항상 `execution_path: pr_native` 사용 - catalog-as-code
 변경이고 reviewed diff 로 landing MUST.

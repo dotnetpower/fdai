@@ -1,0 +1,33 @@
+schema_version: 1.0.0
+id: compliance.mission.control-the-use-of-cosmosdb-in-missi-1-0-0
+title: (Azure Initiative) Control the use of CosmosDB in Mission Platforms
+description: This policy applies exclusively to Mission Platform products and services;
+  usage outside of these scopes is not supported. This initiative ensures Cosmos DB
+  resources operate securely within logically separated Mission Platform environments
+  by enforcing boundary protection and access controls.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://CosmosDBInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.cosmos-db.azure-cosmos-db-accounts-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.cosmos-db.cosmosdb-accounts-should-use-private-link
+  mode: shadow
+- id: azure-builtin.cosmos-db.azure-cosmos-db-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.cosmos-db.cosmos-db-database-accounts-should-have-local-authentication-methods-disabled
+  mode: shadow
+- id: azure-builtin.cosmos-db.configure-cosmos-db-database-accounts-to-disable-local-authentication
+  mode: shadow
+- id: azure-builtin.cosmos-db.azure-cosmos-db-accounts-should-not-exceed-the-maximum-number-of-days-allowed-since-last-account-key
+  mode: shadow
+- id: azure-builtin.cosmos-db.configure-cosmosdb-accounts-to-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.cosmos-db.deploy-advanced-threat-protection-for-cosmos-db-accounts
+  mode: shadow
+- id: azure-builtin.cosmos-db.cosmosdb-should-restrict-public-access-but-allow-access-from-certain-ip-addresses
+  mode: shadow
+- id: azure-builtin.azure.documentdb.databaseaccounts.privateendpointconnections.cosmosdb-should-restrict-external-private-endpoints-a
+  mode: shadow

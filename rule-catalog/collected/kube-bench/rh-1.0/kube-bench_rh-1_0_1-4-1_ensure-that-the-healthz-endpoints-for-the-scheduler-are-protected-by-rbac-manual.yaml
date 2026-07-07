@@ -1,0 +1,69 @@
+schema_version: 1.0.0
+id: kube-bench.rh-1.0.1-4-1.ensure-that-the-healthz-endpoints-for-the-scheduler-are-protected-by-rbac-manual
+version: 1.0.0
+source: kube_bench
+severity: low
+category: security
+resource_type: kubernetes-cluster.control-plane
+check_logic:
+  kind: expression
+  reference: kube-bench://rh-1.0/1.4.1
+remediation:
+  template_ref: remediation/kube-bench/rh-1.0/1.4.1.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 1.4.1
+  kube_bench_ruleset: rh-1.0
+  kube_bench_group_id: '1.4'
+  kube_bench_scored: false
+  kube_bench_audit: '# check configuration for ports, livenessProbe, readinessProbe,
+    healthz
+
+    oc -n openshift-kube-scheduler get cm kube-scheduler-pod -o json | jq -r ''.data."pod.yaml"''
+    | jq ''.spec.containers''
+
+    # Test to verify endpoints
+
+    oc -n openshift-kube-scheduler describe endpoints
+
+    # Test to validate RBAC enabled on the scheduler endpoint; check with non-admin
+    role
+
+    oc project openshift-kube-scheduler
+
+    POD=$(oc get pods -l app=openshift-kube-scheduler -o jsonpath=''{.items[0].metadata.name}'')
+
+    PORT=$(oc get pod $POD -o jsonpath=''{.spec.containers[0].livenessProbe.httpGet.port}'')
+
+    # Should return 403 Forbidden
+
+    oc rsh ${POD} curl http://localhost:${PORT}/metrics -k
+
+    # Create a service account to test RBAC
+
+    oc create sa permission-test-sa
+
+    # Should return 403 Forbidden
+
+    SA_TOKEN=$(oc sa get-token permission-test-sa)
+
+    oc rsh ${POD} curl http://localhost:${PORT}/metrics -H "Authorization: Bearer
+    $SA_TOKEN" -k
+
+    # Cleanup
+
+    oc delete sa permission-test-sa
+
+    # As cluster admin, should succeed
+
+    CLUSTER_ADMIN_TOKEN=$(oc whoami -t)
+
+    oc rsh ${POD} curl ht'
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/rh-1.0/master.yaml
+  source_version: rh-1.0
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:40Z'

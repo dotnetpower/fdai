@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.accept-assessment-results
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://3054c74b-9b45-2581-56cf-053a1a716c39
+remediation:
+  template_ref: remediation/azure-builtin/3054c74b-9b45-2581-56cf-053a1a716c39.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 3054c74b-9b45-2581-56cf-053a1a716c39
+  azure_policy_display_name: Accept assessment results
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_C1150.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

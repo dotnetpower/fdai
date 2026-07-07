@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.map-authenticated-identities-to-individuals
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://4012c2b7-4e0e-a7ab-1688-4aab43f14420
+remediation:
+  template_ref: remediation/azure-builtin/4012c2b7-4e0e-a7ab-1688-4aab43f14420.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 4012c2b7-4e0e-a7ab-1688-4aab43f14420
+  azure_policy_display_name: Map authenticated identities to individuals
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_0372.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

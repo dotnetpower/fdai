@@ -1,0 +1,66 @@
+schema_version: "1.0.0"
+id: strict
+title: FDAI Strict (Regulated / Zero-Trust Posture)
+description: >
+  Zero-trust posture for regulated workloads (finance, healthcare,
+  public sector). Extends `recommended` and moves the security-critical
+  rules to `enforce`. The remaining rules stay shadow to preserve the
+  shadow-then-enforce contract; a fork elevates further per its own
+  compliance surface.
+provenance:
+  authored_by: fdai-upstream
+  based_on:
+    - CIS Microsoft Azure Foundations Benchmark v2.0.0
+    - MCSB (Level 2)
+    - NIST 800-53 Rev 5 (subset)
+  review_cadence_days: 30
+extends: [recommended]
+rules:
+  # Security-critical rules -> enforce
+  - id: object-storage.public-access.deny
+    mode: enforce
+  - id: object-storage.https-only.required
+    mode: enforce
+  - id: object-storage.private-endpoint.required
+    mode: enforce
+  - id: object-storage.shared-key-access.disabled
+    mode: enforce
+  - id: object-storage.encryption-at-rest.required
+    mode: enforce
+  - id: sql-database.tde-required
+    mode: enforce
+  - id: sql-database.audit-enabled
+    mode: enforce
+  - id: kubernetes-cluster.rbac-enabled
+    mode: enforce
+  - id: kubernetes-cluster.private-cluster
+    mode: enforce
+  - id: postgresql-server.encryption-at-rest
+    mode: enforce
+  - id: postgresql-server.ssl-enforcement
+    mode: enforce
+  - id: secret-store.public-network-access.disabled
+    mode: enforce
+  - id: secret-store.rbac-authorization.enabled
+    mode: enforce
+  - id: secret-store.purge-protection.enabled
+    mode: enforce
+  - id: secret-store.soft-delete.enabled
+    mode: enforce
+  - id: network.nsg.no-inbound-any-ssh
+    mode: enforce
+  - id: network.nsg.no-inbound-any-rdp
+    mode: enforce
+  # Availability guards for regulated workloads
+  - id: sql-database.geo-redundant-backup
+    mode: enforce
+  - id: sql-database.zone-redundant
+    mode: shadow
+    severity_override: high
+  - id: kubernetes-node-pool.multi-zone
+    mode: shadow
+    severity_override: high
+  - id: postgresql-server.point-in-time-restore
+    mode: enforce
+  - id: postgresql-server.high-availability
+    mode: enforce

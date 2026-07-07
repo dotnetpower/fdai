@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.review-and-update-identification-and-authentication-policies-and-procedures
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://29acfac0-4bb4-121b-8283-8943198b1549
+remediation:
+  template_ref: remediation/azure-builtin/29acfac0-4bb4-121b-8283-8943198b1549.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 29acfac0-4bb4-121b-8283-8943198b1549
+  azure_policy_display_name: Review and update identification and authentication policies
+    and procedures
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_C1299.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.eventgrid.domains.deploy-configure-azure-event-grid-domains-with-private-endpoints
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.eventgrid.domains
+check_logic:
+  kind: expression
+  reference: azure-policy://36f4658a-848a-467b-881c-e6fa20cf75fc
+remediation:
+  template_ref: remediation/azure-builtin/36f4658a-848a-467b-881c-e6fa20cf75fc.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 36f4658a-848a-467b-881c-e6fa20cf75fc
+  azure_policy_display_name: Deploy - Configure Azure Event Grid domains with private
+    endpoints
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Event Grid
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Event
+    Grid/Domains_PrivateEndpoint_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

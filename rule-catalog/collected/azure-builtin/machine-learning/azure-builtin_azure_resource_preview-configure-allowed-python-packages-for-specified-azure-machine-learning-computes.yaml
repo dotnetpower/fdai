@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.preview-configure-allowed-python-packages-for-specified-azure-machine-learning-computes
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://77eeea86-7e81-4a7d-9067-de844d096752
+remediation:
+  template_ref: remediation/azure-builtin/77eeea86-7e81-4a7d-9067-de844d096752.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 77eeea86-7e81-4a7d-9067-de844d096752
+  azure_policy_display_name: '[Preview]: Configure allowed Python packages for specified
+    Azure Machine Learning computes'
+  azure_policy_effect_default: enforceSetting
+  azure_policy_category: Machine Learning
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Machine
+    Learning/AllowedPythonPackageChannels_EnforceSetting.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

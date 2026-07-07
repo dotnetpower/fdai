@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.preview-assign-built-in-user-assigned-managed-identity-to-virtual-machines
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://d367bd60-64ca-4364-98ea-276775bddd94
+remediation:
+  template_ref: remediation/azure-builtin/d367bd60-64ca-4364-98ea-276775bddd94.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d367bd60-64ca-4364-98ea-276775bddd94
+  azure_policy_display_name: '[Preview]: Assign Built-In User-Assigned Managed Identity
+    to Virtual Machines'
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Managed Identity
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Managed Identity/VM_UAI_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

@@ -152,6 +152,22 @@ async function ensureCleanMount() {
   for (const p of previous) {
     await unlink(p).catch(() => {});
   }
+
+  // Astro caches the content-collection store in two locations under
+  // node_modules/ (persistent across builds) and site/.astro/ (per
+  // project). Both are keyed by symlink real-paths, so they become
+  // stale silently when the repo directory is renamed (e.g. an
+  // upstream project rebrand) - stale entries then leak old links
+  // (like the previous repo's GitHub URL) into `astro build` output.
+  // Purge them on every mount run: cost is ~a few hundred ms rebuild
+  // time; benefit is a rename-proof pipeline.
+  const astroCacheDirs = [
+    resolve(siteRoot, "node_modules", ".astro"),
+    resolve(siteRoot, ".astro"),
+  ];
+  for (const dir of astroCacheDirs) {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
 }
 
 async function linkOne(sourceAbs, mountAbs) {

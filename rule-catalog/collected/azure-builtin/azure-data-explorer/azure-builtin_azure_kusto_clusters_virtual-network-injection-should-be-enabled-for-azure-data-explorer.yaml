@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.kusto.clusters.virtual-network-injection-should-be-enabled-for-azure-data-explorer
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.kusto.clusters
+check_logic:
+  kind: expression
+  reference: azure-policy://9ad2fd1f-b25f-47a2-aa01-1a5a779e6413
+remediation:
+  template_ref: remediation/azure-builtin/9ad2fd1f-b25f-47a2-aa01-1a5a779e6413.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 9ad2fd1f-b25f-47a2-aa01-1a5a779e6413
+  azure_policy_display_name: Virtual network injection should be enabled for Azure
+    Data Explorer
+  azure_policy_effect_default: Audit
+  azure_policy_category: Azure Data Explorer
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Data Explorer/ADX_VNET_configured.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

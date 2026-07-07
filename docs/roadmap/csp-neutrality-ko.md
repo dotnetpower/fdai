@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 4b43b2396cc4ba2aeeed4c929d070b80ed8fe052
+translation_source_sha: 6b4e09b9abb7953bce5defdee114a8250c03a7ec
 translation_revised: 2026-07-07
 ---
 
@@ -23,15 +23,17 @@ translation_revised: 2026-07-07
 와이어 수준 계약** 을 통해야 합니다. 각 계약의 Azure 구현이 오늘 우리가 만드는 것이며,
 fork 나 미래 phase 는 `core/` 를 편집하지 않고 **같은 계약** 의 새 구현을 등록해서 다른 CSP 를 추가합니다.
 
-**동시성(Concurrency)**: 다섯 개의 provider Protocol 은 **기본 async** 입니다 (Kafka poll
-loop, Postgres asyncpg, Key Vault HTTP, OIDC 토큰 교환, inventory-graph 쿼리는 모두 I/O
-bound). Sync 는 event loop 를 블록하지 않도록 CPU / startup 전용 seam -
-`SchemaRegistry`, `ContractValidator`, `ConfigProvider` - 에만 남겨둡니다. 정본 seam
-리스트는
+**동시성(Concurrency)**: 여덟 개의 provider Protocol 은 **기본 async** 입니다 (Kafka poll
+loop, Postgres asyncpg, Key Vault HTTP, OIDC 토큰 교환, inventory-graph 쿼리, 그리고
+§ 6-8 의 세 telemetry-ingestion 쿼리는 모두 I/O bound). Sync 는 event loop 를 블록하지
+않도록 CPU / startup 전용 seam - `SchemaRegistry`, `ContractValidator`, `ConfigProvider` -
+에만 남겨둡니다. 정본 seam 리스트는
 [project-structure-ko.md § 주입 가능한 Seams](project-structure-ko.md#주입-가능한-seams)
 참조.
 
-CSP 접촉면을 지배하는 다섯 개의 계약:
+CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level foundation +
+[sre-agent-scope-ko.md § 3.2](sre-agent-scope-ko.md) 로 추가된 세 telemetry-ingestion
+seam):
 
 | # | 계약 | 와이어 / 아티팩트 | Azure 구현 |
 |---|------|---------------------|-------------|
@@ -40,8 +42,11 @@ CSP 접촉면을 지배하는 다섯 개의 계약:
 | 3 | **시크릿** | 환경변수 (또는 K8s Secret 마운트) - 앱에서 CSP secret SDK 호출 안 함 | Container Apps native secret + Key Vault reference |
 | 4 | **워크로드 아이덴티티** | OIDC 토큰 (federated) | User-assigned Managed Identity + workload identity federation |
 | 5 | **인벤토리** | HTTP + OIDC-bearer 와이어로 `(Resource, Link[])` 배치를 반환하는 리소스-그래프 쿼리 표면 | Azure Resource Graph (ARG) + Activity Log delta |
+| 6 | **Metric ingestion** | `MetricProvider.query(MetricQuery) -> AsyncIterator[MetricPoint]` (CSP-neutral name + label) | Azure Monitor Logs (KQL) - upstream 은 `NoopMetricProvider` ship |
+| 7 | **Log ingestion** | `LogQueryProvider.query(LogQuery) -> AsyncIterator[LogRecord]` (vendor `expression` + CSP-neutral label filter) | Log Analytics (KQL) - upstream 은 `NoopLogQueryProvider` ship |
+| 8 | **Trace ingestion** | `TraceQueryProvider.query(TraceQuery) -> AsyncIterator[Span]` (`trace_id`, `service`, `operation`, `min_duration`) | Application Insights - upstream 은 `NoopTraceQueryProvider` ship |
 
-다섯 개 모두 `core/` 에 provider 특이를 누출하지 MUST NOT.
+여덟 개 모두 `core/` 에 provider 특이를 누출하지 MUST NOT.
 거부해야 하는 구체적 위반은 [Anti-Patterns](#anti-patterns) 참조.
 
 ## 1. 이벤트버스 계약 - Kafka 와이어 프로토콜
@@ -235,6 +240,53 @@ executor 는 런타임 서브스트레이트에서 얻은 **짧은 수명의 OID
   인벤토리 sync 와 remediation 실행은 독립적 동시성 예산을 가진 별개 관심사.
 - 부분 delta 스트림만을 authoritative 로 신뢰; 다운된 이벤트를 잡으려면 주기 full-snapshot
   reconciliation 이 필수.
+
+## 6. Metric Query 계약 - CSP-Neutral Sample Iterator
+
+외부 메트릭 (Prometheus, Azure Monitor Logs, CloudWatch, Datadog) 을
+`MetricProvider.query(MetricQuery) -> AsyncIterator[MetricPoint]`
+([`shared/providers/metric.py`](../../src/fdai/shared/providers/metric.py))
+로 소비. `MetricQuery` 는 vendor-neutral (`metric_name`, `labels`, `since`, `until`,
+`aggregation` 힌트); 어댑터는 CSP-neutral 이름을 vendor namespace 로 매핑하고 힌트를
+best-effort 로 honor. Upstream 은 `NoopMetricProvider` (빈 결과) + `StaticMetricProvider`
+(테스트 double) 를 ship; Azure adapter 는 `delivery/azure/` 아래 land.
+
+**Design rules:**
+
+- Async by contract (외부 metric query 는 I/O-bound; 그렇지 않으면 event loop 를 block -
+  § 1 / § 3 / § 4 / § 5 와 동일한 discipline).
+- 빈 결과는 valid 답 (window 내 sample 없음 ≠ error).
+- Caller 는 partial result 로 auto-remediate MUST NOT; abstain 하고 HIL 로 route -
+  [architecture.instructions.md § Safety Invariants](../../.github/instructions/architecture.instructions.md#safety-invariants)
+  per.
+
+## 7. Log Query 계약 - Structured Log Records
+
+Structured log (Log Analytics KQL, Loki LogQL, Elasticsearch, CloudWatch Logs) 를
+`LogQueryProvider.query(LogQuery) -> AsyncIterator[LogRecord]`
+([`shared/providers/log_query.py`](../../src/fdai/shared/providers/log_query.py))
+로 소비. `expression` 필드는 vendor-specific 쿼리 문자열; `labels` 는 어댑터가 label
+surface 에 매핑하는 CSP-neutral pre-filter. `core/` 에 tail 을 hard-code 하지 않고
+CSP-neutral filter 와 vendor-specific tail 을 compose 할 수 있도록 분리 유지.
+
+## 8. Trace Query 계약 - Distributed-Trace Spans
+
+Span (App Insights, Tempo, Jaeger, Honeycomb) 을
+`TraceQueryProvider.query(TraceQuery) -> AsyncIterator[Span]`
+([`shared/providers/trace_query.py`](../../src/fdai/shared/providers/trace_query.py))
+로 소비. `Span` 은 `trace_id`, `span_id`, `parent_span_id`, `service`, `operation`,
+`start`, `duration`, `status`, 그리고 CSP-neutral `labels` 를 carry - RCA 가 어떤
+backend 가 기록했는지 모른 채 service 를 가로질러 request 를 walk 가능.
+
+**§ 6 - § 8 공통 Design rules:**
+
+- 세 telemetry-ingestion Protocol 은 anomaly detection, SLO burn-rate evaluation, RCA
+  가 rule / policy citation 뿐만 아니라 real telemetry 에 ground 하도록 존재. Design
+  contract 는 [sre-agent-scope-ko.md § 3.2](sre-agent-scope-ko.md) 에.
+- Upstream default 는 no-op provider - 어떤 concrete adapter 도 wire 되기 전에
+  downstream consumer 가 안정된 interface 로 author 가능.
+- Vendor SDK import 는 `delivery/<vendor>/` 에 confined; `core/` 는 Protocol 만 import -
+  [`scripts/check-core-imports.sh`](../../scripts/check-core-imports.sh) 에 의해 강제.
 
 ## Azure-Phase 실현 (요약)
 

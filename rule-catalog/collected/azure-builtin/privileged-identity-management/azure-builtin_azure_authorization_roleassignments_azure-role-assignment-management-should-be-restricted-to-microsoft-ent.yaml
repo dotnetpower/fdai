@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.authorization.roleassignments.azure-role-assignment-management-should-be-restricted-to-microsoft-entra-privi
+version: 1.0.0
+source: azure_policy
+severity: high
+category: security
+resource_type: azure.authorization.roleassignments
+check_logic:
+  kind: expression
+  reference: azure-policy://25237d14-4a47-4cb6-bc7c-8bbdd4671f31
+remediation:
+  template_ref: remediation/azure-builtin/25237d14-4a47-4cb6-bc7c-8bbdd4671f31.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 25237d14-4a47-4cb6-bc7c-8bbdd4671f31
+  azure_policy_display_name: Azure role assignment management should be restricted
+    to Microsoft Entra Privileged Identity Management
+  azure_policy_effect_default: Deny
+  azure_policy_category: Privileged Identity Management
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Privileged
+    Identity Management/PimOnlyModeForAzure_Deny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

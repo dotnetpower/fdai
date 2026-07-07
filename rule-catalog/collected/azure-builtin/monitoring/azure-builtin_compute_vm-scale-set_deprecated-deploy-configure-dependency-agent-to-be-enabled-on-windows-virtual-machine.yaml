@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm-scale-set.deprecated-deploy-configure-dependency-agent-to-be-enabled-on-windows-virtual-machine-scale-s
+version: 3.4.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: compute.vm-scale-set
+check_logic:
+  kind: expression
+  reference: azure-policy://3be22e3b-d919-47aa-805e-8985dbeb0ad9
+remediation:
+  template_ref: remediation/azure-builtin/3be22e3b-d919-47aa-805e-8985dbeb0ad9.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 3be22e3b-d919-47aa-805e-8985dbeb0ad9
+  azure_policy_display_name: '[Deprecated]: Deploy - Configure Dependency agent to
+    be enabled on Windows virtual machine scale sets'
+  azure_policy_effect_default: Disabled
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DependencyAgentExtension_Windows_VMSS_Disabled.json
+  source_version: 3.4.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1011-account-management
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://7e6a54f3-883f-43d5-87c4-172dfd64a1f5
+remediation:
+  template_ref: remediation/azure-builtin/7e6a54f3-883f-43d5-87c4-172dfd64a1f5.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 7e6a54f3-883f-43d5-87c4-172dfd64a1f5
+  azure_policy_display_name: Microsoft Managed Control 1011 - Account Management
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1011.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

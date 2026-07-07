@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.web.app-service.function-apps-should-have-local-authentication-methods-disabled-for-ftp-deployments
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: web.app-service
+check_logic:
+  kind: expression
+  reference: azure-policy://3357bf2d-1d96-4829-9724-998ef6e7b1d2
+remediation:
+  template_ref: remediation/azure-builtin/3357bf2d-1d96-4829-9724-998ef6e7b1d2.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 3357bf2d-1d96-4829-9724-998ef6e7b1d2
+  azure_policy_display_name: Function apps should have local authentication methods
+    disabled for FTP deployments
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/FunctionApp_FTP_BasicAuthEnabled_AINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

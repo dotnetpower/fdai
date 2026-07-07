@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-system-audit-policies-account
+version: 3.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://c1e289c0-ffad-475d-a924-adc058765d65
+remediation:
+  template_ref: remediation/azure-builtin/c1e289c0-ffad-475d-a924-adc058765d65.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: c1e289c0-ffad-475d-a924-adc058765d65
+  azure_policy_display_name: '[Deprecated]: Deploy prerequisites to audit Windows
+    VMs configurations in ''System Audit Policies - Account Logon'''
+  azure_policy_effect_default: deployIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/SystemAuditPoliciesAccountLogon_DINE.json
+  source_version: 3.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

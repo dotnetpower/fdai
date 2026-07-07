@@ -1,0 +1,18 @@
+schema_version: 1.0.0
+id: compliance.synapse.configure-synapse-workspaces-to-mandate-micro
+title: (Azure Initiative) Configure Synapse Workspaces to mandate Microsoft Entra-only
+  identities for authentication
+description: Require and configure Microsoft Entra-only authentication for Synapse
+  Workspaces, disabling local authentication methods. This allows access exclusively
+  via Microsoft Entra identities, enhancing security with modern authentication enhancements
+  including MFA, SSO, and secret-less programmatic access with managed identities.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://WorkspaceAadOnlyAuthenticationEnforcement_Modify
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.synapse.workspaces.configure-synapse-workspaces-to-use-only-microsoft-entra-identities-for-authentication-du
+  mode: shadow
+- id: azure-builtin.azure.synapse.workspaces.azureadonlyauthentications.configure-synapse-workspaces-to-use-only-microsoft-entra-ident
+  mode: shadow

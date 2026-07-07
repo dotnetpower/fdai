@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.configure-windows-virtual-machines-to-be-associated-with-a-data-collection-rule-or-a-data-collection
+version: 2.5.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://244efd75-0d92-453c-b9a3-7d73ca36ed52
+remediation:
+  template_ref: remediation/azure-builtin/244efd75-0d92-453c-b9a3-7d73ca36ed52.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 244efd75-0d92-453c-b9a3-7d73ca36ed52
+  azure_policy_display_name: Configure Windows Virtual Machines to be associated with
+    a Data Collection Rule or a Data Collection Endpoint
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Monitoring/AzureMonitor_DCRA_VM_Windows_DINE.json
+  source_version: 2.5.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

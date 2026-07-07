@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-configure-machines-to-create-the-microsoft-defender-for-cloud-user-defined-pipeline-using
+version: 1.2.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://c15c5978-ab6e-4599-a1c3-90a7918f5371
+remediation:
+  template_ref: remediation/azure-builtin/c15c5978-ab6e-4599-a1c3-90a7918f5371.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: c15c5978-ab6e-4599-a1c3-90a7918f5371
+  azure_policy_display_name: '[Deprecated]: Configure machines to create the Microsoft
+    Defender for Cloud user-defined pipeline using Azure Monitor Agent'
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/ASC_AMA_UserWorkspacePipeline_DINE.json
+  source_version: 1.2.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

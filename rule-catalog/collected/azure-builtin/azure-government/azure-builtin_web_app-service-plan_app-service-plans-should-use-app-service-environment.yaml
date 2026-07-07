@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.web.app-service-plan.app-service-plans-should-use-app-service-environment
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: web.app-service-plan
+check_logic:
+  kind: expression
+  reference: azure-policy://51cf6de4-d195-4172-abd3-ec28ff386558
+remediation:
+  template_ref: remediation/azure-builtin/51cf6de4-d195-4172-abd3-ec28ff386558.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 51cf6de4-d195-4172-abd3-ec28ff386558
+  azure_policy_display_name: App Service Plans should use App Service Environment.
+  azure_policy_effect_default: Audit
+  azure_policy_category: Mission
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Mission/ASERequiredAppPlan_Audit.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

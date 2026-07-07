@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.recoveryservices.vaults.preview-configure-private-endpoints-on-azure-recovery-services-vaults
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.recoveryservices.vaults
+check_logic:
+  kind: expression
+  reference: azure-policy://e95a8a5c-0987-421f-84ab-df4d88ebf7d1
+remediation:
+  template_ref: remediation/azure-builtin/e95a8a5c-0987-421f-84ab-df4d88ebf7d1.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: e95a8a5c-0987-421f-84ab-df4d88ebf7d1
+  azure_policy_display_name: '[Preview]: Configure private endpoints on Azure Recovery
+    Services vaults'
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Site Recovery
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Site
+    Recovery/PrivateEndpoints_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

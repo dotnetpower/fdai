@@ -22,27 +22,39 @@ cloud autonomously**, so the console is a **pull-direction** surface. It opens o
 that answers "what happened, and what needs me?", never on a blank prompt.
 
 - **Never blank** - opens on a standing briefing of what autonomy did.
-- **Always a next verb** - every item carries an explicit action (approve / reject / review).
-- **Deterministic-first UX** - free-form narrator chat is the fallback, not the front door.
+- **Always a next verb** - every item carries an explicit action (approve / decline / review).
+- **Deterministic-first UX** - free-form chat is the fallback, not the front door.
+- **Plain words first** - operator-facing copy uses plain language ("Handled by fixed rules",
+  "needs your approval", "can't be undone"); the precise internal term (`T0`, `T1`, `T2`) is
+  kept as a dimmed annotation beside it, so nothing is dumbed-down, just made legible.
 
 ## What it demonstrates
 
-- **Streaming narration** - the `narrator` streams text token by token. It is a translator,
+- **Streaming narration** - the assistant streams text token by token. It is a translator,
   never a judge: it only narrates real state and never fabricates numbers.
-- **Streaming charts** - the event-throughput chart is drawn column by column, and the
-  T0/T1/T2 tier bars fill frame by frame. Streaming is a presentation concern only.
-- **Branch on state** - toggle **branch: HIL** vs **branch: calm**:
-  - **HIL** - approval cards for items autonomy deferred to a human. Each card shows risk,
-    why, tier basis, the four safety invariants (blast radius, stop-condition, rollback,
-    audit), the PR-native path, and the gate (`you != actor`, breakglass + quorum for HIGH).
-  - **calm** - nothing needs a signature, so it invites a read-only free-chat exchange.
-- **side_effect_class tags** - `[read]`, `[simulate]`, `[approve]`, `[breakglass]` are shown
-  on the tool/action lines, matching the console-tool tagging in the architecture doc.
+- **Streaming charts** - the activity chart is drawn column by column, and the tier bars fill
+  frame by frame. Streaming is how it reports, not a decision.
+- **Respects reduced motion** - when the OS requests `prefers-reduced-motion: reduce`, the
+  briefing renders instantly instead of streaming, so the same state is reachable without
+  animation.
+- **Branch on state** - toggle **view: needs me** vs **view: all clear**:
+  - **needs me** - approval cards for items autonomy handed to a human. Each card reads
+    plain-first (what it does, why, confidence, safety, how, who approves, checked) and shows
+    the risk, the four safety facts (blast radius, stop-condition, reversibility, logged
+    reference), and that approval opens a pull request (two approvers + break-glass for HIGH,
+    and you can't approve your own request).
+  - **all clear** - nothing needs a sign-off, so it invites a read-only free-chat exchange.
+
+The per-card keys (`a` approve / `r` decline / `w` explain) and the `1-3` card picker are
+**illustrative** - this is a static mock and nothing is wired to input.
+- **Plain labels, precise terms dimmed** - the internal tiers (`T0`/`T1`/`T2`) and action names
+  appear as quiet annotations next to the plain wording, matching the architecture vocabulary
+  without forcing it on the reader.
 
 ## Controls
 
 - **replay** - restart the briefing.
-- **branch: HIL / calm** - switch between "items need you" and "all clear".
+- **view: needs me / all clear** - switch between "things that need you" and "all clear".
 - **speed** - cycle playback speed (1x / 2x / 4x / 0.5x).
 
 ## Run

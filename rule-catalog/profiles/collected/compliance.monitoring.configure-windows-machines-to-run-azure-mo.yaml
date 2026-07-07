@@ -1,0 +1,23 @@
+schema_version: 1.0.0
+id: compliance.monitoring.configure-windows-machines-to-run-azure-mo
+title: (Azure Initiative) Configure Windows machines to run Azure Monitor Agent and
+  associate them to a Data Collection Rule
+description: Monitor and secure your Windows virtual machines, virtual machine scale
+  sets, and Arc machines by deploying the Azure Monitor Agent extension and associating
+  the machines with a specified Data Collection Rule. Deployment will occur on machines
+  with supported OS images (or machines matching the provided list of images) in supported
+  regions.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AzureMonitor_WindowsPlatform_EnableDCR
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.configure-windows-virtual-machines-to-run-azure-monitor-agent-using-system-assigned-managed-identity
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.configure-windows-virtual-machine-scale-sets-to-run-azure-monitor-agent-using-system-assigned
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-windows-arc-enabled-machines-to-run-azure-monitor-agent
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-windows-machines-to-be-associated-with-a-data-collection-rule-or-a-data-col
+  mode: shadow

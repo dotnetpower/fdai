@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+id: kube-bench.rke-cis-1.24.5-2-4.minimize-the-admission-of-containers-wishing-to-share-the-host-ipc-namespace-aut
+version: 1.0.0
+source: kube_bench
+severity: medium
+category: security
+resource_type: kubernetes-cluster.policies
+check_logic:
+  kind: expression
+  reference: kube-bench://rke-cis-1.24/5.2.4
+remediation:
+  template_ref: remediation/kube-bench/rke-cis-1.24/5.2.4.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 5.2.4
+  kube_bench_ruleset: rke-cis-1.24
+  kube_bench_group_id: '5.2'
+  kube_bench_scored: true
+  kube_bench_audit: 'kubectl get psp -o json | jq .items[] | jq -r ''select((.spec.hostIPC
+    == null) or (.spec.hostIPC == false))'' | jq .metadata.name | wc -l | xargs -I
+    {} echo ''--count={}''
+
+    '
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/rke-cis-1.24/policies.yaml
+  source_version: rke-cis-1.24
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:40Z'

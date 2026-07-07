@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.preview-linux-machines-with-omi-installed-should-have-version-1-6-8-1-or-later
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://e79ffbda-ff85-465d-ab8e-7e58a557660f
+remediation:
+  template_ref: remediation/azure-builtin/e79ffbda-ff85-465d-ab8e-7e58a557660f.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: e79ffbda-ff85-465d-ab8e-7e58a557660f
+  azure_policy_display_name: '[Preview]: Linux machines with OMI installed should
+    have version 1.6.8-1 or later'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/OMIVersionAudit_AINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

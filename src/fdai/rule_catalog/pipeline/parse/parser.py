@@ -113,6 +113,8 @@ def build_parser(name: ParserName | str) -> Parser:
     """
     # Local imports break the module-level cycle
     # (parser plugins import the Protocol from this module).
+    from fdai.rule_catalog.pipeline.parse.azure_policy_json import AzurePolicyJsonParser
+    from fdai.rule_catalog.pipeline.parse.kube_bench import KubeBenchParser
     from fdai.rule_catalog.pipeline.parse.rego_parser import RegoParser
     from fdai.rule_catalog.pipeline.parse.rule_yaml import RuleYamlParser
 
@@ -129,6 +131,10 @@ def build_parser(name: ParserName | str) -> Parser:
         return RuleYamlParser()
     if resolved is ParserName.REGO:
         return RegoParser()
+    if resolved is ParserName.AZURE_POLICY_JSON:
+        return AzurePolicyJsonParser()
+    if resolved is ParserName.KUBE_BENCH:
+        return KubeBenchParser()
 
     raise ParserNotImplementedError(
         f"parser {resolved.value!r} is declared in the manifest schema but "

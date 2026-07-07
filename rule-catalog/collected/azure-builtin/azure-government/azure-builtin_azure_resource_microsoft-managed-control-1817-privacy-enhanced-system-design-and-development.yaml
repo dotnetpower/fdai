@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1817-privacy-enhanced-system-design-and-development
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://d2fc426a-4b67-464b-87c9-2134b8762ddf
+remediation:
+  template_ref: remediation/azure-builtin/d2fc426a-4b67-464b-87c9-2134b8762ddf.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d2fc426a-4b67-464b-87c9-2134b8762ddf
+  azure_policy_display_name: 'Microsoft Managed Control 1817 - Privacy-Enhanced System
+    Design And Development '
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1817.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.streamanalytics.streamingjobs.deploy-diagnostic-settings-for-stream-analytics-to-log-analytics-workspace
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.streamanalytics.streamingjobs
+check_logic:
+  kind: expression
+  reference: azure-policy://237e0f7e-b0e8-4ec4-ad46-8c12cb66d673
+remediation:
+  template_ref: remediation/azure-builtin/237e0f7e-b0e8-4ec4-ad46-8c12cb66d673.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 237e0f7e-b0e8-4ec4-ad46-8c12cb66d673
+  azure_policy_display_name: Deploy Diagnostic Settings for Stream Analytics to Log
+    Analytics workspace
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/StreamAnalytics_DeployDiagnosticLog_Deploy_LogAnalytics.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

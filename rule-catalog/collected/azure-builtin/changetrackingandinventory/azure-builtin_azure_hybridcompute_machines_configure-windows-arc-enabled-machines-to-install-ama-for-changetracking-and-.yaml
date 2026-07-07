@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.hybridcompute.machines.configure-windows-arc-enabled-machines-to-install-ama-for-changetracking-and-inventor
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.hybridcompute.machines
+check_logic:
+  kind: expression
+  reference: azure-policy://a7acfae7-9497-4a3f-a3b5-a16a50abbe2f
+remediation:
+  template_ref: remediation/azure-builtin/a7acfae7-9497-4a3f-a3b5-a16a50abbe2f.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: a7acfae7-9497-4a3f-a3b5-a16a50abbe2f
+  azure_policy_display_name: Configure Windows Arc-enabled machines to install AMA
+    for ChangeTracking and Inventory
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: ChangeTrackingAndInventory
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/ChangeTrackingAndInventory/AMA_Windows_HybridVM_DINE.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

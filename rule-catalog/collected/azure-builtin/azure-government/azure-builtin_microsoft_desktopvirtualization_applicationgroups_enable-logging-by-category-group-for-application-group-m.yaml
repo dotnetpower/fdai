@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.desktopvirtualization.applicationgroups.enable-logging-by-category-group-for-application-group-microsoft
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.desktopvirtualization.applicationgroups
+check_logic:
+  kind: expression
+  reference: azure-policy://3aa571d2-2e4f-4e92-8a30-4312860efbe1
+remediation:
+  template_ref: remediation/azure-builtin/3aa571d2-2e4f-4e92-8a30-4312860efbe1.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 3aa571d2-2e4f-4e92-8a30-4312860efbe1
+  azure_policy_display_name: Enable logging by category group for Application group
+    (microsoft.desktopvirtualization/applicationgroups) to Log Analytics
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Monitoring/DiagSettings_logAnalytics_application-group_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

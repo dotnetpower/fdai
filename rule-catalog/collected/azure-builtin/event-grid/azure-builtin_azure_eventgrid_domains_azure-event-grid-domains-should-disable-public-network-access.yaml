@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.eventgrid.domains.azure-event-grid-domains-should-disable-public-network-access
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.eventgrid.domains
+check_logic:
+  kind: expression
+  reference: azure-policy://f8f774be-6aee-492a-9e29-486ef81f3a68
+remediation:
+  template_ref: remediation/azure-builtin/f8f774be-6aee-492a-9e29-486ef81f3a68.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f8f774be-6aee-492a-9e29-486ef81f3a68
+  azure_policy_display_name: Azure Event Grid domains should disable public network
+    access
+  azure_policy_effect_default: Audit
+  azure_policy_category: Event Grid
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Event
+    Grid/Domains_PublicNetworkAccess_AuditDeny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

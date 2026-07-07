@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.hybridcompute.machines.deprecated-configure-arc-machines-to-create-the-default-microsoft-defender-for-cloud
+version: 1.2.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.hybridcompute.machines
+check_logic:
+  kind: expression
+  reference: azure-policy://3b1a8e0a-b2e1-48be-9365-28be2fbef550
+remediation:
+  template_ref: remediation/azure-builtin/3b1a8e0a-b2e1-48be-9365-28be2fbef550.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 3b1a8e0a-b2e1-48be-9365-28be2fbef550
+  azure_policy_display_name: '[Deprecated]: Configure Arc machines to create the default
+    Microsoft Defender for Cloud pipeline using Azure Monitor Agent'
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/ASC_AMA_DefaultPipeline_Arc_DINE.json
+  source_version: 1.2.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

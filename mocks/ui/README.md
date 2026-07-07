@@ -8,7 +8,7 @@ badges - calm and professional, with no primary/neon colors and no top/bottom co
 > This is a static demo (plain HTML/CSS/JS). It is English-only and customer-agnostic; all
 > values shown are synthetic placeholders. It follows the app-shape rule that the console is
 > **read-only** - the pages render state but execute no actions. See
-> [../.github/instructions/app-shape.instructions.md](../.github/instructions/app-shape.instructions.md).
+> [../../.github/instructions/app-shape.instructions.md](../../.github/instructions/app-shape.instructions.md).
 
 ## Pages
 

@@ -1,0 +1,70 @@
+schema_version: 1.0.0
+id: compliance.guest-configuration.preview-windows-machines-should-m
+title: '(Azure Initiative) [Preview]: Windows machines should meet requirements for
+  the Azure compute security baseline'
+description: This initiative audits Windows machines with settings that do not meet
+  the Azure compute security baseline. For details, please visit https://aka.ms/gcpol
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AzureBaseline
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-administrative-templates-control-panel
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-administrative-templates-network
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-administrative-templates-system
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-administrative-templates-mss-legacy
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-accounts
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-audit
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-devices
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-interactive-logon
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-microsoft-network-client
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-microsoft-network-server
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-network-access
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-network-security
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-recovery-console
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-shutdown
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-system-objects
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-system-settings
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-user-account-control
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-settings-account-policies
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-system-audit-policies-account-logon
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-system-audit-policies-account-management
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-system-audit-policies-detailed-tracking
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-system-audit-policies-logon-logoff
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-system-audit-policies-object-access
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-system-audit-policies-policy-change
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-system-audit-policies-privilege-use
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-system-audit-policies-system
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-user-rights-assignment
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-windows-components
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-windows-firewall-properties
+  mode: shadow

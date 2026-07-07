@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.keyvault.managedhsms.enable-logging-by-category-group-for-managed-hsms-micro.ds_st_keyvault-manag
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.keyvault.managedhsms
+check_logic:
+  kind: expression
+  reference: azure-policy://5a6186f9-04a4-4320-b6ed-a1c3f2ebbc3b
+remediation:
+  template_ref: remediation/azure-builtin/5a6186f9-04a4-4320-b6ed-a1c3f2ebbc3b.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 5a6186f9-04a4-4320-b6ed-a1c3f2ebbc3b
+  azure_policy_display_name: Enable logging by category group for Managed HSMs (microsoft.keyvault/managedhsms)
+    to Storage
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_ST_keyvault-managedhsms_DINE.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

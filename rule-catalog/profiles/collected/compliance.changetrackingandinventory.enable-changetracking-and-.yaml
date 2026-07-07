@@ -1,0 +1,25 @@
+schema_version: 1.0.0
+id: compliance.changetrackingandinventory.enable-changetracking-and-
+title: (Azure Initiative) Enable ChangeTracking and Inventory for Arc-enabled virtual
+  machines
+description: Enable ChangeTracking and Inventory for Arc-enabled virtual machines.
+  Takes Data Collection Rule ID as parameter and asks for an option to input applicable
+  locations.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://HybridVM
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.hybridcompute.machines.configure-windows-arc-enabled-machines-to-install-ama-for-changetracking-and-inventor
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-linux-arc-enabled-machines-to-to-install-ama-for-changetracking-and-invento
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-changetracking-extension-for-windows-arc-machines
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-changetracking-extension-for-linux-arc-machines
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-windows-arc-enabled-machines-to-be-associated-with-a-data-collection-rule-f
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-linux-arc-enabled-machines-to-be-associated-with-a-data-collection-rule-for
+  mode: shadow

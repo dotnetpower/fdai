@@ -2,7 +2,7 @@
 
 Optional (`var.enable_llm=true`) provisioning of the AOAI account +
 per-capability deployments consumed by the T1/T2 tiers. Read
-[`docs/roadmap/dev-and-deploy-parity.md`](../../../docs/roadmap/dev-and-deploy-parity.md)
+[`docs/roadmap/dev-and-deploy-parity.md`](../../../../docs/roadmap/dev-and-deploy-parity.md)
 before making changes here.
 
 ## Inputs

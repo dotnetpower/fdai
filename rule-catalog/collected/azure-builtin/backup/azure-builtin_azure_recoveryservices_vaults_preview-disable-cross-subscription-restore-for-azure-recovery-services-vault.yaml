@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.recoveryservices.vaults.preview-disable-cross-subscription-restore-for-azure-recovery-services-vaults
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: reliability
+resource_type: azure.recoveryservices.vaults
+check_logic:
+  kind: expression
+  reference: azure-policy://f19b0c83-716f-4b81-85e3-2dbf057c35d6
+remediation:
+  template_ref: remediation/azure-builtin/f19b0c83-716f-4b81-85e3-2dbf057c35d6.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f19b0c83-716f-4b81-85e3-2dbf057c35d6
+  azure_policy_display_name: '[Preview]: Disable Cross Subscription Restore for Azure
+    Recovery Services vaults'
+  azure_policy_effect_default: Modify
+  azure_policy_category: Backup
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Backup/RecoveryServices_CrossSubscriptionRestore_Modify.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

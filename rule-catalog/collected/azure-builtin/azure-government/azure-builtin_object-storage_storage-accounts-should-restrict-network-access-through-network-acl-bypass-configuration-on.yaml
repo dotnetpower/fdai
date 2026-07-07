@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.object-storage.storage-accounts-should-restrict-network-access-through-network-acl-bypass-configuration-only
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: object-storage
+check_logic:
+  kind: expression
+  reference: azure-policy://7809fda1-ba27-48c1-9c63-1f5aee46ba89
+remediation:
+  template_ref: remediation/azure-builtin/7809fda1-ba27-48c1-9c63-1f5aee46ba89.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 7809fda1-ba27-48c1-9c63-1f5aee46ba89
+  azure_policy_display_name: Storage Accounts should restrict network access through
+    network ACL bypass configuration only.
+  azure_policy_effect_default: Audit
+  azure_policy_category: VirtualEnclaves
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/VirtualEnclaves/StorageNetworkAccessBypassOnly_AuditDeny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

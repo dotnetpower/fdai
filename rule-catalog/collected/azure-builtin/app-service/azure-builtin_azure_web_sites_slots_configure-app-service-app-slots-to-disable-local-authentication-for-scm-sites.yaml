@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.web.sites.slots.configure-app-service-app-slots-to-disable-local-authentication-for-scm-sites
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.web.sites.slots
+check_logic:
+  kind: expression
+  reference: azure-policy://2c034a29-2a5f-4857-b120-f800fe5549ae
+remediation:
+  template_ref: remediation/azure-builtin/2c034a29-2a5f-4857-b120-f800fe5549ae.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 2c034a29-2a5f-4857-b120-f800fe5549ae
+  azure_policy_display_name: Configure App Service app slots to disable local authentication
+    for SCM sites
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/Slots_SCM_DisableBasicAuth_DINE.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

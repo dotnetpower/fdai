@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.network.applicationgatewaywebapplicationfirewallpolicies.azure-web-application-firewall-on-azure-application
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.network.applicationgatewaywebapplicationfirewallpolicies
+check_logic:
+  kind: expression
+  reference: azure-policy://ca85ef9a-741d-461d-8b7a-18c2da82c666
+remediation:
+  template_ref: remediation/azure-builtin/ca85ef9a-741d-461d-8b7a-18c2da82c666.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ca85ef9a-741d-461d-8b7a-18c2da82c666
+  azure_policy_display_name: Azure Web Application Firewall on Azure Application Gateway
+    should have request body inspection enabled
+  azure_policy_effect_default: Audit
+  azure_policy_category: Network
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Network/AzureWAFonAPPGWShouldHaveRequestBodyInspectionEnabled.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

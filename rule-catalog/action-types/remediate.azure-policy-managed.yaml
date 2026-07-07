@@ -1,0 +1,90 @@
+schema_version: 1.0.0
+name: remediate.azure-policy-managed
+version: 1.0.0
+operation: update
+interfaces:
+- ControlPlane
+rollback_contract: pr_revert
+irreversible: false
+default_mode: shadow
+# Impossibly-strict promotion gate. This ActionType is a fail-closed
+# placeholder for rules auto-imported from the Azure Policy built-in
+# library (`rule-catalog/collected/azure-builtin/`); the imported rule
+# does NOT yet have a native FDAI check_logic or a PR template. A
+# fork MUST re-point the rule at a real ActionType (or author its
+# own remediation) before enabling. The gate keeps upstream honest:
+# without human authoring the rule cannot be promoted to enforce.
+promotion_gate:
+  min_shadow_days: 3650
+  min_samples: 1000000
+  min_accuracy: 1.0
+  max_policy_escapes: 0
+preconditions:
+- kind: graph_fresh_within_seconds
+  value: 900
+stop_conditions:
+- kind: provider_api_error_streak
+  count: 1
+- kind: time_box_exceeded_seconds
+  seconds: 60
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: >
+  Placeholder remediation for rules imported from the Azure Policy
+  built-in library. The imported rule's `check_logic.kind` is
+  `expression` with a reference back at the Azure Policy definition
+  name; no Rego or PR template is authored on import. This ActionType
+  exists so the schema-required `remediates` field on an imported rule
+  points at something valid, without accidentally granting the rule
+  an executable path. A fork or an upstream curator MUST re-point the
+  rule at a real ActionType (or author the missing artifacts) before
+  the rule can be promoted to enforce.
+category: remediation
+trigger_kind:
+  # `operator_request` (not `rule_violation`) so this placeholder
+  # ActionType does NOT auto-fire from an imported rule violation.
+  # An operator MUST explicitly re-author the rule to point at a real
+  # ActionType (or invoke this placeholder via the console) before any
+  # execution attempt.
+  kind: operator_request
+execution_path: pr_native
+ceiling_by_tier:
+  t0:
+    max_autonomy: shadow_only
+    min_role: approver
+  t1:
+    max_autonomy: shadow_only
+    min_role: approver
+  t2:
+    max_autonomy: shadow_only
+    min_role: approver
+argument_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - rule_id
+  - justification
+  properties:
+    rule_id:
+      type: string
+      # Must be a shipped catalog rule id per shared/contracts/rule/schema.json.
+      # The pattern is intentionally tighter than the general fdai id regex to
+      # scope this ActionType to imported azure-builtin entries only; a fork
+      # that wants to wire it against other imports overrides this pattern in
+      # rule-catalog/action-types-overrides/.
+      pattern: "^azure-builtin\\.[a-z0-9][a-z0-9._-]{0,126}$"
+      maxLength: 128
+      description: >
+        FDAI rule id being invoked. MUST be an imported azure-builtin rule id
+        (the placeholder ActionType exists only for those; extension via fork
+        overlay). Wildcards / substitutions / paths are rejected by the pattern.
+    justification:
+      type: string
+      minLength: 8
+      maxLength: 512
+      description: Free-text reason the operator is invoking this placeholder path.
+    dry_run:
+      type: boolean
+      default: true
+      description: True forces a shadow no-op even if a fork has authored real logic.

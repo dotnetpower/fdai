@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.search.searchservices.configure-azure-ai-search-services-with-private-endpoints
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.search.searchservices
+check_logic:
+  kind: expression
+  reference: azure-policy://b698b005-b660-4837-b833-a7aaab26ddba
+remediation:
+  template_ref: remediation/azure-builtin/b698b005-b660-4837-b833-a7aaab26ddba.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: b698b005-b660-4837-b833-a7aaab26ddba
+  azure_policy_display_name: Configure Azure AI Search services with private endpoints
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Search
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Search/PrivateEndpoints_DINE.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

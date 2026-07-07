@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: compliance.changetrackingandinventory.enable-changetrac-1-2-0
+title: (Azure Initiative) Enable ChangeTracking and Inventory for virtual machines
+description: Enable ChangeTracking and Inventory for virtual machines. Takes Data
+  Collection Rule ID as parameter and asks for an option to input applicable locations
+  and user-assigned identity for Azure Monitor Agent.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://VM
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.preview-assign-built-in-user-assigned-managed-identity-to-virtual-machines
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-windows-vms-to-install-ama-for-changetracking-and-inventory-with-user-assigned-managed-ide
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-linux-vms-to-install-ama-for-changetracking-and-inventory-with-user-assigned-managed-ident
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-changetracking-extension-for-windows-virtual-machines
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-changetracking-extension-for-linux-virtual-machines
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-windows-virtual-machines-to-be-associated-with-a-data-collection-rule-for-changetracking-a
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-linux-virtual-machines-to-be-associated-with-a-data-collection-rule-for-changetracking-and
+  mode: shadow

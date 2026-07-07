@@ -83,8 +83,7 @@ def resolve_catalog_root() -> Path:
         if (cand / "prompts").is_dir():
             return cand
     raise FileNotFoundError(
-        "could not locate rule-catalog/. Set FDAI_CATALOG_ROOT to point "
-        "at the tree explicitly."
+        "could not locate rule-catalog/. Set FDAI_CATALOG_ROOT to point at the tree explicitly."
     )
 
 

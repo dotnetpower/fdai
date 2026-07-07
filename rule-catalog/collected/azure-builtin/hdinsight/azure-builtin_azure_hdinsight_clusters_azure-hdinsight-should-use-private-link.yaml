@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.hdinsight.clusters.azure-hdinsight-should-use-private-link
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.hdinsight.clusters
+check_logic:
+  kind: expression
+  reference: azure-policy://c8cc2f85-e019-4065-9fa3-5e6a2b2dde56
+remediation:
+  template_ref: remediation/azure-builtin/c8cc2f85-e019-4065-9fa3-5e6a2b2dde56.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: c8cc2f85-e019-4065-9fa3-5e6a2b2dde56
+  azure_policy_display_name: Azure HDInsight should use private link
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: HDInsight
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/HDInsight/PrivateEndpoint_AINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

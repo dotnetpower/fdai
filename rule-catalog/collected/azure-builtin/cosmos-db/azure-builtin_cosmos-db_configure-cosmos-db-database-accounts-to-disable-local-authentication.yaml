@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.cosmos-db.configure-cosmos-db-database-accounts-to-disable-local-authentication
+version: 1.2.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: cosmos-db
+check_logic:
+  kind: expression
+  reference: azure-policy://dc2d41d1-4ab1-4666-a3e1-3d51c43e0049
+remediation:
+  template_ref: remediation/azure-builtin/dc2d41d1-4ab1-4666-a3e1-3d51c43e0049.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: dc2d41d1-4ab1-4666-a3e1-3d51c43e0049
+  azure_policy_display_name: Configure Cosmos DB database accounts to disable local
+    authentication
+  azure_policy_effect_default: Modify
+  azure_policy_category: Cosmos DB
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Cosmos
+    DB/Cosmos_DisableLocalAuth_Modify.json
+  source_version: 1.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,18 @@
+schema_version: 1.0.0
+id: compliance.guest-configuration.deprecated-audit-wind-1-0-0-26
+title: '(Azure Initiative) [Deprecated]: Audit Windows VMs on which the DSC configuration
+  is not compliant'
+description: This initiative deploys the policy requirements and audits Windows VMs
+  on which the Desired State Configuration (DSC) configuration is not compliant. This
+  policy is only applicable to machines with WMF 4 and above. For more information
+  on Guest Configuration policies, please visit https://aka.ms/gcpol
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://WindowsDscConfiguration
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-on-which-the-dsc-configuration-is-not-compliant
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-on-which-the-dsc-configuration-is-not-compliant
+  mode: shadow

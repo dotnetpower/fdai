@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.synapse.workspaces.synapse-managed-private-endpoints-should-only-connect-to-resources-in-approved-azure-acti
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.synapse.workspaces
+check_logic:
+  kind: expression
+  reference: azure-policy://3a003702-13d2-4679-941b-937e58c443f0
+remediation:
+  template_ref: remediation/azure-builtin/3a003702-13d2-4679-941b-937e58c443f0.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 3a003702-13d2-4679-941b-937e58c443f0
+  azure_policy_display_name: Synapse managed private endpoints should only connect
+    to resources in approved Azure Active Directory tenants
+  azure_policy_effect_default: Audit
+  azure_policy_category: Synapse
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Synapse/Workspace_DataExfiltrationPrevention_Deny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

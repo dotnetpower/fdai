@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/runbook/1.0.0",
+  "title": "Runbook",
+  "description": "Ordered sequence of ActionType steps with an optional on-failure branch. Design contract: docs/roadmap/sre-agent-scope.md § 3.4. Minimum viable scope in P1: linear sequence + one `on_failure` branch id (a full DAG is deferred until two callers need it).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "steps"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable dotted id, e.g. `db.failover-then-restart`."
+    },
+    "description": {
+      "type": ["string", "null"]
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "action_type"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Step id unique within the runbook. Referenced by `on_failure` on another step."
+          },
+          "action_type": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Fully-qualified ActionType name from the ontology (e.g. `ops.restart-service`)."
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": true,
+            "default": {}
+          },
+          "on_failure": {
+            "type": ["string", "null"],
+            "description": "Step id to run when this step fails. When set, the failing step still audits + the on_failure step runs; then the runner short-circuits. When null, a failing step short-circuits without a fallback."
+          }
+        }
+      }
+    }
+  }
+}

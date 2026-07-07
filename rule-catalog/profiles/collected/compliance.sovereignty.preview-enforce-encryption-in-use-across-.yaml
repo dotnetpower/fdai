@@ -1,0 +1,19 @@
+schema_version: 1.0.0
+id: compliance.sovereignty.preview-enforce-encryption-in-use-across-
+title: '(Azure Initiative) [Preview]: Enforce Encryption-in-Use across Azure Services'
+description: Help restrict and audit Azure Services to only allow Azure Confidential
+  Compute (ACC) VM SKUs or ACC backed PaaS Services and associated SKUs
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://EnforceEncryptionInUse
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.virtual-machine-should-have-trustedlaunch-enabled
+  mode: shadow
+- id: azure-builtin.disk.disks-and-os-image-should-support-trustedlaunch
+  mode: shadow
+- id: azure-builtin.compute.vm.allowed-virtual-machine-size-skus
+  mode: shadow
+- id: azure-builtin.azure.resource.allowed-resource-types
+  mode: shadow

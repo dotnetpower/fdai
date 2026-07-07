@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.kubernetes-cluster.configure-azure-kubernetes-service-clusters-to-enable-defender-profile
+version: 4.3.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: kubernetes-cluster
+check_logic:
+  kind: expression
+  reference: azure-policy://64def556-fbad-4622-930e-72d1d5589bf5
+remediation:
+  template_ref: remediation/azure-builtin/64def556-fbad-4622-930e-72d1d5589bf5.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 64def556-fbad-4622-930e-72d1d5589bf5
+  azure_policy_display_name: Configure Azure Kubernetes Service clusters to enable
+    Defender profile
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/ASC_Azure_Defender_AKS_SecurityProfile_DINE.json
+  source_version: 4.3.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

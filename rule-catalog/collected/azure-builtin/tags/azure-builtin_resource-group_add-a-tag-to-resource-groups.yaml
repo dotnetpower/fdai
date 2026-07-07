@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.resource-group.add-a-tag-to-resource-groups
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: config_drift
+resource_type: resource-group
+check_logic:
+  kind: expression
+  reference: azure-policy://726aca4c-86e9-4b04-b0c5-073027359532
+remediation:
+  template_ref: remediation/azure-builtin/726aca4c-86e9-4b04-b0c5-073027359532.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 726aca4c-86e9-4b04-b0c5-073027359532
+  azure_policy_display_name: Add a tag to resource groups
+  azure_policy_effect_default: modify
+  azure_policy_category: Tags
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Tags/AddTag_ResourceGroup_Modify.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

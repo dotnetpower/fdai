@@ -1,0 +1,19 @@
+schema_version: 1.0.0
+id: compliance.mission.control-the-use-of-compute-for-cloud-1-0-0
+title: (Azure Initiative) Control the use of Compute for Cloud in Mission Platforms
+description: This policy applies exclusively to Mission Platform products and services;
+  usage outside of these scopes is not supported. This policy set deploys the required
+  policy guardrails governing the use of Azure Virtual Machines within the Environment.
+  See the list of policies of the services that are included.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://ComputeInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.disk.configure-managed-disk-network-access-policy-to-deny-all
+  mode: shadow
+- id: azure-builtin.snapshot.configure-snapshot-network-access-policy-to-deny-all
+  mode: shadow
+- id: azure-builtin.disk.managed-disks-and-images-should-use-customer-managed-keys-for-encryption-at-rest
+  mode: shadow

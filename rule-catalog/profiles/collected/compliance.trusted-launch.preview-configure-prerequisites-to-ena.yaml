@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+id: compliance.trusted-launch.preview-configure-prerequisites-to-ena
+title: '(Azure Initiative) [Preview]: Configure prerequisites to enable Guest Attestation
+  on Trusted Launch enabled VMs'
+description: Configure the Trusted Launch enabled virtual machines to automatically
+  install the Guest Attestation extension and enable system-assigned managed identity
+  to allow Azure Security Center to proactively attest and monitor the boot integrity.
+  Boot integrity is attested via Remote Attestation. For more details, please refer
+  to the following link - https://aka.ms/trustedlaunch
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://GuestAttestationPrerequisites
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.preview-configure-supported-linux-virtual-machines-to-automatically-install-the-guest-attestation-ex
+  mode: shadow
+- id: azure-builtin.compute.vm.preview-configure-supported-windows-virtual-machines-to-automatically-install-the-guest-attestation
+  mode: shadow
+- id: azure-builtin.compute.vm.preview-configure-system-assigned-managed-identity-to-enable-azure-monitor-assignments-on-vms
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.preview-configure-supported-linux-virtual-machine-scale-sets-to-automatically-install-the-gue
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.preview-configure-supported-windows-virtual-machine-scale-sets-to-automatically-install-the-g
+  mode: shadow
+- id: azure-builtin.compute.vm.preview-configure-vms-created-with-shared-image-gallery-images-to-install-the-guest-attestation-exte
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.preview-configure-vmss-created-with-shared-image-gallery-images-to-install-the-guest-attestat
+  mode: shadow

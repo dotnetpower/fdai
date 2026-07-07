@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.kubernetes-cluster-pods-should-use-specified-labels
+version: 8.2.0
+source: azure_policy
+severity: high
+category: security
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://46592696-4c7b-4bf3-9e45-6c2763bdc0a6
+remediation:
+  template_ref: remediation/azure-builtin/46592696-4c7b-4bf3-9e45-6c2763bdc0a6.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 46592696-4c7b-4bf3-9e45-6c2763bdc0a6
+  azure_policy_display_name: Kubernetes cluster pods should use specified labels
+  azure_policy_effect_default: Deny
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/PodEnforceLabels.json
+  source_version: 8.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

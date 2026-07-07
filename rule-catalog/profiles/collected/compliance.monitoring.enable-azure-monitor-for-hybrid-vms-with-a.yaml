@@ -1,0 +1,18 @@
+schema_version: 1.0.0
+id: compliance.monitoring.enable-azure-monitor-for-hybrid-vms-with-a
+title: (Azure Initiative) Enable Azure Monitor for Hybrid VMs with AMA
+description: Enable Azure Monitor for the hybrid virtual machines with AMA.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AzureMonitor_HybridVM_AMA_new
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.hybridcompute.machines.configure-windows-arc-enabled-machines-to-run-azure-monitor-agent
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-linux-arc-enabled-machines-to-run-azure-monitor-agent
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-linux-machines-to-be-associated-with-a-data-collection-rule-or-a-data-colle
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-windows-machines-to-be-associated-with-a-data-collection-rule-or-a-data-col
+  mode: shadow

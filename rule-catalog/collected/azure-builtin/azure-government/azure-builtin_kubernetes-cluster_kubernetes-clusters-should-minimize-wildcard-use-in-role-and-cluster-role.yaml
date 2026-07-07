@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.kubernetes-cluster.kubernetes-clusters-should-minimize-wildcard-use-in-role-and-cluster-role
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: kubernetes-cluster
+check_logic:
+  kind: expression
+  reference: azure-policy://ca8d5704-aa2b-40cf-b110-dc19052825ad
+remediation:
+  template_ref: remediation/azure-builtin/ca8d5704-aa2b-40cf-b110-dc19052825ad.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ca8d5704-aa2b-40cf-b110-dc19052825ad
+  azure_policy_display_name: Kubernetes clusters should minimize wildcard use in role
+    and cluster role
+  azure_policy_effect_default: Audit
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/BlockWildcardRoles.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

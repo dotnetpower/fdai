@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.timeseriesinsights.environments.eventsources.enable-logging-by-category-group-for-microsoft-timeseriesin
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.timeseriesinsights.environments.eventsources
+check_logic:
+  kind: expression
+  reference: azure-policy://02f64cac-bab0-4950-bb95-51f2d3970efa
+remediation:
+  template_ref: remediation/azure-builtin/02f64cac-bab0-4950-bb95-51f2d3970efa.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 02f64cac-bab0-4950-bb95-51f2d3970efa
+  azure_policy_display_name: Enable logging by category group for microsoft.timeseriesinsights/environments/eventsources
+    to Event Hub
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_EH_timeseriesinsights-environments-eventsources_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-shutdown
+version: 2.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://b4a4d1eb-0263-441b-84cb-a44073d8372d
+remediation:
+  template_ref: remediation/azure-builtin/b4a4d1eb-0263-441b-84cb-a44073d8372d.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: b4a4d1eb-0263-441b-84cb-a44073d8372d
+  azure_policy_display_name: Windows machines should meet requirements for 'Security
+    Options - Shutdown'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/SecurityOptionsShutdown_AINE.json
+  source_version: 2.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

@@ -1,0 +1,73 @@
+schema_version: 1.0.0
+id: compliance.regulatory-compliance.cis-azure-foundations-v2-1-0
+title: (Azure Initiative) CIS Azure Foundations v2.1.0
+description: Security guidance for Microsoft Azure, providing best practices to enhance
+  security posture.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://CIS_Azure_Foundations_v2.1.0
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.keyvault.data.vaults.secrets.key-vault-secrets-should-have-an-expiration-date
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-use-the-latest-tls-version
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-require-ftps-only
+  mode: shadow
+- id: azure-builtin.azure.keyvault.data.vaults.keys.key-vault-keys-should-have-an-expiration-date
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-only-be-accessible-over-https
+  mode: shadow
+- id: azure-builtin.object-storage.secure-transfer-to-storage-accounts-should-be-enabled
+  mode: shadow
+- id: azure-builtin.mysql-server.enforce-ssl-connection-should-be-enabled-for-mysql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.enforce-ssl-connection-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.sql-server.public-network-access-on-azure-sql-database-should-be-disabled
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-use-the-latest-tls-version
+  mode: shadow
+- id: azure-builtin.subscription.use-automated-mechanisms-for-security-alerts
+  mode: shadow
+- id: azure-builtin.subscription.email-notification-for-high-severity-alerts-should-be-enabled
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-use-managed-identity
+  mode: shadow
+- id: azure-builtin.object-storage.storage-account-public-access-should-be-disallowed
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-have-the-specified-minimum-tls-version
+  mode: shadow
+- id: azure-builtin.sql-server.sql-servers-with-auditing-to-storage-account-destination-should-be-configured-with-90-days-retention
+  mode: shadow
+- id: azure-builtin.postgresql-flexible.public-network-access-should-be-disabled-for-postgresql-flexible-servers
+  mode: shadow
+- id: azure-builtin.compute.vm.preview-secure-boot-should-be-enabled-on-supported-windows-virtual-machines
+  mode: shadow
+- id: azure-builtin.subscription.subscriptions-should-have-a-contact-email-address-for-security-issues
+  mode: shadow
+- id: azure-builtin.subscription.an-activity-log-alert-should-exist-for-specific-policy-operations
+  mode: shadow
+- id: azure-builtin.compute.vm.preview-vtpm-should-be-enabled-on-supported-virtual-machines
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-use-latest-http-version
+  mode: shadow
+- id: azure-builtin.compute.vm.machines-should-be-configured-to-periodically-check-for-missing-system-updates
+  mode: shadow
+- id: azure-builtin.sql-server.auditing-on-sql-server-should-be-enabled
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-require-ftps-only
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-vms-that-do-not-use-managed-disks
+  mode: shadow
+- id: azure-builtin.subscription.generate-internal-security-alerts
+  mode: shadow
+- id: azure-builtin.postgresql-server.public-network-access-should-be-disabled-for-postgresql-servers
+  mode: shadow
+- id: azure-builtin.azure.resource.management-ports-should-be-closed-on-your-virtual-machines
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-use-latest-http-version
+  mode: shadow
+- id: azure-builtin.subscription.an-activity-log-alert-should-exist-for-specific-administrative-operations
+  mode: shadow

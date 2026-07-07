@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.logic.workflows.logic-apps-should-be-deployed-into-integration-service-environment
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.logic.workflows
+check_logic:
+  kind: expression
+  reference: azure-policy://dc595cb1-1cde-45f6-8faf-f88874e1c0e1
+remediation:
+  template_ref: remediation/azure-builtin/dc595cb1-1cde-45f6-8faf-f88874e1c0e1.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: dc595cb1-1cde-45f6-8faf-f88874e1c0e1
+  azure_policy_display_name: Logic Apps should be deployed into Integration Service
+    Environment
+  azure_policy_effect_default: Audit
+  azure_policy_category: Logic Apps
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Logic Apps/LogicAppsInISE_AuditDeny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

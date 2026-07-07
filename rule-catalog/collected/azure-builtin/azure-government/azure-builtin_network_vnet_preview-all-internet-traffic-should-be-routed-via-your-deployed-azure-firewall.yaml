@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.network.vnet.preview-all-internet-traffic-should-be-routed-via-your-deployed-azure-firewall
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: network.vnet
+check_logic:
+  kind: expression
+  reference: azure-policy://9df61aa2-b10c-4efe-aae0-295cc936930b
+remediation:
+  template_ref: remediation/azure-builtin/9df61aa2-b10c-4efe-aae0-295cc936930b.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 9df61aa2-b10c-4efe-aae0-295cc936930b
+  azure_policy_display_name: '[Preview]: All Internet traffic should be routed via
+    your deployed Azure Firewall'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Network
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Network/ASC_All_Internet_traffic_should_be_routed_via_Azure_Firewall.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

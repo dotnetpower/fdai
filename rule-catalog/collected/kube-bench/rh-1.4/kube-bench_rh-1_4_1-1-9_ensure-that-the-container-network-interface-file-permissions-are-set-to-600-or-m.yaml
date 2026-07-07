@@ -1,0 +1,39 @@
+schema_version: 1.0.0
+id: kube-bench.rh-1.4.1-1-9.ensure-that-the-container-network-interface-file-permissions-are-set-to-600-or-m
+version: 1.0.0
+source: kube_bench
+severity: medium
+category: security
+resource_type: kubernetes-cluster.control-plane
+check_logic:
+  kind: expression
+  reference: kube-bench://rh-1.4/1.1.9
+remediation:
+  template_ref: remediation/kube-bench/rh-1.4/1.1.9.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 1.1.9
+  kube_bench_ruleset: rh-1.4
+  kube_bench_group_id: '1.1'
+  kube_bench_scored: true
+  kube_bench_audit: "# Get the node name where the pod is running\nNODE_NAME=$(oc\
+    \ get pod \"$HOSTNAME\" -o=jsonpath='{.spec.nodeName}')\n# For CNI multus\n# Get\
+    \ the pod name in the openshift-multus namespace\nPOD_NAME=$(oc get pods -n openshift-multus\
+    \ -l app=multus --field-selector spec.nodeName=\"$NODE_NAME\" -o jsonpath='{.items[0].metadata.name}'\
+    \ 2>/dev/null)\n\nif [ -z \"$POD_NAME\" ]; then\n echo \"No matching pods found\
+    \ on the current node.\"\nelse\n# Execute the stat command\noc exec -n openshift-multus\
+    \ \"$POD_NAME\"  -- /bin/bash -c \"stat -c \\\"$i %n permissions=%a\\\" /host/etc/cni/net.d/*.conf\"\
+    ;  2>/dev/null\noc exec -n openshift-multus \"$POD_NAME\"  -- /bin/bash -c \"\
+    stat -c \\\"$i %n permissions=%a\\\" /host/var/run/multus/cni/net.d/*.conf\";\
+    \  2>/dev/null\nfi\n# For SDN pods\nPOD_NAME=$(oc get pods -n openshift-sdn -l\
+    \ app=sdn --field-selector spec.nodeName=\"$NODE_NAME\" -o jsonpath='{.items[0].metadata.name}'\
+    \ 2>/dev/null)\n\nif [ -z \"$POD_NAME\" ]; then\n echo \"No matching pods found\
+    \ on the current node.\"\nelse\n# Execute the stat command\noc exec -n openshif"
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/rh-1.4/master.yaml
+  source_version: rh-1.4
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:40Z'

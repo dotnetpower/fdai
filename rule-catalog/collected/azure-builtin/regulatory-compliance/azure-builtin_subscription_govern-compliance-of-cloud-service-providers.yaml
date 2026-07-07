@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.govern-compliance-of-cloud-service-providers
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://5c33538e-02f8-0a7f-998b-a4c1e22076d3
+remediation:
+  template_ref: remediation/azure-builtin/5c33538e-02f8-0a7f-998b-a4c1e22076d3.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 5c33538e-02f8-0a7f-998b-a4c1e22076d3
+  azure_policy_display_name: Govern compliance of cloud service providers
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_0290.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

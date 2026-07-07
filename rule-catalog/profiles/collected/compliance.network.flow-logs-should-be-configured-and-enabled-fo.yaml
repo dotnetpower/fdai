@@ -1,0 +1,19 @@
+schema_version: 1.0.0
+id: compliance.network.flow-logs-should-be-configured-and-enabled-fo
+title: (Azure Initiative) Flow logs should be configured and enabled for every network
+  security group
+description: Audit for network security groups to verify if flow logs are configured
+  and if flow log status is enabled. Enabling flow logs allows to log information
+  about IP traffic flowing through network security group. It can be used for optimizing
+  network flows, monitoring throughput, verifying compliance, detecting intrusions
+  and more.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://NetworkSecurityGroupFlowLog_Enabled
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.network.nsg.flow-logs-should-be-configured-for-every-network-security-group
+  mode: shadow
+- id: azure-builtin.azure.network.networkwatchers.flowlogs.all-flow-log-resources-should-be-in-enabled-state
+  mode: shadow

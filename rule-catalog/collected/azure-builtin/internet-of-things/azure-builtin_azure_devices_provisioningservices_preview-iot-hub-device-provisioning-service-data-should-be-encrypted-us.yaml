@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.devices.provisioningservices.preview-iot-hub-device-provisioning-service-data-should-be-encrypted-using-cust
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.devices.provisioningservices
+check_logic:
+  kind: expression
+  reference: azure-policy://47031206-ce96-41f8-861b-6a915f3de284
+remediation:
+  template_ref: remediation/azure-builtin/47031206-ce96-41f8-861b-6a915f3de284.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 47031206-ce96-41f8-861b-6a915f3de284
+  azure_policy_display_name: '[Preview]: IoT Hub device provisioning service data
+    should be encrypted using customer-managed keys (CMK)'
+  azure_policy_effect_default: Audit
+  azure_policy_category: Internet of Things
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Internet
+    of Things/IoTDps_CMKEncryptionEnabled_AuditDeny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

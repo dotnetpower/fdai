@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.attestation.attestationproviders.azure-attestation-providers-should-use-private-endpoints
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.attestation.attestationproviders
+check_logic:
+  kind: expression
+  reference: azure-policy://7b256a2d-058b-41f8-bed9-3f870541c40a
+remediation:
+  template_ref: remediation/azure-builtin/7b256a2d-058b-41f8-bed9-3f870541c40a.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 7b256a2d-058b-41f8-bed9-3f870541c40a
+  azure_policy_display_name: Azure Attestation providers should use private endpoints
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Attestation
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Attestation/PrivateLink_AINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

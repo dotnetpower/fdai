@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.network.private-endpoint.configure-azure-arc-private-link-scopes-to-use-private-dns-zones
+version: 1.2.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: network.private-endpoint
+check_logic:
+  kind: expression
+  reference: azure-policy://55c4db33-97b0-437b-8469-c4f4498f5df9
+remediation:
+  template_ref: remediation/azure-builtin/55c4db33-97b0-437b-8469-c4f4498f5df9.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 55c4db33-97b0-437b-8469-c4f4498f5df9
+  azure_policy_display_name: Configure Azure Arc Private Link Scopes to use private
+    DNS zones
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Azure Arc
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Arc/Arc_PrivateEndpoint_DNS_DINE.json
+  source_version: 1.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

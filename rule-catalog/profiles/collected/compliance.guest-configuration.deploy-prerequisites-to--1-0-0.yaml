@@ -1,0 +1,24 @@
+schema_version: 1.0.0
+id: compliance.guest-configuration.deploy-prerequisites-to--1-0-0
+title: (Azure Initiative) Deploy prerequisites to enable Guest Configuration policies
+  on virtual machines
+description: This initiative adds a system-assigned managed identity and deploys the
+  platform-appropriate Guest Configuration extension to virtual machines that are
+  eligible to be monitored by Guest Configuration policies. This is a prerequisite
+  for all Guest Configuration policies and must be assigned to the policy assignment
+  scope before using any Guest Configuration policy. For more information on Guest
+  Configuration, visit https://aka.ms/gcpol.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://Prerequisites
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.add-system-assigned-managed-identity-to-enable-guest-configuration-assignments-on-virtual-machines-w
+  mode: shadow
+- id: azure-builtin.compute.vm.add-system-assigned-managed-identity-to-enable-guest-configuration-assignments-on-vms-with-a-user-as
+  mode: shadow
+- id: azure-builtin.compute.vm.deploy-the-windows-guest-configuration-extension-to-enable-guest-configuration-assignments-on-window
+  mode: shadow
+- id: azure-builtin.compute.vm.deploy-the-linux-guest-configuration-extension-to-enable-guest-configuration-assignments-on-linux-vm
+  mode: shadow

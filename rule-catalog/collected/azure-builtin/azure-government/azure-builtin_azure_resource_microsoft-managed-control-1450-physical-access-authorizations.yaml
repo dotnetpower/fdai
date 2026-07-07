@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1450-physical-access-authorizations
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://134d7a13-ba3e-41e2-b236-91bfcfa24e01
+remediation:
+  template_ref: remediation/azure-builtin/134d7a13-ba3e-41e2-b236-91bfcfa24e01.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 134d7a13-ba3e-41e2-b236-91bfcfa24e01
+  azure_policy_display_name: Microsoft Managed Control 1450 - Physical Access Authorizations
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1450.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

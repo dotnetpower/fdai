@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.kubernetes-cluster-windows-containers-should-only-run-with-approved-user-and-domain-user-group
+version: 3.2.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://57dde185-5c62-4063-b965-afbb201e9c1c
+remediation:
+  template_ref: remediation/azure-builtin/57dde185-5c62-4063-b965-afbb201e9c1c.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 57dde185-5c62-4063-b965-afbb201e9c1c
+  azure_policy_display_name: Kubernetes cluster Windows containers should only run
+    with approved user and domain user group
+  azure_policy_effect_default: Audit
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/WindowsContainerAllowedUsername.json
+  source_version: 3.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

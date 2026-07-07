@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.configure-linux-virtual-machines-to-run-azure-monitor-agent-with-system-assigned-managed-identity-ba
+version: 3.10.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://a4034bc6-ae50-406d-bf76-50f4ee5a7811
+remediation:
+  template_ref: remediation/azure-builtin/a4034bc6-ae50-406d-bf76-50f4ee5a7811.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: a4034bc6-ae50-406d-bf76-50f4ee5a7811
+  azure_policy_display_name: Configure Linux virtual machines to run Azure Monitor
+    Agent with system-assigned managed identity-based authentication
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Monitoring/AzureMonitor_Agent_Linux_VM_DINE.json
+  source_version: 3.10.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.kubernetes-cluster.must-have-anti-affinity-rules-or-topology-spread-constraints-set
+version: 1.2.2
+source: azure_policy
+severity: medium
+category: security
+resource_type: kubernetes-cluster
+check_logic:
+  kind: expression
+  reference: azure-policy://34c88cd4-5d72-4dbb-bf77-12c3cafe8791
+remediation:
+  template_ref: remediation/azure-builtin/34c88cd4-5d72-4dbb-bf77-12c3cafe8791.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 34c88cd4-5d72-4dbb-bf77-12c3cafe8791
+  azure_policy_display_name: Must Have Anti Affinity Rules or Topology Spread Constraints
+    Set
+  azure_policy_effect_default: Audit
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/MustHaveAntiAffinityRulesSet.json
+  source_version: 1.2.2
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

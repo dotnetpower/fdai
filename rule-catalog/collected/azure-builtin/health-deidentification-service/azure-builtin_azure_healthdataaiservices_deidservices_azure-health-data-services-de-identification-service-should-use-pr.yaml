@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.healthdataaiservices.deidservices.azure-health-data-services-de-identification-service-should-use-private-li
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.healthdataaiservices.deidservices
+check_logic:
+  kind: expression
+  reference: azure-policy://d9b2d63d-a233-4123-847a-7f7e5f5d7e7a
+remediation:
+  template_ref: remediation/azure-builtin/d9b2d63d-a233-4123-847a-7f7e5f5d7e7a.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d9b2d63d-a233-4123-847a-7f7e5f5d7e7a
+  azure_policy_display_name: Azure Health Data Services de-identification service
+    should use private link
+  azure_policy_effect_default: Audit
+  azure_policy_category: Health Deidentification Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Health
+    Deidentification Service/HealthDeidentification_PrivateLink_Audit.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

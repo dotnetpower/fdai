@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: kube-bench.cis-1.6-k3s.1-1-19.ensure-that-the-kubernetes-pki-directory-and-file-ownership-is-set-to-root-root
+version: 1.0.0
+source: kube_bench
+severity: medium
+category: security
+resource_type: kubernetes-cluster.control-plane
+check_logic:
+  kind: expression
+  reference: kube-bench://cis-1.6-k3s/1.1.19
+remediation:
+  template_ref: remediation/kube-bench/cis-1.6-k3s/1.1.19.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 1.1.19
+  kube_bench_ruleset: cis-1.6-k3s
+  kube_bench_group_id: '1.1'
+  kube_bench_scored: true
+  kube_bench_audit: stat -c %U:%G /var/lib/rancher/k3s/server/tls
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/cis-1.6-k3s/master.yaml
+  source_version: cis-1.6-k3s
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:39Z'

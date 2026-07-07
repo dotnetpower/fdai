@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.devices.iothubs.preview-azure-iot-hub-should-use-customer-managed-key-to-encrypt-data-at-rest
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.devices.iothubs
+check_logic:
+  kind: expression
+  reference: azure-policy://2d7e144b-159c-44fc-95c1-ac3dbf5e6e54
+remediation:
+  template_ref: remediation/azure-builtin/2d7e144b-159c-44fc-95c1-ac3dbf5e6e54.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 2d7e144b-159c-44fc-95c1-ac3dbf5e6e54
+  azure_policy_display_name: '[Preview]: Azure IoT Hub should use customer-managed
+    key to encrypt data at rest'
+  azure_policy_effect_default: Audit
+  azure_policy_category: Internet of Things
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Internet
+    of Things/IotHub_CMKEncryptionEnabled.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

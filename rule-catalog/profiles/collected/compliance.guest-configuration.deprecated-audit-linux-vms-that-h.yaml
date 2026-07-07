@@ -1,0 +1,17 @@
+schema_version: 1.0.0
+id: compliance.guest-configuration.deprecated-audit-linux-vms-that-h
+title: '(Azure Initiative) [Deprecated]: Audit Linux VMs that have the specified applications
+  installed'
+description: This initiative deploys the policy requirements and audits Linux virtual
+  machines that have the specified applications installed. For more information on
+  Guest Configuration policies, please visit https://aka.ms/gcpol
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://NotInstalledApplicationLinux
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-linux-vms-that-have-the-specified-applications-installed
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-linux-vms-that-have-the-specified-applications-installed
+  mode: shadow

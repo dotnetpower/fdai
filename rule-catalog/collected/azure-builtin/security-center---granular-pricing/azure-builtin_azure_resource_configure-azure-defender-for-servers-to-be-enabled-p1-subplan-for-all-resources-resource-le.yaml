@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.configure-azure-defender-for-servers-to-be-enabled-p1-subplan-for-all-resources-resource-level-with
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://9e4879d9-c2a0-4e40-8017-1a5a5327c843
+remediation:
+  template_ref: remediation/azure-builtin/9e4879d9-c2a0-4e40-8017-1a5a5327c843.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 9e4879d9-c2a0-4e40-8017-1a5a5327c843
+  azure_policy_display_name: Configure Azure Defender for Servers to be enabled ('P1'
+    subplan) for all resources (resource level) with the selected tag
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center - Granular Pricing
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center - Granular Pricing/ASC_Azure_Defender_Servers_EnableP1_ResourceLevel_ByTag_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

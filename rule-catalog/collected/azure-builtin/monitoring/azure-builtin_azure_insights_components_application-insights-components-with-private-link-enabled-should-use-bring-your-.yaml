@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.insights.components.application-insights-components-with-private-link-enabled-should-use-bring-your-own-stor
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.insights.components
+check_logic:
+  kind: expression
+  reference: azure-policy://0c4bd2e8-8872-4f37-a654-03f6f38ddc76
+remediation:
+  template_ref: remediation/azure-builtin/0c4bd2e8-8872-4f37-a654-03f6f38ddc76.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 0c4bd2e8-8872-4f37-a654-03f6f38ddc76
+  azure_policy_display_name: Application Insights components with Private Link enabled
+    should use Bring Your Own Storage accounts for profiler and debugger.
+  azure_policy_effect_default: Audit
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/AppInsightsComponents_ForceCustomerStorageForProfiler_Deny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

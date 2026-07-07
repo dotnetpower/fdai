@@ -1,0 +1,24 @@
+schema_version: 1.0.0
+id: compliance.kubernetes.kubernetes-cluster-pod-security-b-1-4-0
+title: (Azure Initiative) Kubernetes cluster pod security baseline standards for Linux-based
+  workloads
+description: This initiative includes the policies for the Kubernetes cluster pod
+  security baseline standards. This policy is generally available for Kubernetes Service
+  (AKS), and preview for Azure Arc enabled Kubernetes. For instructions on using this
+  policy, visit https://aka.ms/kubepolicydoc.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://PSPBaselineStandard
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.resource.kubernetes-cluster-should-not-allow-privileged-containers
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pods-should-only-use-approved-host-network-and-port-list
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-not-share-host-namespaces
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-only-use-allowed-capabilities
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pod-hostpath-volumes-should-only-use-allowed-host-paths
+  mode: shadow

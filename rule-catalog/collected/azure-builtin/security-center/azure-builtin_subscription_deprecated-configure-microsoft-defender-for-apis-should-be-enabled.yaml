@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.deprecated-configure-microsoft-defender-for-apis-should-be-enabled
+version: 1.0.3
+source: azure_policy
+severity: low
+category: security
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://e54d2be9-5f2e-4d65-98e4-4f0e670b23d6
+remediation:
+  template_ref: remediation/azure-builtin/e54d2be9-5f2e-4d65-98e4-4f0e670b23d6.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: e54d2be9-5f2e-4d65-98e4-4f0e670b23d6
+  azure_policy_display_name: '[Deprecated]: Configure Microsoft Defender for APIs
+    should be enabled'
+  azure_policy_effect_default: Disabled
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/ASC_EnableDefenderForAPIS_DINE.json
+  source_version: 1.0.3
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.kubernetes-cluster.kubernetes-cluster-services-should-use-unique-selectors
+version: 1.2.2
+source: azure_policy
+severity: medium
+category: security
+resource_type: kubernetes-cluster
+check_logic:
+  kind: expression
+  reference: azure-policy://b0fdedee-7b9e-4a17-9f5d-5e8e912d2f01
+remediation:
+  template_ref: remediation/azure-builtin/b0fdedee-7b9e-4a17-9f5d-5e8e912d2f01.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: b0fdedee-7b9e-4a17-9f5d-5e8e912d2f01
+  azure_policy_display_name: Kubernetes cluster services should use unique selectors
+  azure_policy_effect_default: Audit
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/UniqueServiceSelectors.json
+  source_version: 1.2.2
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

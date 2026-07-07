@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.postgresql-flexible.a-microsoft-entra-administrator-should-be-provisioned-for-postgresql-flexible-servers
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: postgresql-flexible
+check_logic:
+  kind: expression
+  reference: azure-policy://ce39a96d-bf09-4b60-8c32-e85d52abea0f
+remediation:
+  template_ref: remediation/azure-builtin/ce39a96d-bf09-4b60-8c32-e85d52abea0f.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ce39a96d-bf09-4b60-8c32-e85d52abea0f
+  azure_policy_display_name: A Microsoft Entra administrator should be provisioned
+    for PostgreSQL flexible servers
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: PostgreSQL
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/PostgreSQL/FlexibleServers_ProvisionEntraAdmin_AINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

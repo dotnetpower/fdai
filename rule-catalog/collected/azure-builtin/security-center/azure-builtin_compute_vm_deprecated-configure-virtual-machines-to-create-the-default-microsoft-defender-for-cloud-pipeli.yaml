@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-configure-virtual-machines-to-create-the-default-microsoft-defender-for-cloud-pipeline-us
+version: 5.2.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://8b5ad9ab-3d44-4a6e-9ac3-75b04ea5fd28
+remediation:
+  template_ref: remediation/azure-builtin/8b5ad9ab-3d44-4a6e-9ac3-75b04ea5fd28.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 8b5ad9ab-3d44-4a6e-9ac3-75b04ea5fd28
+  azure_policy_display_name: '[Deprecated]: Configure virtual machines to create the
+    default Microsoft Defender for Cloud pipeline using Azure Monitor Agent'
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/ASC_AMA_DefaultPipeline_DINE.json
+  source_version: 5.2.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

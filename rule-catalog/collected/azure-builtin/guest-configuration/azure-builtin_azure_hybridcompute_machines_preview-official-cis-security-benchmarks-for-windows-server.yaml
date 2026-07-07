@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.hybridcompute.machines.preview-official-cis-security-benchmarks-for-windows-server
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.hybridcompute.machines
+check_logic:
+  kind: expression
+  reference: azure-policy://6dcfa239-b481-4de9-a03f-980f24f3b0bb
+remediation:
+  template_ref: remediation/azure-builtin/6dcfa239-b481-4de9-a03f-980f24f3b0bb.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 6dcfa239-b481-4de9-a03f-980f24f3b0bb
+  azure_policy_display_name: '[Preview]: Official CIS Security Benchmarks for Windows
+    Server'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Guest
+    Configuration/CISWindowsBaseline_AINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

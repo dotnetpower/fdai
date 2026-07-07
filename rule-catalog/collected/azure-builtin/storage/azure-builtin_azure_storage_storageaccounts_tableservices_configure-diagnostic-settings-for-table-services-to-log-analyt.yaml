@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.storage.storageaccounts.tableservices.configure-diagnostic-settings-for-table-services-to-log-analytics-work
+version: 4.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.storage.storageaccounts.tableservices
+check_logic:
+  kind: expression
+  reference: azure-policy://2fb86bf3-d221-43d1-96d1-2434af34eaa0
+remediation:
+  template_ref: remediation/azure-builtin/2fb86bf3-d221-43d1-96d1-2434af34eaa0.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 2fb86bf3-d221-43d1-96d1-2434af34eaa0
+  azure_policy_display_name: Configure diagnostic settings for Table Services to Log
+    Analytics workspace
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Storage
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Storage/TableServicesLogsToWorkspace_DINE.json
+  source_version: 4.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

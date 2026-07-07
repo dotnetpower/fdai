@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1839-minimization-of-pii-used-in-testing-training-and-research
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://99efece4-6828-42a4-9577-ff06bc1c4bf4
+remediation:
+  template_ref: remediation/azure-builtin/99efece4-6828-42a4-9577-ff06bc1c4bf4.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 99efece4-6828-42a4-9577-ff06bc1c4bf4
+  azure_policy_display_name: Microsoft Managed Control 1839 - Minimization of PII
+    Used in Testing, Training, And Research
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1839.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

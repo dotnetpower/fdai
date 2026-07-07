@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.compute.virtualmachines.extensions.preview-configure-azure-defender-for-sql-agent-on-virtual-machine
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.compute.virtualmachines.extensions
+check_logic:
+  kind: expression
+  reference: azure-policy://2ada9901-073c-444a-9a9a-91865174f0aa
+remediation:
+  template_ref: remediation/azure-builtin/2ada9901-073c-444a-9a9a-91865174f0aa.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 2ada9901-073c-444a-9a9a-91865174f0aa
+  azure_policy_display_name: '[Preview]: Configure Azure Defender for SQL agent on
+    virtual machine'
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/ASC_AzureDefenderForSql_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

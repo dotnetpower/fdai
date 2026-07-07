@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.hybridcompute.machines.configure-linux-arc-enabled-machines-to-run-azure-monitor-agent
+version: 2.4.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.hybridcompute.machines
+check_logic:
+  kind: expression
+  reference: azure-policy://845857af-0333-4c5d-bbbc-6076697da122
+remediation:
+  template_ref: remediation/azure-builtin/845857af-0333-4c5d-bbbc-6076697da122.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 845857af-0333-4c5d-bbbc-6076697da122
+  azure_policy_display_name: Configure Linux Arc-enabled machines to run Azure Monitor
+    Agent
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Monitoring/AzureMonitor_Agent_Linux_HybridVM_DINE.json
+  source_version: 2.4.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

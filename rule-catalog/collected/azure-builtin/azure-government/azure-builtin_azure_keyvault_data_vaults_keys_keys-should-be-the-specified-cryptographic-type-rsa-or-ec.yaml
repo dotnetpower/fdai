@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.keyvault.data.vaults.keys.keys-should-be-the-specified-cryptographic-type-rsa-or-ec
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.keyvault.data.vaults.keys
+check_logic:
+  kind: expression
+  reference: azure-policy://75c4f823-d65c-4f29-a733-01d0077fdbcb
+remediation:
+  template_ref: remediation/azure-builtin/75c4f823-d65c-4f29-a733-01d0077fdbcb.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 75c4f823-d65c-4f29-a733-01d0077fdbcb
+  azure_policy_display_name: Keys should be the specified cryptographic type RSA or
+    EC
+  azure_policy_effect_default: Audit
+  azure_policy_category: Key Vault
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Key Vault/Keys_AllowedKeyTypes.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

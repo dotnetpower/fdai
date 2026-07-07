@@ -114,7 +114,7 @@
     }
 
     .bars .bar-row { display: flex; align-items: center; gap: 10px; }
-    .bars .bar-label { width: 190px; color: var(--dim); }
+    .bars .bar-label { width: 250px; color: var(--dim); }
     .bars .bar-track { color: var(--hair); }
     .bars .bar-fill { }
 
@@ -171,7 +171,7 @@
     <div class="brand"><b>fdai</b> &nbsp;operator-console CLI &nbsp;<span class="dim">- design mock</span></div>
     <div class="controls">
       <button id="replay" title="Replay the briefing">&#x21bb; replay</button>
-      <button id="mode" class="toggle on" title="Toggle branch: items need you (HIL) vs all-clear (calm)">branch: HIL</button>
+      <button id="mode" class="toggle on" title="Switch view: things that need you vs all-clear">view: needs me</button>
       <button id="speed" title="Playback speed">speed: 1x</button>
     </div>
   </div>
@@ -179,23 +179,24 @@
   <div class="term">
     <div class="term-chrome">
       <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-      <span class="term-title">aiops - operator-console - staging</span>
+      <span class="term-title">FDAI - operator-console - staging</span>
     </div>
     <div class="term-body" id="screen"></div>
   </div>
 
   <div class="statusbar">
-    <span id="status-left">T0 -  T1 -  T2 -</span>
-    <span id="status-right">read-only by default - streaming presentation only</span>
+    <span id="status-left">reading status...</span>
+    <span id="status-right">read-only by default - streaming is just how it reports</span>
   </div>
 
   <div class="note">
-    Static design mock (no build, no backend). Streaming text, the throughput chart, and the
-    tier bars are pure presentation - the production console fetches the same shape from
-    read-only <code>console-tool</code> calls and the <code>narrator</code> only narrates real
-    state, never fabricates it. Approvals are PR-native (approve = open a PR, reject = no-op +
-    audit); self-approval is blocked (<code>you != actor</code>). English-only, customer-agnostic,
-    all values synthetic. See
+    Static design mock (no build, no backend). The streaming text, the activity chart, and the
+    bars are just how it reports - the real console reads the same state from read-only
+    <code>console-tool</code> calls, and the assistant only narrates real numbers, never makes
+    them up. Approvals happen by opening a pull request (approve = open a PR, decline = nothing
+    changes, just logged); you can't approve your own request. Plain wording is primary; the
+    precise internal term (for example <code>T0</code>) is shown dimmed beside it. English-only,
+    customer-agnostic, all values synthetic. See
     <code>.github/instructions/app-shape.instructions.md</code> - Operator console.
   </div>
 

@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.append-a-tag-and-its-value-to-resources
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: config_drift
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://2a0e14a6-b0a6-4fab-991a-187a4f81c498
+remediation:
+  template_ref: remediation/azure-builtin/2a0e14a6-b0a6-4fab-991a-187a4f81c498.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 2a0e14a6-b0a6-4fab-991a-187a4f81c498
+  azure_policy_display_name: Append a tag and its value to resources
+  azure_policy_effect_default: append
+  azure_policy_category: Tags
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Tags/ApplyTag_Append.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

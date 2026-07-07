@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.define-organizational-requirements-for-cryptographic-key-management
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://d661e9eb-4e15-5ba1-6f02-cdc467db0d6c
+remediation:
+  template_ref: remediation/azure-builtin/d661e9eb-4e15-5ba1-6f02-cdc467db0d6c.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d661e9eb-4e15-5ba1-6f02-cdc467db0d6c
+  azure_policy_display_name: Define organizational requirements for cryptographic
+    key management
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_0123.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

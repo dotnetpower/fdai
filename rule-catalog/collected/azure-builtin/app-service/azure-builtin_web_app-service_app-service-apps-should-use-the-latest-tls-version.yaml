@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.web.app-service.app-service-apps-should-use-the-latest-tls-version
+version: 2.2.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: web.app-service
+check_logic:
+  kind: expression
+  reference: azure-policy://f0e6e85b-9b9f-4a4b-b67b-f730d42f1b0b
+remediation:
+  template_ref: remediation/azure-builtin/f0e6e85b-9b9f-4a4b-b67b-f730d42f1b0b.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f0e6e85b-9b9f-4a4b-b67b-f730d42f1b0b
+  azure_policy_display_name: App Service apps should use the latest TLS version
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/RequireLatestTls_WebApp_Audit.json
+  source_version: 2.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

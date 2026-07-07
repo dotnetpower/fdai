@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.audit-windows-machines-on-which-the-log-analytics-agent-is-not-connected-as-expected
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://6265018c-d7e2-432f-a75d-094d5f6f4465
+remediation:
+  template_ref: remediation/azure-builtin/6265018c-d7e2-432f-a75d-094d5f6f4465.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 6265018c-d7e2-432f-a75d-094d5f6f4465
+  azure_policy_display_name: Audit Windows machines on which the Log Analytics agent
+    is not connected as expected
+  azure_policy_effect_default: auditIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/WindowsLogAnalyticsAgentConnection_AINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

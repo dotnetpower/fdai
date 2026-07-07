@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.signalrservice.webpubsub.azure-web-pubsub-service-should-disable-public-network-access
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.signalrservice.webpubsub
+check_logic:
+  kind: expression
+  reference: azure-policy://bf45113f-264e-4a87-88f9-29ac8a0aca6a
+remediation:
+  template_ref: remediation/azure-builtin/bf45113f-264e-4a87-88f9-29ac8a0aca6a.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: bf45113f-264e-4a87-88f9-29ac8a0aca6a
+  azure_policy_display_name: Azure Web PubSub Service should disable public network
+    access
+  azure_policy_effect_default: Audit
+  azure_policy_category: Web PubSub
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Web
+    PubSub/PublicNetworkAccessDisabled_AuditDeny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

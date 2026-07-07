@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.cdn.profiles.azure-front-door-standard-or-premium-plus-waf-should-have-resource-logs-enabled
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.cdn.profiles
+check_logic:
+  kind: expression
+  reference: azure-policy://cd906338-3453-47ba-9334-2d654bf845af
+remediation:
+  template_ref: remediation/azure-builtin/cd906338-3453-47ba-9334-2d654bf845af.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: cd906338-3453-47ba-9334-2d654bf845af
+  azure_policy_display_name: Azure Front Door Standard or Premium (Plus WAF) should
+    have resource logs enabled
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Monitoring/AFDStandardOrPremiumShouldHaveResourceLogsEnabledPolicy.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

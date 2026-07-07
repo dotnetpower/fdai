@@ -1,0 +1,84 @@
+schema_version: 1.0.0
+id: compliance.resilience.preview-resources-should-be-zone--1-0-0
+title: '(Azure Initiative) [Preview]: Resources should be Zone Resilient'
+description: Some resource types can be deployed Zone Redundant (e.g. SQL Databases);
+  some can be deploy Zone Aligned (e.g. Virtual Machines); and some can be deployed
+  either Zone Aligned or Zone Redundant (e.g. Virtual Machine Scale Sets). Being zone
+  aligned does not guarantee resilience, but it is the foundation on which a resilient
+  solution can be built (e.g. three Virtual Machine Scale Sets zone aligned to three
+  different zones in the same region with a load balancer). See https://aka.ms/AZResilience
+  for more info.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://Resources_ZoneResilient
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.apimanagement.service.preview-api-management-service-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.azure.app.managedenvironments.preview-container-app-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.azure.cache.redis.preview-azure-cache-for-redis-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.azure.cache.redisenterprise.preview-azure-cache-for-redis-enterprise-flash-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.disk.preview-managed-disks-should-be-zone-resilient
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.preview-virtual-machine-scale-sets-should-be-zone-resilient
+  mode: shadow
+- id: azure-builtin.compute.vm.preview-virtual-machines-should-be-zone-aligned
+  mode: shadow
+- id: azure-builtin.azure.containerinstance.containergroups.preview-container-instances-should-be-zone-aligned
+  mode: shadow
+- id: azure-builtin.container-registry.preview-container-registry-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.azure.containerservice.managedclusters.preview-azure-kubernetes-service-managed-clusters-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.azure.dbforpostgresql.flexibleservers.preview-azure-database-for-postgresql-flexible-server-should-be-zone-resilie
+  mode: shadow
+- id: azure-builtin.mysql-flexible.preview-azure-database-for-mysql-flexible-server-should-be-zone-resilient
+  mode: shadow
+- id: azure-builtin.azure.dashboard.grafana.preview-azure-managed-grafana-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.azure.dataprotection.backupvaults.preview-backup-vaults-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.cosmos-db.preview-cosmos-database-accounts-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.azure.eventhub.namespaces.preview-event-hubs-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.azure.hdinsight.clusters.preview-azure-hdinsight-should-be-zone-aligned
+  mode: shadow
+- id: azure-builtin.azure.kusto.clusters.preview-azure-data-explorer-clusters-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.network.application-gateway.preview-application-gateways-should-be-zone-resilient
+  mode: shadow
+- id: azure-builtin.network.firewall.preview-firewalls-should-be-zone-resilient
+  mode: shadow
+- id: azure-builtin.network.load-balancer.preview-load-balancers-should-be-zone-resilient
+  mode: shadow
+- id: azure-builtin.azure.network.natgateways.preview-nat-gateway-should-be-zone-aligned
+  mode: shadow
+- id: azure-builtin.azure.network.publicipaddresses.preview-public-ip-addresses-should-be-zone-resilient
+  mode: shadow
+- id: azure-builtin.azure.network.publicipprefixes.preview-public-ip-prefixes-should-be-zone-resilient
+  mode: shadow
+- id: azure-builtin.azure.network.virtualnetworkgateways.preview-virtual-network-gateways-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.azure.recoveryservices.vaults.preview-backup-and-site-recovery-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.azure.search.searchservices.preview-azure-ai-search-service-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.preview-service-bus-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.azure.servicefabric.clusters.preview-service-fabric-clusters-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.preview-sql-managed-instances-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.sql-database.preview-sql-databases-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.azure.sql.servers.elasticpools.preview-sql-elastic-database-pools-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.object-storage.preview-storage-accounts-should-be-zone-redundant
+  mode: shadow
+- id: azure-builtin.microsoft.web.serverfarms.preview-app-service-plans-should-be-zone-redundant
+  mode: shadow

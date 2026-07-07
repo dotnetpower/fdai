@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.dbforpostgresql.flexibleservers.configure-advanced-threat-protection-to-be-enabled-on-azure-database-for-pos
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.dbforpostgresql.flexibleservers
+check_logic:
+  kind: expression
+  reference: azure-policy://2a6ae02f-7590-40d7-88ba-b18e205a32fd
+remediation:
+  template_ref: remediation/azure-builtin/2a6ae02f-7590-40d7-88ba-b18e205a32fd.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 2a6ae02f-7590-40d7-88ba-b18e205a32fd
+  azure_policy_display_name: Configure Advanced Threat Protection to be enabled on
+    Azure database for PostgreSQL flexible servers
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/DeployAtpOnPostgreSqlFlexibleServers_DINE.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

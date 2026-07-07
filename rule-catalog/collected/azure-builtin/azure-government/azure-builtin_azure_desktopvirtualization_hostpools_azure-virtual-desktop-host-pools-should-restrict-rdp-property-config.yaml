@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.desktopvirtualization.hostpools.azure-virtual-desktop-host-pools-should-restrict-rdp-property-configurations
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.desktopvirtualization.hostpools
+check_logic:
+  kind: expression
+  reference: azure-policy://f0a5beeb-4b9b-4a3f-ba85-4f4b06afb598
+remediation:
+  template_ref: remediation/azure-builtin/f0a5beeb-4b9b-4a3f-ba85-4f4b06afb598.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f0a5beeb-4b9b-4a3f-ba85-4f4b06afb598
+  azure_policy_display_name: Azure Virtual Desktop Host Pools should restrict RDP
+    property configurations
+  azure_policy_effect_default: Audit
+  azure_policy_category: Mission
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Mission/AVDConfigRDPProps_Audit.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

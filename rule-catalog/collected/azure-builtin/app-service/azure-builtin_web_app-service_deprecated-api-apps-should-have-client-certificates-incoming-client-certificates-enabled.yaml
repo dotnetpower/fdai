@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.web.app-service.deprecated-api-apps-should-have-client-certificates-incoming-client-certificates-enabled
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: web.app-service
+check_logic:
+  kind: expression
+  reference: azure-policy://0c192fe8-9cbb-4516-85b3-0ade8bd03886
+remediation:
+  template_ref: remediation/azure-builtin/0c192fe8-9cbb-4516-85b3-0ade8bd03886.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 0c192fe8-9cbb-4516-85b3-0ade8bd03886
+  azure_policy_display_name: '[Deprecated]: API apps should have ''Client Certificates
+    (Incoming client certificates)'' enabled'
+  azure_policy_effect_default: Audit
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/ApiApp_Audit_ClientCert.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

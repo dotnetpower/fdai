@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.appconfiguration.configurationstores.configure-app-configuration-stores-to-disable-local-authentication-meth
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.appconfiguration.configurationstores
+check_logic:
+  kind: expression
+  reference: azure-policy://72bc14af-4ab8-43af-b4e4-38e7983f9a1f
+remediation:
+  template_ref: remediation/azure-builtin/72bc14af-4ab8-43af-b4e4-38e7983f9a1f.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 72bc14af-4ab8-43af-b4e4-38e7983f9a1f
+  azure_policy_display_name: Configure App Configuration stores to disable local authentication
+    methods
+  azure_policy_effect_default: Modify
+  azure_policy_category: App Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Configuration/DisableLocalAuth_Modify.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

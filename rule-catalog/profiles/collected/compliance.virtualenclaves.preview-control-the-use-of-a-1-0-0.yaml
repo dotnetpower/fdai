@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: compliance.virtualenclaves.preview-control-the-use-of-a-1-0-0
+title: '(Azure Initiative) [Preview]: Control the use of AKS in a Virtual Enclave'
+description: This initiative deploys Azure policies for AKS ensuring boundary protection
+  of this resource while it operates within the logically separated structure of Azure
+  Virtual Enclaves. https://aka.ms/VirtualEnclaves
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AKSInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.kubernetes-cluster.authorized-ip-ranges-should-be-defined-on-kubernetes-services
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.azure-kubernetes-clusters-should-enable-key-management-service-kms
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.azure-kubernetes-service-clusters-should-disable-command-invoke
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.azure-kubernetes-service-private-clusters-should-be-enabled
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.both-operating-systems-and-data-disks-in-azure-kubernetes-service-clusters-should-be-encrypted
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.role-based-access-control-rbac-should-be-used-on-kubernetes-services
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.azure-kubernetes-service-clusters-should-use-managed-identities
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.azure-kubernetes-service-clusters-should-have-defender-profile-enabled
+  mode: shadow

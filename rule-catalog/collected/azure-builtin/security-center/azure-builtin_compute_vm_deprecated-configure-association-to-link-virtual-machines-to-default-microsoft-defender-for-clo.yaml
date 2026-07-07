@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-configure-association-to-link-virtual-machines-to-default-microsoft-defender-for-cloud-da
+version: 3.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://a2ea54a3-9707-45e3-8230-bbda8309d17e
+remediation:
+  template_ref: remediation/azure-builtin/a2ea54a3-9707-45e3-8230-bbda8309d17e.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: a2ea54a3-9707-45e3-8230-bbda8309d17e
+  azure_policy_display_name: '[Deprecated]: Configure Association to link virtual
+    machines to default Microsoft Defender for Cloud Data Collection Rule'
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/ASC_AMA_DefaultPipeline_DCRA_DINE.json
+  source_version: 3.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

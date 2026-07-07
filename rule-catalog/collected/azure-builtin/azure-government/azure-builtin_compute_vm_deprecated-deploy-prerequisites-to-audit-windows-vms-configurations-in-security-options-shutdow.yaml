@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-options-shutdown
+version: 3.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://1f8c20ce-3414-4496-8b26-0e902a1541da
+remediation:
+  template_ref: remediation/azure-builtin/1f8c20ce-3414-4496-8b26-0e902a1541da.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 1f8c20ce-3414-4496-8b26-0e902a1541da
+  azure_policy_display_name: '[Deprecated]: Deploy prerequisites to audit Windows
+    VMs configurations in ''Security Options - Shutdown'''
+  azure_policy_effect_default: deployIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/SecurityOptionsShutdown_DINE.json
+  source_version: 3.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

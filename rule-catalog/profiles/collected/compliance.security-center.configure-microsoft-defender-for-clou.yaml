@@ -1,0 +1,36 @@
+schema_version: 1.0.0
+id: compliance.security-center.configure-microsoft-defender-for-clou
+title: (Azure Initiative) Configure Microsoft Defender for Cloud plans
+description: Microsoft Defender for Cloud provides comprehensive, cloud-native protections
+  from development to runtime in multi-cloud environments. Use the policy initiative
+  to configure Defender for Cloud plans and extensions to be enabled on selected scope(s).
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://MDC_Defender_Full_Plans_DINE
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.subscription.configure-microsoft-defender-cspm-plan
+  mode: shadow
+- id: azure-builtin.subscription.configure-microsoft-defender-for-containers-plan
+  mode: shadow
+- id: azure-builtin.subscription.configure-microsoft-defender-threat-protection-for-ai-services
+  mode: shadow
+- id: azure-builtin.subscription.configure-microsoft-defender-for-storage-to-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.configure-microsoft-defender-for-servers-plan
+  mode: shadow
+- id: azure-builtin.subscription.configure-azure-defender-for-sql-servers-on-machines-to-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.configure-azure-defender-for-app-service-to-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.configure-azure-defender-for-azure-sql-database-to-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.configure-microsoft-defender-for-key-vault-plan
+  mode: shadow
+- id: azure-builtin.subscription.configure-azure-defender-for-resource-manager-to-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.configure-azure-defender-for-open-source-relational-databases-to-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.configure-microsoft-defender-for-azure-cosmos-db-to-be-enabled
+  mode: shadow

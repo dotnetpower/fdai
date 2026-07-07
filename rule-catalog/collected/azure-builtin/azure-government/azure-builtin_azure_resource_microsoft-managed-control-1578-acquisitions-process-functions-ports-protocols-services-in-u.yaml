@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1578-acquisitions-process-functions-ports-protocols-services-in-use
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://45b7b644-5f91-498e-9d89-7402532d3645
+remediation:
+  template_ref: remediation/azure-builtin/45b7b644-5f91-498e-9d89-7402532d3645.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 45b7b644-5f91-498e-9d89-7402532d3645
+  azure_policy_display_name: Microsoft Managed Control 1578 - Acquisitions Process
+    | Functions / Ports / Protocols / Services In Use
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1578.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

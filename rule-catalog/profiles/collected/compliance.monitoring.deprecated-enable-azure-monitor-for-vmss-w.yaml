@@ -1,0 +1,25 @@
+schema_version: 1.0.0
+id: compliance.monitoring.deprecated-enable-azure-monitor-for-vmss-w
+title: '(Azure Initiative) [Deprecated]: Enable Azure Monitor for VMSS with Azure
+  Monitoring Agent(AMA)'
+description: Enable Azure Monitor for the virtual machines scale set (VMSS) with AMA.
+  Takes Log Analytics workspace as parameter and asks for an option to enable Processes
+  and Dependencies.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AzureMonitor_VMSS_AMA
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm-scale-set.preview-assign-built-in-user-assigned-managed-identity-to-virtual-machine-scale-sets
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.configure-linux-virtual-machine-scale-sets-to-run-azure-monitor-agent-with-user-assigned-mana
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.configure-windows-virtual-machine-scale-sets-to-run-azure-monitor-agent-with-user-assigned-ma
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.deprecated-deploy-dependency-agent-to-be-enabled-on-windows-virtual-machine-scale-sets-with-a
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.deprecated-deploy-dependency-agent-for-linux-virtual-machine-scale-sets-with-azure-monitoring
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.deprecated-deploy-a-vminsights-data-collection-rule-and-data-collection-rule-association-for
+  mode: shadow

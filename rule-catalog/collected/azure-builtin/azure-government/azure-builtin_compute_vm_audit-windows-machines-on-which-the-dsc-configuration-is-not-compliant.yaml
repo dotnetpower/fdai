@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.audit-windows-machines-on-which-the-dsc-configuration-is-not-compliant
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://08a2f2d2-94b2-4a7b-aa3b-bb3f523ee6fd
+remediation:
+  template_ref: remediation/azure-builtin/08a2f2d2-94b2-4a7b-aa3b-bb3f523ee6fd.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 08a2f2d2-94b2-4a7b-aa3b-bb3f523ee6fd
+  azure_policy_display_name: Audit Windows machines on which the DSC configuration
+    is not compliant
+  azure_policy_effect_default: auditIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/WindowsDscConfiguration_AINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

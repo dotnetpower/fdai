@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.datafactory.factories.azure-data-factory-should-use-a-git-repository-for-source-control
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.datafactory.factories
+check_logic:
+  kind: expression
+  reference: azure-policy://77d40665-3120-4348-b539-3192ec808307
+remediation:
+  template_ref: remediation/azure-builtin/77d40665-3120-4348-b539-3192ec808307.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 77d40665-3120-4348-b539-3192ec808307
+  azure_policy_display_name: Azure Data Factory should use a Git repository for source
+    control
+  azure_policy_effect_default: Audit
+  azure_policy_category: Data Factory
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Data
+    Factory/Factory_None_GIT_Audit.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

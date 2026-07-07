@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: compliance.virtualenclaves.preview-control-the-use-of-cosmosdb-i
+title: '(Azure Initiative) [Preview]: Control the use of CosmosDB in a Virtual Enclave'
+description: This initiative deploys Azure policies for CosmosDB ensuring boundary
+  protection of this resource while it operates within the logically separated structure
+  of Azure Virtual Enclaves. https://aka.ms/VirtualEnclaves
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://CosmosDBInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.cosmos-db.azure-cosmos-db-accounts-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.cosmos-db.cosmosdb-accounts-should-use-private-link
+  mode: shadow
+- id: azure-builtin.cosmos-db.azure-cosmos-db-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.cosmos-db.cosmos-db-database-accounts-should-have-local-authentication-methods-disabled
+  mode: shadow
+- id: azure-builtin.cosmos-db.configure-cosmos-db-database-accounts-to-disable-local-authentication
+  mode: shadow
+- id: azure-builtin.cosmos-db.azure-cosmos-db-accounts-should-not-exceed-the-maximum-number-of-days-allowed-since-last-account-key
+  mode: shadow
+- id: azure-builtin.cosmos-db.configure-cosmosdb-accounts-to-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.cosmos-db.deploy-advanced-threat-protection-for-cosmos-db-accounts
+  mode: shadow

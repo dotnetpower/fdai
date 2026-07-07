@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.make-sorns-available-publicly
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://f3c17714-8ce7-357f-4af2-a0baa63a063f
+remediation:
+  template_ref: remediation/azure-builtin/f3c17714-8ce7-357f-4af2-a0baa63a063f.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f3c17714-8ce7-357f-4af2-a0baa63a063f
+  azure_policy_display_name: Make SORNs available publicly
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_C1865.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

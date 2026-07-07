@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.kubernetes-cluster.kubernetes-clusters-should-specify-host-in-ingress-resource-rules
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: kubernetes-cluster
+check_logic:
+  kind: expression
+  reference: azure-policy://d8c942c6-16a3-400b-8f2e-785f44030036
+remediation:
+  template_ref: remediation/azure-builtin/d8c942c6-16a3-400b-8f2e-785f44030036.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d8c942c6-16a3-400b-8f2e-785f44030036
+  azure_policy_display_name: Kubernetes clusters should specify host in ingress resource
+    rules
+  azure_policy_effect_default: Audit
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/RequireIngressHost.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

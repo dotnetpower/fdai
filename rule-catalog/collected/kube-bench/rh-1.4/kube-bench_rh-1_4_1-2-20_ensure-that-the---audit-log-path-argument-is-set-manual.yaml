@@ -1,0 +1,39 @@
+schema_version: 1.0.0
+id: kube-bench.rh-1.4.1-2-20.ensure-that-the---audit-log-path-argument-is-set-manual
+version: 1.0.0
+source: kube_bench
+severity: medium
+category: security
+resource_type: kubernetes-cluster.control-plane
+check_logic:
+  kind: expression
+  reference: kube-bench://rh-1.4/1.2.20
+remediation:
+  template_ref: remediation/kube-bench/rh-1.4/1.2.20.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 1.2.20
+  kube_bench_ruleset: rh-1.4
+  kube_bench_group_id: '1.2'
+  kube_bench_scored: true
+  kube_bench_audit: "# Get kube-apiserver audit log path\nkube_path=$(oc get configmap\
+    \ config -n openshift-kube-apiserver -ojson \\\n  | jq -r '.data[\"config.yaml\"\
+    ]' \\\n  | jq -r '.apiServerArguments[\"audit-log-path\"][]?')\n\n# Get OpenShift\
+    \ apiserver audit log path\nos_path=$(oc get configmap config -n openshift-apiserver\
+    \ -ojson \\\n  | jq -r '.data[\"config.yaml\"]' \\\n  | jq -r '.apiServerArguments[\"\
+    audit-log-path\"][]?')\n\n# Check if log file exists in kube-apiserver pod\nkube_pod=$(oc\
+    \ get pods -n openshift-kube-apiserver -l app=openshift-kube-apiserver -o jsonpath='{.items[0].metadata.name}')\n\
+    oc rsh -n openshift-kube-apiserver -c kube-apiserver $kube_pod ls \"$kube_path\"\
+    \ >/dev/null 2>&1\nkube_exists=$?\n\n# Check if log file exists in openshift-apiserver\
+    \ pod\nos_pod=$(oc get pods -n openshift-apiserver -l apiserver=true -o jsonpath='{.items[0].metadata.name}')\n\
+    oc rsh -n openshift-apiserver $os_pod ls \"$os_path\" >/dev/null 2>&1\nos_exists=$?\n\
+    \n# Evaluate all conditions\n[[ \"$kube_path\" == \"/var/log/kube-apiserver/audit.log\"\
+    \ ]] && \\\n[[ \"$os_path\" =="
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/rh-1.4/master.yaml
+  source_version: rh-1.4
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:40Z'

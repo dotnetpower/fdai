@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.aadiam.privatelinkforazuread.azure-active-directory-should-use-private-link-to-access-azure-services
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: microsoft.aadiam.privatelinkforazuread
+check_logic:
+  kind: expression
+  reference: azure-policy://2e9411a0-0c5a-44b3-9ddb-ff10a1a2bf28
+remediation:
+  template_ref: remediation/azure-builtin/2e9411a0-0c5a-44b3-9ddb-ff10a1a2bf28.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 2e9411a0-0c5a-44b3-9ddb-ff10a1a2bf28
+  azure_policy_display_name: Azure Active Directory should use private link to access
+    Azure services
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Azure Active Directory
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Active Directory/PrivateLinkForAzureAD_PrivateLink_AINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

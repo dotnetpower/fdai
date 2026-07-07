@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.eventgrid.domains.azure-event-grid-domains-should-have-local-authentication-methods-disabled
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.eventgrid.domains
+check_logic:
+  kind: expression
+  reference: azure-policy://8bfadddb-ee1c-4639-8911-a38cb8e0b3bd
+remediation:
+  template_ref: remediation/azure-builtin/8bfadddb-ee1c-4639-8911-a38cb8e0b3bd.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 8bfadddb-ee1c-4639-8911-a38cb8e0b3bd
+  azure_policy_display_name: Azure Event Grid domains should have local authentication
+    methods disabled
+  azure_policy_effect_default: Audit
+  azure_policy_category: Event Grid
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Event
+    Grid/Domains_DisableLocalAuth_AuditDeny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

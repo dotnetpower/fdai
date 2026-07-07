@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.desktopvirtualization.workspaces.azure-virtual-desktop-workspaces-should-disable-public-network-access
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.desktopvirtualization.workspaces
+check_logic:
+  kind: expression
+  reference: azure-policy://87ac3038-c07a-4b92-860d-29e270a4f3cd
+remediation:
+  template_ref: remediation/azure-builtin/87ac3038-c07a-4b92-860d-29e270a4f3cd.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 87ac3038-c07a-4b92-860d-29e270a4f3cd
+  azure_policy_display_name: Azure Virtual Desktop workspaces should disable public
+    network access
+  azure_policy_effect_default: Audit
+  azure_policy_category: Desktop Virtualization
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Desktop
+    Virtualization/DVWorkspace_PrivateNetworkAccess_AuditDeny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

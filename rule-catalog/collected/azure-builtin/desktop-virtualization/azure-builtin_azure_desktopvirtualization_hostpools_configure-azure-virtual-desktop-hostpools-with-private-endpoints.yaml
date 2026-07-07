@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.desktopvirtualization.hostpools.configure-azure-virtual-desktop-hostpools-with-private-endpoints
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.desktopvirtualization.hostpools
+check_logic:
+  kind: expression
+  reference: azure-policy://7b331e6b-6096-4395-a754-758a64505f19
+remediation:
+  template_ref: remediation/azure-builtin/7b331e6b-6096-4395-a754-758a64505f19.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 7b331e6b-6096-4395-a754-758a64505f19
+  azure_policy_display_name: Configure Azure Virtual Desktop hostpools with private
+    endpoints
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Desktop Virtualization
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Desktop
+    Virtualization/DVHostpool_PrivateEndpoint_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

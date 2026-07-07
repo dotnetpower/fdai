@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.kubernetes-clusters-should-not-allow-endpoint-edit-permissions-of-clusterrole-system-aggregate-to-e
+version: 4.2.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://1ddac26b-ed48-4c30-8cc5-3a68c79b8001
+remediation:
+  template_ref: remediation/azure-builtin/1ddac26b-ed48-4c30-8cc5-3a68c79b8001.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 1ddac26b-ed48-4c30-8cc5-3a68c79b8001
+  azure_policy_display_name: Kubernetes clusters should not allow endpoint edit permissions
+    of ClusterRole/system:aggregate-to-edit
+  azure_policy_effect_default: Audit
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/BlockEndpointEditDefaultRole.json
+  source_version: 4.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

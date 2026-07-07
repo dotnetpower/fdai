@@ -1,0 +1,25 @@
+schema_version: 1.0.0
+id: compliance.monitoring.deploy-linux-azure-monitor-agent--2-4-0
+title: (Azure Initiative) Deploy Linux Azure Monitor Agent with user-assigned managed
+  identity-based auth and associate with Data Collection Rule
+description: Monitor your Linux virtual machines and virtual machine scale sets by
+  deploying the Azure Monitor Agent extension with user-assigned managed identity
+  authentication and associating with specified Data Collection Rule. Azure Monitor
+  Agent Deployment will occur on machines with supported OS images (or machines matching
+  the provided list of images) in supported regions.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AzureMonitor_LinuxPlatform_UAI_EnableDCR
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.preview-assign-built-in-user-assigned-managed-identity-to-virtual-machines
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.preview-assign-built-in-user-assigned-managed-identity-to-virtual-machine-scale-sets
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-linux-virtual-machines-to-run-azure-monitor-agent-with-user-assigned-managed-identity-base
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.configure-linux-virtual-machine-scale-sets-to-run-azure-monitor-agent-with-user-assigned-mana
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-linux-machines-to-be-associated-with-a-data-collection-rule-or-a-data-colle
+  mode: shadow

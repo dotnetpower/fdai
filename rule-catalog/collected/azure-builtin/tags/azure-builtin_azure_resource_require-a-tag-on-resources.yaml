@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.require-a-tag-on-resources
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: config_drift
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://871b6d14-10aa-478d-b590-94f262ecfa99
+remediation:
+  template_ref: remediation/azure-builtin/871b6d14-10aa-478d-b590-94f262ecfa99.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 871b6d14-10aa-478d-b590-94f262ecfa99
+  azure_policy_display_name: Require a tag on resources
+  azure_policy_effect_default: deny
+  azure_policy_category: Tags
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Tags/RequireTag_Deny.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

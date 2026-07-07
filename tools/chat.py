@@ -406,8 +406,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--catalog-root",
         default=None,
         help=(
-            "Override the rule-catalog root directory. "
-            "Same effect as setting FDAI_CATALOG_ROOT."
+            "Override the rule-catalog root directory. Same effect as setting FDAI_CATALOG_ROOT."
         ),
     )
     return parser

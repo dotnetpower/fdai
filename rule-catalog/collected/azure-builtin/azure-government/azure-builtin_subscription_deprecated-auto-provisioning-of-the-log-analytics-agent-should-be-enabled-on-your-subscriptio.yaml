@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.deprecated-auto-provisioning-of-the-log-analytics-agent-should-be-enabled-on-your-subscription
+version: 1.1.0
+source: azure_policy
+severity: low
+category: security
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://475aae12-b88a-4572-8b36-9b712b2b3a17
+remediation:
+  template_ref: remediation/azure-builtin/475aae12-b88a-4572-8b36-9b712b2b3a17.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 475aae12-b88a-4572-8b36-9b712b2b3a17
+  azure_policy_display_name: '[Deprecated]: Auto provisioning of the Log Analytics
+    agent should be enabled on your subscription'
+  azure_policy_effect_default: Disabled
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Security Center/ASC_Automatic_provisioning_log_analytics_monitoring_agent.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

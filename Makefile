@@ -1,10 +1,15 @@
-# Convenience targets for the local dev stack (pgvector + Redpanda).
+# Convenience targets:
+#   `dev-*`   - local dev stack (pgvector + Redpanda), see `infra/local/`.
+#   `lint`, `format`, `test`, `gates`, `check` - local mirror of the CI jobs
+#     in `.github/workflows/ci.yml`. `check` runs everything CI runs so a
+#     contributor can reproduce a failing PR locally in one command.
 # Real deployment lives under `infra/` (Terraform); see the roadmap.
 
-.PHONY: dev-up dev-down dev-logs dev-nuke help
+.PHONY: dev-up dev-down dev-logs dev-nuke help \
+        lint format test gates check pre-commit-install
 
 help: ## show this help
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 dev-up: ## start pgvector + Redpanda locally (waits for healthchecks)
 	@scripts/dev-up.sh
@@ -17,3 +22,33 @@ dev-logs: ## tail postgres + redpanda logs (optional: SERVICE=postgres)
 
 dev-nuke: ## stop the stack AND drop its volumes (fresh state next `dev-up`)
 	@docker compose -f infra/local/docker-compose.yml down -v
+
+# ---------------------------------------------------------------------------
+# CI-parity targets. Each mirrors one job in .github/workflows/ci.yml so a
+# contributor can reproduce the merge gate without pushing.
+# ---------------------------------------------------------------------------
+
+lint: ## ruff check + ruff format --check + mypy --strict
+	uv run ruff format --check src tests
+	uv run ruff check src tests
+	uv run mypy
+
+format: ## apply ruff format + ruff --fix (mutates files)
+	uv run ruff format src tests
+	uv run ruff check --fix src tests
+
+test: ## pytest with coverage (--cov-fail-under=90 matches CI)
+	uv run pytest -q --cov=src/fdai --cov-report=term-missing --cov-fail-under=90
+
+gates: ## repo hygiene: english-only / punctuation / guids / translations / core-imports
+	bash scripts/check-english-only.sh
+	bash scripts/check-punctuation.sh
+	bash scripts/check-guids.sh
+	bash scripts/check-translations.sh
+	bash scripts/check-core-imports.sh
+
+check: lint gates test ## full local CI parity: lint + gates + test
+
+pre-commit-install: ## install .pre-commit-config.yaml hooks into .git/hooks
+	uv run pre-commit install
+

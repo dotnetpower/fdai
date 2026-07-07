@@ -94,6 +94,10 @@ dev = [
     # PyYAML ships no inline type hints; the stub package keeps the loader
     # in `rule_catalog/schema/action_type.py` under mypy --strict.
     "types-PyYAML>=6.0,<7",
+    # Runs the .pre-commit-config.yaml gates locally so a contributor
+    # catches the same failures CI would surface. See
+    # .github/instructions/generic-scope.instructions.md § Enforcement.
+    "pre-commit>=4.0,<5",
 ]
 
 [project.urls]
@@ -136,6 +140,7 @@ ignore = []
 # argument lists - the S6xx subprocess warnings assume attacker-controlled
 # input, which does not apply here.
 "scripts/**" = ["S603", "S607"]
+"tools/**" = ["S603", "S607"]
 # Alembic migrations construct DELETE-IN-list queries from hardcoded module
 # constants (`_LINK_TYPES`, `_OBJECT_TYPES`); no user input flows into the
 # string, so S608 is a false positive in this scope.
@@ -173,3 +178,15 @@ filterwarnings = [
     # separate work item and does not affect correctness.
     "ignore::starlette.exceptions.StarletteDeprecationWarning",
 ]
+
+# Coverage floor kept in sync with .github/workflows/ci.yml `pytest + coverage`
+# step. Lives here (not only in CI) so `uv run pytest --cov=src/fdai` locally
+# reproduces the same gate; `make test` picks it up automatically.
+[tool.coverage.run]
+source = ["src/fdai"]
+branch = false
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = false

@@ -73,3 +73,37 @@ def test_two_distinct_events_both_pass(valid_event: dict[str, Any]) -> None:
         valid_event["idempotency_key"],
         "another-key",
     }
+
+
+def test_max_entries_must_be_positive() -> None:
+    """Constructor rejects a zero/negative cache bound - the safety-core
+    contract is that the cache always has a defined FIFO window."""
+    with pytest.raises(ValueError, match="max_entries"):
+        EventIngest(validator=_validator(), max_entries=0)
+
+
+def test_bounded_cache_evicts_oldest_entries(valid_event: dict[str, Any]) -> None:
+    """The dedupe cache is a bounded FIFO. Once ``max_entries`` is
+    exceeded, the earliest-inserted key is evicted, and a re-delivery
+    of the evicted event is treated as fresh (fail forward - the
+    executor's own idempotency guard is the durable stop)."""
+    ingest = EventIngest(validator=_validator(), max_entries=2)
+
+    def _event(seq: int) -> dict[str, Any]:
+        return {
+            **valid_event,
+            "event_id": f"00000000-0000-0000-0000-{seq:012x}",
+            "idempotency_key": f"key-{seq}",
+        }
+
+    assert ingest.ingest(_event(1)) is not None
+    assert ingest.ingest(_event(2)) is not None
+    # This insert evicts key-1 (oldest).
+    assert ingest.ingest(_event(3)) is not None
+    assert ingest.seen_keys() == {"key-2", "key-3"}
+    # key-2 is still in-cache -> re-delivery is deduped.
+    assert ingest.ingest(_event(2)) is None
+    # key-1 was evicted -> re-delivery is accepted as fresh. This
+    # itself evicts the oldest entry (key-2) since capacity is 2.
+    assert ingest.ingest(_event(1)) is not None
+    assert ingest.seen_keys() == {"key-3", "key-1"}

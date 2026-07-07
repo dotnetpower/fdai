@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.establish-conditions-for-role-membership
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://97cfd944-6f0c-7db2-3796-8e890ef70819
+remediation:
+  template_ref: remediation/azure-builtin/97cfd944-6f0c-7db2-3796-8e890ef70819.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 97cfd944-6f0c-7db2-3796-8e890ef70819
+  azure_policy_display_name: Establish conditions for role membership
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_0269.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

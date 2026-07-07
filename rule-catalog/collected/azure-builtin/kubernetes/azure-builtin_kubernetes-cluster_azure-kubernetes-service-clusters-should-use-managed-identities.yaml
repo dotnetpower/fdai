@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.kubernetes-cluster.azure-kubernetes-service-clusters-should-use-managed-identities
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: kubernetes-cluster
+check_logic:
+  kind: expression
+  reference: azure-policy://da6e2401-19da-4532-9141-fb8fbde08431
+remediation:
+  template_ref: remediation/azure-builtin/da6e2401-19da-4532-9141-fb8fbde08431.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: da6e2401-19da-4532-9141-fb8fbde08431
+  azure_policy_display_name: Azure Kubernetes Service Clusters should use managed
+    identities
+  azure_policy_effect_default: Audit
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Kubernetes/AKS_MSI_Audit.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

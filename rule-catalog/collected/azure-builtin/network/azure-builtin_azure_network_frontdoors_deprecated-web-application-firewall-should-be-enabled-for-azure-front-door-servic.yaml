@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.network.frontdoors.deprecated-web-application-firewall-should-be-enabled-for-azure-front-door-service-or-app
+version: 1.0.0
+source: azure_policy
+severity: high
+category: security
+resource_type: azure.network.frontdoors
+check_logic:
+  kind: expression
+  reference: azure-policy://be7ed5c8-2660-4136-8216-e6f3412ba909
+remediation:
+  template_ref: remediation/azure-builtin/be7ed5c8-2660-4136-8216-e6f3412ba909.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: be7ed5c8-2660-4136-8216-e6f3412ba909
+  azure_policy_display_name: '[Deprecated]: Web Application Firewall should be enabled
+    for Azure Front Door Service or Application Gateway'
+  azure_policy_effect_default: Deny
+  azure_policy_category: Network
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Network/EnabledWAF_Deny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

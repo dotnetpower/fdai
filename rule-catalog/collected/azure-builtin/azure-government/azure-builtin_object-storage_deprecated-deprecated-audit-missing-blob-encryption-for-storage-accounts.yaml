@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.object-storage.deprecated-deprecated-audit-missing-blob-encryption-for-storage-accounts
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: object-storage
+check_logic:
+  kind: expression
+  reference: azure-policy://655cb504-bcee-4362-bd4c-402e6aa38759
+remediation:
+  template_ref: remediation/azure-builtin/655cb504-bcee-4362-bd4c-402e6aa38759.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 655cb504-bcee-4362-bd4c-402e6aa38759
+  azure_policy_display_name: '[Deprecated]: [Deprecated]: Audit missing blob encryption
+    for storage accounts'
+  azure_policy_effect_default: Audit
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Security Center/ASC_BlobEncryption_Audit_Deprecated.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

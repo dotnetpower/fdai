@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.produce-complete-records-of-remote-maintenance-activities
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://74041cfe-3f87-1d17-79ec-34ca5f895542
+remediation:
+  template_ref: remediation/azure-builtin/74041cfe-3f87-1d17-79ec-34ca5f895542.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 74041cfe-3f87-1d17-79ec-34ca5f895542
+  azure_policy_display_name: Produce complete records of remote maintenance activities
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_C1403.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

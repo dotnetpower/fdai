@@ -1,0 +1,16 @@
+schema_version: 1.0.0
+id: compliance.cosmos-db.enable-azure-cosmos-db-throughput-policy
+title: (Azure Initiative) Enable Azure Cosmos DB throughput policy
+description: Enable throughput control for Azure Cosmos DB resources in the specified
+  scope (Management group, Subscription or resource group). Takes max throughput as
+  parameter. Use this policy to help enforce throughput control via the resource provider.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://Cosmos_Throughput
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.resource.azure-cosmos-db-throughput-should-be-limited
+  mode: shadow
+- id: azure-builtin.cosmos-db.azure-cosmos-db-key-based-metadata-write-access-should-be-disabled
+  mode: shadow

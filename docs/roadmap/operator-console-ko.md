@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 32aa6e99b5f1fd1134db93fdfc4846db6838e78c
+translation_source_sha: ec3e06e3f10523101f7328652e35b308e62cfb29
 translation_revised: 2026-07-07
 ---
 
@@ -144,7 +144,8 @@ flowchart TD
     (t1.judge default, t2.reasoner.primary escalation).
   - `session.py` - `ConversationSession` dataclass; 상태는 append-only
     audit log 로부터 project 됨.
-- [`src/fdai/delivery/channels/`](../../src/fdai/delivery/channels/)
+- `src/fdai/delivery/channels/` (계획된 layout; 현재 Teams adapter는
+  [`src/fdai/delivery/chatops/`](../../src/fdai/delivery/chatops/) 아래에 존재)
   - `cli_repl.py` - Day-1 채널 adapter (stdin/stdout).
   - `teams_bot.py` - pull-방향 Teams adapter (Bot Framework messaging).
   - `slack_bot.py` - pull-방향 Slack adapter (Socket Mode).
@@ -353,8 +354,8 @@ class ConversationalModel(Protocol):
   `completion_tokens`, `model_deployment_id`)를 carry.
 
 Upstream 기본은
-[`src/fdai/delivery/azure/llm/conversational.py`](../../src/fdai/delivery/azure/llm/conversational.py)
-아래의 `AzureOpenAIConversationalModel` (Day 1 추가). Function-calling 계약
+[`src/fdai/delivery/azure/llm/narrator.py`](../../src/fdai/delivery/azure/llm/narrator.py)
+아래의 `AzureOpenAINarratorModel` (Day 1 추가). Function-calling 계약
 으로 Azure OpenAI chat completion 호출; model deployment는
 `resolved-models.json` 에서 선택 (tier T1은 `t1.judge`, tier T2는
 `t2.reasoner.primary`).

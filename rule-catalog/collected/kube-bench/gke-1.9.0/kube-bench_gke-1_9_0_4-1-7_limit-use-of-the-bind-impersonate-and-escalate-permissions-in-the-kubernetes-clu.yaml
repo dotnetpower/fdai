@@ -1,0 +1,40 @@
+schema_version: 1.0.0
+id: kube-bench.gke-1.9.0.4-1-7.limit-use-of-the-bind-impersonate-and-escalate-permissions-in-the-kubernetes-clu
+version: 1.0.0
+source: kube_bench
+severity: low
+category: security
+resource_type: kubernetes-cluster.policies
+check_logic:
+  kind: expression
+  reference: kube-bench://gke-1.9.0/4.1.7
+remediation:
+  template_ref: remediation/kube-bench/gke-1.9.0/4.1.7.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 4.1.7
+  kube_bench_ruleset: gke-1.9.0
+  kube_bench_group_id: '4.1'
+  kube_bench_scored: false
+  kube_bench_audit: "kubectl get clusterrole,role -A -o json | jq -r '\n  def risky_verbs:\
+    \ [\"bind\",\"impersonate\",\"escalate\"];\n\n  .items[]\n  | . as $r\n  | [ $r.rules[]?\n\
+    \      | select(\n          (.verbs // [] | any(. as $v | $v == \"bind\" or $v\
+    \ == \"impersonate\" or $v == \"escalate\"))\n        )\n      | {\n         \
+    \ resources: ((.resources // [\"*\"]) | join(\",\")),\n          verbs: ((.verbs\
+    \ // []) | map(select(IN(\"bind\",\"impersonate\",\"escalate\"))) | join(\",\"\
+    ))\n        }\n    ] as $matches\n  | select($matches | length > 0)\n  | [\n \
+    \     $r.kind,\n      $r.metadata.name,\n      ($r.metadata.namespace // \"cluster-wide\"\
+    ),\n      ($matches | map(.resources) | unique | join(\",\")),\n      ($matches\
+    \ | map(.verbs) | unique | join(\",\"))\n    ] | @tsv\n' | awk -F'\\t' 'BEGIN{\n\
+    \  printf \"%-15s %-40s %-20s %-40s %-30s\\n\",\"KIND\",\"NAME\",\"NAMESPACE\"\
+    ,\"RESOURCES\",\"VERBS\"\n  print  \"--------------- ----------------------------------------\
+    \ -------------------- ---------------------------------------- ------------------------------\"\
+    \n}{\n  printf \"%-15s %-40s %-20s %-40s %"
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/gke-1.9.0/policies.yaml
+  source_version: gke-1.9.0
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:40Z'

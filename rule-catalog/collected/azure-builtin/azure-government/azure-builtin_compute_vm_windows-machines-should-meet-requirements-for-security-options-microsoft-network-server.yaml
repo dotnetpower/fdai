@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-for-security-options-microsoft-network-server
+version: 2.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://caf2d518-f029-4f6b-833b-d7081702f253
+remediation:
+  template_ref: remediation/azure-builtin/caf2d518-f029-4f6b-833b-d7081702f253.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: caf2d518-f029-4f6b-833b-d7081702f253
+  azure_policy_display_name: Windows machines should meet requirements for 'Security
+    Options - Microsoft Network Server'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/SecurityOptionsMicrosoftNetworkServer_AINE.json
+  source_version: 2.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

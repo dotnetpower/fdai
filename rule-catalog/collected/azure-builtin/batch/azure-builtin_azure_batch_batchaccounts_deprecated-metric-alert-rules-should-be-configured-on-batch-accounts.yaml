@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.batch.batchaccounts.deprecated-metric-alert-rules-should-be-configured-on-batch-accounts
+version: 1.1.0
+source: azure_policy
+severity: low
+category: security
+resource_type: azure.batch.batchaccounts
+check_logic:
+  kind: expression
+  reference: azure-policy://26ee67a2-f81a-4ba8-b9ce-8550bd5ee1a7
+remediation:
+  template_ref: remediation/azure-builtin/26ee67a2-f81a-4ba8-b9ce-8550bd5ee1a7.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 26ee67a2-f81a-4ba8-b9ce-8550bd5ee1a7
+  azure_policy_display_name: '[Deprecated]: Metric alert rules should be configured
+    on Batch accounts'
+  azure_policy_effect_default: Disabled
+  azure_policy_category: Batch
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Batch/AuditMetricAlerts_Audit.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

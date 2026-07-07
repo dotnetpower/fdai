@@ -1,0 +1,19 @@
+schema_version: 1.0.0
+id: compliance.guest-configuration.configure-secure-communication-pr
+title: (Azure Initiative) Configure secure communication protocols(TLS 1.1 or TLS
+  1.2) on Windows machine(including prerequisites)
+description: Creates a Guest Configuration assignment(including prerequisites) to
+  configure specified secure protocol version(TLS 1.1 or TLS 1.2) on Windows machine.
+  For details, visit https://aka.ms/SetSecureProtocol
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://SetSecureProtocol
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.preview-add-user-assigned-managed-identity-to-enable-guest-configuration-assignments-on-virtual-mach
+  mode: shadow
+- id: azure-builtin.compute.vm.deploy-the-windows-guest-configuration-extension-to-enable-guest-configuration-assignments-on-window
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-secure-communication-protocols-tls-1-1-or-tls-1-2-on-windows-machines
+  mode: shadow

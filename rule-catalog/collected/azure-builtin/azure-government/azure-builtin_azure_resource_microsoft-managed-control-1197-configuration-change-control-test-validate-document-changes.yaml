@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1197-configuration-change-control-test-validate-document-changes
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://a20d2eaa-88e2-4907-96a2-8f3a05797e5c
+remediation:
+  template_ref: remediation/azure-builtin/a20d2eaa-88e2-4907-96a2-8f3a05797e5c.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: a20d2eaa-88e2-4907-96a2-8f3a05797e5c
+  azure_policy_display_name: Microsoft Managed Control 1197 - Configuration Change
+    Control | Test / Validate / Document Changes
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1197.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

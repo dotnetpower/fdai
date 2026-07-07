@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-only-use-allowed-apparmor-profiles
+version: 7.2.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://511f5417-5d12-434d-ab2e-816901e72a5e
+remediation:
+  template_ref: remediation/azure-builtin/511f5417-5d12-434d-ab2e-816901e72a5e.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 511f5417-5d12-434d-ab2e-816901e72a5e
+  azure_policy_display_name: Kubernetes cluster containers should only use allowed
+    AppArmor profiles
+  azure_policy_effect_default: Audit
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/EnforceAppArmorProfile.json
+  source_version: 7.2.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

@@ -149,6 +149,22 @@ class PostgresStateStore(StateStore):
                     (key, json.dumps(dict(value), default=str)),
                 )
 
+    async def append_incident_transition(self, entry: Mapping[str, Any]) -> None:
+        """Route incident transitions into the same audit chain.
+
+        The audit chain stays the single source of truth for
+        tamper-evident lifecycle history. The transition's own
+        ``idempotency_key`` upstream (from
+        :class:`~fdai.core.incident.IncidentTransition`) plus the
+        UNIQUE index on ``entry_hash`` provide dedup + tamper
+        evidence; no separate schema is needed for P1.
+        """
+        payload = dict(entry)
+        payload.setdefault("actor", str(payload.get("actor_oid", "fdai")))
+        payload.setdefault("action_kind", str(payload.get("kind", "incident.transition")))
+        payload.setdefault("mode", "shadow")
+        await self.append_audit_entry(payload)
+
     # ------------------------------------------------------------------
     # Diagnostics
     # ------------------------------------------------------------------

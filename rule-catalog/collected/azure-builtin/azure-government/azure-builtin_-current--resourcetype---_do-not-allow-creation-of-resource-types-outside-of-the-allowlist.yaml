@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.-current--resourcetype---.do-not-allow-creation-of-resource-types-outside-of-the-allowlist
+version: 1.0.0
+source: azure_policy
+severity: high
+category: security
+resource_type: -current--resourcetype---
+check_logic:
+  kind: expression
+  reference: azure-policy://ead33d15-8ff9-44d8-be85-24144ecc859e
+remediation:
+  template_ref: remediation/azure-builtin/ead33d15-8ff9-44d8-be85-24144ecc859e.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ead33d15-8ff9-44d8-be85-24144ecc859e
+  azure_policy_display_name: Do not allow creation of resource types outside of the
+    allowlist
+  azure_policy_effect_default: Deny
+  azure_policy_category: VirtualEnclaves
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/VirtualEnclaves/AllowedResourceTypesAndProviders_Deny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

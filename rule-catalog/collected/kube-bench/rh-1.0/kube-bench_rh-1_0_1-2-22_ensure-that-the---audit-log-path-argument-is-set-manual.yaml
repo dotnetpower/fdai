@@ -1,0 +1,56 @@
+schema_version: 1.0.0
+id: kube-bench.rh-1.0.1-2-22.ensure-that-the---audit-log-path-argument-is-set-manual
+version: 1.0.0
+source: kube_bench
+severity: low
+category: security
+resource_type: kubernetes-cluster.control-plane
+check_logic:
+  kind: expression
+  reference: kube-bench://rh-1.0/1.2.22
+remediation:
+  template_ref: remediation/kube-bench/rh-1.0/1.2.22.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 1.2.22
+  kube_bench_ruleset: rh-1.0
+  kube_bench_group_id: '1.2'
+  kube_bench_scored: false
+  kube_bench_audit: '# Should return “/var/log/kube-apiserver/audit.log"
+
+    output=$(oc get configmap config -n openshift-kube-apiserver -o jsonpath="{[''.data.config\.yaml'']}"
+    | jq ''.auditConfig.auditFilePath'')
+
+    [ "$output" != "" ] && [ "$output" != "null" ] && echo "$output" || true
+
+    output=$(oc get configmap config -n openshift-kube-apiserver -o json | jq -r ''.data["config.yaml"]''
+    | jq -r ''.apiServerArguments["audit-log-path"][]?'')
+
+    [ "$output" != "" ] && [ "$output" != "null" ] && echo "$output" || true
+
+    POD=$(oc get pods -n openshift-kube-apiserver -l app=openshift-kube-apiserver
+    -o jsonpath=''{.items[0].metadata.name}'')
+
+    oc rsh -n openshift-kube-apiserver -c kube-apiserver $POD ls /var/log/kube-apiserver/audit.log
+    2>/dev/null
+
+    # Should return 0
+
+    echo exit_code=$?
+
+    # Should return "/var/log/openshift-apiserver/audit.log"
+
+    output=$(oc get configmap config -n openshift-apiserver -o jsonpath="{[''.data.config\.yaml'']}"
+    | jq ''.auditConfig.auditFilePath'')
+
+    [ "$output" != "" ] && [ "$output" != "null" ] && echo "$output" || true
+
+    output=$(oc get c'
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/rh-1.0/master.yaml
+  source_version: rh-1.0
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:40Z'

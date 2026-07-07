@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.kubernetes-cluster.preview-sets-kubernetes-cluster-init-containers-securitycontext-runasuser-fields-to-1000-a-non
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: kubernetes-cluster
+check_logic:
+  kind: expression
+  reference: azure-policy://97de439f-fd35-4d43-a693-3644f51a51fd
+remediation:
+  template_ref: remediation/azure-builtin/97de439f-fd35-4d43-a693-3644f51a51fd.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 97de439f-fd35-4d43-a693-3644f51a51fd
+  azure_policy_display_name: '[Preview]: Sets Kubernetes cluster init containers securityContext.runAsUser
+    fields to 1000, a non-root user id'
+  azure_policy_effect_default: Mutate
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/MutateRunAsUserInitContainers.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

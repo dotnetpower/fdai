@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.eventgrid.domains.enable-logging-by-category-group-for-event-grid-domains-mi.ds_la_eventgrid-doma
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.eventgrid.domains
+check_logic:
+  kind: expression
+  reference: azure-policy://b90ec596-faa6-4c61-9515-34085703e260
+remediation:
+  template_ref: remediation/azure-builtin/b90ec596-faa6-4c61-9515-34085703e260.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: b90ec596-faa6-4c61-9515-34085703e260
+  azure_policy_display_name: Enable logging by category group for Event Grid Domains
+    (microsoft.eventgrid/domains) to Log Analytics
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_LA_eventgrid-domains_DINE.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.compute.diskaccesses.configure-disk-access-resources-with-private-endpoints
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.compute.diskaccesses
+check_logic:
+  kind: expression
+  reference: azure-policy://582bd7a6-a5f6-4dc6-b9dc-9cb81fe0d4c5
+remediation:
+  template_ref: remediation/azure-builtin/582bd7a6-a5f6-4dc6-b9dc-9cb81fe0d4c5.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 582bd7a6-a5f6-4dc6-b9dc-9cb81fe0d4c5
+  azure_policy_display_name: Configure disk access resources with private endpoints
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Compute
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Compute/DiskAccesses_PrivateEndpoints_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

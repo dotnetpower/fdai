@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.kubernetes-cluster.kubernetes-cluster-container-images-must-include-the-prestop-hook
+version: 1.1.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: kubernetes-cluster
+check_logic:
+  kind: expression
+  reference: azure-policy://1a3b9003-eac6-4d39-a184-4a567ace7645
+remediation:
+  template_ref: remediation/azure-builtin/1a3b9003-eac6-4d39-a184-4a567ace7645.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 1a3b9003-eac6-4d39-a184-4a567ace7645
+  azure_policy_display_name: Kubernetes cluster container images must include the
+    preStop hook
+  azure_policy_effect_default: Audit
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/ContainerEnforcePreStopHook.json
+  source_version: 1.1.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

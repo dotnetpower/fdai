@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-linux-vms-that-do-not-have-the-specified-applications-insta
+version: 4.1.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://4d1c04de-2172-403f-901b-90608c35c721
+remediation:
+  template_ref: remediation/azure-builtin/4d1c04de-2172-403f-901b-90608c35c721.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 4d1c04de-2172-403f-901b-90608c35c721
+  azure_policy_display_name: '[Deprecated]: Deploy prerequisites to audit Linux VMs
+    that do not have the specified applications installed'
+  azure_policy_effect_default: deployIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/InstalledApplicationLinux_DINE.json
+  source_version: 4.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

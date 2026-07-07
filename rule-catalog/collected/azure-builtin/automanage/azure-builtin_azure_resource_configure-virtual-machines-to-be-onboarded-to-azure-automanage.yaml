@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.configure-virtual-machines-to-be-onboarded-to-azure-automanage
+version: 2.4.0
+source: azure_policy
+severity: medium
+category: reliability
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://f889cab7-da27-4c41-a3b0-de1f6f87c550
+remediation:
+  template_ref: remediation/azure-builtin/f889cab7-da27-4c41-a3b0-de1f6f87c550.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f889cab7-da27-4c41-a3b0-de1f6f87c550
+  azure_policy_display_name: Configure virtual machines to be onboarded to Azure Automanage
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Automanage
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Automanage/Deployv2.json
+  source_version: 2.4.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

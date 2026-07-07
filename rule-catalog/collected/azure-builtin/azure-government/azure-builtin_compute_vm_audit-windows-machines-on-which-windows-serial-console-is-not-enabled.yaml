@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.audit-windows-machines-on-which-windows-serial-console-is-not-enabled
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://58c460e9-7573-4bb2-9676-339c2f2486bb
+remediation:
+  template_ref: remediation/azure-builtin/58c460e9-7573-4bb2-9676-339c2f2486bb.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 58c460e9-7573-4bb2-9676-339c2f2486bb
+  azure_policy_display_name: Audit Windows machines on which Windows Serial Console
+    is not enabled
+  azure_policy_effect_default: auditIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/WindowsSerialConsole_AINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

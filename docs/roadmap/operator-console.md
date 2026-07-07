@@ -146,7 +146,8 @@ flowchart TD
     (t1.judge default, t2.reasoner.primary escalation).
   - `session.py` - `ConversationSession` dataclass; state is projected from
     the append-only audit log.
-- [`src/fdai/delivery/channels/`](../../src/fdai/delivery/channels/)
+- `src/fdai/delivery/channels/` (planned layout; today's Teams adapter
+  lives in [`src/fdai/delivery/chatops/`](../../src/fdai/delivery/chatops/))
   - `cli_repl.py` - Day-1 channel adapter (stdin/stdout).
   - `teams_bot.py` - pull-direction Teams adapter (Bot Framework messaging).
   - `slack_bot.py` - pull-direction Slack adapter (Socket Mode).
@@ -365,8 +366,8 @@ class ConversationalModel(Protocol):
   (`prompt_tokens`, `completion_tokens`, `model_deployment_id`).
 
 The upstream default is
-`AzureOpenAIConversationalModel` under
-[`src/fdai/delivery/azure/llm/conversational.py`](../../src/fdai/delivery/azure/llm/conversational.py)
+`AzureOpenAINarratorModel` under
+[`src/fdai/delivery/azure/llm/narrator.py`](../../src/fdai/delivery/azure/llm/narrator.py)
 (added Day 1). It calls Azure OpenAI chat completions with the function-
 calling contract; the model deployment is selected from
 `resolved-models.json` (`t1.judge` for tier T1, `t2.reasoner.primary` for

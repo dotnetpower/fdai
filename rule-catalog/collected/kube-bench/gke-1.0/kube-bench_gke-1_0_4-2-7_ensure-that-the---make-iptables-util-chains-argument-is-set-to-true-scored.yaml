@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: kube-bench.gke-1.0.4-2-7.ensure-that-the---make-iptables-util-chains-argument-is-set-to-true-scored
+version: 1.0.0
+source: kube_bench
+severity: medium
+category: security
+resource_type: kubernetes-node-pool
+check_logic:
+  kind: expression
+  reference: kube-bench://gke-1.0/4.2.7
+remediation:
+  template_ref: remediation/kube-bench/gke-1.0/4.2.7.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 4.2.7
+  kube_bench_ruleset: gke-1.0
+  kube_bench_group_id: '4.2'
+  kube_bench_scored: true
+  kube_bench_audit: /bin/ps -fC $kubeletbin
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/gke-1.0/node.yaml
+  source_version: gke-1.0
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:39Z'

@@ -1,0 +1,22 @@
+# Source manifest for aquasecurity/kube-bench CIS Kubernetes rulesets.
+#
+# kube-bench ships one YAML per component (master, node, controlplane,
+# etcd, policies, ...) for each ruleset version (cis-1.10, aks-1.7,
+# eks-1.1, ...). The parser walks the tree; the loader lands the
+# normalized rules under `rule-catalog/collected/kube-bench/`.
+
+schema_version: "1.0.0"
+id: kube-bench
+name: aquasecurity/kube-bench (CIS Kubernetes Benchmark rulesets)
+url_prefix: https://github.com/aquasecurity/kube-bench/tree/main/cfg
+license: Apache-2.0
+redistribution: embeddable
+fetch:
+  kind: git
+  repo: https://github.com/aquasecurity/kube-bench.git
+  # Pinned to a real aquasecurity/kube-bench commit SHA. Bump this
+  # in the same PR that regenerates rule-catalog/collected/kube-bench/.
+  revision: "400645e682e0676bd2c9f0ead96e4d29ee306d13"
+  subpath: cfg
+parser: kube-bench
+cadence: on-demand

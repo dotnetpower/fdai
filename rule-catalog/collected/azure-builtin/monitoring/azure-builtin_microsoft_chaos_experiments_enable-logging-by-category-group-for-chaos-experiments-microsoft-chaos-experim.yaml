@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.chaos.experiments.enable-logging-by-category-group-for-chaos-experiments-microsoft-chaos-experiments-to
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.chaos.experiments
+check_logic:
+  kind: expression
+  reference: azure-policy://35806bc0-0260-4642-bae7-0ed677b3da44
+remediation:
+  template_ref: remediation/azure-builtin/35806bc0-0260-4642-bae7-0ed677b3da44.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 35806bc0-0260-4642-bae7-0ed677b3da44
+  azure_policy_display_name: Enable logging by category group for Chaos Experiments
+    (microsoft.chaos/experiments) to Event Hub
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_EH_chaos-experiments_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

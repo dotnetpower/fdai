@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.sqlvirtualmachine.sqlvirtualmachines.configure-sql-virtual-machines-to-automatically-install-microsoft-defen
+version: 1.8.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.sqlvirtualmachine.sqlvirtualmachines
+check_logic:
+  kind: expression
+  reference: azure-policy://c859b78a-a128-4376-a838-e97ce6625d16
+remediation:
+  template_ref: remediation/azure-builtin/c859b78a-a128-4376-a838-e97ce6625d16.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: c859b78a-a128-4376-a838-e97ce6625d16
+  azure_policy_display_name: Configure SQL Virtual Machines to automatically install
+    Microsoft Defender for SQL and DCR with a Log Analytics workspace
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Security Center/MDC_DfSQL_AMA_DefaultPipeline_VM.json
+  source_version: 1.8.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

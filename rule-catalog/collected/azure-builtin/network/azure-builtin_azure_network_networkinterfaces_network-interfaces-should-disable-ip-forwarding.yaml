@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.network.networkinterfaces.network-interfaces-should-disable-ip-forwarding
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.network.networkinterfaces
+check_logic:
+  kind: expression
+  reference: azure-policy://88c0b9da-ce96-4b03-9635-f29a937e2900
+remediation:
+  template_ref: remediation/azure-builtin/88c0b9da-ce96-4b03-9635-f29a937e2900.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 88c0b9da-ce96-4b03-9635-f29a937e2900
+  azure_policy_display_name: Network interfaces should disable IP forwarding
+  azure_policy_effect_default: deny
+  azure_policy_category: Network
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Network/NetworkIPForwardingNic_Deny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

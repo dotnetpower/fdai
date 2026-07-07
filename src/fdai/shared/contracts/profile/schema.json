@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/profile/1.0.0",
+  "title": "Profile",
+  "description": "A named bundle of rules with per-rule mode / severity / parameter overrides. Design contract: docs/roadmap/rule-catalog-profiles.md. Profiles let an operator (or a fork) apply a curated subset of the catalog in one step, and extend chains let `strict` inherit from `recommended` from `baseline`. Fork overlays live under `rule-catalog/profiles-overrides/` and take precedence over upstream on any key they redeclare.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "rules"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{1,63}$",
+      "description": "Stable slug used as the profile handle at composition-root config."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "description": {
+      "type": ["string", "null"]
+    },
+    "extends": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{1,63}$" },
+      "default": [],
+      "description": "Ordered list of profile ids this profile extends. Rules from later parents override rules from earlier ones; the profile's own `rules` list overrides its parents. Cycles are rejected at load time."
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Rule id as it appears in `rule-catalog/catalog/`."
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["shadow", "enforce"],
+            "description": "Override the rule's default mode. Default = shadow (matches the standing safety invariant)."
+          },
+          "severity_override": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"],
+            "description": "Override the rule's own severity. A profile MAY escalate (medium -> high) but MAY NOT downgrade below the rule's authored floor - the loader enforces this."
+          },
+          "parameters": {
+            "type": "object",
+            "additionalProperties": true,
+            "default": {},
+            "description": "Parameter values passed to the rule. Merged shallowly on top of the rule's authored defaults."
+          },
+          "disabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "True hides the rule from the resolved profile. Useful for fork overlays that inherit `strict` but exempt one rule for a specific compliance requirement."
+          }
+        }
+      },
+      "description": "Rules this profile activates. Combined with `extends` via the resolve algorithm documented in docs/roadmap/rule-catalog-profiles.md § Resolution."
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": true,
+      "default": {},
+      "description": "Profile-wide parameter defaults. Applied to every rule that does NOT set the same key in its own `parameters`; a fork MAY use this to set an org-wide `tag.mandatory` list once."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "authored_by": { "type": "string" },
+        "based_on": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "review_cadence_days": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

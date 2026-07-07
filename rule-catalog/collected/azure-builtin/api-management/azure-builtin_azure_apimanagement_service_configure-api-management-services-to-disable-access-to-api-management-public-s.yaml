@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.apimanagement.service.configure-api-management-services-to-disable-access-to-api-management-public-service-c
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.apimanagement.service
+check_logic:
+  kind: expression
+  reference: azure-policy://7ca8c8ac-3a6e-493d-99ba-c5fa35347ff2
+remediation:
+  template_ref: remediation/azure-builtin/7ca8c8ac-3a6e-493d-99ba-c5fa35347ff2.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 7ca8c8ac-3a6e-493d-99ba-c5fa35347ff2
+  azure_policy_display_name: Configure API Management services to disable access to
+    API Management public service configuration endpoints
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: API Management
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/API
+    Management/PublicEndpoint_DINE.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

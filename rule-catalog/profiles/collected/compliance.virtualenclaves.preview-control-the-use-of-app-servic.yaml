@@ -1,0 +1,99 @@
+schema_version: 1.0.0
+id: compliance.virtualenclaves.preview-control-the-use-of-app-servic
+title: '(Azure Initiative) [Preview]: Control the use of App Service in a Virtual
+  Enclave'
+description: This initiative deploys Azure policies for App Service ensuring boundary
+  protection of this resource while it operates within the logically separated structure
+  of Azure Virtual Enclaves. https://aka.ms/VirtualEnclaves
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AppServiceInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.web.app-service.app-service-apps-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.app-service-app-slots-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.web.hostingenvironments.app-service-environment-should-have-internal-encryption-enabled
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.app-service-app-slots-should-use-the-latest-tls-version
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.app-service-app-slots-should-use-latest-http-version
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-only-be-accessible-over-https
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-only-be-accessible-over-https
+  mode: shadow
+- id: azure-builtin.web.app-service.configure-function-apps-to-only-be-accessible-over-https
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.function-app-slots-should-only-be-accessible-over-https
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.configure-function-app-slots-to-only-be-accessible-over-https
+  mode: shadow
+- id: azure-builtin.web.app-service.configure-app-service-apps-to-only-be-accessible-over-https
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.app-service-app-slots-should-only-be-accessible-over-https
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.configure-app-service-app-slots-to-only-be-accessible-over-https
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-use-managed-identity
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-use-managed-identity
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-use-latest-http-version
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-have-resource-logs-enabled
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.app-service-app-slots-should-have-resource-logs-enabled
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-that-use-java-should-use-a-specified-java-version
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-that-use-python-should-use-a-specified-python-version
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-that-use-php-should-use-a-specified-php-version
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-that-use-java-should-use-a-specified-java-version
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-that-use-python-should-use-a-specified-python-version
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.app-service-app-slots-should-not-have-cors-configured-to-allow-every-resource-to-access-your
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.app-service-app-slots-should-have-remote-debugging-turned-off
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.app-service-app-slots-should-use-managed-identity
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-have-authentication-enabled
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-have-remote-debugging-turned-off
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-not-have-cors-configured-to-allow-every-resource-to-access-your-apps
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.configure-app-service-app-slots-to-turn-off-remote-debugging
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.configure-function-app-slots-to-turn-off-remote-debugging
+  mode: shadow
+- id: azure-builtin.web.app-service.configure-function-apps-to-turn-off-remote-debugging
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.function-app-slots-should-have-remote-debugging-turned-off
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.function-app-slots-should-not-have-cors-configured-to-allow-every-resource-to-access-your-ap
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-have-authentication-enabled
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-have-remote-debugging-turned-off
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-not-have-cors-configured-to-allow-every-resource-to-access-your-apps
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.function-app-slots-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.web.app-service.configure-function-apps-to-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.configure-function-app-slots-to-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.configure-app-service-app-slots-to-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.web.app-service.configure-app-service-apps-to-disable-public-network-access
+  mode: shadow

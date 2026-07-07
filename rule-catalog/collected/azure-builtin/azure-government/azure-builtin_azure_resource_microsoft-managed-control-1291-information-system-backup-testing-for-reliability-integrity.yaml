@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1291-information-system-backup-testing-for-reliability-integrity
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://6d8fd073-9c85-4ee2-a9d0-2e4ec9eb8912
+remediation:
+  template_ref: remediation/azure-builtin/6d8fd073-9c85-4ee2-a9d0-2e4ec9eb8912.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 6d8fd073-9c85-4ee2-a9d0-2e4ec9eb8912
+  azure_policy_display_name: Microsoft Managed Control 1291 - Information System Backup
+    | Testing For Reliability / Integrity
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1291.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

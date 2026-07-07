@@ -86,12 +86,9 @@ class TestFullSnapshot:
         assert run.call_count == 1
 
     def test_multi_type_streaming_ordering(self) -> None:
-        payload_rg = json.dumps(
-            [{"id": "/subscriptions/x/resourceGroups/rg1", "name": "rg1"}]
-        )
+        payload_rg = json.dumps([{"id": "/subscriptions/x/resourceGroups/rg1", "name": "rg1"}])
         sa_id = (
-            "/subscriptions/x/resourceGroups/rg1/providers/"
-            "Microsoft.Storage/storageAccounts/sa1"
+            "/subscriptions/x/resourceGroups/rg1/providers/Microsoft.Storage/storageAccounts/sa1"
         )
         payload_sa = json.dumps([{"id": sa_id, "name": "sa1"}])
         inv = AzureCliInventory(resource_types=("resource-group", "object-storage"))

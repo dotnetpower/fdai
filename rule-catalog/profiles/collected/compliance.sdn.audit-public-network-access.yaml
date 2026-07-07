@@ -1,0 +1,78 @@
+schema_version: 1.0.0
+id: compliance.sdn.audit-public-network-access
+title: (Azure Initiative) Audit Public Network Access
+description: Audit Azure resources that allow access from the public internet
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AuditPublicNetworkAccessInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.appconfiguration.configurationstores.app-configuration-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.web.hostingenvironments.app-service-environment-apps-should-not-be-reachable-over-public-internet
+  mode: shadow
+- id: azure-builtin.azure.attestation.attestationproviders.azure-attestation-providers-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.automation.automationaccounts.automation-accounts-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.batch.batchaccounts.public-network-access-should-be-disabled-for-batch-accounts
+  mode: shadow
+- id: azure-builtin.azure.botservice.botservices.bot-service-should-have-public-network-access-disabled
+  mode: shadow
+- id: azure-builtin.azure.cache.redis.azure-cache-for-redis-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.container-registry.public-network-access-should-be-disabled-for-container-registries
+  mode: shadow
+- id: azure-builtin.disk.managed-disks-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.datafactory.factories.public-network-access-on-azure-data-factory-should-be-disabled
+  mode: shadow
+- id: azure-builtin.azure.dbformariadb.servers.public-network-access-should-be-disabled-for-mariadb-servers
+  mode: shadow
+- id: azure-builtin.mysql-flexible.public-network-access-should-be-disabled-for-mysql-flexible-servers
+  mode: shadow
+- id: azure-builtin.mysql-server.public-network-access-should-be-disabled-for-mysql-servers
+  mode: shadow
+- id: azure-builtin.postgresql-flexible.public-network-access-should-be-disabled-for-postgresql-flexible-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.public-network-access-should-be-disabled-for-postgresql-servers
+  mode: shadow
+- id: azure-builtin.azure.databricks.workspaces.azure-databricks-workspaces-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.devices.iothubs.public-network-access-on-azure-iot-hub-should-be-disabled
+  mode: shadow
+- id: azure-builtin.azure.devices.provisioningservices.iot-hub-device-provisioning-service-instances-should-disable-public-network-acc
+  mode: shadow
+- id: azure-builtin.cosmos-db.azure-cosmos-db-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.eventgrid.domains.azure-event-grid-domains-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.eventgrid.topics.azure-event-grid-topics-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.privatelinkscopes.azure-arc-private-link-scopes-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.secret-store.azure-key-vault-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.insights.components.application-insights-components-should-block-log-ingestion-and-querying-from-public-netw
+  mode: shadow
+- id: azure-builtin.azure.machinelearningservices.workspaces.azure-machine-learning-workspaces-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.insights.privatelinkscopes.azure-monitor-private-link-scope-should-block-access-to-non-private-link-resource
+  mode: shadow
+- id: azure-builtin.log-workspace.log-analytics-workspaces-should-block-log-ingestion-and-querying-from-public-networks
+  mode: shadow
+- id: azure-builtin.azure.search.searchservices.azure-ai-search-services-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.networkrulesets.service-bus-namespaces-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.signalrservice.signalr.azure-signalr-service-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.signalrservice.webpubsub.azure-web-pubsub-service-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.sql-server.public-network-access-on-azure-sql-database-should-be-disabled
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.azure.synapse.workspaces.azure-synapse-workspaces-should-disable-public-network-access
+  mode: shadow

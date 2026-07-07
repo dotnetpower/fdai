@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.devcenter.projects.pools.preview-microsoft-dev-box-pools-should-not-use-microsoft-hosted-networks
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.devcenter.projects.pools
+check_logic:
+  kind: expression
+  reference: azure-policy://ece3c79b-2caf-470d-a5f5-66470c4fc649
+remediation:
+  template_ref: remediation/azure-builtin/ece3c79b-2caf-470d-a5f5-66470c4fc649.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ece3c79b-2caf-470d-a5f5-66470c4fc649
+  azure_policy_display_name: '[Preview]: Microsoft Dev Box Pools should not use Microsoft
+    Hosted Networks.'
+  azure_policy_effect_default: Audit
+  azure_policy_category: DevCenter
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/DevCenter/MicrosoftHostedNetworks_Audit.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

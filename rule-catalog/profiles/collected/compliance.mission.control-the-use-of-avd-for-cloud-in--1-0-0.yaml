@@ -1,0 +1,19 @@
+schema_version: 1.0.0
+id: compliance.mission.control-the-use-of-avd-for-cloud-in--1-0-0
+title: (Azure Initiative) Control the use of AVD for Cloud in Mission Platforms
+description: This policy initiative applies exclusively to Mission Platform products
+  and services; usage outside of these scopes is not supported. This policy set deploys
+  the required policy guardrails governing the use of Azure Virtual Desktops within
+  the Environment. See the list of policies of the services that are included.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AVDInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.desktopvirtualization.hostpools.azure-virtual-desktop-host-pools-should-restrict-rdp-property-configurations
+  mode: shadow
+- id: azure-builtin.azure.desktopvirtualization.hostpools.privateendpointconnections.azure-virtual-desktop-host-pools-should-not-allow
+  mode: shadow
+- id: azure-builtin.azure.desktopvirtualization.workspaces.privateendpointconnections.azure-virtual-desktop-workspaces-should-not-allo
+  mode: shadow

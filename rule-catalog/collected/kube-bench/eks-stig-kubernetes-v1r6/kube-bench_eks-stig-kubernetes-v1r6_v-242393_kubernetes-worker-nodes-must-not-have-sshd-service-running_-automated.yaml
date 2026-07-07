@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: kube-bench.eks-stig-kubernetes-v1r6.v-242393.kubernetes-worker-nodes-must-not-have-sshd-service-running.-automated
+version: 1.0.0
+source: kube_bench
+severity: medium
+category: security
+resource_type: kubernetes-node-pool
+check_logic:
+  kind: expression
+  reference: kube-bench://eks-stig-kubernetes-v1r6/V-242393
+remediation:
+  template_ref: remediation/kube-bench/eks-stig-kubernetes-v1r6/V-242393.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: V-242393
+  kube_bench_ruleset: eks-stig-kubernetes-v1r6
+  kube_bench_group_id: '3.1'
+  kube_bench_scored: true
+  kube_bench_audit: '/bin/sh -c ''systemctl show -p ActiveState sshd'' '
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/eks-stig-kubernetes-v1r6/node.yaml
+  source_version: eks-stig-kubernetes-v1r6
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:39Z'

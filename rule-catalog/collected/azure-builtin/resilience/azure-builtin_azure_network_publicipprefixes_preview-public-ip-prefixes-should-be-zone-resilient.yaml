@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.network.publicipprefixes.preview-public-ip-prefixes-should-be-zone-resilient
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.network.publicipprefixes
+check_logic:
+  kind: expression
+  reference: azure-policy://2dba5c7e-12a4-4be8-b208-f59bc49e88c2
+remediation:
+  template_ref: remediation/azure-builtin/2dba5c7e-12a4-4be8-b208-f59bc49e88c2.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 2dba5c7e-12a4-4be8-b208-f59bc49e88c2
+  azure_policy_display_name: '[Preview]: Public IP Prefixes should be Zone Resilient'
+  azure_policy_effect_default: Audit
+  azure_policy_category: Resilience
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Resilience/Network_publicipprefixes_ZoneResilient_Audit.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

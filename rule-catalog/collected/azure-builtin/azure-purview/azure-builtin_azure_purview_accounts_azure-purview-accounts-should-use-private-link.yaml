@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.purview.accounts.azure-purview-accounts-should-use-private-link
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.purview.accounts
+check_logic:
+  kind: expression
+  reference: azure-policy://9259053b-ddb8-40ab-842a-0aef19d0ade4
+remediation:
+  template_ref: remediation/azure-builtin/9259053b-ddb8-40ab-842a-0aef19d0ade4.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 9259053b-ddb8-40ab-842a-0aef19d0ade4
+  azure_policy_display_name: Azure Purview accounts should use private link
+  azure_policy_effect_default: Audit
+  azure_policy_category: Azure Purview
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Purview/Purview_PrivateEndPoint_Audit.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

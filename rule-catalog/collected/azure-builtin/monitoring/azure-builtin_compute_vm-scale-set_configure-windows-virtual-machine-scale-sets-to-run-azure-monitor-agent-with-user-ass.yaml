@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm-scale-set.configure-windows-virtual-machine-scale-sets-to-run-azure-monitor-agent-with-user-assigned-ma
+version: 1.9.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm-scale-set
+check_logic:
+  kind: expression
+  reference: azure-policy://98569e20-8f32-4f31-bf34-0e91590ae9d3
+remediation:
+  template_ref: remediation/azure-builtin/98569e20-8f32-4f31-bf34-0e91590ae9d3.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 98569e20-8f32-4f31-bf34-0e91590ae9d3
+  azure_policy_display_name: Configure Windows virtual machine scale sets to run Azure
+    Monitor Agent with user-assigned managed identity-based authentication
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/AzureMonitor_Agent_Windows_VMSS_UAI_DINE.json
+  source_version: 1.9.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

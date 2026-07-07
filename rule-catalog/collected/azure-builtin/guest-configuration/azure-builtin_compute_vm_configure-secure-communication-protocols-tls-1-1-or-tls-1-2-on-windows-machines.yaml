@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.configure-secure-communication-protocols-tls-1-1-or-tls-1-2-on-windows-machines
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://828ba269-bf7f-4082-83dd-633417bc391d
+remediation:
+  template_ref: remediation/azure-builtin/828ba269-bf7f-4082-83dd-633417bc391d.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 828ba269-bf7f-4082-83dd-633417bc391d
+  azure_policy_display_name: Configure secure communication protocols(TLS 1.1 or TLS
+    1.2) on Windows machines
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Guest
+    Configuration/SetSecureProtocol_DINE.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

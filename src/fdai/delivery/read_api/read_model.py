@@ -98,6 +98,9 @@ class DashboardKpi:
 
     Fields track the surface the console renders. Ratios are in
     ``[0, 1]``; ``event_count`` is the sample-size denominator.
+    ``by_action_kind`` / ``by_outcome`` / ``by_tier`` are simple counts
+    keyed by the audit entry's ``action_kind``, ``outcome``, and ``tier``
+    fields; entries without a ``tier`` are omitted from ``by_tier``.
     """
 
     event_count: int
@@ -106,12 +109,14 @@ class DashboardKpi:
     hil_pending: int
     by_action_kind: Mapping[str, int] = field(default_factory=dict)
     by_outcome: Mapping[str, int] = field(default_factory=dict)
+    by_tier: Mapping[str, int] = field(default_factory=dict)
     last_recorded_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["by_action_kind"] = dict(self.by_action_kind)
         data["by_outcome"] = dict(self.by_outcome)
+        data["by_tier"] = dict(self.by_tier)
         return data
 
 
@@ -318,16 +323,22 @@ class InMemoryConsoleReadModel(ConsoleReadModel):
                 hil_pending=hil_pending,
                 by_action_kind={},
                 by_outcome={},
+                by_tier={},
                 last_recorded_at=None,
             )
         by_kind: dict[str, int] = {}
         by_outcome: dict[str, int] = {}
+        by_tier: dict[str, int] = {}
         shadow = 0
         enforce = 0
         for item in snapshot:
             by_kind[item.action_kind] = by_kind.get(item.action_kind, 0) + 1
             outcome = str(item.entry.get("outcome", "unknown"))
             by_outcome[outcome] = by_outcome.get(outcome, 0) + 1
+            tier = item.entry.get("tier")
+            if tier is not None:
+                tier_key = str(tier)
+                by_tier[tier_key] = by_tier.get(tier_key, 0) + 1
             if item.mode == "shadow":
                 shadow += 1
             elif item.mode == "enforce":
@@ -339,6 +350,7 @@ class InMemoryConsoleReadModel(ConsoleReadModel):
             hil_pending=hil_pending,
             by_action_kind=by_kind,
             by_outcome=by_outcome,
+            by_tier=by_tier,
             last_recorded_at=snapshot[-1].recorded_at,
         )
 

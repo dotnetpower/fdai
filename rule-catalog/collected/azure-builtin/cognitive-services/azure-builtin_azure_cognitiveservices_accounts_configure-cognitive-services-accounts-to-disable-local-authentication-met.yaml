@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.cognitiveservices.accounts.configure-cognitive-services-accounts-to-disable-local-authentication-methods
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.cognitiveservices.accounts
+check_logic:
+  kind: expression
+  reference: azure-policy://14de9e63-1b31-492e-a5a3-c3f7fd57f555
+remediation:
+  template_ref: remediation/azure-builtin/14de9e63-1b31-492e-a5a3-c3f7fd57f555.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 14de9e63-1b31-492e-a5a3-c3f7fd57f555
+  azure_policy_display_name: Configure Cognitive Services accounts to disable local
+    authentication methods
+  azure_policy_effect_default: Modify
+  azure_policy_category: Cognitive Services
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Cognitive
+    Services/DisableLocalAuth_Modify.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

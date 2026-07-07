@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.apimanagement.service.apis.operations.api-endpoints-that-are-unused-should-be-disabled-and-removed-from-the
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.apimanagement.service.apis.operations
+check_logic:
+  kind: expression
+  reference: azure-policy://c8acafaf-3d23-44d1-9624-978ef0f8652c
+remediation:
+  template_ref: remediation/azure-builtin/c8acafaf-3d23-44d1-9624-978ef0f8652c.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: c8acafaf-3d23-44d1-9624-978ef0f8652c
+  azure_policy_display_name: API endpoints that are unused should be disabled and
+    removed from the Azure API Management service
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/ASC_APIMUnusedApiEndpointsShouldbeRemoved_AINE.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

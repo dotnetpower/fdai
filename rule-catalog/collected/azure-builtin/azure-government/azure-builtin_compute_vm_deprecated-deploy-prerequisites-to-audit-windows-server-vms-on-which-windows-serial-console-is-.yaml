@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-server-vms-on-which-windows-serial-console-is-not-e
+version: 3.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://7a031c68-d6ab-406e-a506-697a19c634b0
+remediation:
+  template_ref: remediation/azure-builtin/7a031c68-d6ab-406e-a506-697a19c634b0.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 7a031c68-d6ab-406e-a506-697a19c634b0
+  azure_policy_display_name: '[Deprecated]: Deploy prerequisites to audit Windows
+    Server VMs on which Windows Serial Console is not enabled'
+  azure_policy_effect_default: deployIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/WindowsSerialConsole_DINE.json
+  source_version: 3.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

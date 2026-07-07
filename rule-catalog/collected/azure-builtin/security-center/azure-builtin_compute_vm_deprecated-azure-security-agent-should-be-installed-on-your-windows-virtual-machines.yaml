@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-azure-security-agent-should-be-installed-on-your-windows-virtual-machines
+version: 2.2.0
+source: azure_policy
+severity: low
+category: security
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://bb2c6c6d-14bc-4443-bef3-c6be0adc6076
+remediation:
+  template_ref: remediation/azure-builtin/bb2c6c6d-14bc-4443-bef3-c6be0adc6076.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: bb2c6c6d-14bc-4443-bef3-c6be0adc6076
+  azure_policy_display_name: '[Deprecated]: Azure Security agent should be installed
+    on your Windows virtual machines'
+  azure_policy_effect_default: Disabled
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/ASC_AzureSecurityWindowsAgent_AINE.json
+  source_version: 2.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

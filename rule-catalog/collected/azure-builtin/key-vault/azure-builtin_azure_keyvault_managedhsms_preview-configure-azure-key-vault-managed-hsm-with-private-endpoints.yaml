@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.keyvault.managedhsms.preview-configure-azure-key-vault-managed-hsm-with-private-endpoints
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.keyvault.managedhsms
+check_logic:
+  kind: expression
+  reference: azure-policy://d1d6d8bb-cc7c-420f-8c7d-6f6f5279a844
+remediation:
+  template_ref: remediation/azure-builtin/d1d6d8bb-cc7c-420f-8c7d-6f6f5279a844.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d1d6d8bb-cc7c-420f-8c7d-6f6f5279a844
+  azure_policy_display_name: '[Preview]: Configure Azure Key Vault Managed HSM with
+    private endpoints'
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Key Vault
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Key
+    Vault/ManagedHsm_Should_Use_PrivateEndpoint_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

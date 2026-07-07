@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.powerbi.tenants.workspaces.enable-logging-by-category-group-for-microsoft-po.ds_la_powerbi-tenant
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.powerbi.tenants.workspaces
+check_logic:
+  kind: expression
+  reference: azure-policy://fc2bb2e1-739a-4a03-86a2-16ad55e90bd9
+remediation:
+  template_ref: remediation/azure-builtin/fc2bb2e1-739a-4a03-86a2-16ad55e90bd9.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: fc2bb2e1-739a-4a03-86a2-16ad55e90bd9
+  azure_policy_display_name: Enable logging by category group for microsoft.powerbi/tenants/workspaces
+    to Log Analytics
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_LA_powerbi-tenants-workspaces_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

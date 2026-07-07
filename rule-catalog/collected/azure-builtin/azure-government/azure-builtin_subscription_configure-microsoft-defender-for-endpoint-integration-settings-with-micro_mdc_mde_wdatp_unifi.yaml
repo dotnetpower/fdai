@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.configure-microsoft-defender-for-endpoint-integration-settings-with-micro.mdc_mde_wdatp_unifie
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://48666c5d-cec1-4043-ab6b-1be05abb24f2
+remediation:
+  template_ref: remediation/azure-builtin/48666c5d-cec1-4043-ab6b-1be05abb24f2.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 48666c5d-cec1-4043-ab6b-1be05abb24f2
+  azure_policy_display_name: Configure Microsoft Defender for Endpoint integration
+    settings with Microsoft Defender for Cloud (WDATP_UNIFIED_SOLUTION)
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Security Center/MDC_MDE_WDATP_UNIFIED_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.web.app-service.deprecated-configure-app-services-to-disable-public-network-access
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: web.app-service
+check_logic:
+  kind: expression
+  reference: azure-policy://81dff7c0-4020-4b58-955d-c076a2136b56
+remediation:
+  template_ref: remediation/azure-builtin/81dff7c0-4020-4b58-955d-c076a2136b56.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 81dff7c0-4020-4b58-955d-c076a2136b56
+  azure_policy_display_name: '[Deprecated]: Configure App Services to disable public
+    network access'
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/PublicNetworkAccess_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

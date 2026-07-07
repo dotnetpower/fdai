@@ -1,0 +1,30 @@
+schema_version: 1.0.0
+id: kube-bench.rh-1.8.1-2-8.ensure-that-the-admission-control-plugin-alwaysadmit-is-not-set-manual
+version: 1.0.0
+source: kube_bench
+severity: medium
+category: security
+resource_type: kubernetes-cluster.control-plane
+check_logic:
+  kind: expression
+  reference: kube-bench://rh-1.8/1.2.8
+remediation:
+  template_ref: remediation/kube-bench/rh-1.8/1.2.8.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 1.2.8
+  kube_bench_ruleset: rh-1.8
+  kube_bench_group_id: '1.2'
+  kube_bench_scored: true
+  kube_bench_audit: 'oc -n openshift-kube-apiserver get configmap config -o json |
+    jq -r ''.data."config.yaml"'' | jq ''.apiServerArguments."enable-admission-plugins"''
+
+    '
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/rh-1.8/master.yaml
+  source_version: rh-1.8
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:40Z'

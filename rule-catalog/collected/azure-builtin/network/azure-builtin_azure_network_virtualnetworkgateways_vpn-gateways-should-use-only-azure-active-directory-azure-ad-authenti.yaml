@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.network.virtualnetworkgateways.vpn-gateways-should-use-only-azure-active-directory-azure-ad-authentication-f
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.network.virtualnetworkgateways
+check_logic:
+  kind: expression
+  reference: azure-policy://21a6bc25-125e-4d13-b82d-2e19b7208ab7
+remediation:
+  template_ref: remediation/azure-builtin/21a6bc25-125e-4d13-b82d-2e19b7208ab7.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 21a6bc25-125e-4d13-b82d-2e19b7208ab7
+  azure_policy_display_name: VPN gateways should use only Azure Active Directory (Azure
+    AD) authentication for point-to-site users
+  azure_policy_effect_default: Audit
+  azure_policy_category: Network
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Network/VPN-AzureAD-audit-deny-disable-policy.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

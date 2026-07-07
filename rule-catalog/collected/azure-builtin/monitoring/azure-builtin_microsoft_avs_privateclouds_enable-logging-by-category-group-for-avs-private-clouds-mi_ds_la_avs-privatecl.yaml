@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.avs.privateclouds.enable-logging-by-category-group-for-avs-private-clouds-mi.ds_la_avs-privateclo
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.avs.privateclouds
+check_logic:
+  kind: expression
+  reference: azure-policy://69ab8bfc-dc5b-443d-93a7-7531551dec66
+remediation:
+  template_ref: remediation/azure-builtin/69ab8bfc-dc5b-443d-93a7-7531551dec66.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 69ab8bfc-dc5b-443d-93a7-7531551dec66
+  azure_policy_display_name: Enable logging by category group for AVS Private clouds
+    (microsoft.avs/privateclouds) to Log Analytics
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_LA_avs-privateclouds_DINE.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

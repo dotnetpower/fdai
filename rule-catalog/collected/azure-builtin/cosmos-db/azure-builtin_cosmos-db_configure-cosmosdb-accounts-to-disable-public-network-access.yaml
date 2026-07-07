@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.cosmos-db.configure-cosmosdb-accounts-to-disable-public-network-access
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: cosmos-db
+check_logic:
+  kind: expression
+  reference: azure-policy://da69ba51-aaf1-41e5-8651-607cd0b37088
+remediation:
+  template_ref: remediation/azure-builtin/da69ba51-aaf1-41e5-8651-607cd0b37088.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: da69ba51-aaf1-41e5-8651-607cd0b37088
+  azure_policy_display_name: Configure CosmosDB accounts to disable public network
+    access
+  azure_policy_effect_default: Modify
+  azure_policy_category: Cosmos DB
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Cosmos
+    DB/Cosmos_PrivateNetworkAccess_Modify.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

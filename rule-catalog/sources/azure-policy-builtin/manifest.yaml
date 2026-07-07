@@ -1,0 +1,35 @@
+# Source manifest for Azure Policy built-in definitions.
+#
+# Pins a specific revision of the Azure/azure-policy GitHub repository
+# so the parser (`azure-policy-json`) can reproduce the same set of
+# rules on any machine. The collector fetches this snapshot into a
+# tmp tree; the parser walks it; the loader (invoked separately) lands
+# the normalized rules under `rule-catalog/collected/azure-builtin/`.
+#
+# The `resolved_ref` field is a placeholder here (0000...) so the
+# hygiene gate (`scripts/check-guids.sh`) does not flag a real SHA
+# that would tie the repo to a specific point-in-time. A real fork
+# swaps the placeholder for the actual commit SHA it pinned against
+# in a PR that also refreshes `rule-catalog/collected/azure-builtin/`.
+
+schema_version: "1.0.0"
+id: azure-policy-builtin
+name: Azure Policy Built-in Definitions
+url_prefix: https://github.com/Azure/azure-policy/tree/main/built-in-policies/policyDefinitions
+license: MIT
+redistribution: embeddable
+fetch:
+  kind: git
+  repo: https://github.com/Azure/azure-policy.git
+  # Pinned to a real Azure/azure-policy commit SHA. Bump this in
+  # the same PR that regenerates rule-catalog/collected/azure-builtin/
+  # so provenance stays reproducible.
+  revision: "d315bc3b9c8a382e540add3562fff4a82e027635"
+  subpath: built-in-policies/policyDefinitions
+parser: azure-policy-json
+# On-demand: a fork or upstream curator runs the collector manually
+# (`fdai catalog collect --source azure-policy-builtin`) and lands the
+# refreshed tree via PR. Automatic re-fetch would require a real
+# `resolved_ref` SHA (the placeholder here is rejected by the git
+# fetcher, which is exactly the intended guardrail).
+cadence: on-demand

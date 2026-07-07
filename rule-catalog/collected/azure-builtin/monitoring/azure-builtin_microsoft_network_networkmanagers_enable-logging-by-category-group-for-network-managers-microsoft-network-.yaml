@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.network.networkmanagers.enable-logging-by-category-group-for-network-managers-microsoft-network-networkm
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.network.networkmanagers
+check_logic:
+  kind: expression
+  reference: azure-policy://c29fe1b2-c0b0-4d92-a988-84b484801707
+remediation:
+  template_ref: remediation/azure-builtin/c29fe1b2-c0b0-4d92-a988-84b484801707.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: c29fe1b2-c0b0-4d92-a988-84b484801707
+  azure_policy_display_name: Enable logging by category group for Network Managers
+    (microsoft.network/networkmanagers) to Event Hub
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_EH_network-networkmanagers_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

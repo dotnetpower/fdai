@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.kubernetes-cluster-containers-cpu-and-memory-resource-limits-should-not-exceed-the-specified-limits
+version: 10.3.0
+source: azure_policy
+severity: high
+category: security
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://e345eecc-fa47-480f-9e88-67dcc122b164
+remediation:
+  template_ref: remediation/azure-builtin/e345eecc-fa47-480f-9e88-67dcc122b164.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: e345eecc-fa47-480f-9e88-67dcc122b164
+  azure_policy_display_name: Kubernetes cluster containers CPU and memory resource
+    limits should not exceed the specified limits
+  azure_policy_effect_default: Deny
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/ContainerResourceLimits.json
+  source_version: 10.3.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

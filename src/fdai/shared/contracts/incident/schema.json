@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/incident/1.0.0",
+  "title": "Incident",
+  "description": "Correlated group of events + findings + actions that share a root operational condition. Owns a state machine (open -> triaging -> mitigated -> resolved -> closed) so postmortems, on-call handoffs, and after-action reviews have a durable, incident-indexed anchor. Distinct from a single Event: an Incident groups many events but exists exactly once per correlation-key set.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "incident_id",
+    "state",
+    "severity",
+    "opened_at",
+    "correlation_keys",
+    "member_event_ids"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semver of this schema."
+    },
+    "incident_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Deterministic UUID5 derived from `correlation_keys`. Re-emitting the same key set yields the same incident_id (idempotent grouping)."
+    },
+    "state": {
+      "type": "string",
+      "enum": ["open", "triaging", "mitigated", "resolved", "closed"],
+      "description": "Current lifecycle state. Transitions are enforced by the core/incident state machine; illegal transitions raise IncidentTransitionError."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["sev1", "sev2", "sev3", "sev4", "sev5"],
+      "description": "Sev1 = customer-visible outage; sev5 = informational. Set at open; may be adjusted via re-open. Mirrors PagerDuty / Datadog vocabulary."
+    },
+    "opened_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC 3339 timestamp of the open transition."
+    },
+    "mitigated_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "UTC timestamp when the incident entered `mitigated` (user impact stopped even if root cause not yet resolved)."
+    },
+    "resolved_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "UTC timestamp when the incident entered `resolved` (root cause remediated)."
+    },
+    "closed_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "UTC timestamp when the incident entered `closed` (postmortem published, after-action items landed)."
+    },
+    "correlation_keys": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "description": "The keys that group events into this incident (e.g. `resource_id:foo`, `deployment_id:bar`). Determines `incident_id` via UUID5(NAMESPACE_URL, sorted(keys))."
+    },
+    "member_event_ids": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "minItems": 1,
+      "description": "Every event that this incident groups. Appended atomically as new correlated events arrive."
+    },
+    "related_finding_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": [],
+      "description": "Finding ids produced against events in this incident."
+    },
+    "related_action_ids": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "default": [],
+      "description": "Action ids executed (or attempted, incl. shadow) against this incident."
+    },
+    "assignee_oid": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Entra OID of the current incident commander. Distinct from any submitter to preserve the no-self-approval invariant during any HIL step."
+    },
+    "mitigation_summary": {
+      "type": ["string", "null"],
+      "description": "Free-text mitigation note captured at the mitigated transition."
+    },
+    "postmortem_ref": {
+      "type": ["string", "null"],
+      "description": "Git-managed path to the published postmortem (e.g. `rule-catalog/postmortems/<incident-id>.md`). Populated at close."
+    }
+  }
+}

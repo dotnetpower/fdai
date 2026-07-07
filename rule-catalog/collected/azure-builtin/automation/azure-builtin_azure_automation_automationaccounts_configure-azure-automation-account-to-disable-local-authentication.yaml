@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.automation.automationaccounts.configure-azure-automation-account-to-disable-local-authentication
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.automation.automationaccounts
+check_logic:
+  kind: expression
+  reference: azure-policy://30d1d58e-8f96-47a5-8564-499a3f3cca81
+remediation:
+  template_ref: remediation/azure-builtin/30d1d58e-8f96-47a5-8564-499a3f3cca81.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 30d1d58e-8f96-47a5-8564-499a3f3cca81
+  azure_policy_display_name: Configure Azure Automation account to disable local authentication
+  azure_policy_effect_default: Modify
+  azure_policy_category: Automation
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Automation/Account_DisableLocalAuth_Modify.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

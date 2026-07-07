@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.batch.batchaccounts.configure-batch-accounts-to-disable-public-network-access
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.batch.batchaccounts
+check_logic:
+  kind: expression
+  reference: azure-policy://c520cefc-285f-40f3-86e2-2efc38ef1f64
+remediation:
+  template_ref: remediation/azure-builtin/c520cefc-285f-40f3-86e2-2efc38ef1f64.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: c520cefc-285f-40f3-86e2-2efc38ef1f64
+  azure_policy_display_name: Configure Batch accounts to disable public network access
+  azure_policy_effect_default: Modify
+  azure_policy_category: Batch
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Batch/DisablePublicNetworkAccess_Modify.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.purview.accounts.enable-logging-by-category-group-for-microsoft-purview-acco.ds_la_purview-accoun
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.purview.accounts
+check_logic:
+  kind: expression
+  reference: azure-policy://4cabf9fc-4ed1-4990-bbaf-7248fb8751bc
+remediation:
+  template_ref: remediation/azure-builtin/4cabf9fc-4ed1-4990-bbaf-7248fb8751bc.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 4cabf9fc-4ed1-4990-bbaf-7248fb8751bc
+  azure_policy_display_name: Enable logging by category group for Microsoft Purview
+    accounts (microsoft.purview/accounts) to Log Analytics
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_LA_purview-accounts_DINE.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,21 @@
+schema_version: 1.0.0
+id: compliance.network.enable-vnet-flowlog-and-traffic-analytics-wit
+title: (Azure Initiative) Enable VNet Flowlog and Traffic Analytics with regional
+  Storage and centralized Log Analytics
+description: This policy set enables VNet Flowlog and Traffic Analytics by creating
+  a regional Storage Account, a Log Analytics Workspace in a centrally managed region,
+  and creates a Network Watcher Resource if needed in the Region.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://VirtualNetwork_Flowlog_TrafficAnalytics
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.network.vnet.deploy-vnet-flow-logs-with-traffic-analytics-for-vnets-with-regional-storage-and-centralized-log-ana
+  mode: shadow
+- id: azure-builtin.subscription.create-regional-storage-account-for-vnet-flowlogs-in-resourcegroupname-rg
+  mode: shadow
+- id: azure-builtin.subscription.create-central-log-analytics-workspace-for-vnet-flowlog-traffic-analytics-in-the-specified-resource
+  mode: shadow
+- id: azure-builtin.azure.network.networkwatchers.create-regional-networkwatcher-in-networkwatcherrg-for-vnet-flowlogs
+  mode: shadow

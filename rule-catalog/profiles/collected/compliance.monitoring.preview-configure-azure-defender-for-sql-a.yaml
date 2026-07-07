@@ -1,0 +1,17 @@
+schema_version: 1.0.0
+id: compliance.monitoring.preview-configure-azure-defender-for-sql-a
+title: '(Azure Initiative) [Preview]: Configure Azure Defender for SQL agents on virtual
+  machines'
+description: Configure virtual machines to automatically install the Azure Defender
+  for SQL agents where the Azure Monitor Agent is installed. Security Center collects
+  events from the agents and uses them to provide security alerts and tailored hardening
+  tasks (recommendations). Creates a resource group and Log Analytics workspace in
+  the same region as the machine. This policy only applies to VMs in a few regions.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AzureDefenderForSql
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.compute.virtualmachines.extensions.preview-configure-azure-defender-for-sql-agent-on-virtual-machine
+  mode: shadow

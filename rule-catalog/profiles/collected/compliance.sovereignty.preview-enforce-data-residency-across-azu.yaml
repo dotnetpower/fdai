@@ -1,0 +1,24 @@
+schema_version: 1.0.0
+id: compliance.sovereignty.preview-enforce-data-residency-across-azu
+title: '(Azure Initiative) [Preview]: Enforce Data Residency across Azure Services'
+description: 'Help restrict and audit the Azure Regions that Azure Services can be
+  deployed into. Helping to enforce Level 1 - Data Residency Sovereignty Controls
+  detailed here: https://aka.ms/sovereign/controls'
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://EnforceDataResidency
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.resource.allowed-locations
+  mode: shadow
+- id: azure-builtin.resource-group.allowed-locations-for-resource-groups
+  mode: shadow
+- id: azure-builtin.cosmos-db.azure-cosmos-db-allowed-locations
+  mode: shadow
+- id: azure-builtin.azure.communication.communicationservices.communication-service-resource-should-use-allow-listed-data-location
+  mode: shadow
+- id: azure-builtin.azure.maps.accounts.maps-account-should-not-process-data-globally
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-prevent-cross-tenant-object-replication
+  mode: shadow

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.kubernetes-cluster.preview-kubernetes-cluster-should-implement-accurate-pod-disruption-budgets
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: kubernetes-cluster
+check_logic:
+  kind: expression
+  reference: azure-policy://d9e8f2c1-4c5a-4f5c-8b5a-2abf1e9f7b4d
+remediation:
+  template_ref: remediation/azure-builtin/d9e8f2c1-4c5a-4f5c-8b5a-2abf1e9f7b4d.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d9e8f2c1-4c5a-4f5c-8b5a-2abf1e9f7b4d
+  azure_policy_display_name: '[Preview]: Kubernetes cluster should implement accurate
+    Pod Disruption Budgets'
+  azure_policy_effect_default: Audit
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/DisallowedBadPodDisruptionBudgets.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

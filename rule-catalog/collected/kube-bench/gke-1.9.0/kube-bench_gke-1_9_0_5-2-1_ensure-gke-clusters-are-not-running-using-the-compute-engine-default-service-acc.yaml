@@ -1,0 +1,38 @@
+schema_version: 1.0.0
+id: kube-bench.gke-1.9.0.5-2-1.ensure-gke-clusters-are-not-running-using-the-compute-engine-default-service-acc
+version: 1.0.0
+source: kube_bench
+severity: medium
+category: security
+resource_type: kubernetes-cluster.managed
+check_logic:
+  kind: expression
+  reference: kube-bench://gke-1.9.0/5.2.1
+remediation:
+  template_ref: remediation/kube-bench/gke-1.9.0/5.2.1.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 5.2.1
+  kube_bench_ruleset: gke-1.9.0
+  kube_bench_group_id: '5.2'
+  kube_bench_scored: true
+  kube_bench_audit: "/bin/bash -c \"\n# Check for required variables\nif [[ -z \\\
+    $PROJECT_ID ]] || [[ -z \\$CLUSTER_NAME ]] || [[ -z \\$LOCATION ]]; then\n  echo\
+    \ 'MISSING_REQUIRED_VARIABLES'\n  exit 1\nfi\n\n# Get NODE_POOL if not already\
+    \ set\nif [[ -z \\$NODE_POOL ]]; then\n  NODE_POOL=\\$(gcloud container clusters\
+    \ describe \\$CLUSTER_NAME --location \\$LOCATION --project \\$PROJECT_ID --format='value(nodePools[0].name)'\
+    \ 2>/dev/null)\n  [[ -z \\$NODE_POOL ]] && { echo 'FAILED_NODE_POOL'; exit 1;\
+    \ }\nfi\n\n# Get service account from node pool\nSA=\\$(gcloud container node-pools\
+    \ describe \\$NODE_POOL --cluster \\$CLUSTER_NAME --location \\$LOCATION --project\
+    \ \\$PROJECT_ID --format='value(config.serviceAccount)' 2>/dev/null)\n[[ -z \\\
+    $SA ]] && { echo 'FAILED_SERVICE_ACCOUNT'; exit 1; }\n\n# Check if service account\
+    \ is 'default'\n[[ \\\"\\$SA\\\" == \\\"default\\\" ]] && echo 'DEFAULT_SA_IN_USE'\
+    \ || echo 'DEFAULT_SA_NOT_IN_USE'\n\"\n"
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/gke-1.9.0/managedservices.yaml
+  source_version: gke-1.9.0
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:40Z'

@@ -1,0 +1,19 @@
+schema_version: 1.0.0
+id: compliance.security-center.configure-microsoft-defender-for-data
+title: (Azure Initiative) Configure Microsoft Defender for Databases to be enabled
+description: Configure Microsoft Defender for Databases to protect your Azure SQL
+  Databases, Managed Instances, Open-source relational databases and Cosmos DB.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://MDC_DefenderForDatabases
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.subscription.configure-azure-defender-for-azure-sql-database-to-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.configure-azure-defender-for-sql-servers-on-machines-to-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.configure-azure-defender-for-open-source-relational-databases-to-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.configure-microsoft-defender-for-azure-cosmos-db-to-be-enabled
+  mode: shadow

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.servicebus.namespaces.configure-azure-service-bus-namespaces-to-disable-local-authentication
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.servicebus.namespaces
+check_logic:
+  kind: expression
+  reference: azure-policy://910711a6-8aa2-4f15-ae62-1e5b2ed3ef9e
+remediation:
+  template_ref: remediation/azure-builtin/910711a6-8aa2-4f15-ae62-1e5b2ed3ef9e.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 910711a6-8aa2-4f15-ae62-1e5b2ed3ef9e
+  azure_policy_display_name: Configure Azure Service Bus namespaces to disable local
+    authentication
+  azure_policy_effect_default: Modify
+  azure_policy_category: Service Bus
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Service
+    Bus/DisableLocalAuth_Modify.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

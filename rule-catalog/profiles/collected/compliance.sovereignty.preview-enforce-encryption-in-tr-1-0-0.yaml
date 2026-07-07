@@ -1,0 +1,47 @@
+schema_version: 1.0.0
+id: compliance.sovereignty.preview-enforce-encryption-in-tr-1-0-0
+title: '(Azure Initiative) [Preview]: Enforce Encryption-in-Transit across Azure Services
+  - TLS Version'
+description: Help restrict and audit Azure Services to use latest TLS versions
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://EnforceEncryptionInTransitTLS
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.synapse.workspaces.dedicatedsqlminimaltlssettings.configure-azure-synapse-workspace-dedicated-sql-minimum-tl
+  mode: shadow
+- id: azure-builtin.azure.synapse.workspaces.dedicatedsqlminimaltlssettings.azure-synapse-workspace-sql-server-should-be-running-tls-v
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.configure-app-service-app-slots-to-use-the-latest-tls-version
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.app-service-app-slots-should-use-the-latest-tls-version
+  mode: shadow
+- id: azure-builtin.web.app-service.configure-app-service-apps-to-use-the-latest-tls-version
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-use-the-latest-tls-version
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.configure-function-app-slots-to-use-the-latest-tls-version
+  mode: shadow
+- id: azure-builtin.azure.web.sites.slots.function-app-slots-should-use-the-latest-tls-version
+  mode: shadow
+- id: azure-builtin.web.app-service.configure-function-apps-to-use-the-latest-tls-version
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-use-the-latest-tls-version
+  mode: shadow
+- id: azure-builtin.azure.web.hostingenvironments.app-service-environment-should-have-tls-1-0-and-1-1-disabled
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-have-the-specified-minimum-tls-version
+  mode: shadow
+- id: azure-builtin.azure.aad.domainservices.azure-active-directory-domain-services-managed-domains-should-use-tls-1-2-only-mode
+  mode: shadow
+- id: azure-builtin.sql-server.azure-sql-database-should-be-running-tls-version-1-2-or-newer
+  mode: shadow
+- id: azure-builtin.postgresql-flexible.postgresql-flexible-servers-should-be-running-tls-version-1-2-or-newer
+  mode: shadow
+- id: azure-builtin.azure.cdn.profiles.customdomains.azure-front-door-standard-and-premium-should-be-running-minimum-tls-version-of-1
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-secure-communication-protocols-tls-1-1-or-tls-1-2-on-windows-machines
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-be-configured-to-use-secure-communication-protocols
+  mode: shadow

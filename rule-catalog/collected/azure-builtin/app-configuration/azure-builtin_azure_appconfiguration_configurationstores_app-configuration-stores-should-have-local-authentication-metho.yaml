@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.appconfiguration.configurationstores.app-configuration-stores-should-have-local-authentication-methods-disab
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.appconfiguration.configurationstores
+check_logic:
+  kind: expression
+  reference: azure-policy://b08ab3ca-1062-4db3-8803-eec9cae605d6
+remediation:
+  template_ref: remediation/azure-builtin/b08ab3ca-1062-4db3-8803-eec9cae605d6.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: b08ab3ca-1062-4db3-8803-eec9cae605d6
+  azure_policy_display_name: App Configuration stores should have local authentication
+    methods disabled
+  azure_policy_effect_default: Audit
+  azure_policy_category: App Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Configuration/DisableLocalAuth_Audit.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

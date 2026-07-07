@@ -1,0 +1,47 @@
+schema_version: 1.0.0
+id: compliance.regulatory-compliance.apra-cps-234-2019
+title: (Azure Initiative) APRA CPS 234 2019
+description: Australian Prudential Regulation Authority (APRA) standard for managing
+  information security risks in regulated entities.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://CPS_234_(APRA)_2019
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.subscription.subscriptions-should-have-a-contact-email-address-for-security-issues
+  mode: shadow
+- id: azure-builtin.azure.security.pricings.security-center-standard-pricing-tier-should-be-selected
+  mode: shadow
+- id: azure-builtin.azure.resource.a-vulnerability-assessment-solution-should-be-enabled-on-your-virtual-machines
+  mode: shadow
+- id: azure-builtin.azure.kubernetes.connectedclusters.preview-azure-arc-enabled-kubernetes-clusters-should-have-microsoft-defender-fo
+  mode: shadow
+- id: azure-builtin.sql-server.azure-defender-for-sql-should-be-enabled-for-unprotected-azure-sql-servers
+  mode: shadow
+- id: azure-builtin.azure.dbformysql.flexibleservers.azure-defender-for-sql-should-be-enabled-for-unprotected-mysql-flexible-servers
+  mode: shadow
+- id: azure-builtin.subscription.azure-defender-for-servers-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.azure-defender-for-azure-sql-database-servers-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.azure-defender-for-sql-servers-on-machines-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.microsoft-defender-for-azure-cosmos-db-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.microsoft-defender-for-apis-should-be-enabled
+  mode: shadow
+- id: azure-builtin.azure.synapse.workspaces.microsoft-defender-for-sql-should-be-enabled-for-unprotected-synapse-workspaces
+  mode: shadow
+- id: azure-builtin.subscription.azure-defender-for-key-vault-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.azure-defender-for-open-source-relational-databases-should-be-enabled
+  mode: shadow
+- id: azure-builtin.azure.dbforpostgresql.flexibleservers.azure-defender-for-sql-should-be-enabled-for-unprotected-postgresql-flexible
+  mode: shadow
+- id: azure-builtin.subscription.microsoft-defender-cspm-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.microsoft-defender-for-containers-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.azure-defender-for-resource-manager-should-be-enabled
+  mode: shadow

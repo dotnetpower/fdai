@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.kubernetes-cluster.preview-sets-kubernetes-cluster-containers-secure-computing-mode-profile-type-to-runtimedefault
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: kubernetes-cluster
+check_logic:
+  kind: expression
+  reference: azure-policy://6f87d474-38a9-46c9-bdfe-d7fa3b9836bf
+remediation:
+  template_ref: remediation/azure-builtin/6f87d474-38a9-46c9-bdfe-d7fa3b9836bf.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 6f87d474-38a9-46c9-bdfe-d7fa3b9836bf
+  azure_policy_display_name: '[Preview]: Sets Kubernetes cluster containers'' secure
+    computing mode profile type to RuntimeDefault if not present.'
+  azure_policy_effect_default: Mutate
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/MutateSeccompProfileContainers.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

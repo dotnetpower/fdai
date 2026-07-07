@@ -1,0 +1,47 @@
+schema_version: 1.0.0
+id: compliance.regulatory-compliance.brazilian-general-data-protecti
+title: (Azure Initiative) Brazilian General Data Protection Law (LGPD) 2018
+description: Brazil's comprehensive data protection law, regulating the processing
+  of personal data.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://LGPD_2018
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.subscription.activity-log-should-be-retained-for-at-least-one-year
+  mode: shadow
+- id: azure-builtin.azure.kusto.clusters.azure-data-explorer-encryption-at-rest-should-use-a-customer-managed-key
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.preview-guest-attestation-extension-should-be-installed-on-supported-windows-virtual-machines
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-virtual-machines-should-enable-azure-disk-encryption-or-encryptionathost
+  mode: shadow
+- id: azure-builtin.postgresql-server.postgresql-servers-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.azure.kusto.clusters.disk-encryption-should-be-enabled-on-azure-data-explorer
+  mode: shadow
+- id: azure-builtin.azure.containerinstance.containergroups.azure-container-instance-container-group-should-use-customer-managed-key-f
+  mode: shadow
+- id: azure-builtin.azure.automation.automationaccounts.azure-automation-accounts-should-use-customer-managed-keys-to-encrypt-data-at
+  mode: shadow
+- id: azure-builtin.azure.compute.diskencryptionsets.managed-disks-should-be-double-encrypted-with-both-platform-managed-and-customer
+  mode: shadow
+- id: azure-builtin.azure.streamanalytics.streamingjobs.azure-stream-analytics-jobs-should-use-customer-managed-keys-to-encrypt-data
+  mode: shadow
+- id: azure-builtin.azure.appconfiguration.configurationstores.app-configuration-should-use-a-customer-managed-key
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.sql-managed-instances-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.sql-server.sql-servers-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.compute.vm.linux-virtual-machines-should-enable-azure-disk-encryption-or-encryptionathost
+  mode: shadow
+- id: azure-builtin.azure.storage.storageaccounts.encryptionscopes.storage-account-encryption-scopes-should-use-double-encryption-for
+  mode: shadow
+- id: azure-builtin.azure.healthcareapis.services.azure-api-for-fhir-should-use-a-customer-managed-key-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.azure.storage.storageaccounts.encryptionscopes.storage-account-encryption-scopes-should-use-customer-managed-keys
+  mode: shadow
+- id: azure-builtin.subscription.subscriptions-should-have-a-contact-email-address-for-security-issues
+  mode: shadow

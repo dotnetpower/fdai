@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.compute.virtualmachines.extensions.preview-virtual-machines-guest-attestation-status-should-be-healthy
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.compute.virtualmachines.extensions
+check_logic:
+  kind: expression
+  reference: azure-policy://f6358610-e532-4236-b178-4c65865eb262
+remediation:
+  template_ref: remediation/azure-builtin/f6358610-e532-4236-b178-4c65865eb262.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f6358610-e532-4236-b178-4c65865eb262
+  azure_policy_display_name: '[Preview]: Virtual machines guest attestation status
+    should be healthy'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/ASC_BootIntegrityAttestation_Audit.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

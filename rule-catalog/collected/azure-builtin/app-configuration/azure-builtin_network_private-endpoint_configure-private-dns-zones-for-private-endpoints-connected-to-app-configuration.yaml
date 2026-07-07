@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.network.private-endpoint.configure-private-dns-zones-for-private-endpoints-connected-to-app-configuration
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: network.private-endpoint
+check_logic:
+  kind: expression
+  reference: azure-policy://7a860e27-9ca2-4fc6-822d-c2d248c300df
+remediation:
+  template_ref: remediation/azure-builtin/7a860e27-9ca2-4fc6-822d-c2d248c300df.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 7a860e27-9ca2-4fc6-822d-c2d248c300df
+  azure_policy_display_name: Configure private DNS zones for private endpoints connected
+    to App Configuration
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: App Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Configuration/PrivateLink_DNSZone_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

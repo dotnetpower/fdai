@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.deploy-export-to-log-analytics-workspace-for-microsoft-defender-for-cloud-data
+version: 4.1.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://ffb6f416-7bd2-4488-8828-56585fef2be9
+remediation:
+  template_ref: remediation/azure-builtin/ffb6f416-7bd2-4488-8828-56585fef2be9.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ffb6f416-7bd2-4488-8828-56585fef2be9
+  azure_policy_display_name: Deploy export to Log Analytics workspace for Microsoft
+    Defender for Cloud data
+  azure_policy_effect_default: deployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Security Center/ASC_ExportToLogAnalyticsWorkspace_DINE.json
+  source_version: 4.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

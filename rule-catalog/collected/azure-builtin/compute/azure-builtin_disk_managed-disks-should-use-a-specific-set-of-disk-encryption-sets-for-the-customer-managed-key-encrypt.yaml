@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.disk.managed-disks-should-use-a-specific-set-of-disk-encryption-sets-for-the-customer-managed-key-encrypt
+version: 2.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: disk
+check_logic:
+  kind: expression
+  reference: azure-policy://d461a302-a187-421a-89ac-84acdb4edc04
+remediation:
+  template_ref: remediation/azure-builtin/d461a302-a187-421a-89ac-84acdb4edc04.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d461a302-a187-421a-89ac-84acdb4edc04
+  azure_policy_display_name: Managed disks should use a specific set of disk encryption
+    sets for the customer-managed key encryption
+  azure_policy_effect_default: Audit
+  azure_policy_category: Compute
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Compute/ManagedDiskEncryptionSetsAllowed_Deny.json
+  source_version: 2.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

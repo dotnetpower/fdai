@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.kubernetes-cluster.deprecated-ensure-services-listen-only-on-allowed-ports-in-aks
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: kubernetes-cluster
+check_logic:
+  kind: expression
+  reference: azure-policy://25dee3db-6ce0-4c02-ab5d-245887b24077
+remediation:
+  template_ref: remediation/azure-builtin/25dee3db-6ce0-4c02-ab5d-245887b24077.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 25dee3db-6ce0-4c02-ab5d-245887b24077
+  azure_policy_display_name: '[Deprecated]: Ensure services listen only on allowed
+    ports in AKS'
+  azure_policy_effect_default: EnforceRegoPolicy
+  azure_policy_category: Kubernetes service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Kubernetes
+    service/ServiceAllowedPorts_EnforceRegoPolicy.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

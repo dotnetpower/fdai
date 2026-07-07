@@ -1,0 +1,20 @@
+schema_version: 1.0.0
+id: compliance.monitoring.enable-azure-monitor-for-vms-with-azure-mo
+title: (Azure Initiative) Enable Azure Monitor for VMs with Azure Monitoring Agent(AMA)
+description: Enable Azure Monitor for the virtual machines (VMs) with AMA.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AzureMonitor_VM_AMA_new
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.preview-assign-built-in-user-assigned-managed-identity-to-virtual-machines
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-linux-virtual-machines-to-run-azure-monitor-agent-with-user-assigned-managed-identity-base
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-windows-virtual-machines-to-run-azure-monitor-agent-with-user-assigned-managed-identity-ba
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-linux-machines-to-be-associated-with-a-data-collection-rule-or-a-data-colle
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-windows-machines-to-be-associated-with-a-data-collection-rule-or-a-data-col
+  mode: shadow

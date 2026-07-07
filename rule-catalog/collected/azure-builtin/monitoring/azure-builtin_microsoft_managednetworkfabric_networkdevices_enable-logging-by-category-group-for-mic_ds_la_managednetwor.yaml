@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.managednetworkfabric.networkdevices.enable-logging-by-category-group-for-mic.ds_la_managednetwork
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.managednetworkfabric.networkdevices
+check_logic:
+  kind: expression
+  reference: azure-policy://d7d59290-3ee5-4c1b-b408-c38b21799aea
+remediation:
+  template_ref: remediation/azure-builtin/d7d59290-3ee5-4c1b-b408-c38b21799aea.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d7d59290-3ee5-4c1b-b408-c38b21799aea
+  azure_policy_display_name: Enable logging by category group for microsoft.managednetworkfabric/networkdevices
+    to Log Analytics
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_LA_managednetworkfabric-networkdevices_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

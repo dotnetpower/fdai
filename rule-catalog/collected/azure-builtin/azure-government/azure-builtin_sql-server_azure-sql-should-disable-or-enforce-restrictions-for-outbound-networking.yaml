@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.sql-server.azure-sql-should-disable-or-enforce-restrictions-for-outbound-networking
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: sql-server
+check_logic:
+  kind: expression
+  reference: azure-policy://eae5dab1-5078-4686-a091-fce0e1e13d3b
+remediation:
+  template_ref: remediation/azure-builtin/eae5dab1-5078-4686-a091-fce0e1e13d3b.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: eae5dab1-5078-4686-a091-fce0e1e13d3b
+  azure_policy_display_name: Azure SQL should disable or enforce restrictions for
+    Outbound networking
+  azure_policy_effect_default: Audit
+  azure_policy_category: Mission
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Mission/SqlEnableOutboundNetworkingRestrictions.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

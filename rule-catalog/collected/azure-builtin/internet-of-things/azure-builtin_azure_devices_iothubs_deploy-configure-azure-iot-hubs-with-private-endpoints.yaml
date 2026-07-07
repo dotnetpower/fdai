@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.devices.iothubs.deploy-configure-azure-iot-hubs-with-private-endpoints
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.devices.iothubs
+check_logic:
+  kind: expression
+  reference: azure-policy://bf684997-3909-404e-929c-d4a38ed23b2e
+remediation:
+  template_ref: remediation/azure-builtin/bf684997-3909-404e-929c-d4a38ed23b2e.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: bf684997-3909-404e-929c-d4a38ed23b2e
+  azure_policy_display_name: Deploy - Configure Azure IoT Hubs with private endpoints
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Internet of Things
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Internet
+    of Things/IoTHub_DeployPrivateEndpoint_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

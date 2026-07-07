@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.web.sites.slots.function-app-slots-should-enable-configuration-routing-to-azure-virtual-network
+version: 1.3.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.web.sites.slots
+check_logic:
+  kind: expression
+  reference: azure-policy://f380edf5-de79-4862-bd57-ee407d8bd8b6
+remediation:
+  template_ref: remediation/azure-builtin/f380edf5-de79-4862-bd57-ee407d8bd8b6.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f380edf5-de79-4862-bd57-ee407d8bd8b6
+  azure_policy_display_name: Function app slots should enable configuration routing
+    to Azure Virtual Network
+  azure_policy_effect_default: Audit
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/FunctionApp_Slot_VnetConfigurationRouting_Audit.json
+  source_version: 1.3.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

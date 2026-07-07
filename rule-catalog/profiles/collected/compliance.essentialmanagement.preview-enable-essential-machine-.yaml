@@ -1,0 +1,51 @@
+schema_version: 1.0.0
+id: compliance.essentialmanagement.preview-enable-essential-machine-
+title: '(Azure Initiative) [Preview]: Enable Essential Machine Management'
+description: Policy initiative to enable Essential Machine Management for Azure Virtual
+  Machines and Arc-enabled servers.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://EssentialManagement_Onboarding
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.configure-periodic-checking-for-missing-system-updates-on-azure-virtual-machines
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-periodic-checking-for-missing-system-updates-on-azure-arc-enabled-servers
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-windows-virtual-machines-to-be-associated-with-a-data-collection-rule-for-changetracking-a
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-windows-vms-to-install-ama-for-changetracking-and-inventory-with-user-assigned-managed-ide
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-changetracking-extension-for-windows-virtual-machines
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-linux-virtual-machines-to-be-associated-with-a-data-collection-rule-for-changetracking-and
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-linux-vms-to-install-ama-for-changetracking-and-inventory-with-user-assigned-managed-ident
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-changetracking-extension-for-linux-virtual-machines
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-windows-arc-enabled-machines-to-be-associated-with-a-data-collection-rule-f
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-windows-arc-enabled-machines-to-install-ama-for-changetracking-and-inventor
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-changetracking-extension-for-windows-arc-machines
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-linux-arc-enabled-machines-to-be-associated-with-a-data-collection-rule-for
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-linux-arc-enabled-machines-to-to-install-ama-for-changetracking-and-invento
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-changetracking-extension-for-linux-arc-machines
+  mode: shadow
+- id: azure-builtin.compute.vm.add-system-assigned-managed-identity-to-enable-guest-configuration-assignments-on-virtual-machines-w
+  mode: shadow
+- id: azure-builtin.compute.vm.add-system-assigned-managed-identity-to-enable-guest-configuration-assignments-on-vms-with-a-user-as
+  mode: shadow
+- id: azure-builtin.compute.vm.deploy-the-windows-guest-configuration-extension-to-enable-guest-configuration-assignments-on-window
+  mode: shadow
+- id: azure-builtin.compute.vm.deploy-the-linux-guest-configuration-extension-to-enable-guest-configuration-assignments-on-linux-vm
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-of-the-azure-compute-security-baseline
+  mode: shadow
+- id: azure-builtin.compute.vm.linux-machines-should-meet-requirements-for-the-azure-compute-security-baseline
+  mode: shadow

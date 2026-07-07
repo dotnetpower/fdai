@@ -1,0 +1,19 @@
+schema_version: 1.0.0
+id: compliance.security-center.configure-azure-defender-to-be-enable
+title: (Azure Initiative) Configure Azure Defender to be enabled on SQL Servers and
+  SQL Managed Instances
+description: Enable Azure Defender on your SQL Servers and SQL Managed Instances to
+  detect anomalous activities indicating unusual and potentially harmful attempts
+  to access or exploit databases.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://ASC_AzureDefenderForSql
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.sql-server.configure-azure-defender-to-be-enabled-on-sql-servers
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.configure-azure-defender-to-be-enabled-on-sql-managed-instances
+  mode: shadow
+- id: azure-builtin.azure.synapse.workspaces.configure-microsoft-defender-for-sql-to-be-enabled-on-synapse-workspaces
+  mode: shadow

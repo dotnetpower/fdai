@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.web.sites.config.deprecated-deprecated-audit-enabling-of-diagnostic-logs-in-app-services
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.web.sites.config
+check_logic:
+  kind: expression
+  reference: azure-policy://752c6934-9bcc-4749-b004-655e676ae2ac
+remediation:
+  template_ref: remediation/azure-builtin/752c6934-9bcc-4749-b004-655e676ae2ac.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 752c6934-9bcc-4749-b004-655e676ae2ac
+  azure_policy_display_name: '[Deprecated]: [Deprecated]: Audit enabling of diagnostic
+    logs in App Services'
+  azure_policy_effect_default: Audit
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/AuditLoggingMonitoring_Audit_Deprecated.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

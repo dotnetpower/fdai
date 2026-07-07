@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.hybridcompute.machines.configure-windows-machines-to-be-associated-with-a-data-collection-rule-or-a-data-col
+version: 2.3.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.hybridcompute.machines
+check_logic:
+  kind: expression
+  reference: azure-policy://eab1f514-22e3-42e3-9a1f-e1dc9199355c
+remediation:
+  template_ref: remediation/azure-builtin/eab1f514-22e3-42e3-9a1f-e1dc9199355c.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: eab1f514-22e3-42e3-9a1f-e1dc9199355c
+  azure_policy_display_name: Configure Windows Machines to be associated with a Data
+    Collection Rule or a Data Collection Endpoint
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Monitoring/AzureMonitor_DCRA_Windows_DINE.json
+  source_version: 2.3.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

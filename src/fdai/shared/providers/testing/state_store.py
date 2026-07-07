@@ -42,6 +42,7 @@ class InMemoryStateStore(StateStore):
     def __init__(self) -> None:
         self._state: dict[str, Mapping[str, Any]] = {}
         self._audit: list[dict[str, Any]] = []
+        self._incident_transitions: dict[str, dict[str, Any]] = {}
         self._lock = Lock()
 
     # ---- StateStore Protocol -------------------------------------------------
@@ -62,7 +63,32 @@ class InMemoryStateStore(StateStore):
     async def write_state(self, key: str, value: Mapping[str, Any]) -> None:
         self._state[key] = deepcopy(dict(value))
 
+    async def append_incident_transition(self, entry: Mapping[str, Any]) -> None:
+        """Append one incident transition to the shared audit chain.
+
+        Idempotent on ``entry["idempotency_key"]``: a re-delivery of
+        the same transition is a no-op that does NOT extend the audit
+        chain (matches the Postgres adapter's UNIQUE constraint
+        contract).
+        """
+        key = str(entry.get("idempotency_key") or "")
+        if not key:
+            raise ValueError("incident transition MUST carry a non-empty idempotency_key")
+        with self._lock:
+            if key in self._incident_transitions:
+                return
+            self._incident_transitions[key] = deepcopy(dict(entry))
+        # Route through the standard audit-chain path so hash-chain
+        # verification stays global and postmortem timelines see the
+        # transitions.
+        await self.append_audit_entry(entry)
+
     # ---- Test helpers --------------------------------------------------------
+
+    @property
+    def incident_transitions(self) -> Iterable[Mapping[str, Any]]:
+        """Read-only view of every incident transition seen (deduped by key)."""
+        return tuple(deepcopy(e) for e in self._incident_transitions.values())
 
     @property
     def audit_entries(self) -> Iterable[Mapping[str, Any]]:

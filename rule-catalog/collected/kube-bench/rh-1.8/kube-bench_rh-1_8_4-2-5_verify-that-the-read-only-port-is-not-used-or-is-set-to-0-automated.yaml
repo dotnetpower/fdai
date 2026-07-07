@@ -1,0 +1,30 @@
+schema_version: 1.0.0
+id: kube-bench.rh-1.8.4-2-5.verify-that-the-read-only-port-is-not-used-or-is-set-to-0-automated
+version: 1.0.0
+source: kube_bench
+severity: medium
+category: security
+resource_type: kubernetes-node-pool
+check_logic:
+  kind: expression
+  reference: kube-bench://rh-1.8/4.2.5
+remediation:
+  template_ref: remediation/kube-bench/rh-1.8/4.2.5.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 4.2.5
+  kube_bench_ruleset: rh-1.8
+  kube_bench_group_id: '4.2'
+  kube_bench_scored: true
+  kube_bench_audit: "echo \"Checking 'kubelet-read-only-port' argument in openshift-kube-apiserver\
+    \ config...\"\n\noc -n openshift-kube-apiserver get configmap config -o json \\\
+    \n  | jq -r '.data[\"config.yaml\"]' \\\n  | yq '.apiServerArguments.\"kubelet-read-only-port\"\
+    [0]'\n"
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/rh-1.8/node.yaml
+  source_version: rh-1.8
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:40Z'

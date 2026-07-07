@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm-scale-set.require-automatic-os-image-patching-on-virtual-machine-scale-sets
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: compute.vm-scale-set
+check_logic:
+  kind: expression
+  reference: azure-policy://465f0161-0087-490a-9ad9-ad6217f4f43a
+remediation:
+  template_ref: remediation/azure-builtin/465f0161-0087-490a-9ad9-ad6217f4f43a.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 465f0161-0087-490a-9ad9-ad6217f4f43a
+  azure_policy_display_name: Require automatic OS image patching on Virtual Machine
+    Scale Sets
+  azure_policy_effect_default: deny
+  azure_policy_category: Compute
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Compute/VMSSOSUpgradeHealthCheck_Deny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

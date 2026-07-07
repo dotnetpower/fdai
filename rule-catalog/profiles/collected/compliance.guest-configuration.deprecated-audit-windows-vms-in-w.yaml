@@ -1,0 +1,17 @@
+schema_version: 1.0.0
+id: compliance.guest-configuration.deprecated-audit-windows-vms-in-w
+title: '(Azure Initiative) [Deprecated]: Audit Windows VMs in which the Administrators
+  group does not contain only the specified members'
+description: This initiative deploys the policy requirements and audits Windows virtual
+  machines in which the Administrators group does not contain only the specified members.
+  For more information on Guest Configuration policies, please visit https://aka.ms/gcpol
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AdministratorsGroupMembers
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-if-the-administrators-group-doesn-t-contain-onl
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-if-the-administrators-group-doesn-t-contain-only-spec
+  mode: shadow

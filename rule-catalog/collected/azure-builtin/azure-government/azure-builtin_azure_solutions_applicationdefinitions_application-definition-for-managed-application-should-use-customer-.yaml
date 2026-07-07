@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.solutions.applicationdefinitions.application-definition-for-managed-application-should-use-customer-provided
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.solutions.applicationdefinitions
+check_logic:
+  kind: expression
+  reference: azure-policy://9db7917b-1607-4e7d-a689-bca978dd0633
+remediation:
+  template_ref: remediation/azure-builtin/9db7917b-1607-4e7d-a689-bca978dd0633.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 9db7917b-1607-4e7d-a689-bca978dd0633
+  azure_policy_display_name: Application definition for Managed Application should
+    use customer provided storage account
+  azure_policy_effect_default: Audit
+  azure_policy_category: Managed Application
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Managed Application/ApplicationDefinition_Missing_StorageAccount_Deny.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

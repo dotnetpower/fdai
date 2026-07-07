@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.sql-server.azure-sql-database-should-restrict-or-disable-public-network-access
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: sql-server
+check_logic:
+  kind: expression
+  reference: azure-policy://5cc7aeef-357e-433d-9627-05354b40f8e2
+remediation:
+  template_ref: remediation/azure-builtin/5cc7aeef-357e-433d-9627-05354b40f8e2.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 5cc7aeef-357e-433d-9627-05354b40f8e2
+  azure_policy_display_name: Azure SQL Database should restrict or disable Public
+    network access
+  azure_policy_effect_default: Audit
+  azure_policy_category: Mission
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Mission/SqlDBDisablePublicNetwork.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

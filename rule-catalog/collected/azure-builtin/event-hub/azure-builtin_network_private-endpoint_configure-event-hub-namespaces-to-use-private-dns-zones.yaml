@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.network.private-endpoint.configure-event-hub-namespaces-to-use-private-dns-zones
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: network.private-endpoint
+check_logic:
+  kind: expression
+  reference: azure-policy://ed66d4f5-8220-45dc-ab4a-20d1749c74e6
+remediation:
+  template_ref: remediation/azure-builtin/ed66d4f5-8220-45dc-ab4a-20d1749c74e6.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ed66d4f5-8220-45dc-ab4a-20d1749c74e6
+  azure_policy_display_name: Configure Event Hub namespaces to use private DNS zones
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Event Hub
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Event
+    Hub/PrivateDNSZone_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,84 @@
+schema_version: 1.0.0
+id: compliance.sovereignty.preview-enforce-encryption-at-rest-with-c
+title: '(Azure Initiative) [Preview]: Enforce Encryption-at-Rest with Customer Managed
+  Keys (CMK) with Azure Key Vault Premium Keys across Azure Services'
+description: Help restrict and audit Azure Services to use CMK with Azure Key Vault
+  Premium keys
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://EnforceCMK
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.synapse.workspaces.azure-synapse-workspaces-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.azure.streamanalytics.streamingjobs.azure-stream-analytics-jobs-should-use-customer-managed-keys-to-encrypt-data
+  mode: shadow
+- id: azure-builtin.cosmos-db.azure-cosmos-db-accounts-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.azure.databox.jobs.azure-data-box-jobs-should-use-a-customer-managed-key-to-encrypt-the-device-unlock-password
+  mode: shadow
+- id: azure-builtin.container-registry.container-registries-should-be-encrypted-with-a-customer-managed-key
+  mode: shadow
+- id: azure-builtin.azure.containerinstance.containergroups.azure-container-instance-container-group-should-use-customer-managed-key-f
+  mode: shadow
+- id: azure-builtin.azure.insights.scheduledqueryrules.azure-log-search-alerts-over-log-analytics-workspaces-should-use-customer-manag
+  mode: shadow
+- id: azure-builtin.azure.recoveryservices.vaults.preview-azure-recovery-services-vaults-should-use-customer-managed-keys-for-encrypti
+  mode: shadow
+- id: azure-builtin.log-workspace.saved-queries-in-azure-monitor-should-be-saved-in-customer-storage-account-for-logs-encryption
+  mode: shadow
+- id: azure-builtin.compute.vm.os-and-data-disks-should-be-encrypted-with-a-customer-managed-key
+  mode: shadow
+- id: azure-builtin.azure.operationalinsights.clusters.azure-monitor-logs-clusters-should-be-encrypted-with-customer-managed-key
+  mode: shadow
+- id: azure-builtin.azure.kusto.clusters.azure-data-explorer-encryption-at-rest-should-use-a-customer-managed-key
+  mode: shadow
+- id: azure-builtin.azure.operationalinsights.clusters.azure-monitor-logs-clusters-should-be-created-with-infrastructure-encryption-en
+  mode: shadow
+- id: azure-builtin.azure.automation.automationaccounts.azure-automation-accounts-should-use-customer-managed-keys-to-encrypt-data-at
+  mode: shadow
+- id: azure-builtin.azure.machinelearningservices.workspaces.azure-machine-learning-workspaces-should-be-encrypted-with-a-customer-man
+  mode: shadow
+- id: azure-builtin.kubernetes-cluster.both-operating-systems-and-data-disks-in-azure-kubernetes-service-clusters-should-be-encrypted
+  mode: shadow
+- id: azure-builtin.azure.devices.iothubs.preview-azure-iot-hub-should-use-customer-managed-key-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.azure.devices.provisioningservices.preview-iot-hub-device-provisioning-service-data-should-be-encrypted-using-cust
+  mode: shadow
+- id: azure-builtin.azure.hdinsight.clusters.azure-hdinsight-clusters-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.azure.cognitiveservices.accounts.azure-ai-services-resources-should-encrypt-data-at-rest-with-a-customer-managed-k
+  mode: shadow
+- id: azure-builtin.object-storage.table-storage-should-use-customer-managed-key-for-encryption
+  mode: shadow
+- id: azure-builtin.azure.batch.batchaccounts.azure-batch-account-should-use-customer-managed-keys-to-encrypt-data
+  mode: shadow
+- id: azure-builtin.object-storage.queue-storage-should-use-customer-managed-key-for-encryption
+  mode: shadow
+- id: azure-builtin.azure.datafactory.factories.azure-data-factories-should-be-encrypted-with-a-customer-managed-key
+  mode: shadow
+- id: azure-builtin.azure.appconfiguration.configurationstores.app-configuration-should-use-a-customer-managed-key
+  mode: shadow
+- id: azure-builtin.postgresql-flexible.postgresql-flexible-servers-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.sql-server.sql-servers-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.sql-managed-instances-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.azure.storage.storageaccounts.encryptionscopes.storage-account-encryption-scopes-should-use-customer-managed-keys
+  mode: shadow
+- id: azure-builtin.azure.storagecache.caches.hpc-cache-accounts-should-use-customer-managed-key-for-encryption
+  mode: shadow
+- id: azure-builtin.azure.loadtestservice.loadtests.azure-load-testing-resource-should-use-customer-managed-keys-to-encrypt-data-at-re
+  mode: shadow
+- id: azure-builtin.azure.botservice.botservices.bot-service-should-be-encrypted-with-a-customer-managed-key
+  mode: shadow
+- id: azure-builtin.azure.dataprotection.backupvaults.preview-azure-backup-vaults-should-use-customer-managed-keys-for-encrypting-back
+  mode: shadow
+- id: azure-builtin.azure.cache.redisenterprise.azure-cache-for-redis-enterprise-should-use-customer-managed-keys-for-encrypting-disk
+  mode: shadow
+- id: azure-builtin.azure.deviceupdate.accounts.azure-device-update-accounts-should-use-customer-managed-key-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.azure.logic.integrationserviceenvironments.logic-apps-integration-service-environment-should-be-encrypted-with-cus
+  mode: shadow

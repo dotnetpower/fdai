@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.servicebus.namespaces.authorizationrules.all-authorization-rules-except-rootmanagesharedaccesskey-should-be
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.servicebus.namespaces.authorizationrules
+check_logic:
+  kind: expression
+  reference: azure-policy://a1817ec0-a368-432a-8057-8371e17ac6ee
+remediation:
+  template_ref: remediation/azure-builtin/a1817ec0-a368-432a-8057-8371e17ac6ee.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: a1817ec0-a368-432a-8057-8371e17ac6ee
+  azure_policy_display_name: All authorization rules except RootManageSharedAccessKey
+    should be removed from Service Bus namespace
+  azure_policy_effect_default: Audit
+  azure_policy_category: Service Bus
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Service
+    Bus/AuditNamespaceAccessRules_Audit.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

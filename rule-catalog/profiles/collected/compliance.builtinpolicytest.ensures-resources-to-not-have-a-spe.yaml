@@ -1,0 +1,14 @@
+schema_version: 1.0.0
+id: compliance.builtinpolicytest.ensures-resources-to-not-have-a-spe
+title: (Azure Initiative) Ensures resources to not have a specific tag. This is a
+  versioning test built-in.
+description: Denies the creation of a resource that contains the given tag. Does not
+  apply to resource groups.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://DenyTag
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.resource.requires-resources-to-not-have-a-specific-tag-this-is-a-versioning-test-built-in
+  mode: shadow

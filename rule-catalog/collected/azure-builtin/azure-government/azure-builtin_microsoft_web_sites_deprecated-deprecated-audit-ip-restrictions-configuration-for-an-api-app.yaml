@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.web.sites.deprecated-deprecated-audit-ip-restrictions-configuration-for-an-api-app
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: microsoft.web.sites
+check_logic:
+  kind: expression
+  reference: azure-policy://48893b84-a2c8-4d9a-badf-835d5d1b7d53
+remediation:
+  template_ref: remediation/azure-builtin/48893b84-a2c8-4d9a-badf-835d5d1b7d53.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 48893b84-a2c8-4d9a-badf-835d5d1b7d53
+  azure_policy_display_name: '[Deprecated]: [Deprecated]: Audit IP restrictions configuration
+    for an API App'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Security Center/ASC_ConfigureIPRestrictions_ApiApp_Audit_Deprecated.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

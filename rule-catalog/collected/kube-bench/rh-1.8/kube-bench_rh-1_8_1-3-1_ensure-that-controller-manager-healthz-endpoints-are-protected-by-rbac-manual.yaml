@@ -1,0 +1,59 @@
+schema_version: 1.0.0
+id: kube-bench.rh-1.8.1-3-1.ensure-that-controller-manager-healthz-endpoints-are-protected-by-rbac-manual
+version: 1.0.0
+source: kube_bench
+severity: low
+category: security
+resource_type: kubernetes-cluster.control-plane
+check_logic:
+  kind: expression
+  reference: kube-bench://rh-1.8/1.3.1
+remediation:
+  template_ref: remediation/kube-bench/rh-1.8/1.3.1.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 1.3.1
+  kube_bench_ruleset: rh-1.8
+  kube_bench_group_id: '1.3'
+  kube_bench_scored: false
+  kube_bench_audit: '# Verify configuration for ports, livenessProbe, readinessProbe,
+    healthz
+
+    oc -n openshift-kube-controller-manager get cm kube-controller-manager-pod -o
+    json | jq -r ''.data."pod.yaml"'' | jq ''.spec.containers''
+
+    # Verify endpoints
+
+    oc -n openshift-kube-controller-manager describe endpoints
+
+    # Test to validate RBAC enabled on the controller endpoint; check with non-admin
+    role
+
+    oc project openshift-kube-controller-manage
+
+    POD=$(oc get pods -n openshift-kube-controller-manager -l app=kube-controller-manager
+    -o jsonpath=''{.items[0].metadata.name}'')
+
+    PORT=$(oc get pods -n openshift-kube-controller-manager -l app=kube-controller-manager
+    -o jsonpath=''{.items[0].spec.containers[0].ports[0].hostPort}'')
+
+    # Following should return 403 Forbidden
+
+    oc rsh -n openshift-kube-controller-manager ${POD} curl https://localhost:${PORT}/metrics
+    -k
+
+    # Create a service account to test RBAC
+
+    oc create -n openshift-kube-controller-manager sa permission-test-sa
+
+    # Should return 403 Forbidden
+
+    SA_TOKEN=$(oc sa -n openshift-kube-controller-manager get-t'
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/rh-1.8/master.yaml
+  source_version: rh-1.8
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:40Z'

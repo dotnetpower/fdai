@@ -1,0 +1,30 @@
+schema_version: 1.0.0
+id: compliance.kubernetes.kubernetes-cluster-pod-security-restricted
+title: (Azure Initiative) Kubernetes cluster pod security restricted standards for
+  Linux-based workloads
+description: This initiative includes the policies for the Kubernetes cluster pod
+  security restricted standards. This policy is generally available for Kubernetes
+  Service (AKS), and preview for Azure Arc enabled Kubernetes. For instructions on
+  using this policy, visit https://aka.ms/kubepolicydoc.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://PSPRestrictedStandard
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.resource.kubernetes-cluster-should-not-allow-privileged-containers
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-clusters-should-not-allow-container-privilege-escalation
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pods-should-only-use-approved-host-network-and-port-list
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-not-share-host-namespaces
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-only-use-allowed-capabilities
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pods-should-only-use-allowed-volume-types
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pods-and-containers-should-only-run-with-approved-user-and-group-ids
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-only-use-allowed-seccomp-profiles
+  mode: shadow

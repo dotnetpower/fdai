@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.hybridcompute.machines.linux-arc-enabled-machines-should-have-azure-monitor-agent-installed
+version: 1.2.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.hybridcompute.machines
+check_logic:
+  kind: expression
+  reference: azure-policy://f17d891d-ff20-46f2-bad3-9e0a5403a4d3
+remediation:
+  template_ref: remediation/azure-builtin/f17d891d-ff20-46f2-bad3-9e0a5403a4d3.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f17d891d-ff20-46f2-bad3-9e0a5403a4d3
+  azure_policy_display_name: Linux Arc-enabled machines should have Azure Monitor
+    Agent installed
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Monitoring/AzureMonitor_Agent_Linux_HybridVM_Audit.json
+  source_version: 1.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

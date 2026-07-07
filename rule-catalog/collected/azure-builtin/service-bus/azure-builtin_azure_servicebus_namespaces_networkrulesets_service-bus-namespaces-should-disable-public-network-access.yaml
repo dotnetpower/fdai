@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.servicebus.namespaces.networkrulesets.service-bus-namespaces-should-disable-public-network-access
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.servicebus.namespaces.networkrulesets
+check_logic:
+  kind: expression
+  reference: azure-policy://cbd11fd3-3002-4907-b6c8-579f0e700e13
+remediation:
+  template_ref: remediation/azure-builtin/cbd11fd3-3002-4907-b6c8-579f0e700e13.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: cbd11fd3-3002-4907-b6c8-579f0e700e13
+  azure_policy_display_name: Service Bus Namespaces should disable public network
+    access
+  azure_policy_effect_default: Audit
+  azure_policy_category: Service Bus
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Service
+    Bus/AuditPublicNetworkAccess.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

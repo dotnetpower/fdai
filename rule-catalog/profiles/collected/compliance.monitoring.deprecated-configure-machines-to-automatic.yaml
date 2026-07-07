@@ -1,0 +1,30 @@
+schema_version: 1.0.0
+id: compliance.monitoring.deprecated-configure-machines-to-automatic
+title: '(Azure Initiative) [Deprecated]: Configure machines to automatically install
+  the Azure Monitor and Azure Security agents on virtual machines'
+description: 'This policy initiative is deprecated as part of Microsoft Defender for
+  Cloud updated strategy. As part of this strategy, Azure Monitor agent is no longer
+  required to receive Defender for Servers security features, but is required for
+  Defender for SQL Server on machines. For more information visit: https://aka.ms/MdcAgentStrategy.
+  Configure machines to automatically install the Azure Monitor and Azure Security
+  agents.'
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://Prerequisites
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.preview-configure-system-assigned-managed-identity-to-enable-azure-monitor-assignments-on-vms
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-linux-virtual-machines-to-run-azure-monitor-agent-with-system-assigned-managed-identity-ba
+  mode: shadow
+- id: azure-builtin.compute.vm.configure-windows-virtual-machines-to-run-azure-monitor-agent-using-system-assigned-managed-identity
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-configure-supported-linux-virtual-machines-to-automatically-install-the-azure-security-ag
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-configure-supported-windows-machines-to-automatically-install-the-azure-security-agent
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-configure-virtual-machines-to-create-the-default-microsoft-defender-for-cloud-pipeline-us
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-configure-association-to-link-virtual-machines-to-default-microsoft-defender-for-cloud-da
+  mode: shadow

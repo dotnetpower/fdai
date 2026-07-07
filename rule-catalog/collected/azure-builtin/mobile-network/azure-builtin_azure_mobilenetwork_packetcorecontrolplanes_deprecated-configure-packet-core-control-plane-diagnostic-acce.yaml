@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.mobilenetwork.packetcorecontrolplanes.deprecated-configure-packet-core-control-plane-diagnostic-access-to-us
+version: 1.1.0
+source: azure_policy
+severity: low
+category: security
+resource_type: azure.mobilenetwork.packetcorecontrolplanes
+check_logic:
+  kind: expression
+  reference: azure-policy://7508b186-60e2-4518-bf70-3d7fbaba1f3a
+remediation:
+  template_ref: remediation/azure-builtin/7508b186-60e2-4518-bf70-3d7fbaba1f3a.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 7508b186-60e2-4518-bf70-3d7fbaba1f3a
+  azure_policy_display_name: '[Deprecated]: Configure Packet Core Control Plane diagnostic
+    access to use authentication type Microsoft EntraID'
+  azure_policy_effect_default: Disabled
+  azure_policy_category: Mobile Network
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Mobile
+    Network/ConfigurePacketCoreDiagnosticAccessWithMicrosoftEntraID_Modify.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

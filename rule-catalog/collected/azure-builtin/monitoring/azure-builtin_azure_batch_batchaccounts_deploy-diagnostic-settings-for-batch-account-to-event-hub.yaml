@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.batch.batchaccounts.deploy-diagnostic-settings-for-batch-account-to-event-hub
+version: 2.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.batch.batchaccounts
+check_logic:
+  kind: expression
+  reference: azure-policy://db51110f-0865-4a6e-b274-e2e07a5b2cd7
+remediation:
+  template_ref: remediation/azure-builtin/db51110f-0865-4a6e-b274-e2e07a5b2cd7.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: db51110f-0865-4a6e-b274-e2e07a5b2cd7
+  azure_policy_display_name: Deploy Diagnostic Settings for Batch Account to Event
+    Hub
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/Batch_DeployDiagnosticLog_Deploy_EventHub.json
+  source_version: 2.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

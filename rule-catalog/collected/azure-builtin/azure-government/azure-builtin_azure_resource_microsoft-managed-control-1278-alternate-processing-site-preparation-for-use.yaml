@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1278-alternate-processing-site-preparation-for-use
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://8e5ef485-9e16-4c53-a475-fbb8107eac59
+remediation:
+  template_ref: remediation/azure-builtin/8e5ef485-9e16-4c53-a475-fbb8107eac59.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 8e5ef485-9e16-4c53-a475-fbb8107eac59
+  azure_policy_display_name: Microsoft Managed Control 1278 - Alternate Processing
+    Site | Preparation For Use
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1278.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.require-a-tag-and-its-value-on-resources
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: config_drift
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://1e30110a-5ceb-460c-a204-c1c3969c6d62
+remediation:
+  template_ref: remediation/azure-builtin/1e30110a-5ceb-460c-a204-c1c3969c6d62.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 1e30110a-5ceb-460c-a204-c1c3969c6d62
+  azure_policy_display_name: Require a tag and its value on resources
+  azure_policy_effect_default: deny
+  azure_policy_category: Tags
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Tags/RequireTagAndValue_Deny.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.configure-microsoft-defender-for-endpoint-integration-settings-with-micro.mdc_mde_wdatp_exclud
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://f9e2bd2f-47c7-4059-8265-c5292aa62c8a
+remediation:
+  template_ref: remediation/azure-builtin/f9e2bd2f-47c7-4059-8265-c5292aa62c8a.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f9e2bd2f-47c7-4059-8265-c5292aa62c8a
+  azure_policy_display_name: Configure Microsoft Defender for Endpoint integration
+    settings with Microsoft Defender for Cloud (WDATP_EXCLUDE_LINUX...)
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Security Center/MDC_MDE_WDATP_EXCLUDE_LINUX_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

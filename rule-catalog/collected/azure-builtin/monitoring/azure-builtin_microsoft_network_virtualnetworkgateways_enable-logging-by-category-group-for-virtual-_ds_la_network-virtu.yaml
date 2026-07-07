@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.network.virtualnetworkgateways.enable-logging-by-category-group-for-virtual-.ds_la_network-virtua
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.network.virtualnetworkgateways
+check_logic:
+  kind: expression
+  reference: azure-policy://ed6ae75a-828f-4fea-88fd-dead1145f1dd
+remediation:
+  template_ref: remediation/azure-builtin/ed6ae75a-828f-4fea-88fd-dead1145f1dd.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ed6ae75a-828f-4fea-88fd-dead1145f1dd
+  azure_policy_display_name: Enable logging by category group for Virtual network
+    gateways (microsoft.network/virtualnetworkgateways) to Log Analytics
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_LA_network-virtualnetworkgateways_DINE.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

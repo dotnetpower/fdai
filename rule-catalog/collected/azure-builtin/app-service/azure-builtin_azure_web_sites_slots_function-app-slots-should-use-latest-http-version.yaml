@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.web.sites.slots.function-app-slots-should-use-latest-http-version
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.web.sites.slots
+check_logic:
+  kind: expression
+  reference: azure-policy://fa98f1b1-1f56-4179-9faf-93ad82f3458f
+remediation:
+  template_ref: remediation/azure-builtin/fa98f1b1-1f56-4179-9faf-93ad82f3458f.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: fa98f1b1-1f56-4179-9faf-93ad82f3458f
+  azure_policy_display_name: Function app slots should use latest 'HTTP Version'
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/FunctionApp_Slot_Audit_HTTP_Latest.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.search.searchservices.azure-ai-search-services-should-use-customer-managed-keys-to-encrypt-data-at-rest
+version: 2.1.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.search.searchservices
+check_logic:
+  kind: expression
+  reference: azure-policy://76a56461-9dc0-40f0-82f5-2453283afa2f
+remediation:
+  template_ref: remediation/azure-builtin/76a56461-9dc0-40f0-82f5-2453283afa2f.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 76a56461-9dc0-40f0-82f5-2453283afa2f
+  azure_policy_display_name: Azure AI Search services should use customer-managed
+    keys to encrypt data at rest
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Search
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Search/CMK_Audit.json
+  source_version: 2.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

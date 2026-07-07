@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.azure-monitor-solution-security-and-audit-must-be-deployed
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://3e596b57-105f-48a6-be97-03e9243bad6e
+remediation:
+  template_ref: remediation/azure-builtin/3e596b57-105f-48a6-be97-03e9243bad6e.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 3e596b57-105f-48a6-be97-03e9243bad6e
+  azure_policy_display_name: Azure Monitor solution 'Security and Audit' must be deployed
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/Security_Audit_MustBeDeployed.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

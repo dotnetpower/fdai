@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.netapp.netappaccounts.capacitypools.volumes.azure-netapp-files-volumes-should-not-use-nfsv3-protocol-type
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.netapp.netappaccounts.capacitypools.volumes
+check_logic:
+  kind: expression
+  reference: azure-policy://d558e1a6-296d-4fbb-81a5-ea25822639f6
+remediation:
+  template_ref: remediation/azure-builtin/d558e1a6-296d-4fbb-81a5-ea25822639f6.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d558e1a6-296d-4fbb-81a5-ea25822639f6
+  azure_policy_display_name: Azure NetApp Files Volumes should not use NFSv3 protocol
+    type
+  azure_policy_effect_default: Audit
+  azure_policy_category: Storage
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Storage/ANF_VolumesShouldNotUseNFSv3.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: compliance.changetrackingandinventory.enable-changetrac-1-1-1
+title: (Azure Initiative) Enable ChangeTracking and Inventory for virtual machine
+  scale sets
+description: Enable ChangeTracking and Inventory for virtual machine scale sets. Takes
+  Data Collection Rule ID as parameter and asks for an option to input applicable
+  locations and user-assigned identity for Azure Monitor Agent.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://VMSS
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm-scale-set.preview-assign-built-in-user-assigned-managed-identity-to-virtual-machine-scale-sets
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.configure-windows-vmss-to-install-ama-for-changetracking-and-inventory-with-user-assigned-man
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.configure-linux-vmss-to-install-ama-for-changetracking-and-inventory-with-user-assigned-manag
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.configure-changetracking-extension-for-windows-virtual-machine-scale-sets
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.configure-changetracking-extension-for-linux-virtual-machine-scale-sets
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.configure-windows-vmss-to-be-associated-with-a-data-collection-rule-for-changetracking-and-in
+  mode: shadow
+- id: azure-builtin.compute.vm-scale-set.configure-linux-vmss-to-be-associated-with-a-data-collection-rule-for-changetracking-and-inve
+  mode: shadow

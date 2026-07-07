@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1056-session-termination-user-initiated-logouts-message-displays
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://ac43352f-df83-4694-8738-cfce549fd08d
+remediation:
+  template_ref: remediation/azure-builtin/ac43352f-df83-4694-8738-cfce549fd08d.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ac43352f-df83-4694-8738-cfce549fd08d
+  azure_policy_display_name: Microsoft Managed Control 1056 - Session Termination
+    | User-Initiated Logouts / Message Displays
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1056.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

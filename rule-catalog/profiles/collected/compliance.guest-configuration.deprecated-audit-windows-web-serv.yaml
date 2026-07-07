@@ -1,0 +1,17 @@
+schema_version: 1.0.0
+id: compliance.guest-configuration.deprecated-audit-windows-web-serv
+title: '(Azure Initiative) [Deprecated]: Audit Windows web servers that are not using
+  secure communication protocols'
+description: This initiative deploys the policy requirements and audits Windows web
+  servers that are not using secure communication protocols (TLS 1.1 or TLS 1.2).
+  For more information on Guest Configuration policies, please visit https://aka.ms/gcpol
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://TLS
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-web-servers-that-are-not-using-secure-communication
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-web-servers-that-are-not-using-secure-communication-proto
+  mode: shadow

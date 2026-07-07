@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.kubernetes-cluster-containers-cpu-and-memory-resource-requests-must-be-defined
+version: 1.0.0
+source: azure_policy
+severity: high
+category: security
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://03a4ecdb-0684-4039-be91-2762979e1bc8
+remediation:
+  template_ref: remediation/azure-builtin/03a4ecdb-0684-4039-be91-2762979e1bc8.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 03a4ecdb-0684-4039-be91-2762979e1bc8
+  azure_policy_display_name: Kubernetes cluster containers CPU and memory resource
+    requests must be defined
+  azure_policy_effect_default: Deny
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/ContainerResourceRequests.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

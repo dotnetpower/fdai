@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.hybridcompute.machines.configure-azure-arc-enabled-servers-to-use-an-azure-arc-private-link-scope
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.hybridcompute.machines
+check_logic:
+  kind: expression
+  reference: azure-policy://a3461c8c-6c9d-4e42-a644-40ba8a1abf49
+remediation:
+  template_ref: remediation/azure-builtin/a3461c8c-6c9d-4e42-a644-40ba8a1abf49.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: a3461c8c-6c9d-4e42-a644-40ba8a1abf49
+  azure_policy_display_name: Configure Azure Arc-enabled servers to use an Azure Arc
+    Private Link Scope
+  azure_policy_effect_default: Modify
+  azure_policy_category: Azure Arc
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Arc/Arc_Server_PrivateLinkEnabled_Modify.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

@@ -1,0 +1,18 @@
+schema_version: 1.0.0
+id: compliance.security-center.preview-deploy-microsoft-defender-for
+title: '(Azure Initiative) [Preview]: Deploy Microsoft Defender for Endpoint agent'
+description: Deploy Microsoft Defender for Endpoint agent on applicable images.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://ASC_MicrosoftDefenderForEndpointAgent
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.preview-deploy-microsoft-defender-for-endpoint-agent-on-windows-virtual-machines
+  mode: shadow
+- id: azure-builtin.compute.vm.preview-deploy-microsoft-defender-for-endpoint-agent-on-linux-virtual-machines
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.preview-deploy-microsoft-defender-for-endpoint-agent-on-windows-azure-arc-machines
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.preview-deploy-microsoft-defender-for-endpoint-agent-on-linux-hybrid-machines
+  mode: shadow

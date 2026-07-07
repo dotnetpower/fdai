@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.apimanagement.service.enable-logging-by-category-group-for-api-management-services-microsoft-apimanageme
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.apimanagement.service
+check_logic:
+  kind: expression
+  reference: azure-policy://567c93f7-3661-494f-a30f-0a94d9bfebf8
+remediation:
+  template_ref: remediation/azure-builtin/567c93f7-3661-494f-a30f-0a94d9bfebf8.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 567c93f7-3661-494f-a30f-0a94d9bfebf8
+  azure_policy_display_name: Enable logging by category group for API Management services
+    (microsoft.apimanagement/service) to Log Analytics
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Monitoring/DS_LA_apimanagement-service_DINE.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.kubernetes.connectedclusters.azure-arc-enabled-kubernetes-clusters-should-be-configured-with-an-azure-arc-pr
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.kubernetes.connectedclusters
+check_logic:
+  kind: expression
+  reference: azure-policy://12e7176a-4919-47ef-922b-34eda4c7f0ce
+remediation:
+  template_ref: remediation/azure-builtin/12e7176a-4919-47ef-922b-34eda4c7f0ce.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 12e7176a-4919-47ef-922b-34eda4c7f0ce
+  azure_policy_display_name: Azure Arc-enabled kubernetes clusters should be configured
+    with an Azure Arc Private Link Scope
+  azure_policy_effect_default: Audit
+  azure_policy_category: Azure Arc
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Arc/Arc_KubernetesCluster_PrivateLinkEnabled_Deny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

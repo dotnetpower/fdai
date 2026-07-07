@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.configure-azure-activity-logs-to-stream-to-specified-log-analytics-workspace
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://2465583e-4e78-4c15-b6be-a36cbc7c8b0f
+remediation:
+  template_ref: remediation/azure-builtin/2465583e-4e78-4c15-b6be-a36cbc7c8b0f.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 2465583e-4e78-4c15-b6be-a36cbc7c8b0f
+  azure_policy_display_name: Configure Azure Activity logs to stream to specified
+    Log Analytics workspace
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Monitoring/DataConnectorsAzureActivity_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

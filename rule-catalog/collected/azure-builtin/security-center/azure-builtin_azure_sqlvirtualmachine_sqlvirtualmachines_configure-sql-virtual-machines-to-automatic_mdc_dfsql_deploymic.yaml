@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.sqlvirtualmachine.sqlvirtualmachines.configure-sql-virtual-machines-to-automatic.mdc_dfsql_deploymicr
+version: 1.6.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.sqlvirtualmachine.sqlvirtualmachines
+check_logic:
+  kind: expression
+  reference: azure-policy://ddca0ddc-4e9d-4bbb-92a1-f7c4dd7ef7ce
+remediation:
+  template_ref: remediation/azure-builtin/ddca0ddc-4e9d-4bbb-92a1-f7c4dd7ef7ce.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ddca0ddc-4e9d-4bbb-92a1-f7c4dd7ef7ce
+  azure_policy_display_name: Configure SQL Virtual Machines to automatically install
+    Microsoft Defender for SQL
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/MDC_DfSQL_DeployMicrosoftDefenderForSQLWindowsAgent_VM.json
+  source_version: 1.6.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

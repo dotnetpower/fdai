@@ -1,0 +1,53 @@
+schema_version: 1.0.0
+id: kube-bench.rh-1.0.1-1-21.ensure-that-the-openshift-pki-key-file-permissions-are-set-to-600-manual
+version: 1.0.0
+source: kube_bench
+severity: low
+category: security
+resource_type: kubernetes-cluster.control-plane
+check_logic:
+  kind: expression
+  reference: kube-bench://rh-1.0/1.1.21
+remediation:
+  template_ref: remediation/kube-bench/rh-1.0/1.1.21.md
+remediates: remediate.azure-policy-managed
+parameters:
+  kube_bench_id: 1.1.21
+  kube_bench_ruleset: rh-1.0
+  kube_bench_group_id: '1.1'
+  kube_bench_scored: false
+  kube_bench_audit: '# Get the node name where the pod is running
+
+    NODE_NAME=$(oc get pod "$HOSTNAME" -o=jsonpath=''{.spec.nodeName}'')
+
+
+    # Get the pod name in the openshift-kube-apiserver namespace
+
+    POD_NAME=$(oc get pods -n openshift-kube-apiserver -l app=openshift-kube-apiserver
+    --field-selector spec.nodeName="$NODE_NAME" -o jsonpath=''{.items[0].metadata.name}''
+    2>/dev/null)
+
+
+    if [ -z "$POD_NAME" ]; then
+
+    echo "No matching pods found on the current node."
+
+    else
+
+    # Execute the stat command
+
+    oc exec -n openshift-kube-apiserver "$POD_NAME" -c kube-apiserver -- find /etc/kubernetes/static-pod-certs
+    -type f -wholename ''*/secrets/*.key'' -exec stat -c "$POD_NAME %n permissions=%a"
+    {} \;
+
+    fi
+
+    '
+provenance:
+  source_url: https://github.com/aquasecurity/kube-bench/blob/main/cfg/rh-1.0/master.yaml
+  source_version: rh-1.0
+  resolved_ref: 400645e682e0676bd2c9f0ead96e4d29ee306d13
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: Apache-2.0
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:13:40Z'

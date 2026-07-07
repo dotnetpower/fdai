@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.storage.storageaccounts.privateendpointconnections.storage-account-should-external-private-endpoints-link-in
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.storage.storageaccounts.privateendpointconnections
+check_logic:
+  kind: expression
+  reference: azure-policy://0b3466ff-021a-4090-9abd-570ed3a6018c
+remediation:
+  template_ref: remediation/azure-builtin/0b3466ff-021a-4090-9abd-570ed3a6018c.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 0b3466ff-021a-4090-9abd-570ed3a6018c
+  azure_policy_display_name: Storage Account should external private endpoints link
+    in this tenant
+  azure_policy_effect_default: Audit
+  azure_policy_category: MissionPlatforms
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/MissionPlatforms/StorageRestictExternalPE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

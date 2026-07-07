@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.network.private-endpoint.deploy-configure-iot-central-to-use-private-dns-zones
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: network.private-endpoint
+check_logic:
+  kind: expression
+  reference: azure-policy://d627d7c6-ded5-481a-8f2e-7e16b1e6faf6
+remediation:
+  template_ref: remediation/azure-builtin/d627d7c6-ded5-481a-8f2e-7e16b1e6faf6.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d627d7c6-ded5-481a-8f2e-7e16b1e6faf6
+  azure_policy_display_name: Deploy - Configure IoT Central to use private DNS zones
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Internet of Things
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Internet
+    of Things/IoTCentral_DeployPrivateDnsZoneForPrivateEndpoint_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

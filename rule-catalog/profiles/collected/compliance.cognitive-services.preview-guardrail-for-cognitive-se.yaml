@@ -1,0 +1,16 @@
+schema_version: 1.0.0
+id: compliance.cognitive-services.preview-guardrail-for-cognitive-se
+title: '(Azure Initiative) [Preview]: Guardrail for Cognitive Services Deployments'
+description: Mandate guardrail configuration for model deployments within your organization.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AllowDeploymentControl_Audit
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.cognitiveservices.data.accounts.deployments.preview-cognitive-services-deploymen.allowdeploymentmulti
+  mode: shadow
+- id: azure-builtin.azure.cognitiveservices.data.accounts.deployments.preview-cognitive-services-deployments-should-only-use-allowed-p
+  mode: shadow
+- id: azure-builtin.azure.cognitiveservices.data.accounts.deployments.preview-cognitive-services-deploymen.allowdeploymentcompl
+  mode: shadow

@@ -59,6 +59,7 @@ from fdai.core.risk_gate.evaluator import UnifiedRiskDecision, combine
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.risk_table import RiskTable
 from fdai.core.tiers.t0_deterministic import T0Engine
+from fdai.core.tiers.t1_lightweight.tier import T1Decision, T1Outcome, T1Tier
 from fdai.core.trust_router import RoutingDecision, RoutingTier, TrustRouter
 from fdai.core.verticals.change_safety_detector import (
     ChangeSafetyDecision,
@@ -109,6 +110,21 @@ class ControlLoopOutcome(StrEnum):
     """The unified risk gate denied one or more actions. No execution,
     no PR. Only reachable when a RiskGate is wired in."""
 
+    T1_REUSE_LOGGED = "t1_reuse_logged"
+    """T0 abstained; T1 similarity tier proposed a learned-action
+    reuse. Shadow-only in P1: the reuse is recorded in the audit trail
+    (with the similarity score + neighbour rule) but does NOT execute -
+    the ``requires_reverification=True`` invariant on
+    :class:`T1Decision` still forces a verifier + risk-gate pass
+    before any reuse can drive execution (P2 backlog). Only reachable
+    when ``t1_engine`` is wired in."""
+
+    T1_ABSTAINED = "t1_abstained"
+    """T0 abstained and T1 also abstained (no neighbour, or the best
+    neighbour fell below the similarity / success-rate threshold).
+    Only reachable when ``t1_engine`` is wired in - otherwise the
+    caller sees :attr:`ABSTAINED_T0` and ``t1_decision`` is ``None``."""
+
 
 @dataclass(frozen=True, slots=True)
 class ControlLoopResult:
@@ -138,6 +154,13 @@ class ControlLoopResult:
     detector's classification is surfaced here so a monitor / test can
     assert on it without inspecting the audit log."""
 
+    t1_decision: T1Decision | None = None
+    """When ``t1_engine`` was wired AND T0 abstained, the T1 tier is
+    consulted and its decision (``REUSED`` or ``ABSTAIN``) is surfaced
+    here so tests and observability can assert on the similarity
+    outcome without walking the audit chain. ``None`` means the T1
+    engine was not consulted for this event."""
+
 
 class ControlLoop:
     """One-call orchestrator for the P1 pipeline."""
@@ -158,6 +181,7 @@ class ControlLoop:
         risk_gate: RiskGate | None = None,
         cost_estimator: CostEstimator | None = None,
         direct_api_executor: DirectApiShadowExecutor | None = None,
+        t1_engine: T1Tier | None = None,
     ) -> None:
         self._event_ingest = event_ingest
         self._trust_router = trust_router
@@ -191,6 +215,15 @@ class ControlLoop:
         # as before, so composing without a direct-API adapter is a
         # supported (and default) configuration.
         self._direct_api_executor = direct_api_executor
+        # Optional T1 similarity tier (sre-agent-scope.md § 3.7). When
+        # wired, T0 abstains fall through to T1 for a similarity /
+        # learned-action reuse *log* (shadow-only in P1 - the
+        # ``requires_reverification=True`` invariant on
+        # :class:`T1Decision` forces a verifier + risk-gate pass
+        # before any reuse can drive execution, wired in P2). Absent
+        # keeps the loop backward-compatible: T0 abstain returns
+        # :attr:`ABSTAINED_T0` and ``t1_decision`` is ``None``.
+        self._t1_engine = t1_engine
 
     async def process(self, raw_event: Event | Mapping[str, Any]) -> ControlLoopResult:
         # 1. Ingest + dedupe
@@ -266,6 +299,48 @@ class ControlLoop:
                 ),
                 stage="t0_evaluate",
             )
+
+            # 3a. Optional T1 similarity fallback. When wired, T0
+            # abstains fall through to T1 for a learned-action reuse
+            # *log* (shadow-only in P1; the reuse never executes here
+            # because :attr:`T1Decision.requires_reverification` MUST
+            # gate through the verifier + risk-gate first, which lands
+            # in P2). This preserves the deterministic-first principle
+            # (T0 is authoritative when it matches) while giving T1
+            # observability into which abstains would have been
+            # reusable.
+            t1_decision: T1Decision | None = None
+            if self._t1_engine is not None:
+                t1_decision = await self._t1_engine.evaluate(event=event)
+                await self._write_t1_audit(
+                    event=event,
+                    decision=decision,
+                    t1=t1_decision,
+                )
+                if t1_decision.outcome is T1Outcome.REUSED:
+                    return ControlLoopResult(
+                        outcome=ControlLoopOutcome.T1_REUSE_LOGGED,
+                        tier="t1",
+                        decision="abstain",
+                        resource_type=decision.resource_type,
+                        citing_rule_ids=citing,
+                        reason="t1_reuse_shadow_only_p1",
+                        event_id=str(event.event_id),
+                        change_safety_decision=cs_decision,
+                        t1_decision=t1_decision,
+                    )
+                return ControlLoopResult(
+                    outcome=ControlLoopOutcome.T1_ABSTAINED,
+                    tier="t1",
+                    decision="abstain",
+                    resource_type=decision.resource_type,
+                    citing_rule_ids=citing,
+                    reason=t1_decision.reason or "t1_no_neighbour",
+                    event_id=str(event.event_id),
+                    change_safety_decision=cs_decision,
+                    t1_decision=t1_decision,
+                )
+
             return ControlLoopResult(
                 outcome=ControlLoopOutcome.ABSTAINED_T0,
                 tier="t0",
@@ -416,6 +491,47 @@ class ControlLoop:
                 "reason": reason,
                 "resource_type": decision.resource_type,
                 "candidate_rule_ids": list(decision.candidate_rule_ids),
+                "recorded_at": datetime.now(tz=UTC).isoformat(),
+            }
+        )
+
+    async def _write_t1_audit(
+        self,
+        *,
+        event: Event,
+        decision: RoutingDecision,
+        t1: T1Decision,
+    ) -> None:
+        """Record the T1 similarity outcome as a shadow-only audit row.
+
+        Called after T0 abstains AND ``t1_engine`` is wired. The row
+        makes the T1 verdict + best-match diagnostics visible on the
+        audit chain so an operator can measure "would-have-reused"
+        rate without T1 ever mutating anything.
+        """
+        best = t1.best_match
+        best_summary: dict[str, Any] | None = None
+        if best is not None:
+            best_summary = {
+                "score": best.score,
+                "rule_id": best.action.rule_id,
+                "action_type": best.action.action_type,
+                "success_rate": best.action.success_rate,
+            }
+        await self._audit_store.append_audit_entry(
+            {
+                "event_id": str(event.event_id),
+                "idempotency_key": event.idempotency_key,
+                "actor": "fdai.core.control_loop",
+                "action_kind": "control_loop.t1_evaluate",
+                "mode": Mode.SHADOW.value,
+                "stage": "t1_similarity",
+                "t1_outcome": t1.outcome.value,
+                "t1_threshold": t1.threshold,
+                "t1_reason": t1.reason,
+                "t1_reasons": list(t1.reasons),
+                "t1_best_match": best_summary,
+                "resource_type": decision.resource_type,
                 "recorded_at": datetime.now(tz=UTC).isoformat(),
             }
         )

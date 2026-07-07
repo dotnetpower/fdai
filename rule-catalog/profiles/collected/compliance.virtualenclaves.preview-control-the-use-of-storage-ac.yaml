@@ -1,0 +1,35 @@
+schema_version: 1.0.0
+id: compliance.virtualenclaves.preview-control-the-use-of-storage-ac
+title: '(Azure Initiative) [Preview]: Control the use of Storage Accounts in a Virtual
+  Enclave'
+description: This initiative deploys Azure policies for Storage Accounts ensuring
+  boundary protection of this resource while it operates within the logically separated
+  structure of Azure Virtual Enclaves. https://aka.ms/VirtualEnclaves
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://StorageAccountInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.object-storage.storage-accounts-should-use-customer-managed-key-for-encryption
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-restrict-network-access-through-network-acl-bypass-configuration-only
+  mode: shadow
+- id: azure-builtin.object-storage.configure-storage-accounts-to-restrict-network-access-through-network-acl-bypass-configuration-only
+  mode: shadow
+- id: azure-builtin.object-storage.secure-transfer-to-storage-accounts-should-be-enabled
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-have-the-specified-minimum-tls-version
+  mode: shadow
+- id: azure-builtin.object-storage.configure-your-storage-account-public-access-to-be-disallowed
+  mode: shadow
+- id: azure-builtin.azure.storage.storageaccounts.encryptionscopes.storage-account-encryption-scopes-should-use-customer-managed-keys
+  mode: shadow
+- id: azure-builtin.object-storage.table-storage-should-use-customer-managed-key-for-encryption
+  mode: shadow
+- id: azure-builtin.object-storage.queue-storage-should-use-customer-managed-key-for-encryption
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-use-private-link
+  mode: shadow
+- id: azure-builtin.subscription.microsoft-defender-for-storage-classic-should-be-enabled
+  mode: shadow

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm-scale-set.preview-configure-vmss-created-with-shared-image-gallery-images-to-install-the-guest-attestat
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: compute.vm-scale-set
+check_logic:
+  kind: expression
+  reference: azure-policy://009259b0-12e8-42c9-94e7-7af86aa58d13
+remediation:
+  template_ref: remediation/azure-builtin/009259b0-12e8-42c9-94e7-7af86aa58d13.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 009259b0-12e8-42c9-94e7-7af86aa58d13
+  azure_policy_display_name: '[Preview]: Configure VMSS created with Shared Image
+    Gallery images to install the Guest Attestation extension'
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Security Center/ASC_InstallGAExtOnSigVMSS_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

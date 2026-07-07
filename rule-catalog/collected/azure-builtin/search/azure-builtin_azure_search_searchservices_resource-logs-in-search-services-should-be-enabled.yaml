@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.search.searchservices.resource-logs-in-search-services-should-be-enabled
+version: 5.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.search.searchservices
+check_logic:
+  kind: expression
+  reference: azure-policy://b4330a05-a843-4bc8-bf9a-cacce50c67f4
+remediation:
+  template_ref: remediation/azure-builtin/b4330a05-a843-4bc8-bf9a-cacce50c67f4.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: b4330a05-a843-4bc8-bf9a-cacce50c67f4
+  azure_policy_display_name: Resource logs in Search services should be enabled
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Search
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Search/AuditDiagnosticLog_Audit.json
+  source_version: 5.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

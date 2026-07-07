@@ -1,0 +1,45 @@
+schema_version: "1.0.0"
+id: baseline
+title: FDAI Baseline (Minimum Safe Defaults)
+description: >
+  Minimum-viable posture applicable to any Azure tenant. Every rule
+  ships shadow-only; a fork or the composition-root config promotes
+  individual rules to enforce via its own overlay. Kept small (~10
+  rules) so a new fork can adopt it with zero customization and grow
+  by extending `recommended` or `strict`.
+provenance:
+  authored_by: fdai-upstream
+  based_on:
+    - Azure security baseline (subset)
+    - MCSB (subset)
+  review_cadence_days: 90
+parameters:
+  tag.mandatory: [Environment, Owner, CostCenter]
+rules:
+  - id: object-storage.https-only.required
+    mode: shadow
+    severity_override: high
+  - id: object-storage.min-tls-version
+    mode: shadow
+  - id: object-storage.encryption-at-rest.required
+    mode: shadow
+    severity_override: high
+  - id: object-storage.public-access.deny
+    mode: shadow
+    severity_override: critical
+  - id: sql-database.tde-required
+    mode: shadow
+    severity_override: high
+  - id: sql-database.audit-enabled
+    mode: shadow
+  - id: kubernetes-cluster.rbac-enabled
+    mode: shadow
+    severity_override: high
+  - id: secret-store.public-network-access.disabled
+    mode: shadow
+    severity_override: high
+  - id: secret-store.soft-delete.enabled
+    mode: shadow
+    severity_override: high
+  - id: resource-group.owner-tag.required
+    mode: shadow

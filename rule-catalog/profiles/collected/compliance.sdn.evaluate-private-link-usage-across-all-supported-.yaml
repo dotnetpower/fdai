@@ -1,0 +1,66 @@
+schema_version: 1.0.0
+id: compliance.sdn.evaluate-private-link-usage-across-all-supported-
+title: (Azure Initiative) Evaluate Private Link Usage Across All Supported Azure Resources
+description: Compliant resources have at least one approved private endpoint connection
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://PrivateEndpoint_AuditOnly
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.appconfiguration.configurationstores.app-configuration-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.automation.automationaccounts.private-endpoint-connections-on-automation-accounts-should-be-enabled
+  mode: shadow
+- id: azure-builtin.azure.batch.batchaccounts.private-endpoint-connections-on-batch-accounts-should-be-enabled
+  mode: shadow
+- id: azure-builtin.cache.azure-cache-for-redis-should-use-private-link
+  mode: shadow
+- id: azure-builtin.cosmos-db.cosmosdb-accounts-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.compute.diskaccesses.disk-access-resources-should-use-private-link
+  mode: shadow
+- id: azure-builtin.container-registry.container-registries-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.datafactory.factories.azure-data-factory-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.dbformariadb.servers.deprecated-private-endpoint-should-be-enabled-for-mariadb-servers
+  mode: shadow
+- id: azure-builtin.mysql-server.deprecated-private-endpoint-should-be-enabled-for-mysql-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.private-endpoint-should-be-enabled-for-postgresql-servers
+  mode: shadow
+- id: azure-builtin.azure.devices.provisioningservices.iot-hub-device-provisioning-service-instances-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.devices.iothubs.private-endpoint-should-be-enabled-for-iot-hub
+  mode: shadow
+- id: azure-builtin.azure.eventgrid.domains.azure-event-grid-domains-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.eventgrid.topics.azure-event-grid-topics-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.hdinsight.clusters.azure-hdinsight-should-use-private-link
+  mode: shadow
+- id: azure-builtin.secret-store.azure-key-vaults-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.machinelearningservices.workspaces.azure-machine-learning-workspaces-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.purview.accounts.azure-purview-accounts-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.recoveryservices.vaults.preview-azure-recovery-services-vaults-should-use-private-link-for-backup
+  mode: shadow
+- id: azure-builtin.azure.servicebus.namespaces.azure-service-bus-namespaces-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.signalrservice.signalr.azure-signalr-service-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.signalrservice.webpubsub.azure-web-pubsub-service-should-use-private-link
+  mode: shadow
+- id: azure-builtin.sql-server.private-endpoint-connections-on-azure-sql-database-should-be-enabled
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.storagesync.storagesyncservices.azure-file-sync-should-use-private-link
+  mode: shadow
+- id: azure-builtin.azure.synapse.workspaces.azure-synapse-workspaces-should-use-private-link
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-use-private-link
+  mode: shadow

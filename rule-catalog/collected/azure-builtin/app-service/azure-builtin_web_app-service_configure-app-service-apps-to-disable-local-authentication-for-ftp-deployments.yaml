@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.web.app-service.configure-app-service-apps-to-disable-local-authentication-for-ftp-deployments
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: web.app-service
+check_logic:
+  kind: expression
+  reference: azure-policy://572e342c-c920-4ef5-be2e-1ed3c6a51dc5
+remediation:
+  template_ref: remediation/azure-builtin/572e342c-c920-4ef5-be2e-1ed3c6a51dc5.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 572e342c-c920-4ef5-be2e-1ed3c6a51dc5
+  azure_policy_display_name: Configure App Service apps to disable local authentication
+    for FTP deployments
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: App Service
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Service/FTP_DisableBasicAuth_DINE.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1073-access-control-for-portable-and-mobile-systems
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://ab55cdb0-c7dd-4bd8-ae22-a7cea7594e9c
+remediation:
+  template_ref: remediation/azure-builtin/ab55cdb0-c7dd-4bd8-ae22-a7cea7594e9c.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ab55cdb0-c7dd-4bd8-ae22-a7cea7594e9c
+  azure_policy_display_name: Microsoft Managed Control 1073 - Access Control for Portable
+    And Mobile Systems
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1073.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

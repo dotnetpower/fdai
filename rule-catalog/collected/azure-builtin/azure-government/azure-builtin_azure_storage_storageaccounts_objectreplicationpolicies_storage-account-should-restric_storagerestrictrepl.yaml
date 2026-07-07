@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.storage.storageaccounts.objectreplicationpolicies.storage-account-should-restric.storagerestrictrepli
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.storage.storageaccounts.objectreplicationpolicies
+check_logic:
+  kind: expression
+  reference: azure-policy://ac8b77ab-b2cb-457a-a5a7-db8f1dc6a6bc
+remediation:
+  template_ref: remediation/azure-builtin/ac8b77ab-b2cb-457a-a5a7-db8f1dc6a6bc.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ac8b77ab-b2cb-457a-a5a7-db8f1dc6a6bc
+  azure_policy_display_name: Storage Account should Restrict Source and Destination
+    Targets for Specified Storage Account Object Replication Policies
+  azure_policy_effect_default: Audit
+  azure_policy_category: MissionPlatforms
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/MissionPlatforms/StorageRestrictReplicationTargets.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

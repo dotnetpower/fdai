@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1229-information-system-component-inventory-no-duplicate-accounting-of-co
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://03752212-103c-4ab8-a306-7e813022ca9d
+remediation:
+  template_ref: remediation/azure-builtin/03752212-103c-4ab8-a306-7e813022ca9d.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 03752212-103c-4ab8-a306-7e813022ca9d
+  azure_policy_display_name: Microsoft Managed Control 1229 - Information System Component
+    Inventory | No Duplicate Accounting Of Components
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1229.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

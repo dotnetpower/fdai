@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.hybridcompute.machines.configure-arc-enabled-sql-servers-to-automatically-instal.mdc_dfsql_deploymicr
+version: 1.2.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.hybridcompute.machines
+check_logic:
+  kind: expression
+  reference: azure-policy://65503269-6a54-4553-8a28-0065a8e6d929
+remediation:
+  template_ref: remediation/azure-builtin/65503269-6a54-4553-8a28-0065a8e6d929.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 65503269-6a54-4553-8a28-0065a8e6d929
+  azure_policy_display_name: Configure Arc-enabled SQL Servers to automatically install
+    Microsoft Defender for SQL
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Security
+    Center/MDC_DfSQL_DeployMicrosoftDefenderForSQLWindowsAgent_Arc.json
+  source_version: 1.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

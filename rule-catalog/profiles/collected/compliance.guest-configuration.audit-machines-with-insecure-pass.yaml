@@ -1,0 +1,30 @@
+schema_version: 1.0.0
+id: compliance.guest-configuration.audit-machines-with-insecure-pass
+title: (Azure Initiative) Audit machines with insecure password security settings
+description: This initiative deploys the policy requirements and audits machines with
+  insecure password security settings. For more information on Guest Configuration
+  policies, please visit https://aka.ms/gcpol
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://WindowsPasswordSettingsAINE
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.audit-windows-machines-that-do-not-have-the-maximum-password-age-set-to-specified-number-of-days
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-do-not-have-the-minimum-password-age-set-to-specified-number-of-days
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-do-not-have-the-password-complexity-setting-enabled
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-do-not-store-passwords-using-reversible-encryption
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-allow-re-use-of-the-passwords-after-the-specified-number-of-unique-passw
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-do-not-restrict-the-minimum-password-length-to-specified-number-of-chara
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-linux-machines-that-allow-remote-connections-from-accounts-without-passwords
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-linux-machines-that-do-not-have-the-passwd-file-permissions-set-to-0644
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-linux-machines-that-have-accounts-without-passwords
+  mode: shadow

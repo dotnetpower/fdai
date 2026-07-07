@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.identify-and-mitigate-potential-issues-at-alternate-storage-site
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://13939f8c-4cd5-a6db-9af4-9dfec35e3722
+remediation:
+  template_ref: remediation/azure-builtin/13939f8c-4cd5-a6db-9af4-9dfec35e3722.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 13939f8c-4cd5-a6db-9af4-9dfec35e3722
+  azure_policy_display_name: Identify and mitigate potential issues at alternate storage
+    site
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_C1271.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

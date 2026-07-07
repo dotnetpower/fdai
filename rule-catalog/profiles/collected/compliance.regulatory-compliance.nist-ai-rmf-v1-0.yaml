@@ -1,0 +1,14 @@
+schema_version: 1.0.0
+id: compliance.regulatory-compliance.nist-ai-rmf-v1-0
+title: (Azure Initiative) NIST AI RMF v1.0
+description: NIST AI RMF provides guidance for managing AI risks across sectors. The
+  framework promotes trustworthy, transparent, and responsible AI development and
+  use.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://NIST_AI_RMF_v1.0
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.cognitiveservices.accounts.diagnostic-logs-in-azure-ai-services-resources-should-be-enabled
+  mode: shadow

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.networkcloud.clusters.enable-logging-by-category-group-for-microsoft-networkcloud-clusters-to-storage
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.networkcloud.clusters
+check_logic:
+  kind: expression
+  reference: azure-policy://b9d3f759-4cda-43cf-8f64-5b01aeb1c21a
+remediation:
+  template_ref: remediation/azure-builtin/b9d3f759-4cda-43cf-8f64-5b01aeb1c21a.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: b9d3f759-4cda-43cf-8f64-5b01aeb1c21a
+  azure_policy_display_name: Enable logging by category group for microsoft.networkcloud/clusters
+    to Storage
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_ST_networkcloud-clusters_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

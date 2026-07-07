@@ -77,6 +77,11 @@ fdai/
 │   ├── index.html              # Vite entrypoint
 │   ├── package.json            # deps: preact, @azure/msal-browser
 │   └── vite.config.ts          # build → console/dist/ (git-ignored)
+├── cli/                       # operator-console CLI (Ink) - one view-model, many renderers
+│   ├── src/view-model/         # presentation-neutral briefing contract + block IR + builder
+│   ├── src/renderers/          # ink (terminal) / text / slack (Block Kit) / teams (Adaptive Card)
+│   ├── src/cli.tsx             # entrypoint: build briefing once, render per --surface
+│   └── package.json            # deps: ink, react (run with tsx, no build step)
 ├── ui/                        # (future) static UI kit (Calm Slate theme) - placeholder
 ├── tests/                     # cross-subsystem regression suites + shared fixtures
 ├── docs/roadmap/              # this roadmap and design docs

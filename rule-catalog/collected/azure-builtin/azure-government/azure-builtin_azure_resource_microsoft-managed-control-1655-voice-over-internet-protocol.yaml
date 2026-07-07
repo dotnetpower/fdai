@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1655-voice-over-internet-protocol
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://121eab72-390e-4629-a7e2-6d6184f57c6b
+remediation:
+  template_ref: remediation/azure-builtin/121eab72-390e-4629-a7e2-6d6184f57c6b.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 121eab72-390e-4629-a7e2-6d6184f57c6b
+  azure_policy_display_name: Microsoft Managed Control 1655 - Voice Over Internet
+    Protocol
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1655.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

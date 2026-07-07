@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.sql-managed-instance.configure-azure-defender-to-be-enabled-on-sql-managed-instances
+version: 2.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: sql-managed-instance
+check_logic:
+  kind: expression
+  reference: azure-policy://c5a62eb0-c65a-4220-8a4d-f70dd4ca95dd
+remediation:
+  template_ref: remediation/azure-builtin/c5a62eb0-c65a-4220-8a4d-f70dd4ca95dd.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: c5a62eb0-c65a-4220-8a4d-f70dd4ca95dd
+  azure_policy_display_name: Configure Azure Defender to be enabled on SQL managed
+    instances
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: SQL
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/SQL/TdOnManagedInstances_DINE.json
+  source_version: 2.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

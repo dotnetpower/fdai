@@ -13,70 +13,80 @@ const BRIEFING = {
   env: 'staging',
   operator: 'Alice',
   clock: '09:41 UTC',
-  windowLabel: 'last 24h',
+  windowLabel: 'the past 24 hours',
   events: 1204,
   autoResolved: 1201,
   rollbacks: 0,
   shadowCandidates: 6,
   overridesActive: 2,
+  // "name" is the plain label a person reads; "tier" is the precise internal
+  // term (T0/T1/T2), shown dimmed beside it so experts still get the mapping.
   tiers: [
-    { tier: 'T0', label: 'deterministic', pct: 74, cls: 'teal' },
-    { tier: 'T1', label: 'similarity', pct: 18, cls: 'steel' },
-    { tier: 'T2', label: 'reasoning', pct: 8, cls: 'plum' },
+    { tier: 'T0', name: 'Handled by fixed rules', pct: 74, cls: 'teal' },
+    { tier: 'T1', name: 'Matched a past case', pct: 18, cls: 'steel' },
+    { tier: 'T2', name: 'Needed AI reasoning', pct: 8, cls: 'plum' },
   ],
-  // evt-per-5min buckets across the window (drives the streaming chart)
+  // events-per-5min buckets across the window (drives the streaming chart)
   throughput: [
     120, 140, 135, 160, 210, 260, 240, 300, 520, 610, 700, 900,
     1180, 1240, 980, 760, 540, 430, 360, 300, 280, 240, 200, 170,
   ],
+  // Each item is written plain-first; "tech" / "basisTech" carry the precise
+  // internal term shown dimmed, so nothing is dumbed-down, just made legible.
   hil: [
     {
       cls: 'med', risk: 'MEDIUM', riskCls: 'terra',
-      verb: 'approve', action: 'scale-memory', resource: 'payments-api',
-      change: '512Mi -> 1Gi',
-      why: 'OOMKilled x2 in 1h, correlated to inc_1204',
-      tier: 'T1 similarity 0.91 -> inc_0847 (learned action reused)',
-      safety: 'blast=1 pod - stop=cpu>80% - rollback=pr_revert',
-      path: 'pr_native -> opens PR #inc1204-mem (not applied directly)',
-      gate: 'needs 1 approver, must not be the actor  (you qualify)',
-      simulate: 'whatif.apply(1Gi) -> predicted OK, no new policy violation',
-      audit: 'evt_9f3c -> dec_5521',
-      tags: ['approve'],
+      chip: 'needs your approval', chipCls: 'approve',
+      title: 'Give payments-api more memory',
+      tech: 'scale-memory - payments-api',
+      change: 'Raise the memory limit from 512 MB to 1 GB',
+      why: 'It ran out of memory twice in the last hour (incident #1204).',
+      basis: 'Looks 91% like incident #0847, which we already fixed this way.',
+      basisTech: 'T1 - similarity 0.91',
+      safety: 'Affects 1 pod - auto-stops if CPU goes over 80% - fully reversible.',
+      how: 'Opens a pull request for review. Nothing changes until it is merged.',
+      who: 'Needs 1 approver who is not the requester - that is you.',
+      check: 'Dry run passed - no rules broken.',
+      ref: '#5521',
       irreversible: false,
     },
     {
       cls: 'high', risk: 'HIGH', riskCls: 'dusty',
-      verb: 'approve', action: 'rotate-key', resource: 'kv-prod',
-      change: 'rotate signing key',
-      why: 'key-age > 90d (rule kv-014, MCSB)',
-      tier: 'T0 policy match (deterministic)',
-      safety: 'blast=1 key - stop=consumer-error>1% - rollback=state_forward_only  (irreversible)',
-      path: 'pr_native -> opens PR #kv-rotate',
-      gate: 'breakglass - quorum 2 - not-self',
-      simulate: 'whatif.rotate() -> consumers support hot-reload',
-      audit: 'evt_2210 -> dec_7781',
-      tags: ['breakglass'],
+      chip: 'high-risk - needs two approvers', chipCls: 'breakglass',
+      title: 'Rotate the production signing key',
+      tech: 'rotate-key - kv-prod',
+      change: 'Replace the signing key with a fresh one',
+      why: 'The key is more than 90 days old (security policy kv-014).',
+      basis: 'A fixed security rule flagged it.',
+      basisTech: 'T0 - policy match',
+      safety: 'Affects 1 key - apps reload it automatically - stops if errors go over 1%. Cannot be undone, only rolled forward.',
+      how: 'Opens a pull request for review.',
+      who: 'High-risk, so it needs 2 approvers, none of them the requester.',
+      check: 'Dry run passed - apps support hot reload.',
+      ref: '#7781',
       irreversible: true,
     },
     {
       cls: 'low', risk: 'LOW', riskCls: 'sage',
-      verb: 'review', action: 'promote-rule', resource: 'disk-idle-30d',
-      change: 'shadow -> enforce',
-      why: 'shadow 30d: 41/41 correct, 0 policy-violation escapes',
-      tier: 'T0 deterministic rule',
-      safety: 'blast=cost rule - stop=any escape demotes - rollback=pr_revert',
-      path: 'pr_native -> opens PR #promote-disk-idle',
-      gate: 'needs 1 reviewer',
-      simulate: 'replay 30d shadow set -> unchanged verdicts',
-      audit: 'shadow_disk-idle-30d -> dec_9002',
-      tags: ['read'],
+      chip: 'your review', chipCls: 'read',
+      title: "Turn on the 'idle disk cleanup' rule for real",
+      tech: 'promote-rule - disk-idle-30d',
+      change: 'Move the rule from trial to live',
+      why: 'Trialed for 30 days: 41 of 41 correct, nothing slipped through.',
+      basis: 'A fixed cost rule, proven over the trial.',
+      basisTech: 'T0 - trial to live',
+      safety: 'Only ever proposes cleanups as pull requests - switches back to trial if anything slips.',
+      how: 'Opens a pull request for review.',
+      who: 'Needs 1 reviewer.',
+      check: 'Replayed the 30-day trial - same results.',
+      ref: '#9002',
       irreversible: false,
     },
   ],
   suggestions: [
     'why did payments-api restart?',
-    'cost trend this week',
-    "what's maturing in shadow?",
+    "how's spending trending this week?",
+    'what new rules are being trialed?',
   ],
 };
 
@@ -86,8 +96,9 @@ const statusLeft = document.getElementById('status-left');
 let SPEED = 1;
 let runToken = 0; // cancels an in-flight run on replay
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms / SPEED));
-const RAMP = ' \u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588'; // ' ▁▂▃▄▅▆▇█'
+// Respect reduced-motion: render the briefing instantly instead of streaming.
+const REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const sleep = (ms) => (REDUCED ? Promise.resolve() : new Promise((r) => setTimeout(r, ms / SPEED)));
 
 function esc(s) {
   return String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -129,24 +140,23 @@ async function narrate(text, token, cls = 'narr') {
 
 // --- phases -------------------------------------------------------------------
 async function phaseBoot(token) {
-  el('<span class="banner">    /\\   ___  ___  ___         _   _      _</span>');
-  el('<span class="banner">   /--\\  | |  | . || . | ___ | |_| | ___ | |_</span>');
-  el('<span class="banner">  /    \\ |_|  |___||  _||_-_||  _  ||_ -||  _|   operator-console</span>');
-  el('<span class="banner">                    |_|                       v0.0.1 - staging</span>');
-  await sleep(500);
+  // Clean text header - no emblem or face art, just the wordmark and context.
+  el(`<span class="banner b">fdai</span>  <span class="dim">operator-console</span>  <span class="dim">v0.0.1</span>`);
+  el(`<span class="dim">${BRIEFING.env} \u00b7 read-only \u00b7 ${BRIEFING.clock}</span>`);
+  await sleep(400);
   blank();
 }
 
 async function phaseGreeting(token) {
   await narrate(
-    `Good morning, ${BRIEFING.operator}. Systems nominal. Let me bring you up to speed on the ${BRIEFING.windowLabel}.`,
+    `Good morning, ${BRIEFING.operator}. Everything's running normally. Here's what happened over ${BRIEFING.windowLabel}.`,
     token,
   );
   blank();
 }
 
 async function phaseChart(token) {
-  await narrate('Event throughput:', token);
+  await narrate('How busy things were - events handled every 5 minutes:', token);
   const series = BRIEFING.throughput;
   const max = Math.max(...series);
   const H = 7; // rows
@@ -161,9 +171,7 @@ async function phaseChart(token) {
     pre.innerHTML = renderChart(series.slice(0, shown), series.length, max, H);
     await sleep(48);
   }
-  // sparkline flourish
-  const spark = series.map((v) => RAMP[1 + Math.round((v / max) * (RAMP.length - 2))]).join('');
-  el(`<span class="dim">  spark </span><span class="teal">${spark}</span><span class="dim">   peak ${max} evt/5m at 13:00</span>`);
+  el(`<span class="dim">  busiest around 13:00 UTC - about ${max} events / 5 min at peak</span>`);
   blank();
 }
 
@@ -185,17 +193,22 @@ function renderChart(shownSeries, totalCols, max, H) {
     out += `<span class="dim">${axis}</span><span class="teal">${line}</span>\n`;
   }
   out += '<span class="dim">      \u2514' + '\u2500'.repeat(totalCols) + '</span>\n';
-  out += '<span class="dim">       00        06        12        18</span>';
+  // Place hour labels directly under their columns (bars start at gutter index 7).
+  const labels = Array(totalCols).fill(' ');
+  for (const [i, s] of [[0, '00'], [6, '06'], [12, '12'], [18, '18']]) {
+    if (i + 1 < totalCols) { labels[i] = s[0]; labels[i + 1] = s[1]; }
+  }
+  out += '<span class="dim">       ' + labels.join('') + '   (hour, UTC)</span>';
   return out;
 }
 
 async function phaseTiers(token) {
-  await narrate('Routing held deterministic-first, as designed:', token);
+  await narrate('Most of it was handled by fixed rules - no AI needed:', token);
   const WIDTH = 22;
   const rows = BRIEFING.tiers.map((t) => {
     const node = el(
       `<span class="bars"><span class="bar-row">` +
-      `<span class="bar-label">${t.tier} ${t.label}</span>` +
+      `<span class="bar-label">${t.name} <span class="dim">(${t.tier})</span></span>` +
       `<span class="bar-fill ${t.cls}"></span>` +
       `<span class="bar-track"></span>` +
       `<span class="pct dim"></span>` +
@@ -220,35 +233,37 @@ async function phaseTiers(token) {
   blank();
 
   await narrate(
-    `${BRIEFING.autoResolved} of ${BRIEFING.events} events auto-resolved. ` +
-    `${BRIEFING.rollbacks} rollbacks. ${BRIEFING.shadowCandidates} shadow candidates maturing quietly.`,
+    `It handled ${BRIEFING.autoResolved} of ${BRIEFING.events} on its own. ` +
+    `Nothing had to be undone. ${BRIEFING.shadowCandidates} new rules are being trialed safely - watching only, not acting yet.`,
     token,
   );
   const s = BRIEFING;
+  const dot = `<span class="dim"> \u00b7 </span>`;
   el(
     `<div class="summary">` +
-    `<span class="dim">events </span><span class="b">${s.events}</span>` +
-    `<span class="dim">   auto </span><span class="sage b">${s.autoResolved}</span>` +
-    `<span class="dim">   rollbacks </span><span class="sage b">${s.rollbacks}</span>` +
-    `<span class="dim">   overrides </span><span class="b">${s.overridesActive}</span>` +
-    `<span class="dim">   audit </span><span class="teal">healthy</span>` +
+    `<span class="dim">events </span><span class="b">${s.events}</span>` + dot +
+    `<span class="dim">auto-resolved </span><span class="sage b">${s.autoResolved}</span>` + dot +
+    `<span class="dim">rolled back </span><span class="sage b">${s.rollbacks}</span>` + dot +
+    `<span class="dim">paused rules </span><span class="b">${s.overridesActive}</span>` + dot +
+    `<span class="dim">audit </span><span class="teal">complete</span>` +
     `</div>`,
   );
   statusLeft.innerHTML =
-    `T0 <span style="color:var(--teal)">74%</span>  ` +
-    `T1 <span style="color:var(--steel)">18%</span>  ` +
-    `T2 <span style="color:var(--plum)">8%</span>   ` +
-    `<span>shadow-mode ON</span>`;
+    `<span class="dim">${s.env} \u00b7 ${s.clock} \u00b7 read-only \u00b7 ${s.shadowCandidates} rules in trial</span>`;
   blank();
 }
 
-function tagHtml(tags) {
-  return tags.map((t) => `<span class="tag ${t}">[${t}]</span>`).join('');
+// one aligned "label: value" row inside a card (monospace padding keeps labels tidy)
+function row(label, valueHtml) {
+  return `<div><span class="dim">${label.padEnd(11)}</span>${valueHtml}</div>`;
+}
+function chip(item) {
+  return `<span class="tag ${item.chipCls}">${esc(item.chip)}</span>`;
 }
 
 async function phaseBranchHil(token) {
   await narrate(
-    `Three items, however, I deferred to you - autonomy stops at your risk line.`,
+    `Three things need your decision - they are above the risk level I act on by myself.`,
     token,
   );
   blank();
@@ -256,43 +271,47 @@ async function phaseBranchHil(token) {
   for (const item of BRIEFING.hil) {
     if (token !== runToken) return;
     i++;
-    const irr = item.irreversible ? ' <span class="dusty b">irreversible</span>' : '';
+    const irr = item.irreversible ? '  <span class="dusty b">can\u0027t be undone</span>' : '';
+    const rowsHtml =
+      row('What', esc(item.change)) +
+      row('Why', esc(item.why)) +
+      row('Confidence', esc(item.basis) + ` <span class="dim">(${esc(item.basisTech)})</span>`) +
+      row('Safety', esc(item.safety) + irr) +
+      row('How', esc(item.how)) +
+      row('Approval', esc(item.who)) +
+      row('Checked', `<span class="sage">\u2713</span> ` + esc(item.check));
     el(
       `<div class="card ${item.cls}">` +
       `<div class="hdr">` +
-        `<span><span class="b">${i}/3 - ${item.action}</span> <span class="dim">- ${item.resource}</span></span>` +
-        `<span class="${item.riskCls} b">${item.risk}</span>` +
+        `<span><span class="b">${i}/3 \u00b7 ${esc(item.title)}</span> <span class="dim">(${esc(item.tech)})</span></span>` +
+        `<span class="${item.riskCls} b">${item.risk} risk</span>` +
       `</div>` +
-      `<div><span class="dim">change   </span>${esc(item.change)}   ${tagHtml(item.tags)}</div>` +
-      `<div><span class="dim">why      </span>${esc(item.why)}</div>` +
-      `<div><span class="dim">tier     </span>${esc(item.tier)}</div>` +
-      `<div><span class="dim">safety   </span>${esc(item.safety)}${irr}</div>` +
-      `<div><span class="dim">path     </span>${esc(item.path)}</div>` +
-      `<div><span class="dim">gate     </span>${esc(item.gate)}</div>` +
-      `<div><span class="dim">simulate </span><span class="sage">\u2713</span> ${esc(item.simulate)}</div>` +
+      `<div style="margin:3px 0 7px">${chip(item)}</div>` +
+      rowsHtml +
       `<div class="keys">` +
-        `<span class="key a">a</span>approve \u2192 PR   ` +
-        `<span class="key r">r</span>reject \u2192 no-op+audit   ` +
-        `<span class="key w">w</span>why   ` +
-        `<span class="key n">\u2192</span>next` +
+        `<span class="key a">a</span> approve <span class="dim">(opens a PR)</span>   ` +
+        `<span class="key r">r</span> decline <span class="dim">(logged, no change)</span>   ` +
+        `<span class="key w">w</span> explain` +
       `</div>` +
-      `<div class="dim" style="margin-top:6px">audit  ${esc(item.audit)}</div>` +
+      `<div class="dim" style="margin-top:6px">logged as ${esc(item.ref)}</div>` +
       `</div>`,
     );
     await sleep(650);
   }
   blank();
   const p = el('');
-  p.innerHTML = `<span class="prompt-row"><span class="sig">\u203a</span> <span class="dim">press 1-3 to act, or type to ask the narrator</span> <span class="cursor"></span></span>`;
+  p.innerHTML =
+    `<span class="prompt-row"><span class="sig">\u203a</span> <span class="dim">open a card (1-3), or type a question</span> <span class="cursor"></span></span>` +
+    `<span class="dim">  (keys are illustrative - this is a static design mock)</span>`;
 }
 
 async function phaseBranchCalm(token) {
   await narrate(
-    `Nothing needs your signature right now. Everything in range is handled and reversible.`,
+    `Nothing needs your sign-off right now. Everything is handled, and every change can be undone.`,
     token,
   );
   blank();
-  await narrate("Anything you'd like to look into? For example:", token);
+  await narrate('Anything you want to look into? For example:', token);
   for (const s of BRIEFING.suggestions) {
     el(`<span class="dim">   \u2022 </span><span class="steel">"${esc(s)}"</span>`);
     await sleep(160);
@@ -301,14 +320,14 @@ async function phaseBranchCalm(token) {
   const p = el('');
   p.innerHTML =
     `<span class="prompt-row"><span class="sig">\u203a</span> <span class="cursor"></span></span>` +
-    `<span class="dim">  (read-only by default - I'll ask before anything with a side effect)</span>`;
+    `<span class="dim">  (I only look things up unless you ask me to act - and I'll confirm before anything changes)</span>`;
 }
 
 // --- orchestration ------------------------------------------------------------
 async function run() {
   const token = ++runToken;
   screen.innerHTML = '';
-  statusLeft.textContent = 'T0 -  T1 -  T2 -';
+  statusLeft.textContent = 'reading status...';
   await phaseBoot(token);
   await phaseGreeting(token);
   await phaseChart(token);
@@ -324,7 +343,7 @@ const speedBtn = document.getElementById('speed');
 document.getElementById('replay').addEventListener('click', run);
 modeBtn.addEventListener('click', () => {
   MODE = MODE === 'hil' ? 'calm' : 'hil';
-  modeBtn.textContent = MODE === 'hil' ? 'branch: HIL' : 'branch: calm';
+  modeBtn.textContent = MODE === 'hil' ? 'view: needs me' : 'view: all clear';
   modeBtn.classList.toggle('on', MODE === 'hil');
   run();
 });

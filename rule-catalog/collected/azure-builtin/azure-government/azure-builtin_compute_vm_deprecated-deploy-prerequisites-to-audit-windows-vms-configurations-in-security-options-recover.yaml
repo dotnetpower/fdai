@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-options-recovery-con
+version: 3.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://ddc0a4d5-5e08-43d5-9fd9-b586d8d7116b
+remediation:
+  template_ref: remediation/azure-builtin/ddc0a4d5-5e08-43d5-9fd9-b586d8d7116b.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ddc0a4d5-5e08-43d5-9fd9-b586d8d7116b
+  azure_policy_display_name: '[Deprecated]: Deploy prerequisites to audit Windows
+    VMs configurations in ''Security Options - Recovery console'''
+  azure_policy_effect_default: deployIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/SecurityOptionsRecoveryconsole_DINE.json
+  source_version: 3.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

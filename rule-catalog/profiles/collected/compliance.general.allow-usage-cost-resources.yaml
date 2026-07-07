@@ -1,0 +1,14 @@
+schema_version: 1.0.0
+id: compliance.general.allow-usage-cost-resources
+title: (Azure Initiative) Allow Usage Cost Resources
+description: Allow resources to be deployed except MCPP, M365.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AllowUsageCosts
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.resource.do-not-allow-m365-resources
+  mode: shadow
+- id: azure-builtin.azure.resource.do-not-allow-mcpp-resources
+  mode: shadow

@@ -1,0 +1,32 @@
+schema_version: 1.0.0
+id: compliance.virtualenclaves.preview-control-the-use-of-postgresql
+title: '(Azure Initiative) [Preview]: Control the use of PostgreSql in a Virtual Enclave'
+description: This initiative deploys Azure policies for PostgreSql ensuring boundary
+  protection of this resource while it operates within the logically separated structure
+  of Azure Virtual Enclaves. https://aka.ms/VirtualEnclaves
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://PostgreSqlInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.postgresql-server.enforce-ssl-connection-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.public-network-access-should-be-disabled-for-postgresql-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.log-duration-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.log-checkpoints-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.log-connections-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.connection-throttling-should-be-enabled-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.disconnections-should-be-logged-for-postgresql-database-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.postgresql-servers-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.postgresql-server.infrastructure-encryption-should-be-enabled-for-azure-database-for-postgresql-servers
+  mode: shadow
+- id: azure-builtin.postgresql-server.configure-advanced-threat-protection-to-be-enabled-on-azure-database-for-postgresql-servers
+  mode: shadow

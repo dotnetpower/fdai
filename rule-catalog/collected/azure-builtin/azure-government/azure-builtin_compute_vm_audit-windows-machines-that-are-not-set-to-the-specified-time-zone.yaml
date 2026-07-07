@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.audit-windows-machines-that-are-not-set-to-the-specified-time-zone
+version: 2.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://c633f6a2-7f8b-4d9e-9456-02f0f04f5505
+remediation:
+  template_ref: remediation/azure-builtin/c633f6a2-7f8b-4d9e-9456-02f0f04f5505.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: c633f6a2-7f8b-4d9e-9456-02f0f04f5505
+  azure_policy_display_name: Audit Windows machines that are not set to the specified
+    time zone
+  azure_policy_effect_default: auditIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/WindowsTimeZone_AINE.json
+  source_version: 2.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

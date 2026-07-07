@@ -1,0 +1,39 @@
+schema_version: 1.0.0
+id: compliance.nexus.preview-nexus-compute-cluster-security-baseline
+title: '(Azure Initiative) [Preview]: Nexus Compute Cluster Security Baseline'
+description: This initiative includes policies designed to reflect the security baseline
+  expectations of Nexus Compute Clusters. It ensures that the cluster configurations
+  adhere to specific security controls that are critical for maintaining a secure
+  environment.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://ComputeClusterBaseline
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.resource.kubernetes-cluster-should-not-use-naked-pods
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-services-should-listen-only-on-allowed-ports
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pod-hostpath-volumes-should-only-use-allowed-host-paths
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-only-use-allowed-images
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pods-should-only-use-approved-host-network-and-port-list
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-run-with-a-read-only-root-file-system
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-only-use-allowed-capabilities
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-clusters-should-not-use-the-default-namespace
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-should-not-allow-privileged-containers
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-containers-should-only-use-allowed-pull-policy
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-clusters-should-not-allow-container-privilege-escalation
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-pods-should-only-use-allowed-volume-types
+  mode: shadow
+- id: azure-builtin.azure.resource.kubernetes-cluster-services-should-only-use-allowed-external-ips
+  mode: shadow

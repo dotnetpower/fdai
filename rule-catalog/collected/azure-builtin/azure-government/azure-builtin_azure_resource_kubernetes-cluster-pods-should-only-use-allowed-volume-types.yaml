@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.kubernetes-cluster-pods-should-only-use-allowed-volume-types
+version: 6.2.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://16697877-1118-4fb1-9b65-9898ec2509ec
+remediation:
+  template_ref: remediation/azure-builtin/16697877-1118-4fb1-9b65-9898ec2509ec.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 16697877-1118-4fb1-9b65-9898ec2509ec
+  azure_policy_display_name: Kubernetes cluster pods should only use allowed volume
+    types
+  azure_policy_effect_default: Audit
+  azure_policy_category: Kubernetes
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Kubernetes/AllowedVolumeTypes.json
+  source_version: 6.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

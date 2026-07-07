@@ -902,10 +902,10 @@ def test_cli_verify_flag_reports_not_implemented_parser(
                 "license": "Apache-2.0",
                 "redistribution": "embeddable",
                 "fetch": {"kind": "local", "path": str(source)},
-                # `azure-policy-json` is a declared parser but has no
+                # `checkov-yaml` is a declared parser but has no
                 # built-in adapter yet - swap this to the next-added
                 # parser once implemented.
-                "parser": "azure-policy-json",
+                "parser": "checkov-yaml",
             }
         ),
         encoding="utf-8",
@@ -923,7 +923,7 @@ def test_cli_verify_flag_reports_not_implemented_parser(
     )
     assert exit_code == 2
     captured = capsys.readouterr()
-    assert "azure-policy-json" in captured.err
+    assert "checkov-yaml" in captured.err
     payload = json.loads(captured.out)
     assert "error" in payload["verify"]
 

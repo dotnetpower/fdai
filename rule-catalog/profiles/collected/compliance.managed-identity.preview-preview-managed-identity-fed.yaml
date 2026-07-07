@@ -1,0 +1,20 @@
+schema_version: 1.0.0
+id: compliance.managed-identity.preview-preview-managed-identity-fed
+title: '(Azure Initiative) [Preview]: [Preview]: Managed Identity Federated Credentials
+  should be of approved types from approved federation sources'
+description: Control use of federated credentials for Managed Identities. This initiative
+  incudes policies to block federated identity credentials altogether, to limit use
+  to specific federation provider types, and to limit federation reationships to approved
+  sources.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://FIC_LimitIssuers
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.managedidentity.userassignedidentities.federatedidentitycredentials.preview-prev.fic_limittowellknown
+  mode: shadow
+- id: azure-builtin.azure.managedidentity.userassignedidentities.federatedidentitycredentials.preview-preview-managed-identity-federat
+  mode: shadow
+- id: azure-builtin.azure.managedidentity.userassignedidentities.federatedidentitycredentials.preview-prev.fic_limittogithubiss
+  mode: shadow

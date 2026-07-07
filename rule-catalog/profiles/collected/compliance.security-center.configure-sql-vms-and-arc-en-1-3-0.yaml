@@ -1,0 +1,32 @@
+schema_version: 1.0.0
+id: compliance.security-center.configure-sql-vms-and-arc-en-1-3-0
+title: (Azure Initiative) Configure SQL VMs and Arc-enabled SQL Servers to install
+  Microsoft Defender for SQL and AMA with a LA workspace
+description: Microsoft Defender for SQL collects events from the agents and uses them
+  to provide security alerts and tailored hardening tasks (recommendations). Creates
+  a resource group and a Data Collection Rule and Log Analytics workspace in the same
+  region as the machine.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://MDC_DfSQL_AMA_DefaultWorkspace
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.sqlvirtualmachine.sqlvirtualmachines.create-and-assign-a-built-in-user-assigned-managed-identity
+  mode: shadow
+- id: azure-builtin.azure.sqlvirtualmachine.sqlvirtualmachines.configure-sql-virtual-machines-to-automatically-install-azure-monitor-a
+  mode: shadow
+- id: azure-builtin.azure.sqlvirtualmachine.sqlvirtualmachines.configure-sql-virtual-machines-to-automatic.mdc_dfsql_deploymicr
+  mode: shadow
+- id: azure-builtin.azure.sqlvirtualmachine.sqlvirtualmachines.configure-the-microsoft-defender-for-sql-log-analytics-workspace
+  mode: shadow
+- id: azure-builtin.azure.sqlvirtualmachine.sqlvirtualmachines.configure-sql-virtual-machines-to-automatically-install-microsoft-defen
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-arc-enabled-sql-servers-to-automatically-install-azure-monitor-agent
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-arc-enabled-sql-servers-to-automatically-instal.mdc_dfsql_deploymicr
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-arc-enabled-sql-servers-to-automatically-install-microsoft-defender-for-sql
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-arc-enabled-sql-servers-with-data-collection-rule-association-to-microsoft
+  mode: shadow

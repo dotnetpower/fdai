@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.add-a-tag-to-network-virtual-appliances-nvas-vms-and-vmss-for-mana-support
+version: 1.2.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://e87a87f5-e6dd-4919-be21-abb0a4ea4630
+remediation:
+  template_ref: remediation/azure-builtin/e87a87f5-e6dd-4919-be21-abb0a4ea4630.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: e87a87f5-e6dd-4919-be21-abb0a4ea4630
+  azure_policy_display_name: Add a tag to Network Virtual Appliances (NVAs) VMs and
+    VMSS for MANA support
+  azure_policy_effect_default: Modify
+  azure_policy_category: Compute
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Compute/MANAExistingVMNVASupport_Modify.json
+  source_version: 1.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

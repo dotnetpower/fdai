@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.define-access-authorizations-to-support-separation-of-duties
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://341bc9f1-7489-07d9-4ec6-971573e1546a
+remediation:
+  template_ref: remediation/azure-builtin/341bc9f1-7489-07d9-4ec6-971573e1546a.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 341bc9f1-7489-07d9-4ec6-971573e1546a
+  azure_policy_display_name: Define access authorizations to support separation of
+    duties
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_0116.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

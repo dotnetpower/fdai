@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1193-configuration-change-control-automated-document-notification-prohibi
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://f5fd629f-3075-4cae-ab53-bad65495a4ac
+remediation:
+  template_ref: remediation/azure-builtin/f5fd629f-3075-4cae-ab53-bad65495a4ac.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f5fd629f-3075-4cae-ab53-bad65495a4ac
+  azure_policy_display_name: Microsoft Managed Control 1193 - Configuration Change
+    Control | Automated Document / Notification / Prohibition Of Changes
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1193.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

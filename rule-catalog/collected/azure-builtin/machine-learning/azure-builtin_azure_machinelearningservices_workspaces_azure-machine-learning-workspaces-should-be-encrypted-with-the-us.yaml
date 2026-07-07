@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.machinelearningservices.workspaces.azure-machine-learning-workspaces-should-be-encrypted-with-the-use-of-a-c
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.machinelearningservices.workspaces
+check_logic:
+  kind: expression
+  reference: azure-policy://7f40cee6-e933-4d0f-a782-b96615e0f4a6
+remediation:
+  template_ref: remediation/azure-builtin/7f40cee6-e933-4d0f-a782-b96615e0f4a6.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 7f40cee6-e933-4d0f-a782-b96615e0f4a6
+  azure_policy_display_name: Azure Machine Learning workspaces should be encrypted
+    with the use of a customer-managed key
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Machine Learning
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Machine
+    Learning/Workspace_CMKEnabled_Audit_V2.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

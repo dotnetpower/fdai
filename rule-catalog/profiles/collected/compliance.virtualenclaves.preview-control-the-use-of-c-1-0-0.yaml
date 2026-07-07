@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+id: compliance.virtualenclaves.preview-control-the-use-of-c-1-0-0
+title: '(Azure Initiative) [Preview]: Control the use of Container Registry in a Virtual
+  Enclave'
+description: This initiative deploys Azure policies for Container Registry ensuring
+  boundary protection of this resource while it operates within the logically separated
+  structure of Azure Virtual Enclaves. https://aka.ms/VirtualEnclaves
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://ContainerRegistryInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.container-registry.configure-container-registries-to-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.container-registry.container-registries-should-not-allow-unrestricted-network-access
+  mode: shadow
+- id: azure-builtin.container-registry.container-registries-should-have-anonymous-authentication-disabled
+  mode: shadow
+- id: azure-builtin.container-registry.configure-container-registries-to-disable-anonymous-authentication
+  mode: shadow
+- id: azure-builtin.container-registry.container-registries-should-have-skus-that-support-private-links
+  mode: shadow
+- id: azure-builtin.container-registry.container-registries-should-use-private-link
+  mode: shadow
+- id: azure-builtin.container-registry.public-network-access-should-be-disabled-for-container-registries
+  mode: shadow
+- id: azure-builtin.container-registry.container-registries-should-be-encrypted-with-a-customer-managed-key
+  mode: shadow

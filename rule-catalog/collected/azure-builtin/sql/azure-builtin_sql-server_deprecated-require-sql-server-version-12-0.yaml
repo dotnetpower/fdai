@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+id: azure-builtin.sql-server.deprecated-require-sql-server-version-12-0
+version: 1.0.0
+source: azure_policy
+severity: high
+category: security
+resource_type: sql-server
+check_logic:
+  kind: expression
+  reference: azure-policy://464dbb85-3d5f-4a1d-bb09-95a9b5dd19cf
+remediation:
+  template_ref: remediation/azure-builtin/464dbb85-3d5f-4a1d-bb09-95a9b5dd19cf.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 464dbb85-3d5f-4a1d-bb09-95a9b5dd19cf
+  azure_policy_display_name: '[Deprecated]: Require SQL Server version 12.0'
+  azure_policy_effect_default: Deny
+  azure_policy_category: SQL
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/SQL/SqlVersion12_Deny.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

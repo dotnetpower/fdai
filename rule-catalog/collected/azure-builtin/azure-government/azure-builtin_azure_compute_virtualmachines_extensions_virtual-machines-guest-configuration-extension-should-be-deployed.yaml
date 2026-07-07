@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.compute.virtualmachines.extensions.virtual-machines-guest-configuration-extension-should-be-deployed-with-sy
+version: 1.0.1
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.compute.virtualmachines.extensions
+check_logic:
+  kind: expression
+  reference: azure-policy://d26f7642-7545-4e18-9b75-8c9bbdee3a9a
+remediation:
+  template_ref: remediation/azure-builtin/d26f7642-7545-4e18-9b75-8c9bbdee3a9a.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d26f7642-7545-4e18-9b75-8c9bbdee3a9a
+  azure_policy_display_name: Virtual machines' Guest Configuration extension should
+    be deployed with system-assigned managed identity
+  azure_policy_effect_default: AuditIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Security Center/ASC_GCExtOnVmWithNoSAMI.json
+  source_version: 1.0.1
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

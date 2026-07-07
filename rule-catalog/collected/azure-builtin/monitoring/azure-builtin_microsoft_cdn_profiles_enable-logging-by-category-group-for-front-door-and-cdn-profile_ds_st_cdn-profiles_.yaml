@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.cdn.profiles.enable-logging-by-category-group-for-front-door-and-cdn-profile.ds_st_cdn-profiles_d
+version: 1.1.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.cdn.profiles
+check_logic:
+  kind: expression
+  reference: azure-policy://9f4e810a-899e-4e5e-8174-abfcf15739a3
+remediation:
+  template_ref: remediation/azure-builtin/9f4e810a-899e-4e5e-8174-abfcf15739a3.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 9f4e810a-899e-4e5e-8174-abfcf15739a3
+  azure_policy_display_name: Enable logging by category group for Front Door and CDN
+    profiles (microsoft.cdn/profiles) to Storage
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_ST_cdn-profiles_DINE.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

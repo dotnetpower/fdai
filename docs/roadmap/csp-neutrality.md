@@ -21,14 +21,16 @@ contract per concern**, not through a vendor SDK. The Azure implementation of ea
 is what we build today; a fork or a future phase adds another CSP by registering a new
 implementation of the **same contract**, without editing `core/`.
 
-**Concurrency**: the five provider Protocols are **async by default** (Kafka poll loop,
-Postgres asyncpg, Key Vault HTTP, OIDC token exchange, and inventory-graph queries are all
-I/O-bound). Sync is reserved for CPU / startup-only seams - `SchemaRegistry`,
-`ContractValidator`, `ConfigProvider` - so they do not block the event loop. See
+**Concurrency**: the eight provider Protocols are **async by default** (Kafka poll loop,
+Postgres asyncpg, Key Vault HTTP, OIDC token exchange, inventory-graph queries, and the
+three telemetry-ingestion queries in § 6-8 are all I/O-bound). Sync is reserved for CPU /
+startup-only seams - `SchemaRegistry`, `ContractValidator`, `ConfigProvider` - so they do
+not block the event loop. See
 [project-structure.md § Injectable Seams](project-structure.md#injectable-seams) for the
 canonical seam list.
 
-Five contracts govern the CSP-touching surface:
+Eight contracts govern the CSP-touching surface (five wire-level foundations plus three
+telemetry-ingestion seams added per [sre-agent-scope.md § 3.2](sre-agent-scope.md)):
 
 | # | Contract | Wire / artifact | Azure implementation |
 |---|----------|-----------------|----------------------|
@@ -37,8 +39,11 @@ Five contracts govern the CSP-touching surface:
 | 3 | **Secret** | environment variables (or K8s Secret mount) - never a CSP secret SDK call from the app | Container Apps native secret + Key Vault reference |
 | 4 | **Workload identity** | OIDC token (federated) | User-assigned Managed Identity + workload identity federation |
 | 5 | **Inventory** | resource-graph query surface returning `(Resource, Link[])` batches over an HTTP + OIDC-bearer wire | Azure Resource Graph (ARG) + Activity Log delta |
+| 6 | **Metric ingestion** | `MetricProvider.query(MetricQuery) -> AsyncIterator[MetricPoint]` (CSP-neutral names + labels) | Azure Monitor Logs (KQL) - upstream ships `NoopMetricProvider` |
+| 7 | **Log ingestion** | `LogQueryProvider.query(LogQuery) -> AsyncIterator[LogRecord]` (vendor `expression` + CSP-neutral label filter) | Log Analytics (KQL) - upstream ships `NoopLogQueryProvider` |
+| 8 | **Trace ingestion** | `TraceQueryProvider.query(TraceQuery) -> AsyncIterator[Span]` (`trace_id`, `service`, `operation`, `min_duration`) | Application Insights - upstream ships `NoopTraceQueryProvider` |
 
-Every one of the five MUST NOT leak provider specifics into `core/`. See
+Every one of the eight MUST NOT leak provider specifics into `core/`. See
 [Anti-Patterns](#anti-patterns) for the concrete violations to reject.
 
 ## 1. Event Bus Contract - Kafka Wire Protocol
@@ -242,6 +247,54 @@ single `Inventory` Protocol with two operations returning CSP-neutral records:
 - Trusting a partial delta stream as authoritative; the periodic full-snapshot
   reconciliation is required to catch dropped events.
 
+## 6. Metric Query Contract - CSP-Neutral Sample Iterator
+
+Consumes external metrics (Prometheus, Azure Monitor Logs, CloudWatch, Datadog) via
+`MetricProvider.query(MetricQuery) -> AsyncIterator[MetricPoint]`
+([`shared/providers/metric.py`](../../src/fdai/shared/providers/metric.py)).
+`MetricQuery` is vendor-neutral (`metric_name`, `labels`, `since`, `until`, `aggregation`
+hint); the adapter maps the CSP-neutral name to its vendor namespace and honors the
+hint on a best-effort basis. Upstream ships `NoopMetricProvider` (empty result) +
+`StaticMetricProvider` (test double); Azure adapter lands under `delivery/azure/`.
+
+**Design rules:**
+
+- Async by contract (an external metric query is I/O-bound and would otherwise block
+  the event loop, matching § 1 / § 3 / § 4 / § 5).
+- Empty result IS a valid answer (no samples in the window ≠ error).
+- The caller MUST NOT auto-remediate on a partial result; abstain and route to HIL
+  per [architecture.instructions.md § Safety Invariants](../../.github/instructions/architecture.instructions.md#safety-invariants).
+
+## 7. Log Query Contract - Structured Log Records
+
+Consumes structured logs (Log Analytics KQL, Loki LogQL, Elasticsearch, CloudWatch
+Logs) via `LogQueryProvider.query(LogQuery) -> AsyncIterator[LogRecord]`
+([`shared/providers/log_query.py`](../../src/fdai/shared/providers/log_query.py)).
+The `expression` field carries the vendor-specific query string; `labels` carry the
+CSP-neutral pre-filter the adapter maps to its label surface. Kept separate so a caller
+can compose a CSP-neutral filter with a vendor-specific tail without hard-coding the
+tail into `core/`.
+
+## 8. Trace Query Contract - Distributed-Trace Spans
+
+Consumes spans (App Insights, Tempo, Jaeger, Honeycomb) via
+`TraceQueryProvider.query(TraceQuery) -> AsyncIterator[Span]`
+([`shared/providers/trace_query.py`](../../src/fdai/shared/providers/trace_query.py)).
+`Span` carries `trace_id`, `span_id`, `parent_span_id`, `service`, `operation`, `start`,
+`duration`, `status`, and CSP-neutral `labels` so RCA can walk a request across services
+without knowing which backend recorded it.
+
+**Design rules for § 6 - § 8** (shared):
+
+- The three telemetry-ingestion Protocols exist so anomaly detection, SLO burn-rate
+  evaluation, and RCA can ground on real telemetry rather than only on rule / policy
+  citations. Their design contract lives in
+  [sre-agent-scope.md § 3.2](sre-agent-scope.md).
+- Upstream defaults are no-op providers so downstream consumers can be authored
+  against a stable interface before any concrete adapter is wired.
+- Vendor SDK imports stay confined to `delivery/<vendor>/`; `core/` imports only the
+  Protocol - enforced by [`scripts/check-core-imports.sh`](../../scripts/check-core-imports.sh).
+
 ## Azure-Phase Realization (Summary)
 
 Today's implementation slots into the four contracts as follows. Every named service is a
@@ -264,6 +317,7 @@ Kafka topic) and never as a runtime dependency of `core/`.
 ## Approved Alternative Azure Implementations
 
 The five wire-level contracts already keep the core CSP-portable. This table lists the
+**Azure-internal** alternates each contract may swap to, without touching `core/`. Swapping
 **Azure-internal** alternates each contract may swap to, without touching `core/`. Swapping
 happens at the **infra module boundary** - a fork picks a different sub-module under
 `infra/modules/<seam>/` (or overrides the DI binding at the composition root when the

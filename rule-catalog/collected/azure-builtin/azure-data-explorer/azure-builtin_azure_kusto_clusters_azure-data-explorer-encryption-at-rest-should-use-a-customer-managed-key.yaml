@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.kusto.clusters.azure-data-explorer-encryption-at-rest-should-use-a-customer-managed-key
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.kusto.clusters
+check_logic:
+  kind: expression
+  reference: azure-policy://81e74cea-30fd-40d5-802f-d72103c2aaaa
+remediation:
+  template_ref: remediation/azure-builtin/81e74cea-30fd-40d5-802f-d72103c2aaaa.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 81e74cea-30fd-40d5-802f-d72103c2aaaa
+  azure_policy_display_name: Azure Data Explorer encryption at rest should use a customer-managed
+    key
+  azure_policy_effect_default: Audit
+  azure_policy_category: Azure Data Explorer
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Data Explorer/ADX_CMK.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

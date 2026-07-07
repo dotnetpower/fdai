@@ -1,0 +1,28 @@
+{
+  "name": "fdai-operator-console-cli",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "description": "FDAI operator-console CLI (Ink). One presentation-neutral briefing view-model, many renderers (CLI / Slack / Teams / text). See app-shape.instructions.md - Operator console.",
+  "scripts": {
+    "start": "tsx src/cli.tsx",
+    "cli": "tsx src/cli.tsx --surface=cli",
+    "api": "tsx src/cli.tsx --surface=cli --source=api",
+    "slack": "tsx src/cli.tsx --surface=slack",
+    "teams": "tsx src/cli.tsx --surface=teams",
+    "text": "tsx src/cli.tsx --surface=text",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ink": "^7.1.0",
+    "react": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.0",
+    "vitest": "^2.1.9"
+  }
+}

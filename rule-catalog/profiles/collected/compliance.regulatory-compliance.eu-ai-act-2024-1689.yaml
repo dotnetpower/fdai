@@ -1,0 +1,24 @@
+schema_version: 1.0.0
+id: compliance.regulatory-compliance.eu-ai-act-2024-1689
+title: (Azure Initiative) EU AI Act 2024 1689
+description: EU AI Act defines obligations for AI systems based on their risk to safety
+  and fundamental rights. The regulation promotes transparency, oversight, and risk-based
+  AI controls.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://EU_AI_Act_2024_1689
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.cognitiveservices.accounts.diagnostic-logs-in-azure-ai-services-resources-should-be-enabled
+  mode: shadow
+- id: azure-builtin.subscription.microsoft-defender-for-apis-should-be-enabled
+  mode: shadow
+- id: azure-builtin.azure.apimanagement.service.apis.api-management-apis-should-use-only-encrypted-protocols
+  mode: shadow
+- id: azure-builtin.azure.cognitiveservices.accounts.azure-ai-services-resources-should-use-azure-private-link
+  mode: shadow
+- id: azure-builtin.azure.search.searchservices.azure-ai-search-service-should-use-a-sku-that-supports-private-link
+  mode: shadow
+- id: azure-builtin.azure.search.searchservices.azure-ai-search-services-should-disable-public-network-access
+  mode: shadow

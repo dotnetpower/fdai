@@ -1,0 +1,65 @@
+schema_version: 1.0.0
+id: compliance.mission.control-the-use-of-azure-sql-in-miss-1-0-0
+title: (Azure Initiative) Control the use of Azure SQL in Mission Platforms
+description: This policy set applies exclusively to Mission Platform products and
+  services; usage outside of these scopes is not supported. It deploys coordinated
+  Azure SQL controls to enforce private networking, outbound restrictions, and customer-managed
+  encryption for mission workloads (see https://learn.microsoft.com/azure/azure-sql/database/security-overview).
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://SqlDBAndServerInitiative
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.sql-managed-instance.sql-managed-instances-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.sql-server.sql-servers-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.sql-managed-instance-should-have-the-minimal-tls-version-of-1-2
+  mode: shadow
+- id: azure-builtin.sql-server.azure-sql-database-should-be-running-tls-version-1-2-or-newer
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.azure-sql-managed-instances-should-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.sql-server.public-network-access-on-azure-sql-database-should-be-disabled
+  mode: shadow
+- id: azure-builtin.sql-server.private-endpoint-connections-on-azure-sql-database-should-be-enabled
+  mode: shadow
+- id: azure-builtin.sql-server.configure-azure-sql-server-to-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.sql-database.deploy-sql-db-transparent-data-encryption
+  mode: shadow
+- id: azure-builtin.sql-server.sql-server-should-use-a-virtual-network-service-endpoint
+  mode: shadow
+- id: azure-builtin.sql-server.an-azure-active-directory-administrator-should-be-provisioned-for-sql-servers
+  mode: shadow
+- id: azure-builtin.sql-server.azure-sql-logical-servers-should-have-microsoft-entra-only-authentication-enabled-during-creation
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.azure-sql-managed-instances-should-have-microsoft-entra-only-authentication-enabled-during-cr
+  mode: shadow
+- id: azure-builtin.sql-server.auditing-on-sql-server-should-be-enabled
+  mode: shadow
+- id: azure-builtin.sql-server.azure-defender-for-sql-should-be-enabled-for-unprotected-azure-sql-servers
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.azure-defender-for-sql-should-be-enabled-for-unprotected-sql-managed-instances
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.configure-azure-defender-to-be-enabled-on-sql-managed-instances
+  mode: shadow
+- id: azure-builtin.sql-server.configure-azure-defender-to-be-enabled-on-sql-servers
+  mode: shadow
+- id: azure-builtin.azure.resource.sql-databases-should-have-vulnerability-findings-resolved
+  mode: shadow
+- id: azure-builtin.sql-server.sql-servers-with-auditing-to-storage-account-destination-should-be-configured-with-90-days-retention
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.vulnerability-assessment-should-be-enabled-on-sql-managed-instance
+  mode: shadow
+- id: azure-builtin.sql-server.vulnerability-assessment-should-be-enabled-on-your-sql-servers
+  mode: shadow
+- id: azure-builtin.sql-server.azure-sql-database-should-restrict-or-disable-public-network-access
+  mode: shadow
+- id: azure-builtin.sql-server.azure-sql-should-disable-or-enforce-restrictions-for-outbound-networking
+  mode: shadow
+- id: azure-builtin.sql-server.mission-sql-servers-should-use-customer-managed-keys-to-encrypt-data-at-rest
+  mode: shadow
+- id: azure-builtin.azure.sql.servers.privateendpointconnections.azure-sql-servers-in-this-tenant-should-deny-private-endpoints-in-ext
+  mode: shadow

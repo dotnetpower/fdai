@@ -1,0 +1,49 @@
+schema_version: 1.0.0
+id: compliance.guest-configuration.deprecated-audit-vms-wit-1-1-1
+title: '(Azure Initiative) [Deprecated]: Audit VMs with insecure password security
+  settings'
+description: This initiative deploys the policy requirements and audits virtual machines
+  with insecure password security settings. For more information on Guest Configuration
+  policies, please visit https://aka.ms/gcpol
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://WindowsPasswordSettings
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-that-do-not-have-a-maximum-password-age-of-70-d
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-that-do-not-have-a-minimum-password-age-of-1-da
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-that-do-not-have-the-password-complexity-settin
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-that-do-not-store-passwords-using-reversible-en
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-that-allow-re-use-of-the-previous-24-passwords
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-that-do-not-restrict-the-minimum-password-lengt
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-linux-vms-that-allow-remote-connections-from-accounts-witho
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-linux-vms-that-do-not-have-the-passwd-file-permissions-set
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-linux-vms-that-have-accounts-without-passwords
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-that-do-not-have-a-maximum-password-age-of-70-days
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-that-do-not-have-a-minimum-password-age-of-1-day
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-that-do-not-have-the-password-complexity-setting-enab
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-that-do-not-store-passwords-using-reversible-encrypti
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-that-allow-re-use-of-the-previous-24-passwords
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-windows-vms-that-do-not-restrict-the-minimum-password-length-to-1
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-linux-vms-that-allow-remote-connections-from-accounts-without-pas
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-linux-vms-that-do-not-have-the-passwd-file-permissions-set-to-064
+  mode: shadow
+- id: azure-builtin.compute.vm.deprecated-show-audit-results-from-linux-vms-that-have-accounts-without-passwords
+  mode: shadow

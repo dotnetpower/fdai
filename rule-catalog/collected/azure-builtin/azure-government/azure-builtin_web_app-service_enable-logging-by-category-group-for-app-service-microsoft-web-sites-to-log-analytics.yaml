@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.web.app-service.enable-logging-by-category-group-for-app-service-microsoft-web-sites-to-log-analytics
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: web.app-service
+check_logic:
+  kind: expression
+  reference: azure-policy://c0d8e23a-47be-4032-961f-8b0ff3957061
+remediation:
+  template_ref: remediation/azure-builtin/c0d8e23a-47be-4032-961f-8b0ff3957061.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: c0d8e23a-47be-4032-961f-8b0ff3957061
+  azure_policy_display_name: Enable logging by category group for App Service (microsoft.web/sites)
+    to Log Analytics
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Monitoring/DiagSettings_logAnalytics_app-service_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

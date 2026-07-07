@@ -1,0 +1,23 @@
+schema_version: 1.0.0
+id: compliance.monitoring.deprecated-enable-azure-monitor-for-hybrid
+title: '(Azure Initiative) [Deprecated]: Enable Azure Monitor for Hybrid VMs with
+  AMA'
+description: Enable Azure Monitor for the hybrid virtual machines with AMA. Takes
+  Log Analytics workspace as parameter and asks for an option to enable Processes
+  and Dependencies.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://AzureMonitor_HybridVM_AMA
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.azure.hybridcompute.machines.configure-windows-arc-enabled-machines-to-run-azure-monitor-agent
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.configure-linux-arc-enabled-machines-to-run-azure-monitor-agent
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.deprecated-configure-dependency-agent-on-azure-arc-enabled-windows-servers-with-azure
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.deprecated-configure-dependency-agent-on-azure-arc-enabled-linux-servers-with-azure-m
+  mode: shadow
+- id: azure-builtin.azure.hybridcompute.machines.deprecated-deploy-a-vminsights-data-collection-rule-and-data-collection-rule-associat
+  mode: shadow

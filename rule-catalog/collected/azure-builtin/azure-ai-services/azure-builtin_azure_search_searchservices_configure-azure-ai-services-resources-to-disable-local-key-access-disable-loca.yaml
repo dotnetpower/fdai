@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.search.searchservices.configure-azure-ai-services-resources-to-disable-local-key-access-disable-local-authen
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.search.searchservices
+check_logic:
+  kind: expression
+  reference: azure-policy://d45520cb-31ca-44ba-8da2-fcf914608544
+remediation:
+  template_ref: remediation/azure-builtin/d45520cb-31ca-44ba-8da2-fcf914608544.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: d45520cb-31ca-44ba-8da2-fcf914608544
+  azure_policy_display_name: Configure Azure AI Services resources  to disable local
+    key access (disable local authentication)
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Azure Ai Services
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Ai Services/DisableLocalAuth_Search_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

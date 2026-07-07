@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.datafactory.data.factories.outboundtraffic.deprecated-azure-data-factory-pipelines-should-only-communicate-w
+version: 2.2.0
+source: azure_policy
+severity: low
+category: security
+resource_type: azure.datafactory.data.factories.outboundtraffic
+check_logic:
+  kind: expression
+  reference: azure-policy://f8d398ae-0441-4921-a341-40f3973d4647
+remediation:
+  template_ref: remediation/azure-builtin/f8d398ae-0441-4921-a341-40f3973d4647.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f8d398ae-0441-4921-a341-40f3973d4647
+  azure_policy_display_name: '[Deprecated]: Azure Data Factory pipelines should only
+    communicate with allowed domains. Versioning Test BuiltIn'
+  azure_policy_effect_default: Disabled
+  azure_policy_category: BuiltInPolicyTest
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/BuiltInPolicyTest/Factory_OutboundTraffic_Audit_Versioning_Test.json
+  source_version: 2.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.control-use-of-portable-storage-devices
+version: 1.1.0
+source: azure_policy
+severity: low
+category: compliance
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://36b74844-4a99-4c80-1800-b18a516d1585
+remediation:
+  template_ref: remediation/azure-builtin/36b74844-4a99-4c80-1800-b18a516d1585.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 36b74844-4a99-4c80-1800-b18a516d1585
+  azure_policy_display_name: Control use of portable storage devices
+  azure_policy_effect_default: Manual
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Regulatory
+    Compliance/CMA_0083.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,101 @@
+schema_version: 1.0.0
+id: compliance.regulatory-compliance.uk-official-and-uk-nhs
+title: (Azure Initiative) UK OFFICIAL and UK NHS
+description: This initiative includes audit and virtual machine extension deployment
+  policies that address a subset of UK OFFICIAL and UK NHS controls. Additional policies
+  will be added in upcoming releases. For more information, visit https://aka.ms/ukofficial-init
+  and https://aka.ms/uknhs-init.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://ukofficial_audit
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.subscription.blocked-accounts-with-read-and-write-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.subscription.blocked-accounts-with-owner-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.subscription.guest-accounts-with-owner-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.subscription.guest-accounts-with-write-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.subscription.guest-accounts-with-read-permissions-on-azure-resources-should-be-removed
+  mode: shadow
+- id: azure-builtin.compute.vm.add-system-assigned-managed-identity-to-enable-guest-configuration-assignments-on-virtual-machines-w
+  mode: shadow
+- id: azure-builtin.compute.vm.add-system-assigned-managed-identity-to-enable-guest-configuration-assignments-on-vms-with-a-user-as
+  mode: shadow
+- id: azure-builtin.compute.vm.deploy-the-windows-guest-configuration-extension-to-enable-guest-configuration-assignments-on-window
+  mode: shadow
+- id: azure-builtin.compute.vm.deploy-the-linux-guest-configuration-extension-to-enable-guest-configuration-assignments-on-linux-vm
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-linux-machines-that-have-accounts-without-passwords
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-linux-machines-that-allow-remote-connections-from-accounts-without-passwords
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-do-not-have-the-password-complexity-setting-enabled
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-do-not-have-the-maximum-password-age-set-to-specified-number-of-days
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-do-not-have-the-minimum-password-age-set-to-specified-number-of-days
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-do-not-restrict-the-minimum-password-length-to-specified-number-of-chara
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-windows-machines-that-allow-re-use-of-the-passwords-after-the-specified-number-of-unique-passw
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-linux-machines-that-do-not-have-the-passwd-file-permissions-set-to-0644
+  mode: shadow
+- id: azure-builtin.azure.resource.sql-databases-should-have-vulnerability-findings-resolved
+  mode: shadow
+- id: azure-builtin.sql-server.auditing-on-sql-server-should-be-enabled
+  mode: shadow
+- id: azure-builtin.azure.resource.a-vulnerability-assessment-solution-should-be-enabled-on-your-virtual-machines
+  mode: shadow
+- id: azure-builtin.azure.resource.audit-diagnostic-setting-for-selected-resource-types
+  mode: shadow
+- id: azure-builtin.azure.automation.automationaccounts.variables.automation-account-variables-should-be-encrypted
+  mode: shadow
+- id: azure-builtin.cache.only-secure-connections-to-your-azure-cache-for-redis-should-be-enabled
+  mode: shadow
+- id: azure-builtin.sql-server.an-azure-active-directory-administrator-should-be-provisioned-for-sql-servers
+  mode: shadow
+- id: azure-builtin.object-storage.secure-transfer-to-storage-accounts-should-be-enabled
+  mode: shadow
+- id: azure-builtin.azure.servicefabric.clusters.service-fabric-clusters-should-have-the-clusterprotectionlevel-property-set-to-encryp
+  mode: shadow
+- id: azure-builtin.object-storage.storage-accounts-should-restrict-network-access
+  mode: shadow
+- id: azure-builtin.azure.servicefabric.clusters.service-fabric-clusters-should-only-use-azure-active-directory-for-client-authenticat
+  mode: shadow
+- id: azure-builtin.compute.vm.audit-vms-that-do-not-use-managed-disks
+  mode: shadow
+- id: azure-builtin.azure.resource.storage-accounts-should-be-migrated-to-new-azure-resource-manager-resources
+  mode: shadow
+- id: azure-builtin.azure.resource.virtual-machines-should-be-migrated-to-new-azure-resource-manager-resources
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-be-configured-to-use-secure-communication-protocols
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.azure-defender-for-sql-should-be-enabled-for-unprotected-sql-managed-instances
+  mode: shadow
+- id: azure-builtin.sql-server.azure-defender-for-sql-should-be-enabled-for-unprotected-azure-sql-servers
+  mode: shadow
+- id: azure-builtin.sql-server.vulnerability-assessment-should-be-enabled-on-your-sql-servers
+  mode: shadow
+- id: azure-builtin.sql-managed-instance.vulnerability-assessment-should-be-enabled-on-sql-managed-instance
+  mode: shadow
+- id: azure-builtin.azure.resource.audit-virtual-machines-without-disaster-recovery-configured
+  mode: shadow
+- id: azure-builtin.microsoft.network.virtualnetworks.azure-ddos-protection-should-be-enabled
+  mode: shadow
+- id: azure-builtin.azure.resource.all-network-ports-should-be-restricted-on-network-security-groups-associated-to-your-virtual-machin
+  mode: shadow
+- id: azure-builtin.compute.vm.management-ports-of-virtual-machines-should-be-protected-with-just-in-time-network-access-control
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-have-remote-debugging-turned-off
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-have-remote-debugging-turned-off
+  mode: shadow
+- id: azure-builtin.web.app-service.app-service-apps-should-only-be-accessible-over-https
+  mode: shadow
+- id: azure-builtin.web.app-service.function-apps-should-only-be-accessible-over-https
+  mode: shadow

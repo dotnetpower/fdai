@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.servicebus.namespaces.enable-logging-by-category-group-for-service-bus-namespaces-microsoft-servicebus-n
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.servicebus.namespaces
+check_logic:
+  kind: expression
+  reference: azure-policy://0277b2d5-6e6f-4d97-9929-a5c4eab56fd7
+remediation:
+  template_ref: remediation/azure-builtin/0277b2d5-6e6f-4d97-9929-a5c4eab56fd7.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 0277b2d5-6e6f-4d97-9929-a5c4eab56fd7
+  azure_policy_display_name: Enable logging by category group for Service Bus Namespaces
+    (microsoft.servicebus/namespaces) to Log Analytics
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Monitoring/DiagSettings_logAnalytics_servicebus-namespaces_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

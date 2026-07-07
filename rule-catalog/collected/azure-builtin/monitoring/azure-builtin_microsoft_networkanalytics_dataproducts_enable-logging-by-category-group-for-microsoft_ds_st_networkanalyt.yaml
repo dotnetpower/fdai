@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.networkanalytics.dataproducts.enable-logging-by-category-group-for-microsoft.ds_st_networkanalyti
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.networkanalytics.dataproducts
+check_logic:
+  kind: expression
+  reference: azure-policy://aa78af66-1659-40aa-90b0-b35b616adbdc
+remediation:
+  template_ref: remediation/azure-builtin/aa78af66-1659-40aa-90b0-b35b616adbdc.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: aa78af66-1659-40aa-90b0-b35b616adbdc
+  azure_policy_display_name: Enable logging by category group for microsoft.networkanalytics/dataproducts
+    to Storage
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_ST_networkanalytics-dataproducts_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

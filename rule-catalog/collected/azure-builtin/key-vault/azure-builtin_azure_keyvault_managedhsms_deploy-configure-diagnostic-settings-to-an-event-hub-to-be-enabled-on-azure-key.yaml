@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.keyvault.managedhsms.deploy-configure-diagnostic-settings-to-an-event-hub-to-be-enabled-on-azure-key-vault-m
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.keyvault.managedhsms
+check_logic:
+  kind: expression
+  reference: azure-policy://a6d2c800-5230-4a40-bff3-8268b4987d42
+remediation:
+  template_ref: remediation/azure-builtin/a6d2c800-5230-4a40-bff3-8268b4987d42.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: a6d2c800-5230-4a40-bff3-8268b4987d42
+  azure_policy_display_name: Deploy - Configure diagnostic settings to an Event Hub
+    to be enabled on Azure Key Vault Managed HSM
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Key Vault
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Key
+    Vault/ManagedHsm_DiagnosticLog_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.machinelearningservices.workspaces.configure-azure-machine-learning-workspaces-to-disable-public-network-acc
+version: 1.0.2
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.machinelearningservices.workspaces
+check_logic:
+  kind: expression
+  reference: azure-policy://a10ee784-7409-4941-b091-663697637c0f
+remediation:
+  template_ref: remediation/azure-builtin/a10ee784-7409-4941-b091-663697637c0f.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: a10ee784-7409-4941-b091-663697637c0f
+  azure_policy_display_name: Configure Azure Machine Learning Workspaces to disable
+    public network access
+  azure_policy_effect_default: Modify
+  azure_policy_category: Machine Learning
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Machine Learning/Workspace_PublicNetworkAccessDisabled_Modify.json
+  source_version: 1.0.2
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.datafactory.factories.integrationruntimes.azure-data-factory-integration-runtime-should-have-a-limit-for-num
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.datafactory.factories.integrationruntimes
+check_logic:
+  kind: expression
+  reference: azure-policy://85bb39b5-2f66-49f8-9306-77da3ac5130f
+remediation:
+  template_ref: remediation/azure-builtin/85bb39b5-2f66-49f8-9306-77da3ac5130f.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 85bb39b5-2f66-49f8-9306-77da3ac5130f
+  azure_policy_display_name: Azure Data Factory integration runtime should have a
+    limit for number of cores
+  azure_policy_effect_default: Audit
+  azure_policy_category: Data Factory
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Data
+    Factory/IR_Core_Count_Exceeds_Audit.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.resource.microsoft-managed-control-1458-physical-access-control-information-system-access
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: azure.resource
+check_logic:
+  kind: expression
+  reference: azure-policy://8c19ceb7-56e9-4488-8ddb-b1eb3aa6d203
+remediation:
+  template_ref: remediation/azure-builtin/8c19ceb7-56e9-4488-8ddb-b1eb3aa6d203.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 8c19ceb7-56e9-4488-8ddb-b1eb3aa6d203
+  azure_policy_display_name: Microsoft Managed Control 1458 - Physical Access Control
+    | Information System Access
+  azure_policy_effect_default: audit
+  azure_policy_category: Regulatory Compliance
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Regulatory Compliance/MicrosoftManagedControl1458.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

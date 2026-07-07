@@ -1,0 +1,25 @@
+schema_version: 1.0.0
+id: compliance.automanage.preview-audit-configuration-against-automa
+title: '(Azure Initiative) [Preview]: Audit configuration against Automanage Best
+  Practices'
+description: Automanage Machine Best Practices ensures that managed resources are
+  setup in accordance with the desired state as defined in the assigned Configuration
+  Profile.
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://Audit_ConfigurationProfile
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.compute.vm.linux-machines-should-meet-requirements-for-the-azure-compute-security-baseline
+  mode: shadow
+- id: azure-builtin.compute.vm.windows-machines-should-meet-requirements-of-the-azure-compute-security-baseline
+  mode: shadow
+- id: azure-builtin.compute.vm.guest-configuration-extension-should-be-installed-on-your-machines
+  mode: shadow
+- id: azure-builtin.azure.resource.preview-a-managed-identity-should-be-enabled-on-your-machines
+  mode: shadow
+- id: azure-builtin.azure.resource.preview-automanage-configuration-profile-assignment-should-be-conformant
+  mode: shadow
+- id: azure-builtin.compute.vm.preview-boot-diagnostics-should-be-enabled-on-virtual-machines
+  mode: shadow

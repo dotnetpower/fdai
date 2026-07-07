@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.appconfiguration.configurationstores.configure-app-configuration-to-disable-public-network-access
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.appconfiguration.configurationstores
+check_logic:
+  kind: expression
+  reference: azure-policy://73290fa2-dfa7-4bbb-945d-a5e23b75df2c
+remediation:
+  template_ref: remediation/azure-builtin/73290fa2-dfa7-4bbb-945d-a5e23b75df2c.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 73290fa2-dfa7-4bbb-945d-a5e23b75df2c
+  azure_policy_display_name: Configure App Configuration to disable public network
+    access
+  azure_policy_effect_default: Modify
+  azure_policy_category: App Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/App
+    Configuration/PrivateLink_PublicNetworkAccess_Modify.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:03Z'

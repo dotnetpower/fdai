@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.cdn.profiles.customdomains.azure-front-door-standard-and-premium-should-be-running-minimum-tls-version-of-1
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.cdn.profiles.customdomains
+check_logic:
+  kind: expression
+  reference: azure-policy://679da822-78a7-4eff-8fff-a899454a9970
+remediation:
+  template_ref: remediation/azure-builtin/679da822-78a7-4eff-8fff-a899454a9970.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 679da822-78a7-4eff-8fff-a899454a9970
+  azure_policy_display_name: Azure Front Door Standard and Premium should be running
+    minimum TLS version of 1.2
+  azure_policy_effect_default: Audit
+  azure_policy_category: CDN
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/CDN/AFD_Standard_Premium_MinimumTls_Audit.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

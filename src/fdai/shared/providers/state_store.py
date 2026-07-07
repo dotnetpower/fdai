@@ -37,5 +37,22 @@ class StateStore(Protocol):
         """
         ...
 
+    async def append_incident_transition(self, entry: Mapping[str, Any]) -> None:
+        """Append one incident lifecycle transition.
+
+        Semantically an ``append_audit_entry`` restricted to incident
+        events (``kind`` is one of ``incident.open`` /
+        ``incident.transition``); kept as a distinct method so a fork
+        MAY route incident audit to a separate stream / topic without
+        touching the general audit surface.
+
+        Idempotency is on the caller: the ``core/incident`` registry
+        derives ``idempotency_key`` from ``(incident_id, target_state,
+        actor_oid)`` and re-delivery of the same key MUST NOT create a
+        duplicate row. Real backends enforce this with a UNIQUE
+        constraint on ``idempotency_key``.
+        """
+        ...
+
 
 __all__ = ["StateStore"]

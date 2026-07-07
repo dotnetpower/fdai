@@ -1,0 +1,20 @@
+schema_version: 1.0.0
+id: compliance.security-center.configure-multiple-microsoft-1-0-0
+title: (Azure Initiative) Configure multiple Microsoft Defender for Endpoint integration
+  settings with Microsoft Defender for Cloud
+description: 'Configure the multiple Microsoft Defender for Endpoint integration settings
+  with Microsoft Defender for Cloud (WDATP, WDATP_EXCLUDE_LINUX_PUBLIC_PREVIEW, WDATP_UNIFIED_SOLUTION
+  etc.). See: https://learn.microsoft.com/azure/defender-for-cloud/integration-defender-for-endpoint
+  for more information.'
+provenance:
+  authored_by: azure-policy-initiative-collector
+  based_on:
+  - azure-policy://MDC_MDE_WDATP_Settings_DINE
+  review_cadence_days: 90
+rules:
+- id: azure-builtin.subscription.configure-microsoft-defender-for-endpoint-integration-settings-with-microsoft-defender-for-cloud-wda
+  mode: shadow
+- id: azure-builtin.subscription.configure-microsoft-defender-for-endpoint-integration-settings-with-micro.mdc_mde_wdatp_unifie
+  mode: shadow
+- id: azure-builtin.subscription.configure-microsoft-defender-for-endpoint-integration-settings-with-micro.mdc_mde_wdatp_exclud
+  mode: shadow

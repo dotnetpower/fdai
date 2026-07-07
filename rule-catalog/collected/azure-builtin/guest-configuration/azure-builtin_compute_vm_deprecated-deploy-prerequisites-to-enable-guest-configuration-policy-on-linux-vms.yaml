@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-enable-guest-configuration-policy-on-linux-vms
+version: 4.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://fb27e9e0-526e-4ae1-89f2-a2a0bf0f8a50
+remediation:
+  template_ref: remediation/azure-builtin/fb27e9e0-526e-4ae1-89f2-a2a0bf0f8a50.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: fb27e9e0-526e-4ae1-89f2-a2a0bf0f8a50
+  azure_policy_display_name: '[Deprecated]: Deploy prerequisites to enable Guest Configuration
+    Policy on Linux VMs.'
+  azure_policy_effect_default: deployIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Guest
+    Configuration/PrerequisitePolicyLinux_DINE.json
+  source_version: 4.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'

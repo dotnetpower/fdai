@@ -1,0 +1,270 @@
+---
+title: SRE Agent Scope and Structural Gaps
+---
+# SRE Agent Scope and Structural Gaps
+
+FDAI is positioned as an autonomous cloud operations control plane
+([copilot-instructions.md](../../.github/copilot-instructions.md)), but
+the initial verticals - Change Safety, Resilience, Cost Governance -
+cover only a subset of a canonical SRE agent's duties. This document
+freezes the **scope decision** for the P2/P3 axis expansion, so every
+subsequent structural change lands against a stated design intent
+instead of an implicit one.
+
+Reference: the 20-axis SRE canonical duty list is enumerated in
+[goals-and-metrics.md](goals-and-metrics.md) (KPI 1-4 + guard
+metrics); the layered runtime shape lives in
+[app-shape.instructions.md](../../.github/instructions/app-shape.instructions.md);
+CSP-neutral wire contracts live in
+[csp-neutrality.md](csp-neutrality.md); the trust-router / risk-gate /
+control loop live in
+[architecture.instructions.md](../../.github/instructions/architecture.instructions.md).
+
+## 1. In-scope axes (kept + expanded)
+
+| Axis | Position | Rationale |
+|------|----------|-----------|
+| **Change Safety** | Kept vertical. Foundational. | Deterministic-first ⇢ policy-gate ⇢ shadow → enforce is the strongest current story. |
+| **Resilience (DR/Chaos)** | Kept vertical. Chaos Studio adapter shipped. | Prod-exclusion invariant + `chaos:opt-out` tag already give a safety floor that is rare in industry. |
+| **Cost Governance (FinOps)** | Kept vertical. | Aligns with FinOps guardrail pattern that is well-established. |
+| **Incident lifecycle** | **New first-class object.** See § 3.1. | Blocks postmortem, RCA depth, on-call handoff. Cannot ship those without this. |
+| **Telemetry ingestion** | **Layer-0 seam expansion 5 → 8.** See § 3.2. | Metric / log / trace consumers are missing; anomaly + predictive + RCA are capped without them. |
+| **Workload SLO / error budget** | **New subsystem.** See § 3.3. | Control-plane SLOs exist ([deployment.md § 157](deployment.md)); the workload-facing SLI/SLO/burn-rate abstraction that ranks incident priority does not. Kept separate from control-plane SLOs to avoid conflating the two identities. |
+| **Runbook orchestration** | **New primitive layer.** See § 3.4. | Present ActionTypes are leaves; a runbook is a DAG over ActionTypes with a rollback branch. |
+| **On-call schedule** | **New provider.** See § 3.5. | HIL routing today is role-based, not schedule-based. Break-glass pager exists but knows nothing about who is on shift. |
+| **Postmortem draft** | **New core module.** See § 3.6. | Fed by Incident + audit trail. LLM-optional (template-based default). |
+| **Full T1/T2 wiring into ControlLoop** | **Promote from library-only to wired.** See § 3.7. | Tier libraries exist under `core/tiers/`; `ControlLoop.__init__` accepts only `t0_engine` today. Five scenarios `xfail` for this reason. |
+
+## 2. Explicitly-deferred axes (not in this expansion)
+
+| Axis | Position | Rationale |
+|------|----------|-----------|
+| Multi-cloud (AWS / GCP) | Deferred to future phase. | Implementation focus stays Azure; the wire-contract seams (§ 3.2) keep an AWS adapter additive. |
+| Predictive capacity / autoscaling | Deferred. | Depends on telemetry ingestion (§ 3.2) being real, not stubbed. Ship § 3.2 first, then this in a later phase. |
+| Status page / stakeholder broadcast | Deferred. | The Incident object (§ 3.1) is the prerequisite; broadcast is a delivery-layer adapter and lands independently. |
+| PagerDuty / OpsGenie integration | Deferred. | The `OnCallSchedule` provider (§ 3.5) defines the seam; specific vendor adapters land in the fork model, not upstream. |
+| DORA metric ingestion (change-failure-rate, deploy-frequency) | Deferred. | MTTR + lead time already exist in [goals-and-metrics.md](goals-and-metrics.md); the two missing pieces need a git-history reader that is out of P2 scope. |
+
+## 3. Structural changes (design contract)
+
+Every subsystem below MUST honor the standing invariants in
+[architecture.instructions.md § Safety Invariants](../../.github/instructions/architecture.instructions.md#safety-invariants):
+every autonomous action carries a stop-condition, a rollback path, a
+blast-radius limit, and an audit entry, and new capabilities ship in
+shadow mode first.
+
+### 3.1 Incident as a first-class object
+
+**Problem.** Event correlation today produces an `incident_id` string
+inside `event_ingest`, but there is no `Incident` dataclass, no state
+machine, and no lifecycle hook. As a result:
+
+- multiple findings against one correlated group are not siblings on
+  one entity - they are just events sharing a key;
+- there is nowhere to hang a postmortem, an on-call handoff, or an
+  after-action review;
+- audit queries by incident require full-scan filters, not an
+  incident-indexed lookup.
+
+**Design.**
+
+- **Schema**: `shared/contracts/incident/schema.json` (JSON Schema
+  2020-12) + pydantic `Incident` model in `shared/contracts/models.py`.
+  Fields: `incident_id` (deterministic from correlation keys),
+  `state`, `severity`, `opened_at`, `mitigated_at`, `resolved_at`,
+  `closed_at`, `correlation_keys`, `member_event_ids`,
+  `related_finding_ids`, `related_action_ids`, `assignee_oid`
+  (Entra OID; distinct from submitter to preserve no-self-approval),
+  `mitigation_summary`, `postmortem_ref`.
+- **State machine**: `open → triaging → mitigated → resolved → closed`
+  with reopen paths `resolved → triaging`. Illegal transitions raise
+  `IncidentTransitionError`. Transitions are idempotent by
+  `(incident_id, target_state, actor_oid)`.
+- **Persistence**: extends `StateStore` with
+  `append_incident_transition(entry: Mapping)`; the concrete Postgres
+  adapter hash-chains transitions into the same audit stream (see
+  [security-and-identity.md § Auditability](security-and-identity.md)),
+  so nothing bypasses the append-only guarantee.
+- **Ownership**: `core/incident/` (new package). Verticals emit
+  candidate transitions; the incident module is the sole writer that
+  can call `append_incident_transition`.
+
+### 3.2 Telemetry ingestion seam (Layer-0 expansion)
+
+**Problem.** [csp-neutrality.md](csp-neutrality.md) declares five
+wire-level contracts (event bus, state store, secret, workload
+identity, inventory). OpenTelemetry emits control-plane traces, but
+nothing consumes external metrics, logs, or traces. That caps the
+`observability-and-detection.md` design at correlation only - anomaly,
+forecast, and RCA cannot ground on real telemetry.
+
+**Design.**
+
+- **Three new async Protocols under `shared/providers/`**:
+  - `MetricProvider.query(query: MetricQuery) -> AsyncIterator[MetricPoint]`
+    (backed by Prometheus PromQL, Azure Monitor Logs, or CloudWatch;
+    upstream ships local no-op + a documented shape).
+  - `LogQueryProvider.query(query: LogQuery) -> AsyncIterator[LogRecord]`
+    (backed by Log Analytics KQL, Loki LogQL, etc.).
+  - `TraceQueryProvider.query(query: TraceQuery) -> AsyncIterator[Span]`
+    (backed by App Insights, Tempo, Jaeger).
+- Wire contract count grows **5 → 8**; [csp-neutrality.md](csp-neutrality.md)
+  is updated in the same PR that introduces the seams.
+- **Default upstream binding**: local no-op providers that return
+  empty iterators. Real adapters (Azure Monitor, Log Analytics) land
+  in `delivery/azure/` in a follow-up work item; the seam is enough
+  for the anomaly / forecast / RCA subsystems to be authored against
+  a stable interface.
+- **Where the data flows**: providers produce structured records that
+  become `Event` objects on the internal bus, so the trust-router and
+  risk-gate stay the sole authority for what runs autonomously.
+
+### 3.3 Workload SLO subsystem
+
+**Problem.** [deployment.md § Observability, SLOs, and Alerting](deployment.md)
+defines **control-plane** SLOs (FDAI's own latency, success rate,
+console availability). The missing half is **workload-facing SLOs** -
+the SLI/SLO/error-budget layer that ranks user-facing incident
+priority and gates risky change during error-budget burn.
+
+**Design.**
+
+- **Schema**: `shared/contracts/slo/schema.json` for `SLI` (query +
+  threshold + kind={availability, latency, correctness, freshness}),
+  `SLO` (objective ratio + window), `ErrorBudget` (derived), and
+  `BurnRate` (short + long window).
+- **Module**: `core/slo/` with `SloRegistry` (load YAML SLOs from
+  `rule-catalog/slo/`) and `BurnRateEvaluator` (multi-window
+  multi-burn-rate alerting per Google SRE Chapter 5).
+- **Wire back to control loop**: a burn-rate breach emits an
+  `Event(event_type="slo.error_budget_burn")` that hits the same
+  trust-router → risk-gate → executor path. No side channel.
+- **What the SLO subsystem does NOT do**: it does not replace
+  `goals-and-metrics.md`. That file measures **FDAI's own
+  performance**; the SLO subsystem measures **the workloads FDAI
+  operates on**. They coexist with clearly separated identities.
+
+### 3.4 Runbook DAG orchestrator
+
+**Problem.** `ActionType` in the ontology is a leaf action with a
+`stop_condition`, `rollback_contract`, and `blast_radius`. A
+real-world SRE runbook chains multiple ActionTypes (e.g. `db.failover`
+→ `app.restart` → `healthcheck` → on-fail `db.rollback`). There is no
+composition primitive today.
+
+**Design.**
+
+- **Schema**: `shared/contracts/runbook/schema.json` - an ordered
+  sequence of `RunbookStep` entries, each pointing at an ActionType
+  by name, plus an optional `on_failure` branch step id.
+- **Runner**: `core/runbook/runner.py` with `RunbookRunner.run(runbook,
+  context)` returning a `RunbookResult` (per-step outcomes + terminal
+  state). The runner honors the four safety invariants **on every
+  step** (not just the terminal one) - a failing step's rollback
+  branch is itself audited before the runner short-circuits.
+- **Minimum viable scope**: linear sequence + single `on_failure`
+  branch (a real DAG is deferred until we have two callers who need
+  it). Enough to encode "failover → restart → healthcheck → rollback".
+- **Docs**: reuses [action-ontology.md](action-ontology.md)
+  vocabulary; new sibling doc `docs/roadmap/runbook.md`.
+
+### 3.5 On-call schedule provider
+
+**Problem.** `HilChannel` routes approvals to a Teams channel; RBAC
+picks approvers by role. Neither knows **who is on shift right now**.
+At 3am the "same" approver bucket is 20 people asleep.
+
+**Design.**
+
+- **Protocol**: `OnCallSchedule.current(rotation: str) -> OnCallShift`
+  in `shared/providers/oncall_schedule.py`, returning
+  `OnCallShift(rotation, primary_oid, secondary_oid, until)`.
+- **Default upstream implementation**: `StaticOnCallSchedule` reading
+  a JSON list of shifts from config. Fork model wires PagerDuty /
+  OpsGenie adapters.
+- **Integration**: `HilChannel.dispatch(...)` accepts an optional
+  `on_call_shift`; the coordinator layer consults `OnCallSchedule`
+  before dispatching so the paged party is the shift-holder, not the
+  role bucket.
+- **Fail-closed**: if the schedule provider errors, the HIL request
+  falls back to the whole role bucket (existing behavior) - never
+  drops the request.
+
+### 3.6 Postmortem draft generator
+
+**Problem.** SRE culture demands a written PIR / postmortem after
+every significant incident. FDAI has the raw material (audit log,
+findings, actions) but no synthesizer.
+
+**Design.**
+
+- **Module**: `core/postmortem/` with a `PostmortemGenerator` that
+  takes an `Incident` id + a `PostmortemLlm` optional binding and
+  returns a `PostmortemDraft` (structured markdown: summary, timeline,
+  impact, root cause, contributing factors, actions taken, follow-ups).
+- **Fail-closed on LLM absence**: if `PostmortemLlm` is not bound,
+  the generator returns a **template-based** draft from the audit
+  timeline alone - no fabrication, no missing sections marked
+  "TODO"; each section is filled with the actual audit data or an
+  explicit "no evidence recorded" line.
+- **Output persistence**: draft is written to a git-managed location
+  under `rule-catalog/postmortems/<incident-id>.md` via the same
+  PR-native delivery flow that ships remediation PRs, so review /
+  approval reuses the existing gate. This intentionally reuses the
+  `pr_native` execution path from
+  [action-ontology.md](action-ontology.md).
+
+### 3.7 T1 / T2 tiers wired into `ControlLoop`
+
+**Problem.** `core/tiers/t1_lightweight/` and `core/tiers/t2_frontier/`
+are library-complete with tests, but `ControlLoop.__init__` only
+accepts `t0_engine`. Five scenarios in
+[tests/scenarios/test_v2026_07_replay.py](../../tests/scenarios/test_v2026_07_replay.py)
+`xfail` for this reason.
+
+**Design.**
+
+- Extend `ControlLoop.__init__` with optional `t1_engine` and
+  `t2_engine` parameters (Protocol-typed, no concrete class import
+  in `core/control_loop.py` beyond the Protocol).
+- Flow: `T0.abstain → T1.reuse (if wired) → T2.propose + quality-gate
+  (if wired) → risk-gate`. Each tier hop writes an audit entry so the
+  decision is reconstructable.
+- Un-xfail the four scenarios whose fixture stack is fake-adapter
+  reachable (leave `dr.chaos-experiment-novel.003` xfailed - it needs
+  a real Chaos Studio dry-run that stays P3 backlog).
+- No changes to the trust-router's public contract; existing tests
+  regress unchanged.
+
+## 4. Rollout order and safety mode
+
+Every subsystem above ships in **shadow mode** first
+([architecture.instructions.md § Safety Invariants](../../.github/instructions/architecture.instructions.md#safety-invariants)).
+Promotion to enforce is a separate change, gated on the shadow
+accuracy the module's `promotion_gate` declares (mirroring the rule /
+ActionType promotion contract).
+
+Rollout order picks the strict prerequisite chain:
+
+1. **§ 3.1 Incident** and **§ 3.2 Telemetry** are independent - both
+   ship in the same phase, either order.
+2. **§ 3.7 T1/T2 wiring** depends on nothing new - can ship first if
+   convenient.
+3. **§ 3.3 SLO** depends on § 3.2 (real burn-rate needs metric
+   ingestion).
+4. **§ 3.6 Postmortem** depends on § 3.1.
+5. **§ 3.5 On-call** is independent.
+6. **§ 3.4 Runbook** is independent - it composes existing
+   ActionTypes.
+
+## 5. What this document is not
+
+- Not a phase plan. Phases live under
+  [docs/roadmap/phases/](phases/) and slot these subsystems in per
+  the maintainer's schedule.
+- Not a customer-facing spec. FDAI stays customer-agnostic; the
+  wire contracts in § 3.2 keep the fork model
+  ([generic-scope.instructions.md](../../.github/instructions/generic-scope.instructions.md))
+  intact.
+- Not a claim of coverage. FDAI still declines to be a "full SRE
+  agent" until the deferred axes in § 2 also land.

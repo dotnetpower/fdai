@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.media.mediaservices.transforms.jobs.deprecated-azure-media-services-jobs-with-https-inputs-should-limit-inpu
+version: 1.1.0
+source: azure_policy
+severity: low
+category: security
+resource_type: azure.media.mediaservices.transforms.jobs
+check_logic:
+  kind: expression
+  reference: azure-policy://e9914afe-31cd-4b8a-92fa-c887f847d477
+remediation:
+  template_ref: remediation/azure-builtin/e9914afe-31cd-4b8a-92fa-c887f847d477.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: e9914afe-31cd-4b8a-92fa-c887f847d477
+  azure_policy_display_name: '[Deprecated]: Azure Media Services jobs with HTTPS inputs
+    should limit input URIs to permitted URI patterns'
+  azure_policy_effect_default: Disabled
+  azure_policy_category: Media Services
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Media
+    Services/Jobs_RestrictHttpInputs.json
+  source_version: 1.1.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-07-07T14:26:04Z'
