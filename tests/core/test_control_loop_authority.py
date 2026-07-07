@@ -142,3 +142,114 @@ def test_build_unified_risk_audit_destructive_is_hil(
     )
     # destructive -> authority hil; combined result is at least HIL.
     assert entry["decision"] in {"hil", "shadow", "deny"}
+
+
+# ---------------------------------------------------------------------------
+# Wave W2.5 - cost_override plumbing
+# ---------------------------------------------------------------------------
+
+
+def _rule_without_cost(base: dict[str, Any]) -> Rule:
+    """Return a Rule whose remediation carries no static cost figure."""
+
+    clone = dict(base)
+    remediation = dict(clone["remediation"])
+    remediation.pop("cost_impact_monthly_usd", None)
+    clone["remediation"] = remediation
+    return Rule.model_validate(clone)
+
+
+def _non_prod_event(base: dict[str, Any]) -> Event:
+    """Return an Event whose payload carries a non-prod environment tag.
+
+    Axis A's ``hil-prod`` rule matches on ``environment == prod`` and
+    fires before ``cost-threshold``; the cost-tests need a non-prod
+    context so the cost rule can win the first-match.
+    """
+
+    clone = dict(base)
+    clone["payload"] = {
+        "resource": {
+            "type": "compute.vm",
+            "props": {
+                "tags": {"environment": "dev"},
+            },
+        }
+    }
+    return Event.model_validate(clone)
+
+
+def test_shadow_authority_audit_honours_cost_override(
+    valid_event: dict[str, Any],
+    valid_action: dict[str, Any],
+    valid_rule: dict[str, Any],
+    valid_ontology_action_type: dict[str, Any],
+) -> None:
+    """A high-cost override on a rule with no static cost surfaces on Axis A."""
+
+    entry = build_shadow_authority_audit(
+        event=_non_prod_event(valid_event),
+        action=Action.model_validate(valid_action),
+        rule=_rule_without_cost(valid_rule),
+        action_type=OntologyActionType.model_validate(valid_ontology_action_type),
+        table=load_risk_table(TABLE_PATH),
+        cost_override=250.0,
+    )
+    # Cost-based table entry matches at >= $100 -> HIL. The upstream
+    # rule id is ``hil-cost`` (see rule-catalog/risk-classification.yaml).
+    assert entry["decision"] == "hil"
+    assert entry["matched_rule_id"] == "hil-cost"
+
+
+def test_shadow_authority_audit_cost_override_none_leaves_prior_decision(
+    valid_event: dict[str, Any],
+    valid_action: dict[str, Any],
+    valid_rule: dict[str, Any],
+    valid_ontology_action_type: dict[str, Any],
+) -> None:
+    """``cost_override=None`` reads the rule's static cost as before.
+
+    Guarantees the new keyword is additive: existing callers that never
+    supply the override see the pre-Wave-W2.5 behaviour on the same
+    inputs.
+    """
+
+    with_override_none = build_shadow_authority_audit(
+        event=_non_prod_event(valid_event),
+        action=Action.model_validate(valid_action),
+        rule=Rule.model_validate(valid_rule),
+        action_type=OntologyActionType.model_validate(valid_ontology_action_type),
+        table=load_risk_table(TABLE_PATH),
+        cost_override=None,
+    )
+    without_kwarg = build_shadow_authority_audit(
+        event=_non_prod_event(valid_event),
+        action=Action.model_validate(valid_action),
+        rule=Rule.model_validate(valid_rule),
+        action_type=OntologyActionType.model_validate(valid_ontology_action_type),
+        table=load_risk_table(TABLE_PATH),
+    )
+    # Same inputs, same decision - the override kwarg is inert when None.
+    assert with_override_none["decision"] == without_kwarg["decision"]
+    assert with_override_none["matched_rule_id"] == without_kwarg["matched_rule_id"]
+
+
+def test_unified_risk_audit_honours_cost_override(
+    valid_event: dict[str, Any],
+    valid_action: dict[str, Any],
+    valid_rule: dict[str, Any],
+    valid_ontology_action_type: dict[str, Any],
+) -> None:
+    gate = RiskGate(registry=ActionPromotionRegistry())
+    entry = build_unified_risk_audit(
+        event=_non_prod_event(valid_event),
+        action=Action.model_validate(valid_action),
+        rule=_rule_without_cost(valid_rule),
+        action_type=OntologyActionType.model_validate(valid_ontology_action_type),
+        table=load_risk_table(TABLE_PATH),
+        risk_gate=gate,
+        cost_override=250.0,
+    )
+    # cost_override pushes Axis A to hil, which the combined decision
+    # cannot raise above.
+    assert entry["decision"] in {"hil", "shadow", "deny"}

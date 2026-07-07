@@ -68,6 +68,10 @@ from aiopspilot.shared.contracts.models import (
     Rule,
     Tier,
 )
+from aiopspilot.shared.providers.cost_estimator import (
+    CostEstimator,
+    resolve_cost_impact_monthly,
+)
 from aiopspilot.shared.providers.state_store import StateStore
 
 
@@ -146,6 +150,7 @@ class ControlLoop:
         risk_table: RiskTable | None = None,
         action_types_by_name: Mapping[str, OntologyActionType] | None = None,
         risk_gate: RiskGate | None = None,
+        cost_estimator: CostEstimator | None = None,
     ) -> None:
         self._event_ingest = event_ingest
         self._trust_router = trust_router
@@ -166,6 +171,11 @@ class ControlLoop:
             dict(action_types_by_name) if action_types_by_name is not None else {}
         )
         self._risk_gate = risk_gate
+        # Optional Cost Governance vertical hook (Wave W2.5). Consulted
+        # ONLY when the rule declares no static cost, so it never
+        # overrides an authoritative rule figure; a None estimator
+        # keeps the loop backward-compatible.
+        self._cost_estimator = cost_estimator
 
     async def process(self, raw_event: Event | Mapping[str, Any]) -> ControlLoopResult:
         # 1. Ingest + dedupe
@@ -318,6 +328,33 @@ class ControlLoop:
     # audit helper
     # ------------------------------------------------------------------
 
+    async def _resolve_cost_override(
+        self,
+        *,
+        rule: Rule,
+        action_type: OntologyActionType,
+    ) -> float | None:
+        """Return the ``cost_impact_monthly`` override for the authority pipeline.
+
+        Rule-declared static cost (``rule.remediation.cost_impact_monthly_usd``)
+        always wins - the authority pipeline reads it directly in that
+        case, so this returns ``None`` (no override).
+
+        When the rule is silent AND a
+        :class:`~aiopspilot.shared.providers.cost_estimator.CostEstimator`
+        is wired, the estimator is consulted. Any failure (abstain,
+        transport error, ``None`` estimator) surfaces as ``None`` -
+        the Axis A rule treats unknown cost as "route to HIL", per the
+        fail-closed cost-gate contract in
+        ``docs/roadmap/execution-model.md § 2.8``.
+        """
+
+        if rule.remediation.cost_impact_monthly_usd is not None:
+            return None  # rule value is authoritative; do not override
+        if self._cost_estimator is None:
+            return None
+        return await resolve_cost_impact_monthly(self._cost_estimator, action_type, arguments=None)
+
     async def _write_abstain_audit(
         self,
         *,
@@ -356,6 +393,7 @@ class ControlLoop:
         action_type = self._action_types_by_name.get(action.action_type)
         if action_type is None:
             return None
+        cost_override = await self._resolve_cost_override(rule=rule, action_type=action_type)
         if self._risk_gate is not None:
             unified = evaluate_unified(
                 event=event,
@@ -364,6 +402,7 @@ class ControlLoop:
                 action_type=action_type,
                 table=self._risk_table,
                 risk_gate=self._risk_gate,
+                cost_override=cost_override,
             )
             entry = _unified_audit_dict(event=event, action=action, unified=unified)
             entry["recorded_at"] = datetime.now(tz=UTC).isoformat()
@@ -375,6 +414,7 @@ class ControlLoop:
             rule=rule,
             action_type=action_type,
             table=self._risk_table,
+            cost_override=cost_override,
         )
         entry["recorded_at"] = datetime.now(tz=UTC).isoformat()
         await self._audit_store.append_audit_entry(entry)
@@ -416,6 +456,7 @@ def _compute_authority(
     rule: Rule,
     action_type: OntologyActionType,
     table: RiskTable,
+    cost_override: float | None = None,
 ) -> ExecutionAuthorityDecision:
     """Run the execution-authority pipeline for one action + event context.
 
@@ -426,15 +467,22 @@ def _compute_authority(
     which is the safety envelope; ActionType ceilings apply within it.
     A future PR passes the composition-time role through and drops
     this default.
+
+    ``cost_override`` is used ahead of ``rule.remediation.cost_impact_monthly_usd``
+    when supplied - this is the hook the Cost Governance
+    :class:`~aiopspilot.shared.providers.cost_estimator.CostEstimator`
+    plumbs a dynamic estimate through (Wave W2.5). ``None`` means "no
+    override", not "known-zero".
     """
     environment = _extract_environment(_extract_resource_props(event.payload))
+    cost = cost_override if cost_override is not None else rule.remediation.cost_impact_monthly_usd
     return evaluate_execution_authority(
         tier=Tier.T0,
         action_type=action_type,
         table=table,
         principal_role=CeilingRole.OWNER,
         environment=environment,
-        cost_impact_monthly=rule.remediation.cost_impact_monthly_usd,
+        cost_impact_monthly=cost,
     )
 
 
@@ -445,6 +493,7 @@ def build_shadow_authority_audit(
     rule: Rule,
     action_type: OntologyActionType,
     table: RiskTable,
+    cost_override: float | None = None,
 ) -> dict[str, Any]:
     """Build the ``risk_gate.shadow_authority`` audit entry for one action.
 
@@ -452,8 +501,19 @@ def build_shadow_authority_audit(
     execution-authority pipeline, and returns the audit dict (the caller
     stamps ``recorded_at``). Used by :class:`ControlLoop` when a risk table
     is wired in but no RiskGate is (authority-only record).
+
+    ``cost_override`` (Wave W2.5) is forwarded to
+    :func:`_compute_authority`; it wins over ``rule.remediation.cost_impact_monthly_usd``
+    when set, matching the estimator-fallback contract on
+    :class:`ControlLoop`.
     """
-    decision = _compute_authority(event=event, rule=rule, action_type=action_type, table=table)
+    decision = _compute_authority(
+        event=event,
+        rule=rule,
+        action_type=action_type,
+        table=table,
+        cost_override=cost_override,
+    )
     return {
         "event_id": str(event.event_id),
         "idempotency_key": event.idempotency_key,
@@ -474,14 +534,26 @@ def evaluate_unified(
     action_type: OntologyActionType,
     table: RiskTable,
     risk_gate: RiskGate,
+    cost_override: float | None = None,
 ) -> UnifiedRiskDecision:
     """Run the runtime-Action gate and the policy-ceiling authority and
     combine them into a single :class:`UnifiedRiskDecision` (canonical-level
     ``min()``). Pure - no audit write, no I/O beyond the gate/authority
     reads.
+
+    ``cost_override`` (Wave W2.5) plumbs a dynamic Cost Governance
+    estimate into the authority side; when unset the authority path
+    reads the static ``rule.remediation.cost_impact_monthly_usd`` as
+    before.
     """
     gate_decision = risk_gate.evaluate(action=action, rule=rule, action_type=action_type)
-    authority = _compute_authority(event=event, rule=rule, action_type=action_type, table=table)
+    authority = _compute_authority(
+        event=event,
+        rule=rule,
+        action_type=action_type,
+        table=table,
+        cost_override=cost_override,
+    )
     return combine(gate_decision, authority)
 
 
@@ -508,6 +580,7 @@ def build_unified_risk_audit(
     action_type: OntologyActionType,
     table: RiskTable,
     risk_gate: RiskGate,
+    cost_override: float | None = None,
 ) -> dict[str, Any]:
     """Build the ``risk_gate.unified`` audit entry combining gate + authority.
 
@@ -516,6 +589,10 @@ def build_unified_risk_audit(
     single :class:`~aiopspilot.core.risk_gate.evaluator.UnifiedRiskDecision`
     (canonical-level ``min()``). Judge-and-log only; the caller stamps
     ``recorded_at``.
+
+    ``cost_override`` (Wave W2.5) forwards a Cost Governance estimate
+    into :func:`evaluate_unified`; existing callers that omit it get the
+    prior behaviour (rule's static cost only).
     """
     unified = evaluate_unified(
         event=event,
@@ -524,6 +601,7 @@ def build_unified_risk_audit(
         action_type=action_type,
         table=table,
         risk_gate=risk_gate,
+        cost_override=cost_override,
     )
     return _unified_audit_dict(event=event, action=action, unified=unified)
 
