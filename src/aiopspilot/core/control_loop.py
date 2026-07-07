@@ -46,6 +46,11 @@ from typing import Any
 from aiopspilot.core.event_ingest import EventIngest
 from aiopspilot.core.executor import ExecutionResult, ExecutorOutcome, ShadowExecutor
 from aiopspilot.core.executor.action_builder import ActionBuilder, ActionBuildError
+from aiopspilot.core.executor.direct_api import (
+    DirectApiExecutionOutcome,
+    DirectApiExecutionResult,
+    DirectApiShadowExecutor,
+)
 from aiopspilot.core.risk_gate.authority import (
     ExecutionAuthorityDecision,
     evaluate_execution_authority,
@@ -63,6 +68,7 @@ from aiopspilot.shared.contracts.models import (
     Action,
     CeilingRole,
     Event,
+    ExecutionPath,
     Mode,
     OntologyActionType,
     Rule,
@@ -124,7 +130,7 @@ class ControlLoopResult:
     decision: str
     resource_type: str | None
     citing_rule_ids: tuple[str, ...] = ()
-    execution_results: tuple[ExecutionResult, ...] = ()
+    execution_results: tuple[ExecutionResult | DirectApiExecutionResult, ...] = ()
     reason: str | None = None
     event_id: str | None = None
     change_safety_decision: ChangeSafetyDecision | None = None
@@ -151,6 +157,7 @@ class ControlLoop:
         action_types_by_name: Mapping[str, OntologyActionType] | None = None,
         risk_gate: RiskGate | None = None,
         cost_estimator: CostEstimator | None = None,
+        direct_api_executor: DirectApiShadowExecutor | None = None,
     ) -> None:
         self._event_ingest = event_ingest
         self._trust_router = trust_router
@@ -176,6 +183,14 @@ class ControlLoop:
         # overrides an authoritative rule figure; a None estimator
         # keeps the loop backward-compatible.
         self._cost_estimator = cost_estimator
+        # Optional direct-API executor sibling (Wave W2.3 composition
+        # wire). When wired, actions whose ActionType declares
+        # ``execution_path == direct_api`` route to this executor
+        # instead of the PR-native ShadowExecutor. Absent -> the loop
+        # dispatches every action through ``self._executor`` exactly
+        # as before, so composing without a direct-API adapter is a
+        # supported (and default) configuration.
+        self._direct_api_executor = direct_api_executor
 
     async def process(self, raw_event: Event | Mapping[str, Any]) -> ControlLoopResult:
         # 1. Ingest + dedupe
@@ -263,7 +278,7 @@ class ControlLoop:
             )
 
         # 4. Evaluate + route + execute one action per finding
-        exec_results: list[ExecutionResult] = []
+        exec_results: list[ExecutionResult | DirectApiExecutionResult] = []
         routed: list[str] = []
         for finding in verdict.findings:
             rule = self._rules_by_id.get(finding.rule_id)
@@ -295,7 +310,7 @@ class ControlLoop:
                 # publish a PR. The audit entry (written above) records why.
                 routed.append("deny" if unified.is_denied else "hil")
                 continue
-            result = await self._executor.execute(action=action, rule=rule)
+            result = await self._dispatch_action(action=action, rule=rule)
             exec_results.append(result)
 
         # If EVERY finding hit a build error, treat the overall outcome
@@ -354,6 +369,33 @@ class ControlLoop:
         if self._cost_estimator is None:
             return None
         return await resolve_cost_impact_monthly(self._cost_estimator, action_type, arguments=None)
+
+    async def _dispatch_action(
+        self, *, action: Action, rule: Rule
+    ) -> ExecutionResult | DirectApiExecutionResult:
+        """Route ``action`` to the PR-native or direct-API executor.
+
+        Selection rule (Wave W2.3 composition wire):
+
+        - When the ActionType's ``execution_path`` is
+          :attr:`ExecutionPath.DIRECT_API` AND a direct-API executor is
+          wired -> :class:`DirectApiShadowExecutor`.
+        - Otherwise -> the PR-native :class:`ShadowExecutor`.
+
+        The default (``self._direct_api_executor is None``) keeps every
+        action on the PR-native path so a composition that has no
+        substrate adapter still functions - this matches the P1 upstream
+        behaviour. A wired direct-API executor whose ActionType map
+        does not classify the action as ``direct_api`` also falls
+        through to the PR path; only ActionTypes that opt in via the
+        ontology reach the direct-API sibling.
+        """
+
+        if self._direct_api_executor is not None:
+            action_type = self._action_types_by_name.get(action.action_type)
+            if action_type is not None and action_type.execution_path is ExecutionPath.DIRECT_API:
+                return await self._direct_api_executor.execute(action=action)
+        return await self._executor.execute(action=action, rule=rule)
 
     async def _write_abstain_audit(
         self,
@@ -646,12 +688,14 @@ def _extract_resource_id(event: Event, decision: RoutingDecision) -> str:
     return f"anonymous:{decision.resource_type or 'unknown'}"
 
 
-def _is_execution_success(result: ExecutionResult | Any) -> bool:
+def _is_execution_success(result: ExecutionResult | DirectApiExecutionResult | Any) -> bool:
     if not hasattr(result, "outcome"):
         return False
     return result.outcome in (
         ExecutorOutcome.PUBLISHED,
         ExecutorOutcome.ALREADY_EXISTED,
+        DirectApiExecutionOutcome.DISPATCHED,
+        DirectApiExecutionOutcome.ALREADY_APPLIED,
     )
 
 
