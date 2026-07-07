@@ -265,3 +265,14 @@ secrets/
 # rebuilt on demand for any environment).
 # --------------------------------------------------------------------------
 rule-catalog/sources/*/*/
+
+
+# --------------------------------------------------------------------------
+# LLM bootstrap resolver output - carries an env-specific endpoint,
+# deployment map, and (in prod) the subscription id + deployer OID that
+# provisioned it. Composition roots read it via
+# `LLM_RESOLVED_MODELS_PATH`. NEVER commit: values are customer-
+# identifying per generic-scope.instructions.md.
+# --------------------------------------------------------------------------
+resolved-models.json
+resolved-models*.json
