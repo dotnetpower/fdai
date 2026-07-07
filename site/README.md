@@ -66,11 +66,30 @@ SITE_URL="https://acme.github.io" BASE_PATH="/aiopspilot" npm run build
 
 ## Scope
 
-- **In**: [README.md](../README.md), [docs/**/*.md](../docs/) (both English and
-  Korean pairs via i18n).
+The site is a **product-introduction surface**, not a full mirror of the
+repository. It publishes the content a reader needs to understand and configure
+AIOpsPilot, and keeps deep engineering internals on GitHub only.
+
+- **In (full)**: [docs/user-guide/**](../docs/user-guide/) - Get Started,
+  Concepts, and Guides (both English and Korean pairs via i18n).
+- **In (curated)**: a small operator- and configuration-facing subset of
+  [docs/roadmap/**](../docs/roadmap/), published under `/reference/roadmap/`.
+  The allowlist lives in [`ROADMAP_SITE_ALLOWLIST`](scripts/mount-docs.mjs)
+  (`README`, `goals-and-metrics`, `risk-classification`, `operator-console`,
+  `channels-and-notifications`, `deploy-and-onboard`, `deployment-preflight`).
+- **Out (GitHub only)**: the rest of `docs/roadmap/**` - deep internals
+  (`project-structure`, `tech-stack`, `csp-neutrality`, `execution-model`,
+  `llm-strategy`, `prompt-composition`, `assurance-twin`,
+  `security-and-identity`, `cost-model`, ...) and the phase build sequence
+  (`phases/**`). These stay the source of truth for contributors; any
+  cross-link from a published page to an unpublished doc is rewritten to a
+  GitHub blob URL by [`rewrite-links.mjs`](src/plugins/rewrite-links.mjs).
 - **Out**: [.github/**](../.github/) - developer-facing guidelines, English-only,
   intentionally not on the user-facing site.
 - Language and translation-pair rules match
   [.github/instructions/language.instructions.md](../.github/instructions/language.instructions.md);
   the `check-translations.sh` CI gate is authoritative - the site consumes what the
-  gate accepts.
+  gate accepts. **Adjusting what the site publishes** (the allowlist above) does
+  not change that gate: every `docs/**/*.md` still ships as an English + Korean
+  pair regardless of whether the site mounts it.
+

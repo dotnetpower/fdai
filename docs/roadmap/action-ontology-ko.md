@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 9beea478c66467ba755f28112bd8f916c1dd39f7
-translation_revised: 2026-07-06
+translation_source_sha: d43a53ee16ba583e7167fb46e5ec8c021f15cc54
+translation_revised: 2026-07-07
 ---
 
 # Action 온톨로지
@@ -35,20 +35,22 @@ verb 추가는 YAML 파일 하나 - 엔진에 branching 없음, 새 executor 없
 
 ## 1. 하나의 온톨로지, 두 트리거
 
-기존 shipped 15개 ActionType 은 모두 룰이 발화시킨 remediation
+기존 shipped 16개 ActionType 은 모두 룰이 발화시킨 remediation
 (`remediate.tag-add`, `remediate.disable-public-access`, ...). 오퍼레이터
 콘솔 pull-방향 ([operator-console.md](operator-console-ko.md) §4) 는 룰
 발화가 아니라 **오퍼레이터의 chat 요청** 으로 트리거되는 액션이 필요:
 "이 pod 재시작", "scale out", "cache flush". 이들은 같은 safety envelope
 를 공유하지만 다른 trigger surface 를 가진다.
 
-온톨로지는 둘 다 **하나의 스키마 + 하나의 축** 으로 처리:
+온토로지는 둘 다 **하나의 스키마 + 하나의 축** 으로 처리. `trigger_kind`
+은 `kind` 필드가 세 허용 값 중 하나를 취하는 오브젝트:
 
 ```yaml
 trigger_kind:
-  - rule_violation      # T0/T1/T2 엔진이 룰 매치 → 자동 proposal
-  - operator_request    # 콘솔의 사람 → 명시적 ops
-  - both                # 어느 경로든 사용 가능한 동일 ActionType
+  kind: rule_violation | operator_request | both
+  # rule_violation   - T0/T1/T2 엔진이 룰 매치 -> 자동 proposal
+  # operator_request - 콘솔의 사람 -> 명시적 ops
+  # both             - 어느 경로든 사용 가능한 동일 ActionType
 ```
 
 - **`rule_violation`** - ControlLoop 이 매치된 룰 + finding 로부터 액션을
@@ -67,14 +69,27 @@ RiskGate, audit 계약은 둘 다 동일.
 
 ```yaml
 schema_version: "1.0.0"
-id: string                              # 전역 unique, snake+dot: "ops.restart-service"
-name: string                            # human-readable
+name: string                            # 안정된 UNIQUE 식별자, snake+dot: "ops.restart-service"
+                                        # 이것이 온토로지 id. audit 는 action_type_id
+                                        # 로 참조; 로더가 이것으로 dedupe; override overlay
+                                        # 파일은 <name>.yaml (7.1 참조).
+                                        # (별도 `id` 필드 없음 - 모든 shipped YAML 에
+                                        # `name` 이 이미 있고 마이그레이션-safe 키).
 version: semver
 category:                               # 최상위 bucket
   - remediation                         # 룰 발화, config-drift 스타일
   - ops                                 # 오퍼레이터 요청 runtime 액션
   - governance                          # 정책 / 예외 / promotion 변경
 description: string                     # <= 200 자, 영어, 마케팅 없음
+
+# --- Operation + interfaces (기존, 유지 - risk-classification 이 읽음) ---
+operation: enum                         # tag | delete | drop | purge | detach | rotate | ...
+                                        # risk-classification `destructive` = operation in
+                                        # {delete, drop, purge, detach}
+interfaces:                             # ActionType 의 capability flag
+  - ControlPlane | DataPlaneMutating    # risk-classification `data_plane_touched`
+  - RequiresInventoryFresh              # risk-classification `graph_stale` 입력
+  - IdempotentByKey | GraphTraversalRequired
 
 # --- 트리거 축 (§1) ------------------------------------------------------
 trigger_kind:                           # rule_violation | operator_request | both 중 하나
@@ -114,31 +129,45 @@ stop_conditions:
     seconds: int
   - ...
 
-# --- Blast radius (기존 static + 신규 live) -----------------------------
+# --- Blast radius (\uae30\uc874 static) ---------------------------------------
 blast_radius:
   computation: static_enum | graph_derived
-  static_bucket: resource | subnet | subscription
+  static_bucket: resource | resource_group | subscription
+                                        # CSP-neutral bucket, risk-classification.md 와 공유
   max_affected_resources: int            # graph_derived 만
 
-  # 신규: live-blast probe pointer (Month 1+; §6 참조)
-  live_probe_ref: string                 # 옵션; 예: "probes/vm_traffic_last_5m"
+# --- 신규: live-blast probe pointer (TOP-LEVEL; Month 1+; §6 참조) -------
+live_probe_ref: string                   # 옵션; 예: "probes/vm_traffic_last_5m"
+                                         # RiskGate 가 ActionType.live_probe_ref 로 read
 
 # --- 신규: tier × role 상한 (execution-model.md §3) ---------------------
 ceiling_by_tier:
   t0:
     max_autonomy: enforce_auto | enforce_hil | shadow_only
-    min_role: reader | contributor | approver | owner | breakglass
+    min_role: reader | contributor | approver | owner
   t1:
-    max_autonomy: enforce_hil | shadow_only
+    max_autonomy: enforce_auto | enforce_hil | shadow_only
+                                         # upstream 은 enforce_hil|shadow_only ship; fork 가
+                                         # enforce_auto 설정 MAY (스키마 permit; execution-model
+                                         # 2.1 의 Rego 요구에 여전히 gated)
     min_role: contributor | approver | owner
   t2:
     max_autonomy: shadow_only            # T2 는 shadow-only 기본; raise 는 명시적 fork override
     min_role: approver | owner
+# NOTE: min_role 은 통상 ladder reader<contributor<approver<owner 만 사용.
+# BreakGlass 는 OFF-LADDER (Owner 에 nested 안 된 별도 Entra 그룹) 이며 절대
+# min_role 값이 아니고; dispatch 시 승인 자격에만 영향 (execution-model 2.5).
 
 # --- 신규: prod-vs-non-prod downgrade -----------------------------------
+env_scope: prod | non_prod | any        # 기본: any. `non_prod` = dev-only ActionType
+                                        # (prod_downgrade 생략 MAY). `any`/`prod` 는
+                                        # prod_downgrade 를 carry 하거나 risk-table env
+                                        # 신호를 inherit MUST - 누락된 블록이 prod auto 로 fail open 안 함.
 prod_downgrade:
   mode: enforce_hil | shadow_only        # "prod" 가 collapse 되는 값
-  detection_ref: string                  # 예: "env_detectors/tag_env_eq_prod"
+  detection_ref: string                  # risk-classification.md (Environment Detection) 에
+                                         # 정의된 동일 env classifier 로 resolve; 여기서
+                                         # 두 번째 prod-감지 룰을 정의하지 말 것
 
 # --- Arguments (operator_request 또는 both 만) --------------------------
 argument_schema:                         # JSON Schema; 콘솔이 렌더 + 검증
@@ -200,12 +229,22 @@ idempotent call 인 액션 별로 `direct_api` 로 override MAY.
 오퍼레이터 요청 runtime 액션. Day 1 shipping:
 
 - `ops.restart-service` - AKS pod 재시작, App Service 재시작, Container App revision 재시작.
-- `ops.scale-out` - replica / instance count 증가.
+- `ops.scale-out` - replica / instance count 증가. 지출-증가이므로
+  `cost_impact_monthly` 를 선언 MUST -> risk-classification cost gate 적용
+  ([execution-model.md § 2.8](execution-model-ko.md#28-비용-증가-ops-액션)).
 - `ops.scale-in` - replica count 감소 (Approver + live probe).
 - `ops.flush-cache` - Redis / CDN cache flush.
 - `ops.drain-connection` - load balancer backend 의 connection drain.
 - `ops.rotate-cert` - TLS cert 회전 (App Gateway / Front Door).
-- `ops.failover-primary` - 복제 리소스에서 failover 트리거.
+- `ops.failover-primary` - 복제 리소스에서 failover 트리거. 더 큰 tier 로
+  failover 시 `cost_impact_monthly` 선언 MUST.
+
+**Vertical 매핑.** 각 ops ActionType 은 소유 vertical 로 태깅되어
+[verticals](../../src/aiopspilot/core/verticals) 가 claim 하고 vertical 룰이
+`remediates:` 할 수 있음: `ops.failover-primary` 와 `ops.restart-service`
+-> Resilience; `ops.scale-in` / `ops.scale-out` -> Cost Governance;
+`ops.drain-connection` / `ops.rotate-cert` -> Change Safety.
+`ops.flush-cache` 는 cross-vertical (오퍼레이터-트리거만).
 
 기본 `execution_path: direct_api` (ops 는 latency-sensitive; PR overhead
 는 목적을 defeat). Fork 는 모든 runtime change 가 reviewable diff 로
@@ -262,6 +301,22 @@ Note: 두 surface 는 RiskGate 에서 만남 (execution-model.md §3).
 ActionType 은 자신의 invocation 을 어느 트리거가 생성했는지 모름 - 오직
 `trigger_kind` scoping (§1) 만 제약.
 
+### 4.3 세 분류 축 (관계)
+
+액션을 설명하는 세 직교 label; 동의어가 아니다:
+
+| 축 | 소유 doc | 값 | 답 |
+|------|-----------|------|------|
+| `category` | 이 doc (§3) | remediation / ops / governance | *어떤 종류의 변경* |
+| `trigger_kind` | 이 doc (§1) | rule_violation / operator_request / both | *누가 시작* |
+| `side_effect_class` | [operator-console.md § 3.4](operator-console-ko.md#34-tool-discovery-계약) | read / simulate / approve / execute / breakglass | *콘솔 tool 이 뭐를 함* |
+
+전형적 조합: `remediation` ActionType 은 `trigger_kind=rule_violation`
+이고 콘솔 tool 로 surface 될 때 그 tool 은 `side_effect_class=execute`;
+`ops` ActionType 은 보통 `trigger_kind=both` 에 `execute` tool; `governance`
+ActionType 은 `trigger_kind=operator_request` 이고 tool 은 `approve` 또는
+`execute`. audit entry (§9) 가 세 것 모두 carry 하여 어느 축으로든 slice 가능.
+
 ## 5. Argument 스키마 (`operator_request` 만)
 
 룰-발화 ActionType 은 params 를 룰의 `parameters` 블록에서 받음; 오퍼레이터
@@ -284,7 +339,10 @@ argument_schema:
   properties:
     target_resource_ref:
       type: string
-      description: CSP-중립 리소스 id, 예 "example-rg/aks/cluster/pod-name".
+      description: >-
+        CSP-중립 리소스 id, 예 "example-rg/aks/cluster/pod-name".
+        문법은 csp-neutrality.md (Inventory 계약) 에 정의된 CSP-중립
+        inventory 리소스 id; coordinator 가 dispatch 전 그 문법으로 ref 검증.
     restart_reason:
       type: string
       minLength: 10
@@ -341,8 +399,8 @@ access log, load-balancer backend health).
 
 ### 7.1 파일 기반 overlay
 
-- Upstream 은 `rule-catalog/action-types/<id>.yaml` ship.
-- Fork 는 `rule-catalog/action-types-overrides/<id>.yaml` 을 override
+- Upstream 은 `rule-catalog/action-types/<name>.yaml` ship.
+- Fork 는 `rule-catalog/action-types-overrides/<name>.yaml` 을 override
   할 field 의 strict subset 으로 배치.
 - 로더는 startup 시 upstream + overrides 를 **key-by-key 우선순위**
   로 merge (overrides 승리). 누락된 upstream id 는 fork-only 추가;
@@ -354,7 +412,7 @@ access log, load-balancer backend health).
 ```yaml
 # 예시: fork 가 prod 에서 tag-add 를 tighten
 # path: rule-catalog/action-types-overrides/remediate.tag-add.yaml
-id: remediate.tag-add
+name: remediate.tag-add
 ceiling_by_tier:
   t0:
     max_autonomy: enforce_hil      # upstream 은 enforce_auto; fork downgrade
@@ -415,8 +473,16 @@ entry 에 기록.
   - `ceiling_by_tier.t2.max_autonomy != shadow_only` → `policies/action_types/`
     의 Rego 정책이 ActionType 을 명시적으로 name 하지 않는 한 fatal
     (T2 raise 는 operator-authored 정책으로 defend MUST).
-  - `live_probe_ref` → 참조된 probe 는 `rule-catalog/probes/` 아래 (또는
-    fork-only path 아래) 존재 MUST. 누락된 probe 는 fatal.
+  - `live_probe_ref` -> 참조된 probe 는 `rule-catalog/probes/` 아래 (또는
+    fork-only path 아래) 존재 MUST. 누락된 probe 는 fatal. Day 1 엔 어떤
+    shipped ActionType 도 `live_probe_ref` 설정 안 하고 `rule-catalog/probes/`
+    는 `README.md` placeholder 만 ship 하므로, 이 cross-check 는 Month 1 이
+    첫 probe 를 bind 할 때까지 no-op.
+  - `x-aiopspilot-redact: true` 로 flag 된 모든 `argument_schema` property 는
+    leaf `string`/`number` MUST; 로더가 redaction path set 을 수집해 audit
+    redactor 에 전달해 값이 verbatim landing 안 함 (§5.2). 알 수 없는
+    `x-aiopspilot-*` extension key 는 fatal load error (오타 guard, 오철자
+    redact 힌트가 secret 을 silently leak 못 하게).
 
 ## 9. 감사 계약
 
@@ -427,19 +493,15 @@ attach 한 audit entry 를 write:
 {
   "action_kind": "action.dispatch",
   "action_type_id": "ops.restart-service",
+  "category": "ops",
   "trigger_kind": "operator_request",
+  "side_effect_class": "execute",
   "principal": {...},
   "arguments": {...},
   "arguments_redacted": [...],
-  "resolved_ceiling": {
-    "tier": "T0",
-    "max_autonomy": "enforce_hil",
-    "min_role": "contributor",
-    "prod_downgrade_applied": false,
-    "live_probe_result": "active",
-    "winning_overlay_layer": "rego"
-  },
+  "resolved_ceiling": { "...": "execution-model.md 8 의 전체 6-axis + risk_table 블록" },
   "risk_decision": "hil",
+  "quorum": 1,
   "mode": "enforce",
   "execution_path": "direct_api",
   "started_at": "...",
@@ -447,10 +509,11 @@ attach 한 audit entry 를 write:
 }
 ```
 
-`resolved_ceiling` 블록은 tier + role + prod + probe + overlay 가 결정에
-도달하도록 combine 된 방식의 readable proof. 향후 overlay 변경은 dispatch
-시점에 in effect 였던 ceiling 이 verbatim 기록되므로 과거 audit entry 를
-절대 break 하지 않음.
+`resolved_ceiling` 블록은 risk-classification 표 + 6 axis 가 결정에 도달한
+방식의 readable proof; 그 정확한 shape (risk_table axis 와 quorum 포함) 은
+[execution-model.md § 8](execution-model-ko.md#8-resolved_ceiling-audit-블록)
+에서 권위적. 향후 overlay 변경은 dispatch 시점에 in effect 였던 ceiling 이
+verbatim 기록되므로 과거 audit entry 를 절대 break 하지 않음.
 
 ## 10. Migration 계획
 
@@ -458,7 +521,7 @@ attach 한 audit entry 를 write:
 (see [rule-governance.md](rule-governance-ko.md)):
 
 1. **스키마 확장** - 로더가 신규 field 를 safe default 로 학습. 모든
-   15개 shipped ActionType 이 여전히 validate.
+   16개 shipped ActionType 이 여전히 validate.
 2. **Backfill** - `trigger_kind = rule_violation` 이 모든 기존 entry 에
    set; `ceiling_by_tier` 는 pre-existing implicit ceiling (`default_mode`,
    `promotion_gate.max_policy_escapes`) 로부터 populate.

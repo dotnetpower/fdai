@@ -1,0 +1,18 @@
+schema_version: "1.0.0"
+id: lb_backend_health
+description: >-
+  Return quiet/active/overloaded for a load balancer based on the count
+  of healthy backends. Consumed by ops.drain-connection and
+  ops.rotate-cert when the ActionType.live_probe_ref points here.
+adapter_ref: probe-adapters/azure-monitor
+adapter_payload:
+  metric_namespace: "Microsoft.Network/loadBalancers"
+  metric_name: "DipAvailability"
+  aggregation: average
+  window_minutes: 5
+interpretation:
+  quiet: "healthy_ratio < 0.10"
+  active: "healthy_ratio < 0.80"
+  overloaded: "healthy_ratio >= 0.80"
+timeout_seconds: 5
+cache_ttl_seconds: 60

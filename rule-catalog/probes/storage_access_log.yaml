@@ -1,0 +1,20 @@
+schema_version: "1.0.0"
+id: storage_access_log
+description: >-
+  Return quiet/active/overloaded for a storage account based on the
+  count of read/write operations in the last five minutes. Consumed by
+  destructive ops on stateful storage (delete, disable-public-access,
+  restrict-network-access) when the ActionType.live_probe_ref points
+  here.
+adapter_ref: probe-adapters/azure-monitor
+adapter_payload:
+  metric_namespace: "Microsoft.Storage/storageAccounts"
+  metric_name: "Transactions"
+  aggregation: total
+  window_minutes: 5
+interpretation:
+  quiet: "result_count < 10"
+  active: "result_count < 1000"
+  overloaded: "result_count >= 1000"
+timeout_seconds: 5
+cache_ttl_seconds: 60

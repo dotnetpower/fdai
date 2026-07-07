@@ -1,12 +1,12 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: remediate.enable-rbac
-version: "1.0.0"
+version: 1.0.0
 operation: update
 interfaces:
-  - ControlPlane
-  - IdempotentByKey
-  - RequiresInventoryFresh
-  - AsymmetricRollback
+- ControlPlane
+- IdempotentByKey
+- RequiresInventoryFresh
+- AsymmetricRollback
 rollback_contract: state_forward_only
 irreversible: false
 default_mode: shadow
@@ -16,23 +16,35 @@ promotion_gate:
   min_accuracy: 0.99
   max_policy_escapes: 0
 preconditions:
-  - kind: graph_fresh_within_seconds
-    value: 300
-  - kind: no_conflicting_open_action_on_resource
+- kind: graph_fresh_within_seconds
+  value: 300
+- kind: no_conflicting_open_action_on_resource
 stop_conditions:
-  - kind: dependent_resource_degraded
-  - kind: provider_api_error_streak
-    count: 2
-  - kind: time_box_exceeded_seconds
-    seconds: 600
+- kind: dependent_resource_degraded
+- kind: provider_api_error_streak
+  count: 2
+- kind: time_box_exceeded_seconds
+  seconds: 600
 blast_radius:
   computation: graph_derived
   max_affected_resources: 25
   traversal_depth: 2
-  traversal_links: [depends_on]
-description: >-
-  Switch a resource (secret-store, kubernetes-cluster,
-  object-storage) from legacy access-policy or account-key
-  authorization to RBAC. Asymmetric rollback because reverting can
-  reintroduce stale key access grants - the paired disable
-  ActionType is governance-gated.
+  traversal_links:
+  - depends_on
+description: Switch a resource (secret-store, kubernetes-cluster, object-storage) from legacy
+  access-policy or account-key authorization to RBAC. Asymmetric rollback because reverting
+  can reintroduce stale key access grants - the paired disable ActionType is governance-gated.
+category: remediation
+trigger_kind:
+  kind: rule_violation
+execution_path: pr_native
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: contributor
+  t1:
+    max_autonomy: shadow_only
+    min_role: contributor
+  t2:
+    max_autonomy: shadow_only
+    min_role: approver

@@ -2,7 +2,7 @@
 title: Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
 translation_of: phase-4-scale.md
 translation_source_sha: 61f6c61e95b3af5c27b7e8c4c2143b35b0b5f7bc
-translation_revised: 2026-07-06
+translation_revised: 2026-07-07
 ---
 
 # Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)

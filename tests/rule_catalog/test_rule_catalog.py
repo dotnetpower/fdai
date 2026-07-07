@@ -87,9 +87,17 @@ def test_shipped_catalog_loads_and_covers_every_action_type() -> None:
     )
     assert len(rules) >= 5
     remediated = {r.remediates for r in rules}
-    # P1 W-2: every shipped ActionType MUST be referenced by at least one rule.
-    for name in {a.name for a in action_types}:
-        assert name in remediated, f"ActionType {name!r} has no rule; W-2 requires ≥1"
+    # P1 W-2: every shipped rule-violation-trigger ActionType MUST be referenced
+    # by at least one rule. ActionTypes with trigger_kind={operator_request,both}
+    # are operator-driven and are allowed to ship without a rule (see
+    # action-ontology.md 8 loader cross-checks); a rule-less operator ActionType
+    # is legal.
+    for at in action_types:
+        tk = at.trigger_kind.kind.value if at.trigger_kind else "rule_violation"
+        if tk == "rule_violation":
+            assert at.name in remediated, (
+                f"ActionType {at.name!r} has no rule; W-2 requires >=1 for rule_violation trigger"
+            )
 
 
 def test_shipped_catalog_rule_ids_match_filenames() -> None:

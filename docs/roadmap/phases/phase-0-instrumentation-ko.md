@@ -2,7 +2,7 @@
 title: Phase 0 - 계측과 언블록
 translation_of: phase-0-instrumentation.md
 translation_source_sha: 9c580f69bb1b35a247448798ac73415087174013
-translation_revised: 2026-07-06
+translation_revised: 2026-07-07
 ---
 
 # Phase 0 - 계측과 언블록

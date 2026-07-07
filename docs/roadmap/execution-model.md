@@ -5,10 +5,25 @@ title: Execution Model
 # Execution Model
 
 How AIOpsPilot decides **whether** and **how** to run an action. This
-document is authoritative for the unified RiskGate, the 5-axis
-execution-authority matrix, the three executor paths (PR-native / direct
-API / PR-manual), the live-blast probe combinator, and the safety
-invariants a live change must satisfy.
+document is authoritative for the unified RiskGate, the way the
+authoritative [risk-classification.md](risk-classification.md) first-match
+table combines with the **six-axis** ActionType ceiling, the three
+executor paths (PR-native / direct API / PR-manual), the live-blast probe
+combinator, and the safety invariants a live change must satisfy.
+
+> Decision-engine relationship (authoritative): AIOpsPilot has **one**
+> decision, produced by combining **two** inputs. The
+> [risk-classification.md](risk-classification.md) first-match table is the
+> **authoritative baseline** - it consumes the finding feature vector
+> (`policy_violation`, `destructive`, `irreversible`, `data_plane_touched`,
+> `cost_impact_monthly`, `verifier_confidence`, `blast_radius`,
+> `environment`) and returns `auto | hil | deny` plus a `quorum`. The
+> six-axis ceiling in this document consumes the ActionType + runtime
+> context (tier, ActionType ceiling, static/live blast, role, env) and
+> returns a per-dispatch ceiling. The RiskGate returns the **minimum** of
+> the two; neither can raise autonomy above the other. The table is not
+> replaced by the matrix - the matrix is an additional, never-raising
+> constraint layered on top of it.
 
 Consumers of this model:
 
@@ -47,27 +62,29 @@ Three real-world execution paths are supported (§5):
 A single ActionType declares which path it uses; a fork overrides per
 environment via the ontology overlays.
 
-## 2. Five-axis authority matrix
+## 2. Six-axis ceiling + risk-classification table
 
-The RiskGate collapses **five orthogonal axes** into one decision. Every
-axis lowers autonomy independently; the final decision is the
-**minimum** of what each axis permits. Nothing here ever raises
+The RiskGate collapses **six orthogonal ceiling axes** plus the
+authoritative risk-classification table into one decision. Every axis and
+the table lowers autonomy independently; the final decision is the
+**minimum** of what each input permits. Nothing here ever raises
 autonomy - upgrades go through the promotion pipeline
 ([phase-2-quality-and-t1.md § Promotion](phases/phase-2-quality-and-t1.md#promotion-shadow--enforce)),
 not through the RiskGate at dispatch time.
 
 ```
 authority = min(
+  A_risk_table    # risk-classification.md first-match table (authoritative baseline; also yields quorum)
   A_tier          # T0 | T1 | T2
   A_ceiling       # ActionType.ceiling_by_tier[tier]
   A_static_blast  # ActionType.blast_radius (declared)
-  A_live_blast    # live probe → quiet | active | overloaded (Month 1+)
+  A_live_blast    # live probe -> quiet | active | overloaded (Month 1+)
   A_role          # min_role vs principal role (RBAC)
-  A_env           # prod → downgrade per ActionType.prod_downgrade
+  A_env           # prod -> downgrade per ActionType.prod_downgrade
 )
 ```
 
-Each axis returns one of:
+Each input returns one of:
 
 - `enforce_auto` - allowed to execute without HIL.
 - `enforce_hil` - allowed to execute, but a human approval is required.
@@ -75,39 +92,67 @@ Each axis returns one of:
 - `deny` - do not proceed; the decision is a hard stop.
 
 The final RiskGate output is a **`RiskDecision`** carrying the winning
-minimum plus a `resolved_ceiling` breakdown (§8) that names each axis's
+minimum, the `quorum` from the risk-classification table (default 1;
+`2` for irreversible per [risk-classification.md](risk-classification.md)),
+plus a `resolved_ceiling` breakdown (§8) that names each input's
 contribution so the audit consumer can render the reasoning.
 
-### 2.1 Axis A - Tier
+### 2.0 Axis A - Risk-classification table (authoritative baseline)
+
+`A_risk_table` is the result of evaluating the first-match table in
+[risk-classification.md](risk-classification.md) against the finding
+feature vector. This axis is the **only** place the following signals are
+evaluated - the six ceiling axes deliberately do not re-derive them:
+
+- `policy_violation` (verifier verdict) -> `deny`.
+- `destructive` (`operation in {delete, drop, purge, detach}`) -> `hil`.
+- `irreversible` (`ActionType.irreversible == true`) -> `hil` with
+  `quorum: 2`.
+- `data_plane_touched` (`interfaces include DataPlaneMutating`) -> `hil`.
+- `cost_impact_monthly >= $100` -> `hil` (Cost Governance vertical gate;
+  this is why `ops.scale-out` and every cost-increasing action cannot go
+  `auto` without clearing the cost threshold - see §2.8).
+- `verifier_confidence < 0.85` (T2 quality-gate signal) -> `hil`.
+- `blast_radius` and `environment` are also evaluated here and are the
+  authoritative source for those two signals (the six-axis static/live
+  blast and env axes only ever *further* lower, never contradict).
+
+`A_risk_table` returns the table's `decision` mapped onto the four
+levels (`deny -> deny`, `hil -> enforce_hil`, `auto -> enforce_auto`),
+and carries the matched rule id + `catalog_version` into the audit entry.
+
+### 2.1 Axis B - Tier
 
 Comes from the trust router.
 
 | Tier | Default posture |
 |------|-----------------|
 | T0 (deterministic) | `enforce_auto` allowed - the T0 verdict is a policy-as-code pass |
-| T1 (lightweight similarity) | Never higher than `enforce_hil` upstream; a fork MAY raise per-ActionType |
-| T2 (frontier reasoning) | Never higher than `shadow_only` upstream; a fork MAY raise but only under an explicit Rego policy naming the ActionType (§7.1 of action-ontology) |
+| T1 (lightweight similarity) | Never higher than `enforce_hil` upstream; a fork MAY raise per-ActionType, which requires the ActionType's `ceiling_by_tier.t1.max_autonomy` schema to permit `enforce_auto` (see [action-ontology.md § 2](action-ontology.md#2-schema)) |
+| T2 (frontier reasoning) | Never higher than `shadow_only` upstream; a fork MAY raise but only under an explicit Rego policy naming the ActionType (§7.2 of action-ontology) |
 
-### 2.2 Axis B - ActionType ceiling
+### 2.2 Axis C - ActionType ceiling
 
 From `ceiling_by_tier` on the ActionType (see
 [action-ontology.md § 2](action-ontology.md#2-schema)).
 
-### 2.3 Axis C - Static blast radius
+### 2.3 Axis D - Static blast radius
 
 The `blast_radius` block on the ActionType. Two computation modes:
 
-- `static_enum` - one of `resource | subnet | subscription`. The wider
-  the bucket, the lower this axis returns:
-  - `resource` → does not lower autonomy on its own.
-  - `subnet` → caps at `enforce_hil`.
-  - `subscription` → caps at `enforce_hil` and marks the ceiling
-    `wide-blast` so downstream analytics flag it.
+- `static_enum` - one of `resource | resource_group | subscription`
+  (the CSP-neutral bucket vocabulary shared with
+  [risk-classification.md](risk-classification.md)). The wider the
+  bucket, the lower this axis returns:
+  - `resource` -> does not lower autonomy on its own.
+  - `resource_group` -> caps at `enforce_hil`.
+  - `subscription` -> `deny` (no autonomous change spans a full
+    subscription; matches the risk-classification deny rule).
 - `graph_derived` - computed from the inventory graph at dispatch time.
   A value above `max_affected_resources` caps at `enforce_hil`
   regardless of the other axes.
 
-### 2.4 Axis D - Live blast probe (Month 1+)
+### 2.4 Axis E - Live blast probe (Month 1+)
 
 `ActionType.live_probe_ref` names a probe. The probe returns one of
 three levels (§4). The mapping is:
@@ -121,35 +166,66 @@ three levels (§4). The mapping is:
 If `live_probe_ref` is unset the axis returns "no opinion" - it does
 not lower autonomy on its own.
 
-### 2.5 Axis E - Role (RBAC)
+### 2.5 Axis F - Role (RBAC)
 
 `ActionType.ceiling_by_tier[tier].min_role` vs the calling principal's
 resolved role (from
 [user-rbac-and-identity.md](user-rbac-and-identity.md)):
 
-- Principal at or above `min_role` → axis returns the tier default.
-- Principal below `min_role` → axis returns `deny`.
-- BreakGlass principal → axis returns `enforce_hil` (never `_auto`;
-  BreakGlass never bypasses HIL, only makes the reviewer eligible).
+- Principal at or above `min_role` in the ordinary ladder
+  (`reader < contributor < approver < owner`) -> axis returns the tier
+  default.
+- Principal below `min_role` -> axis returns `deny`.
+- **BreakGlass is off-ladder, not the top rung.** BreakGlass is a
+  separate Entra group that is *not* nested inside Owner
+  ([user-rbac-and-identity.md § 2](user-rbac-and-identity.md#2-role-model-4-tiers--break-glass)).
+  An active, time-boxed BreakGlass grant makes the caller *eligible* to
+  approve a HIL item they would otherwise be under-privileged for, but it
+  never returns `enforce_auto` - the axis caps at `enforce_hil` for a
+  BreakGlass-eligible caller. BreakGlass raises approval eligibility, not
+  automation.
 
 For rule-fired actions the "principal" is the executor identity
 (system MI); its role is fixed at composition time
 ([composition.py](../../src/aiopspilot/composition.py)).
 
-### 2.6 Axis F - Environment (prod downgrade)
+### 2.6 Axis G - Environment (prod downgrade)
 
-`ActionType.prod_downgrade` names an env-detector reference. When the
-detector returns "prod" for the target resource, the axis caps at
-`prod_downgrade.mode` (typically `enforce_hil` or `shadow_only`). A
-missing `prod_downgrade` block means the axis is inactive for this
-ActionType (dev-only actions ship without it).
+`ActionType.prod_downgrade.detection_ref` names an env-detector. To avoid
+two definitions of "prod", the detector reference resolves to the **same**
+environment classifier defined in
+[risk-classification.md § Environment Detection](risk-classification.md#environment-detection)
+(resource-group `environment` tag; missing/unrecognized tag -> `prod`,
+fail-safe). When the detector returns "prod" for the target resource, the
+axis caps at `prod_downgrade.mode` (typically `enforce_hil` or
+`shadow_only`).
+
+A missing `prod_downgrade` block means the axis is inactive **only for
+dev-only ActionTypes that declare `env_scope: non_prod`**; any ActionType
+without an explicit `env_scope` inherits the risk-classification env
+signal (Axis A) so a missing block can never silently fail open into a
+prod auto-execution.
 
 ### 2.7 Combining
 
-Every axis returns one of the four levels above; the RiskGate takes the
+Every input returns one of the four levels above; the RiskGate takes the
 **minimum** in the ordering
-`enforce_auto > enforce_hil > shadow_only > deny`. `deny` from any
-axis is a hard stop; the executor is never called.
+`enforce_auto > enforce_hil > shadow_only > deny`. `deny` from any input
+(including the risk-classification table) is a hard stop; the executor is
+never called. The `quorum` accompanying `enforce_hil` is the maximum of
+the table quorum and any axis-declared quorum.
+
+### 2.8 Cost-increasing ops actions
+
+`ops.*` actions that raise spend (`ops.scale-out`, `ops.failover-primary`
+to a larger tier) MUST declare a `cost_impact_monthly` estimate on the
+ActionType so Axis A (the risk-classification table) can apply the
+`>= $100 -> hil` gate. An `ops.scale-out` with an unknown or above-
+threshold cost estimate is never `auto`; this keeps the Cost Governance
+vertical authoritative over runtime ops that would otherwise bypass it
+through the `direct_api` fast path. The Cost Governance vertical
+([verticals](../../src/aiopspilot/core/verticals)) owns the estimate
+function; the ActionType only references it.
 
 ## 3. Unified RiskGate
 
@@ -159,11 +235,34 @@ and is the single decision point for **both** trigger surfaces (rule-
 fired and operator-requested; see
 [action-ontology.md § 4](action-ontology.md#4-trigger-surfaces)).
 
+> Implementation status: the pure combinator ships as
+> [`ceiling.py`](../../src/aiopspilot/core/risk_gate/ceiling.py) (the six
+> axes), [`risk_table.py`](../../src/aiopspilot/core/risk_gate/risk_table.py)
+> (Axis A first-match table + `rule-catalog/risk-classification.yaml`), and
+> [`feature.py`](../../src/aiopspilot/core/risk_gate/feature.py) (the
+> `FeatureVector` extractor), unified end-to-end by
+> [`authority.py`](../../src/aiopspilot/core/risk_gate/authority.py)
+> `evaluate_execution_authority()`. That function is the single pipeline
+> `feature -> table (Axis A) -> six-axis min() -> ExecutionAuthorityDecision`.
+> The [`ControlLoop`](../../src/aiopspilot/core/control_loop.py) invokes it in
+> two modes. When only a risk table is wired it records one
+> `risk_gate.shadow_authority` audit entry per executed action (authority-only,
+> judge-and-log, executor path unchanged). When both the risk table and the
+> pre-existing [`gate.py`](../../src/aiopspilot/core/risk_gate/gate.py)
+> `RiskGate` are wired, the gate (runtime Action safety: exemption /
+> precondition / promotion) and the authority (policy ceiling) are combined
+> into one `UnifiedRiskDecision` by
+> [`evaluator.py`](../../src/aiopspilot/core/risk_gate/evaluator.py)
+> `combine()` (canonical-level `min()`, both evaluators unchanged), and the
+> loop **routes on it**: a `deny` or `hil` decision skips the executor
+> (overall outcome `DENIED` / `HIL`, no PR published), only `auto` proceeds to
+> execution. Each routed action writes one `risk_gate.unified` audit entry.
+
 Contract:
 
 ```python
 class RiskGate(Protocol):
-    async def evaluate(
+    def evaluate(
         self,
         *,
         action_type: OntologyActionType,
@@ -172,6 +271,8 @@ class RiskGate(Protocol):
         tier: TrustTier,
         principal: Principal,
         env: EnvClassification,
+        risk_table_result: RiskTableResult,   # Axis A, pre-computed (§2.0)
+        live_probe_result: ProbeResult | None, # Axis E, pre-fetched (§4)
         promotion_state: ActionModeRecord,
     ) -> RiskDecision: ...
 
@@ -179,11 +280,33 @@ class RiskGate(Protocol):
 class RiskDecision:
     decision: Literal["auto", "hil", "abstain", "deny"]
     mode: Literal["shadow", "enforce"]
+    quorum: int                            # from Axis A; 1 default, 2 for irreversible
+    matched_rule_id: str                   # risk-classification rule id (or "default")
+    catalog_version: str                   # risk-classification.yaml version at decision time
     execution_path: ExecutionPath          # inherited from ActionType, may be forced lower
     resolved_ceiling: ResolvedCeiling      # audit-friendly breakdown (§8)
     hil_queue_id: str | None               # populated when decision == "hil"
 ```
 
+- **RiskGate stays a pure, synchronous function.** All I/O (the live
+  probe, the inventory graph walk for `graph_derived` blast) is performed
+  **before** `evaluate` and passed in as `live_probe_result` /
+  pre-resolved blast. This preserves determinism (§7), keeps `evaluate`
+  off the async seam list in
+  [coding-conventions.instructions.md](../../.github/instructions/coding-conventions.instructions.md#safety),
+  and matches the existing synchronous
+  [`RiskGate.evaluate`](../../src/aiopspilot/core/risk_gate/gate.py). The
+  probe pre-fetch happens in the ControlLoop / coordinator, which are
+  already async.
+- **Migration from the shipped `RiskDecision`.** Today
+  [gate.py](../../src/aiopspilot/core/risk_gate/gate.py) exposes
+  `RiskDecision(outcome: RiskDecisionOutcome, ...)`. The migration is
+  additive and staged: (1) add `quorum`, `matched_rule_id`,
+  `catalog_version`, `resolved_ceiling`, `execution_path` fields with safe
+  defaults; (2) keep `outcome` as a derived alias of `decision` for one
+  release so existing callers do not break; (3) remove the alias once the
+  ControlLoop and console both read `decision`. Each step is a reviewed PR
+  with the property test in §10 green.
 - `promotion_state` is read from the existing
   [`ActionPromotionRegistry`](../../src/aiopspilot/core/risk_gate/gate.py) -
   a shadow-mode ActionType clamps `mode` to `shadow` regardless of
@@ -214,8 +337,8 @@ Promotion is orthogonal to the RiskGate:
 
 ## 4. Live blast probe
 
-Static `blast_radius` says "this ActionType could affect up to a
-subnet"; live probes say "this specific resource has zero traffic in
+Static `blast_radius` says "this ActionType could affect up to a resource
+group"; live probes say "this specific resource has zero traffic in
 the last 5 minutes, so the affect is nil". Combining static + live is
 the mechanism behind the intuition that a running NSG rule change is
 low-impact when nothing calls it.
@@ -229,12 +352,13 @@ schema_version: "1.0.0"
 id: vm_traffic_last_5m
 description: "Return quiet/active/overloaded based on VM network throughput over the last 5 minutes."
 adapter_ref: probe-adapters/azure-monitor       # DI seam id
-kql: |
-  AzureMetrics
-  | where ResourceId == '{{ target_ref }}'
-  | where MetricName == 'Network In Total'
-  | where TimeGenerated > ago(5m)
-  | summarize p = percentile(Total, 95)
+adapter_payload:                                # adapter-specific; NOT part of the core probe
+  kql: |                                        # schema, so the core stays CSP-neutral
+    AzureMetrics
+    | where ResourceId == '{{ target_ref }}'
+    | where MetricName == 'Network In Total'
+    | where TimeGenerated > ago(5m)
+    | summarize p = percentile(Total, 95)
 interpretation:
   quiet:      p < 1000000            # <1 MB/5min
   active:     p < 100000000          # <100 MB/5min
@@ -252,10 +376,23 @@ The RiskGate calls the probe **only** when:
   (probe cost is only paid when it can actually change the decision).
 - The probe cache has no fresh answer for the target.
 
-Probe failure (timeout, adapter error) defaults to `active` - the
-safer interpretation. A repeated failure across a rolling window
-triggers a `probe.degraded` audit entry so the operator can inspect;
-it does not fail-close the entire loop.
+**Probe failure handling (fail toward safety).** The probe is a
+*ceiling-lowering* axis, never an authorizer. On a single failure
+(timeout, adapter error) the axis returns `active` - it forces HIL rather
+than auto, so a human confirms while the probe is blind, but it does not
+hard-stop an operator-initiated action. On **repeated** failure across a
+rolling window (default 3 within `cache_ttl_seconds * 5`) the axis
+escalates its own posture to `shadow_only` and writes a `probe.degraded`
+audit entry: a persistently blind probe means the loop should stop
+executing that ActionType until an operator inspects, not keep approving
+by hand indefinitely. It still does not fail-close the *entire* loop -
+only the ActionTypes bound to the degraded probe.
+
+**Replay uses the recorded result, never a re-query.** When the audit log
+is replayed for debugging or post-incident review, the RiskGate reads
+`live_probe_result` from the recorded `resolved_ceiling` (§8); it MUST NOT
+call the probe again. This keeps replay judge-only and deterministic
+([architecture.instructions.md § Idempotency, Ordering, and Replay](../../.github/instructions/architecture.instructions.md#idempotency-ordering-and-replay)).
 
 ### 4.3 Probe adapter seam
 
@@ -332,12 +469,24 @@ automation.
 requested_path = ActionType.execution_path
 forced_path = RiskGate.resolved_ceiling.forced_execution_path  # optional axis output
 final_path = strictest(requested_path, forced_path)
-                # strict order: pr_manual > pr_native > direct_api
+                # strict order (by review-stringency, not speed):
+                #   pr_manual > pr_native > direct_api
 ```
 
-A fork can force every dispatch in prod to `pr_manual` via the env
-axis. The upstream never forces from below (never lifts `pr_manual`
-to `direct_api` for speed).
+"Strictest" here means **most human-review-gated**, not fastest:
+`pr_manual` (mandatory human merge) is stricter than `pr_native`
+(policy auto-merge) which is stricter than `direct_api` (no diff). An
+axis may only move a dispatch **up** this ladder (toward more review); it
+can never move it down for latency. A fork can force every dispatch in
+prod to `pr_manual` via the env axis. The upstream never forces from
+below (never lifts `pr_manual` to `direct_api` for speed).
+
+**Fallback idempotency.** When a dispatch degrades from `direct_api` to
+`pr_manual` mid-flight (§11), the fallback PR reuses the action's stable
+idempotency key. The direct-API adapter records the attempted-and-failed
+call under that key so the manual PR path cannot double-apply the same
+mutation; a subsequent retry observes the key and is a no-op on whichever
+path already succeeded.
 
 ## 6. Safety invariants (unchanged + one extension)
 
@@ -348,7 +497,8 @@ from
 adds one:
 
 5. **Every dispatch writes its `resolved_ceiling`.** The audit entry
-   MUST carry the full 5-axis breakdown that produced the decision, so
+   MUST carry the full 6-axis breakdown (including the `risk_table` axis)
+   that produced the decision, so
    a future overlay change never breaks the reproducibility of a past
    decision.
 
@@ -372,7 +522,7 @@ are additive:
 
 ## 7. Determinism + auditability
 
-- Given the same 5-axis inputs, the RiskGate returns the same
+- Given the same 6-axis inputs, the RiskGate returns the same
   `RiskDecision`. Any stochastic component (a probe that queries a
   moving window) is bounded by `cache_ttl_seconds` on the probe so a
   replay within the TTL yields the identical decision.
@@ -391,6 +541,7 @@ Every dispatch writes:
     "tier": "T0",
     "action_type_id": "ops.restart-service",
     "axes": {
+      "risk_table":     {"level": "enforce_hil",  "reason": "cost_impact_monthly >= 100", "matched_rule_id": "cost-threshold", "catalog_version": "1.0.0", "quorum": 1},
       "tier":           {"level": "enforce_auto", "reason": "T0 verdict on shadow-promoted ActionType"},
       "ceiling":        {"level": "enforce_hil",  "reason": "ceiling_by_tier.t0.max_autonomy"},
       "static_blast":   {"level": "enforce_auto", "reason": "static_bucket=resource"},
@@ -398,13 +549,21 @@ Every dispatch writes:
       "role":           {"level": "enforce_hil",  "reason": "principal=contributor >= min_role=contributor"},
       "env":            {"level": "enforce_auto", "reason": "not-prod"}
     },
-    "winning_axis": "ceiling",
+    "winning_axis": "risk_table",
     "final_level":  "enforce_hil",
+    "final_quorum": 1,
     "final_path":   "direct_api",
     "overlay_layers_applied": ["upstream", "rego"]
   }
 }
 ```
+
+The `resolved_ceiling` shape is a fixed, versioned contract validated by a
+JSON Schema (`ontology/resolved-ceiling`), added in the Week-1 schema-
+extension PR alongside the `RiskDecision` migration (§3). The narrator and
+audit consumers render it verbatim, so a schema-checked shape is required,
+not optional; a contract test asserts every dispatch emits a schema-valid
+block including the `risk_table` axis.
 
 ## 9. Phased rollout
 
@@ -417,7 +576,7 @@ migration in [action-ontology.md § 10](action-ontology.md#10-migration-plan).
 - Schema extension only. Loader learns the new fields; every existing
   ActionType validates. The RiskGate keeps behaving as it does today
   (shadow-only) because `promotion_state` is shadow for every entry.
-- **Exit gate**: property tests over the 5-axis min-combination; every
+- **Exit gate**: property tests over the 6-axis min-combination; every
   existing shipped rule still produces the same shadow-only outcome
   it did before the change.
 
@@ -455,9 +614,13 @@ migration in [action-ontology.md § 10](action-ontology.md#10-migration-plan).
 
 ## 10. Testability
 
-- **5-axis matrix** - table-driven property tests over every
-  (tier × ceiling × static_blast × live_blast × role × env) combination
-  that has a determinate result; assert `min()` semantics.
+- **Six-axis + table matrix** - the full cartesian product
+  (`risk_table` x tier x ceiling x static_blast x live_blast x role x env)
+  is combinatorially large, so the suite uses **pairwise (all-pairs)**
+  generation over the determinate values plus explicit hand-picked corner
+  cases (any-`deny` short-circuit, irreversible-quorum, prod downgrade,
+  BreakGlass-eligible); each generated row asserts `min()` semantics and
+  that no input ever raises autonomy.
 - **Overlay precedence + resolved_ceiling** - fixture with all four
   overlay layers active on the same axis; assert the higher-precedence
   layer wins and its name appears under `overlay_layers_applied`.
@@ -476,19 +639,29 @@ migration in [action-ontology.md § 10](action-ontology.md#10-migration-plan).
 
 ## 11. Failure modes
 
-- **Probe timeout / error** → default `active` (§4.2); log
-  `probe.degraded`; do not fail-close.
+- **Probe timeout / error** -> single failure returns `active`, repeated
+  failure returns `shadow_only` (§4.2); log `probe.degraded`; do not
+  fail-close the whole loop.
 - **Overlay load error** (Rego syntax error, missing file overlay
-  target) → the loader falls back to upstream defaults and writes
-  `overlay.load_failed` audit; the RiskGate marks
-  `overlay_layers_applied` accordingly. It does not silently pretend
-  the overlay was applied.
-- **Executor path unreachable** (direct_api adapter down) → fall back
-  to `pr_manual` for that dispatch; write `executor.path.degraded`;
-  the operator sees the fallback in the resolved_ceiling on the
-  audit entry.
+  target) -> **fail toward the safer value, not toward upstream.** If the
+  failed overlay was a *tightening* overlay (fork downgraded autonomy),
+  the RiskGate keeps the last-known tightened ceiling (fail-closed) rather
+  than reverting to the looser upstream default; a loosening overlay that
+  fails simply leaves the stricter upstream value in place. Either way it
+  writes an `overlay.load_failed` audit and marks `overlay_layers_applied`
+  so it never silently pretends the overlay was applied.
+- **Executor path unreachable** (direct_api adapter down) -> for a
+  low-urgency action, fall back to `pr_manual` and write
+  `executor.path.degraded`. For a **latency-critical ops action**
+  (`ops.restart-service`, `ops.failover-primary`, anything whose
+  ActionType sets `urgency: high`), a `pr_manual` fallback would defeat
+  the purpose, so instead the dispatch is enqueued as a **direct HIL
+  item** (`mutation_target=direct`) that an on-call approver can accept
+  from the console within seconds; the fallback and its reason appear in
+  `resolved_ceiling`. The fallback reuses the action's idempotency key
+  (§5.4) so no path double-applies.
 - **RiskGate itself unavailable** (should not happen - it is a pure
-  function of its inputs) → fail-close: no dispatch, `deny` audit,
+  function of its inputs) -> fail-close: no dispatch, `deny` audit,
   page the operational lane.
 
 ## 12. Related docs
@@ -502,8 +675,9 @@ migration in [action-ontology.md § 10](action-ontology.md#10-migration-plan).
 - [phase-2-quality-and-t1.md](phases/phase-2-quality-and-t1.md) - the
   promotion pipeline that flips an ActionType from shadow to
   enforce.
-- [risk-classification.md](risk-classification.md) - the initial
-  auto / HIL / deny rule table this axis matrix extends.
+- [risk-classification.md](risk-classification.md) - the authoritative
+  first-match auto / HIL / deny table (Axis A, §2.0) that the six-axis
+  ceiling combines with via `min()`; it is not replaced by the matrix.
 - [security-and-identity.md](security-and-identity.md) - the four
   autonomy invariants and the executor identity contract.
 - [architecture.instructions.md](../../.github/instructions/architecture.instructions.md) -

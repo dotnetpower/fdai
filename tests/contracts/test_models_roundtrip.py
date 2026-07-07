@@ -10,18 +10,27 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from aiopspilot.shared.contracts.models import (
     Action,
+    ActionCategory,
     ActionInterface,
+    Autonomy,
     BlastRadius,
     BlastRadiusScope,
     Category,
+    CeilingByTier,
+    CeilingRole,
     CheckLogic,
     CheckLogicKind,
+    EnvScope,
     Event,
+    ExecutionPath,
     Mode,
     OntologyActionType,
     Operation,
+    ProdDowngrade,
     PromotionGate,
     Provenance,
     Remediation,
@@ -30,6 +39,9 @@ from aiopspilot.shared.contracts.models import (
     Rule,
     RuleSource,
     Severity,
+    TierCeiling,
+    TriggerKind,
+    TriggerKindDecl,
 )
 from aiopspilot.shared.contracts.registry import PackageResourceSchemaRegistry
 from aiopspilot.shared.contracts.validation import JsonSchemaContractValidator
@@ -134,3 +146,42 @@ def test_ontology_action_type_carries_interface_set() -> None:
         description="Attach an owner tag when missing.",
     )
     _validator().validate("ontology/action-type", _dump(obj))
+
+
+def test_ontology_action_type_execution_authority_fields_round_trip() -> None:
+    """Every Day-1 execution-authority extension field survives the JSON Schema round-trip."""
+    obj = OntologyActionType(
+        schema_version="1.0.0",
+        name="ops.restart-service",
+        version="1.0.0",
+        operation=Operation.RESTART,
+        interfaces=[ActionInterface.CONTROL_PLANE, ActionInterface.IDEMPOTENT_BY_KEY],
+        rollback_contract=RollbackKind.STATE_FORWARD_ONLY,
+        promotion_gate=PromotionGate(
+            min_shadow_days=7,
+            min_samples=50,
+            min_accuracy=0.99,
+            max_policy_escapes=0,
+        ),
+        description="Restart a service in place.",
+        category=ActionCategory.OPS,
+        trigger_kind=TriggerKindDecl(kind=TriggerKind.BOTH),
+        execution_path=ExecutionPath.DIRECT_API,
+        ceiling_by_tier=CeilingByTier(
+            t0=TierCeiling(max_autonomy=Autonomy.ENFORCE_HIL, min_role=CeilingRole.CONTRIBUTOR),
+            t2=TierCeiling(max_autonomy=Autonomy.SHADOW_ONLY, min_role=CeilingRole.APPROVER),
+        ),
+        env_scope=EnvScope.ANY,
+        prod_downgrade=ProdDowngrade(
+            mode=Autonomy.ENFORCE_HIL, detection_ref="env_detectors/tag_env_eq_prod"
+        ),
+        argument_schema={"type": "object", "required": ["target_resource_ref"]},
+        live_probe_ref="probes/vm_traffic_last_5m",
+    )
+    _validator().validate("ontology/action-type", _dump(obj))
+
+
+def test_prod_downgrade_rejects_enforce_auto() -> None:
+    """A prod downgrade can only lower autonomy, never raise it to enforce_auto."""
+    with pytest.raises(ValueError, match="never raises autonomy"):
+        ProdDowngrade(mode=Autonomy.ENFORCE_AUTO, detection_ref="env_detectors/x")

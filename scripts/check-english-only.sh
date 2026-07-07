@@ -18,6 +18,18 @@
 #     * binary assets (png/jpg/jpeg/gif/webp/pdf/ico/woff/woff2/ttf/otf)
 #     * uv.lock (hash-only content; guaranteed ASCII, exclude to speed up)
 #
+# Justified allowlist (legitimately non-English, each with a reason):
+#     * site/src/content/docs/ko/**            Korean locale presentation;
+#                                              every file is a mount of an
+#                                              already-carved-out -ko.md source.
+#     * .github/skills/documentation-writing/SKILL.md
+#                                              teaches Korean translation tone;
+#                                              its Korean examples are quoted data.
+#     * scripts/apply-tone-corrections.py      Korean tone-correction data tables.
+#     * tools/baseline_run.py                  emits a localized Korean report.
+#     * site/src/components/StaleTranslationBanner.astro
+#                                              banner rendered only on Korean pages.
+#
 # Exit codes: 0 on success, 1 on any violation.
 
 set -euo pipefail
@@ -32,6 +44,11 @@ mapfile -t files < <(
     ':(exclude)*-ko.md' \
     ':(exclude)mocks/**' \
     ':(exclude)examples/**' \
+    ':(exclude)site/src/content/docs/ko/**' \
+    ':(exclude).github/skills/documentation-writing/SKILL.md' \
+    ':(exclude)scripts/apply-tone-corrections.py' \
+    ':(exclude)tools/baseline_run.py' \
+    ':(exclude)site/src/components/StaleTranslationBanner.astro' \
     ':(exclude)*.png' \
     ':(exclude)*.jpg' \
     ':(exclude)*.jpeg' \
@@ -52,10 +69,12 @@ for f in "${files[@]}"; do
   [[ -f "$f" ]] || continue
 
   # Hangul (Syllables + Jamo) OR CJK Unified Ideographs.
-  # Using Perl-compatible regex via grep -P so we can match \x{...}.
-  if grep -PnE '[\x{AC00}-\x{D7A3}\x{1100}-\x{11FF}\x{4E00}-\x{9FFF}]' "$f" >/dev/null 2>&1; then
+  # Using a Perl-compatible regex via grep -P so we can match \x{...}.
+  # NOTE: -P must not be combined with -E (grep rejects conflicting
+  # matchers, which silently made this gate a no-op before the fix).
+  if grep -Pn '[\x{AC00}-\x{D7A3}\x{1100}-\x{11FF}\x{4E00}-\x{9FFF}]' "$f" >/dev/null 2>&1; then
     echo "check-english-only: $f contains non-ASCII natural-language characters" >&2
-    grep -PnE '[\x{AC00}-\x{D7A3}\x{1100}-\x{11FF}\x{4E00}-\x{9FFF}]' "$f" | head -5 | sed 's/^/    /' >&2
+    grep -Pn '[\x{AC00}-\x{D7A3}\x{1100}-\x{11FF}\x{4E00}-\x{9FFF}]' "$f" | head -5 | sed 's/^/    /' >&2
     errors=$((errors + 1))
   fi
 done

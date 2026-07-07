@@ -114,22 +114,16 @@ requires_opa = pytest.mark.skipif(
 # the reasons here (rather than as strings in each JSON) makes it a
 # checklist reviewers can maintain as tiers land.
 _XFAIL_REASONS: dict[str, str] = {
-    "change.nsg-allow-any-inbound.002": (
-        "P2 risk-gate not wired into ControlLoop yet; high-severity NSG "
-        "match currently opens a shadow PR instead of routing to HIL."
-    ),
     "change.drift-manual-portal-edit.003": (
-        "Drift detection + P2 risk-gate not wired into ControlLoop yet."
+        "No shipped drift-reconcile rule + ActionType authored yet "
+        "(Change Safety backlog); the risk-gate HIL path is already available "
+        "via the overlay's wire_risk_gate flag once a rule maps."
     ),
     "dr.backup-vault-restore-rehearsal.002": (
         "No shipped rule authored for backup-restore rehearsal cadence."
     ),
     "dr.replica-lag-degraded.001": ("T1 similarity tier not wired into ControlLoop yet (P2)."),
     "dr.chaos-experiment-novel.003": ("T2 reasoning tier not wired into ControlLoop yet (P2)."),
-    "finops.right-size-vm-high-monthly.002": (
-        "P2 risk-gate not wired into ControlLoop yet; medium-severity "
-        "right-size match currently opens a shadow PR instead of HIL."
-    ),
     "finops.stop-idle-dev-vm-off-hours.003": (
         "T1 similarity tier not wired into ControlLoop yet (P2)."
     ),
@@ -176,6 +170,8 @@ def shipped_catalog() -> tuple[Any, Any]:
 
 def _make_loop(
     shipped_catalog: tuple[Any, Any],
+    *,
+    wire_risk_gate: bool = False,
 ) -> tuple[ControlLoop, RecordingRemediationPrPublisher, InMemoryStateStore]:
     rules, action_types = shipped_catalog
     index = RuleIndex.build(rules)
@@ -188,10 +184,25 @@ def _make_loop(
         renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
         resource_lock=ResourceLockManager(),
     )
-    action_builder = ActionBuilder(action_types_by_name={a.name: a for a in action_types})
+    action_types_by_name = {a.name: a for a in action_types}
+    action_builder = ActionBuilder(action_types_by_name=action_types_by_name)
     validator = JsonSchemaEventValidator(
         JsonSchemaContractValidator(PackageResourceSchemaRegistry())
     )
+    # Overlays that assert HIL routing opt into the risk-gate path; the
+    # rest keep the shadow-PR posture (T0 judge-and-log). Wiring the gate
+    # globally would fail-close every scenario to HIL because the gate
+    # receives no inventory age here (graph_fresh precondition unmet).
+    risk_kwargs: dict[str, Any] = {}
+    if wire_risk_gate:
+        from aiopspilot.core.risk_gate.gate import ActionPromotionRegistry, RiskGate
+        from aiopspilot.core.risk_gate.risk_table import load_risk_table
+
+        risk_kwargs = {
+            "risk_table": load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml"),
+            "action_types_by_name": action_types_by_name,
+            "risk_gate": RiskGate(registry=ActionPromotionRegistry()),
+        }
     loop = ControlLoop(
         event_ingest=EventIngest(validator=validator),
         trust_router=TrustRouter(index=index),
@@ -200,6 +211,7 @@ def _make_loop(
         executor=executor,
         audit_store=audit,
         rules_by_id={r.id: r for r in rules},
+        **risk_kwargs,
     )
     return loop, publisher, audit
 
@@ -254,7 +266,9 @@ async def test_v2026_07_scenario_replays_through_control_loop(
     # ------------------------------------------------------------------
     # P1-replayable path - enriched event runs against the real loop.
     # ------------------------------------------------------------------
-    loop, publisher, audit = _make_loop(shipped_catalog)
+    loop, publisher, audit = _make_loop(
+        shipped_catalog, wire_risk_gate=bool(overlay.get("wire_risk_gate", False))
+    )
     enriched_event = _merge_enrichment(scenario["event"], overlay)
 
     result: ControlLoopResult = await loop.process(enriched_event)

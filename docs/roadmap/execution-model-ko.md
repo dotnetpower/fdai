@@ -1,16 +1,30 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 22e356af93dd6317468bff9f642d63e6c84a6da9
-translation_revised: 2026-07-06
+translation_source_sha: 2c62af9fb183b375bddc5e786430d91b62d7f9f3
+translation_revised: 2026-07-07
 ---
 
 # Execution 모델
 
 AIOpsPilot 이 액션 실행 **여부** 와 **방법** 을 결정하는 방식. 이 문서는
-통합 RiskGate, 5-axis execution-authority 매트릭스, 3개의 executor
-경로 (PR-native / direct API / PR-manual), live-blast probe combinator,
-그리고 live 변경이 만족해야 하는 safety invariant 를 권위적으로 정의한다.
+통합 RiskGate, 권위적 [risk-classification.md](risk-classification-ko.md)
+first-match 표가 **6-axis** ActionType ceiling 과 결합하는 방식, 3개의
+executor 경로 (PR-native / direct API / PR-manual), live-blast probe
+combinator, 그리고 live 변경이 만족해야 하는 safety invariant 를
+권위적으로 정의한다.
+
+> 결정-엔진 관계 (권위적): AIOpsPilot 은 **하나의** 결정을 가지며, 그것은
+> **두** 입력을 결합해 생성된다. [risk-classification.md](risk-classification-ko.md)
+> first-match 표가 **권위적 baseline** - finding feature vector
+> (`policy_violation`, `destructive`, `irreversible`, `data_plane_touched`,
+> `cost_impact_monthly`, `verifier_confidence`, `blast_radius`,
+> `environment`) 를 소비해 `auto | hil | deny` 와 `quorum` 을 반환. 이
+> 문서의 6-axis ceiling 은 ActionType + 런타임 컨텍스트 (tier, ActionType
+> ceiling, static/live blast, role, env) 를 소비해 dispatch 별 ceiling 을
+> 반환. RiskGate 는 둘의 **minimum** 을 반환; 어느 쪽도 상대보다 autonomy
+> 를 raise 못 함. 표는 매트릭스로 대체되지 않음 - 매트릭스는 그 위에
+> layer 된, 절대 raise 안 하는 추가 제약이다.
 
 이 모델의 소비자:
 
@@ -49,67 +63,96 @@ gated, 매 dispatch 에서 re-check.
 단일 ActionType 이 어느 경로를 사용하는지 declare; fork 는 환경별
 온톨로지 overlay 를 통해 override.
 
-## 2. 5-axis authority 매트릭스
+## 2. 6-axis ceiling + risk-classification 표
 
-RiskGate 는 **5개 직교 axis** 를 하나의 결정으로 collapse. 각 axis 는
-독립적으로 autonomy 를 낮춤; 최종 결정은 각 axis 가 permit 하는 것의
-**minimum**. 여기서 어느 것도 autonomy 를 raise 하지 않음 - upgrade 는
-promotion 파이프라인
+RiskGate 는 **6개 직교 ceiling axis** 와 권위적 risk-classification 표를
+하나의 결정으로 collapse. 각 axis 와 표는 독립적으로 autonomy 를 낮춤;
+최종 결정은 각 입력이 permit 하는 것의 **minimum**. 여기서 어느 것도
+autonomy 를 raise 하지 않음 - upgrade 는 promotion 파이프라인
 ([phase-2-quality-and-t1.md § Promotion](phases/phase-2-quality-and-t1-ko.md#promotion-shadow--enforce))
 을 통해, dispatch time 의 RiskGate 가 아님.
 
 ```
 authority = min(
+  A_risk_table    # risk-classification.md first-match 표 (권위적 baseline; quorum 도 산출)
   A_tier          # T0 | T1 | T2
   A_ceiling       # ActionType.ceiling_by_tier[tier]
   A_static_blast  # ActionType.blast_radius (선언됨)
-  A_live_blast    # live probe → quiet | active | overloaded (Month 1+)
+  A_live_blast    # live probe -> quiet | active | overloaded (Month 1+)
   A_role          # min_role vs principal role (RBAC)
-  A_env           # prod → ActionType.prod_downgrade 별 downgrade
+  A_env           # prod -> ActionType.prod_downgrade 별 downgrade
 )
 ```
 
-각 axis 는 다음 중 하나 반환:
+각 입력은 다음 중 하나 반환:
 
 - `enforce_auto` - HIL 없이 실행 허용.
 - `enforce_hil` - 실행 허용하되 사람 승인 필수.
 - `shadow_only` - judge 하고 log; mutation 없음.
 - `deny` - 진행 안 함; 결정은 hard stop.
 
-최종 RiskGate 출력은 winning minimum + audit consumer 가 reasoning 을
-render 할 수 있도록 각 axis 의 기여를 name 하는 `resolved_ceiling`
-breakdown (§8) 을 carry 하는 **`RiskDecision`**.
+최종 RiskGate 출력은 winning minimum, risk-classification 표로부터의
+`quorum` (기본 1; irreversible 은 2,
+[risk-classification.md](risk-classification-ko.md) 참조), 그리고 audit
+consumer 가 reasoning 을 render 할 수 있도록 각 입력의 기여를 name 하는
+`resolved_ceiling` breakdown (§8) 을 carry 하는 **`RiskDecision`**.
 
-### 2.1 Axis A - Tier
+### 2.0 Axis A - Risk-classification 표 (권위적 baseline)
+
+`A_risk_table` 은 [risk-classification.md](risk-classification-ko.md) 의
+first-match 표를 finding feature vector 에 대해 평가한 결과. 이 axis 는
+다음 신호가 평가되는 **유일한** 곳 - 6개 ceiling axis 는 의도적으로
+이들을 재도출하지 않음:
+
+- `policy_violation` (verifier 판정) -> `deny`.
+- `destructive` (`operation in {delete, drop, purge, detach}`) -> `hil`.
+- `irreversible` (`ActionType.irreversible == true`) -> `quorum: 2` 인
+  `hil`.
+- `data_plane_touched` (`interfaces include DataPlaneMutating`) -> `hil`.
+- `cost_impact_monthly >= $100` -> `hil` (Cost Governance vertical gate;
+  이것이 `ops.scale-out` 과 모든 비용-증가 액션이 cost threshold 를
+  clear 하지 않고는 `auto` 갈 수 없는 이유 - §2.8 참조).
+- `verifier_confidence < 0.85` (T2 quality-gate 신호) -> `hil`.
+- `blast_radius` 와 `environment` 도 여기서 평가되며 그 두 신호의 권위적
+  출처 (6-axis static/live blast 와 env axis 는 오직 *추가로* 낮출 뿐,
+  절대 모순되지 않음).
+
+`A_risk_table` 은 표의 `decision` 을 4 level 에 매핑해 반환 (`deny ->
+deny`, `hil -> enforce_hil`, `auto -> enforce_auto`) 하고 매치된 룰 id +
+`catalog_version` 을 audit entry 에 carry.
+
+### 2.1 Axis B - Tier
 
 Trust router 로부터.
 
 | Tier | 기본 posture |
 |------|-----------------|
 | T0 (deterministic) | `enforce_auto` 허용 - T0 판정은 policy-as-code pass |
-| T1 (lightweight similarity) | Upstream 은 `enforce_hil` 이상 절대 안 됨; fork 가 ActionType 별로 raise MAY |
-| T2 (frontier reasoning) | Upstream 은 `shadow_only` 이상 절대 안 됨; fork 가 raise MAY 하지만 ActionType 을 명시적으로 naming 하는 Rego 정책 하에서만 (action-ontology §7.1) |
+| T1 (lightweight similarity) | Upstream 은 `enforce_hil` 이상 절대 안 됨; fork 가 ActionType 별로 raise MAY 하되 ActionType 의 `ceiling_by_tier.t1.max_autonomy` 스키마가 `enforce_auto` 를 permit 해야 함 ([action-ontology.md § 2](action-ontology-ko.md#2-스키마) 참조) |
+| T2 (frontier reasoning) | Upstream 은 `shadow_only` 이상 절대 안 됨; fork 가 raise MAY 하지만 ActionType 을 명시적으로 naming 하는 Rego 정책 하에서만 (action-ontology §7.2) |
 
-### 2.2 Axis B - ActionType ceiling
+### 2.2 Axis C - ActionType ceiling
 
 ActionType 의 `ceiling_by_tier` 로부터
 ([action-ontology.md § 2](action-ontology-ko.md#2-스키마)).
 
-### 2.3 Axis C - Static blast radius
+### 2.3 Axis D - Static blast radius
 
 ActionType 의 `blast_radius` 블록. 두 계산 mode:
 
-- `static_enum` - `resource | subnet | subscription` 중 하나. Bucket 이
-  넓을수록 이 axis 는 낮은 값 반환:
-  - `resource` → 자체적으로 autonomy 를 낮추지 않음.
-  - `subnet` → `enforce_hil` 에 cap.
-  - `subscription` → `enforce_hil` 에 cap 하고 ceiling 을 `wide-blast`
-    marking → downstream analytics 가 flag.
+- `static_enum` - `resource | resource_group | subscription` 중 하나
+  ([risk-classification.md](risk-classification-ko.md) 와 공유하는
+  CSP-neutral bucket vocabulary). Bucket 이 넓을수록 이 axis 는 낮은 값
+  반환:
+  - `resource` -> 자체적으로 autonomy 를 낮추지 않음.
+  - `resource_group` -> `enforce_hil` 에 cap.
+  - `subscription` -> `deny` (어떤 자율 변경도 전체 subscription 에
+    걸치지 않음; risk-classification deny 룰과 일치).
 - `graph_derived` - dispatch time 에 inventory 그래프로부터 computed.
   `max_affected_resources` 초과 값은 다른 axis 와 관계없이 `enforce_hil`
   에 cap.
 
-### 2.4 Axis D - Live blast probe (Month 1+)
+### 2.4 Axis E - Live blast probe (Month 1+)
 
 `ActionType.live_probe_ref` 가 probe 를 name. Probe 는 세 level 중
 하나 반환 (§4). Mapping:
@@ -123,35 +166,62 @@ ActionType 의 `blast_radius` 블록. 두 계산 mode:
 `live_probe_ref` 가 unset 이면 axis 는 "no opinion" 반환 - 자체적으로
 autonomy 를 낮추지 않음.
 
-### 2.5 Axis E - Role (RBAC)
+### 2.5 Axis F - Role (RBAC)
 
 `ActionType.ceiling_by_tier[tier].min_role` vs 호출 principal 의
 resolved role ([user-rbac-and-identity.md](user-rbac-and-identity-ko.md)
 로부터):
 
-- Principal 이 `min_role` 이상 → axis 가 tier default 반환.
-- Principal 이 `min_role` 미달 → axis 가 `deny` 반환.
-- BreakGlass principal → axis 가 `enforce_hil` 반환 (`_auto` 절대 아님;
-  BreakGlass 는 HIL 을 절대 우회 안 함, reviewer 가 eligible 하게 만들
-  뿐).
+- Principal 이 통상 ladder (`reader < contributor < approver < owner`)
+  에서 `min_role` 이상 -> axis 가 tier default 반환.
+- Principal 이 `min_role` 미달 -> axis 가 `deny` 반환.
+- **BreakGlass 는 off-ladder 이며 최상위 rung 이 아님.** BreakGlass 는
+  Owner 안에 nested 되지 *않은* 별도 Entra 그룹
+  ([user-rbac-and-identity.md § 2](user-rbac-and-identity-ko.md#2-롤-모델-4-tier--break-glass)).
+  활성이고 time-box 된 BreakGlass grant 는 caller 가 원래 under-
+  privileged 여서 approve 못 했을 HIL item 을 *approve 할 자격* 을 얻게
+  하지만, `enforce_auto` 를 절대 반환 안 함 - BreakGlass-eligible caller
+  에 대해 axis 는 `enforce_hil` 에 cap. BreakGlass 는 승인 자격을 raise
+  하지, 자동화를 raise 하지 않는다.
 
 룰-발화 액션의 경우 "principal" 은 executor identity (시스템 MI); 그
 role 은 composition time 에 fixed
 ([composition.py](../../src/aiopspilot/composition.py)).
 
-### 2.6 Axis F - Environment (prod downgrade)
+### 2.6 Axis G - Environment (prod downgrade)
 
-`ActionType.prod_downgrade` 가 env-detector reference 를 name. Detector
-가 target 리소스에 대해 "prod" 반환 시, axis 는 `prod_downgrade.mode`
-(전형적으로 `enforce_hil` 또는 `shadow_only`) 에 cap. `prod_downgrade`
-블록 누락은 이 ActionType 에 대해 axis 가 비활성 (dev-only 액션은 이거
-없이 ship).
+`ActionType.prod_downgrade.detection_ref` 가 env-detector 를 name. "prod"
+의 정의를 둘로 만들지 않기 위해, detector reference 는
+[risk-classification.md § Environment Detection](risk-classification-ko.md#environment-detection)
+에 정의된 **동일** env classifier (resource-group `environment` tag; 누락/
+미인식 tag -> `prod`, fail-safe) 로 resolve. Detector 가 target 리소스에
+대해 "prod" 반환 시, axis 는 `prod_downgrade.mode` (전형적으로
+`enforce_hil` 또는 `shadow_only`) 에 cap.
+
+`prod_downgrade` 블록 누락은 **`env_scope: non_prod` 를 선언하는 dev-only
+ActionType 에 대해서만** axis 를 비활성화; 명시적 `env_scope` 없는
+ActionType 은 risk-classification env 신호 (Axis A) 를 inherit 하므로,
+누락된 블록이 prod auto-execution 으로 silently fail open 될 수 없음.
 
 ### 2.7 결합
 
-각 axis 는 위 4 level 중 하나 반환; RiskGate 는 순서
+각 입력은 위 4 level 중 하나 반환; RiskGate 는 순서
 `enforce_auto > enforce_hil > shadow_only > deny` 에서 **minimum** 을
-취함. 어느 axis 의 `deny` 든 hard stop; executor 는 절대 호출 안 됨.
+취함. 어느 입력 (risk-classification 표 포함) 의 `deny` 든 hard stop;
+executor 는 절대 호출 안 됨. `enforce_hil` 에 동반되는 `quorum` 은 표
+quorum 과 axis-선언 quorum 의 최대값.
+
+### 2.8 비용-증가 ops 액션
+
+지출을 늘리는 `ops.*` 액션 (`ops.scale-out`, 더 큰 tier 로의
+`ops.failover-primary`) 은 Axis A (risk-classification 표) 가
+`>= $100 -> hil` gate 를 적용할 수 있도록 ActionType 에
+`cost_impact_monthly` 추정을 선언 MUST. Unknown 이거나 threshold 초과
+비용 추정을 가진 `ops.scale-out` 은 절대 `auto` 아님; 이는 `direct_api`
+fast path 를 통해 우회될 수 있는 런타임 ops 에 대해 Cost Governance
+vertical 을 권위적으로 유지. Cost Governance vertical
+([verticals](../../src/aiopspilot/core/verticals)) 이 추정 함수를 소유;
+ActionType 은 그것을 참조만 함.
 
 ## 3. 통합 RiskGate
 
@@ -161,11 +231,34 @@ RiskGate 는
 [action-ontology.md § 4](action-ontology-ko.md#4-트리거-surface))
 의 단일 결정 지점.
 
+> 구현 상태: 순수 combinator 는
+> [`ceiling.py`](../../src/aiopspilot/core/risk_gate/ceiling.py) (6축),
+> [`risk_table.py`](../../src/aiopspilot/core/risk_gate/risk_table.py)
+> (Axis A first-match 표 + `rule-catalog/risk-classification.yaml`),
+> [`feature.py`](../../src/aiopspilot/core/risk_gate/feature.py)
+> (`FeatureVector` 추출기) 로 ship 되고,
+> [`authority.py`](../../src/aiopspilot/core/risk_gate/authority.py)
+> `evaluate_execution_authority()` 가 end-to-end 로 통합. 이 함수가 단일
+> 파이프라인 `feature -> table (Axis A) -> 6축 min() -> ExecutionAuthorityDecision`.
+> [`ControlLoop`](../../src/aiopspilot/core/control_loop.py) 이 두 모드로
+> 호출한다. risk table 만 배선된 경우 실행 액션당 `risk_gate.shadow_authority`
+> audit 엔트리 1개를 기록 (authority 전용, judge+log, executor 경로 무변경).
+> risk table 과 기존
+> [`gate.py`](../../src/aiopspilot/core/risk_gate/gate.py) `RiskGate` 가
+> 모두 배선된 경우, gate (런타임 Action 안전: exemption / precondition /
+> promotion) 와 authority (정책 ceiling) 를
+> [`evaluator.py`](../../src/aiopspilot/core/risk_gate/evaluator.py)
+> `combine()` 이 단일 `UnifiedRiskDecision` 으로 결합하고 (canonical-level
+> `min()`, 두 evaluator 무변경), 루프가 그 위에서 **라우팅**한다: `deny` 나
+> `hil` 결정은 executor 를 건너뛰고 (전체 outcome `DENIED` / `HIL`, PR 미발행),
+> `auto` 만 실행으로 진행. 라우팅된 각 액션은 `risk_gate.unified` audit
+> 엔트리 1개를 기록.
+
 계약:
 
 ```python
 class RiskGate(Protocol):
-    async def evaluate(
+    def evaluate(
         self,
         *,
         action_type: OntologyActionType,
@@ -174,6 +267,8 @@ class RiskGate(Protocol):
         tier: TrustTier,
         principal: Principal,
         env: EnvClassification,
+        risk_table_result: RiskTableResult,   # Axis A, 사전 계산 (§2.0)
+        live_probe_result: ProbeResult | None, # Axis E, 사전 fetch (§4)
         promotion_state: ActionModeRecord,
     ) -> RiskDecision: ...
 
@@ -181,11 +276,30 @@ class RiskGate(Protocol):
 class RiskDecision:
     decision: Literal["auto", "hil", "abstain", "deny"]
     mode: Literal["shadow", "enforce"]
+    quorum: int                            # Axis A 로부터; 기본 1, irreversible 은 2
+    matched_rule_id: str                   # risk-classification 룰 id (또는 "default")
+    catalog_version: str                   # 결정 시점 risk-classification.yaml 버전
     execution_path: ExecutionPath          # ActionType 로부터 inherit, lower 강제 MAY
     resolved_ceiling: ResolvedCeiling      # audit-friendly breakdown (§8)
     hil_queue_id: str | None               # decision == "hil" 시 populated
 ```
 
+- **RiskGate 는 pure, 동기 함수로 유지.** 모든 I/O (live probe,
+  `graph_derived` blast 의 inventory 그래프 walk) 는 `evaluate` **이전**에
+  수행되어 `live_probe_result` / 사전-resolve 된 blast 로 전달됨. 이는
+  결정론성 (§7) 을 보존하고, `evaluate` 를
+  [coding-conventions.instructions.md](../../.github/instructions/coding-conventions.instructions.md#safety)
+  의 async seam 목록 밖에 두며, 기존 동기
+  [`RiskGate.evaluate`](../../src/aiopspilot/core/risk_gate/gate.py) 와 일치.
+  Probe 사전-fetch 는 이미 async 인 ControlLoop / coordinator 에서 수행.
+- **기존 `RiskDecision` 으로부터의 마이그레이션.** 오늘
+  [gate.py](../../src/aiopspilot/core/risk_gate/gate.py) 는
+  `RiskDecision(outcome: RiskDecisionOutcome, ...)` 를 노출. 마이그레이션은
+  additive 이며 단계적: (1) `quorum`, `matched_rule_id`, `catalog_version`,
+  `resolved_ceiling`, `execution_path` 필드를 safe default 로 추가; (2) 기존
+  caller 가 깨지지 않도록 한 릴리스 동안 `outcome` 를 `decision` 의
+  derived alias 로 유지; (3) ControlLoop 과 콘솔이 모두 `decision` 을 read
+  하면 alias 제거. 각 단계는 §10 의 property test 가 green 인 리뷰 PR.
 - `promotion_state` 는 기존
   [`ActionPromotionRegistry`](../../src/aiopspilot/core/risk_gate/gate.py)
   로부터 read - shadow-mode ActionType 은 axis 가 permit 하는 것과 관계
@@ -209,13 +323,13 @@ Promotion 은 RiskGate 와 직교:
 
 - `ActionPromotionRegistry.mode_of(action_type)` 는 ActionType 이
   enforce-eligible 인지 결정.
-- RiskGate 는 그것을 upper bound 로 취하고 5 axis 와 결합. 승격된
+- RiskGate 는 그것을 upper bound 로 취하고 6 axis 와 결합. 승격된
   ActionType 이 여전히 axis 에 의해 `hil` 로 gate MAY; promotion state
   가 `auto` 를 강제하지 않음.
 
 ## 4. Live blast probe
 
-Static `blast_radius` 는 "이 ActionType 은 subnet 까지 영향 MAY" 말함;
+Static `blast_radius` 는 "이 ActionType 은 resource group 까지 영향 MAY" 말함;
 live probe 는 "이 특정 리소스는 지난 5분 트래픽 0, 그러므로 실제 영향
 없음" 말함. Static + live 결합은 "실행 중인 NSG rule 변경은 아무도
 호출하지 않을 때 저-영향" 이라는 직관 뒤의 mechanism.
@@ -229,12 +343,13 @@ schema_version: "1.0.0"
 id: vm_traffic_last_5m
 description: "지난 5분 VM 네트워크 throughput 기반 quiet/active/overloaded 반환."
 adapter_ref: probe-adapters/azure-monitor       # DI seam id
-kql: |
-  AzureMetrics
-  | where ResourceId == '{{ target_ref }}'
-  | where MetricName == 'Network In Total'
-  | where TimeGenerated > ago(5m)
-  | summarize p = percentile(Total, 95)
+adapter_payload:                                # adapter-특화; 코어 probe 스키마의
+  kql: |                                        # 일부가 아니므로 코어가 CSP-neutral 유지
+    AzureMetrics
+    | where ResourceId == '{{ target_ref }}'
+    | where MetricName == 'Network In Total'
+    | where TimeGenerated > ago(5m)
+    | summarize p = percentile(Total, 95)
 interpretation:
   quiet:      p < 1000000            # <1 MB/5min
   active:     p < 100000000          # <100 MB/5min
@@ -252,10 +367,21 @@ RiskGate 는 probe 를 **오직** 다음 시에만 호출:
   (probe cost 는 결정을 실제로 변경 가능할 때만 지불).
 - Probe 캐시가 target 에 대해 fresh answer 없음.
 
-Probe 실패 (timeout, adapter error) 는 `active` 로 default - safer
-interpretation. Rolling window 를 가로지르는 반복 실패는 `probe.degraded`
-audit entry 트리거 → 오퍼레이터가 inspect; 전체 loop 를 fail-close 하지
-않음.
+Probe 실패 처리 (fail toward safety). Probe 는 *ceiling 을 낮추는* axis
+이지 authorizer 가 아님. 단발 실패 (timeout, adapter error) 시 axis 는
+`active` 반환 - auto 대신 HIL 을 강제해 probe 가 blind 인 동안 사람이
+확인하게 하되, 오퍼레이터-개시 액션을 hard-stop 하진 않음. Rolling window 를
+가로지르는 **반복** 실패 (기본 `cache_ttl_seconds * 5` 내 3회) 시 axis 는
+자신의 posture 를 `shadow_only` 로 에스컬레이트하고 `probe.degraded` audit
+entry 를 write: 지속적으로 blind 한 probe 는 그 ActionType 을 오퍼레이터가
+inspect 할 때까지 실행 중단해야 함을 의미, 무한정 수작업 승인이 아님. 그래도
+*전체* loop 를 fail-close 하진 않음 - degraded probe 에 bind 된 ActionType 만.
+
+**Replay 는 기록된 결과를 사용, 재질의 안 함.** 디버깅/사개분석을 위해
+audit log 를 replay 할 때 RiskGate 는 `live_probe_result` 를 기록된
+`resolved_ceiling` (§8) 에서 read; probe 를 다시 호출 MUST NOT. 이는 replay 를
+judge-only 이고 결정론적으로 유지
+([architecture.instructions.md § Idempotency, Ordering, and Replay](../../.github/instructions/architecture.instructions.md#idempotency-ordering-and-replay)).
 
 ### 4.3 Probe adapter seam
 
@@ -328,12 +454,22 @@ Best for: scripted rollback 있는 irreversible 변경, fork 가 자동화와
 requested_path = ActionType.execution_path
 forced_path = RiskGate.resolved_ceiling.forced_execution_path  # 옵션 axis 출력
 final_path = strictest(requested_path, forced_path)
-                # 엄격 순서: pr_manual > pr_native > direct_api
+                # 엄격 순서 (속도가 아닌 리뷰-엄격성 기준):
+                #   pr_manual > pr_native > direct_api
 ```
 
-Fork 는 env axis 를 통해 prod 의 모든 dispatch 를 `pr_manual` 로 강제
-가능. Upstream 은 절대 아래로부터 강제 안 함 (`pr_manual` 을 속도 위해
-`direct_api` 로 lift 안 함).
+여기서 "strictest" 는 가장 빠른이 아니라 **가장 사람-리뷰-gated** 를 의미:
+`pr_manual` (필수 사람 merge) 이 `pr_native` (정책 auto-merge) 보다
+엄격하고, 그것이 `direct_api` (diff 없음) 보다 엄격. Axis 는 dispatch 를 이
+사다리에서 **위로** (더 많은 리뷰 쪽으로) 만 이동 가능; latency 를 위해
+아래로 절대 이동 못 함. Fork 는 env axis 를 통해 prod 의 모든 dispatch 를
+`pr_manual` 로 강제 가능. Upstream 은 절대 아래로부터 강제 안 함 (속도를
+위해 `pr_manual` 을 `direct_api` 로 lift 안 함).
+
+**Fallback idempotency.** dispatch 가 도중에 `direct_api` 에서 `pr_manual`
+로 degrade 될 때 (§11), fallback PR 은 액션의 안정된 idempotency key 를
+재사용. direct-API adapter 는 시도-및-실패한 call 을 그 key 하에 기록하여
+manual PR 경로가 동일 mutation 을 double-apply 할 수 없도록 함.
 
 ## 6. 안전 invariant (변경 없음 + 하나 확장)
 
@@ -343,8 +479,8 @@ Fork 는 env axis 를 통해 prod 의 모든 dispatch 를 `pr_manual` 로 강제
 audit) 를 carry. 이 문서는 하나 추가:
 
 5. **매 dispatch 는 `resolved_ceiling` 을 write.** Audit entry 는
-   결정을 생성한 완전한 5-axis breakdown 을 carry MUST → 향후 overlay
-   변경이 과거 결정의 재현성을 절대 break 안 함.
+   결정을 생성한 완전한 6-axis breakdown (`risk_table` axis 포함) 을
+   carry MUST -> 향후 overlay 변경이 과거 결정의 재현성을 절대 break 안 함.
 
 다른 invariant 는 정확히 이전과 같이 적용 - chat-specific carve-out
 없음, direct-API relaxation 없음.
@@ -366,7 +502,7 @@ Chat-특화 invariant ([operator-console.md § 7.2](operator-console-ko.md#72-ch
 
 ## 7. 결정론성 + 감사성
 
-- 동일한 5-axis 입력이 주어지면 RiskGate 는 동일한 `RiskDecision`
+- 동일한 6-axis 입력이 주어지면 RiskGate 는 동일한 `RiskDecision`
   반환. 어떤 stochastic 구성요소 (moving window 를 query 하는 probe)
   든 probe 의 `cache_ttl_seconds` 로 bounded → TTL 내 replay 가
   identical 결정 yield.
@@ -384,6 +520,7 @@ Chat-특화 invariant ([operator-console.md § 7.2](operator-console-ko.md#72-ch
     "tier": "T0",
     "action_type_id": "ops.restart-service",
     "axes": {
+      "risk_table":     {"level": "enforce_hil",  "reason": "cost_impact_monthly >= 100", "matched_rule_id": "cost-threshold", "catalog_version": "1.0.0", "quorum": 1},
       "tier":           {"level": "enforce_auto", "reason": "shadow-promoted ActionType 의 T0 판정"},
       "ceiling":        {"level": "enforce_hil",  "reason": "ceiling_by_tier.t0.max_autonomy"},
       "static_blast":   {"level": "enforce_auto", "reason": "static_bucket=resource"},
@@ -391,13 +528,21 @@ Chat-특화 invariant ([operator-console.md § 7.2](operator-console-ko.md#72-ch
       "role":           {"level": "enforce_hil",  "reason": "principal=contributor >= min_role=contributor"},
       "env":            {"level": "enforce_auto", "reason": "not-prod"}
     },
-    "winning_axis": "ceiling",
+    "winning_axis": "risk_table",
     "final_level":  "enforce_hil",
+    "final_quorum": 1,
     "final_path":   "direct_api",
     "overlay_layers_applied": ["upstream", "rego"]
   }
 }
 ```
+
+`resolved_ceiling` 블록의 정확한 shape (risk_table axis 와 quorum 포함) 은
+`ontology/resolved-ceiling` JSON 스키마로 validate 되는 고정된 versioned
+계약이며, §3 의 `RiskDecision` 마이그레이션과 함께 Week-1 스키마-확장 PR
+에서 landing. narrator 와 audit consumer 가 verbatim 으로 render 하므로
+스키마-체크 된 shape 이 필수; contract test 가 매 dispatch 가 `risk_table`
+axis 포함 schema-valid 블록 을 emit 함을 assert.
 
 ## 9. 단계별 rollout
 
@@ -411,7 +556,7 @@ ActionType 마이그레이션에 매치.
 - 스키마 확장만. 로더가 신규 field 학습; 모든 기존 ActionType 이 validate.
   RiskGate 는 오늘처럼 계속 동작 (shadow-only) - `promotion_state` 가
   모든 entry 에 대해 shadow 이기 때문.
-- **Exit gate**: 5-axis min-combination 에 대한 property test; 모든
+- **Exit gate**: 6-axis min-combination 에 대한 property test; 모든
   기존 shipped 룰이 변경 전과 동일한 shadow-only outcome 을 여전히
   produce.
 
@@ -448,9 +593,16 @@ ActionType 마이그레이션에 매치.
 
 ## 10. Testability
 
-- **5-axis 매트릭스** - determinate 결과를 가진 모든
-  (tier × ceiling × static_blast × live_blast × role × env) 조합에
-  대한 table-driven property test; `min()` semantics assert.
+- **6-axis + 표 매트릭스** - 전체 카테시안 곱
+  (`risk_table` x tier x ceiling x static_blast x live_blast x role x env)
+  은 조합적으로 크므로, suite 는 determinate 값에 대한
+  **pairwise (all-pairs)** 생성 + 명시적 hand-picked corner case (any-`deny`
+  short-circuit, irreversible-quorum, prod downgrade, BreakGlass-eligible)
+  를 사용; 각 생성 row 는 `min()` semantics 와 어느 입력도 autonomy 를
+  raise 하지 않음을 assert.
+- **Overlay 우선순위 + resolved_ceiling** - 동일 axis 에 모든 네 overlay
+  layer 가 active 인 fixture; higher-precedence layer 승리 및
+  `overlay_layers_applied` 아래 이름 등장 assert.
 - **Overlay 우선순위 + resolved_ceiling** - 동일 axis 에 모든 네 overlay
   layer 가 active 인 fixture; higher-precedence layer 승리 및
   `overlay_layers_applied` 아래 이름 등장 assert.
@@ -469,17 +621,27 @@ ActionType 마이그레이션에 매치.
 
 ## 11. 실패 모드
 
-- **Probe timeout / error** → default `active` (§4.2); `probe.degraded`
-  로그; fail-close 안 함.
+- **Probe timeout / error** -> 단발 실패는 `active`, 반복 실패는
+  `shadow_only` 반환 (§4.2); `probe.degraded` 로그; 전체 loop 를
+  fail-close 하지 않음.
 - **Overlay 로드 error** (Rego syntax error, missing file overlay
-  target) → 로더가 upstream default 로 fallback 하고 `overlay.load_failed`
-  audit write; RiskGate 는 `overlay_layers_applied` 를 그에 맞게 mark.
-  Overlay 가 applied 인 척 silently 하지 않음.
-- **Executor path 도달 불가** (direct_api adapter down) → 그 dispatch
-  에 대해 `pr_manual` 로 fallback; `executor.path.degraded` write;
-  오퍼레이터는 audit entry 의 resolved_ceiling 에서 fallback 을 봄.
+  target) -> **upstream 이 아니라 더 안전한 값으로 fail.** 실패한
+  overlay 가 *tightening* overlay (fork 가 autonomy 다운그레이드) 였으면
+  RiskGate 는 더 느슨한 upstream 기본으로 되돌리는 대신 last-known 조인
+  ceiling 을 유지 (fail-closed); 실패한 loosening overlay 는 단지 더 엄격한
+  upstream 값을 그대로 둠. 어느 쪽든 `overlay.load_failed` audit 를 write
+  하고 `overlay_layers_applied` 를 mark 하여 overlay 가 applied 인 척 절대
+  안 함.
+- **Executor path 도달 불가** (direct_api adapter down) -> 저-긴급 액션은
+  `pr_manual` 로 fallback 하고 `executor.path.degraded` write. **latency-
+  critical ops 액션** (`ops.restart-service`, `ops.failover-primary`,
+  ActionType 이 `urgency: high` 설정한 것) 은 `pr_manual` fallback 이
+  목적을 무효화하므로, 대신 on-call approver 가 콘솔에서 수 초 내
+  accept 할 수 있는 **direct HIL item** (`mutation_target=direct`) 으로
+  enqueue; fallback 과 그 이유가 `resolved_ceiling` 에 등장. fallback 은
+  액션의 idempotency key (§5.4) 를 재사용해 어느 경로도 double-apply 안 함.
 - **RiskGate 자체 unavailable** (일어나면 안 됨 - 입력의 pure function)
-  → fail-close: dispatch 없음, `deny` audit, operational lane 페이지.
+  -> fail-close: dispatch 없음, `deny` audit, operational lane 페이지.
 
 ## 12. 관련 문서
 
@@ -489,8 +651,9 @@ ActionType 마이그레이션에 매치.
   chat invariant 가 매 write-class tool call 에 요구하는 verifier.
 - [phase-2-quality-and-t1.md](phases/phase-2-quality-and-t1-ko.md) -
   ActionType 을 shadow 에서 enforce 로 flip 하는 promotion 파이프라인.
-- [risk-classification.md](risk-classification-ko.md) - 이 axis
-  매트릭스가 확장하는 초기 auto / HIL / deny 룰 표.
+- [risk-classification.md](risk-classification-ko.md) - 6-axis ceiling 이
+  `min()` 으로 결합하는 권위적 first-match auto / HIL / deny 표 (Axis A,
+  §2.0); 매트릭스로 대체되지 않음.
 - [security-and-identity.md](security-and-identity-ko.md) - 4 autonomy
   invariant + executor identity 계약.
 - [architecture.instructions.md](../../.github/instructions/architecture.instructions.md) -

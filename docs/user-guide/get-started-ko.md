@@ -3,7 +3,7 @@ title: AIOpsPilot 시작하기
 description: AIOpsPilot 5분 오리엔테이션 - 무엇인지, 언제 적합한지, 다음으로 어디를 볼지.
 translation_of: get-started.md
 translation_source_sha: 745ec967def4fb4ae55f3b578b3733a09390f30e
-translation_revised: 2026-07-06
+translation_revised: 2026-07-07
 ---
 
 # AIOpsPilot 시작하기

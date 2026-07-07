@@ -1,15 +1,15 @@
 ---
 title: AIOpsPilot 로드맵
 translation_of: README.md
-translation_source_sha: 25dee6eec50e7d136cf8e3ac51c8be8d2337e51b
-translation_revised: 2026-07-06
+translation_source_sha: b11e3401c8ca00aa3cf8a254ed8f0e209bae66c4
+translation_revised: 2026-07-07
 ---
 
 # AIOpsPilot 로드맵
 
 AIOpsPilot 뒤편의 엔지니어링 계획. 이 폴더는
-[copilot-instructions.md](../../.github/copilot-instructions.md) 의 요약 원칙과
-[architecture.instructions.md](../../.github/instructions/architecture.instructions.md) 의
+[copilot-instructions.md](../../.github/copilot-instructions.md)의 요약 원칙과
+[architecture.instructions.md](../../.github/instructions/architecture.instructions.md)의
 컨트롤 루프를, 목표·구조·배포·스케일-아웃을 아우르는 단계별 로드맵으로 확장합니다.
 
 > **온라인으로 읽기:** [dotnetpower.github.io/aiopspilot](https://dotnetpower.github.io/aiopspilot/).
@@ -17,7 +17,7 @@ AIOpsPilot 뒤편의 엔지니어링 계획. 이 폴더는
 > 전문 검색 · 한/영 스위처와 함께 읽기 전용으로 마운트합니다. 마운트와 배포 방식은
 > [site/](../../site/README.md) 참조.
 
-> **범위:** 이 저장소는 범용이며 고객-비종속입니다. 고객별 값은 포크에 있습니다
+> **범위:**이 저장소는 범용이며 고객-비종속입니다. 고객별 값은 포크에 있습니다
 > ([generic-scope.instructions.md](../../.github/instructions/generic-scope.instructions.md)).
 >
 > **구현 초점:** Azure가 유일한 구현 대상입니다. 비-Azure 프로바이더와 Phase 4의
@@ -81,6 +81,12 @@ AIOpsPilot 뒤편의 엔지니어링 계획. 이 폴더는
 | # | 문서 | 다루는 내용 |
 |---|------|-------------|
 | 22 | [prompt-composition-ko.md](prompt-composition-ko.md) | 진화하는 시스템 프롬프트: role x layer 매트릭스, 툴 / 웹 검색, debate orchestrator, 인식 측정 |
+
+### 순서 확정 (문서 통합 플랜)
+
+| # | 문서 | 다루는 내용 |
+|---|------|-------------|
+| 23 | [implementation-plan-ko.md](implementation-plan-ko.md) | 2026-07-06 트랜치 문서 전반에 걸친 순서 확정. 여섯 개의 표준 세트 설계 결정(R1 축 파생, R2 ConsoleTool = ActionType 프로젝션, R3 통합 LlmBinding, R4 공유 projection 프리미티브, R6 operator_memory = 감사 로그 view, R7 pr_manual = 플래그)과 웨이브 플랜 (F -> D1 -> W1 -> W2 -> M1, Twin과 Preflight 병렬 트랙 포함) |
 
 ## 페이즈 타임라인
 

@@ -1,0 +1,505 @@
+---
+/*
+ * ActionOntologyExplorer.astro - an interactive explorer over the
+ * AIOpsPilot action ontology (P2). The docs-site analogue of Palantir's
+ * ontology page: pick an ActionType and inspect its ontology entry
+ * (category, operation, trigger, execution path, rollback contract,
+ * blast radius, mode).
+ *
+ * Progressive enhancement, zero dependencies:
+ *   - No JS  -> every ActionType panel renders stacked (a full, readable
+ *              catalog listing). The filter bar and node grid, which do
+ *              nothing without JS, are hidden.
+ *   - JS on  -> `is-enhanced` flips the layout to a node grid + a single
+ *              detail panel, with a rollback-contract facet filter.
+ * Nodes and filters are real <button>s (keyboard + screen-reader
+ * friendly); the detail region is aria-live so selection is announced.
+ *
+ * Data is English-only and lives in ../data/action-ontology.ts (a
+ * curated mirror of rule-catalog/action-types/*.yaml). Display chrome is
+ * passed as props so the Korean landing can localise it without touching
+ * the technical ontology values (which stay English by policy).
+ */
+import {
+  ACTION_TYPES,
+  ROLLBACK_META,
+  type RollbackContract,
+} from "../data/action-ontology.ts";
+
+interface AxisLabels {
+  category?: string;
+  operation?: string;
+  trigger?: string;
+  execution?: string;
+  rollback?: string;
+  blast?: string;
+  mode?: string;
+}
+
+interface Props {
+  heading?: string;
+  intro?: string;
+  filterLabel?: string;
+  filterAllLabel?: string;
+  selectHint?: string;
+  axisLabels?: AxisLabels;
+  irreversibleLabel?: string;
+  invariantsNote?: string;
+  scopeNote?: string;
+}
+
+const {
+  heading = "Explore the action ontology",
+  intro =
+    "Every autonomous change is one typed ActionType entry. Pick one to see the axes the risk gate reads before it runs.",
+  filterLabel = "Filter by rollback",
+  filterAllLabel = "All",
+  selectHint = "Select an action type",
+  axisLabels = {},
+  irreversibleLabel = "irreversible - HIL forced",
+  invariantsNote =
+    "Every action carries all four: stop-condition, rollback path, blast-radius limit, audit-log entry.",
+  scopeNote =
+    "Showing the shipped remediation catalog (rule-fired, PR-native, shadow-first). The ontology also spans ops and governance categories in the spec.",
+} = Astro.props as Props;
+
+const axis = {
+  category: axisLabels.category ?? "Category",
+  operation: axisLabels.operation ?? "Operation",
+  trigger: axisLabels.trigger ?? "Trigger",
+  execution: axisLabels.execution ?? "Execution path",
+  rollback: axisLabels.rollback ?? "Rollback",
+  blast: axisLabels.blast ?? "Blast radius",
+  mode: axisLabels.mode ?? "Default mode",
+};
+
+// Distinct rollback contracts present, in first-seen order, for the facet bar.
+const rollbacksPresent = [
+  ...new Set(ACTION_TYPES.map((a) => a.rollbackContract)),
+] as RollbackContract[];
+---
+
+<section class="ao-explorer">
+  <div class="ao-caption">
+    <span class="ao-heading">{heading}</span>
+    <span class="ao-intro">{intro}</span>
+  </div>
+
+  <div class="ao-filters" role="group" aria-label={filterLabel}>
+    <span class="ao-filter-label">{filterLabel}</span>
+    <button class="ao-filter" data-filter="all" aria-pressed="true" type="button">
+      {filterAllLabel}
+    </button>
+    {
+      rollbacksPresent.map((rc) => (
+        <button
+          class="ao-filter"
+          data-filter={rc}
+          aria-pressed="false"
+          type="button"
+          style={`--c:${ROLLBACK_META[rc].color}`}
+        >
+          <span class="ao-filter-dot" aria-hidden="true" />
+          {ROLLBACK_META[rc].label}
+        </button>
+      ))
+    }
+  </div>
+
+  <div class="ao-body">
+    <ul class="ao-nodes" aria-label={selectHint}>
+      {
+        ACTION_TYPES.map((a, i) => (
+          <li>
+            <button
+              class="ao-node"
+              type="button"
+              data-index={i}
+              data-rollback={a.rollbackContract}
+              aria-pressed="false"
+              style={`--c:${ROLLBACK_META[a.rollbackContract].color}`}
+            >
+              <span class="ao-node-dot" aria-hidden="true" />
+              <span class="ao-node-name">{a.short}</span>
+              <span class="ao-node-op">{a.operation}</span>
+              {a.irreversible && (
+                <span class="ao-node-irr" title={irreversibleLabel}>
+                  !
+                </span>
+              )}
+            </button>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="ao-detail" aria-live="polite">
+      {
+        ACTION_TYPES.map((a, i) => (
+          <article class="ao-panel" data-index={i} aria-label={a.name}>
+            <header class="ao-panel-head">
+              <h3 class="ao-panel-name">{a.name}</h3>
+              {a.irreversible && (
+                <span class="ao-badge ao-badge--irr">{irreversibleLabel}</span>
+              )}
+            </header>
+            <dl class="ao-axes">
+              <div>
+                <dt>{axis.category}</dt>
+                <dd>{a.category}</dd>
+              </div>
+              <div>
+                <dt>{axis.operation}</dt>
+                <dd>
+                  <code>{a.operation}</code>
+                </dd>
+              </div>
+              <div>
+                <dt>{axis.trigger}</dt>
+                <dd>
+                  <code>{a.triggerKind}</code>
+                </dd>
+              </div>
+              <div>
+                <dt>{axis.execution}</dt>
+                <dd>
+                  <code>{a.executionPath}</code>
+                </dd>
+              </div>
+              <div>
+                <dt>{axis.rollback}</dt>
+                <dd>
+                  <span
+                    class="ao-rb"
+                    style={`--c:${ROLLBACK_META[a.rollbackContract].color}`}
+                  >
+                    {a.rollbackContract}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt>{axis.blast}</dt>
+                <dd>{a.blast}</dd>
+              </div>
+              <div>
+                <dt>{axis.mode}</dt>
+                <dd>
+                  <code>{a.defaultMode}</code>
+                </dd>
+              </div>
+            </dl>
+            <p class="ao-desc">{a.description}</p>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+
+  <p class="ao-invariants">{invariantsNote}</p>
+  <p class="ao-scope">{scopeNote}</p>
+</section>
+
+<style>
+  .ao-explorer {
+    margin: 1.5rem 0 2.5rem;
+    padding: 1.5rem;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 0.9rem;
+    background:
+      radial-gradient(
+        120% 90% at 100% 0%,
+        color-mix(in srgb, #7a5cff 6%, transparent),
+        transparent 55%
+      ),
+      var(--sl-color-bg);
+  }
+
+  .ao-caption {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 1.1rem;
+  }
+  .ao-heading {
+    font-size: var(--sl-text-lg);
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+  .ao-intro {
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+
+  /* Filter bar and node grid only make sense with JS; hidden until the
+     script adds .is-enhanced. */
+  .ao-filters,
+  .ao-nodes {
+    display: none;
+  }
+  .ao-explorer.is-enhanced .ao-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.1rem;
+  }
+  .ao-filter-label {
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+    margin-inline-end: 0.25rem;
+  }
+  .ao-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: var(--sl-text-xs);
+    font-family: var(--sl-font-mono, monospace);
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-hairline);
+    background: var(--sl-color-bg);
+    color: var(--sl-color-gray-2);
+    cursor: pointer;
+    transition:
+      border-color 140ms ease,
+      background 140ms ease;
+  }
+  .ao-filter-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: var(--c, var(--sl-color-text-accent));
+  }
+  .ao-filter:hover {
+    border-color: color-mix(in srgb, var(--c, var(--sl-color-text-accent)) 60%, transparent);
+  }
+  .ao-filter[aria-pressed="true"] {
+    border-color: var(--c, var(--sl-color-text-accent));
+    background: color-mix(in srgb, var(--c, var(--sl-color-text-accent)) 12%, transparent);
+    color: var(--sl-color-white);
+  }
+
+  /* Body: no-JS shows stacked panels; enhanced shows grid + one panel. */
+  .ao-body {
+    display: block;
+  }
+  .ao-explorer.is-enhanced .ao-body {
+    display: grid;
+    grid-template-columns: minmax(11rem, 15rem) 1fr;
+    gap: 1.25rem;
+    align-items: start;
+  }
+  @media (max-width: 44rem) {
+    .ao-explorer.is-enhanced .ao-body {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .ao-explorer.is-enhanced .ao-nodes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 22rem;
+    overflow-y: auto;
+  }
+  .ao-node {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: start;
+    padding: 0.45rem 0.6rem;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+    background: color-mix(in srgb, var(--sl-color-gray-6) 40%, transparent);
+    color: var(--sl-color-gray-1);
+    cursor: pointer;
+    transition:
+      border-color 140ms ease,
+      background 140ms ease;
+  }
+  .ao-node.is-hidden {
+    display: none;
+  }
+  .ao-node-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    flex: none;
+    border-radius: 999px;
+    background: var(--c);
+  }
+  .ao-node-name {
+    font-family: var(--sl-font-mono, monospace);
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+  }
+  .ao-node-op {
+    margin-inline-start: auto;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .ao-node-irr {
+    font-weight: 700;
+    color: #c93c37;
+  }
+  .ao-node:hover {
+    border-color: color-mix(in srgb, var(--c) 45%, transparent);
+  }
+  .ao-node.is-active {
+    border-color: var(--c);
+    background: color-mix(in srgb, var(--c) 12%, transparent);
+    color: var(--sl-color-white);
+  }
+
+  /* Panels: stacked by default (no-JS). Enhanced hides all but active. */
+  .ao-panel {
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 0.6rem;
+    padding: 1rem 1.15rem;
+    background: var(--sl-color-bg);
+  }
+  .ao-panel + .ao-panel {
+    margin-top: 0.75rem;
+  }
+  .ao-explorer.is-enhanced .ao-panel {
+    display: none;
+    margin-top: 0;
+  }
+  .ao-explorer.is-enhanced .ao-panel.is-active {
+    display: block;
+  }
+  .ao-panel-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.9rem;
+  }
+  .ao-panel-name {
+    margin: 0;
+    font-family: var(--sl-font-mono, monospace);
+    font-size: var(--sl-text-base);
+    color: var(--sl-color-white);
+  }
+  .ao-badge {
+    font-size: var(--sl-text-xs);
+    padding: 0.1rem 0.5rem;
+    border-radius: 0.35rem;
+    font-weight: 600;
+  }
+  .ao-badge--irr {
+    color: #c93c37;
+    background: color-mix(in srgb, #c93c37 14%, transparent);
+    border: 1px solid color-mix(in srgb, #c93c37 45%, transparent);
+  }
+  .ao-axes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 0.7rem 1rem;
+    margin: 0 0 0.9rem;
+  }
+  .ao-axes dt {
+    font-size: var(--sl-text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--sl-color-gray-3);
+  }
+  .ao-axes dd {
+    margin: 0.15rem 0 0;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-white);
+  }
+  .ao-axes code {
+    font-size: var(--sl-text-xs);
+  }
+  .ao-rb {
+    display: inline-block;
+    font-family: var(--sl-font-mono, monospace);
+    font-size: var(--sl-text-xs);
+    padding: 0.1rem 0.45rem;
+    border-radius: 0.35rem;
+    color: var(--c);
+    background: color-mix(in srgb, var(--c) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
+  }
+  .ao-desc {
+    margin: 0;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-2);
+    line-height: 1.55;
+  }
+
+  .ao-invariants {
+    margin: 1.2rem 0 0;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--sl-color-hairline);
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-white);
+    font-weight: 600;
+  }
+  .ao-scope {
+    margin: 0.4rem 0 0;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+    font-style: italic;
+  }
+</style>
+
+<script>
+  // Progressive enhancement for the action ontology explorer. Without
+  // this script the section renders as a stacked, fully readable list.
+  const explorers =
+    document.querySelectorAll<HTMLElement>(".ao-explorer");
+
+  explorers.forEach((root) => {
+    const nodes = [...root.querySelectorAll<HTMLElement>(".ao-node")];
+    const panels = [...root.querySelectorAll<HTMLElement>(".ao-panel")];
+    const filters = [...root.querySelectorAll<HTMLElement>(".ao-filter")];
+    if (nodes.length === 0 || panels.length === 0) return;
+
+    root.classList.add("is-enhanced");
+
+    const select = (index: number) => {
+      const key = String(index);
+      nodes.forEach((n) => {
+        const on = n.dataset.index === key;
+        n.classList.toggle("is-active", on);
+        n.setAttribute("aria-pressed", String(on));
+      });
+      panels.forEach((p) =>
+        p.classList.toggle("is-active", p.dataset.index === key),
+      );
+    };
+
+    const applyFilter = (value: string) => {
+      filters.forEach((f) =>
+        f.setAttribute("aria-pressed", String(f.dataset.filter === value)),
+      );
+      let firstVisible: number | null = null;
+      nodes.forEach((n) => {
+        const show = value === "all" || n.dataset.rollback === value;
+        n.classList.toggle("is-hidden", !show);
+        if (show && firstVisible === null) {
+          firstVisible = Number(n.dataset.index);
+        }
+      });
+      if (firstVisible !== null) select(firstVisible);
+    };
+
+    nodes.forEach((n) =>
+      n.addEventListener("click", () =>
+        select(Number(n.dataset.index)),
+      ),
+    );
+    filters.forEach((f) =>
+      f.addEventListener("click", () =>
+        applyFilter(f.dataset.filter ?? "all"),
+      ),
+    );
+
+    select(0);
+  });
+</script>

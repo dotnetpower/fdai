@@ -20,6 +20,8 @@ hero:
 ---
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
+import TrustTierFunnel from "../../components/TrustTierFunnel.astro";
+import ActionOntologyExplorer from "../../components/ActionOntologyExplorer.astro";
 
 ## How AIOpsPilot resolves events
 
@@ -46,6 +48,8 @@ flowchart LR
   DEL --> AUD[(Append-only audit log)]
   DENY --> AUD
 ```
+
+<TrustTierFunnel />
 
 ## What autonomy earns you (design targets)
 
@@ -102,6 +106,10 @@ flowchart LR
     Cost anomaly detection, right-sizing PRs, budget guardrails per resource group. Auto vs HIL by risk classification.
   </Card>
 </CardGrid>
+
+## The action ontology
+
+<ActionOntologyExplorer />
 
 ## Delivery phases
 

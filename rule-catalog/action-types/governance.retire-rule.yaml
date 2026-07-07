@@ -1,0 +1,61 @@
+schema_version: 1.0.0
+name: governance.retire-rule
+version: 1.0.0
+operation: update
+interfaces:
+- ControlPlane
+rollback_contract: pr_revert
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 7
+  min_samples: 20
+  min_accuracy: 1.0
+  max_policy_escapes: 0
+preconditions:
+- kind: graph_fresh_within_seconds
+  value: 300
+stop_conditions:
+- kind: provider_api_error_streak
+  count: 3
+- kind: time_box_exceeded_seconds
+  seconds: 300
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: Move a rule out of the enforce set. Retirement is a reviewed catalog-as-code
+  diff, not an override.
+category: governance
+trigger_kind:
+  kind: operator_request
+execution_path: pr_native
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: approver
+  t1:
+    max_autonomy: shadow_only
+    min_role: approver
+  t2:
+    max_autonomy: shadow_only
+    min_role: owner
+argument_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - rule_id
+  - justification
+  properties:
+    rule_id:
+      type: string
+      pattern: ^[a-z0-9][a-z0-9._-]{1,127}$
+    mode:
+      type: string
+      enum:
+      - shadow_only
+      - retired
+      description: shadow_only keeps the rule evaluating; retired removes it entirely.
+    justification:
+      type: string
+      minLength: 20
+      maxLength: 500

@@ -1,7 +1,7 @@
 ---
 translation_of: README.md
 translation_source_sha: 4c0dbab52dcb9242a87369338822ebbc25423190
-translation_revised: 2026-07-06
+translation_revised: 2026-07-07
 ---
 
 # AIOpsPilot

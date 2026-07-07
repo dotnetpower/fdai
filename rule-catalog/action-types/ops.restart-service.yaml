@@ -1,0 +1,66 @@
+schema_version: 1.0.0
+name: ops.restart-service
+version: 1.0.0
+operation: restart
+interfaces:
+- ControlPlane
+rollback_contract: state_forward_only
+irreversible: true
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 14
+  min_samples: 30
+  min_accuracy: 0.98
+  max_policy_escapes: 0
+preconditions:
+- kind: graph_fresh_within_seconds
+  value: 300
+stop_conditions:
+- kind: provider_api_error_streak
+  count: 3
+- kind: time_box_exceeded_seconds
+  seconds: 300
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: AKS pod restart, App Service restart, or Container App revision restart. Direct-API
+  path; state is forward-only (a restart is not revertible - the caller starts the service
+  again).
+category: ops
+trigger_kind:
+  kind: both
+execution_path: direct_api
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: contributor
+  t1:
+    max_autonomy: shadow_only
+    min_role: contributor
+  t2:
+    max_autonomy: shadow_only
+    min_role: approver
+argument_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - target_resource_ref
+  - restart_reason
+  properties:
+    target_resource_ref:
+      type: string
+      minLength: 1
+      description: CSP-neutral resource id (e.g. 'example-rg/aks/cluster/pod-x').
+    restart_reason:
+      type: string
+      minLength: 10
+      maxLength: 200
+      description: Human-readable justification; recorded in the audit trail.
+    grace_period_seconds:
+      type: integer
+      default: 30
+      minimum: 0
+      maximum: 300
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector

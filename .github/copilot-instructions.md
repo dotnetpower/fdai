@@ -71,6 +71,7 @@ principles into a phased engineering plan.
 - [instructions/app-shape.instructions.md](instructions/app-shape.instructions.md) - deployment topology and anti-patterns.
 - [instructions/coding-conventions.instructions.md](instructions/coding-conventions.instructions.md) - code style, safety, and testing rules.
 - [instructions/documentation-style.instructions.md](instructions/documentation-style.instructions.md) - required layout for every markdown doc (Tier A entry points, Tier B reference, Tier C subsystem READMEs). Full authoring reference in the [documentation-writing skill](skills/documentation-writing/SKILL.md).
+- [docs/roadmap/downstream-fork-guide.md](../docs/roadmap/downstream-fork-guide.md) - procedural walkthrough for fork maintainers: Day-1 checklist, 9 seam recipes (LLM adapters, OperatorMemoryStore, HilRejectMaterializer, WebSearchProvider, HilChannel, ScopeResolver, Critic + Judge debate, rule catalog, Rego overlays), upstream sync, and anti-patterns.
 
 ## Generic-Only Scope (MUST)
 

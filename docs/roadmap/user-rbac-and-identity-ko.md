@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 082eb8c47c8225b4828340353322c3d9606acdb6
-translation_revised: 2026-07-06
+translation_source_sha: 3074c86ed6a92a8fe59848b30b80e620dd6048cf
+translation_revised: 2026-07-07
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -44,7 +44,7 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | 2 | **Contributor** | `aw-contributors` | Azure Contributor | Reader + 규칙, 룰셋, 할당, exemption, override 초안 PR 작성 |
 | 3 | **Approver** | `aw-approvers` | (Reviewer) | Reader + governance PR 리뷰/승인 + 런타임 HIL 요청 승인 + enforce 승격 / exemption / override 승인 (고위험은 quorum - §5 참조) |
 | 4 | **Owner** | `aw-owners` | Azure Owner | Approver + kill-switch 트리거 + Entra 그룹 멤버십 관리 + 인프라 IaC 적용 |
-| - | **Break-Glass** | `aw-break-glass` | (별도 비상 계정) | 비상 스코프 부여와 kill-switch override; 멤버십은 작은 전용 세트, 자격증명은 하드웨어 MFA로 봉인, 모든 사인인이 알림 발동 |
+| - | **Break-Glass** | `aw-break-glass` | (뱄도 비상 계정) | 비상 스코프 부여, kill-switch override, 그리고 정규 Approver/Owner 가 부재 시 **time-boxed 비상 HIL 승인 자격** (paired-approver, no self-approval); 멤버십은 작은 전용 세트, 자격증명은 하드웨어 MFA로 봉인, 모든 사인인이 알림 발동 |
 
 **티어 추가 없이 모델을 안전하게 유지하는 규칙**
 
@@ -69,6 +69,7 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | Exemption 승인 (time-boxed) | | | ✓ | ✓ | |
 | Override 승인 (long-lived 가능) | | | ✓ | ✓ | |
 | 런타임 HIL 요청 승인 | | | ✓ | ✓ | |
+| 런타임 HIL 요청 승인 (비상, break-glass 활성, paired) | | | | | ✓ |
 | 글로벌 kill-switch 트리거 | | | | ✓ | ✓ |
 | 비상 스코프 접근 부여 | | | | | ✓ |
 | `aw-*` 그룹 멤버십 관리 | | | | ✓ | |

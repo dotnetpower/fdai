@@ -126,6 +126,10 @@ implementations** at a composition root, so customization is additive and upstre
 clean (see the fork model in
 [generic-scope.instructions.md](../../.github/instructions/generic-scope.instructions.md)).
 
+> **Fork maintainers**: start with the procedural walkthrough in
+> [downstream-fork-guide.md](downstream-fork-guide.md). This section is the seam catalog
+> that guide operationalizes.
+
 - **Composition root**: `core/` depends only on the CSP-neutral interfaces in `shared/`. A thin
   composition root (outside `core/`) binds concrete implementations at startup. `core/` never
   news-up a concrete adapter; it receives its dependencies. The upstream default binder is

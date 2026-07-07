@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2299a09225ae2a73df30cf212d7b5df084886d24
-translation_revised: 2026-07-06
+translation_source_sha: 5a8eb8ad7b0dc28316819da0ee74cb2cc561a27c
+translation_revised: 2026-07-07
 ---
 
 # 프로젝트 구조
@@ -127,6 +127,10 @@ aiopspilot/
 합니다. 커스터마이제이션은 추가적(additive)이며 상류 동기화는 깨끗하게 유지됩니다
 ([generic-scope.instructions.md](../../.github/instructions/generic-scope.instructions.md) 의
 포크 모델 참조).
+
+> **Fork 유지관리자**: 절차적 walkthrough는
+> [downstream-fork-guide-ko.md](downstream-fork-guide-ko.md)에서 시작. 이 섹션은
+> 그 가이드가 operational 화하는 seam 카탈로그입니다.
 
 - **Composition root**: `core/` 는 `shared/` 의 CSP-중립 인터페이스에만 의존합니다.
   얇은 조립 루트(`core/` 밖)가 시작 시 구체 구현을 바인딩합니다. `core/` 는 절대 구체

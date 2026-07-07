@@ -1,10 +1,10 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: remediate.tag-add
-version: "1.0.0"
+version: 1.0.0
 operation: tag
 interfaces:
-  - ControlPlane
-  - IdempotentByKey
+- ControlPlane
+- IdempotentByKey
 rollback_contract: pr_revert
 irreversible: false
 default_mode: shadow
@@ -14,19 +14,32 @@ promotion_gate:
   min_accuracy: 0.99
   max_policy_escapes: 0
 preconditions:
-  - kind: graph_fresh_within_seconds
-    value: 900
-  - kind: resource_tag_present
-    tag: owner
+- kind: graph_fresh_within_seconds
+  value: 900
+- kind: resource_tag_present
+  tag: owner
 stop_conditions:
-  - kind: provider_api_error_streak
-    count: 5
-  - kind: time_box_exceeded_seconds
-    seconds: 120
+- kind: provider_api_error_streak
+  count: 5
+- kind: time_box_exceeded_seconds
+  seconds: 120
 blast_radius:
   computation: static_enum
   static_bucket: resource
-description: >-
-  Attach one or more required tags (owner, cost-center, environment) when
-  they are missing. Control-plane only; safe idempotent rewrite; PR-native
-  rollback undoes the tag mutation.
+description: Attach one or more required tags (owner, cost-center, environment) when they
+  are missing. Control-plane only; safe idempotent rewrite; PR-native rollback undoes the
+  tag mutation.
+category: remediation
+trigger_kind:
+  kind: rule_violation
+execution_path: pr_native
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_auto
+    min_role: contributor
+  t1:
+    max_autonomy: shadow_only
+    min_role: contributor
+  t2:
+    max_autonomy: shadow_only
+    min_role: approver

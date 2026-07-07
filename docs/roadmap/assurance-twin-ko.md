@@ -2,7 +2,7 @@
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
 translation_source_sha: e25bb882eade9f01c87d851f0d4371d4a0629450
-translation_revised: 2026-07-06
+translation_revised: 2026-07-07
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 

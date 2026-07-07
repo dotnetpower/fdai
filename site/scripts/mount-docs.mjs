@@ -45,9 +45,36 @@ const staleListPath = resolve(siteRoot, "src", "data", "stale-translations.json"
 const manifestPath = resolve(siteRoot, "src", "data", "mount-manifest.json");
 
 /**
+ * The engineering roadmap (docs/roadmap/**) is the source-of-truth
+ * design reference for contributors, but most of it is too deep for a
+ * product-introduction site. Only the operator- and configuration-
+ * facing subset is published; the rest stays on GitHub, where any
+ * cross-link to an unmounted doc is automatically rewritten to a
+ * GitHub blob URL by src/plugins/rewrite-links.mjs (targetMount == null
+ * branch). List entries are bare document names (no locale suffix, no
+ * extension). README is kept as the section index. Everything not in
+ * this set - deep internals (project-structure, tech-stack,
+ * csp-neutrality, execution-model, llm-strategy, prompt-composition,
+ * assurance-twin, security-and-identity, cost-model, ...) and the
+ * phase build sequence (phases/**) - is intentionally off-site.
+ */
+const ROADMAP_SITE_ALLOWLIST = new Set([
+  "README",
+  "goals-and-metrics",
+  "risk-classification",
+  "operator-console",
+  "channels-and-notifications",
+  "deploy-and-onboard",
+  "deployment-preflight",
+  "implementation-plan",
+]);
+
+/**
  * Each entry describes one canonical source tree and where its
  * English + Korean files should surface on the site. Adding a new
- * top-level section is a matter of adding one entry here.
+ * top-level section is a matter of adding one entry here. An optional
+ * `include` set filters the tree to a curated allowlist of bare
+ * document names; omit it to publish every markdown file.
  */
 const MOUNTS = [
   {
@@ -61,8 +88,20 @@ const MOUNTS = [
     enPrefix: ["reference", "roadmap"],
     koPrefix: ["ko", "reference", "roadmap"],
     optional: false,
+    include: ROADMAP_SITE_ALLOWLIST,
   },
 ];
+
+/**
+ * Bare document name for an allowlist comparison: the filename with the
+ * locale suffix (-ko) and the .md extension removed.
+ */
+function bareNameOf(relPath) {
+  const filename = relPath.split("/").pop() ?? "";
+  return filename.endsWith("-ko.md")
+    ? filename.slice(0, -"-ko.md".length)
+    : filename.slice(0, -".md".length);
+}
 
 /**
  * Recursively walk `dir` and yield `{ absPath, relPath }` for each *.md file.
@@ -190,6 +229,10 @@ async function main() {
     }
 
     for await (const { absPath, relPath } of walkMarkdown(mount.source)) {
+      // Skip anything outside the curated allowlist when the mount
+      // defines one. Deep-internal roadmap docs and the phase sequence
+      // stay off the product site; their cross-links resolve to GitHub.
+      if (mount.include && !mount.include.has(bareNameOf(relPath))) continue;
       const target = mountTargetFor(mount, relPath);
       if (!target) continue;
       await linkOne(absPath, target);

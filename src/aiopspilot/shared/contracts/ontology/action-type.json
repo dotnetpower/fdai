@@ -192,6 +192,87 @@
     },
     "description": {
       "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["remediation", "ops", "governance"],
+      "description": "Top-level ActionType bucket. See action-ontology.md 3."
+    },
+    "trigger_kind": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "description": "Who initiates this ActionType. See action-ontology.md 1.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["rule_violation", "operator_request", "both"]
+        },
+        "restrict_to_scenarios": {
+          "type": "array",
+          "items": {"type": "string"},
+          "default": []
+        }
+      }
+    },
+    "execution_path": {
+      "type": "string",
+      "enum": ["pr_native", "direct_api", "pr_manual"],
+      "description": "How the executor applies the action. See execution-model.md 5."
+    },
+    "ceiling_by_tier": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Per-tier autonomy/role ceiling. See execution-model.md 2.2.",
+      "properties": {
+        "t0": {"$ref": "#/$defs/tierCeiling"},
+        "t1": {"$ref": "#/$defs/tierCeiling"},
+        "t2": {"$ref": "#/$defs/tierCeiling"}
+      }
+    },
+    "env_scope": {
+      "type": "string",
+      "enum": ["prod", "non_prod", "any"],
+      "default": "any",
+      "description": "Which environments this ActionType may fire in. See action-ontology.md 2."
+    },
+    "prod_downgrade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "detection_ref"],
+      "description": "How the ActionType collapses in prod. `mode` is never `enforce_auto` (a downgrade never raises autonomy). `detection_ref` resolves to the single env classifier in risk-classification.md.",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["enforce_hil", "shadow_only"]
+        },
+        "detection_ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "argument_schema": {
+      "type": "object",
+      "description": "JSON Schema for operator_request arguments; the console renders and validates against it. The loader (not this schema) requires it when trigger_kind.kind is operator_request or both."
+    },
+    "live_probe_ref": {
+      "type": "string",
+      "description": "Points to a probe under rule-catalog/probes/. Month-1+; unset on Day 1. See execution-model.md 4."
+    }
+  },
+  "$defs": {
+    "tierCeiling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_autonomy", "min_role"],
+      "properties": {
+        "max_autonomy": {
+          "type": "string",
+          "enum": ["enforce_auto", "enforce_hil", "shadow_only"]
+        },
+        "min_role": {
+          "type": "string",
+          "enum": ["reader", "contributor", "approver", "owner"]
+        }
+      }
     }
   }
 }

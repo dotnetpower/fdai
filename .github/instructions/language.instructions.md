@@ -152,10 +152,16 @@ repository where a natural language other than English is permitted in committed
 
 ## Automation & Review Check
 
-- **Automated gate**: a CI / pre-commit check should flag non-ASCII natural-language runs
-  outside the allowlist. A practical detector is any match of Hangul (`\uAC00-\uD7A3`,
-  `\u1100-\u11FF`) or CJK (`\u4E00-\u9FFF`) ranges in tracked text files, **excluding**
-  the `-ko.md` translation files defined above.
+- **Automated gate**: `scripts/check-english-only.sh` runs in CI and flags non-ASCII
+  natural-language runs outside the allowlist. It matches Hangul (`\uAC00-\uD7A3`,
+  `\u1100-\u11FF`) or CJK (`\u4E00-\u9FFF`) ranges in tracked text files with
+  `grep -P` (the pattern must use `-P` alone; combining it with `-E` makes `grep`
+  reject the conflicting matchers and silently pass everything). The scan **excludes**
+  the `-ko.md` translation files defined above plus a small, centrally documented
+  allowlist of legitimately non-English paths (the Korean site locale under
+  `site/src/content/docs/ko/`, and a named set of translation-tooling and
+  Korean-locale UI files). The allowlist and its per-entry justification live at the
+  top of the script; adding to it requires a stated reason.
 - **Punctuation gate**: `scripts/check-punctuation.sh` runs in CI and enforces the
   ASCII-only punctuation rule above; it blocks em-dash, en-dash, ellipsis,
   smart-quotes, and no-break-space anywhere in a tracked text file (including inside

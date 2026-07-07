@@ -42,7 +42,7 @@ more roles.
 | 2 | **Contributor** | `aw-contributors` | Azure Contributor | All of Reader + author draft PRs for rules, rule-sets, assignments, exemptions, overrides |
 | 3 | **Approver** | `aw-approvers` | (Reviewer) | All of Reader + review/approve governance PRs + approve runtime HIL requests + approve enforce promotions / exemptions / overrides (quorum applies to high-risk - see §5) |
 | 4 | **Owner** | `aw-owners` | Azure Owner | All of Approver + trigger kill-switch + manage Entra group membership + apply infra IaC |
-| - | **Break-Glass** | `aw-break-glass` | (separate emergency account) | Emergency scope grants and kill-switch override; membership is a small dedicated set, credentials sealed with hardware MFA, every sign-in raises an alert |
+| - | **Break-Glass** | `aw-break-glass` | (separate emergency account) | Emergency scope grants, kill-switch override, and **time-boxed emergency HIL approval eligibility** when a regular Approver/Owner is unavailable (paired-approver, no self-approval); membership is a small dedicated set, credentials sealed with hardware MFA, every sign-in raises an alert |
 
 **Rules that keep the model safe without adding tiers**
 
@@ -68,6 +68,7 @@ more roles.
 | Approve exemption (time-boxed) | | | ✓ | ✓ | |
 | Approve override (may be long-lived) | | | ✓ | ✓ | |
 | Approve runtime HIL request | | | ✓ | ✓ | |
+| Approve runtime HIL request (emergency, break-glass active, paired) | | | | | ✓ |
 | Trigger global kill-switch | | | | ✓ | ✓ |
 | Grant emergency scoped access | | | | | ✓ |
 | Manage `aw-*` group membership | | | | ✓ | |

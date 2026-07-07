@@ -2,7 +2,7 @@
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
 translation_source_sha: 4b43b2396cc4ba2aeeed4c929d070b80ed8fe052
-translation_revised: 2026-07-06
+translation_revised: 2026-07-07
 ---
 
 # CSP-중립성 계약

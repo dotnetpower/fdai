@@ -25,6 +25,20 @@ policy (auto vs HIL) and initial policy approver"* from
   permissive (`auto`); a case that matches no rule falls through to the **`default: hil`**
   fail-close entry.
 
+## Relationship to the Execution-Model Six-Axis Ceiling
+
+This table is the **authoritative baseline** decision. The unified RiskGate
+([execution-model.md](execution-model.md)) evaluates this table as its
+`risk_table` axis (Axis A) and then takes the `min()` of that result and
+six ActionType-context ceiling axes (tier, ActionType ceiling, static
+blast, live blast, role, env). The six-axis ceiling can only ever **lower**
+autonomy further; it never overrides or raises a decision this table made.
+Signals that need finding-level data - `cost_impact_monthly`,
+`destructive`, `irreversible` (with its `quorum: 2`), `data_plane_touched`,
+`verifier_confidence` - are evaluated **here and only here**; the ceiling
+axes deliberately do not re-derive them. There are not two decision
+engines: there is this table, plus a never-raising ceiling layered on top.
+
 ## Classification Dimensions
 
 The risk gate composes a **feature vector** for every candidate action from the ontology
@@ -111,6 +125,12 @@ CI validates the order (denies before hils before autos) and rejects any rule th
 be dead-code by a preceding broader rule.
 
 ## Environment Detection
+
+This section is the **single authoritative environment classifier** for
+the whole control plane. Both [execution-model.md](execution-model.md)
+(the env axis, via `ActionType.prod_downgrade.detection_ref`) and
+[action-ontology.md](action-ontology.md) (`env_scope`) resolve "prod" vs
+"non-prod" through this rule, never through a second definition.
 
 `environment: prod` vs `non-prod` is derived from the target **resource-group tag**:
 

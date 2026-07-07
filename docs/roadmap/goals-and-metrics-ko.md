@@ -2,19 +2,19 @@
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
 translation_source_sha: 09c87ef59567e49b9a79aa8c0e8a817bf6288acb
-translation_revised: 2026-07-06
+translation_revised: 2026-07-07
 ---
 
 # 목표와 메트릭
 
-로드맵은 **증명이 있는 자율성(autonomy with proof)** 을 최적화합니다. 모든 자율성 주장은
+로드맵은 **증명이 있는 자율성(autonomy with proof)**을 최적화합니다. 모든 자율성 주장은
 측정된 베이스라인으로 뒷받침되며, 어떤 것도 추정으로 단언되지 않습니다. 아래의 개선 배수
 (`5×`, `large reduction`, `1/5`)는 달성된 결과가 아니라 **목표(targets)** 이며 - 동일한
 시나리오 세트에서 레퍼런스 베이스라인과 AIOpsPilot 트리트먼트가 **모두 측정된 후에만**
 달성으로 언급할 수 있습니다 ([Measurement-First Rule](#measurement-first-rule) 참조).
 
 이 문서는 KPI의 진실 원본(source of truth)입니다.
-[architecture.instructions.md](../../.github/instructions/architecture.instructions.md) 의
+[architecture.instructions.md](../../.github/instructions/architecture.instructions.md)의
 티어 커버리지 목표와 정합하며
 [phase-0-instrumentation-ko.md](phases/phase-0-instrumentation-ko.md) 에서 운영으로
 구현됩니다.
@@ -50,7 +50,7 @@ translation_revised: 2026-07-06
 
 | # | 메트릭 | 정확한 정의 | 단위 | 방향 | 베이스라인 대비 목표 |
 |---|--------|------------|------|------|---------------------|
-| 1 | Cost per unit | 처리된 단위당 귀속 총 지출 ÷ 처리 단위 수. `$/incident`, `$/change`, `$/optimization` 로 각각 계산 | USD/unit | 낮을수록 좋음 | 큰 폭 감소 (측정된 경우에만 배수 명시) |
+| 1 | Cost per unit | 처리된 단위당 귀속 총 지출 ÷ 처리 단위 수. `$/incident`, `$/change`, `$/optimization`로 각각 계산 | USD/unit | 낮을수록 좋음 | 큰 폭 감소 (측정된 경우에만 배수 명시) |
 | 2 | Auto-resolution rate | 자동 해결된 이벤트 ÷ 총 이벤트 (`[0, 1]`) | 비율 | 높을수록 좋음 | 베이스라인의 5×(최대 1.0) |
 | 3a | MTTR | 해결된 인시던트의 mean(resolve_time − detect_time) | 초 | 낮을수록 좋음 | 5× 짧게(베이스라인의 0.2×) |
 | 3b | Change lead time | 변경의 mean(merge_time − change_request_time) | 초 | 낮을수록 좋음 | 5× 짧게(베이스라인의 0.2×) |

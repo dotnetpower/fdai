@@ -34,7 +34,7 @@ executor.
 
 ## 1. One ontology, two triggers
 
-The pre-existing 15 shipped ActionTypes were all rule-fired remediation
+The pre-existing 16 shipped ActionTypes were all rule-fired remediation
 (`remediate.tag-add`, `remediate.disable-public-access`, ...). Operator
 console pull-direction (§4 of
 [operator-console.md](operator-console.md)) needs actions that are
@@ -42,13 +42,15 @@ triggered by an **operator's chat request** rather than a rule fire:
 "restart this pod", "scale out", "flush the cache". These share the same
 safety envelope but a different trigger surface.
 
-The ontology handles both with **one schema plus one axis**:
+The ontology handles both with **one schema plus one axis**. `trigger_kind`
+is an object whose `kind` field takes one of three allowed values:
 
 ```yaml
 trigger_kind:
-  - rule_violation      # T0/T1/T2 engine matched a rule → auto proposal
-  - operator_request    # human via console → explicit ops
-  - both                # same ActionType usable by either path
+  kind: rule_violation | operator_request | both
+  # rule_violation   - T0/T1/T2 engine matched a rule -> auto proposal
+  # operator_request - human via console -> explicit ops
+  # both             - same ActionType usable by either path
 ```
 
 - **`rule_violation`** - the ControlLoop constructs the action from a
@@ -68,14 +70,27 @@ executor, the RiskGate, and the audit contract are the same for both.
 
 ```yaml
 schema_version: "1.0.0"
-id: string                              # globally unique, snake+dot: "ops.restart-service"
-name: string                            # human-readable
+name: string                            # STABLE UNIQUE IDENTIFIER, snake+dot: "ops.restart-service"
+                                        # This is the ontology id. Audit refers to it as
+                                        # action_type_id; the loader dedupes on it; the
+                                        # override overlay file is <name>.yaml (see 7.1).
+                                        # (No separate `id` field - `name` already exists on
+                                        # every shipped YAML and is the migration-safe key.)
 version: semver
 category:                               # top-level bucket
   - remediation                         # rule-fired, config-drift-style
   - ops                                 # operator-requested runtime action
   - governance                          # policy / exemption / promotion changes
 description: string                     # <= 200 chars, English, no marketing
+
+# --- Operation + interfaces (EXISTING, kept - risk-classification reads these) ---
+operation: enum                         # tag | delete | drop | purge | detach | rotate | ...
+                                        # risk-classification `destructive` = operation in
+                                        # {delete, drop, purge, detach}
+interfaces:                             # capability flags on the ActionType
+  - ControlPlane | DataPlaneMutating    # risk-classification `data_plane_touched`
+  - RequiresInventoryFresh              # risk-classification `graph_stale` input
+  - IdempotentByKey | GraphTraversalRequired
 
 # --- Trigger axis (§1) --------------------------------------------------
 trigger_kind:                           # one of rule_violation | operator_request | both
@@ -115,31 +130,45 @@ stop_conditions:
     seconds: int
   - ...
 
-# --- Blast radius (existing static + NEW live) --------------------------
+# --- Blast radius (existing static) -------------------------------------
 blast_radius:
   computation: static_enum | graph_derived
-  static_bucket: resource | subnet | subscription
+  static_bucket: resource | resource_group | subscription
+                                        # CSP-neutral bucket, shared with risk-classification.md
   max_affected_resources: int            # graph_derived only
 
-  # NEW: pointer to a live-blast probe (Month 1+; see §6)
-  live_probe_ref: string                 # optional; e.g. "probes/vm_traffic_last_5m"
+# --- NEW: live-blast probe pointer (TOP-LEVEL; Month 1+; see §6) ---------
+live_probe_ref: string                   # optional; e.g. "probes/vm_traffic_last_5m"
+                                         # read as ActionType.live_probe_ref by the RiskGate
 
 # --- NEW: tier × role ceilings (execution-model.md §3) ------------------
 ceiling_by_tier:
   t0:
     max_autonomy: enforce_auto | enforce_hil | shadow_only
-    min_role: reader | contributor | approver | owner | breakglass
+    min_role: reader | contributor | approver | owner
   t1:
-    max_autonomy: enforce_hil | shadow_only
+    max_autonomy: enforce_auto | enforce_hil | shadow_only
+                                         # upstream ships enforce_hil|shadow_only; a fork MAY
+                                         # set enforce_auto (schema permits; still gated by
+                                         # the Rego requirement in execution-model 2.1)
     min_role: contributor | approver | owner
   t2:
     max_autonomy: shadow_only            # T2 defaults to shadow-only; explicit fork override to raise
     min_role: approver | owner
+# NOTE: min_role uses the ordinary ladder reader<contributor<approver<owner only.
+# BreakGlass is OFF-LADDER (a separate Entra group, not nested in Owner) and is never a
+# min_role value; it only affects approval eligibility at dispatch (execution-model 2.5).
 
 # --- NEW: prod-vs-non-prod downgrade ------------------------------------
+env_scope: prod | non_prod | any        # default: any. `non_prod` = dev-only ActionType
+                                        # (prod_downgrade MAY be omitted). `any`/`prod` MUST
+                                        # carry a prod_downgrade or inherit the risk-table env
+                                        # signal - a missing block never fails open into prod auto.
 prod_downgrade:
   mode: enforce_hil | shadow_only        # what "prod" collapses to
-  detection_ref: string                  # e.g. "env_detectors/tag_env_eq_prod"
+  detection_ref: string                  # resolves to the SAME env classifier defined in
+                                         # risk-classification.md (Environment Detection); do not
+                                         # define a second prod-detection rule here
 
 # --- Arguments (only for operator_request or both) ----------------------
 argument_schema:                         # JSON Schema; console renders + validates
@@ -203,12 +232,22 @@ call.
 Operator-requested runtime actions. Shipped Day 1:
 
 - `ops.restart-service` - AKS pod restart, App Service restart, Container App revision restart.
-- `ops.scale-out` - increase replica count / instance count.
+- `ops.scale-out` - increase replica count / instance count. MUST declare
+  `cost_impact_monthly` (spend-increasing) so the risk-classification cost
+  gate applies ([execution-model.md § 2.8](execution-model.md#28-cost-increasing-ops-actions)).
 - `ops.scale-in` - decrease replica count (Approver + live probe).
 - `ops.flush-cache` - Redis / CDN cache flush.
 - `ops.drain-connection` - drain connections on a load balancer backend.
 - `ops.rotate-cert` - rotate a TLS cert (App Gateway / Front Door).
 - `ops.failover-primary` - trigger a failover on a replicated resource.
+  MUST declare `cost_impact_monthly` when failover targets a larger tier.
+
+**Vertical mapping.** Each ops ActionType is tagged with the owning
+vertical so the [verticals](../../src/aiopspilot/core/verticals) can claim
+it and a vertical rule can `remediates:` it: `ops.failover-primary` and
+`ops.restart-service` -> Resilience; `ops.scale-in` / `ops.scale-out` ->
+Cost Governance; `ops.drain-connection` / `ops.rotate-cert` -> Change
+Safety. `ops.flush-cache` is cross-vertical (operator-triggered only).
 
 Default `execution_path: direct_api` (ops are latency-sensitive; PR
 overhead defeats the purpose). A fork MAY force `pr_manual` for a
@@ -266,6 +305,23 @@ Note: both surfaces meet at the RiskGate (execution-model.md §3). The
 ActionType does not know which trigger produced its invocation - only
 `trigger_kind` scoping (§1) constrains it.
 
+### 4.3 Three classification axes (how they relate)
+
+Three orthogonal labels describe an action; they are not synonyms:
+
+| Axis | Owner doc | Values | Answers |
+|------|-----------|--------|---------|
+| `category` | this doc (§3) | remediation / ops / governance | *what kind of change* |
+| `trigger_kind` | this doc (§1) | rule_violation / operator_request / both | *who initiates* |
+| `side_effect_class` | [operator-console.md § 3.4](operator-console.md#34-tool-discovery-contract) | read / simulate / approve / execute / breakglass | *what the console tool does* |
+
+Typical combinations: a `remediation` ActionType is
+`trigger_kind=rule_violation` and, when surfaced as a console tool, its
+tool is `side_effect_class=execute`; an `ops` ActionType is usually
+`trigger_kind=both` with an `execute` tool; a `governance` ActionType is
+`trigger_kind=operator_request` and its tool is `approve` or `execute`.
+The audit entry (§9) carries all three so analytics can slice on any axis.
+
 ## 5. Argument schema (operator_request only)
 
 Rule-fired ActionTypes receive their params from the rule's
@@ -290,7 +346,11 @@ argument_schema:
   properties:
     target_resource_ref:
       type: string
-      description: CSP-neutral resource id, e.g. "example-rg/aks/cluster/pod-name".
+      description: >-
+        CSP-neutral resource id, e.g. "example-rg/aks/cluster/pod-name".
+        Grammar is the CSP-neutral inventory resource id defined in
+        csp-neutrality.md (Inventory contract); the coordinator validates
+        the ref against that grammar before dispatch.
     restart_reason:
       type: string
       minLength: 10
@@ -349,8 +409,8 @@ four override channels:
 
 ### 7.1 File-based overlay
 
-- Upstream ships `rule-catalog/action-types/<id>.yaml`.
-- A fork places `rule-catalog/action-types-overrides/<id>.yaml` with a
+- Upstream ships `rule-catalog/action-types/<name>.yaml`.
+- A fork places `rule-catalog/action-types-overrides/<name>.yaml` with a
   strict subset of fields to override.
 - The loader merges upstream + overrides at startup with **key-by-key
   precedence** (overrides win). A missing upstream id is a fork-only
@@ -362,7 +422,7 @@ four override channels:
 ```yaml
 # example: fork tightens tag-add on prod
 # path: rule-catalog/action-types-overrides/remediate.tag-add.yaml
-id: remediate.tag-add
+name: remediate.tag-add
 ceiling_by_tier:
   t0:
     max_autonomy: enforce_hil      # upstream had enforce_auto; fork downgrades
@@ -429,9 +489,17 @@ overlay layer on the audit entry.
     Rego policy in `policies/action_types/` explicitly names the
     ActionType (T2 raise MUST be defended by an operator-authored
     policy).
-  - `live_probe_ref` → the referenced probe MUST exist under
+  - `live_probe_ref` -> the referenced probe MUST exist under
     `rule-catalog/probes/` (or under a fork-only path). Missing probe
-    is fatal.
+    is fatal. On Day 1 no shipped ActionType sets `live_probe_ref` and
+    `rule-catalog/probes/` ships with only a `README.md` placeholder, so
+    this cross-check is a no-op until Month 1 binds the first probe.
+  - Every `argument_schema` property flagged `x-aiopspilot-redact: true`
+    MUST be a leaf `string`/`number`; the loader collects the redaction
+    path set and hands it to the audit redactor so the value never lands
+    verbatim (§5.2). Any unknown `x-aiopspilot-*` extension key is a fatal
+    load error (typo guard, so a misspelled redact hint cannot silently
+    leak a secret).
 
 ## 9. Audit contract
 
@@ -442,19 +510,15 @@ entry with the ActionType metadata attached:
 {
   "action_kind": "action.dispatch",
   "action_type_id": "ops.restart-service",
+  "category": "ops",
   "trigger_kind": "operator_request",
+  "side_effect_class": "execute",
   "principal": {...},
   "arguments": {...},
   "arguments_redacted": [...],
-  "resolved_ceiling": {
-    "tier": "T0",
-    "max_autonomy": "enforce_hil",
-    "min_role": "contributor",
-    "prod_downgrade_applied": false,
-    "live_probe_result": "active",
-    "winning_overlay_layer": "rego"
-  },
+  "resolved_ceiling": { "...": "full 6-axis + risk_table block per execution-model.md 8" },
   "risk_decision": "hil",
+  "quorum": 1,
   "mode": "enforce",
   "execution_path": "direct_api",
   "started_at": "...",
@@ -463,8 +527,10 @@ entry with the ActionType metadata attached:
 ```
 
 The `resolved_ceiling` block is the readable proof of how the
-tier + role + prod + probe + overlay combined to reach the decision. A
-future overlay change never breaks past audit entries because the
+risk-classification table + 6 axes combined to reach the decision; its
+exact shape (including the `risk_table` axis and `quorum`) is authoritative
+in [execution-model.md § 8](execution-model.md#8-resolved_ceiling-audit-block).
+A future overlay change never breaks past audit entries because the
 ceiling that was in effect at dispatch time is recorded verbatim.
 
 ## 10. Migration plan
@@ -473,7 +539,7 @@ The ontology change lands in three steps; each step is a reviewed
 catalog-as-code PR (see [rule-governance.md](rule-governance.md)):
 
 1. **Schema extension** - the loader learns the new fields with
-   safe defaults. All 15 shipped ActionTypes still validate.
+   safe defaults. All 16 shipped ActionTypes still validate.
 2. **Backfill** - `trigger_kind = rule_violation` is set on every
    existing entry; `ceiling_by_tier` is populated from the pre-existing
    implicit ceilings (`default_mode`, `promotion_gate.max_policy_escapes`).

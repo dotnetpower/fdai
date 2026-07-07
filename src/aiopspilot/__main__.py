@@ -35,10 +35,11 @@ import httpx
 import yaml
 
 from .composition import (
+    AzureWireOverrides,
     Container,
     LlmBindings,
-    bind_azure_llm_bindings,
     default_container_from_env,
+    wire_azure_container,
 )
 from .core.control_loop import ControlLoop
 from .core.event_ingest import EventIngest
@@ -413,7 +414,20 @@ async def _finalize_llm_bindings(
     http_client: httpx.AsyncClient,
     identity: WorkloadIdentity,
 ) -> Container:
-    """When mode=azure, attach the real AOAI adapters. Otherwise no-op."""
+    """When mode=azure, attach the real AOAI adapters. Otherwise no-op.
+
+    Backwards-compat wrapper around the public
+    :func:`aiopspilot.composition.wire_azure_container`. This helper's
+    only remaining job is env-var resolution:
+
+    - ``AIOPSPILOT_LLM_ENDPOINT`` -> ``AzureWireOverrides.endpoint``
+    - :func:`_resolve_catalog_root` -> ``AzureWireOverrides.catalog_root``
+    - :func:`_build_operator_memory_store` -> ``.operator_memory_store``
+
+    A fork that needs different resolution SHOULD call
+    :func:`wire_azure_container` directly with its own
+    :class:`AzureWireOverrides` and skip this wrapper entirely.
+    """
     if container.config.llm.mode != LlmMode.AZURE:
         return container
     endpoint = os.environ.get("AIOPSPILOT_LLM_ENDPOINT")
@@ -422,92 +436,15 @@ async def _finalize_llm_bindings(
             "llm.mode='azure' requires AIOPSPILOT_LLM_ENDPOINT env "
             "(e.g. https://oai-aiopspilot-dev-krc.openai.azure.com)"
         )
-    # Wave 2 of the evolving-system-prompt design: compose the T2 cross-check
-    # prompt from the ``rule-catalog/prompts/`` tree (Base + Task Skill Pack).
-    # Wave 2.5-B step 2b: build the tool registry + a default executor with
-    # no providers wired upstream. Every shipped tool is currently in
-    # ``default_mode: shadow``, so the adapter advertises zero tools and
-    # runtime behavior is unchanged. Fork composition roots inject real
-    # providers to light up function calling.
-    #
-    # Wave 3 step C-2: pass the composer through so each T2 reasoner
-    # re-composes its system message per event. The startup ``compose``
-    # call (below) stays as a startup-safety fallback + observability
-    # signal; per-event composition kicks in inside the adapter. Forks
-    # that ship an ``OperatorMemoryStore`` and a ``ScopeResolver`` wire
-    # them into the composer / adapter here and light up the operator
-    # memory layer. See docs/roadmap/prompt-composition.md.
-    #
-    # Wave 3 step B pipeline slice 2: the composer now takes an
-    # ``operator_memory_store`` upstream. Env var
-    # ``AIOPSPILOT_OPERATOR_MEMORY_DSN`` picks the Postgres backend;
-    # otherwise the in-memory fake is wired so a fork that seeds an
-    # entry sees the operator-memory layer materialize immediately
-    # without touching a database.
-    from .core.prompts import DefaultPromptComposer, FileSystemPromptRegistry
-    from .core.tools import DefaultToolExecutor, FileSystemToolRegistry
-
-    catalog_root = _resolve_catalog_root()
-    prompt_registry = FileSystemPromptRegistry(catalog_root)
-    operator_memory_store = _build_operator_memory_store()
-    composer = DefaultPromptComposer(
-        registry=prompt_registry,
-        operator_memory_store=operator_memory_store,
-    )
-    composed = await composer.compose(capability_id="t2.reasoner.primary")
-    tool_registry = FileSystemToolRegistry(catalog_root)
-    tool_executor = DefaultToolExecutor(
-        registry=tool_registry,
-        providers={},  # upstream: no providers wired; forks inject their own
-    )
-    # Wave 4 beta-2: compose the Critic system prompt from the shipped
-    # ``rule-catalog/prompts/base/t2-critic.v1.yaml`` seed. When no
-    # critic base prompt is found we log and skip - the bind step then
-    # leaves ``LlmBindings.critic_model = None`` and the future debate
-    # orchestrator degrades to the pre-Wave-4 cross-check flow.
-    critic_system_prompt: str | None = None
-    try:
-        critic_composed = await composer.compose(capability_id="t2.critic")
-    except LookupError:
-        _LOGGER.info(
-            "critic_prompt_missing",
-            extra={"capability_id": "t2.critic"},
-        )
-    else:
-        critic_system_prompt = critic_composed.system_text
-        _LOGGER.info(
-            "critic_prompt_composed",
-            extra={
-                "capability_id": "t2.critic",
-                "layer_count": len(critic_composed.layer_manifest),
-                "token_estimate": critic_composed.token_estimate,
-            },
-        )
-    _LOGGER.info(
-        "prompt_composed",
-        extra={
-            "capability_id": "t2.reasoner.primary",
-            "layer_count": len(composed.layer_manifest),
-            "token_estimate": composed.token_estimate,
-            "layer_ids": [ref.id for ref in composed.layer_manifest],
-            "tool_count": len(tool_registry.artifacts()),
-            "operator_memory_store": type(operator_memory_store).__name__,
-        },
-    )
-    return bind_azure_llm_bindings(
+    return await wire_azure_container(
         container,
-        identity=identity,
         http_client=http_client,
-        endpoint=endpoint,
-        system_prompt=composed.system_text,
-        tool_registry=tool_registry,
-        tool_executor=tool_executor,
-        prompt_composer=composer,
-        # ``scope_resolver`` stays None upstream - the ARM-id parser
-        # lives in a fork's composition root. Without it, operator
-        # memory entries never enter the composer output.
-        scope_resolver=None,
-        critic_system_prompt=critic_system_prompt,
+        identity=identity,
+        overrides=AzureWireOverrides(
+            endpoint=endpoint,
+            catalog_root=_resolve_catalog_root(),
+            operator_memory_store=_build_operator_memory_store(),
+        ),
     )
 
 

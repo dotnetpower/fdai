@@ -22,24 +22,30 @@ the trust routing in
 > step B pipeline slice 2, 3 step C-1, 3 step C-2, 3 step D-1, 3
 > step D-2a, 3 step D-2b-i, 3 step D-2b-ii-alpha, 3 step D-2b-ii-beta,
 > 3 step D-2b-ii-gamma-1, 3 step D-2b-ii-gamma-2, 4 alpha, 4 beta-1,
-> 4 beta-2, 4.5 alpha, 4.5 beta, and 4.5 gamma have landed - operator
-> memory is fully wired end-to-end, the recognition-probe chapter
-> is complete, `AzureOpenAICrossCheckModel` re-composes per event,
-> the Critic + Judge + `DebateOrchestrator` triangle exists as a
-> shipped seam (types + evaluators + Azure adapters + orchestrator
-> with `max_rounds = 1`), and the composition root binds the Critic
-> adapter when the `t2.critic` capability resolves. The composer
-> chain is Base + Task Skill Pack + optional Tool Manifest +
-> optional Operator Memory + optional per-layer canary tokens. The
-> dataclass fallback default is gone; `system_prompt` is required
-> on `AzureOpenAICrossCheckModelConfig` and now serves as the
+> 4 beta-2, 4.5 alpha, 4.5 beta, 4.5 gamma, 4.5 delta-1, 4.5
+> delta-2a, 4.5 delta-2b, and 5 alpha have landed - the
+> evolving-system-prompt design is now **fully live** for T2:
+> operator memory end-to-end, the recognition-probe chapter,
+> per-event re-composition inside `AzureOpenAICrossCheckModel`,
+> the Critic + Judge + orchestrator triangle (types + evaluators +
+> Azure adapters + `max_rounds = 1` orchestrator + composition-root
+> binding), the `DebateRouter` pure policy, the `QualityGate`
+> escalation path that runs the debate on cross-check disagreement
+> and flips a resolved `PROCEED` back to `ELIGIBLE`, and the
+> `core/web_search/` seam (deny-by-default `NoOpWebSearchProvider`
+> + domain-allowlist + injection-marker sanitizer + `trusted="false"`
+> snippet envelope). The composer chain is Base + Task Skill Pack
+> + optional Tool Manifest + optional Operator Memory + optional
+> per-layer canary tokens. The dataclass fallback default is gone;
+> `system_prompt` is required on
+> `AzureOpenAICrossCheckModelConfig` and now serves as the
 > startup-safety fallback when no composer is wired. Wave 3 step B
-> **pipeline slice 3** (fork-first second-approval channel), Wave
-> 4.5 **delta** (wire the `DebateOrchestrator` into the live
-> `QualityGate` when both `t2.critic` and `t1.judge` capabilities
-> resolve), and Wave 5 (fork-only web search) are documented here
-> but not yet implemented. Every wave promotes only after its
-> shadow gate passes; see [Rollout waves](#rollout-waves).
+> **pipeline slice 3** (fork-first second-approval channel) and
+> Wave 5 **beta** (fork-only concrete provider adapter +
+> composition-root wire that threads snippets into the T2 tool
+> manifest) are documented here but not yet implemented. Every
+> wave promotes only after its shadow gate passes; see
+> [Rollout waves](#rollout-waves).
 
 ## Design at a glance
 
@@ -356,7 +362,11 @@ promotion gates to hold.
 | 4.5 alpha | Judge role scaffolding: `JudgeDecision` / `JudgeOutput` / `JudgeVerdict` types + `JudgeModel` Protocol + `evaluate_judge_output()` pure evaluator + `rule-catalog/prompts/base/t2-judge.v1.yaml` (`default_mode: shadow`, `applies_to: [t1.judge]`). Judge stays a smaller / cheaper model per the debate orchestrator design | yes |
 | 4.5 beta | `AzureOpenAIJudgeModel` httpx adapter implementing the `JudgeModel` Protocol; strict fail-closed parser mirroring the Critic adapter shape | yes |
 | 4.5 gamma | `DebateOrchestrator` core module orchestrates Proposer / Critic / Judge with `max_rounds = 1`; fail-closed on any adapter exception (returns `DebateVerdict.ABORT` with the error class preserved), preserves debate transcript in `DebateOutcome` for the audit log, short-circuits Judge when Critic already ABORTs (token-cost guard) | yes |
-| 5 | Web search opt-in for forks (no-op provider upstream; injection detection required for enforce) | planned |
+| 4.5 delta-1 | Composition-root wire: `LlmBindings` gains optional `judge_model` and `debate_orchestrator` fields. `bind_azure_llm_bindings(judge_system_prompt=)` binds `AzureOpenAIJudgeModel` when `t1.judge` capability resolves AND the prompt is supplied. When BOTH `critic_model` AND `judge_model` are bound, a default `DebateOrchestrator(max_rounds=1)` is auto-constructed; `__post_init__` refuses an inconsistent manual construction. `__main__` composes the `t2.judge` prompt from the shipped seed with `LookupError`-graceful degradation | yes |
+| 4.5 delta-2a | `DebateRouter` pure policy module in `core/quality_gate/debate_router.py`: `DebateRoutingDecision` + `DebateRouterConfig` (`enabled` killswitch, `on_cross_check_disagreement` axis, `always_for_action_types` / `never_for_action_types` allow/deny lists) + `decide_debate_route()` fail-closed predicate. Orchestrator unavailability short-circuits to SKIP; killswitch dominates the allowlist; denylist wins over allowlist | yes |
+| 4.5 delta-2b | `QualityGate` accepts optional `debate_orchestrator` + `debate_router_config`. On cross-check disagreement, calls `decide_debate_route()`; if `DEBATE`, runs the orchestrator with a no-directive `retry_proposer` that re-invokes the primary cross-check model. `DebateOutcome.PROCEED` flips the disagreement to `ELIGIBLE` (provided no other soft issues remain); `ABORT` keeps `DISAGREE`. Half-wiring (only one of the two params) raises at construction | yes |
+| 5 alpha | Web search seam in `core/web_search/`: `WebSearchQuery` / `WebSnippet` / `WebSearchResult` types, `WebSearchProvider` async Protocol, `NoOpWebSearchProvider` deny-by-default fake (returns zero snippets on every query with `reasons=("no_op_provider",)`), and sanitizer helpers (`validate_snippet_domain`, `detect_snippet_injection_markers`, `wrap_web_snippet`) that produce a `<web_snippet trusted="false" ...>...</web_snippet>` envelope after refusing off-allowlist domains and injection markers | yes |
+| 5 beta | Concrete provider adapter (fork-only - Bing, SerpAPI, curated crawler) + composition-root wire that binds `WebSearchProvider` when a fork opts in and threads snippets into the T2 tool manifest per the web-search policy | planned |
 
 ## Wave 1 - what shipped
 
@@ -1242,6 +1252,195 @@ resolve.
   Judge escalate (4), retry round + max_rounds=0 refusal + retry
   Critic ABORT + Judge re-retry refusal (4), and three error
   paths preserving `error_class`.
+
+## Wave 4.5 delta-1 - what shipped
+
+Wave 4.5 delta-1 wires the Judge adapter into the composition root
+and auto-constructs the `DebateOrchestrator` when both role models
+are bound. The container now exposes a ready-to-use debate seam;
+delta-2 will choose which live events actually flow through it
+instead of the two-model cross-check quorum.
+
+- `composition.LlmBindings` gains two optional fields:
+  `judge_model: JudgeModel | None` and
+  `debate_orchestrator: DebateOrchestrator | None`. The
+  dataclass `__post_init__` refuses an inconsistent manual
+  construction (orchestrator present without both role models
+  bound) so a fork configuration bug is caught at build time,
+  not deep inside the orchestrator on the first event.
+- `bind_azure_llm_bindings` grows a `judge_system_prompt`
+  parameter matching the Wave 4 beta-2 `critic_system_prompt`
+  shape. Judge binds when the `t1.judge` capability resolves AND
+  the prompt is supplied. When BOTH `critic_model` AND
+  `judge_model` land, a default
+  `DebateOrchestrator(critic, judge, DebateOrchestratorConfig(max_rounds=1))`
+  is auto-constructed.
+- `__main__._finalize_llm_bindings` composes the Judge system
+  prompt via `composer.compose(capability_id="t1.judge")` with
+  `LookupError`-graceful degradation (mirror of the Critic path):
+  emits `judge_prompt_composed` on success or `judge_prompt_missing`
+  when the catalog has no Judge base prompt.
+- Five tests in `tests/test_composition_llm.py` pin the four-way
+  matrix (both / critic only / judge only / neither) plus the
+  manual-construction rejection: (a) both capabilities + both
+  prompts -> orchestrator built; (b) judge cap only ->
+  orchestrator None; (c) critic cap only -> orchestrator None;
+  (d) both caps but no judge prompt -> orchestrator None; (e)
+  `LlmBindings(...debate_orchestrator=orch, critic_model=None...)`
+  raises at construction.
+- No behaviour change on the live T2 path yet. The bound
+  orchestrator sits in `LlmBindings.debate_orchestrator` waiting
+  for the Wave 4.5 delta-2 caller (a router or a strategy pattern
+  on the QualityGate) to decide which events to route through it.
+
+## Wave 4.5 delta-2a - what shipped
+
+Wave 4.5 delta-2a lands the **pure routing policy** that Wave 4.5
+delta-2b will wire into the live `QualityGate`. Shipping the
+predicate + config first (no `QualityGate` changes, no live wire)
+lets a fork exercise the routing matrix in shadow probes and lets
+the promotion gate collect signal before any event actually flows
+through the debate.
+
+- `src/aiopspilot/core/quality_gate/debate_router.py` -
+  `DebateRoute` (`debate` / `skip`) enum,
+  `DebateRoutingDecision` (route + reason + snapshotted
+  ``action_type`` + metadata) frozen dataclass,
+  `DebateRouterConfig` (`enabled` killswitch,
+  `on_cross_check_disagreement` axis,
+  `always_for_action_types` / `never_for_action_types`
+  allow / deny lists) with `__post_init__` that refuses
+  overlapping allow / deny sets, and the pure
+  `decide_debate_route(...)` predicate.
+- Six-rule precedence baked into the tests:
+  1. `orchestrator_available=False` -> SKIP with reason
+     `orchestrator_unavailable` (fail-closed - dominates every
+     other axis including the allowlist);
+  2. `config.enabled=False` -> SKIP with reason `disabled`
+     (killswitch - dominates the allowlist);
+  3. Candidate `action_type` in `never_for_action_types` -> SKIP
+     with reason `never_list` (denylist wins over allowlist so
+     a fork's guardrail is not silently overridden by another
+     fork's opt-in list);
+  4. Candidate `action_type` in `always_for_action_types` ->
+     DEBATE with reason `always_list`;
+  5. Cross-check disagreed AND
+     `on_cross_check_disagreement=True` -> DEBATE with reason
+     `cross_check_disagreement` (the primary trigger);
+  6. Otherwise -> SKIP with reason `default_skip`.
+- Kept `core/`-safe: imports only from
+  `aiopspilot.core.quality_gate.gate` and stdlib; no
+  `delivery.*`, no LLM SDK. `scripts/check-core-imports.sh`
+  continues to pass.
+- 11 tests in `tests/quality_gate/test_debate_router.py` cover
+  every precedence rule + the config's overlap validator + the
+  `action_type` snapshot (a future ActionType rename never breaks
+  a past audit entry).
+
+## Wave 4.5 delta-2b - what shipped
+
+Wave 4.5 delta-2b lands the live wire: `QualityGate.evaluate()`
+now consults the debate orchestrator on cross-check disagreement.
+The wire is fully opt-in - the constructor keeps its historical
+shape when no debate params are passed, so every existing
+`QualityGate` caller stays behavior-identical.
+
+- `QualityGate.__init__` grows two matched optional parameters -
+  `debate_orchestrator` and `debate_router_config`. Passing only
+  one of the two raises `ValueError("...MUST be provided
+  together...")` at construction, so a fork wiring bug fails
+  fast rather than silently on the first disagreement.
+- `evaluate()` captures the primary cross-check model's full
+  `(action_type, params)` output during the quorum loop so the
+  orchestrator has the Proposer's proposal to hand to the
+  Critic.
+- On `cross_check_below_quorum`, when both debate seams are
+  wired, the gate calls
+  `decide_debate_route(cross_check_disagreed=True,
+  orchestrator_available=True, ...)` and appends the router's
+  `route + reason` to the audit trail as
+  `debate_route:{value}:{reason}`.
+- On `DebateRoute.DEBATE`, the gate awaits
+  `orchestrator.run(candidate, proposer_output, known_rule_ids,
+  retry_proposer=self._debate_retry_proposer)`; the outcome is
+  logged as `debate_outcome:{verdict}:{reason}`.
+- `_debate_retry_proposer(candidate, directive)` is a no-directive
+  callback that re-invokes the primary cross-check model with
+  the same candidate. The `CrossCheckModel` Protocol does not
+  accept a directive; the retry acts as "give the Proposer one
+  more chance under the same conditions" rather than steering
+  toward a specific change. The directive stays in the debate
+  transcript for audit.
+- Outcome logic:
+  - `PROCEED` **flips the disagreement** - the gate returns
+    `ELIGIBLE` provided no other soft issues remain (verifier
+    abstain, missing / ungrounded citation, low confidence);
+  - `ABORT` **keeps the disagreement** - the gate returns
+    `DISAGREE` and the orchestrator's reason is threaded into
+    the audit trail;
+  - `PROCEED` with other soft issues **degrades to `ABSTAIN`**
+    - the debate is one axis; every other check still applies.
+- Deferred imports (`from aiopspilot.core.quality_gate.debate
+  import DebateVerdict`, `from
+  aiopspilot.core.quality_gate.debate_router import DebateRoute,
+  decide_debate_route`) live inside `evaluate()` to break the
+  module-level cycle (both `debate` and `debate_router` import
+  `QualityCandidate` from `gate`).
+- 7 tests in `tests/core/quality_gate/test_gate.py` cover:
+  half-wiring rejection (2), `PROCEED` -> `ELIGIBLE` (1),
+  `ABORT` on Critic HIGH-severity keeps `DISAGREE` (1), router
+  killswitch prevents orchestrator call (1), `PROCEED` +
+  low-confidence degrades to `ABSTAIN` (1), Judge
+  `ESCALATE_HIL` keeps `DISAGREE` (1). Existing 17 QualityGate
+  tests pass unchanged - the wire is truly additive.
+
+## Wave 5 alpha - what shipped
+
+Wave 5 alpha lands the upstream **seam** for web search: types,
+Protocol, deny-by-default fake, and sanitizer defenses. Concrete
+providers (Bing, SerpAPI, curated crawler) stay fork-only per the
+[Web search policy](#web-search-policy); this step ships the
+contract every future adapter honors.
+
+- `src/aiopspilot/core/web_search/types.py` -
+  `WebSearchQuery` (frozen dataclass with `__post_init__` refusing
+  blank text, zero max_results, zero budget_ms; caller-supplied
+  `allowed_domains` tuple + `metadata`),
+  `WebSnippet` (immutable record with `url` / `domain` / `title` /
+  `text` / `content_hash` / `fetched_at`; blank url / domain /
+  content_hash rejected at construction),
+  `WebSearchResult` (frozen envelope carrying the originating
+  query, retrieved snippets, and audit-friendly `reasons` tuple
+  so an operator sees why the search degraded).
+- `src/aiopspilot/core/web_search/provider.py` -
+  `WebSearchProvider` `@runtime_checkable` Protocol with a single
+  async `search(query) -> WebSearchResult` method (secrets like
+  API keys stay in adapter constructors, out of the Protocol
+  surface), and `NoOpWebSearchProvider` - the deny-by-default
+  shipped fake that returns `snippets=()` with
+  `reasons=("no_op_provider",)` for every query.
+- `src/aiopspilot/core/web_search/sanitizer.py` -
+  `WebSnippetPolicyError` with structured codes (`off_allowlist`,
+  `empty_allowlist`, `injection_markers_detected`),
+  `detect_snippet_injection_markers()` that reuses the
+  operator-memory marker list so any pattern blocked from memory
+  is blocked from snippets too, `validate_snippet_domain()` that
+  refuses off-allowlist snippets AND empty allowlists (an empty
+  allowlist means the snippet has no legitimate source), and
+  `wrap_web_snippet()` that renders a
+  `<web_snippet trusted="false" url="..." domain="..." content_hash="...">...</web_snippet>`
+  envelope with XML-escaped body + attributes so a snippet cannot
+  forge the closing tag.
+- Kept `core/`-safe: imports only from stdlib and
+  `aiopspilot.core.operator_memory.sanitizer` (for the shared
+  marker list). No LLM SDK, no `delivery.*`.
+  `scripts/check-core-imports.sh` continues to pass.
+- 19 tests in `tests/core/web_search/test_web_search.py` cover
+  every constructor invariant (4 + 3), NoOp provider behaviour +
+  Protocol runtime-check (2), domain allowlist enforcement (3),
+  injection detection (2), and `wrap_web_snippet` (5 - including
+  XML-escape of body + url, off-allowlist refusal, and injection
+  marker rejection).
 
 ## Related docs
 

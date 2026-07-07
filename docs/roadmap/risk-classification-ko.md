@@ -1,8 +1,8 @@
 ---
 title: 리스크 분류 (auto vs HIL vs deny)
 translation_of: risk-classification.md
-translation_source_sha: 74f8536983b7ca835ed1890659a2263fe81af7b2
-translation_revised: 2026-07-06
+translation_source_sha: ab5dc0c204759f70721365b35c89786bb989d53c
+translation_revised: 2026-07-07
 ---
 
 # 리스크 분류 (auto vs HIL vs deny)
@@ -10,9 +10,9 @@ translation_revised: 2026-07-06
 리스크 게이트
 ([architecture.instructions.md § Control Loop](../../.github/instructions/architecture.instructions.md#control-loop))
 는 모든 후보 액션을 `auto`, `hil`, `deny` 중 하나로 라우팅합니다. 이 문서는 **그 라우팅을
-만드는 분류 규칙** 에 대한 진실 원본입니다: 형상, 초기 규칙 테이블, 소유권, 업데이트 프로세스.
-[security-and-identity-ko.md](security-and-identity-ko.md#open-decisions) 의 P0 Open
-Decision *"Risk-classification policy (auto vs HIL) and initial policy approver"* 를 해결합니다.
+만드는 분류 규칙**에 대한 진실 원본입니다: 형상, 초기 규칙 테이블, 소유권, 업데이트 프로세스.
+[security-and-identity-ko.md](security-and-identity-ko.md#open-decisions)의 P0 Open
+Decision *"Risk-classification policy (auto vs HIL) and initial policy approver"*를 해결합니다.
 
 > 고객-비종속: 아래 모든 값(비용 임계, 태그 키, 리소스 그룹 이름)은 상류의 **기본값** 입니다;
 > 포크가 config로 튜닝합니다
@@ -28,6 +28,19 @@ Decision *"Risk-classification policy (auto vs HIL) and initial policy approver"
 - **평가**: first-match wins. 규칙은 가장 엄격(`deny`)부터 가장 관대(`auto`)로 정렬; 어느
   규칙과도 매칭되지 않는 케이스는 **`default: hil`** fail-close 엔트리로 fall through.
 
+## Execution-Model 6-axis ceiling 과의 관계
+
+이 테이블이 **권위적 baseline** 결정입니다. 통합 RiskGate
+([execution-model.md](execution-model-ko.md))는 이 테이블을 `risk_table`
+axis (Axis A)로 평가한 뒤 그 결과와 6개 ActionType-컨텍스트 ceiling axis
+(tier, ActionType ceiling, static blast, live blast, role, env)의 `min()`
+을 취합니다. 6-axis ceiling은 오직 autonomy를 **더 낮출**뿐, 이 테이블이
+내린 결정을 override 하거나 raise 하지 않습니다. finding-수준 데이터가 필요한
+신호 - `cost_impact_monthly`, `destructive`, `irreversible` (그 `quorum: 2`
+포함), `data_plane_touched`, `verifier_confidence` - 는 **여기서만** 평가되며
+ceiling axis는 의도적으로 이들을 재도출하지 않습니다. 두 개의 결정 엔진이
+있는 것이 아니라: 이 테이블 + 그 위에 layer 된 절대-raise-안-하는 ceiling 입니다.
+
 ## 분류 차원
 
 리스크 게이트는 이미 가지고 있는 온톨로지 신호로부터 모든 후보 액션에 대해 **특성 벡터**
@@ -40,13 +53,13 @@ Decision *"Risk-classification policy (auto vs HIL) and initial policy approver"
 | `policy_violation` | bool | OPA/Rego verifier 판정 |
 | `destructive` | bool | 온톨로지 `ActionType.operation ∈ {delete, drop, purge, detach}` |
 | `irreversible` | bool | 온톨로지 `ActionType.irreversible == true` (롤백된 상태가 액션 이전 상태를 완전 복원 불가) |
-| `blast_radius` | enum `resource` \| `resource_group` \| `subscription` | `applies_to` × 영향받은 리소스의 스코프; `ActionType.blast_radius.computation == graph_derived` 일 때 risk-gate 가 Resource→Resource 링크(기본 `contains` + 역방향 `depends_on`, depth 2) 를 walk 해서 영향받는 리소스 count 를 bucket 으로 매핑 |
-| `rollback_path` | enum `pr_revert` \| `scripted` \| `pitr` \| `snapshot_restore` \| `state_forward_only` | `remediates` 액션의 롬백 계약 (`none` 은 유효 값 아님 - 모든 ActionType 이 undo 경로를 선언) |
-| `reversible` | bool | `irreversible == false` 의 지름길 |
+| `blast_radius` | enum `resource` \| `resource_group` \| `subscription` | `applies_to` × 영향받은 리소스의 스코프; `ActionType.blast_radius.computation == graph_derived` 일 때 risk-gate가 Resource→Resource 링크(기본 `contains` + 역방향 `depends_on`, depth 2)를 walk 해서 영향받는 리소스 count를 bucket으로 매핑 |
+| `rollback_path` | enum `pr_revert` \| `scripted` \| `pitr` \| `snapshot_restore` \| `state_forward_only` | `remediates` 액션의 롤백 계약 (`none`은 유효 값 아님 - 모든 ActionType이 undo 경로를 선언) |
+| `reversible` | bool | `irreversible == false`의 지름길 |
 | `environment` | enum `prod` \| `non-prod` | [Environment Detection](#environment-detection) 참조 |
-| `data_plane_touched` | bool | 온톨로지 `ActionType.interfaces` 가 `DataPlaneMutating` 포함 |
-| `graph_stale` | bool | `ActionType.interfaces` 에 `RequiresInventoryFresh` 포함 AND 대상 Resource 의 인벤토리 레코드가 `freshness_ttl` 초과 |
-| `cross_resource_impact` | int | `ActionType.blast_radius.computation == graph_derived` ⇒ traversal 이 반환한 영향받는 Resource count; `GraphTraversalRequired` 없고 그래프 또한 없으면 `unknown` |
+| `data_plane_touched` | bool | 온톨로지 `ActionType.interfaces`가 `DataPlaneMutating` 포함 |
+| `graph_stale` | bool | `ActionType.interfaces`에 `RequiresInventoryFresh` 포함 AND 대상 Resource의 인벤토리 레코드가 `freshness_ttl` 초과 |
+| `cross_resource_impact` | int | `ActionType.blast_radius.computation == graph_derived` ⇒ traversal이 반환한 영향받는 Resource count; `GraphTraversalRequired` 없고 그래프 또한 없으면 `unknown` |
 | `cost_impact_monthly` | number (USD/월) | 규칙의 `remediation.cost_impact` 추정, 또는 관찰된 사후 정산 |
 | `verifier_confidence` | number [0..1] | LLM quality-gate 신호 (T2 생산 액션에만 설정) |
 
@@ -116,7 +129,13 @@ catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이
 
 ## 환경 감지(Environment Detection)
 
-`environment: prod` vs `non-prod` 는 대상 **리소스 그룹 태그** 에서 파생됩니다:
+이 섹션은 전체 컨트롤 플레인에 대한 **단일 권위적 환경 classifier** 입니다.
+[execution-model.md](execution-model-ko.md) (env axis, `ActionType.prod_downgrade.detection_ref`
+경유)와 [action-ontology.md](action-ontology-ko.md) (`env_scope`) 모두 이
+규칙을 통해 "prod" vs "non-prod"를 resolve 하며, 두 번째 정의를 통하지
+않습니다.
+
+`environment: prod` vs `non-prod`는 대상 **리소스 그룹 태그** 에서 파생됩니다:
 
 - 태그 키: `environment` (대소문자 무시)
 - 값: `prod` / `production` → `prod`; `non-prod` / `dev` / `test` / `staging` / `qa` →
@@ -126,7 +145,7 @@ catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이
 
 강제: Azure Policy 할당이 `environment` 태그 없이 리소스 그룹 생성을 거부해야 하며, 그래서
 거버넌스된 환경에서는 fail-safe 경로가 절대 적용되지 않습니다. 정책 할당은
-[phase-1-rule-catalog-t0-ko.md](phases/phase-1-rule-catalog-t0-ko.md) 의 Phase 1 산출물입니다.
+[phase-1-rule-catalog-t0-ko.md](phases/phase-1-rule-catalog-t0-ko.md)의 Phase 1 산출물입니다.
 
 ## 비용 영향 임계값
 
@@ -135,7 +154,7 @@ catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이
   커버. Phase 1 shadow 측정을 위해 보수적으로 선택; 임계값은 config 값이며 측정 후 governance
   PR로 조정 가능.
 - 추정은 규칙의 `remediation.cost_impact` 필드에서; 규칙이 추정 못 하면 값은 `unknown` →
-  `>= 100` 으로 취급 → HIL.
+  `>= 100`으로 취급 → HIL.
 
 ## Prod-Auto Allowlist
 
@@ -154,7 +173,7 @@ Allowlist는 bypass가 아니라 prod 기본의 opt-in 감소입니다.
 
 리스크 테이블 업데이트는 표준 governance PR 흐름을 따릅니다:
 
-- **모든 변경** 은 **quorum of 2** `aw-approvers` 와 PR 본문의 `Justification:` 블록 필요.
+- **모든 변경**은 **quorum of 2** `aw-approvers`와 PR 본문의 `Justification:` 블록 필요.
 - **완화 변경** (auto 확대, 비용 임계 상승, deny 제거)은 quorum에 Owner-티어 리뷰어(`aw-owners`
   멤버) 필요.
 - **강화 변경** (deny 추가, 비용 임계 하락, auto→HIL 이동)은 일반 quorum으로 머지 가능 -
@@ -169,8 +188,8 @@ Allowlist는 bypass가 아니라 prod 기본의 opt-in 감소입니다.
 
 - 매칭된 규칙 id (또는 fail-through 시 `default`).
 - 결정 시점의 특성 벡터 스냅샷.
-- `risk-classification.yaml` 의 `catalog_version`.
-- 라우팅 결과 (`auto` / `hil` / `deny`) 와 하류 승인 id.
+- `risk-classification.yaml`의 `catalog_version`.
+- 라우팅 결과 (`auto` / `hil` / `deny`)와 하류 승인 id.
 
 향후 회고에서 매칭 규칙 id로 감사 로그를 필터링하여 과도하게 트리거된 규칙(예: "모든 prod
 변경이 HIL - 모든 것이 Rule 5에 걸림")을 식별하고, 같은 governance PR 흐름을 통해 개선을
@@ -180,7 +199,7 @@ Allowlist는 bypass가 아니라 prod 기본의 opt-in 감소입니다.
 
 - [ ] 향후 차원으로 `time_of_day` 게이트(업무 시간 vs 비업무 시간)를 추가할지 - shadow
       측정이 실제 필요를 보일 때까지 연기.
-- [ ] 결정론적 규칙 테이블에 더해 숫자 `risk_score` 를 계산할지 (동점에서만 또는 tie-breaker
+- [ ] 결정론적 규칙 테이블에 더해 숫자 `risk_score`를 계산할지 (동점에서만 또는 tie-breaker
       로만 작동 - 결정론 테이블이 여전히 권위).
 - [ ] 포크 오버라이드 정책: 포크가 상류 기본을 *완화* (예: 비용 임계 상승)할 수 있는가, 아니면
       강화만 가능한가? 권장 기본: 강화는 무료, 완화는 감사된 Owner override 필요.

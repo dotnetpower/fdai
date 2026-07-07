@@ -2,7 +2,7 @@
 title: 기술 스택
 translation_of: tech-stack.md
 translation_source_sha: b467e7dca197ababad18f70276dababce38f884c
-translation_revised: 2026-07-06
+translation_revised: 2026-07-07
 ---
 
 # 기술 스택

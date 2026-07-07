@@ -1,0 +1,18 @@
+schema_version: "1.0.0"
+id: vm_traffic_last_5m
+description: >-
+  Return quiet/active/overloaded based on VM network throughput over the
+  last five minutes. Consumed by ops.restart-service and ops.scale-in
+  when the ActionType.live_probe_ref points here.
+adapter_ref: probe-adapters/azure-monitor
+adapter_payload:
+  metric_namespace: "Microsoft.Compute/virtualMachines"
+  metric_name: "Network In Total"
+  aggregation: p95
+  window_minutes: 5
+interpretation:
+  quiet: "result_bytes < 1000000"
+  active: "result_bytes < 100000000"
+  overloaded: "result_bytes >= 100000000"
+timeout_seconds: 5
+cache_ttl_seconds: 60

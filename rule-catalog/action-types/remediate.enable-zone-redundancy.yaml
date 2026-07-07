@@ -1,12 +1,12 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: remediate.enable-zone-redundancy
-version: "1.0.0"
+version: 1.0.0
 operation: update
 interfaces:
-  - ControlPlane
-  - IdempotentByKey
-  - RequiresInventoryFresh
-  - RequiresMaintenanceWindow
+- ControlPlane
+- IdempotentByKey
+- RequiresInventoryFresh
+- RequiresMaintenanceWindow
 rollback_contract: state_forward_only
 irreversible: false
 default_mode: shadow
@@ -16,22 +16,34 @@ promotion_gate:
   min_accuracy: 0.99
   max_policy_escapes: 0
 preconditions:
-  - kind: graph_fresh_within_seconds
-    value: 600
-  - kind: maintenance_window_active
-  - kind: no_conflicting_open_action_on_resource
+- kind: graph_fresh_within_seconds
+  value: 600
+- kind: maintenance_window_active
+- kind: no_conflicting_open_action_on_resource
 stop_conditions:
-  - kind: dependent_resource_degraded
-  - kind: provider_api_error_streak
-    count: 2
-  - kind: time_box_exceeded_seconds
-    seconds: 1800
+- kind: dependent_resource_degraded
+- kind: provider_api_error_streak
+  count: 2
+- kind: time_box_exceeded_seconds
+  seconds: 1800
 blast_radius:
   computation: static_enum
   static_bucket: resource
-description: >-
-  Move a stateful resource (SQL, PostgreSQL, cache, VMSS,
-  kubernetes-node-pool) to a zone-redundant SKU / topology. Requires
-  a maintenance window because the transition can trigger a brief
-  failover. Rollback is forward-only - reverting to a non-ZR SKU is
-  a separate governance-gated action.
+description: Move a stateful resource (SQL, PostgreSQL, cache, VMSS, kubernetes-node-pool)
+  to a zone-redundant SKU / topology. Requires a maintenance window because the transition
+  can trigger a brief failover. Rollback is forward-only - reverting to a non-ZR SKU is a
+  separate governance-gated action.
+category: remediation
+trigger_kind:
+  kind: rule_violation
+execution_path: pr_native
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: contributor
+  t1:
+    max_autonomy: shadow_only
+    min_role: contributor
+  t2:
+    max_autonomy: shadow_only
+    min_role: approver

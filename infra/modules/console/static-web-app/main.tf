@@ -6,7 +6,7 @@
 # `console/dist/` build output.
 #
 # NOTE: Deployment is gated by the P1-completion rule (see repo memory
-# `p1-w3-handoff.md` → "P1 완료 전 terraform apply 금지"). This module is
+# `p1-w3-handoff.md` -> "no terraform apply before P1 completion"). This module is
 # scaffolded but NOT wired into `infra/main.tf` yet - a fork enables it
 # by adding `module "console" { source = "./modules/console/static-web-app" ... }`
 # once its Azure Static Web App region and (optional) custom domain are

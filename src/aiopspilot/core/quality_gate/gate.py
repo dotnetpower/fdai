@@ -29,6 +29,22 @@ in-memory implementations under
 :mod:`~aiopspilot.core.quality_gate.testing` produce a deterministic
 outcome from the injected candidate and are used by every test in this
 suite plus the P1 e2e replay when a T2 stage is exercised.
+
+Wave 4.5 delta-2b: the gate accepts an optional
+:class:`~aiopspilot.core.quality_gate.debate.DebateOrchestrator` and a
+:class:`~aiopspilot.core.quality_gate.debate_router.DebateRouterConfig`.
+When cross-check quorum disagrees AND both are wired AND the router
+returns :attr:`DebateRoute.DEBATE`, the gate runs the debate and:
+
+- treats ``DebateOutcome(verdict=PROCEED)`` as resolving the
+  disagreement (outcome flips from ``DISAGREE`` to ``ELIGIBLE`` provided
+  no other reasons stand);
+- keeps the disagreement on ``DebateOutcome(verdict=ABORT)`` and adds
+  the orchestrator's ``reason`` string to the audit trail.
+
+The router / orchestrator MUST be provided together (both, or neither);
+half-wiring raises :class:`ValueError` at construction so a fork bug is
+caught at build time.
 """
 
 from __future__ import annotations
@@ -36,9 +52,16 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from aiopspilot.shared.contracts.models import Rule
+
+if TYPE_CHECKING:
+    # Broken circular import: debate + debate_router both import
+    # ``QualityCandidate`` from this module, so we defer the type
+    # references here and runtime imports to the ``evaluate`` method.
+    from aiopspilot.core.quality_gate.debate import DebateOrchestrator
+    from aiopspilot.core.quality_gate.debate_router import DebateRouterConfig
 
 
 class QualityOutcome(StrEnum):
@@ -178,6 +201,8 @@ class QualityGate:
         cross_check_models: tuple[CrossCheckModel, ...],
         grounding: GroundingSource,
         config: QualityGateConfig | None = None,
+        debate_orchestrator: DebateOrchestrator | None = None,
+        debate_router_config: DebateRouterConfig | None = None,
     ) -> None:
         cfg = config or QualityGateConfig()
         if not 0.0 <= cfg.confidence_threshold <= 1.0:
@@ -186,10 +211,21 @@ class QualityGate:
             raise ValueError("require_cross_check_quorum MUST be >= 1")
         if len(cross_check_models) < cfg.require_cross_check_quorum:
             raise ValueError("not enough cross-check models registered for the configured quorum")
+        # Wave 4.5 delta-2b: debate wire is opt-in. Half-wiring
+        # (orchestrator without router or vice versa) is a fork bug
+        # that would only surface on the first disagreement - refuse
+        # at construction so the failure is loud and immediate.
+        if (debate_orchestrator is None) != (debate_router_config is None):
+            raise ValueError(
+                "debate_orchestrator and debate_router_config MUST be provided "
+                "together (both, or neither)"
+            )
         self._verifier = verifier
         self._models = cross_check_models
         self._grounding = grounding
         self._config = cfg
+        self._debate_orchestrator = debate_orchestrator
+        self._debate_router_config = debate_router_config
 
     async def evaluate(self, candidate: QualityCandidate) -> QualityDecision:
         """Return the gate outcome for one candidate action.
@@ -238,15 +274,59 @@ class QualityGate:
 
         # 3. Mixed-model cross-check (agreement on action_type)
         agree = 0
-        for model in self._models:
-            proposed_type, _params = await model.propose(candidate)
+        first_proposer_output: tuple[str, Mapping[str, Any]] | None = None
+        for i, model in enumerate(self._models):
+            proposed_type, proposed_params = await model.propose(candidate)
+            if i == 0:
+                first_proposer_output = (proposed_type, proposed_params)
             if proposed_type == candidate.action_type:
                 agree += 1
-        if agree < self._config.require_cross_check_quorum:
+        cross_check_below_quorum = agree < self._config.require_cross_check_quorum
+        if cross_check_below_quorum:
             reasons.append(
                 f"cross_check_below_quorum:agree={agree}<"
                 f"quorum={self._config.require_cross_check_quorum}"
             )
+
+        # 3b. Wave 4.5 delta-2b: escalate to the debate orchestrator
+        # when both are wired AND the router says DEBATE. On PROCEED
+        # we drop the disagreement reason; on ABORT we keep it and
+        # thread the orchestrator's reason into the audit trail.
+        debate_resolved_disagreement = False
+        if (
+            cross_check_below_quorum
+            and self._debate_orchestrator is not None
+            and self._debate_router_config is not None
+            and first_proposer_output is not None
+        ):
+            # Deferred imports break the circular chain:
+            # ``debate`` + ``debate_router`` both import ``QualityCandidate``
+            # from this module, so importing them at module scope loops.
+            from aiopspilot.core.quality_gate.debate import DebateVerdict
+            from aiopspilot.core.quality_gate.debate_router import (
+                DebateRoute,
+                decide_debate_route,
+            )
+
+            router_decision = decide_debate_route(
+                candidate=candidate,
+                cross_check_disagreed=True,
+                orchestrator_available=True,
+                config=self._debate_router_config,
+            )
+            reasons.append(f"debate_route:{router_decision.route.value}:{router_decision.reason}")
+            if router_decision.route is DebateRoute.DEBATE:
+                debate_outcome = await self._debate_orchestrator.run(
+                    candidate=candidate,
+                    proposer_output=first_proposer_output,
+                    known_rule_ids=known,
+                    retry_proposer=self._debate_retry_proposer,
+                )
+                reasons.append(
+                    f"debate_outcome:{debate_outcome.verdict.value}:{debate_outcome.reason}"
+                )
+                if debate_outcome.verdict is DebateVerdict.PROCEED:
+                    debate_resolved_disagreement = True
 
         # 4. Confidence threshold on the aggregate of verifier / cross-check
         # signals (not model self-report).
@@ -258,9 +338,30 @@ class QualityGate:
 
         # Decide outcome
         outcome: QualityOutcome
-        if any(r.startswith("cross_check_below_quorum") for r in reasons):
+        if (
+            any(r.startswith("cross_check_below_quorum") for r in reasons)
+            and not debate_resolved_disagreement
+        ):
             outcome = QualityOutcome.DISAGREE
+        elif debate_resolved_disagreement and not any(
+            r.startswith(
+                (
+                    "verifier_abstained",
+                    "unknown_cited_rule",
+                    "ungrounded_citation",
+                    "no_grounded_citation",
+                    "confidence=",
+                )
+            )
+            for r in reasons
+        ):
+            outcome = QualityOutcome.ELIGIBLE
+        elif reasons and not debate_resolved_disagreement:
+            outcome = QualityOutcome.ABSTAIN
         elif reasons:
+            # Debate resolved the disagreement but other soft issues
+            # remain (e.g. verifier abstained, low confidence). Abstain
+            # so the caller routes to HIL rather than auto-executing.
             outcome = QualityOutcome.ABSTAIN
         else:
             outcome = QualityOutcome.ELIGIBLE
@@ -272,6 +373,29 @@ class QualityGate:
             grounded_rule_ids=tuple(grounded),
             aggregate_confidence=confidence,
         )
+
+    async def _debate_retry_proposer(
+        self,
+        candidate: QualityCandidate,
+        directive: str,
+    ) -> tuple[str, Mapping[str, Any]]:
+        """No-directive retry: re-run the first cross-check model.
+
+        Wave 4.5 delta-2b threads the debate orchestrator through the
+        QualityGate; the ``CrossCheckModel`` Protocol does not accept a
+        directive so the ``retry_proposer`` re-invokes the primary model
+        with the same candidate. The directive lives in the debate
+        transcript for audit but does not alter the retry call itself.
+        The Judge's retry decision therefore acts as a "give the
+        Proposer one more chance under the same conditions" gate rather
+        than "steer the Proposer toward a specific change". A future
+        wave that broadens the Protocol MAY forward the directive; the
+        upstream contract stays minimal.
+        """
+
+        if not self._models:  # pragma: no cover - constructor enforces >= 1
+            raise RuntimeError("no cross-check model available for retry")
+        return await self._models[0].propose(candidate)
 
 
 __all__ = [

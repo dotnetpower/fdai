@@ -84,6 +84,12 @@ build. Read the reference docs first, then the phases in order.
 |---|----------|----------------|
 | 22 | [prompt-composition.md](prompt-composition.md) | evolving system prompt: role x layer matrix, tools / web search, debate orchestrator, recognition measurement |
 
+### Sequencing (cross-doc plan)
+
+| # | Document | What it covers |
+|---|----------|----------------|
+| 23 | [implementation-plan.md](implementation-plan.md) | authoritative sequencing across all the 2026-07-06 tranche docs: the six standard-set design decisions (R1 axis derivation, R2 ConsoleTool as ActionType projection, R3 unified LlmBinding, R4 shared projection primitive, R6 operator_memory as materialized view, R7 pr_manual as a flag) and the wave plan (F -> D1 -> W1 -> W2 -> M1, plus Twin and Preflight tracks) |
+
 ## Phase timeline
 
 ```mermaid

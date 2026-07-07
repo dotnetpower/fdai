@@ -35,6 +35,12 @@ from aiopspilot.core.quality_gate.debate import (
     DebateVerdict,
     ProposerRetry,
 )
+from aiopspilot.core.quality_gate.debate_router import (
+    DebateRoute,
+    DebateRouterConfig,
+    DebateRoutingDecision,
+    decide_debate_route,
+)
 from aiopspilot.core.quality_gate.gate import (
     CrossCheckModel,
     GroundingSource,
@@ -69,6 +75,9 @@ __all__ = [
     "DebateOrchestrator",
     "DebateOrchestratorConfig",
     "DebateOutcome",
+    "DebateRoute",
+    "DebateRouterConfig",
+    "DebateRoutingDecision",
     "DebateVerdict",
     "GroundingSource",
     "JudgeDecision",
@@ -85,6 +94,7 @@ __all__ = [
     "RuleBasedVerifier",
     "RuleEmbeddingIndex",
     "VerifierPolicy",
+    "decide_debate_route",
     "evaluate_critic_output",
     "evaluate_judge_output",
 ]

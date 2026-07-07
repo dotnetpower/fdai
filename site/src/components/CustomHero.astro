@@ -90,7 +90,7 @@ if (hero?.actions?.length) {
     </g>
 
     <!-- Trust-router funnel: converging edges into the middle node -->
-    <g stroke="url(#edge-gradient)" stroke-width="1.5" fill="none">
+    <g class="hero-funnel-edges" stroke="url(#edge-gradient)" stroke-width="1.5" fill="none">
       <path d="M60 90 Q220 180 400 200" />
       <path d="M90 140 Q220 170 400 200" />
       <path d="M55 200 L400 200" />
@@ -103,14 +103,23 @@ if (hero?.actions?.length) {
     <!-- Central router node -->
     <circle cx="400" cy="200" r="60" fill="url(#node-glow)" opacity="0.4" />
     <circle cx="400" cy="200" r="16" fill="#0078D4" />
-    <circle cx="400" cy="200" r="24" fill="none" stroke="#50E6FF" stroke-width="1.5" opacity="0.6" />
-    <circle cx="400" cy="200" r="34" fill="none" stroke="#50E6FF" stroke-width="1" opacity="0.35" />
+    <circle class="hero-router-pulse" cx="400" cy="200" r="24" fill="none" stroke="#50E6FF" stroke-width="1.5" opacity="0.6" />
+    <circle class="hero-router-pulse ring-2" cx="400" cy="200" r="34" fill="none" stroke="#50E6FF" stroke-width="1" opacity="0.35" />
 
     <!-- Tier lanes: three horizontal branches to the right -->
-    <g stroke="url(#edge-gradient)" stroke-width="1.5" fill="none">
+    <g class="hero-tier-lanes" stroke="url(#edge-gradient)" stroke-width="1.5" fill="none">
       <path d="M416 200 Q560 130 720 90" />
       <path d="M416 200 L720 200" />
       <path d="M416 200 Q560 270 720 310" />
+    </g>
+
+    <!-- Routed event packets travelling the three tier lanes. Decorative;
+         disabled under prefers-reduced-motion. Positioned by CSS
+         offset-path; a browser without offset-path keeps them hidden. -->
+    <g class="hero-packets" aria-hidden="true">
+      <circle class="hero-packet hero-packet--t0" r="4" fill="#50E6FF" opacity="0" />
+      <circle class="hero-packet hero-packet--t1" r="4" fill="#50E6FF" opacity="0" />
+      <circle class="hero-packet hero-packet--t2" r="4" fill="#50E6FF" opacity="0" />
     </g>
 
     <!-- Output nodes: T0/T1/T2 -> action -->
@@ -119,9 +128,9 @@ if (hero?.actions?.length) {
       <circle cx="720" cy="200" r="10" fill="#50E6FF" opacity="0.85" />
       <circle cx="720" cy="310" r="10" fill="#0078D4" opacity="0.75" />
 
-      <circle cx="720" cy="90" r="18" fill="none" stroke="#0078D4" stroke-width="1" opacity="0.4" />
-      <circle cx="720" cy="200" r="18" fill="none" stroke="#50E6FF" stroke-width="1" opacity="0.4" />
-      <circle cx="720" cy="310" r="18" fill="none" stroke="#0078D4" stroke-width="1" opacity="0.3" />
+      <circle class="hero-out-pulse" cx="720" cy="90" r="18" fill="none" stroke="#0078D4" stroke-width="1" opacity="0.4" />
+      <circle class="hero-out-pulse" style="animation-delay: 0.7s" cx="720" cy="200" r="18" fill="none" stroke="#50E6FF" stroke-width="1" opacity="0.4" />
+      <circle class="hero-out-pulse" style="animation-delay: 1.3s" cx="720" cy="310" r="18" fill="none" stroke="#0078D4" stroke-width="1" opacity="0.3" />
     </g>
 
     <!-- Faint horizontal "audit log" band anchoring the composition -->
@@ -191,6 +200,117 @@ if (hero?.actions?.length) {
     color: transparent;
     font-weight: 700;
     letter-spacing: -0.01em;
+  }
+
+  /*
+   * Animated control-loop layer (P1). The SVG is decorative
+   * (aria-hidden), so this is pure visual enhancement with no text or
+   * i18n. Every animation below is switched off under
+   * prefers-reduced-motion, leaving the original static composition.
+   *
+   *   - Edges carry a travelling dash pattern, reading as events
+   *     flowing left-to-right: inflow -> router -> tier outputs.
+   *   - The router rings and the T0/T1/T2 output rings pulse.
+   *   - A packet dot rides each of the three tier lanes.
+   *   - Incoming event dots twinkle out of phase.
+   */
+  .hero-funnel-edges path,
+  .hero-tier-lanes path {
+    stroke-dasharray: 5 7;
+    animation: hero-flow 1.6s linear infinite;
+  }
+  .hero-tier-lanes path {
+    animation-duration: 1.9s;
+  }
+  @keyframes hero-flow {
+    to {
+      stroke-dashoffset: -24;
+    }
+  }
+
+  .hero-router-pulse,
+  .hero-out-pulse {
+    animation: hero-pulse 3s ease-in-out infinite;
+  }
+  .hero-router-pulse.ring-2 {
+    animation-delay: 0.6s;
+  }
+  /* Opacity-only pulse: no transform, so it needs no transform-box
+     support and cannot mis-anchor the ring on older engines. */
+  @keyframes hero-pulse {
+    0%,
+    100% {
+      opacity: 0.15;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+
+  /* Packets ride the tier lanes only where offset-path is supported.
+     Their markup default is opacity 0, so an engine without offset-path
+     simply keeps them invisible instead of blinking a dot at (0,0). */
+  @supports (offset-path: path("M0 0 L1 1")) {
+    .hero-packet {
+      animation: hero-packet-move 3.4s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+    }
+    .hero-packet--t0 {
+      offset-path: path("M416 200 Q560 130 720 90");
+    }
+    .hero-packet--t1 {
+      offset-path: path("M416 200 L720 200");
+      animation-delay: 0.5s;
+    }
+    .hero-packet--t2 {
+      offset-path: path("M416 200 Q560 270 720 310");
+      animation-delay: 1s;
+    }
+  }
+  @keyframes hero-packet-move {
+    0% {
+      offset-distance: 0%;
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    82% {
+      opacity: 1;
+    }
+    100% {
+      offset-distance: 100%;
+      opacity: 0;
+    }
+  }
+
+  .hero-events circle {
+    animation: hero-twinkle 2.4s ease-in-out infinite;
+  }
+  .hero-events circle:nth-child(2n) {
+    animation-delay: 0.8s;
+  }
+  .hero-events circle:nth-child(3n) {
+    animation-delay: 1.4s;
+  }
+  @keyframes hero-twinkle {
+    0%,
+    100% {
+      opacity: 0.35;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-funnel-edges path,
+    .hero-tier-lanes path,
+    .hero-router-pulse,
+    .hero-out-pulse,
+    .hero-packet,
+    .hero-events circle {
+      animation: none;
+    }
   }
 </style>
 

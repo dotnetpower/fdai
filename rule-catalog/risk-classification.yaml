@@ -1,0 +1,70 @@
+# Risk-classification first-match table (upstream default).
+#
+# Authoritative Axis A input for the RiskGate (risk-classification.md,
+# execution-model.md 2.0). First-match wins: rules are ordered strictest
+# (deny) -> hil -> auto -> the default fail-close entry. A fork MAY tune
+# thresholds via a governance PR; it MUST keep the deny-before-hil-before-
+# auto ordering (the loader enforces it).
+version: "1.0.0"
+owner_group: aw-owners
+rules:
+  # -- DENY (never execute) --
+  - id: deny-policy-violation
+    if: { policy_violation: true }
+    decision: deny
+    reason: "policy-as-code verifier rejected the action"
+  - id: deny-subscription-blast
+    if: { blast_radius: subscription }
+    decision: deny
+    reason: "no autonomous change spans a full subscription"
+  - id: deny-graph-stale
+    if: { graph_stale: true }
+    decision: deny
+    reason: "inventory graph is stale; refuse to act on a possibly-ghost resource"
+
+  # -- HIL (human approval required) --
+  - id: hil-irreversible
+    if: { irreversible: true }
+    decision: hil
+    quorum: 2
+    reason: "irreversible mutation always requires an approver quorum >= 2"
+  - id: hil-destructive
+    if: { destructive: true }
+    decision: hil
+    reason: "delete/drop/purge/detach always requires an approver"
+  - id: hil-prod
+    if: { environment: prod, allowlist_prod_auto: false }
+    decision: hil
+    reason: "prod defaults to HIL unless the rule is on the prod-auto allowlist"
+  - id: hil-data-plane
+    if: { data_plane_touched: true }
+    decision: hil
+    reason: "data-plane mutations always require an approver"
+  - id: hil-cost
+    if: { cost_impact_monthly: ">= 100" }
+    decision: hil
+    reason: "cost impact above the auto threshold"
+  - id: hil-resource-group-blast
+    if: { blast_radius: resource_group }
+    decision: hil
+    reason: "RG-wide changes require an approver"
+  - id: hil-low-confidence
+    if: { verifier_confidence: "< 0.85" }
+    decision: hil
+    reason: "T2 quality-gate confidence below auto threshold"
+
+  # -- AUTO (execute without approval) --
+  - id: auto-low-risk
+    if:
+      all:
+        - reversible: true
+        - blast_radius: resource
+        - cost_impact_monthly: "< 100"
+        - data_plane_touched: false
+    decision: auto
+    reason: "reversible, resource-scoped, low cost, control-plane only"
+
+  # -- FAIL-CLOSE --
+  - id: default-hil
+    default: hil
+    reason: "no matching rule - fail toward safety"

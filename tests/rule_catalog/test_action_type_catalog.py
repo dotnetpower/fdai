@@ -186,3 +186,49 @@ def test_action_type_names_helper_agrees_with_catalog() -> None:
     names = action_type_names(catalog)
     assert names == {a.name for a in catalog}
     assert "remediate.tag-add" in names
+
+
+def _ops_mapping(**extra: object) -> dict[str, object]:
+    raw: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "name": "ops.restart-service",
+        "version": "1.0.0",
+        "operation": "restart",
+        "interfaces": ["ControlPlane", "IdempotentByKey"],
+        "rollback_contract": "state_forward_only",
+        "default_mode": "shadow",
+        "promotion_gate": {
+            "min_shadow_days": 7,
+            "min_samples": 50,
+            "min_accuracy": 0.99,
+            "max_policy_escapes": 0,
+        },
+        "category": "ops",
+    }
+    raw.update(extra)
+    return raw
+
+
+def test_operator_request_without_argument_schema_is_rejected() -> None:
+    raw = _ops_mapping(trigger_kind={"kind": "operator_request"})
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_from_mapping(raw, schema_registry=_registry())
+    keys = " ".join(i.key for i in info.value.issues).lower()
+    assert "argument_schema" in keys
+
+
+def test_operator_request_with_argument_schema_loads() -> None:
+    raw = _ops_mapping(
+        trigger_kind={"kind": "both"},
+        argument_schema={"type": "object", "required": ["target_resource_ref"]},
+        execution_path="direct_api",
+    )
+    model = load_action_type_from_mapping(raw, schema_registry=_registry())
+    assert model.trigger_kind is not None
+    assert model.trigger_kind.kind.value == "both"
+
+
+def test_rule_violation_without_argument_schema_is_fine() -> None:
+    raw = _ops_mapping(trigger_kind={"kind": "rule_violation"})
+    model = load_action_type_from_mapping(raw, schema_registry=_registry())
+    assert model.argument_schema is None

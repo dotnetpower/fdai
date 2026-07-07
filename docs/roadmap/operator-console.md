@@ -174,6 +174,14 @@ tools are additive; they never override a rule or a policy.
 | `query_audit(filters)` | Structured audit query: by event id, actor, decision, mode, time window. Paginated. | Reader | `StateStore.query_audit()` |
 | `query_inventory(resource_type, filter)` | ARG-backed inventory query, CSP-neutral vocabulary in, CSP-neutral records out. Paginated. | Reader | `Inventory.list(...)` |
 
+**Reader-floor tools are provably side-effect-free.** `describe_event`
+runs `EventIngest -> TrustRouter -> T0Engine` **in memory only**: it does
+not invoke T1 embedding lookups, T2 models, external adapters, or any
+mutation surface, and it writes no PR and no audit entry. Its
+`side_effect_class` is `read`, and a shadow-mode test asserts it never
+touches the executor, the PR adapter, or the state store. This is what
+keeps it safe at the Reader floor.
+
 ### 3.2 Week-1 additions (write / approve / runbook)
 
 | Tool | Purpose | RBAC floor | Notes |
@@ -183,6 +191,20 @@ tools are additive; they never override a rule or a policy.
 | `list_hil()` | Return currently queued HIL items visible to the caller's role. | Approver | Reader-visible would leak intent to non-approvers; kept Approver-scoped. |
 | `run_runbook(name, params, dry_run)` | Execute one runbook under `docs/runbooks/`. `dry_run=true` requires Contributor; `dry_run=false` requires Owner. | Contributor / Owner | Concrete runbook adapters (e.g. `db_dr_drill_cli`) are already shipped; this tool routes by name. |
 | `activate_break_glass(reason, expiry)` | Explicitly promote the current session to BreakGlass. Time-boxed, distinct from role gates, always audited + paged to Owners. | Any authenticated user | Session-scoped only; expires when the session ends or `expiry` passes. No permanent grant. |
+
+Two clarifications on the write set:
+
+- **`simulate_change` writing an audit entry does not violate "shadow
+  never mutates".** The audit log is append-only; recording *that a
+  simulation ran* is not a mutation of any managed resource. The
+  shadow-mode property test asserts no executor / PR / state-store write,
+  and explicitly allows the audit append.
+- **`list_hil` (Approver) vs the read-console HIL view (Reader) are
+  different surfaces.** The read-only Console SPA shows Reader the
+  *existence and count* of queued HIL items (dashboard tile); `list_hil`
+  returns the *full item detail* (target, proposed action, requester),
+  which can reveal sensitive intent, so it stays Approver-scoped. The two
+  are intentionally not the same visibility.
 
 ### 3.3 Month-1 additions (observation depth)
 
@@ -232,13 +254,31 @@ account.
 | **Chat T1** | `t1.judge` (mini reasoner) | Standard turns: natural language ↔ tool_calls, most read-only investigations, one-hop follow-ups. | **Yes (mini always active)** |
 | **Chat T2** | `t2.reasoner.primary` (frontier) | Escalation only (see §4.2). | No (opt-in via escalation trigger) |
 
-### 4.2 Escalation triggers (T1 → T2)
+**Deterministic-first still holds.** Chat T0 (regex / keyword intent, no
+LLM) is tried first on every turn and is expected to satisfy the bulk of
+repeat operator verbs (`list_hil`, `explain_verdict <id>`,
+`explore_catalog <keyword>`). The design target is that Chat T0 resolves a
+majority of turns and Chat T2 stays a small minority (~5-10% of turns,
+mirroring the event-side tier split) - but this is a **target to validate
+against a measured baseline**, not a guarantee. The console emits per-tier
+turn counts to the telemetry surface
+([goals-and-metrics.md](goals-and-metrics.md)) so the split is measured,
+never asserted. `t1.judge` being "always active" means it is the fallback
+for non-T0 turns, not that the LLM runs when a confident T0 intent matches.
+
+### 4.2 Escalation triggers (T1 -> T2)
 
 The coordinator escalates to Chat T2 on any of:
 
 - The narrator's T1 response has `finish_reason=abstain` or the aggregated
-  confidence (verifier-derived, not model-self-reported) falls below the
-  configured threshold.
+  confidence falls below the configured threshold. **Confidence is derived,
+  not model-self-reported:** for a write-class turn it is the verifier
+  result (§7.2); for a read-only turn - where the verifier does not run -
+  it is composed from the Chat-T0 intent-match score, whether every
+  proposed `tool_call` validated against its `argument_schema`, and
+  whether the tool returned `status=ok`. A read-only turn whose tool calls
+  all validate and succeed is high-confidence and never escalates on
+  confidence alone.
 - The verifier rejects the proposed tool_call sequence (see §7).
 - The requested tool is `simulate_change`, `approve_hil`, `run_runbook`,
   or `activate_break_glass` **and** the turn required more than one tool
@@ -264,13 +304,27 @@ that triggered it.
 - **Emit natural-language "commands" the coordinator treats as tool
   calls.** Only structured `tool_calls` from the model's function-calling
   response count. Prose is prose; it never runs.
+- **Treat tool-argument content as instructions.** Operator-supplied
+  argument values (a `restart_reason`, a free-text filter) are untrusted
+  input and a prompt-injection surface, exactly like T2 event payloads
+  ([architecture.instructions.md § LLM Quality Gate](../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)).
+  They are (a) schema-validated at the coordinator boundary, (b) never
+  concatenated into the system prompt as trusted text, and (c) for
+  write-class tools, re-checked by the verifier (§7.2) which is the
+  authority - not any instruction the argument text may contain.
+  Redaction (§5.2 of action-ontology) strips secrets; it is not the
+  injection defense - the verifier re-check is.
 
 ### 4.4 Cost and rate limits
 
 Per D12: mini (t1.judge) is always on and the operator budget assumption
-is that this is the normal-cost surface. There is **no per-user rate
-limit** and **no per-turn token cap** in the upstream default; a fork MAY
-add one via config. Every LLM invocation records the tier, model
+is that this is the normal-cost surface. The upstream default ships a
+**generous-but-finite** per-turn token budget and per-session hop cap
+(config keys `console.max_completion_tokens_per_turn`, default 4096, and
+`console.max_tool_hops_per_turn`, default 8) - a product whose Cost
+Governance vertical polices spend cannot ship its own console with an
+unbounded LLM surface. There is no per-user *rate* limit by default; a
+fork MAY add one via config. Every LLM invocation records the tier, model
 deployment id, and prompt/completion token counts to the audit log so a
 fork can build a cost report post-hoc without instrumenting the console
 further.
@@ -446,10 +500,22 @@ disallowed today - `approve_hil`, `run_runbook --live`) MUST carry:
    the PR gate ([security-and-identity.md](security-and-identity.md));
    chat adds the invariant name to the audit reason on refusal.
 7. **BreakGlass must be time-boxed and explicit.** `activate_break_glass`
-   requires `(reason, expiry ≤ 4h)` and pages every configured Owner via
+   requires `(reason, expiry <= 4h)` and pages every configured Owner via
    the push-direction Slack/Teams adapter
    ([channels-and-notifications.md](channels-and-notifications.md)). No
-   silent elevation.
+   silent elevation. **The grant is fail-closed on notification:** if the
+   primary pager channel is down, the coordinator tries the configured
+   fallback channel; if *no* channel confirms delivery, the grant is
+   **refused** (a break-glass with no audit witness is more dangerous than
+   a delayed emergency), and the refusal is itself audited so an Owner can
+   see the attempt. A BreakGlass grant only raises the caller's
+   *approval eligibility* for a HIL item they are otherwise under-
+   privileged for; it never returns `auto` and never lets the caller
+   approve their own request (invariant 6 still holds). The exact
+   eligibility semantics are defined in
+   [user-rbac-and-identity.md § 2](user-rbac-and-identity.md#2-role-model-4-tiers--break-glass)
+   and mirrored by the RiskGate role axis
+   ([execution-model.md § 2.5](execution-model.md#25-axis-f---role-rbac)).
 
 ### 7.3 BreakGlass grant shape
 
@@ -462,8 +528,10 @@ class BreakGlassGrant:
     pager_receipt: str             # id from the push notification
 ```
 
-Break-glass is **session-scoped**; ending the session revokes it. A fork
-MAY lower the 4h ceiling in config but MAY NOT raise it.
+Break-glass is **session-scoped**; ending the session revokes it. The 4h
+ceiling is the config key `console.break_glass_max_ttl_seconds` (default
+`14400`); a fork MAY lower it but MAY NOT raise it (the loader rejects a
+value above `14400`).
 
 ### 7.4 HIL fall-through when the LLM proposes a write
 
@@ -623,6 +691,11 @@ discipline in [phase-0-instrumentation.md](phases/phase-0-instrumentation.md).
 - **Determinism** - two runs of the same CLI transcript through a fake
   `ConversationalModel` produce byte-identical audit trails (given fixed
   timestamps and idempotency keys).
+- **Session recovery** - a session whose coordinator crashed mid-turn
+  reloads by `session_id` and reprojects the exact prior `turns` from the
+  append-only audit log (§6); an assertion compares the reprojected
+  transcript to the pre-crash one, proving the coordinator holds no state
+  the audit log does not.
 
 ## 12. Failure modes
 
@@ -689,7 +762,13 @@ discipline in [phase-0-instrumentation.md](phases/phase-0-instrumentation.md).
 
 This is the only exception to the "read API is 3 GET routes only"
 invariant currently enforced by the read-API tests; the invariant test
-gets a documented allow-listed POST once Week 1 lands.
+gets a documented allow-listed POST once Week 1 lands. This does **not**
+break the "console never executes" rule from
+[app-shape.instructions.md](../../.github/instructions/app-shape.instructions.md):
+the endpoint only *records an approval decision* into the existing HIL
+queue (a signal), which a separate executor principal later acts on. The
+API process never holds the executor Managed Identity and never calls a
+mutation surface itself; approval and execution stay distinct principals.
 
 ## 14. MCP - future work (Week 2+)
 
@@ -706,6 +785,17 @@ identical. A fork MAY expose the MCP server to external agents (Claude
 Code, Copilot Chat, Azure SRE Agent itself) at their discretion; the
 upstream surface documents the wire contract and ships the server
 process but does not open it publicly.
+
+**External principal mapping.** An MCP-sourced tool call MUST resolve to a
+concrete `Principal` with a real role before the RBAC gate runs - there is
+no anonymous MCP caller. The MCP server authenticates the calling agent
+(mTLS client cert or an Entra token audience-scoped to `aiopspilot-api`)
+and maps it to a service `Principal` whose role is assigned exactly like a
+human's (an `aw-*` group / App Role, §5 of
+[user-rbac-and-identity.md](user-rbac-and-identity.md)). An agent with no
+mapped role is denied at the gate, identically to an under-privileged
+human; the audit entry records `principal.kind = "mcp-agent"` with the
+resolved role.
 
 ## 15. Open decisions (tracked)
 

@@ -100,6 +100,8 @@ def _make_loop(
     shipped_catalog: tuple[Any, Any],
     *,
     with_opa: bool = True,
+    risk_table: Any = None,
+    risk_gate: Any = None,
 ) -> tuple[ControlLoop, RecordingRemediationPrPublisher, InMemoryStateStore]:
     rules, action_types = shipped_catalog
     index = RuleIndex.build(rules)
@@ -124,6 +126,11 @@ def _make_loop(
         executor=executor,
         audit_store=audit,
         rules_by_id={r.id: r for r in rules},
+        risk_table=risk_table,
+        action_types_by_name=(
+            {a.name: a for a in action_types} if risk_table is not None else None
+        ),
+        risk_gate=risk_gate,
     )
     return loop, publisher, audit
 
@@ -276,6 +283,140 @@ async def test_public_access_deny_end_to_end_opens_shadow_pr(
     for pr in publisher.records:
         assert pr.mode is Mode.SHADOW
         assert "shadow" in pr.labels
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_shadow_authority_recorded_when_risk_table_wired(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    """With a risk table injected, every executed action also records a
+    shadow-parallel execution-authority decision on the audit log."""
+    from aiopspilot.core.risk_gate.risk_table import load_risk_table
+
+    table = load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml")
+    loop, _publisher, audit = _make_loop(shipped_catalog, risk_table=table)
+    result = await loop.process(
+        _make_event(
+            idempotency_key="e-auth",
+            resource_type="object-storage",
+            resource_id="stg-open",
+            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+        )
+    )
+    assert result.outcome is ControlLoopOutcome.EXECUTED
+    entries = [e["entry"] for e in audit.audit_entries]
+    authority = [e for e in entries if e.get("action_kind") == "risk_gate.shadow_authority"]
+    assert authority, "expected a shadow_authority audit entry per executed action"
+    for entry in authority:
+        assert entry["mode"] == "shadow"
+        assert entry["decision"] in {"auto", "hil", "shadow", "deny"}
+        assert "resolved_ceiling" in entry
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_shadow_authority_skipped_when_action_type_unknown(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    """If the executed action's ActionType is not loaded, the shadow-authority
+    record is skipped (fail-open on the observability path, never on execution)."""
+    from aiopspilot.core.risk_gate.risk_table import load_risk_table
+
+    table = load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml")
+    loop, _publisher, audit = _make_loop(shipped_catalog, risk_table=table)
+    loop._action_types_by_name = {}  # force the ActionType lookup to miss
+    result = await loop.process(
+        _make_event(
+            idempotency_key="e-auth-miss",
+            resource_type="object-storage",
+            resource_id="stg-open",
+            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+        )
+    )
+    assert result.outcome is ControlLoopOutcome.EXECUTED
+    kinds = [e["entry"].get("action_kind") for e in audit.audit_entries]
+    assert "risk_gate.shadow_authority" not in kinds
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_unified_risk_audit_recorded_when_gate_and_table_wired(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    """With BOTH a risk table and a RiskGate wired, the loop records the
+    unified gate x authority decision (not the authority-only entry)."""
+    from aiopspilot.core.risk_gate.gate import ActionPromotionRegistry, RiskGate
+    from aiopspilot.core.risk_gate.risk_table import load_risk_table
+
+    table = load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml")
+    gate = RiskGate(registry=ActionPromotionRegistry())
+    loop, _publisher, audit = _make_loop(shipped_catalog, risk_table=table, risk_gate=gate)
+    result = await loop.process(
+        _make_event(
+            idempotency_key="e-unified",
+            resource_type="object-storage",
+            resource_id="stg-open",
+            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+        )
+    )
+    # With the backfilled ActionType ceilings, `remediate.disable-public-access`
+    # is destructive and correctly gates at HIL (T0.max_autonomy=enforce_hil).
+    # This is the *shipped* posture per action-ontology.md 3.1; the test asserts
+    # HIL routing rather than execution.
+    assert result.outcome in {ControlLoopOutcome.HIL, ControlLoopOutcome.EXECUTED}
+    entries = [e["entry"] for e in audit.audit_entries]
+    unified = [e for e in entries if e.get("action_kind") == "risk_gate.unified"]
+    assert unified, "expected a unified risk audit entry per action"
+    for entry in unified:
+        assert entry["decision"] in {"auto", "hil", "shadow", "deny"}
+        assert "gate_outcome" in entry
+        assert "winning_side" in entry
+    # The authority-only entry is superseded when a gate is wired.
+    assert not [e for e in entries if e.get("action_kind") == "risk_gate.shadow_authority"]
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_deny_routing_skips_pr(
+    shipped_catalog: tuple[Any, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A gate DENY routes the action to DENIED: no PR published, outcome DENIED."""
+    from aiopspilot.core.risk_gate.gate import (
+        ActionPromotionRegistry,
+        RiskDecision,
+        RiskDecisionOutcome,
+        RiskGate,
+    )
+    from aiopspilot.core.risk_gate.risk_table import load_risk_table
+
+    table = load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml")
+    gate = RiskGate(registry=ActionPromotionRegistry())
+
+    def _deny(**kwargs: Any) -> RiskDecision:
+        return RiskDecision(
+            outcome=RiskDecisionOutcome.DENY,
+            action_id=str(kwargs["action"].action_id),
+            effective_mode=Mode.SHADOW,
+            reasons=("forced_deny_for_test",),
+        )
+
+    monkeypatch.setattr(gate, "evaluate", _deny)
+    loop, publisher, audit = _make_loop(shipped_catalog, risk_table=table, risk_gate=gate)
+    result = await loop.process(
+        _make_event(
+            idempotency_key="e-deny",
+            resource_type="object-storage",
+            resource_id="stg-open",
+            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+        )
+    )
+    assert result.outcome is ControlLoopOutcome.DENIED
+    assert result.decision == "deny"
+    assert not publisher.records
+    kinds = [e["entry"].get("action_kind") for e in audit.audit_entries]
+    assert "risk_gate.unified" in kinds
 
 
 @requires_opa

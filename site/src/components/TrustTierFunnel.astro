@@ -1,0 +1,352 @@
+---
+/*
+ * TrustTierFunnel.astro - a zero-dependency, progressively enhanced
+ * visualisation of how the 3-tier trust router splits event volume.
+ *
+ * This is the "motion" proof-of-concept (P0): the component renders a
+ * complete, readable static figure on the server. A small inline module
+ * script then adds an intro animation (bars grow, counters count up)
+ * the first time the figure scrolls into view. The animation is a pure
+ * enhancement:
+ *   - No JS            -> the final state is already in the HTML.
+ *   - prefers-reduced-motion -> the script skips the animation entirely.
+ *   - JS + motion ok   -> bars collapse to 0 then grow on view; counters
+ *                         count up from 0.
+ *
+ * The figures are the design targets from
+ * docs/roadmap/goals-and-metrics.md (T0 ~70-80%, T1 ~15-20%,
+ * T2 ~5-10%). They are targets, not measured results - the `note`
+ * prop must always carry that disclaimer (no unbaselined claims).
+ *
+ * All display strings are props so the component source stays
+ * English-only; the Korean landing (ko/index.mdx) passes Korean
+ * strings. Defaults are English so the root landing can use it bare.
+ */
+
+interface TierLabel {
+  /** One-word role, e.g. "Deterministic". */
+  label: string;
+  /** Supporting detail, e.g. "rules - policies - checklists". */
+  sub: string;
+}
+
+interface Props {
+  heading?: string;
+  intro?: string;
+  inflowLabel?: string;
+  /**
+   * Text labels only, index-aligned to the fixed tier split below. A
+   * locale overrides these; it never re-states the numbers, so the
+   * split cannot drift between English and Korean.
+   */
+  labels?: TierLabel[];
+  note?: string;
+}
+
+// Single source of truth for the split. Design targets from
+// docs/roadmap/goals-and-metrics.md (T0 ~70-80%, T1 ~15-20%, T2 ~5-10%)
+// as point values within those ranges, summing to 100.
+const TIER_SPLIT = [
+  { key: "T0", pct: 78, color: "#0078D4" },
+  { key: "T1", pct: 17, color: "#35B4E3" },
+  { key: "T2", pct: 5, color: "#7A5CFF" },
+];
+
+const {
+  heading = "How the tiers split the load",
+  intro =
+    "Route by confidence: the cheapest tier that can resolve an event, does. Most events never reach a model.",
+  inflowLabel = "events in",
+  labels = [
+    { label: "Deterministic", sub: "rules - policies - checklists" },
+    {
+      label: "Lightweight reuse",
+      sub: "embedding similarity - small classifiers",
+    },
+    { label: "Reasoning", sub: "mixed-model - verifier - grounding" },
+  ],
+  note =
+    "Design targets, not measured results - AIOpsPilot never claims a number without a paired baseline measurement.",
+} = Astro.props as Props;
+
+// Merge the canonical split with locale labels (labels may be shorter;
+// fall back to the tier key / empty sub defensively).
+const tiers = TIER_SPLIT.map((split, i) => ({
+  ...split,
+  label: labels[i]?.label ?? split.key,
+  sub: labels[i]?.sub ?? "",
+}));
+---
+
+<figure class="trust-tier-funnel" aria-label={heading}>
+  <figcaption class="ttf-caption">
+    <span class="ttf-heading">{heading}</span>
+    <span class="ttf-intro">{intro}</span>
+  </figcaption>
+
+  <div class="ttf-inflow">
+    <span class="ttf-inflow-num" data-target="100">100</span>
+    <span class="ttf-inflow-label">{inflowLabel}</span>
+    <span class="ttf-inflow-rule" aria-hidden="true"></span>
+  </div>
+
+  <ol class="ttf-tiers">
+    {
+      tiers.map((t, i) => (
+        <li
+          class="ttf-tier"
+          style={`--pct:${t.pct}%; --i:${i}; --c:${t.color};`}
+        >
+          <div class="ttf-tier-head">
+            <span class="ttf-tier-key">{t.key}</span>
+            <span class="ttf-tier-label">{t.label}</span>
+            <span class="ttf-tier-sub">{t.sub}</span>
+          </div>
+          <div class="ttf-track" aria-hidden="true">
+            <div class="ttf-fill" />
+          </div>
+          <span class="ttf-pct">
+            <span class="ttf-pct-num" data-target={t.pct}>
+              {t.pct}
+            </span>
+            <span class="ttf-pct-sign">%</span>
+          </span>
+        </li>
+      ))
+    }
+  </ol>
+
+  <p class="ttf-note">{note}</p>
+</figure>
+
+<style>
+  .trust-tier-funnel {
+    margin: 1.5rem 0 2.5rem;
+    padding: 1.5rem 1.5rem 1.25rem;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 0.9rem;
+    background:
+      radial-gradient(
+        120% 90% at 0% 0%,
+        color-mix(in srgb, #0078d4 7%, transparent),
+        transparent 60%
+      ),
+      var(--sl-color-bg);
+    box-shadow:
+      0 1.6px 3.6px rgba(0, 0, 0, 0.05),
+      0 0.3px 0.9px rgba(0, 0, 0, 0.04);
+  }
+
+  .ttf-caption {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 1.1rem;
+  }
+  .ttf-heading {
+    font-size: var(--sl-text-lg);
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+  .ttf-intro {
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+
+  .ttf-inflow {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding-bottom: 0.9rem;
+    margin-bottom: 0.4rem;
+    position: relative;
+  }
+  .ttf-inflow-num {
+    font-size: var(--sl-text-2xl);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-white);
+    /* Reserve width so the count-up (0 -> 100) does not reflow. */
+    display: inline-block;
+    min-width: 3ch;
+  }
+  .ttf-inflow-label {
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
+  }
+  .ttf-inflow-rule {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      var(--sl-color-hairline),
+      transparent
+    );
+  }
+
+  .ttf-tiers {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+  .ttf-tier {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "head pct"
+      "track track";
+    align-items: center;
+    gap: 0.35rem 1rem;
+  }
+  .ttf-tier-head {
+    grid-area: head;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .ttf-tier-key {
+    font-size: var(--sl-text-xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--c);
+    border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
+    background: color-mix(in srgb, var(--c) 12%, transparent);
+    border-radius: 0.35rem;
+    padding: 0.05rem 0.4rem;
+  }
+  .ttf-tier-label {
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+  .ttf-tier-sub {
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .ttf-pct {
+    grid-area: pct;
+    font-variant-numeric: tabular-nums;
+    color: var(--c);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .ttf-pct-num {
+    font-size: var(--sl-text-xl);
+    /* Reserve width so the count-up does not shift the % sign. */
+    display: inline-block;
+    min-width: 2ch;
+    text-align: right;
+  }
+  .ttf-pct-sign {
+    font-size: var(--sl-text-sm);
+    opacity: 0.8;
+  }
+
+  .ttf-track {
+    grid-area: track;
+    height: 0.6rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--sl-color-gray-5) 60%, transparent);
+    overflow: hidden;
+  }
+  .ttf-fill {
+    height: 100%;
+    /* Static default: rendered at full share so no-JS readers see the
+       final state. motion-ready collapses it; in-view grows it back. */
+    width: var(--pct);
+    border-radius: inherit;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--c) 70%, #ffffff 0%),
+      var(--c)
+    );
+  }
+
+  .ttf-note {
+    margin: 1.2rem 0 0;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+    font-style: italic;
+  }
+
+  /* Motion layer - only applied when the script confirms motion is ok. */
+  .trust-tier-funnel.motion-ready .ttf-fill {
+    width: 0;
+    transition: width 900ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: calc(var(--i) * 140ms);
+  }
+  .trust-tier-funnel.motion-ready.in-view .ttf-fill {
+    width: var(--pct);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .trust-tier-funnel.motion-ready .ttf-fill {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  // Progressive enhancement: the figure is already complete in the DOM.
+  // This only replays an intro animation on first scroll-in, and only
+  // when the reader has not asked for reduced motion.
+  const funnels = document.querySelectorAll<HTMLElement>(".trust-tier-funnel");
+  if (funnels.length > 0) {
+    const prefersReduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    if (!prefersReduced) {
+      const countUp = (el: Element, to: number, ms: number) => {
+        const start = performance.now();
+        const step = (now: number) => {
+          const p = Math.min(1, (now - start) / ms);
+          const eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = String(Math.round(to * eased));
+          if (p < 1) requestAnimationFrame(step);
+          else el.textContent = String(to);
+        };
+        requestAnimationFrame(step);
+      };
+
+      const observer = new IntersectionObserver(
+        (entries, obs) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            const figure = entry.target as HTMLElement;
+            figure.classList.add("in-view");
+            figure
+              .querySelectorAll<HTMLElement>("[data-target]")
+              .forEach((node) => {
+                const to = Number(node.getAttribute("data-target"));
+                if (!Number.isNaN(to)) countUp(node, to, 900);
+              });
+            obs.unobserve(figure);
+          }
+        },
+        // threshold 0 + a bottom rootMargin fires as soon as the top of
+        // the figure scrolls into view, even when the figure is taller
+        // than the viewport (a fixed threshold like 0.4 can never be met
+        // on tall or mobile layouts, which would strand the counters).
+        { threshold: 0, rootMargin: "0px 0px -10% 0px" },
+      );
+
+      for (const figure of funnels) {
+        figure.classList.add("motion-ready");
+        // Reset counters to 0 so the count-up has somewhere to travel.
+        figure
+          .querySelectorAll<HTMLElement>("[data-target]")
+          .forEach((node) => (node.textContent = "0"));
+        observer.observe(figure);
+      }
+    }
+  }
+</script>

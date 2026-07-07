@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiopspilot.dev/schemas/probe/1.0.0",
+  "title": "LiveBlastProbe",
+  "description": "One live-blast probe declaration. Named by ActionType.live_probe_ref. See docs/roadmap/execution-model.md 4 and docs/roadmap/action-ontology.md 6. Month-1+; the risk-gate reads the interpretation function to classify a target as quiet/active/overloaded and cap autonomy accordingly.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "description",
+    "adapter_ref",
+    "interpretation",
+    "timeout_seconds",
+    "cache_ttl_seconds"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_\\-]{0,63}$",
+      "description": "Stable id an ActionType.live_probe_ref points at."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adapter_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "DI seam id resolving to a LiveBlastProbe adapter (e.g. probe-adapters/azure-monitor)."
+    },
+    "adapter_payload": {
+      "type": "object",
+      "description": "Adapter-specific configuration (e.g. KQL query, metric namespace). Deliberately schema-free so a fork can bind any adapter; the adapter validates its own payload."
+    },
+    "interpretation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quiet", "active", "overloaded"],
+      "description": "Deterministic thresholds mapping the raw probe result onto the three-level ceiling axis (see execution-model.md 2.4).",
+      "properties": {
+        "quiet": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Expression the risk-gate evaluates against the adapter result; true = quiet."
+        },
+        "active": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Expression evaluated when quiet is false; true = active."
+        },
+        "overloaded": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Expression evaluated last; true = overloaded (caps at shadow_only)."
+        }
+      }
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60,
+      "description": "Hard timeout the risk-gate enforces on a single probe call. On timeout, axis returns 'active' (fail toward safety)."
+    },
+    "cache_ttl_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3600,
+      "description": "Result cache duration. A replay within TTL returns the cached answer verbatim (execution-model.md 7 - determinism)."
+    }
+  }
+}

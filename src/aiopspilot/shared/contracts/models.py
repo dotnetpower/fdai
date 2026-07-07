@@ -33,7 +33,7 @@ from enum import StrEnum
 from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ---------------------------------------------------------------------------
 # Shared enums - kept as StrEnum so JSON serialization matches the schema.
@@ -204,6 +204,60 @@ class PropertyType(StrEnum):
     OBJECT = "object"
     ARRAY = "array"
     DATETIME = "datetime"
+
+
+class TriggerKind(StrEnum):
+    """Who initiates an ActionType invocation (action-ontology.md 1)."""
+
+    RULE_VIOLATION = "rule_violation"
+    OPERATOR_REQUEST = "operator_request"
+    BOTH = "both"
+
+
+class ActionCategory(StrEnum):
+    """Top-level ActionType bucket (action-ontology.md 3)."""
+
+    REMEDIATION = "remediation"
+    OPS = "ops"
+    GOVERNANCE = "governance"
+
+
+class Autonomy(StrEnum):
+    """Per-tier autonomy ceiling level (execution-model.md 2)."""
+
+    ENFORCE_AUTO = "enforce_auto"
+    ENFORCE_HIL = "enforce_hil"
+    SHADOW_ONLY = "shadow_only"
+
+
+class CeilingRole(StrEnum):
+    """Ordinary RBAC ladder used by a ceiling ``min_role``.
+
+    BreakGlass is deliberately absent: it is off-ladder (a separate Entra
+    group, not nested in Owner - see user-rbac-and-identity.md 2) and is
+    never a ``min_role`` value.
+    """
+
+    READER = "reader"
+    CONTRIBUTOR = "contributor"
+    APPROVER = "approver"
+    OWNER = "owner"
+
+
+class ExecutionPath(StrEnum):
+    """How the executor applies an action (execution-model.md 5)."""
+
+    PR_NATIVE = "pr_native"
+    DIRECT_API = "direct_api"
+    PR_MANUAL = "pr_manual"
+
+
+class EnvScope(StrEnum):
+    """Which environments an ActionType may fire in (action-ontology.md 2)."""
+
+    PROD = "prod"
+    NON_PROD = "non_prod"
+    ANY = "any"
 
 
 # Aliases mirroring the JSON Schema pattern for semver strings.
@@ -420,6 +474,48 @@ class ActionBlastRadius(_Base):
     traversal_links: list[str] = Field(default_factory=lambda: ["contains", "depends_on"])
 
 
+class TriggerKindDecl(_Base):
+    """The ``trigger_kind`` axis on an ActionType (action-ontology.md 1)."""
+
+    kind: TriggerKind
+    restrict_to_scenarios: list[str] = Field(default_factory=list)
+
+
+class TierCeiling(_Base):
+    """One tier's ceiling: the highest autonomy and the lowest role."""
+
+    max_autonomy: Autonomy
+    min_role: CeilingRole
+
+
+class CeilingByTier(_Base):
+    """Per-tier autonomy/role ceilings (execution-model.md 2.2)."""
+
+    t0: TierCeiling | None = None
+    t1: TierCeiling | None = None
+    t2: TierCeiling | None = None
+
+
+class ProdDowngrade(_Base):
+    """How an ActionType collapses in prod (execution-model.md 2.6).
+
+    ``detection_ref`` resolves to the single environment classifier in
+    risk-classification.md; it never defines a second prod rule here.
+    """
+
+    mode: Autonomy
+    detection_ref: Annotated[str, Field(min_length=1)]
+
+    @field_validator("mode")
+    @classmethod
+    def _mode_is_a_downgrade(cls, value: Autonomy) -> Autonomy:
+        if value is Autonomy.ENFORCE_AUTO:
+            raise ValueError(
+                "prod_downgrade.mode cannot be enforce_auto (a downgrade never raises autonomy)"
+            )
+        return value
+
+
 class OntologyActionType(_Base):
     schema_version: SemVer
     name: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_\.\-]{0,79}$")]
@@ -434,16 +530,33 @@ class OntologyActionType(_Base):
     stop_conditions: list[ActionStopCondition] = Field(default_factory=list)
     blast_radius: ActionBlastRadius | None = None
     description: str | None = None
+    # --- Execution-authority extension (Day-1 non-breaking; all optional) ---
+    # Populated by the ontology backfill (action-ontology.md 10); shipped
+    # ActionTypes that predate it validate unchanged because every field
+    # below is optional and ``exclude_none`` drops the empty ones on dump.
+    category: ActionCategory | None = None
+    trigger_kind: TriggerKindDecl | None = None
+    execution_path: ExecutionPath | None = None
+    ceiling_by_tier: CeilingByTier | None = None
+    env_scope: EnvScope = EnvScope.ANY
+    prod_downgrade: ProdDowngrade | None = None
+    argument_schema: dict[str, Any] | None = None
+    live_probe_ref: str | None = None
 
 
 __all__ = [
     # enums
+    "ActionCategory",
     "ActionInterface",
+    "Autonomy",
     "BlastRadiusComputation",
     "BlastRadiusScope",
     "Category",
+    "CeilingRole",
     "CheckLogicKind",
     "Decision",
+    "EnvScope",
+    "ExecutionPath",
     "LinkCardinality",
     "Mode",
     "Operation",
@@ -455,6 +568,7 @@ __all__ = [
     "Severity",
     "StopConditionKind",
     "Tier",
+    "TriggerKind",
     # aliases
     "IdempotencyKey",
     "SemVer",
@@ -465,9 +579,13 @@ __all__ = [
     "ActionStopCondition",
     "PromotionGate",
     "BlastRadius",
+    "CeilingByTier",
     "CheckLogic",
     "Event",
     "OntologyActionType",
+    "ProdDowngrade",
+    "TierCeiling",
+    "TriggerKindDecl",
     "OntologyLinkType",
     "OntologyObjectType",
     "PropertyDecl",

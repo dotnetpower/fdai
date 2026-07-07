@@ -1,0 +1,24 @@
+{
+  "scenario_id": "change.nsg-allow-any-inbound.002",
+  "shipped_rule_id": "network.nsg.no-inbound-any-ssh",
+  "wire_risk_gate": true,
+  "event_payload_resource": {
+    "resource_id": "example-nsg",
+    "type": "network.nsg",
+    "props": {
+      "security_rules": [
+        {
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "Tcp",
+          "destination_port_range": "22",
+          "source_address_prefix": "*"
+        }
+      ]
+    }
+  },
+  "expected_control_loop_outcome": "hil",
+  "expected_decision": "hil",
+  "expected_citing_rule_id_present": "network.nsg.no-inbound-any-ssh",
+  "note": "Maps the placeholder rule id `example.nsg.no-allow-any-inbound` to the shipped high-severity `network.nsg.no-inbound-any-ssh`. With the risk-gate wired the T0 ceiling (enforce_hil for remediate.restrict-network-access) routes the action to HIL, so no shadow PR is published - matching the frozen guard.should_execute=false."
+}

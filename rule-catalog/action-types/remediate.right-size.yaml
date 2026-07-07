@@ -1,13 +1,13 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: remediate.right-size
-version: "1.0.0"
+version: 1.0.0
 operation: scale
 interfaces:
-  - ControlPlane
-  - IdempotentByKey
-  - RateLimited
-  - RequiresInventoryFresh
-  - GraphTraversalRequired
+- ControlPlane
+- IdempotentByKey
+- RateLimited
+- RequiresInventoryFresh
+- GraphTraversalRequired
 rollback_contract: pr_revert
 irreversible: false
 default_mode: shadow
@@ -17,26 +17,43 @@ promotion_gate:
   min_accuracy: 0.95
   max_policy_escapes: 0
 preconditions:
-  - kind: graph_fresh_within_seconds
-    value: 300
-  - kind: no_conflicting_open_action_on_resource
+- kind: graph_fresh_within_seconds
+  value: 300
+- kind: no_conflicting_open_action_on_resource
 stop_conditions:
-  - kind: error_rate_above
-    threshold: 0.02
-    window_seconds: 300
-  - kind: latency_p99_above_ms
-    threshold: 500
-    window_seconds: 300
-  - kind: dependent_resource_degraded
-  - kind: time_box_exceeded_seconds
-    seconds: 900
+- kind: error_rate_above
+  threshold: 0.02
+  window_seconds: 300
+- kind: latency_p99_above_ms
+  threshold: 500
+  window_seconds: 300
+- kind: dependent_resource_degraded
+- kind: time_box_exceeded_seconds
+  seconds: 900
 blast_radius:
   computation: graph_derived
   max_affected_resources: 10
   traversal_depth: 2
-  traversal_links: [contains, depends_on]
-description: >-
-  Adjust compute count or SKU to match observed utilization (Cost
-  Governance). Non-destructive; rollback is a PR to the prior spec.
-  Runs post-shadow only after the scenario set proves it never
-  degrades a `depends_on` dependent.
+  traversal_links:
+  - contains
+  - depends_on
+description: Adjust compute count or SKU to match observed utilization (Cost Governance).
+  Non-destructive; rollback is a PR to the prior spec. Runs post-shadow only after the scenario
+  set proves it never degrades a `depends_on` dependent.
+category: remediation
+trigger_kind:
+  kind: rule_violation
+execution_path: pr_native
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: approver
+  t1:
+    max_autonomy: shadow_only
+    min_role: approver
+  t2:
+    max_autonomy: shadow_only
+    min_role: approver
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector

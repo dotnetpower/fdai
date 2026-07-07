@@ -1,11 +1,11 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: remediate.enable-encryption
-version: "1.0.0"
+version: 1.0.0
 operation: enable
 interfaces:
-  - ControlPlane
-  - IdempotentByKey
-  - RequiresInventoryFresh
+- ControlPlane
+- IdempotentByKey
+- RequiresInventoryFresh
 rollback_contract: state_forward_only
 irreversible: false
 default_mode: shadow
@@ -15,20 +15,32 @@ promotion_gate:
   min_accuracy: 0.98
   max_policy_escapes: 0
 preconditions:
-  - kind: graph_fresh_within_seconds
-    value: 600
-  - kind: no_conflicting_open_action_on_resource
+- kind: graph_fresh_within_seconds
+  value: 600
+- kind: no_conflicting_open_action_on_resource
 stop_conditions:
-  - kind: provider_api_error_streak
-    count: 3
-  - kind: time_box_exceeded_seconds
-    seconds: 600
+- kind: provider_api_error_streak
+  count: 3
+- kind: time_box_exceeded_seconds
+  seconds: 600
 blast_radius:
   computation: static_enum
   static_bucket: resource
-description: >-
-  Turn on data-at-rest / in-transit encryption on a resource
-  (object-storage infrastructure encryption, HTTPS-only enforcement,
-  minimum TLS version, PostgreSQL SSL enforcement). Forward-only: once
-  encryption is enabled, disabling it is a separate governance-gated
-  ActionType - this one never turns it off.
+description: 'Turn on data-at-rest / in-transit encryption on a resource (object-storage infrastructure
+  encryption, HTTPS-only enforcement, minimum TLS version, PostgreSQL SSL enforcement). Forward-only:
+  once encryption is enabled, disabling it is a separate governance-gated ActionType - this
+  one never turns it off.'
+category: remediation
+trigger_kind:
+  kind: rule_violation
+execution_path: pr_native
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: contributor
+  t1:
+    max_autonomy: shadow_only
+    min_role: contributor
+  t2:
+    max_autonomy: shadow_only
+    min_role: approver

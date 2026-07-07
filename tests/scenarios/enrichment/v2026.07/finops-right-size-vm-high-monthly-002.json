@@ -1,0 +1,20 @@
+{
+  "scenario_id": "finops.right-size-vm-high-monthly.002",
+  "shipped_rule_id": "compute.vm.low-utilization",
+  "wire_risk_gate": true,
+  "event_payload_resource": {
+    "resource_id": "example-vm",
+    "type": "compute.vm",
+    "props": {
+      "cpu_p95_percent": 5,
+      "memory_p95_percent": 10,
+      "tags": {
+        "environment": "prod"
+      }
+    }
+  },
+  "expected_control_loop_outcome": "hil",
+  "expected_decision": "hil",
+  "expected_citing_rule_id_present": "compute.vm.low-utilization",
+  "note": "Maps the placeholder rule id `example.finops.right-size-vm` to the shipped medium-severity `compute.vm.low-utilization`. The `environment` tag is set so the co-resident environment-tag rule stays satisfied and only the right-size rule fires. With the risk-gate wired the T0 ceiling (enforce_hil for remediate.right-size) routes the action to HIL, so no shadow PR is published - matching the frozen guard.should_execute=false."
+}

@@ -2,7 +2,7 @@
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
 translation_source_sha: 1b56df380bfda0cd758ee401538f1cbdaedfd840
-translation_revised: 2026-07-06
+translation_revised: 2026-07-07
 ---
 
 # 관측성과 감지(Observability and Detection)

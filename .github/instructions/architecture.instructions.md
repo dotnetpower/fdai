@@ -145,6 +145,30 @@ action and hand off to HIL.
   fit. Candidates are handled as inert data until the quality gate promotes them; the loop
   never mutates the catalog directly.
 
+## Action Ontology and Console Vocabulary
+
+The action ontology and the conversational operator surface add these terms to the shared
+domain vocabulary. Reuse them verbatim in code, docs, and identifiers.
+
+- **ActionType categories** (top-level bucket on every ontology entry):
+  - `remediation` - rule-fired, config-drift-style change.
+  - `ops` - operator-requested runtime action (restart, scale, flush).
+  - `governance` - ontology / catalog / exemption / promotion change.
+  New categories require a doc PR that also updates this list.
+- **Trigger axis**: `rule_violation`, `operator_request`, `both` - who initiates an action.
+- **Execution paths**: `pr_native`, `direct_api`, `pr_manual` - how the executor applies it.
+- **Operator console** terms:
+  - `operator-console` - the conversational pull-direction surface (CLI / Teams / Slack / web).
+  - `narrator` - the console LLM tier; a **translator** (natural language <-> tool calls),
+    never a judge. Distinct from the T2 quality-gate reasoner.
+  - `operator-conversation` - one bounded, RBAC-scoped, audited multi-turn exchange.
+  - `console-tool` - one exposed pipeline-stage view the narrator may call, tagged with a
+    `side_effect_class` (`read` / `simulate` / `approve` / `execute` / `breakglass`).
+
+The unified risk decision combines the authoritative `risk-classification` first-match table
+with a never-raising six-axis ActionType ceiling (see the risk-gate references in the roadmap);
+neither raises autonomy above the other.
+
 ## Safety Invariants
 
 Every autonomous action MUST have: a **stop-condition**, a tested **rollback path**, a

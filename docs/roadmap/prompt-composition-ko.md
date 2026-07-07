@@ -1,8 +1,8 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 485fe954a4208891c35918c9117f62586837579a
-translation_revised: 2026-07-06
+translation_source_sha: fc873e98c559aa1c7b9e71b0f23a1ea56732a505
+translation_revised: 2026-07-07
 ---
 
 # 진화하는 시스템 프롬프트
@@ -26,23 +26,27 @@ trust routing을 확장합니다.
 > pipeline slice 2, 3 step C-1, 3 step C-2, 3 step D-1, 3 step D-2a,
 > 3 step D-2b-i, 3 step D-2b-ii-alpha, 3 step D-2b-ii-beta, 3 step
 > D-2b-ii-gamma-1, 3 step D-2b-ii-gamma-2, 4 alpha, 4 beta-1, 4
-> beta-2, 4.5 alpha, 4.5 beta, 4.5 gamma가 랜딩되었습니다 - operator
-> memory가 end-to-end로 완전히 wire되고, recognition-probe 챕터가
-> 완성되고, `AzureOpenAICrossCheckModel`이 event마다 재조립하고,
-> Critic + Judge + `DebateOrchestrator` 트라이앵글이 shipped seam으로
-> 존재하고 (타입 + evaluator + Azure 어댑터 + `max_rounds = 1`
-> orchestrator), composition root가 `t2.critic` capability resolve 시
-> Critic 어댑터를 바인딩합니다. Composer 체인은 Base + Task Skill Pack
-> + 선택적 Tool Manifest + 선택적 Operator Memory + 선택적 레이어별
-> canary token. dataclass fallback 기본값은 제거되었습니다.
-> `system_prompt`는 `AzureOpenAICrossCheckModelConfig`의 required
-> 필드이며 이제 composer가 wire되지 않은 경우의 startup-safety fallback
-> 역할을 합니다. Wave 3 step B **파이프라인 slice 3** (fork-first
-> second-approval 채널), Wave 4.5 **delta** (`t2.critic`과 `t1.judge`가
-> 모두 resolve될 때 `DebateOrchestrator`를 live `QualityGate`에 wire),
-> Wave 5 (fork 전용 웹 검색)은 여기 문서화되어 있지만 아직 구현되지
-> 않았습니다. 모든 wave는 shadow gate를 통과해야만 승격됩니다.
-> [Rollout waves](#rollout-waves) 참조.
+> beta-2, 4.5 alpha, 4.5 beta, 4.5 gamma, 4.5 delta-1, 4.5 delta-2a,
+> 4.5 delta-2b, 5 alpha가 랜딩되었습니다 - evolving-system-prompt
+> 설계가 이제 T2에 대해 **완전히 live**: operator memory end-to-end,
+> recognition-probe 챕터, `AzureOpenAICrossCheckModel` 내부의 per-event
+> 재조립, Critic + Judge + orchestrator 트라이앵글 (타입 + evaluator +
+> Azure 어댑터 + `max_rounds = 1` orchestrator + composition-root
+> 바인딩), `DebateRouter` 순수 정책, cross-check disagreement 시 debate를
+> 실행하고 resolved `PROCEED`를 `ELIGIBLE`로 flip하는 `QualityGate`
+> escalation 경로, 그리고 `core/web_search/` seam (기본 비활성
+> `NoOpWebSearchProvider` + 도메인 allowlist + injection-marker
+> sanitizer + `trusted="false"` 스니펫 envelope). Composer 체인은 Base
+> + Task Skill Pack + 선택적 Tool Manifest + 선택적 Operator Memory +
+> 선택적 레이어별 canary token. dataclass fallback 기본값은
+> 제거되었습니다. `system_prompt`는 `AzureOpenAICrossCheckModelConfig`의
+> required 필드이며 이제 composer가 wire되지 않은 경우의
+> startup-safety fallback 역할을 합니다. Wave 3 step B **파이프라인
+> slice 3** (fork-first second-approval 채널), Wave 5 **beta**
+> (fork 전용 구체적인 provider 어댑터 + composition-root wire가 T2
+> tool manifest로 스니펫 threading)은 여기 문서화되어 있지만 아직
+> 구현되지 않았습니다. 모든 wave는 shadow gate를 통과해야만
+> 승격됩니다. [Rollout waves](#rollout-waves) 참조.
 
 ## 한눈에 보는 설계
 
@@ -349,7 +353,11 @@ PR review comment on rem PR     --/         v
 | 4.5 alpha | Judge role 스캐폴딩: `JudgeDecision` / `JudgeOutput` / `JudgeVerdict` 타입 + `JudgeModel` Protocol + `evaluate_judge_output()` 순수 evaluator + `rule-catalog/prompts/base/t2-judge.v1.yaml` (`default_mode: shadow`, `applies_to: [t1.judge]`). Debate orchestrator 설계에 따라 Judge는 smaller / cheaper 모델 유지 | yes |
 | 4.5 beta | `AzureOpenAIJudgeModel` httpx 어댑터가 `JudgeModel` Protocol을 구현; Critic 어댑터와 동일한 shape의 strict fail-closed 파서 | yes |
 | 4.5 gamma | `DebateOrchestrator` core 모듈이 `max_rounds = 1`로 Proposer / Critic / Judge를 orchestration; 모든 어댑터 예외에 fail-closed (`error_class`가 보존된 `DebateVerdict.ABORT` 반환), audit log용 debate transcript를 `DebateOutcome`에 보존, Critic이 이미 ABORT하면 Judge를 short-circuit (token-cost 보호) | yes |
-| 5 | Fork별 web search opt-in (업스트림은 no-op provider. enforce에는 injection detection 필요) | 계획됨 |
+| 4.5 delta-1 | Composition-root wire: `LlmBindings`가 선택적 `judge_model`과 `debate_orchestrator` 필드를 갖게 됨. `bind_azure_llm_bindings(judge_system_prompt=)`가 `t1.judge` capability resolve + prompt 공급 시 `AzureOpenAIJudgeModel` 바인딩. `critic_model` AND `judge_model` 둘 다 바인딩되면 `DebateOrchestrator(max_rounds=1)` 자동 생성; `__post_init__`이 일관성 없는 수동 생성 거부. `__main__`이 shipped seed에서 `t2.judge` 프롬프트 조립을 `LookupError`-graceful degradation으로 처리 | yes |
+| 4.5 delta-2a | `core/quality_gate/debate_router.py`의 `DebateRouter` 순수 정책 모듈: `DebateRoutingDecision` + `DebateRouterConfig` (`enabled` 킬스위치, `on_cross_check_disagreement` 축, `always_for_action_types` / `never_for_action_types` 허용/거부 리스트) + `decide_debate_route()` fail-closed 술어. Orchestrator 미이용 시 SKIP short-circuit; 킬스위치가 allowlist 지배; denylist가 allowlist 이김 | yes |
+| 4.5 delta-2b | `QualityGate`가 선택적 `debate_orchestrator` + `debate_router_config` 수용. Cross-check disagreement 시 `decide_debate_route()` 호출; `DEBATE`면 primary cross-check 모델을 재호출하는 no-directive `retry_proposer`와 함께 orchestrator 실행. `DebateOutcome.PROCEED`가 disagreement를 `ELIGIBLE`로 flip (다른 soft issue가 없는 한); `ABORT`는 `DISAGREE` 유지. Half-wiring (두 파라미터 중 하나만) 은 construction 시점에 raise | yes |
+| 5 alpha | `core/web_search/`의 웹 검색 seam: `WebSearchQuery` / `WebSnippet` / `WebSearchResult` 타입, `WebSearchProvider` async Protocol, `NoOpWebSearchProvider` 기본 비활성 fake (모든 쿼리에서 zero snippets + `reasons=("no_op_provider",)` 반환), 그리고 off-allowlist 도메인과 injection marker를 거부한 후 `<web_snippet trusted="false" ...>...</web_snippet>` envelope을 생성하는 sanitizer 헬퍼 (`validate_snippet_domain`, `detect_snippet_injection_markers`, `wrap_web_snippet`) | yes |
+| 5 beta | 구체적인 provider 어댑터 (fork 전용 - Bing, SerpAPI, curated crawler) + fork가 opt-in할 때 `WebSearchProvider`를 바인딩하고 web-search 정책에 따라 스니펫을 T2 tool manifest로 threading하는 composition-root wire | 계획됨 |
 
 ## Wave 1 - 무엇이 배포되었나
 
@@ -1174,6 +1182,180 @@ wire.
   escalate (4), retry round + max_rounds=0 refusal + retry Critic
   ABORT + Judge re-retry refusal (4), `error_class`가 보존된 세 error
   path.
+
+## Wave 4.5 delta-1 - 무엇이 배포되었나
+
+Wave 4.5 delta-1은 Judge 어댑터를 composition root에 wire하고 두 role
+model 모두 바인딩되면 `DebateOrchestrator`를 자동 생성합니다. Container가
+이제 사용 준비된 debate seam을 노출; delta-2가 두 모델 cross-check
+정족수 대신 어떤 live event를 그것으로 흐르게 할지 선택할 예정.
+
+- `composition.LlmBindings`가 선택적 두 필드 추가:
+  `judge_model: JudgeModel | None`과
+  `debate_orchestrator: DebateOrchestrator | None`. Dataclass
+  `__post_init__`이 일관성 없는 수동 생성 (두 role model 모두 바인딩
+  안 됐는데 orchestrator만 있음)을 거부하여 fork 구성 버그가 첫
+  event에서 orchestrator 내부 깊숙히 발견되지 않고 build 시점에
+  잡힘.
+- `bind_azure_llm_bindings`가 Wave 4 beta-2 `critic_system_prompt`
+  shape과 매칭되는 `judge_system_prompt` 파라미터 추가. `t1.judge`
+  capability resolve AND prompt 공급 시 Judge 바인딩.
+  `critic_model` AND `judge_model` 둘 다 바인딩되면 기본
+  `DebateOrchestrator(critic, judge, DebateOrchestratorConfig(max_rounds=1))`
+  자동 생성.
+- `__main__._finalize_llm_bindings`가
+  `composer.compose(capability_id="t1.judge")`로 Judge system prompt를
+  조립하되 `LookupError`-graceful degradation (Critic 경로 미러링):
+  성공 시 `judge_prompt_composed`, catalog에 Judge base prompt가 없으면
+  `judge_prompt_missing` emit.
+- `tests/test_composition_llm.py`의 다섯 테스트가 four-way 매트릭스와
+  수동 생성 rejection pin: (a) 두 capability + 두 prompt -> orchestrator
+  생성; (b) judge cap만 -> orchestrator None; (c) critic cap만 ->
+  orchestrator None; (d) 두 cap 있지만 judge prompt 없음 -> orchestrator
+  None; (e) `LlmBindings(...debate_orchestrator=orch, critic_model=None...)`
+  생성 시점에 raise.
+- Live T2 경로에 아직 동작 변화 없음. 바인딩된 orchestrator는
+  `LlmBindings.debate_orchestrator`에 앉아서 Wave 4.5 delta-2 caller
+  (router 또는 QualityGate의 strategy pattern)가 어떤 event를 그것을
+  통과하게 할지 결정하기를 기다림.
+
+## Wave 4.5 delta-2a - 무엇이 배포되었나
+
+Wave 4.5 delta-2a는 Wave 4.5 delta-2b가 live `QualityGate`에 wire할
+**순수 라우팅 정책**을 랜딩합니다. 술어 + config를 먼저 배포 (`QualityGate`
+변경 없음, live wire 없음)하면 fork가 shadow probe로 라우팅 매트릭스를
+exercise 가능하고, 어떤 event가 실제로 debate를 통과하기 전에 promotion
+gate가 signal을 수집할 수 있음.
+
+- `src/aiopspilot/core/quality_gate/debate_router.py` -
+  `DebateRoute` (`debate` / `skip`) enum,
+  `DebateRoutingDecision` (route + reason + snapshot된
+  ``action_type`` + metadata) frozen dataclass,
+  `DebateRouterConfig` (`enabled` 킬스위치,
+  `on_cross_check_disagreement` 축,
+  `always_for_action_types` / `never_for_action_types` 허용 /
+  거부 리스트)와 겹치는 허용 / 거부 집합을 거부하는
+  `__post_init__`, 그리고 순수 `decide_debate_route(...)` 술어.
+- 테스트에 baked-in된 6-rule precedence:
+  1. `orchestrator_available=False` -> SKIP with reason
+     `orchestrator_unavailable` (fail-closed - allowlist 포함
+     모든 다른 축 지배);
+  2. `config.enabled=False` -> SKIP with reason `disabled`
+     (킬스위치 - allowlist 지배);
+  3. Candidate `action_type` in `never_for_action_types` -> SKIP
+     with reason `never_list` (denylist가 allowlist 이김; fork의
+     가드레일이 다른 fork의 opt-in 리스트에 조용히 오버라이드되지
+     않도록);
+  4. Candidate `action_type` in `always_for_action_types` ->
+     DEBATE with reason `always_list`;
+  5. Cross-check disagreed AND
+     `on_cross_check_disagreement=True` -> DEBATE with reason
+     `cross_check_disagreement` (primary trigger);
+  6. 그 외 -> SKIP with reason `default_skip`.
+- `core/`-safe 유지: `aiopspilot.core.quality_gate.gate`와 stdlib
+  에서만 import; `delivery.*` 또는 LLM SDK 없음.
+  `scripts/check-core-imports.sh`가 계속 통과.
+- `tests/quality_gate/test_debate_router.py`의 11개 테스트가 모든
+  precedence rule + config의 overlap validator + `action_type`
+  snapshot (미래의 ActionType 이름 변경이 과거 audit entry를 절대
+  깨지 않음) 커버.
+
+## Wave 4.5 delta-2b - 무엇이 배포되었나
+
+Wave 4.5 delta-2b는 live wire를 랜딩합니다: `QualityGate.evaluate()`가
+이제 cross-check disagreement 시 debate orchestrator를 참조합니다.
+Wire는 완전히 opt-in - debate 파라미터를 전달하지 않으면 constructor가
+historical shape을 유지하므로 모든 기존 `QualityGate` caller가 동작
+동일.
+
+- `QualityGate.__init__`이 매칭되는 두 선택적 파라미터 추가 -
+  `debate_orchestrator`와 `debate_router_config`. 둘 중 하나만
+  전달하면 construction 시점에 `ValueError("...MUST be provided
+  together...")` raise, fork 배선 버그가 첫 disagreement에서 조용히
+  터지지 않고 fail-fast.
+- `evaluate()`가 quorum loop 동안 primary cross-check 모델의 전체
+  `(action_type, params)` 출력을 캡처하여 orchestrator가 Proposer의
+  제안을 Critic에게 넘길 수 있게 함.
+- `cross_check_below_quorum` 시, 두 debate seam이 모두 wire되면
+  gate가 `decide_debate_route(cross_check_disagreed=True,
+  orchestrator_available=True, ...)` 호출하여 router의
+  `route + reason`을 `debate_route:{value}:{reason}`으로 audit trail에
+  append.
+- `DebateRoute.DEBATE`에서 gate가
+  `orchestrator.run(candidate, proposer_output, known_rule_ids,
+  retry_proposer=self._debate_retry_proposer)`를 await; outcome은
+  `debate_outcome:{verdict}:{reason}`로 log.
+- `_debate_retry_proposer(candidate, directive)`는 primary cross-check
+  모델을 동일한 candidate로 재호출하는 no-directive 콜백.
+  `CrossCheckModel` Protocol이 directive를 받지 않으므로 retry는
+  "특정 변경을 향해 steer"가 아닌 "Proposer에게 동일한 조건에서 한 번
+  더 기회"로 동작. Directive는 audit용 debate transcript에 남음.
+- Outcome 로직:
+  - `PROCEED`가 **disagreement를 flip** - 다른 soft issue (verifier
+    abstain, missing / ungrounded citation, low confidence)가 없는
+    한 gate가 `ELIGIBLE` 반환;
+  - `ABORT`가 **disagreement 유지** - gate가 `DISAGREE` 반환하고
+    orchestrator의 reason이 audit trail에 threading;
+  - `PROCEED` + 다른 soft issue -> **`ABSTAIN`로 degrade** - debate는
+    하나의 axis; 다른 모든 check가 여전히 적용.
+- Deferred import (`from aiopspilot.core.quality_gate.debate
+  import DebateVerdict`, `from
+  aiopspilot.core.quality_gate.debate_router import DebateRoute,
+  decide_debate_route`)가 `evaluate()` 내부에 위치하여 module-level
+  cycle을 break (`debate`와 `debate_router` 둘 다 `gate`에서
+  `QualityCandidate`를 import).
+- `tests/core/quality_gate/test_gate.py`의 7개 테스트가 커버:
+  half-wiring rejection (2), `PROCEED` -> `ELIGIBLE` (1),
+  Critic HIGH-severity에서 `ABORT`가 `DISAGREE` 유지 (1), router
+  killswitch가 orchestrator 호출 방지 (1), `PROCEED` + low-confidence가
+  `ABSTAIN`으로 degrade (1), Judge `ESCALATE_HIL`이 `DISAGREE` 유지
+  (1). 기존 17개 QualityGate 테스트는 변경 없이 통과 - wire가 진정
+  additive.
+
+## Wave 5 alpha - 무엇이 배포되었나
+
+Wave 5 alpha는 웹 검색을 위한 upstream **seam**을 랜딩합니다: 타입,
+Protocol, 기본 비활성 fake, sanitizer 방어. 구체적인 provider (Bing,
+SerpAPI, curated crawler)는 [웹 검색 정책](#web-search-policy)에 따라
+fork 전용 유지; 이 step은 모든 미래 어댑터가 준수할 계약을 배포.
+
+- `src/aiopspilot/core/web_search/types.py` -
+  `WebSearchQuery` (`__post_init__`가 blank text, zero max_results,
+  zero budget_ms를 거부하는 frozen dataclass; caller가 공급하는
+  `allowed_domains` tuple + `metadata`),
+  `WebSnippet` (`url` / `domain` / `title` / `text` /
+  `content_hash` / `fetched_at`를 가진 불변 record; blank url /
+  domain / content_hash는 construction 시 거부),
+  `WebSearchResult` (originating query, retrieved snippet,
+  audit-friendly `reasons` tuple을 운반하는 frozen envelope -
+  operator가 검색이 왜 degrade했는지 볼 수 있게).
+- `src/aiopspilot/core/web_search/provider.py` -
+  하나의 async `search(query) -> WebSearchResult` 메서드를 가진
+  `WebSearchProvider` `@runtime_checkable` Protocol (API 키 같은
+  비밀은 어댑터 생성자에 유지, Protocol surface 밖에), 그리고
+  `NoOpWebSearchProvider` - 모든 쿼리에서 `snippets=()` +
+  `reasons=("no_op_provider",)`을 반환하는 배포된 deny-by-default
+  fake.
+- `src/aiopspilot/core/web_search/sanitizer.py` -
+  구조화된 코드 (`off_allowlist`, `empty_allowlist`,
+  `injection_markers_detected`)를 가진 `WebSnippetPolicyError`,
+  operator-memory marker 리스트를 재사용하는
+  `detect_snippet_injection_markers()` (memory에서 차단된 어떤
+  패턴이든 snippet에서도 차단), off-allowlist snippet AND 빈
+  allowlist를 거부하는 `validate_snippet_domain()` (빈 allowlist는
+  snippet에 정당한 소스가 없음을 의미), 그리고 XML-escape된 body와
+  attribute로
+  `<web_snippet trusted="false" url="..." domain="..." content_hash="...">...</web_snippet>`
+  envelope을 생성하는 `wrap_web_snippet()` (snippet이 closing tag를
+  forge할 수 없도록).
+- `core/`-safe 유지: stdlib과 `aiopspilot.core.operator_memory.sanitizer`
+  (공유 marker 리스트용)에서만 import. LLM SDK 없음, `delivery.*`
+  없음. `scripts/check-core-imports.sh` 계속 통과.
+- `tests/core/web_search/test_web_search.py`의 19개 테스트가 모든
+  constructor invariant (4 + 3), NoOp provider 동작 + Protocol
+  runtime-check (2), 도메인 allowlist 강제 (3), injection 탐지 (2),
+  `wrap_web_snippet` (5 - body + url XML-escape, off-allowlist
+  거부, injection marker 거부 포함) 커버.
 
 ## 관련 문서
 

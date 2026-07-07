@@ -16,10 +16,12 @@ hero:
 ---
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
+import TrustTierFunnel from "../../../components/TrustTierFunnel.astro";
+import ActionOntologyExplorer from "../../../components/ActionOntologyExplorer.astro";
 
-## AIOpsPilot 이 이벤트를 해소하는 방식
+## AIOpsPilot이 이벤트를 해소하는 방식
 
-<p class="hero-note">하나의 제어 루프: 정규화하고, 신뢰도로 라우팅하고, 리스크로 게이팅하고, 항상 감사합니다. LLM 은 결정론 티어들이 명시적으로 abstain 한 잔여 소수만 봅니다.</p>
+<p class="hero-note">하나의 제어 루프: 정규화하고, 신뢰도로 라우팅하고, 리스크로 게이팅하고, 항상 기록으로 남깁니다. LLM은 결정론 티어들이 명시적으로 abstain한 잔여 소수만 봅니다.</p>
 
 ```mermaid
 flowchart LR
@@ -35,47 +37,59 @@ flowchart LR
   QG -->|abstain| HIL
   RG -->|auto| EX[Executor<br/>stop-condition · 롤백 · blast-radius]
   RG -->|hil| HIL[사람 승인<br/>Teams · PR · 이메일]
-  RG -->|deny| DENY[No-op<br/>감사]
+  RG -->|deny| DENY[No-op<br/>실행 기록]
   HIL -->|승인| EX
   HIL -->|거부 / 타임아웃| DENY
   EX --> DEL[GitOps / PR 전달]
-  DEL --> AUD[(append-only 감사 로그)]
+  DEL --> AUD[(append-only 실행 기록)]
   DENY --> AUD
 ```
+
+<TrustTierFunnel
+  heading="티어가 부하를 나누는 방식"
+  intro="신뢰도로 라우팅한다: 이벤트를 해소할 수 있는 가장 저렴한 티어가 처리한다. 대부분의 이벤트는 모델에 도달하지 않는다."
+  inflowLabel="개 이벤트 유입"
+  note="설계 목표이며 측정된 결과가 아닙니다 - AIOpsPilot은 짝을 이룬 기준선 측정 없이 수치를 주장하지 않습니다."
+  labels={[
+    { label: "결정론적", sub: "규칙 - 정책 - 체크리스트" },
+    { label: "경량 재사용", sub: "임베딩 유사도 - 소형 분류기" },
+    { label: "추론", sub: "mixed-model - verifier - grounding" },
+  ]}
+/>
 
 ## 자율성이 여러분에게 주는 것 (설계 목표)
 
 <ul class="impact-list">
   <li>
     <span class="impact-tick" aria-hidden="true">↳</span>
-    <strong>이벤트의 ~70-80% 가 결정론적으로 해소.</strong> 규칙 · 정책 ·
+    <strong>이벤트의 ~70-80%가 결정론적으로 해소.</strong> 규칙 · 정책 ·
     체크리스트가 반복 가능한 다수를 결정. 모델 호출 없음.
   </li>
   <li>
     <span class="impact-tick" aria-hidden="true">↳</span>
-    <strong>~15-20% 는 경량 패턴 재사용(T1) 으로 해소.</strong> 과거 해소된
+    <strong>~15-20%는 경량 패턴 재사용(T1)으로 해소.</strong> 과거 해소된
     인시던트와의 임베딩 유사도, 소형 분류기, frontier 모델 없음.
   </li>
   <li>
     <span class="impact-tick" aria-hidden="true">↳</span>
-    <strong>추론 티어(T2) 에 도달하는 것은 ~5-10% 뿐.</strong> mixed-model
-    교차 검증 + 결정론 verifier - 모델은 제안하고, verifier 가 처분합니다.
+    <strong>추론 티어(T2)에 도달하는 것은 ~5-10%뿐.</strong> mixed-model
+    교차 검증 + 결정론 verifier - 모델은 제안하고, verifier가 처분합니다.
   </li>
   <li>
     <span class="impact-tick" aria-hidden="true">↳</span>
     <strong>모든 자율 액션은 네 불변식을 지닌다.</strong> stop-condition ·
-    롤백 경로 · blast-radius 제한 · 감사 로그 항목. 넷 중 하나라도 없으면
-    액션은 AUTO 가 아니라 HIL 로 갑니다.
+    롤백 경로 · blast-radius 제한 · 실행 기록 항목. 넷 중 하나라도 없으면
+    액션은 AUTO가 아니라 HIL로 갑니다.
   </li>
   <li>
     <span class="impact-tick" aria-hidden="true">↳</span>
-    <strong>새 능력은 shadow 로 시작하며, 결코 깜짝 등장하지 않는다.</strong>
-    Enforce 로의 승격은 Phase 0 기준선 대비 별도의 측정 가능한 게이트입니다.
+    <strong>새 능력은 shadow로 시작하며, 결코 깜짝 등장하지 않는다.</strong>
+    Enforce로의 승격은 Phase 0 기준선 대비 별도의 측정 가능한 게이트입니다.
   </li>
   <li>
     <span class="impact-tick" aria-hidden="true">↳</span>
     <em>위 수치는 모두 설계 목표이지 측정된 결과가 아닙니다.</em>
-    AIOpsPilot 은 짝을 이룬 기준선 측정 없이 배수를 주장하지 않습니다.
+    AIOpsPilot은 짝을 이룬 기준선 측정 없이 배수를 주장하지 않습니다.
   </li>
 </ul>
 
@@ -94,6 +108,28 @@ flowchart LR
     비용 이상 탐지, 라이트사이징 PR, 리소스 그룹별 예산 가드레일. 리스크 분류에 따라 auto vs HIL로 나뉜다.
   </Card>
 </CardGrid>
+
+## 액션 온톨로지
+
+<ActionOntologyExplorer
+  heading="액션 온톨로지 살펴보기"
+  intro="모든 자율 변경은 하나의 타입화된 ActionType 항목이다. 리스크 게이트가 실행 전에 읽는 축을 확인하려면 하나를 골라보세요."
+  filterLabel="롤백 기준 필터"
+  filterAllLabel="전체"
+  selectHint="액션 타입 선택"
+  irreversibleLabel="비가역 - HIL 강제"
+  invariantsNote="모든 액션은 네 가지를 전부 갖춘다: stop-condition, 롤백 경로, blast-radius 제한, 실행 기록 항목."
+  scopeNote="배포된 remediation 카탈로그를 표시합니다(규칙 발화, PR-native, shadow 우선). 온톨로지는 스펙상 ops, governance 카테고리도 포함합니다."
+  axisLabels={{
+    category: "카테고리",
+    operation: "오퍼레이션",
+    trigger: "트리거",
+    execution: "실행 경로",
+    rollback: "롤백",
+    blast: "영향 범위",
+    mode: "기본 모드",
+  }}
+/>
 
 ## 배포 단계 (Delivery Phases)
 

@@ -1,12 +1,12 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: remediate.disable-public-access
-version: "1.0.0"
+version: 1.0.0
 operation: disable
 interfaces:
-  - ControlPlane
-  - IdempotentByKey
-  - RequiresInventoryFresh
-  - GraphTraversalRequired
+- ControlPlane
+- IdempotentByKey
+- RequiresInventoryFresh
+- GraphTraversalRequired
 rollback_contract: state_forward_only
 irreversible: false
 default_mode: shadow
@@ -16,25 +16,42 @@ promotion_gate:
   min_accuracy: 0.98
   max_policy_escapes: 0
 preconditions:
-  - kind: graph_fresh_within_seconds
-    value: 300
-  - kind: no_conflicting_open_action_on_resource
-  - kind: resource_property_equals
-    property: public_access
-    value: enabled
+- kind: graph_fresh_within_seconds
+  value: 300
+- kind: no_conflicting_open_action_on_resource
+- kind: resource_property_equals
+  property: public_access
+  value: enabled
 stop_conditions:
-  - kind: dependent_resource_degraded
-  - kind: provider_api_error_streak
-    count: 3
-  - kind: time_box_exceeded_seconds
-    seconds: 300
+- kind: dependent_resource_degraded
+- kind: provider_api_error_streak
+  count: 3
+- kind: time_box_exceeded_seconds
+  seconds: 300
 blast_radius:
   computation: graph_derived
   max_affected_resources: 5
   traversal_depth: 2
-  traversal_links: [contains, depends_on]
-description: >-
-  Turn off unauthenticated public access on a resource (object-storage,
-  sql-database, postgresql-server, nosql-database) without deleting it.
-  Reverses via a paired `remediate.enable-public-access` action registered
-  through governance - no destructive undo.
+  traversal_links:
+  - contains
+  - depends_on
+description: Turn off unauthenticated public access on a resource (object-storage, sql-database,
+  postgresql-server, nosql-database) without deleting it. Reverses via a paired `remediate.enable-public-access`
+  action registered through governance - no destructive undo.
+category: remediation
+trigger_kind:
+  kind: rule_violation
+execution_path: pr_native
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: approver
+  t1:
+    max_autonomy: shadow_only
+    min_role: approver
+  t2:
+    max_autonomy: shadow_only
+    min_role: approver
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector

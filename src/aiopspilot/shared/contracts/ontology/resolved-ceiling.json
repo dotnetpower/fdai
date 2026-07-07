@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiopspilot.dev/schemas/ontology/resolved-ceiling/1.0.0",
+  "title": "ResolvedCeiling",
+  "description": "Audit-friendly breakdown of the six-axis + risk-classification-table decision produced by evaluate_execution_authority(). Every action dispatch MUST embed this block so a future overlay change never breaks the reproducibility of a past decision. See docs/roadmap/execution-model.md 8. Axes marked with derived_from are computed once inside Axis A and mirrored here for readability (see docs/roadmap/implementation-plan.md, R1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tier",
+    "action_type_id",
+    "axes",
+    "winning_axis",
+    "final_level",
+    "final_quorum",
+    "final_path",
+    "overlay_layers_applied"
+  ],
+  "properties": {
+    "tier": {
+      "type": "string",
+      "enum": ["T0", "T1", "T2"],
+      "description": "Trust-router tier that produced the finding."
+    },
+    "action_type_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_\\.\\-]{0,79}$",
+      "description": "ActionType.name at dispatch time."
+    },
+    "axes": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One entry per axis. See execution-model.md 2.0-2.6.",
+      "required": [
+        "risk_table",
+        "tier",
+        "ceiling",
+        "static_blast",
+        "live_blast",
+        "role",
+        "env"
+      ],
+      "properties": {
+        "risk_table": {"$ref": "#/$defs/axisContribution"},
+        "tier": {"$ref": "#/$defs/axisContribution"},
+        "ceiling": {"$ref": "#/$defs/axisContribution"},
+        "static_blast": {"$ref": "#/$defs/axisContribution"},
+        "live_blast": {"$ref": "#/$defs/axisContribution"},
+        "role": {"$ref": "#/$defs/axisContribution"},
+        "env": {"$ref": "#/$defs/axisContribution"}
+      }
+    },
+    "winning_axis": {
+      "type": "string",
+      "enum": [
+        "risk_table",
+        "tier",
+        "ceiling",
+        "static_blast",
+        "live_blast",
+        "role",
+        "env"
+      ],
+      "description": "The axis whose level produced the final min(). The risk_table axis is authoritative when tied."
+    },
+    "final_level": {
+      "type": "string",
+      "enum": ["enforce_auto", "enforce_hil", "shadow_only", "deny"],
+      "description": "The min() over all axes. Never higher than any input."
+    },
+    "final_quorum": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4,
+      "description": "Human approvers required. 1 by default; 2 for irreversible per risk-classification.md."
+    },
+    "final_path": {
+      "type": "string",
+      "enum": ["pr_native", "direct_api", "pr_manual"],
+      "description": "Executor path selected. See execution-model.md 5.4."
+    },
+    "overlay_layers_applied": {
+      "type": "array",
+      "description": "Names of overlay layers that contributed, in application order. See action-ontology.md 7.5.",
+      "items": {
+        "type": "string",
+        "enum": ["upstream", "file_overlay", "rego", "runtime_override"]
+      },
+      "uniqueItems": true,
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "axisContribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "reason"],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["enforce_auto", "enforce_hil", "shadow_only", "deny"]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable justification. English only, no secrets."
+        },
+        "derived_from": {
+          "type": "string",
+          "description": "If this axis mirrors a claim already made by Axis A (risk_table), the matched_rule_id from the risk-classification table. See docs/roadmap/implementation-plan.md, R1. Present on static_blast and env when they inherit from Axis A; absent on risk_table itself."
+        },
+        "matched_rule_id": {
+          "type": "string",
+          "description": "risk-classification.yaml rule id (Axis A only)."
+        },
+        "catalog_version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "risk-classification.yaml version at decision time (Axis A only)."
+        },
+        "quorum": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Approver quorum this axis contributes; final_quorum is the max across axes."
+        },
+        "probe_result": {
+          "type": "string",
+          "enum": ["quiet", "active", "overloaded", "no_opinion"],
+          "description": "live_blast axis only."
+        }
+      }
+    }
+  }
+}
