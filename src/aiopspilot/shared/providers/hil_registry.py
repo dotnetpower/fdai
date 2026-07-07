@@ -51,6 +51,26 @@ class HilApprovalDecision(StrEnum):
     REJECT = "reject"
 
 
+class MutationTarget(StrEnum):
+    """Which executor an approved HIL item would dispatch to.
+
+    Surfaced on :attr:`HilPendingItem.mutation_target` so an Approver
+    knows whether the approval will result in a merged remediation PR
+    (``PR_NATIVE``) or a direct substrate mutation (``DIRECT_API``).
+    The value mirrors
+    :class:`~aiopspilot.shared.contracts.models.ExecutionPath` and is
+    populated at HIL enqueue time from
+    :attr:`~aiopspilot.shared.contracts.models.OntologyActionType.execution_path`.
+
+    Left absent (``None``) for pending items authored before the field
+    landed, so a Postgres backend that predates Wave W2.3f can round-trip
+    the row unchanged.
+    """
+
+    PR_NATIVE = "pr_native"
+    DIRECT_API = "direct_api"
+
+
 @dataclass(frozen=True, slots=True)
 class HilPendingItem:
     """Full-detail projection of one pending HIL approval.
@@ -95,6 +115,18 @@ class HilPendingItem:
     """Optional opaque hash binding the approval to the exact pending
     action. When present, an ``approve_hil`` tool MAY re-verify it
     upstream before honoring the decision."""
+
+    mutation_target: MutationTarget | None = None
+    """Executor sibling the approval will dispatch to (Wave W2.3f).
+
+    Populated at enqueue time from
+    :attr:`~aiopspilot.shared.contracts.models.OntologyActionType.execution_path`
+    so an Approver knows whether the change lands as a PR (``PR_NATIVE``)
+    or a substrate mutation (``DIRECT_API``) before deciding. Rows
+    predating the field carry ``None``; a fork's Postgres backend MUST
+    tolerate the missing column so an in-place migration is not
+    required to consume older rows.
+    """
 
     metadata: Mapping[str, str] = field(default_factory=dict)
     """Optional adapter-neutral k/v pairs. Never carries secrets."""
@@ -207,4 +239,5 @@ __all__ = [
     "HilItemNotFoundError",
     "HilPendingItem",
     "HilRegistryError",
+    "MutationTarget",
 ]

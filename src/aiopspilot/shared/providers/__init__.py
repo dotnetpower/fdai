@@ -47,6 +47,7 @@ from .hil_registry import (
     HilItemNotFoundError,
     HilPendingItem,
     HilRegistryError,
+    MutationTarget,
 )
 from .iac_review import (
     IacReview,
@@ -147,6 +148,7 @@ __all__ = [
     "MetricQueryError",
     "MetricQueryProvider",
     "MetricQueryResult",
+    "MutationTarget",
     "ObservationError",
     "PrPublishReceipt",
     "PreflightCheck",

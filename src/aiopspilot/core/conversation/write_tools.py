@@ -1191,6 +1191,10 @@ def _project_pending_item(item: HilPendingItem) -> dict[str, Any]:
         "citing_rule_ids": list(item.citing_rule_ids),
         "requested_at": item.requested_at.isoformat() if item.requested_at else None,
         "correlation_id": item.correlation_id,
+        # Wave W2.3f: expose the executor sibling the approval would
+        # dispatch to. ``None`` for rows enqueued before the field
+        # landed keeps older records renderable.
+        "mutation_target": item.mutation_target.value if item.mutation_target else None,
     }
 
 
