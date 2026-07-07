@@ -41,7 +41,7 @@ export default defineConfig({
     starlight({
       title: "FDAI",
       description:
-        "Autonomous cloud operations control plane - deterministic-first, event-driven, risk-gated.",
+        "FDAI - Forward Deployed AI for Cloud Ops. An autonomous control plane that lives inside your cloud: deterministic-first, event-driven, risk-gated.",
       // Browser language detection is Starlight's default behaviour when
       // multiple locales are configured. Users land on the closest match to
       // their Accept-Language header and can flip via the language switcher.

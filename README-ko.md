@@ -1,12 +1,13 @@
 ---
 translation_of: README.md
-translation_source_sha: 97950aa5df1f431f0c3d8765789b4e6989b28c5e
+translation_source_sha: 981195af1620010f2678923174b7082f0bf72dba
 translation_revised: 2026-07-07
 ---
 
 # FDAI
 
-자율 클라우드 운영 컨트롤 플레인. Azure 이벤트를 지켜보다가 반복 가능한 것은 규칙과
+**Forward Deployed AI for Cloud Ops.** FDAI 는 클라우드 안에 상주하는 자율
+컨트롤 플레인입니다. Azure 이벤트를 지켜보다가 반복 가능한 것은 규칙과
 정책으로 결정론적으로 해결하고, LLM 추론은 남은 소수의 모호한 케이스에만 사용합니다.
 그래서 대부분의 운영은 사람 검토 없이 굴러갑니다.
 

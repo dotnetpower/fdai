@@ -1,6 +1,7 @@
 # FDAI
 
-Autonomous cloud operations control plane. It watches Azure events, resolves the
+**Forward Deployed AI for Cloud Ops.** FDAI is an autonomous control plane
+that lives inside your cloud - it watches Azure events, resolves the
 repeatable ones with rules and policies, and reserves LLM reasoning for the small
 ambiguous residual, so most operations run without a human in the loop.
 
