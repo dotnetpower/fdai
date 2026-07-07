@@ -85,6 +85,16 @@ def test_unknown_decision_value_is_rejected() -> None:
         derive_dashboard_metrics(entries)
 
 
+def test_unknown_mode_value_is_rejected() -> None:
+    """`mode` MUST be shadow or enforce; anything else fails the derivation."""
+    fixture = _load_fixture()
+    entries = copy.deepcopy(fixture["entries"])
+    entries[0]["mode"] = "dry-run"  # not one of shadow/enforce
+
+    with pytest.raises(ValueError, match="unknown mode"):
+        derive_dashboard_metrics(entries)
+
+
 def test_empty_audit_batch_returns_zero_metrics() -> None:
     metrics = derive_dashboard_metrics([])
     assert metrics.event_count == 0

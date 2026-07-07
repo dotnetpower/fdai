@@ -80,6 +80,17 @@ def test_fake_find_helper() -> None:
     assert pub.find("missing") is None
 
 
+async def test_fake_find_helper_returns_recorded_check() -> None:
+    """`find()` returns the recorded check when the key matches."""
+    pub = InMemoryPreflightCheckPublisher()
+    check = PreflightCheck(pr_ref="pr-42", check_key="k-found", report=_report())
+    await pub.publish(check)
+    got = pub.find("k-found")
+    assert got is not None
+    assert got.check_key == "k-found"
+    assert got.pr_ref == "pr-42"
+
+
 # ---------------------------------------------------------------------------
 # publish_preflight_check orchestrator
 # ---------------------------------------------------------------------------

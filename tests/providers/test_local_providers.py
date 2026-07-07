@@ -182,3 +182,35 @@ def test_load_inventory_fixture_accepts_empty_file(tmp_path: Path) -> None:
     resources, links = load_inventory_fixture(p)
     assert resources == ()
     assert links == ()
+
+
+def test_file_fixture_inventory_rejects_resources_not_a_list(tmp_path: Path) -> None:
+    """`resources:` MUST be a YAML list, not a mapping/scalar."""
+    p = tmp_path / "bad.yaml"
+    p.write_text("resources: {}\n", encoding="utf-8")
+    with pytest.raises(InventoryFixtureError, match="'resources' MUST be a list"):
+        FileFixtureInventory(fixture=p)
+
+
+def test_file_fixture_inventory_rejects_resource_entry_not_a_mapping(tmp_path: Path) -> None:
+    """Each `resources[i]` entry MUST be a mapping."""
+    p = tmp_path / "bad.yaml"
+    p.write_text("resources:\n  - just-a-string\n", encoding="utf-8")
+    with pytest.raises(InventoryFixtureError, match=r"resources\[0\] MUST be a mapping"):
+        FileFixtureInventory(fixture=p)
+
+
+def test_file_fixture_inventory_rejects_links_not_a_list(tmp_path: Path) -> None:
+    """`links:` MUST be a YAML list."""
+    p = tmp_path / "bad.yaml"
+    p.write_text("links: {}\n", encoding="utf-8")
+    with pytest.raises(InventoryFixtureError, match="'links' MUST be a list"):
+        FileFixtureInventory(fixture=p)
+
+
+def test_file_fixture_inventory_rejects_link_entry_not_a_mapping(tmp_path: Path) -> None:
+    """Each `links[i]` entry MUST be a mapping."""
+    p = tmp_path / "bad.yaml"
+    p.write_text("links:\n  - just-a-string\n", encoding="utf-8")
+    with pytest.raises(InventoryFixtureError, match=r"links\[0\] MUST be a mapping"):
+        FileFixtureInventory(fixture=p)

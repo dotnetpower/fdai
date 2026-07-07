@@ -90,6 +90,24 @@ def test_fake_find_helper() -> None:
     assert pub.find("k-1") is None
 
 
+async def test_fake_find_helper_returns_recorded_review() -> None:
+    """`find()` returns the recorded review when the key matches."""
+    pub = InMemoryIacReviewPublisher()
+    review = IacReview(
+        pr_ref="owner/repo#42",
+        review_key="k-found",
+        findings=(_finding(),),
+        verdict="ok",
+        mode=Mode.SHADOW,
+        generated_at="2026-07-07T00:00:00Z",
+    )
+    await pub.publish(review)
+    got = pub.find("k-found")
+    assert got is not None
+    assert got.review_key == "k-found"
+    assert got.pr_ref == "owner/repo#42"
+
+
 # ---------------------------------------------------------------------------
 # publish_review orchestrator
 # ---------------------------------------------------------------------------

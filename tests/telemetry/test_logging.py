@@ -75,3 +75,26 @@ def test_configure_logging_is_idempotent(json_stream: io.StringIO) -> None:
     second_lines = _lines(second)
     assert len(second_lines) == 1
     assert not any(line.get("message") == "second stream only" for line in first_lines)
+
+
+def test_logger_exception_serializes_traceback_into_exception_field(
+    json_stream: io.StringIO,
+) -> None:
+    """`logger.exception(...)` MUST render the traceback under the top-level
+    ``exception`` key, not swallow it or crash the formatter.
+    """
+    logger = get_logger("aiopspilot.tests.telemetry")
+    try:
+        raise RuntimeError("boom")
+    except RuntimeError:
+        logger.exception("wrapped failure")
+
+    lines = _lines(json_stream)
+    assert len(lines) == 1
+    entry = lines[0]
+    assert entry["message"] == "wrapped failure"
+    assert entry["level"] == "ERROR"
+    assert "exception" in entry
+    exc_text = str(entry["exception"])
+    assert "RuntimeError" in exc_text
+    assert "boom" in exc_text

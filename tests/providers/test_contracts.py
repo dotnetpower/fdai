@@ -91,6 +91,30 @@ async def test_state_store_audit_chain_is_intact_after_appends(
             assert entries[i]["previous_hash"] == entries[i - 1]["entry_hash"]
 
 
+async def test_in_memory_state_store_verify_chain_detects_tampered_previous_hash() -> None:
+    """Tampering with a stored `previous_hash` MUST make `verify_chain()` fail.
+
+    Guards against a silent audit-chain corruption escaping detection.
+    """
+    store = InMemoryStateStore()
+    await store.append_audit_entry({"event_id": "e-1"})
+    await store.append_audit_entry({"event_id": "e-2"})
+    # Mutate the internal chain directly - the invariant we're checking is
+    # that the verifier catches it, not that a public API allows it.
+    store._audit[1]["previous_hash"] = "sha256:tampered"  # noqa: SLF001
+    assert store.verify_chain() is False
+
+
+async def test_in_memory_state_store_verify_chain_detects_tampered_entry_hash() -> None:
+    """Tampering with a stored `entry_hash` MUST make `verify_chain()` fail."""
+    store = InMemoryStateStore()
+    await store.append_audit_entry({"event_id": "e-1"})
+    await store.append_audit_entry({"event_id": "e-2"})
+    # Recompute previous_hash chain but corrupt the second entry's own hash.
+    store._audit[1]["entry_hash"] = "sha256:not-the-real-hash"  # noqa: SLF001
+    assert store.verify_chain() is False
+
+
 # ---------------------------------------------------------------------------
 # EventBus
 # ---------------------------------------------------------------------------
@@ -207,6 +231,18 @@ async def test_secret_provider_raises_on_missing(
     provider = factory(_build_seeded_secret_provider())
     with pytest.raises(SecretNotFoundError):
         await provider.get("kv/does-not-exist")
+
+
+async def test_in_memory_secret_provider_register_adds_secret() -> None:
+    """`register()` is the test-setup helper documented on the fake.
+
+    Regression guard so it stays hooked up to `_secrets` (a rename that
+    silently broke this would leave every fork's test suite unable to
+    add seeds after construction).
+    """
+    provider = InMemorySecretProvider()
+    provider.register("kv/late-added", "hello")
+    assert await provider.get("kv/late-added") == "hello"
 
 
 # ---------------------------------------------------------------------------

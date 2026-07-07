@@ -198,6 +198,21 @@ class TestForcedOutcomes:
         assert receipt.rollback_succeeded is None
 
     @pytest.mark.asyncio
+    async def test_force_succeeded_caches_by_idempotency_key(self) -> None:
+        """A forced SUCCEEDED outcome MUST be cached like a natural one, so a
+        retry on the same idempotency key returns ALREADY_APPLIED instead of
+        firing a second call. This exercises the forced-success cache branch.
+        """
+        pub = RecordingDirectApiExecutor()
+        pub.force_outcome(DirectApiOutcome.SUCCEEDED, detail="forced")
+        first = await pub.execute(_req(idempotency_key="k-forced"))
+        assert first.outcome is DirectApiOutcome.SUCCEEDED
+        assert first.detail == "forced"
+        # Retry MUST hit the cache, not the happy-path counter.
+        retry = await pub.execute(_req(idempotency_key="k-forced"))
+        assert retry.outcome is DirectApiOutcome.ALREADY_APPLIED
+
+    @pytest.mark.asyncio
     async def test_force_outcome_is_one_shot(self) -> None:
         pub = RecordingDirectApiExecutor()
         pub.force_outcome(DirectApiOutcome.STOPPED)
