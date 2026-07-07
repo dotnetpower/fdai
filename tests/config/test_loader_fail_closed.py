@@ -14,6 +14,7 @@ from aiopspilot.shared.config import (
     RuntimeConfig,
     load_from_mapping,
 )
+from aiopspilot.shared.config.loader import load_config_from_env
 from aiopspilot.shared.contracts.models import Mode
 
 # ---------------------------------------------------------------------------
@@ -145,3 +146,54 @@ def test_runtime_config_can_be_constructed_in_code() -> None:
     rt = RuntimeConfig(env="dev", autonomy_mode_default=Mode.SHADOW)
     assert rt.env == "dev"
     assert rt.autonomy_mode_default is Mode.SHADOW
+
+
+# ---------------------------------------------------------------------------
+# Fail-closed at the pydantic layer (JSON Schema passes, model rejects)
+# ---------------------------------------------------------------------------
+
+
+def test_llm_azure_mode_without_resolved_models_path_fails_at_pydantic_layer() -> None:
+    """`llm.mode='azure'` without `resolved_models_path` passes the schema but
+    the model validator rejects it - exercises the loader's pydantic branch
+    that aggregates :class:`ValidationError` issues into :class:`ConfigError`.
+    """
+    raw = _minimal_raw()
+    raw["llm"] = {"mode": "azure"}  # schema-valid; pydantic post-init raises
+    with pytest.raises(ConfigError) as exc:
+        load_from_mapping(raw)
+    # The pydantic message MUST land in the aggregated issue list.
+    assert any("resolved_models_path" in i.message for i in exc.value.issues), (
+        f"pydantic issue not surfaced: {[(i.key, i.message) for i in exc.value.issues]}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# load_config_from_env convenience
+# ---------------------------------------------------------------------------
+
+
+def test_load_config_from_env_reads_process_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The convenience wrapper composes :class:`EnvVarConfigProvider` + `.get()`.
+
+    Regression guard: no config-consumer should have to know about the
+    provider class - importing ``load_config_from_env`` MUST be enough.
+    """
+    env = {
+        "AZURE_TENANT_ID": "00000000-0000-0000-0000-000000000000",
+        "AZURE_SUBSCRIPTION_ID": "00000000-0000-0000-0000-000000000000",
+        "AZURE_REGION": "krc",
+        "KAFKA_BOOTSTRAP_SERVERS": "evhns-aiopspilot.example.local:9093",
+        "KAFKA_TOPIC_EVENTS": "aw.change.events",
+        "POSTGRES_HOST": "psql-aiopspilot.example.local",
+        "POSTGRES_DATABASE": "aiopspilot",
+        "RUNTIME_ENV": "dev",
+    }
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+
+    cfg = load_config_from_env()
+    assert isinstance(cfg, AppConfig)
+    assert cfg.runtime.env == "dev"
+    # Shadow default MUST survive the env round-trip.
+    assert cfg.runtime.autonomy_mode_default is Mode.SHADOW
