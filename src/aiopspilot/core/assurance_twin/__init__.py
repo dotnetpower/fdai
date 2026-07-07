@@ -49,6 +49,11 @@ from aiopspilot.core.assurance_twin.report import (
     PostureVerdict,
     build_posture_assessment_report,
 )
+from aiopspilot.core.assurance_twin.review import (
+    ReviewOutcome,
+    ReviewResult,
+    publish_review,
+)
 
 __all__ = [
     "AbstainCode",
@@ -66,8 +71,11 @@ __all__ = [
     "QueryRow",
     "QueryVerificationError",
     "QueryVerifier",
+    "ReviewOutcome",
+    "ReviewResult",
     "TypedQuery",
     "build_baseline_projection",
     "build_posture_assessment_report",
     "execute_query",
+    "publish_review",
 ]

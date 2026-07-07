@@ -41,6 +41,12 @@ from .hil_registry import (
     HilPendingItem,
     HilRegistryError,
 )
+from .iac_review import (
+    IacReview,
+    IacReviewPublisher,
+    IacReviewPublishError,
+    ReviewReceipt,
+)
 from .inventory import Inventory, InventoryBatch, LinkRecord, ResourceRecord
 from .remediation_pr import (
     PublishReceipt as PrPublishReceipt,
@@ -85,6 +91,9 @@ __all__ = [
     "HilItemNotFoundError",
     "HilPendingItem",
     "HilRegistryError",
+    "IacReview",
+    "IacReviewPublishError",
+    "IacReviewPublisher",
     "IdentityToken",
     "Inventory",
     "InventoryBatch",
@@ -98,6 +107,7 @@ __all__ = [
     "RemediationPr",
     "RemediationPrPublisher",
     "ResourceRecord",
+    "ReviewReceipt",
     "RunbookError",
     "RunbookExecutionError",
     "RunbookNotFoundError",
