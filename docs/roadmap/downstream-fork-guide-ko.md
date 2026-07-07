@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: b0d9fbef7f36f4ee8dc6f459e1e4555cb0c65550
+translation_source_sha: 02d680672452f7bb5e7b0116077fa37c70440769
 translation_revised: 2026-07-07
 ---
 
@@ -74,7 +74,7 @@ Fork에서 첫 `git commit` 전에 이것들을 하세요.
 2. **구별되는 기본 브랜치 이름으로 clone** (선택적이지만 권장):
    `fork/main` 또는 `customer-x/main` - `git push`가 실수로 upstream을
    대상으로 하지 않도록.
-3. **`git remote -v` 확인**: `origin`이 `dotnetpower/aiopspilot`이
+3. **`git remote -v` 확인**: `origin`이 `dotnetpower/fdai`이
    아니라 fork 저장소를 가리켜야 함. 한 번 실수하면 고객 커밋이
    upstream으로 leak될 가능성이 있음.
 4. **Fork의 CI에서 secret scanning 활성화** - upstream의
@@ -108,7 +108,7 @@ Fork에서 첫 `git commit` 전에 이것들을 하세요.
    적용하는 얇은 Python 모듈. 프로세스 진입점을 upstream의 `__main__`
    대신 이 모듈에서 import하도록 이름 변경.
 9. **Upstream sync 설정**: `git remote add upstream
-   https://github.com/dotnetpower/aiopspilot.git`. 첫 divergence 전에
+   https://github.com/dotnetpower/fdai.git`. 첫 divergence 전에
    [Upstream sync 절차](#upstream-sync-절차)를 한 번 rehearsal.
 
 ## 3. 유일한 강한 규칙
@@ -659,7 +659,7 @@ sync에서 `src/fdai/shared/providers/**` +
 
 ```bash
 # 일회성 설정
-git remote add upstream https://github.com/dotnetpower/aiopspilot.git
+git remote add upstream https://github.com/dotnetpower/fdai.git
 
 # 매 sync
 git fetch upstream --tags

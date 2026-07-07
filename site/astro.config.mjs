@@ -54,7 +54,7 @@ export default defineConfig({
         {
           icon: "github",
           label: "GitHub",
-          href: "https://github.com/dotnetpower/aiopspilot",
+          href: "https://github.com/dotnetpower/fdai",
         },
       ],
       customCss: ["./src/styles/custom.css"],
@@ -152,7 +152,7 @@ export default defineConfig({
         // "Edit this page" points at the canonical Markdown under
         // docs/roadmap/, not at the mounted symlink. Contributors land on
         // the source of truth.
-        baseUrl: "https://github.com/dotnetpower/aiopspilot/edit/main/",
+        baseUrl: "https://github.com/dotnetpower/fdai/edit/main/",
       },
     }),
   ],

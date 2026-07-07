@@ -97,8 +97,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/dotnetpower/aiopspilot"
-Documentation = "https://github.com/dotnetpower/aiopspilot/blob/main/docs/roadmap/README.md"
+Homepage = "https://github.com/dotnetpower/fdai"
+Documentation = "https://github.com/dotnetpower/fdai/blob/main/docs/roadmap/README.md"
 
 [build-system]
 requires = ["hatchling>=1.24"]

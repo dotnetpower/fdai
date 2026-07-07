@@ -67,7 +67,7 @@ jobs:
         working-directory: site
         env:
           # Passed through to astro.config.mjs so a fork can override without
-          # editing config. Defaults target dotnetpower/aiopspilot.
+          # editing config. Defaults target dotnetpower/fdai.
           SITE_URL: ${{ steps.pages.outputs.origin || 'https://dotnetpower.github.io' }}
           BASE_PATH: ${{ steps.pages.outputs.base_path || '/fdai' }}
         run: npm run build

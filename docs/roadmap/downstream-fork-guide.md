@@ -74,7 +74,7 @@ Do these before your first `git commit` on the fork.
    recommended): `fork/main` or `customer-x/main` so no `git push`
    accidentally targets upstream.
 3. **Verify `git remote -v`**: `origin` MUST point at your fork
-   repository, NOT at `dotnetpower/aiopspilot`. Getting this wrong
+   repository, NOT at `dotnetpower/fdai`. Getting this wrong
    once has a chance of leaking customer commits upstream.
 4. **Enable secret scanning** in the fork's CI - reuse the upstream
    `scripts/check-english-only.sh`, `scripts/check-punctuation.sh`,
@@ -108,7 +108,7 @@ Do these before your first `git commit` on the fork.
    to swap the seams your fork owns. Rename your process entry point
    to import from this module instead of upstream's `__main__`.
 9. **Set up upstream sync**: `git remote add upstream
-   https://github.com/dotnetpower/aiopspilot.git`. Rehearse the
+   https://github.com/dotnetpower/fdai.git`. Rehearse the
    [Upstream sync procedure](#upstream-sync-procedure) once before
    the first divergence.
 
@@ -689,7 +689,7 @@ Watch `src/fdai/shared/providers/**` and
 
 ```bash
 # One-time setup
-git remote add upstream https://github.com/dotnetpower/aiopspilot.git
+git remote add upstream https://github.com/dotnetpower/fdai.git
 
 # Every sync
 git fetch upstream --tags

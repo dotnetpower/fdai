@@ -4,8 +4,8 @@
 # at a real GitHub team yet and is intentionally kept synthetic per
 # generic-scope.instructions.md.
 
-/rule-catalog/exemptions/    @dotnetpower/aiopspilot-owners
-/rule-catalog/risk-classification.yaml    @dotnetpower/aiopspilot-owners
+/rule-catalog/exemptions/    @dotnetpower/fdai-owners
+/rule-catalog/risk-classification.yaml    @dotnetpower/fdai-owners
 
 # Risk-gate policy changes always want Owner review.
-/src/fdai/core/risk_gate/    @dotnetpower/aiopspilot-owners
+/src/fdai/core/risk_gate/    @dotnetpower/fdai-owners

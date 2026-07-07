@@ -16,7 +16,7 @@ import path from "node:path";
 import { visit } from "unist-util-visit";
 
 const CONTENT_ROOT = "src/content/docs";
-const GITHUB_BLOB_BASE = "https://github.com/dotnetpower/aiopspilot/blob/main/";
+const GITHUB_BLOB_BASE = "https://github.com/dotnetpower/fdai/blob/main/";
 
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
 const REPO_ROOT = path.resolve(scriptDir, "..", "..", "..");
@@ -164,7 +164,7 @@ export function remarkRewriteLinks() {
       if (isSourceExt || isDirRef) {
         const repoRelative = targetOriginal.replace(/^(\.\.\/)+/, "");
         const kind = isDirRef ? "tree/main/" : "blob/main/";
-        node.url = `https://github.com/dotnetpower/aiopspilot/${kind}${repoRelative}${hash ? `#${hash}` : ""}`;
+        node.url = `https://github.com/dotnetpower/fdai/${kind}${repoRelative}${hash ? `#${hash}` : ""}`;
         return;
       }
 
