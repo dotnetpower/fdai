@@ -46,12 +46,17 @@ from aiopspilot.delivery.read_api.auth import (
     AuthenticationError,
     Authenticator,
 )
+from aiopspilot.delivery.read_api.hil_callback import (
+    HilCallbackConfig,
+    make_hil_callback_route,
+)
 from aiopspilot.delivery.read_api.panels import ReadPanel
 from aiopspilot.delivery.read_api.read_model import (
     DEFAULT_LIMIT,
     ConsoleReadModel,
     clamp_limit,
 )
+from aiopspilot.shared.providers.hil_registry import HilApprovalRegistry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,6 +94,21 @@ class ReadApiConfig:
     Each panel is registered as a ``GET``-only route, preserving the
     read-only invariant. The app factory fails fast on a malformed or
     colliding panel path."""
+
+    hil_callback: HilCallbackConfig | None = None
+    """Opt-in ChatOps HIL callback config. When set, registers a single
+    ``POST /hil/{approval_id}/decision`` route that verifies an HMAC
+    signature over the request body. ``None`` (the default) keeps the
+    read-API strictly GET-only. The route consumes a
+    :class:`~aiopspilot.shared.providers.hil_registry.HilApprovalRegistry`
+    instead of the executor identity, so no privilege boundary is
+    crossed. See Wave W1.3 in
+    [implementation-plan.md](../../../../docs/roadmap/implementation-plan.md)."""
+
+    hil_registry: HilApprovalRegistry | None = None
+    """Registry consumed by the HIL callback route. When
+    ``hil_callback`` is set, this MUST also be set - the app factory
+    fails fast otherwise."""
 
 
 def build_app(
@@ -203,6 +223,22 @@ def build_app(
             raise ValueError(f"duplicate panel path {path!r} ({panel.name!r})")
         seen_panel_paths.add(path)
         routes.append(Route(path, _make_panel_handler(panel), methods=["GET"]))
+
+    # Optional HIL callback POST route (Wave W1.3). Fails fast if the
+    # config declares a callback but not a registry - the config error
+    # MUST NOT reach a live deployment.
+    if resolved_config.hil_callback is not None:
+        if resolved_config.hil_registry is None:
+            raise ValueError(
+                "hil_callback set but hil_registry is None; "
+                "both are required to enable the POST callback route"
+            )
+        routes.append(
+            make_hil_callback_route(
+                registry=resolved_config.hil_registry,
+                config=resolved_config.hil_callback,
+            )
+        )
 
     middleware: list[Middleware] = []
     if resolved_config.cors_allow_origins:
