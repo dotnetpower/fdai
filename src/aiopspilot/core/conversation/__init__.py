@@ -52,6 +52,7 @@ from aiopspilot.core.conversation.system_tools import (
     InventoryProvider,
     QueryAuditTool,
     QueryInventoryTool,
+    QueryOperatorMemoryTool,
 )
 from aiopspilot.core.conversation.tools import (
     AbstainResult,
@@ -85,6 +86,7 @@ __all__ = [
     "Principal",
     "QueryAuditTool",
     "QueryInventoryTool",
+    "QueryOperatorMemoryTool",
     "Role",
     "RunRunbookTool",
     "SimulateChangeTool",

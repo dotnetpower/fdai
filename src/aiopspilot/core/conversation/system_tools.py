@@ -37,6 +37,8 @@ from aiopspilot.core.conversation.tools import (
     _require_str,
     _summary,
 )
+from aiopspilot.core.operator_memory.store import OperatorMemoryStore
+from aiopspilot.core.operator_memory.types import ScopeKind
 from aiopspilot.core.tiers.t0_deterministic import T0Engine
 from aiopspilot.core.trust_router import RoutingTier, TrustRouter
 from aiopspilot.shared.contracts.models import Event, Mode
@@ -587,6 +589,131 @@ async def _drain_inventory(
     return projections
 
 
+# ---------------------------------------------------------------------------
+# query_operator_memory  (Wave W1.6)
+# ---------------------------------------------------------------------------
+
+
+class QueryOperatorMemoryTool:
+    """Return active operator-memory entries visible to the caller's scope.
+
+    A Reader-floor read of the ``OperatorMemoryStore``. Operator memory is
+    the append-only ledger the HIL reject pipeline and other governance
+    workflows write into (see
+    :mod:`aiopspilot.core.operator_memory`). Exposing it as a console
+    read tool lets an operator inspect "what have we already decided
+    about this scope" before proposing a change - the narrator never
+    reads memory directly, matching R6 in
+    [implementation-plan.md](../../../../docs/roadmap/implementation-plan.md).
+
+    Arguments (``arguments`` mapping):
+
+    - ``scope_kind`` (str, required) - ``resource-group`` or
+      ``resource`` (the only two shipped scopes; broader scopes are
+      catalog-level retirements, not memory entries).
+    - ``scope_ref`` (str, required) - opaque scope handle
+      (resource-group name, resource id).
+    - ``limit`` (int, optional; default 20, capped 100).
+
+    Returns a :class:`ToolResult` with a projected list of active
+    entries (superseded / expired rows are filtered by the store). No
+    audit entry, no mutation - RBAC (Reader floor) plus the store's
+    active-only filter is the entire policy surface.
+    """
+
+    name = "query_operator_memory"
+    description = (
+        "Return active operator-memory entries for a (scope_kind, scope_ref). "
+        "Read-only; superseded / expired rows are filtered."
+    )
+    rbac_floor: Role = Role.READER
+    side_effect_class: SideEffectClass = "read"
+
+    def __init__(self, *, store: OperatorMemoryStore) -> None:
+        self._store = store
+
+    def call(
+        self,
+        *,
+        arguments: Mapping[str, Any],
+        principal: Principal,  # noqa: ARG002 - RBAC applied by coordinator
+    ) -> ToolResult:
+        import asyncio
+
+        raw_scope_kind = _require_str(arguments, "scope_kind").strip()
+        raw_scope_ref = _require_str(arguments, "scope_ref").strip()
+        if not raw_scope_kind:
+            return ToolResult(
+                status="error",
+                preview="query_operator_memory requires a non-empty 'scope_kind'",
+            )
+        if not raw_scope_ref:
+            return ToolResult(
+                status="error",
+                preview="query_operator_memory requires a non-empty 'scope_ref'",
+            )
+        try:
+            scope_kind = ScopeKind(raw_scope_kind)
+        except ValueError:
+            allowed = ", ".join(sorted(k.value for k in ScopeKind))
+            return ToolResult(
+                status="error",
+                preview=(f"query_operator_memory 'scope_kind' MUST be one of: {allowed}"),
+            )
+        limit = _optional_int(arguments, "limit", default=20, minimum=1, maximum=100)
+
+        try:
+            entries = asyncio.run(
+                self._store.list_active_for_scope(scope_kind=scope_kind, scope_ref=raw_scope_ref)
+            )
+        except RuntimeError as exc:
+            return ToolResult(
+                status="error",
+                preview=f"query_operator_memory event-loop reuse: {exc}",
+            )
+
+        projected = [_project_memory_entry(e) for e in entries[:limit]]
+        preview = (
+            f"query_operator_memory[{scope_kind.value}={raw_scope_ref}]: "
+            f"{len(projected)} active entry(ies)"
+        )
+        return ToolResult(
+            status="ok" if projected else "abstain",
+            data={
+                "scope_kind": scope_kind.value,
+                "scope_ref": raw_scope_ref,
+                "limit": limit,
+                "total_active": len(entries),
+                "entries": projected,
+            },
+            preview=preview,
+            evidence_refs=tuple(f"operator-memory:{p['id']}" for p in projected),
+        )
+
+
+def _project_memory_entry(entry: Any) -> dict[str, Any]:
+    """Project one :class:`OperatorMemoryEntry` into a JSON-friendly dict.
+
+    Passed as ``Any`` to keep the module import graph flat; the shape
+    is documented in :mod:`aiopspilot.core.operator_memory.types`.
+    """
+
+    ttl = getattr(entry, "ttl_seconds", None)
+    return {
+        "id": str(entry.id),
+        "scope_kind": _enum_value(entry.scope_kind),
+        "scope_ref": entry.scope_ref,
+        "category": _enum_value(entry.category),
+        "body": entry.body,
+        "source_event": _enum_value(entry.source_event),
+        "source_ref": entry.source_ref,
+        "author": entry.author,
+        "approved_by": entry.approved_by,
+        "created_at": entry.created_at.isoformat(),
+        "ttl_seconds": ttl,
+    }
+
+
 __all__ = [
     "AuditReader",
     "DescribeEventTool",
@@ -594,4 +721,5 @@ __all__ = [
     "InventoryProvider",
     "QueryAuditTool",
     "QueryInventoryTool",
+    "QueryOperatorMemoryTool",
 ]
