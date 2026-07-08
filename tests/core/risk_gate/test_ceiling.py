@@ -127,6 +127,24 @@ def test_subscription_blast_denies() -> None:
     assert rc.winning_axis == "static_blast"
 
 
+def test_missing_blast_radius_fails_closed_to_hil() -> None:
+    """An ActionType with no declared blast_radius has an UNKNOWN impact
+    surface, so the static_blast axis MUST cap at HIL, never fail open into
+    auto. The catalog loader rejects a real entry that omits blast_radius;
+    this guards hand-built ActionTypes (tests / fork adapters)."""
+
+    rc = resolve_ceiling(
+        tier=Tier.T0,
+        action_type=_at(blast=None),
+        risk_table=RiskTableResult(level="auto"),
+        principal_role=None,
+        env="non_prod",
+    )
+    static = next(a for a in rc.axes if a.name == "static_blast")
+    assert static.level == AxisLevel.ENFORCE_HIL
+    assert rc.final_level <= AxisLevel.ENFORCE_HIL
+
+
 def test_breakglass_is_never_auto() -> None:
     ceiling = CeilingByTier(
         t0=TierCeiling(max_autonomy=Autonomy.ENFORCE_AUTO, min_role=CeilingRole.OWNER)

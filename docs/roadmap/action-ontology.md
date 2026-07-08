@@ -430,8 +430,12 @@ four override channels:
 - A fork places `rule-catalog/action-types-overrides/<name>.yaml` with a
   strict subset of fields to override.
 - The loader merges upstream + overrides at startup with **key-by-key
-  precedence** (overrides win). A missing upstream id is a fork-only
-  addition; a missing overrides field falls back to upstream.
+  precedence** (overrides win); a missing overrides field falls back to
+  upstream. An overlay whose `name` has no matching upstream ActionType
+  is a fatal load error - the overlay layer only *tightens* an existing
+  ActionType, it can never introduce one. A fork that adds a **new**
+  ActionType ships it under `rule-catalog/action-types-custom/` and
+  concatenates that root instead (see 7.6).
 - Every merge writes an audit entry
   (`action_kind=catalog.load.action_type_overlay`) so a promoted
   override is traceable.
@@ -487,6 +491,27 @@ When multiple overlays speak to the same axis, precedence is:
 The RiskGate always resolves in that order and records the winning
 overlay layer on the audit entry.
 
+### 7.6 New ActionType additions (separate root)
+
+The four channels above only *modify* a shipped ActionType. Adding a
+**brand-new** ActionType is not an override and does not participate in
+the 7.5 precedence chain. A fork ships the new ActionType under
+`rule-catalog/action-types-custom/` (upstream keeps that directory empty
+apart from a `.yaml.example` template) and loads it as a second catalog
+root concatenated with the upstream catalog:
+
+```python
+action_types = (
+    load_action_type_catalog(Path("rule-catalog/action-types"), ...)
+    + load_action_type_catalog(Path("fork/action-types-custom"), ...)
+)
+```
+
+A duplicate `name` across the two roots is a fatal load error, so an
+addition can never silently shadow an upstream ActionType (shadowing is
+what the 7.1 overlay layer is for). See
+[../../rule-catalog/action-types-custom/README.md](../../rule-catalog/action-types-custom/README.md).
+
 ## 8. Loader + validation
 
 - The loader ([`rule_catalog/schema/action_type.py`](../../src/fdai/rule_catalog/schema/action_type.py))
@@ -517,6 +542,24 @@ overlay layer on the audit entry.
     verbatim (§5.2). Any unknown `x-fdai-*` extension key is a fatal
     load error (typo guard, so a misspelled redact hint cannot silently
     leak a secret).
+- Catalog-entry policy (fatal, `load_action_type_catalog` only):
+  safety-critical fields that the JSON Schema leaves optional for the
+  Day-1 backfill (§10) MUST be present on a real catalog entry. A
+  missing field is a fatal load error, not a silent inheritance of a
+  permissive default:
+  - `category`, `trigger_kind`, `execution_path`, and `blast_radius`
+    MUST be declared.
+  - `ceiling_by_tier` MUST declare all three tiers (`t0`, `t1`, `t2`).
+  - `argument_schema`, when present, MUST set `type: object` and
+    `additionalProperties: false` so the console can never pass an
+    unspecified argument.
+  This gate runs only on the real catalog roots (upstream +
+  `action-types-custom/`); `load_action_type_from_mapping` stays
+  permissive so a unit-test model fixture needs only the pydantic-
+  required fields. An ActionType that reaches the RiskGate with no
+  `blast_radius` (only possible for a hand-built model in a test or fork
+  adapter) caps the static-blast axis at `enforce_hil`, never
+  `enforce_auto` - an unknown impact surface fails closed.
 
 ## 9. Audit contract
 

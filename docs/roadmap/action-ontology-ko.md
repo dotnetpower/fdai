@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 8174ef2ced2e0a3afaaa59a82b6f975975b5f5ac
+translation_source_sha: 26fc8e17c6e291c3f144b396b8623cecd1e2b1ae
 translation_revised: 2026-07-08
 ---
 
@@ -420,8 +420,12 @@ access log, load-balancer backend health).
 - Fork 는 `rule-catalog/action-types-overrides/<name>.yaml` 을 override
   할 field 의 strict subset 으로 배치.
 - 로더는 startup 시 upstream + overrides 를 **key-by-key 우선순위**
-  로 merge (overrides 승리). 누락된 upstream id 는 fork-only 추가;
-  누락된 overrides field 는 upstream 으로 fallback.
+  로 merge (overrides 승리); 누락된 overrides field 는 upstream 으로
+  fallback. `name` 이 매칭되는 upstream ActionType 이 없는 overlay 는
+  fatal load error - overlay 계층은 기존 ActionType 을 *tighten* 만
+  하며 새로 도입할 수는 없음. **새** ActionType 을 추가하는 fork 는
+  `rule-catalog/action-types-custom/` 아래에 ship 하고 그 root 를
+  concat 한다 (7.6 참조).
 - 매 merge 는 audit entry
   (`action_kind=catalog.load.action_type_overlay`) 를 write → 승격된
   override 는 traceable.
@@ -474,6 +478,26 @@ prod_downgrade:
 RiskGate 는 항상 그 순서로 resolve 하고 winning overlay layer 를 audit
 entry 에 기록.
 
+### 7.6 새 ActionType 추가 (별도 root)
+
+위 네 채널은 shipped ActionType 을 *수정*만 함. **새** ActionType 추가는
+override 가 아니며 7.5 우선순위 체인에 참여하지 않는다. Fork 는 새
+ActionType 을 `rule-catalog/action-types-custom/` 아래에 ship 하고
+(upstream 은 `.yaml.example` 템플릿을 제외하면 이 디렉토리를 비워둠) 두
+번째 catalog root 로 로드해 upstream catalog 와 concat 한다:
+
+```python
+action_types = (
+    load_action_type_catalog(Path("rule-catalog/action-types"), ...)
+    + load_action_type_catalog(Path("fork/action-types-custom"), ...)
+)
+```
+
+두 root 간 중복 `name` 은 fatal load error 이므로 추가가 upstream
+ActionType 을 조용히 shadow 할 수 없다 (shadowing 은 7.1 overlay 계층의
+역할). [../../rule-catalog/action-types-custom/README.md](../../rule-catalog/action-types-custom/README.md)
+참조.
+
 ## 8. 로더 + 검증
 
 - 로더 ([`rule_catalog/schema/action_type.py`](../../src/fdai/rule_catalog/schema/action_type.py))
@@ -500,6 +524,22 @@ entry 에 기록.
     redactor 에 전달해 값이 verbatim landing 안 함 (§5.2). 알 수 없는
     `x-fdai-*` extension key 는 fatal load error (오타 guard, 오철자
     redact 힌트가 secret 을 silently leak 못 하게).
+- 카탈로그 엔트리 정책 (fatal, `load_action_type_catalog` 에서만): Day-1
+  backfill (§10) 을 위해 JSON Schema 가 optional 로 남긴 안전-핵심 field 는
+  실제 카탈로그 엔트리에 존재 MUST. 누락된 field 는 permissive default 를
+  silently 상속하는 게 아니라 fatal load error:
+  - `category`, `trigger_kind`, `execution_path`, `blast_radius` 는
+    선언 MUST.
+  - `ceiling_by_tier` 는 세 tier (`t0`, `t1`, `t2`) 모두 선언 MUST.
+  - `argument_schema` 는 존재 시 `type: object` 와
+    `additionalProperties: false` 설정 MUST - 콘솔이 명시되지 않은 argument
+    를 절대 전달 못 하도록.
+  이 gate 는 실제 카탈로그 root (upstream + `action-types-custom/`) 에서만
+  동작; `load_action_type_from_mapping` 은 permissive 하게 유지되어 unit-test
+  model fixture 는 pydantic-required field 만 있으면 됨. `blast_radius` 없이
+  RiskGate 에 도달한 ActionType (테스트나 fork adapter 의 hand-built model
+  에서만 가능) 은 static-blast axis 를 `enforce_auto` 가 아니라 `enforce_hil`
+  로 cap - 알 수 없는 impact surface 는 fail closed.
 
 ## 9. 감사 계약
 

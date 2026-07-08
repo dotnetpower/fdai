@@ -166,7 +166,19 @@ def _axis_c_ceiling(tier: Tier, at: OntologyActionType) -> AxisContribution:
 def _axis_d_static_blast(at: OntologyActionType, graph_affected: int | None) -> AxisContribution:
     br = at.blast_radius
     if br is None:
-        return AxisContribution("static_blast", AxisLevel.ENFORCE_AUTO, "no blast_radius declared")
+        # Fail-closed: an ActionType with no declared blast radius has an
+        # UNKNOWN impact surface, so this axis caps at HIL rather than
+        # failing open into auto. The catalog loader
+        # (rule_catalog/schema/action_type.py) rejects a real catalog
+        # entry that omits blast_radius, so in production this branch is
+        # never reached; it only guards a hand-built ActionType (tests /
+        # fork adapters) so an unknown blast can never fail open into
+        # auto (action-ontology.md 2).
+        return AxisContribution(
+            "static_blast",
+            AxisLevel.ENFORCE_HIL,
+            "no blast_radius declared (unknown impact -> HIL)",
+        )
     if br.computation.value == "graph_derived":
         cap = br.max_affected_resources
         if graph_affected is not None and cap is not None and graph_affected > cap:

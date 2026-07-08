@@ -472,3 +472,126 @@ def test_every_ops_and_governance_declares_execution_path() -> None:
         "these ops./governance ActionTypes lack execution_path: "
         f"{sorted(missing)}. Add 'execution_path: pr_native' or 'direct_api'."
     )
+
+
+# --- Catalog policy: safety-critical fields the JSON Schema leaves
+#     optional MUST be present on a real catalog entry (_check_catalog_policy).
+
+
+def _complete_ops_yaml(*, omit: str | None = None, argument_schema: str | None = None) -> str:
+    """A fully-populated ops ActionType YAML. ``omit`` drops one top-level
+    field so a test can prove the catalog loader rejects the gap."""
+
+    blocks: dict[str, str] = {
+        "head": (
+            'schema_version: "1.0.0"\n'
+            "name: ops.example\n"
+            'version: "1.0.0"\n'
+            "operation: restart\n"
+            "interfaces:\n- ControlPlane\n"
+            "rollback_contract: state_forward_only\n"
+            "irreversible: true\n"
+            "default_mode: shadow\n"
+            "promotion_gate:\n"
+            "  min_shadow_days: 14\n"
+            "  min_samples: 30\n"
+            "  min_accuracy: 0.98\n"
+            "  max_policy_escapes: 0\n"
+        ),
+        "category": "category: ops\n",
+        "trigger_kind": "trigger_kind:\n  kind: rule_violation\n",
+        "execution_path": "execution_path: direct_api\n",
+        "blast_radius": ("blast_radius:\n  computation: static_enum\n  static_bucket: resource\n"),
+        "ceiling_by_tier": (
+            "ceiling_by_tier:\n"
+            "  t0:\n    max_autonomy: enforce_hil\n    min_role: contributor\n"
+            "  t1:\n    max_autonomy: shadow_only\n    min_role: contributor\n"
+            "  t2:\n    max_autonomy: shadow_only\n    min_role: approver\n"
+        ),
+    }
+    text = "".join(v for k, v in blocks.items() if k != omit)
+    if argument_schema is not None:
+        text += argument_schema
+    return text
+
+
+def _write_catalog(tmp_path: Path, body: str) -> Path:
+    root = tmp_path / "action-types"
+    root.mkdir()
+    (root / "ops.example.yaml").write_text(body, encoding="utf-8")
+    return root
+
+
+def test_complete_ops_yaml_baseline_loads(tmp_path: Path) -> None:
+    """Sanity: the fully-populated baseline used by the negative tests
+    loads cleanly, so a failure below is the omission, not the fixture."""
+
+    root = _write_catalog(tmp_path, _complete_ops_yaml())
+    catalog = load_action_type_catalog(root, schema_registry=_registry())
+    assert {a.name for a in catalog} == {"ops.example"}
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["category", "trigger_kind", "execution_path", "blast_radius", "ceiling_by_tier"],
+)
+def test_catalog_entry_missing_safety_field_is_rejected(tmp_path: Path, field: str) -> None:
+    """A catalog entry that omits any safety-critical field fails closed."""
+
+    root = _write_catalog(tmp_path, _complete_ops_yaml(omit=field))
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    keys = " ".join(i.key for i in info.value.issues)
+    assert field in keys, f"expected {field} to surface in issues; got {keys}"
+
+
+def test_catalog_entry_partial_ceiling_by_tier_is_rejected(tmp_path: Path) -> None:
+    """ceiling_by_tier MUST declare all three tiers (t0/t1/t2)."""
+
+    body = _complete_ops_yaml(omit="ceiling_by_tier") + (
+        "ceiling_by_tier:\n  t0:\n    max_autonomy: enforce_hil\n    min_role: contributor\n"
+    )
+    root = _write_catalog(tmp_path, body)
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    assert "ceiling_by_tier" in " ".join(i.key for i in info.value.issues)
+
+
+def test_argument_schema_without_additional_properties_false_is_rejected(
+    tmp_path: Path,
+) -> None:
+    """An argument_schema that omits additionalProperties: false is rejected
+    so the console can never pass unspecified arguments (action-ontology.md 5)."""
+
+    arg = (
+        "trigger_kind:\n  kind: operator_request\n"
+        "argument_schema:\n"
+        "  type: object\n"
+        "  required:\n  - target_resource_ref\n"
+        "  properties:\n"
+        "    target_resource_ref:\n      type: string\n      minLength: 1\n"
+    )
+    # Baseline omits its own trigger_kind so the arg block supplies it.
+    body = _complete_ops_yaml(omit="trigger_kind") + arg
+    root = _write_catalog(tmp_path, body)
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    assert "argument_schema" in " ".join(i.key for i in info.value.issues)
+
+
+def test_argument_schema_hardened_loads(tmp_path: Path) -> None:
+    """The hardened form (type: object + additionalProperties: false) loads."""
+
+    arg = (
+        "trigger_kind:\n  kind: operator_request\n"
+        "argument_schema:\n"
+        "  type: object\n"
+        "  additionalProperties: false\n"
+        "  required:\n  - target_resource_ref\n"
+        "  properties:\n"
+        "    target_resource_ref:\n      type: string\n      minLength: 1\n"
+    )
+    body = _complete_ops_yaml(omit="trigger_kind") + arg
+    root = _write_catalog(tmp_path, body)
+    catalog = load_action_type_catalog(root, schema_registry=_registry())
+    assert {a.name for a in catalog} == {"ops.example"}

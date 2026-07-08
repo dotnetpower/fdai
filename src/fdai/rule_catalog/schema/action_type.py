@@ -254,6 +254,8 @@ def load_action_type_catalog(
     if probes_root is not None:
         aggregated.extend(_check_live_probe_refs(loaded, probes_root, seen_names))
 
+    aggregated.extend(_check_catalog_policy(loaded, seen_names))
+
     if aggregated:
         raise ActionTypeCatalogError(aggregated)
 
@@ -297,6 +299,94 @@ def _check_live_probe_refs(
                     message=(
                         f"unknown probe id {at.live_probe_ref!r} "
                         "(not registered in rule-catalog/probes/)"
+                    ),
+                )
+            )
+    return issues
+
+
+def _check_catalog_policy(
+    action_types: list[OntologyActionType],
+    origin_by_name: Mapping[str, str],
+) -> list[ActionTypeIssue]:
+    """Catalog-entry policy: safety-critical fields the JSON Schema leaves
+    optional (the Day-1 non-breaking backfill in action-ontology.md 10)
+    MUST be present on a REAL catalog entry.
+
+    ``load_action_type_from_mapping`` stays permissive so unit-test model
+    fixtures need only the pydantic-required fields; this stricter gate
+    runs only in ``load_action_type_catalog`` (upstream + fork custom
+    roots). Every shipped ActionType already satisfies it, so the check
+    fails closed: a new catalog entry cannot ship with a missing autonomy
+    ceiling, blast radius, trigger, category, or execution path - the
+    fields the RiskGate reads to decide *whether* and *how* to run
+    (action-ontology.md 2). Without this, a missing field silently
+    inherited a permissive default instead of blocking registration.
+    """
+
+    issues: list[ActionTypeIssue] = []
+    for at in action_types:
+        origin = origin_by_name.get(at.name, at.name)
+        if at.category is None:
+            issues.append(
+                ActionTypeIssue(
+                    key=f"{origin}:category",
+                    message=(
+                        "catalog ActionType MUST declare a category "
+                        "(remediation|ops|governance) (action-ontology.md 3)"
+                    ),
+                )
+            )
+        if at.trigger_kind is None:
+            issues.append(
+                ActionTypeIssue(
+                    key=f"{origin}:trigger_kind",
+                    message="catalog ActionType MUST declare trigger_kind (action-ontology.md 1)",
+                )
+            )
+        if at.execution_path is None:
+            issues.append(
+                ActionTypeIssue(
+                    key=f"{origin}:execution_path",
+                    message=(
+                        "catalog ActionType MUST declare execution_path "
+                        "(execution-model.md 5)"
+                    ),
+                )
+            )
+        if at.blast_radius is None:
+            issues.append(
+                ActionTypeIssue(
+                    key=f"{origin}:blast_radius",
+                    message=(
+                        "catalog ActionType MUST declare blast_radius so autonomy "
+                        "never fails open on an unknown impact surface "
+                        "(action-ontology.md 2)"
+                    ),
+                )
+            )
+        cbt = at.ceiling_by_tier
+        if cbt is None or cbt.t0 is None or cbt.t1 is None or cbt.t2 is None:
+            issues.append(
+                ActionTypeIssue(
+                    key=f"{origin}:ceiling_by_tier",
+                    message=(
+                        "catalog ActionType MUST declare ceiling_by_tier for t0, t1, "
+                        "and t2 (execution-model.md 2.2)"
+                    ),
+                )
+            )
+        asch = at.argument_schema
+        if asch is not None and (
+            asch.get("type") != "object" or asch.get("additionalProperties") is not False
+        ):
+            issues.append(
+                ActionTypeIssue(
+                    key=f"{origin}:argument_schema",
+                    message=(
+                        "argument_schema MUST set type: object and "
+                        "additionalProperties: false so the console cannot pass "
+                        "unspecified arguments (action-ontology.md 5)"
                     ),
                 )
             )
