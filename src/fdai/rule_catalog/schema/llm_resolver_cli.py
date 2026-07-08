@@ -45,6 +45,7 @@ from fdai.rule_catalog.schema.llm_resolver import (
     ResolvedModels,
     ResolverError,
     collect_narrator,
+    collect_narrator_deployments,
     resolve,
 )
 
@@ -215,13 +216,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     # provided an endpoint. Kept out of ``resolve()`` so the pure resolver
     # stays orthogonal to how the console consumes the output.
     if args.narrator_endpoint:
+        catalog_query = _FixtureCatalog(catalog_data)
+        quota_query = _FixtureQuota(quota_data)
         winner, candidates = collect_narrator(
             registry=registry,
             region=args.region,
-            catalog=_FixtureCatalog(catalog_data),
-            quota=_FixtureQuota(quota_data),
+            catalog=catalog_query,
+            quota=quota_query,
             endpoint=args.narrator_endpoint,
             api_version=args.narrator_api_version,
+            capability_name=args.narrator_capability,
+        )
+        # Terraform-side companion: one ResolvedCapability per candidate so
+        # ``azurerm_cognitive_deployment`` gets created for each family the
+        # router might pick. Merged into the existing capabilities list;
+        # the LLM module iterates for_each without additional wiring.
+        extra_deployments = collect_narrator_deployments(
+            registry=registry,
+            region=args.region,
+            catalog=catalog_query,
+            quota=quota_query,
             capability_name=args.narrator_capability,
         )
         resolved = ResolvedModels(
@@ -230,7 +244,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             subscription_id=resolved.subscription_id,
             deployer_object_id=resolved.deployer_object_id,
             mixed_model_mode=resolved.mixed_model_mode,
-            capabilities=resolved.capabilities,
+            capabilities=resolved.capabilities + extra_deployments,
             narrator=winner,
             narrator_candidates=candidates,
         )

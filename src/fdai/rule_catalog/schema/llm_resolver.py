@@ -410,6 +410,53 @@ def _enforce_mixed_model_invariant(entries: list[ResolvedCapability]) -> None:
 # ---------------------------------------------------------------------------
 
 
+def narrator_deployment_name(family: str) -> str:
+    """Azure OpenAI deployment name for a narrator candidate.
+
+    The model family (``gpt-5.4-mini``) is preserved on the resource's
+    ``model.name`` field, but Azure OpenAI deployment names go into URLs
+    so we normalise dots to dashes and prefix with ``narrator-`` to keep
+    the identifier URL-safe AND to make it easy to spot narrator-only
+    deployments in the Portal / billing.
+
+    Example: ``gpt-5.4-mini`` -> ``narrator-gpt-5-4-mini``.
+    """
+    return "narrator-" + family.replace(".", "-")
+
+
+def _viable_narrator_prefs(
+    *,
+    registry: LlmRegistry,
+    region: str,
+    catalog: CatalogQuery,
+    quota: QuotaQuery,
+    capability_name: str,
+) -> list[Any]:
+    """Preferences that are BOTH in the region catalog AND have non-zero quota.
+
+    Shared by :func:`collect_narrator` and
+    :func:`collect_narrator_deployments` so the two views can never
+    disagree about which candidates are viable.
+    """
+    spec = registry.models.get(capability_name)
+    if spec is None:
+        return []
+    catalog_families = catalog.families_in_region(region)
+    seen: set[str] = set()
+    out: list[Any] = []
+    for pref in spec.preferences:
+        if pref.family in seen or pref.family not in catalog_families:
+            continue
+        available = quota.available_capacity_tpm(
+            region=region, publisher=pref.publisher, family=pref.family
+        )
+        if available <= 0:
+            continue
+        seen.add(pref.family)
+        out.append(pref)
+    return out
+
+
 def collect_narrator(
     *,
     registry: LlmRegistry,
@@ -431,39 +478,99 @@ def collect_narrator(
     :class:`~fdai.delivery.read_api.chat.LatencyRoutedChatBackend`
     consumes as its candidate pool.
 
-    ``deployment`` is emitted as the family name verbatim - operators
-    whose Azure deployments are named differently should hand-edit the
-    output. See docs/roadmap/llm-strategy.md.
+    Each returned candidate's ``deployment`` field carries the
+    URL-safe deployment name emitted by :func:`narrator_deployment_name`
+    (dots normalised to dashes). Terraform creates a matching
+    ``azurerm_cognitive_deployment`` for every entry when the CLI emits
+    them via :func:`collect_narrator_deployments`; without those
+    deployments the router would 404 and rotate the candidate out.
 
     Returns ``(None, ())`` when the capability is missing or has no
     viable family; callers treat this the same as "no narrator" and
     fall back to :class:`DisabledChatBackend`.
     """
-    spec = registry.models.get(capability_name)
-    if spec is None:
+    prefs = _viable_narrator_prefs(
+        registry=registry,
+        region=region,
+        catalog=catalog,
+        quota=quota,
+        capability_name=capability_name,
+    )
+    if not prefs:
         return None, ()
-    catalog_families = catalog.families_in_region(region)
-    candidates: list[NarratorCandidate] = []
-    seen: set[str] = set()
-    for pref in spec.preferences:
-        if pref.family in seen or pref.family not in catalog_families:
-            continue
+    candidates = tuple(
+        NarratorCandidate(
+            endpoint=endpoint,
+            deployment=narrator_deployment_name(p.family),
+            api_version=api_version,
+        )
+        for p in prefs
+    )
+    return candidates[0], candidates
+
+
+def collect_narrator_deployments(
+    *,
+    registry: LlmRegistry,
+    region: str,
+    catalog: CatalogQuery,
+    quota: QuotaQuery,
+    capability_name: str = "t1.judge",
+) -> tuple[ResolvedCapability, ...]:
+    """Emit one :class:`ResolvedCapability` per viable narrator candidate.
+
+    Terraform's LLM module iterates ``resolved_capabilities`` and
+    creates one ``azurerm_cognitive_deployment`` per entry, so merging
+    these into :attr:`ResolvedModels.capabilities` gives the router N
+    real deployments to route between - one per viable mini family in
+    the region.
+
+    Each emitted capability:
+
+    - ``name`` = :func:`narrator_deployment_name` of the family (matches
+      the ``deployment`` field on :class:`NarratorCandidate` so the
+      router lands on the right resource).
+    - ``family`` = the OpenAI model family verbatim (that is what Azure
+      wires into the deployment's ``model.name`` field).
+    - ``capacity_tpm`` = the smaller of the registry request and the
+      family's available quota - same clamp policy as ``resolve()``.
+    - ``status`` = :attr:`CapabilityStatus.RESOLVED` (viability was
+      already checked in :func:`_viable_narrator_prefs`).
+
+    The winning family's deployment overlaps with the existing
+    ``t1.judge`` deployment in identity terms (same model, same
+    endpoint) but uses a distinct name to keep narrator + judge concerns
+    separately auditable in Azure.
+    """
+    prefs = _viable_narrator_prefs(
+        registry=registry,
+        region=region,
+        catalog=catalog,
+        quota=quota,
+        capability_name=capability_name,
+    )
+    spec = registry.models.get(capability_name)
+    if spec is None or not prefs:
+        return ()
+    out: list[ResolvedCapability] = []
+    for pref in prefs:
         available = quota.available_capacity_tpm(
             region=region, publisher=pref.publisher, family=pref.family
         )
-        if available <= 0:
-            continue
-        seen.add(pref.family)
-        candidates.append(
-            NarratorCandidate(
-                endpoint=endpoint,
-                deployment=pref.family,
-                api_version=api_version,
+        effective = min(spec.capacity_tpm, available)
+        out.append(
+            ResolvedCapability(
+                name=narrator_deployment_name(pref.family),
+                status=CapabilityStatus.RESOLVED,
+                publisher=pref.publisher,
+                family=pref.family,
+                sku=spec.sku.value,
+                capacity_tpm=effective,
+                invocation=spec.invocation.value,
+                reasons=(f"narrator_deployment_for={capability_name}",),
             )
         )
-    if not candidates:
-        return None, ()
-    return candidates[0], tuple(candidates)
+    return tuple(out)
 
 
 __all__ = [
@@ -476,5 +583,7 @@ __all__ = [
     "ResolvedModels",
     "ResolverError",
     "collect_narrator",
+    "collect_narrator_deployments",
+    "narrator_deployment_name",
     "resolve",
 ]

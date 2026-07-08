@@ -95,18 +95,32 @@ def test_cli_populates_narrator_when_endpoint_given(tmp_path: Path) -> None:
     assert main(argv) == 0
     payload = json.loads((tmp_path / "resolved-models.json").read_text(encoding="utf-8"))
 
-    # Single narrator - fastest available family (from the updated fixture).
+    # Single narrator - fastest available family, URL-safe deployment name.
     assert payload["narrator"]["endpoint"] == endpoint
-    assert payload["narrator"]["deployment"] == "gpt-5.4-mini"
+    assert payload["narrator"]["deployment"] == "narrator-gpt-5-4-mini"
     assert payload["narrator"]["api_version"] == "2024-08-01-preview"
 
     # Full candidate list - every mini family the fixture catalog + quota
     # allow, in preference order (see rule-catalog/llm-registry.yaml).
     candidates = [c["deployment"] for c in payload["narrator_candidates"]]
-    assert candidates == ["gpt-5.4-mini", "gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini"]
+    assert candidates == [
+        "narrator-gpt-5-4-mini",
+        "narrator-gpt-5-mini",
+        "narrator-gpt-4-1-mini",
+        "narrator-gpt-4o-mini",
+    ]
     for c in payload["narrator_candidates"]:
         assert c["endpoint"] == endpoint
         assert c["api_version"] == "2024-08-01-preview"
+
+    # Terraform-side companion: one capability per candidate deployment
+    # so ``azurerm_cognitive_deployment`` gets created for each family.
+    cap_names = {c["name"] for c in payload["capabilities"]}
+    for cand in candidates:
+        assert cand in cap_names, f"missing terraform capability for {cand}"
+    # The original t1.judge capability is preserved (composition.py depends
+    # on it for judge binding); narrator capabilities are additive.
+    assert "t1.judge" in cap_names
 
 
 def test_cli_omits_narrator_fields_by_default(tmp_path: Path) -> None:

@@ -6,11 +6,14 @@ from typing import Any
 
 from fdai.rule_catalog.schema.llm_registry import load_llm_registry_from_mapping
 from fdai.rule_catalog.schema.llm_resolver import (
+    CapabilityStatus,
     CatalogQuery,
     NarratorCandidate,
     QuotaQuery,
     ResolvedModels,
     collect_narrator,
+    collect_narrator_deployments,
+    narrator_deployment_name,
 )
 
 _REGION = "koreacentral"
@@ -95,9 +98,14 @@ class TestCollectNarrator:
             endpoint=_ENDPOINT,
         )
         assert winner == NarratorCandidate(
-            endpoint=_ENDPOINT, deployment="gpt-5.4-mini", api_version="2024-08-01-preview"
+            endpoint=_ENDPOINT,
+            deployment="narrator-gpt-5-4-mini",
+            api_version="2024-08-01-preview",
         )
-        assert [c.deployment for c in candidates] == ["gpt-5.4-mini", "gpt-4.1-mini"]
+        assert [c.deployment for c in candidates] == [
+            "narrator-gpt-5-4-mini",
+            "narrator-gpt-4-1-mini",
+        ]
         # All carry the passed endpoint + api_version.
         for c in candidates:
             assert c.endpoint == _ENDPOINT
@@ -161,10 +169,14 @@ class TestResolvedModelsNarratorSerialization:
 
     def test_narrator_fields_round_trip(self) -> None:
         winner = NarratorCandidate(
-            endpoint=_ENDPOINT, deployment="gpt-5.4-mini", api_version="2024-08-01-preview"
+            endpoint=_ENDPOINT,
+            deployment="narrator-gpt-5-4-mini",
+            api_version="2024-08-01-preview",
         )
         second = NarratorCandidate(
-            endpoint=_ENDPOINT, deployment="gpt-5-mini", api_version="2024-08-01-preview"
+            endpoint=_ENDPOINT,
+            deployment="narrator-gpt-5-mini",
+            api_version="2024-08-01-preview",
         )
         original = ResolvedModels(
             schema_version="1.0.0",
@@ -183,3 +195,77 @@ class TestResolvedModelsNarratorSerialization:
         assert restored.narrator == winner
         assert restored.narrator_candidates == (winner, second)
         assert restored.to_json() == text
+
+
+class TestNarratorDeploymentName:
+    def test_dots_become_dashes_and_prefixes_narrator(self) -> None:
+        assert narrator_deployment_name("gpt-5.4-mini") == "narrator-gpt-5-4-mini"
+        assert narrator_deployment_name("gpt-4o-mini") == "narrator-gpt-4o-mini"
+        # A family with no dots is unchanged besides the prefix.
+        assert narrator_deployment_name("plain") == "narrator-plain"
+
+
+class TestCollectNarratorDeployments:
+    def test_emits_one_capability_per_viable_pref(self) -> None:
+        catalog = _Catalog({"gpt-5.4-mini", "gpt-5-mini", "gpt-4o-mini"})
+        quota = _Quota(
+            {
+                "gpt-5.4-mini": 300_000,  # exceeds request -> clamped down
+                "gpt-5-mini": 150_000,  # below request -> use available
+                "gpt-4o-mini": 0,  # dropped
+            }
+        )
+        deployments = collect_narrator_deployments(
+            registry=_registry(),
+            region=_REGION,
+            catalog=catalog,
+            quota=quota,
+        )
+        # One per viable pref, in registry preference order.
+        names = [d.name for d in deployments]
+        assert names == ["narrator-gpt-5-4-mini", "narrator-gpt-5-mini"]
+        by_name = {d.name: d for d in deployments}
+        # capacity_tpm clamped to min(spec, available).
+        assert by_name["narrator-gpt-5-4-mini"].capacity_tpm == 200_000  # spec
+        assert by_name["narrator-gpt-5-mini"].capacity_tpm == 150_000  # available
+        # Every deployment is RESOLVED - viability was pre-checked.
+        for d in deployments:
+            assert d.status == CapabilityStatus.RESOLVED
+            assert d.family in {"gpt-5.4-mini", "gpt-5-mini"}
+            assert d.publisher == "OpenAI"
+            assert d.reasons == ("narrator_deployment_for=t1.judge",)
+
+    def test_no_viable_family_returns_empty(self) -> None:
+        deployments = collect_narrator_deployments(
+            registry=_registry(),
+            region=_REGION,
+            catalog=_Catalog({"text-embedding-3-small"}),
+            quota=_Quota({"text-embedding-3-small": 100_000}),
+        )
+        assert deployments == ()
+
+    def test_unknown_capability_returns_empty(self) -> None:
+        deployments = collect_narrator_deployments(
+            registry=_registry(),
+            region=_REGION,
+            catalog=_Catalog({"gpt-5.4-mini"}),
+            quota=_Quota({"gpt-5.4-mini": 200_000}),
+            capability_name="does.not.exist",
+        )
+        assert deployments == ()
+
+    def test_names_match_collect_narrator_deployment_field(self) -> None:
+        """The router must land on exactly the deployments Terraform created."""
+        catalog = _Catalog({"gpt-5.4-mini", "gpt-5-mini"})
+        quota = _Quota({"gpt-5.4-mini": 200_000, "gpt-5-mini": 200_000})
+        _, candidates = collect_narrator(
+            registry=_registry(),
+            region=_REGION,
+            catalog=catalog,
+            quota=quota,
+            endpoint=_ENDPOINT,
+        )
+        deployments = collect_narrator_deployments(
+            registry=_registry(), region=_REGION, catalog=catalog, quota=quota,
+        )
+        assert {c.deployment for c in candidates} == {d.name for d in deployments}
