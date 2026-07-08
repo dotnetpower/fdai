@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 658ef751de0cb7ec842fecb5cefa5274926212fe
+translation_source_sha: 68ece9a48c1675c55a216d8047c49ef10513ca73
 translation_revised: 2026-07-08
 ---
 
@@ -711,6 +711,56 @@ non-breaking.
   하는 것을 막고, `max_affected_resources` 초과 instance 는 HIL 로 escalate.
   deep dependency graph 를 다루는 fork 는 ActionType 별로 `traversal_depth`
   를 raise.
+
+### 12.1 Consumer 구현 상태 (declared vs. live)
+
+Ontology 는 의도적으로 runtime 이 오늘 consume 하는 것보다 많이 declare
+한다. 이는 숨겨진 gap 이 아니라 명시적 boundary 다: ActionType 은
+dispatcher 가 landing 하기 전에 catalog-as-code 로 존재할 수 있고, 그때까지
+**구조적으로 inert** 하다. 아래 safety property 는 어떤 consumer 가 live
+인지와 무관하게 성립하므로, declare 됐지만 아직 dispatch 되지 않는
+ActionType 은 act 할 수 없다.
+
+- **Inert-by-default 는 assume 이 아니라 enforce 된다** (#5, #8, #9).
+  shipped `ops.*` 와 `governance.*` ActionType 은 모두
+  `default_mode: shadow` 로 ship 된다
+  (`test_every_shipped_action_type_defaults_to_shadow` 로 검증). live
+  dispatcher 가 없는 declare 된 ActionType 은 judge-and-log 만; 절대
+  mutate 하지 않음. enforce 로의 promotion 은 별도 gated governance PR.
+- **`rule_violation` (remediation) 이 live path.** T0Engine ->
+  ActionBuilder -> RiskGate -> Executor loop (§4.1) 이 오늘 remediation
+  ActionType 을 dispatch 한다. 이것이 primary autonomy surface 이며 완전히
+  wired 됨.
+- **`operator_request` -> ActionType dispatch 는 P2** (#6, #7). console
+  은 오늘 `read` 와 `simulate` tool 에 더해 `approve` (HIL), `execute`
+  (runbook), `breakglass` tool 을 ship 하며 그 read-only / simulate /
+  approval invariant 는 test 로 강제됨 (`tests/conversation/*`).
+  narrator 는 T0 verb 문자열을 emit 하는 translator 이고 ActionType
+  argument 를 invent 하지 않음 (§4.2). end-to-end `narrator ->
+  tool_call(ops.*, args) -> coordinator 가 argument_schema 검증 ->
+  RiskGate` 경로는 P2 로 scope 됨; landing 전까지 `argument_schema` 는
+  load time 에 검증되지만 (§8) live dispatch surface 는 아님. 그
+  coordinator 없이는 어떤 ops ActionType 도 chat 에서 invoke 될 수 없으므로,
+  gap 은 fail-closed.
+- **`governance.*` dispatcher 3 개는 P2 backlog** (#8). `governance.
+  override-ceiling` 만 live dispatcher
+  (`core/risk_gate/override_writer.py`) 를 가짐; `promote-action-type`,
+  `retire-rule`, runtime `grant-exemption` writer 는 P2 PR-native writer
+  와 함께 landing. 그때까지 YAML entry 는 inert catalog data
+  (shadow-default, dispatcher 없음 = side effect 없음).
+- **`live_probe_ref` 는 Month-1 seam** (#9). shipped ActionType 중
+  set 하는 것이 없고 `rule-catalog/probes/` 는 placeholder 만 ship 하므로,
+  load-time cross-check 는 first probe 가 bind 할 때까지 no-op. 그때까지
+  static `blast_radius` 가 active blast bound.
+- **Agent 는 ontology 를 read 하지, 그 위에서 free-form reason 하지 않음**
+  (#10, #11). autonomy decision 은 procedural: RiskGate 가 ActionType
+  field (`ceiling_by_tier`, `blast_radius`, `irreversible`, `operation`,
+  `interfaces`) 를 deterministic 하게 read. ObjectType / LinkType
+  declaration 은 검증되고 codegen 및 `graph_derived` blast 에 쓰이는
+  inventory graph 를 구동하지만, pantheon 이 reason 하는 free-form
+  knowledge graph 는 아님. 이는 design 상 의도 - determinism-first 가
+  safety core 를 inspectable 하게 유지. 미래의 graph-reasoning consumer 는
+  additive 이고 어떤 ceiling 도 바꾸지 않음.
 
 ## 13. 관련 문서
 

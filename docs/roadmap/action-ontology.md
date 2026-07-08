@@ -744,6 +744,56 @@ reviewer does not mistake an intentional boundary for a gap.
   `max_affected_resources` escalates to HIL. Forks that operate deep
   dependency graphs raise `traversal_depth` per ActionType.
 
+### 12.1 Consumer implementation status (declared vs. live)
+
+The ontology deliberately declares more than the runtime consumes today.
+This is an explicit boundary, not a hidden gap: an ActionType may exist
+as catalog-as-code before its dispatcher lands, and it is **inert by
+construction** until then. The safety properties below hold regardless of
+which consumer is live, so a declared-but-not-yet-dispatched ActionType
+cannot act.
+
+- **Inert-by-default is enforced, not assumed** (#5, #8, #9). Every
+  shipped `ops.*` and `governance.*` ActionType ships
+  `default_mode: shadow` (verified by
+  `test_every_shipped_action_type_defaults_to_shadow`). A declared
+  ActionType with no live dispatcher judges-and-logs only; it never
+  mutates. Promotion to enforce is a separate, gated governance PR.
+- **`rule_violation` (remediation) is the live path.** The
+  T0Engine -> ActionBuilder -> RiskGate -> Executor loop (§4.1)
+  dispatches remediation ActionTypes today. This is the primary
+  autonomy surface and is fully wired.
+- **`operator_request` -> ActionType dispatch is P2** (#6, #7). The
+  console today ships `read` and `simulate` tools plus `approve`
+  (HIL), `execute` (runbook), and `breakglass` tools whose read-only /
+  simulate / approval invariants are test-enforced
+  (`tests/conversation/*`). The narrator is a translator that emits a
+  T0 verb string and never invents ActionType arguments (§4.2). The
+  end-to-end `narrator -> tool_call(ops.*, args) -> coordinator
+  validates argument_schema -> RiskGate` path is scoped for P2; until it
+  lands, `argument_schema` is validated at load time (§8) but is not a
+  live dispatch surface. No ops ActionType can be invoked from chat
+  without that coordinator, so the gap is fail-closed.
+- **Three `governance.*` dispatchers are P2 backlog** (#8). Only
+  `governance.override-ceiling` has a live dispatcher
+  (`core/risk_gate/override_writer.py`); `promote-action-type`,
+  `retire-rule`, and the runtime `grant-exemption` writer land with the
+  P2 PR-native writer. Their YAML entries are inert catalog data until
+  then (shadow-default, no dispatcher = no side effect).
+- **`live_probe_ref` is a Month-1 seam** (#9). No shipped ActionType
+  sets it and `rule-catalog/probes/` ships a placeholder only, so the
+  load-time cross-check is a no-op until the first probe binds. Static
+  `blast_radius` is the active blast bound until then.
+- **Agents read the ontology; they do not free-form reason over it**
+  (#10, #11). The autonomy decision is procedural: the RiskGate reads
+  ActionType fields (`ceiling_by_tier`, `blast_radius`, `irreversible`,
+  `operation`, `interfaces`) deterministically. ObjectType / LinkType
+  declarations are validated and drive codegen and the inventory graph
+  used for `graph_derived` blast; they are not a free-form knowledge
+  graph the pantheon reasons over. This is by design - determinism-first
+  keeps the safety core inspectable. A future graph-reasoning consumer
+  is additive and does not change any ceiling.
+
 ## 13. Related docs
 
 - [execution-model.md](execution-model.md) - consumes this ontology; the
