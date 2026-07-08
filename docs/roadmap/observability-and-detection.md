@@ -153,7 +153,7 @@ Make RCA a first-class output of the tiers instead of an implicit side effect.
 | Tier | RCA role |
 |------|----------|
 | **T0** | direct cause: the matched rule/policy names the violated control and its remediation |
-| **T1** | correlation cause: match the incident to a prior **resolved** incident and reuse its identified root cause + learned action (with provenance and re-verification) |
+| **T1** | correlation cause: either (a) match the incident to a prior **resolved** incident and reuse its identified root cause + learned action (with provenance and re-verification), or (b) reconstruct a **deterministic causal chain** from the incident's own correlated events - identify the closest antecedent change / mutation that preceded the failure within a bounded window on a related resource (the "a deploy went out, then the error rate rose" chain) |
 | **T2** | reasoning cause: for novel/ambiguous incidents, produce a grounded root-cause hypothesis that **cites evidence** (rules, correlated events, telemetry) and passes the quality gate |
 
 - RCA output is a **hypothesis with citations**, not an authoritative verdict; **execution
@@ -202,6 +202,21 @@ Make RCA a first-class output of the tiers instead of an implicit side effect.
   novel (T0 no-match) case additionally gets a grounded T2
   `rca.hypothesis` (or an abstain), reasoner-gated so a deployment
   without an LLM emits no T2 noise.
+- **T1 causal chain (deterministic)**: `core/rca/t1.py` (`t1_causal_chain`)
+  is the model-free form of T1 correlation (b): given the incident's
+  correlated events (each carrying a timestamp, a generic `resource_ref`,
+  and an `is_change` marker), it selects the **latest change that
+  occurred strictly before the failure and within the window** as the
+  most probable trigger. Cross-resource causation is allowed by default
+  (a shared-dependency deploy), or restricted to the failing resource via
+  `same_resource_only`. Confidence scales with temporal proximity and is
+  bounded to a T1 band (`0.35`-`0.85`) - a temporal antecedent is a
+  strong hint, never T0-style certainty - and the tier **abstains**
+  (returns `None`, deferring to T2) when no plausible antecedent change
+  exists. The hypothesis is grounded on the trigger and failure event
+  citations, and is deterministic (the same event set always yields the
+  same cause), so it too passes the grounding gate and the risk-gate
+  verifier before anything acts.
 
 ## Plugging Into the Control Loop
 
