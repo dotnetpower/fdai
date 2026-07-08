@@ -24,6 +24,10 @@ The subsystem holds no privileged identity and never mutates.
 
 from __future__ import annotations
 
+from fdai.core.assurance_twin.fidelity import (
+    FidelityStat,
+    SimulationFidelityLedger,
+)
 from fdai.core.assurance_twin.projection import (
     InMemoryProjection,
     build_baseline_projection,
@@ -73,6 +77,8 @@ __all__ = [
     "QueryVerifier",
     "ReviewOutcome",
     "ReviewResult",
+    "FidelityStat",
+    "SimulationFidelityLedger",
     "TypedQuery",
     "build_baseline_projection",
     "build_posture_assessment_report",

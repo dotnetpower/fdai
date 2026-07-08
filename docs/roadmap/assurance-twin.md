@@ -167,6 +167,15 @@ complicates the design.
   promoted per the shadow-to-enforce rule only after its accuracy and
   false-positive rate are measured on the frozen scenario set
   ([goals-and-metrics.md](goals-and-metrics.md)).
+- **Fidelity-measured**: `core/assurance_twin/fidelity.py`
+  (`SimulationFidelityLedger`) is the mechanism behind that promotion. It joins
+  each **predicted** effect (cost delta, blast-radius count, RPO/RTO gap) with
+  the **actual** observed outcome by a stable prediction id and accumulates
+  per-predictor MAE, MAPE, and a within-tolerance rate. `is_reliable` turns
+  those into a fail-closed promotion signal: a predictor below a minimum sample
+  count or above a MAPE bar is not reliable, so the caller keeps it in (or demotes
+  it back to) shadow. This stops an unmeasured what-if from acting as an oracle -
+  a simulation that does not come true loses its enforce eligibility automatically.
 
 ## Assessment report (subscription posture, on demand)
 
