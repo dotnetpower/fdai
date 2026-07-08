@@ -117,6 +117,20 @@ class QualityCandidate:
 
 
 @dataclass(frozen=True, slots=True)
+class ModelVote:
+    """One cross-check model's vote, recorded for reproducible audit.
+
+    Capturing the per-model proposal (not just the agreement count) makes
+    a T2 judgment reconstructable from the audit trail - the
+    reproducibility property the append-only log promises.
+    """
+
+    model_id: str
+    proposed_action_type: str
+    agreed: bool
+
+
+@dataclass(frozen=True, slots=True)
 class QualityDecision:
     """Frozen record produced by :meth:`QualityGate.evaluate`."""
 
@@ -125,6 +139,9 @@ class QualityDecision:
     reasons: tuple[str, ...] = field(default_factory=tuple)
     grounded_rule_ids: tuple[str, ...] = field(default_factory=tuple)
     aggregate_confidence: float = 0.0
+    model_votes: tuple[ModelVote, ...] = field(default_factory=tuple)
+    """Per-model cross-check votes (empty when the gate aborted before the
+    cross-check ran). Provenance for reproducible replay of a T2 judgment."""
 
 
 # ---------------------------------------------------------------------------
@@ -274,13 +291,22 @@ class QualityGate:
 
         # 3. Mixed-model cross-check (agreement on action_type)
         agree = 0
+        votes: list[ModelVote] = []
         first_proposer_output: tuple[str, Mapping[str, Any]] | None = None
         for i, model in enumerate(self._models):
             proposed_type, proposed_params = await model.propose(candidate)
             if i == 0:
                 first_proposer_output = (proposed_type, proposed_params)
-            if proposed_type == candidate.action_type:
+            agreed = proposed_type == candidate.action_type
+            if agreed:
                 agree += 1
+            votes.append(
+                ModelVote(
+                    model_id=str(getattr(model, "model_id", f"model-{i}")),
+                    proposed_action_type=proposed_type,
+                    agreed=agreed,
+                )
+            )
         cross_check_below_quorum = agree < self._config.require_cross_check_quorum
         if cross_check_below_quorum:
             reasons.append(
@@ -372,6 +398,7 @@ class QualityGate:
             reasons=tuple(reasons),
             grounded_rule_ids=tuple(grounded),
             aggregate_confidence=confidence,
+            model_votes=tuple(votes),
         )
 
     async def _debate_retry_proposer(
@@ -401,6 +428,7 @@ class QualityGate:
 __all__ = [
     "CrossCheckModel",
     "GroundingSource",
+    "ModelVote",
     "QualityCandidate",
     "QualityDecision",
     "QualityGate",

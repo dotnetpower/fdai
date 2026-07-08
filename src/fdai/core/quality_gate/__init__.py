@@ -44,6 +44,7 @@ from fdai.core.quality_gate.debate_router import (
 from fdai.core.quality_gate.gate import (
     CrossCheckModel,
     GroundingSource,
+    ModelVote,
     QualityCandidate,
     QualityDecision,
     QualityGate,
@@ -84,6 +85,7 @@ __all__ = [
     "JudgeModel",
     "JudgeOutput",
     "JudgeVerdict",
+    "ModelVote",
     "ProposerRetry",
     "QualityCandidate",
     "QualityDecision",

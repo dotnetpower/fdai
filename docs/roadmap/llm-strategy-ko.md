@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 87d0ba39bf43346614eddbb7be93f4b08c9f7ef3
+translation_source_sha: 67f38a1c0d6df6e45dd91146266ccb64aff7027d
 translation_revised: 2026-07-08
 ---
 
@@ -64,6 +64,10 @@ T2는 신규 또는 모호 케이스만 처리(~5-10%). 그 출력은 실행 전
   - **비용 컨트롤**: **cascade** 선호 - 더 저렴한 reasoner 먼저 실행하고 self-consistency나
     grounding 신호가 약할 때만 두 번째 호출 - 그래서 전체 N-모델 fan-out은 진짜 어려운 케이스에만
     지출.
+  - **provenance (재현성)**: 결정은 **각 모델의 투표**
+    (`QualityDecision.model_votes`: `model_id`, 제안 action type, agreed)를 - 단순 동의
+    카운트가 아니라 - 기록해, T2 판정을 append-only audit 에서 재구성할 수 있게 한다(로그가
+    약속하는 replay 속성).
 - **Verifier**: 어떤 모델과도 독립적인 **결정론** 검사가 후보 액션을 policy-as-code와 what-if/
   dry-run에 대해 재검증 후 execution-eligible. Verifier - 모델 텍스트 아님 - 가 권위.
 - **Grounding (RAG)**: 판단을 정당화하는 규칙/정책/문서 인용 강제, **각 인용 항목이 규칙 카탈로그

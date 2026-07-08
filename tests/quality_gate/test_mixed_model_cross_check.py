@@ -256,6 +256,32 @@ def test_resolver_permits_same_publisher_when_one_is_hil_only() -> None:
     _enforce_mixed_model_invariant(entries)  # MUST NOT raise.
 
 
+@pytest.mark.asyncio
+async def test_model_votes_provenance_is_captured(
+    valid_rule: dict[str, object],
+) -> None:
+    """The decision records each model's vote so a T2 judgment is
+    reconstructable from the audit (reproducibility)."""
+    models = _models(agree_count=2, dissent_count=1)
+    gate = QualityGate(
+        verifier=StaticVerifier(outcome=True),
+        cross_check_models=models,
+        grounding=_grounding(valid_rule),
+        config=QualityGateConfig(
+            confidence_threshold=0.0,
+            require_grounding=False,
+            require_cross_check_quorum=2,
+        ),
+    )
+    decision = await gate.evaluate(_candidate(valid_rule))
+    assert len(decision.model_votes) == 3
+    assert sum(1 for v in decision.model_votes if v.agreed) == 2
+    assert all(v.model_id for v in decision.model_votes)  # ids captured
+    assert any(
+        v.proposed_action_type == "remediate.tag-add" for v in decision.model_votes
+    )
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

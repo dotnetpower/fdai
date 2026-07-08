@@ -62,6 +62,10 @@ eligibility.
   - **Cost control**: prefer a **cascade** - run the cheaper reasoner first and invoke the
     second only when its self-consistency or grounding signal is weak - so the full N-model
     fan-out is spent only on genuinely hard cases.
+  - **Provenance (reproducibility)**: the decision records **each model's vote**
+    (`QualityDecision.model_votes`: `model_id`, proposed action type, agreed) - not just the
+    agreement count - so a T2 judgment is reconstructable from the append-only audit, the
+    replay property the log promises.
 - **Verifier**: a **deterministic** check, independent of any model, re-validates the candidate
   action against policy-as-code and what-if/dry-run before it is execution-eligible. The
   verifier - not model text - is the authority.
