@@ -584,6 +584,25 @@ signal.
   rate, retirement rate) is instrumented and reported in
   [goals-and-metrics.md](goals-and-metrics.md) so it can be measured, not asserted.
 
+### Candidate Guard (upstream implementation)
+
+`fdai.agents.candidate_guard.CandidateGuard` is the deterministic gate Mimir runs on every
+`RuleCandidate` before it enters the pending list - the enforcement point for the Candidate
+Requirements above and the discovery loop's poisoning defense. It never promotes anything (the
+quality gate owns that); it decides **accept** vs **quarantine** and records a reason, so a
+rejected candidate is preserved for audit rather than silently dropped. Checks are pure (no I/O,
+no model call):
+
+- **Provenance** - `proposed_by` and a known `proposal_kind`
+  (`new` / `revision` / `retirement` / `threshold_adjustment`) are required.
+- **Grounding** - a non-empty `evidence` mapping is required; an ungrounded candidate is
+  quarantined ("the model thought of it" is not evidence).
+- **Range sanity** - numeric evidence must be in range (a `rollback_rate` outside `[0, 1]` or a
+  non-positive count is a corrupt or forged signal).
+- **Flood detection** - identical candidate fingerprints beyond a repeat cap are quarantined as
+  a suspected poisoning flood (Norns already dedups legitimate proposals, so a repeat burst is
+  anomalous).
+
 ## Open Decisions
 
 - [ ] Canonical `resource-type` vocabulary and its mapping tables for Azure (non-Azure

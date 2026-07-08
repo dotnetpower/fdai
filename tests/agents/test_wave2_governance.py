@@ -177,6 +177,9 @@ def test_mimir_accepts_and_drains_rule_candidates() -> None:
             {
                 "target_rule_id": "storage.public.deny",
                 "proposal_kind": "new",
+                "proposed_by": "Norns",
+                "source_signal": "handoff_fingerprint",
+                "evidence": {"fingerprint": "abc", "occurrence_count": 3},
             },
         )
     )
@@ -188,6 +191,35 @@ def test_mimir_accepts_and_drains_rule_candidates() -> None:
     # promoted candidate is removed from the pending list
     assert all(
         c.get("target_rule_id") != "storage.public.deny" for c in mimir.pending_candidates()
+    )
+
+
+def test_mimir_quarantines_ungrounded_candidate() -> None:
+    """A candidate with no evidence is quarantined, not accepted."""
+    mimir = Mimir()
+    asyncio.run(
+        mimir.on_typed_message(
+            "object.rule-candidate",
+            {"target_rule_id": "r1", "proposal_kind": "new", "proposed_by": "Norns"},
+        )
+    )
+    assert mimir.pending_candidates() == ()
+    quarantined = mimir.quarantined_candidates()
+    assert len(quarantined) == 1
+    assert quarantined[0]["quarantine_reason"] == "ungrounded:no_evidence"
+
+
+def test_mimir_quarantines_missing_provenance() -> None:
+    mimir = Mimir()
+    asyncio.run(
+        mimir.on_typed_message(
+            "object.rule-candidate",
+            {"target_rule_id": "r1", "proposal_kind": "new", "evidence": {"x": 1}},
+        )
+    )
+    assert mimir.pending_candidates() == ()
+    assert mimir.quarantined_candidates()[0]["quarantine_reason"] == (
+        "missing_provenance:proposed_by"
     )
 
 

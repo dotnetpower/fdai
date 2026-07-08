@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from fdai.agents.base import Agent
+from fdai.agents.candidate_guard import CandidateGuard
 from fdai.agents.pantheon import _MIMIR
 
 
@@ -30,13 +31,27 @@ class Mimir(Agent):
         super().__init__(spec=_MIMIR)
         self._promotions: dict[str, RulePromotion] = {}
         self._pending_candidates: list[dict[str, Any]] = []
+        self._quarantined_candidates: list[dict[str, Any]] = []
+        self._guard = CandidateGuard()
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.rule-candidate":
-            self._pending_candidates.append(dict(payload))
+            verdict = self._guard.inspect(payload)
+            if verdict.accepted:
+                self._pending_candidates.append(dict(payload))
+            else:
+                # Quarantine (not drop): the rejected candidate is kept with
+                # its reason so the audit trail shows why the discovery loop
+                # refused it (grounded-provenance MUST + poisoning defense).
+                self._quarantined_candidates.append(
+                    {**dict(payload), "quarantine_reason": verdict.reason}
+                )
 
     def pending_candidates(self) -> tuple[dict[str, Any], ...]:
         return tuple(self._pending_candidates)
+
+    def quarantined_candidates(self) -> tuple[dict[str, Any], ...]:
+        return tuple(self._quarantined_candidates)
 
     def promote(
         self,
