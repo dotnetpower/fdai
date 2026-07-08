@@ -29,6 +29,7 @@ given its config and inputs.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 # Default cross-vertical priority order (highest first). Fork config
@@ -93,8 +94,18 @@ class MultiObjectiveArbiter:
         weights: dict[str, float] | None = None,
         hil_margin: float = _DEFAULT_HIL_MARGIN,
     ) -> None:
+        resolved_weights = weights if weights is not None else weights_from_priority(priority)
+        # Fail fast on a misconfigured weight table: a non-finite or
+        # negative weight would produce NaN / negative scores that corrupt
+        # ranking and the margin calculation. Config errors must not reach
+        # a live arbitration.
+        for domain, weight in resolved_weights.items():
+            if not math.isfinite(weight) or weight < 0.0:
+                raise ValueError(f"weight for '{domain}' MUST be finite and >= 0 (got {weight!r})")
+        if not math.isfinite(hil_margin) or hil_margin < 0.0:
+            raise ValueError(f"hil_margin MUST be finite and >= 0 (got {hil_margin!r})")
         self._priority = priority
-        self._weights = weights if weights is not None else weights_from_priority(priority)
+        self._weights = resolved_weights
         self._hil_margin = hil_margin
 
     @property
@@ -122,12 +133,22 @@ class MultiObjectiveArbiter:
                 reason="empty_conflict",
             )
 
+        # Deduplicate defensively (order-preserving): a repeated domain
+        # would otherwise place the winner in its own losers tuple and
+        # skew the margin. A conflict is a *set* of domains.
+        domains = tuple(dict.fromkeys(domains))
+
         impacts = impacts or {}
+        # A non-finite impact (NaN / inf) is a corrupt measurement; it must
+        # never silently win or corrupt the sort. Treat it as zero impact
+        # and force the whole call to HIL as a low-confidence input.
+        nonfinite = [d for d in domains if not math.isfinite(_as_float(impacts.get(d, 1.0)))]
         unknown = [d for d in domains if d not in self._weights]
         scores: dict[str, float] = {}
         for domain in domains:
             weight = self._weights.get(domain, 0.0)
-            impact = _clamp(impacts.get(domain, 1.0))
+            raw_impact = _as_float(impacts.get(domain, 1.0))
+            impact = _clamp(raw_impact) if math.isfinite(raw_impact) else 0.0
             scores[domain] = round(weight * impact, 6)
 
         # Deterministic ordering: score desc, then priority rank, then name.
@@ -143,9 +164,13 @@ class MultiObjectiveArbiter:
         margin = round((top - second) / top, 6) if top > 0 else 0.0
 
         mode = "multi_objective" if impacts else "priority_order"
-        escalate = bool(unknown) or (len(domains) > 1 and margin < self._hil_margin)
+        escalate = (
+            bool(unknown) or bool(nonfinite) or (len(domains) > 1 and margin < self._hil_margin)
+        )
         if unknown:
             reason = f"unknown_domain:{','.join(sorted(unknown))}"
+        elif nonfinite:
+            reason = f"nonfinite_impact:{','.join(sorted(nonfinite))}"
         elif escalate:
             reason = f"close_call:margin={margin}<{self._hil_margin}"
         else:
@@ -169,6 +194,19 @@ class MultiObjectiveArbiter:
 
 def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
     return max(low, min(high, value))
+
+
+def _as_float(value: object) -> float:
+    """Best-effort float coercion; a non-numeric impact becomes NaN.
+
+    Returning NaN (rather than raising) lets ``resolve`` route a corrupt
+    impact to HIL through the single non-finite path instead of crashing
+    the arbitration on bad input.
+    """
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return float("nan")
 
 
 __all__ = [

@@ -105,7 +105,9 @@ class CompositeAnomalyDetector:
         cannot inflate the quorum. Below quorum -> ``None`` (a single
         noisy stream is not a compound anomaly).
         """
-        members = _dedupe_strongest([f for f in findings if f.resource_ref == resource_ref])
+        members = _dedupe_strongest(
+            [f for f in findings if f.resource_ref == resource_ref and _has_valid_magnitude(f)]
+        )
         if len(members) < self._quorum:
             return None
 
@@ -196,6 +198,17 @@ class CompositeAnomalyDetector:
 def _member_z(finding: AnomalyFinding) -> float:
     """Return a member's magnitude, substituting a fixed weight for a flat baseline."""
     return _FLAT_BASELINE_Z if finding.z_score is None else finding.z_score
+
+
+def _has_valid_magnitude(finding: AnomalyFinding) -> bool:
+    """True unless the member carries a corrupt (non-finite) z-score.
+
+    A flat-baseline member (``z_score is None``) is valid; a NaN / inf
+    z-score is a corrupt signal that would poison the root-sum-square
+    magnitude and is excluded before the quorum is counted, so garbage
+    input cannot manufacture (or inflate) a composite finding.
+    """
+    return finding.z_score is None or math.isfinite(finding.z_score)
 
 
 def _dedupe_strongest(findings: Sequence[AnomalyFinding]) -> list[AnomalyFinding]:

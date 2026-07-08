@@ -46,6 +46,18 @@ class Norns(Agent):
         min_outcome_samples: int = 20,
         override_retire_threshold: int = 5,
     ) -> None:
+        # Fail fast on misconfiguration: a non-positive threshold or a
+        # rate outside [0, 1] would make the learner propose on thin or
+        # impossible evidence (e.g. min_outcome_samples=0 fires on a single
+        # sample), the opposite of measurement-based learning.
+        if promotion_threshold < 1:
+            raise ValueError("promotion_threshold MUST be >= 1")
+        if not 0.0 <= rollback_alarm_rate <= 1.0:
+            raise ValueError("rollback_alarm_rate MUST be in [0, 1]")
+        if min_outcome_samples < 1:
+            raise ValueError("min_outcome_samples MUST be >= 1")
+        if override_retire_threshold < 1:
+            raise ValueError("override_retire_threshold MUST be >= 1")
         super().__init__(spec=_NORNS)
         self._fingerprint_counter: Counter[str] = Counter()
         self._proposed: set[str] = set()

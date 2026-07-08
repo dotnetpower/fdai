@@ -130,3 +130,34 @@ def test_zero_horizon_does_not_divide_by_zero() -> None:
     )
     # growth collapses to 1.0; still a valid band.
     assert band.half_width >= 0.0
+
+
+# ---------------------------------------------------------------------------
+# Hardening: corrupt-fit defenses (rubric critique)
+# ---------------------------------------------------------------------------
+
+
+def test_negative_residual_std_does_not_invert_band() -> None:
+    """A negative std must not flip the band into an over-confident breach."""
+    # projected 110, threshold 100. With residual magnitude 20 the lower
+    # edge should drop below 100 -> NOT confident. A naive negative std
+    # would instead push the lower edge up and falsely confirm.
+    band = prediction_band(_finding(residual_std=-20.0), confidence_level="0.90")
+    assert band.half_width > 0.0  # magnitude taken, not the raw negative
+    assert band.confident_breach is False
+    assert band.lower < 100.0
+
+
+def test_non_finite_residual_std_is_never_confident() -> None:
+    band = prediction_band(_finding(residual_std=float("inf")), confidence_level="0.90")
+    assert band.confident_breach is False
+
+
+def test_nan_residual_std_is_never_confident() -> None:
+    band = prediction_band(_finding(residual_std=float("nan")), confidence_level="0.90")
+    assert band.confident_breach is False
+
+
+def test_invalid_direction_is_rejected() -> None:
+    with pytest.raises(ValueError, match="direction MUST be"):
+        prediction_band(_finding(direction="sideways"), confidence_level="0.90")

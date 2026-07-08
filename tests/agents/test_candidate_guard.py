@@ -88,3 +88,18 @@ def test_distinct_fingerprints_not_flooded() -> None:
 def test_invalid_config_rejected() -> None:
     with pytest.raises(ValueError, match="max_repeats"):
         CandidateGuard(max_repeats=0)
+
+
+def test_non_finite_count_evidence_is_quarantined() -> None:
+    """NaN / inf in a positive-count field is a corrupt/forged signal."""
+    guard = CandidateGuard()
+    nan_candidate = _valid() | {"evidence": {"sample_size": float("nan")}}
+    assert guard.inspect(nan_candidate).accepted is False
+    inf_candidate = _valid() | {"evidence": {"occurrence_count": float("inf")}}
+    assert guard.inspect(inf_candidate).accepted is False
+
+
+def test_non_finite_rollback_rate_is_quarantined() -> None:
+    guard = CandidateGuard()
+    candidate = _valid() | {"evidence": {"rollback_rate": float("nan")}}
+    assert guard.inspect(candidate).accepted is False

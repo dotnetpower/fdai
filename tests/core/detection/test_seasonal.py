@@ -158,3 +158,8 @@ def test_day_of_week_phase() -> None:
 def test_unknown_phase_rejected() -> None:
     with pytest.raises(ValueError, match="unknown seasonal phase"):
         SeasonalAnomalyDetector(detector_id="d", phase="fortnight")
+
+
+def test_min_samples_per_phase_below_two_is_rejected() -> None:
+    with pytest.raises(ValueError, match="min_samples_per_phase MUST be >= 2"):
+        SeasonalAnomalyDetector(detector_id="d", min_samples_per_phase=1)

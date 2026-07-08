@@ -27,6 +27,7 @@ Checks (all deterministic, no I/O, no model call):
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 from dataclasses import dataclass
 from typing import Any
@@ -73,14 +74,19 @@ class CandidateGuard:
                 rate = float(rollback_rate)
             except (TypeError, ValueError):
                 return GuardVerdict(False, "evidence_out_of_range:rollback_rate")
-            if not 0.0 <= rate <= 1.0:
+            if not math.isfinite(rate) or not 0.0 <= rate <= 1.0:
                 return GuardVerdict(False, "evidence_out_of_range:rollback_rate")
 
         for key in _POSITIVE_COUNT_KEYS:
             value = evidence.get(key)
             if value is None:
                 continue
-            if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+            if (
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+                or not math.isfinite(value)
+                or value <= 0
+            ):
                 return GuardVerdict(False, f"evidence_out_of_range:{key}")
 
         fingerprint = self._fingerprint(candidate)

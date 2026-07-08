@@ -433,3 +433,15 @@ def test_norns_fingerprint_learner_still_isolated() -> None:
     )
     new_rules = [c for c in norns.pending_candidates if c["proposal_kind"] == "new"]
     assert len(new_rules) == 1
+
+
+def test_norns_constructor_rejects_misconfiguration() -> None:
+    """Out-of-range config would make the learner propose on thin evidence."""
+    with pytest.raises(ValueError, match="promotion_threshold"):
+        Norns(promotion_threshold=0)
+    with pytest.raises(ValueError, match="rollback_alarm_rate"):
+        Norns(rollback_alarm_rate=1.5)
+    with pytest.raises(ValueError, match="min_outcome_samples"):
+        Norns(min_outcome_samples=0)
+    with pytest.raises(ValueError, match="override_retire_threshold"):
+        Norns(override_retire_threshold=0)

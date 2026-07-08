@@ -22,6 +22,7 @@ manufactures a breach the point forecast did not already predict.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from fdai.core.detection.forecast import ForecastFinding
@@ -80,17 +81,36 @@ def prediction_band(
             f"unsupported confidence_level '{confidence_level}'; supported: {supported}"
         )
 
+    if finding.direction not in ("rising", "falling"):
+        raise ValueError(
+            f"finding.direction MUST be 'rising' or 'falling' (got {finding.direction!r})"
+        )
+
+    # A standard deviation is non-negative by definition; a negative or
+    # non-finite residual_std is a corrupt fit that would *invert* the band
+    # (making a breach look artificially confident). Sanitize to its
+    # magnitude, and treat a non-finite spread as maximal uncertainty so
+    # the breach can never be called confident on garbage input.
+    residual_std = finding.residual_std
+    if not math.isfinite(residual_std):
+        residual_std = math.inf
+    else:
+        residual_std = abs(residual_std)
+
     horizon = finding.horizon_seconds
     lead = finding.lead_time_seconds
     # growth in [1.0, 2.0]: tightest for an imminent breach, widest for
-    # one projected at the far edge of the horizon. Guard a zero horizon.
-    if horizon > 0.0:
-        lead_fraction = max(0.0, min(1.0, lead / horizon))
-    else:
+    # one projected at the far edge of the horizon. Guard a zero horizon,
+    # and treat a non-finite lead as maximal distance (most conservative).
+    if horizon <= 0.0:
         lead_fraction = 0.0
+    elif not math.isfinite(lead):
+        lead_fraction = 1.0
+    else:
+        lead_fraction = max(0.0, min(1.0, lead / horizon))
     growth = 1.0 + lead_fraction
 
-    half_width = z * finding.residual_std * growth
+    half_width = z * residual_std * growth
     center = finding.projected_at_horizon
     lower = center - half_width
     upper = center + half_width

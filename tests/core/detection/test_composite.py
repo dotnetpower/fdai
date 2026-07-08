@@ -196,3 +196,34 @@ def test_quorum_below_two_is_rejected() -> None:
 
     with pytest.raises(ValueError, match="quorum MUST be >= 2"):
         CompositeAnomalyDetector(detector_id="comp-1", quorum=1)
+
+
+def test_non_finite_z_member_is_excluded_from_quorum() -> None:
+    """A NaN / inf z-score member is corrupt and must not fill the quorum."""
+    det = CompositeAnomalyDetector(detector_id="comp-1", quorum=2)
+    result = det.fuse(
+        resource_ref="res-a",
+        window_bucket="2026-07-07T12",
+        findings=[_finding("latency"), _finding("error_rate", z_score=float("nan"))],
+    )
+    # Only one valid member remains -> below quorum -> no composite.
+    assert result is None
+
+
+def test_inf_z_member_does_not_inflate_magnitude() -> None:
+    det = CompositeAnomalyDetector(detector_id="comp-1", quorum=2)
+    result = det.fuse(
+        resource_ref="res-a",
+        window_bucket="2026-07-07T12",
+        findings=[
+            _finding("latency"),
+            _finding("error_rate"),
+            _finding("cpu", z_score=float("inf")),
+        ],
+    )
+    assert result is not None
+    # The corrupt member is dropped; magnitude stays finite.
+    import math
+
+    assert math.isfinite(result.combined_magnitude)
+    assert "cpu" not in result.member_metrics

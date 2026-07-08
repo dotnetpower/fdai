@@ -314,3 +314,54 @@ def test_forseti_forwards_impacts_from_signals() -> None:
     req = bus.messages_on("object.arbitration-request")[-1].payload
     assert req["impacts"]["cost"] == 1.0  # ratio 2.0 -> impact 1.0
     assert req["impacts"]["capacity"] == 0.9
+
+
+# ---------------------------------------------------------------------------
+# Hardening: corrupt-input defenses (rubric critique)
+# ---------------------------------------------------------------------------
+
+
+def test_nan_impact_escalates_to_hil_not_corrupt_sort() -> None:
+    """A NaN impact must not silently win or corrupt the ranking."""
+    arbiter = MultiObjectiveArbiter()
+    outcome = arbiter.resolve(("cost", "capacity"), {"cost": float("nan"), "capacity": 0.5})
+    assert outcome.escalate_hil is True
+    assert "nonfinite_impact" in outcome.reason
+    # A corrupt impact scores as zero, never NaN.
+    assert outcome.objective_scores["cost"] == 0.0
+
+
+def test_inf_impact_escalates_to_hil() -> None:
+    arbiter = MultiObjectiveArbiter()
+    outcome = arbiter.resolve(("cost", "capacity"), {"capacity": float("inf")})
+    assert outcome.escalate_hil is True
+    assert "nonfinite_impact" in outcome.reason
+
+
+def test_non_numeric_impact_is_treated_as_corrupt() -> None:
+    arbiter = MultiObjectiveArbiter()
+    outcome = arbiter.resolve(("cost", "capacity"), {"cost": "oops"})  # type: ignore[dict-item]
+    assert outcome.escalate_hil is True
+    assert "nonfinite_impact" in outcome.reason
+
+
+def test_duplicate_domains_never_place_winner_in_losers() -> None:
+    arbiter = MultiObjectiveArbiter()
+    outcome = arbiter.resolve(("cost", "cost"))
+    assert outcome.winner == "cost"
+    assert "cost" not in outcome.losers
+    assert outcome.losers == ()
+
+
+def test_negative_weight_config_is_rejected() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="finite and >= 0"):
+        MultiObjectiveArbiter(weights={"cost": -1.0})
+
+
+def test_non_finite_weight_config_is_rejected() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="finite and >= 0"):
+        MultiObjectiveArbiter(weights={"cost": float("inf")})

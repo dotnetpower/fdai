@@ -114,3 +114,26 @@ def test_invalid_config_rejected() -> None:
         SimulationFidelityLedger(tolerance=0.0)
     with pytest.raises(ValueError, match="max_pending"):
         SimulationFidelityLedger(max_pending=0)
+
+
+def test_non_finite_prediction_does_not_poison_key() -> None:
+    """A NaN / inf sample must be dropped, not recorded into the stats."""
+    led = SimulationFidelityLedger()
+    led.record_prediction("bad", key="cost.resize", predicted=float("nan"))
+    led.record_actual("bad", actual=100.0)
+    # Nothing joined -> key has no stat, so a later healthy sample is clean.
+    assert led.stat("cost.resize") is None
+    led.record_prediction("good", key="cost.resize", predicted=100.0)
+    led.record_actual("good", actual=100.0)
+    stat = led.stat("cost.resize")
+    assert stat is not None
+    assert stat.samples == 1
+    assert stat.mape == 0.0
+
+
+def test_non_finite_actual_is_dropped() -> None:
+    led = SimulationFidelityLedger()
+    led.record_prediction("p", key="k", predicted=100.0)
+    led.record_actual("p", actual=float("inf"))
+    # The inf actual is dropped; the prediction stays pending, no stat.
+    assert led.stat("k") is None

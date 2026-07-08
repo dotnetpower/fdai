@@ -80,6 +80,11 @@ class SeasonalAnomalyDetector:
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._phase_label, self._phase_of = _resolve_phase(phase)
+        # A per-phase baseline needs variance to compute a z-score; the
+        # inner detector enforces >= 2, but validate here too so the error
+        # names the seasonal parameter the caller actually passed.
+        if min_samples_per_phase < 2:
+            raise ValueError("min_samples_per_phase MUST be >= 2 (a baseline needs variance)")
         # The inner detector owns the statistics; per-phase samples are its
         # "history", so min_samples maps to min_samples_per_phase.
         self._inner = MetricAnomalyDetector(

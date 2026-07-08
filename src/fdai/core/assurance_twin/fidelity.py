@@ -28,6 +28,7 @@ long-lived process cannot leak.
 
 from __future__ import annotations
 
+import math
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
@@ -68,8 +69,13 @@ class SimulationFidelityLedger:
             raise ValueError("max_pending MUST be >= 1")
 
     def record_prediction(self, prediction_id: str, *, key: str, predicted: float) -> None:
-        """Record a prediction awaiting its actual outcome."""
-        if not prediction_id:
+        """Record a prediction awaiting its actual outcome.
+
+        A non-finite ``predicted`` (NaN / inf) is a corrupt input and is
+        dropped: joining it would permanently poison the key's MAE / MAPE
+        so a healthy predictor could never regain reliability.
+        """
+        if not prediction_id or not math.isfinite(predicted):
             return
         existing = self._pending.get(prediction_id)
         if existing is not None and existing[0] == "actual":
@@ -81,8 +87,12 @@ class SimulationFidelityLedger:
         self._evict_if_needed()
 
     def record_actual(self, prediction_id: str, *, actual: float) -> None:
-        """Record the observed outcome; joins if the prediction is pending."""
-        if not prediction_id:
+        """Record the observed outcome; joins if the prediction is pending.
+
+        A non-finite ``actual`` is dropped for the same reason a non-finite
+        prediction is (it would poison the key's error statistics).
+        """
+        if not prediction_id or not math.isfinite(actual):
             return
         existing = self._pending.get(prediction_id)
         if existing is not None and existing[0] == "prediction":
