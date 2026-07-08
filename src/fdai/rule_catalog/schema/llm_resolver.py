@@ -37,7 +37,7 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from fdai.rule_catalog.schema.llm_registry import (
     LlmRegistry,
@@ -112,6 +112,15 @@ class ResolvedCapability:
 
 
 @dataclass(frozen=True, slots=True)
+class NarratorCandidate:
+    """One deployable narrator endpoint (matches the console chat backend seam)."""
+
+    endpoint: str
+    deployment: str
+    api_version: str = "2024-08-01-preview"
+
+
+@dataclass(frozen=True, slots=True)
 class ResolvedModels:
     """Deterministic serializable resolver output."""
 
@@ -121,10 +130,27 @@ class ResolvedModels:
     deployer_object_id: str
     mixed_model_mode: str
     capabilities: tuple[ResolvedCapability, ...]
+    narrator: NarratorCandidate | None = None
+    """Winning single narrator - what a single-model chat backend uses."""
+
+    narrator_candidates: tuple[NarratorCandidate, ...] = ()
+    """All viable narrator deployments - what the latency-routed backend uses.
+
+    Populated by :func:`collect_narrator` when the CLI is given a
+    ``--narrator-endpoint``. The list is ordered by the registry's
+    preference order (fastest / most-preferred family first). When
+    empty, the read-api chat backend falls back to :attr:`narrator`
+    (single-narrator path) or a deterministic answerer.
+    """
 
     def to_json(self) -> str:
-        """JSON with sorted keys - same input yields the same bytes."""
-        payload = {
+        """JSON with sorted keys - same input yields the same bytes.
+
+        ``narrator`` and ``narrator_candidates`` are only emitted when
+        populated so pre-existing golden files stay byte-identical when
+        the caller does not opt in to narrator collection.
+        """
+        payload: dict[str, Any] = {
             "schema_version": self.schema_version,
             "region": self.region,
             "subscription_id": self.subscription_id,
@@ -144,6 +170,12 @@ class ResolvedModels:
                 for c in self.capabilities
             ],
         }
+        if self.narrator is not None:
+            payload["narrator"] = _narrator_to_dict(self.narrator)
+        if self.narrator_candidates:
+            payload["narrator_candidates"] = [
+                _narrator_to_dict(n) for n in self.narrator_candidates
+            ]
         return json.dumps(payload, sort_keys=True, indent=2) + "\n"
 
     @classmethod
@@ -168,7 +200,36 @@ class ResolvedModels:
                 )
                 for c in raw["capabilities"]
             ),
+            narrator=_narrator_from_dict(raw.get("narrator")),
+            narrator_candidates=tuple(
+                _narrator_from_dict(n)  # type: ignore[misc]
+                for n in raw.get("narrator_candidates", ())
+                if isinstance(n, dict)
+            ),
         )
+
+
+def _narrator_to_dict(n: NarratorCandidate) -> dict[str, str]:
+    return {
+        "endpoint": n.endpoint,
+        "deployment": n.deployment,
+        "api_version": n.api_version,
+    }
+
+
+def _narrator_from_dict(raw: Any) -> NarratorCandidate | None:
+    if not isinstance(raw, dict):
+        return None
+    endpoint = raw.get("endpoint")
+    deployment = raw.get("deployment")
+    if not (isinstance(endpoint, str) and isinstance(deployment, str)):
+        return None
+    api_version = raw.get("api_version")
+    return NarratorCandidate(
+        endpoint=endpoint,
+        deployment=deployment,
+        api_version=api_version if isinstance(api_version, str) else "2024-08-01-preview",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -344,13 +405,76 @@ def _enforce_mixed_model_invariant(entries: list[ResolvedCapability]) -> None:
         )
 
 
+# ---------------------------------------------------------------------------
+# Narrator collection helper - feeds the console chat backend seam
+# ---------------------------------------------------------------------------
+
+
+def collect_narrator(
+    *,
+    registry: LlmRegistry,
+    region: str,
+    catalog: CatalogQuery,
+    quota: QuotaQuery,
+    endpoint: str,
+    api_version: str = "2024-08-01-preview",
+    capability_name: str = "t1.judge",
+) -> tuple[NarratorCandidate | None, tuple[NarratorCandidate, ...]]:
+    """Enumerate every viable narrator deployment from a capability's preferences.
+
+    Walks the registry entry's ``preferences`` list and returns every
+    ``(publisher, family)`` that is BOTH present in the region catalog
+    AND has non-zero quota, in preference order. The first entry is the
+    single "winner" (what a plain
+    :class:`~fdai.delivery.read_api.chat.AzureAdChatBackend` would use);
+    the full list is what
+    :class:`~fdai.delivery.read_api.chat.LatencyRoutedChatBackend`
+    consumes as its candidate pool.
+
+    ``deployment`` is emitted as the family name verbatim - operators
+    whose Azure deployments are named differently should hand-edit the
+    output. See docs/roadmap/llm-strategy.md.
+
+    Returns ``(None, ())`` when the capability is missing or has no
+    viable family; callers treat this the same as "no narrator" and
+    fall back to :class:`DisabledChatBackend`.
+    """
+    spec = registry.models.get(capability_name)
+    if spec is None:
+        return None, ()
+    catalog_families = catalog.families_in_region(region)
+    candidates: list[NarratorCandidate] = []
+    seen: set[str] = set()
+    for pref in spec.preferences:
+        if pref.family in seen or pref.family not in catalog_families:
+            continue
+        available = quota.available_capacity_tpm(
+            region=region, publisher=pref.publisher, family=pref.family
+        )
+        if available <= 0:
+            continue
+        seen.add(pref.family)
+        candidates.append(
+            NarratorCandidate(
+                endpoint=endpoint,
+                deployment=pref.family,
+                api_version=api_version,
+            )
+        )
+    if not candidates:
+        return None, ()
+    return candidates[0], tuple(candidates)
+
+
 __all__ = [
     "CapabilityStatus",
     "CatalogQuery",
+    "NarratorCandidate",
     "PermissionQuery",
     "QuotaQuery",
     "ResolvedCapability",
     "ResolvedModels",
     "ResolverError",
+    "collect_narrator",
     "resolve",
 ]

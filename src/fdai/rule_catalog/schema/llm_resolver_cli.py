@@ -42,7 +42,9 @@ from fdai.rule_catalog.schema.llm_resolver import (
     CatalogQuery,
     PermissionQuery,
     QuotaQuery,
+    ResolvedModels,
     ResolverError,
+    collect_narrator,
     resolve,
 )
 
@@ -128,6 +130,31 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Write resolved-models.json here; omit for stdout.",
     )
+    parser.add_argument(
+        "--narrator-endpoint",
+        default=None,
+        help=(
+            "Azure OpenAI endpoint (https://<name>.openai.azure.com/) used to populate "
+            "resolved-models.json's `narrator` + `narrator_candidates` fields. "
+            "When omitted the narrator fields are skipped and the read-api chat "
+            "backend stays disabled."
+        ),
+    )
+    parser.add_argument(
+        "--narrator-api-version",
+        default="2024-08-01-preview",
+        help="API version stamped on every narrator candidate (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--narrator-capability",
+        default="t1.judge",
+        help=(
+            "Which registry capability's preferences drive narrator candidate "
+            "collection (default: %(default)s). All preferences with a family in "
+            "the region catalog and non-zero quota become candidates, in preference "
+            "order."
+        ),
+    )
     return parser
 
 
@@ -183,6 +210,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ResolverError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+
+    # Optional: enrich with narrator + narrator_candidates when the caller
+    # provided an endpoint. Kept out of ``resolve()`` so the pure resolver
+    # stays orthogonal to how the console consumes the output.
+    if args.narrator_endpoint:
+        winner, candidates = collect_narrator(
+            registry=registry,
+            region=args.region,
+            catalog=_FixtureCatalog(catalog_data),
+            quota=_FixtureQuota(quota_data),
+            endpoint=args.narrator_endpoint,
+            api_version=args.narrator_api_version,
+            capability_name=args.narrator_capability,
+        )
+        resolved = ResolvedModels(
+            schema_version=resolved.schema_version,
+            region=resolved.region,
+            subscription_id=resolved.subscription_id,
+            deployer_object_id=resolved.deployer_object_id,
+            mixed_model_mode=resolved.mixed_model_mode,
+            capabilities=resolved.capabilities,
+            narrator=winner,
+            narrator_candidates=candidates,
+        )
 
     payload = resolved.to_json()
     if args.out is None:

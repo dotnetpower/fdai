@@ -80,3 +80,38 @@ def test_cli_rejects_missing_registry(tmp_path: Path) -> None:
     argv = _base_argv(tmp_path, "permission.granted.json")
     argv[argv.index("--registry") + 1] = str(tmp_path / "nope.yaml")
     assert main(argv) == 2
+
+
+def test_cli_populates_narrator_when_endpoint_given(tmp_path: Path) -> None:
+    """--narrator-endpoint activates single narrator + multi-candidate router feed."""
+    endpoint = "https://example-openai.openai.azure.com/"
+    argv = [
+        *_base_argv(tmp_path, "permission.granted.json"),
+        "--narrator-endpoint",
+        endpoint,
+        "--narrator-api-version",
+        "2024-08-01-preview",
+    ]
+    assert main(argv) == 0
+    payload = json.loads((tmp_path / "resolved-models.json").read_text(encoding="utf-8"))
+
+    # Single narrator - fastest available family (from the updated fixture).
+    assert payload["narrator"]["endpoint"] == endpoint
+    assert payload["narrator"]["deployment"] == "gpt-5.4-mini"
+    assert payload["narrator"]["api_version"] == "2024-08-01-preview"
+
+    # Full candidate list - every mini family the fixture catalog + quota
+    # allow, in preference order (see rule-catalog/llm-registry.yaml).
+    candidates = [c["deployment"] for c in payload["narrator_candidates"]]
+    assert candidates == ["gpt-5.4-mini", "gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini"]
+    for c in payload["narrator_candidates"]:
+        assert c["endpoint"] == endpoint
+        assert c["api_version"] == "2024-08-01-preview"
+
+
+def test_cli_omits_narrator_fields_by_default(tmp_path: Path) -> None:
+    """Legacy invocations without --narrator-endpoint keep the golden shape."""
+    assert main(_base_argv(tmp_path, "permission.granted.json")) == 0
+    text = (tmp_path / "resolved-models.json").read_text(encoding="utf-8")
+    assert "narrator" not in text
+    assert "narrator_candidates" not in text
