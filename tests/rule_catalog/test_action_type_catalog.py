@@ -558,6 +558,24 @@ def test_catalog_entry_partial_ceiling_by_tier_is_rejected(tmp_path: Path) -> No
     assert "ceiling_by_tier" in " ".join(i.key for i in info.value.issues)
 
 
+def test_catalog_t2_ceiling_above_shadow_only_is_rejected(tmp_path: Path) -> None:
+    """A catalog entry MUST NOT declare ceiling_by_tier.t2 above shadow_only;
+    raising T2 is a Rego-overlay concern, never a YAML ceiling (critique #19)."""
+
+    body = _complete_ops_yaml(omit="ceiling_by_tier") + (
+        "ceiling_by_tier:\n"
+        "  t0:\n    max_autonomy: enforce_hil\n    min_role: contributor\n"
+        "  t1:\n    max_autonomy: shadow_only\n    min_role: contributor\n"
+        "  t2:\n    max_autonomy: enforce_auto\n    min_role: approver\n"
+    )
+    root = _write_catalog(tmp_path, body)
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    keys = " ".join(i.key for i in info.value.issues)
+    assert "ceiling_by_tier.t2.max_autonomy" in keys
+
+
+
 def test_argument_schema_without_additional_properties_false_is_rejected(
     tmp_path: Path,
 ) -> None:

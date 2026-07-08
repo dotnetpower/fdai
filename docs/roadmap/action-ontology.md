@@ -77,10 +77,11 @@ name: string                            # STABLE UNIQUE IDENTIFIER, snake+dot: "
                                         # (No separate `id` field - `name` already exists on
                                         # every shipped YAML and is the migration-safe key.)
 version: semver
-category:                               # top-level bucket
-  - remediation                         # rule-fired, config-drift-style
-  - ops                                 # operator-requested runtime action
-  - governance                          # policy / exemption / promotion changes
+category:                               # top-level bucket - a SINGLE value, not a list
+                                        # one of: remediation | ops | governance
+                                        #   remediation - rule-fired, config-drift-style
+                                        #   ops         - operator-requested runtime action
+                                        #   governance  - policy / exemption / promotion changes
 description: string                     # <= 200 chars, English, no marketing
 
 # --- Operation + interfaces (EXISTING, kept - risk-classification reads these) ---
@@ -502,6 +503,12 @@ prod_downgrade:
 
 - Env-var toggles for coarse switches (feature-flag style):
   `FDAI_OVERRIDE_ACTION_TYPE_<id>_MAX_AUTONOMY=shadow_only`.
+- **Downgrade-only**: the value MUST be `shadow_only` or `enforce_hil`,
+  never `enforce_auto` - a config toggle can only lower autonomy, never
+  raise it (the same never-raise rule as every other overlay).
+- **Always audited**: applying a config override writes an audit entry
+  (`action_kind=catalog.override.config`) with the env-var name and the
+  resolved value, so an emergency downgrade is never silent.
 - Rare; documented for emergency downgrades where a Rego re-deploy is
   too slow.
 
@@ -519,16 +526,20 @@ prod_downgrade:
 
 When multiple overlays speak to the same axis, precedence is:
 
-1. Runtime override (Rego fragment, chat-authored, time-boxed) - most
-   specific, most recent.
-2. Rego policy (`policies/action_types/`) - operator-authored steady
+1. Config-driven override (env var, §7.3) - emergency break-glass, most
+   specific and most urgent; downgrade-only and always audited.
+2. Runtime override (Rego fragment, chat-authored, time-boxed) - most
+   specific steady-state, most recent.
+3. Rego policy (`policies/action_types/`) - operator-authored steady
    state.
-3. File overlay (`rule-catalog/action-types-overrides/`) - fork
+4. File overlay (`rule-catalog/action-types-overrides/`) - fork
    compile-time.
-4. Upstream YAML (`rule-catalog/action-types/`) - repository default.
+5. Upstream YAML (`rule-catalog/action-types/`) - repository default.
 
-The RiskGate always resolves in that order and records the winning
-overlay layer on the audit entry.
+Every layer is downgrade-only (never raises autonomy), so precedence
+decides *which* downgrade wins, never whether autonomy is raised. The
+RiskGate resolves in that order and records the winning overlay layer on
+the audit entry.
 
 ### 7.6 New ActionType additions (separate root)
 
@@ -566,10 +577,14 @@ what the 7.1 overlay layer is for). See
     later).
   - `trigger_kind = operator_request | both` → `argument_schema` MUST
     be non-empty. Missing schema is a fatal load error.
-  - `ceiling_by_tier.t2.max_autonomy != shadow_only` → fatal unless a
-    Rego policy in `policies/action_types/` explicitly names the
-    ActionType (T2 raise MUST be defended by an operator-authored
-    policy).
+  - `ceiling_by_tier.t2.max_autonomy` MUST be `shadow_only` in the
+    catalog (loader-enforced, fatal otherwise). T2 is additionally
+    hard-capped to shadow-only inside the ceiling module
+    (`_TIER_HARD_CAP`), so a stray YAML value would be capped at runtime
+    anyway; rejecting it at load keeps author intent honest. Raising T2
+    is an operator-authored **Rego overlay** that lifts the hard cap
+    (`policies/action_types/`), never a YAML ceiling - this avoids any
+    brittle name-scan of Rego text at load time.
   - `live_probe_ref` -> the referenced probe MUST exist under
     `rule-catalog/probes/` (or under a fork-only path). Missing probe
     is fatal. On Day 1 no shipped ActionType sets `live_probe_ref` and
@@ -683,7 +698,53 @@ non-breaking for the ControlLoop.
   `argument_schema` for `operator_request` fails load with a specific
   error.
 
-## 12. Related docs
+## 12. Design boundaries and lifecycle
+
+Explicit answers to recurring questions about the ontology's shape, so a
+reviewer does not mistake an intentional boundary for a gap.
+
+- **Three orthogonal classification axes are not redundant** (#12).
+  `category` (what kind of change), `trigger_kind` (who initiates), and
+  `side_effect_class` (what the console tool does) answer different
+  questions and are recorded together on the audit entry (§4.3). A change
+  to one never implies a change to another.
+- **Two autonomy sources compose by strictest-wins, never by conflict**
+  (#15). The risk-classification table (Axis A) and `ceiling_by_tier`
+  (Axis C) both bound autonomy; the RiskGate takes the `min` over all six
+  axes plus the table, so neither can raise the result above the other.
+  When a hand-tuned `ceiling_by_tier` seems ignored, the table matched a
+  stricter rule - the audit `resolved_ceiling.winning_axis` names which
+  one won (§9), so the interaction is always inspectable, not silent.
+- **`argument_schema` versioning** (#20). A backward-incompatible change
+  to an `argument_schema` (removing a field, tightening a type) MUST bump
+  the ActionType `version` (semver major). Audit entries record the
+  arguments as received, so a replay reads them against the version that
+  was in effect at dispatch time; the loader never reinterprets a past
+  argument blob under a newer schema.
+- **ActionType retirement** (#21). Retiring an ActionType is a governance
+  PR that (a) removes or shadow-only-pins every rule whose `remediates:`
+  points at it (the `remediates:` cross-check would otherwise fail the
+  load), then (b) removes the ActionType YAML. The loader's dangling
+  `remediates:` check guarantees an ActionType cannot be removed while a
+  rule still references it, so a retirement cannot leave a dangling ref.
+- **Self-modifying governance is bounded** (#24). `governance.*`
+  ActionTypes (promote, retire, override-ceiling) change the safety
+  envelope itself, so they carry the strictest defaults: `pr_native`
+  execution (a reviewed diff), `default_mode: shadow`, and a distinct
+  approver (no self-approval - the actor who authors the promotion PR is
+  never its approver). `governance.override-ceiling` is downgrade-only
+  and time-boxed. The envelope can be *narrowed* through this path but
+  never *widened* without a reviewed, quorum-approved PR.
+- **Blast traversal depth is a tunable, safe default** (#28). A
+  `graph_derived` blast radius walks `contains` + `depends_on` to
+  `traversal_depth` (default 2, max 5). A depth-2 walk under-counts a
+  transitive chain deeper than 2; the `RequiresInventoryFresh` interface
+  plus the `graph_fresh_within_seconds` precondition keep the walk from
+  acting on stale graph data, and an instance exceeding
+  `max_affected_resources` escalates to HIL. Forks that operate deep
+  dependency graphs raise `traversal_depth` per ActionType.
+
+## 13. Related docs
 
 - [execution-model.md](execution-model.md) - consumes this ontology; the
   RiskGate + Executor + live-probe combinator.

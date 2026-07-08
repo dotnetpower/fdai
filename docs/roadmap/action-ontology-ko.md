@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 3aa52f286fb7d74e44fe99c5070e7aa7442339dc
+translation_source_sha: 658ef751de0cb7ec842fecb5cefa5274926212fe
 translation_revised: 2026-07-08
 ---
 
@@ -76,10 +76,11 @@ name: string                            # 안정된 UNIQUE 식별자, snake+dot:
                                         # (별도 `id` 필드 없음 - 모든 shipped YAML 에
                                         # `name` 이 이미 있고 마이그레이션-safe 키).
 version: semver
-category:                               # 최상위 bucket
-  - remediation                         # 룰 발화, config-drift 스타일
-  - ops                                 # 오퍼레이터 요청 runtime 액션
-  - governance                          # 정책 / 예외 / promotion 변경
+category:                               # 최상위 bucket - 리스트가 아니라 단일 값
+                                        # remediation | ops | governance 중 하나
+                                        #   remediation - 룰 발화, config-drift 스타일
+                                        #   ops         - 오퍼레이터 요청 runtime 액션
+                                        #   governance  - 정책 / 예외 / promotion 변경
 description: string                     # <= 200 자, 영어, 마케팅 없음
 
 # --- Operation + interfaces (기존, 유지 - risk-classification 이 읽음) ---
@@ -490,6 +491,12 @@ prod_downgrade:
 
 - Coarse switch (feature-flag 스타일) 를 위한 env-var toggle:
   `FDAI_OVERRIDE_ACTION_TYPE_<id>_MAX_AUTONOMY=shadow_only`.
+- **Downgrade-only**: 값은 `shadow_only` 또는 `enforce_hil` MUST, 절대
+  `enforce_auto` 아님 - config toggle 은 autonomy 를 낮추기만 할 수 있고
+  즌대 올릴 수 없음 (모든 overlay 와 동일한 never-raise 규칙).
+- **항상 감사됨**: config override 적용은 env-var 이름과 resolved 값을
+  담은 audit entry (`action_kind=catalog.override.config`) 를 write하므로
+  emergency downgrade 가 절대 silent 하지 않음.
 - Rare; Rego re-deploy 가 너무 느린 emergency downgrade 를 위해 문서화.
 
 ### 7.4 Runtime override (chat)
@@ -505,14 +512,18 @@ prod_downgrade:
 
 여러 overlay 가 같은 축에 대해 speak 하면 우선순위는:
 
-1. Runtime override (Rego fragment, chat-authored, time-boxed) - 가장
-   specific, 가장 recent.
-2. Rego 정책 (`policies/action_types/`) - operator-authored steady state.
-3. 파일 overlay (`rule-catalog/action-types-overrides/`) - fork
+1. Config-driven override (env var, §7.3) - emergency break-glass, 가장
+   specific 하고 가장 urgent; downgrade-only 이고 항상 감사됨.
+2. Runtime override (Rego fragment, chat-authored, time-boxed) - 가장
+   specific 한 steady-state, 가장 recent.
+3. Rego 정책 (`policies/action_types/`) - operator-authored steady state.
+4. 파일 overlay (`rule-catalog/action-types-overrides/`) - fork
    compile-time.
-4. Upstream YAML (`rule-catalog/action-types/`) - repository default.
+5. Upstream YAML (`rule-catalog/action-types/`) - repository default.
 
-RiskGate 는 항상 그 순서로 resolve 하고 winning overlay layer 를 audit
+모든 layer 는 downgrade-only (autonomy 절대 안 올림) 이므로 우선순위는
+*어느* downgrade 가 이기는지를 정할 뿐, autonomy 가 올라가는지는 결코
+아님. RiskGate 는 그 순서로 resolve 하고 winning overlay layer 를 audit
 entry 에 기록.
 
 ### 7.6 새 ActionType 추가 (별도 root)
@@ -548,9 +559,13 @@ ActionType 을 조용히 shadow 할 수 없다 (shadowing 은 7.1 overlay 계층
     warning 로그 (fatal 아님 - fork 가 나중에 enable MAY).
   - `trigger_kind = operator_request | both` → `argument_schema` 는
     non-empty MUST. 누락된 스키마는 fatal load error.
-  - `ceiling_by_tier.t2.max_autonomy != shadow_only` → `policies/action_types/`
-    의 Rego 정책이 ActionType 을 명시적으로 name 하지 않는 한 fatal
-    (T2 raise 는 operator-authored 정책으로 defend MUST).
+  - `ceiling_by_tier.t2.max_autonomy` 는 카탈로그에서 `shadow_only` MUST
+    (로더 강제, 아니면 fatal). T2 는 ceiling 모듈 내부에서도
+    shadow-only 로 hard-cap (`_TIER_HARD_CAP`) 되므로 stray YAML 값은 어차피
+    runtime 에 cap 됨; 로드 시 reject 하는 것은 저자 의도를 정직하게 유지.
+    T2 상향은 hard cap 을 lift 하는 operator-authored **Rego overlay**
+    (`policies/action_types/`) 이지 YAML ceiling 이 아님 - 로드 시 Rego
+    text 의 brittle name-scan 을 피함.
   - `live_probe_ref` -> 참조된 probe 는 `rule-catalog/probes/` 아래 (또는
     fork-only path 아래) 존재 MUST. 누락된 probe 는 fatal. Day 1 엔 어떤
     shipped ActionType 도 `live_probe_ref` 설정 안 하고 `rule-catalog/probes/`
@@ -655,7 +670,49 @@ non-breaking.
 - **Cross-check 로드 error** - `operator_request` 에 `argument_schema`
   누락한 fixture ActionType 가 특정 error 로 로드 실패.
 
-## 12. 관련 문서
+## 12. 설계 경계와 라이프사이클
+
+온톨로지 shape 에 대한 반복 질문에 명시적으로 답해, 리뷰어가 의도된
+경계를 gap 으로 오인하지 않도록.
+
+- **세 orthogonal 분류 축은 redundant 하지 않음** (#12). `category`
+  (어떤 종류의 변경), `trigger_kind` (누가 initiate), `side_effect_class`
+  (콘솔 tool 이 무엇을 함) 은 서로 다른 질문에 답하고 audit entry 에 함께
+  기록됨 (§4.3). 하나의 변경이 다른 것을 함의하지 않음.
+- **두 autonomy source 는 conflict 가 아니라 strictest-wins 로 compose**
+  (#15). risk-classification table (Axis A) 과 `ceiling_by_tier`
+  (Axis C) 둘 다 autonomy 를 bound; RiskGate 는 6축 + table 에 대해 `min`
+  을 취하므로 어느 쪽도 다른 쪽 위로 raise 못 함. hand-tuned
+  `ceiling_by_tier` 가 무시되는 것처럼 보이면 table 이 더 strict 한 rule 을
+  match 한 것 - audit `resolved_ceiling.winning_axis` 가 어느 쪽이
+  이겼는지 name (§9), 그래서 상호작용은 항상 inspectable, silent 아님.
+- **`argument_schema` 버전 관리** (#20). `argument_schema` 의 backward-
+  incompatible 변경 (field 제거, type tightening) 은 ActionType `version`
+  (semver major) bump MUST. Audit entry 는 argument 를 받은 그대로 기록하니
+  replay 는 dispatch 시점에 유효했던 version 으로 읽음; 로더는 과거 argument
+  blob 을 새 스키마로 재해석 안 함.
+- **ActionType 은퇴** (#21). ActionType 은퇴는 governance PR 로 (a) 그것을
+  `remediates:` 하는 모든 룰을 제거하거나 shadow-only 로 pin 한 뒤 (안 그러면
+  `remediates:` cross-check 가 로드 실패), (b) ActionType YAML 을 제거. 로더의
+  dangling `remediates:` 체크가 룰이 아직 참조하는 동안 ActionType 제거를
+  막으므로, 은퇴가 dangling ref 를 남길 수 없음.
+- **자기수정 governance 는 bounded** (#24). `governance.*` ActionType
+  (promote, retire, override-ceiling) 은 safety envelope 자체를 바꾸므로
+  가장 strict 한 default 를 carry: `pr_native` 실행 (reviewed diff),
+  `default_mode: shadow`, distinct approver (self-approval 없음 - promotion
+  PR 을 author 한 actor 는 절대 그 approver 아님). `governance.override-ceiling`
+  은 downgrade-only 이고 time-boxed. Envelope 는 이 경로로 *narrow* 될 수
+  있어도 reviewed, quorum-approved PR 없이 *widen* 될 수 없음.
+- **Blast traversal depth 는 tunable 한 safe default** (#28).
+  `graph_derived` blast radius 는 `contains` + `depends_on` 를
+  `traversal_depth` (default 2, max 5) 까지 walk. depth-2 walk 는 depth 2
+  초과 transitive chain 을 under-count; `RequiresInventoryFresh` interface
+  와 `graph_fresh_within_seconds` precondition 이 stale graph data 로 act
+  하는 것을 막고, `max_affected_resources` 초과 instance 는 HIL 로 escalate.
+  deep dependency graph 를 다루는 fork 는 ActionType 별로 `traversal_depth`
+  를 raise.
+
+## 13. 관련 문서
 
 - [execution-model.md](execution-model-ko.md) - 이 온톨로지를 소비;
   RiskGate + Executor + live-probe combinator.

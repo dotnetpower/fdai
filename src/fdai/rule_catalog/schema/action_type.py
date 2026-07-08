@@ -22,6 +22,7 @@ from fdai.rule_catalog.schema.probe import (
 )
 from fdai.shared.contracts.models import (
     ActionInterface,
+    Autonomy,
     Mode,
     OntologyActionType,
     Operation,
@@ -389,6 +390,19 @@ def _check_catalog_policy(
                     message=(
                         "catalog ActionType MUST declare ceiling_by_tier for t0, t1, "
                         "and t2 (execution-model.md 2.2)"
+                    ),
+                )
+            )
+        elif cbt.t2.max_autonomy is not Autonomy.SHADOW_ONLY:
+            issues.append(
+                ActionTypeIssue(
+                    key=f"{origin}:ceiling_by_tier.t2.max_autonomy",
+                    message=(
+                        "ceiling_by_tier.t2.max_autonomy MUST be shadow_only in the "
+                        "catalog; T2 is hard-capped to shadow-only by the ceiling "
+                        "module, and raising it is an operator-authored Rego-overlay "
+                        "concern (policies/action_types/), never a YAML ceiling "
+                        "(action-ontology.md 8)"
                     ),
                 )
             )
