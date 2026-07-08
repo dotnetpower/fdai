@@ -116,9 +116,10 @@ class IncidentRegistry:
     ) -> Incident:
         """Transition an existing incident.
 
-        Idempotent by ``(incident_id, to_state, actor_oid)`` - a
-        re-delivery returns the existing incident record without
-        writing a duplicate audit row.
+        Idempotent by ``(incident_id, to_state)`` - a re-delivery that
+        targets the state the incident is already in returns the existing
+        record without writing a duplicate audit row (``actor_oid`` is
+        recorded on the transition but does not affect this short-circuit).
         """
         incident = self._incidents.get(incident_id)
         if incident is None:

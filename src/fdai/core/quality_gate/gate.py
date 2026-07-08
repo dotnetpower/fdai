@@ -49,6 +49,7 @@ caught at build time.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -102,14 +103,17 @@ class QualityCandidate:
 
         ``bool`` values are excluded even though they subtype ``int``:
         confidence signals are numeric floats, and letting ``True`` pass
-        as ``1.0`` would silently inflate the aggregate.
+        as ``1.0`` would silently inflate the aggregate. Values outside
+        ``[0.0, 1.0]`` are likewise excluded - a confidence is a
+        probability, so an out-of-range signal is corrupt and MUST NOT be
+        allowed to push the aggregate past the gate threshold.
         """
         if not self.confidence_signals:
             return 0.0
         values = [
             float(v)
             for v in self.confidence_signals.values()
-            if isinstance(v, (int, float)) and not isinstance(v, bool)
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and 0.0 <= float(v) <= 1.0
         ]
         if not values:
             return 0.0
@@ -293,8 +297,14 @@ class QualityGate:
         agree = 0
         votes: list[ModelVote] = []
         first_proposer_output: tuple[str, Mapping[str, Any]] | None = None
-        for i, model in enumerate(self._models):
-            proposed_type, proposed_params = await model.propose(candidate)
+        # Models are independent read-only calls; run them concurrently so
+        # the cross-check adds one model's latency, not the sum, to the T2
+        # budget. Results are gathered in registration order, so votes and
+        # the first-proposer selection stay deterministic.
+        proposals = await asyncio.gather(*(model.propose(candidate) for model in self._models))
+        for i, (model, (proposed_type, proposed_params)) in enumerate(
+            zip(self._models, proposals, strict=True)
+        ):
             if i == 0:
                 first_proposer_output = (proposed_type, proposed_params)
             agreed = proposed_type == candidate.action_type

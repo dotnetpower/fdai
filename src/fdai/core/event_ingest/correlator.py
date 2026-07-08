@@ -90,8 +90,11 @@ class EventCorrelator:
         """Extract the correlation anchor keys (before windowing).
 
         Precedence: an explicit ``correlation_id`` is the strongest
-        anchor; the resource reference is the fallback. Both are
-        included when present so two events sharing either key correlate.
+        anchor; the resource reference is the fallback. Both are included
+        when present, and the incident id is derived from the *combined*
+        key set (``incident_id_for`` sorts + de-dups the whole tuple).
+        Two events therefore correlate when they share the *same* anchor
+        set - not merely one key in common.
         """
         keys: list[str] = []
         if event.correlation_id:

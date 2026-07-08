@@ -61,6 +61,31 @@ def _grounding(valid_rule: dict[str, object]) -> InMemoryGroundingSource:
     return InMemoryGroundingSource({rule.id: rule})
 
 
+def test_aggregate_confidence_excludes_out_of_range_signals() -> None:
+    # Confidence is a probability: a signal outside [0,1] is corrupt and
+    # MUST NOT push the aggregate past the gate threshold. Only the
+    # in-range 0.8 counts here (1.5 and -0.2 are dropped).
+    candidate = QualityCandidate(
+        action_type="remediate.tag-add",
+        target_resource_ref="example/object-storage/one",
+        params={},
+        cited_rule_ids=(),
+        confidence_signals={"a": 0.8, "inflated": 1.5, "negative": -0.2},
+    )
+    assert candidate.aggregate_confidence == 0.8
+
+
+def test_aggregate_confidence_zero_when_all_signals_out_of_range() -> None:
+    candidate = QualityCandidate(
+        action_type="x",
+        target_resource_ref="r",
+        params={},
+        cited_rule_ids=(),
+        confidence_signals={"a": 2.0, "b": -1.0},
+    )
+    assert candidate.aggregate_confidence == 0.0  # nothing valid -> abstain-safe
+
+
 def _models(agree_count: int, dissent_count: int) -> tuple[CrossCheckModel, ...]:
     agree = tuple(MatchTypeCrossCheckModel(model_id=f"fake-agree-{i}") for i in range(agree_count))
     dissent = tuple(

@@ -114,7 +114,10 @@ class WarmCapacityPolicy:
         triggers: list[str] = []
 
         threshold_rank = _SEVERITY_RANK[cfg.warm_at_or_above_severity]
-        if _SEVERITY_RANK[severity] <= threshold_rank:
+        # Fail-warm on an unknown severity (enum drift): an unmapped severity
+        # is treated as the most urgent (rank 1) so a new severity never
+        # silently loses warm capacity. Mirrors StormCoordinator's ``.get``.
+        if _SEVERITY_RANK.get(severity, 1) <= threshold_rank:
             triggers.append(
                 f"severity {severity.value} at/above {cfg.warm_at_or_above_severity.value}"
             )

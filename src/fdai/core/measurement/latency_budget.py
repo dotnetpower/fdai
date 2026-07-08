@@ -49,13 +49,16 @@ class LatencyDecision:
 class LatencyBudgetMonitor:
     """Compare :class:`LatencyObservation` against :class:`LatencyBudget`."""
 
-    def __init__(self, *, budgets: dict[Tier, LatencyBudget]) -> None:
+    def __init__(self, *, budgets: dict[Tier, LatencyBudget], min_sample_size: int = 1) -> None:
         for tier, budget in budgets.items():
             if budget.tier is not tier:
                 raise ValueError(f"budgets[{tier}].tier is {budget.tier}, expected {tier}")
             if budget.p95_ceiling_ms <= 0:
                 raise ValueError(f"budgets[{tier}].p95_ceiling_ms MUST be > 0")
+        if min_sample_size < 1:
+            raise ValueError("min_sample_size MUST be >= 1")
         self._budgets = dict(budgets)
+        self._min_sample_size = min_sample_size
 
     def evaluate(self, observation: LatencyObservation) -> LatencyDecision:
         budget = self._budgets.get(observation.tier)
@@ -64,6 +67,17 @@ class LatencyBudgetMonitor:
                 tier=observation.tier,
                 outcome=LatencyOutcome.PASS,
                 reasons=("no_budget_configured_for_tier",),
+            )
+        if observation.sample_size < self._min_sample_size:
+            # A p95 computed from too few samples is statistical noise;
+            # acting on it would demote an ActionType on chance. Hold
+            # (PASS) until enough samples accumulate.
+            return LatencyDecision(
+                tier=observation.tier,
+                outcome=LatencyOutcome.PASS,
+                reasons=(
+                    f"insufficient_samples:{observation.sample_size}<min={self._min_sample_size}",
+                ),
             )
         if observation.p95_ms > budget.p95_ceiling_ms:
             return LatencyDecision(

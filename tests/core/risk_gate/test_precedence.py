@@ -115,8 +115,8 @@ def test_deterministic_tie_break_within_same_vertical() -> None:
         ]
     )
     winner = next(d for d in decisions if d.outcome is PrecedenceOutcome.WIN)
-    # sorted reverse by action_id → 'zebra' wins deterministically.
-    assert winner.action_id == "zebra"
+    # Tie broken by the SMALLEST (earliest) action_id → 'alpha' wins.
+    assert winner.action_id == "alpha"
 
 
 def test_precedence_decision_is_immutable() -> None:

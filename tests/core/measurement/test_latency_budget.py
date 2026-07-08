@@ -63,3 +63,23 @@ def test_no_budget_configured_treats_as_pass() -> None:
     decision = monitor.evaluate(LatencyObservation(tier=Tier.T2, p95_ms=1e9, sample_size=1))
     assert decision.outcome is LatencyOutcome.PASS
     assert "no_budget_configured_for_tier" in decision.reasons
+
+
+def test_insufficient_samples_holds_instead_of_demoting() -> None:
+    # A p95 from too few samples is statistical noise - demoting on it
+    # would penalize an ActionType on chance. Hold (PASS) until enough.
+    monitor = LatencyBudgetMonitor(
+        budgets={Tier.T0: LatencyBudget(tier=Tier.T0, p95_ceiling_ms=100)},
+        min_sample_size=30,
+    )
+    decision = monitor.evaluate(LatencyObservation(tier=Tier.T0, p95_ms=9999.0, sample_size=5))
+    assert decision.outcome is LatencyOutcome.PASS
+    assert any("insufficient_samples" in r for r in decision.reasons)
+
+
+def test_min_sample_size_validation() -> None:
+    with pytest.raises(ValueError, match="min_sample_size"):
+        LatencyBudgetMonitor(
+            budgets={Tier.T0: LatencyBudget(tier=Tier.T0, p95_ceiling_ms=100)},
+            min_sample_size=0,
+        )

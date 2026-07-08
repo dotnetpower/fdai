@@ -136,11 +136,13 @@ class PrecedenceResolver:
 
             # Winner: highest precedence rank; tie-break by earliest action_id
             # (deterministic ordering when two actions from the same vertical
-            # collide - extremely rare, still worth pinning).
+            # collide - extremely rare, still worth pinning). Precedence is
+            # negated so a single ascending sort ranks highest-precedence
+            # first while still breaking ties on the SMALLEST action_id
+            # (a shared reverse=True would have picked the largest instead).
             group_sorted = sorted(
                 group,
-                key=lambda c: (_PRECEDENCE[c.vertical], c.action_id),
-                reverse=True,
+                key=lambda c: (-_PRECEDENCE[c.vertical], c.action_id),
             )
             winner = group_sorted[0]
             losers = group_sorted[1:]
