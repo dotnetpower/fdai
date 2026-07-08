@@ -26,10 +26,18 @@ models:
     capacity_tpm: 100000
 
   t1.judge:
+    # Latency-first mini stack. The resolver picks the first family the
+    # target region catalog offers with sufficient quota - newer 5.x mini
+    # models are meaningfully faster than gpt-4o-mini, so we prefer them
+    # when available and fall back to 4.1-mini / 4o-mini for regions that
+    # have not received the newer families yet.
     preferences:
+      - {publisher: OpenAI, family: gpt-5.4-mini}
+      - {publisher: OpenAI, family: gpt-5-mini}
+      - {publisher: OpenAI, family: gpt-4.1-mini}
       - {publisher: OpenAI, family: gpt-4o-mini}
     sku: Standard
-    capacity_tpm: 40000
+    capacity_tpm: 200000
 
   t2.reasoner.primary:
     preferences:
@@ -66,3 +74,17 @@ models:
     sku: Standard
     capacity_tpm: 5000
     invocation: on_disagreement
+
+  # T2 root-cause reasoner (observability-and-detection.md § 4). Fires
+  # only on a novel incident the deterministic tiers could not resolve
+  # (``invocation: on_novel_case``), so it never runs on the T0/T1
+  # majority - keeping token cost bounded. Its output is refused unless
+  # it grounds on the supplied candidate citations; the deterministic
+  # parse_rca_response + grounding gate, not the model prose, decide.
+  t2.rca:
+    preferences:
+      - {publisher: OpenAI, family: gpt-4o}
+      - {publisher: Anthropic, family: claude-opus-4}
+    sku: Standard
+    capacity_tpm: 5000
+    invocation: on_novel_case
