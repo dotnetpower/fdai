@@ -78,6 +78,16 @@ def test_registry_names_covers_expected_set(
     assert set(registry.names()) == expected
 
 
+def test_package_registry_caches_parsed_schema() -> None:
+    # The parsed schema is an immutable package resource; repeated get()
+    # calls MUST return the cached object rather than re-reading + re-parsing
+    # the file on a hot path (schema validation runs per rule / per event).
+    registry = PackageResourceSchemaRegistry()
+    first = registry.get("event")
+    second = registry.get("event")
+    assert first is second
+
+
 def test_default_container_wires_the_upstream_seam(app_config: object) -> None:
     """The composition root MUST bind the upstream default when handed a valid config."""
     from fdai.composition import default_container

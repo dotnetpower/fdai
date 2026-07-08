@@ -46,6 +46,12 @@ class BurnRate:
             raise ValueError("total_events MUST be >= 0")
         if self.good_events > self.total_events:
             raise ValueError("good_events MUST be <= total_events")
+        if not 0.0 <= self.objective_ratio <= 1.0:
+            # A negative ratio would inflate ``allowed`` and silently
+            # under-report the burn rate (fail-open on a breach); a ratio
+            # above 1 is not a valid SLO objective. The ``rate`` property
+            # treats exactly 1.0 as the impossibly-strict sentinel.
+            raise ValueError("objective_ratio MUST be in [0.0, 1.0]")
 
     @property
     def bad_ratio(self) -> float:

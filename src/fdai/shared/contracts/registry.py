@@ -92,11 +92,19 @@ class PackageResourceSchemaRegistry:
 
     def __init__(self, package: str = "fdai.shared.contracts") -> None:
         self._package = package
+        # Parsed schemas are immutable package resources; cache them so a
+        # hot path (schema validation runs per rule / per event) does not
+        # re-read the file and re-parse the JSON on every ``get``.
+        self._cache: dict[tuple[str, str], Mapping[str, object]] = {}
 
     def get(self, name: str, version: str | None = None) -> Mapping[str, object]:
         target_version = version or self._latest_version(name)
         if target_version is None:
             raise SchemaNotFoundError(f"unknown schema name: {name!r}")
+
+        cached = self._cache.get((name, target_version))
+        if cached is not None:
+            return cached
 
         rel = _PACKAGE_SCHEMAS.get((name, target_version))
         if rel is None:
@@ -108,6 +116,7 @@ class PackageResourceSchemaRegistry:
             raise SchemaNotFoundError(  # pragma: no cover - schema files are dicts
                 f"schema {name!r} is not a JSON object"
             )
+        self._cache[(name, target_version)] = loaded
         return loaded
 
     def names(self) -> list[str]:

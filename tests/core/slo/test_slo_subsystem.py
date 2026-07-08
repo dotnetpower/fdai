@@ -234,3 +234,12 @@ sli:
 # Ref used to keep the imports minimal - `datetime` documents that the
 # window semantic is UTC even though the current tests don't need it.
 _ = (datetime, UTC)
+
+
+def test_burn_rate_rejects_out_of_range_objective_ratio() -> None:
+    # A negative ratio would inflate ``allowed`` and under-report the burn
+    # rate (fail-open on a breach); a ratio > 1 is not a valid objective.
+    with pytest.raises(ValueError, match="objective_ratio"):
+        BurnRate(window_minutes=5, good_events=0, total_events=10, objective_ratio=-0.1)
+    with pytest.raises(ValueError, match="objective_ratio"):
+        BurnRate(window_minutes=5, good_events=0, total_events=10, objective_ratio=1.5)
