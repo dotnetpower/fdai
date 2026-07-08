@@ -339,6 +339,25 @@ tool is `side_effect_class=execute`; an `ops` ActionType is usually
 `trigger_kind=operator_request` and its tool is `approve` or `execute`.
 The audit entry (§9) carries all three so analytics can slice on any axis.
 
+### 4.4 Execution authorization vs ontology property ACL
+
+An ontology **property read** is gated by two independent dimensions -
+`access_scope` (role rank) AND `purpose_binding` (purpose-set
+intersection) - because a read is otherwise a single-gate operation and
+data-minimization needs a second axis
+([`shared/ontology/acl.py`](../../src/fdai/shared/ontology/acl.py)).
+
+An ActionType **execution** deliberately does NOT carry a
+`purpose_binding`; its authorization is `ceiling_by_tier.min_role` plus
+the full six-axis RiskGate ceiling (risk table, tier cap, static blast,
+live blast, role, env), the quorum, the HIL gate, and shadow-first
+promotion. Execution is therefore gated by strictly more dimensions than
+a read, not fewer - the asymmetry is intentional, not a missing gate.
+Purpose-scoped execution (an operator may run this action only for
+purpose X) is future scope; it would add a `min_purpose` axis to
+`ceiling_by_tier` and a purpose in the dispatch principal, and is not
+required for the current risk model (critique #30).
+
 ## 5. Argument schema (operator_request only)
 
 Rule-fired ActionTypes receive their params from the rule's

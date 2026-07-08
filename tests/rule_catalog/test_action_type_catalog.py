@@ -11,6 +11,7 @@ policy rules:
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -792,6 +793,33 @@ def test_empty_restrict_to_scenarios_entry_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(ActionTypeCatalogError) as info:
         load_action_type_catalog(root, schema_registry=_registry())
     assert "restrict_to_scenarios" in " ".join(i.key for i in info.value.issues)
+
+
+# --- #26: docs-site showcase must not drift from the shipped catalog ---
+
+
+def test_docs_site_action_ontology_ts_names_exist_in_catalog() -> None:
+    """Every ActionType name referenced by the curated docs-site showcase
+    (site/src/data/action-ontology.ts) MUST exist in the shipped catalog,
+    so a catalog rename or typo cannot leave the showcase pointing at a
+    dead name (action-ontology critique #26). The showcase is a subset, so
+    the guard is one-directional (TS names subset of catalog names)."""
+
+    ts_path = REPO_ROOT / "site" / "src" / "data" / "action-ontology.ts"
+    if not ts_path.exists():
+        pytest.skip("docs-site action-ontology.ts not present")
+    text = ts_path.read_text(encoding="utf-8")
+    ts_names = {
+        n for n in re.findall(r'name:\s*"([a-z][a-z0-9_.\-]+)"', text) if "." in n
+    }
+    assert ts_names, "expected the showcase to list at least one ActionType name"
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    shipped = {a.name for a in catalog}
+    drifted = ts_names - shipped
+    assert not drifted, (
+        "site/src/data/action-ontology.ts references ActionType names absent from "
+        f"the shipped catalog (drift - refresh the showcase): {sorted(drifted)}"
+    )
 
 
 
