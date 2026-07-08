@@ -40,6 +40,7 @@ publisher's own idempotency check (also keyed on
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -51,14 +52,23 @@ from fdai.core.executor.renderer import (
     TemplateRenderer,
 )
 from fdai.shared.contracts.models import Action, Mode, Rule
+from fdai.shared.providers.idempotency import IdempotencyStore
 from fdai.shared.providers.remediation_pr import (
     RemediationPr,
     RemediationPrPublisher,
 )
+from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
 
 _DEFAULT_MAX_AFFECTED_RESOURCES: Final[int] = 10
 _DEFAULT_MAX_RATE_PER_MINUTE: Final[int] = 30
+# Cap in-memory dedupe entries so a long-running control loop does not
+# grow the executor's memory footprint one entry per unique
+# `idempotency_key`. 10 000 covers ~ a day of typical event volume; the
+# real dedup source-of-truth is the persistent audit_log's UNIQUE index,
+# so evicting an older entry only trades an in-process cache hit for one
+# extra audit-log write on retry.
+_DEFAULT_MAX_DEDUPE_ENTRIES: Final[int] = 10_000
 
 
 class ExecutorOutcome(StrEnum):
@@ -99,6 +109,10 @@ class ExecutorConfig:
 
     max_affected_resources: int = _DEFAULT_MAX_AFFECTED_RESOURCES
     max_rate_per_minute: int = _DEFAULT_MAX_RATE_PER_MINUTE
+    max_dedupe_entries: int = _DEFAULT_MAX_DEDUPE_ENTRIES
+    """Upper bound on the in-memory idempotency-key -> result cache. A
+    long-running control loop hits FIFO eviction once past this size;
+    the persistent audit_log UNIQUE constraint is the durable dedup."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +128,43 @@ class ExecutionResult:
     audit_context: dict[str, object] = field(default_factory=dict)
 
 
+# Outcomes that actually published a remediation PR (a mutation). Only
+# these are recorded in the durable idempotency store - abstains and
+# refusals did not mutate, so re-evaluating them on retry is harmless.
+_MUTATION_OUTCOMES: frozenset[ExecutorOutcome] = frozenset(
+    {ExecutorOutcome.PUBLISHED, ExecutorOutcome.ALREADY_EXISTED}
+)
+
+
+def _result_to_payload(result: ExecutionResult) -> dict[str, object]:
+    return {
+        "action_id": result.action_id,
+        "outcome": result.outcome.value,
+        "mode": result.mode.value,
+        "pr_ref": result.pr_ref,
+        "pr_url": result.pr_url,
+        "reason": result.reason,
+        "audit_context": dict(result.audit_context),
+    }
+
+
+def _result_from_payload(payload: Mapping[str, object]) -> ExecutionResult:
+    ctx = payload.get("audit_context") or {}
+    return ExecutionResult(
+        action_id=str(payload["action_id"]),
+        outcome=ExecutorOutcome(str(payload["outcome"])),
+        mode=Mode(str(payload.get("mode", Mode.SHADOW.value))),
+        pr_ref=_opt_str(payload.get("pr_ref")),
+        pr_url=_opt_str(payload.get("pr_url")),
+        reason=_opt_str(payload.get("reason")),
+        audit_context=dict(ctx) if isinstance(ctx, Mapping) else {},
+    )
+
+
+def _opt_str(value: object) -> str | None:
+    return None if value is None else str(value)
+
+
 class ShadowExecutor:
     """The one execution surface for P1 remediation PRs."""
 
@@ -125,13 +176,19 @@ class ShadowExecutor:
         renderer: TemplateRenderer,
         resource_lock: ResourceLock,
         config: ExecutorConfig | None = None,
+        idempotency: IdempotencyStore | None = None,
     ) -> None:
         self._publisher = publisher
         self._audit_store = audit_store
         self._renderer = renderer
         self._resource_lock = resource_lock
         self._config = config or ExecutorConfig()
-        # idempotency_key -> ExecutionResult
+        self._idempotency = idempotency
+        # idempotency_key -> ExecutionResult. Insertion-ordered dict so
+        # `next(iter(self._dedupe))` is the oldest entry - evict in FIFO
+        # order once the cap in `ExecutorConfig.max_dedupe_entries` is
+        # reached. Not thread-safe, but the executor is only reached from
+        # one asyncio task at a time behind the resource lock.
         self._dedupe: dict[str, ExecutionResult] = {}
 
     async def execute(self, *, action: Action, rule: Rule) -> ExecutionResult:
@@ -173,6 +230,17 @@ class ShadowExecutor:
             cached = self._dedupe.get(action.idempotency_key)
             if cached is not None:
                 return cached
+
+            # Durable L2 guard: a prior mutation recorded under this key
+            # (possibly by an earlier process, before a restart) is
+            # returned instead of mutating again. Only mutating outcomes
+            # are recorded, so a miss here means no mutation happened yet.
+            if self._idempotency is not None:
+                stored = await self._idempotency.seen(action.idempotency_key)
+                if stored is not None:
+                    result = _result_from_payload(stored)
+                    self._remember(action.idempotency_key, result)
+                    return result
 
             blast_reason = self._check_blast_radius(action)
             if blast_reason is not None:
@@ -262,9 +330,42 @@ class ShadowExecutor:
                 "blast_radius_scope": action.blast_radius.scope.value,
             },
         )
-        self._dedupe[action.idempotency_key] = result
+        # Write audit BEFORE caching the result. If the audit-store
+        # write raises (DB down, network partition), the exception
+        # bubbles up with an unpopulated dedupe cache - the next retry
+        # then re-executes and re-audits. Populating the cache before
+        # the audit call would let a retry short-circuit the audit
+        # attempt entirely, silently losing the durable trail for one
+        # event delivery.
         await self._write_audit(action=action, rule=rule, result=result)
+        self._remember(action.idempotency_key, result)
+        # Durable dedup: record only mutating outcomes so a post-restart
+        # retry does not re-publish. Recorded AFTER the audit write for
+        # the same reason _remember is (a failed audit must re-execute).
+        if self._idempotency is not None and outcome in _MUTATION_OUTCOMES:
+            await self._idempotency.record(
+                action.idempotency_key, _result_to_payload(result)
+            )
         return result
+
+    def _remember(self, key: str, result: ExecutionResult) -> None:
+        """FIFO-bounded insert into the idempotency cache.
+
+        The oldest entry (dict-insertion order) is evicted once the cap
+        in :attr:`ExecutorConfig.max_dedupe_entries` is exceeded. The
+        durable dedup source is the audit log's UNIQUE constraint on
+        ``entry_hash``; evicting an in-memory entry only trades a cache
+        hit for one extra DB round-trip on a retry that arrives after
+        the cache window.
+        """
+        cap = max(1, self._config.max_dedupe_entries)
+        # If we already have this key, move it to the tail (touch on
+        # write). Otherwise insert; evict the head if we've reached cap.
+        if key in self._dedupe:
+            del self._dedupe[key]
+        elif len(self._dedupe) >= cap:
+            self._dedupe.pop(next(iter(self._dedupe)))
+        self._dedupe[key] = result
 
     async def _write_audit(self, *, action: Action, rule: Rule, result: ExecutionResult) -> None:
         entry = {

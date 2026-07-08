@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: d4fc5b7717a7eb6a1a37d51e0c0750d86e98e28f
+translation_source_sha: 51b1152acce6a269897a9197d8229de96aa73569
 translation_revised: 2026-07-08
 ---
 
@@ -71,13 +71,56 @@ seam):
   벤더 SDK 도 import 하지 않음.
 - 이벤트 스키마는 JSON Schema 위에 **CloudEvents envelope** 사용
   ([tech-stack-ko.md](tech-stack-ko.md)); 모든 프로바이더에서 동일 유지.
+- **스키마 진화** 는 `check_schema_compatibility`
+  (`shared/contracts/compatibility.py`)로 가드된다: 버전별 스키마
+  (`event/1.0.0` -> `event/1.1.0`)는 불변이며, catalog-validation 게이트가
+  additive-only 가 아닌 bump(필드 제거, 타입 변경, 신규 required, enum 축소는
+  `BREAKING`)를 거부한다. 이로써 rolling deploy 나 혼합 버전 replica 가 조용히
+  디코딩 실패하는 것을 막아 - 구/신 producer/consumer 가 상호운용을 유지한다.
 - **DLQ** = 명명 규약을 따르는 Kafka **dead-letter topic** (예: `<topic>.dlq`) + redrive
   워커; native DLQ 를 제공하는 프로바이더 (Event Hubs 는 제공 안함) 도 동작을 균일하게
   유지하기 위해 **무시** 하고 topic 규약 사용.
 - **순서** 는 partition key 로 보장 (per-resource key ⇒ per-resource ordering).
   프로바이더 특이 순서 프리미티브 (Service Bus sessions, FIFO groups) 는 코어로 흘러선 안됨.
 - **멱등성** 은 이벤트의 앱 수준 idempotency key 로 강제하지 프로바이더의 "exactly-once"
-  플래그로 하지 않음.
+  플래그로 하지 않음. executor 는 인-프로세스 L1 캐시를 유지하고,
+  `IdempotencyStore` seam(`shared/providers/idempotency.py`)이 배선되면 durable
+  L2 가드(`PostgresIdempotencyStore`, `INSERT ... ON CONFLICT DO NOTHING`)를
+  둔다: 재시작 후 또는 replica 간에서 *mutating* action 이 재전달되면
+  재실행 대신 store 에서 반환된다. mutating outcome 만 기록된다 - abstain 은
+  mutate 하지 않으므로 재평가해도 무해. "mutation 적용"과 "결과 기록" 사이의
+  좁은 창은 `OutboxStore` seam(`shared/providers/outbox.py`;
+  `PostgresOutboxStore` 백업)이 닫는다: mutation *전* 에 쓴 claim 이 있으므로
+  crash-suspect 재시도는 `IN_PROGRESS` 마커를 발견해 idempotent mutation 을
+  완료까지 재실행하며 잃거나 이중 적용하지 않는다. outbox 는 action 이
+  mutate 할 때(enforce / P2) 의미가 있다; P1 은 shadow 전용이라 거기서는
+  아무것도 이중 적용되지 않는다.
+- **replica 간 per-resource 상호배제** 는 `ResourceLock` seam
+  (`shared/providers/resource_lock.py`)으로 강제한다: 인-프로세스 `asyncio.Lock`
+  (`ResourceLockManager`)이 단일 replica 기본값이고,
+  `PostgresAdvisoryResourceLock`(`hashtextextended(resource_id)` 로 키잉된 Postgres
+  세션 advisory lock)이 executor 가 replica 하나를 넘어 스케일아웃하면 replica 간
+  상호배제를 준다. partition-key 순서는 *stream* 을 직렬화하고, 락은 같은 리소스의
+  동시 *action* 을 직렬화한다 - 스케일아웃에선 둘 다 필요하다. 락은 crash-safe
+  (연결이 끊기면 세션 락 해제)이며 `lock_timeout` 으로 bound 되어 stuck holder 가
+  replica 를 wedge 하지 않고 fail closed 한다.
+- **다운스트림 장애 격리** 는 `CircuitBreaker` primitive
+  (`shared/resilience/circuit_breaker.py`)를 쓴다: composition root 가 provider
+  어댑터의 아웃바운드 호출(Azure ARM, GitHub, Postgres, Kafka)을 감싸, 실패가
+  이어지면 회로를 OPEN 으로 트립해 죽은 의존성을 두드리는(재시도 폭풍) 대신 즉시
+  실패하고, HALF_OPEN 단일 probe 로 탐침 후 닫는다. clock 주입 가능한 순수 I/O-free
+  상태머신이며 composition root 에서 배선(`core` 에선 안 함)되어 CSP-neutral 을
+  유지하고 판테온 브리지의 자가치유 재시작을 보완한다.
+- **시스템 레벨 fail-toward-safety** 는 `DegradationController`
+  (`shared/resilience/degradation.py`)다: circuit breaker 들을 종합해
+  `NORMAL` / `DEGRADED` 모드로 판정하고, 중요 의존성이 OPEN 이면 autonomy 를
+  shadow 로 캡한다 - 망가진 audit store 나 도달 불가 substrate 가 enforce mutation
+  을 몰아선 안 된다. 판테온 런타임 / risk gate 가 action 승격 전에
+  `autonomy_permitted()` 를 참조한다.
+- **backpressure** (`shared/resilience/backpressure.py`)는 세마포어로 동시성을
+  bound 하고, in-flight 슬롯과 bounded 대기 큐가 모두 차면 *shed*(즉시 거부,
+  broker / DLQ 로 재큐잉)해서 이벤트 폭주가 프로세스를 고갈시키는 대신 예측
+  가능하게 저하되게 한다.
 
 **Anti-patterns (MUST NOT):**
 

@@ -16,6 +16,7 @@ Every property this suite asserts corresponds to a rule in
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -358,6 +359,43 @@ async def test_publisher_reports_already_existed_after_process_restart() -> None
     assert entries[0]["entry"]["outcome"] == "already_existed"
 
 
+@pytest.mark.asyncio
+async def test_durable_idempotency_skips_publisher_after_restart() -> None:
+    """With a durable idempotency store, a post-restart re-delivery returns
+    the recorded result WITHOUT re-calling the publisher - no double
+    mutation even when the publisher is not itself idempotent."""
+    from fdai.shared.providers.testing.idempotency import InMemoryIdempotencyStore
+
+    store = InMemoryIdempotencyStore()  # survives the simulated restart
+    action = _action(idempotency_key="durable-key")
+
+    pub_a = RecordingRemediationPrPublisher()
+    exec_a = ShadowExecutor(
+        publisher=pub_a,
+        audit_store=InMemoryStateStore(),
+        renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
+        resource_lock=ResourceLockManager(),
+        idempotency=store,
+    )
+    result_a = await exec_a.execute(action=action, rule=_rule())
+    assert result_a.outcome is ExecutorOutcome.PUBLISHED
+    assert len(pub_a.records) == 1
+
+    # Restart: fresh executor AND fresh (non-idempotent) publisher, same
+    # durable store.
+    pub_b = RecordingRemediationPrPublisher()
+    exec_b = ShadowExecutor(
+        publisher=pub_b,
+        audit_store=InMemoryStateStore(),
+        renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
+        resource_lock=ResourceLockManager(),
+        idempotency=store,
+    )
+    result_b = await exec_b.execute(action=action, rule=_rule())
+    assert result_b.outcome is ExecutorOutcome.PUBLISHED  # returned from the store
+    assert len(pub_b.records) == 0  # publisher NEVER called - no double mutation
+
+
 # ---------------------------------------------------------------------------
 # Ordering (per-resource lock)
 # ---------------------------------------------------------------------------
@@ -454,3 +492,71 @@ def test_missing_safety_invariant_helper_covers_every_branch() -> None:
     # Empty citing_rules
     reason = _missing_safety_invariant(_stub(citing_rules=[]))
     assert reason is not None and "citing_rules" in reason
+
+
+@pytest.mark.asyncio
+async def test_dedupe_cache_evicts_oldest_entry_when_over_cap() -> None:
+    """FIFO eviction: when the dedupe cap is reached the oldest key is
+    dropped so `_dedupe` cannot grow unbounded across a long-running
+    process. A retry that arrives after eviction re-enters the executor
+    (its L1 dedup does not short-circuit) but the persistent publisher
+    still recognizes the key and returns ``already_existed`` - which is
+    exactly how a real cross-restart retry would look."""
+
+    executor, publisher, _audit = _executor(max_dedupe_entries=2)
+
+    # Three distinct keys - the third insertion evicts the first from
+    # the L1 dedup cache.
+    for key in ("evict-a", "evict-b", "evict-c"):
+        await executor.execute(action=_action(idempotency_key=key), rule=_rule())
+
+    assert list(executor._dedupe.keys()) == ["evict-b", "evict-c"]
+
+    # The first key was evicted from L1, so a retry re-enters the
+    # executor path (not a cache short-circuit). The publisher's
+    # `_by_key` ledger persists so it reports the retry as
+    # ``already_existed`` - the ExecutionResult still surfaces the
+    # ALREADY_EXISTED outcome distinct from PUBLISHED.
+    retry = await executor.execute(
+        action=_action(idempotency_key="evict-a"), rule=_rule()
+    )
+    assert retry.outcome is ExecutorOutcome.ALREADY_EXISTED
+
+    # After the retry, the newly touched key sits at the tail of the
+    # ordered dict and the previously-oldest survivor was evicted.
+    assert list(executor._dedupe.keys()) == ["evict-c", "evict-a"]
+
+
+@pytest.mark.asyncio
+async def test_audit_failure_does_not_poison_dedupe_cache() -> None:
+    """Cache-poisoning regression: if the audit write raises (DB down,
+    network partition) the L1 dedup cache MUST NOT keep the result. A
+    retry after audit failure has to re-execute so the durable trail
+    catches up. This is the reason ``_write_audit`` runs BEFORE
+    ``_remember`` in :meth:`ShadowExecutor._finish`."""
+
+    class _RaisingAuditStore:
+        """Minimal ``StateStore`` fake that raises on every append."""
+
+        async def append_audit_entry(self, entry: Mapping[str, Any]) -> None:
+            raise RuntimeError("audit store unavailable (simulated)")
+
+        async def append_incident_transition(self, entry: Mapping[str, Any]) -> None:
+            raise RuntimeError("audit store unavailable (simulated)")
+
+    publisher = RecordingRemediationPrPublisher()
+    executor = ShadowExecutor(
+        publisher=publisher,
+        audit_store=_RaisingAuditStore(),  # type: ignore[arg-type]
+        renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
+        resource_lock=ResourceLockManager(),
+    )
+
+    with pytest.raises(RuntimeError, match="audit store unavailable"):
+        await executor.execute(
+            action=_action(idempotency_key="poison-test"), rule=_rule()
+        )
+
+    # Cache MUST NOT carry the failed key - a retry would otherwise
+    # short-circuit past the audit path and never persist the record.
+    assert "poison-test" not in executor._dedupe

@@ -69,6 +69,13 @@ same code path serve every target.
   vendor SDK is imported.
 - The event schema uses **CloudEvents envelope** on top of JSON Schema
   ([tech-stack.md](tech-stack.md)); this stays identical across providers.
+- **Schema evolution** is guarded by `check_schema_compatibility`
+  (`shared/contracts/compatibility.py`): each versioned schema
+  (`event/1.0.0` -> `event/1.1.0`) is immutable, and a catalog-validation gate
+  rejects a bump that is not additive-only (a removed field, a type change, a
+  newly-required field, or a narrowed enum is `BREAKING`). This keeps a rolling
+  deploy or mixed-version replicas from silently failing to decode - old and new
+  producers/consumers stay interoperable.
 - **DLQ** = a Kafka **dead-letter topic** with a naming convention (e.g. `<topic>.dlq`)
   plus a redrive worker; providers that offer native DLQ (Event Hubs does not) MUST be
   ignored in favor of the topic convention so behavior is uniform.
@@ -76,7 +83,46 @@ same code path serve every target.
   Any provider-specific ordering primitive (Service Bus sessions, FIFO groups) MUST NOT
   leak into core.
 - **Idempotency** is enforced by the app-level idempotency key on the event, not by
-  provider "exactly-once" flags.
+  provider "exactly-once" flags. The executor keeps an in-process L1 cache and,
+  when the `IdempotencyStore` seam (`shared/providers/idempotency.py`) is wired,
+  a durable L2 guard (`PostgresIdempotencyStore`, `INSERT ... ON CONFLICT DO
+  NOTHING`): a post-restart or cross-replica re-delivery of a *mutating* action
+  is returned from the store instead of re-executed. Only mutating outcomes are
+  recorded - abstains do not mutate, so re-evaluating them is harmless. The
+  narrow window between "mutation applied" and "result recorded" is closed by the
+  `OutboxStore` seam (`shared/providers/outbox.py`; `PostgresOutboxStore` backs
+  it): a claim written *before* the mutation means a crash-suspect retry finds an
+  `IN_PROGRESS` marker and re-runs the idempotent mutation to completion rather
+  than losing or double-applying it. The outbox matters once actions mutate
+  (enforce / P2); P1 is shadow-only, so nothing is applied twice there.
+- **Cross-replica per-resource exclusion** is enforced by the `ResourceLock` seam
+  (`shared/providers/resource_lock.py`): the in-process `asyncio.Lock`
+  (`ResourceLockManager`) is the single-replica default, and
+  `PostgresAdvisoryResourceLock` (a Postgres session advisory lock keyed by
+  `hashtextextended(resource_id)`) gives cross-replica mutual exclusion once the
+  executor scales past one replica. Partition-key ordering serializes a *stream*;
+  the lock serializes concurrent *actions* on the same resource - both are needed
+  under scale-out. The lock is crash-safe (a dropped connection releases the
+  session lock) and bound by `lock_timeout` so a stuck holder fails closed rather
+  than wedging a replica.
+- **Downstream failure isolation** uses the `CircuitBreaker` primitive
+  (`shared/resilience/circuit_breaker.py`): a composition root wraps a provider
+  adapter's outbound call (Azure ARM, GitHub, Postgres, Kafka) so a run of
+  failures trips the circuit OPEN and fails fast instead of hammering a dead
+  dependency (a retry storm), then probes with a single HALF_OPEN call before
+  closing. It is a pure, I/O-free state machine with an injectable clock, wired
+  at the composition root (never in `core`), so it stays CSP-neutral and
+  complements the pantheon bridge's self-healing restart.
+- **System-level fail-toward-safety** is the `DegradationController`
+  (`shared/resilience/degradation.py`): it aggregates the circuit breakers into a
+  `NORMAL` / `DEGRADED` mode and caps autonomy to shadow when a critical
+  dependency is OPEN - a failing audit store or unreachable substrate MUST NOT
+  drive an enforce mutation. The pantheon runtime / risk gate consult
+  `autonomy_permitted()` before promoting an action.
+- **Backpressure** (`shared/resilience/backpressure.py`) bounds concurrency with
+  a semaphore and *sheds* (fast-rejects, re-queued to the broker / DLQ) once both
+  the in-flight slots and a bounded wait queue are full, so an event storm
+  degrades predictably instead of exhausting the process.
 
 **Anti-patterns (MUST NOT):**
 

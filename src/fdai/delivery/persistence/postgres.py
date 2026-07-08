@@ -188,30 +188,36 @@ class PostgresStateStore(StateStore):
     # ------------------------------------------------------------------
 
     async def verify_chain(self) -> bool:
-        """Walk the persisted audit chain and recompute every hash."""
+        """Walk the persisted audit chain and recompute every hash.
+
+        Uses a server-side cursor (streaming) so a multi-gigabyte audit
+        log does not buffer entirely in memory. Each row is hashed and
+        chained as it arrives; the statement_timeout still bounds total
+        runtime so a runaway verify does not lock a connection forever.
+        """
+        previous = _GENESIS_HASH
         async with await psycopg.AsyncConnection.connect(
             self._config.dsn, row_factory=dict_row
         ) as conn:
             await self._set_statement_timeout(conn)
-            cur = await conn.execute(
-                """
-                SELECT entry, previous_hash, entry_hash
-                  FROM audit_log
-                 ORDER BY seq ASC
-                """
-            )
-            rows = await cur.fetchall()
-        previous = _GENESIS_HASH
-        for row in rows:
-            if row["previous_hash"] != previous:
-                return False
-            entry = row["entry"]
-            if isinstance(entry, str):
-                entry = json.loads(entry)
-            expected = _next_hash(previous, entry)
-            if row["entry_hash"] != expected:
-                return False
-            previous = row["entry_hash"]
+            async with conn.cursor(name="fdai_verify_chain") as cur:
+                await cur.execute(
+                    """
+                    SELECT entry, previous_hash, entry_hash
+                      FROM audit_log
+                     ORDER BY seq ASC
+                    """
+                )
+                async for row in cur:
+                    if row["previous_hash"] != previous:
+                        return False
+                    entry = row["entry"]
+                    if isinstance(entry, str):
+                        entry = json.loads(entry)
+                    expected = _next_hash(previous, entry)
+                    if row["entry_hash"] != expected:
+                        return False
+                    previous = row["entry_hash"]
         return True
 
     # ------------------------------------------------------------------

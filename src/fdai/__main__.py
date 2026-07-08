@@ -71,6 +71,8 @@ from .rule_catalog.schema.resource_type import (
 from .rule_catalog.schema.rule import load_rule_catalog
 from .shared.config.models import LlmMode
 from .shared.providers.event_bus import EventBus
+from .shared.providers.idempotency import IdempotencyStore
+from .shared.providers.resource_lock import ResourceLock
 from .shared.providers.testing.direct_api import RecordingDirectApiExecutor
 from .shared.providers.testing.remediation_pr import RecordingRemediationPrPublisher
 from .shared.providers.testing.state_store import InMemoryStateStore
@@ -164,6 +166,47 @@ def _build_audit_store() -> Any:
         return PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
     _LOGGER.info("state_store_backend", extra={"backend": "in-memory"})
     return InMemoryStateStore()
+
+
+def _build_resource_lock() -> ResourceLock:
+    """Select the per-resource lock backend for this process.
+
+    ``FDAI_RESOURCE_LOCK_DSN`` (falling back to ``FDAI_STATE_STORE_DSN``)
+    switches to the distributed :class:`PostgresAdvisoryResourceLock` so
+    per-resource ordering holds across replicas; without a DSN the
+    in-process :class:`ResourceLockManager` is used (correct only for a
+    single replica). The ``ResourceLock`` Protocol is the contract, so
+    the executor neither knows nor cares which backend is active.
+    """
+    dsn = (
+        os.environ.get("FDAI_RESOURCE_LOCK_DSN", "").strip()
+        or os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+    )
+    if not dsn:
+        _LOGGER.info("resource_lock_backend", extra={"backend": "in-memory"})
+        return ResourceLockManager()
+
+    from .delivery.persistence import (
+        PostgresAdvisoryResourceLock,
+        PostgresAdvisoryResourceLockConfig,
+    )
+
+    timeout_raw = os.environ.get("FDAI_RESOURCE_LOCK_TIMEOUT_MS", "").strip()
+    try:
+        timeout_ms = int(timeout_raw) if timeout_raw else 30_000
+    except ValueError as exc:
+        raise RuntimeError(
+            f"FDAI_RESOURCE_LOCK_TIMEOUT_MS={timeout_raw!r} is not an integer"
+        ) from exc
+    if timeout_ms < 0:
+        raise RuntimeError(
+            f"FDAI_RESOURCE_LOCK_TIMEOUT_MS MUST be >= 0; got {timeout_ms}"
+        )
+
+    _LOGGER.info("resource_lock_backend", extra={"backend": "postgres-advisory"})
+    return PostgresAdvisoryResourceLock(
+        config=PostgresAdvisoryResourceLockConfig(dsn=dsn, lock_timeout_ms=timeout_ms)
+    )
 
 
 def _build_operator_memory_store() -> Any:
@@ -472,7 +515,8 @@ async def _finalize_llm_bindings(
 def _build_direct_api_executor(
     *,
     audit_store: Any,
-    resource_lock: ResourceLockManager,
+    resource_lock: ResourceLock,
+    idempotency: IdempotencyStore | None = None,
 ) -> DirectApiShadowExecutor | None:
     """Select the direct-API executor for this process.
 
@@ -498,7 +542,35 @@ def _build_direct_api_executor(
         executor=RecordingDirectApiExecutor(),
         audit_store=audit_store,
         resource_lock=resource_lock,
+        idempotency=idempotency,
     )
+
+
+def _build_idempotency_store() -> IdempotencyStore | None:
+    """Select the durable idempotency backend for this process.
+
+    ``FDAI_IDEMPOTENCY_DSN`` (falling back to ``FDAI_STATE_STORE_DSN``)
+    switches on the durable :class:`PostgresIdempotencyStore` so a
+    post-restart / cross-replica re-delivery of a *mutating* action is
+    returned from the store instead of re-executed. Without a DSN the
+    executor uses its in-process L1 cache only (existing single-replica
+    behavior); ``None`` signals that.
+    """
+    dsn = (
+        os.environ.get("FDAI_IDEMPOTENCY_DSN", "").strip()
+        or os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+    )
+    if not dsn:
+        _LOGGER.info("idempotency_backend", extra={"backend": "in-process-l1-only"})
+        return None
+
+    from .delivery.persistence import (
+        PostgresIdempotencyStore,
+        PostgresIdempotencyStoreConfig,
+    )
+
+    _LOGGER.info("idempotency_backend", extra={"backend": "postgres"})
+    return PostgresIdempotencyStore(config=PostgresIdempotencyStoreConfig(dsn=dsn))
 
 
 def _build_control_loop(
@@ -584,17 +656,20 @@ def _build_control_loop(
     audit_store = _build_audit_store()
     publisher = _build_publisher(http_client)
     renderer = TemplateRenderer(remediation_root=remediation_root)
-    resource_lock = ResourceLockManager()
+    resource_lock = _build_resource_lock()
+    idempotency_store = _build_idempotency_store()
 
     executor = ShadowExecutor(
         publisher=publisher,
         audit_store=audit_store,
         renderer=renderer,
         resource_lock=resource_lock,
+        idempotency=idempotency_store,
     )
     direct_api_executor = _build_direct_api_executor(
         audit_store=audit_store,
         resource_lock=resource_lock,
+        idempotency=idempotency_store,
     )
 
     # Detection-and-explanation seams (observability-and-detection.md).

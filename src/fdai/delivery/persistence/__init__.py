@@ -19,16 +19,34 @@ from fdai.delivery.persistence.postgres import (
     PostgresStateStore,
     PostgresStateStoreConfig,
 )
+from fdai.delivery.persistence.postgres_idempotency import (
+    PostgresIdempotencyStore,
+    PostgresIdempotencyStoreConfig,
+)
 from fdai.delivery.persistence.postgres_operator_memory import (
     PostgresOperatorMemoryStore,
     PostgresOperatorMemoryStoreConfig,
+)
+from fdai.delivery.persistence.postgres_outbox import (
+    PostgresOutboxStore,
+    PostgresOutboxStoreConfig,
+)
+from fdai.delivery.persistence.postgres_resource_lock import (
+    PostgresAdvisoryResourceLock,
+    PostgresAdvisoryResourceLockConfig,
 )
 
 __all__ = [
     "PgVectorPatternLibrary",
     "PgVectorPatternLibraryConfig",
+    "PostgresAdvisoryResourceLock",
+    "PostgresAdvisoryResourceLockConfig",
+    "PostgresIdempotencyStore",
+    "PostgresIdempotencyStoreConfig",
     "PostgresOperatorMemoryStore",
     "PostgresOperatorMemoryStoreConfig",
+    "PostgresOutboxStore",
+    "PostgresOutboxStoreConfig",
     "PostgresStateStore",
     "PostgresStateStoreConfig",
 ]

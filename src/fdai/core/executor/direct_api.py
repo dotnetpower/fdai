@@ -29,6 +29,7 @@ distinguishable from the PR-native path.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -48,6 +49,8 @@ from fdai.shared.providers.direct_api import (
     DirectApiReceipt,
     DirectApiRequest,
 )
+from fdai.shared.providers.idempotency import IdempotencyStore
+from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
@@ -115,6 +118,42 @@ class DirectApiExecutionResult:
     audit_context: dict[str, Any] = field(default_factory=dict)
 
 
+# Outcomes that hit the substrate (a mutation, or a prior receipt for
+# one). Only these are recorded in the durable idempotency store.
+_DA_MUTATION_OUTCOMES: frozenset[DirectApiExecutionOutcome] = frozenset(
+    {
+        DirectApiExecutionOutcome.DISPATCHED,
+        DirectApiExecutionOutcome.ALREADY_APPLIED,
+    }
+)
+
+
+def _da_result_to_payload(result: DirectApiExecutionResult) -> dict[str, Any]:
+    return {
+        "action_id": result.action_id,
+        "outcome": result.outcome.value,
+        "mode": result.mode.value,
+        "receipt_ref": result.receipt_ref,
+        "rollback_succeeded": result.rollback_succeeded,
+        "reason": result.reason,
+        "audit_context": dict(result.audit_context),
+    }
+
+
+def _da_result_from_payload(payload: Mapping[str, Any]) -> DirectApiExecutionResult:
+    ctx = payload.get("audit_context") or {}
+    rollback = payload.get("rollback_succeeded")
+    return DirectApiExecutionResult(
+        action_id=str(payload["action_id"]),
+        outcome=DirectApiExecutionOutcome(str(payload["outcome"])),
+        mode=Mode(str(payload.get("mode", Mode.SHADOW.value))),
+        receipt_ref=None if payload.get("receipt_ref") is None else str(payload["receipt_ref"]),
+        rollback_succeeded=rollback if isinstance(rollback, bool) else None,
+        reason=None if payload.get("reason") is None else str(payload["reason"]),
+        audit_context=dict(ctx) if isinstance(ctx, Mapping) else {},
+    )
+
+
 class DirectApiShadowExecutor:
     """The dispatch surface for the ``direct_api`` execution path (P1)."""
 
@@ -125,12 +164,17 @@ class DirectApiShadowExecutor:
         audit_store: StateStore,
         resource_lock: ResourceLock,
         config: ExecutorConfig | None = None,
+        idempotency: IdempotencyStore | None = None,
     ) -> None:
         self._executor = executor
         self._audit_store = audit_store
         self._resource_lock = resource_lock
         self._config = config or ExecutorConfig()
-        # idempotency_key -> DirectApiExecutionResult
+        self._idempotency = idempotency
+        # idempotency_key -> DirectApiExecutionResult. Same FIFO-bounded
+        # policy as :class:`ShadowExecutor` so a long-running control
+        # loop cannot grow unbounded memory on distinct events. The
+        # durable dedup source is the audit_log UNIQUE constraint.
         self._dedupe: dict[str, DirectApiExecutionResult] = {}
 
     async def execute(self, *, action: Action) -> DirectApiExecutionResult:
@@ -176,6 +220,16 @@ class DirectApiShadowExecutor:
             cached = self._dedupe.get(action.idempotency_key)
             if cached is not None:
                 return cached
+
+            # Durable L2 guard - a mutation recorded under this key
+            # (possibly before a restart) short-circuits the substrate
+            # call. Only mutating outcomes are recorded.
+            if self._idempotency is not None:
+                stored = await self._idempotency.seen(action.idempotency_key)
+                if stored is not None:
+                    result = _da_result_from_payload(stored)
+                    self._remember(action.idempotency_key, result)
+                    return result
 
             blast_reason = self._check_blast_radius(action)
             if blast_reason is not None:
@@ -290,9 +344,29 @@ class DirectApiShadowExecutor:
         # Cache non-degenerate outcomes so a retry does not re-hit the
         # adapter for the same key. Rejections (mode/invariant) are also
         # cached because they are stable properties of the Action itself.
-        self._dedupe[action.idempotency_key] = result
+        # Order matters: audit write MUST land before we populate the
+        # cache, otherwise a raise from :meth:`_write_audit` would leave
+        # a cached "already handled" hit that silently suppresses the
+        # audit trail on the retry.
         await self._write_audit(action=action, result=result)
+        self._remember(action.idempotency_key, result)
+        # Durable dedup: record only mutating outcomes so a post-restart
+        # retry does not re-hit the substrate. After the audit write for
+        # the same reason _remember is.
+        if self._idempotency is not None and outcome in _DA_MUTATION_OUTCOMES:
+            await self._idempotency.record(
+                action.idempotency_key, _da_result_to_payload(result)
+            )
         return result
+
+    def _remember(self, key: str, result: DirectApiExecutionResult) -> None:
+        """FIFO-bounded insert. Mirrors :meth:`ShadowExecutor._remember`."""
+        cap = max(1, self._config.max_dedupe_entries)
+        if key in self._dedupe:
+            del self._dedupe[key]
+        elif len(self._dedupe) >= cap:
+            self._dedupe.pop(next(iter(self._dedupe)))
+        self._dedupe[key] = result
 
     async def _write_audit(self, *, action: Action, result: DirectApiExecutionResult) -> None:
         entry = {

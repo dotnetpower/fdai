@@ -63,14 +63,20 @@ class PreflightAnalyzer:
     async def analyze(self, target: PreflightTarget) -> DeploymentReadinessReport:
         """Return the assembled readiness report for ``target``.
 
-        Probes run concurrently; a probe raising is a fail-closed condition -
-        the exception propagates so the caller degrades to review rather than
-        silently reporting ``CLEAR`` on a partial pass.
+        Probes run concurrently under a :class:`asyncio.TaskGroup` so a
+        probe raising is a fail-closed condition - every sibling probe
+        is cancelled by the group, no background task leaks past the
+        call, and the exception propagates so the caller degrades to
+        review rather than silently reporting ``CLEAR`` on a partial
+        pass.
         """
-        results = await asyncio.gather(*(probe.evaluate(target) for probe in self._probes))
+        tasks: list[asyncio.Task[Sequence[ProbeFinding]]] = []
+        async with asyncio.TaskGroup() as group:
+            for probe in self._probes:
+                tasks.append(group.create_task(probe.evaluate(target)))
         findings: list[ProbeFinding] = []
-        for result in results:
-            findings.extend(result)
+        for task in tasks:
+            findings.extend(task.result())
         # Stable ordering: blocking before warning, then by finding id, so a
         # re-run over the same inputs produces byte-identical output.
         findings.sort(key=lambda f: (f.severity is not FindingSeverity.BLOCKING, f.id))
