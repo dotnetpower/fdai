@@ -20,6 +20,15 @@ registers them by kind + id and hands the router a
 :class:`ChannelRegistry`. This module holds zero vendor knowledge.
 """
 
+from .briefing import (
+    ActionTally,
+    BriefingInput,
+    CostSnapshot,
+    ForecastRisk,
+    IncidentTally,
+    StakeholderBriefing,
+    StakeholderBriefingComposer,
+)
 from .matrix import (
     MatrixValidationError,
     NotificationMatrix,
@@ -36,7 +45,12 @@ from .router import (
 )
 
 __all__ = [
+    "ActionTally",
+    "BriefingInput",
     "ChannelRegistry",
+    "CostSnapshot",
+    "ForecastRisk",
+    "IncidentTally",
     "MatrixValidationError",
     "NotificationMatrix",
     "NotificationRouter",
@@ -44,6 +58,8 @@ __all__ = [
     "RouteOutcome",
     "RouteSpec",
     "RoutingResult",
+    "StakeholderBriefing",
+    "StakeholderBriefingComposer",
     "load_matrix_from_mapping",
     "load_matrix_from_yaml",
 ]

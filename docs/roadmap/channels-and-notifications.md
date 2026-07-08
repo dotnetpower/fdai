@@ -217,6 +217,33 @@ Allowed audience modes for a digest entry:
 | `mention-artifact-owner` | additive: `@mention` the artifact's owner inside a channel post | A4 (opt-in per digest) |
 | `role-dm: <RoleName>` | Graph-lookup members of `aw-<role>`, DM each | A4 **only for break-glass** (deny-listed elsewhere at config load) |
 
+### 5.2 Proactive Stakeholder Briefing (A4 synthesis)
+
+An organization keeps a human who writes the periodic operations summary for
+leadership - "here is what happened this window, what we did about it, and
+where the risk is." `core/notifications/briefing.py`
+(`StakeholderBriefingComposer`) synthesizes that A4 digest **deterministically**
+from aggregated operational counts (incident tallies by severity, action
+outcomes split auto / HIL / rolled-back / shadow-only, cost run-rate delta and
+drivers, forward-looking forecast risks, guard-metric breaches) - not from
+per-event noise.
+
+- **Fail-closed, no fabrication.** The composer sources every figure from the
+  audit log / KPI telemetry the caller supplies and asserts nothing it was not
+  given. A window with no actionable activity renders an explicit "No
+  significant operational activity" headline and `has_significant_activity =
+  False`, so the caller **suppresses** the send rather than emailing leadership
+  to say nothing happened. A sub-1% cost wobble with nothing else is treated as
+  noise, not a briefing.
+- **Guard breaches escalate.** Guard-metric breaches (the one thing leadership
+  must never miss) are surfaced as explicit `escalations` on the result so the
+  caller can route them at a higher trust tier, in addition to appearing in the
+  briefing body ([goals-and-metrics.md](goals-and-metrics.md)).
+- **Pure and delivery-agnostic.** The composer holds no vendor knowledge and
+  never dispatches; it returns a `StakeholderBriefing` (markdown body plus
+  per-section payload) that the caller hands to the router in §6 for A4
+  delivery through the audience modes above. Same input, same briefing.
+
 ## 6. Routing Policy (config-driven)
 
 Routing is declarative config, evaluated by the channel-router. Adding, replacing, or

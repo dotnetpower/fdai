@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 21c6e1e8dde2bf5589eef1b32db0073861d7ee01
+translation_source_sha: 11d0a1713e99172366f5b8474e196e95dd91a40b
 translation_revised: 2026-07-08
 ---
 
@@ -213,6 +213,28 @@ interface ApprovalRequest {
 | `channel: <id>` | 채널/DL에 포스트; Entra 그룹 바인딩으로 멤버십 관리 | A2, A3, A4 (기본) |
 | `mention-artifact-owner` | 추가적: 채널 포스트 안에서 아티팩트 소유자 `@mention` | A4 (다이제스트별 opt-in) |
 | `role-dm: <RoleName>` | `aw-<role>` 멤버 Graph 조회, 각각 DM | A4 **break-glass 전용** (config 로드에서 다른 곳은 deny-list) |
+
+### 5.2 능동적 이해관계자 브리핑 (A4 synthesis)
+
+조직은 리더십을 위해 주기적 운영 요약을 작성하는 사람을 둔다 - "이번 window 에
+무슨 일이 있었고, 우리가 무엇을 했으며, 리스크가 어디 있는가." `core/notifications/briefing.py`
+(`StakeholderBriefingComposer`) 가 그 A4 다이제스트를 집계된 운영 카운트(severity 별
+incident tally, auto / HIL / rolled-back / shadow-only 로 나뉜 action 결과, cost run-rate
+delta 와 driver, forward-looking forecast 리스크, guard-metric breach)로부터
+**결정론적으로** 합성한다 - per-event noise 로부터가 아니다.
+
+- **Fail-closed, fabrication 없음.** composer 는 caller 가 제공하는 audit log / KPI
+  telemetry 로부터 모든 수치를 sourcing 하고 받지 않은 것은 아무것도 assert 하지 않는다.
+  actionable 활동이 없는 window 는 명시적인 "No significant operational activity" headline
+  과 `has_significant_activity = False` 를 렌더링하므로, caller 는 아무 일도 없었다고
+  리더십에 이메일하는 대신 send 를 **suppress** 한다. 다른 것 없이 1% 미만의 cost 흔들림은
+  briefing 이 아니라 noise 로 취급한다.
+- **Guard breach 는 escalate.** guard-metric breach(리더십이 절대 놓치면 안 되는 것)는
+  결과에 명시적 `escalations` 로 surface 되어 caller 가 더 높은 trust tier 로 route 할 수
+  있고, briefing body 에도 나타난다([goals-and-metrics.md](goals-and-metrics-ko.md)).
+- **Pure 하고 delivery-agnostic.** composer 는 vendor 지식을 갖지 않고 절대 dispatch 하지
+  않는다; 위 audience 모드를 통한 A4 delivery 를 위해 caller 가 §6 의 router 에 넘기는
+  `StakeholderBriefing` (markdown body 와 per-section payload)를 반환한다. 동일 입력, 동일 briefing.
 
 ## 6. 라우팅 정책 (config-driven)
 
