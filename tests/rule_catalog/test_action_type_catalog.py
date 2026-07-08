@@ -595,3 +595,36 @@ def test_argument_schema_hardened_loads(tmp_path: Path) -> None:
     root = _write_catalog(tmp_path, body)
     catalog = load_action_type_catalog(root, schema_registry=_registry())
     assert {a.name for a in catalog} == {"ops.example"}
+
+
+@pytest.mark.parametrize("operation", ["drop", "purge"])
+def test_drop_purge_without_data_plane_mutating_is_rejected(
+    tmp_path: Path, operation: str
+) -> None:
+    """drop/purge destroy data/schema and MUST declare DataPlaneMutating so
+    the data-plane HIL gate applies; omitting it silently downgrades the
+    risk classification (action-ontology critique #14)."""
+
+    body = _complete_ops_yaml().replace("operation: restart", f"operation: {operation}")
+    # Baseline interfaces are just [ControlPlane]; no DataPlaneMutating.
+    root = _write_catalog(tmp_path, body)
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    assert "interfaces" in " ".join(i.key for i in info.value.issues)
+    joined = " ".join(i.message for i in info.value.issues)
+    assert "DataPlaneMutating" in joined
+
+
+@pytest.mark.parametrize("operation", ["drop", "purge"])
+def test_drop_purge_with_data_plane_mutating_loads(tmp_path: Path, operation: str) -> None:
+    """The same drop/purge entry loads once DataPlaneMutating is declared."""
+
+    body = (
+        _complete_ops_yaml()
+        .replace("operation: restart", f"operation: {operation}")
+        .replace("interfaces:\n- ControlPlane\n", "interfaces:\n- DataPlaneMutating\n")
+    )
+    root = _write_catalog(tmp_path, body)
+    catalog = load_action_type_catalog(root, schema_registry=_registry())
+    assert {a.name for a in catalog} == {"ops.example"}
+

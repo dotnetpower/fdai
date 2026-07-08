@@ -128,3 +128,23 @@ def test_extracted_vector_feeds_the_table_end_to_end() -> None:
     verdict = table.evaluate(fv)
     assert verdict.decision is RiskLevel.HIL
     assert verdict.rule_id == "hil-destructive"
+
+
+def test_every_operation_is_classified_destructive_or_not() -> None:
+    """Every Operation verb MUST be classified exactly once as destructive
+    or non-destructive. A new verb added to the enum without a decision
+    here would silently default to non-destructive and escape the
+    risk-classification `destructive` gate (action-ontology critique #13)."""
+
+    from fdai.core.risk_gate.feature import _DESTRUCTIVE_OPS, _NON_DESTRUCTIVE_OPS
+
+    all_ops = set(Operation)
+    classified = _DESTRUCTIVE_OPS | _NON_DESTRUCTIVE_OPS
+    unclassified = all_ops - classified
+    assert not unclassified, (
+        f"unclassified Operation verbs: {sorted(o.value for o in unclassified)}"
+    )
+    overlap = _DESTRUCTIVE_OPS & _NON_DESTRUCTIVE_OPS
+    assert not overlap, f"Operation classified as both: {sorted(o.value for o in overlap)}"
+    assert classified == all_ops
+

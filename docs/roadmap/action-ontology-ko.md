@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 26fc8e17c6e291c3f144b396b8623cecd1e2b1ae
+translation_source_sha: efcf4d10d01e702207101ee043084bfc7c2f47bb
 translation_revised: 2026-07-08
 ---
 
@@ -534,6 +534,9 @@ ActionType 을 조용히 shadow 할 수 없다 (shadowing 은 7.1 overlay 계층
   - `argument_schema` 는 존재 시 `type: object` 와
     `additionalProperties: false` 설정 MUST - 콘솔이 명시되지 않은 argument
     를 절대 전달 못 하도록.
+  - `operation: drop` 또는 `operation: purge` (둘 다 데이터/스키마 파괴) 는
+    `DataPlaneMutating` interface 선언 MUST - risk gate 가 data-plane HIL
+    gate 를 적용하도록. 누락 시 risk 분류가 silently 하향됨.
   이 gate 는 실제 카탈로그 root (upstream + `action-types-custom/`) 에서만
   동작; `load_action_type_from_mapping` 은 permissive 하게 유지되어 unit-test
   model fixture 는 pydantic-required field 만 있으면 됨. `blast_radius` 없이

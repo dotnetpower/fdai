@@ -553,6 +553,10 @@ what the 7.1 overlay layer is for). See
   - `argument_schema`, when present, MUST set `type: object` and
     `additionalProperties: false` so the console can never pass an
     unspecified argument.
+  - `operation: drop` or `operation: purge` (both destroy data or
+    schema) MUST declare the `DataPlaneMutating` interface, so the risk
+    gate applies the data-plane HIL gate. Omitting it would silently
+    downgrade the risk classification.
   This gate runs only on the real catalog roots (upstream +
   `action-types-custom/`); `load_action_type_from_mapping` stays
   permissive so a unit-test model fixture needs only the pydantic-
