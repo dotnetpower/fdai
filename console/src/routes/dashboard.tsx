@@ -230,9 +230,9 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
               ))
             : null}
           {gates ? (
-            <span class="overview-guards-note muted">
+            <a class="overview-guards-note overview-drill" href="#/promotion-gates">
               {t("overview.guards.ready", { ready: readyCount ?? 0, total: gateTotal ?? 0 })}
-            </span>
+            </a>
           ) : null}
         </section>
       ) : null}
@@ -541,6 +541,9 @@ function LivingRules({ rules }: { readonly rules: AutonomyPayload["rules"] }) {
       <span class="overview-rules-stat muted">
         <b>{rules.candidates_30d}</b> {t("overview.rules.candidates")}
       </span>
+      <a class="overview-drill" href="#/rules">
+        {t("overview.drill.browse")}
+      </a>
     </section>
   );
 }

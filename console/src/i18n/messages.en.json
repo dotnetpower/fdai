@@ -131,6 +131,9 @@
       "promoted": "promoted (30d)",
       "candidates": "candidates"
     },
+    "drill": {
+      "browse": "Browse catalog"
+    },
     "detail": "Detailed metrics"
   }
 }

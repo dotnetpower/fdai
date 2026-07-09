@@ -127,6 +127,9 @@
       "promoted": "승격 (30일)",
       "candidates": "후보"
     },
+    "drill": {
+      "browse": "카탈로그 보기"
+    },
     "detail": "상세 지표"
   }
 }

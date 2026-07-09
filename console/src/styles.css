@@ -1726,6 +1726,17 @@ pre {
   font-variant-numeric: tabular-nums;
   margin-right: 3px;
 }
+.overview-drill {
+  margin-left: auto;
+  color: var(--fg-muted);
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.overview-drill:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
 
 /* DataTable ----------------------------------------------------------- */
 .data-table-wrap {
