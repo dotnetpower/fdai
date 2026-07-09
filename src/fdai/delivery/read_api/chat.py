@@ -37,6 +37,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 from collections import deque
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -78,35 +79,102 @@ def _default_chat_http_client() -> httpx.AsyncClient:
 
 
 _SYSTEM_PROMPT = """\
-You are the FDAI console assistant, part of a read-only operator surface.
-
-You answer questions about the FDAI (Fully Deterministic AI) control plane -
-an autonomous cloud-ops system whose console the operator is looking at
-right now. A structured snapshot of the currently rendered page is provided
-below as JSON. Ground every answer STRICTLY in that snapshot.
+You are the FDAI console assistant: a read-only translator over the operator's
+current screen in the FDAI (Fully Deterministic AI) control plane. A JSON
+snapshot of the rendered page follows; ground every answer STRICTLY in it.
 
 Rules:
-- Reply in the operator's language (Korean, English, Japanese, etc.). Mirror the language of their question.
+- Reply in the operator's language, mirroring their question.
 - Cite exact numbers/labels from the snapshot; NEVER invent facts.
-- If the snapshot lacks the information, say so plainly and suggest which route (Live / Dashboard / Audit / HIL Queue / Ontology / Blast Radius / Promotion / Trace) probably has it.
-- Explain FDAI concepts using the glossary below when the operator asks "what is X" / a translated equivalent in their language.
-- Be concise: default to 1-4 short sentences. Expand only if the question asks for detail.
-- Do NOT propose actions, approvals, or writes. The console is read-only; the assistant is a translator, not a judge.
-- Do NOT wrap replies in markdown code fences unless quoting code.
-
-FDAI glossary (use only when asked to explain):
-- ActionType / action kind: the ontology entry that classifies what an autonomous action does (e.g. `remediate.tag-add`, `remediate.enable-tde`, `ops.publish-change-summary`). Each ActionType binds five agent roles: initiators, judge, executor, approver, auditor.
-- Tier T0 / T1 / T2: trust-router routing tier. T0 = deterministic policy (target 70-80% coverage). T1 = lightweight similarity / small-model classifier (15-20%). T2 = frontier LLM reasoning (~5-10%, novel cases only).
-- Gate decision: risk-gate verdict per finding. `auto` = execute (allowed by policy), `hil` = needs human approval, `deny` = refused, `abstain` = no rule matched (fail-safe no-op).
-- Shadow vs enforce mode: new actions ship in shadow (judge-and-log, no mutation) and are explicitly promoted to enforce after their promotion_gate passes.
-- HIL (human-in-the-loop): high-risk approvals flow through Teams / ChatOps Adaptive Cards - never a console button.
-- Verticals: Change safety, Resilience, Cost governance.
-- Safety invariants (every autonomous action requires all four): stop-condition, tested rollback path, blast-radius cap, audit-log entry.
-- Rule catalog: versioned rules discovered from upstream sources + operational signals; every rule carries provenance and passes the quality gate before shipping.
-
-Current view snapshot (JSON):
+- The snapshot may hold a `records` collection (`records.rules`, `records.items`, ...) of rows visible now; search and quote matching rows - do not claim missing info when a row is present.
+- If a specific entry is absent but this page has a search/filter (the Rules catalog has a search box plus origin/category/severity/source filters), tell the operator to use it; only point to another route (Live/Dashboard/Audit/HIL/Ontology/Blast Radius/Promotion/Trace) when the topic truly belongs there.
+- Be concise: 1-4 short sentences unless asked for detail.
+- Read-only: never propose actions, approvals, or writes; you translate, you do not judge.
+- No markdown code fences unless quoting code.
+{glossary}Current view snapshot (JSON):
 {snapshot_json}
 """
+
+# The FDAI glossary is injected into the system prompt ONLY when the operator
+# asks to define/explain a term (see :func:`_is_concept_query`). Routine data
+# questions - the large majority - get the lean prompt above, which keeps the
+# per-turn token cost and latency down without losing concept coverage.
+_GLOSSARY = """\
+FDAI glossary (use only to define a term on request):
+- ActionType: ontology entry classing an autonomous action; binds 5 roles (initiators, judge, executor, approver, auditor).
+- T0/T1/T2: trust-router tiers - deterministic policy (70-80%) / lightweight similarity (15-20%) / frontier-LLM reasoning (5-10%, novel only).
+- Gate decision: auto=execute, hil=needs approval, deny=refused, abstain=no rule matched (no-op).
+- Shadow vs enforce: new actions ship shadow (log-only), promoted to enforce after their promotion_gate passes.
+- HIL: high-risk approvals via Teams/ChatOps cards, never a console button.
+- Verticals: change safety, resilience, cost governance.
+- Safety invariants: stop-condition, rollback path, blast-radius cap, audit entry.
+- Rule catalog: versioned rules with provenance, gated before shipping.
+
+"""
+
+# Concept-question detection. The Korean markers are written as \\uXXXX escapes
+# so the source file stays ASCII (english-only CI gate) while still matching
+# Hangul at runtime - the language-policy "quoted data" exception, since we are
+# detecting the operator's own-language phrasing. The escapes decode to, in
+# order: intent = explain / meaning / sense / concept / definition; phrasing =
+# "what" (interrogative) / what (casual) / which.
+_CONCEPT_INTENT: Final = re.compile(
+    r"\b(explain|define|definition|glossary|mean|meaning)\b"
+    "|\uc124\uba85|\uc758\ubbf8|\ub73b|\uac1c\ub150|\uc815\uc758",
+    re.IGNORECASE,
+)
+_CONCEPT_PHRASING: Final = re.compile(
+    r"\bwhat\s+(is|are|does|do)\b|\bwhats\b|\bwhat's\b"
+    "|\ubb34\uc5c7|\ubb50|\ubb54",
+    re.IGNORECASE,
+)
+_DATA_WORD: Final = re.compile(
+    # Trailing escapes decode to Korean count markers: how-many / count.
+    r"how many|number of|count|share|total|pending|rate|eps|mix"
+    r"|distribution|many|loaded|affected|depth|step"
+    "|\uba87|\uac1c\uc218",
+    re.IGNORECASE,
+)
+
+
+def _is_concept_query(prompt: str) -> bool:
+    """True when the prompt asks to define/explain a term (glossary needed).
+
+    Data-metric phrasings ("how many", "share", "count") are excluded so
+    routine screen questions get the lean prompt without the glossary block.
+    """
+    if _CONCEPT_INTENT.search(prompt):
+        return True
+    return bool(_CONCEPT_PHRASING.search(prompt) and not _DATA_WORD.search(prompt))
+
+
+def _build_messages(
+    prompt: str,
+    view_context: dict[str, Any],
+    history: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    """Assemble the chat messages shared by every backend.
+
+    One grounded system message (size-capped snapshot + glossary only when the
+    prompt is a concept question) followed by the bounded conversation history
+    and the user turn. Centralised so all three backends
+    (:class:`OpenAiCompatibleChatBackend`, :class:`AzureAdChatBackend`, and the
+    streaming path) build byte-identical, minimal prompts.
+    """
+    snapshot_json = json.dumps(view_context, ensure_ascii=False)
+    # Bound the payload we send to the model.
+    if len(snapshot_json) > DEFAULT_MAX_CONTEXT_BYTES:
+        snapshot_json = snapshot_json[:DEFAULT_MAX_CONTEXT_BYTES] + "...(truncated)"
+    glossary = _GLOSSARY if _is_concept_query(prompt) else ""
+    system = _SYSTEM_PROMPT.format(glossary=glossary, snapshot_json=snapshot_json)
+    messages: list[dict[str, str]] = [{"role": "system", "content": system}]
+    for turn in history[-DEFAULT_MAX_HISTORY_TURNS:]:
+        role = turn.get("role")
+        content = turn.get("content")
+        if role in {"user", "assistant"} and isinstance(content, str) and content:
+            messages.append({"role": role, "content": content[:4000]})
+    messages.append({"role": "user", "content": prompt[:4000]})
+    return messages
 
 
 class ChatBackend(Protocol):
@@ -177,9 +245,7 @@ class OpenAiCompatibleChatBackendConfig:
 _COMPLETION_TOKEN_PARAM_MODELS: Final[tuple[str, ...]] = ("gpt-5", "o1", "o3", "o4")
 
 
-def _completion_body_params(
-    model: str, *, temperature: float, max_tokens: int
-) -> dict[str, Any]:
+def _completion_body_params(model: str, *, temperature: float, max_tokens: int) -> dict[str, Any]:
     """Build the token/temperature fields for a chat-completions body.
 
     Returns ``{"max_completion_tokens": N}`` for models that require it
@@ -244,18 +310,7 @@ class OpenAiCompatibleChatBackend:
         view_context: dict[str, Any],
         history: list[dict[str, str]],
     ) -> dict[str, Any]:
-        snapshot_json = json.dumps(view_context, ensure_ascii=False, indent=None)
-        # Bound the payload we send to the model.
-        if len(snapshot_json) > DEFAULT_MAX_CONTEXT_BYTES:
-            snapshot_json = snapshot_json[:DEFAULT_MAX_CONTEXT_BYTES] + "...(truncated)"
-        system = _SYSTEM_PROMPT.format(snapshot_json=snapshot_json)
-        messages: list[dict[str, str]] = [{"role": "system", "content": system}]
-        for turn in history[-DEFAULT_MAX_HISTORY_TURNS:]:
-            role = turn.get("role")
-            content = turn.get("content")
-            if role in {"user", "assistant"} and isinstance(content, str) and content:
-                messages.append({"role": role, "content": content[:4000]})
-        messages.append({"role": "user", "content": prompt[:4000]})
+        messages = _build_messages(prompt, view_context, history)
 
         body: dict[str, Any] = {
             "messages": messages,
@@ -622,17 +677,7 @@ class AzureAdChatBackend:
             _LOG.warning("chat backend az-login failed: %s", exc)
             raise HTTPException(status_code=502, detail="chat auth failed") from exc
 
-        snapshot_json = json.dumps(view_context, ensure_ascii=False)
-        if len(snapshot_json) > DEFAULT_MAX_CONTEXT_BYTES:
-            snapshot_json = snapshot_json[:DEFAULT_MAX_CONTEXT_BYTES] + "...(truncated)"
-        system = _SYSTEM_PROMPT.format(snapshot_json=snapshot_json)
-        messages: list[dict[str, str]] = [{"role": "system", "content": system}]
-        for turn in history[-DEFAULT_MAX_HISTORY_TURNS:]:
-            role = turn.get("role")
-            content = turn.get("content")
-            if role in {"user", "assistant"} and isinstance(content, str) and content:
-                messages.append({"role": role, "content": content[:4000]})
-        messages.append({"role": "user", "content": prompt[:4000]})
+        messages = _build_messages(prompt, view_context, history)
 
         body: dict[str, Any] = {
             "messages": messages,
@@ -701,17 +746,7 @@ class AzureAdChatBackend:
             _LOG.warning("chat backend az-login failed: %s", exc)
             raise HTTPException(status_code=502, detail="chat auth failed") from exc
 
-        snapshot_json = json.dumps(view_context, ensure_ascii=False)
-        if len(snapshot_json) > DEFAULT_MAX_CONTEXT_BYTES:
-            snapshot_json = snapshot_json[:DEFAULT_MAX_CONTEXT_BYTES] + "...(truncated)"
-        system = _SYSTEM_PROMPT.format(snapshot_json=snapshot_json)
-        messages: list[dict[str, str]] = [{"role": "system", "content": system}]
-        for turn in history[-DEFAULT_MAX_HISTORY_TURNS:]:
-            role = turn.get("role")
-            content = turn.get("content")
-            if role in {"user", "assistant"} and isinstance(content, str) and content:
-                messages.append({"role": role, "content": content[:4000]})
-        messages.append({"role": "user", "content": prompt[:4000]})
+        messages = _build_messages(prompt, view_context, history)
 
         body: dict[str, Any] = {
             "messages": messages,
@@ -1155,10 +1190,7 @@ def make_chat_route(
         if len(history_raw) > DEFAULT_MAX_HISTORY_ITEMS:
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    f"history exceeds cap ({len(history_raw)} > "
-                    f"{DEFAULT_MAX_HISTORY_ITEMS})"
-                ),
+                detail=(f"history exceeds cap ({len(history_raw)} > {DEFAULT_MAX_HISTORY_ITEMS})"),
             )
         history: list[dict[str, str]] = []
         for turn in history_raw:
