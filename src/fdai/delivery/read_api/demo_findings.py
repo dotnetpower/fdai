@@ -61,7 +61,7 @@ SYNTHETIC_INVENTORY: tuple[SyntheticResource, ...] = (
         resource_id=_rid("Microsoft.Compute/disks", "demo-disk-orphan"),
         resource_name="demo-disk-orphan",
         resource_type="disk",
-        props={"managed_by": "", "snapshot_policy_id": ""},
+        props={"managed_by": "", "snapshot_policy_id": "", "snapshot_policy_present": False},
     ),
     SyntheticResource(
         resource_id=_rid("Microsoft.Storage/storageAccounts", "demostgpublic"),
@@ -182,6 +182,38 @@ SYNTHETIC_INVENTORY: tuple[SyntheticResource, ...] = (
         resource_name="demo-vm-noid",
         resource_type="compute.vm",
         props={"identity_type": "None"},
+    ),
+    SyntheticResource(
+        resource_id=_rid("Microsoft.Compute/virtualMachineScaleSets", "demo-vmss-1z"),
+        resource_name="demo-vmss-1z",
+        resource_type="compute.vm-scale-set",
+        props={"zones": []},
+    ),
+    SyntheticResource(
+        resource_id=_rid("Microsoft.Network/virtualNetworks", "demo-vnet-noddos"),
+        resource_name="demo-vnet-noddos",
+        resource_type="network.vnet",
+        props={"ddos_protection_plan_id": ""},
+    ),
+    SyntheticResource(
+        resource_id=_rid("Microsoft.Resources/resourceGroups", "demo-rg-untagged"),
+        resource_name="demo-rg-untagged",
+        resource_type="resource-group",
+        props={
+            "tags": {},
+            "role_assignments": [
+                {"scope": "resource-group", "role_name": "Owner"},
+                {"scope": "resource-group", "role_name": "Owner"},
+                {"scope": "resource-group", "role_name": "Owner"},
+                {"scope": "resource-group", "role_name": "Owner"},
+            ],
+        },
+    ),
+    SyntheticResource(
+        resource_id=_rid("Microsoft.OperationalInsights/workspaces", "demo-law-longret"),
+        resource_name="demo-law-longret",
+        resource_type="log-workspace",
+        props={"retention_days": 730, "diagnostic_settings": []},
     ),
 )
 
