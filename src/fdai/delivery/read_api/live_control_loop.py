@@ -37,7 +37,7 @@ import asyncio
 import json
 import logging
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -71,6 +71,11 @@ from fdai.shared.contracts.validation import (
     JsonSchemaEventValidator,
 )
 from fdai.shared.providers.sse import SseSink
+from fdai.shared.providers.stage_publisher import (
+    StageEvent,
+    StageName,
+    StagePublisher,
+)
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
     RecordingRemediationPrPublisher,
@@ -78,6 +83,41 @@ from fdai.shared.providers.testing import (
 from fdai.shared.streaming.stage_publisher import SseSinkStagePublisher
 
 _LOGGER = logging.getLogger(__name__)
+
+
+# Stage -> owning pantheon agent. The dev ControlLoop is single-process, so
+# we attribute each SSE frame to the agent that owns that stage at the
+# stream boundary (the real multi-agent pipeline stamps producer_principal
+# itself). Gate frames split by decision: a HIL verdict is Var's approval,
+# everything else is Forseti's judgment.
+_STAGE_AGENT: dict[StageName, str] = {
+    StageName.INGEST: "Huginn",
+    StageName.ROUTE: "Heimdall",
+    StageName.VERIFY: "Forseti",
+    StageName.GATE: "Forseti",
+    StageName.EXECUTE: "Thor",
+    StageName.AUDIT: "Saga",
+}
+
+
+def _stage_agent(stage: StageName, detail: dict[str, Any]) -> str:
+    if stage is StageName.GATE and str(detail.get("gate_decision")) == "hil":
+        return "Var"
+    return _STAGE_AGENT.get(stage, "unknown")
+
+
+class _AgentAttributingStagePublisher:
+    """Wrap a StagePublisher to stamp the owning agent (producer_principal)
+    onto each frame's detail, so the Live cockpit can show which agent did
+    each step. Dev-only: production's real pipeline stamps this itself."""
+
+    def __init__(self, inner: StagePublisher) -> None:
+        self._inner = inner
+
+    async def emit(self, event: StageEvent) -> None:
+        detail = dict(event.detail or {})
+        detail.setdefault("producer_principal", _stage_agent(event.stage, detail))
+        await self._inner.emit(replace(event, detail=detail))
 
 
 class ControlLoopEmitterUnavailableError(RuntimeError):
@@ -219,7 +259,9 @@ class ControlLoopLiveEmitter(LiveEmitter):
         validator = JsonSchemaEventValidator(
             JsonSchemaContractValidator(PackageResourceSchemaRegistry())
         )
-        stage_publisher = SseSinkStagePublisher(self.sink, channel=self.channel)
+        stage_publisher = _AgentAttributingStagePublisher(
+            SseSinkStagePublisher(self.sink, channel=self.channel)
+        )
 
         # NOTE on risk-gate wiring.
         # The shipped risk table + shipped ActionTypes route the vast

@@ -365,7 +365,7 @@ class SyntheticLiveEmitter(LiveEmitter):
                 correlation_id=correlation_id,
                 stage=StageName.INGEST,
                 phase=StagePhase.DONE,
-                detail=dict(base_detail),
+                detail={**base_detail, "producer_principal": "Huginn"},
             )
         )
         # route done
@@ -375,7 +375,7 @@ class SyntheticLiveEmitter(LiveEmitter):
                 correlation_id=correlation_id,
                 stage=StageName.ROUTE,
                 phase=StagePhase.DONE,
-                detail={**base_detail, "routed_to": tier},
+                detail={**base_detail, "routed_to": tier, "producer_principal": "Heimdall"},
             )
         )
         # verify done (T1 / T2 only; T0 has no verifier step to log)
@@ -389,6 +389,7 @@ class SyntheticLiveEmitter(LiveEmitter):
                     detail={
                         **base_detail,
                         "checks": ["schema", "policy", "what_if"],
+                        "producer_principal": "Forseti",
                     },
                 )
             )
@@ -399,7 +400,11 @@ class SyntheticLiveEmitter(LiveEmitter):
                 correlation_id=correlation_id,
                 stage=StageName.GATE,
                 phase=StagePhase.DONE,
-                detail={**base_detail, "gate_decision": outcome},
+                detail={
+                    **base_detail,
+                    "gate_decision": outcome,
+                    "producer_principal": "Var" if outcome == "hil" else "Forseti",
+                },
             )
         )
         # execute done (only auto path executes; other outcomes stop here)
@@ -410,7 +415,7 @@ class SyntheticLiveEmitter(LiveEmitter):
                     correlation_id=correlation_id,
                     stage=StageName.EXECUTE,
                     phase=StagePhase.DONE,
-                    detail={**base_detail, "mode": "shadow"},
+                    detail={**base_detail, "mode": "shadow", "producer_principal": "Thor"},
                 )
             )
         # audit done - always
@@ -420,7 +425,7 @@ class SyntheticLiveEmitter(LiveEmitter):
                 correlation_id=correlation_id,
                 stage=StageName.AUDIT,
                 phase=StagePhase.DONE,
-                detail={**base_detail, "gate_decision": outcome},
+                detail={**base_detail, "gate_decision": outcome, "producer_principal": "Saga"},
             )
         )
 
