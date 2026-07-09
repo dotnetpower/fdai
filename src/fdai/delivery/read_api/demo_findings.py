@@ -87,7 +87,10 @@ SYNTHETIC_INVENTORY: tuple[SyntheticResource, ...] = (
         resource_type="postgresql-server",
         props={
             "ha_mode": "Disabled",
-            "ssl_enforcement_enabled": False,
+            "ssl_enforcement": "disabled",
+            "encryption_at_rest_enabled": False,
+            "backup_retention_days": 1,
+            "cpu_p95_percent": 1,
             "geo_redundant_backup_enabled": False,
             "diagnostic_settings": [],
         },
@@ -114,6 +117,7 @@ SYNTHETIC_INVENTORY: tuple[SyntheticResource, ...] = (
             "audit_enabled": False,
             "zone_redundant": False,
             "tde_enabled": False,
+            "dtu_p95_percent": 1,
             "diagnostic_settings": [],
         },
     ),
@@ -122,7 +126,9 @@ SYNTHETIC_INVENTORY: tuple[SyntheticResource, ...] = (
         resource_name="demo-mi-priv",
         resource_type="managed-identity",
         props={
-            "role_assignments": [{"scope": "subscription", "role_name": "Owner"}],
+            "role_assignments": [
+                {"scope": "subscription", "role_name": "Owner", "actions": ["*"]},
+            ],
         },
     ),
     SyntheticResource(
@@ -140,13 +146,13 @@ SYNTHETIC_INVENTORY: tuple[SyntheticResource, ...] = (
         resource_id=_rid("Microsoft.ContainerService/managedClusters/agentPools", "demo-nodepool"),
         resource_name="demo-nodepool",
         resource_type="kubernetes-node-pool",
-        props={"availability_zones": []},
+        props={"availability_zones": [], "cpu_p95_percent": 1, "node_count": 10},
     ),
     SyntheticResource(
         resource_id=_rid("Microsoft.Cache/redis", "demo-cache-single"),
         resource_name="demo-cache-single",
         resource_type="cache",
-        props={"zones": []},
+        props={"zones": [], "server_load_p95_percent": 1, "hit_rate": 99},
     ),
     SyntheticResource(
         resource_id=_rid("Microsoft.Network/networkSecurityGroups", "demo-nsg-open"),
@@ -181,13 +187,18 @@ SYNTHETIC_INVENTORY: tuple[SyntheticResource, ...] = (
         resource_id=_rid("Microsoft.Compute/virtualMachines", "demo-vm-noid"),
         resource_name="demo-vm-noid",
         resource_type="compute.vm",
-        props={"identity_type": "None"},
+        props={
+            "identity_type": "None",
+            "cpu_p95_percent": 1,
+            "memory_p95_percent": 1,
+            "network_p95_bytes": 100,
+        },
     ),
     SyntheticResource(
         resource_id=_rid("Microsoft.Compute/virtualMachineScaleSets", "demo-vmss-1z"),
         resource_name="demo-vmss-1z",
         resource_type="compute.vm-scale-set",
-        props={"zones": []},
+        props={"zones": [], "cpu_p95_percent": 1, "instance_count": 10},
     ),
     SyntheticResource(
         resource_id=_rid("Microsoft.Network/virtualNetworks", "demo-vnet-noddos"),
@@ -214,6 +225,21 @@ SYNTHETIC_INVENTORY: tuple[SyntheticResource, ...] = (
         resource_name="demo-law-longret",
         resource_type="log-workspace",
         props={"retention_days": 730, "diagnostic_settings": []},
+    ),
+    SyntheticResource(
+        resource_id=f"/subscriptions/{_SUB}",
+        resource_name="demo-subscription",
+        resource_type="subscription",
+        props={
+            "role_assignments": [
+                {
+                    "scope": "subscription",
+                    "role_name": "Owner",
+                    "principal_type": "Guest",
+                    "standing": True,
+                },
+            ],
+        },
     ),
 )
 
