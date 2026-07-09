@@ -58,11 +58,11 @@ export interface PanelGroupMeta {
 }
 
 export const PANEL_GROUPS: readonly PanelGroupMeta[] = [
+  { id: "overview", label: t("nav.group.overview"), hint: t("nav.groupHint.overview") },
   { id: "now", label: t("nav.group.now"), hint: t("nav.groupHint.now") },
   { id: "history", label: t("nav.group.history"), hint: t("nav.groupHint.history") },
   { id: "knowledge", label: t("nav.group.knowledge"), hint: t("nav.groupHint.knowledge") },
   { id: "safety", label: t("nav.group.safety"), hint: t("nav.groupHint.safety") },
-  { id: "overview", label: t("nav.group.overview"), hint: t("nav.groupHint.overview") },
 ];
 
 export interface ConsolePanel {
@@ -202,8 +202,10 @@ export function panelsInGroup(group: PanelGroup): readonly ConsolePanel[] {
   return resolvePanels().filter((p) => p.group === group);
 }
 
-/** The default panel id (first "now" panel = Live). */
-export const DEFAULT_PANEL_ID = "live";
+/** The default panel id: Overview - the approver's landing (health /
+ * risk / cost at a glance). It is the first group on the rail, so the
+ * landing and the rail order agree. */
+export const DEFAULT_PANEL_ID = "dashboard";
 
 /** Resolve the panel for a hash-route segment, or the default panel. */
 export function panelForId(id: string): ConsolePanel {
