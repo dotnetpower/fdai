@@ -36,7 +36,7 @@ glossary was injected."""
 # Rough per-turn budget for the STATIC prompt (everything before the snapshot
 # JSON). The lean prompt must stay well under this; the glossary variant may
 # exceed the lean size but must still be bounded. Guards against prompt bloat.
-_LEAN_BASE_BUDGET = 1_600
+_LEAN_BASE_BUDGET = 1_700
 
 _SNAPSHOT_MARKER = "Current view snapshot (JSON):"
 

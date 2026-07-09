@@ -16,6 +16,35 @@
  */
 
 import { useState } from "preact/hooks";
+import hljs from "highlight.js/lib/core";
+import bash from "highlight.js/lib/languages/bash";
+import dockerfile from "highlight.js/lib/languages/dockerfile";
+import ini from "highlight.js/lib/languages/ini";
+import json from "highlight.js/lib/languages/json";
+import python from "highlight.js/lib/languages/python";
+import sql from "highlight.js/lib/languages/sql";
+import typescript from "highlight.js/lib/languages/typescript";
+import xml from "highlight.js/lib/languages/xml";
+import yaml from "highlight.js/lib/languages/yaml";
+
+// Register the languages that plausibly appear in FDAI answers (config, IaC,
+// policy, glue). Unregistered languages fall back to auto-detect, then plain.
+hljs.registerLanguage("json", json);
+hljs.registerLanguage("yaml", yaml);
+hljs.registerLanguage("yml", yaml);
+hljs.registerLanguage("bash", bash);
+hljs.registerLanguage("sh", bash);
+hljs.registerLanguage("shell", bash);
+hljs.registerLanguage("python", python);
+hljs.registerLanguage("py", python);
+hljs.registerLanguage("typescript", typescript);
+hljs.registerLanguage("ts", typescript);
+hljs.registerLanguage("sql", sql);
+hljs.registerLanguage("ini", ini);
+hljs.registerLanguage("toml", ini);
+hljs.registerLanguage("dockerfile", dockerfile);
+hljs.registerLanguage("xml", xml);
+hljs.registerLanguage("html", xml);
 
 export interface ChartDatum {
   readonly label: string;
@@ -32,12 +61,14 @@ export interface ChartSpec {
 export type Segment =
   | { readonly kind: "text"; readonly text: string }
   | { readonly kind: "table"; readonly headers: readonly string[]; readonly rows: readonly string[][] }
+  | { readonly kind: "code"; readonly lang: string; readonly code: string }
   | { readonly kind: "chart"; readonly spec: ChartSpec };
 
 const TABLE_ROW = /^\s*\|(.+)\|\s*$/;
 // A markdown header/body separator: pipes plus dashes (and optional colons).
 const TABLE_SEP = /^\s*\|?[\s:|-]*-{2,}[\s:|-]*\|?\s*$/;
-const CHART_OPEN = /^\s*```chart\s*$/;
+// Any fenced block open, capturing the info string (language / "chart").
+const FENCE_OPEN = /^\s*```([\w+#.-]*)\s*$/;
 const FENCE_CLOSE = /^\s*```\s*$/;
 
 function splitCells(line: string): string[] {
@@ -90,19 +121,27 @@ export function parseAnswer(text: string): Segment[] {
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i] ?? "";
 
-    if (CHART_OPEN.test(line)) {
+    const fence = line.match(FENCE_OPEN);
+    if (fence) {
+      const lang = (fence[1] ?? "").toLowerCase();
       const body: string[] = [];
       i += 1;
       while (i < lines.length && !FENCE_CLOSE.test(lines[i] ?? "")) {
         body.push(lines[i] ?? "");
         i += 1;
       }
-      const spec = parseChart(body.join("\n"));
-      if (spec) {
-        flushText();
-        segments.push({ kind: "chart", spec });
+      const raw = body.join("\n");
+      if (lang === "chart") {
+        const spec = parseChart(raw);
+        if (spec) {
+          flushText();
+          segments.push({ kind: "chart", spec });
+        } else {
+          buffer.push("```chart", ...body, "```");
+        }
       } else {
-        buffer.push("```chart", ...body, "```");
+        flushText();
+        segments.push({ kind: "code", lang, code: raw });
       }
       continue;
     }
@@ -170,6 +209,51 @@ function TableBlock({
   );
 }
 
+function highlightCode(code: string, lang: string): string {
+  if (lang && hljs.getLanguage(lang)) {
+    try {
+      return hljs.highlight(code, { language: lang }).value;
+    } catch {
+      /* fall through to auto-detect */
+    }
+  }
+  try {
+    return hljs.highlightAuto(code).value;
+  } catch {
+    return code.replace(/[&<>]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;"));
+  }
+}
+
+function CodeBlock({ lang, code }: { readonly lang: string; readonly code: string }) {
+  const [copied, setCopied] = useState(false);
+  const html = highlightCode(code, lang);
+  const copy = () => {
+    void navigator.clipboard?.writeText(code).then(
+      () => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1200);
+      },
+      () => {
+        /* clipboard blocked - ignore */
+      },
+    );
+  };
+  return (
+    <figure class="deck-code">
+      <figcaption class="deck-code-head">
+        <span class="deck-code-lang">{lang || "code"}</span>
+        <button type="button" class="deck-code-copy" onClick={copy}>
+          {copied ? "copied" : "copy"}
+        </button>
+      </figcaption>
+      <pre class="deck-code-pre">
+        {/* hljs escapes the input; its output HTML is safe to inject. */}
+        <code class="hljs" dangerouslySetInnerHTML={{ __html: html }} />
+      </pre>
+    </figure>
+  );
+}
+
 function MiniChart({ spec }: { readonly spec: ChartSpec }) {
   const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(...spec.data.map((d) => Math.abs(d.value)), 1);
@@ -223,6 +307,7 @@ export function RichContent({ text }: { readonly text: string }) {
         if (seg.kind === "table") {
           return <TableBlock key={i} headers={seg.headers} rows={seg.rows} />;
         }
+        if (seg.kind === "code") return <CodeBlock key={i} lang={seg.lang} code={seg.code} />;
         return <MiniChart key={i} spec={seg.spec} />;
       })}
     </div>

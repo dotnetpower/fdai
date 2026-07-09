@@ -5,10 +5,12 @@
  */
 
 :root {
-  color-scheme: light dark;
-  /* Light is the default. Dark values live under [data-theme="dark"]
-     and a `prefers-color-scheme: dark` fallback that only fires when
-     no explicit theme is set on <html>. */
+  /* Bind color-scheme to the explicit theme so UA-rendered widgets
+     (scrollbars, checkboxes, form controls) match the app theme instead
+     of the OS preference. Light is the default; dark values live under
+     [data-theme="dark"] and a `prefers-color-scheme: dark` fallback that
+     only fires when no explicit theme is set on <html>. */
+  color-scheme: light;
   --bg: #f7f7f8;
   --bg-elevated: #ffffff;
   --fg: #1c1e24;
@@ -23,6 +25,7 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #0f1115;
   --bg-elevated: #171a21;
   --fg: #e6e8ee;
@@ -35,6 +38,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
+    color-scheme: dark;
     --bg: #0f1115;
     --bg-elevated: #171a21;
     --fg: #e6e8ee;
@@ -2325,6 +2329,68 @@ pre {
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
+
+/* Syntax-highlighted code block (deck/rich-content.tsx, highlight.js). A fixed
+   dark slab so code reads the same in light or dark app theme. */
+.deck-code {
+  margin: 0;
+  border: 1px solid #1f2530;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0d1117;
+}
+.deck-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  background: #161b22;
+  border-bottom: 1px solid #1f2530;
+}
+.deck-code-lang {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8b949e;
+}
+.deck-code-copy {
+  border: 1px solid #30363d;
+  background: transparent;
+  color: #c9d1d9;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.deck-code-copy:hover { background: #21262d; }
+.deck-code-pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+}
+.deck-code-pre code.hljs {
+  display: block;
+  background: transparent;
+  padding: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #c9d1d9;
+  white-space: pre;
+}
+/* github-dark token palette */
+.hljs-comment, .hljs-quote { color: #8b949e; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-doctag, .hljs-section { color: #ff7b72; }
+.hljs-string, .hljs-regexp, .hljs-addition { color: #a5d6ff; }
+.hljs-number, .hljs-symbol, .hljs-bullet, .hljs-link { color: #79c0ff; }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable { color: #79c0ff; }
+.hljs-title, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: #d2a8ff; }
+.hljs-built_in, .hljs-type, .hljs-class .hljs-title, .hljs-params { color: #ffa657; }
+.hljs-meta, .hljs-meta .hljs-keyword { color: #8b949e; }
+.hljs-tag { color: #7ee787; }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
 .deck-turn-citations {
   display: flex;
   flex-wrap: wrap;
