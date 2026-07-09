@@ -23,6 +23,7 @@ from .orchestrator import (
     WorkflowOrchestrator,
     derive_process_id,
 )
+from .trigger_index import WorkflowTriggerIndex
 
 __all__ = [
     "ApprovalPlan",
@@ -34,6 +35,7 @@ __all__ = [
     "StepApproval",
     "WorkflowApprovalPlanner",
     "WorkflowOrchestrator",
+    "WorkflowTriggerIndex",
     "compile_workflow",
     "derive_process_id",
 ]

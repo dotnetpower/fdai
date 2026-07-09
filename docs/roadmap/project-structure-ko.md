@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2d461426339522c66a959b07642721dcceface07
+translation_source_sha: f3f93328793aaa2b7d724bdf969a204d43bab337
 translation_revised: 2026-07-09
 ---
 
@@ -42,7 +42,7 @@ fdai/
 │   │   ├── incident/           # 인시던트 라이프사이클 레지스트리 + 상태 머신 (open → triaging → mitigated → resolved → closed)
 │   │   ├── slo/                # 워크로드 SLO / burn-rate 평가기 (컨트롤 플레인 SLO 와는 구분)
 │   │   ├── runbook/            # 런북 오케스트레이터 (선형 시퀀스 + on-failure 브랜치)
-│   │   ├── workflow/           # 프로세스 자동화: 카탈로그 Workflow 를 Runbook 으로 컴파일 (+ saga 보상 맵); 승인 플래너 + shadow 오케스트레이터
+│   │   ├── workflow/           # 프로세스 자동화: 카탈로그 Workflow 를 Runbook 으로 컴파일 (+ saga 보상 맵); 승인 플래너 + shadow 오케스트레이터 + 트리거 인덱스
 │   │   ├── postmortem/         # LLM 옵션 postmortem / PIR 드래프트 생성기
 │   │   ├── rule_catalog_profiles/  # 프로파일 / 팩 레이어 - 이름 붙은 룰 번들 (`extends` 체인 + overrides)
 │   │   ├── measurement/        # Phase-4 지속 측정 (regression, pattern growth, model tracking, latency budget, prompt probe, runners)

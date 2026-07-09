@@ -37,7 +37,7 @@ fdai/
 │   │   ├── incident/           # incident lifecycle registry + state machine (open → triaging → mitigated → resolved → closed)
 │   │   ├── slo/                # workload SLO / burn-rate evaluator (distinct from control-plane SLOs)
 │   │   ├── runbook/            # runbook orchestrator (linear sequence + on-failure branch)
-│   │   ├── workflow/           # process automation: compile a catalog Workflow into a Runbook (+ saga-compensation map); approval planner + shadow orchestrator
+│   │   ├── workflow/           # process automation: compile a catalog Workflow into a Runbook (+ saga-compensation map); approval planner + shadow orchestrator + trigger index
 │   │   ├── postmortem/         # LLM-optional postmortem / PIR draft generator
 │   │   ├── rule_catalog_profiles/  # profile / pack layer - named rule bundles with `extends` chains + overrides
 │   │   ├── measurement/        # Phase-4 continuous measurement (regression, pattern growth, model tracking, latency budget, prompt probe, runners)
