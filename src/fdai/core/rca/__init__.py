@@ -19,6 +19,7 @@ from fdai.core.rca.contract import (
     RootCauseHypothesis,
 )
 from fdai.core.rca.coordinator import RcaCoordinator
+from fdai.core.rca.evidence import TelemetryEvidenceGatherer
 from fdai.core.rca.grounding import enforce_grounding
 from fdai.core.rca.llm import LlmRcaReasoner, RcaModel, parse_rca_response
 from fdai.core.rca.reasoner import RcaReasoner
@@ -37,6 +38,7 @@ __all__ = [
     "RcaResult",
     "RcaTier",
     "RootCauseHypothesis",
+    "TelemetryEvidenceGatherer",
     "enforce_grounding",
     "parse_rca_response",
     "t0_root_cause",

@@ -19,6 +19,7 @@ hypothesis (or an abstain) that the normal pipeline + risk gate act on.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 
 from fdai.core.rca.contract import (
     Citation,
@@ -27,6 +28,7 @@ from fdai.core.rca.contract import (
     RcaTier,
     RootCauseHypothesis,
 )
+from fdai.core.rca.evidence import TelemetryEvidenceGatherer
 from fdai.core.rca.grounding import enforce_grounding
 from fdai.core.rca.reasoner import RcaReasoner
 from fdai.core.rca.t0 import t0_root_cause
@@ -41,11 +43,13 @@ class RcaCoordinator:
         *,
         reasoner: RcaReasoner | None = None,
         min_confidence: float = 0.0,
+        evidence_gatherer: TelemetryEvidenceGatherer | None = None,
     ) -> None:
         if not 0.0 <= min_confidence <= 1.0:
             raise ValueError("min_confidence MUST be in [0, 1]")
         self._reasoner = reasoner
         self._min_confidence = min_confidence
+        self._evidence_gatherer = evidence_gatherer
 
     @property
     def has_t2(self) -> bool:
@@ -141,6 +145,38 @@ class RcaCoordinator:
                     reason=f"ungrounded_citation_{citation.ref!r}_not_in_evidence",
                 )
         return enforce_grounding(hypothesis, min_confidence=self._min_confidence)
+
+    async def analyze_t2_from_telemetry(
+        self,
+        *,
+        incident_summary: str,
+        resource_ref: str,
+        since: datetime,
+        until: datetime,
+        extra_citations: Sequence[Citation] = (),
+    ) -> RcaResult:
+        """Gather telemetry evidence, then run T2 analysis grounded on it.
+
+        Convenience wrapper that closes the gap between the § 3.2 log / trace
+        seams and :meth:`analyze_t2`: it asks the injected
+        :class:`TelemetryEvidenceGatherer` for TELEMETRY citations around the
+        incident, unions them with any ``extra_citations`` the caller vouches
+        for (rule / event / incident refs), and hands the set to
+        :meth:`analyze_t2` as the candidate evidence. No gatherer configured
+        means the candidate set is just ``extra_citations`` - fail-safe, and
+        an empty set abstains to HIL through the grounding gate.
+        """
+        candidates: list[Citation] = list(extra_citations)
+        if self._evidence_gatherer is not None:
+            candidates.extend(
+                await self._evidence_gatherer.gather(
+                    resource_ref=resource_ref, since=since, until=until
+                )
+            )
+        return await self.analyze_t2(
+            incident_summary=incident_summary,
+            candidate_citations=tuple(candidates),
+        )
 
 
 __all__ = ["RcaCoordinator"]

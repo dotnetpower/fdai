@@ -370,7 +370,7 @@ means only the seam is designed (§ 2 / § 3), not wired.
 | **Dev-to-ops handoff (policy + RBAC review)** | Covered | [operational-readiness.md](operational-readiness.md) (ORR) |
 | **Identity / RBAC least-privilege posture** | Covered | workload RBAC rule pack (`*.role-assignment.*`) + `remediate.right-size-role` |
 | SLO / error budget | Partial | `core/slo/`: `MetricBurnRateSource` bridges the § 3.2 metric seam to the burn-rate evaluator and `SloBurnRunner.run_once` publishes `slo.error_budget_burn` events (fail-closed on missing data); only a real vendor `MetricProvider` adapter + an infra cron trigger remain |
-| Monitoring / alerting (external signal ingestion) | Partial | `core/detection/` correlation shipped; the § 3.2 metric / log / trace Protocols + in-memory bindings exist, a real vendor adapter is not yet wired |
+| Monitoring / alerting (external signal ingestion) | Partial | `core/detection/` correlation shipped; the § 3.2 metric seam feeds SLO burn-rate and the log / trace seams feed RCA telemetry grounding (`TelemetryEvidenceGatherer`); only real vendor adapters remain |
 | On-call schedule / paging | Partial | § 3.5 `OnCallSchedule` seam + core `OnCallResolver` (fail-safe fallback) wired into HIL parking + audit (records who was on shift); a PagerDuty / OpsGenie vendor adapter and card DM-targeting land in a fork (§ 2) |
 | Status page / stakeholder broadcast | Deferred | § 2 (Incident object is the prerequisite) |
 | DORA change-failure-rate / deploy-frequency | Deferred | § 2 (needs a git-history reader) |
