@@ -258,6 +258,12 @@ export async function askBackendStream(
   if (response.status === 404 || response.status === 501) {
     return fallback("LLM not configured");
   }
+  if (response.status === 422) {
+    // The upstream content/jailbreak filter refused the prompt. This is a safe,
+    // expected block (not an outage); label it distinctly so the operator sees
+    // why rather than a generic transient error.
+    return fallback("blocked by content policy");
+  }
   if (!response.ok || response.body === null) {
     return fallback(`backend ${response.status}`);
   }
