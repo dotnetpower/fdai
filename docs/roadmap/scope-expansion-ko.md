@@ -1,7 +1,7 @@
 ---
 title: 스코프 개선 및 구조적 갭
 translation_of: scope-expansion.md
-translation_source_sha: e596e544de244c25dff29fd903117d998bdc4668
+translation_source_sha: 53dd4ba2409ab98765d9fe194b5c05d8bbf8ae88
 translation_revised: 2026-07-09
 ---
 # 스코프 개선 및 구조적 갭
@@ -327,3 +327,36 @@ Rollout 순서는 strict prerequisite chain 을 pick:
   intact 유지.
 - 완전한 운영 coverage claim 아님. § 2 의 deferred axis 는 phase 가
   명시적으로 집을 때까지 의도적으로 out of scope 유지.
+
+## 6. SRE Agent duty coverage
+
+SRE agent 가 커버하리라 기대되는 baseline 의무를, 그것을 구현하는 FDAI
+서브시스템에 대해 정직하게 매핑합니다. `Covered` 는 `core/` 서브시스템과 그
+규칙/테스트가 존재함을 뜻하고; `Partial` 은 서브시스템은 있으나 선언된 의존성이
+아직 deferred 임을 뜻하며; `Deferred` 는 seam 만 설계됨(§ 2 / § 3), 배선 안 됨을
+뜻합니다.
+
+| SRE 의무 | 상태 | 위치 |
+|----------|------|------|
+| Incident 감지 / triage / lifecycle | Covered | `core/incident/` (§ 3.1), `core/event_ingest/` |
+| Root-cause analysis | Covered | `core/rca/`, [observability-and-detection.md](observability-and-detection-ko.md) |
+| 자동 완화(risk-gated) | Covered | `core/risk_gate/`, `core/executor/`, [risk-classification.md](risk-classification-ko.md) |
+| Postmortem | Covered | `core/postmortem/` (§ 3.6) |
+| Anomaly / forecast / correlation | Covered | `core/detection/`, [observability-and-detection.md](observability-and-detection-ko.md) |
+| Capacity planning | Covered | `core/capacity/` |
+| Runbook orchestration | Covered | `core/runbook/` (§ 3.4) |
+| Change safety / pre-deploy feasibility | Covered | `core/deploy_preflight/`, [deployment-preflight.md](deployment-preflight-ko.md) |
+| Posture 리뷰 / 아키텍처 Q&A | Covered | `core/assurance_twin/`, [assurance-twin.md](assurance-twin-ko.md) |
+| **Dev-to-ops 핸드오프 (정책 + RBAC 리뷰)** | Covered | [operational-readiness.md](operational-readiness-ko.md) (ORR) |
+| **Identity / RBAC 최소권한 posture** | Covered | 워크로드 RBAC 규칙 팩(`*.role-assignment.*`) + `remediate.right-size-role` |
+| SLO / error budget | Partial | `core/slo/` (§ 3.3); real burn-rate 는 § 3.2 telemetry 필요 |
+| Monitoring / alerting (외부 signal ingestion) | Partial | correlation + detection 은 ship; 외부 metric / log / trace ingestion 은 § 3.2 seam, 미배선 |
+| On-call 스케줄 / paging | Deferred | § 3.5 seam; PagerDuty / OpsGenie adapter 는 fork 에 land (§ 2) |
+| Status page / stakeholder broadcast | Deferred | § 2 (Incident object 이 전제) |
+| DORA change-failure-rate / deploy-frequency | Deferred | § 2 (git-history reader 필요) |
+
+두 `Partial` 행은 하나의 전제 - § 3.2 telemetry ingestion seam - 을 공유하므로,
+그것을 배선하는 것이 full baseline SRE coverage 로 가는 단일 최고 레버리지
+단계입니다. `Deferred` 행은 컨트롤 루프의 gap 이 아니라 설계상 seam 입니다: 각각
+`core/` 재작성 없이 fork 나 이후 phase 에 additive 로 land 합니다.
+

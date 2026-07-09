@@ -335,3 +335,37 @@ Rollout order picks the strict prerequisite chain:
 - Not a claim of complete operations coverage. The deferred axes in
   § 2 remain deliberately out of scope until a phase explicitly picks
   them up.
+
+## 6. SRE Agent duty coverage
+
+An honest map of the baseline duties an SRE agent is expected to cover
+against the FDAI subsystem that implements each one. `Covered` means a
+`core/` subsystem plus its rules/tests exist; `Partial` means the
+subsystem exists but a declared dependency is still deferred; `Deferred`
+means only the seam is designed (§ 2 / § 3), not wired.
+
+| SRE duty | Status | Where |
+|----------|--------|-------|
+| Incident detection / triage / lifecycle | Covered | `core/incident/` (§ 3.1), `core/event_ingest/` |
+| Root-cause analysis | Covered | `core/rca/`, [observability-and-detection.md](observability-and-detection.md) |
+| Automated mitigation (risk-gated) | Covered | `core/risk_gate/`, `core/executor/`, [risk-classification.md](risk-classification.md) |
+| Postmortem | Covered | `core/postmortem/` (§ 3.6) |
+| Anomaly / forecast / correlation | Covered | `core/detection/`, [observability-and-detection.md](observability-and-detection.md) |
+| Capacity planning | Covered | `core/capacity/` |
+| Runbook orchestration | Covered | `core/runbook/` (§ 3.4) |
+| Change safety / pre-deploy feasibility | Covered | `core/deploy_preflight/`, [deployment-preflight.md](deployment-preflight.md) |
+| Posture review / architecture Q&A | Covered | `core/assurance_twin/`, [assurance-twin.md](assurance-twin.md) |
+| **Dev-to-ops handoff (policy + RBAC review)** | Covered | [operational-readiness.md](operational-readiness.md) (ORR) |
+| **Identity / RBAC least-privilege posture** | Covered | workload RBAC rule pack (`*.role-assignment.*`) + `remediate.right-size-role` |
+| SLO / error budget | Partial | `core/slo/` (§ 3.3); real burn-rate needs § 3.2 telemetry |
+| Monitoring / alerting (external signal ingestion) | Partial | correlation + detection shipped; external metric / log / trace ingestion is the § 3.2 seam, not yet wired |
+| On-call schedule / paging | Deferred | § 3.5 seam; PagerDuty / OpsGenie adapters land in a fork (§ 2) |
+| Status page / stakeholder broadcast | Deferred | § 2 (Incident object is the prerequisite) |
+| DORA change-failure-rate / deploy-frequency | Deferred | § 2 (needs a git-history reader) |
+
+The two `Partial` rows share one prerequisite - the § 3.2 telemetry
+ingestion seam - so wiring it is the single highest-leverage step toward
+full baseline SRE coverage. The `Deferred` rows are seams by design, not
+gaps in the control loop: each lands additively in a fork or a later
+phase without a `core/` rewrite.
+
