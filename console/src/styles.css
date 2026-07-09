@@ -988,6 +988,14 @@ pre {
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+.live-tile-agent {
+  display: inline-flex; align-items: center;
+  padding: 1px 6px; font-size: 10px; font-weight: 700;
+  color: var(--fg);
+  background: rgba(127, 127, 127, 0.14);
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+}
 .live-tile-age { font-variant-numeric: tabular-nums; margin-left: auto; }
 
 /* Ticker ------------------------------------------------------------------ */
