@@ -120,6 +120,38 @@ function ms(iso: string): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
+/** Read a string field from the audit entry payload, or null. */
+function entryStr(item: AuditItem, key: string): string | null {
+  const value = item.entry[key];
+  return typeof value === "string" ? value : null;
+}
+
+/** Read a number field from the audit entry payload, or null. */
+function entryNum(item: AuditItem, key: string): number | null {
+  const value = item.entry[key];
+  return typeof value === "number" ? value : null;
+}
+
+/** Read a flat string->string map field (inputs / outputs), or null. */
+function entryMap(item: AuditItem, key: string): ReadonlyArray<readonly [string, string]> | null {
+  const value = item.entry[key];
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  const pairs = Object.entries(value as Record<string, unknown>)
+    .filter((e): e is [string, string] => typeof e[1] === "string");
+  return pairs.length > 0 ? pairs : null;
+}
+
+/** HH:MM:SS.mmm local clock for the precise lifecycle stepper. */
+function clockMs(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+  const mmm = String(d.getMilliseconds()).padStart(3, "0");
+  return `${hh}:${mm}:${ss}.${mmm}`;
+}
+
 /** Compact human duration for a millisecond span (e.g. "1m 30s", "820ms"). */
 function fmtDur(millis: number): string {
   if (millis <= 0) return "0s";
@@ -452,7 +484,7 @@ function Waterfall({
   }
 
   return (
-    <div class={`waterfall-wrap ${selectedItem ? "waterfall-wrap-detail" : ""}`}>
+    <div class="waterfall-wrap">
       <div class="waterfall" aria-label="Agent activity waterfall">
         {shown.map((g) => {
           const isCollapsed = collapsed.has(g.correlation);
@@ -482,8 +514,7 @@ function Waterfall({
                   </a>
                 </button>
                 <span class="waterfall-span mono muted">
-                  {stamp(new Date(g.startMs).toISOString())} · {g.bars.length} step(s) ·{" "}
-                  {fmtDur(g.spanMs)}
+                  {g.bars.length} · {fmtDur(g.spanMs)}
                 </span>
               </div>
               {isCollapsed ? null : (
@@ -491,35 +522,33 @@ function Waterfall({
                   {g.bars.map((bar) => {
                     const dimmed = selected !== null && bar.agent !== selected;
                     const active = selectedSeq === bar.item.seq;
+                    const work = entryNum(bar.item, "duration_ms");
                     return (
                       <li class="waterfall-lane" key={bar.item.seq}>
                         <button
                           type="button"
-                          class={`waterfall-row ${active ? "waterfall-row-active" : ""}`}
+                          class={`waterfall-row ${active ? "waterfall-row-active" : ""} ${dimmed ? "waterfall-row-dim" : ""}`}
                           aria-pressed={active}
                           onClick={() =>
                             setSelectedSeq((s) => (s === bar.item.seq ? null : bar.item.seq))
                           }
                         >
-                          <span class="waterfall-label" title={bar.agent}>
-                            <span class="agent-dot" data-layer={bar.layer} aria-hidden="true" />
-                            <span class="waterfall-agent" data-layer={bar.layer}>
-                              {bar.agent}
-                            </span>
-                            <span class="waterfall-action mono muted">
-                              {bar.item.action_kind}
-                            </span>
+                          <span class="agent-dot" data-layer={bar.layer} aria-hidden="true" />
+                          <span class="waterfall-agent" data-layer={bar.layer}>
+                            {bar.agent}
                           </span>
-                          <span class="waterfall-track">
+                          <span class="waterfall-action mono muted">
+                            {bar.item.action_kind}
+                          </span>
+                          <span class="waterfall-mini" aria-hidden="true">
                             <span
-                              class={`waterfall-bar ${dimmed ? "waterfall-bar-dim" : ""}`}
+                              class="waterfall-mini-bar"
                               data-layer={bar.layer}
                               style={`left:${bar.leftPct.toFixed(2)}%;width:${bar.widthPct.toFixed(2)}%`}
-                            >
-                              <span class="waterfall-bar-time mono">
-                                {stamp(bar.item.recorded_at)}
-                              </span>
-                            </span>
+                            />
+                          </span>
+                          <span class="waterfall-dur mono muted">
+                            {work !== null ? fmtDur(work) : stamp(bar.item.recorded_at)}
                           </span>
                         </button>
                       </li>
@@ -531,30 +560,66 @@ function Waterfall({
           );
         })}
       </div>
-      {selectedItem ? (
-        <StepDetail item={selectedItem} onClose={() => setSelectedSeq(null)} />
-      ) : null}
+      <div class="waterfall-detail-pane">
+        {selectedItem ? (
+          <StepDetail item={selectedItem} onClose={() => setSelectedSeq(null)} />
+        ) : (
+          <div class="waterfall-detail-empty">
+            <p class="waterfall-detail-empty-title">Select a step</p>
+            <p class="muted">
+              Pick any agent step on the left to see its full lifecycle - when the
+              event was sent and received, how long it queued and worked, what it
+              consumed and produced, and the recorded decision.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-/** Read a string field from the audit entry payload, or null. */
-function entryStr(item: AuditItem, key: string): string | null {
-  const value = item.entry[key];
-  return typeof value === "string" ? value : null;
+/** One phase of the lifecycle stepper: a label, an absolute timestamp, and the
+ * elapsed gap from the previous phase. */
+interface LifecyclePhase {
+  readonly key: string;
+  readonly label: string;
+  readonly iso: string | null;
+  readonly gapLabel: string | null;
 }
 
-/** Full local date + time for the detail header. */
-function fullStamp(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
+/** Build the send -> receive -> start -> finish lifecycle from the entry's
+ * trace fields. Missing fields collapse gracefully (phases with no timestamp
+ * are dropped) so an un-enriched row still renders its `recorded_at`. */
+function lifecycleOf(item: AuditItem): readonly LifecyclePhase[] {
+  const sent = entryStr(item, "event_ts");
+  const received = entryStr(item, "received_at");
+  const started = entryStr(item, "started_at");
+  const finished = entryStr(item, "finished_at") ?? item.recorded_at;
+  const raw: readonly (readonly [string, string, string | null])[] = [
+    ["sent", "Event sent", sent],
+    ["received", "Received", received],
+    ["started", "Work started", started],
+    ["finished", "Finished", finished],
+  ];
+  const present = raw.filter((r) => r[2] !== null) as (readonly [string, string, string])[];
+  return present.map(([key, label, iso], i) => {
+    const prev = i > 0 ? present[i - 1]![2] : null;
+    const gap = prev !== null ? ms(iso) - ms(prev) : null;
+    return {
+      key,
+      label,
+      iso,
+      gapLabel: gap === null ? null : gap <= 0 ? "0s" : `+${fmtDur(gap)}`,
+    };
+  });
 }
 
 /**
- * Detail drawer for one selected audit row - the "click a step, see what
- * exactly it did" surface. It renders the append-only entry's fields
- * verbatim (no re-derivation) so the drawer is a faithful read of the record.
+ * Large detail pane for one selected audit row - the "click a step, see
+ * exactly what it did" surface. It renders the append-only entry verbatim
+ * (no re-derivation): a lifecycle stepper (sent -> received -> started ->
+ * finished with gap latencies), the narrative detail, structured inputs /
+ * outputs, and the full record fields.
  */
 function StepDetail({ item, onClose }: { readonly item: AuditItem; readonly onClose: () => void }) {
   const agent = agentOf(item);
@@ -562,21 +627,23 @@ function StepDetail({ item, onClose }: { readonly item: AuditItem; readonly onCl
   const tier = tierOf(item);
   const outcome = outcomeOf(item);
   const summary = summaryOf(item);
+  const detail = entryStr(item, "detail");
   const decision = entryStr(item, "decision");
   const reason = entryStr(item, "reason");
   const stage = entryStr(item, "pipeline_stage");
+  const durationMs = entryNum(item, "duration_ms");
+  const queueMs = entryNum(item, "queue_ms");
+  const inputs = entryMap(item, "inputs");
+  const outputs = entryMap(item, "outputs");
+  const phases = lifecycleOf(item);
 
-  const rows: readonly (readonly [string, ComponentChildren])[] = [
-    ["Agent", <span class="waterfall-agent" data-layer={layer}>{agent}</span>],
-    ["Action", <span class="mono">{item.action_kind}</span>],
-    ["When", <span class="mono">{fullStamp(item.recorded_at)}</span>],
+  const record: readonly (readonly [string, ComponentChildren])[] = [
     ["Tier", tier ? <span class="mono">{tier}</span> : null],
     ["Mode", <StatusPill kind={modePill(item.mode)} label={item.mode} />],
     ["Outcome", outcome ? <StatusPill kind={outcomePill(outcome)} label={outcome} /> : null],
     ["Decision", decision ? <span class="mono">{decision}</span> : null],
     ["Pipeline stage", stage ? <span class="mono">{stage}</span> : null],
     ["Reason", reason],
-    ["Summary", summary],
     [
       "Correlation",
       item.correlation_id ? (
@@ -590,6 +657,7 @@ function StepDetail({ item, onClose }: { readonly item: AuditItem; readonly onCl
       ) : null,
     ],
     ["Seq", <span class="mono">{item.seq}</span>],
+    ["Event id", <span class="mono waterfall-hash">{item.event_id}</span>],
     ["Entry hash", <span class="mono waterfall-hash">{item.entry_hash}</span>],
     ["Prev hash", <span class="mono waterfall-hash">{item.previous_hash}</span>],
   ];
@@ -598,23 +666,92 @@ function StepDetail({ item, onClose }: { readonly item: AuditItem; readonly onCl
     <aside class="waterfall-detail" aria-label="Step detail">
       <header class="waterfall-detail-head">
         <span class="waterfall-detail-title">
-          <span class="agent-dot" data-layer={layer} aria-hidden="true" />
-          {agent} · <span class="mono">{item.action_kind}</span>
+          <span class="agent-dot agent-dot-lg" data-layer={layer} aria-hidden="true" />
+          <span class="waterfall-detail-agent" data-layer={layer}>{agent}</span>
+          <span class="waterfall-detail-action mono">{item.action_kind}</span>
+          {tier ? <span class="timeline-tier mono">{tier}</span> : null}
+          <StatusPill kind={modePill(item.mode)} label={item.mode} />
+          {outcome ? <StatusPill kind={outcomePill(outcome)} label={outcome} /> : null}
         </span>
         <button type="button" class="waterfall-detail-close" onClick={onClose} aria-label="Close detail">
           ×
         </button>
       </header>
-      <dl class="waterfall-detail-grid">
-        {rows.map(([label, value]) =>
-          value === null || value === undefined ? null : (
-            <div class="waterfall-detail-row" key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ),
-        )}
-      </dl>
+
+      {summary ? <p class="waterfall-detail-summary">{summary}</p> : null}
+
+      <section class="waterfall-section">
+        <h3 class="waterfall-section-title">Lifecycle</h3>
+        <ol class="waterfall-life">
+          {phases.map((p) => (
+            <li class="waterfall-life-step" key={p.key}>
+              <span class="waterfall-life-dot" data-layer={layer} aria-hidden="true" />
+              <span class="waterfall-life-body">
+                <span class="waterfall-life-label">{p.label}</span>
+                {p.iso ? <span class="waterfall-life-time mono">{clockMs(p.iso)}</span> : null}
+              </span>
+              {p.gapLabel ? <span class="waterfall-life-gap mono">{p.gapLabel}</span> : null}
+            </li>
+          ))}
+        </ol>
+        <p class="waterfall-life-note muted">
+          {durationMs !== null ? <>Worked <strong>{fmtDur(durationMs)}</strong></> : null}
+          {durationMs !== null && queueMs !== null ? " · " : null}
+          {queueMs !== null ? <>queued <strong>{fmtDur(queueMs)}</strong></> : null}
+        </p>
+      </section>
+
+      {detail ? (
+        <section class="waterfall-section">
+          <h3 class="waterfall-section-title">What it did</h3>
+          <p class="waterfall-detail-text">{detail}</p>
+        </section>
+      ) : null}
+
+      {inputs || outputs ? (
+        <div class="waterfall-io">
+          {inputs ? (
+            <section class="waterfall-section">
+              <h3 class="waterfall-section-title">Inputs</h3>
+              <dl class="waterfall-kv">
+                {inputs.map(([k, v]) => (
+                  <div class="waterfall-kv-row" key={k}>
+                    <dt class="mono">{k}</dt>
+                    <dd class="mono">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ) : null}
+          {outputs ? (
+            <section class="waterfall-section">
+              <h3 class="waterfall-section-title">Outputs</h3>
+              <dl class="waterfall-kv">
+                {outputs.map(([k, v]) => (
+                  <div class="waterfall-kv-row" key={k}>
+                    <dt class="mono">{k}</dt>
+                    <dd class="mono">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ) : null}
+        </div>
+      ) : null}
+
+      <section class="waterfall-section">
+        <h3 class="waterfall-section-title">Record</h3>
+        <dl class="waterfall-detail-grid">
+          {record.map(([label, value]) =>
+            value === null || value === undefined ? null : (
+              <div class="waterfall-detail-row" key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ),
+          )}
+        </dl>
+      </section>
     </aside>
   );
 }

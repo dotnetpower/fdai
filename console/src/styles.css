@@ -3063,41 +3063,40 @@ main { padding-bottom: 60px !important; }
 }
 
 /* Waterfall (per-incident agent hand-off cascade) ------------------------- */
+/* Master-detail: a compact clickable incident tree on the left, a large
+   step-detail pane on the right. */
 .waterfall-wrap {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
-.waterfall-wrap-detail {
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
-}
-@media (max-width: 900px) {
-  .waterfall-wrap-detail {
+@media (max-width: 860px) {
+  .waterfall-wrap {
     grid-template-columns: 1fr;
   }
 }
 .waterfall {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   min-width: 0;
 }
 .waterfall-group {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg-elevated);
-  padding: 12px 14px 14px;
+  padding: 8px 10px 10px;
 }
 .waterfall-group-collapsed {
-  padding-bottom: 12px;
+  padding-bottom: 8px;
 }
 .waterfall-group-head {
   display: flex;
   align-items: baseline;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 10px;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 .waterfall-group-collapsed .waterfall-group-head {
   margin-bottom: 0;
@@ -3109,12 +3108,13 @@ main { padding-bottom: 60px !important; }
   padding: 0;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   cursor: pointer;
   color: inherit;
+  min-width: 0;
 }
 .waterfall-chevron {
-  font-size: 9px;
+  font-size: 8px;
   color: var(--fg-muted);
   transition: transform 0.12s ease;
   display: inline-block;
@@ -3123,7 +3123,7 @@ main { padding-bottom: 60px !important; }
   transform: rotate(90deg);
 }
 .waterfall-corr {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--accent);
   text-decoration: none;
@@ -3132,7 +3132,8 @@ main { padding-bottom: 60px !important; }
   text-decoration: underline;
 }
 .waterfall-span {
-  font-size: 11.5px;
+  font-size: 11px;
+  flex: 0 0 auto;
 }
 .waterfall-lanes {
   list-style: none;
@@ -3140,7 +3141,7 @@ main { padding-bottom: 60px !important; }
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 1px;
 }
 .waterfall-row {
   appearance: none;
@@ -3148,10 +3149,10 @@ main { padding-bottom: 60px !important; }
   border: 1px solid transparent;
   background: transparent;
   border-radius: 6px;
-  padding: 3px 6px 3px 18px;
+  padding: 4px 7px;
   display: grid;
-  grid-template-columns: minmax(150px, 210px) 1fr;
-  gap: 12px;
+  grid-template-columns: auto auto minmax(0, 1fr) 46px auto;
+  gap: 7px;
   align-items: center;
   cursor: pointer;
   text-align: left;
@@ -3161,88 +3162,100 @@ main { padding-bottom: 60px !important; }
   background: color-mix(in oklab, var(--accent) 8%, transparent);
 }
 .waterfall-row-active {
-  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  background: color-mix(in oklab, var(--accent) 15%, transparent);
   border-color: color-mix(in oklab, var(--accent) 45%, var(--border));
 }
-.waterfall-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
+.waterfall-row-dim {
+  opacity: 0.42;
 }
 .waterfall-agent {
   font-weight: 600;
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--layer, var(--accent));
   flex: 0 0 auto;
 }
 .waterfall-action {
-  font-size: 11.5px;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.waterfall-track {
+/* compact position/duration cue on a left row */
+.waterfall-mini {
   position: relative;
   display: block;
-  height: 22px;
-  border-radius: 6px;
+  height: 8px;
+  border-radius: 4px;
   background: color-mix(in oklab, var(--border) 35%, transparent);
   overflow: hidden;
 }
-.waterfall-bar {
+.waterfall-mini-bar {
   position: absolute;
   top: 0;
   bottom: 0;
-  min-width: 6px;
-  border-radius: 6px;
-  background: color-mix(in oklab, var(--layer, var(--accent)) 70%, var(--bg-elevated));
-  border: 1px solid var(--layer, var(--accent));
-  display: flex;
-  align-items: center;
-  padding: 0 7px;
-  box-sizing: border-box;
-  transition: opacity 0.12s;
+  min-width: 4px;
+  border-radius: 4px;
+  background: var(--layer, var(--accent));
 }
-.waterfall-bar-dim {
-  opacity: 0.28;
-}
-.waterfall-bar-time {
+.waterfall-dur {
   font-size: 10.5px;
-  color: var(--fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: right;
+  flex: 0 0 auto;
 }
 
-/* Step detail drawer (click a lane) --------------------------------------- */
-.waterfall-detail {
+/* Step detail pane (right, large) ----------------------------------------- */
+.waterfall-detail-pane {
+  min-width: 0;
   position: sticky;
   top: 12px;
+}
+.waterfall-detail-empty {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 28px 24px;
+  background: color-mix(in oklab, var(--bg-elevated) 60%, transparent);
+  max-width: 520px;
+}
+.waterfall-detail-empty-title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.waterfall-detail {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg-elevated);
-  padding: 12px 14px 14px;
+  padding: 16px 18px 18px;
   min-width: 0;
 }
 .waterfall-detail-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
+  gap: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 .waterfall-detail-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
+  gap: 8px;
+  flex-wrap: wrap;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+.agent-dot-lg {
+  width: 11px;
+  height: 11px;
+}
+.waterfall-detail-agent {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--layer, var(--accent));
+}
+.waterfall-detail-action {
+  font-size: 13px;
+  color: var(--fg);
 }
 .waterfall-detail-close {
   appearance: none;
@@ -3250,10 +3263,10 @@ main { padding-bottom: 60px !important; }
   background: var(--bg);
   color: var(--fg-muted);
   border-radius: 6px;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   line-height: 1;
-  font-size: 15px;
+  font-size: 16px;
   cursor: pointer;
   flex: 0 0 auto;
 }
@@ -3261,11 +3274,141 @@ main { padding-bottom: 60px !important; }
   color: var(--fg);
   border-color: var(--accent);
 }
-.waterfall-detail-grid {
+.waterfall-detail-summary {
+  margin: 12px 0 0;
+  font-size: 13.5px;
+  color: var(--fg);
+  line-height: 1.5;
+}
+.waterfall-section {
+  margin-top: 16px;
+}
+.waterfall-section-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+}
+
+/* Lifecycle stepper (sent -> received -> started -> finished) -------------- */
+.waterfall-life {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.waterfall-life-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 5px 0;
+}
+.waterfall-life-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--layer, var(--accent));
+  justify-self: center;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--layer, var(--accent)) 20%, transparent);
+}
+.waterfall-life-step:not(:last-child) .waterfall-life-dot::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 18px;
+  width: 2px;
+  height: calc(100% - 8px);
+  background: var(--border);
+}
+.waterfall-life-body {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.waterfall-life-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.waterfall-life-time {
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+.waterfall-life-gap {
+  font-size: 11px;
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+.waterfall-life-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+
+.waterfall-detail-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg);
+}
+
+/* Inputs / outputs (two columns on wide panes) ---------------------------- */
+.waterfall-io {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 620px) {
+  .waterfall-io {
+    grid-template-columns: 1fr;
+  }
+}
+.waterfall-kv {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+}
+.waterfall-kv-row {
+  display: grid;
+  grid-template-columns: minmax(90px, auto) 1fr;
+  gap: 10px;
+  align-items: baseline;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--border) 22%, transparent);
+}
+.waterfall-kv-row dt {
+  font-size: 11.5px;
+  color: var(--fg-muted);
+}
+.waterfall-kv-row dd {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+/* Record fields ----------------------------------------------------------- */
+.waterfall-detail-grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+@media (max-width: 620px) {
+  .waterfall-detail-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .waterfall-detail-row {
   display: grid;
