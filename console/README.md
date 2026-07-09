@@ -1,7 +1,7 @@
 # `console/`
 
-Thin, read-only operator SPA - KPI dashboard, audit log viewer, HIL queue view.
-This is the layer-3 surface described in
+Thin, read-only operator SPA - KPI dashboard, audit log viewer, per-agent
+activity timeline, HIL queue view. This is the layer-3 surface described in
 [`.github/instructions/app-shape.instructions.md`](../.github/instructions/app-shape.instructions.md)
 § Operator console. The read-only invariant is a hard rule: the SPA MUST issue
 no privileged calls, MUST NOT expose an action / approval button, and MUST NOT
@@ -34,6 +34,14 @@ The SPA talks to exactly three GET routes on the read API
 No mutating verb (`POST` / `PUT` / `DELETE` / `PATCH`) is called anywhere in
 `src/**`. The pytest suite for the API enforces `405` on mutating verbs
 (`tests/delivery/read_api/test_main.py::TestReadOnlyInvariant`).
+
+The **History > Agent activity** panel
+([`src/routes/agent-activity.tsx`](src/routes/agent-activity.tsx)) reuses the
+same `GET /audit` route - no new backend route. It reconstructs a per-agent
+timeline (which pantheon agent did what, when, and how) by grouping audit rows
+on their `actor`, colours each agent chip by its cognitive layer, and
+deep-links every entry to its full pipeline trace via
+`#/trace?correlation=<id>`.
 
 Beyond the three always-on routes above, the app factory registers several
 **opt-in** GET routes when their inputs are wired at the composition root
