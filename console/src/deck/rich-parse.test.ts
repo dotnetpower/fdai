@@ -150,9 +150,37 @@ describe("parseAnswer - charts", () => {
     expect(kinds(parseAnswer(md))).toEqual(["text"]);
   });
 
+  it("accepts a line chart and preserves the type", () => {
+    const md =
+      '```chart\n{"type":"line","unit":"eps","data":[{"label":"t0","value":1},{"label":"t1","value":4}]}\n```';
+    const seg = parseAnswer(md)[0]!;
+    expect(seg.kind).toBe("chart");
+    if (seg.kind === "chart") {
+      expect(seg.spec.type).toBe("line");
+      expect(seg.spec.data).toHaveLength(2);
+    }
+  });
+
   it("falls back to text when data is empty", () => {
     const md = '```chart\n{"type":"bar","data":[]}\n```';
     expect(kinds(parseAnswer(md))).toEqual(["text"]);
+  });
+
+  it("renders a chart spec wrapped in a ```json fence as a chart", () => {
+    const md = '```json\n{"type":"bar","data":[{"label":"a","value":1}]}\n```';
+    expect(kinds(parseAnswer(md))).toEqual(["chart"]);
+  });
+
+  it("renders a chart spec in an unlabelled fence as a chart", () => {
+    const md = '```\n{"type":"line","data":[{"label":"a","value":1}]}\n```';
+    expect(kinds(parseAnswer(md))).toEqual(["chart"]);
+  });
+
+  it("keeps ordinary json (no chart shape) as a code block", () => {
+    const md = '```json\n{"id":"r1","severity":"high"}\n```';
+    const segs = parseAnswer(md);
+    expect(kinds(segs)).toEqual(["code"]);
+    expect(segs[0]).toMatchObject({ kind: "code", lang: "json" });
   });
 
   it("accepts a safe hex color and rejects an unsafe one", () => {

@@ -16,7 +16,7 @@ export interface ChartDatum {
 }
 
 export interface ChartSpec {
-  readonly type: "bar";
+  readonly type: "bar" | "line";
   readonly title?: string;
   readonly unit?: string;
   readonly data: readonly ChartDatum[];
@@ -53,7 +53,7 @@ function parseChart(raw: string): ChartSpec | null {
   }
   if (typeof parsed !== "object" || parsed === null) return null;
   const o = parsed as Record<string, unknown>;
-  if (o.type !== "bar" || !Array.isArray(o.data)) return null;
+  if ((o.type !== "bar" && o.type !== "line") || !Array.isArray(o.data)) return null;
   const data: ChartDatum[] = [];
   for (const d of o.data) {
     if (d && typeof d === "object") {
@@ -66,7 +66,7 @@ function parseChart(raw: string): ChartSpec | null {
   }
   if (data.length === 0) return null;
   return {
-    type: "bar",
+    type: o.type,
     data,
     ...(typeof o.title === "string" ? { title: o.title } : {}),
     ...(typeof o.unit === "string" ? { unit: o.unit } : {}),
@@ -99,14 +99,18 @@ export function parseAnswer(text: string): Segment[] {
         i += 1;
       }
       const raw = body.join("\n");
-      if (lang === "chart") {
-        const spec = parseChart(raw);
-        if (spec) {
-          flushText();
-          segments.push({ kind: "chart", spec });
-        } else {
-          buffer.push("```chart", ...body, "```");
-        }
+      const spec = parseChart(raw);
+      // Render as a chart when the block holds a valid chart spec and the fence
+      // is chart/json/none - the narrator sometimes wraps a chart spec in a
+      // ```json fence instead of ```chart. A real ```<lang> code block (yaml,
+      // bash, ...) or non-chart json stays a highlighted code block.
+      const chartish = lang === "chart" || lang === "json" || lang === "";
+      if (spec && chartish) {
+        flushText();
+        segments.push({ kind: "chart", spec });
+      } else if (lang === "chart") {
+        // Declared a chart but the JSON was invalid - show it as text.
+        buffer.push("```chart", ...body, "```");
       } else {
         flushText();
         segments.push({ kind: "code", lang, code: raw });

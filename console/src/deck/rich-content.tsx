@@ -229,6 +229,75 @@ function MiniChart({ spec }: { readonly spec: ChartSpec }) {
   );
 }
 
+function LineChart({ spec }: { readonly spec: ChartSpec }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const data = spec.data;
+  const n = data.length;
+  const values = data.map((d) => d.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const unit = spec.unit ?? "";
+  const sep = /^[A-Za-z]/.test(unit) ? " " : "";
+  const W = 300;
+  const H = 96;
+  const padX = 10;
+  const padTop = 12;
+  const padBottom = 22;
+  const innerW = W - padX * 2;
+  const innerH = H - padTop - padBottom;
+  const span = Math.max(1, n - 1);
+  const x = (i: number) => padX + (n <= 1 ? innerW / 2 : (i / span) * innerW);
+  const y = (v: number) =>
+    padTop + innerH - (max === min ? innerH / 2 : ((v - min) / (max - min)) * innerH);
+  const pts = data.map((d, i) => `${x(i)},${y(d.value)}`).join(" ");
+  const showLabels = n <= 8;
+  return (
+    <figure class="deck-chart">
+      {spec.title ? <figcaption class="deck-chart-title">{spec.title}</figcaption> : null}
+      <svg viewBox={`0 0 ${W} ${H}`} class="deck-line-svg" role="img" aria-label={spec.title ?? "line chart"}>
+        <polyline
+          class="deck-line-path"
+          points={pts}
+          fill="none"
+          vector-effect="non-scaling-stroke"
+        />
+        {data.map((d, i) => (
+          <g
+            key={i}
+            onMouseEnter={() => setHover(i)}
+            onMouseLeave={() => setHover((h) => (h === i ? null : h))}
+          >
+            <rect
+              x={x(i) - innerW / (2 * span)}
+              y={padTop}
+              width={innerW / span}
+              height={innerH}
+              fill="transparent"
+            />
+            <circle
+              cx={x(i)}
+              cy={y(d.value)}
+              r={hover === i ? 4 : 2.5}
+              class="deck-line-dot"
+              vector-effect="non-scaling-stroke"
+            />
+            {hover === i ? (
+              <text x={x(i)} y={y(d.value) - 6} class="deck-line-tip" text-anchor="middle">
+                {`${d.value}${sep}${unit}`}
+              </text>
+            ) : null}
+            {showLabels ? (
+              <text x={x(i)} y={H - 7} class="deck-line-xlabel" text-anchor="middle">
+                {d.label.length > 7 ? `${d.label.slice(0, 7)}` : d.label}
+              </text>
+            ) : null}
+          </g>
+        ))}
+      </svg>
+    </figure>
+  );
+}
+
 /** Render an answer string as prose + tables + charts. */
 export function RichContent({ text }: { readonly text: string }) {
   const segments = parseAnswer(text);
@@ -241,6 +310,7 @@ export function RichContent({ text }: { readonly text: string }) {
           return <TableBlock key={i} headers={seg.headers} rows={seg.rows} />;
         }
         if (seg.kind === "code") return <CodeBlock key={i} lang={seg.lang} code={seg.code} />;
+        if (seg.spec.type === "line") return <LineChart key={i} spec={seg.spec} />;
         return <MiniChart key={i} spec={seg.spec} />;
       })}
     </div>
