@@ -1523,6 +1523,26 @@ pre {
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
+.overview-trend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #2f8f5a;
+}
+.overview-trend-label {
+  font-size: 11px;
+}
+.overview-trend-svg {
+  display: block;
+}
+.overview-trend-delta {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.overview-trend-delta.down {
+  color: var(--danger);
+}
 .overview-metrics {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1948,6 +1968,10 @@ pre {
 .prop { display: flex; flex-direction: column; gap: 3px; }
 .prop-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--fg-muted); }
 .field-hint { font-size: 11.5px; color: var(--fg-muted); line-height: 1.4; }
+.hint-bad { color: #b42318; }
+.input-bad { border-color: color-mix(in oklab, #d92d20 55%, var(--border)); }
+.step-card-incomplete { border-left: 3px solid color-mix(in oklab, #d9822b 70%, var(--border)); }
+.badge.tag { background: color-mix(in oklab, var(--fg-muted) 14%, transparent); color: var(--fg-muted); }
 
 
 

@@ -13,7 +13,7 @@
  * (process-automation.md § 6).
  */
 
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ReadApiClient } from "../api";
 import { AsyncBoundary, CopyButton, PageHeader, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
@@ -121,6 +121,45 @@ const BUILDER_FORM_FIELDS: readonly Record<string, string>[] = [
   { section: "4. Promotion gate", field: "anti_scope", required: "no", note: "optional note on what this workflow must NOT do" },
 ];
 
+/** Regex the server enforces on a workflow name (schema.json). Surfaced
+ * client-side so a bad name is flagged inline, not after a round-trip. */
+const NAME_PATTERN = /^[a-z][a-z0-9_.-]{0,79}$/;
+
+/** Turn a built-in workflow into an editable draft so an operator can
+ * clone-and-tweak instead of starting from a blank form. */
+function catalogToForm(w: WorkflowCatalogEntry): FormState {
+  return {
+    name: `${w.name}-copy`,
+    version: w.version,
+    description: w.description ?? "",
+    triggerKind: w.trigger.kind === "schedule" ? "schedule" : "signal",
+    signalType: w.trigger.signal_type ?? "object.drift",
+    schedule: w.trigger.schedule ?? "",
+    minShadowDays: String(w.promotion_gate.min_shadow_days),
+    minSamples: String(w.promotion_gate.min_samples),
+    minAccuracy: String(w.promotion_gate.min_accuracy),
+    maxPolicyEscapes: String(w.promotion_gate.max_policy_escapes),
+    antiScope: w.anti_scope ?? "",
+    steps: w.steps.map((s, i) => ({
+      key: i,
+      id: s.id,
+      action_type_ref: s.action_type_ref,
+      guard_rule_ref: s.guard_rule_ref ?? "",
+      compensated_by: s.compensated_by ?? "",
+      on_failure: s.on_failure ?? "",
+    })),
+  };
+}
+
+/** Humanize a server issue key ("draft:steps.s1.action_type_ref") into a
+ * readable location ("steps > s1 > action type ref") for the issues table,
+ * keeping the raw key available as a tooltip. */
+function humanizeIssueKey(key: string): string {
+  const noPrefix = key.replace(/^draft:/, "").trim();
+  if (noPrefix === "" || noPrefix === "<root>") return "workflow";
+  return noPrefix.replace(/\./g, " > ").replace(/_/g, " ");
+}
+
 /** Assemble the JSON draft the validate endpoint expects, dropping empty
  * optional fields so the server sees a clean mapping. */
 function buildDraft(form: FormState): Record<string, unknown> {
@@ -212,6 +251,7 @@ export function WorkflowBuilderRoute({ client }: Props) {
  * workflow" action so the default surface is safe inspection. */
 function WorkflowShell({ data }: { readonly data: CombinedData }) {
   const [mode, setMode] = useState<"list" | "new">("list");
+  const [seed, setSeed] = useState<FormState | null>(null);
 
   usePublishViewContext(
     () => {
@@ -270,18 +310,38 @@ function WorkflowShell({ data }: { readonly data: CombinedData }) {
   );
 
   if (mode === "new") {
-    return <BuilderBody palette={data.palette} onBack={() => setMode("list")} />;
+    return (
+      <BuilderBody
+        palette={data.palette}
+        initial={seed ?? INITIAL_FORM}
+        onBack={() => setMode("list")}
+      />
+    );
   }
-  return <BuiltInList workflows={data.workflows} onNew={() => setMode("new")} />;
+  return (
+    <BuiltInList
+      workflows={data.workflows}
+      onNew={() => {
+        setSeed(null);
+        setMode("new");
+      }}
+      onClone={(w) => {
+        setSeed(catalogToForm(w));
+        setMode("new");
+      }}
+    />
+  );
 }
 
 /** Read-only list of shipped workflows + a details drawer per row. */
 function BuiltInList({
   workflows,
   onNew,
+  onClone,
 }: {
   readonly workflows: readonly WorkflowCatalogEntry[];
   readonly onNew: () => void;
+  readonly onClone: (w: WorkflowCatalogEntry) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const current = workflows.find((w) => w.name === selected) ?? null;
@@ -318,47 +378,72 @@ function BuiltInList({
                 </tr>
               </thead>
               <tbody>
-                {workflows.map((w) => (
-                  <tr
-                    key={w.name}
-                    class={w.name === selected ? "row-active" : ""}
-                    onClick={() => setSelected(w.name === selected ? null : w.name)}
-                    style="cursor: pointer"
-                  >
-                    <td class="mono">{w.name}</td>
-                    <td class="mono muted">
-                      {w.trigger.kind === "signal" ? w.trigger.signal_type : w.trigger.schedule}
-                    </td>
-                    <td>{w.step_count}</td>
-                    <td>
-                      <span
-                        class={w.default_mode === "enforce" ? "badge enforce" : "badge shadow"}
-                      >
-                        {w.default_mode}
-                      </span>
-                    </td>
-                    <td class="chevron-col">
-                      <span class="row-chevron">{w.name === selected ? "▾" : "▸"}</span>
-                    </td>
-                  </tr>
-                ))}
+                {workflows.map((w) => {
+                  const isOpen = w.name === selected;
+                  const toggle = () => setSelected(isOpen ? null : w.name);
+                  return (
+                    <tr
+                      key={w.name}
+                      class={isOpen ? "row-active" : ""}
+                      onClick={toggle}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggle();
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      aria-expanded={isOpen}
+                      style="cursor: pointer"
+                    >
+                      <td class="mono">{w.name}</td>
+                      <td class="mono muted">
+                        <span class="badge tag">{w.trigger.kind}</span>{" "}
+                        {w.trigger.kind === "signal" ? w.trigger.signal_type : w.trigger.schedule}
+                      </td>
+                      <td>{w.step_count}</td>
+                      <td>
+                        <span
+                          class={w.default_mode === "enforce" ? "badge enforce" : "badge shadow"}
+                        >
+                          {w.default_mode}
+                        </span>
+                      </td>
+                      <td class="chevron-col">
+                        <span class="row-chevron">{isOpen ? "▾" : "▸"}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </section>
 
-      {current ? <WorkflowDetail workflow={current} /> : null}
+      {current ? <WorkflowDetail workflow={current} onClone={onClone} /> : null}
     </div>
   );
 }
 
 /** Read-only detail: property table + steps + raw catalog YAML. */
-function WorkflowDetail({ workflow }: { readonly workflow: WorkflowCatalogEntry }) {
+function WorkflowDetail({
+  workflow,
+  onClone,
+}: {
+  readonly workflow: WorkflowCatalogEntry;
+  readonly onClone: (w: WorkflowCatalogEntry) => void;
+}) {
   const gate = workflow.promotion_gate;
   return (
     <section class="stack-section">
-      <h3 class="section-title mono">{workflow.name}</h3>
+      <div class="section-header">
+        <h3 class="section-title mono">{workflow.name}</h3>
+        <button type="button" class="btn btn-small" onClick={() => onClone(workflow)}>
+          Use as template
+        </button>
+      </div>
       {workflow.description ? <p class="muted">{workflow.description}</p> : null}
       <div class="prop-grid">
         <div class="prop">
@@ -433,16 +518,27 @@ function WorkflowDetail({ workflow }: { readonly workflow: WorkflowCatalogEntry 
 
 function BuilderBody({
   palette,
+  initial,
   onBack,
 }: {
   readonly palette: readonly ActionTypePaletteEntry[];
+  readonly initial: FormState;
   readonly onBack: () => void;
 }) {
-  const [form, setForm] = useState<FormState>(INITIAL_FORM);
-  const [nextKey, setNextKey] = useState(1);
+  const [form, setForm] = useState<FormState>(initial);
+  const [nextKey, setNextKey] = useState(initial.steps.length);
   const [result, setResult] = useState<ValidateResponse | null>(null);
   const [validating, setValidating] = useState(false);
   const [transportError, setTransportError] = useState<string | null>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  // Bring the validation outcome into view - on a long form the result
+  // section sits below the fold and is easy to miss.
+  useEffect(() => {
+    if (result || transportError) {
+      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [result, transportError]);
 
   const paletteByName = useMemo(
     () => new Map(palette.map((p) => [p.name, p])),
@@ -502,7 +598,29 @@ function BuilderBody({
     }
   }
 
+  function resetForm(): void {
+    setForm(INITIAL_FORM);
+    setNextKey(1);
+    setResult(null);
+    setTransportError(null);
+  }
+
   const stepIds = form.steps.map((s) => s.id.trim()).filter(Boolean);
+
+  // Client-side readiness: what still blocks a useful validate call. Shown
+  // as a checklist so the operator is never guessing why Validate is off.
+  const nameValid = NAME_PATTERN.test(form.name.trim());
+  const triggerFilled =
+    form.triggerKind === "signal" ? form.signalType.trim() !== "" : form.schedule.trim() !== "";
+  const incompleteSteps = form.steps.filter(
+    (s) => s.id.trim() === "" || s.action_type_ref.trim() === "",
+  ).length;
+  const missing: string[] = [];
+  if (!nameValid) missing.push(form.name.trim() === "" ? "a name" : "a valid name");
+  if (!triggerFilled) missing.push(form.triggerKind === "signal" ? "a signal type" : "a schedule");
+  if (incompleteSteps > 0)
+    missing.push(`${incompleteSteps} step${incompleteSteps > 1 ? "s" : ""} to be completed`);
+  const ready = missing.length === 0;
 
   return (
     <div class="stack">
@@ -534,11 +652,16 @@ function BuilderBody({
           <label class="form-field">
             <span class="form-label">Name (dotted id)</span>
             <input
-              class="form-input mono"
+              class={form.name.trim() !== "" && !nameValid ? "form-input mono input-bad" : "form-input mono"}
               value={form.name}
               placeholder="cost-aware-remediation"
               onInput={(e) => patch({ name: (e.target as HTMLInputElement).value })}
             />
+            <span class={form.name.trim() !== "" && !nameValid ? "field-hint hint-bad" : "field-hint"}>
+              {form.name.trim() !== "" && !nameValid
+                ? "Lowercase letters/digits/._- only, must start with a letter (max 80)."
+                : "Lowercase dotted id, e.g. cost-aware-remediation."}
+            </span>
           </label>
           <label class="form-field">
             <span class="form-label">Version</span>
@@ -623,11 +746,18 @@ function BuilderBody({
           {form.steps.map((step, index) => {
             const at = paletteByName.get(step.action_type_ref);
             const laterIds = stepIds.slice(index + 1);
+            const stepIncomplete = step.id.trim() === "" || step.action_type_ref.trim() === "";
             return (
-              <div class="step-card" key={step.key}>
+              <div
+                class={stepIncomplete ? "step-card step-card-incomplete" : "step-card"}
+                key={step.key}
+              >
                 <div class="step-card-head">
                   <span class="badge">#{index + 1}</span>
                   <div class="step-move">
+                    {stepIncomplete ? (
+                      <span class="field-hint hint-bad">needs id + ActionType</span>
+                    ) : null}
                     <button
                       type="button"
                       class="btn btn-small"
@@ -805,18 +935,31 @@ function BuilderBody({
       </section>
 
       {/* Validate + result */}
-      <section class="stack-section">
+      <section class="stack-section" ref={resultRef}>
         <div class="section-header">
           <h3 class="section-title">5. Validate &amp; export</h3>
-          <button type="button" class="btn" onClick={onValidate} disabled={validating}>
-            {validating ? "Validating..." : "Validate draft"}
-          </button>
+          <div class="code-actions">
+            <button type="button" class="btn btn-small" onClick={resetForm} disabled={validating}>
+              Reset
+            </button>
+            <button
+              type="button"
+              class="btn"
+              onClick={onValidate}
+              disabled={validating || !ready}
+            >
+              {validating ? "Validating..." : "Validate draft"}
+            </button>
+          </div>
         </div>
         <p class="muted small">
           Runs the draft through the server-side workflow validator. If anything is wrong you get a
           list of exactly what and where; if it passes you get a canonical YAML to copy into a
           <code> rule-catalog/workflows/&lt;name&gt;.yaml</code> file and open as a PR.
         </p>
+        {!ready ? (
+          <p class="field-hint hint-bad">Before validating, add {missing.join(", ")}.</p>
+        ) : null}
         {transportError ? (
           <div class="empty error">
             <p class="mono">{transportError}</p>
@@ -910,7 +1053,9 @@ function ValidationResult({
             <tbody>
               {result.issues.map((issue, i) => (
                 <tr key={i}>
-                  <td class="mono">{issue.key}</td>
+                  <td class="mono" title={issue.key}>
+                    {humanizeIssueKey(issue.key)}
+                  </td>
                   <td>{issue.message}</td>
                 </tr>
               ))}
