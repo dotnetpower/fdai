@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: fab01f8362bfecad8e52b69d9bab60ddb90323b9
+translation_source_sha: 87cc18ba4eb3d53476d01a6d10d77accf011d216
 translation_revised: 2026-07-09
 ---
 
@@ -189,6 +189,14 @@ shadow-before-enforce 불변식과 일치한다.
 [`WorkflowTriggerIndex`](../../src/fdai/core/workflow/trigger_index.py) 에 매칭되고,
 매칭된 모든 Workflow 는 shadow 로 실행된다 (name 순서, 리소스 + 타임스탬프는
 Event 에서). 어떤 Workflow 도 매칭하지 않는 이벤트는 아무것도 시작하지 않는다.
+
+코디네이터는 [`ControlLoop`](../../src/fdai/core/control_loop.py) 에 **opt-in,
+fail-safe side-consumer** 로 배선된다: `FDAI_WORKFLOW_SHADOW` 가 truthy 이고
+카탈로그가 Workflow 를 실으면, 엔트리 포인트가 (로드된 Workflow 카탈로그, RBAC
+그룹 매핑, notification matrix 로) 조립하고 모든 ingested 이벤트가 매칭된
+Workflow 를 발화시킨다. audit row 만 추가한다 - routing, risk 결정, return 경로를
+절대 바꾸지 않으며, 코디네이터 실패는 로깅되고 swallow 된다. upstream 기본은
+off 이므로, 배포가 opt-in 하지 않는 한 컨트롤 루프는 이전과 똑같이 동작한다.
 
 ### 4.2 Guard 평가 (seam)
 

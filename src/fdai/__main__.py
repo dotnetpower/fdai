@@ -52,6 +52,8 @@ from .core.executor.direct_api import DirectApiShadowExecutor
 from .core.executor.lock import ResourceLockManager
 from .core.executor.renderer import TemplateRenderer
 from .core.hil_resume import HilResumeCoordinator
+from .core.notifications.matrix import load_matrix_from_yaml
+from .core.rbac.resolver import GroupMapping
 from .core.rca import RcaCoordinator
 from .core.tiers.t0_deterministic import T0Engine
 from .core.tiers.t0_deterministic.index import RuleIndex
@@ -62,6 +64,12 @@ from .core.tiers.t0_deterministic.opa_evaluator import (
 from .core.tiers.t1_lightweight.testing import InMemoryPatternLibrary
 from .core.tiers.t1_lightweight.tier import PatternLibrary
 from .core.trust_router import TrustRouter
+from .core.workflow import (
+    WorkflowApprovalPlanner,
+    WorkflowOrchestrator,
+    WorkflowTriggerCoordinator,
+    WorkflowTriggerIndex,
+)
 from .rule_catalog.schema.action_type import load_action_type_catalog
 from .rule_catalog.schema.link_type import load_link_type_catalog
 from .rule_catalog.schema.object_type import load_object_type_catalog
@@ -572,6 +580,51 @@ def _build_idempotency_store() -> IdempotencyStore | None:
     return PostgresIdempotencyStore(config=PostgresIdempotencyStoreConfig(dsn=dsn))
 
 
+def _build_workflow_coordinator(
+    *,
+    catalog_root: Path,
+    workflows: tuple[Any, ...],
+    action_types_by_name: dict[str, Any],
+    audit_store: Any,
+) -> WorkflowTriggerCoordinator | None:
+    """Assemble the shadow workflow coordinator, opt-in and fail-safe.
+
+    Disabled unless ``FDAI_WORKFLOW_SHADOW`` is truthy AND the catalog ships at
+    least one Workflow. Any load error (missing / malformed rbac-groups or
+    notifications matrix) logs and returns ``None`` so workflow wiring never
+    fails boot or perturbs the control loop; upstream default is off.
+    """
+    if not workflows:
+        return None
+    if os.environ.get("FDAI_WORKFLOW_SHADOW", "").lower() not in ("1", "true", "yes", "on"):
+        return None
+    config_dir = catalog_root.parent / "config"
+    rbac_file = config_dir / "rbac-groups.yaml"
+    matrix_file = config_dir / "notifications-matrix.yaml"
+    try:
+        with rbac_file.open("r", encoding="utf-8") as fh:
+            group_mapping = GroupMapping.from_config(yaml.safe_load(fh))
+        matrix = load_matrix_from_yaml(matrix_file)
+    except (OSError, ValueError) as exc:
+        _LOGGER.warning("workflow_coordinator_disabled", extra={"error": type(exc).__name__})
+        return None
+    planner = WorkflowApprovalPlanner(
+        action_types=action_types_by_name,
+        group_mapping=group_mapping,
+        matrix=matrix,
+    )
+    orchestrator = WorkflowOrchestrator(
+        planner=planner,
+        action_types=action_types_by_name,
+        audit_store=audit_store,
+    )
+    _LOGGER.info("workflow_coordinator_enabled", extra={"workflows": len(workflows)})
+    return WorkflowTriggerCoordinator(
+        index=WorkflowTriggerIndex.build(workflows),
+        orchestrator=orchestrator,
+    )
+
+
 def _build_control_loop(
     container: Container,
     *,
@@ -737,6 +790,12 @@ def _build_control_loop(
         event_correlator=event_correlator,
         rca_coordinator=rca_coordinator,
         hil_resume_coordinator=hil_resume_coordinator,
+        workflow_coordinator=_build_workflow_coordinator(
+            catalog_root=catalog_root,
+            workflows=workflows,
+            action_types_by_name=action_types_by_name,
+            audit_store=audit_store,
+        ),
     )
 
 

@@ -71,6 +71,7 @@ from fdai.core.verticals.change_safety_detector import (
     ChangeSafetyDecision,
     ChangeSafetyDetector,
 )
+from fdai.core.workflow.coordinator import WorkflowTriggerCoordinator
 from fdai.shared.contracts.models import (
     Action,
     CeilingRole,
@@ -251,6 +252,7 @@ class ControlLoop:
         hil_resume_coordinator: HilResumeCoordinator | None = None,
         rca_coordinator: RcaCoordinator | None = None,
         event_correlator: EventCorrelator | None = None,
+        workflow_coordinator: WorkflowTriggerCoordinator | None = None,
     ) -> None:
         self._event_ingest = event_ingest
         self._trust_router = trust_router
@@ -345,6 +347,34 @@ class ControlLoop:
         # findings of one incident together. Absent -> no incident id on
         # the RCA audit (backward-compatible).
         self._event_correlator = event_correlator
+        # Optional workflow trigger coordinator (process-automation.md 4).
+        # When wired, every ingested event is also matched against the
+        # Workflow trigger index and every matched Workflow runs in shadow
+        # (structurally non-mutating). It is a pure side-consumer: it adds
+        # audit rows and never changes the primary control decision or the
+        # return path. Absent -> no workflows fire (backward-compatible).
+        # Best-effort at the loop boundary: a coordinator failure is logged
+        # and never breaks the control decision.
+        self._workflow_coordinator = workflow_coordinator
+
+    async def _maybe_fire_workflows(self, event: Event) -> None:
+        """Fire any Workflows the ingested event triggers, in shadow.
+
+        A pure side-consumer: matched Workflows judge-and-log (they cannot
+        mutate) and write their own audit rows. A coordinator failure is
+        logged and swallowed so it never breaks the primary control decision -
+        the same fail-safe-on-notification posture the router and HIL park
+        already use.
+        """
+        if self._workflow_coordinator is None:
+            return
+        try:
+            await self._workflow_coordinator.on_event(event)
+        except Exception as exc:  # noqa: BLE001 - shadow side-consumer never breaks the loop
+            _LOGGER.warning(
+                "workflow_coordinator_failed",
+                extra={"event_type": event.event_type, "error": type(exc).__name__},
+            )
 
     async def process(self, raw_event: Event | Mapping[str, Any]) -> ControlLoopResult:
         # 1. Ingest + dedupe
@@ -376,6 +406,11 @@ class ControlLoop:
             phase=StagePhase.DONE,
             detail={"event_type": event.event_type},
         )
+
+        # 1z. Optional process-automation side-consumer. Fires matched
+        # Workflows in shadow off the ingested event. Pure side-effect
+        # (audit rows only); never changes routing or the return path.
+        await self._maybe_fire_workflows(event)
 
         # 1a. Optional Change Safety out-of-band detector.
         #
