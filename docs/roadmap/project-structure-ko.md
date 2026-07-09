@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: fe00cbabcf2d82e4e197956b3902c4e6b98a8bec
+translation_source_sha: d7467343c72d0f9b6b983d4fa1f686158fd37a43
 translation_revised: 2026-07-09
 ---
 
@@ -42,6 +42,7 @@ fdai/
 │   │   ├── incident/           # 인시던트 라이프사이클 레지스트리 + 상태 머신 (open → triaging → mitigated → resolved → closed)
 │   │   ├── slo/                # 워크로드 SLO / burn-rate 평가기 (컨트롤 플레인 SLO 와는 구분)
 │   │   ├── runbook/            # 런북 오케스트레이터 (선형 시퀀스 + on-failure 브랜치)
+│   │   ├── workflow/           # 프로세스 자동화: 카탈로그 Workflow 를 Runbook 으로 컴파일 (+ saga 보상 맵)
 │   │   ├── postmortem/         # LLM 옵션 postmortem / PIR 드래프트 생성기
 │   │   ├── rule_catalog_profiles/  # 프로파일 / 팩 레이어 - 이름 붙은 룰 번들 (`extends` 체인 + overrides)
 │   │   ├── measurement/        # Phase-4 지속 측정 (regression, pattern growth, model tracking, latency budget, prompt probe, runners)
@@ -56,7 +57,8 @@ fdai/
 │   │   │   ├── event/          # event/schema.json
 │   │   │   ├── action/         # action/schema.json
 │   │   │   ├── rule/           # rule/schema.json
-│   │   │   └── ontology/       # object-type / link-type / action-type JSON 스키마
+│   │   │   ├── ontology/       # object-type / link-type / action-type JSON 스키마
+│   │   │   └── workflow/       # workflow/schema.json (프로세스 자동화 카탈로그)
 │   │   ├── ontology/           # 런타임 온톨로지 헬퍼 (ACL, 감사 purposes, purpose taxonomy)
 │   │   ├── providers/          # CSP-중립 클라우드 프로바이더 인터페이스 (어댑터가 구현)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py,
@@ -223,6 +225,7 @@ phase 는 `core/` 를 편집하지 않고 composition root 에서 새 구현을 
 | **Boundary validation** | `ContractValidator` / `EventValidator` (fail-closed 입력 검사) | - | `JsonSchemaContractValidator` + `JsonSchemaEventValidator` (draft-2020-12) | 포크가 `core/` 편집 없이 도메인 특이 체크(예: 소스 allowlist) 추가 가능 |
 | Rule / policy source | rule-catalog + `policies/` 로더 | - | 번들된 범용 규칙 | 고객 규칙 세트 / 임계값 |
 | **Ontology ObjectType / LinkType** | `src/fdai/rule_catalog/schema/`의 `load_object_type_catalog(root, *, schema_registry)` 및 `load_link_type_catalog(root, *, schema_registry, object_types=...)` | - | upstream ObjectType 4개(`Resource`, `Rule`, `Signal`, `Finding`)와 `rule-catalog/vocabulary/{object-types,link-types}/` 아래의 LinkType들. 엔트리포인트가 `Container.ontology_object_types` / `Container.ontology_link_types`로 주입 | fork는 자체 YAML 디렉토리(예: `fork/vocabulary/object-types/ArchitectureProposal.yaml`)를 추가로 로드해 두 루트를 concatenate 후 `dataclasses.replace(container, ontology_object_types=..., ontology_link_types=...)`로 주입. 두 루트 간 `name` 중복은 fail-close. 자세한 절차는 [downstream-fork-seam-recipes-ko.md § 5.8a](downstream-fork-seam-recipes-ko.md#58a-ontology-object-type--link-type-additions). |
+| **Workflow 카탈로그 (프로세스 자동화)** | `src/fdai/rule_catalog/schema/workflow.py`의 `load_workflow_catalog(root, *, schema_registry, action_type_names, rule_ids=...)`; `src/fdai/core/workflow/`의 `compile_workflow(...)` | - | `rule-catalog/workflows/` 아래 shadow-first Workflow들. 엔트리포인트가 ActionType + rule 카탈로그 뒤에 `Container.workflows`로 주입; 모든 스텝이 `ActionType`과 (설정 시) Rule id를 cross-reference, 시작 시 fail-close | fork는 자체 `fork/workflows/` 디렉토리에 Workflow YAML을 추가로 로드해 concatenate한 ActionType / rule 집합과 함께 `dataclasses.replace(container, workflows=...)`로 주입. 두 루트 간 `name` 중복은 fail-close. 자세한 내용은 [process-automation-ko.md](process-automation-ko.md). |
 | Delivery adapter | delivery 인터페이스 | - | `gitops-pr` / `chatops` | 다른 PR 호스트 / 채팅 채널 |
 | Risk scoring & thresholds | risk-gate config | - | 범용 임계값 | 고객 리스크 정책 |
 | Model provider | model client (capability별) | - | 설정된 기본 엔드포인트 | 고객 승인 모델 |

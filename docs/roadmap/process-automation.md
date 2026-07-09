@@ -101,6 +101,19 @@ Field rules the loader enforces:
   `enforce` is a schema violation upstream; promotion to enforce is a separate,
   gated governance PR.
 
+### 2.1 Known limitations (P1)
+
+- **`signal_type` is a free string.** The trigger `signal_type` is not
+  cross-referenced against a signal-type registry (none exists upstream yet),
+  so a typo is not caught at load. Treat it as documentation until the
+  `SignalType` ontology promotion lands.
+- **`on_failure` also runs on the success path.** The compiled Runbook runner
+  walks every declared step in order; an `on_failure` target is a normal step
+  that runs on success too, and additionally runs as the fallback on failure.
+  Author an `on_failure` target as a step that is safe to run in both paths
+  (idempotent), or leave it null and rely on `compensated_by`. The shipped
+  workflows leave `on_failure` null for this reason.
+
 ## 3. Ontology additions
 
 Process automation adds exactly one ObjectType and two LinkTypes. This is the

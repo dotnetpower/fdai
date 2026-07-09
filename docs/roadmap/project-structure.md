@@ -37,6 +37,7 @@ fdai/
 │   │   ├── incident/           # incident lifecycle registry + state machine (open → triaging → mitigated → resolved → closed)
 │   │   ├── slo/                # workload SLO / burn-rate evaluator (distinct from control-plane SLOs)
 │   │   ├── runbook/            # runbook orchestrator (linear sequence + on-failure branch)
+│   │   ├── workflow/           # process automation: compile a catalog Workflow into a Runbook (+ saga-compensation map)
 │   │   ├── postmortem/         # LLM-optional postmortem / PIR draft generator
 │   │   ├── rule_catalog_profiles/  # profile / pack layer - named rule bundles with `extends` chains + overrides
 │   │   ├── measurement/        # Phase-4 continuous measurement (regression, pattern growth, model tracking, latency budget, prompt probe, runners)
@@ -51,7 +52,8 @@ fdai/
 │   │   │   ├── event/          # event/schema.json
 │   │   │   ├── action/         # action/schema.json
 │   │   │   ├── rule/           # rule/schema.json
-│   │   │   └── ontology/       # object-type / link-type / action-type JSON Schemas
+│   │   │   ├── ontology/       # object-type / link-type / action-type JSON Schemas
+│   │   │   └── workflow/       # workflow/schema.json (process-automation catalog)
 │   │   ├── ontology/           # runtime ontology helpers (ACL, audit purposes, purpose taxonomy)
 │   │   ├── providers/          # CSP-neutral cloud provider interfaces (adapters implement them)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py,
@@ -218,6 +220,7 @@ non-Azure phase registers a new implementation at the composition root without e
 | **Boundary validation** | `ContractValidator` / `EventValidator` (fail-closed input check) | - | `JsonSchemaContractValidator` + `JsonSchemaEventValidator` (draft-2020-12) | fork MAY layer domain-specific checks (e.g. source allowlist) without editing `core/` |
 | Rule / policy source | rule-catalog + `policies/` loader | - | bundled generic rules | customer rule set / thresholds |
 | **Ontology ObjectType / LinkType** | `load_object_type_catalog(root, *, schema_registry)` and `load_link_type_catalog(root, *, schema_registry, object_types=...)` in `src/fdai/rule_catalog/schema/` | - | four upstream ObjectTypes (`Resource`, `Rule`, `Signal`, `Finding`) and the shipped LinkTypes under `rule-catalog/vocabulary/{object-types,link-types}/`, loaded into `Container.ontology_object_types` / `Container.ontology_link_types` by the entry point | fork ships additional YAML under a fork-local directory (e.g. `fork/vocabulary/object-types/ArchitectureProposal.yaml`), loads both roots at its composition root, and passes the concatenated tuples via `dataclasses.replace(container, ontology_object_types=..., ontology_link_types=...)`. Duplicate `name` across roots fails-closed. See [downstream-fork-seam-recipes.md § 5.8a](downstream-fork-seam-recipes.md#58a-ontology-object-type--link-type-additions). |
+| **Workflow catalog (process automation)** | `load_workflow_catalog(root, *, schema_registry, action_type_names, rule_ids=...)` in `src/fdai/rule_catalog/schema/workflow.py`; `compile_workflow(...)` in `src/fdai/core/workflow/` | - | shadow-first Workflows under `rule-catalog/workflows/`, loaded into `Container.workflows` by the entry point after the ActionType + rule catalogs; every step cross-references an `ActionType` and (when set) a Rule id, fail-closed at startup | fork ships additional Workflow YAML under a fork-local `fork/workflows/` directory, loads it at its composition root with the concatenated ActionType / rule sets, and passes the tuple via `dataclasses.replace(container, workflows=...)`. Duplicate `name` across roots fails-closed. See [process-automation.md](process-automation.md). |
 | Delivery adapter | delivery interface | - | `gitops-pr` / `chatops` | a different PR host / chat channel |
 | Risk scoring & thresholds | risk-gate config | - | generic thresholds | customer risk policy |
 | Model provider | model client (per capability) | - | configured default endpoints | customer-approved models |

@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from fdai.core.workflow import compile_workflow
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.workflow import (
     WorkflowCatalogError,
@@ -98,6 +99,44 @@ def test_shipped_workflow_action_refs_resolve() -> None:
                 assert step.compensated_by in names
 
 
+def test_shipped_workflows_compile_to_runbooks() -> None:
+    catalog = load_workflow_catalog(
+        WORKFLOWS_ROOT,
+        schema_registry=_registry(),
+        action_type_names=_action_type_names(),
+    )
+    for wf in catalog:
+        compiled = compile_workflow(wf)
+        assert compiled.runbook.id == wf.name
+        assert [s.id for s in compiled.runbook.steps] == [s.id for s in wf.steps]
+        assert [s.action_type for s in compiled.runbook.steps] == [
+            s.action_type_ref for s in wf.steps
+        ]
+        # Shipped workflows are shadow-first.
+        assert compiled.is_shadow is True
+
+
+def test_empty_steps_rejected() -> None:
+    raw = _base_mapping()
+    raw["steps"] = []
+    with pytest.raises(WorkflowCatalogError):
+        load_workflow_from_mapping(
+            raw, schema_registry=_registry(), action_type_names={"remediate.tag-add"}
+        )
+
+
+def test_guard_rule_ref_resolves_when_present_in_rule_ids() -> None:
+    raw = _base_mapping()
+    raw["steps"][0]["guard_rule_ref"] = "known.rule"
+    model = load_workflow_from_mapping(
+        raw,
+        schema_registry=_registry(),
+        action_type_names={"remediate.tag-add"},
+        rule_ids={"known.rule", "other.rule"},
+    )
+    assert model.steps[0].guard_rule_ref == "known.rule"
+
+
 def test_unknown_action_type_ref_fails() -> None:
     raw = _base_mapping()
     raw["steps"][0]["action_type_ref"] = "remediate.does-not-exist"
@@ -171,6 +210,17 @@ def test_unresolved_on_failure_fails() -> None:
         )
     joined = " ".join(i.message for i in info.value.issues).lower()
     assert "on_failure -> unknown step 'ghost'" in joined
+
+
+def test_self_referential_on_failure_fails() -> None:
+    raw = _base_mapping()
+    raw["steps"][0]["on_failure"] = "step_one"
+    with pytest.raises(WorkflowCatalogError) as info:
+        load_workflow_from_mapping(
+            raw, schema_registry=_registry(), action_type_names={"remediate.tag-add"}
+        )
+    joined = " ".join(i.message for i in info.value.issues).lower()
+    assert "points at itself" in joined
 
 
 def test_signal_trigger_requires_signal_type() -> None:

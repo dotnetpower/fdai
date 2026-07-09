@@ -718,8 +718,16 @@ class Workflow(_Base):
                 raise ValueError(f"duplicate step id {step.id!r}")
             seen.add(step.id)
         for step in self.steps:
-            if step.on_failure is not None and step.on_failure not in seen:
-                raise ValueError(f"step {step.id!r} on_failure -> unknown step {step.on_failure!r}")
+            if step.on_failure is not None:
+                if step.on_failure == step.id:
+                    raise ValueError(
+                        f"step {step.id!r} on_failure points at itself; "
+                        "a step cannot be its own failure fallback"
+                    )
+                if step.on_failure not in seen:
+                    raise ValueError(
+                        f"step {step.id!r} on_failure -> unknown step {step.on_failure!r}"
+                    )
         return self
 
 
