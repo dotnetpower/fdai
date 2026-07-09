@@ -79,6 +79,37 @@
       "recent": "최근: {last}.",
       "nothingYet": "아직 없음",
       "kpi": "지금까지 실시간으로 {handled}개 이벤트 처리 - 고정 규칙(T0) {t0}, 과거 사례(T1) {t1}, 추론(T2) {t2}, 보류 {abstain}. {auto}개는 섀도우 풀 리퀘스트로 자동 적용, {awaiting}개 승인 대기, {undone}개 되돌림. PR을 병합하기 전까지는 아무것도 바뀌지 않습니다."
-    }
+    },
+    "feed": {
+      "autoApplied": "섀도우 풀 리퀘스트로 자동 적용됨",
+      "awaiting": "승인 대기로 올림",
+      "steppedBack": "보류됨 - {why}",
+      "whyRouting": "라우팅 신호 부족",
+      "whyNoRule": "아직 일치하는 규칙 없음"
+    },
+    "header": {
+      "summary": "Azure 관찰 중 - {handled}건 처리: 고정 규칙 {t0}, 보류 {abstain}, 섀도우 PR 자동 적용 {auto}, 대기 {awaiting}.",
+      "trust": "읽기 전용 콘솔 \u00b7 모든 변경은 풀 리퀘스트를 엽니다 \u00b7 섀도우 우선 \u00b7 완전 감사",
+      "commands": "말하기: overview \u00b7 stream \u00b7 pause \u00b7 focus network \u00b7 clear"
+    },
+    "overview": {
+      "routingMix": "라우팅 구성",
+      "tierT0": "T0 고정 규칙",
+      "tierT1": "T1 과거 사례",
+      "tierT2": "T2 추론",
+      "tierAbstain": "보류",
+      "throughput": "처리량",
+      "outcomes": "결과",
+      "autoApplied": "자동 적용",
+      "awaitingYou": "대기 중",
+      "undone": "되돌림",
+      "errors": "오류",
+      "topResources": "상위 리소스"
+    },
+    "qa": {
+      "you": "나",
+      "thinking": "생각 중..."
+    },
+    "hint": "{kind} 내레이터 \u00b7 무엇이든 묻거나 뷰를 말하세요 (overview / stream / pause / focus <type>) \u00b7 /exit"
   }
 }

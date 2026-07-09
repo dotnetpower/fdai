@@ -101,6 +101,41 @@
       "recent": "Most recent: {last}.",
       "nothingYet": "nothing yet",
       "kpi": "Handled {handled} events live so far - {t0} with fixed rules (T0), {t1} by past match (T1), {t2} by reasoning (T2), {abstain} stepped back. {auto} were auto-applied as shadow pull requests, {awaiting} awaiting your approval, {undone} undone. Nothing changes until you merge a PR."
-    }
+    },
+    "feed": {
+      "autoApplied": "auto-applied as a shadow pull request",
+      "awaiting": "raised for your approval",
+      "steppedBack": "stepped back - {why}",
+      "whyRouting": "not enough signal to route",
+      "whyNoRule": "no matching rule yet",
+      "handled": "handled"
+    },
+    "header": {
+      "summary": "Watching Azure - {handled} handled: {t0} fixed-rules, {abstain} stepped back, {auto} auto-applied as shadow PRs, {awaiting} awaiting you.",
+      "trust": "read-only console \u00b7 every change opens a pull request \u00b7 shadow-first \u00b7 fully audited",
+      "commands": "say: overview \u00b7 stream \u00b7 pause \u00b7 focus network \u00b7 clear"
+    },
+    "overview": {
+      "routingMix": "Routing mix",
+      "tierT0": "T0 fixed rules",
+      "tierT1": "T1 past match",
+      "tierT2": "T2 reasoning",
+      "tierAbstain": "stepped back",
+      "throughput": "Throughput",
+      "eventsPerSec": "events/s",
+      "outcomes": "Outcomes",
+      "autoApplied": "auto-applied",
+      "awaitingYou": "awaiting you",
+      "undone": "undone",
+      "errors": "errors",
+      "topResources": "Top resources"
+    },
+    "qa": {
+      "you": "you",
+      "thinking": "thinking..."
+    },
+    "hintNarratorAi": "AI",
+    "hintNarratorRules": "rules",
+    "hint": "{kind} narrator \u00b7 ask anything or say a view (overview / stream / pause / focus <type>) \u00b7 /exit"
   }
 }

@@ -379,15 +379,17 @@ export async function startCockpit(ctx: NarratorContext): Promise<void> {
       let a: Activity;
       if (decision === "auto" || outcome === "executed") {
         autoApplied++;
-        a = { marker: `${SAGE}\u2713${RESET}`, resource, text: "auto-applied as a shadow pull request", tier };
+        a = { marker: `${SAGE}\u2713${RESET}`, resource, text: t("cockpit.feed.autoApplied", locale), tier };
       } else if (outcome.includes("hil") || decision === "hil") {
         awaitingYou++;
-        a = { marker: `${TERRA}\u2691${RESET}`, resource, text: "raised for your approval", tier };
+        a = { marker: `${TERRA}\u2691${RESET}`, resource, text: t("cockpit.feed.awaiting", locale), tier };
       } else if (outcome.startsWith("abstained")) {
-        const why = outcome.includes("routing") ? "not enough signal to route" : "no matching rule yet";
-        a = { marker: `${DIM}\u00b7${RESET}`, resource, text: `stepped back - ${why}`, tier };
+        const why = outcome.includes("routing")
+          ? t("cockpit.feed.whyRouting", locale)
+          : t("cockpit.feed.whyNoRule", locale);
+        a = { marker: `${DIM}\u00b7${RESET}`, resource, text: t("cockpit.feed.steppedBack", locale, { why }), tier };
       } else {
-        a = { marker: `${DIM}\u00b7${RESET}`, resource, text: outcome || "handled", tier };
+        a = { marker: `${DIM}\u00b7${RESET}`, resource, text: outcome || t("cockpit.feed.handled", locale), tier };
       }
       activity.push(a);
       if (activity.length > 400) activity.shift();
@@ -498,23 +500,24 @@ export async function startCockpit(ctx: NarratorContext): Promise<void> {
 
       // Row 2: narrated summary.
       const abstain = byTier.abstain ?? 0;
-      const summary =
-        `Watching Azure - ${handled} handled: ${byTier.t0 ?? 0} fixed-rules, ` +
-        `${abstain} stepped back, ${autoApplied} auto-applied as shadow PRs, ${awaitingYou} awaiting you.`;
+      const summary = t("cockpit.header.summary", locale, {
+        handled,
+        t0: byTier.t0 ?? 0,
+        abstain,
+        auto: autoApplied,
+        awaiting: awaitingYou,
+      });
       clearRow(2);
       write(` ${TEXT}${clip(summary, C - 2)}${RESET}`);
 
       // Row 3: standing trust line.
       clearRow(3);
-      write(
-        ` ${DIM}read-only console \u00b7 every change opens a pull request \u00b7 ` +
-          `shadow-first \u00b7 fully audited${RESET}`,
-      );
+      write(` ${DIM}${t("cockpit.header.trust", locale)}${RESET}`);
 
       // Row 4: view band with the natural-language commands.
       band(
         4,
-        ` ${BRIGHT}${BOLD}${viewBadge(view, locale)}${NOBOLD}${ON_BAR}   say: overview \u00b7 stream \u00b7 pause \u00b7 focus network \u00b7 clear`,
+        ` ${BRIGHT}${BOLD}${viewBadge(view, locale)}${NOBOLD}${ON_BAR}   ${t("cockpit.header.commands", locale)}`,
         BG_BAR,
       );
       placeCaret();
@@ -584,12 +587,12 @@ export async function startCockpit(ctx: NarratorContext): Promise<void> {
         r++;
       };
       const total = Math.max(1, handled);
-      line(`${BRIGHT}${BOLD}Routing mix${RESET}`);
+      line(`${BRIGHT}${BOLD}${t("cockpit.overview.routingMix", locale)}${RESET}`);
       const tiers: Array<[string, number, string]> = [
-        ["T0 fixed rules", byTier.t0 ?? 0, BRAND],
-        ["T1 past match", byTier.t1 ?? 0, STEEL],
-        ["T2 reasoning", byTier.t2 ?? 0, PLUM],
-        ["stepped back", byTier.abstain ?? 0, DIM],
+        [t("cockpit.overview.tierT0", locale), byTier.t0 ?? 0, BRAND],
+        [t("cockpit.overview.tierT1", locale), byTier.t1 ?? 0, STEEL],
+        [t("cockpit.overview.tierT2", locale), byTier.t2 ?? 0, PLUM],
+        [t("cockpit.overview.tierAbstain", locale), byTier.abstain ?? 0, DIM],
       ];
       for (const [label, n, color] of tiers) {
         line(
@@ -599,18 +602,18 @@ export async function startCockpit(ctx: NarratorContext): Promise<void> {
       }
       line();
       line(
-        `${BRIGHT}${BOLD}Throughput${RESET}  ${BRAND}${sparkline(spark, Math.min(50, C - 24))}${RESET}` +
-          ` ${DIM}events/s${RESET}`,
+        `${BRIGHT}${BOLD}${t("cockpit.overview.throughput", locale)}${RESET}  ${BRAND}${sparkline(spark, Math.min(50, C - 24))}${RESET}` +
+          ` ${DIM}${t("cockpit.overview.eventsPerSec", locale)}${RESET}`,
       );
       line();
-      line(`${BRIGHT}${BOLD}Outcomes${RESET}`);
+      line(`${BRIGHT}${BOLD}${t("cockpit.overview.outcomes", locale)}${RESET}`);
       line(
-        `${SAGE}\u2713 ${autoApplied}${RESET} ${DIM}auto-applied${RESET}    ` +
-          `${TERRA}\u2691 ${awaitingYou}${RESET} ${DIM}awaiting you${RESET}    ` +
-          `${DIM}\u21ba ${undone} undone    \u26a0 ${errors} errors${RESET}`,
+        `${SAGE}\u2713 ${autoApplied}${RESET} ${DIM}${t("cockpit.overview.autoApplied", locale)}${RESET}    ` +
+          `${TERRA}\u2691 ${awaitingYou}${RESET} ${DIM}${t("cockpit.overview.awaitingYou", locale)}${RESET}    ` +
+          `${DIM}\u21ba ${undone} ${t("cockpit.overview.undone", locale)}    \u26a0 ${errors} ${t("cockpit.overview.errors", locale)}${RESET}`,
       );
       line();
-      line(`${BRIGHT}${BOLD}Top resources${RESET}`);
+      line(`${BRIGHT}${BOLD}${t("cockpit.overview.topResources", locale)}${RESET}`);
       const tops = Object.entries(resourceCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, Math.max(1, bottom - r - 1));
@@ -636,8 +639,8 @@ export async function startCockpit(ctx: NarratorContext): Promise<void> {
       clearRow(R - 6);
       write(` ${DIM}${"\u2500".repeat(Math.min(C - 2, 98))}${RESET}`);
       clearRow(R - 5);
-      if (lastQ) write(` ${DIM}you${RESET} ${BRAND}\u203a${RESET} ${TEXT}${clip(lastQ, C - 8)}${RESET}`);
-      const shown = thinking ? "thinking..." : answerTarget.slice(0, answerShown);
+      if (lastQ) write(` ${DIM}${t("cockpit.qa.you", locale)}${RESET} ${BRAND}\u203a${RESET} ${TEXT}${clip(lastQ, C - 8)}${RESET}`);
+      const shown = thinking ? t("cockpit.qa.thinking", locale) : answerTarget.slice(0, answerShown);
       const lines = wrap(shown, C - 4, 3);
       clearRow(R - 4);
       if (lines[0]) write(` ${thinking ? DIM : BRIGHT}${lines[0]}${RESET}`);
@@ -649,9 +652,9 @@ export async function startCockpit(ctx: NarratorContext): Promise<void> {
     });
   };
 
-  const hint =
-    `${narrator.kind === "llm" ? "AI" : "rules"} narrator \u00b7 ` +
-    `ask anything or say a view (overview / stream / pause / focus <type>) \u00b7 /exit`;
+  const hint = t("cockpit.hint", locale, {
+    kind: t(narrator.kind === "llm" ? "cockpit.hintNarratorAi" : "cockpit.hintNarratorRules", locale),
+  });
   const renderInput = (): void => {
     frame(() => {
       const R = rows();
