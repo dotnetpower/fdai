@@ -289,6 +289,32 @@ a PR-native writer to land in P2):
 Governance actions always use `execution_path: pr_native` - they are
 catalog-as-code changes and MUST land as a reviewed diff.
 
+### 3.4 `tool.*`
+
+Invoke a registered function (a tool) rather than mutate a substrate.
+The ontology-native counterpart of the way an LLM calls a tool: the
+executor dispatches through the
+[`ToolExecutor`](../../src/fdai/shared/providers/tool.py) Protocol
+(`ToolCallShadowExecutor`) to a registered function that produces an
+**artifact** or a side effect (a document, a message, a ticket). Shipped
+example:
+
+- `tool.generate-pdf` - render a PDF document (resilience summary, cost
+  report, change audit) from a report template. Rollback is
+  `state_forward_only` (delete the produced artifact).
+  **Dispatcher: shadow-only** (`RecordingToolExecutor` Day-1 binding; a
+  fork binds a live adapter).
+
+Default `execution_path: tool_call`. `core/` knows only the Protocol; a
+fork binds a live adapter (a native Python registry, an MCP client, an
+HTTP callout) at the composition root - the registry is the natural
+attach point for an MCP adapter, mapping one MCP server tool onto one
+`tool.*` ActionType. A `tool.*` ActionType is shadow-first with a
+measurable `promotion_gate` and carries the same four safety invariants
+as any mutation ActionType, so a workflow step MAY reference it via
+`action_type_ref` and inherit them. See
+[execution-model.md § 5.6](execution-model.md#56-tool-call-tool_call).
+
 ## 4. Trigger surfaces
 
 ### 4.1 `rule_violation` (unchanged behaviour)

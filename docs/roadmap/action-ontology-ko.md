@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 68ece9a48c1675c55a216d8047c49ef10513ca73
+translation_source_sha: 7eb193d7df971671f575ddb6c5bc44eadecd7b32
 translation_revised: 2026-07-10
 ---
 
@@ -284,6 +284,29 @@ catalog-as-code artifact):
 
 Governance 액션은 항상 `execution_path: pr_native` 사용 - catalog-as-code
 변경이고 reviewed diff 로 landing MUST.
+
+### 3.4 `tool.*`
+
+substrate 를 mutate 하지 않고 등록된 함수 (tool) 를 invoke. LLM 이 tool 을
+호출하는 방식의 온톨로지-네이티브 대응물: executor 가
+[`ToolExecutor`](../../src/fdai/shared/providers/tool.py) Protocol
+(`ToolCallShadowExecutor`) 을 통해, **아티팩트** 또는 side effect (문서,
+메시지, 티켓) 를 생산하는 등록된 함수로 dispatch. Shipped 예시:
+
+- `tool.generate-pdf` - 리포트 템플릿으로부터 PDF 문서 (resilience summary,
+  cost report, change audit) 렌더. Rollback 은 `state_forward_only` (생산된
+  아티팩트 삭제).
+  **Dispatcher: shadow-only** (`RecordingToolExecutor` Day-1 binding; fork 가
+  live 어댑터 bind).
+
+기본 `execution_path: tool_call`. `core/` 는 Protocol 만 안다; fork 가
+composition root 에서 live 어댑터 (네이티브 Python registry, MCP 클라이언트,
+HTTP callout) 를 bind - registry 는 MCP 어댑터의 자연스러운 attach point 로,
+MCP 서버 tool 하나를 `tool.*` ActionType 하나에 매핑한다. `tool.*` ActionType
+은 측정 가능한 `promotion_gate` 를 가진 shadow-first 이고 임의의 mutation
+ActionType 과 동일한 4 개 안전 invariant 를 carry 하므로, 워크플로 스텝이
+`action_type_ref` 로 참조하며 이를 상속 MAY. 
+[execution-model-ko.md § 5.6](execution-model-ko.md#56-tool-call-tool_call) 참조.
 
 ## 4. 트리거 surface
 

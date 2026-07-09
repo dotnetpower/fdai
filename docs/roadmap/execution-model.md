@@ -413,8 +413,11 @@ implements the Protocol.
 
 ## 5. Executor paths
 
-Three paths cover every action; the ActionType names which one and the
-RiskGate may downgrade (never upgrade) to `pr_manual`.
+Four paths cover every action. Three form a substrate-mutation ladder
+(`pr_native`, `direct_api`, `pr_manual`); the ActionType names one and
+the RiskGate may downgrade (never upgrade) to `pr_manual`. The fourth,
+`tool_call`, is a separate function-invocation surface (§5.6) - it
+mutates no substrate, so it does not sit on that ladder.
 
 ### 5.1 PR-native (`pr_native`)
 
@@ -537,6 +540,41 @@ notification router - outbound-only, informational, and never carrying
 approval buttons (see
 [channels-and-notifications.md § 3](channels-and-notifications.md)). The
 router is an optional seam: absent, the loop behaves exactly as before.
+
+### 5.6 Tool call (`tool_call`)
+
+- Executor invokes a **registered function** - generate a PDF report,
+  send a notification, open a ticket - through the
+  [`ToolExecutor`](../../src/fdai/shared/providers/tool.py) Protocol
+  (`ToolCallShadowExecutor` in `core/executor/tool_call.py`). It mutates
+  no cloud substrate; it produces an **artifact** or a side effect. This
+  is the ontology-native counterpart of the way an LLM calls a tool: a
+  `tool.*` ActionType names one registered tool and the executor
+  dispatches it here. The tool registry is the natural attach point for
+  an MCP adapter - an `McpToolExecutor` implementing the Protocol maps
+  one MCP server tool onto one `tool.*` ActionType.
+- `core/` knows only the Protocol; a fork binds a live adapter (a native
+  Python registry, an MCP client, an HTTP callout) at the composition
+  root. The Day-1 binding is `RecordingToolExecutor` (no real function
+  runs).
+- On `auto` decision, the call proceeds without HIL; the ActionType's
+  `preconditions` and `stop_conditions` are enforced by the executor.
+- On `hil` decision, the executor parks the action and resumes it on
+  approval through the same HIL round-trip as `direct_api` (§5.5).
+- Rollback comes from the ActionType's `rollback_contract` - usually
+  `state_forward_only` (delete the produced artifact) or `scripted`.
+- **Idempotency invariant** - every tool call uses the action's stable
+  idempotency key; a retried call MUST NOT re-run the tool (a second
+  call with the same key returns `already_applied`).
+- All four safety invariants still apply. A `tool.*` ActionType is
+  shadow-first with a measurable `promotion_gate`, exactly like a
+  mutation ActionType; the executor writes exactly one audit entry per
+  attempt with `action_kind=executor.tool_call.<outcome>` and
+  `execution_path=tool_call`.
+
+Best for: document generation, notifications, ticketing, and any
+registered function a workflow step wants to invoke via
+`action_type_ref` without opening a PR or touching a substrate.
 
 ## 6. Safety invariants (unchanged + one extension)
 

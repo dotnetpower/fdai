@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 1a6efa69c8fd4f34a9308ef1a7d6e6ceca1e300e
+translation_source_sha: 7bb1ab1508cf335b4f81cbc50ddd38a4ad01996d
 translation_revised: 2026-07-10
 ---
 
@@ -402,8 +402,11 @@ Month-1 은 `AzureMonitorBlastProbe` 추가. Fork 는 Protocol 을 구현하는
 
 ## 5. Executor 경로
 
-3 경로가 모든 액션 cover; ActionType 이 어느 것을 사용하는지 name 하고
-RiskGate 는 `pr_manual` 로 downgrade MAY (upgrade 절대 안 함).
+4 경로가 모든 액션 cover. 셋은 substrate-mutation ladder 를 이룬다
+(`pr_native`, `direct_api`, `pr_manual`); ActionType 이 하나를 name 하고
+RiskGate 는 `pr_manual` 로 downgrade MAY (upgrade 절대 안 함). 네 번째
+`tool_call` 은 별도의 함수-호출 표면이다 (§5.6) - substrate 를 mutate 하지
+않으므로 그 ladder 에 놓이지 않는다.
 
 ### 5.1 PR-native (`pr_native`)
 
@@ -519,6 +522,39 @@ operational-alert 도 emit 한다 - outbound-only, 정보성이며 승인 버튼
 [channels-and-notifications-ko.md § 3](channels-and-notifications-ko.md)
 참조). router 는 optional seam 이다: 없으면 loop 은 이전과 정확히 동일하게
 동작한다.
+
+### 5.6 Tool call (`tool_call`)
+
+- Executor 가 **등록된 함수** - PDF 리포트 생성, 알림 발송, 티켓 오픈 -
+  를 [`ToolExecutor`](../../src/fdai/shared/providers/tool.py) Protocol
+  (`core/executor/tool_call.py` 의 `ToolCallShadowExecutor`) 로 invoke.
+  클라우드 substrate 를 mutate 하지 않고 **아티팩트** 또는 side effect 를
+  생산한다. LLM 이 tool 을 호출하는 방식의 온톨로지-네이티브 대응물이다:
+  `tool.*` ActionType 이 등록된 tool 하나를 name 하고 executor 가 여기서
+  dispatch. tool registry 는 MCP 어댑터의 자연스러운 attach point 다 -
+  Protocol 을 구현한 `McpToolExecutor` 가 MCP 서버 tool 하나를 `tool.*`
+  ActionType 하나에 매핑한다.
+- `core/` 는 Protocol 만 안다; fork 가 composition root 에서 live 어댑터
+  (네이티브 Python registry, MCP 클라이언트, HTTP callout) 를 bind. Day-1
+  binding 은 `RecordingToolExecutor` (실제 함수 실행 없음).
+- `auto` 결정 시, HIL 없이 call 진행; ActionType 의 `preconditions` 와
+  `stop_conditions` 를 executor 가 enforce.
+- `hil` 결정 시, executor 가 액션을 park 하고 `direct_api` 와 동일한 HIL
+  왕복 (§5.5) 으로 승인 후 resume.
+- Rollback 은 ActionType 의 `rollback_contract` 로부터 - 보통
+  `state_forward_only` (생산된 아티팩트 삭제) 또는 `scripted`.
+- **Idempotency invariant** - 매 tool call 은 액션의 안정된 idempotency
+  key 를 사용; 재시도 call 은 tool 을 재실행 MUST NOT (같은 key 의 두 번째
+  call 은 `already_applied` 반환).
+- 4 개 안전 invariant 는 그대로 적용. `tool.*` ActionType 은 mutation
+  ActionType 과 똑같이 측정 가능한 `promotion_gate` 를 가진 shadow-first;
+  executor 는 시도당 정확히 하나의 audit entry 를
+  `action_kind=executor.tool_call.<outcome>` 와
+  `execution_path=tool_call` 로 쓴다.
+
+Best for: 문서 생성, 알림, 티켓팅, 그리고 워크플로 스텝이 PR 을 열거나
+substrate 를 건드리지 않고 `action_type_ref` 로 invoke 하려는 임의의 등록된
+함수.
 
 ## 6. 안전 invariant (변경 없음 + 하나 확장)
 

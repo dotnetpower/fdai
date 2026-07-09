@@ -154,9 +154,14 @@ domain vocabulary. Reuse them verbatim in code, docs, and identifiers.
   - `remediation` - rule-fired, config-drift-style change.
   - `ops` - operator-requested runtime action (restart, scale, flush).
   - `governance` - ontology / catalog / exemption / promotion change.
+  - `tool` - invoke a registered function (generate a document, send a notification,
+    open a ticket) via the `tool_call` execution path; no substrate mutation.
   New categories require a doc PR that also updates this list.
 - **Trigger axis**: `rule_violation`, `operator_request`, `both` - who initiates an action.
-- **Execution paths**: `pr_native`, `direct_api`, `pr_manual` - how the executor applies it.
+- **Execution paths**: `pr_native`, `direct_api`, `pr_manual`, `tool_call` - how the executor
+  applies it. `tool_call` invokes a registered function behind the `ToolExecutor` provider
+  (the ontology-native counterpart of an LLM calling a tool; the same seam an MCP adapter
+  attaches to), never a substrate mutation.
 - **Operator console** terms:
   - `operator-console` - the conversational pull-direction surface (CLI / Teams / Slack / web).
   - `narrator` - the console LLM tier; a **translator** (natural language <-> tool calls),
