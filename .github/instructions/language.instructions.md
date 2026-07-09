@@ -229,6 +229,12 @@ NOT change what the typed pipeline decides.
   has a `foo-ko.md`, every `foo-ko.md` has front-matter with `translation_of` and
   `translation_source_sha`, and each `translation_source_sha` matches the current
   `git hash-object` of the source file.
+- **Catalog-parity gate**: `scripts/check-catalog-parity.sh` runs in CI and enforces
+  the [Product i18n](#product-i18n-l2) rule for L2 message catalogs: for every
+  `<name>.en.json` / `<name>.ko.json` sibling pair, the `ko` keys MUST be a subset of
+  the `en` keys (no orphan translations; `en` is the source of truth, `ko` MAY lag
+  under English fallback). No catalogs present is a pass, so it is safe before any
+  catalog exists.
 - **PR review**: if any non-English text appears in a diff outside live chat, the
   [Allowed Exceptions](#allowed-exceptions), or a `-ko.md` file, treat it as a defect
   and correct it before merge, per

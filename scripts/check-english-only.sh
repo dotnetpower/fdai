@@ -14,6 +14,8 @@
 # Scope (included by default):
 #   Every git-tracked file EXCEPT:
 #     * *-ko.md (translation carve-out)
+#     * *.ko.json (L2 message-catalog Korean translations; parity-gated by
+#                  scripts/check-catalog-parity.sh - ko keys subset of en)
 #     * mocks/**, examples/** (design mock-ups, not shipped code)
 #     * binary assets (png/jpg/jpeg/gif/webp/pdf/ico/woff/woff2/ttf/otf)
 #     * uv.lock (hash-only content; guaranteed ASCII, exclude to speed up)
@@ -42,6 +44,7 @@ cd "$repo_root"
 mapfile -t files < <(
   git ls-files -co --exclude-standard \
     ':(exclude)*-ko.md' \
+    ':(exclude)*.ko.json' \
     ':(exclude)mocks/**' \
     ':(exclude)examples/**' \
     ':(exclude)site/src/content/docs/ko/**' \

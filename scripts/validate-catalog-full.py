@@ -14,7 +14,7 @@ What it runs (in order)
 -----------------------
 
 * env_snapshot          - python, git SHA, catalog counts
-* hygiene_gates         - the 5 ``scripts/check-*.sh`` gates
+* hygiene_gates         - the 6 ``scripts/check-*.sh`` gates
 * ruff_check            - ``ruff check .``
 * ruff_format           - ``ruff format --check .``
 * mypy_src              - ``mypy src`` (strict)
@@ -258,6 +258,7 @@ def step_hygiene_gates(runner: Runner) -> StepResult:
         "scripts/check-guids.sh",
         "scripts/check-translations.sh",
         "scripts/check-core-imports.sh",
+        "scripts/check-catalog-parity.sh",
     ]
     findings: list[str] = []
     for s in scripts:

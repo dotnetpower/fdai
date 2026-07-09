@@ -96,6 +96,16 @@ jobs:
       - name: check-english-only.sh
         run: bash scripts/check-english-only.sh
 
+  catalog-parity:
+    name: L2 message-catalog parity (ko keys subset of en)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: check-catalog-parity.sh
+        run: bash scripts/check-catalog-parity.sh
+
   punctuation:
     name: ASCII punctuation (no em-dash / smart-quotes / nbsp)
     runs-on: ubuntu-24.04
