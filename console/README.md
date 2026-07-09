@@ -35,6 +35,34 @@ No mutating verb (`POST` / `PUT` / `DELETE` / `PATCH`) is called anywhere in
 `src/**`. The pytest suite for the API enforces `405` on mutating verbs
 (`tests/delivery/read_api/test_main.py::TestReadOnlyInvariant`).
 
+Beyond the three always-on routes above, the app factory registers several
+**opt-in** GET routes when their inputs are wired at the composition root
+(ontology graph, pantheon, blast-radius, promotion gates, rule-fire trace, and
+the rule catalog below). Each is reader-role gated and collision-checked; none
+ships enabled upstream unless its `ReadApiConfig` input is set.
+
+### Rule catalog panel (Knowledge)
+
+The **Knowledge > Rules** panel ([`src/routes/rule-catalog.tsx`](src/routes/rule-catalog.tsx))
+answers "what does this rule enforce, why does it matter, and which resources
+violate it" over three GET routes
+([`src/fdai/delivery/read_api/rule_catalog.py`](../src/fdai/delivery/read_api/rule_catalog.py)):
+
+| Route | Purpose |
+|-------|---------|
+| `GET /rules` | Paginated, faceted list over the active catalog + collected corpus, tagged `origin=active\|collected`. Server-side filter (`origin`/`category`/`severity`/`source`/`q`) + `limit`/`offset`. |
+| `GET /rules/{id}` | Full detail: sandboxed Rego + remediation template bodies, plus an `explanation` (why it matters / risk) parsed from the Rego `# METADATA` block or the `azure_policy` / `kube_bench` params - grounded, never fabricated. |
+| `GET /rules/{id}/findings` | Affected resources (resource + the attribute at fault) behind a `findings_provider` seam. Upstream ships none -> honest `evaluated=false`; a fork wires an inventory-evaluation source. |
+
+The seams are `ReadApiConfig.rule_catalog_rules`, `_collected_rules`,
+`_policies_root`, `_remediation_root`, and `_findings_provider`. The dev harness
+(`src/fdai/delivery/read_api/_local.py`) wires a demo findings provider
+(`demo_findings.py`) that evaluates the shipped Rego against a small synthetic,
+customer-agnostic inventory via real OPA - each finding's `problem` is the
+policy's own `deny_reason`, not invented. A selected rule is deep-linked into
+the URL hash (`#/rules?rule=<id>&origin=<origin>`), so a rule detail is
+shareable and the browser back button closes the drawer.
+
 ## Command deck (conversational surface)
 
 The deck (`src/deck/`) is a screen-aware, read-only conversational surface: the
@@ -110,6 +138,7 @@ console/
         ├── dashboard.tsx
         ├── audit.tsx
         ├── hil-queue.tsx
+        ├── rule-catalog.tsx     - Knowledge > Rules panel (explanation + affected resources)
         ├── example-finops.tsx  - reference fork panel (opt-in, not registered)
         └── login.tsx
 ```
