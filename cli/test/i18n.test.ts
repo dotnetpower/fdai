@@ -32,6 +32,30 @@ describe("i18n.t", () => {
     expect(t("no.such.key")).toBe("no.such.key");
     expect(t("does.not.exist", "ko")).toBe("does.not.exist");
   });
+
+  it("substitutes {name} placeholders from params", () => {
+    // `console.connected` = "Connected to the read API. {events} events
+    // recorded, {pending} awaiting your decision."
+    const rendered = t("console.connected", "en", { events: 12, pending: 3 });
+    expect(rendered).toContain("12 events recorded");
+    expect(rendered).toContain("3 awaiting your decision");
+    expect(rendered).not.toContain("{events}");
+    expect(rendered).not.toContain("{pending}");
+  });
+
+  it("leaves an unmatched placeholder verbatim (visible, not blank)", () => {
+    const rendered = t("console.connected", "en", { events: 1 });
+    expect(rendered).toContain("1 events recorded");
+    expect(rendered).toContain("{pending}"); // no param supplied -> left as-is
+  });
+
+  it("interpolates params over the English fallback for a lagging locale key", () => {
+    // ko lags `console.context`; the helper falls back to English AND still
+    // substitutes the param.
+    expect(t("console.context", "ko", { env: "dev" })).toBe(
+      "dev - read-only - live read API",
+    );
+  });
 });
 
 describe("i18n.resolveLocale", () => {

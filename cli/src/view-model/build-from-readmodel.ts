@@ -51,18 +51,18 @@ function decisionCard(
     title: humanize(h.action_kind),
     actionType: h.action_kind,
     risk: inferRisk(h.action_kind),
-    chip: "needs your decision",
+    chip: t("card.chip"),
     chipSideEffect: "approve",
     fields: [
-      { label: "What", value: humanize(h.action_kind) },
-      { label: "Why", value: h.reason },
-      { label: "Requested", value: h.requested_at },
-      { label: "Correlation", value: h.correlation_id ?? "-" },
+      { label: t("card.fieldWhat"), value: humanize(h.action_kind) },
+      { label: t("card.fieldWhy"), value: h.reason },
+      { label: t("card.fieldRequested"), value: h.requested_at },
+      { label: t("card.fieldCorrelation"), value: h.correlation_id ?? "-" },
     ],
     actions: [
-      { key: "a", label: "approve (opens a PR)", sideEffect: "approve" },
-      { key: "r", label: "decline (logged, no change)", sideEffect: "read" },
-      { key: "w", label: "explain", sideEffect: "read" },
+      { key: "a", label: t("card.actionApprove"), sideEffect: "approve" },
+      { key: "r", label: t("card.actionDecline"), sideEffect: "read" },
+      { key: "w", label: t("card.actionExplain"), sideEffect: "read" },
     ],
     reference: h.idempotency_key,
     irreversible: false,
@@ -80,24 +80,25 @@ export function buildFromReadModel(
     type: "header",
     title: "fdai operator-console",
     version: "v0.0.1",
-    context: `${env} - read-only - live read API`,
+    context: t("console.context", "en", { env }),
   });
 
   blocks.push({
     type: "narration",
-    text:
-      `Connected to the read API. ${kpi.event_count} events recorded, ` +
-      `${kpi.hil_pending} awaiting your decision.`,
+    text: t("console.connected", "en", {
+      events: kpi.event_count,
+      pending: kpi.hil_pending,
+    }),
   });
 
   blocks.push({
     type: "summary",
     items: [
-      { label: "events", value: String(kpi.event_count) },
-      { label: "shadow", value: `${pct(kpi.shadow_share, 1)}%`, tone: "t0" },
-      { label: "enforce", value: `${pct(kpi.enforce_share, 1)}%`, tone: "warn" },
-      { label: "awaiting you", value: String(kpi.hil_pending) },
-      { label: "last", value: kpi.last_recorded_at ?? "-" },
+      { label: t("console.summaryEvents"), value: String(kpi.event_count) },
+      { label: t("console.summaryShadow"), value: `${pct(kpi.shadow_share, 1)}%`, tone: "t0" },
+      { label: t("console.summaryEnforce"), value: `${pct(kpi.enforce_share, 1)}%`, tone: "warn" },
+      { label: t("console.summaryAwaiting"), value: String(kpi.hil_pending) },
+      { label: t("console.summaryLast"), value: kpi.last_recorded_at ?? "-" },
     ],
   });
 
@@ -105,11 +106,11 @@ export function buildFromReadModel(
   if (tiers.length > 0) {
     blocks.push({
       type: "narration",
-      text: "Most of it was handled without AI reasoning:",
+      text: t("console.mostlyNoAi"),
     });
     blocks.push({
       type: "statBars",
-      title: "Trust tiers:",
+      title: t("console.trustTiers"),
       rows: tiers
         .map(([tier, count]) => {
           const meta = TIER_META[tier] ?? {
@@ -134,7 +135,7 @@ export function buildFromReadModel(
   if (outcomes.length > 0) {
     blocks.push({
       type: "statBars",
-      title: "Outcomes so far:",
+      title: t("console.outcomes"),
       rows: outcomes.map(([name, count]) => ({
         label: humanize(name),
         sub: String(count),
@@ -145,7 +146,7 @@ export function buildFromReadModel(
   }
 
   if (audit.length > 0) {
-    blocks.push({ type: "narration", text: "Most recent activity:", tone: "dim" });
+    blocks.push({ type: "narration", text: t("console.recentActivity"), tone: "dim" });
     blocks.push({
       type: "list",
       items: audit
@@ -158,15 +159,17 @@ export function buildFromReadModel(
   if (hil.length > 0) {
     blocks.push({
       type: "narration",
-      text:
-        `${hil.length} ${hil.length === 1 ? "item needs" : "items need"} your ` +
-        `decision - escalated to a human by the risk gate.`,
+      text: t(
+        hil.length === 1 ? "console.hilPendingOne" : "console.hilPendingMany",
+        "en",
+        { count: hil.length },
+      ),
     });
     hil.forEach((h, i) => blocks.push(decisionCard(h, i + 1, hil.length)));
   } else {
     blocks.push({
       type: "narration",
-      text: "Nothing is awaiting your sign-off right now.",
+      text: t("console.nothingPending"),
     });
   }
 

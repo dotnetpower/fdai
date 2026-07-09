@@ -4,5 +4,31 @@
     "t1": "Matched a past case",
     "t2": "Needed AI reasoning",
     "abstain": "Abstained"
+  },
+  "console": {
+    "context": "{env} - read-only - live read API",
+    "connected": "Connected to the read API. {events} events recorded, {pending} awaiting your decision.",
+    "summaryEvents": "events",
+    "summaryShadow": "shadow",
+    "summaryEnforce": "enforce",
+    "summaryAwaiting": "awaiting you",
+    "summaryLast": "last",
+    "mostlyNoAi": "Most of it was handled without AI reasoning:",
+    "trustTiers": "Trust tiers:",
+    "outcomes": "Outcomes so far:",
+    "recentActivity": "Most recent activity:",
+    "hilPendingOne": "{count} item needs your decision - escalated to a human by the risk gate.",
+    "hilPendingMany": "{count} items need your decision - escalated to a human by the risk gate.",
+    "nothingPending": "Nothing is awaiting your sign-off right now."
+  },
+  "card": {
+    "chip": "needs your decision",
+    "fieldWhat": "What",
+    "fieldWhy": "Why",
+    "fieldRequested": "Requested",
+    "fieldCorrelation": "Correlation",
+    "actionApprove": "approve (opens a PR)",
+    "actionDecline": "decline (logged, no change)",
+    "actionExplain": "explain"
   }
 }

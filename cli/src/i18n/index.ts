@@ -39,10 +39,19 @@ function lookup(catalog: Catalog, key: string): string | undefined {
  * Translate `key` in `locale`. Falls back to the English source when the
  * locale catalog lacks the key, and to the key itself when even English is
  * missing (so a typo is visible rather than silently blank).
+ *
+ * `params` substitute `{name}` placeholders in the resolved string; an
+ * unmatched placeholder is left verbatim (again, visible rather than blank).
  */
-export function t(key: string, locale: Locale = "en"): string {
+export function t(
+  key: string,
+  locale: Locale = "en",
+  params?: Record<string, string | number>,
+): string {
   const localized = lookup(CATALOGS[locale], key);
-  if (localized !== undefined) return localized;
-  const english = lookup(CATALOGS.en, key);
-  return english ?? key;
+  const template = localized ?? lookup(CATALOGS.en, key) ?? key;
+  if (params === undefined) return template;
+  return template.replace(/\{(\w+)\}/g, (whole, name: string) =>
+    name in params ? String(params[name]) : whole,
+  );
 }

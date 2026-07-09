@@ -3,5 +3,27 @@
     "t0": "고정 규칙으로 처리",
     "t1": "과거 사례와 일치",
     "t2": "AI 추론 필요"
+  },
+  "console": {
+    "connected": "읽기 API에 연결됨. 이벤트 {events}건 기록, {pending}건 결정 대기 중.",
+    "summaryEvents": "이벤트",
+    "summaryShadow": "섀도우",
+    "summaryEnforce": "적용",
+    "summaryAwaiting": "대기 중",
+    "summaryLast": "최근",
+    "mostlyNoAi": "대부분 AI 추론 없이 처리되었습니다:",
+    "trustTiers": "신뢰 계층:",
+    "outcomes": "지금까지의 결과:",
+    "recentActivity": "최근 활동:",
+    "hilPendingOne": "{count}건이 결정을 기다립니다 - 리스크 게이트가 사람에게 에스컬레이션했습니다.",
+    "hilPendingMany": "{count}건이 결정을 기다립니다 - 리스크 게이트가 사람에게 에스컬레이션했습니다.",
+    "nothingPending": "지금 승인을 기다리는 항목이 없습니다."
+  },
+  "card": {
+    "chip": "결정 필요",
+    "fieldWhat": "무엇",
+    "fieldWhy": "이유",
+    "fieldRequested": "요청 시각",
+    "fieldCorrelation": "상관 ID"
   }
 }
