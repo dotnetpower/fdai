@@ -33,6 +33,7 @@ import { LiveRoute } from "./routes/live";
 import { OntologyRoute } from "./routes/ontology";
 import { PantheonRoute } from "./routes/pantheon";
 import { PromotionGatesRoute } from "./routes/promotion-gates";
+import { RuleCatalogRoute } from "./routes/rule-catalog";
 import { RuleTraceRoute } from "./routes/rule-trace";
 
 /** Props every panel component receives. Read-only client only. */
@@ -134,6 +135,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.pantheon"),
     group: "knowledge",
     component: PantheonRoute,
+  },
+  {
+    id: "rules",
+    label: t("nav.panel.rules"),
+    subtitle: t("nav.panelSub.rules"),
+    group: "knowledge",
+    component: RuleCatalogRoute,
   },
   // ── Safety ──────────────────────────────────────────────────────────
   {

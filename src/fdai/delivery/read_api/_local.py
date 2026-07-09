@@ -28,6 +28,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import yaml
 from starlette.applications import Starlette
 
 # Dev harness: make our own INFO logs visible so live-stream open/close
@@ -43,6 +44,9 @@ from fdai.core.rbac.resolver import GroupMapping, RoleResolver  # noqa: E402
 from fdai.core.risk_gate.blast_radius_simulator import (  # noqa: E402
     InMemoryOntologyGraph,
     OntologyGraph,
+)
+from fdai.core.tiers.t0_deterministic.opa_evaluator import (  # noqa: E402
+    MissingOpaBinaryError,
 )
 from fdai.delivery.read_api.auth import (  # noqa: E402
     UnsafeClaimsExtractor,
@@ -68,6 +72,11 @@ from fdai.delivery.read_api.rule_fire_trace_reader import (  # noqa: E402
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog  # noqa: E402
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog  # noqa: E402
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog  # noqa: E402
+from fdai.rule_catalog.schema.resource_type import (  # noqa: E402
+    load_resource_type_registry_from_mapping,
+)
+from fdai.rule_catalog.schema.rule import load_rule_catalog  # noqa: E402
+from fdai.shared.contracts.models import Rule  # noqa: E402
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry  # noqa: E402
 from fdai.shared.providers.sse import SseSink  # noqa: E402
 from fdai.shared.providers.testing.sse import InMemorySseSink  # noqa: E402
@@ -278,10 +287,71 @@ def app() -> Starlette:
             probes_root=None,
         )
 
+    # Load the shipped rule catalog so the console's Knowledge > Rules
+    # panel renders every policy the system knows out of the box. Wrap
+    # defensively: a catalog load failure MUST NOT take down the whole
+    # dev server (the panel just stays unregistered / 404s).
+    rule_catalog_rules: tuple[Any, ...] = ()
+    catalog_root = _REPO_ROOT / "rule-catalog" / "catalog"
+    policies_root = _REPO_ROOT / "policies"
+    remediation_root = _REPO_ROOT / "rule-catalog" / "remediation"
+    vocabulary_file = _REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
+    if catalog_root.is_dir() and action_types and vocabulary_file.is_file():
+        try:
+            with vocabulary_file.open("r", encoding="utf-8") as fh:
+                resource_types = load_resource_type_registry_from_mapping(yaml.safe_load(fh))
+            rule_catalog_rules = load_rule_catalog(
+                catalog_root,
+                schema_registry=schema_registry,
+                action_types=action_types,
+                resource_types=resource_types,
+                policies_root=policies_root if policies_root.is_dir() else None,
+                remediation_root=remediation_root if remediation_root.is_dir() else None,
+            )
+        except Exception:  # noqa: BLE001 - dev harness resilience only
+            logging.getLogger(__name__).warning("rule_catalog_load_failed", exc_info=True)
+            rule_catalog_rules = ()
+
+    # Load the imported upstream corpus (Azure Policy built-ins,
+    # kube-bench) - thousands of candidate / reference rules. These are
+    # not all normalized to the canonical vocabulary, so they parse via
+    # the pydantic model (schema only), NOT the strict catalog loader.
+    rule_catalog_collected: tuple[Any, ...] = ()
+    collected_root = _REPO_ROOT / "rule-catalog" / "collected"
+    if collected_root.is_dir():
+        collected: list[Any] = []
+        for path in sorted(collected_root.rglob("*.yaml")):
+            try:
+                raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+                if isinstance(raw, Mapping):
+                    collected.append(Rule.model_validate(raw))
+            except Exception:  # noqa: BLE001 - skip a malformed corpus file
+                logging.getLogger(__name__).debug(
+                    "collected_rule_skipped path=%s", path, exc_info=True
+                )
+        rule_catalog_collected = tuple(collected)
+
     trace_reader = ConsoleReadModelTraceReader(read_model)
     what_if_evaluators: dict[str, WhatIfEvaluator] = {
         "tighter-tags": _DemoTighterTagsEvaluator(),
     }
+
+    # Real affected-resources for the console: evaluate the shipped Rego
+    # policies against a small synthetic inventory. Wired only when the
+    # active catalog + policies + OPA binary are all present; otherwise
+    # the findings endpoint honestly reports "not evaluated here".
+    rule_catalog_findings_provider: Any = None
+    if rule_catalog_rules and policies_root.is_dir():
+        try:
+            from fdai.delivery.read_api.demo_findings import build_demo_findings_provider
+
+            rule_catalog_findings_provider = build_demo_findings_provider(
+                rules_by_id={r.id: r for r in rule_catalog_rules},
+                policies_root=policies_root,
+            )
+        except MissingOpaBinaryError:
+            logging.getLogger(__name__).info("demo_findings_disabled_no_opa")
+            rule_catalog_findings_provider = None
 
     return build_app(
         authenticator=authenticator,
@@ -298,6 +368,13 @@ def app() -> Starlette:
             blast_radius_graph=_build_blast_radius_graph(),
             ontology_object_types=tuple(ontology_object_types),
             ontology_link_types=tuple(ontology_link_types),
+            rule_catalog_rules=tuple(rule_catalog_rules),
+            rule_catalog_collected_rules=tuple(rule_catalog_collected),
+            rule_catalog_policies_root=policies_root if policies_root.is_dir() else None,
+            rule_catalog_remediation_root=(
+                remediation_root if remediation_root.is_dir() else None
+            ),
+            rule_catalog_findings_provider=rule_catalog_findings_provider,
             promotion_gate_action_types=tuple(action_types),
             promotion_gate_source=InMemoryShadowVerdictSource(verdicts=_synthetic_verdicts()),
             trace_reader=trace_reader,

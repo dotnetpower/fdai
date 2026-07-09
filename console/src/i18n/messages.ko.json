@@ -6,7 +6,8 @@
     "audit": "감사 로그",
     "ontology": "온톨로지",
     "pantheon": "판테온",
-    "promotionGates": "승급 게이트"
+    "promotionGates": "승급 게이트",
+    "rules": "규칙"
   },
   "nav": {
     "group": {
@@ -32,7 +33,8 @@
       "pantheon": "에이전트",
       "blastRadius": "영향 범위",
       "promotionGates": "승급 게이트",
-      "dashboard": "대시보드"
+      "dashboard": "대시보드",
+      "rules": "규칙"
     },
     "panelSub": {
       "live": "실시간 파이프라인 활동",
@@ -40,7 +42,8 @@
       "audit": "모든 종단 결정의 추가 전용 기록",
       "ontology": "리소스 + 링크 그래프 (classDiagram)",
       "pantheon": "15개의 명명된 자율 에이전트 (판테온)",
-      "dashboard": "감사 로그에서 집계한 KPI"
+      "dashboard": "감사 로그에서 집계한 KPI",
+      "rules": "규칙 카탈로그의 모든 정책, 패싯별"
     }
   }
 }

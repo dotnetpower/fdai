@@ -8,6 +8,7 @@
  */
 
 import type { ComponentChildren, JSX } from "preact";
+import { useState } from "preact/hooks";
 
 // ---------------------------------------------------------------------------
 // PageHeader - page identity (title + optional subtitle + optional actions)
@@ -169,6 +170,10 @@ export interface DataTableProps<Row> {
   readonly keyOf: (row: Row, index: number) => string | number;
   readonly empty?: ComponentChildren;
   readonly caption?: ComponentChildren;
+  /** When set, rows become clickable (button semantics + keyboard). */
+  readonly onRowClick?: (row: Row, index: number) => void;
+  /** Highlight the row matching this predicate as selected. */
+  readonly isRowActive?: (row: Row, index: number) => boolean;
 }
 
 export function DataTable<Row>({
@@ -177,15 +182,18 @@ export function DataTable<Row>({
   keyOf,
   empty,
   caption,
+  onRowClick,
+  isRowActive,
 }: DataTableProps<Row>) {
   if (rows.length === 0) {
     return (
       <div class="data-table-empty muted">{empty ?? "No rows to display."}</div>
     );
   }
+  const clickable = onRowClick !== undefined;
   return (
     <div class="data-table-wrap">
-      <table class="data-table">
+      <table class={`data-table${clickable ? " data-table-clickable" : ""}`}>
         {caption ? <caption>{caption}</caption> : null}
         <thead>
           <tr>
@@ -195,13 +203,32 @@ export function DataTable<Row>({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, index) => (
-            <tr key={keyOf(row, index)}>
-              {columns.map((c) => (
-                <td key={c.key} class={c.cellClass}>{c.render(row)}</td>
-              ))}
-            </tr>
-          ))}
+          {rows.map((row, index) => {
+            const active = isRowActive?.(row, index) ?? false;
+            return (
+              <tr
+                key={keyOf(row, index)}
+                class={active ? "row-active" : undefined}
+                tabIndex={clickable ? 0 : undefined}
+                role={clickable ? "button" : undefined}
+                onClick={clickable ? () => onRowClick?.(row, index) : undefined}
+                onKeyDown={
+                  clickable
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onRowClick?.(row, index);
+                        }
+                      }
+                    : undefined
+                }
+              >
+                {columns.map((c) => (
+                  <td key={c.key} class={c.cellClass}>{c.render(row)}</td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -234,5 +261,90 @@ export function StatusPill({ kind, label, title }: StatusPillProps) {
     <span class={`status-pill status-pill-${kind}`} title={title}>
       {label}
     </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ExternalLink - opens in a new tab, with an explicit affordance
+// ---------------------------------------------------------------------------
+
+/** Box-with-arrow glyph signalling "opens in a new tab". */
+function ExternalGlyph() {
+  return (
+    <svg
+      class="ext-icon"
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M14 3h7v7" />
+      <path d="M21 3l-9 9" />
+      <path d="M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6" />
+    </svg>
+  );
+}
+
+export interface ExternalLinkProps {
+  readonly href: string;
+  readonly children: ComponentChildren;
+}
+
+/**
+ * Anchor that always opens in a new tab. Carries ``rel="noopener
+ * noreferrer"`` (no tab-nabbing, no referrer leak), a visible
+ * open-in-new glyph, and a screen-reader-only "(opens in a new tab)"
+ * suffix so the behaviour is announced, not just implied.
+ */
+export function ExternalLink({ href, children }: ExternalLinkProps) {
+  return (
+    <a
+      class="ext-link"
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Opens in a new tab"
+    >
+      <span class="ext-link-text">{children}</span>
+      <ExternalGlyph />
+      <span class="sr-only"> (opens in a new tab)</span>
+    </a>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CopyButton - copy text to clipboard with transient feedback
+// ---------------------------------------------------------------------------
+
+export interface CopyButtonProps {
+  readonly text: string;
+  readonly label?: string;
+}
+
+export function CopyButton({ text, label = "Copy" }: CopyButtonProps) {
+  const [copied, setCopied] = useState(false);
+  async function copy(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable (insecure context) - stay silent */
+    }
+  }
+  return (
+    <button
+      type="button"
+      class="btn btn-small copy-btn"
+      onClick={copy}
+      aria-label={copied ? "Copied" : label}
+    >
+      {copied ? "Copied" : label}
+    </button>
   );
 }

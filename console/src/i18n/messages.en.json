@@ -7,7 +7,8 @@
     "ontology": "Ontology",
     "pantheon": "Pantheon",
     "promotionGates": "Promotion gates",
-    "ruleTrace": "Trace"
+    "ruleTrace": "Trace",
+    "rules": "Rules"
   },
   "nav": {
     "group": {
@@ -33,7 +34,8 @@
       "pantheon": "Agents",
       "blastRadius": "Blast radius",
       "promotionGates": "Promotion gates",
-      "dashboard": "Dashboard"
+      "dashboard": "Dashboard",
+      "rules": "Rules"
     },
     "panelSub": {
       "live": "Real-time pipeline activity",
@@ -44,7 +46,8 @@
       "pantheon": "15 named autonomous agents (Pantheon)",
       "blastRadius": "Simulate reachable subgraph before a change",
       "promotionGates": "Per-ActionType readiness for shadow → enforce",
-      "dashboard": "Rolled-up KPIs sourced from the audit log"
+      "dashboard": "Rolled-up KPIs sourced from the audit log",
+      "rules": "Every policy in the rule catalog, faceted"
     }
   }
 }

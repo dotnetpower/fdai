@@ -213,6 +213,54 @@ class ReadApiConfig:
     :class:`~fdai.shared.contracts.models.OntologyLinkType`. See
     :attr:`ontology_object_types` for the pairing contract."""
 
+    rule_catalog_rules: tuple[Any, ...] = ()
+    """Opt-in rule-catalog explorer input: the *active* catalog. Tuple of
+    :class:`~fdai.shared.contracts.models.Rule` loaded at
+    composition-root time via
+    :func:`~fdai.rule_catalog.schema.rule.load_rule_catalog` (the curated
+    ``rule-catalog/catalog/`` tier T0 evaluates). When this OR
+    :attr:`rule_catalog_collected_rules` is non-empty, the app registers
+    a paginated ``GET /rules`` returning rule summaries tagged
+    ``origin=active`` plus facet counts, so the console's Knowledge >
+    Rules panel can render every policy the system knows. Empty by
+    default so upstream stays minimal. Read-only projection - the route
+    never mutates state. See :mod:`fdai.delivery.read_api.rule_catalog`."""
+
+    rule_catalog_collected_rules: tuple[Any, ...] = ()
+    """Opt-in rule-catalog explorer input: the *collected* corpus. Tuple
+    of :class:`~fdai.shared.contracts.models.Rule` parsed from the
+    imported ``rule-catalog/collected/`` tree (Azure Policy built-ins,
+    kube-bench). Thousands of candidate / reference rules that are not
+    all normalized to the canonical vocabulary yet; served tagged
+    ``origin=collected`` alongside the active tier on ``GET /rules``.
+    Empty by default. Same read-only projection contract as
+    :attr:`rule_catalog_rules`."""
+
+    rule_catalog_policies_root: Any = None
+    """Opt-in filesystem root (:class:`pathlib.Path`) for the rule detail
+    view. When set, ``GET /rules/{id}`` resolves a rule's
+    ``check_logic.reference`` (e.g. ``policies/x.rego``) to the file body
+    so the console drawer can show the actual Rego. Reads are sandboxed
+    to this root; a traversal or non-file reference yields ``null``.
+    ``None`` serves metadata only."""
+
+    rule_catalog_remediation_root: Any = None
+    """Opt-in filesystem root (:class:`pathlib.Path`) for the rule detail
+    view. When set, ``GET /rules/{id}`` resolves a rule's
+    ``remediation.template_ref`` (e.g. ``remediation/x.tftpl``) to the
+    file body. Same sandbox contract as
+    :attr:`rule_catalog_policies_root`."""
+
+    rule_catalog_findings_provider: Any = None
+    """Opt-in findings source for ``GET /rules/{id}/findings`` (the
+    affected-resources view). A callable ``(rule_id, origin) ->
+    awaitable[sequence[mapping]]`` where each mapping describes one
+    resource violating the rule plus the attribute at fault. ``None``
+    (default) makes the endpoint report ``evaluated=false`` with no
+    findings - upstream never fabricates resource impact. A fork wires
+    an inventory-evaluation source (assurance_twin / T0 over real
+    inventory)."""
+
     promotion_gate_action_types: tuple[Any, ...] = ()
     """Opt-in promotion-gate dashboard input: tuple of
     :class:`~fdai.shared.contracts.models.OntologyActionType`."""
@@ -499,6 +547,39 @@ def build_app(
                 object_types=resolved_config.ontology_object_types,
                 link_types=resolved_config.ontology_link_types,
                 authorize=_authorize,
+            )
+        )
+
+    # Optional rule-catalog explorer. Registered when either tier
+    # (active catalog or collected corpus) is wired in; a pure paginated
+    # projection over an immutable rule snapshot, plus a detail route.
+    if resolved_config.rule_catalog_rules or resolved_config.rule_catalog_collected_rules:
+        from fdai.delivery.read_api.rule_catalog import (
+            DEFAULT_ROUTE_PATH as _RC_PATH,
+        )
+        from fdai.delivery.read_api.rule_catalog import (
+            DETAIL_ROUTE_PATH as _RC_DETAIL_PATH,
+        )
+        from fdai.delivery.read_api.rule_catalog import (
+            FINDINGS_ROUTE_PATH as _RC_FINDINGS_PATH,
+        )
+        from fdai.delivery.read_api.rule_catalog import (
+            make_rule_catalog_routes,
+        )
+
+        for _rc in (_RC_PATH, _RC_DETAIL_PATH, _RC_FINDINGS_PATH):
+            if _rc in _CORE_ROUTE_PATHS:
+                raise ValueError(f"rule-catalog path {_rc!r} collides with a core route")
+            if _rc in seen_panel_paths:
+                raise ValueError(f"rule-catalog path {_rc!r} collides with a panel path")
+        routes.extend(
+            make_rule_catalog_routes(
+                active_rules=resolved_config.rule_catalog_rules,
+                collected_rules=resolved_config.rule_catalog_collected_rules,
+                authorize=_authorize,
+                policies_root=resolved_config.rule_catalog_policies_root,
+                remediation_root=resolved_config.rule_catalog_remediation_root,
+                findings_provider=resolved_config.rule_catalog_findings_provider,
             )
         )
 
