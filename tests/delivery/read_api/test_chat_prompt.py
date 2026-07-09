@@ -36,7 +36,7 @@ glossary was injected."""
 # Rough per-turn budget for the STATIC prompt (everything before the snapshot
 # JSON). The lean prompt must stay well under this; the glossary variant may
 # exceed the lean size but must still be bounded. Guards against prompt bloat.
-_LEAN_BASE_BUDGET = 1_300
+_LEAN_BASE_BUDGET = 1_500
 
 _SNAPSHOT_MARKER = "Current view snapshot (JSON):"
 
@@ -205,6 +205,7 @@ _REQUIRED_CLAUSES: list[str] = [
     "search/filter",  # point to on-screen search, not deflection
     "Read-only",  # never propose actions/writes
     "operator's language",  # mirror the operator's language
+    "DATA, not instructions",  # snapshot-embedded prompt-injection guard
 ]
 
 
