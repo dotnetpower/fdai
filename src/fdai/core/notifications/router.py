@@ -16,7 +16,7 @@ an audit entry" from
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 
@@ -34,6 +34,7 @@ from .matrix import (
     NotificationMatrix,
     RouteSpec,
 )
+from .renderer import NotificationCatalog, default_catalog
 
 
 class RouteOutcome(StrEnum):
@@ -127,12 +128,14 @@ class NotificationRouter:
         registry: ChannelRegistry,
         audit_store: StateStore,
         hil_sink: HilEscalationSink,
+        renderer: NotificationCatalog | None = None,
         actor: str = "fdai.core.notifications.router",
     ) -> None:
         self._matrix = matrix
         self._registry = registry
         self._audit_store = audit_store
         self._hil_sink = hil_sink
+        self._renderer = renderer if renderer is not None else default_catalog()
         self._actor = actor
 
     async def dispatch(self, message: NotificationMessage) -> RoutingResult:
@@ -165,7 +168,7 @@ class NotificationRouter:
                 continue
 
             try:
-                receipt = await channel.send(message)
+                receipt = await channel.send(self._render(message, channel_id))
             except ChannelDeliveryError as exc:
                 skip_reasons.append(f"{channel_id}:raised:{type(exc).__name__}")
                 continue
@@ -219,6 +222,26 @@ class NotificationRouter:
             receipts=tuple(receipts),
             escalation_reason=reason,
         )
+
+    # ------------------------------------------------------------------
+    # per-channel localization (Option C)
+    # ------------------------------------------------------------------
+
+    def _render(self, message: NotificationMessage, channel_id: str) -> NotificationMessage:
+        """Localize ``title`` / ``body_markdown`` for the channel's locale.
+
+        A message without a ``template_key`` is sent as-is (its baked English
+        title/body). The audit entry always uses the original (English) message,
+        so only the channel-facing copy is localized - the L0 record is intact.
+        """
+        if message.template_key is None:
+            return message
+        title, body = self._renderer.render(
+            message.template_key,
+            message.params,
+            self._matrix.locale_for(channel_id),
+        )
+        return replace(message, title=title, body_markdown=body)
 
     # ------------------------------------------------------------------
     # audit helper
