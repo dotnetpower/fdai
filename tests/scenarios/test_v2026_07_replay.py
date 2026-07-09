@@ -127,10 +127,6 @@ _XFAIL_REASONS: dict[str, str] = {
         "enrichment overlay pending author."
     ),
     "dr.chaos-experiment-novel.003": ("T2 reasoning tier not wired into ControlLoop yet (P2)."),
-    "finops.stop-idle-dev-vm-off-hours.003": (
-        "T1 similarity tier wired into ControlLoop (scope-expansion.md § 3.7); "
-        "enrichment overlay pending author."
-    ),
 }
 
 

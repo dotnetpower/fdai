@@ -33,7 +33,7 @@ control loop live in
 | **Runbook orchestration** | **New primitive layer.** See § 3.4. | Present ActionTypes are leaves; a runbook is a DAG over ActionTypes with a rollback branch. |
 | **On-call schedule** | **New provider.** See § 3.5. | HIL routing today is role-based, not schedule-based. Break-glass pager exists but knows nothing about who is on shift. |
 | **Postmortem draft** | **New core module.** See § 3.6. | Fed by Incident + audit trail. LLM-optional (template-based default). |
-| **Full T1/T2 wiring into ControlLoop** | **Promote from library-only to wired.** See § 3.7. | Tier libraries exist under `core/tiers/`; `ControlLoop.__init__` accepts only `t0_engine` today. Five scenarios `xfail` for this reason. |
+| **Full T1/T2 wiring into ControlLoop** | **T1 wired; T2 pending.** See § 3.7. | `ControlLoop.__init__` accepts an optional `t1_engine` and the loop runs `T0.abstain -> T1.reuse-log` (shadow-only). T2 remains: `core/tiers/t2_reasoning/` is still a stub, so there is no `t2_engine` yet. |
 
 ## 2. Explicitly-deferred axes (not in this expansion)
 
@@ -255,25 +255,36 @@ findings, actions) but no synthesizer.
 
 ### 3.7 T1 / T2 tiers wired into `ControlLoop`
 
-**Problem.** `core/tiers/t1_lightweight/` and `core/tiers/t2_frontier/`
-are library-complete with tests, but `ControlLoop.__init__` only
-accepts `t0_engine`. Five scenarios in
-[tests/scenarios/test_v2026_07_replay.py](../../tests/scenarios/test_v2026_07_replay.py)
-`xfail` for this reason.
+**Status.** T1 is wired; T2 remains. `ControlLoop.__init__` accepts an
+optional `t1_engine` (Protocol-typed `T1Tier`), and `process` runs
+`T0.abstain -> T1.reuse-log`: a T1 similarity hit is recorded as
+`T1_REUSE_LOGGED` and never executed in P1 (a reuse must clear the
+verifier + risk-gate first, which is P2). Each tier hop writes its own
+audit entry, so the decision stays reconstructable. What is **not** yet
+built is T2: `core/tiers/t2_reasoning/` is a stub (no engine), so
+`ControlLoop` has no `t2_engine` parameter.
 
-**Design.**
+**Remaining design (T2).**
 
-- Extend `ControlLoop.__init__` with optional `t1_engine` and
-  `t2_engine` parameters (Protocol-typed, no concrete class import
-  in `core/control_loop.py` beyond the Protocol).
-- Flow: `T0.abstain → T1.reuse (if wired) → T2.propose + quality-gate
-  (if wired) → risk-gate`. Each tier hop writes an audit entry so the
-  decision is reconstructable.
-- Un-xfail the four scenarios whose fixture stack is fake-adapter
-  reachable (leave `dr.chaos-experiment-novel.003` xfailed - it needs
-  a real Chaos Studio dry-run that stays P3 backlog).
-- No changes to the trust-router's public contract; existing tests
-  regress unchanged.
+- Build the `t2_reasoning` tier library first (it is a stub today).
+- Add an optional `t2_engine` parameter to `ControlLoop.__init__`
+  (Protocol-typed, no concrete class import in `core/control_loop.py`
+  beyond the Protocol).
+- Flow: `T1.abstain -> T2.propose + quality-gate -> risk-gate`. The
+  quality gate (mixed-model cross-check, verifier, grounding) grants
+  execution eligibility; the model never does.
+
+**Scenario replay.** The frozen scenarios in
+[tests/scenarios/v2026.07/](../../tests/scenarios/v2026.07/) are enriched
+at T0 through overlays under
+[tests/scenarios/enrichment/v2026.07/](../../tests/scenarios/enrichment/v2026.07/)
+wherever a shipped rule maps - e.g.
+`finops.stop-idle-dev-vm-off-hours.003` fires `compute.vm.idle-detected`.
+Scenarios still lacking an overlay stay `xfail`:
+`dr.chaos-experiment-novel.003` (needs T2),
+`dr.replica-lag-degraded.001` (needs an authored overlay), and
+`dr.backup-vault-restore-rehearsal.002` /
+`change.drift-manual-portal-edit.003` (need a shipped rule authored).
 
 ### 3.8 Vertical registry (new-domain onboarding seam)
 
@@ -314,8 +325,8 @@ Rollout order picks the strict prerequisite chain:
 
 1. **§ 3.1 Incident** and **§ 3.2 Telemetry** are independent - both
    ship in the same phase, either order.
-2. **§ 3.7 T1/T2 wiring** depends on nothing new - can ship first if
-   convenient.
+2. **§ 3.7 T1/T2 wiring** - T1 is already shipped; T2 depends on
+   building the `t2_reasoning` tier library first.
 3. **§ 3.3 SLO** depends on § 3.2 (real burn-rate needs metric
    ingestion).
 4. **§ 3.6 Postmortem** depends on § 3.1.

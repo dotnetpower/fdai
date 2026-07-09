@@ -1,7 +1,7 @@
 ---
 title: 스코프 개선 및 구조적 갭
 translation_of: scope-expansion.md
-translation_source_sha: 86d47ec43af3cb9add237730d5ebdf3fae856f14
+translation_source_sha: 1d5c1128e166befee3234e5b439c19c490b11f83
 translation_revised: 2026-07-09
 ---
 # 스코프 개선 및 구조적 갭
@@ -36,7 +36,7 @@ control loop 은
 | **Runbook orchestration** | **새 primitive layer.** § 3.4 참조. | 현재 ActionType 은 leaf; runbook 은 rollback branch 를 갖는 ActionType 위의 DAG. |
 | **On-call schedule** | **새 provider.** § 3.5 참조. | 오늘의 HIL 라우팅은 role-based; schedule-based 아님. Break-glass pager 는 존재하지만 누가 shift 중인지 모름. |
 | **Postmortem draft** | **새 core module.** § 3.6 참조. | Incident + audit trail 로 feed. LLM-optional (template-based default). |
-| **Full T1/T2 wiring into ControlLoop** | **library-only 에서 wired 로 promote.** § 3.7 참조. | Tier 라이브러리는 `core/tiers/` 아래 존재; `ControlLoop.__init__` 은 오늘 `t0_engine` 만 accept. 이 이유로 다섯 시나리오 `xfail`. |
+| **Full T1/T2 wiring into ControlLoop** | **T1 wired; T2 pending.** § 3.7 참조. | `ControlLoop.__init__` 은 optional `t1_engine` 을 accept 하고 loop 은 `T0.abstain -> T1.reuse-log`(shadow-only)를 실행. T2 는 남음: `core/tiers/t2_reasoning/` 은 아직 stub 이라 `t2_engine` 이 없음. |
 
 ## 2. 명시적으로 deferred 된 axes (이 확장에 포함되지 않음)
 
@@ -254,25 +254,35 @@ action) 을 가지고 있지만 synthesizer 가 없다.
 
 ### 3.7 T1 / T2 tier 를 `ControlLoop` 로 wire
 
-**Problem.** `core/tiers/t1_lightweight/` 와 `core/tiers/t2_frontier/`
-는 테스트와 함께 library-complete 이지만 `ControlLoop.__init__` 은
-`t0_engine` 만 accept. 이 이유로
-[tests/scenarios/test_v2026_07_replay.py](../../tests/scenarios/test_v2026_07_replay.py)
-의 다섯 시나리오가 `xfail`.
+**Status.** T1 은 wired; T2 는 남음. `ControlLoop.__init__` 은 optional
+`t1_engine`(Protocol-typed `T1Tier`)을 accept 하고, `process` 는
+`T0.abstain -> T1.reuse-log` 를 실행: T1 similarity hit 은
+`T1_REUSE_LOGGED` 로 기록되며 P1 에서는 절대 실행되지 않음(reuse 는 먼저
+verifier + risk-gate 를 통과해야 하고 그것은 P2). 각 tier hop 은 자체
+audit entry 를 write 하여 decision 이 reconstructable. 아직 **미구축**인
+것은 T2: `core/tiers/t2_reasoning/` 은 stub(engine 없음)이라
+`ControlLoop` 에 `t2_engine` parameter 가 없음.
 
-**Design.**
+**Remaining design (T2).**
 
-- `ControlLoop.__init__` 을 optional `t1_engine` 과 `t2_engine`
-  parameter 로 확장 (Protocol-typed, `core/control_loop.py` 에서
-  Protocol 을 넘는 concrete class import 없음).
-- Flow: `T0.abstain → T1.reuse (if wired) → T2.propose + quality-gate
-  (if wired) → risk-gate`. 각 tier hop 은 audit entry 를 write 하여
-  decision 이 reconstructable.
-- Fixture stack 이 fake-adapter reachable 한 네 시나리오를 un-xfail
-  (`dr.chaos-experiment-novel.003` 은 xfail 유지 - real Chaos Studio
-  dry-run 이 필요하고 P3 backlog 로 유지).
-- Trust-router 의 public contract 에 변경 없음; 기존 테스트는 unchanged
-  regress.
+- 먼저 `t2_reasoning` tier 라이브러리를 구축(오늘은 stub).
+- `ControlLoop.__init__` 에 optional `t2_engine` parameter 추가
+  (Protocol-typed, `core/control_loop.py` 에서 Protocol 을 넘는 concrete
+  class import 없음).
+- Flow: `T1.abstain -> T2.propose + quality-gate -> risk-gate`. quality
+  gate(mixed-model cross-check, verifier, grounding)가 execution
+  eligibility 를 부여하며, model 은 절대 부여하지 않음.
+
+**Scenario replay.** [tests/scenarios/v2026.07/](../../tests/scenarios/v2026.07/)
+의 frozen 시나리오는 shipped 룰이 매핑되는 곳마다
+[tests/scenarios/enrichment/v2026.07/](../../tests/scenarios/enrichment/v2026.07/)
+overlay 로 T0 에서 enrich 됨 - 예:
+`finops.stop-idle-dev-vm-off-hours.003` 은 `compute.vm.idle-detected` 발화.
+overlay 가 아직 없는 시나리오는 `xfail` 유지:
+`dr.chaos-experiment-novel.003`(T2 필요),
+`dr.replica-lag-degraded.001`(overlay author 필요),
+`dr.backup-vault-restore-rehearsal.002` /
+`change.drift-manual-portal-edit.003`(shipped 룰 author 필요).
 
 ### 3.8 Vertical registry (new-domain 온보딩 seam)
 
@@ -310,7 +320,7 @@ Rollout 순서는 strict prerequisite chain 을 pick:
 
 1. **§ 3.1 Incident** 와 **§ 3.2 Telemetry** 는 독립적 - 둘 다 동일
    phase 에서 ship, 순서 무관.
-2. **§ 3.7 T1/T2 wiring** 은 신규 depend 없음 - 편리하면 먼저 ship 가능.
+2. **§ 3.7 T1/T2 wiring** - T1 은 이미 shipped; T2 는 `t2_reasoning` tier 라이브러리 구축이 선행.
 3. **§ 3.3 SLO** 는 § 3.2 depend (real burn-rate 는 metric ingestion
    필요).
 4. **§ 3.6 Postmortem** 은 § 3.1 depend.

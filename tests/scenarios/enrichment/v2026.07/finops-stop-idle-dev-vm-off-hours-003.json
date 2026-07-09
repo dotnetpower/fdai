@@ -1,0 +1,21 @@
+{
+  "scenario_id": "finops.stop-idle-dev-vm-off-hours.003",
+  "shipped_rule_id": "compute.vm.idle-detected",
+  "event_payload_resource": {
+    "resource_id": "example-idle-dev-vm",
+    "type": "compute.vm",
+    "props": {
+      "cpu_p95_percent": 2,
+      "network_p95_bytes": 100,
+      "memory_p95_percent": 50,
+      "identity_type": "SystemAssigned",
+      "tags": {
+        "environment": "dev"
+      }
+    }
+  },
+  "expected_control_loop_outcome": "executed",
+  "expected_decision": "auto",
+  "expected_citing_rule_id_present": "compute.vm.idle-detected",
+  "note": "Maps the placeholder rule id `example.finops.stop-idle-dev` to the shipped medium-severity `compute.vm.idle-detected`. Props are tuned so ONLY idle-detected fires: cpu_p95_percent=2 and network_p95_bytes=100 clear the idle thresholds; memory_p95_percent=50 keeps compute.vm.low-utilization satisfied (it needs BOTH cpu AND memory low); identity_type=SystemAssigned satisfies compute.vm.managed-identity.assigned; and the environment tag satisfies compute.vm.environment-tag.required. No risk-gate wired, so the T0 match opens a shadow PR (guard.should_execute=true), matching the frozen scenario. The remediation ActionType is remediate.remove-orphan-resource (same as the unattached-public-ip overlay)."
+}
