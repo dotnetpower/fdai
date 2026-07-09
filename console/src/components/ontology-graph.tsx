@@ -59,13 +59,15 @@ interface ClusterMeta {
   readonly hex: string;
 }
 
+// Deep, saturated jewel tones - reads as "glass over anodized metal"
+// rather than the washed-out pastels that made cards feel disabled.
 const CLUSTERS: Readonly<Record<Cluster, ClusterMeta>> = {
-  sensor: { id: "sensor", label: "Sensors", hex: "#4f9fa5" },
-  brain: { id: "brain", label: "Knowledge", hex: "#4f9df5" },
-  action: { id: "action", label: "Decisions", hex: "#d18d5a" },
-  target: { id: "target", label: "Targets", hex: "#4dab7a" },
-  record: { id: "record", label: "Records", hex: "#a586c6" },
-  other: { id: "other", label: "Other", hex: "#8891a0" },
+  sensor: { id: "sensor", label: "Sensors", hex: "#0e9bad" },
+  brain: { id: "brain", label: "Knowledge", hex: "#3b82f6" },
+  action: { id: "action", label: "Decisions", hex: "#e07b39" },
+  target: { id: "target", label: "Targets", hex: "#16a34a" },
+  record: { id: "record", label: "Records", hex: "#8b5cf6" },
+  other: { id: "other", label: "Other", hex: "#64748b" },
 };
 
 function clusterOf(name: string): Cluster {
@@ -372,7 +374,10 @@ export function OntologyGraph({ nodes, edges }: Props) {
         const mat = new THREE.SpriteMaterial({
           map: tex,
           transparent: true,
-          opacity: 0.85,
+          // Fully opaque so front cards read as solid glass panels
+          // instead of the washed-out translucent look. Depth recede
+          // for back cards is carried by their smaller sprite scale.
+          opacity: 1,
           depthWrite: !isBackNode,
           depthTest: true,
           alphaTest: 0.05,
@@ -473,7 +478,7 @@ export function OntologyGraph({ nodes, edges }: Props) {
       const cols = 4;
       const rows = 4;
       const spacingX = 175;
-      const spacingY = 220;
+      const spacingY = 235;
       const spiralOrder: readonly [number, number][] = [
         [1, 1], [2, 1], [1, 2], [2, 2],
         [0, 1], [3, 1], [0, 2], [3, 2],
@@ -616,15 +621,18 @@ export function OntologyGraph({ nodes, edges }: Props) {
         if (isSelfLoop) {
           // Both endpoints sit on the card's LEFT edge (same policy
           // as every other link), so the loop arcs OUT to the LEFT
-          // of the card and comes back. Bulge is generous + staggered
-          // per-loop so multiple self-refs on the same card do not
-          // pile up.
+          // of the card and comes back. Each loop uses a UNIQUE bulge
+          // + vertical stagger keyed on outgoingIndex so N self-refs
+          // on the same card fan out into N clearly-separated arcs
+          // instead of piling up on top of one another.
           const scale = nodeSpriteScale(src);
           const cardLeft = (src.x ?? 0) - (nodeW(src) * scale) / 2;
-          const idxSum = (link.outgoingIndex ?? 0) + (link.incomingIndex ?? 0);
-          const bulge = 55 + (idxSum % 4) * 26;
+          const loopIdx = link.outgoingIndex ?? 0;
+          const bulge = 50 + loopIdx * 32;
           midX = cardLeft - bulge;
-          midYAdj = (s.y + e.y) / 2 + ((idxSum % 3) - 1) * 12;
+          // Stagger midY progressively so subsequent loops sit above
+          // or below their siblings, not overlapping horizontally.
+          midYAdj = (s.y + e.y) / 2 + (loopIdx - 1) * 14;
           // Loops sit slightly IN FRONT of the card plane so they
           // are not occluded by the card body.
           midZ = (src.z ?? 0) + 20;
@@ -668,8 +676,9 @@ export function OntologyGraph({ nodes, edges }: Props) {
 
         // Focus-based emphasis: click-driven only. Links touching the
         // pinned focus stay bright + get particle flow, everything
-        // else fades to nearly invisible. Hover does NOT change link
-        // state - only the cursor updates.
+        // else is HIDDEN outright so the focused subgraph reads on a
+        // clean plate. (Previously unrelated links were drawn at
+        // opacity 0.08 which still visibly cluttered the scene.)
         const focusId = focusIdRef.current;
         const anyFocus = focusId !== null;
         const involved =
@@ -678,20 +687,38 @@ export function OntologyGraph({ nodes, edges }: Props) {
         const baseOpacity = groupObj.userData.isSelfLoop
           ? (isDark ? 0.9 : 0.85)
           : (isDark ? 0.5 : 0.4);
-        const dimOpacity = 0.08;
         const hotOpacity = 1;
-        const targetOpacity = involved
-          ? hotOpacity
-          : anyFocus
-            ? dimOpacity
-            : baseOpacity;
-        if (line && line.material) line.material.opacity = targetOpacity;
-        if (cone && cone.material) {
-          cone.material.opacity = involved
-            ? 1
-            : anyFocus
-              ? dimOpacity
-              : (isDark ? 0.85 : 0.75);
+        // Belt-and-suspenders hide: set the group AND every child
+        // AND drive material opacity to 0 AND shrink the group to
+        // a point. Any one of these should hide the link; combined
+        // they defeat whatever pass keeps 3d-force-graph's line
+        // remnants visible after focus.
+        const hideThisLink = anyFocus && !involved;
+        groupObj.visible = !hideThisLink;
+        // scale.set(0) collapses the group to a single point so even
+        // if some render path ignores `.visible`, the geometry has
+        // zero area and never paints pixels.
+        if (hideThisLink) groupObj.scale.set(0, 0, 0);
+        else groupObj.scale.set(1, 1, 1);
+        if (line) {
+          line.visible = !hideThisLink;
+          if (line.material) {
+            line.material.opacity = hideThisLink
+              ? 0
+              : involved ? hotOpacity : baseOpacity;
+            line.material.transparent = true;
+            line.material.needsUpdate = true;
+          }
+        }
+        if (cone) {
+          cone.visible = !hideThisLink;
+          if (cone.material) {
+            cone.material.opacity = hideThisLink
+              ? 0
+              : involved ? 1 : (isDark ? 0.85 : 0.75);
+            cone.material.transparent = true;
+            cone.material.needsUpdate = true;
+          }
         }
 
         // Arrowhead: place it at the target anchor, oriented along
@@ -807,20 +834,27 @@ export function OntologyGraph({ nodes, edges }: Props) {
           // that sample points along the bezier curve every frame.
           // Hidden by default; updateLinkEndpoints turns them on for
           // links touching the currently-focused node.
-          const PARTICLE_COUNT = 4;
-          const particleGeo = new THREE.SphereGeometry(2.2, 10, 8);
+          const PARTICLE_COUNT = 5;
+          // Bigger radius so the flow reads at the current camera
+          // distance without the dots vanishing into the arc.
+          const particleGeo = new THREE.SphereGeometry(4.5, 12, 10);
           const particles: any[] = [];
           for (let i = 0; i < PARTICLE_COUNT; i++) {
             const pMat = new THREE.MeshBasicMaterial({
               color: link.color,
               transparent: true,
-              opacity: 0.95,
+              opacity: 1.0,
+              // Particles must render ON TOP of every card + arc, no
+              // matter which z plane they happen to be at along the
+              // bezier - otherwise they visibly disappear whenever
+              // the flow passes behind a card body.
               depthWrite: false,
-              depthTest: true,
+              depthTest: false,
+              blending: THREE.AdditiveBlending,
             });
             const p = new THREE.Mesh(particleGeo, pMat);
             p.visible = false;
-            p.renderOrder = 3; // above card sprites so they read
+            p.renderOrder = 5;
             group.add(p);
             particles.push(p);
           }
@@ -850,6 +884,16 @@ export function OntologyGraph({ nodes, edges }: Props) {
         // per-frame in updateLinkEndpoints so the flow ACTUALLY
         // rides the curve.
         .linkDirectionalParticles(() => 0)
+        // Link visibility accessor: 3d-force-graph re-evaluates this
+        // on every render, so it is the reliable way to hide the
+        // "wrong" links when a focus is pinned. We also mirror the
+        // change onto group.visible in updateLinkEndpoints for the
+        // rAF-driven animation frames.
+        .linkVisibility((l: any) => {
+          const focusId = focusIdRef.current;
+          if (!focusId) return true;
+          return isInvolved(l, focusId);
+        })
         .enableNodeDrag(true)
         .onNodeHover((n: any) => {
           // Hover is intentionally passive - the pointer cursor is
@@ -876,15 +920,58 @@ export function OntologyGraph({ nodes, edges }: Props) {
         });
 
       // ---------------------------------------------------------------
-      // Custom particles now live on each link's THREE.Group and are
-      // updated in updateLinkEndpoints. refreshLinkParticles() is a
-      // no-op kept for the call sites; the actual visibility logic
-      // is driven by focusIdRef inside the frame update.
+      // refreshLinkParticles rewires 3d-force-graph's linkVisibility
+      // accessor. Setting an accessor to a fresh function is the
+      // canonical way to force 3d-force-graph to re-evaluate visibility
+      // on every link the next time it renders (its internal cache
+      // keys off the accessor reference identity). We also nudge the
+      // renderer/simulation so the change is applied immediately.
       // ---------------------------------------------------------------
       function refreshLinkParticles(): void {
-        /* no-op: particle visibility toggled per frame in
-         * updateLinkEndpoints so hover / click state is picked up
-         * without needing to re-set an accessor. */
+        // Update 3d-force-graph's linkVisibility accessor. Setting it
+        // to a new function reference makes force-graph re-evaluate
+        // link visibility on the next tick / render.
+        try {
+          Graph.linkVisibility((l: any) => {
+            const focusId = focusIdRef.current;
+            if (!focusId) return true;
+            return isInvolved(l, focusId);
+          });
+        } catch {
+          /* ignore */
+        }
+        // Walk every rendered link right now and force its visibility
+        // state to match. This is the reliable path when force-graph
+        // has already paused its animation loop (cooldownTicks(0)):
+        //   - .visible flag stops the traversal in the renderer
+        //   - .scale.set(0,0,0) collapses geometry to a single point
+        //     so even a rogue render path draws nothing
+        //   - opacity 0 on materials as a third safety net
+        const data = Graph.graphData?.();
+        const links = data?.links;
+        if (links && Array.isArray(links)) {
+          for (const link of links) {
+            const grp = (link as any).__threeObj;
+            if (!grp) continue;
+            const focusId = focusIdRef.current;
+            const involved = !focusId || isInvolved(link, focusId);
+            grp.visible = involved;
+            grp.scale.set(involved ? 1 : 0, involved ? 1 : 0, involved ? 1 : 0);
+          }
+        }
+        try {
+          Graph.resumeAnimation?.();
+        } catch {
+          /* ignore */
+        }
+        try {
+          const r = Graph.renderer?.();
+          const s = Graph.scene?.();
+          const c = Graph.camera?.();
+          if (r && s && c) r.render(s, c);
+        } catch {
+          /* ignore */
+        }
       }
 
       // ---------------------------------------------------------------
@@ -935,7 +1022,7 @@ export function OntologyGraph({ nodes, edges }: Props) {
       // rotation covers both axes even when polar is clamped, so we
       // bypass it entirely to guarantee horizontal-only spin.
       // ---------------------------------------------------------------
-      const INITIAL_CAM: [number, number, number] = [0, 10, 700];
+      const INITIAL_CAM: [number, number, number] = [0, 10, 780];
       Graph.cameraPosition(
         { x: INITIAL_CAM[0], y: INITIAL_CAM[1], z: INITIAL_CAM[2] },
         { x: 0, y: 0, z: 0 },
@@ -1056,23 +1143,33 @@ export function OntologyGraph({ nodes, edges }: Props) {
       (Graph as any).__ro = ro;
 
       // ---------------------------------------------------------------
-      // Frame loop for the flowing particles. cooldownTicks(0) means
-      // 3d-force-graph does not invoke linkPositionUpdate on its own
-      // after the initial paint, so we drive the per-frame update
-      // ourselves and only walk the links while there is an active
-      // focus - no wasted work in the resting state.
+      // Frame loop for the flowing particles + link geometry. When a
+      // focus is active, particles need per-frame position updates AND
+      // a fresh render call (3d-force-graph pauses its internal loop
+      // once physics cools, so the WebGL renderer will not redraw the
+      // moving particles otherwise). ``settlingFrames`` keeps the loop
+      // alive for a beat after focus clears so the return animation
+      // still shows.
       // ---------------------------------------------------------------
       let animFrameId = 0;
+      const renderer3d = Graph.renderer?.();
+      const sceneRef = Graph.scene?.();
+      const cameraRef = Graph.camera?.();
       function animateFrame() {
-        if (focusIdRef.current) {
-          const data = Graph.graphData?.();
-          const links = data?.links;
-          if (links && Array.isArray(links)) {
-            for (const link of links) {
-              const grp = (link as any).__threeObj;
-              if (grp) updateLinkEndpoints(grp, link);
-            }
+        // Always sync every link's visibility + endpoint state from
+        // the current focus, so a stale "hidden" state cannot linger
+        // after focus clears and vice versa. Physics is pinned so
+        // this is cheap - just a per-link update + one render.
+        const data = Graph.graphData?.();
+        const links = data?.links;
+        if (links && Array.isArray(links)) {
+          for (const link of links) {
+            const grp = (link as any).__threeObj;
+            if (grp) updateLinkEndpoints(grp, link);
           }
+        }
+        if (renderer3d && sceneRef && cameraRef) {
+          renderer3d.render(sceneRef, cameraRef);
         }
         animFrameId = requestAnimationFrame(animateFrame);
       }
@@ -1202,10 +1299,12 @@ const BODY_PAD_Y = 8;
 const SECTION_LABEL_H = 16; // "P 5 properties" line
 const SECTION_PAD = 4;      // trailing gap after each section
 const ROW_H = 14;           // per preview item line
-// Long lists are capped to keep cards from towering over the scene.
-// Overflow rows show up as a compact "+N more" line and any link
-// that would have anchored beyond the cap collapses onto that line.
-const MAX_ITEMS_PER_SECTION = 6;
+// Long lists are capped to keep cards from towering over the scene
+// and, on click focus, from overlapping their vertical neighbours
+// once the sprite scale animates to layer 1. Overflow rows show up
+// as a compact "+N more" line and any link that would have anchored
+// beyond the cap collapses onto that line.
+const MAX_ITEMS_PER_SECTION = 4;
 
 function cardHeightFor(propCount: number, outCount: number, inCount: number): number {
   const sectionH = (items: number) => {
@@ -1292,7 +1391,12 @@ function rowYOffset(
   const propRows = Math.max(1, (node.properties?.length ?? 0));
   const outRows = Math.max(1, node.outCount ?? 0);
   // Overflow rows collapse onto the "+N more" line at position
-  // MAX_ITEMS_PER_SECTION so hidden links still have a visible anchor.
+  // MAX_ITEMS_PER_SECTION. To avoid every overflow link stacking on
+  // exactly the same y (which produces the bundled "hot spot" the
+  // user reported), each overflow index gets a small per-index Y
+  // stagger so multiple hidden links spread out visibly across the
+  // "+N more" line's vertical footprint.
+  const isOverflow = rowIdx >= MAX_ITEMS_PER_SECTION;
   const clampedIdx = Math.min(rowIdx, MAX_ITEMS_PER_SECTION);
   const clampedPropRows =
     Math.min(propRows, MAX_ITEMS_PER_SECTION) +
@@ -1307,6 +1411,13 @@ function rowYOffset(
     yFromTop += SECTION_LABEL_H + clampedOutRows * ROW_H + SECTION_PAD;
   }
   yFromTop += SECTION_LABEL_H + clampedIdx * ROW_H + ROW_H / 2;
+  // Overflow stagger: spread each overflow index by ~6 px in Y so
+  // multiple hidden links visibly fan out below the "+N more" line
+  // instead of all bundling onto the exact same anchor point.
+  if (isOverflow) {
+    const overflowOrder = rowIdx - MAX_ITEMS_PER_SECTION;
+    yFromTop += (overflowOrder - 1) * 6;
+  }
   return (h / 2 - yFromTop) * scale;
 }
 
@@ -1422,42 +1533,78 @@ function drawNodeChip(
     ctx.shadowBlur = 12;
     ctx.shadowOffsetY = 4;
   }
-  // 1) Solid panel fill.
-  ctx.fillStyle = opts.isDark ? "#1c2029" : "#ffffff";
+  // 1) Panel fill - a vertical gradient gives the card a brushed
+  //    glass / stainless sheen instead of a flat pastel wash.
+  const panel = ctx.createLinearGradient(0, y, 0, y + h);
+  if (opts.isDark) {
+    panel.addColorStop(0, "#2b323d");
+    panel.addColorStop(0.5, "#212734");
+    panel.addColorStop(1, "#161b24");
+  } else {
+    panel.addColorStop(0, "#ffffff");
+    panel.addColorStop(0.5, "#f2f5f9");
+    panel.addColorStop(1, "#e6eaf1");
+  }
+  ctx.fillStyle = panel;
   roundedRect(ctx, x, y, w, h, 12);
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
-  // 2) Colour tint overlay to bring in semantic hue.
-  ctx.fillStyle = withAlpha(node.color, opts.isDark ? 0.14 : 0.09);
+  // 2) Colour tint overlay - deeper than before so the semantic hue
+  //    reads clearly and the card no longer looks disabled.
+  ctx.fillStyle = withAlpha(node.color, opts.isDark ? 0.22 : 0.13);
   roundedRect(ctx, x, y, w, h, 12);
   ctx.fill();
+  // 3) Glass top-highlight - a faint bright line just inside the top
+  //    edge sells the reflective glass surface.
+  ctx.save();
+  roundedRect(ctx, x, y, w, h, 12);
+  ctx.clip();
+  ctx.strokeStyle = opts.isDark
+    ? "rgba(255,255,255,0.16)"
+    : "rgba(255,255,255,0.9)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x + 3, y + 1.5);
+  ctx.lineTo(x + w - 3, y + 1.5);
+  ctx.stroke();
+  ctx.restore();
 
-  // Border - strong so cards separate cleanly against links behind them.
-  ctx.lineWidth = isHover ? 2.4 : isBack ? 1.3 : 1.6;
+  // Border - strong metallic edge so cards separate cleanly against
+  // the link ribbon behind them.
+  ctx.lineWidth = isHover ? 2.6 : isBack ? 1.4 : 1.8;
   ctx.strokeStyle = isBack
-    ? withAlpha(node.color, 0.75)
-    : withAlpha(node.color, opts.isDark ? 1 : 0.85);
+    ? withAlpha(node.color, 0.85)
+    : withAlpha(node.color, opts.isDark ? 1 : 0.95);
   if (isOrphan) ctx.setLineDash([3, 3]);
   roundedRect(ctx, x, y, w, h, 12);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Header strip - saturated so the type name reads at a glance.
+  // Header strip - a saturated colour gradient so the type name reads
+  // instantly and the card gains a strong top-down hierarchy.
   const headerH = HEADER_H;
-  ctx.fillStyle = withAlpha(node.color, opts.isDark ? 0.55 : 0.32);
+  const header = ctx.createLinearGradient(0, y, 0, y + headerH);
+  header.addColorStop(0, withAlpha(node.color, opts.isDark ? 0.98 : 0.95));
+  header.addColorStop(1, withAlpha(node.color, opts.isDark ? 0.72 : 0.74));
+  ctx.fillStyle = header;
   roundedRectTop(ctx, x, y, w, headerH, 12);
   ctx.fill();
 
-  // Header title. The self-ref indicator is now a real 3D loop link
-  // (drawn in the scene), so the badge is gone and the title has the
-  // full header width to itself.
-  ctx.font = "700 14px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-  ctx.fillStyle = opts.labelColor;
+  // Header title. White on the saturated header strip for maximum
+  // contrast, with a soft shadow so it stays legible on any hue.
+  ctx.font =
+    "700 14px 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', sans-serif";
+  ctx.fillStyle = "#ffffff";
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.35)";
+  ctx.shadowBlur = 2;
+  ctx.shadowOffsetY = 0.5;
   const titleMax = w - 20;
   ctx.fillText(truncateText(ctx, node.name, titleMax), x + 10, y + headerH / 2);
+  ctx.restore();
 
   // Body sections (properties / outgoing / incoming). Items over
   // MAX_ITEMS_PER_SECTION collapse into a single "+N more" line so
@@ -1477,7 +1624,25 @@ function drawNodeChip(
 
   // Cursor walks down the card so variable section heights stack cleanly.
   let cursorY = y + headerH + BODY_PAD_Y;
-  sections.forEach(([icon, header, items]) => {
+  sections.forEach(([icon, header, items], sectionIdx) => {
+    // Divider between sections: a subtle dashed line running across
+    // the card so property / outgoing / incoming rows read as clearly
+    // grouped blocks and the eye can jump to the row a link anchors to.
+    if (sectionIdx > 0) {
+      const dividerY = cursorY - Math.floor(SECTION_PAD / 2);
+      ctx.save();
+      ctx.strokeStyle = opts.isDark
+        ? withAlpha(node.color, 0.35)
+        : withAlpha(node.color, 0.25);
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x + bodyPadX, dividerY);
+      ctx.lineTo(x + w - bodyPadX, dividerY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
     // Row header: coloured icon + count label.
     ctx.font = rowLabelFont;
     ctx.fillStyle = node.color;
