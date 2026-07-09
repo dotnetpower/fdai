@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAnswer, type Segment } from "./rich-parse";
+import { parseAnswer, parseInline, type Segment } from "./rich-parse";
 
 function kinds(segs: Segment[]): string[] {
   return segs.map((s) => s.kind);
@@ -182,5 +182,46 @@ describe("parseAnswer - mixed documents", () => {
     expect(kinds(segs)).toEqual(["code", "code"]);
     expect(segs[0]).toMatchObject({ lang: "json" });
     expect(segs[1]).toMatchObject({ lang: "yaml" });
+  });
+});
+
+describe("parseInline", () => {
+  it("returns one text run for plain prose", () => {
+    expect(parseInline("just words")).toEqual([{ t: "text", s: "just words" }]);
+  });
+
+  it("extracts an inline code span", () => {
+    expect(parseInline("the `rule.id` value")).toEqual([
+      { t: "text", s: "the " },
+      { t: "code", s: "rule.id" },
+      { t: "text", s: " value" },
+    ]);
+  });
+
+  it("extracts a strong span", () => {
+    expect(parseInline("this is **bold** here")).toEqual([
+      { t: "text", s: "this is " },
+      { t: "strong", s: "bold" },
+      { t: "text", s: " here" },
+    ]);
+  });
+
+  it("handles multiple and adjacent spans", () => {
+    expect(parseInline("`a``b`")).toEqual([
+      { t: "code", s: "a" },
+      { t: "code", s: "b" },
+    ]);
+  });
+
+  it("mixes code and strong in one line", () => {
+    expect(parseInline("**T0** is `deterministic`")).toEqual([
+      { t: "strong", s: "T0" },
+      { t: "text", s: " is " },
+      { t: "code", s: "deterministic" },
+    ]);
+  });
+
+  it("never returns empty (blank line -> one text run)", () => {
+    expect(parseInline("")).toEqual([{ t: "text", s: "" }]);
   });
 });

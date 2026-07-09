@@ -127,3 +127,35 @@ export function parseAnswer(text: string): Segment[] {
   flushText();
   return segments;
 }
+
+/** One inline run within a prose line. */
+export interface InlineRun {
+  readonly t: "text" | "code" | "strong";
+  readonly s: string;
+}
+
+// Inline markdown: `code` or **strong**. Non-greedy, no nesting.
+const INLINE = /(`[^`]+`|\*\*[^*]+\*\*)/g;
+
+/**
+ * Split one prose line into inline runs (plain text, `code`, **strong**).
+ * Pure; always returns at least one run so a line never renders empty.
+ */
+export function parseInline(line: string): InlineRun[] {
+  const runs: InlineRun[] = [];
+  let last = 0;
+  for (const m of line.matchAll(INLINE)) {
+    const idx = m.index ?? 0;
+    if (idx > last) runs.push({ t: "text", s: line.slice(last, idx) });
+    const tok = m[0];
+    if (tok.startsWith("`")) {
+      runs.push({ t: "code", s: tok.slice(1, -1) });
+    } else {
+      runs.push({ t: "strong", s: tok.slice(2, -2) });
+    }
+    last = idx + tok.length;
+  }
+  if (last < line.length) runs.push({ t: "text", s: line.slice(last) });
+  if (runs.length === 0) runs.push({ t: "text", s: line });
+  return runs;
+}

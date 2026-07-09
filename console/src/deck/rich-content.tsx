@@ -26,7 +26,7 @@ import sql from "highlight.js/lib/languages/sql";
 import typescript from "highlight.js/lib/languages/typescript";
 import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
-import { parseAnswer, type ChartDatum, type ChartSpec } from "./rich-parse";
+import { parseAnswer, parseInline, type ChartDatum, type ChartSpec } from "./rich-parse";
 
 // Register the languages that plausibly appear in FDAI answers (config, IaC,
 // policy, glue). Unregistered languages fall back to auto-detect, then plain.
@@ -52,7 +52,17 @@ function TextBlock({ text }: { readonly text: string }) {
     <>
       {text.split("\n").map((line, i) => (
         <p key={i} class="deck-turn-line">
-          {line}
+          {parseInline(line).map((run, j) =>
+            run.t === "code" ? (
+              <code key={j} class="deck-inline-code">
+                {run.s}
+              </code>
+            ) : run.t === "strong" ? (
+              <strong key={j}>{run.s}</strong>
+            ) : (
+              <span key={j}>{run.s}</span>
+            ),
+          )}
         </p>
       ))}
     </>

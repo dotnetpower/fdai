@@ -2240,6 +2240,15 @@ pre {
    the backend returned, grounded in the screen snapshot. */
 .deck-rich { display: flex; flex-direction: column; gap: 10px; }
 .deck-rich .deck-turn-line:not(:last-child) { margin-bottom: 4px; }
+.deck-inline-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  color: var(--fg);
+  border: 1px solid color-mix(in oklab, var(--accent) 20%, transparent);
+}
 
 .deck-table-wrap { overflow-x: auto; }
 .deck-table {
@@ -2841,3 +2850,154 @@ main { padding-bottom: 60px !important; }
   font-size: 11.5px;
   color: var(--accent-strong);
 }
+
+/* ---------------------------------------------------------------------------
+ * Agent activity timeline (routes/agent-activity.tsx)
+ * Per-agent audit projection: a filter chip bar + a vertical timeline.
+ * Each agent "layer" gets a stable accent colour used by the chip dot
+ * and the timeline marker/label so an operator can scan by colour.
+ * ------------------------------------------------------------------------- */
+[data-layer="planning"] { --layer: #8b5cf6; }
+[data-layer="execution"] { --layer: #2b7fe0; }
+[data-layer="judgment"] { --layer: #0ea5a4; }
+[data-layer="sensing"] { --layer: #d98a1f; }
+[data-layer="approval"] { --layer: #d4a017; }
+[data-layer="recovery"] { --layer: #16a34a; }
+[data-layer="conversational"] { --layer: #c04fd0; }
+[data-layer="audit"] { --layer: #6b7280; }
+[data-layer="governance"] { --layer: #c2560c; }
+[data-layer="domain"] { --layer: #d43f7a; }
+[data-layer="system"] { --layer: #8a919e; }
+
+.agent-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.agent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--fg);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.agent-chip:hover {
+  border-color: var(--accent);
+}
+.agent-chip-on {
+  border-color: var(--layer, var(--accent));
+  background: color-mix(in oklab, var(--layer, var(--accent)) 14%, var(--bg-elevated));
+}
+.agent-chip-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--fg-muted);
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 0 6px;
+  min-width: 18px;
+  text-align: center;
+}
+.agent-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--layer, var(--accent));
+  flex: 0 0 auto;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 4px;
+  display: grid;
+  gap: 10px;
+}
+.timeline-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+.timeline-marker {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  margin-top: 14px;
+  border-radius: 50%;
+  background: var(--layer, var(--accent));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--layer, var(--accent)) 22%, transparent);
+  justify-self: center;
+}
+/* connecting line between markers */
+.timeline-row:not(:last-child) .timeline-marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 15px;
+  transform: translateX(-50%);
+  width: 2px;
+  height: calc(100% + 10px);
+  background: var(--border);
+}
+.timeline-card {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--layer, var(--accent));
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  padding: 10px 12px;
+}
+.timeline-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.timeline-agent {
+  font-weight: 650;
+  color: var(--layer, var(--accent));
+}
+.timeline-action {
+  font-size: 12.5px;
+  color: var(--fg);
+}
+.timeline-time {
+  margin-left: auto;
+  font-size: 11.5px;
+}
+.timeline-summary {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--fg);
+}
+.timeline-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.timeline-tier {
+  font-size: 11px;
+  font-weight: 650;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+}
+.timeline-corr {
+  font-size: 11.5px;
+  color: var(--accent);
+  text-decoration: none;
+}
+.timeline-corr:hover {
+  text-decoration: underline;
+}
+
