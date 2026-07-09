@@ -156,7 +156,8 @@ Additional required elements that **do not incur a billable Azure resource of th
   [user-rbac-and-identity.md#41-app-registrations](user-rbac-and-identity.md#41-app-registrations):
   `fdai-console-spa` (SPA sign-in, PKCE), `fdai-api` (Web API audience for
   console + ChatOps backend), and `fdai-approval-bot` (Teams SSO). None hold the
-  executor identity.
+  executor identity. Step-by-step `az` creation:
+  [../runbooks/entra-app-registration.md](../runbooks/entra-app-registration.md).
 - **Entra security groups × 5** - `aw-readers`, `aw-contributors`, `aw-approvers`,
   `aw-owners`, `aw-break-glass`. Fork-owned; objectIds injected via config and validated at
   startup ([user-rbac-and-identity.md#42-security-groups-slots](user-rbac-and-identity.md#42-security-groups-slots)).
