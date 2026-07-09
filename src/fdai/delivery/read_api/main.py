@@ -323,6 +323,18 @@ class ReadApiConfig:
     (``fdai.agents``); no state, no side effects. Reader-role gate.
     See :mod:`fdai.delivery.read_api.pantheon`."""
 
+    workflow_authoring: Any = None
+    """Opt-in custom workflow authoring routes. When set (a
+    :class:`~fdai.delivery.read_api.workflow_authoring.WorkflowAuthoringConfig`),
+    registers ``GET /workflows/action-types`` (the ActionType palette the
+    builder maps steps onto) and ``POST /workflows/validate`` (validate a
+    draft Workflow and return a canonical YAML preview). Both are
+    read-only: the validate route is a pure function that writes no state
+    and never creates a PR - the console copies the previewed YAML into a
+    remediation PR through the git-native path. Reader-role gate. Unset by
+    default so upstream stays minimal.
+    See :mod:`fdai.delivery.read_api.workflow_authoring`."""
+
 
 def build_app(
     *,
@@ -640,6 +652,37 @@ def build_app(
                 raise ValueError(f"pantheon path {_pt_path!r} collides with a panel path")
         routes.append(make_pantheon_graph_route(authorize=_authorize))
         routes.append(make_pantheon_workflows_route(authorize=_authorize))
+
+    # Optional custom workflow authoring routes (palette + validate).
+    # Read-only: the palette is a projection of the loaded ActionType
+    # catalog, and validate is a pure function (no state, no PR).
+    if resolved_config.workflow_authoring is not None:
+        from fdai.delivery.read_api.workflow_authoring import (
+            ACTION_TYPES_ROUTE_PATH as _WF_AT_PATH,
+        )
+        from fdai.delivery.read_api.workflow_authoring import (
+            VALIDATE_ROUTE_PATH as _WF_VAL_PATH,
+        )
+        from fdai.delivery.read_api.workflow_authoring import (
+            make_action_types_route,
+            make_workflow_validate_route,
+        )
+
+        for _wf_path in (_WF_AT_PATH, _WF_VAL_PATH):
+            if _wf_path in _CORE_ROUTE_PATHS:
+                raise ValueError(f"workflow authoring path {_wf_path!r} collides with a core route")
+            if _wf_path in seen_panel_paths:
+                raise ValueError(f"workflow authoring path {_wf_path!r} collides with a panel path")
+        routes.append(
+            make_action_types_route(
+                config=resolved_config.workflow_authoring, authorize=_authorize
+            )
+        )
+        routes.append(
+            make_workflow_validate_route(
+                config=resolved_config.workflow_authoring, authorize=_authorize
+            )
+        )
 
     # Optional rule-fire trace viewer.
     if resolved_config.trace_reader is not None:

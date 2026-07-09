@@ -664,6 +664,19 @@ def app() -> Starlette:
             rule_catalog_findings_provider = None
             rule_catalog_findings_summary_provider = None
 
+    # Custom workflow authoring: expose the ActionType palette + the draft
+    # validator so the console's workflow-builder view renders out of the
+    # box. Reuses the already-loaded catalogs; no extra I/O.
+    workflow_authoring = None
+    if action_types:
+        from fdai.delivery.read_api.workflow_authoring import WorkflowAuthoringConfig
+
+        workflow_authoring = WorkflowAuthoringConfig(
+            schema_registry=schema_registry,
+            action_types=tuple(action_types),
+            rule_ids=frozenset(r.id for r in rule_catalog_rules if getattr(r, "id", None)),
+        )
+
     return build_app(
         authenticator=authenticator,
         read_model=read_model,
@@ -696,6 +709,7 @@ def app() -> Starlette:
             what_if_evaluators=what_if_evaluators,
             chat=_build_chat_backend(),
             expose_pantheon=True,
+            workflow_authoring=workflow_authoring,
         ),
     )
 
