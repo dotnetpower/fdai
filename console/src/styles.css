@@ -566,6 +566,28 @@ pre {
   margin-top: 6px;
   color: var(--tier-t0);
 }
+.live-spark-wrap { position: relative; width: 100%; margin-top: 6px; }
+.live-spark-wrap .live-spark { margin-top: 0; }
+.live-spark-cursor { stroke: var(--fg-muted); stroke-width: 0.6; opacity: 0.45; }
+.live-spark-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  max-width: 90%;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
+}
+.live-spark-tip-h { font-weight: 600; }
+.live-spark-tip-counts { color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.live-spark-tip-lat { color: var(--tier-t0); font-weight: 600; font-variant-numeric: tabular-nums; }
 .live-spark-area {
   fill: currentColor;
   opacity: 0.25;
@@ -2405,6 +2427,32 @@ pre {
 .deck-line-xlabel {
   fill: var(--fg-muted);
   font-size: 7px;
+}
+
+/* Streaming placeholder while a chart spec is still arriving. */
+.deck-chart-pending .deck-chart-skel-label,
+.deck-chart-pending .deck-chart-skel-fill {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--fg-muted) 12%, transparent) 25%,
+    color-mix(in oklab, var(--fg-muted) 22%, transparent) 50%,
+    color-mix(in oklab, var(--fg-muted) 12%, transparent) 75%
+  );
+  background-size: 200% 100%;
+  animation: deck-shimmer 1.2s ease-in-out infinite;
+}
+.deck-chart-pending .deck-chart-skel-label { width: 100%; }
+.deck-chart-pending-cap {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+@keyframes deck-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* Syntax-highlighted code block (deck/rich-content.tsx, highlight.js). A fixed

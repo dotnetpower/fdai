@@ -183,6 +183,21 @@ describe("parseAnswer - charts", () => {
     expect(segs[0]).toMatchObject({ kind: "code", lang: "json" });
   });
 
+  it("shows a chart-pending placeholder while a chart spec is still streaming", () => {
+    const md = '```chart\n{"type":"bar","data":[{"label":"a"';
+    expect(kinds(parseAnswer(md))).toEqual(["chart-pending"]);
+  });
+
+  it("shows chart-pending for a ```json-wrapped spec still streaming", () => {
+    const md = '```json\n{"type":"line","data":[{"lab';
+    expect(kinds(parseAnswer(md))).toEqual(["chart-pending"]);
+  });
+
+  it("does NOT show chart-pending for an unterminated non-chart code fence", () => {
+    const md = "```yaml\na: 1\nb: 2";
+    expect(kinds(parseAnswer(md))).toEqual(["code"]);
+  });
+
   it("accepts a safe hex color and rejects an unsafe one", () => {
     const md =
       '```chart\n{"type":"bar","data":[{"label":"a","value":1,"color":"#e5484d"},{"label":"b","value":2,"color":"red; background:url(x)"}]}\n```';

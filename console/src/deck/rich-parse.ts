@@ -26,7 +26,8 @@ export type Segment =
   | { readonly kind: "text"; readonly text: string }
   | { readonly kind: "table"; readonly headers: readonly string[]; readonly rows: readonly string[][] }
   | { readonly kind: "code"; readonly lang: string; readonly code: string }
-  | { readonly kind: "chart"; readonly spec: ChartSpec };
+  | { readonly kind: "chart"; readonly spec: ChartSpec }
+  | { readonly kind: "chart-pending" };
 
 const TABLE_ROW = /^\s*\|(.+)\|\s*$/;
 // A markdown header/body separator: pipes plus dashes (and optional colons).
@@ -98,16 +99,24 @@ export function parseAnswer(text: string): Segment[] {
         body.push(lines[i] ?? "");
         i += 1;
       }
+      // `terminated` is false when the closing ``` has not arrived yet (a block
+      // still streaming in).
+      const terminated = i < lines.length;
       const raw = body.join("\n");
       const spec = parseChart(raw);
       // Render as a chart when the block holds a valid chart spec and the fence
       // is chart/json/none - the narrator sometimes wraps a chart spec in a
       // ```json fence instead of ```chart. A real ```<lang> code block (yaml,
       // bash, ...) or non-chart json stays a highlighted code block.
-      const chartish = lang === "chart" || lang === "json" || lang === "";
+      const chartish = lang === "chart" || lang === "line" || lang === "json" || lang === "";
       if (spec && chartish) {
         flushText();
         segments.push({ kind: "chart", spec });
+      } else if (!terminated && chartish && /"type"\s*:/.test(raw)) {
+        // A chart spec is still streaming in - show a placeholder rather than
+        // raw, half-arrived JSON.
+        flushText();
+        segments.push({ kind: "chart-pending" });
       } else if (lang === "chart") {
         // Declared a chart but the JSON was invalid - show it as text.
         buffer.push("```chart", ...body, "```");

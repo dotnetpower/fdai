@@ -188,6 +188,24 @@ function barColor(d: ChartDatum, i: number): string {
   return CHART_PALETTE[i % CHART_PALETTE.length] ?? "#4c8dff";
 }
 
+function ChartPending() {
+  return (
+    <figure class="deck-chart deck-chart-pending" aria-label="preparing chart">
+      <div class="deck-chart-bars">
+        {[68, 42, 84].map((w, i) => (
+          <div key={i} class="deck-chart-row">
+            <span class="deck-chart-skel-label" />
+            <span class="deck-chart-track">
+              <span class="deck-chart-skel-fill" style={{ width: `${w}%` }} />
+            </span>
+          </div>
+        ))}
+      </div>
+      <figcaption class="deck-chart-pending-cap">Preparing chart...</figcaption>
+    </figure>
+  );
+}
+
 function MiniChart({ spec }: { readonly spec: ChartSpec }) {
   const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(...spec.data.map((d) => Math.abs(d.value)), 1);
@@ -332,6 +350,7 @@ export function RichContent({
           return <TableBlock key={i} headers={seg.headers} rows={seg.rows} />;
         }
         if (seg.kind === "code") return <CodeBlock key={i} lang={seg.lang} code={seg.code} />;
+        if (seg.kind === "chart-pending") return <ChartPending key={i} />;
         if (seg.spec.type === "line") return <LineChart key={i} spec={seg.spec} />;
         return <MiniChart key={i} spec={seg.spec} />;
       })}
