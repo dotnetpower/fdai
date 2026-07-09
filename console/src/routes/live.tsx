@@ -940,7 +940,7 @@ export function LiveRoute({ client }: Props) {
         </header>
         {tickerCollapsed ? null : (
           <ol>
-            {displayedTicker.map((evt) => {
+            {displayedTicker.map((evt, i) => {
               const tier = (evt.detail?.tier as string | undefined) ?? "abstain";
               const gate = evt.detail?.gate_decision as string | undefined;
               const rule = evt.detail?.rule as string | undefined;
@@ -948,7 +948,7 @@ export function LiveRoute({ client }: Props) {
               const scope = evt.detail?.scope as string | undefined;
               const outcome = evt.detail?.outcome as string | undefined;
               return (
-                <li key={`${evt.event_id}-${evt.stage}-${evt.phase}-${evt.ts}`}>
+                <li key={`${evt.event_id}-${evt.stage}-${evt.phase}-${evt.ts}-${i}`}>
                   <span class="muted">{shortTime(evt.ts)}</span>
                   <span class={`live-tier live-tier-${tier}`}>
                     {tier === "abstain" ? "N/A" : tier.toUpperCase()}
@@ -1088,17 +1088,42 @@ function Sparkline({ buckets }: { readonly buckets: RateBuckets }) {
   const width = 240;
   const height = 44;
   const pad = 3;
-  const series = [buckets.t0, buckets.t1, buckets.t2];
-  const n = buckets.t0.length;
+  // Drop the trailing bucket: it is the current, still-accumulating second.
+  // Plotting it makes the right edge sawtooth down to zero on every 1s roll
+  // (events refill it from 0 each second). Rendering only completed seconds
+  // keeps the right edge stable - it is the last fully-elapsed second.
+  const t0 = buckets.t0.slice(0, -1);
+  const t1 = buckets.t1.slice(0, -1);
+  const t2 = buckets.t2.slice(0, -1);
+  const series = [t0, t1, t2];
+  const n = t0.length;
   // Shared scale so the three tiers stay comparable; a small headroom keeps
   // the dominant T0 line off the top edge for a calmer read.
-  const max = Math.max(1, ...buckets.t0, ...buckets.t1, ...buckets.t2) * 1.15;
+  const max = Math.max(1, ...t0, ...t1, ...t2) * 1.15;
   const stepX = width / (n - 1 || 1);
   const base = height - pad;
   const span = height - pad * 2;
   const cls = ["live-spark-t0", "live-spark-t1", "live-spark-t2"] as const;
-  const pathOf = (arr: readonly number[]) =>
-    arr.map((v, i) => `${(i * stepX).toFixed(1)},${(base - (v / max) * span).toFixed(1)}`).join(" ");
+  // Smooth the line (quadratic through bucket midpoints) so a low, noisy
+  // per-second rate reads as a calm curve instead of a jagged staircase.
+  const linePath = (arr: readonly number[]): string => {
+    const pts = arr.map((v, i) => [i * stepX, base - (v / max) * span] as const);
+    const first = pts[0];
+    if (!first) return "";
+    let d = `M${first[0].toFixed(1)},${first[1].toFixed(1)}`;
+    for (let j = 0; j < pts.length - 1; j++) {
+      const a = pts[j];
+      const b = pts[j + 1];
+      if (!a || !b) continue;
+      const mx = (a[0] + b[0]) / 2;
+      const my = (a[1] + b[1]) / 2;
+      d += ` Q${a[0].toFixed(1)},${a[1].toFixed(1)} ${mx.toFixed(1)},${my.toFixed(1)}`;
+    }
+    const last = pts[pts.length - 1];
+    if (last) d += ` L${last[0].toFixed(1)},${last[1].toFixed(1)}`;
+    return d;
+  };
+  const lastX = (n - 1) * stepX;
   return (
     <svg
       class="live-spark"
@@ -1107,12 +1132,20 @@ function Sparkline({ buckets }: { readonly buckets: RateBuckets }) {
       aria-hidden="true"
     >
       {series.map((arr, i) => {
-        const line = pathOf(arr);
+        const d = linePath(arr);
+        if (!d) return null;
         return (
-          <>
-            <polygon points={`0,${height} ${line} ${width},${height}`} class={`live-spark-area ${cls[i]}-area`} />
-            <polyline points={line} fill="none" class={cls[i]} stroke-width="1.6" />
-          </>
+          <g key={cls[i]}>
+            <path d={`${d} L${lastX.toFixed(1)},${height} L0,${height} Z`} class={`live-spark-area ${cls[i]}-area`} />
+            <path
+              d={d}
+              fill="none"
+              class={cls[i]}
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </g>
         );
       })}
     </svg>
