@@ -33,6 +33,21 @@ export interface DashboardKpi {
   readonly last_recorded_at: string | null;
 }
 
+/**
+ * Cost-vertical summary served by the FinOps read panel
+ * (`GET /finops`, `ExampleFinOpsPanel` in `read_api/panels.py`). It is a
+ * fork/opt-in panel: production or a fork that has not registered it
+ * returns 404, so the Overview treats a missing payload as "cost axis
+ * unavailable" rather than an error.
+ */
+export interface FinOpsPayload {
+  readonly vertical: string;
+  readonly total_actions: number;
+  readonly by_kind: Record<string, number>;
+  readonly estimated_monthly_savings: number;
+  readonly sampled_events: number;
+}
+
 export interface HilQueueItem {
   readonly idempotency_key: string;
   readonly event_id: string;

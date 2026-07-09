@@ -1,6 +1,6 @@
 {
   "route": {
-    "dashboard": "Dashboard",
+    "dashboard": "Overview",
     "hilQueue": "HIL queue",
     "blastRadius": "Blast radius",
     "audit": "Audit log",
@@ -36,7 +36,7 @@
       "pantheon": "Agents",
       "blastRadius": "Blast radius",
       "promotionGates": "Promotion gates",
-      "dashboard": "Dashboard",
+      "dashboard": "Overview",
       "rules": "Rules"
     },
     "panelSub": {
@@ -49,8 +49,28 @@
       "pantheon": "15 named autonomous agents (Pantheon)",
       "blastRadius": "Simulate reachable subgraph before a change",
       "promotionGates": "Per-ActionType readiness for shadow → enforce",
-      "dashboard": "Rolled-up KPIs sourced from the audit log",
+      "dashboard": "Healthy, risk, and cost, sourced from the audit log",
       "rules": "Every policy in the rule catalog, faceted"
     }
+  },
+  "overview": {
+    "subtitle": "Healthy, risk, and cost at a glance - from the append-only audit log. Refreshes on reload; no polling.",
+    "health": {
+      "label": "System health",
+      "healthy": "Healthy",
+      "attention": "Needs attention"
+    },
+    "risk": {
+      "label": "Action needed",
+      "pending": "HIL approvals waiting",
+      "clear": "All clear"
+    },
+    "cost": {
+      "label": "Est. monthly savings",
+      "annualized": "~{amount}/yr",
+      "actions": "{count} cost actions",
+      "unavailable": "Cost panel not enabled"
+    },
+    "detail": "Detailed metrics"
   }
 }

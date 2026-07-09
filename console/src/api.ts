@@ -12,6 +12,7 @@ import type {
   ApiError,
   AuditPage,
   DashboardKpi,
+  FinOpsPayload,
   HilQueuePage,
 } from "./types";
 
@@ -33,6 +34,15 @@ export class ReadApiClient {
 
   async dashboardMetrics(): Promise<DashboardKpi> {
     return this.#get<DashboardKpi>("/kpi");
+  }
+
+  /**
+   * Fetch the FinOps cost summary (`GET /finops`). This is a fork opt-in
+   * panel; callers MUST tolerate a 404 (`ReadApiError` status 404) as
+   * "cost axis not served here" rather than a hard failure.
+   */
+  async finops(): Promise<FinOpsPayload> {
+    return this.#get<FinOpsPayload>("/finops");
   }
 
   async listHilQueue(opts: { limit?: number } = {}): Promise<HilQueuePage> {

@@ -1,6 +1,6 @@
 {
   "route": {
-    "dashboard": "대시보드",
+    "dashboard": "개요",
     "hilQueue": "HIL 대기열",
     "blastRadius": "영향 범위",
     "audit": "감사 로그",
@@ -35,7 +35,7 @@
       "pantheon": "에이전트",
       "blastRadius": "영향 범위",
       "promotionGates": "승급 게이트",
-      "dashboard": "대시보드",
+      "dashboard": "개요",
       "rules": "규칙"
     },
     "panelSub": {
@@ -45,8 +45,28 @@
       "agentActivity": "에이전트별 타임라인: 어떤 에이전트가 무엇을 언제 어떻게 했는지",
       "ontology": "리소스 + 링크 그래프 (classDiagram)",
       "pantheon": "15개의 명명된 자율 에이전트 (판테온)",
-      "dashboard": "감사 로그에서 집계한 KPI",
+      "dashboard": "감사 로그 기반 건강도 / 위험 / 비용",
       "rules": "규칙 카탈로그의 모든 정책, 패싯별"
     }
+  },
+  "overview": {
+    "subtitle": "감사 로그 기반 건강도 / 위험 / 비용 요약. 새로고침 시 갱신, 폴링 없음.",
+    "health": {
+      "label": "시스템 상태",
+      "healthy": "정상",
+      "attention": "조치 필요"
+    },
+    "risk": {
+      "label": "조치 필요",
+      "pending": "승인 대기 (HIL)",
+      "clear": "이상 없음"
+    },
+    "cost": {
+      "label": "월 예상 절감액",
+      "annualized": "~{amount}/년",
+      "actions": "비용 조치 {count}건",
+      "unavailable": "비용 패널 미사용"
+    },
+    "detail": "상세 지표"
   }
 }

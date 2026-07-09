@@ -1485,6 +1485,30 @@ pre {
 .kpi-tone-warning  .kpi-card-value { color: #b57339; }
 .kpi-tone-danger   .kpi-card-value { color: var(--danger); }
 
+/* Overview triad - approver-facing health / risk / cost summary. Larger
+   than the detail KpiGrid so the three axes read at a glance from across
+   a room (an approver's first question is is-it-healthy / any-risk /
+   saving-money, not the per-kind breakdown). */
+.overview-triad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 4px;
+}
+.overview-triad .kpi-card {
+  min-height: 128px;
+  padding: 18px 20px;
+}
+.overview-triad .kpi-card-value {
+  font-size: 40px;
+  font-weight: 700;
+}
+.overview-triad .kpi-tone-positive { border-color: rgba(47, 143, 90, 0.4); }
+.overview-triad .kpi-tone-warning { border-color: rgba(181, 115, 57, 0.5); }
+@media (max-width: 760px) {
+  .overview-triad { grid-template-columns: 1fr; }
+}
+
 /* DataTable ----------------------------------------------------------- */
 .data-table-wrap {
   border: 1px solid var(--border);
