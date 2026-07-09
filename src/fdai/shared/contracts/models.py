@@ -220,6 +220,7 @@ class ActionCategory(StrEnum):
     REMEDIATION = "remediation"
     OPS = "ops"
     GOVERNANCE = "governance"
+    TOOL = "tool"
 
 
 class Autonomy(StrEnum):
@@ -266,6 +267,7 @@ class ExecutionPath(StrEnum):
     PR_NATIVE = "pr_native"
     DIRECT_API = "direct_api"
     PR_MANUAL = "pr_manual"
+    TOOL_CALL = "tool_call"
 
 
 class EnvScope(StrEnum):

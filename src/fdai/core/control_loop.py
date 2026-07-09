@@ -52,6 +52,11 @@ from fdai.core.executor.direct_api import (
     DirectApiExecutionResult,
     DirectApiShadowExecutor,
 )
+from fdai.core.executor.tool_call import (
+    ToolCallExecutionOutcome,
+    ToolCallExecutionResult,
+    ToolCallShadowExecutor,
+)
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.core.notifications.renderer import default_catalog
 from fdai.core.notifications.router import NotificationRouter
@@ -196,7 +201,9 @@ class ControlLoopResult:
     decision: str
     resource_type: str | None
     citing_rule_ids: tuple[str, ...] = ()
-    execution_results: tuple[ExecutionResult | DirectApiExecutionResult, ...] = ()
+    execution_results: tuple[
+        ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult, ...
+    ] = ()
     reason: str | None = None
     event_id: str | None = None
     change_safety_decision: ChangeSafetyDecision | None = None
@@ -245,6 +252,7 @@ class ControlLoop:
         risk_gate: RiskGate | None = None,
         cost_estimator: CostEstimator | None = None,
         direct_api_executor: DirectApiShadowExecutor | None = None,
+        tool_executor: ToolCallShadowExecutor | None = None,
         t1_engine: T1Tier | None = None,
         t2_engine: T2Tier | None = None,
         stage_publisher: StagePublisher | None = None,
@@ -286,6 +294,15 @@ class ControlLoop:
         # as before, so composing without a direct-API adapter is a
         # supported (and default) configuration.
         self._direct_api_executor = direct_api_executor
+        # Optional tool-call executor sibling (tool_call execution path).
+        # When wired, actions whose ActionType declares
+        # ``execution_path == tool_call`` route to this executor - it
+        # invokes a registered function (generate a PDF, send a
+        # notification, ...) rather than opening a PR or mutating a
+        # substrate. Absent -> such actions fall through to the
+        # PR-native path, so composing without a tool adapter is a
+        # supported (and default) configuration.
+        self._tool_executor = tool_executor
         # Optional T1 similarity tier (scope-expansion.md § 3.7). When
         # wired, T0 abstains fall through to T1 for a similarity /
         # learned-action reuse *log* (shadow-only in P1 - the
@@ -631,7 +648,9 @@ class ControlLoop:
             )
 
         # 4. Evaluate + route + execute one action per finding
-        exec_results: list[ExecutionResult | DirectApiExecutionResult] = []
+        exec_results: list[
+            ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult
+        ] = []
         routed: list[str] = []
         for finding in verdict.findings:
             rule = self._rules_by_id.get(finding.rule_id)
@@ -1092,7 +1111,7 @@ class ControlLoop:
 
     async def _dispatch_action(
         self, *, action: Action, rule: Rule
-    ) -> ExecutionResult | DirectApiExecutionResult:
+    ) -> ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult:
         """Route ``action`` to the PR-native or direct-API executor.
 
         Selection rule (Wave W2.3 composition wire):
@@ -1115,6 +1134,10 @@ class ControlLoop:
             action_type = self._action_types_by_name.get(action.action_type)
             if action_type is not None and action_type.execution_path is ExecutionPath.DIRECT_API:
                 return await self._direct_api_executor.execute(action=action)
+        if self._tool_executor is not None:
+            action_type = self._action_types_by_name.get(action.action_type)
+            if action_type is not None and action_type.execution_path is ExecutionPath.TOOL_CALL:
+                return await self._tool_executor.execute(action=action)
         return await self._executor.execute(action=action, rule=rule)
 
     async def _write_abstain_audit(
@@ -1554,7 +1577,9 @@ def _extract_resource_id(event: Event, decision: RoutingDecision) -> str:
     return f"anonymous:{decision.resource_type or 'unknown'}"
 
 
-def _is_execution_success(result: ExecutionResult | DirectApiExecutionResult | Any) -> bool:
+def _is_execution_success(
+    result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult | Any,
+) -> bool:
     if not hasattr(result, "outcome"):
         return False
     return result.outcome in (
@@ -1562,6 +1587,8 @@ def _is_execution_success(result: ExecutionResult | DirectApiExecutionResult | A
         ExecutorOutcome.ALREADY_EXISTED,
         DirectApiExecutionOutcome.DISPATCHED,
         DirectApiExecutionOutcome.ALREADY_APPLIED,
+        ToolCallExecutionOutcome.DISPATCHED,
+        ToolCallExecutionOutcome.ALREADY_APPLIED,
     )
 
 

@@ -56,6 +56,10 @@ from fdai.core.executor.direct_api import (
     DirectApiExecutionResult,
     DirectApiShadowExecutor,
 )
+from fdai.core.executor.tool_call import (
+    ToolCallExecutionResult,
+    ToolCallShadowExecutor,
+)
 from fdai.core.oncall import OnCallResolution, OnCallResolver
 from fdai.shared.contracts.models import (
     Action,
@@ -155,7 +159,9 @@ class RequestApprovalResult:
 class ResolveResult:
     outcome: ResolveOutcome
     approval_id: str
-    execution_result: ExecutionResult | DirectApiExecutionResult | None = None
+    execution_result: (
+        ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult | None
+    ) = None
     reason: str | None = None
 
 
@@ -170,6 +176,7 @@ class HilResumeCoordinator:
         hil_channel: HilChannel,
         rules_by_id: Mapping[str, Rule],
         direct_api_executor: DirectApiShadowExecutor | None = None,
+        tool_executor: ToolCallShadowExecutor | None = None,
         action_types_by_name: Mapping[str, OntologyActionType] | None = None,
         actor: str = "fdai.core.hil_resume",
         on_call_resolver: OnCallResolver | None = None,
@@ -180,6 +187,7 @@ class HilResumeCoordinator:
         self._hil_channel = hil_channel
         self._rules_by_id = dict(rules_by_id)
         self._direct_api_executor = direct_api_executor
+        self._tool_executor = tool_executor
         self._action_types_by_name = (
             dict(action_types_by_name) if action_types_by_name is not None else {}
         )
@@ -423,11 +431,20 @@ class HilResumeCoordinator:
 
     async def _dispatch(
         self, *, action: Action, rule: Rule
-    ) -> ExecutionResult | DirectApiExecutionResult:
-        if self._direct_api_executor is not None and self._action_types_by_name:
+    ) -> ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult:
+        if self._action_types_by_name:
             action_type = self._action_types_by_name.get(action.action_type)
-            if action_type is not None and action_type.execution_path is ExecutionPath.DIRECT_API:
-                return await self._direct_api_executor.execute(action=action)
+            if action_type is not None:
+                if (
+                    self._direct_api_executor is not None
+                    and action_type.execution_path is ExecutionPath.DIRECT_API
+                ):
+                    return await self._direct_api_executor.execute(action=action)
+                if (
+                    self._tool_executor is not None
+                    and action_type.execution_path is ExecutionPath.TOOL_CALL
+                ):
+                    return await self._tool_executor.execute(action=action)
         return await self._executor.execute(action=action, rule=rule)
 
     async def _mark_resolved(
@@ -467,10 +484,13 @@ class HilResumeCoordinator:
         )
 
 
-def _is_success(result: ExecutionResult | DirectApiExecutionResult) -> bool:
+def _is_success(
+    result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult,
+) -> bool:
     """Success check aligned with the control loop's ``_is_execution_success``."""
     from fdai.core.executor import ExecutorOutcome
     from fdai.core.executor.direct_api import DirectApiExecutionOutcome
+    from fdai.core.executor.tool_call import ToolCallExecutionOutcome
 
     outcome = getattr(result, "outcome", None)
     return outcome in (
@@ -478,6 +498,8 @@ def _is_success(result: ExecutionResult | DirectApiExecutionResult) -> bool:
         ExecutorOutcome.ALREADY_EXISTED,
         DirectApiExecutionOutcome.DISPATCHED,
         DirectApiExecutionOutcome.ALREADY_APPLIED,
+        ToolCallExecutionOutcome.DISPATCHED,
+        ToolCallExecutionOutcome.ALREADY_APPLIED,
     )
 
 

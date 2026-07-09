@@ -23,6 +23,7 @@ from .secret_provider import InMemorySecretProvider
 from .sse import InMemorySseSink
 from .stage_publisher import RecordingStagePublisher
 from .state_store import InMemoryStateStore
+from .tool import RecordingToolExecutor
 from .workload_identity import StaticWorkloadIdentity
 
 __all__ = [
@@ -37,5 +38,6 @@ __all__ = [
     "RecordingDirectApiExecutor",
     "RecordingRemediationPrPublisher",
     "RecordingStagePublisher",
+    "RecordingToolExecutor",
     "StaticWorkloadIdentity",
 ]

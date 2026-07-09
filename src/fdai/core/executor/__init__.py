@@ -39,6 +39,11 @@ from fdai.core.executor.renderer import (
     RenderRequest,
     TemplateRenderer,
 )
+from fdai.core.executor.tool_call import (
+    ToolCallExecutionOutcome,
+    ToolCallExecutionResult,
+    ToolCallShadowExecutor,
+)
 
 __all__ = [
     "DirectApiExecutionOutcome",
@@ -53,6 +58,9 @@ __all__ = [
     "ResourceLockManager",
     "ShadowExecutor",
     "TemplateRenderer",
+    "ToolCallExecutionOutcome",
+    "ToolCallExecutionResult",
+    "ToolCallShadowExecutor",
     "is_strictly_stricter_than",
     "strictest_execution_path",
 ]

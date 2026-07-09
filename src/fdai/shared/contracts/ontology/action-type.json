@@ -195,7 +195,7 @@
     },
     "category": {
       "type": "string",
-      "enum": ["remediation", "ops", "governance"],
+      "enum": ["remediation", "ops", "governance", "tool"],
       "description": "Top-level ActionType bucket. See action-ontology.md 3."
     },
     "trigger_kind": {
@@ -217,7 +217,7 @@
     },
     "execution_path": {
       "type": "string",
-      "enum": ["pr_native", "direct_api", "pr_manual"],
+      "enum": ["pr_native", "direct_api", "pr_manual", "tool_call"],
       "description": "How the executor applies the action. See execution-model.md 5."
     },
     "ceiling_by_tier": {
