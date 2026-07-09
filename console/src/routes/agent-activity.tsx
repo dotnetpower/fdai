@@ -193,6 +193,52 @@ export function entryConversation(item: AuditItem): readonly AgentTurn[] | null 
   return turns.length > 0 ? turns : null;
 }
 
+/**
+ * Entry keys already surfaced by a dedicated detail section, so the generic
+ * "Other recorded fields" dump does not repeat them. Everything else the
+ * pipeline persisted is shown verbatim - the audit ``entry`` is JSONB, so a
+ * live producer (e.g. the executor's rollback / blast_radius / resource_ref)
+ * is never silently dropped by a hardcoded allow-list.
+ */
+const SHOWN_ENTRY_KEYS: ReadonlySet<string> = new Set([
+  "event_ts", "received_at", "started_at", "finished_at", "duration_ms", "queue_ms",
+  "detail", "summary", "inputs", "outputs", "conversation",
+  "tier", "outcome", "decision", "pipeline_stage", "reason",
+  "producer_principal", "action_kind", "correlation_id", "recorded_at", "event_id",
+  "actor", "mode",
+]);
+
+/** Format one arbitrary persisted value for the generic field viewer. */
+function fmtScalar(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+
+function fmtEntryValue(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (Array.isArray(v)) return v.map(fmtScalar).join(", ");
+  if (typeof v === "object") {
+    return Object.entries(v as Record<string, unknown>)
+      .map(([k, x]) => `${k}: ${fmtScalar(x)}`)
+      .join(" · ");
+  }
+  return String(v);
+}
+
+/**
+ * Every persisted ``entry`` field not already shown in a dedicated section,
+ * formatted for display. This is what makes the pane a faithful full view of
+ * what was actually stored (nothing hidden), and stable across schema
+ * additions - new producer fields appear automatically.
+ */
+export function otherEntryFields(item: AuditItem): ReadonlyArray<readonly [string, string]> {
+  return Object.entries(item.entry)
+    .filter(([k, v]) => !SHOWN_ENTRY_KEYS.has(k) && v !== null && v !== undefined && v !== "")
+    .map(([k, v]) => [k, fmtEntryValue(v)] as const)
+    .filter(([, v]) => v !== "");
+}
+
 /** HH:MM:SS.mmm local clock for the precise lifecycle stepper. */
 function clockMs(iso: string): string {
   const d = new Date(iso);
@@ -735,6 +781,7 @@ function StepDetail({ item, onClose }: { readonly item: AuditItem; readonly onCl
   const outputs = entryMap(item, "outputs");
   const conversation = entryConversation(item);
   const phases = lifecycleOf(item);
+  const otherFields = otherEntryFields(item);
 
   const record: readonly (readonly [string, ComponentChildren])[] = [
     ["Tier", tier ? <span class="mono">{tier}</span> : null],
@@ -876,6 +923,20 @@ function StepDetail({ item, onClose }: { readonly item: AuditItem; readonly onCl
           )}
         </dl>
       </section>
+
+      {otherFields.length > 0 ? (
+        <section class="waterfall-section">
+          <h3 class="waterfall-section-title">Other recorded fields</h3>
+          <dl class="waterfall-detail-grid">
+            {otherFields.map(([key, value]) => (
+              <div class="waterfall-detail-row" key={key}>
+                <dt class="mono">{key}</dt>
+                <dd class="mono">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
     </aside>
   );
 }

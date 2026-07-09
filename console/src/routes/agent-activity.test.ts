@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 import type { AuditItem } from "../types";
-import { agentOf, entryConversation, layerOf, lifecycleOf } from "./agent-activity";
+import {
+  agentOf,
+  entryConversation,
+  layerOf,
+  lifecycleOf,
+  otherEntryFields,
+} from "./agent-activity";
 
 /**
  * These tests pin the Agent-activity panel's tolerance to the two audit
@@ -112,5 +118,59 @@ describe("entryConversation", () => {
       entry: { conversation: [{ from: "Odin" }, { from: "Odin", to: "Var", text: "ok" }] },
     });
     expect(entryConversation(item)).toHaveLength(1);
+  });
+});
+
+describe("otherEntryFields - nothing stored is hidden", () => {
+  test("live executor row: rollback / blast_radius / resource_ref are surfaced", () => {
+    // Shape mirrors ShadowExecutor._write_audit (src/fdai/core/executor/executor.py).
+    const item = makeItem({
+      actor: "fdai.core.executor.shadow",
+      action_kind: "remediate.enable-encryption",
+      entry: {
+        outcome: "published",
+        rule_id: "azure-encryption-at-rest-001",
+        resource_ref: "vm-1",
+        operation: "update",
+        rollback_kind: "pr_revert",
+        rollback_reference: "pr#482",
+        stop_condition: "encryption_at_rest=on",
+        citing_rule_ids: ["azure-encryption-at-rest-001"],
+        blast_radius: { scope: "subscription", count: 1, rate_per_minute: 30 },
+        pr_ref: "#482",
+      },
+    });
+    const fields = new Map(otherEntryFields(item));
+    // Curated fields (outcome) are NOT repeated here.
+    expect(fields.has("outcome")).toBe(false);
+    // The genuinely-stored executor fields are all visible.
+    expect(fields.get("rule_id")).toBe("azure-encryption-at-rest-001");
+    expect(fields.get("resource_ref")).toBe("vm-1");
+    expect(fields.get("rollback_kind")).toBe("pr_revert");
+    expect(fields.get("citing_rule_ids")).toBe("azure-encryption-at-rest-001");
+    // Nested objects render as compact key: value.
+    expect(fields.get("blast_radius")).toContain("count: 1");
+    expect(fields.get("pr_ref")).toBe("#482");
+  });
+
+  test("curated + lifecycle + io keys are excluded (shown by their own sections)", () => {
+    const item = makeItem({
+      actor: "Odin",
+      entry: {
+        tier: "t2",
+        outcome: "resolved",
+        started_at: "2026-07-06T10:00:00+00:00",
+        inputs: { a: "1" },
+        conversation: [{ from: "Odin", to: "Var", text: "ok" }],
+        custom_field: "keep-me",
+      },
+    });
+    const keys = otherEntryFields(item).map(([k]) => k);
+    expect(keys).toEqual(["custom_field"]);
+  });
+
+  test("empty / null values are dropped", () => {
+    const item = makeItem({ entry: { a: "", b: null, c: "keep" } });
+    expect(otherEntryFields(item).map(([k]) => k)).toEqual(["c"]);
   });
 });

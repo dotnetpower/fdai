@@ -79,6 +79,21 @@ them. Making those live is core + pantheon work (agents stamping
 turns), tracked in the agent-pantheon roadmap - not a console change.
 `src/routes/agent-activity.test.ts` pins this tolerance to both shapes.
 
+**Faithful full view (nothing stored is hidden).** The `audit_log.entry`
+column is JSONB and the read model passes it through verbatim, so any field a
+producer persists is renderable. The detail pane curates the fields it knows
+how to format nicely (lifecycle, conversation, inputs / outputs, record) and
+then renders **every remaining `entry` key** in an "Other recorded fields"
+section via a generic key/value viewer. This means the genuinely-stored live
+fields that have no dedicated section - the executor's `rollback_kind`,
+`blast_radius`, `resource_ref`, `operation`, `rule_id`, `pr_ref`,
+`citing_rule_ids`, `stop_condition` (see
+[`src/fdai/core/executor/executor.py`](../src/fdai/core/executor/executor.py)
+`_write_audit`) - are shown, not dropped by a hardcoded allow-list, and new
+producer fields appear automatically. The invariant is two-way: everything
+shown comes from the stored `entry` (read-only passthrough), and everything
+stored is shown.
+
 Beyond the three always-on routes above, the app factory registers several
 **opt-in** GET routes when their inputs are wired at the composition root
 (ontology graph, pantheon, blast-radius, promotion gates, rule-fire trace, and
