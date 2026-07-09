@@ -1,24 +1,16 @@
 import type { AuthContext } from "../auth";
+import { NebulaBackground } from "../components/nebula-background";
 
 /**
- * Sign-in screen. A vivid deep-space nebula backdrop (pure CSS, no assets)
- * with a centered glass card carrying the FDAI title and the Entra sign-in
- * button. The nebula layers are decorative (`aria-hidden`) and honour
- * `prefers-reduced-motion`.
+ * Sign-in screen. A procedural WebGL nebula backdrop (the same shader the
+ * landing site uses) with a centered glass card carrying the FDAI title and
+ * the Entra sign-in button. The nebula is decorative (`aria-hidden`) and
+ * degrades to the CSS deep-space fallback when WebGL is unavailable.
  */
 export function LoginRoute({ auth }: { readonly auth: AuthContext }) {
   return (
     <div class="login-cosmos">
-      <div class="login-sky" aria-hidden="true">
-        <span class="neb neb-a" />
-        <span class="neb neb-b" />
-        <span class="neb neb-c" />
-        <span class="neb neb-d" />
-        <span class="login-aurora" />
-        <span class="login-stars login-stars-far" />
-        <span class="login-stars login-stars-mid" />
-        <span class="login-stars login-stars-near" />
-      </div>
+      <NebulaBackground intensity={1.05} speed={1} class="login-nebula" />
 
       <main class="login-card" role="main">
         <p class="login-eyebrow">Operator sign-in</p>
