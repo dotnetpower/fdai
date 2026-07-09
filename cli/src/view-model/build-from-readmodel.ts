@@ -9,17 +9,21 @@
 
 import type { Block, RiskLevel, Tone } from "./blocks.js";
 import type { ReadModelSnapshot } from "../data/read-api.js";
-import { t } from "../i18n/index.js";
+import { t, type Locale } from "../i18n/index.js";
 
 // Tier labels are sourced from the i18n catalog (English is the source of
-// truth; a locale falls back to English). Default locale keeps the rendered
-// output byte-identical to the previous hard-coded labels.
-const TIER_META: Record<string, { label: string; tone: Tone; order: number }> = {
-  t0: { label: t("tier.t0"), tone: "t0", order: 0 },
-  t1: { label: t("tier.t1"), tone: "t1", order: 1 },
-  t2: { label: t("tier.t2"), tone: "t2", order: 2 },
-  abstain: { label: t("tier.abstain"), tone: "dim", order: 3 },
-};
+// truth; a locale falls back to English). The default locale keeps the
+// rendered output byte-identical to the previous hard-coded labels.
+function tierMeta(
+  locale: Locale,
+): Record<string, { label: string; tone: Tone; order: number }> {
+  return {
+    t0: { label: t("tier.t0", locale), tone: "t0", order: 0 },
+    t1: { label: t("tier.t1", locale), tone: "t1", order: 1 },
+    t2: { label: t("tier.t2", locale), tone: "t2", order: 2 },
+    abstain: { label: t("tier.abstain", locale), tone: "dim", order: 3 },
+  };
+}
 
 function humanize(actionKind: string): string {
   const words = actionKind.replace(/[-_.]/g, " ").trim();
@@ -43,6 +47,7 @@ function decisionCard(
   h: ReadModelSnapshot["hil"][number],
   index: number,
   total: number,
+  locale: Locale,
 ): Block {
   return {
     type: "decisionCard",
@@ -51,18 +56,18 @@ function decisionCard(
     title: humanize(h.action_kind),
     actionType: h.action_kind,
     risk: inferRisk(h.action_kind),
-    chip: t("card.chip"),
+    chip: t("card.chip", locale),
     chipSideEffect: "approve",
     fields: [
-      { label: t("card.fieldWhat"), value: humanize(h.action_kind) },
-      { label: t("card.fieldWhy"), value: h.reason },
-      { label: t("card.fieldRequested"), value: h.requested_at },
-      { label: t("card.fieldCorrelation"), value: h.correlation_id ?? "-" },
+      { label: t("card.fieldWhat", locale), value: humanize(h.action_kind) },
+      { label: t("card.fieldWhy", locale), value: h.reason },
+      { label: t("card.fieldRequested", locale), value: h.requested_at },
+      { label: t("card.fieldCorrelation", locale), value: h.correlation_id ?? "-" },
     ],
     actions: [
-      { key: "a", label: t("card.actionApprove"), sideEffect: "approve" },
-      { key: "r", label: t("card.actionDecline"), sideEffect: "read" },
-      { key: "w", label: t("card.actionExplain"), sideEffect: "read" },
+      { key: "a", label: t("card.actionApprove", locale), sideEffect: "approve" },
+      { key: "r", label: t("card.actionDecline", locale), sideEffect: "read" },
+      { key: "w", label: t("card.actionExplain", locale), sideEffect: "read" },
     ],
     reference: h.idempotency_key,
     irreversible: false,
@@ -72,6 +77,7 @@ function decisionCard(
 export function buildFromReadModel(
   snap: ReadModelSnapshot,
   env: string,
+  locale: Locale = "en",
 ): Block[] {
   const { kpi, hil, audit } = snap;
   const blocks: Block[] = [];
@@ -80,12 +86,12 @@ export function buildFromReadModel(
     type: "header",
     title: "fdai operator-console",
     version: "v0.0.1",
-    context: t("console.context", "en", { env }),
+    context: t("console.context", locale, { env }),
   });
 
   blocks.push({
     type: "narration",
-    text: t("console.connected", "en", {
+    text: t("console.connected", locale, {
       events: kpi.event_count,
       pending: kpi.hil_pending,
     }),
@@ -94,26 +100,27 @@ export function buildFromReadModel(
   blocks.push({
     type: "summary",
     items: [
-      { label: t("console.summaryEvents"), value: String(kpi.event_count) },
-      { label: t("console.summaryShadow"), value: `${pct(kpi.shadow_share, 1)}%`, tone: "t0" },
-      { label: t("console.summaryEnforce"), value: `${pct(kpi.enforce_share, 1)}%`, tone: "warn" },
-      { label: t("console.summaryAwaiting"), value: String(kpi.hil_pending) },
-      { label: t("console.summaryLast"), value: kpi.last_recorded_at ?? "-" },
+      { label: t("console.summaryEvents", locale), value: String(kpi.event_count) },
+      { label: t("console.summaryShadow", locale), value: `${pct(kpi.shadow_share, 1)}%`, tone: "t0" },
+      { label: t("console.summaryEnforce", locale), value: `${pct(kpi.enforce_share, 1)}%`, tone: "warn" },
+      { label: t("console.summaryAwaiting", locale), value: String(kpi.hil_pending) },
+      { label: t("console.summaryLast", locale), value: kpi.last_recorded_at ?? "-" },
     ],
   });
 
   const tiers = Object.entries(kpi.by_tier);
   if (tiers.length > 0) {
+    const metaByTier = tierMeta(locale);
     blocks.push({
       type: "narration",
-      text: t("console.mostlyNoAi"),
+      text: t("console.mostlyNoAi", locale),
     });
     blocks.push({
       type: "statBars",
-      title: t("console.trustTiers"),
+      title: t("console.trustTiers", locale),
       rows: tiers
         .map(([tier, count]) => {
-          const meta = TIER_META[tier] ?? {
+          const meta = metaByTier[tier] ?? {
             label: humanize(tier),
             tone: "neutral" as Tone,
             order: 9,
@@ -135,7 +142,7 @@ export function buildFromReadModel(
   if (outcomes.length > 0) {
     blocks.push({
       type: "statBars",
-      title: t("console.outcomes"),
+      title: t("console.outcomes", locale),
       rows: outcomes.map(([name, count]) => ({
         label: humanize(name),
         sub: String(count),
@@ -146,7 +153,7 @@ export function buildFromReadModel(
   }
 
   if (audit.length > 0) {
-    blocks.push({ type: "narration", text: t("console.recentActivity"), tone: "dim" });
+    blocks.push({ type: "narration", text: t("console.recentActivity", locale), tone: "dim" });
     blocks.push({
       type: "list",
       items: audit
@@ -161,15 +168,15 @@ export function buildFromReadModel(
       type: "narration",
       text: t(
         hil.length === 1 ? "console.hilPendingOne" : "console.hilPendingMany",
-        "en",
+        locale,
         { count: hil.length },
       ),
     });
-    hil.forEach((h, i) => blocks.push(decisionCard(h, i + 1, hil.length)));
+    hil.forEach((h, i) => blocks.push(decisionCard(h, i + 1, hil.length, locale)));
   } else {
     blocks.push({
       type: "narration",
-      text: t("console.nothingPending"),
+      text: t("console.nothingPending", locale),
     });
   }
 

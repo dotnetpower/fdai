@@ -14,6 +14,7 @@
 
 import { fetchSnapshot } from "./data/read-api.js";
 import { sampleBriefing, type BriefingMode } from "./data/sample-briefing.js";
+import { resolveLocale } from "./i18n/index.js";
 import type { Block } from "./view-model/blocks.js";
 import { buildBriefing } from "./view-model/build-briefing.js";
 import { buildFromReadModel } from "./view-model/build-from-readmodel.js";
@@ -35,6 +36,8 @@ const surface = flag("surface", "cli") as Surface;
 const mode = flag("mode", "needs-me") as BriefingMode;
 const source = flag("source", "sample") as Source;
 const apiUrl = flag("api", "http://127.0.0.1:8010");
+// Locale resolution: --locale flag (highest) -> FDAI_LOCALE env -> en.
+const locale = resolveLocale(flag("locale", process.env.FDAI_LOCALE ?? "en"));
 
 if (!["cli", "text", "slack", "teams"].includes(surface)) {
   console.error(`unknown --surface=${surface} (cli | text | slack | teams)`);
@@ -58,7 +61,7 @@ let liveApi: string | null = null;
 if (source === "api") {
   try {
     const snap = await fetchSnapshot(apiUrl);
-    blocks = buildFromReadModel(snap, "live");
+    blocks = buildFromReadModel(snap, "live", locale);
     liveApi = apiUrl;
   } catch (err) {
     console.error(
@@ -72,7 +75,7 @@ if (source === "api") {
   }
 } else {
   payload = sampleBriefing(mode);
-  blocks = buildBriefing(payload);
+  blocks = buildBriefing(payload, locale);
 }
 
 switch (surface) {

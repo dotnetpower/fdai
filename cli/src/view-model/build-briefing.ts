@@ -9,15 +9,20 @@
 
 import type { Block, Tone } from "./blocks.js";
 import type { BriefingPayload, HilItem } from "./contract.js";
-import { t } from "../i18n/index.js";
+import { t, type Locale } from "../i18n/index.js";
 
 function tierTone(tier: "T0" | "T1" | "T2"): Tone {
   return tier === "T0" ? "t0" : tier === "T1" ? "t1" : "t2";
 }
 
-function toDecisionCard(item: HilItem, index: number, total: number): Block {
+function toDecisionCard(
+  item: HilItem,
+  index: number,
+  total: number,
+  locale: Locale,
+): Block {
   const safety = item.irreversible
-    ? t("card.cantUndo", "en", { value: item.safety })
+    ? t("card.cantUndo", locale, { value: item.safety })
     : item.safety;
   return {
     type: "decisionCard",
@@ -29,25 +34,28 @@ function toDecisionCard(item: HilItem, index: number, total: number): Block {
     chip: item.chip,
     chipSideEffect: item.chipSideEffect,
     fields: [
-      { label: t("card.fieldWhat"), value: item.change },
-      { label: t("card.fieldWhy"), value: item.why },
-      { label: t("card.fieldConfidence"), value: `${item.basis} (${item.basisTech})` },
-      { label: t("card.fieldSafety"), value: safety },
-      { label: t("card.fieldHow"), value: item.how },
-      { label: t("card.fieldApproval"), value: item.who },
-      { label: t("card.fieldChecked"), value: item.check },
+      { label: t("card.fieldWhat", locale), value: item.change },
+      { label: t("card.fieldWhy", locale), value: item.why },
+      { label: t("card.fieldConfidence", locale), value: `${item.basis} (${item.basisTech})` },
+      { label: t("card.fieldSafety", locale), value: safety },
+      { label: t("card.fieldHow", locale), value: item.how },
+      { label: t("card.fieldApproval", locale), value: item.who },
+      { label: t("card.fieldChecked", locale), value: item.check },
     ],
     actions: [
-      { key: "a", label: t("card.actionApprove"), sideEffect: "approve" },
-      { key: "r", label: t("card.actionDecline"), sideEffect: "read" },
-      { key: "w", label: t("card.actionExplain"), sideEffect: "read" },
+      { key: "a", label: t("card.actionApprove", locale), sideEffect: "approve" },
+      { key: "r", label: t("card.actionDecline", locale), sideEffect: "read" },
+      { key: "w", label: t("card.actionExplain", locale), sideEffect: "read" },
     ],
     reference: item.reference,
     irreversible: item.irreversible,
   };
 }
 
-export function buildBriefing(p: BriefingPayload): Block[] {
+export function buildBriefing(
+  p: BriefingPayload,
+  locale: Locale = "en",
+): Block[] {
   const blocks: Block[] = [];
   const peak = Math.max(...p.throughput);
 
@@ -60,7 +68,7 @@ export function buildBriefing(p: BriefingPayload): Block[] {
 
   blocks.push({
     type: "narration",
-    text: t("briefing.greeting", "en", {
+    text: t("briefing.greeting", locale, {
       operator: p.operator,
       window: p.windowLabel,
     }),
@@ -68,10 +76,10 @@ export function buildBriefing(p: BriefingPayload): Block[] {
 
   blocks.push({
     type: "barChart",
-    title: t("briefing.busyTitle"),
+    title: t("briefing.busyTitle", locale),
     series: p.throughput,
-    unit: t("briefing.busyUnit"),
-    caption: t("briefing.busyCaption", "en", {
+    unit: t("briefing.busyUnit", locale),
+    caption: t("briefing.busyCaption", locale, {
       peak: p.peakHourLabel,
       count: peak,
     }),
@@ -86,7 +94,7 @@ export function buildBriefing(p: BriefingPayload): Block[] {
 
   blocks.push({
     type: "statBars",
-    title: t("briefing.tiersTitle"),
+    title: t("briefing.tiersTitle", locale),
     rows: p.tiers.map((t) => ({
       label: t.name,
       sub: t.tier,
@@ -97,7 +105,7 @@ export function buildBriefing(p: BriefingPayload): Block[] {
 
   blocks.push({
     type: "narration",
-    text: t("briefing.autoNarration", "en", {
+    text: t("briefing.autoNarration", locale, {
       auto: p.autoResolved,
       events: p.events,
       shadow: p.shadowCandidates,
@@ -107,11 +115,11 @@ export function buildBriefing(p: BriefingPayload): Block[] {
   blocks.push({
     type: "summary",
     items: [
-      { label: t("briefing.sumEvents"), value: String(p.events) },
-      { label: t("briefing.sumAutoResolved"), value: String(p.autoResolved), tone: "good" },
-      { label: t("briefing.sumRolledBack"), value: String(p.rollbacks), tone: "good" },
-      { label: t("briefing.sumPausedRules"), value: String(p.overridesActive) },
-      { label: t("briefing.sumAudit"), value: t("briefing.auditComplete"), tone: "t0" },
+      { label: t("briefing.sumEvents", locale), value: String(p.events) },
+      { label: t("briefing.sumAutoResolved", locale), value: String(p.autoResolved), tone: "good" },
+      { label: t("briefing.sumRolledBack", locale), value: String(p.rollbacks), tone: "good" },
+      { label: t("briefing.sumPausedRules", locale), value: String(p.overridesActive) },
+      { label: t("briefing.sumAudit", locale), value: t("briefing.auditComplete", locale), tone: "t0" },
     ],
   });
 
@@ -122,32 +130,32 @@ export function buildBriefing(p: BriefingPayload): Block[] {
       type: "narration",
       text:
         n === 1
-          ? t("briefing.hilOne")
-          : t("briefing.hilMany", "en", { word: words[n] ?? String(n), count: n }),
+          ? t("briefing.hilOne", locale)
+          : t("briefing.hilMany", locale, { word: words[n] ?? String(n), count: n }),
     });
     p.hil.forEach((item, i) =>
-      blocks.push(toDecisionCard(item, i + 1, p.hil.length)),
+      blocks.push(toDecisionCard(item, i + 1, p.hil.length, locale)),
     );
     blocks.push({
       type: "prompt",
-      text: t("briefing.openCard", "en", { max: p.hil.length }),
-      hint: t("briefing.promptHintMock"),
+      text: t("briefing.openCard", locale, { max: p.hil.length }),
+      hint: t("briefing.promptHintMock", locale),
     });
   } else {
     blocks.push({
       type: "narration",
-      text: t("briefing.nothingSignoff"),
+      text: t("briefing.nothingSignoff", locale),
     });
     blocks.push({
       type: "narration",
-      text: t("briefing.lookInto"),
+      text: t("briefing.lookInto", locale),
       tone: "dim",
     });
     blocks.push({ type: "list", items: p.suggestions, tone: "t1" });
     blocks.push({
       type: "prompt",
-      text: t("briefing.typeQuestion"),
-      hint: t("briefing.typeQuestionHint"),
+      text: t("briefing.typeQuestion", locale),
+      hint: t("briefing.typeQuestionHint", locale),
     });
   }
 

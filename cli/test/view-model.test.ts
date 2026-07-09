@@ -36,6 +36,23 @@ describe("buildBriefing (sample source)", () => {
     expect(types(blocks)).toContain("barChart");
     expect(blocks[0].type).toBe("header");
   });
+
+  it("threads the locale: ko renders a localized greeting (English by default)", () => {
+    const en = buildBriefing(sampleBriefing("needs-me"), "en");
+    const ko = buildBriefing(sampleBriefing("needs-me"), "ko");
+    const greetingEn = en.find((b) => b.type === "narration");
+    const greetingKo = ko.find((b) => b.type === "narration");
+    // Default English greeting is unchanged.
+    expect(greetingEn?.type === "narration" && greetingEn.text).toContain(
+      "Good morning",
+    );
+    // ko is localized (differs from English) and still substitutes the operator
+    // param (no leftover placeholder).
+    const koText = greetingKo?.type === "narration" ? greetingKo.text : "";
+    expect(koText).not.toContain("Good morning");
+    expect(koText).not.toContain("{operator}");
+    expect(koText.length).toBeGreaterThan(0);
+  });
 });
 
 const SNAPSHOT: ReadModelSnapshot = {
