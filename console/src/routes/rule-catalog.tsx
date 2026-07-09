@@ -399,6 +399,8 @@ export function RuleCatalogRoute({ client }: Props) {
         searchInput={searchInput}
         loading={status === "loading"}
         selected={selected}
+        detail={detail}
+        findings={findings}
         affectedCounts={affectedCounts}
         onSelect={selectRule}
         onFilter={updateFilter}
@@ -418,6 +420,8 @@ function RuleCatalogBody({
   searchInput,
   loading,
   selected,
+  detail,
+  findings,
   affectedCounts,
   onSelect,
   onFilter,
@@ -429,6 +433,8 @@ function RuleCatalogBody({
   readonly searchInput: string;
   readonly loading: boolean;
   readonly selected: Selection | null;
+  readonly detail: DetailState;
+  readonly findings: FindingsState;
   readonly affectedCounts: Readonly<Record<string, number>>;
   readonly onSelect: (sel: Selection) => void;
   readonly onFilter: (patch: Partial<Filters>) => void;
@@ -439,47 +445,110 @@ function RuleCatalogBody({
   const collected = data.facets.by_origin["collected"] ?? 0;
 
   usePublishViewContext(
-    () => ({
-      routeId: "rules",
-      routeLabel: "Rules",
-      headline: `${data.total} rules (${active} active, ${collected} collected)`,
-      capturedAt: new Date().toISOString(),
-      facts: [
-        { key: "total_rules", value: data.total, group: "catalog" },
-        { key: "active_rules", value: active, group: "catalog" },
-        { key: "collected_rules", value: collected, group: "catalog" },
-        { key: "filtered_total", value: data.filtered_total, group: "catalog" },
-        { key: "resource_types", value: data.resource_type_count, group: "catalog" },
-        {
-          key: "categories_available",
-          value: Object.keys(data.facets.by_category).join(", ") || "(none)",
-          group: "catalog",
+    () => {
+      // When a rule is selected the detail drawer is open; surface the
+      // selected rule's identity, resolved detail, and its affected
+      // resources so the deck can answer "what is this rule / how is it
+      // fixed / which resources violate it?" - not just the list summary.
+      const selectionFacts: { key: string; value: string | number | boolean | null; group?: string }[] = [];
+      const selectionRecords: Record<string, readonly Record<string, unknown>[]> = {};
+      if (selected !== null) {
+        selectionFacts.push(
+          { key: "selected_rule", value: selected.id, group: "selection" },
+          { key: "selected_origin", value: selected.origin, group: "selection" },
+        );
+        if (detail.status === "ready") {
+          const d = detail.data;
+          selectionFacts.push(
+            { key: "selected_severity", value: d.severity, group: "selection" },
+            { key: "selected_category", value: d.category, group: "selection" },
+            { key: "selected_resource_type", value: d.resource_type, group: "selection" },
+            { key: "selected_source", value: d.source, group: "selection" },
+            { key: "selected_remediation", value: d.remediation.template_ref, group: "selection" },
+            {
+              key: "selected_monthly_cost_usd",
+              value: d.remediation.cost_impact_monthly_usd,
+              group: "selection",
+            },
+            {
+              key: "selected_explanation",
+              value: d.explanation.description ?? d.explanation.title ?? "(none)",
+              group: "selection",
+            },
+            { key: "selected_remediates", value: d.remediates, group: "selection" },
+          );
+        } else {
+          selectionFacts.push({
+            key: "selected_rule_detail",
+            value: detail.status,
+            group: "selection",
+          });
+        }
+        if (findings.status === "ready") {
+          const f = findings.data;
+          selectionFacts.push({
+            key: "selected_affected_count",
+            value: f.evaluated ? (f.finding_count ?? f.findings.length) : "not evaluated",
+            group: "selection",
+          });
+          if (f.findings.length > 0) {
+            selectionRecords["selected_findings"] = f.findings.map((x) => ({
+              resource_id: x.resource_id,
+              resource_name: x.resource_name ?? "-",
+              severity: x.severity ?? "-",
+              problem: x.problem ?? "-",
+              observed_at: x.observed_at ?? "-",
+            }));
+          }
+        }
+      }
+      return {
+        routeId: "rules",
+        routeLabel: "Rules",
+        headline:
+          selected !== null
+            ? `Rule ${selected.id} selected - ${data.total} rules (${active} active, ${collected} collected)`
+            : `${data.total} rules (${active} active, ${collected} collected)`,
+        capturedAt: new Date().toISOString(),
+        facts: [
+          { key: "total_rules", value: data.total, group: "catalog" },
+          { key: "active_rules", value: active, group: "catalog" },
+          { key: "collected_rules", value: collected, group: "catalog" },
+          { key: "filtered_total", value: data.filtered_total, group: "catalog" },
+          { key: "resource_types", value: data.resource_type_count, group: "catalog" },
+          {
+            key: "categories_available",
+            value: Object.keys(data.facets.by_category).join(", ") || "(none)",
+            group: "catalog",
+          },
+          { key: "search_query", value: filters.q || "(none)", group: "filter" },
+          { key: "filter_origin", value: filters.origin || "(all)", group: "filter" },
+          { key: "filter_category", value: filters.category || "(all)", group: "filter" },
+          { key: "filter_severity", value: filters.severity || "(all)", group: "filter" },
+          { key: "filter_source", value: filters.source || "(all)", group: "filter" },
+          ...selectionFacts,
+        ],
+        // Include the rule rows currently visible on this page so the deck
+        // narrator can ground answers on real catalog content (id, severity,
+        // category, resource type, source, remediation reference + cost), not
+        // just the aggregate counts. Matches the audit route's `records.items`
+        // pattern. The operator narrows to off-page rules via the search box.
+        records: {
+          rules: data.rules.map((r) => ({
+            id: r.id,
+            origin: r.origin,
+            severity: r.severity,
+            category: r.category,
+            resource_type: r.resource_type,
+            source: r.source,
+            remediation: r.remediation.template_ref,
+            monthly_cost_usd: r.remediation.cost_impact_monthly_usd,
+          })),
+          ...selectionRecords,
         },
-        { key: "search_query", value: filters.q || "(none)", group: "filter" },
-        { key: "filter_origin", value: filters.origin || "(all)", group: "filter" },
-        { key: "filter_category", value: filters.category || "(all)", group: "filter" },
-        { key: "filter_severity", value: filters.severity || "(all)", group: "filter" },
-        { key: "filter_source", value: filters.source || "(all)", group: "filter" },
-      ],
-      // Include the rule rows currently visible on this page so the deck
-      // narrator can ground answers on real catalog content (id, severity,
-      // category, resource type, source, remediation reference + cost), not
-      // just the aggregate counts. Matches the audit route's `records.items`
-      // pattern. The operator narrows to off-page rules via the search box.
-      records: {
-        rules: data.rules.map((r) => ({
-          id: r.id,
-          origin: r.origin,
-          severity: r.severity,
-          category: r.category,
-          resource_type: r.resource_type,
-          source: r.source,
-          remediation: r.remediation.template_ref,
-          monthly_cost_usd: r.remediation.cost_impact_monthly_usd,
-        })),
-      },
-    }),
-    [data, active, collected, filters],
+      };
+    },
+    [data, active, collected, filters, selected, detail, findings],
   );
 
   const columns: readonly Column<RuleDto>[] = useMemo(
