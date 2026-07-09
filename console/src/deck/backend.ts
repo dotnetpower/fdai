@@ -16,6 +16,17 @@
 import { loadConfig } from "../config";
 import { answer as deterministicAnswer, type Answer } from "./answerer";
 import type { ViewSnapshot } from "./context";
+import { getDeckUser } from "./deck-user";
+
+/** Build the `view_context` sent to the chat backend: the screen snapshot plus
+ *  the signed-in operator's identity/roles (`_user`) so the narrator can answer
+ *  capability questions. Read-only, informational - see deck-user.ts. */
+function viewContextWithUser(snapshot: ViewSnapshot | null): Record<string, unknown> {
+  const base: Record<string, unknown> = snapshot ? { ...snapshot } : {};
+  const user = getDeckUser();
+  if (user) base._user = user;
+  return base;
+}
 
 export interface BackendTurn {
   readonly role: "user" | "assistant";
@@ -136,7 +147,7 @@ export async function askBackend(
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         prompt,
-        view_context: snapshot ?? {},
+        view_context: viewContextWithUser(snapshot),
         history: toBackendHistory(history),
       }),
     });
@@ -262,7 +273,7 @@ export async function askBackendStream(
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         prompt,
-        view_context: snapshot ?? {},
+        view_context: viewContextWithUser(snapshot),
         history: toBackendHistory(history),
       }),
     });

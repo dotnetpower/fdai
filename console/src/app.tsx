@@ -6,6 +6,7 @@ import { loadConfig, type ConsoleConfig } from "./config";
 import { Shell } from "./components/shell";
 import { CommandDeck } from "./deck/command-deck";
 import { ViewContextProvider } from "./deck/context";
+import { deckUserFromAuth, setDeckUser } from "./deck/deck-user";
 import { LoginRoute } from "./routes/login";
 import { DEFAULT_PANEL_ID, panelForId, resolvePanels } from "./panels";
 
@@ -43,6 +44,9 @@ export function App() {
         const config = loadConfig();
         const auth = await initAuth(config);
         const client = new ReadApiClient(config, auth);
+        // Expose the signed-in operator's roles to the chat deck so it can
+        // answer capability questions ("what can I do?").
+        setDeckUser(deckUserFromAuth(auth));
         if (!cancelled) {
           setState({ status: "ready", config, auth, client });
         }

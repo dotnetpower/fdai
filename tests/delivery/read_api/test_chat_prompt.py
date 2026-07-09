@@ -19,11 +19,13 @@ import pytest
 from starlette.exceptions import HTTPException
 
 from fdai.delivery.read_api.chat import (
+    _CAPABILITIES,
     _GLOSSARY,
     DEFAULT_MAX_CONTEXT_BYTES,
     DEFAULT_MAX_HISTORY_TURNS,
     DEFAULT_MAX_RECORDS_PER_KEY,
     _build_messages,
+    _is_capability_query,
     _is_concept_query,
     _raise_upstream_error,
     _trim_view_context,
@@ -32,6 +34,8 @@ from fdai.delivery.read_api.chat import (
 _GLOSSARY_MARKER = _GLOSSARY.splitlines()[0]
 """First line of the glossary block - present in the system message iff the
 glossary was injected."""
+
+_CAPABILITY_MARKER = _CAPABILITIES.splitlines()[0]
 
 # Rough per-turn budget for the STATIC prompt (everything before the snapshot
 # JSON). The lean prompt must stay well under this; the glossary variant may
@@ -136,6 +140,45 @@ PRECISION_DATA_QUERIES: list[str] = [
 def test_data_lookalikes_stay_lean(query: str) -> None:
     assert _is_concept_query(query) is False
     assert _GLOSSARY_MARKER not in _system_of(_build_messages(query, {}, []))
+
+
+# Capability questions -> the operator-capability block is injected (EN + KO).
+CAPABILITY_QUERIES: list[str] = [
+    "what can I do?",
+    "what am I allowed to do here?",
+    "what are my permissions?",
+    "what is my role?",
+    "can I approve this?",
+    "\ub0b4\uac00 \ubb50 \ud560 \uc218 \uc788\uc5b4?",  # "what can I do?"
+    "\ub0b4 \uad8c\ud55c\uc774 \ubb54\uc9c0?",  # "what are my permissions?"
+    "\ub0b4 \uc5ed\ud560\uc774 \ubb54\uc57c?",  # "what is my role?"
+]
+
+CAPABILITY_NON_QUERIES: list[str] = [
+    "how many rules are active?",
+    "what is the shadow share?",
+    "explain T2",
+]
+
+
+@pytest.mark.parametrize("query", CAPABILITY_QUERIES)
+def test_capability_query_injects_capabilities(query: str) -> None:
+    assert _is_capability_query(query) is True
+    assert _CAPABILITY_MARKER in _system_of(_build_messages(query, {}, []))
+
+
+@pytest.mark.parametrize("query", CAPABILITY_NON_QUERIES)
+def test_non_capability_query_omits_capabilities(query: str) -> None:
+    assert _is_capability_query(query) is False
+    assert _CAPABILITY_MARKER not in _system_of(_build_messages(query, {}, []))
+
+
+def test_capabilities_can_reference_user_roles_in_snapshot() -> None:
+    ctx = {"routeId": "live", "_user": {"name": "Ada", "roles": ["Approver"]}}
+    system = _system_of(_build_messages("what can I do?", ctx, []))
+    assert _CAPABILITY_MARKER in system
+    # The _user block is part of the serialised snapshot the narrator reads.
+    assert "Approver" in system
 
 
 # Capability parity: the on-demand glossary must still carry every core term the
