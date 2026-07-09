@@ -54,6 +54,19 @@ def test_unknown_locale_falls_back_to_english() -> None:
     assert other == en
 
 
+def test_region_subtag_and_case_are_normalized() -> None:
+    ko = default_catalog().render("decision", _PARAMS, "ko")
+    # ko-KR and KO must resolve to ko, not silently fall back to English.
+    assert default_catalog().render("decision", _PARAMS, "ko-KR") == ko
+    assert default_catalog().render("decision", _PARAMS, "KO") == ko
+    assert ko != default_catalog().render("decision", _PARAMS, "en")
+
+
+def test_unknown_primary_subtag_falls_back_to_english() -> None:
+    en = default_catalog().render("decision", _PARAMS, "en")
+    assert default_catalog().render("decision", _PARAMS, "fr-FR") == en
+
+
 def test_missing_key_returns_the_key() -> None:
     title, body = default_catalog().render("no.such.template", {}, "en")
     assert title == "no.such.template"

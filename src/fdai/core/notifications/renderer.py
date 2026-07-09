@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Final
@@ -30,8 +31,22 @@ _DEFAULT_LOCALE: Final = "en"
 _CATALOG_DIR: Final = Path(__file__).parent
 
 
+def _canonical_locale(locale: str) -> str:
+    """Reduce a locale tag to its lowercased BCP47 primary subtag.
+
+    So ``ko-KR`` and ``KO`` both resolve to ``ko``; an unknown tag simply misses
+    the catalog and falls back to English. This stops a channel configured with
+    a region tag or the wrong case from silently rendering in English.
+    """
+    return locale.split("-", 1)[0].strip().lower()
+
+
 def _load(locale: str) -> dict[str, dict[str, str]]:
-    raw = json.loads((_CATALOG_DIR / f"messages.{locale}.json").read_text("utf-8"))
+    path = _CATALOG_DIR / f"messages.{locale}.json"
+    try:
+        raw = json.loads(path.read_text("utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"failed to load notification catalog {path.name}: {exc}") from exc
     if not isinstance(raw, dict):
         raise ValueError(f"notification catalog messages.{locale}.json must be an object")
     catalog: dict[str, dict[str, str]] = {}
@@ -100,7 +115,7 @@ class NotificationCatalog:
         return template_key
 
     def _lookup(self, locale: str, template_key: str, field: str) -> str | None:
-        entry = self._locales.get(locale, {}).get(template_key)
+        entry = self._locales.get(_canonical_locale(locale), {}).get(template_key)
         if entry is None:
             return None
         return entry.get(field)
@@ -118,13 +133,20 @@ def _substitute(template: str, params: Mapping[str, str]) -> str:
 
 
 _DEFAULT_CATALOG: NotificationCatalog | None = None
+_CATALOG_LOCK: Final = threading.Lock()
 
 
 def default_catalog() -> NotificationCatalog:
-    """Process-wide default catalog (lazy-loaded, immutable after load)."""
+    """Process-wide default catalog (lazy-loaded, immutable after load).
+
+    Double-checked locking so concurrent first-callers (multiple worker threads)
+    load it at most once.
+    """
     global _DEFAULT_CATALOG
     if _DEFAULT_CATALOG is None:
-        _DEFAULT_CATALOG = NotificationCatalog.load_default()
+        with _CATALOG_LOCK:
+            if _DEFAULT_CATALOG is None:
+                _DEFAULT_CATALOG = NotificationCatalog.load_default()
     return _DEFAULT_CATALOG
 
 
