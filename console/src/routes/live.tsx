@@ -254,10 +254,13 @@ function applyEvent(state: LiveState, evt: LiveStageEvent): LiveState {
     slotIndex = pickSlot(state, now);
     if (slotIndex < 0) {
       // Pool is completely full of sticky (HIL) tiles - drop the event.
-      // Extremely rare with POOL_SIZE=96; log and move on.
+      // Extremely rare with POOL_SIZE=96; log and move on. Still record it in
+      // the audit stream if it is a terminal audit entry.
+      const isAuditEntry =
+        evt.stage === "audit" && (evt.phase === "done" || evt.phase === "failed");
       return {
         ...state,
-        ticker: [evt, ...state.ticker].slice(0, TICKER_CAP),
+        ticker: isAuditEntry ? [evt, ...state.ticker].slice(0, TICKER_CAP) : state.ticker,
       };
     }
     // Whichever tile currently occupies the picked slot (if any) is
@@ -308,7 +311,11 @@ function applyEvent(state: LiveState, evt: LiveStageEvent): LiveState {
     eventIdToSlot.delete(displaced.event_id);
   }
 
-  const ticker = [evt, ...state.ticker].slice(0, TICKER_CAP);
+  // The audit stream is append-only audit entries: show one row per completed
+  // event (its terminal audit frame), not every ingest/route/gate/audit stage
+  // frame - otherwise ~4 frames x the event rate churn the list unreadably.
+  const isAuditEntry = evt.stage === "audit" && (evt.phase === "done" || evt.phase === "failed");
+  const ticker = isAuditEntry ? [evt, ...state.ticker].slice(0, TICKER_CAP) : state.ticker;
 
   // KPI accumulators fire only on the terminal audit.done frame so one
   // event contributes exactly once - matching audit-log semantics.
@@ -995,7 +1002,6 @@ export function LiveRoute({ client }: Props) {
                     {tier === "abstain" ? "N/A" : tier.toUpperCase()}
                   </span>
                   <code>{evt.event_id.slice(0, 8)}</code>
-                  <span class="live-ticker-stage">{evt.stage}.{evt.phase}</span>
                   {action ? <strong>{action}</strong> : null}
                   {scope ? <span class="live-ticker-scope">@{scope}</span> : null}
                   {rule && rule !== action ? <span class="muted">({rule})</span> : null}
