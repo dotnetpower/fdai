@@ -69,5 +69,29 @@
     "sampleRules": "{shadow} rules are in trial (shadow mode) - they watch and log but do not act yet. One is ready to promote to live (card 3).",
     "fallback": "I match keywords like kpi / hil queue / recent audit, or a card number. Right now: {kpi}. Free-form natural language (including Korean) is answered by the LLM narrator - set FDAI_NARRATOR_* to enable it.",
     "error": "(error) {message}"
+  },
+  "cockpit": {
+    "tier": {
+      "t0": "fixed rules",
+      "t1": "past match",
+      "t2": "reasoning",
+      "unrouted": "unrouted"
+    },
+    "badge": {
+      "paused": "PAUSED",
+      "overview": "OVERVIEW",
+      "focus": "FOCUS {focus}",
+      "stream": "STREAM"
+    },
+    "cmd": {
+      "paused": "Paused - the feed is frozen, events still count. Say 'resume' to continue.",
+      "resumed": "Resumed the live op stream.",
+      "overview": "Overview - routing mix, throughput, outcomes, and top resources.",
+      "streaming": "Streaming the live op feed.",
+      "cleared": "Cleared filters - showing everything, live.",
+      "focusing": "Focusing on {focus} resources.",
+      "whichResource": "Which resource type? e.g. 'focus network'."
+    },
+    "showing": "Showing {badge}."
   }
 }

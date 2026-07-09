@@ -16,6 +16,7 @@
 
 import { createNarrator } from "./narrator/index.js";
 import type { NarratorContext } from "./narrator/types.js";
+import { t, type Locale } from "./i18n/index.js";
 
 const BRAND = "\x1b[38;2;99;166;156m"; // teal
 const BRIGHT = "\x1b[38;2;122;214;196m"; // bright teal accent
@@ -119,8 +120,17 @@ function wrap(s: string, width: number, maxLines: number): string[] {
 
 const tierColor = (t: string): string =>
   t === "t0" ? BRAND : t === "t1" ? STEEL : t === "t2" ? PLUM : DIM;
-const tierLabel = (t: string): string =>
-  t === "t0" ? "fixed rules" : t === "t1" ? "past match" : t === "t2" ? "reasoning" : "unrouted";
+export function tierLabel(tier: string, locale: Locale): string {
+  const key =
+    tier === "t0"
+      ? "cockpit.tier.t0"
+      : tier === "t1"
+        ? "cockpit.tier.t1"
+        : tier === "t2"
+          ? "cockpit.tier.t2"
+          : "cockpit.tier.unrouted";
+  return t(key, locale);
+}
 
 // ---- compact visualizations (overview dashboard) ---------------------------
 const TRACK = "\x1b[38;2;46;54;62m"; // unfilled bar track
@@ -156,6 +166,62 @@ const RESOURCE_KEYWORDS: Array<[RegExp, string]> = [
   [/log.?workspace|\ub85c\uadf8/, "log-workspace"],
   [/resource.?group|\ub9ac\uc18c\uc2a4\s?\uadf8\ub8f9/, "resource-group"],
 ];
+
+/** The active-view badge, localized. Pure over the view + locale. */
+export function viewBadge(view: View, locale: Locale): string {
+  if (view.paused) return t("cockpit.badge.paused", locale);
+  if (view.mode === "overview") return t("cockpit.badge.overview", locale);
+  if (view.mode === "focus")
+    return t("cockpit.badge.focus", locale, { focus: (view.focus ?? "").toUpperCase() });
+  return t("cockpit.badge.stream", locale);
+}
+
+/** Parse a natural-language screen command (KO/EN) into a view patch + reply.
+ * Pure over the query and locale; the cockpit routes views locally with zero
+ * LLM dependency. Returns null when nothing matches. */
+export function parseScreenCommand(
+  q: string,
+  locale: Locale,
+): { patch: Partial<View>; reply: string } | null {
+  const norm = q.toLowerCase().trim();
+  if (/\b(pause|freeze|hold)\b|\uba48\ucdb0|\uc815\uc9c0|\uc911\uc9c0|\uc77c\uc2dc\uc815\uc9c0/.test(norm)) {
+    return { patch: { paused: true }, reply: t("cockpit.cmd.paused", locale) };
+  }
+  if (/\b(resume|continue|unpause|play|live)\b|\uc7ac\uac1c|\uacc4\uc18d|\ub2e4\uc2dc\s?\uc2dc\uc791|\uc774\uc5b4/.test(norm)) {
+    return { patch: { paused: false, mode: "stream" }, reply: t("cockpit.cmd.resumed", locale) };
+  }
+  if (/\b(overview|dashboard|summary)\b|\ub300\uc2dc\ubcf4\ub4dc|\uc9d1\uacc4|\ud55c\ub208|\uc694\uc57d\s?(\ud654\uba74|\ubcf4\uae30|\ubdf0)/.test(norm)) {
+    return { patch: { mode: "overview", paused: false }, reply: t("cockpit.cmd.overview", locale) };
+  }
+  if (/\b(stream|feed|logs?)\b|\uc2a4\ud2b8\ub9bc|\ud53c\ub4dc|\ub85c\uadf8|\ud759\ub984|\uc2e4\uc2dc\uac04/.test(norm)) {
+    return {
+      patch: { mode: "stream", focus: undefined, paused: false },
+      reply: t("cockpit.cmd.streaming", locale),
+    };
+  }
+  if (/\b(clear|reset|all|everything)\b|\uc804\uccb4|\ucd08\uae30\ud654|\ud574\uc81c/.test(norm)) {
+    return {
+      patch: { mode: "stream", focus: undefined, paused: false },
+      reply: t("cockpit.cmd.cleared", locale),
+    };
+  }
+  const wantsFocus = /focus|only|\ud544\ud130|\uc9d1\uc911|\ub9cc\s?(\ubcf4\uc5ec|\ubd10|\ubcf4\uae30)/.test(norm);
+  if (wantsFocus) {
+    for (const [re, key] of RESOURCE_KEYWORDS) {
+      if (re.test(norm)) {
+        return {
+          patch: { mode: "focus", focus: key, paused: false },
+          reply: t("cockpit.cmd.focusing", locale, { focus: key }),
+        };
+      }
+    }
+    return {
+      patch: { mode: "stream", focus: undefined, paused: false },
+      reply: t("cockpit.cmd.whichResource", locale),
+    };
+  }
+  return null;
+}
 
 async function consumeSse(
   url: string,
@@ -212,6 +278,7 @@ export async function startCockpit(ctx: NarratorContext): Promise<void> {
   }
 
   const narrator = createNarrator();
+  const locale = ctx.locale ?? "en";
 
   // ---- live state ----------------------------------------------------------
   let handled = 0;
@@ -357,17 +424,10 @@ export async function startCockpit(ctx: NarratorContext): Promise<void> {
     write(`${bg}${content}${" ".repeat(pad)}${RESET}`);
   };
 
-  const viewBadge = (): string => {
-    if (view.paused) return "PAUSED";
-    if (view.mode === "overview") return "OVERVIEW";
-    if (view.mode === "focus") return `FOCUS ${(view.focus ?? "").toUpperCase()}`;
-    return "STREAM";
-  };
-
   const drawFeedLine = (a: Activity): string => {
     const C = cols();
     const res = clip(a.resource, 22).padEnd(22);
-    const tierTag = `${tierColor(a.tier)}${tierLabel(a.tier)}${RESET}`;
+    const tierTag = `${tierColor(a.tier)}${tierLabel(a.tier, locale)}${RESET}`;
     return `  ${a.marker} ${TEXT}${res}${RESET} ${DIM}${clip(a.text, C - 40)}${RESET}  ${tierTag}`;
   };
 
@@ -379,7 +439,7 @@ export async function startCockpit(ctx: NarratorContext): Promise<void> {
       band(
         1,
         ` ${BOLD}${ON_HEADER}Forward Deployed AI${NOBOLD}${sub} \u00b7 Cloud Ops` +
-          `   ${sub}read-only \u00b7 ${status} \u00b7 ${ON_HEADER}${BOLD}${viewBadge()}${NOBOLD}`,
+          `   ${sub}read-only \u00b7 ${status} \u00b7 ${ON_HEADER}${BOLD}${viewBadge(view, locale)}${NOBOLD}`,
         BG_HEADER,
       );
 
@@ -401,7 +461,7 @@ export async function startCockpit(ctx: NarratorContext): Promise<void> {
       // Row 4: view band with the natural-language commands.
       band(
         4,
-        ` ${BRIGHT}${BOLD}${viewBadge()}${NOBOLD}${ON_BAR}   say: overview \u00b7 stream \u00b7 pause \u00b7 focus network \u00b7 clear`,
+        ` ${BRIGHT}${BOLD}${viewBadge(view, locale)}${NOBOLD}${ON_BAR}   say: overview \u00b7 stream \u00b7 pause \u00b7 focus network \u00b7 clear`,
         BG_BAR,
       );
       placeCaret();
@@ -559,47 +619,7 @@ export async function startCockpit(ctx: NarratorContext): Promise<void> {
   };
 
   // ---- natural-language screen control -------------------------------------
-  // Parsed locally (KO/EN) so views switch instantly with zero LLM dependency.
-  const parseScreenCommand = (q: string): { patch: Partial<View>; reply: string } | null => {
-    const t = q.toLowerCase().trim();
-    if (/\b(pause|freeze|hold)\b|\uba48\ucdb0|\uc815\uc9c0|\uc911\uc9c0|\uc77c\uc2dc\uc815\uc9c0/.test(t)) {
-      return {
-        patch: { paused: true },
-        reply: "Paused - the feed is frozen, events still count. Say 'resume' to continue.",
-      };
-    }
-    if (/\b(resume|continue|unpause|play|live)\b|\uc7ac\uac1c|\uacc4\uc18d|\ub2e4\uc2dc\s?\uc2dc\uc791|\uc774\uc5b4/.test(t)) {
-      return { patch: { paused: false, mode: "stream" }, reply: "Resumed the live op stream." };
-    }
-    if (/\b(overview|dashboard|summary)\b|\ub300\uc2dc\ubcf4\ub4dc|\uc9d1\uacc4|\ud55c\ub208|\uc694\uc57d\s?(\ud654\uba74|\ubcf4\uae30|\ubdf0)/.test(t)) {
-      return {
-        patch: { mode: "overview", paused: false },
-        reply: "Overview - routing mix, throughput, outcomes, and top resources.",
-      };
-    }
-    if (/\b(stream|feed|logs?)\b|\uc2a4\ud2b8\ub9bc|\ud53c\ub4dc|\ub85c\uadf8|\ud759\ub984|\uc2e4\uc2dc\uac04/.test(t)) {
-      return { patch: { mode: "stream", focus: undefined, paused: false }, reply: "Streaming the live op feed." };
-    }
-    if (/\b(clear|reset|all|everything)\b|\uc804\uccb4|\ucd08\uae30\ud654|\ud574\uc81c/.test(t)) {
-      return {
-        patch: { mode: "stream", focus: undefined, paused: false },
-        reply: "Cleared filters - showing everything, live.",
-      };
-    }
-    const wantsFocus = /focus|only|\ud544\ud130|\uc9d1\uc911|\ub9cc\s?(\ubcf4\uc5ec|\ubd10|\ubcf4\uae30)/.test(t);
-    if (wantsFocus) {
-      for (const [re, key] of RESOURCE_KEYWORDS) {
-        if (re.test(t)) {
-          return { patch: { mode: "focus", focus: key, paused: false }, reply: `Focusing on ${key} resources.` };
-        }
-      }
-      return {
-        patch: { mode: "stream", focus: undefined, paused: false },
-        reply: "Which resource type? e.g. 'focus network'.",
-      };
-    }
-    return null;
-  };
+  // `parseScreenCommand` is a module-level pure function (KO/EN -> view patch).
 
   let headerPending = false;
   const scheduleHeader = (): void => {
@@ -696,7 +716,7 @@ export async function startCockpit(ctx: NarratorContext): Promise<void> {
         if (typeof patch.paused === "boolean") view.paused = patch.paused;
         renderHeader();
         renderBody();
-        return `Showing ${viewBadge()}.`;
+        return t("cockpit.showing", locale, { badge: viewBadge(view, locale) });
       },
     },
   };
@@ -704,7 +724,7 @@ export async function startCockpit(ctx: NarratorContext): Promise<void> {
   const ask = (q: string): void => {
     busy = true;
     // 1. Screen control (view switch) - handled locally, instantly, no LLM.
-    const screen = parseScreenCommand(q);
+    const screen = parseScreenCommand(q, locale);
     if (screen) {
       Object.assign(view, screen.patch);
       renderHeader();

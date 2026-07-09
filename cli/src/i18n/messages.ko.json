@@ -50,5 +50,27 @@
     "explainHint": "카드 번호를 고르면 그 근거를 볼 수 있습니다.",
     "fallback": "kpi / hil queue / recent audit 같은 키워드나 카드 번호를 인식합니다. 현재: {kpi}. 자유 형식 자연어(한국어 포함)는 LLM 내레이터가 답합니다 - FDAI_NARRATOR_*를 설정해 활성화하세요.",
     "error": "(오류) {message}"
+  },
+  "cockpit": {
+    "tier": {
+      "t0": "고정 규칙",
+      "t1": "과거 사례",
+      "t2": "추론"
+    },
+    "badge": {
+      "paused": "일시정지",
+      "overview": "개요",
+      "stream": "스트림"
+    },
+    "cmd": {
+      "paused": "일시정지 - 피드가 멈췄고 이벤트는 계속 집계됩니다. 계속하려면 'resume'.",
+      "resumed": "실시간 작업 스트림을 재개했습니다.",
+      "overview": "개요 - 라우팅 구성, 처리량, 결과, 상위 리소스.",
+      "streaming": "실시간 작업 피드를 스트리밍합니다.",
+      "cleared": "필터 해제 - 전체를 실시간으로 표시합니다.",
+      "focusing": "{focus} 리소스에 집중합니다.",
+      "whichResource": "어떤 리소스 유형인가요? 예: 'focus network'."
+    },
+    "showing": "{badge} 표시 중."
   }
 }
