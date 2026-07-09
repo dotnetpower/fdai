@@ -59,6 +59,20 @@ if (hero?.actions?.length) {
   // Shallow-clone so we do not mutate the shared route entry data.
   hero.actions = hero.actions.map((a) => ({ ...a, link: withBase(a.link) }));
 }
+
+// The kicker label belongs to the landing hero only. Starlight's generated
+// 404 page reuses this Hero override (and carries its own hero data), so gate
+// the kicker on the route: hide it on the 404. Detect it by slug/id (works in
+// dev, where the not-found renders at the requested path) with a pathname
+// fallback (the built 404 emits at /404).
+const pathname = Astro.url.pathname.replace(/\/$/, "");
+const slug = route?.entry?.slug;
+const id = route?.id;
+const is404 =
+  slug === "404" ||
+  id === "404" ||
+  id === "404.md" ||
+  pathname.endsWith("/404");
 ---
 
 <NebulaBackground intensity={1.0} speed={1.0} attachToBody />
@@ -147,7 +161,7 @@ if (hero?.actions?.length) {
       stroke-dasharray="4 6"
     />
   </svg>
-  <p class="hero-kicker">FDAI - Forward Deployed Agents for Cloud Ops</p>
+  {!is404 && <p class="hero-kicker">FDAI - Forward Deployed Agents for Cloud Ops</p>}
   <Default {...Astro.props}><slot /></Default>
 </div>
 
