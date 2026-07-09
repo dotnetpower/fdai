@@ -1,13 +1,13 @@
 ---
 title: 에이전트 워크플로우
 translation_of: agent-workflows.md
-translation_source_sha: f306ed6966c8c5c4b9d4698bc3eff5072bde8d49
+translation_source_sha: 6e1bd03df3dcaf6c37984de19af114167a18362a
 translation_revised: 2026-07-09
 ---
 
 # 에이전트 워크플로우
 
-판테온이 제품 수준 capability 로 조합하는 10개 cross-agent 워크플로우. 각
+판테온이 제품 수준 capability 로 조합하는 11개 cross-agent 워크플로우. 각
 워크플로우는 참여 에이전트, 트리거, 종단간 sequence, exit criteria 를
 명명한다. 모든 워크플로우는 shadow 모드로 먼저 배포
 ([agent-pantheon-implementation.md § Wave 7](agent-pantheon-implementation-ko.md#11-wave-7---shadow-\ub85c-cross-agent-workflows))
@@ -480,7 +480,62 @@ sequenceDiagram
 **Anti-scope.** Saga audit log 를 수정하지 않음. Overlay 는 read-time
 projection.
 
-## 11. 워크플로우 카탈로그 요약
+## 11. Operational readiness handoff
+
+**Purpose.** dev-to-ops 경계를 gate: dev 소유 scope 가 운영팀 책임이 되기
+전에, 누적된 governance, security, RBAC, reliability posture 를 리뷰하고 하나의
+verdict (`clear` / `needs_review` / `blocked`) 를 반환. per-change 리뷰가
+놓치는 gap - over-privileged 워크로드 아이덴티티, Owner 를 가진 guest, 누락된
+backup - 을 잡음(어떤 단일 diff 도 그 전체 gap 을 만들지 않았음). 전체 설계:
+[operational-readiness-ko.md](operational-readiness-ko.md).
+
+**Trigger.** Huginn 이 `ownership_transfer` signal (handoff PR 라벨,
+`lifecycle-stage: handoff` 태그, 또는 operator `request_ops_handoff`) 을
+정규화 - 대상 scope, submitter, 대상 environment 를 실음.
+
+**Agents.** Huginn (collector), Mimir (적용 rule set), Forseti (judge /
+ReadinessReport), Var (blocked handoff + 제안된 fix 에 대한 HIL approver),
+Thor (승인된 fix 의 executor), Saga (auditor).
+
+```mermaid
+sequenceDiagram
+    participant Hu as Huginn
+    participant M as Mimir
+    participant F as Forseti
+    participant V as Var
+    participant T as Thor
+    participant S as Saga
+    Hu->>F: object.ownership-transfer {scope, submitter, environment}
+    F->>M: applicable rules for scope
+    M-->>F: rule set (+ profile mode)
+    F->>F: run assurance-twin + deploy-preflight over scope
+    F->>F: compose ReadinessReport (clear|needs_review|blocked)
+    F->>S: audit {verdict, blocks_handoff}
+    alt blocked and enforce mode
+        F->>V: request approval + shadow remediation-PR proposals
+        V-->>T: approved fixes
+        T->>S: object.action-run {result}
+    end
+```
+
+**Exit criteria.**
+
+- 모든 `ownership_transfer` signal 은 정확히 하나의 `ReadinessReport` 를 생성.
+- verdict 는 truthful; `blocks_handoff` 는 enforce 모드에서만 true.
+- `prod` 로의 promotion 은 어떤 `critical` finding 도 blocking 으로 취급.
+- 모든 finding 은 rule 을 인용; ungroundable finding 은 abstain.
+- stale inventory 는 stale 상태로 certify 하기보다 certify 를 거부.
+
+**Promotion gate.** environment 당 30일 shadow; 주입된 critical 아이덴티티
+패턴에 대해 false negative zero; blocking finding 의 false-positive rate
+< 5%.
+
+**Anti-scope.** fix 를 직접 실행하지 않음 (제안만; RBAC fix 는
+`remediate.right-size-role` 로 HIL 라우팅). environment 모델을 정의하지 않음
+([scope-expansion-ko.md](scope-expansion-ko.md) 를 consume). per-deploy 체크가
+아님 (그것은 [deployment-preflight-ko.md](deployment-preflight-ko.md)).
+
+## 12. 워크플로우 카탈로그 요약
 
 | # | 이름 | Trigger | Primary agent | Enforce 전제조건 |
 |---|------|---------|---------------|-----------------|
@@ -494,6 +549,7 @@ projection.
 | 8 | Judgment coherence audit | Forseti self-test | Forseti | Drift-alert FP < 5% |
 | 9 | Rollback rehearsal | Loki 스케줄 (monthly) | Loki | ActionType 당 3회 rehearsal |
 | 10 | Retrospective what-if | Operator 또는 post-incident | Bragi | (본질적으로 shadow) |
+| 11 | Operational readiness handoff | `ownership_transfer` signal | Forseti | env당 30일 shadow, critical FN zero, FP < 5% |
 
 ## Next steps
 

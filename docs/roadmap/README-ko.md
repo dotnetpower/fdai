@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 67a0cee190a44f59d70da617dd6ce27e3ef15461
+translation_source_sha: 0c2f90a3fb7d2563ad38bad65fa3853d524c1dd4
 translation_revised: 2026-07-09
 ---
 
@@ -62,6 +62,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 13 | [operating-and-verification-ko.md](operating-and-verification-ko.md) | 자체 헬스 신호, canary 이벤트, 스모크 테스트, 알림 라우팅, 런북 |
 | 20 | [deployment-preflight-ko.md](deployment-preflight-ko.md) | 배포 전 가능성 및 blocker 수집: 프로브 분류법, readiness 리포트, blocker-테라폼-토글 매핑 |
 | 21 | [assurance-twin-ko.md](assurance-twin-ko.md) | 아키텍처 리뷰 / Q&A / assessment를 위한 질의가능 온톨로지 트윈: text-to-query, 선제 리뷰, 그래프 전체 what-if, shadow 제안 |
+| 22 | [operational-readiness-ko.md](operational-readiness-ko.md) | dev-to-ops 핸드오프 게이트: ownership-transfer 트리거, 전체 scope RBAC / 정책 / 신뢰성 리뷰, ReadinessReport, environment-promotion 게이트 |
 
 ### 비용, 사용자, 채널, 위험, 패리티
 

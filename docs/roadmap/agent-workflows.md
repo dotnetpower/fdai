@@ -4,7 +4,7 @@ title: Agent Workflows
 
 # Agent Workflows
 
-The ten cross-agent workflows that the pantheon composes into product-level
+The eleven cross-agent workflows that the pantheon composes into product-level
 capabilities. Each workflow names its participating agents, its trigger,
 its end-to-end sequence, and its exit criteria. Every workflow ships in
 shadow mode first ([agent-pantheon-implementation.md § Wave 7](agent-pantheon-implementation.md#11-wave-7---cross-agent-workflows-in-shadow))
@@ -483,7 +483,63 @@ shadow - it never executes changes).
 **Anti-scope.** Does not modify Saga audit log. Overlay is a
 read-time projection.
 
-## 11. Workflow catalog summary
+## 11. Operational readiness handoff
+
+**Purpose.** Gate the dev-to-ops boundary: before a dev-owned scope becomes
+the operations team's responsibility, review its accumulated governance,
+security, RBAC, and reliability posture and return one verdict
+(`clear` / `needs_review` / `blocked`). Catches gaps a per-change review
+misses - an over-privileged workload identity, a guest holding Owner, missing
+backup - that no single diff introduced. Full design:
+[operational-readiness.md](operational-readiness.md).
+
+**Trigger.** Huginn normalizes an `ownership_transfer` signal (a handoff PR
+label, a `lifecycle-stage: handoff` tag, or an operator `request_ops_handoff`)
+carrying the target scope, submitter, and target environment.
+
+**Agents.** Huginn (collector), Mimir (applicable rule set), Forseti (judge /
+ReadinessReport), Var (HIL approver on blocked handoff + proposed fixes), Thor
+(executor of approved fixes), Saga (auditor).
+
+```mermaid
+sequenceDiagram
+    participant Hu as Huginn
+    participant M as Mimir
+    participant F as Forseti
+    participant V as Var
+    participant T as Thor
+    participant S as Saga
+    Hu->>F: object.ownership-transfer {scope, submitter, environment}
+    F->>M: applicable rules for scope
+    M-->>F: rule set (+ profile mode)
+    F->>F: run assurance-twin + deploy-preflight over scope
+    F->>F: compose ReadinessReport (clear|needs_review|blocked)
+    F->>S: audit {verdict, blocks_handoff}
+    alt blocked and enforce mode
+        F->>V: request approval + shadow remediation-PR proposals
+        V-->>T: approved fixes
+        T->>S: object.action-run {result}
+    end
+```
+
+**Exit criteria.**
+
+- Every `ownership_transfer` signal produces exactly one `ReadinessReport`.
+- The verdict is truthful; `blocks_handoff` is true only in enforce mode.
+- A promotion into `prod` treats any `critical` finding as blocking.
+- Every finding cites a rule; an ungroundable finding abstains.
+- A stale inventory refuses to certify rather than certify on stale state.
+
+**Promotion gate.** 30 days shadow per environment; zero false negatives on
+injected critical identity patterns; false-positive rate on blocking findings
+< 5%.
+
+**Anti-scope.** Does not execute fixes itself (proposes only; RBAC fixes route
+to HIL via `remediate.right-size-role`). Does not define the environment model
+(consumes [scope-expansion.md](scope-expansion.md)). Not a per-deploy check
+(that is [deployment-preflight.md](deployment-preflight.md)).
+
+## 12. Workflow catalog summary
 
 | # | Name | Trigger | Primary agent | Enforce prerequisite |
 |---|------|---------|---------------|----------------------|
@@ -497,6 +553,7 @@ read-time projection.
 | 8 | Judgment coherence audit | Forseti self-test | Forseti | Drift-alert FP < 5% |
 | 9 | Rollback rehearsal | Loki schedule (monthly) | Loki | 3 rehearsals per ActionType |
 | 10 | Retrospective what-if | Operator or post-incident | Bragi | (inherently shadow) |
+| 11 | Operational readiness handoff | `ownership_transfer` signal | Forseti | 30d shadow/env, zero critical FN, FP < 5% |
 
 ## Next steps
 
