@@ -182,6 +182,14 @@ risk-gate -> executor -> delivery path is a separate, gated change; until then a
 workflow run cannot change cloud state, matching the shadow-before-enforce
 invariant.
 
+The event entry is the
+[`WorkflowTriggerCoordinator`](../../src/fdai/core/workflow/coordinator.py): an
+Event that clears `event-ingest` is matched against the
+[`WorkflowTriggerIndex`](../../src/fdai/core/workflow/trigger_index.py) on its
+`event_type`, and every matched Workflow is run in shadow (name-ordered,
+resource + timestamp taken from the Event). An event matching no Workflow starts
+nothing.
+
 
 ## 5. Saga compensation
 

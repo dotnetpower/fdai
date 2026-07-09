@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 1ddc64b1a44d5cef06f0fc935a6be648068acf1e
+translation_source_sha: 8b1044d6be5fb171f524e10329080dea31e68513
 translation_revised: 2026-07-09
 ---
 
@@ -179,6 +179,13 @@ audit row 하나, 스텝마다 `workflow.step` row 하나, 러너의 `runbook.te
 emit 한다. risk-gate -> executor -> delivery 경로에 재진입하는 라이브 executor 로의
 승격은 별도의 gated 변경이다; 그 전까지 워크플로 실행은 클라우드 상태를 바꿀 수
 없으며, 이는 shadow-before-enforce 불변식과 일치한다.
+
+이벤트 진입점은
+[`WorkflowTriggerCoordinator`](../../src/fdai/core/workflow/coordinator.py) 다:
+`event-ingest` 를 통과한 Event 는 `event_type` 으로
+[`WorkflowTriggerIndex`](../../src/fdai/core/workflow/trigger_index.py) 에 매칭되고,
+매칭된 모든 Workflow 는 shadow 로 실행된다 (name 순서, 리소스 + 타임스탬프는
+Event 에서). 어떤 Workflow 도 매칭하지 않는 이벤트는 아무것도 시작하지 않는다.
 
 ## 5. saga 보상(saga compensation)
 

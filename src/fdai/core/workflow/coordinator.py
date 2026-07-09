@@ -1,0 +1,88 @@
+"""Workflow trigger coordinator - the event-driven bridge from a normalized
+Event to a shadow Workflow run (see docs/roadmap/process-automation.md 4).
+
+This is the connective tissue between the control loop and process automation:
+an :class:`Event` that clears ``event-ingest`` is matched against the
+:class:`~fdai.core.workflow.trigger_index.WorkflowTriggerIndex` on its
+``event_type``, and every matched Workflow is run in shadow through the
+:class:`~fdai.core.workflow.orchestrator.WorkflowOrchestrator`.
+
+Deterministic and shadow-only: matched Workflows run in the index's stable
+name order, and the orchestrator's step executor structurally cannot mutate, so
+firing a Workflow off an event only ever judges-and-logs. The coordinator adds
+no new autonomy surface - it is the same declared-vs-live boundary the rest of
+process automation holds.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
+
+from fdai.core.workflow.orchestrator import ProcessRun, WorkflowOrchestrator
+from fdai.core.workflow.trigger_index import WorkflowTriggerIndex
+from fdai.shared.contracts.models import Event
+
+
+def _target_resource_id(event: Event) -> str:
+    """Resolve the primary resource a Workflow run targets from an Event.
+
+    Precedence: the explicit ``resource_ref``, then a ``resource.resource_id`` /
+    ``resource.resource_ref`` in the payload, then a stable event-type sentinel
+    so a resource-less signal (e.g. a schedule-style broadcast) still derives a
+    deterministic Process id.
+    """
+    if event.resource_ref:
+        return event.resource_ref
+    payload_ref = _resource_ref_from_payload(event.payload)
+    if payload_ref is not None:
+        return payload_ref
+    return f"event:{event.event_type}"
+
+
+def _resource_ref_from_payload(payload: Mapping[str, Any]) -> str | None:
+    resource = payload.get("resource")
+    if isinstance(resource, Mapping):
+        ref = resource.get("resource_id") or resource.get("resource_ref")
+        if isinstance(ref, str) and ref:
+            return ref
+    return None
+
+
+class WorkflowTriggerCoordinator:
+    """Fire the Workflows matched by an Event, in shadow."""
+
+    __slots__ = ("_index", "_orchestrator")
+
+    def __init__(
+        self,
+        *,
+        index: WorkflowTriggerIndex,
+        orchestrator: WorkflowOrchestrator,
+    ) -> None:
+        self._index = index
+        self._orchestrator = orchestrator
+
+    async def on_event(self, event: Event) -> tuple[ProcessRun, ...]:
+        """Run every Workflow triggered by ``event.event_type`` in shadow.
+
+        Returns the :class:`ProcessRun` per matched Workflow, in the index's
+        stable name order. An event that matches no Workflow returns an empty
+        tuple and starts nothing.
+        """
+        matched = self._index.for_signal(event.event_type)
+        if not matched:
+            return ()
+        target = _target_resource_id(event)
+        runs: list[ProcessRun] = []
+        for workflow in matched:
+            run = await self._orchestrator.run(
+                workflow,
+                target_resource_id=target,
+                trigger_ts=event.detected_at,
+            )
+            runs.append(run)
+        return tuple(runs)
+
+
+__all__ = ["WorkflowTriggerCoordinator"]

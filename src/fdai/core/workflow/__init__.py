@@ -16,6 +16,7 @@ from .approval import (
     WorkflowApprovalPlanner,
 )
 from .compiler import CompiledWorkflow, compile_workflow
+from .coordinator import WorkflowTriggerCoordinator
 from .orchestrator import (
     ProcessRun,
     ProcessStatus,
@@ -35,6 +36,7 @@ __all__ = [
     "StepApproval",
     "WorkflowApprovalPlanner",
     "WorkflowOrchestrator",
+    "WorkflowTriggerCoordinator",
     "WorkflowTriggerIndex",
     "compile_workflow",
     "derive_process_id",
