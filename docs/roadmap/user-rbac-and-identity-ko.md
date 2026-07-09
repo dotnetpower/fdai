@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 840508f0e31ece9a141284b239baf961a5ce78fd
+translation_source_sha: 9a1095402ac8d5f3a6d5d319fee1e2532a6b0ead
 translation_revised: 2026-07-09
 ---
 
@@ -335,6 +335,22 @@ API는 다음처럼 모든 요청 검증(deny by default):
    함께 `403` 응답. `aw-readers` 로 **자동 프로비저닝 없음**; 명시적 할당이 유일한 진입 경로.
 6. **안정 아이덴티티** 는 `oid` (Entra 사용자 objectId). `upn`/email은 정보성; 감사와
    자기승인 없음은 `oid` 사용.
+
+1-4단계는 제네릭
+[`EntraJwtVerifier`](../../src/fdai/delivery/read_api/entra_verifier.py) (PyJWT +
+`PyJWKClient`)가 upstream에서 구현; 5-6단계는
+[`RoleResolver`](../../src/fdai/core/rbac/resolver.py)가 구현. 이 verifier는
+customer-agnostic - 포크는 값만 env로 공급:
+
+| Env var | 필수 | 기본값 | 용도 |
+|---------|:----:|--------|------|
+| `FDAI_ENTRA_TENANT_ID` | yes | - | 포크의 단일 tenant; 발급자 + JWKS URI 파생. |
+| `FDAI_API_AUDIENCE` | yes | - | `fdai-api` App ID URI (`api://<fdai-api-guid>`); 토큰 `aud` 가 이것과 같아야 함. |
+| `FDAI_ENTRA_ISSUER` | no | `https://login.microsoftonline.com/<tenant>/v2.0` | v1-토큰 앱용 오버라이드 (`https://sts.windows.net/<tenant>/`). |
+| `FDAI_ENTRA_JWKS_URI` | no | tenant의 `.../discovery/v2.0/keys` | 소버린 / 에어갭 클라우드용 오버라이드. |
+
+JWKS는 지연 fetch 후 프로세스 내 캐시; 요청별 검증은 로컬 RSA 크립토라, 동기
+`ClaimsVerifier` 계약이 이벤트 루프를 막지 않고 유지됨.
 
 ### 10.3 첫 사인인 (미할당 사용자)
 

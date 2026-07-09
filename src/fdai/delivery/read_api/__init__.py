@@ -6,6 +6,10 @@ Public surface:
   from an HTTP ``Authorization`` header and glue in
   :class:`~fdai.core.rbac.enforcer.RoleEnforcer`. Framework-neutral;
   no ASGI framework is imported at module load.
+- :mod:`.entra_verifier` - production :class:`~.auth.ClaimsVerifier`:
+  JWKS signature + ``aud`` + ``iss`` + ``exp`` validation via PyJWT.
+  Generic (tenant / audience / issuer from env); the fork only supplies
+  values, not code.
 - :mod:`.read_model` - projection Protocol + in-memory fake the console
   handlers read through.
 - :mod:`.main` - Starlette app factory. This is the ONLY place Starlette
@@ -26,6 +30,10 @@ from .auth import (
     UnsafeClaimsExtractor,
     build_authenticator,
 )
+from .entra_verifier import (
+    EntraJwtVerifier,
+    EntraVerifierConfigError,
+)
 from .read_model import (
     AuditItem,
     AuditPage,
@@ -44,6 +52,8 @@ __all__ = [
     "ClaimsVerifier",
     "ConsoleReadModel",
     "DashboardKpi",
+    "EntraJwtVerifier",
+    "EntraVerifierConfigError",
     "HilQueueItem",
     "HilQueuePage",
     "InMemoryConsoleReadModel",

@@ -77,6 +77,14 @@ dependencies = [
     # PYSEC-2026-249 (FormParser urlencoded limits ignored). Upper bound
     # <2 tracks the next stable major.
     "starlette>=1.3.1,<2",
+    # Console read-API Entra JWT verification (delivery/read_api/entra_verifier.py).
+    # PyJWT's PyJWKClient fetches + caches the tenant JWKS and `jwt.decode`
+    # validates signature + `aud` + `iss` + `exp`/`nbf` in one call. The
+    # `[crypto]` extra pulls `cryptography` for RS256. Generic + CSP-neutral:
+    # the tenant id / audience / issuer are supplied via env, never baked in
+    # (see docs/roadmap/user-rbac-and-identity.md § 10.2). `core/` never imports
+    # it - only the delivery layer validates human tokens.
+    "pyjwt[crypto]>=2.10,<3",
 ]
 
 [project.optional-dependencies]

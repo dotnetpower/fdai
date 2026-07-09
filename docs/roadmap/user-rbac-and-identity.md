@@ -343,6 +343,21 @@ The API validates every request as follows (deny by default):
 6. **Stable identity** is `oid` (Entra user objectId). `upn`/email are informational only;
    audit and no-self-approval use `oid`.
 
+Steps 1-4 are implemented upstream by the generic
+[`EntraJwtVerifier`](../../src/fdai/delivery/read_api/entra_verifier.py) (PyJWT +
+`PyJWKClient`); steps 5-6 by [`RoleResolver`](../../src/fdai/core/rbac/resolver.py). The
+verifier is customer-agnostic - a fork supplies only values, via env:
+
+| Env var | Required | Default | Purpose |
+|---------|:--------:|---------|---------|
+| `FDAI_ENTRA_TENANT_ID` | yes | - | The fork's single tenant; derives issuer + JWKS URI. |
+| `FDAI_API_AUDIENCE` | yes | - | The `fdai-api` App ID URI (`api://<fdai-api-guid>`); token `aud` MUST equal it. |
+| `FDAI_ENTRA_ISSUER` | no | `https://login.microsoftonline.com/<tenant>/v2.0` | Override for a v1-token app (`https://sts.windows.net/<tenant>/`). |
+| `FDAI_ENTRA_JWKS_URI` | no | tenant's `.../discovery/v2.0/keys` | Override for sovereign / air-gapped clouds. |
+
+The JWKS is fetched lazily and cached in-process; per-request validation is local RSA
+crypto, so the sync `ClaimsVerifier` contract holds without blocking the event loop.
+
 ### 10.3 First Sign-In (unassigned users)
 
 A user with valid Entra credentials but no `aw-*` group membership can reach the console

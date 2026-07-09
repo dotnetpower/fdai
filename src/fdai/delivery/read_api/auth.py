@@ -15,9 +15,10 @@ validation** before this module ever sees the claims (see
 (../../../../../docs/roadmap/user-rbac-and-identity.md#102-api-token-validation)).
 The verifier is injected - :func:`build_authenticator` accepts a
 :class:`ClaimsVerifier` callable of shape ``(token) -> claims``. Upstream
-does not ship a real JWKS-fetching verifier; that concrete implementation
-lives in the fork's composition root, alongside its ``httpx`` client and
-Entra tenant endpoint.
+ships a generic production verifier -
+:class:`~fdai.delivery.read_api.entra_verifier.EntraJwtVerifier`
+(JWKS + ``aud`` + ``iss`` + ``exp``) built from env; a fork supplies only
+the tenant id / audience / issuer values, not the verification code.
 
 A test / dev-mode fake verifier is
 :class:`UnsafeClaimsExtractor`, which uses
@@ -159,8 +160,9 @@ class UnsafeClaimsExtractor:
 
     Uses :func:`fdai.core.rbac.resolver.decode_jwt_payload` to pull
     claims out of a JWT without any cryptographic check. **MUST NOT** be
-    wired into a production composition root - the fork's real verifier
-    (JWKS + audience + issuer + expiry) replaces this.
+    wired into a production composition root - the upstream production
+    verifier (:class:`~fdai.delivery.read_api.entra_verifier.EntraJwtVerifier`:
+    JWKS + audience + issuer + expiry) replaces this.
 
     Kept in-tree so unit tests can exercise the read-API surface without
     a live Entra tenant, and so the local dev harness in
