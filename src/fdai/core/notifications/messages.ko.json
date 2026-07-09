@@ -1,0 +1,6 @@
+{
+  "decision": {
+    "title": "FDAI 판정: {decision} ({resource_title})",
+    "body": "**판정:** {decision}\n\n**리소스 유형:** {resource_body}\n\n**근거 규칙:** {rules}\n\n**모드:** {mode}"
+  }
+}

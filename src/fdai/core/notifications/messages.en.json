@@ -1,0 +1,6 @@
+{
+  "decision": {
+    "title": "FDAI decision: {decision} ({resource_title})",
+    "body": "**Decision:** {decision}\n\n**Resource type:** {resource_body}\n\n**Citing rules:** {rules}\n\n**Mode:** {mode}"
+  }
+}
