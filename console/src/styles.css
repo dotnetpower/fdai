@@ -3001,3 +3001,129 @@ main { padding-bottom: 60px !important; }
   text-decoration: underline;
 }
 
+/* View toggle (Waterfall / Timeline) -------------------------------------- */
+.view-toggle {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+.view-toggle-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 12.5px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.view-toggle-btn + .view-toggle-btn {
+  border-left: 1px solid var(--border);
+}
+.view-toggle-btn:hover {
+  color: var(--fg);
+}
+.view-toggle-btn[aria-selected="true"] {
+  background: color-mix(in oklab, var(--accent) 16%, var(--bg-elevated));
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* Waterfall (per-incident agent hand-off cascade) ------------------------- */
+.waterfall {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.waterfall-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  padding: 12px 14px 14px;
+}
+.waterfall-group-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.waterfall-corr {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+.waterfall-corr:hover {
+  text-decoration: underline;
+}
+.waterfall-span {
+  font-size: 11.5px;
+}
+.waterfall-lanes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.waterfall-lane {
+  display: grid;
+  grid-template-columns: minmax(150px, 210px) 1fr;
+  gap: 12px;
+  align-items: center;
+}
+.waterfall-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.waterfall-agent {
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--layer, var(--accent));
+  flex: 0 0 auto;
+}
+.waterfall-action {
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.waterfall-track {
+  position: relative;
+  height: 22px;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--border) 35%, transparent);
+  overflow: hidden;
+}
+.waterfall-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 6px;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--layer, var(--accent)) 70%, var(--bg-elevated));
+  border: 1px solid var(--layer, var(--accent));
+  display: flex;
+  align-items: center;
+  padding: 0 7px;
+  box-sizing: border-box;
+  transition: opacity 0.12s;
+}
+.waterfall-bar-dim {
+  opacity: 0.28;
+}
+.waterfall-bar-time {
+  font-size: 10.5px;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+

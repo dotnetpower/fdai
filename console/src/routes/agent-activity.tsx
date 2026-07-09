@@ -113,9 +113,29 @@ function stamp(iso: string): string {
   return d.toLocaleTimeString();
 }
 
+/** Epoch millis for an ISO stamp, or 0 when unparseable. */
+function ms(iso: string): number {
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+/** Compact human duration for a millisecond span (e.g. "1m 30s", "820ms"). */
+function fmtDur(millis: number): string {
+  if (millis <= 0) return "0s";
+  if (millis < 1000) return `${Math.round(millis)}ms`;
+  const totalSec = Math.round(millis / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  if (m === 0) return `${s}s`;
+  if (s === 0) return `${m}m`;
+  return `${m}m ${s}s`;
+}
+
 interface Data {
   readonly items: readonly AuditItem[];
 }
+
+type ActivityView = "waterfall" | "timeline";
 
 export function AgentActivityRoute({ client }: Props) {
   const [state, setState] = useState<AsyncState<Data>>({ status: "loading" });
@@ -159,6 +179,7 @@ interface BodyProps {
 
 function ActivityBody({ data }: BodyProps) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [view, setView] = useState<ActivityView>("waterfall");
 
   // Newest first: the audit projection already returns newest-first, so
   // preserve that order for the timeline.
@@ -244,11 +265,36 @@ function ActivityBody({ data }: BodyProps) {
         ))}
       </div>
 
-      <ol class="timeline" aria-label="Agent activity timeline">
-        {visible.map((item) => (
-          <TimelineRow key={item.seq} item={item} />
-        ))}
-      </ol>
+      <div class="view-toggle" role="tablist" aria-label="Activity view">
+        <button
+          type="button"
+          class="view-toggle-btn"
+          role="tab"
+          aria-selected={view === "waterfall"}
+          onClick={() => setView("waterfall")}
+        >
+          Waterfall
+        </button>
+        <button
+          type="button"
+          class="view-toggle-btn"
+          role="tab"
+          aria-selected={view === "timeline"}
+          onClick={() => setView("timeline")}
+        >
+          Timeline
+        </button>
+      </div>
+
+      {view === "timeline" ? (
+        <ol class="timeline" aria-label="Agent activity timeline">
+          {visible.map((item) => (
+            <TimelineRow key={item.seq} item={item} />
+          ))}
+        </ol>
+      ) : (
+        <Waterfall items={data.items} selected={selected} />
+      )}
     </div>
   );
 }
@@ -288,5 +334,149 @@ function TimelineRow({ item }: { readonly item: AuditItem }) {
         </div>
       </div>
     </li>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Waterfall view - one horizontal lane per audit event, grouped by the
+// correlation id (incident) they belong to. Each bar starts at the event's
+// timestamp and stretches until the next agent picks the incident up, so an
+// operator reads the pantheon hand-off cascade (Huginn -> Heimdall -> Forseti
+// -> Thor -> Saga) left to right. The bar width is time held, not work done -
+// audit rows are point events, so "held until next hand-off" is the honest
+// span we can derive without inventing durations.
+// ---------------------------------------------------------------------------
+
+/** Minimum bar width (percent of the group span) so a near-instant hand-off
+ * still renders a clickable sliver. */
+const MIN_BAR_PCT = 2.5;
+/** Nominal span (ms) used when a correlation has a single event or zero
+ * elapsed time, so its single bar still fills the track. */
+const SINGLETON_SPAN_MS = 1000;
+
+interface WaterfallBar {
+  readonly item: AuditItem;
+  readonly agent: string;
+  readonly layer: string;
+  readonly leftPct: number;
+  readonly widthPct: number;
+}
+
+interface WaterfallGroup {
+  readonly correlation: string;
+  readonly startMs: number;
+  readonly spanMs: number;
+  readonly bars: readonly WaterfallBar[];
+}
+
+function buildGroups(items: readonly AuditItem[]): readonly WaterfallGroup[] {
+  const byCorr = new Map<string, AuditItem[]>();
+  for (const item of items) {
+    const key = item.correlation_id || "(uncorrelated)";
+    const bucket = byCorr.get(key);
+    if (bucket) bucket.push(item);
+    else byCorr.set(key, [item]);
+  }
+
+  const groups: WaterfallGroup[] = [];
+  for (const [correlation, rows] of byCorr) {
+    const sorted = [...rows].sort((a, b) => ms(a.recorded_at) - ms(b.recorded_at));
+    const startMs = ms(sorted[0]!.recorded_at);
+    const endMs = ms(sorted[sorted.length - 1]!.recorded_at);
+    const actualSpanMs = Math.max(endMs - startMs, 0);
+    // Padded denominator for layout: a trailing tail gives the terminal event
+    // (no next hand-off) a visible bar, and a singleton fills the whole track.
+    const tailMs = actualSpanMs > 0 ? actualSpanMs * 0.2 : SINGLETON_SPAN_MS;
+    const denom = actualSpanMs + tailMs;
+    const bars: WaterfallBar[] = sorted.map((item, i) => {
+      const s = ms(item.recorded_at);
+      const next = i + 1 < sorted.length ? ms(sorted[i + 1]!.recorded_at) : endMs + tailMs;
+      const leftPct = ((s - startMs) / denom) * 100;
+      const rawWidth = ((next - s) / denom) * 100;
+      const widthPct = Math.min(Math.max(rawWidth, MIN_BAR_PCT), 100 - leftPct);
+      const agent = agentOf(item);
+      return { item, agent, layer: layerOf(agent), leftPct, widthPct };
+    });
+    groups.push({ correlation, startMs, spanMs: actualSpanMs, bars });
+  }
+  // Newest incident first, matching the audit projection's newest-first order.
+  groups.sort((a, b) => b.startMs - a.startMs);
+  return groups;
+}
+
+function Waterfall({
+  items,
+  selected,
+}: {
+  readonly items: readonly AuditItem[];
+  readonly selected: string | null;
+}) {
+  const groups = useMemo(() => buildGroups(items), [items]);
+
+  // When an agent is filtered, keep only incidents that agent touched (so the
+  // hand-off context around it stays visible) and dim the other lanes.
+  const shown = useMemo(
+    () =>
+      selected === null
+        ? groups
+        : groups.filter((g) => g.bars.some((b) => b.agent === selected)),
+    [groups, selected],
+  );
+
+  if (shown.length === 0) {
+    return (
+      <EmptyState
+        title="No matching incidents"
+        body="No correlated activity for this agent yet. Clear the filter to see the full waterfall."
+      />
+    );
+  }
+
+  return (
+    <div class="waterfall" aria-label="Agent activity waterfall">
+      {shown.map((g) => (
+        <section class="waterfall-group" key={g.correlation}>
+          <header class="waterfall-group-head">
+            <a
+              class="waterfall-corr mono"
+              href={`#/trace?correlation=${encodeURIComponent(g.correlation)}`}
+              title="Open this correlation in the Trace panel"
+            >
+              {g.correlation}
+            </a>
+            <span class="waterfall-span mono muted">
+              {stamp(new Date(g.startMs).toISOString())} · {g.bars.length} step(s) ·{" "}
+              {fmtDur(g.spanMs)}
+            </span>
+          </header>
+          <ol class="waterfall-lanes">
+            {g.bars.map((bar) => {
+              const dimmed = selected !== null && bar.agent !== selected;
+              return (
+                <li class="waterfall-lane" key={bar.item.seq}>
+                  <div class="waterfall-label" title={bar.agent}>
+                    <span class="agent-dot" data-layer={bar.layer} aria-hidden="true" />
+                    <span class="waterfall-agent" data-layer={bar.layer}>
+                      {bar.agent}
+                    </span>
+                    <span class="waterfall-action mono muted">{bar.item.action_kind}</span>
+                  </div>
+                  <div class="waterfall-track">
+                    <div
+                      class={`waterfall-bar ${dimmed ? "waterfall-bar-dim" : ""}`}
+                      data-layer={bar.layer}
+                      style={`left:${bar.leftPct.toFixed(2)}%;width:${bar.widthPct.toFixed(2)}%`}
+                      title={`${bar.agent} · ${bar.item.action_kind} · ${stamp(bar.item.recorded_at)}`}
+                    >
+                      <span class="waterfall-bar-time mono">{stamp(bar.item.recorded_at)}</span>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ))}
+    </div>
   );
 }
