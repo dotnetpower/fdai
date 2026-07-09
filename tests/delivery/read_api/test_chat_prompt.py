@@ -143,6 +143,7 @@ def test_data_lookalikes_stay_lean(query: str) -> None:
 # any definition. Asserted on the concept path (where the glossary is injected).
 _GLOSSARY_TERMS: list[str] = [
     "ActionType",
+    "Trust router",
     "T0/T1/T2",
     "Gate decision",
     "Shadow vs enforce",
@@ -150,6 +151,7 @@ _GLOSSARY_TERMS: list[str] = [
     "Verticals",
     "Safety invariants",
     "Rule catalog",
+    "Provenance",
 ]
 
 

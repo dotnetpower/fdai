@@ -116,6 +116,7 @@ Rules:
 _GLOSSARY = """\
 FDAI glossary (use only to define a term on request):
 - ActionType: ontology entry classing an autonomous action; binds 5 roles (initiators, judge, executor, approver, auditor).
+- Trust router: routes each event to the lowest sufficient tier (T0/T1/T2) by a computed confidence.
 - T0/T1/T2: trust-router tiers - deterministic policy (70-80%) / lightweight similarity (15-20%) / frontier-LLM reasoning (5-10%, novel only).
 - Gate decision: auto=execute, hil=needs approval, deny=refused, abstain=no rule matched (no-op).
 - Shadow vs enforce: new actions ship shadow (log-only), promoted to enforce after their promotion_gate passes.
@@ -123,6 +124,7 @@ FDAI glossary (use only to define a term on request):
 - Verticals: change safety, resilience, cost governance.
 - Safety invariants: stop-condition, rollback path, blast-radius cap, audit entry.
 - Rule catalog: versioned rules with provenance, gated before shipping.
+- Provenance: the cited source a rule/finding is grounded in; a candidate without it is rejected.
 
 """
 
