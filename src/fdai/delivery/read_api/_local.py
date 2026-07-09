@@ -65,6 +65,7 @@ from fdai.delivery.read_api.live_stream import (  # noqa: E402
     SyntheticLiveEmitter,
 )
 from fdai.delivery.read_api.main import ReadApiConfig, build_app  # noqa: E402
+from fdai.delivery.read_api.panels import ExampleFinOpsPanel  # noqa: E402
 from fdai.delivery.read_api.read_model import (  # noqa: E402
     HilQueueItem,
     InMemoryConsoleReadModel,
@@ -293,6 +294,36 @@ def _seed(read_model: InMemoryConsoleReadModel) -> None:
          {"action": "restrict-network-access", "risk": "high",
           "approver_role": "sre-oncall"},
          {"queue": "hil", "state": "awaiting_approval", "self_approval": "blocked"}),
+        # -- Cost Governance vertical: a right-size + a shutdown, each carrying
+        #    an ``estimated_savings`` the FinOps panel sums for the Overview
+        #    cost axis. action_kind matches FinOpsActionKind so the panel counts
+        #    them; savings ride in ``outputs`` and are promoted below.
+        ("Njord", "t0", "cost-anomaly.detect", "flagged", "11:00:00", "corr-f",
+         "Cost anomaly: sustained under-utilization on vmss-web",
+         "Sampled 14 days of utilization for vmss-web: CPU held under 15 percent "
+         "with ample headroom. Flagged it as a right-size candidate and handed "
+         "the finding to Forseti for a verdict.",
+         210,
+         {"resource": "vmss-web", "window": "14d", "avg_cpu": "12%"},
+         {"candidate": "right_size", "monthly_cost": "312"}),
+        ("Thor", "t0", "right_size", "shadow_pr_opened", "11:01:00", "corr-f",
+         "Opened remediation PR to right-size an over-provisioned VMSS",
+         "Rendered the Terraform diff to move vmss-web from Standard_D4s_v5 to "
+         "Standard_D2s_v5 (utilization headroom preserved), ran what-if (no data "
+         "loss), and opened remediation PR #486 in shadow. Nothing was applied "
+         "to the live resource.",
+         1100,
+         {"resource": "vmss-web", "from": "D4s_v5", "to": "D2s_v5",
+          "delivery": "pr_native"},
+         {"pr": "#486", "mode": "shadow", "estimated_savings": "128.0"}),
+        ("Thor", "t0", "shutdown", "shadow_pr_opened", "11:02:00", "corr-g",
+         "Opened remediation PR to deallocate an idle dev VM",
+         "Detected dev-vm-07 stopped-but-allocated for 9 days; rendered the diff "
+         "to deallocate it, ran what-if (reversible), and opened remediation PR "
+         "#487 in shadow. Reversible, resource-scoped, low cost.",
+         900,
+         {"resource": "dev-vm-07", "state": "stopped_allocated", "idle_days": "9"},
+         {"pr": "#487", "mode": "shadow", "estimated_savings": "45.5"}),
     )
     base_day = "2026-07-06T"
     # transit (event_ts -> received) and scheduling (received -> started) delays.
@@ -312,30 +343,34 @@ def _seed(read_model: InMemoryConsoleReadModel) -> None:
             correlation, received - timedelta(milliseconds=transit_ms)
         )
         prev_finish_by_corr[correlation] = finished
-        read_model.record_audit_entry(
-            {
-                "event_id": f"00000000-0000-0000-0000-{i:012d}",
-                "correlation_id": correlation,
-                "actor": agent,
-                "producer_principal": agent,
-                "action_kind": action_kind,
-                "mode": "shadow",
-                "outcome": outcome,
-                "tier": tier,
-                "summary": summary,
-                "detail": detail,
-                "event_ts": sent.isoformat(),
-                "received_at": received.isoformat(),
-                "started_at": started.isoformat(),
-                "finished_at": finished.isoformat(),
-                "duration_ms": work_ms,
-                "queue_ms": queue_ms,
-                "inputs": inputs,
-                "outputs": outputs,
-                "conversation": list(_CONVERSATIONS.get(i, ())),
-                "recorded_at": finished.isoformat(),
-            }
-        )
+        entry: dict[str, Any] = {
+            "event_id": f"00000000-0000-0000-0000-{i:012d}",
+            "correlation_id": correlation,
+            "actor": agent,
+            "producer_principal": agent,
+            "action_kind": action_kind,
+            "mode": "shadow",
+            "outcome": outcome,
+            "tier": tier,
+            "summary": summary,
+            "detail": detail,
+            "event_ts": sent.isoformat(),
+            "received_at": received.isoformat(),
+            "started_at": started.isoformat(),
+            "finished_at": finished.isoformat(),
+            "duration_ms": work_ms,
+            "queue_ms": queue_ms,
+            "inputs": inputs,
+            "outputs": outputs,
+            "conversation": list(_CONVERSATIONS.get(i, ())),
+            "recorded_at": finished.isoformat(),
+        }
+        # The FinOps panel sums a top-level ``estimated_savings``; a cost row
+        # carries it in ``outputs`` (all str), so promote it to the entry root.
+        _savings = outputs.get("estimated_savings")
+        if _savings is not None:
+            entry["estimated_savings"] = float(_savings)
+        read_model.record_audit_entry(entry)
     read_model.record_hil_pending(
         HilQueueItem(
             idempotency_key="hil-dev-0001",
@@ -654,6 +689,7 @@ def app() -> Starlette:
             rule_catalog_findings_summary_provider=rule_catalog_findings_summary_provider,
             promotion_gate_action_types=tuple(action_types),
             promotion_gate_source=InMemoryShadowVerdictSource(verdicts=_synthetic_verdicts()),
+            extra_panels=(ExampleFinOpsPanel(read_model),),
             trace_reader=trace_reader,
             bitemporal_reader=trace_reader,
             what_if_reader=trace_reader,
