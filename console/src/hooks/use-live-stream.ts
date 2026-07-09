@@ -12,6 +12,12 @@
  * flows back to the server on retry so replay-capable adapters can
  * resume from the gap. Upstream today has no replay (audit page has
  * full history), and the FE keeps rendering when reconnection lands.
+ *
+ * Visibility gating: while the page is hidden (backgrounded tab) the
+ * hook closes the `EventSource` and reports `idle`. This stops a
+ * background tab from hammering the server with EventSource's built-in
+ * 3s reconnect loop when the backend is down or slow. The connection
+ * is re-established when the page becomes visible again.
  */
 
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -88,45 +94,88 @@ export function useLiveStream(options: UseLiveStreamOptions): UseLiveStreamResul
     if (typeof EventSource === "undefined") return undefined;
 
     let cancelled = false;
-    setStatus("connecting");
-    onStatusRef.current?.("connecting");
+    let source: EventSource | null = null;
 
-    const source = new EventSource(url, { withCredentials });
+    const connect = () => {
+      if (cancelled || source) return;
+      setStatus("connecting");
+      onStatusRef.current?.("connecting");
 
-    // Note: the server emits `event: stage` for real transitions and
-    // `event: hello` on connect. We only forward `stage` frames; the
-    // `hello` frame is observability-only.
-    source.addEventListener("stage", (raw) => {
-      if (cancelled) return;
-      const messageEvent = raw as MessageEvent;
-      try {
-        const parsed = JSON.parse(messageEvent.data) as LiveStageEvent;
-        onEventRef.current(parsed);
-      } catch (err) {
-        setLastError(err instanceof Error ? err.message : String(err));
-      }
-    });
+      const es = new EventSource(url, { withCredentials });
+      source = es;
 
-    source.onopen = () => {
-      if (cancelled) return;
-      setStatus("open");
-      setLastError(null);
-      onStatusRef.current?.("open");
+      // Note: the server emits `event: stage` for real transitions and
+      // `event: hello` on connect. We only forward `stage` frames; the
+      // `hello` frame is observability-only.
+      es.addEventListener("stage", (raw) => {
+        if (cancelled || source !== es) return;
+        const messageEvent = raw as MessageEvent;
+        try {
+          const parsed = JSON.parse(messageEvent.data) as LiveStageEvent;
+          onEventRef.current(parsed);
+        } catch (err) {
+          setLastError(err instanceof Error ? err.message : String(err));
+        }
+      });
+
+      es.onopen = () => {
+        if (cancelled || source !== es) return;
+        setStatus("open");
+        setLastError(null);
+        onStatusRef.current?.("open");
+      };
+
+      es.onerror = () => {
+        if (cancelled || source !== es) return;
+        // EventSource auto-reconnects for transient errors; when the
+        // browser gives up (readyState === CLOSED) we surface "closed".
+        const nextStatus: LiveConnectionStatus =
+          es.readyState === EventSource.CLOSED ? "closed" : "connecting";
+        setStatus(nextStatus);
+        onStatusRef.current?.(nextStatus);
+      };
     };
 
-    source.onerror = () => {
-      if (cancelled) return;
-      // EventSource auto-reconnects for transient errors; when the
-      // browser gives up (readyState === CLOSED) we surface "closed".
-      const nextStatus: LiveConnectionStatus =
-        source.readyState === EventSource.CLOSED ? "closed" : "connecting";
+    const disconnect = (nextStatus: LiveConnectionStatus) => {
+      if (source) {
+        source.close();
+        source = null;
+      }
       setStatus(nextStatus);
       onStatusRef.current?.(nextStatus);
     };
 
+    // Only hold an open connection while the tab is visible. A hidden
+    // tab stays `idle` so it cannot flood the backend with reconnects.
+    const isHidden = () =>
+      typeof document !== "undefined" && document.hidden;
+
+    const handleVisibility = () => {
+      if (cancelled) return;
+      if (isHidden()) {
+        disconnect("idle");
+      } else {
+        connect();
+      }
+    };
+
+    if (isHidden()) {
+      setStatus("idle");
+      onStatusRef.current?.("idle");
+    } else {
+      connect();
+    }
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibility);
+    }
+
     return () => {
       cancelled = true;
-      source.close();
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibility);
+      }
+      if (source) source.close();
       setStatus("closed");
       onStatusRef.current?.("closed");
     };
