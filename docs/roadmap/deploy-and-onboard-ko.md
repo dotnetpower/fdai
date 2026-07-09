@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: d3962a14b1da730c314085233b81fc4e2fb03042
+translation_source_sha: e574f9d84c629ef4e05e3785aa8faf716e626306
 translation_revised: 2026-07-10
 ---
 
@@ -313,6 +313,7 @@ flowchart TD
 | `FDAI_MI_CLIENT_ID` | env | upstream | executor user-assigned MI client id (Container Apps 가 할당된 identity 로부터 채움). `WorkloadIdentity` 가 audience-scoped OIDC exchange 에 사용. |
 | `FDAI_MEASUREMENT_MODE` | env | upstream | `shadow` (기본) 또는 `enforce` - `infra/modules/measurement-runners/` 의 Container Apps Jobs 러너를 지배. |
 | `FDAI_DIRECT_API_FAKE` | env | dev-only | `1` 은 executor direct-API 경로를 in-memory fake 로 스왑; 테스트와 로컬 개발용. |
+| `FDAI_TOOL_CALL_FAKE` | env | dev-only | `1` 은 executor tool-call 경로를 in-memory fake (`RecordingToolExecutor`) 로 스왑; 테스트와 로컬 개발용. |
 | `FDAI_PROFILE_ID` | env | fork | `rule-catalog/profiles/` 에서 한 프로파일을 선택 ([rule-catalog-profiles-ko.md](rule-catalog-profiles-ko.md) 참조). **2026-07 기준 composition-root 배선 대기.** |
 | `FDAI_NARRATOR_PROVIDER` / `FDAI_NARRATOR_BASE_URL` / `FDAI_NARRATOR_MODEL` / `FDAI_NARRATOR_API_VERSION` / `FDAI_NARRATOR_API_KEY` | env + KV ref | fork | Operator-console narrator translator 설정 ([operator-console-ko.md](operator-console-ko.md) 참조); `API_KEY` 는 반드시 KV 경유. 빈 provider = 결정론적 폴백. |
 | `FDAI_CHATOPS_APPROVE_CALLBACK_URL` / `FDAI_CHATOPS_REJECT_CALLBACK_URL` / `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` | env + KV ref | fork | Chatops HIL 콜백 엔드포인트와 공유 webhook secret; secret 은 반드시 KV 경유. |

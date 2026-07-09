@@ -323,6 +323,7 @@ full expanded catalog and defaults are authored during the inventory PR.
 | `FDAI_MI_CLIENT_ID` | env | upstream | executor user-assigned MI client id (populated by Container Apps from the assigned identity). Used by `WorkloadIdentity` for the audience-scoped OIDC exchange. |
 | `FDAI_MEASUREMENT_MODE` | env | upstream | `shadow` (default) or `enforce` - governs the Container Apps Jobs runners in `infra/modules/measurement-runners/`. |
 | `FDAI_DIRECT_API_FAKE` | env | dev-only | `1` swaps the executor direct-API path for the in-memory fake; used by tests and local dev. |
+| `FDAI_TOOL_CALL_FAKE` | env | dev-only | `1` swaps the executor tool-call path for the in-memory fake (`RecordingToolExecutor`); used by tests and local dev. |
 | `FDAI_PROFILE_ID` | env | fork | selects one profile from `rule-catalog/profiles/` (see [rule-catalog-profiles.md](rule-catalog-profiles.md)). **Composition-root wiring pending** as of 2026-07. |
 | `FDAI_NARRATOR_PROVIDER` / `FDAI_NARRATOR_BASE_URL` / `FDAI_NARRATOR_MODEL` / `FDAI_NARRATOR_API_VERSION` / `FDAI_NARRATOR_API_KEY` | env + KV ref | fork | Operator-console narrator translator config (see [operator-console.md](operator-console.md)); `API_KEY` MUST go through KV. Empty provider = deterministic fallback. |
 | `FDAI_CHATOPS_APPROVE_CALLBACK_URL` / `FDAI_CHATOPS_REJECT_CALLBACK_URL` / `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` | env + KV ref | fork | Chatops HIL callback endpoints and the shared webhook secret; the secret MUST go through KV. |

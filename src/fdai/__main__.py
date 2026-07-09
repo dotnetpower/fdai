@@ -51,6 +51,7 @@ from .core.executor.action_builder import ActionBuilder
 from .core.executor.direct_api import DirectApiShadowExecutor
 from .core.executor.lock import ResourceLockManager
 from .core.executor.renderer import TemplateRenderer
+from .core.executor.tool_call import ToolCallShadowExecutor
 from .core.hil_resume import HilResumeCoordinator
 from .core.notifications.matrix import load_matrix_from_yaml
 from .core.rbac.resolver import GroupMapping
@@ -85,6 +86,7 @@ from .shared.providers.resource_lock import ResourceLock
 from .shared.providers.testing.direct_api import RecordingDirectApiExecutor
 from .shared.providers.testing.remediation_pr import RecordingRemediationPrPublisher
 from .shared.providers.testing.state_store import InMemoryStateStore
+from .shared.providers.testing.tool import RecordingToolExecutor
 from .shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
@@ -553,6 +555,39 @@ def _build_direct_api_executor(
     )
 
 
+def _build_tool_executor(
+    *,
+    audit_store: Any,
+    resource_lock: ResourceLock,
+    idempotency: IdempotencyStore | None = None,
+) -> ToolCallShadowExecutor | None:
+    """Select the tool-call executor for this process.
+
+    Opt-in via ``FDAI_TOOL_CALL_FAKE=1``: composes a
+    :class:`RecordingToolExecutor` fake behind the
+    :class:`ToolCallShadowExecutor` so an operator can exercise the
+    ``execution_path: tool_call`` dispatch path end-to-end without a real
+    tool registry. Absent -> returns ``None`` so :class:`ControlLoop`
+    falls back to PR-native routing (the P1 default).
+
+    A real tool adapter (a native Python registry, an MCP client, an HTTP
+    callout) is fork-authored and binds here through the same env-gated
+    shape.
+    """
+
+    if os.environ.get("FDAI_TOOL_CALL_FAKE", "").strip() != "1":
+        _LOGGER.info("tool_call_backend", extra={"backend": "none"})
+        return None
+
+    _LOGGER.info("tool_call_backend", extra={"backend": "recording"})
+    return ToolCallShadowExecutor(
+        executor=RecordingToolExecutor(),
+        audit_store=audit_store,
+        resource_lock=resource_lock,
+        idempotency=idempotency,
+    )
+
+
 def _build_idempotency_store() -> IdempotencyStore | None:
     """Select the durable idempotency backend for this process.
 
@@ -742,6 +777,11 @@ def _build_control_loop(
         resource_lock=resource_lock,
         idempotency=idempotency_store,
     )
+    tool_executor = _build_tool_executor(
+        audit_store=audit_store,
+        resource_lock=resource_lock,
+        idempotency=idempotency_store,
+    )
 
     # Detection-and-explanation seams (observability-and-detection.md).
     # EventCorrelator groups an event storm into one incident id; the
@@ -771,6 +811,7 @@ def _build_control_loop(
             hil_channel=hil_channel,
             rules_by_id={r.id: r for r in rules},
             direct_api_executor=direct_api_executor,
+            tool_executor=tool_executor,
             action_types_by_name=action_types_by_name,
         )
         if hil_channel is not None
@@ -787,6 +828,7 @@ def _build_control_loop(
         rules_by_id={r.id: r for r in rules},
         action_types_by_name=action_types_by_name,
         direct_api_executor=direct_api_executor,
+        tool_executor=tool_executor,
         event_correlator=event_correlator,
         rca_coordinator=rca_coordinator,
         hil_resume_coordinator=hil_resume_coordinator,
