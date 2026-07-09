@@ -45,7 +45,6 @@ interface Props {
 export function OntologyRoute({ client }: Props) {
   const [state, setState] = useState<AsyncState<OntologyGraphResponse>>({ status: "loading" });
   const [includeProperties, setIncludeProperties] = useState(true);
-  const [copyStatus, setCopyStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,16 +78,6 @@ export function OntologyRoute({ client }: Props) {
     };
   }, [client, includeProperties]);
 
-  async function copyMermaid(text: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopyStatus("Copied. Paste into https://mermaid.live to render.");
-    } catch (err) {
-      setCopyStatus(`Copy failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
-    window.setTimeout(() => setCopyStatus(null), 4000);
-  }
-
   return (
     <div class="stack">
       <PageHeader
@@ -106,13 +95,7 @@ export function OntologyRoute({ client }: Props) {
         }
       />
       <AsyncBoundary state={state} resourceLabel="ontology graph">
-        {(data) => (
-          <OntologyBody
-            data={data}
-            copyStatus={copyStatus}
-            onCopy={() => void copyMermaid(data.mermaid)}
-          />
-        )}
+        {(data) => <OntologyBody data={data} />}
       </AsyncBoundary>
     </div>
   );
@@ -120,12 +103,8 @@ export function OntologyRoute({ client }: Props) {
 
 function OntologyBody({
   data,
-  copyStatus,
-  onCopy,
 }: {
   readonly data: OntologyGraphResponse;
-  readonly copyStatus: string | null;
-  readonly onCopy: () => void;
 }) {
   usePublishViewContext(
     () => ({
@@ -154,11 +133,7 @@ function OntologyBody({
       <section class="stack-section">
         <div class="section-header">
           <h3 class="section-title">Resource + link graph</h3>
-          <button type="button" onClick={onCopy} class="btn">
-            Copy Mermaid source
-          </button>
         </div>
-        {copyStatus !== null ? <p class="muted footnote">{copyStatus}</p> : null}
         {data.nodes && data.edges ? (
           <OntologyGraph nodes={data.nodes} edges={data.edges} />
         ) : (

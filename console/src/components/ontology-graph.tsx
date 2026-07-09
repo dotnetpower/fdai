@@ -1550,9 +1550,20 @@ function drawNodeChip(
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
-  // 2) Colour tint overlay - deeper than before so the semantic hue
-  //    reads clearly and the card no longer looks disabled.
-  ctx.fillStyle = withAlpha(node.color, opts.isDark ? 0.22 : 0.13);
+  // 2) Colour-glass overlay - a vertical tint gradient in the node's
+  //    own hue turns the whole card into a solid coloured glass slab
+  //    (lighter at the top like a glass highlight, deeper toward the
+  //    bottom), instead of a near-white panel. This is what gives the
+  //    card its "coloured glass slide" read in both themes.
+  const tint = ctx.createLinearGradient(0, y, 0, y + h);
+  if (opts.isDark) {
+    tint.addColorStop(0, withAlpha(node.color, 0.2));
+    tint.addColorStop(1, withAlpha(node.color, 0.38));
+  } else {
+    tint.addColorStop(0, withAlpha(node.color, 0.16));
+    tint.addColorStop(1, withAlpha(node.color, 0.34));
+  }
+  ctx.fillStyle = tint;
   roundedRect(ctx, x, y, w, h, 12);
   ctx.fill();
   // 3) Glass top-highlight - a faint bright line just inside the top
