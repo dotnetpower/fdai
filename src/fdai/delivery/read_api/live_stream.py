@@ -355,6 +355,7 @@ class SyntheticLiveEmitter(LiveEmitter):
             "action_type": action_type,
             "scope": scope,
             "vertical": vertical,
+            "latency_ms": self._pick_latency_ms(tier),
         }
 
         # ingest done
@@ -441,6 +442,18 @@ class SyntheticLiveEmitter(LiveEmitter):
             if r < acc:
                 return outcome
         return next(iter(mix))
+
+    def _pick_latency_ms(self, tier: str) -> int:
+        """Simulated end-to-end pipeline latency for a tier (dev cockpit only).
+
+        Deterministic tiers resolve in milliseconds; T2 reasoning spends
+        seconds. Values are synthetic - this emitter has no real cloud calls
+        to time - so the sparkline hover shows a plausible ms figure. The real
+        :class:`StagePublisher`-instrumented pipeline reports its own timing.
+        """
+        base = {"t0": 320.0, "t1": 750.0, "t2": 2100.0}.get(tier, 400.0)
+        jitter = 0.75 + self._rng.random() * 0.5  # 75%..125%
+        return int(round(base * jitter))
 
 
 # ---------------------------------------------------------------------------

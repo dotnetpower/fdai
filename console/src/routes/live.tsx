@@ -129,6 +129,8 @@ interface TileState {
   readonly last_stage: LiveStageName;
   readonly last_phase: LiveStagePhase;
   readonly first_seen_at: number;
+  /** Server timestamp of the first stage frame seen, for latency. */
+  readonly first_ts: string | undefined;
   readonly last_seen_at: number;
   readonly completed: boolean;
   readonly failed: boolean;
@@ -148,6 +150,9 @@ interface LiveState {
   /** 60 one-second buckets per tier, oldest first. */
   readonly rateBuckets: RateBuckets;
   readonly rateBucketAt: number;
+  /** Per-second pipeline latency (ms): total and count, for a hover average. */
+  readonly latSum: readonly number[];
+  readonly latCount: readonly number[];
   readonly selectedEventId: string | null;
   readonly filter: FilterKind;
   readonly now: number;
@@ -169,6 +174,8 @@ function makeInitialState(): LiveState {
     gateCounts: {},
     rateBuckets: emptyRateBuckets(),
     rateBucketAt: now,
+    latSum: new Array(RATE_BUCKETS).fill(0) as readonly number[],
+    latCount: new Array(RATE_BUCKETS).fill(0) as readonly number[],
     selectedEventId: null,
     filter: "all",
     now,
@@ -202,7 +209,9 @@ function reducer(state: LiveState, action: Action): LiveState {
       bucketAt += 1000;
     }
     const buckets = rolls > 0 ? rollRateBuckets(state.rateBuckets, rolls) : state.rateBuckets;
-    return { ...state, ratePings: pings, rateBuckets: buckets, rateBucketAt: bucketAt, now: action.now };
+    const latSum = rolls > 0 ? rollBucketArray(state.latSum, rolls) : state.latSum;
+    const latCount = rolls > 0 ? rollBucketArray(state.latCount, rolls) : state.latCount;
+    return { ...state, ratePings: pings, rateBuckets: buckets, latSum, latCount, rateBucketAt: bucketAt, now: action.now };
   }
 
   if (action.kind === "batch") {
@@ -278,6 +287,7 @@ function applyEvent(state: LiveState, evt: LiveStageEvent): LiveState {
     last_stage: evt.stage,
     last_phase: evt.phase,
     first_seen_at: previous?.first_seen_at ?? now,
+    first_ts: previous?.first_ts ?? evt.ts,
     last_seen_at: now,
     completed: evt.stage === "audit" && evt.phase === "done" ? true : previous?.completed ?? false,
     failed: evt.phase === "failed" || previous?.failed === true,
@@ -311,6 +321,27 @@ function applyEvent(state: LiveState, evt: LiveStageEvent): LiveState {
   const rateBuckets = bumpTier
     ? { ...state.rateBuckets, [bumpTier]: bumpLastBucket(state.rateBuckets[bumpTier]) }
     : state.rateBuckets;
+  // Pipeline latency for the completed event: from when the console first saw
+  // it (ingest) to this terminal audit.done frame - the same span the tile age
+  // uses. Fold into the current-second bucket so the sparkline hover can show
+  // the average ms for that second.
+  // Pipeline latency for the completed event. Prefer a backend-reported
+  // latency_ms; else the server ts span (first stage frame -> this terminal
+  // frame); else the client-observed span. Fold into the current-second
+  // bucket so the sparkline hover can show the average ms for that second.
+  let latencyMs = 0;
+  if (shouldCount) {
+    const reported = typeof detail.latency_ms === "number" ? detail.latency_ms : null;
+    const firstMs = next.first_ts ? Date.parse(next.first_ts) : NaN;
+    const lastMs = Date.parse(evt.ts);
+    const tsSpan =
+      Number.isFinite(firstMs) && Number.isFinite(lastMs) && lastMs >= firstMs
+        ? lastMs - firstMs
+        : null;
+    latencyMs = reported ?? tsSpan ?? Math.max(0, now - next.first_seen_at);
+  }
+  const latSum = shouldCount ? bumpLastBucketBy(state.latSum, latencyMs) : state.latSum;
+  const latCount = shouldCount ? bumpLastBucket(state.latCount) : state.latCount;
   const tierCounts =
     shouldCount && next.tier
       ? { ...state.tierCounts, [next.tier]: (state.tierCounts[next.tier] ?? 0) + 1 }
@@ -330,6 +361,8 @@ function applyEvent(state: LiveState, evt: LiveStageEvent): LiveState {
     ticker,
     ratePings,
     rateBuckets,
+    latSum,
+    latCount,
     tierCounts,
     gateCounts,
     session_total: shouldCount ? state.session_total + 1 : state.session_total,
@@ -340,6 +373,14 @@ function bumpLastBucket(buckets: readonly number[]): readonly number[] {
   const out = buckets.slice();
   const idx = out.length - 1;
   out[idx] = (out[idx] ?? 0) + 1;
+  return out;
+}
+
+/** Add `delta` to the last (current-second) bucket - used for latency sums. */
+function bumpLastBucketBy(buckets: readonly number[], delta: number): readonly number[] {
+  const out = buckets.slice();
+  const idx = out.length - 1;
+  out[idx] = (out[idx] ?? 0) + delta;
   return out;
 }
 
@@ -783,7 +824,7 @@ export function LiveRoute({ client }: Props) {
         <div class="card kpi live-kpi-eps">
           <span class="label">Events / sec (60s)</span>
           <span class="value">{eps}</span>
-          <Sparkline buckets={state.rateBuckets} />
+          <Sparkline buckets={state.rateBuckets} latSum={state.latSum} latCount={state.latCount} />
           <div class="live-spark-legend" aria-hidden="true">
             <span class="live-spark-key t0"><i />T0 <b>{sumBuckets(state.rateBuckets.t0)}</b></span>
             <span class="live-spark-key t1"><i />T1 <b>{sumBuckets(state.rateBuckets.t1)}</b></span>
@@ -1084,7 +1125,15 @@ function matchesFilter(tile: TileState, filter: FilterKind): boolean {
   return true;
 }
 
-function Sparkline({ buckets }: { readonly buckets: RateBuckets }) {
+function Sparkline({
+  buckets,
+  latSum,
+  latCount,
+}: {
+  readonly buckets: RateBuckets;
+  readonly latSum: readonly number[];
+  readonly latCount: readonly number[];
+}) {
   const width = 240;
   const height = 44;
   const pad = 3;
@@ -1124,31 +1173,83 @@ function Sparkline({ buckets }: { readonly buckets: RateBuckets }) {
     return d;
   };
   const lastX = (n - 1) * stepX;
+
+  // Hover: map the cursor x to a completed-second bucket and surface that
+  // second's tier counts plus the average pipeline latency (ms).
+  const [hover, setHover] = useState<number | null>(null);
+  const onMove = (e: MouseEvent) => {
+    const el = e.currentTarget as HTMLElement | null;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const frac = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0;
+    setHover(Math.max(0, Math.min(n - 1, Math.round(frac * (n - 1)))));
+  };
+  const onLeave = () => setHover(null);
+
+  let tip: { leftPct: number; label: string; counts: string; lat: string } | null = null;
+  if (hover !== null) {
+    const cnt = latCount[hover] ?? 0;
+    const avg = cnt > 0 ? (latSum[hover] ?? 0) / cnt : null;
+    const secAgo = n - 1 - hover;
+    const latText =
+      avg === null
+        ? "no completions"
+        : avg < 1
+          ? "avg <1ms"
+          : avg >= 1000
+            ? `avg ${(avg / 1000).toFixed(1)}s`
+            : `avg ${Math.round(avg)}ms`;
+    tip = {
+      leftPct: n > 1 ? (hover / (n - 1)) * 100 : 50,
+      label: secAgo === 0 ? "last full second" : `${secAgo}s ago`,
+      counts: `T0 ${t0[hover] ?? 0}  T1 ${t1[hover] ?? 0}  T2 ${t2[hover] ?? 0}`,
+      lat: latText,
+    };
+  }
+
   return (
-    <svg
-      class="live-spark"
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      {series.map((arr, i) => {
-        const d = linePath(arr);
-        if (!d) return null;
-        return (
-          <g key={cls[i]}>
-            <path d={`${d} L${lastX.toFixed(1)},${height} L0,${height} Z`} class={`live-spark-area ${cls[i]}-area`} />
-            <path
-              d={d}
-              fill="none"
-              class={cls[i]}
-              stroke-width="1.6"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </g>
-        );
-      })}
-    </svg>
+    <div class="live-spark-wrap" onMouseMove={onMove} onMouseLeave={onLeave}>
+      <svg
+        class="live-spark"
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        {series.map((arr, i) => {
+          const d = linePath(arr);
+          if (!d) return null;
+          return (
+            <g key={cls[i]}>
+              <path d={`${d} L${lastX.toFixed(1)},${height} L0,${height} Z`} class={`live-spark-area ${cls[i]}-area`} />
+              <path
+                d={d}
+                fill="none"
+                class={cls[i]}
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </g>
+          );
+        })}
+        {hover !== null ? (
+          <line
+            class="live-spark-cursor"
+            x1={(hover * stepX).toFixed(1)}
+            y1="0"
+            x2={(hover * stepX).toFixed(1)}
+            y2={height}
+          />
+        ) : null}
+      </svg>
+      {tip ? (
+        <div class="live-spark-tip" style={`left:${tip.leftPct.toFixed(1)}%`}>
+          <div class="live-spark-tip-h">{tip.label}</div>
+          <div class="live-spark-tip-counts">{tip.counts}</div>
+          <div class="live-spark-tip-lat">{tip.lat}</div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
