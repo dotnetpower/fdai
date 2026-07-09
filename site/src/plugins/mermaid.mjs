@@ -13,7 +13,11 @@
 // The escaping is deliberately minimal: mermaid syntax uses no HTML
 // entities, but `<`/`>` do appear in flowchart edge syntax (e.g. `-->`)
 // so we escape those to keep the browser parser happy before the client
-// script rehydrates the original text back into the DOM.
+// script rehydrates the original text back into the DOM. Node labels can
+// also carry `"` (e.g. `Odin["Odin - Master Planner"]`); that is safe in
+// element text content but MUST additionally be escaped inside the
+// double-quoted `data-mermaid-src` attribute, or the attribute (and the
+// whole <pre> tag) terminates early and the diagram source is truncated.
 
 import { visit } from "unist-util-visit";
 
@@ -22,6 +26,10 @@ function escapeForHtml(value) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+function escapeForAttribute(value) {
+  return escapeForHtml(value).replace(/"/g, "&quot;");
 }
 
 export function remarkMermaid() {
@@ -33,7 +41,7 @@ export function remarkMermaid() {
       /** @type {import('mdast').Html} */
       const htmlNode = {
         type: "html",
-        value: `<pre class="mermaid" data-mermaid-src="${escapeForHtml(node.value)}">${escapeForHtml(node.value)}</pre>`,
+        value: `<pre class="mermaid" data-mermaid-src="${escapeForAttribute(node.value)}">${escapeForHtml(node.value)}</pre>`,
       };
       parent.children[index] = htmlNode;
     });
