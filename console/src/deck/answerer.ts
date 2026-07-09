@@ -63,6 +63,7 @@ export function answer(query: string, snapshot: ViewSnapshot | null): Answer {
   if (snapshot.routeId === "live") return answerLive(q, snapshot);
   if (snapshot.routeId === "dashboard") return answerDashboard(q, snapshot);
   if (snapshot.routeId === "audit") return answerAudit(q, snapshot);
+  if (snapshot.routeId === "rules") return answerRules(q, snapshot);
   if (snapshot.routeId === "hil-queue") return answerHil(q, snapshot);
   if (snapshot.routeId === "promotion-gates") return answerPromotion(q, snapshot);
   if (snapshot.routeId === "blast-radius") return answerBlast(q, snapshot);
@@ -109,6 +110,12 @@ function defaultFollowUps(snapshot: ViewSnapshot): readonly string[] {
         "how many audit rows are visible?",
         "what modes are represented?",
         "what is the latest entry?",
+      ];
+    case "rules":
+      return [
+        "how many rules are active?",
+        "what categories are available?",
+        "how do I find a specific rule?",
       ];
     case "hil-queue":
       return ["how many items are waiting?", "list all pending kinds"];
@@ -378,6 +385,65 @@ function answerAudit(q: string, snapshot: ViewSnapshot): Answer {
   }
   return {
     text: `Audit - ${snapshot.headline}.`,
+    citations: snapshot.facts.slice(0, 6).map(factToCitation),
+    followUps: defaultFollowUps(snapshot),
+  };
+}
+
+function answerRules(q: string, snapshot: ViewSnapshot): Answer {
+  const rules = (snapshot.records?.rules ?? []) as readonly Record<string, unknown>[];
+  // Pull candidate search terms from the query (ascii tokens >= 3 chars) and
+  // match them against the visible rule rows. This lets an offline operator
+  // still get a grounded answer for rules currently on the page.
+  const terms = q.match(/[a-z0-9-]{3,}/g) ?? [];
+  const stop = new Set([
+    "how", "the", "and", "for", "what", "which", "does", "recommended",
+    "value", "values", "setting", "settings", "find", "show", "list", "rule", "rules",
+  ]);
+  const needles = terms.filter((w) => !stop.has(w));
+  const hits = needles.length
+    ? rules.filter((r) => {
+        const hay = JSON.stringify(r).toLowerCase();
+        return needles.some((w) => hay.includes(w));
+      })
+    : [];
+  if (hits.length > 0) {
+    const sample = hits.slice(0, 6);
+    return {
+      text:
+        `${hits.length} matching rule(s) on this page:\n` +
+        sample
+          .map(
+            (r) =>
+              `- ${r.id} (${r.severity}, ${r.category} / ${r.resource_type}) - remediation ${r.remediation ?? "-"}`,
+          )
+          .join("\n"),
+      citations: sample.map((r) => ({
+        label: String(r.id),
+        value: String(r.remediation ?? r.resource_type ?? "-"),
+      })),
+      followUps: [],
+    };
+  }
+  if (needles.length > 0) {
+    return {
+      text:
+        `No rule matching "${needles.join(" ")}" is on the current page. ` +
+        `Type it into the Rules search box to filter the full catalog ` +
+        `(${findFact(snapshot, "total_rules") ?? "?"} rules, ` +
+        `${findFact(snapshot, "active_rules") ?? "?"} active).`,
+      citations: [
+        { label: "total_rules", value: String(findFact(snapshot, "total_rules") ?? "?") },
+        { label: "categories", value: String(findFact(snapshot, "categories_available") ?? "-") },
+      ],
+      followUps: [],
+    };
+  }
+  return {
+    text:
+      `Rules catalog - ${snapshot.headline}. Categories available: ` +
+      `${findFact(snapshot, "categories_available") ?? "-"}. ` +
+      `Use the search box or the origin/category/severity/source filters to narrow it.`,
     citations: snapshot.facts.slice(0, 6).map(factToCitation),
     followUps: defaultFollowUps(snapshot),
   };
