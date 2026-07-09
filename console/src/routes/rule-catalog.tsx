@@ -624,13 +624,51 @@ function RuleDetailDrawer({
   readonly findings: FindingsState;
   readonly onClose: () => void;
 }) {
+  // WCAG dialog behaviour: move focus into the drawer on open, restore
+  // it to the trigger on close, and trap Tab within the drawer.
+  const panelRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+    return () => previouslyFocused?.focus?.();
+  }, []);
+
+  function trapFocus(e: KeyboardEvent): void {
+    if (e.key === "Escape") {
+      // Handle Escape on the drawer itself so it closes regardless of
+      // which focusable inside it currently holds focus.
+      e.stopPropagation();
+      onClose();
+      return;
+    }
+    if (e.key !== "Tab" || panelRef.current === null) return;
+    const focusables = panelRef.current.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (!first || !last) return;
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
   return (
     <div class="drawer-overlay" onClick={onClose}>
       <aside
+        ref={panelRef}
+        tabIndex={-1}
         class="rule-drawer"
         role="dialog"
+        aria-modal="true"
         aria-label="Rule detail"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={trapFocus}
       >
         <header class="rule-drawer-head">
           <h3 class="mono">
