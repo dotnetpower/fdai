@@ -24,6 +24,23 @@
     "fieldWhat": "무엇",
     "fieldWhy": "이유",
     "fieldRequested": "요청 시각",
-    "fieldCorrelation": "상관 ID"
+    "fieldCorrelation": "상관 ID",
+    "fieldConfidence": "신뢰도",
+    "fieldSafety": "안전성",
+    "fieldHow": "방법",
+    "fieldApproval": "승인",
+    "fieldChecked": "검증",
+    "cantUndo": "{value} (되돌릴 수 없음)"
+  },
+  "briefing": {
+    "greeting": "좋은 아침입니다, {operator}. 모든 것이 정상 작동 중입니다. {window} 동안 있었던 일입니다.",
+    "busyTitle": "얼마나 바빴는지 - 5분마다 처리한 이벤트:",
+    "tiersTitle": "대부분 고정 규칙으로 처리됨 - AI 불필요:",
+    "autoNarration": "{events}건 중 {auto}건을 스스로 처리했습니다. 되돌릴 일은 없었습니다. 새 규칙 {shadow}개를 안전하게 시험 중입니다 - 관찰만, 아직 실행 안 함.",
+    "hilOne": "한 가지 항목이 결정을 기다립니다 - 제가 스스로 처리하는 리스크 수준을 넘습니다.",
+    "hilMany": "{count}개 항목이 결정을 기다립니다 - 제가 스스로 처리하는 리스크 수준을 넘습니다.",
+    "nothingSignoff": "지금 승인이 필요한 항목이 없습니다. 모두 처리되었고, 모든 변경은 되돌릴 수 있습니다.",
+    "lookInto": "살펴보고 싶은 것이 있나요? 예를 들면:",
+    "typeQuestion": "질문을 입력하세요"
   }
 }

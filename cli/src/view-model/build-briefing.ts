@@ -9,20 +9,15 @@
 
 import type { Block, Tone } from "./blocks.js";
 import type { BriefingPayload, HilItem } from "./contract.js";
+import { t } from "../i18n/index.js";
 
 function tierTone(tier: "T0" | "T1" | "T2"): Tone {
   return tier === "T0" ? "t0" : tier === "T1" ? "t1" : "t2";
 }
 
-function countPhrase(n: number): string {
-  const words = ["zero", "One", "Two", "Three", "Four", "Five", "Six"];
-  const word = words[n] ?? String(n);
-  return n === 1 ? "One thing needs" : `${word} things need`;
-}
-
 function toDecisionCard(item: HilItem, index: number, total: number): Block {
   const safety = item.irreversible
-    ? `${item.safety} (can't be undone)`
+    ? t("card.cantUndo", "en", { value: item.safety })
     : item.safety;
   return {
     type: "decisionCard",
@@ -34,18 +29,18 @@ function toDecisionCard(item: HilItem, index: number, total: number): Block {
     chip: item.chip,
     chipSideEffect: item.chipSideEffect,
     fields: [
-      { label: "What", value: item.change },
-      { label: "Why", value: item.why },
-      { label: "Confidence", value: `${item.basis} (${item.basisTech})` },
-      { label: "Safety", value: safety },
-      { label: "How", value: item.how },
-      { label: "Approval", value: item.who },
-      { label: "Checked", value: item.check },
+      { label: t("card.fieldWhat"), value: item.change },
+      { label: t("card.fieldWhy"), value: item.why },
+      { label: t("card.fieldConfidence"), value: `${item.basis} (${item.basisTech})` },
+      { label: t("card.fieldSafety"), value: safety },
+      { label: t("card.fieldHow"), value: item.how },
+      { label: t("card.fieldApproval"), value: item.who },
+      { label: t("card.fieldChecked"), value: item.check },
     ],
     actions: [
-      { key: "a", label: "approve (opens a PR)", sideEffect: "approve" },
-      { key: "r", label: "decline (logged, no change)", sideEffect: "read" },
-      { key: "w", label: "explain", sideEffect: "read" },
+      { key: "a", label: t("card.actionApprove"), sideEffect: "approve" },
+      { key: "r", label: t("card.actionDecline"), sideEffect: "read" },
+      { key: "w", label: t("card.actionExplain"), sideEffect: "read" },
     ],
     reference: item.reference,
     irreversible: item.irreversible,
@@ -65,17 +60,21 @@ export function buildBriefing(p: BriefingPayload): Block[] {
 
   blocks.push({
     type: "narration",
-    text:
-      `Good morning, ${p.operator}. Everything's running normally. ` +
-      `Here's what happened over ${p.windowLabel}.`,
+    text: t("briefing.greeting", "en", {
+      operator: p.operator,
+      window: p.windowLabel,
+    }),
   });
 
   blocks.push({
     type: "barChart",
-    title: "How busy things were - events handled every 5 minutes:",
+    title: t("briefing.busyTitle"),
     series: p.throughput,
-    unit: "events / 5 min",
-    caption: `busiest around ${p.peakHourLabel} - about ${peak} events / 5 min at peak`,
+    unit: t("briefing.busyUnit"),
+    caption: t("briefing.busyCaption", "en", {
+      peak: p.peakHourLabel,
+      count: peak,
+    }),
     axisLabels: [
       { at: 0, text: "00" },
       { at: 6, text: "06" },
@@ -87,7 +86,7 @@ export function buildBriefing(p: BriefingPayload): Block[] {
 
   blocks.push({
     type: "statBars",
-    title: "Most of it was handled by fixed rules - no AI needed:",
+    title: t("briefing.tiersTitle"),
     rows: p.tiers.map((t) => ({
       label: t.name,
       sub: t.tier,
@@ -98,55 +97,57 @@ export function buildBriefing(p: BriefingPayload): Block[] {
 
   blocks.push({
     type: "narration",
-    text:
-      `It handled ${p.autoResolved} of ${p.events} on its own. ` +
-      `Nothing had to be undone. ${p.shadowCandidates} new rules are being ` +
-      `trialed safely - watching only, not acting yet.`,
+    text: t("briefing.autoNarration", "en", {
+      auto: p.autoResolved,
+      events: p.events,
+      shadow: p.shadowCandidates,
+    }),
   });
 
   blocks.push({
     type: "summary",
     items: [
-      { label: "events", value: String(p.events) },
-      { label: "auto-resolved", value: String(p.autoResolved), tone: "good" },
-      { label: "rolled back", value: String(p.rollbacks), tone: "good" },
-      { label: "paused rules", value: String(p.overridesActive) },
-      { label: "audit", value: "complete", tone: "t0" },
+      { label: t("briefing.sumEvents"), value: String(p.events) },
+      { label: t("briefing.sumAutoResolved"), value: String(p.autoResolved), tone: "good" },
+      { label: t("briefing.sumRolledBack"), value: String(p.rollbacks), tone: "good" },
+      { label: t("briefing.sumPausedRules"), value: String(p.overridesActive) },
+      { label: t("briefing.sumAudit"), value: t("briefing.auditComplete"), tone: "t0" },
     ],
   });
 
   if (p.hil.length > 0) {
+    const n = p.hil.length;
+    const words = ["zero", "One", "Two", "Three", "Four", "Five", "Six"];
     blocks.push({
       type: "narration",
       text:
-        `${countPhrase(p.hil.length)} your decision - ` +
-        `they are above the risk level I act on by myself.`,
+        n === 1
+          ? t("briefing.hilOne")
+          : t("briefing.hilMany", "en", { word: words[n] ?? String(n), count: n }),
     });
     p.hil.forEach((item, i) =>
       blocks.push(toDecisionCard(item, i + 1, p.hil.length)),
     );
     blocks.push({
       type: "prompt",
-      text: `open a card (1-${p.hil.length}), or type a question`,
-      hint: "keys are illustrative - this is a design mock",
+      text: t("briefing.openCard", "en", { max: p.hil.length }),
+      hint: t("briefing.promptHintMock"),
     });
   } else {
     blocks.push({
       type: "narration",
-      text:
-        "Nothing needs your sign-off right now. Everything is handled, " +
-        "and every change can be undone.",
+      text: t("briefing.nothingSignoff"),
     });
     blocks.push({
       type: "narration",
-      text: "Anything you want to look into? For example:",
+      text: t("briefing.lookInto"),
       tone: "dim",
     });
     blocks.push({ type: "list", items: p.suggestions, tone: "t1" });
     blocks.push({
       type: "prompt",
-      text: "type a question",
-      hint: "I only look things up unless you ask me to act - and I'll confirm before anything changes",
+      text: t("briefing.typeQuestion"),
+      hint: t("briefing.typeQuestionHint"),
     });
   }
 
