@@ -20,6 +20,7 @@
   --danger: #d43f1f;
   --border: #dcdfe6;
   --rail-width: 88px;
+  --header-height: 49px;
   --deck-invoke-height: 44px;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 14px;
@@ -163,17 +164,17 @@ a:hover {
   position: sticky;
   top: 0;
   align-self: start;
-  height: calc(100vh - 42px);
+  height: calc(100vh - var(--header-height));
   border-right: 1px solid var(--border);
   background: var(--bg-elevated);
   z-index: 25;
 }
-/* While the command deck overlay (z-index 80) is open, lift the persistent
-   rail above it so its navigation popover - which opens into the overlay
-   region - stacks in front of the chat and stays clickable. Scoped to the
-   open state so the rule-detail drawer scrim still dims the rail normally. */
-body.deck-open .left-rail {
-  z-index: 90;
+/* While the command deck overlay is open it owns the content area; suppress
+   the rail's hover flyout so it never appears over (or behind) the chat.
+   The rail icons stay clickable - selecting one navigates, which closes the
+   deck and then the flyout behaves normally again. */
+body.deck-open .left-rail-popover {
+  display: none;
 }
 .left-rail-list {
   list-style: none;
@@ -1944,7 +1945,9 @@ pre {
 /* Overlay (open state) ------------------------------------------------- */
 .deck-overlay {
   position: fixed;
-  top: 0;
+  /* Start below the app header so the topbar (theme, principal, sign-out)
+     stays visible and usable while the deck is open. */
+  top: var(--header-height);
   right: 0;
   bottom: 0;
   left: var(--rail-width, 88px);
