@@ -50,6 +50,28 @@ All identifiers are synthetic per
   `modules/private-endpoint` module and are added the same way when a tenant restricts them
   too.
 
+#### Ops/hub runner (private-everything tenants)
+
+Some tenants force **every** data service private (Key Vault *and* storage), so even a
+terraform remote-state backend is laptop-unreachable. The `infra/bootstrap` layer stands up
+the durable hub that makes the deploy possible and survives app rebuilds:
+
+- an **ops resource group + hub VNet** (`rg-fdai-ops-<region_short>` / `vnet-fdai-ops-...`)
+  separate from the app RG, with a runner subnet and a private-endpoint subnet;
+- a **terraform remote-state storage account** locked to private, fronted by a blob private
+  endpoint on `privatelink.blob.core.windows.net` linked to the ops VNet;
+- a **self-hosted deploy runner VM** (no public IP) with a system-assigned managed identity
+  that holds `Contributor` on the app RG and `Storage Blob Data Contributor` on the state
+  account. It is the only host with line-of-sight to the app's private endpoints.
+
+The app config peers its spoke VNet to the ops hub (both directions) and links its private
+DNS zones to the ops VNet via the `extra_vnet_links` seam, so the runner resolves the app's
+Key Vault privately. The runner is the terraform apply principal, so the existing
+`kv_officer_self` grant makes it `Key Vault Secrets Officer` on the app vault - it writes the
+DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../.github/workflows/deploy-dev.yml)
+on the `[self-hosted, fdai-deploy]` runner (plan-only by default; the `apply` input enforces).
+Full runbook: [`infra/bootstrap/README.md`](../../infra/bootstrap/README.md).
+
 ### Non-Azure Prerequisites
 
 - A **GitOps host** (GitHub or Azure DevOps organization) with an installed GitHub App or
