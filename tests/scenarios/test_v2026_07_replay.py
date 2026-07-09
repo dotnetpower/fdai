@@ -122,7 +122,11 @@ _XFAIL_REASONS: dict[str, str] = {
     "dr.backup-vault-restore-rehearsal.002": (
         "No shipped rule authored for backup-restore rehearsal cadence."
     ),
-    "dr.chaos-experiment-novel.003": ("T2 reasoning tier not wired into ControlLoop yet (P2)."),
+    "dr.chaos-experiment-novel.003": (
+        "T2 tier is wired into ControlLoop shadow-only (audits verdicts); this "
+        "scenario needs a wired t2_engine + T2 execution (candidate -> Action -> "
+        "risk-gate), which is P2/P3 backlog."
+    ),
 }
 
 

@@ -33,7 +33,7 @@ control loop live in
 | **Runbook orchestration** | **New primitive layer.** See § 3.4. | Present ActionTypes are leaves; a runbook is a DAG over ActionTypes with a rollback branch. |
 | **On-call schedule** | **New provider.** See § 3.5. | HIL routing today is role-based, not schedule-based. Break-glass pager exists but knows nothing about who is on shift. |
 | **Postmortem draft** | **New core module.** See § 3.6. | Fed by Incident + audit trail. LLM-optional (template-based default). |
-| **Full T1/T2 wiring into ControlLoop** | **T1 wired; T2 library built, wiring pending.** See § 3.7. | `ControlLoop.__init__` accepts an optional `t1_engine` and the loop runs `T0.abstain -> T1.reuse-log` (shadow-only). `core/tiers/t2_reasoning/` now ships `T2Tier` (propose + quality-gate); wiring `t2_engine` into `ControlLoop` remains. |
+| **Full T1/T2 wiring into ControlLoop** | **T1 + T2 wired (shadow-only); T2 execution pending.** See § 3.7. | `ControlLoop.__init__` accepts optional `t1_engine` + `t2_engine`; the loop runs `T0.abstain -> T1.reuse-log -> T2.propose + quality-gate`, auditing each verdict without executing. Building an `Action` from an eligible T2 candidate + routing it through the risk-gate remains. |
 
 ## 2. Explicitly-deferred axes (not in this expansion)
 
@@ -255,29 +255,27 @@ findings, actions) but no synthesizer.
 
 ### 3.7 T1 / T2 tiers wired into `ControlLoop`
 
-**Status.** T1 is wired; the T2 tier library now exists but is not yet
-wired into the loop. `ControlLoop.__init__` accepts an optional
-`t1_engine` (Protocol-typed `T1Tier`), and `process` runs
-`T0.abstain -> T1.reuse-log`: a T1 similarity hit is recorded as
-`T1_REUSE_LOGGED` and never executed in P1 (a reuse must clear the
-verifier + risk-gate first, which is P2). Each tier hop writes its own
-audit entry, so the decision stays reconstructable. `core/tiers/t2_reasoning/`
-now ships `T2Tier` - a small orchestrator that asks a `T2Proposer` for a
-candidate and runs it through the existing `QualityGate` (mixed-model
-cross-check + verifier + grounding), mapping the gate verdict to
-`PROPOSED` / `ESCALATE` / `DENIED` / `ABSTAIN`. What remains is wiring:
-`ControlLoop` has no `t2_engine` parameter yet.
+**Status.** T1 and T2 are both wired into the loop; T2 execution is the
+remaining step. `ControlLoop.__init__` accepts optional `t1_engine`
+(`T1Tier`) and `t2_engine` (`T2Tier`), both Protocol-typed. `process`
+runs `T0.abstain -> T1.reuse-log -> T2.propose + quality-gate`, and each
+tier hop writes its own audit entry so the decision stays
+reconstructable. Both tiers are **shadow-only** in this wiring: a T1
+similarity hit is recorded as `T1_REUSE_LOGGED` and a T2 verdict as
+`T2_PROPOSED_LOGGED` / `T2_ESCALATED` / `T2_DENIED` / `T2_ABSTAINED`, but
+neither executes - the authoritative decision stays `abstain` and nothing
+is built or routed. T2 output clears the `QualityGate` (mixed-model
+cross-check + verifier + grounding) before it is even eligible.
 
-**Remaining design (T2).**
+**Remaining design (T2 execution).**
 
-- Add an optional `t2_engine` parameter to `ControlLoop.__init__`
-  (Protocol-typed `T2Tier`, no concrete class import in
-  `core/control_loop.py` beyond the Protocol).
-- Flow: `T1.abstain -> T2.propose + quality-gate -> risk-gate`. The
-  quality gate (mixed-model cross-check, verifier, grounding) grants
-  execution eligibility; the model never does. Only a gate `ELIGIBLE`
-  verdict (`T2Outcome.PROPOSED`) reaches the risk-gate; `ESCALATE` /
-  `DENIED` / `ABSTAIN` never auto-execute.
+- Build an `Action` from an eligible `QualityCandidate`
+  (`T2Outcome.PROPOSED`) and route it through the risk-gate + executor -
+  the one step that turns the shadow-only T2 log into a gated action,
+  mirroring the same P2 step the T1 reuse still needs.
+- Only a gate `ELIGIBLE` verdict may reach the risk-gate; `ESCALATE` /
+  `DENIED` / `ABSTAIN` never auto-execute. Execution eligibility is
+  granted by the deterministic gate, never the model.
 
 **Scenario replay.** The frozen scenarios in
 [tests/scenarios/v2026.07/](../../tests/scenarios/v2026.07/) are enriched

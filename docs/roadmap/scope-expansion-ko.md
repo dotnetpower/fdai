@@ -1,7 +1,7 @@
 ---
 title: 스코프 개선 및 구조적 갭
 translation_of: scope-expansion.md
-translation_source_sha: 714ea5d51e0292904aaef6478e02beaaae272b89
+translation_source_sha: 4df3bcc4eb3b00c5b469d27b9393eb90cee4e5f1
 translation_revised: 2026-07-09
 ---
 # 스코프 개선 및 구조적 갭
@@ -36,7 +36,7 @@ control loop 은
 | **Runbook orchestration** | **새 primitive layer.** § 3.4 참조. | 현재 ActionType 은 leaf; runbook 은 rollback branch 를 갖는 ActionType 위의 DAG. |
 | **On-call schedule** | **새 provider.** § 3.5 참조. | 오늘의 HIL 라우팅은 role-based; schedule-based 아님. Break-glass pager 는 존재하지만 누가 shift 중인지 모름. |
 | **Postmortem draft** | **새 core module.** § 3.6 참조. | Incident + audit trail 로 feed. LLM-optional (template-based default). |
-| **Full T1/T2 wiring into ControlLoop** | **T1 wired; T2 라이브러리 구축, wiring 남음.** § 3.7 참조. | `ControlLoop.__init__` 은 optional `t1_engine` 을 accept 하고 loop 은 `T0.abstain -> T1.reuse-log`(shadow-only)를 실행. `core/tiers/t2_reasoning/` 은 이제 `T2Tier`(propose + quality-gate)를 ship; `t2_engine` 을 `ControlLoop` 에 wire 하는 것이 남음. |
+| **Full T1/T2 wiring into ControlLoop** | **T1 + T2 wired (shadow-only); T2 실행 pending.** § 3.7 참조. | `ControlLoop.__init__` 은 optional `t1_engine` + `t2_engine` 을 accept; loop 은 `T0.abstain -> T1.reuse-log -> T2.propose + quality-gate` 를 실행하며 각 verdict 를 실행 없이 audit. eligible 한 T2 candidate 에서 `Action` 을 빌드해 risk-gate 로 route 하는 것이 남음. |
 
 ## 2. 명시적으로 deferred 된 axes (이 확장에 포함되지 않음)
 
@@ -254,30 +254,28 @@ action) 을 가지고 있지만 synthesizer 가 없다.
 
 ### 3.7 T1 / T2 tier 를 `ControlLoop` 로 wire
 
-**Status.** T1 은 wired; T2 tier 라이브러리는 이제 존재하지만 아직 loop 에
-wire 되지 않음. `ControlLoop.__init__` 은 optional
-`t1_engine`(Protocol-typed `T1Tier`)을 accept 하고, `process` 는
-`T0.abstain -> T1.reuse-log` 를 실행: T1 similarity hit 은
-`T1_REUSE_LOGGED` 로 기록되며 P1 에서는 절대 실행되지 않음(reuse 는 먼저
-verifier + risk-gate 를 통과해야 하고 그것은 P2). 각 tier hop 은 자체
-audit entry 를 write 하여 decision 이 reconstructable.
-`core/tiers/t2_reasoning/` 은 이제 `T2Tier` 를 ship - `T2Proposer` 에게
-candidate 를 요청하고 기존 `QualityGate`(mixed-model cross-check +
-verifier + grounding)를 통과시켜 gate verdict 를
-`PROPOSED` / `ESCALATE` / `DENIED` / `ABSTAIN` 으로 매핑하는 작은
-orchestrator. 남은 것은 wiring: `ControlLoop` 에 아직 `t2_engine`
-parameter 가 없음.
+**Status.** T1 과 T2 모두 loop 에 wired; T2 실행이 남은 단계.
+`ControlLoop.__init__` 은 optional `t1_engine`(`T1Tier`) 과
+`t2_engine`(`T2Tier`) - 둘 다 Protocol-typed - 을 accept. `process` 는
+`T0.abstain -> T1.reuse-log -> T2.propose + quality-gate` 를 실행하며,
+각 tier hop 은 자체 audit entry 를 write 하여 decision 이 reconstructable.
+두 tier 는 이 wiring 에서 **shadow-only**: T1 similarity hit 은
+`T1_REUSE_LOGGED` 로, T2 verdict 는
+`T2_PROPOSED_LOGGED` / `T2_ESCALATED` / `T2_DENIED` / `T2_ABSTAINED` 로
+기록되지만 둘 다 실행하지 않음 - authoritative decision 은 `abstain` 으로
+유지되고 아무것도 build/route 되지 않음. T2 output 은 eligible 이 되기
+전에 `QualityGate`(mixed-model cross-check + verifier + grounding)를
+통과함.
 
-**Remaining design (T2).**
+**Remaining design (T2 실행).**
 
-- `ControlLoop.__init__` 에 optional `t2_engine` parameter 추가
-  (Protocol-typed `T2Tier`, `core/control_loop.py` 에서 Protocol 을 넘는
-  concrete class import 없음).
-- Flow: `T1.abstain -> T2.propose + quality-gate -> risk-gate`. quality
-  gate(mixed-model cross-check, verifier, grounding)가 execution
-  eligibility 를 부여하며, model 은 절대 부여하지 않음. gate `ELIGIBLE`
-  verdict(`T2Outcome.PROPOSED`)만 risk-gate 에 도달; `ESCALATE` /
-  `DENIED` / `ABSTAIN` 은 절대 auto-execute 되지 않음.
+- eligible 한 `QualityCandidate`(`T2Outcome.PROPOSED`)에서 `Action` 을
+  빌드해 risk-gate + executor 로 route - shadow-only T2 log 를 gated
+  action 으로 바꾸는 한 단계이며, T1 reuse 가 아직 필요로 하는 동일한
+  P2 단계.
+- gate `ELIGIBLE` verdict 만 risk-gate 에 도달; `ESCALATE` / `DENIED` /
+  `ABSTAIN` 은 절대 auto-execute 되지 않음. execution eligibility 는
+  결정론적 gate 가 부여하며, model 은 절대 부여하지 않음.
 
 **Scenario replay.** [tests/scenarios/v2026.07/](../../tests/scenarios/v2026.07/)
 의 frozen 시나리오는 shipped 룰이 매핑되는 곳마다

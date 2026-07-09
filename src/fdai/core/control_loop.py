@@ -1155,7 +1155,7 @@ class ControlLoop:
         cs_decision: ChangeSafetyDecision | None,
         t1_decision: T1Decision | None,
         event_id: str,
-        correlation_id: str | None,
+        correlation_id: str,
     ) -> ControlLoopResult | None:
         """Consult the T2 reasoning tier after T0 (and T1) abstained.
 
