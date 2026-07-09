@@ -146,6 +146,39 @@ def test_user_turn_is_last_and_verbatim() -> None:
     assert msgs[-1] == {"role": "user", "content": "which tiles are failed?"}
 
 
+# ---------------------------------------------------------------------------
+# Grounding contract - compression must NOT drop any safety-critical rule
+# ---------------------------------------------------------------------------
+
+# Substrings that MUST survive in every built system prompt, lean or rich.
+# These are the behavioural guarantees the compression could have silently
+# dropped (hallucination guard, grounding, read-only, i18n, on-screen search).
+_REQUIRED_CLAUSES: list[str] = [
+    "STRICTLY",  # ground in the snapshot only
+    "NEVER invent facts",  # no hallucination
+    "records",  # search/quote visible rows
+    "search/filter",  # point to on-screen search, not deflection
+    "Read-only",  # never propose actions/writes
+    "operator's language",  # mirror the operator's language
+]
+
+
+@pytest.mark.parametrize("query", ["how many rules are active?", "explain T2"])
+def test_required_grounding_clauses_survive_compression(query: str) -> None:
+    system = _system_of(_build_messages(query, {"routeId": "rules"}, []))
+    for clause in _REQUIRED_CLAUSES:
+        assert clause in system, f"grounding clause dropped: {clause!r}"
+
+
+def test_lean_and_glossary_share_the_same_rules_block() -> None:
+    # The rules block (everything up to the glossary/snapshot) must be identical
+    # whether or not the glossary is injected - compression is additive-only.
+    lean = _system_of(_build_messages("how many rules?", {}, []))
+    rich = _system_of(_build_messages("explain T2", {}, []))
+    rules_block = lean.split("Current view snapshot")[0]
+    assert rules_block and rules_block in rich
+
+
 def test_snapshot_is_embedded_in_system() -> None:
     ctx = {"routeId": "rules", "facts": [{"key": "active_rules", "value": 61}]}
     system = _system_of(_build_messages("hi", ctx, []))
