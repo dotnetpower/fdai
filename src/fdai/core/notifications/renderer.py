@@ -79,6 +79,17 @@ class NotificationCatalog:
         body = self._resolve(template_key, "body", locale)
         return _substitute(title, params), _substitute(body, params)
 
+    def has(self, template_key: str) -> bool:
+        """True when the English source fully defines ``template_key``.
+
+        A caller (the router) checks this before rendering so that an unknown or
+        malformed key falls back to the caller's baked English message instead of
+        rendering the key string itself. English is the source of truth, so a key
+        the ``en`` catalog cannot fully render is treated as absent.
+        """
+        entry = self._locales[_DEFAULT_LOCALE].get(template_key)
+        return entry is not None and "title" in entry and "body" in entry
+
     def _resolve(self, template_key: str, field: str, locale: str) -> str:
         localized = self._lookup(locale, template_key, field)
         if localized is not None:

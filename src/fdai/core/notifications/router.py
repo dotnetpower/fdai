@@ -230,11 +230,14 @@ class NotificationRouter:
     def _render(self, message: NotificationMessage, channel_id: str) -> NotificationMessage:
         """Localize ``title`` / ``body_markdown`` for the channel's locale.
 
-        A message without a ``template_key`` is sent as-is (its baked English
-        title/body). The audit entry always uses the original (English) message,
-        so only the channel-facing copy is localized - the L0 record is intact.
+        A message without a ``template_key`` - or one whose key the catalog
+        cannot fully render - is sent as-is (its baked English title/body), so a
+        missing or malformed key degrades to the English source rather than
+        leaking the key string. The audit entry always uses the original
+        (English) message, so only the channel-facing copy is localized - the L0
+        record is intact.
         """
-        if message.template_key is None:
+        if message.template_key is None or not self._renderer.has(message.template_key):
             return message
         title, body = self._renderer.render(
             message.template_key,

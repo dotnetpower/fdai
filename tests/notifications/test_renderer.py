@@ -82,3 +82,18 @@ def test_unmatched_placeholder_is_left_verbatim() -> None:
 def test_source_locale_is_required() -> None:
     with pytest.raises(ValueError, match="source locale"):
         NotificationCatalog(locales={"ko": {}})
+
+
+def test_has_requires_full_english_template() -> None:
+    catalog = NotificationCatalog(
+        locales={
+            "en": {"full": {"title": "t", "body": "b"}, "partial": {"title": "t"}},
+        }
+    )
+    assert catalog.has("full") is True
+    assert catalog.has("partial") is False  # missing body -> treated as absent
+    assert catalog.has("missing") is False
+
+
+def test_default_catalog_fully_defines_decision() -> None:
+    assert default_catalog().has("decision") is True

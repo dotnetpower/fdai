@@ -112,3 +112,22 @@ async def test_message_without_template_key_is_passed_through() -> None:
     await router.dispatch(_message(template_key=None))
     # No template_key -> sent as-is even on a ko channel.
     assert channel.records[0].title == _EN_TITLE
+
+
+@pytest.mark.asyncio
+async def test_unknown_template_key_keeps_baked_english() -> None:
+    channel = _channel()
+    router = _router(channel, {"teams-ops-prd": {"locale": "ko"}})
+    message = NotificationMessage(
+        category="operational_alert",
+        trust_tier=TrustTier.A2_OPERATIONAL_ALERT,
+        correlation_id="cid-x",
+        title=_EN_TITLE,
+        body_markdown="**Decision:** auto",
+        template_key="no.such.template",
+        params=_PARAMS,
+    )
+    await router.dispatch(message)
+    # Unknown key on a ko channel -> baked English preserved, never the key string.
+    assert channel.records[0].title == _EN_TITLE
+    assert channel.records[0].body_markdown == "**Decision:** auto"
