@@ -34,7 +34,7 @@ Validation happens at load time (fail-fast):
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -101,6 +101,11 @@ class NotificationMatrix:
     version: int
     routes: Mapping[str, RouteSpec]
     default_route: str
+    channel_locales: Mapping[str, str] = field(default_factory=dict)
+    """Per-channel render locale (channel-id -> locale, e.g. ``ko``). Populated
+    from the optional ``matrix.channels`` section; a channel without an entry
+    renders in English. Notifications fan out, so locale is a channel property,
+    not a per-operator one."""
 
     def resolve(self, category: str) -> RouteSpec:
         """Return the matching :class:`RouteSpec` (falls back on default)."""
@@ -109,6 +114,10 @@ class NotificationMatrix:
             return route
         # Guaranteed by validation to exist:
         return self.routes[self.default_route]
+
+    def locale_for(self, channel_id: str) -> str:
+        """Render locale for ``channel_id`` (default ``en`` when unconfigured)."""
+        return self.channel_locales.get(channel_id, "en")
 
     def __post_init__(self) -> None:
         if self.default_route not in self.routes:
@@ -163,7 +172,37 @@ def load_matrix_from_mapping(raw: Mapping[str, Any]) -> NotificationMatrix:
             "'matrix.default_route' MUST be a non-empty string naming one of the routes"
         )
 
-    return NotificationMatrix(version=version, routes=routes, default_route=default_route)
+    channel_locales = _parse_channel_locales(matrix_raw.get("channels", {}))
+
+    return NotificationMatrix(
+        version=version,
+        routes=routes,
+        default_route=default_route,
+        channel_locales=channel_locales,
+    )
+
+
+def _parse_channel_locales(raw: Any) -> dict[str, str]:
+    """Parse the optional ``matrix.channels`` map of channel-id -> {locale}."""
+    if not raw:
+        return {}
+    if not isinstance(raw, dict):
+        raise MatrixValidationError("'matrix.channels' MUST be a mapping when present")
+    locales: dict[str, str] = {}
+    for channel_id, cfg in raw.items():
+        if not isinstance(channel_id, str) or not channel_id:
+            raise MatrixValidationError(
+                f"channel id MUST be a non-empty string, got {channel_id!r}"
+            )
+        if not isinstance(cfg, dict):
+            raise MatrixValidationError(f"channel {channel_id!r} MUST be a mapping")
+        locale = cfg.get("locale", "en")
+        if not isinstance(locale, str) or not locale:
+            raise MatrixValidationError(
+                f"channel {channel_id!r}: 'locale' MUST be a non-empty string"
+            )
+        locales[channel_id] = locale
+    return locales
 
 
 def _parse_route(name: str, raw: Mapping[str, Any]) -> RouteSpec:

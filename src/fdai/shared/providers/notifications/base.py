@@ -128,6 +128,18 @@ class NotificationMessage:
     """Adapter-neutral k/v pairs (tenant label, digest run id, ...). Never
     carries secrets."""
 
+    template_key: str | None = None
+    """Optional catalog key for L2 localization (see
+    ``core/notifications/renderer``). When set, the router renders
+    :attr:`title` / :attr:`body_markdown` from this key + :attr:`params` in the
+    destination channel's locale. The baked :attr:`title` / :attr:`body_markdown`
+    remain the English source used for the audit entry and as the fallback."""
+
+    params: Mapping[str, str] = field(default_factory=dict)
+    """L0 values substituted verbatim into the localized template (decision
+    word, rule ids, resource type, mode). Never translated, so the rendered
+    message differs across locales only in its labels."""
+
 
 @dataclass(frozen=True, slots=True)
 class DeliveryReceipt:
