@@ -180,28 +180,31 @@ category is explicitly promoted to enforce.
 | Capability-mode toggle modules | [infra/modules/preflight-toggles/](../../infra/modules/preflight-toggles/README.md) | shipped (data-only) |
 | Readiness report + verdict | [core/deploy_preflight/report.py](../../src/fdai/core/deploy_preflight/report.py) | shipped |
 | Report -> PR check publish | [core/deploy_preflight/check_publish.py](../../src/fdai/core/deploy_preflight/check_publish.py) | shipped (report only) |
-| **Toggle-apply executor** (tfvars override renderer) | `core/deploy_preflight/reassemble.py` | **this design** |
-| **`remediate.apply-preflight-toggle` ActionType** | `rule-catalog/action-types/` | **this design** |
-| **Convergence loop + stop-conditions** | `core/deploy_preflight/reassemble.py` | **this design** |
-| Reference consumer wiring (one toggle) | `infra/` | **this design** (fork copies it) |
+| Convergence loop + stop-conditions | [core/deploy_preflight/reassemble.py](../../src/fdai/core/deploy_preflight/reassemble.py) | shipped |
+| `remediate.apply-preflight-toggle` ActionType | [rule-catalog/action-types/](../../rule-catalog/action-types/remediate.apply-preflight-toggle.yaml) | shipped |
+| Reference consumer wiring (one toggle) | [infra/modules/preflight-toggles/reference-disk-consumer/](../../infra/modules/preflight-toggles/reference-disk-consumer/README.md) | shipped (fork copies it) |
+| **Overrides -> executor `Action` render + PR open** | `core/deploy_preflight/` + composition root | **remaining** |
 
 `core/` sees only the `FeasibilityProbe` Protocol and the
-`RemediationPrPublisher` seam; the reassembly renderer constructs no cloud SDK
-and opens no PR itself - it hands a rendered `Action` to the executor, which owns
-the publish and the invariants.
+`RemediationPrPublisher` seam; the reassembly loop constructs no cloud SDK
+and opens no PR itself - it decides the overrides and hands them to the executor
+(via the ActionType), which owns the publish and the invariants.
 
 ## Delivery Increments
 
 Each is separately reviewable:
 
-1. **Docs-first** (this document) - the loop, ActionType, and limits.
-2. The `remediate.apply-preflight-toggle` ActionType YAML + schema validation.
-3. The tfvars-override renderer + the bounded convergence loop, shadow-mode,
-   with property tests: "same toggle never applied twice", "partial blocker ->
-   hil", "reassembled plan is re-verified", "shadow never merges".
+1. **Docs-first** (this document) - the loop, ActionType, and limits. *(shipped)*
+2. The `remediate.apply-preflight-toggle` ActionType YAML + schema validation. *(shipped)*
+3. The bounded convergence loop, shadow-mode, with property tests: "same toggle
+   never applied twice", "partial blocker -> hil", "reassembled plan is
+   re-verified", "regression -> hil", "fail-closed on a raising reanalyze". *(shipped)*
 4. One reference consumer wiring (the `disk_provisioning` toggle) under `infra/`
-   so a fork has a copy-paste starting point.
-5. Live Azure adapters that feed real policy findings into the loop (after the
+   so a fork has a copy-paste starting point. *(shipped)*
+5. The overrides-to-executor step: render the accumulated overrides into a
+   `remediate.apply-preflight-toggle` `Action` and open the tfvars-override PR
+   through the executor (shadow-first). *(remaining)*
+6. Live Azure adapters that feed real policy findings into the loop (after the
    preflight live adapters land, shadow-first).
 
 ## References

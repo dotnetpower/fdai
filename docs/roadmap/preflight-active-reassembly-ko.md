@@ -1,7 +1,7 @@
 ---
 title: 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 translation_of: preflight-active-reassembly.md
-translation_source_sha: 9cf4912d898bc581c34f1d8ac53f135474b29925
+translation_source_sha: c6bb14b73d9c817fd63eb078080f01b0ab814f65
 translation_revised: 2026-07-10
 ---
 # 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
@@ -176,27 +176,30 @@ draft입니다.
 | capability-mode 토글 모듈 | [infra/modules/preflight-toggles/](../../infra/modules/preflight-toggles/README.md) | 완료 (data-only) |
 | Readiness 리포트 + verdict | [core/deploy_preflight/report.py](../../src/fdai/core/deploy_preflight/report.py) | 완료 |
 | 리포트 -> PR 체크 게시 | [core/deploy_preflight/check_publish.py](../../src/fdai/core/deploy_preflight/check_publish.py) | 완료 (리포트만) |
-| **토글-적용 executor** (tfvars override 렌더러) | `core/deploy_preflight/reassemble.py` | **이 설계** |
-| **`remediate.apply-preflight-toggle` ActionType** | `rule-catalog/action-types/` | **이 설계** |
-| **수렴 루프 + stop-condition** | `core/deploy_preflight/reassemble.py` | **이 설계** |
-| 참조 consumer 배선 (토글 하나) | `infra/` | **이 설계** (포크가 복사) |
+| 수렴 루프 + stop-condition | [core/deploy_preflight/reassemble.py](../../src/fdai/core/deploy_preflight/reassemble.py) | 완료 |
+| `remediate.apply-preflight-toggle` ActionType | [rule-catalog/action-types/](../../rule-catalog/action-types/remediate.apply-preflight-toggle.yaml) | 완료 |
+| 참조 consumer 배선 (토글 하나) | [infra/modules/preflight-toggles/reference-disk-consumer/](../../infra/modules/preflight-toggles/reference-disk-consumer/README.md) | 완료 (포크가 복사) |
+| **overrides -> executor `Action` 렌더 + PR 오픈** | `core/deploy_preflight/` + composition root | **남음** |
 
 `core/`는 `FeasibilityProbe` Protocol과 `RemediationPrPublisher` seam만 봅니다.
-재조립 렌더러는 어떤 클라우드 SDK도 구성하지 않고 PR을 직접 열지 않습니다 - 렌더된
-`Action`을 executor에 넘기며, executor가 게시와 불변식을 소유합니다.
+재조립 루프는 어떤 클라우드 SDK도 구성하지 않고 PR을 직접 열지 않습니다 - override를
+결정하고 (ActionType을 통해) executor에 넘기며, executor가 게시와 불변식을 소유합니다.
 
 ## 전달 증분
 
 각각은 개별적으로 리뷰 가능합니다:
 
-1. **Docs-first** (이 문서) - 루프, ActionType, 한계.
-2. `remediate.apply-preflight-toggle` ActionType YAML + 스키마 검증.
-3. tfvars-override 렌더러 + bounded 수렴 루프, shadow-mode, property 테스트와 함께:
-   "동일 토글은 절대 두 번 적용 안 함", "부분 blocker -> hil", "재조립된 플랜은
-   재검증됨", "shadow는 절대 머지 안 함".
+1. **Docs-first** (이 문서) - 루프, ActionType, 한계. *(완료)*
+2. `remediate.apply-preflight-toggle` ActionType YAML + 스키마 검증. *(완료)*
+3. bounded 수렴 루프, shadow-mode, property 테스트와 함께: "동일 토글은 절대 두 번
+   적용 안 함", "부분 blocker -> hil", "재조립된 플랜은 재검증됨", "회귀 -> hil",
+   "raise하는 reanalyze에 fail-closed". *(완료)*
 4. `infra/` 아래 참조 consumer 배선 하나(`disk_provisioning` 토글)로 포크가 복사-붙여넣기
-   시작점을 갖게 함.
-5. 실제 policy finding을 루프에 공급하는 라이브 Azure 어댑터 (preflight 라이브 어댑터
+   시작점을 갖게 함. *(완료)*
+5. overrides-to-executor 단계: 누적된 override를 `remediate.apply-preflight-toggle`
+   `Action`으로 렌더하고 executor를 통해 tfvars-override PR을 엽니다 (shadow-first).
+   *(남음)*
+6. 실제 policy finding을 루프에 공급하는 라이브 Azure 어댑터 (preflight 라이브 어댑터
    착지 후, shadow-first).
 
 ## 참조
