@@ -1471,6 +1471,12 @@ function BuilderBody({
                       <ActionTypeOptions grouped={groupedPalette} />
                     </select>
                   </label>
+                </div>
+                <details class="step-advanced">
+                  <summary class="details-summary">
+                    Advanced options (guard, rollback, on-failure) - optional
+                  </summary>
+                  <div class="form-grid">
                   <label class="form-field">
                     <span class="form-label">Guard rule ref (optional)</span>
                     <input
@@ -1517,7 +1523,8 @@ function BuilderBody({
                       ))}
                     </select>
                   </label>
-                </div>
+                  </div>
+                </details>
                 {at ? <ActionTypeHint at={at} /> : null}
                 </div>
                 {index < form.steps.length - 1 ? (
