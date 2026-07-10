@@ -691,3 +691,51 @@ def test_cyclic_snapshot_falls_back_to_unserialisable_stub() -> None:
     # Either the safe stub OR the default=str variant (which stringifies the
     # cycle without raising) - both are acceptable, both keep the chat alive.
     assert payload.get("_snapshot_unserialisable") is True or "self" in payload
+
+
+async def test_heartbeat_closes_source_when_consumer_disconnects() -> None:
+    # Simulate a client disconnect: consumer breaks out of the async for after
+    # one item. The source's async-generator finally MUST run so upstream
+    # connections (in the real path, an httpx stream) get released.
+    from fdai.delivery.read_api.chat import _with_sse_heartbeats
+
+    closed = {"flag": False}
+
+    async def _src():
+        try:
+            for i in range(1000):
+                yield {"type": "token", "delta": str(i)}
+        finally:
+            closed["flag"] = True
+
+    got_first = False
+    async for e in _with_sse_heartbeats(_src(), interval=1.0):
+        got_first = True
+        break  # consumer disconnect
+
+    assert got_first is True
+    # Give the pump one loop tick to unwind + close the source.
+    import asyncio
+    for _ in range(20):
+        if closed["flag"]:
+            break
+        await asyncio.sleep(0.01)
+    assert closed["flag"] is True, "source finally never ran - possible connection leak"
+
+
+async def test_heartbeat_bounded_queue_survives_fast_upstream() -> None:
+    # A pump that yields faster than the consumer reads must not OOM - the
+    # bounded queue provides natural backpressure.
+    from fdai.delivery.read_api.chat import _with_sse_heartbeats
+
+    async def _src():
+        for i in range(500):
+            yield {"type": "token", "delta": str(i)}
+        yield {"type": "done", "answer": "-"}
+
+    seen = 0
+    async for e in _with_sse_heartbeats(_src(), interval=1.0, queue_maxsize=4):
+        if e is not None:
+            seen += 1
+    # 500 tokens + 1 done = 501 items (all forwarded).
+    assert seen == 501

@@ -1554,17 +1554,28 @@ async def _with_sse_heartbeats(
     source: AsyncIterator[dict[str, Any]],
     *,
     interval: float,
+    queue_maxsize: int = 64,
 ) -> AsyncIterator[dict[str, Any] | None]:
     """Yield items from ``source``; emit ``None`` every ``interval`` idle seconds.
 
-    Uses a queue-backed pump so the underlying async iterator is never
-    cancelled mid-await (which could drop the next token). ``None`` items
-    are the caller's heartbeat sentinel - callers translate them into an
-    SSE comment frame, real dict items into ``event:``/``data:`` frames.
+    Uses a bounded queue-backed pump so the underlying async iterator is
+    never cancelled mid-await (which could drop the next token) AND a
+    fast upstream cannot inflate memory if the SSE consumer is slow -
+    ``queue_maxsize`` provides natural backpressure. ``None`` items are
+    the caller's heartbeat sentinel - callers translate them into an SSE
+    comment frame, real dict items into ``event:``/``data:`` frames.
+
+    Cancellation contract: when the consuming generator is closed (client
+    disconnect, StreamingResponse teardown), the ``finally`` block cancels
+    the pump task and awaits it. The pump's ``async for`` loop then
+    unwinds and Python calls ``aclose()`` on ``source``, so an httpx
+    streaming connection is released - no connection leak.
     """
     import asyncio
 
-    queue: asyncio.Queue[tuple[str, dict[str, Any] | None]] = asyncio.Queue()
+    queue: asyncio.Queue[tuple[str, dict[str, Any] | None]] = asyncio.Queue(
+        maxsize=max(1, queue_maxsize)
+    )
     _END: Final = "end"
     _ITEM: Final = "item"
     _ERR: Final = "err"
@@ -1573,10 +1584,19 @@ async def _with_sse_heartbeats(
         try:
             async for x in source:
                 await queue.put((_ITEM, x))
+        except asyncio.CancelledError:
+            # Consumer went away; unwinding the async for closes `source`.
+            raise
         except BaseException as exc:  # re-raise on the consumer side
-            await queue.put((_ERR, {"__exc__": repr(exc)}))
+            try:
+                await queue.put((_ERR, {"__exc__": repr(exc)}))
+            except asyncio.CancelledError:
+                pass
             return
-        await queue.put((_END, None))
+        try:
+            await queue.put((_END, None))
+        except asyncio.CancelledError:
+            pass
 
     pump_task = asyncio.create_task(_pump())
     try:
@@ -1593,7 +1613,8 @@ async def _with_sse_heartbeats(
                 raise RuntimeError(f"stream source failed: {val}")
             yield val
     finally:
-        pump_task.cancel()
+        if not pump_task.done():
+            pump_task.cancel()
         try:
             await pump_task
         except (asyncio.CancelledError, Exception):  # noqa: BLE001
