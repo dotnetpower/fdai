@@ -80,6 +80,11 @@ from .shared.providers.exemption import (
 )
 from .shared.providers.feasibility_probe import FeasibilityProbe
 from .shared.providers.inventory import EmptyInventory, Inventory
+from .shared.providers.knowledge import (
+    EmbeddingKnowledgeSource,
+    EmptyKnowledgeSource,
+    KnowledgeSource,
+)
 from .shared.providers.metric import MetricProvider, NoopMetricProvider
 from .shared.providers.workload_identity import WorkloadIdentity
 
@@ -178,6 +183,7 @@ class Container:
     llm_bindings: LlmBindings | None = field(default=None)
     metric_provider: MetricProvider = field(default_factory=NoopMetricProvider)
     inventory: Inventory = field(default_factory=EmptyInventory)
+    knowledge_source: KnowledgeSource = field(default_factory=EmptyKnowledgeSource)
 
     def require_llm_bindings(self) -> LlmBindings:
         """Return :attr:`llm_bindings` or raise :class:`LlmBindingsUnavailableError`."""
@@ -575,6 +581,32 @@ def bind_azure_inventory(
     ).build_query_fn()
     inventory = AzureResourceGraphInventory(config=inventory_config, query=query_fn)
     return replace(container, inventory=inventory)
+
+
+def bind_embedding_knowledge_source(
+    container: Container,
+    *,
+    max_chars: int = 1_200,
+    overlap: int = 150,
+) -> Container:
+    """Return a new :class:`Container` with an embedding-backed
+    :class:`KnowledgeSource` in place of the default
+    :class:`EmptyKnowledgeSource`.
+
+    Reuses the already-bound embedding model from ``llm_bindings`` (Azure
+    OpenAI in deploy mode, the deterministic fake in local-fake), so the
+    free-form grounding leg works in both parity modes. The returned
+    source starts empty; the entry point ingests documents at startup via
+    ``await container.knowledge_source.ingest(...)`` (ingest is async and
+    therefore not done inside this sync helper).
+    """
+    bindings = container.require_llm_bindings()
+    source = EmbeddingKnowledgeSource(
+        embedder=bindings.embedding_model,
+        max_chars=max_chars,
+        overlap=overlap,
+    )
+    return replace(container, knowledge_source=source)
 
 
 def _load_resolved_models(path_or_ref: str) -> ResolvedModels:
