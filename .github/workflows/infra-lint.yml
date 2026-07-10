@@ -31,7 +31,11 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.9.8"
+          # Match the version the deploy runner uses. An older pin (e.g. 1.9.x)
+          # is stricter about dynamic-block for_each tuples than the terraform
+          # that actually deploys, producing false validate failures on modules
+          # that deploy cleanly.
+          terraform_version: "latest"
 
       - name: Format check
         run: terraform fmt -check -recursive
@@ -50,10 +54,19 @@ jobs:
       # Install scanners via their stable CLIs rather than pinned marketplace
       # action tags (which drift and break). Both are advisory (continue-on-error
       # + soft flags) so a finding annotates the PR without blocking.
+      #
+      # Trivy's installer is pinned to a released tag (NOT `main`) - piping
+      # HEAD-of-main to sudo sh is a supply-chain vector even for a
+      # short-lived CI runner. Checkov pins the pypi version for the same
+      # reason.
       - name: Install scanners
+        env:
+          TRIVY_VERSION: "v0.55.2"
+          CHECKOV_VERSION: "3.2.256"
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
-          pipx install checkov
+          curl -sfL "https://raw.githubusercontent.com/aquasecurity/trivy/${TRIVY_VERSION}/contrib/install.sh" \
+            | sudo sh -s -- -b /usr/local/bin "${TRIVY_VERSION}"
+          pipx install "checkov==${CHECKOV_VERSION}"
 
       - name: Trivy (terraform misconfig)
         continue-on-error: true
