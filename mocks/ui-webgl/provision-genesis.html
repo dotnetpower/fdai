@@ -5,374 +5,222 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>FDAI - Genesis (provisioning prototype)</title>
     <!--
-      FDAI provisioning prototype - "Genesis", minimal cut.
+      FDAI provisioning prototype - "Genesis", nebula-only cut.
 
-      Design intent: "Her", not a dashboard. Restraint over spectacle -
-      lots of negative space, one quiet line of text at a time, slow soft
-      fades, no HUD / legend / progress bar / labels / pulsing. The control
-      plane comes to life the way a calm presence wakes up.
+      Design intent: "Her", not a dashboard. The living nebula IS the presence -
+      no foreground stars, no HUD, no constellation. Provisioning is felt as the
+      nebula slowly coming to life (a `u_life` uniform, 0 -> 1) plus one quiet
+      line of narration at a time. The honest failure is a soft, warm dip in the
+      light and a sentence - never an alarm.
 
-      Still driven by a `provision.*` event timeline (faked here) that maps
-      1:1 to the SSE stream the console will emit, so the calm is truthful:
-      the honest failure + recovery is still shown - just quietly, with a
-      soft warm dim and a sentence, never an alarm.
+      Still driven by a `provision.*` timeline (faked here) that maps 1:1 to the
+      SSE stream the console will emit, so the calm stays truthful.
 
-      Layers: background = procedural WebGL nebula (from nebula-demo.html);
-      foreground = Three.js soft points + faint filaments + subtle bloom.
-
-      English-only, customer-agnostic, synthetic. prefers-reduced-motion aware.
+      Dependency-free: one raw-WebGL fragment shader (from nebula-demo.html) +
+      a little vanilla JS. English-only, customer-agnostic, synthetic.
+      prefers-reduced-motion aware.
       Run: python3 -m http.server 8899  ->  /provision-genesis.html
     -->
     <style>
       html, body {
-        margin: 0; height: 100%; background: #05070f; color: #eaf2ff;
+        margin: 0; height: 100%; background: #04060d; color: #eaf2ff;
         font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
         overflow: hidden;
       }
-      canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-      #nebula { z-index: 0; }
-      #scene  { z-index: 1; }
+      #nebula { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
 
-      /* One quiet line at a time, centered, generous space. */
+      /* One quiet line at a time, centered low, generous space. Smooth cross-fade. */
       #caption {
-        position: fixed; left: 50%; top: 58%; transform: translate(-50%, -50%);
-        z-index: 3; max-width: min(30ch, 82vw); text-align: center;
+        position: fixed; left: 50%; bottom: 16%; transform: translateX(-50%);
+        z-index: 2; max-width: min(28ch, 82vw); text-align: center;
         font-weight: 200; font-size: clamp(20px, 2.6vw, 30px); line-height: 1.5;
-        letter-spacing: 0.015em; color: rgba(234, 242, 255, 0.92);
-        text-shadow: 0 2px 40px rgba(0, 0, 0, 0.7);
-        opacity: 0; transition: opacity 1.4s ease; pointer-events: none;
+        letter-spacing: 0.015em; color: rgba(238, 244, 255, 0.94);
+        text-shadow: 0 2px 44px rgba(0, 0, 0, 0.65);
+        opacity: 0; transition: opacity 1000ms ease; pointer-events: none;
       }
       #caption.on { opacity: 1; }
 
-      /* Minimal entry: a faint invitation, no big button. */
+      /* Minimal entry: a faint invitation, nebula fully visible behind it. */
       #enter {
-        position: fixed; inset: 0; z-index: 4; display: grid; place-items: center;
-        cursor: pointer; transition: opacity 1.2s ease;
-        background: radial-gradient(ellipse at center, rgba(3,6,16,0) 40%, rgba(3,6,16,0.45));
+        position: fixed; inset: 0; z-index: 3; display: grid; place-items: end center;
+        padding-bottom: 16%; cursor: pointer; transition: opacity 1200ms ease;
       }
       #enter.hide { opacity: 0; pointer-events: none; }
       #enter span {
-        font-weight: 200; font-size: clamp(15px, 2vw, 19px);
-        letter-spacing: 0.34em; text-transform: uppercase;
-        color: rgba(234, 242, 255, 0.55); animation: breathe 5.5s ease-in-out infinite;
+        font-weight: 200; font-size: clamp(14px, 1.9vw, 18px);
+        letter-spacing: 0.36em; text-transform: uppercase;
+        color: rgba(238, 244, 255, 0.6); animation: breathe 5.5s ease-in-out infinite;
       }
-      @keyframes breathe { 0%,100% { opacity: 0.35; } 50% { opacity: 0.75; } }
+      @keyframes breathe { 0%,100% { opacity: 0.35; } 50% { opacity: 0.8; } }
 
-      /* A single faint restart affordance, only after it settles. */
       #again {
-        position: fixed; left: 50%; bottom: 7%; transform: translateX(-50%); z-index: 3;
+        position: fixed; left: 50%; bottom: 7%; transform: translateX(-50%); z-index: 2;
         font-weight: 200; font-size: 12px; letter-spacing: 0.28em; text-transform: uppercase;
-        color: rgba(234, 242, 255, 0.4); cursor: pointer; opacity: 0;
-        transition: opacity 1.2s ease; pointer-events: none;
+        color: rgba(238, 244, 255, 0.4); cursor: pointer; opacity: 0;
+        transition: opacity 1200ms ease; pointer-events: none;
       }
       #again.on { opacity: 1; pointer-events: auto; }
-      #again:hover { color: rgba(234, 242, 255, 0.75); }
+      #again:hover { color: rgba(238, 244, 255, 0.78); }
     </style>
   </head>
   <body>
     <canvas id="nebula" aria-hidden="true"></canvas>
-    <canvas id="scene"></canvas>
-
     <div id="caption"></div>
     <div id="again">begin again</div>
     <div id="enter"><span>touch to begin</span></div>
 
-    <!-- ================= Background nebula (raw WebGL) ================= -->
     <script>
-      (function () {
-        const canvas = document.getElementById("nebula");
-        const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
-        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        const vert = `attribute vec2 a; void main(){ gl_Position = vec4(a,0.0,1.0); }`;
-        const frag = `
-          precision highp float;
-          uniform vec2 u_res; uniform float u_time;
-          float hash(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
-          vec2 hash2(vec2 p){ return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))))*43758.5453); }
-          float noise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
-            float a=hash(i),b=hash(i+vec2(1.,0.)),c=hash(i+vec2(0.,1.)),d=hash(i+vec2(1.,1.));
-            return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }
-          float fbm(vec2 p){ float v=0.,amp=0.5; for(int i=0;i<6;i++){ v+=amp*noise(p); p*=2.02; amp*=0.5;} return v; }
-          vec3 starLayer(vec2 uv,float scale,float density,float seed){
-            vec2 g=uv*scale+seed; vec2 id=floor(g); vec2 f=fract(g); vec3 acc=vec3(0.);
-            for(int y=-1;y<=1;y++){ for(int x=-1;x<=1;x++){
-              vec2 o=vec2(float(x),float(y)); vec2 cid=id+o; float present=hash(cid+seed*3.7);
-              if(present>1.0-density){ vec2 pos=hash2(cid+1.3); float b=hash(cid+2.1);
-                float ph=hash(cid+3.4)*6.2831; float sp=0.4+hash(cid+4.7)*3.2; float temp=hash(cid+5.9);
-                float tw=0.45+0.55*sin(u_time*sp+ph); vec2 d=f-(o+pos); float dist=length(d);
-                float core=smoothstep(0.06*(0.5+b),0.0,dist); float halo=smoothstep(0.22*(0.4+b),0.0,dist)*0.25;
-                vec3 warm=vec3(1.,0.82,0.62); vec3 cool=vec3(0.70,0.84,1.); vec3 sc=mix(warm,cool,temp);
-                acc+=(core+halo)*tw*(0.35+b)*sc; } } } return acc; }
-          void main(){
-            vec2 uv=gl_FragCoord.xy/u_res.xy; vec2 p=(gl_FragCoord.xy-0.5*u_res.xy)/u_res.y; float t=u_time*0.012;
-            vec2 q=vec2(fbm(p*2.6+t),fbm(p*2.6-t+5.2));
-            vec2 r=vec2(fbm(p*2.6+q*1.8+t*1.3),fbm(p*2.6+q*1.8-t*0.7));
-            float f=fbm(p*2.6+r*2.0);
-            float mHa=fbm(p*2.2+r+vec2(3.1,t)); float mOiii=fbm(p*2.5+r+vec2(-4.0,-t*0.8));
-            float mDust=fbm(p*1.8+q+vec2(8.0,t*0.5)); float mMag=fbm(p*2.7+r+vec2(-1.5,t*1.1));
-            float mBlue=fbm(p*2.3+q+vec2(5.5,-t));
-            vec2 coreCentre=vec2(0.50,0.78); float coreAspect=u_res.x/u_res.y;
-            vec2 coreOff=(uv-coreCentre)*vec2(coreAspect*0.55,1.0); float coreDist=length(coreOff);
-            float coreWisp=fbm(p*1.4+vec2(t*0.4,-t*0.3)); float coreShape=coreDist*(0.72+coreWisp*0.35);
-            float coreBloom=smoothstep(0.55,0.0,coreShape);
-            float coreHalo=smoothstep(0.95,0.10,coreShape)*smoothstep(0.30,0.85,f);
-            vec3 space=vec3(0.012,0.018,0.045); vec3 hAlpha=vec3(0.88,0.16,0.28);
-            vec3 oIII=vec3(0.08,0.78,0.72); vec3 dust=vec3(0.92,0.64,0.30);
-            vec3 magenta=vec3(0.72,0.24,0.66); vec3 azure=vec3(0.00,0.47,0.83); vec3 cyan=vec3(0.34,0.92,1.00);
-            vec3 coreCol=vec3(1.00,0.42,0.58); vec3 reflectCol=vec3(0.38,0.58,1.00);
-            vec3 col=space;
-            col=mix(col,azure,smoothstep(0.45,0.90,mBlue)*0.55);
-            col=mix(col,hAlpha,smoothstep(0.55,0.95,mHa)*0.50);
-            col=mix(col,oIII,smoothstep(0.55,0.95,mOiii)*0.45);
-            col=mix(col,dust,smoothstep(0.62,0.97,mDust)*0.40);
-            col=mix(col,magenta,smoothstep(0.60,0.95,mMag)*0.30);
-            col=mix(col,cyan,pow(smoothstep(0.70,1.0,f),2.0)*0.40);
-            col=mix(col,reflectCol,coreHalo*0.55);
-            col+=dust*coreHalo*smoothstep(0.35,0.85,mDust)*0.35;
-            col+=coreCol*coreBloom*(0.75+coreWisp*0.35);
-            col*=0.55+0.85*f;
-            col+=starLayer(uv*vec2(u_res.x/u_res.y,1.0),120.0,0.10,11.0);
-            col+=starLayer(uv*vec2(u_res.x/u_res.y,1.0),70.0,0.07,47.0);
-            col+=starLayer(uv*vec2(u_res.x/u_res.y,1.0),38.0,0.05,91.0)*1.4;
-            vec3 coreStars=starLayer(uv*vec2(u_res.x/u_res.y,1.0),22.0,0.14,137.0);
-            col+=coreStars*smoothstep(0.75,0.05,coreShape)*1.6;
-            float vig=smoothstep(1.25,0.35,length(uv-0.5)*1.4); col*=mix(0.5,1.0,vig);
-            // A touch dimmer than the standalone demo so the foreground stays calm.
-            col *= 0.82;
-            col=col/(col+0.55); col=pow(col,vec3(0.85));
-            gl_FragColor=vec4(col,1.0);
-          }`;
-        function compile(type, src){ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
-          if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
-        const prog=gl.createProgram();
-        gl.attachShader(prog,compile(gl.VERTEX_SHADER,vert));
-        gl.attachShader(prog,compile(gl.FRAGMENT_SHADER,frag));
-        gl.linkProgram(prog); gl.useProgram(prog);
-        const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf);
-        gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
-        const loc=gl.getAttribLocation(prog,"a"); gl.enableVertexAttribArray(loc);
-        gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
-        const uRes=gl.getUniformLocation(prog,"u_res"), uTime=gl.getUniformLocation(prog,"u_time");
-        function resize(){ const dpr=Math.min(window.devicePixelRatio||1,2);
-          canvas.width=Math.floor(innerWidth*dpr); canvas.height=Math.floor(innerHeight*dpr);
-          gl.viewport(0,0,canvas.width,canvas.height); }
-        addEventListener("resize",resize); resize();
-        const start=performance.now();
-        function frame(now){ gl.uniform2f(uRes,canvas.width,canvas.height);
-          gl.uniform1f(uTime,(now-start)/1000); gl.drawArrays(gl.TRIANGLES,0,3);
-          if(!reduceMotion) requestAnimationFrame(frame); }
-        if(reduceMotion){ gl.uniform2f(uRes,canvas.width,canvas.height); gl.uniform1f(uTime,8.0);
-          gl.drawArrays(gl.TRIANGLES,0,3); } else requestAnimationFrame(frame);
-      })();
-    </script>
-
-    <!-- ================= Foreground (Three.js), minimal ================= -->
-    <script type="importmap">
-      {
-        "imports": {
-          "three": "https://esm.sh/three@0.185.1",
-          "three/addons/": "https://esm.sh/three@0.185.1/examples/jsm/"
-        }
-      }
-    </script>
-    <script type="module">
-      import * as THREE from "three";
-      import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
-      import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
-      import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
-
+      // ---------------- Living nebula (raw WebGL) ----------------
+      // Fragment shader adapted from site/public/nebula-demo.html, with one
+      // added uniform `u_life` (0..1.2): as it rises the clouds brighten, the
+      // colours deepen, and the core swells - the nebula "comes to life".
+      const canvas = document.getElementById("nebula");
+      const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
       const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-      // Estate graph - same real topology, rendered as a quiet constellation.
-      const NODES = [
-        { id: "event-bus",         x: -4.6, y:  1.7, deps: [] },
-        { id: "state-store",       x: -5.0, y:  0.2, deps: [] },
-        { id: "secret",            x: -4.6, y: -1.3, deps: [] },
-        { id: "workload-identity", x: -3.3, y: -2.3, deps: [] },
-        { id: "inventory",         x: -3.1, y:  2.6, deps: [] },
-        { id: "event-hubs",        x: -1.9, y:  2.0, deps: ["event-bus"] },
-        { id: "postgres",          x: -2.1, y: -0.6, deps: ["state-store"] },
-        { id: "key-vault",         x: -2.3, y: -1.9, deps: ["secret"] },
-        { id: "managed-identity",  x: -0.6, y: -2.5, deps: ["workload-identity"] },
-        { id: "log-analytics",     x:  1.9, y:  2.3, deps: ["inventory"] },
-        { id: "container-app",     x:  0.2, y:  0.2, deps: ["event-hubs","postgres","key-vault","managed-identity"] },
-        { id: "odin",     x:  3.3, y:  1.5, deps: ["container-app"] },
-        { id: "forseti",  x:  3.9, y:  0.0, deps: ["container-app"] },
-        { id: "thor",     x:  3.5, y: -1.4, deps: ["container-app"] },
-        { id: "heimdall", x:  1.9, y: -2.3, deps: ["container-app","log-analytics"] },
-        { id: "saga",     x:  2.5, y:  2.7, deps: ["container-app"] },
-      ];
-      const byId = Object.fromEntries(NODES.map((n) => [n.id, n]));
+      const vert = `attribute vec2 a; void main(){ gl_Position = vec4(a,0.0,1.0); }`;
+      const frag = `
+        precision highp float;
+        uniform vec2 u_res; uniform float u_time; uniform float u_life;
+        float hash(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
+        vec2 hash2(vec2 p){ return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))))*43758.5453); }
+        float noise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
+          float a=hash(i),b=hash(i+vec2(1.,0.)),c=hash(i+vec2(0.,1.)),d=hash(i+vec2(1.,1.));
+          return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }
+        float fbm(vec2 p){ float v=0.,amp=0.5; for(int i=0;i<6;i++){ v+=amp*noise(p); p*=2.02; amp*=0.5;} return v; }
+        vec3 starLayer(vec2 uv,float scale,float density,float seed){
+          vec2 g=uv*scale+seed; vec2 id=floor(g); vec2 f=fract(g); vec3 acc=vec3(0.);
+          for(int y=-1;y<=1;y++){ for(int x=-1;x<=1;x++){
+            vec2 o=vec2(float(x),float(y)); vec2 cid=id+o; float present=hash(cid+seed*3.7);
+            if(present>1.0-density){ vec2 pos=hash2(cid+1.3); float b=hash(cid+2.1);
+              float ph=hash(cid+3.4)*6.2831; float sp=0.4+hash(cid+4.7)*3.2; float temp=hash(cid+5.9);
+              float tw=0.45+0.55*sin(u_time*sp+ph); vec2 d=f-(o+pos); float dist=length(d);
+              float core=smoothstep(0.06*(0.5+b),0.0,dist); float halo=smoothstep(0.22*(0.4+b),0.0,dist)*0.25;
+              vec3 warm=vec3(1.,0.82,0.62); vec3 cool=vec3(0.70,0.84,1.); vec3 sc=mix(warm,cool,temp);
+              acc+=(core+halo)*tw*(0.35+b)*sc; } } } return acc; }
+        void main(){
+          vec2 uv=gl_FragCoord.xy/u_res.xy; vec2 p=(gl_FragCoord.xy-0.5*u_res.xy)/u_res.y; float t=u_time*0.012;
+          float life=clamp(u_life,0.0,1.25);
+          vec2 q=vec2(fbm(p*2.6+t),fbm(p*2.6-t+5.2));
+          vec2 r=vec2(fbm(p*2.6+q*1.8+t*1.3),fbm(p*2.6+q*1.8-t*0.7));
+          float f=fbm(p*2.6+r*2.0);
+          float mHa=fbm(p*2.2+r+vec2(3.1,t)); float mOiii=fbm(p*2.5+r+vec2(-4.0,-t*0.8));
+          float mDust=fbm(p*1.8+q+vec2(8.0,t*0.5)); float mMag=fbm(p*2.7+r+vec2(-1.5,t*1.1));
+          float mBlue=fbm(p*2.3+q+vec2(5.5,-t));
+          // The core drifts toward the centre and swells as life rises.
+          vec2 coreCentre=mix(vec2(0.50,0.74), vec2(0.50,0.56), life*0.85);
+          float coreAspect=u_res.x/u_res.y;
+          vec2 coreOff=(uv-coreCentre)*vec2(coreAspect*0.55,1.0); float coreDist=length(coreOff);
+          float coreWisp=fbm(p*1.4+vec2(t*0.4,-t*0.3)); float coreShape=coreDist*(0.72+coreWisp*0.35);
+          float coreBloom=smoothstep(0.55,0.0,coreShape);
+          float coreHalo=smoothstep(0.95,0.10,coreShape)*smoothstep(0.30,0.85,f);
+          vec3 space=vec3(0.012,0.018,0.045); vec3 hAlpha=vec3(0.88,0.16,0.28);
+          vec3 oIII=vec3(0.08,0.78,0.72); vec3 dust=vec3(0.92,0.64,0.30);
+          vec3 magenta=vec3(0.72,0.24,0.66); vec3 azure=vec3(0.00,0.47,0.83); vec3 cyan=vec3(0.34,0.92,1.00);
+          vec3 coreCol=vec3(1.00,0.42,0.58); vec3 reflectCol=vec3(0.38,0.58,1.00);
+          // emission deepens with life
+          float em = 0.7 + life*0.6;
+          vec3 col=space;
+          col=mix(col,azure,smoothstep(0.45,0.90,mBlue)*0.55*em);
+          col=mix(col,hAlpha,smoothstep(0.55,0.95,mHa)*0.50*em);
+          col=mix(col,oIII,smoothstep(0.55,0.95,mOiii)*0.45*em);
+          col=mix(col,dust,smoothstep(0.62,0.97,mDust)*0.40*em);
+          col=mix(col,magenta,smoothstep(0.60,0.95,mMag)*0.30*em);
+          col=mix(col,cyan,pow(smoothstep(0.70,1.0,f),2.0)*0.40*em);
+          col=mix(col,reflectCol,coreHalo*0.55);
+          col+=dust*coreHalo*smoothstep(0.35,0.85,mDust)*0.35;
+          // the core bloom grows with life - this is the "presence" waking
+          col+=coreCol*coreBloom*(0.75+coreWisp*0.35)*(0.55+life*0.9);
+          col*=0.55+0.85*f;
+          col+=starLayer(uv*vec2(u_res.x/u_res.y,1.0),120.0,0.10,11.0);
+          col+=starLayer(uv*vec2(u_res.x/u_res.y,1.0),70.0,0.07,47.0);
+          col+=starLayer(uv*vec2(u_res.x/u_res.y,1.0),38.0,0.05,91.0)*1.4;
+          vec3 coreStars=starLayer(uv*vec2(u_res.x/u_res.y,1.0),22.0,0.14,137.0);
+          col+=coreStars*smoothstep(0.75,0.05,coreShape)*1.6;
+          float vig=smoothstep(1.25,0.35,length(uv-0.5)*1.4); col*=mix(0.55,1.0,vig);
+          // overall luminance rises smoothly as the system comes alive
+          col *= mix(0.82, 1.16, life);
+          col=col/(col+0.55); col=pow(col,vec3(0.85));
+          gl_FragColor=vec4(col,1.0);
+        }`;
 
-      // Sparse, calm timeline. Most ignitions are SILENT; only a few quiet
-      // lines. The failure is acknowledged softly, never alarmed.
+      function compile(type, src){ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+        if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+      const prog=gl.createProgram();
+      gl.attachShader(prog,compile(gl.VERTEX_SHADER,vert));
+      gl.attachShader(prog,compile(gl.FRAGMENT_SHADER,frag));
+      gl.linkProgram(prog); gl.useProgram(prog);
+      const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+      const loc=gl.getAttribLocation(prog,"a"); gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+      const uRes=gl.getUniformLocation(prog,"u_res");
+      const uTime=gl.getUniformLocation(prog,"u_time");
+      const uLife=gl.getUniformLocation(prog,"u_life");
+
+      function resize(){ const dpr=Math.min(window.devicePixelRatio||1,2);
+        canvas.width=Math.floor(innerWidth*dpr); canvas.height=Math.floor(innerHeight*dpr);
+        gl.viewport(0,0,canvas.width,canvas.height); }
+      addEventListener("resize",resize); resize();
+
+      // life: eased toward lifeTarget every frame so every change is smooth.
+      // Before "touch to begin" the nebula sits calm and visible at rest.
+      let life = 0.28, lifeTarget = 0.28;
+      const start=performance.now(); let last=start;
+      function frame(now){
+        const dt=Math.min((now-last)/1000,0.05); last=now;
+        life += (lifeTarget - life) * (1 - Math.exp(-dt * 1.4));
+        gl.uniform2f(uRes,canvas.width,canvas.height);
+        gl.uniform1f(uTime,(now-start)/1000);
+        gl.uniform1f(uLife,life);
+        gl.drawArrays(gl.TRIANGLES,0,3);
+        if(!reduceMotion) requestAnimationFrame(frame);
+      }
+      if(reduceMotion){ life=0.9; gl.uniform2f(uRes,canvas.width,canvas.height);
+        gl.uniform1f(uTime,8.0); gl.uniform1f(uLife,life); gl.drawArrays(gl.TRIANGLES,0,3); }
+      else requestAnimationFrame(frame);
+
+      // ---------------- Narration timeline ----------------
+      // Sparse, calm. `life` sets how alive the nebula is at each beat; the
+      // failure is a gentle dip, acknowledged by one sentence.
       const T = [
-        { id: "event-bus", st: "lit", cap: "Waking up.", hold: 2600 },
-        { id: "state-store", st: "lit", hold: 1400 },
-        { id: "secret", st: "lit", hold: 1400 },
-        { id: "workload-identity", st: "lit", hold: 1400 },
-        { id: "inventory", st: "lit", cap: "I can see your estate now.", hold: 2800 },
-        { id: "event-hubs", st: "lit", hold: 1100 },
-        { id: "postgres", st: "lit", hold: 1100 },
-        { id: "key-vault", st: "lit", hold: 1100 },
-        { id: "managed-identity", st: "lit", hold: 1500 },
-        { id: "log-analytics", st: "waiting", cap: "Something isn't ready. I'll wait, and try again.", hold: 3200 },
-        { id: "log-analytics", st: "lit", cap: "There.", hold: 2400 },
-        { id: "container-app", st: "core", cap: "I'm thinking now.", hold: 3200 },
-        { id: "odin", st: "lit", hold: 900 },
-        { id: "forseti", st: "lit", hold: 900 },
-        { id: "thor", st: "lit", hold: 900 },
-        { id: "heimdall", st: "lit", hold: 900 },
-        { id: "saga", st: "lit", hold: 2200 },
-        { id: "*", st: "done", cap: "I'm here. Whenever you need me.", hold: 0 },
+        { life: 0.42, cap: "Waking up.", hold: 3200 },
+        { life: 0.58, cap: "I can see your estate now.", hold: 3400 },
+        { life: 0.34, cap: "Something isn't ready. I'll wait, and try again.", hold: 3600 },
+        { life: 0.7,  cap: "There.", hold: 2800 },
+        { life: 0.95, cap: "I'm thinking now.", hold: 3400 },
+        { life: 1.16, cap: "I'm here. Whenever you need me.", hold: 0 },
       ];
 
-      const COL = {
-        dim:     new THREE.Color(0x2a3658),
-        lit:     new THREE.Color(0xbfe6ff),
-        waiting: new THREE.Color(0xf0b477), // warm, not alarm-red
-        core:    new THREE.Color(0xffffff),
-      };
-
-      const canvas = document.getElementById("scene");
-      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
-      camera.position.set(0, 0, 9);
-
-      let composer = null, bloomPass = null;
-      if (!reduceMotion) {
-        composer = new EffectComposer(renderer);
-        composer.addPass(new RenderPass(scene, camera));
-        // Gentle, constant bloom - no spikes.
-        bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.75, 0.0);
-        composer.addPass(bloomPass);
-      }
-
-      function glowTexture() {
-        const c = document.createElement("canvas"); c.width = c.height = 128;
-        const g = c.getContext("2d");
-        const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-        grd.addColorStop(0.0, "rgba(255,255,255,1)");
-        grd.addColorStop(0.3, "rgba(255,255,255,0.7)");
-        grd.addColorStop(0.6, "rgba(255,255,255,0.18)");
-        grd.addColorStop(1.0, "rgba(255,255,255,0)");
-        g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
-        return new THREE.CanvasTexture(c);
-      }
-      const GLOW = glowTexture();
-
-      const runtime = {};
-      for (const def of NODES) {
-        const mat = new THREE.SpriteMaterial({
-          map: GLOW, color: COL.dim.clone(), transparent: true, opacity: 0.16,
-          blending: THREE.AdditiveBlending, depthWrite: false,
-        });
-        const sprite = new THREE.Sprite(mat);
-        sprite.position.set(def.x, def.y, 0);
-        const base = def.id === "container-app" ? 0.85 : 0.5; // small, quiet points
-        sprite.scale.setScalar(base);
-        scene.add(sprite);
-        runtime[def.id] = { def, sprite, base, state: "dim", phase: Math.random() * 6 };
-      }
-
-      // Faint filaments.
-      const filaments = [];
-      for (const def of NODES) {
-        for (const dep of def.deps) {
-          const from = byId[dep], to = def;
-          const g = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(from.x, from.y, 0), new THREE.Vector3(to.x, to.y, 0),
-          ]);
-          const m = new THREE.LineBasicMaterial({
-            color: 0x8fd0ff, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending,
-          });
-          const line = new THREE.Line(g, m);
-          scene.add(line);
-          filaments.push({ line, fromId: dep, toId: def.id });
-        }
-      }
-
-      function resize() {
-        const w = innerWidth, h = innerHeight;
-        renderer.setSize(w, h, false);
-        camera.aspect = w / h;
-        camera.position.z = w / h < 1.1 ? 12 : 9;
-        camera.updateProjectionMatrix();
-        if (composer) { composer.setSize(w, h); bloomPass.resolution.set(w, h); }
-      }
-      addEventListener("resize", resize); resize();
-
-      const clock = new THREE.Clock();
-      let elapsed = 0;
-      const lit = (s) => s === "lit" || s === "core";
-      function render() {
-        const dt = Math.min(clock.getDelta(), 0.05); elapsed += dt;
-        for (const id in runtime) {
-          const r = runtime[id]; r.phase += dt;
-          const mat = r.sprite.material;
-          let targetCol = COL.dim, targetOp = 0.16, targetScale = r.base;
-          if (r.state === "lit") { targetCol = COL.lit; targetOp = 0.7 + 0.05 * Math.sin(r.phase * 0.9); }
-          else if (r.state === "core") { targetCol = COL.core; targetOp = 0.9 + 0.05 * Math.sin(r.phase * 0.7); targetScale = r.base * 1.15; }
-          else if (r.state === "waiting") { targetCol = COL.waiting; targetOp = 0.22 + 0.12 * Math.sin(r.phase * 1.3); } // slow soft breath
-          // very slow eases - nothing snappy
-          mat.color.lerp(targetCol, 1 - Math.exp(-dt * 2.2));
-          mat.opacity += (targetOp - mat.opacity) * (1 - Math.exp(-dt * 2.2));
-          const cur = r.sprite.scale.x;
-          r.sprite.scale.setScalar(cur + (targetScale - cur) * (1 - Math.exp(-dt * 2.2)));
-        }
-        for (const f of filaments) {
-          const on = lit(runtime[f.fromId].state) && lit(runtime[f.toId].state);
-          const tgt = on ? 0.14 : 0.0;
-          f.line.material.opacity += (tgt - f.line.material.opacity) * (1 - Math.exp(-dt * 1.6));
-        }
-        if (!reduceMotion) {
-          // barely-perceptible drift
-          camera.position.x += (Math.sin(elapsed * 0.06) * 0.18 - camera.position.x) * dt * 0.3;
-          camera.position.y += (Math.cos(elapsed * 0.05) * 0.10 - camera.position.y) * dt * 0.3;
-          camera.lookAt(0, 0, 0);
-        }
-        if (composer) composer.render(); else renderer.render(scene, camera);
-        requestAnimationFrame(render);
-      }
-      requestAnimationFrame(render);
-
-      // ---- caption + runner ----
       const captionEl = document.getElementById("caption");
-      let voiceOn = false;
-      function say(text) {
-        if (!text) return;
-        captionEl.classList.remove("on");
-        setTimeout(() => { captionEl.textContent = text; captionEl.classList.add("on"); }, 380);
-        if (voiceOn && "speechSynthesis" in window) {
-          const u = new SpeechSynthesisUtterance(text);
-          u.rate = 0.92; u.pitch = 1.0; u.volume = 0.85;
+      const enterEl = document.getElementById("enter");
+      const againEl = document.getElementById("again");
+      let voiceOn = false, running = false, capTimer = null;
+
+      function say(text){
+        if(!text) return;
+        captionEl.classList.remove("on");           // fade out (1s, matches CSS)
+        clearTimeout(capTimer);
+        capTimer = setTimeout(() => {               // swap only after fully faded
+          captionEl.textContent = text; captionEl.classList.add("on");
+        }, 1000);
+        if(voiceOn && "speechSynthesis" in window){
+          const u=new SpeechSynthesisUtterance(text); u.rate=0.9; u.pitch=1.0; u.volume=0.85;
           speechSynthesis.cancel(); speechSynthesis.speak(u);
         }
       }
-      function setState(id, st) { if (id !== "*") runtime[id].state = st; }
-      function reset() { for (const id in runtime) { runtime[id].state = "dim"; } captionEl.classList.remove("on"); }
+      const sleep = (ms)=>new Promise(r=>setTimeout(r, reduceMotion ? Math.min(ms,500) : ms));
 
-      let running = false;
-      const againEl = document.getElementById("again");
-      function sleep(ms) { return new Promise((r) => setTimeout(r, reduceMotion ? Math.min(ms, 400) : ms)); }
-      async function run() {
-        if (running) return; running = true; againEl.classList.remove("on"); reset();
-        await sleep(700);
-        for (const step of T) {
-          if (step.id === "*") { say(step.cap); break; }
-          setState(step.id, step.st);
-          if (step.cap) say(step.cap);
-          await sleep(step.hold);
-        }
-        setTimeout(() => againEl.classList.add("on"), 2200);
+      async function run(){
+        if(running) return; running = true; againEl.classList.remove("on");
+        await sleep(600);
+        for(const step of T){ lifeTarget = step.life; say(step.cap); await sleep(step.hold); }
+        setTimeout(()=>againEl.classList.add("on"), 2400);
         running = false;
       }
 
-      const enterEl = document.getElementById("enter");
-      enterEl.addEventListener("click", () => { enterEl.classList.add("hide"); run(); });
-      againEl.addEventListener("click", () => { if (!running) run(); });
+      enterEl.addEventListener("click", ()=>{ enterEl.classList.add("hide"); run(); });
+      againEl.addEventListener("click", ()=>{ if(!running) run(); });
     </script>
   </body>
 </html>
