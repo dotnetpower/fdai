@@ -117,6 +117,21 @@ class TestProgressFraction:
         events = bridge.feed(_line(_apply_complete("a")))
         assert events[0].fraction == 0.0
 
+    def test_duplicate_apply_complete_not_double_counted(self) -> None:
+        bridge = TerraformProvisionBridge()
+        bridge.feed(_line(_plan_summary(add=2)))
+        first = bridge.feed(_line(_apply_complete("a")))
+        dup = bridge.feed(_line(_apply_complete("a")))  # re-emit for same addr
+        assert first[0].fraction == 0.5
+        assert dup == []  # no second progress, fraction not inflated
+
+    def test_zero_replan_does_not_wipe_denominator(self) -> None:
+        bridge = TerraformProvisionBridge()
+        bridge.feed(_line(_plan_summary(add=4)))
+        bridge.feed(_line(_plan_summary()))  # refresh/no-op replan reports 0
+        events = bridge.feed(_line(_apply_complete("a")))
+        assert events[0].fraction == 0.25  # denominator preserved
+
 
 # ---------------------------------------------------------------------------
 # TerraformProvisionBridge - waiting / resumed

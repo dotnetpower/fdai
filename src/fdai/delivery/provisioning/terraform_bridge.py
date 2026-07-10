@@ -119,6 +119,7 @@ class TerraformProvisionBridge:
 
     _planned_total: int = field(default=0, init=False)
     _applied: int = field(default=0, init=False)
+    _applied_addrs: set[str] = field(default_factory=set, init=False)
     _waiting: set[str] = field(default_factory=set, init=False)
     _console_url: str | None = field(default=None, init=False)
     _done: bool = field(default=False, init=False)
@@ -175,7 +176,11 @@ class TerraformProvisionBridge:
                 value = changes.get(key)
                 if isinstance(value, int) and value > 0:
                     total += value
-            self._planned_total = total
+            # Only adopt a positive denominator. A later refresh/replan that
+            # reports 0 (a no-op cycle) MUST NOT wipe a real denominator and
+            # snap the meter back to 0%.
+            if total > 0:
+                self._planned_total = total
             return []
         if operation == "apply" and not self._done:
             # Terraform emits the `outputs` message AFTER the apply
@@ -239,6 +244,12 @@ class TerraformProvisionBridge:
         if addr is not None and addr in self._waiting:
             self._waiting.discard(addr)
             events.append(self._event(ProvisionPhase.RESUMED, node=addr))
+        if addr is not None:
+            if addr in self._applied_addrs:
+                # Duplicate completion (Terraform can re-emit on retry/replace):
+                # already counted, so do not advance the fraction twice.
+                return events
+            self._applied_addrs.add(addr)
         self._applied += 1
         events.append(self._event(ProvisionPhase.PROGRESS, fraction=self.fraction, node=addr))
         return events
