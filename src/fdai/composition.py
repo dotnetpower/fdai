@@ -667,6 +667,28 @@ def bind_github_change_feed(
     return replace(container, change_feed=feed)
 
 
+def load_pricing_table(path: Path) -> PricingTable:
+    """Load an LLM :class:`PricingTable` from a ``llm-pricing.yaml`` file.
+
+    The file's top-level ``models`` mapping is passed to
+    :meth:`PricingTable.from_mapping`; ``schema_version`` and any other
+    top-level keys are ignored. Raises :class:`ValueError` on a malformed
+    file so a bad price table is caught at composition time, not at bill
+    time. A fork calls this to build the table it injects via
+    :attr:`AzureWireOverrides.pricing`.
+    """
+    import yaml  # local import: only the composition root reads config files
+
+    with path.open(encoding="utf-8") as handle:
+        raw = yaml.safe_load(handle)
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"pricing file {path} MUST contain a mapping")
+    models = raw.get("models")
+    if not isinstance(models, Mapping):
+        raise ValueError(f"pricing file {path} MUST declare a 'models' mapping")
+    return PricingTable.from_mapping(models)
+
+
 def _load_resolved_models(path_or_ref: str) -> ResolvedModels:
     """Load ``resolved-models.json``.
 
@@ -937,6 +959,20 @@ async def wire_azure_container(
         },
     )
 
+    # Default-load the shipped price table when a metering sink is wired
+    # but no explicit pricing was supplied, so an injected sink produces
+    # priced (not null-cost) records out of the box. A malformed file is
+    # logged and degrades to unpriced rather than failing startup.
+    pricing = overrides.pricing
+    if pricing is None and overrides.metering_sink is not None:
+        pricing_path = overrides.catalog_root / "llm-pricing.yaml"
+        if pricing_path.is_file():
+            try:
+                pricing = load_pricing_table(pricing_path)
+            except Exception:  # noqa: BLE001 - pricing is best-effort, never fatal
+                _LOGGER.warning("pricing_load_failed", extra={"path": str(pricing_path)})
+                pricing = None
+
     return bind_azure_llm_bindings(
         container,
         identity=identity,
@@ -951,7 +987,7 @@ async def wire_azure_container(
         judge_system_prompt=judge_system_prompt,
         rca_system_prompt=rca_system_prompt,
         metering_sink=overrides.metering_sink,
-        pricing=overrides.pricing,
+        pricing=pricing,
     )
 
 
@@ -963,5 +999,6 @@ __all__ = [
     "bind_azure_llm_bindings",
     "default_container",
     "default_container_from_env",
+    "load_pricing_table",
     "wire_azure_container",
 ]
