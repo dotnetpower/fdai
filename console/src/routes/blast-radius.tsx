@@ -10,6 +10,7 @@ import {
   type Column,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
+import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 
 /**
@@ -162,6 +163,11 @@ function ReportView({ data }: { readonly data: BlastRadiusResponse }) {
     () => ({
       routeId: "blast-radius",
       routeLabel: "Blast radius",
+      purpose:
+        "Simulates how many resources one action could reach by traversing the " +
+        "resource graph from a target. The risk gate caps blast radius so a " +
+        "single change can never touch more than its scope. Read-only what-if.",
+      glossary: composeGlossary([TERMS.blastRadius, TERMS.actionType]),
       headline: `${data.affected_count} resource(s) reachable at depth ${data.traversal_depth}${data.truncated_at_depth ? " (truncated)" : ""}`,
       capturedAt: new Date().toISOString(),
       facts: [

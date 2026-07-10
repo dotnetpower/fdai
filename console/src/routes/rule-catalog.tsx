@@ -16,6 +16,7 @@ import {
   type PillKind,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
+import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 
 /**
@@ -505,6 +506,12 @@ function RuleCatalogBody({
       return {
         routeId: "rules",
         routeLabel: "Rules",
+        purpose:
+          "The versioned rule catalog the deterministic engine (T0) evaluates - " +
+          "each rule normalized to id/severity/category/resource-type/check/" +
+          "remediation with provenance. Filter by origin, category, severity, " +
+          "or source. Read-only reference.",
+        glossary: composeGlossary([TERMS.actionType, TERMS.tier, TERMS.mode]),
         headline:
           selected !== null
             ? `Rule ${selected.id} selected - ${data.total} rules (${active} active, ${collected} collected)`

@@ -11,6 +11,7 @@ import {
   type Column,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
+import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 
 interface Props {
@@ -69,6 +70,17 @@ function HilBody({ items }: { readonly items: readonly HilQueueItem[] }) {
     () => ({
       routeId: "hil-queue",
       routeLabel: "HIL queue",
+      purpose:
+        "High-risk actions the risk gate parked for a human approver instead of " +
+        "auto-executing. Read-only: approvals happen in Teams/ChatOps cards, " +
+        "never a console button, and never self-approval. Each item shows the " +
+        "recorded reason it needs a human.",
+      glossary: composeGlossary([
+        TERMS.hil,
+        TERMS.actionKind,
+        TERMS.gateDecision,
+        TERMS.correlationId,
+      ]),
       headline: items.length === 0
         ? "No pending HIL items"
         : `${items.length} item(s) waiting for a human approver`,

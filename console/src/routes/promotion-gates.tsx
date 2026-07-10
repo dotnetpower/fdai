@@ -11,6 +11,7 @@ import {
   type Column,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
+import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 
 /**
@@ -90,6 +91,17 @@ function PromotionBody({ data }: { readonly data: Response }) {
     () => ({
       routeId: "promotion-gates",
       routeLabel: "Promotion gates",
+      purpose:
+        "Which ActionTypes running in shadow mode have met their promotion gate " +
+        "(measured accuracy with zero policy escapes) and are ready to enforce, " +
+        "and which are still blocked and why. Read-only: promotion itself is a " +
+        "separately reviewed change.",
+      glossary: composeGlossary([
+        TERMS.actionType,
+        TERMS.shadowMode,
+        TERMS.mode,
+        TERMS.gateDecision,
+      ]),
       headline: `${data.ready_count} ready - ${data.blocked_count} blocked${data.window_days !== null ? ` (window ${data.window_days}d)` : ""}`,
       capturedAt: new Date().toISOString(),
       facts: [

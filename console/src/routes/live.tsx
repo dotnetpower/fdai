@@ -40,6 +40,7 @@ import type {
 } from "../hooks/use-live-stream";
 import { useLiveStream } from "../hooks/use-live-stream";
 import { usePublishViewContext } from "../deck/context";
+import { TERMS, composeGlossary } from "../deck/glossary";
 
 interface Props {
   readonly client: ReadApiClient;
@@ -670,6 +671,18 @@ export function LiveRoute({ client }: Props) {
       return {
         routeId: "live",
         routeLabel: "Live cockpit",
+        purpose:
+          "The real-time cockpit: events flowing through the trust router and " +
+          "risk gate right now, one tile per in-flight action, with the T0/T1/T2 " +
+          "tier mix and auto/hil/deny gate mix over a rolling 60s window. " +
+          "Read-only; streaming is presentation, never a judgment.",
+        glossary: composeGlossary([
+          TERMS.tier,
+          TERMS.gateDecision,
+          TERMS.mode,
+          TERMS.actionKind,
+          TERMS.shadowMode,
+        ]),
         headline: `${activeTileCount} tile(s), ${eps} eps, ${attentionTotal} needing attention`,
         capturedAt: new Date().toISOString(),
         facts: [

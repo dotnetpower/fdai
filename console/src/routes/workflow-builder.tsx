@@ -18,6 +18,7 @@ import { Fragment } from "preact";
 import type { ReadApiClient } from "../api";
 import { AsyncBoundary, CopyButton, PageHeader, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
+import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import {
   type ActionTypePaletteEntry,
@@ -377,6 +378,12 @@ function WorkflowShell({ data }: { readonly data: CombinedData }) {
       return {
         routeId: "workflow-builder",
         routeLabel: "Workflow builder",
+        purpose:
+          "Inspect the built-in workflows (a trigger plus an ordered chain of " +
+          "ActionType steps) and author a new one. New workflows are locked to " +
+          "shadow mode; promotion to enforce is a separate reviewed PR. " +
+          "Read-only inspection by default.",
+        glossary: composeGlossary([TERMS.actionType, TERMS.shadowMode, TERMS.mode]),
         headline: isNew
           ? `New-workflow builder open - fill the form; ${data.palette.length} ActionTypes to choose from`
           : `${data.workflows.length} built-in workflows - ${data.palette.length} ActionTypes`,

@@ -14,6 +14,7 @@ import {
   type OntologyNode,
 } from "../components/ontology-graph";
 import { usePublishViewContext } from "../deck/context";
+import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 
 /**
@@ -136,6 +137,11 @@ function OntologyBody({
       return {
         routeId: "ontology",
         routeLabel: "Ontology",
+        purpose:
+          "The registered ObjectTypes and LinkTypes - the typed vocabulary the " +
+          "control plane reasons over (resources, actions, and the causal links " +
+          "between them). Read-only reference.",
+        glossary: composeGlossary([TERMS.actionType, TERMS.blastRadius]),
         headline: `${data.object_type_count} ObjectTypes - ${data.link_type_count} LinkTypes`,
         capturedAt: new Date().toISOString(),
         facts: [

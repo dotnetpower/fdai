@@ -18,6 +18,7 @@ import {
   type Column,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
+import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 
 interface Props {
@@ -194,6 +195,17 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
       return {
         routeId: "dashboard",
         routeLabel: "Overview",
+        purpose:
+          "The at-a-glance health of the control plane: event volume, the " +
+          "shadow/enforce split, T0 deterministic share, HIL backlog, and " +
+          "estimated monthly savings across the verticals. Read-only summary.",
+        glossary: composeGlossary([
+          TERMS.tier,
+          TERMS.shadowMode,
+          TERMS.mode,
+          TERMS.hil,
+          TERMS.gateDecision,
+        ]),
         headline:
           `health ${healthy ? "healthy" : "attention"} - ` +
           `${kpi.hil_pending} HIL pending - ` +

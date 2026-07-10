@@ -9,6 +9,7 @@ import {
 } from "../components/ui";
 import { MermaidDiagram } from "../components/mermaid-diagram";
 import { usePublishViewContext } from "../deck/context";
+import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 
 /**
@@ -123,6 +124,11 @@ function PantheonBody({ data }: { readonly data: CombinedData }) {
     () => ({
       routeId: "pantheon",
       routeLabel: "Pantheon",
+      purpose:
+        "The 15 fixed pantheon agents and how they hand work off - who senses, " +
+        "judges, executes, approves, and audits. Shows reporting lines, owned " +
+        "action kinds, and which agents sit on the hot path. Read-only.",
+      glossary: composeGlossary([agentTerm(), TERMS.hil, TERMS.actionType]),
       headline: `${graph.agent_count} agents - ${workflows.count} workflows`,
       capturedAt: new Date().toISOString(),
       facts: [
