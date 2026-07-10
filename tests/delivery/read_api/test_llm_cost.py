@@ -128,6 +128,16 @@ def test_panel_rejects_bad_path() -> None:
         LlmCostPanel(InMemoryMeteringSink(), path="kpi/llm-cost")
 
 
+def test_panel_rejects_empty_source() -> None:
+    with pytest.raises(ValueError, match="source"):
+        LlmCostPanel(InMemoryMeteringSink(), source="")
+
+
+def test_panel_rejects_bad_max_conversations() -> None:
+    with pytest.raises(ValueError, match="max_conversations"):
+        LlmCostPanel(InMemoryMeteringSink(), max_conversations=0)
+
+
 def test_panel_metadata() -> None:
     panel = LlmCostPanel(InMemoryMeteringSink())
     assert panel.path == "/kpi/llm-cost"

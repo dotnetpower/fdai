@@ -47,6 +47,11 @@ def test_negative_cost_rejected() -> None:
         _invocation(cost=Decimal("-0.01"))
 
 
+def test_empty_currency_rejected() -> None:
+    with pytest.raises(ValueError, match="currency"):
+        _invocation(currency="")
+
+
 def test_cost_may_be_none() -> None:
     assert _invocation(cost=None).cost is None
 

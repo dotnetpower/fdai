@@ -39,6 +39,8 @@ def test_model_pricing_rejects_non_finite(bad: str) -> None:
     # NaN/Infinity parse as valid Decimals and slip a plain ``< 0`` guard.
     with pytest.raises(ValueError, match="finite"):
         ModelPricing(input_per_1k=Decimal(bad), output_per_1k=Decimal("0"))
+    with pytest.raises(ValueError, match="finite"):
+        ModelPricing(input_per_1k=Decimal("0"), output_per_1k=Decimal(bad))
 
 
 @pytest.mark.parametrize("bad", ["NaN", "Infinity"])
