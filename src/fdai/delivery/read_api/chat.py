@@ -359,6 +359,51 @@ def _snapshot_json_capped(view_context: dict[str, Any], cap: int) -> str:
     return json.dumps(stub, ensure_ascii=False)
 
 
+# Operator-locale directive. When the deck publishes a `_locale` in the
+# snapshot (or the operator's `_user.locale`), the L3 narrator renders the
+# final answer in that language while the pipeline stays English (L0). Only
+# emitted when the locale is a non-empty ASCII tag and not "en", so the default
+# path keeps its byte-identical lean prompt. Mirrors cli/src/narrator/llm.ts
+# `localeDirective(locale)`.
+_LOCALE_TAG: Final = re.compile(r"^[A-Za-z]{2}(?:[-_][A-Za-z0-9]{2,8})*$")
+
+
+def _extract_locale(view_context: dict[str, Any]) -> str | None:
+    """Read the operator locale from ``_locale`` or ``_user.locale``.
+
+    Returns ``None`` when the value is absent, not a string, malformed, or
+    already ``en`` (so no directive is prepended on the default path).
+    """
+    raw = view_context.get("_locale")
+    if not isinstance(raw, str):
+        user = view_context.get("_user")
+        if isinstance(user, dict):
+            raw = user.get("locale")
+    if not isinstance(raw, str) or not raw:
+        return None
+    tag = raw.strip()
+    if not _LOCALE_TAG.match(tag):
+        return None
+    primary = tag.split("-", 1)[0].split("_", 1)[0].lower()
+    if primary == "en":
+        return None
+    return tag
+
+
+def _locale_directive(locale: str) -> str:
+    """Build the single-line locale directive for a non-English operator.
+
+    Wording matches the CLI narrator (``cli/src/narrator/llm.ts``): render
+    the final answer in the operator's language, but keep every identifier,
+    code fragment, and numeric value verbatim so grounding stays exact.
+    """
+    return (
+        f"L3 rendering: answer in the operator's language (BCP-47 '{locale}'). "
+        "Keep every id, number, tool output, code fragment, and column name "
+        "verbatim in English - only the surrounding prose is localised."
+    )
+
+
 def _build_messages(
     prompt: str,
     view_context: dict[str, Any],
@@ -373,6 +418,7 @@ def _build_messages(
     streaming path) build byte-identical, minimal prompts.
     """
     view_context = _trim_view_context(view_context)
+    locale = _extract_locale(view_context)
     snapshot_json = _snapshot_json_capped(view_context, DEFAULT_MAX_CONTEXT_BYTES)
     glossary = _GLOSSARY if _is_concept_query(prompt) else ""
     capabilities = _CAPABILITIES if _is_capability_query(prompt) else ""
@@ -380,6 +426,12 @@ def _build_messages(
         capabilities=capabilities, glossary=glossary, snapshot_json=snapshot_json
     )
     messages: list[dict[str, str]] = [{"role": "system", "content": system}]
+    # Locale directive is a separate second system message so the base prompt
+    # stays byte-identical for English operators (matches the CLI narrator's
+    # two-message shape when locale != "en"). Skipped when locale is absent
+    # or already English.
+    if locale is not None:
+        messages.append({"role": "system", "content": _locale_directive(locale)})
     for turn in history[-DEFAULT_MAX_HISTORY_TURNS:]:
         role = turn.get("role")
         content = turn.get("content")

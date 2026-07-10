@@ -565,3 +565,48 @@ def test_genuine_upstream_faults_map_to_502(status: int, body: str) -> None:
         _raise_upstream_error(status, body)
     assert ei.value.status_code == 502
     assert ei.value.detail == "chat upstream error"
+
+
+# ---------------------------------------------------------------------------
+# Operator locale directive (L3 renders in operator's locale)
+# ---------------------------------------------------------------------------
+
+
+def _messages(*args, **kwargs) -> list[dict[str, str]]:
+    return _build_messages(*args, **kwargs)
+
+
+def test_english_locale_omits_directive_and_stays_lean() -> None:
+    # Byte-identical default: no locale, "en", "en-US" -> single system msg.
+    for ctx in ({}, {"_locale": "en"}, {"_locale": "en-US"}):
+        msgs = _messages("hi", ctx, [])
+        assert len(msgs) == 2  # system + user
+        assert msgs[0]["role"] == "system"
+        assert msgs[1]["role"] == "user"
+
+
+def test_non_english_locale_prepends_second_system_directive() -> None:
+    msgs = _messages("how many rules?", {"_locale": "ko"}, [])
+    # system (base) + system (locale directive) + user
+    assert [m["role"] for m in msgs] == ["system", "system", "user"]
+    directive = msgs[1]["content"]
+    assert "'ko'" in directive
+    assert "operator's language" in directive
+    assert "verbatim" in directive  # ids/numbers stay English
+
+
+def test_user_locale_from_user_block_wins_when_locale_absent() -> None:
+    msgs = _messages("hi", {"_user": {"name": "Ada", "locale": "ja"}}, [])
+    assert len(msgs) == 3
+    assert "'ja'" in msgs[1]["content"]
+
+
+def test_malformed_locale_falls_back_to_english() -> None:
+    for bad in ({"_locale": ""}, {"_locale": "not a tag!"}, {"_locale": 42}):
+        msgs = _messages("hi", bad, [])
+        assert len(msgs) == 2  # no directive
+
+
+def test_locale_directive_composes_with_user_turn() -> None:
+    msgs = _messages("explain T2", {"_locale": "ko"}, [])
+    assert msgs[-1] == {"role": "user", "content": "explain T2"}
