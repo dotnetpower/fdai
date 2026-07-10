@@ -11,19 +11,23 @@
  * - The right column shows the current ViewSnapshot, so the operator
  *   literally sees what the assistant grounds its answers on. Nothing
  *   hidden.
- * - Purely read-only: the deck can invoke the deterministic answerer
- *   and (future) an LLM narrator behind the same seam. It never issues
- *   privileged calls.
+ * - Read-only for questions; for an explicit operator command it submits a
+ *   PROPOSAL to the typed pipeline (POST /chat/action) - it never executes.
+ *   Nothing changes until Forseti judges the proposal and an approver signs
+ *   off a high-risk one (execution is shadow-first, RBAC server-enforced).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
   askBackendStream,
   probeBackend,
+  renderActionResult,
+  submitAction,
   type BackendHealth,
   type BackendTurn,
   type RouterSnapshot,
 } from "./backend";
+import { detectActionIntent } from "./action-intent";
 import { useViewContext } from "./context";
 import {
   EMPTY_HISTORY,
@@ -100,6 +104,9 @@ export function CommandDeck() {
   const abortRef = useRef<AbortController | null>(null);
   const inFlightRef = useRef(false);
   const historyRef = useRef(EMPTY_HISTORY);
+  // Stable per-deck conversation id, threaded into an action submission so the
+  // pipeline can correlate a proposal back to this conversation.
+  const sessionIdRef = useRef(newId());
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -294,6 +301,28 @@ export function CommandDeck() {
     setPending(true);
     setSrStatus("Retrieving answer...");
     setInFlight(true);
+
+    // Action command ("restart vm-1") -> submit a proposal to the typed
+    // pipeline instead of asking the narrator. This publishes a signal for
+    // Forseti to judge; it never executes here (execution is the pantheon's,
+    // after judge + approval, shadow-first).
+    if (detectActionIntent(text)) {
+      try {
+        const result = await submitAction(text, sessionIdRef.current);
+        setPending(false);
+        setTurns((prev) => [
+          ...prev,
+          { id: newId(), role: "deck", text: renderActionResult(result), at: shortTime() },
+        ]);
+      } finally {
+        setPending(false);
+        setSrStatus("Answer ready.");
+        setInFlight(false);
+        focusInput();
+      }
+      return;
+    }
+
     const controller = new AbortController();
     abortRef.current = controller;
     // Build the history the backend sees (excluding this turn).

@@ -131,6 +131,20 @@ narrator-is-a-translator contract in
 It answers questions grounded in only what is on screen (the published
 `ViewSnapshot`) and never issues a privileged call.
 
+### Submitting an action (propose, never execute)
+
+For an explicit operator command (`restart vm-1`), the deck does not ask the
+narrator - it POSTs to `/chat/action`
+([`src/deck/backend.ts`](src/deck/backend.ts) `submitAction`), detected by
+[`src/deck/action-intent.ts`](src/deck/action-intent.ts) (a leading imperative
+verb, mirroring the server's `is_action_intent`). That endpoint publishes an
+`ActionProposal` into the typed pantheon pipeline; **nothing runs until Forseti
+judges it and, for a high-risk action, an approver signs off** (execution is
+shadow-first, and RBAC is enforced server-side - a Reader gets `403`). The deck
+renders the outcome (submitted with a correlation id / refused by role /
+unmapped) and never holds any execution authority. See
+[operator-console.md § 13.5](../docs/roadmap/operator-console.md).
+
 ### Self-describing screens
 
 Each route publishes a `ViewSnapshot` (`src/deck/context.tsx`) that is a screen

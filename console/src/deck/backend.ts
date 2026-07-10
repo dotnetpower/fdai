@@ -420,3 +420,103 @@ function parseRouter(raw: unknown): RouterSnapshot | undefined {
   }
   return { chose, reason, candidates };
 }
+
+// ---------------------------------------------------------------------------
+// Action submission (POST /chat/action) - propose, never execute
+// ---------------------------------------------------------------------------
+
+function actionUrl(): string {
+  return `${chatUrl()}/action`;
+}
+
+/** Result of submitting an operator command to the typed pipeline. */
+export interface ActionSubmitResult {
+  /** True when the proposal was accepted and published for judgment. */
+  readonly submitted: boolean;
+  /** HTTP status (0 on a transport error). */
+  readonly status: number;
+  /** The ActionType the command mapped to, when submitted. */
+  readonly actionType?: string;
+  /** The correlation id to track the proposal (Trace panel / audit). */
+  readonly correlationId?: string;
+  /** Why it was refused: `rbac_capability` | `unmapped_action_intent` |
+   *  `not_wired` | `error`. */
+  readonly reason?: string;
+  /** The capability the operator was missing (for `rbac_capability`). */
+  readonly requiredCapability?: string;
+}
+
+/**
+ * Submit an operator command to `POST /chat/action`. The endpoint publishes an
+ * `ActionProposal` into the typed pipeline (Forseti judges, Var approves a
+ * high-risk one, Thor executes shadow-first) - it never executes here. RBAC is
+ * enforced server-side from the validated token; a Reader gets `403`.
+ *
+ * Never throws: a transport error or an unwired endpoint resolves to a
+ * `submitted: false` result the deck can render as a plain message.
+ */
+export async function submitAction(
+  prompt: string,
+  sessionId: string | null,
+): Promise<ActionSubmitResult> {
+  let response: Response;
+  try {
+    response = await fetch(actionUrl(), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ prompt, session_id: sessionId ?? undefined }),
+    });
+  } catch {
+    return { submitted: false, status: 0, reason: "error" };
+  }
+  if (response.status === 404 || response.status === 501) {
+    return { submitted: false, status: response.status, reason: "not_wired" };
+  }
+  let payload: Record<string, unknown> = {};
+  try {
+    const parsed = await response.json();
+    if (typeof parsed === "object" && parsed !== null) {
+      payload = parsed as Record<string, unknown>;
+    }
+  } catch {
+    /* fall through - use the status only */
+  }
+  const submitted = payload.submitted === true;
+  const result: ActionSubmitResult = {
+    submitted,
+    status: response.status,
+    ...(typeof payload.action_type === "string" ? { actionType: payload.action_type } : {}),
+    ...(typeof payload.correlation_id === "string"
+      ? { correlationId: payload.correlation_id }
+      : {}),
+    ...(typeof payload.reason === "string" ? { reason: payload.reason } : {}),
+    ...(typeof payload.required_capability === "string"
+      ? { requiredCapability: payload.required_capability }
+      : {}),
+  };
+  return result;
+}
+
+/** A plain-language deck message describing an action-submit result. */
+export function renderActionResult(r: ActionSubmitResult): string {
+  if (r.submitted) {
+    return (
+      `Submitted "${r.actionType ?? "action"}" to the pipeline for judgment. ` +
+      `Nothing runs until Forseti judges it and (if high-risk) an approver signs off - ` +
+      `execution is shadow-first. Track it by correlation ${r.correlationId ?? "-"} in the Trace panel.`
+    );
+  }
+  switch (r.reason) {
+    case "rbac_capability":
+      return (
+        "Your role can't submit actions - that needs the Contributor capability " +
+        `(${r.requiredCapability ?? "author-draft-pr"}). This console stays read-only for you.`
+      );
+    case "unmapped_action_intent":
+      return "I recognised that as a command, but it maps to no known action yet, so I did not submit it.";
+    case "not_wired":
+      return "Action submission is not enabled on this deployment (read-only console).";
+    default:
+      return "I could not submit that action (the action endpoint did not respond).";
+  }
+}
