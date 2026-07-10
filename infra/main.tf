@@ -68,12 +68,12 @@ resource "azurerm_consumption_budget_resource_group" "monthly" {
   # per-email dynamic would blow past Azure's 5-notifications-per-budget cap
   # once more than two addresses are configured.
   dynamic "notification" {
-    for_each = length(var.budget_alert_emails) > 0 ? toset([90, 100]) : toset([])
+    for_each = length(var.budget_alert_emails) > 0 ? toset(["90", "100"]) : toset([])
     content {
       enabled        = true
-      threshold      = notification.value
+      threshold      = tonumber(notification.value)
       operator       = "GreaterThanOrEqualTo"
-      threshold_type = notification.value == 100 ? "Forecasted" : "Actual"
+      threshold_type = notification.value == "100" ? "Forecasted" : "Actual"
       contact_emails = var.budget_alert_emails
     }
   }

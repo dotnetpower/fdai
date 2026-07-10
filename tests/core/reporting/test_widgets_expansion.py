@@ -148,9 +148,7 @@ class TestReliabilityExpansion:
                 },
             )
         )
-        result = ServiceSummaryBuilder().build(
-            spec=_spec("service_summary"), data=data
-        )
+        result = ServiceSummaryBuilder().build(spec=_spec("service_summary"), data=data)
         assert result["health"] == "degraded"
         assert result["red"]["requests_rps"] == 12.5
 
@@ -212,9 +210,7 @@ class TestCostExpansion:
                 {"group": "storage", "amount": 25.5},
             )
         )
-        result = CostSummaryBuilder().build(
-            spec=_spec("cost_summary", currency="USD"), data=data
-        )
+        result = CostSummaryBuilder().build(spec=_spec("cost_summary", currency="USD"), data=data)
         assert result["total"] == 125.5
         assert result["currency"] == "USD"
 

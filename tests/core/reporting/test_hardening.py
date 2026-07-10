@@ -55,9 +55,7 @@ class _RecordingDataSource:
         return self._name
 
     async def query(self, spec, *, since, until, variables):
-        self.calls.append(
-            {"params": dict(spec.parameters), "variables": dict(variables)}
-        )
+        self.calls.append({"params": dict(spec.parameters), "variables": dict(variables)})
         return self._dataset
 
 
@@ -380,9 +378,7 @@ class TestReportIdValidation:
         from fdai.delivery.read_api.reporting import ReportingConfig
 
         engine = _engine()
-        auth = build_authenticator(
-            verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None
-        )
+        auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None)
         os.environ["FDAI_READ_API_DEV_MODE"] = "1"
         try:
             app = build_app(

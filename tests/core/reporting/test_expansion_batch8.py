@@ -91,11 +91,7 @@ class TestHtmlEncoder:
 class TestTextEncoder:
     def test_stdout_summary(self) -> None:
         report = _rendered_report_with(
-            (
-                RenderedWidget(
-                    id="v", type="query_value", title="Value", data={"value": 42}
-                ),
-            )
+            (RenderedWidget(id="v", type="query_value", title="Value", data={"value": 42}),)
         )
         body = TextFormatEncoder().encode(report).decode("utf-8")
         assert "# R" in body
@@ -106,9 +102,7 @@ class TestNdjsonEncoder:
     def test_one_object_per_line(self) -> None:
         report = _rendered_report_with(
             (
-                RenderedWidget(
-                    id="v", type="query_value", title="Value", data={"value": 7}
-                ),
+                RenderedWidget(id="v", type="query_value", title="Value", data={"value": 7}),
                 RenderedWidget(
                     id="s",
                     type="timeseries",
@@ -128,9 +122,7 @@ class TestPrometheusEncoder:
     def test_query_value_and_timeseries_emitted(self) -> None:
         report = _rendered_report_with(
             (
-                RenderedWidget(
-                    id="v", type="query_value", title="Val", data={"value": 42}
-                ),
+                RenderedWidget(id="v", type="query_value", title="Val", data={"value": 42}),
                 RenderedWidget(
                     id="ts",
                     type="timeseries",
@@ -174,9 +166,7 @@ def _engine_with_static() -> ReportEngine:
 
 
 def _client(engine: ReportEngine) -> TestClient:
-    auth = build_authenticator(
-        verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None
-    )
+    auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None)
     os.environ["FDAI_READ_API_DEV_MODE"] = "1"
     app = build_app(
         authenticator=auth,

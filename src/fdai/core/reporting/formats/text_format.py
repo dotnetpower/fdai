@@ -23,16 +23,10 @@ class TextFormatEncoder:
             f"# {report.name}",
             f"id: {report.id}  version: {report.version}",
             f"generated_at: {report.generated_at.isoformat()}",
-            (
-                f"window: {report.time_range[0].isoformat()}"
-                f" .. {report.time_range[1].isoformat()}"
-            ),
+            (f"window: {report.time_range[0].isoformat()} .. {report.time_range[1].isoformat()}"),
         ]
         if report.variables:
-            lines.append(
-                "variables: "
-                + ", ".join(f"{k}={v}" for k, v in report.variables.items())
-            )
+            lines.append("variables: " + ", ".join(f"{k}={v}" for k, v in report.variables.items()))
         lines.append("")
         for widget in report.widgets:
             lines.extend(_render_widget(widget, level=1))

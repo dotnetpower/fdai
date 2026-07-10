@@ -86,9 +86,7 @@ def _render_table(data: Mapping[str, Any]) -> list[str]:
     rows = data.get("rows") or []
     if not columns:
         return [
-            "<pre>"
-            + html.escape(json.dumps(dict(data), indent=2, ensure_ascii=False))
-            + "</pre>"
+            "<pre>" + html.escape(json.dumps(dict(data), indent=2, ensure_ascii=False)) + "</pre>"
         ]
     out: list[str] = ["<table>", "<thead><tr>"]
     for col in columns:

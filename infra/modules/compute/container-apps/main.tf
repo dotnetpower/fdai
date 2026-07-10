@@ -61,7 +61,7 @@ resource "azurerm_container_app" "core" {
   # `mcr.microsoft.com/azure-cli:latest`, which pulls anonymously.
   # -------------------------------------------------------------------------
   dynamic "registry" {
-    for_each = var.acr_login_server == "" ? [] : [1]
+    for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
     content {
       server   = var.acr_login_server
       identity = var.executor_identity_id
@@ -88,7 +88,7 @@ resource "azurerm_container_app" "core" {
   # day-zero (no persistence) manifest valid without conditional variables.
   # -------------------------------------------------------------------------
   dynamic "secret" {
-    for_each = var.state_store_dsn_secret_id == "" ? [] : [1]
+    for_each = var.state_store_dsn_secret_id == "" ? toset([]) : toset(["1"])
     content {
       name                = "state-store-dsn"
       identity            = var.executor_identity_id
@@ -97,7 +97,7 @@ resource "azurerm_container_app" "core" {
   }
 
   dynamic "secret" {
-    for_each = var.operator_memory_dsn_secret_id == "" ? [] : [1]
+    for_each = var.operator_memory_dsn_secret_id == "" ? toset([]) : toset(["1"])
     content {
       name                = "operator-memory-dsn"
       identity            = var.executor_identity_id
@@ -106,7 +106,7 @@ resource "azurerm_container_app" "core" {
   }
 
   dynamic "secret" {
-    for_each = var.pattern_library_dsn_secret_id == "" ? [] : [1]
+    for_each = var.pattern_library_dsn_secret_id == "" ? toset([]) : toset(["1"])
     content {
       name                = "pattern-library-dsn"
       identity            = var.executor_identity_id
@@ -150,7 +150,7 @@ resource "azurerm_container_app" "core" {
       }
 
       dynamic "env" {
-        for_each = var.state_store_dsn_secret_id == "" ? [] : [1]
+        for_each = var.state_store_dsn_secret_id == "" ? toset([]) : toset(["1"])
         content {
           name        = "FDAI_STATE_STORE_DSN"
           secret_name = "state-store-dsn"
@@ -158,7 +158,7 @@ resource "azurerm_container_app" "core" {
       }
 
       dynamic "env" {
-        for_each = var.operator_memory_dsn_secret_id == "" ? [] : [1]
+        for_each = var.operator_memory_dsn_secret_id == "" ? toset([]) : toset(["1"])
         content {
           name        = "FDAI_OPERATOR_MEMORY_DSN"
           secret_name = "operator-memory-dsn"
@@ -166,7 +166,7 @@ resource "azurerm_container_app" "core" {
       }
 
       dynamic "env" {
-        for_each = var.pattern_library_dsn_secret_id == "" ? [] : [1]
+        for_each = var.pattern_library_dsn_secret_id == "" ? toset([]) : toset(["1"])
         content {
           name        = "FDAI_T1_PATTERN_LIBRARY_DSN"
           secret_name = "pattern-library-dsn"
