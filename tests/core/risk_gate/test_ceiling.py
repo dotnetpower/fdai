@@ -316,3 +316,46 @@ def test_audit_dict_shape() -> None:
     }
     assert d["final_path"] == "direct_api"
     assert d["final_level"] in {"deny", "shadow_only", "enforce_hil", "enforce_auto"}
+
+
+# ---------------------------------------------------------------------------
+# tool_call path integration (execution-model.md 5.6)
+# ---------------------------------------------------------------------------
+
+
+def test_tool_call_path_is_preserved_in_resolved_ceiling() -> None:
+    """A tool_call ActionType's resolved ceiling carries final_path=tool_call
+    and serialises the value the resolved-ceiling schema now accepts."""
+    rc = resolve_ceiling(
+        tier=Tier.T0,
+        action_type=_at(execution_path=ExecutionPath.TOOL_CALL),
+        risk_table=RiskTableResult(level="hil"),
+        principal_role=None,
+        env="non_prod",
+    )
+    assert rc.final_path is ExecutionPath.TOOL_CALL
+    assert rc.as_audit_dict()["final_path"] == "tool_call"
+
+
+def test_tool_style_auto_table_is_capped_at_hil_by_ceiling() -> None:
+    """The safety claim behind tool.generate-pdf: a reversible,
+    resource-scoped, control-plane tool matches the risk-table
+    auto-low-risk row, but a t0 ENFORCE_HIL ceiling caps autonomy at HIL
+    so it never auto-executes just because the table said auto."""
+    ceiling = CeilingByTier(
+        t0=TierCeiling(max_autonomy=Autonomy.ENFORCE_HIL, min_role=CeilingRole.APPROVER),
+    )
+    blast = ActionBlastRadius(
+        computation=BlastRadiusComputation.STATIC_ENUM, static_bucket=BlastRadiusScope.RESOURCE
+    )
+    rc = resolve_ceiling(
+        tier=Tier.T0,
+        action_type=_at(
+            execution_path=ExecutionPath.TOOL_CALL, blast=blast, ceiling=ceiling
+        ),
+        risk_table=RiskTableResult(level="auto"),
+        principal_role=CeilingRole.OWNER,
+        env="non_prod",
+    )
+    assert rc.final_level == AxisLevel.ENFORCE_HIL
+    assert rc.winning_axis == "ceiling"

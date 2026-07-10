@@ -99,6 +99,25 @@ def test_shipped_workflow_action_refs_resolve() -> None:
                 assert step.compensated_by in names
 
 
+def test_workflow_step_can_reference_a_tool_action_type() -> None:
+    """The 'generate a document from a workflow' scenario: a workflow
+    step references a tool.* ActionType by action_type_ref exactly like
+    any mutation ActionType, so it inherits the four safety invariants.
+    tool.generate-pdf is a shipped ActionType, so a real catalog resolves
+    the reference."""
+    names = _action_type_names()
+    assert "tool.generate-pdf" in names
+
+    raw = _base_mapping()
+    raw["name"] = "generate-resilience-report"
+    raw["steps"] = [{"id": "render", "action_type_ref": "tool.generate-pdf"}]
+    wf = load_workflow_from_mapping(
+        raw, schema_registry=_registry(), action_type_names=names
+    )
+    assert wf.steps[0].action_type_ref == "tool.generate-pdf"
+    assert wf.default_mode is Mode.SHADOW
+
+
 def test_shipped_workflows_compile_to_runbooks() -> None:
     catalog = load_workflow_catalog(
         WORKFLOWS_ROOT,
