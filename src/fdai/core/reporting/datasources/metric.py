@@ -86,6 +86,9 @@ class MetricDataSource:
             total = sum(p.value for p in points)
             return DataSet(scalar=total, metadata={"sample_count": len(points)})
 
+        if projection == "percentiles":
+            return _percentiles_dataset(points)
+
         # Default: series projection.
         return _series_dataset(points, group_by=group_by)
 
@@ -124,6 +127,34 @@ def _as_sequence(raw: Any) -> tuple[str, ...]:
     if isinstance(raw, (list, tuple)):
         return tuple(str(item) for item in raw)
     return ()
+
+
+def _percentiles_dataset(points: Sequence[MetricPoint]) -> DataSet:
+    """Return a distribution row per percentile bucket (p50/p90/p95/p99).
+
+    Uses a simple sorted-position estimator - good enough for the FE to
+    render a "latency percentiles" table without pulling in numpy for a
+    subset of MetricProvider adapters that already surface percentiles
+    natively.
+    """
+    if not points:
+        return DataSet(
+            columns=("percentile", "value"),
+            rows=(),
+            metadata={"sample_count": 0},
+        )
+    sorted_values = sorted(p.value for p in points)
+    n = len(sorted_values)
+    rows = []
+    for label, quantile in (("p50", 0.5), ("p90", 0.9), ("p95", 0.95), ("p99", 0.99)):
+        # Nearest-rank; conservative for small samples.
+        idx = max(0, min(n - 1, int(round(quantile * (n - 1)))))
+        rows.append({"percentile": label, "value": sorted_values[idx], "label": label})
+    return DataSet(
+        columns=("percentile", "value"),
+        rows=tuple(rows),
+        metadata={"sample_count": n},
+    )
 
 
 __all__ = ["MetricDataSource"]

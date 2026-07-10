@@ -85,6 +85,10 @@ class LogQueryDataSource:
             return _count_by_severity(records)
         if projection == "count_total":
             return DataSet(scalar=len(records))
+        if projection == "pattern_group":
+            return _pattern_group(records)
+        if projection == "series_hourly":
+            return _series_hourly(records)
         return _rows_dataset(records)
 
 
@@ -119,6 +123,46 @@ def _as_mapping(raw: Any) -> Mapping[str, Any]:
     if isinstance(raw, Mapping):
         return raw
     return {}
+
+
+def _pattern_group(records: Sequence[LogRecord]) -> DataSet:
+    """Naive log clustering: bucket by leading token of each body.
+
+    Real clustering is a T1 job (embedding similarity); this projection
+    exists so a fork with no clustering wired can still surface a
+    "top-N noisy patterns" table. A row shape is
+    ``{"pattern", "sample", "value"}``.
+    """
+    buckets: dict[str, dict[str, Any]] = {}
+    for record in records:
+        head = record.body.strip().split(" ", 1)[0][:64] or "(empty)"
+        entry = buckets.setdefault(head, {"pattern": head, "sample": record.body, "value": 0})
+        entry["value"] = int(entry["value"]) + 1
+    rows = sorted(buckets.values(), key=lambda r: r["value"], reverse=True)
+    return DataSet(
+        columns=("pattern", "sample", "value"),
+        rows=tuple(rows),
+        metadata={"pattern_count": len(rows)},
+    )
+
+
+def _series_hourly(records: Sequence[LogRecord]) -> DataSet:
+    """Count log records by hourly bucket - a single series result."""
+    from fdai.core.reporting.models import Series
+
+    buckets: dict[str, int] = {}
+    for record in records:
+        key_dt = record.at.replace(minute=0, second=0, microsecond=0)
+        stamp = key_dt.isoformat()
+        buckets[stamp] = buckets.get(stamp, 0) + 1
+    ordered = sorted(buckets.items())
+    from datetime import datetime as _dt
+
+    points = tuple((_dt.fromisoformat(k).timestamp(), float(v)) for k, v in ordered)
+    return DataSet(
+        series=(Series(label="count_hourly", points=points),),
+        metadata={"bucket": "hour", "count": len(ordered)},
+    )
 
 
 __all__ = ["LogQueryDataSource"]

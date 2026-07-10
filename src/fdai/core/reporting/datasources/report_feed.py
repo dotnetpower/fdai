@@ -71,6 +71,15 @@ class ReportFeedDataSource:
             return _count_by_dataset(
                 signals, key=lambda s: s.kind.value, label="kind", metadata=metadata
             )
+        if projection == "count_by_resource":
+            return _count_by_dataset(
+                signals,
+                key=lambda s: s.resource_ref or "(unknown)",
+                label="resource_ref",
+                metadata=metadata,
+            )
+        if projection == "latest_per_resource":
+            return _latest_per_resource(signals, metadata=metadata)
         if projection == "count_total":
             return DataSet(scalar=len(signals), metadata=metadata)
         metadata["unknown_projection"] = projection
@@ -133,5 +142,48 @@ def _count_by_dataset(
         metadata=dict(metadata),
     )
 
+def _latest_per_resource(
+    signals: Sequence[ReportSignal],
+    *,
+    metadata: Mapping[str, object],
+) -> DataSet:
+    """One row per resource - the freshest signal seen against it.
+
+    Useful for a "top-affected resources" table without duplicating the
+    same resource across every fire it caused.
+    """
+    latest: dict[str, ReportSignal] = {}
+    for signal in signals:
+        key = signal.resource_ref or "(unknown)"
+        current = latest.get(key)
+        if current is None or signal.occurred_at > current.occurred_at:
+            latest[key] = signal
+    ordered = sorted(
+        latest.items(),
+        key=lambda pair: pair[1].occurred_at,
+        reverse=True,
+    )
+    return DataSet(
+        columns=(
+            "resource_ref",
+            "signal_id",
+            "kind",
+            "severity",
+            "title",
+            "at",
+        ),
+        rows=tuple(
+            {
+                "resource_ref": ref,
+                "signal_id": sig.signal_id,
+                "kind": sig.kind.value,
+                "severity": sig.severity.value,
+                "title": sig.title,
+                "at": sig.occurred_at.isoformat(),
+            }
+            for ref, sig in ordered
+        ),
+        metadata=dict(metadata),
+    )
 
 __all__ = ["ReportFeedDataSource"]

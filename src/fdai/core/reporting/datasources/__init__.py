@@ -25,6 +25,11 @@ the composition root.
 from __future__ import annotations
 
 from fdai.core.reporting.datasources.audit import AuditDataSource, AuditReader
+from fdai.core.reporting.datasources.callable import (
+    CallableDataSource,
+    CallableQueryFn,
+)
+from fdai.core.reporting.datasources.filesystem import FilesystemManifestDataSource
 from fdai.core.reporting.datasources.log_query import LogQueryDataSource
 from fdai.core.reporting.datasources.metric import MetricDataSource
 from fdai.core.reporting.datasources.report_feed import ReportFeedDataSource
@@ -33,6 +38,9 @@ from fdai.core.reporting.datasources.static import NoopDataSource, StaticDataSou
 __all__ = [
     "AuditDataSource",
     "AuditReader",
+    "CallableDataSource",
+    "CallableQueryFn",
+    "FilesystemManifestDataSource",
     "LogQueryDataSource",
     "MetricDataSource",
     "NoopDataSource",

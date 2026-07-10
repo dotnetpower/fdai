@@ -116,6 +116,12 @@ class AuditDataSource:
             return _count_by_dataset(rows, key="mode", label="mode")
         if projection == "count_by_actor":
             return _count_by_dataset(rows, key="actor", label="actor")
+        if projection == "count_by_correlation":
+            return _count_by_correlation(rows)
+        if projection == "series_hourly":
+            return _series_bucket(rows, bucket="hour")
+        if projection == "series_daily":
+            return _series_bucket(rows, bucket="day")
         if projection == "count_total":
             return DataSet(scalar=len(rows), metadata={"projection": projection})
         return DataSet(metadata={"unknown_projection": projection})
@@ -207,6 +213,47 @@ def _count_by_dataset(rows: Sequence[AuditRow], *, key: str, label: str) -> Data
     return DataSet(
         columns=(label, "value"),
         rows=tuple({label: k, "value": v, "label": k} for k, v in ordered),
+    )
+
+
+def _count_by_correlation(rows: Sequence[AuditRow]) -> DataSet:
+    counts: dict[str, int] = {}
+    for row in rows:
+        key = row.correlation_id or "(none)"
+        counts[key] = counts.get(key, 0) + 1
+    ordered = sorted(counts.items(), key=lambda pair: pair[1], reverse=True)
+    return DataSet(
+        columns=("correlation_id", "value"),
+        rows=tuple(
+            {"correlation_id": k, "value": v, "label": k} for k, v in ordered
+        ),
+    )
+
+
+def _series_bucket(rows: Sequence[AuditRow], *, bucket: str) -> DataSet:
+    """Bucket audit rows into hourly / daily counts as a single series."""
+    from fdai.core.reporting.models import Series
+
+    buckets: dict[str, int] = {}
+    for row in rows:
+        parsed = _parse_iso(row.recorded_at)
+        if parsed is None:
+            continue
+        if bucket == "hour":
+            key_dt = parsed.replace(minute=0, second=0, microsecond=0)
+        elif bucket == "day":
+            key_dt = parsed.replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            key_dt = parsed
+        stamp = key_dt.isoformat()
+        buckets[stamp] = buckets.get(stamp, 0) + 1
+    ordered = sorted(buckets.items())
+    points = tuple(
+        (datetime.fromisoformat(k).timestamp(), float(v)) for k, v in ordered
+    )
+    return DataSet(
+        series=(Series(label=f"count_{bucket}ly", points=points),),
+        metadata={"bucket": bucket, "count": len(ordered)},
     )
 
 
