@@ -346,6 +346,17 @@ class ReadApiConfig:
     default so upstream stays minimal.
     See :mod:`fdai.delivery.read_api.workflow_authoring`."""
 
+    reporting: Any = None
+    """Opt-in reporting subsystem routes. When set (a
+    :class:`~fdai.delivery.read_api.reporting.ReportingConfig`),
+    registers four ``GET`` routes under the configured prefix (default
+    ``/reports``): catalog listing, registry inspection, per-report
+    definition, and per-report render (with ``?format=json|markdown|
+    csv``). All read-only; every route hits the reader-role gate. See
+    :mod:`fdai.delivery.read_api.reporting` and
+    :mod:`fdai.core.reporting` for the fork-extensible datasource /
+    widget / format seams. Unset by default so upstream stays minimal."""
+
 
 def build_app(
     *,
@@ -712,6 +723,22 @@ def build_app(
         routes.append(
             make_workflow_catalog_route(
                 config=resolved_config.workflow_authoring, authorize=_authorize
+            )
+        )
+
+    # Optional reporting subsystem (catalog + engine + format registry).
+    # All routes are GET-only; reader-role gate; the composition root
+    # owns the engine + registries so a fork adds datasources / widget
+    # types / formats without editing this file.
+    if resolved_config.reporting is not None:
+        from fdai.delivery.read_api.reporting import build_reporting_routes
+
+        routes.extend(
+            build_reporting_routes(
+                config=resolved_config.reporting,
+                authorize=_authorize,
+                core_paths=_CORE_ROUTE_PATHS,
+                seen_extra_paths=seen_panel_paths,
             )
         )
 

@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 9e72f0770134c901b4b49e8ab4ab4f8184d328d8
+translation_source_sha: f4b85ac156827882968219f07992f246447184e8
 translation_revised: 2026-07-10
 ---
 
@@ -91,6 +91,12 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | # | 문서 | 다루는 내용 |
 |---|------|-------------|
 | 24 | [prompt-composition-ko.md](prompt-composition-ko.md) | 진화하는 시스템 프롬프트: role x layer 매트릭스, 툴 / 웹 검색, debate orchestrator, 인식 측정 |
+
+### 리포팅 서브시스템
+
+| # | 문서 | 다루는 내용 |
+|---|------|-------------|
+| 24b | [reporting-subsystem-ko.md](reporting-subsystem-ko.md) | 선언적 시각화 파이프라인: YAML 리포트 카탈로그, 4개 레지스트리(datasource / widget / format / catalog), 16개 기본 위젯 빌더(Datadog-inspired), 기존 seam 위 5개 datasource 어댑터, JSON / Markdown / CSV encoder, 4개의 `GET /reports/*` 라우트, 포크 확장 레시피 (report / datasource / widget / format / prefix 추가). BE-only, read-only, 추가되어도 FE 계약이 안정적으로 유지. |
 
 ### 순서 확정 (문서 통합 플랜)
 

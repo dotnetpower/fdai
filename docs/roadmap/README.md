@@ -94,6 +94,12 @@ build. Read the reference docs first, then the phases in order.
 |---|----------|----------------|
 | 24 | [prompt-composition.md](prompt-composition.md) | evolving system prompt: role x layer matrix, tools / web search, debate orchestrator, recognition measurement |
 
+### Reporting subsystem
+
+| # | Document | What it covers |
+|---|----------|----------------|
+| 24b | [reporting-subsystem.md](reporting-subsystem.md) | declarative visualization pipeline: YAML report catalog, four registries (datasource / widget / format / catalog), 16 upstream widget builders (Datadog-inspired), 5 datasource adapters over existing seams, JSON / Markdown / CSV encoders, four `GET /reports/*` routes, fork extension recipes (add report / datasource / widget / format / prefix). BE-only, read-only, FE contract stable across additions. |
+
 ### Sequencing (cross-doc plan)
 
 | # | Document | What it covers |
