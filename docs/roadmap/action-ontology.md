@@ -315,6 +315,15 @@ as any mutation ActionType, so a workflow step MAY reference it via
 `action_type_ref` and inherit them. See
 [execution-model.md § 5.6](execution-model.md#56-tool-call-tool_call).
 
+A `tool.*` ActionType SHOULD declare a `ceiling_by_tier`. A tool that is
+reversible, resource-scoped, control-plane, and low-cost matches the
+`auto-low-risk` row of the risk-classification table, so **without a
+ceiling it can be classified `auto` once promoted to enforce** - fine for
+an idempotent report render, wrong for a notification or ticket tool. The
+ceiling caps autonomy at `enforce_hil` regardless of the table; the
+shipped `tool.generate-pdf` sets `t0.max_autonomy: enforce_hil` for this
+reason.
+
 ## 4. Trigger surfaces
 
 ### 4.1 `rule_violation` (unchanged behaviour)

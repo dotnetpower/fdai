@@ -1112,32 +1112,47 @@ class ControlLoop:
     async def _dispatch_action(
         self, *, action: Action, rule: Rule
     ) -> ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult:
-        """Route ``action`` to the PR-native or direct-API executor.
+        """Route ``action`` to the executor its ActionType declares.
 
-        Selection rule (Wave W2.3 composition wire):
+        Selection rule (composition wire):
 
-        - When the ActionType's ``execution_path`` is
-          :attr:`ExecutionPath.DIRECT_API` AND a direct-API executor is
+        - ``execution_path == direct_api`` AND a direct-API executor is
           wired -> :class:`DirectApiShadowExecutor`.
+        - ``execution_path == tool_call`` AND a tool executor is wired ->
+          :class:`ToolCallShadowExecutor`.
         - Otherwise -> the PR-native :class:`ShadowExecutor`.
 
-        The default (``self._direct_api_executor is None``) keeps every
-        action on the PR-native path so a composition that has no
-        substrate adapter still functions - this matches the P1 upstream
-        behaviour. A wired direct-API executor whose ActionType map
-        does not classify the action as ``direct_api`` also falls
-        through to the PR path; only ActionTypes that opt in via the
-        ontology reach the direct-API sibling.
+        The default (neither sibling wired) keeps every action on the
+        PR-native path so a composition that has no substrate/tool
+        adapter still functions - this matches the P1 upstream
+        behaviour. Only ActionTypes that opt in via the ontology reach a
+        sibling.
+
+        Observability guard: when an ActionType opts into ``direct_api``
+        or ``tool_call`` but the matching executor is NOT wired, the
+        action falls back to the PR-native executor, which cannot render
+        a non-PR action - so we emit a warning rather than let the
+        dispatch fail silently downstream.
         """
 
-        if self._direct_api_executor is not None:
-            action_type = self._action_types_by_name.get(action.action_type)
-            if action_type is not None and action_type.execution_path is ExecutionPath.DIRECT_API:
-                return await self._direct_api_executor.execute(action=action)
-        if self._tool_executor is not None:
-            action_type = self._action_types_by_name.get(action.action_type)
-            if action_type is not None and action_type.execution_path is ExecutionPath.TOOL_CALL:
-                return await self._tool_executor.execute(action=action)
+        action_type = self._action_types_by_name.get(action.action_type)
+        path = action_type.execution_path if action_type is not None else None
+
+        if path is ExecutionPath.DIRECT_API and self._direct_api_executor is not None:
+            return await self._direct_api_executor.execute(action=action)
+        if path is ExecutionPath.TOOL_CALL and self._tool_executor is not None:
+            return await self._tool_executor.execute(action=action)
+        if path in (ExecutionPath.DIRECT_API, ExecutionPath.TOOL_CALL):
+            _LOGGER.warning(
+                "action_type opts into %s but no matching executor is wired; "
+                "falling back to PR-native (which cannot render this path)",
+                path.value,
+                extra={
+                    "action_type": action.action_type,
+                    "execution_path": path.value,
+                    "idempotency_key": action.idempotency_key,
+                },
+            )
         return await self._executor.execute(action=action, rule=rule)
 
     async def _write_abstain_audit(

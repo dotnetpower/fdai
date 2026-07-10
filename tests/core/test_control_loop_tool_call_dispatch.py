@@ -188,6 +188,32 @@ async def test_tool_executor_bypassed_when_action_type_stays_pr_native() -> None
     tc_exec.execute.assert_not_called()
 
 
+async def test_tool_call_action_without_executor_warns_and_falls_back(caplog) -> None:
+    """A tool_call ActionType with no tool executor wired falls back to
+    the PR path and logs a warning so the mismatch is observable."""
+    import logging
+
+    pr_result = ExecutionResult(
+        action_id="00000000-0000-0000-0000-000000000010",
+        outcome=ExecutorOutcome.PUBLISHED,
+    )
+    pr_exec = MagicMock()
+    pr_exec.execute = AsyncMock(return_value=pr_result)
+
+    at = _action_type(execution_path=ExecutionPath.TOOL_CALL)
+    loop = _make_loop(
+        pr_executor=pr_exec,
+        tool_executor=None,
+        action_types_by_name={"tool.generate-pdf": at},
+    )
+    with caplog.at_level(logging.WARNING):
+        got = await loop._dispatch_action(action=_action(), rule=_rule())
+
+    assert got is pr_result
+    pr_exec.execute.assert_awaited_once()
+    assert any("no matching executor is wired" in r.message for r in caplog.records)
+
+
 def test_is_execution_success_for_tool_call_outcomes() -> None:
     for outcome in (
         ToolCallExecutionOutcome.DISPATCHED,

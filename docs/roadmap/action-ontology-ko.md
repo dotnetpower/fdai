@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 7eb193d7df971671f575ddb6c5bc44eadecd7b32
+translation_source_sha: 29e86a2a340bbdba5fba96507fd42498035d45cd
 translation_revised: 2026-07-10
 ---
 
@@ -307,6 +307,14 @@ MCP 서버 tool 하나를 `tool.*` ActionType 하나에 매핑한다. `tool.*` A
 ActionType 과 동일한 4 개 안전 invariant 를 carry 하므로, 워크플로 스텝이
 `action_type_ref` 로 참조하며 이를 상속 MAY. 
 [execution-model-ko.md § 5.6](execution-model-ko.md#56-tool-call-tool_call) 참조.
+
+`tool.*` ActionType 은 `ceiling_by_tier` 를 declare SHOULD. reversible,
+resource-scoped, control-plane, low-cost 인 tool 은 risk-classification
+테이블의 `auto-low-risk` 행에 매칭되므로, **ceiling 이 없으면 enforce 승격 후
+`auto` 로 분류될 수 있다** - idempotent 리포트 렌더엔 괜찮지만 알림/티켓 tool
+엔 잘못된 것이다. ceiling 은 테이블과 무관하게 autonomy 를 `enforce_hil` 로
+캡한다; shipped `tool.generate-pdf` 는 이 이유로 `t0.max_autonomy: enforce_hil`
+을 설정한다.
 
 ## 4. 트리거 surface
 
