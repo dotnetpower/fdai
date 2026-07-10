@@ -14,6 +14,7 @@
  */
 
 import { loadConfig } from "../config";
+import { getLocale } from "../i18n";
 import { answer as deterministicAnswer, ROUTE_ACTION_HINTS, type Answer } from "./answerer";
 import type { ViewSnapshot } from "./context";
 import { getDeckUser } from "./deck-user";
@@ -22,7 +23,10 @@ import { getDeckUser } from "./deck-user";
  *  the signed-in operator's identity/roles (`_user`) so the narrator can answer
  *  capability questions, plus the per-route action hint (`_route_actions`) so
  *  'what can I do here?' from the LLM matches the deterministic fallback and
- *  is grounded (never invented). Read-only, informational - see deck-user.ts. */
+ *  is grounded (never invented), plus the operator's active locale (`_locale`)
+ *  so the L3 narrator renders the final answer in that language (the pipeline
+ *  itself stays English - see language.instructions.md L3). Read-only,
+ *  informational - see deck-user.ts. */
 function viewContextWithUser(snapshot: ViewSnapshot | null): Record<string, unknown> {
   const base: Record<string, unknown> = snapshot ? { ...snapshot } : {};
   const user = getDeckUser();
@@ -31,6 +35,10 @@ function viewContextWithUser(snapshot: ViewSnapshot | null): Record<string, unkn
     const hint = ROUTE_ACTION_HINTS[snapshot.routeId];
     if (hint) base._route_actions = hint;
   }
+  // Locale propagation: the backend prepends a locale directive only when
+  // the tag is non-empty and not English (byte-identical default for
+  // English operators), so passing `en` here is a safe no-op.
+  base._locale = getLocale();
   return base;
 }
 

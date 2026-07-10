@@ -64,4 +64,23 @@ describe("viewContextWithUser wiring", () => {
     const ctx = parsed?.view_context ?? {};
     expect(ctx._route_actions).toBeUndefined();
   });
+
+  test("attaches _locale from the active i18n setting", async () => {
+    const parsed = await callAskAndCaptureBody(liveSnap());
+    const ctx = parsed?.view_context ?? {};
+    // Default is 'en' - byte-identical default for English operators.
+    expect(ctx._locale).toBe("en");
+  });
+
+  test("respects setLocale('ko')", async () => {
+    const i18n = await import("../i18n");
+    i18n.setLocale("ko");
+    try {
+      const parsed = await callAskAndCaptureBody(liveSnap());
+      const ctx = parsed?.view_context ?? {};
+      expect(ctx._locale).toBe("ko");
+    } finally {
+      i18n.setLocale("en");
+    }
+  });
 });
