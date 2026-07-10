@@ -31,6 +31,7 @@
     "panel": {
       "live": "Live",
       "hilQueue": "Approvals",
+      "provision": "Provisioning",
       "audit": "Audit log",
       "trace": "Trace",
       "agentActivity": "Agent activity",
@@ -46,6 +47,7 @@
     "panelSub": {
       "live": "Real-time pipeline activity",
       "hilQueue": "High-risk actions waiting for a human approver (HIL)",
+      "provision": "Watch an in-flight re-provision progress, streamed read-only",
       "audit": "Append-only record of every terminal decision",
       "trace": "Reconstruct one correlation id end-to-end",
       "agentActivity": "Per-agent timeline: which agent did what, when, and how",

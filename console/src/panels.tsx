@@ -35,6 +35,7 @@ import { LlmCostRoute } from "./routes/llm-cost";
 import { OntologyRoute } from "./routes/ontology";
 import { PantheonRoute } from "./routes/pantheon";
 import { PromotionGatesRoute } from "./routes/promotion-gates";
+import { ProvisionRoute } from "./routes/provision";
 import { RuleCatalogRoute } from "./routes/rule-catalog";
 import { RuleTraceRoute } from "./routes/rule-trace";
 import { WorkflowBuilderRoute } from "./routes/workflow-builder";
@@ -108,6 +109,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.hilQueue"),
     group: "now",
     component: HilQueueRoute,
+  },
+  {
+    id: "provision",
+    label: t("nav.panel.provision"),
+    subtitle: t("nav.panelSub.provision"),
+    group: "now",
+    component: ProvisionRoute,
   },
   // ── History ─────────────────────────────────────────────────────────
   {
