@@ -97,6 +97,7 @@ export function CommandDeck() {
   const [inFlight, setInFlight] = useState(false);
   const [stuck, setStuck] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
+  const inFlightRef = useRef(false);
   const historyRef = useRef(EMPTY_HISTORY);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -119,6 +120,12 @@ export function CommandDeck() {
     // requestAnimationFrame lets the overlay layout before the caret jumps in.
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
+
+  // Mirror in-flight state into a ref so the global key handler can read it
+  // without re-binding its listener every turn.
+  useEffect(() => {
+    inFlightRef.current = inFlight;
+  }, [inFlight]);
 
   const openDeck = useCallback(() => {
     // Remember what had focus so we can restore it when the modal closes.
@@ -193,6 +200,13 @@ export function CommandDeck() {
       }
       if (e.key === "Escape" && open) {
         e.preventDefault();
+        // Progressive: while a reply is generating, Escape stops it first; a
+        // second Escape (now idle) closes the deck.
+        if (inFlightRef.current) {
+          abortRef.current?.abort();
+          setSrStatus("Stopped.");
+          return;
+        }
         closeDeck();
       }
     };
