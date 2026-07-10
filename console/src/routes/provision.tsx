@@ -40,7 +40,7 @@ interface ProvisionState {
   readonly recent: readonly string[];
 }
 
-const INITIAL: ProvisionState = {
+export const INITIAL: ProvisionState = {
   fraction: 0,
   waiting: null,
   waitingReason: null,
@@ -62,7 +62,7 @@ const RECENT_CAP = 6;
  * (DOM-based XSS / untrusted redirect, OWASP A03). The link is only shown
  * when the value parses as an absolute http/https URL.
  */
-function safeHttpUrl(url: string | null): string | null {
+export function safeHttpUrl(url: string | null): string | null {
   if (!url) return null;
   try {
     const parsed = new URL(url);
@@ -72,7 +72,7 @@ function safeHttpUrl(url: string | null): string | null {
   }
 }
 
-function reducer(state: ProvisionState, ev: ProvisionEvent): ProvisionState {
+export function reducer(state: ProvisionState, ev: ProvisionEvent): ProvisionState {
   switch (ev.phase) {
     case "progress": {
       const recent = ev.node ? [ev.node, ...state.recent].slice(0, RECENT_CAP) : state.recent;
