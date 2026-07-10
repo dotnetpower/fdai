@@ -128,14 +128,6 @@ def _numeric_or_none(value: Any) -> float | int | None:
     return result if math.isfinite(result) else None
 
 
-__all__ = [
-    "FunnelBuilder",
-    "RetentionBuilder",
-    "SankeyBuilder",
-    "TreemapBuilder",
-]
-
-
 class RetentionBuilder:
     """Cohort retention grid.
 
@@ -171,3 +163,11 @@ class RetentionBuilder:
                 }
             )
         return {"periods": ordered_periods, "rows": rows}
+
+
+__all__ = [
+    "FunnelBuilder",
+    "RetentionBuilder",
+    "SankeyBuilder",
+    "TreemapBuilder",
+]

@@ -144,14 +144,6 @@ def _timestamp_sort_key(value: Any) -> tuple[int, float, str]:
     return (1, 0.0, str(value))
 
 
-__all__ = [
-    "EventStreamBuilder",
-    "ListStreamBuilder",
-    "TableBuilder",
-    "TopListBuilder",
-]
-
-
 class EventStreamBuilder:
     """Severity-tagged event stream.
 
@@ -185,3 +177,11 @@ class EventStreamBuilder:
             "counts_by_severity": counts,
             "total_rows": len(data.rows),
         }
+
+
+__all__ = [
+    "EventStreamBuilder",
+    "ListStreamBuilder",
+    "TableBuilder",
+    "TopListBuilder",
+]

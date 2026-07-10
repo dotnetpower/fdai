@@ -424,6 +424,41 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
     (default 200) 초과 렌더를 sentinel 위젯 하나로 대체 → 응답 폭발
     방지.
 
+### Hardening (batch-6 위젯 빌더 pass)
+
+두 번째 비평은 확장된 위젯 빌더 카탈로그를 겨냥했다: 빌더는 신뢰할 수
+없는 데이터소스 값을 변환하므로, 악의적/버그성 값이 직렬화를 깨거나 차트
+순서를 뒤엎어서는 안 된다. 각 항목은
+[`tests/core/reporting/test_widgets_hardening.py`](../../tests/core/reporting/test_widgets_hardening.py)
+가 커버한다:
+
+1. **JSON 비유한 안전성** - `JsonFormatEncoder`가 `NaN` / `+-Inf`를
+   재귀적으로 `null`로 바꾸고 `allow_nan=False` 설정 → 데이터소스 값이
+   엄격한 JSON 파서가 거부하는 body(RFC 8259엔 `NaN` / `Infinity` 토큰
+   없음)를 절대 못 만든다.
+2. **Flame-graph 순환 방지** - 순환/self-parent row를 버려 항상 forest를
+   방출; 순환은 `json.dumps` 시점에 `ValueError: Circular reference`를
+   내며 이는 위젯별 격리 *밖*이라 리포트 전체를 실패시킨다.
+3. **Graph 수치 강제** - `graphs._as_number`가 비유한 float를 거부 →
+   gauge / progress / pie / scatter / change가 `NaN`을 방출하지 않는다.
+4. **Cost 수치 강제** - `cost._numeric`가 비유한(`"nan"` / `"inf"` 문자열
+   포함)을 거부 → 비용 total은 항상 유한.
+5. **Flow 수치 강제** - `flows._numeric_or_none`가 비유한을 거부 → funnel
+   ratio / treemap 정렬이 well-defined.
+6. **List 정렬키 안전성** - `lists._numeric`가 비유한을 `-inf`로 매핑 →
+   `NaN` 랭크가 `top_list` 순서를 스크램블하지 못한다.
+7. **Sparkline 유한 안전 요약** - `min` / `max` / `last`를 유한 point만으로
+   계산; `None`/비수치 point가 더는 `TypeError`를 내지 않는다.
+8. **Stream 타임스탬프 정렬** - `list_stream` / `event_stream`이 수치 인식
+   정렬키 사용 → epoch 정수 타임스탬프가 올바르게 정렬(`str()` 정렬은
+   `9`를 `100` 뒤에 놓았다).
+9. **Pie 크기 기반 percent** - 슬라이스 percent를 크기(magnitude) 합에서
+   도출 → 음수/혼합 부호 데이터가 percent `> 1`이나 부호합 나눗셈
+   artifact를 못 만든다.
+10. **`__all__` 배치** - 늦게 정의된 `EventStreamBuilder` /
+    `RetentionBuilder`를 클래스 정의 뒤에서 export → `import *`와 정적
+    분석이 일관.
+
 ## 관련 문서
 
 - [operator-console.md](operator-console-ko.md) - 이 리포트들이
