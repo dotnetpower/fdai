@@ -1,0 +1,211 @@
+---
+title: Preflight Active Plan Reassembly (policy blocker to re-rendered terraform)
+---
+# Preflight Active Plan Reassembly (policy blocker to re-rendered terraform)
+
+When [deployment-preflight](deployment-preflight.md) reports a `policy_guardrail`
+or `supply_chain_egress` blocker that has a registered capability-mode toggle,
+the system does not stop at "here is the problem". It **actively re-renders the
+terraform plan** into a supported alternate shape - one that never emits the
+denied operation in the first place - and delivers the change as a remediation
+PR through the existing [executor](project-structure.md). This turns a denied
+resource type or a blocked package source from a hard stop into a self-clearing
+finding.
+
+This document is authoritative for **the active-reassembly loop, its
+convergence and stop-conditions, the ActionType that carries it, and the honest
+limits of what can be reassembled**. The blocker taxonomy, the toggle mapping
+table, and the report shape stay in [deployment-preflight.md](deployment-preflight.md);
+the toggle modules themselves live in
+[infra/modules/preflight-toggles/](../../infra/modules/preflight-toggles/README.md).
+
+> Customer-agnostic: no denylist value, mirror endpoint, or toggle default is
+> baked in upstream. The upstream ships the reassembly machinery and the generic
+> toggle catalog; a fork supplies the specific guardrail values and consumer
+> wiring ([generic-scope.instructions.md](../../.github/instructions/generic-scope.instructions.md)).
+
+## Why This Is Possible (and Not Magic)
+
+The rails already exist; active reassembly connects them end to end:
+
+1. **Detection** - a `FeasibilityProbe` emits a grounded `ProbeFinding`
+   ([feasibility_probe.py](../../src/fdai/shared/providers/feasibility_probe.py)).
+2. **Mapping** - the finding carries a `ProbeResolution(kind=TERRAFORM_TOGGLE,
+   autofix, module, set_vars)` naming the exact infra sub-module and the variable
+   override that makes the deploy comply.
+3. **Alternate rendering** - the
+   [preflight-toggles](../../infra/modules/preflight-toggles/README.md) modules
+   encode the compliant shape (`disk_provisioning=attach_existing`,
+   `registry_source=acr_mirror`, ...) as data-only Terraform.
+
+The two pieces that were missing - and that this design adds - are:
+
+- **A toggle-apply executor**: something that takes an `autofix`
+  `terraform_toggle` finding, renders the tfvars override, and opens a
+  remediation PR. Today the resolution is declared but never acted on; the report
+  is only *posted* to a PR
+  ([check_publish.py](../../src/fdai/core/deploy_preflight/check_publish.py)).
+- **A convergence loop**: re-run preflight over the reassembled plan so a fix for
+  one blocker cannot silently introduce another.
+
+## The Reassembly Loop
+
+Reassembly is a bounded, deterministic loop, never a single shot - a re-rendered
+plan must be re-checked because a toggle can move a blocker rather than remove
+it.
+
+```text
+terraform plan (JSON)
+  -> preflight.analyze
+       -> CLEAR              -> deliver plan / merge
+       -> BLOCKED + autofix toggle for every blocking finding
+                            -> render tfvars override (reassemble)
+                            -> re-plan -> back to preflight.analyze   (bounded)
+       -> BLOCKED + a blocking finding has no autofix toggle
+                            -> hil (partial autofix is never applied)
+```
+
+- **All-or-nothing per pass**: reassembly proceeds only when *every* blocking
+  finding has an `autofix` toggle. A single manual-resolution blocker routes the
+  whole pass to `hil` - the loop never applies a partial fix that would still
+  fail apply.
+- **Verifier is authority**: the reassembled plan is re-checked by the same
+  deterministic preflight (OPA re-check + what-if), never trusted because a
+  toggle was applied. This mirrors the
+  [quality-gate rule](../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2):
+  execution eligibility is granted by verification, not by the fix generator.
+
+### Convergence and Stop-Conditions
+
+The loop MUST terminate. Its stop-conditions are safety invariants, not
+optimizations:
+
+| Stop-condition | Effect |
+|----------------|--------|
+| `max_reassembly_iterations` (default 3) exceeded | route to `hil`, attach the last report |
+| same toggle proposed twice for the same finding id | non-convergence -> `hil` (prevents flip-flop / infinite loop) |
+| a reassembly pass produces *more* blocking findings than the prior pass | regression -> `hil` |
+| any probe raises | fail-closed -> `hil` (never reassemble on a partial pass) |
+
+The iteration counter, the per-finding toggle history, and the caps are
+configuration, not hardcoded literals, so a fork can tune them without editing
+`core/`.
+
+## ActionType: `remediate.apply-preflight-toggle`
+
+Active reassembly is **not** a new privileged path. It reuses the existing
+[executor](../../src/fdai/core/executor/executor.py) by registering a first-class
+ontology `ActionType`, so the four safety invariants, shadow-first gating, and
+the append-only audit entry come for free (the same reason the console vocabulary
+routes every action through the typed pipeline, see
+[architecture.instructions.md](../../.github/instructions/architecture.instructions.md#action-ontology-and-console-vocabulary)).
+
+The declaration (authored under `rule-catalog/action-types/`):
+
+- `category: remediation`
+- `trigger_kind: rule_violation` - a preflight blocking finding is the trigger.
+- `execution_path: pr_native` - the change is a tfvars-override PR against the
+  infra repo, never a direct substrate mutation.
+- `rollback_contract: pr_revert` - reverting the PR restores the prior tfvars;
+  the reassembly is fully reversible, so `irreversible: false`.
+- `default_mode: shadow` - the first ship judges and renders the PR as a draft
+  with the `shadow` label; it never auto-merges.
+- `promotion_gate` - measured on the frozen scenario set (false-positive rate of
+  the toggle mapping) before any per-category promotion to enforce.
+- `preconditions` - `graph_fresh_within_seconds` (the plan and the environment
+  profile must be current) and `no_conflicting_open_action_on_resource`.
+- `stop_conditions` - the convergence caps above, plus the standard
+  `time_box_exceeded_seconds` and `provider_api_error_streak`.
+- `blast_radius` - the set of infra variables the override touches; a reassembly
+  that would flip more toggles than the cap abstains to `hil`.
+
+### Autofix Eligibility Gate
+
+An `autofix` PR is proposed automatically **only** when all of these hold;
+otherwise the finding degrades to guidance + `hil`:
+
+1. the resolution `kind` is `TERRAFORM_TOGGLE` with `autofix: true`;
+2. the toggle is a **deterministic** data-only module (no LLM in the path);
+3. the reassembled plan re-passes preflight (verifier re-check);
+4. the override stays within the declared `blast_radius`.
+
+`autofix: false` toggles still render a *proposed* diff, but as review guidance
+on the PR, not an auto-opened remediation - the operator flips the variable.
+
+## What Can and Cannot Be Reassembled
+
+Honesty about the boundary is a safety property, not a caveat:
+
+- **Reassemblable** - blockers with a registered alternate rendering: inline disk
+  deny -> `attach_existing`; blocked `docker.io` egress -> `acr_mirror`; NSG
+  create deny -> `byo`; PyPI egress deny -> internal `python_index_url`;
+  ordering violation -> `dependency_ordering=strict`.
+- **Not reassemblable (routes to `hil`)** - policies with no supported
+  alternate: a region banned outright, a mandatory-tag policy, a denied SKU with
+  no substitute SKU, or any guardrail whose only resolution is a scoped
+  exemption or a governance decision. These emit a `MANUAL` resolution and never
+  auto-reassemble.
+
+The discovery loop treats a recurring `MANUAL` blocker across environments as a
+signal to propose a **new** toggle (a new default alternate rendering), which
+then enters the catalog through the standard quality gate
+([architecture.instructions.md § Rule Catalog](../../.github/instructions/architecture.instructions.md#rule-catalog)).
+
+## Safety Invariants
+
+Every reassembly action satisfies all four invariants, enforced by the executor
+it reuses:
+
+- **Stop-condition** - the convergence caps above, declared on the ActionType.
+- **Rollback path** - `pr_revert`; the override PR is a single-commit revert away
+  from the prior plan, and the rollback reference is embedded in the PR body.
+- **Blast-radius limit** - the reassembly touches only the declared infra
+  variables; exceeding the cap abstains to `hil`.
+- **Audit-log entry** - every terminal outcome (reassembled + PR posted,
+  converged-clear, non-convergence -> hil, partial-blocker -> hil, probe raise ->
+  fail-closed) writes one hash-chained audit record.
+
+Reassembly ships **shadow-first**: the PR is a draft, judged and rendered but not
+merged, until the toggle mapping's false-positive rate is measured and the
+category is explicitly promoted to enforce.
+
+## Subsystem Layout
+
+| Piece | Location | Status |
+|-------|----------|--------|
+| Toggle resolution on a finding | [feasibility_probe.py](../../src/fdai/shared/providers/feasibility_probe.py) | shipped |
+| Capability-mode toggle modules | [infra/modules/preflight-toggles/](../../infra/modules/preflight-toggles/README.md) | shipped (data-only) |
+| Readiness report + verdict | [core/deploy_preflight/report.py](../../src/fdai/core/deploy_preflight/report.py) | shipped |
+| Report -> PR check publish | [core/deploy_preflight/check_publish.py](../../src/fdai/core/deploy_preflight/check_publish.py) | shipped (report only) |
+| **Toggle-apply executor** (tfvars override renderer) | `core/deploy_preflight/reassemble.py` | **this design** |
+| **`remediate.apply-preflight-toggle` ActionType** | `rule-catalog/action-types/` | **this design** |
+| **Convergence loop + stop-conditions** | `core/deploy_preflight/reassemble.py` | **this design** |
+| Reference consumer wiring (one toggle) | `infra/` | **this design** (fork copies it) |
+
+`core/` sees only the `FeasibilityProbe` Protocol and the
+`RemediationPrPublisher` seam; the reassembly renderer constructs no cloud SDK
+and opens no PR itself - it hands a rendered `Action` to the executor, which owns
+the publish and the invariants.
+
+## Delivery Increments
+
+Each is separately reviewable:
+
+1. **Docs-first** (this document) - the loop, ActionType, and limits.
+2. The `remediate.apply-preflight-toggle` ActionType YAML + schema validation.
+3. The tfvars-override renderer + the bounded convergence loop, shadow-mode,
+   with property tests: "same toggle never applied twice", "partial blocker ->
+   hil", "reassembled plan is re-verified", "shadow never merges".
+4. One reference consumer wiring (the `disk_provisioning` toggle) under `infra/`
+   so a fork has a copy-paste starting point.
+5. Live Azure adapters that feed real policy findings into the loop (after the
+   preflight live adapters land, shadow-first).
+
+## References
+
+- [deployment-preflight.md](deployment-preflight.md) - probe taxonomy, toggle mapping table, report shape
+- [infra/modules/preflight-toggles/README.md](../../infra/modules/preflight-toggles/README.md) - the capability-mode toggle modules
+- [architecture.instructions.md](../../.github/instructions/architecture.instructions.md) - control loop, quality gate, safety invariants, action ontology
+- [project-structure.md](project-structure.md) - executor, module boundaries, infra sub-module pattern
+- [risk-classification.md](risk-classification.md) - how a blocking finding routes to `hil`
+- [coding-conventions.instructions.md](../../.github/instructions/coding-conventions.instructions.md) - the four safety invariants, shadow-first, ActionType contract

@@ -63,6 +63,7 @@ build. Read the reference docs first, then the phases in order.
 | 12 | [startup-and-lifecycle.md](startup-and-lifecycle.md) | cold start, day-zero catalog, shadow-first rollout, discovery-loop kickoff |
 | 13 | [operating-and-verification.md](operating-and-verification.md) | self-health signals, canary event, smoke tests, alert routing, runbooks |
 | 20 | [deployment-preflight.md](deployment-preflight.md) | pre-deployment feasibility and blocker collection: probe taxonomy, readiness report, blocker-to-terraform-toggle mapping |
+| 20a | [preflight-active-reassembly.md](preflight-active-reassembly.md) | active plan reassembly: turn a policy blocker into a re-rendered terraform plan via capability-mode toggles, delivered as a remediation PR through the executor (convergence loop, stop-conditions, limits) |
 | 21 | [assurance-twin.md](assurance-twin.md) | queryable ontology twin for architecture review / Q&A / assessment: text-to-query, proactive review, whole-graph what-if, shadow proposals |
 | 22 | [operational-readiness.md](operational-readiness.md) | dev-to-ops handoff gate: ownership-transfer trigger, whole-scope RBAC / policy / reliability review, ReadinessReport, environment-promotion gate |
 

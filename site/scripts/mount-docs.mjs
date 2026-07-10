@@ -66,6 +66,7 @@ const ROADMAP_SITE_ALLOWLIST = new Set([
   "channels-and-notifications",
   "deploy-and-onboard",
   "deployment-preflight",
+  "preflight-active-reassembly",
   "implementation-plan",
 ]);
 
