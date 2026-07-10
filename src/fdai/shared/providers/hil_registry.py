@@ -63,8 +63,9 @@ class MutationTarget(StrEnum):
 
     Surfaced on :attr:`HilPendingItem.mutation_target` so an Approver
     knows whether the approval will result in a merged remediation PR
-    (``PR_NATIVE``) or a direct substrate mutation (``DIRECT_API``).
-    The value mirrors
+    (``PR_NATIVE``), a direct substrate mutation (``DIRECT_API``), or a
+    registered tool invocation (``TOOL_CALL`` - generate a document,
+    send a notification, ...). The value mirrors
     :class:`~fdai.shared.contracts.models.ExecutionPath` and is
     populated at HIL enqueue time from
     :attr:`~fdai.shared.contracts.models.OntologyActionType.execution_path`.
@@ -76,6 +77,7 @@ class MutationTarget(StrEnum):
 
     PR_NATIVE = "pr_native"
     DIRECT_API = "direct_api"
+    TOOL_CALL = "tool_call"
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,7 +255,8 @@ def mutation_target_from_execution_path(
     ``pr_manual`` shares the ``pr_native`` execution surface (the
     ``require_manual_merge`` flag governs auto-merge on the same GitOps
     adapter), so both PR paths render as
-    :attr:`MutationTarget.PR_NATIVE`. Unknown / ``None`` values map to
+    :attr:`MutationTarget.PR_NATIVE`. ``direct_api`` and ``tool_call``
+    each map to their own target. Unknown / ``None`` values map to
     ``None`` so an ActionType predating F1 stays round-trippable.
 
     Kept as a plain module-level function (no method on the enum) so a
@@ -268,6 +271,8 @@ def mutation_target_from_execution_path(
 
     if execution_path is ExecutionPath.DIRECT_API:
         return MutationTarget.DIRECT_API
+    if execution_path is ExecutionPath.TOOL_CALL:
+        return MutationTarget.TOOL_CALL
     if execution_path in (ExecutionPath.PR_NATIVE, ExecutionPath.PR_MANUAL):
         return MutationTarget.PR_NATIVE
     return None

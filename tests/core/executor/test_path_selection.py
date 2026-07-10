@@ -114,6 +114,45 @@ class TestNoneHandling:
 
 
 # ---------------------------------------------------------------------------
+# tool_call is off the substrate-mutation ladder (execution-model.md 5.6)
+# ---------------------------------------------------------------------------
+
+
+class TestToolCallOffLadder:
+    def test_self_collapses_to_tool_call(self) -> None:
+        assert (
+            strictest_execution_path(ExecutionPath.TOOL_CALL, ExecutionPath.TOOL_CALL)
+            is ExecutionPath.TOOL_CALL
+        )
+
+    def test_tool_call_with_none_returns_tool_call(self) -> None:
+        assert (
+            strictest_execution_path(ExecutionPath.TOOL_CALL, None) is ExecutionPath.TOOL_CALL
+        )
+        assert (
+            strictest_execution_path(None, ExecutionPath.TOOL_CALL) is ExecutionPath.TOOL_CALL
+        )
+
+    @pytest.mark.parametrize("substrate", _PATHS)
+    def test_mixing_tool_call_with_a_substrate_path_fails_closed(
+        self, substrate: ExecutionPath
+    ) -> None:
+        with pytest.raises(ExecutionPathSelectionError):
+            strictest_execution_path(ExecutionPath.TOOL_CALL, substrate)
+        with pytest.raises(ExecutionPathSelectionError):
+            strictest_execution_path(substrate, ExecutionPath.TOOL_CALL)
+
+    @pytest.mark.parametrize("substrate", _PATHS)
+    def test_is_strictly_stricter_than_refuses_tool_call(
+        self, substrate: ExecutionPath
+    ) -> None:
+        with pytest.raises(ExecutionPathSelectionError):
+            is_strictly_stricter_than(ExecutionPath.TOOL_CALL, substrate)
+        with pytest.raises(ExecutionPathSelectionError):
+            is_strictly_stricter_than(substrate, ExecutionPath.TOOL_CALL)
+
+
+# ---------------------------------------------------------------------------
 # Algebraic properties (small deterministic property tests without hypothesis)
 # ---------------------------------------------------------------------------
 

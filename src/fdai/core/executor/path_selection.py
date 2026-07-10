@@ -41,6 +41,12 @@ from fdai.shared.contracts.models import ExecutionPath
 
 # Higher value = stricter. Keep this table PRIVATE so a callers cannot
 # depend on the numeric encoding - only on the function output.
+#
+# NOTE: ``tool_call`` is intentionally ABSENT. It is off the
+# substrate-mutation ladder (execution-model.md 5.6) - it mutates no
+# substrate, so it is never ranked against pr/direct paths. It is
+# dispatched purely by ``execution_path``; the functions below handle it
+# explicitly rather than assigning it a bogus rank.
 _STRICTNESS: Final[dict[ExecutionPath, int]] = {
     ExecutionPath.DIRECT_API: 0,
     ExecutionPath.PR_NATIVE: 1,
@@ -76,6 +82,20 @@ def strictest_execution_path(
         raise ExecutionPathSelectionError(
             "strictest_execution_path requires at least one non-None path"
         )
+    # tool_call is off the substrate-mutation ladder (execution-model.md
+    # 5.6). A same-value pair (or tool_call + None) collapses to
+    # tool_call; mixing it with a substrate path means one action was
+    # assigned two incompatible delivery surfaces - a programmer bug we
+    # fail closed on rather than silently rank.
+    if ExecutionPath.TOOL_CALL in (a, b):
+        present = tuple(p for p in (a, b) if p is not None)
+        if all(p is ExecutionPath.TOOL_CALL for p in present):
+            return ExecutionPath.TOOL_CALL
+        raise ExecutionPathSelectionError(
+            "tool_call is off the pr_manual>pr_native>direct_api ladder "
+            "(execution-model.md 5.6); it cannot be combined with a "
+            "substrate execution path"
+        )
     if a is None:
         # b is guaranteed non-None by the guard above.
         return _guard_known(b)  # type: ignore[arg-type]
@@ -101,13 +121,25 @@ def is_strictly_stricter_than(
 
 
 def _guard_known(path: ExecutionPath) -> ExecutionPath:
-    """Defense-in-depth: refuse an unknown enum value.
+    """Defense-in-depth: refuse an off-ladder or unknown enum value.
 
-    ``ExecutionPath`` is a closed :class:`~enum.StrEnum`, so this
-    branch is unreachable via the type system. It exists so a caller
-    who forces the type via ``ExecutionPath("bogus")`` sees a clear
-    error rather than a silent KeyError deep in ``_STRICTNESS``.
+    ``tool_call`` is a valid :class:`ExecutionPath` but sits OFF the
+    substrate-mutation strictness ladder (execution-model.md 5.6), so it
+    must never be ranked here - it is dispatched by ``execution_path``
+    alone. Reaching this guard with ``tool_call`` means a caller tried to
+    compare it against a pr/direct path, which is a programmer bug.
+
+    ``ExecutionPath`` is otherwise a closed :class:`~enum.StrEnum`, so
+    the final branch is unreachable via the type system. It exists so a
+    caller who forces the type via ``ExecutionPath("bogus")`` sees a
+    clear error rather than a silent KeyError deep in ``_STRICTNESS``.
     """
+    if path is ExecutionPath.TOOL_CALL:
+        raise ExecutionPathSelectionError(
+            "tool_call is off the substrate-mutation strictness ladder "
+            "(execution-model.md 5.6); it is dispatched by execution_path, "
+            "never ranked against pr_native/direct_api/pr_manual"
+        )
     if path not in _STRICTNESS:  # pragma: no cover - StrEnum makes this unreachable
         raise ExecutionPathSelectionError(
             f"unknown ExecutionPath {path!r}; add to _STRICTNESS mapping"

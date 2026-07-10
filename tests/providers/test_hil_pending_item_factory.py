@@ -76,6 +76,8 @@ def _at(*, execution_path: ExecutionPath | None) -> OntologyActionType:
         (ExecutionPath.DIRECT_API, MutationTarget.DIRECT_API),
         # R7 collapse: pr_manual shares the pr_native execution surface.
         (ExecutionPath.PR_MANUAL, MutationTarget.PR_NATIVE),
+        # tool_call maps to its own target so an approver sees a tool run.
+        (ExecutionPath.TOOL_CALL, MutationTarget.TOOL_CALL),
         (None, None),
     ],
 )
