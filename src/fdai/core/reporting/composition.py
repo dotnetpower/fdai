@@ -54,9 +54,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from fdai.shared.providers.metric import MetricProvider
 
 
-_KNOWN_DATASOURCE_NAMES: frozenset[str] = frozenset(
-    {"audit", "report_feed", "metric", "log_query"}
-)
+_KNOWN_DATASOURCE_NAMES: frozenset[str] = frozenset({"audit", "report_feed", "metric", "log_query"})
 
 
 def default_reporting_engine(
