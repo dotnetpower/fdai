@@ -106,6 +106,21 @@ def test_window_days_validated() -> None:
     client = _client(InMemoryShadowVerdictSource(), catalog)
     assert client.get("/kpi/promotion-gates", params={"window_days": "0"}).status_code == 400
     assert client.get("/kpi/promotion-gates", params={"window_days": "abc"}).status_code == 400
+    # Above the one-year cap is rejected so a caller cannot request an
+    # unbounded window.
+    assert client.get("/kpi/promotion-gates", params={"window_days": "366"}).status_code == 400
+    # The one-year boundary itself is accepted.
+    assert client.get("/kpi/promotion-gates", params={"window_days": "365"}).status_code == 200
+
+
+def test_action_type_filter_length_capped() -> None:
+    catalog = _catalog()
+    client = _client(InMemoryShadowVerdictSource(), catalog)
+    resp = client.get(
+        "/kpi/promotion-gates",
+        params={"action_type": "x" * 257},
+    )
+    assert resp.status_code == 400
 
 
 def test_route_absent_when_source_not_configured() -> None:
