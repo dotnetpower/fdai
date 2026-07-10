@@ -96,6 +96,37 @@ def test_blast_radius_route_400_on_depth_exceeding_cap() -> None:
     assert resp.status_code == 400
 
 
+def test_blast_radius_route_400_on_oversized_target_and_link() -> None:
+    client = _client(_chain_graph())
+    # target over the 512-char cap.
+    r1 = client.get(
+        "/simulate/blast-radius",
+        params=[("target", "t" * 513), ("depth", "1"), ("link", "contains")],
+    )
+    assert r1.status_code == 400
+    assert "target" in r1.text
+    # link name over the 128-char cap.
+    r2 = client.get(
+        "/simulate/blast-radius",
+        params=[("target", "sub-a"), ("depth", "1"), ("link", "c" * 129)],
+    )
+    assert r2.status_code == 400
+    assert "link" in r2.text
+
+
+def test_blast_radius_route_400_when_sim_cap_below_route_cap() -> None:
+    # The route accepts depth in [1, 8] but the simulator caps traversal
+    # at 5; a depth of 6 passes route validation then trips the
+    # simulator's TraversalDepthExceededError, surfaced as a 400.
+    client = _client(_chain_graph())
+    resp = client.get(
+        "/simulate/blast-radius",
+        params=[("target", "sub-a"), ("depth", "6"), ("link", "contains")],
+    )
+    assert resp.status_code == 400
+    assert "exceeds cap" in resp.text
+
+
 def test_route_not_registered_when_graph_is_none() -> None:
     client = _client(None)
     resp = client.get(

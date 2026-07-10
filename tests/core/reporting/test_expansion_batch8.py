@@ -294,6 +294,17 @@ class TestInMemoryReportCache:
         await cache.render("r")
         assert source.calls == 2
 
+    async def test_invalidate_all_clears_every_report(self) -> None:
+        engine, source = _cache_engine()
+        cache = InMemoryReportCache(engine, ttl_seconds=60, max_entries=10)
+        await cache.render("r", variables={"env": "a"})
+        await cache.render("r", variables={"env": "b"})
+        # No report_id -> the whole cache is dropped in one call.
+        cache.invalidate()
+        assert cache.health()["cache"]["size"] == 0
+        await cache.render("r", variables={"env": "a"})
+        assert source.calls == 3
+
     async def test_ttl_expiry_re_renders(self) -> None:
         engine, source = _cache_engine()
         cache = InMemoryReportCache(engine, ttl_seconds=0.05, max_entries=10)
@@ -314,3 +325,31 @@ class TestInMemoryReportCache:
             InMemoryReportCache(engine, ttl_seconds=0)
         with pytest.raises(ValueError):
             InMemoryReportCache(engine, max_entries=0)
+
+    def test_facade_methods_forward_to_wrapped_engine(self) -> None:
+        engine, _ = _cache_engine()
+        cache = InMemoryReportCache(engine, ttl_seconds=30, max_entries=5)
+        # The cache is a transparent facade: each accessor returns the
+        # wrapped engine's own object so callers never know it is cached.
+        assert cache.catalog() is engine.catalog()
+        assert cache.widget_registry() is engine.widget_registry()
+        assert cache.datasource_registry() is engine.datasource_registry()
+        assert cache.config() is engine.config()
+
+    async def test_lru_eviction_drops_oldest_entry(self) -> None:
+        engine, source = _cache_engine()
+        cache = InMemoryReportCache(engine, ttl_seconds=60, max_entries=2)
+        # Three distinct variable keys against a 2-entry cache -> the
+        # oldest (env=a) is evicted once env=c is written.
+        await cache.render("r", variables={"env": "a"})
+        await cache.render("r", variables={"env": "b"})
+        await cache.render("r", variables={"env": "c"})
+        assert cache.health()["cache"]["size"] == 2
+        assert source.calls == 3
+        # env=a was evicted, so rendering it again is a miss (re-render).
+        await cache.render("r", variables={"env": "a"})
+        assert source.calls == 4
+        # env=c is still hot, so it hits the cache (no new render).
+        await cache.render("r", variables={"env": "c"})
+        assert source.calls == 4
+
