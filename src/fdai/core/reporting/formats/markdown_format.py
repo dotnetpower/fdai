@@ -42,12 +42,8 @@ class MarkdownFormatEncoder:
         if report.description:
             lines.append(report.description)
             lines.append("")
-        lines.append(
-            f"- report_id: `{report.id}` (v{report.version})"
-        )
-        lines.append(
-            f"- generated_at: `{report.generated_at.isoformat()}`"
-        )
+        lines.append(f"- report_id: `{report.id}` (v{report.version})")
+        lines.append(f"- generated_at: `{report.generated_at.isoformat()}`")
         lines.append(
             f"- window: `{report.time_range[0].isoformat()}` .. "
             f"`{report.time_range[1].isoformat()}`"

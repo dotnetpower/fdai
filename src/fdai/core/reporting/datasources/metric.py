@@ -64,9 +64,7 @@ class MetricDataSource:
             return DataSet(metadata={"error": "metric_name required"})
 
         labels_raw = params.get("labels") or {}
-        labels: dict[str, str] = {
-            str(k): str(v) for k, v in _as_mapping(labels_raw).items()
-        }
+        labels: dict[str, str] = {str(k): str(v) for k, v in _as_mapping(labels_raw).items()}
         aggregation = params.get("aggregation")
         agg_str = str(aggregation) if aggregation is not None else None
         group_by = _as_sequence(params.get("group_by"))
@@ -92,9 +90,7 @@ class MetricDataSource:
         return _series_dataset(points, group_by=group_by)
 
 
-def _series_dataset(
-    points: Sequence[MetricPoint], *, group_by: Sequence[str]
-) -> DataSet:
+def _series_dataset(points: Sequence[MetricPoint], *, group_by: Sequence[str]) -> DataSet:
     if not group_by:
         pts = tuple((p.at.timestamp(), p.value) for p in points)
         return DataSet(series=(Series(label="all", points=pts, labels={}),))

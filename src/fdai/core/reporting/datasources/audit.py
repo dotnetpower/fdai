@@ -72,8 +72,7 @@ class AuditReader(Protocol):
         *,
         limit: int = ...,
         cursor: str | None = ...,
-    ) -> AuditPage:
-        ...
+    ) -> AuditPage: ...
 
 
 class AuditDataSource:
@@ -169,9 +168,7 @@ def _rows_dataset(rows: Sequence[AuditRow]) -> DataSet:
     )
 
 
-def _count_by_dataset(
-    rows: Sequence[AuditRow], *, key: str, label: str
-) -> DataSet:
+def _count_by_dataset(rows: Sequence[AuditRow], *, key: str, label: str) -> DataSet:
     counts: dict[str, int] = {}
     for row in rows:
         value = str(getattr(row, key, ""))

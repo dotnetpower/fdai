@@ -80,6 +80,7 @@ class FailingDataSource:
 def _fixed_clock(now: datetime):
     def _clock() -> datetime:
         return now
+
     return _clock
 
 

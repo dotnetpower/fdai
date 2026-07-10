@@ -47,9 +47,7 @@ class TestLoadReportFromMapping:
             "version": "1.0.0",
             "name": "Demo",
             "time_range": {"last": "1d"},
-            "variables": [
-                {"name": "env", "default": "prod", "values": ["prod", "staging"]}
-            ],
+            "variables": [{"name": "env", "default": "prod", "values": ["prod", "staging"]}],
             "widgets": [
                 {"id": "t", "type": "free_text", "title": "Intro", "options": {"body": "hi"}}
             ],
@@ -80,9 +78,7 @@ class TestLoadReportFromMapping:
                 }
             ],
         }
-        spec = load_report_from_mapping(
-            raw, allowed_widget_types=_base_widget_types()
-        )
+        spec = load_report_from_mapping(raw, allowed_widget_types=_base_widget_types())
         assert spec.widgets[0].type == "group"
         assert spec.widgets[0].children[0].id == "child"
 
@@ -92,9 +88,7 @@ class TestLoadReportFromMapping:
             "version": "1.0.0",
             "name": "Demo",
             "time_range": {"last": "1d"},
-            "widgets": [
-                {"id": "v", "type": "free_text", "title": "V", "options": {"body": "hi"}}
-            ],
+            "widgets": [{"id": "v", "type": "free_text", "title": "V", "options": {"body": "hi"}}],
             "typo": True,
         }
         with pytest.raises(ReportCatalogError, match="typo"):
@@ -105,9 +99,7 @@ class TestLoadReportFromMapping:
             "id": "demo",
             "version": "1.0.0",
             "name": "Demo",
-            "widgets": [
-                {"id": "v", "type": "free_text", "title": "V", "options": {"body": "hi"}}
-            ],
+            "widgets": [{"id": "v", "type": "free_text", "title": "V", "options": {"body": "hi"}}],
         }
         with pytest.raises(ReportCatalogError, match="time_range"):
             load_report_from_mapping(raw)
@@ -118,9 +110,7 @@ class TestLoadReportFromMapping:
             "version": "1.0.0",
             "name": "Demo",
             "time_range": {"last": "1x"},
-            "widgets": [
-                {"id": "v", "type": "free_text", "title": "V", "options": {"body": "hi"}}
-            ],
+            "widgets": [{"id": "v", "type": "free_text", "title": "V", "options": {"body": "hi"}}],
         }
         with pytest.raises(ReportCatalogError, match="last|1x"):
             load_report_from_mapping(raw)

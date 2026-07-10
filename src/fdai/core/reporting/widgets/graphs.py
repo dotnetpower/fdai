@@ -163,10 +163,7 @@ class BarChartBuilder:
     def build(self, *, spec: WidgetSpec, data: DataSet) -> Mapping[str, Any]:
         label_field = str(spec.options.get("label_field", "label"))
         value_field = str(spec.options.get("value_field", "value"))
-        bars = [
-            {"label": row.get(label_field), "value": row.get(value_field)}
-            for row in data.rows
-        ]
+        bars = [{"label": row.get(label_field), "value": row.get(value_field)} for row in data.rows]
         return {"bars": bars}
 
 

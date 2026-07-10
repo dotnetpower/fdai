@@ -30,10 +30,7 @@ class TableBuilder:
     def build(self, *, spec: WidgetSpec, data: DataSet) -> Mapping[str, Any]:
         limit = _clamp_limit(spec.options.get("limit"))
         columns = data.columns or _derive_columns(data.rows)
-        rows = [
-            {col: row.get(col) for col in columns}
-            for row in list(data.rows)[:limit]
-        ]
+        rows = [{col: row.get(col) for col in columns} for row in list(data.rows)[:limit]]
         return {
             "columns": list(columns),
             "rows": rows,

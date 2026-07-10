@@ -98,9 +98,7 @@ def load_report_from_mapping(
         key=lambda e: list(e.absolute_path),
     ):
         pointer = "/".join(str(p) for p in schema_error.absolute_path) or "<root>"
-        issues.append(
-            ReportCatalogIssue(origin, f"{pointer}: {schema_error.message}")
-        )
+        issues.append(ReportCatalogIssue(origin, f"{pointer}: {schema_error.message}"))
     if issues:
         raise ReportCatalogError(issues)
 

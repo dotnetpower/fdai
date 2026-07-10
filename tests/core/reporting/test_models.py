@@ -61,11 +61,7 @@ class TestRenderedReport:
                     id="ts",
                     type="timeseries",
                     title="Trend",
-                    data={
-                        "series": [
-                            {"label": "a", "labels": {}, "points": [[1.0, 2.0]]}
-                        ]
-                    },
+                    data={"series": [{"label": "a", "labels": {}, "points": [[1.0, 2.0]]}]},
                 ),
             ),
             tags=("ops",),

@@ -137,9 +137,7 @@ class TestHeatmapBuilder:
     def test_reuses_series_shape(self) -> None:
         data = DataSet(series=(Series(label="a", points=((1.0, 2.0),)),))
         result = HeatmapBuilder().build(spec=_spec("heatmap"), data=data)
-        assert result == {
-            "series": [{"label": "a", "labels": {}, "points": [[1.0, 2.0]]}]
-        }
+        assert result == {"series": [{"label": "a", "labels": {}, "points": [[1.0, 2.0]]}]}
 
 
 class TestBarChartBuilder:
@@ -196,7 +194,12 @@ class TestTopListBuilder:
         assert [row["name"] for row in result["rows"]] == ["a", "c"]
 
     def test_rows_missing_rank_column_dropped(self) -> None:
-        data = DataSet(rows=({"a": 1}, {"a": 2, "value": 9},))
+        data = DataSet(
+            rows=(
+                {"a": 1},
+                {"a": 2, "value": 9},
+            )
+        )
         result = TopListBuilder().build(spec=_spec("top_list"), data=data)
         assert len(result["rows"]) == 1
 

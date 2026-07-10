@@ -19,7 +19,7 @@ Query parameters:
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 
 from fdai.core.report_feed.feed import ReportFeed
@@ -53,7 +53,7 @@ class ReportFeedDataSource:
         projection = str(spec.parameters.get("projection", "rows"))
         result = await self._feed.collect(since=since, until=until, category=category)
         signals = result.signals
-        metadata = {
+        metadata: dict[str, object] = {
             "source_errors": [f"{name}:{err}" for name, err in result.source_errors],
         }
 
@@ -86,9 +86,7 @@ def _resolve_category(raw: object) -> ReportCategory | None:
         return None
 
 
-def _rows_dataset(
-    signals: Sequence[ReportSignal], *, metadata: Mapping[str, object]
-) -> DataSet:
+def _rows_dataset(signals: Sequence[ReportSignal], *, metadata: Mapping[str, object]) -> DataSet:
     return DataSet(
         columns=(
             "signal_id",
@@ -120,7 +118,7 @@ def _rows_dataset(
 def _count_by_dataset(
     signals: Sequence[ReportSignal],
     *,
-    key,
+    key: Callable[[ReportSignal], object],
     label: str,
     metadata: Mapping[str, object],
 ) -> DataSet:

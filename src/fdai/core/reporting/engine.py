@@ -129,8 +129,7 @@ class ReportEngine:
                 candidate = overrides[name]
                 if var.values and candidate not in var.values:
                     raise VariableRejectedError(
-                        f"variable {name!r}={candidate!r} not in allowlist "
-                        f"{sorted(var.values)!r}"
+                        f"variable {name!r}={candidate!r} not in allowlist {sorted(var.values)!r}"
                     )
                 resolved[name] = candidate
             elif var.default is not None:
@@ -148,9 +147,7 @@ class ReportEngine:
         # Group widgets are composite - recurse; no datasource call.
         if widget_spec.type == _GROUP_WIDGET_TYPE:
             children = [
-                await self._render_widget(
-                    child, since=since, until=until, variables=variables
-                )
+                await self._render_widget(child, since=since, until=until, variables=variables)
                 for child in widget_spec.children
             ]
             return RenderedWidget(
@@ -206,9 +203,7 @@ class ReportEngine:
                     "datasource": widget_spec.query.datasource,
                 },
             )
-            return _error_widget(
-                widget_spec, f"datasource error: {type(exc).__name__}: {exc}"
-            )
+            return _error_widget(widget_spec, f"datasource error: {type(exc).__name__}: {exc}")
 
         try:
             data = builder.build(spec=widget_spec, data=dataset)
@@ -217,9 +212,7 @@ class ReportEngine:
                 "reporting_widget_build_failed",
                 extra={"widget_id": widget_spec.id, "widget_type": widget_spec.type},
             )
-            return _error_widget(
-                widget_spec, f"builder error: {type(exc).__name__}: {exc}"
-            )
+            return _error_widget(widget_spec, f"builder error: {type(exc).__name__}: {exc}")
 
         return RenderedWidget(
             id=widget_spec.id,

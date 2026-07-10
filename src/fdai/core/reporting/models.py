@@ -68,9 +68,7 @@ class TimeRange:
         if self.since is not None:
             return (self.since, until)
         if self.relative_duration is None:
-            raise ValueError(
-                "TimeRange needs at least one of since / relative_duration"
-            )
+            raise ValueError("TimeRange needs at least one of since / relative_duration")
         return (until - self.relative_duration, until)
 
 
