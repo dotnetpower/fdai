@@ -13,6 +13,7 @@ never executes a change without a real approver bound.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from uuid import uuid4
 
 from fdai.core.investigation import (
     InvestigationCoordinator,
+    InvestigationOutcome,
     InvestigationReport,
     InvestigationRequest,
     Priority,
@@ -34,6 +36,12 @@ _LOGGER = logging.getLogger(__name__)
 
 _DEFAULT_INVESTIGATION_BUDGET = 60.0
 _DEFAULT_APPROVER_ROLE = "approver"
+
+# A wedged investigator is bounded at this multiple of the budget. The grace
+# above 1x lets a slow-but-finishing run return its partial findings (marked
+# BUDGET_EXCEEDED) instead of being killed at exactly the budget, while still
+# guaranteeing respond() cannot block forever on an infinite hang.
+_HANG_GRACE = 2.0
 
 
 class ApprovalDecision(StrEnum):
@@ -167,13 +175,28 @@ class IrpCoordinator:
         channels = plan.notify_channels if plan and plan.notify_channels else self._default_channels
         approver_role = plan.approver_role if plan else _DEFAULT_APPROVER_ROLE
 
-        report = await self._investigator.investigate(
-            InvestigationRequest(
-                requested_by=f"irp:{alert.alert_id}",
-                resources=alert.resources,
-                budget_seconds=self._budget,
-            )
+        request = InvestigationRequest(
+            requested_by=f"irp:{alert.alert_id}",
+            resources=alert.resources,
+            budget_seconds=self._budget,
         )
+        try:
+            report = await asyncio.wait_for(
+                self._investigator.investigate(request),
+                timeout=self._budget * _HANG_GRACE,
+            )
+        except TimeoutError:
+            _LOGGER.warning("irp_investigation_timed_out", extra={"alert_id": alert.alert_id})
+            report = self._timed_out_report(request, started)
+            await self._notify(
+                channels,
+                subject=f"[IRP] {alert.alert_id}: investigation timed out",
+                body=(
+                    f"Investigation exceeded {self._budget * _HANG_GRACE:g}s "
+                    "(wedged backend); no action taken."
+                ),
+            )
+            return self._result(alert, IrpOutcome.NO_FINDING, report, None, None, channels, started)
 
         top = self._top_actionable(report)
         if top is None:
@@ -220,6 +243,28 @@ class IrpCoordinator:
             if rec.remediation_ref:
                 return rec
         return None
+
+    def _timed_out_report(
+        self, request: InvestigationRequest, started: datetime
+    ) -> InvestigationReport:
+        """Synthesize an empty BUDGET_EXCEEDED report for a wedged investigation."""
+        bound = self._budget * _HANG_GRACE
+        return InvestigationReport(
+            investigation_id=f"inv-timeout-{uuid4().hex[:8]}",
+            requested_by=request.requested_by,
+            requested_at=started,
+            window_seconds=request.window_seconds,
+            resources=request.resources,
+            outcome=InvestigationOutcome.BUDGET_EXCEEDED,
+            findings=(),
+            timeline=(),
+            correlation=(),
+            root_cause=None,
+            recommendations=(),
+            elapsed_seconds=bound,
+            budget_seconds=request.budget_seconds,
+            analyzer_errors=(("*", "investigation_timeout"),),
+        )
 
     async def _notify(self, channels: Sequence[str], *, subject: str, body: str) -> None:
         if not channels:
