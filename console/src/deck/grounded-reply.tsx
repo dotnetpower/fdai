@@ -73,6 +73,11 @@ export function GroundedReply({
               Regenerate
             </button>
           ) : null}
+          {source && cites.length === 0 ? (
+            <span class="deck-gr-src deck-gr-src-inline muted" title="reply source">
+              {source}
+            </span>
+          ) : null}
         </div>
       ) : null}
 
