@@ -40,7 +40,7 @@ _CAPABILITY_MARKER = _CAPABILITIES.splitlines()[0]
 # Rough per-turn budget for the STATIC prompt (everything before the snapshot
 # JSON). The lean prompt must stay well under this; the glossary variant may
 # exceed the lean size but must still be bounded. Guards against prompt bloat.
-_LEAN_BASE_BUDGET = 1_700
+_LEAN_BASE_BUDGET = 1_900
 
 _SNAPSHOT_MARKER = "Current view snapshot (JSON):"
 
@@ -374,6 +374,30 @@ def test_oversized_snapshot_is_truncated() -> None:
     assert "...(truncated)" in system
 
 
+def test_oversized_snapshot_stays_valid_json() -> None:
+    # Legacy behaviour cut mid-string, producing invalid JSON the model could
+    # still try to consume. The truncation stub MUST be valid JSON so the
+    # model reads a structured "narrow the page" hint, not a broken prefix.
+    big = {"routeId": "rules", "blob": "x" * (DEFAULT_MAX_CONTEXT_BYTES + 5_000)}
+    system = _system_of(_build_messages("hi", big, []))
+    embedded = system.split(_SNAPSHOT_MARKER, 1)[1].strip()
+    # Strip trailing whitespace/newlines the template adds.
+    payload = json.loads(embedded)
+    assert payload["_snapshot_truncated"] is True
+    assert payload["_original_bytes"] > DEFAULT_MAX_CONTEXT_BYTES
+    assert payload["_cap_bytes"] == DEFAULT_MAX_CONTEXT_BYTES
+    assert payload["_route"] == "rules"
+
+
+def test_grounding_rules_reference_records_meta_and_snapshot_truncated() -> None:
+    # The base prompt MUST tell the model to read the honest sample-size
+    # meta (_records_meta) and the whole-snapshot truncation flag, so it
+    # never claims exhaustive knowledge from a sample.
+    base = _base_of(_system_of(_build_messages("how many rules?", {}, [])))
+    assert "_records_meta" in base
+    assert "_snapshot_truncated" in base
+
+
 def test_braces_in_snapshot_do_not_break_formatting() -> None:
     # A value containing format-like braces must survive str.format.
     ctx = {"note": "value with {curly} and {snapshot_json} tokens"}
@@ -468,9 +492,15 @@ def test_records_over_cap_are_trimmed_with_hint() -> None:
     trimmed = _trim_view_context(ctx)
     assert len(trimmed["records"]["rules"]) == DEFAULT_MAX_RECORDS_PER_KEY
     assert trimmed["_records_truncated"] is True
+    # The honest sample-size hint must carry both the sample size AND the
+    # true total so the model never says "there are only N".
+    meta = trimmed["_records_meta"]
+    assert meta["rules"]["shown"] == DEFAULT_MAX_RECORDS_PER_KEY
+    assert meta["rules"]["total"] == 120
     # Original object is not mutated.
     assert len(ctx["records"]["rules"]) == 120
     assert "_records_truncated" not in ctx
+    assert "_records_meta" not in ctx
 
 
 def test_records_under_cap_untouched() -> None:

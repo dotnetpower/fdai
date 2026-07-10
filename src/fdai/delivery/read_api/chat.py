@@ -100,7 +100,7 @@ snapshot of the rendered page follows; ground every answer STRICTLY in it.
 Rules:
 - Reply in the operator's language; cite exact snapshot numbers/labels and NEVER invent facts.
 - Explain a screen/term via snapshot `purpose`/`glossary`; cite a row's `detail`/`summary`/`reason` for a cause.
-- `records` (`records.rules`, `records.items`, ...) are the rows visible now: search and quote matching rows; do not claim missing info when a row is present. If `_records_truncated`, only a sample shows - narrow via the page's search.
+- `records` (`records.rules`, `records.items`, ...) are the rows visible now: search and quote matching rows; do not claim missing info when a row is present. If `_records_truncated`, quote `_records_meta[key]` ({{shown,total}}) for honest counts and use the page's search for the rest; if `_snapshot_truncated`, ask the operator to narrow the page - never invent from a cut prefix.
 - Deixis: "this / it / the selected one" (or the Korean equivalent) = the SELECTION signals - facts whose `group` is "selection" or key starts `selected_`, plus `records.selected_*`; answer THAT item first. Never say you lack context when facts/records are present.
 - If an entry is absent but the page has a search/filter, say so; only redirect to another route (Live/Dashboard/Audit/HIL/Ontology/Blast Radius/Promotion/Trace) when the topic truly belongs there.
 - Be concise (1-4 sentences unless asked for more). Read-only: never propose actions/approvals/writes; you translate, not judge.
@@ -301,27 +301,62 @@ def _trim_view_context(
 
     The rendered page can publish hundreds of rows; forwarding them all lets
     the snapshot JSON dominate the prompt. Trim each array to ``max_records``
-    and flag ``_records_truncated`` so the model knows to point the operator at
-    the page's search/filter for the rest. Returns the input unchanged when no
-    array exceeds the cap (no needless copy).
+    and flag ``_records_truncated`` (plus per-key ``_records_meta`` giving the
+    shown/total counts) so the model knows the sample size honestly - never
+    "there are only N" when N is the sample cap. Returns the input unchanged
+    when no array exceeds the cap (no needless copy).
     """
     records = view_context.get("records")
     if not isinstance(records, dict):
         return view_context
     trimmed: dict[str, Any] = {}
+    meta: dict[str, dict[str, int]] = {}
     changed = False
     for key, rows in records.items():
         if isinstance(rows, list) and len(rows) > max_records:
             trimmed[key] = rows[:max_records]
+            meta[key] = {"shown": max_records, "total": len(rows)}
             changed = True
         else:
             trimmed[key] = rows
+            if isinstance(rows, list):
+                meta[key] = {"shown": len(rows), "total": len(rows)}
     if not changed:
         return view_context
     new_ctx = dict(view_context)
     new_ctx["records"] = trimmed
     new_ctx["_records_truncated"] = True
+    new_ctx["_records_meta"] = meta
     return new_ctx
+
+
+def _snapshot_json_capped(view_context: dict[str, Any], cap: int) -> str:
+    """Serialise ``view_context`` and cap at ``cap`` bytes without breaking JSON.
+
+    Two failure modes to avoid: (1) a mid-record string cut yields invalid
+    JSON that a lenient model may still try to parse as legitimate data;
+    (2) a silent slice hides the fact that the operator's page is too
+    large. On overflow, replace the whole payload with a valid, tiny
+    JSON stub carrying the size + a ``...(truncated)`` sentinel the
+    grounding rules watch for, so the model is honest: it tells the
+    operator to narrow the page or search on it, instead of hallucinating
+    from the cut prefix.
+    """
+    raw = json.dumps(view_context, ensure_ascii=False)
+    if len(raw) <= cap:
+        return raw
+    route = str(view_context.get("routeId") or view_context.get("routeLabel") or "-")
+    stub = {
+        "_snapshot_truncated": True,
+        "_original_bytes": len(raw),
+        "_cap_bytes": cap,
+        "_route": route,
+        "_note": (
+            "Snapshot too large to send; ask the operator to narrow the page "
+            "(search / filter / open one row) and re-ask. ...(truncated)"
+        ),
+    }
+    return json.dumps(stub, ensure_ascii=False)
 
 
 def _build_messages(
@@ -338,10 +373,7 @@ def _build_messages(
     streaming path) build byte-identical, minimal prompts.
     """
     view_context = _trim_view_context(view_context)
-    snapshot_json = json.dumps(view_context, ensure_ascii=False)
-    # Bound the payload we send to the model.
-    if len(snapshot_json) > DEFAULT_MAX_CONTEXT_BYTES:
-        snapshot_json = snapshot_json[:DEFAULT_MAX_CONTEXT_BYTES] + "...(truncated)"
+    snapshot_json = _snapshot_json_capped(view_context, DEFAULT_MAX_CONTEXT_BYTES)
     glossary = _GLOSSARY if _is_concept_query(prompt) else ""
     capabilities = _CAPABILITIES if _is_capability_query(prompt) else ""
     system = _SYSTEM_PROMPT.format(
