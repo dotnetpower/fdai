@@ -5,177 +5,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>FDAI - Genesis (provisioning prototype)</title>
     <!--
-      FDAI provisioning prototype - "Genesis".
+      FDAI provisioning prototype - "Genesis", minimal cut.
 
-      A cinematic, fully-automated provisioning experience: the control plane is
-      *born* in the nebula. Each CSP-neutral seam, each Azure resource, and each
-      pantheon agent ignites as a star as it comes online. The motion is NOT
-      decorative filler - it is driven by a `provision.*` event timeline (faked
-      here) that maps 1:1 to the real events the console will stream over SSE.
-      So "beautiful" is also "a truthful progress + audit visualization".
+      Design intent: "Her", not a dashboard. Restraint over spectacle -
+      lots of negative space, one quiet line of text at a time, slow soft
+      fades, no HUD / legend / progress bar / labels / pulsing. The control
+      plane comes to life the way a calm presence wakes up.
 
-      Layers:
-        1. Background  - the procedural WebGL nebula (copied from
-           site/public/nebula-demo.html), raw WebGL, one fragment shader.
-        2. Foreground  - a Three.js scene (stars + filaments + coalescence
-           particles) with UnrealBloom for the glow. Labels/captions/HUD are
-           HTML overlays projected from 3D so text stays crisp.
+      Still driven by a `provision.*` event timeline (faked here) that maps
+      1:1 to the SSE stream the console will emit, so the calm is truthful:
+      the honest failure + recovery is still shown - just quietly, with a
+      soft warm dim and a sentence, never an alarm.
 
-      Honesty guardrails (match FDAI's audit ethos):
-        - A failed resource is unmistakable (red flare + reason), never hidden.
-        - A textual "truth log" HUD mirrors every event with an audit ref.
-        - prefers-reduced-motion => calm fallback, no camera moves, static bg.
+      Layers: background = procedural WebGL nebula (from nebula-demo.html);
+      foreground = Three.js soft points + faint filaments + subtle bloom.
 
-      English-only, customer-agnostic, synthetic values (mocks/ convention).
-      Run: serve this folder and open the file, e.g.
-        python3 -m http.server 8899   ->  /provision-genesis.html
+      English-only, customer-agnostic, synthetic. prefers-reduced-motion aware.
+      Run: python3 -m http.server 8899  ->  /provision-genesis.html
     -->
     <style>
-      :root {
-        --ink: #eaf2ff;
-        --dim: #9fb2d0;
-        --ok: #46e0c8;
-        --warn: #ffcf6b;
-        --fail: #ff6b6b;
-        --panel: rgba(8, 12, 26, 0.55);
-        --border: rgba(150, 180, 255, 0.18);
-      }
-      * { box-sizing: border-box; }
       html, body {
-        margin: 0; height: 100%; background: #05070f; color: var(--ink);
+        margin: 0; height: 100%; background: #05070f; color: #eaf2ff;
         font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
         overflow: hidden;
       }
       canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
       #nebula { z-index: 0; }
       #scene  { z-index: 1; }
-      #overlay { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
 
-      /* Node labels projected from 3D */
-      .label {
-        position: absolute; transform: translate(-50%, -50%);
-        font-size: 11px; letter-spacing: 0.02em; white-space: nowrap;
-        color: var(--dim); text-shadow: 0 0 8px rgba(0,0,0,0.9);
-        opacity: 0; transition: opacity 0.6s ease, color 0.6s ease;
-        padding-top: 26px; text-align: center;
-      }
-      .label.on { opacity: 1; }
-      .label .st { display: block; font-size: 9px; opacity: 0.7; margin-top: 1px; }
-      .label.healthy { color: var(--ok); }
-      .label.provisioning { color: var(--warn); }
-      .label.failed { color: var(--fail); }
-
-      /* Bragi narration caption bar */
+      /* One quiet line at a time, centered, generous space. */
       #caption {
-        position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%);
-        max-width: min(760px, 86vw); text-align: center;
-        font-size: clamp(16px, 2.2vw, 26px); font-weight: 300; line-height: 1.4;
-        color: var(--ink); text-shadow: 0 2px 24px rgba(0,0,0,0.8);
-        opacity: 0; transition: opacity 0.8s ease; letter-spacing: 0.01em;
+        position: fixed; left: 50%; top: 58%; transform: translate(-50%, -50%);
+        z-index: 3; max-width: min(30ch, 82vw); text-align: center;
+        font-weight: 200; font-size: clamp(20px, 2.6vw, 30px); line-height: 1.5;
+        letter-spacing: 0.015em; color: rgba(234, 242, 255, 0.92);
+        text-shadow: 0 2px 40px rgba(0, 0, 0, 0.7);
+        opacity: 0; transition: opacity 1.4s ease; pointer-events: none;
       }
       #caption.on { opacity: 1; }
-      #caption .who { display:block; font-size: 11px; letter-spacing: 0.28em;
-        text-transform: uppercase; color: var(--dim); margin-bottom: 10px; opacity:0.8; }
 
-      /* Truth HUD - the honest, textual mirror of every event */
-      #hud {
-        position: absolute; top: 18px; left: 18px; width: 320px; max-height: 62vh;
-        overflow: hidden; background: var(--panel); border: 1px solid var(--border);
-        border-radius: 12px; padding: 12px 14px; backdrop-filter: blur(8px);
-        font-size: 11.5px; opacity: 0; transition: opacity 0.6s ease;
+      /* Minimal entry: a faint invitation, no big button. */
+      #enter {
+        position: fixed; inset: 0; z-index: 4; display: grid; place-items: center;
+        cursor: pointer; transition: opacity 1.2s ease;
+        background: radial-gradient(ellipse at center, rgba(3,6,16,0) 40%, rgba(3,6,16,0.45));
       }
-      #hud.on { opacity: 1; }
-      #hud h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: 0.22em;
-        text-transform: uppercase; color: var(--dim); font-weight: 600; }
-      #hud .row { display: flex; gap: 8px; align-items: baseline; padding: 3px 0;
-        border-top: 1px solid rgba(150,180,255,0.07); }
-      #hud .t { color: var(--dim); font-variant-numeric: tabular-nums; font-size: 10px; }
-      #hud .n { flex: 1; color: var(--ink); }
-      #hud .s { font-size: 10px; font-weight: 600; }
-      #hud .s.created, #hud .s.healthy { color: var(--ok); }
-      #hud .s.provisioning { color: var(--warn); }
-      #hud .s.failed, #hud .s.rollback { color: var(--fail); }
-      #hud .ref { color: var(--dim); font-size: 9px; opacity: 0.6; }
+      #enter.hide { opacity: 0; pointer-events: none; }
+      #enter span {
+        font-weight: 200; font-size: clamp(15px, 2vw, 19px);
+        letter-spacing: 0.34em; text-transform: uppercase;
+        color: rgba(234, 242, 255, 0.55); animation: breathe 5.5s ease-in-out infinite;
+      }
+      @keyframes breathe { 0%,100% { opacity: 0.35; } 50% { opacity: 0.75; } }
 
-      /* Legend + progress */
-      #legend {
-        position: absolute; top: 18px; right: 18px; background: var(--panel);
-        border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px;
-        backdrop-filter: blur(8px); font-size: 11px; opacity: 0;
-        transition: opacity 0.6s ease;
+      /* A single faint restart affordance, only after it settles. */
+      #again {
+        position: fixed; left: 50%; bottom: 7%; transform: translateX(-50%); z-index: 3;
+        font-weight: 200; font-size: 12px; letter-spacing: 0.28em; text-transform: uppercase;
+        color: rgba(234, 242, 255, 0.4); cursor: pointer; opacity: 0;
+        transition: opacity 1.2s ease; pointer-events: none;
       }
-      #legend.on { opacity: 1; }
-      #legend .k { display:flex; align-items:center; gap:8px; padding:2px 0; color: var(--dim); }
-      #legend .dot { width:9px; height:9px; border-radius:50%; box-shadow:0 0 10px currentColor; }
-      #progress { position:absolute; left:0; right:0; bottom:0; height:3px; background: transparent; }
-      #progress > i { display:block; height:100%; width:0;
-        background: linear-gradient(90deg, var(--ok), #7db4ff); box-shadow: 0 0 16px var(--ok);
-        transition: width 0.8s ease; }
-
-      /* Start / controls */
-      #start {
-        position: absolute; inset: 0; display: grid; place-items: center; z-index: 10;
-        pointer-events: auto; background: radial-gradient(ellipse at center, rgba(3,6,16,0.2), rgba(3,6,16,0.65));
-        transition: opacity 0.8s ease;
-      }
-      #start.hide { opacity: 0; pointer-events: none; }
-      .card { text-align: center; }
-      .card h1 { font-weight: 200; font-size: clamp(28px, 5vw, 54px); margin: 0 0 6px;
-        letter-spacing: 0.02em; }
-      .card p { color: var(--dim); margin: 0 0 26px; font-weight: 300; }
-      button {
-        pointer-events: auto; cursor: pointer; font: inherit; color: var(--ink);
-        background: rgba(70,224,200,0.12); border: 1px solid rgba(70,224,200,0.5);
-        padding: 12px 30px; border-radius: 999px; font-size: 16px; letter-spacing: 0.04em;
-        transition: background 0.25s ease, transform 0.1s ease;
-      }
-      button:hover { background: rgba(70,224,200,0.22); }
-      button:active { transform: scale(0.97); }
-      .toggles { margin-top: 18px; font-size: 12px; color: var(--dim); }
-      .toggles label { cursor: pointer; margin: 0 8px; }
-      #controls {
-        position: absolute; bottom: 18px; right: 18px; display: flex; gap: 10px; z-index: 6;
-        pointer-events: auto; opacity: 0; transition: opacity 0.6s ease;
-      }
-      #controls.on { opacity: 1; }
-      #controls button { padding: 7px 16px; font-size: 12px; }
+      #again.on { opacity: 1; pointer-events: auto; }
+      #again:hover { color: rgba(234, 242, 255, 0.75); }
     </style>
   </head>
   <body>
     <canvas id="nebula" aria-hidden="true"></canvas>
     <canvas id="scene"></canvas>
 
-    <div id="overlay">
-      <div id="hud"><h3>Provisioning - truth log</h3><div id="rows"></div></div>
-      <div id="legend">
-        <div class="k"><span class="dot" style="color:var(--warn)"></span>provisioning</div>
-        <div class="k"><span class="dot" style="color:var(--ok)"></span>created / healthy</div>
-        <div class="k"><span class="dot" style="color:var(--fail)"></span>failed / rollback</div>
-      </div>
-      <div id="caption"><span class="who">Bragi</span><span id="captionText"></span></div>
-      <div id="progress"><i id="progressBar"></i></div>
-    </div>
-
-    <div id="controls">
-      <button id="replay">Replay</button>
-    </div>
-
-    <div id="start">
-      <div class="card">
-        <h1>FDAI</h1>
-        <p>Your autonomous control plane is about to come to life.</p>
-        <button id="ignite">Ignite</button>
-        <div class="toggles">
-          <label><input type="checkbox" id="voice" /> narration voice</label>
-        </div>
-      </div>
-    </div>
+    <div id="caption"></div>
+    <div id="again">begin again</div>
+    <div id="enter"><span>touch to begin</span></div>
 
     <!-- ================= Background nebula (raw WebGL) ================= -->
     <script>
-      // Copied verbatim from site/public/nebula-demo.html so the prototype
-      // shares the exact brand aesthetic. One full-screen triangle, one
-      // fragment shader, no image bytes.
       (function () {
         const canvas = document.getElementById("nebula");
         const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
@@ -201,7 +104,7 @@
                 vec3 warm=vec3(1.,0.82,0.62); vec3 cool=vec3(0.70,0.84,1.); vec3 sc=mix(warm,cool,temp);
                 acc+=(core+halo)*tw*(0.35+b)*sc; } } } return acc; }
           void main(){
-            vec2 uv=gl_FragCoord.xy/u_res.xy; vec2 p=(gl_FragCoord.xy-0.5*u_res.xy)/u_res.y; float t=u_time*0.015;
+            vec2 uv=gl_FragCoord.xy/u_res.xy; vec2 p=(gl_FragCoord.xy-0.5*u_res.xy)/u_res.y; float t=u_time*0.012;
             vec2 q=vec2(fbm(p*2.6+t),fbm(p*2.6-t+5.2));
             vec2 r=vec2(fbm(p*2.6+q*1.8+t*1.3),fbm(p*2.6+q*1.8-t*0.7));
             float f=fbm(p*2.6+r*2.0);
@@ -233,7 +136,9 @@
             col+=starLayer(uv*vec2(u_res.x/u_res.y,1.0),38.0,0.05,91.0)*1.4;
             vec3 coreStars=starLayer(uv*vec2(u_res.x/u_res.y,1.0),22.0,0.14,137.0);
             col+=coreStars*smoothstep(0.75,0.05,coreShape)*1.6;
-            float vig=smoothstep(1.25,0.35,length(uv-0.5)*1.4); col*=mix(0.55,1.0,vig);
+            float vig=smoothstep(1.25,0.35,length(uv-0.5)*1.4); col*=mix(0.5,1.0,vig);
+            // A touch dimmer than the standalone demo so the foreground stays calm.
+            col *= 0.82;
             col=col/(col+0.55); col=pow(col,vec3(0.85));
             gl_FragColor=vec4(col,1.0);
           }`;
@@ -261,7 +166,7 @@
       })();
     </script>
 
-    <!-- ================= Foreground scene (Three.js) ================= -->
+    <!-- ================= Foreground (Three.js), minimal ================= -->
     <script type="importmap">
       {
         "imports": {
@@ -278,90 +183,57 @@
 
       const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-      // ---- The estate graph: seams + Azure inventory + pantheon agents ----
-      // Positions are hand-placed constellations in world units. `deps` draw
-      // light filaments once the parent is healthy.
+      // Estate graph - same real topology, rendered as a quiet constellation.
       const NODES = [
-        // CSP-neutral seams (inner ring, left)
-        { id: "event-bus",         label: "event bus",        group: "seam",  x: -4.6, y:  1.7, deps: [] },
-        { id: "state-store",       label: "state store",      group: "seam",  x: -5.0, y:  0.2, deps: [] },
-        { id: "secret",            label: "secret",           group: "seam",  x: -4.6, y: -1.3, deps: [] },
-        { id: "workload-identity", label: "workload identity", group: "seam", x: -3.3, y: -2.3, deps: [] },
-        { id: "inventory",         label: "inventory",        group: "seam",  x: -3.1, y:  2.6, deps: [] },
-        // Azure minimum-set inventory
-        { id: "event-hubs",        label: "Event Hubs",       group: "azure", x: -1.9, y:  2.0, deps: ["event-bus"] },
-        { id: "postgres",          label: "PostgreSQL",       group: "azure", x: -2.1, y: -0.6, deps: ["state-store"] },
-        { id: "key-vault",         label: "Key Vault",        group: "azure", x: -2.3, y: -1.9, deps: ["secret"] },
-        { id: "managed-identity",  label: "Managed Identity", group: "azure", x: -0.6, y: -2.5, deps: ["workload-identity"] },
-        { id: "log-analytics",     label: "Log Analytics",    group: "azure", x:  1.9, y:  2.3, deps: ["inventory"] },
-        // The brain
-        { id: "container-app",     label: "control plane",    group: "core",  x:  0.2, y:  0.2,
-          deps: ["event-hubs", "postgres", "key-vault", "managed-identity"] },
-        // Pantheon agents (outer ring, right)
-        { id: "odin",     label: "Odin",     group: "agent", x:  3.3, y:  1.5, deps: ["container-app"] },
-        { id: "forseti",  label: "Forseti",  group: "agent", x:  3.9, y:  0.0, deps: ["container-app"] },
-        { id: "thor",     label: "Thor",     group: "agent", x:  3.5, y: -1.4, deps: ["container-app"] },
-        { id: "heimdall", label: "Heimdall", group: "agent", x:  1.9, y: -2.3, deps: ["container-app", "log-analytics"] },
-        { id: "saga",     label: "Saga",     group: "agent", x:  2.5, y:  2.7, deps: ["container-app"] },
+        { id: "event-bus",         x: -4.6, y:  1.7, deps: [] },
+        { id: "state-store",       x: -5.0, y:  0.2, deps: [] },
+        { id: "secret",            x: -4.6, y: -1.3, deps: [] },
+        { id: "workload-identity", x: -3.3, y: -2.3, deps: [] },
+        { id: "inventory",         x: -3.1, y:  2.6, deps: [] },
+        { id: "event-hubs",        x: -1.9, y:  2.0, deps: ["event-bus"] },
+        { id: "postgres",          x: -2.1, y: -0.6, deps: ["state-store"] },
+        { id: "key-vault",         x: -2.3, y: -1.9, deps: ["secret"] },
+        { id: "managed-identity",  x: -0.6, y: -2.5, deps: ["workload-identity"] },
+        { id: "log-analytics",     x:  1.9, y:  2.3, deps: ["inventory"] },
+        { id: "container-app",     x:  0.2, y:  0.2, deps: ["event-hubs","postgres","key-vault","managed-identity"] },
+        { id: "odin",     x:  3.3, y:  1.5, deps: ["container-app"] },
+        { id: "forseti",  x:  3.9, y:  0.0, deps: ["container-app"] },
+        { id: "thor",     x:  3.5, y: -1.4, deps: ["container-app"] },
+        { id: "heimdall", x:  1.9, y: -2.3, deps: ["container-app","log-analytics"] },
+        { id: "saga",     x:  2.5, y:  2.7, deps: ["container-app"] },
       ];
       const byId = Object.fromEntries(NODES.map((n) => [n.id, n]));
 
-      // ---- The provisioning timeline (what the SSE `provision.*` stream will drive) ----
-      // Each step: node id, target state, Bragi caption, and a delay (ms) after.
-      // Note the deliberate FAILURE + ROLLBACK + RETRY on log-analytics: the
-      // spectacle must never hide a failure.
-      const TIMELINE = [
-        { id: "event-bus", st: "provisioning", cap: "Let's bring your control plane to life.", d: 700 },
-        { id: "event-bus", st: "healthy", cap: "Your event bus is awake. I can hear your estate now.", d: 500 },
-        { id: "state-store", st: "provisioning", cap: "Giving myself a memory...", d: 650 },
-        { id: "state-store", st: "healthy", cap: "Memory online. Every decision I make will be remembered - and auditable.", d: 500 },
-        { id: "secret", st: "provisioning", cap: "Sealing your secrets away.", d: 600 },
-        { id: "secret", st: "healthy", cap: "Secrets sealed. Nothing sensitive will ever touch a log.", d: 450 },
-        { id: "workload-identity", st: "provisioning", cap: "Taking on a scoped identity...", d: 600 },
-        { id: "workload-identity", st: "healthy", cap: "I have a name now - only the permissions I need, nothing more.", d: 450 },
-        { id: "inventory", st: "provisioning", cap: "Learning the shape of your estate.", d: 650 },
-        { id: "inventory", st: "healthy", cap: "I can see your whole estate now.", d: 550 },
-        { id: "event-hubs", st: "provisioning", cap: "", d: 500 },
-        { id: "event-hubs", st: "healthy", cap: "", d: 250 },
-        { id: "postgres", st: "provisioning", cap: "", d: 500 },
-        { id: "postgres", st: "healthy", cap: "", d: 250 },
-        { id: "key-vault", st: "provisioning", cap: "", d: 450 },
-        { id: "key-vault", st: "healthy", cap: "", d: 250 },
-        { id: "managed-identity", st: "provisioning", cap: "", d: 450 },
-        { id: "managed-identity", st: "healthy", cap: "", d: 350 },
-        // --- honest failure path ---
-        { id: "log-analytics", st: "provisioning", cap: "Bringing observability online...", d: 900 },
-        { id: "log-analytics", st: "failed", cap: "Hmm - observability didn't come up. I'm holding here; I won't pretend it's fine.", d: 1500 },
-        { id: "log-analytics", st: "rollback", cap: "Rolling back cleanly, then trying once more.", d: 1100 },
-        { id: "log-analytics", st: "provisioning", cap: "", d: 800 },
-        { id: "log-analytics", st: "healthy", cap: "There it is. Observability is live - and I logged why it failed the first time.", d: 700 },
-        // --- the brain ignites ---
-        { id: "container-app", st: "provisioning", cap: "Assembling my mind...", d: 1100 },
-        { id: "container-app", st: "healthy", cap: "My mind is running.", d: 900, flash: true },
-        // --- agents wake ---
-        { id: "odin", st: "healthy", cap: "Odin is planning.", d: 400 },
-        { id: "forseti", st: "healthy", cap: "Forseti will judge - nothing high-risk moves without a human.", d: 500 },
-        { id: "thor", st: "healthy", cap: "Thor stands ready to act, in shadow first.", d: 450 },
-        { id: "heimdall", st: "healthy", cap: "Heimdall is watching.", d: 400 },
-        { id: "saga", st: "healthy", cap: "Saga remembers everything.", d: 900 },
-        { id: "*", st: "done", cap: "Your control plane is alive. Everything you just saw is real, and audited. Over to you.", d: 0 },
+      // Sparse, calm timeline. Most ignitions are SILENT; only a few quiet
+      // lines. The failure is acknowledged softly, never alarmed.
+      const T = [
+        { id: "event-bus", st: "lit", cap: "Waking up.", hold: 2600 },
+        { id: "state-store", st: "lit", hold: 1400 },
+        { id: "secret", st: "lit", hold: 1400 },
+        { id: "workload-identity", st: "lit", hold: 1400 },
+        { id: "inventory", st: "lit", cap: "I can see your estate now.", hold: 2800 },
+        { id: "event-hubs", st: "lit", hold: 1100 },
+        { id: "postgres", st: "lit", hold: 1100 },
+        { id: "key-vault", st: "lit", hold: 1100 },
+        { id: "managed-identity", st: "lit", hold: 1500 },
+        { id: "log-analytics", st: "waiting", cap: "Something isn't ready. I'll wait, and try again.", hold: 3200 },
+        { id: "log-analytics", st: "lit", cap: "There.", hold: 2400 },
+        { id: "container-app", st: "core", cap: "I'm thinking now.", hold: 3200 },
+        { id: "odin", st: "lit", hold: 900 },
+        { id: "forseti", st: "lit", hold: 900 },
+        { id: "thor", st: "lit", hold: 900 },
+        { id: "heimdall", st: "lit", hold: 900 },
+        { id: "saga", st: "lit", hold: 2200 },
+        { id: "*", st: "done", cap: "I'm here. Whenever you need me.", hold: 0 },
       ];
 
-      const GROUP_COLOR = {
-        seam: new THREE.Color(0x7db4ff),
-        azure: new THREE.Color(0x46b6ff),
-        core: new THREE.Color(0xffffff),
-        agent: new THREE.Color(0x9d7bff),
-      };
-      const STATE_COLOR = {
-        pending: new THREE.Color(0x3a4870),
-        provisioning: new THREE.Color(0xffcf6b),
-        healthy: new THREE.Color(0x46e0c8),
-        failed: new THREE.Color(0xff6b6b),
-        rollback: new THREE.Color(0xff8a6b),
+      const COL = {
+        dim:     new THREE.Color(0x2a3658),
+        lit:     new THREE.Color(0xbfe6ff),
+        waiting: new THREE.Color(0xf0b477), // warm, not alarm-red
+        core:    new THREE.Color(0xffffff),
       };
 
-      // ---- renderer / scene / camera ----
       const canvas = document.getElementById("scene");
       const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -369,83 +241,43 @@
       const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
       camera.position.set(0, 0, 9);
 
-      // Bloom is the source of the "fantastic" glow.
-      let composer = null;
-      let bloomPass = null;
-      function buildComposer() {
+      let composer = null, bloomPass = null;
+      if (!reduceMotion) {
         composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
-        bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.9, 0.6, 0.0);
+        // Gentle, constant bloom - no spikes.
+        bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.75, 0.0);
         composer.addPass(bloomPass);
       }
-      if (!reduceMotion) buildComposer();
 
-      // Soft radial glow sprite texture (canvas gradient).
       function glowTexture() {
-        const c = document.createElement("canvas");
-        c.width = c.height = 128;
+        const c = document.createElement("canvas"); c.width = c.height = 128;
         const g = c.getContext("2d");
         const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
         grd.addColorStop(0.0, "rgba(255,255,255,1)");
-        grd.addColorStop(0.25, "rgba(255,255,255,0.85)");
-        grd.addColorStop(0.55, "rgba(255,255,255,0.25)");
+        grd.addColorStop(0.3, "rgba(255,255,255,0.7)");
+        grd.addColorStop(0.6, "rgba(255,255,255,0.18)");
         grd.addColorStop(1.0, "rgba(255,255,255,0)");
-        g.fillStyle = grd;
-        g.fillRect(0, 0, 128, 128);
-        const tex = new THREE.CanvasTexture(c);
-        return tex;
+        g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+        return new THREE.CanvasTexture(c);
       }
       const GLOW = glowTexture();
 
-      // ---- build node stars + coalescence particles + labels ----
-      const overlay = document.getElementById("overlay");
-      const runtime = {}; // id -> { def, sprite, particles, geom, labelEl, state, phase, flashT }
-
+      const runtime = {};
       for (const def of NODES) {
         const mat = new THREE.SpriteMaterial({
-          map: GLOW, color: STATE_COLOR.pending.clone(),
-          transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false,
+          map: GLOW, color: COL.dim.clone(), transparent: true, opacity: 0.16,
+          blending: THREE.AdditiveBlending, depthWrite: false,
         });
         const sprite = new THREE.Sprite(mat);
         sprite.position.set(def.x, def.y, 0);
-        const baseScale = def.group === "core" ? 1.5 : def.group === "agent" ? 0.85 : 1.05;
-        sprite.scale.setScalar(baseScale);
+        const base = def.id === "container-app" ? 0.85 : 0.5; // small, quiet points
+        sprite.scale.setScalar(base);
         scene.add(sprite);
-
-        // Coalescence particle cloud (collapses inward while provisioning).
-        const N = 46;
-        const pos = new Float32Array(N * 3);
-        const seed = new Float32Array(N * 2);
-        for (let i = 0; i < N; i++) {
-          const a = Math.random() * Math.PI * 2;
-          const r = 0.5 + Math.random() * 0.55;
-          seed[i * 2] = a; seed[i * 2 + 1] = r;
-          pos[i * 3] = def.x + Math.cos(a) * r;
-          pos[i * 3 + 1] = def.y + Math.sin(a) * r;
-          pos[i * 3 + 2] = 0;
-        }
-        const geom = new THREE.BufferGeometry();
-        geom.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-        const pmat = new THREE.PointsMaterial({
-          map: GLOW, color: STATE_COLOR.provisioning.clone(), size: 0.14,
-          transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false,
-        });
-        const particles = new THREE.Points(geom, pmat);
-        scene.add(particles);
-
-        // HTML label.
-        const el = document.createElement("div");
-        el.className = "label";
-        el.innerHTML = `${def.label}<span class="st"></span>`;
-        overlay.appendChild(el);
-
-        runtime[def.id] = {
-          def, sprite, particles, geom, seed, N, labelEl: el,
-          state: "pending", phase: 0, flashT: 0, baseScale,
-        };
+        runtime[def.id] = { def, sprite, base, state: "dim", phase: Math.random() * 6 };
       }
 
-      // ---- filaments (dependency edges) ----
+      // Faint filaments.
       const filaments = [];
       for (const def of NODES) {
         for (const dep of def.deps) {
@@ -454,7 +286,7 @@
             new THREE.Vector3(from.x, from.y, 0), new THREE.Vector3(to.x, to.y, 0),
           ]);
           const m = new THREE.LineBasicMaterial({
-            color: 0x46e0c8, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending,
+            color: 0x8fd0ff, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending,
           });
           const line = new THREE.Line(g, m);
           scene.add(line);
@@ -462,193 +294,85 @@
         }
       }
 
-      // ---- responsive ----
       function resize() {
         const w = innerWidth, h = innerHeight;
         renderer.setSize(w, h, false);
         camera.aspect = w / h;
-        // Keep the whole graph in view on narrow screens.
         camera.position.z = w / h < 1.1 ? 12 : 9;
         camera.updateProjectionMatrix();
         if (composer) { composer.setSize(w, h); bloomPass.resolution.set(w, h); }
       }
       addEventListener("resize", resize); resize();
 
-      // ---- state application ----
-      function setState(id, st) {
-        if (id === "*") return; // sentinel handled by the runner
-        const r = runtime[id];
-        r.state = st;
-        r.phase = 0;
-        if (st === "healthy" || st === "created") r.flashT = 1.0;
-        // label
-        r.labelEl.className = "label on " + (st === "healthy" ? "healthy" : st);
-        r.labelEl.querySelector(".st").textContent = st;
-        // truth HUD row
-        addHudRow(r.def.label, st);
-      }
-
-      // ---- render loop ----
       const clock = new THREE.Clock();
       let elapsed = 0;
-      let bloomBoost = 0;
-      const tmp = new THREE.Vector3();
-
-      function project(x, y) {
-        tmp.set(x, y, 0).project(camera);
-        return {
-          left: (tmp.x * 0.5 + 0.5) * innerWidth,
-          top: (-tmp.y * 0.5 + 0.5) * innerHeight,
-        };
-      }
-
+      const lit = (s) => s === "lit" || s === "core";
       function render() {
-        const dt = Math.min(clock.getDelta(), 0.05);
-        elapsed += dt;
-
+        const dt = Math.min(clock.getDelta(), 0.05); elapsed += dt;
         for (const id in runtime) {
-          const r = runtime[id];
-          r.phase += dt;
-          const s = r.state;
+          const r = runtime[id]; r.phase += dt;
           const mat = r.sprite.material;
-          const target = STATE_COLOR[s] || STATE_COLOR.pending;
-
-          // color ease
-          mat.color.lerp(target, 1 - Math.exp(-dt * 6));
-
-          // opacity + scale per state
-          let targetOpacity = 0.18, targetScale = r.baseScale;
-          if (s === "pending") { targetOpacity = 0.14; }
-          else if (s === "provisioning" || s === "rollback") {
-            targetOpacity = 0.5 + 0.35 * Math.sin(r.phase * 6.0); // pulse
-            targetScale = r.baseScale * (0.85 + 0.1 * Math.sin(r.phase * 6.0));
-          } else if (s === "healthy" || s === "created") {
-            targetOpacity = 0.85; targetScale = r.baseScale * 1.0;
-          } else if (s === "failed") {
-            targetOpacity = 0.55 + 0.3 * Math.sin(r.phase * 10.0);
-          }
-          // ignition flash decay adds a bright pop
-          if (r.flashT > 0) {
-            r.flashT = Math.max(0, r.flashT - dt * 1.6);
-            targetOpacity += r.flashT * 0.8;
-            targetScale += r.flashT * (r.def.group === "core" ? 1.2 : 0.5);
-            bloomBoost = Math.max(bloomBoost, r.flashT * (r.def.group === "core" ? 1.4 : 0.7));
-          }
-          mat.opacity += (targetOpacity - mat.opacity) * (1 - Math.exp(-dt * 8));
+          let targetCol = COL.dim, targetOp = 0.16, targetScale = r.base;
+          if (r.state === "lit") { targetCol = COL.lit; targetOp = 0.7 + 0.05 * Math.sin(r.phase * 0.9); }
+          else if (r.state === "core") { targetCol = COL.core; targetOp = 0.9 + 0.05 * Math.sin(r.phase * 0.7); targetScale = r.base * 1.15; }
+          else if (r.state === "waiting") { targetCol = COL.waiting; targetOp = 0.22 + 0.12 * Math.sin(r.phase * 1.3); } // slow soft breath
+          // very slow eases - nothing snappy
+          mat.color.lerp(targetCol, 1 - Math.exp(-dt * 2.2));
+          mat.opacity += (targetOp - mat.opacity) * (1 - Math.exp(-dt * 2.2));
           const cur = r.sprite.scale.x;
-          r.sprite.scale.setScalar(cur + (targetScale - cur) * (1 - Math.exp(-dt * 8)));
-
-          // coalescence particles: visible+collapsing while provisioning, fade on healthy
-          const pmat = r.particles.material;
-          const collapsing = s === "provisioning" || s === "rollback";
-          pmat.opacity += ((collapsing ? 0.9 : 0.0) - pmat.opacity) * (1 - Math.exp(-dt * 5));
-          const posAttr = r.geom.getAttribute("position");
-          for (let i = 0; i < r.N; i++) {
-            const a = r.seed[i * 2], r0 = r.seed[i * 2 + 1];
-            // radius shrinks toward 0 as provisioning proceeds, expands back if idle
-            const k = collapsing ? Math.max(0.05, r0 * (1 - Math.min(1, r.phase / 1.2))) : r0;
-            const spin = collapsing ? r.phase * 1.6 : 0;
-            posAttr.array[i * 3] = r.def.x + Math.cos(a + spin) * k;
-            posAttr.array[i * 3 + 1] = r.def.y + Math.sin(a + spin) * k;
-          }
-          posAttr.needsUpdate = true;
-
-          // label position
-          const p = project(r.def.x, r.def.y);
-          r.labelEl.style.left = p.left + "px";
-          r.labelEl.style.top = p.top + "px";
+          r.sprite.scale.setScalar(cur + (targetScale - cur) * (1 - Math.exp(-dt * 2.2)));
         }
-
-        // filaments light up when both endpoints are healthy
         for (const f of filaments) {
-          const a = runtime[f.fromId].state, b = runtime[f.toId].state;
-          const lit = (a === "healthy" || a === "created") && (b === "healthy" || b === "created");
-          const forming = (b === "provisioning") && (a === "healthy");
-          const tgt = lit ? 0.5 + 0.15 * Math.sin(elapsed * 2 + f.line.id) : forming ? 0.3 : 0.0;
-          const m = f.line.material;
-          m.opacity += (tgt - m.opacity) * (1 - Math.exp(-dt * 4));
+          const on = lit(runtime[f.fromId].state) && lit(runtime[f.toId].state);
+          const tgt = on ? 0.14 : 0.0;
+          f.line.material.opacity += (tgt - f.line.material.opacity) * (1 - Math.exp(-dt * 1.6));
         }
-
-        // subtle idle camera drift + gentle push-in toward the active node
         if (!reduceMotion) {
-          camera.position.x += (Math.sin(elapsed * 0.15) * 0.5 - camera.position.x) * dt * 0.4;
-          camera.position.y += (Math.cos(elapsed * 0.12) * 0.28 - camera.position.y) * dt * 0.4;
+          // barely-perceptible drift
+          camera.position.x += (Math.sin(elapsed * 0.06) * 0.18 - camera.position.x) * dt * 0.3;
+          camera.position.y += (Math.cos(elapsed * 0.05) * 0.10 - camera.position.y) * dt * 0.3;
           camera.lookAt(0, 0, 0);
-          if (bloomPass) {
-            bloomBoost = Math.max(0, bloomBoost - dt * 1.2);
-            bloomPass.strength = 0.9 + bloomBoost;
-          }
         }
-
         if (composer) composer.render(); else renderer.render(scene, camera);
         requestAnimationFrame(render);
       }
       requestAnimationFrame(render);
 
-      // ---- HUD / captions / narration ----
-      const rows = document.getElementById("rows");
-      const captionBox = document.getElementById("caption");
-      const captionText = document.getElementById("captionText");
-      let audit = 1000;
-      function addHudRow(name, st) {
-        const t = new Date().toLocaleTimeString("en-GB", { hour12: false });
-        const ref = "aud-" + (audit++).toString(16);
-        const row = document.createElement("div");
-        row.className = "row";
-        row.innerHTML =
-          `<span class="t">${t}</span><span class="n">${name}</span>` +
-          `<span class="s ${st}">${st}</span>`;
-        rows.prepend(row);
-        // keep it bounded
-        while (rows.children.length > 14) rows.removeChild(rows.lastChild);
-      }
+      // ---- caption + runner ----
+      const captionEl = document.getElementById("caption");
       let voiceOn = false;
       function say(text) {
         if (!text) return;
-        captionText.textContent = text;
-        captionBox.classList.add("on");
+        captionEl.classList.remove("on");
+        setTimeout(() => { captionEl.textContent = text; captionEl.classList.add("on"); }, 380);
         if (voiceOn && "speechSynthesis" in window) {
           const u = new SpeechSynthesisUtterance(text);
-          u.rate = 0.98; u.pitch = 1.0; u.volume = 0.9;
+          u.rate = 0.92; u.pitch = 1.0; u.volume = 0.85;
           speechSynthesis.cancel(); speechSynthesis.speak(u);
         }
       }
+      function setState(id, st) { if (id !== "*") runtime[id].state = st; }
+      function reset() { for (const id in runtime) { runtime[id].state = "dim"; } captionEl.classList.remove("on"); }
 
-      // ---- timeline runner ----
-      const progressBar = document.getElementById("progressBar");
       let running = false;
-      function sleep(ms) { return new Promise((r) => setTimeout(r, reduceMotion ? Math.min(ms, 250) : ms)); }
+      const againEl = document.getElementById("again");
+      function sleep(ms) { return new Promise((r) => setTimeout(r, reduceMotion ? Math.min(ms, 400) : ms)); }
       async function run() {
-        if (running) return; running = true;
-        // reset
-        for (const id in runtime) setStateSilent(id, "pending");
-        rows.innerHTML = "";
-        for (let i = 0; i < TIMELINE.length; i++) {
-          const step = TIMELINE[i];
-          if (step.id === "*") { say(step.cap); progressBar.style.width = "100%"; break; }
+        if (running) return; running = true; againEl.classList.remove("on"); reset();
+        await sleep(700);
+        for (const step of T) {
+          if (step.id === "*") { say(step.cap); break; }
           setState(step.id, step.st);
           if (step.cap) say(step.cap);
-          progressBar.style.width = Math.round(((i + 1) / TIMELINE.length) * 100) + "%";
-          await sleep(step.d);
+          await sleep(step.hold);
         }
+        setTimeout(() => againEl.classList.add("on"), 2200);
         running = false;
       }
-      function setStateSilent(id, st) {
-        const r = runtime[id]; r.state = st; r.phase = 0; r.flashT = 0;
-        r.labelEl.className = "label"; r.labelEl.querySelector(".st").textContent = "";
-      }
 
-      // ---- start / controls wiring ----
-      const startEl = document.getElementById("start");
-      document.getElementById("voice").addEventListener("change", (e) => { voiceOn = e.target.checked; });
-      document.getElementById("ignite").addEventListener("click", () => {
-        startEl.classList.add("hide");
-        document.getElementById("hud").classList.add("on");
-        document.getElementById("legend").classList.add("on");
-        document.getElementById("controls").classList.add("on");
-        run();
-      });
-      document.getElementById("replay").addEventListener("click", () => { if (!running) run(); });
+      const enterEl = document.getElementById("enter");
+      enterEl.addEventListener("click", () => { enterEl.classList.add("hide"); run(); });
+      againEl.addEventListener("click", () => { if (!running) run(); });
     </script>
   </body>
 </html>

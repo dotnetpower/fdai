@@ -80,7 +80,9 @@ output block and picks the resource shape.
 - Live `azurerm` resource creation. The Preflight analyzer's job is to
   say "set `disk_provisioning=attach_existing`"; the consumer module
   is where the actual disk resource lives, and that stays under the
-  fork's control.
+  fork's control. See
+  [`examples/disk-consumer/`](examples/disk-consumer/README.md) for the
+  copy-paste consumer pattern (validate-only reference).
 - Cross-toggle policy composition. A fork MAY combine multiple
   toggles behind a single "environment profile" variable; upstream
   keeps each toggle isolated so a Preflight finding maps 1:1 to a
