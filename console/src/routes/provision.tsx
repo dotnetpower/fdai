@@ -53,13 +53,34 @@ const INITIAL: ProvisionState = {
 
 const RECENT_CAP = 6;
 
+/**
+ * Return `url` only when it is an absolute `http(s)` URL, else `null`.
+ *
+ * `console_url` arrives over the SSE wire from the provisioning producer
+ * (Terraform outputs / an in-product relay). Rendering it straight into an
+ * anchor `href` would let a `javascript:` or `data:` URI execute on click
+ * (DOM-based XSS / untrusted redirect, OWASP A03). The link is only shown
+ * when the value parses as an absolute http/https URL.
+ */
+function safeHttpUrl(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : null;
+  } catch {
+    return null;
+  }
+}
+
 function reducer(state: ProvisionState, ev: ProvisionEvent): ProvisionState {
   switch (ev.phase) {
     case "progress": {
       const recent = ev.node ? [ev.node, ...state.recent].slice(0, RECENT_CAP) : state.recent;
       return {
         ...state,
-        fraction: ev.fraction ?? state.fraction,
+        // A progress bar never regresses: keep the high-water mark even if a
+        // reconnect replays an earlier (lower) fraction.
+        fraction: Math.max(state.fraction, ev.fraction ?? state.fraction),
         waiting: null,
         waitingReason: null,
         recent,
@@ -80,6 +101,10 @@ function reducer(state: ProvisionState, ev: ProvisionEvent): ProvisionState {
         fraction: 1,
         waiting: null,
         waitingReason: null,
+        // Every resource is up: an earlier transient failure is resolved, so
+        // do not render "up" and "failed" side by side.
+        failed: null,
+        failedReason: null,
         consoleUrl: ev.console_url ?? state.consoleUrl,
       };
     case "failed":
@@ -125,7 +150,8 @@ export function ProvisionRoute(_props: Props) {
     onEvent: (event) => dispatch(event),
   });
 
-  const pct = Math.round(state.fraction * 1000) / 10;
+  const pct = Math.max(0, Math.min(100, Math.round(state.fraction * 1000) / 10));
+  const consoleUrl = safeHttpUrl(state.consoleUrl);
 
   return (
     <div class="provision">
@@ -170,8 +196,8 @@ export function ProvisionRoute(_props: Props) {
       {state.done && (
         <div class="provision-done">
           <p class="provision-line provision-line--done">Every resource is up.</p>
-          {state.consoleUrl && (
-            <a class="provision-enter" href={state.consoleUrl}>
+          {consoleUrl && (
+            <a class="provision-enter" href={consoleUrl} rel="noopener noreferrer">
               Enter the control plane
             </a>
           )}

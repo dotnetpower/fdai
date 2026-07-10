@@ -3,7 +3,7 @@ title: SRE 기초(SRE foundations)
 description: FDAI가 자동화하는 핵심 SRE 기능과, 각 기능이 컨트롤 루프·에이전트·세 버티컬에 어떻게 매핑되는가.
 translation_of: sre-foundations.md
 translation_source_sha: e1a3cf3c61ba91155e159233aaa839340324532e
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 sidebar:
   order: 1
 ---

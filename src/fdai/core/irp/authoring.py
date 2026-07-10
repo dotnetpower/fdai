@@ -22,6 +22,7 @@ from fdai.core.irp.models import (
     PlanStatus,
     PretestReport,
     ReadinessReport,
+    RequirementKind,
     ResponsePlan,
 )
 
@@ -31,8 +32,17 @@ class PlanNotReadyError(RuntimeError):
 
 
 def evaluate_readiness(plan: ResponsePlan) -> ReadinessReport:
-    """Report unmet requirements for ``plan`` (pure)."""
-    unmet = tuple(req.kind for req in plan.requirements if not req.satisfied)
+    """Report unmet mandatory requirements for ``plan`` (pure).
+
+    Every :class:`RequirementKind` is mandatory. A requirement is unmet
+    when it is either missing from the plan entirely OR present but not
+    satisfied - both block activation. Deriving readiness from the full
+    mandatory set (not just the requirements the author chose to declare)
+    closes the "omit a requirement to skip the gate" bypass: an empty
+    requirements tuple is maximally unsafe, never ready.
+    """
+    satisfied = {req.kind for req in plan.requirements if req.satisfied}
+    unmet = tuple(kind for kind in RequirementKind if kind not in satisfied)
     return ReadinessReport(plan_id=plan.plan_id, ready=not unmet, unmet=unmet)
 
 

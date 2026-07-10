@@ -2,7 +2,7 @@
 title: Action 온톨로지
 translation_of: action-ontology.md
 translation_source_sha: 29e86a2a340bbdba5fba96507fd42498035d45cd
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 
 # Action 온톨로지

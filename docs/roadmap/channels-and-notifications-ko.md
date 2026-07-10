@@ -2,7 +2,7 @@
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
 translation_source_sha: faa0121bc660c0fc4c4bd15e94afbd0a404f640b
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 
 # 채널과 알림(Channels and Notifications)

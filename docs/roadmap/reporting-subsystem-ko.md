@@ -2,7 +2,7 @@
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
 translation_source_sha: a2d75bd016d650e55f8fe22643b3668c247804ca
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 # 리포팅 서브시스템
 

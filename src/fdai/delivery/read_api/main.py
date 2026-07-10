@@ -590,6 +590,15 @@ def build_app(
             raise ValueError(
                 f"provision_stream.path {prov_cfg.path!r} collides with a panel path"
             )
+        if (
+            resolved_config.live_stream is not None
+            and prov_cfg.path == resolved_config.live_stream.path
+        ):
+            # Two SSE routes on one path silently shadow each other in
+            # Starlette (first match wins); fail fast at build time instead.
+            raise ValueError(
+                f"provision_stream.path {prov_cfg.path!r} collides with the live-stream route"
+            )
         prov_sink = prov_cfg.sink if prov_cfg.sink is not None else InMemorySseSink()
         routes.append(
             make_provision_stream_route(

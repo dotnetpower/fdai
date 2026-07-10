@@ -3,7 +3,7 @@ title: 감사 로그 읽기(Read the audit log)
 description: 모든 자율 결정에 대해 append-only 감사 로그가 기록하는 것과, 증상에서 root 이벤트로 거슬러 추적하는 법.
 translation_of: read-audit-log.md
 translation_source_sha: 0df08338438f2a85598454a994531ef284adc6f6
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 
 # 감사 로그 읽기(Read the audit log)

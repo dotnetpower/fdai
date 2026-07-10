@@ -2,7 +2,7 @@
 title: Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
 translation_of: phase-1-rule-catalog-t0.md
 translation_source_sha: d632910d270780d77236b4721b536bb92860734f
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 
 # Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진

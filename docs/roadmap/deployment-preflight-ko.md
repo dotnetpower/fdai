@@ -2,7 +2,7 @@
 title: 배포 프리플라이트 (배포 가능성 및 blocker 수집)
 translation_of: deployment-preflight.md
 translation_source_sha: 261b2e74ea0007bf8d3123accd798c316ffc1103
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 # 배포 프리플라이트 (배포 가능성 및 blocker 수집)
 

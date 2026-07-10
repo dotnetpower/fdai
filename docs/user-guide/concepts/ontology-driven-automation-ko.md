@@ -3,7 +3,7 @@ title: 온톨로지 기반 자동화(Ontology-driven automation)
 description: FDAI가 타입 있는 액션 온톨로지를 어떻게 실행 가능한 자동화로 바꾸는가 - 인스턴스화, 비즈니스 파이프라인, 모든 액션이 물려받는 안전 계약.
 translation_of: ontology-driven-automation.md
 translation_source_sha: ce3c41bcef59e748c3e470d68267a1e4e26cee74
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 sidebar:
   order: 4
 ---

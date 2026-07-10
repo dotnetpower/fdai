@@ -170,12 +170,12 @@
         radBreath: 0.5 + Math.random(),
       }));
 
-      // Base lemniscate (Gerono figure-eight), horizontal like Her's glyph.
-      function base(s) {
-        return { x: Math.sin(s), y: Math.sin(s) * Math.cos(s) };
-      }
+      // (Base form is a circle now - computed inline in drawRing / drawMotes.)
 
-      let unfold = 0, unfoldTarget = 0; // 0 = ribbon, 1 = motes
+      let unfold = 0, unfoldTarget = 0, rot = 0; // fold state + rotation angle
+      // intermittent lightning: a strike flashes on, then vanishes; dark gaps between.
+      let strike = null;          // { segs, born, life }
+      let nextStrikeAt = 0;
       let hovering = false;
 
       function resize() {
@@ -198,15 +198,23 @@
         unfold += (unfoldTarget - unfold) * (1 - Math.exp(-dt * 3));
         for (const s of st) s.act += ((s.target || 0) - s.act) * (1 - Math.exp(-dt * 2.5));
 
-        // slow heartbeat breathing
-        const beat = 0.5 + 0.5 * Math.sin(t * 0.7);
-        const breath = 1 + 0.03 * Math.sin(t * 0.9);
+        // --- heartbeat: a double-thump (lub-dub) gives the presence impact ---
+        const period = 1.15;
+        const hp = (((t % period) + period) % period) / period;
+        const lub = Math.exp(-(((hp - 0.08) / 0.045) ** 2));
+        const dub = Math.exp(-(((hp - 0.22) / 0.05) ** 2)) * 0.6;
+        const hb = Math.min(1, lub + dub);            // 0..1 heartbeat envelope
+        const beat = 0.5 + 0.35 * hb;                 // just a gentle overall brighten
+        const breath = 1 + 0.015 * Math.sin(t * 0.9); // barely breathes, no impact swell
+        rot += dt * (0.09 + 0.025 * Math.sin(t * 0.25));
 
         ctx.clearRect(0, 0, W, H);
         ctx.globalCompositeOperation = "lighter";
 
-        drawRibbon(cx, cy, R * breath, t, 1 - unfold, beat);
-        drawMotes(cx, cy, R * breath, t, unfold);
+        drawCore(cx, cy, R * breath, beat);
+        drawDreamOrb(cx, cy, R * breath, t, beat, unfold);
+        maybeStrike(now, cx, cy, R * breath);
+        drawStrike(now);
 
         ctx.globalCompositeOperation = "source-over";
         if (!reduceMotion) requestAnimationFrame(frame);
@@ -214,71 +222,120 @@
 
       function anyActive() { return st.some((s) => (s.target || 0) > 0.01 || s.act > 0.02); }
 
-      // ----- E: the single ribbon (figure-8 + 15 harmonic perturbations) -----
-      function drawRibbon(cx, cy, R, t, alpha, beat) {
-        if (alpha < 0.01) return;
-        const M = 260;
-        const pts = [];
-        for (let i = 0; i <= M; i++) {
-          const s = (i / M) * Math.PI * 2;
-          const p = base(s);
-          // tangent -> normal
-          const p2 = base(s + 0.01);
-          let nx = -(p2.y - p.y), ny = (p2.x - p.x);
-          const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
-          // sum of 15 harmonics displaces the ribbon along its normal -
-          // kept subtle so an active agent nudges the glyph, never deforms it
-          let d = 0;
-          for (let k = 0; k < N; k++) {
-            const a = st[k];
-            const amp = 0.012 + st[k].act * 0.06;
-            d += amp * Math.sin(AGENTS[k].hk * s + a.phase + t * (0.5 + AGENTS[k].hk * 0.05));
-          }
-          const x = cx + (p.x * 1.15 + nx * d) * R;
-          const y = cy + (p.y * 1.9 + ny * d) * R; // stretch y so the 8 reads
-          pts.push([x, y]);
-        }
-        // glow: several passes, wide+dim to narrow+bright
-        const passes = [
-          { w: 22, a: 0.05 }, { w: 12, a: 0.08 }, { w: 6, a: 0.14 }, { w: 2.2, a: 0.9 },
-        ];
-        for (const ps of passes) {
-          ctx.beginPath();
-          ctx.moveTo(pts[0][0], pts[0][1]);
-          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-          ctx.strokeStyle = `hsla(43, 95%, ${60 + beat * 8}%, ${ps.a * alpha})`;
-          ctx.lineWidth = ps.w; ctx.lineCap = "round"; ctx.lineJoin = "round";
-          ctx.stroke();
-        }
+      // ----- soft central presence glow (big, dreamy, no hard edge) -----
+      function drawCore(cx, cy, R, beat) {
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.7);
+        g.addColorStop(0.0, `hsla(44, 96%, 74%, ${0.20 + beat * 0.07})`);
+        g.addColorStop(0.35, `hsla(38, 92%, 60%, ${0.08 + beat * 0.03})`);
+        g.addColorStop(0.7, "hsla(30, 85%, 52%, 0.03)");
+        g.addColorStop(1.0, "hsla(30, 85%, 52%, 0)");
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(cx, cy, R * 1.7, 0, Math.PI * 2); ctx.fill();
       }
 
-      // ----- B: 15 orbiting motes -----
-      function drawMotes(cx, cy, R, t, alpha) {
-        if (alpha < 0.01) return;
-        for (let k = 0; k < N; k++) {
-          const a = st[k];
-          // ribbon anchor (where the mote lives when folded)
-          const s = (k / N) * Math.PI * 2;
-          const bp = base(s);
-          const rx = cx + bp.x * 1.15 * R, ry = cy + bp.y * 1.9 * R;
-          // orbit target
-          const ang = a.phase + t * a.orbSpeed * 6;
-          const rr = R * (a.orbR + 0.04 * Math.sin(t * 0.5 * a.radBreath + a.phase));
-          const ox = cx + Math.cos(ang) * rr * 1.25;
-          const oy = cy + Math.sin(ang) * rr * 0.85;
-          // blend fold->orbit
-          const x = rx + (ox - rx) * alpha;
-          const y = ry + (oy - ry) * alpha;
-          const flare = a.act;
-          const size = (2.6 + flare * 6) * (AGENTS[k].tier === 0 ? 1.5 : 1);
-          const light = 62 + flare * 26;
-          ctx.beginPath();
-          ctx.arc(x, y, size, 0, Math.PI * 2);
-          ctx.shadowBlur = 16 + flare * 40; ctx.shadowColor = `hsla(${a.hue}, 95%, 70%, 0.9)`;
-          ctx.fillStyle = `hsla(${a.hue}, 95%, ${light}%, ${(0.62 + flare * 0.38) * alpha})`;
-          ctx.fill();
-          ctx.shadowBlur = 0;
+      // ----- dreamy soft presence: 15 soft light-lobes forming a rotating halo -----
+      // No stroked outline (so no visible dents) - just overlapping soft glows,
+      // blurred and additively blended into a flowing aura. Two concentric
+      // layers give it volume (a soft sphere, not a flat ring).
+      function drawDreamOrb(cx, cy, R, t, beat, unfoldV) {
+        const prevFilter = ctx.filter;
+        ctx.filter = "blur(9px)";
+        // a soft bubble rim gives the haze a sense of a sphere (no hard edge)
+        const rim = ctx.createRadialGradient(cx, cy, R * 0.7, cx, cy, R * 1.2);
+        rim.addColorStop(0.0, "hsla(42, 95%, 66%, 0)");
+        rim.addColorStop(0.55, `hsla(42, 96%, 70%, ${0.07 + beat * 0.03})`);
+        rim.addColorStop(1.0, "hsla(42, 95%, 66%, 0)");
+        ctx.fillStyle = rim;
+        ctx.beginPath(); ctx.arc(cx, cy, R * 1.2, 0, Math.PI * 2); ctx.fill();
+        // two concentric layers of soft light-lobes give it volume
+        for (const layer of [{ rf: 1.0, af: 1.0, bf: 1.0 }, { rf: 0.6, af: 0.55, bf: 0.75 }]) {
+          for (let k = 0; k < N; k++) {
+            const a = st[k];
+            const ang = (k / N) * Math.PI * 2 + rot * (1 + ((k % 5) - 2) * 0.03);
+            // gentle radius breathing per agent (no hard edge -> no dents)
+            const wob = 0.045 * Math.sin(AGENTS[k].hk + a.phase + t * 0.5) + a.act * 0.05;
+            const ringR = R * (1 + wob);
+            const tierR = R * (0.5 + AGENTS[k].tier * 0.12);
+            const rr = (ringR + (tierR - ringR) * unfoldV) * layer.rf;
+            const x = cx + Math.cos(ang) * rr;
+            const y = cy + Math.sin(ang) * rr * 0.92;
+            const flare = a.act;
+            const blob = R * (0.26 + flare * 0.14) * layer.bf;
+            const alpha = (0.06 + flare * 0.24) * layer.af;
+            const g = ctx.createRadialGradient(x, y, 0, x, y, blob);
+            g.addColorStop(0.0, `hsla(${a.hue}, 96%, ${64 + flare * 20}%, ${alpha})`);
+            g.addColorStop(1.0, `hsla(${a.hue}, 96%, 60%, 0)`);
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(x, y, blob, 0, Math.PI * 2); ctx.fill();
+          }
         }
+        ctx.filter = prevFilter;
+      }
+
+      // (The 15 agents are drawn as soft light-lobes inside drawDreamOrb.)
+
+      // ----- real lightning: branching bolts that flash on, then vanish -----
+      function boltPath(x1, y1, x2, y2, jitter, gen) {
+        if (gen <= 0) return [[x1, y1], [x2, y2]];
+        const mx = (x1 + x2) / 2 + (Math.random() - 0.5) * jitter;
+        const my = (y1 + y2) / 2 + (Math.random() - 0.5) * jitter;
+        return boltPath(x1, y1, mx, my, jitter * 0.5, gen - 1)
+          .slice(0, -1)
+          .concat(boltPath(mx, my, x2, y2, jitter * 0.5, gen - 1));
+      }
+      // grow one channel + a few forks (real-lightning branching)
+      function growBolt(x1, y1, x2, y2, jitter, gen, depth, segs) {
+        const pts = boltPath(x1, y1, x2, y2, jitter, gen);
+        segs.push({ pts, depth });
+        if (depth >= 2) return;
+        const branches = depth === 0 ? 1 + ((Math.random() * 2) | 0) : (Math.random() < 0.5 ? 1 : 0);
+        for (let b = 0; b < branches; b++) {
+          const vi = 1 + ((Math.random() * (pts.length - 2)) | 0);
+          const bx = pts[vi][0], by = pts[vi][1];
+          const baseAng = Math.atan2(y2 - y1, x2 - x1);
+          const ang = baseAng + (Math.random() - 0.5) * 1.5;
+          const len = Math.hypot(x2 - bx, y2 - by) * (0.35 + Math.random() * 0.45);
+          growBolt(bx, by, bx + Math.cos(ang) * len, by + Math.sin(ang) * len,
+            jitter * 0.55, Math.max(2, gen - 1), depth + 1, segs);
+        }
+      }
+      function makeStrike(cx, cy, R) {
+        const segs = [];
+        const arms = 1 + ((Math.random() * 8) | 0);          // 1..8 arms per strike
+        for (let i = 0; i < arms; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const len = R * (0.55 + Math.random() * 0.5);
+          growBolt(cx, cy, cx + Math.cos(ang) * len, cy + Math.sin(ang) * len * 0.92,
+            R * 0.2, 4, 0, segs);
+        }
+        return segs;
+      }
+      function maybeStrike(now, cx, cy, R) {
+        if (now >= nextStrikeAt) {
+          strike = { segs: makeStrike(cx, cy, R), born: now, life: 130 + Math.random() * 150 };
+          nextStrikeAt = now + 650 + Math.random() * 2600;  // dark gap before the next strike
+        }
+      }
+      function drawStrike(now) {
+        if (!strike) return;
+        const age = now - strike.born;
+        if (age > strike.life) { strike = null; return; }
+        const k = age / strike.life;
+        // a couple of sharp flashes within the strike, fading out (appears / vanishes)
+        const env = (1 - k) * (0.35 + 0.65 * Math.abs(Math.sin(k * Math.PI * 2.5)));
+        const a = 0.3 * env;                                  // barely visible, not emphasized
+        const prev = ctx.filter; ctx.filter = "blur(0.7px)";
+        for (const s of strike.segs) {
+          const w = s.depth === 0 ? 0.8 : s.depth === 1 ? 0.55 : 0.4;  // very thin (< 1px core)
+          ctx.beginPath(); ctx.moveTo(s.pts[0][0], s.pts[0][1]);
+          for (let j = 1; j < s.pts.length; j++) ctx.lineTo(s.pts[j][0], s.pts[j][1]);
+          ctx.lineCap = "round"; ctx.lineJoin = "round";
+          ctx.strokeStyle = `hsla(203, 100%, 74%, ${a})`;        // bright blue, faint
+          ctx.lineWidth = w; ctx.stroke();
+          ctx.strokeStyle = `hsla(195, 100%, 96%, ${a * 0.5})`;  // white-hot core
+          ctx.lineWidth = Math.max(0.3, w * 0.45); ctx.stroke();
+        }
+        ctx.filter = prev;
       }
 
       requestAnimationFrame(frame);

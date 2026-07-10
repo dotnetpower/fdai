@@ -2,7 +2,7 @@
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
 translation_source_sha: 2fdeb6972d2814c6c951817ac18a2e05b71384e6
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 
 # 보안과 아이덴티티

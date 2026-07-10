@@ -3,7 +3,7 @@ title: 승인과 알림 채널(Approvals and channels)
 description: FDAI가 고위험 승인과 알림을 위해 사람에게 도달하는 방식 - 어떤 채널을 쓰는지, 콘솔이 왜 실행하지 않는지, 아무도 응답하지 않으면 어떻게 되는지.
 translation_of: approvals-and-channels.md
 translation_source_sha: f75fa54fb59feb837641df6f6eb7e0fcf5d0b43d
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 sidebar:
   order: 7
 ---

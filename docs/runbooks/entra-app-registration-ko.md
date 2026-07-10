@@ -1,7 +1,7 @@
 ---
 translation_of: entra-app-registration.md
 translation_source_sha: 100c51af70538effb5ea546b3f37622620e8e802
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 
 # Entra 앱 등록

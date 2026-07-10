@@ -2,7 +2,7 @@
 title: Fork Seam Recipe 조리서
 translation_of: downstream-fork-seam-recipes.md
 translation_source_sha: 70bef74067b3f513b5687d4e4417580ac6363d90
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 
 # Fork Seam Recipes

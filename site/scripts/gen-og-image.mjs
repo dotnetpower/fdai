@@ -6,10 +6,18 @@
 // instead of the default 1.91:1 letterbox. The meta tags are wired in
 // astro.config.mjs; this script only rasterizes the committed PNG.
 //
-// The image is a static asset committed at site/public/og-cover.png. Run
-// `npm run gen-og` to regenerate it after editing the design below; the
-// output is deterministic so a regenerated PNG only changes when the SVG
-// does. sharp (an Astro transitive dependency) does the SVG -> PNG raster.
+// The background is our procedural WebGL nebula (see
+// src/components/NebulaBackground.astro). WebGL cannot be rendered
+// headless here, so a single captured frame is committed as the source
+// asset scripts/og-nebula-bg.png (1200x900) and this script composites
+// the FDAI wordmark over it. Re-capture the background by serving
+// site/public/nebula-demo.html, screenshotting the canvas, and
+// cover-resizing to 1200x900 -> scripts/og-nebula-bg.png.
+//
+// The output is a static asset committed at site/public/og-cover.png.
+// Run `npm run gen-og` to regenerate it after editing the design below.
+// sharp (an Astro transitive dependency) does the SVG -> PNG raster and
+// the composite over the nebula.
 
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -19,67 +27,62 @@ const WIDTH = 1200;
 const HEIGHT = 900; // 4:3
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const NEBULA_BG = path.resolve(scriptDir, "og-nebula-bg.png");
 const OUT = path.resolve(scriptDir, "..", "public", "og-cover.png");
 
 // Brand palette mirrors site/src/styles/custom.css and CustomHero.astro:
 //   deep-space bg  #05070f, Azure accent #0078D4, cyan #50E6FF.
-const svg = `<svg width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}"
+// The nebula carries the colour, so the overlay only adds a dark scrim
+// (for text legibility over the bright cloud) plus the text.
+const overlay = `<svg width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}"
      xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#05070f"/>
-      <stop offset="55%" stop-color="#070b18"/>
-      <stop offset="100%" stop-color="#0a1226"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="26%" cy="32%" r="60%">
-      <stop offset="0%" stop-color="#0078D4" stop-opacity="0.45"/>
-      <stop offset="60%" stop-color="#0078D4" stop-opacity="0.10"/>
-      <stop offset="100%" stop-color="#0078D4" stop-opacity="0"/>
+    <radialGradient id="scrim" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#05070f" stop-opacity="0.74"/>
+      <stop offset="52%" stop-color="#05070f" stop-opacity="0.52"/>
+      <stop offset="100%" stop-color="#05070f" stop-opacity="0.14"/>
     </radialGradient>
+    <linearGradient id="vign" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#05070f" stop-opacity="0.4"/>
+      <stop offset="28%" stop-color="#05070f" stop-opacity="0"/>
+      <stop offset="72%" stop-color="#05070f" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#05070f" stop-opacity="0.6"/>
+    </linearGradient>
     <linearGradient id="wordmark" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#4aa8ff"/>
-      <stop offset="100%" stop-color="#50E6FF"/>
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="55%" stop-color="#50E6FF"/>
+      <stop offset="100%" stop-color="#4aa8ff"/>
     </linearGradient>
   </defs>
 
-  <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#bg)"/>
-  <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#glow)"/>
-
-  <!-- decorative node graph, echoing the landing hero -->
-  <g stroke="#0078D4" stroke-opacity="0.35" stroke-width="2" fill="none">
-    <path d="M120 760 L300 690 L470 730 L640 650"/>
-    <path d="M1080 150 L960 240 L1010 360 L900 430"/>
-  </g>
-  <g fill="#50E6FF">
-    <circle cx="120" cy="760" r="6" fill-opacity="0.9"/>
-    <circle cx="300" cy="690" r="5" fill-opacity="0.7"/>
-    <circle cx="470" cy="730" r="6" fill-opacity="0.85"/>
-    <circle cx="640" cy="650" r="4" fill-opacity="0.6"/>
-    <circle cx="1080" cy="150" r="6" fill-opacity="0.85"/>
-    <circle cx="960" cy="240" r="4" fill-opacity="0.6"/>
-    <circle cx="1010" cy="360" r="5" fill-opacity="0.7"/>
-    <circle cx="900" cy="430" r="6" fill-opacity="0.9"/>
-  </g>
+  <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#scrim)"/>
+  <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#vign)"/>
 
   <g font-family="'DejaVu Sans', 'Segoe UI', Arial, sans-serif" text-anchor="middle">
     <!-- wordmark -->
-    <text x="600" y="420" font-size="220" font-weight="700"
+    <text x="600" y="418" font-size="224" font-weight="700"
           letter-spacing="8" fill="url(#wordmark)">FDAI</text>
     <!-- full name, small caps -->
     <text x="600" y="500" font-size="42" font-weight="600" letter-spacing="14"
-          fill="#c7d3e6">FORWARD DEPLOYED AGENTS</text>
+          fill="#dbe6f7">FORWARD DEPLOYED AGENTS</text>
     <!-- tagline -->
-    <text x="600" y="600" font-size="34" font-weight="400" fill="#8ea0bd">
+    <text x="600" y="602" font-size="34" font-weight="400" fill="#aec0dd">
       Deterministic-first, event-driven, risk-gated cloud operations.
     </text>
   </g>
 
   <!-- footer url -->
-  <text x="600" y="820" text-anchor="middle"
+  <text x="600" y="822" text-anchor="middle"
         font-family="'DejaVu Sans Mono', 'Courier New', monospace"
-        font-size="26" letter-spacing="2" fill="#5a6b86">dotnetpower.github.io/fdai</text>
+        font-size="26" letter-spacing="2" fill="#7f92b0">dotnetpower.github.io/fdai</text>
 </svg>`;
 
-await sharp(Buffer.from(svg)).png().toFile(OUT);
+await sharp(NEBULA_BG)
+  .composite([{ input: Buffer.from(overlay) }])
+  .png()
+  .toFile(OUT);
+
 // eslint-disable-next-line no-console
-console.log(`[gen-og-image] wrote ${path.relative(process.cwd(), OUT)} (${WIDTH}x${HEIGHT})`);
+console.log(
+  `[gen-og-image] wrote ${path.relative(process.cwd(), OUT)} (${WIDTH}x${HEIGHT}) over nebula background`,
+);

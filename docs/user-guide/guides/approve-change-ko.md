@@ -3,7 +3,7 @@ title: 변경 승인(Approve a change)
 description: FDAI가 HIL 결정 대기로 큐잉한 변경을 어떻게 리뷰하고 승인(또는 거부)하는가.
 translation_of: approve-change.md
 translation_source_sha: 658b9320640082a059e2013c121ff31d7f9ce875
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 
 # 변경 승인(Approve a change)

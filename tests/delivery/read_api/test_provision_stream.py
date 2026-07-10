@@ -22,6 +22,7 @@ from starlette.testclient import TestClient
 
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
 from fdai.delivery.read_api.auth import UnsafeClaimsExtractor, build_authenticator
+from fdai.delivery.read_api.live_stream import LiveStreamConfig
 from fdai.delivery.read_api.main import ReadApiConfig, build_app
 from fdai.delivery.read_api.provision_stream import (
     DEFAULT_CHANNEL,
@@ -207,3 +208,22 @@ class TestProvisionRoute:
     def test_path_collision_with_core_route_rejected(self, dev_env: None) -> None:
         with pytest.raises(ValueError, match="collides with a core route"):
             _build_dev_app(provision_stream=ProvisionStreamConfig(path="/kpi"))
+
+    def test_path_collision_with_live_stream_rejected(self, dev_env: None) -> None:
+        # Two SSE routes on one path silently shadow each other in Starlette;
+        # build_app MUST fail fast rather than register a dead route.
+        resolver = RoleResolver(group_mapping=_mapping())
+        authenticator = build_authenticator(
+            verifier=UnsafeClaimsExtractor(),
+            resolver=resolver,
+        )
+        with pytest.raises(ValueError, match="collides with the live-stream route"):
+            build_app(
+                authenticator=authenticator,
+                read_model=InMemoryConsoleReadModel(),
+                config=ReadApiConfig(
+                    dev_mode=True,
+                    live_stream=LiveStreamConfig(path="/shared/stream"),
+                    provision_stream=ProvisionStreamConfig(path="/shared/stream"),
+                ),
+            )

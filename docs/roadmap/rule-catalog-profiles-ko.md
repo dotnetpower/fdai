@@ -2,7 +2,7 @@
 title: Rule-catalog profile 및 collector
 translation_of: rule-catalog-profiles.md
 translation_source_sha: 0cc11eb1881431f4a0536827f22032ffd7aad3d4
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 # Rule-catalog profile 및 collector
 

@@ -2,7 +2,7 @@
 title: 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 translation_of: preflight-active-reassembly.md
 translation_source_sha: 2f5a282a5c31e15ba385ce7ef96a53291d7b718c
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 # 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 

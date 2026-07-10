@@ -2,7 +2,7 @@
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
 translation_source_sha: 2ae1815de00c345e5fab34601a37fa02bcc9d385
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 

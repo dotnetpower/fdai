@@ -3,7 +3,7 @@ title: 결정론 우선(Deterministic first)
 description: FDAI가 반복 가능한 다수는 규칙으로 해소하고 애매한 소수만 LLM 추론에 넘기는 이유.
 translation_of: deterministic-first.md
 translation_source_sha: 7f5cb6a17dc8dbdf4cb14e3ada96d18082692a54
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 sidebar:
   order: 2
 ---

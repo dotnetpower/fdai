@@ -3,7 +3,7 @@ title: 규칙 Override
 description: 규칙 카탈로그 자체를 편집하지 않고 특정 스코프에서 승격된 규칙을 좁히거나, 격을 낮추거나, 비활성화하는 법.
 translation_of: override-a-rule.md
 translation_source_sha: ec4bf42ff20994f40ddb0fa8aeff7636e989b2e1
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 
 # 규칙 Override

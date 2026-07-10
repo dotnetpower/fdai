@@ -2,7 +2,7 @@
 title: Fork Example Vertical - 새 비즈니스 오브젝트 end-to-end
 translation_of: downstream-fork-example-vertical.md
 translation_source_sha: 1ffc25f9558a4c315d82fb2b34435df1dd40521a
-translation_revised: 2026-07-10
+translation_revised: 2026-07-11
 ---
 
 # Fork Example Vertical: 새 비즈니스 오브젝트 end-to-end
