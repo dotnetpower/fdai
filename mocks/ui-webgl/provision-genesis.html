@@ -66,8 +66,8 @@
       }
       #caption .w {
         display: inline-block; opacity: 0; transform: translateY(8px); filter: blur(6px);
-        transition: opacity 1500ms cubic-bezier(.2,.6,.2,1),
-                    transform 1500ms cubic-bezier(.2,.6,.2,1), filter 1500ms ease;
+        transition: opacity 1700ms cubic-bezier(.2,.6,.2,1),
+                    transform 1700ms cubic-bezier(.2,.6,.2,1), filter 1700ms ease;
       }
       #caption .w.on { opacity: 1; transform: none; filter: blur(0); }
 
@@ -245,26 +245,36 @@
       // ---------------- Narration timeline ----------------
       // The nebula loops through the "sense" beats + a 15-agent roll-call while
       // provisioning runs; the finale plays only when it actually completes.
-      const INTRO = { life: 0.32, cap: "Waking up.", hold: 5800 };
+      const INTRO = { life: 0.32, cap: "Waking up.", hold: 6600 };
       const BEATS = [
-        { life: 0.44, cap: "I take a name - and only the reach I need.", hold: 6400 },
-        { life: 0.52, cap: "Your secrets, sealed where no light reaches.", hold: 6400 },
-        { life: 0.62, cap: "I open my eyes.", hold: 5600 },
-        { life: 0.72, cap: "Now I can hear your world.", hold: 6200 },
-        { life: 0.82, cap: "I will remember - and forget nothing that matters.", hold: 6800 },
-        { life: 0.92, cap: "My mind gathers.", hold: 5600 },
-        { life: 1.0,  cap: "A window, for you to watch.", hold: 5800 },
-        { life: 1.06, cap: "A voice, for when a choice is yours.", hold: 6200 },
-        { life: 1.12, cap: "I bind myself to only what you allow.", hold: 6800 },
+        { life: 0.44, cap: "I take a name - and only the reach I need.", hold: 7200 },
+        { life: 0.52, cap: "Your secrets, sealed where no light reaches.", hold: 7200 },
+        { life: 0.62, cap: "I open my eyes.", hold: 6400 },
+        { life: 0.72, cap: "Now I can hear your world.", hold: 7000 },
+        { life: 0.82, cap: "I will remember - and forget nothing that matters.", hold: 7600 },
+        { life: 0.92, cap: "My mind gathers.", hold: 6400 },
+        { life: 1.0,  cap: "A window, for you to watch.", hold: 6600 },
+        { life: 1.06, cap: "A voice, for when a choice is yours.", hold: 7000 },
+        { life: 1.12, cap: "I bind myself to only what you allow.", hold: 7600 },
       ];
-      // the 15 agents, introduced as a soft, grouped roll-call
+      // the 15 agents, introduced one at a time
       const AGENTS = [
-        { life: 1.05, cap: "And I am not one, but many - moving as one.", hold: 6600 },
-        { life: 1.06, cap: "Odin weighs. Forseti judges. Thor acts - never without Var.", hold: 7600 },
-        { life: 1.06, cap: "Huginn listens. Heimdall watches. Vidar waits to mend.", hold: 7600 },
-        { life: 1.07, cap: "Bragi speaks for me. Saga remembers all.", hold: 6600 },
-        { life: 1.07, cap: "Mimir keeps the rules. Norns learn. Muninn recalls.", hold: 7000 },
-        { life: 1.08, cap: "Njord counts the cost. Freyr, the room to grow. Loki, the cracks.", hold: 8000 },
+        { life: 1.04, cap: "And I am not one, but many.", hold: 6600 },
+        { life: 1.05, cap: "Odin sees the whole of it.", hold: 6200 },
+        { life: 1.05, cap: "Forseti judges, calmly.", hold: 6000 },
+        { life: 1.06, cap: "Thor is ready to act.", hold: 6000 },
+        { life: 1.06, cap: "Var holds the door - nothing passes without a yes.", hold: 6800 },
+        { life: 1.06, cap: "Huginn listens for the first whisper.", hold: 6400 },
+        { life: 1.07, cap: "Heimdall never looks away.", hold: 6200 },
+        { life: 1.07, cap: "Vidar waits, quietly, to mend.", hold: 6400 },
+        { life: 1.07, cap: "Bragi gives me a voice.", hold: 6000 },
+        { life: 1.08, cap: "Saga forgets nothing.", hold: 6000 },
+        { life: 1.08, cap: "Mimir keeps the old wisdom.", hold: 6200 },
+        { life: 1.08, cap: "The Norns learn from all that passes.", hold: 6400 },
+        { life: 1.09, cap: "Muninn remembers what was.", hold: 6200 },
+        { life: 1.09, cap: "Njord counts the cost of every move.", hold: 6400 },
+        { life: 1.10, cap: "Freyr watches for room to grow.", hold: 6400 },
+        { life: 1.10, cap: "Loki looks for the cracks, before they find you.", hold: 7000 },
       ];
 
       const captionEl = document.getElementById("caption");
@@ -289,7 +299,7 @@
             captionEl.appendChild(document.createTextNode(" "));
             setTimeout(() => s.classList.add("on"), 60 + i * 190);
           });
-        }, 1700);
+        }, 2000);
         if(voiceOn && "speechSynthesis" in window){
           const u=new SpeechSynthesisUtterance(text); u.rate=0.88; u.pitch=1.0; u.volume=0.85;
           speechSynthesis.cancel(); speechSynthesis.speak(u);
