@@ -258,6 +258,24 @@ _GLOSSARY_TERMS: list[str] = [
     "Safety invariants",
     "Rule catalog",
     "Provenance",
+    # Terms added in the glossary expansion - each must be defined once so a
+    # concept question about them is grounded, not hallucinated.
+    "event id",
+    "Promotion gate",
+    "Quality gate",
+    "Verifier",
+    "Grounding",
+    "What-if",
+    "Blast radius",
+    "Rollback contract",
+    "Remediation PR",
+    "Exemption",
+    "Override",
+    "Idempotency key",
+    "Pantheon",
+    "Narrator",
+    "Two-port model",
+    "Kill-switch",
 ]
 
 

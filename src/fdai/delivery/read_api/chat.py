@@ -117,17 +117,33 @@ Rules:
 _GLOSSARY = """\
 FDAI glossary (use only to define a term on request; the snapshot's own `glossary` wins when present):
 - correlation id (correlation_id): the incident key grouping every agent step for one event, from detection to verdict to remediation; open the Trace panel to reconstruct it.
-- ActionType: ontology entry classing an autonomous action; binds 5 roles (initiators, judge, executor, approver, auditor).
+- event id: the stable id of one normalized event the control plane processed; several event ids can share one correlation id when they belong to the same incident.
+- ActionType: ontology entry classing an autonomous action; binds 5 roles (initiators, judge, executor, approver, auditor) and declares rollback_contract + preconditions + stop_conditions.
 - Trust router: routes each event to the lowest sufficient tier (T0/T1/T2) by a computed confidence.
 - T0/T1/T2: trust-router tiers - deterministic policy (70-80%) / lightweight similarity (15-20%) / frontier-LLM reasoning (5-10%, novel only).
 - Gate decision: auto=execute, hil=needs approval, deny=refused, abstain=no rule matched (no-op).
-- Shadow vs enforce: new actions ship shadow (log-only), promoted to enforce after their promotion_gate passes.
-- HIL: high-risk approvals via Teams/ChatOps cards, never a console button.
+- Shadow vs enforce: new actions ship shadow (log-only), promoted to enforce after their promotion_gate passes; a regression demotes back to shadow automatically.
+- Promotion gate: the measurable accuracy + zero-policy-escape bar an ActionType MUST clear on a frozen scenario set before promotion from shadow to enforce.
+- HIL: high-risk approvals via Teams/ChatOps cards, never a console button; approval and execution are distinct principals (no self-approval).
+- Quality gate (T2): mixed-model cross-check (2+ distinct models) + deterministic verifier + grounded citation (RAG); the model generates, verification grants execution eligibility.
+- Verifier: re-validates every T2-generated action against policy-as-code and what-if before it can execute.
+- Grounding: T2 MUST cite the rules/policies that justify its judgment; abstains (routes to HIL) when unsupported.
+- What-if / dry-run: predicted effect run BEFORE any change is applied; a missing what-if is a safety-invariant defect.
+- Safety invariants: stop-condition, rollback path, blast-radius cap, audit entry - all four are required for every autonomous action.
+- Blast radius: how many resources one action could touch; capped by the risk gate so a single change never exceeds its declared scope.
+- Rollback contract: pr_revert / scripted / pitr / snapshot_restore / state_forward_only - the declared way an ActionType is undone; irreversible actions set irreversible:true and are routed HIL+quorum.
+- Remediation PR: how the executor delivers a change (GitOps) so audit/approval/rollback come for free; the console never mutates state via a button.
+- Rule catalog: versioned CSP-neutral rules (id, source, severity, category, resource-type, check-logic, remediation, provenance); continuously collected + shadow-evaluated + regressed + promoted.
+- Provenance: the cited source a rule/finding is grounded in; a candidate without it is rejected.
+- Exemption: a scoped, audited "this rule does not apply here" declaration with justification + distinct approver; the finding is still recorded.
+- Override: a policy-as-code artifact that narrows/downgrades/disables an accepted rule on a bounded scope (resource-group or narrower); shadow keeps running underneath and the rule text is untouched.
+- Idempotency key: the stable per-event key that lets at-least-once delivery + retries collapse to a single applied change.
 - Waterfall (Agent activity): one row per incident, each bar an agent picking it up, read left-to-right as the hand-off cascade.
 - Verticals: change safety, resilience, cost governance.
-- Safety invariants: stop-condition, rollback path, blast-radius cap, audit entry.
-- Rule catalog: versioned rules with provenance, gated before shipping.
-- Provenance: the cited source a rule/finding is grounded in; a candidate without it is rejected.
+- Pantheon: 15 fixed named agents that own the loop - Huginn/Heimdall sense, Forseti judges, Odin arbitrates, Var approves, Thor executes, Vidar rolls back, Saga audits, Bragi narrates, Mimir/Norns/Muninn govern rules+memory, Njord/Freyr/Loki are cost/capacity/chaos specialists.
+- Narrator (Bragi): the conversational-port translator - renders answers in the operator's locale, never judges or executes; a request that asks for an action re-enters the typed pipeline.
+- Two-port model: every agent exposes a typed pub/sub port (schema-checked, deterministic-first, hot-path) AND a conversational port (natural language); the two share only the correlation trace.
+- Kill-switch: the Owner-only emergency stop; halts the executor and parks in-flight work - never wired to a console button.
 
 """
 
