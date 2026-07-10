@@ -164,6 +164,27 @@ blunt priority table:
 The arbiter takes no LLM call and no I/O; it is pure and deterministic
 given its config and inputs.
 
+**Temporal fairness (opt-in)** - a fork can wire a `DecisionHistory`
+seam (backed by the append-only audit log) and a `TemporalPolicy` into
+Odin to prevent two failure modes on repeated conflicts:
+
+- `AlternatingFairnessPolicy` - once a domain has won `streak_threshold`
+  rounds in a row against the same conflict, the perpetual loser gets a
+  bounded weight boost so it has a chance to win the next round. A
+  single opposing win breaks the streak.
+- `HysteresisPolicy` - when the winner has been flip-flopping between
+  two domains within the last `window` rounds, add a bonus to the most
+  recent winner to damp the oscillation. A stable one-sided run is not
+  flapping and receives no bonus.
+
+Both policies are pure functions of `(base_weights, domains, history)`
+so the arbiter stays deterministic and replayable (same audit log +
+same request => same decision). Neither weakens the HIL safety net:
+close margins, unknown domains, and non-finite impacts still escalate
+even after a boost. Upstream default binds `NoopDecisionHistory`
+(returns an empty window), which reproduces today's stateless behavior
+exactly.
+
 ### 3.2 Discovery-loop learners (Norns)
 
 Norns closes the learning loop shown as `Saga -. signals .-> Norns` in

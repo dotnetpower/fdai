@@ -30,7 +30,7 @@ given its config and inputs.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 # Default cross-vertical priority order (highest first). Fork config
@@ -188,12 +188,21 @@ class MultiObjectiveArbiter:
         self,
         domains: tuple[str, ...],
         impacts: dict[str, float] | None = None,
+        *,
+        history: Sequence[RecentDecision] | None = None,
+        policy: TemporalPolicy | None = None,
     ) -> ArbitrationOutcome:
         """Resolve a conflict among ``domains`` into a single winner.
 
         ``impacts`` maps a domain to a measured magnitude in ``[0, 1]``;
         a domain absent from the map defaults to ``1.0`` (full weight),
         which makes an all-default call collapse to the priority order.
+
+        ``history`` + ``policy`` are optional; when both are supplied the
+        policy adjusts the base weights *for this call only* before
+        scoring. The arbiter re-validates the adjusted weights and still
+        enforces HIL escalation on close margins, unknown domains, and
+        non-finite impacts - a temporal policy MUST NOT weaken safety.
         """
         if not domains:
             return ArbitrationOutcome(
@@ -210,15 +219,29 @@ class MultiObjectiveArbiter:
         # skew the margin. A conflict is a *set* of domains.
         domains = tuple(dict.fromkeys(domains))
 
+        # Apply the temporal policy (if any) at the boundary, then treat
+        # the returned dict exactly the same as a static weights config.
+        effective_weights = self._weights
+        temporal_note = ""
+        if policy is not None:
+            adjusted = policy.adjust(
+                base_weights=dict(self._weights),
+                domains=domains,
+                history=tuple(history or ()),
+            )
+            effective_weights = _validate_adjusted_weights(adjusted, policy_name=policy.name)
+            if effective_weights != self._weights:
+                temporal_note = f"|policy={policy.name}"
+
         impacts = impacts or {}
         # A non-finite impact (NaN / inf) is a corrupt measurement; it must
         # never silently win or corrupt the sort. Treat it as zero impact
         # and force the whole call to HIL as a low-confidence input.
         nonfinite = [d for d in domains if not math.isfinite(_as_float(impacts.get(d, 1.0)))]
-        unknown = [d for d in domains if d not in self._weights]
+        unknown = [d for d in domains if d not in effective_weights]
         scores: dict[str, float] = {}
         for domain in domains:
-            weight = self._weights.get(domain, 0.0)
+            weight = effective_weights.get(domain, 0.0)
             raw_impact = _as_float(impacts.get(domain, 1.0))
             impact = _clamp(raw_impact) if math.isfinite(raw_impact) else 0.0
             scores[domain] = round(weight * impact, 6)
@@ -244,9 +267,9 @@ class MultiObjectiveArbiter:
         elif nonfinite:
             reason = f"nonfinite_impact:{','.join(sorted(nonfinite))}"
         elif escalate:
-            reason = f"close_call:margin={margin}<{self._hil_margin}"
+            reason = f"close_call:margin={margin}<{self._hil_margin}{temporal_note}"
         else:
-            reason = f"{mode}:{','.join(self._priority)}"
+            reason = f"{mode}:{','.join(self._priority)}{temporal_note}"
 
         return ArbitrationOutcome(
             winner=winner,
@@ -281,11 +304,203 @@ def _as_float(value: object) -> float:
         return float("nan")
 
 
+# ---------------------------------------------------------------------------
+# Temporal / stateful fairness (issue #4)
+# ---------------------------------------------------------------------------
+#
+# The base ``MultiObjectiveArbiter.resolve`` is pure and stateless: it
+# decides each conflict in isolation. That is safe, but it has two known
+# failure modes on repeated conflicts:
+#
+# - **No temporal fairness** - if the same two domains conflict on the
+#   same resource over and over, the higher-scoring domain wins every
+#   round. There is no notion of "cost yielded last three times, so nudge
+#   the weight toward capacity this round."
+# - **No hysteresis / anti-flapping** - alternating signals can drive
+#   opposite decisions on consecutive rounds with no damping, so a
+#   marginal fluctuation flips the arbiter back and forth.
+#
+# A ``TemporalPolicy`` is a pure function of ``(base_weights, domains,
+# history)`` that returns adjusted weights *before* the arbiter scores.
+# The policy sees only what the caller passes; it never reads from
+# storage. That keeps the arbiter deterministic (same history + same
+# inputs -> same decision) and replayable (history is sourced from the
+# append-only audit log, not from in-memory state that breaks scale-to-
+# zero). The policy MUST NOT weaken the HIL safety net: the arbiter still
+# escalates on close margins, unknown domains, and non-finite impacts
+# even after adjustment.
+
+
+@dataclass(frozen=True, slots=True)
+class RecentDecision:
+    """One replayable record of a past arbitration on a resource.
+
+    Sourced from the append-only audit log by a ``DecisionHistory``
+    seam. Carries only what a temporal policy needs to reason about;
+    scores / margins are intentionally omitted so history stays cheap
+    to load and cannot leak sensitive per-signal detail.
+    """
+
+    winner: str
+    losers: tuple[str, ...]
+    resource_id: str = ""
+    at: float = 0.0  # unix timestamp; ordering only, absolute value unused
+
+
+class TemporalPolicy:
+    """Adjusts base weights given a bounded window of recent decisions.
+
+    Concrete policies subclass and override :meth:`adjust`. The method
+    MUST be pure (no I/O, no wall-clock reads) and MUST return a
+    non-empty dict of ``{domain: weight}`` where every weight is finite
+    and non-negative - the arbiter re-validates and rejects a malformed
+    return value at call time, so a buggy policy cannot corrupt scoring.
+    """
+
+    name: str = "temporal_policy"
+
+    def adjust(
+        self,
+        *,
+        base_weights: dict[str, float],
+        domains: tuple[str, ...],
+        history: Sequence[RecentDecision],
+    ) -> dict[str, float]:
+        raise NotImplementedError
+
+
+class AlternatingFairnessPolicy(TemporalPolicy):
+    """Nudge weight toward a domain that has lost too many rounds in a row.
+
+    Counts the current *winning streak* for the top-scoring candidate in
+    ``domains`` on the same resource (looking only at the most recent
+    contiguous suffix of decisions whose winner is present in
+    ``domains``). Once the streak reaches ``streak_threshold``, every
+    other domain in the conflict gets a ``boost`` added to its weight;
+    the perpetual winner's weight is unchanged. That reduces the score
+    gap so the losing side has a chance to win the next round, without
+    flipping the outcome silently on the very first repeat.
+
+    The boost is bounded (fraction of the top weight) and applied
+    additively, so the arbiter's HIL band and margin arithmetic still
+    make sense. Streak resets as soon as a different domain wins.
+    """
+
+    name = "alternating_fairness"
+
+    def __init__(self, *, streak_threshold: int = 3, boost: float = 0.15) -> None:
+        if streak_threshold < 2:
+            raise ValueError(f"streak_threshold MUST be >= 2 (got {streak_threshold!r})")
+        if not math.isfinite(boost) or boost <= 0:
+            raise ValueError(f"boost MUST be finite and > 0 (got {boost!r})")
+        self._threshold = streak_threshold
+        self._boost = boost
+
+    def adjust(
+        self,
+        *,
+        base_weights: dict[str, float],
+        domains: tuple[str, ...],
+        history: Sequence[RecentDecision],
+    ) -> dict[str, float]:
+        # Only look at prior decisions whose winner is one of the
+        # currently conflicting domains - unrelated arbitrations on the
+        # same resource must not count toward the streak.
+        relevant = [d for d in reversed(history) if d.winner in domains]
+        if not relevant:
+            return dict(base_weights)
+        top = relevant[0].winner
+        streak = 0
+        for record in relevant:
+            if record.winner == top:
+                streak += 1
+            else:
+                break
+        if streak < self._threshold:
+            return dict(base_weights)
+        adjusted = dict(base_weights)
+        for domain in domains:
+            if domain == top:
+                continue
+            current = adjusted.get(domain, 0.0)
+            adjusted[domain] = current + self._boost
+        return adjusted
+
+
+class HysteresisPolicy(TemporalPolicy):
+    """Dampen rapid oscillation by rewarding the incumbent winner.
+
+    A conflict that flip-flops between two domains within the last
+    ``window`` decisions is a flapping signal, not a stable preference.
+    When the current conflict's domains match the flapping pair and the
+    most recent winner appears in ``domains``, add ``bonus`` to its
+    weight so a marginal input on the opposite side does not
+    immediately flip the outcome again. A stable, one-sided run of
+    winners is not flapping and receives no bonus.
+    """
+
+    name = "hysteresis"
+
+    def __init__(self, *, window: int = 5, bonus: float = 0.10) -> None:
+        if window < 2:
+            raise ValueError(f"window MUST be >= 2 (got {window!r})")
+        if not math.isfinite(bonus) or bonus <= 0:
+            raise ValueError(f"bonus MUST be finite and > 0 (got {bonus!r})")
+        self._window = window
+        self._bonus = bonus
+
+    def adjust(
+        self,
+        *,
+        base_weights: dict[str, float],
+        domains: tuple[str, ...],
+        history: Sequence[RecentDecision],
+    ) -> dict[str, float]:
+        relevant = [d for d in reversed(history) if d.winner in domains][: self._window]
+        if len(relevant) < 2:
+            return dict(base_weights)
+        winners_in_window = {d.winner for d in relevant}
+        # Flapping only when the window has seen at least two distinct
+        # winners from the current conflict set. A one-sided streak (all
+        # cost) is handled by AlternatingFairnessPolicy, not here.
+        if len(winners_in_window) < 2:
+            return dict(base_weights)
+        last_winner = relevant[0].winner
+        adjusted = dict(base_weights)
+        adjusted[last_winner] = adjusted.get(last_winner, 0.0) + self._bonus
+        return adjusted
+
+
+def _validate_adjusted_weights(adjusted: object, *, policy_name: str) -> dict[str, float]:
+    """Fail-fast validation of a policy's return value.
+
+    A buggy policy MUST NOT corrupt scoring: a non-dict, non-finite, or
+    negative weight fails the arbitration at the boundary, which the
+    caller treats as a HIL escalation (fail toward safety).
+    """
+    if not isinstance(adjusted, dict) or not adjusted:
+        raise ValueError(
+            f"temporal policy {policy_name!r} MUST return a non-empty dict "
+            f"of {{domain: weight}} (got {type(adjusted).__name__})"
+        )
+    for domain, weight in adjusted.items():
+        if not math.isfinite(weight) or weight < 0.0:
+            raise ValueError(
+                f"temporal policy {policy_name!r} returned invalid weight "
+                f"for '{domain}' (got {weight!r})"
+            )
+    return dict(adjusted)
+
+
 __all__ = [
     "ArbitrationOutcome",
     "MultiObjectiveArbiter",
     "weights_from_priority",
     "weights_from_priority_curved",
+    "RecentDecision",
+    "TemporalPolicy",
+    "AlternatingFairnessPolicy",
+    "HysteresisPolicy",
     "_DEFAULT_PRIORITY",
     "_DEFAULT_HIL_MARGIN",
 ]

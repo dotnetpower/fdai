@@ -579,3 +579,333 @@ def test_convex_arbiter_still_picks_priority_winner_on_equal_impact() -> None:
     outcome = arbiter.resolve(("cost", "capacity"))
     assert outcome.winner == "cost"  # cost outranks capacity
     assert outcome.escalate_hil is False
+
+
+# ---------------------------------------------------------------------------
+# Temporal / stateful fairness (issue #4)
+# ---------------------------------------------------------------------------
+
+
+from fdai.agents.arbitration import (  # noqa: E402
+    AlternatingFairnessPolicy,
+    HysteresisPolicy,
+    RecentDecision,
+    TemporalPolicy,
+)
+from fdai.agents.odin import DecisionHistory, NoopDecisionHistory  # noqa: E402
+
+
+def _history(*winners: str, resource_id: str = "vm-1") -> tuple[RecentDecision, ...]:
+    """Build a chronological history where each entry beats the other domain."""
+    other = "capacity" if winners and winners[0] == "cost" else "cost"
+    out: list[RecentDecision] = []
+    for i, w in enumerate(winners):
+        loser = "cost" if w == "capacity" else other
+        out.append(
+            RecentDecision(
+                winner=w,
+                losers=(loser,),
+                resource_id=resource_id,
+                at=float(i),
+            )
+        )
+    return tuple(out)
+
+
+def test_empty_history_reproduces_stateless_decision() -> None:
+    """No history + no policy == today's stateless resolve, exactly."""
+    arbiter = MultiObjectiveArbiter()
+    baseline = arbiter.resolve(("cost", "capacity"), {"cost": 0.9, "capacity": 0.3})
+    with_empty = arbiter.resolve(
+        ("cost", "capacity"),
+        {"cost": 0.9, "capacity": 0.3},
+        history=(),
+        policy=AlternatingFairnessPolicy(streak_threshold=3),
+    )
+    assert baseline.winner == with_empty.winner == "cost"
+    assert baseline.objective_scores == with_empty.objective_scores
+
+
+def test_alternating_fairness_short_streak_does_not_flip() -> None:
+    """Two prior wins do not clear the default threshold of three."""
+    arbiter = MultiObjectiveArbiter()
+    policy = AlternatingFairnessPolicy(streak_threshold=3, boost=0.5)
+    outcome = arbiter.resolve(
+        ("cost", "capacity"),
+        {"cost": 0.6, "capacity": 0.55},
+        history=_history("cost", "cost"),  # only 2 in a row
+        policy=policy,
+    )
+    # Below threshold -> policy is a no-op, cost still wins on score.
+    assert outcome.winner == "cost"
+    assert "policy=" not in outcome.reason
+
+
+def test_alternating_fairness_flips_after_threshold_streak() -> None:
+    """After three same-domain wins the perpetual loser gets a boost."""
+    arbiter = MultiObjectiveArbiter()
+    policy = AlternatingFairnessPolicy(streak_threshold=3, boost=0.5)
+    outcome = arbiter.resolve(
+        ("cost", "capacity"),
+        {"cost": 0.6, "capacity": 0.55},
+        history=_history("cost", "cost", "cost"),
+        policy=policy,
+    )
+    # Boost pushed capacity above cost. HIL band might catch the flip if
+    # the margin is tight, but the perpetual winner MUST NOT keep winning.
+    assert outcome.winner == "capacity"
+    assert "policy=alternating_fairness" in outcome.reason
+
+
+def test_alternating_fairness_streak_resets_on_intervening_win() -> None:
+    """A single opposing win breaks the streak; no boost applies."""
+    arbiter = MultiObjectiveArbiter()
+    policy = AlternatingFairnessPolicy(streak_threshold=3, boost=0.5)
+    outcome = arbiter.resolve(
+        ("cost", "capacity"),
+        {"cost": 0.6, "capacity": 0.55},
+        history=_history("cost", "cost", "capacity", "cost"),
+        policy=policy,
+    )
+    # Most recent contiguous streak is cost=1 -> below threshold.
+    assert outcome.winner == "cost"
+
+
+def test_alternating_fairness_ignores_unrelated_winners() -> None:
+    """A prior winner not in the current conflict is not counted."""
+    arbiter = MultiObjectiveArbiter()
+    policy = AlternatingFairnessPolicy(streak_threshold=3, boost=0.5)
+    unrelated = (
+        RecentDecision(winner="resilience", losers=("security",), resource_id="vm-1", at=0.0),
+        RecentDecision(winner="resilience", losers=("security",), resource_id="vm-1", at=1.0),
+        RecentDecision(winner="resilience", losers=("security",), resource_id="vm-1", at=2.0),
+    )
+    outcome = arbiter.resolve(
+        ("cost", "capacity"),
+        {"cost": 0.6, "capacity": 0.55},
+        history=unrelated,
+        policy=policy,
+    )
+    # Zero relevant history for a cost/capacity conflict -> stateless behavior.
+    assert outcome.winner == "cost"
+
+
+def test_hysteresis_dampens_flapping_between_two_domains() -> None:
+    """Alternating winners in the window give the last winner a bonus."""
+    # Equal weights so the arithmetic is purely impact + bonus driven.
+    arbiter = MultiObjectiveArbiter(weights={"cost": 0.5, "capacity": 0.5})
+    policy = HysteresisPolicy(window=4, bonus=0.5)
+    # Baseline (no policy): capacity's stronger impact wins.
+    baseline = arbiter.resolve(("cost", "capacity"), {"cost": 0.60, "capacity": 0.80})
+    assert baseline.winner == "capacity"
+    # With flapping history whose most-recent winner is cost, hysteresis
+    # boosts cost's weight enough to hold onto the win.
+    outcome = arbiter.resolve(
+        ("cost", "capacity"),
+        {"cost": 0.60, "capacity": 0.80},
+        history=_history("capacity", "cost", "capacity", "cost"),
+        policy=policy,
+    )
+    assert outcome.winner == "cost"
+    assert "policy=hysteresis" in outcome.reason
+
+
+def test_hysteresis_no_bonus_on_one_sided_streak() -> None:
+    """A stable one-sided run of winners is not flapping - no bonus applies."""
+    arbiter = MultiObjectiveArbiter(weights={"cost": 0.5, "capacity": 0.5})
+    policy = HysteresisPolicy(window=4, bonus=0.5)
+    outcome = arbiter.resolve(
+        ("cost", "capacity"),
+        {"cost": 0.60, "capacity": 0.80},
+        history=_history("cost", "cost", "cost", "cost"),
+        policy=policy,
+    )
+    # Not flapping -> hysteresis is a no-op -> capacity wins on impact.
+    assert outcome.winner == "capacity"
+
+
+def test_temporal_policy_does_not_weaken_hil_escalation() -> None:
+    """A boost that lands the margin inside the HIL band still escalates."""
+    # Equal weights so we can steer the outcome purely with a small boost.
+    arbiter = MultiObjectiveArbiter(weights={"cost": 1.0, "capacity": 1.0})
+    policy = AlternatingFairnessPolicy(streak_threshold=3, boost=0.2)
+    outcome = arbiter.resolve(
+        ("cost", "capacity"),
+        {"cost": 0.60, "capacity": 0.50},
+        history=_history("cost", "cost", "cost"),
+        policy=policy,
+    )
+    # Baseline scores: cost=0.60, capacity=0.50 (margin 0.166, auto).
+    # After boost: capacity weight=1.2, capacity score=0.60 - exact tie.
+    # An exact tie is deep inside the HIL band; escalation MUST stand.
+    assert outcome.escalate_hil is True
+    assert "close_call" in outcome.reason
+
+
+def test_policy_returning_negative_weight_is_rejected() -> None:
+    """A buggy policy MUST NOT corrupt scoring."""
+    import pytest
+
+    class BadPolicy(TemporalPolicy):
+        name = "bad"
+
+        def adjust(self, *, base_weights, domains, history):  # type: ignore[no-untyped-def]
+            return {"cost": -1.0, "capacity": 0.5}
+
+    arbiter = MultiObjectiveArbiter()
+    with pytest.raises(ValueError, match="invalid weight"):
+        arbiter.resolve(
+            ("cost", "capacity"),
+            {"cost": 0.6, "capacity": 0.55},
+            history=_history("cost", "cost", "cost"),
+            policy=BadPolicy(),
+        )
+
+
+def test_policy_returning_non_dict_is_rejected() -> None:
+    import pytest
+
+    class BadPolicy(TemporalPolicy):
+        name = "bad"
+
+        def adjust(self, *, base_weights, domains, history):  # type: ignore[no-untyped-def]
+            return [("cost", 0.5)]  # type: ignore[return-value]
+
+    arbiter = MultiObjectiveArbiter()
+    with pytest.raises(ValueError, match="MUST return a non-empty dict"):
+        arbiter.resolve(
+            ("cost", "capacity"),
+            {"cost": 0.6, "capacity": 0.55},
+            history=(),
+            policy=BadPolicy(),
+        )
+
+
+def test_alternating_fairness_config_validation() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="streak_threshold MUST be >= 2"):
+        AlternatingFairnessPolicy(streak_threshold=1)
+    with pytest.raises(ValueError, match="boost MUST be finite and > 0"):
+        AlternatingFairnessPolicy(boost=0.0)
+    with pytest.raises(ValueError, match="boost MUST be finite and > 0"):
+        AlternatingFairnessPolicy(boost=float("inf"))
+
+
+def test_hysteresis_config_validation() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="window MUST be >= 2"):
+        HysteresisPolicy(window=1)
+    with pytest.raises(ValueError, match="bonus MUST be finite and > 0"):
+        HysteresisPolicy(bonus=-0.1)
+
+
+def test_same_history_and_input_produce_same_decision() -> None:
+    """Determinism: same history + same input => same decision, always."""
+    arbiter = MultiObjectiveArbiter()
+    policy = AlternatingFairnessPolicy(streak_threshold=2, boost=0.2)
+    history = _history("cost", "cost")
+    impacts = {"cost": 0.7, "capacity": 0.5}
+    first = arbiter.resolve(("cost", "capacity"), impacts, history=history, policy=policy)
+    for _ in range(50):
+        again = arbiter.resolve(("cost", "capacity"), impacts, history=history, policy=policy)
+        assert again == first
+
+
+# ---------------------------------------------------------------------------
+# Odin integration: DecisionHistory seam + policy wiring
+# ---------------------------------------------------------------------------
+
+
+class _FakeHistory(DecisionHistory):
+    """Deterministic in-memory history for tests."""
+
+    def __init__(self, records: dict[str, tuple[RecentDecision, ...]]) -> None:
+        self._records = records
+        self.calls: list[tuple[str, int]] = []
+
+    async def recent(self, resource_id: str, *, limit: int) -> tuple[RecentDecision, ...]:
+        self.calls.append((resource_id, limit))
+        return self._records.get(resource_id, ())[:limit]
+
+
+def test_odin_defaults_to_noop_history_and_no_policy() -> None:
+    """Upstream default reproduces stateless behavior exactly."""
+    odin = Odin()
+    assert isinstance(odin._history, NoopDecisionHistory)
+    decision = asyncio.run(
+        odin.arbitrate(
+            {
+                "correlation_id": "c",
+                "resource_id": "vm-1",
+                "domains_in_conflict": ["cost", "capacity"],
+                "impacts": {"cost": 0.6, "capacity": 0.55},
+            }
+        )
+    )
+    assert decision.winning_domain == "cost"
+
+
+def test_odin_temporal_policy_without_history_seam_is_rejected() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="DecisionHistory was injected"):
+        Odin(temporal_policy=AlternatingFairnessPolicy(streak_threshold=3))
+
+
+def test_odin_history_window_validated() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="history_window MUST be positive"):
+        Odin(history_window=0)
+
+
+def test_odin_fetches_history_and_applies_policy() -> None:
+    """End-to-end: streak history + policy flips the arbitration outcome."""
+    bus = _bus()
+    history = _FakeHistory({"vm-1": _history("cost", "cost", "cost", resource_id="vm-1")})
+    odin = Odin(
+        bus=bus,
+        temporal_policy=AlternatingFairnessPolicy(streak_threshold=3, boost=0.5),
+        history=history,
+        history_window=5,
+    )
+    decision = asyncio.run(
+        odin.arbitrate(
+            {
+                "correlation_id": "c",
+                "resource_id": "vm-1",
+                "domains_in_conflict": ["cost", "capacity"],
+                "impacts": {"cost": 0.6, "capacity": 0.55},
+            }
+        )
+    )
+    assert decision.winning_domain == "capacity"
+    # History was consulted with the configured window.
+    assert history.calls == [("vm-1", 5)]
+    # Grounding for the audit log.
+    payload = bus.messages_on("object.arbitration-decision")[-1].payload
+    assert payload["history_considered"] == 3
+    assert "policy=alternating_fairness" in payload["reason"]
+
+
+def test_odin_skips_history_lookup_when_no_resource_id() -> None:
+    """A resource-less arbitration falls through to stateless behavior."""
+    history = _FakeHistory({"": _history("cost", "cost", "cost")})
+    odin = Odin(
+        temporal_policy=AlternatingFairnessPolicy(streak_threshold=3, boost=0.5),
+        history=history,
+    )
+    decision = asyncio.run(
+        odin.arbitrate(
+            {
+                "correlation_id": "c",
+                # No resource_id.
+                "domains_in_conflict": ["cost", "capacity"],
+                "impacts": {"cost": 0.6, "capacity": 0.55},
+            }
+        )
+    )
+    assert decision.winning_domain == "cost"
+    assert history.calls == []  # never asked
