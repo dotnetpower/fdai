@@ -30,6 +30,7 @@ from fdai.core.irp.coordinator import (
     MitigationProposal,
     NullNotifier,
 )
+from fdai.core.irp.hil_gate import HilChannelApprovalGate
 from fdai.core.irp.models import (
     HistoricalIncident,
     PlanRequirement,
@@ -46,6 +47,7 @@ __all__ = [
     "ApprovalDecision",
     "ApprovalGate",
     "DenyByDefaultApprovalGate",
+    "HilChannelApprovalGate",
     "HistoricalIncident",
     "IrpCoordinator",
     "IrpNotifier",
