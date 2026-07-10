@@ -1,6 +1,6 @@
 ---
 translation_of: README.md
-translation_source_sha: 3158900a5d8992b848a3c1afc810e035f88c98c5
+translation_source_sha: f52ec1d445437af019291587e771dbd3e3a59e24
 translation_revised: 2026-07-10
 ---
 
@@ -130,3 +130,8 @@ event -> event-ingest -> trust-router -> T0 | T1 | (T2 -> quality-gate)
 | 단계별 배송 계획 (P0 -> P4) | [docs/roadmap/README-ko.md](docs/roadmap/README-ko.md) |
 | 위험 분류 (auto vs HIL vs deny) | [docs/roadmap/risk-classification-ko.md](docs/roadmap/risk-classification-ko.md) |
 | Shadow-then-enforce 승격 | [docs/user-guide/concepts/shadow-then-enforce-ko.md](docs/user-guide/concepts/shadow-then-enforce-ko.md) |
+
+## 라이센스
+
+Business Source License 1.1 (BSL 1.1)로 배포됩니다. 상업 사용은 별도 라이센스가
+필요하므로 메인테이너에게 문의하세요. [LICENSE](LICENSE) 참고.

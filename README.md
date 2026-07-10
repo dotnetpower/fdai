@@ -133,3 +133,8 @@ lives in a separate fork, wired through the composition root
 | The phased delivery plan (P0 -> P4) | [docs/roadmap/README.md](docs/roadmap/README.md) |
 | Risk classification (auto vs HIL vs deny) | [docs/roadmap/risk-classification.md](docs/roadmap/risk-classification.md) |
 | Shadow-then-enforce promotion | [docs/user-guide/concepts/shadow-then-enforce.md](docs/user-guide/concepts/shadow-then-enforce.md) |
+
+## License
+
+Licensed under the Business Source License 1.1 (BSL 1.1). Commercial use requires
+a separate license - contact the maintainers. See [LICENSE](LICENSE).
