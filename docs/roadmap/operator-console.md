@@ -753,7 +753,57 @@ the endpoint only *records an approval decision* into the existing HIL
 queue (a signal), which a separate executor principal later acts on. The
 API process never holds the executor Managed Identity and never calls a
 mutation surface itself; approval and execution stay distinct principals.
+### 13.4 View snapshot - self-describing screen contract (web deck)
 
+The read-only console SPA captures what the operator currently sees as a
+`ViewSnapshot` and posts it as the `view_context` of `POST /chat`
+(`console/src/deck/context.tsx`). The snapshot is a screen *model*, not just a
+value digest, so the narrator can explain the screen and its vocabulary and
+answer "why did this happen" without a per-screen answerer:
+
+```jsonc
+{
+  "routeId": "agent-activity",
+  "routeLabel": "Agent activity",
+  "purpose": "What this screen is for and what an operator does here.",
+  "glossary": [
+    {
+      "term": "correlation id",
+      "plain": "the incident key grouping every agent step for one event",
+      "tech": "correlation_id",   // precise internal token (optional)
+      "seeAlso": "trace",          // route to dig deeper (optional)
+      "match": "correlation_id"    // records column whose values this term explains (optional)
+    }
+  ],
+  "facts": [{ "key": "rows", "value": 5, "group": "page" }],
+  "records": {
+    "activity": [
+      { "correlation_id": "corr-j", "detail": "…why this happened…", "outcome": "…" }
+    ]
+  },
+  "capturedAt": "2026-07-06T11:12:30Z"
+}
+```
+
+Contract rules (enforced by `console/src/routes/view-contract.test.ts`):
+
+- **Every publishing route MUST declare `purpose` and `glossary`**, composed
+  from the shared catalog `console/src/deck/glossary.ts` so a term means the
+  same thing on every screen. A route that publishes a snapshot without them
+  fails the build - an under-described screen can never land silently.
+- **Causal fields stay in `records`.** `detail`, `summary`, `reason`, `tier`,
+  and `outcome` are NOT projected away, so "why did this start" is answered by
+  quoting the recorded audit narrative (and the ordered hand-off chain) instead
+  of shrugging.
+- The narrator resolves questions with a **screen-agnostic** chain (causal ->
+  glossary / value-chip -> route enhancer -> generic record search); a new
+  screen becomes explainable by declaring its vocabulary, not by adding code.
+  The offline deterministic answerer (`console/src/deck/answerer.ts`) and the
+  server narrator (`chat.py`) both ground term and cause answers in the same
+  `purpose`/`glossary`.
+- The CLI narrator (`cli/src/narrator`) is a separate surface; carrying the
+  same self-describing snapshot into its `console-tool` results is parallel
+  follow-up work.
 ## 14. MCP - future work (Week 2+)
 
 The upstream console does **not** ship an MCP server on Day 1. Once the

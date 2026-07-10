@@ -238,14 +238,35 @@ function resolveCausal(q: string, snapshot: ViewSnapshot): Answer | null {
   if (!narrative) return null;
   const corr = firstString(target, "correlation_id");
   const label = corr ? `${corr}` : String(target.action_kind ?? "this");
+  // Multi-hop: after the root cause, reconstruct the ordered hand-off chain
+  // from the on-screen rows so the operator reads the whole story (root ->
+  // ... -> terminal), grounded in records - no extra backend call.
+  const chain = describeChain(ordered);
   return {
-    text: `${label} started because: ${narrative}`,
+    text: `${label} started because: ${narrative}${chain}`,
     citations: [
       ...(corr ? [{ label: "correlation", value: corr }] : []),
       { label: "steps", value: String(ordered.length) },
     ],
     followUps: corr ? [`what is ${corr}?`, `open trace`] : [],
   };
+}
+
+/**
+ * Render the ordered hand-off chain for a multi-step incident: each step's
+ * agent, action, and outcome, in time order. Returns "" for a single step
+ * (the root-cause narrative already covers it). Read-only, from records only.
+ */
+function describeChain(ordered: readonly Record<string, unknown>[]): string {
+  if (ordered.length < 2) return "";
+  const steps = ordered.slice(0, 8).map((r, i) => {
+    const agent = String(r.agent ?? r.actor ?? "?");
+    const kind = String(r.action_kind ?? r.stage ?? "step");
+    const outcome = firstString(r, "outcome", "decision");
+    const tail = outcome ? ` -> ${outcome}` : "";
+    return `${i + 1}. ${agent} ${kind}${tail}`;
+  });
+  return `\nHand-off chain:\n${steps.join("\n")}`;
 }
 
 /** The rows a causal question is about (quoted chip -> selection -> newest). */

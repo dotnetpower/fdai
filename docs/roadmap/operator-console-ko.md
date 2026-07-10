@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: a3dd5c68b2cf9b7ee68cb6ec71ce139118ee928c
+translation_source_sha: a91f6eb3897260dd5f1c8a60492a58183fcca80b
 translation_revised: 2026-07-10
 ---
 
@@ -721,6 +721,56 @@ invariant에 대한 유일한 예외; invariant test는 Week 1 landing 시
 나중에 그것을 실행. API 프로세스는 executor Managed Identity를 절대
 보유하지 않고 mutation surface를 직접 호출하지 않음; 승인과 실행은
 별개 principal 유지.
+
+### 13.4 View snapshot - self-describing screen 계약 (web deck)
+
+read-only 콘솔 SPA는 오퍼레이터가 지금 보는 화면을 `ViewSnapshot` 으로
+캡처해 `POST /chat` 의 `view_context` 로 보냄
+(`console/src/deck/context.tsx`). 스냅샷은 단순 값 다이제스트가 아니라
+화면 *모델* 이라, narrator가 per-screen answerer 없이도 화면과 그 용어를
+설명하고 "왜 이런 일이 생겼는가" 에 답할 수 있음:
+
+```jsonc
+{
+  "routeId": "agent-activity",
+  "routeLabel": "Agent activity",
+  "purpose": "이 화면이 무엇을 위한 것이고 오퍼레이터가 여기서 무엇을 하는가.",
+  "glossary": [
+    {
+      "term": "correlation id",
+      "plain": "한 event의 모든 에이전트 스텝을 묶는 incident 키",
+      "tech": "correlation_id",   // 정밀 내부 토큰 (optional)
+      "seeAlso": "trace",          // 심화할 route (optional)
+      "match": "correlation_id"    // 이 term이 설명하는 records 컬럼 (optional)
+    }
+  ],
+  "facts": [{ "key": "rows", "value": 5, "group": "page" }],
+  "records": {
+    "activity": [
+      { "correlation_id": "corr-j", "detail": "…왜 이런 일이 생겼는가…", "outcome": "…" }
+    ]
+  },
+  "capturedAt": "2026-07-06T11:12:30Z"
+}
+```
+
+계약 규칙 (`console/src/routes/view-contract.test.ts` 가 강제):
+
+- **snapshot을 publish하는 모든 route는 `purpose` 와 `glossary` 를 반드시
+  선언**하며, 공유 카탈로그 `console/src/deck/glossary.ts` 에서 조합해 한
+  용어가 모든 화면에서 동일한 의미를 갖게 함. 이를 빠뜨린 채 snapshot을
+  publish하는 route는 빌드를 실패시킴 - under-described 화면이 조용히
+  들어올 수 없음.
+- **인과 필드는 `records` 에 유지**. `detail`, `summary`, `reason`, `tier`,
+  `outcome` 을 투영에서 버리지 않으므로, "왜 시작됐는가" 는 기록된 audit
+  서사(그리고 순서대로의 hand-off 체인)를 인용해 답함.
+- narrator는 **screen-agnostic** 체인(causal -> glossary / value-chip ->
+  route enhancer -> generic record search)으로 질문을 해석; 새 화면은
+  코드 추가가 아니라 어휘 선언만으로 설명 가능해짐. 오프라인 결정론
+  answerer(`console/src/deck/answerer.ts`)와 서버 narrator(`chat.py`)가
+  동일한 `purpose`/`glossary` 에 grounding.
+- CLI narrator(`cli/src/narrator`)는 별개 surface; 같은 self-describing
+  snapshot을 그 `console-tool` 결과에 실어 나르는 것은 병행 후속 작업.
 
 ## 14. MCP - future work (Week 2+)
 

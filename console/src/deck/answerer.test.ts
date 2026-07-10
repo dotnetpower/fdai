@@ -100,6 +100,44 @@ describe("causal resolution (why did this start)", () => {
     const a = answer("\uc65c \uc774\uac8c \uc2dc\uc791\ub410\uc5b4", agentActivitySnapshot());
     expect(a.text).toMatch(/logical corruption/);
   });
+
+  test("reconstructs the ordered hand-off chain for a multi-step incident", () => {
+    const snap: ViewSnapshot = {
+      routeId: "agent-activity",
+      routeLabel: "Agent activity",
+      purpose: "Per-agent timeline.",
+      glossary: composeGlossary([TERMS.correlationId, agentTerm()]),
+      headline: "2 rows",
+      capturedAt: "2026-07-06T11:02:00+00:00",
+      facts: [],
+      records: {
+        activity: [
+          {
+            agent: "Thor",
+            action_kind: "right_size",
+            recorded_at: "2026-07-06T11:01:00+00:00",
+            correlation_id: "corr-f",
+            outcome: "shadow_pr_opened",
+            detail: "Rendered the Terraform diff and opened PR #486 in shadow.",
+          },
+          {
+            agent: "Njord",
+            action_kind: "cost-anomaly.detect",
+            recorded_at: "2026-07-06T11:00:00+00:00",
+            correlation_id: "corr-f",
+            outcome: "flagged",
+            detail: "Sampled 14 days of utilization; flagged a right-size candidate.",
+          },
+        ],
+      },
+    };
+    const a = answer("why did corr-f start", snap);
+    // Root cause is the EARLIEST step (Njord), then the chain in time order.
+    expect(a.text).toMatch(/right-size candidate/);
+    expect(a.text).toMatch(/Hand-off chain:/);
+    expect(a.text).toMatch(/1\. Njord cost-anomaly\.detect -> flagged/);
+    expect(a.text).toMatch(/2\. Thor right_size -> shadow_pr_opened/);
+  });
 });
 
 describe("term definition (what is X)", () => {
