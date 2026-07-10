@@ -376,6 +376,11 @@ export async function askBackendStream(
 
   const done: Record<string, unknown> = doneData ?? {};
   const finalText = typeof done.answer === "string" && done.answer ? done.answer : answerText;
+  // Edge case: connection closed normally with a `done` frame but no answer
+  // AND no streamed tokens (upstream returned an empty completion). Rather
+  // than render an LLM-badged blank bubble, degrade to the deterministic
+  // answer with a distinct label so the operator sees WHY.
+  if (finalText === "") return fallback("upstream returned empty completion");
   const model = typeof done.model === "string" ? done.model : "llm";
   const latencyMs =
     typeof done.latency_ms === "number" && Number.isFinite(done.latency_ms)
