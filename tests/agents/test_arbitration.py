@@ -909,3 +909,162 @@ def test_odin_skips_history_lookup_when_no_resource_id() -> None:
     )
     assert decision.winning_domain == "cost"
     assert history.calls == []  # never asked
+
+
+# ---------------------------------------------------------------------------
+# Hardening: latent-bug regressions found in the critique-10 sweep
+# ---------------------------------------------------------------------------
+
+
+def test_corrupt_impact_on_one_domain_escalates_not_silently_wins() -> None:
+    """H2: a non-numeric impact must not be silently dropped.
+
+    Previously ``_coerce_impacts`` dropped ``{'cost': 'oops'}`` from the
+    dict, then the arbiter defaulted cost's impact to ``1.0`` (full
+    weight) and cost silently won. That is a fail-open path on a corrupt
+    signal - the whole call MUST escalate to HIL instead.
+    """
+    odin = Odin()
+    decision = asyncio.run(
+        odin.arbitrate(
+            {
+                "correlation_id": "c",
+                "resource_id": "vm-1",
+                "domains_in_conflict": ["cost", "capacity"],
+                # cost is corrupt; capacity is valid.
+                "impacts": {"cost": "oops", "capacity": 0.9},
+            }
+        )
+    )
+    assert decision.escalate_hil is True
+    assert "nonfinite_impact" in decision.reason
+
+
+def test_none_impact_is_treated_as_corrupt_not_dropped() -> None:
+    """A ``None`` impact is corrupt (unmeasured), not 'absent' (default 1.0)."""
+    odin = Odin()
+    decision = asyncio.run(
+        odin.arbitrate(
+            {
+                "correlation_id": "c",
+                "resource_id": "vm-1",
+                "domains_in_conflict": ["cost", "capacity"],
+                "impacts": {"cost": None, "capacity": 0.5},
+            }
+        )
+    )
+    assert decision.escalate_hil is True
+    assert "nonfinite_impact" in decision.reason
+
+
+def test_alternating_fairness_does_not_count_unrelated_loser_pairs() -> None:
+    """Semantic drift fix: past cost-vs-resilience wins are not a cost streak
+    against capacity today. Winner-and-loser overlap with today's domains
+    is required, not just winner overlap.
+    """
+    arbiter = MultiObjectiveArbiter()
+    policy = AlternatingFairnessPolicy(streak_threshold=3, boost=0.5)
+    # Three past cost wins - but all against 'resilience', not 'capacity'.
+    unrelated_streak = (
+        RecentDecision(winner="cost", losers=("resilience",), resource_id="vm-1", at=0.0),
+        RecentDecision(winner="cost", losers=("resilience",), resource_id="vm-1", at=1.0),
+        RecentDecision(winner="cost", losers=("resilience",), resource_id="vm-1", at=2.0),
+    )
+    outcome = arbiter.resolve(
+        ("cost", "capacity"),
+        {"cost": 0.6, "capacity": 0.55},
+        history=unrelated_streak,
+        policy=policy,
+    )
+    # Cost's streak against a different loser MUST NOT feed the fairness
+    # boost against capacity - the pair never repeated.
+    assert outcome.winner == "cost"
+    assert "policy=" not in outcome.reason
+
+
+def test_alternating_fairness_counts_multi_way_conflicts_with_overlap() -> None:
+    """A three-way past conflict counts when its loser set overlaps today's."""
+    arbiter = MultiObjectiveArbiter()
+    policy = AlternatingFairnessPolicy(streak_threshold=3, boost=0.5)
+    # Past three-way conflicts where cost won over (capacity, resilience).
+    three_way_streak = (
+        RecentDecision(
+            winner="cost", losers=("capacity", "resilience"), resource_id="vm-1", at=0.0
+        ),
+        RecentDecision(
+            winner="cost", losers=("capacity", "resilience"), resource_id="vm-1", at=1.0
+        ),
+        RecentDecision(
+            winner="cost", losers=("capacity", "resilience"), resource_id="vm-1", at=2.0
+        ),
+    )
+    outcome = arbiter.resolve(
+        ("cost", "capacity"),
+        {"cost": 0.6, "capacity": 0.55},
+        history=three_way_streak,
+        policy=policy,
+    )
+    # capacity is in the past losers -> streak counts -> boost flips winner.
+    assert outcome.winner == "capacity"
+    assert "policy=alternating_fairness" in outcome.reason
+
+
+def test_hysteresis_does_not_flap_on_unrelated_loser_pairs() -> None:
+    """Pair-relevance guard applies to hysteresis too."""
+    arbiter = MultiObjectiveArbiter(weights={"cost": 0.5, "capacity": 0.5})
+    policy = HysteresisPolicy(window=4, bonus=0.5)
+    # Past 'flapping' between cost and capacity, but every entry pairs
+    # cost with 'resilience' (unrelated loser). Not a real flap for today's
+    # cost-vs-capacity conflict.
+    fake_flap = (
+        RecentDecision(winner="capacity", losers=("resilience",), resource_id="vm-1", at=0.0),
+        RecentDecision(winner="cost", losers=("resilience",), resource_id="vm-1", at=1.0),
+        RecentDecision(winner="capacity", losers=("resilience",), resource_id="vm-1", at=2.0),
+        RecentDecision(winner="cost", losers=("resilience",), resource_id="vm-1", at=3.0),
+    )
+    outcome = arbiter.resolve(
+        ("cost", "capacity"),
+        {"cost": 0.60, "capacity": 0.80},
+        history=fake_flap,
+        policy=policy,
+    )
+    # No overlap on losers -> no relevant history -> capacity wins on impact.
+    assert outcome.winner == "capacity"
+
+
+def test_alternating_fairness_boost_upper_bound_enforced() -> None:
+    """A runaway boost > 1.0 is a config error, not silently accepted."""
+    import pytest
+
+    with pytest.raises(ValueError, match="boost MUST be <= 1.0"):
+        AlternatingFairnessPolicy(boost=1.5)
+
+
+def test_hysteresis_bonus_upper_bound_enforced() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="bonus MUST be <= 1.0"):
+        HysteresisPolicy(bonus=2.0)
+
+
+def test_odin_forwards_weight_fn_seam_from_pull_request_2() -> None:
+    """M4: Odin now propagates weight_fn so a fork can use a curved config."""
+    priority = ("resilience", "security", "change_safety", "cost", "capacity")
+    odin = Odin(
+        priority=priority,
+        weight_fn=lambda p: weights_from_priority_curved(p, curve="convex", convexity=2.5),
+    )
+    # The arbiter it built MUST reflect the curved weights, not linear defaults.
+    expected = weights_from_priority_curved(priority, curve="convex", convexity=2.5)
+    assert odin._arbiter.weights == expected
+
+
+def test_odin_rejects_weights_and_weight_fn_together() -> None:
+    """Config-ambiguity guard flows through Odin."""
+    import pytest
+
+    with pytest.raises(ValueError, match="either 'weights' or 'weight_fn'"):
+        Odin(
+            weights={"cost": 0.5, "capacity": 0.5},
+            weight_fn=lambda p: {"cost": 0.5, "capacity": 0.5},
+        )

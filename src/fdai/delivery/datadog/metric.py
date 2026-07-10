@@ -71,6 +71,18 @@ class DatadogMetricConfig:
     def __post_init__(self) -> None:
         if not self.base_url:
             raise ValueError("DatadogMetricConfig.base_url MUST be non-empty")
+        # Fail-fast on a plaintext base_url. The Datadog metrics API
+        # requires DD-API-KEY + DD-APPLICATION-KEY on every request; a
+        # misconfigured ``http://`` endpoint would leak both secrets on
+        # the wire. Real Datadog endpoints (US1/EU/US3/US5/GovCloud) are
+        # all https, so there is no legitimate operational use case for
+        # plaintext here.
+        if not self.base_url.lower().startswith("https://"):
+            raise ValueError(
+                "DatadogMetricConfig.base_url MUST use https:// - the API "
+                "sends DD-API-KEY and DD-APPLICATION-KEY on every request "
+                f"(got {self.base_url!r})"
+            )
         if not self.api_key_secret or not self.app_key_secret:
             raise ValueError(
                 "DatadogMetricConfig.api_key_secret and app_key_secret MUST be non-empty"

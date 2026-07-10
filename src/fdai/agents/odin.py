@@ -25,7 +25,7 @@ downstream consumer of :class:`Odin` changes shape.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
@@ -91,6 +91,7 @@ class Odin(Agent):
         bus: PantheonBus | None = None,
         priority: tuple[str, ...] = _DEFAULT_PRIORITY,
         weights: dict[str, float] | None = None,
+        weight_fn: Callable[[tuple[str, ...]], dict[str, float]] | None = None,
         hil_margin: float = 0.10,
         temporal_policy: TemporalPolicy | None = None,
         history: DecisionHistory | None = None,
@@ -102,6 +103,7 @@ class Odin(Agent):
         self._arbiter = MultiObjectiveArbiter(
             priority=priority,
             weights=weights,
+            weight_fn=weight_fn,
             hil_margin=hil_margin,
         )
         if history_window <= 0:
@@ -194,8 +196,16 @@ class Odin(Agent):
 def _coerce_impacts(raw: Any) -> dict[str, float] | None:
     """Coerce an untrusted ``impacts`` payload into ``{domain: float}``.
 
-    Non-numeric or missing values are dropped so a malformed signal
-    degrades to the priority-order fallback rather than raising.
+    A corrupt value (non-numeric, ``None``, wrong type) is preserved as
+    ``NaN`` on that domain, NOT silently dropped. Dropping it would let
+    the arbiter default that domain to a full-weight impact of ``1.0``
+    and silently give it the win - a fail-open path. Preserving it as
+    ``NaN`` triggers the arbiter's non-finite guard, which escalates the
+    whole call to HIL (fail toward safety).
+
+    A payload that is not a dict at all falls through to the priority-
+    order fallback (``impacts=None``), which is the same behavior as no
+    impacts being supplied.
     """
     if not isinstance(raw, dict):
         return None
@@ -204,7 +214,7 @@ def _coerce_impacts(raw: Any) -> dict[str, float] | None:
         try:
             coerced[str(key)] = float(value)
         except (TypeError, ValueError):
-            continue
+            coerced[str(key)] = float("nan")
     return coerced or None
 
 

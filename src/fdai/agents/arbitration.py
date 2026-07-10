@@ -373,17 +373,25 @@ class AlternatingFairnessPolicy(TemporalPolicy):
     """Nudge weight toward a domain that has lost too many rounds in a row.
 
     Counts the current *winning streak* for the top-scoring candidate in
-    ``domains`` on the same resource (looking only at the most recent
-    contiguous suffix of decisions whose winner is present in
-    ``domains``). Once the streak reaches ``streak_threshold``, every
-    other domain in the conflict gets a ``boost`` added to its weight;
-    the perpetual winner's weight is unchanged. That reduces the score
-    gap so the losing side has a chance to win the next round, without
-    flipping the outcome silently on the very first repeat.
+    ``domains`` on the same resource, looking only at the most recent
+    contiguous suffix of decisions whose **winner AND at least one
+    loser** are both in today's conflict set. A past ``cost vs
+    resilience`` win does not count toward a cost streak in a
+    ``cost vs capacity`` conflict - that would confuse global fairness
+    with pair fairness, and issue #4 is about pair fairness.
 
-    The boost is bounded (fraction of the top weight) and applied
-    additively, so the arbiter's HIL band and margin arithmetic still
-    make sense. Streak resets as soon as a different domain wins.
+    Once the streak reaches ``streak_threshold``, every other domain in
+    the conflict gets a ``boost`` added to its weight; the perpetual
+    winner's weight is unchanged. That reduces the score gap so the
+    losing side has a chance to win the next round, without flipping the
+    outcome silently on the very first repeat. Streak resets as soon as
+    a different domain wins.
+
+    The boost is bounded (``0 < boost <= 1.0``) so a fork cannot
+    accidentally configure a runaway override; combined with the
+    ``[0, 1]`` impact range and the priority-based base weights (top =
+    ``1.0``), this keeps adjusted weights inside a sane band and
+    preserves the HIL band arithmetic.
     """
 
     name = "alternating_fairness"
@@ -393,6 +401,12 @@ class AlternatingFairnessPolicy(TemporalPolicy):
             raise ValueError(f"streak_threshold MUST be >= 2 (got {streak_threshold!r})")
         if not math.isfinite(boost) or boost <= 0:
             raise ValueError(f"boost MUST be finite and > 0 (got {boost!r})")
+        if boost > 1.0:
+            raise ValueError(
+                f"boost MUST be <= 1.0 to keep adjusted weights within a sane "
+                f"band; a larger override should raise the base weights instead "
+                f"(got {boost!r})"
+            )
         self._threshold = streak_threshold
         self._boost = boost
 
@@ -403,10 +417,17 @@ class AlternatingFairnessPolicy(TemporalPolicy):
         domains: tuple[str, ...],
         history: Sequence[RecentDecision],
     ) -> dict[str, float]:
-        # Only look at prior decisions whose winner is one of the
-        # currently conflicting domains - unrelated arbitrations on the
-        # same resource must not count toward the streak.
-        relevant = [d for d in reversed(history) if d.winner in domains]
+        domain_set = set(domains)
+        # Only count history entries where the past conflict overlaps the
+        # current one on both sides - winner in domains AND at least one
+        # loser in domains. Winner-only overlap would fold unrelated
+        # arbitrations (e.g. cost vs resilience) into a cost streak
+        # against capacity, which is a semantic drift from issue #4.
+        relevant = [
+            d
+            for d in reversed(history)
+            if d.winner in domain_set and any(loser in domain_set for loser in d.losers)
+        ]
         if not relevant:
             return dict(base_weights)
         top = relevant[0].winner
@@ -437,6 +458,11 @@ class HysteresisPolicy(TemporalPolicy):
     weight so a marginal input on the opposite side does not
     immediately flip the outcome again. A stable, one-sided run of
     winners is not flapping and receives no bonus.
+
+    Pair-relevance matches :class:`AlternatingFairnessPolicy`: a past
+    decision only counts when its winner AND at least one loser are in
+    today's ``domains``. ``bonus`` is bounded (``0 < bonus <= 1.0``) so
+    a fork cannot accidentally silence one side of the conflict.
     """
 
     name = "hysteresis"
@@ -446,6 +472,10 @@ class HysteresisPolicy(TemporalPolicy):
             raise ValueError(f"window MUST be >= 2 (got {window!r})")
         if not math.isfinite(bonus) or bonus <= 0:
             raise ValueError(f"bonus MUST be finite and > 0 (got {bonus!r})")
+        if bonus > 1.0:
+            raise ValueError(
+                f"bonus MUST be <= 1.0 to keep adjusted weights within a sane band (got {bonus!r})"
+            )
         self._window = window
         self._bonus = bonus
 
@@ -456,7 +486,12 @@ class HysteresisPolicy(TemporalPolicy):
         domains: tuple[str, ...],
         history: Sequence[RecentDecision],
     ) -> dict[str, float]:
-        relevant = [d for d in reversed(history) if d.winner in domains][: self._window]
+        domain_set = set(domains)
+        relevant = [
+            d
+            for d in reversed(history)
+            if d.winner in domain_set and any(loser in domain_set for loser in d.losers)
+        ][: self._window]
         if len(relevant) < 2:
             return dict(base_weights)
         winners_in_window = {d.winner for d in relevant}

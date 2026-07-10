@@ -330,3 +330,38 @@ def test_config_validates_timeout_and_max_points() -> None:
             app_key_secret="APP",
             max_points=0,
         )
+
+
+def test_config_rejects_plaintext_base_url() -> None:
+    """Hardening: a plaintext base_url would leak API keys on the wire."""
+    with pytest.raises(ValueError, match="MUST use https://"):
+        DatadogMetricConfig(
+            queries={_METRIC: _DD_QUERY},
+            api_key_secret="AK",
+            app_key_secret="APP",
+            base_url="http://api.datadoghq.com",
+        )
+    # A scheme-less base_url is also rejected (would default to http via httpx).
+    with pytest.raises(ValueError, match="MUST use https://"):
+        DatadogMetricConfig(
+            queries={_METRIC: _DD_QUERY},
+            api_key_secret="AK",
+            app_key_secret="APP",
+            base_url="api.datadoghq.com",
+        )
+
+
+def test_config_accepts_https_regional_endpoints() -> None:
+    """EU / GovCloud endpoints are all https and MUST validate cleanly."""
+    for host in (
+        "https://api.datadoghq.eu",
+        "https://api.datadoghq.com",
+        "https://api.us3.datadoghq.com",
+        "https://api.ddog-gov.com",
+    ):
+        DatadogMetricConfig(
+            queries={_METRIC: _DD_QUERY},
+            api_key_secret="AK",
+            app_key_secret="APP",
+            base_url=host,
+        )
