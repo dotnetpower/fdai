@@ -64,6 +64,16 @@ def test_float_price_routed_through_str() -> None:
     assert pricing.input_per_1k == Decimal("0.1")
 
 
+def test_decimal_price_passed_through() -> None:
+    table = PricingTable.from_mapping(
+        {"m": {"input_per_1k": Decimal("0.15"), "output_per_1k": Decimal("0.60")}}
+    )
+    pricing = table.pricing_for("m")
+    assert pricing is not None
+    assert pricing.input_per_1k == Decimal("0.15")
+    assert pricing.output_per_1k == Decimal("0.60")
+
+
 @pytest.mark.parametrize(
     ("raw", "match"),
     [
