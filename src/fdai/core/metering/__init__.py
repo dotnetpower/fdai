@@ -25,6 +25,7 @@ from fdai.core.metering.aggregate import (
     summaries_as_mapping,
     summarize_by_conversation,
     summarize_by_day,
+    summarize_by_mode,
     summarize_by_month,
     summarize_total,
 )
@@ -48,6 +49,7 @@ __all__ = [
     "summaries_as_mapping",
     "summarize_by_conversation",
     "summarize_by_day",
+    "summarize_by_mode",
     "summarize_by_month",
     "summarize_total",
 ]

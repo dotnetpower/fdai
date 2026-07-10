@@ -81,6 +81,32 @@ async def test_render_all_groupings() -> None:
     assert [row["key"] for row in payload["by_month"]] == ["2026-07"]
     # evt-b is unpriced -> transparent
     assert payload["by_conversation"][1]["has_unpriced"] is True
+    # H8: shadow-vs-enforce split is always present.
+    assert "by_mode" in payload
+    assert payload["by_conversation_truncated"] is False
+    assert payload["conversation_count"] == 2
+
+
+async def test_by_conversation_capped_and_flagged() -> None:
+    # H6: a large conversation set is capped (costliest first) and flagged.
+    sink = InMemoryMeteringSink()
+    for i in range(5):
+        await sink.record(
+            _inv(
+                corr=f"evt-{i}",
+                when=datetime(2026, 7, 10, 9, tzinfo=UTC),
+                prompt=100,
+                completion=10,
+                cost=f"0.0{i}",
+            )
+        )
+    panel = LlmCostPanel(sink, max_conversations=2)
+    payload = await panel.render(params={})
+    assert payload["by_conversation_truncated"] is True
+    assert payload["conversation_count"] == 5
+    assert len(payload["by_conversation"]) == 2
+    # Costliest first: evt-4 (0.04) and evt-3 (0.03).
+    assert [r["key"] for r in payload["by_conversation"]] == ["evt-4", "evt-3"]
 
 
 async def test_render_group_filter() -> None:

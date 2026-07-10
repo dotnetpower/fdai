@@ -28,6 +28,11 @@ from fdai.shared.telemetry.correlation import current_correlation_id
 
 _log = logging.getLogger(__name__)
 
+# Catch-all bucket used when a usage record cannot be tied to a
+# correlation id. Recording under this explicit, honest label keeps the
+# daily / monthly totals whole instead of silently dropping real spend.
+_UNCORRELATED: str = "uncorrelated"
+
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
@@ -60,6 +65,10 @@ class MeteringEmitter:
         self._pricing = pricing
         self._mode = mode
         self._clock = clock or _utc_now
+        # Warn-once latches so a misconfiguration is visible without
+        # spamming a log line on every event.
+        self._warned_unpriced = False
+        self._warned_uncorrelated = False
 
     async def emit_safe(
         self, usage: TokenUsage, *, correlation_id: str | None = None
@@ -68,19 +77,41 @@ class MeteringEmitter:
 
         When no ``correlation_id`` is passed the emitter reads the one
         bound to the current context. If neither is available the record
-        cannot be attributed to a conversation, so it is skipped (logged
-        at debug) rather than recorded under a fabricated id.
+        is filed under the explicit ``"uncorrelated"`` bucket (with a
+        one-time warning) so the daily / monthly totals stay whole rather
+        than silently losing real spend.
         """
         corr = correlation_id or current_correlation_id()
         if corr is None:
-            _log.debug("metering: no correlation id in context; skipping usage record")
-            return
+            corr = _UNCORRELATED
+            if not self._warned_uncorrelated:
+                self._warned_uncorrelated = True
+                _log.warning(
+                    "metering: no correlation id in context for capability_id=%s; "
+                    "recording under the %r bucket",
+                    self._capability_id,
+                    _UNCORRELATED,
+                )
         try:
-            cost = (
-                self._pricing.cost_of(model_key=self._model_key, usage=usage)
+            pricing_entry = (
+                self._pricing.pricing_for(self._model_key)
                 if self._pricing is not None
                 else None
             )
+            if (
+                self._pricing is not None
+                and pricing_entry is None
+                and not self._warned_unpriced
+            ):
+                self._warned_unpriced = True
+                _log.warning(
+                    "metering: pricing table has no entry for model_key=%s "
+                    "(capability_id=%s); recording usage with unknown cost",
+                    self._model_key,
+                    self._capability_id,
+                )
+            cost = pricing_entry.cost_of(usage) if pricing_entry is not None else None
+            currency = pricing_entry.currency if pricing_entry is not None else None
             record = LlmInvocation(
                 occurred_at=self._clock(),
                 correlation_id=corr,
@@ -90,6 +121,7 @@ class MeteringEmitter:
                 mode=self._mode,
                 usage=usage,
                 cost=cost,
+                currency=currency,
             )
             await self._sink.record(record)
         except Exception:

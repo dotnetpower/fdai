@@ -34,6 +34,19 @@ def test_model_pricing_rejects_empty_currency() -> None:
         ModelPricing(input_per_1k=Decimal("0"), output_per_1k=Decimal("0"), currency="")
 
 
+@pytest.mark.parametrize("bad", ["NaN", "Infinity", "-Infinity"])
+def test_model_pricing_rejects_non_finite(bad: str) -> None:
+    # NaN/Infinity parse as valid Decimals and slip a plain ``< 0`` guard.
+    with pytest.raises(ValueError, match="finite"):
+        ModelPricing(input_per_1k=Decimal(bad), output_per_1k=Decimal("0"))
+
+
+@pytest.mark.parametrize("bad", ["NaN", "Infinity"])
+def test_from_mapping_rejects_non_finite(bad: str) -> None:
+    with pytest.raises(ValueError, match="finite"):
+        PricingTable.from_mapping({"m": {"input_per_1k": bad, "output_per_1k": "1"}})
+
+
 def test_pricing_table_from_mapping_and_cost() -> None:
     table = PricingTable.from_mapping(
         {

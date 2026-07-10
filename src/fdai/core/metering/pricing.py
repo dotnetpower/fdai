@@ -41,6 +41,13 @@ class ModelPricing:
     currency: str = "USD"
 
     def __post_init__(self) -> None:
+        # NaN / Infinity parse as valid Decimals and slip a plain ``< 0``
+        # guard (``Decimal('NaN') < 0`` is False), so reject non-finite
+        # first - a non-finite price would poison every cost sum.
+        if not self.input_per_1k.is_finite():
+            raise ValueError("input_per_1k MUST be a finite number")
+        if not self.output_per_1k.is_finite():
+            raise ValueError("output_per_1k MUST be a finite number")
         if self.input_per_1k < 0:
             raise ValueError("input_per_1k MUST be >= 0")
         if self.output_per_1k < 0:
@@ -110,21 +117,28 @@ class PricingTable:
 
 
 def _to_decimal(value: object) -> Decimal:
-    """Parse a price field into :class:`Decimal`, rejecting bad shapes."""
+    """Parse a price field into a finite :class:`Decimal`, rejecting bad shapes."""
     if isinstance(value, bool):
         # bool subtypes int; a price is never a boolean.
         raise ValueError("price MUST be a number, not a boolean")
     if isinstance(value, Decimal):
-        return value
-    if isinstance(value, (int, str)):
+        parsed = value
+    elif isinstance(value, (int, str)):
         try:
-            return Decimal(value)
+            parsed = Decimal(value)
         except Exception as exc:  # noqa: BLE001 - re-raised as ValueError below
             raise ValueError(f"price {value!r} is not a valid decimal") from exc
-    if isinstance(value, float):
+    elif isinstance(value, float):
         # Route floats through str so 0.15 does not become 0.1500000000...
-        return Decimal(str(value))
-    raise ValueError(f"price MUST be a number or numeric string, got {type(value).__name__}")
+        parsed = Decimal(str(value))
+    else:
+        raise ValueError(
+            f"price MUST be a number or numeric string, got {type(value).__name__}"
+        )
+    if not parsed.is_finite():
+        # 'NaN' / 'Infinity' parse cleanly but are not valid prices.
+        raise ValueError(f"price {value!r} MUST be finite (not NaN/Infinity)")
+    return parsed
 
 
 __all__ = ["ModelPricing", "PricingTable"]

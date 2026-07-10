@@ -113,3 +113,64 @@ def test_summaries_as_mapping_serialises_cost_as_str() -> None:
     assert rows[0]["cost"] == "0.50"
     assert rows[0]["total_tokens"] == 1800
     assert rows[1]["has_unpriced"] is True
+
+
+def _priced(corr: str, cost: str, currency: str, mode: InvocationMode) -> LlmInvocation:
+    return LlmInvocation(
+        occurred_at=datetime(2026, 7, 10, 9, tzinfo=_UTC),
+        correlation_id=corr,
+        capability_id="t2.reasoner.primary",
+        model_key="gpt-4o",
+        tier="T2",
+        mode=mode,
+        usage=TokenUsage(prompt_tokens=100, completion_tokens=10),
+        cost=Decimal(cost),
+        currency=currency,
+    )
+
+
+def test_single_currency_surfaced() -> None:
+    recs = [_priced("e1", "1.0", "USD", InvocationMode.ENFORCE)]
+    total = summarize_total(recs)
+    assert total.currency == "USD"
+    assert total.has_mixed_currency is False
+
+
+def test_mixed_currency_flagged() -> None:
+    recs = [
+        _priced("e1", "1.0", "USD", InvocationMode.ENFORCE),
+        _priced("e1", "1.0", "EUR", InvocationMode.ENFORCE),
+    ]
+    total = summarize_total(recs)
+    assert total.currency == "mixed"
+    assert total.has_mixed_currency is True
+    row = summaries_as_mapping([total])[0]
+    assert row["has_mixed_currency"] is True
+
+
+def test_summarize_by_mode_splits_shadow_and_enforce() -> None:
+    from fdai.core.metering.aggregate import summarize_by_mode
+
+    recs = [
+        _priced("e1", "1.0", "USD", InvocationMode.ENFORCE),
+        _priced("e2", "0.5", "USD", InvocationMode.SHADOW),
+        _priced("e3", "0.25", "USD", InvocationMode.SHADOW),
+    ]
+    by_mode = summarize_by_mode(recs)
+    modes = {s.key: s for s in by_mode}
+    assert modes["enforce"].cost == Decimal("1.0")
+    assert modes["shadow"].cost == Decimal("0.75")
+    assert modes["shadow"].invocations == 2
+
+
+def test_cost_precision_is_capped() -> None:
+    # A pathologically long decimal is capped to 6 fractional digits on
+    # render, while short values pass through unchanged.
+    long_cost = _priced("e1", "0.12345678901234", "USD", InvocationMode.ENFORCE)
+    row = summaries_as_mapping([summarize_total([long_cost])])[0]
+    assert row["cost"] == "0.123457"
+
+    short = _priced("e2", "0.50", "USD", InvocationMode.ENFORCE)
+    short_row = summaries_as_mapping([summarize_total([short])])[0]
+    assert short_row["cost"] == "0.50"
+

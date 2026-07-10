@@ -40,7 +40,9 @@ class LlmInvocation:
 
     ``occurred_at`` MUST be timezone-aware so day / month bucketing is
     deterministic across processes; a naive datetime is rejected.
-    ``cost`` is ``None`` when no price was configured for ``model_key``.
+    ``cost`` is ``None`` when no price was configured for ``model_key``;
+    ``currency`` is the ISO 4217 unit of ``cost`` (``None`` when unpriced)
+    so a rollup never sums two currencies as if they were one.
     """
 
     occurred_at: datetime
@@ -51,6 +53,7 @@ class LlmInvocation:
     mode: InvocationMode
     usage: TokenUsage
     cost: Decimal | None = None
+    currency: str | None = None
 
     def __post_init__(self) -> None:
         if self.occurred_at.tzinfo is None:
@@ -65,6 +68,8 @@ class LlmInvocation:
             raise ValueError("tier MUST NOT be empty")
         if self.cost is not None and self.cost < 0:
             raise ValueError("cost MUST be >= 0 when present")
+        if self.currency is not None and not self.currency:
+            raise ValueError("currency MUST NOT be empty when present")
 
     @property
     def day_bucket(self) -> str:

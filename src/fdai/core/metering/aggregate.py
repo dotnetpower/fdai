@@ -17,10 +17,18 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from fdai.core.metering.records import LlmInvocation
 from fdai.core.metering.usage import TokenUsage
+
+# Cost display is capped to this many fractional digits so a raw Decimal
+# sum cannot leak an unbounded-length string over the API. The internal
+# sum keeps full precision; only the rendered string is capped.
+_MAX_COST_DP: int = 6
+_COST_QUANTUM: Decimal = Decimal("0.000001")
+_MIXED_CURRENCY: str = "mixed"
+_DEFAULT_CURRENCY: str = "USD"
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,19 +54,37 @@ class UsageSummary:
         """True when at least one invocation in the group had no configured price."""
         return self.priced_invocations < self.invocations
 
+    @property
+    def has_mixed_currency(self) -> bool:
+        """True when priced invocations in the group used more than one currency.
+
+        When true, :attr:`cost` is a raw sum across currencies and MUST
+        NOT be read as a single-currency total - the consumer should
+        split the group by currency first.
+        """
+        return self.currency == _MIXED_CURRENCY
+
 
 def _summarize_group(key: str, records: Iterable[LlmInvocation]) -> UsageSummary:
     usage = TokenUsage.zero()
     cost = Decimal(0)
     invocations = 0
     priced = 0
-    currency = "USD"
+    currencies: set[str] = set()
     for record in records:
         invocations += 1
         usage = usage + record.usage
         if record.cost is not None:
             cost += record.cost
             priced += 1
+        if record.currency is not None:
+            currencies.add(record.currency)
+    if len(currencies) == 1:
+        currency = next(iter(currencies))
+    elif len(currencies) > 1:
+        currency = _MIXED_CURRENCY
+    else:
+        currency = _DEFAULT_CURRENCY
     return UsageSummary(
         key=key,
         invocations=invocations,
@@ -97,16 +123,40 @@ def summarize_by_month(records: Iterable[LlmInvocation]) -> tuple[UsageSummary, 
     return _group_by(records, lambda r: r.month_bucket)
 
 
+def summarize_by_mode(records: Iterable[LlmInvocation]) -> tuple[UsageSummary, ...]:
+    """One summary per run mode (``shadow`` / ``enforce``), sorted by mode.
+
+    Shadow-mode runs still spend tokens; splitting spend by mode lets an
+    operator see what shadow evaluation is costing separately from
+    enforced actions.
+    """
+    return _group_by(records, lambda r: r.mode.value)
+
+
 def summarize_total(records: Iterable[LlmInvocation]) -> UsageSummary:
     """A single grand-total summary across every record (key ``"total"``)."""
     return _summarize_group("total", records)
+
+
+def _format_cost(cost: Decimal) -> str:
+    """Render a cost sum, capping fractional digits at :data:`_MAX_COST_DP`.
+
+    Short values pass through unchanged (``0.50`` stays ``"0.50"``); only
+    a value with more than ``_MAX_COST_DP`` fractional digits is rounded,
+    so a raw Decimal division cannot emit an unbounded-length string.
+    """
+    exponent = cost.as_tuple().exponent
+    if isinstance(exponent, int) and -exponent > _MAX_COST_DP:
+        cost = cost.quantize(_COST_QUANTUM, rounding=ROUND_HALF_UP)
+    return str(cost)
 
 
 def summaries_as_mapping(summaries: Iterable[UsageSummary]) -> tuple[Mapping[str, object], ...]:
     """Render summaries as JSON-serialisable dicts for the read-API boundary.
 
     ``cost`` is emitted as a ``str`` so the exact decimal survives JSON
-    (floats would reintroduce the rounding drift Decimal avoids).
+    (floats would reintroduce the rounding drift Decimal avoids), capped
+    at :data:`_MAX_COST_DP` fractional digits.
     """
     return tuple(
         {
@@ -116,9 +166,10 @@ def summaries_as_mapping(summaries: Iterable[UsageSummary]) -> tuple[Mapping[str
             "prompt_tokens": s.usage.prompt_tokens,
             "completion_tokens": s.usage.completion_tokens,
             "total_tokens": s.usage.total_tokens,
-            "cost": str(s.cost),
+            "cost": _format_cost(s.cost),
             "currency": s.currency,
             "has_unpriced": s.has_unpriced,
+            "has_mixed_currency": s.has_mixed_currency,
         }
         for s in summaries
     )
@@ -129,6 +180,7 @@ __all__ = [
     "summaries_as_mapping",
     "summarize_by_conversation",
     "summarize_by_day",
+    "summarize_by_mode",
     "summarize_by_month",
     "summarize_total",
 ]

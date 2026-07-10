@@ -22,10 +22,17 @@ record silently.
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Iterable
 from typing import Protocol, runtime_checkable
 
 from fdai.core.metering.records import LlmInvocation
+
+# Default ring-buffer cap for the in-memory sink. The upstream default is
+# a single-process dev harness; without a cap a long-running process
+# would grow the record list without bound. A durable fork sink ignores
+# this and persists everything.
+_DEFAULT_MAX_RECORDS: int = 50_000
 
 
 @runtime_checkable
@@ -47,15 +54,27 @@ class MeteringReader(Protocol):
 
 
 class InMemoryMeteringSink:
-    """Upstream default: keep recorded invocations in a process list.
+    """Upstream default: keep recorded invocations in a bounded ring buffer.
 
     Implements both :class:`MeteringSink` and :class:`MeteringReader`, so
     the composition root wires one instance to the LLM adapters (write)
     and the read-API cost panel (read).
+
+    ``max_records`` caps retention (oldest records are evicted first) so a
+    long-running single process cannot grow memory without bound; pass
+    ``None`` for an explicitly unbounded buffer (tests / short runs). A
+    production fork injects a durable sink instead of relying on this.
     """
 
-    def __init__(self, initial: Iterable[LlmInvocation] = ()) -> None:
-        self._records: list[LlmInvocation] = list(initial)
+    def __init__(
+        self,
+        initial: Iterable[LlmInvocation] = (),
+        *,
+        max_records: int | None = _DEFAULT_MAX_RECORDS,
+    ) -> None:
+        if max_records is not None and max_records < 1:
+            raise ValueError("max_records MUST be >= 1 or None")
+        self._records: deque[LlmInvocation] = deque(initial, maxlen=max_records)
 
     async def record(self, invocation: LlmInvocation) -> None:
         self._records.append(invocation)
