@@ -81,6 +81,19 @@ def test_error_budget_rejects_impossible_input() -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_burn_rate_rejects_impossible_windows_and_counts() -> None:
+    # Each guard fails closed at construction rather than letting a bad
+    # window or count silently under-report a breach.
+    with pytest.raises(ValueError, match="window_minutes"):
+        BurnRate(window_minutes=0, good_events=1, total_events=1, objective_ratio=0.9)
+    with pytest.raises(ValueError, match="good_events MUST be >= 0"):
+        BurnRate(window_minutes=5, good_events=-1, total_events=1, objective_ratio=0.9)
+    with pytest.raises(ValueError, match="total_events MUST be >= 0"):
+        BurnRate(window_minutes=5, good_events=0, total_events=-1, objective_ratio=0.9)
+    with pytest.raises(ValueError, match="good_events MUST be <= total_events"):
+        BurnRate(window_minutes=5, good_events=5, total_events=1, objective_ratio=0.9)
+
+
 def test_burn_rate_of_1_means_burning_at_allowed_pace() -> None:
     # objective 0.9 -> 10% bad allowed. bad_ratio 10% => rate 1.0
     br = BurnRate(window_minutes=5, good_events=900, total_events=1000, objective_ratio=0.9)
@@ -132,7 +145,12 @@ def test_burn_rate_evaluator_fires_only_when_both_windows_exceed() -> None:
 
     # Both windows breach (bad ratio 3% each; allowed 0.1% -> rate 30 >> 14.4).
     alerts_breach = build_alerts(slo=slo, samples={5: (9700, 10000), 60: (9700, 10000)})
-    assert len(evaluator.evaluate(alerts_breach)) == 1
+    breaches = evaluator.evaluate(alerts_breach)
+    assert len(breaches) == 1
+    # The fired breach exposes both window rates, each above the threshold.
+    breach = breaches[0]
+    assert breach.short_rate > 14.4
+    assert breach.long_rate > 14.4
 
     # Only short window breaches (long window healthy) - MUST NOT fire.
     alerts_short_only = build_alerts(slo=slo, samples={5: (9700, 10000), 60: (99990, 100000)})

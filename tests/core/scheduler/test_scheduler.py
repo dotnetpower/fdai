@@ -79,6 +79,14 @@ def test_model_rejects_bad_interval() -> None:
         _task(interval_seconds=0)
 
 
+def test_model_rejects_empty_task_id_and_creator() -> None:
+    # A task is never anonymous and never id-less (audit + RBAC scoping).
+    with pytest.raises(ValueError, match="task_id"):
+        _task(task_id="")
+    with pytest.raises(ValueError, match="created_by"):
+        _task(created_by="")
+
+
 # --- store ------------------------------------------------------------------
 
 
