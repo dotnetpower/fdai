@@ -404,6 +404,156 @@ def test_var_rejects_self_approval_twice() -> None:
         asyncio.run(var.decide("c", approver="a@example.com", decision="approve"))
 
 
+def _var_with_pending(
+    correlation: str = "c-hil",
+    *,
+    quorum: int = 1,
+    initiator: str | None = None,
+) -> Var:
+    reg = load_pantheon()
+    var = Var(bus=InMemoryBus(registry=reg))
+    payload: dict[str, object] = {
+        "correlation_id": correlation,
+        "action_type": "remediate.delete-storage",
+        "state": "hil_pending",
+        "quorum_required": quorum,
+    }
+    if initiator is not None:
+        payload["initiator_principal"] = initiator
+    asyncio.run(var.on_typed_message("object.action-run", payload))
+    return var
+
+
+def test_var_rejects_initiator_self_approval() -> None:
+    # The principal that initiated the action can never approve it -
+    # approval and initiation are distinct principals (pantheon invariant).
+    var = _var_with_pending(quorum=2, initiator="op@example.com")
+    with pytest.raises(ValueError, match="no self-approval"):
+        asyncio.run(var.decide("c-hil", approver="op@example.com", decision="approve"))
+    # A padded variant must not slip past the trimmed comparison.
+    with pytest.raises(ValueError, match="no self-approval"):
+        asyncio.run(var.decide("c-hil", approver="  op@example.com  ", decision="approve"))
+
+
+def test_var_rejects_blank_approver() -> None:
+    var = _var_with_pending()
+    with pytest.raises(ValueError, match="non-empty principal"):
+        asyncio.run(var.decide("c-hil", approver="   ", decision="approve"))
+
+
+def test_var_unknown_decision_raises() -> None:
+    var = _var_with_pending()
+    with pytest.raises(ValueError, match="unknown decision"):
+        asyncio.run(var.decide("c-hil", approver="a@example.com", decision="maybe"))
+
+
+def test_var_reject_flow_emits_rejected_approval() -> None:
+    var = _var_with_pending(quorum=2)
+    result = asyncio.run(var.decide("c-hil", approver="a@example.com", decision="reject"))
+    assert result is not None
+    assert result["state"] == "rejected"
+    # The ticket is consumed, so a second decide finds nothing.
+    assert asyncio.run(var.decide("c-hil", approver="b@example.com", decision="approve")) is None
+
+
+def test_var_decide_unknown_correlation_returns_none() -> None:
+    var = _var_with_pending()
+    assert (
+        asyncio.run(var.decide("does-not-exist", approver="a@example.com", decision="approve"))
+        is None
+    )
+
+
+def test_var_ingest_ignores_non_hil_and_duplicate_runs() -> None:
+    var = _var_with_pending("c-dup")
+    # Wrong topic is ignored.
+    asyncio.run(
+        var.on_typed_message("object.verdict", {"correlation_id": "z", "state": "hil_pending"})
+    )
+    # Right topic but not hil_pending is ignored.
+    asyncio.run(
+        var.on_typed_message(
+            "object.action-run", {"correlation_id": "z", "state": "auto"}
+        )
+    )
+    # Empty correlation is ignored.
+    asyncio.run(
+        var.on_typed_message(
+            "object.action-run", {"correlation_id": "", "state": "hil_pending"}
+        )
+    )
+    # A duplicate of an already-pending correlation does not overwrite it.
+    asyncio.run(
+        var.on_typed_message(
+            "object.action-run",
+            {"correlation_id": "c-dup", "action_type": "other", "state": "hil_pending"},
+        )
+    )
+    tickets = {t.correlation_id for t in var.pending_tickets()}
+    assert tickets == {"c-dup"}
+    assert var.pending_tickets()[0].action_type == "remediate.delete-storage"
+
+
+def test_var_quorum_met_without_bus_still_consumes_ticket() -> None:
+    # bus=None: the approval is not published but the ticket still
+    # resolves and is removed from the pending queue.
+    var = _var_with_pending("c-nobus", quorum=1)
+    var.bus = None
+    result = asyncio.run(var.decide("c-nobus", approver="a@example.com", decision="approve"))
+    assert result is not None
+    assert result["state"] == "approved"
+    assert var.pending_tickets() == ()
+
+
+def test_var_bind_bus_late_binds_the_publisher() -> None:
+    # A composition root may construct Var before the bus exists and bind
+    # it afterwards; the setter must take effect.
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    var = Var(bus=None)
+    assert var.bus is None
+    var.bind_bus(bus)
+    assert var.bus is bus
+
+
+def test_var_introspect_scoped_general_and_empty() -> None:
+    var = _var_with_pending("c-one", quorum=2)
+    # Naming a pending correlation scopes the answer to that ticket.
+    scoped = asyncio.run(var.introspect("what is the status of c-one?", {}))
+    assert scoped.facts["correlation_id"] == "c-one"
+    assert scoped.facts["quorum_required"] == 2
+    assert "c-one" in scoped.answer
+    # No correlation named -> a general pending summary.
+    general = asyncio.run(var.introspect("what is pending?", {}))
+    assert general.facts["pending_hil"] == 1
+    assert "pending" in general.answer
+    # A fresh approver with no queue -> the empty-queue answer.
+    empty = Var(bus=None)
+    empty_result = asyncio.run(empty.introspect("anything to approve?", {}))
+    assert empty_result.facts["pending_hil"] == 0
+    assert "No HIL approvals pending" in empty_result.answer
+
+
+def test_var_admin_card_dedup_updates_counter_in_place() -> None:
+    var = Var(bus=None)
+    payload = {
+        "initiator_principal": "svc@example.com",
+        "attempted_action": "delete-role-assignment",
+        "severity": "high",
+        "counter": 1,
+    }
+    first = asyncio.run(var.deliver_admin_card(payload))
+    assert first.counter == 1
+    assert len(var.admin_channel.cards) == 1
+    # A repeat for the same (initiator, action) updates the counter in
+    # place rather than posting a second card.
+    second = asyncio.run(var.deliver_admin_card({**payload, "counter": 4}))
+    assert second.counter == 4
+    assert len(var.admin_channel.cards) == 1
+    assert var.admin_channel.cards[-1].counter == 4
+
+
+
 # ---------------------------------------------------------------------------
 # End-to-end pipeline: Huginn -> Heimdall -> Forseti -> Thor -> Vidar -> Saga
 # ---------------------------------------------------------------------------
