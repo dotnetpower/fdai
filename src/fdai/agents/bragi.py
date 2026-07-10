@@ -53,6 +53,21 @@ _INTENT_ACTION: dict[str, str] = {
     "encrypt": "remediate.enable-encryption",
 }
 
+#: Role rank for the entry RBAC gate on execute-class conversational requests
+#: (mirrors user-rbac-and-identity.md: Reader < Contributor < Approver < Owner).
+#: An operator below the floor cannot even submit an action - it is refused
+#: before the proposal enters the pipeline (defense-in-depth with Forseti's
+#: principal-level RBAC deny).
+_ROLE_RANK: dict[str, int] = {
+    "reader": 0,
+    "contributor": 1,
+    "approver": 2,
+    "owner": 3,
+    "breakglass": 4,
+}
+#: Minimum role to submit an execute-class action proposal.
+_EXECUTE_ROLE_FLOOR = "contributor"
+
 
 
 @dataclass
@@ -118,7 +133,7 @@ class Bragi(Agent):
     # ---- action proposal (conversational-port re-entry, 7.7) -----------
 
     async def submit_action_proposal(
-        self, *, session_id: str, user_id: str, question: str
+        self, *, session_id: str, user_id: str, question: str, initiator_role: str | None = None
     ) -> dict[str, Any]:
         """Translate an operator command into a typed ActionProposal.
 
@@ -127,8 +142,25 @@ class Bragi(Agent):
         the typed pipeline through the wired sink (Huginn -> Forseti -> Var ->
         Thor). Returns a status envelope with the ``correlation_id`` the
         operator can track; it NEVER executes the action itself.
+
+        When ``initiator_role`` is supplied (the console session's Entra role),
+        an entry RBAC gate refuses a request below the execute floor
+        (``Contributor``) before the proposal enters the pipeline - so a Reader
+        cannot submit any action. ``None`` skips the entry gate (a
+        pantheon-internal caller with no console role); Forseti's principal RBAC
+        still applies downstream.
         """
         correlation_id = f"conv-{uuid.uuid4()}"
+        if initiator_role is not None:
+            rank = _ROLE_RANK.get(initiator_role.lower())
+            if rank is None or rank < _ROLE_RANK[_EXECUTE_ROLE_FLOOR]:
+                return {
+                    "submitted": False,
+                    "abstain_reason": "rbac_role_floor",
+                    "required_role": "Contributor",
+                    "initiator_role": initiator_role,
+                    "correlation_id": correlation_id,
+                }
         verb = leading_verb(question)
         action_type = _INTENT_ACTION.get(verb or "")
         if action_type is None:
@@ -276,8 +308,13 @@ class Bragi(Agent):
         session_id: str,
         user_id: str,
         question: str,
+        initiator_role: str | None = None,
     ) -> Turn:
-        """Route + call primary + record the turn."""
+        """Route + call primary + record the turn.
+
+        ``initiator_role`` (the console session's Entra role) is applied by the
+        entry RBAC gate when the turn is an action command; ``None`` skips it.
+        """
         session = self._sessions.setdefault(
             session_id,
             ConversationSession(session_id=session_id, user_id=user_id),
@@ -291,7 +328,10 @@ class Bragi(Agent):
         # execute). Bragi never calls an executor; it only submits + renders.
         if is_action_intent(question):
             result = await self.submit_action_proposal(
-                session_id=session_id, user_id=user_id, question=question
+                session_id=session_id,
+                user_id=user_id,
+                question=question,
+                initiator_role=initiator_role,
             )
             answer = {
                 "answer": None,

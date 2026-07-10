@@ -271,7 +271,14 @@ class PantheonRuntime:
         """Cancel every consumer task and drain cleanly."""
         await self.bridge.stop()
 
-    async def ask(self, *, session_id: str, user_id: str, question: str) -> Turn | None:
+    async def ask(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        question: str,
+        initiator_role: str | None = None,
+    ) -> Turn | None:
         """Operator conversational-port entry point.
 
         Routes a natural-language question through Bragi to the right
@@ -280,10 +287,18 @@ class PantheonRuntime:
         (the conversational port is off). Distinct from the typed
         pub/sub port: a conversational request that wants an action must
         re-enter the typed pipeline, never bypass it.
+
+        ``initiator_role`` (the console session's Entra role) drives the entry
+        RBAC gate for an action command - a Reader cannot submit an action.
         """
         if self._bragi is None:
             return None
-        return await self._bragi.ask(session_id=session_id, user_id=user_id, question=question)
+        return await self._bragi.ask(
+            session_id=session_id,
+            user_id=user_id,
+            question=question,
+            initiator_role=initiator_role,
+        )
 
     async def introspect(
         self,

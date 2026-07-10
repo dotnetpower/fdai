@@ -51,9 +51,11 @@ class _Harness:
         self.bus.subscribe("object.action-run", "Bragi", self.bragi.on_typed_message)
         self.bus.subscribe("object.approval", "Thor", self.thor.on_typed_message)
 
-    def ask(self, question: str, *, user: str = _OPERATOR):
+    def ask(self, question: str, *, user: str = _OPERATOR, role: str | None = None):
         return asyncio.run(
-            self.bragi.ask(session_id="s1", user_id=user, question=question)
+            self.bragi.ask(
+                session_id="s1", user_id=user, question=question, initiator_role=role
+            )
         )
 
     def bragi_published(self) -> list:
@@ -141,3 +143,24 @@ def test_question_is_not_treated_as_an_action() -> None:
     turn = h.ask("what is the action status")
     assert turn.answer.get("submitted") is None
     assert h.bus.messages_on("object.event") == []
+
+
+def test_reader_role_is_refused_at_entry_before_the_pipeline() -> None:
+    h = _Harness()
+    # A Reader cannot submit any action - refused before it enters the pipeline.
+    turn = h.ask("restart svc-1 now", role="Reader")
+    assert turn.answer["submitted"] is False
+    assert turn.answer["abstain_reason"] == "rbac_role_floor"
+    assert turn.answer["required_role"] == "Contributor"
+    # Nothing entered the pipeline; nothing executed.
+    assert h.bus.messages_on("object.event") == []
+    assert h.bus.messages_on("object.verdict") == []
+
+
+def test_contributor_role_may_submit_an_action() -> None:
+    h = _Harness()
+    turn = h.ask("restart svc-1 now", role="Contributor")
+    assert turn.answer["submitted"] is True
+    corr = turn.answer["correlation_id"]
+    assert h.thor.action_runs[corr].state == ActionRunState.SUCCEEDED
+

@@ -609,7 +609,11 @@ renders pipeline progress from `object.verdict` / `object.action-run`, never
 executing. Forseti propagates `initiator_principal` onto the verdict, Thor onto
 the ActionRun, and Var enforces no-self-approval (the initiator can never
 approve their own action). An operator-initiated proposal whose initiator is
-unknown to the RBAC seam fails closed to `deny` with a `SecurityEvent`.
+unknown to the RBAC seam fails closed to `deny` with a `SecurityEvent`. When
+the console passes the operator's Entra role, an entry RBAC gate refuses an
+action request below the execute floor (`Contributor`) before it enters the
+pipeline, so a `Reader` cannot submit any action (defense-in-depth with the
+principal-level deny above).
 
 ### 7.8 Fork override boundaries
 

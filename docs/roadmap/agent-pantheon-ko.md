@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 4ae434cf8d34fa04edffd0a9c162acfc6d53d634
+translation_source_sha: 116a0386640ee67467c582e426ccf7981ffb3d50
 translation_revised: 2026-07-10
 ---
 
@@ -593,7 +593,10 @@ mutation 토픽을 절대 publish 하지 않는다. `Bragi.submit_action_proposa
 Forseti 는 `initiator_principal` 을 verdict 에, Thor 는 ActionRun 에 전파하고,
 Var 는 no-self-approval 을 강제한다(initiator 는 자기 action 을 승인 불가).
 RBAC seam 이 모르는 initiator 의 operator-initiated proposal 은 `SecurityEvent`
-와 함께 `deny` 로 fail-closed.
+와 함께 `deny` 로 fail-closed. 콘솔이 오퍼레이터의 Entra role 을 전달하면,
+entry RBAC 게이트가 execute floor(`Contributor`) 미만의 action 요청을
+파이프라인 진입 전에 거부한다 - 즉 `Reader` 는 어떤 action 도 제출할 수
+없다(위의 principal 레벨 deny 와 defense-in-depth).
 
 ### 7.8 Fork override 경계
 
