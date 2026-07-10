@@ -70,15 +70,22 @@ _SEVERITY_ORDER: dict[Severity, int] = {
     Severity.LOW: 3,
 }
 
+# Fail-safe rank for a value not in the order maps. A future / foreign
+# Severity or Priority value sorts LAST (least urgent) instead of raising
+# KeyError and crashing the recommendation reducer for the whole
+# investigation. Matches the `_SEVERITY_RANK.get(s, 99)` convention in
+# `core/incident/storm.py`.
+_UNRANKED: int = 99
+
 
 def priority_rank(priority: Priority) -> int:
-    """Sort weight for a priority (P1 first)."""
-    return _PRIORITY_ORDER[priority]
+    """Sort weight for a priority (P1 first); unknown values sort last."""
+    return _PRIORITY_ORDER.get(priority, _UNRANKED)
 
 
 def severity_rank(severity: Severity) -> int:
-    """Sort weight for a severity (critical first)."""
-    return _SEVERITY_ORDER[severity]
+    """Sort weight for a severity (critical first); unknown values sort last."""
+    return _SEVERITY_ORDER.get(severity, _UNRANKED)
 
 
 @dataclass(frozen=True, slots=True)
