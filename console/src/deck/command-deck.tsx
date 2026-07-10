@@ -33,6 +33,7 @@ import {
 } from "./draft-history";
 import { GroundedReply } from "./grounded-reply";
 import { RetrievalTrace } from "./retrieval-trace";
+import { isNearBottom } from "./scroll-stick";
 
 interface Turn {
   readonly id: string;
@@ -81,6 +82,7 @@ export function CommandDeck() {
   const [health, setHealth] = useState<BackendHealth | null>(null);
   const [srStatus, setSrStatus] = useState("");
   const [inFlight, setInFlight] = useState(false);
+  const [stuck, setStuck] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   const historyRef = useRef(EMPTY_HISTORY);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -163,11 +165,27 @@ export function CommandDeck() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, [open, closeDeck]);
 
-  // Autoscroll transcript on new turn.
+  // Follow new content (including streaming token growth) only while the
+  // operator is reading the latest turn. If they scrolled up to re-read an
+  // earlier answer, an arriving reply must not yank them back down.
+  const lastTurnLen = turns.length > 0 ? (turns[turns.length - 1]?.text.length ?? 0) : 0;
   useEffect(() => {
-    if (!scrollerRef.current) return;
+    if (!scrollerRef.current || !stuck) return;
     scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
-  }, [turns.length]);
+  }, [turns.length, lastTurnLen, stuck]);
+
+  const onTranscriptScroll = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    setStuck(isNearBottom(el.scrollTop, el.scrollHeight, el.clientHeight));
+  }, []);
+
+  const jumpToLatest = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    setStuck(true);
+  }, []);
 
   // Auto-grow the input to fit its content (capped by the CSS max-height, past
   // which it scrolls). Runs whenever the draft changes or the overlay opens so
@@ -365,6 +383,7 @@ export function CommandDeck() {
               aria-live="polite"
               aria-relevant="additions"
               aria-busy={pending}
+              onScroll={onTranscriptScroll}
             >
               {turns.length === 0 ? (
                 <IntroPanel snapshotPresent={snapshot !== null} onPick={submit} />
@@ -380,6 +399,16 @@ export function CommandDeck() {
                 />
               ))}
               {pending ? <RetrievalTrace snapshot={snapshot} health={health} /> : null}
+              {!stuck && turns.length > 0 ? (
+                <button
+                  type="button"
+                  class="deck-jump"
+                  onClick={jumpToLatest}
+                  aria-label="Jump to latest message"
+                >
+                  Jump to latest ↓
+                </button>
+              ) : null}
             </section>
 
             <aside class="deck-digest" aria-label="what the deck sees">

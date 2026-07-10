@@ -2312,6 +2312,24 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   flex-direction: column;
   gap: 16px;
 }
+.deck-jump {
+  position: sticky;
+  bottom: 8px;
+  align-self: center;
+  margin-top: auto;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+.deck-jump:hover { border-color: var(--fg-muted); }
+.deck-jump:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .deck-digest {
   border-left: 1px solid var(--border);
   background: var(--bg-elevated);
