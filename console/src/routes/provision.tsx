@@ -81,8 +81,9 @@ export function reducer(state: ProvisionState, ev: ProvisionEvent): ProvisionSta
         // A progress bar never regresses: keep the high-water mark even if a
         // reconnect replays an earlier (lower) fraction.
         fraction: Math.max(state.fraction, ev.fraction ?? state.fraction),
-        waiting: null,
-        waitingReason: null,
+        // Do NOT clear `waiting` here: progress for an unrelated resource must
+        // not hide the "waiting on X" banner. The bridge emits `resumed` when
+        // the waiting resource itself completes (see below).
         recent,
       };
     }
@@ -110,6 +111,9 @@ export function reducer(state: ProvisionState, ev: ProvisionEvent): ProvisionSta
     case "failed":
       return {
         ...state,
+        // The waiting resource resolving into a failure clears the hold.
+        waiting: null,
+        waitingReason: null,
         failed: ev.node ?? "a resource",
         failedReason: ev.reason ?? null,
       };

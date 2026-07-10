@@ -58,4 +58,18 @@ describe("reducer", () => {
     state = reducer(state, ev({ phase: "resumed", node: "db" }));
     expect(state.waiting).toBeNull();
   });
+
+  test("unrelated progress does not clear the waiting banner", () => {
+    let state = reducer(INITIAL, ev({ phase: "waiting", node: "db", reason: "slow" }));
+    state = reducer(state, ev({ phase: "progress", fraction: 0.5, node: "other" }));
+    expect(state.waiting).toBe("db"); // still waiting on db
+    expect(state.fraction).toBe(0.5);
+  });
+
+  test("failure clears the waiting hold", () => {
+    let state = reducer(INITIAL, ev({ phase: "waiting", node: "db", reason: "slow" }));
+    state = reducer(state, ev({ phase: "failed", node: "db", reason: "timeout" }));
+    expect(state.waiting).toBeNull();
+    expect(state.failed).toBe("db");
+  });
 });
