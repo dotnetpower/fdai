@@ -222,6 +222,47 @@ class TestCostExpansion:
         assert result["variance"] == 25
         assert result["utilization"] == 1.25
 
+    def test_budget_summary_reads_first_row_when_no_scalar(self) -> None:
+        # No scalar -> fall back to the first row's amount column.
+        result = BudgetSummaryBuilder().build(
+            spec=_spec("budget_summary", budget=200),
+            data=DataSet(rows=({"amount": 50},)),
+        )
+        assert result["actual"] == 50.0
+        assert result["variance"] == -150.0
+        assert result["utilization"] == 0.25
+
+    def test_budget_summary_zero_budget_yields_none_utilization(self) -> None:
+        # No scalar, no rows, and a non-numeric budget collapse to zeros;
+        # a zero budget makes utilization undefined (None), not a ZeroDiv.
+        result = BudgetSummaryBuilder().build(
+            spec=_spec("budget_summary", budget="not-a-number"),
+            data=DataSet(),
+        )
+        assert result["budget"] == 0.0
+        assert result["actual"] == 0.0
+        assert result["utilization"] is None
+
+    def test_cost_summary_rejects_non_finite_and_bool_amounts(self) -> None:
+        # bool is not a number here; 'nan'/'inf' strings parse via float()
+        # but are dropped so they cannot poison the total or the JSON body.
+        data = DataSet(
+            rows=(
+                {"group": "ok", "amount": 10},
+                {"group": "flag", "amount": True},
+                {"group": "nan", "amount": "nan"},
+                {"group": "inf", "amount": "inf"},
+                {"group": "text", "amount": "oops"},
+            )
+        )
+        result = CostSummaryBuilder().build(spec=_spec("cost_summary"), data=data)
+        # Only the single finite numeric amount contributes to the total.
+        assert result["total"] == 10.0
+        # Non-numeric amounts pass through as None rather than crashing.
+        amounts = [r["amount"] for r in result["rows"]]
+        assert amounts == [10, None, None, None, None]
+        assert result["currency"] == "USD"
+
 
 class TestCompositeExpansion:
     def test_split_graph_from_series(self) -> None:
