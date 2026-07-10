@@ -28,6 +28,7 @@ import {
   type PillKind,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
+import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 
 interface Props {
@@ -356,6 +357,20 @@ function ActivityBody({ data }: BodyProps) {
     () => ({
       routeId: "agent-activity",
       routeLabel: "Agent activity",
+      purpose:
+        "Per-agent timeline reconstructed from the audit log - which pantheon " +
+        "agent did what, when, and why. Each incident (correlation id) is one " +
+        "hand-off cascade: Huginn senses, Forseti judges, Thor opens a " +
+        "remediation PR, Var queues a HIL approval, Saga records it. Read-only.",
+      glossary: composeGlossary([
+        TERMS.correlationId,
+        TERMS.waterfall,
+        TERMS.actionKind,
+        TERMS.tier,
+        TERMS.mode,
+        TERMS.outcome,
+        agentTerm(),
+      ]),
       headline: `${data.items.length} audit row(s) across ${perAgent.length} agent(s)${
         selected ? ` - filtered to ${selected}` : ""
       }`,
@@ -368,9 +383,11 @@ function ActivityBody({ data }: BodyProps) {
       records: {
         by_agent: perAgent.map(([agent, count]) => ({ agent, count })),
         // The visible timeline rows (respecting the agent filter) so the deck
-        // can answer "what did this agent do / what happened when?" from real
-        // activity, not just the per-agent counts. Newest-first; capped so the
-        // snapshot stays lean (the page's filter narrows to older rows).
+        // can answer "what did this agent do / what happened when / why did
+        // this start?" from real activity. The causal fields (`summary`,
+        // `detail`, `reason`, `tier`, `outcome`) are kept - NOT projected away -
+        // so the narrator can quote the recorded "why" instead of shrugging.
+        // Newest-first; capped so the snapshot stays lean.
         activity: visible.slice(0, 40).map((item) => ({
           agent: agentOf(item),
           action_kind: item.action_kind,
@@ -378,6 +395,11 @@ function ActivityBody({ data }: BodyProps) {
           recorded_at: item.recorded_at,
           correlation_id: item.correlation_id ?? "-",
           event_id: item.event_id,
+          tier: tierOf(item) ?? "-",
+          outcome: outcomeOf(item) ?? "-",
+          summary: summaryOf(item) ?? "-",
+          detail: entryStr(item, "detail") ?? "-",
+          reason: entryStr(item, "reason") ?? "-",
         })),
       },
     }),

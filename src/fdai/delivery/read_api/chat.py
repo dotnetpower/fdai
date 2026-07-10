@@ -99,6 +99,7 @@ snapshot of the rendered page follows; ground every answer STRICTLY in it.
 
 Rules:
 - Reply in the operator's language; cite exact snapshot numbers/labels and NEVER invent facts.
+- Explain a screen/term via snapshot `purpose`/`glossary`; cite a row's `detail`/`summary`/`reason` for a cause.
 - `records` (`records.rules`, `records.items`, ...) are the rows visible now: search and quote matching rows; do not claim missing info when a row is present. If `_records_truncated`, only a sample shows - narrow via the page's search.
 - Deixis: "this / it / the selected one" (or the Korean equivalent) = the SELECTION signals - facts whose `group` is "selection" or key starts `selected_`, plus `records.selected_*`; answer THAT item first. Never say you lack context when facts/records are present.
 - If an entry is absent but the page has a search/filter, say so; only redirect to another route (Live/Dashboard/Audit/HIL/Ontology/Blast Radius/Promotion/Trace) when the topic truly belongs there.
@@ -114,13 +115,15 @@ Rules:
 # questions - the large majority - get the lean prompt above, which keeps the
 # per-turn token cost and latency down without losing concept coverage.
 _GLOSSARY = """\
-FDAI glossary (use only to define a term on request):
+FDAI glossary (use only to define a term on request; the snapshot's own `glossary` wins when present):
+- correlation id (correlation_id): the incident key grouping every agent step for one event, from detection to verdict to remediation; open the Trace panel to reconstruct it.
 - ActionType: ontology entry classing an autonomous action; binds 5 roles (initiators, judge, executor, approver, auditor).
 - Trust router: routes each event to the lowest sufficient tier (T0/T1/T2) by a computed confidence.
 - T0/T1/T2: trust-router tiers - deterministic policy (70-80%) / lightweight similarity (15-20%) / frontier-LLM reasoning (5-10%, novel only).
 - Gate decision: auto=execute, hil=needs approval, deny=refused, abstain=no rule matched (no-op).
 - Shadow vs enforce: new actions ship shadow (log-only), promoted to enforce after their promotion_gate passes.
 - HIL: high-risk approvals via Teams/ChatOps cards, never a console button.
+- Waterfall (Agent activity): one row per incident, each bar an agent picking it up, read left-to-right as the hand-off cascade.
 - Verticals: change safety, resilience, cost governance.
 - Safety invariants: stop-condition, rollback path, blast-radius cap, audit entry.
 - Rule catalog: versioned rules with provenance, gated before shipping.

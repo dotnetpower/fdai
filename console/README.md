@@ -131,6 +131,31 @@ narrator-is-a-translator contract in
 It answers questions grounded in only what is on screen (the published
 `ViewSnapshot`) and never issues a privileged call.
 
+### Self-describing screens
+
+Each route publishes a `ViewSnapshot` (`src/deck/context.tsx`) that is a screen
+*model*, not just a value digest. Besides `facts`/`records`, a route declares:
+
+- **`purpose`** - one or two lines on what the screen is for, so "what is this
+  screen / why am I here" is grounded without a per-route answerer.
+- **`glossary`** - the terms/labels this screen renders (e.g. `correlation id`,
+  `waterfall`, a `corr-*` chip), each with a `plain` meaning, optional `tech`
+  token, `seeAlso` route, and `match` records-column. Routes compose these from
+  the shared catalog in [`src/deck/glossary.ts`](src/deck/glossary.ts) so a term
+  means the same thing on every screen.
+- **causal fields kept in `records`** - `detail`/`summary`/`reason`/`tier`/
+  `outcome` are NOT projected away, so "why did this start" is answered by
+  quoting the recorded narrative instead of shrugging.
+
+The deterministic answerer ([`src/deck/answerer.ts`](src/deck/answerer.ts)) is
+**screen-agnostic**: a resolver chain (causal -> glossary/value-chip -> route
+enhancer -> generic record search) answers "what is X" and "why did this start"
+on *any* route - including screens with no bespoke enhancer - from the declared
+`purpose`/`glossary`/records. A new screen becomes explainable by declaring its
+vocabulary, not by adding code. The server narrator receives the same `purpose`
+and `glossary` in the snapshot JSON and is instructed to ground term and causal
+answers in them.
+
 The chat backend (`src/fdai/delivery/read_api/chat.py`) keeps each turn's
 system prompt lean for cost and latency: compact base instructions, the FDAI
 glossary appended only for concept questions (EN + KO), and every `records`

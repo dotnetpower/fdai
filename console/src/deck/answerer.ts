@@ -13,7 +13,7 @@
  * structured facts we KNOW we captured, not on hallucinated free text.
  */
 
-import type { ViewSnapshot } from "./context";
+import type { GlossaryTerm, ViewSnapshot } from "./context";
 
 export interface Citation {
   /** Label the deck shows next to the cited value, e.g. "eps · 4.2". */
@@ -59,7 +59,20 @@ export function answer(query: string, snapshot: ViewSnapshot | null): Answer {
     };
   }
 
-  // Route-scoped answers -------------------------------------------------
+  // Generic, screen-agnostic resolvers ----------------------------------
+  // These run BEFORE the route-specific enhancers so vocabulary ("what is
+  // corr-j") and causal ("why did this start") questions are answered from the
+  // screen's own declared glossary + records on ANY route - including screens
+  // that ship no bespoke answerer (agent-activity, pantheon, workflow-builder,
+  // and any future screen). A screen becomes explainable by declaring its
+  // purpose/glossary and keeping causal fields in its records, not by adding a
+  // per-route branch here.
+  const causalHit = resolveCausal(q, snapshot);
+  if (causalHit) return causalHit;
+  const glossaryHit = resolveGlossary(q, snapshot);
+  if (glossaryHit) return glossaryHit;
+
+  // Route-scoped enhancers ----------------------------------------------
   if (snapshot.routeId === "live") return answerLive(q, snapshot);
   if (snapshot.routeId === "dashboard") return answerDashboard(q, snapshot);
   if (snapshot.routeId === "audit") return answerAudit(q, snapshot);
@@ -70,11 +83,275 @@ export function answer(query: string, snapshot: ViewSnapshot | null): Answer {
   if (snapshot.routeId === "trace") return answerTrace(q, snapshot);
   if (snapshot.routeId === "ontology") return answerOntology(q, snapshot);
 
+  // Generic fallback: search the records + quote facts, so a screen with no
+  // bespoke answerer still grounds in what it published instead of shrugging.
+  return genericAnswer(q, snapshot);
+}
+
+// ---------------------------------------------------------------------------
+// Screen-agnostic resolvers (glossary, causal, generic search)
+// ---------------------------------------------------------------------------
+
+/** Distinct non-empty string values of one column across every records array. */
+function collectColumnValues(snapshot: ViewSnapshot, column: string): readonly string[] {
+  const out = new Set<string>();
+  const records = snapshot.records ?? {};
+  for (const key of Object.keys(records)) {
+    for (const row of records[key] ?? []) {
+      const v = row[column];
+      if (typeof v === "string" && v.trim() && v !== "-") out.add(v);
+    }
+  }
+  return [...out];
+}
+
+/** Rows (across all records arrays) whose `column` equals `value`. */
+function rowsWhere(
+  snapshot: ViewSnapshot,
+  column: string,
+  value: string,
+): readonly Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+  const records = snapshot.records ?? {};
+  for (const key of Object.keys(records)) {
+    for (const row of records[key] ?? []) {
+      if (row[column] === value) out.push(row);
+    }
+  }
+  return out;
+}
+
+function firstString(row: Record<string, unknown>, ...keys: readonly string[]): string | null {
+  for (const k of keys) {
+    const v = row[k];
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return null;
+}
+
+function capitalize(s: string): string {
+  return s.length === 0 ? s : s[0]!.toUpperCase() + s.slice(1);
+}
+
+/** Rows sorted oldest-first by `recorded_at` (rows without a stamp keep order). */
+function chronological(
+  rows: readonly Record<string, unknown>[],
+): readonly Record<string, unknown>[] {
+  return [...rows].sort((a, b) => {
+    const ta = new Date(String(a.recorded_at ?? "")).getTime();
+    const tb = new Date(String(b.recorded_at ?? "")).getTime();
+    if (Number.isNaN(ta) || Number.isNaN(tb)) return 0;
+    return ta - tb;
+  });
+}
+
+/**
+ * Explain a term the screen declared. Handles two shapes:
+ *  - a value chip the operator quoted (e.g. "corr-j") that lives in a glossed
+ *    records column -> name the term AND summarise the group it identifies, and
+ *  - the term name / tech token appearing in the query -> plain definition.
+ * Returns null when the screen declares no glossary or nothing matches.
+ */
+function resolveGlossary(q: string, snapshot: ViewSnapshot): Answer | null {
+  const glossary = snapshot.glossary ?? [];
+  if (glossary.length === 0) return null;
+
+  // 1) Value chip: "what is corr-j" - the operator quotes an on-screen value.
+  for (const term of glossary) {
+    if (!term.match) continue;
+    const values = collectColumnValues(snapshot, term.match);
+    const hit = values.find((v) => v.length >= 2 && q.includes(v.toLowerCase()));
+    if (hit) return explainValue(hit, term, snapshot);
+  }
+
+  // 2) Term name / tech token in the query - only when the operator is asking
+  //    what/which/explain (so a passing mention of "mode" is not hijacked).
+  // Korean markers (\uXXXX to keep the source ASCII per the language policy):
+  // what / which-thing / meaning / explain / sense.
+  const asking =
+    /\bwhat\b|\bwhich\b|\bexplain\b|\bdefine\b|\bmean(s|ing)?\b|\bwhats\b|\bwhat's\b/.test(q) ||
+    /\uBB34\uC5C7|\uBB50|\uBB54|\uBB34\uC2A8|\uC124\uBA85|\uC758\uBBF8|\uB73B/.test(q);
+  if (!asking) return null;
+  for (const term of glossary) {
+    const names = [term.term.toLowerCase(), term.tech?.toLowerCase()].filter(
+      (n): n is string => Boolean(n),
+    );
+    if (names.some((n) => q.includes(n))) return explainTerm(term);
+  }
+  return null;
+}
+
+/** Plain definition of one glossary term. */
+function explainTerm(term: GlossaryTerm): Answer {
+  const tech = term.tech ? ` (internally \`${term.tech}\`)` : "";
+  const see = term.seeAlso ? ` Open the ${term.seeAlso} panel to dig deeper.` : "";
   return {
-    text: `I can see the ${snapshot.routeLabel} but I do not have a specific answerer for that question. ${snapshot.headline}`,
-    citations: snapshot.facts.slice(0, 8).map(factToCitation),
-    followUps: defaultFollowUps(snapshot),
+    text: `${capitalize(term.term)}${tech}: ${term.plain}.${see}`,
+    citations: [{ label: term.term, value: term.tech ?? "" }],
+    followUps: term.seeAlso ? [`open ${term.seeAlso}`] : [],
   };
+}
+
+/** Name the term a quoted value belongs to and summarise its group + why. */
+function explainValue(value: string, term: GlossaryTerm, snapshot: ViewSnapshot): Answer {
+  const rows = term.match ? rowsWhere(snapshot, term.match, value) : [];
+  const ordered = chronological(rows);
+  const agents = [...new Set(ordered.map((r) => String(r.agent ?? r.actor ?? "")).filter(Boolean))];
+  const groupText =
+    ordered.length > 0
+      ? ` It has ${ordered.length} step(s) on this screen${
+          agents.length > 0 ? ` (${agents.slice(0, 6).join(" -> ")})` : ""
+        }.`
+      : "";
+  const why = ordered.length > 0 ? firstString(ordered[0]!, "detail", "summary", "reason") : null;
+  const whyText = why ? ` It started because: ${why}` : "";
+  const see = term.seeAlso ? ` Open ${term.seeAlso} to reconstruct the full chain.` : "";
+  return {
+    text: `${value} is a ${term.term} - ${term.plain}.${groupText}${whyText}${see}`,
+    citations: [
+      { label: term.term, value },
+      ...(ordered.length > 0 ? [{ label: "steps", value: String(ordered.length) }] : []),
+    ],
+    followUps: why ? [] : [`why did ${value} start?`],
+  };
+}
+
+/**
+ * Answer "why did this start / what triggered it" by quoting the causal
+ * narrative already recorded on the target rows (`detail` -> `summary` ->
+ * `reason`). The target is: the correlation the operator quoted, else the
+ * screen's selection, else the most recent row that carries a narrative.
+ * Returns null for non-causal questions or when no narrative is on screen.
+ */
+function resolveCausal(q: string, snapshot: ViewSnapshot): Answer | null {
+  // Korean markers (\uXXXX, source stays ASCII): why / cause / reason /
+  // occur / start.
+  const causal =
+    /\bwhy\b|\bcause[ds]?\b|\breason\b|\btrigger(ed)?\b|\bstart(ed)?\b|\bhappen(ed)?\b/.test(q) ||
+    /\uC65C|\uC6D0\uC778|\uC774\uC720|\uBC1C\uC0DD|\uC2DC\uC791/.test(q);
+  if (!causal) return null;
+  const rows = causalTargetRows(q, snapshot);
+  if (rows.length === 0) return null;
+  const ordered = chronological(rows);
+  const target = ordered[0]!;
+  const narrative = firstString(target, "detail", "summary", "reason");
+  if (!narrative) return null;
+  const corr = firstString(target, "correlation_id");
+  const label = corr ? `${corr}` : String(target.action_kind ?? "this");
+  return {
+    text: `${label} started because: ${narrative}`,
+    citations: [
+      ...(corr ? [{ label: "correlation", value: corr }] : []),
+      { label: "steps", value: String(ordered.length) },
+    ],
+    followUps: corr ? [`what is ${corr}?`, `open trace`] : [],
+  };
+}
+
+/** The rows a causal question is about (quoted chip -> selection -> newest). */
+function causalTargetRows(
+  q: string,
+  snapshot: ViewSnapshot,
+): readonly Record<string, unknown>[] {
+  // 1) A correlation the operator quoted in the query.
+  const corrValues = collectColumnValues(snapshot, "correlation_id");
+  const quoted = corrValues.find((v) => v.length >= 2 && q.includes(v.toLowerCase()));
+  if (quoted) return rowsWhere(snapshot, "correlation_id", quoted);
+
+  // 2) The screen's current selection, if it published one.
+  const selected = selectionRows(snapshot);
+  if (selected.length > 0) return selected;
+
+  // 3) The single newest row that actually carries a narrative.
+  const records = snapshot.records ?? {};
+  const withNarrative: Record<string, unknown>[] = [];
+  for (const key of Object.keys(records)) {
+    for (const row of records[key] ?? []) {
+      if (firstString(row, "detail", "summary", "reason")) withNarrative.push(row);
+    }
+  }
+  if (withNarrative.length === 0) return [];
+  const newest = chronological(withNarrative).at(-1)!;
+  // If it belongs to a correlation, return the whole incident so the earliest
+  // step (the trigger) is chosen by the caller.
+  const corr = firstString(newest, "correlation_id");
+  return corr ? rowsWhere(snapshot, "correlation_id", corr) : [newest];
+}
+
+/** Rows the screen marked as the current selection (records key `selected_*`). */
+function selectionRows(snapshot: ViewSnapshot): readonly Record<string, unknown>[] {
+  const records = snapshot.records ?? {};
+  const out: Record<string, unknown>[] = [];
+  for (const key of Object.keys(records)) {
+    if (key === "selected" || key.startsWith("selected_")) {
+      for (const row of records[key] ?? []) out.push(row);
+    }
+  }
+  return out;
+}
+
+/**
+ * Last-resort grounded answer for a screen with no bespoke enhancer: search
+ * the published records for the query tokens and quote matches, else restate
+ * the headline + purpose and offer the glossary terms the screen declared.
+ */
+function genericAnswer(q: string, snapshot: ViewSnapshot): Answer {
+  const terms = (q.match(/[a-z0-9-]{3,}/g) ?? []).filter(
+    (w) => !GENERIC_STOPWORDS.has(w),
+  );
+  if (terms.length > 0) {
+    const records = snapshot.records ?? {};
+    const hits: Record<string, unknown>[] = [];
+    for (const key of Object.keys(records)) {
+      for (const row of records[key] ?? []) {
+        const hay = JSON.stringify(row).toLowerCase();
+        if (terms.some((w) => hay.includes(w))) hits.push(row);
+      }
+      if (hits.length >= 6) break;
+    }
+    if (hits.length > 0) {
+      const sample = hits.slice(0, 6);
+      return {
+        text:
+          `${hits.length} matching row(s) on this screen:\n` +
+          sample.map((r) => `- ${summariseRow(r)}`).join("\n"),
+        citations: sample.map((r) => ({
+          label: String(r.action_kind ?? r.agent ?? r.id ?? "row"),
+          value: String(r.correlation_id ?? r.mode ?? r.outcome ?? "-"),
+        })),
+        followUps: [],
+      };
+    }
+  }
+  const purpose = snapshot.purpose ? ` ${snapshot.purpose}` : "";
+  const glossary = snapshot.glossary ?? [];
+  const ask =
+    glossary.length > 0
+      ? ` Ask me what these mean: ${glossary.slice(0, 4).map((g) => g.term).join(", ")}.`
+      : "";
+  return {
+    text: `${snapshot.routeLabel} - ${snapshot.headline}.${purpose}${ask}`,
+    citations: snapshot.facts.slice(0, 8).map(factToCitation),
+    followUps: glossary.slice(0, 3).map((g) => `what is ${g.term}?`),
+  };
+}
+
+const GENERIC_STOPWORDS: ReadonlySet<string> = new Set([
+  "how", "the", "and", "for", "what", "which", "does", "did", "why", "who",
+  "this", "that", "show", "list", "there", "here", "was", "were", "are",
+]);
+
+/** One-line summary of an arbitrary records row for the generic search. */
+function summariseRow(r: Record<string, unknown>): string {
+  const head =
+    firstString(r, "action_kind", "id", "action_type", "term") ??
+    String(r.agent ?? r.actor ?? "row");
+  const detail = firstString(r, "summary", "detail", "reason", "resource_type");
+  const corr = firstString(r, "correlation_id");
+  const parts = [head];
+  if (corr) parts.push(`(${corr})`);
+  if (detail) parts.push(`- ${detail}`);
+  return parts.join(" ");
 }
 
 // ---------------------------------------------------------------------------

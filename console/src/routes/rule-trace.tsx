@@ -12,6 +12,7 @@ import {
   type PillKind,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
+import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 
 /**
@@ -159,6 +160,19 @@ function TraceView({ data }: { readonly data: TraceResponse }) {
     () => ({
       routeId: "trace",
       routeLabel: "Trace",
+      purpose:
+        "Reconstructs one incident end-to-end from the audit log: every " +
+        "pipeline stage for a single correlation id, in order, with the " +
+        "decision and recorded reason at each step. Answers 'what happened to " +
+        "this event and why'. Read-only.",
+      glossary: composeGlossary([
+        TERMS.correlationId,
+        TERMS.actionKind,
+        TERMS.gateDecision,
+        TERMS.tier,
+        TERMS.mode,
+        TERMS.outcome,
+      ]),
       headline: `${data.step_count} step(s) for ${data.correlation_id}${data.terminal_stage ? ` - terminal ${data.terminal_stage}` : ""}`,
       capturedAt: new Date().toISOString(),
       facts: [
@@ -167,6 +181,9 @@ function TraceView({ data }: { readonly data: TraceResponse }) {
         { key: "terminal_stage", value: data.terminal_stage, group: "trace" },
       ],
       records: {
+        // Each step carries the `correlation_id` (so the value-chip resolver
+        // recognises the id) and its `reason` (so causal questions quote the
+        // recorded rationale for this stage).
         steps: data.steps.map((s) => ({
           seq: s.seq,
           recorded_at: s.recorded_at,
@@ -175,6 +192,7 @@ function TraceView({ data }: { readonly data: TraceResponse }) {
           reason: s.reason,
           action_kind: s.action_kind,
           mode: s.mode,
+          correlation_id: data.correlation_id,
         })),
       },
     }),

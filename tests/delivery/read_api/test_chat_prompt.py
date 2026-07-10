@@ -330,6 +330,56 @@ def test_long_prompt_is_truncated_to_cap() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Self-describing snapshot - purpose/glossary grounding (console deck)
+# ---------------------------------------------------------------------------
+
+
+def test_static_glossary_defines_correlation_id() -> None:
+    # A screen may not declare its own glossary; the static fallback must still
+    # be able to define a correlation id (the "what is corr-j" case).
+    system = _system_of(_build_messages("what is a correlation id", {}, []))
+    assert "correlation id" in system
+
+
+def test_base_rules_reference_purpose_and_glossary() -> None:
+    # The always-on base must instruct the model to use purpose/glossary and to
+    # ground a cause in the row narrative - present in the lean prompt too.
+    base = _base_of(_system_of(_build_messages("how many rules?", {}, [])))
+    assert "purpose" in base
+    assert "glossary" in base
+    assert "detail" in base and "summary" in base and "reason" in base
+
+
+def test_snapshot_purpose_and_glossary_are_forwarded() -> None:
+    # A self-describing snapshot's purpose + glossary reach the model verbatim,
+    # so the narrator can explain the screen and its terms/chips.
+    ctx = {
+        "routeId": "agent-activity",
+        "purpose": "Per-agent timeline from the audit log.",
+        "glossary": [
+            {
+                "term": "correlation id",
+                "plain": "the incident key grouping every agent step for one event",
+                "tech": "correlation_id",
+            }
+        ],
+        "records": {
+            "activity": [
+                {
+                    "correlation_id": "corr-j",
+                    "detail": "point-in-time restore proposed after suspected corruption",
+                }
+            ]
+        },
+    }
+    system = _system_of(_build_messages("what is corr-j", ctx, []))
+    assert "Per-agent timeline from the audit log." in system
+    assert "corr-j" in system
+    assert "incident key grouping every agent step" in system
+
+
+
+# ---------------------------------------------------------------------------
 # Records diet - keep the dynamic snapshot from dominating token cost
 # ---------------------------------------------------------------------------
 

@@ -11,6 +11,7 @@ import {
   type PillKind,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
+import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 
 interface Props {
@@ -93,6 +94,14 @@ function modePill(mode: string): PillKind {
   return "neutral";
 }
 
+/** Read a string field from an audit `entry` payload, or "-" when absent. The
+ * causal fields (`detail`, `summary`, `reason`, `tier`, `outcome`) live in the
+ * JSONB `entry`; surfacing them lets the deck answer "why did this happen". */
+function entryStr(entry: Record<string, unknown>, key: string): string {
+  const v = entry[key];
+  return typeof v === "string" && v.trim() ? v : "-";
+}
+
 interface BodyProps {
   readonly data: Data;
   readonly onLoadMore: (cursor: string) => Promise<void>;
@@ -103,6 +112,18 @@ function AuditBody({ data, onLoadMore }: BodyProps) {
     () => ({
       routeId: "audit",
       routeLabel: "Audit log",
+      purpose:
+        "The append-only record of every terminal control-plane decision - one " +
+        "row per event that reached a verdict. Read-only: entries are never " +
+        "edited or deleted, and each carries the recorded reason it happened.",
+      glossary: composeGlossary([
+        TERMS.correlationId,
+        TERMS.actionKind,
+        TERMS.mode,
+        TERMS.tier,
+        TERMS.outcome,
+        agentTerm(),
+      ]),
       headline: `${data.items.length} row(s) loaded${data.nextCursor === null ? " (end of log)" : " (more available)"}`,
       capturedAt: new Date().toISOString(),
       facts: [
@@ -110,6 +131,9 @@ function AuditBody({ data, onLoadMore }: BodyProps) {
         { key: "more_available", value: data.nextCursor !== null, group: "page" },
       ],
       records: {
+        // Keep the causal fields (`summary`, `detail`, `reason`, `tier`,
+        // `outcome`, `correlation_id`) - NOT projected away - so the narrator
+        // can answer "why did this happen" by quoting the recorded narrative.
         items: data.items.map((r) => ({
           seq: r.seq,
           recorded_at: r.recorded_at,
@@ -117,6 +141,12 @@ function AuditBody({ data, onLoadMore }: BodyProps) {
           action_kind: r.action_kind,
           mode: r.mode,
           event_id: r.event_id,
+          correlation_id: r.correlation_id ?? "-",
+          tier: entryStr(r.entry, "tier"),
+          outcome: entryStr(r.entry, "outcome"),
+          summary: entryStr(r.entry, "summary"),
+          detail: entryStr(r.entry, "detail"),
+          reason: entryStr(r.entry, "reason"),
         })),
       },
     }),

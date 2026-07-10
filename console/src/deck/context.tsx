@@ -32,16 +32,53 @@ export interface ViewFact {
   readonly group?: string;
 }
 
+/**
+ * One term this screen renders that an operator might not know - a label,
+ * abbreviation, or on-screen chip (e.g. `correlation id`, `waterfall`, a
+ * `corr-*` chip). The answerer quotes `plain` when the operator asks "what is
+ * X", so a screen is self-describing: it declares its own vocabulary instead
+ * of relying on a hand-written per-route answerer.
+ */
+export interface GlossaryTerm {
+  /** The word/label as the operator sees or says it, e.g. "correlation id". */
+  readonly term: string;
+  /** Plain-language meaning, one sentence, no jargon. */
+  readonly plain: string;
+  /** The precise internal token, e.g. "correlation_id" (shown dimmed). */
+  readonly tech?: string;
+  /** A route the operator can open to dig deeper, e.g. "trace". */
+  readonly seeAlso?: string;
+  /**
+   * The `records` column whose VALUES this term explains, e.g.
+   * "correlation_id". When the operator asks about a value that appears in
+   * that column (a `corr-*` chip), the answerer recognises it as this term.
+   */
+  readonly match?: string;
+}
+
 /** A structured snapshot for one route. */
 export interface ViewSnapshot {
   /** Panel id, matches the hash route (`live`, `dashboard`, ...). */
   readonly routeId: string;
   /** Human title shown in the deck header, e.g. "Live cockpit". */
   readonly routeLabel: string;
+  /**
+   * One or two lines: what this screen is FOR and what an operator does here.
+   * Grounds "what is this screen / why am I looking at this" without a
+   * per-route answerer. Optional during rollout; the route-contract test
+   * (Phase 2) makes it required for every published route.
+   */
+  readonly purpose?: string;
   /** A one-line headline, e.g. "60 tiles - 4 eps - 3 failed". */
   readonly headline: string;
   /** Structured facts the answerer can pattern-match against. */
   readonly facts: readonly ViewFact[];
+  /**
+   * The vocabulary this screen renders. The answerer resolves "what is X"
+   * and value-chip questions (e.g. "what is corr-j") from these entries, so a
+   * new screen becomes explainable by declaring terms - not by adding code.
+   */
+  readonly glossary?: readonly GlossaryTerm[];
   /** Bulk records the answerer can search (tiles, audit rows, HIL items). */
   readonly records?: Readonly<Record<string, readonly Record<string, unknown>[]>>;
   /** ISO timestamp captured on publish. */
