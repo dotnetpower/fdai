@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 
 from fdai.core.reporting.formats import (
     CsvFormatEncoder,
+    HtmlFormatEncoder,
     JsonFormatEncoder,
     MarkdownFormatEncoder,
     TextFormatEncoder,
@@ -240,6 +241,104 @@ class TestTextFormat:
         body = TextFormatEncoder().encode(_report()).decode("utf-8")
         for banned in ("\u2014", "\u2013", "\u2026", "\u201c", "\u201d", "\u00a0"):
             assert banned not in body
+
+
+class TestHtmlFormat:
+    def test_content_type_is_html_utf8(self) -> None:
+        enc = HtmlFormatEncoder()
+        assert enc.name == "html"
+        assert enc.content_type == "text/html; charset=utf-8"
+
+    def test_header_meta_and_core_widget_types(self) -> None:
+        body = HtmlFormatEncoder().encode(_report()).decode("utf-8")
+        # Header + description (description branch was uncovered).
+        assert "<h1>Ops Overview</h1>" in body
+        assert "<p>Daily ops KPIs.</p>" in body
+        assert "report_id: <code>ops</code>" in body
+        # query_value -> <strong>.
+        assert "<strong>1200</strong>" in body
+        # top_list -> real <table> with escaped headers.
+        assert "<th>rule</th>" in body
+        assert "<td>cost.idle_vm</td>" in body
+        # error widget -> fdai-error div, no table.
+        assert "<div class='fdai-error'>datasource error: RuntimeError: boom</div>" in body
+
+    def test_html_escaping_of_hostile_cells(self) -> None:
+        now = datetime(2026, 7, 10, 12, 0, tzinfo=UTC)
+        report = RenderedReport(
+            id="x",
+            version="1",
+            name="<script>alert(1)</script>",
+            description="",
+            generated_at=now,
+            time_range=(now - timedelta(hours=1), now),
+            variables={},
+            widgets=(
+                RenderedWidget(
+                    id="t",
+                    type="table",
+                    title="T",
+                    data={
+                        "columns": ["c"],
+                        "rows": [{"c": "<b>x</b>"}, {"c": None}, "not-a-mapping"],
+                    },
+                ),
+            ),
+            tags=(),
+        )
+        body = HtmlFormatEncoder().encode(report).decode("utf-8")
+        # Report name and cell content are HTML-escaped, not injected raw.
+        assert "<script>" not in body
+        assert "&lt;script&gt;alert(1)&lt;/script&gt;" in body
+        assert "&lt;b&gt;x&lt;/b&gt;" in body
+        # A None cell renders as an empty <td>.
+        assert "<td></td>" in body
+        # A non-Mapping row emits blank cells instead of crashing.
+        assert body.count("<tr>") >= 3
+
+    def test_free_text_group_unknown_and_no_column_table(self) -> None:
+        now = datetime(2026, 7, 10, 12, 0, tzinfo=UTC)
+        report = RenderedReport(
+            id="m",
+            version="1",
+            name="M",
+            description="",
+            generated_at=now,
+            time_range=(now - timedelta(hours=1), now),
+            variables={},
+            widgets=(
+                RenderedWidget(
+                    id="note", type="free_text", title="Note",
+                    data={"body": "<hi>"},
+                ),
+                RenderedWidget(
+                    id="grp", type="tabs", title="Tabs", data={},
+                    children=(
+                        RenderedWidget(
+                            id="c", type="query_value", title="C",
+                            data={"value": 9},
+                        ),
+                    ),
+                ),
+                RenderedWidget(
+                    id="u", type="sankey", title="U", data={"flows": 2},
+                ),
+                RenderedWidget(
+                    id="nocols", type="table", title="NoCols",
+                    data={"note": "raw"},
+                ),
+            ),
+            tags=(),
+        )
+        body = HtmlFormatEncoder().encode(report).decode("utf-8")
+        # free_text body is escaped inside <pre>.
+        assert "<pre>&lt;hi&gt;</pre>" in body
+        # tabs recurses into children.
+        assert "<strong>9</strong>" in body
+        # unknown type falls back to a pretty-printed JSON <pre> (HTML-escaped).
+        assert "&quot;flows&quot;: 2" in body
+        # table without columns falls back to JSON <pre>, not a <table>.
+        assert "&quot;note&quot;: &quot;raw&quot;" in body
 
 
 class TestFormatRegistry:
