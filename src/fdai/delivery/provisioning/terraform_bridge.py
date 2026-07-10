@@ -15,13 +15,17 @@ module is a **pure** state machine that folds those lines into
 - a slow ``apply_progress`` (over a threshold) becomes an honest
   ``provision.waiting`` and its later completion a ``provision.resumed``,
 - an ``apply_errored`` / error ``diagnostic`` becomes ``provision.failed``,
-- the captured ``outputs`` supply the ``console_url`` and the apply
-  ``change_summary`` emits ``provision.done``.
+- the captured ``outputs`` supply the ``console_url``, and ``provision.done``
+  is emitted once the apply ``change_summary`` and the ``outputs`` (which
+  Terraform emits *after* it) have both been seen - or at end-of-stream via
+  :meth:`TerraformProvisionBridge.finalize` when a stack declares no outputs.
 
 No I/O lives here: a thin serve harness reads Terraform's stdout, calls
 :meth:`TerraformProvisionBridge.feed`, and publishes the returned events onto
-the SSE sink (:class:`SseProvisionPublisher`). Keeping the fold pure makes
-the mapping fully unit-testable against recorded Terraform log fixtures.
+the SSE sink (:class:`SseProvisionPublisher`). The harness MUST call
+:meth:`TerraformProvisionBridge.finalize` once when stdout closes so a
+deferred ``provision.done`` is flushed. Keeping the fold pure makes the
+mapping fully unit-testable against recorded Terraform log fixtures.
 """
 
 from __future__ import annotations
@@ -118,6 +122,7 @@ class TerraformProvisionBridge:
     _waiting: set[str] = field(default_factory=set, init=False)
     _console_url: str | None = field(default=None, init=False)
     _done: bool = field(default=False, init=False)
+    _apply_finished: bool = field(default=False, init=False)
 
     @property
     def console_url(self) -> str | None:
@@ -146,8 +151,7 @@ class TerraformProvisionBridge:
         if rec_type == "change_summary":
             return self._on_change_summary(record)
         if rec_type == "outputs":
-            self._capture_outputs(record)
-            return []
+            return self._capture_outputs(record)
         if rec_type == "apply_progress":
             return self._on_apply_progress(record)
         if rec_type == "apply_complete":
@@ -174,16 +178,49 @@ class TerraformProvisionBridge:
             self._planned_total = total
             return []
         if operation == "apply" and not self._done:
-            self._done = True
-            return [self._event(ProvisionPhase.DONE, console_url=self._console_url, fraction=1.0)]
+            # Terraform emits the `outputs` message AFTER the apply
+            # change_summary, so emitting done here unconditionally would
+            # always drop console_url. Mark the apply finished and emit only
+            # once the URL is known (via _capture_outputs) or at end-of-stream
+            # (via finalize()) when no outputs ever arrive.
+            self._apply_finished = True
+            return self._emit_done_if_ready()
         return []
 
-    def _capture_outputs(self, record: Mapping[str, Any]) -> None:
+    def _emit_done_if_ready(self, *, force: bool = False) -> list[ProvisionEvent]:
+        """Emit ``provision.done`` once, when the apply is finished.
+
+        Held back until :attr:`_console_url` is captured so the terminal
+        event carries the operator-console link. ``force=True``
+        (:meth:`finalize`) emits with a possibly-``None`` URL to guarantee
+        done is not lost when a stack declares no outputs.
+        """
+        if not self._apply_finished or self._done:
+            return []
+        if self._console_url is None and not force:
+            return []
+        self._done = True
+        return [self._event(ProvisionPhase.DONE, console_url=self._console_url, fraction=1.0)]
+
+    def finalize(self) -> list[ProvisionEvent]:
+        """Flush a deferred ``provision.done`` at end-of-stream.
+
+        Call once after the last Terraform line. When the apply completed but
+        done was held waiting for outputs that never arrived, this emits it
+        now (``console_url`` may be ``None``). No-op when done already fired
+        or the apply never completed - a failed / aborted run keeps its last
+        honest state (a ``provision.failed`` and the stalled meter) rather
+        than being papered over with a success.
+        """
+        return self._emit_done_if_ready(force=True)
+
+    def _capture_outputs(self, record: Mapping[str, Any]) -> list[ProvisionEvent]:
         outputs = record.get("outputs")
         if isinstance(outputs, Mapping):
             url = console_url_from_outputs(outputs, key=self.console_output_key)
             if url is not None:
                 self._console_url = url
+        return self._emit_done_if_ready()
 
     def _on_apply_progress(self, record: Mapping[str, Any]) -> list[ProvisionEvent]:
         addr = _resource_addr(record)

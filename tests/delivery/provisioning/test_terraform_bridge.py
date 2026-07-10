@@ -173,21 +173,56 @@ class TestDoneFailed:
 
     def test_done_emitted_once(self) -> None:
         bridge = TerraformProvisionBridge()
+        outputs = _line(
+            {"type": "outputs", "outputs": {"console_url": {"value": "https://c.example.com"}}}
+        )
         apply_summary = _line(
             {"type": "change_summary", "changes": {"add": 1, "operation": "apply"}}
         )
+        bridge.feed(outputs)
         first = bridge.feed(apply_summary)
         second = bridge.feed(apply_summary)
         assert len(first) == 1
         assert second == []
+        assert bridge.finalize() == []  # already done
 
-    def test_done_without_outputs_has_no_console_url(self) -> None:
+    def test_done_deferred_until_outputs_captured(self) -> None:
+        # Real Terraform order: apply change_summary arrives BEFORE outputs.
+        # done MUST wait so it carries the console_url, not emit early w/ None.
         bridge = TerraformProvisionBridge()
-        events = bridge.feed(
+        early = bridge.feed(
             _line({"type": "change_summary", "changes": {"add": 1, "operation": "apply"}})
         )
+        assert early == []  # deferred, no premature done
+        events = bridge.feed(
+            _line(
+                {"type": "outputs", "outputs": {"console_url": {"value": "https://c.example.com"}}}
+            )
+        )
+        assert len(events) == 1
+        assert events[0].phase is ProvisionPhase.DONE
+        assert events[0].console_url == "https://c.example.com"
+
+    def test_finalize_flushes_done_without_outputs(self) -> None:
+        bridge = TerraformProvisionBridge()
+        assert (
+            bridge.feed(
+                _line({"type": "change_summary", "changes": {"add": 1, "operation": "apply"}})
+            )
+            == []
+        )
+        events = bridge.finalize()
+        assert len(events) == 1
         assert events[0].phase is ProvisionPhase.DONE
         assert events[0].console_url is None
+        assert bridge.finalize() == []  # idempotent
+
+    def test_finalize_noop_when_apply_never_finished(self) -> None:
+        # A failed / aborted run never emits change_summary(apply); finalize
+        # MUST NOT paper over it with a fake success.
+        bridge = TerraformProvisionBridge()
+        bridge.feed(_line(_apply_complete("a")))
+        assert bridge.finalize() == []
 
     def test_apply_errored_emits_failed(self) -> None:
         bridge = TerraformProvisionBridge()
@@ -240,12 +275,14 @@ class TestReplay:
             _line(_apply_complete("azurerm_resource_group.main")),
             _line(_apply_complete("azurerm_postgresql_flexible_server.db")),
             _line(_apply_complete("azurerm_container_app.core")),
-            _line({"type": "outputs", "outputs": {"console_url": {"value": "https://x"}}}),
+            # Realistic order: apply change_summary BEFORE outputs.
             _line({"type": "change_summary", "changes": {"add": 3, "operation": "apply"}}),
+            _line({"type": "outputs", "outputs": {"console_url": {"value": "https://x"}}}),
         ]
         collected = []
         for raw in lines:
             collected.extend(bridge.feed(raw))
+        collected.extend(bridge.finalize())
         phases = [e.phase for e in collected]
         assert phases == [
             ProvisionPhase.PROGRESS,
