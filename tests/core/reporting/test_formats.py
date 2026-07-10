@@ -12,6 +12,7 @@ from fdai.core.reporting.formats import (
     HtmlFormatEncoder,
     JsonFormatEncoder,
     MarkdownFormatEncoder,
+    NdjsonFormatEncoder,
     TextFormatEncoder,
     default_format_encoders,
     install_default_formats,
@@ -339,6 +340,69 @@ class TestHtmlFormat:
         assert "&quot;flows&quot;: 2" in body
         # table without columns falls back to JSON <pre>, not a <table>.
         assert "&quot;note&quot;: &quot;raw&quot;" in body
+
+
+class TestNdjsonFormat:
+    def test_content_type_is_ndjson(self) -> None:
+        enc = NdjsonFormatEncoder()
+        assert enc.name == "ndjson"
+        assert enc.content_type == "application/x-ndjson"
+
+    def test_header_line_then_one_object_per_widget(self) -> None:
+        body = NdjsonFormatEncoder().encode(_report()).decode("utf-8")
+        lines = [json.loads(line) for line in body.splitlines()]
+        # Trailing newline -> no empty final element after splitlines.
+        assert body.endswith("\n")
+        # First line is the report header (no widgets embedded).
+        assert lines[0]["kind"] == "report"
+        assert lines[0]["id"] == "ops"
+        assert "widgets" not in lines[0]
+        # Remaining lines are one widget object each.
+        widget_lines = [entry for entry in lines[1:] if entry["kind"] == "widget"]
+        assert {w["id"] for w in widget_lines} >= {"events", "top", "broken"}
+        # The error widget carries its error string on its own line.
+        broken = next(w for w in widget_lines if w["id"] == "broken")
+        assert broken["error"].startswith("datasource error")
+
+    def test_group_children_flatten_with_parent_pointer(self) -> None:
+        now = datetime(2026, 7, 10, 12, 0, tzinfo=UTC)
+        report = RenderedReport(
+            id="g",
+            version="1",
+            name="G",
+            description="",
+            generated_at=now,
+            time_range=(now - timedelta(hours=1), now),
+            variables={},
+            widgets=(
+                RenderedWidget(
+                    id="grp",
+                    type="group",
+                    title="Group",
+                    data={},
+                    children=(
+                        RenderedWidget(
+                            id="kid",
+                            type="query_value",
+                            title="Kid",
+                            data={"value": 7},
+                        ),
+                    ),
+                ),
+            ),
+            tags=(),
+        )
+        body = NdjsonFormatEncoder().encode(report).decode("utf-8")
+        entries = {
+            e["id"]: e
+            for e in (json.loads(line) for line in body.splitlines())
+            if e["kind"] == "widget"
+        }
+        # Parent group emitted with no parent pointer.
+        assert "parent" not in entries["grp"]
+        # Child flattened onto its own line, pointing back at the group.
+        assert entries["kid"]["parent"] == "grp"
+        assert entries["kid"]["data"]["value"] == 7
 
 
 class TestFormatRegistry:
