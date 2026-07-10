@@ -11,6 +11,7 @@ from fdai.core.reporting.formats import (
     CsvFormatEncoder,
     JsonFormatEncoder,
     MarkdownFormatEncoder,
+    TextFormatEncoder,
     default_format_encoders,
     install_default_formats,
 )
@@ -109,6 +110,136 @@ class TestCsvFormat:
         assert len(by_widget["top"]) == 2
         # The scalar widget flattens to one row with the value.
         assert by_widget["events"][0]["value"] == "1200"
+
+
+class TestTextFormat:
+    def test_content_type_is_plain_utf8(self) -> None:
+        enc = TextFormatEncoder()
+        assert enc.name == "text"
+        assert enc.content_type == "text/plain; charset=utf-8"
+
+    def test_header_variables_and_widget_types(self) -> None:
+        body = TextFormatEncoder().encode(_report()).decode("utf-8")
+        # Header block.
+        assert body.startswith("# Ops Overview\n")
+        assert "id: ops  version: 1.0.0" in body
+        assert "window: 2026-07-10T11:00:00+00:00 .. 2026-07-10T12:00:00+00:00" in body
+        # variables line (was uncovered).
+        assert "variables: env=prod" in body
+        # query_value widget renders its scalar.
+        assert "value: 1200" in body
+        # top_list renders as a pipe-joined table with a header row.
+        assert "rule | value" in body
+        assert "cost.idle_vm | 12" in body
+        # error widget short-circuits to an ERROR line.
+        assert "ERROR: datasource error: RuntimeError: boom" in body
+
+    def test_free_text_group_and_unknown_widget_branches(self) -> None:
+        now = datetime(2026, 7, 10, 12, 0, tzinfo=UTC)
+        report = RenderedReport(
+            id="misc",
+            version="1.0.0",
+            name="Misc",
+            description="",
+            generated_at=now,
+            time_range=(now - timedelta(hours=1), now),
+            variables={},
+            widgets=(
+                RenderedWidget(
+                    id="note",
+                    type="free_text",
+                    title="Note",
+                    data={"body": "line one\nline two"},
+                ),
+                RenderedWidget(
+                    id="grp",
+                    type="group",
+                    title="Group",
+                    data={},
+                    children=(
+                        RenderedWidget(
+                            id="child",
+                            type="query_value",
+                            title="Child",
+                            data={"value": 42},
+                        ),
+                    ),
+                ),
+                RenderedWidget(
+                    id="mystery",
+                    type="sankey",
+                    title="Mystery",
+                    data={"flows": 3},
+                ),
+                RenderedWidget(
+                    id="empty",
+                    type="heatmap",
+                    title="Empty",
+                    data={},
+                ),
+            ),
+            tags=(),
+        )
+        body = TextFormatEncoder().encode(report).decode("utf-8")
+        # free_text splits body lines and indents each.
+        assert "line one" in body
+        assert "line two" in body
+        # group recurses into children at a deeper heading level.
+        assert "- Child" in body
+        assert "value: 42" in body
+        # unknown type with a summary key -> compact (type: key=value).
+        assert "(sankey: flows=3)" in body
+        # unknown type with empty data -> compact (type: {}) fallback.
+        assert "(heatmap: {})" in body
+        # No variables line when variables is empty.
+        assert "variables:" not in body
+
+    def test_table_without_columns_and_row_truncation(self) -> None:
+        now = datetime(2026, 7, 10, 12, 0, tzinfo=UTC)
+        report = RenderedReport(
+            id="tbl",
+            version="1.0.0",
+            name="Tables",
+            description="",
+            generated_at=now,
+            time_range=(now - timedelta(hours=1), now),
+            variables={},
+            widgets=(
+                RenderedWidget(
+                    id="nocols",
+                    type="table",
+                    title="No columns",
+                    data={"note": "raw"},
+                ),
+                RenderedWidget(
+                    id="big",
+                    type="table",
+                    title="Big",
+                    data={
+                        # 'opt' is absent from every row -> exercises the
+                        # None-cell -> empty-string branch.
+                        "columns": ["n", "opt"],
+                        "rows": [{"n": i} for i in range(55)],
+                    },
+                ),
+            ),
+            tags=(),
+        )
+        body = TextFormatEncoder().encode(report).decode("utf-8")
+        # Table without columns falls back to a repr of the mapping.
+        assert "'note': 'raw'" in body
+        # Only the first 50 rows render, then a truncation marker.
+        assert "... (5 more rows)" in body
+        # The header carries both columns, and a missing 'opt' renders as
+        # an empty trailing cell (row '0 | '), never the literal 'None'.
+        assert "n | opt" in body
+        assert "0 | " in body
+        assert "| None" not in body
+
+    def test_ascii_only_punctuation(self) -> None:
+        body = TextFormatEncoder().encode(_report()).decode("utf-8")
+        for banned in ("\u2014", "\u2013", "\u2026", "\u201c", "\u201d", "\u00a0"):
+            assert banned not in body
 
 
 class TestFormatRegistry:
