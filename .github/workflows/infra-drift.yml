@@ -1,0 +1,64 @@
+name: infra-drift
+
+# Scheduled drift detection: run `terraform plan` against the live remote state
+# on the self-hosted VNet runner and fail (a visible signal) when the real
+# infrastructure has drifted from code. Detection only - never applies.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1-5" # weekdays 06:17 UTC
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment."
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drift-${{ inputs.environment || 'dev' }}
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    runs-on: [self-hosted, fdai-deploy]
+    defaults:
+      run:
+        working-directory: infra
+    env:
+      ARM_USE_AZUREAD: "true"
+      ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      TF_VAR_env: ${{ inputs.environment || 'dev' }}
+      TF_VAR_region: ${{ vars.AZURE_REGION }}
+      TF_VAR_region_short: ${{ vars.AZURE_REGION_SHORT }}
+      TF_VAR_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+      TF_VAR_enable_private_networking: "true"
+      TF_VAR_runner_vnet_id: ${{ vars.OPS_VNET_ID }}
+      TF_VAR_runner_vnet_name: ${{ vars.OPS_VNET_NAME }}
+      TF_VAR_ops_resource_group_name: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
+      TF_VAR_postgres_admin_login: ${{ secrets.POSTGRES_ADMIN_LOGIN }}
+      TF_VAR_postgres_admin_password: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (runner managed identity)
+        run: az login --identity --allow-no-subscriptions
+
+      - name: Activate remote state backend
+        run: cp backend.azurerm.tf.example backend.tf
+
+      - name: Terraform init
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.OPS_RESOURCE_GROUP_NAME }}" \
+            -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=fdai-${{ inputs.environment || 'dev' }}.tfstate"
+
+      - name: Terraform plan (detect drift)
+        # -detailed-exitcode: 0 = no changes, 1 = error, 2 = drift. The step
+        # fails on 2 so the run turns red = a human-visible drift signal.
+        run: terraform plan -input=false -lock-timeout=300s -detailed-exitcode

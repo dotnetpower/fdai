@@ -49,6 +49,48 @@ resource "azurerm_management_lock" "resource_group" {
   notes      = "Protects the FDAI environment from accidental deletion (enable_resource_locks)."
 }
 
+# Opt-in monthly cost budget on the RG with progressive alert thresholds. Set
+# monthly_budget_amount > 0 to enable; alerts fire to the address list only
+# (never an autonomous action).
+resource "azurerm_consumption_budget_resource_group" "monthly" {
+  count             = var.monthly_budget_amount > 0 ? 1 : 0
+  name              = "budget-${var.workload}${local.full_suffix}"
+  resource_group_id = module.resource_group.id
+
+  amount     = var.monthly_budget_amount
+  time_grain = "Monthly"
+
+  time_period {
+    start_date = formatdate("YYYY-MM-01'T'00:00:00Z", timestamp())
+  }
+
+  dynamic "notification" {
+    for_each = var.budget_alert_emails
+    content {
+      enabled        = true
+      threshold      = 90
+      operator       = "GreaterThanOrEqualTo"
+      threshold_type = "Actual"
+      contact_emails = [notification.value]
+    }
+  }
+
+  dynamic "notification" {
+    for_each = var.budget_alert_emails
+    content {
+      enabled        = true
+      threshold      = 100
+      operator       = "GreaterThanOrEqualTo"
+      threshold_type = "Forecasted"
+      contact_emails = [notification.value]
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [time_period[0].start_date]
+  }
+}
+
 # -----------------------------------------------------------------------
 # Private networking (policy-locked tenants) - VNet + delegated subnets.
 # Only instantiated when enable_private_networking = true; the default

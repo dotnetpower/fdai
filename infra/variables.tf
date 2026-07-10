@@ -283,3 +283,15 @@ variable "enable_resource_locks" {
   default     = false
 }
 
+variable "monthly_budget_amount" {
+  description = "Monthly cost budget for the resource group (in the billing currency). 0 disables the budget. Alerts fire at 90% actual + 100% forecast to budget_alert_emails."
+  type        = number
+  default     = 0
+}
+
+variable "budget_alert_emails" {
+  description = "Email addresses that receive cost-budget alerts. Empty disables notifications even when a budget amount is set."
+  type        = list(string)
+  default     = []
+}
+

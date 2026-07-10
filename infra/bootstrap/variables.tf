@@ -104,3 +104,15 @@ variable "enable_state_lock" {
   type        = bool
   default     = false
 }
+
+variable "runner_auto_shutdown_time" {
+  description = "Daily auto-shutdown time for the runner VM in 24h HHmm (e.g. '1900'). Empty disables auto-shutdown. Cuts idle cost; start the VM (or teardown-env.sh runner-start) before a CI run."
+  type        = string
+  default     = ""
+}
+
+variable "runner_auto_shutdown_timezone" {
+  description = "Timezone for runner_auto_shutdown_time (e.g. 'Korea Standard Time', 'UTC')."
+  type        = string
+  default     = "UTC"
+}

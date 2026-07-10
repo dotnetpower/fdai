@@ -236,3 +236,19 @@ resource "azurerm_management_lock" "state" {
   lock_level = "CanNotDelete"
   notes      = "Protects the terraform remote-state account from accidental deletion."
 }
+
+# Opt-in daily auto-shutdown for the runner VM to cut idle cost. Start it again
+# (az vm start / teardown-env.sh runner-start) before a CI run.
+resource "azurerm_dev_test_global_vm_shutdown_schedule" "runner" {
+  count              = var.create_runner_vm && var.runner_auto_shutdown_time != "" ? 1 : 0
+  virtual_machine_id = azurerm_linux_virtual_machine.runner[0].id
+  location           = var.region
+  enabled            = true
+
+  daily_recurrence_time = var.runner_auto_shutdown_time
+  timezone              = var.runner_auto_shutdown_timezone
+
+  notification_settings {
+    enabled = false
+  }
+}
