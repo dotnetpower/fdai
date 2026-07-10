@@ -115,6 +115,11 @@ def _render_table(data: Mapping[str, Any]) -> list[str]:
     lines.append("|" + "|".join(" --- " for _ in columns) + "|")
     row_iter: Sequence[Mapping[str, Any]] = rows
     for row in row_iter:
+        if not isinstance(row, Mapping):
+            # A non-Mapping row (bad datasource) is rendered as one
+            # empty cell rather than crashing the whole table.
+            lines.append("| " + " | ".join("" for _ in columns) + " |")
+            continue
         cells = [_escape(row.get(c)) for c in columns]
         lines.append("| " + " | ".join(cells) + " |")
     return lines

@@ -64,6 +64,11 @@ _REPORT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,63}$")
 # malformed value should short-circuit *before* the registry lookup so
 # the log line never records an attacker-controlled string.
 _FORMAT_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+# Variable names are declared in YAML with the same regex as the JSON
+# Schema on ``variable.name``. Reject any override whose name does not
+# match up-front so an attacker-controlled key never lands in a log
+# line or in a downstream substitution attempt.
+_VARIABLE_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,6 +208,13 @@ def build_reporting_routes(
         format_name = raw_params.pop(_FORMAT_QUERY_PARAM, default_format)
         if not _FORMAT_NAME_RE.fullmatch(format_name):
             return _error(400, "malformed format name")
+        # Defense in depth: reject any variable-name key that would not
+        # have passed the JSON Schema on declared variables. This keeps
+        # attacker-controlled keys out of log lines and stops downstream
+        # substitution helpers ever seeing them.
+        for var_name in raw_params:
+            if not _VARIABLE_NAME_RE.fullmatch(var_name):
+                return _error(400, "malformed variable name")
         try:
             encoder = formats.get(format_name)
         except FormatNotFoundError:

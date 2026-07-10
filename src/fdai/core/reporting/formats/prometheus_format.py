@@ -47,17 +47,18 @@ class PrometheusFormatEncoder:
     ) -> None:
         if widget.error is not None:
             return
+        title = _sanitize_help(widget.title)
         if widget.type == "query_value":
             value = _as_float(widget.data.get("value"))
             if value is None:
                 return
             metric = _metric_name(report_id, widget.id)
-            lines.append(f"# HELP {metric} {widget.title}")
+            lines.append(f"# HELP {metric} {title}")
             lines.append(f"# TYPE {metric} gauge")
             lines.append(f"{metric} {value}")
         elif widget.type in ("timeseries", "heatmap", "sparkline"):
             metric = _metric_name(report_id, widget.id)
-            lines.append(f"# HELP {metric} {widget.title}")
+            lines.append(f"# HELP {metric} {title}")
             lines.append(f"# TYPE {metric} gauge")
             for entry in widget.data.get("series") or ():
                 if not isinstance(entry, Mapping):
@@ -75,6 +76,20 @@ class PrometheusFormatEncoder:
 
 def _metric_name(report_id: str, widget_id: str) -> str:
     return "fdai_report_" + _SANITIZE.sub("_", f"{report_id}_{widget_id}")
+
+
+def _sanitize_help(value: str) -> str:
+    """Collapse whitespace and drop line breaks so a HELP line is one line.
+
+    Prometheus text-exposition format expects HELP / TYPE / sample
+    on separate lines; a title carrying ``\\n`` would silently split
+    into a bogus new directive and break scrape parsing. Backslashes
+    are escaped per the exposition-format spec.
+    """
+    if not value:
+        return "(no title)"
+    escaped = value.replace("\\", "\\\\").replace("\n", " ").replace("\r", " ")
+    return escaped.strip() or "(no title)"
 
 
 def _escape_label(value: str) -> str:

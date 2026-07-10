@@ -93,6 +93,11 @@ def _render_table(data: Mapping[str, Any]) -> list[str]:
         out.append(f"<th>{html.escape(str(col))}</th>")
     out.append("</tr></thead><tbody>")
     for row in rows:
+        if not isinstance(row, Mapping):
+            # Non-Mapping row from a bad datasource: emit blanks so we
+            # never crash the whole table on one hostile record.
+            out.append("<tr>" + "".join("<td></td>" for _ in columns) + "</tr>")
+            continue
         out.append("<tr>")
         for col in columns:
             value = row.get(col)

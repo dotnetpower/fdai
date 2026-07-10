@@ -79,6 +79,11 @@ class CsvFormatEncoder:
             columns = widget.data.get("columns") or ()
             out: list[dict[str, Any]] = []
             for row in widget.data.get("rows") or ():
+                # Defense-in-depth: a fork-authored datasource that
+                # returned a non-Mapping row (a bare string, an int,
+                # ...) would otherwise crash the whole encoder.
+                if not isinstance(row, Mapping):
+                    continue
                 merged: dict[str, Any] = dict(leading)
                 for col in columns:
                     merged[str(col)] = _stringify(row.get(col))

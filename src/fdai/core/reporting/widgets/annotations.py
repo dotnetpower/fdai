@@ -123,12 +123,19 @@ __all__ = [
 class IframeBuilder:
     """Embed an external page via ``<iframe>``.
 
-    Rejects non-https URLs. The FE MUST render the frame with a
-    restrictive ``sandbox`` attribute (this builder does not force one
-    since sandbox flags are FE-owned); it does forward the ``sandbox``
-    option so a report author can specify the exact allowlist.
+    Rejects non-https URLs. Always emits a ``sandbox`` attribute:
 
-    Widget ``data``: ``{"src", "height"?, "sandbox"?}``.
+    - If the report author supplies ``options.sandbox`` (any string,
+      including the empty string), it is forwarded verbatim so a
+      specific allowlist like ``"allow-scripts allow-same-origin"``
+      can be granted deliberately.
+    - Otherwise the payload carries ``sandbox=""`` - Fetch spec
+      shorthand for "deny every capability" (no scripts, no forms, no
+      top-level navigation). Defense-in-depth so an author who copy-
+      pastes an iframe without thinking about sandboxing still gets
+      the safest possible frame.
+
+    Widget ``data``: ``{"src", "height"?, "sandbox"}``.
     """
 
     type_name = "iframe"
@@ -146,6 +153,9 @@ class IframeBuilder:
         if isinstance(height, (int, float)) and not isinstance(height, bool):
             payload["height"] = int(height)
         sandbox = spec.options.get("sandbox")
-        if isinstance(sandbox, str) and sandbox:
+        if isinstance(sandbox, str):
             payload["sandbox"] = sandbox
+        else:
+            # Default to "deny every capability" - the safest sandbox.
+            payload["sandbox"] = ""
         return payload

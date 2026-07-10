@@ -229,6 +229,20 @@ class ReportEngine:
             ]
 
         async def _run(spec: WidgetSpec) -> RenderedWidget:
+            # Group / tabs widgets are pure bookkeeping wrappers - they
+            # never call a datasource, so they MUST NOT hold a permit
+            # while their children (which do call a datasource) try to
+            # acquire one. Otherwise a max_concurrent_widgets=1 config
+            # deadlocks: the group parent owns the only permit and its
+            # first child blocks forever waiting for it.
+            if spec.type in GROUP_LIKE_WIDGET_TYPES:
+                return await self._render_widget(
+                    spec,
+                    since=since,
+                    until=until,
+                    variables=variables,
+                    semaphore=semaphore,
+                )
             async with semaphore:
                 return await self._render_widget(
                     spec,

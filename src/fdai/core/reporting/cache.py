@@ -18,6 +18,7 @@ wired datasource is stable-enough for staleness == TTL.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections import OrderedDict
 from collections.abc import Mapping
@@ -42,7 +43,7 @@ class InMemoryReportCache:
     fork needs multi-thread access, wrap externally.
     """
 
-    __slots__ = ("_engine", "_ttl_seconds", "_max_entries", "_store")
+    __slots__ = ("_engine", "_ttl_seconds", "_max_entries", "_store", "_locks")
 
     def __init__(
         self,
@@ -61,6 +62,14 @@ class InMemoryReportCache:
         self._store: OrderedDict[tuple[str, tuple[tuple[str, str], ...]], ReportCacheEntry] = (
             OrderedDict()
         )
+        # Per-key async lock so concurrent requests for the same key
+        # do NOT stampede the engine (thundering herd). The first
+        # caller renders and populates the cache; subsequent callers
+        # await the lock, then find the fresh entry on the second
+        # `_store.get` and short-circuit.
+        self._locks: dict[
+            tuple[str, tuple[tuple[str, str], ...]], asyncio.Lock
+        ] = {}
 
     # Forward the standard engine facade so a caller does not know it is
     # talking to a cache.
@@ -93,17 +102,35 @@ class InMemoryReportCache:
         variables: Mapping[str, str] | None = None,
     ) -> RenderedReport:
         key = (report_id, tuple(sorted((variables or {}).items())))
-        entry = self._store.get(key)
         now = time.monotonic()
+        entry = self._store.get(key)
         if entry is not None and (now - entry.stored_at) <= self._ttl_seconds:
-            # Refresh LRU order without touching the entry payload.
             self._store.move_to_end(key)
             return entry.report
-        rendered = await self._engine.render(report_id, variables=variables)
-        self._store[key] = ReportCacheEntry(report=rendered, stored_at=now)
-        self._store.move_to_end(key)
-        while len(self._store) > self._max_entries:
-            self._store.popitem(last=False)
+
+        # Single-flight: at most one render per key runs at a time.
+        lock = self._locks.setdefault(key, asyncio.Lock())
+        async with lock:
+            # Double-checked read - a concurrent caller may have
+            # populated the cache while we were waiting on the lock.
+            entry = self._store.get(key)
+            now = time.monotonic()
+            if entry is not None and (now - entry.stored_at) <= self._ttl_seconds:
+                self._store.move_to_end(key)
+                return entry.report
+            rendered = await self._engine.render(report_id, variables=variables)
+            self._store[key] = ReportCacheEntry(report=rendered, stored_at=now)
+            self._store.move_to_end(key)
+            while len(self._store) > self._max_entries:
+                evicted, _ = self._store.popitem(last=False)
+                # Drop the paired lock too so the dict does not grow
+                # unbounded (locks are per-key, LRU-bounded like entries).
+                self._locks.pop(evicted, None)
+        # Drop this key's lock if it is no longer relevant (LRU already
+        # evicted the entry we just wrote); keeping a dead lock is
+        # harmless but the dict would otherwise grow forever.
+        if key not in self._store:
+            self._locks.pop(key, None)
         return rendered
 
     def invalidate(self, report_id: str | None = None) -> None:
@@ -115,10 +142,12 @@ class InMemoryReportCache:
         """
         if report_id is None:
             self._store.clear()
+            self._locks.clear()
             return
         stale = [key for key in self._store if key[0] == report_id]
         for key in stale:
             self._store.pop(key, None)
+            self._locks.pop(key, None)
 
 
 __all__ = ["InMemoryReportCache", "ReportCacheEntry"]
