@@ -13,16 +13,20 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+import pytest
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
+from fdai.delivery.read_api.auth import build_authenticator
 from fdai.delivery.read_api.console_action import (
     ConsoleActionSubmitter,
     make_console_action_route,
 )
+from fdai.delivery.read_api.main import ReadApiConfig, build_app
+from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 _TOPIC = "fdai.events"
@@ -153,3 +157,47 @@ def test_route_rejects_empty_prompt() -> None:
     client = TestClient(_app(sub, _principal("u", Role.CONTRIBUTOR)))
     resp = client.post("/chat/action", json={"prompt": "   "})
     assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# build_app wiring (dev mode grants a Contributor principal)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def _dev_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FDAI_READ_API_DEV_MODE", "1")
+
+
+def _built_client(*, wire_action: bool) -> tuple[TestClient, InMemoryEventBus]:
+    bus = InMemoryEventBus()
+    submitter = ConsoleActionSubmitter(event_bus=bus, raw_event_topic=_TOPIC)
+    auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None)
+    app = build_app(
+        authenticator=auth,
+        read_model=InMemoryConsoleReadModel(),
+        config=ReadApiConfig(
+            dev_mode=True,
+            console_action=submitter if wire_action else None,
+        ),
+    )
+    return TestClient(app), bus
+
+
+def test_build_app_registers_action_route_when_wired(_dev_mode: None) -> None:
+    client, bus = _built_client(wire_action=True)
+    # dev mode grants a Contributor principal, so the submit succeeds.
+    resp = client.post("/chat/action", json={"prompt": "restart svc-1"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["submitted"] is True
+    # The proposal actually reached the bus.
+    envs = asyncio.run(_drain(bus, _TOPIC))
+    assert len(envs) == 1
+    assert envs[0].payload["action_type"] == "ops.restart-service"
+
+
+def test_build_app_omits_action_route_when_not_wired(_dev_mode: None) -> None:
+    client, _bus = _built_client(wire_action=False)
+    resp = client.post("/chat/action", json={"prompt": "restart svc-1"})
+    assert resp.status_code == 404
+
