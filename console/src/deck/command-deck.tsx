@@ -117,6 +117,19 @@ export function CommandDeck() {
     };
   }, []);
 
+  // Re-probe whenever the deck opens so a backend that came online (or dropped)
+  // since the last check is reflected in the badge before the first question.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void probeBackend().then((h) => {
+      if (!cancelled) setHealth(h);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
   const focusInput = useCallback(() => {
     // requestAnimationFrame lets the overlay layout before the caret jumps in.
     requestAnimationFrame(() => inputRef.current?.focus());
