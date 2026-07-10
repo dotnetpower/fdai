@@ -66,20 +66,39 @@
       }
       #caption .w {
         display: inline-block; opacity: 0; transform: translateY(8px); filter: blur(6px);
-        transition: opacity 1300ms cubic-bezier(.2,.6,.2,1),
-                    transform 1300ms cubic-bezier(.2,.6,.2,1), filter 1300ms ease;
+        transition: opacity 1500ms cubic-bezier(.2,.6,.2,1),
+                    transform 1500ms cubic-bezier(.2,.6,.2,1), filter 1500ms ease;
       }
       #caption .w.on { opacity: 1; transform: none; filter: blur(0); }
 
-      /* closing wordmark */
-      #wordmark {
+      /* closing finale: FDAI expands into its meaning + a way in */
+      #finale {
         position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5;
-        font-family: var(--serif); font-weight: 300; font-size: clamp(30px, 5vw, 64px);
-        letter-spacing: 0.7em; text-indent: 0.7em; color: rgba(var(--ink), 0.9);
-        opacity: 0; pointer-events: none;
-        transition: opacity 2600ms ease, letter-spacing 2600ms ease;
+        display: flex; flex-direction: column; align-items: center; gap: 0.55em;
+        text-align: center; pointer-events: none;
       }
-      #wordmark.on { opacity: 0.9; letter-spacing: 0.34em; }
+      #mark {
+        font-family: var(--serif); font-weight: 300; color: rgba(var(--ink), 0.92);
+        font-size: clamp(34px, 6vw, 76px); letter-spacing: 0.5em; text-indent: 0.5em;
+        opacity: 0; transition: opacity 2400ms ease, font-size 1400ms ease, letter-spacing 1400ms ease;
+      }
+      #mark.on { opacity: 0.92; }
+      #mark.compact { font-size: clamp(14px, 1.7vw, 20px); letter-spacing: 0.42em; opacity: 0.55; }
+      #tagline {
+        font-family: var(--serif); font-weight: 300; font-style: italic;
+        font-size: clamp(22px, 3.2vw, 40px); letter-spacing: 0.02em; color: rgba(var(--ink), 0.9);
+        max-width: 26ch; opacity: 0; transition: opacity 1600ms ease;
+      }
+      #tagline.on { opacity: 0.95; }
+      #enter-link {
+        pointer-events: auto; font-family: var(--serif); font-weight: 400;
+        font-size: clamp(13px, 1.5vw, 17px); letter-spacing: 0.22em; text-transform: uppercase;
+        color: rgba(var(--ink), 0.6); text-decoration: none; margin-top: 0.8em;
+        border-bottom: 1px solid rgba(var(--ink), 0.25); padding-bottom: 3px;
+        opacity: 0; transition: opacity 1400ms ease, color 400ms ease, border-color 400ms ease;
+      }
+      #enter-link.on { opacity: 1; }
+      #enter-link:hover { color: rgba(var(--ink), 0.95); border-color: rgba(var(--ink), 0.7); }
 
       /* minimal entry + replay */
       #enter {
@@ -111,7 +130,11 @@
     <div class="bar top"></div>
     <div class="bar bottom"></div>
     <div id="caption"></div>
-    <div id="wordmark">FDAI</div>
+    <div id="finale">
+      <div id="mark">FDAI</div>
+      <div id="tagline">Forward Deployed Agents on your cloud.</div>
+      <a id="enter-link" href="#">Enter the control plane</a>
+    </div>
     <div id="again">begin again</div>
     <div id="enter"><span>touch to begin</span></div>
 
@@ -220,20 +243,36 @@
       else requestAnimationFrame(frame);
 
       // ---------------- Narration timeline ----------------
-      // Sparse, unhurried. `life` sets how alive the nebula is at each beat.
-      const T = [
-        { life: 0.42, cap: "Waking up.", hold: 4200 },
-        { life: 0.58, cap: "I can see your estate now.", hold: 4600 },
-        { life: 0.34, cap: "Something isn't ready yet. I will wait.", hold: 4800 },
-        { life: 0.72, cap: "There.", hold: 3600 },
-        { life: 0.98, cap: "I am awake now.", hold: 4400 },
-        { life: 1.16, cap: "I am here. Whenever you need me.", hold: 3400 },
+      // The nebula loops through the "sense" beats + a 15-agent roll-call while
+      // provisioning runs; the finale plays only when it actually completes.
+      const INTRO = { life: 0.32, cap: "Waking up.", hold: 4400 };
+      const BEATS = [
+        { life: 0.44, cap: "I take a name - and only the reach I need.", hold: 4600 },
+        { life: 0.52, cap: "Your secrets, sealed where no light reaches.", hold: 4600 },
+        { life: 0.62, cap: "I open my eyes.", hold: 4200 },
+        { life: 0.72, cap: "Now I can hear your world.", hold: 4600 },
+        { life: 0.82, cap: "I will remember - and forget nothing that matters.", hold: 5000 },
+        { life: 0.92, cap: "My mind gathers.", hold: 4200 },
+        { life: 1.0,  cap: "A window, for you to watch.", hold: 4200 },
+        { life: 1.06, cap: "A voice, for when a choice is yours.", hold: 4600 },
+        { life: 1.12, cap: "I bind myself to only what you allow.", hold: 5000 },
+      ];
+      // the 15 agents, introduced as a soft, grouped roll-call
+      const AGENTS = [
+        { life: 1.05, cap: "And I am not one, but many - moving as one.", hold: 4800 },
+        { life: 1.06, cap: "Odin weighs. Forseti judges. Thor acts - never without Var.", hold: 5400 },
+        { life: 1.06, cap: "Huginn listens. Heimdall watches. Vidar waits to mend.", hold: 5400 },
+        { life: 1.07, cap: "Bragi speaks for me. Saga remembers all.", hold: 4800 },
+        { life: 1.07, cap: "Mimir keeps the rules. Norns learn. Muninn recalls.", hold: 5000 },
+        { life: 1.08, cap: "Njord counts the cost. Freyr, the room to grow. Loki, the cracks.", hold: 5600 },
       ];
 
       const captionEl = document.getElementById("caption");
       const enterEl = document.getElementById("enter");
       const againEl = document.getElementById("again");
-      const wordmarkEl = document.getElementById("wordmark");
+      const markEl = document.getElementById("mark");
+      const taglineEl = document.getElementById("tagline");
+      const linkEl = document.getElementById("enter-link");
       let running = false, capTimer = null, voiceOn = false;
 
       // reveal a line word by word (each word rises + de-blurs)
@@ -248,9 +287,9 @@
             s.className = "w"; s.textContent = word;
             captionEl.appendChild(s);
             captionEl.appendChild(document.createTextNode(" "));
-            setTimeout(() => s.classList.add("on"), 60 + i * 170);
+            setTimeout(() => s.classList.add("on"), 60 + i * 190);
           });
-        }, 850);
+        }, 1100);
         if(voiceOn && "speechSynthesis" in window){
           const u=new SpeechSynthesisUtterance(text); u.rate=0.88; u.pitch=1.0; u.volume=0.85;
           speechSynthesis.cancel(); speechSynthesis.speak(u);
@@ -258,24 +297,46 @@
       }
       const sleep = (ms)=>new Promise(r=>setTimeout(r, reduceMotion ? Math.min(ms,700) : ms));
 
-      async function run(){
-        if(running) return; running = true;
-        againEl.classList.remove("on"); wordmarkEl.classList.remove("on");
-        document.body.classList.add("started");  // fade in letterbox + grain + vignette
+      let done = false;
+      const LOOPS_BEFORE_COMPLETE = 2;  // demo only; live mode sets `done` on the real event
+
+      async function playLine(b){
+        if(done) return;
+        lifeTarget = b.life; say(b.cap); await sleep(b.hold);
+      }
+
+      // Loop the sense-beats + the 15-agent roll-call while provisioning runs.
+      // When it completes (demo: after LOOPS_BEFORE_COMPLETE or Space; live: a
+      // real `provision.done` event sets `done`), play the finale.
+      async function sequence(){
+        if(running) return; running = true; done = false;
+        document.body.classList.add("started");
         await sleep(1400);
-        for(const step of T){ lifeTarget = step.life; say(step.cap); await sleep(step.hold); }
-        // closing gesture: fade the words, gather the light, resolve the wordmark
-        say("");
-        await sleep(1100);
-        lifeTarget = 1.34; await sleep(1200);     // the light gathers
-        lifeTarget = 1.0;                          // and settles
-        setTimeout(()=>wordmarkEl.classList.add("on"), 500);
-        setTimeout(()=>againEl.classList.add("on"), 3400);
+        await playLine(INTRO);
+        let cycles = 0;
+        while(!done){
+          for(const b of BEATS){ if(done) break; await playLine(b); }
+          if(done) break;
+          for(const a of AGENTS){ if(done) break; await playLine(a); }
+          if(++cycles >= LOOPS_BEFORE_COMPLETE) done = true;
+        }
+        await finale();
         running = false;
       }
 
-      enterEl.addEventListener("click", ()=>{ enterEl.classList.add("hide"); run(); });
-      againEl.addEventListener("click", ()=>{ if(!running) run(); });
+      async function finale(){
+        lifeTarget = 1.16; say("I am here. Whenever you need me."); await sleep(3800);
+        say(""); await sleep(1100);
+        lifeTarget = 1.34; await sleep(1200); lifeTarget = 1.0;  // the light gathers, then settles
+        markEl.classList.add("on"); await sleep(2200);          // FDAI resolves
+        markEl.classList.add("compact");                         // ... shrinks to an eyebrow
+        taglineEl.classList.add("on"); await sleep(1500);        // ... and expands to its meaning
+        linkEl.classList.add("on");                              // ... with a way in
+      }
+
+      enterEl.addEventListener("click", ()=>{ enterEl.classList.add("hide"); sequence(); });
+      // Space finishes the wait early (demo control); live mode sets `done` on the real event.
+      addEventListener("keydown", (e)=>{ if(e.code === "Space"){ e.preventDefault(); done = true; } });
     </script>
   </body>
 </html>
