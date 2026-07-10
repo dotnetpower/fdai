@@ -30,6 +30,7 @@ else
     --public-network-access Disabled \
     --allow-shared-key-access false \
     --allow-blob-public-access false \
+    --allow-cross-tenant-replication false \
     -o none
   # Blob versioning so a bad state write is recoverable. Data-plane, so it
   # only works from inside the VNet (a private account rejects it from a

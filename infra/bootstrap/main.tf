@@ -154,6 +154,10 @@ resource "azurerm_linux_virtual_machine" "runner" {
     storage_account_type = "StandardSSD_LRS"
   }
 
+  # Managed boot diagnostics (serial console + screenshot) for a no-public-IP
+  # VM you can only reach out-of-band.
+  boot_diagnostics {}
+
   source_image_reference {
     publisher = "Canonical"
     offer     = "ubuntu-24_04-lts"
