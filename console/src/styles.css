@@ -2640,6 +2640,23 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   animation: deck-gr-blink 0.9s step-end infinite;
 }
 @keyframes deck-gr-blink { 50% { opacity: 0; } }
+.deck-gr-tools {
+  display: inline-flex;
+  gap: 6px;
+  margin: 2px 0 4px;
+}
+.deck-gr-tool {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.deck-gr-tool:hover { border-color: var(--fg-muted); color: var(--fg); }
+.deck-gr-tool:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .deck-gr-pill {
   align-self: flex-start;
   display: inline-flex;

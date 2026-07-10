@@ -24,6 +24,7 @@ export function GroundedReply({
   citations,
   source,
   streaming,
+  onRegenerate,
 }: {
   readonly turnId: string;
   readonly text: string;
@@ -31,16 +32,49 @@ export function GroundedReply({
   readonly source: string | undefined;
   /** True while the answer is still streaming tokens in from the backend. */
   readonly streaming: boolean;
+  /** Re-run the operator question that produced this reply, if known. */
+  readonly onRegenerate?: () => void;
 }) {
   void turnId;
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const cites = relevantCitations(citations ?? [], text);
+
+  const copy = () => {
+    void navigator.clipboard?.writeText(text).then(
+      () => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1500);
+      },
+      () => {
+        /* clipboard denied - leave the label unchanged */
+      },
+    );
+  };
 
   return (
     <div class="deck-gr">
       <div class="deck-turn-body">
         <RichContent text={text} streaming={streaming} />
       </div>
+
+      {!streaming && text.trim().length > 0 ? (
+        <div class="deck-gr-tools">
+          <button type="button" class="deck-gr-tool" onClick={copy} title="Copy reply">
+            {copied ? "Copied" : "Copy"}
+          </button>
+          {onRegenerate ? (
+            <button
+              type="button"
+              class="deck-gr-tool"
+              onClick={onRegenerate}
+              title="Ask this question again"
+            >
+              Regenerate
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {!streaming && cites.length > 0 ? (
         <>

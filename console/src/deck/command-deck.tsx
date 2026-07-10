@@ -255,6 +255,20 @@ export function CommandDeck() {
     setSrStatus("Stopped.");
   }, []);
 
+  // Re-ask the operator question that produced the deck turn at `deckIndex`.
+  const regenerateAt = useCallback(
+    (deckIndex: number) => {
+      for (let j = deckIndex - 1; j >= 0; j--) {
+        const prev = turns[j];
+        if (prev && prev.role === "operator") {
+          void submit(prev.text);
+          return;
+        }
+      }
+    },
+    [turns, submit],
+  );
+
   // Shell-style history recall: Arrow-Up walks to older submitted prompts,
   // Arrow-Down walks back to the live draft. Only fires when the caret is on
   // the first line (Up) or last line (Down) so multi-line editing is
@@ -355,8 +369,15 @@ export function CommandDeck() {
               {turns.length === 0 ? (
                 <IntroPanel snapshotPresent={snapshot !== null} onPick={submit} />
               ) : null}
-              {turns.map((t) => (
-                <TurnBubble key={t.id} turn={t} onPickFollowUp={submit} />
+              {turns.map((t, i) => (
+                <TurnBubble
+                  key={t.id}
+                  turn={t}
+                  onPickFollowUp={submit}
+                  {...(t.role === "deck" && !t.streaming && !inFlight
+                    ? { onRegenerate: () => regenerateAt(i) }
+                    : {})}
+                />
               ))}
               {pending ? <RetrievalTrace snapshot={snapshot} health={health} /> : null}
             </section>
@@ -431,9 +452,11 @@ export function CommandDeck() {
 function TurnBubble({
   turn,
   onPickFollowUp,
+  onRegenerate,
 }: {
   readonly turn: Turn;
   readonly onPickFollowUp: (t: string) => void;
+  readonly onRegenerate?: () => void;
 }) {
   const isDeck = turn.role === "deck";
   return (
@@ -457,6 +480,7 @@ function TurnBubble({
           citations={turn.citations}
           source={turn.source}
           streaming={turn.streaming === true}
+          {...(onRegenerate ? { onRegenerate } : {})}
         />
       ) : (
         <div class="deck-turn-body">
