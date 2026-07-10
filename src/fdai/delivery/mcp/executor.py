@@ -34,6 +34,7 @@ Safety semantics
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from itertools import count
@@ -50,6 +51,8 @@ from fdai.shared.providers.tool import (
     ToolPromotionError,
 )
 from fdai.shared.providers.workload_identity import WorkloadIdentity
+
+_LOGGER = logging.getLogger(__name__)
 
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0
 
@@ -215,10 +218,12 @@ class McpToolExecutor:
                 message=f"MCP server returned non-JSON for tool {mcp_tool!r}",
             ) from exc
 
-        return await self._map_result(request=request, mcp_tool=mcp_tool, payload=payload)
+        return await self._map_result(
+            request=request, mcp_tool=mcp_tool, payload=payload, rpc_id=rpc_id
+        )
 
     async def _map_result(
-        self, *, request: ToolCallRequest, mcp_tool: str, payload: Any
+        self, *, request: ToolCallRequest, mcp_tool: str, payload: Any, rpc_id: int
     ) -> ToolCallReceipt:
         if not isinstance(payload, Mapping):
             raise ToolError(
@@ -247,10 +252,58 @@ class McpToolExecutor:
                 detail=f"MCP tool {mcp_tool!r} reported isError",
             )
 
+        # JSON-RPC 2.0: a response carries EXACTLY ONE of result / error.
+        # A body with neither (result is absent/null) is malformed - never
+        # bank it as a successful side effect and never record the ledger,
+        # otherwise a retry short-circuits to ALREADY_APPLIED forever on a
+        # tool that never actually ran.
+        if result is None:
+            raise ToolError(
+                kind="protocol",
+                message=(
+                    f"MCP response for tool {mcp_tool!r} carries neither a "
+                    f"'result' nor an 'error'"
+                ),
+            )
+
+        # The response id MUST echo the request id (JSON-RPC 2.0). A
+        # mismatch means we correlated the wrong response - fail closed
+        # rather than bank an unrelated result.
+        response_id = payload.get("id")
+        if response_id != rpc_id:
+            raise ToolError(
+                kind="protocol",
+                message=(
+                    f"MCP response id {response_id!r} does not match request "
+                    f"id {rpc_id!r} for tool {mcp_tool!r}"
+                ),
+            )
+
         receipt_ref = request.metadata.get("mcp_receipt_hint") or (
             f"mcp:{mcp_tool}:{request.idempotency_key}"
         )
-        await self._ledger.record(request.idempotency_key, receipt_ref)
+        # The tool has already run at this point. If the durable ledger
+        # write fails we MUST NOT surface a failure - that would make the
+        # caller retry and double-apply the side effect. Record the gap
+        # and return success; a post-restart retry is investigable via the
+        # warning + the detail string.
+        try:
+            await self._ledger.record(request.idempotency_key, receipt_ref)
+        except Exception as exc:  # noqa: BLE001 - ledger boundary, tool already ran
+            _LOGGER.warning(
+                "mcp ledger record failed for key %s (tool %r): %r",
+                request.idempotency_key,
+                mcp_tool,
+                exc,
+            )
+            return ToolCallReceipt(
+                outcome=ToolCallOutcome.SUCCEEDED,
+                receipt_ref=receipt_ref,
+                detail=(
+                    f"MCP tool {mcp_tool!r} succeeded; idempotency ledger write "
+                    f"failed (a post-restart retry may double-apply)"
+                ),
+            )
         return ToolCallReceipt(
             outcome=ToolCallOutcome.SUCCEEDED,
             receipt_ref=receipt_ref,

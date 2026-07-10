@@ -202,3 +202,96 @@ def test_config_requires_identity_when_audience_set() -> None:
             config=_config(audience="api://mcp"),
             http_client=httpx.AsyncClient(),
         )
+
+
+@pytest.mark.asyncio
+async def test_response_without_result_or_error_is_protocol_error() -> None:
+    """JSON-RPC 2.0: a success response MUST carry a result. A body with
+    neither result nor error must never be banked as a success."""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1})
+
+    ledger = InMemoryMcpLedger()
+    ex, client = _executor(handler, ledger=ledger)
+    try:
+        with pytest.raises(ToolError) as exc:
+            await ex.execute(_request(mode=Mode.ENFORCE, labels=("shadow", "enforce")))
+        assert exc.value.kind == "protocol"
+    finally:
+        await client.aclose()
+    # A malformed response must NOT leave a ledger entry, or a retry would
+    # short-circuit to ALREADY_APPLIED on a tool that never ran.
+    assert await ledger.seen("k1") is None
+
+
+@pytest.mark.asyncio
+async def test_response_id_mismatch_is_protocol_error() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        # Echo the wrong id (request id is 1 on a fresh executor).
+        return httpx.Response(200, json={"jsonrpc": "2.0", "id": 999, "result": {}})
+
+    ledger = InMemoryMcpLedger()
+    ex, client = _executor(handler, ledger=ledger)
+    try:
+        with pytest.raises(ToolError) as exc:
+            await ex.execute(_request(mode=Mode.ENFORCE, labels=("shadow", "enforce")))
+        assert exc.value.kind == "protocol"
+    finally:
+        await client.aclose()
+    assert await ledger.seen("k1") is None
+
+
+@pytest.mark.asyncio
+async def test_transport_error_fails_closed() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused")
+
+    ex, client = _executor(handler)
+    try:
+        with pytest.raises(ToolError) as exc:
+            await ex.execute(_request(mode=Mode.ENFORCE, labels=("shadow", "enforce")))
+        assert exc.value.kind == "transport"
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_non_json_response_is_protocol_error() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="not json at all")
+
+    ex, client = _executor(handler)
+    try:
+        with pytest.raises(ToolError) as exc:
+            await ex.execute(_request(mode=Mode.ENFORCE, labels=("shadow", "enforce")))
+        assert exc.value.kind == "protocol"
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_ledger_record_failure_still_reports_success() -> None:
+    """The tool already ran when the ledger write happens. A ledger
+    failure must NOT surface as FAILED - that would make the caller retry
+    and double-apply the side effect. It returns SUCCEEDED with a flagged
+    detail instead."""
+
+    class _BrokenLedger:
+        async def seen(self, key: str) -> str | None:
+            return None
+
+        async def record(self, key: str, receipt_ref: str) -> None:
+            raise RuntimeError("ledger down")
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": {"content": []}})
+
+    ex, client = _executor(handler, ledger=_BrokenLedger())
+    try:
+        receipt = await ex.execute(_request(mode=Mode.ENFORCE, labels=("shadow", "enforce")))
+    finally:
+        await client.aclose()
+
+    assert receipt.outcome is ToolCallOutcome.SUCCEEDED
+    assert "ledger" in (receipt.detail or "").lower()
