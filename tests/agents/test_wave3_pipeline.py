@@ -212,6 +212,157 @@ def test_forseti_abstains_on_no_rule_match() -> None:
     assert bus.messages_on("object.verdict") == []
 
 
+def test_forseti_operator_initiated_unknown_principal_fails_closed_to_deny() -> None:
+    # An operator-initiated proposal whose initiator is unknown to the RBAC
+    # seam MUST deny (never silently widen privilege via the chat port).
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    f = Forseti(bus=bus)
+    verdict = asyncio.run(
+        f.judge(
+            {
+                "action_type": "remediate.delete-storage",
+                "resource_id": "sa-9",
+                "correlation_id": "c-op",
+                "initiator_principal": "stranger@example.com",
+                "operator_initiated": True,
+            }
+        )
+    )
+    assert verdict is not None
+    assert verdict["risk_verdict"] == "deny"
+    assert verdict["reason"] == "rbac_insufficient"
+    sec = bus.messages_on("object.security-event")
+    assert len(sec) == 1
+    # delete-storage is irreversible -> high severity hint.
+    assert sec[0].payload["severity_hint"] == "high"
+
+
+def test_forseti_judge_without_bus_returns_verdict_and_no_publish() -> None:
+    f = Forseti(bus=None)
+    verdict = asyncio.run(
+        f.judge({"action_type": "ops.restart-service", "correlation_id": "c-nb"})
+    )
+    # No bus wired: the verdict is still computed and returned (reason
+    # rule_match, risk auto) even though nothing is published.
+    assert verdict is not None
+    assert verdict["risk_verdict"] == "auto"
+    assert verdict["reason"] == "rule_match"
+
+
+def test_forseti_denies_rbac_violation_even_without_a_bus() -> None:
+    # Safety: the deny verdict does not depend on a bus. A bus-less judge
+    # still fails an unknown operator initiator closed to deny; the
+    # security-event emit simply short-circuits (nothing to publish to).
+    f = Forseti(bus=None)
+    verdict = asyncio.run(
+        f.judge(
+            {
+                "action_type": "remediate.delete-storage",
+                "resource_id": "sa-x",
+                "correlation_id": "c-nobus-deny",
+                "initiator_principal": "stranger@example.com",
+                "operator_initiated": True,
+            }
+        )
+    )
+    assert verdict is not None
+    assert verdict["risk_verdict"] == "deny"
+    assert verdict["reason"] == "rbac_insufficient"
+
+
+def test_forseti_unknown_topic_is_ignored() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    f = Forseti(bus=bus)
+    asyncio.run(f.on_typed_message("object.unrelated", {"correlation_id": "c"}))
+    assert bus.messages_on("object.verdict") == []
+
+
+def test_forseti_domain_signal_ignores_incomplete_payload() -> None:
+    f = Forseti(bus=None)
+    # No resource id -> ignored (no arbitration, no accumulated advice).
+    assert asyncio.run(f._ingest_domain_signal("cost", {"recommendation": "scale_down"})) is None
+    # No recommendation -> ignored.
+    assert asyncio.run(f._ingest_domain_signal("cost", {"resource_id": "vm-1"})) is None
+
+
+def test_forseti_conflicting_domain_signals_raise_weighted_arbitration() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    f = Forseti(bus=bus)
+    # Cost says scale_down (legacy 'ratio' impact), capacity says scale_up
+    # (legacy 'forecast_util' impact) on the same resource -> conflict.
+    asyncio.run(
+        f.on_typed_message(
+            "object.cost-anomaly",
+            {"resource_id": "vm-7", "recommendation": "scale_down", "ratio": 1.5},
+        )
+    )
+    asyncio.run(
+        f.on_typed_message(
+            "object.capacity-forecast",
+            {"resource_id": "vm-7", "recommendation": "scale_up", "forecast_util": 0.9},
+        )
+    )
+    requests = bus.messages_on("object.arbitration-request")
+    assert len(requests) == 1
+    payload = requests[0].payload
+    assert set(payload["domains_in_conflict"]) == {"cost", "capacity"}
+    # Legacy impact fallbacks were read: cost ratio 1.5 -> 0.5, capacity 0.9.
+    assert payload["impacts"]["cost"] == pytest.approx(0.5)
+    assert payload["impacts"]["capacity"] == pytest.approx(0.9)
+
+
+def test_forseti_records_arbitration_decision() -> None:
+    f = Forseti(bus=None)
+    asyncio.run(
+        f.on_typed_message(
+            "object.arbitration-decision",
+            {"correlation_id": "c-arb", "winning_domain": "capacity"},
+        )
+    )
+    assert f.arbitrations["c-arb"] == "capacity"
+
+
+def test_forseti_introspect_reports_verdict_tables() -> None:
+    f = Forseti(bus=None)
+    result = asyncio.run(f.introspect("what verdicts do you know?", {}))
+    assert result.facts["known_action_verdicts"]
+    assert result.facts["rule_matches"]
+    assert "auto/hil/deny" in result.answer
+
+
+def test_forseti_signal_impact_falls_back_on_non_numeric_fields() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    f = Forseti(bus=bus)
+    # Non-numeric explicit 'impact' and non-numeric legacy fields both trip
+    # the guarded conversions; impact then defaults to 1.0 rather than raising.
+    asyncio.run(
+        f.on_typed_message(
+            "object.cost-anomaly",
+            {"resource_id": "vm-8", "recommendation": "scale_down", "impact": "x", "ratio": "y"},
+        )
+    )
+    asyncio.run(
+        f.on_typed_message(
+            "object.capacity-forecast",
+            {
+                "resource_id": "vm-8",
+                "recommendation": "scale_up",
+                "impact": "x",
+                "forecast_util": "z",
+            },
+        )
+    )
+    requests = bus.messages_on("object.arbitration-request")
+    assert len(requests) == 1
+    impacts = requests[0].payload["impacts"]
+    assert impacts["cost"] == pytest.approx(1.0)
+    assert impacts["capacity"] == pytest.approx(1.0)
+
+
 # ---------------------------------------------------------------------------
 # Thor / Var / Vidar
 # ---------------------------------------------------------------------------
