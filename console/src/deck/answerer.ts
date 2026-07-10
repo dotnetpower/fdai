@@ -14,25 +14,28 @@
  */
 
 import type { GlossaryTerm, ViewSnapshot } from "./context";
-import { TERMS, agentTerm } from "./glossary";
+import { TERMS } from "./glossary";
 
 /** Static, universal glossary the deck falls back to when no route has
  *  published a snapshot yet - so a bare "what is HIL?" is answered even from
- *  the empty deck instead of a "open a route first" shrug. */
+ *  the empty deck instead of a "open a route first" shrug.
+ *
+ *  Only high-signal FDAI terms are here (correlation_id, HIL, ActionType,
+ *  ...); ambiguous generic words that also occur in unrelated contexts
+ *  (mode, agent, tier, outcome) are DELIBERATELY excluded from the null-
+ *  snapshot fallback so 'what is dark mode?' does not hijack the response.
+ *  Those generic terms remain resolvable from a route's own declared
+ *  glossary (where the surrounding facts / records give real context). */
 const STATIC_GLOSSARY: readonly GlossaryTerm[] = [
   TERMS.correlationId,
   TERMS.eventId,
   TERMS.actionKind,
-  TERMS.tier,
-  TERMS.mode,
-  TERMS.outcome,
   TERMS.gateDecision,
   TERMS.waterfall,
   TERMS.hil,
   TERMS.shadowMode,
   TERMS.actionType,
   TERMS.blastRadius,
-  agentTerm(),
 ];
 
 export interface Citation {

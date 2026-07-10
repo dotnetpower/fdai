@@ -312,3 +312,28 @@ describe("catalog list resolvers (list agents / tiers / roles / verticals)", () 
     expect(a.text).not.toContain("Owner");
   });
 });
+
+describe("static glossary false-positive guard (round 5)", () => {
+  test("'what is dark mode?' does NOT hijack to shadow-vs-enforce", () => {
+    const a = answer("what is dark mode?", null);
+    // Ambiguous generic terms ("mode") are excluded from the static
+    // universal glossary so they don't hijack unrelated questions.
+    expect(a.text.toLowerCase()).not.toContain("shadow");
+    expect(a.text).toMatch(/No route has published/);
+  });
+
+  test("'what is HIL?' still resolves (high-signal term)", () => {
+    const a = answer("what is HIL?", null);
+    expect(a.text.toLowerCase()).toContain("human-in-the-loop");
+  });
+
+  test("'what is an agent?' does NOT hijack via generic 'agent'", () => {
+    const a = answer("what is an agent?", null);
+    expect(a.text).toMatch(/No route has published/);
+  });
+
+  test("'what is my tier?' does NOT hijack via generic 'tier'", () => {
+    const a = answer("what is my tier?", null);
+    expect(a.text).toMatch(/No route has published/);
+  });
+});
