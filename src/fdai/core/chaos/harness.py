@@ -42,7 +42,16 @@ _WILDCARD = "*"
 class FaultInjectionHarness:
     """Run governed, reversible fault-injection experiments."""
 
-    __slots__ = ("_injectors", "_probe", "_recorder", "_sleeper", "_wall_clock")
+    __slots__ = (
+        "_injectors",
+        "_max_hold",
+        "_op_timeout",
+        "_probe",
+        "_recorder",
+        "_rollback_timeout",
+        "_sleeper",
+        "_wall_clock",
+    )
 
     def __init__(
         self,
@@ -52,12 +61,29 @@ class FaultInjectionHarness:
         recorder: ExperimentRecorder | None = None,
         sleeper: Callable[[float], Awaitable[None]] | None = None,
         wall_clock: Callable[[], datetime] | None = None,
+        operation_timeout_seconds: float = 30.0,
+        rollback_timeout_seconds: float = 30.0,
+        max_hold_seconds: float = 600.0,
     ) -> None:
+        if operation_timeout_seconds <= 0:
+            raise ValueError("operation_timeout_seconds MUST be positive")
+        if rollback_timeout_seconds <= 0:
+            raise ValueError("rollback_timeout_seconds MUST be positive")
+        if max_hold_seconds <= 0:
+            raise ValueError("max_hold_seconds MUST be positive")
         self._injectors: dict[str, FaultInjector] = {inj.fault_type: inj for inj in injectors}
         self._probe: SignalProbe = probe or NoSignalProbe()
         self._recorder: ExperimentRecorder = recorder or InMemoryExperimentRecorder()
         self._sleeper: Callable[[float], Awaitable[None]] = sleeper or asyncio.sleep
         self._wall_clock: Callable[[], datetime] = wall_clock or (lambda: datetime.now(tz=UTC))
+        # Safety bounds: an injector / probe that hangs must never block the
+        # experiment, and a hanging rollback must never leave a live fault
+        # in place forever. ``max_hold`` caps the time-in-fault dimension of
+        # the blast radius so an over-large authored duration cannot hold a
+        # perturbation indefinitely.
+        self._op_timeout = operation_timeout_seconds
+        self._rollback_timeout = rollback_timeout_seconds
+        self._max_hold = max_hold_seconds
 
     def _resolve(self, fault_type: str) -> FaultInjector | None:
         return self._injectors.get(fault_type) or self._injectors.get(_WILDCARD)
@@ -117,15 +143,41 @@ class FaultInjectionHarness:
                 error=f"no_injector_for_fault_type:{scenario.fault_type}",
             )
 
+        # An enforce run with no targets would sleep + probe while
+        # perturbing nothing - a meaningless (and time-wasting) experiment.
+        # Refuse it rather than "hold a fault" on the empty set.
+        if not targets:
+            return await self._finish(
+                experiment_id=experiment_id,
+                scenario=scenario,
+                mode=mode,
+                targets=targets,
+                started=started,
+                outcome=ExperimentOutcome.ABORTED,
+                detected=False,
+                injected=False,
+                stopped=True,
+                error="no_approved_targets",
+            )
+
         injected_targets: list[str] = []
         detected = False
         error: str | None = None
         try:
             for target in targets:
-                await injector.inject(target=target, params=scenario.params)
+                await asyncio.wait_for(
+                    injector.inject(target=target, params=scenario.params),
+                    timeout=self._op_timeout,
+                )
                 injected_targets.append(target)
-            await self._sleeper(scenario.duration_seconds)
-            detected = await self._probe.observed(signal=scenario.expected_signal, targets=targets)
+            # Cap time-in-fault: an over-large authored duration cannot hold
+            # the perturbation past the harness ceiling.
+            hold = min(scenario.duration_seconds, self._max_hold)
+            await self._sleeper(hold)
+            detected = await asyncio.wait_for(
+                self._probe.observed(signal=scenario.expected_signal, targets=targets),
+                timeout=self._op_timeout,
+            )
         except Exception as exc:  # noqa: BLE001 - fail closed, always roll back
             error = f"{type(exc).__name__}:{exc}"
             _LOGGER.error(
@@ -162,11 +214,22 @@ class FaultInjectionHarness:
         )
 
     async def _stop_all(self, injector: FaultInjector, targets: Sequence[str]) -> bool:
-        """Stop every target; report whether rollback fully succeeded."""
+        """Stop every target; report whether rollback fully succeeded.
+
+        Each stop is bounded by ``rollback_timeout``: a hanging rollback
+        must never block the harness, and a timeout is recorded as a
+        rollback failure (``stopped=False``) so the audit surfaces a
+        possibly-live fault for a human, rather than the run hanging.
+        """
         ok = True
         for target in targets:
             try:
-                await injector.stop(target=target)
+                await asyncio.wait_for(
+                    injector.stop(target=target), timeout=self._rollback_timeout
+                )
+            except TimeoutError:
+                ok = False
+                _LOGGER.error("chaos_rollback_timeout", extra={"target": target})
             except Exception:  # noqa: BLE001 - rollback failure must be recorded, not raised
                 ok = False
                 _LOGGER.error("chaos_rollback_failed", extra={"target": target})
