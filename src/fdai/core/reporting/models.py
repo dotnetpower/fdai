@@ -118,7 +118,7 @@ class WidgetSpec:
     title: str
     query: QuerySpec | None = None
     options: Mapping[str, Any] = field(default_factory=dict)
-    children: tuple["WidgetSpec", ...] = ()
+    children: tuple[WidgetSpec, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,7 +191,7 @@ class RenderedWidget:
     data: Mapping[str, Any]
     options: Mapping[str, Any] = field(default_factory=dict)
     error: str | None = None
-    children: tuple["RenderedWidget", ...] = ()
+    children: tuple[RenderedWidget, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
