@@ -851,11 +851,11 @@ function TemplateGallery({
 }) {
   return (
     <section class="stack-section">
-      <h3 class="section-title">Start a new workflow</h3>
+      <h3 class="section-title">Or start from an example</h3>
       <p class="muted small">
-        Start from a template that is close to what you want and adjust it, or start from a blank
-        form. Either way the draft opens in the builder - nothing is created until you validate and
-        open a PR.
+        Pick a shipped workflow that is close to what you want and adjust it, or start from a
+        blank form. Either way the draft opens in the builder - nothing is created until you
+        validate and open a PR.
       </p>
       <div class="template-gallery">
         {workflows.map((w) => (
@@ -930,11 +930,11 @@ function BuiltInList({
   return (
     <div class="stack">
       <div class="callout">
-        <strong>What is this?</strong> A workflow is a built-in business process - an ordered
-        list of steps, each one mapped to a governed ontology <code>ActionType</code>. The same
-        trust-routing control loop dispatches every step, so each step keeps its safety
-        invariants (stop-condition, rollback, blast-radius cap, audit). Pick a template to start
-        fast, or browse the shipped workflows read-only below.
+        <strong>What is this?</strong> A workflow is a business process - a trigger plus an
+        ordered chain of actions the control plane runs for you, each with a built-in safety net
+        (stop-condition, rollback, blast-radius cap, audit). Three ways to begin: <strong>describe
+        it</strong> in plain words, start from an <strong>example</strong>, or <strong>browse</strong>
+        the full catalog for reference. Nothing is created until you validate and open a PR.
       </div>
 
       <IntentComposer palette={palette} onUse={onDraft} />
@@ -943,8 +943,12 @@ function BuiltInList({
 
       <section class="stack-section">
         <div class="section-header">
-          <h3 class="section-title">Browse built-in workflows ({workflows.length})</h3>
+          <h3 class="section-title">Browse the full catalog ({workflows.length})</h3>
         </div>
+        <p class="muted small">
+          The same shipped workflows, for reference: open a row to see every step and the raw
+          YAML. Any row can also be opened as a starting point ("Use as template").
+        </p>
         {workflows.length === 0 ? (
           <p class="muted small">No built-in workflows are served on this deployment.</p>
         ) : (
