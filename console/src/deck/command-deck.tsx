@@ -34,6 +34,7 @@ import {
 import { GroundedReply } from "./grounded-reply";
 import { RetrievalTrace } from "./retrieval-trace";
 import { isNearBottom } from "./scroll-stick";
+import { parseTurns, serializeTurns, TRANSCRIPT_KEY } from "./transcript-store";
 
 interface Turn {
   readonly id: string;
@@ -57,6 +58,15 @@ function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** Tab-scoped storage, guarded so a disabled/absent store never throws. */
+function sessionStore(): Storage | null {
+  try {
+    return typeof window !== "undefined" ? window.sessionStorage : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Multi-line tooltip listing every routed candidate's rolling p50 latency
  * and sample count. ``undefined`` when no router is attached so callers
@@ -77,7 +87,10 @@ export function CommandDeck() {
   const snapshot = useViewContext();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
-  const [turns, setTurns] = useState<readonly Turn[]>([]);
+  const [turns, setTurns] = useState<readonly Turn[]>(() => {
+    const store = sessionStore();
+    return store ? parseTurns(store.getItem(TRANSCRIPT_KEY)) : [];
+  });
   const [pending, setPending] = useState(false);
   const [health, setHealth] = useState<BackendHealth | null>(null);
   const [srStatus, setSrStatus] = useState("");
@@ -213,6 +226,19 @@ export function CommandDeck() {
     setStuck(isNearBottom(el.scrollTop, el.scrollHeight, el.clientHeight));
   }, []);
 
+  // Mirror completed turns into tab-scoped storage so an accidental reload does
+  // not lose the conversation. Skips while a turn is still streaming.
+  useEffect(() => {
+    const store = sessionStore();
+    if (!store) return;
+    if (turns.some((t) => t.streaming === true)) return;
+    try {
+      store.setItem(TRANSCRIPT_KEY, serializeTurns(turns));
+    } catch {
+      /* storage full or blocked - persistence is best-effort */
+    }
+  }, [turns]);
+
   const jumpToLatest = useCallback(() => {
     const el = scrollerRef.current;
     if (!el) return;
@@ -298,7 +324,15 @@ export function CommandDeck() {
     }
   }, [snapshot, focusInput, pending, turns]);
 
-  const clearTurns = useCallback(() => setTurns([]), []);
+  const clearTurns = useCallback(() => {
+    setTurns([]);
+    const store = sessionStore();
+    try {
+      store?.removeItem(TRANSCRIPT_KEY);
+    } catch {
+      /* best-effort */
+    }
+  }, []);
 
   // Cancel an in-flight reply, keeping whatever streamed so far.
   const stopStream = useCallback(() => {
