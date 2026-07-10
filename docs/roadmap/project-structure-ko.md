@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 38a77db00349d2ffeaa0fbf11c3d93b38ed216cf
-translation_revised: 2026-07-10
+translation_source_sha: ac7112a026ec63cac6b42a6d88ac676e2ff69303
+translation_revised: 2026-07-11
 ---
 
 # 프로젝트 구조
@@ -74,7 +74,7 @@ fdai/
 │   │   ├── notifications/      # 채널별 sender (email HTTP, HIL sink) - `shared/providers` seam 이 배선
 │   │   ├── persistence/        # `shared/providers` 상태 seam 의 Postgres / pgvector 구체 구현
 │   │   ├── azure/              # Azure 전용 SDK 어댑터 (`azure-*` import 이 허용된 유일한 트리)
-│   │   └── read_api/           # 얇은 GET-only ASGI (`/audit`, `/kpi`, `/hil-queue`, `/healthz`, live 컨트롤 루프, ontology 그래프, promotion-gate, ...) + opt-in SSE fan-out (`live_stream.py` 의 `/live/stream`)
+│   │   └── read_api/           # 얇은 GET-only ASGI (`/audit`, `/kpi`, `/hil-queue`, `/healthz`, live 컨트롤 루프, ontology 그래프, promotion-gate, ...) + opt-in SSE fan-out (`live_stream.py` 의 `/live/stream`, `provision_stream.py` 의 `/provision/stream`)
 │   ├── rule_catalog/          # rule-catalog 파이프라인 코드
 │   │   ├── schema/             # 룰 + 온톨로지 (ObjectType / LinkType / ActionType) 스키마 + 검증
 │   │   ├── sources/            # 소스별 컬렉터 (WAF, CIS, OPA, IaC scanners, ...)

@@ -69,7 +69,7 @@ fdai/
 │   │   ├── notifications/      # per-channel senders (email HTTP, HIL sink) wired by `shared/providers` seams
 │   │   ├── persistence/        # Postgres / pgvector concrete implementations of `shared/providers` state seams
 │   │   ├── azure/              # Azure-specific SDK adapters (the only tree allowed to import `azure-*`)
-│   │   └── read_api/           # thin GET-only ASGI (`/audit`, `/kpi`, `/hil-queue`, `/healthz`, live control-loop, ontology graph, promotion-gates, ...) + opt-in SSE fan-out (`/live/stream` via `live_stream.py`)
+│   │   └── read_api/           # thin GET-only ASGI (`/audit`, `/kpi`, `/hil-queue`, `/healthz`, live control-loop, ontology graph, promotion-gates, ...) + opt-in SSE fan-out (`/live/stream` via `live_stream.py`, `/provision/stream` via `provision_stream.py`)
 │   ├── rule_catalog/          # rule-catalog PIPELINE code
 │   │   ├── schema/             # rule + ontology (ObjectType / LinkType / ActionType) schemas + validation
 │   │   ├── sources/            # per-source collectors (WAF, CIS, OPA, IaC scanners, ...)

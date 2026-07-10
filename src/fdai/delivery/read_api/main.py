@@ -59,6 +59,10 @@ from fdai.delivery.read_api.live_stream import (
     make_live_stream_route,
 )
 from fdai.delivery.read_api.panels import ReadPanel
+from fdai.delivery.read_api.provision_stream import (
+    ProvisionStreamConfig,
+    make_provision_stream_route,
+)
 from fdai.delivery.read_api.read_model import (
     DEFAULT_LIMIT,
     ConsoleReadModel,
@@ -192,6 +196,17 @@ class ReadApiConfig:
     :mod:`fdai.delivery.read_api._local`) opts in. See
     :mod:`fdai.delivery.read_api.live_stream` for the read-only /
     fan-out contract."""
+
+    provision_stream: ProvisionStreamConfig | None = None
+    """Opt-in provisioning progress SSE surface. When set, registers a
+    ``GET`` streaming route (default ``/provision/stream``) that fans out
+    ``provision.*`` events to the Genesis console. Read-only: the console
+    renders progress, it never executes provisioning. The producer (the
+    ``azd up`` terraform bridge, or an in-product relay) publishes onto
+    the shared sink via
+    :class:`~fdai.delivery.read_api.provision_stream.SseProvisionPublisher`.
+    Default ``None``. See
+    :mod:`fdai.delivery.read_api.provision_stream`."""
 
     blast_radius_graph: Any = None
     """Opt-in blast-radius simulator. When set (an
@@ -557,6 +572,31 @@ def build_app(
                 channel=live_cfg.channel,
                 path=live_cfg.path,
                 keepalive_seconds=live_cfg.keepalive_seconds,
+                authorize=_authorize,
+            )
+        )
+
+    # Optional provisioning progress SSE. Same reader-role gate; the
+    # producer (terraform bridge / in-product relay) publishes onto the
+    # shared sink. No synthetic emitter - a stream with no producer simply
+    # waits, which is the honest ambient state the Genesis screen renders.
+    if resolved_config.provision_stream is not None:
+        prov_cfg = resolved_config.provision_stream
+        if prov_cfg.path in _CORE_ROUTE_PATHS:
+            raise ValueError(
+                f"provision_stream.path {prov_cfg.path!r} collides with a core route"
+            )
+        if prov_cfg.path in seen_panel_paths:
+            raise ValueError(
+                f"provision_stream.path {prov_cfg.path!r} collides with a panel path"
+            )
+        prov_sink = prov_cfg.sink if prov_cfg.sink is not None else InMemorySseSink()
+        routes.append(
+            make_provision_stream_route(
+                sink=prov_sink,
+                channel=prov_cfg.channel,
+                path=prov_cfg.path,
+                keepalive_seconds=prov_cfg.keepalive_seconds,
                 authorize=_authorize,
             )
         )
