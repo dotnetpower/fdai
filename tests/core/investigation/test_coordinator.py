@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -15,7 +15,6 @@ from fdai.core.investigation import (
     InvestigationCoordinator,
     InvestigationOutcome,
     InvestigationRequest,
-    MetricSnapshot,
     Priority,
     default_analyzers,
 )
@@ -25,33 +24,39 @@ from fdai.core.investigation.analyzer import (
     ThresholdAnalyzer,
 )
 from fdai.shared.contracts.models import Severity
+from fdai.shared.providers.metric import MetricPoint, MetricProviderError, MetricQuery
 
-_BASE = datetime(2026, 7, 10, 17, 50, tzinfo=UTC)
+
+def _now() -> datetime:
+    return datetime.now(tz=UTC)
 
 
 class _FixtureMetricProvider:
-    """Deterministic metric provider driven by a static snapshot table."""
+    """Query-based provider driven by a resource->metric->value table.
+
+    Yields one sample per matching (metric_name, resource_id) at ``now`` so
+    the samples always fall inside the analyzer's default window.
+    """
 
     def __init__(self, table: Mapping[str, Mapping[str, float]]) -> None:
         self._table = table
-        self._clock = _BASE
 
-    async def snapshot(
-        self, *, resource_ref: str, resource_kind: str, window_seconds: float
-    ) -> MetricSnapshot:
-        return MetricSnapshot(
-            resource_ref=resource_ref,
-            resource_kind=resource_kind,
-            observed_at=self._clock,
-            metrics=dict(self._table.get(resource_ref, {})),
-        )
+    async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
+        resource_ref = query.labels.get("resource_id", "")
+        metrics = self._table.get(resource_ref, {})
+        if query.metric_name in metrics:
+            yield MetricPoint(
+                metric_name=query.metric_name,
+                at=_now(),
+                value=metrics[query.metric_name],
+                labels={"resource_id": resource_ref},
+            )
 
 
 class _RaisingProvider:
-    async def snapshot(
-        self, *, resource_ref: str, resource_kind: str, window_seconds: float
-    ) -> MetricSnapshot:
-        raise RuntimeError("metric backend unreachable")
+    async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:  # noqa: ARG002
+        raise MetricProviderError("metric backend unreachable")
+        yield  # pragma: no cover - makes this an async generator
 
 
 def _demo_table() -> dict[str, dict[str, float]]:
@@ -235,7 +240,7 @@ async def test_correlation_statements_link_distinct_resources() -> None:
     # Two analyzers with distinct kinds but staggered timestamps.
     aks = ThresholdAnalyzer(
         resource_kind=KIND_AKS,
-        provider=_StaggeredProvider(_BASE),
+        provider=_StaggeredProvider(600.0),
         thresholds=(
             Threshold(
                 metric="node_cpu_percent",
@@ -249,7 +254,7 @@ async def test_correlation_statements_link_distinct_resources() -> None:
     )
     mysql = ThresholdAnalyzer(
         resource_kind=KIND_MYSQL,
-        provider=_StaggeredProvider(_BASE + timedelta(minutes=10)),
+        provider=_StaggeredProvider(0.0),
         thresholds=(
             Threshold(
                 metric="cpu_percent",
@@ -275,16 +280,17 @@ async def test_correlation_statements_link_distinct_resources() -> None:
 
 
 class _StaggeredProvider:
-    def __init__(self, at: datetime) -> None:
-        self._at = at
+    """Query provider that stamps its single sample at ``now - offset``."""
 
-    async def snapshot(
-        self, *, resource_ref: str, resource_kind: str, window_seconds: float
-    ) -> MetricSnapshot:
-        metrics = {"node_cpu_percent": 90.0} if resource_kind == KIND_AKS else {"cpu_percent": 99.0}
-        return MetricSnapshot(
-            resource_ref=resource_ref,
-            resource_kind=resource_kind,
-            observed_at=self._at,
-            metrics=metrics,
+    def __init__(self, offset_seconds: float) -> None:
+        self._offset = offset_seconds
+
+    async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
+        at = _now() - timedelta(seconds=self._offset)
+        value = 90.0 if query.metric_name == "node_cpu_percent" else 99.0
+        yield MetricPoint(
+            metric_name=query.metric_name,
+            at=at,
+            value=value,
+            labels=dict(query.labels),
         )

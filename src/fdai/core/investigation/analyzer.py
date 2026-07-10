@@ -3,53 +3,59 @@
 Each analyzer inspects **one resource kind** (Application Gateway, MySQL,
 Azure OpenAI, AKS, API Management, ...) over a time window and returns
 :class:`AnalyzerFinding` observations. Analyzers are deterministic-first:
-the reference :class:`ThresholdAnalyzer` evaluates declared metric
-thresholds against a :class:`MetricSnapshot` and never calls an LLM.
+the reference :class:`ThresholdAnalyzer` reduces declared metrics to a
+value and compares each against a bound; it never calls an LLM.
 
-The snapshot is read through the :class:`MetricProvider` seam so the same
-analyzer runs against a fixture in tests and against Azure Monitor / ARG in
-production (the concrete provider lives under ``delivery/azure`` and
-implements this exact Protocol). Analyzers are read-only.
+Metrics are read through the **shared** CSP-neutral
+:class:`~fdai.shared.providers.metric.MetricProvider` seam - the same
+streaming contract the anomaly detector and SLO evaluator use - so the
+investigation analyzers run against the in-memory
+:class:`~fdai.shared.providers.metric.StaticMetricProvider` in tests and
+against the real Azure Monitor Logs / Datadog / Prometheus adapters under
+``delivery/`` in production, with no parallel seam. Analyzers are read-only
+and fail closed: a :class:`~fdai.shared.providers.metric.MetricProviderError`
+propagates so the coordinator marks the run PARTIAL rather than fabricating
+a healthy verdict.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
-from datetime import datetime
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
 from fdai.core.investigation.contract import AnalyzerFinding
 from fdai.shared.contracts.models import Severity
+from fdai.shared.providers.metric import MetricPoint, MetricProvider, MetricQuery
+
+_DEFAULT_LABEL_KEY = "resource_id"
 
 
-@dataclass(frozen=True, slots=True)
-class MetricSnapshot:
-    """A point-in-time metric read for one resource.
+class Aggregation(StrEnum):
+    """How a metric series is reduced to a single comparable value."""
 
-    ``metrics`` maps a metric name to its observed value over the window
-    (already reduced - e.g. the max CPU %, the p95 latency, the 5xx rate).
-    ``observed_at`` is when the window closed. ``metadata`` is neutral and
-    never carries secrets.
-    """
-
-    resource_ref: str
-    resource_kind: str
-    observed_at: datetime
-    metrics: Mapping[str, float] = field(default_factory=dict)
-    metadata: Mapping[str, str] = field(default_factory=dict)
+    MAX = "max"
+    MIN = "min"
+    AVG = "avg"
+    SUM = "sum"
+    LAST = "last"
 
 
-@runtime_checkable
-class MetricProvider(Protocol):
-    """Read a reduced metric snapshot for one resource over a window."""
-
-    async def snapshot(
-        self, *, resource_ref: str, resource_kind: str, window_seconds: float
-    ) -> MetricSnapshot:
-        """Return the reduced metrics for ``resource_ref`` over the window."""
-        ...
+def reduce_values(values: Sequence[float], how: Aggregation) -> float | None:
+    """Reduce ``values`` to one float; ``None`` when the series is empty."""
+    if not values:
+        return None
+    if how is Aggregation.MAX:
+        return max(values)
+    if how is Aggregation.MIN:
+        return min(values)
+    if how is Aggregation.SUM:
+        return sum(values)
+    if how is Aggregation.AVG:
+        return sum(values) / len(values)
+    return values[-1]  # LAST
 
 
 @runtime_checkable
@@ -79,9 +85,10 @@ class Comparison(StrEnum):
 class Threshold:
     """One deterministic metric threshold.
 
-    Fires a finding when ``metric`` breaches ``bound`` in the ``compare``
-    direction. ``remediation_ref`` names the ActionType the breach implies
-    (if any) - the finding proposes, the risk gate decides.
+    Fires a finding when ``metric`` (reduced by ``aggregation`` over the
+    window) breaches ``bound`` in the ``compare`` direction.
+    ``remediation_ref`` names the ActionType the breach implies (if any) -
+    the finding proposes, the risk gate decides.
     """
 
     metric: str
@@ -90,6 +97,7 @@ class Threshold:
     severity: Severity
     signal: str
     observation: str
+    aggregation: Aggregation = Aggregation.MAX
     remediation_ref: str | None = None
 
     def breached(self, value: float) -> bool:
@@ -100,15 +108,18 @@ class Threshold:
 
 
 class ThresholdAnalyzer:
-    """Reference analyzer: evaluate declared thresholds over a snapshot.
+    """Reference analyzer: reduce shared-seam metrics and compare thresholds.
 
-    Deterministic and network-free (given a :class:`MetricProvider`). A
-    fork can register richer analyzers for the same kind by binding a
-    different :class:`ResourceAnalyzer`; this one covers the demo's
-    metric-threshold cases exactly.
+    Deterministic and network-free given a
+    :class:`~fdai.shared.providers.metric.StaticMetricProvider`. A fork can
+    register richer analyzers for the same kind by binding a different
+    :class:`ResourceAnalyzer`; this one covers the demo's metric-threshold
+    cases. ``label_key`` is the label a series carries the resource id under
+    (``resource_id`` by default), matching the ``MetricQuery.labels``
+    contract.
     """
 
-    __slots__ = ("_kind", "_provider", "_thresholds")
+    __slots__ = ("_kind", "_label_key", "_provider", "_thresholds", "_wall_clock")
 
     def __init__(
         self,
@@ -116,12 +127,16 @@ class ThresholdAnalyzer:
         resource_kind: str,
         provider: MetricProvider,
         thresholds: Sequence[Threshold],
+        label_key: str = _DEFAULT_LABEL_KEY,
+        wall_clock: Callable[[], datetime] | None = None,
     ) -> None:
         if not resource_kind:
             raise ValueError("ThresholdAnalyzer.resource_kind MUST be non-empty")
         self._kind = resource_kind
         self._provider = provider
         self._thresholds = tuple(thresholds)
+        self._label_key = label_key
+        self._wall_clock: Callable[[], datetime] = wall_clock or (lambda: datetime.now(tz=UTC))
 
     @property
     def resource_kind(self) -> str:
@@ -130,18 +145,23 @@ class ThresholdAnalyzer:
     async def analyze(
         self, *, resource_ref: str, window_seconds: float
     ) -> Sequence[AnalyzerFinding]:
-        snapshot = await self._provider.snapshot(
-            resource_ref=resource_ref,
-            resource_kind=self._kind,
-            window_seconds=window_seconds,
-        )
+        until = self._wall_clock()
+        since = until - timedelta(seconds=window_seconds)
         findings: list[AnalyzerFinding] = []
         for threshold in self._thresholds:
-            if threshold.metric not in snapshot.metrics:
+            points = await self._gather(
+                metric=threshold.metric,
+                resource_ref=resource_ref,
+                since=since,
+                until=until,
+                aggregation=threshold.aggregation,
+            )
+            if not points:
                 continue
-            value = snapshot.metrics[threshold.metric]
-            if not threshold.breached(value):
+            value = reduce_values([p.value for p in points], threshold.aggregation)
+            if value is None or not threshold.breached(value):
                 continue
+            occurred_at = max(p.at for p in points)
             findings.append(
                 AnalyzerFinding(
                     resource_ref=resource_ref,
@@ -149,19 +169,38 @@ class ThresholdAnalyzer:
                     signal=threshold.signal,
                     observation=threshold.observation,
                     severity=threshold.severity,
-                    occurred_at=snapshot.observed_at,
+                    occurred_at=occurred_at,
                     evidence_refs=(f"{threshold.metric}={value:g}",),
                     remediation_ref=threshold.remediation_ref,
                 )
             )
         return tuple(findings)
 
+    async def _gather(
+        self,
+        *,
+        metric: str,
+        resource_ref: str,
+        since: datetime,
+        until: datetime,
+        aggregation: Aggregation,
+    ) -> list[MetricPoint]:
+        query = MetricQuery(
+            metric_name=metric,
+            labels={self._label_key: resource_ref},
+            since=since,
+            until=until,
+            aggregation=aggregation.value,
+        )
+        return [point async for point in self._provider.query(query)]
+
 
 __all__ = [
+    "Aggregation",
     "Comparison",
     "MetricProvider",
-    "MetricSnapshot",
     "ResourceAnalyzer",
     "Threshold",
     "ThresholdAnalyzer",
+    "reduce_values",
 ]

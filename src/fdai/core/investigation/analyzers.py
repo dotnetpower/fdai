@@ -16,14 +16,20 @@ own analyzers. Nothing here executes a change.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import datetime
+
 from fdai.core.investigation.analyzer import (
+    Aggregation,
     Comparison,
-    MetricProvider,
     ResourceAnalyzer,
     Threshold,
     ThresholdAnalyzer,
 )
 from fdai.shared.contracts.models import Severity
+from fdai.shared.providers.metric import MetricProvider
+
+_Clock = Callable[[], datetime] | None
 
 # Canonical resource-kind identifiers (CSP-neutral vocabulary handles).
 KIND_APP_GATEWAY = "application_gateway"
@@ -33,10 +39,13 @@ KIND_AKS = "aks_cluster"
 KIND_API_MANAGEMENT = "api_management"
 
 
-def app_gateway_analyzer(provider: MetricProvider) -> ThresholdAnalyzer:
+def app_gateway_analyzer(
+    provider: MetricProvider, *, wall_clock: _Clock = None
+) -> ThresholdAnalyzer:
     return ThresholdAnalyzer(
         resource_kind=KIND_APP_GATEWAY,
         provider=provider,
+        wall_clock=wall_clock,
         thresholds=(
             Threshold(
                 metric="backend_first_byte_response_time_ms",
@@ -54,16 +63,18 @@ def app_gateway_analyzer(provider: MetricProvider) -> ThresholdAnalyzer:
                 severity=Severity.CRITICAL,
                 signal="backend_health",
                 observation="Healthy backend host count collapsed (pool near empty).",
+                aggregation=Aggregation.MIN,
                 remediation_ref="appgw.scale_backend_pool",
             ),
         ),
     )
 
 
-def mysql_analyzer(provider: MetricProvider) -> ThresholdAnalyzer:
+def mysql_analyzer(provider: MetricProvider, *, wall_clock: _Clock = None) -> ThresholdAnalyzer:
     return ThresholdAnalyzer(
         resource_kind=KIND_MYSQL,
         provider=provider,
+        wall_clock=wall_clock,
         thresholds=(
             Threshold(
                 metric="cpu_percent",
@@ -86,10 +97,13 @@ def mysql_analyzer(provider: MetricProvider) -> ThresholdAnalyzer:
     )
 
 
-def azure_openai_analyzer(provider: MetricProvider) -> ThresholdAnalyzer:
+def azure_openai_analyzer(
+    provider: MetricProvider, *, wall_clock: _Clock = None
+) -> ThresholdAnalyzer:
     return ThresholdAnalyzer(
         resource_kind=KIND_AZURE_OPENAI,
         provider=provider,
+        wall_clock=wall_clock,
         thresholds=(
             Threshold(
                 metric="http_429_rate",
@@ -112,10 +126,11 @@ def azure_openai_analyzer(provider: MetricProvider) -> ThresholdAnalyzer:
     )
 
 
-def aks_analyzer(provider: MetricProvider) -> ThresholdAnalyzer:
+def aks_analyzer(provider: MetricProvider, *, wall_clock: _Clock = None) -> ThresholdAnalyzer:
     return ThresholdAnalyzer(
         resource_kind=KIND_AKS,
         provider=provider,
+        wall_clock=wall_clock,
         thresholds=(
             Threshold(
                 metric="node_cpu_percent",
@@ -129,10 +144,13 @@ def aks_analyzer(provider: MetricProvider) -> ThresholdAnalyzer:
     )
 
 
-def api_management_analyzer(provider: MetricProvider) -> ThresholdAnalyzer:
+def api_management_analyzer(
+    provider: MetricProvider, *, wall_clock: _Clock = None
+) -> ThresholdAnalyzer:
     return ThresholdAnalyzer(
         resource_kind=KIND_API_MANAGEMENT,
         provider=provider,
+        wall_clock=wall_clock,
         thresholds=(
             Threshold(
                 metric="http_5xx_rate",
@@ -154,14 +172,16 @@ def api_management_analyzer(provider: MetricProvider) -> ThresholdAnalyzer:
     )
 
 
-def default_analyzers(provider: MetricProvider) -> tuple[ResourceAnalyzer, ...]:
+def default_analyzers(
+    provider: MetricProvider, *, wall_clock: _Clock = None
+) -> tuple[ResourceAnalyzer, ...]:
     """The five reference analyzers wired to one shared metric provider."""
     return (
-        app_gateway_analyzer(provider),
-        mysql_analyzer(provider),
-        azure_openai_analyzer(provider),
-        aks_analyzer(provider),
-        api_management_analyzer(provider),
+        app_gateway_analyzer(provider, wall_clock=wall_clock),
+        mysql_analyzer(provider, wall_clock=wall_clock),
+        azure_openai_analyzer(provider, wall_clock=wall_clock),
+        aks_analyzer(provider, wall_clock=wall_clock),
+        api_management_analyzer(provider, wall_clock=wall_clock),
     )
 
 

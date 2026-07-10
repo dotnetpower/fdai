@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
 import pytest
@@ -9,7 +10,6 @@ import pytest
 from fdai.core.investigation import (
     KIND_AZURE_OPENAI,
     InvestigationCoordinator,
-    MetricSnapshot,
     default_analyzers,
 )
 from fdai.core.irp import (
@@ -19,6 +19,7 @@ from fdai.core.irp import (
     IrpOutcome,
     MitigationProposal,
 )
+from fdai.shared.providers.metric import MetricPoint, MetricQuery
 
 _NOW = datetime(2026, 7, 10, 18, 40, tzinfo=UTC)
 
@@ -27,15 +28,14 @@ class _Provider:
     def __init__(self, metrics: dict[str, float]) -> None:
         self._metrics = metrics
 
-    async def snapshot(
-        self, *, resource_ref: str, resource_kind: str, window_seconds: float
-    ) -> MetricSnapshot:
-        return MetricSnapshot(
-            resource_ref=resource_ref,
-            resource_kind=resource_kind,
-            observed_at=_NOW,
-            metrics=dict(self._metrics),
-        )
+    async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
+        if query.metric_name in self._metrics:
+            yield MetricPoint(
+                metric_name=query.metric_name,
+                at=datetime.now(tz=UTC),
+                value=self._metrics[query.metric_name],
+                labels=dict(query.labels),
+            )
 
 
 class _FixedGate:

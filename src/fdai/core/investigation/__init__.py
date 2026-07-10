@@ -20,12 +20,12 @@ Maps the Azure SRE Agent demo (session notes slides 10-14):
 from __future__ import annotations
 
 from fdai.core.investigation.analyzer import (
+    Aggregation,
     Comparison,
-    MetricProvider,
-    MetricSnapshot,
     ResourceAnalyzer,
     Threshold,
     ThresholdAnalyzer,
+    reduce_values,
 )
 from fdai.core.investigation.analyzers import (
     KIND_AKS,
@@ -59,6 +59,12 @@ from fdai.core.investigation.recommendations import (
     build_timeline,
     summarize_priorities,
 )
+from fdai.shared.providers.metric import (
+    MetricPoint,
+    MetricProvider,
+    MetricQuery,
+    StaticMetricProvider,
+)
 
 __all__ = [
     "KIND_AKS",
@@ -66,17 +72,20 @@ __all__ = [
     "KIND_APP_GATEWAY",
     "KIND_AZURE_OPENAI",
     "KIND_MYSQL",
+    "Aggregation",
     "AnalyzerFinding",
     "Comparison",
     "InvestigationCoordinator",
     "InvestigationOutcome",
     "InvestigationReport",
     "InvestigationRequest",
+    "MetricPoint",
     "MetricProvider",
-    "MetricSnapshot",
+    "MetricQuery",
     "Priority",
     "Recommendation",
     "ResourceAnalyzer",
+    "StaticMetricProvider",
     "Threshold",
     "ThresholdAnalyzer",
     "TimelineEntry",
@@ -90,5 +99,6 @@ __all__ = [
     "default_analyzers",
     "mysql_analyzer",
     "priority_for",
+    "reduce_values",
     "summarize_priorities",
 ]
