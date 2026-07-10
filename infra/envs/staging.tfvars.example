@@ -1,0 +1,32 @@
+# Copy to staging.tfvars (gitignored) and fill. See dev.tfvars.example for the
+# full field reference. Staging tightens a few knobs over dev.
+
+env          = "staging"
+region       = "koreacentral"
+region_short = "krc"
+
+tenant_id = "00000000-0000-0000-0000-000000000000"
+
+postgres_admin_login    = "fdaiadmin"
+postgres_admin_password = "SET-ME-VIA-VAULT"
+
+core_image   = "mcr.microsoft.com/azure-cli:latest"
+max_replicas = 5
+
+# Private-networking + ops runner (same as dev; supply from infra/bootstrap).
+enable_private_networking = true
+# runner_vnet_id          = "/subscriptions/.../virtualNetworks/vnet-fdai-ops-krc"
+# runner_vnet_name        = "vnet-fdai-ops-krc"
+# ops_resource_group_name = "rg-fdai-ops-krc"
+
+# Hardening: staging turns on delete-protection + longer retention.
+enable_resource_locks          = true
+postgres_backup_retention_days = 14
+
+# Monitoring on for staging (wire a real destination).
+enable_monitoring = true
+# alert_email     = "oncall@example.com"
+
+additional_tags = {
+  environment_class = "staging"
+}

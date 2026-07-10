@@ -1,0 +1,36 @@
+# Copy to prod.tfvars (gitignored) and fill. See dev.tfvars.example for the full
+# field reference. Prod turns on every durability + delete-protection knob.
+
+env          = "prod"
+region       = "koreacentral"
+region_short = "krc"
+
+tenant_id = "00000000-0000-0000-0000-000000000000"
+
+postgres_admin_login    = "fdaiadmin"
+postgres_admin_password = "SET-ME-VIA-VAULT"
+
+# Pin the core image by digest for prod (never a floating tag).
+core_image   = "mcr.microsoft.com/azure-cli:latest"
+max_replicas = 10
+
+enable_private_networking = true
+# runner_vnet_id          = "/subscriptions/.../virtualNetworks/vnet-fdai-ops-krc"
+# runner_vnet_name        = "vnet-fdai-ops-krc"
+# ops_resource_group_name = "rg-fdai-ops-krc"
+
+# Hardening: prod locks everything down.
+enable_resource_locks          = true
+kv_purge_protection_enabled    = true
+kv_soft_delete_retention_days  = 90
+postgres_backup_retention_days = 35
+postgres_geo_redundant_backup  = true
+acr_sku                        = "Premium"
+
+enable_monitoring = true
+# alert_email       = "oncall@example.com"
+# alert_webhook_url = "https://..."   # supply via CI secret, never commit
+
+additional_tags = {
+  environment_class = "prod"
+}
