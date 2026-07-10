@@ -30,6 +30,12 @@ from fdai.core.reporting.models import DataSet, WidgetSpec
 
 _ALLOWED_IMAGE_SCHEMES: frozenset[str] = frozenset({"https", ""})
 _VALID_NOTE_SEVERITIES: frozenset[str] = frozenset({"info", "warning", "critical", "ok"})
+# Only raster formats. SVG is intentionally excluded - it can carry
+# script tags and would execute in a permissive viewer even from an
+# https origin.
+_ALLOWED_IMAGE_EXTENSIONS: frozenset[str] = frozenset(
+    {".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif"}
+)
 
 
 class FreeTextBuilder:
@@ -61,10 +67,18 @@ class NoteBuilder:
 class ImageBuilder:
     """Render an embedded image.
 
-    Rejects any URL scheme outside ``https`` and same-origin (empty
-    scheme). Returns an ``error``-style body when the URL is
-    unacceptable so the FE has no reason to attempt the fetch. This is a
-    defense in depth on top of the CSP the read-API serves.
+    Rejects:
+
+    - URL schemes outside ``https`` and same-origin (empty scheme);
+    - file extensions not in :data:`_ALLOWED_IMAGE_EXTENSIONS`
+      (raster formats only; ``.svg`` is intentionally excluded because
+      it can carry script content and would execute in a permissive
+      viewer even from an https origin);
+    - URLs with a query string that contains a suspicious extension.
+
+    On rejection returns an ``error``-style body so the FE has no
+    reason to attempt the fetch. Defense in depth on top of the CSP the
+    read-API serves.
     """
 
     type_name = "image"
@@ -77,10 +91,25 @@ class ImageBuilder:
         parsed = urlparse(src)
         if parsed.scheme not in _ALLOWED_IMAGE_SCHEMES:
             return {"src": None, "alt": alt, "error": "unsupported url scheme"}
+        path_lower = parsed.path.lower()
+        extension = _extension(path_lower)
+        if extension not in _ALLOWED_IMAGE_EXTENSIONS:
+            return {
+                "src": None,
+                "alt": alt,
+                "error": f"unsupported image extension {extension!r}",
+            }
         payload: dict[str, Any] = {"src": src, "alt": alt}
         if caption is not None:
             payload["caption"] = str(caption)
         return payload
+
+
+def _extension(path: str) -> str:
+    dot = path.rfind(".")
+    if dot < 0:
+        return ""
+    return path[dot:]
 
 
 __all__ = [

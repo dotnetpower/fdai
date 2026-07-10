@@ -54,6 +54,15 @@ _DURATION_UNITS: dict[str, str] = {
     "w": "weeks",
 }
 
+# Defense-in-depth caps for the loader. A malformed / hostile YAML tree
+# cannot inflate resident memory beyond these bounds - the load fails
+# with a clear error instead. Numbers are conservative but comfortable
+# for a real catalog (a report of ~50 widgets is already a bad UX; a
+# catalog of >200 files should live as a subdirectory tree).
+_MAX_FILE_SIZE_BYTES = 512 * 1024
+_MAX_FILES = 500
+_MAX_WIDGETS_PER_REPORT = 200
+
 
 @dataclass(frozen=True, slots=True)
 class ReportCatalogIssue:
@@ -84,12 +93,15 @@ def load_report_from_mapping(
     schema_path: Path | None = None,
     allowed_widget_types: frozenset[str] | None = None,
     allowed_datasources: frozenset[str] | None = None,
+    max_widgets_per_report: int = _MAX_WIDGETS_PER_REPORT,
     origin: str = "<mapping>",
 ) -> ReportSpec:
     """Validate + convert one mapping into a :class:`ReportSpec`.
 
     Aggregates schema and cross-cutting issues into a single
-    :class:`ReportCatalogError`.
+    :class:`ReportCatalogError`. A widget tree larger than
+    ``max_widgets_per_report`` (recursive count over group children) is
+    fail-closed at load time.
     """
     issues: list[ReportCatalogIssue] = []
     validator = _validator(schema_path)
@@ -118,6 +130,15 @@ def load_report_from_mapping(
         )
         for w in raw.get("widgets", ()) or ()
     )
+    widget_total = _count_widgets(widgets)
+    if widget_total > max_widgets_per_report:
+        issues.append(
+            ReportCatalogIssue(
+                origin,
+                f"widget tree size {widget_total} exceeds "
+                f"max_widgets_per_report={max_widgets_per_report}",
+            )
+        )
     if issues:
         raise ReportCatalogError(issues)
     return ReportSpec(
@@ -138,22 +159,60 @@ def load_report_catalog(
     schema_path: Path | None = None,
     allowed_widget_types: frozenset[str] | None = None,
     allowed_datasources: frozenset[str] | None = None,
+    max_file_size_bytes: int = _MAX_FILE_SIZE_BYTES,
+    max_files: int = _MAX_FILES,
+    max_widgets_per_report: int = _MAX_WIDGETS_PER_REPORT,
 ) -> tuple[ReportSpec, ...]:
     """Load and validate every ``*.yaml`` file under ``root`` (non-recursive).
 
     Files under ``schema/`` are skipped. Duplicate report ids across the
     loaded files raise :class:`ReportCatalogError`. Returns the specs in
     filename order for deterministic composition.
+
+    Defense-in-depth limits:
+
+    - ``max_file_size_bytes`` - reject any file larger than this before
+      parsing YAML (guards against memory blow-up on hostile input).
+    - ``max_files`` - reject the whole load once the directory exceeds
+      this many candidate files.
+    - ``max_widgets_per_report`` - forwarded to
+      :func:`load_report_from_mapping`.
     """
     if not root.exists():
         return ()
     issues: list[ReportCatalogIssue] = []
     seen_ids: dict[str, str] = {}
     specs: list[ReportSpec] = []
-    for path in sorted(root.iterdir()):
-        if path.is_dir() or path.suffix.lower() not in (".yaml", ".yml"):
-            continue
+    candidates = [
+        path
+        for path in sorted(root.iterdir())
+        if not path.is_dir() and path.suffix.lower() in (".yaml", ".yml")
+    ]
+    if len(candidates) > max_files:
+        raise ReportCatalogError(
+            (
+                ReportCatalogIssue(
+                    str(root),
+                    f"directory contains {len(candidates)} report files; "
+                    f"max_files={max_files}",
+                ),
+            )
+        )
+    for path in candidates:
         origin = str(path)
+        try:
+            size = path.stat().st_size
+        except OSError as exc:
+            issues.append(ReportCatalogIssue(origin, f"stat failed: {exc}"))
+            continue
+        if size > max_file_size_bytes:
+            issues.append(
+                ReportCatalogIssue(
+                    origin,
+                    f"file size {size}B exceeds max_file_size_bytes={max_file_size_bytes}",
+                )
+            )
+            continue
         try:
             raw = _load_single(path)
         except ValueError as exc:
@@ -165,6 +224,7 @@ def load_report_catalog(
                 schema_path=schema_path,
                 allowed_widget_types=allowed_widget_types,
                 allowed_datasources=allowed_datasources,
+                max_widgets_per_report=max_widgets_per_report,
                 origin=origin,
             )
         except ReportCatalogError as exc:
@@ -298,6 +358,15 @@ def _widget(
         options=dict(raw.get("options", {}) or {}),
         children=children,
     )
+
+
+def _count_widgets(widgets: Sequence[WidgetSpec]) -> int:
+    total = 0
+    for widget in widgets:
+        total += 1
+        if widget.children:
+            total += _count_widgets(widget.children)
+    return total
 
 
 __all__ = [

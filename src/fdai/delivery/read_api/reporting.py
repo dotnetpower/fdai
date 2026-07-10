@@ -27,6 +27,7 @@ reader-role gate used by the core routes. See
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -51,6 +52,18 @@ Authorize = Callable[[Request], Awaitable[str]]
 
 _FORMAT_QUERY_PARAM = "format"
 _DEFAULT_FORMAT = "json"
+
+# Mirrors the JSON Schema pattern in
+# `rule-catalog/reports/schema/report.schema.json`. The path parameter
+# is validated at the handler edge so a probe like `../../etc/passwd`
+# never reaches the catalog lookup (Starlette's `:str` converter
+# already refuses slashes, but this guard also blocks empty / weird
+# ids and keeps the 404 log line free of attacker-supplied noise).
+_REPORT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,63}$")
+# ``?format=`` values are matched against the FormatRegistry, but a
+# malformed value should short-circuit *before* the registry lookup so
+# the log line never records an attacker-controlled string.
+_FORMAT_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +154,8 @@ def build_reporting_routes(
     async def get_report(request: Request) -> Response:
         oid = await authorize(request)
         report_id = request.path_params["report_id"]
+        if not _REPORT_ID_RE.fullmatch(report_id):
+            return _error(400, "malformed report id")
         try:
             spec = engine.catalog().get(report_id)
         except ReportNotFoundError:
@@ -154,8 +169,12 @@ def build_reporting_routes(
     async def render_report(request: Request) -> Response:
         oid = await authorize(request)
         report_id = request.path_params["report_id"]
+        if not _REPORT_ID_RE.fullmatch(report_id):
+            return _error(400, "malformed report id")
         raw_params = dict(request.query_params)
         format_name = raw_params.pop(_FORMAT_QUERY_PARAM, default_format)
+        if not _FORMAT_NAME_RE.fullmatch(format_name):
+            return _error(400, "malformed format name")
         try:
             encoder = formats.get(format_name)
         except FormatNotFoundError:
@@ -169,6 +188,14 @@ def build_reporting_routes(
             return _error(400, str(exc))
 
         body = encoder.encode(rendered)
+        headers = {}
+        # Non-JSON formats download well as files - hint the FE / browser
+        # so `curl -O`, "save as", and the console download button pick
+        # a stable filename per (report_id, format).
+        if format_name != "json":
+            headers["Content-Disposition"] = (
+                f'attachment; filename="{report_id}.{format_name}"'
+            )
         _LOGGER.info(
             "reporting_rendered",
             extra={
@@ -178,7 +205,7 @@ def build_reporting_routes(
                 "widget_count": len(rendered.widgets),
             },
         )
-        return Response(body, media_type=encoder.content_type)
+        return Response(body, media_type=encoder.content_type, headers=headers)
 
     return [
         Route(f"{prefix}", list_reports, methods=["GET"]),

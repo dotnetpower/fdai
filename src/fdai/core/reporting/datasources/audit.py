@@ -33,7 +33,7 @@ Every projection is read-only; the datasource never mutates the reader.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 
 from fdai.core.reporting.models import DataSet, QuerySpec
@@ -136,9 +136,39 @@ def _clamp(raw: Any) -> int:
 def _in_window(
     items: Sequence[AuditRow], *, since: datetime, until: datetime
 ) -> tuple[AuditRow, ...]:
-    since_iso = since.isoformat()
-    until_iso = until.isoformat()
-    return tuple(row for row in items if since_iso <= row.recorded_at <= until_iso)
+    """Filter rows to those whose ``recorded_at`` falls in ``[since, until]``.
+
+    ``recorded_at`` is the audit-log ISO-8601 string. Compared as
+    tz-aware :class:`datetime` values so a naive vs aware mismatch
+    cannot silently exclude legitimate rows; a row whose timestamp
+    cannot be parsed is included (fail-open toward preservation - audit
+    records should never be dropped just because their format drifted).
+    """
+    since_utc = _to_utc(since)
+    until_utc = _to_utc(until)
+    kept: list[AuditRow] = []
+    for row in items:
+        row_at = _parse_iso(row.recorded_at)
+        if row_at is None:
+            kept.append(row)
+            continue
+        if since_utc <= row_at <= until_utc:
+            kept.append(row)
+    return tuple(kept)
+
+
+def _to_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def _parse_iso(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return _to_utc(parsed)
 
 
 def _rows_dataset(rows: Sequence[AuditRow]) -> DataSet:

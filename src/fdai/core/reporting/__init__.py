@@ -36,6 +36,7 @@ from fdai.core.reporting.catalog import (
     load_report_catalog,
     load_report_from_mapping,
 )
+from fdai.core.reporting.config import ReportEngineConfig
 from fdai.core.reporting.contracts import (
     DataSourceNotFoundError,
     FormatEncoder,
@@ -66,6 +67,7 @@ from fdai.core.reporting.registry import (
     ReportCatalog,
     WidgetRegistry,
 )
+from fdai.core.reporting.substitution import substitute
 
 __all__ = [
     "Clock",
@@ -83,6 +85,7 @@ __all__ = [
     "ReportCatalogIssue",
     "ReportDataSource",
     "ReportEngine",
+    "ReportEngineConfig",
     "ReportNotFoundError",
     "ReportSpec",
     "ReportingError",
@@ -98,4 +101,5 @@ __all__ = [
     "default_report_schema_path",
     "load_report_catalog",
     "load_report_from_mapping",
+    "substitute",
 ]

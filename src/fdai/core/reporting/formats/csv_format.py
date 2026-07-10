@@ -10,6 +10,11 @@ silently dropped.
 The header row is the union of every column across the touched
 widgets - stable across renders because column order is derived from
 first appearance.
+
+Formula-injection safe: any cell whose first character is a spreadsheet
+formula trigger (``=`` / ``+`` / ``-`` / ``@`` / TAB / CR) is prefixed
+with a single quote per OWASP guidance so opening the CSV in Excel /
+LibreOffice / Google Sheets renders the value as text, not a formula.
 """
 
 from __future__ import annotations
@@ -28,6 +33,11 @@ _LEADING_COLUMNS: tuple[str, ...] = (
     "widget_title",
     "widget_type",
 )
+# OWASP "CSV / formula injection" trigger characters. Any cell that
+# starts with one is prefixed with `'` so a spreadsheet renders it as
+# text. Includes TAB and CR because Excel interprets leading whitespace
+# followed by a formula trigger as a formula.
+_FORMULA_TRIGGERS: frozenset[str] = frozenset({"=", "+", "-", "@", "\t", "\r"})
 
 
 class CsvFormatEncoder:
@@ -103,8 +113,25 @@ def _stringify(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, (int, float, bool, str)):
-        return str(value)
-    return json.dumps(value, ensure_ascii=False)
+        rendered = str(value)
+    else:
+        rendered = json.dumps(value, ensure_ascii=False)
+    return _sanitize_cell(rendered)
+
+
+def _sanitize_cell(text: str) -> str:
+    """Neutralize spreadsheet formula-injection triggers.
+
+    Any cell whose first character is one of :data:`_FORMULA_TRIGGERS`
+    is prefixed with a single quote. Spreadsheet apps render such a
+    cell as text and hide the quote in the UI while keeping it in the
+    stored value.
+    """
+    if not text:
+        return text
+    if text[0] in _FORMULA_TRIGGERS:
+        return "'" + text
+    return text
 
 
 __all__ = ["CsvFormatEncoder"]

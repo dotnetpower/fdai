@@ -121,8 +121,23 @@ def _render_table(data: Mapping[str, Any]) -> list[str]:
 
 
 def _escape(value: Any) -> str:
+    """Escape a table cell so it renders as literal markdown text.
+
+    Handles two threats a raw ``str()`` misses:
+
+    - Pipe / newline that break the table row shape.
+    - Basic HTML injection - a lot of markdown renderers pass HTML
+      through by default, so a cell carrying ``<script>...`` would
+      execute when the report is rendered in a permissive viewer. We
+      escape ``<`` / ``>`` / ``&`` so the same string always renders
+      as text.
+    """
     text = "" if value is None else str(value)
-    return text.replace("|", "\\|").replace("\n", " ")
+    text = text.replace("&", "&amp;")
+    text = text.replace("<", "&lt;")
+    text = text.replace(">", "&gt;")
+    text = text.replace("|", "\\|").replace("\n", " ")
+    return text
 
 
 __all__ = ["MarkdownFormatEncoder"]
