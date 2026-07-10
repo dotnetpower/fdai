@@ -677,20 +677,13 @@ function BackendBadge({
 }
 
 function IntroPanel({
-  snapshotPresent,
+  snapshot,
   onPick,
 }: {
-  readonly snapshotPresent: boolean;
+  readonly snapshot: ReturnType<typeof useViewContext>;
   readonly onPick: (s: string) => void;
 }) {
-  const suggestions = snapshotPresent
-    ? [
-        "what do you see on this screen?",
-        "how many items need attention?",
-        "which tiles are failed?",
-        "what is the tier mix right now?",
-      ]
-    : ["what routes are available?"];
+  const suggestions = introSuggestions(snapshot);
   return (
     <div class="deck-intro">
       <p class="deck-intro-lead">
