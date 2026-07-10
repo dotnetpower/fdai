@@ -161,8 +161,7 @@ class Bragi(Agent):
                     "initiator_role": initiator_role,
                     "correlation_id": correlation_id,
                 }
-        verb = leading_verb(question)
-        action_type = _INTENT_ACTION.get(verb or "")
+        action_type, resource_id = translate_action_intent(question)
         if action_type is None:
             # A recognised command verb with no ActionType mapping: abstain
             # rather than guess. The operator is told it is unsupported.
@@ -185,7 +184,7 @@ class Bragi(Agent):
             "initiator_principal": user_id,
             "operator_initiated": True,
             "action_type": action_type,
-            "resource_id": _resource_of(question),
+            "resource_id": resource_id,
             "event_type": "operator_request",
             "params": {"question": question, "session_id": session_id},
         }
@@ -413,6 +412,22 @@ class Bragi(Agent):
 _WORD = re.compile(r"[a-z0-9]+")
 
 
+def translate_action_intent(question: str) -> tuple[str | None, str | None]:
+    """Map an operator command to ``(action_type, resource_id)``.
+
+    The single source of truth for conversational action translation, shared by
+    Bragi's pantheon-internal ``submit_action_proposal`` and the read-API
+    console-action route (``fdai.delivery.read_api.console_action``) so the two
+    surfaces never drift. Returns ``(None, None)`` when the leading command verb
+    maps to no ActionType (the caller then abstains rather than guessing).
+    """
+    verb = leading_verb(question)
+    action_type = _INTENT_ACTION.get(verb or "")
+    if action_type is None:
+        return None, None
+    return action_type, _resource_of(question)
+
+
 def _resource_of(question: str) -> str | None:
     """Best-effort resource id from an operator command.
 
@@ -489,4 +504,4 @@ def _layer_of(agent_name: str) -> int:
     return 99
 
 
-__all__ = ["Bragi", "RoutingDecision", "Turn", "ConversationSession"]
+__all__ = ["Bragi", "RoutingDecision", "Turn", "ConversationSession", "translate_action_intent"]

@@ -831,6 +831,38 @@ Contract rules (enforced by `console/src/routes/view-contract.test.ts`):
 - The CLI narrator (`cli/src/narrator`) is a separate surface; carrying the
   same self-describing snapshot into its `console-tool` results is parallel
   follow-up work.
+
+### 13.5 Action submit - `POST /chat/action` (propose, never execute)
+
+The read-only deck answers questions; this is the ONE write-direction path -
+submitting an action the operator asked for (`restart vm-1`) into the typed
+pantheon pipeline. It does **not** break the "console never executes" invariant:
+the route publishes an `ActionProposal` *signal* onto the raw event topic (the
+same topic the pantheon's Huginn ingests) and holds no executor identity - the
+same precedent as the HIL approval callback (13.3). Forseti judges the proposal,
+Var approves a high-risk one, and only Thor executes (shadow-first).
+
+- **Endpoint**: `POST /chat/action`, body `{"prompt": str, "session_id": str?}`.
+  Registered only when `ReadApiConfig.console_action` wires a
+  `ConsoleActionSubmitter` (`src/fdai/delivery/read_api/console_action.py`);
+  absent, the console has no action-submit surface.
+- **Server-derived RBAC**. The operator's role comes from the validated bearer
+  token (`Principal.roles`), never client JSON. Submitting requires the
+  `author-draft-pr` capability (Contributor and above); a Reader is refused with
+  `403 {"submitted": false, "reason": "rbac_capability"}` before anything
+  publishes. Forseti re-checks the initiator principal downstream (deny +
+  `SecurityEvent`) - defense in depth.
+- **Translation**. `fdai.agents.bragi.translate_action_intent` maps the leading
+  command verb to an ActionType - the single source of truth shared with the
+  pantheon-internal path so the two never drift. An unmapped command returns
+  `200 {"submitted": false, "reason": "unmapped_action_intent"}`.
+- **Response** (submitted): `200 {"submitted": true, "correlation_id": ...,
+  "action_type": ..., "resource_id": ...}`. The operator tracks progress by the
+  `correlation_id` (Trace panel / audit); the pipeline result (auto shadow-exec,
+  HIL wait, or deny) is asynchronous.
+- **This is the second documented write route** alongside the 13.3 approval
+  callback; both record a signal and never hold the executor Managed Identity.
+
 ## 14. MCP - future work (Week 2+)
 
 The upstream console does **not** ship an MCP server on Day 1. Once the

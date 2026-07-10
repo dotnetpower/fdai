@@ -42,6 +42,7 @@ from starlette.routing import Route
 
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.core.rbac.enforcer import RoleRequiredError
+from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
 from fdai.delivery.read_api.auth import (
     AuthenticationError,
@@ -314,6 +315,16 @@ class ReadApiConfig:
     endpoint unregistered (the FE deck then falls back to its built-in
     deterministic answerer)."""
 
+    console_action: Any = None
+    """Opt-in console action submitter
+    (:class:`~fdai.delivery.read_api.console_action.ConsoleActionSubmitter`).
+    When set, registers ``POST /chat/action`` - the ONE write-direction
+    conversational path: it publishes an operator ``ActionProposal`` onto the
+    raw event topic where the pantheon judges/approves/executes it. It holds no
+    executor identity and never mutates a resource (propose, never execute);
+    RBAC is server-derived (Contributor+ ``author-draft-pr``). Leave ``None`` to
+    keep the console read-only with no action-submit surface."""
+
     expose_pantheon: bool = False
     """Opt-in pantheon graph + workflows endpoints. When True, registers
     two read-only routes: ``GET /pantheon/graph`` (15 agents, org chart
@@ -386,6 +397,21 @@ def build_app(
         header = request.headers.get("authorization")
         principal = authenticator.require_roles(header, required=_READER_ROLES)
         return principal.oid
+
+    async def _authorize_principal(request: Request) -> Principal:
+        """Return the caller's full :class:`Principal` (roles) or raise 401/403.
+
+        The action-submit route needs the role bag to gate on capability
+        server-side. In dev mode there is no token; return a Contributor-roled
+        dev principal so the local harness can exercise the submit path (dev
+        mode is refused outside local by :func:`build_app`).
+        """
+        if resolved_config.dev_mode:
+            return Principal(
+                oid=_DEV_MODE_PRINCIPAL, roles=frozenset({Role.CONTRIBUTOR})
+            )
+        header = request.headers.get("authorization")
+        return authenticator.require_roles(header, required=_READER_ROLES)
 
     # ------------------------------------------------------------------
     # Handlers
@@ -788,6 +814,33 @@ def build_app(
                 "to the deterministic answerer. Set FDAI_NARRATOR_* env vars "
                 "or ship resolved-models.json to enable the LLM path."
             )
+
+    # Optional console action-submit route. The ONE write-direction
+    # conversational path: an operator command becomes a typed ActionProposal
+    # published onto the raw event topic (pantheon judges/approves/executes).
+    # Propose-never-execute; server-derived RBAC (Contributor+). Registered
+    # only when a submitter is wired at composition root.
+    if resolved_config.console_action is not None:
+        from fdai.delivery.read_api.console_action import (
+            DEFAULT_ACTION_PATH as _ACTION_PATH,
+        )
+        from fdai.delivery.read_api.console_action import (
+            make_console_action_route,
+        )
+
+        if _ACTION_PATH in _CORE_ROUTE_PATHS:
+            raise ValueError(f"action path {_ACTION_PATH!r} collides with a core route")
+        routes.append(
+            make_console_action_route(
+                submitter=resolved_config.console_action,
+                authorize_principal=_authorize_principal,
+            )
+        )
+        _LOGGER.warning(
+            "Console action-submit route wired at POST %s (propose-only, "
+            "Contributor+ required); operator commands enter the typed pipeline.",
+            _ACTION_PATH,
+        )
 
     middleware: list[Middleware] = []
     # Baseline security headers on every response. Cheap defence in depth;

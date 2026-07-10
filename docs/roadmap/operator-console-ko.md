@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 4734c4bfbd2f18dd9ee83075b7f9831640696e12
+translation_source_sha: c965b3179577d597118e295e926f2c1b3517115e
 translation_revised: 2026-07-10
 ---
 
@@ -793,6 +793,37 @@ read-only 콘솔 SPA는 오퍼레이터가 지금 보는 화면을 `ViewSnapshot
   동일한 `purpose`/`glossary` 에 grounding.
 - CLI narrator(`cli/src/narrator`)는 별개 surface; 같은 self-describing
   snapshot을 그 `console-tool` 결과에 실어 나르는 것은 병행 후속 작업.
+
+### 13.5 Action submit - `POST /chat/action` (propose, 실행 아님)
+
+read-only deck은 질문에 답한다; 이것은 유일한 write-direction 경로 -
+오퍼레이터가 요청한 action(`restart vm-1`)을 typed 판테온 파이프라인에
+제출한다. "console never executes" 불변식을 깨지 **않는다**: 라우트는
+`ActionProposal` *시그널* 을 raw event topic(판테온 Huginn이 ingest하는
+바로 그 토픽)에 발행할 뿐 executor identity를 갖지 않는다 - HIL approval
+callback(13.3)과 동일한 선례. Forseti가 proposal을 judge하고, Var가
+high-risk를 승인하며, Thor만 실행한다(shadow-first).
+
+- **Endpoint**: `POST /chat/action`, body `{"prompt": str, "session_id": str?}`.
+  `ReadApiConfig.console_action` 이 `ConsoleActionSubmitter`
+  (`src/fdai/delivery/read_api/console_action.py`)를 wire할 때만 등록;
+  없으면 콘솔에 action-submit surface가 없다.
+- **서버 파생 RBAC**. 오퍼레이터 role은 검증된 bearer token(`Principal.roles`)
+  에서 오며, 클라이언트 JSON이 아니다. 제출은 `author-draft-pr` capability
+  (Contributor 이상)를 요구; Reader는 아무것도 발행되기 전에
+  `403 {"submitted": false, "reason": "rbac_capability"}` 로 거부. Forseti가
+  downstream에서 initiator principal을 재확인(deny + `SecurityEvent`) -
+  defense in depth.
+- **번역**. `fdai.agents.bragi.translate_action_intent` 가 선행 명령 동사를
+  ActionType으로 매핑 - 판테온 내부 경로와 공유하는 단일 진실원이라 둘이
+  drift하지 않는다. 매핑 안 되는 명령은
+  `200 {"submitted": false, "reason": "unmapped_action_intent"}`.
+- **응답**(제출됨): `200 {"submitted": true, "correlation_id": ...,
+  "action_type": ..., "resource_id": ...}`. 오퍼레이터는 `correlation_id`
+  (Trace 패널 / audit)로 진행을 추적; 파이프라인 결과(auto shadow-exec,
+  HIL 대기, deny)는 비동기.
+- **이것은 13.3 approval callback과 나란한 두 번째 문서화된 write route**;
+  둘 다 시그널을 기록할 뿐 executor Managed Identity를 갖지 않는다.
 
 ## 14. MCP - future work (Week 2+)
 
