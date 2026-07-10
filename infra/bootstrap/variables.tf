@@ -98,3 +98,9 @@ variable "additional_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_state_lock" {
+  description = "Place a CanNotDelete lock on the terraform state storage account so it cannot be accidentally deleted (losing all remote state). Default false for dev tear-down ease; set true for shared/prod ops layers."
+  type        = bool
+  default     = false
+}

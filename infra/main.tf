@@ -38,6 +38,17 @@ module "resource_group" {
   tags     = local.tags
 }
 
+# Opt-in delete-protection: a CanNotDelete lock blocks an accidental RG (and
+# thus whole-env) deletion. Default off so a dev tear-down stays a one-liner;
+# set enable_resource_locks = true for staging/prod.
+resource "azurerm_management_lock" "resource_group" {
+  count      = var.enable_resource_locks ? 1 : 0
+  name       = "lock-${var.workload}${local.full_suffix}"
+  scope      = module.resource_group.id
+  lock_level = "CanNotDelete"
+  notes      = "Protects the FDAI environment from accidental deletion (enable_resource_locks)."
+}
+
 # -----------------------------------------------------------------------
 # Private networking (policy-locked tenants) - VNet + delegated subnets.
 # Only instantiated when enable_private_networking = true; the default
@@ -72,6 +83,7 @@ module "container_registry" {
   name                = "cr${var.workload}${local.acr_suffix}"
   location            = var.region
   resource_group_name = module.resource_group.name
+  sku                 = var.acr_sku
   tags                = local.tags
 }
 
@@ -148,6 +160,10 @@ module "key_vault" {
   # The public path keeps the day-zero Enabled + Allow posture.
   public_network_access_enabled = !var.enable_private_networking
   network_acls_default_action   = var.enable_private_networking ? "Deny" : "Allow"
+
+  # Hardening knobs (default to dev posture; tighten via tfvars for prod).
+  purge_protection_enabled   = var.kv_purge_protection_enabled
+  soft_delete_retention_days = var.kv_soft_delete_retention_days
 }
 
 # Key Vault private endpoint + private DNS (privatelink.vaultcore.azure.net).
@@ -240,6 +256,10 @@ module "state_store" {
   administrator_password = var.postgres_admin_password
   database_name          = var.workload
   tags                   = local.tags
+
+  # Hardening knobs (default to dev posture; tighten via tfvars for prod).
+  backup_retention_days        = var.postgres_backup_retention_days
+  geo_redundant_backup_enabled = var.postgres_geo_redundant_backup
 }
 
 # -----------------------------------------------------------------------

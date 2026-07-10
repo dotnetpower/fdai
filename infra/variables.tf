@@ -238,3 +238,48 @@ variable "alert_webhook_url" {
   sensitive   = true
 }
 
+# ---------------------------------------------------------------------------
+# Hardening knobs (root-exposed; default to the day-zero/dev posture so the
+# live env is unchanged, tighten for staging/prod via tfvars). See the
+# production-hardening checklist in docs/roadmap/deploy-and-onboard.md.
+# ---------------------------------------------------------------------------
+variable "kv_purge_protection_enabled" {
+  description = "Key Vault purge protection. IRREVERSIBLE once true; prod should set it, dev leaves false so a tear-down does not wait out the purge window."
+  type        = bool
+  default     = false
+}
+
+variable "kv_soft_delete_retention_days" {
+  description = "Key Vault soft-delete retention (7-90). Raise for prod."
+  type        = number
+  default     = 7
+}
+
+variable "postgres_backup_retention_days" {
+  description = "Postgres Flexible backup retention (7-35). Raise for prod."
+  type        = number
+  default     = 7
+}
+
+variable "postgres_geo_redundant_backup" {
+  description = "Postgres geo-redundant (paired-region) backup. Adds cost; prod default true once RTO/RPO is signed off."
+  type        = bool
+  default     = false
+}
+
+variable "acr_sku" {
+  description = "Container Registry SKU (Basic | Standard | Premium). Premium unlocks private endpoints + geo-replication for prod."
+  type        = string
+  default     = "Basic"
+  validation {
+    condition     = contains(["Basic", "Standard", "Premium"], var.acr_sku)
+    error_message = "acr_sku must be one of: Basic, Standard, Premium."
+  }
+}
+
+variable "enable_resource_locks" {
+  description = "Place a CanNotDelete management lock on the resource group so an accidental delete is blocked. Default false (dev tear-down stays easy); set true for staging/prod."
+  type        = bool
+  default     = false
+}
+

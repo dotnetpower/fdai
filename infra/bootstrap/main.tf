@@ -42,6 +42,34 @@ resource "azurerm_subnet" "runner" {
   address_prefixes     = [var.runner_subnet_prefix]
 }
 
+# Defense-in-depth NSG on the runner subnet. The VM has no public IP so
+# inbound from the internet is already unreachable; the explicit deny documents
+# intent and lights up NSG flow logs. Outbound stays default-allowed (the
+# runner needs GitHub + Azure + apt over 443/80).
+resource "azurerm_network_security_group" "runner" {
+  name                = "nsg-runner-${local.suffix}"
+  location            = var.region
+  resource_group_name = azurerm_resource_group.ops.name
+  tags                = local.tags
+
+  security_rule {
+    name                       = "DenyInternetInbound"
+    priority                   = 4000
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "Internet"
+    destination_address_prefix = "*"
+  }
+}
+
+resource "azurerm_subnet_network_security_group_association" "runner" {
+  subnet_id                 = azurerm_subnet.runner.id
+  network_security_group_id = azurerm_network_security_group.runner.id
+}
+
 resource "azurerm_subnet" "pe" {
   name                              = "snet-pe"
   resource_group_name               = azurerm_resource_group.ops.name
@@ -197,4 +225,14 @@ resource "azurerm_role_assignment" "runner_app_uaa" {
   scope                = data.azurerm_resource_group.app[0].id
   role_definition_name = "User Access Administrator"
   principal_id         = azurerm_linux_virtual_machine.runner[0].identity[0].principal_id
+}
+
+# Opt-in delete-protection on the state account - losing it loses all remote
+# state, so a shared/prod ops layer should set enable_state_lock = true.
+resource "azurerm_management_lock" "state" {
+  count      = var.enable_state_lock ? 1 : 0
+  name       = "lock-tfstate-${local.suffix}"
+  scope      = data.azurerm_storage_account.state.id
+  lock_level = "CanNotDelete"
+  notes      = "Protects the terraform remote-state account from accidental deletion."
 }
