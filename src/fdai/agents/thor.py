@@ -239,6 +239,13 @@ class Thor(Agent):
             self._saga_available and self._vidar_available
         )
 
+        # Propagate the approval quorum the judge set (2 for irreversible
+        # actions, agent-pantheon.md 4.6). Floor at 1 so a forged / malformed
+        # verdict can never yield a zero-or-negative quorum that would let an
+        # action execute with no approver; Thor MUST NOT hard-code 1 and drop
+        # the judge's two-approver requirement.
+        quorum_required = max(1, int(verdict.get("quorum_required", 1)))
+
         run = ActionRun(
             correlation_id=correlation,
             action_type=action_type,
@@ -246,6 +253,7 @@ class Thor(Agent):
             state=ActionRunState.VERDICTED,
             verdict=risk_verdict,
             shadow_mode=shadow_mode,
+            quorum_required=quorum_required,
             initiator_principal=verdict.get("initiator_principal"),
         )
         self.action_runs[correlation] = run

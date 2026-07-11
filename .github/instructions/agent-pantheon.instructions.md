@@ -170,8 +170,17 @@ These are documented shortfalls between `agent-pantheon.md` and the current
 code. A change in the affected area SHOULD close the gap or, at minimum, MUST NOT
 deepen it. Do not delete this list without closing the item.
 
-- **Quorum for irreversible actions is not enforced** end-to-end (Forseti does
-  not attach `quorum_required: 2`; Thor hard-codes 1). See rule 4.6.
+- **Quorum for irreversible actions is plumbed end to end.** Forseti stamps
+  `quorum_required` on the verdict via
+  `agents/_framework/action_semantics.quorum_for` (2 for an irreversible
+  ActionType, 1 otherwise), Thor propagates it onto the `ActionRun` (floored
+  at 1, never hard-coded), and Var enforces the distinct-approver quorum with
+  no self-approval. The wave-3 irreversibility signal is still the
+  `delete`/`destroy` name heuristic (shared by Heimdall); the ActionType
+  schema's `irreversible` flag supersedes it once the real ontology loads.
+  The `remediate.delete-storage` default verdict remains `deny` (a policy
+  choice, not a plumbing gap); the quorum rides along so a fork that routes
+  an irreversible action to `hil` gets two-approver enforcement for free.
 - **Forseti no-rule-match returns `None`** instead of routing to HIL. See rule 4.7.
 - **Vidar rollback is a bookkeeping stub** (records success without performing a
   contract-specific rollback / DR failover).

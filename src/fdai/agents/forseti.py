@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fdai.agents._framework.action_semantics import quorum_for
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
@@ -242,6 +243,13 @@ class Forseti(Agent):
             "action_type": action_type,
             "risk_verdict": risk_verdict,
             "reason": reason,
+            # Distinct-approver quorum: an irreversible action MUST clear two
+            # approvers (agent-pantheon.md 4.6). The judge sets it on the
+            # verdict; Thor propagates it onto the ActionRun and Var enforces
+            # it. Reversible actions carry the single-approver default. This
+            # rides along even on a deny verdict (harmless, and correct if a
+            # fork's risk table routes the same action to hil instead).
+            "quorum_required": quorum_for(action_type),
             # Propagate the operator initiator (None for rule-fired) so the
             # approver principal downstream can enforce no-self-approval.
             "initiator_principal": event.get("initiator_principal"),

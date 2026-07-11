@@ -13,6 +13,7 @@ from collections import Counter, deque
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from fdai.agents._framework.action_semantics import is_irreversible
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
@@ -102,7 +103,7 @@ class Heimdall(Agent):
             if e.get("initiator_principal") == initiator and e.get("attempted_action") == action
         )
         severity: str
-        if hint == "critical" or _is_irreversible(action):
+        if hint == "critical" or is_irreversible(action):
             severity = "high"
         elif matches >= self._security_high_threshold:
             severity = "high"
@@ -177,11 +178,6 @@ class Heimdall(Agent):
             f"{len(self._security_recent)} security event(s) in window."
         )
         return IntrospectionResult(answer=answer, facts=facts)
-
-
-def _is_irreversible(action_type_id: str) -> bool:
-    lowered = action_type_id.lower()
-    return "delete" in lowered or "destroy" in lowered
 
 
 __all__ = ["Heimdall", "AlerterHook"]
