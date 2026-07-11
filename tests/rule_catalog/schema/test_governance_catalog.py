@@ -147,3 +147,12 @@ def test_one_bad_file_does_not_hide_the_rest(tmp_path: Path) -> None:
         load_governance_catalog(tmp_path)
     # the malformed file is reported (the load fails as a whole), keyed by name
     assert any(i.key.startswith("bad.yaml") for i in ei.value.issues)
+
+
+def test_yml_extension_is_loaded(tmp_path: Path) -> None:
+    # a `.yml` artifact must be loaded, not silently ignored
+    _write(tmp_path, "rule-sets", "s.yml", _VALID_RULE_SET)
+    _write(tmp_path, "assignments", "a.yml", _VALID_ASSIGNMENT)
+    cat = load_governance_catalog(tmp_path)
+    assert [r.id for r in cat.rule_sets] == ["security-baseline"]
+    assert [a.id for a in cat.assignments] == ["assign-baseline-rg-a"]

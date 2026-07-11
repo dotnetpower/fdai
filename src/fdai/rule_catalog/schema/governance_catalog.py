@@ -8,8 +8,8 @@ every file are aggregated so one load surfaces the whole catalog's problems.
 
 Layout (CSP-neutral, catalog-as-code):
 
-    <root>/assignments/*.yaml   -> Assignment
-    <root>/rule-sets/*.yaml     -> RuleSet
+    <root>/assignments/*.{yaml,yml}   -> Assignment
+    <root>/rule-sets/*.{yaml,yml}     -> RuleSet
 
 A missing subdirectory is empty, not an error. Duplicate ids within a kind are
 rejected (a catalog cannot bind two assignments under one id).
@@ -55,7 +55,10 @@ def _load_dir[T](
         return ()
     loaded: list[T] = []
     seen: dict[str, str] = {}
-    for path in sorted(directory.glob("*.yaml")):
+    # Accept both extensions - a governance artifact saved as `.yml` must not be
+    # silently ignored (a scope would go ungoverned with no error).
+    paths = sorted([*directory.glob("*.yaml"), *directory.glob("*.yml")])
+    for path in paths:
         try:
             raw = yaml.safe_load(path.read_text(encoding="utf-8"))
         except yaml.YAMLError as exc:
