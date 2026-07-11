@@ -108,6 +108,22 @@ def test_arbitration_loop_end_to_end() -> None:
     assert forseti.arbitrations.get("corr-arb") == "cost"
 
 
+def test_forseti_arbitrations_map_is_bounded() -> None:
+    # arbitrations is keyed by correlation id (one per arbitrated event); a
+    # long-lived judge must not leak one entry per correlation forever.
+    from fdai.agents.forseti import _MAX_RESOURCES
+
+    forseti = Forseti()
+    for i in range(_MAX_RESOURCES + 100):
+        forseti._record_arbitration(  # noqa: SLF001
+            {"correlation_id": f"c{i}", "winning_domain": "cost"}
+        )
+    assert len(forseti.arbitrations) == _MAX_RESOURCES
+    # The oldest correlations were evicted; the newest is retained.
+    assert forseti.arbitrations.get(f"c{_MAX_RESOURCES + 100 - 1}") == "cost"
+    assert "c0" not in forseti.arbitrations
+
+
 # ---------------------------------------------------------------------------
 # Cross-domain signal aggregation (Njord cost + Freyr capacity)
 # ---------------------------------------------------------------------------

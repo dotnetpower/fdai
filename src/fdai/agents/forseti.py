@@ -199,8 +199,17 @@ class Forseti(Agent):
 
     def _record_arbitration(self, decision: dict[str, Any]) -> None:
         correlation_id = str(decision.get("correlation_id", ""))
-        if correlation_id:
-            self.arbitrations[correlation_id] = str(decision.get("winning_domain", ""))
+        if not correlation_id:
+            return
+        self.arbitrations[correlation_id] = str(decision.get("winning_domain", ""))
+        # Bound the map: it is keyed by correlation id (one per arbitrated
+        # event, forever), so an unbounded dict would leak on a long-lived
+        # judge - the same reason _domain_advice / _domain_impact are LRU.
+        # Dict preserves insertion order, so the first key is the oldest; a
+        # re-recorded correlation updates in place (order unchanged) and never
+        # triggers a spurious eviction.
+        if len(self.arbitrations) > _MAX_RESOURCES:
+            self.arbitrations.pop(next(iter(self.arbitrations)))
 
     # ---- judgment ------------------------------------------------------
 
