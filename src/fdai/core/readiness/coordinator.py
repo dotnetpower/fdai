@@ -29,9 +29,19 @@ from fdai.shared.providers.projection import Finding, Severity
 # Severity ordering shared with the posture report; kept local so the coordinator
 # imports only shared types (no core-sibling dependency).
 _SEVERITY_ORDER: tuple[Severity, ...] = ("low", "medium", "high", "critical")
-_SEVERITY_RANK: dict[Severity, int] = {s: i for i, s in enumerate(_SEVERITY_ORDER)}
+_SEVERITY_RANK: dict[str, int] = {s: i for i, s in enumerate(_SEVERITY_ORDER)}
+# An unrecognized severity outranks every known one, so a finding whose severity
+# the coordinator does not understand fails toward safety (treated as blocking)
+# rather than crashing the whole handoff gate. Severity is a Literal, not a
+# runtime-checked enum, so a fork projection or a deserialized finding can carry
+# an unexpected value.
+_UNKNOWN_SEVERITY_RANK = len(_SEVERITY_ORDER)
 
 _PROD_ENV = "prod"
+
+
+def _severity_rank(severity: str) -> int:
+    return _SEVERITY_RANK.get(severity, _UNKNOWN_SEVERITY_RANK)
 
 
 def compose_readiness_report(
@@ -52,13 +62,22 @@ def compose_readiness_report(
     finding gates when its own severity is ``BLOCKING``. The verdict is
     ``blocked`` if any finding gates, ``needs_review`` if findings exist but none
     gates, ``clear`` if there are none.
+
+    A posture finding whose severity is not one of the known levels fails toward
+    safety (treated as blocking). ``blocking_min_severity`` is config and MUST be
+    a known level - an invalid value raises :class:`ValueError` at the boundary.
     """
+    if blocking_min_severity not in _SEVERITY_RANK:
+        raise ValueError(
+            f"blocking_min_severity {blocking_min_severity!r} is not a known severity "
+            f"(expected one of {list(_SEVERITY_ORDER)})"
+        )
     min_rank = _SEVERITY_RANK[blocking_min_severity]
     prod = signal.target_environment == _PROD_ENV
     findings: list[ReadinessFinding] = []
 
     for f in posture_findings:
-        blocking = _SEVERITY_RANK[f.severity] >= min_rank or (prod and f.severity == "critical")
+        blocking = _severity_rank(f.severity) >= min_rank or (prod and f.severity == "critical")
         findings.append(
             ReadinessFinding(
                 evidence=f.rule_id,

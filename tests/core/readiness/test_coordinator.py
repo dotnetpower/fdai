@@ -171,3 +171,19 @@ def test_to_dict_shape() -> None:
     assert d["target_environment"] == "non-prod"
     assert d["findings"][0]["evidence"] == "r.high"
     assert d["findings"][0]["source"] == "assurance_twin"
+
+
+def test_unknown_severity_fails_toward_safety() -> None:
+    # Severity is a Literal (not runtime-checked); an unrecognized value from a
+    # fork projection must be treated as blocking, never crash the gate
+    report = _compose(
+        posture_findings=(_posture("r.weird", "urgent"),),  # type: ignore[arg-type]
+        mode=Mode.ENFORCE,
+    )
+    assert report.verdict is HandoffVerdict.BLOCKED
+    assert report.blocking_findings[0].evidence == "r.weird"
+
+
+def test_invalid_blocking_min_severity_rejected() -> None:
+    with pytest.raises(ValueError, match="not a known severity"):
+        _compose(blocking_min_severity="sev1")  # type: ignore[arg-type]
