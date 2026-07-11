@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 43419e1b8f2c24dd9c4e26ebd45ed626abb7c2f3
+translation_source_sha: 5d30d09515dc27917fac4c6f78e675d1d42dfb70
 translation_revised: 2026-07-11
 ---
 
@@ -116,8 +116,10 @@ seam):
   (`shared/resilience/degradation.py`)다: circuit breaker 들을 종합해
   `NORMAL` / `DEGRADED` 모드로 판정하고, 중요 의존성이 OPEN 이면 autonomy 를
   shadow 로 캡한다 - 망가진 audit store 나 도달 불가 substrate 가 enforce mutation
-  을 몰아선 안 된다. 판테온 런타임 / risk gate 가 action 승격 전에
-  `autonomy_permitted()` 를 참조한다.
+  을 몰아선 안 된다. control loop 이 `autonomy_permitted()` 를 참조해 그 결과를
+  risk-gate authority 에 `system_degraded` 로 전달하고, 이는 shadow 로 캡된
+  `system_health` ceiling axis 를 추가한다 (execution-model.md 2.6a) - action
+  승격 전에 적용된다.
 - **backpressure** (`shared/resilience/backpressure.py`)는 세마포어로 동시성을
   bound 하고, in-flight 슬롯과 bounded 대기 큐가 모두 차면 *shed*(즉시 거부,
   broker / DLQ 로 재큐잉)해서 이벤트 폭주가 프로세스를 고갈시키는 대신 예측

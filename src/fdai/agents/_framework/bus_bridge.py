@@ -68,6 +68,7 @@ class BridgeMetrics:
     missing_correlation_id: int = 0
     missing_idempotency_key: int = 0
     producer_principal_mismatch: int = 0
+    ordered_poison_halts: int = 0
 
     def as_dict(self) -> dict[str, int]:
         return {
@@ -86,6 +87,7 @@ class BridgeMetrics:
             "missing_correlation_id": self.missing_correlation_id,
             "missing_idempotency_key": self.missing_idempotency_key,
             "producer_principal_mismatch": self.producer_principal_mismatch,
+            "ordered_poison_halts": self.ordered_poison_halts,
         }
 
 
@@ -122,6 +124,8 @@ class EventBusBridge:
     verify_producer_principal: bool = True
     handler_max_retries: int = 0
     handler_retry_backoff: float = 0.05
+    fail_closed_on_empty_mutation_key: bool = True
+    halt_ordered_topic_on_poison: bool = False
     _subs: dict[str, list[tuple[str, Handler]]] = field(default_factory=lambda: defaultdict(list))
     _tasks: list[asyncio.Task[None]] = field(default_factory=list)
     metrics: BridgeMetrics = field(default_factory=BridgeMetrics)
@@ -173,6 +177,18 @@ class EventBusBridge:
                 "pantheon_empty_partition_key",
                 extra={"topic": topic, "principal": principal},
             )
+            if topic in MUTATION_TOPICS and self.fail_closed_on_empty_mutation_key:
+                # Fail toward safety: a mutation record with no resource key
+                # would round-robin across partitions, so two concurrent
+                # mutations on the same resource could interleave (the
+                # per-resource mutex is gone). Refuse the publish rather than
+                # emit an unserialized mutation.
+                self.metrics.publish_errors += 1
+                raise ValueError(
+                    f"refusing to publish mutation topic {topic!r} with an empty "
+                    "partition key (no resource_id / correlation_id) - per-resource "
+                    "ordering cannot be guaranteed"
+                )
         try:
             receipt = await self.provider.publish(topic, key, enriched)
         except asyncio.CancelledError:
@@ -346,6 +362,25 @@ class EventBusBridge:
                             envelope=envelope,
                             reason=f"handler error: {exc}",
                         )
+                        if self.halt_ordered_topic_on_poison and topic in MUTATION_TOPICS:
+                            # Ordering preservation for a per-resource
+                            # mutation stream: continuing past a poison
+                            # record would let a LATER mutation on the same
+                            # resource apply while an EARLIER one was only
+                            # dead-lettered - an ordering violation the
+                            # per-resource partition mutex exists to prevent.
+                            # Halt this consumer so an operator intervenes;
+                            # siblings (other topics) keep running.
+                            self.metrics.ordered_poison_halts += 1
+                            _LOG.error(
+                                "pantheon_ordered_topic_halted",
+                                extra={
+                                    "group_id": group_id,
+                                    "topic": topic,
+                                    "offset": envelope.offset,
+                                },
+                            )
+                            return
                 # Iterator ended normally (finite in-memory drain): done.
                 return
             except asyncio.CancelledError:

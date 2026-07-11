@@ -475,6 +475,56 @@ def test_bridge_warns_on_unknown_object_topic(caplog: pytest.LogCaptureFixture) 
     assert any("unknown_topic" in r.message for r in caplog.records)
 
 
+def test_bridge_fail_closed_on_empty_mutation_key() -> None:
+    """A mutation record with no partition key is refused (fail toward safety)."""
+    reg = load_pantheon()
+    provider = InMemoryEventBus()
+    bridge = EventBusBridge(provider=provider, registry=reg)
+    with pytest.raises(ValueError, match="empty"):
+        asyncio.run(bridge.publish("Thor", "object.action-run", {}))
+    assert bridge.metrics.empty_partition_keys == 1
+    assert bridge.metrics.publish_errors == 1
+    assert "object.action-run" not in provider._records
+
+
+def test_bridge_empty_mutation_key_soft_mode_publishes() -> None:
+    reg = load_pantheon()
+    provider = InMemoryEventBus()
+    bridge = EventBusBridge(
+        provider=provider, registry=reg, fail_closed_on_empty_mutation_key=False
+    )
+    asyncio.run(bridge.publish("Thor", "object.action-run", {}))
+    assert bridge.metrics.empty_partition_keys == 1
+    assert bridge.metrics.published == 1
+
+
+def test_bridge_halts_ordered_topic_on_poison() -> None:
+    """With halt enabled, a poison mutation record stops the consumer so a
+    later mutation on the same resource cannot jump ahead of it."""
+    reg = load_pantheon()
+    provider = InMemoryEventBus()
+    bridge = EventBusBridge(
+        provider=provider, registry=reg, halt_ordered_topic_on_poison=True
+    )
+
+    seen: list[str] = []
+
+    async def handler(_t: str, p: dict) -> None:
+        if p.get("seq") == 1:
+            raise RuntimeError("poison")
+        seen.append(str(p.get("seq")))
+
+    bridge.subscribe("object.action-run", "Vidar", handler)
+    common = {"resource_id": "vm-1", "correlation_id": "c", "idempotency_key": "k"}
+    asyncio.run(bridge.publish("Thor", "object.action-run", {**common, "seq": 1}))
+    asyncio.run(bridge.publish("Thor", "object.action-run", {**common, "seq": 2}))
+    _drain(bridge)
+
+    assert seen == []  # seq=2 never jumped ahead of the poison seq=1
+    assert bridge.metrics.ordered_poison_halts == 1
+    assert bridge.metrics.dead_lettered == 1
+
+
 class _FlakyBus(InMemoryEventBus):
     """Subscribe raises the first ``fail_times`` calls, then succeeds."""
 

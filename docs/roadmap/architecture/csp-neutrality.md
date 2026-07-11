@@ -119,8 +119,10 @@ same code path serve every target.
   (`shared/resilience/degradation.py`): it aggregates the circuit breakers into a
   `NORMAL` / `DEGRADED` mode and caps autonomy to shadow when a critical
   dependency is OPEN - a failing audit store or unreachable substrate MUST NOT
-  drive an enforce mutation. The pantheon runtime / risk gate consult
-  `autonomy_permitted()` before promoting an action.
+  drive an enforce mutation. The control loop consults `autonomy_permitted()`
+  and passes the result to the risk-gate authority as `system_degraded`, which
+  adds a `system_health` ceiling axis capped to shadow (execution-model.md 2.6a)
+  before any action is promoted.
 - **Backpressure** (`shared/resilience/backpressure.py`) bounds concurrency with
   a semaphore and *sheds* (fast-rejects, re-queued to the broker / DLQ) once both
   the in-flight slots and a bounded wait queue are full, so an event storm
