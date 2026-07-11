@@ -229,8 +229,12 @@ HIL로 보낼 수 있지만, ungrounded 액션을 안전하게 만들 수는 없
 3. `QualityDecision.rubric_*` 필드를 audit 로그에 직렬화해 shadow 모드 catch /
    false-positive 지표를 실제로 측정할 수 있게 한다. `quality_decision_audit_fields()`
    헬퍼가 이를 JSON-safe하게 flatten한다; 포크의 제어 루프 audit writer가 그 출력을
-   per-decision 엔트리에 병합한다. upstream 제어 루프는 아직 이걸 호출하지 않는다(T2
-   미배선); 그 호출 없이는 shadow 모드가 승격할 데이터를 기록하지 못한다.
+   per-decision 엔트리에 병합한다. 모든 필드는 구조화된 id / score / enum / 리소스
+   참조이며, 예외는 루브릭 `rationale`(untrusted LLM 자유텍스트)로 기본 제외된다
+   (`include_rationale=True` 로 opt-in, 길이 제한, 포크는 저장 전 반드시 secret-scan -
+   L0 audit는 시크릿/고객값을 기록하지 않는다). upstream 제어 루프는 아직 이 헬퍼를
+   호출하지 않는다(T2 미배선); 그 호출 없이는 shadow 모드가 승격할 데이터를 기록하지
+   못한다.
 
 이 셋이 완료되기 전까지 루브릭은 런타임에서 아무것도 바꾸지 않는다. 이는 의도된 것이지만
 (shadow-first), 현재 가치는 live 환각 감소가 아니라 테스트된 계약과 seam이라는 뜻이다.

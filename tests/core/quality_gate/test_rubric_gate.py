@@ -385,10 +385,24 @@ async def test_audit_fields_include_rubric_provenance() -> None:
     assert fields["rubric_shadow"] is True
     assert fields["rubric_min_score"] == pytest.approx(0.2)
     assert {s["criterion"] for s in fields["rubric_scores"]} == set(_CRITERIA)
-    # Every score carries its rationale so the audit can reconstruct WHY.
-    assert all(s["rationale"] for s in fields["rubric_scores"])
+    # Audit essence: which action / resource the decision was about.
+    assert fields["candidate_action_type"] == "remediate.tag-add"
+    assert fields["candidate_target_resource_ref"] == "rid-1"
+    # Security: rationale (untrusted LLM free-text) is EXCLUDED by default.
+    assert all("rationale" not in s for s in fields["rubric_scores"])
     # JSON-safe: no enums / dataclasses leak through.
     json.dumps(fields)
+
+
+@pytest.mark.asyncio
+async def test_audit_rationale_is_opt_in_and_capped() -> None:
+    gate = _gate(rubric_evaluator=_failing_rubric(), rubric_shadow=True)
+    decision = await gate.evaluate(_candidate())
+    fields = quality_decision_audit_fields(decision, include_rationale=True)
+    # Opt-in: rationale present now, and every score has one.
+    assert all(s["rationale"] for s in fields["rubric_scores"])
+    # Capped to bound the untrusted free-text surface.
+    assert all(len(s["rationale"]) <= 500 for s in fields["rubric_scores"])
 
 
 # ---------------------------------------------------------------------------

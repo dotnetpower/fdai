@@ -253,8 +253,12 @@ isolated library on top of that seam. To make it run, a fork MUST:
    shadow-mode catch / false-positive metrics can actually be measured. The
    `quality_decision_audit_fields()` helper flattens them JSON-safely; a fork's
    control-loop audit writer merges its output into the per-decision entry.
-   Upstream's control loop does not yet call it (T2 is unwired); without that
-   call, shadow mode records nothing to promote on.
+   Every field is a structured id / score / enum / resource reference except the
+   rubric `rationale`, which is untrusted LLM free-text and is EXCLUDED by
+   default (`include_rationale=True` opts in, capped, and a fork MUST secret-scan
+   it before persisting - L0 audit records no secrets / customer values).
+   Upstream's control loop does not yet call the helper (T2 is unwired); without
+   that call, shadow mode records nothing to promote on.
 
 Until those three are done, the rubric changes nothing at runtime. This is by
 design (shadow-first), but it means the current value is the tested contract and

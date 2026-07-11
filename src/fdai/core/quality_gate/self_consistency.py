@@ -170,6 +170,13 @@ async def run_consistency_cascade(
     reflects whether the measured stability cleared
     ``stability_threshold``. The caller routes ``stable is False`` to HIL
     (a subtractive gate), never averaging the stability into confidence.
+
+    Raises whatever :meth:`SelfConsistencySampler.sample` raises (a
+    proposer failure propagates after the in-flight siblings are
+    cancelled). The caller (the cascade site) MUST treat that as a
+    fail-closed signal and route to HIL, never swallow it into an
+    eligible outcome. Also raises :class:`ValueError` on an out-of-range
+    threshold.
     """
     if not 0.0 <= sample_threshold <= 1.0:
         raise ValueError(f"sample_threshold MUST be in [0.0, 1.0], got {sample_threshold}")

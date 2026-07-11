@@ -584,18 +584,41 @@ class QualityGate:
         return await self._models[0].propose(candidate)
 
 
-def quality_decision_audit_fields(decision: QualityDecision) -> dict[str, Any]:
+_RATIONALE_AUDIT_CAP: int = 500
+"""Max chars of a rubric ``rationale`` written to audit when a fork
+opts into ``include_rationale`` - bounds the untrusted free-text surface."""
+
+
+def quality_decision_audit_fields(
+    decision: QualityDecision,
+    *,
+    include_rationale: bool = False,
+) -> dict[str, Any]:
     """Flatten a :class:`QualityDecision` into JSON-safe audit fields.
 
     The append-only audit log is the source of truth for shadow-mode
     measurement: without the ``rubric_*`` provenance here, a shadow rubric
     records nothing to compute catch / false-positive rates on. A fork's
     control-loop audit writer calls this and merges the result into its
-    per-decision audit entry. Contains no secrets or customer values -
-    only ids, scores, and enum values.
+    per-decision audit entry.
+
+    Security (L0 audit rule - no secrets / customer values):
+
+    - Every field except the rubric ``rationale`` is a **structured** id,
+      score, enum, or resource reference - safe for an append-only audit.
+    - The rubric ``rationale`` is **untrusted LLM free-text** that MAY
+      reflect candidate values, so it is EXCLUDED by default. A fork that
+      opts in (``include_rationale=True``) MUST run the output through its
+      own secret-scanning / redaction before persisting; it is the only
+      non-structured field this helper can emit, and truncated to
+      ``_RATIONALE_AUDIT_CAP`` chars to bound the surface.
+    - ``candidate_target_resource_ref`` is the resource the decision was
+      *about* - audit essence (what happened), not a leaked value.
     """
-    return {
+    fields: dict[str, Any] = {
         "outcome": decision.outcome.value,
+        "candidate_action_type": decision.candidate.action_type,
+        "candidate_target_resource_ref": decision.candidate.target_resource_ref,
         "aggregate_confidence": decision.aggregate_confidence,
         "reasons": list(decision.reasons),
         "grounded_rule_ids": list(decision.grounded_rule_ids),
@@ -616,12 +639,13 @@ def quality_decision_audit_fields(decision: QualityDecision) -> dict[str, Any]:
                 "score": s.score,
                 "threshold": s.threshold,
                 "passed": s.passed,
-                "rationale": s.rationale,
                 "supporting_rule_ids": list(s.supporting_rule_ids),
+                **({"rationale": s.rationale[:_RATIONALE_AUDIT_CAP]} if include_rationale else {}),
             }
             for s in decision.rubric_scores
         ],
     }
+    return fields
 
 
 __all__ = [
