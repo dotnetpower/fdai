@@ -11,8 +11,10 @@ import pytest
 from fdai.core.quality_gate.gate import QualityCandidate
 from fdai.core.quality_gate.self_consistency import (
     STABILITY_SIGNAL_KEY,
+    CascadeDecision,
     SelfConsistencySampler,
     compute_stability,
+    run_consistency_cascade,
 )
 from fdai.core.quality_gate.testing import SequenceCrossCheckModel
 
@@ -124,3 +126,56 @@ class TestSelfConsistencySampler:
         # Give the event loop a tick to process the cancellations.
         await asyncio.sleep(0)
         assert all(t.cancelled() or t.done() for t in started)
+
+
+class TestCascade:
+    @pytest.mark.asyncio
+    async def test_strong_signal_skips_sampling(self) -> None:
+        sampler = SelfConsistencySampler(
+            proposer=SequenceCrossCheckModel(sequence=("a",)), samples=3
+        )
+        decision = await run_consistency_cascade(
+            sampler,
+            _candidate(),
+            aggregate_confidence=0.9,
+            sample_threshold=0.7,
+            stability_threshold=0.6,
+        )
+        assert decision == CascadeDecision(should_sample=False, stable=None, result=None)
+
+    @pytest.mark.asyncio
+    async def test_weak_signal_stable(self) -> None:
+        sampler = SelfConsistencySampler(
+            proposer=SequenceCrossCheckModel(sequence=("a",)), samples=4
+        )
+        decision = await run_consistency_cascade(
+            sampler,
+            _candidate(),
+            aggregate_confidence=0.4,
+            sample_threshold=0.7,
+            stability_threshold=0.6,
+        )
+        assert decision.should_sample is True
+        assert decision.stable is True
+        assert decision.result is not None
+        assert decision.result.stability == pytest.approx(1.0)
+
+    @pytest.mark.asyncio
+    async def test_weak_signal_unstable_is_gate_not_dilution(self) -> None:
+        # Unstable proposer under a weak cheap signal -> stable is False.
+        # The caller routes that to HIL; the low stability is NOT averaged
+        # into confidence where a high signal could mask it.
+        sampler = SelfConsistencySampler(
+            proposer=SequenceCrossCheckModel(sequence=("a", "b", "c", "d")), samples=4
+        )
+        decision = await run_consistency_cascade(
+            sampler,
+            _candidate(),
+            aggregate_confidence=0.4,
+            sample_threshold=0.7,
+            stability_threshold=0.6,
+        )
+        assert decision.should_sample is True
+        assert decision.stable is False
+        assert decision.result is not None
+        assert decision.result.stability == pytest.approx(0.25)

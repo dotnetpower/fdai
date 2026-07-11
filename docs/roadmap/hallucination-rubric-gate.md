@@ -205,17 +205,36 @@ grounded citations, fail-closed defaults, and shadow-before-enforce measurement 
 but it never claims to catch every hallucination. The only **hard** guarantee is
 the deterministic verifier: nothing executes unless policy-as-code and what-if
 approve it. The rubric can lower confidence and route more cases to HIL; it
-cannot make an ungrounded action safe. Two known softness points to close over
-time:
+cannot make an ungrounded action safe. Residual softness (some now mitigated):
 
-- **Grounding is id-existence, not entailment.** A rubric score's
-  `supporting_rule_ids` are checked to exist in the catalog, but the rubric does
-  not yet re-check that the rule *entails* the claim (the way
-  `RagGroundingSource.supports` does for citations). A judge can cite a real but
-  off-topic rule and pass grounding.
-- **Self-consistency dilutes, not gates.** `action_stability` is merged into the
-  mean `confidence_signals`, so a low stability can be masked by other high
-  signals. It is a soft signal, not a hard gate.
+- **Grounding entailment is opt-in.** A rubric score's `supporting_rule_ids` are
+  always checked to exist in the catalog. When the wired `GroundingSource`
+  exposes `supports()` (e.g. `RagGroundingSource`), the gate now also passes an
+  entailment predicate so a citation that exists but does not topically support
+  the candidate abstains (`off_topic_score`). With a plain grounding source that
+  has no `supports()`, only id-existence is checked - a judge could still cite a
+  real-but-off-topic rule.
+- **Self-consistency: mean signal OR subtractive gate.** Merging
+  `action_stability` into the mean `confidence_signals` dilutes it (a low value
+  can be masked). To avoid that, use `run_consistency_cascade`, which samples
+  only when the cheap signal is weak and returns a hard `stable` verdict the
+  caller routes to HIL - a subtractive gate, not a diluting average.
+- **`min()` folds two different axes.** The rubric `min_score` (a judge's
+  criterion assessment) and the candidate `aggregate_confidence` (retrieval /
+  verifier-margin signals) are different measures compared against one
+  threshold. This is a deliberate simplification: `min()` only ever lowers, so
+  the axis mismatch cannot raise eligibility - but a fork tuning the threshold
+  should know both feed it.
+- **No automatic promotion registry.** Unlike ActionTypes (which have a
+  `promotion_gate` evaluated by `ActionPromotionRegistry`), the rubric's
+  shadow -> enforce transition is a manual `QualityGateConfig.rubric_shadow`
+  flip. Automatic, metric-driven promotion / demotion is future work.
+- **Real-model contract is prompt-enforced, not schema-enforced.** Tests use
+  httpx mocks; `response_format=json_object` guarantees valid JSON, not the
+  rubric schema. The adapter's strict parser + `RubricScore` validation catch a
+  malformed real-model response and fail closed, but the shape depends on the
+  catalog prompt, so a prompt / enum drift is guarded only by the shipped
+  catalog-seed test.
 
 ## Integration status
 
@@ -231,8 +250,11 @@ isolated library on top of that seam. To make it run, a fork MUST:
 2. Populate `QualityCandidate.reasoning_trace` in its `T2Proposer` - a blank
    trace makes the rubric abstain for lack of a scoring target.
 3. Serialize the `QualityDecision.rubric_*` fields into the audit log so the
-   shadow-mode catch / false-positive metrics can actually be measured. Upstream
-   does not yet do this; without it, shadow mode records nothing to promote on.
+   shadow-mode catch / false-positive metrics can actually be measured. The
+   `quality_decision_audit_fields()` helper flattens them JSON-safely; a fork's
+   control-loop audit writer merges its output into the per-decision entry.
+   Upstream's control loop does not yet call it (T2 is unwired); without that
+   call, shadow mode records nothing to promote on.
 
 Until those three are done, the rubric changes nothing at runtime. This is by
 design (shadow-first), but it means the current value is the tested contract and

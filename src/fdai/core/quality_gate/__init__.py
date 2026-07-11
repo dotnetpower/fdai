@@ -56,6 +56,7 @@ from fdai.core.quality_gate.gate import (
     QualityGateConfig,
     QualityOutcome,
     VerifierPolicy,
+    quality_decision_audit_fields,
 )
 from fdai.core.quality_gate.judge import (
     JudgeDecision,
@@ -80,9 +81,11 @@ from fdai.core.quality_gate.rubric import (
 from fdai.core.quality_gate.rule_based import RuleBasedVerifier
 from fdai.core.quality_gate.self_consistency import (
     STABILITY_SIGNAL_KEY,
+    CascadeDecision,
     SelfConsistencyResult,
     SelfConsistencySampler,
     compute_stability,
+    run_consistency_cascade,
 )
 
 __all__ = [
@@ -122,6 +125,7 @@ __all__ = [
     "RuleBasedVerifier",
     "RuleEmbeddingIndex",
     "STABILITY_SIGNAL_KEY",
+    "CascadeDecision",
     "SelfConsistencyResult",
     "SelfConsistencySampler",
     "VerifierPolicy",
@@ -130,4 +134,6 @@ __all__ = [
     "evaluate_critic_output",
     "evaluate_judge_output",
     "evaluate_rubric_output",
+    "quality_decision_audit_fields",
+    "run_consistency_cascade",
 ]

@@ -137,6 +137,26 @@ class TestEvaluateRubricOutput:
         decision = evaluate_rubric_output(out, known_rule_ids=_KNOWN)
         assert decision.verdict is RubricVerdict.PASS
 
+    def test_off_topic_citation_abstains(self) -> None:
+        # Citation id exists but does NOT entail the claim -> abstain.
+        out = RubricOutput(scores=(_score(supporting=("r.known",)),))
+        decision = evaluate_rubric_output(out, known_rule_ids=_KNOWN, supports=lambda _rid: False)
+        assert decision.verdict is RubricVerdict.ABSTAIN
+        assert any(r.startswith("off_topic_score:faithfulness") for r in decision.reasons)
+
+    def test_supports_true_passes(self) -> None:
+        out = RubricOutput(scores=(_score(supporting=("r.known",)),))
+        decision = evaluate_rubric_output(out, known_rule_ids=_KNOWN, supports=lambda _rid: True)
+        assert decision.verdict is RubricVerdict.PASS
+
+    def test_unknown_id_takes_precedence_over_supports(self) -> None:
+        # An id not in the catalog is fabricated - caught before the
+        # entailment check even runs.
+        out = RubricOutput(scores=(_score(supporting=("r.fabricated",)),))
+        decision = evaluate_rubric_output(out, known_rule_ids=_KNOWN, supports=lambda _rid: True)
+        assert decision.verdict is RubricVerdict.ABSTAIN
+        assert any(r.startswith("ungrounded_score") for r in decision.reasons)
+
     def test_min_score_is_minimum_across_criteria(self) -> None:
         out = RubricOutput(
             scores=(

@@ -25,6 +25,7 @@ from fdai.core.quality_gate import (
     QualityGate,
     QualityGateConfig,
     QualityOutcome,
+    quality_decision_audit_fields,
 )
 from fdai.core.quality_gate.critic import CriticOutput, CriticStance
 from fdai.core.quality_gate.debate import DebateOrchestrator
@@ -287,6 +288,23 @@ async def test_shadow_empty_reasoning_trace_does_not_block() -> None:
     assert decision.rubric_shadow is True
     assert decision.rubric_verdict == "abstain"
     assert decision.aggregate_confidence == pytest.approx(0.9)
+
+
+@pytest.mark.asyncio
+async def test_audit_fields_include_rubric_provenance() -> None:
+    # The audit helper MUST surface the rubric_* provenance so shadow-mode
+    # catch / false-positive metrics can be computed from the audit log.
+    import json
+
+    gate = _gate(rubric_evaluator=_failing_rubric(), rubric_shadow=True)
+    decision = await gate.evaluate(_candidate())
+    fields = quality_decision_audit_fields(decision)
+    assert fields["rubric_verdict"] == "fail"
+    assert fields["rubric_shadow"] is True
+    assert fields["rubric_min_score"] == pytest.approx(0.2)
+    assert {s["criterion"] for s in fields["rubric_scores"]} == set(_CRITERIA)
+    # JSON-safe: no enums / dataclasses leak through.
+    json.dumps(fields)
 
 
 # ---------------------------------------------------------------------------

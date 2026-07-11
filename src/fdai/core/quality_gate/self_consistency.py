@@ -131,9 +131,61 @@ class SelfConsistencySampler:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class CascadeDecision:
+    """Outcome of a self-consistency cascade for one candidate.
+
+    ``should_sample`` records whether the cheap-signal gate decided the
+    N-sample fan-out was worth it. ``stable`` is ``None`` when no
+    sampling ran, else ``True`` when the sampled stability cleared the
+    stability threshold. ``result`` carries the raw
+    :class:`SelfConsistencyResult` when sampling ran.
+
+    Consuming this as a **gate** (route ``stable is False`` to HIL) keeps
+    the stability signal subtractive - unlike merging ``action_stability``
+    into the mean ``confidence_signals``, where a low value can be masked
+    by other high signals. See
+    ``docs/roadmap/hallucination-rubric-gate.md`` § Self-consistency.
+    """
+
+    should_sample: bool
+    stable: bool | None
+    result: SelfConsistencyResult | None
+
+
+async def run_consistency_cascade(
+    sampler: SelfConsistencySampler,
+    candidate: QualityCandidate,
+    *,
+    aggregate_confidence: float,
+    sample_threshold: float,
+    stability_threshold: float,
+) -> CascadeDecision:
+    """Sample for consistency ONLY when the cheap signal is weak.
+
+    Cost control (``docs/roadmap/llm-strategy.md`` § cascade): when
+    ``aggregate_confidence >= sample_threshold`` the cheap signal is
+    already strong, so no samples are spent and the decision is
+    ``should_sample=False``. Otherwise the sampler runs and ``stable``
+    reflects whether the measured stability cleared
+    ``stability_threshold``. The caller routes ``stable is False`` to HIL
+    (a subtractive gate), never averaging the stability into confidence.
+    """
+    if aggregate_confidence >= sample_threshold:
+        return CascadeDecision(should_sample=False, stable=None, result=None)
+    result = await sampler.sample(candidate)
+    return CascadeDecision(
+        should_sample=True,
+        stable=result.stability >= stability_threshold,
+        result=result,
+    )
+
+
 __all__ = [
     "STABILITY_SIGNAL_KEY",
+    "CascadeDecision",
     "SelfConsistencyResult",
     "SelfConsistencySampler",
     "compute_stability",
+    "run_consistency_cascade",
 ]

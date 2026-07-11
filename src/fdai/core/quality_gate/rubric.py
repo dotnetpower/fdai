@@ -45,7 +45,8 @@ See also
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections import Counter
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
@@ -186,6 +187,7 @@ def evaluate_rubric_output(
     known_rule_ids: Iterable[str],
     required_criteria: Iterable[str] = (),
     known_criteria: Iterable[str] | None = None,
+    supports: Callable[[str], bool] | None = None,
 ) -> RubricDecision:
     """Reduce a :class:`RubricOutput` to a :class:`RubricDecision`.
 
@@ -205,6 +207,14 @@ def evaluate_rubric_output(
     and collapses to ABSTAIN. ``None`` (the default) skips the check for
     backward compatibility.
 
+    ``supports`` is an optional entailment predicate ``rule_id -> bool``
+    (typically ``lambda rid: grounding.supports(candidate, rid)``). When
+    supplied, a citation whose id exists in the catalog but does NOT
+    topically support the candidate is treated as off-topic (a judge
+    citing a real-but-unrelated rule) and collapses to ABSTAIN. This
+    closes the id-existence-vs-entailment gap: without it, grounding only
+    checks the id exists.
+
     Rules (in order):
 
     - No scores at all -> ``ABSTAIN`` (nothing to judge).
@@ -213,13 +223,17 @@ def evaluate_rubric_output(
     - A score naming an unknown criterion -> ``ABSTAIN``.
     - Any required criterion absent from the scores -> ``ABSTAIN``.
     - Any score grounded on an unknown rule id -> ``ABSTAIN``.
+    - Any score whose citation does not entail the claim (``supports``
+      returns ``False``) -> ``ABSTAIN``.
     - Any score below its threshold -> ``FAIL`` (list the failed
       criteria).
     - Otherwise -> ``PASS``.
 
     ``min_score`` is the minimum score across all criteria for ``PASS`` /
     ``FAIL``, and ``0.0`` for ``ABSTAIN`` (fail closed on a shadow ->
-    enforce flip).
+    enforce flip; an ABSTAIN ``min_score`` is a fail-closed sentinel,
+    not a measured score - read :attr:`RubricDecision.verdict` to tell
+    them apart).
     """
     known = frozenset(known_rule_ids)
     required = tuple(required_criteria)
@@ -234,7 +248,7 @@ def evaluate_rubric_output(
         )
 
     criteria_seen = [s.criterion for s in scores]
-    duplicates = tuple(sorted({c for c in criteria_seen if criteria_seen.count(c) > 1}))
+    duplicates = tuple(sorted(c for c, n in Counter(criteria_seen).items() if n > 1))
     if duplicates:
         return RubricDecision(
             verdict=RubricVerdict.ABSTAIN,
@@ -274,6 +288,21 @@ def evaluate_rubric_output(
             scores=scores,
             reasons=tuple(f"ungrounded_score:{c}" for c in ungrounded),
         )
+
+    if supports is not None:
+        off_topic = tuple(
+            s.criterion
+            for s in scores
+            for rule_id in s.supporting_rule_ids
+            if not supports(rule_id)
+        )
+        if off_topic:
+            return RubricDecision(
+                verdict=RubricVerdict.ABSTAIN,
+                min_score=0.0,
+                scores=scores,
+                reasons=tuple(f"off_topic_score:{c}" for c in off_topic),
+            )
 
     min_score = min(s.score for s in scores)
     failed = tuple(s.criterion for s in scores if not s.passed)

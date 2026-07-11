@@ -456,11 +456,28 @@ class QualityGate:
                     if not rubric_shadow:
                         reasons.append(f"rubric_evaluator_error:{type(exc).__name__}")
                 else:
+                    # Reuse the grounding leg's entailment check (if the
+                    # source provides one) so a rubric citation must both
+                    # exist AND topically support the candidate - closing
+                    # the id-existence-vs-entailment gap.
+                    grounding_supports = getattr(self._grounding, "supports", None)
+                    rubric_supports = (
+                        (lambda rid: grounding_supports(candidate, rid))
+                        if grounding_supports is not None
+                        else None
+                    )
+                    # Wiring a rubric requires FULL criterion coverage by
+                    # default (the shipped catalog scores all four); a fork
+                    # narrows it explicitly via rubric_required_criteria.
+                    effective_required = self._config.rubric_required_criteria or tuple(
+                        c.value for c in RubricCriterion
+                    )
                     rubric_decision = evaluate_rubric_output(
                         rubric_output,
                         known_rule_ids=known,
-                        required_criteria=self._config.rubric_required_criteria,
+                        required_criteria=effective_required,
                         known_criteria=tuple(c.value for c in RubricCriterion),
+                        supports=rubric_supports,
                     )
                     rubric_scores = rubric_decision.scores
                     rubric_min_score = rubric_decision.min_score
@@ -556,6 +573,45 @@ class QualityGate:
         return await self._models[0].propose(candidate)
 
 
+def quality_decision_audit_fields(decision: QualityDecision) -> dict[str, Any]:
+    """Flatten a :class:`QualityDecision` into JSON-safe audit fields.
+
+    The append-only audit log is the source of truth for shadow-mode
+    measurement: without the ``rubric_*`` provenance here, a shadow rubric
+    records nothing to compute catch / false-positive rates on. A fork's
+    control-loop audit writer calls this and merges the result into its
+    per-decision audit entry. Contains no secrets or customer values -
+    only ids, scores, and enum values.
+    """
+    return {
+        "outcome": decision.outcome.value,
+        "aggregate_confidence": decision.aggregate_confidence,
+        "reasons": list(decision.reasons),
+        "grounded_rule_ids": list(decision.grounded_rule_ids),
+        "model_votes": [
+            {
+                "model_id": v.model_id,
+                "proposed_action_type": v.proposed_action_type,
+                "agreed": v.agreed,
+            }
+            for v in decision.model_votes
+        ],
+        "rubric_verdict": decision.rubric_verdict,
+        "rubric_min_score": decision.rubric_min_score,
+        "rubric_shadow": decision.rubric_shadow,
+        "rubric_scores": [
+            {
+                "criterion": s.criterion,
+                "score": s.score,
+                "threshold": s.threshold,
+                "passed": s.passed,
+                "supporting_rule_ids": list(s.supporting_rule_ids),
+            }
+            for s in decision.rubric_scores
+        ],
+    }
+
+
 __all__ = [
     "CrossCheckModel",
     "GroundingSource",
@@ -566,4 +622,5 @@ __all__ = [
     "QualityGateConfig",
     "QualityOutcome",
     "VerifierPolicy",
+    "quality_decision_audit_fields",
 ]

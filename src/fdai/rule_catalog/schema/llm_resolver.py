@@ -390,6 +390,15 @@ def _enforce_mixed_model_invariant(entries: list[ResolvedCapability]) -> None:
       pair - correlated errors defeat the check);
     - ``t2.rubric.judge`` vs ``t2.reasoner.primary`` (a model must not grade
       its own answer; see docs/roadmap/hallucination-rubric-gate.md).
+
+    The rubric judge is intentionally NOT forced distinct from
+    ``t2.reasoner.secondary``. The self-grading hazard is specifically the
+    judge sharing weights with the PROPOSER (primary). The secondary is a
+    cross-check peer playing a different role (structured action agreement,
+    not reasoning assessment), so a shared publisher there does not
+    reintroduce the self-grading failure - and requiring three distinct
+    publishers would make the shipped registry (secondary + judge both
+    prefer Anthropic) unresolvable for no safety gain.
     """
     by_name: Mapping[str, ResolvedCapability] = {e.name: e for e in entries}
     primary = by_name.get("t2.reasoner.primary")
