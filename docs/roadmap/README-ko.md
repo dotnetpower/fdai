@@ -58,6 +58,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 9 | [rule-governance-ko.md](rule-governance-ko.md) | 어드민이 규칙을 저작 / 스코핑 / 활성화 / 예외 처리하는 방식 (Azure Policy 유사) |
 | 10 | [observability-and-detection-ko.md](observability-and-detection-ko.md) | 이벤트 상관, 이상 탐지, 예측, 근본 원인 분석 |
 | 11 | [deploy-and-onboard-ko.md](deploy-and-onboard-ko.md) | 구체적인 Azure 리소스 인벤토리, 부트스트랩 순서, fork vs core 분리 |
+| 11b | [hyperscale-cell-architecture-ko.md](hyperscale-cell-architecture-ko.md) | 구독 300개용 scale-out 청사진: 셀 기반 스트리밍, 정책-기반 fan-in, 2-평면 로깅, ADX 위의 CQRS 감사 인덱싱, 비용 엔벨로프, standard/sovereign 프로파일, Container Apps 기본(AKS 연기) |
 | 12 | [startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md) | 콜드 스타트, day-zero 카탈로그, shadow-first 롤아웃, discovery-loop 킥오프 |
 | 13 | [operating-and-verification-ko.md](operating-and-verification-ko.md) | 자체 헬스 신호, canary 이벤트, 스모크 테스트, 알림 라우팅, 런북 |
 | 20 | [deployment-preflight-ko.md](deployment-preflight-ko.md) | 배포 전 가능성 및 blocker 수집: 프로브 분류법, readiness 리포트, blocker-테라폼-토글 매핑 |
@@ -73,6 +74,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 15 | [user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md) | 사람 역할(Reader / Contributor / Approver / Owner + Break-Glass), Entra ID 아티팩트, console-to-PR identity 흐름 |
 | 16 | [channels-and-notifications-ko.md](channels-and-notifications-ko.md) | 비-웹UI 채널(Teams / Slack / email / webhook / pager / SMS), 카테고리와 trust-tier 매트릭스 |
 | 17 | [risk-classification-ko.md](risk-classification-ko.md) | auto vs HIL vs deny 분류: 차원, 초기 규칙 표, 환경 감지 |
+| 17b | [escalation-and-standing-authority-ko.md](escalation-and-standing-authority-ko.md) | `hil` verdict 후 아무도 응답하지 않을 때 무슨 일이 벌어지는가: 감독형 OODA 루프, 영향도 tier 별 시간 감쇠 에스컬레이션 사다리(채널 fallback 과 구별), 상시 권한(사전 승인·envelope 경계·가역 전용 조건부 자동 조치를 결정론적 risk-gate 입력으로) |
 | 18 | [dev-and-deploy-parity-ko.md](dev-and-deploy-parity-ko.md) | dev-mode local-fake vs deploy-mode Azure-first 패리티 계약, 배포자 스코프 LLM 프로비저닝 게이트 |
 | 19 | [operator-console-ko.md](operator-console-ko.md) | 대화형 surface (CLI / Teams / Slack / web), 3-layer 아키텍처, tool 별 RBAC 매트릭스, LLM tier 모델, 세션 지속성 |
 | 20 | [action-ontology-ko.md](action-ontology-ko.md) | ActionType 스키마 (remediation + ops + governance), trigger 축, tier / role / prod / live-probe 상한, fork override seam |

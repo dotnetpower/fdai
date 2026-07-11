@@ -32,6 +32,14 @@ if not _url.startswith(("postgresql://", "postgresql+psycopg://")):
     )
     raise SystemExit(2)
 
+# Normalize to the psycopg (v3) driver. The runtime depends on psycopg 3 only;
+# psycopg2 is NOT a project dependency, so a bare ``postgresql://`` URL (which
+# SQLAlchemy maps to psycopg2 by default) would fail migrations with
+# ``ModuleNotFoundError: No module named 'psycopg2'``. Rewriting the scheme
+# keeps a single driver across the runtime adapter and alembic.
+if _url.startswith("postgresql://"):
+    _url = "postgresql+psycopg://" + _url[len("postgresql://") :]
+
 config.set_main_option("sqlalchemy.url", _url)
 
 # Migrations are raw SQL - no ORM metadata to introspect.

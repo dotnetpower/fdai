@@ -182,6 +182,35 @@ Rigor requirements (apply when a non-Azure adapter is eventually scoped):
 - Graduate T1 vector search from pgvector to a dedicated vector store when the corpus or
   recall/latency targets demand it (criteria in [tech-stack.md](../tech-stack.md)); the state
   adapter keeps this transparent to the core.
+- For **hyperscale tenants (300 subscriptions across dozens of landing zones)**, the scale-out
+  topology (cell-based streaming, policy-driven fan-in, two-plane logging, CQRS audit
+  indexing, and selectable **standard / sovereign** deployment profiles) is specified in
+  [hyperscale-cell-architecture.md](../hyperscale-cell-architecture.md). It is entered only
+  when a tenant crosses the hyperscale trigger and preserves every safety invariant and all
+  eight CSP-neutral contracts.
+
+## Runtime Scale-Out (AKS) - Deferred
+
+> **Container Apps is the default runtime** (min-cost day-zero and the `standard` hyperscale
+> profile). AKS is **deferred** - adopted only by the `sovereign` profile (self-host
+> observability + region-in LLM + confidential nodes) or a heavy cell that presses Container
+> Apps limits. Portability is guaranteed by the runtime contract (OCI image +
+> Knative-compatible manifest subset, no Dapr / no Envoy-specific ingress in
+> [csp-neutrality.md](../csp-neutrality.md#2-runtime-contract---oci-image--knative-compatible-manifest)),
+> so an AKS move is an `infra/modules/runtime/aks/` render, never a `core/` rewrite.
+
+- **When AKS:** the `sovereign` profile needs it (LGTM / ClickHouse / region-in LLM run as AKS
+  workloads; confidential SEV-SNP nodes; private cluster), or a heavy cell needs node-level
+  control (spot / GPU / large-memory SKUs), DaemonSet collection, or partition-sticky
+  StatefulSet consumers. The full rationale and profile matrix live in
+  [hyperscale-cell-architecture.md § Runtime](../hyperscale-cell-architecture.md#runtime).
+- **Scope:** a new `infra/modules/runtime/aks/` sub-module renders the same OCI image and
+  Knative-compatible manifest subset to AKS (KEDA scaler preserved); Container Apps Jobs render
+  to K8s CronJobs and native secrets to External Secrets Operator, matching
+  [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md).
+- **Non-goal:** AKS does not change the control loop, the safety invariants, or any wire
+  contract; it is a deployment target, not a new autonomy surface. Dapr and Envoy-specific
+  ingress stay prohibited to keep the runtime contract portable.
 
 ## Exit Criteria
 

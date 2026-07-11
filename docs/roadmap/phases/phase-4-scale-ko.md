@@ -172,6 +172,34 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 - 코퍼스나 recall/latency 목표가 요구할 때 T1 벡터 검색을 pgvector에서 전용 vector store로
   졸업([tech-stack-ko.md](../tech-stack-ko.md) 의 기준); state 어댑터가 이를 코어에 투명하게
   유지.
+- **초대규모 테넌트(구독 300개, 랜딩존 수십개)** 의 경우, scale-out 토폴로지(셀 기반
+  스트리밍, 정책-기반 fan-in, 2-평면 로깅, CQRS 감사 인덱싱, 선택적
+  **standard / sovereign** 배포 프로파일)는
+  [hyperscale-cell-architecture-ko.md](../hyperscale-cell-architecture-ko.md) 에 명세됨.
+  테넌트가 초대규모 트리거를 넘을 때만 진입하며, 모든 안전 불변식과 8개 CSP-중립 계약을 보존.
+
+## 런타임 Scale-Out (AKS) - 연기
+
+> **Container Apps 가 기본 런타임이다**(최소비용 day-zero 와 `standard` 초대규모
+> 프로파일). AKS 는 **연기**된다 - `sovereign` 프로파일(self-host 관측 + 리전 내 LLM +
+> confidential 노드)이나 Container Apps 한계를 압박하는 heavy 셀에서만 채택. 이식성은
+> 런타임 계약(OCI 이미지 + Knative-호환 매니페스트 subset, Dapr 없음 / Envoy-specific
+> ingress 없음,
+> [csp-neutrality-ko.md](../csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트))
+> 으로 보장되므로, AKS 이동은 `infra/modules/runtime/aks/` 렌더이지 `core/` 리라이트가 아니다.
+
+- **언제 AKS:** `sovereign` 프로파일이 요구하거나(LGTM / ClickHouse / 리전 내 LLM 이 AKS
+  워크로드로; confidential SEV-SNP 노드; 프라이빗 클러스터), heavy 셀이 노드-레벨
+  제어(spot / GPU / large-memory SKU), DaemonSet 수집, 파티션-스티키 StatefulSet 컨슈머를
+  필요로 하는 경우. 전체 근거와 프로파일 매트릭스는
+  [hyperscale-cell-architecture-ko.md § 런타임](../hyperscale-cell-architecture-ko.md#런타임) 에 있다.
+- **범위:** 새 `infra/modules/runtime/aks/` 서브모듈이 동일한 OCI 이미지와 Knative-호환
+  매니페스트 subset 을 AKS 에 렌더(KEDA 스케일러 보존)하고, Container Apps Jobs 는 K8s
+  CronJob 으로, 네이티브 secret 은 External Secrets Operator 로 렌더 -
+  [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 와 정합.
+- **비목표:** AKS 는 제어 루프, 안전 불변식, 어떤 wire 계약도 바꾸지 않는다. 배포 타깃일 뿐
+  새 자율 표면이 아니다. Dapr 와 Envoy-specific ingress 는 런타임 계약 이식성을 위해 계속
+  금지된다.
 
 ## Exit 기준
 
