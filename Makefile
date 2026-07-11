@@ -6,7 +6,8 @@
 # Real deployment lives under `infra/` (Terraform); see the roadmap.
 
 .PHONY: dev-up dev-down dev-logs dev-nuke help \
-        lint format test gates check pre-commit-install hooks-install azd-up
+        lint format test gates check pre-commit-install hooks-install \
+        azd-up genesis-up
 
 help: ## show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -25,6 +26,9 @@ dev-nuke: ## stop the stack AND drop its volumes (fresh state next `dev-up`)
 
 azd-up: ## turnkey provision preview (azd + Terraform); FDAI_AZD_CONFIRM=1 to apply
 	@scripts/azd-up.sh
+
+genesis-up: ## Day-1 Genesis screen over 'terraform apply -json'; FDAI_GENESIS_CONFIRM=1 to apply
+	@scripts/genesis-up.sh
 
 # ---------------------------------------------------------------------------
 # CI-parity targets. Each mirrors one job in .github/workflows/ci.yml so a
