@@ -120,8 +120,10 @@ assignment's top-level `effect` is the default for rules without an override.
 > in `promotions_approved`. A thin `git`-diff CI script
 > ([`check-governance-transitions.py`](../../../scripts/check-governance-transitions.py)) wraps the
 > validator: it materializes the catalog at the base ref and the working tree and fails the build on
-> a rejected transition. The remaining follow-up is the T0 runtime that consumes a resolved
-> assignment.
+> a rejected transition. The gate governs **effect** transitions only; it does not flag a scope /
+> blast-radius **widening** (a lower-specificity scope can be offset by a tighter `selector`, so a
+> sound widening check needs coverage analysis, not a specificity heuristic) - that is a separate
+> future check. The remaining follow-up is the T0 runtime that consumes a resolved assignment.
 >
 > The shipped catalog-as-code schema now matches the "YAML Shapes" section below: a shared
 > `Provenance` value object ([`provenance.py`](../../../src/fdai/rule_catalog/schema/provenance.py)),
