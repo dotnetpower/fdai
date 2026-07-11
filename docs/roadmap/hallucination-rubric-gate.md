@@ -41,9 +41,13 @@ keeps it consistent with "the verifier is the authority, never the model":
   eligible reason.
 - The rubric never short-circuits a verifier deny and never converts a
   would-be-abstain into eligible.
+- This holds on **every** outcome path, including the one where the debate
+  orchestrator resolves a cross-check disagreement: a rubric reason keeps the
+  outcome at abstain even when the debate would otherwise proceed.
 
 A property test asserts this directly: a maximal rubric score cannot rescue a
-low-confidence candidate.
+low-confidence candidate, and a rubric FAIL is honored even after a debate
+PROCEED.
 
 ## Works with
 
@@ -110,6 +114,10 @@ T2 candidate (+ reasoning_trace)
 verdict, fails on any below-threshold criterion, and passes otherwise:
 
 - No scores -> `abstain`.
+- A criterion scored more than once -> `abstain` (a self-contradictory response
+  is not a trusted signal).
+- A score naming an unknown criterion (outside the `RubricCriterion` set) ->
+  `abstain` (a hallucinated / malformed dimension).
 - A required criterion is missing (`rubric_required_criteria`) -> `abstain` (a
   truncated response cannot silently skip a hallucination dimension).
 - A score grounded on an unknown rule id -> `abstain` (fabricated citation).
@@ -118,6 +126,11 @@ verdict, fails on any below-threshold criterion, and passes otherwise:
 
 `min_score` is the minimum across criteria for `pass` / `fail`, and `0.0` for
 `abstain` so a shadow-to-enforce flip fails closed.
+
+A **blank `reasoning_trace`** short-circuits before the judge is called: there is
+no reasoning target to score for faithfulness, so enforce mode abstains
+(`rubric_no_reasoning_trace`) without spending a judge call, and shadow mode
+records the abstain without changing the outcome.
 
 ## Fail-closed
 

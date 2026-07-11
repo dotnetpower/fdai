@@ -1,7 +1,7 @@
 ---
 title: Hallucination Rubric Gate
 translation_of: hallucination-rubric-gate.md
-translation_source_sha: eb77277c26b03c4d30053d39b9f2d9b1897a4d5f
+translation_source_sha: d10ffd73f5d5c2422673bfb056b49f7e8b4aa9ad
 translation_revised: 2026-07-11
 ---
 # Hallucination Rubric Gate (환각 루브릭 게이트)
@@ -39,9 +39,12 @@ debate. 두 가지 빈틈이 남아 있었다:
 - 루브릭 실패는 abstain 이유를 추가한다(HIL로 라우팅); eligible 이유는 절대 추가하지
   않는다.
 - 루브릭은 verifier deny를 우회하지 못하며, abstain 될 후보를 eligible로 뒤집지 못한다.
+- 이는 **모든** outcome 경로에서 성립하며, debate orchestrator가 cross-check 불일치를
+  해소하는 경로도 포함한다: 루브릭 reason이 있으면 debate가 proceed 하려 해도 outcome은
+  abstain으로 유지된다.
 
 프로퍼티 테스트가 이를 직접 단언한다: 최대 루브릭 점수도 저-confidence 후보를 구제하지
-못한다.
+못하고, debate PROCEED 후에도 루브릭 FAIL은 존중된다.
 
 ## Works with
 
@@ -105,6 +108,8 @@ T2 candidate (+ reasoning_trace)
 미달 기준이 있으면 fail, 그 외엔 pass:
 
 - 점수 없음 -> `abstain`.
+- 같은 기준이 두 번 이상 채점됨 -> `abstain` (자기모순 응답은 신뢰 신호가 아님).
+- unknown 기준(`RubricCriterion` 집합 밖) 이름의 점수 -> `abstain` (환각/잘못된 차원).
 - 필수 기준 누락(`rubric_required_criteria`) -> `abstain` (잘린 응답이 환각 차원을
   조용히 건너뛰지 못하도록).
 - unknown 규칙 id에 grounding된 점수 -> `abstain` (fabricated 인용).
@@ -113,6 +118,10 @@ T2 candidate (+ reasoning_trace)
 
 `min_score` 는 `pass` / `fail` 시 기준 전체의 최소값, `abstain` 시 `0.0` - shadow에서
 enforce로 전환 시 fail-closed 되도록.
+
+**빈 `reasoning_trace`** 는 judge 호출 전에 short-circuit 된다: faithfulness를 채점할
+추론 대상이 없으므로 enforce 모드는 judge 호출 없이 abstain(`rubric_no_reasoning_trace`)
+하고, shadow 모드는 outcome을 안 바꾸고 abstain을 기록한다.
 
 ## Fail-closed
 
