@@ -1166,6 +1166,31 @@ async def test_t1_causal_chain_noop_without_resource_ref(
     assert not [e for e in audit.audit_entries if e["entry"].get("action_kind") == "rca.hypothesis"]
 
 
+@pytest.mark.asyncio
+async def test_t1_causal_chain_noop_with_blank_resource_ref(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    # An empty-string resource_ref cannot anchor a chain either -> no-op.
+    members = (
+        CorrelatedEvent(
+            event_id="deploy-1",
+            at=_FAIL_AT - timedelta(minutes=1),
+            resource_ref="resource:db",
+            is_change=True,
+        ),
+    )
+    loop, _, audit = _make_loop(
+        shipped_catalog,
+        with_opa=False,
+        rca_coordinator=RcaCoordinator(),
+        incident_member_source=_InMemoryMemberSource(members),
+    )
+    await loop._analyze_and_audit_t1_causal_chain(  # noqa: SLF001
+        event=_failure_event(resource_ref=""), incident_id="inc-1"
+    )
+    assert not [e for e in audit.audit_entries if e["entry"].get("action_kind") == "rca.hypothesis"]
+
+
 # ---------------------------------------------------------------------------
 # T2 RCA on a novel (T0 no-match) case, gated by a wired reasoner
 # ---------------------------------------------------------------------------

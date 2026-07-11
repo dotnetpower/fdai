@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Final
 
 from fdai.core.rca.causal_chain import CorrelatedEvent
@@ -118,18 +118,22 @@ class DeploymentHistoryMemberSource:
 
 
 def _parse_timestamp(raw: str) -> datetime | None:
-    """Parse an ISO-8601 timestamp, or ``None`` when unparseable.
+    """Parse an ISO-8601 timestamp into an aware datetime, or ``None``.
 
     Best-effort: a malformed timestamp drops that one record rather than
-    failing the whole member set (the source never blocks the loop).
+    failing the whole member set (the source never blocks the loop). A
+    timezone-naive timestamp is coerced to UTC so the causal-chain engine
+    never compares it against the aware failure time (which would raise a
+    ``TypeError`` and silently sink the whole chain).
     """
     if not raw:
         return None
     text = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
     try:
-        return datetime.fromisoformat(text)
+        parsed = datetime.fromisoformat(text)
     except ValueError:
         return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
 __all__ = ["DeploymentHistoryMemberSource"]

@@ -193,3 +193,16 @@ def test_blank_lookback_is_rejected() -> None:
     provider = InMemoryDeploymentHistoryProvider()
     with pytest.raises(ValueError, match="lookback"):
         _source(_incident(correlation_keys=("res:app",)), provider, lookback="   ")
+
+
+@pytest.mark.asyncio
+async def test_naive_timestamp_is_coerced_to_aware_utc() -> None:
+    # A tz-less deployment timestamp must not yield a naive datetime, or the
+    # causal-chain engine would raise TypeError comparing it to the aware
+    # failure time and silently sink the whole chain.
+    provider = InMemoryDeploymentHistoryProvider()
+    provider.seed(_record(deployment_ref="naive", timestamp="2026-07-07T11:58:00"))
+    source = _source(_incident(correlation_keys=("res:app",)), provider)
+    members = await source.members(incident_id=_INCIDENT_ID)
+    assert len(members) == 1
+    assert members[0].at.tzinfo is not None

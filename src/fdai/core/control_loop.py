@@ -1035,7 +1035,7 @@ class ControlLoop:
             self._rca_coordinator is None
             or self._incident_member_source is None
             or incident_id is None
-            or event.resource_ref is None
+            or not event.resource_ref
         ):
             return
         try:

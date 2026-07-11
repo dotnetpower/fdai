@@ -36,8 +36,8 @@ chain exists.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 
 from fdai.core.rca.contract import (
@@ -189,6 +189,21 @@ class CausalChainConfig:
         ):
             if not 0.0 <= weight <= 1.0:
                 raise ValueError(f"CausalChainConfig.{name} MUST be in [0, 1]")
+        # A partial relationship_weights map would silently score the
+        # missing relationship at 0 (floor confidence); require completeness
+        # and a valid range so a fork's misconfig fails fast at startup.
+        missing = [rel.value for rel in Relationship if rel not in self.relationship_weights]
+        if missing:
+            raise ValueError(
+                f"CausalChainConfig.relationship_weights MUST cover every Relationship; "
+                f"missing {missing}"
+            )
+        for rel, weight in self.relationship_weights.items():
+            if not 0.0 <= weight <= 1.0:
+                raise ValueError(f"relationship_weights[{rel.value!r}] MUST be in [0, 1]")
+        for kind, weight in self.change_kind_weights.items():
+            if not 0.0 <= weight <= 1.0:
+                raise ValueError(f"change_kind_weights[{kind!r}] MUST be in [0, 1]")
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,17 +246,23 @@ class CausalChainAnalyzer:
         """
         failure = CorrelatedEvent(
             event_id=failure_event_id,
-            at=failure_at,
+            at=_as_utc(failure_at),
             resource_ref=failure_resource_ref,
             is_change=False,
         )
         # De-duplicate by event id (first occurrence wins for determinism)
         # and drop the failure's own self-event - it can never cause itself.
+        # Coerce any naive timestamp to UTC so the engine is total wrt
+        # timezone: a mix of naive and aware ``at`` values would otherwise
+        # raise ``TypeError`` on the first ``e.at < target.at`` comparison.
         pool: dict[str, CorrelatedEvent] = {}
         for event in correlated_events:
             if event.event_id == failure_event_id:
                 continue
-            pool.setdefault(event.event_id, event)
+            normalized = (
+                event if event.at.tzinfo is not None else replace(event, at=_as_utc(event.at))
+            )
+            pool.setdefault(event.event_id, normalized)
         events = tuple(pool.values())
         if not events:
             return None
@@ -499,6 +520,11 @@ def _clamp01(value: float) -> float:
     return max(0.0, min(1.0, value))
 
 
+def _as_utc(dt: datetime) -> datetime:
+    """Return ``dt`` as an aware datetime, assuming UTC when naive."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
 def chain_to_hypothesis(
     chain: CausalChain,
     *,
@@ -512,6 +538,8 @@ def chain_to_hypothesis(
     keeps the single-hop wording an operator already reads, and describes
     the arrow path for a genuine multi-hop chain.
     """
+    if not chain.hops:
+        raise ValueError("chain_to_hypothesis requires a chain with at least one hop")
     root_hop = chain.hops[0]
     # Hops telescope (each hop's effect is the next hop's cause), so the
     # sum of hop leads is exactly the root-to-failure elapsed time.

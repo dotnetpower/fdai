@@ -196,6 +196,11 @@ class AzureLogAnalyticsQueryProvider:
         ]
         if len(names) != len(columns):
             raise LogQueryError("Log Analytics column metadata malformed")
+        if len(set(names)) != len(names):
+            # An opaque query (e.g. `project a=x, a=y`) can produce duplicate
+            # column names; dict-zipping them would silently drop a column, so
+            # fail closed on the ambiguous schema rather than lose data.
+            raise LogQueryError("Log Analytics returned duplicate column names")
 
         mapped: list[Mapping[str, Any]] = []
         for row in rows:

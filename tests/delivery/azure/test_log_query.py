@@ -256,3 +256,20 @@ async def test_unnamed_column_fails_closed() -> None:
     provider = _provider(handler)
     with pytest.raises(LogQueryError, match="column metadata malformed"):
         await provider.query_log(query="X", window="PT1H")
+
+
+@pytest.mark.asyncio
+async def test_duplicate_column_names_fail_closed() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "tables": [
+                    {"columns": [{"name": "a"}, {"name": "a"}], "rows": [["x", "y"]]}
+                ]
+            },
+        )
+
+    provider = _provider(handler)
+    with pytest.raises(LogQueryError, match="duplicate column names"):
+        await provider.query_log(query="X", window="PT1H")

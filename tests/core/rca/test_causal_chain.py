@@ -81,6 +81,80 @@ def test_config_rejects_invalid_values(kwargs: dict[str, object]) -> None:
         CausalChainConfig(**kwargs)  # type: ignore[arg-type]
 
 
+def test_config_rejects_incomplete_relationship_weights() -> None:
+    with pytest.raises(ValueError, match="relationship_weights MUST cover"):
+        CausalChainConfig(
+            window=WINDOW,
+            relationship_weights={Relationship.SAME_RESOURCE: 1.0},  # missing three
+        )
+
+
+def test_config_rejects_out_of_range_relationship_weight() -> None:
+    with pytest.raises(ValueError, match="relationship_weights"):
+        CausalChainConfig(
+            window=WINDOW,
+            relationship_weights={
+                Relationship.SAME_RESOURCE: 1.5,
+                Relationship.DEPENDENCY: 0.9,
+                Relationship.TRANSITIVE_DEPENDENCY: 0.7,
+                Relationship.UNSCOPED: 0.85,
+            },
+        )
+
+
+def test_config_rejects_out_of_range_change_kind_weight() -> None:
+    with pytest.raises(ValueError, match="change_kind_weights"):
+        CausalChainConfig(window=WINDOW, change_kind_weights={"deploy": 2.0})
+
+
+def test_chain_to_hypothesis_rejects_empty_hops() -> None:
+    from fdai.core.rca.causal_chain import CausalChain
+
+    empty = CausalChain(
+        root_event_id="r", failure_event_id="f", hops=(), confidence=0.5, ambiguity=1
+    )
+    with pytest.raises(ValueError, match="at least one hop"):
+        chain_to_hypothesis(empty, failure_resource_ref="app")
+
+
+def test_engine_is_total_over_naive_and_aware_timestamps() -> None:
+    # A naive failure time + naive event times must not raise TypeError;
+    # the engine coerces to UTC and reconstructs deterministically.
+    naive_fail = datetime(2026, 7, 7, 12, 0, 0)  # noqa: DTZ001 - deliberately naive
+    events = [
+        CorrelatedEvent(
+            event_id="cfg",
+            at=datetime(2026, 7, 7, 11, 58, 0),  # noqa: DTZ001 - deliberately naive
+            resource_ref="app",
+            is_change=True,
+        ),
+    ]
+    analyzer = _analyzer()
+    chain = analyzer.reconstruct(
+        failure_event_id="fail",
+        failure_at=naive_fail,
+        failure_resource_ref="app",
+        correlated_events=events,
+    )
+    assert chain is not None
+    assert chain.root_event_id == "cfg"
+
+
+def test_engine_handles_mixed_naive_and_aware() -> None:
+    # Aware failure time + naive event time (the realistic mismatch).
+    events = [
+        CorrelatedEvent(
+            event_id="cfg",
+            at=datetime(2026, 7, 7, 11, 59, 0),  # noqa: DTZ001 - deliberately naive
+            resource_ref="app",
+            is_change=True,
+        ),
+    ]
+    chain = _reconstruct(events)  # _reconstruct uses aware FAIL_AT
+    assert chain is not None
+    assert chain.root_event_id == "cfg"
+
+
 # ---------------------------------------------------------------------------
 # Multi-hop reconstruction
 # ---------------------------------------------------------------------------
