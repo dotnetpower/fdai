@@ -27,6 +27,7 @@ from fdai.core.rca.contract import (
     RootCauseHypothesis,
 )
 from fdai.core.rca.coordinator import RcaCoordinator
+from fdai.core.rca.deployment_member_source import DeploymentHistoryMemberSource
 from fdai.core.rca.evidence import TelemetryEvidenceGatherer
 from fdai.core.rca.grounding import enforce_grounding
 from fdai.core.rca.llm import LlmRcaReasoner, RcaModel, parse_rca_response
@@ -43,6 +44,7 @@ __all__ = [
     "Citation",
     "CitationKind",
     "CorrelatedEvent",
+    "DeploymentHistoryMemberSource",
     "IncidentMemberSource",
     "LlmRcaReasoner",
     "NoopIncidentMemberSource",

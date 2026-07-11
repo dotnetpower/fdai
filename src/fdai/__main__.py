@@ -797,13 +797,16 @@ def _build_control_loop(
     rca_coordinator = RcaCoordinator(reasoner=rca_reasoner)
 
     # T1 temporal causal-chain RCA (observability-and-detection.md 4, path
-    # b) needs the incident's member events, which upstream cannot supply
-    # without an event store. It is therefore left dark here: the loop
-    # keeps ``incident_member_source=None`` so only T0 (and, when bound,
-    # T2) RCA runs. A fork enables the multi-hop "root change -> ... ->
-    # failure" chain by passing an ``IncidentMemberSource`` (its adapter
-    # marks which members are changes), a ``causal_chain_window``, and an
-    # optional ``resource_dependency_graph`` to the ``ControlLoop`` here.
+    # b) needs the incident's antecedent changes, which upstream cannot
+    # supply without wiring an estate-change source. It is therefore left
+    # dark here: the loop keeps ``incident_member_source=None`` so only T0
+    # (and, when bound, T2) RCA runs. A fork enables the multi-hop "root
+    # change -> ... -> failure" chain by wiring the reference
+    # ``DeploymentHistoryMemberSource`` (bridging a real
+    # ``DeploymentHistoryProvider`` such as the Azure Resource Graph
+    # adapter + ``IncidentRegistry.get`` lookup into ``CorrelatedEvent``s),
+    # plus a ``causal_chain_window`` and optional
+    # ``resource_dependency_graph``, into the ``ControlLoop`` here.
 
     # HIL approval round-trip (Notify-on-decision step B). Opt-in: only
     # when a HIL channel is configured (``FDAI_CHATOPS_WEBHOOK_URL``)

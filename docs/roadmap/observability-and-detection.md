@@ -266,8 +266,14 @@ Make RCA a first-class output of the tiers instead of an implicit side effect.
   (`core/rca/member_source.py`; a fork's adapter marks which members are
   changes) and appends one shadow `rca.hypothesis` (tier t1) per event,
   bounded by the configured `causal_chain_window` and an optional
-  resource-dependency graph. Absent a source, T1 causal-chain RCA stays
-  dark and only T0 (and T2, when wired) RCA runs (backward-compatible).
+  resource-dependency graph. The upstream reference implementation
+  `DeploymentHistoryMemberSource` (`core/rca/deployment_member_source.py`)
+  bridges a real `DeploymentHistoryProvider` (e.g. the Azure Resource
+  Graph adapter) plus an incident-record lookup into the antecedent
+  `is_change=True` events, so a fork gets live change-history-driven
+  chains without writing the source. Absent a source, T1 causal-chain RCA
+  stays dark and only T0 (and T2, when wired) RCA runs
+  (backward-compatible).
 
 ## Plugging Into the Control Loop
 
