@@ -162,6 +162,18 @@ def test_abstains_on_non_positive_window() -> None:
     assert hyp is None
 
 
+def test_abstains_on_non_positive_max_hops() -> None:
+    hyp = t1_causal_chain(
+        failure_event_id="fail-1",
+        failure_at=FAIL_AT,
+        failure_resource_ref="res-a",
+        correlated_events=[_change("c", before=timedelta(minutes=1), resource="res-a")],
+        window=WINDOW,
+        max_hops=0,
+    )
+    assert hyp is None
+
+
 def test_deterministic_and_ignores_self_event() -> None:
     events = [
         _change("fail-1", before=timedelta(minutes=1), resource="res-a"),  # self, ignored

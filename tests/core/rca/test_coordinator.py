@@ -169,6 +169,11 @@ def test_analyze_t1_causal_chain_abstains_on_pure_symptoms() -> None:
     assert result.reason == "t1_no_causal_chain_in_window"
 
 
+def test_has_t2_reflects_reasoner_binding() -> None:
+    assert RcaCoordinator().has_t2 is False
+    assert RcaCoordinator(reasoner=_StubReasoner(None)).has_t2 is True
+
+
 def test_analyze_t1_causal_chain_respects_confidence_floor() -> None:
     # A far antecedent lands low in the T1 band; a high floor abstains it.
     coordinator = RcaCoordinator(min_confidence=0.84)

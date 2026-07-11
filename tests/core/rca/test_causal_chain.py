@@ -318,3 +318,44 @@ def test_same_resource_only_excludes_dependency_link() -> None:
         same_resource_only=True,
     )
     assert chain is None
+
+
+# ---------------------------------------------------------------------------
+# Defensive edges (bug-zero)
+# ---------------------------------------------------------------------------
+
+
+def test_format_lead_renders_hours_for_wide_window() -> None:
+    wide = CausalChainAnalyzer(CausalChainConfig(window=timedelta(hours=2)))
+    events = [
+        CorrelatedEvent(
+            event_id="cfg",
+            at=FAIL_AT - timedelta(minutes=90),
+            resource_ref="app",
+            is_change=True,
+        ),
+    ]
+    chain = wide.reconstruct(
+        failure_event_id="fail",
+        failure_at=FAIL_AT,
+        failure_resource_ref="app",
+        correlated_events=events,
+    )
+    assert chain is not None
+    hyp = chain_to_hypothesis(chain, failure_resource_ref="app")
+    assert "1h30m" in hyp.cause  # hours branch of the lead formatter
+
+
+def test_empty_chain_resource_path_is_empty() -> None:
+    from fdai.core.rca.causal_chain import CausalChain
+
+    empty = CausalChain(
+        root_event_id="root",
+        failure_event_id="fail",
+        hops=(),
+        confidence=0.5,
+        ambiguity=1,
+    )
+    assert empty.resource_path == ()
+    assert empty.event_ids == ("root",)
+
