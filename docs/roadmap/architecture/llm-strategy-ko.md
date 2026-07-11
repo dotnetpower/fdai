@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 1f1930fef6e7002a509dff021c25994972d3d24f
+translation_source_sha: 5b97de19e661a5609e001b3c5696069c2db63aec
 translation_revised: 2026-07-11
 ---
 
@@ -245,6 +245,36 @@ return quorum_result(cand_a, cand_b)
 - `core/` 에 모델 id가 나타나지 않음.
 - 누락 deployment는 outage로 취급: 요청은 HIL로 라우팅되고 운영 알림 emit(A2, [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md#3-categories-a1a4)
   에 따라). 다른 capability로의 조용한 스위치는 금지.
+
+### Escalation Ladder 정책
+
+위의 `if not agree(...): escalated = ...` 스텝은 하드코딩된 분기가 아니라
+**정책 결정**이다. [`core/quality_gate/escalation_ladder.py`](../../../src/fdai/core/quality_gate/escalation_ladder.py)
+(`decide_escalation`)에 순수·결정론 함수로 구현되며, 형제
+[`debate_router`](../../../src/fdai/core/quality_gate/debate_router.py)를 그대로
+미러링한다: frozen `EscalationLadderConfig` + "더 강한 모델로 올라갈까,
+멈추고 HIL로 라우팅할까?"에 답하는 stateless 함수. 정책을 먼저 단독으로 -
+라이브 배선 전에 테스트·감사 가능하게 - 출하하는 것은 debate-router
+delta-2a -> delta-2b 순서를 따른다.
+
+ladder rung(`EscalationTier`)은 레지스트리 capability와 일대일:
+`PRIMARY` -> `SECONDARY` -> `ESCALATED`. `decide_escalation`은 `ESCALATE`
+(다음 더 강한 reasoner를 tiebreaker로 소비) 또는 `STOP`(호출자가 미해결 케이스를
+HIL로 라우팅)을 반환하며, 다음 하드닝 불변식을 지킨다:
+
+- **ladder는 실행 자격을 절대 부여하지 않는다.** *더 강한 모델을 쓸지*만
+  결정한다. escalated 모델의 제안도 untrusted 이며 같은 quality gate(verifier +
+  grounding + quorum)로 재진입한다; disagreement는 ladder를 오른다고 auto-resolve
+  되지 않으며 - 결정론 verifier가 유일한 권위로 남는다.
+- **Fail-closed.** `escalated_available=False`(`t2.reasoner.escalated`를 resolve
+  하지 않은 fork)는 `STOP`을 반환하며, precedence에서 deny-list보다 위.
+- **Cost-bounded.** 한 번의 호출은 최대 한 rung만 오르고 `ESCALATED` 천장을
+  넘지 않는다; `enabled=False`는 cost spike용 killswitch.
+- **Triggers.** `cross_check_disagreement`(주 트리거, 레지스트리의
+  `invocation: on_disagreement` 반영) + 선택적 `on_self_consistency_below`
+  임계값(self-consistency 샘플러가 흔들리는 proposer를 보고하면 nominal agreement
+  에서도 escalate). ActionType별 `never`/`always` 리스트로 튜닝하며 deny가 allow
+  우선.
 
 ### Narrator Latency Routing (T1 전용)
 

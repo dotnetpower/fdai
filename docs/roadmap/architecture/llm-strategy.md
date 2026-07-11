@@ -265,6 +265,37 @@ return quorum_result(cand_a, cand_b)
   operational alert (A2 per [channels-and-notifications.md](../interfaces/channels-and-notifications.md#3-categories-a1a4)).
   A silent switch to a different capability isn't supported.
 
+### Escalation Ladder Policy
+
+The `if not agree(...): escalated = ...` step above is a **policy decision**, not a
+hard-coded branch. It is implemented as a pure, deterministic function in
+[`core/quality_gate/escalation_ladder.py`](../../../src/fdai/core/quality_gate/escalation_ladder.py)
+(`decide_escalation`), mirroring the sibling
+[`debate_router`](../../../src/fdai/core/quality_gate/debate_router.py): a frozen
+`EscalationLadderConfig` plus a stateless function that answers "climb to the
+stronger model, or stop and route to HIL?". Shipping the policy on its own -
+testable and auditable before any live wiring - follows the debate-router
+delta-2a -> delta-2b sequence.
+
+The ladder rungs (`EscalationTier`) map one-to-one onto the registry capabilities:
+`PRIMARY` -> `SECONDARY` -> `ESCALATED`. `decide_escalation` returns `ESCALATE`
+(spend the next-stronger reasoner as a tiebreaker) or `STOP` (the caller routes the
+unresolved case to HIL), under these hardening invariants:
+
+- **The ladder never grants execution eligibility.** It decides only whether to
+  *spend a stronger model*. The escalated model's proposal is untrusted and re-enters
+  the same quality gate (verifier + grounding + quorum); a disagreement is never
+  auto-resolved by climbing - the deterministic verifier stays the sole authority.
+- **Fail-closed.** `escalated_available=False` (a fork that did not resolve
+  `t2.reasoner.escalated`) returns `STOP`, above the deny-list in precedence.
+- **Cost-bounded.** A single call climbs at most one rung and never past the
+  `ESCALATED` ceiling; `enabled=False` is a killswitch for a cost spike.
+- **Triggers.** `cross_check_disagreement` (primary, mirrors the registry's
+  `invocation: on_disagreement`) plus an optional `on_self_consistency_below`
+  threshold (escalate when the self-consistency sampler reports a wavering proposer,
+  even on nominal agreement). A per-ActionType `never`/`always` list tunes it, deny
+  winning over allow.
+
 ### Narrator Latency Routing (T1-Only)
 
 The console chat backend (`fdai.delivery.read_api.chat.LatencyRoutedChatBackend`)

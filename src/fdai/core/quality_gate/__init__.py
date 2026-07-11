@@ -46,6 +46,13 @@ from fdai.core.quality_gate.debate_router import (
     DebateRoutingDecision,
     decide_debate_route,
 )
+from fdai.core.quality_gate.escalation_ladder import (
+    EscalationDecision,
+    EscalationLadderConfig,
+    EscalationRoute,
+    EscalationTier,
+    decide_escalation,
+)
 from fdai.core.quality_gate.gate import (
     CrossCheckModel,
     GroundingSource,
@@ -103,6 +110,10 @@ __all__ = [
     "DebateRouterConfig",
     "DebateRoutingDecision",
     "DebateVerdict",
+    "EscalationDecision",
+    "EscalationLadderConfig",
+    "EscalationRoute",
+    "EscalationTier",
     "GroundingSource",
     "JudgeDecision",
     "JudgeModel",
@@ -131,6 +142,7 @@ __all__ = [
     "VerifierPolicy",
     "compute_stability",
     "decide_debate_route",
+    "decide_escalation",
     "evaluate_critic_output",
     "evaluate_judge_output",
     "evaluate_rubric_output",
