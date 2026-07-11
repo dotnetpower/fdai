@@ -512,6 +512,26 @@ def test_thor_triggers_vidar_rollback_on_failure() -> None:
     assert len(rollbacks) == 1
 
 
+def test_vidar_rollback_is_idempotent_per_correlation() -> None:
+    # At-least-once delivery can redeliver the same failed ActionRun. A real
+    # rollback contract (PITR restore, revert) is not a no-op if applied
+    # twice, so Vidar rolls a correlation back at most once.
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    vidar = Vidar(bus=bus)
+    failed = {
+        "correlation_id": "c-dup",
+        "action_type": "remediate.delete-storage",
+        "resource_id": "sa-1",
+        "state": "failed",
+    }
+    asyncio.run(vidar.on_typed_message("object.action-run", dict(failed)))
+    second = asyncio.run(vidar.rollback(dict(failed)))
+    assert second is None  # duplicate rollback refused
+    assert len(vidar.records) == 1
+    assert len(bus.messages_on("object.rollback")) == 1
+
+
 def test_thor_per_resource_mutex_prevents_concurrent_runs() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)

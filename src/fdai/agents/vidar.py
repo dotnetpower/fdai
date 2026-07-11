@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bounded import BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult, capability_facts
 from fdai.agents._framework.pantheon import _VIDAR
@@ -42,6 +43,12 @@ class Vidar(Agent):
         super().__init__(spec=_VIDAR)
         self.bus = bus
         self.records: list[RollbackRecord] = []
+        # Idempotency guard: at-least-once delivery means the same failed
+        # ActionRun can arrive twice. Rolling a resource back twice is not a
+        # no-op for a real rollback contract (double PITR restore, double
+        # revert), so a correlation is rolled back at most once. Bounded so
+        # the guard cannot leak on a long-lived recovery principal.
+        self._rolled_back: BoundedLruSet[str] = BoundedLruSet(self._MAX_RECORDS)
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -54,15 +61,23 @@ class Vidar(Agent):
             return
         await self.rollback(payload)
 
-    async def rollback(self, action_run: dict[str, Any]) -> RollbackRecord:
+    async def rollback(self, action_run: dict[str, Any]) -> RollbackRecord | None:
+        correlation_id = str(action_run.get("correlation_id", ""))
+        # Skip a duplicate rollback for a correlation already handled. An
+        # empty correlation cannot be deduped, so it falls through (a rollback
+        # is safer than silently skipping recovery).
+        if correlation_id and correlation_id in self._rolled_back:
+            return None
         rec = RollbackRecord(
-            correlation_id=str(action_run.get("correlation_id", "")),
+            correlation_id=correlation_id,
             action_type=str(action_run.get("action_type", "")),
             resource_id=action_run.get("resource_id"),
             contract=str(action_run.get("rollback_contract", "state_forward_only")),
             state="succeeded",  # in-memory rollback always succeeds
             notes="in-memory rollback (Wave 3)",
         )
+        if correlation_id:
+            self._rolled_back.add(correlation_id)
         self.records.append(rec)
         # FIFO cap - drop the oldest 25% in one shot to amortise the cost.
         if len(self.records) > self._MAX_RECORDS:
