@@ -132,6 +132,23 @@ class TestAiterJsonLines:
         lines = await _collect(aiter_json_lines(_achunks(b'{"type":"x"}\n')))
         assert lines == ['{"type":"x"}']
 
+    async def test_multibyte_utf8_split_across_chunks(self) -> None:
+        # A single non-ASCII codepoint whose UTF-8 encoding is split mid-byte
+        # by the chunk boundary must not crash the pump. Realistic terraform
+        # output escapes non-ASCII to \\uXXXX, but a stray byte-boundary from
+        # an operator's locale or an unusual producer must degrade gracefully.
+        # U+00E9 (e-acute) encodes to b"\xc3\xa9".
+        chunks = _achunks(b'{"n":"caf\xc3', b'\xa9"}\n')
+        lines = await _collect(aiter_json_lines(chunks))
+        assert lines == ['{"n":"caf\u00e9"}']
+
+    async def test_multibyte_utf8_split_three_ways(self) -> None:
+        # A 4-byte codepoint split across three chunks (2 + 1 + 1 boundary
+        # variants) still reassembles correctly. U+1F600 = b"\xf0\x9f\x98\x80".
+        chunks = _achunks(b'"', b"\xf0\x9f", b"\x98", b'\x80"\n')
+        lines = await _collect(aiter_json_lines(chunks))
+        assert lines == ['"\U0001f600"']
+
 
 class TestEndToEnd:
     async def test_chunks_flow_to_sse_subscriber(self) -> None:

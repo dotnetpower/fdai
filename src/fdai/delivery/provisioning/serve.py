@@ -17,6 +17,7 @@ with the bootstrap caller, never the core.
 
 from __future__ import annotations
 
+import codecs
 from collections.abc import AsyncIterable, AsyncIterator
 
 from fdai.delivery.provisioning.terraform_bridge import TerraformProvisionBridge
@@ -31,19 +32,28 @@ async def aiter_json_lines(
     """Reassemble a chunked byte/str stream into complete text lines.
 
     Subprocess stdout arrives in arbitrary chunks that can split a JSON object
-    across a boundary, but the bridge needs exactly one JSON object per line.
-    This buffers partial lines, splits on ``\\n`` (tolerating ``\\r\\n``), and
-    flushes a final unterminated line at end-of-stream. Blank lines are yielded
-    as-is - the bridge skips them - so no content is silently dropped.
+    or a multi-byte UTF-8 sequence across a boundary, but the bridge needs
+    exactly one JSON object per line. A single :mod:`codecs` incremental
+    decoder is threaded across all byte chunks so a boundary that lands
+    mid-codepoint does not raise ``UnicodeDecodeError`` and corrupt the pump;
+    the trailing partial codepoint is buffered until the next chunk. This
+    buffers partial lines, splits on ``\\n`` (tolerating ``\\r\\n``), and
+    flushes a final unterminated line at end-of-stream. Blank lines are
+    yielded as-is - the bridge skips them - so no content is silently dropped.
     """
+    decoder = codecs.getincrementaldecoder(encoding)(errors="strict")
     buffer = ""
     async for chunk in chunks:
-        buffer += chunk.decode(encoding) if isinstance(chunk, bytes) else chunk
+        buffer += decoder.decode(chunk) if isinstance(chunk, bytes) else chunk
         newline = buffer.find("\n")
         while newline != -1:
             yield buffer[:newline].rstrip("\r")
             buffer = buffer[newline + 1 :]
             newline = buffer.find("\n")
+    # Flush any bytes still pending in the incremental decoder (final=True
+    # raises on an incomplete sequence, exposing truncated stdout instead of
+    # silently swallowing bytes).
+    buffer += decoder.decode(b"", final=True)
     if buffer:
         yield buffer.rstrip("\r")
 
