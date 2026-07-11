@@ -14,7 +14,7 @@ Module names and the control loop follow
 ```text
 fdai/
 ├── src/fdai/            # Python (3.12+, src-layout); one language across the monorepo
-│   ├── core/                  # headless control plane (no UI, no direct cloud SDK imports)
+│   ├── core/                  # headless control plane (no UI, no direct cloud SDK imports). G-1 phase 1 (tracker #14) grouped the 41 subsystems into 5 domain-group facades - `pipeline/` (event_ingest, trust_router, tiers, quality_gate, risk_gate, hil_resume, executor, audit, control_loop), `incident/` (rca, slo, runbook, postmortem, oncall, irp, investigation, chaos, capacity), `operator/` (conversation, operator_memory, rbac, notifications, report_feed), `knowledge/` (prompts, tools, web_search, capability_catalog, rule_catalog_profiles, ontology_explorer), `platform/` (scheduler, metering, measurement, security, reporting, onboarding, workflow, detection, deploy_preflight, assurance_twin), plus `verticals/` (G-6). Phase 1 is additive: both `from fdai.core.<subsystem> import X` and `from fdai.core.<domain> import <subsystem>` resolve. Phase 2 (deferred) is the physical `git mv` mass move.
 │   │   ├── event_ingest/       # bus consumers; normalize to event schema; dedup by idempotency key; correlate related events into incidents
 │   │   ├── trust_router/       # routes each event to T0 | T1 | T2 by computed confidence
 │   │   ├── tiers/
