@@ -145,3 +145,51 @@ def test_rule_set_binding_enforce_default_needs_promotion() -> None:
         previous=GovernanceCatalog(), current=curr, promotions_approved=frozenset({"a"})
     )
     assert ok == []
+
+
+# ---- enforcement-activation invariants ------------------------------------
+
+
+def _one(effect: Effect, enf: Enforcement) -> GovernanceCatalog:
+    return GovernanceCatalog(
+        assignments=(
+            Assignment(
+                id="a",
+                target_rule_ids=frozenset({"r"}),
+                scope=_cover_all(),
+                effect=effect,
+                enforcement=enf,
+            ),
+        )
+    )
+
+
+def test_enforce_activation_always_gated_for_enforce_tier() -> None:
+    # for every enforce-tier effect, activating enforcement without approval is
+    # always flagged, and approval always clears it
+    for effect in (Effect.DENY, Effect.REMEDIATE):
+        prev = _one(effect, Enforcement.DO_NOT_ENFORCE)
+        curr = _one(effect, Enforcement.ENFORCE)
+        flagged = validate_catalog_transition(previous=prev, current=curr)
+        assert any(i.rule_id == "*" for i in flagged)
+        cleared = validate_catalog_transition(
+            previous=prev, current=curr, promotions_approved=frozenset({"a"})
+        )
+        assert cleared == []
+
+
+def test_enforce_activation_never_gated_for_inert_effects() -> None:
+    # audit / disabled never act, so an enforcement flip is orthogonal + ungated
+    for effect in (Effect.AUDIT, Effect.DISABLED):
+        prev = _one(effect, Enforcement.DO_NOT_ENFORCE)
+        curr = _one(effect, Enforcement.ENFORCE)
+        assert validate_catalog_transition(previous=prev, current=curr) == []
+
+
+def test_strictest_effect_is_order_and_duplicate_independent() -> None:
+    from fdai.rule_catalog.schema.effect import strictest_effect
+
+    pool = [Effect.DISABLED, Effect.AUDIT, Effect.REMEDIATE, Effect.DENY, Effect.DENY]
+    for perm in itertools.permutations(pool[:4]):
+        assert strictest_effect(list(perm)) is Effect.DENY
+    assert strictest_effect([Effect.AUDIT, Effect.AUDIT]) is Effect.AUDIT

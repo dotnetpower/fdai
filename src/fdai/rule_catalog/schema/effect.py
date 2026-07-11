@@ -93,10 +93,10 @@ def strictest_effect(effects: Iterable[Effect]) -> Effect:
     Raises :class:`ValueError` on an empty input - a conflict resolution over no
     effects is a caller bug, not a silent ``disabled``.
     """
-    ordered = sorted(effects, key=lambda e: _STRICTNESS[e], reverse=True)
-    if not ordered:
+    items = list(effects)
+    if not items:
         raise ValueError("strictest_effect requires at least one effect")
-    return ordered[0]
+    return max(items, key=lambda e: _STRICTNESS[e])
 
 
 def is_enforce_promotion(from_effect: Effect, to_effect: Effect) -> bool:
