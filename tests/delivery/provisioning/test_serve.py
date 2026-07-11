@@ -12,7 +12,7 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from fdai.delivery.provisioning.serve import pump_provision_events
+from fdai.delivery.provisioning.serve import aiter_json_lines, pump_provision_events
 from fdai.delivery.read_api.provision_stream import ProvisionEvent, ProvisionPhase
 
 
@@ -94,3 +94,34 @@ class TestPumpProvisionEvents:
         pub = _Collector()
         await pump_provision_events(_alines(), pub)
         assert pub.events == []
+
+
+async def _achunks(*chunks: str | bytes) -> AsyncIterator[str | bytes]:
+    for chunk in chunks:
+        yield chunk
+
+
+async def _collect(it: AsyncIterator[str]) -> list[str]:
+    return [line async for line in it]
+
+
+class TestAiterJsonLines:
+    async def test_reassembles_line_split_across_chunks(self) -> None:
+        lines = await _collect(aiter_json_lines(_achunks('{"ty', 'pe":"x"}\n')))
+        assert lines == ['{"type":"x"}']
+
+    async def test_multiple_lines_in_one_chunk(self) -> None:
+        lines = await _collect(aiter_json_lines(_achunks('a\nb\nc\n')))
+        assert lines == ["a", "b", "c"]
+
+    async def test_crlf_stripped(self) -> None:
+        lines = await _collect(aiter_json_lines(_achunks("a\r\nb\r\n")))
+        assert lines == ["a", "b"]
+
+    async def test_trailing_unterminated_line_flushed(self) -> None:
+        lines = await _collect(aiter_json_lines(_achunks("a\nb")))  # no final newline
+        assert lines == ["a", "b"]
+
+    async def test_bytes_decoded(self) -> None:
+        lines = await _collect(aiter_json_lines(_achunks(b'{"type":"x"}\n')))
+        assert lines == ['{"type":"x"}']

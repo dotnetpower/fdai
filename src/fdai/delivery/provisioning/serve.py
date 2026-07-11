@@ -17,10 +17,35 @@ with the bootstrap caller, never the core.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterable
+from collections.abc import AsyncIterable, AsyncIterator
 
 from fdai.delivery.provisioning.terraform_bridge import TerraformProvisionBridge
 from fdai.delivery.read_api.provision_stream import ProvisionPublisher
+
+
+async def aiter_json_lines(
+    chunks: AsyncIterable[str | bytes],
+    *,
+    encoding: str = "utf-8",
+) -> AsyncIterator[str]:
+    """Reassemble a chunked byte/str stream into complete text lines.
+
+    Subprocess stdout arrives in arbitrary chunks that can split a JSON object
+    across a boundary, but the bridge needs exactly one JSON object per line.
+    This buffers partial lines, splits on ``\\n`` (tolerating ``\\r\\n``), and
+    flushes a final unterminated line at end-of-stream. Blank lines are yielded
+    as-is - the bridge skips them - so no content is silently dropped.
+    """
+    buffer = ""
+    async for chunk in chunks:
+        buffer += chunk.decode(encoding) if isinstance(chunk, bytes) else chunk
+        newline = buffer.find("\n")
+        while newline != -1:
+            yield buffer[:newline].rstrip("\r")
+            buffer = buffer[newline + 1 :]
+            newline = buffer.find("\n")
+    if buffer:
+        yield buffer.rstrip("\r")
 
 
 async def pump_provision_events(
@@ -44,4 +69,4 @@ async def pump_provision_events(
         await publisher.emit(event)
 
 
-__all__ = ["pump_provision_events"]
+__all__ = ["aiter_json_lines", "pump_provision_events"]
