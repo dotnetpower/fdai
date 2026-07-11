@@ -30,6 +30,7 @@ from fdai.core.rca.coordinator import RcaCoordinator
 from fdai.core.rca.evidence import TelemetryEvidenceGatherer
 from fdai.core.rca.grounding import enforce_grounding
 from fdai.core.rca.llm import LlmRcaReasoner, RcaModel, parse_rca_response
+from fdai.core.rca.member_source import IncidentMemberSource, NoopIncidentMemberSource
 from fdai.core.rca.reasoner import RcaReasoner
 from fdai.core.rca.t0 import t0_root_cause
 from fdai.core.rca.t1 import CorrelatedEvent, t1_causal_chain
@@ -42,7 +43,9 @@ __all__ = [
     "Citation",
     "CitationKind",
     "CorrelatedEvent",
+    "IncidentMemberSource",
     "LlmRcaReasoner",
+    "NoopIncidentMemberSource",
     "RcaCoordinator",
     "RcaModel",
     "RcaOutcome",

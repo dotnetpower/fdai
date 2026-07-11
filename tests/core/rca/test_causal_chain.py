@@ -369,3 +369,11 @@ def test_empty_chain_resource_path_is_empty() -> None:
     )
     assert empty.resource_path == ()
     assert empty.event_ids == ("root",)
+
+
+@pytest.mark.asyncio
+async def test_noop_member_source_returns_empty() -> None:
+    from fdai.core.rca.member_source import NoopIncidentMemberSource
+
+    source = NoopIncidentMemberSource()
+    assert await source.members(incident_id="inc-1") == ()

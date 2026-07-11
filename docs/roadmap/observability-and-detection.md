@@ -261,7 +261,13 @@ Make RCA a first-class output of the tiers instead of an implicit side effect.
   deterministic (the same events always yield the same chain) and cites
   every event in it; it passes the grounding gate and the risk-gate
   verifier before anything acts. `RcaCoordinator.analyze_t1_causal_chain`
-  is the grounded entry point.
+  is the grounded entry point. Live wiring: the `ControlLoop` feeds it
+  each matched incident's members through the `IncidentMemberSource` seam
+  (`core/rca/member_source.py`; a fork's adapter marks which members are
+  changes) and appends one shadow `rca.hypothesis` (tier t1) per event,
+  bounded by the configured `causal_chain_window` and an optional
+  resource-dependency graph. Absent a source, T1 causal-chain RCA stays
+  dark and only T0 (and T2, when wired) RCA runs (backward-compatible).
 
 ## Plugging Into the Control Loop
 

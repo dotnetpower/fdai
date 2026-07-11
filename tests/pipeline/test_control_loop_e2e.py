@@ -25,9 +25,11 @@ The pipeline sub-tests assert the property invariants documented in
 from __future__ import annotations
 
 import shutil
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from uuid import UUID
 
 import pytest
 import yaml
@@ -46,7 +48,7 @@ from fdai.core.executor import (
 )
 from fdai.core.executor.action_builder import ActionBuilder
 from fdai.core.notifications.router import NotificationRouter
-from fdai.core.rca import RcaCoordinator, RcaTier, RootCauseHypothesis
+from fdai.core.rca import CorrelatedEvent, RcaCoordinator, RcaTier, RootCauseHypothesis
 from fdai.core.tiers.t0_deterministic import (
     OpaRegoEvaluator,
     RuleIndex,
@@ -113,6 +115,8 @@ def _make_loop(
     notification_router: NotificationRouter | None = None,
     rca_coordinator: RcaCoordinator | None = None,
     event_correlator: EventCorrelator | None = None,
+    incident_member_source: Any = None,
+    resource_dependency_graph: Any = None,
 ) -> tuple[ControlLoop, RecordingRemediationPrPublisher, InMemoryStateStore]:
     rules, action_types = shipped_catalog
     index = RuleIndex.build(rules)
@@ -145,6 +149,8 @@ def _make_loop(
         notification_router=notification_router,
         rca_coordinator=rca_coordinator,
         event_correlator=event_correlator,
+        incident_member_source=incident_member_source,
+        resource_dependency_graph=resource_dependency_graph,
     )
     return loop, publisher, audit
 
@@ -1003,6 +1009,169 @@ async def test_rca_audit_carries_incident_id(shipped_catalog: tuple[Any, Any]) -
     ]
     assert len(rca_entries) == 1
     assert rca_entries[0]["incident_id"] == "incident-123"
+
+
+# ---------------------------------------------------------------------------
+# T1 temporal causal-chain RCA wiring (IncidentMemberSource seam)
+# ---------------------------------------------------------------------------
+
+
+class _InMemoryMemberSource:
+    """Test IncidentMemberSource returning a fixed member set."""
+
+    def __init__(self, members: tuple[CorrelatedEvent, ...]) -> None:
+        self._members = members
+
+    async def members(self, *, incident_id: str) -> tuple[CorrelatedEvent, ...]:  # noqa: ARG002
+        return self._members
+
+
+_FAIL_AT = datetime(2026, 7, 7, 12, 0, 0, tzinfo=UTC)
+
+
+def _failure_event(resource_ref: str | None = "resource:app") -> Event:
+    return Event(
+        schema_version="1.0.0",
+        event_id=UUID("00000000-0000-0000-0000-0000000000f1"),
+        idempotency_key="fail-key",
+        source="src",
+        event_type="error.rate.spike",
+        resource_ref=resource_ref,
+        payload={},
+        detected_at=_FAIL_AT,
+        ingested_at=_FAIL_AT,
+        mode=Mode.SHADOW,
+    )
+
+
+@pytest.mark.asyncio
+async def test_t1_causal_chain_hypothesis_appended(shipped_catalog: tuple[Any, Any]) -> None:
+    members = (
+        CorrelatedEvent(
+            event_id="deploy-1",
+            at=_FAIL_AT - timedelta(minutes=3),
+            resource_ref="resource:db",
+            is_change=True,
+        ),
+        CorrelatedEvent(
+            event_id="dbslow",
+            at=_FAIL_AT - timedelta(minutes=1),
+            resource_ref="resource:db",
+            is_change=False,
+        ),
+    )
+    loop, _, audit = _make_loop(
+        shipped_catalog,
+        with_opa=False,
+        rca_coordinator=RcaCoordinator(),
+        incident_member_source=_InMemoryMemberSource(members),
+        resource_dependency_graph={"resource:app": {"resource:db"}},
+    )
+    await loop._analyze_and_audit_t1_causal_chain(  # noqa: SLF001
+        event=_failure_event(), incident_id="inc-1"
+    )
+    entries = [
+        e["entry"] for e in audit.audit_entries if e["entry"].get("action_kind") == "rca.hypothesis"
+    ]
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry["rca_tier"] == "t1"
+    assert entry["rca_outcome"] == "grounded"
+    assert entry["incident_id"] == "inc-1"
+    assert entry["mode"] == Mode.SHADOW.value
+    cited = {c["ref"] for c in entry["rca_citations"]}
+    # The whole chain is cited: root change -> intermediate symptom -> failure.
+    assert cited == {"deploy-1", "dbslow", str(_failure_event().event_id)}
+
+
+@pytest.mark.asyncio
+async def test_t1_causal_chain_abstains_audits_when_no_change(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    # Members exist but none is a change -> genuine abstain, still audited.
+    members = (
+        CorrelatedEvent(
+            event_id="sym",
+            at=_FAIL_AT - timedelta(minutes=1),
+            resource_ref="resource:app",
+            is_change=False,
+        ),
+    )
+    loop, _, audit = _make_loop(
+        shipped_catalog,
+        with_opa=False,
+        rca_coordinator=RcaCoordinator(),
+        incident_member_source=_InMemoryMemberSource(members),
+    )
+    await loop._analyze_and_audit_t1_causal_chain(  # noqa: SLF001
+        event=_failure_event(), incident_id="inc-1"
+    )
+    entries = [
+        e["entry"] for e in audit.audit_entries if e["entry"].get("action_kind") == "rca.hypothesis"
+    ]
+    assert len(entries) == 1
+    assert entries[0]["rca_outcome"] == "abstained"
+    assert entries[0]["rca_reason"] == "t1_no_causal_chain_in_window"
+
+
+@pytest.mark.asyncio
+async def test_t1_causal_chain_empty_source_is_silent(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    # An empty member set (no incident history) emits no per-event row.
+    loop, _, audit = _make_loop(
+        shipped_catalog,
+        with_opa=False,
+        rca_coordinator=RcaCoordinator(),
+        incident_member_source=_InMemoryMemberSource(()),
+    )
+    await loop._analyze_and_audit_t1_causal_chain(  # noqa: SLF001
+        event=_failure_event(), incident_id="inc-1"
+    )
+    assert not [
+        e for e in audit.audit_entries if e["entry"].get("action_kind") == "rca.hypothesis"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_t1_causal_chain_noop_without_source(shipped_catalog: tuple[Any, Any]) -> None:
+    # No member source wired -> the helper is a no-op (backward-compatible).
+    loop, _, audit = _make_loop(
+        shipped_catalog, with_opa=False, rca_coordinator=RcaCoordinator()
+    )
+    await loop._analyze_and_audit_t1_causal_chain(  # noqa: SLF001
+        event=_failure_event(), incident_id="inc-1"
+    )
+    assert not [
+        e for e in audit.audit_entries if e["entry"].get("action_kind") == "rca.hypothesis"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_t1_causal_chain_noop_without_resource_ref(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    # A failure event with no resource_ref cannot anchor a chain -> no-op.
+    members = (
+        CorrelatedEvent(
+            event_id="deploy-1",
+            at=_FAIL_AT - timedelta(minutes=1),
+            resource_ref="resource:db",
+            is_change=True,
+        ),
+    )
+    loop, _, audit = _make_loop(
+        shipped_catalog,
+        with_opa=False,
+        rca_coordinator=RcaCoordinator(),
+        incident_member_source=_InMemoryMemberSource(members),
+    )
+    await loop._analyze_and_audit_t1_causal_chain(  # noqa: SLF001
+        event=_failure_event(resource_ref=None), incident_id="inc-1"
+    )
+    assert not [
+        e for e in audit.audit_entries if e["entry"].get("action_kind") == "rca.hypothesis"
+    ]
 
 
 # ---------------------------------------------------------------------------

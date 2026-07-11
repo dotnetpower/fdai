@@ -38,9 +38,9 @@ Every :meth:`ControlLoop.process` call:
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -60,7 +60,12 @@ from fdai.core.executor.tool_call import (
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.core.notifications.renderer import default_catalog
 from fdai.core.notifications.router import NotificationRouter
-from fdai.core.rca import Citation, CitationKind, RcaCoordinator
+from fdai.core.rca import (
+    Citation,
+    CitationKind,
+    IncidentMemberSource,
+    RcaCoordinator,
+)
 from fdai.core.risk_gate.authority import (
     ExecutionAuthorityDecision,
     evaluate_execution_authority,
@@ -260,6 +265,9 @@ class ControlLoop:
         hil_resume_coordinator: HilResumeCoordinator | None = None,
         rca_coordinator: RcaCoordinator | None = None,
         event_correlator: EventCorrelator | None = None,
+        incident_member_source: IncidentMemberSource | None = None,
+        causal_chain_window: timedelta | None = None,
+        resource_dependency_graph: Mapping[str, Iterable[str]] | None = None,
         workflow_coordinator: WorkflowTriggerCoordinator | None = None,
     ) -> None:
         self._event_ingest = event_ingest
@@ -364,6 +372,19 @@ class ControlLoop:
         # findings of one incident together. Absent -> no incident id on
         # the RCA audit (backward-compatible).
         self._event_correlator = event_correlator
+        # Optional T1 causal-chain inputs (observability-and-detection.md 4,
+        # path b). When an :class:`IncidentMemberSource` is wired alongside
+        # the RCA coordinator, each matched event's incident members feed
+        # the deterministic multi-hop causal-chain reconstruction, appended
+        # to the audit as a shadow ``rca.hypothesis`` (tier t1). The window
+        # bounds each hop; the optional dependency graph makes cross-resource
+        # links dependency-aware. Absent source -> T1 causal-chain RCA stays
+        # dark (backward-compatible); only T0 (and T2, if wired) RCA runs.
+        self._incident_member_source = incident_member_source
+        self._causal_chain_window = causal_chain_window or timedelta(minutes=15)
+        self._resource_dependency_graph = (
+            dict(resource_dependency_graph) if resource_dependency_graph is not None else None
+        )
         # Optional workflow trigger coordinator (process-automation.md 4).
         # When wired, every ingested event is also matched against the
         # Workflow trigger index and every matched Workflow runs in shadow
@@ -646,6 +667,12 @@ class ControlLoop:
                 event_id=str(event.event_id),
                 change_safety_decision=cs_decision,
             )
+
+        # T1 temporal causal-chain RCA for the matched incident (the "why"
+        # behind the failure), shadow-only and best-effort. Runs once per
+        # event, before the per-finding loop, so the chain is not
+        # re-derived for every finding.
+        await self._analyze_and_audit_t1_causal_chain(event=event, incident_id=incident_id)
 
         # 4. Evaluate + route + execute one action per finding
         exec_results: list[
@@ -985,6 +1012,73 @@ class ControlLoop:
             _LOGGER.warning(
                 "rca_analyze_failed",
                 extra={"event_id": str(event.event_id), "rule_id": finding.rule_id},
+                exc_info=True,
+            )
+
+    async def _analyze_and_audit_t1_causal_chain(
+        self,
+        *,
+        event: Event,
+        incident_id: str | None,
+    ) -> None:
+        """Append a T1 temporal causal-chain hypothesis to the audit.
+
+        No-op unless an :class:`RcaCoordinator`, an
+        :class:`IncidentMemberSource`, an ``incident_id``, and a failure
+        ``resource_ref`` are all present. Reconstructs the most probable
+        ``root change -> ... -> failure`` chain from the incident's member
+        events and records it as a shadow ``rca.hypothesis`` (tier t1) -
+        the "why", never a new execution path. Best-effort: any failure is
+        logged and swallowed so RCA can never block the control decision.
+        """
+        if (
+            self._rca_coordinator is None
+            or self._incident_member_source is None
+            or incident_id is None
+            or event.resource_ref is None
+        ):
+            return
+        try:
+            members = await self._incident_member_source.members(incident_id=incident_id)
+            if not members:
+                # No incident history available (e.g. a no-op source or a
+                # freshly-opened incident) - nothing to reconstruct. Skip
+                # silently rather than emit a per-event abstain row.
+                return
+            result = self._rca_coordinator.analyze_t1_causal_chain(
+                failure_event_id=str(event.event_id),
+                failure_at=event.detected_at,
+                failure_resource_ref=event.resource_ref,
+                correlated_events=members,
+                window=self._causal_chain_window,
+                depends_on=self._resource_dependency_graph,
+            )
+            hypothesis = result.hypothesis
+            await self._audit_store.append_audit_entry(
+                {
+                    "event_id": str(event.event_id),
+                    "idempotency_key": f"{event.idempotency_key}:rca_t1_chain",
+                    "actor": "fdai.core.rca",
+                    "action_kind": "rca.hypothesis",
+                    "mode": Mode.SHADOW.value,
+                    "incident_id": incident_id,
+                    "rca_outcome": result.outcome.value,
+                    "rca_reason": result.reason,
+                    "rca_tier": hypothesis.tier.value if hypothesis else "t1",
+                    "rca_cause": hypothesis.cause if hypothesis else None,
+                    "rca_confidence": hypothesis.confidence if hypothesis else None,
+                    "rca_citations": (
+                        [{"kind": c.kind.value, "ref": c.ref} for c in hypothesis.citations]
+                        if hypothesis
+                        else []
+                    ),
+                    "recorded_at": datetime.now(tz=UTC).isoformat(),
+                }
+            )
+        except Exception:  # noqa: BLE001 - T1 causal-chain RCA best-effort
+            _LOGGER.warning(
+                "rca_t1_chain_analyze_failed",
+                extra={"event_id": str(event.event_id), "incident_id": incident_id},
                 exc_info=True,
             )
 
