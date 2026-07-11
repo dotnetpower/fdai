@@ -23,10 +23,12 @@ from jsonschema import Draft202012Validator
 
 from fdai.rule_catalog.schema.assignment import Assignment
 from fdai.rule_catalog.schema.effect import Effect, Enforcement
+from fdai.rule_catalog.schema.rule_set import RuleSet, RuleSetMember
 from fdai.rule_catalog.schema.scope import Scope, ScopeLevel, ScopeSelector
 
 _SCHEMA_PACKAGE = "fdai.rule_catalog.schema"
 _ASSIGNMENT_SCHEMA_FILE = "assignment.schema.json"
+_RULE_SET_SCHEMA_FILE = "rule_set.schema.json"
 
 # The catalog YAML uses hyphenated level labels; the domain enum is an IntEnum
 # (ordered for precedence) with no string value, so the loader owns the mapping.
@@ -60,6 +62,19 @@ def _load_schema(name: str) -> dict[str, Any]:
 
 
 _ASSIGNMENT_VALIDATOR = Draft202012Validator(_load_schema(_ASSIGNMENT_SCHEMA_FILE))
+_RULE_SET_VALIDATOR = Draft202012Validator(_load_schema(_RULE_SET_SCHEMA_FILE))
+
+
+def _collect_issues(
+    validator: Draft202012Validator, raw: Mapping[str, Any]
+) -> list[GovernanceLoadIssue]:
+    return [
+        GovernanceLoadIssue(
+            key="/".join(str(p) for p in err.path) or "<root>",
+            message=err.message,
+        )
+        for err in sorted(validator.iter_errors(raw), key=lambda e: list(e.path))
+    ]
 
 
 def _build_scope(raw: Mapping[str, Any]) -> Scope:
@@ -86,13 +101,7 @@ def load_assignment_from_mapping(raw: Mapping[str, Any]) -> Assignment:
     on success returns the domain :class:`Assignment` (whose own constructor
     enforces the non-empty-id / at-least-one-rule invariants).
     """
-    issues = [
-        GovernanceLoadIssue(
-            key="/".join(str(p) for p in err.path) or "<root>",
-            message=err.message,
-        )
-        for err in sorted(_ASSIGNMENT_VALIDATOR.iter_errors(raw), key=lambda e: list(e.path))
-    ]
+    issues = _collect_issues(_ASSIGNMENT_VALIDATOR, raw)
     if issues:
         raise GovernanceLoadError(issues)
 
@@ -107,8 +116,31 @@ def load_assignment_from_mapping(raw: Mapping[str, Any]) -> Assignment:
     )
 
 
+def load_rule_set_from_mapping(raw: Mapping[str, Any]) -> RuleSet:
+    """Validate ``raw`` against the rule-set schema and build a RuleSet.
+
+    Raises :class:`GovernanceLoadError` carrying every schema issue on failure;
+    on success returns the domain :class:`RuleSet` (whose constructor enforces
+    the non-empty / no-duplicate-member invariants).
+    """
+    issues = _collect_issues(_RULE_SET_VALIDATOR, raw)
+    if issues:
+        raise GovernanceLoadError(issues)
+
+    members = tuple(
+        RuleSetMember(
+            rule_id=m["rule_id"],
+            version=m["version"],
+            default_effect=Effect(m.get("default_effect", "audit")),
+        )
+        for m in raw["members"]
+    )
+    return RuleSet(id=raw["id"], version=raw["version"], members=members)
+
+
 __all__ = [
     "GovernanceLoadError",
     "GovernanceLoadIssue",
     "load_assignment_from_mapping",
+    "load_rule_set_from_mapping",
 ]

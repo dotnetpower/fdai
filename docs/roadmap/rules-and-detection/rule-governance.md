@@ -103,8 +103,9 @@ assignment's top-level `effect` is the default for rules without an override.
 > `load_assignment_from_mapping`
 > ([`governance_loader.py`](../../../src/fdai/rule_catalog/schema/governance_loader.py)), which
 > validates a YAML assignment and builds the domain object, failing at the boundary with every
-> schema issue. The remaining follow-up is the rule-set loader, the T0 runtime that consumes a
-> resolved assignment, and the CI transition gate.
+> schema issue. The rule-set loader (`rule_set.schema.json` + `load_rule_set_from_mapping`) ships
+> in the same module. The remaining follow-up is the T0 runtime that consumes a resolved
+> assignment and the CI transition gate.
 
 ## Scope
 

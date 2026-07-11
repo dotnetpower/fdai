@@ -10,6 +10,7 @@ from fdai.rule_catalog.schema.effect import Effect, Enforcement
 from fdai.rule_catalog.schema.governance_loader import (
     GovernanceLoadError,
     load_assignment_from_mapping,
+    load_rule_set_from_mapping,
 )
 from fdai.rule_catalog.schema.scope import ResourceContext, ScopeLevel
 
@@ -114,3 +115,45 @@ def test_bad_effect_override_value_rejected() -> None:
     raw["effect_overrides"] = {"r.encryption": "nope"}
     with pytest.raises(GovernanceLoadError):
         load_assignment_from_mapping(raw)
+
+
+def _minimal_rule_set() -> dict[str, Any]:
+    return {
+        "schema_version": "1.0.0",
+        "id": "security-baseline",
+        "version": "1.0.0",
+        "members": [
+            {"rule_id": "r.encryption", "version": "1.0.0", "default_effect": "deny"},
+            {"rule_id": "r.tagging", "version": "1.0.0"},
+        ],
+    }
+
+
+def test_rule_set_valid_load() -> None:
+    rs = load_rule_set_from_mapping(_minimal_rule_set())
+    assert rs.id == "security-baseline"
+    assert rs.rule_ids() == frozenset({"r.encryption", "r.tagging"})
+    assert rs.default_effect_for("r.encryption") is Effect.DENY
+    assert rs.default_effect_for("r.tagging") is Effect.AUDIT  # schema default
+    assert rs.version_for("r.encryption") == "1.0.0"
+
+
+def test_rule_set_missing_members_rejected() -> None:
+    raw = _minimal_rule_set()
+    raw["members"] = []
+    with pytest.raises(GovernanceLoadError):
+        load_rule_set_from_mapping(raw)
+
+
+def test_rule_set_bad_member_default_effect_rejected() -> None:
+    raw = _minimal_rule_set()
+    raw["members"][0]["default_effect"] = "nuke"
+    with pytest.raises(GovernanceLoadError):
+        load_rule_set_from_mapping(raw)
+
+
+def test_rule_set_unknown_field_rejected() -> None:
+    raw = _minimal_rule_set()
+    raw["surprise"] = 1
+    with pytest.raises(GovernanceLoadError):
+        load_rule_set_from_mapping(raw)

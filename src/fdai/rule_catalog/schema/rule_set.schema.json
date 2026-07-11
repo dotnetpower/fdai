@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/governance/rule-set/1.0.0",
+  "title": "GovernanceRuleSet",
+  "description": "Catalog-as-code shape of a governance rule-set (initiative): a named, versioned group of version-pinned member rules, each with an optional default_effect. See docs/roadmap/rules-and-detection/rule-governance.md. Loaded into fdai.rule_catalog.schema.rule_set.RuleSet.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "version", "members"],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule_id", "version"],
+        "properties": {
+          "rule_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+          "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+          "default_effect": {
+            "type": "string",
+            "enum": ["disabled", "audit", "deny", "remediate"],
+            "default": "audit"
+          }
+        }
+      }
+    }
+  }
+}
