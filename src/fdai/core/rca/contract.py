@@ -38,6 +38,9 @@ class CitationKind(StrEnum):
     EVENT = "event"
     TELEMETRY = "telemetry"
     INCIDENT = "incident"
+    CHANGE = "change"
+    """A correlated deploy / commit / config change - see
+    :class:`~fdai.core.rca.change_evidence.ChangeEvidenceGatherer`."""
 
 
 @dataclass(frozen=True, slots=True)

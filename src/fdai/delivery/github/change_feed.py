@@ -29,21 +29,13 @@ from typing import Any, Final
 
 import httpx
 
-from fdai.shared.providers.change_feed import ChangeRecord
+from fdai.shared.providers.change_feed import ChangeFeedError, ChangeRecord
 
 _DEFAULT_API: Final[str] = "https://api.github.com"
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 20.0
 _DEFAULT_MAX_RECORDS: Final[int] = 200
 
 TokenProvider = Callable[[], Awaitable[str]]
-
-
-class ChangeFeedError(RuntimeError):
-    """Raised on an unrecoverable GitHub change-feed failure.
-
-    Safe to log - carries only the repo, HTTP status, and a short reason,
-    never the token or raw response body.
-    """
 
 
 @dataclass(frozen=True, slots=True)

@@ -28,6 +28,19 @@ from typing import Protocol, runtime_checkable
 _DEFAULT_WINDOW = timedelta(hours=1)
 
 
+class ChangeFeedError(RuntimeError):
+    """Raised on an unrecoverable change-feed failure.
+
+    Defined on the Protocol so ``core/`` can catch it without importing a
+    concrete adapter: the RCA change-evidence gatherer treats a feed
+    outage as "no change evidence" (fail-safe, abstain to HIL) rather than
+    letting the exception abort analysis. Live adapters (GitHub, Azure
+    DevOps) raise a subclass. Safe to log - carries only the source, HTTP
+    status, and a short reason, never a token or raw response body.
+    """
+
+
+
 @dataclass(frozen=True, slots=True)
 class ChangeRecord:
     """One normalized change (deploy / merge / config edit).
@@ -156,6 +169,7 @@ def correlate_changes(
 __all__ = [
     "ChangeCorrelation",
     "ChangeFeed",
+    "ChangeFeedError",
     "ChangeRecord",
     "EmptyChangeFeed",
     "correlate_changes",
