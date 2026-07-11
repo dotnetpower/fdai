@@ -14,12 +14,16 @@ delegating to :class:`fdai.agents._framework.registry.PantheonRegistry`.
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 from fdai.agents._framework.registry import PantheonRegistry
+from fdai.agents._framework.topics import ENVELOPE_SCHEMA_VERSION, partition_key_for
+
+_LOG = logging.getLogger(__name__)
 
 Payload = dict[str, Any]
 Handler = Callable[[str, Payload], Awaitable[None]]
@@ -52,6 +56,7 @@ class PublishedMessage:
     topic: str
     payload: Payload
     principal: str
+    key: str = ""
 
 
 @dataclass
@@ -61,30 +66,77 @@ class InMemoryBus:
     Publish delivers to every subscriber synchronously (await in order
     of subscription). This is intentional: tests rely on the entire
     reaction chain resolving before the publish returns.
+
+    The bus mirrors the production
+    :class:`~fdai.agents._framework.bus_bridge.EventBusBridge` on the
+    details that a test could otherwise silently diverge on:
+
+    - it injects ``producer_principal`` and ``schema_version`` into every
+      payload (so a test sees the same enriched envelope prod would),
+    - it computes the canonical partition key and counts empty keys,
+    - it **isolates a raising subscriber** by default (one bad handler
+      MUST NOT stop its siblings, exactly as the Kafka bridge routes a
+      poison record to the DLQ and keeps the consumer alive). The failing
+      delivery is captured in :attr:`dead_letters` for assertions. Set
+      ``isolate_handlers=False`` to restore fail-fast propagation for a
+      test that wants it.
     """
 
     registry: PantheonRegistry
+    isolate_handlers: bool = True
     subscribers: dict[str, list[tuple[str, Handler]]] = field(
         default_factory=lambda: defaultdict(list)
     )
     published: list[PublishedMessage] = field(default_factory=list)
+    dead_letters: list[PublishedMessage] = field(default_factory=list)
+    empty_partition_keys: int = 0
+    handler_errors: int = 0
 
     def subscribe(self, topic: str, agent_name: str, handler: Handler) -> None:
         self.subscribers[topic].append((agent_name, handler))
 
     async def publish(self, principal: str, topic: str, payload: Payload) -> None:
         self.registry.assert_can_publish(principal, topic)
+        enriched = dict(payload)
+        enriched.setdefault("producer_principal", principal)
+        enriched.setdefault("schema_version", ENVELOPE_SCHEMA_VERSION)
+        key = partition_key_for(topic, enriched)
+        if not key:
+            self.empty_partition_keys += 1
         self.published.append(
-            PublishedMessage(topic=topic, payload=dict(payload), principal=principal)
+            PublishedMessage(
+                topic=topic, payload=dict(enriched), principal=principal, key=key
+            )
         )
-        for _, handler in self.subscribers.get(topic, []):
+        for agent_name, handler in self.subscribers.get(topic, []):
             # Hand each subscriber its own copy so a handler that mutates the
             # payload cannot contaminate later subscribers or the caller's
             # object (the Kafka-backed bridge copies per delivery too).
-            await handler(topic, dict(payload))
+            try:
+                await handler(topic, dict(enriched))
+            except Exception as exc:  # noqa: BLE001 - isolation mirrors the bridge DLQ
+                self.handler_errors += 1
+                if not self.isolate_handlers:
+                    raise
+                _LOG.warning(
+                    "inmemory_bus_handler_error",
+                    extra={
+                        "topic": topic,
+                        "subscriber": agent_name,
+                        "error_type": type(exc).__name__,
+                    },
+                )
+                self.dead_letters.append(
+                    PublishedMessage(
+                        topic=topic, payload=dict(enriched), principal=agent_name, key=key
+                    )
+                )
 
     def clear_history(self) -> None:
         self.published.clear()
+        self.dead_letters.clear()
+        self.empty_partition_keys = 0
+        self.handler_errors = 0
 
     def messages_on(self, topic: str) -> list[PublishedMessage]:
         return [m for m in self.published if m.topic == topic]
