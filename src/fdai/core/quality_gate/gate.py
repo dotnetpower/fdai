@@ -455,9 +455,7 @@ class QualityGate:
                 rubric_verdict_value = rubric_decision.verdict.value
                 if not rubric_shadow:
                     if rubric_decision.verdict is RubricVerdict.FAIL:
-                        reasons.append(
-                            f"rubric_failed:{','.join(rubric_decision.failed_criteria)}"
-                        )
+                        reasons.append(f"rubric_failed:{','.join(rubric_decision.failed_criteria)}")
                     elif rubric_decision.verdict is RubricVerdict.ABSTAIN:
                         reasons.append(f"rubric_abstained:{','.join(rubric_decision.reasons)}")
 

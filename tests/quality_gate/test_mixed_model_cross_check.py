@@ -281,6 +281,93 @@ def test_resolver_permits_same_publisher_when_one_is_hil_only() -> None:
     _enforce_mixed_model_invariant(entries)  # MUST NOT raise.
 
 
+def test_resolver_rejects_rubric_judge_sharing_primary_publisher() -> None:
+    """The rubric judge MUST NOT be the same publisher as the proposer.
+
+    A model grading its own answer defeats the rubric's independence
+    assumption - the resolver refuses it at config load, mirroring the
+    cross-check pair rule. See docs/roadmap/hallucination-rubric-gate.md.
+    """
+    from fdai.rule_catalog.schema.llm_resolver import (
+        CapabilityStatus,
+        ResolvedCapability,
+        ResolverError,
+        _enforce_mixed_model_invariant,
+    )
+
+    entries = [
+        ResolvedCapability(
+            name="t2.reasoner.primary",
+            status=CapabilityStatus.RESOLVED,
+            publisher="OpenAI",
+            family="gpt-4o",
+            sku=None,
+            capacity_tpm=100_000,
+            invocation="chat",
+        ),
+        ResolvedCapability(
+            name="t2.reasoner.secondary",
+            status=CapabilityStatus.RESOLVED,
+            publisher="Anthropic",
+            family="claude-opus-4",
+            sku=None,
+            capacity_tpm=50_000,
+            invocation="chat",
+        ),
+        ResolvedCapability(
+            name="t2.rubric.judge",
+            status=CapabilityStatus.RESOLVED,
+            publisher="OpenAI",  # same as primary -> violation
+            family="gpt-4o",
+            sku=None,
+            capacity_tpm=50_000,
+            invocation="on_novel_case",
+        ),
+    ]
+    with pytest.raises(ResolverError, match="t2.rubric.judge/t2.reasoner.primary"):
+        _enforce_mixed_model_invariant(entries)
+
+
+def test_resolver_permits_rubric_judge_hil_only_same_publisher() -> None:
+    """A hil-only rubric judge disables the leg, so the invariant is n/a."""
+    from fdai.rule_catalog.schema.llm_resolver import (
+        CapabilityStatus,
+        ResolvedCapability,
+        _enforce_mixed_model_invariant,
+    )
+
+    entries = [
+        ResolvedCapability(
+            name="t2.reasoner.primary",
+            status=CapabilityStatus.RESOLVED,
+            publisher="OpenAI",
+            family="gpt-4o",
+            sku=None,
+            capacity_tpm=100_000,
+            invocation="chat",
+        ),
+        ResolvedCapability(
+            name="t2.reasoner.secondary",
+            status=CapabilityStatus.RESOLVED,
+            publisher="Anthropic",
+            family="claude-opus-4",
+            sku=None,
+            capacity_tpm=50_000,
+            invocation="chat",
+        ),
+        ResolvedCapability(
+            name="t2.rubric.judge",
+            status=CapabilityStatus.HIL_ONLY,
+            publisher="OpenAI",
+            family="gpt-4o",
+            sku=None,
+            capacity_tpm=0,
+            invocation="on_novel_case",
+        ),
+    ]
+    _enforce_mixed_model_invariant(entries)  # MUST NOT raise.
+
+
 @pytest.mark.asyncio
 async def test_model_votes_provenance_is_captured(
     valid_rule: dict[str, object],

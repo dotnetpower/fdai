@@ -113,9 +113,7 @@ class TestEvaluateRubricOutput:
         assert any(r.startswith("missing_criterion:completeness") for r in decision.reasons)
 
     def test_ungrounded_citation_abstains(self) -> None:
-        out = RubricOutput(
-            scores=(_score(criterion="faithfulness", supporting=("r.fabricated",)),)
-        )
+        out = RubricOutput(scores=(_score(criterion="faithfulness", supporting=("r.fabricated",)),))
         decision = evaluate_rubric_output(out, known_rule_ids=_KNOWN)
         assert decision.verdict is RubricVerdict.ABSTAIN
         assert any(r.startswith("ungrounded_score:faithfulness") for r in decision.reasons)
@@ -125,9 +123,7 @@ class TestEvaluateRubricOutput:
         # fabricated citation is the stronger signal - we cannot trust the
         # score itself).
         out = RubricOutput(
-            scores=(
-                _score(criterion="faithfulness", score=0.2, supporting=("r.fabricated",)),
-            )
+            scores=(_score(criterion="faithfulness", score=0.2, supporting=("r.fabricated",)),)
         )
         decision = evaluate_rubric_output(out, known_rule_ids=_KNOWN)
         assert decision.verdict is RubricVerdict.ABSTAIN

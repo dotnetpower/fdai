@@ -28,6 +28,7 @@ class PromptLayer(StrEnum):
     PACK = "pack"
     CRITIC = "critic"
     JUDGE = "judge"
+    RUBRIC = "rubric"
     TOOL = "tool"
     ROLE_HEADER = "role-header"
     OPERATOR_MEMORY = "operator-memory"

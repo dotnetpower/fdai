@@ -180,9 +180,7 @@ async def test_rubric_is_subtractive_never_additive() -> None:
     ev = UniformRubricEvaluator(
         criteria=_CRITERIA, score=1.0, threshold=0.7, supporting_rule_ids=("r.known",)
     )
-    gate = _gate(
-        rubric_evaluator=ev, rubric_shadow=False, confidence_threshold=0.7
-    )
+    gate = _gate(rubric_evaluator=ev, rubric_shadow=False, confidence_threshold=0.7)
     decision = await gate.evaluate(_candidate(confidence=0.3))
     assert decision.aggregate_confidence == pytest.approx(0.3)
     assert decision.outcome is QualityOutcome.ABSTAIN

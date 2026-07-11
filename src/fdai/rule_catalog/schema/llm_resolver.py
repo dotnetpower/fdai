@@ -381,25 +381,52 @@ def resolve(
 
 
 def _enforce_mixed_model_invariant(entries: list[ResolvedCapability]) -> None:
-    """Raise :class:`ResolverError` when both reasoners resolved to the same publisher."""
+    """Raise :class:`ResolverError` when a mixed-model pair shares a publisher.
+
+    Two pairs MUST stay cross-publisher so the quality gate's independence
+    assumption holds:
+
+    - ``t2.reasoner.primary`` vs ``t2.reasoner.secondary`` (the cross-check
+      pair - correlated errors defeat the check);
+    - ``t2.rubric.judge`` vs ``t2.reasoner.primary`` (a model must not grade
+      its own answer; see docs/roadmap/hallucination-rubric-gate.md).
+    """
     by_name: Mapping[str, ResolvedCapability] = {e.name: e for e in entries}
     primary = by_name.get("t2.reasoner.primary")
     secondary = by_name.get("t2.reasoner.secondary")
-    if primary is None or secondary is None:
+    _enforce_distinct_publisher(
+        primary,
+        secondary,
+        pair="t2.reasoner.primary/t2.reasoner.secondary",
+    )
+    _enforce_distinct_publisher(
+        by_name.get("t2.rubric.judge"),
+        primary,
+        pair="t2.rubric.judge/t2.reasoner.primary",
+    )
+
+
+def _enforce_distinct_publisher(
+    left: ResolvedCapability | None,
+    right: ResolvedCapability | None,
+    *,
+    pair: str,
+) -> None:
+    """Raise when both capabilities resolved to the same publisher."""
+    if left is None or right is None:
         return
     # Only the two RESOLVED cases can violate the invariant. If either
-    # is hil-only the invariant is not applicable - the T2 tier already
-    # can't auto-execute for the affected capability.
+    # is hil-only the invariant is not applicable - the affected
+    # capability already can't auto-execute.
     if (
-        primary.status in (CapabilityStatus.RESOLVED, CapabilityStatus.CAPACITY_REDUCED)
-        and secondary.status in (CapabilityStatus.RESOLVED, CapabilityStatus.CAPACITY_REDUCED)
-        and primary.publisher is not None
-        and primary.publisher == secondary.publisher
+        left.status in (CapabilityStatus.RESOLVED, CapabilityStatus.CAPACITY_REDUCED)
+        and right.status in (CapabilityStatus.RESOLVED, CapabilityStatus.CAPACITY_REDUCED)
+        and left.publisher is not None
+        and left.publisher == right.publisher
     ):
         raise ResolverError(
             "mixed_model_invariant_violated_after_resolve: "
-            f"primary.publisher={primary.publisher!r} == "
-            f"secondary.publisher={secondary.publisher!r}. Expand "
+            f"{pair} both resolved to publisher={left.publisher!r}. Expand "
             "llm-registry.yaml preferences so a distinct publisher can be "
             "picked in this region, or set mixed_model_mode='hil-only'."
         )

@@ -88,3 +88,19 @@ models:
     sku: Standard
     capacity_tpm: 5000
     invocation: on_novel_case
+
+  # Rubric judge for the hallucination filter (docs/roadmap/
+  # hallucination-rubric-gate.md). Scores a T2 candidate's reasoning
+  # against fixed criteria. Distinct-publisher preference (Anthropic
+  # first) so the rubric judge is mixed-model relative to
+  # t2.reasoner.primary (OpenAI) - a model must not grade its own
+  # answer. The QualityGate folds the minimum score into confidence
+  # via min() (subtractive only). ``invocation: on_novel_case`` so it
+  # runs only on the T2 minority that reaches the quality gate.
+  t2.rubric.judge:
+    preferences:
+      - {publisher: Anthropic, family: claude-opus-4}
+      - {publisher: OpenAI, family: gpt-4o}
+    sku: Standard
+    capacity_tpm: 5000
+    invocation: on_novel_case

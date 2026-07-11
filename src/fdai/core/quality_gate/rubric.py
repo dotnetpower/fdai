@@ -120,9 +120,7 @@ class RubricScore:
         if not 0.0 <= self.score <= 1.0:
             raise ValueError(f"RubricScore.score MUST be in [0.0, 1.0], got {self.score}")
         if not 0.0 <= self.threshold <= 1.0:
-            raise ValueError(
-                f"RubricScore.threshold MUST be in [0.0, 1.0], got {self.threshold}"
-            )
+            raise ValueError(f"RubricScore.threshold MUST be in [0.0, 1.0], got {self.threshold}")
         if not self.criterion or not self.criterion.strip():
             raise ValueError("RubricScore.criterion MUST be non-empty")
         if not self.rationale or not self.rationale.strip():
@@ -236,10 +234,7 @@ def evaluate_rubric_output(
         )
 
     ungrounded = tuple(
-        s.criterion
-        for s in scores
-        for rule_id in s.supporting_rule_ids
-        if rule_id not in known
+        s.criterion for s in scores for rule_id in s.supporting_rule_ids if rule_id not in known
     )
     if ungrounded:
         return RubricDecision(

@@ -619,6 +619,7 @@ def test_locale_directive_composes_with_user_turn() -> None:
 
 async def _collect_heartbeats(source_gen, interval=0.05):
     from fdai.delivery.read_api.chat import _with_sse_heartbeats
+
     out = []
     async for e in _with_sse_heartbeats(source_gen(), interval=interval):
         out.append(e)
@@ -670,6 +671,7 @@ def test_non_json_value_uses_default_str_fallback() -> None:
     # A datetime is not JSON-serialisable by default; the safety fallback
     # (default=str) MUST render it as a string instead of crashing the chat.
     import datetime as _dt
+
     ctx = {"routeId": "audit", "when": _dt.datetime(2026, 7, 11, 0, 0, 0)}
     msgs = _build_messages("hi", ctx, [])
     system = msgs[0]["content"]
@@ -709,13 +711,14 @@ async def test_heartbeat_closes_source_when_consumer_disconnects() -> None:
             closed["flag"] = True
 
     got_first = False
-    async for e in _with_sse_heartbeats(_src(), interval=1.0):
+    async for _e in _with_sse_heartbeats(_src(), interval=1.0):
         got_first = True
         break  # consumer disconnect
 
     assert got_first is True
     # Give the pump one loop tick to unwind + close the source.
     import asyncio
+
     for _ in range(20):
         if closed["flag"]:
             break

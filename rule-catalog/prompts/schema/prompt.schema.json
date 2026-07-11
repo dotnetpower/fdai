@@ -19,7 +19,7 @@
     },
     "layer": {
       "description": "Which composition slot this artifact fills. See docs/roadmap/prompt-composition.md § Role x Layer matrix.",
-      "enum": ["base", "pack", "critic", "judge", "tool", "role-header"]
+      "enum": ["base", "pack", "critic", "judge", "rubric", "tool", "role-header"]
     },
     "applies_to": {
       "type": "array",

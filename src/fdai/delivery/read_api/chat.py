@@ -1577,25 +1577,25 @@ async def _with_sse_heartbeats(
     queue: asyncio.Queue[tuple[str, dict[str, Any] | None]] = asyncio.Queue(
         maxsize=max(1, queue_maxsize)
     )
-    _END: Final = "end"
-    _ITEM: Final = "item"
-    _ERR: Final = "err"
+    _end: Final = "end"
+    _item: Final = "item"
+    _err: Final = "err"
 
     async def _pump() -> None:
         try:
             async for x in source:
-                await queue.put((_ITEM, x))
+                await queue.put((_item, x))
         except asyncio.CancelledError:
             # Consumer went away; unwinding the async for closes `source`.
             raise
         except BaseException as exc:  # re-raise on the consumer side
             try:
-                await queue.put((_ERR, {"__exc__": repr(exc)}))
+                await queue.put((_err, {"__exc__": repr(exc)}))
             except asyncio.CancelledError:
                 pass
             return
         try:
-            await queue.put((_END, None))
+            await queue.put((_end, None))
         except asyncio.CancelledError:
             pass
 
@@ -1604,12 +1604,12 @@ async def _with_sse_heartbeats(
         while True:
             try:
                 kind, val = await asyncio.wait_for(queue.get(), timeout=interval)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 yield None  # heartbeat
                 continue
-            if kind == _END:
+            if kind == _end:
                 return
-            if kind == _ERR:
+            if kind == _err:
                 # Surface the pumped exception to the consumer's try/except.
                 raise RuntimeError(f"stream source failed: {val}")
             yield val
@@ -1618,7 +1618,7 @@ async def _with_sse_heartbeats(
             pump_task.cancel()
         try:
             await pump_task
-        except (asyncio.CancelledError, Exception):  # noqa: BLE001
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001, S110
             pass
 
 
