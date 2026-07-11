@@ -85,6 +85,29 @@ def test_distinct_fingerprints_not_flooded() -> None:
     assert guard.inspect(_valid() | {"target_rule_id": "b"}).accepted is True
 
 
+def test_flood_counter_map_is_bounded() -> None:
+    # The guard's own repeat-counter must be bounded: an attacker sending
+    # candidates with ever-changing fingerprints would otherwise grow it
+    # without limit (a DoS via the poisoning defense itself).
+    from fdai.agents._framework.candidate_guard import _MAX_FINGERPRINTS
+
+    guard = CandidateGuard()
+    for i in range(_MAX_FINGERPRINTS + 100):
+        guard.inspect(_valid() | {"target_rule_id": f"r{i}"})
+    assert len(guard._seen) == _MAX_FINGERPRINTS  # noqa: SLF001
+
+
+def test_flood_detection_survives_bounded_counter() -> None:
+    # A genuine flood REPEATS one fingerprint, keeping it most-recently-used,
+    # so it is never evicted mid-burst - flood detection still fires even
+    # while distinct fingerprints churn through the bounded map.
+    guard = CandidateGuard(max_repeats=3)
+    target = _valid() | {"target_rule_id": "victim"}
+    for _ in range(3):
+        assert guard.inspect(target).accepted is True
+    assert guard.inspect(target).reason == "flood_suspected"
+
+
 def test_invalid_config_rejected() -> None:
     with pytest.raises(ValueError, match="max_repeats"):
         CandidateGuard(max_repeats=0)

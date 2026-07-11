@@ -28,9 +28,10 @@ Checks (all deterministic, no I/O, no model call):
 from __future__ import annotations
 
 import math
-from collections import Counter
 from dataclasses import dataclass
 from typing import Any
+
+from fdai.agents._framework.bounded import BoundedLruDict
 
 _ALLOWED_KINDS: frozenset[str] = frozenset(
     {"new", "revision", "retirement", "threshold_adjustment"}
@@ -41,6 +42,16 @@ _POSITIVE_COUNT_KEYS: tuple[str, ...] = (
     "sample_size",
     "override_count",
 )
+
+#: Cap on distinct repeat-count fingerprints retained. The guard's own flood
+#: counter must be bounded, or the poisoning defense becomes a poisoning
+#: vector: an attacker sending candidates with ever-changing fingerprints
+#: (varying proposed_by / target_rule_id / source_signal) would grow the map
+#: without limit - a memory-exhaustion DoS. LRU eviction is safe for flood
+#: detection because a genuine flood REPEATS one fingerprint, keeping it
+#: most-recently-used (never evicted mid-burst); a stream of all-distinct
+#: fingerprints is not a flood of any single candidate.
+_MAX_FINGERPRINTS = 10_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,7 +67,7 @@ class CandidateGuard:
         if max_repeats < 1:
             raise ValueError("max_repeats MUST be >= 1")
         self._max_repeats = max_repeats
-        self._seen: Counter[str] = Counter()
+        self._seen: BoundedLruDict[str, int] = BoundedLruDict(_MAX_FINGERPRINTS)
 
     def inspect(self, candidate: dict[str, Any]) -> GuardVerdict:
         kind = str(candidate.get("proposal_kind", ""))
@@ -90,8 +101,9 @@ class CandidateGuard:
                 return GuardVerdict(False, f"evidence_out_of_range:{key}")
 
         fingerprint = self._fingerprint(candidate)
-        self._seen[fingerprint] += 1
-        if self._seen[fingerprint] > self._max_repeats:
+        count = (self._seen.get(fingerprint) or 0) + 1
+        self._seen.set(fingerprint, count)
+        if count > self._max_repeats:
             return GuardVerdict(False, "flood_suspected")
 
         return GuardVerdict(True, "ok")
