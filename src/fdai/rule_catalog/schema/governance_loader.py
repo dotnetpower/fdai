@@ -23,6 +23,7 @@ from jsonschema import Draft202012Validator
 
 from fdai.rule_catalog.schema.assignment import Assignment
 from fdai.rule_catalog.schema.effect import Effect, Enforcement
+from fdai.rule_catalog.schema.provenance import Provenance
 from fdai.rule_catalog.schema.rule_set import (
     RuleSet,
     RuleSetMember,
@@ -98,6 +99,18 @@ def _build_scope(raw: Mapping[str, Any]) -> Scope:
     )
 
 
+def _build_provenance(raw: Mapping[str, Any]) -> Provenance | None:
+    prov_raw = raw.get("provenance")
+    if prov_raw is None:
+        return None
+    try:
+        return Provenance.from_mapping(prov_raw)
+    except ValueError as exc:
+        raise GovernanceLoadError(
+            [GovernanceLoadIssue(key="provenance", message=str(exc))]
+        ) from exc
+
+
 def load_assignment_from_mapping(
     raw: Mapping[str, Any],
     *,
@@ -126,6 +139,7 @@ def load_assignment_from_mapping(
     enforcement = Enforcement(raw.get("enforcement", "do-not-enforce"))
     parameters = dict(raw.get("parameters", {}))
     scope = _build_scope(raw["scope"])
+    provenance = _build_provenance(raw)
 
     rule_set_ref = raw.get("rule_set")
     if rule_set_ref is not None:
@@ -148,6 +162,7 @@ def load_assignment_from_mapping(
             enforcement=enforcement,
             parameters=parameters,
             extra_overrides=overrides,
+            provenance=provenance,
         )
 
     return Assignment(
@@ -158,6 +173,7 @@ def load_assignment_from_mapping(
         enforcement=enforcement,
         parameters=parameters,
         effect_overrides=overrides,
+        provenance=provenance,
     )
 
 
@@ -180,7 +196,12 @@ def load_rule_set_from_mapping(raw: Mapping[str, Any]) -> RuleSet:
         )
         for m in raw["members"]
     )
-    return RuleSet(id=raw["id"], version=raw["version"], members=members)
+    return RuleSet(
+        id=raw["id"],
+        version=raw["version"],
+        members=members,
+        provenance=_build_provenance(raw),
+    )
 
 
 __all__ = [

@@ -27,6 +27,16 @@
           }
         }
       }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created_at", "created_by"],
+      "properties": {
+        "created_at": {},
+        "created_by": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1}
+      }
     }
   }
 }

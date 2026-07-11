@@ -220,3 +220,49 @@ def test_assignment_neither_rule_set_nor_target_rule_ids_rejected() -> None:
     del raw["rule_set"]
     with pytest.raises(GovernanceLoadError):
         load_assignment_from_mapping(raw, rule_sets={})
+
+
+# ---- provenance -----------------------------------------------------------
+
+
+def test_assignment_loads_provenance() -> None:
+    raw = _minimal()
+    raw["provenance"] = {"created_at": "2026-07-03T00:00:00Z", "created_by": "governance-team"}
+    a = load_assignment_from_mapping(raw)
+    assert a.provenance is not None
+    assert a.provenance.created_by == "governance-team"
+
+
+def test_assignment_without_provenance_is_none() -> None:
+    assert load_assignment_from_mapping(_minimal()).provenance is None
+
+
+def test_assignment_bad_provenance_timestamp_rejected() -> None:
+    raw = _minimal()
+    raw["provenance"] = {"created_at": "not-a-date", "created_by": "team"}
+    with pytest.raises(GovernanceLoadError) as ei:
+        load_assignment_from_mapping(raw)
+    assert any(i.key == "provenance" for i in ei.value.issues)
+
+
+def test_assignment_naive_provenance_timestamp_rejected() -> None:
+    raw = _minimal()
+    raw["provenance"] = {"created_at": "2026-07-03T00:00:00", "created_by": "team"}
+    with pytest.raises(GovernanceLoadError) as ei:
+        load_assignment_from_mapping(raw)
+    assert any("timezone-aware" in i.message for i in ei.value.issues)
+
+
+def test_assignment_provenance_unknown_field_rejected() -> None:
+    raw = _minimal()
+    raw["provenance"] = {"created_at": "2026-07-03T00:00:00Z", "created_by": "t", "bogus": 1}
+    with pytest.raises(GovernanceLoadError):
+        load_assignment_from_mapping(raw)
+
+
+def test_rule_set_loads_provenance() -> None:
+    raw = _minimal_rule_set()
+    raw["provenance"] = {"created_at": "2026-07-03T00:00:00Z", "created_by": "governance-team"}
+    rs = load_rule_set_from_mapping(raw)
+    assert rs.provenance is not None
+    assert rs.provenance.created_by == "governance-team"

@@ -26,6 +26,7 @@ from fdai.rule_catalog.schema.effect import (
     Enforcement,
     strictest_effect,
 )
+from fdai.rule_catalog.schema.provenance import Provenance
 from fdai.rule_catalog.schema.scope import (
     ResourceContext,
     Scope,
@@ -51,6 +52,7 @@ class Assignment:
     enforcement: Enforcement = Enforcement.DO_NOT_ENFORCE
     parameters: Mapping[str, str] = field(default_factory=dict)
     effect_overrides: Mapping[str, Effect] = field(default_factory=dict)
+    provenance: Provenance | None = None
 
     def __post_init__(self) -> None:
         if not self.id.strip():

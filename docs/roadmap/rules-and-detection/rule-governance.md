@@ -123,13 +123,14 @@ assignment's top-level `effect` is the default for rules without an override.
 > a rejected transition. The remaining follow-up is the T0 runtime that consumes a resolved
 > assignment.
 >
-> Note: the shipped catalog-as-code field shapes are a pragmatic subset and diverge from the
-> illustrative "YAML Shapes" section below - the loader keys on `schema_version` (not `kind` +
-> `version`), binds a rule-set through `rule_set` / `target_rule_ids` (not `target`), models scope
-> as `level` + `id` + `excludes` + a typed `selector` (not `scope://` include/exclude URIs), and
-> carries flat `parameters` (not per-rule `parameter_overrides`); `provenance` is not yet modelled.
-> Reconciling the two - enrich the schema toward the YAML-Shapes target, or revise the target down
-> to the shipped subset - is a pending governance-schema decision.
+> Note: the shipped catalog-as-code schema is converging toward the illustrative "YAML Shapes"
+> section below (the extensible target). A shared `Provenance` value object
+> ([`provenance.py`](../../../src/fdai/rule_catalog/schema/provenance.py)) now ships and every
+> artifact carries an optional `provenance` block. The remaining gaps still being reconciled: the
+> loader keys on `schema_version` (the assignment has no artifact `kind` / `version` yet), binds a
+> rule-set through `rule_set` / `target_rule_ids` (not `target`), and models scope as `level` +
+> `id` + `excludes` + a typed `selector` (not `scope://` include/exclude URIs) with flat
+> `parameters` (not per-rule `parameter_overrides`).
 
 ## Scope
 

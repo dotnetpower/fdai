@@ -17,6 +17,7 @@ from dataclasses import dataclass
 
 from fdai.rule_catalog.schema.assignment import Assignment
 from fdai.rule_catalog.schema.effect import Effect, Enforcement
+from fdai.rule_catalog.schema.provenance import Provenance
 from fdai.rule_catalog.schema.scope import Scope
 
 
@@ -42,6 +43,7 @@ class RuleSet:
     id: str
     version: str
     members: tuple[RuleSetMember, ...]
+    provenance: Provenance | None = None
 
     def __post_init__(self) -> None:
         if not self.id.strip():
@@ -81,6 +83,7 @@ def assignment_from_rule_set(
     enforcement: Enforcement = Enforcement.DO_NOT_ENFORCE,
     parameters: Mapping[str, str] | None = None,
     extra_overrides: Mapping[str, Effect] | None = None,
+    provenance: Provenance | None = None,
 ) -> Assignment:
     """Derive an :class:`Assignment` that binds every member of ``rule_set`` to
     ``scope``.
@@ -88,7 +91,8 @@ def assignment_from_rule_set(
     The rule-set's per-rule ``default_effect`` becomes the assignment's
     ``effect_overrides``; an ``extra_overrides`` entry (an assignment-level tune)
     wins over the set default for that rule. The top-level ``effect`` /
-    ``enforcement`` default to shadow.
+    ``enforcement`` default to shadow. ``provenance`` is the binding assignment's
+    own attribution (not the rule-set's).
     """
     overrides: dict[str, Effect] = {m.rule_id: m.default_effect for m in rule_set.members}
     if extra_overrides:
@@ -101,6 +105,7 @@ def assignment_from_rule_set(
         enforcement=enforcement,
         parameters=dict(parameters or {}),
         effect_overrides=overrides,
+        provenance=provenance,
     )
 
 
