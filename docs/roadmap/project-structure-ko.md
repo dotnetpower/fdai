@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 088bc3c518b05c64e3fb5a58b5b9ad1a075ea2cf
+translation_source_sha: b2854eddcffe1548453d990496d6ee7c7397e851
 translation_revised: 2026-07-11
 ---
 
@@ -82,7 +82,7 @@ fdai/
 │   │   ├── pipeline/           # watch → collect → shadow eval → regression → promote/rollback
 │   │   └── codegen/            # 저작 헬퍼 (`new_action_type`, `new_object_type`) - 스캐폴드 생성만, 라이브 카탈로그 변경 안 함
 │   ├── agents/                # 판테온 런타임 - 15개 이름있는 에이전트 모듈 (odin / thor / forseti / huginn / heimdall / ...), 타입드 토픽 + 버스, 어댑터 + 레지스트리; [agent-pantheon-ko.md](agent-pantheon-ko.md) 참조
-│   ├── composition.py         # composition root: `default_container()` 가 모든 seam 을 바인딩
+│   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` (파사드 + `default_container` + `default_container_from_env`) + `_helpers.py` (Container / LlmBindings / LlmBindingsUnavailableError) + `wire_llm.py` (Azure OpenAI LLM 바인더) + `wire_azure.py` (fork-wire 컨테이너 + `AzureWireOverrides`)
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
 ├── rule-catalog/              # catalog-as-code 데이터 (YAML) - Python 아님; 파이프라인은 src/fdai/rule_catalog/ 에
 │   ├── schema/                 # JSON Schema 정의 (데이터)
@@ -228,12 +228,12 @@ fdai/
 - **Composition root**: `core/` 는 `shared/` 의 CSP-중립 인터페이스에만 의존합니다.
   얇은 조립 루트(`core/` 밖)가 시작 시 구체 구현을 바인딩합니다. `core/` 는 절대 구체
   어댑터를 new-up 하지 않고 의존성을 주입받습니다. 상류 기본 바인더는
-  [`fdai.composition.default_container`](../../src/fdai/composition.py) 이며,
+  [`fdai.composition.default_container`](../../src/fdai/composition/__init__.py) 이며,
   포크의 엔트리 포인트는 해당 바인딩을 감싸거나 교체하는 자체 팩토리를 호출합니다.
   구체 어댑터 클래스(예: `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`)
   는 public 서브-패키지에서 re-export **되지 않습니다**; 해당 서브모듈에서 직접, 그리고
   조립 루트에서만 import 되어야 하므로 `core/` 가 실수로 구체에 의존할 수 없습니다. 상류 기본 바인더는
-  [`fdai.composition.default_container`](../../src/fdai/composition.py) 이며,
+  [`fdai.composition.default_container`](../../src/fdai/composition/__init__.py) 이며,
   포크의 엔트리 포인트는 해당 바인딩을 감싸거나 교체하는 자체 팩토리를 호출합니다.
   구체 어댑터 클래스(예: `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`)
   는 public 서브-패키지에서 re-export **되지 않습니다**; 해당 서브모듈에서 직접, 그리고

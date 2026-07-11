@@ -77,7 +77,7 @@ fdai/
 │   │   ├── pipeline/           # watch → collect → shadow eval → regression → promote/rollback
 │   │   └── codegen/            # authoring helpers (`new_action_type`, `new_object_type`) - generate scaffolds, never mutate the live catalog
 │   ├── agents/                # pantheon runtime - 15 named agent modules (odin / thor / forseti / huginn / heimdall / ...), typed topics + bus, adapters + registry; see [agent-pantheon.md](agent-pantheon.md)
-│   ├── composition.py         # composition root: `default_container()` binds every seam
+│   ├── composition/           # composition root package (G-3, tracker #14): `__init__.py` (facade + `default_container` + `default_container_from_env`) + `_helpers.py` (Container / LlmBindings / LlmBindingsUnavailableError) + `wire_llm.py` (Azure OpenAI LLM binder) + `wire_azure.py` (fork-wire container + `AzureWireOverrides`)
 │   └── __main__.py            # entry point (starts the P1 control loop)
 ├── rule-catalog/              # catalog-as-code DATA (YAML) - no Python; pipeline lives in src/fdai/rule_catalog/
 │   ├── schema/                 # JSON Schema definitions (data)
@@ -229,7 +229,7 @@ clean (see the fork model in
 - **Composition root**: `core/` depends only on the CSP-neutral interfaces in `shared/`. A thin
   composition root (outside `core/`) binds concrete implementations at startup. `core/` never
   news-up a concrete adapter; it receives its dependencies. The upstream default binder is
-  [`fdai.composition.default_container`](../../src/fdai/composition.py); a fork's
+  [`fdai.composition.default_container`](../../src/fdai/composition/__init__.py); a fork's
   entry point calls its own factory that wraps or replaces those bindings. Concrete adapter
   classes (e.g. `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`) are
   **not** re-exported from public sub-packages; they must be imported directly from their

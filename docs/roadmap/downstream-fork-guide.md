@@ -129,7 +129,7 @@ The rule is enforced by three invariants:
 - Upstream's `scripts/check-protected-paths.sh` inspects the
   changed files and warns (upstream) or **hard-blocks (fork)** any
   edit to the framework surface - `src/fdai/core/`,
-  `src/fdai/composition.py`, `src/fdai/shared/providers/`,
+  `src/fdai/composition/`, `src/fdai/shared/providers/`,
   `src/fdai/shared/contracts/`, `src/fdai/agents/`,
   `rule-catalog/schema/`, and `.github/instructions/`. A fork opts
   into block mode with `FDAI_FORK=1` (local shells), a **committed**
@@ -139,7 +139,7 @@ The rule is enforced by three invariants:
   hook and as the `protected-paths` CI job (which also posts a
   `::warning::` annotation per file on the PR Files tab).
 - The composition root
-  ([`src/fdai/composition.py`](../../src/fdai/composition.py))
+  ([`src/fdai/composition/`](../../src/fdai/composition/))
   is the only place where concrete implementations bind to
   Protocols in `shared/providers/`. A fork writes its own
   composition root; it does not edit this file. `.github/CODEOWNERS`
@@ -269,7 +269,7 @@ even if not tagged as such. The upstream policy is to ship the new
 Protocol alongside the old one for one release, then remove the
 old; a fork should complete the migration within that window.
 Watch `src/fdai/shared/providers/**` and
-`src/fdai/composition.py` diffs on every sync.
+`src/fdai/composition/` diffs on every sync.
 
 ### 6.2 Sync workflow
 
@@ -305,7 +305,7 @@ Hard don'ts. Any of these is a merge-blocker:
   tokens. The fork MUST layer its own regex gate + an OSS secret
   scanner (see §2 item 4).
 - **Modifying files under `src/fdai/core/**` or
-  `src/fdai/composition.py` in place**. A fork MUST `import`
+  `src/fdai/composition/` in place**. A fork MUST `import`
   from these modules (that is the whole point of the seams), but
   MUST NOT edit them. Every customization goes through
   `dataclasses.replace()` on a container returned by
