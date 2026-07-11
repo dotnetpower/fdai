@@ -367,10 +367,25 @@
       const MODE = new URLSearchParams(location.search).get("mode") || "demo";
       const STREAM = new URLSearchParams(location.search).get("stream") || "provision.stream";
 
+      // Only accept absolute http(s) URLs for the finale link. The
+      // `console_url` value arrives over the SSE wire from the provisioning
+      // producer (terraform outputs / an in-product relay) and is written
+      // straight into an anchor `href`; a `javascript:` or `data:` URI
+      // would execute on click (DOM-based XSS, OWASP A03). Mirrors the
+      // `safeHttpUrl` guard on the console-side hook.
+      function safeHttpHref(url){
+        if(!url) return null;
+        try {
+          const u = new URL(url);
+          return (u.protocol === "http:" || u.protocol === "https:") ? u.href : null;
+        } catch (_e) { return null; }
+      }
+
       function onProvisionEvent(ev){
         if(!ev || !ev.type) return;
         if(ev.type === "provision.done"){
-          if(ev.console_url){ linkEl.setAttribute("href", ev.console_url); }
+          const safe = safeHttpHref(ev.console_url);
+          if(safe){ linkEl.setAttribute("href", safe); }
           done = true;                                    // triggers the finale
         } else if(ev.type === "provision.waiting"){
           lifeTarget = Math.max(0.32, lifeTarget - 0.28); // a warm dip, honestly held
