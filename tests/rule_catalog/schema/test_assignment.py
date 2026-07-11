@@ -173,3 +173,30 @@ def test_resolver_accepts_scope_binding() -> None:
     assert res.winning_assignment_id == "rg-bind"
     assert res.parameters == {"k": "rg"}
     assert res.parameter_tie is False
+
+
+def test_parameters_for_merges_overrides() -> None:
+    a = Assignment(
+        id="a1",
+        target_rule_ids=frozenset({"r.x", "r.y"}),
+        scope=_RG,
+        parameters={"k": "base", "shared": "s"},
+        parameter_overrides={"r.x": {"k": "x-specific"}},
+    )
+    # per-rule override wins per key; other keys keep the assignment-wide value
+    assert a.parameters_for("r.x") == {"k": "x-specific", "shared": "s"}
+    # a rule with no override gets the assignment-wide parameters unchanged
+    assert a.parameters_for("r.y") == {"k": "base", "shared": "s"}
+
+
+def test_resolver_returns_per_rule_parameters() -> None:
+    a = Assignment(
+        id="a1",
+        target_rule_ids=frozenset({"r.x"}),
+        scope=_RG,
+        parameters={"k": "base"},
+        parameter_overrides={"r.x": {"k": "x"}},
+    )
+    res = resolve_assignments(assignments=[a], ctx=_ctx(), rule_id="r.x")
+    assert res is not None
+    assert res.parameters == {"k": "x"}

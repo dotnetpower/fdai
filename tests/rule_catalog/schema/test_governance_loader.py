@@ -371,3 +371,21 @@ def test_assignment_scope_both_forms_rejected() -> None:
     raw["scope"] = {"level": "resource-group", "id": "rg-a", "include": ["scope://org-1"]}
     with pytest.raises(GovernanceLoadError):
         load_assignment_from_mapping(raw)
+
+
+# ---- per-rule parameter_overrides -----------------------------------------
+
+
+def test_assignment_loads_parameter_overrides() -> None:
+    raw = _minimal()
+    raw["parameters"] = {"k": "base"}
+    raw["parameter_overrides"] = {"r.encryption": {"k": "specific", "extra": "e"}}
+    a = load_assignment_from_mapping(raw)
+    assert a.parameters_for("r.encryption") == {"k": "specific", "extra": "e"}
+
+
+def test_assignment_parameter_overrides_bad_value_rejected() -> None:
+    raw = _minimal()
+    raw["parameter_overrides"] = {"r.encryption": {"k": 5}}  # value must be a string
+    with pytest.raises(GovernanceLoadError):
+        load_assignment_from_mapping(raw)

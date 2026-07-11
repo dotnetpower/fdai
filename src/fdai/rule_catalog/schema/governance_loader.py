@@ -152,6 +152,9 @@ def load_assignment_from_mapping(
         raise GovernanceLoadError(issues)
 
     overrides = {k: Effect(v) for k, v in raw.get("effect_overrides", {}).items()}
+    param_overrides = {
+        rule_id: dict(params) for rule_id, params in raw.get("parameter_overrides", {}).items()
+    }
     effect = Effect(raw.get("effect", "audit"))
     enforcement = Enforcement(raw.get("enforcement", "do-not-enforce"))
     parameters = dict(raw.get("parameters", {}))
@@ -183,6 +186,7 @@ def load_assignment_from_mapping(
             enforcement=enforcement,
             parameters=parameters,
             extra_overrides=overrides,
+            parameter_overrides=param_overrides,
             provenance=provenance,
             version=version,
         )
@@ -195,6 +199,7 @@ def load_assignment_from_mapping(
         enforcement=enforcement,
         parameters=parameters,
         effect_overrides=overrides,
+        parameter_overrides=param_overrides,
         provenance=provenance,
         version=version,
     )

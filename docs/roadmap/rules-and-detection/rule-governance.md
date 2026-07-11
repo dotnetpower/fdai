@@ -132,9 +132,12 @@ assignment's top-level `effect` is the default for rules without an override.
 > ([`ScopeRef`](../../../src/fdai/rule_catalog/schema/scope.py)) and the include/exclude
 > [`ScopeBinding`](../../../src/fdai/rule_catalog/schema/scope.py) form both ship: an assignment's
 > `scope` may be the single structured `level` + `id` form or a `scope://` `include` / `exclude` URI
-> list plus a `selector`, unified behind the `ScopeMatcher` protocol the resolver consumes. The
-> remaining gaps still being reconciled: a rule-set is bound through `rule_set` / `target_rule_ids`
-> (not `target`), and `parameters` are flat rather than per-rule `parameter_overrides`.
+> list plus a `selector`, unified behind the `ScopeMatcher` protocol the resolver consumes. Per-rule
+> `parameter_overrides` (merged over the assignment-wide `parameters`, per-rule wins) also ship. The
+> only remaining difference from the illustrative examples is naming: the shipped schema binds a
+> rule-set through `rule_set` / `target_rule_ids` (clearer than the sketch's `target`) and uses the
+> richer `selector` (not `selectors`); the "YAML Shapes" examples below are being reconciled to the
+> shipped field names.
 
 ## Scope
 

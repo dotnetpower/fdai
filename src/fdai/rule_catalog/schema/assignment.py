@@ -42,7 +42,9 @@ class Assignment:
     Defaults are shadow: ``effect=audit`` and ``enforcement=do-not-enforce``
     (rule-governance.md). ``effect_overrides`` tunes the effect per rule (an
     assignment of a rule-set overriding the set's ``default_effect``);
-    ``parameters`` are CSP-neutral string values the rule reads.
+    ``parameters`` are CSP-neutral assignment-wide string values, and
+    ``parameter_overrides`` tunes them per rule (a per-rule entry wins over the
+    assignment-wide value for that key - see :meth:`parameters_for`).
     """
 
     id: str
@@ -52,6 +54,7 @@ class Assignment:
     enforcement: Enforcement = Enforcement.DO_NOT_ENFORCE
     parameters: Mapping[str, str] = field(default_factory=dict)
     effect_overrides: Mapping[str, Effect] = field(default_factory=dict)
+    parameter_overrides: Mapping[str, Mapping[str, str]] = field(default_factory=dict)
     provenance: Provenance | None = None
     version: str | None = None
 
@@ -70,6 +73,15 @@ class Assignment:
         """The effect for ``rule_id``: the per-rule override if declared, else the
         assignment's top-level effect."""
         return self.effect_overrides.get(rule_id, self.effect)
+
+    def parameters_for(self, rule_id: str) -> Mapping[str, str]:
+        """The parameters for ``rule_id``: the assignment-wide ``parameters``
+        merged with this rule's ``parameter_overrides`` (the per-rule entry wins
+        per key)."""
+        override = self.parameter_overrides.get(rule_id)
+        if not override:
+            return self.parameters
+        return {**self.parameters, **override}
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,7 +136,7 @@ def resolve_assignments(
 
     top_specificity = scope_specificity(most_specific([a.scope for a in matching])[0])
     param_sources = [a for a in matching if scope_specificity(a.scope) == top_specificity]
-    param_tie = len({_param_key(a.parameters) for a in param_sources}) > 1
+    param_tie = len({_param_key(a.parameters_for(rule_id)) for a in param_sources}) > 1
     winner = param_sources[0]
     overridden = tuple(a.id for a in matching if a.id != winner.id)
 
@@ -132,7 +144,7 @@ def resolve_assignments(
         rule_id=rule_id,
         effective_effect=effective,
         enforcement=enforcement,
-        parameters=winner.parameters,
+        parameters=winner.parameters_for(rule_id),
         winning_assignment_id=winner.id,
         parameter_tie=param_tie,
         overridden_assignment_ids=overridden,

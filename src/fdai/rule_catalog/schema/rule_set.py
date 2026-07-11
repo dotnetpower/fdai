@@ -83,6 +83,7 @@ def assignment_from_rule_set(
     enforcement: Enforcement = Enforcement.DO_NOT_ENFORCE,
     parameters: Mapping[str, str] | None = None,
     extra_overrides: Mapping[str, Effect] | None = None,
+    parameter_overrides: Mapping[str, Mapping[str, str]] | None = None,
     provenance: Provenance | None = None,
     version: str | None = None,
 ) -> Assignment:
@@ -92,8 +93,8 @@ def assignment_from_rule_set(
     The rule-set's per-rule ``default_effect`` becomes the assignment's
     ``effect_overrides``; an ``extra_overrides`` entry (an assignment-level tune)
     wins over the set default for that rule. The top-level ``effect`` /
-    ``enforcement`` default to shadow. ``provenance`` / ``version`` are the
-    binding assignment's own attribution (not the rule-set's).
+    ``enforcement`` default to shadow. ``parameter_overrides`` / ``provenance`` /
+    ``version`` are the binding assignment's own attribution (not the rule-set's).
     """
     overrides: dict[str, Effect] = {m.rule_id: m.default_effect for m in rule_set.members}
     if extra_overrides:
@@ -106,6 +107,7 @@ def assignment_from_rule_set(
         enforcement=enforcement,
         parameters=dict(parameters or {}),
         effect_overrides=overrides,
+        parameter_overrides=dict(parameter_overrides or {}),
         provenance=provenance,
         version=version,
     )

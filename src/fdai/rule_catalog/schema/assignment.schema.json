@@ -33,6 +33,13 @@
       "type": "object",
       "additionalProperties": {"$ref": "#/$defs/effect"}
     },
+    "parameter_overrides": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {"type": "string"}
+      }
+    },
     "provenance": {"$ref": "#/$defs/provenance"}
   },
   "$defs": {
