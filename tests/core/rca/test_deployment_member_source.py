@@ -22,7 +22,7 @@ from fdai.shared.contracts.models import (
 from fdai.shared.providers.observation import DeploymentHistoryError, DeploymentRecord
 from fdai.shared.providers.testing.observation import InMemoryDeploymentHistoryProvider
 
-_INCIDENT_ID = "11111111-1111-1111-1111-111111111111"
+_INCIDENT_ID = "00000000-0000-0000-0000-000000000001"
 
 
 def _incident(*, correlation_keys: tuple[str, ...]) -> Incident:
@@ -33,7 +33,7 @@ def _incident(*, correlation_keys: tuple[str, ...]) -> Incident:
         severity=IncidentSeverity.SEV3,
         opened_at=datetime(2026, 7, 7, 12, 0, 0, tzinfo=UTC),
         correlation_keys=correlation_keys,
-        member_event_ids=(UUID("22222222-2222-2222-2222-222222222222"),),
+        member_event_ids=(UUID("00000000-0000-0000-0000-000000000002"),),
     )
 
 
