@@ -198,6 +198,7 @@ class Thor(Agent):
             "retained_runs": len(self.action_runs),
             "locked_resources": len(self._resource_locks),
             "shadow_forced": self._shadow_by_default,
+            "behavior": self.behavior_snapshot(),
         }
 
     # ---- typed port ----------------------------------------------------
@@ -224,6 +225,7 @@ class Thor(Agent):
         # depth with the event idempotency_key dedup at ingress).
         existing_by_corr = self.action_runs.get(correlation)
         if existing_by_corr is not None:
+            self.record_behavior("dispatch:duplicate")
             return existing_by_corr
 
         # Per-resource mutex: refuse to start a new run while another is
@@ -232,6 +234,7 @@ class Thor(Agent):
         if resource_id and resource_id in self._resource_locks:
             existing = self._find_active_run(str(resource_id))
             if existing is not None:
+                self.record_behavior("dispatch:lock_contention")
                 return existing
 
         # Degrade to shadow when hard dependencies are missing.
@@ -262,6 +265,13 @@ class Thor(Agent):
         # Emit the initial VERDICTED state so downstream consumers
         # (audit chain, Var) see the lifecycle start.
         await self._emit_action_run(run)
+        # Measurable behaviour: the dispatch verdict split (+ shadow), so a
+        # scenario test reads dispatch:auto / dispatch:hil / dispatch:deny
+        # and dispatch:shadow to assert 'shadow never mutates' and 'deny
+        # never reaches Var' without touching private state.
+        self.record_behavior(f"dispatch:{risk_verdict}")
+        if shadow_mode:
+            self.record_behavior("dispatch:shadow")
 
         if risk_verdict == "deny":
             run.transition(ActionRunState.DENY_DROPPED)
@@ -286,6 +296,7 @@ class Thor(Agent):
             run.transition(ActionRunState.SUCCEEDED)
             run.outcome = "shadow_success"
             await self._emit_action_run(run)
+            self.record_behavior("executed:shadow")
             self._release_lock(run.resource_id)
             return
         try:
@@ -297,10 +308,12 @@ class Thor(Agent):
         if not success and run.outcome is None:
             run.outcome = "executor returned false"
         await self._emit_action_run(run)
+        self.record_behavior("executed:success" if success else "executed:failed")
         if not success:
             run.rollback_ref = f"rollback:{run.correlation_id}"
             run.transition(ActionRunState.ROLLED_BACK)
             await self._emit_action_run(run)
+            self.record_behavior("rolled_back")
         self._release_lock(run.resource_id)
 
     async def _handle_approval(self, approval: dict[str, Any]) -> None:

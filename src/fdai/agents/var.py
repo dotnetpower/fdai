@@ -92,6 +92,7 @@ class Var(Agent):
             quorum_required=quorum,
             initiator_principal=payload.get("initiator_principal"),
         )
+        self.record_behavior("ticket_pending")
         _evict_oldest_ticket(self._pending, self._MAX_PENDING, keep=correlation)
 
     # ---- HIL decision --------------------------------------------------
@@ -120,11 +121,13 @@ class Var(Agent):
                 raise ValueError(f"approver MUST be a non-empty principal on {correlation_id!r}")
             initiator_norm = (ticket.initiator_principal or "").strip()
             if initiator_norm and approver_norm == initiator_norm:
+                self.record_behavior("self_approval_blocked")
                 raise ValueError(
                     f"principal {approver_norm!r} cannot approve an action it initiated "
                     f"({correlation_id!r}): no self-approval"
                 )
             if approver_norm in ticket.approvers:
+                self.record_behavior("double_approval_blocked")
                 raise ValueError(
                     f"principal {approver_norm!r} cannot self-approve twice on {correlation_id!r}"
                 )
@@ -134,6 +137,7 @@ class Var(Agent):
 
         if ticket.rejected or len(ticket.approvers) >= ticket.quorum_required:
             final = "rejected" if ticket.rejected else "approved"
+            self.record_behavior(final)
             approval = {
                 "producer_principal": "Var",
                 "correlation_id": correlation_id,
