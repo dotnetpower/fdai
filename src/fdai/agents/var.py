@@ -13,6 +13,7 @@ from typing import Any
 
 from fdai.agents._framework.adapters import AdminCard, InMemoryAdminChannel
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bounded import BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -66,6 +67,11 @@ class Var(Agent):
         self._pending: dict[str, PendingHilTicket] = {}
         # (initiator, action_type) -> AdminCard for dedup counter update
         self._last_cards: dict[tuple[str, str], AdminCard] = {}
+        # (correlation, approver) pairs already counted as a blocked attempt,
+        # so a caller that retries the same rejected approval does not inflate
+        # the security metric. Bounded (a distinct blocked attempt still
+        # counts; only an exact retry is deduped).
+        self._blocked_attempts: BoundedLruSet[str] = BoundedLruSet(self._MAX_PENDING)
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -121,13 +127,15 @@ class Var(Agent):
                 raise ValueError(f"approver MUST be a non-empty principal on {correlation_id!r}")
             initiator_norm = (ticket.initiator_principal or "").strip()
             if initiator_norm and approver_norm == initiator_norm:
-                self.record_behavior("self_approval_blocked")
+                self._record_blocked_attempt("self_approval_blocked", correlation_id, approver_norm)
                 raise ValueError(
                     f"principal {approver_norm!r} cannot approve an action it initiated "
                     f"({correlation_id!r}): no self-approval"
                 )
             if approver_norm in ticket.approvers:
-                self.record_behavior("double_approval_blocked")
+                self._record_blocked_attempt(
+                    "double_approval_blocked", correlation_id, approver_norm
+                )
                 raise ValueError(
                     f"principal {approver_norm!r} cannot self-approve twice on {correlation_id!r}"
                 )
@@ -153,6 +161,21 @@ class Var(Agent):
 
     def pending_tickets(self) -> tuple[PendingHilTicket, ...]:
         return tuple(self._pending.values())
+
+    def _record_blocked_attempt(self, key: str, correlation_id: str, approver: str) -> None:
+        """Count a blocked approval attempt once per (correlation, approver).
+
+        A caller that retries the same rejected approval (e.g. treating the
+        raised ValueError as a transient failure) MUST NOT inflate the
+        security metric; a genuinely distinct blocked attempt (another
+        approver, or another action) still counts. Bounded so the dedup guard
+        cannot leak.
+        """
+        pair = f"{correlation_id}\x00{approver}\x00{key}"
+        if pair in self._blocked_attempts:
+            return
+        self._blocked_attempts.add(pair)
+        self.record_behavior(key)
 
     # ---- admin notification (Wave 6) ----------------------------------
 

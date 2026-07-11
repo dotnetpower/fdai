@@ -136,6 +136,11 @@ class Norns(Agent):
         inert until the quality gate promotes it.
         """
         target = str(payload.get("action_type") or payload.get("rule_id") or "")
+        # Shadow outcomes are judged-and-logged, not real executions - a shadow
+        # 'success' says nothing about the action's real safety, so it MUST NOT
+        # dilute the measured rollback rate. Learn from real executions only.
+        if payload.get("shadow_mode"):
+            return
         result = str(payload.get("result", "")).lower()
         if not result:
             # An audit-entry that reports the raw ActionRun ``state`` (Thor's

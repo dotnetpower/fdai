@@ -613,6 +613,41 @@ def test_saga_self_loop_guard_skips_already_republished_record() -> None:
     assert bus.messages_on("object.audit-entry") == []
 
 
+def test_saga_republishes_shadow_flag() -> None:
+    saga, bus = _saga_on_bus()
+    asyncio.run(
+        saga.on_typed_message(
+            "object.action-run",
+            {"action_type": "a", "state": "succeeded", "correlation_id": "c", "shadow_mode": True},
+        )
+    )
+    entries = bus.messages_on("object.audit-entry")
+    assert len(entries) == 1
+    assert entries[0].payload["shadow_mode"] is True
+
+
+def test_norns_skips_shadow_outcomes() -> None:
+    """A shadow 'success' is judged-and-logged, not a real execution - it MUST
+    NOT be learned from (it would dilute the real rollback rate)."""
+    norns = Norns(min_outcome_samples=1, rollback_alarm_rate=0.0)
+    # A shadow rollback that would otherwise trip the alarm -> ignored.
+    asyncio.run(
+        norns.on_typed_message(
+            "object.audit-entry",
+            {"action_type": "a", "result": "rollback", "correlation_id": "c", "shadow_mode": True},
+        )
+    )
+    assert norns.pending_candidates == []
+    # A real (non-shadow) rollback IS learned.
+    asyncio.run(
+        norns.on_typed_message(
+            "object.audit-entry",
+            {"action_type": "a", "result": "rollback", "correlation_id": "d"},
+        )
+    )
+    assert any(c["proposal_kind"] == "threshold_adjustment" for c in norns.pending_candidates)
+
+
 def test_saga_audit_entry_drives_norns_outcome_learning() -> None:
     """End to end: Saga republishes terminal outcomes, Norns (subscribed to
     object.audit-entry) scores the rollback rate and proposes a threshold

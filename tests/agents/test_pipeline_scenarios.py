@@ -171,3 +171,42 @@ def test_adversarial_self_approval_blocked_and_measured() -> None:
     approval = asyncio.run(var.decide("sa1", approver="approver@example.com", decision="approve"))
     assert approval is not None
     assert var.behavior_snapshot().get("approved") == 1
+
+
+def test_adversarial_self_approval_retry_not_double_counted() -> None:
+    """Retrying the same self-approval (treating the raised error as transient)
+    must not inflate the security metric - it counts once per (id, approver)."""
+    bus, forseti, thor, var, _ = _wire_pipeline(shadow=True)
+    _emit(
+        bus,
+        {
+            "action_type": "remediate.enable-encryption",
+            "initiator_principal": "operator@example.com",
+            "operator_initiated": True,
+            "correlation_id": "retry1",
+            "resource_id": "d1",
+        },
+    )
+    for _ in range(3):  # same self-approval retried 3x
+        try:
+            asyncio.run(var.decide("retry1", approver="operator@example.com", decision="approve"))
+        except ValueError:
+            pass
+    assert var.behavior_snapshot().get("self_approval_blocked") == 1  # counted once, not 3x
+
+
+def test_pipeline_wiring_matches_agent_specs() -> None:
+    """Scenario fidelity: every manual subscription in the harness is a topic
+    the agent actually declares, so a green scenario cannot rest on a wiring
+    the real PantheonRuntime would not create."""
+    _, forseti, thor, var, saga = _wire_pipeline(shadow=True)
+    assert "object.event" in forseti.spec.subscribes
+    assert "object.verdict" in thor.spec.subscribes
+    assert "object.approval" in thor.spec.subscribes
+    assert "object.action-run" in var.spec.subscribes
+    assert "object.action-run" in saga.spec.subscribes
+    # And each agent publishes only what it owns (single-writer).
+    assert "object.verdict" in forseti.spec.publishes
+    assert "object.action-run" in thor.spec.publishes
+    assert "object.approval" in var.spec.publishes
+    assert "object.audit-entry" in saga.spec.publishes

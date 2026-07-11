@@ -97,6 +97,10 @@ class Saga(Agent):
                 "action_type": action_type,
                 "result": result,
                 "resource_id": payload.get("resource_id"),
+                # Carry the shadow flag so the learner can tell a real
+                # execution from a judged-and-logged shadow one (a shadow
+                # 'success' is not evidence about the action's real safety).
+                "shadow_mode": bool(payload.get("shadow_mode", False)),
             },
         )
 
