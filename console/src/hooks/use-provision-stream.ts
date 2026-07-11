@@ -101,7 +101,12 @@ export function decodeProvisionEvent(data: string): ProvisionEvent | null {
     console_url?: string;
     ts?: string;
   } = { type, phase: phase as ProvisionPhase };
-  if (typeof raw.fraction === "number") event.fraction = raw.fraction;
+  // `fraction` comes off an untrusted wire: only accept a finite value in
+  // [0, 1]. A NaN / Infinity / out-of-range number is ignored (the previous
+  // fraction stands) so a buggy or hostile producer cannot pin the meter.
+  if (typeof raw.fraction === "number" && raw.fraction >= 0 && raw.fraction <= 1) {
+    event.fraction = raw.fraction;
+  }
   if (typeof raw.node === "string") event.node = raw.node;
   if (typeof raw.reason === "string") event.reason = raw.reason;
   if (typeof raw.console_url === "string") event.console_url = raw.console_url;
