@@ -264,6 +264,33 @@ class TestCheckFileLoc:
         assert result.returncode == 0
         assert "scanned=1" in result.stdout  # only keeper.py, __pycache__ skipped
 
+    @pytest.mark.parametrize(
+        "lines,expected_bucket",
+        [
+            (400, "clean"),   # exactly at warn threshold - not exceeded
+            (401, "warn"),    # one over -> warn
+            (800, "warn"),    # exactly at fail threshold - not exceeded
+            (801, "fail"),    # one over -> fail
+        ],
+    )
+    def test_threshold_boundary_conditions(
+        self, tmp_path: Path, lines: int, expected_bucket: str
+    ) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        _seed_python_file(repo, "src/fdai/edge.py", lines)
+        result = _run(repo, repo / "scripts" / "check-file-loc.sh")
+        assert result.returncode == 0  # warn mode is never fatal
+        if expected_bucket == "clean":
+            assert "warned=0" in result.stdout
+            assert "failed=0" in result.stdout
+        elif expected_bucket == "warn":
+            assert "warned=1" in result.stdout
+            assert "failed=0" in result.stdout
+        elif expected_bucket == "fail":
+            assert "warned=0" in result.stdout
+            assert "failed=1" in result.stdout
+
 
 # ---------------------------------------------------------------------------
 # check-agents-imports.sh
@@ -440,6 +467,36 @@ class TestCheckSubsystemFanout:
         )
         assert result.returncode == 0
         assert "allowlisted=1" in result.stdout
+
+    @pytest.mark.parametrize(
+        "count,expected_bucket",
+        [
+            (7, "clean"),   # just below warn
+            (8, "warn"),    # exactly at warn threshold - triggers warn
+            (14, "warn"),   # just below fail
+            (15, "fail"),   # exactly at fail threshold - triggers fail
+        ],
+    )
+    def test_fanout_boundary_conditions(
+        self, tmp_path: Path, count: int, expected_bucket: str
+    ) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        core = repo / "src" / "fdai" / "core"
+        core.mkdir(parents=True)
+        body = "".join(f"from fdai.core.sub{i} import Foo\n" for i in range(count))
+        (core / "edge.py").write_text(body)
+        result = _run(repo, repo / "scripts" / "check-subsystem-fanout.sh")
+        assert result.returncode == 0  # warn mode is never fatal
+        if expected_bucket == "clean":
+            assert "warned=0" in result.stdout
+            assert "failed=0" in result.stdout
+        elif expected_bucket == "warn":
+            assert "warned=1" in result.stdout
+            assert "failed=0" in result.stdout
+        elif expected_bucket == "fail":
+            assert "warned=0" in result.stdout
+            assert "failed=1" in result.stdout
 
 
 # ---------------------------------------------------------------------------
