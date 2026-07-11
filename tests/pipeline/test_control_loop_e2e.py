@@ -336,6 +336,46 @@ async def test_shadow_authority_recorded_when_risk_table_wired(
 
 @requires_opa
 @pytest.mark.asyncio
+async def test_degraded_control_plane_caps_authority_to_shadow(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    """B1 live: when a critical-dependency circuit is OPEN the control plane is
+    DEGRADED, so every shadow-authority record caps at shadow via the
+    system_health fail-safe axis (csp-neutrality.md 4) - a failing dependency
+    can never drive an enforce-mode decision through the loop."""
+    from fdai.core.risk_gate.risk_table import load_risk_table
+    from fdai.shared.resilience.circuit_breaker import (
+        CircuitBreaker,
+        CircuitBreakerConfig,
+    )
+    from fdai.shared.resilience.degradation import DegradationController
+
+    tripped = CircuitBreaker(
+        config=CircuitBreakerConfig(failure_threshold=1, reset_timeout_s=300)
+    )
+    tripped.on_failure()  # trips OPEN
+    table = load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml")
+    loop, _publisher, audit = _make_loop(shipped_catalog, risk_table=table)
+    loop._degradation = DegradationController(breakers={"audit": tripped})
+    result = await loop.process(
+        _make_event(
+            idempotency_key="e-auth-degraded",
+            resource_type="object-storage",
+            resource_id="stg-open",
+            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+        )
+    )
+    assert result.outcome is ControlLoopOutcome.EXECUTED
+    entries = [e["entry"] for e in audit.audit_entries]
+    authority = [e for e in entries if e.get("action_kind") == "risk_gate.shadow_authority"]
+    assert authority, "expected a shadow_authority audit entry per executed action"
+    for entry in authority:
+        assert entry["decision"] in {"shadow", "deny"}
+        assert "system_health" in entry["resolved_ceiling"]["axes"]
+
+
+@requires_opa
+@pytest.mark.asyncio
 async def test_shadow_authority_skipped_when_action_type_unknown(
     shipped_catalog: tuple[Any, Any],
 ) -> None:

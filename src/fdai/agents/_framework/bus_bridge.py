@@ -33,6 +33,7 @@ from fdai.agents._framework.registry import PantheonRegistry
 from fdai.agents._framework.topics import (
     ENVELOPE_SCHEMA_VERSION,
     MUTATION_TOPICS,
+    OWNED_OBJECT_TOPICS,
     partition_key_for,
 )
 from fdai.shared.providers.event_bus import EventBus, PublishReceipt
@@ -88,10 +89,24 @@ class BridgeMetrics:
         }
 
 
+def _warn_unknown_topic(topic: str, agent_name: str) -> None:
+    """Warn when an ``object.*`` subscription targets an unregistered topic.
+
+    A typo'd object topic (``object.verdit``) subscribes successfully but
+    never receives a record - a silent dead seam. Non-object topics (the
+    raw ingress topic, an alternate stream) are not pantheon object topics,
+    so they are exempt from this check.
+    """
+    if topic.startswith("object.") and topic not in OWNED_OBJECT_TOPICS:
+        _LOG.warning(
+            "pantheon_subscribe_unknown_topic",
+            extra={"topic": topic, "agent": agent_name},
+        )
+
+
 @dataclass
 class EventBusBridge:
     """Adapter that lets pantheon agents talk to a real ``EventBus``.
-
     Substitute wherever tests use :class:`fdai.agents._framework.bus.InMemoryBus`
     at the composition root. The public surface intentionally mirrors
     :class:`InMemoryBus` so agent code stays unchanged.
@@ -114,7 +129,18 @@ class EventBusBridge:
     # ---- pantheon-style API --------------------------------------------
 
     def subscribe(self, topic: str, agent_name: str, handler: Handler) -> None:
-        self._subs[topic].append((agent_name, handler))
+        _warn_unknown_topic(topic, agent_name)
+        existing = self._subs[topic]
+        if any(name == agent_name and h == handler for name, h in existing):
+            # A duplicate (topic, agent, handler) registration would spin up
+            # a second consumer group and double-deliver every record to the
+            # same handler. Skip it - the first registration stands.
+            _LOG.warning(
+                "pantheon_duplicate_subscription",
+                extra={"topic": topic, "agent": agent_name},
+            )
+            return
+        existing.append((agent_name, handler))
 
     def snapshot(self) -> dict[str, object]:
         """Return a health snapshot (metrics + live consumer count)."""

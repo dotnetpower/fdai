@@ -21,7 +21,11 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 from fdai.agents._framework.registry import PantheonRegistry
-from fdai.agents._framework.topics import ENVELOPE_SCHEMA_VERSION, partition_key_for
+from fdai.agents._framework.topics import (
+    ENVELOPE_SCHEMA_VERSION,
+    OWNED_OBJECT_TOPICS,
+    partition_key_for,
+)
 
 _LOG = logging.getLogger(__name__)
 
@@ -93,7 +97,21 @@ class InMemoryBus:
     handler_errors: int = 0
 
     def subscribe(self, topic: str, agent_name: str, handler: Handler) -> None:
-        self.subscribers[topic].append((agent_name, handler))
+        if topic.startswith("object.") and topic not in OWNED_OBJECT_TOPICS:
+            # A typo'd object topic subscribes but never receives - a silent
+            # dead seam. Warn (mirrors the production bridge).
+            _LOG.warning(
+                "inmemory_bus_subscribe_unknown_topic",
+                extra={"topic": topic, "agent": agent_name},
+            )
+        existing = self.subscribers[topic]
+        if any(name == agent_name and h == handler for name, h in existing):
+            _LOG.warning(
+                "inmemory_bus_duplicate_subscription",
+                extra={"topic": topic, "agent": agent_name},
+            )
+            return
+        existing.append((agent_name, handler))
 
     async def publish(self, principal: str, topic: str, payload: Payload) -> None:
         self.registry.assert_can_publish(principal, topic)

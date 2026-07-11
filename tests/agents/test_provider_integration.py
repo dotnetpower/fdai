@@ -449,6 +449,32 @@ def test_bridge_dead_letters_after_retries_exhausted() -> None:
     assert bridge.metrics.dead_lettered == 1
 
 
+def test_bridge_skips_duplicate_subscription() -> None:
+    reg = load_pantheon()
+    provider = InMemoryEventBus()
+    bridge = EventBusBridge(provider=provider, registry=reg)
+
+    async def handler(_t: str, _p: dict) -> None:
+        return None
+
+    bridge.subscribe("object.verdict", "Thor", handler)
+    bridge.subscribe("object.verdict", "Thor", handler)  # duplicate -> skipped
+    assert len(bridge._subs["object.verdict"]) == 1
+
+
+def test_bridge_warns_on_unknown_object_topic(caplog: pytest.LogCaptureFixture) -> None:
+    reg = load_pantheon()
+    provider = InMemoryEventBus()
+    bridge = EventBusBridge(provider=provider, registry=reg)
+
+    async def handler(_t: str, _p: dict) -> None:
+        return None
+
+    with caplog.at_level("WARNING"):
+        bridge.subscribe("object.verdit", "Thor", handler)  # typo
+    assert any("unknown_topic" in r.message for r in caplog.records)
+
+
 class _FlakyBus(InMemoryEventBus):
     """Subscribe raises the first ``fail_times`` calls, then succeeds."""
 

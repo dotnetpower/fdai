@@ -103,3 +103,30 @@ def test_inmemory_bus_clear_history_resets_counters() -> None:
     assert bus.dead_letters == []
     assert bus.empty_partition_keys == 0
     assert bus.handler_errors == 0
+
+
+def test_inmemory_bus_skips_duplicate_subscription() -> None:
+    bus = _bus()
+    seen: list[str] = []
+
+    async def handler(_t: str, _p: dict) -> None:
+        seen.append("x")
+
+    bus.subscribe("object.event", "Heimdall", handler)
+    bus.subscribe("object.event", "Heimdall", handler)  # duplicate -> skipped
+    asyncio.run(bus.publish("Huginn", "object.event", {"correlation_id": "c"}))
+    assert seen == ["x"]  # delivered once, not twice
+
+
+def test_inmemory_bus_warns_on_unknown_object_topic(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    bus = _bus()
+
+    async def handler(_t: str, _p: dict) -> None:
+        return None
+
+    with caplog.at_level("WARNING"):
+        bus.subscribe("object.does-not-exist", "Heimdall", handler)
+    assert any("unknown_topic" in r.message for r in caplog.records)
+
