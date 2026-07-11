@@ -22,6 +22,7 @@ _REQUIRED_JOBS = (
     "agents-imports",
     "file-loc",
     "subsystem-fanout",
+    "doc-links",
     "protected-paths",
 )
 
@@ -48,6 +49,7 @@ def test_ci_workflow_declares_required_job(ci_workflow: dict, job: str) -> None:
         ("agents-imports", "check-agents-imports.sh"),
         ("file-loc", "check-file-loc.sh"),
         ("subsystem-fanout", "check-subsystem-fanout.sh"),
+        ("doc-links", "check-doc-links.sh"),
     ],
 )
 def test_ci_job_invokes_expected_script(ci_workflow: dict, job: str, script: str) -> None:
@@ -61,7 +63,12 @@ def test_ci_job_invokes_expected_script(ci_workflow: dict, job: str, script: str
 
 def test_pre_push_hook_invokes_all_three_gates() -> None:
     body = _PRE_PUSH.read_text()
-    for gate in ("check-agents-imports", "check-file-loc", "check-subsystem-fanout"):
+    for gate in (
+        "check-agents-imports",
+        "check-file-loc",
+        "check-subsystem-fanout",
+        "check-doc-links",
+    ):
         assert gate in body, (
             f"pre-push hook no longer invokes {gate}.sh - a routine push"
             " will now miss the structural gate locally. See tracker #14."

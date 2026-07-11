@@ -181,6 +181,20 @@ jobs:
           SUBSYSTEM_FANOUT_MODE: warn
         run: bash scripts/check-subsystem-fanout.sh
 
+  doc-links:
+    name: broken markdown link guard (symlink-aware)
+    # 41 doc links pointed at pre-refactor Python paths after G-1..G-7
+    # landed. This gate catches the class of drift so refactors that
+    # rename or move a source file can never silently orphan a doc
+    # link. Tracker #14, follow-up sweep.
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: check-doc-links.sh
+        run: bash scripts/check-doc-links.sh
+
   protected-paths:
     name: framework-surface guard (advisory upstream, block in fork)
     # Runs on PRs (base..head range) and on direct pushes to a protected

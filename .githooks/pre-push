@@ -112,7 +112,7 @@ fi
 #    fail surface). Kept lightweight so pushes stay fast. Tracker #14,
 #    issue #22.
 # ---------------------------------------------------------------------------
-for gate in check-agents-imports check-file-loc check-subsystem-fanout; do
+for gate in check-agents-imports check-file-loc check-subsystem-fanout check-doc-links; do
   if [ -x "scripts/${gate}.sh" ] || [ -f "scripts/${gate}.sh" ]; then
     # Pre-push runs in warn-only mode for the two threshold gates (H2/H5
     # give them their loud voices in CI); suppress per-file lines with
