@@ -10,7 +10,15 @@ Insights, Prometheus).
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, field
+
+#: Cap on retained KPI samples in the in-memory ring. An agent emits KPIs for
+#: the whole process lifetime, so an unbounded list would leak and make
+#: latest() an ever-slower O(n) scan. The most-recent-per-metric value is
+#: preserved separately (see KpiCollector._latest), so the ring can drop old
+#: samples without losing the value the promotion gate reads.
+_MAX_SAMPLES = 10_000
 
 
 @dataclass
@@ -23,9 +31,16 @@ class KpiSample:
 
 @dataclass
 class KpiCollector:
-    """In-memory KPI sink. Deterministic; test-friendly."""
+    """In-memory KPI sink. Deterministic; test-friendly.
 
-    samples: list[KpiSample] = field(default_factory=list)
+    ``samples`` is a bounded ring (recent history for ``all_for``); the
+    authoritative most-recent value per ``(agent, metric)`` lives in
+    ``_latest`` so :meth:`latest` is O(1) and correct even after the ring
+    has evicted that sample.
+    """
+
+    samples: deque[KpiSample] = field(default_factory=lambda: deque(maxlen=_MAX_SAMPLES))
+    _latest: dict[tuple[str, str], KpiSample] = field(default_factory=dict)
 
     def record(
         self,
@@ -37,13 +52,11 @@ class KpiCollector:
     ) -> KpiSample:
         sample = KpiSample(agent=agent, metric=metric, value=value, tags=dict(tags or {}))
         self.samples.append(sample)
+        self._latest[(agent, metric)] = sample
         return sample
 
     def latest(self, *, agent: str, metric: str) -> KpiSample | None:
-        for sample in reversed(self.samples):
-            if sample.agent == agent and sample.metric == metric:
-                return sample
-        return None
+        return self._latest.get((agent, metric))
 
     def all_for(self, agent: str) -> tuple[KpiSample, ...]:
         return tuple(s for s in self.samples if s.agent == agent)

@@ -35,6 +35,22 @@ def test_kpi_collector_all_for_returns_agent_samples() -> None:
     assert thor_samples[0].metric == "execution_success_rate"
 
 
+def test_kpi_collector_ring_is_bounded_and_latest_survives_eviction() -> None:
+    # An agent records KPIs for the whole process lifetime; the sample ring
+    # must be bounded, and latest() must still return the true most-recent
+    # value even after that sample has been evicted from the ring.
+    from fdai.agents._framework.kpi import _MAX_SAMPLES
+
+    c = KpiCollector()
+    for i in range(_MAX_SAMPLES + 100):
+        c.record(agent="Forseti", metric="verdict_accuracy", value=float(i))
+    assert len(c.samples) == _MAX_SAMPLES
+    latest = c.latest(agent="Forseti", metric="verdict_accuracy")
+    assert latest is not None
+    # The very first sample is long evicted, but latest is still correct.
+    assert latest.value == float(_MAX_SAMPLES + 100 - 1)
+
+
 # ---------------------------------------------------------------------------
 # Promotion gate
 # ---------------------------------------------------------------------------
