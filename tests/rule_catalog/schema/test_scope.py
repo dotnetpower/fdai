@@ -7,6 +7,7 @@ import pytest
 from fdai.rule_catalog.schema.scope import (
     ResourceContext,
     Scope,
+    ScopeBinding,
     ScopeLevel,
     ScopeRef,
     ScopeSelector,
@@ -201,3 +202,45 @@ def test_scope_ref_to_scope_bridges_to_level_id() -> None:
     assert scope.level is ScopeLevel.RESOURCE_GROUP
     assert scope.id == "rg-a"
     assert scope.covers(_ctx(rg="rg-a"))
+
+
+# ---- ScopeBinding (include / exclude address lists) -----------------------
+
+
+def test_scope_binding_requires_an_include() -> None:
+    with pytest.raises(ValueError, match="at least one include"):
+        ScopeBinding(includes=())
+
+
+def test_scope_binding_covers_any_include() -> None:
+    binding = ScopeBinding(
+        includes=(ScopeRef(("org-1", "sub-1", "rg-a")), ScopeRef(("org-1", "sub-2"))),
+    )
+    assert binding.covers(_ctx(account="sub-1", rg="rg-a"))
+    assert binding.covers(_ctx(account="sub-2", rg="rg-z"))  # via the account include
+    assert not binding.covers(_ctx(account="sub-3", rg="rg-a"))
+
+
+def test_scope_binding_exclude_wins() -> None:
+    binding = ScopeBinding(
+        includes=(ScopeRef(("org-1", "sub-1")),),
+        excludes=(ScopeRef(("org-1", "sub-1", "sandbox")),),
+    )
+    assert binding.covers(_ctx(account="sub-1", rg="rg-a"))
+    assert not binding.covers(_ctx(account="sub-1", rg="sandbox"))
+
+
+def test_scope_binding_selector_narrows() -> None:
+    binding = ScopeBinding(
+        includes=(ScopeRef(("org-1", "sub-1")),),
+        selector=ScopeSelector(resource_types=frozenset({"sql-database"})),
+    )
+    assert binding.covers(_ctx(account="sub-1", rtype="sql-database"))
+    assert not binding.covers(_ctx(account="sub-1", rtype="compute"))
+
+
+def test_scope_binding_specificity_is_most_specific_include() -> None:
+    binding = ScopeBinding(
+        includes=(ScopeRef(("org-1",)), ScopeRef(("org-1", "sub-1", "rg-a"))),
+    )
+    assert binding.specificity == int(ScopeLevel.RESOURCE_GROUP)

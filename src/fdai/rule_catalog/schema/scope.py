@@ -200,9 +200,45 @@ class ScopeRef:
         return Scope(level=self.level, id=self.id, selector=selector, excludes=excludes)
 
 
+@dataclass(frozen=True, slots=True)
+class ScopeBinding:
+    """An assignment's scope as include / exclude address lists plus an optional
+    selector - the extensible multi-scope form (rule-governance.md "YAML Shapes"
+    ``scope.include`` / ``exclude`` / ``selectors``).
+
+    Covers a resource when it matches **at least one** include :class:`ScopeRef`,
+    **no** exclude, and the selector. A single-scope assignment is the degenerate
+    case (one include, no exclude). ``specificity`` is the most-specific include
+    level, so the existing most-specific-wins parameter precedence carries over.
+    """
+
+    includes: tuple[ScopeRef, ...]
+    excludes: tuple[ScopeRef, ...] = ()
+    selector: ScopeSelector | None = None
+
+    def __post_init__(self) -> None:
+        if not self.includes:
+            raise ValueError("ScopeBinding MUST have at least one include scope")
+
+    def covers(self, ctx: ResourceContext) -> bool:
+        if not any(ref.covers(ctx) for ref in self.includes):
+            return False
+        if any(ref.covers(ctx) for ref in self.excludes):
+            return False
+        if self.selector is not None and not self.selector.matches(ctx):
+            return False
+        return True
+
+    @property
+    def specificity(self) -> int:
+        """The most-specific include level (drives parameter precedence)."""
+        return max(int(ref.level) for ref in self.includes)
+
+
 __all__ = [
     "ResourceContext",
     "Scope",
+    "ScopeBinding",
     "ScopeLevel",
     "ScopeRef",
     "ScopeSelector",
