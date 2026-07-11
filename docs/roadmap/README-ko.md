@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: f4b85ac156827882968219f07992f246447184e8
+translation_source_sha: 133f25d2f1b3a6fa2c6a8c56538fe4ba98be6c23
 translation_revised: 2026-07-11
 ---
 
@@ -91,6 +91,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | # | 문서 | 다루는 내용 |
 |---|------|-------------|
 | 24 | [prompt-composition-ko.md](prompt-composition-ko.md) | 진화하는 시스템 프롬프트: role x layer 매트릭스, 툴 / 웹 검색, debate orchestrator, 인식 측정 |
+| 24b | [hallucination-rubric-gate-ko.md](hallucination-rubric-gate-ko.md) | T2용 빼기 전용 루브릭 환각 필터: 기준별 judge 채점을 `min()` 으로 confidence에 반영, self-consistency 샘플러, shadow-before-enforce 승격 |
 
 ### 리포팅 서브시스템
 

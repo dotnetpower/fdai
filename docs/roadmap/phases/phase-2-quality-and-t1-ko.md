@@ -1,7 +1,7 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: e7e729e82603d93a66e7c2396787cf854f04cf32
+translation_source_sha: 7b167bd42b645887cb7a94cdb7890a4eaa11de1e
 translation_revised: 2026-07-11
 ---
 

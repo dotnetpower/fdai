@@ -100,6 +100,16 @@ flowchart TD
     THR -->|yes| ELIG[execution-eligible to risk gate]
 ```
 
+### Rubric Gate (hallucination filter)
+
+An optional fifth leg scores the candidate's reasoning against fixed criteria
+(faithfulness, evidence-action alignment, completeness, coherence) and folds the
+minimum score into confidence with `min()` - **subtractive only**, so a rubric can
+lower eligibility but never raise it. Ships shadow-first (judge-and-log until a
+promotion gate is met) and fails closed to HIL on evaluator error. The judge MUST be a
+distinct publisher from the proposer (a model must not grade its own answer). Full
+design: [hallucination-rubric-gate.md](hallucination-rubric-gate.md).
+
 ## Prompt-Injection Defense
 
 Event payloads and tool outputs are **untrusted** and may carry direct or indirect prompt

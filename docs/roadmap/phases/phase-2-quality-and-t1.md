@@ -29,6 +29,12 @@ are **targets to validate**, not guarantees ([goals-and-metrics.md](../goals-and
   In-memory fakes for every seam live under
   [`quality_gate/testing.py`](../../../src/fdai/core/quality_gate/testing.py) so
   a fork can smoke the composition root without any live LLM.
+- **Rubric hallucination filter** (subtractive): an optional
+  [`RubricEvaluator`](../../../src/fdai/core/quality_gate/rubric.py) scores a T2
+  candidate's `reasoning_trace` against fixed criteria and the gate folds the minimum
+  score into confidence via `min()` (never additive). Shadow-first, fail-closed, judge
+  distinct from proposer. A `SelfConsistencySampler` adds an `action_stability` signal.
+  Full design in [hallucination-rubric-gate.md](../hallucination-rubric-gate.md).
 - **T1 lightweight tier**: embedding similarity + safety-re-verified learned-action reuse.
   [`src/fdai/core/tiers/t1_lightweight/`](../../../src/fdai/core/tiers/t1_lightweight/)
   ships the `T1Tier` orchestrator plus `EmbeddingModel` / `PatternLibrary` seams; the

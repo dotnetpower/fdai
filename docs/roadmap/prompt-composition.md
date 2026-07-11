@@ -80,6 +80,12 @@ Today the reviewer role runs a two-model cross-check (Wave 2 keeps this). Wave
 orchestrator; the matrix already reserves each cell so those additions do not
 require a refactor.
 
+A fourth role, the **Rubric** judge, reuses the Base layer
+(`base/t2-rubric.vN.yaml`) and the Domain Context layer; it scores the
+Proposer's reasoning against fixed criteria and cannot call tools. It is a
+subtractive hallucination filter, not an authority - see
+[hallucination-rubric-gate.md](hallucination-rubric-gate.md).
+
 ## Layer catalog
 
 Each layer has a fixed job and a fixed storage tier.
@@ -116,6 +122,7 @@ rule-catalog/
       t2-proposer.vN.yaml         # Wave 3 (planned)
       t2-critic.vN.yaml           # Wave 4 (planned)
       t2-judge.vN.yaml            # Wave 4.5 (planned)
+      t2-rubric.v1.yaml           # rubric hallucination filter (shipped, shadow)
     packs/                        # Wave 2+
     tools/                        # Wave 2.5+
     roles/                        # Wave 3+

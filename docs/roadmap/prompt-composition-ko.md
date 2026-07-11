@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: cd363736e983e9a1a18de624fb63d94a2f90cf6e
+translation_source_sha: 0e44e4ae3ba0f82bb0cbb38d13b2081dba19ecb0
 translation_revised: 2026-07-11
 ---
 
@@ -79,6 +79,11 @@ operator memory 항목, tool output, web snippet, debate transcript)는 모두
 가 Critic을 추가하고, Wave 4.5가 Proposer / Critic / Judge orchestrator로 승격합니다.
 매트릭스가 이미 각 셀을 예약해 두어 이 추가가 리팩터를 요구하지 않습니다.
 
+네 번째 역할인 **Rubric** judge는 Base 레이어(`base/t2-rubric.vN.yaml`)와 Domain
+Context 레이어를 재사용합니다; Proposer의 추론을 고정 기준으로 채점하며 툴을 호출할 수
+없습니다. 권위가 아니라 빼기 전용 환각 필터입니다 -
+[hallucination-rubric-gate-ko.md](hallucination-rubric-gate-ko.md) 참조.
+
 ## 레이어 카탈로그
 
 각 레이어는 고정된 역할과 고정된 저장 티어를 가집니다.
@@ -112,6 +117,7 @@ rule-catalog/
       t2-proposer.vN.yaml         # Wave 3 (계획됨)
       t2-critic.vN.yaml           # Wave 4 (계획됨)
       t2-judge.vN.yaml            # Wave 4.5 (계획됨)
+      t2-rubric.v1.yaml           # 루브릭 환각 필터 (배포됨, shadow)
     packs/                        # Wave 2+
     tools/                        # Wave 2.5+
     roles/                        # Wave 3+

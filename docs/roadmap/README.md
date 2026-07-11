@@ -93,6 +93,7 @@ build. Read the reference docs first, then the phases in order.
 | # | Document | What it covers |
 |---|----------|----------------|
 | 24 | [prompt-composition.md](prompt-composition.md) | evolving system prompt: role x layer matrix, tools / web search, debate orchestrator, recognition measurement |
+| 24b | [hallucination-rubric-gate.md](hallucination-rubric-gate.md) | subtractive rubric hallucination filter for T2: per-criterion judge scoring folded into confidence via `min()`, self-consistency sampler, shadow-before-enforce promotion |
 
 ### Reporting subsystem
 
