@@ -209,6 +209,34 @@ class TestCheckFileLoc:
         assert "allowlisted=2" in result.stdout
         assert "failed=1" in result.stdout
 
+    def test_stale_allowlist_entry_fails_enforce(self, tmp_path: Path) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        _seed_python_file(repo, "src/fdai/small.py", 10)  # under warn
+        (repo / "scripts" / ".check-file-loc.allowlist").write_text(
+            "# ghost: file was refactored away but exemption forgotten\n"
+            "src/fdai/ghost.py\n"
+        )
+        # Enforce: stale entry is a failure.
+        result = _run(
+            repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce"
+        )
+        assert result.returncode == 1
+        assert "stale allowlist entry" in result.stdout
+
+    def test_stale_allowlist_entry_warns_in_warn_mode(self, tmp_path: Path) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        _seed_python_file(repo, "src/fdai/small.py", 10)
+        (repo / "scripts" / ".check-file-loc.allowlist").write_text(
+            "# ghost: file was refactored away but exemption forgotten\n"
+            "src/fdai/ghost.py\n"
+        )
+        # Warn mode: still exit 0, but the stale line is surfaced.
+        result = _run(repo, repo / "scripts" / "check-file-loc.sh")
+        assert result.returncode == 0
+        assert "stale allowlist entry" in result.stdout
+
     def test_pycache_is_excluded(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)

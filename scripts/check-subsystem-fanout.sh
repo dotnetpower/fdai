@@ -88,14 +88,23 @@ fi
 
 _allowlisted() {
   local p="$1"
-  [[ -n "${allow_exact[$p]:-}" ]] && return 0
+  if [[ -n "${allow_exact[$p]:-}" ]]; then
+    used_exact["$p"]=1
+    return 0
+  fi
   local pat
   for pat in "${allow_globs[@]}"; do
     # shellcheck disable=SC2053  # RHS deliberately unquoted for glob
-    [[ "$p" == $pat ]] && return 0
+    if [[ "$p" == $pat ]]; then
+      used_globs["$pat"]=1
+      return 0
+    fi
   done
   return 1
 }
+
+declare -A used_exact=()
+declare -A used_globs=()
 
 mapfile -t files < <(
   find src/fdai/core -type f -name '*.py' \
@@ -173,14 +182,30 @@ done
 printf 'check-subsystem-fanout: scanned=%d warned=%d failed=%d allowlisted=%d mode=%s\n' \
   "$scanned" "$warned" "$failed" "$allowlisted" "$mode"
 
-if [[ "$mode" == "enforce" ]] && (( failed > 0 )); then
-  cat >&2 <<EOF
+stale=0
+for entry in "${!allow_exact[@]}"; do
+  if [[ -z "${used_exact[$entry]:-}" ]]; then
+    printf 'check-subsystem-fanout: stale allowlist entry (matched nothing): %s\n' "$entry"
+    stale=$((stale + 1))
+  fi
+done
+for pat in "${allow_globs[@]}"; do
+  if [[ -z "${used_globs[$pat]:-}" ]]; then
+    printf 'check-subsystem-fanout: stale allowlist pattern (matched nothing): %s\n' "$pat"
+    stale=$((stale + 1))
+  fi
+done
+
+if [[ "$mode" == "enforce" ]] && (( failed > 0 || stale > 0 )); then
+  if (( failed > 0 )); then
+    cat >&2 <<EOF
 
 Extract stages behind a Protocol (see G-2 in tracker #14) so this file
 composes a small list instead of hard-wiring every subsystem. If this
 file is a legitimate composition root, add it to
 $allowlist_file with a one-line justification in the preceding comment.
 EOF
+  fi
   exit 1
 fi
 

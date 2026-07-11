@@ -90,14 +90,23 @@ fi
 
 _allowlisted() {
   local p="$1"
-  [[ -n "${allow_exact[$p]:-}" ]] && return 0
+  if [[ -n "${allow_exact[$p]:-}" ]]; then
+    used_exact["$p"]=1
+    return 0
+  fi
   local pat
   for pat in "${allow_globs[@]}"; do
     # shellcheck disable=SC2053  # RHS deliberately unquoted for glob
-    [[ "$p" == $pat ]] && return 0
+    if [[ "$p" == $pat ]]; then
+      used_globs["$pat"]=1
+      return 0
+    fi
   done
   return 1
 }
+
+declare -A used_exact=()
+declare -A used_globs=()
 
 # Deterministic ordering; excludes __pycache__ and the common Python
 # tool-cache / virtualenv dot-dirs. The generic exclusion keeps the
@@ -152,13 +161,32 @@ done
 printf 'check-file-loc: scanned=%d warned=%d failed=%d allowlisted=%d mode=%s\n' \
   "$scanned" "$warned" "$failed" "$allowlisted" "$mode"
 
-if [[ "$mode" == "enforce" ]] && (( failed > 0 )); then
-  cat >&2 <<EOF
+# Stale-allowlist audit: an entry that matched nothing this run is
+# dead weight. Fail loudly in enforce mode so a refactored file that
+# no longer needs the exemption cannot silently keep it.
+stale=0
+for entry in "${!allow_exact[@]}"; do
+  if [[ -z "${used_exact[$entry]:-}" ]]; then
+    printf 'check-file-loc: stale allowlist entry (matched nothing): %s\n' "$entry"
+    stale=$((stale + 1))
+  fi
+done
+for pat in "${allow_globs[@]}"; do
+  if [[ -z "${used_globs[$pat]:-}" ]]; then
+    printf 'check-file-loc: stale allowlist pattern (matched nothing): %s\n' "$pat"
+    stale=$((stale + 1))
+  fi
+done
+
+if [[ "$mode" == "enforce" ]] && (( failed > 0 || stale > 0 )); then
+  if (( failed > 0 )); then
+    cat >&2 <<EOF
 
 Split the offending file into a sub-package. See tracker #14 for the
 architectural pattern (each variable axis becomes a folder; core/reporting/
 is the reference implementation - datasources/ + formats/ + widgets/).
 EOF
+  fi
   exit 1
 fi
 
