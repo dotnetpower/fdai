@@ -1,7 +1,7 @@
 ---
 title: Fork Seam Recipe 조리서
 translation_of: downstream-fork-seam-recipes.md
-translation_source_sha: 70bef74067b3f513b5687d4e4417580ac6363d90
+translation_source_sha: 5ed7ee8f2e5de4b9e13ba4cc8794bab684d21327
 translation_revised: 2026-07-11
 ---
 
@@ -64,8 +64,8 @@ deployment 이름, region 메타데이터가 담깁니다. llm-registry, quota,
 **바인딩 방법 (Azure endpoint override)**:
 
 Upstream이 전체 Azure wire-up을 위한 **public composition API**를
-배포: [`wire_azure_container`](../../src/fdai/composition.py) +
-선언적 [`AzureWireOverrides`](../../src/fdai/composition.py)
+배포: [`wire_azure_container`](../../src/fdai/composition/__init__.py) +
+선언적 [`AzureWireOverrides`](../../src/fdai/composition/__init__.py)
 dataclass. Fork는 concrete 어댑터로 `AzureWireOverrides` 하나를 만들어
 넘기면 됩니다 - 함수가 composer, tool registry, prompt composition
 (base / critic / judge), 내부 `bind_azure_llm_bindings()` 호출을 한
@@ -860,7 +860,7 @@ traversal 없음).
   안 됨 - projection surface 전용. Workflow를 트리거하려는 panel은
   event bus에 `Signal`을 emit 하는 방식으로 하지 executor 호출로
   하지 말 것.
-- [`panels.py`](../../src/fdai/delivery/read_api/panels.py) 아래
+- [`panels.py`](../../src/fdai/delivery/read_api/routes/panels.py) 아래
   upstream `ExampleFinOpsPanel`은 reference 구현이며 기본으로
   **등록되지 않음**. 그 shape를 복사하되 import해서 재등록하지 말 것 -
   upstream은 의도적으로 UI를 최소로 유지.

@@ -156,7 +156,7 @@ startup.
 > (`src/fdai/core/rule_catalog_profiles/`) is shipped and covered by
 > tests, but the composition root does not yet read `FDAI_PROFILE_ID`.
 > The `resolve()` call must be added to
-> [`src/fdai/composition.py`](../../src/fdai/composition.py) before this
+> [`src/fdai/composition.py`](../../src/fdai/composition/__init__.py) before this
 > knob has any runtime effect; fork maintainers who need the profile
 > layer today can bind their own resolved profile via a wrapping factory
 > until the upstream default binder wires it.

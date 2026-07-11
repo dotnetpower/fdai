@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 7bb1ab1508cf335b4f81cbc50ddd38a4ad01996d
+translation_source_sha: a204de1c4b4a630c3125c4a2af0a118b1588bd12
 translation_revised: 2026-07-11
 ---
 
@@ -186,7 +186,7 @@ resolved role ([user-rbac-and-identity.md](user-rbac-and-identity-ko.md)
 
 룰-발화 액션의 경우 "principal" 은 executor identity (시스템 MI); 그
 role 은 composition time 에 fixed
-([composition.py](../../src/fdai/composition.py)).
+([composition.py](../../src/fdai/composition/__init__.py)).
 
 ### 2.6 Axis G - Environment (prod downgrade)
 
@@ -240,7 +240,7 @@ RiskGate 는
 > [`authority.py`](../../src/fdai/core/risk_gate/authority.py)
 > `evaluate_execution_authority()` 가 end-to-end 로 통합. 이 함수가 단일
 > 파이프라인 `feature -> table (Axis A) -> 6축 min() -> ExecutionAuthorityDecision`.
-> [`ControlLoop`](../../src/fdai/core/control_loop.py) 이 두 모드로
+> [`ControlLoop`](../../src/fdai/core/control_loop/orchestrator.py) 이 두 모드로
 > 호출한다. risk table 만 배선된 경우 실행 액션당 `risk_gate.shadow_authority`
 > audit 엔트리 1개를 기록 (authority 전용, judge+log, executor 경로 무변경).
 > risk table 과 기존

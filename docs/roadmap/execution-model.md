@@ -187,7 +187,7 @@ resolved role (from
 
 For rule-fired actions the "principal" is the executor identity
 (system MI); its role is fixed at composition time
-([composition.py](../../src/fdai/composition.py)).
+([composition.py](../../src/fdai/composition/__init__.py)).
 
 ### 2.6 Axis G - Environment (prod downgrade)
 
@@ -244,7 +244,7 @@ fired and operator-requested; see
 > [`authority.py`](../../src/fdai/core/risk_gate/authority.py)
 > `evaluate_execution_authority()`. That function is the single pipeline
 > `feature -> table (Axis A) -> six-axis min() -> ExecutionAuthorityDecision`.
-> The [`ControlLoop`](../../src/fdai/core/control_loop.py) invokes it in
+> The [`ControlLoop`](../../src/fdai/core/control_loop/orchestrator.py) invokes it in
 > two modes. When only a risk table is wired it records one
 > `risk_gate.shadow_authority` audit entry per executed action (authority-only,
 > judge-and-log, executor path unchanged). When both the risk table and the

@@ -1,14 +1,14 @@
 ---
 title: Deep DB-DR 복원 훈련 런북
 translation_of: db-dr-drill.md
-translation_source_sha: dc248a72e9840a347ad27f9d90a298cac55c61be
+translation_source_sha: b5fb5493566abd44b3e545a128f529d033d68e89
 translation_revised: 2026-07-11
 ---
 
 # Deep DB-DR 복원 훈련 런북
 
 Phase-3 § Deep DB-DR 훈련을 위한 운영자 런북. 이 리포지토리가 제공하는
-[`DbDrVerifier`](../../src/fdai/core/verticals/db_dr_verifier.py)와
+[`DbDrVerifier`](../../src/fdai/core/verticals/resilience/db_dr_verifier.py)와
 Azure 어댑터
 ([`AzureDbDrRestoreAdapter`](../../src/fdai/delivery/azure/db_dr_restore.py))를
 반복 가능한 운영 절차로 만듭니다. 훈련은 프로덕션 PostgreSQL Flexible Server를
@@ -86,7 +86,7 @@ Azure 어댑터
    실패로 처리됩니다.
 
    상위(upstream)의
-   [`DbDrVerifier`](../../src/fdai/core/verticals/db_dr_verifier.py)는
+   [`DbDrVerifier`](../../src/fdai/core/verticals/resilience/db_dr_verifier.py)는
    [`IntegrityChecker`](../../src/fdai/shared/providers/db_dr.py)
    Protocol seam을 주입받아 사용합니다. 운영자용 등가 명령은 다음과 같습니다.
 
@@ -148,4 +148,4 @@ Azure 어댑터
 
 - [phase-3-integrated-loop-ko.md § Deep DB-DR (stateful - 전용 설계)](../roadmap/phases/phase-3-integrated-loop-ko.md)
 - [security-and-identity-ko.md](../roadmap/security-and-identity-ko.md)
-- [DbDrVerifier 모듈 docstring](../../src/fdai/core/verticals/db_dr_verifier.py)
+- [DbDrVerifier 모듈 docstring](../../src/fdai/core/verticals/resilience/db_dr_verifier.py)

@@ -63,8 +63,8 @@ re-running it with unchanged inputs produces the same file.
 **How to bind (Azure endpoint override)**:
 
 Upstream ships a **public composition API** for the full Azure wire-
-up: [`wire_azure_container`](../../src/fdai/composition.py) +
-the declarative [`AzureWireOverrides`](../../src/fdai/composition.py)
+up: [`wire_azure_container`](../../src/fdai/composition/__init__.py) +
+the declarative [`AzureWireOverrides`](../../src/fdai/composition/__init__.py)
 dataclass. A fork constructs one `AzureWireOverrides` with its
 concrete adapters and passes it in - the function handles the
 composer, tool registry, prompt composition (base / critic / judge),
@@ -899,7 +899,7 @@ traversal).
   workflow does it by emitting a `Signal` to the event bus, never by
   calling into an executor.
 - The upstream `ExampleFinOpsPanel` under
-  [`panels.py`](../../src/fdai/delivery/read_api/panels.py) is a
+  [`panels.py`](../../src/fdai/delivery/read_api/routes/panels.py) is a
   reference implementation and is **not** registered by default. Copy
   its shape, do not import and re-register it - upstream keeps the UI
   minimal on purpose.

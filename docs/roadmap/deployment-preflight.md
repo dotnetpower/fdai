@@ -129,7 +129,7 @@ judgment; otherwise it emits guidance and routes to review.
 | Report | [core/deploy_preflight/report.py](../../src/fdai/core/deploy_preflight/report.py) | the assembled artifact + verdict + `blocks_deploy` |
 
 `core/` sees only the `FeasibilityProbe` Protocol; the probes are injected at the
-[composition root](../../src/fdai/composition.py) via the
+[composition root](../../src/fdai/composition/__init__.py) via the
 `Container.feasibility_probes` seam. The upstream default binds no probes (the
 denylists are customer config); a fork or a live Azure adapter registers its own
 without editing `core/`.

@@ -26,19 +26,19 @@ package that carries the deliverable in
   `trust-router` → `risk-gate` → `executor` → `audit` path, with per-resource ordering/locking
   and cross-vertical conflict handling
   ([Unified Control Loop](#unified-control-loop)).
-  Modules: [core/control_loop.py](../../../src/fdai/core/control_loop.py),
+  Modules: [core/control_loop.py](../../../src/fdai/core/control_loop/orchestrator.py),
   [core/risk_gate/precedence.py](../../../src/fdai/core/risk_gate/precedence.py).
 - **DR/Chaos scheduler** with window-based test failover / game days, deep DB-DR handling, and
   measured RPO/RTO reporting
   ([#dr--chaos--scheduled-periodic-testing](#dr--chaos--scheduled-periodic-testing)).
-  Module: [core/verticals/resilience.py](../../../src/fdai/core/verticals/resilience.py).
+  Module: [core/verticals/resilience.py](../../../src/fdai/core/verticals/resilience/orchestrator.py).
 - **FinOps auto-actions** with risk-gated autonomy delivered as remediation PRs
   ([FinOps](#finops)).
-  Module: [core/verticals/finops.py](../../../src/fdai/core/verticals/finops.py).
+  Module: [core/verticals/finops.py](../../../src/fdai/core/verticals/cost_governance/finops.py).
 - **Integrated Change Safety** - low-risk auto-merge/reconcile, high-risk to HIL
   ([Change Safety](#change-safety-integrated)).
   Module:
-  [core/verticals/change_safety.py](../../../src/fdai/core/verticals/change_safety.py).
+  [core/verticals/change_safety.py](../../../src/fdai/core/verticals/change_safety/orchestrator.py).
 - **Assurance Twin (ambient + simulation)** - proactive per-change review on the change
   event, whole-graph what-if shared by Change Safety (blast radius), Resilience (RPO/RTO
   replay), and Cost Governance (cost delta), shadow remediation-PR proposals, and the

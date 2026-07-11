@@ -5,7 +5,7 @@ title: Deep DB-DR Restore Drill Runbook
 # Deep DB-DR restore drill runbook
 
 Operator runbook for the phase-3 § Deep DB-DR drill. Turns the shipped
-[`DbDrVerifier`](../../src/fdai/core/verticals/db_dr_verifier.py)
+[`DbDrVerifier`](../../src/fdai/core/verticals/resilience/db_dr_verifier.py)
 and its Azure adapter
 ([`AzureDbDrRestoreAdapter`](../../src/fdai/delivery/azure/db_dr_restore.py))
 into a repeatable operational procedure. The drill runs against a
@@ -90,7 +90,7 @@ tears down when done.
    `$RESTORE_TIME`. Any mismatch fails the drill.
 
    The upstream
-   [`DbDrVerifier`](../../src/fdai/core/verticals/db_dr_verifier.py)
+   [`DbDrVerifier`](../../src/fdai/core/verticals/resilience/db_dr_verifier.py)
    consumes an
    [`IntegrityChecker`](../../src/fdai/shared/providers/db_dr.py)
    Protocol seam; the operator equivalent is:
@@ -155,4 +155,4 @@ tag `purpose=dr-drill` catch stray drill resource groups older than
 
 - [phase-3-integrated-loop.md § Deep DB-DR (stateful — dedicated design)](../roadmap/phases/phase-3-integrated-loop.md)
 - [security-and-identity.md](../roadmap/security-and-identity.md)
-- [DbDrVerifier module docstring](../../src/fdai/core/verticals/db_dr_verifier.py)
+- [DbDrVerifier module docstring](../../src/fdai/core/verticals/resilience/db_dr_verifier.py)

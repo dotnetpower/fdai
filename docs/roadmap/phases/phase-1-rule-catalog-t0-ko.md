@@ -1,7 +1,7 @@
 ---
 title: Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
 translation_of: phase-1-rule-catalog-t0.md
-translation_source_sha: d632910d270780d77236b4721b536bb92860734f
+translation_source_sha: fcf56fe89da04543320961a4319f91c2ff579423
 translation_revised: 2026-07-11
 ---
 
@@ -92,7 +92,7 @@ Change Safety - 를 완전히 **shadow 모드**(judge와 log, 실행 없음) 로
   `rule:<id>` + `action:<type>`. 머지 안 함, `shadow` 라벨 제거 안 함; 그 경로는 Phase 2
   promotion 영역.
 - **파이프라인 오케스트레이터** -
-  [`ControlLoop`](../../../src/fdai/core/control_loop.py) 이 P1 스테이지를 end-to-end
+  [`ControlLoop`](../../../src/fdai/core/control_loop/orchestrator.py) 이 P1 스테이지를 end-to-end
   로 배선: [`EventIngest`](../../../src/fdai/core/event_ingest/__init__.py)
   (`idempotency_key` 로 normalize + dedup) →
   [`TrustRouter`](../../../src/fdai/core/trust_router/__init__.py) (event 의

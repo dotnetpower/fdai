@@ -203,7 +203,7 @@ Event that clears `event-ingest` is matched against the
 resource + timestamp taken from the Event). An event matching no Workflow starts
 nothing.
 
-The coordinator is wired into the [`ControlLoop`](../../src/fdai/core/control_loop.py)
+The coordinator is wired into the [`ControlLoop`](../../src/fdai/core/control_loop/orchestrator.py)
 as an **opt-in, fail-safe side-consumer**: when `FDAI_WORKFLOW_SHADOW` is truthy
 and the catalog ships a Workflow, the entry point assembles it (from the loaded
 Workflow catalog, the RBAC group mapping, and the notification matrix) and every
@@ -344,7 +344,7 @@ The guided builder form is opened from either entry point (a template card or
 
 Three opt-in, Reader-gated read API routes back it, all pure projections that
 write no state (see
-[`workflow_authoring.py`](../../src/fdai/delivery/read_api/workflow_authoring.py)):
+[`workflow_authoring.py`](../../src/fdai/delivery/read_api/routes/workflow_authoring.py)):
 
 - **`GET /workflows/catalog`** - the built-in Workflow catalog. A read-only
   projection of the loaded `Workflow` catalog carrying each workflow's full

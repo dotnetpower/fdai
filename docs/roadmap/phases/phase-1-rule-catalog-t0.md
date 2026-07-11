@@ -94,7 +94,7 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
   a **draft** with the `shadow` label + `rule:<id>` + `action:<type>`. It never merges
   and never removes the `shadow` label; those paths are Phase 2 promotion territory.
 - **Pipeline orchestrator** -
-  [`ControlLoop`](../../../src/fdai/core/control_loop.py) wires the P1 stages
+  [`ControlLoop`](../../../src/fdai/core/control_loop/orchestrator.py) wires the P1 stages
   end-to-end: [`EventIngest`](../../../src/fdai/core/event_ingest/__init__.py)
   (normalize + dedup by `idempotency_key`) →
   [`TrustRouter`](../../../src/fdai/core/trust_router/__init__.py) (route to T0

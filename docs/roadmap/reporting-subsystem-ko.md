@@ -1,7 +1,7 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: a2d75bd016d650e55f8fe22643b3668c247804ca
+translation_source_sha: ca83ca7d1a75421dc670024492a4926611053784
 translation_revised: 2026-07-11
 ---
 # 리포팅 서브시스템
@@ -264,7 +264,7 @@ widgets:
 ## Read-API 라우트
 
 네 개의 GET, 설정 가능한 prefix(기본 `/reports`) 아래에서
-[`build_reporting_routes`](../../src/fdai/delivery/read_api/reporting.py)가
+[`build_reporting_routes`](../../src/fdai/delivery/read_api/routes/reporting.py)가
 마운트:
 
 | Route | Purpose |

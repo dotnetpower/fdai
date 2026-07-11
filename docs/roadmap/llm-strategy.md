@@ -286,7 +286,7 @@ T1 vs T2 boundary intact:
   win the last round, defeating the whole point of the quality gate.
 - **Judge/critic determinism**: the composer binds `t1.judge`, `t2.critic`, and
   the debate orchestrator to specific deployment names in
-  [composition.py](../../src/fdai/composition.py). Swapping the *judge* deployment
+  [composition.py](../../src/fdai/composition/__init__.py). Swapping the *judge* deployment
   mid-run without a config-level opt-in is a behaviour change we do not want to
   hide inside a routing wrapper.
 

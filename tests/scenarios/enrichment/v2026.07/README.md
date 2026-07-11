@@ -9,7 +9,7 @@ tiers as they land.
 
 This directory carries the concrete-payload overlay needed to replay
 each scenario through the real
-[`ControlLoop`](../../../../src/fdai/core/control_loop.py). One
+[`ControlLoop`](../../../../src/fdai/core/control_loop/orchestrator.py). One
 `<scenario-id>.json` file per replayable scenario; a scenario without an
 overlay is marked `xfail` in the harness with a documented reason (P2
 T1/T2, P2 risk-gate, or "no shipped rule maps to this scenario yet").

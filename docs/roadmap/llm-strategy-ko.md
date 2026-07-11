@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: e12977b96666a00842fed9823f948021617bdf29
+translation_source_sha: 279da520690c296c8043c41a2bda79bd86f27a4a
 translation_revised: 2026-07-11
 ---
 
@@ -263,7 +263,7 @@ return quorum_result(cand_a, cand_b)
   라우터는 개별 호출 속도를 최적화하므로, 항상 서로 *다른* family 두 개를
   병렬로 돌려야 한다는 요구와 충돌. "가장 빠른 T2" 정책은 마지막 라운드에서
   이긴 family로 cross-check 를 조용히 collapse 시켜 quality gate 를 통째로 무력화.
-- **Judge/critic 결정성**: composer 는 [composition.py](../../src/fdai/composition.py)
+- **Judge/critic 결정성**: composer 는 [composition.py](../../src/fdai/composition/__init__.py)
   에서 `t1.judge`, `t2.critic`, debate orchestrator 를 특정 deployment 이름에
   바인딩. config 레벨 opt-in 없이 *judge* deployment 를 런타임 중에 바꾸는
   건 라우팅 wrapper 안에 숨기고 싶지 않은 동작 변경.

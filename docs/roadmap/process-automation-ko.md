@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 0de0facb781acdd8bba07440600f4c13408b0c60
+translation_source_sha: 5cfbb490666814c6c0096006d5209a8a42ee0893
 translation_revised: 2026-07-11
 ---
 
@@ -199,7 +199,7 @@ shadow-before-enforce 불변식과 일치한다.
 매칭된 모든 Workflow 는 shadow 로 실행된다 (name 순서, 리소스 + 타임스탬프는
 Event 에서). 어떤 Workflow 도 매칭하지 않는 이벤트는 아무것도 시작하지 않는다.
 
-코디네이터는 [`ControlLoop`](../../src/fdai/core/control_loop.py) 에 **opt-in,
+코디네이터는 [`ControlLoop`](../../src/fdai/core/control_loop/orchestrator.py) 에 **opt-in,
 fail-safe side-consumer** 로 배선된다: `FDAI_WORKFLOW_SHADOW` 가 truthy 이고
 카탈로그가 Workflow 를 실으면, 엔트리 포인트가 (로드된 Workflow 카탈로그, RBAC
 그룹 매핑, notification matrix 로) 조립하고 모든 ingested 이벤트가 매칭된
@@ -329,7 +329,7 @@ mode 와 함께 나열하고, 행마다 상세 패널 (속성 테이블, 스텝 
 
 세 개의 opt-in, Reader-gated read API 라우트가 이를 뒷받침하며, 모두 상태를
 쓰지 않는 순수 projection 이다 (see
-[`workflow_authoring.py`](../../src/fdai/delivery/read_api/workflow_authoring.py)):
+[`workflow_authoring.py`](../../src/fdai/delivery/read_api/routes/workflow_authoring.py)):
 
 - **`GET /workflows/catalog`** - 빌트인 Workflow 카탈로그. 로드된 `Workflow`
   카탈로그의 read-only projection 으로 각 워크플로의 전체 내용 (trigger, steps,

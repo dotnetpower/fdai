@@ -259,7 +259,7 @@ Three sample reports ship upstream:
 ## Read-API routes
 
 Four GETs, mounted under a configurable prefix (default `/reports`) by
-[`build_reporting_routes`](../../src/fdai/delivery/read_api/reporting.py):
+[`build_reporting_routes`](../../src/fdai/delivery/read_api/routes/reporting.py):
 
 | Route | Purpose |
 |-------|---------|

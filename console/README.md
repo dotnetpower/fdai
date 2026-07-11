@@ -52,7 +52,7 @@ speech-bubble badge on a left row marks the steps that carry a conversation.
 Agent chips (coloured by cognitive layer) filter both layouts, and every entry
 deep-links to its full pipeline trace via `#/trace?correlation=<id>`. The dev
 read-API seed
-([`src/fdai/delivery/read_api/_local.py`](../src/fdai/delivery/read_api/_local.py))
+([`src/fdai/delivery/read_api/_local.py`](../src/fdai/delivery/read_api/dev/local.py))
 attributes each row to its producing agent and carries the lifecycle
 timestamps + inputs / outputs + conversation so the pane renders a realistic
 sample.
@@ -105,7 +105,7 @@ ships enabled upstream unless its `ReadApiConfig` input is set.
 The **Knowledge > Rules** panel ([`src/routes/rule-catalog.tsx`](src/routes/rule-catalog.tsx))
 answers "what does this rule enforce, why does it matter, and which resources
 violate it" over three GET routes
-([`src/fdai/delivery/read_api/rule_catalog.py`](../src/fdai/delivery/read_api/rule_catalog.py)):
+([`src/fdai/delivery/read_api/rule_catalog.py`](../src/fdai/delivery/read_api/routes/rule_catalog.py)):
 
 | Route | Purpose |
 |-------|---------|

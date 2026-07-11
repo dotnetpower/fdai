@@ -1,7 +1,7 @@
 ---
 title: 배포 프리플라이트 (배포 가능성 및 blocker 수집)
 translation_of: deployment-preflight.md
-translation_source_sha: 261b2e74ea0007bf8d3123accd798c316ffc1103
+translation_source_sha: 1376b9ce0cc29be669783eb202aa64ec56ad9769
 translation_revised: 2026-07-11
 ---
 # 배포 프리플라이트 (배포 가능성 및 blocker 수집)
@@ -120,7 +120,7 @@ remediation PR로 제안할 수 있습니다; 그렇지 않으면 guidance를 em
 | 리포트 | [core/deploy_preflight/report.py](../../src/fdai/core/deploy_preflight/report.py) | 조립된 산출물 + verdict + `blocks_deploy` |
 
 `core/`는 `FeasibilityProbe` Protocol만 봅니다; 프로브는
-[composition root](../../src/fdai/composition.py) 에서 `Container.feasibility_probes`
+[composition root](../../src/fdai/composition/__init__.py) 에서 `Container.feasibility_probes`
 seam을 통해 주입됩니다. 상류 기본값은 프로브를 바인딩하지 않습니다(denylist는 고객 config);
 포크 또는 라이브 Azure 어댑터가 `core/`를 편집하지 않고 자체 구현을 등록합니다.
 
