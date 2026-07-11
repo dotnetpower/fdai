@@ -70,7 +70,10 @@ class Norns(Agent):
         # counter is bounded by an LRU cap - a long-lived learner would leak
         # otherwise.
         self._fingerprint_counter: BoundedLruDict[str, int] = BoundedLruDict(_MAX_TRACKED)
-        self._proposed: set[str] = set()
+        # Fingerprints already proposed - same content-hash keyspace as the
+        # counter above, so it is bounded too (a long-lived learner that saw
+        # many distinct incidents would otherwise leak one entry per proposal).
+        self._proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._promotion_threshold = promotion_threshold
         self.pending_candidates: list[dict[str, Any]] = []
         # Outcome-threshold learner state.

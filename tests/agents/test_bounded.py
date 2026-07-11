@@ -84,7 +84,10 @@ def test_norns_counted_correlations_is_bounded() -> None:
     Eviction correctness itself is covered by TestBoundedLruSet."""
     norns = Norns(min_outcome_samples=100, rollback_alarm_rate=0.99)
     assert isinstance(norns._counted_correlations, BoundedLruSet)  # noqa: SLF001
-    # A modest stream of distinct correlations stays tracked (well under cap).
+    # The sibling fingerprint maps share the same unbounded (content-hash)
+    # keyspace and MUST also be bounded.
+    assert isinstance(norns._proposed, BoundedLruSet)  # noqa: SLF001
+    assert isinstance(norns._fingerprint_counter, BoundedLruDict)  # noqa: SLF001
     for i in range(200):
         asyncio.run(
             norns.on_typed_message(
