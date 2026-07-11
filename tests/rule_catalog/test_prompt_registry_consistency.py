@@ -74,10 +74,7 @@ def test_prompt_only_capabilities_are_locked_to_the_allowlist() -> None:
     registry = _registry_capabilities()
     prompts = FileSystemPromptRegistry(_CATALOG)
     used_prompt_only = {
-        cap
-        for art in prompts.artifacts()
-        for cap in art.applies_to
-        if cap not in registry
+        cap for art in prompts.artifacts() for cap in art.applies_to if cap not in registry
     }
     assert used_prompt_only <= _PROMPT_ONLY_CAPABILITIES, (
         f"unexpected prompt-only capabilities: {used_prompt_only - _PROMPT_ONLY_CAPABILITIES}"

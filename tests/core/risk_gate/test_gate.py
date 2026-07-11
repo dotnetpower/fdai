@@ -162,9 +162,7 @@ def _enforced_registry(action_type_name: str) -> ActionPromotionRegistry:
         (BlastRadiusScope.SUBSCRIPTION, True),
     ],
 )
-def test_unknown_count_fails_closed_by_scope(
-    scope: BlastRadiusScope, fail_closed: bool
-) -> None:
+def test_unknown_count_fails_closed_by_scope(scope: BlastRadiusScope, fail_closed: bool) -> None:
     # A partial Action with count=None MUST NOT fail open to AUTO in
     # enforce mode when the scope is broader than a single resource - the
     # blast radius is then unbounded. A single-resource scope is
