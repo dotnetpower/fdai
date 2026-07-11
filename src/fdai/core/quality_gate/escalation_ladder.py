@@ -13,9 +13,11 @@ weak self-consistency signal), decide whether to spend the escalated
 (Opus / o1-class) reasoner as a tiebreaking third opinion before falling
 back to HIL. It mirrors :mod:`fdai.core.quality_gate.debate_router`
 exactly - a frozen config + a stateless, deterministic function - so the
-policy is testable and auditable on its own, and the live wiring into
-:class:`~fdai.core.quality_gate.gate.QualityGate` lands as a separate,
-separately reviewed step (the debate_router delta-2a -> delta-2b pattern).
+policy is testable and auditable on its own.
+:class:`~fdai.core.quality_gate.gate.QualityGate` records the decision in
+**shadow** (``QualityDecision.escalation_route`` / ``escalation_reason``)
+when a config is wired; actually invoking the escalated model is the next
+enforce step (the debate_router delta-2a -> delta-2b sequence).
 
 Critique-hardening invariants
 -----------------------------

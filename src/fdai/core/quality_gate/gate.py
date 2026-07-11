@@ -63,6 +63,7 @@ if TYPE_CHECKING:
     # references here and runtime imports to the ``evaluate`` method.
     from fdai.core.quality_gate.debate import DebateOrchestrator
     from fdai.core.quality_gate.debate_router import DebateRouterConfig
+    from fdai.core.quality_gate.escalation_ladder import EscalationLadderConfig
     from fdai.core.quality_gate.rubric import RubricEvaluator, RubricScore
 
 
@@ -178,6 +179,19 @@ class QualityDecision:
     decision. ``True`` means the rubric verdict did NOT influence the
     outcome or confidence - it was recorded for measurement only."""
 
+    escalation_route: str | None = None
+    """The escalation-ladder route (``escalate`` / ``stop``) recorded when
+    an :class:`~fdai.core.quality_gate.escalation_ladder.EscalationLadderConfig`
+    is wired. ``None`` when the ladder is not wired. **Shadow-only**: it is
+    recorded for measurement and does NOT change the outcome - climbing to
+    a stronger model is a future enforce path (the debate delta-2b
+    sequence), so today the ladder decision is observed, never acted on."""
+
+    escalation_reason: str | None = None
+    """The escalation-ladder reason (e.g. ``cross_check_disagreement``,
+    ``escalated_model_unavailable``, ``default_stop``) recorded alongside
+    :attr:`escalation_route`. ``None`` when the ladder is not wired."""
+
 
 # ---------------------------------------------------------------------------
 # DI seams (Protocols) - a fork implements these with real LLM clients
@@ -273,6 +287,8 @@ class QualityGate:
         debate_orchestrator: DebateOrchestrator | None = None,
         debate_router_config: DebateRouterConfig | None = None,
         rubric_evaluator: RubricEvaluator | None = None,
+        escalation_ladder_config: EscalationLadderConfig | None = None,
+        escalated_available: bool = False,
     ) -> None:
         cfg = config or QualityGateConfig()
         if not 0.0 <= cfg.confidence_threshold <= 1.0:
@@ -297,6 +313,8 @@ class QualityGate:
         self._debate_orchestrator = debate_orchestrator
         self._debate_router_config = debate_router_config
         self._rubric_evaluator = rubric_evaluator
+        self._escalation_ladder_config = escalation_ladder_config
+        self._escalated_available = escalated_available
 
     async def evaluate(self, candidate: QualityCandidate) -> QualityDecision:
         """Return the gate outcome for one candidate action.
@@ -421,6 +439,32 @@ class QualityGate:
                 )
                 if debate_outcome.verdict is DebateVerdict.PROCEED:
                     debate_resolved_disagreement = True
+
+        # 3b-2. Escalation ladder (shadow observation). When a config is
+        # wired, record whether a *future enforce* path would climb to a
+        # stronger reasoner on this (still-unresolved) disagreement. This
+        # is shadow-before-enforce: the decision is measured on dedicated
+        # QualityDecision fields and NEVER appended to ``reasons``, so it
+        # cannot flip the outcome. Actually invoking the escalated model is
+        # a later, separately reviewed step (the debate delta-2b sequence).
+        escalation_route: str | None = None
+        escalation_reason: str | None = None
+        if self._escalation_ladder_config is not None:
+            from fdai.core.quality_gate.escalation_ladder import decide_escalation
+            from fdai.core.quality_gate.self_consistency import STABILITY_SIGNAL_KEY
+
+            stability = candidate.confidence_signals.get(STABILITY_SIGNAL_KEY)
+            escalation_decision = decide_escalation(
+                candidate=candidate,
+                cross_check_disagreed=(
+                    cross_check_below_quorum and not debate_resolved_disagreement
+                ),
+                escalated_available=self._escalated_available,
+                self_consistency=stability,
+                config=self._escalation_ladder_config,
+            )
+            escalation_route = escalation_decision.route.value
+            escalation_reason = escalation_decision.reason
 
         # 3c. Rubric evaluation (hallucination filter). Runs after the
         # cross-check so it only spends judge tokens on candidates the
@@ -558,6 +602,8 @@ class QualityGate:
             rubric_min_score=rubric_min_score,
             rubric_verdict=rubric_verdict_value,
             rubric_shadow=rubric_shadow if self._rubric_evaluator is not None else False,
+            escalation_route=escalation_route,
+            escalation_reason=escalation_reason,
         )
 
     async def _debate_retry_proposer(
@@ -645,6 +691,11 @@ def quality_decision_audit_fields(
             for s in decision.rubric_scores
         ],
     }
+    if decision.escalation_route is not None:
+        # Recorded only when the ladder is wired, so an un-escalated
+        # deployment's audit entries stay unchanged.
+        fields["escalation_route"] = decision.escalation_route
+        fields["escalation_reason"] = decision.escalation_reason
     return fields
 
 

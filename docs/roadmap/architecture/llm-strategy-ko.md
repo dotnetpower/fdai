@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 5b97de19e661a5609e001b3c5696069c2db63aec
+translation_source_sha: 8a012c9f9519dd7a3cc93569c10082c9e77685aa
 translation_revised: 2026-07-11
 ---
 
@@ -255,7 +255,10 @@ return quorum_result(cand_a, cand_b)
 미러링한다: frozen `EscalationLadderConfig` + "더 강한 모델로 올라갈까,
 멈추고 HIL로 라우팅할까?"에 답하는 stateless 함수. 정책을 먼저 단독으로 -
 라이브 배선 전에 테스트·감사 가능하게 - 출하하는 것은 debate-router
-delta-2a -> delta-2b 순서를 따른다.
+delta-2a -> delta-2b 순서를 따른다. `QualityGate`는 `EscalationLadderConfig`가
+배선되면 결정을 **shadow**(`QualityDecision.escalation_route` /
+`escalation_reason`, `quality_decision_audit_fields`로 표면화)로 기록한다 -
+측정만 하고 행동은 안 함; escalated 모델을 실제 호출하는 것은 다음 enforce 스텝.
 
 ladder rung(`EscalationTier`)은 레지스트리 capability와 일대일:
 `PRIMARY` -> `SECONDARY` -> `ESCALATED`. `decide_escalation`은 `ESCALATE`

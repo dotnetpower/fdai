@@ -239,6 +239,77 @@ async def test_cross_check_agreement_below_quorum_still_disagrees() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Escalation ladder (shadow observation)
+# ---------------------------------------------------------------------------
+
+
+def _disagree_gate(**kw: object) -> QualityGate:
+    return QualityGate(
+        verifier=StaticVerifier(outcome=True),
+        cross_check_models=(MatchTypeCrossCheckModel(), MismatchCrossCheckModel()),
+        grounding=_grounding(),
+        config=QualityGateConfig(require_cross_check_quorum=2),
+        **kw,  # type: ignore[arg-type]
+    )
+
+
+@pytest.mark.asyncio
+async def test_escalation_shadow_records_escalate_on_disagreement() -> None:
+    from fdai.core.quality_gate import EscalationLadderConfig
+
+    gate = _disagree_gate(
+        escalation_ladder_config=EscalationLadderConfig(),
+        escalated_available=True,
+    )
+    decision = await gate.evaluate(_candidate())
+    # Outcome is UNCHANGED by the shadow ladder - still a disagreement.
+    assert decision.outcome is QualityOutcome.DISAGREE
+    assert decision.escalation_route == "escalate"
+    assert decision.escalation_reason == "cross_check_disagreement"
+    # Shadow MUST NOT leak into reasons (that would flip the outcome).
+    assert not any(r.startswith("escalation") for r in decision.reasons)
+
+
+@pytest.mark.asyncio
+async def test_escalation_shadow_fail_closed_when_model_unavailable() -> None:
+    from fdai.core.quality_gate import EscalationLadderConfig
+
+    gate = _disagree_gate(
+        escalation_ladder_config=EscalationLadderConfig(),
+        escalated_available=False,
+    )
+    decision = await gate.evaluate(_candidate())
+    assert decision.escalation_route == "stop"
+    assert decision.escalation_reason == "escalated_model_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_escalation_not_recorded_when_ladder_not_wired() -> None:
+    gate = _disagree_gate()
+    decision = await gate.evaluate(_candidate())
+    assert decision.escalation_route is None
+    assert decision.escalation_reason is None
+
+
+@pytest.mark.asyncio
+async def test_escalation_audit_fields_present_only_when_wired() -> None:
+    from fdai.core.quality_gate import EscalationLadderConfig, quality_decision_audit_fields
+
+    wired = _disagree_gate(
+        escalation_ladder_config=EscalationLadderConfig(), escalated_available=True
+    )
+    d1 = await wired.evaluate(_candidate())
+    fields1 = quality_decision_audit_fields(d1)
+    assert fields1["escalation_route"] == "escalate"
+    assert fields1["escalation_reason"] == "cross_check_disagreement"
+
+    unwired = _disagree_gate()
+    d2 = await unwired.evaluate(_candidate())
+    fields2 = quality_decision_audit_fields(d2)
+    assert "escalation_route" not in fields2
+
+
+# ---------------------------------------------------------------------------
 # Confidence threshold
 # ---------------------------------------------------------------------------
 
