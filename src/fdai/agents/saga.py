@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
-from fdai.agents._framework.action_semantics import outcome_result
+from fdai.agents._framework.action_semantics import RESULT_VALUES, outcome_result
 from fdai.agents._framework.adapters import (
     AuditEntry,
     InMemoryAuditChain,
@@ -84,6 +84,14 @@ class Saga(Agent):
         if not correlation_id:
             return
         result = outcome_result(str(payload.get("state", "")))
+        # Prefer a directly-stamped canonical ``result`` when present (mirrors
+        # Norns' precedence, which reads ``result`` before falling back to
+        # ``state``). Without this, a producer that emitted only a canonical
+        # ``result`` - with a ``state`` Saga cannot map - would be dropped here
+        # yet learned by Norns, an asymmetry between writer and reader.
+        direct = str(payload.get("result", "")).strip().lower()
+        if direct in RESULT_VALUES:
+            result = direct
         action_type = str(payload.get("action_type", ""))
         if result is None or not action_type:
             return

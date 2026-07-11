@@ -79,6 +79,12 @@ _TERMINAL_OUTCOME: Final[dict[str, str]] = {
     "reverted": "rollback",
 }
 
+#: The canonical learnable-outcome vocabulary produced by
+#: :func:`outcome_result`. Saga validates a directly-stamped ``result``
+#: against this before republishing, so an audit-entry always carries a
+#: canonical value regardless of which producer wrote it.
+RESULT_VALUES: Final[frozenset[str]] = frozenset(_TERMINAL_OUTCOME.values())
+
 
 def outcome_result(state: str) -> str | None:
     """Map a terminal ActionRun ``state`` to a learnable outcome ``result``.
@@ -95,6 +101,7 @@ def outcome_result(state: str) -> str | None:
 __all__ = [
     "IRREVERSIBLE_QUORUM",
     "DEFAULT_QUORUM",
+    "RESULT_VALUES",
     "is_irreversible",
     "quorum_for",
     "outcome_result",

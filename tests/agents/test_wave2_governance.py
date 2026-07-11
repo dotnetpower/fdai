@@ -566,6 +566,49 @@ def test_saga_republishes_terminal_action_outcome() -> None:
         assert entries[0].payload["action_type"] == "remediate.z"
 
 
+def test_saga_prefers_direct_result_over_unmappable_state() -> None:
+    """Consistency with Norns (which reads ``result`` before ``state``): a
+    producer that stamped a canonical ``result`` but a ``state`` Saga cannot
+    map is still republished, using the direct result. Without this the writer
+    (Saga) would drop a record the reader (Norns) would have learned."""
+    saga, bus = _saga_on_bus()
+    asyncio.run(
+        saga.on_typed_message(
+            "object.action-run",
+            {
+                "action_type": "remediate.z",
+                "result": "rollback",
+                "state": "some_future_state",
+                "correlation_id": "c",
+            },
+        )
+    )
+    entries = bus.messages_on("object.audit-entry")
+    assert len(entries) == 1
+    assert entries[0].payload["result"] == "rollback"
+
+
+def test_saga_ignores_non_canonical_direct_result() -> None:
+    """A junk ``result`` does not bypass the ``state`` mapping: Saga only
+    honors a directly-stamped result when it is in the canonical vocabulary,
+    so an audit-entry always carries a clean value."""
+    saga, bus = _saga_on_bus()
+    asyncio.run(
+        saga.on_typed_message(
+            "object.action-run",
+            {
+                "action_type": "remediate.z",
+                "result": "banana",
+                "state": "succeeded",
+                "correlation_id": "c",
+            },
+        )
+    )
+    entries = bus.messages_on("object.audit-entry")
+    assert len(entries) == 1
+    assert entries[0].payload["result"] == "success"
+
+
 def test_saga_does_not_republish_intermediate_or_untyped_state() -> None:
     saga, bus = _saga_on_bus()
     # Intermediate state -> no learnable outcome -> no audit-entry.

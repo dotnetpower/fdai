@@ -65,6 +65,23 @@ class TestActionSemantics:
         assert outcome_result("rejected") is None  # non-execution terminal
         assert outcome_result("") is None
 
+    def test_outcome_result_covers_every_terminal_state(self) -> None:
+        """Exhaustiveness guard (#6): every terminal ActionRunState is either
+        an outcome-defining state (outcome_result maps it) or an explicit
+        non-execution terminal. A new terminal state added upstream without
+        updating _TERMINAL_OUTCOME trips this test, rather than silently
+        never being learned by the discovery loop."""
+        from fdai.agents.thor import _TERMINAL_STATES, ActionRunState
+
+        non_execution = {ActionRunState.REJECTED, ActionRunState.DENY_DROPPED}
+        for state in _TERMINAL_STATES:
+            learnable = outcome_result(str(state)) is not None
+            assert learnable or state in non_execution, (
+                f"terminal state {state!r} is neither learnable nor an "
+                "explicit non-execution terminal - classify it in "
+                "_TERMINAL_OUTCOME or extend the non_execution set"
+            )
+
 
 class TestForsetiStampsQuorum:
     def test_irreversible_action_gets_quorum_two(self) -> None:
