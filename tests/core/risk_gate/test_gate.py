@@ -68,8 +68,9 @@ def _shipped_rules_by_id() -> dict[str, Rule]:
 def _action(
     *,
     action_type: str = "remediate.tag-add",
-    count: int = 1,
+    count: int | None = 1,
     rate: int | None = 5,
+    scope: BlastRadiusScope = BlastRadiusScope.RESOURCE,
     citing_rules: list[str] | None = None,
 ) -> Action:
     return Action(
@@ -83,9 +84,7 @@ def _action(
         params={},
         stop_condition="target_state_reached",
         rollback_ref=RollbackRef(kind=RollbackKind.PR_REVERT, reference=None),
-        blast_radius=BlastRadius(
-            scope=BlastRadiusScope.RESOURCE, count=count, rate_per_minute=rate
-        ),
+        blast_radius=BlastRadius(scope=scope, count=count, rate_per_minute=rate),
         mode=Mode.SHADOW,
         citing_rules=citing_rules or ["object-storage.owner-tag.required"],
         created_at="2026-07-05T08:00:00Z",  # type: ignore[arg-type]
@@ -138,6 +137,55 @@ def test_action_in_shadow_mode_returns_hil() -> None:
 # ---------------------------------------------------------------------------
 # Blast-radius invariants
 # ---------------------------------------------------------------------------
+
+
+def _enforced_registry(action_type_name: str) -> ActionPromotionRegistry:
+    """Promote ``action_type_name`` to ENFORCE so shadow-mode is not the reason."""
+    registry = ActionPromotionRegistry()
+    at = _shipped_action_types()[action_type_name]
+    metrics = PromotionMetrics(
+        action_type=at.name,
+        shadow_days=at.promotion_gate.min_shadow_days,
+        samples=at.promotion_gate.min_samples,
+        accuracy=1.0,
+        policy_escapes=0,
+    )
+    registry.consider_promotion(action_type=at, metrics=metrics)
+    return registry
+
+
+@pytest.mark.parametrize(
+    ("scope", "fail_closed"),
+    [
+        (BlastRadiusScope.RESOURCE, False),
+        (BlastRadiusScope.RESOURCE_GROUP, True),
+        (BlastRadiusScope.SUBSCRIPTION, True),
+    ],
+)
+def test_unknown_count_fails_closed_by_scope(
+    scope: BlastRadiusScope, fail_closed: bool
+) -> None:
+    # A partial Action with count=None MUST NOT fail open to AUTO in
+    # enforce mode when the scope is broader than a single resource - the
+    # blast radius is then unbounded. A single-resource scope is
+    # inherently bounded and stays AUTO.
+    registry = _enforced_registry("remediate.disable-public-access")
+    gate = RiskGate(registry=registry)
+    at = _shipped_action_types()["remediate.disable-public-access"]
+    rule = _shipped_rules_by_id()["object-storage.public-access.deny"]
+    action = _action(
+        action_type="remediate.disable-public-access",
+        citing_rules=["object-storage.public-access.deny"],
+        count=None,
+        scope=scope,
+    )
+    decision = gate.evaluate(action=action, rule=rule, action_type=at, inventory_age_seconds=60)
+    if fail_closed:
+        assert decision.outcome is RiskDecisionOutcome.HIL
+        assert any("blast_radius_count_unknown_for_scope" in r for r in decision.reasons)
+    else:
+        assert decision.outcome is RiskDecisionOutcome.AUTO
+        assert not any("blast_radius" in r for r in decision.reasons)
 
 
 def test_blast_radius_over_count_cap_is_hil() -> None:

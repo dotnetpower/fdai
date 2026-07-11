@@ -50,6 +50,7 @@ from typing import Literal
 
 from fdai.shared.contracts.models import (
     Action,
+    BlastRadiusScope,
     Mode,
     OntologyActionType,
     Rule,
@@ -302,7 +303,19 @@ class RiskGate:
 
         # 2. Blast-radius caps.
         count = action.blast_radius.count
-        if count is not None and count > self._config.max_affected_resources:
+        if count is None:
+            # Unknown exact count (BlastRadius.count is Optional). The
+            # ActionBuilder always fills it, but a partial Action that
+            # slipped past pydantic (or a fork caller) MUST NOT fail open:
+            # a single-resource scope is inherently bounded, but a broader
+            # scope with an unknown count is not, so fail closed to HIL -
+            # the same defense-in-depth the stop_condition / citing_rules
+            # checks below apply.
+            if action.blast_radius.scope is not BlastRadiusScope.RESOURCE:
+                reasons.append(
+                    f"blast_radius_count_unknown_for_scope={action.blast_radius.scope.value}"
+                )
+        elif count > self._config.max_affected_resources:
             reasons.append(f"blast_radius_count={count}>max={self._config.max_affected_resources}")
         rpm = action.blast_radius.rate_per_minute
         if rpm is not None and rpm > self._config.max_rate_per_minute:
