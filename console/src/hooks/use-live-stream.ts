@@ -132,6 +132,13 @@ export function useLiveStream(options: UseLiveStreamOptions): UseLiveStreamResul
         const nextStatus: LiveConnectionStatus =
           es.readyState === EventSource.CLOSED ? "closed" : "connecting";
         setStatus(nextStatus);
+        // Populate lastError on close so the live view can render a real
+        // "connection lost" message instead of an empty span. Transient
+        // reconnect attempts leave an existing message untouched; onopen
+        // clears it on successful recovery.
+        if (es.readyState === EventSource.CLOSED) {
+          setLastError("connection to live stream closed");
+        }
         onStatusRef.current?.(nextStatus);
       };
     };
