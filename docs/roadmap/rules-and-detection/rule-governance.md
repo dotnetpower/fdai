@@ -122,6 +122,14 @@ assignment's top-level `effect` is the default for rules without an override.
 > validator: it materializes the catalog at the base ref and the working tree and fails the build on
 > a rejected transition. The remaining follow-up is the T0 runtime that consumes a resolved
 > assignment.
+>
+> Note: the shipped catalog-as-code field shapes are a pragmatic subset and diverge from the
+> illustrative "YAML Shapes" section below - the loader keys on `schema_version` (not `kind` +
+> `version`), binds a rule-set through `rule_set` / `target_rule_ids` (not `target`), models scope
+> as `level` + `id` + `excludes` + a typed `selector` (not `scope://` include/exclude URIs), and
+> carries flat `parameters` (not per-rule `parameter_overrides`); `provenance` is not yet modelled.
+> Reconciling the two - enrich the schema toward the YAML-Shapes target, or revise the target down
+> to the shipped subset - is a pending governance-schema decision.
 
 ## Scope
 
