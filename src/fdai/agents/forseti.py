@@ -189,6 +189,9 @@ class Forseti(Agent):
             "advice": advice,
             "impacts": impacts or {},
         }
+        # Decision semantics: the judge decided to raise arbitration. Recorded
+        # independent of a bus (delivery is measured by the bus metrics, not
+        # here), so a bus-less unit still measures the decision.
         self.record_behavior("arbitration_requested")
         if self.bus is not None:
             await self.bus.publish("Forseti", "object.arbitration-request", request)
@@ -286,6 +289,9 @@ class Forseti(Agent):
         initiator: str,
         action_type: str,
     ) -> None:
+        # Decision semantics: the judge decided this is a privilege-escalation
+        # attempt. Recorded regardless of a bus so a bus-less unit measures
+        # the decision; delivery is the bus's concern (published / errors).
         self.record_behavior("security_event")
         if self.bus is None:
             return

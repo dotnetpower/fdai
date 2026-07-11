@@ -144,3 +144,32 @@ def test_behavior_surfaces_in_health() -> None:
     health = forseti.health()
     assert "behavior" in health
     assert health["behavior"].get("verdict:auto") == 1
+
+
+def test_record_behavior_lazy_inits_if_counter_missing() -> None:
+    """Observability must never raise: a subclass that skipped super().__init__
+    (a defect elsewhere) still records without an AttributeError."""
+    forseti = Forseti(bus=None)
+    del forseti._behavior  # simulate the missing counter  # noqa: SLF001
+    forseti.record_behavior("x")  # must not raise
+    assert forseti.behavior_snapshot()["x"] == 1
+
+
+def test_behavior_snapshot_robust_to_missing_counter() -> None:
+    forseti = Forseti(bus=None)
+    del forseti._behavior  # noqa: SLF001
+    assert forseti.behavior_snapshot() == {}
+
+
+def test_record_behavior_caps_key_space() -> None:
+    """A caller that mistakenly builds keys from unbounded data cannot explode
+    the counter: new keys past the cap fold into a bounded overflow sentinel."""
+    from fdai.agents._framework.base import _MAX_BEHAVIOR_KEYS
+
+    forseti = Forseti(bus=None)
+    for i in range(_MAX_BEHAVIOR_KEYS + 50):
+        forseti.record_behavior(f"dynamic:{i}")
+    snap = forseti.behavior_snapshot()
+    # Distinct keys bounded (the cap + the single overflow sentinel).
+    assert len(snap) <= _MAX_BEHAVIOR_KEYS + 1
+    assert snap["behavior:overflow"] >= 50

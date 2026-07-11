@@ -28,6 +28,13 @@ if TYPE_CHECKING:
 
 _LOG = logging.getLogger(__name__)
 
+# Distinct-key cap on the measurable-behavior counter. The vocabulary is a
+# fixed set of colon-namespaced keys, so this is a generous ceiling; its job
+# is to contain a misuse (a key built from unbounded data) rather than bound
+# normal use. New keys past the cap fold into a single overflow sentinel.
+_MAX_BEHAVIOR_KEYS = 512
+_BEHAVIOR_OVERFLOW_KEY = "behavior:overflow"
+
 
 class Layer(StrEnum):
     """Pantheon layers - see `agent-pantheon.md` \u00a74.
@@ -126,16 +133,42 @@ class Agent:
         ``candidate:threshold_adjustment``) so a scenario harness or the KPI
         collector reads a consistent vocabulary. Recording is best-effort
         observability - it MUST NOT change a decision.
+
+        **Decision semantics.** A counter measures what the agent *decided*
+        (a verdict issued, an alert raised), recorded independent of whether
+        a downstream publish then succeeds. Delivery is a separate concern
+        measured by the bus metrics (``published`` / ``publish_errors``), so
+        the two never skew each other and a bus-less unit still measures the
+        decision.
+
+        Robust by construction:
+
+        - lazy-inits the counter, so it works even if a subclass skipped
+          ``super().__init__`` (a defect elsewhere must not make observability
+          raise);
+        - caps the distinct-key space at :data:`_MAX_BEHAVIOR_KEYS`. The
+          vocabulary is meant to be fixed, but a caller that mistakenly builds
+          a key from unbounded data (a resource id) would otherwise explode
+          the counter's key space. Past the cap, a new key is folded into a
+          bounded ``behavior:overflow`` sentinel instead of being added.
         """
-        self._behavior[key] += count
+        counter = getattr(self, "_behavior", None)
+        if counter is None:
+            counter = Counter()
+            self._behavior = counter
+        if key not in counter and len(counter) >= _MAX_BEHAVIOR_KEYS:
+            counter[_BEHAVIOR_OVERFLOW_KEY] += count
+            return
+        counter[key] += count
 
     def behavior_snapshot(self) -> dict[str, int]:
         """Return a copy of the measurable-behavior counters.
 
         The single seam a scenario test reads to measure what an agent did.
-        A copy, so a caller cannot mutate the agent's live counters.
+        A copy, so a caller cannot mutate the agent's live counters. Robust to
+        a missing counter (returns an empty dict rather than raising).
         """
-        return dict(self._behavior)
+        return dict(getattr(self, "_behavior", Counter()))
 
     def bind_bus(self, bus: PantheonBus) -> None:
         """Bind the typed pub/sub port.
