@@ -34,6 +34,26 @@ AlerterHook = Callable[[dict[str, Any]], Awaitable[None]]
 #: alert suppressed. The window makes the limit actually recover.
 _ALERT_WINDOW_SECONDS = 3600.0
 
+#: Cap on distinct keys retained in Heimdall's per-key maps (watched
+#: resources, per-(initiator, action) counters, per-initiator alert budgets).
+#: Each is keyed by an unbounded identifier (resource id / principal), so
+#: without a cap a long-lived observer leaks one entry per identifier ever
+#: seen. Oldest-first eviction bounds memory; an evicted resource simply
+#: restarts its rate window on its next event.
+_MAX_TRACKED_KEYS = 10_000
+
+
+def _evict_oldest(mapping: dict[Any, Any], cap: int, *, keep: Any = None) -> None:
+    """Bound ``mapping`` to ``cap`` entries, dropping oldest-first (insertion
+    order), never evicting ``keep`` (the entry just written)."""
+    while len(mapping) > cap:
+        for key in mapping:
+            if key != keep:
+                del mapping[key]
+                break
+        else:  # only `keep` remains - nothing more to drop
+            break
+
 
 class Heimdall(Agent):
     """Wave-3 anomaly detection + Wave 6 security correlator."""
@@ -87,6 +107,7 @@ class Heimdall(Agent):
         history = self._recent_events.setdefault(
             resource_id, deque(maxlen=self._rate_threshold * 2)
         )
+        _evict_oldest(self._recent_events, _MAX_TRACKED_KEYS, keep=resource_id)
         history.append(str(event.get("event_type", "generic")))
         if len(history) < self._rate_threshold:
             return
@@ -133,6 +154,7 @@ class Heimdall(Agent):
         if distinct_actions >= 3:
             severity = "critical"
         self._alert_counters[(initiator, action)] += 1
+        _evict_oldest(self._alert_counters, _MAX_TRACKED_KEYS, keep=(initiator, action))
         return severity
 
     def _reserve_alert_slot(self, initiator: str) -> bool:
@@ -151,8 +173,10 @@ class Heimdall(Agent):
             start, count = now, 0
         if count >= self._alert_rate_per_hour:
             self._alert_windows[initiator] = (start, count)
+            _evict_oldest(self._alert_windows, _MAX_TRACKED_KEYS, keep=initiator)
             return False
         self._alert_windows[initiator] = (start, count + 1)
+        _evict_oldest(self._alert_windows, _MAX_TRACKED_KEYS, keep=initiator)
         return True
 
     async def _maybe_send_admin_card(self, event: dict[str, Any], severity: str) -> None:

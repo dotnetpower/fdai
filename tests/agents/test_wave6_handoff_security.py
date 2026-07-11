@@ -115,6 +115,17 @@ def test_security_rate_limit_stops_further_cards() -> None:
     assert len(attacker_cards) <= 2
 
 
+def test_heimdall_recent_events_keyspace_is_bounded() -> None:
+    # A long-lived observer sees one entry per distinct resource id; without a
+    # cap the per-resource map leaks one entry per resource ever seen.
+    from fdai.agents.heimdall import _MAX_TRACKED_KEYS
+
+    h = Heimdall()
+    for i in range(_MAX_TRACKED_KEYS + 50):
+        asyncio.run(h.on_typed_message("object.event", {"resource_id": f"r{i}", "event_type": "x"}))
+    assert len(h._recent_events) == _MAX_TRACKED_KEYS  # noqa: SLF001
+
+
 def test_security_rate_limit_recovers_after_window() -> None:
     # Regression: the per-hour alert budget must RECOVER when the window rolls
     # over. A monotonic counter with no window would silence the initiator

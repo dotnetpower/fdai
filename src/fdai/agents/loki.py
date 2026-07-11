@@ -11,6 +11,7 @@ is capped by :pyattr:`blast_radius_cap`.
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,6 +19,12 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult, capability_facts
 from fdai.agents._framework.pantheon import _LOKI
+
+#: Cap on the retained proposal log. Loki appends one entry per proposal for
+#: the process lifetime; the log is only read for recent-accepted diagnostics,
+#: so a bounded ring is sufficient and stops an unbounded leak on a
+#: long-running chaos scheduler.
+_MAX_PROPOSALS = 1_000
 
 
 @dataclass
@@ -42,7 +49,7 @@ class Loki(Agent):
         self.bus = bus
         self._cap = blast_radius_cap
         self._in_flight_targets: set[str] = set()
-        self.proposals: list[ChaosProposal] = []
+        self.proposals: deque[ChaosProposal] = deque(maxlen=_MAX_PROPOSALS)
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus

@@ -209,3 +209,17 @@ def test_loki_release_targets_frees_slots() -> None:
         loki.propose_experiment(experiment_id="e2", action_type="x", targets=("t2",))
     )
     assert third.accepted
+
+
+def test_loki_proposals_log_is_bounded() -> None:
+    # Loki appends one entry per proposal forever; the log is only read for
+    # recent diagnostics, so it must be a bounded ring rather than an
+    # unbounded list on a long-running scheduler.
+    from fdai.agents.loki import _MAX_PROPOSALS
+
+    loki = Loki(blast_radius_cap=1)
+    for i in range(_MAX_PROPOSALS + 50):
+        asyncio.run(
+            loki.propose_experiment(experiment_id=f"e{i}", action_type="x", targets=(f"t{i}",))
+        )
+    assert len(loki.proposals) == _MAX_PROPOSALS
