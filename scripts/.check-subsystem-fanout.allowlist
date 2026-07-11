@@ -1,0 +1,17 @@
+# check-subsystem-fanout.allowlist
+#
+# One path per line, '#' comments, blanks ignored. Each entry MUST be
+# preceded by a '#' justification comment on the immediately previous
+# non-blank line (H3 in issue #22).
+#
+# Composition-style files that legitimately compose many subsystems
+# belong here. Ordinary application code that imports 15+ sibling
+# subsystems is a smell - the fix is to extract stages behind a Protocol
+# (G-2), not to raise the fan-out ceiling.
+
+# orchestrator.py holds the main ControlLoop.process pipeline that wires
+# every stage (event_ingest, trust_router, tiers, quality_gate, risk_gate,
+# executor, hil_resume, audit, notifications, verticals, workflow, rca).
+# Splitting it into a Stage protocol + stages/ is G-2 phase 2 in tracker
+# #14. Until that lands, the fan-out is by design.
+src/fdai/core/control_loop/orchestrator.py
