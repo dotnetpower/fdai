@@ -156,6 +156,10 @@ class Agent:
         if counter is None:
             counter = Counter()
             self._behavior = counter
+        if count <= 0:
+            # A measurement counter never decreases; a non-positive count is a
+            # caller mistake, ignored (best-effort observability never raises).
+            return
         if key not in counter and len(counter) >= _MAX_BEHAVIOR_KEYS:
             counter[_BEHAVIOR_OVERFLOW_KEY] += count
             return

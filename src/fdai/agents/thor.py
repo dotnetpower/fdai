@@ -272,6 +272,11 @@ class Thor(Agent):
         self.record_behavior(f"dispatch:{risk_verdict}")
         if shadow_mode:
             self.record_behavior("dispatch:shadow")
+            # Distinguish a policy shadow (forced) from a degraded shadow (a
+            # hard dependency - Saga/Vidar - is down), so a scenario can see a
+            # safety-relevant degradation, not just "shadow".
+            if not (self._saga_available and self._vidar_available):
+                self.record_behavior("dispatch:degraded")
 
         if risk_verdict == "deny":
             run.transition(ActionRunState.DENY_DROPPED)

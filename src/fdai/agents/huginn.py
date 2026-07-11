@@ -57,6 +57,7 @@ class Huginn(Agent):
             "status": "ok",
             "dedup_size": len(self._seen_keys),
             "dedup_capacity": self._dedup_capacity,
+            "behavior": self.behavior_snapshot(),
         }
 
     async def ingest(self, raw: dict[str, Any]) -> dict[str, Any] | None:
@@ -72,6 +73,7 @@ class Huginn(Agent):
         key = key[:_MAX_FIELD_CHARS]
         if key in self._seen_keys:
             self._seen_keys.move_to_end(key)
+            self.record_behavior("deduped")
             return None
         self._seen_keys[key] = None
         if len(self._seen_keys) > self._dedup_capacity:
@@ -101,6 +103,10 @@ class Huginn(Agent):
                 if value is not None:
                     payload[passthrough] = _bound(value)
             payload["operator_initiated"] = raw.get("operator_initiated") is True
+        # Measurable behaviour: the sensing layer's ingest / dedup rates, so a
+        # scenario can see an ingress flood (the flooding concern one layer up
+        # from the judge). Recorded on the decision to emit, before publish.
+        self.record_behavior("ingested")
         if self.bus is not None:
             await self.bus.publish("Huginn", "object.event", payload)
         return payload
