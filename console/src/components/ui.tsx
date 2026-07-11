@@ -296,16 +296,42 @@ export interface ExternalLinkProps {
 }
 
 /**
+ * Reject anything that is not an absolute http(s) URL. ``href`` values on
+ * this component often originate on the read-API wire (rule provenance
+ * ``source_url``, generated PR links, etc.); a ``javascript:``, ``data:``,
+ * or ``vbscript:`` URI would execute on click (DOM-based XSS, OWASP A03).
+ * Same guarantee as :func:`safeHttpUrl` in the provision route. Exported
+ * for unit-testing the trust boundary.
+ */
+export function safeExternalHref(href: string): string | null {
+  if (!href) return null;
+  try {
+    const parsed = new URL(href);
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? parsed.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Anchor that always opens in a new tab. Carries ``rel="noopener
  * noreferrer"`` (no tab-nabbing, no referrer leak), a visible
  * open-in-new glyph, and a screen-reader-only "(opens in a new tab)"
- * suffix so the behaviour is announced, not just implied.
+ * suffix so the behaviour is announced, not just implied. An unsafe
+ * ``href`` (any non-http(s) scheme) degrades to plain text so a bad
+ * value cannot execute on click.
  */
 export function ExternalLink({ href, children }: ExternalLinkProps) {
+  const safe = safeExternalHref(href);
+  if (safe === null) {
+    return <span class="ext-link ext-link--unsafe">{children}</span>;
+  }
   return (
     <a
       class="ext-link"
-      href={href}
+      href={safe}
       target="_blank"
       rel="noopener noreferrer"
       title="Opens in a new tab"
