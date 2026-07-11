@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 0d7e6892276908329141d78c738b2bb34ccde06e
+translation_source_sha: 088bc3c518b05c64e3fb5a58b5b9ad1a075ea2cf
 translation_revised: 2026-07-11
 ---
 
@@ -74,7 +74,7 @@ fdai/
 │   │   ├── notifications/      # 채널별 sender (email HTTP, HIL sink) - `shared/providers` seam 이 배선
 │   │   ├── persistence/        # `shared/providers` 상태 seam 의 Postgres / pgvector 구체 구현
 │   │   ├── azure/              # Azure 전용 SDK 어댑터 (`azure-*` import 이 허용된 유일한 트리)
-│   │   ├── read_api/           # 얇은 GET-only ASGI (`/audit`, `/kpi`, `/hil-queue`, `/healthz`, live 컨트롤 루프, ontology 그래프, promotion-gate, ...) + opt-in SSE fan-out (`live_stream.py` 의 `/live/stream`, `provision_stream.py` 의 `/provision/stream`)
+│   │   ├── read_api/           # 얇은 GET-only ASGI - `main.py` 는 routes/ + streaming/ 서브패키지를 조립 (G-5, 트래커 #14). `routes/` 는 HTTP surface 당 한 모듈 (audit, kpi, hil, rule-catalog, ontology-graph, panels, promotion-gates, reporting, workflow-authoring, console-action, what-if, blast-radius, bitemporal, llm-cost, measurement-summary, pantheon, demo-findings, rule-fire-trace); `streaming/` 은 세 개의 SSE fan-out (live_stream, live_control_loop, provision_stream); `dev/` 는 `local.py` (구 `_local.py`) 로 dev 전용이며 프로덕션 컨테이너 이미지에서 제외; `auth.py` / `entra_verifier.py` / `read_model.py` 는 공유 인프라로 최상위 유지
 │   │   └── provisioning/       # surface-A Genesis 부트스트랩: 순수 `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O 주입, subprocess 없음)
 │   ├── rule_catalog/          # rule-catalog 파이프라인 코드
 │   │   ├── schema/             # 룰 + 온톨로지 (ObjectType / LinkType / ActionType) 스키마 + 검증

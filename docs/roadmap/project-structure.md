@@ -69,7 +69,7 @@ fdai/
 │   │   ├── notifications/      # per-channel senders (email HTTP, HIL sink) wired by `shared/providers` seams
 │   │   ├── persistence/        # Postgres / pgvector concrete implementations of `shared/providers` state seams
 │   │   ├── azure/              # Azure-specific SDK adapters (the only tree allowed to import `azure-*`)
-│   │   ├── read_api/           # thin GET-only ASGI (`/audit`, `/kpi`, `/hil-queue`, `/healthz`, live control-loop, ontology graph, promotion-gates, ...) + opt-in SSE fan-out (`/live/stream` via `live_stream.py`, `/provision/stream` via `provision_stream.py`)
+│   │   ├── read_api/           # thin GET-only ASGI - `main.py` composes the routes/ + streaming/ subpackages (G-5, tracker #14). `routes/` holds one module per HTTP surface (audit, kpi, hil, rule-catalog, ontology-graph, panels, promotion-gates, reporting, workflow-authoring, console-action, what-if, blast-radius, bitemporal, llm-cost, measurement-summary, pantheon, demo-findings, rule-fire-trace); `streaming/` holds the three SSE fan-outs (live_stream, live_control_loop, provision_stream); `dev/` holds `local.py` (was `_local.py`) - dev-only, dropped from production container images; `auth.py` / `entra_verifier.py` / `read_model.py` stay at the top level as shared infrastructure
 │   │   └── provisioning/       # surface-A Genesis bootstrap: pure `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O injected, no subprocess)
 │   ├── rule_catalog/          # rule-catalog PIPELINE code
 │   │   ├── schema/             # rule + ontology (ObjectType / LinkType / ActionType) schemas + validation
