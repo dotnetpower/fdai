@@ -8,6 +8,7 @@ machine and the RuleCandidate intake.
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,6 +21,13 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _MIMIR
+
+#: Cap on retained rejected-candidate records. Quarantine holds candidates the
+#: CandidateGuard REJECTED - i.e. attacker-controlled volume under a
+#: candidate-poisoning attempt. An unbounded list would be a memory-exhaustion
+#: DoS vector: a poisoning flood grows it without limit. The durable audit
+#: trail is Saga's chain; this in-memory list is a bounded diagnostic ring.
+_MAX_QUARANTINE = 5_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,7 +45,7 @@ class Mimir(Agent):
         super().__init__(spec=_MIMIR)
         self._promotions: dict[str, RulePromotion] = {}
         self._pending_candidates: list[dict[str, Any]] = []
-        self._quarantined_candidates: list[dict[str, Any]] = []
+        self._quarantined_candidates: deque[dict[str, Any]] = deque(maxlen=_MAX_QUARANTINE)
         self._guard = CandidateGuard()
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:

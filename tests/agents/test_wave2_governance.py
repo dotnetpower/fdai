@@ -306,6 +306,24 @@ def test_mimir_quarantines_missing_provenance() -> None:
     )
 
 
+def test_mimir_quarantine_is_bounded_against_poisoning_flood() -> None:
+    # Quarantine holds REJECTED candidates - attacker-controlled volume under a
+    # poisoning attempt. It must be a bounded ring so a flood cannot exhaust
+    # memory (DoS), while keeping the most recent rejects for diagnostics.
+    from fdai.agents.mimir import _MAX_QUARANTINE
+
+    mimir = Mimir()
+    for i in range(_MAX_QUARANTINE + 50):
+        asyncio.run(
+            mimir.on_typed_message(
+                "object.rule-candidate",
+                # No provenance -> guard rejects -> quarantined.
+                {"target_rule_id": f"r{i}", "proposal_kind": "new", "evidence": {"x": 1}},
+            )
+        )
+    assert len(mimir.quarantined_candidates()) == _MAX_QUARANTINE
+
+
 def test_mimir_revoke_flips_state_to_retired() -> None:
     mimir = Mimir()
     mimir.promote("r1", source="manual")
