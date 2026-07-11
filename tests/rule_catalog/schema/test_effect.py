@@ -10,7 +10,9 @@ from fdai.rule_catalog.schema.effect import (
     Enforcement,
     default_effect,
     default_enforcement,
+    is_enforce_activation,
     is_enforce_promotion,
+    is_enforce_tier,
     strictest_effect,
     validate_effect_transition,
 )
@@ -82,3 +84,19 @@ def test_disallowed_transitions_rejected() -> None:
     # cannot go disabled -> remediate directly
     with pytest.raises(EffectTransitionError, match="not allowed"):
         validate_effect_transition(from_effect=Effect.DISABLED, to_effect=Effect.REMEDIATE)
+
+
+def test_is_enforce_tier() -> None:
+    assert is_enforce_tier(Effect.DENY)
+    assert is_enforce_tier(Effect.REMEDIATE)
+    assert not is_enforce_tier(Effect.AUDIT)
+    assert not is_enforce_tier(Effect.DISABLED)
+
+
+def test_is_enforce_activation() -> None:
+    assert is_enforce_activation(Enforcement.DO_NOT_ENFORCE, Enforcement.ENFORCE)
+    # not an activation the other way, or when already enforcing / staying shadow
+    assert not is_enforce_activation(Enforcement.ENFORCE, Enforcement.DO_NOT_ENFORCE)
+    assert not is_enforce_activation(Enforcement.ENFORCE, Enforcement.ENFORCE)
+    assert not is_enforce_activation(Enforcement.DO_NOT_ENFORCE, Enforcement.DO_NOT_ENFORCE)
+

@@ -17,10 +17,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from fdai.rule_catalog.schema.assignment import Assignment
 from fdai.rule_catalog.schema.effect import (
     Effect,
     EffectTransitionError,
     default_effect,
+    default_enforcement,
+    is_enforce_activation,
+    is_enforce_tier,
     validate_effect_transition,
 )
 from fdai.rule_catalog.schema.governance_catalog import GovernanceCatalog
@@ -55,6 +59,38 @@ def _check(
         )
 
 
+def _check_enforcement(
+    issues: list[TransitionIssue],
+    curr: Assignment,
+    prev: Assignment | None,
+    approved: bool,
+) -> None:
+    """Gate the enforcement ``do-not-enforce`` -> ``enforce`` activation.
+
+    Only an assignment that actually carries an enforce-tier effect can go live;
+    activating enforcement on such an assignment without the promotion approval
+    is the two-step ``deny(shadow) -> deny(enforce)`` bypass. An ``audit`` /
+    ``disabled`` assignment never acts, so activating its (inert) enforcement
+    flag is not gated.
+    """
+    from_enf = prev.enforcement if prev is not None else default_enforcement()
+    if not is_enforce_activation(from_enf, curr.enforcement):
+        return
+    if not any(is_enforce_tier(curr.effect_for(r)) for r in curr.target_rule_ids):
+        return
+    if not approved:
+        issues.append(
+            TransitionIssue(
+                assignment_id=curr.id,
+                rule_id="*",
+                message=(
+                    "enforcement 'do-not-enforce' -> 'enforce' takes an enforce-tier effect "
+                    "live and requires the separate enforce-promotion approval"
+                ),
+            )
+        )
+
+
 def validate_catalog_transition(
     *,
     previous: GovernanceCatalog,
@@ -84,6 +120,7 @@ def validate_catalog_transition(
             else:
                 old_effect = default_effect()
             _check(issues, curr.id, rule_id, old_effect, new_effect, approved)
+        _check_enforcement(issues, curr, prev, approved)
     return issues
 
 

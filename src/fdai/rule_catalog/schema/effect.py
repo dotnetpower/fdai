@@ -106,6 +106,20 @@ def is_enforce_promotion(from_effect: Effect, to_effect: Effect) -> bool:
     return from_effect is Effect.AUDIT and to_effect in _ENFORCE_EFFECTS
 
 
+def is_enforce_tier(effect: Effect) -> bool:
+    """True when ``effect`` actually gates / mutates (``deny`` / ``remediate``),
+    as opposed to the inert ``audit`` / ``disabled`` states."""
+    return effect in _ENFORCE_EFFECTS
+
+
+def is_enforce_activation(from_enforcement: Enforcement, to_enforcement: Enforcement) -> bool:
+    """True when the enforcement flag flips ``do-not-enforce`` -> ``enforce`` -
+    the go-live moment that takes an enforce-tier effect out of shadow. Gated by
+    the same enforce-promotion approval as raising the effect, so a two-step
+    ``deny(shadow) -> deny(enforce)`` cannot reach production without review."""
+    return from_enforcement is Enforcement.DO_NOT_ENFORCE and to_enforcement is Enforcement.ENFORCE
+
+
 def validate_effect_transition(
     *,
     from_effect: Effect,
@@ -140,7 +154,9 @@ __all__ = [
     "Enforcement",
     "default_effect",
     "default_enforcement",
+    "is_enforce_activation",
     "is_enforce_promotion",
+    "is_enforce_tier",
     "strictest_effect",
     "validate_effect_transition",
 ]

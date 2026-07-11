@@ -117,11 +117,13 @@ assignment's top-level `effect` is the default for rules without an override.
 > compares a previous and current `GovernanceCatalog` and rejects any per-rule effective-effect
 > transition outside the allowed table - a new assignment/rule is validated from the mandated
 > `audit` default, and raising to an enforce effect (`deny` / `remediate`) needs the assignment id
-> in `promotions_approved`. A thin `git`-diff CI script
+> in `promotions_approved`. The **enforcement** `do-not-enforce` -> `enforce` activation - the go-live
+> flip that takes an enforce-tier effect out of shadow - needs the same approval, so a two-step
+> `deny(shadow)` then `deny(enforce)` cannot reach production unreviewed. A thin `git`-diff CI script
 > ([`check-governance-transitions.py`](../../../scripts/check-governance-transitions.py)) wraps the
 > validator: it materializes the catalog at the base ref and the working tree and fails the build on
-> a rejected transition. The gate governs **effect** transitions only; it does not flag a scope /
-> blast-radius **widening** (a lower-specificity scope can be offset by a tighter `selector`, so a
+> a rejected transition. The gate governs **effect + enforcement** transitions; it does not flag a
+> scope / blast-radius **widening** (a lower-specificity scope can be offset by a tighter `selector`, so a
 > sound widening check needs coverage analysis, not a specificity heuristic) - that is a separate
 > future check. The remaining follow-up is the T0 runtime that consumes a resolved assignment.
 >

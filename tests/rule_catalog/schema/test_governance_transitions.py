@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fdai.rule_catalog.schema.assignment import Assignment
-from fdai.rule_catalog.schema.effect import Effect
+from fdai.rule_catalog.schema.effect import Effect, Enforcement
 from fdai.rule_catalog.schema.governance_catalog import GovernanceCatalog
 from fdai.rule_catalog.schema.governance_transitions import validate_catalog_transition
 from fdai.rule_catalog.schema.scope import Scope, ScopeLevel
@@ -12,7 +12,12 @@ _SCOPE = Scope(level=ScopeLevel.RESOURCE_GROUP, id="rg-a")
 
 
 def _assign(
-    id_: str, effect: Effect, *, rules: set[str] | None = None, overrides=None
+    id_: str,
+    effect: Effect,
+    *,
+    rules: set[str] | None = None,
+    overrides=None,
+    enforcement: Enforcement = Enforcement.DO_NOT_ENFORCE,
 ) -> Assignment:
     return Assignment(
         id=id_,
@@ -20,6 +25,7 @@ def _assign(
         scope=_SCOPE,
         effect=effect,
         effect_overrides=overrides or {},
+        enforcement=enforcement,
     )
 
 
@@ -98,3 +104,51 @@ def test_per_rule_override_promotion_flagged() -> None:
         )
         == []
     )
+
+
+# ---- enforcement activation gate ------------------------------------------
+
+_ENF = Enforcement.ENFORCE
+_DNE = Enforcement.DO_NOT_ENFORCE
+
+
+def test_enforcement_activation_on_deny_needs_promotion() -> None:
+    # deny(shadow) -> deny(enforce): the go-live flip must be approved
+    prev = _cat(_assign("a1", Effect.DENY, enforcement=_DNE))
+    curr = _cat(_assign("a1", Effect.DENY, enforcement=_ENF))
+    issues = validate_catalog_transition(previous=prev, current=curr)
+    assert len(issues) == 1
+    assert issues[0].rule_id == "*"
+    assert "enforce" in issues[0].message
+    ok = validate_catalog_transition(
+        previous=prev, current=curr, promotions_approved=frozenset({"a1"})
+    )
+    assert ok == []
+
+
+def test_enforcement_activation_on_audit_is_inert() -> None:
+    # audit never acts, so flipping its enforcement flag is not gated
+    prev = _cat(_assign("a1", Effect.AUDIT, enforcement=_DNE))
+    curr = _cat(_assign("a1", Effect.AUDIT, enforcement=_ENF))
+    assert validate_catalog_transition(previous=prev, current=curr) == []
+
+
+def test_new_assignment_born_enforcing_needs_promotion() -> None:
+    # a brand-new deny + enforce assignment activates from the shadow default
+    curr = _cat(_assign("a1", Effect.DENY, enforcement=_ENF))
+    issues = validate_catalog_transition(previous=_cat(), current=curr)
+    # both the effect raise (audit->deny) and the enforcement activation flag
+    assert any(i.rule_id == "*" for i in issues)
+    assert (
+        validate_catalog_transition(
+            previous=_cat(), current=curr, promotions_approved=frozenset({"a1"})
+        )
+        == []
+    )
+
+
+def test_enforcement_staying_enforce_is_clean() -> None:
+    # already enforcing (approved earlier) - no re-approval on an unrelated edit
+    prev = _cat(_assign("a1", Effect.DENY, enforcement=_ENF))
+    curr = _cat(_assign("a1", Effect.DENY, enforcement=_ENF))
+    assert validate_catalog_transition(previous=prev, current=curr) == []
