@@ -111,7 +111,10 @@ fi
 # ---------------------------------------------------------------------------
 for gate in check-agents-imports check-file-loc check-subsystem-fanout; do
   if [ -x "scripts/${gate}.sh" ] || [ -f "scripts/${gate}.sh" ]; then
-    if ! bash "scripts/${gate}.sh" > /tmp/pre-push-${gate}.out 2>&1; then
+    # Pre-push runs in warn-only mode for the two threshold gates (H2/H5
+    # give them their loud voices in CI); suppress per-file lines with
+    # CHECK_QUIET so a routine push does not flood the terminal.
+    if ! CHECK_QUIET=1 bash "scripts/${gate}.sh" > /tmp/pre-push-${gate}.out 2>&1; then
       echo "pre-push: BLOCKED - ${gate} failed:"
       sed 's/^/  /' /tmp/pre-push-${gate}.out
       exit 1

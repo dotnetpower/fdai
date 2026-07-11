@@ -46,6 +46,7 @@ cd "$repo_root"
 warn_thresh="${SUBSYSTEM_FANOUT_WARN:-8}"
 fail_thresh="${SUBSYSTEM_FANOUT_FAIL:-15}"
 mode="${SUBSYSTEM_FANOUT_MODE:-warn}"
+quiet="${CHECK_QUIET:-0}"
 
 if ! [[ "$warn_thresh" =~ ^[0-9]+$ && "$fail_thresh" =~ ^[0-9]+$ ]]; then
   echo "check-subsystem-fanout: SUBSYSTEM_FANOUT_WARN/SUBSYSTEM_FANOUT_FAIL must be integers" >&2
@@ -166,15 +167,19 @@ for path in "${files[@]}"; do
   if (( count >= fail_thresh )); then
     printf '::warning file=%s,line=1::check-subsystem-fanout: %d sibling subsystems (>= fail %d)\n' \
       "$path" "$count" "$fail_thresh"
-    printf 'check-subsystem-fanout: FAIL  %3d subs  %s (>= %d)\n' \
-      "$count" "$path" "$fail_thresh"
-    printf '%s\n' "$subs" | sed 's/^/                                  - /'
+    if [[ "$quiet" != "1" ]]; then
+      printf 'check-subsystem-fanout: FAIL  %3d subs  %s (>= %d)\n' \
+        "$count" "$path" "$fail_thresh"
+      printf '%s\n' "$subs" | sed 's/^/                                  - /'
+    fi
     failed=$((failed + 1))
   elif (( count >= warn_thresh )); then
     printf '::notice file=%s,line=1::check-subsystem-fanout: %d sibling subsystems (>= warn %d)\n' \
       "$path" "$count" "$warn_thresh"
-    printf 'check-subsystem-fanout: warn  %3d subs  %s (>= %d)\n' \
-      "$count" "$path" "$warn_thresh"
+    if [[ "$quiet" != "1" ]]; then
+      printf 'check-subsystem-fanout: warn  %3d subs  %s (>= %d)\n' \
+        "$count" "$path" "$warn_thresh"
+    fi
     warned=$((warned + 1))
   fi
 done

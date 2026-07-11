@@ -60,6 +60,7 @@ def _run(
         "SUBSYSTEM_FANOUT_MODE",
         "SUBSYSTEM_FANOUT_WARN",
         "SUBSYSTEM_FANOUT_FAIL",
+        "CHECK_QUIET",
     ):
         env.pop(key, None)
     env.update(env_extra)
@@ -236,6 +237,21 @@ class TestCheckFileLoc:
         result = _run(repo, repo / "scripts" / "check-file-loc.sh")
         assert result.returncode == 0
         assert "stale allowlist entry" in result.stdout
+
+    def test_quiet_mode_suppresses_per_file_lines(self, tmp_path: Path) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        for i in range(5):
+            _seed_python_file(repo, f"src/fdai/m{i}.py", 500)
+        result = _run(
+            repo, repo / "scripts" / "check-file-loc.sh", CHECK_QUIET="1"
+        )
+        assert result.returncode == 0
+        assert "warned=5" in result.stdout
+        # Per-file lines should not be present.
+        assert "check-file-loc: warn " not in result.stdout
+        # GitHub annotations still emitted (CI needs them).
+        assert "::notice file=" in result.stdout
 
     def test_pycache_is_excluded(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)

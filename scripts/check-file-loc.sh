@@ -41,6 +41,7 @@ cd "$repo_root"
 warn_thresh="${FILE_LOC_WARN:-400}"
 fail_thresh="${FILE_LOC_FAIL:-800}"
 mode="${FILE_LOC_MODE:-warn}"
+quiet="${CHECK_QUIET:-0}"
 
 if ! [[ "$warn_thresh" =~ ^[0-9]+$ && "$fail_thresh" =~ ^[0-9]+$ ]]; then
   echo "check-file-loc: FILE_LOC_WARN/FILE_LOC_FAIL must be integers" >&2
@@ -146,14 +147,18 @@ for path in "${files[@]}"; do
     # GitHub Actions annotation so PR Files tab highlights the file.
     printf '::warning file=%s,line=1::check-file-loc: %d LOC exceeds fail threshold %d\n' \
       "$path" "$loc" "$fail_thresh"
-    printf 'check-file-loc: FAIL  %5d LOC  %s (> %d)\n' \
-      "$loc" "$path" "$fail_thresh"
+    if [[ "$quiet" != "1" ]]; then
+      printf 'check-file-loc: FAIL  %5d LOC  %s (> %d)\n' \
+        "$loc" "$path" "$fail_thresh"
+    fi
     failed=$((failed + 1))
   elif (( loc > warn_thresh )); then
     printf '::notice file=%s,line=1::check-file-loc: %d LOC exceeds warn threshold %d\n' \
       "$path" "$loc" "$warn_thresh"
-    printf 'check-file-loc: warn  %5d LOC  %s (> %d)\n' \
-      "$loc" "$path" "$warn_thresh"
+    if [[ "$quiet" != "1" ]]; then
+      printf 'check-file-loc: warn  %5d LOC  %s (> %d)\n' \
+        "$loc" "$path" "$warn_thresh"
+    fi
     warned=$((warned + 1))
   fi
 done
