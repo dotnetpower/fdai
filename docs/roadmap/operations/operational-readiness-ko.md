@@ -1,7 +1,7 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: cb02821a30de76be5e131532b9949c64bcca67c1
+translation_source_sha: 18b926a31984f93d6bae141743667a43218c312d
 translation_revised: 2026-07-11
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
@@ -180,6 +180,18 @@ coordinator 와 하나의 정규화된 signal 을 추가합니다.
 coordinator 는 다른 모든 core 서브시스템처럼 `shared/` 계약과 provider 만
 import 합니다([project-structure.md](../architecture/project-structure-ko.md#module-boundaries)).
 클라우드 SDK 도, 특권 아이덴티티도 보유하지 않습니다.
+
+### 구현 상태
+
+조합 코어는 [`core/readiness/`](../../../src/fdai/core/readiness) 에 ship 됨:
+`OwnershipTransfer` 신호, generic `ReadinessReport` / `HandoffVerdict` /
+`ReadinessFinding` shape, 그리고 posture finding 과 preflight finding 을 하나의
+verdict 로 fold 하고 environment 게이트(`prod` 타깃은 `critical` finding 을
+blocking 으로 강제)를 적용하며 `blocks_handoff` 를 설정하는 순수
+`compose_readiness_report` coordinator (shadow-first: enforce 모드로 실행됐을
+때만 `true`). `shared/` 타입만 import 함. 트리거를 `event-ingest` 로 배선하고,
+신호에 대해 두 서브시스템을 실행하며, delivery intent (Checks annotation /
+콘솔 `ReadPanel`) 는 후속 작업.
 
 ## 안전 posture
 

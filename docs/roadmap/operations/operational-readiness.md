@@ -177,6 +177,19 @@ The coordinator imports only `shared/` contracts and providers, like every other
 core subsystem ([project-structure.md](../architecture/project-structure.md#module-boundaries)).
 It holds no cloud SDK and no privileged identity.
 
+### Implementation status
+
+The composition core ships in
+[`core/readiness/`](../../../src/fdai/core/readiness): the `OwnershipTransfer`
+signal, the generic `ReadinessReport` / `HandoffVerdict` / `ReadinessFinding`
+shape, and the pure `compose_readiness_report` coordinator that folds the posture
+findings and the preflight findings into one verdict, applies the environment
+gate (a `prod` target forces a `critical` finding to blocking), and sets
+`blocks_handoff` (shadow-first: `false` unless the pass ran in enforce mode). It
+imports only `shared/` types. Wiring the trigger into `event-ingest`, running the
+two subsystems on the signal, and the delivery intent (Checks annotation /
+console `ReadPanel`) are the follow-up.
+
 ## Safety posture
 
 - **Read-only review, gated execution**: the ORR and every finding are
