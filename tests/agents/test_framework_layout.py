@@ -189,3 +189,46 @@ def test_framework_init_docstring_pins_intent() -> None:
             f"agents/_framework/__init__.py docstring lost the anchor "
             f"'{anchor}' - the G-7 intent is drifting."
         )
+
+
+# ---------------------------------------------------------------------------
+# H10: no _framework file may shadow a pantheon member's name. A future
+# helper named 'thor.py' under _framework/ (however tempting - "Thor's
+# retry helper") would confuse maintainers into thinking there are two
+# Thors and would break the top-level-is-pantheon invariant if anyone
+# ever relocates it. Reserve those 15 names at the framework layer too.
+# ---------------------------------------------------------------------------
+
+
+def test_no_framework_file_shadows_a_pantheon_member() -> None:
+    framework_stems = {
+        p.stem
+        for p in _FRAMEWORK_DIR.glob("*.py")
+        if p.name != "__init__.py"
+    }
+    collisions = framework_stems & _PANTHEON_15
+    assert not collisions, (
+        f"agents/_framework/ contains file(s) that shadow a pantheon "
+        f"member name: {sorted(collisions)}. Pick a different name for "
+        "the helper (e.g. 'thor_retry.py' rather than 'thor.py') so a "
+        "future refactor cannot promote it to the top level and create "
+        "two agents with the same name."
+    )
+
+
+# ---------------------------------------------------------------------------
+# H11: private submodule is not exported from the facade. Exposing
+# fdai.agents._framework as a public name in __all__ would defeat the
+# "reach through the facade" rule; the wildcard import would then
+# leak internals into every 'from fdai.agents import *' consumer.
+# ---------------------------------------------------------------------------
+
+
+def test_framework_is_not_in_facade_all() -> None:
+    exported = set(agents_pkg.__all__)
+    assert "_framework" not in exported
+    # Sanity: no re-export of the module object itself.
+    assert not any(
+        name.startswith("_framework") for name in exported
+    )
+
