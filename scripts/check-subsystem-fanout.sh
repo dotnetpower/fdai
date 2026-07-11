@@ -47,6 +47,15 @@ warn_thresh="${SUBSYSTEM_FANOUT_WARN:-8}"
 fail_thresh="${SUBSYSTEM_FANOUT_FAIL:-15}"
 mode="${SUBSYSTEM_FANOUT_MODE:-warn}"
 
+if ! [[ "$warn_thresh" =~ ^[0-9]+$ && "$fail_thresh" =~ ^[0-9]+$ ]]; then
+  echo "check-subsystem-fanout: SUBSYSTEM_FANOUT_WARN/SUBSYSTEM_FANOUT_FAIL must be integers" >&2
+  exit 2
+fi
+if (( warn_thresh >= fail_thresh )); then
+  echo "check-subsystem-fanout: SUBSYSTEM_FANOUT_WARN ($warn_thresh) must be < SUBSYSTEM_FANOUT_FAIL ($fail_thresh)" >&2
+  exit 2
+fi
+
 allowlist_file="scripts/.check-subsystem-fanout.allowlist"
 declare -A allowlist=()
 if [[ -f "$allowlist_file" ]]; then

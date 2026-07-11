@@ -42,6 +42,15 @@ warn_thresh="${FILE_LOC_WARN:-400}"
 fail_thresh="${FILE_LOC_FAIL:-800}"
 mode="${FILE_LOC_MODE:-warn}"
 
+if ! [[ "$warn_thresh" =~ ^[0-9]+$ && "$fail_thresh" =~ ^[0-9]+$ ]]; then
+  echo "check-file-loc: FILE_LOC_WARN/FILE_LOC_FAIL must be integers" >&2
+  exit 2
+fi
+if (( warn_thresh >= fail_thresh )); then
+  echo "check-file-loc: FILE_LOC_WARN ($warn_thresh) must be < FILE_LOC_FAIL ($fail_thresh)" >&2
+  exit 2
+fi
+
 allowlist_file="scripts/.check-file-loc.allowlist"
 declare -A allowlist=()
 if [[ -f "$allowlist_file" ]]; then

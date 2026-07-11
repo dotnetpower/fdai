@@ -141,6 +141,29 @@ class TestCheckFileLoc:
         assert result.returncode == 1
         assert "failed=1" in result.stdout
 
+    def test_invalid_threshold_ordering_rejected(self, tmp_path: Path) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        result = _run(
+            repo,
+            repo / "scripts" / "check-file-loc.sh",
+            FILE_LOC_WARN="800",
+            FILE_LOC_FAIL="400",  # inverted
+        )
+        assert result.returncode == 2
+        assert "must be <" in result.stderr
+
+    def test_non_integer_threshold_rejected(self, tmp_path: Path) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        result = _run(
+            repo,
+            repo / "scripts" / "check-file-loc.sh",
+            FILE_LOC_WARN="lots",
+        )
+        assert result.returncode == 2
+        assert "must be integers" in result.stderr
+
     def test_allowlist_skips_files(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
