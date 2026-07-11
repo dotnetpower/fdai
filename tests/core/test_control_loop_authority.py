@@ -124,6 +124,27 @@ def test_build_shadow_authority_audit_degraded_caps_to_shadow(
     assert entry["decision"] in {"shadow", "deny"}
 
 
+def test_build_shadow_authority_audit_kill_switch_caps_to_shadow(
+    valid_event: dict[str, Any],
+    valid_action: dict[str, Any],
+    valid_rule: dict[str, Any],
+    valid_ontology_action_type: dict[str, Any],
+) -> None:
+    """B2 live path (control_loop threading): ``kill_switch_engaged=True`` reaches
+    the authority audit and adds the ``kill_switch`` axis, so the operator
+    emergency stop never records an enforce-mode decision."""
+    entry = build_shadow_authority_audit(
+        event=Event.model_validate(valid_event),
+        action=Action.model_validate(valid_action),
+        rule=Rule.model_validate(valid_rule),
+        action_type=OntologyActionType.model_validate(valid_ontology_action_type),
+        table=load_risk_table(TABLE_PATH),
+        kill_switch_engaged=True,
+    )
+    assert "kill_switch" in entry["resolved_ceiling"]["axes"]
+    assert entry["decision"] in {"shadow", "deny"}
+
+
 def test_build_unified_risk_audit_shape(
     valid_event: dict[str, Any],
     valid_action: dict[str, Any],

@@ -29,7 +29,7 @@
     "axes": {
       "type": "object",
       "additionalProperties": false,
-      "description": "One entry per axis. See execution-model.md 2.0-2.6. The optional system_health axis is present only when the control plane is DEGRADED (a tripped critical-dependency circuit); it caps autonomy to shadow (csp-neutrality.md 4).",
+      "description": "One entry per axis. See execution-model.md 2.0-2.6. The optional system_health axis is present only when the control plane is DEGRADED (a tripped critical-dependency circuit); the optional kill_switch axis is present only when the operator emergency stop is engaged. Both cap autonomy to shadow (csp-neutrality.md 4; security-and-identity.md).",
       "required": [
         "risk_table",
         "tier",
@@ -47,7 +47,8 @@
         "live_blast": {"$ref": "#/$defs/axisContribution"},
         "role": {"$ref": "#/$defs/axisContribution"},
         "env": {"$ref": "#/$defs/axisContribution"},
-        "system_health": {"$ref": "#/$defs/axisContribution"}
+        "system_health": {"$ref": "#/$defs/axisContribution"},
+        "kill_switch": {"$ref": "#/$defs/axisContribution"}
       }
     },
     "winning_axis": {
@@ -60,9 +61,10 @@
         "live_blast",
         "role",
         "env",
-        "system_health"
+        "system_health",
+        "kill_switch"
       ],
-      "description": "The axis whose level produced the final min(). The risk_table axis is authoritative when tied. system_health wins only when the control plane is DEGRADED."
+      "description": "The axis whose level produced the final min(). The risk_table axis is authoritative when tied. system_health wins only when the control plane is DEGRADED; kill_switch wins only when the operator emergency stop is engaged."
     },
     "final_level": {
       "type": "string",

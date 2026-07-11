@@ -111,7 +111,7 @@ from fdai.shared.providers.stage_publisher import (
     StagePublisher,
 )
 from fdai.shared.providers.state_store import StateStore
-from fdai.shared.resilience import DegradationController
+from fdai.shared.resilience import DegradationController, KillSwitch
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -273,6 +273,7 @@ class ControlLoop:
         resource_dependency_graph: Mapping[str, Iterable[str]] | None = None,
         workflow_coordinator: WorkflowTriggerCoordinator | None = None,
         degradation: DegradationController | None = None,
+        kill_switch: KillSwitch | None = None,
     ) -> None:
         self._event_ingest = event_ingest
         self._trust_router = trust_router
@@ -298,6 +299,11 @@ class ControlLoop:
         # shadow (csp-neutrality.md 4). None -> always healthy (no-op),
         # so an unwired loop behaves exactly as before.
         self._degradation = degradation
+        # Operator emergency-stop seam (B2). When wired and engaged, the
+        # global kill-switch caps every authority decision to shadow so all
+        # auto-execution halts (security-and-identity.md). None -> never
+        # engaged (no-op), so an unwired loop behaves exactly as before.
+        self._kill_switch = kill_switch
         # Optional Cost Governance vertical hook (Wave W2.5). Consulted
         # ONLY when the rule declares no static cost, so it never
         # overrides an authoritative rule figure; a None estimator
@@ -1446,6 +1452,7 @@ class ControlLoop:
         system_degraded = (
             self._degradation is not None and not self._degradation.autonomy_permitted()
         )
+        kill_switch_engaged = self._kill_switch is not None and self._kill_switch.is_engaged()
         if self._risk_gate is not None:
             unified = evaluate_unified(
                 event=event,
@@ -1456,6 +1463,7 @@ class ControlLoop:
                 risk_gate=self._risk_gate,
                 cost_override=cost_override,
                 system_degraded=system_degraded,
+                kill_switch_engaged=kill_switch_engaged,
             )
             entry = _unified_audit_dict(event=event, action=action, unified=unified)
             entry["recorded_at"] = datetime.now(tz=UTC).isoformat()
@@ -1469,6 +1477,7 @@ class ControlLoop:
             table=self._risk_table,
             cost_override=cost_override,
             system_degraded=system_degraded,
+            kill_switch_engaged=kill_switch_engaged,
         )
         entry["recorded_at"] = datetime.now(tz=UTC).isoformat()
         await self._audit_store.append_audit_entry(entry)

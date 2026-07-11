@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 18577395a27e3a9ab3f8bdcd5ce7ba81ac43edc9
+translation_source_sha: 2db71a91db8e3e06543fba0483380e8aa9ccc5fe
 translation_revised: 2026-07-11
 ---
 
@@ -216,14 +216,28 @@ substrate) 의 circuit breaker 가 trip 된 상태. autonomy 를 `shadow_only`
 시스템이 healthy 하면 axis 는 생략되고 결정은 byte-identical 한 six-axis
 결과와 동일함.
 
+### 2.6b Fail-safe axis - Kill-switch (operator emergency stop)
+
+여덟 번째 axis 인 `kill_switch` 는 **operator 가 global kill-switch 를
+engage 했을 때만** 존재함 - 모든 auto-execution 을 즉시 halt 하는 의도적
+비상 조치 (RBAC `TRIGGER_KILL_SWITCH`). `system_health` 처럼 autonomy 를
+`shadow_only` 로 cap 하므로 halt 중에는 어떤 action 도 mutate 하지 않음
+(HIL 로 human path 는 유지). 이 axis 는
+[`KillSwitch.is_engaged()`](../../../src/fdai/shared/resilience/kill_switch.py)
+가 `evaluate_execution_authority` 의 `kill_switch_engaged` 입력을 통해
+공급함; kill-switch 는 executor identity 없이 operable 함 (fork 가 그 상태를
+state store 에 backing) -
+[security-and-identity.md](../architecture/security-and-identity.md) 참고.
+disengage 상태면 axis 는 생략됨 (byte-identical 결과).
+
 ### 2.7 결합
 
 각 입력은 위 4 level 중 하나 반환; RiskGate 는 순서
 `enforce_auto > enforce_hil > shadow_only > deny` 에서 **minimum** 을
-취함 (six axis 와 optional `system_health` fail-safe axis 전체 대상). 어느
-입력 (risk-classification 표 포함) 의 `deny` 든 hard stop; executor 는
-절대 호출 안 됨. `enforce_hil` 에 동반되는 `quorum` 은 표 quorum 과
-axis-선언 quorum 의 최대값.
+취함 (six axis 와 optional `system_health`, `kill_switch` fail-safe axis
+전체 대상). 어느 입력 (risk-classification 표 포함) 의 `deny` 든 hard stop;
+executor 는 절대 호출 안 됨. `enforce_hil` 에 동반되는 `quorum` 은 표
+quorum 과 axis-선언 quorum 의 최대값.
 
 ### 2.8 비용-증가 ops 액션
 

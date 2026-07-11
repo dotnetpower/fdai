@@ -286,6 +286,23 @@ def _axis_h_system_health() -> AxisContribution:
     )
 
 
+def _axis_kill_switch() -> AxisContribution:
+    """Operator-triggered global emergency-halt axis (security-and-identity.md).
+
+    Emitted only when the global kill-switch is ENGAGED - a deliberate operator
+    action (RBAC ``TRIGGER_KILL_SWITCH``) that halts all auto-execution
+    immediately. Caps autonomy to shadow so no action mutates while the halt is
+    active; the ``min()`` combine floors the whole decision at shadow (a human
+    path stays open via HIL). See
+    :class:`~fdai.shared.resilience.kill_switch.KillSwitch`.
+    """
+    return AxisContribution(
+        "kill_switch",
+        AxisLevel.SHADOW_ONLY,
+        "kill_switch engaged: all auto-execution halted (operator emergency stop)",
+    )
+
+
 def resolve_ceiling(
     *,
     tier: Tier,
@@ -296,6 +313,7 @@ def resolve_ceiling(
     graph_affected: int | None = None,
     live_probe: ProbeResult | None = None,
     system_degraded: bool = False,
+    kill_switch_engaged: bool = False,
 ) -> ResolvedCeiling:
     """Combine the risk-classification table with the six ceiling axes.
 
@@ -308,6 +326,11 @@ def resolve_ceiling(
     is open, so a DEGRADED control plane can never emit an enforce-mode
     decision (csp-neutrality.md 4). The axis is appended ONLY when degraded,
     so the healthy path is byte-identical to the six-axis result.
+
+    ``kill_switch_engaged`` (default ``False``) adds the operator-triggered
+    ``kill_switch`` emergency-halt axis, also capped to shadow
+    (security-and-identity.md). Both fail-safe axes are appended only when
+    active, so the normal path stays byte-identical to the six-axis result.
     """
     axes: tuple[AxisContribution, ...] = (
         _axis_a_table(risk_table),
@@ -320,6 +343,8 @@ def resolve_ceiling(
     )
     if system_degraded:
         axes = (*axes, _axis_h_system_health())
+    if kill_switch_engaged:
+        axes = (*axes, _axis_kill_switch())
     winning = min(axes, key=lambda a: a.level)
     return ResolvedCeiling(
         tier=tier,

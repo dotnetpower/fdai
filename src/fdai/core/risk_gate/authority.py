@@ -102,6 +102,7 @@ def evaluate_execution_authority(
     graph_affected: int | None = None,
     live_probe: ProbeResult | None = None,
     system_degraded: bool = False,
+    kill_switch_engaged: bool = False,
 ) -> ExecutionAuthorityDecision:
     """Run the full pipeline and return one combined decision.
 
@@ -114,6 +115,11 @@ def evaluate_execution_authority(
     DEGRADED and autonomy is capped to shadow (a failing dependency MUST NOT
     drive an enforce-mode mutation - csp-neutrality.md 4). It is an explicit
     input so a replay reproduces the decision exactly.
+
+    ``kill_switch_engaged`` (default ``False``) is the operator emergency stop:
+    when engaged, autonomy is capped to shadow so all auto-execution halts
+    (security-and-identity.md). Like ``system_degraded`` it is an explicit
+    input, so a replay reproduces the decision.
     """
     feature = feature_vector_from(
         action_type,
@@ -135,6 +141,7 @@ def evaluate_execution_authority(
         graph_affected=graph_affected,
         live_probe=live_probe,
         system_degraded=system_degraded,
+        kill_switch_engaged=kill_switch_engaged,
     )
     return ExecutionAuthorityDecision(
         final_level=ceiling.final_level,

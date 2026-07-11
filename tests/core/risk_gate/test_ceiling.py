@@ -441,3 +441,47 @@ def test_healthy_default_omits_system_health_axis() -> None:
     )
     assert "system_health" not in healthy.as_audit_dict()["axes"]
     assert healthy.final_level == AxisLevel.ENFORCE_AUTO
+
+
+def test_kill_switch_engaged_caps_to_shadow_and_never_enforces() -> None:
+    """The operator emergency stop halts all auto-execution: with
+    ``kill_switch_engaged=True`` the ``kill_switch`` axis floors every
+    otherwise auto/HIL combination at shadow (or lower) over the
+    tier x table x env product (security-and-identity.md)."""
+    resource_blast = ActionBlastRadius(
+        computation=BlastRadiusComputation.STATIC_ENUM,
+        static_bucket=BlastRadiusScope.RESOURCE,
+    )
+    for tier, table, env in product(
+        [Tier.T0, Tier.T1, Tier.T2],
+        ["auto", "hil", "deny"],
+        ["prod", "non_prod"],
+    ):
+        rc = resolve_ceiling(
+            tier=tier,
+            action_type=_at(blast=resource_blast),
+            risk_table=RiskTableResult(level=table),
+            principal_role=CeilingRole.OWNER,
+            env=env,  # type: ignore[arg-type]
+            kill_switch_engaged=True,
+        )
+        assert rc.final_level <= AxisLevel.SHADOW_ONLY
+        assert "kill_switch" in rc.as_audit_dict()["axes"]
+
+
+def test_kill_switch_disengaged_omits_axis() -> None:
+    """Default (``kill_switch_engaged=False``) never adds the kill_switch axis;
+    an otherwise-auto action stays auto."""
+    resource_blast = ActionBlastRadius(
+        computation=BlastRadiusComputation.STATIC_ENUM,
+        static_bucket=BlastRadiusScope.RESOURCE,
+    )
+    rc = resolve_ceiling(
+        tier=Tier.T0,
+        action_type=_at(blast=resource_blast),
+        risk_table=RiskTableResult(level="auto"),
+        principal_role=CeilingRole.OWNER,
+        env="non_prod",
+    )
+    assert "kill_switch" not in rc.as_audit_dict()["axes"]
+    assert rc.final_level == AxisLevel.ENFORCE_AUTO

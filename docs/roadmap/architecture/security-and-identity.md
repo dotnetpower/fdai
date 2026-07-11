@@ -172,7 +172,11 @@ no-op".
   exceeding a cap degrades to HIL, never to ungated auto-action. This also bounds cost and a
   runaway or event-flood (DoS) condition.
 - A **global kill-switch** halts all auto-execution immediately and drops every path to
-  shadow/HIL; it is operable without the executor identity.
+  shadow/HIL; it is operable without the executor identity. The risk gate realizes this via a
+  `kill_switch` ceiling axis fed by `KillSwitch.is_engaged()`
+  ([execution-model.md](../decisioning/execution-model.md) 2.6b); upstream ships an in-memory
+  default and a fork backs the state in the state store so the switch is durable and
+  cluster-wide.
 - A **break-glass** procedure grants scoped emergency access under mandatory audit and
   post-incident review; break-glass use raises an alert and auto-expires.
 

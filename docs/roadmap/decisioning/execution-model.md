@@ -219,15 +219,29 @@ through the `system_degraded` input on `evaluate_execution_authority`; when
 the system is healthy the axis is omitted and the decision is the
 byte-identical six-axis result.
 
+### 2.6b Fail-safe axis - Kill-switch (operator emergency stop)
+
+An eighth axis, `kill_switch`, is present **only when the operator has
+engaged the global kill-switch** - a deliberate emergency action (RBAC
+`TRIGGER_KILL_SWITCH`) that halts all auto-execution immediately. Like
+`system_health` it caps autonomy at `shadow_only`, so no action mutates
+while the halt is active (a human path stays open via HIL). It is fed by
+[`KillSwitch.is_engaged()`](../../../src/fdai/shared/resilience/kill_switch.py)
+through the `kill_switch_engaged` input on `evaluate_execution_authority`;
+the switch is operable without the executor identity (a fork backs its state
+in the state store) - see
+[security-and-identity.md](../architecture/security-and-identity.md). When
+disengaged the axis is omitted (byte-identical result).
+
 ### 2.7 Combining
 
 Every input returns one of the four levels above; the RiskGate takes the
 **minimum** in the ordering
 `enforce_auto > enforce_hil > shadow_only > deny` (over the six axes plus
-the optional `system_health` fail-safe axis). `deny` from any input
-(including the risk-classification table) is a hard stop; the executor is
-never called. The `quorum` accompanying `enforce_hil` is the maximum of
-the table quorum and any axis-declared quorum.
+the optional `system_health` and `kill_switch` fail-safe axes). `deny` from
+any input (including the risk-classification table) is a hard stop; the
+executor is never called. The `quorum` accompanying `enforce_hil` is the
+maximum of the table quorum and any axis-declared quorum.
 
 ### 2.8 Cost-increasing ops actions
 

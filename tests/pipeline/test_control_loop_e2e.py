@@ -376,6 +376,37 @@ async def test_degraded_control_plane_caps_authority_to_shadow(
 
 @requires_opa
 @pytest.mark.asyncio
+async def test_kill_switch_engaged_caps_authority_to_shadow(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    """B2 live: when the operator engages the global kill-switch every
+    shadow-authority record caps at shadow via the kill_switch axis
+    (security-and-identity.md) - all auto-execution halts through the loop."""
+    from fdai.core.risk_gate.risk_table import load_risk_table
+    from fdai.shared.resilience.kill_switch import InMemoryKillSwitch
+
+    table = load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml")
+    loop, _publisher, audit = _make_loop(shipped_catalog, risk_table=table)
+    loop._kill_switch = InMemoryKillSwitch(engaged=True)
+    result = await loop.process(
+        _make_event(
+            idempotency_key="e-auth-killswitch",
+            resource_type="object-storage",
+            resource_id="stg-open",
+            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+        )
+    )
+    assert result.outcome is ControlLoopOutcome.EXECUTED
+    entries = [e["entry"] for e in audit.audit_entries]
+    authority = [e for e in entries if e.get("action_kind") == "risk_gate.shadow_authority"]
+    assert authority, "expected a shadow_authority audit entry per executed action"
+    for entry in authority:
+        assert entry["decision"] in {"shadow", "deny"}
+        assert "kill_switch" in entry["resolved_ceiling"]["axes"]
+
+
+@requires_opa
+@pytest.mark.asyncio
 async def test_shadow_authority_skipped_when_action_type_unknown(
     shipped_catalog: tuple[Any, Any],
 ) -> None:

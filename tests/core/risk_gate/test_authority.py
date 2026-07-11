@@ -102,6 +102,24 @@ def test_system_degraded_flips_auto_to_shadow() -> None:
     assert d.resolved_ceiling.winning_axis == "system_health"
 
 
+def test_kill_switch_flips_auto_to_shadow() -> None:
+    """The operator emergency stop (security-and-identity.md): the same low-risk
+    action that is ``auto`` end-to-end flips to ``shadow`` when the global
+    kill-switch is engaged, halting all auto-execution."""
+    d = evaluate_execution_authority(
+        tier=Tier.T0,
+        action_type=_low_risk_at(),
+        table=_table(),
+        principal_role=None,
+        environment="non-prod",
+        cost_impact_monthly=50.0,
+        kill_switch_engaged=True,
+    )
+    assert d.decision == "shadow"
+    assert d.is_auto is False
+    assert d.resolved_ceiling.winning_axis == "kill_switch"
+
+
 def test_destructive_action_is_hil() -> None:
     d = evaluate_execution_authority(
         tier=Tier.T0,

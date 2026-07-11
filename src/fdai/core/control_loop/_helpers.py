@@ -75,6 +75,7 @@ def _compute_authority(
     table: RiskTable,
     cost_override: float | None = None,
     system_degraded: bool = False,
+    kill_switch_engaged: bool = False,
 ) -> ExecutionAuthorityDecision:
     """Run the execution-authority pipeline for one action + event context.
 
@@ -102,6 +103,7 @@ def _compute_authority(
         environment=environment,
         cost_impact_monthly=cost,
         system_degraded=system_degraded,
+        kill_switch_engaged=kill_switch_engaged,
     )
 
 
@@ -114,6 +116,7 @@ def build_shadow_authority_audit(
     table: RiskTable,
     cost_override: float | None = None,
     system_degraded: bool = False,
+    kill_switch_engaged: bool = False,
 ) -> dict[str, Any]:
     """Build the ``risk_gate.shadow_authority`` audit entry for one action.
 
@@ -134,6 +137,7 @@ def build_shadow_authority_audit(
         table=table,
         cost_override=cost_override,
         system_degraded=system_degraded,
+        kill_switch_engaged=kill_switch_engaged,
     )
     return {
         "event_id": str(event.event_id),
@@ -157,6 +161,7 @@ def evaluate_unified(
     risk_gate: RiskGate,
     cost_override: float | None = None,
     system_degraded: bool = False,
+    kill_switch_engaged: bool = False,
 ) -> UnifiedRiskDecision:
     """Run the runtime-Action gate and the policy-ceiling authority and
     combine them into a single :class:`UnifiedRiskDecision` (canonical-level
@@ -176,6 +181,7 @@ def evaluate_unified(
         table=table,
         cost_override=cost_override,
         system_degraded=system_degraded,
+        kill_switch_engaged=kill_switch_engaged,
     )
     return combine(gate_decision, authority)
 
@@ -205,6 +211,7 @@ def build_unified_risk_audit(
     risk_gate: RiskGate,
     cost_override: float | None = None,
     system_degraded: bool = False,
+    kill_switch_engaged: bool = False,
 ) -> dict[str, Any]:
     """Build the ``risk_gate.unified`` audit entry combining gate + authority.
 
@@ -227,6 +234,7 @@ def build_unified_risk_audit(
         risk_gate=risk_gate,
         cost_override=cost_override,
         system_degraded=system_degraded,
+        kill_switch_engaged=kill_switch_engaged,
     )
     return _unified_audit_dict(event=event, action=action, unified=unified)
 
