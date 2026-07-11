@@ -50,12 +50,29 @@ def _load_from_tree(root: Path) -> GovernanceCatalog:
     return load_governance_catalog(root)
 
 
+def _ref_exists(base: str) -> bool:
+    """True when ``base`` resolves to a commit in the current repository."""
+    proc = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}"],
+        capture_output=True,
+        check=False,
+    )
+    return proc.returncode == 0
+
+
 def _load_from_ref(base: str, root: str) -> GovernanceCatalog:
     """Materialize ``root`` at git ref ``base`` and load it.
 
-    Uses ``git archive`` so no worktree switch or stash is needed. A root that
-    does not exist at ``base`` (new catalog) loads as an empty catalog.
+    Uses ``git archive`` so no worktree switch or stash is needed. An invalid
+    ``base`` ref is a configuration error and fails loudly (rather than silently
+    comparing against an empty baseline); a valid ref whose ``root`` does not
+    exist yet (a new catalog) loads as an empty catalog.
     """
+    if not _ref_exists(base):
+        raise SystemExit(
+            f"check-governance-transitions: base ref {base!r} does not resolve to a commit "
+            "- pass a valid --base (fetch it in CI first)"
+        )
     with tempfile.TemporaryDirectory() as tmp:
         proc = subprocess.run(
             ["git", "archive", "--format=tar", base, "--", root],
@@ -63,7 +80,7 @@ def _load_from_ref(base: str, root: str) -> GovernanceCatalog:
             check=False,
         )
         if proc.returncode != 0:
-            # Path absent at base ref -> the catalog is new; treat as empty.
+            # Valid ref, but the catalog root is absent there -> new catalog.
             return GovernanceCatalog()
         with tempfile.TemporaryFile() as tar_buf:
             tar_buf.write(proc.stdout)
