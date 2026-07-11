@@ -284,6 +284,6 @@ def test_contract_base_enforces_frozen_and_extra_forbid() -> None:
 
     inst = ForkModel(name="ok")
     with pytest.raises(ValidationError):
-        inst.name = "changed"  # type: ignore[misc]
+        inst.name = "changed"
     with pytest.raises(ValidationError):
-        ForkModel(name="ok", surprise="nope")  # type: ignore[call-arg]
+        ForkModel(name="ok", surprise="nope")
