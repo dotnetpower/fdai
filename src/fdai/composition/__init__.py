@@ -172,7 +172,7 @@ def bind_azure_inventory(
     resource_types: ResourceTypeRegistry,
     identity: WorkloadIdentity,
     http_client: httpx.AsyncClient,
-    activity_log_config: "AzureActivityLogFactoryConfig | None" = None,
+    activity_log_config: AzureActivityLogFactoryConfig | None = None,
 ) -> Container:
     """Return a new :class:`Container` with the live Azure Resource Graph
     inventory bound in place of the default :class:`EmptyInventory`.
@@ -275,9 +275,9 @@ def bind_github_change_feed(
 def bind_azure_devops_change_feed(
     container: Container,
     *,
-    config: "AzureDevOpsChangeFeedConfig",
+    config: AzureDevOpsChangeFeedConfig,
     http_client: httpx.AsyncClient,
-    token_provider: "TokenProvider",
+    token_provider: TokenProvider,
 ) -> Container:
     """Return a new :class:`Container` with a live Azure DevOps change feed
     in place of the default :class:`EmptyChangeFeed`.
