@@ -10,6 +10,14 @@ ungrounded abstains to HIL.
 
 from __future__ import annotations
 
+from fdai.core.rca.causal_chain import (
+    CausalChain,
+    CausalChainAnalyzer,
+    CausalChainConfig,
+    CausalHop,
+    Relationship,
+    chain_to_hypothesis,
+)
 from fdai.core.rca.contract import (
     Citation,
     CitationKind,
@@ -27,6 +35,10 @@ from fdai.core.rca.t0 import t0_root_cause
 from fdai.core.rca.t1 import CorrelatedEvent, t1_causal_chain
 
 __all__ = [
+    "CausalChain",
+    "CausalChainAnalyzer",
+    "CausalChainConfig",
+    "CausalHop",
     "Citation",
     "CitationKind",
     "CorrelatedEvent",
@@ -37,8 +49,10 @@ __all__ = [
     "RcaReasoner",
     "RcaResult",
     "RcaTier",
+    "Relationship",
     "RootCauseHypothesis",
     "TelemetryEvidenceGatherer",
+    "chain_to_hypothesis",
     "enforce_grounding",
     "parse_rca_response",
     "t0_root_cause",

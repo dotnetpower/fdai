@@ -47,6 +47,10 @@ from fdai.delivery.azure.llm.rca_model import (
     AzureOpenAIRcaModel,
     AzureOpenAIRcaModelConfig,
 )
+from fdai.delivery.azure.llm.rubric import (
+    AzureOpenAIRubricEvaluator,
+    AzureOpenAIRubricEvaluatorConfig,
+)
 
 __all__ = [
     "AzureOpenAICriticModel",
@@ -59,4 +63,6 @@ __all__ = [
     "AzureOpenAIJudgeModelConfig",
     "AzureOpenAIRcaModel",
     "AzureOpenAIRcaModelConfig",
+    "AzureOpenAIRubricEvaluator",
+    "AzureOpenAIRubricEvaluatorConfig",
 ]

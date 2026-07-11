@@ -513,7 +513,9 @@ def chain_to_hypothesis(
     the arrow path for a genuine multi-hop chain.
     """
     root_hop = chain.hops[0]
-    failure_hop = chain.hops[-1]
+    # Hops telescope (each hop's effect is the next hop's cause), so the
+    # sum of hop leads is exactly the root-to-failure elapsed time.
+    total_lead = sum((hop.lead for hop in chain.hops), start=timedelta(0))
     if len(chain.hops) == 1:
         scope = (
             "same-resource"
@@ -522,18 +524,11 @@ def chain_to_hypothesis(
         )
         cause = (
             f"correlation cause ({scope}): change event '{root_hop.cause_event_id}' on "
-            f"'{root_hop.cause_resource_ref}' at {root_hop.cause_event_id and _iso(chain)} "
-        )
-        cause = (
-            f"correlation cause ({scope}): change event '{root_hop.cause_event_id}' on "
             f"'{root_hop.cause_resource_ref}' preceded the failure on "
-            f"'{failure_resource_ref}' by {_format_lead(failure_hop.lead)}"
+            f"'{failure_resource_ref}' by {_format_lead(total_lead)}"
         )
     else:
-        arrows = " -> ".join(
-            f"'{eid}'" for eid in chain.event_ids
-        )
-        total_lead = failure_hop.effect_at_minus_root(chain)
+        arrows = " -> ".join(f"'{eid}'" for eid in chain.event_ids)
         cause = (
             f"correlation cause (causal chain, {len(chain.hops)} hops): {arrows}; "
             f"root change '{chain.root_event_id}' on '{root_hop.cause_resource_ref}' "
@@ -548,10 +543,6 @@ def chain_to_hypothesis(
         evidence_refs=chain.event_ids,
         remediation_ref=None,
     )
-
-
-def _iso(chain: CausalChain) -> str:  # pragma: no cover - retained for symmetry
-    return chain.root_event_id
 
 
 def _format_lead(lead: timedelta) -> str:
