@@ -192,6 +192,17 @@ class QualityDecision:
     ``escalated_model_unavailable``, ``default_stop``) recorded alongside
     :attr:`escalation_route`. ``None`` when the ladder is not wired."""
 
+    self_consistency: float | None = None
+    """Action-stability in ``[0.0, 1.0]`` the escalation ladder read for
+    this decision - the ``on_self_consistency_below`` trigger's input. It is
+    the ``action_stability`` signal the composition root's self-consistency
+    cascade placed on the candidate's ``confidence_signals`` (the sampler's
+    docstring: "the cascade trigger is a composition concern"); the gate
+    reads and records it but never samples a model itself. ``None`` when the
+    ladder is not wired or no stability signal was supplied. **Recorded
+    only** - it is not re-merged into the aggregate confidence here, so it
+    does not change the outcome."""
+
 
 # ---------------------------------------------------------------------------
 # DI seams (Protocols) - a fork implements these with real LLM clients
@@ -449,18 +460,25 @@ class QualityGate:
         # a later, separately reviewed step (the debate delta-2b sequence).
         escalation_route: str | None = None
         escalation_reason: str | None = None
+        self_consistency: float | None = None
         if self._escalation_ladder_config is not None:
             from fdai.core.quality_gate.escalation_ladder import decide_escalation
             from fdai.core.quality_gate.self_consistency import STABILITY_SIGNAL_KEY
 
-            stability = candidate.confidence_signals.get(STABILITY_SIGNAL_KEY)
+            # The action-stability signal is populated upstream by the
+            # composition root's self-consistency cascade (the sampler's own
+            # docstring: "the cascade trigger is a composition concern") and
+            # rides on the candidate's confidence_signals. The gate reads it
+            # here to feed the ladder's ``on_self_consistency_below`` trigger
+            # and records it for audit - it never samples a model itself.
+            self_consistency = candidate.confidence_signals.get(STABILITY_SIGNAL_KEY)
             escalation_decision = decide_escalation(
                 candidate=candidate,
                 cross_check_disagreed=(
                     cross_check_below_quorum and not debate_resolved_disagreement
                 ),
                 escalated_available=self._escalated_available,
-                self_consistency=stability,
+                self_consistency=self_consistency,
                 config=self._escalation_ladder_config,
             )
             escalation_route = escalation_decision.route.value
@@ -604,6 +622,7 @@ class QualityGate:
             rubric_shadow=rubric_shadow if self._rubric_evaluator is not None else False,
             escalation_route=escalation_route,
             escalation_reason=escalation_reason,
+            self_consistency=self_consistency,
         )
 
     async def _debate_retry_proposer(
@@ -696,6 +715,8 @@ def quality_decision_audit_fields(
         # deployment's audit entries stay unchanged.
         fields["escalation_route"] = decision.escalation_route
         fields["escalation_reason"] = decision.escalation_reason
+    if decision.self_consistency is not None:
+        fields["self_consistency"] = decision.self_consistency
     return fields
 
 

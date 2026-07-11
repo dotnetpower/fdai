@@ -309,6 +309,53 @@ async def test_escalation_audit_fields_present_only_when_wired() -> None:
     assert "escalation_route" not in fields2
 
 
+@pytest.mark.asyncio
+async def test_escalation_low_self_consistency_trigger_on_agreement() -> None:
+    """Both models AGREE, but the proposer is unstable (low action_stability
+    from the composition cascade): the ladder escalates on the secondary
+    trigger, and the decision records the stability it read."""
+    from fdai.core.quality_gate import EscalationLadderConfig
+
+    gate = QualityGate(
+        verifier=StaticVerifier(outcome=True),
+        cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
+        grounding=_grounding(),
+        config=QualityGateConfig(require_cross_check_quorum=2),
+        escalation_ladder_config=EscalationLadderConfig(on_self_consistency_below=0.6),
+        escalated_available=True,
+    )
+    candidate = _candidate(
+        confidence={"retrieval": 0.9, "verifier_margin": 0.9, "action_stability": 0.4}
+    )
+    decision = await gate.evaluate(candidate)
+    # Agreement -> not a disagreement outcome; shadow escalation does not flip it.
+    assert decision.outcome is QualityOutcome.ELIGIBLE
+    assert decision.self_consistency == 0.4
+    assert decision.escalation_route == "escalate"
+    assert decision.escalation_reason == "low_self_consistency"
+
+
+@pytest.mark.asyncio
+async def test_escalation_high_self_consistency_does_not_trigger() -> None:
+    from fdai.core.quality_gate import EscalationLadderConfig
+
+    gate = QualityGate(
+        verifier=StaticVerifier(outcome=True),
+        cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
+        grounding=_grounding(),
+        config=QualityGateConfig(require_cross_check_quorum=2),
+        escalation_ladder_config=EscalationLadderConfig(on_self_consistency_below=0.6),
+        escalated_available=True,
+    )
+    candidate = _candidate(
+        confidence={"retrieval": 0.9, "verifier_margin": 0.9, "action_stability": 0.95}
+    )
+    decision = await gate.evaluate(candidate)
+    assert decision.self_consistency == 0.95
+    assert decision.escalation_route == "stop"
+    assert decision.escalation_reason == "default_stop"
+
+
 # ---------------------------------------------------------------------------
 # Confidence threshold
 # ---------------------------------------------------------------------------

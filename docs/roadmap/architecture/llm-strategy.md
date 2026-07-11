@@ -276,10 +276,14 @@ hard-coded branch. It is implemented as a pure, deterministic function in
 stronger model, or stop and route to HIL?". Shipping the policy on its own -
 testable and auditable before any live wiring - follows the debate-router
 delta-2a -> delta-2b sequence. The `QualityGate` records the decision in
-**shadow** (`QualityDecision.escalation_route` / `escalation_reason`, surfaced by
+**shadow** (`QualityDecision.escalation_route` / `escalation_reason`, plus the
+`self_consistency` stability it read, surfaced by
 `quality_decision_audit_fields`) when an `EscalationLadderConfig` is wired -
 measured, never acted on; actually invoking the escalated model is the next
-enforce step.
+enforce step. The `on_self_consistency_below` trigger reads the
+`action_stability` signal the composition root's self-consistency cascade
+places on the candidate - the gate never samples a model itself (the sampler's
+"cascade trigger is a composition concern" contract).
 
 The ladder rungs (`EscalationTier`) map one-to-one onto the registry capabilities:
 `PRIMARY` -> `SECONDARY` -> `ESCALATED`. `decide_escalation` returns `ESCALATE`
