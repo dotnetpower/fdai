@@ -55,6 +55,12 @@ class DeploymentHistoryMemberSource:
     (a fork wraps ``IncidentRegistry.get``); ``lookback`` is the ISO-8601
     duration window handed to the deployment provider (how far back to
     search for an antecedent change).
+
+    Tuning note: ``lookback`` bounds which changes are *fetched*, while the
+    ``ControlLoop``'s ``causal_chain_window`` bounds which are *linked* into
+    a chain. Set ``lookback`` at least as large as ``causal_chain_window``,
+    or the engine will never see antecedents the window would otherwise
+    admit.
     """
 
     def __init__(
@@ -76,7 +82,7 @@ class DeploymentHistoryMemberSource:
         Never raises: an unknown incident, a resource-less incident, or a
         failing / partial deployment query yields an empty or partial set.
         """
-        incident = self._lookup(incident_id)
+        incident = self._safe_lookup(incident_id)
         if incident is None:
             return ()
         resource_refs = tuple(
@@ -88,7 +94,11 @@ class DeploymentHistoryMemberSource:
             return ()
 
         seen: dict[str, CorrelatedEvent] = {}
-        for ref in resource_refs:
+        # Sort + de-dup the resources so dedup-by-deployment-ref is
+        # deterministic regardless of correlation-key ordering (a deployment
+        # touching two correlated resources must always resolve to the same
+        # representative resource_ref).
+        for ref in sorted(set(resource_refs)):
             try:
                 result = await self._deployment_history.query_deployments(
                     window=self._lookback, resource_ref=ref
@@ -115,6 +125,25 @@ class DeploymentHistoryMemberSource:
                 )
                 seen.setdefault(event.event_id, event)
         return tuple(seen.values())
+
+    def _safe_lookup(self, incident_id: str) -> Incident | None:
+        """Look up the incident, honoring the never-raise contract.
+
+        ``lookup`` is fork-supplied code (e.g. ``UUID(iid)`` + registry
+        access) that can raise on a malformed id or a store fault; a raise
+        here would violate the ``IncidentMemberSource`` contract and could
+        surface to a direct caller, so any failure degrades to "unknown
+        incident" (empty member set).
+        """
+        try:
+            return self._lookup(incident_id)
+        except Exception:  # noqa: BLE001 - fork lookup; never break the never-raise contract
+            _LOGGER.warning(
+                "deployment_member_source_lookup_failed",
+                extra={"incident_id": incident_id},
+                exc_info=True,
+            )
+            return None
 
 
 def _parse_timestamp(raw: str) -> datetime | None:

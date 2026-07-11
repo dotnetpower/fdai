@@ -89,6 +89,11 @@ def _provider(
         {"max_pages": 0},
         {"max_records": 0},
         {"timeout_seconds": 0},
+        {"deployment_ref_column": ""},
+        {"timestamp_column": ""},
+        {"resource_ref_column": ""},
+        {"status_column": ""},
+        {"author_column": ""},
     ],
 )
 def test_config_rejects_invalid_values(overrides: dict[str, object]) -> None:
@@ -126,6 +131,22 @@ async def test_window_parses_and_substitutes(window: str, expected_seconds: int)
     await provider.query_deployments(window=window)
     assert f"ago({expected_seconds}s)" in captured[0]
     assert "{window_seconds}" not in captured[0]
+
+
+@pytest.mark.parametrize("window", ["pt1h", "p1d", " PT1H ", "p1dt2h"])
+@pytest.mark.asyncio
+async def test_window_parsing_is_case_insensitive(window: str) -> None:
+    captured: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(json.loads(request.content)["query"])
+        return httpx.Response(200, json={"data": []})
+
+    provider = _provider(handler)
+    await provider.query_deployments(window=window)
+    # Lowercase / whitespace-padded durations parse to a numeric ago() bound.
+    assert "{window_seconds}" not in captured[0]
+    assert "ago(" in captured[0]
 
 
 @pytest.mark.parametrize("window", ["", "1h", "P", "PT", "24", "PxY", "PT0S", "P0D"])

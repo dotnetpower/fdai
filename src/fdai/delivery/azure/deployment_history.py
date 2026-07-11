@@ -122,6 +122,18 @@ class AzureDeploymentHistoryConfig:
             raise ValueError("max_records MUST be >= 1")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds MUST be > 0")
+        # A blank column name would make every row fail _require at query
+        # time (a silent empty result for the member source, a hard error
+        # for the console); catch the misconfig at startup instead.
+        for name, column in (
+            ("deployment_ref_column", self.deployment_ref_column),
+            ("timestamp_column", self.timestamp_column),
+            ("resource_ref_column", self.resource_ref_column),
+            ("status_column", self.status_column),
+            ("author_column", self.author_column),
+        ):
+            if not column:
+                raise ValueError(f"AzureDeploymentHistoryConfig.{name} MUST be non-empty")
 
 
 class AzureResourceGraphDeploymentHistory:
@@ -274,9 +286,10 @@ def _parse_window_seconds(window: str) -> int:
 
     Only the fields an operator uses for a lookback window are honored
     (weeks, days, hours, minutes, seconds). Months/years are rejected as
-    ambiguous. Fails closed with :class:`DeploymentHistoryError`.
+    ambiguous. Parsing is case-insensitive (``pt1h`` == ``PT1H``). Fails
+    closed with :class:`DeploymentHistoryError`.
     """
-    match = _ISO8601_DURATION.match(window.strip()) if window else None
+    match = _ISO8601_DURATION.match(window.strip().upper()) if window else None
     if match is None:
         raise DeploymentHistoryError(
             f"unparseable window {window!r}; expected an ISO-8601 duration (PT1H, P1D, P7D)"

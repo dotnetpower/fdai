@@ -206,3 +206,41 @@ async def test_naive_timestamp_is_coerced_to_aware_utc() -> None:
     members = await source.members(incident_id=_INCIDENT_ID)
     assert len(members) == 1
     assert members[0].at.tzinfo is not None
+
+
+@pytest.mark.asyncio
+async def test_lookup_exception_is_swallowed() -> None:
+    # A fork lookup that raises (e.g. UUID(malformed)) must not break the
+    # never-raise contract - it degrades to an empty member set.
+    provider = InMemoryDeploymentHistoryProvider()
+    provider.seed(_record())
+
+    def _raising_lookup(_iid: str) -> Incident | None:
+        raise ValueError("badly formed incident id")
+
+    source = DeploymentHistoryMemberSource(
+        lookup=_raising_lookup, deployment_history=provider
+    )
+    assert await source.members(incident_id="not-a-uuid") == ()
+
+
+@pytest.mark.asyncio
+async def test_shared_deployment_dedup_is_order_independent() -> None:
+    # The same deployment id surfaces as two separate records from two
+    # resource queries; dedup must resolve to the same representative
+    # record regardless of correlation-key order (deterministic).
+    def _provider() -> InMemoryDeploymentHistoryProvider:
+        p = InMemoryDeploymentHistoryProvider()
+        p.seed(_record(deployment_ref="shared", resource_refs=("app",)))
+        p.seed(_record(deployment_ref="shared", resource_refs=("db",)))
+        return p
+
+    forward = await _source(
+        _incident(correlation_keys=("res:app", "res:db")), _provider()
+    ).members(incident_id=_INCIDENT_ID)
+    backward = await _source(
+        _incident(correlation_keys=("res:db", "res:app")), _provider()
+    ).members(incident_id=_INCIDENT_ID)
+    assert len(forward) == 1
+    assert forward[0].event_id == backward[0].event_id == "shared"
+    assert forward[0].resource_ref == backward[0].resource_ref
