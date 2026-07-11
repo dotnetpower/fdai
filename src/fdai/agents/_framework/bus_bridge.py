@@ -29,6 +29,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from fdai.agents._framework.bus_metrics import BridgeMetrics
 from fdai.agents._framework.registry import PantheonRegistry
 from fdai.agents._framework.topics import (
     ENVELOPE_SCHEMA_VERSION,
@@ -46,55 +47,6 @@ PayloadValidator = Callable[[str, Mapping[str, object]], None]
 """Optional publish-side contract check (topic, payload) -> None; raises on
 an invalid payload. Wire a ContractValidator-backed callable here to reject
 a malformed record at the publish boundary (fail closed)."""
-
-
-@dataclass
-class BridgeMetrics:
-    """Counters for pantheon bridge observability.
-
-    Exposed via :meth:`EventBusBridge.snapshot` so Heimdall's health
-    probe and the KPI collectors can read per-process delivery / failure
-    rates without reaching into consumer internals.
-    """
-
-    consumers_started: int = 0
-    consumers_crashed: int = 0
-    consumers_restarted: int = 0
-    consumers_gave_up: int = 0
-    delivered: int = 0
-    handler_errors: int = 0
-    handler_retries: int = 0
-    dead_lettered: int = 0
-    dead_letter_errors: int = 0
-    empty_partition_keys: int = 0
-    published: int = 0
-    publish_errors: int = 0
-    missing_correlation_id: int = 0
-    missing_idempotency_key: int = 0
-    producer_principal_mismatch: int = 0
-    ordered_poison_halts: int = 0
-    schema_violations: int = 0
-
-    def as_dict(self) -> dict[str, int]:
-        return {
-            "consumers_started": self.consumers_started,
-            "consumers_crashed": self.consumers_crashed,
-            "consumers_restarted": self.consumers_restarted,
-            "consumers_gave_up": self.consumers_gave_up,
-            "delivered": self.delivered,
-            "handler_errors": self.handler_errors,
-            "handler_retries": self.handler_retries,
-            "dead_lettered": self.dead_lettered,
-            "dead_letter_errors": self.dead_letter_errors,
-            "empty_partition_keys": self.empty_partition_keys,
-            "published": self.published,
-            "publish_errors": self.publish_errors,
-            "missing_correlation_id": self.missing_correlation_id,
-            "missing_idempotency_key": self.missing_idempotency_key,
-            "producer_principal_mismatch": self.producer_principal_mismatch,
-            "ordered_poison_halts": self.ordered_poison_halts,
-            "schema_violations": self.schema_violations,
-        }
 
 
 def _warn_unknown_topic(topic: str, agent_name: str) -> None:

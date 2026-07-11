@@ -37,9 +37,9 @@ strong default; **MAY** is optional.
 The 15 pantheon members live **flat at the top level** of
 `src/fdai/agents/`; framework code (bus, runtime, registry, base, pantheon
 spec, arbitration, introspection, kpi, adapters, provider_adapters,
-factory, workflows, topics, candidate_guard, divergence, bus_bridge)
-lives under `src/fdai/agents/_framework/`. This is the G-7 layout from
-tracker #14 and it is enforced by
+factory, workflows, topics, candidate_guard, divergence, bus_bridge,
+bus_metrics, action_semantics) lives under `src/fdai/agents/_framework/`.
+This is the G-7 layout from tracker #14 and it is enforced by
 `tests/agents/test_framework_layout.py`:
 
 - A new `.py` file directly under `src/fdai/agents/` MUST be one of the
