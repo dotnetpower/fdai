@@ -98,7 +98,13 @@ export function reducer(state: ProvisionState, ev: ProvisionEvent): ProvisionSta
         waitingReason: ev.reason ?? null,
       };
     case "resumed":
-      return { ...state, waiting: null, waitingReason: null };
+      // Only clear when the currently-displayed waiter is the one that
+      // resumed. Otherwise a concurrent waiter (A waits, B waits, A resumes)
+      // would falsely hide B's banner when A's RESUMED arrives. Single-slot
+      // display keeps the shape simple; identity check keeps it honest.
+      return ev.node && state.waiting !== ev.node
+        ? state
+        : { ...state, waiting: null, waitingReason: null };
     case "done":
       return {
         ...state,

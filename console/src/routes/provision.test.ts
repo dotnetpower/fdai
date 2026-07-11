@@ -59,6 +59,20 @@ describe("reducer", () => {
     expect(state.waiting).toBeNull();
   });
 
+  test("resumed for a different node keeps the current waiter visible", () => {
+    // A waits, then B waits (overwriting the single display slot). When A
+    // eventually resumes, the banner must still show B - we must not falsely
+    // clear the hold for a resource that is still waiting.
+    let state = reducer(INITIAL, ev({ phase: "waiting", node: "a", reason: "slow-a" }));
+    state = reducer(state, ev({ phase: "waiting", node: "b", reason: "slow-b" }));
+    expect(state.waiting).toBe("b");
+    state = reducer(state, ev({ phase: "resumed", node: "a" }));
+    expect(state.waiting).toBe("b");
+    expect(state.waitingReason).toBe("slow-b");
+    state = reducer(state, ev({ phase: "resumed", node: "b" }));
+    expect(state.waiting).toBeNull();
+  });
+
   test("unrelated progress does not clear the waiting banner", () => {
     let state = reducer(INITIAL, ev({ phase: "waiting", node: "db", reason: "slow" }));
     state = reducer(state, ev({ phase: "progress", fraction: 0.5, node: "other" }));
