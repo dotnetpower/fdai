@@ -187,3 +187,21 @@ def test_unknown_severity_fails_toward_safety() -> None:
 def test_invalid_blocking_min_severity_rejected() -> None:
     with pytest.raises(ValueError, match="not a known severity"):
         _compose(blocking_min_severity="sev1")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "env", ["prod", "production", "Prod", "PROD", " prod ", "unknown-stage", "release"]
+)
+def test_prod_target_is_fail_safe(env: str) -> None:
+    from fdai.core.readiness.coordinator import _is_prod_target
+
+    # prod / production / unknown all gate as prod (risk-classification.md
+    # fail-safe: an unrecognized target is treated as the strictest level)
+    assert _is_prod_target(env) is True
+
+
+@pytest.mark.parametrize("env", ["non-prod", "dev", "test", "staging", "qa", "QA", " dev "])
+def test_recognized_non_prod_stages_escape_prod_gate(env: str) -> None:
+    from fdai.core.readiness.coordinator import _is_prod_target
+
+    assert _is_prod_target(env) is False

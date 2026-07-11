@@ -37,11 +37,28 @@ _SEVERITY_RANK: dict[str, int] = {s: i for i, s in enumerate(_SEVERITY_ORDER)}
 # an unexpected value.
 _UNKNOWN_SEVERITY_RANK = len(_SEVERITY_ORDER)
 
-_PROD_ENV = "prod"
-
 
 def _severity_rank(severity: str) -> int:
     return _SEVERITY_RANK.get(severity, _UNKNOWN_SEVERITY_RANK)
+
+
+# The stages that resolve to non-prod on the authoritative runtime classifier
+# (risk-classification.md Environment Detection / Promotion). Everything else -
+# `prod`, `production`, an unknown word, or a blank - resolves to prod, the
+# documented fail-safe (an un-tagged / unrecognized handoff is gated at the
+# strictest level, never the weakest).
+_NON_PROD_STAGES: frozenset[str] = frozenset({"non-prod", "dev", "test", "staging", "qa"})
+
+
+def _is_prod_target(target_environment: str) -> bool:
+    """True when the handoff target is gated as prod.
+
+    Fail-safe per risk-classification.md: only a recognized non-prod stage
+    (case-insensitive) escapes the prod gate; `production`, an unknown value, or
+    a blank all resolve to prod - the exact opposite of an ``== "prod"`` check,
+    which would fail open on `production` / unknown.
+    """
+    return target_environment.strip().lower() not in _NON_PROD_STAGES
 
 
 def compose_readiness_report(
@@ -73,7 +90,11 @@ def compose_readiness_report(
             f"(expected one of {list(_SEVERITY_ORDER)})"
         )
     min_rank = _SEVERITY_RANK[blocking_min_severity]
-    prod = signal.target_environment == _PROD_ENV
+    # Match the prod environment fail-safe (risk-classification.md): `prod`,
+    # `production`, an unknown word, or a blank all gate as prod - only a
+    # recognized non-prod stage escapes it. The report still records the
+    # operator's original environment string; only the gate decision is derived.
+    prod = _is_prod_target(signal.target_environment)
     findings: list[ReadinessFinding] = []
 
     for f in posture_findings:
