@@ -136,6 +136,51 @@ jobs:
       - name: check-core-imports.sh
         run: bash scripts/check-core-imports.sh
 
+  agents-imports:
+    name: agents/ module-boundary guard (no cloud SDK, no HTTP client, no delivery/)
+    # Mirror of `core-imports`, applied to src/fdai/agents/. Agents are
+    # policy / decision code (pantheon); a transport import in an agent
+    # collapses the delivery boundary the same way a core violation
+    # collapses the CSP boundary. Tracker #14, issue #22.
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: check-agents-imports.sh
+        run: bash scripts/check-agents-imports.sh
+
+  file-loc:
+    name: file LOC guard (warn > 400, fail > 800 in enforce mode)
+    # Structural gate that enforces the "prefer files under ~400 lines"
+    # guidance from coding-conventions. Ships warn-only; each G-series
+    # refactor lands + flips FILE_LOC_MODE to enforce for the module it
+    # cleans up. Tracker #14, issue #22.
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: check-file-loc.sh (warn-only baseline)
+        env:
+          FILE_LOC_MODE: warn
+        run: bash scripts/check-file-loc.sh
+
+  subsystem-fanout:
+    name: core/ subsystem fan-out guard (warn >= 8, fail >= 15 in enforce mode)
+    # Prevents a second control_loop.py (1,725 LOC / 30+ subsystem
+    # imports) from emerging. Ships warn-only; flipped to enforce once
+    # G-2 (control_loop -> Stage protocol) lands. Tracker #14, issue #22.
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: check-subsystem-fanout.sh (warn-only baseline)
+        env:
+          SUBSYSTEM_FANOUT_MODE: warn
+        run: bash scripts/check-subsystem-fanout.sh
+
   protected-paths:
     name: framework-surface guard (advisory upstream, block in fork)
     # Runs on PRs (base..head range) and on direct pushes to a protected

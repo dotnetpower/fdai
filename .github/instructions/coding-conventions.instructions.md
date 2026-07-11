@@ -49,7 +49,16 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
   audit) MUST be split. A PR that introduces or worsens a multi-responsibility unit is not
   mergeable; extract the extra concerns behind their own interfaces or modules.
 - Keep modules small and single-purpose; the core engine MUST stay UI-agnostic and portable.
-  Prefer files under ~400 lines and functions with a single clear responsibility.
+  Prefer files under ~400 lines and functions with a single clear responsibility. Three
+  CI-enforced structural gates back this rule:
+  [scripts/check-file-loc.sh](../../scripts/check-file-loc.sh) (warn > 400 LOC, fail > 800
+  in enforce mode),
+  [scripts/check-agents-imports.sh](../../scripts/check-agents-imports.sh) (mirror of the
+  `core/` boundary applied to `agents/`), and
+  [scripts/check-subsystem-fanout.sh](../../scripts/check-subsystem-fanout.sh)
+  (warn >= 8 sibling `core.*` subsystems imported by one file, fail >= 15 in enforce mode).
+  All three ship warn-only; each G-series refactor tracked in issue #14 flips its target
+  file's threshold to `enforce`.
 - Favor CSP-neutral abstractions (OPA for policy, Terraform for IaC) over vendor-specific APIs.
   Vendor SDK calls MUST sit behind a provider interface. **Azure is the only implemented
   target** (see [Implementation Focus](../copilot-instructions.md#implementation-focus-must));

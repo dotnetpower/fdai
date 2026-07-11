@@ -104,5 +104,20 @@ if [ -x scripts/check-protected-paths.sh ] || [ -f scripts/check-protected-paths
   fi
 fi
 
+# ---------------------------------------------------------------------------
+# 5. Structural gates (warn-only in the hook - CI is the authoritative
+#    fail surface). Kept lightweight so pushes stay fast. Tracker #14,
+#    issue #22.
+# ---------------------------------------------------------------------------
+for gate in check-agents-imports check-file-loc check-subsystem-fanout; do
+  if [ -x "scripts/${gate}.sh" ] || [ -f "scripts/${gate}.sh" ]; then
+    if ! bash "scripts/${gate}.sh" > /tmp/pre-push-${gate}.out 2>&1; then
+      echo "pre-push: BLOCKED - ${gate} failed:"
+      sed 's/^/  /' /tmp/pre-push-${gate}.out
+      exit 1
+    fi
+  fi
+done
+
 echo "pre-push: OK"
 exit 0
