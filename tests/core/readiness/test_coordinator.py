@@ -205,3 +205,33 @@ def test_recognized_non_prod_stages_escape_prod_gate(env: str) -> None:
     from fdai.core.readiness.coordinator import _is_prod_target
 
     assert _is_prod_target(env) is False
+
+
+@pytest.mark.parametrize("mode", [Mode.SHADOW, Mode.ENFORCE])
+@pytest.mark.parametrize("verdict", list(HandoffVerdict))
+def test_blocks_handoff_only_when_enforce_and_blocked(mode: Mode, verdict: HandoffVerdict) -> None:
+    from fdai.core.readiness.report import ReadinessReport
+
+    report = ReadinessReport(
+        scope="rg-1",
+        submitter="dev@example.com",
+        target_environment="prod",
+        generated_at="2026-07-11T00:00:00Z",
+        mode=mode,
+        verdict=verdict,
+        findings=(),
+    )
+    expected = mode is Mode.ENFORCE and verdict is HandoffVerdict.BLOCKED
+    assert report.blocks_handoff is expected
+
+
+def test_verdict_is_order_independent() -> None:
+    import itertools
+
+    fs = [
+        _posture("r.low", "low"),
+        _posture("r.high", "high"),
+        _posture("r.crit", "critical"),
+    ]
+    verdicts = {_compose(posture_findings=tuple(p)).verdict for p in itertools.permutations(fs)}
+    assert verdicts == {HandoffVerdict.BLOCKED}
