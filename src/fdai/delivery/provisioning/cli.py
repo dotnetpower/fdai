@@ -142,18 +142,37 @@ async def run_bootstrap(
     ``serve`` receives a stop :class:`asyncio.Event` and MUST return once it is
     set. The pump publishes ``provision.*`` events onto ``sink`` (which
     ``serve`` fans out); after the apply ends and a short linger lets the
-    browser render the finale, the stop event is set so the server exits. A
-    cancelled or errored pump propagates before the linger, and the ``finally``
-    still stops the server.
+    browser render the finale, the stop event is set so the server exits.
+
+    If the server task terminates before the pump does - port already bound,
+    permission denied, uvicorn startup error - the pump is cancelled and the
+    server's exception is re-raised immediately. Without this race the pump
+    would drain the entire ``terraform apply`` (minutes) into a dead sink
+    before the operator saw the error. A cancelled or errored pump propagates
+    before the linger, and the ``finally`` still stops the server.
     """
     publisher = SseProvisionPublisher(sink=sink)
     stop = asyncio.Event()
     server_task: asyncio.Task[None] = asyncio.create_task(serve(stop))
+    pump_task: asyncio.Task[None] = asyncio.create_task(
+        pump_provision_events(aiter_json_lines(line_chunks), publisher, bridge=bridge)
+    )
     try:
-        await pump_provision_events(aiter_json_lines(line_chunks), publisher, bridge=bridge)
-        await sleep(linger_seconds)
+        await asyncio.wait({pump_task, server_task}, return_when=asyncio.FIRST_COMPLETED)
+        if server_task.done() and not pump_task.done():
+            pump_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await pump_task
+            await server_task  # re-raise startup error
+        else:
+            await pump_task  # propagate pump errors
+            await sleep(linger_seconds)
     finally:
         stop.set()
+        if not pump_task.done():
+            pump_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await pump_task
         with suppress(asyncio.CancelledError):
             await server_task
 

@@ -128,3 +128,40 @@ class TestRunBootstrap:
 
         await asyncio.wait_for(stopped.wait(), timeout=1.0)
         assert stopped.is_set()
+
+    async def test_server_startup_failure_propagates_without_draining_pump(
+        self,
+    ) -> None:
+        """A dead server (e.g. port already bound) fails fast, not after apply."""
+        sink = InMemorySseSink()
+        pump_pulled = asyncio.Event()
+
+        async def _serve_crashes_on_startup(_stop: asyncio.Event) -> None:
+            raise OSError("port already in use")
+
+        async def _slow_lines() -> AsyncIterator[bytes]:
+            # First line pulled → mark it, then hang forever. If run_bootstrap
+            # did not race the pump against the server, it would sit here
+            # for the full duration of an apply before noticing the dead server.
+            yield (_apply_summary(1) + "\n").encode()
+            pump_pulled.set()
+            await asyncio.sleep(3600)
+            yield b""
+
+        raised: BaseException | None = None
+        try:
+            await asyncio.wait_for(
+                run_bootstrap(
+                    line_chunks=_slow_lines(),
+                    sink=sink,
+                    serve=_serve_crashes_on_startup,
+                    bridge=TerraformProvisionBridge(),
+                    linger_seconds=10.0,  # deliberately large; must not be waited
+                ),
+                timeout=1.0,
+            )
+        except OSError as exc:
+            raised = exc
+
+        assert isinstance(raised, OSError)
+        assert "port already in use" in str(raised)
