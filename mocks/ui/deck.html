@@ -10,7 +10,10 @@
        Three columns: sessions (left) - transcript (center) - retrieval /
        citations (right). Bragi is the narrator translator: it renders in the
        operator's locale and never issues privileged calls. Read-only. */
-    .dk-shell { display: grid; grid-template-columns: 240px minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+    /* Shell + panel min-widths so the whole 3-column grid never triggers
+       page-level horizontal scroll on narrow viewports. */
+    .dk-shell { display: grid; grid-template-columns: 240px minmax(0, 1fr) 300px; gap: 16px; align-items: start; min-width: 0; }
+    .dk-shell > * { min-width: 0; }
     @media (max-width: 1100px) { .dk-shell { grid-template-columns: 220px minmax(0, 1fr); } .dk-trace { display: none; } }
     @media (max-width: 780px)  { .dk-shell { grid-template-columns: 1fr; } .dk-sessions { display: none; } }
 
@@ -32,12 +35,12 @@
     .dk-sessions li .dk-s-avatar.is-sage  { background: var(--cs-sage); }
 
     /* ---------- Transcript column ---------- */
-    .dk-transcript { position: relative; padding: 0; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); display: flex; flex-direction: column; min-height: 620px; }
-    .dk-t-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--cs-hairline); }
+    .dk-transcript { position: relative; padding: 0; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); display: flex; flex-direction: column; min-height: 620px; min-width: 0; overflow: hidden; }
+    .dk-t-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--cs-hairline); flex-wrap: wrap; min-width: 0; }
     .dk-t-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--cs-plum); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; flex: 0 0 auto; }
-    .dk-t-name { font-weight: 600; font-size: 14.5px; margin: 0; }
-    .dk-t-role { color: var(--cs-text-soft); font-size: 12px; margin: 0; }
-    .dk-t-badges { margin-left: auto; display: inline-flex; gap: 6px; }
+    .dk-t-name { font-weight: 600; font-size: 14.5px; margin: 0; white-space: nowrap; }
+    .dk-t-role { color: var(--cs-text-soft); font-size: 12px; margin: 0; white-space: nowrap; }
+    .dk-t-badges { margin-left: auto; display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: center; min-width: 0; }
     .dk-t-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(94,130,89,.30); color: var(--cs-sage); background: rgba(94,130,89,.08); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
     .dk-t-badge.is-ro { color: var(--cs-text-soft); border-color: var(--cs-hairline); background: var(--cs-shade); }
 
@@ -90,11 +93,11 @@
 
     /* Composer at the bottom of the transcript. */
     .dk-composer { border-top: 1px solid var(--cs-hairline); padding: 10px 14px 12px; background: var(--cs-card); border-bottom-left-radius: var(--cs-radius); border-bottom-right-radius: var(--cs-radius); }
-    .dk-composer-row { display: flex; align-items: flex-end; gap: 8px; padding: 8px 10px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); }
-    .dk-composer textarea { flex: 1; border: none; outline: none; font: inherit; font-size: 13.5px; line-height: 1.55; background: transparent; color: var(--cs-text); resize: none; min-height: 22px; max-height: 140px; }
-    .dk-composer .dk-send { padding: 6px 14px; border-radius: var(--cs-radius-sm); border: 1px solid var(--cs-steel); background: var(--cs-steel); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .dk-composer-row { display: flex; align-items: flex-end; gap: 8px; padding: 8px 10px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); min-width: 0; }
+    .dk-composer textarea { flex: 1 1 auto; min-width: 0; border: none; outline: none; font: inherit; font-size: 13.5px; line-height: 1.55; background: transparent; color: var(--cs-text); resize: none; min-height: 22px; max-height: 140px; }
+    .dk-composer .dk-send { flex: 0 0 auto; padding: 6px 14px; border-radius: var(--cs-radius-sm); border: 1px solid var(--cs-steel); background: var(--cs-steel); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
     .dk-composer .dk-send:hover { background: var(--cs-navy); border-color: var(--cs-navy); }
-    .dk-composer-foot { display: flex; align-items: center; gap: 12px; font-size: 11.5px; color: var(--cs-text-soft); margin-top: 6px; padding: 0 2px; }
+    .dk-composer-foot { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--cs-text-soft); margin-top: 6px; padding: 0 2px; }
     .dk-composer-foot .dk-tag { color: var(--cs-text-soft); }
     .dk-composer-foot .dk-mode { color: var(--cs-teal); font-weight: 600; }
 
@@ -213,11 +216,11 @@
     /* Composer @-mention autocomplete popup. Static in the mock (always
        open) so the interaction pattern is discoverable at a glance. */
     .dk-composer { position: relative; }
-    .dk-mention-pop { position: absolute; left: 14px; bottom: 100%; margin-bottom: 6px; padding: 6px; background: var(--cs-card); border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); box-shadow: 0 6px 18px rgba(15,23,30,.08); z-index: 2; width: 300px; max-width: calc(100% - 28px); }
+    .dk-mention-pop { position: absolute; left: 14px; bottom: 100%; margin-bottom: 6px; padding: 6px; background: var(--cs-card); border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); box-shadow: 0 6px 18px rgba(15,23,30,.08); z-index: 2; width: 340px; max-width: calc(100% - 28px); max-height: 240px; overflow-y: auto; overflow-x: hidden; }
     .dk-mention-pop-head { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 8px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--cs-text-soft); font-weight: 700; }
     .dk-mention-pop-head kbd { font-family: "Cascadia Code","Consolas",monospace; padding: 0 5px; border: 1px solid var(--cs-hairline); border-radius: 3px; background: var(--cs-shade); font-size: 10.5px; font-weight: 600; color: var(--cs-text); text-transform: none; }
     .dk-mention-pop ul { list-style: none; margin: 0; padding: 0; }
-    .dk-mention-pop li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--cs-radius-sm); font-size: 13px; cursor: default; }
+    .dk-mention-pop li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--cs-radius-sm); font-size: 13px; cursor: default; min-width: 0; }
     .dk-mention-pop li:hover { background: var(--cs-shade); }
     .dk-mention-pop li.is-active { background: rgba(68,104,142,.10); }
     .dk-mention-pop-av { width: 22px; height: 22px; border-radius: 50%; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 700; flex: 0 0 auto; }
@@ -226,8 +229,9 @@
     .dk-mention-pop-av.is-teal  { background: var(--cs-teal); }
     .dk-mention-pop-av.is-sage  { background: var(--cs-sage); }
     .dk-mention-pop-av.is-terracotta { background: var(--cs-terracotta); }
-    .dk-mention-pop-name { color: var(--cs-text); font-weight: 600; }
-    .dk-mention-pop-role { color: var(--cs-text-soft); font-size: 11.5px; margin-left: auto; }
+    .dk-mention-pop-name { color: var(--cs-text); font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dk-mention-pop-name code { font-size: 12px; }
+    .dk-mention-pop-role { color: var(--cs-text-soft); font-size: 11.5px; margin-left: auto; flex: 0 0 auto; }
 
     .dk-composer-row.is-mentioning { border-color: rgba(68,104,142,.35); box-shadow: 0 0 0 2px rgba(68,104,142,.08); }
     .dk-composer-foot kbd { font-family: "Cascadia Code","Consolas",monospace; padding: 0 5px; border: 1px solid var(--cs-hairline); border-radius: 3px; background: var(--cs-shade); font-size: 10.5px; font-weight: 600; color: var(--cs-text); }
@@ -260,7 +264,7 @@
     .dk-tokens b.is-cost  { color: var(--cs-terracotta); }
     /* Session total, sits in the transcript header next to the trace
        toggle. Same monospace tabular figures so cost/tokens read cleanly. */
-    .dk-session-tokens { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--cs-hairline); background: var(--cs-card); font-family: "Cascadia Code","Consolas",monospace; font-size: 11px; color: var(--cs-text-soft); font-variant-numeric: tabular-nums; }
+    .dk-session-tokens { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--cs-hairline); background: var(--cs-card); font-family: "Cascadia Code","Consolas",monospace; font-size: 11px; color: var(--cs-text-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
     .dk-session-tokens .lab { color: var(--cs-text-soft); text-transform: uppercase; letter-spacing: .06em; font-family: "Segoe UI","Malgun Gothic",sans-serif; font-size: 10px; font-weight: 700; letter-spacing: .06em; }
     .dk-session-tokens b { color: var(--cs-text); font-weight: 600; }
     .dk-session-tokens b.is-cost { color: var(--cs-terracotta); }
@@ -349,9 +353,10 @@
        Composer additions: search box + slash-command palette + draft-history
        cursor hint.
        ------------------------------------------------------------------- */
-    .dk-search { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-text-soft); font-size: 12px; margin-left: 6px; }
-    .dk-search input { border: none; outline: none; background: transparent; font: inherit; color: var(--cs-text); min-width: 120px; }
-    .dk-search kbd { font-family: "Cascadia Code","Consolas",monospace; padding: 0 5px; border: 1px solid var(--cs-hairline); border-radius: 3px; background: var(--cs-shade); font-size: 10px; color: var(--cs-text); }
+    /* Search box in the header - shrinks first when badges are tight. */
+    .dk-search { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-text-soft); font-size: 12px; min-width: 0; flex: 1 1 140px; max-width: 220px; }
+    .dk-search input { flex: 1 1 auto; min-width: 0; border: none; outline: none; background: transparent; font: inherit; color: var(--cs-text); }
+    .dk-search kbd { flex: 0 0 auto; font-family: "Cascadia Code","Consolas",monospace; padding: 0 5px; border: 1px solid var(--cs-hairline); border-radius: 3px; background: var(--cs-shade); font-size: 10px; color: var(--cs-text); }
     .dk-draft-hint { display: inline-flex; align-items: center; gap: 4px; color: var(--cs-text-soft); font-size: 11px; }
     .dk-draft-hint b { color: var(--cs-text); font-weight: 600; font-variant-numeric: tabular-nums; }
     /* Slash-command palette - similar shell to the @-mention popup. */
@@ -364,8 +369,9 @@
     .dk-slash-pop code { font-family: "Cascadia Code","Consolas",monospace; color: var(--cs-steel); font-size: 12px; }
     .dk-slash-pop .dk-slash-desc { color: var(--cs-text-soft); font-size: 11.5px; }
 
-    /* Sticky 'new message' pill (illustrative - shown when scrolled up). */
-    .dk-new-msg { position: absolute; left: 50%; bottom: 82px; transform: translateX(-50%); padding: 5px 12px; border-radius: 999px; background: var(--cs-navy); color: #fff; font-size: 12px; font-weight: 500; box-shadow: 0 4px 10px rgba(15,23,30,.18); cursor: pointer; z-index: 4; display: inline-flex; align-items: center; gap: 6px; }
+    /* Sticky 'new message' pill (illustrative - shown when scrolled up).
+       Sits just above the composer, centered in the transcript column. */
+    .dk-new-msg { position: absolute; left: 50%; bottom: 138px; transform: translateX(-50%); padding: 5px 12px; border-radius: 999px; background: var(--cs-navy); color: #fff; font-size: 12px; font-weight: 500; box-shadow: 0 4px 10px rgba(15,23,30,.18); cursor: pointer; z-index: 4; display: inline-flex; align-items: center; gap: 6px; }
     .dk-new-msg::after { content: "\2193"; }
 
     /* Session metadata panel - alternative to the retrieval trace column. */
