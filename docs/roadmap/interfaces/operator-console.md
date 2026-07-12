@@ -510,7 +510,9 @@ tiers drawn from a
   [`plan_summarization`](../../../src/fdai/core/working_context/planner.py)
   policy decides which turns fold into which level - full `fold_factor`
   chunks only, so a turn is never folded alone then re-folded - and the
-  `TranscriptSummarizer` seam executes each planned fold off the hot path.
+  [`SummarizationOrchestrator`](../../../src/fdai/core/working_context/orchestrator.py)
+  drives the plan against the `TranscriptSummarizer` seam so each planned
+  fold runs off the hot path with a stable order.
 
 Unused budget in a higher-priority tier spills to the next, so a short
 session fills with verbatim turns rather than padding with summaries. The

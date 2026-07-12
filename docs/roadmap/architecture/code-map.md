@@ -9,13 +9,17 @@ hop. This is the **scannable partner** to [project-structure.md](project-structu
 which explains the module boundaries and the DI seams in detail.
 
 Use this doc when you need to answer "where does X live?" without opening
-`list_dir` five times. The tables below cover the 45 core subsystems, the
-15 pantheon agents, and the delivery / shared plumbing packages.
+`list_dir` five times. The tables below cover the 46 core subsystem
+directories (48 rows if you count the three `tiers/*` subdirs; the
+companion [project-structure.md](project-structure.md) counts 41 by
+excluding the five G-1 domain-group facades), the 15 pantheon agents, and
+the delivery / shared plumbing packages.
 
 ## Design at a glance
 
 - **`src/fdai/core/`** is the headless control plane. No UI, no direct cloud
-  SDK imports. 45 subsystems grouped by control-loop role below.
+  SDK imports. 46 subsystem directories plus the top-level
+  `ontology_explorer.py` module, grouped by control-loop role below.
 - **`src/fdai/agents/`** is the 15-agent pantheon (flat, one file per agent)
   plus `_framework/` (bus, runtime, registry, pantheon spec).
 - **`src/fdai/delivery/`** are outbound adapters (Azure, chatops, PR gates,
@@ -73,6 +77,7 @@ the safety-core modules held to the >= 90% coverage floor.
 | tools | T2 tool registry + ToolExecutor | [src/fdai/core/tools/](../../../src/fdai/core/tools/) | [tests/core/tools/](../../../tests/core/tools/) |
 | web_search | Last-resort web-search seam | [src/fdai/core/web_search/](../../../src/fdai/core/web_search/) | [tests/core/web_search/](../../../tests/core/web_search/) |
 | capability_catalog | What each agent knows how to do | [src/fdai/core/capability_catalog/](../../../src/fdai/core/capability_catalog/) | [tests/core/capability_catalog/](../../../tests/core/capability_catalog/) |
+| ontology_explorer | Deterministic Mermaid renderer for the loaded ObjectType / LinkType catalog (single module, not a package) | [src/fdai/core/ontology_explorer.py](../../../src/fdai/core/ontology_explorer.py) | [tests/core/](../../../tests/core/) |
 
 ## Operator surfaces and notifications
 
@@ -141,13 +146,16 @@ for the fork-locked role bindings and change contract.
 | provisioning | Terraform / IaC apply driver | [src/fdai/delivery/provisioning/](../../../src/fdai/delivery/provisioning/) |
 | persistence | Postgres + pgvector store | [src/fdai/delivery/persistence/](../../../src/fdai/delivery/persistence/) |
 | pgvector | Vector-index helpers | [src/fdai/delivery/pgvector/](../../../src/fdai/delivery/pgvector/) |
-| datadog | Datadog metric / event adapter | [src/fdai/delivery/datadog/](../../../src/fdai/delivery/datadog/) |
-| prometheus | Prometheus scrape adapter | [src/fdai/delivery/prometheus/](../../../src/fdai/delivery/prometheus/) |
-| splunk | Splunk log adapter | [src/fdai/delivery/splunk/](../../../src/fdai/delivery/splunk/) |
-| jira | Jira issue adapter | [src/fdai/delivery/jira/](../../../src/fdai/delivery/jira/) |
+| datadog | Datadog metric / event adapter (`DatadogMetricProvider` in `metric.py`) | [src/fdai/delivery/datadog/](../../../src/fdai/delivery/datadog/) |
+| prometheus | Prometheus scrape adapter (`PrometheusMetricProvider` in `metric.py`) | [src/fdai/delivery/prometheus/](../../../src/fdai/delivery/prometheus/) |
+| splunk | Splunk log adapter (`SplunkMetricProvider` in `metric.py`) | [src/fdai/delivery/splunk/](../../../src/fdai/delivery/splunk/) |
+| jira | Jira issue adapter (`JiraToolExecutor` in `tool.py`) | [src/fdai/delivery/jira/](../../../src/fdai/delivery/jira/) |
 | mcp | Model Context Protocol seam | [src/fdai/delivery/mcp/](../../../src/fdai/delivery/mcp/) |
-| webhook | Generic outbound webhook | [src/fdai/delivery/webhook/](../../../src/fdai/delivery/webhook/) |
+| webhook | Generic outbound webhook + inbound `WebhookIngress` for the optional `POST /webhook` route | [src/fdai/delivery/webhook/](../../../src/fdai/delivery/webhook/) |
 | working_context | Delivery-side context assembly | [src/fdai/delivery/working_context/](../../../src/fdai/delivery/working_context/) |
+| chaos (delivery) | Live chaos-inject adapters used when a `Chaos` runbook step goes enforce - CSP-neutral `live_injectors.py` + `chaos_mesh.py` (Chaos Mesh CRDs) + `mysql_load.py` (MySQL benchmark load) | [src/fdai/delivery/chaos/](../../../src/fdai/delivery/chaos/) |
+| remediation (delivery) | Concrete `DirectApiExecutor` for direct-API remediation (`live_direct_api.py`); the Protocol is defined in `shared/providers/` | [src/fdai/delivery/remediation/](../../../src/fdai/delivery/remediation/) |
+| scheduler_tick_cli | Standalone entry point that drives the scheduler tick from a cron / Container Apps Job (single module, not a package) | [src/fdai/delivery/scheduler_tick_cli.py](../../../src/fdai/delivery/scheduler_tick_cli.py) |
 
 ## Shared plumbing (`src/fdai/shared/`)
 
@@ -165,9 +173,32 @@ for the fork-locked role bindings and change contract.
 
 | Path | Purpose |
 |------|---------|
-| [src/fdai/composition/](../../../src/fdai/composition/) | Composition root; fork DI attaches here. |
+| [src/fdai/composition/\_\_init\_\_.py](../../../src/fdai/composition/__init__.py) | Facade + `default_container` + `default_container_from_env`. |
+| [src/fdai/composition/_helpers.py](../../../src/fdai/composition/_helpers.py) | `Container`, `LlmBindings`, `LlmBindingsUnavailableError`. |
+| [src/fdai/composition/wire_llm.py](../../../src/fdai/composition/wire_llm.py) | Azure OpenAI LLM binder (composition-time model resolution). |
+| [src/fdai/composition/wire_azure.py](../../../src/fdai/composition/wire_azure.py) | Fork-wire container + `AzureWireOverrides`. |
+| [src/fdai/composition/wire_change_feed.py](../../../src/fdai/composition/wire_change_feed.py) | Change-feed factory wiring (Azure DevOps / GitHub change producers). |
 | [src/fdai/rule_catalog/](../../../src/fdai/rule_catalog/) | Loader for the `rule-catalog/` tree (YAML). |
 | [rule-catalog/](../../../rule-catalog/) | The rule / policy / action-type catalog (data). |
+
+## Developer entry points and slash commands
+
+The repo ships a small set of scripts and Copilot slash commands to keep
+local development, verification, and session hand-off consistent.
+
+| Path | Purpose |
+|------|---------|
+| [scripts/verify.sh](../../../scripts/verify.sh) | Single pre-commit gate: fast text/lint gates by default, `--full [path]` runs pytest. |
+| [scripts/dev-up.sh](../../../scripts/dev-up.sh) / [dev-down.sh](../../../scripts/dev-down.sh) / [dev-logs.sh](../../../scripts/dev-logs.sh) / [dev-status.sh](../../../scripts/dev-status.sh) | Local Docker Compose stack (pgvector + Redpanda) lifecycle. |
+| [scripts/tests-for-diff.sh](../../../scripts/tests-for-diff.sh) | Run only the pytest files affected by the current diff. |
+| [scripts/genesis-up.sh](../../../scripts/genesis-up.sh) | Stream `terraform apply` into the Day-1 Genesis surface via `delivery/provisioning`. |
+| [scripts/azd-up.sh](../../../scripts/azd-up.sh) | `azd up` wrapper (safe-preview default). |
+| [scripts/resume.sh](../../../scripts/resume.sh) | Session-resume snapshot for cross-session hand-off. |
+| [.github/prompts/verify.prompt.md](../../../.github/prompts/verify.prompt.md) | `/verify` - run `scripts/verify.sh`. |
+| [.github/prompts/critique-batch.prompt.md](../../../.github/prompts/critique-batch.prompt.md) | `/critique-batch` - critique-and-harden loop (paired with the `coding-hardening` skill). |
+| [.github/prompts/harden-coverage.prompt.md](../../../.github/prompts/harden-coverage.prompt.md) | `/harden-coverage` - coverage hardening on low-coverage modules. |
+| [.github/prompts/pantheon-safe-edit.prompt.md](../../../.github/prompts/pantheon-safe-edit.prompt.md) | `/pantheon-safe-edit` - guarded editing under `src/fdai/agents/**`. |
+| [.github/prompts/resume-session.prompt.md](../../../.github/prompts/resume-session.prompt.md) | `/resume-session` - reload prior session context. |
 
 ## Related docs
 

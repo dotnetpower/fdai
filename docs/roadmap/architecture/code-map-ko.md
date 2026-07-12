@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 99e4e9d50f4a0dd6f5deb6159d1b27f2c6753526
+translation_source_sha: fd0e26bdb9be1104dd93f7bc63d63b4b33d280ef
 translation_revised: 2026-07-12
 ---
 # 코드 맵
@@ -12,13 +12,16 @@ FDAI 코드베이스의 원페이지 인덱스. 서브시스템 이름에서 소
 **스캔용 파트너**로 쓴다.
 
 "X는 어디 있지?"에 `list_dir`을 다섯 번 열지 않고 답하고 싶을 때 사용한다.
-아래 표들은 45개의 core 서브시스템, 15명 판테온 에이전트, delivery / shared
-패키지를 커버한다.
+아래 표들은 46개의 core 서브시스템 디렉토리 (`tiers/*` 세 개 하위 디렉토리를
+따로 세면 48행; 자매 문서 [project-structure.md](project-structure-ko.md)는
+G-1 도메인 그룹 파사드 다섯 개를 제외하여 41개로 센다), 15명 판테온
+에이전트, delivery / shared 패키지를 커버한다.
 
 ## 한눈에 보기
 
 - **`src/fdai/core/`** = 헤드리스 컨트롤 플레인. UI 없음, 클라우드 SDK
-  직접 import 없음. 45개 서브시스템을 컨트롤 루프 역할별로 아래 정리.
+  직접 import 없음. 46개 서브시스템 디렉토리 + 최상위 `ontology_explorer.py`
+  모듈; 컨트롤 루프 역할별로 아래 정리.
 - **`src/fdai/agents/`** = 15명 판테온 (평면 배치, 에이전트당 파일 하나) +
   `_framework/` (버스, 런타임, 레지스트리, 판테온 스펙).
 - **`src/fdai/delivery/`** = 외부 어댑터 (Azure, chatops, PR 게이트, 알림,
@@ -75,6 +78,7 @@ FDAI 코드베이스의 원페이지 인덱스. 서브시스템 이름에서 소
 | tools | T2 툴 레지스트리 + ToolExecutor | [src/fdai/core/tools/](../../../src/fdai/core/tools/) | [tests/core/tools/](../../../tests/core/tools/) |
 | web_search | 최후 수단 웹 검색 seam | [src/fdai/core/web_search/](../../../src/fdai/core/web_search/) | [tests/core/web_search/](../../../tests/core/web_search/) |
 | capability_catalog | 각 에이전트가 아는 것 | [src/fdai/core/capability_catalog/](../../../src/fdai/core/capability_catalog/) | [tests/core/capability_catalog/](../../../tests/core/capability_catalog/) |
+| ontology_explorer | 로드된 ObjectType / LinkType 카탈로그의 결정론적 Mermaid 렌더러 (단일 모듈, 패키지 아님) | [src/fdai/core/ontology_explorer.py](../../../src/fdai/core/ontology_explorer.py) | [tests/core/](../../../tests/core/) |
 
 ## 오퍼레이터 서피스와 알림
 
@@ -143,13 +147,16 @@ FDAI 코드베이스의 원페이지 인덱스. 서브시스템 이름에서 소
 | provisioning | Terraform / IaC apply 드라이버 | [src/fdai/delivery/provisioning/](../../../src/fdai/delivery/provisioning/) |
 | persistence | Postgres + pgvector 스토어 | [src/fdai/delivery/persistence/](../../../src/fdai/delivery/persistence/) |
 | pgvector | 벡터 인덱스 헬퍼 | [src/fdai/delivery/pgvector/](../../../src/fdai/delivery/pgvector/) |
-| datadog | Datadog 메트릭 / 이벤트 어댑터 | [src/fdai/delivery/datadog/](../../../src/fdai/delivery/datadog/) |
-| prometheus | Prometheus scrape 어댑터 | [src/fdai/delivery/prometheus/](../../../src/fdai/delivery/prometheus/) |
-| splunk | Splunk 로그 어댑터 | [src/fdai/delivery/splunk/](../../../src/fdai/delivery/splunk/) |
-| jira | Jira 이슈 어댑터 | [src/fdai/delivery/jira/](../../../src/fdai/delivery/jira/) |
+| datadog | Datadog 메트릭 / 이벤트 어댑터 (`metric.py`의 `DatadogMetricProvider`) | [src/fdai/delivery/datadog/](../../../src/fdai/delivery/datadog/) |
+| prometheus | Prometheus scrape 어댑터 (`metric.py`의 `PrometheusMetricProvider`) | [src/fdai/delivery/prometheus/](../../../src/fdai/delivery/prometheus/) |
+| splunk | Splunk 로그 어댑터 (`metric.py`의 `SplunkMetricProvider`) | [src/fdai/delivery/splunk/](../../../src/fdai/delivery/splunk/) |
+| jira | Jira 이슈 어댑터 (`tool.py`의 `JiraToolExecutor`) | [src/fdai/delivery/jira/](../../../src/fdai/delivery/jira/) |
 | mcp | Model Context Protocol seam | [src/fdai/delivery/mcp/](../../../src/fdai/delivery/mcp/) |
-| webhook | 범용 아웃바운드 webhook | [src/fdai/delivery/webhook/](../../../src/fdai/delivery/webhook/) |
+| webhook | 범용 아웃바운드 webhook + 옵션 `POST /webhook` 라우트를 위한 인바운드 `WebhookIngress` | [src/fdai/delivery/webhook/](../../../src/fdai/delivery/webhook/) |
 | working_context | Delivery 측 컨텍스트 조립 | [src/fdai/delivery/working_context/](../../../src/fdai/delivery/working_context/) |
+| chaos (delivery) | `Chaos` runbook 단계가 enforce로 갈 때 쓰는 라이브 카오스 주입 어댑터 - CSP-중립 `live_injectors.py` + `chaos_mesh.py` (Chaos Mesh CRD) + `mysql_load.py` (MySQL 벤치마크 부하) | [src/fdai/delivery/chaos/](../../../src/fdai/delivery/chaos/) |
+| remediation (delivery) | 직접 API 리메디에이션용 구체 `DirectApiExecutor` (`live_direct_api.py`); Protocol 정의는 `shared/providers/`에 있음 | [src/fdai/delivery/remediation/](../../../src/fdai/delivery/remediation/) |
+| scheduler_tick_cli | cron / Container Apps Job에서 스케줄러 tick을 구동하는 독립 엔트리 포인트 (단일 모듈, 패키지 아님) | [src/fdai/delivery/scheduler_tick_cli.py](../../../src/fdai/delivery/scheduler_tick_cli.py) |
 
 ## Shared 배관 (`src/fdai/shared/`)
 
@@ -167,9 +174,32 @@ FDAI 코드베이스의 원페이지 인덱스. 서브시스템 이름에서 소
 
 | 경로 | 목적 |
 |------|------|
-| [src/fdai/composition/](../../../src/fdai/composition/) | 컴포지션 루트; fork DI가 여기 붙음. |
+| [src/fdai/composition/\_\_init\_\_.py](../../../src/fdai/composition/__init__.py) | 파사드 + `default_container` + `default_container_from_env`. |
+| [src/fdai/composition/_helpers.py](../../../src/fdai/composition/_helpers.py) | `Container`, `LlmBindings`, `LlmBindingsUnavailableError`. |
+| [src/fdai/composition/wire_llm.py](../../../src/fdai/composition/wire_llm.py) | Azure OpenAI LLM 바인더 (컴포지션 타임 모델 해석). |
+| [src/fdai/composition/wire_azure.py](../../../src/fdai/composition/wire_azure.py) | Fork-wire 컨테이너 + `AzureWireOverrides`. |
+| [src/fdai/composition/wire_change_feed.py](../../../src/fdai/composition/wire_change_feed.py) | change-feed 팩토리 wiring (Azure DevOps / GitHub 변경 생산자). |
 | [src/fdai/rule_catalog/](../../../src/fdai/rule_catalog/) | `rule-catalog/` 트리 (YAML) 로더. |
 | [rule-catalog/](../../../rule-catalog/) | 룰 / 정책 / action-type 카탈로그 (데이터). |
+
+## 개발자 엔트리 포인트와 슬래시 커맨드
+
+로컬 개발, 검증, 세션 인수인계를 일관되게 유지하기 위해 리포에서 제공하는
+스크립트와 Copilot 슬래시 커맨드 모음.
+
+| 경로 | 목적 |
+|------|------|
+| [scripts/verify.sh](../../../scripts/verify.sh) | 단일 프리커밋 게이트: 기본은 fast text/lint, `--full [path]`는 pytest까지 실행. |
+| [scripts/dev-up.sh](../../../scripts/dev-up.sh) / [dev-down.sh](../../../scripts/dev-down.sh) / [dev-logs.sh](../../../scripts/dev-logs.sh) / [dev-status.sh](../../../scripts/dev-status.sh) | 로컬 Docker Compose 스택 (pgvector + Redpanda) 라이프사이클. |
+| [scripts/tests-for-diff.sh](../../../scripts/tests-for-diff.sh) | 현재 diff에 영향받는 pytest 파일만 실행. |
+| [scripts/genesis-up.sh](../../../scripts/genesis-up.sh) | `terraform apply`를 `delivery/provisioning`으로 스트리밍해서 Day-1 Genesis 서피스로 전달. |
+| [scripts/azd-up.sh](../../../scripts/azd-up.sh) | `azd up` 래퍼 (기본 safe-preview). |
+| [scripts/resume.sh](../../../scripts/resume.sh) | 세션 간 인수인계용 세션 재개 스냅샷. |
+| [.github/prompts/verify.prompt.md](../../../.github/prompts/verify.prompt.md) | `/verify` - `scripts/verify.sh` 실행. |
+| [.github/prompts/critique-batch.prompt.md](../../../.github/prompts/critique-batch.prompt.md) | `/critique-batch` - critique-and-harden 루프 (`coding-hardening` 스킬과 세트). |
+| [.github/prompts/harden-coverage.prompt.md](../../../.github/prompts/harden-coverage.prompt.md) | `/harden-coverage` - 저커버리지 모듈에 대한 coverage 하드닝. |
+| [.github/prompts/pantheon-safe-edit.prompt.md](../../../.github/prompts/pantheon-safe-edit.prompt.md) | `/pantheon-safe-edit` - `src/fdai/agents/**` 아래 보호된 편집. |
+| [.github/prompts/resume-session.prompt.md](../../../.github/prompts/resume-session.prompt.md) | `/resume-session` - 이전 세션 컨텍스트 재로드. |
 
 ## 관련 문서
 
