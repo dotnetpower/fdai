@@ -27,6 +27,10 @@ _EXPECTED_FILES = frozenset(
         "wire_llm.py",
         "wire_azure.py",
         "wire_change_feed.py",
+        # Extracted from wire_azure.py (G-4) to keep the file under the
+        # per-file LOC ceiling; assembles the metric-provider composite
+        # from whichever telemetry backends the deploy exposes.
+        "wire_metric_provider.py",
     }
 )
 
@@ -183,14 +187,17 @@ def test_no_circular_import() -> None:
 
 def test_wire_files_do_not_import_each_other() -> None:
     # wire_azure MAY import bind_azure_llm_bindings from wire_llm (it
-    # composes it). All other cross-wire imports are forbidden.
+    # composes it) AND attach_metric_provider from wire_metric_provider
+    # (the metric-composite path extracted for the LOC ceiling).
+    # All other cross-wire imports are forbidden.
     allowed = {
         ("wire_azure.py", "wire_llm.py"),
+        ("wire_azure.py", "wire_metric_provider.py"),
     }
     offenders: list[tuple[str, str, str]] = []
     for path in _COMP_DIR.glob("wire_*.py"):
         body = path.read_text(encoding="utf-8")
-        for match in re.finditer(r"(?:from|import)\s+\.(wire_[a-z]+)", body):
+        for match in re.finditer(r"(?:from|import)\s+\.(wire_[a-z_]+)", body):
             target = f"{match.group(1)}.py"
             pair = (path.name, target)
             if pair in allowed:

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 from ._helpers import Container
 from .wire_llm import bind_azure_llm_bindings
+from .wire_metric_provider import attach_metric_provider
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -351,170 +352,14 @@ async def wire_azure_container(
         pricing=pricing,
     )
 
-    # Chain the metric adapter in based on which telemetry backends the
-    # deploy exposes. Three providers can bind, in latency order:
-    #
-    # 1. Prometheus (``prometheus_base_url``): AKS-scoped metrics via
-    #    Managed Prom / self-hosted Prom; sub-minute freshness.
-    # 2. Azure Monitor Metrics REST API (piggybacks on
-    #    ``monitor_workspace_id`` since it uses the same identity):
-    #    direct-mapped Azure PaaS metrics (MySQL cpu_percent,
-    #    AppGateway HealthyHostCount, ...); ~1-3 min freshness.
-    # 3. Azure Monitor Logs KQL (``monitor_workspace_id``): the fallback
-    #    for computed metrics (rates, deltas, cross-signal fusion) and
-    #    any name Prom / Metrics API do not know; ~2-5 min ingestion
-    #    floor.
-    #
-    # When 2+ bindings are live they wrap into a
-    # :class:`RoutedMetricProvider` in that order so each analyzer
-    # query lands on the fastest backend that can serve it. When only
-    # one binds it is returned directly (no wrapper overhead). None ->
-    # NoopMetricProvider (upstream default preserved). Upstream default
-    # query catalogs for each backend come from the shipped modules; a
-    # fork override always wins.
-    from ..shared.providers.metric import MetricProvider
-    from ..shared.providers.routed_metric import MetricRoute, RoutedMetricProvider
-
-    routes: list[MetricRoute] = []
-    log_summary: dict[str, object] = {}
-
-    if overrides.prometheus_base_url:
-        from ..delivery.prometheus import (
-            PrometheusMetricConfig,
-            PrometheusMetricProvider,
-            aks_managed_prometheus_queries,
-        )
-
-        prom_queries = overrides.prometheus_queries or aks_managed_prometheus_queries()
-        prom_provider: MetricProvider = PrometheusMetricProvider(
-            config=PrometheusMetricConfig(
-                base_url=overrides.prometheus_base_url,
-                queries=prom_queries,
-                audience=overrides.prometheus_audience,
-            ),
-            http_client=http_client,
-            identity=identity if overrides.prometheus_audience else None,
-        )
-        routes.append(
-            MetricRoute(
-                provider=prom_provider,
-                supported_metrics=frozenset(prom_queries.keys()),
-            )
-        )
-        log_summary["prometheus"] = {
-            "query_count": len(prom_queries),
-            "query_source": (
-                "override"
-                if overrides.prometheus_queries is not None
-                else "aks_managed_prometheus_queries"
-            ),
-        }
-
-    if overrides.monitor_workspace_id:
-        # Route 2: Azure Monitor Metrics REST API (~1-3 min). Piggybacks
-        # on the same identity as AML - a workspace being wired implies
-        # the Metrics API is reachable too (same MI, same ARM control
-        # plane). Fork override wins; empty upstream default ships the
-        # 4 direct-mapped metrics via ``azure_metrics_api_queries``.
-        from ..delivery.azure.metrics_api import (
-            AzureMonitorMetricsConfig,
-            AzureMonitorMetricsProvider,
-        )
-        from ..delivery.azure.metrics_api_queries import azure_metrics_api_queries
-
-        metrics_templates = overrides.metrics_api_queries or azure_metrics_api_queries()
-        metrics_provider: MetricProvider = AzureMonitorMetricsProvider(
-            config=AzureMonitorMetricsConfig(templates=metrics_templates),
-            http_client=http_client,
-            identity=identity,
-        )
-        routes.append(
-            MetricRoute(
-                provider=metrics_provider,
-                supported_metrics=frozenset(metrics_templates.keys()),
-            )
-        )
-        log_summary["azure_monitor_metrics"] = {
-            "template_count": len(metrics_templates),
-            "template_source": (
-                "override"
-                if overrides.metrics_api_queries is not None
-                else "azure_metrics_api_queries"
-            ),
-        }
-
-        # Route 3: Azure Monitor Logs KQL (~2-5 min).
-        from ..delivery.azure.demo_queries import default_metric_queries
-        from ..delivery.azure.metric_logs import (
-            AzureMonitorLogsConfig,
-            AzureMonitorLogsMetricProvider,
-        )
-
-        aml_queries = overrides.monitor_queries or default_metric_queries()
-        aml_provider: MetricProvider = AzureMonitorLogsMetricProvider(
-            config=AzureMonitorLogsConfig(
-                workspace_id=overrides.monitor_workspace_id,
-                queries=aml_queries,
-            ),
-            identity=identity,
-            http_client=http_client,
-        )
-        routes.append(
-            MetricRoute(
-                provider=aml_provider,
-                supported_metrics=frozenset(aml_queries.keys()),
-            )
-        )
-        log_summary["azure_monitor_logs"] = {
-            "workspace_id": overrides.monitor_workspace_id,
-            "query_count": len(aml_queries),
-            "query_source": (
-                "override" if overrides.monitor_queries is not None else "default_metric_queries"
-            ),
-        }
-
-    if not routes:
-        _LOGGER.info(
-            "metric_provider_skipped",
-            extra={
-                "reason": (
-                    "neither monitor_workspace_id nor prometheus_base_url "
-                    "supplied - NoopMetricProvider stays"
-                )
-            },
-        )
-        return container_with_llm
-
-    if len(routes) == 1:
-        _LOGGER.info(
-            "metric_provider_bound_single",
-            extra={
-                "provider": type(routes[0].provider).__name__,
-                "detail": log_summary,
-            },
-        )
-        return replace(container_with_llm, metric_provider=routes[0].provider)
-
-    routed = RoutedMetricProvider(routes=routes)
-    _LOGGER.info(
-        "metric_provider_routed",
-        extra={
-            "route_count": len(routes),
-            "route_order": [type(r.provider).__name__ for r in routes],
-            "detail": log_summary,
-        },
+    return attach_metric_provider(
+        container_with_llm,
+        identity=identity,
+        http_client=http_client,
+        monitor_workspace_id=overrides.monitor_workspace_id,
+        monitor_queries=overrides.monitor_queries,
+        metrics_api_queries=overrides.metrics_api_queries,
+        prometheus_base_url=overrides.prometheus_base_url,
+        prometheus_queries=overrides.prometheus_queries,
+        prometheus_audience=overrides.prometheus_audience,
     )
-    return replace(container_with_llm, metric_provider=routed)
-
-
-def _load_default_aml_metric_names() -> frozenset[str]:
-    """Return the metric-name set the shipped AML catalog covers.
-
-    Extracted so the composite-route path can pull the AML supported
-    set from the default catalog without importing the KQL template
-    module at the composition-root module top level (kept lazy for
-    optional-dependency purity).
-    """
-    from ..delivery.azure.demo_queries import default_metric_queries
-
-    return frozenset(default_metric_queries().keys())
