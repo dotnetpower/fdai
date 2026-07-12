@@ -48,6 +48,11 @@ from fdai.rule_catalog.schema.llm_resolver import (
     collect_narrator_deployments,
     resolve,
 )
+from fdai.rule_catalog.schema.provisioning_assessment import (
+    ProvisioningReport,
+    ProvisioningSeverity,
+    assess_provisioning,
+)
 
 # ---------------------------------------------------------------------------
 # Fixture-backed query implementations (offline path)
@@ -140,6 +145,17 @@ def _build_parser() -> argparse.ArgumentParser:
         "--out",
         type=Path,
         help="Write resolved-models.json here; omit for stdout.",
+    )
+    parser.add_argument(
+        "--assess-fail-on",
+        choices=["none", "degraded", "critical"],
+        default="none",
+        help=(
+            "Exit non-zero (3) when the provisioning completeness assessment "
+            "reaches this severity (default: none = report to stderr only). "
+            "Use 'critical' in CI to block a deploy whose core tier or "
+            "mixed-model T2 quorum cannot form."
+        ),
     )
     parser.add_argument(
         "--narrator-endpoint",
@@ -235,6 +251,45 @@ def _build_queries(
     )
 
 
+_SEVERITY_RANK: dict[ProvisioningSeverity, int] = {
+    ProvisioningSeverity.OK: 0,
+    ProvisioningSeverity.DEGRADED: 1,
+    ProvisioningSeverity.CRITICAL: 2,
+}
+
+
+def _print_assessment(report: ProvisioningReport) -> None:
+    """Report the provisioning completeness assessment to stderr.
+
+    A ``critical`` roll-up is prefixed ``A2 alert:`` - the same operational
+    category the runtime uses when a resolved deployment is silently
+    missing its T2 quorum. Never touches stdout (which carries the JSON).
+    """
+
+    prefix = "A2 alert: " if report.severity is ProvisioningSeverity.CRITICAL else ""
+    print(
+        f"{prefix}provisioning assessment: severity={report.severity.value} "
+        f"quorum_ok={report.quorum_ok}",
+        file=sys.stderr,
+    )
+    for cap in report.degraded:
+        print(
+            f"  - {cap.name} [{cap.tier.value}] {cap.state.value}: {cap.impact}",
+            file=sys.stderr,
+        )
+
+
+def _assessment_exit_code(report: ProvisioningReport, fail_on: str) -> int:
+    if fail_on == "none":
+        return 0
+    threshold = (
+        ProvisioningSeverity.CRITICAL if fail_on == "critical" else ProvisioningSeverity.DEGRADED
+    )
+    if _SEVERITY_RANK[report.severity] >= _SEVERITY_RANK[threshold]:
+        return 3
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -300,12 +355,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             narrator_candidates=candidates,
         )
 
+    report = assess_provisioning(registry=registry, resolved=resolved)
+    _print_assessment(report)
+
     payload = resolved.to_json()
     if args.out is None:
         sys.stdout.write(payload)
     else:
         args.out.write_text(payload, encoding="utf-8")
-    return 0
+    return _assessment_exit_code(report, args.assess_fail_on)
 
 
 if __name__ == "__main__":  # pragma: no cover

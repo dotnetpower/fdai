@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: e18820321b179f40af9278826c8948146652c37b
+translation_source_sha: a98d5b80a119de579cd3125f842d83d6256be32c
 translation_revised: 2026-07-12
 ---
 
@@ -256,6 +256,11 @@ fallback 하고 모든 T2 케이스가 HIL로 라우팅되며, reasoning tier가
 배포 파이프라인은 severity로 게이팅하고 리포트를 감사 로그에 기록(`critical` 시 A2
 운영 알림)하므로, 반쪽만 프로비저닝된 reasoning tier가 런타임 HIL storm으로 숨지
 않고 `azd up` 시점에 보인다.
+
+부트스트랩 CLI가 이를 직접 노출한다: `fdai-llm-resolver --assess-fail-on critical`
+은 assessment를 stderr에 출력(`critical` 시 `A2 alert:` 라인)하고 non-zero로 종료하므로,
+CI 배포 단계가 모든 T2 케이스를 조용히 HIL로 보내는 reasoning tier를 배포하기 전에
+차단한다. 기본값 `--assess-fail-on none`은 하위호환을 위해 report-only로 유지된다.
 
 ### 런타임 해석
 

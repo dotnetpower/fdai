@@ -118,9 +118,35 @@ def test_cli_populates_narrator_when_endpoint_given(tmp_path: Path) -> None:
     cap_names = {c["name"] for c in payload["capabilities"]}
     for cand in candidates:
         assert cand in cap_names, f"missing terraform capability for {cand}"
+
     # The original t1.judge capability is preserved (composition.py depends
     # on it for judge binding); narrator capabilities are additive.
     assert "t1.judge" in cap_names
+
+
+# ---------------------------------------------------------------------------
+# Provisioning completeness gate (--assess-fail-on)
+# ---------------------------------------------------------------------------
+
+
+def test_cli_assess_fail_on_none_reports_only(tmp_path: Path) -> None:
+    # Denied permission -> every capability hil-only -> critical severity,
+    # but the default fail-on=none is report-only, so exit stays 0.
+    assert main(_base_argv(tmp_path, "permission.denied.json")) == 0
+
+
+def test_cli_assess_fail_on_critical_blocks_denied(tmp_path: Path) -> None:
+    argv = [*_base_argv(tmp_path, "permission.denied.json"), "--assess-fail-on", "critical"]
+    assert main(argv) == 3
+    # The JSON is still written so the pipeline stage can inspect the report.
+    assert (tmp_path / "resolved-models.json").exists()
+
+
+def test_cli_assess_fail_on_critical_allows_granted(tmp_path: Path) -> None:
+    # Granted permission resolves the core tier + T2 quorum, so severity is
+    # never critical -> a critical gate passes.
+    argv = [*_base_argv(tmp_path, "permission.granted.json"), "--assess-fail-on", "critical"]
+    assert main(argv) == 0
 
 
 def test_cli_omits_narrator_fields_by_default(tmp_path: Path) -> None:

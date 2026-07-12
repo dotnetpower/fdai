@@ -277,6 +277,12 @@ The deploy pipeline gates on the severity and writes the report to the audit log
 (an A2 operational alert on `critical`), so a half-provisioned reasoning tier is
 visible at `azd up` time rather than as a silent runtime HIL storm.
 
+The bootstrap CLI exposes this directly: `fdai-llm-resolver --assess-fail-on critical`
+prints the assessment to stderr (an `A2 alert:` line on `critical`) and exits non-zero,
+so a CI deploy stage blocks before shipping a reasoning tier that would silently route
+every T2 case to HIL. The default `--assess-fail-on none` stays report-only for backward
+compatibility.
+
 ### Runtime Resolution
 
 Core code depends only on the capability contract. `resolved-models.json` is loaded from
