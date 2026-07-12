@@ -478,6 +478,12 @@ def _summarize_config(container: Container) -> dict[str, Any]:
         "llm_mode": cfg.llm.mode,
         "llm_capabilities": list(cfg.llm.capabilities),
         "llm_bindings_available": container.llm_bindings is not None,
+        # Adapter parity: log whether telemetry seams resolved to their
+        # live Azure adapters or fell back to the upstream no-op defaults,
+        # so an operator can tell at a glance whether detection sees real
+        # metrics or nothing at all.
+        "metric_provider": type(container.metric_provider).__name__,
+        "inventory": type(container.inventory).__name__,
     }
 
 
@@ -496,6 +502,13 @@ async def _finalize_llm_bindings(
     - ``FDAI_LLM_ENDPOINT`` -> ``AzureWireOverrides.endpoint``
     - :func:`_resolve_catalog_root` -> ``AzureWireOverrides.catalog_root``
     - :func:`_build_operator_memory_store` -> ``.operator_memory_store``
+    - ``FDAI_MONITOR_WORKSPACE_ID`` (optional) ->
+      ``AzureWireOverrides.monitor_workspace_id``. When set,
+      :func:`wire_azure_container` auto-binds the Azure Monitor Logs
+      metric adapter using the shipped
+      :func:`~fdai.delivery.azure.demo_queries.sre_demo_capture_queries`
+      catalog in place of :class:`NoopMetricProvider`, so the detection
+      pipeline sees real telemetry without every fork rewriring it.
 
     A fork that needs different resolution SHOULD call
     :func:`wire_azure_container` directly with its own
@@ -509,6 +522,10 @@ async def _finalize_llm_bindings(
             "llm.mode='azure' requires FDAI_LLM_ENDPOINT env "
             "(e.g. https://<caf-openai-endpoint>.openai.azure.com)"
         )
+    # Optional: bind the Azure Monitor Logs metric adapter when the
+    # deploy exposes a Log Analytics workspace. Empty / unset -> upstream
+    # default ``NoopMetricProvider`` stays, matching dev-mode parity.
+    monitor_workspace_id = os.environ.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() or None
     return await wire_azure_container(
         container,
         http_client=http_client,
@@ -517,6 +534,7 @@ async def _finalize_llm_bindings(
             endpoint=endpoint,
             catalog_root=_resolve_catalog_root(),
             operator_memory_store=_build_operator_memory_store(),
+            monitor_workspace_id=monitor_workspace_id,
         ),
     )
 

@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: ab61e6875f5ffce85007c4dfc152fcb00db869b0
+translation_source_sha: 89d6afa45acb2b0044f6e1367624c1371f32252e
 translation_revised: 2026-07-12
 ---
 
@@ -42,7 +42,7 @@ seam):
 | 3 | **시크릿** | 환경변수 (또는 K8s Secret 마운트) - 앱에서 CSP secret SDK 호출 안 함 | Container Apps native secret + Key Vault reference |
 | 4 | **워크로드 아이덴티티** | OIDC 토큰 (federated) | User-assigned Managed Identity + workload identity federation |
 | 5 | **인벤토리** | HTTP + OIDC-bearer 와이어로 `(Resource, Link[])` 배치를 반환하는 리소스-그래프 쿼리 표면 | Azure Resource Graph (ARG) + Activity Log delta |
-| 6 | **Metric ingestion** | `MetricProvider.query(MetricQuery) -> AsyncIterator[MetricPoint]` (CSP-neutral name + label) | Azure Monitor Logs (KQL) - upstream 은 `NoopMetricProvider` ship |
+| 6 | **Metric ingestion** | `MetricProvider.query(MetricQuery) -> AsyncIterator[MetricPoint]` (CSP-neutral name + label) | Azure Monitor Logs (KQL) - upstream 은 `FDAI_MONITOR_WORKSPACE_ID` 가 세팅되면 `AzureMonitorLogsMetricProvider` 를 자동 바인딩, 아니면 `NoopMetricProvider` 유지 |
 | 7 | **Log ingestion** | `LogQueryProvider.query(LogQuery) -> AsyncIterator[LogRecord]` (vendor `expression` + CSP-neutral label filter) | Log Analytics (KQL) - upstream 은 `NoopLogQueryProvider` ship |
 | 8 | **Trace ingestion** | `TraceQueryProvider.query(TraceQuery) -> AsyncIterator[Span]` (`trace_id`, `service`, `operation`, `min_duration`) | Application Insights - upstream 은 `NoopTraceQueryProvider` ship |
 

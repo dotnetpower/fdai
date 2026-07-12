@@ -39,7 +39,7 @@ telemetry-ingestion seams added per [scope-expansion.md § 3.2](../fork-and-sequ
 | 3 | **Secret** | environment variables (or K8s Secret mount) - never a CSP secret SDK call from the app | Container Apps native secret + Key Vault reference |
 | 4 | **Workload identity** | OIDC token (federated) | User-assigned Managed Identity + workload identity federation |
 | 5 | **Inventory** | resource-graph query surface returning `(Resource, Link[])` batches over an HTTP + OIDC-bearer wire | Azure Resource Graph (ARG) + Activity Log delta |
-| 6 | **Metric ingestion** | `MetricProvider.query(MetricQuery) -> AsyncIterator[MetricPoint]` (CSP-neutral names + labels) | Azure Monitor Logs (KQL) - upstream ships `NoopMetricProvider` |
+| 6 | **Metric ingestion** | `MetricProvider.query(MetricQuery) -> AsyncIterator[MetricPoint]` (CSP-neutral names + labels) | Azure Monitor Logs (KQL) - upstream auto-binds `AzureMonitorLogsMetricProvider` when `FDAI_MONITOR_WORKSPACE_ID` is set, else keeps `NoopMetricProvider` |
 | 7 | **Log ingestion** | `LogQueryProvider.query(LogQuery) -> AsyncIterator[LogRecord]` (vendor `expression` + CSP-neutral label filter) | Log Analytics (KQL) - upstream ships `NoopLogQueryProvider` |
 | 8 | **Trace ingestion** | `TraceQueryProvider.query(TraceQuery) -> AsyncIterator[Span]` (`trace_id`, `service`, `operation`, `min_duration`) | Application Insights - upstream ships `NoopTraceQueryProvider` |
 

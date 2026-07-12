@@ -28,10 +28,18 @@ from fdai.shared.providers.workload_identity import (
 _TEST_SYSTEM_PROMPT = "unit-test system prompt"
 
 
-def _config(*, mode: str = LlmMode.LOCAL_FAKE, resolved_path: str | None = None) -> AppConfig:
+def _config(
+    *,
+    mode: str = LlmMode.LOCAL_FAKE,
+    resolved_path: str | None = None,
+    t2_primary_latency_routing: bool = False,
+) -> AppConfig:
     llm: dict[str, Any] = {"mode": mode}
     if resolved_path is not None:
         llm["resolved_models_path"] = resolved_path
+    # Set explicitly (both True and False) so tests stay deterministic
+    # regardless of the model-level default.
+    llm["t2_primary_latency_routing"] = t2_primary_latency_routing
     return AppConfig.model_validate(
         {
             "schema_version": "1.0.0",
@@ -798,6 +806,123 @@ async def test_wire_azure_container_forwards_tool_providers(tmp_path: Path) -> N
 
 
 # ---------------------------------------------------------------------------
+# Azure Monitor Logs metric-provider auto-bind (upstream default -> live
+# adapter when the deploy exposes ``FDAI_MONITOR_WORKSPACE_ID`` / passes
+# ``AzureWireOverrides.monitor_workspace_id``). Keeps the detection
+# pipeline honest: no workspace -> NoopMetricProvider stays; workspace
+# supplied -> the shipped SRE-demo query catalog binds without a fork.
+# ---------------------------------------------------------------------------
+
+
+async def test_wire_azure_container_skips_monitor_without_workspace(tmp_path: Path) -> None:
+    """Upstream parity: no ``monitor_workspace_id`` -> NoopMetricProvider stays."""
+    from fdai.composition import AzureWireOverrides, wire_azure_container
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+    from fdai.shared.providers.metric import NoopMetricProvider
+
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    finalized = await wire_azure_container(
+        container,
+        http_client=http,
+        identity=_StaticIdentity(),
+        overrides=AzureWireOverrides(
+            endpoint="https://oai-fork.openai.azure.com",
+            catalog_root=_SHIPPED_CATALOG_ROOT,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+        ),
+    )
+    assert isinstance(finalized.metric_provider, NoopMetricProvider)
+
+
+async def test_wire_azure_container_binds_monitor_with_workspace(tmp_path: Path) -> None:
+    """Workspace supplied -> live AzureMonitorLogsMetricProvider bound with
+    the shipped SRE-demo capture query catalog, no fork required."""
+    from fdai.composition import AzureWireOverrides, wire_azure_container
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+    from fdai.delivery.azure.demo_queries import sre_demo_capture_queries
+    from fdai.delivery.azure.metric_logs import AzureMonitorLogsMetricProvider
+
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    finalized = await wire_azure_container(
+        container,
+        http_client=http,
+        identity=_StaticIdentity(),
+        overrides=AzureWireOverrides(
+            endpoint="https://oai-fork.openai.azure.com",
+            catalog_root=_SHIPPED_CATALOG_ROOT,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+            monitor_workspace_id="00000000-0000-0000-0000-000000000000",
+        ),
+    )
+    assert isinstance(finalized.metric_provider, AzureMonitorLogsMetricProvider)
+    # Every shipped SRE-demo template MUST be registered so the detection
+    # pipeline can query them without a fork-only override.
+    assert set(sre_demo_capture_queries()).issubset(
+        finalized.metric_provider._config.queries  # type: ignore[attr-defined]
+    )
+
+
+async def test_wire_azure_container_forwards_custom_monitor_queries(tmp_path: Path) -> None:
+    """A fork's own query map replaces the shipped default when supplied."""
+    from fdai.composition import AzureWireOverrides, wire_azure_container
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+    from fdai.delivery.azure.metric_logs import (
+        AzureMonitorLogsMetricProvider,
+        MetricKqlTemplate,
+    )
+
+    custom = {
+        "fork.metric.foo": MetricKqlTemplate(
+            kql="Perf | project TimeGenerated, v = 1.0, resource_id = 'x'",
+            value_column="v",
+            label_columns=("resource_id",),
+        )
+    }
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    finalized = await wire_azure_container(
+        container,
+        http_client=http,
+        identity=_StaticIdentity(),
+        overrides=AzureWireOverrides(
+            endpoint="https://oai-fork.openai.azure.com",
+            catalog_root=_SHIPPED_CATALOG_ROOT,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+            monitor_workspace_id="00000000-0000-0000-0000-000000000000",
+            monitor_queries=custom,
+        ),
+    )
+    assert isinstance(finalized.metric_provider, AzureMonitorLogsMetricProvider)
+    bound_queries = finalized.metric_provider._config.queries  # type: ignore[attr-defined]
+    assert set(bound_queries) == {"fork.metric.foo"}
+
+
+def test_azure_wire_overrides_rejects_queries_without_workspace(tmp_path: Path) -> None:
+    """Config-time fail-closed: queries without a workspace bind nothing."""
+    from fdai.composition import AzureWireOverrides
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+    from fdai.delivery.azure.metric_logs import MetricKqlTemplate
+
+    with pytest.raises(ValueError, match="monitor_queries requires monitor_workspace_id"):
+        AzureWireOverrides(
+            endpoint="https://oai-fork.openai.azure.com",
+            catalog_root=tmp_path,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+            monitor_queries={
+                "x": MetricKqlTemplate(kql="Perf", value_column="v"),
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
 # T2 RCA reasoner binding is opt-in (capability + system prompt), symmetric
 # to the Critic / Judge bindings.
 # ---------------------------------------------------------------------------
@@ -919,3 +1044,93 @@ async def test_wire_azure_container_binds_rca_reasoner_from_shipped_prompt(
         ),
     )
     assert isinstance(finalized.require_llm_bindings().rca_reasoner, LlmRcaReasoner)
+
+
+# ---------------------------------------------------------------------------
+# T2 Primary Latency Pool (invariant-safe, opt-in)
+# ---------------------------------------------------------------------------
+
+
+def _resolved_models_json_with_primary_pool(pool_size: int = 2) -> str:
+    names = ("t2primary-gpt-4o", "t2primary-gpt-4-1")[:pool_size]
+    families = ("gpt-4o", "gpt-4.1")[:pool_size]
+    pool = [
+        {
+            "endpoint": "https://oai-test.openai.azure.com/",
+            "deployment": name,
+            "api_version": "2024-06-01",
+        }
+        for name in names
+    ]
+    import json as _json
+
+    base = _json.loads(_resolved_models_json())
+    base["reasoner_primary_candidates"] = pool
+    # Companion Terraform deployment capabilities (what --emit-primary-pool
+    # writes) so wiring attributes each member's metering to its own family.
+    for name, family in zip(names, families, strict=True):
+        base["capabilities"].append(
+            {
+                "name": name,
+                "status": "resolved",
+                "publisher": "OpenAI",
+                "family": family,
+                "sku": "Standard",
+                "capacity_tpm": 20000,
+                "invocation": "always",
+                "reasons": [],
+            }
+        )
+    return _json.dumps(base)
+
+
+def _bind_with_pool(tmp_path: Path, *, flag: bool, pool_size: int) -> Any:
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json_with_primary_pool(pool_size), encoding="utf-8")
+    container = default_container(
+        _config(
+            mode=LlmMode.AZURE,
+            resolved_path=str(resolved),
+            t2_primary_latency_routing=flag,
+        )
+    )
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    finalized = bind_azure_llm_bindings(
+        container,
+        identity=_StaticIdentity(),
+        http_client=http,
+        endpoint="https://oai-test.openai.azure.com",
+        system_prompt=_TEST_SYSTEM_PROMPT,
+    )
+    return finalized.require_llm_bindings()
+
+
+def test_primary_router_engaged_when_flag_on_and_pool_present(tmp_path: Path) -> None:
+    from fdai.delivery.azure.llm.latency_routed_cross_check import (
+        LatencyRoutedCrossCheckModel,
+    )
+
+    bindings = _bind_with_pool(tmp_path, flag=True, pool_size=2)
+    assert isinstance(bindings.cross_check_models[0], LatencyRoutedCrossCheckModel)
+
+
+def test_primary_not_routed_when_flag_off(tmp_path: Path) -> None:
+    from fdai.delivery.azure.llm.cross_check import AzureOpenAICrossCheckModel
+    from fdai.delivery.azure.llm.latency_routed_cross_check import (
+        LatencyRoutedCrossCheckModel,
+    )
+
+    bindings = _bind_with_pool(tmp_path, flag=False, pool_size=2)
+    assert isinstance(bindings.cross_check_models[0], AzureOpenAICrossCheckModel)
+    assert not isinstance(bindings.cross_check_models[0], LatencyRoutedCrossCheckModel)
+
+
+def test_primary_not_routed_when_pool_below_two(tmp_path: Path) -> None:
+    from fdai.delivery.azure.llm.cross_check import AzureOpenAICrossCheckModel
+    from fdai.delivery.azure.llm.latency_routed_cross_check import (
+        LatencyRoutedCrossCheckModel,
+    )
+
+    bindings = _bind_with_pool(tmp_path, flag=True, pool_size=1)
+    assert isinstance(bindings.cross_check_models[0], AzureOpenAICrossCheckModel)
+    assert not isinstance(bindings.cross_check_models[0], LatencyRoutedCrossCheckModel)

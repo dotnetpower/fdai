@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from ..core.metering.pricing import PricingTable
     from ..core.metering.sink import MeteringSink
     from ..core.operator_memory import OperatorMemoryStore
+    from ..delivery.azure.metric_logs import MetricKqlTemplate
 
 from ._helpers import Container
 from .wire_llm import bind_azure_llm_bindings
@@ -72,6 +73,24 @@ class AzureWireOverrides:
     :class:`~fdai.core.operator_memory.OperatorScope`. Fork-
     first because ARM-id parsing is CSP-specific; :class:`None` upstream
     means operator-memory entries never enter the composer output.
+
+    ``monitor_workspace_id`` - Log Analytics workspace GUID
+    (``customerId``, NOT the ARM resource id). When supplied,
+    :func:`wire_azure_container` auto-binds
+    :class:`~fdai.delivery.azure.metric_logs.AzureMonitorLogsMetricProvider`
+    in place of the upstream :class:`NoopMetricProvider` default so the
+    detection pipeline (`core/detection/*`, `core/investigation/*`)
+    receives real telemetry without every fork re-implementing the
+    binding. ``None`` (default) keeps the no-op adapter, matching the
+    dev-to-deploy parity contract for local-fake runs.
+
+    ``monitor_queries`` - CSP-neutral ``metric_name`` -> KQL template map
+    handed to the metric adapter. Only consulted when
+    ``monitor_workspace_id`` is set. Defaults to the shipped
+    :func:`~fdai.delivery.azure.demo_queries.sre_demo_capture_queries`
+    map so upstream ships a working detection baseline; a fork MAY pass
+    its own map to add / override templates while keeping the returned
+    ``value_column`` / ``timestamp_column`` / ``label_columns`` shape.
     """
 
     endpoint: str
@@ -81,6 +100,8 @@ class AzureWireOverrides:
     scope_resolver: Any | None = None
     metering_sink: MeteringSink | None = None
     pricing: PricingTable | None = None
+    monitor_workspace_id: str | None = None
+    monitor_queries: Mapping[str, MetricKqlTemplate] | None = None
 
     def __post_init__(self) -> None:
         if not self.endpoint:
@@ -90,6 +111,16 @@ class AzureWireOverrides:
                 "AzureWireOverrides.operator_memory_store MUST be a concrete "
                 "OperatorMemoryStore - pass InMemoryOperatorMemoryStore() "
                 "explicitly if you do not want durability"
+            )
+        # A caller that passes queries without a workspace id has almost
+        # certainly forgotten the workspace and would silently get a
+        # NoopMetricProvider; fail-closed at build time so the misconfig
+        # never reaches an Azure-mode deploy.
+        if self.monitor_queries is not None and not self.monitor_workspace_id:
+            raise ValueError(
+                "AzureWireOverrides.monitor_queries requires "
+                "monitor_workspace_id - queries without a workspace bind "
+                "nothing"
             )
 
 
@@ -242,7 +273,7 @@ async def wire_azure_container(
                 _LOGGER.warning("pricing_load_failed", extra={"path": str(pricing_path)})
                 pricing = None
 
-    return bind_azure_llm_bindings(
+    container_with_llm = bind_azure_llm_bindings(
         container,
         identity=identity,
         http_client=http_client,
@@ -258,3 +289,44 @@ async def wire_azure_container(
         metering_sink=overrides.metering_sink,
         pricing=pricing,
     )
+
+    # Chain the Azure Monitor Logs metric adapter in when the fork (or
+    # __main__'s ``FDAI_MONITOR_WORKSPACE_ID`` resolver) supplies a
+    # workspace. Upstream defaults to the shipped SRE-demo capture query
+    # map so the detection pipeline (`core/detection/*`,
+    # `core/investigation/*`) receives real telemetry out of the box;
+    # a fork passes ``monitor_queries`` to add or override templates.
+    if overrides.monitor_workspace_id:
+        from ..delivery.azure.demo_queries import sre_demo_capture_queries
+        from ..delivery.azure.metric_logs import AzureMonitorLogsConfig
+        from . import bind_azure_monitor_logs
+
+        queries = overrides.monitor_queries or sre_demo_capture_queries()
+        monitor_config = AzureMonitorLogsConfig(
+            workspace_id=overrides.monitor_workspace_id,
+            queries=queries,
+        )
+        _LOGGER.info(
+            "azure_monitor_logs_bound",
+            extra={
+                "workspace_id": overrides.monitor_workspace_id,
+                "query_count": len(queries),
+                "query_source": (
+                    "override"
+                    if overrides.monitor_queries is not None
+                    else "sre_demo_capture_queries"
+                ),
+            },
+        )
+        return bind_azure_monitor_logs(
+            container_with_llm,
+            config=monitor_config,
+            identity=identity,
+            http_client=http_client,
+        )
+
+    _LOGGER.info(
+        "azure_monitor_logs_skipped",
+        extra={"reason": "monitor_workspace_id not supplied"},
+    )
+    return container_with_llm
