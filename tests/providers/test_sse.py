@@ -204,6 +204,26 @@ async def test_broadcaster_stop_is_idempotent() -> None:
     await broadcaster.stop()  # second call must not raise
 
 
+async def test_broadcaster_run_after_start_and_stop_raises() -> None:
+    """Regression: run() -> stop() -> run() MUST raise, not silently no-op.
+
+    A prior ordering checked `_started` before `_stopped`, so after the
+    start-stop cycle a second run() short-circuited on `_started=True`
+    and returned silently, making the RuntimeError guard unreachable.
+    """
+    bus: EventBus = InMemoryEventBus()
+    sink = InMemorySseSink()
+    broadcaster = SseBroadcaster(
+        event_bus=bus,
+        sse_sink=sink,
+        topic_channel_map={"t": "c"},
+    )
+    await broadcaster.run()
+    await broadcaster.stop()
+    with pytest.raises(RuntimeError, match="already stopped"):
+        await broadcaster.run()
+
+
 async def test_broadcaster_empty_topic_map_is_rejected() -> None:
     bus: EventBus = InMemoryEventBus()
     sink = InMemorySseSink()

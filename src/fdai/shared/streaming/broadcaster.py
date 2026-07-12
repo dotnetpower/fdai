@@ -82,10 +82,16 @@ class SseBroadcaster:
         :meth:`stop` runs, the broadcaster is spent and MUST be
         re-instantiated.
         """
-        if self._started:
-            return
+        # `_stopped` MUST be checked before `_started` - the flags are set in
+        # the order (run -> _started=True, stop -> _stopped=True), so a
+        # `run() -> stop() -> run()` sequence otherwise short-circuits on
+        # `_started=True` and silently returns, making the RuntimeError guard
+        # unreachable. Deny-first ordering keeps the "spent broadcaster"
+        # contract honest.
         if self._stopped:
             raise RuntimeError("broadcaster already stopped; instantiate a new one")
+        if self._started:
+            return
         self._started = True
 
         loop = asyncio.get_running_loop()
