@@ -75,6 +75,7 @@ uses them or does not.
 | `topics` | list(string) | day-zero: `["aw.change.events", "aw.dr.events", "aw.finops.events"]` |
 | `connection_string_ref` | string | pointer to a Key Vault secret; **never the raw value** |
 | `log_workspace_id` | string | Log Analytics workspace resource id |
+| `log_workspace_customer_id` | string | Log Analytics workspace customer GUID (auto-wired into the core app as `FDAI_MONITOR_WORKSPACE_ID` so the metric adapter binds) |
 | `admin_group_object_id_ref` | string | env-var name that carries the Entra group OID |
 
 Values are always **references**, never raw secrets: any `*_ref` field points at a Key Vault

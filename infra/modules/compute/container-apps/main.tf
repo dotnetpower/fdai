@@ -34,6 +34,20 @@ locals {
     RUNTIME_ENV             = var.runtime_env
     AUTONOMY_MODE_DEFAULT   = var.autonomy_mode_default
   }
+
+  # Optional env-vars: attached only when their upstream input is
+  # non-empty so a fork opting out (leaving the default "") emits no
+  # env entry at all. Merged into the containers below via
+  # ``merge(local.core_config_env, local.optional_config_env)``.
+  optional_config_env = merge(
+    var.monitor_workspace_customer_id == "" ? {} : {
+      # Read by ``__main__._finalize_llm_bindings`` -> ``wire_azure_container``
+      # to auto-bind ``AzureMonitorLogsMetricProvider`` in place of the
+      # upstream ``NoopMetricProvider``. See
+      # src/fdai/composition/wire_azure.py.
+      FDAI_MONITOR_WORKSPACE_ID = var.monitor_workspace_customer_id
+    },
+  )
 }
 
 # Unified core app. Sidecars for trust-router / executor / audit-writer land as
@@ -129,9 +143,14 @@ resource "azurerm_container_app" "core" {
       # `EnvVarConfigProvider` in `src/fdai/shared/config/provider.py`.
       # Missing any of these makes `default_container_from_env()` fail with
       # a `ConfigError` before the P1 control loop starts.
+      #
+      # ``optional_config_env`` merges in adapter-wiring env vars whose
+      # upstream input is non-empty (e.g. ``FDAI_MONITOR_WORKSPACE_ID``
+      # when the Log Analytics workspace GUID is threaded through). Empty
+      # inputs emit no env entry so unused adapters stay dormant.
       # ---------------------------------------------------------------------
       dynamic "env" {
-        for_each = local.core_config_env
+        for_each = merge(local.core_config_env, local.optional_config_env)
         content {
           name  = env.key
           value = env.value
@@ -210,8 +229,10 @@ resource "azurerm_container_app_job" "oob" {
 
       # Same required config env vars as the core app - the OOB job runs
       # the same image and would crash-loop on `ConfigError` without them.
+      # Optional adapter-wiring env vars are threaded through with the
+      # same merge so the OOB job sees the same live-vs-noop bindings.
       dynamic "env" {
-        for_each = local.core_config_env
+        for_each = merge(local.core_config_env, local.optional_config_env)
         content {
           name  = env.key
           value = env.value

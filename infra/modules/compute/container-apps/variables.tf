@@ -243,6 +243,24 @@ variable "autonomy_mode_default" {
   }
 }
 
+variable "monitor_workspace_customer_id" {
+  description = <<-EOT
+    Log Analytics workspace **customer GUID** (from
+    ``module.log_analytics.workspace_customer_id`` - the
+    ``azurerm_log_analytics_workspace.workspace_id`` attribute, NOT the
+    ARM resource id). When non-empty, wires the ``FDAI_MONITOR_WORKSPACE_ID``
+    env var so ``wire_azure_container`` auto-binds
+    ``AzureMonitorLogsMetricProvider`` at startup instead of leaving
+    ``container.metric_provider`` as the upstream ``NoopMetricProvider``
+    default. Empty (default) keeps the no-op adapter, matching the
+    dev-mode parity contract for local-fake runs. Non-secret (it is a
+    workspace identifier, not an ingestion key), so wired as a plain env
+    entry rather than through a Container App secret.
+  EOT
+  type        = string
+  default     = ""
+}
+
 variable "state_store_dsn_secret_id" {
   description = "Key Vault secret resource id backing FDAI_STATE_STORE_DSN. Empty = fall back to in-memory."
   type        = string

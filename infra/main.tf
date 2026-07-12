@@ -12,11 +12,21 @@ locals {
   # Strip hyphens from the composed suffix.
   acr_suffix = replace(local.full_suffix, "-", "")
 
+  # Environment label: 'day-zero' for the unqualified deployment, else the env.
+  env_label = var.env == "" ? "day-zero" : var.env
+
+  # FDAI tag taxonomy. Every key is namespaced under `fdai:` so the full set is
+  # grep-able and FDAI-owned resources are unambiguous in a shared subscription
+  # (`az resource list --tag fdai:managed=true`). `fdai:managed` is the ownership
+  # marker used for blast-radius scoping, safe teardown, and cost attribution.
+  # See deploy-and-onboard.md § Resource Tagging Convention.
   base_tags = {
-    workload        = var.workload
-    env             = var.env == "" ? "day-zero" : var.env
-    managed_by      = "terraform"
-    source_of_truth = "fdai"
+    "fdai:managed"    = "true"
+    "fdai:workload"   = var.workload
+    "fdai:env"        = local.env_label
+    "fdai:layer"      = "control-plane"
+    "fdai:managed-by" = "terraform"
+    "fdai:vertical"   = var.cost_vertical
   }
   tags = merge(local.base_tags, var.additional_tags)
 
@@ -158,7 +168,7 @@ module "identity_change" {
   name                = "id-${var.workload}${local.full_suffix}-change"
   resource_group_name = module.resource_group.name
   location            = var.region
-  tags                = merge(local.tags, { vertical = "change" })
+  tags                = merge(local.tags, { "fdai:vertical" = "change-safety" })
 }
 
 module "identity_resilience" {
@@ -166,7 +176,7 @@ module "identity_resilience" {
   name                = "id-${var.workload}${local.full_suffix}-resilience"
   resource_group_name = module.resource_group.name
   location            = var.region
-  tags                = merge(local.tags, { vertical = "resilience" })
+  tags                = merge(local.tags, { "fdai:vertical" = "resilience" })
 }
 
 module "identity_finops" {
@@ -174,7 +184,7 @@ module "identity_finops" {
   name                = "id-${var.workload}${local.full_suffix}-finops"
   resource_group_name = module.resource_group.name
   location            = var.region
-  tags                = merge(local.tags, { vertical = "finops" })
+  tags                = merge(local.tags, { "fdai:vertical" = "cost-governance" })
 }
 
 # -----------------------------------------------------------------------
@@ -385,6 +395,15 @@ module "compute" {
   postgres_database       = module.state_store.database_name
   runtime_env             = var.env == "" ? "dev" : var.env
   autonomy_mode_default   = "shadow"
+
+  # Auto-bind the Azure Monitor Logs metric adapter at composition time.
+  # Threading the Log Analytics workspace **customer GUID** (NOT the ARM
+  # resource id - `azurerm_log_analytics_workspace` calls the ARM id `id`
+  # and the customer GUID `workspace_id`) makes
+  # `wire_azure_container` swap `NoopMetricProvider` for the live adapter
+  # so the deterministic detection pipeline sees real telemetry with no
+  # fork required. See src/fdai/composition/wire_azure.py.
+  monitor_workspace_customer_id = module.log_analytics.workspace_customer_id
 
   # Persistence DSNs (KV-backed; executor MI reads at runtime).
   state_store_dsn_secret_id     = azurerm_key_vault_secret.state_store_dsn.id

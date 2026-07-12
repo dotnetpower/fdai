@@ -21,6 +21,17 @@ output "log_workspace_id" {
   value       = module.log_analytics.workspace_id
 }
 
+output "log_workspace_customer_id" {
+  description = <<-EOT
+    Log Analytics workspace **customer GUID** (the ``workspace_id``
+    attribute on ``azurerm_log_analytics_workspace``, NOT the ARM
+    resource id). Threaded into the core app as
+    ``FDAI_MONITOR_WORKSPACE_ID`` so ``wire_azure_container`` auto-binds
+    ``AzureMonitorLogsMetricProvider`` at composition time.
+  EOT
+  value       = module.log_analytics.workspace_customer_id
+}
+
 output "container_registry_login_server" {
   description = "ACR login server (pin images by digest via this host)."
   value       = module.container_registry.login_server
