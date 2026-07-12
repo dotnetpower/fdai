@@ -13,6 +13,13 @@ through the Azure Developer CLI. `scripts/azd-up.sh` (or `make azd-up`) runs a
 non-mutating `azd provision --preview` by default; set `FDAI_AZD_CONFIRM=1` to
 run a real `azd up`. The two-gate design keeps an accidental apply impossible.
 
+`azure.yaml` also declares a `services.core` block so `azd deploy` / `azd up`
+builds the app image from the [`Dockerfile`](../Dockerfile) and deploys it to the
+Container App tagged `azd-service-name: core` (set in
+[`modules/compute/container-apps/main.tf`](modules/compute/container-apps/main.tf)).
+A `services` block only drives `azd deploy`; `azd provision --preview` is
+unaffected.
+
 Environment values (subscription id, tenant id, resource group, etc.) are supplied
 at apply time via env vars / tfvars files that are **never committed** - the repo
 stays customer-agnostic per

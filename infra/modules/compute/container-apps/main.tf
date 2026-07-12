@@ -175,7 +175,10 @@ resource "azurerm_container_app" "core" {
     }
   }
 
-  tags = var.tags
+  # `azd-service-name: core` lets `azd deploy` / `azd up` target this
+  # Container App for image build + deploy (azure.yaml `services.core`).
+  # Merged onto the standard tag set so CAF tags are preserved.
+  tags = merge(var.tags, { "azd-service-name" = "core" })
 }
 
 # Out-of-band scheduled probes (cost anomalies, change detection sweep, etc.).

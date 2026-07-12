@@ -4,10 +4,10 @@
 # `infra/` (docs/roadmap/deployment/deploy-and-onboard.md). azd drives Terraform as its
 # infrastructure provider; the CSP-neutral seams stay defined in HCL.
 #
-# Scope: this file wires `azd provision` (Terraform apply of the minimum-set
-# inventory). Application image build/deploy via an `azd-service-name`-tagged
-# Container App is a follow-up (see the commented `services` block below) so a
-# half-wired service cannot break `azd provision`.
+# Scope: `azd provision` runs the Terraform apply of the minimum-set
+# inventory; `azd deploy` / `azd up` builds the app image from the Dockerfile
+# and deploys it to the Container App tagged `azd-service-name: core` in
+# `infra/modules/compute/container-apps/main.tf`.
 #
 # Environment values (subscription id, tenant id, resource group, region) are
 # supplied at run time by the azd environment / env vars, never committed -
@@ -22,12 +22,14 @@ infra:
   provider: terraform
   path: infra
 
-# services:
-#   # Enable once the Container App resource in infra/ carries the azd tag
-#   # `azd-service-name: core` so azd can target it for image deploy.
-#   core:
-#     project: .
-#     language: python
-#     host: containerapp
-#     docker:
-#       path: Dockerfile
+services:
+  # Targets the Container App resource tagged `azd-service-name: core` in
+  # infra/. `azd deploy` builds the Dockerfile image and updates the app;
+  # `azd provision` is unaffected (a service block only drives deploy).
+  core:
+    project: .
+    language: python
+    host: containerapp
+    docker:
+      path: Dockerfile
+
