@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { AgentActivityMessage, AgentStatus } from "../hooks/use-agent-stream";
 import {
   activeAgentCount,
+  AGENT_ROLE,
   engagedGroups,
+  incidentsForAgent,
   isEngaged,
   makeInitialState,
+  ORG_CHART,
   PANTHEON,
   reducer,
 } from "./agents.model";
@@ -161,5 +164,77 @@ describe("agents.model engagement helpers", () => {
   it("returns no groups when the pantheon is at rest", () => {
     const s = makeInitialState();
     expect(engagedGroups(s)).toEqual([]);
+  });
+});
+
+describe("agents.model org chart + agent events", () => {
+  it("has a role card for every one of the 15 agents", () => {
+    for (const { name } of PANTHEON) {
+      expect(AGENT_ROLE[name], name).toBeDefined();
+      expect(AGENT_ROLE[name]?.title.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("org chart places every agent exactly once, rooted at Odin", () => {
+    const placed = [ORG_CHART.root, ...ORG_CHART.staff];
+    for (const line of ORG_CHART.lines) placed.push(line.manager, ...line.reports);
+    expect(placed).toHaveLength(15);
+    expect(new Set(placed).size).toBe(15);
+    expect(placed).toContain("Odin");
+    // Every placed name is a real pantheon agent.
+    const known = new Set(PANTHEON.map((a) => a.name));
+    for (const n of placed) expect(known.has(n), n).toBe(true);
+  });
+
+  it("reportsTo lines match the org chart structure", () => {
+    expect(AGENT_ROLE.Odin?.reportsTo).toBeNull();
+    for (const line of ORG_CHART.lines) {
+      expect(AGENT_ROLE[line.manager]?.reportsTo).toBe("Odin");
+      for (const r of line.reports) {
+        expect(AGENT_ROLE[r]?.reportsTo).toBe(line.manager);
+      }
+    }
+    for (const s of ORG_CHART.staff) {
+      expect(AGENT_ROLE[s]?.reportsTo).toBe("Odin");
+      expect(AGENT_ROLE[s]?.staff).toBe(true);
+    }
+  });
+
+  it("lists the incidents an agent participates in, newest first", () => {
+    let s = makeInitialState();
+    // Two incidents; Forseti is involved in both, Loki only in the second.
+    s = reducer(s, {
+      kind: "message",
+      msg: {
+        type: "incident.ticket",
+        ticket_id: "FDAI-1",
+        correlation_id: "inc-1",
+        status: "open",
+        title: "first",
+        severity: "high",
+        involved_agents: ["Heimdall", "Forseti"],
+        rca: null,
+        ts: "2026-07-12T00:00:00+00:00",
+      },
+    });
+    s = reducer(s, {
+      kind: "message",
+      msg: {
+        type: "incident.ticket",
+        ticket_id: "FDAI-2",
+        correlation_id: "inc-2",
+        status: "open",
+        title: "second",
+        severity: "medium",
+        involved_agents: ["Forseti", "Loki"],
+        rca: null,
+        ts: "2026-07-12T00:00:01+00:00",
+      },
+    });
+    const forseti = incidentsForAgent(s, "Forseti").map((i) => i.correlationId);
+    expect(forseti).toEqual(["inc-2", "inc-1"]); // newest first
+    const loki = incidentsForAgent(s, "Loki").map((i) => i.correlationId);
+    expect(loki).toEqual(["inc-2"]);
+    expect(incidentsForAgent(s, "Bragi")).toEqual([]);
   });
 });

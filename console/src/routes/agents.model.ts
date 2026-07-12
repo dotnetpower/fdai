@@ -266,3 +266,148 @@ export function engagedGroups(state: AgentsState): EngagedGroup[] {
     }))
     .sort((a, b) => order(a.correlationId) - order(b.correlationId));
 }
+
+/** Role card for one agent: its title, one-line duty, and reporting line. */
+export interface AgentRole {
+  readonly title: string;
+  readonly summary: string;
+  /** Manager in the org chart, or null for the top (Odin). */
+  readonly reportsTo: string | null;
+  /** True for a staff agent (dotted line to Odin, off the operations line). */
+  readonly staff: boolean;
+}
+
+/**
+ * The fixed pantheon org chart (see docs/roadmap/agents/agent-pantheon.md
+ * § 2). Two lines report to Odin - Thor (operations) and Forseti
+ * (judgment); four governance staff report as staff (dotted) to Odin;
+ * recovery/approval/narration sit under Thor and sensing/domain sit under
+ * Forseti. Fork-locked upstream, so a static map is safe.
+ */
+export const AGENT_ROLE: Readonly<Record<string, AgentRole>> = {
+  Odin: {
+    title: "Master Planner",
+    summary: "Cross-vertical arbitration; final tie-breaker before a verdict is finalized.",
+    reportsTo: null,
+    staff: false,
+  },
+  Thor: {
+    title: "Responder",
+    summary: "Dispatches verdicts and is the sole privileged executor; never judges.",
+    reportsTo: "Odin",
+    staff: false,
+  },
+  Forseti: {
+    title: "Judge",
+    summary: "Issues the verdict (auto / hil / deny) after cross-check, verifier, grounding.",
+    reportsTo: "Odin",
+    staff: false,
+  },
+  Vidar: {
+    title: "Recovery",
+    summary: "Rollback and disaster-recovery failover principal.",
+    reportsTo: "Thor",
+    staff: false,
+  },
+  Bragi: {
+    title: "Narrator",
+    summary: "Conversational-port translator only; never calls an executor directly.",
+    reportsTo: "Thor",
+    staff: false,
+  },
+  Var: {
+    title: "Approver",
+    summary: "Human-in-the-loop approval principal; stays distinct from Thor.",
+    reportsTo: "Thor",
+    staff: false,
+  },
+  Huginn: {
+    title: "Event Collector",
+    summary: "Ingests and normalizes events; deterministic-first, no hot-path LLM.",
+    reportsTo: "Forseti",
+    staff: false,
+  },
+  Heimdall: {
+    title: "Observer",
+    summary: "Observes and correlates signals into findings; deterministic-first.",
+    reportsTo: "Forseti",
+    staff: false,
+  },
+  Njord: {
+    title: "Cost",
+    summary: "Cost / FinOps domain specialist; advises Forseti, does not execute.",
+    reportsTo: "Forseti",
+    staff: false,
+  },
+  Freyr: {
+    title: "Capacity",
+    summary: "Capacity / forecast domain specialist; advises Forseti, does not execute.",
+    reportsTo: "Forseti",
+    staff: false,
+  },
+  Loki: {
+    title: "Chaos",
+    summary: "Chaos / resilience specialist; schedules experiments, advises Forseti.",
+    reportsTo: "Forseti",
+    staff: false,
+  },
+  Mimir: {
+    title: "Rule Steward",
+    summary: "Owns the rule catalog; grounds Forseti's judgments in current rules.",
+    reportsTo: "Odin",
+    staff: true,
+  },
+  Muninn: {
+    title: "Memory",
+    summary: "Memory / context store; supplies prior-incident context to Forseti and Bragi.",
+    reportsTo: "Odin",
+    staff: true,
+  },
+  Saga: {
+    title: "Auditor",
+    summary: "Append-only audit of every terminal state; materializes handoffs.",
+    reportsTo: "Odin",
+    staff: true,
+  },
+  Norns: {
+    title: "Learner",
+    summary: "Learns from audited outcomes and proposes rule revisions to Mimir.",
+    reportsTo: "Odin",
+    staff: true,
+  },
+};
+
+/** One manager and its direct reports in the org-chart layout. */
+export interface OrgLine {
+  readonly manager: string;
+  readonly reports: readonly string[];
+}
+
+/**
+ * The org-chart layout skeleton: the root, the two operations/judgment
+ * lines under it, and the staff cluster. Drives the hierarchical
+ * "Org chart" view and the reporting-line overlay.
+ */
+export const ORG_CHART: {
+  readonly root: string;
+  readonly lines: readonly OrgLine[];
+  readonly staff: readonly string[];
+} = {
+  root: "Odin",
+  lines: [
+    { manager: "Thor", reports: ["Vidar", "Bragi", "Var"] },
+    { manager: "Forseti", reports: ["Huginn", "Heimdall", "Njord", "Freyr", "Loki"] },
+  ],
+  staff: ["Mimir", "Muninn", "Saga", "Norns"],
+};
+
+/**
+ * Every incident (newest first) an agent participates in - the ticket lists
+ * the agent in `involved_agents`. Powers the "click an agent to see its
+ * events" focus panel.
+ */
+export function incidentsForAgent(state: AgentsState, agent: string): Incident[] {
+  return state.incidentOrder
+    .map((id) => state.incidents[id])
+    .filter((inc): inc is Incident => inc !== undefined && inc.involved.includes(agent));
+}

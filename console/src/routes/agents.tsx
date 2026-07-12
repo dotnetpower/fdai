@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "preact/hooks";
+import type { VNode } from "preact";
 import type { ReadApiClient } from "../api";
 import { loadConfig } from "../config";
 import { useAgentStream } from "../hooks/use-agent-stream";
@@ -21,9 +22,12 @@ import { openDeckWithPrompt } from "../deck/open-deck";
 import {
   PANTHEON,
   activeAgentCount,
+  AGENT_ROLE,
   engagedGroups,
+  incidentsForAgent,
   isEngaged,
   makeInitialState,
+  ORG_CHART,
   reducer,
   STATE_TASK,
   type AgentNode,
@@ -119,6 +123,14 @@ export function AgentsRoute({ client: _client }: Props) {
   // the "All" toggle expands to the full retained history.
   const [showAllIncidents, setShowAllIncidents] = useState(false);
 
+  // Layout mode: the free "constellation" grid, or the hierarchical "org"
+  // chart that shows who reports to whom. Both share the same live nodes.
+  const [layout, setLayout] = useState<"constellation" | "org">("constellation");
+
+  // Agent the operator clicked to focus - drives the "what events is this
+  // agent in" side panel. Independent from the selected incident.
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+
   const selected: Incident | null = selectedId ? (state.incidents[selectedId] ?? null) : null;
   const involved = useMemo(
     () => new Set(selected?.involved ?? []),
@@ -140,7 +152,7 @@ export function AgentsRoute({ client: _client }: Props) {
   // every layout change and on resize (ResizeObserver), so the lines track
   // reflow without hard-coding a layout.
   const constellationRef = useRef<HTMLDivElement | null>(null);
-  const nodeRefs = useRef(new Map<string, HTMLDivElement>());
+  const nodeRefs = useRef(new Map<string, HTMLElement>());
   const [geometry, setGeometry] = useState<Geometry>(EMPTY_GEOMETRY);
 
   useLayoutEffect(() => {
@@ -164,8 +176,9 @@ export function AgentsRoute({ client: _client }: Props) {
     ro.observe(container);
     return () => ro.disconnect();
     // Re-measure whenever the set of agent nodes changes (a state message
-    // rebuilds `state.agents`), because engagement can reflow node sizes.
-  }, [state.agents]);
+    // rebuilds `state.agents`) or the layout switches, because both reflow
+    // node positions the overlays draw from.
+  }, [state.agents, layout]);
 
   usePublishViewContext(
     () => ({
@@ -221,18 +234,79 @@ export function AgentsRoute({ client: _client }: Props) {
     [state, selected, active],
   );
 
+  // Render one agent node - shared by the constellation grid and the org
+  // chart so both carry the live ring, hover card, and click-to-focus. A
+  // button so the whole node is a keyboard-reachable focus target.
+  const renderNode = (name: string): VNode | null => {
+    const node = state.agents[name];
+    if (!node) return null;
+    const isInvolved = involved.has(name);
+    const dim = selected !== null && !isInvolved;
+    const engaged = isEngaged(node);
+    const incident = node.correlationId ? (state.incidents[node.correlationId] ?? null) : null;
+    const role = AGENT_ROLE[name];
+    const subLabel = layout === "org" && role ? role.title : (_STATE_LABEL[node.state] ?? node.state);
+    return (
+      <button
+        key={name}
+        type="button"
+        ref={(el) => {
+          if (el) nodeRefs.current.set(name, el as HTMLElement);
+          else nodeRefs.current.delete(name);
+        }}
+        class={`agent-node layer-${node.layer} state-${node.state}${
+          isInvolved ? " is-involved" : ""
+        }${dim ? " is-dim" : ""}${engaged ? " is-engaged" : ""}${
+          hoveredAgent === name ? " is-hovered" : ""
+        }${selectedAgent === name ? " is-agent-selected" : ""}`}
+        onMouseEnter={() => setHoveredAgent(name)}
+        onMouseLeave={() => setHoveredAgent((cur) => (cur === name ? null : cur))}
+        onClick={() => setSelectedAgent((cur) => (cur === name ? null : name))}
+      >
+        <span class="agent-ring" aria-hidden="true" />
+        <span class="agent-name">{name}</span>
+        <span class="agent-state">{subLabel}</span>
+        <AgentHoverCard node={node} incident={incident} />
+      </button>
+    );
+  };
+
+  const selectedAgentNode = selectedAgent ? (state.agents[selectedAgent] ?? null) : null;
+  const selectedAgentIncidents = useMemo(
+    () => (selectedAgent ? incidentsForAgent(state, selectedAgent) : []),
+    [state, selectedAgent],
+  );
+
   return (
     <div class="agents-route">
       <header class="agents-head">
         <div>
           <h2>Agents</h2>
           <p class="agents-sub">
-            The 15-agent pantheon, live. Connection lines tie the agents
-            working the same ticket together; hover an agent to see what it is
-            doing right now. Wire: <code>GET /agents/stream</code>.
+            The 15-agent pantheon, live. Switch to the <strong>Org chart</strong>{" "}
+            to see who reports to whom and each agent's role; click an agent to
+            see the events it is working. Wire: <code>GET /agents/stream</code>.
           </p>
         </div>
         <div class="agents-meta">
+          <div class="agents-layout-toggle" role="group" aria-label="layout mode">
+            <button
+              type="button"
+              class={layout === "constellation" ? "is-active" : ""}
+              aria-pressed={layout === "constellation"}
+              onClick={() => setLayout("constellation")}
+            >
+              Constellation
+            </button>
+            <button
+              type="button"
+              class={layout === "org" ? "is-active" : ""}
+              aria-pressed={layout === "org"}
+              onClick={() => setLayout("org")}
+            >
+              Org chart
+            </button>
+          </div>
           <span class={`agents-conn conn-${status}`}>{status}</span>
           <span class="agents-active">
             <strong>{active}</strong> engaged
@@ -242,52 +316,50 @@ export function AgentsRoute({ client: _client }: Props) {
 
       <div class="agents-layout">
         <section
-          class="agents-constellation"
-          aria-label="agent constellation"
+          class={`agents-stage layout-${layout}`}
+          aria-label="agent pantheon"
           ref={constellationRef}
         >
+          {layout === "org" && <OrgReportingLines geometry={geometry} />}
           <ConstellationLinks
             groups={groups}
             geometry={geometry}
             selectedId={selectedId}
             hoveredAgent={hoveredAgent}
           />
-          {PANTHEON.map(({ name }) => {
-            const node = state.agents[name];
-            if (!node) return null;
-            const isInvolved = involved.has(name);
-            const dim = selected !== null && !isInvolved;
-            const engaged = isEngaged(node);
-            const incident = node.correlationId
-              ? (state.incidents[node.correlationId] ?? null)
-              : null;
-            return (
-              <div
-                key={name}
-                ref={(el) => {
-                  if (el) nodeRefs.current.set(name, el as HTMLDivElement);
-                  else nodeRefs.current.delete(name);
-                }}
-                class={`agent-node layer-${node.layer} state-${node.state}${
-                  isInvolved ? " is-involved" : ""
-                }${dim ? " is-dim" : ""}${engaged ? " is-engaged" : ""}${
-                  hoveredAgent === name ? " is-hovered" : ""
-                }`}
-                onMouseEnter={() => setHoveredAgent(name)}
-                onMouseLeave={() =>
-                  setHoveredAgent((cur) => (cur === name ? null : cur))
-                }
-              >
-                <span class="agent-ring" aria-hidden="true" />
-                <span class="agent-name">{name}</span>
-                <span class="agent-state">{_STATE_LABEL[node.state] ?? node.state}</span>
-                <AgentHoverCard node={node} incident={incident} />
+          {layout === "constellation" ? (
+            <div class="agents-constellation">{PANTHEON.map((a) => renderNode(a.name))}</div>
+          ) : (
+            <div class="agents-org">
+              <div class="org-tier org-root">{renderNode(ORG_CHART.root)}</div>
+              <div class="org-tier org-branches">
+                {ORG_CHART.lines.map((line) => (
+                  <div class="org-branch" key={line.manager}>
+                    <div class="org-manager">{renderNode(line.manager)}</div>
+                    <div class="org-reports">{line.reports.map((n) => renderNode(n))}</div>
+                  </div>
+                ))}
+                <div class="org-branch org-staff-branch">
+                  <div class="org-staff-label">Staff to Odin</div>
+                  <div class="org-reports">{ORG_CHART.staff.map((n) => renderNode(n))}</div>
+                </div>
               </div>
-            );
-          })}
+            </div>
+          )}
         </section>
 
         <aside class="agents-side">
+          {selectedAgentNode && (
+            <AgentFocus
+              node={selectedAgentNode}
+              incidents={selectedAgentIncidents}
+              onClose={() => setSelectedAgent(null)}
+              onPickIncident={(id) => {
+                setSelectedId(id);
+                setPinned(true);
+              }}
+            />
+          )}
           <div class="agents-incident-list" aria-label="incidents">
             <div class="agents-incident-head">
               <h3>Incidents</h3>
@@ -455,6 +527,120 @@ function AgentHoverCard({
       ) : (
         <p class="agent-tooltip-idle">Not engaged on any incident.</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Static SVG overlay for the org-chart layout: draws the reporting lines
+ * (each report -> its manager, each manager + staff -> Odin). Structural
+ * and faint, so the live incident-collaboration lines drawn on top stay
+ * the eye-catching layer. `pointer-events: none` + `aria-hidden` - the
+ * reporting structure is also text in each agent's focus panel + hover card.
+ */
+function OrgReportingLines({ geometry }: { geometry: Geometry }) {
+  if (geometry.w === 0) return null;
+  const c = geometry.centers;
+  const edges: { readonly from: string; readonly to: string; readonly staff: boolean }[] = [];
+  for (const line of ORG_CHART.lines) {
+    edges.push({ from: line.manager, to: ORG_CHART.root, staff: false });
+    for (const r of line.reports) edges.push({ from: r, to: line.manager, staff: false });
+  }
+  for (const s of ORG_CHART.staff) edges.push({ from: s, to: ORG_CHART.root, staff: true });
+  return (
+    <svg
+      class="agents-org-lines"
+      width={geometry.w}
+      height={geometry.h}
+      viewBox={`0 0 ${geometry.w} ${geometry.h}`}
+      aria-hidden="true"
+    >
+      {edges.map(({ from, to, staff }) => {
+        const a = c[from];
+        const b = c[to];
+        if (!a || !b) return null;
+        return (
+          <line
+            key={`${from}-${to}`}
+            class={`org-edge${staff ? " is-staff" : ""}`}
+            x1={a.x}
+            y1={a.y}
+            x2={b.x}
+            y2={b.y}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+/**
+ * Focus panel shown when the operator clicks an agent. Answers "who is this
+ * and what events is it working?" - the role title + one-line duty, its
+ * reporting line, the live state, and every incident it participates in
+ * (newest first, clickable to select that incident). Read-only.
+ */
+function AgentFocus({
+  node,
+  incidents,
+  onClose,
+  onPickIncident,
+}: {
+  readonly node: AgentNode;
+  readonly incidents: readonly Incident[];
+  readonly onClose: () => void;
+  readonly onPickIncident: (id: string) => void;
+}) {
+  const role = AGENT_ROLE[node.name];
+  const task = STATE_TASK[node.state] ?? node.state;
+  return (
+    <div class={`agent-focus layer-${node.layer}`}>
+      <div class="agent-focus-head">
+        <div>
+          <strong class="agent-focus-name">{node.name}</strong>
+          {role && <span class="agent-focus-title">{role.title}</span>}
+        </div>
+        <button type="button" class="agent-focus-close" aria-label="Close agent focus" onClick={onClose}>
+          {"\u00d7"}
+        </button>
+      </div>
+      {role && <p class="agent-focus-summary">{role.summary}</p>}
+      <div class="agent-focus-meta">
+        {role?.reportsTo && (
+          <span class="agent-focus-reports">
+            Reports to <strong>{role.reportsTo}</strong>
+            {role.staff ? " (staff)" : ""}
+          </span>
+        )}
+        <span class={`agent-focus-state state-${node.state}`}>
+          {_STATE_LABEL[node.state] ?? node.state}
+        </span>
+      </div>
+      <p class="agent-focus-task">{task}</p>
+      <div class="agent-focus-events">
+        <h4>
+          Events <span class="agent-focus-count">{incidents.length}</span>
+        </h4>
+        {incidents.length === 0 ? (
+          <p class="agents-empty">No incidents involve {node.name} yet.</p>
+        ) : (
+          <ul>
+            {incidents.map((inc) => (
+              <li key={inc.correlationId}>
+                <button
+                  type="button"
+                  class={`incident-row sev-${inc.severity} status-${inc.status}`}
+                  onClick={() => onPickIncident(inc.correlationId)}
+                >
+                  <span class="incident-status">{inc.status}</span>
+                  <span class="incident-title">{inc.title}</span>
+                  <span class="incident-ticket">{inc.ticketId}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

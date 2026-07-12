@@ -189,6 +189,27 @@ expands to the full retained history and back to **Recent**. Selecting a row
 pins it and opens its workflow card (steps, agent-to-agent conversation, RCA)
 below the list.
 
+### Org-chart layout + agent focus (Now > Agents)
+
+A **Constellation | Org chart** toggle in the header switches the stage between
+the free grid and a hierarchical org chart built from the fork-locked pantheon
+structure (`AGENT_ROLE` + `ORG_CHART` in
+[`src/routes/agents.model.ts`](src/routes/agents.model.ts), mirroring
+[agent-pantheon.md § 2](../docs/roadmap/agents/agent-pantheon.md)): Odin at the
+root, Thor (operations) and Forseti (judgment) reporting to it, recovery /
+narration / approval under Thor, sensing / domain specialists under Forseti, and
+the four governance staff on a dotted line to Odin. Both layouts share the same
+live nodes ([`renderNode`](src/routes/agents.tsx)); the org mode adds a faint
+reporting-line overlay ([`OrgReportingLines`](src/routes/agents.tsx)) and shows
+each agent's role title in place of the state label (the live ring still pulses).
+
+Clicking any agent (in either layout) opens the
+[`AgentFocus`](src/routes/agents.tsx) side panel: the role title + one-line duty,
+its reporting line, the live state and task, and every incident the agent
+participates in (newest first, each row selects that incident). Clicking the same
+agent again, or the panel's close button, dismisses it. This answers "who is this
+agent and what events is it working?" without leaving the live view.
+
 ### Self-describing screens
 
 Each route publishes a `ViewSnapshot` (`src/deck/context.tsx`) that is a screen
