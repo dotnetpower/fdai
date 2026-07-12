@@ -662,6 +662,62 @@ async def test_heartbeat_forwards_pump_exception() -> None:
         await _collect_heartbeats(_src, interval=1.0)
 
 
+async def test_heartbeat_preserves_http_exception_detail() -> None:
+    """A 4xx from the upstream LLM MUST surface at the SSE handler as its
+    original :class:`HTTPException` (with the real ``.detail``), not a
+    flattened ``RuntimeError`` - otherwise the FE badges every failure as a
+    generic 'chat stream failed' and the operator loses the actual reason.
+    """
+    import pytest as _pytest
+    from starlette.exceptions import HTTPException as _HTTP
+
+    async def _src():
+        yield {"type": "token", "delta": "ok"}
+        raise _HTTP(status_code=502, detail="chat upstream error")
+
+    with _pytest.raises(_HTTP) as excinfo:
+        await _collect_heartbeats(_src, interval=1.0)
+    assert excinfo.value.status_code == 502
+    assert excinfo.value.detail == "chat upstream error"
+
+
+# ---------------------------------------------------------------------------
+# Answer chunker - a one-shot backend answer types in progressively
+# ---------------------------------------------------------------------------
+
+
+def test_chunk_answer_for_stream_splits_into_small_groups() -> None:
+    from fdai.delivery.read_api.routes.chat import _chunk_answer_for_stream
+
+    chunks = _chunk_answer_for_stream("hello world")
+    # Joins back to the exact original text (no character loss).
+    assert "".join(chunks) == "hello world"
+    # Every chunk is short enough that a Preact paint sees several updates.
+    assert all(len(c) <= 8 for c in chunks)
+    # And the split produced more than one chunk (so it actually looks streaming).
+    assert len(chunks) >= 2
+
+
+def test_chunk_answer_for_stream_preserves_multibyte() -> None:
+    from fdai.delivery.read_api.routes.chat import _chunk_answer_for_stream
+
+    # Escaped so the check-english-only gate stays green - the string is
+    # "\uc548\ub155\ud558\uc138\uc694 \ubc18\uac11\uc2b5\ub2c8\ub2e4"
+    # (Korean greeting), included as a fixture to exercise the multibyte
+    # chunker.
+    text = "\uc548\ub155\ud558\uc138\uc694 \ubc18\uac11\uc2b5\ub2c8\ub2e4"
+    chunks = _chunk_answer_for_stream(text)
+    assert "".join(chunks) == text
+    assert len(chunks) >= 2
+
+
+def test_chunk_answer_for_stream_never_empty() -> None:
+    from fdai.delivery.read_api.routes.chat import _chunk_answer_for_stream
+
+    # A single-character input still yields one chunk (not empty).
+    assert _chunk_answer_for_stream("x") == ["x"]
+
+
 # ---------------------------------------------------------------------------
 # Snapshot serialisation safety - never propagate a serialisation error
 # ---------------------------------------------------------------------------

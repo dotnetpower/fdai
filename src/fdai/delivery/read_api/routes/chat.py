@@ -1551,6 +1551,22 @@ def _sse_heartbeat() -> bytes:
     return b": ping\n\n"
 
 
+_CHUNK_RE: Final = re.compile(r"\s*\S{1,4}|\s+$")
+
+
+def _chunk_answer_for_stream(text: str) -> list[str]:
+    """Split ``text`` into ~4-char groups (whitespace kept with the following
+    token) so a non-streaming backend's answer types in progressively when
+    replayed over SSE. Mirrors the client-side typewriter in
+    ``console/src/deck/backend.ts::chunksForTypewriter`` so the same visual
+    cadence applies whether the deterministic fallback runs client-side or
+    the server had to replay a one-shot ``answer`` reply. Never returns an
+    empty list - falls back to ``[text]`` for pathological inputs so the
+    caller always emits at least one frame."""
+    out = [m.group(0) for m in _CHUNK_RE.finditer(text)]
+    return out if out else [text]
+
+
 async def _with_sse_heartbeats(
     source: AsyncIterator[dict[str, Any]],
     *,
@@ -1574,7 +1590,7 @@ async def _with_sse_heartbeats(
     """
     import asyncio
 
-    queue: asyncio.Queue[tuple[str, dict[str, Any] | None]] = asyncio.Queue(
+    queue: asyncio.Queue[tuple[str, dict[str, Any] | BaseException | None]] = asyncio.Queue(
         maxsize=max(1, queue_maxsize)
     )
     _end: Final = "end"
@@ -1590,7 +1606,11 @@ async def _with_sse_heartbeats(
             raise
         except BaseException as exc:  # re-raise on the consumer side
             try:
-                await queue.put((_err, {"__exc__": repr(exc)}))
+                # Preserve the ORIGINAL exception object so an HTTPException
+                # from an upstream 4xx surfaces its real ``.detail`` at the
+                # SSE handler, instead of being flattened into a generic
+                # "chat stream failed" via repr().
+                await queue.put((_err, exc))
             except asyncio.CancelledError:
                 pass
             return
@@ -1610,9 +1630,15 @@ async def _with_sse_heartbeats(
             if kind == _end:
                 return
             if kind == _err:
-                # Surface the pumped exception to the consumer's try/except.
-                raise RuntimeError(f"stream source failed: {val}")
-            yield val
+                # Re-raise the original exception on the consumer side so the
+                # SSE handler's `except HTTPException` branch catches an
+                # upstream 4xx with its real detail. `val` is always a
+                # BaseException here by construction in `_pump`.
+                if isinstance(val, BaseException):
+                    raise val
+                raise RuntimeError(f"stream source failed: {val!r}")
+            # `_item` branch: val is the dict[str, Any] we forward downstream.
+            yield val  # type: ignore[misc]
     finally:
         if not pump_task.done():
             pump_task.cancel()
@@ -1714,7 +1740,14 @@ def make_chat_stream_route(
                     )
                     answer = reply.get("answer", "")
                     if isinstance(answer, str) and answer:
-                        yield _sse("token", {"delta": answer})
+                        # Chunk the one-shot answer so a non-streaming backend
+                        # still renders progressively in the deck. ~4-char
+                        # groups match the client-side typewriter cadence in
+                        # console/src/deck/backend.ts::chunksForTypewriter -
+                        # small enough to look live, whole-word aligned so
+                        # nothing breaks mid-token.
+                        for chunk in _chunk_answer_for_stream(answer):
+                            yield _sse("token", {"delta": chunk})
                     yield _sse(
                         "done",
                         {
