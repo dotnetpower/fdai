@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fleet - Constellation - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css" />
+  <style>
+    /* Calm-slate rendering of the console's /agents page. Two columns:
+       an org-chart SVG on the left and an Incidents panel on the right.
+       Static mock - reuses the fleet family topbar + subnav so it is
+       consistent with agents.html / pantheon.html. */
+
+    /* Header row for the panel: title on the left, view toggle + status on the right. */
+    .fc-headrow { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 12px; }
+    .fc-headrow .fc-controls { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .fc-toggle { display: inline-flex; padding: 2px; background: var(--cs-shade); border-radius: 999px; border: 1px solid var(--cs-hairline); }
+    .fc-toggle button { border: none; background: transparent; padding: 5px 12px; font: inherit; font-size: 12.5px; color: var(--cs-text-soft); border-radius: 999px; cursor: pointer; }
+    .fc-toggle button.is-active { background: var(--cs-card); color: var(--cs-text); box-shadow: var(--cs-shadow); font-weight: 600; }
+    .fc-status { display: inline-flex; align-items: center; gap: 8px; padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(94,130,89,.30); background: rgba(94,130,89,.10); color: var(--cs-sage); font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .fc-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .fc-engaged { color: var(--cs-text-soft); font-size: 12.5px; }
+    .fc-engaged strong { color: var(--cs-text); font-weight: 600; }
+
+    /* Two-column layout. */
+    .fc-two { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
+    @media (max-width: 980px) { .fc-two { grid-template-columns: 1fr; } }
+
+    /* Left canvas. */
+    .fc-canvas { padding: 18px 20px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .fc-canvas svg { display: block; width: 100%; height: auto; max-width: 100%; }
+    .fc-staff-label { font: 600 10.5px/1 "Segoe UI", sans-serif; fill: var(--cs-text-soft); letter-spacing: .08em; text-transform: uppercase; }
+
+    /* Nodes are drawn as SVG <g> groups; styled via classes. */
+    .fc-link { fill: none; stroke: rgba(107,113,120,.35); stroke-width: 1.2; }
+    .fc-link.is-staff { stroke-dasharray: 3 3; stroke: rgba(107,113,120,.30); }
+    .fc-node .fc-ring { fill: var(--cs-card); stroke: rgba(107,113,120,.35); stroke-width: 1.2; }
+    .fc-node.is-focus .fc-ring   { stroke: var(--cs-steel);     stroke-width: 2; }
+    .fc-node.is-alert .fc-ring   { stroke: var(--cs-dusty-red); stroke-width: 2; }
+    .fc-node.is-dim   .fc-ring   { stroke-dasharray: 3 3; opacity: .55; }
+    .fc-node .fc-glyph { font: 700 14px/1 "Cascadia Code","Consolas",monospace; text-anchor: middle; dominant-baseline: central; letter-spacing: -.02em; }
+    .fc-node.layer-governance .fc-glyph { fill: var(--cs-plum); }
+    .fc-node.layer-pipeline   .fc-glyph { fill: var(--cs-steel); }
+    .fc-node.layer-domain     .fc-glyph { fill: var(--cs-teal); }
+    .fc-node.is-dim .fc-glyph { opacity: .55; }
+    .fc-node text.fc-name { font: 600 12px/1 "Segoe UI", sans-serif; text-anchor: middle; fill: var(--cs-text); }
+    .fc-node text.fc-role { font: 600 9.5px/1 "Segoe UI", sans-serif; text-anchor: middle; fill: var(--cs-text-soft); letter-spacing: .08em; text-transform: uppercase; }
+    .fc-node.is-dim text.fc-name, .fc-node.is-dim text.fc-role { opacity: .55; }
+
+    .fc-legend { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; font-size: 12px; color: var(--cs-text-soft); }
+    .fc-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+    .fc-legend .sw { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid currentColor; background: var(--cs-card); }
+
+    /* Right column: incidents panel. */
+    .fc-incidents h3 { margin: 0 0 10px; font-size: 15px; }
+
+    .fc-inc { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); margin-bottom: 8px; font-size: 13px; }
+    .fc-inc.is-current { background: rgba(123,108,156,.05); border-color: rgba(123,108,156,.28); }
+    .fc-inc-status { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border: 1px solid rgba(94,130,89,.30); color: var(--cs-sage); background: rgba(94,130,89,.10); flex: 0 0 auto; }
+    .fc-inc-title { flex: 1; color: var(--cs-text); }
+    .fc-inc-id { color: var(--cs-text-soft); font-family: "Cascadia Code","Consolas",monospace; font-size: 11.5px; }
+
+    .fc-actions { padding: 12px 14px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-top: 8px; }
+    .fc-ask { display: inline-block; padding: 6px 12px; border: 1px solid rgba(68,104,142,.35); background: rgba(68,104,142,.06); color: var(--cs-steel); border-radius: var(--cs-radius-sm); font-size: 12.5px; font-weight: 500; cursor: pointer; }
+    .fc-ask-note { color: var(--cs-text-soft); font-size: 12px; margin: 8px 0 10px; }
+    .fc-chipset { display: flex; flex-wrap: wrap; gap: 6px; }
+    .fc-chip { padding: 4px 10px; border-radius: var(--cs-radius-sm); font-size: 12px; font-weight: 500; border: 1px solid rgba(79,132,126,.30); color: var(--cs-teal); background: rgba(79,132,126,.06); cursor: pointer; }
+    .fc-chip:hover { background: rgba(79,132,126,.12); }
+
+    /* Agent-to-agent conversation strip (each row has a colored left rail). */
+    .fc-convo { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+    .fc-turn { display: grid; grid-template-columns: 3px 1fr; gap: 10px; padding: 8px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); align-items: center; font-size: 12.5px; }
+    .fc-turn .fc-turn-bar { background: var(--cs-steel); border-radius: 2px; align-self: stretch; }
+    .fc-turn.from-heimdall .fc-turn-bar { background: var(--cs-terracotta); }
+    .fc-turn.from-forseti  .fc-turn-bar { background: var(--cs-steel); }
+    .fc-turn.from-loki     .fc-turn-bar { background: var(--cs-sage); }
+    .fc-turn.from-var      .fc-turn-bar { background: var(--cs-steel); }
+    .fc-turn.from-thor     .fc-turn-bar { background: var(--cs-steel); }
+    .fc-from { font-weight: 600; color: var(--cs-text); }
+    .fc-arrow { color: var(--cs-text-soft); margin: 0 4px; }
+    .fc-to   { font-weight: 600; color: var(--cs-text); }
+    .fc-body { color: var(--cs-text); }
+    .fc-body em { font-style: normal; color: var(--cs-text-soft); }
+    .fc-body code { font-size: 11.5px; }
+
+    .fc-root { margin-top: 12px; padding: 10px 12px; background: var(--cs-shade); border-radius: var(--cs-radius-sm); font-size: 12.5px; }
+    .fc-root .fc-root-lab { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--cs-text-soft); margin-bottom: 3px; }
+    .fc-root code { font-size: 11.5px; }
+  </style>
+</head>
+<body>
+  <header class="cs-topbar">
+    <div class="cs-container cs-topbar-inner">
+      <span class="cs-brand"><span class="cs-brand-mark">AW</span> FDAI</span>
+      <nav class="cs-nav">
+        <a href="live.html">Live</a>
+        <a href="dashboard.html">Overview</a>
+        <a href="hil.html">HIL</a>
+        <a href="agents.html" class="cs-active">Fleet</a>
+        <a href="rules.html">Rules</a>
+        <a href="actions.html">Actions</a>
+        <a href="audit.html">Audit</a>
+        <a href="report.html">Report</a>
+        <a href="index.html">Kit</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="cs-container cs-page">
+    <div class="cs-subnav">
+      <a href="agents.html">Roster</a>
+      <a href="agents-constellation.html" class="cs-active">Constellation</a>
+      <a href="pantheon.html">Pantheon</a>
+      <a href="agent-activity.html">Activity</a>
+      <a href="blast-radius.html">Blast radius</a>
+      <a href="provision.html">Provisioning</a>
+    </div>
+
+    <div class="fc-headrow">
+      <div>
+        <div class="cs-eyebrow">Fleet &middot; live constellation</div>
+        <h1 style="margin:2px 0 6px">Agents</h1>
+        <p class="cs-muted" style="max-width:70ch; margin:0; font-size:13.5px;">
+          The 15-agent pantheon, live. Switch to <strong>Org chart</strong> to see who reports to
+          whom and each agent's role; click an agent to see the events it is working on. Wire:
+          <code>GET /agents/stream</code>.
+        </p>
+      </div>
+      <div class="fc-controls">
+        <div class="fc-toggle" role="tablist" aria-label="View mode">
+          <button role="tab">Constellation</button>
+          <button role="tab" class="is-active" aria-selected="true">Org chart</button>
+        </div>
+        <span class="fc-status">Open</span>
+        <span class="fc-engaged"><strong>1</strong> engaged</span>
+      </div>
+    </div>
+
+    <div class="fc-two">
+      <!-- ============================ Left: org chart ============================ -->
+      <section class="fc-canvas" aria-label="Pantheon org chart">
+        <svg viewBox="0 0 900 520" role="img" aria-labelledby="fc-svg-title">
+          <title id="fc-svg-title">Reporting tree of the 15-agent pantheon</title>
+
+          <!-- Reporting links (behind nodes) -->
+          <!-- Odin -> Thor / Forseti -->
+          <path class="fc-link" d="M450 90 C 450 130, 250 160, 220 200" />
+          <path class="fc-link" d="M450 90 C 450 130, 470 170, 500 200" />
+          <!-- Thor -> Vidar / Bragi / Var -->
+          <path class="fc-link" d="M220 230 C 220 280, 130 300, 110 340" />
+          <path class="fc-link" d="M220 230 L 200 340" />
+          <path class="fc-link" d="M220 230 C 220 280, 290 300, 300 340" />
+          <!-- Forseti -> Huginn / Heimdall / Njord / Freyr -->
+          <path class="fc-link" d="M500 230 C 500 280, 410 300, 390 340" />
+          <path class="fc-link" d="M500 230 L 490 340" />
+          <path class="fc-link" d="M500 230 C 500 280, 580 300, 590 340" />
+          <path class="fc-link" d="M500 230 C 500 280, 680 300, 690 340" />
+          <!-- Heimdall -> Loki -->
+          <path class="fc-link" d="M490 370 L 490 440" />
+          <!-- Odin -> staff (dashed, right side) -->
+          <path class="fc-link is-staff" d="M470 80 C 600 90, 700 110, 760 200" />
+          <path class="fc-link is-staff" d="M470 80 C 620 100, 720 150, 820 200" />
+          <path class="fc-link is-staff" d="M470 80 C 650 110, 780 170, 870 200" />
+          <path class="fc-link is-staff" d="M470 80 C 680 120, 820 190, 900 210" />
+          <text x="770" y="150" class="fc-staff-label">Staff to Odin</text>
+
+          <!-- Nodes -->
+          <!-- Odin -->
+          <g class="fc-node layer-governance" transform="translate(450, 60)">
+            <circle class="fc-ring" r="30" />
+            <text class="fc-glyph" y="1">O</text>
+            <text class="fc-name" y="46">Odin</text>
+            <text class="fc-role" y="60">Master Planner</text>
+          </g>
+
+          <!-- Thor -->
+          <g class="fc-node layer-pipeline" transform="translate(220, 200)">
+            <circle class="fc-ring" r="24" />
+            <text class="fc-glyph" y="1">Th</text>
+            <text class="fc-name" y="40">Thor</text>
+            <text class="fc-role" y="54">Responder</text>
+          </g>
+
+          <!-- Forseti (focus, currently judging FDAI-8812) -->
+          <g class="fc-node layer-pipeline is-focus" transform="translate(500, 200)">
+            <circle class="fc-ring" r="24" />
+            <text class="fc-glyph" y="1">Fo</text>
+            <text class="fc-name" y="40">Forseti</text>
+            <text class="fc-role" y="54">Judge</text>
+          </g>
+
+          <!-- Thor's direct reports -->
+          <g class="fc-node layer-pipeline" transform="translate(110, 340)">
+            <circle class="fc-ring" r="20" />
+            <text class="fc-glyph" y="1">Vi</text>
+            <text class="fc-name" y="36">Vidar</text>
+            <text class="fc-role" y="50">Recovery</text>
+          </g>
+          <g class="fc-node layer-pipeline" transform="translate(200, 340)">
+            <circle class="fc-ring" r="20" />
+            <text class="fc-glyph" y="1">Br</text>
+            <text class="fc-name" y="36">Bragi</text>
+            <text class="fc-role" y="50">Narrator</text>
+          </g>
+          <!-- Var - alert ring (approval requested in this incident) -->
+          <g class="fc-node layer-pipeline is-alert" transform="translate(300, 340)">
+            <circle class="fc-ring" r="20" />
+            <text class="fc-glyph" y="1">Va</text>
+            <text class="fc-name" y="36">Var</text>
+            <text class="fc-role" y="50">Approver</text>
+          </g>
+
+          <!-- Forseti's direct reports -->
+          <g class="fc-node layer-pipeline is-dim" transform="translate(390, 340)">
+            <circle class="fc-ring" r="20" />
+            <text class="fc-glyph" y="1">Hu</text>
+            <text class="fc-name" y="36">Huginn</text>
+            <text class="fc-role" y="50">Event collector</text>
+          </g>
+          <!-- Heimdall - focus (raised the anomaly) -->
+          <g class="fc-node layer-pipeline is-focus" transform="translate(490, 340)">
+            <circle class="fc-ring" r="20" />
+            <text class="fc-glyph" y="1">He</text>
+            <text class="fc-name" y="36">Heimdall</text>
+            <text class="fc-role" y="50">Observer</text>
+          </g>
+          <g class="fc-node layer-domain" transform="translate(590, 340)">
+            <circle class="fc-ring" r="20" />
+            <text class="fc-glyph" y="1">Nj</text>
+            <text class="fc-name" y="36">Njord</text>
+            <text class="fc-role" y="50">Cost</text>
+          </g>
+          <g class="fc-node layer-domain" transform="translate(690, 340)">
+            <circle class="fc-ring" r="20" />
+            <text class="fc-glyph" y="1">Fr</text>
+            <text class="fc-name" y="36">Freyr</text>
+            <text class="fc-role" y="50">Capacity</text>
+          </g>
+
+          <!-- Loki, under Heimdall -->
+          <g class="fc-node layer-domain" transform="translate(490, 470)">
+            <circle class="fc-ring" r="20" />
+            <text class="fc-glyph" y="1">Lo</text>
+            <text class="fc-name" y="36">Loki</text>
+            <text class="fc-role" y="50">Chaos</text>
+          </g>
+
+          <!-- Staff to Odin (right side, all governance layer) -->
+          <g class="fc-node layer-governance is-dim" transform="translate(760, 210)">
+            <circle class="fc-ring" r="20" />
+            <text class="fc-glyph" y="1">Mi</text>
+            <text class="fc-name" y="36">Mimir</text>
+            <text class="fc-role" y="50">Rule steward</text>
+          </g>
+          <g class="fc-node layer-governance is-dim" transform="translate(820, 260)">
+            <circle class="fc-ring" r="20" />
+            <text class="fc-glyph" y="1">Mu</text>
+            <text class="fc-name" y="36">Muninn</text>
+            <text class="fc-role" y="50">Memory</text>
+          </g>
+          <!-- Saga - focus (audit written for the incident) -->
+          <g class="fc-node layer-governance is-focus" transform="translate(870, 320)">
+            <circle class="fc-ring" r="20" />
+            <text class="fc-glyph" y="1">Sa</text>
+            <text class="fc-name" y="36">Saga</text>
+            <text class="fc-role" y="50">Auditor</text>
+          </g>
+          <g class="fc-node layer-governance is-dim" transform="translate(870, 400)">
+            <circle class="fc-ring" r="20" />
+            <text class="fc-glyph" y="1">No</text>
+            <text class="fc-name" y="36">Norns</text>
+            <text class="fc-role" y="50">Learner</text>
+          </g>
+        </svg>
+
+        <div class="fc-legend">
+          <span><span class="sw" style="color:var(--cs-plum)"></span> governance</span>
+          <span><span class="sw" style="color:var(--cs-steel)"></span> pipeline</span>
+          <span><span class="sw" style="color:var(--cs-teal)"></span> domain</span>
+          <span style="margin-left:12px">Solid ring = <strong>engaged on the current incident</strong> &middot; dashed = idle for this correlation</span>
+        </div>
+      </section>
+
+      <!-- ============================ Right: incidents ============================ -->
+      <aside class="fc-incidents">
+        <h3>Incidents</h3>
+
+        <div class="fc-inc is-current">
+          <span class="fc-inc-status">Resolved</span>
+          <span class="fc-inc-title">AKS pod restart storm on nginx workload</span>
+          <span class="fc-inc-id">FDAI-8812</span>
+        </div>
+        <div class="fc-inc">
+          <span class="fc-inc-status">Resolved</span>
+          <span class="fc-inc-title">AKS pod restart storm on nginx workload</span>
+          <span class="fc-inc-id">FDAI-8812</span>
+        </div>
+
+        <div class="fc-actions">
+          <button class="fc-ask">Ask the deck about this incident</button>
+          <p class="fc-ask-note">Questions are read-only; a command opens a proposal (judged, never executed here).</p>
+          <div class="fc-chipset">
+            <button class="fc-chip">Detect</button>
+            <button class="fc-chip">Ticket</button>
+            <button class="fc-chip">RCA</button>
+            <button class="fc-chip">Resolve</button>
+          </div>
+
+          <div class="fc-convo" aria-label="Agent-to-agent conversation for FDAI-8812">
+            <div class="fc-turn from-heimdall">
+              <div class="fc-turn-bar"></div>
+              <div class="fc-body">
+                <span class="fc-from">Heimdall</span><span class="fc-arrow">&rarr;</span><span class="fc-to">Forseti</span>
+                &nbsp; anomaly score <code>0.92</code> &middot; pod restart rate <em>3 / min over baseline</em>
+              </div>
+            </div>
+            <div class="fc-turn from-forseti">
+              <div class="fc-turn-bar"></div>
+              <div class="fc-body">
+                <span class="fc-from">Forseti</span><span class="fc-arrow">&rarr;</span><span class="fc-to">Loki</span>
+                &nbsp; is a chaos experiment scheduled on this workload?
+              </div>
+            </div>
+            <div class="fc-turn from-loki">
+              <div class="fc-turn-bar"></div>
+              <div class="fc-body">
+                <span class="fc-from">Loki</span><span class="fc-arrow">&rarr;</span><span class="fc-to">Forseti</span>
+                &nbsp; yes &middot; <code>aks-pod-kill</code>, blast radius capped at 1 target
+              </div>
+            </div>
+            <div class="fc-turn from-forseti">
+              <div class="fc-turn-bar"></div>
+              <div class="fc-body">
+                <span class="fc-from">Forseti</span><span class="fc-arrow">&rarr;</span><span class="fc-to">Var</span>
+                &nbsp; proposed auto-heal &middot; scale-out replica set; requesting approval
+              </div>
+            </div>
+            <div class="fc-turn from-var">
+              <div class="fc-turn-bar"></div>
+              <div class="fc-body">
+                <span class="fc-from">Var</span><span class="fc-arrow">&rarr;</span><span class="fc-to">Thor</span>
+                &nbsp; approved &middot; within blast-radius policy
+              </div>
+            </div>
+          </div>
+
+          <div class="fc-root">
+            <div class="fc-root-lab">Root cause</div>
+            <div>Scheduled chaos experiment (<code>aks-pod-kill</code>); blast radius contained, auto-heal applied.</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

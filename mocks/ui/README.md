@@ -29,6 +29,7 @@ Fleet / Safety surfaces (mirror console panels under `Now` and `Safety`):
 | File | Purpose |
 |------|---------|
 | [agents.html](agents.html) | Fleet roster - lifecycle state of all 15 pantheon agents (running / idle / recovering / shadow) with per-agent throughput and chat entry |
+| [agents-constellation.html](agents-constellation.html) | Fleet constellation - console-style org chart with focus rings + the per-incident agent-to-agent conversation panel |
 | [pantheon.html](pantheon.html) | Pantheon directory - 15 agents grouped by governance / pipeline / domain layer, with the reporting tree |
 | [agent-activity.html](agent-activity.html) | Per-agent timeline projected from the audit log - who did what, when, and how; verbs = execute / approve / reject / rollback / abstain / audit |
 | [blast-radius.html](blast-radius.html) | Per-action impact view - concentric target / direct / indirect rings plus cap bars enforced by the risk gate |
