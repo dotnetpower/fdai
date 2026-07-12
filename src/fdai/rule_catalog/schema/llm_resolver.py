@@ -143,6 +143,19 @@ class ResolvedModels:
     (single-narrator path) or a deterministic answerer.
     """
 
+    reasoner_primary_candidates: tuple[NarratorCandidate, ...] = ()
+    """Same-publisher latency pool for the T2 primary proposer (opt-in).
+
+    Populated by :func:`collect_primary_candidates`. When present with
+    >= 2 entries AND ``llm.t2_primary_latency_routing`` is enabled,
+    composition wraps the primary ``CrossCheckModel`` in a
+    :class:`LatencyRoutedCrossCheckModel`; otherwise the single primary
+    binds unchanged. Every candidate shares one publisher by the
+    :func:`collect_primary_candidates` guard, so the mixed-model
+    invariant (primary.publisher != secondary.publisher) is preserved -
+    see docs/roadmap/architecture/llm-strategy.md § T2 Primary Latency Pool.
+    """
+
     def to_json(self) -> str:
         """JSON with sorted keys - same input yields the same bytes.
 
@@ -176,6 +189,10 @@ class ResolvedModels:
             payload["narrator_candidates"] = [
                 _narrator_to_dict(n) for n in self.narrator_candidates
             ]
+        if self.reasoner_primary_candidates:
+            payload["reasoner_primary_candidates"] = [
+                _narrator_to_dict(n) for n in self.reasoner_primary_candidates
+            ]
         return json.dumps(payload, sort_keys=True, indent=2) + "\n"
 
     @classmethod
@@ -204,6 +221,11 @@ class ResolvedModels:
             narrator_candidates=tuple(
                 _narrator_from_dict(n)  # type: ignore[misc]
                 for n in raw.get("narrator_candidates", ())
+                if isinstance(n, dict)
+            ),
+            reasoner_primary_candidates=tuple(
+                _narrator_from_dict(n)  # type: ignore[misc]
+                for n in raw.get("reasoner_primary_candidates", ())
                 if isinstance(n, dict)
             ),
         )
@@ -651,6 +673,157 @@ def collect_narrator_deployments(
     return tuple(out)
 
 
+def reasoner_primary_deployment_name(family: str) -> str:
+    """Azure OpenAI deployment name for a T2 primary latency-pool candidate.
+
+    Mirrors :func:`narrator_deployment_name` but with a ``t2primary-``
+    prefix so the primary latency pool's deployments stay separately
+    auditable in the Portal / billing from the narrator + judge stacks.
+
+    Example: ``gpt-5.4`` -> ``t2primary-gpt-5-4``.
+    """
+    return "t2primary-" + family.replace(".", "-")
+
+
+def collect_primary_candidates(
+    *,
+    registry: LlmRegistry,
+    region: str,
+    catalog: CatalogQuery,
+    quota: QuotaQuery,
+    endpoint: str,
+    api_version: str = "2024-06-01",
+    capability_name: str = "t2.reasoner.primary",
+) -> tuple[NarratorCandidate | None, tuple[NarratorCandidate, ...]]:
+    """Enumerate the same-publisher latency pool for the T2 primary proposer.
+
+    Mirrors :func:`collect_narrator` but adds the invariant-safe guard
+    that keeps the T2 mixed-model quality gate intact: EVERY viable
+    candidate MUST share one publisher. Latency-routing within the
+    primary slot never changes the primary's *publisher*, so the
+    cross-check still runs a distinct primary-vs-secondary pair (see
+    docs/roadmap/architecture/llm-strategy.md § T2 Primary Latency Pool).
+
+    Raises :class:`ResolverError` when the viable preferences span more
+    than one publisher - a cross-publisher primary pool would let the
+    latency race silently swap the primary's publisher and collapse the
+    mixed-model cross-check, which is a quality-gate defect, not a
+    configuration choice.
+
+    Returns ``(winner, candidates)`` where ``winner`` is the single
+    most-preferred candidate (what a non-routed binding uses) and
+    ``candidates`` is the full same-publisher pool in preference order.
+    Returns ``(None, ())`` when the capability is missing or has no
+    viable family - callers bind the single primary unchanged.
+    """
+    prefs = _viable_primary_prefs(
+        registry=registry,
+        region=region,
+        catalog=catalog,
+        quota=quota,
+        capability_name=capability_name,
+    )
+    if not prefs:
+        return None, ()
+    candidates = tuple(
+        NarratorCandidate(
+            endpoint=endpoint,
+            deployment=reasoner_primary_deployment_name(p.family),
+            api_version=api_version,
+        )
+        for p in prefs
+    )
+    return candidates[0], candidates
+
+
+def collect_primary_deployments(
+    *,
+    registry: LlmRegistry,
+    region: str,
+    catalog: CatalogQuery,
+    quota: QuotaQuery,
+    capability_name: str = "t2.reasoner.primary",
+) -> tuple[ResolvedCapability, ...]:
+    """Emit one :class:`ResolvedCapability` per T2 primary pool candidate.
+
+    Terraform's LLM module iterates ``resolved_capabilities`` and creates
+    one ``azurerm_cognitive_deployment`` per entry, so merging these into
+    :attr:`ResolvedModels.capabilities` gives the latency router N real
+    deployments to route between - symmetric to
+    :func:`collect_narrator_deployments`. Each emitted capability's
+    ``name`` matches the ``deployment`` field on the matching
+    :class:`NarratorCandidate` from :func:`collect_primary_candidates`.
+
+    Same same-publisher guard as :func:`collect_primary_candidates`: a
+    cross-publisher pool raises :class:`ResolverError`.
+    """
+    prefs = _viable_primary_prefs(
+        registry=registry,
+        region=region,
+        catalog=catalog,
+        quota=quota,
+        capability_name=capability_name,
+    )
+    spec = registry.models.get(capability_name)
+    if spec is None or not prefs:
+        return ()
+    out: list[ResolvedCapability] = []
+    for pref in prefs:
+        available = quota.available_capacity_tpm(
+            region=region, publisher=pref.publisher, family=pref.family
+        )
+        effective = min(spec.capacity_tpm, available)
+        out.append(
+            ResolvedCapability(
+                name=reasoner_primary_deployment_name(pref.family),
+                status=CapabilityStatus.RESOLVED,
+                publisher=pref.publisher,
+                family=pref.family,
+                sku=spec.sku.value,
+                capacity_tpm=effective,
+                invocation=spec.invocation.value,
+                reasons=(f"primary_pool_deployment_for={capability_name}",),
+            )
+        )
+    return tuple(out)
+
+
+def _viable_primary_prefs(
+    *,
+    registry: LlmRegistry,
+    region: str,
+    catalog: CatalogQuery,
+    quota: QuotaQuery,
+    capability_name: str,
+) -> list[Any]:
+    """Viable preferences for the primary pool, guarded to one publisher.
+
+    Shared by :func:`collect_primary_candidates` and
+    :func:`collect_primary_deployments` so the candidate list and the
+    Terraform deployment list can never disagree, and both enforce the
+    single-publisher invariant.
+    """
+    prefs = _viable_narrator_prefs(
+        registry=registry,
+        region=region,
+        catalog=catalog,
+        quota=quota,
+        capability_name=capability_name,
+    )
+    publishers = {p.publisher for p in prefs}
+    if len(publishers) > 1:
+        raise ResolverError(
+            "t2_primary_pool_cross_publisher: "
+            f"{capability_name} viable candidates span publishers "
+            f"{sorted(publishers)!r}. A latency-routed primary pool MUST be "
+            "single-publisher so the mixed-model invariant "
+            "(primary.publisher != secondary.publisher) still holds. Adjust "
+            "llm-registry.yaml so this capability's preferences share one "
+            "publisher, or leave the pool single-entry."
+        )
+    return prefs
+
+
 __all__ = [
     "CapabilityStatus",
     "CatalogQuery",
@@ -662,6 +835,9 @@ __all__ = [
     "ResolverError",
     "collect_narrator",
     "collect_narrator_deployments",
+    "collect_primary_candidates",
+    "collect_primary_deployments",
     "narrator_deployment_name",
+    "reasoner_primary_deployment_name",
     "resolve",
 ]

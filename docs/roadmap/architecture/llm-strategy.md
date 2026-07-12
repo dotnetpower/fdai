@@ -177,6 +177,7 @@ models:
   t2.reasoner.primary:            # first frontier reasoner
     preferences:
       - { publisher: OpenAI, family: gpt-4o }
+      - { publisher: OpenAI, family: gpt-4.1 }
       - { publisher: OpenAI, family: gpt-4-turbo }
     capacity_tpm: 20_000
   t2.reasoner.secondary:          # mixed-model peer - MUST be a distinct publisher
@@ -354,16 +355,20 @@ more entries under `resolved-models.json`'s `narrator_candidates` array; a singl
 entry falls back to the plain `AzureAdChatBackend` (see the "Auto-populate narrator"
 subsection of [dev-and-deploy-parity.md](../deployment/dev-and-deploy-parity.md)).
 
-The router is scoped to **T1 narrator traffic only** and MUST NOT be extended to
-T2 capabilities without a separate design review. Two hard constraints keep the
-T1 vs T2 boundary intact:
+The router is scoped to **T1 narrator traffic only**. Extending latency routing
+to a T2 capability requires a separate design review because two hard constraints
+keep the T1 vs T2 boundary intact. The one reviewed, invariant-safe exception -
+routing within the `t2.reasoner.primary` slot among same-publisher candidates - is
+recorded in [T2 Primary Latency Pool](#t2-primary-latency-pool-invariant-safe-opt-in)
+below. The two constraints:
 
 - **Mixed-model invariant** ([architecture.instructions.md § Quality Gate](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)):
   `t2.reasoner.primary.publisher != t2.reasoner.secondary.publisher`. A latency
   router optimises for speed of an individual call, which conflicts with the
   requirement to always run two *distinct* families in parallel. A "fastest T2"
-  policy would silently collapse the cross-check to whichever family happened to
-  win the last round, defeating the whole point of the quality gate.
+  policy that routed the *whole pair* by speed would silently collapse the
+  cross-check to whichever family happened to win the last round, defeating the
+  whole point of the quality gate.
 - **Judge/critic determinism**: the composer binds `t1.judge`, `t2.critic`, and
   the debate orchestrator to specific deployment names in
   [composition.py](../../../src/fdai/composition/__init__.py). Swapping the *judge* deployment
@@ -374,6 +379,49 @@ If a fork wants a latency-routed *judge*, that is a governance-level change:
 declare a new capability (e.g. `t1.judge.fast-pool`) with its own quality gate,
 route via the composer, and audit the swap - do not thread it through the
 narrator router.
+
+### T2 Primary Latency Pool (invariant-safe, opt-in)
+
+The blanket "no latency routing in T2" rule has exactly one reviewed exception:
+routing **within the `t2.reasoner.primary` slot, among same-publisher candidates
+only**. This is invariant-safe by construction and does not weaken the quality
+gate, because it never changes the primary's *publisher* - only which deployment
+of that same publisher answers a given call.
+
+**Why it is safe.** The mixed-model invariant constrains *publishers*
+(`t2.reasoner.primary.publisher != t2.reasoner.secondary.publisher`), not
+deployments. If the primary pool is `{gpt-4o, gpt-5.4, gpt-4.1}` - all OpenAI -
+the primary publisher stays `OpenAI` no matter which deployment wins the latency
+race, so the cross-check still runs a distinct OpenAI-vs-secondary (e.g. Anthropic)
+pair. The "collapse the cross-check" hazard applies to routing the *whole* T2 pair
+by speed; it does not apply to picking among interchangeable same-publisher
+deployments for one side of the pair.
+
+**Hard rules (MUST).**
+
+- **Same publisher only.** Every deployment in the primary latency pool MUST share
+  one publisher. The resolver rejects a pool whose candidates span two publishers,
+  and the extended mixed-model invariant re-checks that the pool's single publisher
+  still differs from `t2.reasoner.secondary`. A cross-publisher primary pool is a
+  quality-gate defect, not a configuration choice.
+- **Primary slot only.** The pool routes only the primary proposer. `secondary`,
+  `t2.critic`, `t2.rubric.judge`, and the escalation ladder are never
+  latency-routed - their determinism and distinct-publisher roles are unchanged.
+- **Enforced on by default.** `llm.t2_primary_latency_routing` defaults to
+  `true`. It activates only when the resolver emits >= 2 same-publisher
+  `t2.reasoner.primary` candidates (via `--emit-primary-pool`); a single-entry
+  pool binds the one primary unchanged. A fork sets the flag `false` to pin the
+  single most-preferred primary. The router is invariant-safe by construction
+  (same-publisher pool), so enabling it does not weaken the quality gate.
+- **Audit-recorded pick.** Every routed call records the chosen deployment in the
+  audit entry, so replay (judge-only, never re-executes) stays deterministic even
+  though the live pick varies with measured p50.
+
+**Resolver + wiring.** The resolver emits a `t2.reasoner.primary` candidate pool
+the same way `collect_narrator` emits `narrator_candidates` (viable same-publisher
+families in preference order); composition wraps the primary `CrossCheckModel` in a
+`LatencyRoutedCrossCheckModel` when the flag is on and the pool has >= 2 entries,
+otherwise it binds the single primary unchanged.
 
 ### Reconciler Job
 

@@ -1,8 +1,8 @@
 ---
 title: Dev/Deploy Parity - 로컬 Fake vs Azure-First 프로비저닝
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 30f63ced95e66a8f666fcf68bd86e25e74cfbf58
-translation_revised: 2026-07-11
+translation_source_sha: 32b9d056e882c15383c8811ea920472b61ac4c64
+translation_revised: 2026-07-12
 ---
 
 # Dev/Deploy Parity - 로컬 Fake vs Azure-First 프로비저닝
@@ -146,6 +146,12 @@ resolver 재실행 시 동일 매핑 산출 (idempotent).
   - `resolved_models_path`: 옵셔널 KV secret 이름 또는 파일시스템 경로.
   - `capabilities`: capability 이름 리스트 (`t1.embedding`, `t1.judge`,
     `t2.reasoner.primary`, `t2.reasoner.secondary`) - registry를 미러.
+  - `t2_primary_latency_routing`: bool, default `true`. T2 primary
+    proposer를 동일 publisher 후보 pool 내에서 지연 라우팅(invariant-safe;
+    enforce on). 리졸버가 >= 2 pool 을 emit(`--emit-primary-pool`) 할 때만
+    적용; 단일 primary 로 pin 하려면 `false`.
+    [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 의
+    "T2 Primary Latency Pool" 참조.
 - Fail-fast validator: `mode == "azure"` 는 `resolved_models_path` 필수.
 - 테스트: schema + pydantic validator.
 

@@ -36,6 +36,7 @@ import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from fdai.rule_catalog.schema.llm_registry import load_llm_registry_from_yaml
 from fdai.rule_catalog.schema.llm_resolver import (
@@ -46,6 +47,8 @@ from fdai.rule_catalog.schema.llm_resolver import (
     ResolverError,
     collect_narrator,
     collect_narrator_deployments,
+    collect_primary_candidates,
+    collect_primary_deployments,
     resolve,
 )
 from fdai.rule_catalog.schema.provisioning_assessment import (
@@ -171,6 +174,23 @@ def _build_parser() -> argparse.ArgumentParser:
         "--narrator-api-version",
         default="2024-08-01-preview",
         help="API version stamped on every narrator candidate (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--emit-primary-pool",
+        action="store_true",
+        help=(
+            "Also emit the same-publisher latency pool for t2.reasoner.primary "
+            "(``reasoner_primary_candidates`` + one Terraform deployment per "
+            "candidate). Requires --narrator-endpoint (the AOAI account endpoint "
+            "that hosts the deployments). Opt-in, invariant-safe - see "
+            "docs/roadmap/architecture/llm-strategy.md T2 Primary Latency Pool. "
+            "Consumed only when llm.t2_primary_latency_routing is enabled."
+        ),
+    )
+    parser.add_argument(
+        "--primary-api-version",
+        default="2024-06-01",
+        help="API version stamped on every primary pool candidate (default: %(default)s).",
     )
     parser.add_argument(
         "--narrator-capability",
@@ -323,8 +343,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Optional: enrich with narrator + narrator_candidates when the caller
     # provided an endpoint. Kept out of ``resolve()`` so the pure resolver
     # stays orthogonal to how the console consumes the output.
+    narrator_winner = None
+    narrator_candidates: tuple[Any, ...] = ()
+    primary_candidates: tuple[Any, ...] = ()
+    extra_deployments: tuple[Any, ...] = ()
     if args.narrator_endpoint:
-        winner, candidates = collect_narrator(
+        narrator_winner, narrator_candidates = collect_narrator(
             registry=registry,
             region=args.region,
             catalog=catalog_query,
@@ -344,6 +368,35 @@ def main(argv: Sequence[str] | None = None) -> int:
             quota=quota_query,
             capability_name=args.narrator_capability,
         )
+
+    if args.emit_primary_pool:
+        if not args.narrator_endpoint:
+            print(
+                "error: --emit-primary-pool requires --narrator-endpoint "
+                "(the AOAI account endpoint that hosts the pool deployments)",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            _primary_winner, primary_candidates = collect_primary_candidates(
+                registry=registry,
+                region=args.region,
+                catalog=catalog_query,
+                quota=quota_query,
+                endpoint=args.narrator_endpoint,
+                api_version=args.primary_api_version,
+            )
+            extra_deployments = extra_deployments + collect_primary_deployments(
+                registry=registry,
+                region=args.region,
+                catalog=catalog_query,
+                quota=quota_query,
+            )
+        except ResolverError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+
+    if args.narrator_endpoint or args.emit_primary_pool:
         resolved = ResolvedModels(
             schema_version=resolved.schema_version,
             region=resolved.region,
@@ -351,8 +404,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             deployer_object_id=resolved.deployer_object_id,
             mixed_model_mode=resolved.mixed_model_mode,
             capabilities=resolved.capabilities + extra_deployments,
-            narrator=winner,
-            narrator_candidates=candidates,
+            narrator=narrator_winner,
+            narrator_candidates=narrator_candidates,
+            reasoner_primary_candidates=primary_candidates,
         )
 
     report = assess_provisioning(registry=registry, resolved=resolved)

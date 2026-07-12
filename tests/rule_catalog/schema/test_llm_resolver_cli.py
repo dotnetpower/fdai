@@ -124,6 +124,36 @@ def test_cli_populates_narrator_when_endpoint_given(tmp_path: Path) -> None:
     assert "t1.judge" in cap_names
 
 
+def test_cli_emits_primary_pool_when_requested(tmp_path: Path) -> None:
+    """--emit-primary-pool adds reasoner_primary_candidates + terraform deployments."""
+    endpoint = "https://example-openai.openai.azure.com/"
+    argv = [
+        *_base_argv(tmp_path, "permission.granted.json"),
+        "--narrator-endpoint",
+        endpoint,
+        "--emit-primary-pool",
+    ]
+    assert main(argv) == 0
+    payload = json.loads((tmp_path / "resolved-models.json").read_text(encoding="utf-8"))
+
+    # Fixture catalog exposes gpt-4o (viable); gpt-4-turbo is absent, so the
+    # same-publisher pool is single-entry. The router only engages at >= 2,
+    # but the candidate + its Terraform deployment are still emitted.
+    pool = payload["reasoner_primary_candidates"]
+    assert [c["deployment"] for c in pool] == ["t2primary-gpt-4o"]
+    for c in pool:
+        assert c["endpoint"] == endpoint
+        assert c["api_version"] == "2024-06-01"
+    cap_names = {c["name"] for c in payload["capabilities"]}
+    assert "t2primary-gpt-4o" in cap_names
+
+
+def test_cli_emit_primary_pool_requires_endpoint(tmp_path: Path) -> None:
+    """--emit-primary-pool without --narrator-endpoint is a usage error."""
+    argv = [*_base_argv(tmp_path, "permission.granted.json"), "--emit-primary-pool"]
+    assert main(argv) == 2
+
+
 # ---------------------------------------------------------------------------
 # Provisioning completeness gate (--assess-fail-on)
 # ---------------------------------------------------------------------------

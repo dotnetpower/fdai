@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: a98d5b80a119de579cd3125f842d83d6256be32c
+translation_source_sha: dc9470caa0a271baf615b2d9da6d6cae88b0be39
 translation_revised: 2026-07-12
 ---
 
@@ -162,6 +162,7 @@ models:
   t2.reasoner.primary:            # 첫 프론티어 reasoner
     preferences:
       - { publisher: OpenAI, family: gpt-4o }
+      - { publisher: OpenAI, family: gpt-4.1 }
       - { publisher: OpenAI, family: gpt-4-turbo }
     capacity_tpm: 20_000
   t2.reasoner.secondary:          # mixed-model peer - 별개 publisher여야 함
@@ -329,14 +330,19 @@ HIL로 라우팅)을 반환하며, 다음 하드닝 불변식을 지킨다:
 로 fallback ([dev-and-deploy-parity-ko.md](../deployment/dev-and-deploy-parity-ko.md) 의
 "Auto-populate narrator" 참조).
 
-라우터는 **T1 narrator 트래픽 전용** 이며, 별도 설계 리뷰 없이 T2 capability
-로 확장 금지. T1/T2 경계를 지키는 두 하드 제약:
+라우터는 **T1 narrator 트래픽 전용** 이다. T2 capability 로 지연 라우팅을
+확장하려면 별도 설계 리뷰가 필요한데, T1/T2 경계를 지키는 두 하드 제약 때문이다.
+리뷰를 마친 유일한 invariant-safe 예외 - `t2.reasoner.primary` 슬롯 내부에서
+동일 publisher 후보들 사이의 라우팅 - 는 아래
+[T2 Primary Latency Pool](#t2-primary-latency-pool-invariant-safe-opt-in) 에 기록.
+두 제약:
 
 - **Mixed-model invariant** ([architecture.instructions.md § Quality Gate](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)):
   `t2.reasoner.primary.publisher != t2.reasoner.secondary.publisher`. 지연
   라우터는 개별 호출 속도를 최적화하므로, 항상 서로 *다른* family 두 개를
-  병렬로 돌려야 한다는 요구와 충돌. "가장 빠른 T2" 정책은 마지막 라운드에서
-  이긴 family로 cross-check 를 조용히 collapse 시켜 quality gate 를 통째로 무력화.
+  병렬로 돌려야 한다는 요구와 충돌. *쌍 전체*를 속도로 라우팅하는 "가장 빠른
+  T2" 정책은 마지막 라운드에서 이긴 family로 cross-check 를 조용히 collapse
+  시켜 quality gate 를 통째로 무력화.
 - **Judge/critic 결정성**: composer 는 [composition.py](../../../src/fdai/composition/__init__.py)
   에서 `t1.judge`, `t2.critic`, debate orchestrator 를 특정 deployment 이름에
   바인딩. config 레벨 opt-in 없이 *judge* deployment 를 런타임 중에 바꾸는
@@ -345,6 +351,48 @@ HIL로 라우팅)을 반환하며, 다음 하드닝 불변식을 지킨다:
 포크가 지연-라우팅된 *judge* 를 원한다면, 그건 거버넌스 레벨 변경:
 새 capability(예: `t1.judge.fast-pool`)를 quality gate 와 함께 선언하고
 composer 로 라우팅, 스왑을 감사. narrator 라우터를 통해 쓰레딩하지 말 것.
+
+### T2 Primary Latency Pool (invariant-safe, opt-in)
+
+"T2 에서 지연 라우팅 금지" 규칙에는 리뷰를 마친 예외가 정확히 하나 있다:
+**`t2.reasoner.primary` 슬롯 내부에서, 동일 publisher 후보들 사이에서만** 라우팅.
+이는 구조적으로 invariant-safe 이고 quality gate 를 약화시키지 않는다. primary 의
+*publisher* 는 절대 바뀌지 않고, 같은 publisher 의 어느 deployment 가 특정 호출에
+답하느냐만 달라지기 때문이다.
+
+**왜 안전한가.** Mixed-model invariant 는 *deployment* 가 아니라 *publisher* 를
+제약한다(`t2.reasoner.primary.publisher != t2.reasoner.secondary.publisher`).
+primary pool 이 `{gpt-4o, gpt-5.4, gpt-4.1}` - 전부 OpenAI - 라면 어느 deployment
+가 지연 경쟁에서 이기든 primary publisher 는 `OpenAI` 로 유지되어, cross-check 는
+여전히 서로 다른 OpenAI-vs-secondary(예: Anthropic) 쌍을 돌린다. "cross-check
+collapse" 위험은 *쌍 전체*를 속도로 라우팅할 때의 문제이고, 쌍의 한쪽을 위해
+교체 가능한 동일 publisher deployment 중에서 고르는 것에는 해당하지 않는다.
+
+**하드 규칙(MUST).**
+
+- **동일 publisher 만.** primary latency pool 의 모든 deployment 는 하나의
+  publisher 를 공유해야 한다. 리졸버는 후보가 두 publisher 에 걸친 pool 을
+  거부하고, 확장된 mixed-model invariant 는 pool 의 단일 publisher 가 여전히
+  `t2.reasoner.secondary` 와 다른지 재검증한다. cross-publisher primary pool 은
+  설정 선택이 아니라 quality-gate 결함이다.
+- **primary 슬롯만.** pool 은 primary proposer 만 라우팅한다. `secondary`,
+  `t2.critic`, `t2.rubric.judge`, escalation ladder 는 절대 지연 라우팅되지
+  않는다 - 결정성과 distinct-publisher 역할은 그대로다.
+- **기본 enforce on.** `llm.t2_primary_latency_routing` 기본값 `true`.
+  리졸버가 동일 publisher `t2.reasoner.primary` 후보를 2개 이상
+  emit(`--emit-primary-pool`) 할 때만 활성화되며, 1개 풀은 단일 primary
+  를 그대로 바인딩한다. 포크는 플래그를 `false` 로 설정해 단일
+  최선호 primary 를 pin 할 수 있다. 라우터는 구조적으로 invariant-safe
+  (동일 publisher pool)라 켜도 quality gate 를 약화시키지 않는다.
+- **audit 에 pick 기록.** 라우팅된 모든 호출은 선택된 deployment 를 audit 항목에
+  기록하므로, 라이브 pick 이 측정된 p50 에 따라 달라져도 replay(judge 전용, 재실행
+  안 함)는 결정론적으로 유지된다.
+
+**Resolver + wiring.** 리졸버는 `collect_narrator` 가 `narrator_candidates` 를
+emit 하는 것과 동일하게 `t2.reasoner.primary` 후보 pool(선호 순서의 viable 동일
+publisher family)을 emit 한다; composition 은 플래그가 on 이고 pool 이 2개 이상일
+때 primary `CrossCheckModel` 을 `LatencyRoutedCrossCheckModel` 로 감싸고, 그렇지
+않으면 단일 primary 를 그대로 바인딩한다.
 
 ### Reconciler Job
 

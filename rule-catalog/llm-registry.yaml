@@ -42,6 +42,7 @@ models:
   t2.reasoner.primary:
     preferences:
       - {publisher: OpenAI, family: gpt-4o}
+      - {publisher: OpenAI, family: gpt-4.1}
       - {publisher: OpenAI, family: gpt-4-turbo}
     sku: Standard
     capacity_tpm: 20000

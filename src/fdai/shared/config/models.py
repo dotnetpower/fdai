@@ -112,6 +112,14 @@ class LlmConfig(_ConfigBase):
     mode: Annotated[str, Field(pattern=r"^(local-fake|azure)$")] = LlmMode.LOCAL_FAKE
     resolved_models_path: Annotated[str, Field(min_length=1)] | None = None
     capabilities: tuple[str, ...] = _DEFAULT_LLM_CAPABILITIES
+    t2_primary_latency_routing: bool = True
+    """Latency routing of the T2 primary proposer among its same-publisher
+    candidate pool (invariant-safe). Enforced on by default; takes effect
+    only when ``resolved-models.json`` carries >= 2
+    ``reasoner_primary_candidates`` (which the resolver emits with
+    ``--emit-primary-pool``). A fork sets this ``false`` to pin the single
+    most-preferred primary. See
+    docs/roadmap/architecture/llm-strategy.md § T2 Primary Latency Pool."""
 
     def model_post_init(self, __context: object) -> None:
         if self.mode == LlmMode.AZURE and not self.resolved_models_path:

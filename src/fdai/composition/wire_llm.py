@@ -138,6 +138,9 @@ def bind_azure_llm_bindings(
         AzureOpenAIJudgeModel,
         AzureOpenAIJudgeModelConfig,
     )
+    from ..delivery.azure.llm.latency_routed_cross_check import (
+        LatencyRoutedCrossCheckModel,
+    )
     from ..delivery.azure.llm.rca_model import (
         AzureOpenAIRcaModel,
         AzureOpenAIRcaModelConfig,
@@ -248,7 +251,7 @@ def bind_azure_llm_bindings(
         ),
         metering=_emitter_for("t1.embedding", embedding_cap, "T1"),
     )
-    primary = AzureOpenAICrossCheckModel(
+    primary: CrossCheckModel = AzureOpenAICrossCheckModel(
         identity=identity,
         http_client=http_client,
         config=AzureOpenAICrossCheckModelConfig(
@@ -263,6 +266,51 @@ def bind_azure_llm_bindings(
         scope_resolver=scope_resolver,
         metering=_emitter_for("t2.reasoner.primary", primary_cap, "T2"),
     )
+    # T2 Primary Latency Pool (invariant-safe, opt-in). When the flag is on AND
+    # the resolver emitted >= 2 same-publisher candidates, wrap the primary
+    # proposer so each cross-check call routes to the fastest deployment. The
+    # publisher never changes (``collect_primary_candidates`` guarantees a
+    # single publisher), so the mixed-model invariant
+    # (primary.publisher != secondary.publisher) is preserved. Off by default,
+    # shadow-first - see docs/roadmap/architecture/llm-strategy.md
+    # (T2 Primary Latency Pool).
+    primary_pool = resolved.reasoner_primary_candidates
+    if container.config.llm.t2_primary_latency_routing and len(primary_pool) >= 2:
+        # Attribute each pool member's metering to its OWN model family (the
+        # ``t2primary-<family>`` deployment capability carries it), so a
+        # gpt-4.1 member is not priced as gpt-4o. Falls back to primary_cap
+        # when the deployment companion capability is absent (e.g. a
+        # hand-authored resolved-models.json without --emit-primary-pool).
+        _cap_by_name = {c.name: c for c in resolved.capabilities}
+        pool_members: list[tuple[str, CrossCheckModel]] = [
+            (
+                cand.deployment,
+                AzureOpenAICrossCheckModel(
+                    identity=identity,
+                    http_client=http_client,
+                    config=AzureOpenAICrossCheckModelConfig(
+                        endpoint=cand.endpoint,
+                        deployment=cand.deployment,
+                        system_prompt=system_prompt,
+                        api_version=cand.api_version,
+                    ),
+                    tool_registry=tool_registry,
+                    tool_executor=tool_executor,
+                    prompt_composer=prompt_composer,
+                    capability_id=(
+                        "t2.reasoner.primary" if prompt_composer is not None else None
+                    ),
+                    scope_resolver=scope_resolver,
+                    metering=_emitter_for(
+                        "t2.reasoner.primary",
+                        _cap_by_name.get(cand.deployment, primary_cap),
+                        "T2",
+                    ),
+                ),
+            )
+            for cand in primary_pool
+        ]
+        primary = LatencyRoutedCrossCheckModel(candidates=pool_members)
     secondary = AzureOpenAICrossCheckModel(
         identity=identity,
         http_client=http_client,

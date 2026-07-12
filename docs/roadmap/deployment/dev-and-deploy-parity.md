@@ -145,6 +145,12 @@ Each work item below reflects what actually landed - code, tests, and gate cover
   - `resolved_models_path`: optional KV secret name or filesystem path.
   - `capabilities`: list of capability names (`t1.embedding`, `t1.judge`,
     `t2.reasoner.primary`, `t2.reasoner.secondary`) - mirrors the registry.
+  - `t2_primary_latency_routing`: bool, default `true`. Latency routing of
+    the T2 primary proposer among its same-publisher candidate pool
+    (invariant-safe; enforced on). Takes effect only when the resolver emits
+    a >= 2 pool (`--emit-primary-pool`); set `false` to pin the single
+    primary. See [llm-strategy.md](../architecture/llm-strategy.md) section
+    "T2 Primary Latency Pool".
 - Fail-fast validator: `mode == "azure"` requires `resolved_models_path` present.
 - Tests: schema + pydantic validators.
 

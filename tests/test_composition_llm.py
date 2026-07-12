@@ -927,6 +927,106 @@ def test_azure_wire_overrides_rejects_queries_without_workspace(tmp_path: Path) 
         )
 
 
+def test_azure_wire_overrides_rejects_prom_queries_without_endpoint(
+    tmp_path: Path,
+) -> None:
+    """Symmetric guard on the Prom side."""
+    from fdai.composition import AzureWireOverrides
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+
+    with pytest.raises(ValueError, match="prometheus_queries requires prometheus_base_url"):
+        AzureWireOverrides(
+            endpoint="https://oai-fork.openai.azure.com",
+            catalog_root=tmp_path,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+            prometheus_queries={"node_cpu_percent": "1"},
+        )
+
+
+def test_azure_wire_overrides_rejects_prom_audience_without_endpoint(
+    tmp_path: Path,
+) -> None:
+    from fdai.composition import AzureWireOverrides
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+
+    with pytest.raises(
+        ValueError, match="prometheus_audience requires prometheus_base_url"
+    ):
+        AzureWireOverrides(
+            endpoint="https://oai-fork.openai.azure.com",
+            catalog_root=tmp_path,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+            prometheus_audience="https://prometheus.monitor.azure.com",
+        )
+
+
+async def test_wire_azure_container_binds_prometheus_only_when_only_prom_supplied(
+    tmp_path: Path,
+) -> None:
+    """Prom endpoint alone -> PrometheusMetricProvider bound solo (no routing)."""
+    from fdai.composition import AzureWireOverrides, wire_azure_container
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+    from fdai.delivery.prometheus import PrometheusMetricProvider
+
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    finalized = await wire_azure_container(
+        container,
+        http_client=http,
+        identity=_StaticIdentity(),
+        overrides=AzureWireOverrides(
+            endpoint="https://oai-fork.openai.azure.com",
+            catalog_root=_SHIPPED_CATALOG_ROOT,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+            prometheus_base_url="http://prometheus.monitor:9090",
+        ),
+    )
+    assert isinstance(finalized.metric_provider, PrometheusMetricProvider)
+
+
+async def test_wire_azure_container_routes_prom_primary_aml_fallback(
+    tmp_path: Path,
+) -> None:
+    """Both backends set -> RoutedMetricProvider with Prom serving AKS-scoped
+    metrics and AML covering the rest of the 14-metric analyzer catalog."""
+    from fdai.composition import AzureWireOverrides, wire_azure_container
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+    from fdai.delivery.azure.demo_queries import (
+        METRIC_APIM_HTTP_5XX_RATE,
+        METRIC_NODE_CPU_PERCENT,
+    )
+    from fdai.delivery.azure.metric_logs import AzureMonitorLogsMetricProvider
+    from fdai.delivery.prometheus import PrometheusMetricProvider
+    from fdai.shared.providers.routed_metric import RoutedMetricProvider
+
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    finalized = await wire_azure_container(
+        container,
+        http_client=http,
+        identity=_StaticIdentity(),
+        overrides=AzureWireOverrides(
+            endpoint="https://oai-fork.openai.azure.com",
+            catalog_root=_SHIPPED_CATALOG_ROOT,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+            monitor_workspace_id="00000000-0000-0000-0000-000000000000",
+            prometheus_base_url="http://prometheus.monitor:9090",
+        ),
+    )
+    assert isinstance(finalized.metric_provider, RoutedMetricProvider)
+    # Prom wins its supported subset (AKS-scoped), AML picks up the rest.
+    assert finalized.metric_provider.route_for(METRIC_NODE_CPU_PERCENT) == (
+        PrometheusMetricProvider.__name__
+    )
+    assert finalized.metric_provider.route_for(METRIC_APIM_HTTP_5XX_RATE) == (
+        AzureMonitorLogsMetricProvider.__name__
+    )
+
+
 # ---------------------------------------------------------------------------
 # T2 RCA reasoner binding is opt-in (capability + system prompt), symmetric
 # to the Critic / Judge bindings.
