@@ -18,11 +18,12 @@ import { loadConfig } from "../config";
 import { useAgentStream } from "../hooks/use-agent-stream";
 import { usePublishViewContext } from "../deck/context";
 import { agentTerm, composeGlossary, TERMS } from "../deck/glossary";
-import { openDeckWithPrompt } from "../deck/open-deck";
+import { openDeckWithPrompt, openDeckWithContext } from "../deck/open-deck";
 import {
   PANTHEON,
   activeAgentCount,
   AGENT_ROLE,
+  agentChatContext,
   engagedGroups,
   incidentsForAgent,
   isEngaged,
@@ -354,6 +355,12 @@ export function AgentsRoute({ client: _client }: Props) {
               node={selectedAgentNode}
               incidents={selectedAgentIncidents}
               onClose={() => setSelectedAgent(null)}
+              onChat={() =>
+                openDeckWithContext({
+                  contextNote: agentChatContext(selectedAgentNode, selectedAgentIncidents),
+                  prompt: `What has ${selectedAgentNode.name} been working on?`,
+                })
+              }
               onPickIncident={(id) => {
                 // If the target sits past the recent-10 window, expand the
                 // full list so its inline card is actually visible.
@@ -591,11 +598,13 @@ function AgentFocus({
   node,
   incidents,
   onClose,
+  onChat,
   onPickIncident,
 }: {
   readonly node: AgentNode;
   readonly incidents: readonly Incident[];
   readonly onClose: () => void;
+  readonly onChat: () => void;
   readonly onPickIncident: (id: string) => void;
 }) {
   const role = AGENT_ROLE[node.name];
@@ -624,6 +633,12 @@ function AgentFocus({
         </span>
       </div>
       <p class="agent-focus-task">{task}</p>
+      <button type="button" class="agent-focus-chat" onClick={onChat}>
+        <span class="agent-focus-chat-glyph" aria-hidden="true">
+          {"\u25c6"}
+        </span>
+        Chat with {node.name}
+      </button>
       <div class="agent-focus-events">
         <h4>
           Events <span class="agent-focus-count">{incidents.length}</span>

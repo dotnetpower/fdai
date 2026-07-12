@@ -3,6 +3,7 @@ import type { AgentActivityMessage, AgentStatus } from "../hooks/use-agent-strea
 import {
   activeAgentCount,
   AGENT_ROLE,
+  agentChatContext,
   engagedGroups,
   incidentsForAgent,
   isEngaged,
@@ -236,5 +237,47 @@ describe("agents.model org chart + agent events", () => {
     const loki = incidentsForAgent(s, "Loki").map((i) => i.correlationId);
     expect(loki).toEqual(["inc-2"]);
     expect(incidentsForAgent(s, "Bragi")).toEqual([]);
+  });
+
+  it("builds a grounded chat context for an agent from its recent work", () => {
+    const node = {
+      name: "Forseti",
+      layer: "judge" as const,
+      state: "analyzing" as const,
+      correlationId: "inc-1",
+      since: "2026-07-12T00:00:00+00:00",
+      detail: null,
+    };
+    const incidents = [
+      {
+        correlationId: "inc-1",
+        ticketId: "FDAI-1",
+        title: "AKS pod restart storm",
+        severity: "high",
+        status: "resolved" as const,
+        involved: ["Forseti"],
+        rca: "scheduled chaos experiment",
+        turns: [],
+        updatedAt: "2026-07-12T00:00:00+00:00",
+      },
+    ];
+    const ctx = agentChatContext(node, incidents);
+    expect(ctx).toContain("Forseti");
+    expect(ctx).toContain("Judge"); // role title
+    expect(ctx).toContain("FDAI-1");
+    expect(ctx).toContain("scheduled chaos experiment"); // RCA injected
+    expect(ctx).toContain("analyzing"); // live state
+  });
+
+  it("notes when an agent has no incidents in its chat context", () => {
+    const node = {
+      name: "Bragi",
+      layer: "conversational" as const,
+      state: "idle" as const,
+      correlationId: null,
+      since: "",
+      detail: null,
+    };
+    expect(agentChatContext(node, [])).toContain("has not participated in any incident");
   });
 });

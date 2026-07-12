@@ -211,6 +211,16 @@ participates in (newest first, each row selects that incident). Clicking the sam
 agent again, or the panel's close button, dismisses it. This answers "who is this
 agent and what events is it working?" without leaving the live view.
 
+A **Chat with {agent}** button in the focus panel starts a conversation primed
+with that agent's recent work. It calls `openDeckWithContext`
+([`src/deck/open-deck.ts`](src/deck/open-deck.ts)) with a grounding note built by
+`agentChatContext` ([`src/routes/agents.model.ts`](src/routes/agents.model.ts)) -
+the agent's role, live state, and recent incidents (with RCAs). The deck injects
+that note as an opening turn (so it joins the narrator's history) and seeds a
+starter question, so the operator gets an immediate, grounded answer about what
+the agent has been doing. Still read-only: it opens a primed question box, never
+auto-submits or executes.
+
 ### Self-describing screens
 
 Each route publishes a `ViewSnapshot` (`src/deck/context.tsx`) that is a screen

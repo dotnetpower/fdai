@@ -2166,71 +2166,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   outline-offset: -3px;
 }
 .deck-invoke-open { display: none; }
-
-/* Agents screen only: the deck launcher wears a slowly rotating blue -> purple
-   gradient border to invite starting a conversation. Scoped via the published
-   routeId in command-deck.tsx. The `@property` registration lets the conic
-   gradient's start angle animate smoothly (an unregistered custom property
-   would jump discretely instead of tweening). */
-@property --deck-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-.deck-invoke.deck-invoke-agents {
-  border: 1px solid transparent;
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in oklab, var(--accent) 12%, var(--bg-elevated)) 0%,
-      var(--bg-elevated) 40%,
-      var(--bg-elevated) 60%,
-      color-mix(in oklab, var(--accent) 12%, var(--bg-elevated)) 100%
-    )
-      padding-box,
-    conic-gradient(
-        from var(--deck-angle),
-        #3b82f6,
-        #6366f1,
-        #8b5cf6,
-        #a855f7,
-        #6366f1,
-        #3b82f6
-      )
-      border-box;
-  animation: deck-border-rotate 4s linear infinite;
-}
-.deck-invoke.deck-invoke-agents:hover {
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in oklab, var(--accent) 22%, var(--bg-elevated)) 0%,
-      var(--bg-elevated) 45%,
-      var(--bg-elevated) 55%,
-      color-mix(in oklab, var(--accent) 22%, var(--bg-elevated)) 100%
-    )
-      padding-box,
-    conic-gradient(
-        from var(--deck-angle),
-        #3b82f6,
-        #6366f1,
-        #8b5cf6,
-        #a855f7,
-        #6366f1,
-        #3b82f6
-      )
-      border-box;
-}
-@keyframes deck-border-rotate {
-  to {
-    --deck-angle: 360deg;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .deck-invoke.deck-invoke-agents {
-    animation: none;
-  }
-}
 .deck-invoke-glyph {
   display: inline-flex;
   align-items: center;
@@ -4833,6 +4768,41 @@ main { padding-bottom: 60px !important; }
   font-size: 0.74rem;
   opacity: 0.7;
   font-style: italic;
+}
+/* Primary CTA: start a conversation primed with this agent's recent work. */
+.agent-focus-chat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  align-self: flex-start;
+  margin-top: 0.1rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--agent-color) 55%, transparent);
+  background: color-mix(in srgb, var(--agent-color) 18%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+.agent-focus-chat:hover {
+  background: color-mix(in srgb, var(--agent-color) 30%, transparent);
+}
+.agent-focus-chat:active {
+  transform: translateY(1px);
+}
+.agent-focus-chat:focus-visible {
+  outline: 2px solid var(--agent-color);
+  outline-offset: 2px;
+}
+.agent-focus-chat-glyph {
+  color: var(--agent-color);
+  font-size: 0.7rem;
 }
 .agent-focus-events h4 {
   margin: 0.2rem 0 0.35rem;

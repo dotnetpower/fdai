@@ -244,6 +244,16 @@ export function CommandDeck() {
   useEffect(() => {
     const onOpenDeck = (e: Event) => {
       const detail = (e as CustomEvent<DeckOpenDetail>).detail;
+      // A context note lands as an opening deck turn so the narrator's answers
+      // to follow-up questions are grounded in it (e.g. one agent's recent
+      // work). It joins the backend history like any deck (assistant) turn.
+      const note = typeof detail?.contextNote === "string" ? detail.contextNote.trim() : "";
+      if (note) {
+        setTurns((prev) => [
+          ...prev,
+          { id: newId(), role: "deck", text: note, source: "context", at: shortTime() },
+        ]);
+      }
       const seed = typeof detail?.prompt === "string" ? detail.prompt : "";
       if (seed) {
         setDraft(seed);
@@ -497,9 +507,7 @@ export function CommandDeck() {
     <>
       <button
         type="button"
-        class={`deck-invoke ${open ? "deck-invoke-open" : ""} ${
-          snapshot?.routeId === "agents" ? "deck-invoke-agents" : ""
-        }`}
+        class={`deck-invoke ${open ? "deck-invoke-open" : ""}`}
         onClick={open ? closeDeck : openDeck}
         aria-label={open ? "Close command deck" : "Open command deck"}
       >

@@ -411,3 +411,44 @@ export function incidentsForAgent(state: AgentsState, agent: string): Incident[]
     .map((id) => state.incidents[id])
     .filter((inc): inc is Incident => inc !== undefined && inc.involved.includes(agent));
 }
+
+/**
+ * Build the grounding context injected into the deck when an operator starts
+ * a conversation about one agent. It summarizes the agent's role, live state,
+ * and recent incidents (newest first) so the narrator can answer questions
+ * about "what has this agent been doing" immediately, grounded in real
+ * activity. English (L0 pipeline); `incidents` is expected to already be
+ * scoped to this agent (see {@link incidentsForAgent}).
+ */
+export function agentChatContext(node: AgentNode, incidents: readonly Incident[]): string {
+  const role = AGENT_ROLE[node.name];
+  const lines: string[] = [];
+  lines.push(
+    `Context for a conversation about the FDAI agent ${node.name}` +
+      (role ? ` (${role.title})` : "") +
+      ".",
+  );
+  if (role) {
+    lines.push(`Role: ${role.summary}`);
+    if (role.reportsTo) {
+      lines.push(`Reports to ${role.reportsTo}${role.staff ? " (staff)" : ""}.`);
+    }
+  }
+  const task = STATE_TASK[node.state] ?? node.state;
+  lines.push(`Current state: ${node.state} - ${task}.`);
+  if (incidents.length === 0) {
+    lines.push(`${node.name} has not participated in any incident yet.`);
+  } else {
+    lines.push(`Recent incidents ${node.name} worked (newest first):`);
+    for (const inc of incidents.slice(0, 6)) {
+      const ticket = inc.ticketId || inc.correlationId;
+      const rca = inc.rca ? ` - RCA: ${inc.rca}` : "";
+      lines.push(`- ${ticket} (${inc.status}, ${inc.severity}) ${inc.title}${rca}`);
+    }
+  }
+  lines.push(
+    `Answer the operator's questions about what ${node.name} has been doing, ` +
+      "grounded in this activity.",
+  );
+  return lines.join("\n");
+}
