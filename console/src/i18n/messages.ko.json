@@ -29,13 +29,14 @@
     },
     "panel": {
       "live": "실시간",
+      "agents": "에이전트",
       "hilQueue": "승인",
       "provision": "프로비저닝",
       "audit": "감사 로그",
       "trace": "추적",
       "agentActivity": "에이전트 활동",
       "ontology": "온톨로지",
-      "pantheon": "에이전트",
+      "pantheon": "판테온",
       "blastRadius": "영향 범위",
       "promotionGates": "승급 게이트",
       "dashboard": "개요",
@@ -45,6 +46,7 @@
     },
     "panelSub": {
       "live": "실시간 파이프라인 활동",
+      "agents": "에이전트 실시간 협력: 상태, 인시던트, 대화",
       "hilQueue": "사람 승인자를 기다리는 고위험 작업 (HIL)",
       "provision": "진행 중인 재프로비저닝을 읽기 전용으로 스트리밍하며 관찰",
       "audit": "모든 종단 결정의 추가 전용 기록",

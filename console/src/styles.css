@@ -4223,3 +4223,349 @@ main { padding-bottom: 60px !important; }
   }
 }
 
+/* ===================================================================
+ * Now > Agents (Track B) - agent constellation + incident workflow
+ * =================================================================== */
+
+.agents-route {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+}
+
+.agents-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.agents-head h2 {
+  margin: 0 0 0.25rem;
+}
+
+.agents-sub {
+  margin: 0;
+  opacity: 0.7;
+  font-size: 0.85rem;
+  max-width: 60ch;
+}
+
+.agents-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.agents-conn {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  opacity: 0.8;
+}
+
+.agents-conn.conn-open {
+  color: #34d399;
+}
+.agents-conn.conn-connecting {
+  color: #fbbf24;
+}
+.agents-conn.conn-closed {
+  color: #f87171;
+}
+
+.agents-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .agents-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.agents-constellation {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 0.9rem;
+  padding: 0.5rem;
+  border-radius: 12px;
+  background: rgba(127, 127, 127, 0.05);
+}
+
+.agent-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: 10px;
+  text-align: center;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.agent-ring {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid var(--agent-color, #94a3b8);
+  background: color-mix(in srgb, var(--agent-color, #94a3b8) 15%, transparent);
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.agent-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.agent-state {
+  font-size: 0.68rem;
+  opacity: 0.65;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Cognitive layer -> base node colour. */
+.agent-node.layer-sensing {
+  --agent-color: #38bdf8;
+}
+.agent-node.layer-judge {
+  --agent-color: #a78bfa;
+}
+.agent-node.layer-executor {
+  --agent-color: #fb923c;
+}
+.agent-node.layer-approver {
+  --agent-color: #f472b6;
+}
+.agent-node.layer-conversational {
+  --agent-color: #2dd4bf;
+}
+.agent-node.layer-auditor {
+  --agent-color: #4ade80;
+}
+.agent-node.layer-governance {
+  --agent-color: #cbd5e1;
+}
+.agent-node.layer-domain {
+  --agent-color: #facc15;
+}
+
+/* Active states pulse the ring; idle/watching stay calm. */
+.agent-node.state-idle .agent-ring {
+  border-color: #64748b;
+  background: transparent;
+}
+.agent-node.state-watching .agent-ring {
+  border-style: dashed;
+}
+.agent-node:not(.state-idle):not(.state-watching) .agent-ring {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--agent-color) 25%, transparent);
+  animation: agent-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes agent-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--agent-color) 22%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--agent-color) 8%, transparent);
+  }
+}
+
+.agent-node.is-involved {
+  transform: translateY(-2px);
+}
+.agent-node.is-dim {
+  opacity: 0.32;
+}
+
+/* Side column: incident list + workflow */
+.agents-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.agents-incident-list h3,
+.incident-workflow-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.agents-empty {
+  opacity: 0.55;
+  font-size: 0.82rem;
+  margin: 0.25rem 0;
+}
+
+.agents-incident-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.incident-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(127, 127, 127, 0.2);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: inherit;
+}
+
+.incident-row.is-selected {
+  border-color: #a78bfa;
+  background: color-mix(in srgb, #a78bfa 12%, transparent);
+}
+
+.incident-status {
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.incident-status.status-open,
+.incident-row.status-open .incident-status {
+  color: #f87171;
+}
+.incident-status.status-investigating,
+.incident-row.status-investigating .incident-status {
+  color: #fbbf24;
+}
+.incident-status.status-resolved,
+.incident-row.status-resolved .incident-status {
+  color: #34d399;
+}
+
+.incident-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.incident-ticket {
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+}
+
+.incident-workflow {
+  border: 1px solid rgba(127, 127, 127, 0.2);
+  border-radius: 10px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.incident-workflow.is-empty {
+  opacity: 0.6;
+  font-size: 0.85rem;
+}
+
+.incident-workflow-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.incident-steps {
+  list-style: none;
+  display: flex;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+}
+.incident-steps li {
+  flex: 1;
+  text-align: center;
+  font-size: 0.7rem;
+  padding: 0.3rem 0.2rem;
+  border-radius: 6px;
+  border: 1px solid rgba(127, 127, 127, 0.2);
+}
+.incident-steps li.step-done {
+  background: color-mix(in srgb, #34d399 18%, transparent);
+  border-color: #34d399;
+}
+.incident-steps li.step-pending {
+  opacity: 0.5;
+}
+
+.incident-conversation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.turn {
+  display: grid;
+  grid-template-columns: auto auto auto 1fr;
+  gap: 0.35rem;
+  align-items: baseline;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  background: rgba(127, 127, 127, 0.06);
+}
+.turn-from,
+.turn-to {
+  font-weight: 600;
+}
+.turn-arrow {
+  opacity: 0.5;
+}
+.turn.kind-question {
+  border-left: 3px solid #38bdf8;
+}
+.turn.kind-answer {
+  border-left: 3px solid #4ade80;
+}
+.turn.kind-handoff {
+  border-left: 3px solid #fb923c;
+}
+
+.incident-rca {
+  border-top: 1px dashed rgba(127, 127, 127, 0.25);
+  padding-top: 0.5rem;
+}
+.incident-rca-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.6;
+}
+.incident-rca p {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+}
+

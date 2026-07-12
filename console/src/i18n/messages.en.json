@@ -30,13 +30,14 @@
     },
     "panel": {
       "live": "Live",
+      "agents": "Agents",
       "hilQueue": "Approvals",
       "provision": "Provisioning",
       "audit": "Audit log",
       "trace": "Trace",
       "agentActivity": "Agent activity",
       "ontology": "Ontology",
-      "pantheon": "Agents",
+      "pantheon": "Pantheon",
       "blastRadius": "Blast radius",
       "promotionGates": "Promotion gates",
       "dashboard": "Overview",
@@ -46,6 +47,7 @@
     },
     "panelSub": {
       "live": "Real-time pipeline activity",
+      "agents": "Live agent collaboration: status, incidents, and conversation",
       "hilQueue": "High-risk actions waiting for a human approver (HIL)",
       "provision": "Watch an in-flight re-provision progress, streamed read-only",
       "audit": "Append-only record of every terminal decision",

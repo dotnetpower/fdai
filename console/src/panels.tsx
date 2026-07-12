@@ -26,6 +26,7 @@ import type { ComponentType } from "preact";
 import type { ReadApiClient } from "./api";
 import { t } from "./i18n";
 import { AgentActivityRoute } from "./routes/agent-activity";
+import { AgentsRoute } from "./routes/agents";
 import { AuditRoute } from "./routes/audit";
 import { BlastRadiusRoute } from "./routes/blast-radius";
 import { DashboardRoute } from "./routes/dashboard";
@@ -95,13 +96,20 @@ const DASHBOARD_PANEL: ConsolePanel = {
 
 /** The panels the upstream console always ships, grouped by intent. */
 export const CORE_PANELS: readonly ConsolePanel[] = [
-  // ── Now ─────────────────────────────────────────────────────────────
+  // ── Now ─────────────────────────────────────────────
   {
     id: "live",
     label: t("nav.panel.live"),
     subtitle: t("nav.panelSub.live"),
     group: "now",
     component: LiveRoute,
+  },
+  {
+    id: "agents",
+    label: t("nav.panel.agents"),
+    subtitle: t("nav.panelSub.agents"),
+    group: "now",
+    component: AgentsRoute,
   },
   {
     id: "hil-queue",
