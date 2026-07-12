@@ -85,6 +85,7 @@ the safety-core modules held to the >= 90% coverage floor.
 |-----------|----------------|--------|-------|
 | conversation | NL turn -> one read-only tool call | [src/fdai/core/conversation/](../../../src/fdai/core/conversation/) | [tests/core/conversation/](../../../tests/core/conversation/) |
 | operator | Operator-console coordinator | [src/fdai/core/operator/](../../../src/fdai/core/operator/) | (integration in delivery/read_api) |
+| console_request | Operator re-request policy for the write-direction console path (Scenario B deny-override) | [src/fdai/core/console_request/](../../../src/fdai/core/console_request/) | [tests/core/console_request/](../../../tests/core/console_request/) |
 | notifications | Channel-routing layer over the matrix | [src/fdai/core/notifications/](../../../src/fdai/core/notifications/) | [tests/notifications/](../../../tests/notifications/) |
 | report_feed | Rendered report subscriptions | [src/fdai/core/report_feed/](../../../src/fdai/core/report_feed/) | [tests/core/report_feed/](../../../tests/core/report_feed/) |
 | reporting | Report composers + formatters | [src/fdai/core/reporting/](../../../src/fdai/core/reporting/) | [tests/core/reporting/](../../../tests/core/reporting/) |
@@ -178,6 +179,7 @@ for the fork-locked role bindings and change contract.
 | [src/fdai/composition/wire_llm.py](../../../src/fdai/composition/wire_llm.py) | Azure OpenAI LLM binder (composition-time model resolution). |
 | [src/fdai/composition/wire_azure.py](../../../src/fdai/composition/wire_azure.py) | Fork-wire container + `AzureWireOverrides`. |
 | [src/fdai/composition/wire_change_feed.py](../../../src/fdai/composition/wire_change_feed.py) | Change-feed factory wiring (Azure DevOps / GitHub change producers). |
+| [src/fdai/composition/wire_metric_provider.py](../../../src/fdai/composition/wire_metric_provider.py) | `MetricProvider` binder (Azure Monitor Logs auto-bind when `FDAI_MONITOR_WORKSPACE_ID` is set); split out of `wire_azure` to hold the LOC ceiling (G-4). |
 | [src/fdai/rule_catalog/](../../../src/fdai/rule_catalog/) | Loader for the `rule-catalog/` tree (YAML). |
 | [rule-catalog/](../../../rule-catalog/) | The rule / policy / action-type catalog (data). |
 

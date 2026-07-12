@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 99d9c79cb5f2eda673ec0d2690fdce1ef878a34c
-translation_revised: 2026-07-12
+translation_source_sha: 448a6f9c23ed39921be3fcb70a98d4f29017d8b5
+translation_revised: 2026-07-13
 ---
 
 # 프로젝트 구조
@@ -19,7 +19,7 @@ translation_revised: 2026-07-12
 ```text
 fdai/
 ├── src/fdai/            # Python (3.12+, src-layout); 모노레포 전체가 하나의 언어
-│   ├── core/                  # headless 컨트롤 플레인 (UI 없음, 클라우드 SDK 직접 import 없음). G-1 phase 1 (트래커 #14) 이 41개 서브시스템 (총 46개 core 디렉토리 중 - [code-map-ko.md](code-map-ko.md) 참조) 을 5개 도메인 그룹 파사드로 묶었다 - `pipeline/` (event_ingest, trust_router, tiers, quality_gate, risk_gate, hil_resume, executor, audit, control_loop), `incident/` (rca, slo, runbook, postmortem, oncall, irp, investigation, chaos, capacity), `operator/` (conversation, operator_memory, working_context, rbac, notifications, report_feed), `knowledge/` (prompts, tools, web_search, capability_catalog, rule_catalog_profiles, ontology_explorer), `platform/` (scheduler, metering, measurement, security, reporting, onboarding, workflow, detection, deploy_preflight, assurance_twin), 그리고 `verticals/` (G-6). Phase 1 은 additive - `from fdai.core.<subsystem> import X` 와 `from fdai.core.<domain> import <subsystem>` 둘 다 resolve. Phase 2 (연기) 는 물리적 `git mv` 대량 이동.
+│   ├── core/                  # headless 컨트롤 플레인 (UI 없음, 클라우드 SDK 직접 import 없음). G-1 phase 1 (트래커 #14) 이 41개 서브시스템 (총 47개 core 디렉토리 중 - [code-map-ko.md](code-map-ko.md) 참조) 을 5개 도메인 그룹 파사드로 묶었다 - `pipeline/` (event_ingest, trust_router, tiers, quality_gate, risk_gate, hil_resume, executor, audit, control_loop), `incident/` (rca, slo, runbook, postmortem, oncall, irp, investigation, chaos, capacity), `operator/` (conversation, operator_memory, working_context, rbac, notifications, report_feed), `knowledge/` (prompts, tools, web_search, capability_catalog, rule_catalog_profiles, ontology_explorer), `platform/` (scheduler, metering, measurement, security, reporting, onboarding, workflow, detection, deploy_preflight, assurance_twin), 그리고 `verticals/` (G-6). Phase 1 은 additive - `from fdai.core.<subsystem> import X` 와 `from fdai.core.<domain> import <subsystem>` 둘 다 resolve. Phase 2 (연기) 는 물리적 `git mv` 대량 이동.
 │   │   ├── event_ingest/       # 버스 컨슈머; 이벤트 스키마로 정규화; idempotency key로 dedup; 관련 이벤트를 인시던트로 상관 연결
 │   │   ├── trust_router/       # 계산된 신뢰도로 각 이벤트를 T0 | T1 | T2 로 라우팅
 │   │   ├── tiers/
@@ -50,6 +50,7 @@ fdai/
 │   │   ├── deploy_preflight/   # 배포 전 feasibility 프로브 → grounded readiness 리포트
 │   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query 리뷰 / Q&A / assessment (제안만, 실행 안 함)
 │   │   ├── conversation/       # 오퍼레이터 콘솔 코디네이터 (Layer 2): 자연어 턴 → 하나의 read-only 툴 콜
+│   │   ├── console_request/    # 오퍼레이터 콘솔 write-direction 재요청 정책 (Scenario B deny-override), 순수 함수 `evaluate_operator_rerequest` 하나
 │   │   ├── verticals/          # Resilience / Change Safety / Cost Governance (P3 통합 지점); 각 vertical 은 sub-package (G-6) 로 자체 orchestrator + 서브모듈 을 갖고, 공유 `Vertical` Protocol 은 `base.py`, `VerticalRegistry` seam 도 함께
 │   │   ├── control_loop/       # P1 파이프라인 오케스트레이터 (G-2 phase 1, 트래커 #14): `orchestrator.py` (ControlLoop 클래스) + `_helpers.py` (순수 함수 유틸) + `stages/` (Stage Protocol 스캐폴드 - phase-2 리팩터링용, `ControlLoop.process` 를 스테이지 클래스로 추출)
 │   │   └── ontology_explorer.py    # 로드된 ObjectType / LinkType 카탈로그를 결정론적 Mermaid 로 렌더
@@ -86,7 +87,7 @@ fdai/
 │   │   ├── pipeline/           # watch → collect → shadow eval → regression → promote/rollback
 │   │   └── codegen/            # 저작 헬퍼 (`new_action_type`, `new_object_type`) - 스캐폴드 생성만, 라이브 카탈로그 변경 안 함
 │   ├── agents/                # 판테온 런타임 - 15개 이름있는 에이전트 모듈 (odin / thor / forseti / huginn / heimdall / ...), 타입드 토픽 + 버스, 어댑터 + 레지스트리; [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md) 참조
-│   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` (파사드 + `default_container` + `default_container_from_env`) + `_helpers.py` (Container / LlmBindings / LlmBindingsUnavailableError) + `wire_llm.py` (Azure OpenAI LLM 바인더) + `wire_azure.py` (fork-wire 컨테이너 + `AzureWireOverrides`) + `wire_change_feed.py` (Azure DevOps / GitHub change-feed 팩토리)
+│   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` (파사드 + `default_container` + `default_container_from_env`) + `_helpers.py` (Container / LlmBindings / LlmBindingsUnavailableError) + `wire_llm.py` (Azure OpenAI LLM 바인더) + `wire_azure.py` (fork-wire 컨테이너 + `AzureWireOverrides`) + `wire_change_feed.py` (Azure DevOps / GitHub change-feed 팩토리) + `wire_metric_provider.py` (MetricProvider 바인더; `FDAI_MONITOR_WORKSPACE_ID` 세팅 시 Azure Monitor Logs 자동 바인드 - LOC 상한 유지를 위해 `wire_azure`에서 분리, G-4)
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
 ├── rule-catalog/              # catalog-as-code 데이터 (YAML) - Python 아님; 파이프라인은 src/fdai/rule_catalog/ 에
 │   ├── schema/                 # JSON Schema 정의 (데이터)
