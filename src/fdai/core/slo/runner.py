@@ -55,6 +55,9 @@ class SloBurnRunReport:
     insufficient: int
     publish_errors: tuple[tuple[str, str], ...] = ()
     """``(slo_id, short_error)`` pairs for each publish that failed."""
+    evaluation_errors: tuple[tuple[str, str], ...] = ()
+    """``(slo_id, short_error)`` pairs for each SLO whose evaluation raised;
+    the pass isolates the failure and continues to the next SLO."""
 
 
 def _default_clock() -> datetime:
@@ -91,10 +94,25 @@ class SloBurnRunner:
         published = 0
         insufficient = 0
         publish_errors: list[tuple[str, str]] = []
+        evaluation_errors: list[tuple[str, str]] = []
 
         for slo in self._registry.all():
             evaluated += 1
-            evaluation = await self._source.evaluate(slo, now=at)
+            # Isolate a per-SLO evaluation failure the same way the publish
+            # path is isolated below: a raising provider, a missing-window
+            # KeyError, or any other fault on one SLO MUST NOT silence every
+            # other SLO's alert for the whole pass. Record it and continue.
+            # (``except Exception`` deliberately lets ``CancelledError`` - a
+            # BaseException - propagate so a cancelled run still aborts.)
+            try:
+                evaluation = await self._source.evaluate(slo, now=at)
+            except Exception as exc:  # noqa: BLE001 - fail-close: record and continue
+                evaluation_errors.append((slo.id, f"{type(exc).__name__}:{exc}"))
+                _LOGGER.warning(
+                    "slo_burn_evaluation_failed",
+                    extra={"slo_id": slo.id, "error": type(exc).__name__},
+                )
+                continue
             if evaluation.insufficient_data:
                 insufficient += 1
                 _LOGGER.info("slo_burn_insufficient_data", extra={"slo_id": slo.id})
@@ -120,6 +138,7 @@ class SloBurnRunner:
             published=published,
             insufficient=insufficient,
             publish_errors=tuple(publish_errors),
+            evaluation_errors=tuple(evaluation_errors),
         )
 
 

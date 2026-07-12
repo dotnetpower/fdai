@@ -151,3 +151,46 @@ async def test_topic_is_configurable() -> None:
     )
     await runner.run_once(now=_NOW)
     assert bus.published[0][0] == "custom.slo.topic"
+
+
+class _FlakySource:
+    """Wraps a real source but raises on evaluate for one chosen SLO id."""
+
+    def __init__(self, inner: MetricBurnRateSource, *, fail_slo_id: str) -> None:
+        self._inner = inner
+        self._fail_slo_id = fail_slo_id
+
+    async def evaluate(self, slo: SLO, *, now: datetime):  # noqa: ANN201
+        if slo.id == self._fail_slo_id:
+            raise RuntimeError("provider blew up")
+        return await self._inner.evaluate(slo, now=now)
+
+    def to_events(self, evaluation, *, slo, mode):  # noqa: ANN001, ANN201
+        return self._inner.to_events(evaluation, slo=slo, mode=mode)
+
+
+async def test_evaluation_failure_is_isolated_and_run_continues() -> None:
+    # One SLO's evaluation raises; it MUST NOT silence the other SLO's alert.
+    provider = StaticMetricProvider(
+        [
+            _point("g2", 980.0),
+            _point("t2", 1000.0),
+        ]
+    )
+    registry = SloRegistry(
+        slos=[
+            _slo("api.a", good="g1", total="t1"),  # this one will raise
+            _slo("api.b", good="g2", total="t2"),  # this one still fires
+        ]
+    )
+    bus = _RecordingBus()
+    source = _FlakySource(MetricBurnRateSource(provider), fail_slo_id="api.a")
+    runner = SloBurnRunner(registry=registry, source=source, event_bus=bus)  # type: ignore[arg-type]
+    report = await runner.run_once(now=_NOW)
+    assert report.evaluated == 2
+    assert len(report.evaluation_errors) == 1
+    assert report.evaluation_errors[0][0] == "api.a"
+    # api.b was evaluated and published despite api.a raising.
+    assert report.breached == 1
+    assert report.published == 1
+    assert [k for _, k, _ in bus.published] == ["api.b"]
