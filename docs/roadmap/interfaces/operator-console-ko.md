@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 4271d811e020bd0f07394c3f3baaddb2b5112486
+translation_source_sha: 1a11c140bac8b80d7055259d319ea2aad3167d7f
 translation_revised: 2026-07-12
 ---
 
@@ -483,7 +483,11 @@ prompt(경계, 상수 상한)는 의도적으로 구분된다.
   등장.
 - **Hierarchical summary** - 나머지 전부를 rolling summary로 접음(level 1
   이 턴을, level 2가 level-1 요약을 접음)므로 요약 tier는 세션 길이 `L`에
-  대해 `O(log L)`로 성장.
+  대해 `O(log L)`로 성장. 순수
+  [`plan_summarization`](../../../src/fdai/core/working_context/planner.py)
+  정책이 어떤 턴을 어느 level로 접을지 결정하고 - 전체 `fold_factor` 청크만,
+  따라서 턴이 혼자 접혔다가 재접히는 일이 없음 - `TranscriptSummarizer` seam이
+  계획된 각 fold를 핫 패스 밖에서 수행한다.
 
 상위 우선순위 tier의 미사용 예산은 다음 tier로 spill 되므로, 짧은 세션은
 요약으로 padding 하지 않고 verbatim 턴으로 채워진다. 두 I/O seam -

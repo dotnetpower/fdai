@@ -506,7 +506,11 @@ tiers drawn from a
   verbatim window still returns when it matters.
 - **Hierarchical summary** - everything else folded into rolling summaries
   (level 1 folds turns, level 2 folds level-1 summaries), so the summary
-  tier grows `O(log L)` in session length `L`.
+  tier grows `O(log L)` in session length `L`. The pure
+  [`plan_summarization`](../../../src/fdai/core/working_context/planner.py)
+  policy decides which turns fold into which level - full `fold_factor`
+  chunks only, so a turn is never folded alone then re-folded - and the
+  `TranscriptSummarizer` seam executes each planned fold off the hot path.
 
 Unused budget in a higher-priority tier spills to the next, so a short
 session fills with verbatim turns rather than padding with summaries. The
