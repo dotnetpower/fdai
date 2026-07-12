@@ -159,3 +159,45 @@ async def test_hold_uses_duration_when_below_cap() -> None:  # H4 lower branch
     )
     await harness.run(_scenario(duration=2.0), approved_targets=("a",), mode=Mode.ENFORCE)
     assert holds == [2.0]
+
+
+async def test_duplicate_targets_deduped_no_double_inject() -> None:  # H7
+    inj = _Injector()
+    harness = FaultInjectionHarness(injectors=(inj,), probe=_OkProbe(), sleeper=_noop_sleep)
+    result = await harness.run(
+        _scenario(cap=2), approved_targets=("a", "a", "b"), mode=Mode.ENFORCE
+    )
+    # 'a' injected + stopped exactly once despite appearing twice.
+    assert inj.injected == ["a", "b"]
+    assert inj.stopped == ["a", "b"]
+    assert result.targets == ("a", "b")
+
+
+async def test_duplicates_do_not_trip_blast_radius_cap() -> None:  # H7
+    inj = _Injector()
+    harness = FaultInjectionHarness(injectors=(inj,), probe=_OkProbe(), sleeper=_noop_sleep)
+    # Three copies of one distinct target with cap=1 is ONE target, not three.
+    result = await harness.run(
+        _scenario(cap=1), approved_targets=("a", "a", "a"), mode=Mode.ENFORCE
+    )
+    assert result.outcome is not ExperimentOutcome.BLAST_RADIUS_EXCEEDED
+    assert inj.injected == ["a"]
+
+
+async def test_blank_targets_dropped() -> None:  # H7
+    inj = _Injector()
+    harness = FaultInjectionHarness(injectors=(inj,), probe=_OkProbe(), sleeper=_noop_sleep)
+    result = await harness.run(
+        _scenario(cap=3), approved_targets=("a", "  ", "", "b"), mode=Mode.ENFORCE
+    )
+    assert inj.injected == ["a", "b"]
+    assert result.targets == ("a", "b")
+
+
+async def test_all_blank_targets_refused_in_enforce() -> None:  # H7
+    inj = _Injector()
+    harness = FaultInjectionHarness(injectors=(inj,), sleeper=_noop_sleep)
+    result = await harness.run(_scenario(), approved_targets=("  ", ""), mode=Mode.ENFORCE)
+    assert result.outcome is ExperimentOutcome.ABORTED
+    assert result.error == "no_approved_targets"
+    assert inj.injected == []

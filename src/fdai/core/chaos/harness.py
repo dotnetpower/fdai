@@ -39,6 +39,25 @@ _LOGGER = logging.getLogger(__name__)
 _WILDCARD = "*"
 
 
+def _normalize_targets(approved: Sequence[str]) -> tuple[str, ...]:
+    """Strip, drop blanks, and dedupe (order-preserving) the approved set.
+
+    Blast radius counts DISTINCT real targets: a duplicate must not inflate
+    the count or cause a target to be injected / stopped twice, and a blank
+    selector is never a legitimate perturbation target.
+    """
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in approved:
+        target = raw.strip()
+        if not target or target in seen:
+            continue
+        seen.add(target)
+        out.append(target)
+    return tuple(out)
+
+
 class FaultInjectionHarness:
     """Run governed, reversible fault-injection experiments."""
 
@@ -97,7 +116,13 @@ class FaultInjectionHarness:
     ) -> ExperimentResult:
         started = self._wall_clock()
         experiment_id = f"chaos-{uuid4().hex[:12]}"
-        targets = tuple(approved_targets)
+        # Normalize the approved set before anything reads it: strip each
+        # selector, drop blanks, and dedupe preserving order. Blast radius is
+        # the number of DISTINCT real targets - a duplicate would otherwise
+        # inflate the count (wrongly tripping or slipping the cap) and cause a
+        # double inject / double stop on one target; a blank selector is a
+        # meaningless perturbation target.
+        targets = _normalize_targets(approved_targets)
 
         # Blast-radius gate - refuse before any perturbation.
         if len(targets) > scenario.blast_radius_cap:
