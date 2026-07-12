@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ontology - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css" />
+  <style>
+    /* Ontology browser: ObjectTypes + LinkTypes on this deployment. */
+    .on-layout { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; }
+    @media (max-width: 900px) { .on-layout { grid-template-columns: 1fr; } }
+
+    .on-side { padding: 14px 16px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .on-side h3 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--cs-text-soft); font-weight: 600; }
+    .on-side .on-count { color: var(--cs-text-soft); font-size: 11.5px; font-weight: 500; margin-left: 4px; }
+    .on-side ul { list-style: none; padding: 0; margin: 0 0 14px; }
+    .on-side li { padding: 4px 8px; margin: 1px -8px; border-radius: 6px; font-size: 13px; cursor: default; }
+    .on-side li.is-active { background: var(--cs-shade); color: var(--cs-text); font-weight: 600; }
+    .on-side li:hover { background: var(--cs-shade); }
+    .on-side li code { font-size: 12.5px; }
+    .on-side .on-kind { font-size: 10.5px; color: var(--cs-text-soft); margin-left: 6px; padding: 0 5px; border-radius: 3px; background: var(--cs-shade); }
+
+    .on-canvas { padding: 24px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .on-canvas h3 { margin: 0 0 10px; font-size: 15px; }
+
+    /* SVG graph - illustrative, static positions */
+    .on-svg { display: block; width: 100%; max-width: 720px; margin: 0 auto; }
+    .on-svg .node rect { fill: var(--cs-card); stroke: var(--cs-hairline); rx: 8; }
+    .on-svg .node.is-pipeline rect   { stroke: var(--cs-steel); }
+    .on-svg .node.is-governance rect { stroke: var(--cs-plum); }
+    .on-svg .node.is-domain rect     { stroke: var(--cs-teal); }
+    .on-svg .node.is-target rect     { fill: rgba(68,104,142,.06); stroke: var(--cs-steel); stroke-width: 2; }
+    .on-svg .node text.title { font-family: "Segoe UI",sans-serif; font-size: 12px; font-weight: 600; fill: var(--cs-text); }
+    .on-svg .node text.sub   { font-family: "Segoe UI",sans-serif; font-size: 10px; fill: var(--cs-text-soft); }
+    .on-svg .link { fill: none; stroke: var(--cs-hairline); stroke-width: 1.4; }
+    .on-svg .link.is-owns   { stroke: var(--cs-steel); }
+    .on-svg .link.is-emits  { stroke: var(--cs-teal);  stroke-dasharray: 4 3; }
+    .on-svg .link.is-consumes { stroke: var(--cs-plum); stroke-dasharray: 2 3; }
+    .on-svg .link-label { font-family: "Cascadia Code","Consolas",monospace; font-size: 9.5px; fill: var(--cs-text-soft); }
+
+    .on-detail { padding: 16px 20px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-top: 16px; }
+    .on-detail-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+    .on-detail-head h3 { margin: 0; font-size: 16px; }
+    .on-detail-head code { font-size: 13px; }
+    .on-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 20px; font-size: 13px; }
+    .on-facts > div { display: flex; flex-direction: column; }
+    .on-facts > div > span:first-child { color: var(--cs-text-soft); font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; }
+  </style>
+</head>
+<body>
+  <header class="cs-topbar">
+    <div class="cs-container cs-topbar-inner">
+      <span class="cs-brand"><span class="cs-brand-mark">AW</span> FDAI</span>
+      <nav class="cs-nav">
+        <a href="live.html">Live</a>
+        <a href="dashboard.html">Overview</a>
+        <a href="hil.html">HIL</a>
+        <a href="agents.html">Fleet</a>
+        <a href="rules.html">Rules</a>
+        <a href="actions.html">Actions</a>
+        <a href="ontology.html" class="cs-active">Ontology</a>
+        <a href="audit.html">Audit</a>
+        <a href="report.html">Report</a>
+        <a href="index.html">Kit</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="cs-container cs-page">
+    <div class="cs-page-header cs-mb-16">
+      <div class="cs-eyebrow">Knowledge &middot; type registry</div>
+      <h1>Ontology explorer</h1>
+      <p class="cs-lead">The <strong>ObjectTypes</strong> and <strong>LinkTypes</strong> registered
+        on this deployment. Every ontology entry names an owner (which agent produces it), the
+        actions that mutate it, and the topics it flows through. Pick an ObjectType to see the
+        neighborhood; ActionTypes are on the <a href="actions.html">Actions</a> page.</p>
+    </div>
+
+    <div class="cs-flex cs-wrap cs-gap-8 cs-mb-24">
+      <span class="cs-tag is-steel"><strong>17</strong> ObjectTypes</span>
+      <span class="cs-tag is-teal"><strong>24</strong> LinkTypes</span>
+      <span class="cs-tag is-plum"><strong>42</strong> ActionTypes (see Actions)</span>
+      <span class="cs-tag">upstream-locked</span>
+    </div>
+
+    <div class="on-layout">
+      <!-- Sidebar: type list -->
+      <aside class="on-side">
+        <h3>ObjectTypes <span class="on-count">17</span></h3>
+        <ul>
+          <li><code>Event</code> <span class="on-kind">core</span></li>
+          <li class="is-active"><code>Verdict</code> <span class="on-kind">core</span></li>
+          <li><code>ActionRun</code> <span class="on-kind">core</span></li>
+          <li><code>Approval</code> <span class="on-kind">core</span></li>
+          <li><code>Rollback</code> <span class="on-kind">core</span></li>
+          <li><code>AuditEntry</code> <span class="on-kind">core</span></li>
+          <li><code>Rule</code> <span class="on-kind">knowledge</span></li>
+          <li><code>RuleCandidate</code> <span class="on-kind">knowledge</span></li>
+          <li><code>Policy</code> <span class="on-kind">knowledge</span></li>
+          <li><code>StateSnapshot</code> <span class="on-kind">knowledge</span></li>
+          <li><code>Anomaly</code> <span class="on-kind">signal</span></li>
+          <li><code>Drift</code> <span class="on-kind">signal</span></li>
+          <li><code>Forecast</code> <span class="on-kind">signal</span></li>
+          <li><code>CostAnomaly</code> <span class="on-kind">signal</span></li>
+          <li><code>ChaosExperiment</code> <span class="on-kind">signal</span></li>
+          <li><code>Conversation</code> <span class="on-kind">console</span></li>
+          <li><code>UserPreference</code> <span class="on-kind">console</span></li>
+        </ul>
+
+        <h3>LinkTypes <span class="on-count">6 shown</span></h3>
+        <ul>
+          <li><code>correlates_with</code></li>
+          <li><code>caused_by</code></li>
+          <li><code>rolled_back_by</code></li>
+          <li><code>approved_by</code></li>
+          <li><code>grounded_on</code></li>
+          <li><code>owned_by</code></li>
+        </ul>
+      </aside>
+
+      <!-- Main canvas -->
+      <section>
+        <div class="on-canvas">
+          <h3>Neighborhood of <code>Verdict</code></h3>
+          <p class="cs-muted" style="margin:0 0 12px; font-size:13px;">
+            One-hop neighbours across ownership, event flow, and consumption. Solid = owns,
+            dashed teal = emits (topic), dashed plum = consumes (topic).
+          </p>
+
+          <svg class="on-svg" viewBox="0 0 720 320" role="img" aria-label="Ontology neighborhood of Verdict">
+            <!-- Links first (behind nodes) -->
+            <path class="link is-owns" d="M180 60 C 260 60, 260 150, 340 150" />
+            <text class="link-label" x="240" y="102">owned_by</text>
+
+            <path class="link is-consumes" d="M180 260 C 260 260, 260 172, 340 172" />
+            <text class="link-label" x="220" y="266">consumes object.event</text>
+
+            <path class="link is-emits" d="M420 150 C 500 150, 500 60, 580 60" />
+            <text class="link-label" x="470" y="102">emits object.verdict</text>
+
+            <path class="link is-owns" d="M420 172 C 500 172, 500 260, 580 260" />
+            <text class="link-label" x="450" y="266">consumed_by</text>
+
+            <!-- Central: Verdict (target) -->
+            <g class="node is-target" transform="translate(340, 130)">
+              <rect width="80" height="60" />
+              <text class="title" x="12" y="24">Verdict</text>
+              <text class="sub"   x="12" y="42">ObjectType</text>
+              <text class="sub"   x="12" y="54">owner: Forseti</text>
+            </g>
+
+            <!-- Left: Forseti (owner) -->
+            <g class="node is-pipeline" transform="translate(100, 40)">
+              <rect width="140" height="52" />
+              <text class="title" x="12" y="24">Forseti (Judge)</text>
+              <text class="sub"   x="12" y="42">pipeline agent &middot; hot-path LLM</text>
+            </g>
+
+            <!-- Left: Event (upstream input) -->
+            <g class="node is-pipeline" transform="translate(100, 240)">
+              <rect width="140" height="52" />
+              <text class="title" x="12" y="24">Event</text>
+              <text class="sub"   x="12" y="42">from Huginn (ingest)</text>
+            </g>
+
+            <!-- Right: Thor (downstream consumer of verdict) -->
+            <g class="node is-pipeline" transform="translate(560, 40)">
+              <rect width="140" height="52" />
+              <text class="title" x="12" y="24">Thor (Responder)</text>
+              <text class="sub"   x="12" y="42">consumes object.verdict</text>
+            </g>
+
+            <!-- Right: ActionRun (produced downstream after verdict) -->
+            <g class="node is-pipeline" transform="translate(560, 240)">
+              <rect width="140" height="52" />
+              <text class="title" x="12" y="24">ActionRun</text>
+              <text class="sub"   x="12" y="42">produced by Thor</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="on-detail">
+          <div class="on-detail-head">
+            <h3>ObjectType &middot;</h3>
+            <code>Verdict</code>
+            <span class="cs-tag is-steel" style="margin-left:auto">core</span>
+          </div>
+          <p class="cs-muted" style="margin:0 0 10px; font-size:13px;">
+            The Judge's decision for one event: <code>auto</code> / <code>hil</code> /
+            <code>deny</code>, plus grounded rule citations and a confidence score. Consumed by
+            the risk gate and by Thor's dispatcher.
+          </p>
+          <div class="on-facts">
+            <div><span>Owner (agent)</span><span>Forseti (pipeline)</span></div>
+            <div><span>Emitted on</span><span><code>object.verdict</code></span></div>
+            <div><span>Consumed by</span><span>Thor, Saga, Bragi</span></div>
+            <div><span>Mutating ActionTypes</span><span>none (immutable once written)</span></div>
+            <div><span>Retention</span><span>append-only, audit-linked</span></div>
+            <div><span>Cardinality per event</span><span>1</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <p class="cs-muted" style="font-size:12.5px; margin-top:12px;">
+      Positions in the canvas are illustrative. Runtime uses a force-directed layout with
+      neighborhood focus, filtering by kind (core / knowledge / signal / console) and link type.
+    </p>
+  </main>
+</body>
+</html>

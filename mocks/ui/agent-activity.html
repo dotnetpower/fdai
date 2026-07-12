@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent activity - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css" />
+  <style>
+    /* Agent activity - per-agent timeline reconstructed from the audit log. */
+    .aa-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+    .aa-toolbar .cs-fb-label { color: var(--cs-text-soft); font-size: 12.5px; }
+
+    .aa-group { border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-bottom: 14px; overflow: hidden; }
+    .aa-group-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--cs-shade); border-bottom: 1px solid var(--cs-hairline); }
+    .aa-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+    .aa-dot.is-governance { background: var(--cs-plum); }
+    .aa-dot.is-pipeline   { background: var(--cs-steel); }
+    .aa-dot.is-domain     { background: var(--cs-teal); }
+    .aa-group-name { font-weight: 600; font-size: 15px; }
+    .aa-group-meta { color: var(--cs-text-soft); font-size: 12.5px; margin-left: auto; }
+
+    .aa-row { display: grid; grid-template-columns: 96px 74px 1fr auto; gap: 12px; padding: 10px 16px; border-top: 1px dashed var(--cs-hairline); font-size: 13px; align-items: baseline; }
+    .aa-row:first-of-type { border-top: none; }
+    .aa-time { color: var(--cs-text-soft); font-variant-numeric: tabular-nums; font-size: 12px; }
+    .aa-verb { font-weight: 600; text-transform: uppercase; letter-spacing: .04em; font-size: 11px; padding: 1px 8px; border-radius: 4px; text-align: center; align-self: center; }
+    .aa-verb.is-execute { color: var(--cs-sage);       background: rgba(94,130,89,.12); }
+    .aa-verb.is-reject  { color: var(--cs-dusty-red);  background: rgba(172,90,90,.12); }
+    .aa-verb.is-hold    { color: var(--cs-terracotta); background: rgba(188,116,73,.12); }
+    .aa-verb.is-abstain { color: var(--cs-text-soft);  background: var(--cs-shade); }
+    .aa-verb.is-approve { color: var(--cs-steel);      background: rgba(68,104,142,.12); }
+    .aa-verb.is-audit   { color: var(--cs-plum);       background: rgba(123,108,156,.12); }
+    .aa-verb.is-rollback { color: var(--cs-terracotta); background: rgba(188,116,73,.12); }
+    .aa-summary strong { color: var(--cs-text); font-weight: 600; }
+    .aa-summary code { font-size: 12px; }
+    .aa-corr { font-family: "Cascadia Code","Consolas",monospace; font-size: 11.5px; color: var(--cs-text-soft); }
+    .aa-corr a { color: var(--cs-steel); }
+  </style>
+</head>
+<body>
+  <header class="cs-topbar">
+    <div class="cs-container cs-topbar-inner">
+      <span class="cs-brand"><span class="cs-brand-mark">AW</span> FDAI</span>
+      <nav class="cs-nav">
+        <a href="live.html">Live</a>
+        <a href="dashboard.html">Overview</a>
+        <a href="hil.html">HIL</a>
+        <a href="agents.html">Fleet</a>
+        <a href="rules.html">Rules</a>
+        <a href="actions.html">Actions</a>
+        <a href="audit.html">Audit</a>
+        <a href="report.html">Report</a>
+        <a href="index.html">Kit</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="cs-container cs-page">
+    <div class="cs-subnav">
+      <a href="agents.html">Roster</a>
+      <a href="pantheon.html">Pantheon</a>
+      <a href="agent-activity.html" class="cs-active">Activity</a>
+      <a href="blast-radius.html">Blast radius</a>
+      <a href="provision.html">Provisioning</a>
+    </div>
+
+    <div class="cs-page-header cs-mb-16">
+      <div class="cs-eyebrow">History &middot; per-agent timeline</div>
+      <h1>Agent activity</h1>
+      <p class="cs-lead">Same append-only audit log as the <a href="audit.html">Audit</a> stream,
+        projected per agent. Answers "who did what, when, and how" without leaving the operator
+        console. Read-only - the timeline is never re-executed.</p>
+    </div>
+
+    <div class="aa-toolbar">
+      <span class="cs-fb-label">Window</span>
+      <div class="cs-chipset">
+        <button class="cs-chip">15m</button>
+        <button class="cs-chip cs-active">1h</button>
+        <button class="cs-chip">24h</button>
+        <button class="cs-chip">7d</button>
+      </div>
+      <span class="cs-fb-label" style="margin-left:8px">Layer</span>
+      <div class="cs-chipset">
+        <button class="cs-chip cs-active">All</button>
+        <button class="cs-chip">Governance</button>
+        <button class="cs-chip">Pipeline</button>
+        <button class="cs-chip">Domain</button>
+      </div>
+      <span class="cs-fb-label" style="margin-left:8px">Verb</span>
+      <div class="cs-chipset">
+        <button class="cs-chip cs-active">All</button>
+        <button class="cs-chip">Execute</button>
+        <button class="cs-chip">Approve</button>
+        <button class="cs-chip">Reject</button>
+        <button class="cs-chip">Rollback</button>
+        <button class="cs-chip">Abstain</button>
+      </div>
+      <label class="cs-fb-search" style="margin-left:auto">
+        <span class="cs-muted" style="font-size:13px">&#128269;</span>
+        <input type="text" placeholder="event id, resource, correlation" />
+      </label>
+    </div>
+
+    <!-- Forseti (Judge) -->
+    <div class="aa-group">
+      <div class="aa-group-head">
+        <span class="aa-dot is-pipeline"></span>
+        <span class="aa-group-name">Forseti</span>
+        <span class="cs-tag is-steel">Judge &middot; pipeline</span>
+        <span class="aa-group-meta">14 verdicts &middot; last 1h &middot; auto 82% / hil 11% / abstain 7%</span>
+      </div>
+
+      <div class="aa-row">
+        <span class="aa-time">09:47:12</span>
+        <span class="aa-verb is-execute">Verdict AUTO</span>
+        <span class="aa-summary"><strong>storage.set-lifecycle-tier</strong> on <code>bak-invoice-prod</code> &middot; T0 rule match, verifier + what-if passed</span>
+        <span class="aa-corr">evt-01H7A4X-... &middot; <a href="rule-trace.html">trace &rarr;</a></span>
+      </div>
+      <div class="aa-row">
+        <span class="aa-time">09:44:58</span>
+        <span class="aa-verb is-hold">Verdict HIL</span>
+        <span class="aa-summary"><strong>database.enable-pitr</strong> on <code>billing-db-prod</code> &middot; T1 similarity 0.93, environment=prod required</span>
+        <span class="aa-corr">evt-01H7A4W-... &middot; <a href="hil.html">queue &rarr;</a></span>
+      </div>
+      <div class="aa-row">
+        <span class="aa-time">09:41:22</span>
+        <span class="aa-verb is-abstain">Abstain</span>
+        <span class="aa-summary">Grounding failed for <strong>network.rebalance-egress</strong> on <code>vnet-prod</code> &middot; escalated to HIL</span>
+        <span class="aa-corr">evt-01H7A4V-...</span>
+      </div>
+    </div>
+
+    <!-- Thor (Responder) -->
+    <div class="aa-group">
+      <div class="aa-group-head">
+        <span class="aa-dot is-pipeline"></span>
+        <span class="aa-group-name">Thor</span>
+        <span class="cs-tag is-steel">Responder &middot; pipeline</span>
+        <span class="aa-group-meta">47 dispatches &middot; last 1h &middot; 0 failures</span>
+      </div>
+
+      <div class="aa-row">
+        <span class="aa-time">09:47:14</span>
+        <span class="aa-verb is-execute">Dispatch</span>
+        <span class="aa-summary"><strong>storage.set-lifecycle-tier</strong> opened <a href="#">PR #2149</a> &middot; pr_native path &middot; idempotent</span>
+        <span class="aa-corr">act-01H7A4X-...</span>
+      </div>
+      <div class="aa-row">
+        <span class="aa-time">09:42:08</span>
+        <span class="aa-verb is-execute">Dispatch</span>
+        <span class="aa-summary"><strong>k8s.scale-deployment</strong> on <code>web-frontend</code> from 2 to 4 &middot; direct_api path &middot; guard OK</span>
+        <span class="aa-corr">act-01H7A4U-...</span>
+      </div>
+      <div class="aa-row">
+        <span class="aa-time">09:39:41</span>
+        <span class="aa-verb is-execute">Dispatch</span>
+        <span class="aa-summary"><strong>cost.right-sizing.medium</strong> on <code>ns/staging</code> &middot; pr_native path</span>
+        <span class="aa-corr">act-01H7A4T-...</span>
+      </div>
+    </div>
+
+    <!-- Var (Approver) -->
+    <div class="aa-group">
+      <div class="aa-group-head">
+        <span class="aa-dot is-pipeline"></span>
+        <span class="aa-group-name">Var</span>
+        <span class="cs-tag is-steel">Approver &middot; pipeline</span>
+        <span class="aa-group-meta">3 pending &middot; 6 approved / 1 rejected in 1h</span>
+      </div>
+
+      <div class="aa-row">
+        <span class="aa-time">09:45:03</span>
+        <span class="aa-verb is-approve">Approve</span>
+        <span class="aa-summary"><strong>storage.evict-cold-blobs</strong> on <code>cold-archive-prod</code> &middot; 2 approvers &middot; break-glass NOT used</span>
+        <span class="aa-corr">apv-01H7A4W-...</span>
+      </div>
+      <div class="aa-row">
+        <span class="aa-time">09:38:19</span>
+        <span class="aa-verb is-reject">Reject</span>
+        <span class="aa-summary">Denied <strong>iam.rotate-service-principal</strong> on <code>sp-billing</code> &middot; reason "waiting on incident window"</span>
+        <span class="aa-corr">apv-01H7A4S-...</span>
+      </div>
+    </div>
+
+    <!-- Vidar (Recovery) -->
+    <div class="aa-group">
+      <div class="aa-group-head">
+        <span class="aa-dot is-pipeline"></span>
+        <span class="aa-group-name">Vidar</span>
+        <span class="cs-tag is-steel">Recovery &middot; pipeline (hard dep)</span>
+        <span class="aa-group-meta">2 rollbacks in 24h &middot; DR probe running</span>
+      </div>
+
+      <div class="aa-row">
+        <span class="aa-time">09:33:07</span>
+        <span class="aa-verb is-rollback">Rollback</span>
+        <span class="aa-summary">Reverted <strong>k8s.scale-deployment</strong> on <code>web-frontend</code> &middot; stop-condition tripped: p95 latency &gt; 800ms</span>
+        <span class="aa-corr">rb-01H7A4R-...</span>
+      </div>
+    </div>
+
+    <!-- Saga (Auditor) -->
+    <div class="aa-group">
+      <div class="aa-group-head">
+        <span class="aa-dot is-governance"></span>
+        <span class="aa-group-name">Saga</span>
+        <span class="cs-tag is-plum">Auditor &middot; governance (hard dep)</span>
+        <span class="aa-group-meta">2,014 entries &middot; 3 issues opened in 1h</span>
+      </div>
+
+      <div class="aa-row">
+        <span class="aa-time">09:47:14</span>
+        <span class="aa-verb is-audit">Audit</span>
+        <span class="aa-summary">Wrote entry for <code>storage.set-lifecycle-tier</code> execute; append-only</span>
+        <span class="aa-corr">aud-01H7A4X-...</span>
+      </div>
+      <div class="aa-row">
+        <span class="aa-time">09:36:22</span>
+        <span class="aa-verb is-audit">Issue</span>
+        <span class="aa-summary">Opened <a href="#">GH#412</a> for handoff on <code>data.repair-schema-drift</code> &middot; unhandled ActionType</span>
+        <span class="aa-corr">iss-01H7A4Q-...</span>
+      </div>
+    </div>
+
+    <!-- Njord (Cost, domain) -->
+    <div class="aa-group">
+      <div class="aa-group-head">
+        <span class="aa-dot is-domain"></span>
+        <span class="aa-group-name">Njord</span>
+        <span class="cs-tag"><span class="cs-tag-dot" style="background:var(--cs-teal)"></span> Cost specialist &middot; advisory</span>
+        <span class="aa-group-meta">1 anomaly in 24h &middot; 0 verdicts (advises Forseti)</span>
+      </div>
+
+      <div class="aa-row">
+        <span class="aa-time">08:12:44</span>
+        <span class="aa-verb is-abstain">Advise</span>
+        <span class="aa-summary">Flagged cost anomaly on <code>storage/bak-invoice-prod</code> - +38% vs 7d baseline &middot; suggested lifecycle tier</span>
+        <span class="aa-corr">cst-01H7A4M-...</span>
+      </div>
+    </div>
+
+    <p class="cs-muted" style="font-size:12.5px; margin-top:16px;">
+      Timeline entries link back into their correlation trace on <a href="rule-trace.html">Rule
+      trace</a> - one correlation id can produce many rows across many agents.
+    </p>
+  </main>
+</body>
+</html>

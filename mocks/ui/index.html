@@ -132,15 +132,44 @@
           <h3>Pantheon</h3>
           <p class="cs-muted cs-mb-0">Directory grouped by governance / pipeline / domain layer, plus the reporting tree.</p>
         </a>
+        <a class="cs-card cs-card-hover" href="agent-activity.html" style="text-decoration:none;color:inherit">
+          <div class="cs-kpi-accent"></div>
+          <h3>Agent activity</h3>
+          <p class="cs-muted cs-mb-0">Per-agent timeline projected from the audit log - execute / approve / reject / rollback / audit.</p>
+        </a>
         <a class="cs-card cs-card-hover" href="blast-radius.html" style="text-decoration:none;color:inherit">
           <div class="cs-kpi-accent is-terracotta"></div>
           <h3>Blast radius</h3>
           <p class="cs-muted cs-mb-0">Per-action impact rings and the cap bars enforced by the risk gate.</p>
         </a>
+        <a class="cs-card cs-card-hover" href="provision.html" style="text-decoration:none;color:inherit">
+          <div class="cs-kpi-accent"></div>
+          <h3>Provisioning</h3>
+          <p class="cs-muted cs-mb-0">Live view of an in-flight re-provision - Terraform stream, resource list, on-done console URL.</p>
+        </a>
         <a class="cs-card cs-card-hover" href="llm-cost.html" style="text-decoration:none;color:inherit">
           <div class="cs-kpi-accent is-teal"></div>
           <h3>LLM cost</h3>
           <p class="cs-muted cs-mb-0">Per-tier budgets, event mix, 7-day trend, and the per-model attribution table.</p>
+        </a>
+      </div>
+
+      <h3 class="cs-mb-8">Knowledge (ontology + trace)</h3>
+      <div class="cs-grid cs-grid-3 cs-mb-24">
+        <a class="cs-card cs-card-hover" href="ontology.html" style="text-decoration:none;color:inherit">
+          <div class="cs-kpi-accent is-plum"></div>
+          <h3>Ontology</h3>
+          <p class="cs-muted cs-mb-0">ObjectType + LinkType registry, one-hop neighborhood, per-type detail.</p>
+        </a>
+        <a class="cs-card cs-card-hover" href="rule-trace.html" style="text-decoration:none;color:inherit">
+          <div class="cs-kpi-accent is-teal"></div>
+          <h3>Rule trace</h3>
+          <p class="cs-muted cs-mb-0">The full pipeline path for one correlation id - ingest, router, gates, dispatch, audit.</p>
+        </a>
+        <a class="cs-card cs-card-hover" href="workflow-builder.html" style="text-decoration:none;color:inherit">
+          <div class="cs-kpi-accent"></div>
+          <h3>Workflow builder</h3>
+          <p class="cs-muted cs-mb-0">Read-only visual view of a `when &rarr; do` workflow: palette, node canvas, safety inspector.</p>
         </a>
       </div>
 

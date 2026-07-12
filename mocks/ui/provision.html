@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Provisioning - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css" />
+  <style>
+    /* Provisioning: live view of an in-flight re-provision, driven by an
+       SSE-shaped event stream. Static mock only - three panels, no motion. */
+    .pv-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+    @media (max-width: 900px) { .pv-layout { grid-template-columns: 1fr; } }
+
+    .pv-hero { padding: 20px 24px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .pv-hero .pv-status { display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+    .pv-hero .pv-status.is-running { color: var(--cs-teal);       background: rgba(79,132,126,.14); }
+    .pv-hero .pv-status.is-waiting { color: var(--cs-terracotta); background: rgba(188,116,73,.14); }
+    .pv-hero .pv-status.is-done    { color: var(--cs-sage);       background: rgba(94,130,89,.14); }
+    .pv-hero .pv-status.is-failed  { color: var(--cs-dusty-red);  background: rgba(172,90,90,.14); }
+    .pv-hero-title { display: flex; align-items: center; gap: 10px; margin: 6px 0 0; }
+    .pv-hero-title h2 { margin: 0; font-size: 20px; }
+
+    .pv-progress { margin-top: 14px; }
+    .pv-progress-bar { height: 8px; background: var(--cs-shade); border-radius: 4px; overflow: hidden; }
+    .pv-progress-bar > span { display: block; height: 100%; background: var(--cs-teal); border-radius: 4px; }
+    .pv-progress-foot { display: flex; justify-content: space-between; font-size: 12px; color: var(--cs-text-soft); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+    .pv-resources { padding: 16px 20px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-top: 20px; }
+    .pv-resources h3 { margin: 0 0 8px; font-size: 15px; }
+    .pv-res-row { display: grid; grid-template-columns: 22px 1fr 90px auto; gap: 10px; padding: 7px 0; border-top: 1px dashed var(--cs-hairline); font-size: 13px; align-items: baseline; }
+    .pv-res-row:first-of-type { border-top: none; padding-top: 0; }
+    .pv-res-icon { text-align: center; color: var(--cs-text-soft); font-weight: 700; }
+    .pv-res-icon.is-done    { color: var(--cs-sage); }
+    .pv-res-icon.is-running { color: var(--cs-teal); }
+    .pv-res-icon.is-waiting { color: var(--cs-terracotta); }
+    .pv-res-icon.is-failed  { color: var(--cs-dusty-red); }
+    .pv-res-icon.is-pending { color: var(--cs-text-soft); opacity: .55; }
+    .pv-res-name code { font-size: 12.5px; }
+    .pv-res-type { color: var(--cs-text-soft); font-size: 12px; }
+    .pv-res-dur { text-align: right; font-variant-numeric: tabular-nums; color: var(--cs-text-soft); font-size: 12px; }
+
+    /* Live stream panel (right column) */
+    .pv-stream { padding: 14px 16px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: #FBFAF9; box-shadow: var(--cs-shadow); font-family: "Cascadia Code","Consolas",monospace; font-size: 12px; line-height: 1.5; max-height: 380px; overflow: auto; }
+    .pv-stream h3 { margin: 0 0 8px; font-size: 14px; font-family: "Segoe UI","Malgun Gothic",sans-serif; }
+    .pv-line { display: flex; gap: 8px; }
+    .pv-line .pv-t { color: var(--cs-text-soft); flex: 0 0 auto; }
+    .pv-line .pv-tag { padding: 0 6px; border-radius: 3px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; flex: 0 0 auto; }
+    .pv-line .pv-tag.is-plan   { color: var(--cs-steel);      background: rgba(68,104,142,.10); }
+    .pv-line .pv-tag.is-apply  { color: var(--cs-teal);       background: rgba(79,132,126,.10); }
+    .pv-line .pv-tag.is-done   { color: var(--cs-sage);       background: rgba(94,130,89,.12); }
+    .pv-line .pv-tag.is-wait   { color: var(--cs-terracotta); background: rgba(188,116,73,.12); }
+    .pv-line .pv-tag.is-fail   { color: var(--cs-dusty-red);  background: rgba(172,90,90,.12); }
+    .pv-line .pv-msg { color: var(--cs-text); }
+    .pv-line .pv-msg code { font-size: 11.5px; }
+
+    .pv-console-url { padding: 14px 16px; border: 1px dashed var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); margin-top: 20px; display: flex; align-items: center; gap: 12px; font-size: 13px; }
+    .pv-console-url .cs-mono { color: var(--cs-text); }
+    .pv-console-url .cs-muted { color: var(--cs-text-soft); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header class="cs-topbar">
+    <div class="cs-container cs-topbar-inner">
+      <span class="cs-brand"><span class="cs-brand-mark">AW</span> FDAI</span>
+      <nav class="cs-nav">
+        <a href="live.html">Live</a>
+        <a href="dashboard.html">Overview</a>
+        <a href="hil.html">HIL</a>
+        <a href="agents.html">Fleet</a>
+        <a href="rules.html">Rules</a>
+        <a href="actions.html">Actions</a>
+        <a href="audit.html">Audit</a>
+        <a href="report.html">Report</a>
+        <a href="index.html">Kit</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="cs-container cs-page">
+    <div class="cs-subnav">
+      <a href="agents.html">Roster</a>
+      <a href="pantheon.html">Pantheon</a>
+      <a href="agent-activity.html">Activity</a>
+      <a href="blast-radius.html">Blast radius</a>
+      <a href="provision.html" class="cs-active">Provisioning</a>
+    </div>
+
+    <div class="cs-page-header cs-mb-16">
+      <div class="cs-eyebrow">In-product re-provisioning &middot; read-only view</div>
+      <h1>Provisioning</h1>
+      <p class="cs-lead">Live view of an in-flight re-provision. Same event contract as the
+        first-run bootstrap (<code>provision.*</code> events on SSE), rendered here as a calm,
+        utilitarian panel instead of the marketing "Genesis" mockup. The console does not
+        initiate provisioning - it renders progress and, on <code>provision.done</code>, surfaces
+        the console URL.</p>
+    </div>
+
+    <div class="cs-readonly-banner">
+      <strong>Nothing here executes.</strong> Terraform runs on the self-hosted VNet runner; this
+      panel is a projection of the stream. The <em>Cancel</em> control (bottom right) posts a
+      cancel intent through the same lifecycle - it is not a local kill switch.
+    </div>
+
+    <div class="pv-layout">
+      <!-- Left column: hero + resource list -->
+      <div>
+        <div class="pv-hero">
+          <span class="pv-status is-running">applying</span>
+          <div class="pv-hero-title">
+            <h2>Environment <code>dev-krc</code></h2>
+            <span class="cs-tag is-teal">plan + apply</span>
+          </div>
+          <p class="cs-muted" style="margin:6px 0 0; font-size:13px;">Change: 3 add / 1 change / 0 remove &middot; started 4m 12s ago by <code>runner-vnet-01</code>.</p>
+
+          <div class="pv-progress">
+            <div class="pv-progress-bar"><span style="width:64%"></span></div>
+            <div class="pv-progress-foot">
+              <span>step 9 / 14</span>
+              <span>ETA ~2m 08s</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pv-resources">
+          <h3>Resources</h3>
+
+          <div class="pv-res-row">
+            <span class="pv-res-icon is-done">&#10003;</span>
+            <div>
+              <div><code>azurerm_resource_group.dev</code></div>
+              <div class="pv-res-type">resource-group &middot; koreacentral</div>
+            </div>
+            <span class="cs-tag is-sage">done</span>
+            <span class="pv-res-dur">6s</span>
+          </div>
+
+          <div class="pv-res-row">
+            <span class="pv-res-icon is-done">&#10003;</span>
+            <div>
+              <div><code>azurerm_key_vault.dev</code></div>
+              <div class="pv-res-type">key-vault &middot; private endpoint</div>
+            </div>
+            <span class="cs-tag is-sage">done</span>
+            <span class="pv-res-dur">1m 42s</span>
+          </div>
+
+          <div class="pv-res-row">
+            <span class="pv-res-icon is-done">&#10003;</span>
+            <div>
+              <div><code>module.log_analytics</code></div>
+              <div class="pv-res-type">log-workspace + app-insights</div>
+            </div>
+            <span class="cs-tag is-sage">done</span>
+            <span class="pv-res-dur">48s</span>
+          </div>
+
+          <div class="pv-res-row">
+            <span class="pv-res-icon is-running">&#8635;</span>
+            <div>
+              <div><code>module.postgres</code></div>
+              <div class="pv-res-type">postgres-flexible &middot; storage=32 GiB</div>
+            </div>
+            <span class="cs-tag is-teal">applying</span>
+            <span class="pv-res-dur">1m 05s</span>
+          </div>
+
+          <div class="pv-res-row">
+            <span class="pv-res-icon is-waiting">&#9203;</span>
+            <div>
+              <div><code>module.event_hub</code></div>
+              <div class="pv-res-type">event-hub-namespace (Kafka)</div>
+            </div>
+            <span class="cs-tag" style="background:rgba(188,116,73,.12);color:var(--cs-terracotta);border-color:rgba(188,116,73,.22)">waiting</span>
+            <span class="pv-res-dur">-</span>
+          </div>
+
+          <div class="pv-res-row">
+            <span class="pv-res-icon is-pending">&#8226;</span>
+            <div>
+              <div><code>module.container_apps</code></div>
+              <div class="pv-res-type">container-app-env + core app + OOB job</div>
+            </div>
+            <span class="cs-tag">pending</span>
+            <span class="pv-res-dur">-</span>
+          </div>
+
+          <div class="pv-res-row">
+            <span class="pv-res-icon is-pending">&#8226;</span>
+            <div>
+              <div><code>module.identity</code></div>
+              <div class="pv-res-type">msi-fdai-exec + role bindings</div>
+            </div>
+            <span class="cs-tag">pending</span>
+            <span class="pv-res-dur">-</span>
+          </div>
+        </div>
+
+        <div class="pv-console-url">
+          <span class="cs-tag" style="background:var(--cs-shade);color:var(--cs-text-soft)">on done</span>
+          <span class="cs-muted">The console URL will appear here when <code>provision.done</code> fires:</span>
+          <span class="cs-mono">https://ca-fdai-dev.<em>region</em>.azurecontainerapps.io</span>
+        </div>
+      </div>
+
+      <!-- Right column: live event stream -->
+      <div class="pv-stream" aria-label="Live provisioning event stream">
+        <h3>Event stream (SSE)</h3>
+
+        <div class="pv-line"><span class="pv-t">09:41:20</span><span class="pv-tag is-plan">plan</span><span class="pv-msg">3 add, 1 change, 0 remove</span></div>
+        <div class="pv-line"><span class="pv-t">09:41:22</span><span class="pv-tag is-apply">apply</span><span class="pv-msg"><code>azurerm_resource_group.dev</code></span></div>
+        <div class="pv-line"><span class="pv-t">09:41:28</span><span class="pv-tag is-done">done</span><span class="pv-msg"><code>azurerm_resource_group.dev</code> 6s</span></div>
+        <div class="pv-line"><span class="pv-t">09:41:30</span><span class="pv-tag is-apply">apply</span><span class="pv-msg"><code>azurerm_key_vault.dev</code></span></div>
+        <div class="pv-line"><span class="pv-t">09:43:12</span><span class="pv-tag is-done">done</span><span class="pv-msg"><code>azurerm_key_vault.dev</code> 1m 42s</span></div>
+        <div class="pv-line"><span class="pv-t">09:43:14</span><span class="pv-tag is-apply">apply</span><span class="pv-msg"><code>module.log_analytics</code></span></div>
+        <div class="pv-line"><span class="pv-t">09:44:02</span><span class="pv-tag is-done">done</span><span class="pv-msg"><code>module.log_analytics</code> 48s</span></div>
+        <div class="pv-line"><span class="pv-t">09:44:04</span><span class="pv-tag is-apply">apply</span><span class="pv-msg"><code>module.postgres</code></span></div>
+        <div class="pv-line"><span class="pv-t">09:44:11</span><span class="pv-tag is-wait">wait</span><span class="pv-msg"><code>module.event_hub</code> pending on Kafka endpoint readiness</span></div>
+        <div class="pv-line"><span class="pv-t">09:45:09</span><span class="pv-tag is-apply">apply</span><span class="pv-msg"><code>module.postgres</code> flexible-server sizing 32 GiB</span></div>
+      </div>
+    </div>
+
+    <p class="cs-muted" style="font-size:12.5px; margin-top:16px;">
+      Contract: the stream emits <code>provision.plan</code>, <code>provision.apply-start</code>,
+      <code>provision.apply-done</code>, <code>provision.waiting</code>,
+      <code>provision.failed</code>, and <code>provision.done</code> events. The panel derives all
+      state from those; a hard refresh replays from the last SSE cursor.
+    </p>
+  </main>
+</body>
+</html>

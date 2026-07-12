@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow builder - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css" />
+  <style>
+    /* Workflow builder: read-only visual view of a "when -> do" workflow. */
+    .wb-layout { display: grid; grid-template-columns: 280px 1fr 300px; gap: 20px; align-items: start; }
+    @media (max-width: 1080px) { .wb-layout { grid-template-columns: 1fr; } }
+
+    .wb-panel { padding: 14px 16px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .wb-panel h3 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--cs-text-soft); font-weight: 600; }
+
+    /* Left: palette (ActionTypes to drop in) */
+    .wb-palette ul { list-style: none; padding: 0; margin: 8px 0 0; }
+    .wb-palette li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; margin: 2px -10px; border-radius: 6px; font-size: 13px; cursor: grab; border: 1px dashed transparent; }
+    .wb-palette li:hover { background: var(--cs-shade); border-color: var(--cs-hairline); }
+    .wb-palette li code { font-size: 12px; }
+    .wb-palette-cat { font-size: 11px; padding: 0 6px; border-radius: 3px; margin-left: auto; }
+    .wb-palette-cat.is-rem { color: var(--cs-sage);       background: rgba(94,130,89,.12); }
+    .wb-palette-cat.is-ops { color: var(--cs-steel);      background: rgba(68,104,142,.12); }
+    .wb-palette-cat.is-gov { color: var(--cs-plum);       background: rgba(123,108,156,.12); }
+    .wb-palette-cat.is-tool { color: var(--cs-teal);      background: rgba(79,132,126,.12); }
+
+    /* Middle: canvas */
+    .wb-canvas { padding: 20px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); min-height: 460px; background-image: radial-gradient(rgba(0,0,0,.045) 1px, transparent 1px); background-size: 18px 18px; }
+    .wb-canvas h3 { margin: 0 0 10px; font-size: 15px; }
+
+    .wb-node { display: block; padding: 12px 14px; margin: 0 auto 8px; max-width: 320px; border-radius: 10px; background: var(--cs-card); border: 1px solid var(--cs-hairline); box-shadow: var(--cs-shadow); position: relative; }
+    .wb-node .wb-kind { display: inline-block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: 3px; margin-right: 6px; }
+    .wb-node.is-trigger .wb-kind { color: var(--cs-terracotta); background: rgba(188,116,73,.14); }
+    .wb-node.is-guard .wb-kind   { color: var(--cs-plum);      background: rgba(123,108,156,.14); }
+    .wb-node.is-action .wb-kind  { color: var(--cs-steel);     background: rgba(68,104,142,.14); }
+    .wb-node.is-notify .wb-kind  { color: var(--cs-teal);      background: rgba(79,132,126,.14); }
+    .wb-node-name { font-weight: 600; font-size: 14px; }
+    .wb-node-name code { font-size: 12.5px; }
+    .wb-node-note { color: var(--cs-text-soft); font-size: 12px; margin: 4px 0 0; }
+
+    /* Connector between stacked nodes */
+    .wb-edge { display: block; width: 2px; height: 26px; margin: -4px auto 4px; background: var(--cs-hairline); position: relative; }
+    .wb-edge::after { content: "\25BC"; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--cs-text-soft); }
+    .wb-edge-label { display: block; text-align: center; font-size: 10.5px; color: var(--cs-text-soft); margin: -2px 0 6px; font-family: "Cascadia Code","Consolas",monospace; }
+
+    .wb-toolbar { display: flex; gap: 6px; align-items: center; margin-bottom: 12px; }
+    .wb-toolbar .cs-btn { padding: 6px 10px; font-size: 12.5px; }
+    .wb-toolbar .cs-tag { margin-left: auto; }
+
+    /* Right: inspector */
+    .wb-inspect .wb-field { margin: 10px 0; }
+    .wb-inspect .wb-field label { display: block; font-size: 11.5px; color: var(--cs-text-soft); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+    .wb-inspect .wb-field input,
+    .wb-inspect .wb-field select { width: 100%; padding: 7px 9px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); font: inherit; font-size: 13px; background: var(--cs-card); color: var(--cs-text); }
+    .wb-inspect .wb-field code { font-size: 12.5px; }
+    .wb-inspect .wb-safety { border-top: 1px dashed var(--cs-hairline); margin-top: 12px; padding-top: 10px; font-size: 12.5px; }
+    .wb-inspect .wb-safety > div { display: flex; justify-content: space-between; padding: 3px 0; }
+    .wb-inspect .wb-safety > div > span:last-child { color: var(--cs-text); font-weight: 500; }
+  </style>
+</head>
+<body>
+  <header class="cs-topbar">
+    <div class="cs-container cs-topbar-inner">
+      <span class="cs-brand"><span class="cs-brand-mark">AW</span> FDAI</span>
+      <nav class="cs-nav">
+        <a href="live.html">Live</a>
+        <a href="dashboard.html">Overview</a>
+        <a href="hil.html">HIL</a>
+        <a href="agents.html">Fleet</a>
+        <a href="rules.html">Rules</a>
+        <a href="actions.html">Actions</a>
+        <a href="workflow-builder.html" class="cs-active">Workflows</a>
+        <a href="audit.html">Audit</a>
+        <a href="report.html">Report</a>
+        <a href="index.html">Kit</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="cs-container cs-page">
+    <div class="cs-page-header cs-mb-16">
+      <div class="cs-eyebrow">Knowledge &middot; read-only workflow catalog</div>
+      <h1>Workflow builder</h1>
+      <p class="cs-lead">The visual companion to the "when &rarr; do" summary. Each workflow is a
+        chain of ActionType steps registered in the ontology; the builder is read-only in the
+        console (drop, drag, and property edits are wire-frames only). Publishing a workflow is a
+        catalog PR.</p>
+    </div>
+
+    <div class="cs-readonly-banner">
+      <strong>Read-only surface.</strong> The palette lists the ActionTypes available on this
+      deployment (17). Reordering or wiring here does not mutate the catalog - the graph you
+      see is the last published version.
+    </div>
+
+    <div class="wb-layout">
+      <!-- Left: palette -->
+      <aside class="wb-panel wb-palette">
+        <h3>Palette <span class="cs-muted" style="font-size:11.5px; text-transform:none; letter-spacing:0">17 ActionTypes</span></h3>
+        <p class="cs-muted" style="margin:6px 0 6px; font-size:12px;">Drag onto the canvas.</p>
+        <ul>
+          <li><code>database.enable-pitr</code> <span class="wb-palette-cat is-rem">rem</span></li>
+          <li><code>storage.set-lifecycle-tier</code> <span class="wb-palette-cat is-rem">rem</span></li>
+          <li><code>k8s.scale-deployment</code> <span class="wb-palette-cat is-ops">ops</span></li>
+          <li><code>k8s.restart-deployment</code> <span class="wb-palette-cat is-ops">ops</span></li>
+          <li><code>iam.rotate-service-principal</code> <span class="wb-palette-cat is-gov">gov</span></li>
+          <li><code>cost.right-sizing.medium</code> <span class="wb-palette-cat is-rem">rem</span></li>
+          <li><code>network.rebalance-egress</code> <span class="wb-palette-cat is-ops">ops</span></li>
+          <li><code>notify.teams-adaptive-card</code> <span class="wb-palette-cat is-tool">tool</span></li>
+          <li><code>governance.escalate-to-github-issue</code> <span class="wb-palette-cat is-gov">gov</span></li>
+        </ul>
+      </aside>
+
+      <!-- Middle: canvas -->
+      <section class="wb-canvas">
+        <div class="wb-toolbar">
+          <a class="cs-btn" href="#">&larr; Back to list</a>
+          <a class="cs-btn" href="#">Validate</a>
+          <a class="cs-btn is-primary" href="#">Open PR</a>
+          <span class="cs-tag is-teal">shadow-only in this env</span>
+        </div>
+
+        <h3>enable-pitr-on-shared-db-flag</h3>
+        <p class="cs-muted" style="margin:0 0 14px; font-size:13px;">
+          Trigger: PITR-disabled anomaly on a managed database. Do: verify, HIL-approve if prod,
+          then enable + notify.
+        </p>
+
+        <div class="wb-node is-trigger">
+          <span class="wb-kind">when</span>
+          <span class="wb-node-name">object.event <code>pitr:disabled</code></span>
+          <p class="wb-node-note">Deterministic match on <code>rule/database/pitr.rego</code>.
+            Correlates duplicates within 60s.</p>
+        </div>
+
+        <div class="wb-edge"></div>
+        <span class="wb-edge-label">if</span>
+
+        <div class="wb-node is-guard">
+          <span class="wb-kind">guard</span>
+          <span class="wb-node-name">quality gate (verifier + grounding)</span>
+          <p class="wb-node-note">Schema + Rego policy + what-if must pass. Grounded on
+            <code>waf.reliability.rl-04</code>.</p>
+        </div>
+
+        <div class="wb-edge"></div>
+        <span class="wb-edge-label">and</span>
+
+        <div class="wb-node is-guard">
+          <span class="wb-kind">guard</span>
+          <span class="wb-node-name">risk gate (env-based ceiling)</span>
+          <p class="wb-node-note">env=prod: HIL; env=nonprod: auto. Two distinct approvers.</p>
+        </div>
+
+        <div class="wb-edge"></div>
+        <span class="wb-edge-label">then do</span>
+
+        <div class="wb-node is-action">
+          <span class="wb-kind">do</span>
+          <span class="wb-node-name"><code>database.enable-pitr</code></span>
+          <p class="wb-node-note">pr_native path. 7-day retention. Rollback pr_revert.</p>
+        </div>
+
+        <div class="wb-edge"></div>
+        <span class="wb-edge-label">then</span>
+
+        <div class="wb-node is-notify">
+          <span class="wb-kind">notify</span>
+          <span class="wb-node-name"><code>notify.teams-adaptive-card</code></span>
+          <p class="wb-node-note">To <code>rg-billing-prod</code> owners channel. Includes rollback link.</p>
+        </div>
+      </section>
+
+      <!-- Right: inspector -->
+      <aside class="wb-panel wb-inspect">
+        <h3>Inspect <span class="cs-muted" style="font-size:11.5px; text-transform:none; letter-spacing:0">selected step</span></h3>
+        <p class="cs-muted" style="margin:6px 0 6px; font-size:12px;"><code>database.enable-pitr</code></p>
+
+        <div class="wb-field">
+          <label>ActionType</label>
+          <input type="text" value="database.enable-pitr" readonly />
+        </div>
+        <div class="wb-field">
+          <label>Execution path</label>
+          <select disabled><option>pr_native</option><option>direct_api</option><option>tool_call</option></select>
+        </div>
+        <div class="wb-field">
+          <label>Target selector</label>
+          <input type="text" value="tag:workload=billing AND env=prod" readonly />
+        </div>
+        <div class="wb-field">
+          <label>Parameter: retention_days</label>
+          <input type="text" value="7" readonly />
+        </div>
+
+        <div class="wb-safety">
+          <div><span>Rollback contract</span><span>pr_revert (tested)</span></div>
+          <div><span>Stop-condition</span><span>backup lag &gt; 60s</span></div>
+          <div><span>Blast cap</span><span>1 resource</span></div>
+          <div><span>Default mode</span><span>shadow</span></div>
+          <div><span>Promotion gate</span><span>see promotion.html</span></div>
+          <div><span>Reversibility</span><span>idempotent</span></div>
+        </div>
+      </aside>
+    </div>
+
+    <p class="cs-muted" style="font-size:12.5px; margin-top:16px;">
+      Palette content comes from <code>GET /workflows/action-types</code>; the graph is a
+      static rendering of the built-in workflow catalog. See
+      <a href="actions.html">Actions</a> for the full ActionType ontology.
+    </p>
+  </main>
+</body>
+</html>

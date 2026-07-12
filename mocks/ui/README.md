@@ -30,8 +30,18 @@ Fleet / Safety surfaces (mirror console panels under `Now` and `Safety`):
 |------|---------|
 | [agents.html](agents.html) | Fleet roster - lifecycle state of all 15 pantheon agents (running / idle / recovering / shadow) with per-agent throughput and chat entry |
 | [pantheon.html](pantheon.html) | Pantheon directory - 15 agents grouped by governance / pipeline / domain layer, with the reporting tree |
+| [agent-activity.html](agent-activity.html) | Per-agent timeline projected from the audit log - who did what, when, and how; verbs = execute / approve / reject / rollback / abstain / audit |
 | [blast-radius.html](blast-radius.html) | Per-action impact view - concentric target / direct / indirect rings plus cap bars enforced by the risk gate |
+| [provision.html](provision.html) | In-flight re-provision - Terraform stream projected as status + resource list + live event log; console URL surfaces on `provision.done` |
 | [llm-cost.html](llm-cost.html) | LLM spend - per-tier daily budget bars, event mix, 7-day trend, per-model attribution table |
+
+Knowledge surfaces (ontology + trace):
+
+| File | Purpose |
+|------|---------|
+| [ontology.html](ontology.html) | ObjectType + LinkType registry - sidebar list, one-hop neighborhood SVG, per-type detail card |
+| [rule-trace.html](rule-trace.html) | Per-correlation timeline - the full pipeline path (ingest &rarr; router &rarr; quality gate &rarr; risk gate &rarr; dispatch &rarr; audit) for one event id |
+| [workflow-builder.html](workflow-builder.html) | Read-only visual view of a `when &rarr; do` workflow - ActionType palette, node/edge canvas, per-step inspector with safety facts |
 
 Report and kit:
 

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rule trace - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css" />
+  <style>
+    /* Rule trace: pipeline path for one correlation id. */
+    .rt-inbar { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-bottom: 20px; }
+    .rt-inbar input { flex: 1; border: none; outline: none; font: inherit; font-size: 13px; background: transparent; }
+    .rt-inbar .cs-mono { color: var(--cs-text-soft); }
+
+    .rt-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+
+    .rt-timeline { position: relative; padding-left: 32px; }
+    .rt-timeline::before { content: ""; position: absolute; left: 12px; top: 8px; bottom: 8px; width: 2px; background: var(--cs-hairline); }
+
+    .rt-step { position: relative; margin-bottom: 14px; padding: 14px 18px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .rt-step::before { content: ""; position: absolute; left: -28px; top: 20px; width: 12px; height: 12px; border-radius: 50%; background: var(--cs-steel); border: 2px solid var(--cs-card); box-shadow: 0 0 0 2px var(--cs-hairline); }
+    .rt-step.is-t0::before  { background: var(--cs-sage); }
+    .rt-step.is-t1::before  { background: var(--cs-teal); }
+    .rt-step.is-t2::before  { background: var(--cs-plum); }
+    .rt-step.is-gate::before { background: var(--cs-terracotta); }
+    .rt-step.is-exec::before { background: var(--cs-sage); }
+    .rt-step.is-audit::before { background: var(--cs-navy); }
+
+    .rt-step-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; margin-bottom: 6px; }
+    .rt-step-title { font-weight: 600; font-size: 14.5px; margin: 0; }
+    .rt-step-agent { font-size: 12px; color: var(--cs-text-soft); }
+    .rt-step-time  { margin-left: auto; font-size: 11.5px; color: var(--cs-text-soft); font-variant-numeric: tabular-nums; }
+    .rt-step-note  { color: var(--cs-text-soft); font-size: 13px; margin: 0; }
+
+    .rt-kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px 14px; font-size: 12.5px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--cs-hairline); }
+    .rt-kv > div { display: flex; flex-direction: column; }
+    .rt-kv > div > span:first-child { color: var(--cs-text-soft); font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; }
+    .rt-kv > div > span:last-child  { color: var(--cs-text); font-weight: 500; }
+  </style>
+</head>
+<body>
+  <header class="cs-topbar">
+    <div class="cs-container cs-topbar-inner">
+      <span class="cs-brand"><span class="cs-brand-mark">AW</span> FDAI</span>
+      <nav class="cs-nav">
+        <a href="live.html">Live</a>
+        <a href="dashboard.html">Overview</a>
+        <a href="hil.html">HIL</a>
+        <a href="agents.html">Fleet</a>
+        <a href="rules.html">Rules</a>
+        <a href="actions.html">Actions</a>
+        <a href="audit.html">Audit</a>
+        <a href="rule-trace.html" class="cs-active">Trace</a>
+        <a href="report.html">Report</a>
+        <a href="index.html">Kit</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="cs-container cs-page">
+    <div class="cs-page-header cs-mb-16">
+      <div class="cs-eyebrow">History &middot; per-correlation trace</div>
+      <h1>Rule trace</h1>
+      <p class="cs-lead">Reconstruct the full pipeline path for one correlation id, from
+        <strong>event ingest</strong> through <strong>trust routing</strong>, the
+        <strong>quality gate</strong>, the <strong>risk gate</strong>, and finally
+        <strong>execute</strong> and <strong>audit</strong>. This is a read-only projection of
+        the append-only audit log - the trace is never re-executed.</p>
+    </div>
+
+    <!-- Correlation id lookup -->
+    <div class="rt-inbar">
+      <span class="cs-muted" style="font-size:14px">&#128269;</span>
+      <input type="text" value="evt-01H7A4W-BILLING-DB-PROD-PITR" aria-label="correlation id" />
+      <span class="cs-mono">7 steps &middot; 3.2s total</span>
+      <a class="cs-btn" href="#">Copy id</a>
+      <a class="cs-btn is-primary" href="#">Open in audit</a>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="rt-strip">
+      <div class="cs-card cs-kpi">
+        <div class="cs-kpi-accent"></div>
+        <span class="cs-kpi-label">Verdict</span>
+        <span class="cs-kpi-value" style="color:var(--cs-terracotta)">HIL</span>
+        <span class="cs-kpi-foot">approvers required: 2</span>
+      </div>
+      <div class="cs-card cs-kpi">
+        <div class="cs-kpi-accent is-teal"></div>
+        <span class="cs-kpi-label">Tier</span>
+        <span class="cs-kpi-value">T1</span>
+        <span class="cs-kpi-foot">similarity 0.93</span>
+      </div>
+      <div class="cs-card cs-kpi">
+        <div class="cs-kpi-accent"></div>
+        <span class="cs-kpi-label">Steps</span>
+        <span class="cs-kpi-value">7</span>
+        <span class="cs-kpi-foot">ingest &rarr; audit</span>
+      </div>
+      <div class="cs-card cs-kpi">
+        <div class="cs-kpi-accent is-sage"></div>
+        <span class="cs-kpi-label">Wall time</span>
+        <span class="cs-kpi-value">3.2s</span>
+        <span class="cs-kpi-foot">under 5s budget</span>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="rt-timeline">
+      <div class="rt-step is-audit">
+        <div class="rt-step-head">
+          <p class="rt-step-title">1. Ingest normalized event</p>
+          <span class="rt-step-agent">Huginn &middot; pipeline</span>
+          <span class="rt-step-time">09:44:55.812</span>
+        </div>
+        <p class="rt-step-note">Received from <code>azure.subscription.diag</code> source; deduplicated against 3 prior emissions in 60s window; correlated with cluster-key <code>billing-db-prod:pitr:disabled</code>.</p>
+        <div class="rt-kv">
+          <div><span>Source</span><span>azure.subscription.diag</span></div>
+          <div><span>Signal</span><span>rule-catalog match candidate</span></div>
+          <div><span>Correlation key</span><span><code>billing-db-prod:pitr</code></span></div>
+          <div><span>Dedup ratio</span><span>3 -&gt; 1</span></div>
+        </div>
+      </div>
+
+      <div class="rt-step is-t0">
+        <div class="rt-step-head">
+          <p class="rt-step-title">2. Trust router &rarr; T0 attempt</p>
+          <span class="rt-step-agent">Forseti &middot; router</span>
+          <span class="rt-step-time">09:44:55.847</span>
+        </div>
+        <p class="rt-step-note">No exact deterministic rule match with a confident verdict; T0 abstain, forward to T1.</p>
+        <div class="rt-kv">
+          <div><span>Rules evaluated</span><span>287</span></div>
+          <div><span>Matches</span><span>0 exact</span></div>
+          <div><span>Fallback</span><span>T1 similarity</span></div>
+        </div>
+      </div>
+
+      <div class="rt-step is-t1">
+        <div class="rt-step-head">
+          <p class="rt-step-title">3. T1 similarity to prior incidents</p>
+          <span class="rt-step-agent">Forseti &middot; similarity index (Muninn)</span>
+          <span class="rt-step-time">09:44:56.113</span>
+        </div>
+        <p class="rt-step-note">Top-1 match is <code>evt-01H6ZQK-BILLING-INCIDENT-12d</code> with score 0.93 (threshold 0.85). Learned action <code>database.enable-pitr</code> reused.</p>
+        <div class="rt-kv">
+          <div><span>Top-1 score</span><span>0.93</span></div>
+          <div><span>Threshold</span><span>0.85</span></div>
+          <div><span>Neighbors (k=5)</span><span>3 &gt; 0.80</span></div>
+          <div><span>Historical success</span><span>4 / 4</span></div>
+        </div>
+      </div>
+
+      <div class="rt-step is-gate">
+        <div class="rt-step-head">
+          <p class="rt-step-title">4. Quality gate (verifier + grounding)</p>
+          <span class="rt-step-agent">Forseti &middot; quality gate</span>
+          <span class="rt-step-time">09:44:57.201</span>
+        </div>
+        <p class="rt-step-note">Deterministic verifier re-ran schema + policy + what-if against the T1 candidate. Grounding cited <code>waf.reliability.rl-04</code>. All checks passed; confidence 0.93 clears the T1 gate.</p>
+        <div class="rt-kv">
+          <div><span>Schema</span><span style="color:var(--cs-sage)">pass</span></div>
+          <div><span>Policy (Rego)</span><span style="color:var(--cs-sage)">pass</span></div>
+          <div><span>What-if</span><span style="color:var(--cs-sage)">no drift</span></div>
+          <div><span>Grounded on</span><span><code>waf.reliability.rl-04</code></span></div>
+        </div>
+      </div>
+
+      <div class="rt-step is-gate">
+        <div class="rt-step-head">
+          <p class="rt-step-title">5. Risk gate &rarr; HIL</p>
+          <span class="rt-step-agent">Forseti &middot; risk gate</span>
+          <span class="rt-step-time">09:44:57.264</span>
+        </div>
+        <p class="rt-step-note">ActionType ceiling downgrades <code>database.enable-pitr</code> to HIL when <code>environment=prod</code>. Six-axis risk classification concurs. Two distinct approvers required; break-glass allowed.</p>
+        <div class="rt-kv">
+          <div><span>Ontology ceiling</span><span>HIL &middot; env=prod</span></div>
+          <div><span>Risk classification</span><span>critical</span></div>
+          <div><span>Approvers</span><span>2 distinct</span></div>
+          <div><span>Rollback</span><span>pr_revert (tested)</span></div>
+        </div>
+      </div>
+
+      <div class="rt-step is-exec">
+        <div class="rt-step-head">
+          <p class="rt-step-title">6. Dispatch to HIL (no execute yet)</p>
+          <span class="rt-step-agent">Thor &middot; dispatcher</span>
+          <span class="rt-step-time">09:44:57.290</span>
+        </div>
+        <p class="rt-step-note">Enqueued as <a href="hil.html">HIL card</a>; Adaptive Card posted to Teams and a PR draft <code>#2148</code> opened for the pr_native path. Nothing has run against the target yet.</p>
+        <div class="rt-kv">
+          <div><span>Execution path</span><span>pr_native</span></div>
+          <div><span>Blast radius</span><span>1 resource, 0 downstream</span></div>
+          <div><span>Stop-condition</span><span>backup lag &gt; 60s</span></div>
+          <div><span>PR</span><span><a href="#">#2148</a></span></div>
+        </div>
+      </div>
+
+      <div class="rt-step is-audit">
+        <div class="rt-step-head">
+          <p class="rt-step-title">7. Audit entry sealed</p>
+          <span class="rt-step-agent">Saga &middot; governance</span>
+          <span class="rt-step-time">09:44:57.319</span>
+        </div>
+        <p class="rt-step-note">Append-only entry recorded with all prior step ids, actor identities, and both mode flags (shadow=false, execute=pending). Reconstructable via correlation id.</p>
+        <div class="rt-kv">
+          <div><span>Audit id</span><span><code>aud-01H7A4W-...</code></span></div>
+          <div><span>Actors</span><span>Huginn &middot; Forseti &middot; Thor &middot; Saga</span></div>
+          <div><span>Mode</span><span>enforce &middot; hil-pending</span></div>
+          <div><span>Immutable</span><span>yes (append-only)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="cs-muted" style="font-size:12.5px; margin-top:16px;">
+      A step whose ::before dot is <span style="color:var(--cs-sage)">sage</span>=T0/execute,
+      <span style="color:var(--cs-teal)">teal</span>=T1,
+      <span style="color:var(--cs-plum)">plum</span>=T2,
+      <span style="color:var(--cs-terracotta)">terracotta</span>=gate,
+      <span style="color:var(--cs-navy)">navy</span>=ingest/audit. Order follows the audit log
+      timestamps.
+    </p>
+  </main>
+</body>
+</html>
