@@ -4,7 +4,18 @@ Uses the user's `az account get-access-token` to authenticate via
 OAUTHBEARER. Run once after a deploy to verify the consumer picks up
 the round-trip end-to-end.
 
+    export FDAI_EVENT_HUB_NAMESPACE=<caf-ns>.servicebus.windows.net
     uv run python tools/publish_smoke_event.py --idempotency-key smoke-2
+
+Env vars:
+
+- ``FDAI_EVENT_HUB_NAMESPACE`` (**required**) - fully qualified Event Hubs
+  namespace host, e.g. ``evhns-fdai-dev-krc.servicebus.windows.net``.
+  Never hardcoded here per generic-scope.instructions.md (no endpoints in
+  the repo); every environment / region has a different value.
+- ``FDAI_EVENT_HUB_TOPIC`` (optional, default ``aw.change.events``) -
+  Kafka topic to publish to. The default is the change-event topic every
+  FDAI deployment provisions; a fork can point at a custom topic.
 """
 
 from __future__ import annotations
@@ -12,6 +23,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import ssl
 import subprocess
 import sys
@@ -22,19 +34,38 @@ from typing import Any
 from aiokafka import AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
 
-NAMESPACE = "evhns-fdai-dev-krc.servicebus.windows.net"
-BOOTSTRAP = f"{NAMESPACE}:9093"
-TOPIC = "aw.change.events"
+_DEFAULT_TOPIC = "aw.change.events"
+
+
+def _resolve_namespace() -> str:
+    """Return the Event Hubs namespace host from env; fail loud if unset.
+
+    Deliberately no default - a hardcoded namespace would leak an
+    environment identifier into the repo (generic-scope violation) and
+    would silently target the wrong deployment when an operator runs
+    the smoke tool from the wrong shell.
+    """
+    ns = os.environ.get("FDAI_EVENT_HUB_NAMESPACE", "").strip()
+    if not ns:
+        raise SystemExit(
+            "publish_smoke_event: FDAI_EVENT_HUB_NAMESPACE is not set. "
+            "Export the fully qualified Event Hubs namespace host, e.g.:\n"
+            "  export FDAI_EVENT_HUB_NAMESPACE='<caf-ns>.servicebus.windows.net'"
+        )
+    return ns
 
 
 class _AzCliTokenProvider(AbstractTokenProvider):  # type: ignore[misc]
+    def __init__(self, namespace: str) -> None:
+        self._namespace = namespace
+
     async def token(self) -> str:
         proc = await asyncio.create_subprocess_exec(
             "az",
             "account",
             "get-access-token",
             "--resource",
-            f"https://{NAMESPACE}",
+            f"https://{self._namespace}",
             "--query",
             "accessToken",
             "--output",
@@ -75,12 +106,15 @@ def _build_event(*, idempotency_key: str) -> dict[str, Any]:
 
 
 async def _main(idempotency_key: str) -> int:
+    namespace = _resolve_namespace()
+    topic = os.environ.get("FDAI_EVENT_HUB_TOPIC", _DEFAULT_TOPIC).strip() or _DEFAULT_TOPIC
+    bootstrap = f"{namespace}:9093"
     payload = _build_event(idempotency_key=idempotency_key)
     producer = AIOKafkaProducer(
-        bootstrap_servers=BOOTSTRAP,
+        bootstrap_servers=bootstrap,
         security_protocol="SASL_SSL",
         sasl_mechanism="OAUTHBEARER",
-        sasl_oauth_token_provider=_AzCliTokenProvider(),
+        sasl_oauth_token_provider=_AzCliTokenProvider(namespace),
         ssl_context=ssl.create_default_context(),
         api_version="2.0.0",
         enable_idempotence=True,
@@ -89,7 +123,7 @@ async def _main(idempotency_key: str) -> int:
     await producer.start()
     try:
         meta = await producer.send_and_wait(
-            TOPIC,
+            topic,
             value=json.dumps(payload, sort_keys=True).encode("utf-8"),
             key=idempotency_key.encode("utf-8"),
         )
