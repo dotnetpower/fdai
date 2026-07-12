@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -163,6 +164,14 @@ class IrpCoordinator:
         investigation_budget_seconds: float = _DEFAULT_INVESTIGATION_BUDGET,
         wall_clock: Callable[[], datetime] | None = None,
     ) -> None:
+        # The budget is the coordinator's stop-condition: respond() bounds a
+        # wedged investigation at ``budget * _HANG_GRACE`` via asyncio.wait_for.
+        # A non-finite budget (inf/nan) makes that timeout never fire - an
+        # infinite hang can then block respond() forever, defeating the whole
+        # bounded-execution guarantee - and a non-positive budget makes every
+        # investigation time out instantly. Require a finite, positive budget.
+        if not math.isfinite(investigation_budget_seconds) or investigation_budget_seconds <= 0:
+            raise ValueError("investigation_budget_seconds MUST be finite and > 0")
         self._investigator = investigator
         self._approval: ApprovalGate = approval_gate or DenyByDefaultApprovalGate()
         self._notifier: IrpNotifier = notifier or NullNotifier()

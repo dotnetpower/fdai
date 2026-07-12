@@ -129,3 +129,16 @@ async def test_timeout_decision_maps_to_timeout_outcome() -> None:
     result = await coordinator.respond(_alert())
 
     assert result.outcome is IrpOutcome.TIMEOUT
+
+
+@pytest.mark.parametrize("bad_budget", [0.0, -1.0, float("nan"), float("inf")])
+def test_rejects_non_finite_or_non_positive_budget(bad_budget: float) -> None:
+    # The budget is the bounded-execution stop-condition: an inf budget makes
+    # wait_for's timeout never fire (respond() could hang forever), and a
+    # non-positive budget makes every investigation time out instantly. Both
+    # must fail fast at construction.
+    with pytest.raises(ValueError, match="investigation_budget_seconds"):
+        IrpCoordinator(
+            investigator=_investigator({"http_429_rate": 0.4}),
+            investigation_budget_seconds=bad_budget,
+        )
