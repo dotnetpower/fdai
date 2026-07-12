@@ -94,6 +94,45 @@ def test_burn_rate_rejects_impossible_windows_and_counts() -> None:
         BurnRate(window_minutes=5, good_events=5, total_events=1, objective_ratio=0.9)
 
 
+def _alert_def(**kwargs: object) -> BurnRateAlertDef:
+    params: dict[str, object] = {
+        "name": "fast-burn",
+        "short_window_minutes": 5,
+        "long_window_minutes": 60,
+        "burn_rate_threshold": 14.4,
+    }
+    params.update(kwargs)
+    return BurnRateAlertDef(**params)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("bad", [0.0, -1.0, float("nan"), float("inf")])
+def test_burn_rate_alert_def_rejects_non_positive_or_non_finite_threshold(bad: float) -> None:
+    # threshold <= 0 makes BOTH windows trivially exceed (fail-open over-fire,
+    # since a burn rate is always >= 0); NaN makes every comparison False (a
+    # silently dead alert). Both must fail closed at construction.
+    with pytest.raises(ValueError, match="burn_rate_threshold"):
+        _alert_def(burn_rate_threshold=bad)
+
+
+def test_burn_rate_alert_def_rejects_non_positive_windows() -> None:
+    with pytest.raises(ValueError, match="short_window_minutes MUST be >= 1"):
+        _alert_def(short_window_minutes=0)
+    with pytest.raises(ValueError, match="long_window_minutes MUST be >= 1"):
+        _alert_def(long_window_minutes=0)
+
+
+@pytest.mark.parametrize(("short", "long_"), [(60, 60), (60, 5)])
+def test_burn_rate_alert_def_rejects_non_increasing_windows(short: int, long_: int) -> None:
+    # Equal or swapped windows collapse the multi-window design.
+    with pytest.raises(ValueError, match="short_window_minutes MUST be < long_window_minutes"):
+        _alert_def(short_window_minutes=short, long_window_minutes=long_)
+
+
+def test_burn_rate_alert_def_rejects_empty_name() -> None:
+    with pytest.raises(ValueError, match="name MUST be non-empty"):
+        _alert_def(name="")
+
+
 def test_burn_rate_of_1_means_burning_at_allowed_pace() -> None:
     # objective 0.9 -> 10% bad allowed. bad_ratio 10% => rate 1.0
     br = BurnRate(window_minutes=5, good_events=900, total_events=1000, objective_ratio=0.9)

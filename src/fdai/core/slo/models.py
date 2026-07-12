@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -39,6 +40,30 @@ class BurnRateAlertDef:
     long_window_minutes: int
     burn_rate_threshold: float
     severity: str = "sev3"
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("name MUST be non-empty")
+        # The evaluator fires when ``rate >= burn_rate_threshold`` and a
+        # burn rate is always >= 0. A threshold <= 0 therefore makes BOTH
+        # windows trivially exceed on every pass - a fail-OPEN alert that
+        # screams with zero bad events; a non-finite threshold (NaN) makes
+        # every comparison False - a silently dead alert. Require a finite,
+        # strictly-positive threshold so the alert means what it says.
+        if not math.isfinite(self.burn_rate_threshold) or self.burn_rate_threshold <= 0.0:
+            raise ValueError("burn_rate_threshold MUST be finite and > 0")
+        if self.short_window_minutes < 1:
+            raise ValueError("short_window_minutes MUST be >= 1")
+        if self.long_window_minutes < 1:
+            raise ValueError("long_window_minutes MUST be >= 1")
+        # Multi-window multi-burn-rate requires a strictly shorter fast
+        # window and a longer noise-suppressing window; equal or swapped
+        # windows collapse the design into a single-window alert or invert
+        # its intent.
+        if self.short_window_minutes >= self.long_window_minutes:
+            raise ValueError(
+                "short_window_minutes MUST be < long_window_minutes (multi-window invariant)"
+            )
 
 
 @dataclass(frozen=True, slots=True)
