@@ -291,10 +291,16 @@ function nextTurn(
   // 1. No action yet -> ask what to do.
   if (actions.length === 0) {
     const s = { ...slots, stage: "need_action" as ChatStage };
-    const understood = understoodLine(prev, slots);
+    // If we already asked and their answer still resolved to no action, say so
+    // instead of silently re-asking the same question.
+    const retry = prev.stage === "need_action";
+    const lead = retry
+      ? "I couldn't map that to an action yet - pick one below, or describe it " +
+        'another way (for example "restart the service" or "right-size it").\n\n'
+      : understoodLine(prev, slots);
     return {
       text:
-        `${understood}First, **what should the workflow do?** Pick an action to run, ` +
+        `${lead}First, **what should the workflow do?** Pick an action to run, ` +
         "or describe it and I'll match one.",
       options: actionChips(palette, slots, []),
       slots: s,
@@ -305,9 +311,13 @@ function nextTurn(
   // 2. Trigger not settled -> ask when to run.
   if (!slots.triggerConfirmed) {
     const s = { ...slots, stage: "need_trigger" as ChatStage };
+    const retry = prev.stage === "need_trigger";
+    const lead = retry
+      ? "I couldn't read a trigger from that - choose one of these.\n\n"
+      : understoodLine(prev, slots);
     return {
       text:
-        `${understoodLine(prev, slots)}**When should it run?** Choose the signal that ` +
+        `${lead}**When should it run?** Choose the signal that ` +
         "starts it, or a schedule.",
       options: triggerChips(),
       slots: s,

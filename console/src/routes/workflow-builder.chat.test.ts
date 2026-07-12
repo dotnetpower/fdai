@@ -261,6 +261,27 @@ describe("chat engine full-flow integration", () => {
     const start = startChat([]);
     expect(() => respondToChat(start.slots, "right-size everything", [])).not.toThrow();
   });
+
+  it("acknowledges when a follow-up answer resolves to no action", () => {
+    const start = startChat(PALETTE);
+    // First unrecognized goal -> lands at need_action (first ask, no apology).
+    const t1 = respondToChat(start.slots, "do something vague", PALETTE);
+    expect(t1.slots.stage).toBe("need_action");
+    // Second unrecognized answer at need_action -> explicit no-match note.
+    const t2 = respondToChat(t1.slots, "xyzzy nonsense", PALETTE);
+    expect(t2.slots.stage).toBe("need_action");
+    expect(t2.text.toLowerCase()).toContain("couldn't map that");
+  });
+
+  it("acknowledges when a follow-up answer resolves to no trigger", () => {
+    const start = startChat(PALETTE);
+    const t1 = respondToChat(start.slots, "action:remediate.restart-service", PALETTE);
+    expect(t1.slots.stage).toBe("need_trigger");
+    // Free text that carries no trigger keyword -> re-ask with acknowledgment.
+    const t2 = respondToChat(t1.slots, "hmm not sure", PALETTE);
+    expect(t2.slots.stage).toBe("need_trigger");
+    expect(t2.text.toLowerCase()).toContain("couldn't read a trigger");
+  });
 });
 
 describe("chat engine pure utilities", () => {
