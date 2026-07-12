@@ -507,7 +507,7 @@ async def _finalize_llm_bindings(
     if not endpoint:
         raise RuntimeError(
             "llm.mode='azure' requires FDAI_LLM_ENDPOINT env "
-            "(e.g. https://oai-fdai-dev-krc.openai.azure.com)"
+            "(e.g. https://<caf-openai-endpoint>.openai.azure.com)"
         )
     return await wire_azure_container(
         container,

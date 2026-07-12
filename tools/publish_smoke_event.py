@@ -10,7 +10,7 @@ the round-trip end-to-end.
 Env vars:
 
 - ``FDAI_EVENT_HUB_NAMESPACE`` (**required**) - fully qualified Event Hubs
-  namespace host, e.g. ``evhns-fdai-dev-krc.servicebus.windows.net``.
+  namespace host, e.g. ``<caf-eventhubs-namespace>.servicebus.windows.net``.
   Never hardcoded here per generic-scope.instructions.md (no endpoints in
   the repo); every environment / region has a different value.
 - ``FDAI_EVENT_HUB_TOPIC`` (optional, default ``aw.change.events``) -

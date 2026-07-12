@@ -88,7 +88,7 @@ class AzureOpenAINarratorModelConfig:
     """Endpoint + deployment binding for the narrator chat completion."""
 
     endpoint: str
-    """Custom-subdomain URL, e.g. ``https://oai-fdai-dev-krc.openai.azure.com``."""
+    """Custom-subdomain URL, e.g. ``https://<caf-openai-endpoint>.openai.azure.com``."""
 
     deployment: str
     """Deployment name as created by Terraform (matches capability

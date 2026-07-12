@@ -355,7 +355,7 @@ def _build_narrator() -> Narrator | None:
     if not endpoint:
         sys.stderr.write(
             "chat: LLM_MODE=azure requires FDAI_LLM_ENDPOINT "
-            "(e.g. https://oai-fdai-dev-krc.openai.azure.com/); "
+            "(e.g. https://<caf-openai-endpoint>.openai.azure.com/); "
             "falling back to deterministic keyword narrator.\n"
         )
         return DeterministicKeywordNarrator()
