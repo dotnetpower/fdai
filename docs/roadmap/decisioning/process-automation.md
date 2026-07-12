@@ -374,6 +374,18 @@ inline in the chat:
 - the git-native next step: copy the YAML into
   `rule-catalog/workflows/<name>.yaml` and open a remediation PR.
 
+The engine's pure, stateless pieces are split into sibling modules so each has
+one axis of change and is unit-testable without a DOM: the chip / form-slot
+builders and the option-token grammar
+([`workflow-builder.chat.builders.ts`](../../../console/src/routes/workflow-builder.chat.builders.ts)),
+the inline-markdown tokenizer
+([`workflow-builder.richtext.ts`](../../../console/src/routes/workflow-builder.richtext.ts)),
+and the flow-map derivation
+([`workflow-builder.viz.ts`](../../../console/src/routes/workflow-builder.viz.ts)).
+The operator's own typed text is echoed as plain text (never through the
+markdown parser), and only the newest turn's chips stay interactive so a stale
+suggestion cannot corrupt a later stage.
+
 The same three opt-in, Reader-gated read API routes back it, all pure
 projections that
 write no state (see
