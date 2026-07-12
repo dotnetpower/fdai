@@ -9,6 +9,14 @@ description: >-
   so the risk gate can cap autonomy when the failure is beyond the
   gateway (internet-side vs backend-side). Consumed by ActionTypes that
   set live_probe_ref: blast_radius_classifier.
+# adapter_ref: this manifest is data. The upstream repo does NOT ship a
+# runtime adapter for probe-adapters/blast-radius-http; a fork's
+# composition root binds a concrete HTTP-check adapter under the same
+# ref and the risk gate resolves it at use time. Until the fork binds
+# it, an ActionType that opts into live_probe_ref: blast_radius_classifier
+# fails closed (fail-toward-safety per execution-model.md § 4.2), never
+# a silent no-op. See tests/rule_catalog/test_probe_catalog.py for the
+# adapter-ref naming convention this obeys.
 adapter_ref: probe-adapters/blast-radius-http
 adapter_payload:
   # Author-controlled configuration. The adapter issues the same HTTP

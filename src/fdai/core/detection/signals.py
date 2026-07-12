@@ -47,7 +47,14 @@ SIGNAL_MEMBER_HOTSPOT = "member_hotspot"
 """One member of a pool (one pod, one instance) is significantly hotter
 than its peers - the ``cloud_RoleInstance`` split of an otherwise
 aggregate CPU/latency series (T0+T2 via ``rca/causal_chain``).
-Scenarios C3 / C4."""
+
+This signal is intentionally **RCA-only** and has no dedicated
+``FaultScenario``: scenarios C3 / C4 inject an ordinary node/pod CPU or
+memory stress (:data:`~fdai.core.chaos.AKS_POD_CPU_SPIKE` /
+:data:`~fdai.core.chaos.VM_MEM_STRESS`), and the RCA layer emits
+``member_hotspot`` when its causal chain identifies which one member is
+responsible. Do not add a scenario with this ``expected_signal`` - if
+you need one, author a distinct signal instead."""
 
 # Host / IaaS
 SIGNAL_HOST_CPU = "host_cpu"

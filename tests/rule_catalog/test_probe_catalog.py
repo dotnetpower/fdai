@@ -132,3 +132,45 @@ def test_no_extra_shipped_probe_undocumented() -> None:
         f"{extra}. Document them (docs-first) before shipping, or delete the "
         f"YAML."
     )
+
+
+# ---------------------------------------------------------------------------
+# Adapter-ref naming convention (R3 hardening)
+# ---------------------------------------------------------------------------
+#
+# ``adapter_ref`` is the DI seam id a fork's composition root binds an
+# adapter to. Enforcing a common prefix stops accidental typos
+# (``prb-adapters/…``, ``probeAdapters/…``) becoming silent runtime
+# failures - the risk gate would call the resolver, get nothing back,
+# and fail toward safety, but the operator would never learn why.
+
+_ADAPTER_REF_PREFIX = "probe-adapters/"
+
+
+def test_every_probe_adapter_ref_matches_naming_convention() -> None:
+    catalog = load_probe_catalog(_PROBES_ROOT)
+    for probe in catalog:
+        assert probe.adapter_ref.startswith(_ADAPTER_REF_PREFIX), (
+            f"{probe.id}: adapter_ref {probe.adapter_ref!r} must start "
+            f"with {_ADAPTER_REF_PREFIX!r} (fork composition-root binding "
+            "convention)"
+        )
+        # After the prefix, the remainder must be a kebab-case token so
+        # a fork's binding table can key on it deterministically.
+        remainder = probe.adapter_ref[len(_ADAPTER_REF_PREFIX):]
+        assert remainder and remainder.replace("-", "").isalnum(), (
+            f"{probe.id}: adapter_ref suffix {remainder!r} must be a "
+            "kebab-case token"
+        )
+
+
+def test_every_probe_id_is_snake_case() -> None:
+    import re
+
+    catalog = load_probe_catalog(_PROBES_ROOT)
+    pattern = re.compile(r"^[a-z][a-z0-9_]*$")
+    for probe in catalog:
+        assert pattern.match(probe.id), (
+            f"probe id {probe.id!r} must match {pattern.pattern!r} "
+            "(shared audit-id shape)"
+        )

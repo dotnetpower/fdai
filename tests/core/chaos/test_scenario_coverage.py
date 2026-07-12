@@ -180,3 +180,43 @@ def test_fault_type_reuse_is_intentional_only() -> None:
         f"got {reused}. Either add an intentional entry (with justification "
         f"in the commit) or pick a distinct fault_type."
     )
+
+
+# ---------------------------------------------------------------------------
+# Signals with intentional gaps (R3 hardening)
+# ---------------------------------------------------------------------------
+#
+# Not every registered signal is the ``expected_signal`` of a scenario;
+# some are emitted only by the RCA layer (e.g. ``member_hotspot``) when
+# it identifies which pool member is responsible for an already-detected
+# aggregate anomaly. Lock the "RCA-only" set so a maintainer does not
+# delete ``member_hotspot`` from the registry as dead code, and does not
+# quietly add a scenario with it as ``expected_signal`` (that would
+# collapse the aggregate vs member distinction the RCA layer relies on).
+
+# Locked list of signals that MUST exist in the registry but MUST NOT
+# be any scenario's ``expected_signal``. Editing this set requires a
+# justification in the commit that also documents the RCA path.
+_RCA_ONLY_SIGNALS: frozenset[str] = frozenset({"member_hotspot"})
+
+
+def test_rca_only_signals_are_registered() -> None:
+    """Every RCA-only signal is still in the canonical registry."""
+    for signal in _RCA_ONLY_SIGNALS:
+        assert is_known_signal(signal), (
+            f"RCA-only signal {signal!r} missing from registry - "
+            "either restore it or update _RCA_ONLY_SIGNALS."
+        )
+
+
+def test_rca_only_signals_are_not_scenario_expected() -> None:
+    """No scenario declares an RCA-only signal as its expected_signal."""
+    scenario_signals = {s.expected_signal for s in default_scenarios()}
+    conflicts = scenario_signals & _RCA_ONLY_SIGNALS
+    assert not conflicts, (
+        f"Scenario(s) declared an RCA-only signal as expected_signal: "
+        f"{sorted(conflicts)}. RCA-only signals surface a member-level "
+        f"causal chain over an already-detected aggregate anomaly; a "
+        f"scenario that expects one directly would collapse that "
+        f"distinction. Author a distinct signal instead."
+    )
