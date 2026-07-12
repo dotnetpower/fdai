@@ -14,6 +14,7 @@ makes that possible, and it survives app rebuilds.
 | Ops (hub) VNet + `snet-runner` + `snet-pe` | Stable network the runner lives in. |
 | State storage account (private) + `tfstate` container | Terraform remote backend the runner reaches over a private endpoint. |
 | Blob private endpoint + `privatelink.blob.core.windows.net` | Private resolution of the state account from the ops VNet. |
+| NAT gateway + static public IP on `snet-runner` (`nat.tf`) | Explicit, durable outbound egress. The subnet originally relied on Azure "default outbound access", which is being retired: after a VM deallocate/start cycle the runner lost all outbound internet (GitHub + ARM + AAD all timed out) while the private state endpoint stayed reachable. A NAT gateway restores egress through one static IP while the VM keeps **no** public IP (no inbound exposure), and it survives deallocate/start cycles. |
 | Runner VM (no public IP) + system-assigned MI | The only host with line-of-sight to the app's private endpoints. |
 | Role assignments | Runner MI -> Contributor on the app RG + Storage Blob Data Contributor on the state account. |
 
