@@ -59,12 +59,12 @@
       "promotionGates": "Per-ActionType readiness for shadow → enforce",
       "dashboard": "Healthy, risk, and cost, sourced from the audit log",
       "rules": "Every policy in the rule catalog, faceted",
-      "workflowBuilder": "Browse built-in workflows or author a new ontology-mapped one",
+      "workflowBuilder": "Browse built-in workflows or design a new one by chatting",
       "llmCost": "Token usage and spend per conversation, day, and month"
     }
   },
   "workflowBuilder": {
-    "subtitle": "Browse the built-in workflows read-only, or start a new one. A workflow is an ordered list of steps mapped onto ontology ActionTypes. Authoring validates and previews only - the console does not commit; copy the YAML into a remediation PR."
+    "subtitle": "Browse the built-in workflows read-only, or design a new one by chatting with the builder. Describe what you want in plain words; it asks follow-up questions, generates the YAML, shows a visual of how it runs, and lets you test it. The console never commits - copy the YAML into a remediation PR."
   },
   "overview": {
     "subtitle": "Healthy, risk, and cost at a glance - from the append-only audit log. Refreshes on reload; no polling.",

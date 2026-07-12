@@ -121,8 +121,9 @@ export const ROUTE_ACTION_HINTS: Readonly<Record<string, string>> = {
     "Agent activity: per-agent timeline from the audit log; group by correlation id " +
     "to see the hand-off cascade for one incident.",
   "workflow-builder":
-    "Workflow builder: compose a pipeline; save produces a governance PR - nothing " +
-    "runs from this screen directly.",
+    "Workflow builder: design a workflow by chatting with the builder - describe it " +
+    "in plain words, answer a few questions, and it generates the YAML; saving is a " +
+    "governance PR, nothing runs from this screen directly.",
   provision:
     "Provision: watch a bootstrap pipeline (plan/apply); progress streams live; " +
     "no privileged action runs from the console (executor holds the only identity).",
