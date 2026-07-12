@@ -669,13 +669,13 @@ async def test_heartbeat_preserves_http_exception_detail() -> None:
     generic 'chat stream failed' and the operator loses the actual reason.
     """
     import pytest as _pytest
-    from starlette.exceptions import HTTPException as _HTTP
+    from starlette.exceptions import HTTPException as _HttpError
 
     async def _src():
         yield {"type": "token", "delta": "ok"}
-        raise _HTTP(status_code=502, detail="chat upstream error")
+        raise _HttpError(status_code=502, detail="chat upstream error")
 
-    with _pytest.raises(_HTTP) as excinfo:
+    with _pytest.raises(_HttpError) as excinfo:
         await _collect_heartbeats(_src, interval=1.0)
     assert excinfo.value.status_code == 502
     assert excinfo.value.detail == "chat upstream error"
