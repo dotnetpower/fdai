@@ -115,6 +115,92 @@
     .dk-source-kind.is-audit { color: var(--cs-sage); background: rgba(94,130,89,.10); }
     .dk-source-kind.is-trace { color: var(--cs-teal); background: rgba(79,132,126,.10); }
     .dk-source-kind.is-doc   { color: var(--cs-steel); background: rgba(68,104,142,.10); }
+
+    /* -------------------------------------------------------------------
+       Rich content inside a bubble: tables, code, charts, figures.
+       All calm-slate tinted; no external asset dependencies.
+       ------------------------------------------------------------------- */
+    .dk-code { display: block; margin: 8px 0 4px; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-shade); font-family: "Cascadia Code","Consolas",monospace; font-size: 12px; line-height: 1.55; color: var(--cs-text); overflow-x: auto; white-space: pre; }
+    .dk-code .kw   { color: var(--cs-plum); font-weight: 600; }
+    .dk-code .str  { color: var(--cs-sage); }
+    .dk-code .num  { color: var(--cs-terracotta); }
+    .dk-code .com  { color: var(--cs-text-soft); font-style: italic; }
+    .dk-code-lang { display: block; font-family: "Segoe UI",sans-serif; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--cs-text-soft); font-weight: 700; margin-bottom: 6px; }
+
+    .dk-table-wrap { margin: 8px 0 4px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); overflow: hidden; }
+    .dk-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .dk-table thead th { background: var(--cs-navy); color: #fff; text-align: left; padding: 6px 10px; font-weight: 600; font-size: 11.5px; letter-spacing: .02em; }
+    .dk-table tbody td { padding: 6px 10px; border-top: 1px solid var(--cs-hairline); color: var(--cs-text); }
+    .dk-table tbody tr:nth-child(even) td { background: var(--cs-shade); }
+    .dk-table code { font-size: 11.5px; }
+    .dk-table .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--cs-text-soft); }
+
+    .dk-chart-wrap { margin: 8px 0 4px; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); }
+    .dk-chart-caption { font-size: 11.5px; color: var(--cs-text-soft); margin-top: 4px; }
+    .dk-chart svg { display: block; width: 100%; height: auto; }
+    .dk-chart .bar { fill: var(--cs-steel); }
+    .dk-chart .bar.is-alert { fill: var(--cs-terracotta); }
+    .dk-chart .grid { stroke: var(--cs-hairline); stroke-width: 1; }
+    .dk-chart .axis-label { fill: var(--cs-text-soft); font-size: 9.5px; font-family: "Cascadia Code","Consolas",monospace; }
+    .dk-chart .line { fill: none; stroke: var(--cs-teal); stroke-width: 1.5; }
+    .dk-chart .baseline { stroke: var(--cs-text-soft); stroke-dasharray: 3 3; stroke-width: 1; opacity: .55; }
+
+    .dk-figure { margin: 8px 0 4px; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); }
+    .dk-figure svg { display: block; width: 100%; height: auto; max-height: 220px; }
+    .dk-figure figcaption { font-size: 11.5px; color: var(--cs-text-soft); margin-top: 6px; text-align: center; }
+    .dk-figure .node rect { fill: var(--cs-card); stroke: var(--cs-hairline); rx: 6; }
+    .dk-figure .node.is-target rect { stroke: var(--cs-steel); stroke-width: 2; fill: rgba(68,104,142,.06); }
+    .dk-figure .node text { font: 600 10px/1 "Segoe UI",sans-serif; fill: var(--cs-text); text-anchor: middle; }
+    .dk-figure .link { fill: none; stroke: var(--cs-hairline); }
+    .dk-figure .link.is-direct { stroke: var(--cs-terracotta); stroke-dasharray: none; }
+
+    /* -------------------------------------------------------------------
+       @-mention pill (inside a bubble) + autocomplete popup (composer).
+       ------------------------------------------------------------------- */
+    .dk-mention { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border-radius: 999px; font-weight: 600; font-size: 12px; background: rgba(68,104,142,.12); color: var(--cs-steel); border: 1px solid rgba(68,104,142,.24); vertical-align: 1px; }
+    .dk-mention::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .8; }
+    .dk-mention.is-plum       { color: var(--cs-plum);       background: rgba(123,108,156,.12); border-color: rgba(123,108,156,.24); }
+    .dk-mention.is-sage       { color: var(--cs-sage);       background: rgba(94,130,89,.12);   border-color: rgba(94,130,89,.24); }
+    .dk-mention.is-teal       { color: var(--cs-teal);       background: rgba(79,132,126,.12);  border-color: rgba(79,132,126,.24); }
+    .dk-mention.is-terracotta { color: var(--cs-terracotta); background: rgba(188,116,73,.12);  border-color: rgba(188,116,73,.24); }
+    .dk-mention.is-dusty-red  { color: var(--cs-dusty-red);  background: rgba(172,90,90,.12);   border-color: rgba(172,90,90,.24); }
+    .dk-mention.is-navy       { color: var(--cs-navy);       background: var(--cs-shade);       border-color: var(--cs-hairline); }
+    .dk-cc { margin-top: 6px; font-size: 11.5px; color: var(--cs-text-soft); }
+    .dk-cc .dk-mention { font-size: 11px; padding: 0 6px 0 5px; }
+
+    /* Composer @-mention autocomplete popup. Static in the mock (always
+       open) so the interaction pattern is discoverable at a glance. */
+    .dk-composer { position: relative; }
+    .dk-mention-pop { position: absolute; left: 14px; bottom: 100%; margin-bottom: 6px; padding: 6px; background: var(--cs-card); border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); box-shadow: 0 6px 18px rgba(15,23,30,.08); z-index: 2; width: 300px; max-width: calc(100% - 28px); }
+    .dk-mention-pop-head { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 8px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--cs-text-soft); font-weight: 700; }
+    .dk-mention-pop-head kbd { font-family: "Cascadia Code","Consolas",monospace; padding: 0 5px; border: 1px solid var(--cs-hairline); border-radius: 3px; background: var(--cs-shade); font-size: 10.5px; font-weight: 600; color: var(--cs-text); text-transform: none; }
+    .dk-mention-pop ul { list-style: none; margin: 0; padding: 0; }
+    .dk-mention-pop li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--cs-radius-sm); font-size: 13px; cursor: default; }
+    .dk-mention-pop li:hover { background: var(--cs-shade); }
+    .dk-mention-pop li.is-active { background: rgba(68,104,142,.10); }
+    .dk-mention-pop-av { width: 22px; height: 22px; border-radius: 50%; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 700; flex: 0 0 auto; }
+    .dk-mention-pop-av.is-plum  { background: var(--cs-plum); }
+    .dk-mention-pop-av.is-steel { background: var(--cs-steel); }
+    .dk-mention-pop-av.is-teal  { background: var(--cs-teal); }
+    .dk-mention-pop-av.is-sage  { background: var(--cs-sage); }
+    .dk-mention-pop-av.is-terracotta { background: var(--cs-terracotta); }
+    .dk-mention-pop-name { color: var(--cs-text); font-weight: 600; }
+    .dk-mention-pop-role { color: var(--cs-text-soft); font-size: 11.5px; margin-left: auto; }
+
+    .dk-composer-row.is-mentioning { border-color: rgba(68,104,142,.35); box-shadow: 0 0 0 2px rgba(68,104,142,.08); }
+    .dk-composer-foot kbd { font-family: "Cascadia Code","Consolas",monospace; padding: 0 5px; border: 1px solid var(--cs-hairline); border-radius: 3px; background: var(--cs-shade); font-size: 10.5px; font-weight: 600; color: var(--cs-text); }
+
+    /* -------------------------------------------------------------------
+       Retrieval trace collapse. Header carries a toggle; collapsed state
+       hides the trace column so the transcript stretches into that space.
+       ------------------------------------------------------------------- */
+    .dk-shell.is-trace-collapsed { grid-template-columns: 240px minmax(0, 1fr); }
+    .dk-shell.is-trace-collapsed .dk-trace { display: none; }
+    @media (max-width: 780px) { .dk-shell.is-trace-collapsed { grid-template-columns: 1fr; } }
+
+    .dk-trace-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; font: inherit; font-size: 12px; border-radius: 999px; border: 1px solid var(--cs-hairline); background: var(--cs-card); color: var(--cs-text-soft); cursor: pointer; }
+    .dk-trace-toggle:hover { color: var(--cs-text); background: var(--cs-shade); }
+    .dk-trace-toggle .chev { display: inline-block; font-size: 11px; }
   </style>
 </head>
 <body>
@@ -203,6 +289,10 @@
           <div class="dk-t-badges">
             <span class="dk-t-badge">Open</span>
             <span class="dk-t-badge is-ro">Read-only</span>
+            <button type="button" class="dk-trace-toggle" id="dk-trace-toggle" aria-controls="dk-trace" aria-expanded="true">
+              <span class="dk-trace-toggle-label">Hide trace</span>
+              <span class="chev" aria-hidden="true">&rarr;</span>
+            </button>
           </div>
         </header>
 
@@ -318,6 +408,149 @@
             </div>
           </div>
 
+          <!-- Operator @-mentions another agent directly -->
+          <div class="dk-turn is-op">
+            <span class="dk-turn-avatar is-op" aria-hidden="true">Op</span>
+            <div class="dk-turn-body">
+              <span class="dk-turn-meta"><strong>You</strong> &middot; <time>09:46</time></span>
+              <div class="dk-bubble">
+                <p>Hey <span class="dk-mention is-terracotta">@Loki</span>, show me the current
+                  <code>aks-pod-kill</code> spec, and
+                  <span class="dk-mention is-teal">@Heimdall</span> - please plot the pod-restart
+                  rate over the last 10 minutes.</p>
+                <p class="dk-cc">cc: <span class="dk-mention is-dusty-red">@Var</span> <span class="dk-mention">@Thor</span></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Loki responds with a code block (experiment YAML) -->
+          <div class="dk-turn">
+            <span class="dk-turn-avatar is-terracotta" aria-hidden="true">Lo</span>
+            <div class="dk-turn-body">
+              <span class="dk-turn-meta"><strong>Loki</strong> (domain: chaos) &middot; <time>09:46</time> &middot; replying to <span class="dk-mention is-navy">@You</span></span>
+              <div class="dk-bubble">
+                <p>Here is the registered spec for <code>aks-pod-kill</code>. It is scoped to a
+                  single deployment with a hard 1-target cap, and its schedule is what fired at
+                  09:30.</p>
+                <pre class="dk-code"><span class="dk-code-lang">yaml</span><span class="kw">experiment</span>: aks-pod-kill
+<span class="kw">scope</span>:
+  <span class="kw">cluster</span>: <span class="str">"aks-prod-krc"</span>
+  <span class="kw">namespace</span>: <span class="str">"nginx-canary"</span>
+  <span class="kw">selector</span>: <span class="str">"app=nginx-canary"</span>
+<span class="kw">blast_radius</span>:
+  <span class="kw">max_targets</span>: <span class="num">1</span>       <span class="com"># hard cap</span>
+  <span class="kw">max_impact_seconds</span>: <span class="num">120</span>
+<span class="kw">schedule</span>: <span class="str">"cron(30 09 * * MON)"</span>
+<span class="kw">guardrails</span>:
+  <span class="kw">stop_condition</span>: <span class="str">"p95_latency_ms &gt; 800"</span>
+  <span class="kw">rollback</span>: <span class="str">"restore_replicaset"</span></pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- Heimdall responds with a chart (SVG bar chart) -->
+          <div class="dk-turn">
+            <span class="dk-turn-avatar is-teal" aria-hidden="true">He</span>
+            <div class="dk-turn-body">
+              <span class="dk-turn-meta"><strong>Heimdall</strong> &middot; <time>09:46</time> &middot; grounded on live metric stream</span>
+              <div class="dk-bubble">
+                <p>Pod restart rate on <code>nginx-canary</code>, 1-minute buckets, last 10 min.
+                  Baseline (dashed) is <code>0.4/min</code>; the storm peaked at
+                  <code>3.1/min</code> at 09:35, then auto-heal took hold.</p>
+                <figure class="dk-chart-wrap dk-chart">
+                  <svg viewBox="0 0 320 110" preserveAspectRatio="none" role="img" aria-label="Pod restart rate over 10 minutes">
+                    <line class="grid" x1="0" x2="320" y1="20"  y2="20" />
+                    <line class="grid" x1="0" x2="320" y1="55"  y2="55" />
+                    <line class="grid" x1="0" x2="320" y1="90"  y2="90" />
+                    <line class="baseline" x1="0" x2="320" y1="85" y2="85" />
+                    <rect class="bar"           x="6"   y="78" width="22" height="12" />
+                    <rect class="bar"           x="34"  y="75" width="22" height="15" />
+                    <rect class="bar"           x="62"  y="70" width="22" height="20" />
+                    <rect class="bar"           x="90"  y="58" width="22" height="32" />
+                    <rect class="bar is-alert"  x="118" y="36" width="22" height="54" />
+                    <rect class="bar is-alert"  x="146" y="22" width="22" height="68" />
+                    <rect class="bar is-alert"  x="174" y="18" width="22" height="72" />
+                    <rect class="bar is-alert"  x="202" y="40" width="22" height="50" />
+                    <rect class="bar"           x="230" y="62" width="22" height="28" />
+                    <rect class="bar"           x="258" y="75" width="22" height="15" />
+                    <rect class="bar"           x="286" y="82" width="22" height="8" />
+                    <text class="axis-label" x="6"   y="104">09:36</text>
+                    <text class="axis-label" x="148" y="104">09:41</text>
+                    <text class="axis-label" x="286" y="104">09:46</text>
+                  </svg>
+                  <div class="dk-chart-caption">Series: restarts / minute &middot; alert bars = above stop-condition</div>
+                </figure>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bragi follows up with a mini audit table -->
+          <div class="dk-turn">
+            <span class="dk-turn-avatar is-plum" aria-hidden="true">Br</span>
+            <div class="dk-turn-body">
+              <span class="dk-turn-meta"><strong>Bragi</strong> &middot; <time>09:47</time> &middot; grounded on <span class="dk-mention is-sage">@Saga</span> last 5</span>
+              <div class="dk-bubble">
+                <p>Last 5 audit entries scoped to <code>billing-db-prod</code>. Nothing since the
+                  09:37 seal - autonomy has been quiet.</p>
+                <div class="dk-table-wrap">
+                  <table class="dk-table">
+                    <thead>
+                      <tr><th>Time (KST)</th><th>Actor</th><th>Action</th><th>Outcome</th><th class="num">Elapsed</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>09:37:14</td><td><span class="dk-mention is-sage">@Saga</span></td><td>seal audit</td><td>success</td><td class="num">14 ms</td></tr>
+                      <tr><td>09:37:02</td><td><span class="dk-mention">@Thor</span></td><td><code>k8s.scale-deployment</code></td><td>success</td><td class="num">1.9 s</td></tr>
+                      <tr><td>09:36:58</td><td><span class="dk-mention is-dusty-red">@Var</span></td><td>approval granted</td><td>signed</td><td class="num">2.3 s</td></tr>
+                      <tr><td>09:36:44</td><td><span class="dk-mention is-plum">@Forseti</span></td><td>verdict</td><td>hil</td><td class="num">0.6 s</td></tr>
+                      <tr><td>09:36:22</td><td><span class="dk-mention is-teal">@Heimdall</span></td><td>anomaly raised</td><td>0.92 score</td><td class="num">0.1 s</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bragi renders a small topology figure (inline SVG image) -->
+          <div class="dk-turn">
+            <span class="dk-turn-avatar is-plum" aria-hidden="true">Br</span>
+            <div class="dk-turn-body">
+              <span class="dk-turn-meta"><strong>Bragi</strong> &middot; <time>09:47</time> &middot; scope diagram</span>
+              <div class="dk-bubble">
+                <p>For context, this is the blast-radius scope Loki was constrained to. The
+                  experiment can only touch the target; the risk gate would have held anything
+                  outside the shaded region.</p>
+                <figure class="dk-figure">
+                  <svg viewBox="0 0 380 150" role="img" aria-label="Blast-radius topology - target and direct dependants">
+                    <path class="link is-direct" d="M100 80 L 190 80" />
+                    <path class="link" d="M190 80 L 280 40" />
+                    <path class="link" d="M190 80 L 280 120" />
+                    <g class="node is-target" transform="translate(60, 55)">
+                      <rect width="80" height="48" />
+                      <text x="40" y="22">nginx-canary</text>
+                      <text x="40" y="36" fill="#6B7178" style="font-size:9px">target (chaos)</text>
+                    </g>
+                    <g class="node" transform="translate(150, 55)">
+                      <rect width="80" height="48" />
+                      <text x="40" y="22">nginx-lb</text>
+                      <text x="40" y="36" fill="#6B7178" style="font-size:9px">direct</text>
+                    </g>
+                    <g class="node" transform="translate(240, 16)">
+                      <rect width="120" height="44" />
+                      <text x="60" y="20">billing-api-prod</text>
+                      <text x="60" y="34" fill="#6B7178" style="font-size:9px">indirect (observed only)</text>
+                    </g>
+                    <g class="node" transform="translate(240, 96)">
+                      <rect width="120" height="44" />
+                      <text x="60" y="20">invoice-worker</text>
+                      <text x="60" y="34" fill="#6B7178" style="font-size:9px">indirect (observed only)</text>
+                    </g>
+                  </svg>
+                  <figcaption>Solid orange = risk-gate direct scope &middot; hairline = observed but out of blast radius</figcaption>
+                </figure>
+              </div>
+            </div>
+          </div>
+
           <!-- Typing indicator (illustrative only) -->
           <div class="dk-turn">
             <span class="dk-turn-avatar is-plum" aria-hidden="true">Br</span>
@@ -331,11 +564,38 @@
         </div>
 
         <footer class="dk-composer">
-          <div class="dk-composer-row">
-            <textarea rows="1" placeholder="Ask Bragi about incidents, agents, rules, audits..."></textarea>
+          <!-- @-mention autocomplete popup. Static in the mock (always open)
+               so the interaction is discoverable at a glance. -->
+          <div class="dk-mention-pop" role="listbox" aria-label="Mention an agent">
+            <div class="dk-mention-pop-head">
+              <span>Mention &middot; matching <code>@fo</code></span>
+              <span><kbd>&uarr;</kbd> <kbd>&darr;</kbd> move &middot; <kbd>Enter</kbd> insert &middot; <kbd>Esc</kbd> close</span>
+            </div>
+            <ul>
+              <li class="is-active" role="option" aria-selected="true">
+                <span class="dk-mention-pop-av is-plum">Fo</span>
+                <span class="dk-mention-pop-name">Forseti</span>
+                <span class="dk-mention-pop-role">Judge &middot; pipeline</span>
+              </li>
+              <li role="option">
+                <span class="dk-mention-pop-av is-teal">Fr</span>
+                <span class="dk-mention-pop-name">Freyr</span>
+                <span class="dk-mention-pop-role">Capacity &middot; domain</span>
+              </li>
+              <li role="option">
+                <span class="dk-mention-pop-av is-steel">Th</span>
+                <span class="dk-mention-pop-name">Thor</span>
+                <span class="dk-mention-pop-role">Responder &middot; pipeline</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="dk-composer-row is-mentioning">
+            <textarea rows="1" placeholder="Ask Bragi, or @mention any pantheon agent...">Hey @fo</textarea>
             <button type="button" class="dk-send">Send</button>
           </div>
           <div class="dk-composer-foot">
+            <span class="dk-tag">Type <kbd>@</kbd> to mention any of the 15 agents</span>
             <span class="dk-tag">Enter to send &middot; Shift+Enter for newline</span>
             <span class="dk-tag" style="margin-left:auto">Locale <span class="dk-mode">EN</span></span>
             <span class="dk-tag">Mode <span class="dk-mode">read + propose</span></span>
@@ -344,7 +604,7 @@
       </section>
 
       <!-- ============================ Retrieval / trace (right) ============================ -->
-      <aside class="dk-trace" aria-label="Retrieval and citations">
+      <aside class="dk-trace" id="dk-trace" aria-label="Retrieval and citations">
         <h3>Retrieval trace</h3>
         <p class="dk-q">Query: <strong>"FDAI-8812 root cause + who approved"</strong> &middot; 4 sources &middot; 210 ms</p>
 
@@ -400,5 +660,32 @@
       </aside>
     </div>
   </main>
+
+  <script>
+    // Retrieval-trace collapse toggle. Purely presentational: flips a class on
+    // the shell so the transcript column stretches into the trace column's
+    // space, and updates the button label + chevron. State persists in
+    // localStorage so the choice sticks across reloads.
+    (function () {
+      const shell = document.querySelector('.dk-shell');
+      const btn = document.getElementById('dk-trace-toggle');
+      const label = btn && btn.querySelector('.dk-trace-toggle-label');
+      const chev  = btn && btn.querySelector('.chev');
+      if (!shell || !btn || !label || !chev) return;
+      const KEY = 'fdai.deck.traceCollapsed';
+      function apply(collapsed) {
+        shell.classList.toggle('is-trace-collapsed', collapsed);
+        btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        label.textContent = collapsed ? 'Show trace' : 'Hide trace';
+        chev.innerHTML = collapsed ? '\u2190' : '\u2192';
+      }
+      try { apply(localStorage.getItem(KEY) === '1'); } catch (_) { /* private mode ok */ }
+      btn.addEventListener('click', function () {
+        const next = !shell.classList.contains('is-trace-collapsed');
+        apply(next);
+        try { localStorage.setItem(KEY, next ? '1' : '0'); } catch (_) { /* ok */ }
+      });
+    })();
+  </script>
 </body>
 </html>
