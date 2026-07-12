@@ -32,6 +32,7 @@ standard library, so it stays under the ``core/`` import rule.
 
 from __future__ import annotations
 
+import math
 import statistics
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -134,6 +135,14 @@ class MetricAnomalyDetector:
         if len(history) < self._min_samples:
             return None  # cold-start: abstain rather than fire on a thin baseline
         values = [s.value for s in history]
+        # Non-finite input (NaN / +-Inf) poisons the baseline: a NaN makes
+        # every ``abs(z) < threshold`` comparison False (so the detector would
+        # FIRE a spurious finding), and an Inf yields z=Inf that serializes to
+        # invalid JSON (``Infinity``) in the emitted Event payload. Abstain
+        # (fail-closed), exactly like a cold-start, rather than judge on
+        # corrupt telemetry.
+        if not math.isfinite(observed.value) or not all(math.isfinite(v) for v in values):
+            return None
         mean = statistics.fmean(values)
         std = statistics.pstdev(values)
 

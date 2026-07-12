@@ -100,6 +100,22 @@ def test_flat_baseline_deviation_is_critical() -> None:
     assert finding.reason == "flat_baseline_deviation"
 
 
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_observed_abstains(bad: float) -> None:
+    # A NaN observed slips past ``abs(z) < threshold`` (NaN comparisons are
+    # always False) and would FIRE a spurious finding; an Inf observed yields
+    # z=Inf that serializes to invalid JSON. Both must abstain (fail-closed).
+    assert _evaluate(_detector(), bad) is None
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_history_abstains(bad: float) -> None:
+    # A single corrupt baseline sample poisons mean/std -> abstain instead of
+    # judging on garbage telemetry.
+    poisoned = [8.0, 9.0, bad, 11.0, 12.0]
+    assert _evaluate(_detector(), 100.0, values=poisoned) is None
+
+
 @pytest.mark.parametrize(
     ("z_target", "expected"),
     [
