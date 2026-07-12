@@ -25,6 +25,7 @@ same defense without shared mutable state.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Final
 from urllib.parse import urlsplit
 
@@ -32,7 +33,7 @@ from fdai.core.operator_memory.sanitizer import (
     InjectionMarkerError,
     detect_injection_markers,
 )
-from fdai.core.web_search.types import WebSnippet
+from fdai.core.web_search.types import WebSearchResult, WebSnippet
 
 _XML_ESCAPES: Final[tuple[tuple[str, str], ...]] = (
     ("&", "&amp;"),
@@ -206,10 +207,68 @@ def _xml_escape(value: str) -> str:
     return escaped
 
 
+@dataclass(frozen=True, slots=True)
+class SanitizedWebResult:
+    """Outcome of sanitizing a whole :class:`WebSearchResult`.
+
+    ``wrapped`` holds the ``trusted="false"`` envelopes of every snippet
+    that passed all defenses, ready to inject into a T2 turn. ``dropped``
+    records ``(content_hash, reason_code)`` for every snippet that was
+    refused, so the audit log names exactly why a snippet did not reach
+    the prompt.
+    """
+
+    wrapped: tuple[str, ...]
+    dropped: tuple[tuple[str, str], ...]
+
+
+def sanitize_web_result(
+    result: WebSearchResult,
+    *,
+    max_body_chars: int = _DEFAULT_MAX_BODY_CHARS,
+) -> SanitizedWebResult:
+    """Validate + wrap every snippet in a result - the safe default path.
+
+    This is the "safe path is the easy path" entry point: instead of a
+    caller remembering to call :func:`validate_snippet_domain` and
+    :func:`wrap_web_snippet` per snippet (and forgetting on one), it hands
+    the whole :class:`WebSearchResult` here and gets back only clean,
+    allowlisted, size-capped, ``trusted="false"`` envelopes.
+
+    Fail-closed per snippet: a snippet that fails any defense (off
+    allowlist, invalid URL, domain/url mismatch, injection marker) is
+    dropped with a structured reason and NEVER reaches ``wrapped`` - one
+    hostile snippet cannot poison the clean ones. The result is also
+    capped at ``result.query.max_results`` so a provider that ignored the
+    contract and returned more snippets cannot fan out the prompt.
+    """
+
+    allowed = result.query.allowed_domains
+    wrapped: list[str] = []
+    dropped: list[tuple[str, str]] = []
+    for snippet in result.snippets[: result.query.max_results]:
+        try:
+            envelope = wrap_web_snippet(
+                snippet=snippet,
+                allowed_domains=allowed,
+                max_body_chars=max_body_chars,
+            )
+        except WebSnippetPolicyError as exc:
+            dropped.append((snippet.content_hash, exc.code))
+            continue
+        except InjectionMarkerError:
+            dropped.append((snippet.content_hash, "injection_markers_detected"))
+            continue
+        wrapped.append(envelope)
+    return SanitizedWebResult(wrapped=tuple(wrapped), dropped=tuple(dropped))
+
+
 __all__ = [
     "InjectionMarkerError",
+    "SanitizedWebResult",
     "WebSnippetPolicyError",
     "detect_snippet_injection_markers",
+    "sanitize_web_result",
     "validate_snippet_domain",
     "wrap_web_snippet",
 ]

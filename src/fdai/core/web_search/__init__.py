@@ -35,8 +35,10 @@ from fdai.core.web_search.provider import (
 )
 from fdai.core.web_search.sanitizer import (
     InjectionMarkerError,
+    SanitizedWebResult,
     WebSnippetPolicyError,
     detect_snippet_injection_markers,
+    sanitize_web_result,
     validate_snippet_domain,
     wrap_web_snippet,
 )
@@ -49,6 +51,7 @@ from fdai.core.web_search.types import (
 __all__ = [
     "InjectionMarkerError",
     "NoOpWebSearchProvider",
+    "SanitizedWebResult",
     "WebSearchDecision",
     "WebSearchPolicyConfig",
     "WebSearchProvider",
@@ -60,6 +63,7 @@ __all__ = [
     "WebSnippetPolicyError",
     "decide_web_search",
     "detect_snippet_injection_markers",
+    "sanitize_web_result",
     "validate_snippet_domain",
     "wrap_web_snippet",
 ]
