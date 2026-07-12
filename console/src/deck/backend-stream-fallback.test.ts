@@ -150,7 +150,7 @@ describe("askBackendStream fallback typewriter", () => {
     // The pacer must have produced multiple paints, not one atomic drop.
     expect(stamps.length).toBeGreaterThan(2);
     // Total pacing span > 0 (paints spread over time, not all at t=0).
-    const span = stamps[stamps.length - 1] - stamps[0];
+    const span = stamps[stamps.length - 1]! - stamps[0]!;
     expect(span).toBeGreaterThan(0);
   });
 });
