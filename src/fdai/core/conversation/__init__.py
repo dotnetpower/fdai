@@ -36,6 +36,7 @@ See also:
 from __future__ import annotations
 
 from fdai.core.conversation.context_bridge import (
+    assemble_turn_context,
     operator_memory_to_entries,
     session_to_working_context,
 )
@@ -123,6 +124,7 @@ __all__ = [
     "ToolResult",
     "ToolSchema",
     "Turn",
+    "assemble_turn_context",
     "default_tool_schemas",
     "format_prompt_tool_list",
     "operator_memory_to_entries",

@@ -23,10 +23,12 @@ entries, T0 verdicts projected from the typed pipeline - are ``trusted``.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 
 from fdai.core.conversation.session import ConversationSession, TurnDirection
 from fdai.core.operator_memory.types import MemoryCategory, OperatorMemoryEntry
 from fdai.core.working_context.composer import compose_working_context
+from fdai.core.working_context.summarizer import TranscriptRetriever
 from fdai.core.working_context.types import (
     ContextBudget,
     EntryKind,
@@ -54,6 +56,34 @@ def _default_estimator(text: str) -> int:
     return max(1, len(text) // 4)
 
 
+def _session_verbatim_entries(
+    session: ConversationSession,
+    *,
+    pinned_ids: frozenset[str],
+    token_estimator: Callable[[str], int],
+) -> list[TranscriptEntry]:
+    """Map non-empty session turns to verbatim entries (sequence = index)."""
+
+    verbatim: list[TranscriptEntry] = []
+    for index, turn in enumerate(session.turns):
+        text = turn.content
+        if not text:
+            continue
+        verbatim.append(
+            TranscriptEntry(
+                entry_id=turn.turn_id,
+                role=_DIRECTION_ROLE.get(turn.direction, EntryRole.SYSTEM),
+                kind=EntryKind.VERBATIM,
+                text=text,
+                tokens=token_estimator(text),
+                sequence=index,
+                pinned=turn.turn_id in pinned_ids,
+                trusted=False,
+            )
+        )
+    return verbatim
+
+
 def session_to_working_context(
     *,
     session: ConversationSession,
@@ -76,25 +106,55 @@ def session_to_working_context(
     composer keeps newest-first selection and oldest-first prompt order.
     """
 
-    verbatim: list[TranscriptEntry] = []
-    for index, turn in enumerate(session.turns):
-        text = turn.content
-        if not text:
-            continue
-        verbatim.append(
-            TranscriptEntry(
-                entry_id=turn.turn_id,
-                role=_DIRECTION_ROLE.get(turn.direction, EntryRole.SYSTEM),
-                kind=EntryKind.VERBATIM,
-                text=text,
-                tokens=token_estimator(text),
-                sequence=index,
-                pinned=turn.turn_id in pinned_ids,
-                trusted=False,
-            )
+    verbatim = _session_verbatim_entries(
+        session, pinned_ids=pinned_ids, token_estimator=token_estimator
+    )
+    entries = [*verbatim, *typed_facts, *retrieved, *summaries]
+    return compose_working_context(budget=budget, entries=entries)
+
+
+async def assemble_turn_context(
+    *,
+    session: ConversationSession,
+    utterance: str,
+    budget: ContextBudget,
+    operator_memory: Sequence[OperatorMemoryEntry] = (),
+    existing_summaries: Sequence[TranscriptEntry] = (),
+    retriever: TranscriptRetriever | None = None,
+    retrieval_k: int = 5,
+    pinned_ids: frozenset[str] = frozenset(),
+    token_estimator: Callable[[str], int] = _default_estimator,
+) -> WorkingContext:
+    """End-to-end working-context assembly for one conversation turn.
+
+    Ties every tier together: session turns become verbatim entries,
+    ``operator_memory`` becomes trusted typed facts, the ``retriever`` seam
+    (when wired) pulls older turns relevant to ``utterance`` back into the
+    retrieval tier, and ``existing_summaries`` (from prior orchestrator
+    folds) fill the summary tier. The composer then bounds the whole thing
+    under ``budget``.
+
+    Retrieval candidates are the session's verbatim turns re-tagged as
+    ``RETRIEVED``; the composer deduplicates by entry id, so a turn that
+    still fits the verbatim window is counted once (verbatim), while a turn
+    that fell outside it can return via the retrieval tier when it is
+    relevant. With ``retriever=None`` this reduces to
+    :func:`session_to_working_context` plus operator memory.
+    """
+
+    verbatim = _session_verbatim_entries(
+        session, pinned_ids=pinned_ids, token_estimator=token_estimator
+    )
+    typed_facts = operator_memory_to_entries(operator_memory, token_estimator=token_estimator)
+
+    retrieved: tuple[TranscriptEntry, ...] = ()
+    if retriever is not None and utterance.strip() and verbatim:
+        candidates = tuple(replace(e, kind=EntryKind.RETRIEVED) for e in verbatim)
+        retrieved = tuple(
+            await retriever.retrieve(utterance=utterance, candidates=candidates, k=retrieval_k)
         )
 
-    entries = [*verbatim, *typed_facts, *retrieved, *summaries]
+    entries = [*verbatim, *typed_facts, *retrieved, *existing_summaries]
     return compose_working_context(budget=budget, entries=entries)
 
 
@@ -142,4 +202,8 @@ def operator_memory_to_entries(
     return tuple(out)
 
 
-__all__ = ["operator_memory_to_entries", "session_to_working_context"]
+__all__ = [
+    "assemble_turn_context",
+    "operator_memory_to_entries",
+    "session_to_working_context",
+]

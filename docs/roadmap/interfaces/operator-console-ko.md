@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 1a11c140bac8b80d7055259d319ea2aad3167d7f
+translation_source_sha: 58637d397ec31c58d15377936c7aeb3d905e2c03
 translation_revised: 2026-07-12
 ---
 
@@ -497,6 +497,14 @@ prompt(경계, 상수 상한)는 의도적으로 구분된다.
 턴 audit에 `context_manifest`(verbatim id, summary hash, retrieved id,
 dropped id, tier별 토큰)를 기록하므로 어떤 프롬프트든 memory of record에서
 재구성 가능하다.
+
+end-to-end 진입점은
+[`assemble_turn_context`](../../../src/fdai/core/conversation/context_bridge.py)
+이다: 턴마다 하나의 async 호출로 session verbatim, operator memory(trusted
+typed fact), retrieval seam(발화와 관련된 오래된 턴), 이전 summary를 하나의
+예산-경계 `WorkingContext`로 묶는다. retriever가 wire되지 않으면
+`session_to_working_context` + operator memory로 degrade 되므로, 벡터 스토어가
+착지하기 전에도 동작한다.
 
 **에이전트도 동일 메커니즘.** 에이전트 conversational port (agent-to-agent
 introspection)는 correlation-scoped transcript 위에서 같은 composer를

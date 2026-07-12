@@ -522,6 +522,14 @@ assembly writes a `context_manifest` to the turn audit (verbatim ids,
 summary hashes, retrieved ids, dropped ids, per-tier tokens) so any prompt
 is reconstructable from the memory of record.
 
+The end-to-end entry point is
+[`assemble_turn_context`](../../../src/fdai/core/conversation/context_bridge.py):
+one async call per turn that ties session verbatim, operator memory (trusted
+typed facts), the retrieval seam (older turns relevant to the utterance), and
+prior summaries into a single budget-bounded `WorkingContext`. With no
+retriever wired it degrades to `session_to_working_context` plus operator
+memory, so the surface works before a vector store lands.
+
 **Same mechanism for agents.** The agent conversational port
 (agent-to-agent introspection) uses the same composer over a
 correlation-scoped transcript. Typed-pipeline events flow in as trusted
