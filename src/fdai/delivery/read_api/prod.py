@@ -47,7 +47,7 @@ Optional (respect defaults):
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Final
 
 from starlette.applications import Starlette
@@ -65,9 +65,23 @@ _DATABASE_URL_ENV: Final[str] = "FDAI_DATABASE_URL"
 _CORS_ORIGINS_ENV: Final[str] = "FDAI_READ_API_CORS_ALLOW_ORIGINS"
 _STATEMENT_TIMEOUT_ENV: Final[str] = "FDAI_READ_API_STATEMENT_TIMEOUT_MS"
 _CONNECT_TIMEOUT_ENV: Final[str] = "FDAI_READ_API_CONNECT_TIMEOUT_S"
+_TENANT_ENV: Final[str] = "FDAI_ENTRA_TENANT_ID"
+_AUDIENCE_ENV: Final[str] = "FDAI_API_AUDIENCE"
 
 _DEFAULT_STATEMENT_TIMEOUT_MS: Final[int] = 20_000
 _DEFAULT_CONNECT_TIMEOUT_S: Final[int] = 10
+
+# psycopg 3 (the driver this repo ships) accepts either the bare
+# ``postgresql://`` scheme or the SQLAlchemy-style ``postgresql+psycopg://``
+# alias. Any other ``+<driver>`` suffix (e.g. ``+asyncpg``, ``+psycopg2``)
+# is a caller mistake - the connection would fail with a cryptic driver
+# error deep inside psycopg. Reject explicitly at boot with a clear
+# ProdReadApiConfigError instead.
+_ACCEPTED_DSN_SCHEMES: Final[tuple[str, ...]] = (
+    "postgresql://",
+    "postgres://",
+    "postgresql+psycopg://",
+)
 
 _RBAC_ENV: Final[Mapping[str, str]] = {
     "readers": "FDAI_RBAC_READERS_GROUP_ID",
@@ -92,24 +106,72 @@ def _require_env(environ: Mapping[str, str], key: str) -> str:
     return value
 
 
+def _check_required_env(environ: Mapping[str, str], keys: Sequence[str]) -> None:
+    """Fail fast with EVERY missing/empty required env var listed at once.
+
+    Cold-boot UX: an operator whose env is entirely unpopulated should see
+    one error listing all eight required slots, not eight sequential boot
+    failures. Individual :func:`_require_env` calls still exist so callers
+    that resolve one value at a time keep their focused messages.
+    """
+    missing = [key for key in keys if not environ.get(key, "").strip()]
+    if missing:
+        raise ProdReadApiConfigError(
+            "the following env vars are required to build the production "
+            f"read API and are missing or empty: {', '.join(missing)}"
+        )
+
+
 def _plain_dsn(database_url: str) -> str:
-    """Strip the ``+psycopg`` driver suffix if present.
+    """Return a psycopg-compatible DSN, rejecting foreign driver suffixes.
 
     The alembic + SQLAlchemy world writes URLs as
     ``postgresql+psycopg://...`` (see
     ``tests/persistence/test_postgres_state_store.py``). psycopg 3's raw
-    ``connect()`` wants the plain ``postgresql://...`` form.
+    ``connect()`` wants the plain ``postgresql://...`` form. Anything
+    else with a ``+<driver>`` suffix (``+asyncpg``, ``+psycopg2``, ...)
+    is a caller mistake - reject at boot with a clear error instead of
+    letting psycopg fail deep in the driver.
     """
     if database_url.startswith("postgresql+psycopg://"):
         return "postgresql://" + database_url[len("postgresql+psycopg://") :]
+    # A ``postgresql+<other>://`` scheme is caller error - psycopg 3 does
+    # not implement any of the other SQLAlchemy dialect drivers.
+    if database_url.startswith("postgresql+") or database_url.startswith("postgres+"):
+        _, _, tail = database_url.partition("+")
+        driver, _, _ = tail.partition("://")
+        raise ProdReadApiConfigError(
+            f"{_DATABASE_URL_ENV} carries an unsupported driver suffix "
+            f"'+{driver}' - this repo ships psycopg 3; use one of "
+            f"{list(_ACCEPTED_DSN_SCHEMES)}."
+        )
+    if not any(database_url.startswith(scheme) for scheme in _ACCEPTED_DSN_SCHEMES):
+        raise ProdReadApiConfigError(
+            f"{_DATABASE_URL_ENV} MUST start with one of "
+            f"{list(_ACCEPTED_DSN_SCHEMES)}; got a URL with a different scheme."
+        )
     return database_url
 
 
 def _parse_cors_origins(raw: str | None) -> tuple[str, ...]:
-    """Parse a comma-separated origin list, ignoring blanks."""
+    """Parse a comma-separated origin list, ignoring blanks.
+
+    Rejects a bare ``*`` element unconditionally - a production factory
+    MUST never emit a wildcard CORS policy, regardless of ``RUNTIME_ENV``.
+    The shared :func:`~fdai.delivery.read_api.main.build_app` only refuses
+    ``*`` under ``RUNTIME_ENV in ('staging','prod')``, which leaves an
+    unset-``RUNTIME_ENV`` deploy exposed; this factory closes that hole.
+    """
     if not raw:
         return ()
-    return tuple(part.strip() for part in raw.split(",") if part.strip())
+    parts = tuple(part.strip() for part in raw.split(",") if part.strip())
+    if "*" in parts:
+        raise ProdReadApiConfigError(
+            f"{_CORS_ORIGINS_ENV}='*' is refused by the production factory - "
+            "a same-origin deployment leaves this env unset; a cross-origin "
+            "deployment lists the specific console origin(s) explicitly."
+        )
+    return parts
 
 
 def _parse_positive_int(environ: Mapping[str, str], key: str, default: int) -> int:
@@ -176,8 +238,21 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     - Binds :class:`PostgresConsoleReadModel` on the persisted schema.
     - ``dev_mode`` stays ``False``; ``build_app`` enforces the extra
       staging/prod guards.
+
+    All required env vars are validated up-front so a cold-boot with an
+    entirely unpopulated env produces ONE error listing every missing
+    slot, instead of eight sequential boot failures.
     """
     env = environ if environ is not None else os.environ
+    _check_required_env(
+        env,
+        (
+            _DATABASE_URL_ENV,
+            _TENANT_ENV,
+            _AUDIENCE_ENV,
+            *_RBAC_ENV.values(),
+        ),
+    )
     verifier = EntraJwtVerifier.from_env(env)
     resolver = RoleResolver(group_mapping=_build_group_mapping(env))
     authenticator = build_authenticator(verifier=verifier, resolver=resolver)

@@ -46,6 +46,26 @@ def test_plain_dsn_pass_through_plain_url() -> None:
     assert _plain_dsn("postgresql://u:p@h/db") == "postgresql://u:p@h/db"
 
 
+def test_plain_dsn_accepts_postgres_scheme_alias() -> None:
+    # Heroku-style `postgres://` (no `-ql`) is a psycopg-accepted alias.
+    assert _plain_dsn("postgres://u:p@h/db") == "postgres://u:p@h/db"
+
+
+def test_plain_dsn_rejects_asyncpg_driver_suffix() -> None:
+    with pytest.raises(ProdReadApiConfigError, match=r"\+asyncpg"):
+        _plain_dsn("postgresql+asyncpg://u:p@h/db")
+
+
+def test_plain_dsn_rejects_psycopg2_driver_suffix() -> None:
+    with pytest.raises(ProdReadApiConfigError, match=r"\+psycopg2"):
+        _plain_dsn("postgresql+psycopg2://u:p@h/db")
+
+
+def test_plain_dsn_rejects_non_postgres_scheme() -> None:
+    with pytest.raises(ProdReadApiConfigError, match="different scheme"):
+        _plain_dsn("mysql://u:p@h/db")
+
+
 def test_parse_cors_origins_empty_returns_empty_tuple() -> None:
     assert _parse_cors_origins(None) == ()
     assert _parse_cors_origins("") == ()
@@ -55,6 +75,23 @@ def test_parse_cors_origins_empty_returns_empty_tuple() -> None:
 def test_parse_cors_origins_splits_and_trims() -> None:
     got = _parse_cors_origins("https://a.example, https://b.example ,https://c.example")
     assert got == ("https://a.example", "https://b.example", "https://c.example")
+
+
+def test_parse_cors_origins_rejects_wildcard_element() -> None:
+    with pytest.raises(ProdReadApiConfigError, match="'\\*'"):
+        _parse_cors_origins("*")
+
+
+def test_parse_cors_origins_rejects_wildcard_mixed_with_named_origins() -> None:
+    with pytest.raises(ProdReadApiConfigError, match="'\\*'"):
+        _parse_cors_origins("https://a.example, *")
+
+
+def test_parse_cors_origins_allows_wildcard_subdomain_not_bare_star() -> None:
+    # `*.example.com` is a full origin string, not the bare `*` wildcard;
+    # allow it (Starlette handles the pattern separately).
+    got = _parse_cors_origins("*.example.com")
+    assert got == ("*.example.com",)
 
 
 def test_parse_positive_int_returns_default_when_unset_or_blank() -> None:
@@ -151,20 +188,28 @@ def test_build_prod_app_requires_every_rbac_slot(missing: str) -> None:
 def test_build_prod_app_wildcard_cors_refused_in_prod(monkeypatch: pytest.MonkeyPatch) -> None:
     env = dict(_GOOD_ENV)
     env["FDAI_READ_API_CORS_ALLOW_ORIGINS"] = "*"
-    # build_app pulls RUNTIME_ENV from os.environ directly.
+    # RUNTIME_ENV=prod would have caught this in `build_app` too, but the
+    # prod factory now refuses wildcard unconditionally at parse time.
     monkeypatch.setenv("RUNTIME_ENV", "prod")
-    with pytest.raises(ValueError, match="cors_allow_origins"):
+    with pytest.raises(ProdReadApiConfigError, match="'\\*'"):
         build_prod_app(env)
 
 
-def test_build_prod_app_wildcard_cors_allowed_in_dev(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_prod_app_wildcard_cors_refused_even_without_runtime_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: closes the RUNTIME_ENV-unset footgun.
+
+    ``main.build_app`` only refuses wildcard CORS when
+    ``RUNTIME_ENV in ('staging','prod')`` - a deploy that forgets to set
+    the variable would slip a wide-open policy through. The prod factory
+    MUST catch that at composition time, regardless of RUNTIME_ENV.
+    """
     env = dict(_GOOD_ENV)
     env["FDAI_READ_API_CORS_ALLOW_ORIGINS"] = "*"
     monkeypatch.delenv("RUNTIME_ENV", raising=False)
-    # Not a supported flow, but the check is scoped to staging/prod so an
-    # accidental wildcard in dev boots (build_app comment); assert that.
-    app = build_prod_app(env)
-    assert isinstance(app, Starlette)
+    with pytest.raises(ProdReadApiConfigError, match="'\\*'"):
+        build_prod_app(env)
 
 
 def test_build_prod_app_never_boots_in_dev_mode(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -174,3 +219,29 @@ def test_build_prod_app_never_boots_in_dev_mode(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("FDAI_READ_API_DEV_MODE", "1")
     app = build_prod_app(_GOOD_ENV)
     assert isinstance(app, Starlette)
+
+
+def test_build_prod_app_reports_every_missing_env_in_one_error() -> None:
+    """Cold-boot UX: an entirely-unpopulated env yields ONE listing error."""
+    with pytest.raises(ProdReadApiConfigError) as excinfo:
+        build_prod_app({})
+    message = str(excinfo.value)
+    # Every required slot MUST be enumerated in a single message.
+    for key in (
+        "FDAI_DATABASE_URL",
+        "FDAI_ENTRA_TENANT_ID",
+        "FDAI_API_AUDIENCE",
+        "FDAI_RBAC_READERS_GROUP_ID",
+        "FDAI_RBAC_CONTRIBUTORS_GROUP_ID",
+        "FDAI_RBAC_APPROVERS_GROUP_ID",
+        "FDAI_RBAC_OWNERS_GROUP_ID",
+        "FDAI_RBAC_BREAK_GLASS_GROUP_ID",
+    ):
+        assert key in message
+
+
+def test_build_prod_app_rejects_asyncpg_dsn() -> None:
+    env = dict(_GOOD_ENV)
+    env["FDAI_DATABASE_URL"] = "postgresql+asyncpg://u:p@h/db"
+    with pytest.raises(ProdReadApiConfigError, match=r"\+asyncpg"):
+        build_prod_app(env)

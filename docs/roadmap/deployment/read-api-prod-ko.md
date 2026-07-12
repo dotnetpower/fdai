@@ -1,7 +1,7 @@
 ---
 title: 콘솔 read-API 프로덕션 배포
 translation_of: read-api-prod.md
-translation_source_sha: 4838ea5a6494d7d3157351efca9d85024c70ca05
+translation_source_sha: 7cde510929777f98b48081d261e3191d220677aa
 translation_revised: 2026-07-13
 ---
 # 콘솔 read-API 프로덕션 배포
@@ -28,7 +28,9 @@ translation_revised: 2026-07-13
   이미지에 박히지 않는다.
 - **누락된 config는 즉시 실패.** 필수 env가 없으면 시작 시점에
   :class:`ProdReadApiConfigError`(`ValueError`의 서브클래스)가 발생한다.
-  깨진 리비전은 절대 소켓을 바인딩하지 못한다.
+  깨진 리비전은 절대 소켓을 바인딩하지 못한다. env가 통째로 비어있는
+  콜드 부트에서는 누락된 슬롯 8개를 순차 실패로 겪는 대신 한 번의
+  에러로 모두 열거되어 보인다.
 
 ## 환경변수 계약
 
@@ -36,7 +38,7 @@ translation_revised: 2026-07-13
 
 | 변수 | 용도 |
 |------|------|
-| `FDAI_DATABASE_URL` | psycopg 3 DSN (`postgresql+psycopg://...` 또는 `postgresql://...`). 라이터가 `alembic upgrade head`로 이미 프로비저닝한 `audit_log` + `state_kv` 스키마 대상. |
+| `FDAI_DATABASE_URL` | psycopg 3 DSN. 허용 스킴: `postgresql://`, `postgres://`, `postgresql+psycopg://`. 그 외 `+<driver>` 접미사(`+asyncpg`, `+psycopg2` 등)는 시작 시점에 `ProdReadApiConfigError`로 거부된다. 라이터가 `alembic upgrade head`로 이미 프로비저닝한 `audit_log` + `state_kv` 스키마 대상. |
 | `FDAI_ENTRA_TENANT_ID` | [`EntraJwtVerifier.from_env`](../../../src/fdai/delivery/read_api/entra_verifier.py)가 소비. |
 | `FDAI_API_AUDIENCE` | `fdai-api` App ID URI (`api://<guid>`). |
 | `FDAI_RBAC_READERS_GROUP_ID` | Reader 역할에 매핑되는 Entra 그룹 `objectId`. |
@@ -51,7 +53,7 @@ translation_revised: 2026-07-13
 |------|--------|------|
 | `FDAI_ENTRA_ISSUER` | `https://login.microsoftonline.com/<tenant>/v2.0` | v1 토큰이나 소버린 클라우드 대응. |
 | `FDAI_ENTRA_JWKS_URI` | 테넌트 디스커버리 엔드포인트 | 에어갭 클라우드 대응. |
-| `FDAI_READ_API_CORS_ALLOW_ORIGINS` | 비어있음 (same-origin) | 콤마로 구분된 origin 목록. `RUNTIME_ENV`이 `staging` 또는 `prod`일 때 `*`를 포함하면 안 된다. |
+| `FDAI_READ_API_CORS_ALLOW_ORIGINS` | 비어있음 (same-origin) | 콤마로 구분된 origin 목록. bare `*` 원소는 이 팩토리가 `RUNTIME_ENV`와 무관하게 무조건 거부한다 - 크로스-오리진 배포는 콘솔 origin을 명시적으로 나열해야 한다. |
 | `FDAI_READ_API_STATEMENT_TIMEOUT_MS` | `20000` | 모든 read 쿼리에 `SET LOCAL statement_timeout`으로 적용. |
 | `FDAI_READ_API_CONNECT_TIMEOUT_S` | `10` | TCP + auth 핸드셰이크를 제한해 죽은 DB가 빠르게 실패하도록. |
 

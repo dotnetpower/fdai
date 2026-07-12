@@ -28,7 +28,9 @@ model from environment only. This doc covers the production entrypoint.
   baked into the image.
 - **Fail-fast on missing config.** Any missing required env raises
   :class:`ProdReadApiConfigError` (a `ValueError` subclass) at startup;
-  a broken revision never binds a socket.
+  a broken revision never binds a socket. A cold boot with an entirely
+  unpopulated env yields ONE error that enumerates every missing slot,
+  instead of eight sequential boot failures.
 
 ## Environment contract
 
@@ -36,7 +38,7 @@ Required (fail-fast at startup):
 
 | Variable | Purpose |
 |----------|---------|
-| `FDAI_DATABASE_URL` | psycopg 3 DSN (`postgresql+psycopg://...` or `postgresql://...`) for the `audit_log` + `state_kv` schema the writer already provisions via `alembic upgrade head`. |
+| `FDAI_DATABASE_URL` | psycopg 3 DSN. Accepted schemes: `postgresql://`, `postgres://`, `postgresql+psycopg://`. Any other `+<driver>` suffix (`+asyncpg`, `+psycopg2`, ...) is rejected at boot with a `ProdReadApiConfigError`. Points at the `audit_log` + `state_kv` schema the writer already provisions via `alembic upgrade head`. |
 | `FDAI_ENTRA_TENANT_ID` | Consumed by [`EntraJwtVerifier.from_env`](../../../src/fdai/delivery/read_api/entra_verifier.py). |
 | `FDAI_API_AUDIENCE` | The `fdai-api` App ID URI (`api://<guid>`). |
 | `FDAI_RBAC_READERS_GROUP_ID` | Entra group `objectId` mapped to the Reader role. |
@@ -51,7 +53,7 @@ Optional (defaults apply):
 |----------|---------|---------|
 | `FDAI_ENTRA_ISSUER` | `https://login.microsoftonline.com/<tenant>/v2.0` | Override for v1 tokens or sovereign clouds. |
 | `FDAI_ENTRA_JWKS_URI` | tenant discovery endpoint | Override for air-gapped clouds. |
-| `FDAI_READ_API_CORS_ALLOW_ORIGINS` | empty (same-origin) | Comma-separated origin list. MUST NOT contain `*` when `RUNTIME_ENV` is `staging` or `prod`. |
+| `FDAI_READ_API_CORS_ALLOW_ORIGINS` | empty (same-origin) | Comma-separated origin list. A bare `*` element is rejected unconditionally by this factory (regardless of `RUNTIME_ENV`) - a cross-origin deploy MUST list the console origins explicitly. |
 | `FDAI_READ_API_STATEMENT_TIMEOUT_MS` | `20000` | Applied via `SET LOCAL statement_timeout` on every read query. |
 | `FDAI_READ_API_CONNECT_TIMEOUT_S` | `10` | Bounds the TCP + auth handshake so a dead DB fails fast. |
 
