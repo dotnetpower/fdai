@@ -76,9 +76,27 @@ async def test_happy_path_maps_builds_in_window() -> None:
 
 
 @pytest.mark.asyncio
+async def test_naive_window_bounds_do_not_raise() -> None:
+    # tz-naive since/until would raise TypeError when compared against the
+    # UTC-aware build timestamps; the adapter normalizes them to UTC so the
+    # ChangeFeedError fail-closed contract is never bypassed by a crash.
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"value": [_build(1, 30)]})
+
+    feed, client = _feed(handler)
+    naive_since = _SINCE.replace(tzinfo=None)
+    naive_until = _UNTIL.replace(tzinfo=None)
+    try:
+        records = await feed.recent(since=naive_since, until=naive_until)
+    finally:
+        await client.aclose()
+
+    assert [r.change_id for r in records] == ["ado-build-1"]
+
+
+@pytest.mark.asyncio
 async def test_bearer_auth_scheme() -> None:
     captured: list[httpx.Request] = []
-
     async def handler(request: httpx.Request) -> httpx.Response:
         captured.append(request)
         return httpx.Response(200, json={"value": []})

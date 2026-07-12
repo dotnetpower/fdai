@@ -223,6 +223,25 @@ async def test_non_finite_value_dropped() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("bad_time", ["inf", "-inf", "1e400", "99999999999999999999"])
+async def test_out_of_range_time_fails_closed_not_crash(bad_time: str) -> None:
+    # A non-finite / out-of-range _time raises OverflowError/OSError inside
+    # datetime.fromtimestamp; the adapter must fail closed with a clean
+    # MetricProviderError, never let the raw exception crash the batch.
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, text=_jsonl({"result": {"_time": bad_time, "value": "1.0"}})
+        )
+
+    provider, client, _ = _provider(handler)
+    try:
+        with pytest.raises(MetricProviderError, match="missing/invalid"):
+            _ = [p async for p in provider.query(MetricQuery(metric_name=_METRIC))]
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_label_filter_in_memory() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         body = _jsonl(

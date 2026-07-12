@@ -272,10 +272,14 @@ def _parse_time(raw: Any) -> datetime | None:
     """
     if raw is None:
         return None
-    # Numeric epoch (int/float or a numeric string).
+    # Numeric epoch (int/float or a numeric string). A non-finite or
+    # out-of-range value (NaN / +/-inf, or a millisecond epoch mistaken for
+    # seconds) raises OverflowError / OSError - not just ValueError - so
+    # catch all of them and fall through to the string path rather than
+    # letting a poisoned _time crash the whole batch (fail-closed to None).
     try:
         return datetime.fromtimestamp(float(raw), tz=UTC)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError, OSError):
         pass
     if isinstance(raw, str):
         try:

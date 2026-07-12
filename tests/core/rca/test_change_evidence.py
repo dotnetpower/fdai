@@ -162,6 +162,23 @@ async def test_feed_outage_is_fail_safe() -> None:
     assert correlations == ()
 
 
+@pytest.mark.asyncio
+async def test_naive_incident_at_does_not_raise() -> None:
+    # A tz-naive incident_at would raise TypeError inside correlate_changes
+    # (aware change timestamps); the gatherer normalizes it to UTC so the
+    # "never raises" contract holds and the deploy still correlates.
+    naive = datetime(2026, 7, 10, 12, 0, 0)  # no tzinfo
+    feed = _StaticFeed([_deploy("gh-1", _INCIDENT_AT - timedelta(minutes=5))])
+    gatherer = ChangeEvidenceGatherer(feed=feed, window=timedelta(hours=1))
+
+    citations = await gatherer.gather(incident_at=naive)
+    correlations = await gatherer.gather_correlations(incident_at=naive)
+
+    assert len(citations) == 1
+    assert citations[0].ref == "change:gh-1"
+    assert len(correlations) == 1
+
+
 def test_config_validation() -> None:
     with pytest.raises(ValueError):
         ChangeEvidenceGatherer(window=timedelta(0))

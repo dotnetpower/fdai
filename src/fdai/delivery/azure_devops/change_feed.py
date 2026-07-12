@@ -89,6 +89,11 @@ class AzureDevOpsChangeFeedConfig:
             raise ValueError("page_size MUST be in [1, 5000]")
 
 
+def _as_utc(dt: datetime) -> datetime:
+    """Return ``dt`` as UTC-aware; a naive value is assumed to be UTC."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
 def _parse_ts(raw: Any) -> datetime | None:
     if not isinstance(raw, str) or not raw:
         return None
@@ -121,6 +126,12 @@ class AzureDevOpsChangeFeed:
         until: datetime,
         resource_hint: str | None = None,
     ) -> list[ChangeRecord]:
+        # Normalize the window bounds to UTC-aware up front: a naive bound
+        # from a caller would raise TypeError when compared against the
+        # UTC-aware record timestamps below, escaping the ChangeFeedError
+        # fail-closed contract.
+        since = _as_utc(since)
+        until = _as_utc(until)
         headers = await self._auth_headers()
         url = (
             f"{self._config.api_base.rstrip('/')}/{self._config.organization}"

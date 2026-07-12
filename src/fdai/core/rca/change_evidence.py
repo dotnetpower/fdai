@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fdai.core.rca.contract import Citation, CitationKind
 from fdai.shared.providers.change_feed import (
@@ -42,6 +42,16 @@ _LOGGER = logging.getLogger(__name__)
 _DEFAULT_WINDOW = timedelta(hours=1)
 _DEFAULT_MIN_SCORE = 0.0
 _DEFAULT_MAX_CITATIONS = 5
+
+
+def _as_utc(dt: datetime) -> datetime:
+    """Return ``dt`` as UTC-aware; a naive value is assumed to be UTC.
+
+    Guards the "never raises" contract: a naive ``incident_at`` would raise
+    ``TypeError`` inside :func:`correlate_changes` when compared against the
+    UTC-aware change timestamps.
+    """
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 def _change_ref(correlation: ChangeCorrelation) -> str:
@@ -93,26 +103,10 @@ class ChangeEvidenceGatherer:
         ``min_score`` (highest score first, capped at ``max_citations``).
         Never raises: no binding or a feed outage yields an empty tuple.
         """
-        if self._feed is None:
-            return ()
-
-        since = incident_at - self._window
-        try:
-            changes = await self._feed.recent(
-                since=since, until=incident_at, resource_hint=resource_hint
-            )
-        except ChangeFeedError:
-            _LOGGER.warning(
-                "rca_change_evidence_unavailable",
-                extra={"resource_hint": resource_hint or ""},
-            )
-            return ()
-
-        correlations = correlate_changes(
-            changes,
+        correlations = await self._ranked_correlations(
             incident_at=incident_at,
             incident_resources=incident_resources,
-            window=self._window,
+            resource_hint=resource_hint,
         )
         citations: list[Citation] = []
         seen: set[str] = set()
@@ -138,8 +132,28 @@ class ChangeEvidenceGatherer:
         """Same query as :meth:`gather` but returns the full ranked
         correlations (score + lead_seconds + overlap) so a caller can log
         the reasoning. Never raises."""
+        return await self._ranked_correlations(
+            incident_at=incident_at,
+            incident_resources=incident_resources,
+            resource_hint=resource_hint,
+        )
+
+    async def _ranked_correlations(
+        self,
+        *,
+        incident_at: datetime,
+        incident_resources: Sequence[str],
+        resource_hint: str | None,
+    ) -> tuple[ChangeCorrelation, ...]:
+        """Query the feed and rank changes (shared by both public methods).
+
+        Normalizes ``incident_at`` to UTC-aware so a naive caller value
+        cannot raise inside :func:`correlate_changes`, and treats any
+        :class:`ChangeFeedError` as "no change evidence" (fail-safe).
+        """
         if self._feed is None:
             return ()
+        incident_at = _as_utc(incident_at)
         since = incident_at - self._window
         try:
             changes = await self._feed.recent(

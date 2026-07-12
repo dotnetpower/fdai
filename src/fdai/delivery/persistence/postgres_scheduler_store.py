@@ -68,32 +68,35 @@ class PostgresScheduleStore:
         self._config: Final[PostgresScheduleStoreConfig] = config
 
     async def create(self, task: ScheduledTask) -> ScheduledTask:
+        # Rely on the PRIMARY KEY for atomic duplicate detection rather than a
+        # SELECT-then-INSERT (which races: two concurrent creates both see no
+        # row and both insert). A UniqueViolation is mapped to the same
+        # ValueError the in-memory store raises so the two backends stay
+        # indistinguishable to callers.
         async with await self._connect() as conn:
-            async with conn.transaction():
-                await self._set_session_knobs(conn)
-                cur = await conn.execute(
-                    "SELECT 1 FROM scheduled_task WHERE task_id = %s", (task.task_id,)
-                )
-                if await cur.fetchone() is not None:
-                    raise ValueError(f"duplicate task_id {task.task_id!r}")
-                await conn.execute(
-                    f"""
-                    INSERT INTO scheduled_task ({_COLUMNS})
-                    VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s)
-                    """,  # noqa: S608 - _COLUMNS is a module constant, values parametrized
-                    (
-                        task.task_id,
-                        task.name,
-                        float(task.interval_seconds),
-                        task.event_type,
-                        task.created_by,
-                        json.dumps(dict(task.event_payload), default=str),
-                        task.resource_ref,
-                        task.enabled,
-                        task.start_at,
-                        task.last_run,
-                    ),
-                )
+            try:
+                async with conn.transaction():
+                    await self._set_session_knobs(conn)
+                    await conn.execute(
+                        f"""
+                        INSERT INTO scheduled_task ({_COLUMNS})
+                        VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s)
+                        """,  # noqa: S608 - _COLUMNS is a module constant, values parametrized
+                        (
+                            task.task_id,
+                            task.name,
+                            float(task.interval_seconds),
+                            task.event_type,
+                            task.created_by,
+                            json.dumps(dict(task.event_payload), default=str),
+                            task.resource_ref,
+                            task.enabled,
+                            task.start_at,
+                            task.last_run,
+                        ),
+                    )
+            except psycopg.errors.UniqueViolation as exc:
+                raise ValueError(f"duplicate task_id {task.task_id!r}") from exc
         return task
 
     async def get(self, task_id: str) -> ScheduledTask:
