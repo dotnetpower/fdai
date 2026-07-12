@@ -78,8 +78,12 @@ from fdai.delivery.read_api.routes.panels import (  # noqa: E402
 from fdai.delivery.read_api.routes.rule_fire_trace_reader import (  # noqa: E402
     ConsoleReadModelTraceReader,
 )
+from fdai.delivery.read_api.streaming.agent_activity_relay import (  # noqa: E402
+    ControlLoopAgentActivityRelay,
+)
 from fdai.delivery.read_api.streaming.agent_activity_stream import (  # noqa: E402
     AgentActivityStreamConfig,
+    SseAgentActivityPublisher,
 )
 from fdai.delivery.read_api.streaming.live_control_loop import (  # noqa: E402
     ControlLoopEmitterUnavailable,
@@ -994,6 +998,8 @@ def app() -> Starlette:
             workflows=tuple(built_in_workflows),
         )
 
+    live_stream_config, agent_activity_config = _build_agent_streams()
+
     return build_app(
         authenticator=authenticator,
         read_model=read_model,
@@ -1005,8 +1011,8 @@ def app() -> Starlette:
                 "http://127.0.0.1:8090",
                 "http://localhost:8090",
             ),
-            live_stream=_build_live_stream_config(),
-            agent_activity=AgentActivityStreamConfig(),
+            live_stream=live_stream_config,
+            agent_activity=agent_activity_config,
             blast_radius_graph=_build_blast_radius_graph(),
             ontology_object_types=tuple(ontology_object_types),
             ontology_link_types=tuple(ontology_link_types),
@@ -1063,7 +1069,9 @@ def _build_chat_backend() -> Any:
     return backend_from_env()
 
 
-def _build_live_stream_config() -> LiveStreamConfig:
+def _build_live_stream_config(
+    stage_publisher_wrapper: Any = None,
+) -> LiveStreamConfig:
     """Compose the live-stream config for the dev harness.
 
     Preferred: attach a real :class:`ControlLoopLiveEmitter` so the
@@ -1073,6 +1081,11 @@ def _build_live_stream_config() -> LiveStreamConfig:
     and we fall back to :class:`SyntheticLiveEmitter`, which emits the
     same wire format from a hardcoded distribution so the FE is never
     dark.
+
+    ``stage_publisher_wrapper`` (optional) tees the real ControlLoop's stage
+    frames into a second consumer - the ``Now > Agents`` relay - so that panel
+    reflects the same live pipeline. It only applies to the real ControlLoop
+    path; the synthetic fallback ignores it.
 
     The sink is created once here so it can be shared by the route
     consumer and (in a future round) any additional publisher we bolt
@@ -1088,6 +1101,7 @@ def _build_live_stream_config() -> LiveStreamConfig:
                 sink_arg,
                 channel_arg,
                 events_per_second=3.0,
+                stage_publisher_wrapper=stage_publisher_wrapper,
             )
         except ControlLoopEmitterUnavailable:
             # Rule catalog not available; keep the console populated
@@ -1102,3 +1116,30 @@ def _build_live_stream_config() -> LiveStreamConfig:
         sink=sink,
         emitter_factory=_factory,
     )
+
+
+def _build_agent_streams() -> tuple[LiveStreamConfig, AgentActivityStreamConfig]:
+    """Wire the live-stream and Now>Agents configs, optionally coupled.
+
+    Default: the live cockpit runs the real ControlLoop and Now>Agents is
+    driven by the standalone synthetic agent emitter (unchanged dev behavior).
+
+    ``FDAI_AGENTS_REAL_RELAY=1``: the real ControlLoop's stage frames are teed
+    into the agent-activity channel via
+    :class:`~fdai.delivery.read_api.streaming.agent_activity_relay.ControlLoopAgentActivityRelay`,
+    so the constellation lights up from the actual pipeline. The synthetic
+    agent emitter is suppressed (a provided ``sink`` + no ``emitter_factory``
+    tells ``build_app`` to run no emitter and serve the relay-fed sink).
+    """
+    if os.environ.get("FDAI_AGENTS_REAL_RELAY") != "1":
+        return _build_live_stream_config(), AgentActivityStreamConfig()
+
+    agent_sink: SseSink = InMemorySseSink()
+    agent_publisher = SseAgentActivityPublisher(sink=agent_sink)
+
+    def _wrapper(inner: Any) -> Any:
+        return ControlLoopAgentActivityRelay(publisher=agent_publisher, inner=inner)
+
+    live_config = _build_live_stream_config(stage_publisher_wrapper=_wrapper)
+    agent_config = AgentActivityStreamConfig(sink=agent_sink)
+    return live_config, agent_config

@@ -37,6 +37,7 @@ import asyncio
 import json
 import logging
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -138,6 +139,13 @@ class ControlLoopLiveEmitter(LiveEmitter):
     channel: str = "aw.pipeline.stages"
     events_per_second: float = 10.0
     repo_root: Path | None = None
+    stage_publisher_wrapper: Callable[[StagePublisher], StagePublisher] | None = None
+    """Optional wrapper applied to the ControlLoop's stage publisher. The dev
+    harness passes one that tees stage frames into the agent-activity channel
+    (the ``ControlLoopAgentActivityRelay`` in
+    ``fdai.delivery.read_api.streaming.agent_activity_relay``) so ``Now >
+    Agents`` reflects the real pipeline. ``None`` leaves the live cockpit as
+    the only consumer."""
     """Repository root. When ``None`` we infer from ``fdai.__file__``."""
 
     _task: asyncio.Task[None] | None = field(default=None, init=False, repr=False)
@@ -247,9 +255,11 @@ class ControlLoopLiveEmitter(LiveEmitter):
         validator = JsonSchemaEventValidator(
             JsonSchemaContractValidator(PackageResourceSchemaRegistry())
         )
-        stage_publisher = _AgentAttributingStagePublisher(
+        stage_publisher: StagePublisher = _AgentAttributingStagePublisher(
             SseSinkStagePublisher(self.sink, channel=self.channel)
         )
+        if self.stage_publisher_wrapper is not None:
+            stage_publisher = self.stage_publisher_wrapper(stage_publisher)
 
         # NOTE on risk-gate wiring.
         # The shipped risk table + shipped ActionTypes route the vast
@@ -377,18 +387,24 @@ def build_control_loop_emitter(
     *,
     events_per_second: float = 10.0,
     repo_root: Path | None = None,
+    stage_publisher_wrapper: Callable[[StagePublisher], StagePublisher] | None = None,
 ) -> ControlLoopLiveEmitter:
     """Factory suitable for ``LiveStreamConfig.emitter_factory``.
 
     ``build_app`` invokes the ``emitter_factory`` with ``(sink,
     channel)`` and expects a :class:`LiveEmitter`. This helper adds the
     other ControlLoop-specific parameters using defaults.
+
+    ``stage_publisher_wrapper`` (optional) tees the ControlLoop's stage frames
+    into a second consumer - the dev harness passes the agent-activity relay so
+    ``Now > Agents`` reflects the real pipeline.
     """
     return ControlLoopLiveEmitter(
         sink=sink,
         channel=channel,
         events_per_second=events_per_second,
         repo_root=repo_root,
+        stage_publisher_wrapper=stage_publisher_wrapper,
     )
 
 

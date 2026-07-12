@@ -44,9 +44,14 @@ Producers
   publishes an idle/watching heartbeat plus a periodic incident narrative,
   so the local console shows the collaboration alive without the real
   pantheon driving the hot path.
-- **Real path (later).** The pantheon runtime relays real ``agent.state`` /
-  ``incident.*`` / ``conversation.turn`` records onto the same channel; the
-  wire contract here does not change.
+- **Real path.**
+  :class:`~fdai.delivery.read_api.streaming.agent_activity_relay.ControlLoopAgentActivityRelay`
+  tees a real :class:`~fdai.core.control_loop.ControlLoop`'s stage frames onto
+  this same channel (via the deterministic
+  :mod:`fdai.delivery.read_api.streaming.agent_activity_projection`), so the
+  panel reflects the actual pipeline. The dev harness opts in with
+  ``FDAI_AGENTS_REAL_RELAY=1``; production wires the relay onto the shared
+  sink. The wire contract here does not change between the two.
 """
 
 from __future__ import annotations
