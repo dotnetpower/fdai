@@ -2172,7 +2172,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   inherits: false;
 }
 .deck-invoke.deck-invoke-agents {
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   background:
     linear-gradient(
       90deg,
@@ -2192,7 +2192,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
         #3b82f6
       )
       border-box;
-  animation: deck-border-rotate 8s linear infinite;
+  animation: deck-border-rotate 4s linear infinite;
 }
 .deck-invoke.deck-invoke-agents:hover {
   background:
