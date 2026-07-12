@@ -32,5 +32,22 @@ enable_monitoring = true
 # alert_webhook_url = "https://..."   # supply via CI secret, never commit
 
 additional_tags = {
-  environment_class = "prod"
+  "fdai:environment-class" = "prod"
 }
+
+# ---------------------------------------------------------------
+# Metric analyzer tick (opt-in) - drives the reference threshold
+# analyzers so metric-based scenarios get near-real-time detection.
+# Prod default: 30 s cron with Prom-primary wiring so AKS metrics
+# hit ~15-30 s detection; non-AKS resources ride the AML floor
+# (~2-5 min, capped by Log Analytics ingestion). Fill the targets
+# JSON with the actual ARM ids you want polled (never commit real
+# customer ids to a fork; supply via CI secret or override).
+# See docs/roadmap/rules-and-detection/observability-and-detection.md.
+# ---------------------------------------------------------------
+# analyzer_tick_cron_expression = "*/1 * * * *"
+# analyzer_targets_json = <<-EOT
+#   [{"resource_id": "/subscriptions/<sub>/.../managedClusters/<name>", "kind": "aks_cluster"}]
+# EOT
+# prometheus_endpoint = "https://<data-collection-endpoint>.prometheus.monitor.azure.com"
+# prometheus_audience = "https://prometheus.monitor.azure.com"

@@ -28,5 +28,16 @@ enable_monitoring = true
 # alert_email     = "oncall@example.com"
 
 additional_tags = {
-  environment_class = "staging"
+  "fdai:environment-class" = "staging"
 }
+
+# ---------------------------------------------------------------
+# Metric analyzer tick (opt-in) - see dev.tfvars.example for the
+# full example. Staging default: enable with a 60 s cron and no
+# Prom endpoint (AML-only) so the 2-5 min AML floor is visible
+# during dry-runs before wiring Managed Prometheus in prod.
+# ---------------------------------------------------------------
+# analyzer_tick_cron_expression = "* * * * *"
+# analyzer_targets_json = <<-EOT
+#   [{"resource_id": "/subscriptions/<sub>/.../managedClusters/<name>", "kind": "aks_cluster"}]
+# EOT

@@ -18,8 +18,15 @@ postgres_admin_password = "SET-ME-VIA-VAULT"
 core_image   = "mcr.microsoft.com/azure-cli:latest"
 max_replicas = 3
 
+# Cost-attribution vertical for the fdai:vertical tag (shared |
+# resilience | change-safety | cost-governance). Default 'shared'.
+# cost_vertical = "shared"
+
+# Fork-supplied tags merged on top of the base FDAI set. Keep the
+# `fdai:` namespace; put customer/environment values here, never in
+# infra/main.tf base_tags. See deploy-and-onboard.md § Resource Tagging.
 additional_tags = {
-  environment_class = "dev"
+  "fdai:environment-class" = "dev"
 }
 
 # ---------------------------------------------------------------
@@ -37,4 +44,37 @@ additional_tags = {
 # runner_vnet_id          = "/subscriptions/.../virtualNetworks/vnet-fdai-ops-krc"
 # runner_vnet_name        = "vnet-fdai-ops-krc"
 # ops_resource_group_name = "rg-fdai-ops-krc"
+
+
+# ---------------------------------------------------------------
+# Metric analyzer tick (opt-in) - drives the reference threshold
+# analyzers so metric-based scenarios (node_cpu_percent,
+# http_429_rate, ...) get near-real-time detection. Latency
+# envelope: AKS Managed Prometheus ~15-60 s (with Prom wired);
+# non-AKS resources ~2-5 min (Azure Monitor Logs ingestion floor).
+# Empty cron (default) leaves the job unprovisioned - the demo
+# path AKS pod CPU stress etc. is DARK until you fill this in.
+# See docs/roadmap/rules-and-detection/observability-and-detection.md.
+# ---------------------------------------------------------------
+# analyzer_tick_cron_expression = "* * * * *"          # every minute
+# analyzer_targets_json = <<-EOT
+#   [
+#     {"resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ContainerService/managedClusters/<name>", "kind": "aks_cluster"},
+#     {"resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.DBforMySQL/flexibleServers/<name>",       "kind": "mysql_flexible_server"},
+#     {"resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<name>",       "kind": "azure_openai"},
+#     {"resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Network/applicationGateways/<name>",      "kind": "application_gateway"},
+#     {"resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ApiManagement/service/<name>",            "kind": "api_management"}
+#   ]
+# EOT
+# analyzer_window_seconds = "300"   # optional; CLI default when unset
+# analyzer_budget_seconds = "60"    # optional; CLI default when unset
+
+# Prometheus primary route (recommended for AKS-scoped metrics -
+# gives sub-minute detection instead of the AML 2-5 min floor).
+# When both prometheus_endpoint and the Log Analytics workspace
+# are live, wire_azure_container builds a Prom-first / AML-fallback
+# routed metric provider. When only Prom is set it serves what it
+# can; other metrics fail-closed.
+# prometheus_endpoint = "https://<data-collection-endpoint>.prometheus.monitor.azure.com"
+# prometheus_audience = "https://prometheus.monitor.azure.com"
 

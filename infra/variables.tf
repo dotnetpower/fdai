@@ -98,9 +98,20 @@ variable "log_retention_days" {
 }
 
 variable "additional_tags" {
-  description = "Fork-supplied tags merged on top of the base tag set."
+  description = "Fork-supplied tags merged on top of the base FDAI tag set. Use the `fdai:` namespace for FDAI-owned keys (e.g. fdai:cost-center, fdai:owner, fdai:criticality); customer values live here, never in the base_tags literal."
   type        = map(string)
   default     = {}
+}
+
+variable "cost_vertical" {
+  description = "AIOps vertical this deployment's cost is attributed to (rendered as the `fdai:vertical` tag). 'shared' for cross-vertical control-plane infra."
+  type        = string
+  default     = "shared"
+
+  validation {
+    condition     = contains(["shared", "resilience", "change-safety", "cost-governance"], var.cost_vertical)
+    error_message = "cost_vertical must be one of: shared, resilience, change-safety, cost-governance."
+  }
 }
 
 # -----------------------------------------------------------------------
@@ -179,6 +190,54 @@ variable "dr_drill_dry_run" {
   type        = bool
   default     = true
 }
+
+
+# ---------------------------------------------------------------------------
+# Metric analyzer tick (opt-in) - drives the reference threshold analyzers
+# out-of-band so metric-based scenarios (node_cpu_percent, http_429_rate,
+# ...) get near-real-time detection. Latency envelope is bounded below by
+# the metric backend: AKS Managed Prometheus scrapes on ~15 s; Azure
+# Monitor Logs KQL has a 2-5 min ingestion floor. A 60 s cron is the
+# safe default when enabled - it never runs faster than either backend
+# can serve. See docs/roadmap/rules-and-detection/observability-and-detection.md.
+# ---------------------------------------------------------------------------
+
+variable "analyzer_tick_cron_expression" {
+  description = "Cron for the analyzer tick Container Apps Job. Empty string (default) disables the job entirely so a generic deploy does not incur tick cost. Fork sets e.g. '* * * * *' (every minute) once analyzer_targets_json is filled."
+  type        = string
+  default     = ""
+}
+
+variable "analyzer_targets_json" {
+  description = "JSON array of {resource_id, kind} pairs the analyzer tick investigates each fire. Empty (default) - the CLI logs a no-targets info line and exits 0, so a mis-provisioned cron stays quiet. Kind MUST match one of KIND_AKS / KIND_MYSQL / KIND_AZURE_OPENAI / KIND_APP_GATEWAY / KIND_API_MANAGEMENT (see src/fdai/core/investigation/analyzers.py)."
+  type        = string
+  default     = ""
+}
+
+variable "analyzer_window_seconds" {
+  description = "Optional window (seconds) each analyzer looks back on this tick. Empty -> CLI default (300 s)."
+  type        = string
+  default     = ""
+}
+
+variable "analyzer_budget_seconds" {
+  description = "Optional budget (seconds) the coordinator applies to the whole tick before it marks BUDGET_EXCEEDED. Empty -> CLI default (60 s)."
+  type        = string
+  default     = ""
+}
+
+variable "prometheus_endpoint" {
+  description = "Base URL of a Prometheus-compatible query API (AKS Managed Prometheus data-collection endpoint, self-hosted Prom, Thanos, Cortex, Mimir). When non-empty, wire_azure_container binds PrometheusMetricProvider as the primary route for its supported metrics with Azure Monitor Logs as the fallback for non-AKS metrics (RoutedMetricProvider composite). Empty (default) keeps AML-only (or Noop) binding."
+  type        = string
+  default     = ""
+}
+
+variable "prometheus_audience" {
+  description = "OIDC audience for the Prometheus bearer token. AKS Managed Prometheus with AAD requires 'https://prometheus.monitor.azure.com'. Empty -> unauthenticated Prom (self-hosted / behind network policy)."
+  type        = string
+  default     = ""
+}
+
 
 # ---------------------------------------------------------------------------
 # Private networking (policy-locked tenants).
