@@ -33,9 +33,7 @@ def _registry(primary_prefs: list[dict[str, str]]) -> Any:
             "schema_version": "1.0.0",
             "models": {
                 "t1.embedding": {
-                    "preferences": [
-                        {"publisher": "OpenAI", "family": "text-embedding-3-small"}
-                    ],
+                    "preferences": [{"publisher": "OpenAI", "family": "text-embedding-3-small"}],
                     "capacity_tpm": 100_000,
                 },
                 "t2.reasoner.primary": {

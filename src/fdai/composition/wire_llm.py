@@ -297,9 +297,7 @@ def bind_azure_llm_bindings(
                     tool_registry=tool_registry,
                     tool_executor=tool_executor,
                     prompt_composer=prompt_composer,
-                    capability_id=(
-                        "t2.reasoner.primary" if prompt_composer is not None else None
-                    ),
+                    capability_id=("t2.reasoner.primary" if prompt_composer is not None else None),
                     scope_resolver=scope_resolver,
                     metering=_emitter_for(
                         "t2.reasoner.primary",
