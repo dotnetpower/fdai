@@ -242,6 +242,35 @@ flowchart LR
 - The resolved mapping records `{deployment, family, version, publisher}` per capability
   so the audit log can name the exact model that decided any case.
 
+### Provisioning Completeness Gate
+
+The resolver degrades an unprovisionable capability to `hil-only` and continues -
+it never blocks the whole bootstrap on one missing family - so a **partial
+deployment is silent**: `resolved-models.json` can carry only the T1 pair plus
+`t2.reasoner.primary` while the registry also declares a secondary reasoner, a
+critic, an RCA reasoner, and an escalation ceiling. The composition root then
+quietly falls back to a forced-disagree cross-check and every T2 case routes to
+HIL, with no signal at deploy time that the reasoning tier is effectively off.
+
+[`assess_provisioning`](../../../src/fdai/rule_catalog/schema/provisioning_assessment.py)
+closes that gap. It compares the authoritative `llm-registry.yaml` (intended)
+against `resolved-models.json` (actual) and returns a deterministic
+`ProvisioningReport`:
+
+- each declared capability is classified `resolved` / `capacity-reduced` /
+  `hil-only` / `missing`, tagged `core` / `quorum` / `optional`, with the runtime
+  impact of its absence;
+- `quorum_ok` reports whether the mixed-model T2 cross-check can form (both
+  reasoners available, distinct publishers) - not expected in `hil-only` mode;
+- a `ProvisioningSeverity` rolls up to `ok` (all resolved), `degraded` (only
+  optional capabilities missing - debate / RCA / escalation / rubric off is
+  tolerable), or `critical` (a core capability missing or the quorum cannot form,
+  so T2 is effectively off).
+
+The deploy pipeline gates on the severity and writes the report to the audit log
+(an A2 operational alert on `critical`), so a half-provisioned reasoning tier is
+visible at `azd up` time rather than as a silent runtime HIL storm.
+
 ### Runtime Resolution
 
 Core code depends only on the capability contract. `resolved-models.json` is loaded from

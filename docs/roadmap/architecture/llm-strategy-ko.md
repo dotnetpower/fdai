@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 09a45b894c03080cd48b3646b7f34c4f8e703802
-translation_revised: 2026-07-11
+translation_source_sha: f55bf6c3ad5e16dfd45c5af06b8d6ae17651aab6
+translation_revised: 2026-07-12
 ---
 
 # LLM 전략(LLM Strategy)
@@ -224,6 +224,32 @@ flowchart LR
   (아래 Mixed-Model Family Strategies). Same-publisher 쌍은 부트스트랩 abort.
 - Resolved 매핑은 capability당 `{deployment, family, version, publisher}` 를 기록하여 감사
   로그가 어떤 케이스를 결정한 정확한 모델을 이름 지을 수 있음.
+
+### 프로비저닝 완결성 게이트
+
+resolver는 프로비저닝 불가능한 capability를 `hil-only`로 강등시키고 계속한다 -
+하나의 누락된 family 때문에 전체 부트스트랩을 막지 않으므로 **부분 배포가
+조용하다**: `resolved-models.json`이 T1 쌍 + `t2.reasoner.primary`만 담고 있는데
+레지스트리는 secondary reasoner, critic, RCA reasoner, escalation ceiling까지
+선언할 수 있다. 그러면 composition root는 조용히 forced-disagree cross-check로
+fallback 하고 모든 T2 케이스가 HIL로 라우팅되며, reasoning tier가 사실상 꺼졌다는
+신호가 배포 시점에 없다.
+
+[`assess_provisioning`](../../../src/fdai/rule_catalog/schema/provisioning_assessment.py)
+이 그 gap을 닫는다. 권위 `llm-registry.yaml`(의도)과 `resolved-models.json`(실제)
+을 비교해 결정론적 `ProvisioningReport`를 반환한다:
+
+- 선언된 각 capability를 `resolved` / `capacity-reduced` / `hil-only` / `missing`
+  으로 분류하고 `core` / `quorum` / `optional`로 태깅하며, 부재 시 런타임 영향을 명시;
+- `quorum_ok`는 mixed-model T2 cross-check가 형성 가능한지(두 reasoner 가용 + 다른
+  publisher) 보고 - `hil-only` 모드에서는 기대하지 않음;
+- `ProvisioningSeverity`가 `ok`(전부 resolved), `degraded`(optional capability만
+  누락 - debate / RCA / escalation / rubric off는 허용), `critical`(core capability
+  누락 또는 quorum 미형성 - T2가 사실상 off)로 롤업.
+
+배포 파이프라인은 severity로 게이팅하고 리포트를 감사 로그에 기록(`critical` 시 A2
+운영 알림)하므로, 반쪽만 프로비저닝된 reasoning tier가 런타임 HIL storm으로 숨지
+않고 `azd up` 시점에 보인다.
 
 ### 런타임 해석
 

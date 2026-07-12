@@ -224,7 +224,14 @@ grounding source.
   an API key and a curated domain allowlist to activate it.
 - **When it may run**: T2 case, novelty score above threshold, capability's
   tool allowlist includes `web.search`, and the per-event query / cost budget
-  is not exhausted.
+  is not exhausted. This decision is not prose - it is the pure, deterministic
+  [`decide_web_search`](../../../src/fdai/core/web_search/policy.py) policy
+  (a `WebSearchPolicyConfig` + `WebSearchSignals` -> `SEARCH` / `SKIP`),
+  mirroring `escalation_ladder`. It evaluates deny-first gates (disabled ->
+  no provider -> capability not allowlisted -> not reasoning-tier -> query
+  budget -> cost budget -> grounding-gap required -> novelty threshold) and
+  records the SKIP reason in the audit log, so "when web search runs" is
+  answered by a test, not a paragraph.
 - **Domain allowlist**: primary sources only (vendor docs, RFCs, NVD, CVE
   registries). Blogs, forums, and social media are prohibited.
 - **Snippet handling**: HTML stripped; prompt-like patterns

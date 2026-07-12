@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 80f98d6d17ee6c81951a4bfd7833b798bc5a1fc2
-translation_revised: 2026-07-11
+translation_source_sha: 78f5faa372da3b5225f984faa71ab77e983c753a
+translation_revised: 2026-07-12
 ---
 
 # 오퍼레이터 콘솔 (Conversational)
@@ -450,6 +450,52 @@ class ConversationSession:
   *요약*을 포함; 모델의 내부 chain은 지속되지 않음.
 - 채널 경계에서 redact 된 secret. Redactor는 채널 adapter에 살음
   ([channels-and-notifications.md § 8 - redaction](channels-and-notifications-ko.md#8-redaction)과 동일 정책).
+
+### 6.4 Working context 조립 (턴 수 제한 없음)
+
+세션 transcript는 **memory of record**: 모든 턴이 지속(위의 audit-log
+projection)되고 절대 버려지지 않으므로 세션은 일어난 모든 것을 기억한다.
+특정 턴에 narrator가 받는 것은 별개의 **경계가 있는** projection -
+*working context* - 로, 매 턴 토큰 예산 하에 재조립되므로 긴 세션이
+프롬프트를 폭발시키지 않는다. Memory(무손실, 세션 길이에 대해 `O(L)`)와
+prompt(경계, 상수 상한)는 의도적으로 구분된다.
+
+조립은 순수
+[`compose_working_context`](../../../src/fdai/core/working_context/composer.py)
+정책이다. **턴 수**를 절대 제한하지 않는다; 대신 *토큰*을 제한하며,
+[`ContextBudget`](../../../src/fdai/core/working_context/types.py)에서 뽑은
+네 개 tier에 걸쳐:
+
+- **Pinned** - 상시 오퍼레이터 제약과 미해결 결정; 항상 포함되고, 이들만
+  으로 예산을 초과하면 fail-closed (`WorkingContextError`) - 절대 조용히
+  버리지 않음.
+- **Typed facts** - typed 파이프라인에서 projection 된 결정론적 no-LLM
+  문맥(audit entry, T0 verdict); `trusted` ground truth로 주입되며 절대
+  요약되지 않음.
+- **Verbatim recent** - 가장 최근 턴을 원문 그대로, history 예산의 일정
+  비율까지 채움(턴 수가 아니라 토큰 기준).
+- **Relevance retrieval** - 현재 발화와의 유사도로 끌어온 오래된 턴
+  (`t1.embedding` + pgvector). verbatim 윈도우 밖의 턴도 관련되면 다시
+  등장.
+- **Hierarchical summary** - 나머지 전부를 rolling summary로 접음(level 1
+  이 턴을, level 2가 level-1 요약을 접음)므로 요약 tier는 세션 길이 `L`에
+  대해 `O(log L)`로 성장.
+
+상위 우선순위 tier의 미사용 예산은 다음 tier로 spill 되므로, 짧은 세션은
+요약으로 padding 하지 않고 verbatim 턴으로 채워진다. 두 I/O seam -
+[`TranscriptSummarizer`](../../../src/fdai/core/working_context/summarizer.py)
+(mini 모델 folding, `t1.judge`)과 `TranscriptRetriever` (pgvector) - 은
+결정론적 no-LLM fake를 업스트림에 제공하는 DI Protocol이다. 모든 조립은
+턴 audit에 `context_manifest`(verbatim id, summary hash, retrieved id,
+dropped id, tier별 토큰)를 기록하므로 어떤 프롬프트든 memory of record에서
+재구성 가능하다.
+
+**에이전트도 동일 메커니즘.** 에이전트 conversational port (agent-to-agent
+introspection)는 correlation-scoped transcript 위에서 같은 composer를
+사용한다. Typed 파이프라인 이벤트는 trusted `typed-fact` entry로 흘러들어,
+no-LLM 결정론 히스토리와 LLM 대화를 하나의 타임라인에 유지하되 trust 경계를
+넘지 않는다 - 외부/모델 생성 내용은 `trusted="false"`로 남아 data로
+wrapping 되며, 이는 T2 quality gate가 이벤트 payload를 다루는 방식과 동일.
 
 ## 7. 안전 invariant (chat은 이를 약화시키지 않음)
 

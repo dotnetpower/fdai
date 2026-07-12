@@ -472,6 +472,55 @@ class ConversationSession:
   channel adapter (same policy as
   [channels-and-notifications.md § 8 - redaction](channels-and-notifications.md#8-redaction)).
 
+### 6.4 Working context assembly (no turn limit)
+
+The session transcript is the **memory of record**: every turn is
+persisted (the audit-log projection above) and never dropped, so the
+session remembers everything that happened. What the narrator receives on
+a given turn is a separate, **bounded** projection - the *working
+context* - re-assembled every turn under a token budget so a long session
+never blows up the prompt. Memory (lossless, `O(L)` in session length)
+and prompt (bounded, constant ceiling) are deliberately distinct.
+
+Assembly is the pure
+[`compose_working_context`](../../../src/fdai/core/working_context/composer.py)
+policy. It never caps the *number of turns*; it caps *tokens*, across four
+tiers drawn from a
+[`ContextBudget`](../../../src/fdai/core/working_context/types.py):
+
+- **Pinned** - standing operator constraints and unresolved decisions;
+  always included, and fail-closed (a `WorkingContextError`) if they alone
+  overflow the budget, never silently dropped.
+- **Typed facts** - deterministic, no-LLM context projected from the typed
+  pipeline (audit entries, T0 verdicts); injected as `trusted` ground
+  truth and never summarised.
+- **Verbatim recent** - the newest turns word-for-word, filling a ratio of
+  the history budget (token-based, not a turn count).
+- **Relevance retrieval** - older turns pulled back in by similarity to
+  the current utterance (`t1.embedding` + pgvector), so a turn outside the
+  verbatim window still returns when it matters.
+- **Hierarchical summary** - everything else folded into rolling summaries
+  (level 1 folds turns, level 2 folds level-1 summaries), so the summary
+  tier grows `O(log L)` in session length `L`.
+
+Unused budget in a higher-priority tier spills to the next, so a short
+session fills with verbatim turns rather than padding with summaries. The
+two I/O seams -
+[`TranscriptSummarizer`](../../../src/fdai/core/working_context/summarizer.py)
+(mini-model folding, `t1.judge`) and `TranscriptRetriever` (pgvector) -
+are DI Protocols with deterministic no-LLM fakes shipped upstream. Every
+assembly writes a `context_manifest` to the turn audit (verbatim ids,
+summary hashes, retrieved ids, dropped ids, per-tier tokens) so any prompt
+is reconstructable from the memory of record.
+
+**Same mechanism for agents.** The agent conversational port
+(agent-to-agent introspection) uses the same composer over a
+correlation-scoped transcript. Typed-pipeline events flow in as trusted
+`typed-fact` entries, keeping the no-LLM deterministic history and the LLM
+conversation on one timeline without crossing the trust boundary -
+external or model-generated content stays `trusted="false"` and is wrapped
+as data, exactly as the T2 quality gate treats event payloads.
+
 ## 7. Safety invariants (chat does not weaken them)
 
 The four autonomy invariants from

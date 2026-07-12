@@ -1,8 +1,8 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: feb1ea0b37fe1a6ecf27d30f651ad363046e188e
-translation_revised: 2026-07-11
+translation_source_sha: a9329b85fb423d68198424a4fd894bab37decc53
+translation_revised: 2026-07-12
 ---
 
 # 진화하는 시스템 프롬프트
@@ -219,7 +219,14 @@ Web search는 최후의 수단 툴입니다. fork별 opt-in이며 절대 groundi
   curated 도메인 allowlist를 제공하여 활성화합니다.
 - **언제 실행 가능**: T2 케이스, novelty score가 threshold 초과, capability의
   tool allowlist가 `web.search`를 포함, 이벤트당 query / cost budget이 소진되지
-  않음.
+  않음. 이 결정은 산문이 아니라 순수 · 결정론적
+  [`decide_web_search`](../../../src/fdai/core/web_search/policy.py) 정책
+  (`WebSearchPolicyConfig` + `WebSearchSignals` -> `SEARCH` / `SKIP`)이며,
+  `escalation_ladder`를 미러링합니다. deny-first 게이트(disabled -> provider
+  없음 -> capability allowlist 미포함 -> reasoning-tier 아님 -> query budget
+  -> cost budget -> grounding-gap 필요 -> novelty threshold)를 평가하고 SKIP
+  사유를 audit 로그에 기록하므로, "언제 web search가 실행되는가"는 문단이
+  아니라 테스트로 답합니다.
 - **도메인 allowlist**: primary source만 (vendor docs, RFC, NVD, CVE 레지스트리).
   블로그, 포럼, 소셜 미디어는 금지.
 - **Snippet 처리**: HTML strip. prompt-유사 패턴(`ignore previous`, `system:` 등)
