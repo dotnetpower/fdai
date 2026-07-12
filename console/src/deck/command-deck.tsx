@@ -94,6 +94,23 @@ function routerTooltip(router: RouterSnapshot | undefined): string | undefined {
 /** The general (screen-scoped) conversation session id. */
 const GENERAL_SESSION = "screen";
 
+/**
+ * The current route token from the location hash, normalized the same way the
+ * app router does (decode `%2F`, strip the leading `#/` and any query). Used to
+ * tell a real navigation from in-place hash re-encoding (`#/agents` <->
+ * `#%2Fagents`) so the deck only dismisses on an actual route change.
+ */
+function normalizedRoute(): string {
+  if (typeof window === "undefined") return "";
+  let hash = window.location.hash;
+  try {
+    hash = decodeURIComponent(hash);
+  } catch {
+    /* keep raw hash if it is not a valid URI component */
+  }
+  return hash.replace(/^#\/?/, "").replace(/\?.*$/, "");
+}
+
 /** Typewriter cadence (ms per chunk) for the injected agent-context turn. */
 const CONTEXT_TYPE_MS = 14;
 
@@ -383,7 +400,15 @@ export function CommandDeck() {
   // surfaces the freshly navigated panel.
   useEffect(() => {
     if (!open) return;
-    const onHashChange = () => closeDeck();
+    // Only a REAL navigation (route token change) should dismiss the deck.
+    // This environment (and any hash-router host) can re-encode the hash in
+    // place - e.g. `#/agents` <-> `#%2Fagents` - which fires `hashchange`
+    // with no actual route change; closing on that made the deck appear to
+    // auto-close. Compare the normalized route and ignore same-route churn.
+    const routeAtOpen = normalizedRoute();
+    const onHashChange = () => {
+      if (normalizedRoute() !== routeAtOpen) closeDeck();
+    };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, [open, closeDeck]);
