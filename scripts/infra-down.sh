@@ -19,9 +19,6 @@
 
 set -euo pipefail
 
-<<<<<<< Updated upstream
-readonly MOONCHOI_SUB="00000000-0000-0000-0000-000000000002"
-=======
 if [[ -z "${FDAI_EXPECTED_SUBSCRIPTION_ID:-}" ]]; then
   echo "infra-down: FDAI_EXPECTED_SUBSCRIPTION_ID is not set." >&2
   echo "            Export the subscription id you expect to tear down, e.g.:" >&2
@@ -30,7 +27,6 @@ if [[ -z "${FDAI_EXPECTED_SUBSCRIPTION_ID:-}" ]]; then
 fi
 
 readonly EXPECTED_SUB="${FDAI_EXPECTED_SUBSCRIPTION_ID}"
->>>>>>> Stashed changes
 readonly REPO_ROOT="$(git rev-parse --show-toplevel)"
 readonly TFVARS="${REPO_ROOT}/infra/envs/dev.tfvars"
 
