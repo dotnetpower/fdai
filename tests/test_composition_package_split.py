@@ -20,7 +20,15 @@ import fdai.composition as composition_pkg
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _COMP_DIR = _REPO_ROOT / "src" / "fdai" / "composition"
 
-_EXPECTED_FILES = frozenset({"__init__.py", "_helpers.py", "wire_llm.py", "wire_azure.py"})
+_EXPECTED_FILES = frozenset(
+    {
+        "__init__.py",
+        "_helpers.py",
+        "wire_llm.py",
+        "wire_azure.py",
+        "wire_change_feed.py",
+    }
+)
 
 _PUBLIC_NAMES = (
     "default_container",
