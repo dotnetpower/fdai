@@ -22,9 +22,11 @@ from fdai.core.detection.signals import (
     SIGNAL_RATE_LIMIT,
     SIGNAL_REQUEST_FAILURE,
     SIGNAL_ROLLOUT_STALL,
+    SignalRole,
     SignalSpec,
     is_known_signal,
     known_signals,
+    signals_with_role,
 )
 
 _ALL_CONSTANTS = (
@@ -103,3 +105,38 @@ def test_registry_description_is_non_empty_ascii() -> None:
         assert spec.description.isascii(), (
             f"{spec.signal}: description contains non-ASCII characters"
         )
+
+
+# ---------------------------------------------------------------------------
+# Signal-role field (R3-again hardening: single source of truth)
+# ---------------------------------------------------------------------------
+
+
+def test_role_field_defaults_to_scenario() -> None:
+    """Adding a new signal without thinking about its role is treated
+    as ``SignalRole.SCENARIO`` (safest default); RCA-only signals must
+    opt in explicitly."""
+    spec = SignalSpec(
+        signal="throwaway_test_signal",
+        description="Fixture only; not registered.",
+        tier_hint="T0",
+        rca_hint="none",
+    )
+    assert spec.role is SignalRole.SCENARIO
+
+
+def test_member_hotspot_is_rca_only_in_the_registry() -> None:
+    """The registry is the single source of truth. If member_hotspot
+    ever loses its RCA_ONLY tag, tests in tests/core/chaos would
+    (correctly) start treating it as a scenario signal."""
+    spec = known_signals()[SIGNAL_MEMBER_HOTSPOT]
+    assert spec.role is SignalRole.RCA_ONLY
+
+
+def test_signals_with_role_partitions_the_registry() -> None:
+    """Every registered signal is exactly one role."""
+    all_signals = set(known_signals().keys())
+    scenario = signals_with_role(SignalRole.SCENARIO)
+    rca_only = signals_with_role(SignalRole.RCA_ONLY)
+    assert scenario.isdisjoint(rca_only)
+    assert scenario | rca_only == all_signals

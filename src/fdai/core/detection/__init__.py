@@ -30,9 +30,11 @@ from fdai.core.detection.signals import (
     SIGNAL_RATE_LIMIT,
     SIGNAL_REQUEST_FAILURE,
     SIGNAL_ROLLOUT_STALL,
+    SignalRole,
     SignalSpec,
     is_known_signal,
     known_signals,
+    signals_with_role,
 )
 
 __all__ = [
@@ -59,8 +61,10 @@ __all__ = [
     "MetricSeriesSource",
     "PhaseFn",
     "SeasonalAnomalyDetector",
+    "SignalRole",
     "SignalSpec",
     "is_known_signal",
     "known_signals",
     "prediction_band",
+    "signals_with_role",
 ]

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import StrEnum
 from types import MappingProxyType
 
 # --- Canonical signal names (CSP-neutral vocabulary) -----------------------
@@ -95,6 +96,22 @@ forecast band via ``detection/forecast``). Scenario S8; emitted by
 # --- Signal descriptor + registry -----------------------------------------
 
 
+class SignalRole(StrEnum):
+    """How a signal enters the pipeline.
+
+    ``SCENARIO`` signals are the ``expected_signal`` of at least one
+    :class:`~fdai.core.chaos.FaultScenario` and fire from the analyzer /
+    anomaly detector layer. ``RCA_ONLY`` signals are emitted by the RCA
+    layer as a *drill-down* on an already-detected aggregate anomaly -
+    no scenario declares them directly; naming one as ``expected_signal``
+    would collapse the aggregate <-> member distinction the RCA layer
+    depends on.
+    """
+
+    SCENARIO = "scenario"
+    RCA_ONLY = "rca_only"
+
+
 @dataclass(frozen=True, slots=True)
 class SignalSpec:
     """Metadata for one canonical detection signal.
@@ -103,7 +120,8 @@ class SignalSpec:
     trust router still computes per-event confidence, but a signal that
     is always deterministic (``pod_restart``) never needs to reach T2.
     ``rca_hint`` names the RCA analyzer typically used to explain the
-    signal; a fork can override the actual binding.
+    signal; a fork can override the actual binding. ``role`` names how
+    the signal enters the pipeline (see :class:`SignalRole`).
     """
 
     signal: str
@@ -120,6 +138,12 @@ class SignalSpec:
     """Name of the RCA analyzer typically applied
     (``"failure_rate"``, ``"causal_chain"``, ``"change_evidence"``, ...).
     A fork may bind a different analyzer for the same signal."""
+
+    role: SignalRole = SignalRole.SCENARIO
+    """How the signal enters the pipeline. Defaults to
+    :attr:`SignalRole.SCENARIO` so adding a new signal without thinking
+    about it produces a scenario-tied signal (safest default); RCA-only
+    signals opt in explicitly."""
 
 
 _KNOWN_SIGNALS: Mapping[str, SignalSpec] = MappingProxyType(
@@ -149,6 +173,7 @@ _KNOWN_SIGNALS: Mapping[str, SignalSpec] = MappingProxyType(
                 description="One pool member is significantly hotter than its peers.",
                 tier_hint="T0+T2",
                 rca_hint="causal_chain",
+                role=SignalRole.RCA_ONLY,
             ),
             SignalSpec(
                 signal=SIGNAL_HOST_CPU,
@@ -212,6 +237,16 @@ def is_known_signal(signal: str) -> bool:
     return signal in _KNOWN_SIGNALS
 
 
+def signals_with_role(role: SignalRole) -> frozenset[str]:
+    """Return the set of registered signal names that carry ``role``.
+
+    Derived from the single source of truth (``_KNOWN_SIGNALS``); tests
+    and consumers MUST NOT hard-code a parallel set - reading the role
+    off the registry keeps the two from drifting.
+    """
+    return frozenset(name for name, spec in _KNOWN_SIGNALS.items() if spec.role is role)
+
+
 __all__ = [
     "SIGNAL_BACKEND_HEALTH",
     "SIGNAL_DB_CPU",
@@ -224,7 +259,9 @@ __all__ = [
     "SIGNAL_RATE_LIMIT",
     "SIGNAL_REQUEST_FAILURE",
     "SIGNAL_ROLLOUT_STALL",
+    "SignalRole",
     "SignalSpec",
     "is_known_signal",
     "known_signals",
+    "signals_with_role",
 ]

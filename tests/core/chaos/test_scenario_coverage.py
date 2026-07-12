@@ -35,7 +35,9 @@ from fdai.core.detection.signals import (
     SIGNAL_RATE_LIMIT,
     SIGNAL_REQUEST_FAILURE,
     SIGNAL_ROLLOUT_STALL,
+    SignalRole,
     is_known_signal,
+    signals_with_role,
 )
 
 # One row per S/C scenario the coverage matrix promises will fire.
@@ -197,30 +199,33 @@ def test_fault_type_reuse_is_intentional_only() -> None:
 # Not every registered signal is the ``expected_signal`` of a scenario;
 # some are emitted only by the RCA layer (e.g. ``member_hotspot``) when
 # it identifies which pool member is responsible for an already-detected
-# aggregate anomaly. Lock the "RCA-only" set so a maintainer does not
-# delete ``member_hotspot`` from the registry as dead code, and does not
-# quietly add a scenario with it as ``expected_signal`` (that would
-# collapse the aggregate vs member distinction the RCA layer relies on).
+# aggregate anomaly. The registry itself now carries a ``role`` field
+# (:class:`~fdai.core.detection.signals.SignalRole`) - RCA-only signals
+# opt in via ``role=SignalRole.RCA_ONLY``, and the tests below derive
+# the RCA-only set from the registry so the two cannot drift.
+#
+# What USED to be here: a hard-coded ``_RCA_ONLY_SIGNALS = {"member_hotspot"}``
+# frozenset parallel to the registry. That is exactly the dual-
+# maintenance the R3 refactor removed.
 
-# Locked list of signals that MUST exist in the registry but MUST NOT
-# be any scenario's ``expected_signal``. Editing this set requires a
-# justification in the commit that also documents the RCA path.
-_RCA_ONLY_SIGNALS: frozenset[str] = frozenset({"member_hotspot"})
 
-
-def test_rca_only_signals_are_registered() -> None:
-    """Every RCA-only signal is still in the canonical registry."""
-    for signal in _RCA_ONLY_SIGNALS:
-        assert is_known_signal(signal), (
-            f"RCA-only signal {signal!r} missing from registry - "
-            "either restore it or update _RCA_ONLY_SIGNALS."
-        )
+def test_rca_only_role_is_populated() -> None:
+    """The registry must expose at least one RCA-only signal so the
+    concept has data-level meaning (and the guards below have work to
+    do). If a maintainer removes the last RCA-only entry, that is a
+    design decision - fail here so it happens on purpose."""
+    assert signals_with_role(SignalRole.RCA_ONLY), (
+        "no signal in the registry has role=RCA_ONLY. Either restore "
+        "one (e.g. member_hotspot) or delete this test with a doc "
+        "update explaining why the concept was retired."
+    )
 
 
 def test_rca_only_signals_are_not_scenario_expected() -> None:
     """No scenario declares an RCA-only signal as its expected_signal."""
+    rca_only = signals_with_role(SignalRole.RCA_ONLY)
     scenario_signals = {s.expected_signal for s in default_scenarios()}
-    conflicts = scenario_signals & _RCA_ONLY_SIGNALS
+    conflicts = scenario_signals & rca_only
     assert not conflicts, (
         f"Scenario(s) declared an RCA-only signal as expected_signal: "
         f"{sorted(conflicts)}. RCA-only signals surface a member-level "
@@ -228,6 +233,18 @@ def test_rca_only_signals_are_not_scenario_expected() -> None:
         f"scenario that expects one directly would collapse that "
         f"distinction. Author a distinct signal instead."
     )
+
+
+def test_scenario_signals_all_carry_scenario_role() -> None:
+    """Every scenario.expected_signal is registered with role=SCENARIO."""
+    scenario_role = signals_with_role(SignalRole.SCENARIO)
+    for scenario in default_scenarios():
+        assert scenario.expected_signal in scenario_role, (
+            f"{scenario.scenario_id}: expected_signal "
+            f"{scenario.expected_signal!r} must carry "
+            f"role=SignalRole.SCENARIO in the registry - RCA-only "
+            f"signals cannot be scenario-tied."
+        )
 
 
 # ---------------------------------------------------------------------------
