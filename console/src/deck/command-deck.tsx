@@ -266,6 +266,28 @@ export function CommandDeck() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, [open, closeDeck]);
 
+  // Focus guard: while the deck is open, a live route behind it re-renders on
+  // every stream frame. Those background re-renders can steal focus out of the
+  // input onto a topbar/background control, which silently swallows the
+  // operator's keystrokes (a stray Space then scrolls the page or toggles a
+  // background button - e.g. closing the deck). Pull focus back to the input
+  // whenever it escapes to anything that is neither inside the overlay nor the
+  // still-interactive left rail. A genuine click on a background control still
+  // fires (click precedes focus); only the stuck-focus is corrected.
+  useEffect(() => {
+    if (!open) return;
+    const onFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const overlay = overlayRef.current;
+      if (overlay && overlay.contains(target)) return;
+      if (target.closest(".left-rail")) return;
+      requestAnimationFrame(() => inputRef.current?.focus());
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, [open]);
+
   // Follow new content (including streaming token growth) only while the
   // operator is reading the latest turn. If they scrolled up to re-read an
   // earlier answer, an arriving reply must not yank them back down.

@@ -176,6 +176,12 @@ a:hover {
 body.deck-open .left-rail-popover {
   display: none;
 }
+/* Lock the background from scrolling while the deck is open. The overlay is
+   an opaque, fixed modal; without this a wheel/keyboard scroll leaks through
+   to the live route behind it and the operator returns to a shifted page. */
+body.deck-open {
+  overflow: hidden;
+}
 .left-rail-list {
   list-style: none;
   margin: 0;
