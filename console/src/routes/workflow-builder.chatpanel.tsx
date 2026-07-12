@@ -51,6 +51,7 @@ export function WorkflowChat({ palette, onBack }: Props) {
   const [input, setInput] = useState("");
   const idRef = useRef(0);
   const threadRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const nextId = () => (idRef.current += 1);
 
@@ -62,9 +63,15 @@ export function WorkflowChat({ palette, onBack }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [palette]);
 
-  // Keep the newest message in view.
+  // Focus the composer on mount so an operator can start typing immediately.
   useEffect(() => {
-    threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
+    inputRef.current?.focus();
+  }, []);
+
+  // Keep the newest message in view, honoring reduced-motion preference.
+  useEffect(() => {
+    const behavior: ScrollBehavior = prefersReducedMotion() ? "auto" : "smooth";
+    threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior });
   }, [messages]);
 
   function send(raw: string): void {
@@ -106,6 +113,7 @@ export function WorkflowChat({ palette, onBack }: Props) {
         <textarea
           class="form-input"
           rows={2}
+          ref={inputRef}
           value={input}
           placeholder="Describe what should happen, or answer the question above..."
           aria-label="Message the workflow designer"
@@ -135,6 +143,16 @@ function botMessage(turn: BotTurn, id: number): Message {
   };
 }
 
+/** True when the operator asked the OS to minimize motion; falls back to
+ * animated scrolling when the API is unavailable (SSR / older browsers). */
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 /** What to echo as the operator's bubble: a clicked chip shows its human
  * label (found in the previous bot turn), free text shows verbatim. */
 function displayInput(raw: string, messages: readonly Message[]): string {
@@ -162,16 +180,18 @@ function MessageBubble({
   return (
     <div class={isBot ? "wf-msg wf-msg-bot" : "wf-msg wf-msg-op"}>
       <div class="wf-msg-body">
+        <span class="sr-only">{isBot ? "Assistant:" : "You:"} </span>
         <RichText text={message.text} />
         {message.preview ? <WorkflowPreview form={message.preview} palette={palette} /> : null}
         {message.options && message.options.length > 0 ? (
-          <div class="wf-chip-row">
+          <div class="wf-chip-row" role="group" aria-label="Suggested replies">
             {message.options.map((o) => (
               <button
                 type="button"
                 class="wf-chip"
                 key={o.value}
                 title={o.hint}
+                aria-label={o.hint ? `${o.label} - ${o.hint}` : o.label}
                 onClick={() => onChip(o.value)}
               >
                 {o.label}
@@ -292,7 +312,9 @@ function WorkflowPreview({
       <div class="wf-preview-section">
         <h4 class="wf-preview-title">Dry test</h4>
         {validating ? (
-          <p class="muted small">Testing the draft against the server-side loader...</p>
+          <p class="muted small" aria-busy="true">
+            Testing the draft against the server-side loader...
+          </p>
         ) : error ? (
           <p class="wf-test-fail">Could not reach the validator: {error}</p>
         ) : result ? (
