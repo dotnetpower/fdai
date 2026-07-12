@@ -4496,6 +4496,34 @@ main { padding-bottom: 60px !important; }
   flex-wrap: wrap;
 }
 
+.incident-deck-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.incident-ask-deck {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, #60a5fa 55%, transparent);
+  background: color-mix(in srgb, #60a5fa 14%, transparent);
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.incident-ask-deck:hover {
+  background: color-mix(in srgb, #60a5fa 26%, transparent);
+}
+.incident-ask-deck:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+.incident-deck-hint {
+  font-size: 0.65rem;
+  opacity: 0.55;
+}
+
 .incident-steps {
   list-style: none;
   display: flex;

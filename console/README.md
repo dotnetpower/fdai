@@ -145,6 +145,20 @@ renders the outcome (submitted with a correlation id / refused by role /
 unmapped) and never holds any execution authority. See
 [operator-console.md § 13.5](../docs/roadmap/interfaces/operator-console.md).
 
+### Cross-screen open (Now > Agents incident thread)
+
+Any read-only surface can raise the deck without holding a reference to it, via
+the decoupled `fdai:deck:open` window event
+([`src/deck/open-deck.ts`](src/deck/open-deck.ts) `openDeckWithPrompt`). The
+Now > Agents route ([`src/routes/agents.tsx`](src/routes/agents.tsx)) uses it:
+selecting an incident publishes that incident's `ViewSnapshot` (the agent
+conversation, involved agents, status) so the deck grounds answers in the live
+thread, and an **Ask the deck about this incident** button opens the deck seeded
+with a grounded question. The seam only opens a question box - it seeds a draft
+the operator still has to send, executes nothing, and preserves the read-only
+console invariant. From there the operator asks (narrator) or proposes a runtime
+action (`/chat/action`, judged downstream, never executed here).
+
 ### Self-describing screens
 
 Each route publishes a `ViewSnapshot` (`src/deck/context.tsx`) that is a screen

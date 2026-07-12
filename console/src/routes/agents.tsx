@@ -15,6 +15,9 @@ import { useEffect, useMemo, useReducer, useState } from "preact/hooks";
 import type { ReadApiClient } from "../api";
 import { loadConfig } from "../config";
 import { useAgentStream } from "../hooks/use-agent-stream";
+import { usePublishViewContext } from "../deck/context";
+import { agentTerm, composeGlossary, TERMS } from "../deck/glossary";
+import { openDeckWithPrompt } from "../deck/open-deck";
 import {
   PANTHEON,
   activeAgentCount,
@@ -70,6 +73,60 @@ export function AgentsRoute({ client: _client }: Props) {
   );
 
   const active = activeAgentCount(state);
+
+  usePublishViewContext(
+    () => ({
+      routeId: "agents",
+      routeLabel: "Agents",
+      purpose:
+        "The 15-agent pantheon, live. Each incident (correlation id) is one " +
+        "collaboration: Huginn/Heimdall sense, Forseti judges, Var queues a HIL " +
+        "approval, Thor executes, Saga records. Read-only - ask the deck about " +
+        "the selected incident, or propose a runtime action (it is judged, never " +
+        "executed from here).",
+      glossary: composeGlossary([
+        TERMS.correlationId,
+        TERMS.hil,
+        TERMS.outcome,
+        TERMS.gateDecision,
+        agentTerm(),
+      ]),
+      headline: selected
+        ? `${selected.title} (${selected.status}) - ${selected.involved.length} agent(s), ${selected.turns.length} turn(s)`
+        : `${state.incidentOrder.length} incident(s) - ${active} agent(s) engaged`,
+      capturedAt: new Date().toISOString(),
+      facts: [
+        { key: "incidents", value: state.incidentOrder.length, group: "page" },
+        { key: "engaged", value: active, group: "page" },
+        { key: "selected", value: selected?.ticketId ?? "-", group: "incident" },
+        { key: "status", value: selected?.status ?? "-", group: "incident" },
+        { key: "severity", value: selected?.severity ?? "-", group: "incident" },
+      ],
+      records: {
+        // The selected incident's agent-to-agent conversation so the deck can
+        // answer "what's the root cause / who's involved / what did they say"
+        // grounded in the live thread. Empty when nothing is selected.
+        conversation: (selected?.turns ?? []).slice(-40).map((t) => ({
+          from_agent: t.from_agent,
+          to_agent: t.to_agent,
+          kind: t.kind,
+          text: t.text,
+          at: t.ts,
+        })),
+        incidents: state.incidentOrder.map((id) => {
+          const inc = state.incidents[id];
+          return {
+            ticket: inc?.ticketId ?? id,
+            title: inc?.title ?? "-",
+            status: inc?.status ?? "-",
+            severity: inc?.severity ?? "-",
+            correlation_id: id,
+          };
+        }),
+      },
+    }),
+    [state, selected, active],
+  );
 
   return (
     <div class="agents-route">
@@ -177,6 +234,24 @@ function IncidentWorkflow({ incident }: { incident: Incident | null }) {
         <span class={`incident-status status-${incident.status}`}>{incident.status}</span>
         <span class="incident-workflow-title">{incident.title}</span>
         <span class="incident-ticket">{incident.ticketId}</span>
+      </div>
+
+      <div class="incident-deck-actions">
+        <button
+          type="button"
+          class="incident-ask-deck"
+          onClick={() =>
+            openDeckWithPrompt(
+              `About incident ${incident.ticketId} (${incident.correlationId}): what is the root cause and what are the agents doing?`,
+            )
+          }
+        >
+          Ask the deck about this incident
+        </button>
+        <span class="incident-deck-hint">
+          Questions are read-only; a command opens a proposal (judged, never
+          executed here).
+        </span>
       </div>
 
       <ol class="incident-steps">

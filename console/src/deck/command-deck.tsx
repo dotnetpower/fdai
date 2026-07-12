@@ -38,6 +38,7 @@ import {
 import { GroundedReply } from "./grounded-reply";
 import { RetrievalTrace } from "./retrieval-trace";
 import { introSuggestions } from "./intro-suggestions";
+import { DECK_OPEN_EVENT, type DeckOpenDetail } from "./open-deck";
 import { isNearBottom } from "./scroll-stick";
 import { parseTurns, serializeTurns, TRANSCRIPT_KEY } from "./transcript-store";
 
@@ -234,6 +235,25 @@ export function CommandDeck() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [open, openDeck, closeDeck]);
+
+  // Cross-screen open: any read-only surface (e.g. the Now>Agents incident
+  // thread) can dispatch `fdai:deck:open` to raise the deck, optionally seeding
+  // the draft with a grounded question. This is a decoupled seam - the sender
+  // holds no reference to the deck and cannot execute anything; it only opens a
+  // question box the operator still has to send.
+  useEffect(() => {
+    const onOpenDeck = (e: Event) => {
+      const detail = (e as CustomEvent<DeckOpenDetail>).detail;
+      const seed = typeof detail?.prompt === "string" ? detail.prompt : "";
+      if (seed) {
+        setDraft(seed);
+        historyRef.current = recordHistory(historyRef.current, seed);
+      }
+      openDeck();
+    };
+    window.addEventListener(DECK_OPEN_EVENT, onOpenDeck);
+    return () => window.removeEventListener(DECK_OPEN_EVENT, onOpenDeck);
+  }, [openDeck]);
 
   // Navigation dismisses the deck. While the deck is open the left rail is
   // lifted above the overlay (body.deck-open) so its navigation popover is
