@@ -47,6 +47,16 @@ locals {
       # src/fdai/composition/wire_azure.py.
       FDAI_MONITOR_WORKSPACE_ID = var.monitor_workspace_customer_id
     },
+    var.prometheus_endpoint == "" ? {} : {
+      # Read by the same helper to bind ``PrometheusMetricProvider`` as
+      # the primary route (Prom-first, AML-fallback via
+      # ``RoutedMetricProvider``). AKS Managed Prometheus over AAD
+      # requires the audience below; self-hosted Prom leaves it empty.
+      FDAI_PROMETHEUS_ENDPOINT = var.prometheus_endpoint
+    },
+    var.prometheus_audience == "" ? {} : {
+      FDAI_PROMETHEUS_AUDIENCE = var.prometheus_audience
+    },
   )
 }
 

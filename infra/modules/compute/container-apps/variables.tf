@@ -301,6 +301,62 @@ variable "scheduler_cron_expression" {
 
 
 # ---------------------------------------------------------------------------
+# Analyzer tick job (opt-in) - drives the reference threshold analyzers
+# out-of-band so metric-based scenarios (node_cpu_percent, http_429_rate,
+# ...) get periodic detection. Bounded below by the metric backend's
+# ingestion lag (AKS Managed Prometheus ~15 s, Azure Monitor Logs KQL
+# ~2-5 min); pick 60 s cron as the safe default.
+# ---------------------------------------------------------------------------
+
+variable "analyzer_tick_cron_expression" {
+  description = "Cron for the analyzer tick Container Apps Job that drives the reference threshold analyzers. Empty string disables the job (default)."
+  type        = string
+  default     = ""
+}
+
+variable "analyzer_targets_json" {
+  description = "JSON array of {resource_id, kind} pairs the analyzer tick investigates each fire. Empty (default) -> the CLI logs a no-targets info line and exits 0, so a mis-provisioned cron stays quiet."
+  type        = string
+  default     = ""
+}
+
+variable "analyzer_window_seconds" {
+  description = "Optional window (seconds) each analyzer looks back on this tick. Empty -> CLI default (300 s)."
+  type        = string
+  default     = ""
+}
+
+variable "analyzer_budget_seconds" {
+  description = "Optional budget (seconds) the coordinator applies to the whole tick before it marks BUDGET_EXCEEDED. Empty -> CLI default (60 s)."
+  type        = string
+  default     = ""
+}
+
+variable "prometheus_endpoint" {
+  description = <<-EOT
+    Base URL of a Prometheus-compatible query API (AKS Managed Prometheus,
+    self-hosted Prom, Thanos, Cortex, Mimir). When non-empty, wires the
+    ``FDAI_PROMETHEUS_ENDPOINT`` env var so ``wire_azure_container``
+    picks Prom as the primary route for its supported metrics
+    (sub-minute detection) with Azure Monitor Logs as the fallback for
+    non-AKS metrics. Empty (default) keeps AML-only (or Noop) binding.
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "prometheus_audience" {
+  description = <<-EOT
+    OIDC audience for the Prometheus bearer token. AKS Managed
+    Prometheus with AAD requires ``https://prometheus.monitor.azure.com``.
+    Empty -> unauthenticated Prom (self-hosted / behind network policy).
+  EOT
+  type        = string
+  default     = ""
+}
+
+
+# ---------------------------------------------------------------------------
 # Deep DB-DR drill (opt-in; see docs/runbooks/db-dr-drill.md).
 # ---------------------------------------------------------------------------
 

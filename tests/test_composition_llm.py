@@ -949,9 +949,7 @@ def test_azure_wire_overrides_rejects_prom_audience_without_endpoint(
     from fdai.composition import AzureWireOverrides
     from fdai.core.operator_memory import InMemoryOperatorMemoryStore
 
-    with pytest.raises(
-        ValueError, match="prometheus_audience requires prometheus_base_url"
-    ):
+    with pytest.raises(ValueError, match="prometheus_audience requires prometheus_base_url"):
         AzureWireOverrides(
             endpoint="https://oai-fork.openai.azure.com",
             catalog_root=tmp_path,

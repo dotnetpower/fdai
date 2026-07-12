@@ -506,9 +506,18 @@ async def _finalize_llm_bindings(
       ``AzureWireOverrides.monitor_workspace_id``. When set,
       :func:`wire_azure_container` auto-binds the Azure Monitor Logs
       metric adapter using the shipped
-      :func:`~fdai.delivery.azure.demo_queries.sre_demo_capture_queries`
+      :func:`~fdai.delivery.azure.demo_queries.default_metric_queries`
       catalog in place of :class:`NoopMetricProvider`, so the detection
       pipeline sees real telemetry without every fork rewriring it.
+    - ``FDAI_PROMETHEUS_ENDPOINT`` (optional) ->
+      ``AzureWireOverrides.prometheus_base_url``. When set (typically
+      AKS Managed Prometheus), Prom becomes the primary route for its
+      supported metrics; AML (when also set) covers the rest via a
+      routed composite so AKS metrics get sub-minute detection while
+      non-AKS resources still resolve on the AML KQL floor.
+    - ``FDAI_PROMETHEUS_AUDIENCE`` (optional) - OIDC audience used to
+      mint the Prometheus bearer token (required for AAD-guarded
+      Managed Prometheus).
 
     A fork that needs different resolution SHOULD call
     :func:`wire_azure_container` directly with its own
@@ -526,6 +535,10 @@ async def _finalize_llm_bindings(
     # deploy exposes a Log Analytics workspace. Empty / unset -> upstream
     # default ``NoopMetricProvider`` stays, matching dev-mode parity.
     monitor_workspace_id = os.environ.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() or None
+    # Optional: bind the Prometheus adapter (AKS Managed Prometheus is
+    # the common case) as the primary route for AKS-scoped metrics.
+    prometheus_base_url = os.environ.get("FDAI_PROMETHEUS_ENDPOINT", "").strip() or None
+    prometheus_audience = os.environ.get("FDAI_PROMETHEUS_AUDIENCE", "").strip() or None
     return await wire_azure_container(
         container,
         http_client=http_client,
@@ -535,6 +548,8 @@ async def _finalize_llm_bindings(
             catalog_root=_resolve_catalog_root(),
             operator_memory_store=_build_operator_memory_store(),
             monitor_workspace_id=monitor_workspace_id,
+            prometheus_base_url=prometheus_base_url,
+            prometheus_audience=prometheus_audience,
         ),
     )
 

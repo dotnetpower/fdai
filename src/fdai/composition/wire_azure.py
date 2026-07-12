@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -95,6 +95,30 @@ class AzureWireOverrides:
     pass its own map to add / override templates while keeping the
     returned ``value_column`` / ``timestamp_column`` / ``label_columns``
     shape.
+
+    ``prometheus_base_url`` - Base URL of a Prometheus-compatible query
+    endpoint (AKS Managed Prometheus, self-hosted Prom, Thanos, Cortex,
+    Mimir). When supplied, :func:`wire_azure_container` binds a
+    :class:`~fdai.delivery.prometheus.PrometheusMetricProvider` and,
+    when a Log Analytics workspace is ALSO supplied, composes both
+    behind a :class:`~fdai.shared.providers.routed_metric.RoutedMetricProvider`
+    so metrics that Prometheus can serve (AKS-scoped: ``node_cpu_percent``,
+    ...) hit Prom directly (sub-minute detection) while the non-AKS
+    metrics still ride the AML KQL path (~2-5 min ingestion floor).
+    When Prom is set but AML is not, Prom serves what it can and any
+    other metric fails-closed. ``None`` (default) keeps the AML-only
+    (or Noop) binding.
+
+    ``prometheus_queries`` - CSP-neutral ``metric_name`` -> PromQL
+    string map. Only consulted when ``prometheus_base_url`` is set;
+    defaults to the shipped
+    :func:`~fdai.delivery.prometheus.aks_managed_prometheus_queries`
+    catalog. A fork's PromQL layout differs? Copy the map, override
+    entries, pass the result via this override.
+
+    ``prometheus_audience`` - Optional OIDC audience the Prometheus
+    adapter mints a bearer token for (required by AKS Managed
+    Prometheus + AAD auth). ``None`` skips authentication.
     """
 
     endpoint: str
@@ -106,6 +130,9 @@ class AzureWireOverrides:
     pricing: PricingTable | None = None
     monitor_workspace_id: str | None = None
     monitor_queries: Mapping[str, MetricKqlTemplate] | None = None
+    prometheus_base_url: str | None = None
+    prometheus_queries: Mapping[str, str] | None = None
+    prometheus_audience: str | None = None
 
     def __post_init__(self) -> None:
         if not self.endpoint:
@@ -125,6 +152,19 @@ class AzureWireOverrides:
                 "AzureWireOverrides.monitor_queries requires "
                 "monitor_workspace_id - queries without a workspace bind "
                 "nothing"
+            )
+        # Symmetric guard for the Prometheus route.
+        if self.prometheus_queries is not None and not self.prometheus_base_url:
+            raise ValueError(
+                "AzureWireOverrides.prometheus_queries requires "
+                "prometheus_base_url - PromQL without an endpoint binds "
+                "nothing"
+            )
+        if self.prometheus_audience is not None and not self.prometheus_base_url:
+            raise ValueError(
+                "AzureWireOverrides.prometheus_audience requires "
+                "prometheus_base_url - an audience without an endpoint "
+                "is a wiring bug"
             )
 
 
@@ -294,27 +334,80 @@ async def wire_azure_container(
         pricing=pricing,
     )
 
-    # Chain the Azure Monitor Logs metric adapter in when the fork (or
-    # __main__'s ``FDAI_MONITOR_WORKSPACE_ID`` resolver) supplies a
-    # workspace. Upstream defaults to the shipped SRE-demo capture query
-    # map so the detection pipeline (`core/detection/*`,
-    # `core/investigation/*`) receives real telemetry out of the box;
-    # a fork passes ``monitor_queries`` to add or override templates.
+    # Chain the metric adapter in based on which telemetry backends the
+    # deploy exposes:
+    #
+    # - Only ``monitor_workspace_id`` -> AML alone (2-5 min ingestion floor).
+    # - Only ``prometheus_base_url`` -> Prom alone (sub-minute for the
+    #   AKS-scoped metrics, fail-closed on others).
+    # - Both -> :class:`RoutedMetricProvider` with Prom first for its
+    #   supported set + AML for the full analyzer catalog (Prom wins
+    #   the overlap, giving sub-minute detection on AKS metrics while
+    #   the rest still resolve).
+    # - Neither -> ``NoopMetricProvider`` (upstream default preserved).
+    #
+    # Upstream defaults for each backend's query map come from the
+    # shipped catalogs so a fork with just an endpoint set gets a
+    # working detection baseline; a fork override always wins.
+    aml_provider = None
+    prom_provider = None
+    aml_query_count = 0
+    prom_query_count = 0
     if overrides.monitor_workspace_id:
         from ..delivery.azure.demo_queries import default_metric_queries
-        from ..delivery.azure.metric_logs import AzureMonitorLogsConfig
-        from . import bind_azure_monitor_logs
-
-        queries = overrides.monitor_queries or default_metric_queries()
-        monitor_config = AzureMonitorLogsConfig(
-            workspace_id=overrides.monitor_workspace_id,
-            queries=queries,
+        from ..delivery.azure.metric_logs import (
+            AzureMonitorLogsConfig,
+            AzureMonitorLogsMetricProvider,
         )
+
+        aml_queries = overrides.monitor_queries or default_metric_queries()
+        aml_provider = AzureMonitorLogsMetricProvider(
+            config=AzureMonitorLogsConfig(
+                workspace_id=overrides.monitor_workspace_id,
+                queries=aml_queries,
+            ),
+            identity=identity,
+            http_client=http_client,
+        )
+        aml_query_count = len(aml_queries)
+
+    if overrides.prometheus_base_url:
+        from ..delivery.prometheus import (
+            PrometheusMetricConfig,
+            PrometheusMetricProvider,
+            aks_managed_prometheus_queries,
+        )
+
+        prom_queries = overrides.prometheus_queries or aks_managed_prometheus_queries()
+        prom_provider = PrometheusMetricProvider(
+            config=PrometheusMetricConfig(
+                base_url=overrides.prometheus_base_url,
+                queries=prom_queries,
+                audience=overrides.prometheus_audience,
+            ),
+            http_client=http_client,
+            identity=identity if overrides.prometheus_audience else None,
+        )
+        prom_query_count = len(prom_queries)
+
+    if aml_provider is None and prom_provider is None:
+        _LOGGER.info(
+            "metric_provider_skipped",
+            extra={
+                "reason": (
+                    "neither monitor_workspace_id nor prometheus_base_url "
+                    "supplied - NoopMetricProvider stays"
+                )
+            },
+        )
+        return container_with_llm
+
+    if aml_provider is not None and prom_provider is None:
         _LOGGER.info(
             "azure_monitor_logs_bound",
             extra={
                 "workspace_id": overrides.monitor_workspace_id,
-                "query_count": len(queries),
+                "query_count": aml_query_count,
                 "query_source": (
                     "override"
                     if overrides.monitor_queries is not None
@@ -322,15 +415,59 @@ async def wire_azure_container(
                 ),
             },
         )
-        return bind_azure_monitor_logs(
-            container_with_llm,
-            config=monitor_config,
-            identity=identity,
-            http_client=http_client,
-        )
+        return replace(container_with_llm, metric_provider=aml_provider)
 
-    _LOGGER.info(
-        "azure_monitor_logs_skipped",
-        extra={"reason": "monitor_workspace_id not supplied"},
+    if prom_provider is not None and aml_provider is None:
+        _LOGGER.info(
+            "prometheus_metric_bound",
+            extra={
+                "base_url": overrides.prometheus_base_url,
+                "query_count": prom_query_count,
+                "query_source": (
+                    "override"
+                    if overrides.prometheus_queries is not None
+                    else "aks_managed_prometheus_queries"
+                ),
+            },
+        )
+        return replace(container_with_llm, metric_provider=prom_provider)
+
+    # Both backends live: route Prom first (its supported subset wins),
+    # AML picks up everything else.
+    from ..delivery.prometheus import aks_managed_prometheus_queries as _prom_defaults
+    from ..shared.providers.routed_metric import MetricRoute, RoutedMetricProvider
+
+    prom_supported = frozenset((overrides.prometheus_queries or _prom_defaults()).keys())
+    aml_supported = frozenset((overrides.monitor_queries or {}).keys()) or frozenset(
+        _load_default_aml_metric_names()
     )
-    return container_with_llm
+    routed = RoutedMetricProvider(
+        routes=(
+            MetricRoute(provider=prom_provider, supported_metrics=prom_supported),
+            MetricRoute(provider=aml_provider, supported_metrics=aml_supported),
+        ),
+    )
+    _LOGGER.info(
+        "metric_provider_routed",
+        extra={
+            "primary": "prometheus",
+            "primary_query_count": prom_query_count,
+            "fallback": "azure_monitor_logs",
+            "fallback_query_count": aml_query_count,
+            "prometheus_metrics": sorted(prom_supported),
+        },
+    )
+    return replace(container_with_llm, metric_provider=routed)
+
+
+def _load_default_aml_metric_names() -> frozenset[str]:
+    """Return the metric-name set the shipped AML catalog covers.
+
+    Extracted so the composite-route path can pull the AML supported
+    set from the default catalog without importing the KQL template
+    module at the composition-root module top level (kept lazy for
+    optional-dependency purity).
+    """
+    from ..delivery.azure.demo_queries import default_metric_queries
+
+    return frozenset(default_metric_queries().keys())
