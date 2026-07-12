@@ -67,16 +67,25 @@ def test_three_subpackages_exist() -> None:
 
 
 def test_build_app_composes_starlette_router() -> None:
+    from fdai.core.rbac.resolver import GroupMapping, RoleResolver
     from fdai.delivery.read_api.auth import UnsafeClaimsExtractor, build_authenticator
     from fdai.delivery.read_api.main import build_app
     from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
 
-    def resolver(_claims):  # type: ignore[no-untyped-def]
-        from fdai.core.rbac.resolver import Principal
-        from fdai.core.rbac.roles import Role
-
-        return Principal(oid="test", email="t@example.com", roles=(Role.OPERATOR,))
-
+    # Real RoleResolver bound to placeholder group ids - `build_app` never
+    # invokes the resolver during route registration, but constructing a
+    # real instance keeps the type contract honest so a future refactor
+    # that DOES exercise the resolver here surfaces the failure early.
+    placeholder = "00000000-0000-0000-0000-000000000000"
+    resolver = RoleResolver(
+        group_mapping=GroupMapping(
+            reader_group_id=placeholder,
+            contributor_group_id=placeholder,
+            approver_group_id=placeholder,
+            owner_group_id=placeholder,
+            break_glass_group_id=placeholder,
+        )
+    )
     authenticator = build_authenticator(verifier=UnsafeClaimsExtractor(), resolver=resolver)
     app = build_app(authenticator=authenticator, read_model=InMemoryConsoleReadModel())
     routes = list(app.router.routes)

@@ -237,6 +237,23 @@ async def test_run_after_stop_raises() -> None:
         await broadcaster.run()
 
 
+async def test_run_after_start_and_stop_raises() -> None:
+    """Regression: run()->stop()->run() MUST raise, not silently no-op.
+
+    A prior implementation checked `_started` before `_stopped`, so after the
+    start->stop cycle a second run() saw `_started=True` and returned silently,
+    making the RuntimeError guard unreachable.
+    """
+    bus = InMemoryEventBus()
+    pub = _RecordingPublisher()
+    broadcaster = AgentActivityBroadcaster(event_bus=bus, publisher=pub)
+    await broadcaster.run()
+    await asyncio.sleep(0)
+    await broadcaster.stop()
+    with pytest.raises(RuntimeError, match="already stopped"):
+        await broadcaster.run()
+
+
 def test_config_guards() -> None:
     bus = InMemoryEventBus()
     pub = _RecordingPublisher()

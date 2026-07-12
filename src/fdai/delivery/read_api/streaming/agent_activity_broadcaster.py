@@ -132,10 +132,14 @@ class AgentActivityBroadcaster:
 
     async def run(self) -> None:
         """Start the background consume task. Idempotent before :meth:`stop`."""
-        if self._started:
-            return
+        # `_stopped` MUST be checked before `_started` - the flags are set in
+        # the order (run -> _started=True, stop -> _stopped=True) so a
+        # `run() -> stop() -> run()` sequence otherwise sees `_started=True`
+        # and silently returns, making the RuntimeError guard unreachable.
         if self._stopped:
             raise RuntimeError("broadcaster already stopped; instantiate a new one")
+        if self._started:
+            return
         self._started = True
         loop = asyncio.get_running_loop()
         self._task = loop.create_task(
