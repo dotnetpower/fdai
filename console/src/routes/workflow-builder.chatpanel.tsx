@@ -26,6 +26,7 @@ import { parseBlocks, type InlineToken } from "./workflow-builder.richtext";
 import {
   respondToChat,
   startChat,
+  SEED_PREFIX,
   type BotTurn,
   type ChatOption,
   type ChatSlots,
@@ -177,7 +178,7 @@ export function displayInput(raw: string, messages: readonly Message[]): string 
   const lastBot = [...messages].reverse().find((m) => m.role === "bot");
   const opt = lastBot?.options?.find((o) => o.value === raw);
   if (opt) return opt.label;
-  if (raw.startsWith("seed:")) return raw.slice("seed:".length);
+  if (raw.startsWith(SEED_PREFIX)) return raw.slice(SEED_PREFIX.length);
   return raw;
 }
 

@@ -83,9 +83,18 @@ export interface BotTurn {
 // Option-token prefixes (value of a ChatOption)
 // ---------------------------------------------------------------------------
 
+/** Prefix on a welcome example chip's value; the rest is the goal text.
+ * Exported so the UI echoes the example verbatim without re-hardcoding the
+ * literal (single source with {@link OPT}). */
+export const SEED_PREFIX = "seed:";
+
+/** Sub-prefix inside a `trigger:` value that carries a full cron expression
+ * (`trigger:cron:0 3 * * 0`), distinguishing a schedule from a signal pick. */
+const CRON_PREFIX = "cron:";
+
 const OPT = {
-  seed: "seed:", // welcome example click -> treat as goal text
-  trigger: "trigger:", // trigger:<signalType>  |  trigger:@weekly
+  seed: SEED_PREFIX, // welcome example click -> treat as goal text
+  trigger: "trigger:", // trigger:<signalType>  |  trigger:cron:<expr>  |  trigger:@weekly
   action: "action:", // action:<actionTypeName>
   done: "done", // offer_extra: finish adding actions
   nameKeep: "name:keep", // confirm_name: keep the suggested name
@@ -172,9 +181,9 @@ function applyInput(
   if (input.startsWith(OPT.trigger)) {
     const sig = input.slice(OPT.trigger.length);
     const form = cloneForm(slots.form);
-    if (sig.startsWith("cron:")) {
+    if (sig.startsWith(CRON_PREFIX)) {
       form.triggerKind = "schedule";
-      form.schedule = sig.slice("cron:".length);
+      form.schedule = sig.slice(CRON_PREFIX.length);
     } else if (sig === "@weekly") {
       form.triggerKind = "schedule";
       form.schedule = WEEKLY_CRON;
@@ -486,7 +495,7 @@ function triggerChips(): ChatOption[] {
   });
   const schedule: ChatOption = {
     label: "Every week (schedule)",
-    value: `${OPT.trigger}cron:${WEEKLY_CRON}`,
+    value: `${OPT.trigger}${CRON_PREFIX}${WEEKLY_CRON}`,
     hint: "Run on a weekly cron instead of reacting to a signal.",
   };
   return [...signals, schedule];
