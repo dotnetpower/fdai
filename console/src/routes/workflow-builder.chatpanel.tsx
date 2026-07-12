@@ -19,10 +19,11 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Fragment, type ComponentChildren } from "preact";
 import { CopyButton } from "../components/ui";
 import type { ActionTypePaletteEntry, ValidateResponse } from "../workflow/validate";
-import { buildDraft, githubNewFileUrl, humanizeActionName, signalLabel } from "./workflow-builder.helpers";
+import { buildDraft, githubNewFileUrl } from "./workflow-builder.helpers";
 import type { FormState } from "./workflow-builder.model";
 import { validateWorkflowDraft } from "../workflow/validate";
 import { parseBlocks, type InlineToken } from "./workflow-builder.richtext";
+import { buildVizModel } from "./workflow-builder.viz";
 import {
   respondToChat,
   startChat,
@@ -421,44 +422,31 @@ function WorkflowViz({
   readonly form: FormState;
   readonly palette: readonly ActionTypePaletteEntry[];
 }) {
-  const catOf = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const p of palette) m.set(p.name, p.category ?? "other");
-    return m;
-  }, [palette]);
-
-  const triggerLabel =
-    form.triggerKind === "signal"
-      ? signalLabel(form.signalType) || form.signalType || "an event"
-      : form.schedule || "a schedule";
-  const steps = form.steps.filter((s) => s.action_type_ref.trim().length > 0);
+  const nodes = useMemo(() => buildVizModel(form, palette), [form, palette]);
+  const trigger = nodes[0];
+  const steps = nodes.filter((n) => n.kind === "do" || n.kind === "notify");
 
   return (
-    <div class="wf-viz" aria-label="Workflow visualization">
-      <div class="wf-viz-node wf-viz-trigger">
+    <div class="wf-viz" role="list" aria-label="Workflow visualization">
+      <div class="wf-viz-node wf-viz-trigger" role="listitem">
         <span class="wf-viz-kind">when</span>
-        <span class="wf-viz-name">{triggerLabel}</span>
-        <span class="wf-viz-ref mono">
-          {form.triggerKind === "signal" ? form.signalType : form.schedule}
-        </span>
+        <span class="wf-viz-name">{trigger?.name}</span>
+        <span class="wf-viz-ref mono">{trigger?.ref}</span>
       </div>
-      {steps.map((s, i) => {
-        const cat = catOf.get(s.action_type_ref) ?? "other";
-        return (
-          <Fragment key={s.key}>
-            <div class="wf-viz-edge" aria-hidden="true">
-              <span class="wf-viz-edge-label">{i === 0 ? "then do" : "then"}</span>
-            </div>
-            <div class={`wf-viz-node wf-viz-action is-${cat}`}>
-              <span class="wf-viz-kind">{cat === "tool" ? "notify" : "do"}</span>
-              <span class="wf-viz-name">{humanizeActionName(s.action_type_ref)}</span>
-              <span class="wf-viz-ref mono">{s.action_type_ref}</span>
-            </div>
-          </Fragment>
-        );
-      })}
+      {steps.map((n, i) => (
+        <Fragment key={`${n.ref}-${i}`}>
+          <div class="wf-viz-edge" aria-hidden="true">
+            <span class="wf-viz-edge-label">{i === 0 ? "then do" : "then"}</span>
+          </div>
+          <div class={`wf-viz-node wf-viz-action is-${n.category}`} role="listitem">
+            <span class="wf-viz-kind">{n.kind}</span>
+            <span class="wf-viz-name">{n.name}</span>
+            <span class="wf-viz-ref mono">{n.ref}</span>
+          </div>
+        </Fragment>
+      ))}
       <div class="wf-viz-edge" aria-hidden="true"></div>
-      <div class="wf-viz-node wf-viz-end">
+      <div class="wf-viz-node wf-viz-end" role="listitem">
         <span class="wf-viz-name">done</span>
       </div>
     </div>
