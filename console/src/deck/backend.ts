@@ -263,12 +263,33 @@ export interface StreamCallbacks {
   readonly signal?: AbortSignal;
 }
 
+/** Typewriter cadence for the deterministic fallback, in ms per chunk.
+ *  Small enough to feel live, large enough that Preact batches don't collapse
+ *  the whole answer into one paint. Held in a mutable holder so tests can
+ *  set it to 0 for hermetic runs (ES modules refuse const reassignment). */
+export const fallbackTypewriter = { intervalMs: 12 };
+
+/** Split a string into small chunks (~one grapheme-cluster group at a time)
+ *  so the deterministic fallback types in like the LLM stream does. Splits
+ *  on whitespace-preserving boundaries so words never break mid-character. */
+function chunksForTypewriter(text: string): string[] {
+  // 3-4 char groups on average; whitespace is emitted attached to the
+  // following chunk so the visible cursor "types" whole tokens.
+  const out: string[] = [];
+  const re = /\s*\S{1,4}|\s+$/g;
+  for (const m of text.matchAll(re)) out.push(m[0]);
+  return out.length > 0 ? out : [text];
+}
+
 /**
  * Ask the chat backend over SSE (`POST /chat/stream`), streaming tokens as
  * they arrive. Resolves to the same shape as :func:`askBackend` once the
- * terminal `done` frame lands. Falls back to the deterministic answerer -
- * emitting the whole answer through `onToken` once - on any transport error
- * or an `error` frame, so the deck always renders something.
+ * terminal `done` frame lands. Falls back to the deterministic answerer on
+ * any transport error or an `error` frame; the fallback types in through
+ * `onToken` chunk by chunk (cadence :data:`fallbackTypewriter.intervalMs`)
+ * so the deck always LOOKS like it is streaming - even when the upstream
+ * LLM is down, misconfigured, or refused the prompt. Read-only, no state
+ * mutation.
  */
 export async function askBackendStream(
   prompt: string,
@@ -276,9 +297,22 @@ export async function askBackendStream(
   history: readonly BackendTurn[],
   cb: StreamCallbacks,
 ): Promise<Answer & { readonly source: string; readonly router?: RouterSnapshot }> {
-  const fallback = (why: string): Answer & { readonly source: string } => {
+  const emitTypewriter = async (text: string): Promise<void> => {
+    const chunks = chunksForTypewriter(text);
+    const interval = fallbackTypewriter.intervalMs;
+    for (const c of chunks) {
+      if (cb.signal?.aborted) return;
+      cb.onToken(c);
+      if (interval > 0) {
+        await new Promise((r) => setTimeout(r, interval));
+      }
+    }
+  };
+  const fallback = async (
+    why: string,
+  ): Promise<Answer & { readonly source: string }> => {
     const local = deterministicAnswer(prompt, snapshot);
-    cb.onToken(local.text);
+    await emitTypewriter(local.text);
     return { ...local, source: `deterministic (${why})` };
   };
 
@@ -288,6 +322,50 @@ export async function askBackendStream(
     followUps: [],
     source: "stopped",
   });
+
+  // Token pacer: reasoning-family models (gpt-5, o1/o3/o4) spend ~1-2s
+  // thinking then flush the whole answer as one TCP write, so the client
+  // sees N tokens land in the same event-loop tick and repaints once - the
+  // deck looks non-streaming even though the transport IS streaming. The
+  // pacer drains the SSE token queue at a bounded cadence so a burst
+  // arrival still types in visibly. When tokens arrive slower than the
+  // cadence (classic chat models like gpt-4o-mini), the pacer adds no
+  // delay - it only paces bursts.
+  const paceMs = fallbackTypewriter.intervalMs;
+  const tokenQueue: string[] = [];
+  let queueDone = false;
+  let pumpErr: unknown = null;
+  const pumpPromise = (async () => {
+    try {
+      while (true) {
+        if (cb.signal?.aborted) return;
+        if (tokenQueue.length === 0) {
+          if (queueDone) return;
+          await new Promise((r) => setTimeout(r, paceMs));
+          continue;
+        }
+        const delta = tokenQueue.shift() as string;
+        // Fan out large single deltas so a one-shot backend replay OR a
+        // single big SSE frame still types in whole-word by whole-word.
+        const parts = delta.length > 8 ? chunksForTypewriter(delta) : [delta];
+        for (const p of parts) {
+          if (cb.signal?.aborted) return;
+          cb.onToken(p);
+          if (paceMs > 0) await new Promise((r) => setTimeout(r, paceMs));
+        }
+      }
+    } catch (e) {
+      pumpErr = e;
+    }
+  })();
+  const enqueueDelta = (delta: string): void => {
+    tokenQueue.push(delta);
+  };
+  const flushPump = async (): Promise<void> => {
+    queueDone = true;
+    await pumpPromise;
+    if (pumpErr) throw pumpErr;
+  };
 
   let response: Response;
   try {
@@ -345,7 +423,7 @@ export async function askBackendStream(
       const delta = typeof obj.delta === "string" ? obj.delta : "";
       if (delta) {
         answerText += delta;
-        cb.onToken(delta);
+        enqueueDelta(delta);
       }
     } else if (event === "done") {
       doneData = obj;
@@ -366,10 +444,19 @@ export async function askBackendStream(
       }
     }
   } catch {
-    if (cb.signal?.aborted) return stopped(answerText);
-    if (answerText === "") return fallback("stream interrupted");
+    if (cb.signal?.aborted) {
+      await flushPump();
+      return stopped(answerText);
+    }
+    if (answerText === "") {
+      await flushPump();
+      return fallback("stream interrupted");
+    }
   }
   if (buffer.trim().length > 0) handleFrame(buffer);
+  // Wait for the pacer to drain any tokens still queued from the burst
+  // arrival before we hand the deck the final `done` payload.
+  await flushPump();
 
   if (errored && answerText === "") return fallback("stream error");
   if (answerText === "" && doneData === null) return fallback("empty stream");
