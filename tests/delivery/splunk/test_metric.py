@@ -229,9 +229,7 @@ async def test_out_of_range_time_fails_closed_not_crash(bad_time: str) -> None:
     # datetime.fromtimestamp; the adapter must fail closed with a clean
     # MetricProviderError, never let the raw exception crash the batch.
     async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200, text=_jsonl({"result": {"_time": bad_time, "value": "1.0"}})
-        )
+        return httpx.Response(200, text=_jsonl({"result": {"_time": bad_time, "value": "1.0"}}))
 
     provider, client, _ = _provider(handler)
     try:

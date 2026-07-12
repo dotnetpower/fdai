@@ -97,6 +97,7 @@ async def test_naive_window_bounds_do_not_raise() -> None:
 @pytest.mark.asyncio
 async def test_bearer_auth_scheme() -> None:
     captured: list[httpx.Request] = []
+
     async def handler(request: httpx.Request) -> httpx.Response:
         captured.append(request)
         return httpx.Response(200, json={"value": []})
