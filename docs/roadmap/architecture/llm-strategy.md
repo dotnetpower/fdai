@@ -205,6 +205,12 @@ Rules the registry enforces (MUST, at config load):
   `t2.rca`); it fires only on a novel incident the deterministic tiers could not resolve,
   and its output is refused unless grounded on the supplied evidence (see
   [observability-and-detection.md](../rules-and-detection/observability-and-detection.md) section 4).
+- **`tool_calling_required` gates function-calling families.** A capability whose tool
+  allowlist includes `web.search` (or any tool call) sets `tool_calling_required: true`; the
+  resolver degrades it to `hil-only` when the target region has no function-calling-capable
+  family (a tool that cannot be called must not ship silently). Web search is always the
+  self-hosted `WebSearchProvider` behind the T2 tool manifest - FDAI never delegates to a
+  model's native browsing.
 
 ### Bootstrap Provisioner
 

@@ -44,7 +44,8 @@
           },
           "sku": {"type": "string", "enum": ["Standard", "GlobalStandard", "ProvisionedManaged"]},
           "capacity_tpm": {"type": "integer", "minimum": 1000},
-          "invocation": {"type": "string", "enum": ["always", "on_disagreement", "on_novel_case"]}
+          "invocation": {"type": "string", "enum": ["always", "on_disagreement", "on_novel_case"]},
+          "tool_calling_required": {"type": "boolean", "default": false}
         }
       },
       "patternProperties": {
@@ -76,6 +77,11 @@
               "type": "string",
               "enum": ["always", "on_disagreement", "on_novel_case"],
               "default": "always"
+            },
+            "tool_calling_required": {
+              "type": "boolean",
+              "default": false,
+              "description": "Capability must resolve to a function-calling-capable family (its tool allowlist includes web.search or another tool call). The resolver degrades it to hil-only when a tool-calling family set is supplied and the chosen family is not in it."
             }
           }
         }

@@ -352,3 +352,72 @@ def test_resolved_models_round_trips_json() -> None:
     for a, b in zip(original.capabilities, restored.capabilities, strict=True):
         assert isinstance(a, ResolvedCapability)
         assert a == b
+
+
+# ---------------------------------------------------------------------------
+# Gate: tool_calling_required family support (G3)
+# ---------------------------------------------------------------------------
+
+
+def _registry_tool_calling():  # type: ignore[no-untyped-def]
+    raw: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "models": {
+            "t1.embedding": {
+                "preferences": [{"publisher": "OpenAI", "family": "text-embedding-3-small"}],
+                "capacity_tpm": 100_000,
+            },
+            "t1.judge": {
+                "preferences": [{"publisher": "OpenAI", "family": "gpt-4o-mini"}],
+                "capacity_tpm": 40_000,
+            },
+            "t2.reasoner.primary": {
+                "preferences": [{"publisher": "OpenAI", "family": "gpt-4o"}],
+                "capacity_tpm": 20_000,
+                "tool_calling_required": True,
+            },
+            "t2.reasoner.secondary": {
+                "preferences": [{"publisher": "Anthropic", "family": "claude-opus-4"}],
+                "capacity_tpm": 10_000,
+            },
+        },
+    }
+    return load_llm_registry_from_mapping(raw)
+
+
+def _resolve_tool_calling(tool_calling_families: frozenset[str] | None):  # type: ignore[no-untyped-def]
+    return resolve(
+        registry=_registry_tool_calling(),
+        region=_REGION,
+        subscription_id=_SUB,
+        deployer_object_id=_OID,
+        catalog=_StaticCatalog(_families_full()),
+        permission=_AlwaysPermissionQuery(True),
+        quota=_default_full_quota(),
+        tool_calling_families=tool_calling_families,
+    )
+
+
+def _cap(result: ResolvedModels, name: str) -> ResolvedCapability:
+    return next(c for c in result.capabilities if c.name == name)
+
+
+def test_tool_calling_required_resolves_when_family_supported() -> None:
+    result = _resolve_tool_calling(frozenset({"gpt-4o"}))
+    assert _cap(result, "t2.reasoner.primary").status is CapabilityStatus.RESOLVED
+
+
+def test_tool_calling_required_degrades_when_family_unsupported() -> None:
+    # gpt-4o (the primary's chosen family) is NOT tool-calling capable here.
+    result = _resolve_tool_calling(frozenset({"gpt-4o-mini"}))
+    primary = _cap(result, "t2.reasoner.primary")
+    assert primary.status is CapabilityStatus.HIL_ONLY
+    assert any("family_lacks_tool_calling" in r for r in primary.reasons)
+    # A capability that does not require tool calling is unaffected.
+    assert _cap(result, "t1.judge").status is CapabilityStatus.RESOLVED
+
+
+def test_tool_calling_none_skips_the_check() -> None:
+    # No tool-calling probe supplied -> existing behavior, primary resolves.
+    result = _resolve_tool_calling(None)
+    assert _cap(result, "t2.reasoner.primary").status is CapabilityStatus.RESOLVED

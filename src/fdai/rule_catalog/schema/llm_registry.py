@@ -98,6 +98,16 @@ class CapabilitySpec(BaseModel):
     sku: Sku = Sku.STANDARD
     capacity_tpm: Annotated[int, Field(ge=1000)]
     invocation: Invocation = Invocation.ALWAYS
+    tool_calling_required: bool = False
+    """Whether this capability must resolve to a function-calling-capable
+    family. Set ``True`` for a capability whose tool allowlist includes
+    ``web.search`` (or any tool call): a family that cannot do function
+    calling would break the tool at runtime, so the resolver degrades it
+    to ``hil-only`` when a tool-calling family set is supplied. Web search
+    itself stays a self-hosted ``WebSearchProvider`` behind the T2 tool
+    manifest - FDAI never delegates to a model's native browsing, which
+    would hide the allowlist + evidence-store replay determinism the core
+    controls (docs/roadmap/decisioning/prompt-composition.md)."""
 
 
 class LlmRegistry(BaseModel):

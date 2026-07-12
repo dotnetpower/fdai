@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: f55bf6c3ad5e16dfd45c5af06b8d6ae17651aab6
+translation_source_sha: e18820321b179f40af9278826c8948146652c37b
 translation_revised: 2026-07-12
 ---
 
@@ -189,6 +189,12 @@ models:
 - **RCA reasoner는 invocation별 opt-in** (`invocation: on_novel_case`, capability
   `t2.rca`); 결정론적 tier가 해결하지 못한 novel incident에만 발화하며, 제공된 evidence에
   grounded 되지 않으면 그 출력은 거부됨 (observability-and-detection.md section 4 참조).
+- **`tool_calling_required`는 function-calling family를 게이팅.** tool allowlist가
+  `web.search`(또는 임의의 tool call)를 포함하는 capability는 `tool_calling_required: true`
+  를 설정함; resolver는 대상 리전에 function-calling 가능 family가 없으면 `hil-only`로
+  강등시킴 (호출할 수 없는 툴은 조용히 배포되면 안 됨). Web search는 항상 T2 tool
+  manifest 뒤의 self-hosted `WebSearchProvider` - FDAI는 절대 모델의 native browsing에
+  위임하지 않음.
 
 ### 부트스트랩 Provisioner
 

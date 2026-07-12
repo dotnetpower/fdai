@@ -45,6 +45,12 @@ models:
       - {publisher: OpenAI, family: gpt-4-turbo}
     sku: Standard
     capacity_tpm: 20000
+    # The Proposer's tool manifest may include web.search; it MUST resolve
+    # to a function-calling-capable family or the tool breaks at runtime.
+    # Web search stays a self-hosted WebSearchProvider behind this tool
+    # manifest - never a model's native browsing (that would hide the
+    # allowlist + evidence-store replay determinism the core controls).
+    tool_calling_required: true
 
   t2.reasoner.secondary:
     preferences:

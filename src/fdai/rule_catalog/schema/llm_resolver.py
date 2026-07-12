@@ -246,6 +246,7 @@ def resolve(
     catalog: CatalogQuery,
     permission: PermissionQuery,
     quota: QuotaQuery,
+    tool_calling_families: frozenset[str] | None = None,
 ) -> ResolvedModels:
     """Produce a :class:`ResolvedModels` for the target deployment.
 
@@ -253,6 +254,14 @@ def resolve(
     family, low quota) - those degrade the affected capability to
     ``hil-only`` and continue. Raises :class:`ResolverError` only when
     the mixed-model invariant cannot hold at deployment time.
+
+    ``tool_calling_families`` is the optional set of families the target
+    region catalog reports as function-calling capable. When supplied, a
+    capability with ``tool_calling_required=True`` whose chosen family is
+    not in the set degrades to ``hil-only`` (a family that cannot call
+    tools would break ``web.search`` at runtime). ``None`` skips the check
+    entirely, so existing callers that do not probe tool-calling support
+    keep their behavior.
     """
     has_perm = permission.principal_has_cognitive_services_contributor(
         subscription_id=subscription_id,
@@ -303,6 +312,25 @@ def resolve(
                         f"no_preferred_family_in_region:region={region}:"
                         f"preferences={[p.family for p in spec.preferences]}",
                     ),
+                )
+            )
+            continue
+
+        if (
+            spec.tool_calling_required
+            and tool_calling_families is not None
+            and chosen_family not in tool_calling_families
+        ):
+            entries.append(
+                ResolvedCapability(
+                    name=name,
+                    status=CapabilityStatus.HIL_ONLY,
+                    publisher=chosen_pub,
+                    family=chosen_family,
+                    sku=None,
+                    capacity_tpm=0,
+                    invocation=spec.invocation.value,
+                    reasons=(f"family_lacks_tool_calling:family={chosen_family}:region={region}",),
                 )
             )
             continue

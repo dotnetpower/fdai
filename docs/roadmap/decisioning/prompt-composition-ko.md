@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: a9329b85fb423d68198424a4fd894bab37decc53
+translation_source_sha: f06ce68193ad83b025a59c46d7d194a26a47b179
 translation_revised: 2026-07-12
 ---
 
@@ -238,6 +238,15 @@ Web search는 최후의 수단 툴입니다. fork별 opt-in이며 절대 groundi
 - **Replay 결정성**: 결과는 `web_evidence`에 `(content_hash, url, fetched_at)`
   로 저장. audit 엔트리는 hash를 참조. Replay는 저장된 스냅샷을 읽으며 다시 fetch
   하지 않으므로 과거 실행이 재현 가능하게 유지됩니다.
+- **모델 native browsing 없음**: FDAI는 검색을 모델의 내장 browsing /
+  `web_search` 툴에 위임하지 않습니다. 검색은 항상 T2 tool manifest 뒤에서
+  호출되는 self-hosted `WebSearchProvider`이므로 도메인 allowlist, snippet
+  sanitization, `web_evidence` replay 결정성이 코어 통제 하에 남습니다
+  (native browsing은 이 셋을 모델 안에 숨깁니다). allowlist가 `web.search`를
+  담은 capability는 `rule-catalog/llm-registry.yaml`에 `tool_calling_required: true`
+  를 설정합니다. 부트스트랩 resolver는 대상 리전에 function-calling 가능
+  family가 없으면 `hil-only`로 강등시켜, 실제로 호출할 수 없는 툴이 조용히
+  배포되지 않도록 합니다.
 
 ## Debate orchestrator (Proposer / Critic / Judge)
 

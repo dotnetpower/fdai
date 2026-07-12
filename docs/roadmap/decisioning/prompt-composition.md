@@ -243,6 +243,16 @@ grounding source.
 - **Replay determinism**: results are stored by `(content_hash, url, fetched_at)`
   in `web_evidence`; audit entries reference the hash. Replay reads the
   stored snapshot instead of re-fetching, so past runs stay reproducible.
+- **No native model browsing**: FDAI never delegates search to a model's
+  built-in browsing / `web_search` tool. Search is always a self-hosted
+  `WebSearchProvider` invoked behind the T2 tool manifest, so the domain
+  allowlist, snippet sanitization, and `web_evidence` replay determinism stay
+  under core control (native browsing would hide all three inside the model).
+  The capability whose allowlist carries `web.search` sets
+  `tool_calling_required: true` in `rule-catalog/llm-registry.yaml`; the
+  bootstrap resolver degrades it to `hil-only` when the target region has no
+  function-calling-capable family, so a tool that cannot actually be called
+  never ships silently.
 
 ## Debate orchestrator (Proposer / Critic / Judge)
 
