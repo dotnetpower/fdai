@@ -18,12 +18,18 @@ from fdai.delivery.chaos.live_injectors import (
     KubeEventPodRestartProbe,
     KubeRolloutStallProbe,
 )
+from fdai.delivery.chaos.mysql_load import (
+    AzMysqlQueryLoadInjector,
+    AzureMonitorDbCpuProbe,
+)
 
 __all__ = [
+    "AzMysqlQueryLoadInjector",
     "AzVmCpuStressInjector",
     "AzVmMemProbe",
     "AzVmMemStressInjector",
     "AzureMonitorCpuProbe",
+    "AzureMonitorDbCpuProbe",
     "ChaosMeshInjectedProbe",
     "ChaosMeshInjector",
     "KubeBackendHealthProbe",
