@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActionTypePaletteEntry } from "../workflow/validate";
+import { KNOWN_SIGNAL_VALUES } from "./workflow-builder.model";
 import {
   extractResourceHint,
   respondToChat,
@@ -84,7 +85,7 @@ describe("workflow-builder chat engine", () => {
     // Trigger chips include an anomaly option and a weekly schedule.
     const vals = findValues(turn.options);
     expect(vals).toContain("trigger:object.anomaly");
-    expect(vals.some((v) => v === "trigger:@weekly")).toBe(true);
+    expect(vals.some((v) => v.startsWith("trigger:cron:"))).toBe(true);
   });
 
   it("accepts an explicit trigger pick and advances", () => {
@@ -145,6 +146,35 @@ describe("workflow-builder chat engine", () => {
     const refs = t3.slots.form.steps.map((s) => s.action_type_ref);
     expect(refs.filter((r) => r === "remediate.restart-service")).toHaveLength(1);
     expect(t3.slots.form.steps.length).toBe(before);
+  });
+
+  it("offers only known signal values (single source with the model catalog)", () => {
+    const start = startChat(PALETTE);
+    // Reach the need_trigger stage: pick an action first, no trigger yet.
+    const t1 = respondToChat(start.slots, "action:remediate.restart-service", PALETTE);
+    expect(t1.slots.stage).toBe("need_trigger");
+    const triggerChips = t1.options.filter((o) => o.value.startsWith("trigger:"));
+    expect(triggerChips.length).toBeGreaterThanOrEqual(5);
+    for (const chip of triggerChips) {
+      const sig = chip.value.slice("trigger:".length);
+      if (sig.startsWith("cron:")) {
+        expect(sig.slice("cron:".length)).toMatch(/^[\d*/, -]+$/);
+      } else {
+        expect(KNOWN_SIGNAL_VALUES.has(sig)).toBe(true);
+      }
+      // Every chip carries a human label, never a raw machine value.
+      expect(chip.label).not.toBe(sig);
+    }
+  });
+
+  it("a schedule chip sets a cron trigger, not a signal", () => {
+    const start = startChat(PALETTE);
+    const t1 = respondToChat(start.slots, "action:remediate.restart-service", PALETTE);
+    const sched = t1.options.find((o) => o.value.includes("cron:"));
+    expect(sched).toBeDefined();
+    const t2 = respondToChat(t1.slots, sched!.value, PALETTE);
+    expect(t2.slots.form.triggerKind).toBe("schedule");
+    expect(t2.slots.form.schedule).toBe("0 3 * * 0");
   });
 });
 

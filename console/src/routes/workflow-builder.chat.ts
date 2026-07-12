@@ -19,7 +19,12 @@
  */
 
 import type { ActionTypePaletteEntry } from "../workflow/validate";
-import { INITIAL_FORM, type DraftStep, type FormState } from "./workflow-builder.model";
+import {
+  INITIAL_FORM,
+  SIGNAL_TYPE_OPTIONS,
+  type DraftStep,
+  type FormState,
+} from "./workflow-builder.model";
 import {
   humanizeActionName,
   signalLabel,
@@ -167,7 +172,10 @@ function applyInput(
   if (input.startsWith(OPT.trigger)) {
     const sig = input.slice(OPT.trigger.length);
     const form = cloneForm(slots.form);
-    if (sig === "@weekly") {
+    if (sig.startsWith("cron:")) {
+      form.triggerKind = "schedule";
+      form.schedule = sig.slice("cron:".length);
+    } else if (sig === "@weekly") {
       form.triggerKind = "schedule";
       form.schedule = WEEKLY_CRON;
     } else {
@@ -455,15 +463,33 @@ function actionOption(p: ActionTypePaletteEntry): ChatOption {
   };
 }
 
+/** Curated trigger-signal values shown as chips, in the order an operator
+ * most often reaches for. Values only - the human label and hint are pulled
+ * from {@link SIGNAL_TYPE_OPTIONS} so the chip, the summary line, and the
+ * visualization all read the same single source of truth. */
+const CURATED_SIGNAL_VALUES: readonly string[] = [
+  "object.anomaly",
+  "object.drift",
+  "object.cost-anomaly",
+  "object.security-event",
+  "object.capacity-forecast",
+];
+
 function triggerChips(): ChatOption[] {
-  const signals: ChatOption[] = [
-    { label: "High CPU / anomaly", value: `${OPT.trigger}object.anomaly` },
-    { label: "Config drifted", value: `${OPT.trigger}object.drift` },
-    { label: "Cost spike", value: `${OPT.trigger}object.cost-anomaly` },
-    { label: "Security event", value: `${OPT.trigger}object.security-event` },
-    { label: "Capacity forecast", value: `${OPT.trigger}object.capacity-forecast` },
-  ];
-  return [...signals, { label: "Every week (schedule)", value: `${OPT.trigger}@weekly` }];
+  const signals: ChatOption[] = CURATED_SIGNAL_VALUES.map((v) => {
+    const opt = SIGNAL_TYPE_OPTIONS.find((o) => o.value === v);
+    const chip: ChatOption = {
+      label: opt?.label ?? signalLabel(v) ?? v,
+      value: `${OPT.trigger}${v}`,
+    };
+    return opt?.hint ? { ...chip, hint: opt.hint } : chip;
+  });
+  const schedule: ChatOption = {
+    label: "Every week (schedule)",
+    value: `${OPT.trigger}cron:${WEEKLY_CRON}`,
+    hint: "Run on a weekly cron instead of reacting to a signal.",
+  };
+  return [...signals, schedule];
 }
 
 // ---------------------------------------------------------------------------
