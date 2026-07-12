@@ -46,9 +46,9 @@ Safety / cost invariants
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from math import isfinite
 from typing import Any, Final
 
@@ -68,6 +68,7 @@ _DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0
 _DEFAULT_MAX_ROWS: Final[int] = 10_000
 _DEFAULT_MAX_RESPONSE_BYTES: Final[int] = 50_000_000
 _DEFAULT_TIMESTAMP_COLUMN: Final[str] = "TimeGenerated"
+_DEFAULT_LOOKBACK_SECONDS: Final[int] = 3_600
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +114,12 @@ class AzureMonitorLogsConfig:
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
     max_rows: int = _DEFAULT_MAX_ROWS
     max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES
+    default_lookback_seconds: int = _DEFAULT_LOOKBACK_SECONDS
+    """Window width used to bound a one-sided query. When only ``until`` is
+    given, the start is ``until - default_lookback_seconds``; when only
+    ``since`` is given, the end is ``now``. This guarantees the server-side
+    ``timespan`` is always bounded so a template with no own time filter
+    cannot full-scan its table."""
 
     def __post_init__(self) -> None:
         if not self.workspace_id:
@@ -136,6 +143,8 @@ class AzureMonitorLogsConfig:
             raise ValueError("AzureMonitorLogsConfig.max_rows MUST be positive")
         if self.max_response_bytes < 1:
             raise ValueError("AzureMonitorLogsConfig.max_response_bytes MUST be >= 1")
+        if self.default_lookback_seconds <= 0:
+            raise ValueError("AzureMonitorLogsConfig.default_lookback_seconds MUST be positive")
 
 
 def _parse_timestamp(raw: Any) -> datetime:
@@ -175,10 +184,14 @@ class AzureMonitorLogsMetricProvider:
         config: AzureMonitorLogsConfig,
         identity: WorkloadIdentity,
         http_client: httpx.AsyncClient,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._config: Final[AzureMonitorLogsConfig] = config
         self._identity: Final[WorkloadIdentity] = identity
         self._http: Final[httpx.AsyncClient] = http_client
+        # Injected so a one-sided ``since``-only window can be closed at "now"
+        # deterministically in tests; defaults to the wall clock.
+        self._clock: Final[Callable[[], datetime]] = clock or (lambda: datetime.now(tz=UTC))
 
     async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
         template = self._config.queries.get(query.metric_name)
@@ -198,7 +211,12 @@ class AzureMonitorLogsMetricProvider:
             f"/workspaces/{self._config.workspace_id}/query"
         )
         body: dict[str, Any] = {"query": template.kql}
-        timespan = _build_timespan(query.since, query.until)
+        timespan = _build_timespan(
+            query.since,
+            query.until,
+            now=self._clock(),
+            lookback=timedelta(seconds=self._config.default_lookback_seconds),
+        )
         if timespan is not None:
             body["timespan"] = timespan
 
@@ -309,18 +327,34 @@ class AzureMonitorLogsMetricProvider:
         return points
 
 
-def _build_timespan(since: datetime | None, until: datetime | None) -> str | None:
+def _build_timespan(
+    since: datetime | None,
+    until: datetime | None,
+    *,
+    now: datetime,
+    lookback: timedelta,
+) -> str | None:
     """Return an ISO-8601 interval for the API ``timespan`` param, or None.
 
-    Both bounds present -> a closed interval. Only one present -> None, so
-    the KQL template's own time filter governs (avoids an open-ended
-    server scan). None/None -> None. A naive datetime is coerced to UTC so
-    the ``timespan`` is never sent without a zone (Azure would otherwise
-    interpret it ambiguously).
+    The server-side ``timespan`` is always bounded when any bound is given,
+    so a KQL template that carries no own time filter cannot full-scan its
+    table:
+
+    - both bounds -> the exact closed interval;
+    - ``since`` only -> ``since / now`` (everything since, up to now);
+    - ``until`` only -> ``(until - lookback) / until`` (a bounded window
+      ending at ``until``);
+    - neither -> ``None``, the explicit opt-out where the template's own
+      time filter governs.
+
+    A naive datetime is coerced to UTC so the ``timespan`` is never sent
+    without a zone (Azure would otherwise interpret it ambiguously).
     """
-    if since is not None and until is not None:
-        return f"{_as_utc(since).isoformat()}/{_as_utc(until).isoformat()}"
-    return None
+    if since is None and until is None:
+        return None
+    lo = _as_utc(since) if since is not None else _as_utc(until) - lookback  # type: ignore[arg-type]
+    hi = _as_utc(until) if until is not None else _as_utc(now)
+    return f"{lo.isoformat()}/{hi.isoformat()}"
 
 
 def _as_utc(dt: datetime) -> datetime:

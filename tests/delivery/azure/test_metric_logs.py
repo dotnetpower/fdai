@@ -143,35 +143,45 @@ async def test_labels_filter_is_applied_in_memory() -> None:
 
 
 @pytest.mark.asyncio
-async def test_timespan_included_only_when_both_bounds_present() -> None:
+async def test_timespan_bounds_one_sided_windows() -> None:
+    # A one-sided window MUST still be bounded server-side: the demo KQL
+    # templates carry no own time filter, so an unbounded timespan would
+    # full-scan the table. only-since -> since/now; only-until ->
+    # (until - lookback)/until; both -> exact; neither -> no timespan.
     captured: list[dict[str, object]] = []
+    now = datetime(2026, 7, 10, 12, 0, 0, tzinfo=UTC)
 
     async def handler(request: httpx.Request) -> httpx.Response:
         captured.append(json.loads(request.content))
         return httpx.Response(200, json=_table([]))
 
-    provider, client = _provider(handler)
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    provider = AzureMonitorLogsMetricProvider(
+        config=_config(default_lookback_seconds=3600),
+        identity=_StaticIdentity(),
+        http_client=client,
+        clock=lambda: now,
+    )
     since = datetime(2026, 7, 10, tzinfo=UTC)
     until = since + timedelta(hours=1)
     try:
-        _ = [
-            p
-            async for p in provider.query(
-                MetricQuery(metric_name="http.server.request.duration", since=since, until=until)
-            )
-        ]
-        _ = [
-            p
-            async for p in provider.query(
-                MetricQuery(metric_name="http.server.request.duration", since=since)
-            )
-        ]
+        await _drain(provider, since=since, until=until)  # both
+        await _drain(provider, since=since)  # since only
+        await _drain(provider, until=until)  # until only
+        await _drain(provider)  # neither
     finally:
         await client.aclose()
 
-    assert "timespan" in captured[0]
     assert captured[0]["timespan"] == f"{since.isoformat()}/{until.isoformat()}"
-    assert "timespan" not in captured[1]  # single bound -> KQL time filter governs
+    assert captured[1]["timespan"] == f"{since.isoformat()}/{now.isoformat()}"
+    lookback_start = until - timedelta(hours=1)
+    assert captured[2]["timespan"] == f"{lookback_start.isoformat()}/{until.isoformat()}"
+    assert "timespan" not in captured[3]  # neither -> template time filter governs
+
+
+def test_config_rejects_nonpositive_lookback() -> None:
+    with pytest.raises(ValueError, match="default_lookback_seconds"):
+        AzureMonitorLogsConfig(workspace_id="w", queries={}, default_lookback_seconds=0)
 
 
 @pytest.mark.asyncio
