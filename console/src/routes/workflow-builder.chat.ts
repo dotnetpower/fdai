@@ -290,7 +290,7 @@ function nextTurn(
 
   // 1. No action yet -> ask what to do.
   if (actions.length === 0) {
-    const s = { ...slots, stage: "need_action" as ChatStage };
+    const s: ChatSlots = { ...slots, stage: "need_action" };
     // If we already asked and their answer still resolved to no action, say so
     // instead of silently re-asking the same question.
     const retry = prev.stage === "need_action";
@@ -310,7 +310,7 @@ function nextTurn(
 
   // 2. Trigger not settled -> ask when to run.
   if (!slots.triggerConfirmed) {
-    const s = { ...slots, stage: "need_trigger" as ChatStage };
+    const s: ChatSlots = { ...slots, stage: "need_trigger" };
     const retry = prev.stage === "need_trigger";
     const lead = retry
       ? "I couldn't read a trigger from that - choose one of these.\n\n"
@@ -328,7 +328,7 @@ function nextTurn(
   // 3. Offer one round of extra / complementary actions.
   if (!slots.extraOffered) {
     const extras = extraChips(palette, slots);
-    const s = { ...slots, stage: "offer_extra" as ChatStage };
+    const s: ChatSlots = { ...slots, stage: "offer_extra" };
     return {
       text:
         `${understoodLine(prev, slots)}Want to **add another step** - for example a ` +
@@ -342,7 +342,7 @@ function nextTurn(
   // 4. Settle the name.
   if (!slots.nameConfirmed) {
     const suggested = ensureName(slots);
-    const s = { ...slots, form: suggested, stage: "confirm_name" as ChatStage };
+    const s: ChatSlots = { ...slots, form: suggested, stage: "confirm_name" };
     return {
       text:
         `${understoodLine(prev, slots)}Almost done. I'll call it ` +
@@ -355,7 +355,7 @@ function nextTurn(
 
   // 5. Ready - finalize description + name and hand off for preview.
   const form = finalizeForm(slots);
-  const s = { ...slots, form, stage: "ready" as ChatStage };
+  const s: ChatSlots = { ...slots, form, stage: "ready" };
   return {
     text:
       "Here's the workflow I built from our conversation. I've generated the YAML " +
