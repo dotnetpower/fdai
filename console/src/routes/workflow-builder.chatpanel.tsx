@@ -37,7 +37,7 @@ interface Props {
 }
 
 /** One rendered message in the thread. */
-interface Message {
+export interface Message {
   readonly id: number;
   readonly role: "bot" | "operator";
   readonly text: string;
@@ -171,8 +171,9 @@ function prefersReducedMotion(): boolean {
 }
 
 /** What to echo as the operator's bubble: a clicked chip shows its human
- * label (found in the previous bot turn), free text shows verbatim. */
-function displayInput(raw: string, messages: readonly Message[]): string {
+ * label (found in the previous bot turn), free text shows verbatim. Pure and
+ * exported for tests. */
+export function displayInput(raw: string, messages: readonly Message[]): string {
   const lastBot = [...messages].reverse().find((m) => m.role === "bot");
   const opt = lastBot?.options?.find((o) => o.value === raw);
   if (opt) return opt.label;
