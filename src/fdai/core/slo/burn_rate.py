@@ -110,7 +110,12 @@ class BurnRateEvaluator:
     """
 
     def evaluate(self, alerts: Iterable[BurnRateAlert]) -> tuple[BurnRateBreach, ...]:
-        """Return every alert whose BOTH windows exceed the threshold."""
+        """Return every alert whose BOTH windows meet or exceed the threshold.
+
+        The comparison is inclusive (``>=``): a burn rate exactly at the
+        configured threshold fires, matching the standard multi-window
+        burn-rate convention.
+        """
         breaches: list[BurnRateBreach] = []
         for alert in alerts:
             threshold = alert.alert.burn_rate_threshold
