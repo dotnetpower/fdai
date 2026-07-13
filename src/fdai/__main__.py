@@ -55,7 +55,7 @@ from .core.executor.tool_call import ToolCallShadowExecutor
 from .core.hil_resume import HilResumeCoordinator
 from .core.notifications.matrix import load_matrix_from_yaml
 from .core.rbac.resolver import GroupMapping
-from .core.rca import RcaCoordinator
+from .core.rca import KnowledgeEvidenceGatherer, RcaCoordinator
 from .core.tiers.t0_deterministic import T0Engine
 from .core.tiers.t0_deterministic.index import RuleIndex
 from .core.tiers.t0_deterministic.opa_evaluator import (
@@ -827,7 +827,16 @@ def _build_control_loop(
     rca_reasoner = (
         container.llm_bindings.rca_reasoner if container.llm_bindings is not None else None
     )
-    rca_coordinator = RcaCoordinator(reasoner=rca_reasoner)
+    # Free-form knowledge grounding leg: wrap the container's bound
+    # KnowledgeSource (upstream default EmptyKnowledgeSource -> contributes
+    # nothing) so a fork that ingests operator documents (runbooks,
+    # resource plans) has them cited on T2 RCA. Safe to wire
+    # unconditionally: an empty source yields no citations and the
+    # grounding gate abstains rather than fabricating.
+    rca_coordinator = RcaCoordinator(
+        reasoner=rca_reasoner,
+        knowledge_gatherer=KnowledgeEvidenceGatherer(source=container.knowledge_source),
+    )
 
     # T1 temporal causal-chain RCA (observability-and-detection.md 4, path
     # b) needs the incident's antecedent changes, which upstream cannot
