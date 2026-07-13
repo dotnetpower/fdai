@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 98ae98e4c8bc18df10d474a60578fc922a3d601b
+translation_source_sha: 8ea1ec7597d79dfeb0c93e448eed4f159a354a89
 translation_revised: 2026-07-13
 ---
 
@@ -49,6 +49,9 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 5 | [llm-strategy-ko.md](architecture/llm-strategy-ko.md) | tier별 모델 선택, mixed-model 게이트, 추상화 |
 | 6 | [security-and-identity-ko.md](architecture/security-and-identity-ko.md) | 최소 권한 identity, secrets, 안전 불변식 |
 | 7 | [deployment-ko.md](deployment/deployment-ko.md) | IaC, CI/CD, 환경, 릴리스 / 롤백 |
+| 7a | [architecture-review-board-ko.md](architecture/architecture-review-board-ko.md) | Canonical ARB 패킷: 결정 경계, evidence contract, owner, dependency, production 종료 gate |
+| 7b | [data-governance-ko.md](architecture/data-governance-ko.md) | Data inventory, classification, lifecycle, privacy assessment, model-provider/compliance evidence |
+| 7c | [Architecture Decision Record](architecture/decisions/README-ko.md) | ADR register와 승인된 Azure day-zero platform baseline |
 
 ### 규칙, 탐지, 운영
 

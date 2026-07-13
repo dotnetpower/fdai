@@ -29,6 +29,12 @@ variable "infra_subnet_prefix" {
   default     = "10.60.2.0/23"
 }
 
+variable "postgres_subnet_prefix" {
+  description = "PostgreSQL Flexible Server delegated subnet CIDR (must fit inside address_space)."
+  type        = string
+  default     = "10.60.1.0/24"
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

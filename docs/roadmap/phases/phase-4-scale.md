@@ -119,15 +119,16 @@ Rigor requirements (apply when a non-Azure adapter is eventually scoped):
 
 ## Event Bus Portability (TBD - deferred)
 
-> Deferred; on Azure the bus is Service Bus + Event Grid (see
+> Deferred; on Azure the bus is Event Hubs through its Kafka endpoint (see
 > [tech-stack.md](../architecture/tech-stack.md#od-3-multi-cloud-event-bus-phase-4--tbd)).
 
-- Decide OD-3 by validating whether the Phase 0-3 bus (Service Bus + Event Grid) meets
-  multi-cloud needs or whether a portable log/queue (Kafka or NATS JetStream) is required.
+- Decide OD-3 only when a non-Azure target is scoped. Validate which managed Kafka or other
+  log implementation preserves the existing Kafka-wire ordering, replay, and DLQ contract.
 - Decision criteria: **ordering, dead-letter, replay, and idempotency parity** across clouds,
   operational cost, and CSP neutrality - the bus adapter must preserve per-resource ordering and
   at-least-once + idempotent processing regardless of backend.
-- Record the outcome as a decision record and update [tech-stack.md](../architecture/tech-stack.md) OD-3.
+- Record the non-Azure outcome as a decision record and update
+  [tech-stack.md](../architecture/tech-stack.md) OD-3.
 
 ## Safety and Shadow-First Rollout
 

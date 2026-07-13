@@ -1,0 +1,18 @@
+{
+  "detected": true,
+  "elapsed_seconds": 244.75,
+  "ended_at": "2026-07-13T01:03:00.385258+00:00",
+  "error": null,
+  "expected_signal": "host_cpu",
+  "experiment_id": "chaos-7dc91c3b747b",
+  "injected": true,
+  "mode": "enforce",
+  "outcome": "validated",
+  "reverted": true,
+  "scenario_id": "vm-cpu-stress",
+  "started_at": "2026-07-13T00:58:45.794665+00:00",
+  "stopped": true,
+  "targets": [
+    "vm-fdai-chaos"
+  ]
+}

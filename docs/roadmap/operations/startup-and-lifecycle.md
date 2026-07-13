@@ -98,8 +98,8 @@ Concrete event types and filter expressions are **TBD** and captured in
 
 ## Model Provisioning Bootstrap
 
-Before T2 can run, the capability→deployment mapping MUST be resolved. This is automatic
-at `azd up` time and MUST NOT be a manual step:
+Before T2 can run, the capability→deployment mapping must be resolved. The deployment pipeline
+runs the resolver before `terraform apply`; this is not a manual runtime step:
 
 1. **Resolver runs from `rule-catalog/llm-registry.yaml`** - reads preferences per
    capability, queries the Azure OpenAI / Foundry catalog for the target region, and
@@ -111,9 +111,10 @@ at `azd up` time and MUST NOT be a manual step:
 3. **`resolved-models.json` written to Key Vault** - capability → `{deployment, family,
    version, publisher}`. Every subsequent audit entry names the exact model that decided
    the case.
-4. **Weekly reconciler enabled** - a Container Apps Job watches for newer families and
-   deprecation notices; it opens **draft PRs** against the registry but never auto-swaps
-   the live mapping.
+4. **Weekly reconciler follows as a deferred increment** - until W-I in
+   [dev-and-deploy-parity.md](../deployment/dev-and-deploy-parity.md) lands, model changes are
+   reviewed through an explicit registry PR. The reconciler will watch for newer families and
+   deprecation notices and open draft PRs; it will never auto-swap the live mapping.
 
 Full design: [llm-strategy.md § Model Provisioning and Lifecycle](../architecture/llm-strategy.md#model-provisioning-and-lifecycle).
 

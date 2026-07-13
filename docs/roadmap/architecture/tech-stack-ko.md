@@ -1,8 +1,8 @@
 ---
 title: 기술 스택
 translation_of: tech-stack.md
-translation_source_sha: b189917be14ea2cf2742aaa89a7b8021fe165674
-translation_revised: 2026-07-11
+translation_source_sha: 2c7166603d31954fd7a66c1b30820a07ad5f1aac
+translation_revised: 2026-07-13
 ---
 
 # 기술 스택
@@ -171,13 +171,18 @@ translation_revised: 2026-07-11
 - **옵션**: PostgreSQL + pgvector · Cosmos DB.
 - **기준**: [Data Store Selection](#data-store-selection-criteria) 참조 (이식성, 스케일, 비용
   모델).
-- **상태**: Open - PostgreSQL이 기본으로 기울어짐.
+- **상태**: **결정됨 - PostgreSQL Flexible Server + pgvector.**
+  `infra/modules/state-store/postgres-flex/`에 구현되어 있으며 루트 Terraform 모듈이
+  선택합니다. Cosmos DB는 측정된 확장 요구가 생길 때 `StateStore` 프로바이더 뒤에서
+  검토하는 대안이며 day-zero 인벤토리에는 포함되지 않습니다.
 
 ### OD-3: 멀티 클라우드 이벤트 버스 (Phase 4 - TBD)
 
 - **컨텍스트**: Azure 이벤트 서비스를 넘는 이식성. 비-Azure 대상은 TBD
   ([Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must));
   비-Azure 어댑터가 스코프에 들어올 때만 재검토.
-- **옵션**: Service Bus + Event Grid 유지 · Kafka · NATS JetStream.
+- **옵션**: 현재 Kafka wire 계약을 다른 managed Kafka 대상으로 확장 · NATS JetStream ·
+  순서, replay, DLQ 의미를 보존하는 다른 log 구현.
 - **기준**: 순서 + DLQ 보장, 리플레이 필요, 운영 비용, CSP 중립성.
-- **상태**: Deferred (TBD) - Azure만이 유일한 구현 대상.
+- **상태**: Deferred (TBD) - Azure만이 유일한 구현 대상이며 Event Hubs의 Kafka endpoint를
+  사용합니다. Azure bus 결정은 완료되었고 이 항목은 향후 비-Azure 구현만 다룹니다.

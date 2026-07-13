@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Overview - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css" />
+  <script src="assets/calm-slate.js" defer></script>
 </head>
 <body>
   <header class="cs-topbar">
@@ -123,7 +124,13 @@
         <div class="cs-section-title"><h2>Routing &amp; gate decisions</h2><p class="cs-desc">How the last 24h of events were resolved - by tier, and by risk-gate outcome.</p></div>
       </div>
       <div class="cs-grid" style="grid-template-columns: 1fr 1fr;">
-        <div class="cs-card">
+        <div class="cs-card js-chartable"
+             data-chart-title="Trust tier distribution"
+             data-chart-sub="12,480 events routed in the last 24h"
+             data-chart-columns='["Tier","Share","Events"]'
+             data-chart-rows='[["T0 deterministic","74%","9,235"],["T1 lightweight","19%","2,371"],["T2 reasoning","7%","874"]]'
+             data-chart-num-cols='[1,2]'
+             data-chart-source="Source: event-ingest / trust-router. Window: last 24h.">
           <div class="cs-flex-between cs-mb-8"><h3 class="cs-mb-0">Trust tier</h3><span class="cs-muted">12,480 events</span></div>
           <div class="cs-stackbar">
             <span class="is-t0" style="width:74%"></span>
@@ -136,7 +143,13 @@
             <span><span class="dot" style="background:var(--cs-plum)"></span><strong>7%</strong> T2 reasoning</span>
           </div>
         </div>
-        <div class="cs-card">
+        <div class="cs-card js-chartable"
+             data-chart-title="Risk-gate outcome"
+             data-chart-sub="5,842 gate decisions in the last 24h"
+             data-chart-columns='["Outcome","Share","Decisions"]'
+             data-chart-rows='[["auto","84%","4,907"],["HIL","11%","643"],["abstain","4%","234"],["deny","1%","58"]]'
+             data-chart-num-cols='[1,2]'
+             data-chart-source="Source: risk-gate. Window: last 24h.">
           <div class="cs-flex-between cs-mb-8"><h3 class="cs-mb-0">Risk-gate outcome</h3><span class="cs-muted">last 24h</span></div>
           <div class="cs-stackbar">
             <span class="is-auto" style="width:84%"></span>
@@ -271,11 +284,11 @@
       <div class="cs-table-wrap">
         <table class="cs-table">
           <thead>
-            <tr><th style="width:180px">Time (UTC)</th><th>Event</th><th>Tier</th><th>Decision</th><th>Mode</th><th>Actor</th></tr>
+            <tr><th class="cs-num" style="width:200px">Time (UTC)</th><th>Event</th><th>Tier</th><th>Decision</th><th>Mode</th><th>Actor</th></tr>
           </thead>
           <tbody>
             <tr>
-              <td class="cs-muted cs-mono">2026-07-08T09:15:04Z</td>
+              <td class="cs-muted cs-mono cs-num">2026-07-08T09:15:04Z</td>
               <td>storage.public-blob.exposed <span class="cs-muted">(rg &lsquo;webapp&rsquo;)</span></td>
               <td><span class="cs-tier t0">T0</span></td>
               <td>remediation-pr opened</td>
@@ -283,7 +296,7 @@
               <td class="cs-muted">executor / MI</td>
             </tr>
             <tr>
-              <td class="cs-muted cs-mono">2026-07-08T09:14:52Z</td>
+              <td class="cs-muted cs-mono cs-num">2026-07-08T09:14:52Z</td>
               <td>compute.autoscale.floor-drift</td>
               <td><span class="cs-tier t1">T1</span></td>
               <td>reused learned action</td>
@@ -291,7 +304,7 @@
               <td class="cs-muted">shadow-judge</td>
             </tr>
             <tr>
-              <td class="cs-muted cs-mono">2026-07-08T09:14:31Z</td>
+              <td class="cs-muted cs-mono cs-num">2026-07-08T09:14:31Z</td>
               <td>network.firewall.rule-change</td>
               <td><span class="cs-tier t2">T2</span></td>
               <td>abstain &rarr; HIL</td>
@@ -299,7 +312,7 @@
               <td class="cs-muted">quality-gate</td>
             </tr>
             <tr>
-              <td class="cs-muted cs-mono">2026-07-08T09:13:58Z</td>
+              <td class="cs-muted cs-mono cs-num">2026-07-08T09:13:58Z</td>
               <td>cost.rightsizing.candidate</td>
               <td><span class="cs-tier t0">T0</span></td>
               <td>no-op (compliant)</td>
@@ -307,7 +320,7 @@
               <td class="cs-muted">router</td>
             </tr>
             <tr>
-              <td class="cs-muted cs-mono">2026-07-08T09:13:21Z</td>
+              <td class="cs-muted cs-mono cs-num">2026-07-08T09:13:21Z</td>
               <td>k8s.rbac.privileged-scope</td>
               <td><span class="cs-tier t0">T0</span></td>
               <td>deny (policy)</td>
@@ -315,11 +328,17 @@
               <td class="cs-muted">risk-gate</td>
             </tr>
           </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="6">
+                <div class="cs-flex cs-flex-between cs-wrap">
+                  <span>Showing 5 of 1,842 entries.</span>
+                  <a href="audit.html" class="cs-link">Open full audit &rarr;</a>
+                </div>
+              </td>
+            </tr>
+          </tfoot>
         </table>
-      </div>
-      <div class="cs-flex cs-flex-between cs-mb-0" style="margin-top:12px">
-        <span class="cs-muted" style="font-size:13px">Showing 5 of 1,842 entries.</span>
-        <a href="audit.html" class="cs-link">Open full audit &rarr;</a>
       </div>
     </section>
   </main>

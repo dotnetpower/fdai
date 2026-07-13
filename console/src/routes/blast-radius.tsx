@@ -1,5 +1,10 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import type { ReadApiClient } from "../api";
+import { ArchitectureMap } from "../components/architecture-map";
+import {
+  architectureHref,
+  type InventoryGraphResponse,
+} from "../components/architecture-map.model";
 import {
   AsyncBoundary,
   DataTable,
@@ -54,7 +59,8 @@ const DEFAULT_LINKS: readonly string[] = ["contains", "depends_on"];
 const AVAILABLE_LINKS = ["contains", "depends_on", "attached_to"] as const;
 
 export function BlastRadiusRoute({ client }: Props) {
-  const [target, setTarget] = useState("sub-dev");
+  const [target, setTarget] = useState(() => targetFromHash(window.location.hash) ?? "web-api");
+  const [architectureView] = useState(() => viewFromHash(window.location.hash));
   const [depth, setDepth] = useState(2);
   const [linkSet, setLinkSet] = useState<Set<string>>(new Set(DEFAULT_LINKS));
   const [state, setState] = useState<AsyncState<BlastRadiusResponse>>({ status: "idle" });
@@ -152,13 +158,14 @@ export function BlastRadiusRoute({ client }: Props) {
         resourceLabel="blast-radius simulation"
         idle={<p class="muted footnote">Enter a target and click Simulate.</p>}
       >
-        {(data) => <ReportView data={data} />}
+        {(data) => <ReportView data={data} client={client} architectureView={architectureView} />}
       </AsyncBoundary>
     </div>
   );
 }
 
-function ReportView({ data }: { readonly data: BlastRadiusResponse }) {
+function ReportView({ data, client, architectureView }: { readonly data: BlastRadiusResponse; readonly client: ReadApiClient; readonly architectureView: string | null }) {
+  const [view, setView] = useState<"map" | "table">("map");
   usePublishViewContext(
     () => ({
       routeId: "blast-radius",
@@ -230,13 +237,23 @@ function ReportView({ data }: { readonly data: BlastRadiusResponse }) {
       </KpiGrid>
 
       <section class="stack-section">
-        <h3 class="section-title">Reached ({data.reached.length})</h3>
-        <DataTable
-          columns={reachedColumns}
-          rows={data.reached}
-          keyOf={(n) => `${n.depth}:${n.resource_id}`}
-          empty="No reachable resources at this depth."
-        />
+        <div class="section-header">
+          <h3 class="section-title">Affected topology</h3>
+          <div class="segmented-control" role="group" aria-label="Blast radius view">
+            <button type="button" class={view === "map" ? "active" : ""} onClick={() => setView("map")}>Map</button>
+            <button type="button" class={view === "table" ? "active" : ""} onClick={() => setView("table")}>Table</button>
+          </div>
+        </div>
+        {view === "map" ? (
+          <BlastRadiusMap client={client} data={data} architectureView={architectureView} />
+        ) : (
+          <DataTable
+            columns={reachedColumns}
+            rows={data.reached}
+            keyOf={(node) => `${node.depth}:${node.resource_id}`}
+            empty="No reachable resources at this depth."
+          />
+        )}
       </section>
 
       <section class="stack-section">
@@ -250,4 +267,43 @@ function ReportView({ data }: { readonly data: BlastRadiusResponse }) {
       </section>
     </div>
   );
+}
+
+function BlastRadiusMap({ client, data, architectureView }: { readonly client: ReadApiClient; readonly data: BlastRadiusResponse; readonly architectureView: string | null }) {
+  const [graph, setGraph] = useState<InventoryGraphResponse | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const params: Record<string, string> = {
+      depth: "4",
+      include: "contains,attached_to,depends_on",
+    };
+    if (architectureView) params.scope = architectureView;
+    client.panel<InventoryGraphResponse>("/inventory/graph", params).then(
+      (value) => { if (!cancelled) setGraph(value); },
+      (error: unknown) => { if (!cancelled) setMessage(error instanceof Error ? error.message : String(error)); },
+    );
+    return () => { cancelled = true; };
+  }, [client, architectureView]);
+  if (message) return <p class="muted footnote">Map unavailable: {message}</p>;
+  if (!graph) return <p class="muted footnote">Loading architecture map...</p>;
+  const highlighted = new Set([data.target, ...data.reached.map((node) => node.resource_id)]);
+  return (
+    <div class="blast-map-wrap">
+      <ArchitectureMap graph={graph} highlightedIds={highlighted} selectedId={data.target} />
+      <a class="btn blast-map-open" href={architectureHref(data.target, architectureView)}>Open full architecture</a>
+    </div>
+  );
+}
+
+function targetFromHash(hash: string): string | null {
+  const queryIndex = hash.indexOf("?");
+  if (queryIndex < 0) return null;
+  return new URLSearchParams(hash.slice(queryIndex + 1)).get("target");
+}
+
+function viewFromHash(hash: string): string | null {
+  const queryIndex = hash.indexOf("?");
+  if (queryIndex < 0) return null;
+  return new URLSearchParams(hash.slice(queryIndex + 1)).get("view");
 }

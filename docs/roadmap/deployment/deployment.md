@@ -100,12 +100,18 @@ flowchart TD
 - **CI identity**: the pipeline authenticates with a **short-lived, OIDC-federated** identity
   (no long-lived cloud keys in CI). Secrets are pulled from the secret store at runtime and
   are **never** written to logs or build artifacts (secret scanning gates the merge).
-- **Supply chain**: each build produces an **SBOM**, is **signed** (e.g. cosign), and carries
-  **build provenance/attestation** (SLSA-style). Base images and dependencies are pinned by
-  **digest**. Deployment **verifies the signature and provenance** before rollout; unsigned or
-  unattested images are rejected.
+- **Supply chain**: `.github/workflows/container-supply-chain.yml` builds the Dockerfile,
+  blocks on HIGH/CRITICAL Trivy findings, emits a CycloneDX **SBOM**, publishes the verified
+  image to GHCR on `main`/release, and writes GitHub build-provenance and SBOM attestations.
+  The Dockerfile base is pinned by **digest** and runs as uid 65532. Deployment verifies the
+  attestation and digest before rollout; an unattested image is rejected.
 - **Artifact registry**: images and their SBOM/attestations are retained with an explicit
   retention policy so any prod revision can be traced and re-verified.
+- **ACR handoff**: upstream GHCR is the generic build-evidence registry. A fork that requires
+  ACR copies the verified image without rebuilding so the digest stays stable, creates or
+  copies the target-registry attestations, and binds that ACR digest as
+  `signed-image-provenance` in the ARB evidence manifest. Building a second image for ACR is
+  not accepted because it produces a different subject.
 - **Promotion gate checklist** (all must pass): T0-engine and risk-gate unit tests green at the
   coverage bar; IaC + dependency + secret scans clean; shadow evaluation shows **zero
   policy-violation escapes** and the regression suite passes; staging SLOs healthy.

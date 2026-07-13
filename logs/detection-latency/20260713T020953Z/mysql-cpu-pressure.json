@@ -1,0 +1,15 @@
+{
+  "ended_at": "2026-07-13T02:13:58.596235+00:00",
+  "error": null,
+  "expected_signal": "db_cpu",
+  "inject_seconds": 0.01,
+  "observed": true,
+  "poll_count": 1,
+  "poll_interval_seconds": 15.0,
+  "probe_class": "azure_monitor_metric",
+  "reverted": true,
+  "scenario_id": "mysql-cpu-pressure",
+  "started_at": "2026-07-13T02:13:47.968359+00:00",
+  "time_to_first_observed_seconds": 0.61,
+  "total_elapsed_seconds": 10.63
+}

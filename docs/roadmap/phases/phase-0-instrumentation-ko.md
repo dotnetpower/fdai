@@ -1,8 +1,8 @@
 ---
 title: Phase 0 - 계측과 언블록
 translation_of: phase-0-instrumentation.md
-translation_source_sha: 5dc03f48b245f37a677b11c358e8cdcc8d2f322f
-translation_revised: 2026-07-11
+translation_source_sha: 357a471976f27bd1b9d47be3dc7e92359ddc8699
+translation_revised: 2026-07-13
 ---
 
 # Phase 0 - 계측과 언블록
@@ -114,7 +114,7 @@ P0에는 enforce-mode 능력이 범위에 없음.
 
 | Task | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
-| **W4.1** | Terraform / Bicep 부트스트랩 모듈 | - | Container Apps env, PostgreSQL Flexible + pgvector, Service Bus, Key Vault, Log Analytics, ACR, Azure OpenAI ([deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set)) 을 위한 `infra/` 모듈 | `azd up` 이 dev 구독에 최소 인벤토리 프로비저닝 | L |
+| **W4.1** | Terraform 부트스트랩 모듈 | - | Container Apps env, PostgreSQL Flexible + pgvector, Event Hubs Kafka, Key Vault, Log Analytics, ACR, opt-in Azure OpenAI ([deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set)) 을 위한 `infra/` 모듈 | `terraform apply`가 dev 구독에 최소 인벤토리를 프로비저닝 | L |
 | **W4.2** | Executor MI (Phase 1 형상) | W4.1 | [security-and-identity-ko.md § Identity Mapping (Phased)](../architecture/security-and-identity-ko.md#identity-mapping-phased) 에 따른 RG-스코프 built-in 롤 구성의 `mi-aw-executor` | Terraform이 롤 할당 emit; `az role assignment list` 가 선언 세트와 매칭 | M |
 | **W4.3** | Azure Policy deny-by-default | W4.2 | Phase 1 Change allowlist 밖의 executor MI 액션을 거부하는 정책 할당 | non-allowlisted 액션 시도하는 프로브가 ARM 레이어에서 거부됨 | M |
 | **W4.4** | 최소권한 프로브 | W4.2, W4.3 | `tools/lpp-probe` - 허용 액션 성공, 거부 액션 실패 단언; CI에 기록된 실행 | 프로브 업데이트 없이 새 권한 추가하면 CI 실패 | S |

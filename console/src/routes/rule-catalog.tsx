@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ComponentChildren } from "preact";
 import { ReadApiError } from "../api";
 import type { ReadApiClient } from "../api";
+import { architectureHref } from "../components/architecture-map.model";
 import {
   DataTable,
   ErrorState,
@@ -976,6 +977,9 @@ function AffectedResources({ findings }: { readonly findings: FindingsState }) {
           <li key={f.resource_id + i} class="finding-item">
             <div class="finding-head">
               <span class="mono finding-res">{f.resource_name ?? f.resource_id}</span>
+              <a class="finding-architecture-link" href={architectureHref(f.resource_id)}>
+                View on architecture
+              </a>
               {f.severity ? (
                 <StatusPill kind={SEVERITY_PILL[f.severity] ?? "neutral"} label={f.severity} />
               ) : null}

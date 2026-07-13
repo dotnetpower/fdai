@@ -54,7 +54,7 @@ def _extract_environment(resource_props: Mapping[str, Any]) -> str:
     raw: Any = None
     tags = resource_props.get("tags")
     if isinstance(tags, dict):
-        raw = tags.get("environment") or tags.get("Environment")
+        raw = tags.get("fdai:env") or tags.get("environment") or tags.get("Environment")
     if raw is None:
         raw = resource_props.get("environment")
     if not isinstance(raw, str):

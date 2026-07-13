@@ -1,0 +1,15 @@
+{
+  "ended_at": "2026-07-13T02:11:48.784053+00:00",
+  "error": null,
+  "expected_signal": "host_cpu",
+  "inject_seconds": 30.99,
+  "observed": true,
+  "poll_count": 1,
+  "poll_interval_seconds": 15.0,
+  "probe_class": "azure_monitor_metric",
+  "reverted": true,
+  "scenario_id": "vm-cpu-stress",
+  "started_at": "2026-07-13T02:10:42.362232+00:00",
+  "time_to_first_observed_seconds": 0.51,
+  "total_elapsed_seconds": 63.02
+}

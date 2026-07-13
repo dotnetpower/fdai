@@ -1,3 +1,7 @@
+# The module retains a public dev path for disposable environments. Production
+# is not exempt: infra/production-gates.tf requires private networking, which
+# sets public access off and default_action to Deny.
+#trivy:ignore:AVD-AZU-0013
 resource "azurerm_key_vault" "primary" {
   name                            = var.name
   location                        = var.location

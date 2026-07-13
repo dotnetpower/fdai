@@ -1,8 +1,8 @@
 ---
 title: Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
 translation_of: phase-4-scale.md
-translation_source_sha: 93ca9d52efcf058bec348558ce6e721194f57052
-translation_revised: 2026-07-11
+translation_source_sha: 777c788b5ec14838dbe5f992c0b7c6a6b5343a32
+translation_revised: 2026-07-13
 ---
 
 # Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
@@ -115,15 +115,16 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 
 ## 이벤트 버스 이식성 (TBD - deferred)
 
-> 연기; Azure에서 버스는 Service Bus + Event Grid
+> 연기; Azure에서 버스는 Event Hubs의 Kafka endpoint
 > ([tech-stack-ko.md](../architecture/tech-stack-ko.md#od-3-멀티-클라우드-이벤트-버스-phase-4--tbd) 참조).
 
-- Phase 0-3 버스(Service Bus + Event Grid)가 멀티 클라우드 필요를 충족하는지 아니면 이식 가능
-  log/queue(Kafka 또는 NATS JetStream) 가 필요한지 검증하여 OD-3 결정.
+- 비-Azure 대상을 범위에 포함할 때만 OD-3을 결정합니다. 어떤 managed Kafka 또는 다른 log
+  구현이 기존 Kafka wire 순서, replay, DLQ 계약을 보존하는지 검증합니다.
 - 결정 기준: 클라우드 간 **순서, dead-letter, 리플레이, idempotency 패리티**, 운영 비용, CSP
   중립성 - 버스 어댑터는 backend와 무관하게 리소스별 순서와 at-least-once + 멱등 처리 보존해야
   함.
-- 결과를 결정 기록으로 기록하고 [tech-stack-ko.md](../architecture/tech-stack-ko.md) OD-3 업데이트.
+- 비-Azure 결과를 결정 기록으로 남기고
+  [tech-stack-ko.md](../architecture/tech-stack-ko.md) OD-3을 업데이트합니다.
 
 ## 안전과 Shadow-First 롤아웃
 

@@ -50,3 +50,18 @@ resource "azurerm_subnet" "infra" {
     }
   }
 }
+
+resource "azurerm_subnet" "postgres" {
+  name                 = "snet-postgres"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.primary.name
+  address_prefixes     = [var.postgres_subnet_prefix]
+
+  delegation {
+    name = "postgres-flex"
+    service_delegation {
+      name    = "Microsoft.DBforPostgreSQL/flexibleServers"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    }
+  }
+}

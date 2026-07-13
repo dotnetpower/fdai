@@ -27,6 +27,9 @@ _EXPECTED_FILES = frozenset(
         "wire_llm.py",
         "wire_azure.py",
         "wire_change_feed.py",
+        # Application-level ORR wiring: composes assurance + preflight through
+        # injected providers, audits the verdict, then publishes a read model.
+        "readiness.py",
         # Extracted from wire_azure.py (G-4) to keep the file under the
         # per-file LOC ceiling; assembles the metric-provider composite
         # from whichever telemetry backends the deploy exposes.
@@ -48,6 +51,7 @@ _PUBLIC_NAMES = (
     "bind_embedding_knowledge_source",
     "bind_github_change_feed",
     "load_pricing_table",
+    "OperationalReadinessService",
 )
 
 # Names that MUST also appear in __all__ (subset of _PUBLIC_NAMES). The
@@ -63,6 +67,7 @@ _ALL_MEMBERS = (
     "wire_azure_container",
     "bind_azure_llm_bindings",
     "load_pricing_table",
+    "OperationalReadinessService",
 )
 
 

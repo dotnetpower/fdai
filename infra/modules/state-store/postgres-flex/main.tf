@@ -10,6 +10,8 @@ resource "azurerm_postgresql_flexible_server" "primary" {
   backup_retention_days         = var.backup_retention_days
   geo_redundant_backup_enabled  = var.geo_redundant_backup_enabled
   public_network_access_enabled = var.public_network_access_enabled
+  delegated_subnet_id           = var.delegated_subnet_id
+  private_dns_zone_id           = var.private_dns_zone_id
 
   # AAD auth is enabled alongside password auth so a fork can rotate the
   # bootstrap admin to a Managed-Identity-only connection without a

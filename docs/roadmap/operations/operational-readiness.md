@@ -171,7 +171,8 @@ adds a thin coordinator plus one normalized signal.
 | `core/assurance_twin/report` | run every applicable rule over the scope projection (reused) |
 | `core/deploy_preflight` | run the feasibility probes over the scope (reused) |
 | ORR coordinator | compose the two into a `ReadinessReport`, apply the environment gate, set `blocks_handoff` |
-| delivery intent | post the report as a Checks API annotation / console `ReadPanel`; attach shadow remediation-PR proposals |
+| `composition/readiness.py` | run posture + preflight concurrently, audit success/failure, and publish the serialized report |
+| delivery intent | a fork binds `ReadinessReportPublisher` to a Checks API annotation / console `ReadPanel` |
 
 The coordinator imports only `shared/` contracts and providers, like every other
 core subsystem ([project-structure.md](../architecture/project-structure.md#module-boundaries)).
@@ -179,16 +180,24 @@ It holds no cloud SDK and no privileged identity.
 
 ### Implementation status
 
-The composition core ships in
+The deterministic core ships in
 [`core/readiness/`](../../../src/fdai/core/readiness): the `OwnershipTransfer`
 signal, the generic `ReadinessReport` / `HandoffVerdict` / `ReadinessFinding`
 shape, and the pure `compose_readiness_report` coordinator that folds the posture
 findings and the preflight findings into one verdict, applies the environment
 gate (a `prod` target forces a `critical` finding to blocking), and sets
 `blocks_handoff` (shadow-first: `false` unless the pass ran in enforce mode). It
-imports only `shared/` types. Wiring the trigger into `event-ingest`, running the
-two subsystems on the signal, and the delivery intent (Checks annotation /
-console `ReadPanel`) are the follow-up.
+imports only `shared/` types.
+
+[`OperationalReadinessService`](../../../src/fdai/composition/readiness.py) now
+wires the signal to an injected `PostureAssessmentProvider` and the existing
+`PreflightAnalyzer`, runs both passes concurrently, composes the report, writes
+the append-only audit entry, and then calls the injected
+`ReadinessReportPublisher`. A partial assessment writes an `abstain` audit and
+propagates the error; a delivery failure writes a second failure audit and
+propagates. The remaining fork work is transport binding: emit the normalized
+signal from the selected handoff moment and bind the posture provider and report
+publisher to the live inventory / Checks / console adapters.
 
 ## Safety posture
 

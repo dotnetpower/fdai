@@ -10,6 +10,7 @@
  */
 
 import { useState } from "preact/hooks";
+import { architectureHref } from "../components/architecture-map.model";
 import type { LiveStageName } from "../hooks/use-live-stream";
 import {
   AGENT_ROLE,
@@ -384,6 +385,9 @@ export function DetailPanel({
         <p class="muted live-detail-note">
           This panel is read-only. Approvals happen in ChatOps or via a remediation PR.
         </p>
+        <a class="btn" href={architectureHref(tile.scope ?? undefined)}>
+          View on architecture map
+        </a>
       </aside>
     </div>
   );

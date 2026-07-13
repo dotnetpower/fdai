@@ -1,0 +1,15 @@
+{
+  "ended_at": "2026-07-13T02:14:41.237214+00:00",
+  "error": null,
+  "expected_signal": "rollout_stall",
+  "inject_seconds": 0.12,
+  "observed": true,
+  "poll_count": 3,
+  "poll_interval_seconds": 1.0,
+  "probe_class": "kube_pod_status",
+  "reverted": true,
+  "scenario_id": "aks-bad-deploy",
+  "started_at": "2026-07-13T02:14:38.644882+00:00",
+  "time_to_first_observed_seconds": 2.34,
+  "total_elapsed_seconds": 2.59
+}

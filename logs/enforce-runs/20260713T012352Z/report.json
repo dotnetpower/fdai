@@ -1,0 +1,22 @@
+{
+  "runs": [
+    {
+      "detected": false,
+      "elapsed_seconds": 280.11,
+      "ended_at": "2026-07-13T01:28:44.861640+00:00",
+      "error": null,
+      "expected_signal": "host_memory",
+      "experiment_id": "chaos-9bd76d586ed5",
+      "injected": true,
+      "mode": "enforce",
+      "outcome": "not_detected",
+      "reverted": true,
+      "scenario_id": "vm-mem-stress",
+      "started_at": "2026-07-13T01:23:52.038141+00:00",
+      "stopped": true,
+      "targets": [
+        "vm-fdai-chaos"
+      ]
+    }
+  ]
+}

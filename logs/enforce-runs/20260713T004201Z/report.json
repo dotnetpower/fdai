@@ -1,0 +1,22 @@
+{
+  "runs": [
+    {
+      "detected": true,
+      "elapsed_seconds": 180.9,
+      "ended_at": "2026-07-13T00:45:07.595403+00:00",
+      "error": null,
+      "expected_signal": "pod_restart",
+      "experiment_id": "chaos-2833e67e4909",
+      "injected": true,
+      "mode": "enforce",
+      "outcome": "validated",
+      "reverted": true,
+      "scenario_id": "aks-pod-kill",
+      "started_at": "2026-07-13T00:42:01.136155+00:00",
+      "stopped": true,
+      "targets": [
+        "app=api-backend"
+      ]
+    }
+  ]
+}

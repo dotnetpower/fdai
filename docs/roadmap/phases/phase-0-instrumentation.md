@@ -114,7 +114,7 @@ enforce-mode capability is in scope for P0.
 
 | Task | Title | Deps | Deliverable | Acceptance | Size |
 |------|-------|------|-------------|------------|------|
-| **W4.1** | Terraform / Bicep bootstrap modules | - | `infra/` modules for Container Apps env, PostgreSQL Flexible + pgvector, Service Bus, Key Vault, Log Analytics, ACR, Azure OpenAI (per [deploy-and-onboard.md](../deployment/deploy-and-onboard.md#azure-resource-inventory-minimum-set)) | `azd up` provisions the minimum inventory in a dev subscription | L |
+| **W4.1** | Terraform bootstrap modules | - | `infra/` modules for Container Apps env, PostgreSQL Flexible + pgvector, Event Hubs Kafka, Key Vault, Log Analytics, ACR, and opt-in Azure OpenAI (per [deploy-and-onboard.md](../deployment/deploy-and-onboard.md#azure-resource-inventory-minimum-set)) | `terraform apply` provisions the minimum inventory in a dev subscription | L |
 | **W4.2** | Executor MI (Phase 1 shape) | W4.1 | `mi-aw-executor` with RG-scoped built-in role composition per [security-and-identity.md § Identity Mapping (Phased)](../architecture/security-and-identity.md#identity-mapping-phased) | Terraform emits the role assignments; `az role assignment list` matches the declared set | M |
 | **W4.3** | Azure Policy deny-by-default | W4.2 | Policy assignment that denies any executor MI action outside the Phase 1 Change allowlist | A probe attempting a non-allowlisted action is denied at the ARM layer | M |
 | **W4.4** | Least-privilege probe | W4.2, W4.3 | `tools/lpp-probe` - asserts allowed actions succeed and denied actions fail; recorded run in CI | Adding a new permission without updating the probe fails CI | S |

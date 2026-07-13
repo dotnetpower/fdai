@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 89d6afa45acb2b0044f6e1367624c1371f32252e
-translation_revised: 2026-07-12
+translation_source_sha: 034f07233b77ac83575312d782ddae9cb3f59a43
+translation_revised: 2026-07-13
 ---
 
 # CSP-중립성 계약
@@ -246,6 +246,17 @@ executor 는 런타임 서브스트레이트에서 얻은 **짧은 수명의 OID
   포워더가 아직 프로비저닝되지 않은 환경을 위한 직접 Activity Log REST 팩토리
   (`AzureActivityLogFactory`). fetch 가 바인딩되지 않으면 `delta` 는 빈 `final=True`
   펜스를 반환한다.
+
+읽기 전용 콘솔은 승격된 그래프의 별도 프로젝션을 `GET /inventory/graph`를 통해
+사용합니다. 이 경로는 `ReadApiConfig.inventory_graph_provider`가 주입된 경우에만
+활성화됩니다. CSP-중립 `Resource` 레코드와 `contains` / `attached_to` / `depends_on`
+링크, 스냅샷 신선도, 잘림 메타데이터를 반환합니다. 이 경로는 Azure Resource Graph를
+직접 호출하지 않으며 실행자 ID를 전달받지 않습니다.
+
+이 프로젝션은 이름이 지정된 아키텍처 뷰를 제공합니다. 기본 뷰는 FDAI 자체 컨트롤
+플레인이며, 추가 `application` 뷰는 FDAI가 판단하고 관찰할 수 있는 서비스를
+분리합니다. `scope=<view-id>`를 지정하면 동일한 CSP-중립 와이어 계약을 유지하면서
+해당 뷰의 경계가 제한된 리소스와 링크 집합을 반환합니다.
 
 | CSP / 서브스트레이트 | 인벤토리 소스 | Delta 소스 | 와이어 |
 |---|---|---|---|

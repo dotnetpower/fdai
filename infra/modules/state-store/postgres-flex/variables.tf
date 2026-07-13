@@ -77,9 +77,23 @@ variable "allow_azure_services_firewall" {
 # flip these once a private endpoint or VNet integration is in place.
 # ---------------------------------------------------------------------------
 variable "public_network_access_enabled" {
-  description = "When false, Postgres refuses every public-plane connection. Requires `delegated_subnet_id` (out of scope for the flat module) so callers can reach it. Prod hardening flag, off day-zero."
+  description = "When false, Postgres refuses every public-plane connection. Requires delegated_subnet_id and private_dns_zone_id."
   type        = bool
   default     = true
+}
+
+variable "delegated_subnet_id" {
+  description = "Delegated subnet for private PostgreSQL access. Null keeps the public day-zero path."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "private_dns_zone_id" {
+  description = "Private DNS zone ending in postgres.database.azure.com. Null keeps the public day-zero path."
+  type        = string
+  default     = null
+  nullable    = true
 }
 
 variable "backup_retention_days" {

@@ -1,8 +1,8 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: 18b926a31984f93d6bae141743667a43218c312d
-translation_revised: 2026-07-11
+translation_source_sha: bf0dd332de9a04da80ba4164ca63d324b5741b62
+translation_revised: 2026-07-13
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 
@@ -175,7 +175,8 @@ coordinator 와 하나의 정규화된 signal 을 추가합니다.
 | `core/assurance_twin/report` | scope projection 에 대해 적용 가능한 모든 규칙 실행 (재사용) |
 | `core/deploy_preflight` | scope 에 대해 feasibility 프로브 실행 (재사용) |
 | ORR coordinator | 둘을 `ReadinessReport` 로 조합, environment 게이트 적용, `blocks_handoff` 설정 |
-| delivery intent | 리포트를 Checks API annotation / 콘솔 `ReadPanel` 로 게시; shadow remediation-PR 제안 첨부 |
+| `composition/readiness.py` | posture + preflight를 동시에 실행하고 success/failure를 audit한 뒤 serialized report publish |
+| delivery intent | 포크가 `ReadinessReportPublisher`를 Checks API annotation / console `ReadPanel`에 binding |
 
 coordinator 는 다른 모든 core 서브시스템처럼 `shared/` 계약과 provider 만
 import 합니다([project-structure.md](../architecture/project-structure-ko.md#module-boundaries)).
@@ -183,15 +184,21 @@ import 합니다([project-structure.md](../architecture/project-structure-ko.md#
 
 ### 구현 상태
 
-조합 코어는 [`core/readiness/`](../../../src/fdai/core/readiness) 에 ship 됨:
+Deterministic core는 [`core/readiness/`](../../../src/fdai/core/readiness)에 있습니다.
 `OwnershipTransfer` 신호, generic `ReadinessReport` / `HandoffVerdict` /
 `ReadinessFinding` shape, 그리고 posture finding 과 preflight finding 을 하나의
 verdict 로 fold 하고 environment 게이트(`prod` 타깃은 `critical` finding 을
 blocking 으로 강제)를 적용하며 `blocks_handoff` 를 설정하는 순수
 `compose_readiness_report` coordinator (shadow-first: enforce 모드로 실행됐을
-때만 `true`). `shared/` 타입만 import 함. 트리거를 `event-ingest` 로 배선하고,
-신호에 대해 두 서브시스템을 실행하며, delivery intent (Checks annotation /
-콘솔 `ReadPanel`) 는 후속 작업.
+때만 `true`)를 제공합니다. `shared/` 타입만 import합니다.
+
+[`OperationalReadinessService`](../../../src/fdai/composition/readiness.py)는 이제 signal을
+injected `PostureAssessmentProvider`와 기존 `PreflightAnalyzer`에 연결하고 두 pass를 동시에
+실행합니다. 이후 report를 compose하고 append-only audit entry를 쓴 다음 injected
+`ReadinessReportPublisher`를 호출합니다. Partial assessment는 `abstain` audit을 쓰고 error를
+전파하며 delivery failure는 두 번째 failure audit을 쓰고 전파합니다. 남은 fork 작업은
+transport binding입니다. 선택한 handoff moment에서 normalized signal을 emit하고 posture
+provider/report publisher를 live inventory, Checks, console adapter에 binding합니다.
 
 ## 안전 posture
 

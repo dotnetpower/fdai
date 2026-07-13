@@ -4,7 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Command deck - FDAI Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/calm-slate.css" />
+  <script src="assets/calm-slate.js" defer></script>
   <style>
     /* Command deck: the operator's conversational surface.
        Three columns: sessions (left) - transcript (center) - retrieval /
@@ -123,18 +127,28 @@
        Rich content inside a bubble: tables, code, charts, figures.
        All calm-slate tinted; no external asset dependencies.
        ------------------------------------------------------------------- */
-    .dk-code { display: block; margin: 8px 0 4px; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-shade); font-family: "Cascadia Code","Consolas",monospace; font-size: 12px; line-height: 1.55; color: var(--cs-text); overflow-x: auto; white-space: pre; }
+    .dk-code { position: relative; display: block; margin: 8px 0 4px; padding: 10px 44px 10px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-shade); font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", "SF Mono", "Consolas", ui-monospace, monospace; font-size: 12.5px; font-weight: 400; font-variant-ligatures: none; line-height: 1.6; color: var(--cs-text); overflow-x: auto; white-space: pre; }
     .dk-code .kw   { color: var(--cs-plum); font-weight: 600; }
     .dk-code .str  { color: var(--cs-sage); }
     .dk-code .num  { color: var(--cs-terracotta); }
     .dk-code .com  { color: var(--cs-text-soft); font-style: italic; }
     .dk-code-lang { display: block; font-family: "Segoe UI",sans-serif; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--cs-text-soft); font-weight: 700; margin-bottom: 6px; }
 
-    .dk-table-wrap { margin: 8px 0 4px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); overflow: hidden; }
-    .dk-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-    .dk-table thead th { background: var(--cs-navy); color: #fff; text-align: left; padding: 6px 10px; font-weight: 600; font-size: 11.5px; letter-spacing: .02em; }
-    .dk-table tbody td { padding: 6px 10px; border-top: 1px solid var(--cs-hairline); color: var(--cs-text); }
-    .dk-table tbody tr:nth-child(even) td { background: var(--cs-shade); }
+    /* Copy button (auto-injected by JS on every .dk-code). Sits pinned to
+       the top-right corner of the code block; label swaps to "Copied" for
+       a short window after a successful copy. */
+    .dk-copy { position: absolute; top: 6px; right: 6px; z-index: 1; padding: 3px 8px; font-family: "Segoe UI",sans-serif; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--cs-text-soft); background: var(--cs-card); border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); cursor: pointer; opacity: 0; transition: opacity .15s ease, color .15s ease, background .15s ease; }
+    .dk-code:hover .dk-copy, .dk-code:focus-within .dk-copy, .dk-copy:focus-visible { opacity: 1; }
+    .dk-copy:hover { color: var(--cs-text); background: var(--cs-bg); }
+    .dk-copy.is-copied { opacity: 1; color: var(--cs-sage); border-color: rgba(94,130,89,.4); }
+    .dk-tool-call pre { font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", "SF Mono", "Consolas", ui-monospace, monospace; font-size: 12.5px; font-variant-ligatures: none; }
+
+    .dk-table-wrap { margin: 8px 0 4px; border: 0; border-radius: 0; overflow: visible; }
+    .dk-table { width: 100%; border-collapse: collapse; font-size: 12.5px; border-top: 1px solid var(--cs-hairline); }
+    .dk-table thead th { background: transparent; color: var(--cs-text); text-align: left; padding: 8px 10px 6px; font-weight: 600; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; border-bottom: 2px solid var(--cs-navy); }
+    .dk-table tbody td { padding: 7px 10px; border-top: 1px solid var(--cs-hairline); color: var(--cs-text); }
+    .dk-table tbody tr:first-child td { border-top: 0; }
+    .dk-table tbody tr:last-child td { border-bottom: 1px solid var(--cs-hairline); }
     .dk-table code { font-size: 11.5px; }
     .dk-table .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--cs-text-soft); }
 
@@ -244,9 +258,41 @@
     .dk-shell.is-trace-collapsed .dk-trace { display: none; }
     @media (max-width: 780px) { .dk-shell.is-trace-collapsed { grid-template-columns: 1fr; } }
 
-    .dk-trace-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; font: inherit; font-size: 12px; border-radius: 999px; border: 1px solid var(--cs-hairline); background: var(--cs-card); color: var(--cs-text-soft); cursor: pointer; }
-    .dk-trace-toggle:hover { color: var(--cs-text); background: var(--cs-shade); }
-    .dk-trace-toggle .chev { display: inline-block; font-size: 11px; }
+    /* Header toggles rendered as switches. The label sits next to a
+       track+knob; state is carried on aria-checked, not on the label
+       text, so it reads as a genuine two-state control. */
+    .dk-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 3px 6px 3px 10px; font: inherit; font-size: 12px; font-weight: 500; border-radius: 999px; border: 1px solid var(--cs-hairline); background: var(--cs-card); color: var(--cs-text-soft); cursor: pointer; }
+    .dk-toggle:hover { color: var(--cs-text); background: var(--cs-shade); }
+    .dk-toggle[aria-checked="true"] { color: var(--cs-text); }
+    .dk-toggle-track {
+      position: relative;
+      width: 28px; height: 16px;
+      border-radius: 999px;
+      background: var(--cs-shade);
+      border: 1px solid var(--cs-hairline);
+      transition: background .18s ease, border-color .18s ease;
+      flex: 0 0 auto;
+    }
+    .dk-toggle-track::after {
+      content: "";
+      position: absolute; top: 1px; left: 1px;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--cs-card);
+      border: 1px solid var(--cs-hairline);
+      box-shadow: 0 1px 2px rgba(46,54,64,.15);
+      transition: transform .18s ease, background .18s ease, border-color .18s ease;
+    }
+    .dk-toggle[aria-checked="true"] .dk-toggle-track {
+      background: var(--cs-steel);
+      border-color: var(--cs-steel);
+    }
+    .dk-toggle[aria-checked="true"] .dk-toggle-track::after {
+      transform: translateX(12px);
+      background: #fff;
+      border-color: rgba(0,0,0,.08);
+    }
+    .dk-toggle:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 2px; }
 
     /* -------------------------------------------------------------------
        Token accounting: per-turn pill in the meta line + session total
@@ -485,13 +531,13 @@
               <kbd>&#8984;K</kbd>
             </label>
             <span class="dk-session-tokens" id="dk-session-tokens" title="Session breakdown - hover for input / output split"><span class="lab">Session</span><b>44.4k</b><span class="k">tokens</span><span class="sep">&middot;</span><span class="k">11 turns</span></span>
-            <button type="button" class="dk-trace-toggle" id="dk-tokens-toggle" title="Toggle per-turn token counts + session total" aria-controls="dk-stream" aria-expanded="true">
-              <span class="dk-tokens-toggle-label">Hide tokens</span>
-              <span class="chev" aria-hidden="true">$</span>
+            <button type="button" class="dk-toggle" id="dk-tokens-toggle" role="switch" aria-checked="true" title="Toggle per-turn token counts + session total" aria-controls="dk-stream">
+              <span>Tokens</span>
+              <span class="dk-toggle-track" aria-hidden="true"></span>
             </button>
-            <button type="button" class="dk-trace-toggle" id="dk-trace-toggle" aria-controls="dk-trace" aria-expanded="true">
-              <span class="dk-trace-toggle-label">Hide trace</span>
-              <span class="chev" aria-hidden="true">&rarr;</span>
+            <button type="button" class="dk-toggle" id="dk-trace-toggle" role="switch" aria-checked="true" aria-controls="dk-trace">
+              <span>Trace</span>
+              <span class="dk-toggle-track" aria-hidden="true"></span>
             </button>
           </div>
         </header>
@@ -698,7 +744,12 @@
                 <p>Pod restart rate on <code>nginx-canary</code>, 1-minute buckets, last 10 min.
                   Baseline (dashed) is <code>0.4/min</code>; the storm peaked at
                   <code>3.1/min</code> at 09:35, then auto-heal took hold.</p>
-                <figure class="dk-chart-wrap dk-chart">
+                <figure class="dk-chart-wrap dk-chart js-chartable"
+                        data-chart-title="Pod restart rate - nginx-canary"
+                        data-chart-sub="1-minute buckets, last 10 minutes"
+                        data-chart-columns='["Minute","Restarts / min"]'
+                        data-chart-num-cols='[1]'
+                        data-chart-source="Source: Heimdall live metric stream. Baseline 0.4/min, stop-condition >2.5/min.">
                   <svg viewBox="0 0 320 110" preserveAspectRatio="none" role="img" aria-label="Pod restart rate over 10 minutes">
                     <line class="grid" x1="0" x2="320" y1="20"  y2="20" />
                     <line class="grid" x1="0" x2="320" y1="55"  y2="55" />
@@ -809,7 +860,12 @@
                 <p>LLM spend trend on <code>fdai-dev</code>, last 7 days. Weekend dip is the
                   scheduled off-path Norns run; Fri spike lines up with the FDAI-8812 T2 burst.
                   <strong>Hover any point</strong> for the daily total.</p>
-                <figure class="dk-chart-wrap dk-chart">
+                <figure class="dk-chart-wrap dk-chart js-chartable"
+                        data-chart-title="LLM spend - fdai-dev"
+                        data-chart-sub="Daily total across T1 + T2, last 7 days"
+                        data-chart-columns='["Day","Spend"]'
+                        data-chart-num-cols='[1]'
+                        data-chart-source="Source: Njord (cost domain). Soft cap $15/day; alert dot marks a breach.">
                   <svg viewBox="0 0 320 120" role="img" aria-label="Daily LLM spend, last 7 days">
                     <line class="grid" x1="0" x2="320" y1="20"  y2="20" />
                     <line class="grid" x1="0" x2="320" y1="55"  y2="55" />
@@ -843,7 +899,11 @@
                 <p>Tier mix for the last hour on <code>fdai-dev</code>. T0 dominates as designed;
                   the T2 slice sits inside the 5-10% target band. HIL rate is 4.1%. <strong>Hover
                   a segment</strong> for exact counts.</p>
-                <figure class="dk-chart-wrap dk-chart">
+                <figure class="dk-chart-wrap dk-chart js-chartable"
+                        data-chart-title="Trust-tier mix - fdai-dev"
+                        data-chart-sub="1,870 events routed in the last 1 hour"
+                        data-chart-columns='["Tier","Share &amp; count"]'
+                        data-chart-source="Source: Forseti router mix. T2 target band 5-10%; HIL rate 4.1%.">
                   <svg viewBox="0 0 220 130" role="img" aria-label="Tier mix donut">
                     <!-- Circumference of r=45 is ~283. Segment lengths encode the share. -->
                     <g transform="translate(110 65) rotate(-90)">
@@ -876,7 +936,11 @@
                 <p>Capacity forecast for <code>nginx-canary</code> replicas, split by workload class.
                   Steel = baseline traffic, teal = burst headroom, sage = experiment reserve.
                   <strong>Hover a column</strong> for the per-layer breakdown at that day.</p>
-                <figure class="dk-chart-wrap dk-chart">
+                <figure class="dk-chart-wrap dk-chart js-chartable"
+                        data-chart-title="Capacity forecast - nginx-canary"
+                        data-chart-sub="Replicas by workload class, next 7 days"
+                        data-chart-columns='["Day / layer","Value"]'
+                        data-chart-source="Source: Freyr (capacity domain). Layers: baseline / burst / experiment.">
                   <svg viewBox="0 0 320 130" role="img" aria-label="Capacity forecast, 7 days">
                     <line class="grid" x1="0" x2="320" y1="25"  y2="25" />
                     <line class="grid" x1="0" x2="320" y1="60"  y2="60" />
@@ -1136,22 +1200,19 @@
   </main>
 
   <script>
-    // Retrieval-trace collapse toggle. Purely presentational: flips a class on
-    // the shell so the transcript column stretches into the trace column's
-    // space, and updates the button label + chevron. State persists in
-    // localStorage so the choice sticks across reloads.
+    // Retrieval-trace toggle. Presentational switch: flips a class on the
+     // shell so the transcript column stretches into the trace column's
+     // space, and syncs aria-checked. State persists in localStorage.
     (function () {
       const shell = document.querySelector('.dk-shell');
       const btn = document.getElementById('dk-trace-toggle');
-      const label = btn && btn.querySelector('.dk-trace-toggle-label');
-      const chev  = btn && btn.querySelector('.chev');
-      if (!shell || !btn || !label || !chev) return;
+      if (!shell || !btn) return;
       const KEY = 'fdai.deck.traceCollapsed';
       function apply(collapsed) {
         shell.classList.toggle('is-trace-collapsed', collapsed);
-        btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-        label.textContent = collapsed ? 'Show trace' : 'Hide trace';
-        chev.innerHTML = collapsed ? '\u2190' : '\u2192';
+        // aria-checked reflects whether the trace is SHOWN, so it is the
+        // inverse of "collapsed".
+        btn.setAttribute('aria-checked', collapsed ? 'false' : 'true');
       }
       try { apply(localStorage.getItem(KEY) === '1'); } catch (_) { /* private mode ok */ }
       btn.addEventListener('click', function () {
@@ -1162,20 +1223,18 @@
     })();
 
     // ------------------------------------------------------------------
-    // Token-view toggle: mirrors the trace toggle. Flips is-tokens-hidden
+    // Token-view toggle. Mirrors the trace toggle. Flips is-tokens-hidden
     // on the shell so both the per-turn pills and the session-total badge
     // collapse in one place. Persisted per-browser.
     // ------------------------------------------------------------------
     (function () {
       const shell = document.querySelector('.dk-shell');
       const btn = document.getElementById('dk-tokens-toggle');
-      const label = btn && btn.querySelector('.dk-tokens-toggle-label');
-      if (!shell || !btn || !label) return;
+      if (!shell || !btn) return;
       const KEY = 'fdai.deck.tokensHidden';
       function apply(hidden) {
         shell.classList.toggle('is-tokens-hidden', hidden);
-        btn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
-        label.textContent = hidden ? 'Show tokens' : 'Hide tokens';
+        btn.setAttribute('aria-checked', hidden ? 'false' : 'true');
       }
       try { apply(localStorage.getItem(KEY) === '1'); } catch (_) { /* ok */ }
       btn.addEventListener('click', function () {
@@ -1220,6 +1279,64 @@
         wrap.addEventListener('mousemove', show);
         wrap.addEventListener('mouseout', hide);
         wrap.addEventListener('mouseleave', () => tt.classList.remove('is-open'));
+      });
+    })();
+
+    // ------------------------------------------------------------------
+    // Copy button on every .dk-code block. Auto-injected on load; copies
+    // the code text (minus the language-label prefix) to the clipboard.
+    // Falls back to document.execCommand('copy') on non-secure contexts.
+    // ------------------------------------------------------------------
+    (function () {
+      function codeTextOf(pre) {
+        // Clone and strip the .dk-code-lang label so it isn't copied.
+        const clone = pre.cloneNode(true);
+        const lang = clone.querySelector('.dk-code-lang');
+        if (lang) lang.remove();
+        // Also strip the copy button itself if present in the clone.
+        const btn = clone.querySelector('.dk-copy');
+        if (btn) btn.remove();
+        return clone.textContent.replace(/^\n+/, '').replace(/\s+$/, '');
+      }
+      function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-1000px';
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+        document.body.removeChild(ta);
+        return ok;
+      }
+      function flash(btn) {
+        btn.classList.add('is-copied');
+        const prev = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(function () {
+          btn.classList.remove('is-copied');
+          btn.textContent = prev;
+        }, 1400);
+      }
+      document.querySelectorAll('pre.dk-code').forEach(function (pre) {
+        if (pre.querySelector('.dk-copy')) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'dk-copy';
+        btn.textContent = 'Copy';
+        btn.setAttribute('aria-label', 'Copy code');
+        btn.addEventListener('click', async function () {
+          const text = codeTextOf(pre);
+          let ok = false;
+          if (navigator.clipboard && window.isSecureContext) {
+            try { await navigator.clipboard.writeText(text); ok = true; } catch (_) { ok = false; }
+          }
+          if (!ok) ok = fallbackCopy(text);
+          if (ok) flash(btn);
+        });
+        pre.appendChild(btn);
       });
     })();
   </script>

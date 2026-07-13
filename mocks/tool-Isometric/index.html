@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Architecture Atlas - FDAI mock</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="atlas-app">
+    <header class="topbar">
+      <div class="brand">
+        <button class="icon-btn mobile-only" id="openPalette" aria-label="Open resource palette">+</button>
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span><strong>Architecture Atlas</strong><small>Production / Korea Central</small></span>
+      </div>
+      <div class="view-switch" role="group" aria-label="Camera view">
+        <button class="seg is-on" data-view="iso">Iso</button>
+        <button class="seg" data-view="top">Top</button>
+        <button class="seg" data-view="front">Front</button>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn" id="undoBtn" title="Undo (Ctrl+Z)" aria-label="Undo">&#8630;</button>
+        <button class="icon-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">&#8631;</button>
+        <span class="divider"></span>
+        <button class="text-btn mode-btn is-on" id="modeBtn">Edit mode</button>
+        <button class="text-btn" id="autoLayoutBtn">Auto layout</button>
+        <button class="text-btn" id="importBtn">Import</button>
+        <button class="primary-btn" id="exportBtn">Export JSON</button>
+        <button class="icon-btn mobile-only" id="openInspector" aria-label="Open inspector">&#8942;</button>
+        <input id="importInput" type="file" accept="application/json,.json" hidden />
+      </div>
+    </header>
+
+    <aside class="palette drawer" id="palette">
+      <div class="drawer-head">
+        <div><span class="eyebrow">Add to map</span><h1>Resources</h1></div>
+        <button class="icon-btn mobile-only" data-close="palette" aria-label="Close palette">&times;</button>
+      </div>
+      <label class="search-box">
+        <span aria-hidden="true">&#9906;</span>
+        <input id="resourceSearch" type="search" placeholder="Search resources" autocomplete="off" />
+      </label>
+      <div id="resourcePalette" class="resource-palette"></div>
+      <p class="palette-tip">Drag a resource onto the map. It snaps to the grid and adopts the smallest region beneath it.</p>
+    </aside>
+
+    <main class="stage" id="stage">
+      <canvas id="scene" aria-label="Interactive isometric architecture map"></canvas>
+      <div class="scene-title">
+        <span class="status-dot"></span>
+        <span><strong>prod-platform</strong><small>1 subscription / 3 resource groups / 13 resources</small></span>
+      </div>
+      <div class="compass" id="compass" aria-label="Camera orientation"><span>N</span><i></i></div>
+      <div class="zoom-controls">
+        <button class="icon-btn" id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+        <output class="zoom-level" id="zoomLevel" aria-label="Zoom level">100%</output>
+        <button class="icon-btn" id="zoomOut" title="Zoom out" aria-label="Zoom out">&minus;</button>
+        <button class="icon-btn" id="fitBtn" title="Fit map" aria-label="Fit map">&#9635;</button>
+      </div>
+      <div class="selection-bar" id="selectionBar" hidden>
+        <span id="selectionCount">1 selected</span>
+        <button id="duplicateBtn">Duplicate</button>
+        <button id="focusBtn">Focus</button>
+        <button id="deleteBtn" class="danger-text">Delete</button>
+      </div>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      <div class="tooltip" id="tooltip" hidden></div>
+    </main>
+
+    <aside class="inspector drawer" id="inspector">
+      <div class="drawer-head">
+        <div><span class="eyebrow">Map controls</span><h2>Layers</h2></div>
+        <button class="icon-btn mobile-only" data-close="inspector" aria-label="Close inspector">&times;</button>
+      </div>
+      <div id="layerFilters" class="layer-filters"></div>
+      <div class="panel-section selection-panel" id="selectionPanel">
+        <div class="empty-state">
+          <span class="empty-icon">&#9671;</span>
+          <strong>No selection</strong>
+          <p>Select a resource or boundary to inspect its architecture metadata.</p>
+        </div>
+      </div>
+      <div class="panel-section legend">
+        <div class="section-title"><span>Connections</span><button id="toggleEdges">Hide</button></div>
+        <ul>
+          <li><i class="line ingress"></i>Ingress</li>
+          <li><i class="line internal"></i>Internal</li>
+          <li><i class="line data"></i>Data</li>
+          <li><i class="line private"></i>Private endpoint</li>
+        </ul>
+      </div>
+      <div class="panel-section shortcuts">
+        <div class="section-title"><span>Navigation</span></div>
+        <dl><dt>Pan map</dt><dd>drag empty area</dd><dt>Scale map</dt><dd>subscription handle</dd><dt>Box select</dt><dd>Ctrl + drag</dd><dt>Multi-select</dt><dd>Shift + click</dd></dl>
+      </div>
+    </aside>
+  </div>
+
+  <script type="module" src="app.js?v=10"></script>
+</body>
+</html>

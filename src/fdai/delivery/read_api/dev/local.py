@@ -768,13 +768,16 @@ def _build_blast_radius_graph() -> OntologyGraph:
     """Small synthetic graph so the console's simulator has something to render."""
     return InMemoryOntologyGraph(
         edges={
-            ("sub-dev", "contains"): ("rg-alpha", "rg-beta"),
-            ("rg-alpha", "contains"): ("vnet-alpha", "vm-1"),
-            ("vnet-alpha", "contains"): ("subnet-alpha",),
-            ("subnet-alpha", "contains"): ("vm-1", "vm-2"),
-            ("rg-beta", "contains"): ("stg-beta",),
-            ("vm-1", "depends_on"): ("stg-beta", "kv-shared"),
-            ("vm-2", "depends_on"): ("kv-shared",),
+            ("sub-example", "contains"): ("rg-network", "rg-app", "rg-data"),
+            ("rg-network", "contains"): ("vnet-hub",),
+            ("vnet-hub", "contains"): ("snet-ingress", "snet-private"),
+            ("snet-ingress", "contains"): ("agw-prod", "lb-internal"),
+            ("snet-private", "contains"): ("fw-hub",),
+            ("rg-app", "contains"): ("web-api", "event-worker", "scheduler", "aks-ops"),
+            ("rg-data", "contains"): ("pg-prod", "redis-prod", "stprod"),
+            ("web-api", "depends_on"): ("event-worker", "pg-prod", "redis-prod"),
+            ("event-worker", "attached_to"): ("stprod",),
+            ("aks-ops", "attached_to"): ("kv-prod",),
         },
         link_types=frozenset({"contains", "depends_on", "attached_to"}),
     )
@@ -1005,6 +1008,10 @@ def app() -> Starlette:
 
     live_stream_config, agent_activity_config = _build_agent_streams()
 
+    from fdai.delivery.read_api.routes.demo_inventory_graph import (
+        demo_inventory_graph_provider,
+    )
+
     return build_app(
         authenticator=authenticator,
         read_model=read_model,
@@ -1021,6 +1028,7 @@ def app() -> Starlette:
             blast_radius_graph=_build_blast_radius_graph(),
             ontology_object_types=tuple(ontology_object_types),
             ontology_link_types=tuple(ontology_link_types),
+            inventory_graph_provider=demo_inventory_graph_provider,
             rule_catalog_rules=tuple(rule_catalog_rules),
             rule_catalog_collected_rules=tuple(rule_catalog_collected),
             rule_catalog_policies_root=policies_root if policies_root.is_dir() else None,

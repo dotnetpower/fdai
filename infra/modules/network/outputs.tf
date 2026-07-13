@@ -16,3 +16,8 @@ output "infra_subnet_id" {
   description = "Delegated subnet the Container App Environment binds as its infrastructure subnet."
   value       = azurerm_subnet.infra.id
 }
+
+output "postgres_subnet_id" {
+  description = "Delegated subnet for PostgreSQL Flexible Server private access."
+  value       = azurerm_subnet.postgres.id
+}

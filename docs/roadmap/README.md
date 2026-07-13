@@ -51,6 +51,9 @@ build. Read the reference docs first, then the phases in order.
 | 5 | [llm-strategy.md](architecture/llm-strategy.md) | per-tier model choices, mixed-model gate, abstraction |
 | 6 | [security-and-identity.md](architecture/security-and-identity.md) | least-privilege identity, secrets, safety invariants |
 | 7 | [deployment.md](deployment/deployment.md) | IaC, CI/CD, environments, release / rollback |
+| 7a | [architecture-review-board.md](architecture/architecture-review-board.md) | canonical ARB packet: decision boundary, evidence contract, owners, dependencies, production exit gate |
+| 7b | [data-governance.md](architecture/data-governance.md) | data inventory, classification, lifecycle, privacy assessment, model-provider and compliance evidence |
+| 7c | [Architecture Decision Records](architecture/decisions/README.md) | ADR register and accepted Azure day-zero platform baseline |
 
 ### Rules, detection, and operations
 

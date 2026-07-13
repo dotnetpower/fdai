@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: aa06ad3267b7cb3357718dc56dc7bb80229d1088
-translation_revised: 2026-07-11
+translation_source_sha: 2b6b50f27257964873e558622066238ebe96b719
+translation_revised: 2026-07-13
 ---
 
 # 배포(Deployment)
@@ -103,11 +103,18 @@ flowchart TD
 - **CI identity**: 파이프라인은 **단명, OIDC-federated** identity로 인증(장기 클라우드 키 CI에
   없음). 시크릿은 런타임에 secret store에서 pull, 로그·빌드 아티팩트에 **절대 쓰지 않음**
   (secret scanning이 머지를 게이팅).
-- **공급망**: 각 빌드는 **SBOM** 을 생성하고 **서명** (예: cosign) 되며 **빌드 provenance/
-  attestation** (SLSA 스타일) 을 운반. 베이스 이미지와 의존성은 **digest** 로 고정. 배포는
-  롤아웃 전에 **서명과 provenance를 검증**; 서명·attestation 없는 이미지는 거부.
+- **공급망**: `.github/workflows/container-supply-chain.yml`은 Dockerfile을 build하고
+  HIGH/CRITICAL Trivy finding을 차단하며 CycloneDX **SBOM**을 생성합니다. `main`/release에서는
+  검증된 image를 GHCR에 publish하고 GitHub build-provenance/SBOM attestation을 기록합니다.
+  Dockerfile base는 **digest**로 고정되고 uid 65532로 실행됩니다. Deployment는 rollout 전에
+  attestation과 digest를 검증하며 unattested image를 차단합니다.
 - **아티팩트 레지스트리**: 이미지와 그 SBOM/attestation을 명시적 보존 정책으로 유지하여 어떤
   prod revision도 추적·재검증 가능.
+- **ACR handoff**: Upstream GHCR은 generic build-evidence registry입니다. ACR이 필요한 포크는
+  rebuild 없이 verified image를 copy하여 digest를 유지하고 target-registry attestation을
+  생성하거나 복사한 뒤 해당 ACR digest를 ARB evidence manifest의
+  `signed-image-provenance`로 binding합니다. ACR용 두 번째 build는 다른 subject를 만들기 때문에
+  수락하지 않습니다.
 - **승격 게이트 체크리스트** (모두 통과 필수): T0-engine과 risk-gate 단위 테스트가 커버리지
   바에서 green; IaC + dependency + secret 스캔 클린; shadow 평가에서 **정책 위반 escape 0**
   + 회귀 스위트 통과; staging SLO 건강.

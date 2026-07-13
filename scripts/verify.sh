@@ -14,6 +14,7 @@
 #   - check-catalog-parity.sh (L2 en/ko message catalogs)
 #   - check-stewardship.sh (handover map: 15 agents, maintainer floor, no role fields)
 #   - check-chaos-scenarios.sh (chaos-scenarios catalog + compiled symptom index)
+#   - check-arb-readiness.py (ARB artifact, blocker, owner, evidence contract)
 #   - pytest                                    [--full only]
 #
 # Usage:
@@ -94,6 +95,10 @@ fi
 
 if [[ -f scripts/check-chaos-scenarios.sh ]]; then
     run_gate "chaos-scenarios" bash scripts/check-chaos-scenarios.sh
+fi
+
+if [[ -f scripts/check-arb-readiness.py ]]; then
+    run_gate "architecture-review" python3 scripts/check-arb-readiness.py
 fi
 
 # ---- full gates (opt-in) ----------------------------------------------------

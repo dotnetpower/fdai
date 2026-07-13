@@ -1,0 +1,18 @@
+{
+  "detected": true,
+  "elapsed_seconds": 180.51,
+  "ended_at": "2026-07-13T01:21:53.463264+00:00",
+  "error": null,
+  "expected_signal": "rollout_stall",
+  "experiment_id": "chaos-926836b4d973",
+  "injected": true,
+  "mode": "enforce",
+  "outcome": "validated",
+  "reverted": true,
+  "scenario_id": "aks-bad-deploy",
+  "started_at": "2026-07-13T01:18:45.919448+00:00",
+  "stopped": true,
+  "targets": [
+    "app=api-backend"
+  ]
+}

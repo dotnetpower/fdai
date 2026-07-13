@@ -14,10 +14,10 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 All identifiers are synthetic per
 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md).
 
-> Concrete SKUs, counts, and region choices are **not yet decided** - they live in
-> [Open Decisions](#open-decisions). The structure below is stable so a future inventory PR
-> fills the values without reshaping the sections. The **entry command is decided**:
-> `terraform apply` against `infra/` (Terraform HCL) - see
+> The day-zero service tiers and counts are decided in
+> [Azure Resource Inventory](#azure-resource-inventory-minimum-set). A fork confirms the
+> region, quota, retention, replica caps, and production tier overrides before deployment.
+> The **entry command is decided**: `terraform apply` against `infra/` (Terraform HCL) - see
 > [tech-stack.md § OD-1](../architecture/tech-stack.md#od-1-core-runtime-language) and
 > [Deployment Artifacts](#deployment-artifacts).
 
@@ -98,10 +98,18 @@ All default to the dev posture (the live env is unchanged) and tighten via tfvar
 |---------|------|------------|
 | Delete protection | `enable_resource_locks`, bootstrap `enable_state_lock` | `true` |
 | Key Vault | `kv_purge_protection_enabled`, `kv_soft_delete_retention_days` | `true`, `90` |
+| Postgres network | `enable_private_postgres` | `true` |
 | Postgres durability | `postgres_backup_retention_days`, `postgres_geo_redundant_backup` | `35`, `true` |
 | Registry | `acr_sku` | `Premium` |
 | Monitoring | `enable_monitoring`, `alert_email`, `alert_webhook_url` | on + destination |
 | Cost | `monthly_budget_amount`, `budget_alert_emails`, bootstrap `runner_auto_shutdown_time` | set |
+
+`enable_private_postgres` adds a dedicated subnet delegated to PostgreSQL Flexible Server,
+links a private DNS zone to the app and ops VNet, disables public access, and removes the
+`AllowAllAzureServices` firewall rule. Turning it on for an existing public server may replace
+that server, so review the plan and rehearse backup/restore before promotion. The assertions in
+`infra/production-gates.tf` block a production plan until the signed image digest, private
+networking, durability, alert destination, and cost budget minimums are supplied.
 
 CI adds two credential-free guards: [`infra-lint.yml`](../../../.github/workflows/infra-lint.yml)
 (fmt + validate + tfsec + Checkov on every infra PR) and
@@ -119,7 +127,9 @@ action.
 - A **Slack workspace** with the FDAI Slack app installed and the mandatory userId ↔ Entra OID mapping store provisioned; required for the P1 Slack A1 channel ([channels-and-notifications.md#7-channel-specific-notes](../interfaces/channels-and-notifications.md#7-channel-specific-notes)).
 - A **container registry** (ACR or an external registry) that supports signature +
   attestation storage.
-- **TBD**: OpenTelemetry backend selection (Log Analytics vs Grafana/Tempo vs App Insights).
+- **OpenTelemetry backend**: Log Analytics with Application Insights bound to the workspace.
+  A fork may replace the backend through the telemetry provider contracts, but the Azure
+  day-zero inventory does not leave this choice open.
 
 ## Deployment Artifacts
 
@@ -517,7 +527,9 @@ results from these principles is in [cost-model.md](../interfaces/cost-model.md)
 - [ ] Log Analytics daily-cap and query cost budget (retention default 30 days is
       **configurable from the console UI**; alert thresholds TBD).
 - [ ] Kafka topic naming + Diagnostic-Settings forwarding filters, per-domain fan-in shape.
-- [ ] Networking posture: public + IP allowlist vs private endpoints + hub-spoke.
+- [x] Production networking baseline - **resolved: VNet-integrated Container Apps, private Key
+  Vault, and delegated-subnet private PostgreSQL**. Development may retain the public
+  PostgreSQL path; ACR/Event Hubs private endpoints remain tenant-policy-driven additions.
 - [ ] Full runtime config key list (values matrix expanded).
 - [ ] Day-zero seed rule set (which sources, which rule ids) - cross-linked to Phase 1.
 - [ ] Sidecar → separate Container App **graduation triggers**: metrics that indicate a

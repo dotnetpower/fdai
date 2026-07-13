@@ -126,6 +126,19 @@ jobs:
       - name: check-guids.sh
         run: bash scripts/check-guids.sh
 
+  architecture-review:
+    name: architecture-review readiness contract
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PyYAML
+        run: python3 -m pip install --quiet pyyaml
+
+      - name: Validate architecture-review manifest
+        run: python3 scripts/check-arb-readiness.py
+
   stewardship:
     name: agent stewardship handover-map guard
     runs-on: ubuntu-24.04

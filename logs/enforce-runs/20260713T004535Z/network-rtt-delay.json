@@ -1,0 +1,18 @@
+{
+  "detected": true,
+  "elapsed_seconds": 180.64,
+  "ended_at": "2026-07-13T00:55:16.837558+00:00",
+  "error": null,
+  "expected_signal": "gateway_latency",
+  "experiment_id": "chaos-4f8ba29ccc85",
+  "injected": true,
+  "mode": "enforce",
+  "outcome": "validated",
+  "reverted": true,
+  "scenario_id": "network-rtt-delay",
+  "started_at": "2026-07-13T00:52:07.944313+00:00",
+  "stopped": true,
+  "targets": [
+    "app=api-backend"
+  ]
+}

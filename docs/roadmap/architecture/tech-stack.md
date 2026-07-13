@@ -170,13 +170,19 @@ land under the project structure defined in
 - **Options**: PostgreSQL + pgvector · Cosmos DB.
 - **Criteria**: see [Data Store Selection](#data-store-selection-criteria) (portability, scale,
   cost model).
-- **Status**: Open - PostgreSQL is the leaning default.
+- **Status**: **Decided - PostgreSQL Flexible Server + pgvector.** It is implemented in
+  `infra/modules/state-store/postgres-flex/` and selected by the root Terraform module. Cosmos
+  DB remains a measured-scale alternative behind the `StateStore` provider; it is not part of
+  the day-zero inventory.
 
 ### OD-3: Multi-cloud event bus (Phase 4 - TBD)
 
 - **Context**: portability beyond Azure's event services. Non-Azure targets are TBD (see
   [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must));
   revisit only when a non-Azure adapter is scoped.
-- **Options**: stay on Service Bus + Event Grid · Kafka · NATS JetStream.
+- **Options**: extend the current Kafka wire contract to another managed Kafka target · NATS
+  JetStream · another log implementation that preserves ordering, replay, and DLQ semantics.
 - **Criteria**: ordering + DLQ guarantees, replay needs, operational cost, CSP neutrality.
-- **Status**: Deferred (TBD) - Azure remains the only implemented target.
+- **Status**: Deferred (TBD) - Azure remains the only implemented target, using Event Hubs
+  through its Kafka endpoint. The Azure bus decision is complete; this item covers only a
+  future non-Azure implementation.

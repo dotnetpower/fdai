@@ -1,0 +1,129 @@
+{
+    "failed_checks": [
+        {
+            "file": "/bootstrap/main.tf",
+            "findings": [
+                {
+                    "resource": "azurerm_linux_virtual_machine.runner[0]",
+                    "check_ids": [
+                        "CKV_AZURE_50"
+                    ]
+                },
+                {
+                    "resource": "azurerm_subnet.pe",
+                    "check_ids": [
+                        "CKV2_AZURE_31"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/main.tf",
+            "findings": [
+                {
+                    "resource": "azurerm_key_vault_secret.operator_memory_dsn",
+                    "check_ids": [
+                        "CKV_AZURE_41"
+                    ]
+                },
+                {
+                    "resource": "azurerm_key_vault_secret.pattern_library_dsn",
+                    "check_ids": [
+                        "CKV_AZURE_41"
+                    ]
+                },
+                {
+                    "resource": "azurerm_key_vault_secret.state_store_dsn",
+                    "check_ids": [
+                        "CKV_AZURE_41"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/modules/container-registry/main.tf",
+            "findings": [
+                {
+                    "resource": "module.container_registry.azurerm_container_registry.primary",
+                    "check_ids": [
+                        "CKV_AZURE_139",
+                        "CKV_AZURE_163",
+                        "CKV_AZURE_164",
+                        "CKV_AZURE_165",
+                        "CKV_AZURE_166",
+                        "CKV_AZURE_167",
+                        "CKV_AZURE_233",
+                        "CKV_AZURE_237"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/modules/llm/azure-openai/main.tf",
+            "findings": [
+                {
+                    "resource": "module.llm_azure_openai.azurerm_cognitive_account.primary",
+                    "check_ids": [
+                        "CKV2_AZURE_22",
+                        "CKV_AZURE_238"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/modules/network/main.tf",
+            "findings": [
+                {
+                    "resource": "module.network.azurerm_subnet.infra",
+                    "check_ids": [
+                        "CKV2_AZURE_31"
+                    ]
+                },
+                {
+                    "resource": "module.network.azurerm_subnet.pe",
+                    "check_ids": [
+                        "CKV2_AZURE_31"
+                    ]
+                },
+                {
+                    "resource": "module.network.azurerm_subnet.postgres",
+                    "check_ids": [
+                        "CKV2_AZURE_31"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/modules/secret-store/key-vault/main.tf",
+            "findings": [
+                {
+                    "resource": "module.key_vault.azurerm_key_vault.primary",
+                    "check_ids": [
+                        "CKV2_AZURE_32",
+                        "CKV_AZURE_109",
+                        "CKV_AZURE_110",
+                        "CKV_AZURE_189",
+                        "CKV_AZURE_42"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/modules/state-store/postgres-flex/main.tf",
+            "findings": [
+                {
+                    "resource": "module.state_store.azurerm_postgresql_flexible_server.primary",
+                    "check_ids": [
+                        "CKV_AZURE_136"
+                    ]
+                },
+                {
+                    "resource": "module.state_store.azurerm_postgresql_flexible_server_firewall_rule.allow_azure_services",
+                    "check_ids": [
+                        "CKV2_AZURE_26"
+                    ]
+                }
+            ]
+        }
+    ]
+}

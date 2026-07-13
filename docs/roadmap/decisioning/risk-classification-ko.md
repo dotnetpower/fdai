@@ -1,8 +1,8 @@
 ---
 title: 리스크 분류 (auto vs HIL vs deny)
 translation_of: risk-classification.md
-translation_source_sha: bc5afe9d823ce28ed28785103982b9f72463e985
-translation_revised: 2026-07-11
+translation_source_sha: 99de7797d5afdc37ace2846850bf429cb11f6cda
+translation_revised: 2026-07-13
 ---
 
 # 리스크 분류 (auto vs HIL vs deny)
@@ -137,13 +137,15 @@ catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이
 
 `environment: prod` vs `non-prod`는 대상 **리소스 그룹 태그** 에서 파생됩니다:
 
-- 태그 키: `environment` (대소문자 무시)
+- Canonical 태그 키: Terraform base tag set이 기록하는 `fdai:env`.
+- Compatibility 키: namespaced tag 이전 resource를 위해 `environment`와 `Environment`도
+  수락합니다. 둘 다 있으면 `fdai:env`가 우선합니다.
 - 값: `prod` / `production` → `prod`; `non-prod` / `dev` / `test` / `staging` / `qa` →
   `non-prod`
 - **누락 또는 인식되지 않은 태그 → `prod`** (fail-safe: 알려지지 않은 환경은 최고 리스크
   카테고리로 취급)
 
-강제: Azure Policy 할당이 `environment` 태그 없이 리소스 그룹 생성을 거부해야 하며, 그래서
+강제: Azure Policy 할당이 `fdai:env` 태그 없이 리소스 그룹 생성을 거부해야 하며, 그래서
 거버넌스된 환경에서는 fail-safe 경로가 절대 적용되지 않습니다. 정책 할당은
 [phase-1-rule-catalog-t0-ko.md](../phases/phase-1-rule-catalog-t0-ko.md)의 Phase 1 산출물입니다.
 

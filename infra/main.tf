@@ -264,6 +264,36 @@ resource "azurerm_virtual_network_peering" "hub_to_spoke" {
   allow_forwarded_traffic      = true
 }
 
+# PostgreSQL Flexible Server uses delegated-subnet private access rather than
+# a private endpoint. The zone must end in postgres.database.azure.com and is
+# linked to both the app VNet and, when supplied, the ops/hub runner VNet.
+resource "azurerm_private_dns_zone" "postgres" {
+  count               = var.enable_private_postgres ? 1 : 0
+  name                = "private.postgres.database.azure.com"
+  resource_group_name = module.resource_group.name
+  tags                = local.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "postgres_app" {
+  count                 = var.enable_private_postgres ? 1 : 0
+  name                  = "link-postgres-app"
+  resource_group_name   = module.resource_group.name
+  private_dns_zone_name = azurerm_private_dns_zone.postgres[0].name
+  virtual_network_id    = module.network[0].vnet_id
+  registration_enabled  = false
+  tags                  = local.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "postgres_ops" {
+  count                 = var.enable_private_postgres && var.runner_vnet_id != "" ? 1 : 0
+  name                  = "link-postgres-ops"
+  resource_group_name   = module.resource_group.name
+  private_dns_zone_name = azurerm_private_dns_zone.postgres[0].name
+  virtual_network_id    = var.runner_vnet_id
+  registration_enabled  = false
+  tags                  = local.tags
+}
+
 # -----------------------------------------------------------------------
 # Event Bus - Event Hubs (Kafka wire on :9093).
 # -----------------------------------------------------------------------
@@ -302,8 +332,14 @@ module "state_store" {
   tags                   = local.tags
 
   # Hardening knobs (default to dev posture; tighten via tfvars for prod).
-  backup_retention_days        = var.postgres_backup_retention_days
-  geo_redundant_backup_enabled = var.postgres_geo_redundant_backup
+  backup_retention_days         = var.postgres_backup_retention_days
+  geo_redundant_backup_enabled  = var.postgres_geo_redundant_backup
+  public_network_access_enabled = !var.enable_private_postgres
+  allow_azure_services_firewall = !var.enable_private_postgres
+  delegated_subnet_id           = var.enable_private_postgres ? module.network[0].postgres_subnet_id : null
+  private_dns_zone_id           = var.enable_private_postgres ? azurerm_private_dns_zone.postgres[0].id : null
+
+  depends_on = [azurerm_private_dns_zone_virtual_network_link.postgres_app]
 }
 
 # -----------------------------------------------------------------------

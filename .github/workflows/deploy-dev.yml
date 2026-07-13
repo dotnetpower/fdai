@@ -14,6 +14,8 @@ name: deploy-dev
 #       OPS_RESOURCE_GROUP_NAME, OPS_VNET_ID, OPS_VNET_NAME, STATE_STORAGE_ACCOUNT
 #   - Repo secrets:
 #       POSTGRES_ADMIN_LOGIN, POSTGRES_ADMIN_PASSWORD
+#   - Production workflow inputs:
+#       digest-pinned image, alert email, monthly budget, budget-alert email JSON.
 #
 # Default run is plan-only (shadow). Set the `apply` input to true to enforce.
 
@@ -29,6 +31,22 @@ on:
         description: "Apply the plan (true) or plan-only (false, default)."
         type: boolean
         default: false
+      production_core_image:
+        description: "Prod-only signed image reference pinned by sha256 digest."
+        type: string
+        required: false
+      production_alert_email:
+        description: "Prod-only Azure Monitor alert destination."
+        type: string
+        required: false
+      production_monthly_budget:
+        description: "Prod-only positive monthly budget amount."
+        type: string
+        required: false
+      production_budget_alert_emails_json:
+        description: "Prod-only JSON string list of budget alert emails."
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -54,6 +72,7 @@ jobs:
       TF_VAR_region_short: ${{ vars.AZURE_REGION_SHORT }}
       TF_VAR_tenant_id: ${{ vars.AZURE_TENANT_ID }}
       TF_VAR_enable_private_networking: "true"
+      TF_VAR_enable_private_postgres: ${{ inputs.environment == 'prod' }}
       TF_VAR_runner_vnet_id: ${{ vars.OPS_VNET_ID }}
       TF_VAR_runner_vnet_name: ${{ vars.OPS_VNET_NAME }}
       TF_VAR_ops_resource_group_name: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
@@ -62,6 +81,51 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install readiness gate dependency
+        if: inputs.environment == 'prod'
+        run: python3 -m pip install --quiet pyyaml
+        working-directory: ${{ github.workspace }}
+
+      - name: Verify production architecture-review evidence
+        if: inputs.environment == 'prod'
+        run: python3 scripts/check-arb-readiness.py --require-production-ready
+        working-directory: ${{ github.workspace }}
+
+      - name: Bind production Terraform inputs
+        if: inputs.environment == 'prod'
+        env:
+          PROD_CORE_IMAGE: ${{ inputs.production_core_image }}
+          PROD_ALERT_EMAIL: ${{ inputs.production_alert_email }}
+          PROD_MONTHLY_BUDGET_AMOUNT: ${{ inputs.production_monthly_budget }}
+          PROD_BUDGET_ALERT_EMAILS_JSON: ${{ inputs.production_budget_alert_emails_json }}
+        run: |
+          if [[ ! "$PROD_CORE_IMAGE" =~ @sha256:[0-9a-f]{64}$ ]]; then
+            echo "PROD_CORE_IMAGE must be digest-pinned." >&2
+            exit 1
+          fi
+          if [[ -z "$PROD_ALERT_EMAIL" ]]; then
+            echo "production_alert_email is required." >&2
+            exit 1
+          fi
+          if [[ ! "$PROD_MONTHLY_BUDGET_AMOUNT" =~ ^[1-9][0-9]*([.][0-9]+)?$ ]]; then
+            echo "PROD_MONTHLY_BUDGET_AMOUNT must be positive." >&2
+            exit 1
+          fi
+          python3 -c 'import json, os; value=json.loads(os.environ["PROD_BUDGET_ALERT_EMAILS_JSON"]); assert isinstance(value, list) and value and all(isinstance(item, str) and item for item in value)'
+          {
+            echo "TF_VAR_core_image=$PROD_CORE_IMAGE"
+            echo "TF_VAR_enable_resource_locks=true"
+            echo "TF_VAR_kv_purge_protection_enabled=true"
+            echo "TF_VAR_kv_soft_delete_retention_days=90"
+            echo "TF_VAR_postgres_backup_retention_days=35"
+            echo "TF_VAR_postgres_geo_redundant_backup=true"
+            echo "TF_VAR_acr_sku=Premium"
+            echo "TF_VAR_enable_monitoring=true"
+            echo "TF_VAR_alert_email=$PROD_ALERT_EMAIL"
+            echo "TF_VAR_monthly_budget_amount=$PROD_MONTHLY_BUDGET_AMOUNT"
+            echo "TF_VAR_budget_alert_emails=$PROD_BUDGET_ALERT_EMAILS_JSON"
+          } >> "$GITHUB_ENV"
 
       - name: Azure login (runner managed identity)
         run: az login --identity --allow-no-subscriptions

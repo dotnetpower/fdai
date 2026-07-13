@@ -377,6 +377,7 @@ def default_container_from_env() -> Container:
 # noqa E402 justified: wire_azure imports back from this package so the
 # re-export MUST land after every public symbol is defined; moving it to
 # the top of the file creates a circular import.
+from .readiness import OperationalReadinessService  # noqa: E402
 from .wire_azure import AzureWireOverrides, wire_azure_container  # noqa: E402
 from .wire_llm import bind_azure_llm_bindings  # noqa: E402
 
@@ -385,6 +386,7 @@ __all__ = [
     "Container",
     "LlmBindings",
     "LlmBindingsUnavailableError",
+    "OperationalReadinessService",
     "bind_azure_llm_bindings",
     "default_container",
     "default_container_from_env",

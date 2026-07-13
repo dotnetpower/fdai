@@ -120,9 +120,23 @@ The workload token is the fixed literal `fdai`; the default resource group is
 `rg-fdai`. Modules MUST NOT compute names from a random string or a subscription
 hash - a rename is a Terraform diff, not a mystery.
 
-## What is NOT here yet
+## Implemented layout
 
-The `modules/` and `envs/` directories are **planned**, not created. Scaffolding lands with
-Phase 0 W4.1 (Terraform bootstrap modules). Adding files under `infra/` before W4.1 requires
-docs to move in the same PR - that is the docs-first / docs-after rule
+The `modules/` directory contains the Azure day-zero resource seams, and `envs/` contains
+parameter examples for development, staging, and production. The ops/hub bootstrap for
+private-everything tenants lives under `bootstrap/`. Keep this README and the deployment
+roadmap synchronized whenever a module, environment parameter, or bootstrap stage changes
 ([coding-conventions.instructions.md § Documentation Workflow](../.github/instructions/coding-conventions.instructions.md#documentation-workflow)).
+
+## Security scan baseline
+
+`infra-lint.yml` runs Trivy and Checkov as blocking checks. `infra/.checkov.baseline` records
+the reviewed day-zero findings that depend on a production-only setting, an external Azure
+control, or an intentionally retained development path. The baseline is technical debt, not
+proof that a finding is fixed: each production-relevant item remains covered by the ARB
+blockers and `production-gates.tf`. A new finding fails CI. Removing or hardening a resource
+also removes its baseline entry; do not regenerate the whole file to absorb a new failure.
+
+The only Trivy inline exception is the Key Vault module's public development path. The
+production Terraform gate requires private networking, disables public access, and sets the
+vault network default to deny, so the exception cannot authorize a production plan.

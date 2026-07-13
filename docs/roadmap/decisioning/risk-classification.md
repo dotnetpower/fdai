@@ -134,14 +134,16 @@ the whole control plane. Both [execution-model.md](execution-model.md)
 
 `environment: prod` vs `non-prod` is derived from the target **resource-group tag**:
 
-- Tag key: `environment` (case-insensitive)
+- Canonical tag key: `fdai:env` (written by the Terraform base tag set).
+- Compatibility keys: `environment` and `Environment` are accepted for resources that predate
+  the namespaced tag. When both exist, `fdai:env` wins.
 - Values: `prod` / `production` → `prod`; `non-prod` / `dev` / `test` / `staging` /
   `qa` → `non-prod`
 - **Missing or unrecognized tag → `prod`** (fail-safe: unknown environment is treated as
   the highest-risk category)
 
 Enforcement: an Azure Policy assignment SHOULD deny resource-group creation without the
-`environment` tag, so the fail-safe path never applies in a governed environment. The
+`fdai:env` tag, so the fail-safe path never applies in a governed environment. The
 policy assignment is a Phase 1 deliverable in
 [phase-1-rule-catalog-t0.md](../phases/phase-1-rule-catalog-t0.md).
 

@@ -255,6 +255,18 @@ single `Inventory` Protocol with two operations returning CSP-neutral records:
   forwarder is not yet provisioned. With no fetch bound, `delta` returns an empty `final=True`
   fence.
 
+The read-only console consumes a separate projection of the promoted graph through
+`GET /inventory/graph`. The route is enabled only when
+`ReadApiConfig.inventory_graph_provider` is injected. It returns CSP-neutral `Resource`
+records plus `contains` / `attached_to` / `depends_on` links, snapshot freshness, and
+truncation metadata. The route never calls Azure Resource Graph directly and never receives
+the executor identity.
+
+The projection publishes named architecture views. The default view is FDAI's own control
+plane; additional `application` views partition the services FDAI can judge and observe.
+Supplying `scope=<view-id>` returns that view's bounded resource and link set while preserving
+the same CSP-neutral wire contract.
+
 | CSP / substrate | Inventory source | Delta source | Wire |
 |---|---|---|---|
 | Azure | **Azure Resource Graph** (Kusto over ARM) | Activity Log via the [event-bus](#1-event-bus-contract--kafka-wire-protocol) contract (a Diagnostic-Settings-forwarded Kafka topic) | HTTPS + `Authorization: Bearer <OIDC>` |

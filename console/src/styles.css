@@ -1,3 +1,98 @@
+/* Architecture inventory map ------------------------------------------------ */
+.architecture-route { min-height: 0; }
+.architecture-workspace {
+  display: grid;
+  grid-template-rows: auto minmax(560px, calc(100vh - 220px));
+  min-height: 0;
+  border: 1px solid var(--border, #d8e0e6);
+  background: #f7f9fa;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.architecture-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  background: #fff;
+  border-bottom: 1px solid var(--border, #d8e0e6);
+}
+.architecture-view-picker { display: grid; grid-template-columns: auto minmax(210px, 320px); align-items: center; gap: 3px 9px; }
+.architecture-view-picker > span { color: #71808e; font-size: 10px; font-weight: 750; text-transform: uppercase; }
+.architecture-view-picker select { min-height: 32px; border: 1px solid #cfd8df; border-radius: 5px; background: #fff; padding: 0 9px; font-size: 12px; font-weight: 650; }
+.architecture-view-picker small { grid-column: 2; color: #71808e; font-size: 9px; line-height: 1.35; }
+.inventory-freshness { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; }
+.inventory-freshness span { width: 7px; height: 7px; border-radius: 50%; background: #8b98a4; }
+.inventory-freshness.is-fresh span { background: #3f976a; box-shadow: 0 0 0 3px rgba(63,151,106,.12); }
+.inventory-freshness.is-stale span { background: #c88439; }
+.inventory-freshness small { color: var(--muted, #6b7785); font-weight: 400; }
+.architecture-layer-filters { display: grid; gap: 4px; }
+.architecture-layer-filters button {
+  display: inline-flex; align-items: center; gap: 7px; padding: 6px 8px;
+  border: 1px solid #d8e0e6; border-radius: 5px; background: #fff;
+  color: #73808d; font-size: 11px; opacity: .48;
+}
+.architecture-layer-filters button.is-active { color: #263543; opacity: 1; background: #f7fafb; }
+.architecture-swatch { width: 8px; height: 8px; border-radius: 2px; background: #697586; }
+.architecture-swatch.is-network { background: #27989b; }
+.architecture-swatch.is-security { background: #d99a3e; }
+.architecture-swatch.is-compute { background: #397fba; }
+.architecture-swatch.is-data { background: #8a62b7; }
+.architecture-stage { display: grid; grid-template-columns: minmax(0, 1fr) 252px; min-height: 0; }
+.architecture-canvas-shell { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.architecture-map { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+.architecture-map:active { cursor: grabbing; }
+.architecture-inspector {
+  padding: 16px; background: rgba(255,255,255,.96); border-left: 1px solid #d8e0e6;
+  overflow: auto;
+}
+.map-controls-section { padding-bottom: 15px; border-bottom: 1px solid #d8e0e6; }
+.map-controls-section h3 { margin: 12px 0 6px; color: #526271; font-size: 10px; text-transform: uppercase; }
+.architecture-camera-control { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; border: 1px solid #d8e0e6; background: #f3f6f8; border-radius: 6px; }
+.architecture-camera-control button { border: 0; border-radius: 4px; background: transparent; padding: 6px 3px; color: #71808e; font-size: 10px; }
+.architecture-camera-control button.is-active { background: #fff; color: #263543; font-weight: 700; box-shadow: 0 1px 4px rgba(29,42,56,.1); }
+.architecture-display-options { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.architecture-display-options label { display: flex; align-items: center; gap: 5px; color: #526271; font-size: 10px; }
+.architecture-display-options input { margin: 0; accent-color: #146c77; }
+.architecture-selection-section { padding-top: 15px; }
+.architecture-selection-section > .eyebrow { display: block; }
+.architecture-zoom-controls {
+  position: absolute; right: 12px; bottom: 12px; display: grid; gap: 4px; z-index: 4;
+}
+.architecture-zoom-controls button,
+.architecture-zoom-controls output {
+  width: 34px; min-height: 30px; display: grid; place-items: center;
+  border: 1px solid #d3dce3; border-radius: 5px; background: rgba(255,255,255,.94);
+  color: #354252; font-size: 11px; box-shadow: 0 3px 10px rgba(29,42,56,.08);
+}
+.architecture-zoom-controls output { min-height: 20px; color: #71808e; font-size: 8px; }
+.architecture-inspector .eyebrow { color: #71808e; font-size: 10px; text-transform: uppercase; font-weight: 750; }
+.architecture-inspector h3 { margin: 4px 0 15px; font-size: 17px; }
+.architecture-inspector dl { display: grid; grid-template-columns: 70px 1fr; gap: 8px; margin: 0 0 18px; font-size: 11px; }
+.architecture-inspector dt { color: #71808e; }
+.architecture-inspector dd { margin: 0; overflow-wrap: anywhere; }
+.architecture-inspector .status-healthy { color: #277a52; font-weight: 650; }
+.architecture-inspector .status-warning { color: #a56724; font-weight: 650; }
+.architecture-empty-inspector { margin-top: 34px; text-align: center; color: #71808e; }
+.architecture-empty-inspector strong { color: #263543; font-size: 12px; }
+.architecture-empty-inspector p { font-size: 11px; line-height: 1.5; }
+.segmented-control { display: inline-flex; padding: 2px; border: 1px solid #d8e0e6; border-radius: 6px; background: #f3f6f8; }
+.segmented-control button { border: 0; border-radius: 4px; background: transparent; padding: 5px 10px; color: #71808e; font-size: 11px; }
+.segmented-control button.active { background: #fff; color: #263543; font-weight: 650; box-shadow: 0 1px 4px rgba(29,42,56,.1); }
+.blast-map-wrap { position: relative; height: min(620px, 66vh); min-height: 430px; border: 1px solid #d8e0e6; border-radius: 7px; overflow: hidden; background: #eef2f4; }
+.blast-map-open { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,.94); box-shadow: 0 3px 12px rgba(29,42,56,.1); }
+.finding-architecture-link { margin-left: auto; font-size: 10px; color: #146c77; text-decoration: none; }
+.finding-architecture-link:hover { text-decoration: underline; }
+
+@media (max-width: 900px) {
+  .architecture-workspace { grid-template-rows: auto minmax(500px, calc(100vh - 200px)); }
+  .architecture-toolbar { align-items: flex-start; flex-direction: column; }
+  .architecture-view-picker { width: 100%; grid-template-columns: 100px minmax(0, 1fr); }
+  .architecture-stage { grid-template-columns: 1fr; grid-template-rows: minmax(400px, 1fr) auto; }
+  .architecture-inspector { border-left: 0; border-top: 1px solid #d8e0e6; max-height: 210px; }
+  .architecture-layer-filters { grid-template-columns: 1fr 1fr; }
+}
 /* Console SPA styling - deliberately minimal, no design-system dep.
  * The console is a low-frequency, read-only surface for operators; a
  * production fork MAY overlay its own design tokens by targeting the

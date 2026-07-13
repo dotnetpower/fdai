@@ -26,6 +26,7 @@ import type { ComponentType } from "preact";
 import type { ReadApiClient } from "./api";
 import { t } from "./i18n";
 import { AgentActivityRoute } from "./routes/agent-activity";
+import { ArchitectureRoute } from "./routes/architecture";
 import { AgentsRoute } from "./routes/agents";
 import { AuditRoute } from "./routes/audit";
 import { BlastRadiusRoute } from "./routes/blast-radius";
@@ -149,6 +150,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     component: RuleTraceRoute,
   },
   // ── Knowledge ───────────────────────────────────────────────────────
+  {
+    id: "architecture",
+    label: t("nav.panel.architecture"),
+    subtitle: t("nav.panelSub.architecture"),
+    group: "knowledge",
+    component: ArchitectureRoute,
+  },
   {
     id: "ontology",
     label: t("nav.panel.ontology"),

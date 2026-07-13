@@ -1,8 +1,8 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: 994bd6976e9b7ff5ff116c2831083de59323ab86
-translation_revised: 2026-07-11
+translation_source_sha: 301ecc452ba8cc446c21d6e3db473772f05b3465
+translation_revised: 2026-07-13
 ---
 
 # 시작과 라이프사이클(Startup and Lifecycle)
@@ -98,8 +98,8 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 
 ## 모델 프로비저닝 부트스트랩
 
-T2가 실행되기 전에 capability→deployment 매핑이 해결되어야 함. 이는 `azd up` 시점에 자동이며
-수동 스텝이 아님:
+T2가 실행되기 전에 capability→deployment 매핑을 해결해야 합니다. 배포 pipeline은
+`terraform apply` 전에 resolver를 실행하며, 이는 수동 runtime 단계가 아닙니다.
 
 1. **Resolver가 `rule-catalog/llm-registry.yaml` 에서 실행** - capability별 선호를 읽고,
    대상 리전의 Azure OpenAI / Foundry 카탈로그를 쿼리, `capacity_tpm` 상한과 함께 capability당
@@ -109,8 +109,10 @@ T2가 실행되기 전에 capability→deployment 매핑이 해결되어야 함.
    `llm.mixed_model_mode` (`azure-foundry` / `external` / `hil-only`) 가 전략 선택.
 3. **`resolved-models.json` 이 Key Vault에 기록** - capability → `{deployment, family,
    version, publisher}`. 이후 모든 감사 엔트리는 케이스를 결정한 정확한 모델을 이름 지음.
-4. **주간 reconciler 활성화** - Container Apps Job이 새 패밀리와 폐기 공지를 감시; 레지스트리에
-   대해 **draft PR** 을 오픈하지만 라이브 매핑을 절대 auto-swap 하지 않음.
+4. **주간 reconciler는 후속 increment로 연기** -
+   [dev-and-deploy-parity-ko.md](../deployment/dev-and-deploy-parity-ko.md)의 W-I가 완료되기
+   전에는 명시적인 registry PR로 모델 변경을 검토합니다. Reconciler는 새 family와 폐기
+   공지를 감시하고 draft PR을 열지만 live mapping을 자동 교체하지 않습니다.
 
 전체 설계: [llm-strategy-ko.md § Model Provisioning and Lifecycle](../architecture/llm-strategy-ko.md#model-provisioning-and-lifecycle).
 

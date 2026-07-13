@@ -1,0 +1,15 @@
+{
+  "ended_at": "2026-07-13T02:14:28.638923+00:00",
+  "error": null,
+  "expected_signal": "backend_health",
+  "inject_seconds": 0.15,
+  "observed": true,
+  "poll_count": 1,
+  "poll_interval_seconds": 1.0,
+  "probe_class": "kube_endpoints",
+  "reverted": true,
+  "scenario_id": "appgw-backend-failure",
+  "started_at": "2026-07-13T02:14:28.251921+00:00",
+  "time_to_first_observed_seconds": 0.1,
+  "total_elapsed_seconds": 0.39
+}

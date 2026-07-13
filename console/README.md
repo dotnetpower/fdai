@@ -97,8 +97,37 @@ stored is shown.
 Beyond the three always-on routes above, the app factory registers several
 **opt-in** GET routes when their inputs are wired at the composition root
 (ontology graph, pantheon, blast-radius, promotion gates, rule-fire trace, and
-the rule catalog below). Each is reader-role gated and collision-checked; none
+the inventory graph, and the rule catalog below). Each is reader-role gated and collision-checked; none
 ships enabled upstream unless its `ReadApiConfig` input is set.
+
+### Architecture panel (Knowledge)
+
+The **Knowledge > Architecture** panel renders the deployed inventory instance graph from
+`GET /inventory/graph`. It shows subscription and resource-group containment, VNet and
+subnet boundaries, resource status, and `attached_to` / `depends_on` links in one read-only
+canvas. Pan, zoom, filtering, selection, and deep links are local view operations only.
+The console cannot add, move, resize, or delete resources.
+
+The default selector shows FDAI's own control-plane architecture. Named application views
+then separate each service FDAI can judge. Every view uses the same boundary-normalization
+pass before rendering, so a resource cannot appear outside its declared parent scope. The
+right-side Map controls provide Iso / Top / Front camera presets, layer and display toggles,
+and the canvas includes Zoom in / out / Fit controls.
+
+The canvas renders floor reflections first, then opaque resource bodies, connection paths,
+and finally resource abbreviations and labels. This keeps dependency lines visible above the
+blocks without obscuring their text, while each lifted resource retains a color-matched mirrored
+reflection on the floor plane.
+
+PostgreSQL resources use an isometric cylinder so databases remain recognizable at a glance;
+other shipped resource types currently use the common rectangular block. The resource lift is
+kept deliberately small so each mirrored floor reflection stays visually attached to its node.
+Resource bodies use line-free surfaces with face shading for depth; an outline appears only on
+the selected resource as an interaction cue.
+
+The same canvas is reused by **Safety > Blast radius** in a context mode that highlights
+the target and reached resources while dimming the rest. Live activity scopes and rule
+findings deep-link into the full Architecture panel when they carry a resource reference.
 
 ### Rule catalog panel (Knowledge)
 

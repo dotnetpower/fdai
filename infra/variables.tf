@@ -248,6 +248,12 @@ variable "enable_private_networking" {
   default     = false
 }
 
+variable "enable_private_postgres" {
+  description = "When true, place PostgreSQL Flexible Server on the delegated VNet subnet, use private DNS, disable public access, and remove the AllowAllAzureServices firewall rule. Requires enable_private_networking. Existing environments opt in explicitly because changing this setting replaces the server."
+  type        = bool
+  default     = false
+}
+
 # ---------------------------------------------------------------------------
 # Ops/hub VNet peering (private-networking deploys via the bootstrap runner).
 # Supplied from `infra/bootstrap` outputs (ops_vnet_id / ops_vnet_name /

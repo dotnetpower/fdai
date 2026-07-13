@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 448a6f9c23ed39921be3fcb70a98d4f29017d8b5
+translation_source_sha: ebdfd4d9f26e8410bd2ac8e2caaae7d02aff1c07
 translation_revised: 2026-07-13
 ---
 
@@ -78,7 +78,7 @@ fdai/
 │   │   ├── azure/              # Azure 전용 SDK 어댑터 (`azure-*` import 이 허용된 유일한 트리)
 │   │   ├── chaos/              # `Chaos` runbook 단계가 enforce로 갈 때 쓰는 라이브 카오스 주입 어댑터: `live_injectors.py` (CSP-중립 프리미티브 fan-out) + `chaos_mesh.py` (Chaos Mesh CRD) + `mysql_load.py` (MySQL 벤치마크 부하)
 │   │   ├── remediation/        # 직접 API 리메디에이션용 구체 `DirectApiExecutor` (`live_direct_api.py`); Protocol 은 `shared/providers/`에 있음
-│   │   ├── read_api/           # 얇은 ASGI - `main.py` 는 routes/ + streaming/ 서브패키지를 조립 (G-5, 트래커 #14). `routes/` 는 HTTP surface 당 한 모듈: **GET** (audit, kpi, hil-callback, rule-catalog, ontology-graph, panels, promotion-gates, reporting, workflow-authoring, console-action, what-if, blast-radius, bitemporal, llm-cost, measurement-summary, pantheon, demo-findings, rule-fire-trace) + **POST** 카브아웃 2개 (chat, webhook - `webhook` 은 옵션이며 `webhook_ingress` 가 바인될 때만 마운트); `streaming/` 은 세 개의 SSE fan-out (live_stream, live_control_loop, provision_stream); `dev/` 는 `local.py` (구 `_local.py`) 로 dev 전용이며 프로덕션 컨테이너 이미지에서 제외; `auth.py` / `entra_verifier.py` / `read_model.py` 는 공유 인프라로 최상위 유지
+│   │   ├── read_api/           # 얇은 ASGI - `main.py` 는 routes/ + streaming/ 서브패키지를 조립 (G-5, 트래커 #14). `routes/` 는 HTTP surface 당 한 모듈: **GET** (audit, kpi, hil-callback, rule-catalog, ontology-graph, inventory-graph, panels, promotion-gates, reporting, workflow-authoring, console-action, what-if, blast-radius, bitemporal, llm-cost, measurement-summary, pantheon, demo-findings, rule-fire-trace) + **POST** 카브아웃 2개 (chat, webhook - `webhook` 은 옵션이며 `webhook_ingress` 가 바인될 때만 마운트); `streaming/` 은 세 개의 SSE fan-out (live_stream, live_control_loop, provision_stream); `dev/` 는 `local.py` (구 `_local.py`) 로 dev 전용이며 프로덕션 컨테이너 이미지에서 제외; `auth.py` / `entra_verifier.py` / `read_model.py` 는 공유 인프라로 최상위 유지
 │   │   ├── provisioning/       # surface-A Genesis 부트스트랩: 순수 `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O 주입, subprocess 없음)
 │   │   └── scheduler_tick_cli.py  # cron / Container Apps Job에서 스케줄러 tick을 구동하는 독립 엔트리 포인트
 │   ├── rule_catalog/          # rule-catalog 파이프라인 코드

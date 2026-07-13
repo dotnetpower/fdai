@@ -1,0 +1,128 @@
+architecture_review:
+  version: 1
+  review_id: fdai-target-architecture-v1
+  implementation_target: azure
+  decision_request: target-architecture-baseline
+  design_review_status: conditional
+  production_approval_status: blocked
+
+  artifacts:
+    - id: scope-and-context
+      status: ready
+      required_for: design
+      evidence:
+        - docs/roadmap/README.md
+        - .github/instructions/app-shape.instructions.md
+    - id: target-architecture
+      status: ready
+      required_for: design
+      evidence:
+        - .github/instructions/architecture.instructions.md
+        - docs/roadmap/architecture/project-structure.md
+    - id: security-threat-model
+      status: ready
+      required_for: design
+      evidence:
+        - docs/roadmap/architecture/security-and-identity.md
+        - docs/roadmap/interfaces/user-rbac-and-identity.md
+    - id: deployment-and-rollback
+      status: conditional
+      required_for: production
+      evidence:
+        - docs/roadmap/deployment/deployment.md
+        - docs/roadmap/deployment/deploy-and-onboard.md
+    - id: operations-and-support
+      status: conditional
+      required_for: production
+      evidence:
+        - docs/roadmap/operations/operating-and-verification.md
+        - docs/roadmap/operations/operational-readiness.md
+    - id: reliability-and-dr
+      status: blocked
+      required_for: production
+      evidence:
+        - docs/roadmap/deployment/deployment.md
+        - docs/roadmap/phases/phase-3-integrated-loop.md
+    - id: data-privacy-compliance
+      status: blocked
+      required_for: production
+      evidence:
+        - docs/roadmap/architecture/security-and-identity.md
+    - id: cost-and-capacity
+      status: conditional
+      required_for: production
+      evidence:
+        - docs/roadmap/interfaces/cost-model.md
+        - docs/roadmap/architecture/hyperscale-cell-architecture.md
+    - id: verification-evidence
+      status: blocked
+      required_for: production
+      evidence:
+        - docs/baselines/v2026.07.md
+        - docs/internals/sre-scenario-library-scaling.md
+
+  blockers:
+    - id: ARB-001
+      severity: critical
+      status: open
+      owner_slot: deployment-owner
+      resolution: Supply a signed, digest-pinned production image and validated Terraform plan.
+    - id: ARB-002
+      severity: critical
+      status: open
+      owner_slot: security-owner
+      resolution: Prove the production data plane and outbound paths are private or explicitly allow-listed.
+    - id: ARB-003
+      severity: critical
+      status: open
+      owner_slot: operations-owner
+      resolution: Bind the live posture provider, handoff trigger, and report publisher, then attach a signed readiness report.
+    - id: ARB-004
+      severity: critical
+      status: open
+      owner_slot: reliability-owner
+      resolution: Approve numeric RPO/RTO objectives and attach restore and failover drill evidence.
+    - id: ARB-005
+      severity: critical
+      status: open
+      owner_slot: architecture-owner
+      resolution: Bind accountable architecture, security, privacy, data, operations, and cost owners in the fork.
+    - id: ARB-006
+      severity: high
+      status: open
+      owner_slot: privacy-owner
+      resolution: Complete the privacy impact assessment, data inventory, retention schedule, and compliance crosswalk.
+    - id: ARB-007
+      severity: high
+      status: open
+      owner_slot: release-owner
+      resolution: Bind the attested image digest to production and make smoke and canary checks blocking promotion controls.
+    - id: ARB-008
+      severity: high
+      status: open
+      owner_slot: performance-owner
+      resolution: Attach measured latency, throughput, saturation, quota, and failure-domain results.
+
+  production_gate:
+    required_owner_slots:
+      - architecture-owner
+      - security-owner
+      - privacy-owner
+      - data-owner
+      - operations-owner
+      - reliability-owner
+      - release-owner
+      - cost-owner
+    owner_bindings: {}
+    required_evidence:
+      - production-terraform-plan
+      - signed-image-provenance
+      - network-data-flow-validation
+      - privacy-impact-assessment
+      - rpo-rto-approval
+      - restore-failover-drill
+      - operational-readiness-report
+      - smoke-canary-results
+      - capacity-test-results
+      - cost-estimate-confirmation
+    evidence_bindings: {}

@@ -34,9 +34,15 @@ def test_extract_environment_prod_variants() -> None:
 
 
 def test_extract_environment_non_prod_variants() -> None:
+    assert _extract_environment({"tags": {"fdai:env": "dev"}}) == "non-prod"
     assert _extract_environment({"tags": {"environment": "dev"}}) == "non-prod"
     assert _extract_environment({"environment": "staging"}) == "non-prod"
     assert _extract_environment({"tags": {"environment": "non-prod"}}) == "non-prod"
+
+
+def test_extract_environment_prefers_canonical_namespaced_tag() -> None:
+    resource = {"tags": {"fdai:env": "staging", "environment": "prod"}}
+    assert _extract_environment(resource) == "non-prod"
 
 
 def test_extract_environment_missing_or_unknown_fails_safe_to_prod() -> None:

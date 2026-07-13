@@ -161,21 +161,52 @@ a.cs-brand:hover .cs-brand-mark { background: var(--cs-navy); }
 .cs-compare-arrow { display: flex; align-items: center; justify-content: center; color: var(--cs-text-soft); }
 
 /* ----- Table (critique / audit) ----- */
-.cs-table-wrap { border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); overflow: hidden; }
-.cs-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.cs-table-wrap { border: 0; border-radius: 0; overflow: visible; }
+.cs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  border-top: 1px solid var(--cs-hairline);
+}
 .cs-table thead th {
-  background: var(--cs-navy);
-  color: #fff;
+  background: transparent;
+  color: var(--cs-text);
   text-align: left;
   font-weight: 600;
-  padding: 12px 14px;
-  font-size: 13px;
-  letter-spacing: .02em;
+  padding: 14px 14px 12px;
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--cs-navy);
 }
-.cs-table tbody td { padding: 11px 14px; border-top: 1px solid var(--cs-hairline); vertical-align: top; }
-.cs-table tbody tr:nth-child(even) { background: var(--cs-shade); }
-.cs-table tbody tr:hover { background: #EEF3F7; }
+.cs-table tbody td { padding: 13px 14px; border-top: 1px solid var(--cs-hairline); vertical-align: top; }
+.cs-table tbody tr:first-child td { border-top: 0; }
+.cs-table tbody tr:last-child td { border-bottom: 1px solid var(--cs-hairline); }
+.cs-table tbody tr:hover { background: var(--cs-shade); }
 .cs-table td .cs-muted { color: var(--cs-text-soft); }
+
+/* Numeric / mono column - right aligned, tabular figures for scannability */
+.cs-table th.cs-num,
+.cs-table td.cs-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Table caption / footer strip - closes the frame quietly */
+.cs-table caption {
+  caption-side: top;
+  text-align: left;
+  color: var(--cs-text-soft);
+  font-size: 13px;
+  padding: 0 0 8px;
+}
+.cs-table tfoot td {
+  padding: 12px 14px;
+  border-top: 1px solid var(--cs-hairline);
+  color: var(--cs-text-soft);
+  font-size: 13px;
+  background: transparent;
+}
 
 /* ----- Pills / tags ----- */
 .cs-tag {
@@ -575,3 +606,67 @@ a.cs-brand:hover .cs-brand-mark { background: var(--cs-navy); }
   .cs-ticker-list li { animation: none; }
 }
 
+
+/* ==========================================================================
+   Chart -> data modal
+   Opt-in on any element by adding class="js-chartable" plus data-chart-title
+   / data-chart-columns / data-chart-rows attributes. The shared JS wires
+   click + keyboard, and renders a .cs-table inside the panel.
+   ========================================================================== */
+
+.js-chartable { cursor: pointer; }
+.js-chartable:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 3px; border-radius: var(--cs-radius); }
+
+.cs-modal[hidden] { display: none; }
+.cs-modal {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(46, 54, 64, .48);
+  animation: cs-modal-fade .16s ease-out;
+}
+.cs-modal-panel {
+  background: var(--cs-card);
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius);
+  box-shadow: 0 20px 60px rgba(46, 54, 64, .22);
+  width: 100%; max-width: 680px;
+  max-height: calc(100vh - 48px);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  animation: cs-modal-pop .18s ease-out;
+}
+.cs-modal-head {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 22px 24px 14px;
+  border-bottom: 1px solid var(--cs-hairline);
+}
+.cs-modal-title { margin: 0 0 2px; font-size: 18px; font-weight: 600; }
+.cs-modal-sub { margin: 0; color: var(--cs-text-soft); font-size: 13px; }
+.cs-modal-close {
+  margin-left: auto;
+  background: transparent; border: 0; padding: 6px 10px;
+  font: inherit; font-size: 20px; line-height: 1; color: var(--cs-text-soft);
+  border-radius: var(--cs-radius-sm); cursor: pointer;
+}
+.cs-modal-close:hover { background: var(--cs-shade); color: var(--cs-text); }
+.cs-modal-body { padding: 18px 24px 22px; overflow: auto; }
+.cs-modal-body .cs-table { font-size: 13.5px; border-top: 0; }
+.cs-modal-body .cs-table thead th { padding: 12px 12px 10px; font-size: 11px; }
+.cs-modal-body .cs-table tbody td { padding: 11px 12px; }
+.cs-modal-body .cs-table tbody tr:last-child td { border-bottom: 0; }
+.cs-modal-foot {
+  padding: 12px 24px 18px;
+  border-top: 1px solid var(--cs-hairline);
+  color: var(--cs-text-soft);
+  font-size: 12.5px;
+}
+
+@keyframes cs-modal-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes cs-modal-pop  { from { opacity: 0; transform: translateY(6px) scale(.98) } to { opacity: 1; transform: none } }
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-modal, .cs-modal-panel { animation: none; }
+}
+
+body.cs-modal-open { overflow: hidden; }

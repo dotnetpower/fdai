@@ -51,18 +51,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Install scanners via their stable CLIs rather than pinned marketplace
-      # action tags (which drift and break). Both are advisory (continue-on-error
-      # + soft flags) so a finding annotates the PR without blocking.
+      # Install scanners via their stable CLIs rather than floating marketplace
+      # action tags. HIGH / CRITICAL findings block the infrastructure PR.
       #
       # Trivy's installer is pinned to a released tag (NOT `main`) - piping
       # HEAD-of-main to sudo sh is a supply-chain vector even for a
       # short-lived CI runner. Checkov pins the pypi version for the same
       # reason.
       - name: Install scanners
-        continue-on-error: true
         env:
-          TRIVY_VERSION: "0.55.2"
+          TRIVY_VERSION: "0.72.0"
           CHECKOV_VERSION: "3.2.256"
         run: |
           # Pinned release binary (not `main` piped to sudo sh - supply chain).
@@ -71,10 +69,10 @@ jobs:
           pipx install "checkov==${CHECKOV_VERSION}"
 
       - name: Trivy (terraform misconfig)
-        continue-on-error: true
-        run: trivy config --severity HIGH,CRITICAL infra
+        run: trivy config --exit-code 1 --severity HIGH,CRITICAL infra
 
       - name: Checkov
-        continue-on-error: true
-        run: checkov -d infra --quiet --compact --framework terraform
+        run: >-
+          checkov -d infra --quiet --compact --framework terraform
+          --baseline infra/.checkov.baseline
 

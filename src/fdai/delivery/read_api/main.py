@@ -264,6 +264,13 @@ class ReadApiConfig:
     :class:`~fdai.shared.contracts.models.OntologyLinkType`. See
     :attr:`ontology_object_types` for the pairing contract."""
 
+    inventory_graph_provider: Any = None
+    """Opt-in deployed-inventory graph projection. An async callable
+    ``(scope, depth, link_types) -> mapping`` returning CSP-neutral
+    ``resources`` and ``links`` plus freshness metadata. When set, registers
+    Reader-gated ``GET /inventory/graph``. The provider reads the inventory
+    projection only; the console never receives a cloud or executor identity."""
+
     rule_catalog_rules: tuple[Any, ...] = ()
     """Opt-in rule-catalog explorer input: the *active* catalog. Tuple of
     :class:`~fdai.shared.contracts.models.Rule` loaded at
@@ -748,6 +755,28 @@ def build_app(
             make_ontology_graph_route(
                 object_types=resolved_config.ontology_object_types,
                 link_types=resolved_config.ontology_link_types,
+                authorize=_authorize,
+            )
+        )
+
+    # Optional deployed inventory map. The provider is injected so this
+    # delivery route never imports a cloud inventory SDK or queries Azure
+    # Resource Graph directly.
+    if resolved_config.inventory_graph_provider is not None:
+        from fdai.delivery.read_api.routes.inventory_graph import (
+            DEFAULT_ROUTE_PATH as _IG_PATH,
+        )
+        from fdai.delivery.read_api.routes.inventory_graph import (
+            make_inventory_graph_route,
+        )
+
+        if _IG_PATH in _CORE_ROUTE_PATHS:
+            raise ValueError(f"inventory-graph path {_IG_PATH!r} collides with a core route")
+        if _IG_PATH in seen_panel_paths:
+            raise ValueError(f"inventory-graph path {_IG_PATH!r} collides with a panel path")
+        routes.append(
+            make_inventory_graph_route(
+                provider=resolved_config.inventory_graph_provider,
                 authorize=_authorize,
             )
         )
