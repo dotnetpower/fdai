@@ -159,6 +159,13 @@ retired (tombstoned), not left firing on guidance the company has withdrawn. Del
 is a first-class signal, handled like the living-rules retirement path in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
 
+Deletion is not trusted blindly, though: an **empty listing over a non-empty
+prior snapshot** is indistinguishable from a failed mount or an auth lapse, so it
+is treated as a suspected source outage and fails closed - no retirements are
+planned and the prior snapshot is preserved, so a transient outage never
+tombstones the whole distilled catalog (a blast-radius limit on the deletion
+path).
+
 ## The distillation pipeline
 
 Offline, build-time, and staged behind the same gate every rule candidate passes.

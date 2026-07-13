@@ -1,7 +1,7 @@
 ---
 title: 매뉴얼 증류(Manual Distillation)
 translation_of: manual-distillation.md
-translation_source_sha: a43544f8dfcca38707ff4c36467f8c1f54980d6f
+translation_source_sha: 1fa76161d9995c8fa41fe2c795d9b2eac370c4e5
 translation_revised: 2026-07-13
 ---
 
@@ -143,6 +143,11 @@ fragment만 파이프라인에 재진입시키므로, 갱신이 전체 재크롤
 계속 fire하도록 두지 말고 폐기(tombstone)해야 한다. 삭제는 1급 신호이며,
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의
 living-rules 폐기 경로처럼 다뤄진다.
+
+단, 삭제를 무조건 신뢰하진 않는다: **비어 있지 않은 이전 스냅샷 위의 빈 목록**은
+마운트 실패나 인증 만료와 구버되지 않으므로, 수상 소스 장애로 보고 fail-closed한다
+- 은퇴를 하나도 계획하지 않고 이전 스냅샷을 보존하므로, 일시적 장애가 증류된 카탈로그
+전체를 tombstone하지 않는다(삭제 경로의 blast-radius 제한).
 
 ## 증류 파이프라인
 

@@ -74,6 +74,13 @@ class DistillationPlan:
     ``rejected`` is what the classifier judged not a procedure, ``filtered`` is
     the deterministic triage / dedupe drops, ``retirements`` tombstones rules
     from deleted manuals, and ``snapshot`` is persisted for the next run.
+
+    ``suspected_source_outage`` is set when the source returned an empty listing
+    while the prior snapshot was non-empty. That pattern (a failed mount, an auth
+    lapse) is indistinguishable from "every manual was deleted", so the pass
+    fails closed: no retirements are planned, nothing is distilled, and
+    ``snapshot`` echoes the prior snapshot unchanged so the caller does not wipe
+    it. The caller surfaces the outage instead of tombstoning the whole catalog.
     """
 
     distilled: tuple[DistilledManual, ...] = ()
@@ -82,6 +89,7 @@ class DistillationPlan:
     filtered: tuple[TriageDrop, ...] = ()
     retirements: tuple[RetirementRequest, ...] = ()
     snapshot: Mapping[str, str] = field(default_factory=dict)
+    suspected_source_outage: bool = False
 
     @property
     def distilled_candidate_count(self) -> int:
@@ -111,10 +119,19 @@ async def build_distillation_plan(
     distilled. Uncertain classifications and sensitivity holds route to HIL.
     """
     active_policy = policy or TriagePolicy()
+    prior = previous_snapshot or {}
 
     current = await source.list_candidates()
+
+    # Blast-radius guard: an empty listing over a non-empty prior snapshot is
+    # indistinguishable from a source outage (failed mount / auth lapse). Fail
+    # closed - never tombstone the whole distilled catalog on a transient empty
+    # source. Preserve the prior snapshot so the next run recovers.
+    if not current and prior:
+        return DistillationPlan(suspected_source_outage=True, snapshot=dict(prior))
+
     snapshot = snapshot_of(current)
-    delta = diff_snapshot(previous_snapshot or {}, current)
+    delta = diff_snapshot(prior, current)
     retirements = plan_retirements(delta)
 
     triage = triage_filter(delta.upserted, active_policy, now=now)

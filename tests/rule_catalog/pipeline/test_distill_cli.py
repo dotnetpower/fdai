@@ -37,13 +37,38 @@ def test_cli_detects_deletion_from_prior_snapshot(
 ) -> None:
     drop = tmp_path / "drop"
     drop.mkdir()
+    (drop / "kept.md").write_text("still here", encoding="utf-8")
     snapshot = tmp_path / "snap.json"
-    snapshot.write_text(json.dumps({"drop://gone.md": "oldsha"}), encoding="utf-8")
+    # Prior has the kept file plus one that is now gone; the listing is non-empty
+    # so this is a genuine deletion, not a source outage.
+    prior = {"drop://kept.md": "oldsha", "drop://gone.md": "oldsha"}
+    snapshot.write_text(json.dumps(prior), encoding="utf-8")
 
     rc = main(["--drop-dir", str(drop), "--snapshot", str(snapshot), "--json"])
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
     assert out["retirements"] == ["drop://gone.md"]
+    assert out["suspected_source_outage"] is False
+
+
+def test_cli_empty_source_over_prior_is_outage(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    drop = tmp_path / "drop"
+    drop.mkdir()  # empty
+    snapshot = tmp_path / "snap.json"
+    prior = {"drop://a.md": "1", "drop://b.md": "2"}
+    snapshot.write_text(json.dumps(prior), encoding="utf-8")
+
+    rc = main(["--drop-dir", str(drop), "--snapshot", str(snapshot), "--json"])
+    assert rc == 0
+    captured = capsys.readouterr()
+    out = json.loads(captured.out)
+    assert out["suspected_source_outage"] is True
+    assert out["retirements"] == []
+    assert "suspected source outage" in captured.err
+    # Snapshot file must be preserved, not overwritten to empty.
+    assert json.loads(snapshot.read_text(encoding="utf-8")) == prior
 
 
 def test_cli_missing_drop_dir_is_usage_error(

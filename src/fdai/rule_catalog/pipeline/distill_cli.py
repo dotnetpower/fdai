@@ -66,6 +66,7 @@ def _summary(plan: DistillationPlan) -> dict[str, object]:
         "filtered": len(plan.filtered),
         "retirements": [r.source_ref for r in plan.retirements],
         "snapshot_size": len(plan.snapshot),
+        "suspected_source_outage": plan.suspected_source_outage,
     }
 
 
@@ -77,7 +78,7 @@ async def _run(drop_dir: Path, snapshot_path: Path | None) -> DistillationPlan:
         distiller=AbstainingDistiller(),
         previous_snapshot=_load_snapshot(snapshot_path),
     )
-    if snapshot_path is not None:
+    if snapshot_path is not None and not plan.suspected_source_outage:
         snapshot_path.write_text(
             json.dumps(dict(plan.snapshot), indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
@@ -99,6 +100,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     plan = asyncio.run(_run(drop_dir, args.snapshot))
     summary = _summary(plan)
+
+    if plan.suspected_source_outage:
+        print(
+            "warning: source returned an empty listing over a non-empty prior "
+            "snapshot - suspected source outage; no retirements planned, snapshot "
+            "preserved.",
+            file=sys.stderr,
+        )
 
     if args.json:
         print(json.dumps(summary, indent=2, sort_keys=True))

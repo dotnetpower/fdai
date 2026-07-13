@@ -149,6 +149,33 @@ async def test_deletion_plans_retirement() -> None:
     assert [r.source_ref for r in plan.retirements] == ["drop://gone"]
 
 
+async def test_empty_source_over_nonempty_prior_is_outage_not_mass_deletion() -> None:
+    # Blast-radius guard: a failed/empty source must not tombstone the whole
+    # catalog. No retirements, nothing distilled, prior snapshot preserved.
+    previous = {"drop://a": "1", "drop://b": "2", "drop://c": "3"}
+    plan = await build_distillation_plan(
+        source=FakeSource([], docs={}),
+        classifier=LabelClassifier(),
+        distiller=OneRuleDistiller(),
+        previous_snapshot=previous,
+    )
+    assert plan.suspected_source_outage is True
+    assert plan.retirements == ()
+    assert plan.distilled == ()
+    assert dict(plan.snapshot) == previous  # preserved, not wiped
+
+
+async def test_empty_source_with_empty_prior_is_not_outage() -> None:
+    # First run against an empty drop dir is legitimate, not an outage.
+    plan = await build_distillation_plan(
+        source=FakeSource([], docs={}),
+        classifier=LabelClassifier(),
+        distiller=OneRuleDistiller(),
+    )
+    assert plan.suspected_source_outage is False
+    assert plan.snapshot == {}
+
+
 async def test_vanished_document_is_skipped() -> None:
     cands = [_cand("run", labels=("proc",))]
     plan = await build_distillation_plan(
