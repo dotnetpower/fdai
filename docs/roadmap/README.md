@@ -74,6 +74,7 @@ build. Read the reference docs first, then the phases in order.
 |---|----------|----------------|
 | 14 | [cost-model.md](interfaces/cost-model.md) | monthly cost envelope for the minimum resource inventory, T2 LLM cost split, traffic triggers |
 | 15 | [user-rbac-and-identity.md](interfaces/user-rbac-and-identity.md) | human roles (Reader / Contributor / Approver / Owner + Break-Glass), Entra ID artifacts, console-to-PR identity flow |
+| 15b | [agent-stewardship-and-handover.md](interfaces/agent-stewardship-and-handover.md) | human <-> 15-agent handover map: stewards (accountable / informed), maintainers (min 1, rec 2), escalation chain, coverage + bus-factor |
 | 16 | [channels-and-notifications.md](interfaces/channels-and-notifications.md) | non-web-UI channels (Teams / Slack / email / webhook / pager / SMS), category and trust-tier matrix |
 | 17 | [risk-classification.md](decisioning/risk-classification.md) | auto vs HIL vs deny classification: dimensions, initial rule table, environment detection |
 | 17b | [escalation-and-standing-authority.md](decisioning/escalation-and-standing-authority.md) | what happens after a `hil` verdict when nobody answers: the supervised OODA loop, the impact-tiered time-decaying escalation ladder (distinct from channel fallback), and standing authorization (pre-authorized, envelope-bounded, reversible-only conditional auto-action as a deterministic risk-gate input) |
