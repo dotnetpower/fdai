@@ -92,6 +92,12 @@ class ScenarioCoverageAggregator:
         # learner cannot leak one entry per distinct symptom forever.
         self._pending: OrderedDict[tuple[str, str, str], deque[str]] = OrderedDict()
         self._counts: OrderedDict[tuple[str, str, str], int] = OrderedDict()
+        # Distinct-incident dedup, kept separate from the display deque so a
+        # small sample_incidents_cap cannot evict a seen id and let it re-count
+        # toward the threshold. The key (and its set) is dropped once the
+        # threshold crosses, so each set is bounded by gap_threshold and
+        # _MAX_TRACKED bounds the number of keys.
+        self._seen: OrderedDict[tuple[str, str, str], set[str]] = OrderedDict()
         # Already-proposed keys; a symptom key does not re-propose until
         # the index is rebound.
         self._proposed: OrderedDict[tuple[str, str, str], None] = OrderedDict()
@@ -135,10 +141,15 @@ class ScenarioCoverageAggregator:
             samples = deque(maxlen=self._sample_cap)
             self._pending[key] = samples
             self._counts[key] = 0
+            self._seen[key] = set()
             self._enforce_cap()
-        # Only count NEW incident ids toward the threshold; the same
-        # incident observed twice must not double-count.
-        if incident_id not in samples:
+        # Only count NEW incident ids toward the threshold; the same incident
+        # observed twice must not double-count. The `_seen` set is the
+        # authoritative dedup (the deque only holds the most recent sample_cap
+        # ids for display), so a sample_cap smaller than gap_threshold cannot
+        # evict a seen id and let it re-count.
+        if incident_id not in self._seen[key]:
+            self._seen[key].add(incident_id)
             samples.append(incident_id)
             self._counts[key] = self._counts.get(key, 0) + 1
         # Threshold crossed? Materialize the proposal.
@@ -148,6 +159,7 @@ class ScenarioCoverageAggregator:
             # Free the buffers for this key; it will not re-emit until rebind.
             del self._pending[key]
             del self._counts[key]
+            del self._seen[key]
             self._enforce_cap()
 
     def drain_proposals(self) -> list[dict[str, Any]]:
@@ -170,6 +182,8 @@ class ScenarioCoverageAggregator:
             # counts key mirrors pending; discard silently
         while len(self._counts) > _MAX_TRACKED:
             self._counts.popitem(last=False)
+        while len(self._seen) > _MAX_TRACKED:
+            self._seen.popitem(last=False)
         while len(self._proposed) > _MAX_TRACKED:
             self._proposed.popitem(last=False)
 

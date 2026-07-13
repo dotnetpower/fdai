@@ -59,6 +59,22 @@ def test_covered_symptom_yields_no_proposal() -> None:
     assert agg.uncovered_symptom_count() == 0
 
 
+def test_dedup_survives_sample_cap_smaller_than_threshold() -> None:
+    # sample_incidents_cap < gap_threshold: the display buffer evicts old ids,
+    # but distinct-incident dedup must still hold, so re-observing the same two
+    # incidents can never cross a threshold of 3 (regression for the shared
+    # deque that once served both display and dedup).
+    agg = ScenarioCoverageAggregator(
+        index=_empty_index(), gap_threshold=3, sample_incidents_cap=1
+    )
+    for _ in range(10):
+        agg.observe(incident_id="inc-a", signal="s", target_type="pod", severity="high")
+        agg.observe(incident_id="inc-b", signal="s", target_type="pod", severity="high")
+    assert agg.drain_proposals() == []  # only 2 distinct incidents, below 3
+    agg.observe(incident_id="inc-c", signal="s", target_type="pod", severity="high")
+    assert len(agg.drain_proposals()) == 1  # third DISTINCT incident crosses
+
+
 def test_uncovered_symptom_emits_after_threshold() -> None:
     agg = ScenarioCoverageAggregator(index=_empty_index(), gap_threshold=3)
     for i in range(2):
