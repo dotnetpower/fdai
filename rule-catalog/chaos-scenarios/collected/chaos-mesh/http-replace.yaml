@@ -1,0 +1,28 @@
+id: chaos.chaos-mesh.http-replace
+version: 1
+provenance:
+  source: chaos-mesh
+  source_url: https://chaos-mesh.org
+  synthesis_method: collected
+category: traffic
+target_type: pod
+fault_family: corrupt
+intensity: high
+duration_seconds: 360.0
+expected_signal: request_failure
+injector: chaos-mesh:HTTPChaos
+blast_radius_cap: 2
+rollback_note: Delete the HTTPChaos CRD.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Replace inbound HTTP body / status via HTTPChaos (replace) - useful to
+  emulate corrupted 5xx responses.
+params:
+  target: Response
+  replace_code: '503'
+  port: '80'
+tags:
+- chaos-mesh
+- http

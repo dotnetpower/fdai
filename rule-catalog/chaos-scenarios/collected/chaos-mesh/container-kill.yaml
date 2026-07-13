@@ -1,0 +1,27 @@
+id: chaos.chaos-mesh.container-kill
+version: 1
+provenance:
+  source: chaos-mesh
+  source_url: https://chaos-mesh.org
+  synthesis_method: collected
+category: compute
+target_type: pod
+fault_family: stop
+intensity: high
+duration_seconds: 360.0
+expected_signal: pod_restart
+injector: chaos-mesh:PodChaos
+blast_radius_cap: 2
+rollback_note: Delete the PodChaos CRD; kubelet restarts the container back to Ready.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Kill a specific container inside a pod (PodChaos container-kill); the
+  pod itself survives but the container restarts.
+params:
+  action: container-kill
+  mode: one
+tags:
+- chaos-mesh
+- container

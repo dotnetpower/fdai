@@ -1,0 +1,28 @@
+id: chaos.chaos-mesh.dns-error
+version: 1
+provenance:
+  source: chaos-mesh
+  source_url: https://chaos-mesh.org
+  synthesis_method: collected
+category: network
+target_type: dns
+fault_family: deny
+intensity: extreme
+duration_seconds: 720.0
+expected_signal: request_failure
+injector: chaos-mesh:DNSChaos
+blast_radius_cap: 2
+rollback_note: Delete the DNSChaos CRD; DNS resolves normally.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Return DNS resolution errors (DNSChaos error) for outbound lookups; upstream
+  calls fail before they leave the pod.
+params:
+  action: error
+  scope: all
+  patterns: '*.svc.cluster.local'
+tags:
+- chaos-mesh
+- dns

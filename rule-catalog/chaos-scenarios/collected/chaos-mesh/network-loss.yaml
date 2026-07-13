@@ -1,0 +1,27 @@
+id: chaos.chaos-mesh.network-loss
+version: 1
+provenance:
+  source: chaos-mesh
+  source_url: https://chaos-mesh.org
+  synthesis_method: collected
+category: network
+target_type: pod
+fault_family: drop
+intensity: high
+duration_seconds: 360.0
+expected_signal: request_failure
+injector: chaos-mesh:NetworkChaos
+blast_radius_cap: 2
+rollback_note: Delete the NetworkChaos CRD; interface returns to normal.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Drop a fraction of outbound packets (NetworkChaos loss).
+params:
+  action: loss
+  loss_percent: '20'
+  correlation: '50'
+tags:
+- chaos-mesh
+- network

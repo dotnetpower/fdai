@@ -1,0 +1,28 @@
+id: chaos.chaos-mesh.kernel-panic
+version: 1
+provenance:
+  source: chaos-mesh
+  source_url: https://chaos-mesh.org
+  synthesis_method: collected
+category: state
+target_type: pod
+fault_family: corrupt
+intensity: extreme
+duration_seconds: 720.0
+expected_signal: pod_restart
+injector: chaos-mesh:KernelChaos
+blast_radius_cap: 1
+rollback_note: Delete the KernelChaos CRD; kernel behaviour resets.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Force a syscall to fail with a chosen errno (KernelChaos); processes
+  typically restart / crash the container.
+params:
+  action: fail-syscall
+  syscall: write
+  errno: '5'
+tags:
+- chaos-mesh
+- kernel

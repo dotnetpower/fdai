@@ -1,0 +1,28 @@
+id: chaos.chaos-mesh.block-delay
+version: 1
+provenance:
+  source: chaos-mesh
+  source_url: https://chaos-mesh.org
+  synthesis_method: collected
+category: storage
+target_type: disk
+fault_family: delay
+intensity: high
+duration_seconds: 360.0
+expected_signal: host_cpu
+injector: chaos-mesh:BlockChaos
+blast_radius_cap: 1
+rollback_note: Delete the BlockChaos CRD.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Add latency to block-device I/O (BlockChaos delay); the pod observes
+  elevated iowait.
+params:
+  action: delay
+  delay: 300ms
+  volume: data
+tags:
+- chaos-mesh
+- block

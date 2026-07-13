@@ -1,0 +1,27 @@
+id: chaos.chaos-mesh.network-partition
+version: 1
+provenance:
+  source: chaos-mesh
+  source_url: https://chaos-mesh.org
+  synthesis_method: collected
+category: network
+target_type: pod
+fault_family: deny
+intensity: extreme
+duration_seconds: 720.0
+expected_signal: backend_health
+injector: chaos-mesh:NetworkChaos
+blast_radius_cap: 2
+rollback_note: Delete the NetworkChaos CRD; connectivity restores.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Fully partition a pod from an upstream target (NetworkChaos partition);
+  endpoints for the target collapse.
+params:
+  action: partition
+  direction: both
+tags:
+- chaos-mesh
+- network

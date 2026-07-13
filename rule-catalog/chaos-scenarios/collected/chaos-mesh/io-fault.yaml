@@ -1,0 +1,28 @@
+id: chaos.chaos-mesh.io-fault
+version: 1
+provenance:
+  source: chaos-mesh
+  source_url: https://chaos-mesh.org
+  synthesis_method: collected
+category: storage
+target_type: disk
+fault_family: corrupt
+intensity: high
+duration_seconds: 360.0
+expected_signal: request_failure
+injector: chaos-mesh:IOChaos
+blast_radius_cap: 1
+rollback_note: Delete the IOChaos CRD.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Return errno on I/O syscalls (IOChaos fault); the process observes EIO
+  / ENOSPC and downstream requests fail.
+params:
+  action: fault
+  errno: '5'
+  percent: '50'
+tags:
+- chaos-mesh
+- io

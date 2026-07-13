@@ -79,7 +79,47 @@
       "target_type": "lb"
     }
   ],
+  "backend_health|pod|": [
+    {
+      "category": "network",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-partition",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-partition.yaml",
+      "target_type": "pod"
+    }
+  ],
+  "backend_health|pod|high": [
+    {
+      "category": "network",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-partition",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-partition.yaml",
+      "target_type": "pod"
+    }
+  ],
   "backend_health||": [
+    {
+      "category": "network",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-partition",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-partition.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "traffic",
       "expected_signal": "backend_health",
@@ -401,6 +441,42 @@
   ],
   "gateway_latency|pod|": [
     {
+      "category": "traffic",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.http-delay",
+      "injector": "chaos-mesh:HTTPChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/http-delay.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-bandwidth",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-bandwidth.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-duplicate",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-duplicate.yaml",
+      "target_type": "pod"
+    },
+    {
       "category": "network",
       "expected_signal": "gateway_latency",
       "gpu_domain": null,
@@ -504,6 +580,18 @@
       "category": "network",
       "expected_signal": "gateway_latency",
       "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-duplicate",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-duplicate.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
       "id": "chaos.general.pod-delay-gateway-latency-mild",
       "injector": "chaos-mesh:NetworkChaos",
       "intensity": "mild",
@@ -526,6 +614,30 @@
     }
   ],
   "gateway_latency|pod|medium": [
+    {
+      "category": "traffic",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.http-delay",
+      "injector": "chaos-mesh:HTTPChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/http-delay.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-bandwidth",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-bandwidth.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "network",
       "expected_signal": "gateway_latency",
@@ -552,6 +664,42 @@
     }
   ],
   "gateway_latency||": [
+    {
+      "category": "traffic",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.http-delay",
+      "injector": "chaos-mesh:HTTPChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/http-delay.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-bandwidth",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-bandwidth.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-duplicate",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-duplicate.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "network",
       "expected_signal": "gateway_latency",
@@ -1194,6 +1342,18 @@
       "category": "storage",
       "expected_signal": "host_cpu",
       "gpu_domain": null,
+      "id": "chaos.chaos-mesh.block-delay",
+      "injector": "chaos-mesh:BlockChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/block-delay.yaml",
+      "target_type": "disk"
+    },
+    {
+      "category": "storage",
+      "expected_signal": "host_cpu",
+      "gpu_domain": null,
       "id": "chaos.general.disk-delay-host-cpu-extreme",
       "injector": "chaos-mesh:IOChaos",
       "intensity": "extreme",
@@ -1256,6 +1416,18 @@
     }
   ],
   "host_cpu|disk|medium": [
+    {
+      "category": "storage",
+      "expected_signal": "host_cpu",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.block-delay",
+      "injector": "chaos-mesh:BlockChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/block-delay.yaml",
+      "target_type": "disk"
+    },
     {
       "category": "storage",
       "expected_signal": "host_cpu",
@@ -1426,6 +1598,18 @@
       "category": "storage",
       "expected_signal": "host_cpu",
       "gpu_domain": null,
+      "id": "chaos.chaos-mesh.block-delay",
+      "injector": "chaos-mesh:BlockChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/block-delay.yaml",
+      "target_type": "disk"
+    },
+    {
+      "category": "storage",
+      "expected_signal": "host_cpu",
+      "gpu_domain": null,
       "id": "chaos.general.disk-delay-host-cpu-extreme",
       "injector": "chaos-mesh:IOChaos",
       "intensity": "extreme",
@@ -1531,6 +1715,34 @@
       "target_type": "vm"
     }
   ],
+  "host_memory|pod|": [
+    {
+      "category": "resource_saturation",
+      "expected_signal": "host_memory",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.stress-memory",
+      "injector": "chaos-mesh:StressChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/stress-memory.yaml",
+      "target_type": "pod"
+    }
+  ],
+  "host_memory|pod|medium": [
+    {
+      "category": "resource_saturation",
+      "expected_signal": "host_memory",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.stress-memory",
+      "injector": "chaos-mesh:StressChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/stress-memory.yaml",
+      "target_type": "pod"
+    }
+  ],
   "host_memory|vm|": [
     {
       "category": "resource_saturation",
@@ -1612,6 +1824,18 @@
     }
   ],
   "host_memory||": [
+    {
+      "category": "resource_saturation",
+      "expected_signal": "host_memory",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.stress-memory",
+      "injector": "chaos-mesh:StressChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/stress-memory.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "resource_saturation",
       "expected_signal": "host_memory",
@@ -2006,6 +2230,42 @@
       "category": "compute",
       "expected_signal": "pod_restart",
       "gpu_domain": null,
+      "id": "chaos.chaos-mesh.container-kill",
+      "injector": "chaos-mesh:PodChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/container-kill.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "state",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.kernel-panic",
+      "injector": "chaos-mesh:KernelChaos",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/kernel-panic.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.pod-failure",
+      "injector": "chaos-mesh:PodChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/pod-failure.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
       "id": "chaos.general.pod-stop-pod-restart-extreme",
       "injector": "chaos-mesh:PodChaos",
       "intensity": "extreme",
@@ -2041,6 +2301,18 @@
   ],
   "pod_restart|pod|high": [
     {
+      "category": "state",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.kernel-panic",
+      "injector": "chaos-mesh:KernelChaos",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/kernel-panic.yaml",
+      "target_type": "pod"
+    },
+    {
       "category": "compute",
       "expected_signal": "pod_restart",
       "gpu_domain": null,
@@ -2072,6 +2344,30 @@
       "category": "compute",
       "expected_signal": "pod_restart",
       "gpu_domain": null,
+      "id": "chaos.chaos-mesh.container-kill",
+      "injector": "chaos-mesh:PodChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/container-kill.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.pod-failure",
+      "injector": "chaos-mesh:PodChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/pod-failure.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
       "id": "chaos.general.pod-stop-pod-restart-high",
       "injector": "chaos-mesh:PodChaos",
       "intensity": "high",
@@ -2082,6 +2378,42 @@
     }
   ],
   "pod_restart||": [
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.container-kill",
+      "injector": "chaos-mesh:PodChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/container-kill.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "state",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.kernel-panic",
+      "injector": "chaos-mesh:KernelChaos",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/kernel-panic.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.pod-failure",
+      "injector": "chaos-mesh:PodChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/pod-failure.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "compute",
       "expected_signal": "pod_restart",
@@ -2237,7 +2569,99 @@
       "target_type": "llm_endpoint"
     }
   ],
+  "request_failure|disk|": [
+    {
+      "category": "storage",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.io-fault",
+      "injector": "chaos-mesh:IOChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/io-fault.yaml",
+      "target_type": "disk"
+    }
+  ],
+  "request_failure|disk|medium": [
+    {
+      "category": "storage",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.io-fault",
+      "injector": "chaos-mesh:IOChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/io-fault.yaml",
+      "target_type": "disk"
+    }
+  ],
+  "request_failure|dns|": [
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.dns-error",
+      "injector": "chaos-mesh:DNSChaos",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/dns-error.yaml",
+      "target_type": "dns"
+    }
+  ],
+  "request_failure|dns|high": [
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.dns-error",
+      "injector": "chaos-mesh:DNSChaos",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/dns-error.yaml",
+      "target_type": "dns"
+    }
+  ],
   "request_failure|pod|": [
+    {
+      "category": "traffic",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.http-replace",
+      "injector": "chaos-mesh:HTTPChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/http-replace.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-corrupt",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-corrupt.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-loss",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-loss.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "traffic",
       "expected_signal": "request_failure",
@@ -2368,6 +2792,42 @@
       "category": "traffic",
       "expected_signal": "request_failure",
       "gpu_domain": null,
+      "id": "chaos.chaos-mesh.http-replace",
+      "injector": "chaos-mesh:HTTPChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/http-replace.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-corrupt",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-corrupt.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-loss",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-loss.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "traffic",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
       "id": "chaos.general.pod-drop-request-failure-high",
       "injector": "chaos-mesh:HTTPChaos",
       "intensity": "high",
@@ -2390,6 +2850,66 @@
     }
   ],
   "request_failure||": [
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.dns-error",
+      "injector": "chaos-mesh:DNSChaos",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/dns-error.yaml",
+      "target_type": "dns"
+    },
+    {
+      "category": "traffic",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.http-replace",
+      "injector": "chaos-mesh:HTTPChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/http-replace.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "storage",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.io-fault",
+      "injector": "chaos-mesh:IOChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/io-fault.yaml",
+      "target_type": "disk"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-corrupt",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-corrupt.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.chaos-mesh.network-loss",
+      "injector": "chaos-mesh:NetworkChaos",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-loss.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "traffic",
       "expected_signal": "request_failure",

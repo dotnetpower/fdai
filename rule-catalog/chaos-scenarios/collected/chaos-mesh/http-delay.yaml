@@ -1,0 +1,28 @@
+id: chaos.chaos-mesh.http-delay
+version: 1
+provenance:
+  source: chaos-mesh
+  source_url: https://chaos-mesh.org
+  synthesis_method: collected
+category: traffic
+target_type: pod
+fault_family: delay
+intensity: high
+duration_seconds: 360.0
+expected_signal: gateway_latency
+injector: chaos-mesh:HTTPChaos
+blast_radius_cap: 2
+rollback_note: Delete the HTTPChaos CRD.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Inject an HTTP-layer delay (HTTPChaos delay) on the pod's inbound requests,
+  above the abort path.
+params:
+  target: Request
+  delay: 2s
+  port: '80'
+tags:
+- chaos-mesh
+- http

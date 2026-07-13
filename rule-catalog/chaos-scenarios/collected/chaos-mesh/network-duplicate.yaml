@@ -1,0 +1,28 @@
+id: chaos.chaos-mesh.network-duplicate
+version: 1
+provenance:
+  source: chaos-mesh
+  source_url: https://chaos-mesh.org
+  synthesis_method: collected
+category: network
+target_type: pod
+fault_family: corrupt
+intensity: mild
+duration_seconds: 360.0
+expected_signal: gateway_latency
+injector: chaos-mesh:NetworkChaos
+blast_radius_cap: 2
+rollback_note: Delete the NetworkChaos CRD.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Duplicate a fraction of outbound packets (NetworkChaos duplicate); tail-latency
+  and retry-storm behaviour downstream.
+params:
+  action: duplicate
+  duplicate_percent: '10'
+  correlation: '50'
+tags:
+- chaos-mesh
+- network

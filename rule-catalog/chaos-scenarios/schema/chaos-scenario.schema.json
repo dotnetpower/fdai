@@ -24,8 +24,8 @@
   "properties": {
     "id": {
       "type": "string",
-      "pattern": "^chaos\\.[a-z][a-z0-9]*(\\.[a-z0-9]+([-_][a-z0-9]+)*)+$",
-      "description": "Dotted namespace + kebab id. Namespace is the domain (e.g. `chaos.aks.pod-kill`, `chaos.gpu.driver-xid-74`). Grep-friendly, audit-safe."
+      "pattern": "^chaos\\.[a-z][a-z0-9]*([-_][a-z0-9]+)*(\\.[a-z0-9]+([-_][a-z0-9]+)*)+$",
+      "description": "Dotted namespace + kebab id. Namespace is the domain (e.g. `chaos.aks.pod-kill`, `chaos.chaos-mesh.pod-failure`, `chaos.gpu.driver-xid-74`). Each dot-part is one or more lowercase alphanumeric groups joined by `-` or `_` separators. Grep-friendly, audit-safe."
     },
     "version": {
       "type": "integer",

@@ -1,0 +1,27 @@
+id: chaos.chaos-mesh.stress-memory
+version: 1
+provenance:
+  source: chaos-mesh
+  source_url: https://chaos-mesh.org
+  synthesis_method: collected
+category: resource_saturation
+target_type: pod
+fault_family: saturate
+intensity: high
+duration_seconds: 360.0
+expected_signal: host_memory
+injector: chaos-mesh:StressChaos
+blast_radius_cap: 2
+rollback_note: Delete the StressChaos CRD.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Sustain memory pressure via StressChaos memory stressor.
+params:
+  stressor: memory
+  workers: '1'
+  size: 256M
+tags:
+- chaos-mesh
+- memory
