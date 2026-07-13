@@ -195,8 +195,8 @@ class ShadowWorkflowStepExecutor:
 
         await self._audit.append_audit_entry(
             {
-            "event_id": _event_id(self._process_id, f"step:{step.id}:audit"),
-            "correlation_id": self._snapshot.correlation_id,
+                "event_id": _event_id(self._process_id, f"step:{step.id}:audit"),
+                "correlation_id": self._snapshot.correlation_id,
                 "actor": _ACTOR,
                 "action_kind": "workflow.step",
                 "mode": "shadow",
@@ -552,18 +552,18 @@ class WorkflowOrchestrator:
         if created:
             await self._audit.append_audit_entry(
                 {
-                "event_id": _event_id(process_id, "plan"),
-                "correlation_id": resolved_correlation_id,
-                "actor": _ACTOR,
-                "action_kind": "workflow.process-plan",
-                "mode": "shadow",
-                "declared_mode": workflow.default_mode.value,
-                "process_id": process_id,
-                "workflow": workflow.name,
-                "target_resource_id": target_resource_id,
-                "trigger_ts": trigger_ts.isoformat(),
-                "plan": plan.to_audit_dict(),
-                "recorded_at": datetime.now(tz=UTC).isoformat(),
+                    "event_id": _event_id(process_id, "plan"),
+                    "correlation_id": resolved_correlation_id,
+                    "actor": _ACTOR,
+                    "action_kind": "workflow.process-plan",
+                    "mode": "shadow",
+                    "declared_mode": workflow.default_mode.value,
+                    "process_id": process_id,
+                    "workflow": workflow.name,
+                    "target_resource_id": target_resource_id,
+                    "trigger_ts": trigger_ts.isoformat(),
+                    "plan": plan.to_audit_dict(),
+                    "recorded_at": datetime.now(tz=UTC).isoformat(),
                 }
             )
 

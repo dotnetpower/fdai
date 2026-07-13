@@ -118,8 +118,7 @@ class InMemoryProcessRuntimeStore:
         available = [
             job
             for job in self._projection_jobs.values()
-            if job.available_at <= now
-            and (job.leased_until is None or job.leased_until <= now)
+            if job.available_at <= now and (job.leased_until is None or job.leased_until <= now)
         ]
         available.sort(key=lambda job: (job.available_at, job.event.event_id))
         claimed: list[ProcessProjectionJob] = []

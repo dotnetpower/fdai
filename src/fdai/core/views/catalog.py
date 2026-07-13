@@ -13,11 +13,7 @@ from jsonschema import Draft202012Validator
 from fdai.core.views.models import ViewAppliesTo, ViewRegion, ViewSpec
 
 _DEFAULT_SCHEMA = (
-    Path(__file__).resolve().parents[4]
-    / "rule-catalog"
-    / "views"
-    / "schema"
-    / "view.schema.json"
+    Path(__file__).resolve().parents[4] / "rule-catalog" / "views" / "schema" / "view.schema.json"
 )
 
 

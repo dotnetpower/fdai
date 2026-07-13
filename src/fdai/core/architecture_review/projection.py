@@ -210,9 +210,7 @@ class ArchitectureReviewProjector:
 
 
 async def _link(store: OntologyInstanceStore, kind: str, source: str, target: str) -> None:
-    await store.upsert_link(
-        OntologyLinkRecord(link_type=kind, from_id=source, to_id=target)
-    )
+    await store.upsert_link(OntologyLinkRecord(link_type=kind, from_id=source, to_id=target))
 
 
 def _checks(review: Mapping[str, Any], review_id: str) -> Sequence[Mapping[str, Any]]:

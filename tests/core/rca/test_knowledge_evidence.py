@@ -123,9 +123,7 @@ class _KnowledgeCitingReasoner:
     ) -> RootCauseHypothesis:
         del incident_summary
         knowledge = tuple(
-            c
-            for c in candidate_citations
-            if getattr(c, "kind", None) == CitationKind.KNOWLEDGE
+            c for c in candidate_citations if getattr(c, "kind", None) == CitationKind.KNOWLEDGE
         )
         return RootCauseHypothesis(
             tier=RcaTier.T2,

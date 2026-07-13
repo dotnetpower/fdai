@@ -39,18 +39,14 @@ class TestLocalEntrypoint:
         assert review["process"]["status"] == "waiting"
         assert review["regions"][0]["report"]["id"] == "architecture-review-process"
 
-    async def test_builds_inside_running_event_loop(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_builds_inside_running_event_loop(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(_DEV_ENV, "1")
         application = _local.app()
         assert isinstance(application, Starlette)
 
     def test_custom_console_origin_is_allowed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(_DEV_ENV, "1")
-        monkeypatch.setenv(
-            "FDAI_READ_API_CORS_ALLOW_ORIGINS", "http://127.0.0.1:5178"
-        )
+        monkeypatch.setenv("FDAI_READ_API_CORS_ALLOW_ORIGINS", "http://127.0.0.1:5178")
         client = TestClient(_local.app())
 
         response = client.get("/healthz", headers={"origin": "http://127.0.0.1:5178"})
@@ -58,9 +54,7 @@ class TestLocalEntrypoint:
         assert response.status_code == 200
         assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5178"
 
-    def test_custom_console_origin_rejects_wildcard(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_custom_console_origin_rejects_wildcard(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(_DEV_ENV, "1")
         monkeypatch.setenv("FDAI_READ_API_CORS_ALLOW_ORIGINS", "*")
 

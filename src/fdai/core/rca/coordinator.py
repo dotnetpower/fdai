@@ -249,9 +249,7 @@ class RcaCoordinator:
                 )
             )
         if self._knowledge_gatherer is not None:
-            candidates.extend(
-                await self._knowledge_gatherer.gather(query=incident_summary)
-            )
+            candidates.extend(await self._knowledge_gatherer.gather(query=incident_summary))
         return await self.analyze_t2(
             incident_summary=incident_summary,
             candidate_citations=tuple(candidates),
@@ -318,9 +316,7 @@ class RcaCoordinator:
                 )
             )
         if self._knowledge_gatherer is not None:
-            candidates.extend(
-                await self._knowledge_gatherer.gather(query=incident_summary)
-            )
+            candidates.extend(await self._knowledge_gatherer.gather(query=incident_summary))
         return await self.analyze_t2(
             incident_summary=incident_summary,
             candidate_citations=tuple(candidates),

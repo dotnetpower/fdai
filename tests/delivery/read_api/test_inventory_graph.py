@@ -99,7 +99,7 @@ async def test_demo_provider_defaults_to_fdai_and_separates_application_views() 
         for second in id_sets[index + 1 :]
     )
     assert any(resource["type"] == "event-hub" for resource in fdai["resources"])
-    assert {
-        (link["source"], link["target"])
-        for link in fdai["links"]
-    } >= {("web-api", "event-hub"), ("event-hub", "event-worker")}
+    assert {(link["source"], link["target"]) for link in fdai["links"]} >= {
+        ("web-api", "event-hub"),
+        ("event-hub", "event-worker"),
+    }

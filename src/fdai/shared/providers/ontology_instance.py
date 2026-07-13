@@ -96,8 +96,7 @@ def validate_object_record(
         expected = declaration.properties[name].type
         if not _matches_property_type(value, expected):
             raise OntologyInstanceValidationError(
-                f"{record.object_type}.{name} MUST be {expected.value}, "
-                f"got {type(value).__name__}"
+                f"{record.object_type}.{name} MUST be {expected.value}, got {type(value).__name__}"
             )
 
 
@@ -116,9 +115,7 @@ def validate_link_record(
     target = objects.get(record.to_id)
     if source is None or target is None:
         missing = [
-            identifier
-            for identifier in (record.from_id, record.to_id)
-            if identifier not in objects
+            identifier for identifier in (record.from_id, record.to_id) if identifier not in objects
         ]
         raise OntologyInstanceValidationError(
             f"ontology link endpoints do not exist: {', '.join(missing)}"

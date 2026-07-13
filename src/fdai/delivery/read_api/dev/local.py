@@ -871,9 +871,7 @@ def _cors_origins_from_env(environ: Mapping[str, str] | None = None) -> tuple[st
             or parsed.query
             or parsed.fragment
         ):
-            raise ValueError(
-                f"{_CORS_ORIGINS_ENV} entries MUST be explicit HTTP(S) origins"
-            )
+            raise ValueError(f"{_CORS_ORIGINS_ENV} entries MUST be explicit HTTP(S) origins")
     return origins
 
 

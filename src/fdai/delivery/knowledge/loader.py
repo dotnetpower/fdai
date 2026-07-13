@@ -100,9 +100,7 @@ def load_knowledge_documents(
             _LOGGER.warning("cannot stat %s; skipping", path, exc_info=True)
             continue
         if size > max_bytes:
-            _LOGGER.warning(
-                "skipping %s: %d bytes exceeds max_bytes=%d", path, size, max_bytes
-            )
+            _LOGGER.warning("skipping %s: %d bytes exceeds max_bytes=%d", path, size, max_bytes)
             continue
         try:
             text = path.read_text(encoding="utf-8")
@@ -157,9 +155,7 @@ def documents_from_files(
             _LOGGER.warning("cannot stat %s; skipping", path, exc_info=True)
             continue
         if size > max_bytes:
-            _LOGGER.warning(
-                "skipping %s: %d bytes exceeds max_bytes=%d", path, size, max_bytes
-            )
+            _LOGGER.warning("skipping %s: %d bytes exceeds max_bytes=%d", path, size, max_bytes)
             continue
         try:
             text = path.read_text(encoding="utf-8")

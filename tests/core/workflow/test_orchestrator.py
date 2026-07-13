@@ -377,9 +377,7 @@ async def test_process_persisted_in_runtime_snapshot_and_journal() -> None:
         audit_store=audit,
         process_store=process_store,
     )
-    run = await orchestrator.run(
-        _workflow(), target_resource_id="res-1", trigger_ts=_TRIGGER_TS
-    )
+    run = await orchestrator.run(_workflow(), target_resource_id="res-1", trigger_ts=_TRIGGER_TS)
     snapshot = await process_store.get(run.process_id)
     assert snapshot is not None
     assert snapshot.workflow_ref == "sample-flow"

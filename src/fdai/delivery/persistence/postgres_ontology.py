@@ -65,8 +65,7 @@ class PostgresOntologyInstanceStore:
             async with connection.transaction():
                 await self._set_timeout(connection)
                 cursor = await connection.execute(
-                    "SELECT object_type, revision FROM ontology_resource "
-                    "WHERE id = %s FOR UPDATE",
+                    "SELECT object_type, revision FROM ontology_resource WHERE id = %s FOR UPDATE",
                     (record.id,),
                 )
                 existing = await cursor.fetchone()
@@ -242,9 +241,7 @@ class PostgresOntologyInstanceStore:
                 if len(edges) > limit or len(visited) >= limit:
                     truncated = True
                     break
-            objects_by_id = await self._load_objects(
-                connection, identifiers=tuple(sorted(visited))
-            )
+            objects_by_id = await self._load_objects(connection, identifiers=tuple(sorted(visited)))
         links = tuple(
             edge
             for _, edge in sorted(selected_links.items())
@@ -329,9 +326,7 @@ class PostgresOntologyInstanceStore:
         return tuple(_link_from_row(row) for row in await cursor.fetchall())
 
 
-def _unvisited_endpoints(
-    edges: Sequence[OntologyLinkRecord], visited: set[str]
-) -> set[str]:
+def _unvisited_endpoints(edges: Sequence[OntologyLinkRecord], visited: set[str]) -> set[str]:
     return {
         identifier
         for edge in edges

@@ -223,8 +223,7 @@ class TestRouterFailureHandling:
         router = LatencyRoutedChatBackend(candidates=[("bad", bad), ("good", good)])
 
         events = [
-            event
-            async for event in router.answer_stream(prompt="hi", view_context={}, history=[])
+            event async for event in router.answer_stream(prompt="hi", view_context={}, history=[])
         ]
 
         assert bad.calls == 1

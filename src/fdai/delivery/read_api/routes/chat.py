@@ -1316,9 +1316,7 @@ class LatencyRoutedChatBackend:
                 "failover"
                 if attempted
                 else (
-                    "warmup"
-                    if len(self._samples[name]) <= _ROUTER_WARMUP_SAMPLES
-                    else "lowest-p50"
+                    "warmup" if len(self._samples[name]) <= _ROUTER_WARMUP_SAMPLES else "lowest-p50"
                 )
             )
             out: dict[str, Any] = dict(reply)
@@ -1369,7 +1367,9 @@ class LatencyRoutedChatBackend:
                             event["model"] = name
                             event["router"] = {
                                 "chose": name,
-                                "reason": "failover" if attempted else (
+                                "reason": "failover"
+                                if attempted
+                                else (
                                     "warmup"
                                     if len(self._samples[name]) < _ROUTER_WARMUP_SAMPLES
                                     else "lowest-p50"

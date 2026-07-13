@@ -35,9 +35,7 @@ def _manifest() -> dict[str, Any]:
 
 def _store() -> InMemoryOntologyInstanceStore:
     registry = PackageResourceSchemaRegistry()
-    object_types = load_object_type_catalog(
-        _CATALOG / "object-types", schema_registry=registry
-    )
+    object_types = load_object_type_catalog(_CATALOG / "object-types", schema_registry=registry)
     link_types = load_link_type_catalog(
         _CATALOG / "link-types",
         schema_registry=registry,
@@ -68,9 +66,7 @@ async def test_manifest_projects_review_case_and_checks() -> None:
     store = _store()
     process_projector = ProcessOntologyProjector(
         store,
-        domain_projectors={
-            "architecture-review": ArchitectureReviewProjector(store, _manifest())
-        },
+        domain_projectors={"architecture-review": ArchitectureReviewProjector(store, _manifest())},
     )
     await process_projector.project(_snapshot())
 
@@ -108,9 +104,7 @@ async def test_owner_and_evidence_bindings_materialize_typed_objects() -> None:
     store = _store()
     projector = ProcessOntologyProjector(
         store,
-        domain_projectors={
-            "architecture-review": ArchitectureReviewProjector(store, manifest)
-        },
+        domain_projectors={"architecture-review": ArchitectureReviewProjector(store, manifest)},
     )
 
     await projector.project(_snapshot())
@@ -126,9 +120,7 @@ async def test_approval_and_decision_events_materialize_governance_objects() -> 
     store = _store()
     projector = ProcessOntologyProjector(
         store,
-        domain_projectors={
-            "architecture-review": ArchitectureReviewProjector(store, _manifest())
-        },
+        domain_projectors={"architecture-review": ArchitectureReviewProjector(store, _manifest())},
     )
     snapshot = _snapshot()
     await projector.project(snapshot)
@@ -179,9 +171,7 @@ async def test_approval_and_decision_events_materialize_governance_objects() -> 
 
     approval = await store.get_object("fdai-target-architecture-v1:approval:board_approval")
     decision = await store.get_object("fdai-target-architecture-v1:decision:board_decision")
-    graph = await store.traverse(
-        root_ids=("fdai-target-architecture-v1",), max_depth=2, limit=100
-    )
+    graph = await store.traverse(root_ids=("fdai-target-architecture-v1",), max_depth=2, limit=100)
 
     assert approval is not None
     assert approval.properties["status"] == "approved"

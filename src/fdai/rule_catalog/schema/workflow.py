@@ -74,10 +74,7 @@ def _cross_reference_issues(
     """
     issues: list[WorkflowIssue] = []
     for step in workflow.steps:
-        if (
-            step.kind is WorkflowStepKind.ACTION
-            and step.action_type_ref not in action_type_names
-        ):
+        if step.kind is WorkflowStepKind.ACTION and step.action_type_ref not in action_type_names:
             issues.append(
                 WorkflowIssue(
                     key=f"{origin}:steps.{step.id}.action_type_ref",

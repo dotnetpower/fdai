@@ -75,8 +75,7 @@ def test_single_resolved_incident() -> None:
 def test_mean_median_p90_over_ten_incidents() -> None:
     # Durations 60, 120, ..., 600 seconds.
     incidents = [
-        _incident(key=f"i{i}", opened_offset_s=0, resolved_offset_s=60 * i)
-        for i in range(1, 11)
+        _incident(key=f"i{i}", opened_offset_s=0, resolved_offset_s=60 * i) for i in range(1, 11)
     ]
     summary = compute_mttr(incidents)
     assert summary.resolved_count == 10
