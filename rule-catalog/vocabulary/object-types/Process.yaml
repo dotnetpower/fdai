@@ -26,6 +26,10 @@ properties:
     type: string
     required: true
     description: Name of the Workflow this process instantiates (rule-catalog/workflows/).
+  workflow_version:
+    type: string
+    required: true
+    description: Version of the Workflow declaration frozen for this run.
   status:
     type: string
     required: true
@@ -42,7 +46,15 @@ properties:
     type: datetime
     required: true
     description: RFC 3339 UTC timestamp when the process run started.
-  context:
-    type: object
-    required: false
-    description: Open-shape context bag captured by the trigger that started the process.
+  updated_at:
+    type: datetime
+    required: true
+    description: RFC 3339 UTC timestamp of the latest committed transition.
+  correlation_id:
+    type: string
+    required: true
+    description: Correlation id shared by process events, audit rows, and projections.
+  revision:
+    type: integer
+    required: true
+    description: Optimistic concurrency revision from the Process runtime snapshot.

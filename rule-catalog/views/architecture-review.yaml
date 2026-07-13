@@ -1,0 +1,11 @@
+id: architecture-review
+version: 1.0.0
+name: Architecture Review
+description: Dynamic read-only view of one architecture-review Process and its ontology projection.
+route: /processes/{process_id}
+applies_to:
+  workflow_ref: architecture-review
+regions:
+  - id: review
+    report_ref: architecture-review-process
+    column_span: 12

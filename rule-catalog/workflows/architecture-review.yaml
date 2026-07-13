@@ -1,0 +1,51 @@
+schema_version: "1.0.0"
+name: architecture-review
+version: "1.0.0"
+description: >-
+  Collect bounded architecture evidence, coordinate specialist reviews, and
+  record separate design and production-readiness decisions.
+trigger:
+  kind: signal
+  signal_type: architecture.review.requested
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 14
+  min_samples: 30
+  min_accuracy: 0.98
+  max_policy_escapes: 0
+steps:
+  - id: domain_reviews
+    kind: parallel
+    branches: [security, privacy, data, reliability, operations, cost]
+  - id: evidence
+    kind: wait
+    wait_for: evidence.updated
+    timeout_seconds: 1209600
+  - id: design_approval
+    kind: approval
+    approval_role: approver
+    quorum: 2
+    no_self_approval: true
+    timeout_seconds: 604800
+  - id: design_decision
+    kind: decision
+    outcomes: [approved, conditional, rejected]
+  - id: production_evidence
+    kind: wait
+    wait_for: production.evidence.ready
+    timeout_seconds: 2592000
+  - id: production_gate
+    kind: gate
+    gate_ref: architecture-review.production-ready
+  - id: production_approval
+    kind: approval
+    approval_role: owner
+    quorum: 2
+    no_self_approval: true
+    timeout_seconds: 604800
+  - id: production_decision
+    kind: decision
+    outcomes: [ready, blocked]
+anti_scope: >-
+  This workflow records review state and approvals. It never deploys resources
+  or enables an ActionType.

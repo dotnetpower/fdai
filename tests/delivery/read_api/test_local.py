@@ -32,6 +32,40 @@ class TestLocalEntrypoint:
         kpi = client.get("/kpi").json()
         assert kpi["event_count"] >= 1
         assert kpi["hil_pending"] >= 1
+        processes = client.get("/views/process").json()
+        assert processes["items"][0]["id"] == "dev-architecture-review"
+        review = client.get("/views/process/dev-architecture-review").json()
+        assert review["id"] == "architecture-review"
+        assert review["process"]["status"] == "waiting"
+        assert review["regions"][0]["report"]["id"] == "architecture-review-process"
+
+    async def test_builds_inside_running_event_loop(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(_DEV_ENV, "1")
+        application = _local.app()
+        assert isinstance(application, Starlette)
+
+    def test_custom_console_origin_is_allowed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv(_DEV_ENV, "1")
+        monkeypatch.setenv(
+            "FDAI_READ_API_CORS_ALLOW_ORIGINS", "http://127.0.0.1:5178"
+        )
+        client = TestClient(_local.app())
+
+        response = client.get("/healthz", headers={"origin": "http://127.0.0.1:5178"})
+
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5178"
+
+    def test_custom_console_origin_rejects_wildcard(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(_DEV_ENV, "1")
+        monkeypatch.setenv("FDAI_READ_API_CORS_ALLOW_ORIGINS", "*")
+
+        with pytest.raises(ValueError, match="explicit HTTP"):
+            _local.app()
 
 
 class TestLocalEntraLoginHarness:

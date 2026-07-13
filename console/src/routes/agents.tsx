@@ -144,6 +144,11 @@ export function AgentsRoute({ client: _client }: Props) {
   // Agent the operator clicked to focus - drives the "what events is this
   // agent in" side panel. Independent from the selected incident.
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const selectedAgentNode = selectedAgent ? (state.agents[selectedAgent] ?? null) : null;
+  const selectedAgentIncidents = useMemo(
+    () => (selectedAgent ? incidentsForAgent(state, selectedAgent) : []),
+    [state, selectedAgent],
+  );
 
   const selected: Incident | null = selectedId ? (state.incidents[selectedId] ?? null) : null;
   const involved = useMemo(
@@ -223,6 +228,14 @@ export function AgentsRoute({ client: _client }: Props) {
         { key: "severity", value: selected?.severity ?? "-", group: "incident" },
       ],
       records: {
+        selected_agent: selectedAgentNode
+          ? [{
+              agent: selectedAgentNode.name,
+              state: selectedAgentNode.state,
+              task: selectedAgentNode.detail ?? STATE_TASK[selectedAgentNode.state],
+              correlation_id: selectedAgentNode.correlationId,
+            }]
+          : [],
         // The selected incident's agent-to-agent conversation so the deck can
         // answer "what's the root cause / who's involved / what did they say"
         // grounded in the live thread. Empty when nothing is selected.
@@ -245,7 +258,7 @@ export function AgentsRoute({ client: _client }: Props) {
         }),
       },
     }),
-    [state, selected, active],
+    [state, selected, active, selectedAgentNode],
   );
 
   // Render one agent node - shared by the constellation grid and the org
@@ -290,12 +303,6 @@ export function AgentsRoute({ client: _client }: Props) {
       </button>
     );
   };
-
-  const selectedAgentNode = selectedAgent ? (state.agents[selectedAgent] ?? null) : null;
-  const selectedAgentIncidents = useMemo(
-    () => (selectedAgent ? incidentsForAgent(state, selectedAgent) : []),
-    [state, selectedAgent],
-  );
 
   return (
     <div class="agents-route">

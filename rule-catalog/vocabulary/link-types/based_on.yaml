@@ -1,0 +1,7 @@
+schema_version: "1.0.0"
+name: based_on
+version: "1.0.0"
+from_type: Decision
+to_type: EvidenceArtifact
+cardinality: many_to_many
+description: Evidence considered by a recorded Decision.

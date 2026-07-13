@@ -1,0 +1,8 @@
+schema_version: "1.0.0"
+name: resolved_by
+version: "1.0.0"
+from_type: ReviewCase
+to_type: Decision
+cardinality: one_to_many
+temporal_order: true
+description: Ordered decisions that resolved or conditioned a ReviewCase.

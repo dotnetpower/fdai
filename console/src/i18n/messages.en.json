@@ -14,6 +14,7 @@
     "rules": "Rules",
     "workflowBuilder": "Workflow builder",
     "llmCost": "LLM cost"
+    ,"processes": "Processes"
   },
   "nav": {
     "group": {
@@ -48,6 +49,7 @@
       "rules": "Rules",
       "workflowBuilder": "Workflow builder",
       "llmCost": "LLM cost"
+      ,"processes": "Processes"
     },
     "panelSub": {
       "live": "Real-time pipeline activity",
@@ -67,6 +69,7 @@
       "rules": "Every policy in the rule catalog, faceted",
       "workflowBuilder": "Browse built-in workflows or design a new one by chatting",
       "llmCost": "Token usage and spend per conversation, day, and month"
+      ,"processes": "Workflow runtime state and dynamic ontology-backed views"
     }
   },
   "workflowBuilder": {

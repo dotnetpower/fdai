@@ -318,6 +318,17 @@ class WorkflowTriggerKind(StrEnum):
     SCHEDULE = "schedule"
 
 
+class WorkflowStepKind(StrEnum):
+    """Typed behavior of one Workflow step."""
+
+    ACTION = "action"
+    WAIT = "wait"
+    APPROVAL = "approval"
+    DECISION = "decision"
+    PARALLEL = "parallel"
+    GATE = "gate"
+
+
 __all__ = [
     # pipeline
     "Tier",
@@ -352,4 +363,5 @@ __all__ = [
     "IncidentSeverity",
     # workflow
     "WorkflowTriggerKind",
+    "WorkflowStepKind",
 ]

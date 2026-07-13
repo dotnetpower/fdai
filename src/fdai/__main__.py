@@ -45,6 +45,7 @@ from .composition import (
     wire_azure_container,
 )
 from .core.control_loop import ControlLoop, ControlLoopOutcome, ControlLoopResult
+from .core.architecture_review import ArchitectureReviewProjector
 from .core.event_ingest import EventCorrelator, EventIngest
 from .core.executor import ShadowExecutor
 from .core.executor.action_builder import ActionBuilder
@@ -66,6 +67,8 @@ from .core.tiers.t1_lightweight.testing import InMemoryPatternLibrary
 from .core.tiers.t1_lightweight.tier import PatternLibrary
 from .core.trust_router import TrustRouter
 from .core.workflow import (
+    ProcessOntologyProjector,
+    ProjectingProcessRuntimeStore,
     WorkflowApprovalPlanner,
     WorkflowOrchestrator,
     WorkflowTriggerCoordinator,
@@ -84,6 +87,8 @@ from .shared.providers.event_bus import EventBus
 from .shared.providers.idempotency import IdempotencyStore
 from .shared.providers.resource_lock import ResourceLock
 from .shared.providers.testing.direct_api import RecordingDirectApiExecutor
+from .shared.providers.testing.ontology_instance import InMemoryOntologyInstanceStore
+from .shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
 from .shared.providers.testing.remediation_pr import RecordingRemediationPrPublisher
 from .shared.providers.testing.state_store import InMemoryStateStore
 from .shared.providers.testing.tool import RecordingToolExecutor
@@ -177,6 +182,47 @@ def _build_audit_store() -> Any:
         return PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
     _LOGGER.info("state_store_backend", extra={"backend": "in-memory"})
     return InMemoryStateStore()
+
+
+def _build_process_store() -> Any:
+    """Select the durable Process snapshot and transition-journal backend."""
+    dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+    if dsn:
+        from .delivery.persistence import (
+            PostgresProcessRuntimeStore,
+            PostgresProcessRuntimeStoreConfig,
+        )
+
+        _LOGGER.info("process_runtime_backend", extra={"backend": "postgres"})
+        return PostgresProcessRuntimeStore(config=PostgresProcessRuntimeStoreConfig(dsn=dsn))
+    _LOGGER.info("process_runtime_backend", extra={"backend": "in-memory"})
+    return InMemoryProcessRuntimeStore()
+
+
+def _build_ontology_instance_store(
+    *,
+    object_types: tuple[Any, ...],
+    link_types: tuple[Any, ...],
+) -> Any:
+    """Select the runtime ontology instance graph backend."""
+    dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+    if dsn:
+        from .delivery.persistence import (
+            PostgresOntologyInstanceStore,
+            PostgresOntologyInstanceStoreConfig,
+        )
+
+        _LOGGER.info("ontology_instance_backend", extra={"backend": "postgres"})
+        return PostgresOntologyInstanceStore(
+            config=PostgresOntologyInstanceStoreConfig(dsn=dsn),
+            object_types=object_types,
+            link_types=link_types,
+        )
+    _LOGGER.info("ontology_instance_backend", extra={"backend": "in-memory"})
+    return InMemoryOntologyInstanceStore(
+        object_types=object_types,
+        link_types=link_types,
+    )
 
 
 def _build_resource_lock() -> ResourceLock:
@@ -654,6 +700,8 @@ def _build_workflow_coordinator(
     workflows: tuple[Any, ...],
     action_types_by_name: dict[str, Any],
     audit_store: Any,
+    process_store: Any | None = None,
+    ontology_store: Any | None = None,
 ) -> WorkflowTriggerCoordinator | None:
     """Assemble the shadow workflow coordinator, opt-in and fail-safe.
 
@@ -681,10 +729,31 @@ def _build_workflow_coordinator(
         group_mapping=group_mapping,
         matrix=matrix,
     )
+    runtime_store = process_store or InMemoryProcessRuntimeStore()
+    if ontology_store is not None:
+        domain_projectors: dict[str, Any] = {}
+        review_manifest = catalog_root.parent / "config" / "architecture-review.yaml"
+        if review_manifest.is_file():
+            with review_manifest.open("r", encoding="utf-8") as handle:
+                raw_manifest = yaml.safe_load(handle)
+            if not isinstance(raw_manifest, dict):
+                raise ValueError("config/architecture-review.yaml MUST contain a mapping")
+            domain_projectors["architecture-review"] = ArchitectureReviewProjector(
+                ontology_store,
+                raw_manifest,
+            )
+        runtime_store = ProjectingProcessRuntimeStore(
+            runtime=runtime_store,
+            projector=ProcessOntologyProjector(
+                ontology_store,
+                domain_projectors=domain_projectors,
+            ),
+        )
     orchestrator = WorkflowOrchestrator(
         planner=planner,
         action_types=action_types_by_name,
         audit_store=audit_store,
+        process_store=runtime_store,
     )
     _LOGGER.info("workflow_coordinator_enabled", extra={"workflows": len(workflows)})
     return WorkflowTriggerCoordinator(
@@ -891,6 +960,15 @@ def _build_control_loop(
             workflows=workflows,
             action_types_by_name=action_types_by_name,
             audit_store=audit_store,
+            process_store=_build_process_store(),
+            ontology_store=(
+                _build_ontology_instance_store(
+                    object_types=ontology_object_types,
+                    link_types=ontology_link_types,
+                )
+                if ontology_object_types and ontology_link_types
+                else None
+            ),
         ),
     )
 

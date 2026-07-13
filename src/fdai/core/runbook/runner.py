@@ -64,15 +64,32 @@ class RunbookRunner:
         self._executor = executor
         self._audit_store = audit_store
 
-    async def run(self, runbook: Runbook) -> RunbookResult:
+    async def run(
+        self,
+        runbook: Runbook,
+        *,
+        start_step_id: str | None = None,
+        audit_context: Mapping[str, object] | None = None,
+    ) -> RunbookResult:
         """Execute ``runbook``. Returns the aggregate :class:`RunbookResult`."""
         steps_by_id: Mapping[str, RunbookStep] = {s.id: s for s in runbook.steps}
+        if start_step_id is not None and start_step_id not in steps_by_id:
+            raise ValueError(f"runbook {runbook.id!r} has no start step {start_step_id!r}")
+        start_index = (
+            next(index for index, step in enumerate(runbook.steps) if step.id == start_step_id)
+            if start_step_id is not None
+            else 0
+        )
+        active_steps = runbook.steps[start_index:]
         results: list[RunbookStepResult] = []
         terminal = RunbookStepOutcome.SUCCESS
 
-        for step in runbook.steps:
+        for step in active_steps:
             outcome = await self._executor.execute(runbook_id=runbook.id, step=step)
             results.append(outcome)
+            if outcome.outcome is RunbookStepOutcome.WAITING:
+                terminal = RunbookStepOutcome.WAITING
+                break
             if outcome.outcome is not RunbookStepOutcome.SUCCESS:
                 terminal = RunbookStepOutcome.FAILURE
                 # Follow on_failure if present; then short-circuit.
@@ -85,7 +102,7 @@ class RunbookRunner:
                 # Mark every subsequent authored step as SKIPPED so the
                 # audit row shows the runner made a decision, not that
                 # steps silently disappeared.
-                for skipped in runbook.steps[runbook.steps.index(step) + 1 :]:
+                for skipped in active_steps[active_steps.index(step) + 1 :]:
                     if step.on_failure is not None and skipped.id == step.on_failure:
                         continue
                     results.append(
@@ -98,8 +115,7 @@ class RunbookRunner:
                     )
                 break
 
-        await self._audit_store.append_audit_entry(
-            {
+        terminal_audit: dict[str, object] = {
                 "actor": "fdai.core.runbook",
                 "action_kind": "runbook.terminal",
                 "mode": "shadow",
@@ -111,7 +127,9 @@ class RunbookRunner:
                 ],
                 "recorded_at": datetime.now(tz=UTC).isoformat(),
             }
-        )
+        if audit_context:
+            terminal_audit.update(audit_context)
+        await self._audit_store.append_audit_entry(terminal_audit)
         return RunbookResult(
             runbook_id=runbook.id,
             step_results=tuple(results),

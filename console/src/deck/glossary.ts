@@ -97,6 +97,20 @@ export const TERMS = {
       "the ontology entry classing an autonomous action; it binds five roles - initiators, judge, executor, approver, auditor",
     seeAlso: "ontology",
   },
+  process: {
+    term: "Process",
+    plain:
+      "the current snapshot of one workflow run, including its step, status, revision, and target; its event journal preserves the transition history",
+    tech: "process",
+    seeAlso: "workflow-builder",
+  },
+  viewSpec: {
+    term: "ViewSpec",
+    plain:
+      "the catalog-as-code layout that selects bounded ontology-backed datasets and widgets for a workflow Process; it contains presentation rules, not runtime state",
+    tech: "view_spec",
+    seeAlso: "processes",
+  },
   blastRadius: {
     term: "blast radius",
     plain:

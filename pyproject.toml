@@ -107,7 +107,7 @@ dev = [
     # .github/instructions/generic-scope.instructions.md § Enforcement.
     "pre-commit>=4.0,<5",
     # Local dev-only ASGI server so the console SPA can hit the read-API
-    # (`fdai.delivery.read_api._local:app`) at development time. Not
+    # (`fdai.delivery.read_api.dev.local:app`) at development time. Not
     # required in production - a fork picks its own ASGI server per
     # container-runtime policy.
     "uvicorn>=0.32,<1",

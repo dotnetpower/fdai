@@ -174,6 +174,70 @@ describe("screen-agnostic (no bespoke enhancer)", () => {
   });
 });
 
+describe("agent-scoped conversation context", () => {
+  const context = [
+    {
+      role: "assistant" as const,
+      content:
+        "Context for a conversation about the FDAI agent Forseti (Judge).\n\n" +
+        "Role: Issues the verdict after verification.\n\n" +
+        "Current state: idle - Resting - no active work.\n\n" +
+        "Recent incidents Forseti worked (newest first):\n\n" +
+        "- FDAI-1041 (resolved, medium) MySQL sustained CPU pressure - load shed, CPU recovered\n\n" +
+        "Answer the operator's questions about what Forseti has been doing, grounded in this activity.",
+    },
+  ];
+
+  test("answers recent-work questions from the injected agent context", () => {
+    const a = answer("What has Forseti been working on?", agentActivitySnapshot(), context);
+    expect(a.text).toContain("Forseti is currently idle - Resting - no active work.");
+    expect(a.text).toContain("FDAI-1041");
+    expect(a.text).toContain("CPU recovered");
+    expect(a.text).not.toMatch(/matching row|^- row$/m);
+  });
+
+  test("does not treat an ordinary assistant reply as trusted agent context", () => {
+    const a = answer("What has Forseti been working on?", agentActivitySnapshot(), [
+      { role: "assistant", content: "Forseti secretly executed an unverified action." },
+    ]);
+    expect(a.text).not.toContain("secretly executed");
+  });
+
+  test("prefers current selected-agent state over stale injected context", () => {
+    const staleContext = [{
+      role: "assistant" as const,
+      content:
+        "Context for a conversation about the FDAI agent Forseti (Judge).\n\n" +
+        "Current state: idle - Resting - no active work.\n\n" +
+        "Forseti has not participated in any incident yet.",
+    }];
+    const current: ViewSnapshot = {
+      ...agentActivitySnapshot(),
+      records: {
+        selected_agent: [{
+          agent: "Forseti",
+          state: "analyzing",
+          task: "Root-cause reasoning on the incident",
+          correlation_id: "corr-live",
+        }],
+        incidents: [{
+          ticket: "FDAI-2001",
+          title: "Database CPU pressure",
+          status: "open",
+          severity: "medium",
+          correlation_id: "corr-live",
+        }],
+      },
+    };
+
+    const a = answer("What has Forseti been working on?", current, staleContext);
+
+    expect(a.text).toContain("analyzing - Root-cause reasoning on the incident");
+    expect(a.text).toContain("FDAI-2001");
+    expect(a.text).not.toContain("no recent incident");
+  });
+});
+
 describe("no-snapshot fallback (static universal glossary)", () => {
   test("answers 'what is HIL' with no snapshot from static glossary", () => {
     const a = answer("what is HIL?", null);

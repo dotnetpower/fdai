@@ -19,6 +19,10 @@ from fdai.delivery.persistence.postgres import (
     PostgresStateStore,
     PostgresStateStoreConfig,
 )
+from fdai.delivery.persistence.postgres_ontology import (
+    PostgresOntologyInstanceStore,
+    PostgresOntologyInstanceStoreConfig,
+)
 from fdai.delivery.persistence.postgres_idempotency import (
     PostgresIdempotencyStore,
     PostgresIdempotencyStoreConfig,
@@ -30,6 +34,10 @@ from fdai.delivery.persistence.postgres_operator_memory import (
 from fdai.delivery.persistence.postgres_outbox import (
     PostgresOutboxStore,
     PostgresOutboxStoreConfig,
+)
+from fdai.delivery.persistence.postgres_process_runtime import (
+    PostgresProcessRuntimeStore,
+    PostgresProcessRuntimeStoreConfig,
 )
 from fdai.delivery.persistence.postgres_resource_lock import (
     PostgresAdvisoryResourceLock,
@@ -49,8 +57,12 @@ __all__ = [
     "PostgresIdempotencyStoreConfig",
     "PostgresOperatorMemoryStore",
     "PostgresOperatorMemoryStoreConfig",
+    "PostgresOntologyInstanceStore",
+    "PostgresOntologyInstanceStoreConfig",
     "PostgresOutboxStore",
     "PostgresOutboxStoreConfig",
+    "PostgresProcessRuntimeStore",
+    "PostgresProcessRuntimeStoreConfig",
     "PostgresScheduleStore",
     "PostgresScheduleStoreConfig",
     "PostgresStateStore",

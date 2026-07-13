@@ -1,0 +1,7 @@
+schema_version: "1.0.0"
+name: has_approval
+version: "1.0.0"
+from_type: ReviewCase
+to_type: Approval
+cardinality: one_to_many
+description: Approval request associated with a ReviewCase.

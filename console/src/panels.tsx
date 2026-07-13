@@ -38,6 +38,7 @@ import { LlmCostRoute } from "./routes/llm-cost";
 import { OntologyRoute } from "./routes/ontology";
 import { PantheonRoute } from "./routes/pantheon";
 import { PromotionGatesRoute } from "./routes/promotion-gates";
+import { ProcessesRoute } from "./routes/processes";
 import { ProvisionRoute } from "./routes/provision";
 import { RuleCatalogRoute } from "./routes/rule-catalog";
 import { RuleTraceRoute } from "./routes/rule-trace";
@@ -126,6 +127,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.provision"),
     group: "now",
     component: ProvisionRoute,
+  },
+  {
+    id: "processes",
+    label: t("nav.panel.processes"),
+    subtitle: t("nav.panelSub.processes"),
+    group: "now",
+    component: ProcessesRoute,
   },
   // ── History ─────────────────────────────────────────────────────────
   {

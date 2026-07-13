@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+name: ReviewCheck
+version: "1.0.0"
+key: id
+description: One bounded requirement evaluated during a governed review.
+properties:
+  id: {type: string, required: true}
+  check_key: {type: string, required: true}
+  category: {type: string, required: true}
+  status: {type: string, required: true}
+  severity: {type: string, required: true}
+  required: {type: boolean, required: true}
+  description: {type: string, required: true}
+  updated_at: {type: datetime, required: true}

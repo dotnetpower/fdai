@@ -84,3 +84,32 @@ describe("viewContextWithUser wiring", () => {
     }
   });
 });
+
+describe("backend health probing", () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test("deduplicates concurrent and repeated probes", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ available: true, mode: "test", model: "m", endpoint: null }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const mod = await import("./backend");
+
+    const [first, second] = await Promise.all([mod.probeBackend(), mod.probeBackend()]);
+    const cached = await mod.probeBackend();
+
+    expect(first.available).toBe(true);
+    expect(second).toEqual(first);
+    expect(cached).toEqual(first);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});

@@ -149,7 +149,15 @@ class TestLoadReportCatalog:
             reports_dir,
             allowed_widget_types=_base_widget_types(),
             allowed_datasources=frozenset(
-                {"audit", "report_feed", "metric", "log_query", "static", "noop"}
+                {
+                    "audit",
+                    "report_feed",
+                    "metric",
+                    "log_query",
+                    "ontology",
+                    "static",
+                    "noop",
+                }
             ),
         )
         ids = {s.id for s in specs}

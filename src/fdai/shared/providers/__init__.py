@@ -75,11 +75,28 @@ from .observation import (
     MetricQueryResult,
     ObservationError,
 )
+from .ontology_instance import (
+    OntologyDirection,
+    OntologyGraphSnapshot,
+    OntologyInstanceStore,
+    OntologyInstanceValidationError,
+    OntologyLinkRecord,
+    OntologyObjectRecord,
+)
 from .preflight_check import (
     PreflightCheck,
     PreflightCheckPublisher,
     PreflightCheckPublishError,
     PreflightCheckReceipt,
+)
+from .process_runtime import (
+    ProcessEvent,
+    ProcessEventKind,
+    ProcessRevisionConflictError,
+    ProcessRuntimeError,
+    ProcessRuntimeStore,
+    ProcessSnapshot,
+    ProcessStatus,
 )
 from .readiness import PostureAssessmentProvider, ReadinessReportPublisher
 from .remediation_pr import (
@@ -153,6 +170,12 @@ __all__ = [
     "MetricQueryResult",
     "MutationTarget",
     "ObservationError",
+    "OntologyDirection",
+    "OntologyGraphSnapshot",
+    "OntologyInstanceStore",
+    "OntologyInstanceValidationError",
+    "OntologyLinkRecord",
+    "OntologyObjectRecord",
     "PrPublishReceipt",
     "PreflightCheck",
     "PreflightCheckPublishError",
@@ -162,6 +185,13 @@ __all__ = [
     "ProbeQuery",
     "ProbeResult",
     "ProbeVerdict",
+    "ProcessEvent",
+    "ProcessEventKind",
+    "ProcessRevisionConflictError",
+    "ProcessRuntimeError",
+    "ProcessRuntimeStore",
+    "ProcessSnapshot",
+    "ProcessStatus",
     "PublishReceipt",
     "RemediationPr",
     "RemediationPrPublisher",

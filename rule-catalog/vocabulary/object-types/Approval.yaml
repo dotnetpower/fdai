@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+name: Approval
+version: "1.0.0"
+key: id
+description: Action-bound approval request and its current decision state.
+properties:
+  id: {type: string, required: true}
+  status: {type: string, required: true}
+  required_role: {type: string, required: true}
+  quorum: {type: integer, required: true}
+  no_self_approval: {type: boolean, required: true}
+  requested_at: {type: datetime, required: true}
+  decided_at: {type: datetime, required: false}
+  justification_hash: {type: string, required: false}

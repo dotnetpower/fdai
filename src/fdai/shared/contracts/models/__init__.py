@@ -75,6 +75,7 @@ from .enums import (
     Tier,
     TriggerKind,
     WorkflowTriggerKind,
+    WorkflowStepKind,
 )
 from .event import Event
 from .incident import Incident
@@ -122,6 +123,7 @@ __all__ = [
     "Tier",
     "TriggerKind",
     "WorkflowTriggerKind",
+    "WorkflowStepKind",
     # aliases + base
     "ContractBase",
     "IdempotencyKey",

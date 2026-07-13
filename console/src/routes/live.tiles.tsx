@@ -164,6 +164,7 @@ export function Sparkline({
   const t0 = buckets.t0.slice(0, -1);
   const t1 = buckets.t1.slice(0, -1);
   const t2 = buckets.t2.slice(0, -1);
+  const sampleTotal = [...t0, ...t1, ...t2].reduce((sum, value) => sum + value, 0);
   const series = [t0, t1, t2];
   const n = t0.length;
   // Shared scale so the three tiers stay comparable; a small headroom keeps
@@ -235,6 +236,16 @@ export function Sparkline({
         preserveAspectRatio="none"
         aria-hidden="true"
       >
+        {[0.25, 0.5, 0.75].map((ratio) => (
+          <line
+            key={ratio}
+            class="live-spark-grid"
+            x1="0"
+            y1={(height * ratio).toFixed(1)}
+            x2={width}
+            y2={(height * ratio).toFixed(1)}
+          />
+        ))}
         {series.map((arr, i) => {
           const d = linePath(arr);
           if (!d) return null;
@@ -262,6 +273,7 @@ export function Sparkline({
           />
         ) : null}
       </svg>
+      {sampleTotal === 0 ? <span class="live-spark-empty">awaiting stream samples</span> : null}
       {tip ? (
         <div class="live-spark-tip" style={`left:${tip.leftPct.toFixed(1)}%`}>
           <div class="live-spark-tip-h">{tip.label}</div>
@@ -287,9 +299,11 @@ export interface StackEntry {
 export function StackBar({
   entries,
   total,
+  showLegend = true,
 }: {
   readonly entries: readonly StackEntry[];
   readonly total: number;
+  readonly showLegend?: boolean;
 }) {
   return (
     <div class="live-stackbar">
@@ -302,13 +316,15 @@ export function StackBar({
           />
         ))}
       </div>
-      <div class="live-stackbar-legend">
-        {entries.map((e) => (
-          <span key={e.key} class={e.className}>
-            {e.label} {total > 0 ? Math.round((e.value / total) * 100) : 0}%
-          </span>
-        ))}
-      </div>
+      {showLegend ? (
+        <div class="live-stackbar-legend">
+          {entries.map((e) => (
+            <span key={e.key} class={e.className}>
+              {e.label} {total > 0 ? Math.round((e.value / total) * 100) : 0}%
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

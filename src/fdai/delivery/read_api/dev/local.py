@@ -21,13 +21,16 @@ mypy, IDE indexing - has no side effect)::
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
+from urllib.parse import urlsplit
 
 import yaml
 from starlette.applications import Starlette
@@ -109,6 +112,13 @@ from fdai.shared.providers.testing.sse import InMemorySseSink  # noqa: E402
 
 _DEV_ENV = "FDAI_READ_API_DEV_MODE"
 _LOCAL_ENTRA_ENV = "FDAI_READ_API_LOCAL_ENTRA"
+_CORS_ORIGINS_ENV = "FDAI_READ_API_CORS_ALLOW_ORIGINS"
+_DEFAULT_CORS_ORIGINS = (
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "http://127.0.0.1:8090",
+    "http://localhost:8090",
+)
 # local.py lives at src/fdai/delivery/read_api/dev/local.py, so the repo root
 # is six levels up (parents[5]): dev -> read_api -> delivery -> fdai -> src ->
 # repo root. This was parents[4] before the module moved into dev/ (bc11c981);
@@ -842,6 +852,31 @@ def _group_mapping_from_env(environ: Mapping[str, str] | None = None) -> GroupMa
     )
 
 
+def _cors_origins_from_env(environ: Mapping[str, str] | None = None) -> tuple[str, ...]:
+    """Return explicit browser origins for the local console dev harness."""
+    env = environ if environ is not None else os.environ
+    raw = env.get(_CORS_ORIGINS_ENV)
+    if raw is None:
+        return _DEFAULT_CORS_ORIGINS
+    origins = tuple(value.strip().rstrip("/") for value in raw.split(",") if value.strip())
+    if not origins:
+        raise ValueError(f"{_CORS_ORIGINS_ENV} MUST contain at least one origin")
+    for origin in origins:
+        parsed = urlsplit(origin)
+        if (
+            origin == "*"
+            or parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError(
+                f"{_CORS_ORIGINS_ENV} entries MUST be explicit HTTP(S) origins"
+            )
+    return origins
+
+
 def app() -> Starlette:
     """Factory. uvicorn invokes this once at server start with ``--factory``."""
     dev_mode = os.environ.get(_DEV_ENV) == "1"
@@ -978,6 +1013,7 @@ def app() -> Starlette:
     # validator so the console's workflow-builder view renders out of the
     # box. Reuses the already-loaded catalogs; no extra I/O.
     workflow_authoring = None
+    built_in_workflows: tuple[Any, ...] = ()
     if action_types:
         from fdai.delivery.read_api.routes.workflow_authoring import WorkflowAuthoringConfig
 
@@ -985,7 +1021,6 @@ def app() -> Starlette:
         # Load the shipped built-in Workflow catalog so the builder can list
         # and inspect them read-only. Defensive: a load failure MUST NOT take
         # down the dev server (the list just stays empty).
-        built_in_workflows: tuple[Any, ...] = ()
         workflows_root = _REPO_ROOT / "rule-catalog" / "workflows"
         if workflows_root.is_dir():
             try:
@@ -1006,6 +1041,16 @@ def app() -> Starlette:
             workflows=tuple(built_in_workflows),
         )
 
+    reporting = None
+    process_views = None
+    if ontology_object_types and ontology_link_types and built_in_workflows:
+        reporting, process_views = _build_dynamic_process_views_sync(
+            read_model=read_model,
+            object_types=ontology_object_types,
+            link_types=ontology_link_types,
+            workflows=built_in_workflows,
+        )
+
     live_stream_config, agent_activity_config = _build_agent_streams()
 
     from fdai.delivery.read_api.routes.demo_inventory_graph import (
@@ -1017,12 +1062,7 @@ def app() -> Starlette:
         read_model=read_model,
         config=ReadApiConfig(
             dev_mode=dev_mode,
-            cors_allow_origins=(
-                "http://127.0.0.1:5173",
-                "http://localhost:5173",
-                "http://127.0.0.1:8090",
-                "http://localhost:8090",
-            ),
+            cors_allow_origins=_cors_origins_from_env(),
             live_stream=live_stream_config,
             agent_activity=agent_activity_config,
             blast_radius_graph=_build_blast_radius_graph(),
@@ -1054,7 +1094,162 @@ def app() -> Starlette:
             expose_pantheon=True,
             stewardship_map=_build_stewardship_map(),
             workflow_authoring=workflow_authoring,
+            reporting=reporting,
+            process_views=process_views,
         ),
+    )
+
+
+def _build_dynamic_process_views_sync(
+    *,
+    read_model: InMemoryConsoleReadModel,
+    object_types: tuple[Any, ...],
+    link_types: tuple[Any, ...],
+    workflows: tuple[Any, ...],
+) -> tuple[Any, Any]:
+    build = _build_dynamic_process_views(
+        read_model=read_model,
+        object_types=object_types,
+        link_types=link_types,
+        workflows=workflows,
+    )
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(build)
+    with ThreadPoolExecutor(max_workers=1, thread_name_prefix="fdai-dev-seed") as executor:
+        return executor.submit(asyncio.run, build).result()
+
+
+async def _build_dynamic_process_views(
+    *,
+    read_model: InMemoryConsoleReadModel,
+    object_types: tuple[Any, ...],
+    link_types: tuple[Any, ...],
+    workflows: tuple[Any, ...],
+) -> tuple[Any, Any]:
+    """Seed one truthful dev Process and wire its declarative read projections."""
+    from fdai.core.architecture_review import ArchitectureReviewProjector
+    from fdai.core.reporting.composition import default_reporting_engine
+    from fdai.core.reporting.datasources import AuditReader
+    from fdai.core.views import ViewEngine, load_view_catalog
+    from fdai.core.workflow.projection import (
+        ProcessOntologyProjector,
+        ProjectingProcessRuntimeStore,
+    )
+    from fdai.delivery.read_api.routes.process_views import ProcessViewsConfig
+    from fdai.delivery.read_api.routes.reporting import ReportingConfig
+    from fdai.shared.providers.ontology_instance import OntologyObjectRecord
+    from fdai.shared.providers.process_runtime import (
+        ProcessEvent,
+        ProcessEventKind,
+        ProcessSnapshot,
+        ProcessStatus,
+    )
+    from fdai.shared.providers.testing import (
+        InMemoryOntologyInstanceStore,
+        InMemoryProcessRuntimeStore,
+    )
+
+    ontology = InMemoryOntologyInstanceStore(
+        object_types=object_types,
+        link_types=link_types,
+    )
+    await ontology.upsert_object(
+        OntologyObjectRecord(
+            id="fdai-control-plane",
+            object_type="Resource",
+            properties={
+                "id": "fdai-control-plane",
+                "type": "control-plane",
+                "name": "FDAI control plane",
+            },
+        )
+    )
+    manifest = yaml.safe_load(
+        (_REPO_ROOT / "config" / "architecture-review.yaml").read_text(encoding="utf-8")
+    )
+    if not isinstance(manifest, Mapping):
+        raise ValueError("config/architecture-review.yaml MUST contain a mapping")
+    runtime = ProjectingProcessRuntimeStore(
+        runtime=InMemoryProcessRuntimeStore(),
+        projector=ProcessOntologyProjector(
+            ontology,
+            domain_projectors={
+                "architecture-review": ArchitectureReviewProjector(ontology, manifest)
+            },
+        ),
+    )
+    now = datetime.now(tz=UTC)
+    process_id = "dev-architecture-review"
+    correlation_id = "dev-architecture-review"
+    snapshot, _ = await runtime.create(
+        snapshot=ProcessSnapshot(
+            process_id=process_id,
+            workflow_ref="architecture-review",
+            workflow_version="1.0.0",
+            status=ProcessStatus.PENDING,
+            current_step="",
+            target_resource_id="fdai-control-plane",
+            started_at=now,
+            updated_at=now,
+            correlation_id=correlation_id,
+        ),
+        event=ProcessEvent(
+            event_id="dev-arb-created",
+            process_id=process_id,
+            kind=ProcessEventKind.PROCESS_CREATED,
+            idempotency_key="dev-arb:created",
+            recorded_at=now,
+            correlation_id=correlation_id,
+        ),
+    )
+    running = await runtime.transition(
+        process_id=process_id,
+        expected_revision=snapshot.revision,
+        status=ProcessStatus.RUNNING,
+        current_step="domain_reviews",
+        event=ProcessEvent(
+            event_id="dev-arb-domain-reviews",
+            process_id=process_id,
+            kind=ProcessEventKind.STEP_COMPLETED,
+            idempotency_key="dev-arb:domain-reviews",
+            recorded_at=now,
+            correlation_id=correlation_id,
+            step_id="domain_reviews",
+            payload={"branches": ["security", "privacy", "data", "reliability"]},
+        ),
+    )
+    await runtime.transition(
+        process_id=process_id,
+        expected_revision=running.revision,
+        status=ProcessStatus.WAITING,
+        current_step="evidence",
+        event=ProcessEvent(
+            event_id="dev-arb-evidence-wait",
+            process_id=process_id,
+            kind=ProcessEventKind.STEP_WAITING,
+            idempotency_key="dev-arb:evidence-wait",
+            recorded_at=now,
+            correlation_id=correlation_id,
+            step_id="evidence",
+        ),
+    )
+    report_engine, formats = default_reporting_engine(
+        reports_root=_REPO_ROOT / "rule-catalog" / "reports",
+        audit_reader=cast(AuditReader, read_model),
+        ontology_store=ontology,
+        process_store=runtime,
+    )
+    view_specs = load_view_catalog(
+        _REPO_ROOT / "rule-catalog" / "views",
+        report_ids={spec.id for spec in report_engine.catalog().list()},
+        workflow_names={workflow.name for workflow in workflows},
+    )
+    view_engine = ViewEngine(specs=view_specs, reports=report_engine, processes=runtime)
+    return (
+        ReportingConfig(engine=report_engine, formats=formats),
+        ProcessViewsConfig(engine=view_engine),
     )
 
 

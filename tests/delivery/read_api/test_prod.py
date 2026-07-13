@@ -150,6 +150,9 @@ def test_build_prod_read_model_honors_timeout_overrides() -> None:
 def test_build_prod_app_returns_starlette_app() -> None:
     app = build_prod_app(_GOOD_ENV)
     assert isinstance(app, Starlette)
+    paths = {route.path for route in app.routes}
+    assert "/views/process" in paths
+    assert "/views/process/{process_id:str}" in paths
 
 
 def test_build_prod_app_requires_tenant_id() -> None:

@@ -119,11 +119,44 @@ and finally resource abbreviations and labels. This keeps dependency lines visib
 blocks without obscuring their text, while each lifted resource retains a color-matched mirrored
 reflection on the floor plane.
 
-PostgreSQL resources use an isometric cylinder so databases remain recognizable at a glance;
-other shipped resource types currently use the common rectangular block. The resource lift is
-kept deliberately small so each mirrored floor reflection stays visually attached to its node.
-Resource bodies use line-free surfaces with face shading for depth; an outline appears only on
-the selected resource as an interaction cue.
+The map limits its visual grammar to four geometric primitives. Semantic variants change the
+proportions or stacking of those primitives without introducing a new silhouette for every
+Azure resource type:
+
+| Semantic role | Example resource types | Shape |
+|---------------|------------------------|-------|
+| Database | PostgreSQL, SQL Database | Solid-top cylinder |
+| Application runtime | App Service, Container Apps, Functions, AKS | Rectangular block |
+| Gateway and L4 | Front Door, Application Gateway, Load Balancer | Low, wide block |
+| Storage | Storage Account, object storage | Two-level slab |
+| Queue and event bus | Event Hubs, Service Bus, queues, Kafka | Hexagonal prism |
+| Secret and security | Key Vault, Firewall, NSG | Chamfered compact block |
+
+Resource color and layer filtering are separate contracts:
+
+- **Resource color**: every supported Azure resource type and alias maps to an explicit solid
+  token. The palette is derived from the dominant fills in the current
+  [Azure Architecture Icons](https://learn.microsoft.com/azure/architecture/icons/) and adjusted
+  only when a darker solid is required for Canvas contrast. It is described as Azure-aligned,
+  not as a replacement for or modification of the official SVG icons.
+- **Layer filter**: `Scope`, `Network`, `Security`, `Runtime`, `Data`, `Messaging`, and
+  `Observability` filter the operational role of resources. Filter controls use neutral selection
+  marks and counts so they do not imply a second color taxonomy. Empty layers stay visible but
+  disabled, preserving a stable control order across architecture views.
+- **Visual redundancy**: color is paired with a shape and abbreviation. On wider canvases it is
+  also paired with a service label, while pointer selection exposes inspector metadata. The map
+  does not rely on color alone to distinguish resource types.
+
+The right-side `Resource colors` legend lists only the service tokens present in the selected
+architecture view. Event Hubs, databases, and Storage therefore retain distinct green, blue,
+and teal identities even though all three participate in data movement.
+
+The local FDAI view includes an Event Hubs node in the `web-api -> event-hub -> event-worker`
+flow so every primitive is visible during development. Resource lift stays deliberately small
+so each mirrored floor reflection remains visually attached to its node. Bodies use line-free
+surfaces with face shading for depth; an outline appears only on the selected resource as an
+interaction cue. On narrow canvases, the map keeps resource abbreviations but suppresses long
+labels to prevent overlap; selecting a resource still exposes its full name in the inspector.
 
 The same canvas is reused by **Safety > Blast radius** in a context mode that highlights
 the target and reached resources while dimming the rest. Live activity scopes and rule
@@ -263,6 +296,11 @@ the active agent as a chip with a **General** button back to the screen deck;
 each session persists independently in tab-scoped storage and **Clear** only
 clears the active one.
 
+The Agents route also publishes a `selected_agent` record with the focused
+agent's current state, task, and incident correlation. This live row takes
+precedence over the opening context turn, so a newly arrived incident cannot
+leave the conversation answering from an older idle snapshot.
+
 ### Self-describing screens
 
 Each route publishes a `ViewSnapshot` (`src/deck/context.tsx`) that is a screen
@@ -288,12 +326,15 @@ vocabulary, not by adding code. The server narrator receives the same `purpose`
 and `glossary` in the snapshot JSON and is instructed to ground term and causal
 answers in them.
 
-The chat backend (`src/fdai/delivery/read_api/chat.py`) keeps each turn's
+The chat backend (`src/fdai/delivery/read_api/routes/chat.py`) keeps each turn's
 system prompt lean for cost and latency: compact base instructions, the FDAI
 glossary appended only for concept questions (EN + KO), and every `records`
 array capped to a representative sample (with a `_records_truncated` hint) so
 the snapshot JSON does not dominate the token budget - the operator narrows to
-off-sample rows via the page's own search/filter.
+off-sample rows via the page's own search/filter. Its latency router retries
+another configured candidate in the same turn when a backend fails before the
+first token. After a token is visible it never mixes models; an interrupted
+reply stays partial and is labelled as such.
 
 While a turn is pending, the deck renders a **retrieval trace**
 (`src/deck/retrieval-trace.tsx`) in place of a bare typing indicator. It streams
@@ -318,6 +359,11 @@ read-only and grounded:
 - **Stop** - an in-flight streaming reply can be cancelled; whatever streamed so
   far is kept and labelled `stopped` (the backend threads an `AbortSignal`
   through `askBackendStream`).
+- **Transport resilience** - the browser accepts LF or CRLF SSE framing,
+  preserves split UTF-8 code points, and labels interrupted output as partial.
+  Cosmetic token pacing is disabled while the tab or window is unfocused, so a
+  background turn is complete when the operator returns and leaves no polling
+  timer behind.
 - **Copy / Regenerate** - each completed reply exposes a Copy button and a
   Regenerate button that re-asks the operator question that produced it.
 - **Smart autoscroll** - the transcript follows streaming tokens only while the
@@ -394,11 +440,21 @@ cd console
 npm install
 # Terminal 1: run the read API in dev mode (anonymous auth).
 FDAI_READ_API_DEV_MODE=1 \
-    uv run uvicorn 'fdai.delivery.read_api._local:app' \
+  uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
         --factory --port 8000
 
 # Terminal 2: run the SPA against the dev-mode API.
 VITE_DEV_MODE=1 VITE_READ_API_BASE_URL=http://127.0.0.1:8000 npm run dev
+```
+
+When Vite uses another port, add that exact origin to the read API process.
+Wildcards aren't accepted.
+
+```sh
+FDAI_READ_API_DEV_MODE=1 \
+  FDAI_READ_API_CORS_ALLOW_ORIGINS=http://127.0.0.1:5178 \
+  uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
+    --factory --port 8010
 ```
 
 The dev-mode env var is a **boot-time tripwire** - the API refuses to build a
@@ -429,7 +485,7 @@ Prerequisite - two Entra app registrations in your tenant (see
 FDAI_READ_API_LOCAL_ENTRA=1 \
     FDAI_ENTRA_TENANT_ID=<tenant-guid> \
     FDAI_API_AUDIENCE=api://<api-guid> \
-    uv run uvicorn 'fdai.delivery.read_api._local:app' \
+  uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
         --factory --port 8000
 
 # Terminal 2: SPA in NON-dev mode - MSAL actually signs you in.

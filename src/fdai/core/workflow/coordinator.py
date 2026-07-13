@@ -81,6 +81,7 @@ class WorkflowTriggerCoordinator:
                 target_resource_id=target,
                 trigger_ts=event.detected_at,
                 context={"event.event_type": event.event_type},
+                correlation_id=event.correlation_id or str(event.event_id),
             )
             runs.append(run)
         return tuple(runs)

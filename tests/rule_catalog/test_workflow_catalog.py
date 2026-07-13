@@ -24,7 +24,7 @@ from fdai.rule_catalog.schema.workflow import (
     load_workflow_from_mapping,
     workflow_names,
 )
-from fdai.shared.contracts.models import Mode
+from fdai.shared.contracts.models import Mode, WorkflowStepKind
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -94,7 +94,10 @@ def test_shipped_workflow_action_refs_resolve() -> None:
     )
     for wf in catalog:
         for step in wf.steps:
-            assert step.action_type_ref in names
+            if step.kind is WorkflowStepKind.ACTION:
+                assert step.action_type_ref in names
+            else:
+                assert step.action_type_ref is None
             if step.compensated_by is not None:
                 assert step.compensated_by in names
 
@@ -116,6 +119,74 @@ def test_workflow_step_can_reference_a_tool_action_type() -> None:
     assert wf.default_mode is Mode.SHADOW
 
 
+@pytest.mark.parametrize(
+    ("step", "kind"),
+    [
+        (
+            {"id": "wait", "kind": "wait", "wait_for": "evidence.updated", "timeout_seconds": 60},
+            WorkflowStepKind.WAIT,
+        ),
+        (
+            {
+                "id": "approve",
+                "kind": "approval",
+                "approval_role": "approver",
+                "timeout_seconds": 60,
+                "quorum": 2,
+            },
+            WorkflowStepKind.APPROVAL,
+        ),
+        (
+            {"id": "decide", "kind": "decision", "outcomes": ["approved", "rejected"]},
+            WorkflowStepKind.DECISION,
+        ),
+        (
+            {"id": "review", "kind": "parallel", "branches": ["security", "reliability"]},
+            WorkflowStepKind.PARALLEL,
+        ),
+        (
+            {"id": "gate", "kind": "gate", "gate_ref": "known.gate"},
+            WorkflowStepKind.GATE,
+        ),
+    ],
+)
+def test_typed_control_steps_load_without_action_type(
+    step: dict[str, object], kind: WorkflowStepKind
+) -> None:
+    raw = _base_mapping()
+    raw["steps"] = [step]
+    model = load_workflow_from_mapping(
+        raw,
+        schema_registry=_registry(),
+        action_type_names={"remediate.tag-add"},
+        rule_ids={"known.rule"},
+    )
+    assert model.steps[0].kind is kind
+    assert model.steps[0].action_type_ref is None
+
+
+@pytest.mark.parametrize(
+    "step",
+    [
+        {"id": "wait", "kind": "wait", "wait_for": "evidence.updated"},
+        {"id": "approve", "kind": "approval", "timeout_seconds": 60},
+        {"id": "decide", "kind": "decision", "outcomes": ["approved"]},
+        {"id": "parallel", "kind": "parallel", "branches": ["security"]},
+        {"id": "gate", "kind": "gate"},
+    ],
+)
+def test_invalid_control_step_contract_fails(step: dict[str, object]) -> None:
+    raw = _base_mapping()
+    raw["steps"] = [step]
+    with pytest.raises(WorkflowCatalogError):
+        load_workflow_from_mapping(
+            raw,
+            schema_registry=_registry(),
+            action_type_names={"remediate.tag-add"},
+            rule_ids={"known.rule"},
+        )
+
+
 def test_shipped_workflows_compile_to_runbooks() -> None:
     catalog = load_workflow_catalog(
         WORKFLOWS_ROOT,
@@ -127,7 +198,7 @@ def test_shipped_workflows_compile_to_runbooks() -> None:
         assert compiled.runbook.id == wf.name
         assert [s.id for s in compiled.runbook.steps] == [s.id for s in wf.steps]
         assert [s.action_type for s in compiled.runbook.steps] == [
-            s.action_type_ref for s in wf.steps
+            s.action_type_ref or f"workflow.{s.kind.value}" for s in wf.steps
         ]
         # Shipped workflows are shadow-first.
         assert compiled.is_shadow is True

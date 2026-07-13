@@ -85,6 +85,7 @@ def _build_engine(
             NoopDataSource(name="report_feed"),
             NoopDataSource(name="metric"),
             NoopDataSource(name="log_query"),
+            NoopDataSource(name="ontology"),
         )
     )
     widgets = _widgets()

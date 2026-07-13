@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+name: EvidenceArtifact
+version: "1.0.0"
+key: id
+description: Immutable metadata for evidence held in a governed external store.
+properties:
+  id: {type: string, required: true}
+  kind: {type: string, required: true}
+  uri: {type: string, required: true, access_scope: approver, purpose_binding: [architecture_review]}
+  sha256: {type: string, required: true}
+  status: {type: string, required: true}
+  classification: {type: string, required: true}
+  captured_at: {type: datetime, required: true}
+  expires_at: {type: datetime, required: false}

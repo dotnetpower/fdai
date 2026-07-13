@@ -2,11 +2,14 @@ import { forwardRef } from "preact/compat";
 import { useEffect, useImperativeHandle, useRef } from "preact/hooks";
 import {
   constrainGraph,
+  geometryOf,
   isRegion,
-  layerOf,
+  resourceColorOf,
   shapeOf,
   type ArchitectureCameraView,
   type ArchitectureDisplayOptions,
+  type ArchitectureNodeGeometry,
+  type ArchitectureNodeShape,
   type InventoryGraphResponse,
   type InventoryResource,
 } from "./architecture-map.model";
@@ -42,16 +45,6 @@ type CanvasPaint = string | CanvasGradient | CanvasPattern;
 
 const WORLD = { width: 18, height: 12 };
 const LIFT = .10;
-const HEIGHT = .34;
-const NODE_WIDTH = 1.04;
-const NODE_DEPTH = .76;
-const COLORS = {
-  scope: "#697586",
-  network: "#27989b",
-  security: "#d99a3e",
-  compute: "#397fba",
-  data: "#8a62b7",
-} as const;
 
 const DEFAULT_OPTIONS: ArchitectureDisplayOptions = {
   showConnections: true,
@@ -243,6 +236,7 @@ function renderMap(
   highlightedIds?: ReadonlySet<string>,
   options: ArchitectureDisplayOptions = DEFAULT_OPTIONS,
 ): void {
+  const showLabels = options.showLabels && width >= 420;
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#eef2f4";
   context.fillRect(0, 0, width, height);
@@ -253,13 +247,13 @@ function renderMap(
   const regions = graph.resources.filter(isRegion).sort((first, second) =>
     (second.w ?? 0) * (second.h ?? 0) - (first.w ?? 0) * (first.h ?? 0));
   for (const region of regions) {
-    const color = COLORS[layerOf(region)];
+    const color = resourceColorOf(region);
     const points = rectangle(camera, width, height, region.x ?? 0, region.y ?? 0, region.w ?? 0, region.h ?? 0, .01);
     context.save();
     context.globalAlpha = region.type === "subscription" ? .12 : .2;
     fillPolygon(context, points, color, selectedId === region.id ? "#0f6670" : color, selectedId === region.id ? 2.5 : 1.1);
     context.restore();
-    if (options.showLabels) {
+    if (showLabels) {
       drawLabel(context, project(camera, width, height, (region.x ?? 0) + .2, (region.y ?? 0) + .2, .02), region.name, color, 9);
     }
   }
@@ -271,7 +265,7 @@ function renderMap(
     project(camera, width, height, first.x ?? 0, first.y ?? 0).depth);
   for (const node of ordered) drawNodeBody(context, width, height, camera, node, selectedId, highlightedIds);
   if (options.showConnections) drawLinks(context, width, height, camera, graph, highlightedIds);
-  for (const node of ordered) drawNodeOverlay(context, width, height, camera, node, highlightedIds, options.showLabels);
+  for (const node of ordered) drawNodeOverlay(context, width, height, camera, node, highlightedIds, showLabels);
 }
 
 function drawGrid(context: CanvasRenderingContext2D, width: number, height: number, camera: Camera): void {
@@ -299,9 +293,10 @@ function drawReflections(
   for (const node of nodes) {
     const nodeX = node.x ?? 0;
     const nodeY = node.y ?? 0;
-    const color = COLORS[layerOf(node)];
-    const isDatabase = shapeOf(node) === "cylinder";
-    if (isDatabase) {
+    const color = resourceColorOf(node);
+    const shape = shapeOf(node);
+    const geometry = geometryOf(node);
+    if (shape === "cylinder") {
       drawCylinderReflection(
         context,
         width,
@@ -311,28 +306,31 @@ function drawReflections(
         nodeY,
         color,
         highlightAlpha(node.id, highlightedIds),
+        geometry,
       );
       continue;
     }
-    const x = nodeX - NODE_WIDTH / 2;
-    const y = nodeY - NODE_DEPTH / 2;
-    const mirrorBase = rectangle(camera, width, height, x, y, NODE_WIDTH, NODE_DEPTH, -LIFT);
-    const mirrorTop = rectangle(
-      camera,
-      width,
-      height,
-      x,
-      y,
-      NODE_WIDTH,
-      NODE_DEPTH,
-      -(LIFT + HEIGHT),
+    if (shape === "slab") {
+      drawSlabReflection(
+        context, width, height, camera, nodeX, nodeY, color,
+        highlightAlpha(node.id, highlightedIds), geometry,
+      );
+      drawContactGlow(
+        context, width, height, camera, nodeX, nodeY, color,
+        highlightAlpha(node.id, highlightedIds), geometry,
+      );
+      continue;
+    }
+    const mirrorBase = footprintPoints(camera, width, height, nodeX, nodeY, shape, geometry, -LIFT);
+    const mirrorTop = footprintPoints(
+      camera, width, height, nodeX, nodeY, shape, geometry, -(LIFT + geometry.height),
     );
     const alpha = highlightAlpha(node.id, highlightedIds);
     context.save();
     context.globalAlpha = alpha;
     context.filter = "blur(.8px)";
-    for (let index = 0; index < 4; index += 1) {
-      const next = (index + 1) % 4;
+    for (let index = 0; index < mirrorBase.length; index += 1) {
+      const next = (index + 1) % mirrorBase.length;
       const face = [mirrorBase[index]!, mirrorBase[next]!, mirrorTop[next]!, mirrorTop[index]!];
       const fade = context.createLinearGradient(
         mirrorBase[index]!.x,
@@ -348,20 +346,35 @@ function drawReflections(
     fillPolygon(context, mirrorTop, rgba(color, .035), rgba(color, 0), 0);
     context.restore();
 
-    const point = project(camera, width, height, nodeX, nodeY, .004);
-    context.save();
-    context.globalAlpha = alpha * .24;
-    context.translate(point.x, point.y + 2);
-    context.scale(1, .35);
-    const glow = context.createRadialGradient(0, 0, 0, 0, 0, camera.scale * .45);
-    glow.addColorStop(0, color);
-    glow.addColorStop(1, rgba(color, 0));
-    context.fillStyle = glow;
-    context.beginPath();
-    context.arc(0, 0, camera.scale * .45, 0, Math.PI * 2);
-    context.fill();
-    context.restore();
+    drawContactGlow(context, width, height, camera, nodeX, nodeY, color, alpha, geometry);
   }
+}
+
+function drawContactGlow(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  camera: Camera,
+  x: number,
+  y: number,
+  color: string,
+  alpha: number,
+  geometry: ArchitectureNodeGeometry,
+): void {
+  const point = project(camera, width, height, x, y, .004);
+  const radius = camera.scale * Math.max(geometry.width, geometry.depth) * .43;
+  context.save();
+  context.globalAlpha = alpha * .24;
+  context.translate(point.x, point.y + 2);
+  context.scale(1, .35);
+  const glow = context.createRadialGradient(0, 0, 0, 0, 0, radius);
+  glow.addColorStop(0, color);
+  glow.addColorStop(1, rgba(color, 0));
+  context.fillStyle = glow;
+  context.beginPath();
+  context.arc(0, 0, radius, 0, Math.PI * 2);
+  context.fill();
+  context.restore();
 }
 
 function drawLinks(
@@ -377,8 +390,14 @@ function drawLinks(
     const source = byId.get(link.source);
     const target = byId.get(link.target);
     if (!source || !target || isRegion(source) || isRegion(target)) continue;
-    const start = project(camera, width, height, source.x ?? 0, source.y ?? 0, LIFT + HEIGHT * .7);
-    const end = project(camera, width, height, target.x ?? 0, target.y ?? 0, LIFT + HEIGHT * .7);
+    const start = project(
+      camera, width, height, source.x ?? 0, source.y ?? 0,
+      LIFT + geometryOf(source).height * .7,
+    );
+    const end = project(
+      camera, width, height, target.x ?? 0, target.y ?? 0,
+      LIFT + geometryOf(target).height * .7,
+    );
     const edgeActive = !highlightedIds || (highlightedIds.has(source.id) && highlightedIds.has(target.id));
     context.save();
     context.globalAlpha = edgeActive ? .72 : .1;
@@ -413,8 +432,10 @@ function drawNodeBody(
 ): void {
   const nodeX = node.x ?? 0;
   const nodeY = node.y ?? 0;
-  const color = COLORS[layerOf(node)];
-  if (shapeOf(node) === "cylinder") {
+  const color = resourceColorOf(node);
+  const shape = shapeOf(node);
+  const geometry = geometryOf(node);
+  if (shape === "cylinder") {
     drawCylinderBody(
       context,
       width,
@@ -425,37 +446,51 @@ function drawNodeBody(
       color,
       selectedId === node.id,
       highlightAlpha(node.id, highlightedIds),
+      geometry,
     );
     return;
   }
-  const top = rectangle(
-    camera,
-    width,
-    height,
-    nodeX - NODE_WIDTH / 2,
-    nodeY - NODE_DEPTH / 2,
-    NODE_WIDTH,
-    NODE_DEPTH,
-    LIFT + HEIGHT,
+  if (shape === "slab") {
+    drawSlabBody(
+      context, width, height, camera, nodeX, nodeY, color,
+      selectedId === node.id, highlightAlpha(node.id, highlightedIds), geometry,
+    );
+    return;
+  }
+  const top = footprintPoints(
+    camera, width, height, nodeX, nodeY, shape, geometry, LIFT + geometry.height,
   );
-  const base = rectangle(
-    camera,
-    width,
-    height,
-    nodeX - NODE_WIDTH / 2,
-    nodeY - NODE_DEPTH / 2,
-    NODE_WIDTH,
-    NODE_DEPTH,
-    LIFT,
+  const base = footprintPoints(camera, width, height, nodeX, nodeY, shape, geometry, LIFT);
+  drawPrismBody(
+    context, top, base, color, selectedId === node.id,
+    highlightAlpha(node.id, highlightedIds),
   );
+}
+
+function drawPrismBody(
+  context: CanvasRenderingContext2D,
+  top: readonly Point[],
+  base: readonly Point[],
+  color: string,
+  selected: boolean,
+  alpha: number,
+): void {
   context.save();
-  context.globalAlpha = highlightAlpha(node.id, highlightedIds);
-  for (let index = 0; index < 4; index += 1) {
-    const next = (index + 1) % 4;
+  context.globalAlpha = alpha;
+  const faces = top.map((point, index) => {
+    const next = (index + 1) % top.length;
+    const points = [point, top[next]!, base[next]!, base[index]!];
+    return {
+      points,
+      depth: points.reduce((total, current) => total + current.depth, 0) / points.length,
+      index,
+    };
+  }).sort((first, second) => second.depth - first.depth);
+  for (const face of faces) {
     fillPolygon(
       context,
-      [top[index]!, top[next]!, base[next]!, base[index]!],
-      darken(color, index % 2 ? .72 : .56),
+      face.points,
+      darken(color, face.index % 2 ? .72 : .57),
       "transparent",
       0,
     );
@@ -464,10 +499,89 @@ function drawNodeBody(
     context,
     top,
     color,
-    selectedId === node.id ? "#102f36" : "transparent",
-    selectedId === node.id ? 2.4 : 0,
+    selected ? "#102f36" : "transparent",
+    selected ? 2.4 : 0,
   );
   context.restore();
+}
+
+function drawSlabReflection(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  camera: Camera,
+  x: number,
+  y: number,
+  color: string,
+  alpha: number,
+  geometry: ArchitectureNodeGeometry,
+): void {
+  drawPrismReflection(
+    context,
+    footprintPoints(camera, width, height, x, y, "slab", geometry, -LIFT),
+    footprintPoints(camera, width, height, x, y, "slab", geometry, -(LIFT + geometry.height)),
+    color,
+    alpha,
+  );
+}
+
+function drawPrismReflection(
+  context: CanvasRenderingContext2D,
+  mirrorBase: readonly Point[],
+  mirrorTop: readonly Point[],
+  color: string,
+  alpha: number,
+): void {
+  context.save();
+  context.globalAlpha = alpha;
+  context.filter = "blur(.8px)";
+  for (let index = 0; index < mirrorBase.length; index += 1) {
+    const next = (index + 1) % mirrorBase.length;
+    const face = [mirrorBase[index]!, mirrorBase[next]!, mirrorTop[next]!, mirrorTop[index]!];
+    const fade = context.createLinearGradient(
+      mirrorBase[index]!.x,
+      mirrorBase[index]!.y,
+      mirrorTop[index]!.x,
+      mirrorTop[index]!.y,
+    );
+    fade.addColorStop(0, rgba(color, .28));
+    fade.addColorStop(.5, rgba(color, .12));
+    fade.addColorStop(1, rgba(color, 0));
+    fillPolygon(context, face, fade, rgba(color, 0), 0);
+  }
+  fillPolygon(context, mirrorTop, rgba(color, .035), rgba(color, 0), 0);
+  context.restore();
+}
+
+function drawSlabBody(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  camera: Camera,
+  x: number,
+  y: number,
+  color: string,
+  selected: boolean,
+  alpha: number,
+  geometry: ArchitectureNodeGeometry,
+): void {
+  const { lowerHeight, lowerGeometry, upperGeometry } = slabTiers(geometry);
+  drawPrismBody(
+    context,
+    footprintPoints(camera, width, height, x, y, "slab", lowerGeometry, LIFT + lowerHeight),
+    footprintPoints(camera, width, height, x, y, "slab", lowerGeometry, LIFT),
+    darken(color, .86),
+    false,
+    alpha,
+  );
+  drawPrismBody(
+    context,
+    footprintPoints(camera, width, height, x, y, "slab", upperGeometry, LIFT + geometry.height),
+    footprintPoints(camera, width, height, x, y, "slab", upperGeometry, LIFT + lowerHeight),
+    color,
+    selected,
+    alpha,
+  );
 }
 
 function drawCylinderBody(
@@ -480,9 +594,12 @@ function drawCylinderBody(
   color: string,
   selected: boolean,
   alpha: number,
+  geometry: ArchitectureNodeGeometry,
 ): void {
-  const top = circlePoints(camera, width, height, x, y, .46, LIFT + HEIGHT);
-  const base = circlePoints(camera, width, height, x, y, .46, LIFT);
+  const top = circlePoints(
+    camera, width, height, x, y, geometry.width / 2, LIFT + geometry.height,
+  );
+  const base = circlePoints(camera, width, height, x, y, geometry.width / 2, LIFT);
   const bounds = [...top, ...base].reduce(
     (current, point) => ({
       minX: Math.min(current.minX, point.x),
@@ -496,19 +613,8 @@ function drawCylinderBody(
   sideFill.addColorStop(1, darken(color, .58));
   context.save();
   context.globalAlpha = alpha;
-  for (let index = 0; index < top.length; index += 1) {
-    const next = (index + 1) % top.length;
-    fillPolygon(
-      context,
-      [top[index]!, top[next]!, base[next]!, base[index]!],
-      sideFill,
-      "transparent",
-      0,
-    );
-  }
+  fillPolygon(context, convexHull([...top, ...base]), sideFill, "transparent", 0);
   fillPolygon(context, top, color, selected ? "#102f36" : "transparent", selected ? 2.4 : 0);
-  const inner = circlePoints(camera, width, height, x, y, .37, LIFT + HEIGHT + .006);
-  fillPolygon(context, inner, rgba("#ffffff", .09), "transparent", 0);
   context.restore();
 }
 
@@ -521,9 +627,12 @@ function drawCylinderReflection(
   y: number,
   color: string,
   alpha: number,
+  geometry: ArchitectureNodeGeometry,
 ): void {
-  const mirrorBase = circlePoints(camera, width, height, x, y, .46, -LIFT);
-  const mirrorTop = circlePoints(camera, width, height, x, y, .46, -(LIFT + HEIGHT));
+  const mirrorBase = circlePoints(camera, width, height, x, y, geometry.width / 2, -LIFT);
+  const mirrorTop = circlePoints(
+    camera, width, height, x, y, geometry.width / 2, -(LIFT + geometry.height),
+  );
   context.save();
   context.globalAlpha = alpha;
   context.filter = "blur(.8px)";
@@ -556,9 +665,10 @@ function drawNodeOverlay(
 ): void {
   const nodeX = node.x ?? 0;
   const nodeY = node.y ?? 0;
+  const geometry = geometryOf(node);
   context.save();
   context.globalAlpha = highlightAlpha(node.id, highlightedIds);
-  const center = project(camera, width, height, nodeX, nodeY, LIFT + HEIGHT + .02);
+  const center = project(camera, width, height, nodeX, nodeY, LIFT + geometry.height + .02);
   context.fillStyle = "#fff";
   context.font = "800 9px Aptos, Segoe UI, sans-serif";
   context.textAlign = "center";
@@ -584,11 +694,79 @@ function pickResource(
 ): InventoryResource | null {
   let best: { resource: InventoryResource; distance: number } | null = null;
   for (const resource of graph.resources.filter((item) => !isRegion(item))) {
-    const point = project(camera, width, height, resource.x ?? 0, resource.y ?? 0, LIFT + HEIGHT / 2);
+    const silhouette = nodeSilhouette(camera, width, height, resource);
+    if (!pointInPolygon(screenX, screenY, silhouette)) continue;
+    const point = project(
+      camera, width, height, resource.x ?? 0, resource.y ?? 0,
+      LIFT + geometryOf(resource).height / 2,
+    );
     const distance = Math.hypot(screenX - point.x, screenY - point.y);
-    if (distance < 28 && (!best || distance < best.distance)) best = { resource, distance };
+    if (!best || distance < best.distance) best = { resource, distance };
   }
   return best?.resource ?? null;
+}
+
+function nodeSilhouette(
+  camera: Camera,
+  width: number,
+  height: number,
+  resource: InventoryResource,
+): Point[] {
+  const x = resource.x ?? 0;
+  const y = resource.y ?? 0;
+  const shape = shapeOf(resource);
+  const geometry = geometryOf(resource);
+  if (shape === "cylinder") {
+    return convexHull([
+      ...circlePoints(camera, width, height, x, y, geometry.width / 2, LIFT),
+      ...circlePoints(camera, width, height, x, y, geometry.width / 2, LIFT + geometry.height),
+    ]);
+  }
+  if (shape === "slab") {
+    const { upperGeometry } = slabTiers(geometry);
+    return convexHull([
+      ...footprintPoints(camera, width, height, x, y, shape, geometry, LIFT),
+      ...footprintPoints(
+        camera, width, height, x, y, shape, upperGeometry, LIFT + geometry.height,
+      ),
+    ]);
+  }
+  return convexHull([
+    ...footprintPoints(camera, width, height, x, y, shape, geometry, LIFT),
+    ...footprintPoints(camera, width, height, x, y, shape, geometry, LIFT + geometry.height),
+  ]);
+}
+
+function slabTiers(geometry: ArchitectureNodeGeometry): {
+  lowerHeight: number;
+  lowerGeometry: ArchitectureNodeGeometry;
+  upperGeometry: ArchitectureNodeGeometry;
+} {
+  const lowerHeight = geometry.height * .48;
+  const inset = Math.min(geometry.width, geometry.depth) * .17;
+  return {
+    lowerHeight,
+    lowerGeometry: { ...geometry, height: lowerHeight },
+    upperGeometry: {
+      width: geometry.width - inset,
+      depth: geometry.depth - inset,
+      height: geometry.height - lowerHeight,
+    },
+  };
+}
+
+function pointInPolygon(x: number, y: number, points: readonly Point[]): boolean {
+  let inside = false;
+  for (let index = 0, previous = points.length - 1; index < points.length; previous = index++) {
+    const currentPoint = points[index]!;
+    const previousPoint = points[previous]!;
+    if (
+      (currentPoint.y > y) !== (previousPoint.y > y) &&
+      x < ((previousPoint.x - currentPoint.x) * (y - currentPoint.y)) /
+        (previousPoint.y - currentPoint.y) + currentPoint.x
+    ) inside = !inside;
+  }
+  return inside;
 }
 
 function rectangle(camera: Camera, width: number, height: number, x: number, y: number, rectWidth: number, rectHeight: number, z: number): Quad {
@@ -598,6 +776,80 @@ function rectangle(camera: Camera, width: number, height: number, x: number, y: 
     project(camera, width, height, x + rectWidth, y + rectHeight, z),
     project(camera, width, height, x, y + rectHeight, z),
   ];
+}
+
+function footprintPoints(
+  camera: Camera,
+  width: number,
+  height: number,
+  centerX: number,
+  centerY: number,
+  shape: ArchitectureNodeShape,
+  geometry: ArchitectureNodeGeometry,
+  z: number,
+): Point[] {
+  if (shape === "hexagon") {
+    return regularPolygonPoints(
+      camera, width, height, centerX, centerY, geometry.width, geometry.depth, z, 6, Math.PI / 6,
+    );
+  }
+  if (shape === "compact") {
+    const halfWidth = geometry.width / 2;
+    const halfDepth = geometry.depth / 2;
+    const cut = Math.min(geometry.width, geometry.depth) * .18;
+    return worldPoints(camera, width, height, z, [
+      [centerX - halfWidth + cut, centerY - halfDepth],
+      [centerX + halfWidth - cut, centerY - halfDepth],
+      [centerX + halfWidth, centerY - halfDepth + cut],
+      [centerX + halfWidth, centerY + halfDepth - cut],
+      [centerX + halfWidth - cut, centerY + halfDepth],
+      [centerX - halfWidth + cut, centerY + halfDepth],
+      [centerX - halfWidth, centerY + halfDepth - cut],
+      [centerX - halfWidth, centerY - halfDepth + cut],
+    ]);
+  }
+  return [...rectangle(
+    camera, width, height,
+    centerX - geometry.width / 2, centerY - geometry.depth / 2,
+    geometry.width, geometry.depth, z,
+  )];
+}
+
+function regularPolygonPoints(
+  camera: Camera,
+  width: number,
+  height: number,
+  centerX: number,
+  centerY: number,
+  polygonWidth: number,
+  polygonDepth: number,
+  z: number,
+  sides: number,
+  rotation: number,
+): Point[] {
+  return worldPoints(
+    camera,
+    width,
+    height,
+    z,
+    Array.from({ length: sides }, (_, index) => {
+      const angle = rotation + (index / sides) * Math.PI * 2;
+      return [
+        centerX + Math.cos(angle) * polygonWidth / 2,
+        centerY + Math.sin(angle) * polygonDepth / 2,
+      ] as const;
+    }),
+  );
+}
+
+function worldPoints(
+  camera: Camera,
+  width: number,
+  height: number,
+  z: number,
+  points: readonly (readonly [number, number])[],
+): Point[] {
+  return points.map(([x, y]) => project(camera, width, height, x, y, z));
 }
 
 function circlePoints(
@@ -621,6 +873,26 @@ function circlePoints(
       z,
     );
   });
+}
+
+function convexHull(points: readonly Point[]): Point[] {
+  const ordered = [...points].sort((first, second) => first.x - second.x || first.y - second.y);
+  const cross = (origin: Point, first: Point, second: Point) =>
+    (first.x - origin.x) * (second.y - origin.y) -
+    (first.y - origin.y) * (second.x - origin.x);
+  const buildHalf = (candidates: readonly Point[]) => {
+    const half: Point[] = [];
+    for (const point of candidates) {
+      while (half.length >= 2 && cross(half.at(-2)!, half.at(-1)!, point) <= 0) half.pop();
+      half.push(point);
+    }
+    return half;
+  };
+  const lower = buildHalf(ordered);
+  const upper = buildHalf([...ordered].reverse());
+  lower.pop();
+  upper.pop();
+  return [...lower, ...upper];
 }
 
 function fillPolygon(
@@ -670,7 +942,10 @@ function abbreviation(type: string): string {
 
 function darken(color: string, factor: number): string {
   const value = Number.parseInt(color.slice(1), 16);
-  return `rgb(${Math.round(((value >> 16) & 255) * factor)},${Math.round(((value >> 8) & 255) * factor)},${Math.round((value & 255) * factor)})`;
+  const red = Math.round(((value >> 16) & 255) * factor);
+  const green = Math.round(((value >> 8) & 255) * factor);
+  const blue = Math.round((value & 255) * factor);
+  return `#${((red << 16) | (green << 8) | blue).toString(16).padStart(6, "0")}`;
 }
 
 function rgba(color: string, alpha: number): string {

@@ -37,6 +37,83 @@ import {
   summariseRow,
 } from "./answerer.helpers";
 
+export interface ConversationContextTurn {
+  readonly role: "user" | "assistant";
+  readonly content: string;
+}
+
+/** Answer agent status / recent-work questions from the trusted context turn
+ *  injected when an operator opens an agent-scoped conversation. The parser
+ *  only accepts the fixed agent-context envelope, so ordinary prior replies
+ *  cannot be mistaken for current operational state. */
+export function resolveRecentAgentWork(
+  q: string,
+  history: readonly ConversationContextTurn[],
+  snapshot?: ViewSnapshot | null,
+): Answer | null {
+  const asksAboutWork =
+    /\b(what|which).*(working on|worked on|been doing|doing now)\b|\b(current|recent|latest) (work|activity|incident)\b/.test(q) ||
+    /\uCD5C\uADFC|\uC694\uC998|\uD604\uC7AC|\uBB34\uC2A8 \uC77C|\uD558\uACE0 \uC788/.test(q);
+  if (!asksAboutWork) return null;
+
+  const context = [...history]
+    .reverse()
+    .find(
+      (turn) =>
+        turn.role === "assistant" &&
+        turn.content.startsWith("Context for a conversation about the FDAI agent "),
+    )?.content;
+  if (!context) return null;
+
+  const agent = context.match(/^Context for a conversation about the FDAI agent ([^(\n]+)(?: \(|\.)/m)?.[1]?.trim();
+  if (!agent) return null;
+
+  const selectedAgent = snapshot?.records?.selected_agent?.find(
+    (row) => row.agent === agent || q.includes(String(row.agent ?? "").toLowerCase()),
+  );
+  if (selectedAgent) {
+    const currentState = String(selectedAgent.state ?? "unknown");
+    const currentTask = String(selectedAgent.task ?? "Current task unavailable");
+    const correlation = selectedAgent.correlation_id;
+    const incident = snapshot?.records?.incidents?.find(
+      (row) => correlation != null && row.correlation_id === correlation,
+    );
+    const incidentText = incident
+      ? ` ${agent} is currently working on:\n- ${String(incident.ticket ?? incident.correlation_id ?? "incident")} (${String(incident.status ?? "unknown")}, ${String(incident.severity ?? "unknown")}) ${String(incident.title ?? "Untitled incident")}`
+      : ` ${agent} has no active incident on the current screen.`;
+    return {
+      text: `${agent} is currently ${currentState} - ${currentTask}.${incidentText}`,
+      citations: [
+        { label: `${agent} state`, value: currentState },
+        ...(incident
+          ? [{ label: "incident", value: String(incident.ticket ?? correlation) }]
+          : []),
+      ],
+      followUps: incident ? ["why did the current incident start?"] : [],
+    };
+  }
+
+  const state = context.match(/^Current state: ([^\n]+)$/m)?.[1]?.trim();
+  const incidentsBlock = context.match(
+    new RegExp(`^Recent incidents ${agent.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")} worked \\(newest first\\):\\n+([\\s\\S]*?)(?:\\n\\n|$)`, "m"),
+  )?.[1];
+  const incidents = incidentsBlock
+    ?.split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- ")) ?? [];
+
+  const statusText = state ? `${agent} is currently ${state}` : `${agent}'s current state is not available.`;
+  const workText =
+    incidents.length > 0
+      ? ` Most recently, ${agent} worked on:\n${incidents.join("\n")}`
+      : ` ${agent} has no recent incident activity in this conversation context.`;
+  return {
+    text: `${statusText}${workText}`,
+    citations: [{ label: `${agent} context`, value: `${incidents.length} recent incident(s)` }],
+    followUps: incidents.length > 0 ? [`why did the latest incident start?`] : [],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Glossary resolvers (screen-declared + universal fallback)
 // ---------------------------------------------------------------------------

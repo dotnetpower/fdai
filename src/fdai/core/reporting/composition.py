@@ -36,6 +36,7 @@ from fdai.core.reporting.datasources import (
     LogQueryDataSource,
     MetricDataSource,
     NoopDataSource,
+    OntologyDataSource,
     ReportFeedDataSource,
 )
 from fdai.core.reporting.engine import ReportEngine
@@ -52,9 +53,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from fdai.core.report_feed.feed import ReportFeed
     from fdai.shared.providers.log_query import LogQueryProvider
     from fdai.shared.providers.metric import MetricProvider
+    from fdai.shared.providers.ontology_instance import OntologyInstanceStore
+    from fdai.shared.providers.process_runtime import ProcessRuntimeStore
 
 
-_KNOWN_DATASOURCE_NAMES: frozenset[str] = frozenset({"audit", "report_feed", "metric", "log_query"})
+_KNOWN_DATASOURCE_NAMES: frozenset[str] = frozenset(
+    {"audit", "report_feed", "metric", "log_query", "ontology"}
+)
 
 
 def default_reporting_engine(
@@ -64,6 +69,8 @@ def default_reporting_engine(
     report_feed: ReportFeed | None = None,
     metric_provider: MetricProvider | None = None,
     log_query_provider: LogQueryProvider | None = None,
+    ontology_store: OntologyInstanceStore | None = None,
+    process_store: ProcessRuntimeStore | None = None,
 ) -> tuple[ReportEngine, FormatRegistry]:
     """Build the upstream reporting engine + a default format registry.
 
@@ -102,6 +109,11 @@ def default_reporting_engine(
         sources.register(LogQueryDataSource(provider=log_query_provider))
     else:
         sources.register(NoopDataSource(name="log_query"))
+
+    if ontology_store is not None and process_store is not None:
+        sources.register(OntologyDataSource(ontology=ontology_store, processes=process_store))
+    else:
+        sources.register(NoopDataSource(name="ontology"))
 
     catalog = ReportCatalog()
     if reports_root is not None:

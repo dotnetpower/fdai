@@ -59,8 +59,8 @@ export function LiveRoute({ client }: Props) {
   const [tickerPaused, setTickerPaused] = useState(false);
   const [tickerCollapsed, setTickerCollapsed] = useState(false);
   const pausedSnapshotRef = useRef<readonly LiveStageEvent[]>([]);
-  const pausedAtRef = useRef<number>(0);
-  const [pausedSince, setPausedSince] = useState<number>(0);
+  const pausedRef = useRef(false);
+  const pendingEventsRef = useRef<LiveStageEvent[]>([]);
 
   const url = useMemo(() => {
     const cfg = loadConfig();
@@ -75,6 +75,7 @@ export function LiveRoute({ client }: Props) {
       // ONE reducer dispatch per tick so a high-rate stream never
       // triggers one React render per event (that path OOMs the
       // browser after a few minutes on tabs left open).
+      if (pausedRef.current) return;
       pendingEventsRef.current.push(event);
     },
   });
@@ -85,11 +86,11 @@ export function LiveRoute({ client }: Props) {
   // setInterval (not requestAnimationFrame) so the flusher does NOT
   // fire at 60 Hz when the buffer is empty - the reducer only runs
   // when there is real work.
-  const pendingEventsRef = useRef<LiveStageEvent[]>([]);
   useEffect(() => {
     const FLUSH_CAP = 200;
     const FLUSH_INTERVAL_MS = 250;
     const handle = window.setInterval(() => {
+      if (pausedRef.current) return;
       const buffer = pendingEventsRef.current;
       if (buffer.length === 0) return;
       const drained =
@@ -105,6 +106,7 @@ export function LiveRoute({ client }: Props) {
 
   useEffect(() => {
     const handle = window.setInterval(() => {
+      if (pausedRef.current) return;
       dispatch({ kind: "tick", now: Date.now() });
     }, 250);
     return () => window.clearInterval(handle);
@@ -114,23 +116,20 @@ export function LiveRoute({ client }: Props) {
   // reference alive to silence unused-var complaints in strict mode.
   void client;
 
-  // Freeze the ticker snapshot at pause time; while paused, the reducer
-  // keeps updating state.ticker in the background but the operator sees
-  // a stable list plus a "N new" counter so nothing is missed.
+  // Pause freezes the full presentation while leaving the read-only SSE
+  // connection open. Frames received during the pause are intentionally
+  // ignored; History remains the source for complete recorded outcomes.
   const displayedTicker = tickerPaused ? pausedSnapshotRef.current : state.ticker;
-  const newSincePause =
-    tickerPaused && pausedSince > 0 ? Math.max(0, state.session_total - pausedSince) : 0;
 
   const togglePause = () => {
     if (tickerPaused) {
+      pausedRef.current = false;
       setTickerPaused(false);
-      setPausedSince(0);
       pausedSnapshotRef.current = [];
-      pausedAtRef.current = 0;
     } else {
+      pausedRef.current = true;
+      pendingEventsRef.current = [];
       pausedSnapshotRef.current = state.ticker;
-      pausedAtRef.current = Date.now();
-      setPausedSince(state.session_total);
       setTickerPaused(true);
     }
   };
@@ -143,7 +142,8 @@ export function LiveRoute({ client }: Props) {
   const eps = (state.ratePings.length / (RATE_WINDOW_MS / 1000)).toFixed(1);
   const gateTotal = Object.values(state.gateCounts).reduce((a, b) => a + b, 0);
   const tierTotal = Object.values(state.tierCounts).reduce((a, b) => a + b, 0);
-  const hilPending = (state.gateCounts.hil ?? 0);
+  const autoShare = gateTotal > 0 ? Math.round(((state.gateCounts.auto ?? 0) / gateTotal) * 100) : 0;
+  const hilDecisions = state.gateCounts.hil ?? 0;
 
   // Attention triage - count tiles the operator actually needs to look at.
   // A tile is "stuck" if it started > STUCK_MS ago, is not completed, and
@@ -190,6 +190,23 @@ export function LiveRoute({ client }: Props) {
     () => state.tiles.filter((t) => t !== null).length,
     [state.tiles],
   );
+  const filterCounts = useMemo(
+    () => ({
+      all: activeTileCount,
+      hil: state.tiles.filter((tile) => tile?.gate_decision === "hil").length,
+      deny: state.tiles.filter((tile) => tile?.gate_decision === "deny").length,
+      failed: state.tiles.filter((tile) => tile?.failed === true).length,
+    }),
+    [activeTileCount, state.tiles],
+  );
+  const streamOpen = status === "open";
+  const emptyState = streamOpen
+    ? "Stream connected. Waiting for the next control-plane event."
+    : status === "connecting"
+      ? "Connecting to the live event stream."
+      : status === "idle"
+        ? "Live observation is idle while this view is not connected."
+        : "Live observation is unavailable. Use History for recorded outcomes.";
 
   usePublishViewContext(
     () => {
@@ -360,22 +377,42 @@ export function LiveRoute({ client }: Props) {
     <div class="live" data-filter={state.filter} data-ticker-collapsed={tickerCollapsed ? "1" : "0"}>
       <section class="live-header">
         <div>
-          <h2>Live</h2>
-          <p class="muted">
-            Every tile is one control-plane action flowing through the pipeline. Wire:
-            <code>GET /live/stream</code>.
-          </p>
+          <span class="live-eyebrow">Live · autonomy at work</span>
+          <h2>
+            Control plane
+            <span class={`live-heartbeat ${streamOpen ? "is-live" : ""}`} aria-hidden="true" />
+          </h2>
         </div>
         <div class="live-header-right">
+          <button
+            type="button"
+            class="live-control-btn"
+            onClick={togglePause}
+            aria-pressed={tickerPaused}
+            title={tickerPaused ? "Resume the audit feed" : "Pause the audit feed"}
+          >
+            {tickerPaused ? (
+              <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+                <path d="M3 2 L10 6 L3 10 Z" fill="currentColor" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+                <rect x="3" y="2" width="2.5" height="8" fill="currentColor" />
+                <rect x="6.5" y="2" width="2.5" height="8" fill="currentColor" />
+              </svg>
+            )}
+            {tickerPaused ? "Resume feed" : "Pause feed"}
+          </button>
           {isDevMode ? (
             <span class="live-env-badge live-env-dev" title="dev mode: synthetic events, no real cloud calls">
               dev
             </span>
           ) : null}
-          <span class="live-header-session muted">
-            watching for <strong>{formatDuration(state.now - state.session_started_at)}</strong>
-            {" · "}
-            <strong>{state.session_total}</strong> events
+          <span class="live-context-tag">
+            source <code>GET /live/stream</code>
+          </span>
+          <span class="live-context-tag">
+            window <strong>60s</strong>
           </span>
           <div class={`live-status live-status-${status}`}>
             <span class="live-status-dot" />
@@ -385,15 +422,13 @@ export function LiveRoute({ client }: Props) {
         </div>
       </section>
 
-      <section
-        class={`live-attention ${attentionTotal > 0 ? "live-attention-active" : "live-attention-calm"}`}
-        aria-label="operator attention triage"
-      >
-        {attentionTotal === 0 ? (
-          <span class="live-attention-calm-text">
-            <span class="live-attention-dot" aria-hidden="true" /> no attention needed · autonomy holding
-          </span>
-        ) : (
+      <p class="live-lead">
+        Every tile is one control-plane action flowing through trust routing, deterministic
+        verification, the risk gate, and append-only audit. This surface observes; it never executes.
+      </p>
+
+      {streamOpen && attentionTotal > 0 ? (
+        <section class="live-attention live-attention-active" aria-label="operator attention triage">
           <>
             <span class="live-attention-label">attention</span>
             {attention.hil > 0 ? (
@@ -435,13 +470,15 @@ export function LiveRoute({ client }: Props) {
               </span>
             ) : null}
           </>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <section class="grid live-kpis">
-        <div class="card kpi live-kpi-eps">
-          <span class="label">Events / sec (60s)</span>
-          <span class="value">{eps}</span>
+        <div class="card kpi live-kpi live-kpi-eps">
+          <span class="label">Events / sec</span>
+          <span class="live-kpi-value">
+            {eps}<small>/s · 60s avg</small>
+          </span>
           <Sparkline buckets={state.rateBuckets} latSum={state.latSum} latCount={state.latCount} />
           <div class="live-spark-legend" aria-hidden="true">
             <span class="live-spark-key t0"><i />T0 <b>{sumBuckets(state.rateBuckets.t0)}</b></span>
@@ -449,20 +486,11 @@ export function LiveRoute({ client }: Props) {
             <span class="live-spark-key t2"><i />T2 <b>{sumBuckets(state.rateBuckets.t2)}</b></span>
           </div>
         </div>
-        <div class="card kpi">
-          <span class="label">Tier mix (60s)</span>
-          <StackBar
-            entries={(["t0", "t1", "t2"] as const).map((k) => ({
-              key: k,
-              label: k.toUpperCase(),
-              value: state.tierCounts[k] ?? 0,
-              className: `live-tier live-tier-${k}`,
-            }))}
-            total={tierTotal}
-          />
-        </div>
-        <div class="card kpi">
+        <div class="card kpi live-kpi">
           <span class="label">Gate mix (60s)</span>
+          <span class="live-kpi-value">
+            {autoShare}% <small>auto</small>
+          </span>
           <StackBar
             entries={(["auto", "hil", "abstain", "deny"] as const).map((k) => ({
               key: k,
@@ -471,18 +499,47 @@ export function LiveRoute({ client }: Props) {
               className: `live-gate live-gate-${k}`,
             }))}
             total={gateTotal}
+            showLegend={false}
+          />
+          <div class="live-mix-legend">
+            {(["auto", "hil", "abstain", "deny"] as const).map((key) => (
+              <span key={key} class={`live-mix-key ${key}`}>
+                <i />{key} <b>{state.gateCounts[key] ?? 0}</b>
+              </span>
+            ))}
+          </div>
+        </div>
+        <div class="card kpi live-kpi">
+          <span class="label">Tier mix (60s)</span>
+          <div class="live-tier-summary">
+            {(["t0", "t1", "t2"] as const).map((key) => (
+              <span key={key} class={`live-tier live-tier-${key}`}>
+                {key.toUpperCase()} {tierTotal > 0 ? Math.round(((state.tierCounts[key] ?? 0) / tierTotal) * 100) : 0}%
+              </span>
+            ))}
+          </div>
+          <StackBar
+            entries={(["t0", "t1", "t2"] as const).map((k) => ({
+              key: k,
+              label: k.toUpperCase(),
+              value: state.tierCounts[k] ?? 0,
+              className: `live-tier live-tier-${k}`,
+            }))}
+            total={tierTotal}
+            showLegend={false}
           />
         </div>
-        <div class="card kpi live-kpi-guards">
-          <span class="label">Guards</span>
+        <div class="card kpi live-kpi live-kpi-guards">
+          <span class="label">Guard status</span>
           <div class="live-guards">
-            <span class="live-guard ok">CFR</span>
-            <span class="live-guard ok">FPR</span>
-            <span class="live-guard ok">RB</span>
-            <span class="live-guard ok">ESC</span>
+            <span class="live-guard unknown" title="Change failure rate is not carried on the live stream">CFR</span>
+            <span class="live-guard unknown" title="False-positive rate is not carried on the live stream">FPR</span>
+            <span class="live-guard unknown" title="Rollback rate is not carried on the live stream">RB</span>
+            <span class="live-guard unknown" title="Policy-violation escapes are not carried on the live stream">ESC</span>
           </div>
           <span class="live-guards-note muted">
-            {hilPending > 0 ? `${hilPending} HIL pending` : "within budget"}
+            {hilDecisions > 0 ? `${hilDecisions} HIL decisions observed · ` : ""}
+            <a href="#/dashboard">review measured guards</a>
           </span>
         </div>
       </section>
@@ -495,17 +552,22 @@ export function LiveRoute({ client }: Props) {
             class={`live-filter-chip ${state.filter === f ? "active" : ""}`}
             onClick={() => dispatch({ kind: "filter", value: f })}
             title={`filter: ${f} (press ${i + 1})`}
+            aria-keyshortcuts={`${i + 1}`}
           >
             {f}
-            <span class="live-filter-kbd" aria-hidden="true">{i + 1}</span>
+            <span class="live-filter-count">{filterCounts[f]}</span>
           </button>
         ))}
-        <span class="muted live-filterbar-hint">
-          click a tile for details · <kbd>Esc</kbd> close · <kbd>P</kbd> pause · <kbd>1</kbd>-<kbd>4</kbd> filter
-        </span>
+        <span class="muted live-filterbar-note">Select a tile to inspect its recorded stages.</span>
       </section>
 
       <section class="live-swarm" aria-label="live control-plane activity">
+        {activeTileCount === 0 ? (
+          <div class="live-swarm-empty" role="status">
+            <strong>{streamOpen ? "No events in view" : "No live signal"}</strong>
+            <span>{emptyState}</span>
+          </div>
+        ) : null}
         {state.tiles.map((tile, idx) => (
           <LiveTile
             key={idx}
@@ -533,34 +595,8 @@ export function LiveRoute({ client }: Props) {
         <header class="live-ticker-header">
           <h3>
             Audit stream <span class="muted">· append-only</span>
-            {tickerPaused && newSincePause > 0 ? (
-              <span class="live-ticker-badge" title="new terminal events observed since pause">
-                {newSincePause} new
-              </span>
-            ) : null}
           </h3>
           <div class="live-ticker-controls" role="toolbar" aria-label="ticker controls">
-            <button
-              type="button"
-              class="live-ticker-btn"
-              onClick={togglePause}
-              aria-pressed={tickerPaused}
-              title={tickerPaused ? "Resume ticker" : "Pause ticker"}
-              aria-label={tickerPaused ? "Resume ticker" : "Pause ticker"}
-            >
-              {tickerPaused ? (
-                // play icon
-                <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
-                  <path d="M3 2 L10 6 L3 10 Z" fill="currentColor" />
-                </svg>
-              ) : (
-                // pause icon
-                <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
-                  <rect x="3" y="2" width="2.5" height="8" fill="currentColor" />
-                  <rect x="6.5" y="2" width="2.5" height="8" fill="currentColor" />
-                </svg>
-              )}
-            </button>
             <button
               type="button"
               class="live-ticker-btn"

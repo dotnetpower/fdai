@@ -1,0 +1,10 @@
+schema_version: "1.0.0"
+name: Principal
+version: "1.0.0"
+key: id
+description: Stable reference to a user, group, service, or agent principal.
+properties:
+  id: {type: string, required: true, access_scope: approver, purpose_binding: [architecture_review]}
+  kind: {type: string, required: true}
+  role: {type: string, required: true}
+  escalation_ref: {type: string, required: true, access_scope: approver, purpose_binding: [architecture_review]}

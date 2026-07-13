@@ -1,0 +1,11 @@
+schema_version: "1.0.0"
+name: Decision
+version: "1.0.0"
+key: id
+description: Recorded outcome of a governed review decision point.
+properties:
+  id: {type: string, required: true}
+  outcome: {type: string, required: true}
+  rationale: {type: string, required: true}
+  recorded_at: {type: datetime, required: true}
+  effective_until: {type: datetime, required: false}

@@ -1,0 +1,16 @@
+schema_version: "1.0.0"
+name: ReviewCase
+version: "1.0.0"
+key: id
+description: Current aggregate state of one governed architecture or operational review.
+properties:
+  id: {type: string, required: true}
+  title: {type: string, required: true}
+  review_kind: {type: string, required: true}
+  status: {type: string, required: true}
+  design_status: {type: string, required: true}
+  production_status: {type: string, required: true}
+  scope_ref: {type: string, required: true}
+  workflow_ref: {type: string, required: true}
+  opened_at: {type: datetime, required: true}
+  updated_at: {type: datetime, required: true}

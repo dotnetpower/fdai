@@ -8,7 +8,7 @@ that a gated step carries its resolved approver assignment into the audit.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fdai.core.notifications.matrix import load_matrix_from_mapping
 from fdai.core.rbac.resolver import GroupMapping
@@ -19,7 +19,6 @@ from fdai.core.workflow.orchestrator import (
     ShadowWorkflowStepExecutor,
     WorkflowOrchestrator,
     derive_process_id,
-    process_state_key,
 )
 from fdai.shared.contracts.models import (
     Autonomy,
@@ -33,9 +32,16 @@ from fdai.shared.contracts.models import (
     TierCeiling,
     Workflow,
     WorkflowStep,
+    WorkflowStepKind,
     WorkflowTrigger,
     WorkflowTriggerKind,
 )
+from fdai.shared.providers.process_runtime import (
+    ProcessEvent,
+    ProcessEventKind,
+    ProcessSnapshot,
+)
+from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _TRIGGER_TS = datetime(2026, 7, 9, 12, 0, 0, tzinfo=UTC)
@@ -127,6 +133,7 @@ def _orchestrator(audit: InMemoryStateStore) -> WorkflowOrchestrator:
         planner=planner,
         action_types=_ACTION_TYPES,
         audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
     )
 
 
@@ -222,11 +229,35 @@ async def test_unknown_action_type_step_fails_closed() -> None:
     # The executor branch for an ActionType absent from the catalog: it audits
     # and reports FAILURE rather than pretending success.
     audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    snapshot, _ = await process_store.create(
+        snapshot=ProcessSnapshot(
+            process_id="p-1",
+            workflow_ref="wf",
+            workflow_version="1.0.0",
+            status=ProcessStatus.RUNNING,
+            current_step="ghost",
+            target_resource_id="res-1",
+            started_at=_TRIGGER_TS,
+            updated_at=_TRIGGER_TS,
+            correlation_id="corr-1",
+        ),
+        event=ProcessEvent(
+            event_id="event-create",
+            process_id="p-1",
+            kind=ProcessEventKind.PROCESS_CREATED,
+            idempotency_key="p-1:create",
+            recorded_at=_TRIGGER_TS,
+            correlation_id="corr-1",
+        ),
+    )
     executor = ShadowWorkflowStepExecutor(
         process_id="p-1",
         action_types=_ACTION_TYPES,
         audit_store=audit,
         approvals={},
+        process_store=process_store,
+        snapshot=snapshot,
     )
     result = await executor.execute(
         runbook_id="wf", step=RunbookStep(id="ghost", action_type="ops.absent")
@@ -280,6 +311,7 @@ def _orchestrator_with_guard(
         planner=planner,
         action_types=_ACTION_TYPES,
         audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
         guard_evaluator=guard,
     )
 
@@ -331,18 +363,30 @@ async def test_no_evaluator_leaves_guard_unevaluated() -> None:
     assert entry["guard_passed"] is None
 
 
-async def test_process_persisted_as_ontology_row() -> None:
+async def test_process_persisted_in_runtime_snapshot_and_journal() -> None:
     audit = InMemoryStateStore()
-    run = await _orchestrator(audit).run(
+    process_store = InMemoryProcessRuntimeStore()
+    planner = WorkflowApprovalPlanner(
+        action_types=_ACTION_TYPES,
+        group_mapping=_group_mapping(),
+        matrix=_matrix(),
+    )
+    orchestrator = WorkflowOrchestrator(
+        planner=planner,
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+    )
+    run = await orchestrator.run(
         _workflow(), target_resource_id="res-1", trigger_ts=_TRIGGER_TS
     )
-    record = await audit.read_state(process_state_key(run.process_id))
-    assert record is not None
-    assert record["id"] == run.process_id
-    assert record["workflow_ref"] == "sample-flow"
-    assert record["status"] == "succeeded"
-    assert record["target_resource_id"] == "res-1"
-    assert record["current_step"] == ""
+    snapshot = await process_store.get(run.process_id)
+    assert snapshot is not None
+    assert snapshot.workflow_ref == "sample-flow"
+    assert snapshot.status is ProcessStatus.SUCCEEDED
+    assert snapshot.target_resource_id == "res-1"
+    assert snapshot.current_step == ""
+    assert len(await process_store.events(run.process_id)) == 7
 
 
 def _workflow_with_params() -> Workflow:
@@ -405,3 +449,177 @@ async def test_params_default_empty_when_absent() -> None:
         if row["entry"]["action_kind"] == "workflow.step"
     ]
     assert all(row["params"] == {} for row in step_rows)
+
+
+def _control_workflow() -> Workflow:
+    return Workflow(
+        schema_version="1.0.0",
+        name="architecture-review",
+        version="1.0.0",
+        trigger=WorkflowTrigger(
+            kind=WorkflowTriggerKind.SIGNAL,
+            signal_type="architecture.review.requested",
+        ),
+        default_mode=Mode.SHADOW,
+        promotion_gate=PromotionGate(
+            min_shadow_days=14,
+            min_samples=30,
+            min_accuracy=0.98,
+            max_policy_escapes=0,
+        ),
+        steps=[
+            WorkflowStep(
+                id="domain_reviews",
+                kind=WorkflowStepKind.PARALLEL,
+                branches=["security", "privacy", "reliability"],
+            ),
+            WorkflowStep(
+                id="evidence",
+                kind=WorkflowStepKind.WAIT,
+                wait_for="evidence.updated",
+                timeout_seconds=120,
+            ),
+            WorkflowStep(
+                id="board_approval",
+                kind=WorkflowStepKind.APPROVAL,
+                approval_role=CeilingRole.APPROVER,
+                quorum=2,
+                timeout_seconds=120,
+            ),
+            WorkflowStep(
+                id="board_decision",
+                kind=WorkflowStepKind.DECISION,
+                outcomes=["approved", "conditional", "rejected"],
+            ),
+        ],
+    )
+
+
+async def test_control_workflow_waits_and_resumes_same_process() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    planner = WorkflowApprovalPlanner(
+        action_types=_ACTION_TYPES,
+        group_mapping=_group_mapping(),
+        matrix=_matrix(),
+    )
+    orchestrator = WorkflowOrchestrator(
+        planner=planner,
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+    )
+    workflow = _control_workflow()
+
+    evidence_wait = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-1",
+        trigger_ts=_TRIGGER_TS,
+    )
+    approval_wait = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-1",
+        trigger_ts=_TRIGGER_TS,
+        context={"signal.evidence.updated": "received"},
+    )
+    decision_wait = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-1",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "signal.evidence.updated": "received",
+            "approval.board_approval.operator-a": "approved",
+            "approval.board_approval.operator-b": "approved",
+        },
+    )
+    completed = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-1",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "signal.evidence.updated": "received",
+            "approval.board_approval.operator-a": "approved",
+            "approval.board_approval.operator-b": "approved",
+            "decision.board_decision": "conditional",
+        },
+    )
+
+    assert {run.process_id for run in (evidence_wait, approval_wait, decision_wait, completed)} == {
+        completed.process_id
+    }
+    assert [run.status for run in (evidence_wait, approval_wait, decision_wait, completed)] == [
+        ProcessStatus.WAITING,
+        ProcessStatus.WAITING,
+        ProcessStatus.WAITING,
+        ProcessStatus.SUCCEEDED,
+    ]
+    assert completed.replayed is True
+    events = await process_store.events(completed.process_id)
+    kinds = [event.kind for event in events]
+    assert ProcessEventKind.STEP_WAITING in kinds
+    assert ProcessEventKind.APPROVAL_REQUESTED in kinds
+    assert ProcessEventKind.APPROVAL_RECORDED in kinds
+    assert ProcessEventKind.DECISION_RECORDED in kinds
+    assert kinds.count(ProcessEventKind.PARALLEL_BRANCH_STARTED) == 3
+    assert kinds.count(ProcessEventKind.PARALLEL_BRANCH_COMPLETED) == 3
+    assert kinds[-1] is ProcessEventKind.PROCESS_COMPLETED
+
+
+async def test_approval_requires_distinct_quorum_and_excludes_requester() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+    )
+
+    failed = await orchestrator.run(
+        _control_workflow(),
+        target_resource_id="scope-2",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "signal.evidence.updated": "received",
+            "requester.principal": "operator-a",
+            "approval.board_approval.operator-a": "approved",
+            "approval.board_approval.operator-b": "approved",
+        },
+    )
+    completed = await orchestrator.run(
+        _control_workflow(),
+        target_resource_id="scope-3",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "signal.evidence.updated": "received",
+            "requester.principal": "operator-a",
+            "approval.board_approval.operator-b": "approved",
+            "approval.board_approval.operator-c": "approved",
+            "decision.board_decision": "approved",
+        },
+    )
+
+    assert failed.status is ProcessStatus.WAITING
+    assert failed.step_results[-1].reason == "waiting_for_approval_quorum"
+    assert completed.status is ProcessStatus.SUCCEEDED
+
+
+async def test_wait_timeout_terminates_process() -> None:
+    audit = InMemoryStateStore()
+    orchestrator = _orchestrator(audit)
+    timed_out = await orchestrator.run(
+        _control_workflow(),
+        target_resource_id="scope-timeout",
+        trigger_ts=_TRIGGER_TS,
+        context={"started_at.evidence": _TRIGGER_TS.isoformat()},
+        now=_TRIGGER_TS + timedelta(seconds=121),
+    )
+
+    assert timed_out.status is ProcessStatus.TIMED_OUT
+    assert next(item for item in timed_out.step_results if item.step_id == "evidence").reason == (
+        "wait_timed_out"
+    )

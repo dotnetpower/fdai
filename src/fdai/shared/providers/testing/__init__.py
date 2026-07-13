@@ -17,6 +17,8 @@ from .break_glass_pager import InMemoryBreakGlassPager
 from .direct_api import RecordingDirectApiExecutor
 from .event_bus import InMemoryEventBus
 from .hil_registry import InMemoryHilApprovalRegistry
+from .ontology_instance import InMemoryOntologyInstanceStore
+from .process_runtime import InMemoryProcessRuntimeStore
 from .remediation_pr import RecordingRemediationPrPublisher
 from .runbook_registry import InMemoryRunbookRegistry
 from .secret_provider import InMemorySecretProvider
@@ -30,6 +32,8 @@ __all__ = [
     "InMemoryBreakGlassPager",
     "InMemoryEventBus",
     "InMemoryHilApprovalRegistry",
+    "InMemoryOntologyInstanceStore",
+    "InMemoryProcessRuntimeStore",
     "InMemoryRunbookRegistry",
     "InMemorySecretProvider",
     "InMemorySseSink",

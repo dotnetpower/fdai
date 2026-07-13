@@ -1,0 +1,7 @@
+schema_version: "1.0.0"
+name: assigned_to
+version: "1.0.0"
+from_type: ReviewCheck
+to_type: Principal
+cardinality: many_to_one
+description: Principal accountable for resolving or accepting a ReviewCheck.

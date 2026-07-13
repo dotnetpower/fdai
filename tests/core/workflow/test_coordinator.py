@@ -27,6 +27,7 @@ from fdai.shared.contracts.models import (
     WorkflowTrigger,
     WorkflowTriggerKind,
 )
+from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _TS = datetime(2026, 7, 9, 12, 0, 0, tzinfo=UTC)
@@ -107,6 +108,7 @@ def _coordinator(
         planner=planner,
         action_types=_ACTION_TYPES,
         audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
     )
     index = WorkflowTriggerIndex.build(workflows)
     return WorkflowTriggerCoordinator(index=index, orchestrator=orchestrator)

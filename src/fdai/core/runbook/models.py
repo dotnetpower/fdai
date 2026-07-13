@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from fdai.shared.contracts.models import CeilingRole, WorkflowStepKind
+
 
 class RunbookRunError(RuntimeError):
     """Raised on any structural error the runner refuses to proceed on.
@@ -24,6 +26,8 @@ class RunbookStepOutcome(StrEnum):
     FAILURE = "failure"
     SKIPPED = "skipped"
     """Step never ran (short-circuited by a prior failure)."""
+    WAITING = "waiting"
+    """Step parked the Process until an external signal or decision resumes it."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +38,15 @@ class RunbookStep:
     action_type: str
     params: Mapping[str, object] = field(default_factory=dict)
     on_failure: str | None = None
+    kind: WorkflowStepKind = WorkflowStepKind.ACTION
+    wait_for: str | None = None
+    timeout_seconds: int | None = None
+    approval_role: CeilingRole | None = None
+    quorum: int = 1
+    no_self_approval: bool = True
+    outcomes: tuple[str, ...] = ()
+    branches: tuple[str, ...] = ()
+    guard_rule_ref: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

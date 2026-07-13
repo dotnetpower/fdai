@@ -13,6 +13,7 @@
     "rules": "규칙",
     "workflowBuilder": "워크플로우 빌더",
     "llmCost": "LLM 비용"
+    ,"processes": "프로세스"
   },
   "nav": {
     "group": {
@@ -47,6 +48,7 @@
       "rules": "규칙",
       "workflowBuilder": "워크플로우 빌더",
       "llmCost": "LLM 비용"
+      ,"processes": "프로세스"
     },
     "panelSub": {
       "live": "실시간 파이프라인 활동",
@@ -63,6 +65,7 @@
       "rules": "규칙 카탈로그의 모든 정책, 패싯별",
       "workflowBuilder": "빌트인 워크플로우를 둘러보거나 대화로 새 워크플로우를 설계",
       "llmCost": "대화 / 일 / 월별 토큰 사용량과 비용"
+      ,"processes": "워크플로우 런타임 상태와 동적 온톨로지 기반 보기"
     }
   },
   "workflowBuilder": {

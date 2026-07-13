@@ -3,10 +3,12 @@ import { ReadApiError, type ReadApiClient } from "../api";
 import { ArchitectureMap, type ArchitectureMapHandle } from "../components/architecture-map";
 import {
   ARCHITECTURE_LAYERS,
+  RESOURCE_COLOR_TOKENS,
   architectureHref,
   architectureViewFromHash,
   graphSubset,
   layerOf,
+  resourceColorTokenOf,
   selectedResourceIdFromHash,
   type ArchitectureCameraView,
   type ArchitectureDisplayOptions,
@@ -25,8 +27,10 @@ const LAYER_LABELS: Readonly<Record<ArchitectureLayer, string>> = {
   scope: "Scope",
   network: "Network",
   security: "Security",
-  compute: "Compute",
+  runtime: "Runtime",
   data: "Data",
+  messaging: "Messaging",
+  observability: "Observability",
 };
 
 const CAMERA_LABELS: Readonly<Record<ArchitectureCameraView, string>> = {
@@ -170,6 +174,20 @@ function ArchitectureBody({
     () => graphSubset(graph, visibleLayers),
     [graph, visibleLayers],
   );
+  const layerCounts = useMemo(
+    () => new Map(ARCHITECTURE_LAYERS.map((layer) => [
+      layer,
+      graph.resources.filter((resource) => layerOf(resource) === layer).length,
+    ])),
+    [graph],
+  );
+  const resourceColorTokens = useMemo(
+    () => [...new Set(
+      graph.resources
+        .map(resourceColorTokenOf),
+    )],
+    [graph],
+  );
   const selected = graph.resources.find((resource) => resource.id === selectedId) ?? null;
   const parent = selected?.parent_id
     ? graph.resources.find((resource) => resource.id === selected.parent_id)
@@ -254,16 +272,30 @@ function ArchitectureBody({
                 </button>
               ))}
             </div>
-            <h3>Layers</h3>
+            <h3>Layer filter</h3>
             <div class="architecture-layer-filters" aria-label="Architecture layers">
               {ARCHITECTURE_LAYERS.map((layer) => (
                 <button
                   type="button"
                   class={visibleLayers.has(layer) ? "is-active" : ""}
+                  aria-pressed={visibleLayers.has(layer)}
+                  aria-label={`${LAYER_LABELS[layer]} layer (${formatResourceCount(layerCounts.get(layer) ?? 0)})`}
+                  disabled={(layerCounts.get(layer) ?? 0) === 0}
                   onClick={() => onToggleLayer(layer)}
                 >
-                  <i class={`architecture-swatch is-${layer}`} />{LAYER_LABELS[layer]}
+                  <i class="architecture-filter-mark" aria-hidden="true" />
+                  <span>{LAYER_LABELS[layer]}</span>
+                  <small>{layerCounts.get(layer) ?? 0}</small>
                 </button>
+              ))}
+            </div>
+            <h3>Resource colors</h3>
+            <div class="architecture-color-legend" aria-label="Azure-aligned resource colors">
+              {resourceColorTokens.map((token) => (
+                <span>
+                  <i style={{ backgroundColor: RESOURCE_COLOR_TOKENS[token].color }} />
+                  {RESOURCE_COLOR_TOKENS[token].label}
+                </span>
               ))}
             </div>
             <h3>Display</h3>
@@ -309,4 +341,8 @@ function formatAge(timestamp: string): string {
   if (seconds < 60) return `${seconds}s ago`;
   if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
   return `${Math.round(seconds / 3600)}h ago`;
+}
+
+function formatResourceCount(count: number): string {
+  return `${count} ${count === 1 ? "resource" : "resources"}`;
 }

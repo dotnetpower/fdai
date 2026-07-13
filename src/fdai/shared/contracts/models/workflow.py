@@ -16,7 +16,7 @@ from typing import Annotated
 from pydantic import Field, model_validator
 
 from ._base import SemVer, _Base
-from .enums import Mode, WorkflowTriggerKind
+from .enums import CeilingRole, Mode, WorkflowStepKind, WorkflowTriggerKind
 from .ontology import PromotionGate
 
 
@@ -43,11 +43,49 @@ class WorkflowStep(_Base):
     inherits that ActionType's four safety invariants."""
 
     id: Annotated[str, Field(min_length=1)]
-    action_type_ref: Annotated[str, Field(min_length=1)]
+    kind: WorkflowStepKind = WorkflowStepKind.ACTION
+    action_type_ref: Annotated[str, Field(min_length=1)] | None = None
     guard_rule_ref: str | None = None
+    gate_ref: Annotated[str, Field(min_length=1)] | None = None
     compensated_by: str | None = None
     on_failure: str | None = None
     params: dict[str, str | int | float | bool] = Field(default_factory=dict)
+    wait_for: Annotated[str, Field(min_length=1)] | None = None
+    timeout_seconds: Annotated[int, Field(ge=1)] | None = None
+    approval_role: CeilingRole | None = None
+    quorum: Annotated[int, Field(ge=1)] = 1
+    no_self_approval: bool = True
+    outcomes: list[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]] = Field(
+        default_factory=list
+    )
+    branches: list[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]] = Field(
+        default_factory=list
+    )
+
+    @model_validator(mode="after")
+    def _kind_contract(self) -> WorkflowStep:
+        if self.kind is WorkflowStepKind.ACTION:
+            if self.action_type_ref is None:
+                raise ValueError("action step requires action_type_ref")
+        elif self.action_type_ref is not None:
+            raise ValueError(f"{self.kind.value} step MUST NOT declare action_type_ref")
+        if self.kind is WorkflowStepKind.WAIT:
+            if self.wait_for is None or self.timeout_seconds is None:
+                raise ValueError("wait step requires wait_for and timeout_seconds")
+        elif self.kind is WorkflowStepKind.APPROVAL:
+            if self.approval_role is None or self.timeout_seconds is None:
+                raise ValueError("approval step requires approval_role and timeout_seconds")
+        elif self.kind is WorkflowStepKind.DECISION:
+            if len(self.outcomes) < 2 or len(set(self.outcomes)) != len(self.outcomes):
+                raise ValueError("decision step requires at least 2 unique outcomes")
+        elif self.kind is WorkflowStepKind.PARALLEL:
+            if len(self.branches) < 2 or len(set(self.branches)) != len(self.branches):
+                raise ValueError("parallel step requires at least 2 unique branches")
+        elif self.kind is WorkflowStepKind.GATE and self.gate_ref is None:
+            raise ValueError("gate step requires gate_ref")
+        if self.compensated_by is not None and self.kind is not WorkflowStepKind.ACTION:
+            raise ValueError("compensated_by is supported only on action steps")
+        return self
 
 
 class Workflow(_Base):

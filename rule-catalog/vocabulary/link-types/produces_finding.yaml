@@ -1,0 +1,7 @@
+schema_version: "1.0.0"
+name: produces_finding
+version: "1.0.0"
+from_type: ReviewCheck
+to_type: Finding
+cardinality: one_to_many
+description: Finding emitted when a ReviewCheck does not pass.

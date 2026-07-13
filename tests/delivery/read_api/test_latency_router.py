@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
 
-from fdai.delivery.read_api.routes.chat import LatencyRoutedChatBackend
+from fdai.delivery.read_api.routes.chat import LatencyRoutedChatBackend, describe_backend
 
 
 class _FixedLatencyBackend:
@@ -46,6 +47,37 @@ class _RaisingBackend:
         raise RuntimeError("upstream down")
 
 
+class _StreamingBackend:
+    def __init__(self, *, fail_before: bool = False, fail_after: bool = False) -> None:
+        self._fail_before = fail_before
+        self._fail_after = fail_after
+        self.calls = 0
+
+    async def answer(
+        self,
+        *,
+        prompt: str,  # noqa: ARG002
+        view_context: dict[str, Any],  # noqa: ARG002
+        history: list[dict[str, str]],  # noqa: ARG002
+    ) -> dict[str, Any]:
+        return {"answer": "stream fallback", "model": "stream"}
+
+    async def answer_stream(
+        self,
+        *,
+        prompt: str,  # noqa: ARG002
+        view_context: dict[str, Any],  # noqa: ARG002
+        history: list[dict[str, str]],  # noqa: ARG002
+    ) -> AsyncIterator[dict[str, Any]]:
+        self.calls += 1
+        if self._fail_before:
+            raise RuntimeError("failed before token")
+        yield {"type": "token", "delta": "hello"}
+        if self._fail_after:
+            raise RuntimeError("failed after token")
+        yield {"type": "done", "answer": "hello", "model": "stream"}
+
+
 class TestRouterConstruction:
     def test_requires_two_or_more_candidates(self) -> None:
         only = _FixedLatencyBackend(model="only", delay_ms=1)
@@ -57,6 +89,30 @@ class TestRouterConstruction:
         b = _FixedLatencyBackend(model="dup", delay_ms=1)
         with pytest.raises(ValueError, match="unique"):
             LatencyRoutedChatBackend(candidates=[("dup", a), ("dup", b)])
+
+    def test_cold_candidate_stats_are_json_safe(self) -> None:
+        a = _FixedLatencyBackend(model="a", delay_ms=1)
+        b = _FixedLatencyBackend(model="b", delay_ms=1)
+        router = LatencyRoutedChatBackend(candidates=[("a", a), ("b", b)])
+
+        descriptor = describe_backend(router)
+
+        assert descriptor["router"]["candidates"] == [
+            {
+                "deployment": "a",
+                "p50_ms": None,
+                "p95_ms": None,
+                "samples": 0,
+                "history_ms": [],
+            },
+            {
+                "deployment": "b",
+                "p50_ms": None,
+                "p95_ms": None,
+                "samples": 0,
+                "history_ms": [],
+            },
+        ]
 
 
 class TestRouterWarmupAndSelection:
@@ -132,23 +188,64 @@ class TestRouterWarmupAndSelection:
 
 
 class TestRouterFailureHandling:
-    async def test_failure_penalizes_candidate_and_reraises(self) -> None:
+    async def test_failure_penalizes_candidate_and_fails_over(self) -> None:
         good = _FixedLatencyBackend(model="good", delay_ms=5)
         bad = _RaisingBackend(model="bad")
         router = LatencyRoutedChatBackend(
             candidates=[("bad", bad), ("good", good)],  # ordered so ties go to "bad" first
         )
-        # First warm-up call goes to whichever has fewer samples; both have 0.
-        # Tie-breaking is by name, so "bad" is served first and raises.
-        with pytest.raises(RuntimeError, match="upstream down"):
-            await router.answer(prompt="hi", view_context={}, history=[])
+        reply = await router.answer(prompt="hi", view_context={}, history=[])
+
         assert bad.calls == 1
-        # A penalty sample was recorded so the router does not re-pin to "bad".
+        assert good.calls == 1
+        assert reply["model"] == "good"
+        assert reply["router"]["reason"] == "failover"
         stats = {c["deployment"]: c for c in router.stats()}
         assert stats["bad"]["samples"] == 1
         assert stats["bad"]["p50_ms"] is not None
         assert stats["bad"]["p95_ms"] is not None
         assert stats["bad"]["p50_ms"] >= 20_000  # penalty is 30_000ms
+
+    async def test_all_candidate_failures_reraise_last_error(self) -> None:
+        first = _RaisingBackend(model="first")
+        second = _RaisingBackend(model="second")
+        router = LatencyRoutedChatBackend(candidates=[("first", first), ("second", second)])
+
+        with pytest.raises(RuntimeError, match="upstream down"):
+            await router.answer(prompt="hi", view_context={}, history=[])
+
+        assert first.calls == 1
+        assert second.calls == 1
+
+    async def test_stream_failure_before_first_token_fails_over(self) -> None:
+        bad = _StreamingBackend(fail_before=True)
+        good = _StreamingBackend()
+        router = LatencyRoutedChatBackend(candidates=[("bad", bad), ("good", good)])
+
+        events = [
+            event
+            async for event in router.answer_stream(prompt="hi", view_context={}, history=[])
+        ]
+
+        assert bad.calls == 1
+        assert good.calls == 1
+        assert events[0] == {"type": "token", "delta": "hello"}
+        assert events[-1]["type"] == "done"
+        assert events[-1]["model"] == "good"
+        assert events[-1]["router"]["reason"] == "failover"
+
+    async def test_stream_failure_after_first_token_does_not_mix_models(self) -> None:
+        bad = _StreamingBackend(fail_after=True)
+        good = _StreamingBackend()
+        router = LatencyRoutedChatBackend(candidates=[("bad", bad), ("good", good)])
+        events: list[dict[str, Any]] = []
+
+        with pytest.raises(RuntimeError, match="failed after token"):
+            async for event in router.answer_stream(prompt="hi", view_context={}, history=[]):
+                events.append(event)
+
+        assert events == [{"type": "token", "delta": "hello"}]
+        assert good.calls == 0
 
 
 class TestRouterConcurrencyFairness:

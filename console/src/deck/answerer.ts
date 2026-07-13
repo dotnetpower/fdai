@@ -30,7 +30,9 @@ import {
   resolveDeckMeta,
   resolveGlossary,
   resolveList,
+  resolveRecentAgentWork,
   resolveStaticGlossary,
+  type ConversationContextTurn,
 } from "./answerer.resolvers";
 import {
   answerAudit,
@@ -49,13 +51,20 @@ import {
 export type { Answer, Citation } from "./answerer.catalogs";
 export { ROUTE_ACTION_HINTS } from "./answerer.catalogs";
 
-export function answer(query: string, snapshot: ViewSnapshot | null): Answer {
+export function answer(
+  query: string,
+  snapshot: ViewSnapshot | null,
+  history: readonly ConversationContextTurn[] = [],
+): Answer {
+  const q = query.toLowerCase().trim();
+  const recentAgentWork = resolveRecentAgentWork(q, history, snapshot);
+  if (recentAgentWork) return recentAgentWork;
+
   if (snapshot === null) {
     // No route open yet - still resolve FDAI concept questions from the
     // static universal glossary and catalog list questions ('list the
     // agents / tiers / roles') so early questions get real answers instead
     // of a "open a route first" shrug.
-    const q = query.toLowerCase().trim();
     if (q.length > 0) {
       const list = resolveList(q);
       if (list) return list;
@@ -64,7 +73,6 @@ export function answer(query: string, snapshot: ViewSnapshot | null): Answer {
     }
     return NO_CONTEXT;
   }
-  const q = query.toLowerCase().trim();
   if (q.length === 0) {
     return {
       text: `I can see the ${snapshot.routeLabel}. ${snapshot.headline}`,

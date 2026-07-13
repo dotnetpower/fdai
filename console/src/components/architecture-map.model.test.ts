@@ -1,10 +1,16 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
   architectureHref,
   architectureViewFromHash,
   constrainGraph,
+  geometryOf,
   graphSubset,
+  hasExplicitVisualMapping,
   layerOf,
+  resourceColorTokenOf,
+  resourceColorOf,
   selectedResourceIdFromHash,
   shapeOf,
   type InventoryGraphResponse,
@@ -30,19 +36,135 @@ const GRAPH: InventoryGraphResponse = {
 
 describe("architecture map model", () => {
   test("maps resource types to visual layers", () => {
-    expect(layerOf(GRAPH.resources[1]!)).toBe("compute");
+    expect(layerOf(GRAPH.resources[1]!)).toBe("runtime");
     expect(layerOf(GRAPH.resources[2]!)).toBe("data");
+    expect(layerOf({ id: "eh", type: "event-hub", name: "eh", status: "healthy" })).toBe("messaging");
   });
 
-  test("renders PostgreSQL as a cylinder and other resources as blocks", () => {
-    expect(shapeOf(GRAPH.resources[2]!)).toBe("cylinder");
-    expect(shapeOf(GRAPH.resources[1]!)).toBe("block");
+  test.each([
+    ["front-door", "network"],
+    ["application-gateway", "network"],
+    ["web-application-firewall", "security"],
+    ["compute.container-app", "runtime"],
+    ["network.vnet", "network"],
+    ["network.nsg", "security"],
+    ["object-storage", "data"],
+    ["cache", "data"],
+    ["managed-identity", "security"],
+    ["log-workspace", "observability"],
+  ] as const)("maps canonical %s to the %s layer", (type, layer) => {
+    expect(layerOf({ id: type, type, name: type, status: "healthy" })).toBe(layer);
+  });
+
+  test.each([
+    ["compute.vm", "virtual-machine", "#0078D4"],
+    ["compute.vm-scale-set", "vm-scale-set", "#1490DF"],
+    ["network.private-endpoint", "private-endpoint", "#32BEDD"],
+    ["network.public-ip", "public-ip", "#AD52E3"],
+    ["diagnostic-settings", "diagnostic-settings", "#155EA1"],
+    ["file-share", "file-share", "#773ADC"],
+    ["disk", "disk", "#5EA0EF"],
+    ["nosql-database", "cosmos-db", "#32BEDD"],
+    ["managed-identity", "managed-identity", "#1988D9"],
+    ["certificate", "certificate", "#D15900"],
+    ["log-workspace", "log-analytics", "#A997E2"],
+    ["metrics-workspace", "azure-monitor", "#155EA1"],
+  ] as const)("predefines canonical %s as %s", (type, token, color) => {
+    const resource = { id: type, type, name: type, status: "healthy" };
+    expect(resourceColorTokenOf(resource)).toBe(token);
+    expect(resourceColorOf(resource)).toBe(color);
+  });
+
+  test.each([
+    ["event-hub", "event-hub", "#76BC2D"],
+    ["postgresql", "database", "#005BA1"],
+    ["storage-account", "storage", "#37C2B1"],
+    ["key-vault", "key-vault", "#FF9300"],
+    ["firewall", "firewall", "#E62323"],
+    ["app-service", "app-service", "#0078D4"],
+    ["container-app", "container-app", "#773ADC"],
+    ["function-app", "function-app", "#C19C00"],
+    ["aks-cluster", "aks", "#5C2D91"],
+    ["future-resource", "generic", "#697586"],
+  ] as const)("maps %s to the %s Azure-aligned color", (type, token, color) => {
+    const resource = { id: type, type, name: type, status: "healthy" };
+    expect(resourceColorTokenOf(resource)).toBe(token);
+    expect(resourceColorOf(resource)).toBe(color);
+  });
+
+  test.each([
+    ["postgresql", "cylinder"],
+    ["app-service", "block"],
+    ["container-app", "block"],
+    ["application-gateway", "gateway"],
+    ["front-door", "gateway"],
+    ["load-balancer", "gateway"],
+    ["storage-account", "slab"],
+    ["event-hub", "hexagon"],
+    ["service-bus", "hexagon"],
+    ["key-vault", "compact"],
+    ["firewall", "compact"],
+    ["network.load-balancer", "gateway"],
+    ["nosql-database", "cylinder"],
+    ["file-share", "slab"],
+    ["disk", "slab"],
+  ] as const)("maps %s to the %s shape", (type, expected) => {
+    expect(shapeOf({ id: type, type, name: type, status: "healthy" })).toBe(expected);
+  });
+
+  test("uses readable proportions for semantic shape variants", () => {
+    const resource = (type: string) => ({ id: type, type, name: type, status: "healthy" });
+    expect(geometryOf(resource("application-gateway")).width).toBeGreaterThan(
+      geometryOf(resource("app-service")).width,
+    );
+    expect(geometryOf(resource("application-gateway")).height).toBeLessThan(
+      geometryOf(resource("app-service")).height,
+    );
+    expect(geometryOf(resource("storage-account")).height).toBeLessThan(
+      geometryOf(resource("postgresql")).height,
+    );
+  });
+
+  test.each([
+    ["waf", "security"],
+    ["l4-load-balancer", "network"],
+    ["event-hubs", "messaging"],
+    ["message-queue", "messaging"],
+    ["kafka", "messaging"],
+    ["nsg", "security"],
+  ] as const)("maps the %s shape alias to the %s layer", (type, expected) => {
+    expect(layerOf({ id: type, type, name: type, status: "healthy" })).toBe(expected);
   });
 
   test("filters resources and dangling links together", () => {
-    const subset = graphSubset(GRAPH, new Set(["scope", "compute"]));
+    const subset = graphSubset(GRAPH, new Set(["scope", "runtime"]));
     expect(subset.resources.map((resource) => resource.id)).toEqual(["rg", "app"]);
     expect(subset.links).toEqual([{ source: "rg", target: "app", type: "contains" }]);
+  });
+
+  test("filters data stores independently from messaging resources", () => {
+    const graph = {
+      ...GRAPH,
+      resources: [
+        ...GRAPH.resources,
+        { id: "events", type: "event-hub", name: "events", status: "healthy" },
+      ],
+    };
+    expect(graphSubset(graph, new Set(["data"])).resources.map((resource) => resource.id)).toEqual(["db"]);
+    expect(graphSubset(graph, new Set(["messaging"])).resources.map((resource) => resource.id)).toEqual(["events"]);
+  });
+
+  test("predefines every canonical resource vocabulary color", () => {
+    const vocabularyPath = fileURLToPath(new URL(
+      "../../../rule-catalog/vocabulary/resource-types.yaml",
+      import.meta.url,
+    ));
+    const canonicalTypes = [...readFileSync(vocabularyPath, "utf8").matchAll(/^  - id: ([a-z0-9.-]+)$/gm)]
+      .map((match) => match[1]!);
+    expect(canonicalTypes.length).toBeGreaterThan(0);
+    for (const type of canonicalTypes) {
+      expect(hasExplicitVisualMapping(type), `${type} needs an explicit layer and color`).toBe(true);
+    }
   });
 
   test("round-trips resource deep links", () => {
@@ -67,5 +189,21 @@ describe("architecture map model", () => {
     expect((region.y ?? 0) + (region.h ?? 0)).toBeLessThanOrEqual(7.88);
     expect(app.x).toBeLessThanOrEqual((region.x ?? 0) + (region.w ?? 0) - .58);
     expect(app.y).toBeCloseTo((region.y ?? 0) + (region.h ?? 0) - .44, 8);
+  });
+
+  test("scales a wide gateway to fit a narrow parent", () => {
+    const constrained = constrainGraph({
+      ...GRAPH,
+      resources: [
+        { id: "rg", type: "resource-group", name: "rg", status: "healthy", x: 0, y: 0, w: 1, h: 1 },
+        { id: "gateway", type: "application-gateway", name: "gateway", status: "healthy", parent_id: "rg", x: 1, y: 1 },
+      ],
+    });
+    const gateway = constrained.resources[1]!;
+    const geometry = geometryOf(gateway);
+    expect((gateway.x ?? 0) - geometry.width / 2).toBeGreaterThanOrEqual(.06);
+    expect((gateway.x ?? 0) + geometry.width / 2).toBeLessThanOrEqual(.94);
+    expect((gateway.y ?? 0) - geometry.depth / 2).toBeGreaterThanOrEqual(.06);
+    expect((gateway.y ?? 0) + geometry.depth / 2).toBeLessThanOrEqual(.94);
   });
 });

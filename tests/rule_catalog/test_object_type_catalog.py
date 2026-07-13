@@ -55,6 +55,13 @@ def test_shipped_object_types_load() -> None:
         "HandoffEscalation",
         # Process automation (docs/roadmap/decisioning/process-automation.md)
         "Process",
+            # Governed review workflow projection.
+            "ReviewCase",
+            "ReviewCheck",
+            "EvidenceArtifact",
+            "Principal",
+            "Approval",
+            "Decision",
     }
 
 

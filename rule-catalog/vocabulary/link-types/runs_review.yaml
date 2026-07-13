@@ -1,0 +1,7 @@
+schema_version: "1.0.0"
+name: runs_review
+version: "1.0.0"
+from_type: Process
+to_type: ReviewCase
+cardinality: one_to_one
+description: The governed review aggregate instantiated by a Process.

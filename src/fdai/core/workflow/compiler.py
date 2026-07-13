@@ -63,9 +63,18 @@ def compile_workflow(workflow: Workflow) -> CompiledWorkflow:
     steps = tuple(
         RunbookStep(
             id=step.id,
-            action_type=step.action_type_ref,
+            action_type=step.action_type_ref or f"workflow.{step.kind.value}",
             params=dict(step.params),
             on_failure=step.on_failure,
+            kind=step.kind,
+            wait_for=step.wait_for,
+            timeout_seconds=step.timeout_seconds,
+            approval_role=step.approval_role,
+            quorum=step.quorum,
+            no_self_approval=step.no_self_approval,
+            outcomes=tuple(step.outcomes),
+            branches=tuple(step.branches),
+            guard_rule_ref=step.gate_ref or step.guard_rule_ref,
         )
         for step in workflow.steps
     )

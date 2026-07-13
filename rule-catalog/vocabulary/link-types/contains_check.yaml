@@ -1,0 +1,7 @@
+schema_version: "1.0.0"
+name: contains_check
+version: "1.0.0"
+from_type: ReviewCase
+to_type: ReviewCheck
+cardinality: one_to_many
+description: A requirement evaluated as part of a ReviewCase.

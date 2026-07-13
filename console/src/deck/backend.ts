@@ -88,6 +88,10 @@ const OFFLINE_HEALTH: BackendHealth = {
   endpoint: null,
 };
 
+const HEALTH_CACHE_MS = 30_000;
+let healthCache: { readonly value: BackendHealth; readonly at: number } | null = null;
+let healthInFlight: Promise<BackendHealth> | null = null;
+
 function chatUrl(): string {
   const cfg = loadConfig();
   const base = cfg.readApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
@@ -111,7 +115,7 @@ function toBackendHistory(history: readonly BackendTurn[]): BackendTurn[] {
  * Ping the chat backend's health endpoint. Returns a descriptor even
  * on failure - callers can render "offline" without a try/catch.
  */
-export async function probeBackend(): Promise<BackendHealth> {
+async function fetchBackendHealth(): Promise<BackendHealth> {
   let response: Response;
   try {
     response = await fetch(healthUrl(), { method: "GET" });
@@ -141,6 +145,29 @@ export async function probeBackend(): Promise<BackendHealth> {
   } catch {
     return OFFLINE_HEALTH;
   }
+}
+
+export function probeBackend(): Promise<BackendHealth> {
+  const now = Date.now();
+  if (healthCache && now - healthCache.at < HEALTH_CACHE_MS) {
+    return Promise.resolve(healthCache.value);
+  }
+  if (healthInFlight) return healthInFlight;
+
+  const request = fetchBackendHealth().then((value) => {
+    healthCache = { value, at: Date.now() };
+    return value;
+  });
+  healthInFlight = request;
+  void request.then(
+    () => {
+      if (healthInFlight === request) healthInFlight = null;
+    },
+    () => {
+      if (healthInFlight === request) healthInFlight = null;
+    },
+  );
+  return request;
 }
 
 /**
@@ -297,12 +324,19 @@ export async function askBackendStream(
   history: readonly BackendTurn[],
   cb: StreamCallbacks,
 ): Promise<Answer & { readonly source: string; readonly router?: RouterSnapshot }> {
+  const pacingDelay = (): number => {
+    if (typeof document === "undefined") return fallbackTypewriter.intervalMs;
+    const unfocused = typeof document.hasFocus === "function" && !document.hasFocus();
+    return document.visibilityState === "hidden" || unfocused
+      ? 0
+      : fallbackTypewriter.intervalMs;
+  };
   const emitTypewriter = async (text: string): Promise<void> => {
     const chunks = chunksForTypewriter(text);
-    const interval = fallbackTypewriter.intervalMs;
     for (const c of chunks) {
       if (cb.signal?.aborted) return;
       cb.onToken(c);
+      const interval = pacingDelay();
       if (interval > 0) {
         await new Promise((r) => setTimeout(r, interval));
       }
@@ -311,7 +345,7 @@ export async function askBackendStream(
   const fallback = async (
     why: string,
   ): Promise<Answer & { readonly source: string }> => {
-    const local = deterministicAnswer(prompt, snapshot);
+    const local = deterministicAnswer(prompt, snapshot, history);
     await emitTypewriter(local.text);
     return { ...local, source: `deterministic (${why})` };
   };
@@ -331,39 +365,49 @@ export async function askBackendStream(
   // arrival still types in visibly. When tokens arrive slower than the
   // cadence (classic chat models like gpt-4o-mini), the pacer adds no
   // delay - it only paces bursts.
-  const paceMs = fallbackTypewriter.intervalMs;
   const tokenQueue: string[] = [];
   let queueDone = false;
   let pumpErr: unknown = null;
-  const pumpPromise = (async () => {
-    try {
-      while (true) {
-        if (cb.signal?.aborted) return;
-        if (tokenQueue.length === 0) {
-          if (queueDone) return;
-          await new Promise((r) => setTimeout(r, paceMs));
-          continue;
-        }
-        const delta = tokenQueue.shift() as string;
-        // Fan out large single deltas so a one-shot backend replay OR a
-        // single big SSE frame still types in whole-word by whole-word.
-        const parts = delta.length > 8 ? chunksForTypewriter(delta) : [delta];
-        for (const p of parts) {
+  let queueWake: (() => void) | null = null;
+  let pumpPromise: Promise<void> | null = null;
+  const startPump = (): void => {
+    if (pumpPromise) return;
+    pumpPromise = (async () => {
+      try {
+        while (true) {
           if (cb.signal?.aborted) return;
-          cb.onToken(p);
-          if (paceMs > 0) await new Promise((r) => setTimeout(r, paceMs));
+          if (tokenQueue.length === 0) {
+            if (queueDone) return;
+            await new Promise<void>((resolve) => {
+              queueWake = resolve;
+            });
+            queueWake = null;
+            continue;
+          }
+          const delta = tokenQueue.shift() as string;
+          // Fan out large single deltas so a one-shot backend replay OR a
+          // single big SSE frame still types in whole-word by whole-word.
+          const parts = delta.length > 8 ? chunksForTypewriter(delta) : [delta];
+          for (const p of parts) {
+            if (cb.signal?.aborted) return;
+            cb.onToken(p);
+            const delay = pacingDelay();
+            if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+          }
         }
+      } catch (e) {
+        pumpErr = e;
       }
-    } catch (e) {
-      pumpErr = e;
-    }
-  })();
+    })();
+  };
   const enqueueDelta = (delta: string): void => {
     tokenQueue.push(delta);
+    queueWake?.();
   };
   const flushPump = async (): Promise<void> => {
     queueDone = true;
-    await pumpPromise;
+    queueWake?.();
+    if (pumpPromise) await pumpPromise;
     if (pumpErr) throw pumpErr;
   };
 
@@ -395,6 +439,7 @@ export async function askBackendStream(
   if (!response.ok || response.body === null) {
     return fallback(`backend ${response.status}`);
   }
+  startPump();
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -402,11 +447,12 @@ export async function askBackendStream(
   let answerText = "";
   let doneData: Record<string, unknown> | null = null;
   let errored = false;
+  let interrupted = false;
 
   const handleFrame = (frame: string): void => {
     let event = "message";
     const dataLines: string[] = [];
-    for (const line of frame.split("\n")) {
+    for (const line of frame.split(/\r?\n/)) {
       if (line.startsWith("event:")) event = line.slice(6).trim();
       else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
     }
@@ -437,10 +483,11 @@ export async function askBackendStream(
       const { value, done } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
-      let idx: number;
-      while ((idx = buffer.indexOf("\n\n")) !== -1) {
+      let boundary: RegExpMatchArray | null;
+      while ((boundary = buffer.match(/\r?\n\r?\n/)) !== null) {
+        const idx = boundary.index ?? 0;
         handleFrame(buffer.slice(0, idx));
-        buffer = buffer.slice(idx + 2);
+        buffer = buffer.slice(idx + boundary[0].length);
       }
     }
   } catch {
@@ -452,7 +499,12 @@ export async function askBackendStream(
       await flushPump();
       return fallback("stream interrupted");
     }
+    interrupted = true;
   }
+  // Flush any multi-byte code point buffered by TextDecoder when the final
+  // network chunk ended in the middle of UTF-8, then process a trailing frame
+  // even when the server closed without a blank-line delimiter.
+  buffer += decoder.decode();
   if (buffer.trim().length > 0) handleFrame(buffer);
   // Wait for the pacer to drain any tokens still queued from the burst
   // arrival before we hand the deck the final `done` payload.
@@ -460,6 +512,15 @@ export async function askBackendStream(
 
   if (errored && answerText === "") return fallback("stream error");
   if (answerText === "" && doneData === null) return fallback("empty stream");
+  if (errored || interrupted) {
+    const why = errored ? "stream error" : "stream interrupted";
+    return {
+      text: answerText,
+      citations: snapshotCitations(snapshot),
+      followUps: [],
+      source: `partial (${why})`,
+    };
+  }
 
   const done: Record<string, unknown> = doneData ?? {};
   const finalText = typeof done.answer === "string" && done.answer ? done.answer : answerText;

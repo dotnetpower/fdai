@@ -1,0 +1,81 @@
+id: architecture-review-process
+version: 1.0.0
+name: Architecture Review
+description: >-
+  Current workflow state, review checks, governed evidence metadata, ownership,
+  decisions, and ontology relationships for one architecture-review Process.
+tags: [workflow, architecture-review, ontology]
+time_range:
+  last: 30d
+variables:
+  - name: process_id
+    description: Process ontology instance id.
+widgets:
+  - id: process_status
+    type: query_value
+    title: Process status
+    query:
+      datasource: ontology
+      parameters: {projection: process_property, process_id: "$process_id", field: status}
+  - id: current_step
+    type: query_value
+    title: Current step
+    query:
+      datasource: ontology
+      parameters: {projection: process_property, process_id: "$process_id", field: current_step}
+  - id: design_status
+    type: query_value
+    title: Design decision
+    query:
+      datasource: ontology
+      parameters: {projection: process_property, process_id: "$process_id", field: design_status}
+  - id: production_status
+    type: query_value
+    title: Production readiness
+    query:
+      datasource: ontology
+      parameters: {projection: process_property, process_id: "$process_id", field: production_status}
+  - id: checks
+    type: check_status
+    title: Review checks
+    query:
+      datasource: ontology
+      parameters: {projection: review_checks, process_id: "$process_id", depth: 3}
+  - id: check_table
+    type: table
+    title: Check details
+    query:
+      datasource: ontology
+      parameters: {projection: objects, process_id: "$process_id", object_type: ReviewCheck}
+    options: {limit: 100}
+  - id: evidence
+    type: table
+    title: Evidence
+    query:
+      datasource: ontology
+      parameters: {projection: objects, process_id: "$process_id", object_type: EvidenceArtifact}
+  - id: owners
+    type: table
+    title: Owners
+    query:
+      datasource: ontology
+      parameters: {projection: objects, process_id: "$process_id", object_type: Principal}
+  - id: decisions
+    type: table
+    title: Decisions
+    query:
+      datasource: ontology
+      parameters: {projection: objects, process_id: "$process_id", object_type: Decision}
+  - id: timeline
+    type: list_stream
+    title: Process timeline
+    query:
+      datasource: ontology
+      parameters: {projection: process_events, process_id: "$process_id"}
+    options: {timestamp_field: at, limit: 100}
+  - id: graph
+    type: topology_map
+    title: Review ontology
+    query:
+      datasource: ontology
+      parameters: {projection: topology, process_id: "$process_id", depth: 4, limit: 500}

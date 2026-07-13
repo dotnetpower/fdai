@@ -1,0 +1,7 @@
+schema_version: "1.0.0"
+name: scoped_to
+version: "1.0.0"
+from_type: ReviewCase
+to_type: Resource
+cardinality: many_to_one
+description: The resource or bounded scope reviewed by a ReviewCase.

@@ -26,6 +26,7 @@ from .orchestrator import (
     derive_process_id,
     process_state_key,
 )
+from .projection import ProcessOntologyProjector, ProjectingProcessRuntimeStore
 from .trigger_index import WorkflowTriggerIndex
 
 __all__ = [
@@ -34,6 +35,8 @@ __all__ = [
     "CompiledWorkflow",
     "ProcessRun",
     "ProcessStatus",
+    "ProcessOntologyProjector",
+    "ProjectingProcessRuntimeStore",
     "ShadowWorkflowStepExecutor",
     "StepApproval",
     "WorkflowApprovalPlanner",

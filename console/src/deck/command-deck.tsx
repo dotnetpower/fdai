@@ -219,17 +219,21 @@ export function CommandDeck() {
   // turn. Pure client-side typewriter over an already-known string.
   const streamContextTurn = useCallback((agent: string | null, fullText: string) => {
     const turnId = newId();
+    const shouldAnimate =
+      document.visibilityState !== "hidden" &&
+      (typeof document.hasFocus !== "function" || document.hasFocus());
     const seed: Turn = {
       id: turnId,
       role: "deck",
-      text: "",
+      text: shouldAnimate ? "" : fullText,
       source: "context",
-      streaming: true,
+      streaming: shouldAnimate,
       at: shortTime(),
       ...(agent ? { agent } : {}),
     };
     setTurns((prev) => [...prev, seed]);
     turnsRef.current = [...turnsRef.current, seed];
+    if (!shouldAnimate) return;
     const chunks = contextChunks(fullText);
     let i = 0;
     const step = (): void => {
@@ -733,7 +737,10 @@ export function CommandDeck() {
                   key={t.id}
                   turn={t}
                   onPickFollowUp={submit}
-                  {...(t.role === "deck" && !t.streaming && !inFlight
+                  {...(t.role === "deck" &&
+                    !t.streaming &&
+                    !inFlight &&
+                    turns.slice(0, i).some((previous) => previous.role === "operator")
                     ? { onRegenerate: () => regenerateAt(i) }
                     : {})}
                 />

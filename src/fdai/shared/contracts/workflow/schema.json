@@ -92,21 +92,31 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "action_type_ref"],
+        "required": ["id"],
         "properties": {
           "id": {
             "type": "string",
             "minLength": 1,
             "description": "Step id unique within the workflow. Referenced by `on_failure` on another step."
           },
-          "action_type_ref": {
+          "kind": {
             "type": "string",
+            "enum": ["action", "wait", "approval", "decision", "parallel", "gate"],
+            "default": "action"
+          },
+          "action_type_ref": {
+            "type": ["string", "null"],
             "minLength": 1,
             "description": "ActionType name this step invokes (e.g. `remediate.right-size`). MUST resolve against the ActionType catalog at load."
           },
           "guard_rule_ref": {
             "type": ["string", "null"],
             "description": "Optional Rule id that gates the step. The deterministic `when` for the step; MUST resolve against the rule catalog when set."
+          },
+          "gate_ref": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "description": "Deterministic non-resource gate reference used by a gate step."
           },
           "compensated_by": {
             "type": ["string", "null"],
@@ -122,8 +132,67 @@
               "type": ["string", "number", "integer", "boolean"]
             },
             "description": "Optional scalar arguments for the step. String values MAY carry ${event.resource_ref} / ${event.trigger_ts} / ${event.event_type} tokens the orchestrator substitutes from the triggering event at run time."
+          },
+          "wait_for": {
+            "type": ["string", "null"],
+            "minLength": 1
+          },
+          "timeout_seconds": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "approval_role": {
+            "type": ["string", "null"],
+            "enum": ["reader", "contributor", "approver", "owner", null]
+          },
+          "quorum": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "no_self_approval": {
+            "type": "boolean",
+            "default": true
+          },
+          "outcomes": {
+            "type": "array",
+            "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$"},
+            "uniqueItems": true,
+            "default": []
+          },
+          "branches": {
+            "type": "array",
+            "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$"},
+            "uniqueItems": true,
+            "default": []
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"kind": {"const": "action"}}},
+            "then": {"required": ["action_type_ref"]}
+          },
+          {
+            "if": {"required": ["kind"], "properties": {"kind": {"const": "wait"}}},
+            "then": {"required": ["wait_for", "timeout_seconds"]}
+          },
+          {
+            "if": {"required": ["kind"], "properties": {"kind": {"const": "approval"}}},
+            "then": {"required": ["approval_role", "timeout_seconds"]}
+          },
+          {
+            "if": {"required": ["kind"], "properties": {"kind": {"const": "decision"}}},
+            "then": {"required": ["outcomes"]}
+          },
+          {
+            "if": {"required": ["kind"], "properties": {"kind": {"const": "parallel"}}},
+            "then": {"required": ["branches"]}
+          },
+          {
+            "if": {"required": ["kind"], "properties": {"kind": {"const": "gate"}}},
+            "then": {"required": ["gate_ref"]}
+          }
+        ]
       }
     },
     "anti_scope": {

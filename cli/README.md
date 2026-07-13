@@ -262,7 +262,7 @@ Start the dev read API first:
 
 ```bash
 FDAI_READ_API_DEV_MODE=1 uv run --with uvicorn \
-  uvicorn 'fdai.delivery.read_api._local:app' --factory --port 8010
+  uvicorn 'fdai.delivery.read_api.dev.local:app' --factory --port 8010
 # then, in cli/:
 npm run api          # interactive terminal against live data
 tsx src/cli.tsx --surface=slack --source=api   # live data as Block Kit

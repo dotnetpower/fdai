@@ -48,11 +48,23 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
-from typing import Final
+from pathlib import Path
+from typing import Final, cast
 
 from starlette.applications import Starlette
 
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
+from fdai.core.reporting.composition import default_reporting_engine
+from fdai.core.reporting.datasources import AuditReader
+from fdai.core.views import ViewEngine, load_view_catalog
+from fdai.delivery.persistence.postgres_ontology import (
+    PostgresOntologyInstanceStore,
+    PostgresOntologyInstanceStoreConfig,
+)
+from fdai.delivery.persistence.postgres_process_runtime import (
+    PostgresProcessRuntimeStore,
+    PostgresProcessRuntimeStoreConfig,
+)
 from fdai.delivery.read_api.auth import build_authenticator
 from fdai.delivery.read_api.entra_verifier import EntraJwtVerifier
 from fdai.delivery.read_api.main import ReadApiConfig, build_app
@@ -60,6 +72,13 @@ from fdai.delivery.read_api.postgres_read_model import (
     PostgresConsoleReadModel,
     PostgresConsoleReadModelConfig,
 )
+from fdai.delivery.read_api.routes.process_views import ProcessViewsConfig
+from fdai.delivery.read_api.routes.reporting import ReportingConfig
+from fdai.rule_catalog.schema.action_type import load_action_type_catalog
+from fdai.rule_catalog.schema.link_type import load_link_type_catalog
+from fdai.rule_catalog.schema.object_type import load_object_type_catalog
+from fdai.rule_catalog.schema.workflow import load_workflow_catalog
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 _DATABASE_URL_ENV: Final[str] = "FDAI_DATABASE_URL"
 _CORS_ORIGINS_ENV: Final[str] = "FDAI_READ_API_CORS_ALLOW_ORIGINS"
@@ -70,6 +89,7 @@ _AUDIENCE_ENV: Final[str] = "FDAI_API_AUDIENCE"
 
 _DEFAULT_STATEMENT_TIMEOUT_MS: Final[int] = 20_000
 _DEFAULT_CONNECT_TIMEOUT_S: Final[int] = 10
+_REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[4]
 
 # psycopg 3 (the driver this repo ships) accepts either the bare
 # ``postgresql://`` scheme or the SQLAlchemy-style ``postgresql+psycopg://``
@@ -227,6 +247,70 @@ def build_prod_read_model(
     )
 
 
+def _build_dynamic_views(
+    *,
+    dsn: str,
+    statement_timeout_ms: int,
+    connect_timeout_s: int,
+    read_model: PostgresConsoleReadModel,
+) -> tuple[ReportingConfig, ProcessViewsConfig, tuple[object, ...], tuple[object, ...]]:
+    schema_registry = PackageResourceSchemaRegistry()
+    object_types = load_object_type_catalog(
+        _REPO_ROOT / "rule-catalog" / "vocabulary" / "object-types",
+        schema_registry=schema_registry,
+    )
+    link_types = load_link_type_catalog(
+        _REPO_ROOT / "rule-catalog" / "vocabulary" / "link-types",
+        schema_registry=schema_registry,
+        object_types=object_types,
+    )
+    action_types = load_action_type_catalog(
+        _REPO_ROOT / "rule-catalog" / "action-types",
+        schema_registry=schema_registry,
+        probes_root=None,
+    )
+    workflows = load_workflow_catalog(
+        _REPO_ROOT / "rule-catalog" / "workflows",
+        schema_registry=schema_registry,
+        action_type_names={item.name for item in action_types},
+    )
+    process_store = PostgresProcessRuntimeStore(
+        config=PostgresProcessRuntimeStoreConfig(
+            dsn=dsn,
+            statement_timeout_ms=statement_timeout_ms,
+            connect_timeout_s=connect_timeout_s,
+        )
+    )
+    ontology_store = PostgresOntologyInstanceStore(
+        config=PostgresOntologyInstanceStoreConfig(
+            dsn=dsn,
+            statement_timeout_ms=statement_timeout_ms,
+            connect_timeout_s=connect_timeout_s,
+        ),
+        object_types=object_types,
+        link_types=link_types,
+    )
+    report_engine, formats = default_reporting_engine(
+        reports_root=_REPO_ROOT / "rule-catalog" / "reports",
+        audit_reader=cast(AuditReader, read_model),
+        ontology_store=ontology_store,
+        process_store=process_store,
+    )
+    view_specs = load_view_catalog(
+        _REPO_ROOT / "rule-catalog" / "views",
+        report_ids={spec.id for spec in report_engine.catalog().list()},
+        workflow_names={workflow.name for workflow in workflows},
+    )
+    return (
+        ReportingConfig(engine=report_engine, formats=formats),
+        ProcessViewsConfig(
+            engine=ViewEngine(specs=view_specs, reports=report_engine, processes=process_store)
+        ),
+        tuple(object_types),
+        tuple(link_types),
+    )
+
+
 def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     """Assemble the production ASGI app from environment only.
 
@@ -258,7 +342,20 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     authenticator = build_authenticator(verifier=verifier, resolver=resolver)
     read_model = build_prod_read_model(env)
     cors_origins = _parse_cors_origins(env.get(_CORS_ORIGINS_ENV))
-    config = ReadApiConfig(dev_mode=False, cors_allow_origins=cors_origins)
+    reporting, process_views, object_types, link_types = _build_dynamic_views(
+        dsn=read_model._config.dsn,
+        statement_timeout_ms=read_model._config.statement_timeout_ms,
+        connect_timeout_s=read_model._config.connect_timeout_s,
+        read_model=read_model,
+    )
+    config = ReadApiConfig(
+        dev_mode=False,
+        cors_allow_origins=cors_origins,
+        ontology_object_types=object_types,
+        ontology_link_types=link_types,
+        reporting=reporting,
+        process_views=process_views,
+    )
     return build_app(authenticator=authenticator, read_model=read_model, config=config)
 
 

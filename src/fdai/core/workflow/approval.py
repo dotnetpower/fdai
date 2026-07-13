@@ -38,6 +38,8 @@ from fdai.shared.contracts.models import (
     OntologyActionType,
     TierCeiling,
     Workflow,
+    WorkflowStep,
+    WorkflowStepKind,
 )
 
 _HIL_CATEGORY = "hil_approval"
@@ -143,10 +145,37 @@ class WorkflowApprovalPlanner:
 
     def plan(self, workflow: Workflow) -> ApprovalPlan:
         """Return the per-step :class:`ApprovalPlan` for ``workflow``."""
-        steps = tuple(
-            self._plan_step(step_id=s.id, action_ref=s.action_type_ref) for s in workflow.steps
-        )
+        steps = tuple(self._plan_workflow_step(step) for step in workflow.steps)
         return ApprovalPlan(workflow_name=workflow.name, steps=steps)
+
+    def _plan_workflow_step(self, step: WorkflowStep) -> StepApproval:
+        if step.kind is WorkflowStepKind.ACTION:
+            if step.action_type_ref is None:  # pragma: no cover - model invariant
+                raise ApprovalPlanError(f"action step {step.id!r} has no ActionType")
+            return self._plan_step(step_id=step.id, action_ref=step.action_type_ref)
+        if step.kind is WorkflowStepKind.APPROVAL:
+            if step.approval_role is None:  # pragma: no cover - model invariant
+                raise ApprovalPlanError(f"approval step {step.id!r} has no role")
+            role = _CEILING_TO_ROLE[step.approval_role]
+            return StepApproval(
+                step_id=step.id,
+                action_type="workflow.approval",
+                requires_approval=True,
+                reason=f"explicit approval step; quorum={step.quorum}",
+                required_role=role,
+                entra_group_ref=self._role_to_group[role],
+                notify_channels=self._hil_channels,
+                self_approval_excluded=step.no_self_approval,
+            )
+        return StepApproval(
+            step_id=step.id,
+            action_type=f"workflow.{step.kind.value}",
+            requires_approval=False,
+            reason="control step has no direct ActionType approval ceiling",
+            required_role=None,
+            entra_group_ref=None,
+            notify_channels=(),
+        )
 
     def _plan_step(self, *, step_id: str, action_ref: str) -> StepApproval:
         action = self._action_types.get(action_ref)

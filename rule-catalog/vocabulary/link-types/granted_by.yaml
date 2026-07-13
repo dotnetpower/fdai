@@ -1,0 +1,7 @@
+schema_version: "1.0.0"
+name: granted_by
+version: "1.0.0"
+from_type: Approval
+to_type: Principal
+cardinality: many_to_one
+description: Principal that recorded an approval decision.

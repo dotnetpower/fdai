@@ -69,7 +69,7 @@ if (source === "api") {
     );
     console.error(
       "start it with: FDAI_READ_API_DEV_MODE=1 uv run --with uvicorn " +
-        "uvicorn 'fdai.delivery.read_api._local:app' --factory --port 8010",
+        "uvicorn 'fdai.delivery.read_api.dev.local:app' --factory --port 8010",
     );
     process.exit(1);
   }

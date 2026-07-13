@@ -32,6 +32,7 @@ from fdai.core.reporting.datasources.callable import (
 from fdai.core.reporting.datasources.filesystem import FilesystemManifestDataSource
 from fdai.core.reporting.datasources.log_query import LogQueryDataSource
 from fdai.core.reporting.datasources.metric import MetricDataSource
+from fdai.core.reporting.datasources.ontology import OntologyDataSource
 from fdai.core.reporting.datasources.report_feed import ReportFeedDataSource
 from fdai.core.reporting.datasources.static import NoopDataSource, StaticDataSource
 
@@ -44,6 +45,7 @@ __all__ = [
     "LogQueryDataSource",
     "MetricDataSource",
     "NoopDataSource",
+    "OntologyDataSource",
     "ReportFeedDataSource",
     "StaticDataSource",
 ]

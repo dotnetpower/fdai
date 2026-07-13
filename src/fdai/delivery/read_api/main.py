@@ -425,6 +425,12 @@ class ReadApiConfig:
     :mod:`fdai.core.reporting` for the fork-extensible datasource /
     widget / format seams. Unset by default so upstream stays minimal."""
 
+    process_views: Any = None
+    """Opt-in dynamic Process views. When set, registers Reader-gated
+    ``GET /views/process`` and ``GET /views/process/{process_id}``. The
+    response is a bounded RenderedView projection selected by Workflow ref;
+    no ontology layout or workflow decision is computed in the browser."""
+
 
 def build_app(
     *,
@@ -937,6 +943,16 @@ def build_app(
                 authorize=_authorize,
                 core_paths=_CORE_ROUTE_PATHS,
                 seen_extra_paths=seen_panel_paths,
+            )
+        )
+
+    if resolved_config.process_views is not None:
+        from fdai.delivery.read_api.routes.process_views import build_process_view_routes
+
+        routes.extend(
+            build_process_view_routes(
+                config=resolved_config.process_views,
+                authorize=_authorize,
             )
         )
 

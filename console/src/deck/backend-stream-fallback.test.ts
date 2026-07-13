@@ -82,6 +82,45 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.source).toContain("LLM not configured");
   });
 
+  test("background-tab fallback completes without timer throttling", async () => {
+    vi.stubGlobal("document", { visibilityState: "hidden" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("network offline");
+      }),
+    );
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 10_000;
+
+    const deltas: string[] = [];
+    const reply = await mod.askBackendStream("what is FDAI", snap(), [], {
+      onToken: (delta) => deltas.push(delta),
+    });
+
+    expect(deltas.join("")).toBe(reply.text);
+    expect(reply.source).toBe("deterministic (offline)");
+  });
+
+  test("unfocused-window fallback also skips cosmetic pacing", async () => {
+    vi.stubGlobal("document", { visibilityState: "visible", hasFocus: () => false });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("network offline");
+      }),
+    );
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 10_000;
+
+    const deltas: string[] = [];
+    const reply = await mod.askBackendStream("what is FDAI", snap(), [], {
+      onToken: (delta) => deltas.push(delta),
+    });
+
+    expect(deltas.join("")).toBe(reply.text);
+  });
+
   test("abort during fallback stops emitting further chunks", async () => {
     vi.stubGlobal(
       "fetch",
@@ -152,5 +191,59 @@ describe("askBackendStream fallback typewriter", () => {
     // Total pacing span > 0 (paints spread over time, not all at t=0).
     const span = stamps[stamps.length - 1]! - stamps[0]!;
     expect(span).toBeGreaterThan(0);
+  });
+
+  test("accepts CRLF-framed SSE from an intermediary", async () => {
+    const answer = "CRLF stream completed";
+    const body =
+      `event: token\r\ndata: {"delta":"${answer}"}\r\n\r\n` +
+      `event: done\r\ndata: {"answer":"${answer}","model":"gpt-test"}\r\n\r\n`;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+
+    const deltas: string[] = [];
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: (delta) => deltas.push(delta),
+    });
+
+    expect(deltas.join("")).toBe(answer);
+    expect(reply.text).toBe(answer);
+    expect(reply.source).toBe("llm:gpt-test");
+  });
+
+  test("flushes a UTF-8 code point split across network chunks", async () => {
+    const prefix = new TextEncoder().encode('event: token\ndata: {"delta":"');
+    const suffix = new TextEncoder().encode('"}\n\nevent: done\ndata: {"answer":"ok","model":"gpt-test"}\n\n');
+    const glyph = new TextEncoder().encode("\uD55C");
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([...prefix, ...glyph.slice(0, 2)]));
+        controller.enqueue(new Uint8Array([...glyph.slice(2), ...suffix]));
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(stream, { status: 200 })));
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+
+    const deltas: string[] = [];
+    await mod.askBackendStream("q", snap(), [], { onToken: (delta) => deltas.push(delta) });
+
+    expect(deltas.join("")).toBe("\uD55C");
+  });
+
+  test("labels tokens followed by an error frame as a partial answer", async () => {
+    const body =
+      'event: token\ndata: {"delta":"Partial answer"}\n\n' +
+      'event: error\ndata: {"detail":"upstream reset"}\n\n';
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+
+    const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
+
+    expect(reply.text).toBe("Partial answer");
+    expect(reply.source).toBe("partial (stream error)");
   });
 });
