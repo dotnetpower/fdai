@@ -43,6 +43,26 @@ def test_njord_no_anomaly_within_baseline() -> None:
     assert bus.messages_on("object.cost-anomaly") == []
 
 
+def test_njord_advisory_publication_is_rate_limited() -> None:
+    """The cost-anomaly advisory is a discretionary proposal, so it honors the
+    declared rate_limits (agent-pantheon.md 7.9): over-budget advisories are
+    dropped and recorded, never shed silently."""
+    from fdai.agents._framework.rate_limiter import RateLimiter
+
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    n = Njord(bus=bus, anomaly_ratio=1.5)
+    # Clock-frozen budget of 2 proposals/minute so the third is throttled.
+    n._proposal_limiter = RateLimiter(per_minute=2, per_hour=100, now=lambda: 0.0)
+    # Three distinct scopes each spike once -> three anomalies attempted.
+    for scope in ("rg-a", "rg-b", "rg-c"):
+        for _ in range(3):
+            asyncio.run(n.ingest_cost_sample(scope=scope, amount_usd=100.0))
+        asyncio.run(n.ingest_cost_sample(scope=scope, amount_usd=1000.0))
+    assert len(bus.messages_on("object.cost-anomaly")) == 2
+    assert n.behavior_snapshot().get("rate_limit_exceeded") == 1
+
+
 def test_njord_cost_impact_returns_table_value() -> None:
     n = Njord()
     est = n.cost_impact("remediate.enable-encryption")

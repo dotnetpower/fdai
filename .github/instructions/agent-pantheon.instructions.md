@@ -238,13 +238,16 @@ deepen it. Do not delete this list without closing the item.
   proposal over budget is throttled (held on the emitting agent's bounded
   buffer, flushed when the window refills) and the drop is recorded as
   `rate_limit_exceeded`. **Scope**: only discretionary proposals route through
-  `_publish_proposal` (Norns' `object.rule-candidate` today); pipeline-critical
-  emissions (verdicts, action-runs, approvals, audit) publish directly and are
-  never rate-limited. **Remaining**: the other proposal emitters (Loki chaos
-  experiments, Njord / Freyr advisories, Forseti arbitration requests) adopt
-  `_publish_proposal` incrementally, and the overflow `RateLimitExceeded` audit
-  entry (agent-pantheon.md 7.9) is recorded as a behaviour counter, not yet a
-  durable audit-chain record.
+  `_publish_proposal` (Norns' `object.rule-candidate`, Njord's
+  `object.cost-anomaly`, Freyr's `object.capacity-forecast`); pipeline-critical
+  emissions (verdicts, action-runs, approvals, audit) and sensing findings
+  (anomaly / drift / forecast) publish directly and are never rate-limited.
+  **Remaining**: Loki keeps its own stronger blast-radius cap (a proposal-storm
+  guard that also gates in-flight targets, so a generic limiter would be
+  redundant and could leak the in-flight accounting); Forseti arbitration
+  requests MAY adopt `_publish_proposal` later; and the overflow
+  `RateLimitExceeded` audit entry (agent-pantheon.md 7.9) is recorded as a
+  behaviour counter, not yet a durable audit-chain record.
 - **Producer-principal is now verified on both sides.** Publish-side
   single-writer auth (`registry.assert_can_publish`) is complemented by a
   consumer-side check in `EventBusBridge` (`verify_producer_principal`,

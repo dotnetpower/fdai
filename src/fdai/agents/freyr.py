@@ -74,29 +74,29 @@ class Freyr(Agent):
         # memory on a long-lived watcher.
         if len(history) > _MAX_SAMPLES:
             del history[:-_MAX_SAMPLES]
-        if self.bus is not None:
-            # Normalize the forecast into an impact magnitude in [0, 1] so
-            # arbitration weighs the capacity signal by measured urgency,
-            # not just priority. Smoothed forecast_util is already
-            # normalized; the specialist owns this so Forseti does not have
-            # to know per-domain metrics.
-            impact = max(0.0, min(1.0, smoothed))
-            await self.bus.publish(
-                "Freyr",
-                "object.capacity-forecast",
-                {
-                    "producer_principal": "Freyr",
-                    "correlation_id": correlation_id or resource_id,
-                    "resource_id": resource_id,
-                    "forecast_util": smoothed,
-                    "impact": impact,
-                    "recent_samples": len(self._samples[resource_id]),
-                    # Sizing action doubles as the arbitration recommendation
-                    # (scale_up under high utilization can conflict with a
-                    # cost-driven scale_down).
-                    "recommendation": self.sizing_advice(resource_id).action,
-                },
-            )
+        # Normalize the forecast into an impact magnitude in [0, 1] so
+        # arbitration weighs the capacity signal by measured urgency, not
+        # just priority. Smoothed forecast_util is already normalized; the
+        # specialist owns this so Forseti does not have to know per-domain
+        # metrics. Advisory proposal: rate-limited per the agent's declared
+        # rate_limits (agent-pantheon.md 7.9); _publish_proposal no-ops when
+        # no bus is bound.
+        impact = max(0.0, min(1.0, smoothed))
+        await self._publish_proposal(
+            "object.capacity-forecast",
+            {
+                "producer_principal": "Freyr",
+                "correlation_id": correlation_id or resource_id,
+                "resource_id": resource_id,
+                "forecast_util": smoothed,
+                "impact": impact,
+                "recent_samples": len(self._samples[resource_id]),
+                # Sizing action doubles as the arbitration recommendation
+                # (scale_up under high utilization can conflict with a
+                # cost-driven scale_down).
+                "recommendation": self.sizing_advice(resource_id).action,
+            },
+        )
 
     def sizing_advice(self, resource_id: str) -> SizingRecommendation:
         samples = self._samples.get(resource_id)

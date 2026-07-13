@@ -101,8 +101,10 @@ class Njord(Agent):
                     # can conflict with a capacity scale_up (Forseti arbitrates).
                     "recommendation": "scale_down",
                 }
-                if self.bus is not None:
-                    await self.bus.publish("Njord", "object.cost-anomaly", anomaly_payload)
+                # Advisory proposal: rate-limited per the agent's declared
+                # rate_limits (agent-pantheon.md 7.9). The anomaly is still
+                # returned to the caller when the bus publish is throttled.
+                await self._publish_proposal("object.cost-anomaly", anomaly_payload)
         history.append(amount_usd)
         # Trim in place (keep the same list object) to the rolling cap - the
         # baseline only reads the tail, so dropping older samples changes no
