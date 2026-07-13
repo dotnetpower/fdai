@@ -22,7 +22,7 @@ deterministic distill helpers. MUST NOT import ``core/``.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -41,7 +41,11 @@ from fdai.rule_catalog.pipeline.distill.triage import (
     triage_filter,
 )
 from fdai.shared.providers.distiller import DistillationResult, Distiller
-from fdai.shared.providers.manual_classifier import ManualClassifier, ProcedureVerdict
+from fdai.shared.providers.manual_classifier import (
+    ClassifiedManual,
+    ManualClassifier,
+    ProcedureVerdict,
+)
 from fdai.shared.providers.manual_source import ManualCandidate, ManualSource
 
 
@@ -100,6 +104,49 @@ def _sensitivity_reason(labels: list[str]) -> str:
     return "sensitivity:" + ",".join(sorted(set(labels)))
 
 
+def _require_unique_identities(candidates: Sequence[ManualCandidate]) -> None:
+    """Fail closed if a source lists a duplicate ``source_ref`` or ``doc_id``.
+
+    The snapshot and retirement logic key on these identities; a duplicate would
+    silently collide (last wins), dropping a manual from the snapshot and later
+    mis-firing it as a deletion. A fork source that violates the uniqueness
+    contract is a boundary error, not something to paper over.
+    """
+    seen_refs: set[str] = set()
+    seen_ids: set[str] = set()
+    for candidate in candidates:
+        if candidate.source_ref in seen_refs:
+            raise ValueError(
+                f"ManualSource returned a duplicate source_ref: {candidate.source_ref!r}"
+            )
+        if candidate.doc_id in seen_ids:
+            raise ValueError(
+                f"ManualSource returned a duplicate doc_id: {candidate.doc_id!r}"
+            )
+        seen_refs.add(candidate.source_ref)
+        seen_ids.add(candidate.doc_id)
+
+
+def _require_classified_covers(
+    inputs: Sequence[ManualCandidate],
+    classified: Sequence[ClassifiedManual],
+) -> None:
+    """Fail closed if the classifier did not return exactly one verdict per input.
+
+    A silently dropped candidate would get no verdict yet still be recorded in
+    the snapshot as "seen", losing the manual forever; an extra or duplicated
+    verdict would double-process one. The classifier is a fork seam, so its
+    output is validated at this boundary rather than trusted.
+    """
+    input_refs = {c.source_ref for c in inputs}
+    out_refs = [c.candidate.source_ref for c in classified]
+    if len(out_refs) != len(input_refs) or set(out_refs) != input_refs:
+        raise ValueError(
+            "ManualClassifier.classify MUST return exactly one verdict per input "
+            f"candidate (got {len(out_refs)} for {len(input_refs)} inputs)"
+        )
+
+
 async def build_distillation_plan(
     *,
     source: ManualSource,
@@ -130,6 +177,8 @@ async def build_distillation_plan(
     if not current and prior:
         return DistillationPlan(suspected_source_outage=True, snapshot=dict(prior))
 
+    _require_unique_identities(current)
+
     delta = diff_snapshot(prior, current)
     retirements = plan_retirements(delta)
 
@@ -138,6 +187,7 @@ async def build_distillation_plan(
     filtered = triage.dropped + dup_drops
 
     classified = await classifier.classify(unique)
+    _require_classified_covers(unique, classified)
     procedures: list[ManualCandidate] = []
     rejected: list[ManualCandidate] = []
     held: list[HeldManual] = []

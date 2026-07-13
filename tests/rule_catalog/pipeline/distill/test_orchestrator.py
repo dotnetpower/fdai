@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+import pytest
+
 from fdai.rule_catalog.pipeline.distill.orchestrator import build_distillation_plan
 from fdai.rule_catalog.pipeline.distill.triage import TriagePolicy
 from fdai.shared.providers.distiller import (
@@ -81,6 +83,57 @@ def _cand(
 
 def _doc(doc_id: str, text: str = "Restart the pod.") -> ManualDocument:
     return ManualDocument(doc_id=doc_id, text=text, source_ref=f"drop://{doc_id}")
+
+
+async def test_duplicate_source_ref_fails_closed() -> None:
+    dup = [_cand("run", labels=("proc",)), _cand("run", labels=("proc",))]
+    with pytest.raises(ValueError, match="duplicate source_ref"):
+        await build_distillation_plan(
+            source=FakeSource(dup, docs={}),
+            classifier=LabelClassifier(),
+            distiller=OneRuleDistiller(),
+        )
+
+
+async def test_duplicate_doc_id_fails_closed() -> None:
+    a = ManualCandidate(doc_id="x", source_ref="drop://a", content_sha="s1")
+    b = ManualCandidate(doc_id="x", source_ref="drop://b", content_sha="s2")
+    with pytest.raises(ValueError, match="duplicate doc_id"):
+        await build_distillation_plan(
+            source=FakeSource([a, b], docs={}),
+            classifier=LabelClassifier(),
+            distiller=OneRuleDistiller(),
+        )
+
+
+async def test_classifier_dropping_a_candidate_fails_closed() -> None:
+    class DroppingClassifier:
+        async def classify(self, candidates):  # noqa: ANN001, ARG002
+            return ()  # silently drops everything
+
+    with pytest.raises(ValueError, match="exactly one verdict per input"):
+        await build_distillation_plan(
+            source=FakeSource([_cand("run", labels=("proc",))], docs={"run": _doc("run")}),
+            classifier=DroppingClassifier(),
+            distiller=OneRuleDistiller(),
+        )
+
+
+async def test_classifier_duplicating_a_candidate_fails_closed() -> None:
+    class DuplicatingClassifier:
+        async def classify(self, candidates):  # noqa: ANN001
+            first = candidates[0]
+            return (
+                ClassifiedManual(candidate=first, verdict=ProcedureVerdict.PROCEDURE),
+                ClassifiedManual(candidate=first, verdict=ProcedureVerdict.PROCEDURE),
+            )
+
+    with pytest.raises(ValueError, match="exactly one verdict per input"):
+        await build_distillation_plan(
+            source=FakeSource([_cand("run", labels=("proc",))], docs={"run": _doc("run")}),
+            classifier=DuplicatingClassifier(),
+            distiller=OneRuleDistiller(),
+        )
 
 
 async def test_full_flow_splits_by_verdict() -> None:
