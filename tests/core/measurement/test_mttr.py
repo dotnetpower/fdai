@@ -11,8 +11,7 @@ from fdai.core.measurement.mttr import (
     MttrSummary,
     compute_mttr,
 )
-from fdai.shared.contracts.models.enums import IncidentSeverity, IncidentState
-from fdai.shared.contracts.models.incident import Incident
+from fdai.shared.contracts.models import Incident, IncidentSeverity, IncidentState
 
 _BASE = datetime(2026, 7, 13, 0, 0, 0, tzinfo=UTC)
 _EVENT_ID = UUID("00000000-0000-0000-0000-000000000abc")

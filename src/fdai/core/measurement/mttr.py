@@ -36,7 +36,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from statistics import median
 
-from fdai.shared.contracts.models.incident import Incident
+from fdai.shared.contracts.models import Incident
 
 
 @dataclass(frozen=True, slots=True)
