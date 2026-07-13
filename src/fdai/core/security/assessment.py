@@ -37,7 +37,10 @@ from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.projection import Finding, Severity
 
 _SEVERITY_ORDER: tuple[Severity, ...] = ("low", "medium", "high", "critical")
-_SEVERITY_RANK: Mapping[Severity, int] = {s: i for i, s in enumerate(_SEVERITY_ORDER)}
+# str-keyed (not Severity-keyed) so the fail-safe _severity_rank() below can
+# look up an off-list severity string without a type error - the same shape the
+# readiness coordinator uses.
+_SEVERITY_RANK: dict[str, int] = {s: i for i, s in enumerate(_SEVERITY_ORDER)}
 # An unrecognized severity outranks every known one, so a finding whose severity
 # this fold does not understand fails toward safety (treated as blocking) rather
 # than crashing. Severity is a Literal, not a runtime-checked enum, so a fork
