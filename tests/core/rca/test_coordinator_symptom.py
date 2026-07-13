@@ -47,7 +47,12 @@ class _AbstainingReasoner:
         return None
 
 
-def _entry(scenario_id: str, signal: str, target: str = "pod", intensity: str = "mild") -> CatalogEntry:
+def _entry(
+    scenario_id: str,
+    signal: str,
+    target: str = "pod",
+    intensity: str = "mild",
+) -> CatalogEntry:
     spec = {
         "id": scenario_id,
         "version": 1,
@@ -65,7 +70,11 @@ def _entry(scenario_id: str, signal: str, target: str = "pod", intensity: str = 
         "requires_hardware": False,
         "gpu_domain": None,
     }
-    return CatalogEntry(id=scenario_id, source_path=pathlib.Path("/tmp/x.yaml"), spec=spec)
+    return CatalogEntry(
+        id=scenario_id,
+        source_path=pathlib.Path("/tmp/x.yaml"),  # noqa: S108 - synthetic marker, never opened
+        spec=spec,
+    )
 
 
 async def test_analyze_t2_from_symptom_adds_scenario_citations() -> None:

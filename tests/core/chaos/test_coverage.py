@@ -11,7 +11,12 @@ from fdai.core.chaos.scenario_catalog import CatalogEntry
 from fdai.core.chaos.symptom_index import build_from_entries
 
 
-def _entry(scenario_id: str, signal: str, target: str = "pod", intensity: str = "mild") -> CatalogEntry:
+def _entry(
+    scenario_id: str,
+    signal: str,
+    target: str = "pod",
+    intensity: str = "mild",
+) -> CatalogEntry:
     spec = {
         "id": scenario_id,
         "version": 1,
@@ -29,7 +34,11 @@ def _entry(scenario_id: str, signal: str, target: str = "pod", intensity: str = 
         "requires_hardware": False,
         "gpu_domain": None,
     }
-    return CatalogEntry(id=scenario_id, source_path=pathlib.Path("/tmp/x.yaml"), spec=spec)
+    return CatalogEntry(
+        id=scenario_id,
+        source_path=pathlib.Path("/tmp/x.yaml"),  # noqa: S108 - synthetic marker, never opened
+        spec=spec,
+    )
 
 
 def _empty_index():

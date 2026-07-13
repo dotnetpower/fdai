@@ -42,7 +42,11 @@ def _entry(
         "requires_hardware": requires_hw,
         "gpu_domain": gpu_domain,
     }
-    return CatalogEntry(id=scenario_id, source_path=pathlib.Path("/tmp/x.yaml"), spec=spec)
+    return CatalogEntry(
+        id=scenario_id,
+        source_path=pathlib.Path("/tmp/x.yaml"),  # noqa: S108 - synthetic marker, never opened
+        spec=spec,
+    )
 
 
 def test_exact_lookup_returns_matching_ref() -> None:

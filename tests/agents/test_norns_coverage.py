@@ -30,7 +30,11 @@ def _entry(scenario_id: str, signal: str, target: str = "pod") -> CatalogEntry:
         "requires_hardware": False,
         "gpu_domain": None,
     }
-    return CatalogEntry(id=scenario_id, source_path=pathlib.Path("/tmp/x.yaml"), spec=spec)
+    return CatalogEntry(
+        id=scenario_id,
+        source_path=pathlib.Path("/tmp/x.yaml"),  # noqa: S108 - synthetic marker, never opened
+        spec=spec,
+    )
 
 
 def test_observe_incident_symptom_is_no_op_without_aggregator() -> None:
@@ -99,7 +103,7 @@ def test_coverage_learner_does_not_interfere_with_fingerprint_learner() -> None:
     agg = ScenarioCoverageAggregator(index=build_from_entries([]), gap_threshold=2)
     norns = Norns(promotion_threshold=2, coverage_aggregator=agg)
     # Fingerprint stream drives the fingerprint learner.
-    for i in range(2):
+    for _ in range(2):
         norns._observe_fingerprint({"fingerprint": "fp-1"})
     # Coverage stream drives the coverage learner.
     for i in range(2):

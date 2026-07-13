@@ -92,7 +92,7 @@ def test_every_wired_injector_string_has_a_builder() -> None:
             missing.append(f"{e.id} (injector={inj}, signal={e.expected_signal})")
     assert not missing, (
         "Catalog entries with a shipped injector string but no matching "
-        f"builder in fdai.delivery.chaos.factories:\n  - "
+        "builder in fdai.delivery.chaos.factories:\n  - "
         + "\n  - ".join(missing)
     )
 

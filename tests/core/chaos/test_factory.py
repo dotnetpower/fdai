@@ -43,7 +43,11 @@ def _entry(scenario_id: str, injector: str, signal: str = "pod_restart") -> Cata
         "requires_hardware": False,
         "gpu_domain": None,
     }
-    return CatalogEntry(id=scenario_id, source_path=pathlib.Path("/tmp/x.yaml"), spec=spec)
+    return CatalogEntry(
+        id=scenario_id,
+        source_path=pathlib.Path("/tmp/x.yaml"),  # noqa: S108 - synthetic marker, never opened
+        spec=spec,
+    )
 
 
 def _inj_builder(entry, ctx):
