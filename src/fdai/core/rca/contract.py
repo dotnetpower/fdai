@@ -48,6 +48,15 @@ class CitationKind(StrEnum):
     ``id`` (``chaos.<namespace>.<slug>``). Consumed by the T2 reasoner
     as a candidate cause; the reasoner still cannot execute anything
     on its own."""
+    KNOWLEDGE = "knowledge"
+    """A chunk of a free-form operator document (runbook, architecture
+    note, resource plan) retrieved from the
+    :class:`~fdai.shared.providers.knowledge.KnowledgeSource`. Emitted by
+    :class:`~fdai.core.rca.knowledge_evidence.KnowledgeEvidenceGatherer`;
+    the ``ref`` is the opaque ``knowledge:<source_ref>#<chunk_id>`` handle
+    pointing back at the ingested document's provenance. Consumed by the
+    T2 reasoner as candidate grounding; it never grants execution on its
+    own."""
 
 
 @dataclass(frozen=True, slots=True)

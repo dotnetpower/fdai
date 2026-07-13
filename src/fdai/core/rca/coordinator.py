@@ -37,6 +37,7 @@ from fdai.core.rca.contract import (
 )
 from fdai.core.rca.evidence import TelemetryEvidenceGatherer
 from fdai.core.rca.grounding import enforce_grounding
+from fdai.core.rca.knowledge_evidence import KnowledgeEvidenceGatherer
 from fdai.core.rca.reasoner import RcaReasoner
 from fdai.core.rca.t0 import t0_root_cause
 from fdai.core.rca.t1 import t1_causal_chain
@@ -56,6 +57,7 @@ class RcaCoordinator:
         min_confidence: float = 0.0,
         evidence_gatherer: TelemetryEvidenceGatherer | None = None,
         symptom_index: SymptomIndex | None = None,
+        knowledge_gatherer: KnowledgeEvidenceGatherer | None = None,
     ) -> None:
         if not 0.0 <= min_confidence <= 1.0:
             raise ValueError("min_confidence MUST be in [0, 1]")
@@ -67,6 +69,11 @@ class RcaCoordinator:
         # candidate set alongside telemetry evidence. None => nothing
         # different from before (backward-compatible).
         self._symptom_index = symptom_index
+        # Optional free-form knowledge gatherer. When bound, the T2
+        # convenience wrappers add KNOWLEDGE citations from ingested
+        # operator documents (runbooks, resource plans) grounded on the
+        # incident summary. None => backward-compatible (no knowledge leg).
+        self._knowledge_gatherer = knowledge_gatherer
 
     @property
     def has_t2(self) -> bool:
@@ -77,6 +84,11 @@ class RcaCoordinator:
     def has_symptom_index(self) -> bool:
         """True iff a chaos-scenario symptom index is bound."""
         return self._symptom_index is not None
+
+    @property
+    def has_knowledge(self) -> bool:
+        """True iff a free-form knowledge evidence gatherer is bound."""
+        return self._knowledge_gatherer is not None
 
     def analyze_t0(
         self,
@@ -236,6 +248,10 @@ class RcaCoordinator:
                     resource_ref=resource_ref, since=since, until=until
                 )
             )
+        if self._knowledge_gatherer is not None:
+            candidates.extend(
+                await self._knowledge_gatherer.gather(query=incident_summary)
+            )
         return await self.analyze_t2(
             incident_summary=incident_summary,
             candidate_citations=tuple(candidates),
@@ -300,6 +316,10 @@ class RcaCoordinator:
                 await self._evidence_gatherer.gather(
                     resource_ref=resource_ref, since=since, until=until
                 )
+            )
+        if self._knowledge_gatherer is not None:
+            candidates.extend(
+                await self._knowledge_gatherer.gather(query=incident_summary)
             )
         return await self.analyze_t2(
             incident_summary=incident_summary,

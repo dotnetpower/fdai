@@ -187,7 +187,7 @@ Make RCA a first-class output of the tiers instead of an implicit side effect.
 |------|----------|
 | **T0** | direct cause: the matched rule/policy names the violated control and its remediation |
 | **T1** | correlation cause: either (a) match the incident to a prior **resolved** incident and reuse its identified root cause + learned action (with provenance and re-verification), or (b) reconstruct a **deterministic causal chain** from the incident's own correlated events - identify the closest antecedent change / mutation that preceded the failure within a bounded window on a related resource (the "a deploy went out, then the error rate rose" chain) |
-| **T2** | reasoning cause: for novel/ambiguous incidents, produce a grounded root-cause hypothesis that **cites evidence** (rules, correlated events, telemetry) and passes the quality gate |
+| **T2** | reasoning cause: for novel/ambiguous incidents, produce a grounded root-cause hypothesis that **cites evidence** (rules, correlated events, telemetry, free-form operator documents) and passes the quality gate |
 
 - RCA output is a **hypothesis with citations**, not an authoritative verdict; **execution
   eligibility is still granted by deterministic verification** (verifier + policy re-check),
@@ -235,6 +235,19 @@ Make RCA a first-class output of the tiers instead of an implicit side effect.
   novel (T0 no-match) case additionally gets a grounded T2
   `rca.hypothesis` (or an abstain), reasoner-gated so a deployment
   without an LLM emits no T2 noise.
+- **Free-form knowledge leg**: `core/rca/knowledge_evidence.py`
+  (`KnowledgeEvidenceGatherer`) is the RCA consumer of the Knowledge Base
+  ingestion seam (`shared/providers/knowledge.py` `KnowledgeSource` +
+  `EmbeddingKnowledgeSource` / `PgvectorKnowledgeSource`). When bound, the
+  `RcaCoordinator`'s T2 convenience wrappers search the operator's ingested
+  documents (runbooks, architecture notes, **resource plans**) for chunks
+  relevant to the incident summary and add each as a `CitationKind.KNOWLEDGE`
+  candidate - so a document an operator uploads is actually referenced when
+  T2 forms a hypothesis. Fail-safe (an unbound source, empty index, or
+  provider outage contributes nothing and the gate abstains) and secret-safe
+  (a citation ref is the opaque `knowledge:<source_ref>#<chunk_id>` handle,
+  never the chunk body). The reasoner still cannot cite a chunk outside this
+  vouched-for set, and the grounding gate + verifier remain authoritative.
 - **T1 causal chain (deterministic)**: `core/rca/causal_chain.py`
   (`CausalChainAnalyzer`, driven by `core/rca/t1.py`'s `t1_causal_chain`)
   is the model-free form of T1 correlation (b). Given the incident's

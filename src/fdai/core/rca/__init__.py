@@ -30,6 +30,7 @@ from fdai.core.rca.coordinator import RcaCoordinator
 from fdai.core.rca.deployment_member_source import DeploymentHistoryMemberSource
 from fdai.core.rca.evidence import TelemetryEvidenceGatherer
 from fdai.core.rca.grounding import enforce_grounding
+from fdai.core.rca.knowledge_evidence import KnowledgeEvidenceGatherer
 from fdai.core.rca.llm import LlmRcaReasoner, RcaModel, parse_rca_response
 from fdai.core.rca.member_source import IncidentMemberSource, NoopIncidentMemberSource
 from fdai.core.rca.reasoner import RcaReasoner
@@ -47,6 +48,7 @@ __all__ = [
     "DeploymentHistoryMemberSource",
     "IncidentMemberSource",
     "LlmRcaReasoner",
+    "KnowledgeEvidenceGatherer",
     "NoopIncidentMemberSource",
     "RcaCoordinator",
     "RcaModel",
