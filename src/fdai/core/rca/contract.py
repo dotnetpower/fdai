@@ -41,6 +41,13 @@ class CitationKind(StrEnum):
     CHANGE = "change"
     """A correlated deploy / commit / config change - see
     :class:`~fdai.core.rca.change_evidence.ChangeEvidenceGatherer`."""
+    SCENARIO = "scenario"
+    """A catalog chaos scenario that would produce the same symptom (per
+    the compiled symptom index). Emitted by
+    :mod:`fdai.core.rca.scenario_context`; the ``ref`` is the scenario
+    ``id`` (``chaos.<namespace>.<slug>``). Consumed by the T2 reasoner
+    as a candidate cause; the reasoner still cannot execute anything
+    on its own."""
 
 
 @dataclass(frozen=True, slots=True)
