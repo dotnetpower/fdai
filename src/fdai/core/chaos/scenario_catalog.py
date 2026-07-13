@@ -96,7 +96,8 @@ class ScenarioCatalogError(Exception):
 
 def _load_schema() -> Mapping[str, Any]:
     with _SCHEMA_PATH.open("r", encoding="utf-8") as f:
-        return json.load(f)
+        schema: Mapping[str, Any] = json.load(f)
+    return schema
 
 
 def _iter_yaml_files(root: pathlib.Path) -> list[pathlib.Path]:
