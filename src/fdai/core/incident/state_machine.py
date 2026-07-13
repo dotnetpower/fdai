@@ -52,9 +52,11 @@ class IncidentTransition:
     """One recorded transition.
 
     Persisted verbatim by the concrete ``StateStore`` adapter into the
-    append-only audit chain; the ``(incident_id, target_state,
-    actor_oid)`` triple is the idempotency key so a re-delivery of the
-    same intent does not create a duplicate audit row.
+    append-only audit chain; the ``(incident_id, from_state, to_state,
+    actor_oid, at)`` tuple is the idempotency key so a re-delivery of the
+    same transition intent (which carries the same ``at``) does not create
+    a duplicate audit row, while a genuinely distinct later transition on
+    the same edge (a repeated reopen, with its own ``at``) is audited.
     """
 
     incident_id: UUID
@@ -67,13 +69,20 @@ class IncidentTransition:
     def idempotency_key(self) -> str:
         """Stable de-dupe key for the ``StateStore``.
 
-        Format: ``<incident_id>::<from>->to<>::<actor_oid>``. Two
-        different actors flipping to the same target state produce
-        distinct rows (both audited); the same actor re-submitting the
-        same transition is a no-op at persistence.
+        Format:
+        ``<incident_id>::<from>-><to>::<actor_oid>::<at ISO-8601>``. The
+        transition timestamp ``at`` is part of the key so a **legal
+        repeated edge** - e.g. a second ``resolved->triaging`` reopen by
+        the same actor - does not collide with the first and get silently
+        swallowed by the store's UNIQUE dedup (which would drop an audit
+        row and diverge audit-replay from live state). A true re-delivery
+        of one intent carries the same ``at``, so it still dedups; callers
+        MUST pass the originating event's timestamp (not a fresh clock
+        read) for that idempotency to hold under redelivery.
         """
         return (
-            f"{self.incident_id}::{self.from_state.value}->{self.to_state.value}::{self.actor_oid}"
+            f"{self.incident_id}::{self.from_state.value}->{self.to_state.value}"
+            f"::{self.actor_oid}::{self.at.isoformat()}"
         )
 
 

@@ -261,6 +261,42 @@ async def test_transition_dedupes_on_idempotency_key(
     assert kinds == ["open", "triaging", "mitigated"]
 
 
+async def test_transition_reopen_cycle_by_same_actor_audits_every_edge(
+    registry: IncidentRegistry, state_store: InMemoryStateStore
+) -> None:
+    # A legal reopen cycle repeats the resolved->triaging edge. Because the
+    # idempotency key includes the transition timestamp, the second reopen by
+    # the SAME actor does not collide with the first and get silently dropped -
+    # which would leave in-memory state at triaging while audit-replay
+    # reconstructed only up to resolved (divergence).
+    inc = await registry.open(
+        correlation_keys=["resource:foo"],
+        severity=IncidentSeverity.SEV2,
+        member_event_ids=[UUID("00000000-0000-0000-0000-000000000001")],
+        actor_oid="oid-detector",
+    )
+    base = datetime.now(tz=UTC)
+    edges = [
+        (IncidentState.TRIAGING, 0),
+        (IncidentState.RESOLVED, 1),
+        (IncidentState.TRIAGING, 2),  # reopen 1
+        (IncidentState.RESOLVED, 3),
+        (IncidentState.TRIAGING, 4),  # reopen 2 - same edge as reopen 1
+    ]
+    for target, secs in edges:
+        inc = await registry.transition(
+            incident_id=inc.incident_id,
+            to_state=target,
+            actor_oid="oid-oncall",  # same actor throughout
+            at=base + timedelta(seconds=secs),
+        )
+    assert inc.state is IncidentState.TRIAGING
+    transitions = list(state_store.incident_transitions)
+    # open + 5 transitions, none dropped by an idempotency-key collision.
+    assert len(transitions) == 6
+    assert state_store.verify_chain()
+
+
 async def test_transition_on_unknown_incident_raises(registry: IncidentRegistry) -> None:
     with pytest.raises(KeyError):
         await registry.transition(
