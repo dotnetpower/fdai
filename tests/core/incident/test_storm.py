@@ -92,6 +92,26 @@ def test_storm_plan_serializes_into_single_waves() -> None:
     assert [s.wave for s in steps] == [0, 1, 2, 3]
 
 
+def test_storm_plan_excludes_stale_signals_from_steps() -> None:
+    # A stale signal (outside the window) neither counts toward the storm nor
+    # gets a remediation step - plan sequences only the in-window set, so it
+    # cannot remediate an old, possibly-already-resolved signal.
+    coord = StormCoordinator(storm_threshold=3, window=timedelta(minutes=5))
+    signals = [
+        _sig("a", IncidentSeverity.SEV2, ago_s=10),
+        _sig("b", IncidentSeverity.SEV2, ago_s=20),
+        _sig("c", IncidentSeverity.SEV2, ago_s=30),
+        # SEV1 so it would sort FIRST if wrongly included - proves exclusion.
+        _sig("stale", IncidentSeverity.SEV1, ago_s=600),
+    ]
+    policy, steps = coord.plan(signals, now=_NOW)
+    assert policy.active is True
+    assert policy.signal_count == 3
+    step_ids = {s.signal_id for s in steps}
+    assert "stale" not in step_ids
+    assert step_ids == {"a", "b", "c"}
+
+
 def test_sequence_is_deterministic() -> None:
     coord = StormCoordinator()
     signals = [

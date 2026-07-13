@@ -115,7 +115,7 @@ class StormCoordinator:
         Only signals whose ``arrived_at`` falls inside ``window`` ending
         at ``now`` count toward the storm threshold.
         """
-        recent = [s for s in signals if timedelta(0) <= now - s.arrived_at <= self._window]
+        recent = self._within_window(signals, now=now)
         count = len(recent)
         active = count >= self._storm_threshold
         if active:
@@ -169,10 +169,24 @@ class StormCoordinator:
     def plan(
         self, signals: Sequence[StormSignal], *, now: datetime
     ) -> tuple[StormPolicy, tuple[RemediationStep, ...]]:
-        """Assess the storm and sequence the plan under the resulting cap."""
+        """Assess the storm and sequence the plan under the resulting cap.
+
+        The plan sequences only the in-window signals - the same set the
+        assessment counted - so a stale signal (arrived before ``window``)
+        does not get a remediation step it should not have. A caller that
+        wants to sequence an explicit signal set unconditionally uses
+        :meth:`sequence` directly.
+        """
         policy = self.assess(signals, now=now)
-        steps = self.sequence(signals, concurrency_cap=policy.concurrency_cap)
+        recent = self._within_window(signals, now=now)
+        steps = self.sequence(recent, concurrency_cap=policy.concurrency_cap)
         return policy, steps
+
+    def _within_window(
+        self, signals: Iterable[StormSignal], *, now: datetime
+    ) -> list[StormSignal]:
+        """Signals whose ``arrived_at`` falls inside ``window`` ending at ``now``."""
+        return [s for s in signals if timedelta(0) <= now - s.arrived_at <= self._window]
 
 
 __all__ = [
