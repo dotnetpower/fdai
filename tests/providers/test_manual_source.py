@@ -132,6 +132,24 @@ async def test_drop_fetch_rejects_symlink_to_outside(tmp_path: Path) -> None:
     assert await source.fetch("escape.md") is None
 
 
+async def test_drop_skips_oversize_files(tmp_path: Path) -> None:
+    small = tmp_path / "small.md"
+    small.write_text("tiny manual", encoding="utf-8")
+    big = tmp_path / "big.md"
+    big.write_text("x" * 200, encoding="utf-8")
+    source = DropDirectoryManualSource(tmp_path, max_bytes=100)
+
+    ids = [c.doc_id for c in await source.list_candidates()]
+    assert ids == ["small.md"]  # oversize file excluded from listing
+    assert await source.fetch("small.md") is not None
+    assert await source.fetch("big.md") is None  # oversize refused on fetch too
+
+
+def test_drop_rejects_non_positive_max_bytes(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="max_bytes"):
+        DropDirectoryManualSource(tmp_path, max_bytes=0)
+
+
 async def test_drop_flags_lossy_decode(tmp_path: Path) -> None:
     (tmp_path / "binary.bin").write_bytes(b"\xff\xfe\x00bad utf8")
     source = DropDirectoryManualSource(tmp_path)

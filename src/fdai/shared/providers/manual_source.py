@@ -177,13 +177,29 @@ class DropDirectoryManualSource:
     replaced and the document is flagged ``decode=lossy`` in its metadata rather
     than dropped, since faithful parsing of rich formats (PDF, images) is a
     downstream open decision, not this adapter's job.
+
+    ``max_bytes`` caps the size of a file this adapter will read: a drop folder
+    is an untrusted input boundary, so an oversize or binary blob is skipped
+    from the listing rather than read whole into memory (which would OOM the
+    build and make the sensitivity scanner chew a single huge line). A text
+    manual well exceeding the default is almost certainly not distillable text.
     """
 
     _SOURCE_SCHEME = "drop://"
+    _DEFAULT_MAX_BYTES = 5_000_000
 
-    def __init__(self, root: Path | str, *, glob: str = "**/*") -> None:
+    def __init__(
+        self,
+        root: Path | str,
+        *,
+        glob: str = "**/*",
+        max_bytes: int = _DEFAULT_MAX_BYTES,
+    ) -> None:
+        if max_bytes <= 0:
+            raise ValueError("DropDirectoryManualSource.max_bytes MUST be positive")
         self._root = Path(root).resolve()
         self._glob = glob
+        self._max_bytes = max_bytes
 
     def _iter_files(self) -> list[Path]:
         if not self._root.is_dir():
@@ -192,9 +208,11 @@ class DropDirectoryManualSource:
         # the drop root (its real path escapes the directory), and an escaping
         # real path would otherwise crash _rel_id's relative_to(). glob does not
         # recurse into symlinked directories, so filtering symlink entries here
-        # is the complete boundary.
+        # is the complete boundary. Oversize files are skipped too (see max_bytes).
         files = [
-            p for p in self._root.glob(self._glob) if p.is_file() and not p.is_symlink()
+            p
+            for p in self._root.glob(self._glob)
+            if p.is_file() and not p.is_symlink() and p.stat().st_size <= self._max_bytes
         ]
         return sorted(files)
 
@@ -230,8 +248,13 @@ class DropDirectoryManualSource:
 
     async def fetch(self, doc_id: str) -> ManualDocument | None:
         path = (self._root / doc_id).resolve()
-        # Reject a doc_id that escapes the drop root (path traversal).
-        if not path.is_relative_to(self._root) or not path.is_file():
+        # Reject a doc_id that escapes the drop root (path traversal), or an
+        # oversize file (would OOM the build / stall the scanner - see max_bytes).
+        if (
+            not path.is_relative_to(self._root)
+            or not path.is_file()
+            or path.stat().st_size > self._max_bytes
+        ):
             return None
         text, content_sha, lossy = self._read(path)
         metadata = {"decode": "lossy"} if lossy else {}
