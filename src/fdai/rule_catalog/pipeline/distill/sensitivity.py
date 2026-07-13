@@ -99,8 +99,11 @@ _CREDENTIAL_ASSIGN_RE = re.compile(
 )
 
 _PLACEHOLDER_RE = re.compile(
-    r"(?i)^['\"]?(?:[<*x.\-]+|.*(?:example|redacted|placeholder|changeme|"
-    r"your[_-]|xxxx|dummy|sample).*)['\"]?$"
+    r"(?i)^['\"]?(?:"
+    r"<[^>]*>"  # <your-password>, <secret>
+    r"|[<>*xX._-]+"  # ****, xxxx, ----, <...>
+    r"|(?:example|redacted|placeholder|changeme|dummy|sample|your[_-]?\w*)"
+    r")['\"]?$"
 )
 
 _EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")

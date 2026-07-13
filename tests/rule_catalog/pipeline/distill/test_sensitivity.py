@@ -76,6 +76,19 @@ def test_detects_credential_assignment_but_skips_placeholder() -> None:
     starred = scan_sensitivity(_doc("password: ********\n"))
     assert starred.is_clear
 
+    bare_word = scan_sensitivity(_doc("password: example\n"))
+    assert bare_word.is_clear
+
+
+def test_placeholder_substring_does_not_suppress_real_secret() -> None:
+    # Regression: a real credential that merely CONTAINS a placeholder word
+    # (example / sample / ...) must still be flagged - the placeholder skip is
+    # whole-value, never substring, so the guard stays fail-closed.
+    for value in ("Sample#2024!Prod", "example-Ab12cd34XY", "changeme-butActuallyReal9"):
+        report = scan_sensitivity(_doc(f"password: {value}\n"))
+        assert report.disposition is SensitivityDisposition.HOLD, value
+        assert any(f.label == "credential-assignment" for f in report.findings)
+
 
 def test_detects_email_pii() -> None:
     report = scan_sensitivity(_doc("Escalate to jane.doe@contoso.example for approval.\n"))
