@@ -119,12 +119,39 @@ class _RaisingLlm:
         raise RuntimeError("model outage")
 
 
-async def test_llm_narrative_expands_every_section_when_bound() -> None:
+async def test_llm_narrative_expands_sections_that_have_evidence() -> None:
+    incident = _incident()
+    rows = [
+        AuditRow(
+            kind="incident.transition",
+            at=T0,
+            actor_oid="oid-a",
+            body={"root_cause": "bad deploy", "contributing_factor": "no canary"},
+        ),
+        AuditRow(
+            kind="action.remediate",
+            at=T0,
+            actor_oid="oid-a",
+            body={"action_type": "x", "mode": "enforce"},
+        ),
+    ]
+    generator = PostmortemGenerator(llm=_EchoingLlm())
+    draft = await generator.generate(incident=incident, audit_rows=rows)
+    # Every section that carries evidence is handed to the model and rewritten.
+    for name in ("summary", "timeline", "root_cause", "contributing_factors", "actions_taken"):
+        assert draft.sections[name].startswith(f"LLM:{name}:"), name
+
+
+async def test_llm_never_fabricates_a_no_evidence_section() -> None:
+    # No-fabrication invariant: with no evidence, the honest "no evidence"
+    # statement is preserved verbatim - it is never handed to the model, so the
+    # model cannot rewrite "no root cause recorded" into an invented cause.
     incident = _incident()
     generator = PostmortemGenerator(llm=_EchoingLlm())
     draft = await generator.generate(incident=incident, audit_rows=[])
-    for name, body in draft.sections.items():
-        assert body.startswith(f"LLM:{name}:")
+    for name in ("timeline", "root_cause", "contributing_factors", "actions_taken"):
+        assert not draft.sections[name].startswith("LLM:"), name
+        assert "no evidence recorded" in draft.sections[name], name
 
 
 async def test_llm_failure_falls_back_to_template(caplog) -> None:  # noqa: ANN001

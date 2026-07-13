@@ -15,6 +15,13 @@ from typing import Protocol
 
 from fdai.shared.contracts.models import Incident, IncidentState
 
+#: Sentinel embedded in every deterministic "absence of evidence" section.
+#: The LLM expander skips any section containing it so the no-fabrication
+#: invariant (a section with no evidence stays an honest "no evidence"
+#: statement) cannot be rewritten into invented narrative. Every
+#: ``_render_*`` empty branch MUST include this substring.
+_NO_EVIDENCE_SENTINEL = "no evidence recorded"
+
 
 @dataclass(frozen=True, slots=True)
 class AuditRow:
@@ -102,6 +109,13 @@ class PostmortemGenerator:
 
         if self._llm is not None:
             for name, template in list(sections.items()):
+                # No-fabrication invariant (module docstring): a section with
+                # no evidence MUST stay an honest "no evidence" statement, never
+                # a narrative the model could invent. Skip LLM expansion for any
+                # absence-of-evidence section so the model never gets the chance
+                # to rewrite "no root cause recorded" into a fabricated cause.
+                if _NO_EVIDENCE_SENTINEL in template:
+                    continue
                 try:
                     sections[name] = await self._llm.expand(
                         section=name, template=template, audit_rows=audit_rows
