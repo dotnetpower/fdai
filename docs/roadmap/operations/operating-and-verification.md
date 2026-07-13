@@ -175,6 +175,65 @@ The system MUST expose, at any time, machine- and human-readable, without specia
 
 Content only; presentation / dashboard layout is defined separately.
 
+## Pre-Launch Verification (performance + integration)
+
+Before a service opens, FDAI is most useful run **in shadow alongside a
+performance / integration test** of the workload it will watch. FDAI does not
+generate the load - an external load generator (Azure Load Testing, k6,
+JMeter) drives the traffic - but while that traffic runs, the control plane
+proves its detection and judgment against realistic conditions without acting:
+
+- **Shadow judgment under real load.** New rules and actions run judge-and-log
+  only ([architecture.instructions.md § Shadow -> Enforce](../../../.github/instructions/architecture.instructions.md#safety-invariants)),
+  so the load test exercises the deterministic tiers and the T2 quality gate
+  and every verdict is recorded, none executed.
+- **Detection latency measured against budget.** The events the load generates
+  feed the per-tier `LatencyBudgetMonitor`
+  ([`core/measurement/latency_budget.py`](../../../src/fdai/core/measurement/latency_budget.py)),
+  so a tier that misses its p95 budget under load surfaces before go-live, not
+  after.
+- **Canary + smoke round-trip.** The [synthetic canary](#synthetic-canary-event)
+  and the [post-deploy smoke tests](#post-deploy-smoke-tests) confirm the full
+  `ingest -> tier -> gate -> audit` loop completes within budget on the loaded
+  environment.
+- **Scenario replay.** `tools/baseline_run.py` replays the frozen scenario set
+  ([goals-and-metrics.md](../architecture/goals-and-metrics.md)) so routing and
+  auto-vs-HIL accuracy are quantified on the same build that will ship.
+
+The result is a body of shadow evidence - accuracy, latency, zero
+policy-violation escapes - that an operator reviews **before** promoting any
+action from shadow to enforce.
+
+## Post-Launch Stabilization Window
+
+After a service opens, FDAI is most useful **left running for the first few
+days** at a heightened observation intensity - the stabilization window. It is
+the leading edge of the 30-day
+[measurement window](../architecture/goals-and-metrics.md#definitions), not a
+separate mode, and it composes existing primitives:
+
+- **Shadow-first stays the default.** Newly introduced actions remain in shadow
+  through the window; promotion to enforce waits until the stabilization
+  signals below are clean, so an unstable opening never auto-executes.
+- **Scheduled comparison to baseline.** Scheduled tasks
+  ([`core/scheduler`](../../../src/fdai/core/scheduler)) run daily health
+  checks, configuration-drift diffs, and deployment verification against a
+  documented baseline (including an uploaded **resource plan** in the knowledge
+  base) - exactly the "compare to baseline" checks the operator wants right
+  after launch.
+- **Pattern promotion from real traffic.** The Month-1 observation tools and
+  the `console.recurrent_query` signal ([operator-console.md § 9.3](../interfaces/operator-console.md))
+  turn a repeated investigation into a rule candidate, so the catalog grows
+  from what the launch actually surfaced.
+- **Close guard-metric watch.** Guard-metric drift
+  ([goals-and-metrics.md § Guard Metrics](../architecture/goals-and-metrics.md#guard-metrics-must-not-regress))
+  is watched tightly through the window; a breach demotes back to shadow
+  automatically. When the signals settle, operation returns to the normal
+  cadence.
+
+The window absorbs the noisy opening period with minimal human intervention,
+then hands off to steady-state operation once stabilization signals hold.
+
 ## Open Decisions
 
 - [ ] Synthetic canary cadence, payload shape, and round-trip budget.
@@ -185,3 +244,8 @@ Content only; presentation / dashboard layout is defined separately.
 - [ ] Retention window and query model for the audit investigation flow.
 - [ ] Cold-start deadline value (shared with
       [startup-and-lifecycle.md](startup-and-lifecycle.md#cold-start-scale-to-zero-specifics)).
+- [ ] Stabilization-window length after launch (default "a few days") and the
+      concrete stabilization signals that end it (guard-metric quiescence,
+      canary streak, scenario-replay pass).
+- [ ] Pre-launch load-test integration surface (which load generator, what
+      per-tier latency budgets to assert under load).

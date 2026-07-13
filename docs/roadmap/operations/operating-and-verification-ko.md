@@ -1,8 +1,8 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: e991101f496b21348ebdad8910365b18a8395851
-translation_revised: 2026-07-11
+translation_source_sha: d584e70f36f960046eb96d7fdb46d544af7203c9
+translation_revised: 2026-07-13
 ---
 
 # 운영과 검증(Operating and Verification)
@@ -169,6 +169,55 @@ hash-chain됨; 같은 워크는 shadow와 enforce 이벤트에 대해 동작(모
 
 컨텐트만; 프레젠테이션 / 대시보드 레이아웃은 별도 정의.
 
+## 오픈 전 검증 (성능 + 통합)
+
+서비스 오픈 전, FDAI는 감시할 워크로드의 **성능 / 통합 테스트와 나란히 shadow로**
+실행할 때 가장 유용하다. FDAI가 부하를 생성하지는 않고 - 외부 부하 생성기(Azure Load
+Testing, k6, JMeter)가 트래픽을 만든다 - 그 트래픽이 도는 동안 제어 평면은 실행 없이
+현실적인 조건에서 감지와 판정을 증명한다:
+
+- **실부하 하 shadow 판정.** 새 rule 과 action 은 judge-and-log 만 수행하므로
+  ([architecture.instructions.md § Shadow -> Enforce](../../../.github/instructions/architecture.instructions.md#safety-invariants)),
+  부하 테스트가 결정론적 tier 와 T2 quality gate 를 exercise 하고 모든 verdict 는
+  기록되되 실행되지 않는다.
+- **예산 대비 감지 지연 측정.** 부하가 만든 이벤트가 tier 별 `LatencyBudgetMonitor`
+  ([`core/measurement/latency_budget.py`](../../../src/fdai/core/measurement/latency_budget.py))
+  에 공급되어, 부하 하에서 p95 예산을 놓치는 tier 가 go-live 후가 아니라 전에 드러난다.
+- **canary + smoke 왕복.** [합성 canary](#synthetic-canary-event) 와
+  [post-deploy smoke 테스트](#post-deploy-smoke-tests) 가 로드된 환경에서 전체
+  `ingest -> tier -> gate -> audit` 루프가 예산 내에 완료됨을 확인한다.
+- **시나리오 재생.** `tools/baseline_run.py` 가 동결 시나리오 세트
+  ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)) 를 재생해
+  라우팅과 auto-vs-HIL 정확도를 ship 될 바로 그 빌드에서 정량화한다.
+
+결과는 shadow 증거 뭉치 - 정확도, 지연, 정책 위반 escape 0 - 이며, 오퍼레이터는
+어떤 action 을 shadow 에서 enforce 로 승격하기 **전에** 이를 검토한다.
+
+## 오픈 후 안정화 윈도우(Stabilization Window)
+
+서비스 오픈 후, FDAI는 처음 며칠 동안 관찰 강도를 높여 **켜 두었을 때** 가장 유용하다 -
+안정화 윈도우다. 이는 별도 모드가 아니라 30일
+[측정 윈도우](../architecture/goals-and-metrics-ko.md#definitions) 의 선단이며, 기존
+프리미티브를 조합한다:
+
+- **Shadow-first 가 기본 유지.** 새로 도입된 action 은 윈도우 동안 shadow 로 남고,
+  아래 안정화 신호가 깨끗해질 때까지 enforce 승격을 미룬다 - 불안정한 오픈이 절대
+  auto-execute 하지 않는다.
+- **baseline 대비 스케줄 비교.** 스케줄 태스크([`core/scheduler`](../../../src/fdai/core/scheduler))
+  가 daily health check, 구성 드리프트 diff, 배포 검증을 문서화된 baseline(지식
+  베이스에 업로드된 **리소스 플랜** 포함) 대비 수행한다 - 오픈 직후 오퍼레이터가 원하는
+  "baseline 과 비교" 검사 그대로다.
+- **실트래픽에서 패턴 승격.** Month-1 관찰 도구와 `console.recurrent_query` 신호
+  ([operator-console-ko.md § 9.3](../interfaces/operator-console-ko.md)) 가 반복된 조사를
+  rule 후보로 바꾸어, 오픈이 실제로 드러낸 것으로부터 카탈로그가 성장한다.
+- **guard-metric 밀착 감시.** guard-metric 드리프트
+  ([goals-and-metrics-ko.md § 가드 메트릭](../architecture/goals-and-metrics-ko.md#guard-metrics-must-not-regress))
+  를 윈도우 내내 밀착 감시한다; breach 는 자동으로 shadow 로 강등한다. 신호가
+  안정되면 정상 주기로 돌아간다.
+
+윈도우는 시끄러운 오픈 구간을 최소한의 사람 개입으로 흡수하고, 안정화 신호가 유지되면
+정상 운영으로 인계한다.
+
 ## Open Decisions
 
 - [ ] 합성 카나리 주기, 페이로드 형상, 왕복 예산.
@@ -178,3 +227,7 @@ hash-chain됨; 같은 워크는 shadow와 enforce 이벤트에 대해 동작(모
 - [ ] 감사 조사 흐름을 위한 보존 윈도우와 쿼리 모델.
 - [ ] Cold-start 데드라인 값
       ([startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md#cold-start-scale-to-zero-specifics) 와 공유).
+- [ ] 오픈 후 안정화 윈도우 길이(기본 "며칠") 와 이를 종료시키는 구체적 안정화 신호
+      (guard-metric 정지, canary 연속 성공, 시나리오 재생 통과).
+- [ ] 오픈 전 부하 테스트 통합 표면(어느 부하 생성기, 부하 하에서 assert 할 tier 별
+      지연 예산).
