@@ -6,7 +6,7 @@ own `AGENT_NAMES`. This test is the bridge that stops the two from drifting.
 
 from __future__ import annotations
 
-from fdai.agents._framework.pantheon import PANTHEON_NAMES
+from fdai.agents import PANTHEON_NAMES
 from fdai.core.stewardship.names import AGENT_NAME_SET, AGENT_NAMES
 
 
