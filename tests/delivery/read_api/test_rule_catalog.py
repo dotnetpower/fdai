@@ -310,9 +310,7 @@ def test_detail_falls_back_to_id_without_origin() -> None:
 
 
 def test_detail_explicit_origin_mismatch_returns_404() -> None:
-    assert _client().get(
-        "/rules/cis.azure.1.1", params={"origin": "active"}
-    ).status_code == 404
+    assert _client().get("/rules/cis.azure.1.1", params={"origin": "active"}).status_code == 404
 
 
 def test_detail_is_get_only() -> None:
@@ -446,9 +444,10 @@ def test_findings_unknown_rule_404() -> None:
 
 
 def test_findings_explicit_origin_mismatch_returns_404() -> None:
-    assert _client().get(
-        "/rules/cis.azure.1.1/findings", params={"origin": "active"}
-    ).status_code == 404
+    assert (
+        _client().get("/rules/cis.azure.1.1/findings", params={"origin": "active"}).status_code
+        == 404
+    )
 
 
 def test_findings_is_get_only() -> None:
