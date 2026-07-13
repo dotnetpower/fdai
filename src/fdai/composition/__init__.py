@@ -77,6 +77,10 @@ from ..shared.providers.knowledge import (
     EmptyKnowledgeSource,  # noqa: F401 - public re-export
     KnowledgeSource,  # noqa: F401 - public re-export
 )
+from ..shared.providers.manual_classifier import (
+    AbstainingManualClassifier,  # noqa: F401 - public re-export
+    ManualClassifier,  # noqa: F401 - public re-export
+)
 from ..shared.providers.manual_source import (
     DropDirectoryManualSource,
     EmptyManualSource,  # noqa: F401 - public re-export
