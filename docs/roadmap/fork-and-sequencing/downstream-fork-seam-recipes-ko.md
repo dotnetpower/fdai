@@ -1,7 +1,7 @@
 ---
 title: Fork Seam Recipe 조리서
 translation_of: downstream-fork-seam-recipes.md
-translation_source_sha: e5698297b3430e96fc2c09fbabf536b69328d061
+translation_source_sha: 73dab6569022903bbbffe9032b057cac7c311da6
 translation_revised: 2026-07-11
 ---
 
@@ -1102,3 +1102,57 @@ in-memory fake에 대해 `build_container_with_fork_catalogs`를 실행하고
 - Fork의 `entry.py`를 `fdai` 이외의 script 이름으로 등록하고 컨테이너
   CMD 업데이트 잊음. 결과: 이미지가 upstream의 `__main__`을 실행하고
   fork wiring은 하나도 실행되지 않음.
+
+### 5.16 매뉴얼 증류 (`ManualSource` / `ManualClassifier` / `Distiller`)
+
+**언제 override**: 도입 회사의 운영/배포 매뉴얼을 결정론적 규칙,
+워크플로우, 정책으로 컴파일해 흡수할 때
+([manual-distillation-ko.md](../rules-and-detection/manual-distillation-ko.md)
+참조). 증류할 산문 매뉴얼이 없으면 이 섹션은 건너뛴다.
+
+**seam** (셋 다 upstream에서 abstain하므로, 미배선 fork는 규칙을
+날조하지 않고 아무것도 증류하지 않는다):
+
+- `fdai.shared.providers.manual_source.ManualSource` - 매뉴얼을
+  발견하고 각각을 `ManualDocument`로 전달. 기본 `EmptyManualSource`는
+  아무것도 제공하지 않는다. upstream 제네릭 `DropDirectoryManualSource`는
+  로컬 drop 디렉토리를 읽어 크레덴셜-프리 접근 모드 전부를 한 번에
+  커버한다(운영자 drop, 콘솔 업로드, email-in, iPaaS / Power Automate
+  웹훅). `bind_drop_directory_manual_source(container, root=...)`로
+  배선한다. SharePoint / Confluence / Notion 커넥터나 위임-토큰 fetch는
+  고객 데이터이며 동일 Protocol 뒤에서 fork에 산다.
+- `fdai.shared.providers.manual_classifier.ManualClassifier` - 값싼
+  "이것이 운영 절차인가?" 호출. 기본 `AbstainingManualClassifier`는 모든
+  후보를 `UNCERTAIN`으로 표시해 자동 증류 대신 HIL 선별로 라우팅한다.
+  fork는 `replace(container, manual_classifier=...)`로 소형 모델 분류기를
+  배선한다.
+- `fdai.shared.providers.distiller.Distiller` - LLM 추출기. 기본
+  `AbstainingDistiller`는 아무것도 추출하지 않는다. fork는
+  `replace(container, distiller=...)`로 LLM 기반 distiller를 배선한다.
+
+결정론적 단계(triage 필터, exact dedupe, 민감도 secret / PII 가드,
+freshness diff, coverage)는 upstream이며 fork 작업이 필요 없다. 빌드
+타임 오케스트레이터
+`fdai.rule_catalog.pipeline.distill.orchestrator.build_distillation_plan`가
+이들을 하나의 inert `DistillationPlan`으로 엮는다;
+`python -m fdai.rule_catalog.pipeline.distill_cli --drop-dir <dir>
+--snapshot <file>`로 한 번의 pass를 실행한다. plan은 inert하다 - 증류된
+후보는 enforce 전에 여전히 grounding / shadow / regression / promotion
+게이트를 거친다.
+
+**테스트 방법**: 배포된 distill 테스트를 템플릿으로 재사용
+(`tests/rule_catalog/pipeline/distill/*`); fork 픽스처 디렉토리를 추가하고
+(1) `ManualSource.list_candidates`가 기대 후보를 반환하는지, (2) 민감도를
+건드리는 픽스처가 `distilled`가 아니라 `held`로 라우팅되는지, (3)
+`Distiller` 출력이 `source_ref` provenance를 인용하고 coverage diff를
+통과하는지 assert한다.
+
+**안티패턴**:
+
+- 테넌트 전체에 대한 광범위 상시 서비스-프린시펄 read 크레덴셜 보유.
+  증류는 빌드 타임이고 매뉴얼 리비전당 한 번 실행되므로, push / 위임으로
+  뒤집고 상시 크레덴셜을 보유하지 않는다(설계 문서의 접근 표 참조).
+- 민감도 가드를 건드리는 매뉴얼을 자동 증류. `HOLD` disposition은 반드시
+  HIL로 라우팅해야 하며, distiller로 직행해선 안 된다.
+- 매뉴얼이나 증류된 규칙을 upstream에 커밋. 이들은 고객 데이터이며 5.8의
+  규칙 카탈로그 추가와 똑같이 fork에만 산다.

@@ -1148,3 +1148,62 @@ in-memory fakes and assert:
   than `fdai` and forgetting to update the container CMD. Result:
   the image runs upstream's `__main__` and none of your fork wiring
   runs.
+
+### 5.16 Manual distillation (`ManualSource` / `ManualClassifier` / `Distiller`)
+
+**When to override**: to absorb an adopting company's operational /
+deployment manuals by compiling them into deterministic rules,
+workflows, and policies (see
+[manual-distillation.md](../rules-and-detection/manual-distillation.md)).
+Skip this section if your fork has no prose manuals to distill.
+
+**The seams** (all three abstain upstream, so an unwired fork distills
+nothing rather than fabricating a rule):
+
+- `fdai.shared.providers.manual_source.ManualSource` - discovers
+  manuals and delivers each as a `ManualDocument`. Default
+  `EmptyManualSource` offers none. The upstream generic
+  `DropDirectoryManualSource` reads a local drop directory and thereby
+  covers every credential-free access mode at once (operator drop,
+  console upload, email-in, iPaaS / Power Automate webhook). Bind it
+  with `bind_drop_directory_manual_source(container, root=...)`. A
+  connector to SharePoint / Confluence / Notion, or a delegated-token
+  fetch, is customer data and lives in the fork behind this same
+  Protocol.
+- `fdai.shared.providers.manual_classifier.ManualClassifier` - the
+  cheap "is this an operational procedure?" call. Default
+  `AbstainingManualClassifier` marks every candidate `UNCERTAIN`, so
+  they route to HIL triage instead of auto-distilling. A fork binds a
+  small-model classifier via `replace(container, manual_classifier=...)`.
+- `fdai.shared.providers.distiller.Distiller` - the LLM extractor.
+  Default `AbstainingDistiller` extracts nothing. A fork binds an
+  LLM-backed distiller via `replace(container, distiller=...)`.
+
+The deterministic stages (triage filter, exact dedupe, sensitivity
+secret / PII guard, freshness diff, coverage) are upstream and need no
+fork work. The build-time orchestrator
+`fdai.rule_catalog.pipeline.distill.orchestrator.build_distillation_plan`
+stitches them into one inert `DistillationPlan`; run a pass with
+`python -m fdai.rule_catalog.pipeline.distill_cli --drop-dir <dir>
+--snapshot <file>`. The plan is inert - distilled candidates still face
+the grounding / shadow / regression / promotion gates before enforce.
+
+**How to test**: reuse the shipped distill tests as templates
+(`tests/rule_catalog/pipeline/distill/*`); add a fork fixture directory
+and assert that (1) your `ManualSource.list_candidates` returns the
+expected candidates, (2) a sensitivity-tripping fixture routes to
+`held`, not `distilled`, and (3) your `Distiller` output cites
+`source_ref` provenance and clears the coverage diff.
+
+**Anti-patterns**:
+
+- Holding a broad standing service-principal read credential over a
+  whole tenant. Distillation is build-time and runs once per manual
+  revision, so invert to push / delegate and hold no standing
+  credential (see the design doc's access table).
+- Auto-distilling a manual that trips the sensitivity guard. A
+  `HOLD` disposition MUST route to HIL, never straight to the
+  distiller.
+- Committing manuals or distilled rules upstream. They are customer
+  data and live only in the fork, exactly like the rule catalog
+  additions in 5.8.

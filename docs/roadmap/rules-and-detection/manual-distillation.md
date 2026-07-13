@@ -260,6 +260,28 @@ when it cannot cite support the tier abstains to HIL. A structured
 knowledge-graph retrieval (over the existing PostgreSQL state store, no new service)
 is preferred over flat vector RAG when relationship traversal matters.
 
+## Implementation status
+
+The ingestion and verification mechanism ships upstream; the LLM-backed and
+customer-connector parts are fork seams with abstaining defaults.
+
+| Design element | Shipped as | Home |
+|---|---|---|
+| Access seam | `ManualSource` + `DropDirectoryManualSource`, bound by `bind_drop_directory_manual_source` | `shared/providers/manual_source.py` |
+| Sensitivity guard | `scan_sensitivity` - value-free findings, `HOLD` -> HIL | `rule_catalog/pipeline/distill/sensitivity.py` |
+| Triage (deterministic) | `triage_filter`, `dedupe_exact`, `authority_score`, `prioritize` | `rule_catalog/pipeline/distill/triage.py` |
+| Classifier seam | `ManualClassifier` (abstaining default marks all `UNCERTAIN` -> HIL) | `shared/providers/manual_classifier.py` |
+| Freshness + deletion | `diff_snapshot`, `plan_retirements` (tombstone) | `rule_catalog/pipeline/distill/freshness.py` |
+| Coverage diff | `analyze_coverage` | `rule_catalog/pipeline/distill/coverage.py` |
+| Compile seam | `Distiller` (abstaining default extracts nothing) | `shared/providers/distiller.py` |
+| Orchestrator + CLI | `build_distillation_plan`, `distill_cli` | `rule_catalog/pipeline/distill/orchestrator.py`, `distill_cli.py` |
+
+The deterministic stages run upstream with no fork work. The `ManualClassifier`
+and `Distiller` seams stay abstaining upstream (no model shipped), so an unwired
+deployment distills nothing rather than fabricating a rule; a fork wires
+LLM-backed implementations and any siloed-source connector via the seam recipe in
+[downstream-fork-seam-recipes.md § 5.16](../fork-and-sequencing/downstream-fork-seam-recipes.md#516-manual-distillation-manualsource--manualclassifier--distiller).
+
 ## Open decisions
 
 - **Chunking + extraction prompt** for each manual format (PDF vs wiki vs Markdown)
