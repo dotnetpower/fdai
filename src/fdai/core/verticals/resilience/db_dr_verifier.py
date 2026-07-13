@@ -146,8 +146,7 @@ class DbDrVerifier:
 
         In every case except ``RESTORE_FAILED`` (no handle to tear
         down) the restored environment is torn down before returning;
-        a teardown error is captured on
-        :attr:`DbDrVerdict.teardown_error` and audited but does not
+        a teardown error is audited as a separate event but does not
         change the primary outcome.
         """
         started_at = datetime.now(tz=UTC)

@@ -206,8 +206,12 @@ def _reject_policy_violations(entry: OperatorMemoryEntry) -> None:
         )
     markers = detect_injection_markers(entry.body)
     if markers:
-        # Wrap the sanitizer's exception in the store's policy error so
-        # every write-time failure surfaces the same base class.
+        # Fail closed on an injection marker with the sanitizer's DISTINCT
+        # InjectionMarkerError (not OperatorMemoryPolicyError) so a caller can
+        # handle an injection rejection specifically - the web-search path
+        # reuses the same type. Both share the ValueError base for a coarse
+        # "any write-time rejection" catch. This is the tested contract
+        # (test_append_rejects_injection_marker_in_body).
         raise InjectionMarkerError(markers)
 
 
