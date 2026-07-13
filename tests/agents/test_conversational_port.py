@@ -61,6 +61,40 @@ def test_ask_handoff_when_no_route() -> None:
     assert turn.answer["handoff_needed"] is True
 
 
+def test_ask_handoff_escalates_to_saga_issue_and_dedups() -> None:
+    # An unanswerable question triggers the discovery-loop handoff: the runtime
+    # asks Saga to open a fingerprinted issue (governance.escalate-to-github-issue).
+    from fdai.agents.saga import Saga
+
+    runtime = _runtime()
+    saga = runtime.agents["Saga"]
+    assert isinstance(saga, Saga)
+
+    asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="zzzz qqqq wxyz"))
+    assert len(saga.github.issues) == 1
+
+    # A repeated identical ask deduplicates by fingerprint (comment, not a new
+    # issue) so recurring unanswerable questions do not spam.
+    asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="zzzz qqqq wxyz"))
+    assert len(saga.github.issues) == 1
+    fingerprint = next(iter(saga.github.issues))
+    assert len(saga.github.issues[fingerprint].comments) == 1  # second ask commented
+
+    # A resolved question (routes to Thor) does NOT escalate.
+    asyncio.run(runtime.ask(session_id="s2", user_id="u2", question="what is the action status"))
+    assert len(saga.github.issues) == 1
+
+
+def test_ask_resolved_question_does_not_escalate() -> None:
+    from fdai.agents.saga import Saga
+
+    runtime = _runtime()
+    saga = runtime.agents["Saga"]
+    assert isinstance(saga, Saga)
+    asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="what is the action status"))
+    assert saga.github.issues == {}
+
+
 def test_ask_answers_from_owned_state_not_stub() -> None:
     # The routed agent answers from its owned data (grounded), not a bare
     # not-implemented abstain.

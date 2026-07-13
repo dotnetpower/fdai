@@ -223,12 +223,14 @@ deepen it. Do not delete this list without closing the item.
   only, never an auto-promotion). **Saga now publishes `object.issue`**: on
   `escalate_to_github_issue` it emits the issue onto the bus (it is the single
   writer of Issue), so recurring handoffs feed Norns' fingerprint learner end
-  to end. **Remaining**: no production path yet *calls* `escalate_to_github_issue`
-  (the conversational-abstain -> handoff trigger flow is unwired, so the
-  fingerprint loop is complete on the Saga / Norns / Mimir side but idle until a
-  trigger lands); and the optional scenario-coverage learner's `new-scenario`
-  proposal_kind is not yet in the `CandidateGuard` allowlist (quarantined until a
-  scenario intake path lands).
+  to end. **The handoff trigger is wired**: `PantheonRuntime.ask` calls
+  `Saga.escalate_to_github_issue` when a conversational turn abstains with no
+  route (`handoff_needed`), fingerprinted on the normalized question so repeat
+  asks dedup (a comment, not a new issue) - it never bypasses the typed
+  pipeline (it records that no agent could help, not the operator's action).
+  **Remaining**: the optional scenario-coverage learner's `new-scenario`
+  proposal_kind is not yet in the `CandidateGuard` allowlist (quarantined until
+  a scenario intake path lands).
 - **LLM bindings are placeholders** (`hot_path_llm` / `off_path_llm` booleans; no
   `llm_bindings` field; no model is invoked). The conversational port answers are
   base stubs on all agents except Bragi routing.

@@ -44,7 +44,7 @@ from fdai.agents._framework.pantheon import HARD_DEPENDENCY_AGENTS, PANTHEON_NAM
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
 from fdai.agents.bragi import Bragi, Turn
 from fdai.agents.huginn import Huginn
-from fdai.agents.saga import Saga
+from fdai.agents.saga import Saga, compute_fingerprint
 from fdai.agents.thor import ActionRunStore, Thor
 from fdai.shared.providers.event_bus import EventBus
 
@@ -293,12 +293,63 @@ class PantheonRuntime:
         """
         if self._bragi is None:
             return None
-        return await self._bragi.ask(
+        turn = await self._bragi.ask(
             session_id=session_id,
             user_id=user_id,
             question=question,
             initiator_role=initiator_role,
         )
+        await self._maybe_escalate_handoff(turn, question=question, session_id=session_id)
+        return turn
+
+    async def _maybe_escalate_handoff(
+        self, turn: Turn, *, question: str, session_id: str
+    ) -> None:
+        """Materialize a Saga handoff issue for an unresolved conversational turn.
+
+        When Bragi abstains with no route (``handoff_needed``), no agent could
+        serve the operator's question. Saga - the single writer of Issue and
+        the executor of ``governance.escalate-to-github-issue`` - opens (or
+        comments, deduped by fingerprint) an issue and publishes
+        ``object.issue``, so recurring unanswerable questions feed Norns'
+        fingerprint learner and can become a rule candidate (the discovery
+        loop's handoff trigger). This is NOT the operator's requested action
+        (which re-enters the typed pipeline, 7.7) - it is the system recording
+        that it could not help, so it never bypasses the pipeline. No-op when
+        the turn was resolved or Saga is unavailable. Best-effort: a handoff
+        bookkeeping failure MUST NOT break the operator's answer.
+        """
+        answer = turn.answer if isinstance(turn.answer, dict) else {}
+        if not answer.get("handoff_needed"):
+            return
+        saga = self.agents.get("Saga")
+        if not isinstance(saga, Saga):
+            return
+        reason = str(answer.get("abstain_reason") or "no_route")
+        # Normalize the question so a repeated identical ask deduplicates to
+        # one fingerprint (Saga comments rather than reopening), while distinct
+        # questions stay distinct discovery signals.
+        normalized = " ".join(question.split()).casefold()
+        fingerprint = compute_fingerprint(
+            intent_category=reason,
+            resource_type="",
+            normalized_selector=normalized,
+            primary_agent="Bragi",
+            failure_reason_code=reason,
+        )
+        try:
+            await saga.escalate_to_github_issue(
+                fingerprint=fingerprint,
+                emitting_agent="Bragi",
+                intent_category=reason,
+                failure_reason_code=reason,
+                correlation_id=session_id,
+            )
+        except Exception as exc:  # noqa: BLE001 - handoff bookkeeping must not break the answer
+            _LOG.warning(
+                "handoff_escalation_failed",
+                extra={"session_id": session_id, "error_type": type(exc).__name__},
+            )
 
     async def introspect(
         self,
