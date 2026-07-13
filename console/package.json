@@ -6,7 +6,8 @@
   "description": "FDAI operator console - read-only SPA (KPI dashboard, audit log, HIL queue). See app-shape.instructions.md § Operator console.",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && npm run check:entry",
+    "check:entry": "node scripts/check-entry-bundle.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"

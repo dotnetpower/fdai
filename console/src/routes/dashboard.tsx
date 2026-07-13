@@ -20,6 +20,7 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
+import { overviewHealth } from "./dashboard.model";
 
 interface Props {
   readonly client: ReadApiClient;
@@ -136,8 +137,8 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
   const gateTotal = gates ? gates.rows.length : null;
   // A policy escape blocks release (goals-and-metrics: escapes MUST be 0),
   // so it fails the health axis just like a pending human approval does.
-  const healthy =
-    kpi.shadow_share >= 0.95 && kpi.hil_pending === 0 && (policyEscapes ?? 0) === 0;
+  const health = overviewHealth(kpi, policyEscapes, autonomy);
+  const healthy = health === "healthy";
   const savings = finops ? finops.estimated_monthly_savings : null;
 
   usePublishViewContext(
@@ -207,12 +208,12 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
           TERMS.gateDecision,
         ]),
         headline:
-          `health ${healthy ? "healthy" : "attention"} - ` +
+          `health ${health} - ` +
           `${kpi.hil_pending} HIL pending - ` +
           (savings !== null ? `${formatUsd(savings)}/mo saved` : "cost n/a"),
         capturedAt: new Date().toISOString(),
         facts: [
-          { key: "health", value: healthy ? "healthy" : "attention", group: "overview" },
+          { key: "health", value: health, group: "overview" },
           { key: "event_count", value: kpi.event_count, group: "overview" },
           { key: "shadow_share", value: formatShare(kpi.shadow_share), group: "overview" },
           { key: "t0_share", value: `${t0Share}%`, group: "overview" },
@@ -242,7 +243,7 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
         },
       };
     },
-    [kpi, finops, gates, autonomy, healthy, savings, t0Share],
+    [kpi, finops, gates, autonomy, health, savings, t0Share],
   );
 
   return (
@@ -253,7 +254,7 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
       <section class="overview-triad" aria-label="health, risk and cost summary">
         <KpiCard
           label={t("overview.health.label")}
-          value={healthy ? t("overview.health.healthy") : t("overview.health.attention")}
+          value={health === "healthy" ? t("overview.health.healthy") : health === "attention" ? t("overview.health.attention") : t("overview.health.unknown")}
           tone={healthy ? "positive" : "warning"}
           hint={`${kpi.event_count} events - T0 ${t0Share}% - shadow ${formatShare(kpi.shadow_share)}`}
         />

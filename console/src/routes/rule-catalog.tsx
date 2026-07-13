@@ -20,6 +20,7 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
+import { isRuleListUpdating } from "./rule-catalog.model";
 
 /**
  * Rule-catalog explorer panel. Fetches ``GET /rules`` and renders the
@@ -390,6 +391,7 @@ export function RuleCatalogRoute({ client }: Props) {
 
   // Have data: keep the body mounted; a refetch only dims the table and
   // shows an inline indicator, so the search box never loses focus.
+  const listUpdating = isRuleListUpdating(searchInput, filters.q, status === "loading");
   return (
     <div class="stack">
       {header}
@@ -400,7 +402,7 @@ export function RuleCatalogRoute({ client }: Props) {
         data={data}
         filters={filters}
         searchInput={searchInput}
-        loading={status === "loading"}
+        loading={listUpdating}
         selected={selected}
         detail={detail}
         findings={findings}
@@ -668,7 +670,7 @@ function RuleCatalogBody({
             <button
               type="button"
               class="btn"
-              disabled={!hasPrev}
+              disabled={loading || !hasPrev}
               onClick={() => onPage(Math.max(0, data.offset - data.limit))}
             >
               Prev
@@ -676,7 +678,7 @@ function RuleCatalogBody({
             <button
               type="button"
               class="btn"
-              disabled={!hasNext}
+              disabled={loading || !hasNext}
               onClick={() => onPage(data.offset + data.limit)}
             >
               Next
@@ -684,7 +686,7 @@ function RuleCatalogBody({
           </div>
         </div>
 
-        <div class={loading ? "is-refreshing" : undefined}>
+        <div class={loading ? "is-refreshing" : undefined} aria-busy={loading}>
           <DataTable<RuleDto>
             columns={columns}
             rows={data.rules}

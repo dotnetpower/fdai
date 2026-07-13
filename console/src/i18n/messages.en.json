@@ -13,8 +13,9 @@
     "agentActivity": "Agent activity",
     "rules": "Rules",
     "workflowBuilder": "Workflow builder",
-    "llmCost": "LLM cost"
-    ,"processes": "Processes"
+    "llmCost": "LLM cost",
+    "processes": "Processes",
+    "settings": "Settings"
   },
   "nav": {
     "group": {
@@ -48,8 +49,9 @@
       "dashboard": "Overview",
       "rules": "Rules",
       "workflowBuilder": "Workflow builder",
-      "llmCost": "LLM cost"
-      ,"processes": "Processes"
+      "llmCost": "LLM cost",
+      "processes": "Processes",
+      "settings": "Settings"
     },
     "panelSub": {
       "live": "Real-time pipeline activity",
@@ -68,9 +70,38 @@
       "dashboard": "Healthy, risk, and cost, sourced from the audit log",
       "rules": "Every policy in the rule catalog, faceted",
       "workflowBuilder": "Browse built-in workflows or design a new one by chatting",
-      "llmCost": "Token usage and spend per conversation, day, and month"
-      ,"processes": "Workflow runtime state and dynamic ontology-backed views"
+      "llmCost": "Token usage and spend per conversation, day, and month",
+      "processes": "Workflow runtime state and dynamic ontology-backed views",
+      "settings": "Display, accessibility, and local console preferences"
     }
+  },
+  "settings": {
+    "subtitle": "Display and accessibility preferences stored in this browser.",
+    "open": "Open settings",
+    "switchLight": "Switch to light theme",
+    "switchDark": "Switch to dark theme",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "themeHint": "Applied immediately across every console view.",
+    "light": "Light",
+    "dark": "Dark",
+    "language": "Language",
+    "korean": "Korean",
+    "languageHint": "Reloads the console so every navigation label uses the selected language.",
+    "motion": "Motion",
+    "motionHint": "Reduce decorative animation while preserving live state updates.",
+    "reduced": "Reduced",
+    "system": "System preference",
+    "runtime": "Runtime",
+    "readApi": "Read API",
+    "readApiHint": "The read-only endpoint supplying this console session.",
+    "reset": "Reset display preferences"
+  },
+  "deck": {
+    "label": "Command deck",
+    "open": "Open command deck",
+    "close": "Close command deck",
+    "invoke": "Ask anything about this screen"
   },
   "workflowBuilder": {
     "subtitle": "Browse the built-in workflows read-only, or design a new one by chatting with the builder. Describe what you want in plain words; it asks follow-up questions, generates the YAML, shows a visual of how it runs, and lets you test it. The console never commits - copy the YAML into a remediation PR."
@@ -106,7 +137,8 @@
     "health": {
       "label": "System health",
       "healthy": "Healthy",
-      "attention": "Needs attention"
+      "attention": "Needs attention",
+      "unknown": "Evidence unavailable"
     },
     "risk": {
       "label": "Action needed",

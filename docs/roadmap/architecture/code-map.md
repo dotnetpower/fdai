@@ -9,8 +9,8 @@ hop. This is the **scannable partner** to [project-structure.md](project-structu
 which explains the module boundaries and the DI seams in detail.
 
 Use this doc when you need to answer "where does X live?" without opening
-`list_dir` five times. The tables below cover the 46 core subsystem
-directories (48 rows if you count the three `tiers/*` subdirs; the
+`list_dir` five times. The tables below cover the 48 core subsystem
+directories (50 rows if you count the three `tiers/*` subdirs; the
 companion [project-structure.md](project-structure.md) counts 41 by
 excluding the five G-1 domain-group facades), the 15 pantheon agents, and
 the delivery / shared plumbing packages.
@@ -18,7 +18,7 @@ the delivery / shared plumbing packages.
 ## Design at a glance
 
 - **`src/fdai/core/`** is the headless control plane. No UI, no direct cloud
-  SDK imports. 46 subsystem directories plus the top-level
+  SDK imports. 48 subsystem directories plus the top-level
   `ontology_explorer.py` module, grouped by control-loop role below.
 - **`src/fdai/agents/`** is the 15-agent pantheon (flat, one file per agent)
   plus `_framework/` (bus, runtime, registry, pantheon spec).
@@ -89,6 +89,7 @@ the safety-core modules held to the >= 90% coverage floor.
 | notifications | Channel-routing layer over the matrix | [src/fdai/core/notifications/](../../../src/fdai/core/notifications/) | [tests/notifications/](../../../tests/notifications/) |
 | report_feed | Rendered report subscriptions | [src/fdai/core/report_feed/](../../../src/fdai/core/report_feed/) | [tests/core/report_feed/](../../../tests/core/report_feed/) |
 | reporting | Report composers + formatters | [src/fdai/core/reporting/](../../../src/fdai/core/reporting/) | [tests/core/reporting/](../../../tests/core/reporting/) |
+| views | Workflow-matched ViewSpec -> bounded RenderedView | [src/fdai/core/views/](../../../src/fdai/core/views/) | [tests/core/views/](../../../tests/core/views/) |
 | rbac | Human RBAC for the read API | [src/fdai/core/rbac/](../../../src/fdai/core/rbac/) | [tests/core/](../../../tests/core/) |
 | stewardship | Human <-> agent handover map (accountability + escalation overlay) | [src/fdai/core/stewardship/](../../../src/fdai/core/stewardship/) | [tests/core/stewardship/](../../../tests/core/stewardship/) |
 
@@ -101,7 +102,8 @@ the safety-core modules held to the >= 90% coverage floor.
 | onboarding | Tenant / environment onboarding flow | [src/fdai/core/onboarding/](../../../src/fdai/core/onboarding/) | [tests/core/](../../../tests/core/) |
 | readiness | Grounded readiness reports | [src/fdai/core/readiness/](../../../src/fdai/core/readiness/) | [tests/core/readiness/](../../../tests/core/readiness/) |
 | assurance_twin | Read-only ontology twin (never executes) | [src/fdai/core/assurance_twin/](../../../src/fdai/core/assurance_twin/) | [tests/core/assurance_twin/](../../../tests/core/assurance_twin/) |
-| workflow | Compile catalog Workflow -> Runbook | [src/fdai/core/workflow/](../../../src/fdai/core/workflow/) | [tests/core/](../../../tests/core/) |
+| architecture_review | Architecture-review manifest -> governed ontology projection | [src/fdai/core/architecture_review/](../../../src/fdai/core/architecture_review/) | [tests/core/architecture_review/](../../../tests/core/architecture_review/) |
+| workflow | Compile and run catalog Workflow with Process journal + projection retry | [src/fdai/core/workflow/](../../../src/fdai/core/workflow/) | [tests/core/workflow/](../../../tests/core/workflow/) |
 | scheduler | Cron-shaped triggers | [src/fdai/core/scheduler/](../../../src/fdai/core/scheduler/) | [tests/core/scheduler/](../../../tests/core/scheduler/) |
 | metering | Usage metering counters | [src/fdai/core/metering/](../../../src/fdai/core/metering/) | [tests/core/metering/](../../../tests/core/metering/) |
 | measurement | Phase-4 continuous measurement | [src/fdai/core/measurement/](../../../src/fdai/core/measurement/) | [tests/core/measurement/](../../../tests/core/measurement/) |

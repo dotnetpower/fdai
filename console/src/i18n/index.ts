@@ -16,6 +16,7 @@
 
 import en from "./messages.en.json";
 import ko from "./messages.ko.json";
+import { readConsolePreferences } from "../preferences";
 
 export type Locale = "en" | "ko";
 
@@ -24,9 +25,7 @@ type Catalog = Record<string, unknown>;
 const CATALOGS: Record<Locale, Catalog> = { en, ko };
 
 function detectLocale(): Locale {
-  if (typeof window === "undefined") return "en";
-  const raw = (new URLSearchParams(window.location.search).get("locale") ?? "").toLowerCase();
-  return raw.startsWith("ko") ? "ko" : "en";
+  return readConsolePreferences().locale;
 }
 
 let current: Locale = detectLocale();

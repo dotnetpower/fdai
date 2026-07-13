@@ -14,6 +14,7 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
+import { panelArray, panelBoolean, panelNumber, panelRecord, panelString } from "./panel-decode";
 
 /**
  * LLM cost panel. Fetches ``GET /kpi/llm-cost`` and renders measured
@@ -66,7 +67,7 @@ export function LlmCostRoute({ client }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        const data = await client.panel<Response>("/kpi/llm-cost");
+        const data = decodeLlmCost(await client.panel<unknown>("/kpi/llm-cost"));
         if (!cancelled) setState({ status: "ready", data });
       } catch (err) {
         if (!cancelled) {
@@ -98,6 +99,39 @@ export function LlmCostRoute({ client }: Props) {
       </AsyncBoundary>
     </div>
   );
+}
+
+export function decodeLlmCost(value: unknown): Response {
+  const root = panelRecord(value, "LLM cost");
+  const decodeSummary = (value: unknown, label: string): Summary => {
+    const summary = panelRecord(value, label);
+    return {
+      key: panelString(summary, "key", label),
+      invocations: panelNumber(summary, "invocations", label),
+      priced_invocations: panelNumber(summary, "priced_invocations", label),
+      prompt_tokens: panelNumber(summary, "prompt_tokens", label),
+      completion_tokens: panelNumber(summary, "completion_tokens", label),
+      total_tokens: panelNumber(summary, "total_tokens", label),
+      cost: panelString(summary, "cost", label),
+      currency: panelString(summary, "currency", label),
+      has_unpriced: panelBoolean(summary, "has_unpriced", label),
+      has_mixed_currency: panelBoolean(summary, "has_mixed_currency", label),
+    };
+  };
+  const summaries = (key: string) => panelArray(root[key], `LLM cost.${key}`)
+    .map((item, index) => decodeSummary(item, `LLM cost.${key}[${index}]`));
+  return {
+    source: panelString(root, "source", "LLM cost"),
+    currency: panelString(root, "currency", "LLM cost"),
+    invocations: panelNumber(root, "invocations", "LLM cost"),
+    total: decodeSummary(root["total"], "LLM cost.total"),
+    by_mode: summaries("by_mode"),
+    by_conversation: summaries("by_conversation"),
+    by_conversation_truncated: panelBoolean(root, "by_conversation_truncated", "LLM cost"),
+    conversation_count: panelNumber(root, "conversation_count", "LLM cost"),
+    by_day: summaries("by_day"),
+    by_month: summaries("by_month"),
+  };
 }
 
 function _summaryColumns(keyHeader: string): readonly Column<Summary>[] {

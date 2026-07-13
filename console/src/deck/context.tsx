@@ -95,9 +95,20 @@ const Ctx = createContext<ViewContextValue>({
   setSnapshot: () => {},
 });
 
-export function ViewContextProvider({ children }: { readonly children: ComponentChildren }) {
-  const [snapshot, setSnapshot] = useState<ViewSnapshot | null>(null);
-  const value = useMemo(() => ({ snapshot, setSnapshot }), [snapshot]);
+export function ViewContextProvider({ children, scopeKey }: {
+  readonly children: ComponentChildren;
+  readonly scopeKey: string;
+}) {
+  const [scoped, setScoped] = useState<{ readonly scopeKey: string; readonly snapshot: ViewSnapshot | null }>({
+    scopeKey,
+    snapshot: null,
+  });
+  const setSnapshot = useCallback(
+    (snapshot: ViewSnapshot | null) => setScoped({ scopeKey, snapshot }),
+    [scopeKey],
+  );
+  const snapshot = scoped.scopeKey === scopeKey ? scoped.snapshot : null;
+  const value = useMemo(() => ({ snapshot, setSnapshot }), [snapshot, setSnapshot]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

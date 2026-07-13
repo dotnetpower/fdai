@@ -19,7 +19,7 @@ interface Props {
 }
 
 export function HilQueueRoute({ client }: Props) {
-  const [state, setState] = useState<AsyncState<readonly HilQueueItem[]>>({
+  const [state, setState] = useState<AsyncState<HilQueueData>>({
     status: "loading",
   });
 
@@ -28,7 +28,12 @@ export function HilQueueRoute({ client }: Props) {
     (async () => {
       try {
         const page = await client.listHilQueue({ limit: 100 });
-        if (!cancelled) setState({ status: "ready", data: page.items });
+        if (!cancelled) {
+          setState({
+            status: "ready",
+            data: { items: page.items, total: page.total },
+          });
+        }
       } catch (err) {
         if (!cancelled) {
           setState({
@@ -59,13 +64,20 @@ export function HilQueueRoute({ client }: Props) {
         }
       />
       <AsyncBoundary state={state} resourceLabel="HIL queue">
-        {(items) => <HilBody items={items} />}
+        {(data) => <HilBody data={data} />}
       </AsyncBoundary>
     </div>
   );
 }
 
-function HilBody({ items }: { readonly items: readonly HilQueueItem[] }) {
+interface HilQueueData {
+  readonly items: readonly HilQueueItem[];
+  readonly total: number;
+}
+
+function HilBody({ data }: { readonly data: HilQueueData }) {
+  const { items, total } = data;
+  const truncated = total > items.length;
   usePublishViewContext(
     () => ({
       routeId: "hil-queue",
@@ -81,11 +93,15 @@ function HilBody({ items }: { readonly items: readonly HilQueueItem[] }) {
         TERMS.gateDecision,
         TERMS.correlationId,
       ]),
-      headline: items.length === 0
+      headline: total === 0
         ? "No pending HIL items"
-        : `${items.length} item(s) waiting for a human approver`,
+        : `${total} item(s) waiting for a human approver${truncated ? ` - latest ${items.length} shown` : ""}`,
       capturedAt: new Date().toISOString(),
-      facts: [{ key: "pending", value: items.length, group: "queue" }],
+      facts: [
+        { key: "pending", value: total, group: "queue" },
+        { key: "displayed", value: items.length, group: "queue" },
+        { key: "truncated", value: truncated, group: "queue" },
+      ],
       records: {
         items: items.map((i) => ({
           action_kind: i.action_kind,
@@ -96,10 +112,10 @@ function HilBody({ items }: { readonly items: readonly HilQueueItem[] }) {
         })),
       },
     }),
-    [items],
+    [items, total, truncated],
   );
 
-  if (items.length === 0) {
+  if (total === 0) {
     return (
       <EmptyState
         title="No pending HIL items."
@@ -126,10 +142,13 @@ function HilBody({ items }: { readonly items: readonly HilQueueItem[] }) {
   ];
 
   return (
-    <DataTable
-      columns={columns}
-      rows={items}
-      keyOf={(i) => i.idempotency_key}
-    />
+    <div class="stack">
+      {truncated ? <p class="muted footnote">Showing the latest {items.length} of {total} pending approvals.</p> : null}
+      <DataTable
+        columns={columns}
+        rows={items}
+        keyOf={(i) => i.idempotency_key}
+      />
+    </div>
   );
 }

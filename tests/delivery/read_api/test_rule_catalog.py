@@ -309,6 +309,12 @@ def test_detail_falls_back_to_id_without_origin() -> None:
     assert body["origin"] == "collected"
 
 
+def test_detail_explicit_origin_mismatch_returns_404() -> None:
+    assert _client().get(
+        "/rules/cis.azure.1.1", params={"origin": "active"}
+    ).status_code == 404
+
+
 def test_detail_is_get_only() -> None:
     assert _client().post("/rules/disk.unattached").status_code == 405
 
@@ -437,6 +443,12 @@ def test_findings_from_provider() -> None:
 
 def test_findings_unknown_rule_404() -> None:
     assert _client().get("/rules/does.not.exist/findings").status_code == 404
+
+
+def test_findings_explicit_origin_mismatch_returns_404() -> None:
+    assert _client().get(
+        "/rules/cis.azure.1.1/findings", params={"origin": "active"}
+    ).status_code == 404
 
 
 def test_findings_is_get_only() -> None:

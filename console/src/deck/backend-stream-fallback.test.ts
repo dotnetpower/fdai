@@ -142,11 +142,13 @@ describe("askBackendStream fallback typewriter", () => {
       },
       signal: controller.signal,
     });
-    await p;
+    const reply = await p;
 
     // Aborting after 1 chunk means the typewriter loop bails out and NO
     // further chunks arrive - the deck keeps whatever streamed so far.
     expect(deltas.length).toBe(1);
+    expect(reply.text).toBe(deltas.join(""));
+    expect(reply.source).toBe("stopped");
   });
 
   test("SSE burst arrival is paced by the client-side typewriter", async () => {

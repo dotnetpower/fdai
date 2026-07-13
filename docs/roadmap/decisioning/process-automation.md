@@ -138,13 +138,16 @@ shipped built-in.
 
 | Property | Type | Meaning |
 |----------|------|---------|
-| `id` | string | Idempotent process id derived from `(workflow_ref, target_resource_id, trigger_ts)`; retries reuse it. |
+| `id` | string | Idempotent process id derived from `(workflow_ref, target_resource_id, trigger_ts)`; retries reuse it. Uses 1-200 URL-safe letters, digits, `_`, `.`, `:`, or `-` so every stored Process is addressable through the read API. |
 | `workflow_ref` | string | The `Workflow` name this process instantiates. |
-| `status` | string | `pending`, `running`, `succeeded`, `failed`, `compensating`, or `compensated`. |
+| `workflow_version` | string | The immutable Workflow version selected for this run. |
+| `status` | string | `pending`, `running`, `waiting`, `compensating`, `compensated`, `succeeded`, `failed`, `cancelled`, or `timed_out`. |
 | `current_step` | string | Step id currently in flight (empty when terminal). |
 | `target_resource_id` | string | Primary Resource the process operates on. |
 | `started_at` | datetime | RFC 3339 UTC start timestamp. |
-| `context` | object | Open-shape context bag captured by the trigger. |
+| `updated_at` | datetime | RFC 3339 UTC timestamp of the latest committed transition. |
+| `correlation_id` | string | Correlation id shared by the Process journal, audit rows, and projections. |
+| `revision` | integer | Optimistic concurrency revision of the authoritative snapshot. |
 
 ### 3.2 LinkTypes
 
@@ -187,13 +190,14 @@ trigger_ts)`, compiles the workflow, and walks it with the
 lock, so it **structurally cannot mutate**. Each step is judged and logged (with
 its resolved approver assignment) and reported `SUCCESS`; the run emits a
 `workflow.process-plan` audit row, one `workflow.step` row per step, and the
-runner's `runbook.terminal`. The run is also the runtime writer for the `Process`
-ObjectType ([section 3.1](#31-process-objecttype)): it persists a `Process` row
-under `process:<id>` in the state store, `running` at start and the terminal
-`succeeded` / `failed` at the end. Promotion to a live executor that re-enters the
-risk-gate -> executor -> delivery path is a separate, gated change; until then a
-workflow run cannot change cloud state, matching the shadow-before-enforce
-invariant.
+runner's `runbook.terminal`. The run also writes the dedicated
+`ProcessRuntimeStore`: one current snapshot plus an append-only transition journal.
+The PostgreSQL adapter updates the snapshot and appends its typed `ProcessEvent`
+in one transaction with optimistic revision checking. In-memory storage implements
+the same contract for tests and local development. Promotion to a live executor
+that re-enters the risk-gate -> executor -> delivery path is a separate, gated
+change; until then a workflow run cannot change cloud state, matching the
+shadow-before-enforce invariant.
 
 The event entry is the
 [`WorkflowTriggerCoordinator`](../../../src/fdai/core/workflow/coordinator.py): an
@@ -226,6 +230,38 @@ shadow run records `guard_passed: false` and treats the step as a judged no-op
 (reason `guard_blocked_shadow_noop`) - the run continues, nothing mutates. Every
 `workflow.step` audit row carries `guard_rule_ref` / `guard_evaluated` /
 `guard_passed` so a reviewer sees exactly which guard gated which step.
+
+### 4.3 Runtime journal and ontology projection
+
+The runtime snapshot answers "where is this Process now?" The append-only journal
+answers "how did it get here?" Typed events cover creation, step lifecycle,
+wait/approval/decision state, parallel branch outcomes, compensation, timeout, and
+terminal outcomes. Approval steps count distinct approving principals, exclude the
+requester when `no_self_approval` is enabled, and remain waiting until their quorum
+is met. Wait and approval timeouts end the Process as `timed_out`. Parallel branches
+run concurrently and write child events without competing for the parent snapshot
+revision.
+
+The ontology graph is a read model, not the source of truth. After each committed
+event, `ProcessOntologyProjector` materializes the current `Process` object and its
+`targets` link. A workflow-specific projector can add domain objects and links. The
+architecture-review projector, for example, materializes its review case, checks,
+evidence, principals, approvals, and decisions from the same snapshot and event.
+
+Projection delivery uses a durable retry outbox:
+
+- The PostgreSQL runtime adapter inserts the `process_event` and its
+  `process_projection_outbox` job in the same transaction.
+- The immediate projector is best effort. A projection failure is logged with the
+  Process correlation id but never changes or hides the committed runtime result.
+- `ProcessProjectionWorker.run_once()` leases a bounded batch with
+  `FOR UPDATE SKIP LOCKED`, retries idempotent projections, and releases failures
+  after a configured delay. A successful new projection also drains one due batch.
+- The worker is a one-shot event/job primitive, not an always-on polling daemon. A
+  Container Apps Job or startup hook can call `retry_pending()` to recover backlog.
+
+This separation lets runtime processing continue if the ontology store is briefly
+unavailable while preserving every projection intent for recovery.
 
 
 ## 5. Saga compensation
@@ -291,12 +327,14 @@ Given a `Workflow`, the planner produces a deterministic, read-only
   Card / Block Kit, HMAC-signed, fail-closed). Email is a send-only alert lane,
   not an A1 approval back-channel.
 
-The plan is a design-time / shadow-time projection: it says who *would* approve
-each step. Runtime assignment (the specific on-call OID, the parked action, the
-pushed card, the resume on decision) stays with the existing
+The plan supplies the role and channel assignment. At runtime, an approval step
+parks the Process, records `approval.requested`, validates distinct principals and
+no-self-approval, and resumes only after its declared quorum. A decision step accepts
+only one of its catalog-declared outcomes and records `decision.recorded`. The
+specific on-call OID and pushed channel card remain integrations of
 [`HilResumeCoordinator`](../../../src/fdai/core/hil_resume/coordinator.py) and
-[`OnCallResolver`](../../../src/fdai/core/oncall/resolver.py); wiring the plan into
-a live run is the process-orchestrator work still ahead (see [section 5](#5-saga-compensation)).
+[`OnCallResolver`](../../../src/fdai/core/oncall/resolver.py); the workflow runtime
+does not create a second approval authority.
 
 ## 7. Loader and CI validation
 
@@ -408,7 +446,7 @@ write no state (see
   invariants + `ActionType` / rule cross-reference), and returns the aggregated
   issues plus a canonical YAML preview. It mutates nothing and creates no PR.
 
-Both routes are opt-in through
+These routes are opt-in through
 [`ReadApiConfig.workflow_authoring`](../../../src/fdai/delivery/read_api/main.py)
 (a `WorkflowAuthoringConfig` carrying the loaded palette, built-in workflows,
 rule ids, and schema registry); unset upstream so the console stays minimal,
@@ -425,6 +463,35 @@ into `rule-catalog/workflows/<name>.yaml` and lands as a remediation PR through
 the git-native path, so audit, review, and rollback come for free. New drafts
 are locked to `shadow`; promotion to enforce stays the separate governance PR of
 [section 6](#6-governance).
+
+### 8.2 Dynamic runtime view
+
+The **Processes** console route renders running and completed workflow instances
+without embedding architecture-review logic in the frontend. The projection path is:
+
+```text
+Workflow -> Process snapshot + journal -> ontology projection
+         -> ontology datasource -> ReportSpec -> ViewSpec
+         -> RenderedView API -> generic console widgets
+```
+
+Each artifact has one responsibility:
+
+- **Workflow** declares execution and control flow. It does not contain UI layout.
+- **Process snapshot and journal** are the authoritative mutable state and history.
+- **Ontology projection** gives the runtime state typed domain meaning and links.
+- **ReportSpec** selects bounded datasets and widget data from the projection.
+- **ViewSpec** maps a workflow reference to report regions and column spans. It is
+  catalog-as-code under [`rule-catalog/views/`](../../../rule-catalog/views/).
+- **ViewEngine** resolves the Process, matching ViewSpec, and reports into a bounded
+  `RenderedView`. Reader-gated `GET /views/process` and
+  `GET /views/process/{process_id}` expose the list and detail projections.
+- **Generic console renderer** supports the approved widget vocabulary only. It
+  never turns arbitrary ontology properties into executable UI or action buttons.
+
+The architecture map remains separate. It visualizes the actual infrastructure
+topology returned by the inventory graph. Process views visualize workflow state
+and domain projections. Neither surface is the source of truth for the other.
 
 ## 9. Relationship to agent-workflows.md
 

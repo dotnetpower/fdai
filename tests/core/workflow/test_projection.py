@@ -171,11 +171,7 @@ class _FlakyProjector:
 async def test_projection_failure_is_retried_without_masking_runtime_commit() -> None:
     store = InMemoryProcessRuntimeStore()
     projector = _FlakyProjector()
-    runtime = ProjectingProcessRuntimeStore(
-        runtime=store,
-        projector=projector,
-        retry_clock=lambda: _NOW + timedelta(seconds=31),
-    )
+    runtime = ProjectingProcessRuntimeStore(runtime=store, projector=projector)
 
     stored, created = await runtime.create(snapshot=_snapshot(), event=_event())
 
@@ -211,7 +207,11 @@ async def test_projection_failure_is_retried_without_masking_runtime_commit() ->
 async def test_healthy_transition_drains_due_projection_backlog() -> None:
     store = InMemoryProcessRuntimeStore()
     projector = _FlakyProjector()
-    runtime = ProjectingProcessRuntimeStore(runtime=store, projector=projector)
+    runtime = ProjectingProcessRuntimeStore(
+        runtime=store,
+        projector=projector,
+        retry_clock=lambda: _NOW + timedelta(seconds=31),
+    )
     stored, _ = await runtime.create(snapshot=_snapshot(), event=_event())
     projector.fail = False
 

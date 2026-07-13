@@ -2,7 +2,7 @@
  * Provisioning progress stream hook (surface B consumer).
  *
  * Subscribes to the read-API's `GET /provision/stream` SSE endpoint via
- * `EventSource` and decodes the `provision.*` events documented in
+ * authenticated fetch and decodes the `provision.*` events documented in
  * {@link fdai.delivery.read_api.provision_stream}. It mirrors
  * {@link useLiveStream}: pure read consumer, browser-managed reconnect,
  * visibility-gated so a backgrounded tab does not hammer the server.
@@ -55,9 +55,8 @@ export interface UseProvisionStreamOptions {
   readonly onEvent: (event: ProvisionEvent) => void;
   /** Optional connection-status observer. */
   readonly onStatus?: (status: ProvisionConnectionStatus) => void;
-  /** Send credentials (cookies) with the request. Same-origin production
-   *  deployments need this; cross-origin dev does not. */
-  readonly withCredentials?: boolean;
+  /** Acquire the current bearer header. Dev mode returns null. */
+  readonly getAuthorizationHeader?: () => Promise<string | null>;
 }
 
 export interface UseProvisionStreamResult {
@@ -114,16 +113,71 @@ export function decodeProvisionEvent(data: string): ProvisionEvent | null {
   return event;
 }
 
+export function provisionStreamHeaders(authorization: string | null): Headers {
+  const headers = new Headers({ accept: "text/event-stream" });
+  if (authorization) headers.set("authorization", authorization);
+  return headers;
+}
+
+export function provisionReconnectDelay(attempt: number): number {
+  return Math.min(30000, 1000 * (2 ** Math.min(attempt, 5)));
+}
+
+export function isPermanentProvisionFailure(status: number): boolean {
+  return status === 401 || status === 403;
+}
+
+/** Consume one fetch SSE response until EOF or abort. */
+export async function consumeProvisionSse(
+  response: Response,
+  onEvent: (event: ProvisionEvent) => void,
+): Promise<void> {
+  if (!response.ok) throw new Error(`provisioning stream returned HTTP ${response.status}`);
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!contentType.includes("text/event-stream")) {
+    throw new Error("provisioning stream returned an invalid content type");
+  }
+  if (!response.body) throw new Error("provisioning stream response has no body");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const consumeBlock = (block: string) => {
+    const data = block
+      .split("\n")
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart())
+      .join("\n");
+    if (!data) return;
+    const event = decodeProvisionEvent(data);
+    if (event) onEvent(event);
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer = (buffer + decoder.decode(value, { stream: !done })).replace(/\r\n/g, "\n");
+    let boundary = buffer.indexOf("\n\n");
+    while (boundary >= 0) {
+      consumeBlock(buffer.slice(0, boundary));
+      buffer = buffer.slice(boundary + 2);
+      boundary = buffer.indexOf("\n\n");
+    }
+    if (done) {
+      if (buffer.trim()) consumeBlock(buffer);
+      return;
+    }
+  }
+}
+
 /**
- * Attach an `EventSource` to the provisioning SSE endpoint. Every decoded
- * frame is passed to `onEvent` (in a `useRef` so re-renders do not tear the
- * subscription). The hook cleans up on unmount.
+ * Attach an authenticated fetch stream to the provisioning SSE endpoint.
+ * Every decoded frame is passed to `onEvent`; the hook aborts on unmount.
  */
 export function useProvisionStream(
   options: UseProvisionStreamOptions,
 ): UseProvisionStreamResult {
   const [status, setStatus] = useState<ProvisionConnectionStatus>(
-    typeof EventSource === "undefined" ? "unsupported" : "idle",
+    typeof fetch === "undefined" ? "unsupported" : "idle",
   );
   const [lastError, setLastError] = useState<string | null>(null);
 
@@ -133,62 +187,81 @@ export function useProvisionStream(
   onStatusRef.current = options.onStatus;
 
   const url = options.url;
-  const withCredentials = options.withCredentials ?? false;
+  const getAuthorizationHeader = options.getAuthorizationHeader;
 
   useEffect(() => {
-    if (typeof EventSource === "undefined") return undefined;
+    if (typeof fetch === "undefined") return undefined;
 
     let cancelled = false;
-    let source: EventSource | null = null;
+    let controller: AbortController | null = null;
+    let reconnectTimer: number | null = null;
+    let reconnectAttempt = 0;
+    let permanentFailure = false;
 
-    const connect = () => {
-      if (cancelled || source) return;
+    const publishStatus = (next: ProvisionConnectionStatus) => {
+      setStatus(next);
+      onStatusRef.current?.(next);
+    };
+
+    const scheduleReconnect = () => {
+      if (cancelled || permanentFailure || (typeof document !== "undefined" && document.hidden)) return;
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      const delay = provisionReconnectDelay(reconnectAttempt);
+      reconnectAttempt += 1;
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null;
+        void connect();
+      }, delay);
+    };
+
+    const connect = async () => {
+      if (cancelled || controller) return;
       setStatus("connecting");
       onStatusRef.current?.("connecting");
-
-      const es = new EventSource(url, { withCredentials });
-      source = es;
-
-      // provision.* events arrive as unnamed `message` events; the named
-      // `hello` frame and `: keepalive` comments are ignored by onmessage.
-      es.onmessage = (raw) => {
-        if (cancelled || source !== es) return;
-        const decoded = decodeProvisionEvent((raw as MessageEvent).data);
-        if (decoded) {
-          onEventRef.current(decoded);
+      const active = new AbortController();
+      controller = active;
+      try {
+        const authorization = await getAuthorizationHeader?.() ?? null;
+        if (cancelled || controller !== active) return;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: provisionStreamHeaders(authorization),
+          credentials: "omit",
+          signal: active.signal,
+        });
+        if (!response.ok) {
+          permanentFailure = isPermanentProvisionFailure(response.status);
+          throw new Error(`provisioning stream returned HTTP ${response.status}`);
         }
-      };
-
-      es.onopen = () => {
-        if (cancelled || source !== es) return;
-        setStatus("open");
+        publishStatus("open");
         setLastError(null);
-        onStatusRef.current?.("open");
-      };
-
-      es.onerror = () => {
-        if (cancelled || source !== es) return;
-        const nextStatus: ProvisionConnectionStatus =
-          es.readyState === EventSource.CLOSED ? "closed" : "connecting";
-        setStatus(nextStatus);
-        // When the browser gives up reconnecting (readyState CLOSED) surface
-        // it in lastError so the route can render a real "connection lost"
-        // message instead of an empty span. Transient reconnect attempts
-        // (readyState CONNECTING) do not overwrite an earlier message.
-        if (es.readyState === EventSource.CLOSED) {
+        await consumeProvisionSse(response, (event) => {
+          if (!cancelled && controller === active) {
+            reconnectAttempt = 0;
+            onEventRef.current(event);
+          }
+        });
+        if (!cancelled && controller === active) {
           setLastError("connection to provisioning stream closed");
+          publishStatus("closed");
         }
-        onStatusRef.current?.(nextStatus);
-      };
+      } catch (error) {
+        if (!cancelled && !active.signal.aborted) {
+          setLastError(error instanceof Error ? error.message : String(error));
+          publishStatus("closed");
+        }
+      } finally {
+        if (controller === active) controller = null;
+        scheduleReconnect();
+      }
     };
 
     const disconnect = (nextStatus: ProvisionConnectionStatus) => {
-      if (source) {
-        source.close();
-        source = null;
-      }
-      setStatus(nextStatus);
-      onStatusRef.current?.(nextStatus);
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      controller?.abort();
+      controller = null;
+      publishStatus(nextStatus);
     };
 
     const isHidden = () => typeof document !== "undefined" && document.hidden;
@@ -198,7 +271,7 @@ export function useProvisionStream(
       if (isHidden()) {
         disconnect("idle");
       } else {
-        connect();
+        void connect();
       }
     };
 
@@ -206,7 +279,7 @@ export function useProvisionStream(
       setStatus("idle");
       onStatusRef.current?.("idle");
     } else {
-      connect();
+      void connect();
     }
 
     if (typeof document !== "undefined") {
@@ -218,11 +291,10 @@ export function useProvisionStream(
       if (typeof document !== "undefined") {
         document.removeEventListener("visibilitychange", handleVisibility);
       }
-      if (source) source.close();
-      setStatus("closed");
-      onStatusRef.current?.("closed");
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      controller?.abort();
     };
-  }, [url, withCredentials]);
+  }, [url, getAuthorizationHeader]);
 
   return { status, lastError };
 }

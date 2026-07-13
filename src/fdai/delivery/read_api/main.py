@@ -930,31 +930,19 @@ def build_app(
             )
         )
 
-    # Optional reporting subsystem (catalog + engine + format registry).
-    # All routes are GET-only; reader-role gate; the composition root
-    # owns the engine + registries so a fork adds datasources / widget
-    # types / formats without editing this file.
-    if resolved_config.reporting is not None:
-        from fdai.delivery.read_api.routes.reporting import build_reporting_routes
+    from fdai.delivery.read_api.routes import dynamic_views
 
-        routes.extend(
-            build_reporting_routes(
-                config=resolved_config.reporting,
-                authorize=_authorize,
-                core_paths=_CORE_ROUTE_PATHS,
-                seen_extra_paths=seen_panel_paths,
-            )
+    # Dynamic prefixes must not shadow any route assembled above.
+    seen_panel_paths.update(route.path for route in routes if isinstance(route, Route))
+    routes.extend(
+        dynamic_views.build_dynamic_view_routes(
+            reporting=resolved_config.reporting,
+            process_views=resolved_config.process_views,
+            authorize=_authorize,
+            core_paths=_CORE_ROUTE_PATHS,
+            seen_extra_paths=seen_panel_paths,
         )
-
-    if resolved_config.process_views is not None:
-        from fdai.delivery.read_api.routes.process_views import build_process_view_routes
-
-        routes.extend(
-            build_process_view_routes(
-                config=resolved_config.process_views,
-                authorize=_authorize,
-            )
-        )
+    )
 
     # Optional rule-fire trace viewer.
     if resolved_config.trace_reader is not None:
@@ -1078,6 +1066,8 @@ def build_app(
             "Contributor+ required); operator commands enter the typed pipeline.",
             _ACTION_PATH,
         )
+
+    dynamic_views.validate_route_method_collisions(routes)
 
     middleware: list[Middleware] = []
     # Baseline security headers on every response. Cheap defence in depth;

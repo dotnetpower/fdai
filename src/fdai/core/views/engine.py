@@ -15,6 +15,18 @@ from fdai.shared.providers.process_runtime import (
 )
 
 
+class ProcessViewLookupError(LookupError):
+    """Base failure for a Process or its workflow-selected ViewSpec not existing."""
+
+
+class ProcessNotFoundError(ProcessViewLookupError):
+    """The requested Process snapshot does not exist."""
+
+
+class ProcessViewNotFoundError(ProcessViewLookupError):
+    """The Process workflow has no registered ViewSpec."""
+
+
 @dataclass(frozen=True, slots=True)
 class RenderedViewRegion:
     id: str
@@ -73,10 +85,10 @@ class ViewEngine:
     async def render_process(self, process_id: str) -> RenderedView:
         process = await self._processes.get(process_id)
         if process is None:
-            raise KeyError(f"unknown process {process_id!r}")
+            raise ProcessNotFoundError(f"unknown process {process_id!r}")
         spec = self._by_workflow.get(process.workflow_ref)
         if spec is None:
-            raise KeyError(f"no ViewSpec for workflow {process.workflow_ref!r}")
+            raise ProcessViewNotFoundError(f"no ViewSpec for workflow {process.workflow_ref!r}")
         regions = []
         for region in spec.regions:
             report = await self._reports.render(
@@ -119,4 +131,11 @@ class ViewEngine:
         )
 
 
-__all__ = ["RenderedView", "RenderedViewRegion", "ViewEngine"]
+__all__ = [
+    "ProcessNotFoundError",
+    "ProcessViewLookupError",
+    "ProcessViewNotFoundError",
+    "RenderedView",
+    "RenderedViewRegion",
+    "ViewEngine",
+]

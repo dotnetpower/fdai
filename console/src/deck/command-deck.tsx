@@ -18,6 +18,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { t } from "../i18n";
 import {
   askBackendStream,
   probeBackend,
@@ -57,6 +58,13 @@ interface Turn {
   readonly at: string;
 }
 
+interface ActiveRequest {
+  readonly id: string;
+  readonly sessionKey: string;
+  readonly controller: AbortController;
+  readonly kind: "stream" | "action";
+}
+
 function shortTime(): string {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
@@ -64,6 +72,18 @@ function shortTime(): string {
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function sessionIdFor(
+  sessions: Map<string, string>,
+  sessionKey: string,
+  create: () => string = newId,
+): string {
+  const existing = sessions.get(sessionKey);
+  if (existing) return existing;
+  const created = create();
+  sessions.set(sessionKey, created);
+  return created;
 }
 
 /** Tab-scoped storage, guarded so a disabled/absent store never throws. */
@@ -151,11 +171,11 @@ export function CommandDeck() {
   const [inFlight, setInFlight] = useState(false);
   const [stuck, setStuck] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
+  const activeRequestRef = useRef<ActiveRequest | null>(null);
   const inFlightRef = useRef(false);
   const historyRef = useRef(EMPTY_HISTORY);
-  // Stable per-deck conversation id, threaded into an action submission so the
-  // pipeline can correlate a proposal back to this conversation.
-  const sessionIdRef = useRef(newId());
+  // One stable backend correlation id per transcript session.
+  const sessionIdsRef = useRef(new Map<string, string>());
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -204,14 +224,31 @@ export function CommandDeck() {
     focusInput();
   }, [focusInput]);
 
+  const cancelActiveRequest = useCallback((): ActiveRequest["kind"] | null => {
+    const active = activeRequestRef.current;
+    activeRequestRef.current = null;
+    abortRef.current = null;
+    active?.controller.abort();
+    inFlightRef.current = false;
+    const completed = turnsRef.current.map((turn) =>
+      turn.streaming ? { ...turn, streaming: false } : turn,
+    );
+    turnsRef.current = completed;
+    setTurns(completed);
+    setPending(false);
+    setInFlight(false);
+    return active?.kind ?? null;
+  }, []);
+
   const closeDeck = useCallback(() => {
+    cancelActiveRequest();
     setOpen(false);
     // Return focus to the element that opened the deck (a11y: modal contract).
     const target = restoreFocusRef.current;
     if (target && typeof target.focus === "function") {
       requestAnimationFrame(() => target.focus());
     }
-  }, []);
+  }, [cancelActiveRequest]);
 
   // Append an opening context turn that speaks AS the given agent (its icon +
   // name in the header) and types its text in like a live reply, instead of
@@ -258,6 +295,7 @@ export function CommandDeck() {
   // are preserved.
   const switchSession = useCallback(
     (key: string, label: string | null, contextNote?: string) => {
+      if (key !== sessionKeyRef.current) cancelActiveRequest();
       const store = sessionStore();
       if (store && key !== sessionKeyRef.current) {
         try {
@@ -281,7 +319,7 @@ export function CommandDeck() {
         streamContextTurn(label, note);
       }
     },
-    [streamContextTurn],
+    [cancelActiveRequest, streamContextTurn],
   );
 
   // Open the deck on the general (screen) session - used by the launcher, the
@@ -352,8 +390,10 @@ export function CommandDeck() {
         // Progressive: while a reply is generating, Escape stops it first; a
         // second Escape (now idle) closes the deck.
         if (inFlightRef.current) {
-          abortRef.current?.abort();
-          setSrStatus("Stopped.");
+          const kind = cancelActiveRequest();
+          setSrStatus(kind === "action"
+            ? "Response dismissed; submission outcome may be unknown."
+            : "Stopped.");
           return;
         }
         closeDeck();
@@ -361,7 +401,7 @@ export function CommandDeck() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [open, openGeneralDeck, closeDeck]);
+  }, [open, openGeneralDeck, closeDeck, cancelActiveRequest]);
 
   // Cross-screen open: any read-only surface (e.g. the Now>Agents incident
   // thread) can dispatch `fdai:deck:open` to raise the deck, optionally seeding
@@ -416,6 +456,8 @@ export function CommandDeck() {
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, [open, closeDeck]);
+
+  useEffect(() => () => cancelActiveRequest(), [cancelActiveRequest]);
 
   // Focus guard: while the deck is open, a live route behind it re-renders on
   // every stream frame. Those background re-renders can steal focus out of the
@@ -490,9 +532,25 @@ export function CommandDeck() {
 
   const submit = useCallback(async (raw: string) => {
     const text = raw.trim();
-    if (text.length === 0 || pending) return;
+    if (text.length === 0 || pending || inFlightRef.current) return;
+    const originSessionKey = sessionKeyRef.current;
+    const controller = new AbortController();
+    const action = detectActionIntent(text);
+    const request: ActiveRequest = {
+      id: newId(),
+      sessionKey: originSessionKey,
+      controller,
+      kind: action ? "action" : "stream",
+    };
+    activeRequestRef.current = request;
+    abortRef.current = controller;
+    inFlightRef.current = true;
+    const isCurrent = () =>
+      activeRequestRef.current?.id === request.id &&
+      sessionKeyRef.current === originSessionKey;
     const opTurn: Turn = { id: newId(), role: "operator", text, at: shortTime() };
     setTurns((prev) => [...prev, opTurn]);
+    turnsRef.current = [...turnsRef.current, opTurn];
     setDraft("");
     historyRef.current = recordHistory(historyRef.current, text);
     setPending(true);
@@ -503,25 +561,34 @@ export function CommandDeck() {
     // pipeline instead of asking the narrator. This publishes a signal for
     // Forseti to judge; it never executes here (execution is the pantheon's,
     // after judge + approval, shadow-first).
-    if (detectActionIntent(text)) {
+    if (action) {
       try {
-        const result = await submitAction(text, sessionIdRef.current);
-        setPending(false);
-        setTurns((prev) => [
-          ...prev,
-          { id: newId(), role: "deck", text: renderActionResult(result), at: shortTime() },
-        ]);
+        const result = await submitAction(
+          text,
+          sessionIdFor(sessionIdsRef.current, originSessionKey),
+          controller.signal,
+        );
+        if (isCurrent()) {
+          setPending(false);
+          setTurns((prev) => [
+            ...prev,
+            { id: newId(), role: "deck", text: renderActionResult(result), at: shortTime() },
+          ]);
+        }
       } finally {
-        setPending(false);
-        setSrStatus("Answer ready.");
-        setInFlight(false);
-        focusInput();
+        if (isCurrent()) {
+          activeRequestRef.current = null;
+          abortRef.current = null;
+          inFlightRef.current = false;
+          setPending(false);
+          setSrStatus(controller.signal.aborted ? "Response dismissed; submission outcome may be unknown." : "Answer ready.");
+          setInFlight(false);
+          focusInput();
+        }
       }
       return;
     }
 
-    const controller = new AbortController();
-    abortRef.current = controller;
     // Build the history the backend sees (excluding this turn).
     const history: BackendTurn[] = turns.map((t) => ({
       role: t.role === "operator" ? "user" : "assistant",
@@ -534,51 +601,67 @@ export function CommandDeck() {
       // Reveal the streaming reply bubble on the first token (until then the
       // RetrievalTrace "preparing answer" surface stays up).
       const ensureTurn = () => {
-        if (started) return;
+        if (started || !isCurrent()) return;
         started = true;
         setPending(false);
         setSrStatus("Assistant is answering...");
-        setTurns((prev) => [
-          ...prev,
-          { id: deckId, role: "deck", text: "", streaming: true, at: shortTime() },
-        ]);
+        setTurns((prev) => {
+          const next: readonly Turn[] = [
+            ...prev,
+            { id: deckId, role: "deck", text: "", streaming: true, at: shortTime() },
+          ];
+          turnsRef.current = next;
+          return next;
+        });
       };
       const reply = await askBackendStream(text, snapshot, history, {
         onToken: (delta) => {
+          if (!isCurrent()) return;
           acc += delta;
           ensureTurn();
-          setTurns((prev) =>
-            prev.map((t) => (t.id === deckId ? { ...t, text: acc } : t)),
-          );
+          setTurns((prev) => {
+            const next = prev.map((t) => (t.id === deckId ? { ...t, text: acc } : t));
+            turnsRef.current = next;
+            return next;
+          });
         },
         signal: controller.signal,
       });
       ensureTurn();
-      setTurns((prev) =>
-        prev.map((t) =>
-          t.id === deckId
-            ? {
-                ...t,
-                text: reply.text,
-                streaming: false,
-                citations: reply.citations,
-                followUps: reply.followUps,
-                source: reply.source,
-                ...(reply.router ? { router: reply.router } : {}),
-              }
-            : t,
-        ),
-      );
+      if (isCurrent()) {
+        setTurns((prev) => {
+          const next = prev.map((t) =>
+            t.id === deckId
+              ? {
+                  ...t,
+                  text: reply.text,
+                  streaming: false,
+                  citations: reply.citations,
+                  followUps: reply.followUps,
+                  source: reply.source,
+                  ...(reply.router ? { router: reply.router } : {}),
+                }
+              : t,
+            );
+            turnsRef.current = next;
+            return next;
+          });
+      }
     } finally {
-      setPending(false);
-      setSrStatus("Answer ready.");
-      setInFlight(false);
-      abortRef.current = null;
-      focusInput();
+      if (isCurrent()) {
+        activeRequestRef.current = null;
+        abortRef.current = null;
+        inFlightRef.current = false;
+        setPending(false);
+        setSrStatus(controller.signal.aborted ? "Stopped." : "Answer ready.");
+        setInFlight(false);
+        focusInput();
+      }
     }
   }, [snapshot, focusInput, pending, turns]);
 
   const clearTurns = useCallback(() => {
+    cancelActiveRequest();
     setTurns([]);
     turnsRef.current = [];
     const store = sessionStore();
@@ -587,13 +670,15 @@ export function CommandDeck() {
     } catch {
       /* best-effort */
     }
-  }, []);
+  }, [cancelActiveRequest]);
 
   // Cancel an in-flight reply, keeping whatever streamed so far.
   const stopStream = useCallback(() => {
-    abortRef.current?.abort();
-    setSrStatus("Stopped.");
-  }, []);
+    const kind = cancelActiveRequest();
+    setSrStatus(kind === "action"
+      ? "Response dismissed; submission outcome may be unknown."
+      : "Stopped.");
+  }, [cancelActiveRequest]);
 
   // Re-ask the operator question that produced the deck turn at `deckIndex`.
   const regenerateAt = useCallback(
@@ -647,7 +732,7 @@ export function CommandDeck() {
   );
 
   const headline = snapshot?.headline ?? "Idle. Open any route to publish a view snapshot.";
-  const routeLabel = snapshot?.routeLabel ?? "Deck";
+  const routeLabel = snapshot?.routeLabel ?? t("deck.label");
 
   return (
     <>
@@ -655,7 +740,7 @@ export function CommandDeck() {
         type="button"
         class={`deck-invoke ${open ? "deck-invoke-open" : ""}`}
         onClick={open ? closeDeck : openGeneralDeck}
-        aria-label={open ? "Close command deck" : "Open command deck"}
+        aria-label={open ? t("deck.close") : t("deck.open")}
       >
         <span class="deck-invoke-glyph" aria-hidden="true">
           <svg viewBox="0 0 16 16" width="14" height="14">
@@ -667,7 +752,7 @@ export function CommandDeck() {
             />
           </svg>
         </span>
-        <span class="deck-invoke-label">Ask anything about this screen</span>
+        <span class="deck-invoke-label">{t("deck.invoke")}</span>
         <span class="deck-invoke-context muted">{routeLabel}</span>
         <BackendBadge health={health} placement="invoke" />
         <kbd class="deck-invoke-kbd">
@@ -681,7 +766,7 @@ export function CommandDeck() {
           class="deck-overlay"
           role="dialog"
           aria-modal="true"
-          aria-label="Command deck"
+          aria-label={t("deck.label")}
           ref={overlayRef}
           onKeyDown={onOverlayKeyDown}
         >

@@ -324,6 +324,11 @@ export async function askBackendStream(
   history: readonly BackendTurn[],
   cb: StreamCallbacks,
 ): Promise<Answer & { readonly source: string; readonly router?: RouterSnapshot }> {
+  let emittedText = "";
+  const emitToken = (delta: string): void => {
+    emittedText += delta;
+    cb.onToken(delta);
+  };
   const pacingDelay = (): number => {
     if (typeof document === "undefined") return fallbackTypewriter.intervalMs;
     const unfocused = typeof document.hasFocus === "function" && !document.hasFocus();
@@ -335,7 +340,7 @@ export async function askBackendStream(
     const chunks = chunksForTypewriter(text);
     for (const c of chunks) {
       if (cb.signal?.aborted) return;
-      cb.onToken(c);
+      emitToken(c);
       const interval = pacingDelay();
       if (interval > 0) {
         await new Promise((r) => setTimeout(r, interval));
@@ -347,6 +352,7 @@ export async function askBackendStream(
   ): Promise<Answer & { readonly source: string }> => {
     const local = deterministicAnswer(prompt, snapshot, history);
     await emitTypewriter(local.text);
+    if (cb.signal?.aborted) return stopped(emittedText);
     return { ...local, source: `deterministic (${why})` };
   };
 
@@ -390,7 +396,7 @@ export async function askBackendStream(
           const parts = delta.length > 8 ? chunksForTypewriter(delta) : [delta];
           for (const p of parts) {
             if (cb.signal?.aborted) return;
-            cb.onToken(p);
+            emitToken(p);
             const delay = pacingDelay();
             if (delay > 0) await new Promise((r) => setTimeout(r, delay));
           }
@@ -509,6 +515,7 @@ export async function askBackendStream(
   // Wait for the pacer to drain any tokens still queued from the burst
   // arrival before we hand the deck the final `done` payload.
   await flushPump();
+  if (cb.signal?.aborted) return stopped(emittedText);
 
   if (errored && answerText === "") return fallback("stream error");
   if (answerText === "" && doneData === null) return fallback("empty stream");
@@ -634,6 +641,7 @@ export interface ActionSubmitResult {
 export async function submitAction(
   prompt: string,
   sessionId: string | null,
+  signal?: AbortSignal,
 ): Promise<ActionSubmitResult> {
   let response: Response;
   try {
@@ -645,6 +653,7 @@ export async function submitAction(
         session_id: sessionId ?? undefined,
         idempotency_key: newIdempotencyKey(),
       }),
+      signal: signal ?? null,
     });
   } catch {
     return { submitted: false, status: 0, reason: "error" };

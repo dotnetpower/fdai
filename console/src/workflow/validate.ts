@@ -151,19 +151,46 @@ export async function validateWorkflowDraft(
   if (response.status === 413) {
     throw new Error("The draft is too large to validate. Reduce the number of steps.");
   }
-  if (response.status === 400) {
-    // Malformed request body (not the same as a failed validation).
-    let detail = "invalid request body";
+  if (!response.ok) {
+    let detail = `HTTP ${response.status}`;
     try {
-      const body = (await response.json()) as { error?: string };
-      if (body.error) detail = body.error;
+      const body = (await response.json()) as { error?: string | { message?: string } };
+      if (typeof body.error === "string" && body.error) detail = body.error;
+      else if (typeof body.error === "object" && body.error?.message) detail = body.error.message;
     } catch {
-      /* non-JSON body - keep the generic message */
+      /* non-JSON body - keep the status message */
     }
     throw new Error(detail);
   }
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error("Workflow validation returned invalid JSON.");
   }
-  return (await response.json()) as ValidateResponse;
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    throw new Error("Workflow validation returned an invalid response.");
+  }
+  const value = body as Record<string, unknown>;
+  if (typeof value.valid !== "boolean" || !Array.isArray(value.issues)) {
+    throw new Error("Workflow validation returned an invalid response.");
+  }
+  if (value.yaml_preview !== null && typeof value.yaml_preview !== "string") {
+    throw new Error("Workflow validation returned an invalid response.");
+  }
+  const issues = value.issues.map((issue) => {
+    if (issue === null || typeof issue !== "object" || Array.isArray(issue)) {
+      throw new Error("Workflow validation returned an invalid response.");
+    }
+    const record = issue as Record<string, unknown>;
+    if (typeof record.key !== "string" || typeof record.message !== "string") {
+      throw new Error("Workflow validation returned an invalid response.");
+    }
+    return { key: record.key, message: record.message };
+  });
+  return {
+    valid: value.valid,
+    issues,
+    yaml_preview: value.yaml_preview,
+  };
 }

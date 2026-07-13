@@ -119,6 +119,7 @@ export interface HilQueueItem {
 
 export interface HilQueuePage {
   readonly items: readonly HilQueueItem[];
+  readonly total: number;
 }
 
 export interface ApiError {

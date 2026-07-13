@@ -1,13 +1,17 @@
 import { useEffect, useState } from "preact/hooks";
 import type { ReadApiClient } from "../api";
-import { AsyncBoundary, PageHeader, StatusPill, type AsyncState } from "../components/ui";
+import { AsyncBoundary, EmptyState, PageHeader, StatusPill, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { ProcessWidget, RenderedRegion } from "./process-view-renderer";
 import {
+  decodeProcessList,
+  decodeRenderedProcessView,
+  defaultProcessId,
   processHref,
   processIdFromHash,
+  processListFailure,
   processTone,
   type ProcessListResponse,
   type ProcessSummary,
@@ -29,16 +33,26 @@ export function ProcessesRoute({ client }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    client.panel<ProcessListResponse>("/views/process").then(
-      (data) => {
+    client.panel<unknown>("/views/process").then(
+      (payload) => {
         if (cancelled) return;
+        let data: ProcessListResponse;
+        try {
+          data = decodeProcessList(payload);
+        } catch (error) {
+          setListState(processListFailure(error));
+          return;
+        }
         setListState({ status: "ready", data });
-        if (!selectedId && data.items[0]) {
-          window.location.hash = processHref(data.items[0].id);
+        const defaultId = defaultProcessId(data.items, window.location.hash);
+        if (!processIdFromHash(window.location.hash) && defaultId) {
+          window.history.replaceState(window.history.state, "", processHref(defaultId));
+          setSelectedId(defaultId);
         }
       },
       (error: unknown) => {
-        if (!cancelled) setListState({ status: "error", message: error instanceof Error ? error.message : String(error) });
+        if (cancelled) return;
+        setListState(processListFailure(error));
       },
     );
     return () => { cancelled = true; };
@@ -46,14 +60,28 @@ export function ProcessesRoute({ client }: Props) {
 
   useEffect(() => {
     if (!selectedId) { setViewState({ status: "idle" }); return; }
+    if (listState.status === "ready") {
+      const selected = listState.data.items.find((item) => item.id === selectedId);
+      if (selected && !selected.has_view) {
+        setViewState({ status: "unavailable", message: "No dynamic view is registered for this workflow." });
+        return;
+      }
+    }
     let cancelled = false;
     setViewState({ status: "loading" });
-    client.panel<RenderedProcessView>(`/views/process/${encodeURIComponent(selectedId)}`).then(
-      (data) => { if (!cancelled) setViewState({ status: "ready", data }); },
+    client.panel<unknown>(`/views/process/${encodeURIComponent(selectedId)}`).then(
+      (payload) => {
+        if (cancelled) return;
+        try {
+          setViewState({ status: "ready", data: decodeRenderedProcessView(payload) });
+        } catch (error) {
+          setViewState({ status: "error", message: error instanceof Error ? error.message : String(error) });
+        }
+      },
       (error: unknown) => { if (!cancelled) setViewState({ status: "error", message: error instanceof Error ? error.message : String(error) }); },
     );
     return () => { cancelled = true; };
-  }, [client, selectedId]);
+  }, [client, selectedId, listState]);
 
   return (
     <div class="stack process-route">
@@ -99,23 +127,44 @@ function ProcessWorkspace({ processes, selectedId, viewState }: {
     }),
     [processes, selected],
   );
+  if (processes.length === 0) {
+    return <EmptyState title="No workflow processes" body="Process runs appear here after the workflow runtime records them." />;
+  }
+  const hasRenderableProcess = processes.some((process) => process.has_view);
   return (
     <div class="process-workspace">
       <aside class="process-list" aria-label="Workflow processes">
-        {processes.map((process) => (
-          <a key={process.id} href={processHref(process.id)} class={process.id === selectedId ? "is-active" : ""}>
-            <div><strong>{process.workflow_ref}</strong><small>{process.current_step || "terminal"}</small></div>
-            <StatusPill kind={processTone(process.status)} label={process.status} />
+        {processes.map((process) => process.has_view ? (
+          <a key={process.id} href={processHref(process.id)} class={`process-list-entry ${process.id === selectedId ? "is-active" : ""}`}>
+            <ProcessListLabel process={process} />
           </a>
+        ) : (
+          <div key={process.id} class="process-list-entry is-disabled" aria-disabled="true">
+            <ProcessListLabel process={process} unavailable />
+          </div>
         ))}
-        {processes.length === 0 ? <p class="muted small">No workflow processes.</p> : null}
       </aside>
-      <main class="process-view-stage">
-        <AsyncBoundary state={viewState} resourceLabel="process view" idle={<p class="muted">Select a process.</p>}>
+      <section class="process-view-stage">
+        <AsyncBoundary state={viewState} resourceLabel="process view" idle={<p class="muted">{hasRenderableProcess ? "Select a process." : "No dynamic process views are available."}</p>}>
           {(view) => <RenderedProcess view={view} />}
         </AsyncBoundary>
-      </main>
+      </section>
     </div>
+  );
+}
+
+function ProcessListLabel({ process, unavailable = false }: {
+  readonly process: ProcessSummary;
+  readonly unavailable?: boolean;
+}) {
+  return (
+    <>
+      <div>
+        <strong>{process.workflow_ref}</strong>
+        <small>{process.current_step || "terminal"}{unavailable ? " - no view" : ""}</small>
+      </div>
+      <StatusPill kind={processTone(process.status)} label={process.status} />
+    </>
   );
 }
 

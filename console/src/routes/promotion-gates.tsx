@@ -14,6 +14,7 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
+import { panelArray, panelBoolean, panelNumber, panelRecord, panelString, panelStringArray } from "./panel-decode";
 
 /**
  * Promotion-gate dashboard panel. Fetches ``GET /kpi/promotion-gates``
@@ -51,7 +52,7 @@ export function PromotionGatesRoute({ client }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        const data = await client.panel<Response>("/kpi/promotion-gates");
+        const data = decodePromotionGates(await client.panel<unknown>("/kpi/promotion-gates"));
         if (!cancelled) setState({ status: "ready", data });
       } catch (err) {
         if (!cancelled) {
@@ -85,6 +86,33 @@ export function PromotionGatesRoute({ client }: Props) {
       </AsyncBoundary>
     </div>
   );
+}
+
+export function decodePromotionGates(value: unknown): Response {
+  const root = panelRecord(value, "promotion gates");
+  const windowDays = root["window_days"];
+  if (windowDays !== null && (typeof windowDays !== "number" || !Number.isFinite(windowDays))) {
+    throw new ReadApiError(502, "invalid read API response: promotion gates.window_days MUST be a number or null");
+  }
+  return {
+    window_days: windowDays,
+    ready_count: panelNumber(root, "ready_count", "promotion gates"),
+    blocked_count: panelNumber(root, "blocked_count", "promotion gates"),
+    rows: panelArray(root["rows"], "promotion gates.rows").map((value, index) => {
+      const row = panelRecord(value, `promotion gates.rows[${index}]`);
+      return {
+        action_type_name: panelString(row, "action_type_name", "promotion gate row"),
+        shadow_days_elapsed: panelNumber(row, "shadow_days_elapsed", "promotion gate row"),
+        sample_count: panelNumber(row, "sample_count", "promotion gate row"),
+        reviewed_count: panelNumber(row, "reviewed_count", "promotion gate row"),
+        agreed_count: panelNumber(row, "agreed_count", "promotion gate row"),
+        policy_escapes: panelNumber(row, "policy_escapes", "promotion gate row"),
+        accuracy: panelNumber(row, "accuracy", "promotion gate row"),
+        ready: panelBoolean(row, "ready", "promotion gate row"),
+        gaps: panelStringArray(row["gaps"], "promotion gate row.gaps"),
+      };
+    }),
+  };
 }
 
 function PromotionBody({ data }: { readonly data: Response }) {

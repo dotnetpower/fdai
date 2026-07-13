@@ -6,6 +6,8 @@ from datetime import UTC, datetime, timedelta
 from typing import cast
 
 import pytest
+from starlette.responses import Response
+from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
@@ -15,6 +17,7 @@ from fdai.core.views import ViewAppliesTo, ViewEngine, ViewRegion, ViewSpec
 from fdai.delivery.read_api.auth import build_authenticator
 from fdai.delivery.read_api.main import ReadApiConfig, build_app
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.read_api.routes.dynamic_views import validate_route_method_collisions
 from fdai.delivery.read_api.routes.process_views import ProcessViewsConfig
 from fdai.shared.providers.process_runtime import (
     ProcessEvent,
@@ -46,6 +49,11 @@ class _Reports:
         )
 
 
+class _BrokenReports:
+    async def render(self, report_id: str, *, variables: dict[str, str]) -> RenderedReport:
+        raise KeyError("renderer defect")
+
+
 async def _process_store() -> InMemoryProcessRuntimeStore:
     store = InMemoryProcessRuntimeStore()
     await store.create(
@@ -72,7 +80,12 @@ async def _process_store() -> InMemoryProcessRuntimeStore:
     return store
 
 
-async def _client() -> TestClient:
+async def _client(
+    *,
+    reports: object | None = None,
+    prefix: str = "/views/process",
+    raise_server_exceptions: bool = True,
+) -> TestClient:
     store = await _process_store()
     view = ViewSpec(
         id="architecture-review",
@@ -85,7 +98,7 @@ async def _client() -> TestClient:
     )
     engine = ViewEngine(
         specs=(view,),
-        reports=cast(ReportEngine, _Reports()),
+        reports=cast(ReportEngine, reports or _Reports()),
         processes=store,
     )
     auth = build_authenticator(
@@ -105,10 +118,10 @@ async def _client() -> TestClient:
         read_model=InMemoryConsoleReadModel(),
         config=ReadApiConfig(
             dev_mode=True,
-            process_views=ProcessViewsConfig(engine=engine),
+            process_views=ProcessViewsConfig(engine=engine, prefix=prefix),
         ),
     )
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=raise_server_exceptions)
 
 
 async def test_process_view_list_and_render() -> None:
@@ -132,3 +145,67 @@ async def test_process_view_rejects_bad_or_missing_id() -> None:
     assert malformed.status_code in {400, 404}
     assert missing.status_code == 404
     assert bad_status.status_code == 400
+
+
+async def test_process_view_does_not_mask_renderer_key_error_as_not_found() -> None:
+    client = await _client(reports=_BrokenReports(), raise_server_exceptions=False)
+
+    response = client.get("/views/process/process-1")
+
+    assert response.status_code == 500
+
+
+async def test_process_view_prefix_collision_with_core_route_fails_fast() -> None:
+    with pytest.raises(ValueError, match="collides with a core route"):
+        await _client(prefix="/audit")
+
+
+async def test_process_view_prefix_collision_with_optional_route_fails_fast() -> None:
+    store = await _process_store()
+    engine = ViewEngine(
+        specs=(),
+        reports=cast(ReportEngine, _Reports()),
+        processes=store,
+    )
+    auth = build_authenticator(
+        verifier=lambda token: {"oid": "u"},
+        resolver=RoleResolver(
+            group_mapping=GroupMapping(
+                reader_group_id="readers",
+                contributor_group_id="contributors",
+                approver_group_id="approvers",
+                owner_group_id="owners",
+                break_glass_group_id="break-glass",
+            )
+        ),
+    )
+    with pytest.raises(ValueError, match="collides with an extra route"):
+        build_app(
+            authenticator=auth,
+            read_model=InMemoryConsoleReadModel(),
+            config=ReadApiConfig(
+                dev_mode=True,
+                expose_pantheon=True,
+                process_views=ProcessViewsConfig(engine=engine, prefix="/pantheon/graph"),
+            ),
+        )
+
+
+def test_route_collision_validator_checks_late_optional_routes_by_method() -> None:
+    async def endpoint(_: object) -> Response:
+        return Response()
+
+    with pytest.raises(ValueError, match="method '.*' collides"):
+        validate_route_method_collisions(
+            [
+                Route("/chat/health", endpoint, methods=["GET"]),
+                Route("/chat/health", endpoint, methods=["GET"]),
+            ]
+        )
+
+    validate_route_method_collisions(
+        [
+            Route("/chat", endpoint, methods=["GET"]),
+            Route("/chat", endpoint, methods=["POST"]),
+        ]
+    )

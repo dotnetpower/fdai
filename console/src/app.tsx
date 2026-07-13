@@ -1,9 +1,11 @@
 import { useEffect, useState } from "preact/hooks";
+import { Suspense } from "preact/compat";
 import { ReadApiClient } from "./api";
 import type { AuthContext } from "./auth";
 import { initAuth } from "./auth";
 import { loadConfig, type ConsoleConfig } from "./config";
 import { Shell } from "./components/shell";
+import { PanelErrorBoundary } from "./components/panel-error-boundary";
 import { CommandDeck } from "./deck/command-deck";
 import { ViewContextProvider } from "./deck/context";
 import { deckUserFromAuth, setDeckUser } from "./deck/deck-user";
@@ -23,6 +25,7 @@ function currentPanelId(): string {
   // Some hosting / port-forwarding layers URL-encode the ``/`` inside
   // the hash (``#/live`` becomes ``#%2Flive``). Decode first so the
   // hash router does not fall back to the default panel unexpectedly.
+  if (typeof window === "undefined") return DEFAULT_PANEL_ID;
   let hash = window.location.hash;
   try {
     hash = decodeURIComponent(hash);
@@ -100,9 +103,13 @@ export function App() {
   const PanelComponent = panel.component;
 
   return (
-    <ViewContextProvider>
+    <ViewContextProvider scopeKey={panel.id}>
       <Shell activePanelId={panel.id} auth={auth}>
-        <PanelComponent client={client} />
+        <PanelErrorBoundary key={panel.id}>
+          <Suspense fallback={<div class="state-block state-loading" role="status">Loading panel...</div>}>
+            <PanelComponent client={client} />
+          </Suspense>
+        </PanelErrorBoundary>
       </Shell>
       <CommandDeck />
     </ViewContextProvider>

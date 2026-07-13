@@ -11,6 +11,7 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
+import { panelArray, panelBoolean, panelNullableString, panelNumber, panelRecord, panelString, panelStringArray } from "./panel-decode";
 
 /**
  * Handover panel. Fetches ``GET /stewardship`` and renders the handover map
@@ -77,7 +78,7 @@ export function HandoverRoute({ client }: Props) {
     setState({ status: "loading" });
     (async () => {
       try {
-        const data = await client.panel<StewardshipResponse>("/stewardship");
+        const data = decodeStewardship(await client.panel<unknown>("/stewardship"));
         if (!cancelled) {
           setState({ status: "ready", data });
         }
@@ -113,6 +114,53 @@ export function HandoverRoute({ client }: Props) {
       </AsyncBoundary>
     </div>
   );
+}
+
+function decodeStewardship(value: unknown): StewardshipResponse {
+  const root = panelRecord(value, "stewardship");
+  const map = panelRecord(root["map"], "stewardship.map");
+  const coverage = panelRecord(root["coverage"], "stewardship.coverage");
+  return {
+    map: {
+      version: panelNumber(map, "version", "stewardship.map"),
+      maintainers: panelStringArray(map["maintainers"], "stewardship.map.maintainers"),
+      maintainer_count: panelNumber(map, "maintainer_count", "stewardship.map"),
+      hop_timeout_seconds: panelNumber(map, "hop_timeout_seconds", "stewardship.map"),
+      over_assigned_max: panelNumber(map, "over_assigned_max", "stewardship.map"),
+      agents: panelArray(map["agents"], "stewardship.map.agents").map((value, index) => {
+        const agent = panelRecord(value, `stewardship.map.agents[${index}]`);
+        return {
+          name: panelString(agent, "name", "stewardship agent"),
+          autonomous: panelBoolean(agent, "autonomous", "stewardship agent"),
+          accept_autonomous_reason: panelNullableString(agent, "accept_autonomous_reason", "stewardship agent"),
+          bus_factor: panelNumber(agent, "bus_factor", "stewardship agent"),
+          stewards: panelArray(agent["stewards"], "stewardship agent.stewards").map((value, stewardIndex) => {
+            const steward = panelRecord(value, `stewardship agent.stewards[${stewardIndex}]`);
+            return {
+              kind: panelString(steward, "kind", "steward"),
+              id: panelString(steward, "id", "steward"),
+              responsibility: panelString(steward, "responsibility", "steward"),
+            };
+          }),
+        };
+      }),
+    },
+    coverage: {
+      is_clean: panelBoolean(coverage, "is_clean", "stewardship.coverage"),
+      total_agents: panelNumber(coverage, "total_agents", "stewardship.coverage"),
+      autonomous_agents: panelNumber(coverage, "autonomous_agents", "stewardship.coverage"),
+      maintainer_count: panelNumber(coverage, "maintainer_count", "stewardship.coverage"),
+      findings: panelArray(coverage["findings"], "stewardship.coverage.findings").map((value, index) => {
+        const finding = panelRecord(value, `stewardship.coverage.findings[${index}]`);
+        return {
+          code: panelString(finding, "code", "stewardship finding"),
+          severity: panelString(finding, "severity", "stewardship finding"),
+          message: panelString(finding, "message", "stewardship finding"),
+          agent: panelNullableString(finding, "agent", "stewardship finding"),
+        };
+      }),
+    },
+  };
 }
 
 function HandoverBody({ data }: { readonly data: StewardshipResponse }) {

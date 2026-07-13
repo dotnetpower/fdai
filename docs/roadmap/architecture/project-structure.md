@@ -129,8 +129,8 @@ fdai/
 │       ├── dev/
 │       ├── staging/
 │       └── prod/
-├── console/                   # thin read-only SPA (Vite + Preact) - KPI, audit, HIL queue
-│   ├── src/                    # main.tsx, app.tsx, api.ts, auth.ts (MSAL.js), routes/
+├── console/                   # thin read-only SPA (Vite + Preact) - operator views + local display settings
+│   ├── src/                    # shell, panel registry, GET-only client, routes, browser-local preferences
 │   ├── index.html              # Vite entrypoint
 │   ├── package.json            # deps: preact, @azure/msal-browser
 │   └── vite.config.ts          # build → console/dist/ (git-ignored)

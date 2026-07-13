@@ -12,6 +12,7 @@ import { MermaidDiagram } from "../components/mermaid-diagram";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
+import { panelArray, panelBoolean, panelNullableString, panelNumber, panelRecord, panelString, panelStringArray } from "./panel-decode";
 
 /**
  * Pantheon panel. Fetches ``GET /pantheon/graph`` and
@@ -79,8 +80,8 @@ export function PantheonRoute({ client }: Props) {
     (async () => {
       try {
         const [graph, workflows] = await Promise.all([
-          client.panel<PantheonGraphResponse>("/pantheon/graph"),
-          client.panel<PantheonWorkflowsResponse>("/pantheon/workflows"),
+          client.panel<unknown>("/pantheon/graph").then(decodePantheonGraph),
+          client.panel<unknown>("/pantheon/workflows").then(decodePantheonWorkflows),
         ]);
         if (!cancelled) {
           setState({ status: "ready", data: { graph, workflows } });
@@ -117,6 +118,58 @@ export function PantheonRoute({ client }: Props) {
       </AsyncBoundary>
     </div>
   );
+}
+
+function decodePantheonGraph(value: unknown): PantheonGraphResponse {
+  const root = panelRecord(value, "pantheon graph");
+  return {
+    agents: panelArray(root["agents"], "pantheon graph.agents").map((value, index) => {
+      const agent = panelRecord(value, `pantheon graph.agents[${index}]`);
+      return {
+        name: panelString(agent, "name", "pantheon agent"),
+        layer: panelString(agent, "layer", "pantheon agent"),
+        reports_to: panelNullableString(agent, "reports_to", "pantheon agent"),
+        owns: panelStringArray(agent["owns"], "pantheon agent.owns"),
+        executes: panelStringArray(agent["executes"], "pantheon agent.executes"),
+        subscribes: panelStringArray(agent["subscribes"], "pantheon agent.subscribes"),
+        publishes: panelStringArray(agent["publishes"], "pantheon agent.publishes"),
+        question_domains: panelStringArray(agent["question_domains"], "pantheon agent.question_domains"),
+        hot_path_llm: panelBoolean(agent, "hot_path_llm", "pantheon agent"),
+        off_path_llm: panelBoolean(agent, "off_path_llm", "pantheon agent"),
+        hard_dependency: panelBoolean(agent, "hard_dependency", "pantheon agent"),
+      };
+    }),
+    org_edges: panelArray(root["org_edges"], "pantheon graph.org_edges").map((value, index) => {
+      const edge = panelRecord(value, `pantheon graph.org_edges[${index}]`);
+      return {
+        from: panelNullableString(edge, "from", "pantheon org edge"),
+        to: panelString(edge, "to", "pantheon org edge"),
+      };
+    }),
+    agent_count: panelNumber(root, "agent_count", "pantheon graph"),
+    hard_dependency_agents: panelStringArray(root["hard_dependency_agents"], "pantheon graph.hard_dependency_agents"),
+    hot_path_llm_agents: panelStringArray(root["hot_path_llm_agents"], "pantheon graph.hot_path_llm_agents"),
+    mermaid: panelString(root, "mermaid", "pantheon graph"),
+  };
+}
+
+function decodePantheonWorkflows(value: unknown): PantheonWorkflowsResponse {
+  const root = panelRecord(value, "pantheon workflows");
+  return {
+    workflows: panelArray(root["workflows"], "pantheon workflows.workflows").map((value, index) => {
+      const workflow = panelRecord(value, `pantheon workflows.workflows[${index}]`);
+      return {
+        id: panelString(workflow, "id", "pantheon workflow"),
+        name: panelString(workflow, "name", "pantheon workflow"),
+        primary_agent: panelString(workflow, "primary_agent", "pantheon workflow"),
+        participating_agents: panelStringArray(workflow["participating_agents"], "pantheon workflow.participating_agents"),
+        trigger: panelString(workflow, "trigger", "pantheon workflow"),
+        default_mode: panelString(workflow, "default_mode", "pantheon workflow"),
+        promotion_gate: panelString(workflow, "promotion_gate", "pantheon workflow"),
+      };
+    }),
+    count: panelNumber(root, "count", "pantheon workflows"),
+  };
 }
 
 function PantheonBody({ data }: { readonly data: CombinedData }) {

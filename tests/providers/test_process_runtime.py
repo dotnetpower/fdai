@@ -123,6 +123,30 @@ def test_terminal_status_vocabulary() -> None:
     assert ProcessStatus.WAITING.terminal is False
 
 
+def test_process_id_must_be_url_safe() -> None:
+    with pytest.raises(ValueError, match="URL-safe"):
+        ProcessSnapshot(
+            process_id="process/unsafe",
+            workflow_ref="architecture-review",
+            workflow_version="1.0.0",
+            status=ProcessStatus.PENDING,
+            current_step="",
+            target_resource_id="scope-1",
+            started_at=_NOW,
+            updated_at=_NOW,
+            correlation_id="corr-1",
+        )
+    with pytest.raises(ValueError, match="URL-safe"):
+        ProcessEvent(
+            event_id="event-1",
+            process_id="process unsafe",
+            kind=ProcessEventKind.PROCESS_CREATED,
+            idempotency_key="create",
+            recorded_at=_NOW,
+            correlation_id="corr-1",
+        )
+
+
 async def test_list_filters_and_orders_snapshots() -> None:
     store = InMemoryProcessRuntimeStore()
     first, _ = await store.create(

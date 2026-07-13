@@ -1,6 +1,9 @@
 import { render } from "preact";
 import { App } from "./app";
+import { applyConsolePreferences, readConsolePreferences } from "./preferences";
 import "./styles.css";
+
+applyConsolePreferences(readConsolePreferences());
 
 const root = document.getElementById("app");
 if (!root) {

@@ -152,9 +152,10 @@ class HilQueuePage:
     """One page of pending HIL items."""
 
     items: Sequence[HilQueueItem]
+    total: int
 
     def to_dict(self) -> dict[str, Any]:
-        return {"items": [item.to_dict() for item in self.items]}
+        return {"items": [item.to_dict() for item in self.items], "total": self.total}
 
 
 @runtime_checkable
@@ -357,8 +358,9 @@ class InMemoryConsoleReadModel(ConsoleReadModel):
     async def list_hil_queue(self, *, limit: int = _DEFAULT_LIMIT) -> HilQueuePage:
         bounded = clamp_limit(limit)
         with self._lock:
+            total = len(self._hil)
             page = list(reversed(self._hil))[:bounded]
-        return HilQueuePage(items=tuple(page))
+        return HilQueuePage(items=tuple(page), total=total)
 
     # ------------------------------------------------------------------
     # Test observability

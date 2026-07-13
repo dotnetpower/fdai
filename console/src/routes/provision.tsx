@@ -73,6 +73,7 @@ export function safeHttpUrl(url: string | null): string | null {
 }
 
 export function reducer(state: ProvisionState, ev: ProvisionEvent): ProvisionState {
+  if (state.done && ev.phase !== "done") return state;
   switch (ev.phase) {
     case "progress": {
       // Newest-first, unique: a repeat completion (reconnect replay / retry)
@@ -149,7 +150,7 @@ function statusLabel(status: ProvisionConnectionStatus): string {
   }
 }
 
-export function ProvisionRoute(_props: Props) {
+export function ProvisionRoute({ client }: Props) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
 
   const url = useMemo(() => {
@@ -161,6 +162,7 @@ export function ProvisionRoute(_props: Props) {
 
   const { status, lastError } = useProvisionStream({
     url,
+    getAuthorizationHeader: client.authorizationHeader,
     onEvent: (event) => dispatch(event),
   });
 
@@ -191,6 +193,7 @@ export function ProvisionRoute(_props: Props) {
           state.done ? " is-done" : ""
         }`}
         role="progressbar"
+        aria-label="Provisioning progress"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={pct}

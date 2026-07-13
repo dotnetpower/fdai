@@ -23,26 +23,29 @@
  */
 
 import type { ComponentType } from "preact";
+import { lazy } from "preact/compat";
 import type { ReadApiClient } from "./api";
 import { t } from "./i18n";
-import { AgentActivityRoute } from "./routes/agent-activity";
-import { ArchitectureRoute } from "./routes/architecture";
-import { AgentsRoute } from "./routes/agents";
-import { AuditRoute } from "./routes/audit";
-import { BlastRadiusRoute } from "./routes/blast-radius";
 import { DashboardRoute } from "./routes/dashboard";
-import { HilQueueRoute } from "./routes/hil-queue";
-import { HandoverRoute } from "./routes/handover";
-import { LiveRoute } from "./routes/live";
-import { LlmCostRoute } from "./routes/llm-cost";
-import { OntologyRoute } from "./routes/ontology";
-import { PantheonRoute } from "./routes/pantheon";
-import { PromotionGatesRoute } from "./routes/promotion-gates";
-import { ProcessesRoute } from "./routes/processes";
-import { ProvisionRoute } from "./routes/provision";
-import { RuleCatalogRoute } from "./routes/rule-catalog";
-import { RuleTraceRoute } from "./routes/rule-trace";
-import { WorkflowBuilderRoute } from "./routes/workflow-builder";
+
+const LiveRoute = lazy(async () => ({ default: (await import("./routes/live")).LiveRoute }));
+const AgentsRoute = lazy(async () => ({ default: (await import("./routes/agents")).AgentsRoute }));
+const HilQueueRoute = lazy(async () => ({ default: (await import("./routes/hil-queue")).HilQueueRoute }));
+const ProvisionRoute = lazy(async () => ({ default: (await import("./routes/provision")).ProvisionRoute }));
+const ProcessesRoute = lazy(async () => ({ default: (await import("./routes/processes")).ProcessesRoute }));
+const AgentActivityRoute = lazy(async () => ({ default: (await import("./routes/agent-activity")).AgentActivityRoute }));
+const AuditRoute = lazy(async () => ({ default: (await import("./routes/audit")).AuditRoute }));
+const RuleTraceRoute = lazy(async () => ({ default: (await import("./routes/rule-trace")).RuleTraceRoute }));
+const ArchitectureRoute = lazy(async () => ({ default: (await import("./routes/architecture")).ArchitectureRoute }));
+const OntologyRoute = lazy(async () => ({ default: (await import("./routes/ontology")).OntologyRoute }));
+const PantheonRoute = lazy(async () => ({ default: (await import("./routes/pantheon")).PantheonRoute }));
+const HandoverRoute = lazy(async () => ({ default: (await import("./routes/handover")).HandoverRoute }));
+const RuleCatalogRoute = lazy(async () => ({ default: (await import("./routes/rule-catalog")).RuleCatalogRoute }));
+const WorkflowBuilderRoute = lazy(async () => ({ default: (await import("./routes/workflow-builder")).WorkflowBuilderRoute }));
+const BlastRadiusRoute = lazy(async () => ({ default: (await import("./routes/blast-radius")).BlastRadiusRoute }));
+const PromotionGatesRoute = lazy(async () => ({ default: (await import("./routes/promotion-gates")).PromotionGatesRoute }));
+const LlmCostRoute = lazy(async () => ({ default: (await import("./routes/llm-cost")).LlmCostRoute }));
+const SettingsRoute = lazy(async () => ({ default: (await import("./routes/settings")).SettingsRoute }));
 
 /** Props every panel component receives. Read-only client only. */
 export interface PanelProps {
@@ -223,6 +226,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.llmCost"),
     group: "overview",
     component: LlmCostRoute,
+  },
+  {
+    id: "settings",
+    label: t("nav.panel.settings"),
+    subtitle: t("nav.panelSub.settings"),
+    group: "overview",
+    component: SettingsRoute,
   },
 ];
 

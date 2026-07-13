@@ -22,7 +22,15 @@ describe("serializeTurns", () => {
   it("round-trips completed turns", () => {
     const turns = [
       { id: "1", role: "operator" as const, text: "what is the tier mix?", at: "10:00:00" },
-      { id: "2", role: "deck" as const, text: "T0 78%", at: "10:00:01", source: "llm:x" },
+      {
+        id: "2",
+        role: "deck" as const,
+        text: "T0 78%",
+        at: "10:00:01",
+        source: "llm:x",
+        citations: [{ label: "tier", value: "T0" }],
+        followUps: ["Show T1"],
+      },
       {
         id: "3",
         role: "deck" as const,
@@ -36,6 +44,8 @@ describe("serializeTurns", () => {
     expect(parsed).toHaveLength(3);
     expect(parsed[0]!.text).toBe("what is the tier mix?");
     expect(parsed[1]!.source).toBe("llm:x");
+    expect(parsed[1]!.citations).toEqual([{ label: "tier", value: "T0" }]);
+    expect(parsed[1]!.followUps).toEqual(["Show T1"]);
     expect(parsed[2]!.agent).toBe("Forseti"); // agent identity survives reload
   });
 

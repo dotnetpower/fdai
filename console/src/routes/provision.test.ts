@@ -52,6 +52,13 @@ describe("reducer", () => {
     expect(state.fraction).toBe(1);
   });
 
+  test("done is terminal when the wire has no new-run identity", () => {
+    const done = reducer(INITIAL, ev({ phase: "done", fraction: 1 }));
+    expect(reducer(done, ev({ phase: "progress", fraction: 0.2, node: "late" }))).toBe(done);
+    expect(reducer(done, ev({ phase: "failed", node: "late", reason: "replay" }))).toBe(done);
+    expect(reducer(done, ev({ phase: "waiting", node: "late" }))).toBe(done);
+  });
+
   test("waiting then resumed clears the hold", () => {
     let state = reducer(INITIAL, ev({ phase: "waiting", node: "db", reason: "slow" }));
     expect(state.waiting).toBe("db");

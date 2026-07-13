@@ -277,6 +277,7 @@ function fmtDur(millis: number): string {
 
 interface Data {
   readonly items: readonly AuditItem[];
+  readonly olderAvailable: boolean;
 }
 
 type ActivityView = "waterfall" | "timeline";
@@ -289,7 +290,12 @@ export function AgentActivityRoute({ client }: Props) {
     (async () => {
       try {
         const page = await client.listAudit({ limit: TIMELINE_LIMIT });
-        if (!cancelled) setState({ status: "ready", data: { items: page.items } });
+        if (!cancelled) {
+          setState({
+            status: "ready",
+            data: { items: page.items, olderAvailable: page.next_cursor !== null },
+          });
+        }
       } catch (err) {
         if (!cancelled) {
           setState({
@@ -373,12 +379,13 @@ function ActivityBody({ data }: BodyProps) {
       ]),
       headline: `${data.items.length} audit row(s) across ${perAgent.length} agent(s)${
         selected ? ` - filtered to ${selected}` : ""
-      }`,
+      }${data.olderAvailable ? " - older activity available" : ""}`,
       capturedAt: new Date().toISOString(),
       facts: [
         { key: "rows", value: data.items.length, group: "page" },
         { key: "agents", value: perAgent.length, group: "page" },
         { key: "filter", value: selected ?? "all", group: "page" },
+        { key: "older_available", value: data.olderAvailable, group: "page" },
       ],
       records: {
         by_agent: perAgent.map(([agent, count]) => ({ agent, count })),
@@ -403,7 +410,7 @@ function ActivityBody({ data }: BodyProps) {
         })),
       },
     }),
-    [data.items, perAgent, selected, visible],
+    [data.items, data.olderAvailable, perAgent, selected, visible],
   );
 
   if (data.items.length === 0) {
@@ -417,12 +424,14 @@ function ActivityBody({ data }: BodyProps) {
 
   return (
     <div class="stack">
-      <div class="agent-filter" role="tablist" aria-label="Filter by agent">
+      {data.olderAvailable ? (
+        <p class="muted footnote">Showing the latest {data.items.length} audit rows; older activity is available in the Audit log.</p>
+      ) : null}
+      <div class="agent-filter" role="group" aria-label="Filter by agent">
         <button
           type="button"
           class={`agent-chip ${selected === null ? "agent-chip-on" : ""}`}
-          role="tab"
-          aria-selected={selected === null}
+          aria-pressed={selected === null}
           onClick={() => setSelected(null)}
         >
           All
@@ -433,8 +442,7 @@ function ActivityBody({ data }: BodyProps) {
             key={agent}
             type="button"
             class={`agent-chip ${selected === agent ? "agent-chip-on" : ""}`}
-            role="tab"
-            aria-selected={selected === agent}
+            aria-pressed={selected === agent}
             data-layer={layerOf(agent)}
             onClick={() => setSelected((s) => (s === agent ? null : agent))}
           >
@@ -445,12 +453,11 @@ function ActivityBody({ data }: BodyProps) {
         ))}
       </div>
 
-      <div class="view-toggle" role="tablist" aria-label="Activity view">
+      <div class="view-toggle" role="group" aria-label="Activity view">
         <button
           type="button"
           class="view-toggle-btn"
-          role="tab"
-          aria-selected={view === "waterfall"}
+          aria-pressed={view === "waterfall"}
           onClick={() => setView("waterfall")}
         >
           Waterfall
@@ -458,8 +465,7 @@ function ActivityBody({ data }: BodyProps) {
         <button
           type="button"
           class="view-toggle-btn"
-          role="tab"
-          aria-selected={view === "timeline"}
+          aria-pressed={view === "timeline"}
           onClick={() => setView("timeline")}
         >
           Timeline
@@ -568,7 +574,7 @@ interface WaterfallGroup {
 function buildGroups(items: readonly AuditItem[]): readonly WaterfallGroup[] {
   const byCorr = new Map<string, AuditItem[]>();
   for (const item of items) {
-    const key = item.correlation_id || "(uncorrelated)";
+    const key = item.correlation_id || `uncorrelated:${item.seq}`;
     const bucket = byCorr.get(key);
     if (bucket) bucket.push(item);
     else byCorr.set(key, [item]);
@@ -667,15 +673,18 @@ function Waterfall({
                   <span class={`waterfall-chevron ${isCollapsed ? "" : "waterfall-chevron-open"}`} aria-hidden="true">
                     ▶
                   </span>
+                </button>
+                {g.correlation.startsWith("uncorrelated:") ? (
+                  <span class="waterfall-corr mono muted">uncorrelated event #{g.bars[0]!.item.seq}</span>
+                ) : (
                   <a
                     class="waterfall-corr mono"
                     href={`#/trace?correlation=${encodeURIComponent(g.correlation)}`}
                     title="Open this correlation in the Trace panel"
-                    onClick={(e) => e.stopPropagation()}
                   >
                     {g.correlation}
                   </a>
-                </button>
+                )}
                 <span class="waterfall-span mono muted" title={`${g.bars.length} step(s) · ${fmtDur(g.spanMs)}`}>
                   {startClockOf(g.bars[0]!.item)} · {g.bars.length}
                 </span>

@@ -111,6 +111,13 @@ export const TERMS = {
     tech: "view_spec",
     seeAlso: "processes",
   },
+  userPreference: {
+    term: "user preference",
+    plain:
+      "a presentation choice such as locale, theme, or reduced motion; console display preferences stay in the local browser and never change control-plane state",
+    tech: "UserPreference",
+    seeAlso: "settings",
+  },
   blastRadius: {
     term: "blast radius",
     plain:

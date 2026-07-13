@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { decodeProvisionEvent } from "./use-provision-stream";
+import {
+  consumeProvisionSse,
+  decodeProvisionEvent,
+  isPermanentProvisionFailure,
+  provisionReconnectDelay,
+  provisionStreamHeaders,
+  type ProvisionEvent,
+} from "./use-provision-stream";
 
 /**
  * `decodeProvisionEvent` is the trust boundary between the SSE wire and the
@@ -43,5 +50,61 @@ describe("decodeProvisionEvent", () => {
     expect(
       decodeProvisionEvent(JSON.stringify({ type: "provision.progress", fraction: 0 }))?.fraction,
     ).toBe(0);
+  });
+});
+
+describe("fetch SSE boundary", () => {
+  test("adds the bearer header without putting it in the URL", () => {
+    const headers = provisionStreamHeaders("Bearer token");
+    expect(headers.get("authorization")).toBe("Bearer token");
+    expect(headers.get("accept")).toBe("text/event-stream");
+  });
+
+  test("decodes provision data frames and ignores hello/keepalive frames", async () => {
+    const response = new Response(
+      "event: hello\ndata: {\"status\":\"ok\"}\n\n: keepalive\n\ndata: {\"type\":\"provision.progress\",\"fraction\":0.5}\n\n",
+      { status: 200, headers: { "content-type": "text/event-stream" } },
+    );
+    const events: ProvisionEvent[] = [];
+    await consumeProvisionSse(response, (event) => events.push(event));
+    expect(events).toHaveLength(1);
+    expect(events[0]?.fraction).toBe(0.5);
+  });
+
+  test("rejects an unauthorized stream response", async () => {
+    await expect(consumeProvisionSse(new Response("unauthorized", { status: 401 }), () => {}))
+      .rejects.toThrow(/HTTP 401/);
+  });
+
+  test("parses a CRLF event boundary split across stream chunks", async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"type":"provision.done","fraction":1}\r'));
+        controller.enqueue(encoder.encode("\n\r\n"));
+        controller.close();
+      },
+    });
+    const events: ProvisionEvent[] = [];
+    await consumeProvisionSse(
+      new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } }),
+      (event) => events.push(event),
+    );
+    expect(events[0]?.phase).toBe("done");
+  });
+
+  test("classifies permanent auth failures and caps reconnect backoff", () => {
+    expect(isPermanentProvisionFailure(401)).toBe(true);
+    expect(isPermanentProvisionFailure(403)).toBe(true);
+    expect(isPermanentProvisionFailure(503)).toBe(false);
+    expect(provisionReconnectDelay(0)).toBe(1000);
+    expect(provisionReconnectDelay(20)).toBe(30000);
+  });
+
+  test("rejects a successful non-SSE response", async () => {
+    await expect(consumeProvisionSse(
+      new Response("<html></html>", { status: 200, headers: { "content-type": "text/html" } }),
+      () => {},
+    )).rejects.toThrow(/content type/);
   });
 });

@@ -33,7 +33,7 @@ properties:
   status:
     type: string
     required: true
-    description: One of pending | running | succeeded | failed | compensating | compensated.
+    description: One of pending | running | waiting | compensating | compensated | succeeded | failed | cancelled | timed_out.
   current_step:
     type: string
     required: false

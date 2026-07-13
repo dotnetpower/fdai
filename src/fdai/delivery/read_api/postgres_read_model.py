@@ -392,7 +392,7 @@ class PostgresConsoleReadModel(ConsoleReadModel):
                 await self._set_statement_timeout(conn)
                 cur = await conn.execute(
                     """
-                    SELECT value, updated_at
+                    SELECT value, updated_at, COUNT(*) OVER() AS total_count
                       FROM state_kv
                      WHERE key LIKE %s
                        AND value->>'status' = %s
@@ -421,7 +421,8 @@ class PostgresConsoleReadModel(ConsoleReadModel):
             item = row_to_hil_queue_item(row)
             if item is not None:
                 items.append(item)
-        return HilQueuePage(items=tuple(items))
+        total = int(rows[0]["total_count"]) if rows else 0
+        return HilQueuePage(items=tuple(items), total=total)
 
     # ------------------------------------------------------------------
     # Internals

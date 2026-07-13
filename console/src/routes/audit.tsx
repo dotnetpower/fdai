@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { ReadApiClient } from "../api";
 import type { AuditItem, AuditPage } from "../types";
 import {
@@ -13,20 +13,23 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
+import { appendAuditPage, type AuditData as Data } from "./audit.model";
 
 interface Props {
   readonly client: ReadApiClient;
-}
-
-interface Data {
-  readonly items: readonly AuditItem[];
-  readonly nextCursor: string | null;
 }
 
 const PAGE_SIZE = 25;
 
 export function AuditRoute({ client }: Props) {
   const [state, setState] = useState<AsyncState<Data>>({ status: "loading" });
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => () => {
+    mountedRef.current = false;
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,24 +57,23 @@ export function AuditRoute({ client }: Props) {
   }, [client]);
 
   const loadMore = async (cursor: string): Promise<void> => {
-    if (state.status !== "ready") return;
+    if (state.status !== "ready" || loadingMore || state.data.nextCursor !== cursor) return;
+    setLoadingMore(true);
+    setPageError(null);
     try {
       const page: AuditPage = await client.listAudit({
         limit: PAGE_SIZE,
         cursor,
       });
-      setState({
-        status: "ready",
-        data: {
-          items: [...state.data.items, ...page.items],
-          nextCursor: page.next_cursor,
-        },
-      });
+      if (!mountedRef.current) return;
+      setState((current) => current.status === "ready"
+        ? { status: "ready", data: appendAuditPage(current.data, cursor, page) }
+        : current);
     } catch (err) {
-      setState({
-        status: "error",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      if (!mountedRef.current) return;
+      setPageError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (mountedRef.current) setLoadingMore(false);
     }
   };
 
@@ -82,7 +84,7 @@ export function AuditRoute({ client }: Props) {
         subtitle="Append-only record of every terminal control-plane decision. Read-only; entries are never edited or deleted."
       />
       <AsyncBoundary state={state} resourceLabel="audit log">
-        {(data) => <AuditBody data={data} onLoadMore={loadMore} />}
+        {(data) => <AuditBody data={data} loadingMore={loadingMore} pageError={pageError} onLoadMore={loadMore} />}
       </AsyncBoundary>
     </div>
   );
@@ -104,10 +106,12 @@ function entryStr(entry: Record<string, unknown>, key: string): string {
 
 interface BodyProps {
   readonly data: Data;
+  readonly loadingMore: boolean;
+  readonly pageError: string | null;
   readonly onLoadMore: (cursor: string) => Promise<void>;
 }
 
-function AuditBody({ data, onLoadMore }: BodyProps) {
+function AuditBody({ data, loadingMore, pageError, onLoadMore }: BodyProps) {
   usePublishViewContext(
     () => ({
       routeId: "audit",
@@ -184,15 +188,17 @@ function AuditBody({ data, onLoadMore }: BodyProps) {
         keyOf={(r) => r.seq}
         empty="Audit log is empty."
       />
+      {pageError ? <p class="state-error-text" role="alert">Failed to load more audit rows: {pageError}</p> : null}
       {data.nextCursor !== null ? (
         <button
           type="button"
           class="primary"
+          disabled={loadingMore}
           onClick={() => {
             void onLoadMore(data.nextCursor!);
           }}
         >
-          Load more
+          {loadingMore ? "Loading..." : "Load more"}
         </button>
       ) : (
         <p class="muted footnote">End of log.</p>

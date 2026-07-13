@@ -407,7 +407,7 @@ def make_rule_catalog_routes(
         entry: tuple[Rule, str] | None = None
         if origin:
             entry = by_key.get(f"{origin}:{rule_id}")
-        if entry is None:
+        else:
             entry = by_id.get(rule_id)
         if entry is None:
             return JSONResponse(
@@ -440,7 +440,7 @@ def make_rule_catalog_routes(
         entry: tuple[Rule, str] | None = None
         if origin:
             entry = by_key.get(f"{origin}:{rule_id}")
-        if entry is None:
+        else:
             entry = by_id.get(rule_id)
         if entry is None:
             return JSONResponse(

@@ -283,7 +283,7 @@ class TestHilQueueRoute:
         client = TestClient(app)
         response = client.get("/hil-queue")
         assert response.status_code == 200
-        assert response.json() == {"items": []}
+        assert response.json() == {"items": [], "total": 0}
 
     def test_lists_pending(self, dev_env: None) -> None:
         del dev_env

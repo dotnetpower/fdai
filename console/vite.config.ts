@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => {
       sourcemap: true,
       assetsInlineLimit: 0,
       target: "es2022",
+      manifest: true,
     },
     server: {
       port: 5173,

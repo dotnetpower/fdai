@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { ReadApiClient } from "../api";
 import { ArchitectureMap } from "../components/architecture-map";
 import {
@@ -60,10 +60,23 @@ const AVAILABLE_LINKS = ["contains", "depends_on", "attached_to"] as const;
 
 export function BlastRadiusRoute({ client }: Props) {
   const [target, setTarget] = useState(() => targetFromHash(window.location.hash) ?? "web-api");
-  const [architectureView] = useState(() => viewFromHash(window.location.hash));
+  const [architectureView, setArchitectureView] = useState(() => viewFromHash(window.location.hash));
   const [depth, setDepth] = useState(2);
   const [linkSet, setLinkSet] = useState<Set<string>>(new Set(DEFAULT_LINKS));
   const [state, setState] = useState<AsyncState<BlastRadiusResponse>>({ status: "idle" });
+  const requestGeneration = useRef(0);
+
+  useEffect(() => {
+    const sync = () => {
+      requestGeneration.current += 1;
+      const nextTarget = targetFromHash(window.location.hash);
+      setTarget(nextTarget ?? "web-api");
+      setArchitectureView(viewFromHash(window.location.hash));
+      setState({ status: "idle" });
+    };
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
 
   function toggleLink(name: string): void {
     setLinkSet((prev) => {
@@ -75,6 +88,8 @@ export function BlastRadiusRoute({ client }: Props) {
   }
 
   async function runSimulation(): Promise<void> {
+    const generation = requestGeneration.current + 1;
+    requestGeneration.current = generation;
     setState({ status: "loading" });
     try {
       const params = new URLSearchParams();
@@ -83,12 +98,14 @@ export function BlastRadiusRoute({ client }: Props) {
       for (const link of linkSet) params.append("link", link);
       const url = `/simulate/blast-radius?${params.toString()}`;
       const data = await client.panel<BlastRadiusResponse>(url);
-      setState({ status: "ready", data });
+      if (requestGeneration.current === generation) setState({ status: "ready", data });
     } catch (err) {
-      setState({
-        status: "error",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      if (requestGeneration.current === generation) {
+        setState({
+          status: "error",
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
   }
 

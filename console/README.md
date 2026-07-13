@@ -22,7 +22,7 @@ share the executor identity.
 
 ## Read-only surface
 
-The SPA talks to exactly three GET routes on the read API
+The SPA starts with three always-on GET routes on the read API
 (`src/fdai/delivery/read_api/main.py`):
 
 | Route | Purpose |
@@ -31,9 +31,52 @@ The SPA talks to exactly three GET routes on the read API
 | `GET /kpi` | Dashboard KPIs (event count, shadow/enforce share, HIL pending, per-kind, per-outcome). |
 | `GET /hil-queue` | Pending HIL items (approvals happen through ChatOps, not here). |
 
-No mutating verb (`POST` / `PUT` / `DELETE` / `PATCH`) is called anywhere in
-`src/**`. The pytest suite for the API enforces `405` on mutating verbs
+Managed-resource views use GET-only read routes. The console has narrow POST
+carve-outs for narrator turns, typed action **proposals**, and pure workflow
+validation; none executes a managed-resource mutation directly. Core read
+routes enforce `405` on mutating verbs
 (`tests/delivery/read_api/test_main.py::TestReadOnlyInvariant`).
+
+The panel registry in [`src/panels.tsx`](src/panels.tsx) groups the complete
+operator surface by intent: Overview, Now, History, Knowledge, and Safety.
+Optional read projections, including workflow Processes, reports, ontology,
+inventory, pantheon, promotion gates, and LLM cost, render an explicit
+unavailable state when the composition root does not register their GET route.
+The Processes panel consumes `GET /views/process` and
+`GET /views/process/{process_id}`. It renders server-selected, bounded
+ViewSpecs instead of computing workflow or ontology decisions in the browser.
+
+The Overview health axis fails closed: known guard failures show **Needs
+attention**, and missing promotion or autonomy evidence shows **Evidence
+unavailable** rather than healthy. The HIL queue joins its bounded latest-item
+projection with the authoritative `/kpi.hil_pending` total so a queue larger
+than the display cap is labeled as truncated instead of silently undercounted.
+
+The Provisioning panel consumes `GET /provision/stream` with fetch-based SSE.
+It acquires the same MSAL bearer header as other read calls, aborts the stream
+when the route unmounts or the tab is hidden, and reconnects transient failures
+with capped exponential backoff when visible. Permanent `401` / `403` responses
+stop reconnecting. The token stays in the Authorization header and never enters
+the URL.
+
+Core and high-risk optional payloads are decoded before routes enter their
+ready state. Version-skewed or malformed `200` responses become a uniform
+contract error instead of a render crash. Rule detail deep links also preserve
+their explicit `active` or `collected` origin; a missing rule in that origin
+returns `404` instead of falling back across catalog tiers.
+
+The Overview landing panel is eager; every other panel is loaded as a separate
+route chunk behind a Suspense boundary. Heavy visualization libraries remain
+on-demand. Command Deck requests are bound to one transcript session and are
+retired on close, clear, session switch, route navigation, or unmount, so a
+late answer cannot enter a different screen or agent conversation.
+
+The Overview > Settings panel changes presentation only. Theme, locale, and
+reduced-motion preferences are validated and stored in browser
+`localStorage`, with an in-memory fallback for the current tab when persistent
+storage is blocked. The runtime section exposes the configured read-API
+endpoint for diagnostics. Settings never call the read API, mutate managed
+resources, or hold an execution identity.
 
 The **History > Agent activity** panel
 ([`src/routes/agent-activity.tsx`](src/routes/agent-activity.tsx)) reuses the
@@ -381,10 +424,10 @@ read-only and grounded:
 
 ## Extending the console (fork panels)
 
-The upstream console ships a deliberately minimal UI - the three core panels
-above. A fork adds vertical-specific dashboards (a FinOps cost board, a drift
-board, a DR-drill history) **without editing `app.tsx` or `shell.tsx`**, through
-two matching seams:
+The upstream console ships a deliberately read-focused panel registry. A fork
+adds vertical-specific dashboards (a FinOps cost board, a drift board, a
+DR-drill history) **without editing `app.tsx` or `shell.tsx`**, through two
+matching seams:
 
 1. **API side** - implement the `ReadPanel` Protocol
    (`src/fdai/delivery/read_api/panels.py`) and register it at the
@@ -418,7 +461,8 @@ console/
     ├── app.tsx         - top-level router + init
     ├── config.ts       - env-var-driven runtime config
     ├── auth.ts         - MSAL.js wrapper + dev-mode bypass
-    ├── api.ts          - read-only ReadApiClient (three GET methods + panel())
+    ├── api.ts          - read-only ReadApiClient (core GET methods + panel())
+    ├── preferences.ts  - validated browser-local display preferences
     ├── types.ts        - TS mirrors of read_model.py shapes
     ├── panels.tsx      - panel registry (core panels + fork extension point)
     ├── styles.css      - minimal, no design-system dep
@@ -428,7 +472,9 @@ console/
         ├── dashboard.tsx
         ├── audit.tsx
         ├── hil-queue.tsx
+        ├── processes.tsx        - Now > Processes dynamic ViewSpec renderer
         ├── rule-catalog.tsx     - Knowledge > Rules panel (explanation + affected resources)
+        ├── settings.tsx         - Overview > Settings local presentation controls
         ├── example-finops.tsx  - reference fork panel (opt-in, not registered)
         └── login.tsx
 ```

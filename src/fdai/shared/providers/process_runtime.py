@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
+
+PROCESS_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]{1,200}$")
 
 
 class ProcessStatus(StrEnum):
@@ -76,6 +79,11 @@ class ProcessSnapshot:
         ):
             if not value.strip():
                 raise ValueError(f"ProcessSnapshot.{field_name} MUST be non-empty")
+        if not PROCESS_ID_PATTERN.fullmatch(self.process_id):
+            raise ValueError(
+                "ProcessSnapshot.process_id MUST contain 1-200 URL-safe characters "
+                "(letters, digits, underscore, period, colon, or hyphen)"
+            )
         if self.started_at.tzinfo is None or self.updated_at.tzinfo is None:
             raise ValueError("ProcessSnapshot timestamps MUST be timezone-aware")
         if self.revision < 0:
@@ -104,6 +112,11 @@ class ProcessEvent:
         ):
             if not value.strip():
                 raise ValueError(f"ProcessEvent.{field_name} MUST be non-empty")
+        if not PROCESS_ID_PATTERN.fullmatch(self.process_id):
+            raise ValueError(
+                "ProcessEvent.process_id MUST contain 1-200 URL-safe characters "
+                "(letters, digits, underscore, period, colon, or hyphen)"
+            )
         if self.recorded_at.tzinfo is None:
             raise ValueError("ProcessEvent.recorded_at MUST be timezone-aware")
         if self.attempt < 1:
@@ -173,6 +186,7 @@ class ProcessRuntimeStore(Protocol):
 __all__ = [
     "ProcessEvent",
     "ProcessEventKind",
+    "PROCESS_ID_PATTERN",
     "ProcessRevisionConflictError",
     "ProcessRuntimeError",
     "ProcessRuntimeStore",

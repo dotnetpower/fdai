@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { ReadApiClient } from "../api";
 import {
   AsyncBoundary,
@@ -63,31 +63,48 @@ export function RuleTraceRoute({ client }: Props) {
     () => correlationFromHash() || "corr-dev-0001",
   );
   const [state, setState] = useState<AsyncState<TraceResponse>>({ status: "idle" });
+  const requestGeneration = useRef(0);
 
   async function fetchTrace(id: string = correlationId): Promise<void> {
     if (!id) return;
+    const generation = requestGeneration.current + 1;
+    requestGeneration.current = generation;
     setState({ status: "loading" });
     try {
       const data = await client.panel<TraceResponse>(
         `/audit/${encodeURIComponent(id)}/trace`,
       );
-      setState({ status: "ready", data });
+      if (requestGeneration.current === generation) setState({ status: "ready", data });
     } catch (err) {
-      setState({
-        status: "error",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      if (requestGeneration.current === generation) {
+        setState({
+          status: "error",
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
   }
 
   // Auto-fetch when arriving via a deep link (or when the deep-link
   // correlation changes while this panel stays mounted).
   useEffect(() => {
-    const deepLinked = correlationFromHash();
-    if (deepLinked) {
+    const sync = () => {
+      const deepLinked = correlationFromHash();
+      if (!deepLinked) {
+        requestGeneration.current += 1;
+        setCorrelationId("");
+        setState({ status: "idle" });
+        return;
+      }
       setCorrelationId(deepLinked);
       void fetchTrace(deepLinked);
-    }
+    };
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => {
+      requestGeneration.current += 1;
+      window.removeEventListener("hashchange", sync);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

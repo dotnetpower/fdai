@@ -92,8 +92,25 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       at: rec.at,
       ...(typeof rec.source === "string" ? { source: rec.source } : {}),
       ...(typeof rec.agent === "string" ? { agent: rec.agent } : {}),
+      ...(validCitations(rec.citations) ? { citations: rec.citations } : {}),
+      ...(validStringArray(rec.followUps) ? { followUps: rec.followUps } : {}),
     };
     out.push(turn);
   }
   return out;
+}
+
+function validStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function validCitations(
+  value: unknown,
+): value is readonly { readonly label: string; readonly value?: string }[] {
+  return Array.isArray(value) && value.every((item) => {
+    if (item === null || typeof item !== "object" || Array.isArray(item)) return false;
+    const record = item as Record<string, unknown>;
+    return typeof record.label === "string" &&
+      (record.value === undefined || typeof record.value === "string");
+  });
 }

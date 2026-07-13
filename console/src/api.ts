@@ -26,15 +26,23 @@ export class ReadApiClient {
     this.#auth = auth;
   }
 
+  get readApiBaseUrl(): string {
+    return this.#config.readApiBaseUrl;
+  }
+
+  readonly authorizationHeader = async (): Promise<string | null> => {
+    return this.#auth.getAuthorizationHeader();
+  };
+
   async listAudit(opts: { limit?: number; cursor?: string } = {}): Promise<AuditPage> {
     const params = new URLSearchParams();
     if (opts.limit !== undefined) params.set("limit", String(opts.limit));
     if (opts.cursor !== undefined) params.set("cursor", opts.cursor);
-    return this.#get<AuditPage>("/audit", params);
+    return decodeAuditPage(await this.#get<unknown>("/audit", params));
   }
 
   async dashboardMetrics(): Promise<DashboardKpi> {
-    return this.#get<DashboardKpi>("/kpi");
+    return decodeDashboardKpi(await this.#get<unknown>("/kpi"));
   }
 
   /**
@@ -58,7 +66,7 @@ export class ReadApiClient {
   async listHilQueue(opts: { limit?: number } = {}): Promise<HilQueuePage> {
     const params = new URLSearchParams();
     if (opts.limit !== undefined) params.set("limit", String(opts.limit));
-    return this.#get<HilQueuePage>("/hil-queue", params);
+    return decodeHilQueuePage(await this.#get<unknown>("/hil-queue", params));
   }
 
   /**
@@ -118,4 +126,129 @@ export class ReadApiError extends Error {
     this.name = "ReadApiError";
     this.status = status;
   }
+}
+
+export function decodeAuditPage(value: unknown): AuditPage {
+  const root = apiRecord(value, "audit page");
+  if (!Array.isArray(root["items"])) throw contractError("audit page.items MUST be an array");
+  const cursor = root["next_cursor"];
+  if (cursor !== null && typeof cursor !== "string") {
+    throw contractError("audit page.next_cursor MUST be a string or null");
+  }
+  return {
+    items: root["items"].map((raw, index) => {
+      const item = apiRecord(raw, `audit page.items[${index}]`);
+      return {
+        seq: apiPositiveInteger(item, "seq", "audit item"),
+        event_id: apiString(item, "event_id", "audit item"),
+        correlation_id: apiNullableString(item, "correlation_id", "audit item"),
+        actor: apiString(item, "actor", "audit item"),
+        action_kind: apiString(item, "action_kind", "audit item"),
+        mode: apiMode(item["mode"]),
+        entry: apiRecord(item["entry"], "audit item.entry") as Record<string, unknown>,
+        entry_hash: apiString(item, "entry_hash", "audit item"),
+        previous_hash: apiString(item, "previous_hash", "audit item"),
+        recorded_at: apiString(item, "recorded_at", "audit item"),
+      };
+    }),
+    next_cursor: cursor,
+  };
+}
+
+export function decodeDashboardKpi(value: unknown): DashboardKpi {
+  const root = apiRecord(value, "dashboard KPI");
+  return {
+    event_count: apiNonNegativeInteger(root, "event_count", "dashboard KPI"),
+    shadow_share: apiRatio(root, "shadow_share", "dashboard KPI"),
+    enforce_share: apiRatio(root, "enforce_share", "dashboard KPI"),
+    hil_pending: apiNonNegativeInteger(root, "hil_pending", "dashboard KPI"),
+    by_action_kind: apiNumberRecord(root["by_action_kind"], "dashboard KPI.by_action_kind"),
+    by_outcome: apiNumberRecord(root["by_outcome"], "dashboard KPI.by_outcome"),
+    by_tier: apiNumberRecord(root["by_tier"], "dashboard KPI.by_tier"),
+    last_recorded_at: apiNullableString(root, "last_recorded_at", "dashboard KPI"),
+  };
+}
+
+export function decodeHilQueuePage(value: unknown): HilQueuePage {
+  const root = apiRecord(value, "HIL queue page");
+  if (!Array.isArray(root["items"])) throw contractError("HIL queue page.items MUST be an array");
+  return {
+    items: root["items"].map((raw, index) => {
+      const item = apiRecord(raw, `HIL queue page.items[${index}]`);
+      return {
+        idempotency_key: apiString(item, "idempotency_key", "HIL queue item"),
+        event_id: apiString(item, "event_id", "HIL queue item"),
+        action_kind: apiString(item, "action_kind", "HIL queue item"),
+        reason: apiString(item, "reason", "HIL queue item"),
+        requested_at: apiString(item, "requested_at", "HIL queue item"),
+        correlation_id: apiNullableString(item, "correlation_id", "HIL queue item"),
+      };
+    }),
+    total: apiNonNegativeInteger(root, "total", "HIL queue page"),
+  };
+}
+
+function contractError(message: string): ReadApiError {
+  return new ReadApiError(502, `invalid read API response: ${message}`);
+}
+
+function apiRecord(value: unknown, label: string): Readonly<Record<string, unknown>> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw contractError(`${label} MUST be an object`);
+  }
+  return value as Readonly<Record<string, unknown>>;
+}
+
+function apiString(value: Readonly<Record<string, unknown>>, key: string, label: string): string {
+  if (typeof value[key] !== "string") throw contractError(`${label}.${key} MUST be a string`);
+  return value[key];
+}
+
+function apiNullableString(value: Readonly<Record<string, unknown>>, key: string, label: string): string | null {
+  if (value[key] === null) return null;
+  return apiString(value, key, label);
+}
+
+function apiNumber(value: Readonly<Record<string, unknown>>, key: string, label: string): number {
+  if (typeof value[key] !== "number" || !Number.isFinite(value[key])) {
+    throw contractError(`${label}.${key} MUST be a finite number`);
+  }
+  return value[key];
+}
+
+function apiNonNegativeInteger(value: Readonly<Record<string, unknown>>, key: string, label: string): number {
+  const number = apiNumber(value, key, label);
+  if (!Number.isInteger(number) || number < 0) {
+    throw contractError(`${label}.${key} MUST be a non-negative integer`);
+  }
+  return number;
+}
+
+function apiPositiveInteger(value: Readonly<Record<string, unknown>>, key: string, label: string): number {
+  const number = apiNonNegativeInteger(value, key, label);
+  if (number < 1) throw contractError(`${label}.${key} MUST be a positive integer`);
+  return number;
+}
+
+function apiRatio(value: Readonly<Record<string, unknown>>, key: string, label: string): number {
+  const number = apiNumber(value, key, label);
+  if (number < 0 || number > 1) throw contractError(`${label}.${key} MUST be between 0 and 1`);
+  return number;
+}
+
+function apiNumberRecord(value: unknown, label: string): Record<string, number> {
+  const raw = apiRecord(value, label);
+  const result: Record<string, number> = {};
+  for (const [key, item] of Object.entries(raw)) {
+    if (typeof item !== "number" || !Number.isFinite(item) || !Number.isInteger(item) || item < 0) {
+      throw contractError(`${label}.${key} MUST be a non-negative integer`);
+    }
+    result[key] = item;
+  }
+  return result;
+}
+
+function apiMode(value: unknown): "shadow" | "enforce" {
+  if (value === "shadow" || value === "enforce") return value;
+  throw contractError("audit item.mode MUST be shadow or enforce");
 }

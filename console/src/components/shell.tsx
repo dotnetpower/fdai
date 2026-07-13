@@ -1,6 +1,16 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import type { AuthContext } from "../auth";
+import { t } from "../i18n";
+import {
+  acceptStoredConsolePreference,
+  applyConsolePreferences,
+  isPreferenceStorageKey,
+  PREFERENCES_CHANGED_EVENT,
+  readConsolePreferences,
+  setConsolePreference,
+  type ConsolePreferences,
+} from "../preferences";
 import { LeftRail } from "./left-rail";
 
 interface ShellProps {
@@ -9,51 +19,60 @@ interface ShellProps {
   readonly children: ComponentChildren;
 }
 
-type Theme = "light" | "dark";
-const THEME_STORAGE_KEY = "fdai:console:theme";
-
-function readInitialTheme(): Theme {
-  if (typeof window === "undefined") return "light";
-  try {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (stored === "light" || stored === "dark") return stored;
-  } catch {
-    // localStorage may be denied in private mode / iframe; fall through.
-  }
-  // Default is light per the initial mockup. We do NOT follow system
-  // preference by default - operators expect a stable, predictable
-  // console appearance across machines.
-  return "light";
-}
-
 export function Shell({ activePanelId, auth, children }: ShellProps) {
-  const [theme, setTheme] = useState<Theme>(readInitialTheme);
+  const [preferences, setPreferences] = useState<ConsolePreferences>(readConsolePreferences);
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.documentElement.setAttribute("data-theme", theme);
-    try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-    } catch {
-      // storage denied - the DOM attribute is still applied for this session.
-    }
-  }, [theme]);
+    applyConsolePreferences(preferences);
+  }, [preferences]);
 
-  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+  useEffect(() => {
+    const syncPreferences = () => setPreferences(readConsolePreferences());
+    const syncStoredPreferences = (event: StorageEvent) => {
+      if (!isPreferenceStorageKey(event.key)) return;
+      acceptStoredConsolePreference(event.key);
+      if (event.key === "fdai:console:locale") {
+        window.location.reload();
+        return;
+      }
+      syncPreferences();
+    };
+    window.addEventListener(PREFERENCES_CHANGED_EVENT, syncPreferences);
+    window.addEventListener("storage", syncStoredPreferences);
+    return () => {
+      window.removeEventListener(PREFERENCES_CHANGED_EVENT, syncPreferences);
+      window.removeEventListener("storage", syncStoredPreferences);
+    };
+  }, []);
+
+  const toggleTheme = () => {
+    setConsolePreference("theme", preferences.theme === "dark" ? "light" : "dark");
+  };
 
   return (
     <div class="shell">
       <header class="topbar">
         <h1 class="topbar-title">FDAI Console</h1>
         <div class="principal">
+          <a
+            href="#/settings"
+            class={`theme-toggle ${activePanelId === "settings" ? "is-active" : ""}`}
+            aria-label={t("settings.open")}
+            title={t("route.settings")}
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8" />
+              <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </a>
           <button
             type="button"
             class="theme-toggle"
             onClick={toggleTheme}
-            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            aria-label={preferences.theme === "dark" ? t("settings.switchLight") : t("settings.switchDark")}
+            title={preferences.theme === "dark" ? t("settings.switchLight") : t("settings.switchDark")}
           >
-            {theme === "dark" ? (
+            {preferences.theme === "dark" ? (
               // sun icon (indicates the target: click to go light)
               <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
                 <circle cx="8" cy="8" r="3" fill="currentColor" />

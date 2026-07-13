@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ebdfd4d9f26e8410bd2ac8e2caaae7d02aff1c07
+translation_source_sha: b839e512f91a0f4be715706809dde4d7d07d42b4
 translation_revised: 2026-07-13
 ---
 
@@ -134,8 +134,8 @@ fdai/
 │       ├── dev/
 │       ├── staging/
 │       └── prod/
-├── console/                   # 읽기 전용 얇은 SPA (Vite + Preact) - KPI/감사/HIL 큐
-│   ├── src/                    # main.tsx, app.tsx, api.ts, auth.ts (MSAL.js), routes/
+├── console/                   # 읽기 전용 얇은 SPA (Vite + Preact) - 운영자 보기 + 로컬 표시 설정
+│   ├── src/                    # 셸, 패널 레지스트리, GET 전용 클라이언트, 라우트, 브라우저 로컬 환경 설정
 │   ├── index.html              # Vite 진입점
 │   ├── package.json            # 의존: preact, @azure/msal-browser
 │   └── vite.config.ts          # 빌드 → console/dist/ (git-ignored)
