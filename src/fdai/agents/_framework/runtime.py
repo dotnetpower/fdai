@@ -302,9 +302,7 @@ class PantheonRuntime:
         await self._maybe_escalate_handoff(turn, question=question, session_id=session_id)
         return turn
 
-    async def _maybe_escalate_handoff(
-        self, turn: Turn, *, question: str, session_id: str
-    ) -> None:
+    async def _maybe_escalate_handoff(self, turn: Turn, *, question: str, session_id: str) -> None:
         """Materialize a Saga handoff issue for an unresolved conversational turn.
 
         When Bragi abstains with no route (``handoff_needed``), no agent could

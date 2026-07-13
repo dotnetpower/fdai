@@ -182,9 +182,7 @@ class StormCoordinator:
         steps = self.sequence(recent, concurrency_cap=policy.concurrency_cap)
         return policy, steps
 
-    def _within_window(
-        self, signals: Iterable[StormSignal], *, now: datetime
-    ) -> list[StormSignal]:
+    def _within_window(self, signals: Iterable[StormSignal], *, now: datetime) -> list[StormSignal]:
         """Signals whose ``arrived_at`` falls inside ``window`` ending at ``now``."""
         return [s for s in signals if timedelta(0) <= now - s.arrived_at <= self._window]
 

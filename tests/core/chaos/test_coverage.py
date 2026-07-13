@@ -64,9 +64,7 @@ def test_dedup_survives_sample_cap_smaller_than_threshold() -> None:
     # but distinct-incident dedup must still hold, so re-observing the same two
     # incidents can never cross a threshold of 3 (regression for the shared
     # deque that once served both display and dedup).
-    agg = ScenarioCoverageAggregator(
-        index=_empty_index(), gap_threshold=3, sample_incidents_cap=1
-    )
+    agg = ScenarioCoverageAggregator(index=_empty_index(), gap_threshold=3, sample_incidents_cap=1)
     for _ in range(10):
         agg.observe(incident_id="inc-a", signal="s", target_type="pod", severity="high")
         agg.observe(incident_id="inc-b", signal="s", target_type="pod", severity="high")

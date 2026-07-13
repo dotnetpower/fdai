@@ -222,7 +222,6 @@ class Agent:
         await bus.publish(self.spec.name, topic, payload)
         return True
 
-
     def bind_bus(self, bus: PantheonBus) -> None:
         """Bind the typed pub/sub port.
 
