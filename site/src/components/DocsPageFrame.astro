@@ -1,0 +1,26 @@
+---
+/*
+ * DocsPageFrame.astro - preserves Starlight's default page frame and adds
+ * the shared nebula atmosphere to the bilingual Get Started routes.
+ */
+import Default from "@astrojs/starlight/components/PageFrame.astro";
+import NebulaBackground from "./NebulaBackground.astro";
+
+const routeId = Astro.locals.starlightRoute.id;
+const isGetStarted = routeId === "get-started" || routeId === "ko/get-started";
+---
+
+{isGetStarted && (
+  <NebulaBackground
+    attachToBody
+    intensity={0.68}
+    speed={0.32}
+    class="get-started-nebula"
+  />
+)}
+
+<Default>
+  <slot name="header" slot="header" />
+  <slot name="sidebar" slot="sidebar" />
+  <slot />
+</Default>

@@ -1,23 +1,16 @@
 name: Deploy docs site to GitHub Pages
 
-# Manual-only until GitHub Pages is enabled in Settings → Pages on this
-# repository. The `actions/configure-pages@v5` `enablement: true` mode
-# requires an integration with admin scope that the default GITHUB_TOKEN
-# does not carry - so an auto-`push:` trigger keeps failing with
-# `Resource not accessible by integration` on repos where a maintainer
-# has not yet flipped the Pages switch. Trigger this workflow manually
-# from the Actions tab after enabling Pages once; it then runs to
-# completion. To restore the auto-`push:` trigger, uncomment the block
-# below AFTER Pages is enabled on the repo (Settings → Pages →
-# `Deploy from GitHub Actions`).
+# Pages is configured for GitHub Actions on this repository. Publish any
+# documentation-site change merged to main, and keep workflow_dispatch as a
+# recovery path for a manual rebuild.
 on:
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - "site/**"
-  #     - "docs/**"
-  #     - "README.md"
-  #     - ".github/workflows/pages.yml"
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "docs/**"
+      - "README.md"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 # GitHub Pages OIDC deploy needs pages + id-token; contents:read for checkout.
@@ -57,7 +50,7 @@ jobs:
         # scope; the default GITHUB_TOKEN gets HTTP 403 "Resource not
         # accessible by integration" instead. `enablement: false` is
         # the correct posture: Pages MUST be enabled once by a
-        # maintainer in Settings → Pages before this workflow runs.
+        # maintainer under Settings, then Pages, before this workflow runs.
         id: pages
         uses: actions/configure-pages@v5
         with:

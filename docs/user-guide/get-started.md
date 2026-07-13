@@ -12,6 +12,14 @@ residual that survives the deterministic gate. Every autonomous action is
 risk-classified, and anything above the safe threshold pauses for
 human-in-the-loop (HIL) approval.
 
+<div class="get-started-principles" role="list" aria-label="FDAI operating principles">
+  <div class="get-started-principle" role="listitem"><span class="principle-index">01</span><strong>Rules before reasoning</strong><span>Known decisions stay deterministic, reviewable, and fast.</span></div>
+  <div class="get-started-principle" role="listitem"><span class="principle-index">02</span><strong>Shadow before enforce</strong><span>New actions prove their behavior before they can mutate anything.</span></div>
+  <div class="get-started-principle" role="listitem"><span class="principle-index">03</span><strong>Risk-gated autonomy</strong><span>High-risk and uncertain outcomes pause for human review.</span></div>
+  <div class="get-started-principle" role="listitem"><span class="principle-index">04</span><strong>Separated authority</strong><span>Judgment, approval, execution, and audit use distinct principals.</span></div>
+  <div class="get-started-principle" role="listitem"><span class="principle-index">05</span><strong>Evidence on every path</strong><span>Auto, deny, timeout, rollback, and no-op outcomes enter the audit trail.</span></div>
+</div>
+
 Think of FDAI as an **organization of specialized agents that lives inside your
 cloud**. The agents sense resource changes, judge each one against a versioned
 catalog of rules, execute the safe majority, and escalate the risky few to you.
@@ -60,6 +68,27 @@ Example: cost-anomaly detector fires on cache-tier over-provisioning -> T0 rule
 matches -> two-week shadow proves accuracy -> promotion to enforce -> right-size
 remediation PR ships with a rollback path.
 
+## Works across your stack
+
+FDAI is event-driven and sits behind neutral abstractions, so it plugs into
+what you already run:
+
+- **Azure resources**: The implemented target. Compute, storage, databases,
+  networking, identity, and Kubernetes are covered by the shipped rule catalog
+  and action ontology.
+- **Event bus**: A Kafka-compatible stream (Event Hubs on the Kafka endpoint)
+  carries resource-change signals, activity-log events, and detector findings
+  into the loop.
+- **Policy-as-code**: Rules normalize to a cloud-provider-neutral schema and
+  evaluate through OPA/Rego, so the deterministic tier runs on machine-readable
+  policy.
+- **Delivery channels**: Actions ship as remediation pull requests (PRs that
+  apply a fix), and HIL approvals reach you as Teams or Slack Adaptive Cards.
+  Git provides the change record and rollback reference.
+- **Operator console**: A read-only console and conversational narrator let you
+  ask questions and review decisions without holding the executor's privileged
+  identity.
+
 ## How it works
 
 Three tiers, one loop. The trust router picks the lowest tier that can decide
@@ -98,26 +127,6 @@ Two things ride on top of that loop and make it operable:
   page you for the high-risk few. See
   [concepts/agents-and-self-healing.md](concepts/agents-and-self-healing.md).
 
-## Works across your stack
-
-FDAI is event-driven and sits behind neutral abstractions, so it plugs into
-what you already run:
-
-- **Azure resources** - the implemented target. Compute, storage, databases,
-  networking, identity, and Kubernetes are covered by the shipped rule catalog
-  and action ontology.
-- **Event bus** - a Kafka-compatible stream (Event Hubs on the Kafka
-  endpoint) carries resource-change signals, activity-log events, and detector
-  findings into the loop.
-- **Policy-as-code** - rules normalize to a CSP-neutral schema and evaluate
-  through OPA/Rego, so the deterministic tier runs on machine-readable policy.
-- **Delivery channels** - actions ship as remediation PRs (GitOps), and HIL
-  approvals reach you as Teams or Slack Adaptive Cards. Audit and rollback come
-  from git for free.
-- **Operator console** - a read-only console and a conversational narrator let
-  you ask questions and approve or reject, without ever holding the executor's
-  privileged identity.
-
 ## When FDAI fits
 
 FDAI is a good fit when all of these are true:
@@ -154,6 +163,43 @@ flowchart TB
 - **Non-Azure CSPs**: abstractions are neutral by design, but the Azure
   adapter is the only one shipped.
 
+## Your first safe rollout
+
+Start with one bounded operational scope and one action family. The goal of the
+first rollout is to produce evidence, not to maximize automation on day one.
+
+1. **Choose the boundary.** Select a resource-group-equivalent scope, name its
+  owner, and identify the events and actions that belong inside it.
+2. **Run readiness checks.** Complete the
+  [deployment preflight](../roadmap/deployment/deployment-preflight.md) and
+  resolve identity, policy, connectivity, and rollback blockers before the
+  control loop starts.
+3. **Capture the baseline.** Measure event volume, decision latency, operator
+  touches, and rollback frequency using the
+  [goals and metrics contract](../roadmap/architecture/goals-and-metrics.md).
+4. **Observe in shadow mode.** Let FDAI judge and audit without mutating. Review
+  false positives, HIL decisions, verifier failures, and would-be actions.
+5. **Promote one action independently.** Turn on enforcement only for an action
+  whose frozen scenarios, rollback rehearsal, and policy checks meet its
+  promotion gate. Leave every other action in shadow.
+
+Example: onboard one non-production resource group -> observe one drift action
+for two weeks -> review its audit evidence -> rehearse rollback -> promote only
+that action while the remaining catalog stays in shadow.
+
+## Evidence before enforcement
+
+Use these signals to decide whether an action is ready. A successful deployment
+is not enough by itself.
+
+| Evidence | What it tells you | Decision it supports |
+|----------|-------------------|----------------------|
+| Rule coverage and abstention rate | Whether deterministic rules cover the intended cases without guessing | Keep in shadow or expand the scenario set |
+| Policy, schema, and what-if results | Whether every proposed mutation passes the deterministic verifier | Block or continue toward promotion |
+| HIL approvals, rejections, and overrides | Where operator judgment still disagrees with the automated verdict | Revise thresholds, scope, or the rule |
+| Rollback rehearsal | Whether the declared recovery path restores the prior state within the expected window | Permit or block enforcement |
+| Audit completeness | Whether every terminal path can be reconstructed from event to outcome | Accept the evidence record or hold release |
+
 ## Grows with your environment
 
 - **Day 1**: T0 rules run in shadow mode on your events. Every finding writes
@@ -163,6 +209,21 @@ flowchart TB
 - **Month 1**: promoted actions run autonomously with rollback paths. The
   discovery loop begins proposing catalog updates from your own operating
   signals (HIL approvals, shadow drift, overrides).
+
+## Get started
+
+- **Understand the operating model**: Read
+  [SRE foundations](concepts/sre-foundations.md), then
+  [deterministic-first decisioning](concepts/deterministic-first.md).
+- **Prepare an environment**: Follow
+  [deployment preflight](../roadmap/deployment/deployment-preflight.md), then
+  [deploy and onboard](../roadmap/deployment/deploy-and-onboard.md).
+- **Operate the human review path**: Walk through
+  [approving a change](guides/approve-change.md) and
+  [reading the audit log](guides/read-audit-log.md).
+- **Plan adoption**: Use the
+  [implementation plan](../roadmap/fork-and-sequencing/implementation-plan.md)
+  to sequence scope, ownership, shadow evidence, and promotion.
 
 ## Next steps
 

@@ -1,0 +1,310 @@
+/*
+ * Get Started atmosphere - a route-scoped continuation of the landing page.
+ * DocsPageFrame.astro mounts .get-started-nebula only on the bilingual
+ * onboarding routes, making :has() a precise selector without global state.
+ */
+
+html:has(.get-started-nebula) {
+  color-scheme: dark;
+  background: #05070f;
+}
+
+body:has(.get-started-nebula) {
+  --sl-color-bg: transparent;
+  --sl-color-bg-nav: rgba(5, 7, 15, 0.84);
+  --sl-color-bg-sidebar: rgba(5, 8, 17, 0.76);
+  --sl-color-hairline: rgba(144, 177, 224, 0.18);
+  --sl-color-hairline-light: rgba(144, 177, 224, 0.13);
+  --sl-color-hairline-shade: rgba(144, 177, 224, 0.22);
+  --sl-color-text: #dbe5f6;
+  --sl-color-text-accent: #72c7f4;
+  --sl-color-white: #f5f8ff;
+  --sl-color-gray-1: #edf3ff;
+  --sl-color-gray-2: #d7e2f5;
+  --sl-color-gray-3: #b6c5df;
+  --sl-color-gray-4: #8496b6;
+  --sl-color-gray-5: #43516c;
+  --sl-color-gray-6: #182137;
+  --sl-color-black: #070a12;
+  background: transparent;
+}
+
+body:has(.get-started-nebula) .page {
+  position: relative;
+  isolation: isolate;
+}
+
+body:has(.get-started-nebula) .header {
+  background: rgba(5, 7, 14, 0.82);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+}
+
+body:has(.get-started-nebula) .sidebar-pane {
+  background: rgba(5, 8, 17, 0.78);
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  border-inline-end-color: rgba(144, 177, 224, 0.17);
+}
+
+body:has(.get-started-nebula) .main-pane {
+  background: rgba(6, 10, 20, 0.48);
+  border-inline: 1px solid rgba(144, 177, 224, 0.12);
+  box-shadow: 0 0 72px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(14px) saturate(112%);
+  -webkit-backdrop-filter: blur(14px) saturate(112%);
+}
+
+body:has(.get-started-nebula) .right-sidebar {
+  color: #bccbe4;
+}
+
+body:has(.get-started-nebula) .right-sidebar-panel {
+  background: rgba(5, 8, 17, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+body:has(.get-started-nebula) .mobile-preferences,
+body:has(.get-started-nebula) mobile-starlight-toc > nav {
+  background: rgba(5, 8, 17, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+body:has(.get-started-nebula) .content-panel {
+  border-color: rgba(144, 177, 224, 0.13);
+}
+
+body:has(.get-started-nebula) .sl-markdown-content {
+  color: #dbe5f6;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.38);
+}
+
+body:has(.get-started-nebula) .sl-markdown-content > p:first-of-type {
+  max-width: 49rem;
+  color: #e4edf9;
+  font-size: 1.08rem;
+  line-height: 1.75;
+  text-wrap: pretty;
+}
+
+body:has(.get-started-nebula) .sl-markdown-content > h1 {
+  max-width: 18ch;
+  color: #f5f8ff;
+  font-size: 2.75rem;
+  line-height: 1.08;
+  letter-spacing: 0;
+  text-wrap: balance;
+  text-shadow: 0 2px 20px rgba(15, 35, 70, 0.75);
+}
+
+body:has(.get-started-nebula) .sl-markdown-content > h2 {
+  margin-top: 3.75rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(144, 177, 224, 0.18);
+  color: #f3f7ff;
+  font-size: 1.9rem;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-shadow: 0 2px 16px rgba(3, 7, 16, 0.8);
+}
+
+body:has(.get-started-nebula) .sl-markdown-content > h3 {
+  color: #dcecff;
+  font-size: 1.25rem;
+  letter-spacing: 0;
+}
+
+body:has(.get-started-nebula) .sl-markdown-content strong {
+  color: #f7faff;
+}
+
+body:has(.get-started-nebula) .sl-markdown-content a:not(.get-started-principle) {
+  color: #82d2ff;
+  text-decoration-color: rgba(130, 210, 255, 0.45);
+  text-underline-offset: 0.18em;
+}
+
+body:has(.get-started-nebula) .sl-markdown-content a:hover {
+  color: #bce8ff;
+  text-decoration-color: currentColor;
+}
+
+body:has(.get-started-nebula) .sl-markdown-content :not(pre) > code {
+  border: 1px solid rgba(108, 176, 229, 0.24);
+  background: rgba(7, 14, 28, 0.72);
+  color: #a9ddff;
+}
+
+body:has(.get-started-nebula) .sl-markdown-content pre:not(.mermaid),
+body:has(.get-started-nebula) .sl-markdown-content pre.mermaid {
+  border: 1px solid rgba(120, 170, 255, 0.19);
+  border-radius: 8px;
+  background: rgba(5, 10, 21, 0.76);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+body:has(.get-started-nebula) .sl-markdown-content table {
+  display: table;
+  width: 100%;
+  border: 1px solid rgba(144, 177, 224, 0.18);
+  border-radius: 8px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  background: rgba(5, 10, 21, 0.68);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2);
+}
+
+body:has(.get-started-nebula) .sl-markdown-content th {
+  background: rgba(77, 132, 184, 0.13);
+  color: #edf5ff;
+}
+
+body:has(.get-started-nebula) .sl-markdown-content :is(th, td) {
+  border-color: rgba(144, 177, 224, 0.15);
+}
+
+body:has(.get-started-nebula) .sl-markdown-content blockquote,
+body:has(.get-started-nebula) .starlight-aside {
+  border-color: rgba(83, 196, 211, 0.42);
+  border-radius: 8px;
+  background: rgba(7, 21, 31, 0.62);
+  color: #d7e7f4;
+}
+
+/* Five operational principles give the opening screen a concrete trust signal. */
+.get-started-principles {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 2rem 0 2.75rem;
+  padding: 0;
+}
+
+.get-started-principle {
+  position: relative;
+  min-height: 8.5rem;
+  padding: 1rem;
+  border: 1px solid rgba(144, 177, 224, 0.2);
+  border-radius: 8px;
+  background: rgba(7, 13, 26, 0.64);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+}
+
+.get-started-principle::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  border-radius: 8px 8px 0 0;
+  background: var(--principle-accent, #50e6ff);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--principle-accent, #50e6ff) 58%, transparent);
+}
+
+.get-started-principle:nth-child(2) {
+  --principle-accent: #63d49c;
+}
+
+.get-started-principle:nth-child(3) {
+  --principle-accent: #f0c66b;
+}
+
+.get-started-principle:nth-child(4) {
+  --principle-accent: #e9899e;
+}
+
+.get-started-principle:nth-child(5) {
+  --principle-accent: #82a9ff;
+}
+
+.get-started-principle .principle-index {
+  display: block;
+  margin-bottom: 1rem;
+  color: var(--principle-accent, #50e6ff);
+  font-family: var(--sl-font-mono, monospace);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.get-started-principle strong {
+  display: block;
+  color: #f4f8ff;
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+.get-started-principle span:last-child {
+  display: block;
+  margin-top: 0.55rem;
+  color: #adbedb;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+body:has(.get-started-nebula) .pagination-links a {
+  border-color: rgba(144, 177, 224, 0.2);
+  border-radius: 8px;
+  background: rgba(7, 13, 26, 0.68);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+}
+
+body:has(.get-started-nebula) .pagination-links a:hover {
+  border-color: rgba(114, 199, 244, 0.55);
+  background: rgba(10, 24, 42, 0.8);
+}
+
+@media (max-width: 68rem) {
+  .get-started-principles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 50rem) {
+  body:has(.get-started-nebula) .sl-markdown-content > h1 {
+    font-size: 2.15rem;
+  }
+
+  body:has(.get-started-nebula) .sl-markdown-content > h2 {
+    margin-top: 3rem;
+    font-size: 1.6rem;
+  }
+
+  .get-started-principles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .get-started-principle:last-child {
+    grid-column: 1 / -1;
+    min-height: auto;
+  }
+}
+
+@media (max-width: 30rem) {
+  .get-started-principles {
+    grid-template-columns: 1fr;
+  }
+
+  .get-started-principle,
+  .get-started-principle:last-child {
+    grid-column: auto;
+    min-height: auto;
+  }
+
+  body:has(.get-started-nebula) .sl-markdown-content table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .get-started-principle,
+  body:has(.get-started-nebula) .pagination-links a {
+    scroll-behavior: auto;
+  }
+}
