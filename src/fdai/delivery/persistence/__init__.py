@@ -19,13 +19,13 @@ from fdai.delivery.persistence.postgres import (
     PostgresStateStore,
     PostgresStateStoreConfig,
 )
-from fdai.delivery.persistence.postgres_ontology import (
-    PostgresOntologyInstanceStore,
-    PostgresOntologyInstanceStoreConfig,
-)
 from fdai.delivery.persistence.postgres_idempotency import (
     PostgresIdempotencyStore,
     PostgresIdempotencyStoreConfig,
+)
+from fdai.delivery.persistence.postgres_ontology import (
+    PostgresOntologyInstanceStore,
+    PostgresOntologyInstanceStoreConfig,
 )
 from fdai.delivery.persistence.postgres_operator_memory import (
     PostgresOperatorMemoryStore,

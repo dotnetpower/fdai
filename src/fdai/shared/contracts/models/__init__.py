@@ -74,8 +74,8 @@ from .enums import (
     StopConditionKind,
     Tier,
     TriggerKind,
-    WorkflowTriggerKind,
     WorkflowStepKind,
+    WorkflowTriggerKind,
 )
 from .event import Event
 from .incident import Incident

@@ -44,8 +44,8 @@ from .composition import (
     default_container_from_env,
     wire_azure_container,
 )
-from .core.control_loop import ControlLoop, ControlLoopOutcome, ControlLoopResult
 from .core.architecture_review import ArchitectureReviewProjector
+from .core.control_loop import ControlLoop, ControlLoopOutcome, ControlLoopResult
 from .core.event_ingest import EventCorrelator, EventIngest
 from .core.executor import ShadowExecutor
 from .core.executor.action_builder import ActionBuilder
