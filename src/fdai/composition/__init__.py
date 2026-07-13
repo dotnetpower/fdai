@@ -77,6 +77,11 @@ from ..shared.providers.knowledge import (
     EmptyKnowledgeSource,  # noqa: F401 - public re-export
     KnowledgeSource,  # noqa: F401 - public re-export
 )
+from ..shared.providers.manual_source import (
+    DropDirectoryManualSource,
+    EmptyManualSource,  # noqa: F401 - public re-export
+    ManualSource,  # noqa: F401 - public re-export
+)
 from ..shared.providers.metric import NoopMetricProvider  # noqa: F401 - public re-export
 from ..shared.providers.workload_identity import WorkloadIdentity
 
@@ -281,6 +286,26 @@ def bind_pgvector_knowledge_source(
         secrets=secrets,
     )
     return replace(container, knowledge_source=source)
+
+
+def bind_drop_directory_manual_source(
+    container: Container,
+    *,
+    root: Path | str,
+    glob: str = "**/*",
+) -> Container:
+    """Return a new :class:`Container` with a :class:`DropDirectoryManualSource`
+    in place of the default :class:`EmptyManualSource`.
+
+    The credential-free access mode from the manual-distillation design: an
+    operator drop, a console upload, an email-in gateway, or an iPaaS webhook
+    all land a file under ``root``, and this source discovers them
+    deterministically for the distiller. Connector-backed sources
+    (SharePoint / Confluence / Notion / delegated fetch) are customer data and
+    are bound by a fork through the same ``ManualSource`` contract.
+    """
+    source = DropDirectoryManualSource(root, glob=glob)
+    return replace(container, manual_source=source)
 
 
 # bind_github_change_feed and bind_azure_devops_change_feed live in

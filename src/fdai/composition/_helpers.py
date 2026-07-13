@@ -29,6 +29,7 @@ from ..shared.providers.exemption import ExemptionRegistry
 from ..shared.providers.feasibility_probe import FeasibilityProbe
 from ..shared.providers.inventory import EmptyInventory, Inventory
 from ..shared.providers.knowledge import EmptyKnowledgeSource, KnowledgeSource
+from ..shared.providers.manual_source import EmptyManualSource, ManualSource
 from ..shared.providers.metric import MetricProvider, NoopMetricProvider
 
 
@@ -131,6 +132,7 @@ class Container:
     knowledge_source: KnowledgeSource = field(default_factory=EmptyKnowledgeSource)
     change_feed: ChangeFeed = field(default_factory=EmptyChangeFeed)
     distiller: Distiller = field(default_factory=AbstainingDistiller)
+    manual_source: ManualSource = field(default_factory=EmptyManualSource)
 
     def require_llm_bindings(self) -> LlmBindings:
         """Return :attr:`llm_bindings` or raise :class:`LlmBindingsUnavailableError`."""
