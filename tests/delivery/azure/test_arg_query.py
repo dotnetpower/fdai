@@ -172,13 +172,13 @@ async def test_single_page_query_maps_to_resource_records() -> None:
     assert record.type == "object-storage"
     assert record.provider_ref is not None
     assert record.provider_ref.endswith("/storageAccounts/stg1")
-    # CSP-neutral id starts with `resource-group` prefix (see `_to_neutral_id`).
-    assert record.resource_id.startswith("resource-group/rg-example/")
+    assert "/resource-group/rg-example/" in record.resource_id
+    assert record.resource_id.startswith("scope-")
     # `contains(rg-example, stg1)` edge is derived from the ARM id.
     assert len(links) == 1
     (edge,) = links
     assert edge.link_type == "contains"
-    assert edge.from_id == "resource-group/rg-example"
+    assert edge.from_id.endswith("/resource-group/rg-example")
     assert edge.from_type == "resource-group"
     assert edge.to_id == record.resource_id
     assert edge.to_type == "object-storage"
@@ -589,10 +589,9 @@ def test_neutral_id_falls_back_when_no_resource_group_marker() -> None:
         "/subscriptions/00000000-0000-0000-0000-000000000001/"
         "providers/Microsoft.Authorization/roleDefinitions/xyz"
     )
-    assert result == (
-        "/subscriptions/00000000-0000-0000-0000-000000000001/"
-        "providers/microsoft.authorization/roledefinitions/xyz"
-    )
+    assert result.startswith("scope-")
+    assert result.endswith("/providers/microsoft.authorization/roledefinitions/xyz")
+    assert "00000000-0000-0000-0000-000000000001" not in result
 
 
 def test_truncate_props_extreme_case_returns_hint_only() -> None:
@@ -633,6 +632,30 @@ def test_resource_group_query_uses_resource_containers() -> None:
     )
     query = factory._build_query(arm_type="Microsoft.Resources/resourceGroups")
     assert query.startswith("ResourceContainers |")
+
+
+def test_neutral_ids_do_not_collide_across_subscriptions() -> None:
+    from fdai.delivery.azure.arg_query import _to_neutral_id
+
+    suffix = "/resourceGroups/rg-1/providers/Microsoft.Compute/virtualMachines/vm-1"
+    first = _to_neutral_id(f"/subscriptions/sub-1{suffix}")
+    second = _to_neutral_id(f"/subscriptions/sub-2{suffix}")
+    assert first != second
+    assert "sub-1" not in first
+    assert "sub-2" not in second
+
+
+def test_arg_config_rejects_insecure_endpoint() -> None:
+    with pytest.raises(ValueError, match="HTTPS"):
+        AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=httpx.AsyncClient(),
+            config=AzureArgQueryFactoryConfig(
+                subscription_scopes=("sub-1",),
+                arg_endpoint="http://management.example",
+            ),
+        )
 
 
 @pytest.mark.asyncio
@@ -711,7 +734,7 @@ def test_extract_rg_contains_emits_edge_for_rg_scoped_resource() -> None:
     )
     (edge,) = _extract_rg_contains_links([rec])
     assert edge.link_type == "contains"
-    assert edge.from_id == "resource-group/rg-example"
+    assert edge.from_id.endswith("/resource-group/rg-example")
     assert edge.from_type == "resource-group"
     assert edge.to_id == rec.resource_id
     assert edge.to_type == "object-storage"
@@ -764,7 +787,7 @@ def test_extract_rg_contains_deduplicates_repeats_within_shard() -> None:
     dup = _record(arm_id=arm_id)
     # Two records with identical resource_id - the extractor dedupes.
     (edge,) = _extract_rg_contains_links([dup, dup])
-    assert edge.from_id == "resource-group/rg-a"
+    assert edge.from_id.endswith("/resource-group/rg-a")
 
 
 def test_extract_rg_contains_case_insensitive_marker() -> None:
@@ -781,7 +804,7 @@ def test_extract_rg_contains_case_insensitive_marker() -> None:
         )
     )
     (edge,) = _extract_rg_contains_links([rec])
-    assert edge.from_id == "resource-group/rg-lower"
+    assert edge.from_id.endswith("/resource-group/rg-lower")
     assert edge.to_type == "object-storage"
 
 

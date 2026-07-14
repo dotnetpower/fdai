@@ -383,6 +383,13 @@ shard reaches its final fence. A lower-priority source can replace an unavailabl
 its declared coverage, but it cannot silently fill unknown gaps or overwrite a newer
 authoritative record.
 
+The Azure implementation prefixes every neutral resource id with an opaque hash of its
+subscription scope. This prevents equal resource-group and resource paths in different
+subscriptions from colliding without exposing the subscription id in the ontology key. ARG
+provides `contains`, `attached_to`, and `depends_on` topology. Direct ARM fallback currently
+declares `contains` coverage only, so the active projection reports the missing link kinds and
+stays degraded for dependency-absence decisions.
+
 #### Failure and freshness policy
 
 - **Preflight first:** verify token acquisition, DNS, TCP/TLS, one bounded query, pagination,
@@ -392,6 +399,8 @@ authoritative record.
   used as the error fallback.
 - **Retain last known good:** failed or partial scans keep the last complete snapshot and mark
   it stale. They do not replace it with an empty graph.
+- **Preserve authority:** an older attempt, a lower-priority source from the same run, or an
+  `expected` declarative candidate cannot replace a newer observed snapshot.
 - **Degrade autonomy:** when snapshot age exceeds the configured freshness budget, graph-based
   blast-radius decisions and absence claims move to human review. Read-only display may use
   the stale graph when it shows source, age, scope, and degraded status.

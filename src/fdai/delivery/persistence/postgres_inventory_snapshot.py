@@ -10,7 +10,6 @@ from typing import Any, Final
 from uuid import uuid4
 
 import psycopg
-from psycopg import sql
 from psycopg.rows import dict_row
 
 from fdai.shared.providers.inventory import InventoryBatch
@@ -52,22 +51,28 @@ class PostgresInventorySnapshotStore:
         attempt_id = str(uuid4())
         started = manifest.started_at or datetime.now(tz=UTC)
         async with await self._connect() as connection:
-            await self._set_timeout(connection)
-            await connection.execute(
-                "INSERT INTO inventory_snapshot "
-                "(id, status, source, observation_kind, scopes, resource_types, "
-                "metadata, started_at) "
-                "VALUES (%s, 'collecting', %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s)",
-                (
-                    attempt_id,
-                    manifest.source,
-                    manifest.observation_kind.value,
-                    json.dumps(manifest.scopes),
-                    json.dumps(manifest.resource_types),
-                    json.dumps(dict(manifest.metadata), default=str),
-                    started,
-                ),
-            )
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                await connection.execute(
+                    "UPDATE inventory_snapshot SET status='failed', completed_at=NOW(), "
+                    "failure_code='source_unavailable', failure_message='attempt lease expired' "
+                    "WHERE status='collecting' AND started_at < NOW() - INTERVAL '30 minutes'"
+                )
+                await connection.execute(
+                    "INSERT INTO inventory_snapshot "
+                    "(id, status, source, observation_kind, scopes, resource_types, "
+                    "metadata, started_at) "
+                    "VALUES (%s, 'collecting', %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s)",
+                    (
+                        attempt_id,
+                        manifest.source,
+                        manifest.observation_kind.value,
+                        json.dumps(manifest.scopes),
+                        json.dumps(manifest.resource_types),
+                        json.dumps(dict(manifest.metadata), default=str),
+                        started,
+                    ),
+                )
         return attempt_id
 
     async def stage(self, attempt_id: str, batch: InventoryBatch) -> None:
@@ -147,7 +152,10 @@ class PostgresInventorySnapshotStore:
                         raise ValueError("expected inventory cannot replace observed inventory")
                     active_priority = _source_priority(active["metadata"])
                     candidate_priority = _source_priority(manifest.metadata)
-                    if candidate_started == active["started_at"] and candidate_priority > active_priority:
+                    if (
+                        candidate_started == active["started_at"]
+                        and candidate_priority > active_priority
+                    ):
                         raise ValueError("lower-priority inventory cannot replace active inventory")
                 dangling = await connection.execute(
                     "SELECT 1 FROM inventory_snapshot_link l "
@@ -227,12 +235,11 @@ class PostgresInventoryGraphProvider:
     async def __call__(
         self, scope: str | None, depth: int, link_types: tuple[str, ...]
     ) -> Mapping[str, Any]:
-        del depth
         async with await self._connect() as connection:
             await self._set_timeout(connection)
             active = await connection.execute(
                 "SELECT s.id, s.source, s.observation_kind, s.scopes, s.resource_types, "
-                "s.completed_at FROM inventory_active a JOIN inventory_snapshot s "
+                "s.completed_at, s.metadata FROM inventory_active a JOIN inventory_snapshot s "
                 "ON s.id=a.snapshot_id WHERE a.singleton=TRUE"
             )
             snapshot = await active.fetchone()
@@ -241,25 +248,43 @@ class PostgresInventoryGraphProvider:
             failure_cursor = await connection.execute(
                 "SELECT status, failure_code, started_at FROM inventory_snapshot "
                 "WHERE id<>%s AND started_at>%s AND "
-                "(status='failed' OR (status='collecting' AND started_at < NOW() - INTERVAL '30 minutes')) "
+                "(status='failed' OR (status='collecting' AND "
+                "started_at < NOW() - INTERVAL '30 minutes')) "
                 "ORDER BY started_at DESC LIMIT 1",
                 (snapshot["id"], snapshot["completed_at"]),
             )
             newer_failure = await failure_cursor.fetchone()
-            params: list[Any] = [snapshot["id"]]
-            scope_clause = sql.SQL("")
             if scope:
-                scope_clause = sql.SQL(" AND (resource_id=%s OR resource_id LIKE %s)")
-                params.extend((scope, f"{scope}/%"))
-            params.append(_MAX_GRAPH_ROWS + 1)
-            resources_cursor = await connection.execute(
-                sql.SQL(
+                resources_cursor = await connection.execute(
+                    "WITH RECURSIVE walk(resource_id, level) AS ("
+                    "SELECT resource_id, 0 FROM inventory_snapshot_resource "
+                    "WHERE snapshot_id=%s AND (resource_id=%s OR resource_id LIKE %s) "
+                    "UNION SELECT CASE WHEN l.from_id=w.resource_id "
+                    "THEN l.to_id ELSE l.from_id END, "
+                    "w.level+1 FROM walk w JOIN inventory_snapshot_link l ON l.snapshot_id=%s "
+                    "AND (l.from_id=w.resource_id OR l.to_id=w.resource_id) "
+                    "AND l.link_type=ANY(%s::text[]) WHERE w.level < %s) "
+                    "SELECT DISTINCT r.resource_id, r.resource_type, r.props "
+                    "FROM inventory_snapshot_resource r JOIN walk w ON w.resource_id=r.resource_id "
+                    "WHERE r.snapshot_id=%s ORDER BY r.resource_id LIMIT %s",
+                    (
+                        snapshot["id"],
+                        scope,
+                        f"{scope}/%",
+                        snapshot["id"],
+                        list(link_types),
+                        depth,
+                        snapshot["id"],
+                        _MAX_GRAPH_ROWS + 1,
+                    ),
+                )
+            else:
+                resources_cursor = await connection.execute(
                     "SELECT resource_id, resource_type, props "
-                    "FROM inventory_snapshot_resource WHERE snapshot_id=%s{} "
-                    "ORDER BY resource_id LIMIT %s"
-                ).format(scope_clause),
-                tuple(params),
-            )
+                    "FROM inventory_snapshot_resource WHERE snapshot_id=%s "
+                    "ORDER BY resource_id LIMIT %s",
+                    (snapshot["id"], _MAX_GRAPH_ROWS + 1),
+                )
             rows = await resources_cursor.fetchall()
             truncated = len(rows) > _MAX_GRAPH_ROWS
             rows = rows[:_MAX_GRAPH_ROWS]
@@ -282,12 +307,18 @@ class PostgresInventoryGraphProvider:
             freshness = "stale"
         if newer_failure is not None:
             freshness = "stale"
-        degraded = freshness != "fresh" or newer_failure is not None
-        coverage_gaps = []
+        coverage_gaps: list[str] = []
+        metadata = snapshot["metadata"]
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata)
+        covered_links = (
+            set(metadata.get("link_types", ())) if isinstance(metadata, Mapping) else set()
+        )
+        missing_links = sorted({"contains", "attached_to", "depends_on"} - covered_links)
+        coverage_gaps.extend(f"link_type:{link_type}" for link_type in missing_links)
         if newer_failure is not None:
-            coverage_gaps.append(
-                str(newer_failure.get("failure_code") or "source_unavailable")
-            )
+            coverage_gaps.append(str(newer_failure.get("failure_code") or "source_unavailable"))
+        degraded = freshness != "fresh" or bool(coverage_gaps)
         return {
             "snapshot_id": snapshot["id"],
             "snapshot_at": completed.isoformat(),

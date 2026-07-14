@@ -127,6 +127,7 @@ async def run(config: InventoryJobConfig) -> str:
         sources: list[InventorySource] = []
         for source_priority, source_name in enumerate(config.source_order):
             observation = InventoryObservationKind.OBSERVED
+            link_types: tuple[str, ...] = ("contains", "attached_to", "depends_on")
             inventory: Inventory
             if source_name == "arg":
                 query = AzureArgQueryFactory(
@@ -143,6 +144,7 @@ async def run(config: InventoryJobConfig) -> str:
                     config=AzureInventoryConfig(resource_types=resource_types), query=query
                 )
             elif source_name == "arm":
+                link_types = ("contains",)
                 query = AzureArmInventoryFactory(
                     identity=identity,
                     resource_types=vocabulary,
@@ -178,7 +180,10 @@ async def run(config: InventoryJobConfig) -> str:
                         resource_types=resource_types,
                         observation_kind=observation,
                         started_at=started,
-                        metadata={"source_priority": source_priority},
+                        metadata={
+                            "source_priority": source_priority,
+                            "link_types": link_types,
+                        },
                     ),
                 )
             )

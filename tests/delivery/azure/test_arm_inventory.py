@@ -68,7 +68,7 @@ async def test_arm_fallback_pages_and_emits_contains_link() -> None:
         resources, links = await query("compute.vm")
     assert calls == 2
     assert resources[0].resource_id.endswith("providers/microsoft.compute/virtualmachines/vm-1")
-    assert links[0].from_id == "resource-group/rg-1"
+    assert links[0].from_id.endswith("/resource-group/rg-1")
     assert links[0].to_id == resources[0].resource_id
 
 
@@ -87,6 +87,29 @@ async def test_arm_fallback_rejects_cross_host_next_link() -> None:
             config=AzureArmInventoryFactoryConfig(subscription_scopes=("sub-1",)),
         ).build_query_fn()
         with pytest.raises(ArmInventoryError, match="scheme or host"):
+            await query("compute.vm")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"value": ["not-an-object"]},
+        {"value": [{"name": "missing-id"}]},
+        {"value": [], "nextLink": 42},
+        {"value": [], "nextLink": ""},
+    ],
+)
+async def test_arm_fallback_rejects_malformed_pages(payload: object) -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: httpx.Response(200, json=payload))
+    ) as client:
+        query = AzureArmInventoryFactory(
+            identity=_identity(),
+            resource_types=_vocabulary(),
+            http_client=client,
+            config=AzureArmInventoryFactoryConfig(subscription_scopes=("sub-1",)),
+        ).build_query_fn()
+        with pytest.raises(ArmInventoryError):
             await query("compute.vm")
 
 

@@ -72,8 +72,8 @@ Safety / cost invariants
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final
@@ -393,13 +393,19 @@ def _to_neutral_id(arm_id: str) -> str:
     marker = "/resourceGroups/"
     idx = trimmed.lower().find(marker.lower())
     if idx == -1:
-        return f"{scope_prefix}/{trimmed.lower().strip('/')}"
+        parts = [part for part in trimmed.lower().strip("/").split("/") if part]
+        suffix = "/".join(parts[2:] if parts[:1] == ["subscriptions"] else parts)
+        return f"{scope_prefix}/{suffix}"
     return f"{scope_prefix}/resource-group{trimmed[idx + len(marker) - len('/') :].lower()}"
 
 
 def _scope_prefix(arm_id: str) -> str:
     parts = [part for part in arm_id.strip("/").split("/") if part]
-    subscription = parts[1].lower() if len(parts) > 1 and parts[0].lower() == "subscriptions" else "unknown"
+    subscription = (
+        parts[1].lower()
+        if len(parts) > 1 and parts[0].lower() == "subscriptions"
+        else "unknown"
+    )
     digest = hashlib.sha256(subscription.encode("utf-8")).hexdigest()[:16]
     return f"scope-{digest}"
 

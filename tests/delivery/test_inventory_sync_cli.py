@@ -19,6 +19,7 @@ def test_job_config_defaults_to_arg_then_arm() -> None:
     assert config.source_order == ("arg", "arm")
     assert config.scopes == ("sub-1",)
     assert config.freshness_budget_seconds == 86_400
+    assert config.management_audience == "https://management.azure.com/.default"
 
 
 def test_job_config_rejects_unsigned_declarative_fallback() -> None:

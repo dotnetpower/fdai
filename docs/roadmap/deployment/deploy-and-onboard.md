@@ -448,7 +448,7 @@ full expanded catalog and defaults are authored during the inventory PR.
 | `FDAI_INVENTORY_DSN` | KV ref | upstream | PostgreSQL DSN used only by the scheduled inventory collector to stage immutable candidates and atomically promote the active graph. |
 | `FDAI_INVENTORY_SCOPES` / `FDAI_INVENTORY_RESOURCE_TYPES` | env | fork | Comma-separated subscription scopes and optional CSP-neutral resource-type subset. Empty scope fails startup. |
 | `FDAI_INVENTORY_SOURCES` | env | upstream | Ordered fallback list: `arg,arm` by default; `declarative` is accepted only with a fixture path and SHA-256. |
-| `FDAI_INVENTORY_MANAGEMENT_ENDPOINT` | env | fork | ARM root endpoint. Override for an approved sovereign-cloud or validated Resource Management Private Link path. HTTPS is required. |
+| `FDAI_INVENTORY_MANAGEMENT_ENDPOINT` / `FDAI_INVENTORY_MANAGEMENT_AUDIENCE` | env | fork | Validated HTTPS ARM root and OIDC audience pair. Override both for an approved sovereign-cloud or validated Resource Management Private Link path. |
 | `FDAI_INVENTORY_FRESHNESS_SECONDS` | env | upstream | Maximum active snapshot age before the projection becomes stale and graph-dependent autonomy degrades to human review. Default `86400`. |
 | `KAFKA_TOPIC_EVENTS` | env | fork | primary event ingest topic |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | fork | dead-letter suffix (default `.dlq`) |

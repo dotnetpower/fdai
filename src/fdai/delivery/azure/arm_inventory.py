@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -215,7 +215,8 @@ def _neutral_id(arm_id: str) -> str:
     marker = "/resourcegroups/"
     index = lowered.find(marker)
     if index < 0:
-        return f"scope-{scope}/{lowered.strip('/')}"
+        suffix = "/".join(parts[2:] if parts[:1] == ["subscriptions"] else parts)
+        return f"scope-{scope}/{suffix}"
     return f"scope-{scope}/resource-group{lowered[index + len(marker) - 1:]}"
 
 

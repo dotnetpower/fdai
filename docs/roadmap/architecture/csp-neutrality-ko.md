@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: fd57f5109b1d21ab62d5948365c4d8bfe6519994
+translation_source_sha: 575bf92438b602129cfead2ae64ff27b7df75629
 translation_revised: 2026-07-14
 ---
 
@@ -373,6 +373,13 @@ subscription 또는 management-group scope, resource type, 시작 및 완료 시
 소스를 대체할 수 있지만 알 수 없는 gap을 조용히 채우거나 더 최신 authoritative record를
 덮어쓸 수 없습니다.
 
+Azure 구현은 모든 neutral resource id 앞에 subscription scope의 opaque hash를 붙입니다.
+따라서 서로 다른 subscription에서 동일한 resource-group 및 resource path를 사용해도 충돌하지
+않고 ontology key에 subscription id를 노출하지 않습니다. ARG는 `contains`, `attached_to`,
+`depends_on` topology를 제공합니다. Direct ARM fallback은 현재 `contains` coverage만 선언하므로
+active projection은 누락된 link kind를 보고하고 dependency 부재 결정에서 degraded 상태를
+유지합니다.
+
 #### 실패 및 freshness 정책
 
 - **Preflight 우선:** schedule을 활성화하기 전에 token 발급, DNS, TCP/TLS, 제한된 쿼리 하나,
@@ -381,6 +388,8 @@ subscription 또는 management-group scope, resource type, 시작 및 완료 시
   `partial`, `source_unavailable`을 구분합니다. Zero-row 결과를 오류 폴백으로 사용하지 않습니다.
 - **마지막 정상 상태 유지:** 실패하거나 부분적인 스캔은 마지막 완전한 스냅샷을 유지하고
   stale로 표시합니다. 빈 graph로 교체하지 않습니다.
+- **Authority 유지:** 오래된 attempt, 같은 run의 낮은 우선순위 source 또는 `expected`
+  declarative candidate는 더 최신 observed snapshot을 교체할 수 없습니다.
 - **Autonomy 저하:** snapshot age가 설정된 freshness budget을 초과하면 graph 기반 blast
   radius 결정과 부재 주장을 사람 검토로 이동합니다. 읽기 전용 화면은 source, age, scope,
   degraded status를 표시하는 경우 stale graph를 사용할 수 있습니다.
