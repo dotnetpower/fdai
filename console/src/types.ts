@@ -22,6 +22,31 @@ export interface AuditPage {
   readonly next_cursor: string | null;
 }
 
+export type IncidentStatus = "open" | "in_progress" | "resolved";
+export type IncidentStatusFilter = "active" | "resolved" | "all";
+
+export interface IncidentSummary {
+  readonly correlation_id: string;
+  readonly incident_id: string | null;
+  readonly ticket_id: string | null;
+  readonly title: string;
+  readonly severity: string;
+  readonly status: IncidentStatus;
+  readonly status_source: "incident_lifecycle" | "audit_projection";
+  readonly disposition: string;
+  readonly verdict: string;
+  readonly vertical: string;
+  readonly opened_at: string;
+  readonly last_updated_at: string;
+  readonly latest_mode: "shadow" | "enforce";
+  readonly history_count: number;
+}
+
+export interface IncidentPage {
+  readonly items: readonly IncidentSummary[];
+  readonly next_cursor: string | null;
+}
+
 export interface DashboardKpi {
   readonly event_count: number;
   readonly shadow_share: number;

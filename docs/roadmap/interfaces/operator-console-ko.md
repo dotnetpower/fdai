@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: c5c942d7c5ec163946803764e6a42940f3eca125
-translation_revised: 2026-07-12
+translation_source_sha: 1948642d08da749250af0f3d91cc3f5820375581
+translation_revised: 2026-07-14
 ---
 
 # 오퍼레이터 콘솔 (Conversational)
@@ -433,6 +433,15 @@ class ConversationSession:
 - **Day 1**: 매 turn (inbound + outbound + tool_call + tool_result + tier
   + escalation_trigger)은 `action_kind=console.turn`로 하나의 append-only
   audit entry를 write. 신규 Postgres 테이블 없음.
+- **Web 대화 탐색**: Console SPA는 대화 목록과 **새 대화** control을
+  표시. 목록은 분리된 transcript cache를 가리키는 tab-scoped
+  `sessionStorage` index이므로 thread 전환 또는 tab reload 시 완료된
+  turn을 복원하면서 agent-scoped 대화와 일반 대화를 섞지 않음.
+  Operator는 로드된 transcript를 검색하고 일치하는 turn 사이를 이동할
+  수 있음. **캐시 지우기**와 **캐시된 대화 제거**는 browser copy만
+  삭제하며 audit history는 삭제하지 않음. 이 browser index는 탐색
+  상태일 뿐이며 append-only audit projection이 memory of record로
+  유지되고 tab을 닫으면 cache가 삭제됨.
 - **Week 1**: `operator_memory` (parallel session이
   [`src/fdai/core/operator_memory/`](../../../src/fdai/core/operator_memory)
   아래 이미 scaffolded)가 **out-of-band 오퍼레이터 선호도**의 store가
@@ -798,9 +807,8 @@ pull adapter 추가. 콘솔은 이제:
   반드시 동일하게 포함해야 함.
 - Response: `200 {"queued": true, "audit_entry_id": "..."}`.
 
-이것은 현재 read-API test가 강제하는 "read API는 3 GET route only"
-invariant에 대한 유일한 예외; invariant test는 Week 1 landing 시
-문서화된 allow-listed POST를 얻음. 이는
+이 경로는 read API의 GET 전용 projection surface에 문서화된 write-route
+예외입니다. Invariant test는 이 callback을 명시적으로 allow-list합니다. 이는
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
 의 "console never executes" 규칙을 깨지 **않음**: 이 endpoint는 기존 HIL
 큐에 *승인 결정을 기록* (시그널) 할 뿐이며, 별도 executor principal이
@@ -840,6 +848,36 @@ read-only 콘솔 SPA는 오퍼레이터가 지금 보는 화면을 `ViewSnapshot
 }
 ```
 
+### 13.5 인시던트 목록 및 교정 이력
+
+읽기 전용 SPA는 일급 **실시간 > 인시던트** 패널을 제공합니다. 이 패널은
+인시던트 대응을 위한 목록 중심 진입점입니다. 운영자는 correlation id를 미리
+알지 못해도 활성 또는 해결된 인시던트를 찾고, 하나를 선택하여 교정 이력을
+확인할 수 있습니다. 기존 Audit 및 Trace 패널은 각각 레코드 수준과 엔드투엔드
+상세 분석 surface로 유지됩니다.
+
+API 계약은 다음과 같습니다.
+
+| Route | 목적 |
+|-------|------|
+| `GET /incidents?status=active|resolved|all&limit=<n>&cursor=<opaque>` | 최근 활동 순으로 인시던트 요약을 반환합니다. |
+| `GET /audit?correlation_id=<id>&limit=<n>&cursor=<opaque>` | 선택한 인시던트의 추가 전용 이력을 반환합니다. |
+| `GET /audit/{correlation_id}/trace` | 순서가 지정된 파이프라인 추적을 재구성합니다. |
+
+`correlation_id`가 인시던트 키입니다. Projection은 최상위 correlation이 없는
+행의 `event_id` 또는 명시적인 인시던트 lifecycle link가 정확히 하나의
+correlation으로 확인될 때만 해당 행을 연결할 수 있습니다. 모호한 행은 연결하지
+않으며 read model은 리소스 이름으로 연관 관계를 만들지 않습니다. Lifecycle
+상태가 있으면 이를 authoritative하게 사용합니다. 그렇지 않으면 audit stage에서
+`open`, `in_progress`, `resolved`를 도출합니다. 교정이 deny되거나 실패했다는
+사실만으로 기반 인시던트가 해결되었다고 표시하지 않습니다.
+
+목록은 요약만 반환하며 모든 audit 행을 포함하지 않습니다. Cursor가 각 서버
+페이지의 범위를 제한합니다. 항목을 선택하면 별도의 필터링된 GET으로 이력을
+가져옵니다. 모든 route는 Reader gate를 적용하고 mutation verb에 `405`를
+반환합니다. 패널은 Audit 및 Trace 링크를 제공하지만 execute, approve, rollback
+버튼은 제공하지 않습니다. 이러한 작업은 remediation PR 및 ChatOps에 유지됩니다.
+
 계약 규칙 (`console/src/routes/view-contract.test.ts` 가 강제):
 
 - **snapshot을 publish하는 모든 route는 `purpose` 와 `glossary` 를 반드시
@@ -858,7 +896,7 @@ read-only 콘솔 SPA는 오퍼레이터가 지금 보는 화면을 `ViewSnapshot
 - CLI narrator(`cli/src/narrator`)는 별개 surface; 같은 self-describing
   snapshot을 그 `console-tool` 결과에 실어 나르는 것은 병행 후속 작업.
 
-### 13.5 Action submit - `POST /chat/action` (propose, 실행 아님)
+### 13.6 Action submit - `POST /chat/action` (propose, 실행 아님)
 
 read-only deck은 질문에 답한다; 이것은 유일한 write-direction 경로 -
 오퍼레이터가 요청한 action(`restart vm-1`)을 typed 판테온 파이프라인에

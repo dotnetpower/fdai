@@ -73,9 +73,11 @@ Safety / cost invariants
 from __future__ import annotations
 
 import json
+import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final
+from urllib.parse import urlparse
 
 import httpx
 
@@ -173,6 +175,11 @@ class AzureArgQueryFactory:
             raise ValueError("timeout_seconds MUST be > 0")
         if config.max_props_bytes < 1024:
             raise ValueError("max_props_bytes MUST be >= 1024")
+        parsed_endpoint = urlparse(config.arg_endpoint)
+        if parsed_endpoint.scheme != "https" or not parsed_endpoint.netloc:
+            raise ValueError("arg_endpoint MUST be an absolute HTTPS URL")
+        if not config.audience.startswith("https://"):
+            raise ValueError("audience MUST be an HTTPS URI")
 
         self._identity: Final[WorkloadIdentity] = identity
         self._resource_types: Final[ResourceTypeRegistry] = resource_types
@@ -233,8 +240,13 @@ class AzureArgQueryFactory:
         # any embedded single-quote at the boundary.
         if "'" in arm_type:
             raise ArgQueryError(f"illegal character in ARM type {arm_type!r}")
+        table = (
+            "ResourceContainers"
+            if arm_type.lower() == "microsoft.resources/resourcegroups"
+            else "Resources"
+        )
         return (
-            f"Resources | where type =~ '{arm_type}' "
+            f"{table} | where type =~ '{arm_type}' "
             "| project id, type, name, location, tags, properties, resourceGroup, subscriptionId"
         )
 
@@ -376,12 +388,20 @@ def _to_neutral_id(arm_id: str) -> str:
     to a first-class field.
     """
     trimmed = arm_id.strip()
+    scope_prefix = _scope_prefix(trimmed)
     # ARM ids start with `/subscriptions/<guid>/resourceGroups/<name>/...`
     marker = "/resourceGroups/"
     idx = trimmed.lower().find(marker.lower())
     if idx == -1:
-        return trimmed.lower()
-    return f"resource-group{trimmed[idx + len(marker) - len('/') :].lower()}"
+        return f"{scope_prefix}/{trimmed.lower().strip('/')}"
+    return f"{scope_prefix}/resource-group{trimmed[idx + len(marker) - len('/') :].lower()}"
+
+
+def _scope_prefix(arm_id: str) -> str:
+    parts = [part for part in arm_id.strip("/").split("/") if part]
+    subscription = parts[1].lower() if len(parts) > 1 and parts[0].lower() == "subscriptions" else "unknown"
+    digest = hashlib.sha256(subscription.encode("utf-8")).hexdigest()[:16]
+    return f"scope-{digest}"
 
 
 def _truncate_props(props: Mapping[str, Any], *, max_bytes: int) -> dict[str, Any]:

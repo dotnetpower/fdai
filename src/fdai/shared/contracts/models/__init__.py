@@ -47,6 +47,20 @@ from __future__ import annotations
 
 from ._base import ContractBase, IdempotencyKey, SemVer, _Base
 from .action import Action, BlastRadius, RollbackRef
+from .document import (
+    AccessDescriptor,
+    DocumentEnvelope,
+    DocumentPurpose,
+    DocumentState,
+    DocumentVersion,
+    IngestionCapabilities,
+    MalwareVerdict,
+    ProtectionState,
+    RetentionPolicy,
+    SourceStorageMode,
+    StructuralUnit,
+    UploadSession,
+)
 from .enums import (
     CEILING_ROLE_RANK,
     ActionCategory,
@@ -98,6 +112,7 @@ from .workflow import Workflow, WorkflowStep, WorkflowTrigger
 
 __all__ = [
     # enums
+    "AccessDescriptor",
     "ActionCategory",
     "ActionInterface",
     "Autonomy",
@@ -156,4 +171,15 @@ __all__ = [
     "Workflow",
     "WorkflowStep",
     "WorkflowTrigger",
+    "DocumentEnvelope",
+    "DocumentVersion",
+    "DocumentPurpose",
+    "DocumentState",
+    "IngestionCapabilities",
+    "MalwareVerdict",
+    "SourceStorageMode",
+    "ProtectionState",
+    "RetentionPolicy",
+    "StructuralUnit",
+    "UploadSession",
 ]

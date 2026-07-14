@@ -30,6 +30,7 @@ import { t } from "./i18n";
 import { DashboardRoute } from "./routes/dashboard";
 
 const LiveRoute = lazy(async () => ({ default: (await import("./routes/live")).LiveRoute }));
+const IncidentsRoute = lazy(async () => ({ default: (await import("./routes/incidents")).IncidentsRoute }));
 const AgentsRoute = lazy(async () => ({ default: (await import("./routes/agents")).AgentsRoute }));
 const HilQueueRoute = lazy(async () => ({ default: (await import("./routes/hil-queue")).HilQueueRoute }));
 const ProvisionRoute = lazy(async () => ({ default: (await import("./routes/provision")).ProvisionRoute }));
@@ -43,6 +44,7 @@ const PantheonRoute = lazy(async () => ({ default: (await import("./routes/panth
 const HandoverRoute = lazy(async () => ({ default: (await import("./routes/handover")).HandoverRoute }));
 const RuleCatalogRoute = lazy(async () => ({ default: (await import("./routes/rule-catalog")).RuleCatalogRoute }));
 const WorkflowBuilderRoute = lazy(async () => ({ default: (await import("./routes/workflow-builder")).WorkflowBuilderRoute }));
+const DocumentIngestionRoute = lazy(async () => ({ default: (await import("./routes/document-ingestion")).DocumentIngestionRoute }));
 const BlastRadiusRoute = lazy(async () => ({ default: (await import("./routes/blast-radius")).BlastRadiusRoute }));
 const PromotionGatesRoute = lazy(async () => ({ default: (await import("./routes/promotion-gates")).PromotionGatesRoute }));
 const LlmCostRoute = lazy(async () => ({ default: (await import("./routes/llm-cost")).LlmCostRoute }));
@@ -117,6 +119,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.live"),
     group: "now",
     component: LiveRoute,
+  },
+  {
+    id: "incidents",
+    label: t("nav.panel.incidents"),
+    subtitle: t("nav.panelSub.incidents"),
+    group: "now",
+    component: IncidentsRoute,
   },
   {
     id: "agents",
@@ -210,6 +219,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.workflowBuilder"),
     group: "knowledge",
     component: WorkflowBuilderRoute,
+  },
+  {
+    id: "documents",
+    label: t("nav.panel.documents"),
+    subtitle: t("nav.panelSub.documents"),
+    group: "knowledge",
+    component: DocumentIngestionRoute,
   },
   // ── Safety ──────────────────────────────────────────────────────────
   {

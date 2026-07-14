@@ -43,6 +43,10 @@ from fdai.core.verticals.cost_governance.finops import FinOpsActionKind
 from fdai.delivery.read_api.read_model import ConsoleReadModel, clamp_limit
 
 
+class PanelQueryError(ValueError):
+    """A caller-supplied panel query parameter failed validation."""
+
+
 @runtime_checkable
 class ReadPanel(Protocol):
     """A fork-supplied read-only console panel.

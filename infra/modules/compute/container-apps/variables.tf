@@ -50,6 +50,40 @@ variable "executor_identity_id" {
   type        = string
 }
 
+variable "inventory_identity_id" {
+  description = "Dedicated read-only user-assigned MI resource id for inventory discovery."
+  type        = string
+}
+
+variable "inventory_identity_client_id" {
+  description = "Client id of the dedicated inventory managed identity."
+  type        = string
+}
+
+variable "inventory_dsn_secret_id" {
+  description = "Key Vault secret id containing the inventory snapshot PostgreSQL DSN."
+  type        = string
+  sensitive   = true
+}
+
+variable "inventory_cron_expression" {
+  description = "Cron for inventory reconciliation. Empty disables the job."
+  type        = string
+  default     = ""
+}
+
+variable "inventory_sources" {
+  description = "Ordered inventory source fallback list."
+  type        = string
+  default     = "arg,arm"
+}
+
+variable "inventory_freshness_seconds" {
+  description = "Inventory freshness budget in seconds."
+  type        = number
+  default     = 86400
+}
+
 variable "extra_identity_ids" {
   description = <<-EOT
     Additional user-assigned MI resource ids to attach alongside the

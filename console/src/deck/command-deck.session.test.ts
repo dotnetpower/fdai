@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { sessionIdFor } from "./command-deck";
+import { matchingTurnIndexes, sessionIdFor } from "./command-deck";
 
 describe("Deck backend session IDs", () => {
   test("isolates transcripts and restores an existing session ID", () => {
@@ -13,5 +13,18 @@ describe("Deck backend session IDs", () => {
     expect(general).not.toBe(forseti);
     expect(sessionIdFor(sessions, "screen", create)).toBe(general);
     expect(next).toBe(2);
+  });
+});
+
+describe("Deck transcript search", () => {
+  test("matches case-insensitively and ignores a blank query", () => {
+    const turns = [
+      { text: "Explain the current HIL decision" },
+      { text: "No matching content" },
+      { text: "HIL is waiting for Var" },
+    ];
+
+    expect(matchingTurnIndexes(turns, " hil ")).toEqual([0, 2]);
+    expect(matchingTurnIndexes(turns, "   ")).toEqual([]);
   });
 });

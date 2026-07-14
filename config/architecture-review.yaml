@@ -59,7 +59,6 @@ architecture_review:
       required_for: production
       evidence:
         - docs/baselines/v2026.07.md
-        - docs/internals/sre-scenario-library-scaling.md
 
   blockers:
     - id: ARB-001

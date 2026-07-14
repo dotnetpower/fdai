@@ -1,7 +1,7 @@
 # `console/`
 
-Thin, read-only operator SPA - KPI dashboard, audit log viewer, per-agent
-activity timeline, HIL queue view. This is the layer-3 surface described in
+Thin, read-only operator SPA - KPI dashboard, incident roster, audit log
+viewer, per-agent activity timeline, HIL queue view. This is the layer-3 surface described in
 [`.github/instructions/app-shape.instructions.md`](../.github/instructions/app-shape.instructions.md)
 § Operator console. The read-only invariant is a hard rule: the SPA MUST issue
 no privileged calls, MUST NOT expose an action / approval button, and MUST NOT
@@ -22,14 +22,17 @@ share the executor identity.
 
 ## Read-only surface
 
-The SPA starts with three always-on GET routes on the read API
+The SPA starts with six always-on GET routes on the read API
 (`src/fdai/delivery/read_api/main.py`):
 
 | Route | Purpose |
 |-------|---------|
-| `GET /audit` | Paginated audit log rows (newest first). |
+| `GET /audit` | Paginated audit log rows (newest first), optionally filtered by `correlation_id`. |
 | `GET /kpi` | Dashboard KPIs (event count, shadow/enforce share, HIL pending, per-kind, per-outcome). |
 | `GET /hil-queue` | Pending HIL items (approvals happen through ChatOps, not here). |
+| `GET /incidents` | Paginated incident roster with active/resolved/all filters. |
+| `GET /audit/{correlation_id}/trace` | Ordered end-to-end trace for one incident. |
+| `GET /healthz` | Read-API health status. |
 
 Managed-resource views use GET-only read routes. The console has narrow POST
 carve-outs for narrator turns, typed action **proposals**, and pure workflow
@@ -37,10 +40,24 @@ validation; none executes a managed-resource mutation directly. Core read
 routes enforce `405` on mutating verbs
 (`tests/delivery/read_api/test_main.py::TestReadOnlyInvariant`).
 
+The **Knowledge > Documents** panel is a separate content-ingestion surface, not
+a managed-resource mutation path. Its dedicated client talks only to the
+ingestion gateway, uploads source bytes directly to the gateway-provided object
+target, and requires the operator to acknowledge the effective shared audience.
+The GET-only `ReadApiClient` remains unchanged and never gains upload helpers.
+
 The panel registry in [`src/panels.tsx`](src/panels.tsx) groups the complete
 operator surface by intent: Overview, Now, History, Knowledge, and Safety.
 Settings is a standalone global utility pinned to the bottom of the left rail,
 outside the five intent-group flyouts.
+
+The **Now > Incidents** panel is the incident-centric entry point. It groups
+the append-only audit stream by `correlation_id`, shows lifecycle status and
+the latest remediation disposition, and loads one incident's audit history on
+selection. Active, Resolved, and All filters use server-side keyset
+pagination. Links open the existing Audit and Trace panels with the same
+correlation filter. The roster does not create a second incident source of
+truth and exposes no action or approval control.
 Optional read projections, including workflow Processes, reports, ontology,
 inventory, pantheon, promotion gates, and LLM cost, render an explicit
 unavailable state when the composition root does not register their GET route.
@@ -574,6 +591,7 @@ CI env):
 | Env var | Meaning |
 |---------|---------|
 | `VITE_READ_API_BASE_URL` | Origin of the read API (e.g. `https://api.<fork>`). |
+| `VITE_INGESTION_API_BASE_URL` | Origin of the dedicated document-ingestion gateway. Defaults to `http://127.0.0.1:8010` for local development. |
 | `VITE_MSAL_CLIENT_ID` | Entra App Registration client id (SPA). |
 | `VITE_MSAL_TENANT_ID` | Entra tenant id (single-tenant per fork). |
 | `VITE_MSAL_API_SCOPE` | API audience scope (e.g. `api://<api-guid>/access`). |

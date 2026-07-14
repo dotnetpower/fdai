@@ -15,7 +15,9 @@
     "workflowBuilder": "Workflow builder",
     "llmCost": "LLM cost",
     "processes": "Processes",
-    "settings": "Settings"
+    "documents": "Documents",
+    "settings": "Settings",
+    "incidents": "Incidents"
   },
   "nav": {
     "group": {
@@ -51,7 +53,9 @@
       "workflowBuilder": "Workflow builder",
       "llmCost": "LLM cost",
       "processes": "Processes",
-      "settings": "Settings"
+      "documents": "Documents",
+      "settings": "Settings",
+      "incidents": "Incidents"
     },
     "panelSub": {
       "live": "Real-time pipeline activity",
@@ -72,7 +76,76 @@
       "workflowBuilder": "Browse built-in workflows or design a new one by chatting",
       "llmCost": "Token usage and spend per conversation, day, and month",
       "processes": "Workflow runtime state and dynamic ontology-backed views",
-      "settings": "Display, accessibility, and local console preferences"
+      "documents": "Upload, scan, protect, and index governed documents",
+      "settings": "Display, accessibility, and local console preferences",
+      "incidents": "Incident status, disposition, and remediation history"
+    }
+  },
+  "incidents": {
+    "subtitle": "Incident-centric status and remediation history from the append-only audit log. Read-only; actions and approvals stay in Git and ChatOps.",
+    "filter": {"active": "Active", "resolved": "Resolved", "all": "All"},
+    "column": {"title": "Incident", "severity": "Severity", "status": "Status", "disposition": "Disposition", "vertical": "Vertical", "updated": "Updated"},
+    "status": {"open": "Open", "in_progress": "In progress", "resolved": "Resolved"},
+    "disposition": {"pending": "Pending", "awaiting_hil": "Awaiting HIL", "action_delivered": "Action delivered", "no_action": "No action", "failed": "Failed", "rolled_back": "Rolled back", "resolved": "Resolved", "unknown": "Unknown"},
+    "severity": {"critical": "Critical", "high": "High", "medium": "Medium", "low": "Low", "info": "Info", "unknown": "Unknown"},
+    "vertical": {"resilience": "Resilience", "change_safety": "Change Safety", "cost_governance": "Cost Governance", "unknown": "Unknown"},
+    "empty": "No incidents match this filter.",
+    "detail": "Incident detail",
+    "select": "Select an incident to inspect its remediation history.",
+    "correlation": "Correlation id",
+    "opened": "Opened",
+    "history": "History entries",
+    "timeline": "Remediation timeline",
+    "actor": "Actor",
+    "action": "Action",
+    "decision": "Decision",
+    "mode": "Mode",
+    "rollback": "Rollback reference",
+    "audit": "Open filtered audit log",
+    "trace": "Open end-to-end trace",
+    "loadMore": "Load more incidents",
+    "loadingMore": "Loading...",
+    "end": "End of incident list.",
+    "loadMoreError": "Failed to load more incidents: {message}",
+    "historyError": "Failed to load incident history: {message}",
+    "filterLabel": "Incident status filter",
+    "details": "Details",
+    "viewJson": "View JSON",
+    "emptyHistory": "No audit entries for this incident.",
+    "none": "-",
+    "auditFilter": "Filtered to correlation id: {correlation}",
+    "viewPurpose": "Incident-centric roster and remediation history projected from the append-only audit log. Read-only.",
+    "viewHeadline": "{count} incident(s) loaded",
+    "historyShown": "Showing {shown} of {total} history entries. Open the filtered audit log to continue browsing."
+  },
+  "documents": {
+    "subtitle": "Upload governed documents through quarantine, protection checks, extraction, and indexing.",
+    "visibilityTitle": "Shared visibility",
+    "visibilityNotice": "This upload is not private to you. People who can access {collection} in FDAI may be able to view its filename, preview, extracted text, and citations. Do not upload secrets or content that this audience may not access.",
+    "visibilityConfirm": "I understand who can access this collection and confirm that these files are appropriate for that audience.",
+    "collectionFallback": "this collection",
+    "settings": "Upload settings",
+    "collection": "Destination collection",
+    "purpose": "Processing purpose",
+    "knowledgeBase": "Knowledge Base grounding",
+    "manualDistillation": "Manual distillation",
+    "storageMode": "Source storage mode",
+    "dropTitle": "Drop documents here",
+    "dropHint": "Files remain unavailable until mandatory safety checks complete.",
+    "chooseFiles": "Choose files",
+    "limits": "Formats: {formats} · Maximum: {size} per file · {count} files per batch",
+    "loadingCapabilities": "Loading supported formats",
+    "unavailable": "The ingestion service is unavailable.",
+    "files": "Selected files",
+    "uploadFiles": "Upload files",
+    "fileTooLarge": "This file exceeds the advertised size limit.",
+    "uploadFailed": "Upload failed.",
+    "state": {
+      "queued": "Queued",
+      "hashing": "Hashing",
+      "uploading": "Uploading",
+      "received": "Received",
+      "failed": "Failed"
     }
   },
   "settings": {
@@ -101,7 +174,19 @@
     "label": "Command deck",
     "open": "Open command deck",
     "close": "Close command deck",
-    "invoke": "Ask anything about this screen"
+    "invoke": "Ask anything about this screen",
+    "conversations": "Conversations",
+    "newConversation": "New conversation",
+    "general": "General",
+    "noConversations": "Start a conversation to keep it in this tab's history.",
+    "searchConversation": "Search this conversation",
+    "searchPlaceholder": "Search turns...",
+    "previousMatch": "Previous match",
+    "nextMatch": "Next match",
+    "removeCachedConversation": "Remove cached conversation",
+    "removeCachedConversationHint": "Remove this tab's cached transcript. Audit history is unchanged.",
+    "clearCachedConversation": "Clear cache",
+    "clearCachedConversationHint": "Clear this cached transcript. Audit history is unchanged."
   },
   "workflowBuilder": {
     "subtitle": "Browse the built-in workflows read-only, or design a new one by chatting with the builder. Describe what you want in plain words; it asks follow-up questions, generates the YAML, shows a visual of how it runs, and lets you test it. The console never commits - copy the YAML into a remediation PR."

@@ -85,6 +85,12 @@ variable "cors_allow_origins" {
   default     = ""
 }
 
+variable "inventory_freshness_seconds" {
+  description = "Maximum active inventory age before the graph is stale."
+  type        = number
+  default     = 86400
+}
+
 variable "min_replicas" {
   description = "Minimum replicas. 1 keeps the read API always-on for the console."
   type        = number

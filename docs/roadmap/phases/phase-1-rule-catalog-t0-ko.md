@@ -1,8 +1,8 @@
 ---
 title: Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
 translation_of: phase-1-rule-catalog-t0.md
-translation_source_sha: f1d93f02e4cc54d611b9b9d95d7910f040ac4cc9
-translation_revised: 2026-07-11
+translation_source_sha: cc54ee5a69326b3f6abb0c2153567a288f8857ff
+translation_revised: 2026-07-14
 ---
 
 # Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
@@ -121,8 +121,11 @@ Change Safety - 를 완전히 **shadow 모드**(judge와 log, 실행 없음) 로
   으로 resolve, 주입된 `WorkloadIdentity` 로부터 받은 OIDC 토큰으로
   `POST /providers/Microsoft.ResourceGraph/resources` 호출, bounded page cap 하에서
   `$skipToken` 페이지네이션 follow, 신뢰되지 않는 vendor property 를 return 전 truncate.
-  Link 추출 (`contains` / `attached_to` / `depends_on`) 은 risk-gate blast-radius 작업과 함께
-  P2 에서 랜딩.
+  Scheduled collector는 별도 read-only identity를 사용하고 direct paged ARM list로
+  fallback하며 PostgreSQL에 immutable candidate를 stage합니다. Final fence와 전체 graph
+  validation이 완료된 뒤에만 active pointer를 교체합니다. `contains` / `attached_to` /
+  `depends_on` 추출은 live 상태이며 production read API는 active last-known-good generation만
+  제공합니다.
 - **픽스처와 회귀 스위트** - 초기 규칙 세트와 감지 경로 커버.
 - **프로즌 시나리오 replay harness** -
   [`tests/scenarios/test_v2026_07_replay.py`](../../../tests/scenarios/test_v2026_07_replay.py)

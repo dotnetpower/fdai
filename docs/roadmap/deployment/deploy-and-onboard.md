@@ -74,6 +74,22 @@ DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../
 on the `[self-hosted, fdai-deploy]` runner (plan-only by default; the `apply` input enforces).
 Full runbook: [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 
+#### Inventory discovery with restricted egress
+
+Strong NSG egress control should keep the application subnet closed without disabling Azure
+service discovery. During preflight, test managed-identity token acquisition, DNS, TLS to the
+ARM management endpoint, one bounded Azure Resource Graph query, pagination, and publication
+to the private projection from the actual discovery subnet.
+
+If direct ARG access is blocked, run the read-only collector on the VNet-integrated ops runner
+or a Container Apps Job with the approved hub management path. Then fall back in order to a
+validated Resource Management Private Link route, sharded ARM list operations, an
+authoritative scoped Azure inventory, Activity Log continuity, and finally a signed
+declarative recovery snapshot. A failed path retains the last complete graph and marks it
+stale; it never publishes an empty graph. The complete network matrix, source precedence,
+coverage manifest, and autonomy degradation rules are defined in
+[Azure inventory under restricted NSG egress](../architecture/csp-neutrality.md#azure-inventory-under-restricted-nsg-egress).
+
 #### Onboarding automation
 
 Five helpers make the runner path repeatable (all customer-agnostic, parameterized):
@@ -429,6 +445,11 @@ full expanded catalog and defaults are authored during the inventory PR.
 | `FDAI_STATE_STORE_DSN` | KV ref | upstream | Postgres connection URI for audit + KPI; wired by `infra/main.tf` `azurerm_key_vault_secret.state_store_dsn` from `module.state_store.application_dsn`, exposed to the Container App via `secret{}` + `env{}` (see [project-structure.md](../architecture/project-structure.md) `infra/modules/compute/container-apps/`). Empty at runtime => in-memory fallback. |
 | `FDAI_OPERATOR_MEMORY_DSN` | KV ref | upstream | Postgres DSN for HIL-approved operator memory. Same source as `FDAI_STATE_STORE_DSN` day-zero (single Flexible Server); a fork MAY split it later without touching core code. |
 | `FDAI_T1_PATTERN_LIBRARY_DSN` | KV ref | upstream | Postgres DSN for the pgvector-backed T1 pattern library. Same source day-zero; wired identically. |
+| `FDAI_INVENTORY_DSN` | KV ref | upstream | PostgreSQL DSN used only by the scheduled inventory collector to stage immutable candidates and atomically promote the active graph. |
+| `FDAI_INVENTORY_SCOPES` / `FDAI_INVENTORY_RESOURCE_TYPES` | env | fork | Comma-separated subscription scopes and optional CSP-neutral resource-type subset. Empty scope fails startup. |
+| `FDAI_INVENTORY_SOURCES` | env | upstream | Ordered fallback list: `arg,arm` by default; `declarative` is accepted only with a fixture path and SHA-256. |
+| `FDAI_INVENTORY_MANAGEMENT_ENDPOINT` | env | fork | ARM root endpoint. Override for an approved sovereign-cloud or validated Resource Management Private Link path. HTTPS is required. |
+| `FDAI_INVENTORY_FRESHNESS_SECONDS` | env | upstream | Maximum active snapshot age before the projection becomes stale and graph-dependent autonomy degrades to human review. Default `86400`. |
 | `KAFKA_TOPIC_EVENTS` | env | fork | primary event ingest topic |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | fork | dead-letter suffix (default `.dlq`) |
 | `TEAMS_HIL_CHANNEL_ID` | env | fork | HIL routing |
@@ -442,7 +463,7 @@ full expanded catalog and defaults are authored during the inventory PR.
 | `FDAI_READ_API_DEV_MODE` | env | dev-only | `1` bypasses Entra JWT validation in the read API for local dev. MUST NOT be set in staging / prod. |
 | `FDAI_READ_API_LOCAL_ENTRA` | env | dev-only | `1` runs the local seed harness with **real** Entra JWT verification (requires `FDAI_ENTRA_TENANT_ID` + `FDAI_API_AUDIENCE`) so sign-in can be tested locally. Mutually exclusive with dev-mode; MUST NOT be set in staging / prod. |
 | `FDAI_POLICIES_ROOT` | env | fork | absolute path to the OPA / Rego bundle root consumed by T0 and the verifier. Defaults to the in-repo `policies/` when unset. |
-| `FDAI_MI_CLIENT_ID` | env | upstream | executor user-assigned MI client id (populated by Container Apps from the assigned identity). Used by `WorkloadIdentity` for the audience-scoped OIDC exchange. |
+| `FDAI_MI_CLIENT_ID` | env | upstream | User-assigned MI client id for the current process. The core receives the executor id; the inventory job receives its distinct read-only discovery id. |
 | `FDAI_MEASUREMENT_MODE` | env | upstream | `shadow` (default) or `enforce` - governs the Container Apps Jobs runners in `infra/modules/measurement-runners/`. |
 | `FDAI_DIRECT_API_FAKE` | env | dev-only | `1` swaps the executor direct-API path for the in-memory fake; used by tests and local dev. |
 | `FDAI_TOOL_CALL_FAKE` | env | dev-only | `1` swaps the executor tool-call path for the in-memory fake (`RecordingToolExecutor`); used by tests and local dev. |

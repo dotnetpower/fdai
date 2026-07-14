@@ -624,6 +624,17 @@ def test_build_query_rejects_single_quote_in_arm_type() -> None:
         factory._build_query(arm_type="Microsoft.Weird/type'; drop table --")
 
 
+def test_resource_group_query_uses_resource_containers() -> None:
+    factory = AzureArgQueryFactory(
+        identity=_identity(),
+        resource_types=_vocab(),
+        http_client=httpx.AsyncClient(),
+        config=AzureArgQueryFactoryConfig(subscription_scopes=("sub-1",)),
+    )
+    query = factory._build_query(arm_type="Microsoft.Resources/resourceGroups")
+    assert query.startswith("ResourceContainers |")
+
+
 @pytest.mark.asyncio
 async def test_row_property_with_null_value_is_dropped() -> None:
     def _handler(_request: httpx.Request) -> httpx.Response:

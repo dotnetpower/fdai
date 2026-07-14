@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 99eb4a741c9702c3fb24c16c9613839ec4548bd4
+translation_source_sha: 7667a4b51d37909cebe2f8d0b0e4a23299d0bb2d
 translation_revised: 2026-07-14
 ---
 
@@ -83,6 +83,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 17b | [escalation-and-standing-authority-ko.md](decisioning/escalation-and-standing-authority-ko.md) | `hil` verdict 후 아무도 응답하지 않을 때 무슨 일이 벌어지는가: 감독형 OODA 루프, 영향도 tier 별 시간 감쇠 에스컬레이션 사다리(채널 fallback 과 구별), 상시 권한(사전 승인·envelope 경계·가역 전용 조건부 자동 조치를 결정론적 risk-gate 입력으로) |
 | 18 | [dev-and-deploy-parity-ko.md](deployment/dev-and-deploy-parity-ko.md) | dev-mode local-fake vs deploy-mode Azure-first 패리티 계약, 배포자 스코프 LLM 프로비저닝 게이트 |
 | 19 | [operator-console-ko.md](interfaces/operator-console-ko.md) | 대화형 surface (CLI / Teams / Slack / web), 3-layer 아키텍처, tool 별 RBAC 매트릭스, LLM tier 모델, 세션 지속성 |
+| 19a | [document-ingestion-ko.md](interfaces/document-ingestion-ko.md) | Drop-zone UX, 대용량 및 보호 문서 처리, format extraction, private storage, 공유 가시성, retention, deletion 계약 |
 | 20 | [action-ontology-ko.md](decisioning/action-ontology-ko.md) | ActionType 스키마 (remediation + ops + governance), trigger 축, tier / role / prod / live-probe 상한, fork override seam |
 | 21 | [execution-model-ko.md](decisioning/execution-model-ko.md) | 통합 RiskGate, 5-axis authority 매트릭스, 3개 executor 경로 (PR-native / direct API / PR-manual), live-blast probe combinator, resolved_ceiling audit 블록 |
 

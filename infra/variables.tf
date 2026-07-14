@@ -208,6 +208,34 @@ variable "analyzer_tick_cron_expression" {
   default     = ""
 }
 
+# ---------------------------------------------------------------------------
+# Azure inventory reconciliation. Runs on the VNet-integrated Container Apps
+# environment under a dedicated read-only managed identity.
+# ---------------------------------------------------------------------------
+
+variable "inventory_cron_expression" {
+  description = "Cron for full Azure inventory reconciliation. Empty disables the job."
+  type        = string
+  default     = "0 */6 * * *"
+}
+
+variable "inventory_sources" {
+  description = "Ordered inventory source fallback list. Supported values: arg,arm."
+  type        = string
+  default     = "arg,arm"
+}
+
+variable "inventory_freshness_seconds" {
+  description = "Maximum active inventory age before graph-dependent decisions degrade to HIL."
+  type        = number
+  default     = 86400
+
+  validation {
+    condition     = var.inventory_freshness_seconds >= 1
+    error_message = "inventory_freshness_seconds must be >= 1."
+  }
+}
+
 variable "analyzer_targets_json" {
   description = "JSON array of {resource_id, kind} pairs the analyzer tick investigates each fire. Empty (default) - the CLI logs a no-targets info line and exits 0, so a mis-provisioned cron stays quiet. Kind MUST match one of KIND_AKS / KIND_MYSQL / KIND_AZURE_OPENAI / KIND_APP_GATEWAY / KIND_API_MANAGEMENT (see src/fdai/core/investigation/analyzers.py)."
   type        = string

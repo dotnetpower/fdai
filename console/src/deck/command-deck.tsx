@@ -29,6 +29,15 @@ import {
   type RouterSnapshot,
 } from "./backend";
 import { detectActionIntent } from "./action-intent";
+import {
+  conversationTitle,
+  GENERAL_CONVERSATION_KEY,
+  parseConversationIndex,
+  serializeConversationIndex,
+  upsertConversation,
+  type ConversationSummary,
+  CONVERSATION_INDEX_KEY,
+} from "./conversation-sessions";
 import { useViewContext } from "./context";
 import {
   EMPTY_HISTORY,
@@ -86,6 +95,18 @@ export function sessionIdFor(
   return created;
 }
 
+/** Return indexes of turns containing a case-insensitive search query. */
+export function matchingTurnIndexes(
+  turns: readonly { readonly text: string }[],
+  rawQuery: string,
+): number[] {
+  const query = rawQuery.trim().toLowerCase();
+  if (!query) return [];
+  return turns.flatMap((turn, index) =>
+    turn.text.toLowerCase().includes(query) ? [index] : [],
+  );
+}
+
 /** Tab-scoped storage, guarded so a disabled/absent store never throws. */
 function sessionStore(): Storage | null {
   try {
@@ -112,7 +133,7 @@ function routerTooltip(router: RouterSnapshot | undefined): string | undefined {
 }
 
 /** The general (screen-scoped) conversation session id. */
-const GENERAL_SESSION = "screen";
+const GENERAL_SESSION = GENERAL_CONVERSATION_KEY;
 
 /**
  * The current route token from the location hash, normalized the same way the
@@ -154,6 +175,8 @@ export function CommandDeck() {
   const snapshot = useViewContext();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeSearchMatch, setActiveSearchMatch] = useState(0);
   // Active conversation session. The general screen deck is "screen"; a chat
   // scoped to one agent uses e.g. "agent:Forseti" and keeps a separate
   // transcript so threads never bleed into each other.
@@ -163,6 +186,19 @@ export function CommandDeck() {
   const [turns, setTurns] = useState<readonly Turn[]>(() => {
     const store = sessionStore();
     return store ? parseTurns(store.getItem(transcriptKeyFor(GENERAL_SESSION))) : [];
+  });
+  const [conversations, setConversations] = useState<readonly ConversationSummary[]>(() => {
+    const store = sessionStore();
+    const restored = store
+      ? parseConversationIndex(store.getItem(CONVERSATION_INDEX_KEY))
+      : [];
+    const previous = restored.find((item) => item.key === GENERAL_SESSION);
+    return upsertConversation(restored, {
+      key: GENERAL_SESSION,
+      label: t("deck.general"),
+      kind: "general",
+      updatedAt: previous?.updatedAt ?? new Date().toISOString(),
+    });
   });
   const turnsRef = useRef<readonly Turn[]>(turns);
   const [pending, setPending] = useState(false);
@@ -179,7 +215,28 @@ export function CommandDeck() {
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+
+  const updateConversationIndex = useCallback(
+    (summary: ConversationSummary) => {
+      setConversations((current) => {
+        const next = upsertConversation(current, summary);
+        const retained = new Set(next.map((item) => item.key));
+        try {
+          const store = sessionStore();
+          store?.setItem(CONVERSATION_INDEX_KEY, serializeConversationIndex(next));
+          for (const evicted of current) {
+            if (!retained.has(evicted.key)) store?.removeItem(transcriptKeyFor(evicted.key));
+          }
+        } catch {
+          /* best-effort */
+        }
+        return next;
+      });
+    },
+    [],
+  );
 
   // Preflight probe: hit /chat/health once so the deck header can show
   // the operator whether the LLM is wired BEFORE they ask.
@@ -294,7 +351,13 @@ export function CommandDeck() {
   // in as the agent; an existing session is resumed as-is so its prior turns
   // are preserved.
   const switchSession = useCallback(
-    (key: string, label: string | null, contextNote?: string) => {
+    (
+      key: string,
+      agent: string | null,
+      contextNote?: string,
+      conversationLabel?: string,
+      kind: ConversationSummary["kind"] = agent ? "agent" : "general",
+    ) => {
       if (key !== sessionKeyRef.current) cancelActiveRequest();
       const store = sessionStore();
       if (store && key !== sessionKeyRef.current) {
@@ -311,16 +374,35 @@ export function CommandDeck() {
       sessionKeyRef.current = key;
       turnsRef.current = next;
       setSessionKey(key);
-      setSessionLabel(label);
+      setSessionLabel(agent);
       setTurns(next);
+      setSearchQuery("");
+      setActiveSearchMatch(0);
       historyRef.current = EMPTY_HISTORY;
+      updateConversationIndex({
+        key,
+        label:
+          conversationLabel ??
+          agent ??
+          (key === GENERAL_SESSION ? t("deck.general") : t("deck.newConversation")),
+        kind,
+        ...(agent ? { agent } : {}),
+        updatedAt: new Date().toISOString(),
+      });
       const note = contextNote?.trim();
       if (next.length === 0 && note) {
-        streamContextTurn(label, note);
+        streamContextTurn(agent, note);
       }
     },
-    [cancelActiveRequest, streamContextTurn],
+    [cancelActiveRequest, streamContextTurn, updateConversationIndex],
   );
+
+  const startNewConversation = useCallback(() => {
+    const key = `conversation:${newId()}`;
+    switchSession(key, null, undefined, t("deck.newConversation"));
+    setDraft("");
+    focusInput();
+  }, [focusInput, switchSession]);
 
   // Open the deck on the general (screen) session - used by the launcher, the
   // Cmd/Ctrl+K toggle, and the `/` shortcut, so those never drop the operator
@@ -329,6 +411,40 @@ export function CommandDeck() {
     if (sessionKeyRef.current !== GENERAL_SESSION) switchSession(GENERAL_SESSION, null);
     openDeck();
   }, [openDeck, switchSession]);
+
+  const removeCachedConversation = useCallback(
+    (conversation: ConversationSummary) => {
+      if (conversation.key === GENERAL_SESSION) return;
+      const removingActive = sessionKeyRef.current === conversation.key;
+      if (removingActive) cancelActiveRequest();
+      const remaining = conversations.filter((item) => item.key !== conversation.key);
+      try {
+        const store = sessionStore();
+        store?.removeItem(transcriptKeyFor(conversation.key));
+        store?.setItem(CONVERSATION_INDEX_KEY, serializeConversationIndex(remaining));
+      } catch {
+        /* best-effort */
+      }
+      sessionIdsRef.current.delete(conversation.key);
+      setConversations(remaining);
+      if (removingActive) {
+        const fallback = remaining.find((item) => item.key === GENERAL_SESSION) ?? remaining[0];
+        if (fallback) {
+          switchSession(
+            fallback.key,
+            fallback.agent ?? null,
+            undefined,
+            fallback.label,
+            fallback.kind,
+          );
+        } else {
+          switchSession(GENERAL_SESSION, null, undefined, t("deck.general"));
+        }
+      }
+      focusInput();
+    },
+    [cancelActiveRequest, conversations, focusInput, switchSession],
+  );
 
   // Trap Tab within the open overlay so keyboard focus cannot escape the modal
   // to the read-only page behind it (aria-modal contract).
@@ -376,8 +492,10 @@ export function CommandDeck() {
         target?.isContentEditable === true;
       if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        if (open) closeDeck();
-        else openGeneralDeck();
+        if (open) {
+          searchRef.current?.focus();
+          searchRef.current?.select();
+        } else openGeneralDeck();
         return;
       }
       if (!inField && e.key === "/" && !open) {
@@ -387,6 +505,11 @@ export function CommandDeck() {
       }
       if (e.key === "Escape" && open) {
         e.preventDefault();
+        if (document.activeElement === searchRef.current) {
+          setSearchQuery("");
+          focusInput();
+          return;
+        }
         // Progressive: while a reply is generating, Escape stops it first; a
         // second Escape (now idle) closes the deck.
         if (inFlightRef.current) {
@@ -421,7 +544,13 @@ export function CommandDeck() {
         // Move to the target session (its own transcript). A context note only
         // seeds a brand-new session, so re-opening an agent chat resumes the
         // existing thread instead of stacking duplicate context.
-        switchSession(key, label, note);
+        switchSession(
+          key,
+          label,
+          note,
+          label ?? undefined,
+          key.startsWith("agent:") ? "agent" : "general",
+        );
       } else if (note && turnsRef.current.length === 0) {
         // Same, still-empty session: stream in the grounding context turn as
         // the agent.
@@ -520,6 +649,33 @@ export function CommandDeck() {
     setStuck(true);
   }, []);
 
+  const searchMatches = useMemo(() => {
+    return matchingTurnIndexes(turns, searchQuery);
+  }, [searchQuery, turns]);
+
+  useEffect(() => {
+    setActiveSearchMatch((current) =>
+      searchMatches.length === 0 ? 0 : Math.min(current, searchMatches.length - 1),
+    );
+  }, [searchMatches.length]);
+
+  const moveSearch = useCallback(
+    (direction: -1 | 1) => {
+      if (searchMatches.length === 0) return;
+      const next =
+        (activeSearchMatch + direction + searchMatches.length) % searchMatches.length;
+      setActiveSearchMatch(next);
+      const turn = turns[searchMatches[next]!];
+      if (turn) {
+        document.getElementById(`deck-turn-${turn.id}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+    },
+    [activeSearchMatch, searchMatches, turns],
+  );
+
   // Auto-grow the input to fit its content (capped by the CSS max-height, past
   // which it scrolls). Runs whenever the draft changes or the overlay opens so
   // a recalled multi-line prompt is fully visible without manual resizing.
@@ -549,6 +705,19 @@ export function CommandDeck() {
       activeRequestRef.current?.id === request.id &&
       sessionKeyRef.current === originSessionKey;
     const opTurn: Turn = { id: newId(), role: "operator", text, at: shortTime() };
+    const activeSummary = conversations.find((item) => item.key === originSessionKey);
+    const hasOperatorTurn = turnsRef.current.some((turn) => turn.role === "operator");
+    updateConversationIndex({
+      key: originSessionKey,
+      label:
+        activeSummary?.agent ??
+        (originSessionKey.startsWith("conversation:") && !hasOperatorTurn
+          ? conversationTitle(text)
+          : (activeSummary?.label ?? t("deck.general"))),
+      kind: activeSummary?.kind ?? "general",
+      ...(activeSummary?.agent ? { agent: activeSummary.agent } : {}),
+      updatedAt: new Date().toISOString(),
+    });
     setTurns((prev) => [...prev, opTurn]);
     turnsRef.current = [...turnsRef.current, opTurn];
     setDraft("");
@@ -658,7 +827,7 @@ export function CommandDeck() {
         focusInput();
       }
     }
-  }, [snapshot, focusInput, pending, turns]);
+  }, [snapshot, focusInput, pending, turns, conversations, updateConversationIndex]);
 
   const clearTurns = useCallback(() => {
     cancelActiveRequest();
@@ -793,7 +962,51 @@ export function CommandDeck() {
               )}
               <BackendBadge health={health} placement="header" />
             </div>
-            <div class="deck-header-headline muted">{headline}</div>
+            <div class="deck-header-center">
+              <div class="deck-header-headline muted">{headline}</div>
+              <div class="deck-search" role="search">
+                <span class="deck-search-icon" aria-hidden="true">⌕</span>
+                <input
+                  ref={searchRef}
+                  type="search"
+                  value={searchQuery}
+                  placeholder={t("deck.searchPlaceholder")}
+                  aria-label={t("deck.searchConversation")}
+                  onInput={(event) => {
+                    setSearchQuery((event.target as HTMLInputElement).value);
+                    setActiveSearchMatch(0);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      moveSearch(event.shiftKey ? -1 : 1);
+                    }
+                  }}
+                />
+                <span class="deck-search-count" aria-live="polite">
+                  {searchQuery.trim()
+                    ? `${searchMatches.length === 0 ? 0 : activeSearchMatch + 1}/${searchMatches.length}`
+                    : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => moveSearch(-1)}
+                  disabled={searchMatches.length === 0}
+                  aria-label={t("deck.previousMatch")}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveSearch(1)}
+                  disabled={searchMatches.length === 0}
+                  aria-label={t("deck.nextMatch")}
+                >
+                  ↓
+                </button>
+                <kbd>{navigator.platform.toLowerCase().includes("mac") ? "⌘K" : "Ctrl K"}</kbd>
+              </div>
+            </div>
             <button type="button" class="deck-close" onClick={closeDeck} aria-label="Close">
               ×
             </button>
@@ -804,6 +1017,22 @@ export function CommandDeck() {
           </div>
 
           <div class="deck-body">
+            <ConversationSidebar
+              conversations={conversations}
+              activeKey={sessionKey}
+              onNew={startNewConversation}
+              onRemove={removeCachedConversation}
+              onSelect={(conversation) => {
+                switchSession(
+                  conversation.key,
+                  conversation.agent ?? null,
+                  undefined,
+                  conversation.label,
+                  conversation.kind,
+                );
+                focusInput();
+              }}
+            />
             <section
               class="deck-transcript"
               ref={scrollerRef}
@@ -821,6 +1050,8 @@ export function CommandDeck() {
                 <TurnBubble
                   key={t.id}
                   turn={t}
+                  searchMatch={searchMatches.includes(i)}
+                  activeSearchMatch={searchMatches[activeSearchMatch] === i}
                   onPickFollowUp={submit}
                   {...(t.role === "deck" &&
                     !t.streaming &&
@@ -876,9 +1107,9 @@ export function CommandDeck() {
                 class="deck-btn deck-btn-secondary"
                 onClick={clearTurns}
                 disabled={turns.length === 0}
-                title="Clear conversation"
+                title={t("deck.clearCachedConversationHint")}
               >
-                Clear
+                {t("deck.clearCachedConversation")}
               </button>
               {inFlight ? (
                 <button
@@ -910,18 +1141,90 @@ export function CommandDeck() {
 // Subcomponents (each with one job)
 // ---------------------------------------------------------------------------
 
+function ConversationSidebar({
+  conversations,
+  activeKey,
+  onNew,
+  onSelect,
+  onRemove,
+}: {
+  readonly conversations: readonly ConversationSummary[];
+  readonly activeKey: string;
+  readonly onNew: () => void;
+  readonly onSelect: (conversation: ConversationSummary) => void;
+  readonly onRemove: (conversation: ConversationSummary) => void;
+}) {
+  return (
+    <aside class="deck-conversations" aria-label={t("deck.conversations")}>
+      <div class="deck-conversations-head">
+        <span>{t("deck.conversations")}</span>
+        <span class="deck-conversations-count">{conversations.length}</span>
+      </div>
+      <button type="button" class="deck-conversation-new" onClick={onNew}>
+        <span aria-hidden="true">+</span>
+        {t("deck.newConversation")}
+      </button>
+      <div class="deck-conversation-list">
+        {conversations.length === 0 ? (
+          <p class="deck-conversation-empty">{t("deck.noConversations")}</p>
+        ) : (
+          conversations.map((conversation) => (
+            <div
+              key={conversation.key}
+              class={`deck-conversation ${conversation.key === activeKey ? "is-active" : ""}`}
+            >
+              <button
+                type="button"
+                class="deck-conversation-select"
+                aria-current={conversation.key === activeKey ? "true" : undefined}
+                onClick={() => onSelect(conversation)}
+              >
+                <span class="deck-conversation-avatar" aria-hidden="true">
+                  {(conversation.agent ?? "Br").slice(0, 2)}
+                </span>
+                <span class="deck-conversation-copy">
+                  <strong>{conversation.label}</strong>
+                  <small>{new Date(conversation.updatedAt).toLocaleString()}</small>
+                </span>
+              </button>
+              {conversation.key !== GENERAL_SESSION ? (
+                <button
+                  type="button"
+                  class="deck-conversation-remove"
+                  onClick={() => onRemove(conversation)}
+                  aria-label={`${t("deck.removeCachedConversation")}: ${conversation.label}`}
+                  title={t("deck.removeCachedConversationHint")}
+                >
+                  ×
+                </button>
+              ) : null}
+            </div>
+          ))
+        )}
+      </div>
+    </aside>
+  );
+}
+
 function TurnBubble({
   turn,
   onPickFollowUp,
   onRegenerate,
+  searchMatch,
+  activeSearchMatch,
 }: {
   readonly turn: Turn;
   readonly onPickFollowUp: (t: string) => void;
   readonly onRegenerate?: () => void;
+  readonly searchMatch: boolean;
+  readonly activeSearchMatch: boolean;
 }) {
   const isDeck = turn.role === "deck";
   return (
-    <article class={`deck-turn deck-turn-${turn.role}`}>
+    <article
+      id={`deck-turn-${turn.id}`}
+      class={`deck-turn deck-turn-${turn.role}${searchMatch ? " is-search-match" : ""}${activeSearchMatch ? " is-active-search-match" : ""}`}
+    >
       <header class="deck-turn-head">
         {turn.agent ? (
           <span class="deck-turn-role deck-turn-agent">

@@ -28,3 +28,8 @@ output "rule_watcher_job_id" {
   value       = azurerm_container_app_job.rule_watcher.id
 }
 
+output "inventory_job_id" {
+  description = "Scheduled inventory reconciliation job resource id, or null when disabled."
+  value       = try(azurerm_container_app_job.inventory[0].id, null)
+}
+

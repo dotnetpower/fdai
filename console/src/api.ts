@@ -15,6 +15,8 @@ import type {
   DashboardKpi,
   FinOpsPayload,
   HilQueuePage,
+  IncidentPage,
+  IncidentStatusFilter,
 } from "./types";
 
 export class ReadApiClient {
@@ -34,11 +36,24 @@ export class ReadApiClient {
     return this.#auth.getAuthorizationHeader();
   };
 
-  async listAudit(opts: { limit?: number; cursor?: string } = {}): Promise<AuditPage> {
+  async listAudit(opts: { limit?: number; cursor?: string; correlationId?: string } = {}): Promise<AuditPage> {
     const params = new URLSearchParams();
     if (opts.limit !== undefined) params.set("limit", String(opts.limit));
     if (opts.cursor !== undefined) params.set("cursor", opts.cursor);
+    if (opts.correlationId !== undefined) params.set("correlation_id", opts.correlationId);
     return decodeAuditPage(await this.#get<unknown>("/audit", params));
+  }
+
+  async listIncidents(opts: {
+    status?: IncidentStatusFilter;
+    limit?: number;
+    cursor?: string;
+  } = {}): Promise<IncidentPage> {
+    const params = new URLSearchParams();
+    if (opts.status !== undefined) params.set("status", opts.status);
+    if (opts.limit !== undefined) params.set("limit", String(opts.limit));
+    if (opts.cursor !== undefined) params.set("cursor", opts.cursor);
+    return decodeIncidentPage(await this.#get<unknown>("/incidents", params));
   }
 
   async dashboardMetrics(): Promise<DashboardKpi> {
@@ -155,6 +170,37 @@ export function decodeAuditPage(value: unknown): AuditPage {
   };
 }
 
+export function decodeIncidentPage(value: unknown): IncidentPage {
+  const root = apiRecord(value, "incident page");
+  if (!Array.isArray(root["items"])) throw contractError("incident page.items MUST be an array");
+  const cursor = root["next_cursor"];
+  if (cursor !== null && typeof cursor !== "string") {
+    throw contractError("incident page.next_cursor MUST be a string or null");
+  }
+  return {
+    items: root["items"].map((raw, index) => {
+      const item = apiRecord(raw, `incident page.items[${index}]`);
+      return {
+        correlation_id: apiString(item, "correlation_id", "incident item"),
+        incident_id: apiNullableString(item, "incident_id", "incident item"),
+        ticket_id: apiNullableString(item, "ticket_id", "incident item"),
+        title: apiString(item, "title", "incident item"),
+        severity: apiString(item, "severity", "incident item"),
+        status: apiIncidentStatus(item["status"]),
+        status_source: apiStatusSource(item["status_source"]),
+        disposition: apiString(item, "disposition", "incident item"),
+        verdict: apiString(item, "verdict", "incident item"),
+        vertical: apiString(item, "vertical", "incident item"),
+        opened_at: apiString(item, "opened_at", "incident item"),
+        last_updated_at: apiString(item, "last_updated_at", "incident item"),
+        latest_mode: apiMode(item["latest_mode"]),
+        history_count: apiPositiveInteger(item, "history_count", "incident item"),
+      };
+    }),
+    next_cursor: cursor,
+  };
+}
+
 export function decodeDashboardKpi(value: unknown): DashboardKpi {
   const root = apiRecord(value, "dashboard KPI");
   return {
@@ -251,4 +297,14 @@ function apiNumberRecord(value: unknown, label: string): Record<string, number> 
 function apiMode(value: unknown): "shadow" | "enforce" {
   if (value === "shadow" || value === "enforce") return value;
   throw contractError("audit item.mode MUST be shadow or enforce");
+}
+
+function apiIncidentStatus(value: unknown): "open" | "in_progress" | "resolved" {
+  if (value === "open" || value === "in_progress" || value === "resolved") return value;
+  throw contractError("incident item.status MUST be open, in_progress, or resolved");
+}
+
+function apiStatusSource(value: unknown): "incident_lifecycle" | "audit_projection" {
+  if (value === "incident_lifecycle" || value === "audit_projection") return value;
+  throw contractError("incident item.status_source MUST name a supported projection source");
 }

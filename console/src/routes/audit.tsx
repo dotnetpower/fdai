@@ -21,10 +21,17 @@ interface Props {
 
 const PAGE_SIZE = 25;
 
+function correlationFromHash(): string | null {
+  const query = window.location.hash.split("?", 2)[1];
+  if (!query) return null;
+  return new URLSearchParams(query).get("correlation");
+}
+
 export function AuditRoute({ client }: Props) {
   const [state, setState] = useState<AsyncState<Data>>({ status: "loading" });
   const [loadingMore, setLoadingMore] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [correlationId, setCorrelationId] = useState<string | null>(() => correlationFromHash());
   const mountedRef = useRef(true);
 
   useEffect(() => () => {
@@ -32,10 +39,20 @@ export function AuditRoute({ client }: Props) {
   }, []);
 
   useEffect(() => {
+    const sync = () => setCorrelationId(correlationFromHash());
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const page = await client.listAudit({ limit: PAGE_SIZE });
+        const page = await client.listAudit(
+          correlationId === null
+            ? { limit: PAGE_SIZE }
+            : { limit: PAGE_SIZE, correlationId },
+        );
         if (!cancelled) {
           setState({
             status: "ready",
@@ -54,17 +71,18 @@ export function AuditRoute({ client }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [client]);
+  }, [client, correlationId]);
 
   const loadMore = async (cursor: string): Promise<void> => {
     if (state.status !== "ready" || loadingMore || state.data.nextCursor !== cursor) return;
     setLoadingMore(true);
     setPageError(null);
     try {
-      const page: AuditPage = await client.listAudit({
-        limit: PAGE_SIZE,
-        cursor,
-      });
+      const page: AuditPage = await client.listAudit(
+        correlationId === null
+          ? { limit: PAGE_SIZE, cursor }
+          : { limit: PAGE_SIZE, cursor, correlationId },
+      );
       if (!mountedRef.current) return;
       setState((current) => current.status === "ready"
         ? { status: "ready", data: appendAuditPage(current.data, cursor, page) }
@@ -83,6 +101,11 @@ export function AuditRoute({ client }: Props) {
         title={t("route.audit")}
         subtitle="Append-only record of every terminal control-plane decision. Read-only; entries are never edited or deleted."
       />
+      {correlationId ? (
+        <p class="muted footnote">
+          {t("incidents.auditFilter", { correlation: correlationId })}
+        </p>
+      ) : null}
       <AsyncBoundary state={state} resourceLabel="audit log">
         {(data) => <AuditBody data={data} loadingMore={loadingMore} pageError={pageError} onLoadMore={loadMore} />}
       </AsyncBoundary>

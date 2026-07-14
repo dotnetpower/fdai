@@ -29,12 +29,15 @@ Contract highlights (see docs/roadmap/interfaces/user-rbac-and-identity.md § 6)
 
 from __future__ import annotations
 
+import base64
+import binascii
+import json
 from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from threading import Lock
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 _DEFAULT_LIMIT = 50
 _MAX_LIMIT = 500
@@ -90,6 +93,101 @@ class AuditPage:
             "items": [item.to_dict() for item in self.items],
             "next_cursor": self.next_cursor,
         }
+
+
+IncidentStatus = Literal["open", "in_progress", "resolved"]
+IncidentStatusFilter = Literal["active", "resolved", "all"]
+
+
+@dataclass(frozen=True, slots=True)
+class IncidentSummary:
+    """One durable incident projection keyed by ``correlation_id``."""
+
+    correlation_id: str
+    incident_id: str | None
+    ticket_id: str | None
+    title: str
+    severity: str
+    status: IncidentStatus
+    status_source: str
+    disposition: str
+    verdict: str
+    vertical: str
+    opened_at: str
+    last_updated_at: str
+    latest_mode: str
+    history_count: int
+    last_seq: int
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        data.pop("last_seq")
+        return data
+
+
+@dataclass(frozen=True, slots=True)
+class IncidentPage:
+    """One page of incident summaries plus an opaque continuation cursor."""
+
+    items: Sequence[IncidentSummary]
+    next_cursor: str | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "items": [item.to_dict() for item in self.items],
+            "next_cursor": self.next_cursor,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class IncidentCursor:
+    """Decoded incident keyset cursor bound to one immutable audit snapshot."""
+
+    snapshot_seq: int
+    before_seq: int
+    status: IncidentStatusFilter
+
+
+def encode_incident_cursor(cursor: IncidentCursor) -> str:
+    payload = json.dumps(
+        {
+            "v": 1,
+            "snapshot_seq": cursor.snapshot_seq,
+            "before_seq": cursor.before_seq,
+            "status": cursor.status,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return base64.urlsafe_b64encode(payload).rstrip(b"=").decode("ascii")
+
+
+def decode_incident_cursor(
+    value: str | None, *, status: IncidentStatusFilter
+) -> IncidentCursor | None:
+    if value is None or value == "":
+        return None
+    try:
+        padded = value + "=" * (-len(value) % 4)
+        raw = json.loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
+        if not isinstance(raw, dict) or raw.get("v") != 1:
+            raise ValueError
+        snapshot_seq = raw["snapshot_seq"]
+        before_seq = raw["before_seq"]
+        cursor_status = raw["status"]
+        if (
+            not isinstance(snapshot_seq, int)
+            or isinstance(snapshot_seq, bool)
+            or snapshot_seq < 0
+            or not isinstance(before_seq, int)
+            or isinstance(before_seq, bool)
+            or before_seq < 1
+            or cursor_status != status
+        ):
+            raise ValueError
+    except (binascii.Error, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError("invalid incident cursor or status mismatch") from exc
+    return IncidentCursor(snapshot_seq=snapshot_seq, before_seq=before_seq, status=status)
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +270,7 @@ class ConsoleReadModel(Protocol):
         *,
         limit: int = _DEFAULT_LIMIT,
         cursor: str | None = None,
+        correlation_id: str | None = None,
     ) -> AuditPage:
         """Return one page of audit items, newest first.
 
@@ -179,6 +278,16 @@ class ConsoleReadModel(Protocol):
         ceiling (see :data:`MAX_LIMIT`). ``cursor`` is opaque; a caller
         MUST NOT parse it.
         """
+        ...
+
+    async def list_incidents(
+        self,
+        *,
+        status: IncidentStatusFilter = "active",
+        limit: int = _DEFAULT_LIMIT,
+        cursor: str | None = None,
+    ) -> IncidentPage:
+        """Return incident-centric projections, newest activity first."""
         ...
 
     async def dashboard_metrics(self) -> DashboardKpi:
@@ -298,6 +407,7 @@ class InMemoryConsoleReadModel(ConsoleReadModel):
         *,
         limit: int = _DEFAULT_LIMIT,
         cursor: str | None = None,
+        correlation_id: str | None = None,
     ) -> AuditPage:
         bounded = clamp_limit(limit)
         # Cursor is the seq of the last item on the previous page. Newer
@@ -305,11 +415,47 @@ class InMemoryConsoleReadModel(ConsoleReadModel):
         cutoff = _parse_cursor(cursor)
         with self._lock:
             all_items = list(reversed(self._audit))
+        if correlation_id is not None:
+            from fdai.delivery.read_api.routes.incident_projection import correlate_audit_items
+
+            correlated = correlate_audit_items(reversed(all_items))
+            all_items = list(reversed(correlated.get(correlation_id, ())))
         if cutoff is not None:
             all_items = [i for i in all_items if i.seq < cutoff]
         page = all_items[:bounded]
         next_cursor = str(page[-1].seq) if len(all_items) > bounded and page else None
         return AuditPage(items=tuple(page), next_cursor=next_cursor)
+
+    async def list_incidents(
+        self,
+        *,
+        status: IncidentStatusFilter = "active",
+        limit: int = _DEFAULT_LIMIT,
+        cursor: str | None = None,
+    ) -> IncidentPage:
+        from fdai.delivery.read_api.routes.incident_projection import project_incidents
+
+        bounded = clamp_limit(limit)
+        decoded = decode_incident_cursor(cursor, status=status)
+        with self._lock:
+            snapshot_seq = decoded.snapshot_seq if decoded else self._seq
+            snapshot = tuple(item for item in self._audit if item.seq <= snapshot_seq)
+        summaries = project_incidents(snapshot, status=status)
+        if decoded is not None:
+            summaries = tuple(item for item in summaries if item.last_seq < decoded.before_seq)
+        page = summaries[:bounded]
+        next_cursor = (
+            encode_incident_cursor(
+                IncidentCursor(
+                    snapshot_seq=snapshot_seq,
+                    before_seq=page[-1].last_seq,
+                    status=status,
+                )
+            )
+            if len(summaries) > bounded and page
+            else None
+        )
+        return IncidentPage(items=page, next_cursor=next_cursor)
 
     async def dashboard_metrics(self) -> DashboardKpi:
         with self._lock:

@@ -15,6 +15,15 @@ restart. The real Postgres + Kafka adapters land with W1.5 and W6.3.
 from .blast_probe import NoOpBlastProbe
 from .break_glass_pager import InMemoryBreakGlassPager
 from .direct_api import RecordingDirectApiExecutor
+from .document_ingestion import (
+    InMemoryDocumentAccessProvider,
+    InMemoryDocumentArtifactStore,
+    InMemoryDocumentIndex,
+    InMemoryDocumentMetadataStore,
+    InMemoryDocumentObjectStore,
+    RecordingDocumentActivitySink,
+    StaticMalwareScanner,
+)
 from .event_bus import InMemoryEventBus
 from .hil_registry import InMemoryHilApprovalRegistry
 from .ontology_instance import InMemoryOntologyInstanceStore
@@ -29,6 +38,11 @@ from .tool import RecordingToolExecutor
 from .workload_identity import StaticWorkloadIdentity
 
 __all__ = [
+    "InMemoryDocumentAccessProvider",
+    "InMemoryDocumentArtifactStore",
+    "InMemoryDocumentIndex",
+    "InMemoryDocumentMetadataStore",
+    "InMemoryDocumentObjectStore",
     "InMemoryBreakGlassPager",
     "InMemoryEventBus",
     "InMemoryHilApprovalRegistry",
@@ -40,8 +54,10 @@ __all__ = [
     "InMemoryStateStore",
     "NoOpBlastProbe",
     "RecordingDirectApiExecutor",
+    "RecordingDocumentActivitySink",
     "RecordingRemediationPrPublisher",
     "RecordingStagePublisher",
     "RecordingToolExecutor",
     "StaticWorkloadIdentity",
+    "StaticMalwareScanner",
 ]

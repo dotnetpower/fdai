@@ -117,7 +117,12 @@ if [[ "$MODE" == "full" ]]; then
         if [[ -n "$PYTEST_PATH" ]]; then
             run_gate "pytest ($PYTEST_PATH)" pytest -q --no-cov "$PYTEST_PATH"
         else
-            run_gate "pytest (all)" pytest -q --no-cov
+            if [[ -n "${FDAI_DATABASE_URL:-}" ]]; then
+                run_gate "pytest (all)" pytest -q --no-cov
+            else
+                printf '%s\n' "verify.sh: FDAI_DATABASE_URL unset; skipping integration marker"
+                run_gate "pytest (no integration)" pytest -q --no-cov -m "not integration"
+            fi
         fi
     else
         echo "verify.sh: 'pytest' not found; activate .venv before --full" >&2

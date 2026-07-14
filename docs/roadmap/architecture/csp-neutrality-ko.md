@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 034f07233b77ac83575312d782ddae9cb3f59a43
-translation_revised: 2026-07-13
+translation_source_sha: fd57f5109b1d21ab62d5948365c4d8bfe6519994
+translation_revised: 2026-07-14
 ---
 
 # CSP-중립성 계약
@@ -304,6 +304,96 @@ executor 는 런타임 서브스트레이트에서 얻은 **짧은 수명의 OID
   인벤토리 sync 와 remediation 실행은 독립적 동시성 예산을 가진 별개 관심사.
 - 부분 delta 스트림만을 authoritative 로 신뢰; 다운된 이벤트를 잡으려면 주기 full-snapshot
   reconciliation 이 필수.
+
+### 제한적인 NSG egress 환경의 Azure 인벤토리
+
+NSG로 잠긴 서브넷 때문에 도달할 수 없는 디스커버리 소스가 빈 인벤토리로 바뀌면 안 됩니다.
+FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 단계로 취급하고 실패한 단계를
+기록합니다. 성공한 빈 스냅샷은 "범위에 리소스 없음"을 의미합니다. 차단된 엔드포인트, 토큰
+실패, 불완전한 페이지 집합, 사용할 수 없는 수집기는 "인벤토리 사용 불가"를 의미하며 마지막
+완전한 스냅샷을 유지합니다.
+
+#### 필수 네트워크 경로
+
+운영자 랩톱이 아니라 디스커버리를 실행할 서브넷과 아이덴티티에서 도달성 프로브를 실행하는
+것이 좋습니다. 정확한 규칙은 런타임과 Azure 클라우드에 따라 다르지만 배포에서는 다음 경로를
+고려합니다.
+
+| 목적 | 기본 경로 | 제한된 네트워크 옵션 | 참고 |
+|---|---|---|---|
+| ARG 및 ARM 관리 읽기 | Azure Resource Manager 엔드포인트로 HTTPS `:443` | `AzureResourceManager` 서비스 태그로 NSG egress 허용; 좁은 관리 엔드포인트 allowlist가 있는 Azure Firewall 또는 승인된 프록시를 통한 UDR; 대상 클라우드, 리전, 필수 ARG 작업이 지원하는 경우 Resource Management Private Link | 데이터 서비스용 private endpoint는 ARM 또는 ARG 연결을 제공하지 않습니다. Azure service endpoint는 ARM 관리 경로를 대체하지 않습니다. |
+| 워크로드 토큰 | 런타임 제공 managed identity 또는 workload identity 엔드포인트 | IMDS를 사용하는 경우 `AzurePlatformIMDS`를 포함한 런타임 플랫폼 아이덴티티 경로 허용; 앱 서브넷에서 토큰을 발급할 수 없으면 승인된 러너의 federated workload identity 사용 | 디스커버리만을 위해 광범위한 인터넷 egress나 client secret을 추가하지 않습니다. |
+| DNS | Azure 제공 DNS 또는 승인된 custom resolver | 해당되는 경우 `AzurePlatformDNS`를 포함한 런타임 플랫폼 DNS 경로 허용; hub resolver를 통해 필요한 public 또는 Private Link zone 전달 | 스캔을 시작하기 전에 엔드포인트 resolve 및 TLS 프로브를 실행합니다. DNS 성공만으로 도달성이 증명되지는 않습니다. |
+| 스냅샷 게시 | Private PostgreSQL 및 Event Hubs 경로 | 디스커버리 러너에서 private endpoint, VNet peering 또는 hub routing 사용 | 수집기는 public console endpoint를 통해 인벤토리를 보내지 않습니다. |
+
+서비스 태그와 Resource Management Private Link 기능은 Azure 클라우드에 따라 다를 수 있고
+시간이 지나면서 변경될 수 있습니다. 배포 preflight에서 effective route, DNS 응답, 지원되는
+작업을 확인하는 것이 좋습니다. 복사한 IP 범위보다 서비스 태그 또는 private 연결을 우선하고,
+Azure 엔드포인트와 클라이언트 trust model을 명시적으로 검증하지 않았다면 TLS interception을
+피합니다.
+
+#### 순서가 지정된 폴백 단계
+
+선언된 범위에 대해 완전하고 제한된 스냅샷을 생성할 수 있는 첫 번째 방법을 사용합니다. 전송
+방식이 바뀌어도 `Inventory` 계약은 바뀌지 않습니다.
+
+1. **런타임 서브넷의 ARG** - 명시적으로 허용된 ARM 관리 경로에서 managed identity로
+   샤딩된 `Resources` 쿼리를 실행합니다. 광범위한 리소스 간 디스커버리와 제한된 페이지
+   처리를 제공하므로 기본값으로 유지합니다.
+2. **연결된 디스커버리 작업의 ARG** - 애플리케이션 서브넷에 의도적으로 관리 평면 egress가
+   없다면 동일한 읽기 전용 어댑터를 VNet 통합 Container Apps Job 또는 self-hosted ops
+   runner로 이동합니다. 배치를 private state store 또는 Kafka ingress에 게시합니다.
+   이 작업에 console 또는 core executor identity를 부여하지 않습니다.
+3. **Resource Management Private Link 경로** - Azure가 필요한 ARG 호출을 지원하는 곳에서는
+   연결된 작업을 승인된 private endpoint 및 private DNS를 통해 라우팅합니다. Private DNS
+   resolve만으로 작업 지원을 증명할 수 없으므로 preflight에서 실제 제한된 ARG 쿼리를
+   실행합니다.
+4. **직접 ARM list 어댑터** - ARG를 사용할 수 없거나 freshness budget을 초과하면 등록된 각
+   resource provider 및 resource type을 제한된 페이지 단위 shard로 나열합니다. 어댑터는
+   동일한 resource 및 link record로 정규화하고 지원되지 않는 type을 coverage gap으로
+   보고합니다. Azure CLI와 Azure SDK client는 이 방법의 전송 수단이며 독립 인벤토리 소스가
+   아닙니다.
+5. **범위가 명시된 authoritative inventory** - coverage manifest가 authoritative로 선언한
+   resource type 및 subscription에만 Microsoft Defender for Cloud Inventory 또는 승인된
+   다른 Azure inventory projection을 사용합니다. 보조 finding은 전체 estate coverage를
+   의미하지 않습니다.
+6. **변경 스트림 연속성** - full-snapshot source를 일시적으로 사용할 수 없는 동안 Event
+   Hubs를 통해 전달된 Activity Log 변경을 계속 소비합니다. Delta는 알려진 리소스의
+   freshness를 유지하지만 graph를 bootstrap하거나 보이지 않는 리소스가 없음을 증명할 수
+   없습니다.
+7. **선언적 복구 스냅샷** - live management path를 사용할 수 없으면 승인된 Terraform
+   state/plan export, Azure deployment export 또는 서명된 declarative inventory file을
+   import합니다. 이를 `observed`가 아닌 `expected`로 표시하고 생성 시간과 범위를
+   첨부하며 읽기 전용 context에만 사용합니다. 자율 remediation을 승인할 수 없습니다.
+
+이 단계는 "모든 소스를 시도하고 행을 합치는 방식"이 아닙니다. 각 시도는 source,
+subscription 또는 management-group scope, resource type, 시작 및 완료 시간, 페이지 수,
+오류를 포함하는 coverage manifest를 생성합니다. FDAI는 선언된 모든 shard가 final fence에
+도달한 뒤에만 소스를 승격합니다. 우선순위가 낮은 소스는 선언된 coverage에서 사용할 수 없는
+소스를 대체할 수 있지만 알 수 없는 gap을 조용히 채우거나 더 최신 authoritative record를
+덮어쓸 수 없습니다.
+
+#### 실패 및 freshness 정책
+
+- **Preflight 우선:** schedule을 활성화하기 전에 token 발급, DNS, TCP/TLS, 제한된 쿼리 하나,
+  pagination, private projection write access를 검증합니다.
+- **실패 분류:** `network_blocked`, `dns_failed`, `token_failed`, `forbidden`, `throttled`,
+  `partial`, `source_unavailable`을 구분합니다. Zero-row 결과를 오류 폴백으로 사용하지 않습니다.
+- **마지막 정상 상태 유지:** 실패하거나 부분적인 스캔은 마지막 완전한 스냅샷을 유지하고
+  stale로 표시합니다. 빈 graph로 교체하지 않습니다.
+- **Autonomy 저하:** snapshot age가 설정된 freshness budget을 초과하면 graph 기반 blast
+  radius 결정과 부재 주장을 사람 검토로 이동합니다. 읽기 전용 화면은 source, age, scope,
+  degraded status를 표시하는 경우 stale graph를 사용할 수 있습니다.
+- **Principal 분리 유지:** discovery identity에는 선언된 scope의 최소 read permission만
+  부여합니다. Privileged executor, console identity, approval principal과 분리합니다.
+- **전환 감사:** source 선택, fallback 활성화, coverage 손실, 복구, snapshot promotion은
+  structured audit record와 metric을 생성합니다.
+
+예: NSG가 애플리케이션 서브넷에서 ARM으로 향하는 직접 egress를 거부합니다. Preflight는
+`network_blocked`를 보고하고 예약된 스캔은 VNet 통합 ops runner로 이동합니다. ARG는 hub의
+승인된 관리 경로를 통해 완료되고 최종 완전한 스냅샷만 승격됩니다. Runner도 도달성을 잃으면
+FDAI는 이전 graph를 유지하고 stale로 표시하며 blast-radius 종속 action을 사람 검토로
+라우팅합니다.
 
 ## 6. Metric Query 계약 - CSP-Neutral Sample Iterator
 

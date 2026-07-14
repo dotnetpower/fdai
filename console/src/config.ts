@@ -10,6 +10,8 @@
 export interface ConsoleConfig {
   /** Base URL of the read API (`https://api.<fork>/...`). */
   readonly readApiBaseUrl: string;
+  /** Base URL of the dedicated document-ingestion gateway. */
+  readonly ingestionApiBaseUrl: string;
   /** MSAL.js client id (Entra app registration for the SPA). */
   readonly msalClientId: string;
   /** MSAL.js tenant id (single-tenant per fork). */
@@ -36,6 +38,7 @@ function envVar(key: string, fallback = ""): string {
 export function loadConfig(): ConsoleConfig {
   return {
     readApiBaseUrl: envVar("VITE_READ_API_BASE_URL", "http://127.0.0.1:8000"),
+    ingestionApiBaseUrl: envVar("VITE_INGESTION_API_BASE_URL", "http://127.0.0.1:8010"),
     msalClientId: envVar("VITE_MSAL_CLIENT_ID"),
     msalTenantId: envVar("VITE_MSAL_TENANT_ID"),
     msalApiScope: envVar("VITE_MSAL_API_SCOPE"),

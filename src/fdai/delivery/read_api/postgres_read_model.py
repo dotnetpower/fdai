@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Final
 
 import psycopg
@@ -56,11 +56,139 @@ from fdai.delivery.read_api.read_model import (
     DashboardKpi,
     HilQueueItem,
     HilQueuePage,
+    IncidentCursor,
+    IncidentPage,
+    IncidentStatusFilter,
     clamp_limit,
+    decode_incident_cursor,
+    encode_incident_cursor,
 )
 
 DEFAULT_PENDING_STATUS: Final[str] = "pending"
 PARK_KEY_PREFIX: Final[str] = "hil_park:"
+INCIDENT_SUMMARY_HISTORY_LIMIT: Final[int] = 500
+
+_INCIDENT_PAGE_SQL: Final[str] = """
+WITH snapshot AS (
+        SELECT COALESCE(%(snapshot_seq)s, MAX(seq), 0) AS snapshot_seq
+            FROM audit_log
+),
+bounded_audit AS (
+        SELECT * FROM audit_log
+         WHERE seq <= (SELECT snapshot_seq FROM snapshot)
+),
+event_anchor AS (
+    SELECT event_id, MIN(correlation_id) AS correlation_id
+            FROM bounded_audit
+     WHERE correlation_id IS NOT NULL AND correlation_id <> ''
+     GROUP BY event_id
+    HAVING COUNT(DISTINCT correlation_id) = 1
+),
+incident_open_raw AS (
+    SELECT entry->>'incident_id' AS incident_id,
+           COALESCE(
+               correlation_id,
+               (
+                   SELECT CASE
+                       WHEN COUNT(DISTINCT SUBSTRING(value FROM 6)) = 1
+                       THEN MIN(SUBSTRING(value FROM 6))
+                       ELSE NULL
+                   END
+                     FROM jsonb_array_elements_text(
+                         CASE
+                             WHEN jsonb_typeof(entry->'correlation_keys') = 'array'
+                             THEN entry->'correlation_keys'
+                             ELSE '[]'::jsonb
+                         END
+                     ) AS value
+                    WHERE value LIKE 'corr:%%'
+               )
+           ) AS correlation_id
+      FROM bounded_audit
+     WHERE entry->>'kind' = 'incident.open'
+),
+incident_open AS (
+    SELECT incident_id, MIN(correlation_id) AS correlation_id
+      FROM incident_open_raw
+     WHERE correlation_id IS NOT NULL AND correlation_id <> ''
+     GROUP BY incident_id
+    HAVING COUNT(DISTINCT correlation_id) = 1
+),
+normalized AS (
+    SELECT a.*,
+           COALESCE(a.correlation_id, ea.correlation_id, io.correlation_id)
+               AS normalized_correlation_id,
+           CASE
+               WHEN a.entry->>'kind' = 'incident.transition' THEN a.entry->>'to_state'
+               WHEN a.entry->>'kind' = 'incident.open' THEN a.entry->>'state'
+               ELSE NULL
+           END AS lifecycle_state
+    FROM bounded_audit AS a
+      LEFT JOIN event_anchor AS ea ON ea.event_id = a.event_id
+      LEFT JOIN incident_open AS io ON io.incident_id = a.entry->>'incident_id'
+),
+ranked AS (
+    SELECT normalized.*,
+           ROW_NUMBER() OVER (
+               PARTITION BY normalized_correlation_id ORDER BY seq DESC
+           ) AS recent_rank,
+           ROW_NUMBER() OVER (
+               PARTITION BY normalized_correlation_id ORDER BY seq ASC
+           ) AS oldest_rank,
+           COUNT(*) OVER (
+               PARTITION BY normalized_correlation_id
+           ) AS group_history_count
+      FROM normalized
+),
+incident_groups AS (
+    SELECT normalized_correlation_id,
+           MAX(seq) AS last_seq,
+           COALESCE(
+               (ARRAY_AGG(lifecycle_state ORDER BY seq DESC)
+                   FILTER (WHERE lifecycle_state IS NOT NULL))[1],
+               CASE
+                   WHEN BOOL_OR(LOWER(COALESCE(entry->>'outcome', '')) IN (
+                       'resolved', 'remediated', 'mitigated',
+                       'rollback_succeeded', 'rollback_completed'
+                   )) THEN 'resolved'
+                   WHEN COUNT(*) > 1 OR BOOL_OR(
+                       LOWER(COALESCE(entry->>'pipeline_stage', entry->>'stage', ''))
+                           IN ('verify', 'gate', 'execute', 'escalate', 'hil')
+                       OR LOWER(COALESCE(entry->>'decision', entry->>'gate_decision', '')) = 'hil'
+                   ) THEN 'in_progress'
+                   ELSE 'open'
+               END
+           ) AS projected_state
+    FROM ranked
+     WHERE normalized_correlation_id IS NOT NULL
+       AND normalized_correlation_id <> ''
+     GROUP BY normalized_correlation_id
+),
+selected AS (
+    SELECT normalized_correlation_id, last_seq
+      FROM incident_groups
+    WHERE (%(before_seq)s IS NULL OR last_seq < %(before_seq)s)
+       AND (
+           %(status)s = 'all'
+           OR (%(status)s = 'resolved' AND projected_state IN ('resolved', 'closed'))
+           OR (%(status)s = 'active' AND projected_state NOT IN ('resolved', 'closed'))
+       )
+     ORDER BY last_seq DESC
+     LIMIT %(fetch)s
+)
+SELECT n.seq, n.event_id, n.correlation_id, n.actor, n.action_kind,
+       n.mode, n.entry, n.previous_hash, n.entry_hash, n.created_at,
+         n.normalized_correlation_id, s.last_seq AS group_last_seq,
+         n.group_history_count,
+    (SELECT snapshot_seq FROM snapshot) AS snapshot_seq
+  FROM selected AS s
+  JOIN ranked AS n
+    ON n.normalized_correlation_id = s.normalized_correlation_id
+ WHERE n.recent_rank <= %(summary_history_limit)s
+     OR n.oldest_rank = 1
+     OR n.lifecycle_state IS NOT NULL
+ ORDER BY s.last_seq DESC, n.seq ASC
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -302,6 +430,7 @@ class PostgresConsoleReadModel(ConsoleReadModel):
         *,
         limit: int = 50,
         cursor: str | None = None,
+        correlation_id: str | None = None,
     ) -> AuditPage:
         bounded = clamp_limit(limit)
         cutoff = _parse_cursor(cursor)
@@ -315,7 +444,48 @@ class PostgresConsoleReadModel(ConsoleReadModel):
         ) as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
-                if cutoff is None:
+                if correlation_id is not None and cutoff is None:
+                    cur = await conn.execute(
+                        """
+                        WITH unambiguous_events AS (
+                            SELECT event_id FROM audit_log GROUP BY event_id
+                            HAVING COUNT(DISTINCT correlation_id)
+                                FILTER (WHERE correlation_id IS NOT NULL) = 1
+                               AND MIN(correlation_id)
+                                FILTER (WHERE correlation_id IS NOT NULL) = %s
+                        )
+                        SELECT seq, event_id, correlation_id, actor, action_kind,
+                               mode, entry, previous_hash, entry_hash, created_at
+                          FROM audit_log
+                         WHERE correlation_id = %s
+                            OR event_id IN (SELECT event_id FROM unambiguous_events)
+                         ORDER BY seq DESC
+                         LIMIT %s
+                        """,
+                        (correlation_id, correlation_id, fetch),
+                    )
+                elif correlation_id is not None:
+                    cur = await conn.execute(
+                        """
+                        WITH unambiguous_events AS (
+                            SELECT event_id FROM audit_log GROUP BY event_id
+                            HAVING COUNT(DISTINCT correlation_id)
+                                FILTER (WHERE correlation_id IS NOT NULL) = 1
+                               AND MIN(correlation_id)
+                                FILTER (WHERE correlation_id IS NOT NULL) = %s
+                        )
+                        SELECT seq, event_id, correlation_id, actor, action_kind,
+                               mode, entry, previous_hash, entry_hash, created_at
+                          FROM audit_log
+                         WHERE seq < %s
+                           AND (correlation_id = %s
+                                OR event_id IN (SELECT event_id FROM unambiguous_events))
+                         ORDER BY seq DESC
+                         LIMIT %s
+                        """,
+                        (correlation_id, cutoff, correlation_id, fetch),
+                    )
+                elif cutoff is None:
                     cur = await conn.execute(
                         """
                         SELECT seq, event_id, correlation_id, actor, action_kind,
@@ -342,6 +512,91 @@ class PostgresConsoleReadModel(ConsoleReadModel):
         items = [row_to_audit_item(row) for row in rows[:bounded]]
         next_cursor = str(items[-1].seq) if len(rows) > bounded and items else None
         return AuditPage(items=tuple(items), next_cursor=next_cursor)
+
+    async def list_incidents(
+        self,
+        *,
+        status: IncidentStatusFilter = "active",
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> IncidentPage:
+        """Return a bounded incident roster derived from the audit ledger."""
+
+        from fdai.delivery.read_api.routes.incident_projection import project_incidents
+
+        if status not in {"active", "resolved", "all"}:
+            raise ValueError(f"invalid incident status filter: {status!r}")
+        bounded = clamp_limit(limit)
+        decoded = decode_incident_cursor(cursor, status=status)
+        fetch = bounded + 1
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            row_factory=dict_row,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as conn:
+            async with conn.transaction():
+                await self._set_statement_timeout(conn)
+                cur = await conn.execute(
+                    _INCIDENT_PAGE_SQL,
+                    {
+                        "snapshot_seq": decoded.snapshot_seq if decoded else None,
+                        "before_seq": decoded.before_seq if decoded else None,
+                        "status": status,
+                        "fetch": fetch,
+                        "summary_history_limit": INCIDENT_SUMMARY_HISTORY_LIMIT,
+                    },
+                )
+                rows = await cur.fetchall()
+
+        group_order: list[str] = []
+        grouped_rows: dict[str, list[AuditItem]] = {}
+        group_last_seq: dict[str, int] = {}
+        group_history_count: dict[str, int] = {}
+        snapshot_seq = decoded.snapshot_seq if decoded else 0
+        for row in rows:
+            snapshot_seq = int(row["snapshot_seq"])
+            correlation = str(row["normalized_correlation_id"])
+            if correlation not in grouped_rows:
+                group_order.append(correlation)
+                grouped_rows[correlation] = []
+                group_last_seq[correlation] = int(row["group_last_seq"])
+                group_history_count[correlation] = int(row["group_history_count"])
+            normalized_row = dict(row)
+            normalized_row["correlation_id"] = correlation
+            grouped_rows[correlation].append(row_to_audit_item(normalized_row))
+
+        visible_correlations = group_order[:bounded]
+        summaries_by_id = {
+            item.correlation_id: item
+            for item in project_incidents(
+                (
+                    audit_item
+                    for correlation in visible_correlations
+                    for audit_item in grouped_rows[correlation]
+                ),
+                status="all",
+            )
+        }
+        items = tuple(
+            replace(
+                summaries_by_id[correlation],
+                history_count=group_history_count[correlation],
+            )
+            for correlation in visible_correlations
+            if correlation in summaries_by_id
+        )
+        next_cursor = (
+            encode_incident_cursor(
+                IncidentCursor(
+                    snapshot_seq=snapshot_seq,
+                    before_seq=group_last_seq[visible_correlations[-1]],
+                    status=status,
+                )
+            )
+            if len(group_order) > bounded and visible_correlations
+            else None
+        )
+        return IncidentPage(items=items, next_cursor=next_cursor)
 
     async def dashboard_metrics(self) -> DashboardKpi:
         # KPI is scoped to the most recent window so the aggregation is

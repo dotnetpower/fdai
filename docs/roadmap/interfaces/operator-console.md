@@ -451,6 +451,16 @@ class ConversationSession:
 - **Day 1**: every turn (inbound + outbound + tool_call + tool_result +
   tier + escalation_trigger) writes one append-only audit entry with
   `action_kind=console.turn`. No new Postgres table.
+- **Web conversation navigation**: the Console SPA renders a conversation
+  list and a **New conversation** control. The list is a tab-scoped
+  `sessionStorage` index over isolated transcript caches, so switching threads
+  or reloading the tab restores completed turns without mixing agent-scoped
+  and general conversations. Operators can search the loaded transcript and
+  move between matching turns. **Clear cache** and **Remove cached
+  conversation** delete browser copies only; they never delete audit history.
+  This browser index is navigation state only; the append-only audit
+  projection remains the memory of record and closing the tab clears the
+  cache.
 - **Week 1**: `operator_memory` (already scaffolded by a parallel session
   under [`src/fdai/core/operator_memory/`](../../../src/fdai/core/operator_memory))
   becomes the store for **out-of-band operator preferences**: "this
@@ -839,9 +849,9 @@ discipline in [phase-0-instrumentation.md](../phases/phase-0-instrumentation.md)
   swap). The bot MUST include the same `approval_id` it puts in the URL.
 - Response: `200 {"queued": true, "audit_entry_id": "..."}`.
 
-This is the only exception to the "read API is 3 GET routes only"
-invariant currently enforced by the read-API tests; the invariant test
-gets a documented allow-listed POST once Week 1 lands. This does **not**
+This is a documented write-route exception to the read API's GET-only
+projection surface. The invariant test allow-lists this callback explicitly.
+This does **not**
 break the "console never executes" rule from
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md):
 the endpoint only *records an approval decision* into the existing HIL
@@ -880,6 +890,37 @@ answer "why did this happen" without a per-screen answerer:
 }
 ```
 
+### 13.5 Incident roster and remediation history
+
+The read-only SPA exposes a first-class **Now > Incidents** panel. It is the
+roster-first entry point for incident response: an operator can find active or
+resolved incidents before knowing a correlation id, select one, and inspect
+its remediation history. The existing Audit and Trace panels remain the
+record-level and end-to-end drill-down surfaces.
+
+The API contract is:
+
+| Route | Purpose |
+|-------|---------|
+| `GET /incidents?status=active|resolved|all&limit=<n>&cursor=<opaque>` | Return incident summaries newest activity first. |
+| `GET /audit?correlation_id=<id>&limit=<n>&cursor=<opaque>` | Return the selected incident's append-only history. |
+| `GET /audit/{correlation_id}/trace` | Reconstruct the ordered pipeline trace. |
+
+`correlation_id` is the incident key. The projection can attach a row without
+a top-level correlation only when its `event_id` or explicit incident
+lifecycle link resolves to exactly one correlation. Ambiguous rows stay
+unattached; the read model never invents an association from a resource name.
+Lifecycle state is authoritative when present. Otherwise the projection
+derives `open`, `in_progress`, or `resolved` from audit stages. A denied or
+failed remediation does not by itself claim that the underlying incident is
+resolved.
+
+The roster returns summaries only. It does not embed every audit row, and the
+cursor bounds each server-side page. Selection performs a separate filtered
+GET for history. Every route is Reader-gated and returns `405` for mutating
+verbs. The panel provides links to Audit and Trace but no execute, approve, or
+rollback button; those operations remain in remediation PRs and ChatOps.
+
 Contract rules (enforced by `console/src/routes/view-contract.test.ts`):
 
 - **Every publishing route MUST declare `purpose` and `glossary`**, composed
@@ -900,7 +941,7 @@ Contract rules (enforced by `console/src/routes/view-contract.test.ts`):
   same self-describing snapshot into its `console-tool` results is parallel
   follow-up work.
 
-### 13.5 Action submit - `POST /chat/action` (propose, never execute)
+### 13.6 Action submit - `POST /chat/action` (propose, never execute)
 
 The read-only deck answers questions; this is the ONE write-direction path -
 submitting an action the operator asked for (`restart vm-1`) into the typed

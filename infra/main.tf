@@ -153,6 +153,28 @@ module "identity" {
   tags                = local.tags
 }
 
+# Inventory discovery has read-only management-plane authority and is kept
+# separate from the privileged executor principal.
+module "inventory_identity" {
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-inventory"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = local.tags
+}
+
+resource "azurerm_role_assignment" "inventory_reader" {
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "Reader"
+  principal_id         = module.inventory_identity.principal_id
+}
+
+resource "azurerm_role_assignment" "inventory_acr_pull" {
+  scope                = module.container_registry.id
+  role_definition_name = "AcrPull"
+  principal_id         = module.inventory_identity.principal_id
+}
+
 # -----------------------------------------------------------------------
 # Per-vertical Managed Identities - phase-3 § Unified Control Loop.
 # Each vertical (Change / Resilience / FinOps) executes under its own MI
@@ -208,6 +230,12 @@ module "key_vault" {
   # Hardening knobs (default to dev posture; tighten via tfvars for prod).
   purge_protection_enabled   = var.kv_purge_protection_enabled
   soft_delete_retention_days = var.kv_soft_delete_retention_days
+}
+
+resource "azurerm_role_assignment" "inventory_kv_secrets_user" {
+  scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.inventory_identity.principal_id
 }
 
 # Key Vault private endpoint + private DNS (privatelink.vaultcore.azure.net).
@@ -396,17 +424,19 @@ resource "azurerm_key_vault_secret" "pattern_library_dsn" {
 # Compute - Container Apps env + core app + out-of-band job.
 # -----------------------------------------------------------------------
 module "compute" {
-  source                = "./modules/compute/container-apps"
-  env_name              = "cae-${var.workload}${local.full_suffix}"
-  core_app_name         = "ca-${var.workload}${local.full_suffix}-core"
-  oob_job_name          = "caj-${var.workload}${local.full_suffix}-oob"
-  rule_watcher_job_name = "caj-${var.workload}${local.full_suffix}-watcher"
-  location              = var.region
-  resource_group_name   = module.resource_group.name
-  log_workspace_id      = module.log_analytics.workspace_id
-  executor_identity_id  = module.identity.resource_id
-  image                 = var.core_image
-  max_replicas          = var.max_replicas
+  source                       = "./modules/compute/container-apps"
+  env_name                     = "cae-${var.workload}${local.full_suffix}"
+  core_app_name                = "ca-${var.workload}${local.full_suffix}-core"
+  oob_job_name                 = "caj-${var.workload}${local.full_suffix}-oob"
+  rule_watcher_job_name        = "caj-${var.workload}${local.full_suffix}-watcher"
+  location                     = var.region
+  resource_group_name          = module.resource_group.name
+  log_workspace_id             = module.log_analytics.workspace_id
+  executor_identity_id         = module.identity.resource_id
+  inventory_identity_id        = module.inventory_identity.resource_id
+  inventory_identity_client_id = module.inventory_identity.client_id
+  image                        = var.core_image
+  max_replicas                 = var.max_replicas
 
   # Private-networking: bind the Container App Environment to the delegated
   # infra subnet so the app's Key Vault references resolve the KV private
@@ -445,6 +475,10 @@ module "compute" {
   state_store_dsn_secret_id     = azurerm_key_vault_secret.state_store_dsn.id
   operator_memory_dsn_secret_id = azurerm_key_vault_secret.operator_memory_dsn.id
   pattern_library_dsn_secret_id = azurerm_key_vault_secret.pattern_library_dsn.id
+  inventory_dsn_secret_id       = azurerm_key_vault_secret.state_store_dsn.id
+  inventory_cron_expression     = var.inventory_cron_expression
+  inventory_sources             = var.inventory_sources
+  inventory_freshness_seconds   = var.inventory_freshness_seconds
 
   # DB-DR drill (opt-in; the fork toggles dr_drill_enabled + supplies the
   # source server ARM id once the runbook in docs/runbooks/db-dr-drill.md
@@ -488,6 +522,9 @@ module "compute" {
     azurerm_key_vault_secret.pattern_library_dsn,
     azurerm_role_assignment.executor_eventhubs_data_owner,
     azurerm_role_assignment.executor_acr_pull,
+    azurerm_role_assignment.inventory_reader,
+    azurerm_role_assignment.inventory_kv_secrets_user,
+    azurerm_role_assignment.inventory_acr_pull,
   ]
 }
 
@@ -600,6 +637,7 @@ module "read_api" {
   rbac_owners_group_id         = var.rbac_owners_group_id
   rbac_break_glass_group_id    = var.rbac_break_glass_group_id
   cors_allow_origins           = var.read_api_cors_allow_origins
+  inventory_freshness_seconds  = var.inventory_freshness_seconds
   tags                         = local.tags
 
   depends_on = [

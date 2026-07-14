@@ -110,6 +110,10 @@ resource "azurerm_container_app" "read_api" {
         name  = "FDAI_READ_API_CORS_ALLOW_ORIGINS"
         value = var.cors_allow_origins
       }
+      env {
+        name  = "FDAI_INVENTORY_FRESHNESS_SECONDS"
+        value = tostring(var.inventory_freshness_seconds)
+      }
     }
   }
 

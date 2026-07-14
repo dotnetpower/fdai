@@ -36,10 +36,12 @@ class ConsoleReadModelTraceReader:
         matches: list[AuditItem] = []
         cursor: str | None = None
         while True:
-            page = await self._read_model.list_audit(limit=self._page_size, cursor=cursor)
-            for item in page.items:
-                if item.correlation_id == correlation_id:
-                    matches.append(item)
+            page = await self._read_model.list_audit(
+                limit=self._page_size,
+                cursor=cursor,
+                correlation_id=correlation_id,
+            )
+            matches.extend(page.items)
             if not page.next_cursor or not page.items:
                 break
             cursor = page.next_cursor

@@ -153,7 +153,7 @@ class TestBuildApp:
 class TestReadOnlyInvariant:
     """The console API MUST NOT expose a mutating verb on any route."""
 
-    @pytest.mark.parametrize("path", ["/audit", "/kpi", "/hil-queue"])
+    @pytest.mark.parametrize("path", ["/audit", "/kpi", "/hil-queue", "/incidents"])
     @pytest.mark.parametrize("method", ["POST", "PUT", "DELETE", "PATCH"])
     def test_mutating_verbs_return_405(self, dev_env: None, path: str, method: str) -> None:
         del dev_env
@@ -168,7 +168,14 @@ class TestReadOnlyInvariant:
         del dev_env
         app, _ = _build_stack(dev_mode=True)
         registered = sorted(r.path for r in app.routes if hasattr(r, "path"))
-        assert registered == ["/audit", "/healthz", "/hil-queue", "/kpi"]
+        assert registered == [
+            "/audit",
+            "/audit/{correlation_id}/trace",
+            "/healthz",
+            "/hil-queue",
+            "/incidents",
+            "/kpi",
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -562,11 +569,18 @@ def _build_with_panels(
 class TestExtensionPanels:
     """The ``ReadPanel`` seam: forks add read-only routes without editing core."""
 
-    def test_no_panels_by_default_keeps_ui_minimal(self, dev_env: None) -> None:
+    def test_no_extra_panels_keeps_only_builtin_surfaces(self, dev_env: None) -> None:
         del dev_env
         app, _ = _build_stack(dev_mode=True)
         registered = sorted(r.path for r in app.routes if hasattr(r, "path"))
-        assert registered == ["/audit", "/healthz", "/hil-queue", "/kpi"]
+        assert registered == [
+            "/audit",
+            "/audit/{correlation_id}/trace",
+            "/healthz",
+            "/hil-queue",
+            "/incidents",
+            "/kpi",
+        ]
 
     def test_panel_registered_as_get_route(self, dev_env: None) -> None:
         del dev_env

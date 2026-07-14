@@ -57,7 +57,8 @@ from fdai.delivery.read_api.routes.hil_callback import (
     HilCallbackConfig,
     make_hil_callback_route,
 )
-from fdai.delivery.read_api.routes.panels import ReadPanel
+from fdai.delivery.read_api.routes.incidents import IncidentsPanel
+from fdai.delivery.read_api.routes.panels import PanelQueryError, ReadPanel
 from fdai.delivery.read_api.routes.webhook import make_webhook_route
 from fdai.delivery.read_api.streaming.agent_activity_emitter import (
     SyntheticAgentActivityEmitter,
@@ -84,7 +85,9 @@ from fdai.shared.providers.testing.sse import InMemorySseSink
 
 _LOGGER = logging.getLogger(__name__)
 
-_CORE_ROUTE_PATHS: frozenset[str] = frozenset({"/audit", "/kpi", "/hil-queue", "/healthz"})
+_CORE_ROUTE_PATHS: frozenset[str] = frozenset(
+    {"/audit", "/kpi", "/hil-queue", "/incidents", "/healthz"}
+)
 
 _READER_ROLES: tuple[Role, ...] = (Role.READER, Role.CONTRIBUTOR, Role.APPROVER, Role.OWNER)
 
@@ -513,7 +516,12 @@ def build_app(
             # line + downstream store lookup stay bounded.
             return _error(400, "cursor is too long")
         try:
-            page = await read_model.list_audit(limit=clamp_limit(limit), cursor=cursor)
+            correlation_id = request.query_params.get("correlation_id") or None
+            if correlation_id is not None and len(correlation_id) > 256:
+                return _error(400, "correlation_id MUST be at most 256 characters")
+            page = await read_model.list_audit(
+                limit=clamp_limit(limit), cursor=cursor, correlation_id=correlation_id
+            )
         except ValueError as exc:
             return _error(400, str(exc))
         _LOGGER.info("audit_page_served", extra={"actor": oid, "returned": len(page.items)})
@@ -544,7 +552,10 @@ def build_app(
     def _make_panel_handler(panel: ReadPanel) -> Callable[[Request], Awaitable[Response]]:
         async def get_panel(request: Request) -> Response:
             oid = await _authorize(request)
-            payload = await panel.render(params=dict(request.query_params))
+            try:
+                payload = await panel.render(params=dict(request.query_params))
+            except PanelQueryError as exc:
+                return _error(400, str(exc))
             _LOGGER.info("panel_served", extra={"actor": oid, "panel": panel.name})
             return JSONResponse(dict(payload))
 
@@ -571,6 +582,9 @@ def build_app(
         Route("/hil-queue", get_hil_queue, methods=["GET"]),
         Route("/healthz", healthz, methods=["GET"]),
     ]
+
+    incident_panel = IncidentsPanel(read_model)
+    routes.append(Route(incident_panel.path, _make_panel_handler(incident_panel), methods=["GET"]))
 
     # Fork-supplied panels: registered GET-only, after fail-fast validation
     # so a colliding or malformed path cannot ship a broken revision.
@@ -945,7 +959,14 @@ def build_app(
     )
 
     # Optional rule-fire trace viewer.
-    if resolved_config.trace_reader is not None:
+    trace_reader = resolved_config.trace_reader
+    if trace_reader is None:
+        from fdai.delivery.read_api.routes.rule_fire_trace_reader import (
+            ConsoleReadModelTraceReader,
+        )
+
+        trace_reader = ConsoleReadModelTraceReader(read_model)
+    if trace_reader is not None:
         from fdai.delivery.read_api.routes.rule_fire_trace import (
             make_rule_fire_trace_route,
         )
@@ -956,7 +977,7 @@ def build_app(
         # no conflict).
         routes.append(
             make_rule_fire_trace_route(
-                reader=resolved_config.trace_reader,
+                reader=trace_reader,
                 authorize=_authorize,
             )
         )
@@ -1070,12 +1091,6 @@ def build_app(
     dynamic_views.validate_route_method_collisions(routes)
 
     middleware: list[Middleware] = []
-    # Baseline security headers on every response. Cheap defence in depth;
-    # each header covers a class of well-known browser-side attacks
-    # (MIME sniffing, clickjacking, cross-window leaks) that Starlette
-    # does not add by default. `Cache-Control: no-store` prevents any
-    # intermediary from caching audit / KPI payloads that reflect the
-    # current control-plane state.
     middleware.append(
         Middleware(
             _SecurityHeadersMiddleware,
@@ -1098,9 +1113,6 @@ def build_app(
             )
         )
 
-    # Lifespan for the optional live emitter. Starlette collects
-    # per-app resources here so uvicorn / hypercorn / granian all handle
-    # startup + shutdown identically.
     from contextlib import asynccontextmanager
 
     @asynccontextmanager
@@ -1111,9 +1123,6 @@ def build_app(
             await agent_emitter.start()
         if agent_broadcaster is not None:
             await agent_broadcaster.run()
-        # Warm the latency router (if wired) so GET /chat/health reports the
-        # measured-fastest mini before the first operator turn. Fire-and-forget
-        # so startup is never blocked on LLM round-trips.
         bench_task = None
         chat_backend = resolved_config.chat
         if _is_routed_chat_backend(chat_backend):
@@ -1152,16 +1161,8 @@ def build_app(
     )
 
 
-# ---------------------------------------------------------------------------
-# Small helpers
-# ---------------------------------------------------------------------------
-
-
 def _is_routed_chat_backend(backend: object) -> bool:
-    """True when the chat backend is the latency-routed multi-candidate one.
-
-    Lazy import keeps ``chat`` optional for builds that never wire a narrator.
-    """
+    """Return whether the optional chat backend uses latency routing."""
     if backend is None:
         return False
     from fdai.delivery.read_api.routes.chat import LatencyRoutedChatBackend
@@ -1170,11 +1171,7 @@ def _is_routed_chat_backend(backend: object) -> bool:
 
 
 class _BadQueryError(ValueError):
-    """Raised inside ``get_*`` when a query string is malformed.
-
-    Caught locally and turned into a ``400`` response - the caller
-    should not see a stack trace for a typo in ``?limit=``.
-    """
+    """A query string is malformed and should become an HTTP 400 response."""
 
 
 def _parse_int_query(request: Request, name: str, *, default: int) -> int:

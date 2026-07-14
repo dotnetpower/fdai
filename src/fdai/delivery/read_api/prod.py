@@ -57,6 +57,10 @@ from fdai.core.rbac.resolver import GroupMapping, RoleResolver
 from fdai.core.reporting.composition import default_reporting_engine
 from fdai.core.reporting.datasources import AuditReader
 from fdai.core.views import ViewEngine, load_view_catalog
+from fdai.delivery.persistence.postgres_inventory_snapshot import (
+    PostgresInventoryGraphProvider,
+    PostgresInventorySnapshotStoreConfig,
+)
 from fdai.delivery.persistence.postgres_ontology import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
@@ -84,6 +88,7 @@ _DATABASE_URL_ENV: Final[str] = "FDAI_DATABASE_URL"
 _CORS_ORIGINS_ENV: Final[str] = "FDAI_READ_API_CORS_ALLOW_ORIGINS"
 _STATEMENT_TIMEOUT_ENV: Final[str] = "FDAI_READ_API_STATEMENT_TIMEOUT_MS"
 _CONNECT_TIMEOUT_ENV: Final[str] = "FDAI_READ_API_CONNECT_TIMEOUT_S"
+_INVENTORY_FRESHNESS_ENV: Final[str] = "FDAI_INVENTORY_FRESHNESS_SECONDS"
 _TENANT_ENV: Final[str] = "FDAI_ENTRA_TENANT_ID"
 _AUDIENCE_ENV: Final[str] = "FDAI_API_AUDIENCE"
 
@@ -353,6 +358,14 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         cors_allow_origins=cors_origins,
         ontology_object_types=object_types,
         ontology_link_types=link_types,
+        inventory_graph_provider=PostgresInventoryGraphProvider(
+            config=PostgresInventorySnapshotStoreConfig(
+                dsn=read_model._config.dsn,
+                freshness_budget_seconds=_parse_positive_int(env, _INVENTORY_FRESHNESS_ENV, 86_400),
+                statement_timeout_ms=read_model._config.statement_timeout_ms,
+                connect_timeout_s=read_model._config.connect_timeout_s,
+            )
+        ),
         reporting=reporting,
         process_views=process_views,
     )

@@ -12,6 +12,12 @@ no network), so tests + dev runs produce reproducible audit trails.
 
 from __future__ import annotations
 
+from fdai.shared.providers.local.document_ingestion import (
+    LocalDirectoryDocumentObjectStore,
+    SignatureProtectionInspector,
+    StandardLibraryDocumentExtractor,
+    UnavailableMalwareScanner,
+)
 from fdai.shared.providers.local.feasibility import (
     DenylistResourceTypeProbe,
     EgressDenylistProbe,
@@ -34,6 +40,10 @@ __all__ = [
     "FileFixtureInventory",
     "LocalWorkloadIdentity",
     "LocalWorkloadIdentityConfig",
+    "LocalDirectoryDocumentObjectStore",
+    "SignatureProtectionInspector",
+    "StandardLibraryDocumentExtractor",
+    "UnavailableMalwareScanner",
     "ToggleResolution",
     "load_inventory_fixture",
 ]
