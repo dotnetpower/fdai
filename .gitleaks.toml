@@ -1,0 +1,35 @@
+# FDAI gitleaks configuration.
+#
+# Extends the upstream default rule set (so every real secret pattern still
+# fires) and adds a path-scoped allowlist for tracked artifacts that are
+# high-entropy BY DESIGN and provably carry no secret material. Without this,
+# gitleaks raises recurring false positives on files the repo regenerates on
+# almost every commit, which is why the secret-scan job was failing so often.
+#
+# NOTE: gitleaks 8.x merges only the SINGULAR [allowlist] table when
+# `[extend] useDefault = true` is set; the plural [[allowlists]] array is
+# dropped during the default-config merge. Keep everything in one [allowlist].
+
+title = "FDAI gitleaks config"
+
+[extend]
+# Keep all built-in rules; we only add an allowlist, never remove detections.
+useDefault = true
+
+[allowlist]
+description = """
+Integrity artifacts that are high-entropy by design and carry no secrets:
+  - security/integrity/manifest.json - signed map of framework-surface file
+    paths to SHA-256 content hashes (public hashes, not credentials). It is
+    re-signed on every surface change, so its hashes tripped generic-api-key /
+    high-entropy on nearly every push.
+  - security/integrity/manifest.json.sig - detached Ed25519 signature.
+  - security/integrity/*.pub - Ed25519 PUBLIC verification key (safe to
+    commit; the private signing key stays in secrets/, gitignored, untracked).
+Scope stays narrow so real secrets anywhere else still fire.
+"""
+paths = [
+  '''security/integrity/manifest\.json''',
+  '''security/integrity/manifest\.json\.sig''',
+  '''security/integrity/.*\.pub''',
+]

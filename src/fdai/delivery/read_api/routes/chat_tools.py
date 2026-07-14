@@ -45,25 +45,27 @@ class ReadModelChatTools:
         if any(token.lower() in named_agents for token in _AGENT_TOKEN.findall(prompt)):
             return None
         if _HIL.search(prompt):
-            page = await self.read_model.list_hil_queue(limit=20)
+            hil_page = await self.read_model.list_hil_queue(limit=20)
             return {
                 "tool": "list_hil",
                 "authority": "server_read_model",
-                "result": page.to_dict(),
+                "result": hil_page.to_dict(),
             }
         if _AUDIT.search(prompt):
-            page = await self.read_model.list_audit(limit=20)
+            audit_page = await self.read_model.list_audit(limit=20)
             return {
                 "tool": "query_audit",
                 "authority": "server_read_model",
-                "result": page.to_dict(),
+                "result": audit_page.to_dict(),
             }
         if _INCIDENTS.search(prompt):
-            page = await self.read_model.list_incidents(status="all", limit=20, cursor=None)
+            incident_page = await self.read_model.list_incidents(
+                status="all", limit=20, cursor=None
+            )
             return {
                 "tool": "list_incidents",
                 "authority": "server_read_model",
-                "result": page.to_dict(),
+                "result": incident_page.to_dict(),
             }
         if _KPI.search(prompt):
             metrics = await self.read_model.dashboard_metrics()

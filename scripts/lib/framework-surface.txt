@@ -1,0 +1,26 @@
+# framework-surface.txt - the single source of truth for the FDAI framework
+# surface: the set of paths a downstream fork MUST NOT edit (it customizes by
+# dependency injection at a composition root instead).
+#
+# This file is consumed by:
+#   - scripts/check-protected-paths.sh   (fork edit guard: warn upstream / block fork)
+#   - scripts/gen-integrity-manifest.py  (tamper-evident signed manifest)
+#   - scripts/check-integrity.sh         (offline signature + content verification)
+#
+# Keep in sync with:
+#   - docs/roadmap/fork-and-sequencing/downstream-fork-guide.md § 3 (the one hard rule)
+#   - docs/roadmap/architecture/project-structure.md § Customization via Dependency Injection
+#   - .github/instructions/agent-pantheon.instructions.md (fork-locked agents)
+#   - .github/CODEOWNERS (the review-time counterpart)
+#
+# Format: one entry per line, '#' comments and blank lines ignored.
+#   - an entry ending in '/' is a DIRECTORY PREFIX (matches any file beneath it)
+#   - any other entry is matched EXACTLY (so 'composition.py' never matches
+#     'composition.py.bak')
+src/fdai/core/
+src/fdai/composition.py
+src/fdai/shared/providers/
+src/fdai/shared/contracts/
+src/fdai/agents/
+rule-catalog/schema/
+.github/instructions/

@@ -40,8 +40,8 @@ _CAUSAL_RE: Final = re.compile(
     re.IGNORECASE,
 )
 _SCOPE_RE: Final = re.compile(
-    r"\b(?:no|none|all|never|always)\b"
-    r"|\uc5c6\uc2b5\ub2c8\ub2e4|\uc5c6\ub2e4|\ubaa8\ub4e0|\uc804\ubd80",
+    r"\b(?:no|none)\b"
+    r"|\uc5c6\uc2b5\ub2c8\ub2e4|\uc5c6\ub2e4",
     re.IGNORECASE,
 )
 _SCREEN_ABSENCE_RE: Final = re.compile(
@@ -378,7 +378,7 @@ def _append_entry(
         identifier = _ID_RE.fullmatch(raw.strip())
         timestamp = _normalize_timestamp(raw)
         percentage = _PERCENT_RE.fullmatch(raw.strip())
-        number = _NUMBER_RE.fullmatch(raw.strip())
+        number_match = _NUMBER_RE.fullmatch(raw.strip())
         if identifier is not None:
             kind = "id"
             normalized = raw.strip()
@@ -388,7 +388,7 @@ def _append_entry(
         elif percentage is not None:
             kind = "percentage"
             normalized = _normalize_claim_value("percentage", raw) or _normalize_text(raw)
-        elif number is not None:
+        elif number_match is not None:
             kind = "number"
             normalized = _normalize_number(raw) or _normalize_text(raw)
         else:
@@ -460,9 +460,9 @@ def _append_entry(
                 )
             )
     if kind == "number" and _is_ratio_field(field):
-        number = _decimal(raw)
-        if number is not None and Decimal("0") <= number <= Decimal("1"):
-            percent = _normalize_number(str(number * 100))
+        ratio_value = _decimal(raw)
+        if ratio_value is not None and Decimal("0") <= ratio_value <= Decimal("1"):
+            percent = _normalize_number(str(ratio_value * 100))
             if percent is not None:
                 entries.append(
                     EvidenceEntry(

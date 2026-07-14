@@ -1,7 +1,13 @@
 .git/
 .github/
 .venv/
-tests/
+# Exclude the test tree from the build context EXCEPT tests/scenarios/, which
+# the runtime image ships so the frozen-scenario replay / measurement path can
+# run inside the container (see Dockerfile: COPY tests/scenarios/). Use
+# `tests/*` (not `tests/`) so the directory stays traversable and the
+# re-include exception below actually applies.
+tests/*
+!tests/scenarios/
 docs/
 site/
 infra/

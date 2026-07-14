@@ -196,6 +196,19 @@ def test_latest_and_only_wording_do_not_create_global_scope_claims() -> None:
     assert [claim.kind for claim in result.claims] == ["number"]
 
 
+def test_korean_universal_screen_description_is_qualitative_prose() -> None:
+    result = verify_screen_claims(
+        (
+            "이 화면은 모든 콘솔 표시 설정을 보여주며, 모든 변경은 브라우저 "
+            "로컬에만 저장됩니다. 런타임 주소는 http://127.0.0.1:8010입니다."
+        ),
+        _context(facts=[{"key": "read_api", "value": "http://127.0.0.1:8010"}]),
+    )
+
+    assert result.supported is True
+    assert [claim.kind for claim in result.claims] == ["number", "number"]
+
+
 def test_no_approver_details_targets_only_approver_evidence() -> None:
     result = verify_screen_claims(
         "The trace has 5 steps, but no approver details are present.",
@@ -225,7 +238,7 @@ def test_collects_server_tool_evidence_with_server_authority() -> None:
 
 
 def test_collects_agent_answer_and_contributor_evidence() -> None:
-    correlation = "conv-9c31ab02-a145-4211-b717-c93015318fce"
+    correlation = "conv-00000000-0000-0000-0000-000000000000"
     result = verify_screen_claims(
         f"Run {correlation} is complete; the anomaly ratio is 1.5.",
         {
