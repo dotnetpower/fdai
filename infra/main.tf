@@ -571,3 +571,40 @@ module "console" {
   tags                = local.tags
 }
 
+# -----------------------------------------------------------------------
+# Operator console read API (opt-in) - Azure Container App serving
+# `fdai.delivery.read_api.prod:app` with external ingress so the console
+# SPA can call it cross-origin. Enforces Entra JWT + RBAC group resolution.
+# Shares the executor MI + Container Apps Environment with the core app.
+# A manual-trigger migration job runs `alembic upgrade head`. Tenant-specific
+# Entra/RBAC ids arrive via CI Variables (never committed).
+# -----------------------------------------------------------------------
+module "read_api" {
+  count  = var.enable_read_api ? 1 : 0
+  source = "./modules/read-api/container-app"
+
+  name                         = "ca-${var.workload}${local.full_suffix}-readapi"
+  migrate_job_name             = "caj-${var.workload}${local.full_suffix}-migrate"
+  container_app_environment_id = module.compute.environment_id
+  location                     = var.region
+  resource_group_name          = module.resource_group.name
+  image                        = var.read_api_image == "" ? var.core_image : var.read_api_image
+  executor_identity_id         = module.identity.resource_id
+  acr_login_server             = module.container_registry.login_server
+  state_store_dsn_secret_id    = azurerm_key_vault_secret.state_store_dsn.id
+  entra_tenant_id              = var.tenant_id
+  api_audience                 = var.read_api_audience
+  rbac_readers_group_id        = var.rbac_readers_group_id
+  rbac_contributors_group_id   = var.rbac_contributors_group_id
+  rbac_approvers_group_id      = var.rbac_approvers_group_id
+  rbac_owners_group_id         = var.rbac_owners_group_id
+  rbac_break_glass_group_id    = var.rbac_break_glass_group_id
+  cors_allow_origins           = var.read_api_cors_allow_origins
+  tags                         = local.tags
+
+  depends_on = [
+    azurerm_key_vault_secret.state_store_dsn,
+    azurerm_role_assignment.executor_acr_pull,
+  ]
+}
+

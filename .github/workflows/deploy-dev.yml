@@ -35,6 +35,10 @@ on:
         description: "Provision the operator console Static Web App (enable_console)."
         type: boolean
         default: false
+      deploy_read_api:
+        description: "Provision the console read-API Container App + migration job (enable_read_api)."
+        type: boolean
+        default: false
       production_core_image:
         description: "Prod-only signed image reference pinned by sha256 digest."
         type: string
@@ -78,6 +82,17 @@ jobs:
       TF_VAR_enable_private_networking: "true"
       TF_VAR_enable_private_postgres: ${{ inputs.environment == 'prod' }}
       TF_VAR_enable_console: ${{ inputs.deploy_console }}
+      TF_VAR_enable_read_api: ${{ inputs.deploy_read_api }}
+      # Read-API image + Entra/RBAC ids (tenant-specific; via repo Variables,
+      # never committed). Empty when deploy_read_api is false.
+      TF_VAR_read_api_image: ${{ vars.READ_API_IMAGE }}
+      TF_VAR_read_api_audience: ${{ vars.READ_API_AUDIENCE }}
+      TF_VAR_rbac_readers_group_id: ${{ vars.RBAC_READERS_GROUP_ID }}
+      TF_VAR_rbac_contributors_group_id: ${{ vars.RBAC_CONTRIBUTORS_GROUP_ID }}
+      TF_VAR_rbac_approvers_group_id: ${{ vars.RBAC_APPROVERS_GROUP_ID }}
+      TF_VAR_rbac_owners_group_id: ${{ vars.RBAC_OWNERS_GROUP_ID }}
+      TF_VAR_rbac_break_glass_group_id: ${{ vars.RBAC_BREAK_GLASS_GROUP_ID }}
+      TF_VAR_read_api_cors_allow_origins: ${{ vars.READ_API_CORS_ALLOW_ORIGINS }}
       TF_VAR_runner_vnet_id: ${{ vars.OPS_VNET_ID }}
       TF_VAR_runner_vnet_name: ${{ vars.OPS_VNET_NAME }}
       TF_VAR_ops_resource_group_name: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
@@ -167,3 +182,28 @@ jobs:
       - name: Terraform apply
         if: ${{ inputs.apply }}
         run: terraform apply -input=false -lock-timeout=300s dev.plan
+
+      - name: Run schema migration
+        if: ${{ inputs.apply && inputs.deploy_read_api }}
+        run: |
+          set -euo pipefail
+          job="$(terraform output -raw read_api_migrate_job_name)"
+          if [ -z "$job" ]; then
+            echo "no migration job (enable_read_api produced no output); skipping."
+            exit 0
+          fi
+          rg="$(terraform output -raw resource_group_name)"
+          echo "starting migration job $job in $rg..."
+          az containerapp job start --name "$job" --resource-group "$rg" >/dev/null
+          # Poll the latest execution to completion (idempotent: no-op at head).
+          for _ in $(seq 1 30); do
+            exec_name="$(az containerapp job execution list --name "$job" --resource-group "$rg" \
+              --query "sort_by([], &properties.startTime)[-1].name" -o tsv 2>/dev/null || true)"
+            status="$(az containerapp job execution show --name "$job" --resource-group "$rg" \
+              --job-execution-name "$exec_name" --query "properties.status" -o tsv 2>/dev/null || echo Running)"
+            echo "migration status: $status"
+            [ "$status" = "Succeeded" ] && exit 0
+            [ "$status" = "Failed" ] && { echo "migration failed"; exit 1; }
+            sleep 12
+          done
+          echo "migration did not complete in time"; exit 1

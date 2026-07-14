@@ -325,6 +325,65 @@ variable "console_region" {
 }
 
 # ---------------------------------------------------------------------------
+# Operator console read API (layer 3 backend) - Azure Container App serving
+# `fdai.delivery.read_api.prod:app`. Default off so the day-zero deploy stays
+# headless. Tenant-specific Entra/RBAC ids are supplied via CI Variables.
+# ---------------------------------------------------------------------------
+variable "enable_read_api" {
+  description = "Provision the console read-API Container App + migration job. Default false so the day-zero deploy stays headless."
+  type        = bool
+  default     = false
+}
+
+variable "read_api_image" {
+  description = "Container image for the read API (the fdai runtime image built with the `serve` extra, e.g. `<acr>/fdai:dev`). Empty falls back to core_image, which is only valid if that image carries uvicorn + alembic."
+  type        = string
+  default     = ""
+}
+
+variable "read_api_audience" {
+  description = "Read-API App ID URI (FDAI_API_AUDIENCE), e.g. `api://<fdai-api-guid>`. Supplied via CI Variables; never committed."
+  type        = string
+  default     = ""
+}
+
+variable "rbac_readers_group_id" {
+  description = "Entra security group id mapped to Reader (FDAI_RBAC_READERS_GROUP_ID). Via CI Variables."
+  type        = string
+  default     = ""
+}
+
+variable "rbac_contributors_group_id" {
+  description = "Entra security group id mapped to Contributor. Via CI Variables."
+  type        = string
+  default     = ""
+}
+
+variable "rbac_approvers_group_id" {
+  description = "Entra security group id mapped to Approver. Via CI Variables."
+  type        = string
+  default     = ""
+}
+
+variable "rbac_owners_group_id" {
+  description = "Entra security group id mapped to Owner. Via CI Variables."
+  type        = string
+  default     = ""
+}
+
+variable "rbac_break_glass_group_id" {
+  description = "Entra security group id mapped to break-glass. Via CI Variables."
+  type        = string
+  default     = ""
+}
+
+variable "read_api_cors_allow_origins" {
+  description = "Comma-separated allowed origins for the console SPA (e.g. the Static Web App origin). MUST NOT contain `*` outside dev."
+  type        = string
+  default     = ""
+}
+
+# ---------------------------------------------------------------------------
 # Hardening knobs (root-exposed; default to the day-zero/dev posture so the
 # live env is unchanged, tighten for staging/prod via tfvars). See the
 # production-hardening checklist in docs/roadmap/deployment/deploy-and-onboard.md.

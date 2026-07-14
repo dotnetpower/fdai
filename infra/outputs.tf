@@ -155,3 +155,13 @@ output "console_static_web_app_id" {
   description = "Operator console Static Web App resource id (empty string when enable_console = false). Used to fetch the deployment token for the console/dist/ upload."
   value       = length(module.console) > 0 ? module.console[0].static_web_app_id : ""
 }
+
+output "read_api_fqdn" {
+  description = "Console read-API Container App ingress FQDN (empty string when enable_read_api = false). Wire into the console build as VITE_READ_API_BASE_URL=https://<fqdn>."
+  value       = length(module.read_api) > 0 ? module.read_api[0].fqdn : ""
+}
+
+output "read_api_migrate_job_name" {
+  description = "Schema-migration Container Apps Job name (empty string when enable_read_api = false). Start it after apply to run `alembic upgrade head`."
+  value       = length(module.read_api) > 0 ? module.read_api[0].migrate_job_name : ""
+}
