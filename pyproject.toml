@@ -113,6 +113,15 @@ dev = [
     "uvicorn>=0.32,<1",
 ]
 
+# Production ASGI server for the read-only console API
+# (`fdai.delivery.read_api.prod:app`). Kept as an opt-in extra so the
+# headless core image stays minimal; the console-serving image installs
+# it with `uv sync --extra serve`. A fork MAY swap this for another ASGI
+# server per its container-runtime policy.
+serve = [
+    "uvicorn>=0.32,<1",
+]
+
 [project.urls]
 Homepage = "https://github.com/dotnetpower/fdai"
 Documentation = "https://github.com/dotnetpower/fdai/blob/main/docs/roadmap/README.md"

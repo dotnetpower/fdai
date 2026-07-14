@@ -368,6 +368,9 @@ dev = [
     { name = "types-pyyaml" },
     { name = "uvicorn" },
 ]
+serve = [
+    { name = "uvicorn" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -392,8 +395,9 @@ requires-dist = [
     { name = "types-jsonschema", marker = "extra == 'dev'", specifier = ">=4.23,<5" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0,<7" },
     { name = "uvicorn", marker = "extra == 'dev'", specifier = ">=0.32,<1" },
+    { name = "uvicorn", marker = "extra == 'serve'", specifier = ">=0.32,<1" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["dev", "serve"]
 
 [[package]]
 name = "filelock"

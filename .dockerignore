@@ -11,8 +11,9 @@ mocks/
 examples/
 tools/
 scripts/
-alembic/
-alembic.ini
+# alembic migrations ARE shipped in the runtime image so a one-off
+# Container Apps Job can run `alembic upgrade head` against the state
+# store (see Dockerfile runtime stage). Do not exclude them.
 *.md
 !/rule-catalog/README.md
 !/policies/README.md
