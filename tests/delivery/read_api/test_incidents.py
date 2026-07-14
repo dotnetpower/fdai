@@ -168,9 +168,7 @@ async def test_incident_cursor_holds_snapshot_across_concurrent_updates() -> Non
             "stage": "execute",
         }
     )
-    second = await model.list_incidents(
-        status="all", limit=2, cursor=first.next_cursor
-    )
+    second = await model.list_incidents(status="all", limit=2, cursor=first.next_cursor)
     assert [item.correlation_id for item in second.items] == ["corr-0"]
 
 

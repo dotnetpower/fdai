@@ -154,8 +154,7 @@ class AzureArmInventoryFactory:
             for row_index, row in enumerate(rows):
                 if not isinstance(row, Mapping):
                     raise ArmInventoryError(
-                        f"ARM row {row_index} is not an object for {resource_type!r} "
-                        f"(page {page})"
+                        f"ARM row {row_index} is not an object for {resource_type!r} (page {page})"
                     )
                 if not isinstance(row.get("id"), str) or not row["id"]:
                     raise ArmInventoryError(
@@ -217,7 +216,7 @@ def _neutral_id(arm_id: str) -> str:
     if index < 0:
         suffix = "/".join(parts[2:] if parts[:1] == ["subscriptions"] else parts)
         return f"scope-{scope}/{suffix}"
-    return f"scope-{scope}/resource-group{lowered[index + len(marker) - 1:]}"
+    return f"scope-{scope}/resource-group{lowered[index + len(marker) - 1 :]}"
 
 
 def _resource_group_link(record: ResourceRecord) -> LinkRecord | None:

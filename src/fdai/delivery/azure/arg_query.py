@@ -402,9 +402,7 @@ def _to_neutral_id(arm_id: str) -> str:
 def _scope_prefix(arm_id: str) -> str:
     parts = [part for part in arm_id.strip("/").split("/") if part]
     subscription = (
-        parts[1].lower()
-        if len(parts) > 1 and parts[0].lower() == "subscriptions"
-        else "unknown"
+        parts[1].lower() if len(parts) > 1 and parts[0].lower() == "subscriptions" else "unknown"
     )
     digest = hashlib.sha256(subscription.encode("utf-8")).hexdigest()[:16]
     return f"scope-{digest}"
