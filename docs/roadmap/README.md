@@ -69,6 +69,7 @@ build. Read the reference docs first, then the phases in order.
 | 13 | [operating-and-verification.md](operations/operating-and-verification.md) | self-health signals, canary event, smoke tests, alert routing, runbooks |
 | 20 | [deployment-preflight.md](deployment/deployment-preflight.md) | pre-deployment feasibility and blocker collection: probe taxonomy, readiness report, blocker-to-terraform-toggle mapping |
 | 20a | [preflight-active-reassembly.md](deployment/preflight-active-reassembly.md) | active plan reassembly: turn a policy blocker into a re-rendered terraform plan via capability-mode toggles, delivered as a remediation PR through the executor (convergence loop, stop-conditions, limits) |
+| 20b | [installable-deployment-cli.md](deployment/installable-deployment-cli.md) | installable `fdaictl` facade: isolated `uv` installation, read-only preflight, signed deployment bundles, and exact-plan submission to the private runner |
 | 21 | [assurance-twin.md](operations/assurance-twin.md) | queryable ontology twin for architecture review / Q&A / assessment: text-to-query, proactive review, whole-graph what-if, shadow proposals |
 | 22 | [operational-readiness.md](operations/operational-readiness.md) | dev-to-ops handoff gate: ownership-transfer trigger, whole-scope RBAC / policy / reliability review, ReadinessReport, environment-promotion gate |
 

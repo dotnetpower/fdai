@@ -17,8 +17,10 @@ All identifiers are synthetic per
 > The day-zero service tiers and counts are decided in
 > [Azure Resource Inventory](#azure-resource-inventory-minimum-set). A fork confirms the
 > region, quota, retention, replica caps, and production tier overrides before deployment.
-> The **entry command is decided**: `terraform apply` against `infra/` (Terraform HCL) - see
-> [tech-stack.md § OD-1](../architecture/tech-stack.md#od-1-core-runtime-language) and
+> The **execution engine is decided**: `terraform apply` against `infra/` (Terraform HCL).
+> The planned operator entry point is the installable `fdaictl` facade, which keeps Terraform
+> as the source of truth and submits plan and apply work to the approved runner. See
+> [Installable Deployment CLI](installable-deployment-cli.md) and
 > [Deployment Artifacts](#deployment-artifacts).
 
 ## Prerequisites
@@ -140,9 +142,10 @@ action.
   the previous OD (`azd up` vs `terraform apply` vs a wrapper). Environment values are supplied
   via `*.tfvars` files that are **never committed** (per
   [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md));
-  a small wrapper script MAY orchestrate `init → plan → apply → post-provision checks`, but the
-  entry command remains Terraform. Bicep and OpenTofu remain compatible fallbacks per
-  [tech-stack.md](../architecture/tech-stack.md).
+  the planned [`fdaictl`](installable-deployment-cli.md) wrapper orchestrates
+  `init -> plan -> preflight -> remote apply -> post-provision checks`, while Terraform remains
+  the execution engine and infrastructure source of truth. Bicep and OpenTofu remain compatible
+  fallbacks per [tech-stack.md](../architecture/tech-stack.md).
 - Same signed image is promoted `dev → staging → prod`; nothing is rebuilt per environment
   ([deployment.md](deployment.md)).
 
@@ -517,9 +520,10 @@ results from these principles is in [cost-model.md](../interfaces/cost-model.md)
 
 ## Open Decisions
 
-- [x] Entry command - **resolved: `terraform apply` against `infra/` (Terraform HCL)**. A
-      thin wrapper script MAY orchestrate `init → plan → apply → post-provision checks`, but
-      the entry point is Terraform. See [Deployment Artifacts](#deployment-artifacts).
+- [x] Deployment interface - **resolved: Terraform is the execution engine; the planned
+  operator interface is `fdaictl`**. The installable CLI runs read-only preflight and
+  submits exact-plan work to the approved runner without replacing Terraform. See
+  [Installable Deployment CLI](installable-deployment-cli.md).
 - [ ] Concrete tier values within the minimum set (PostgreSQL storage size, Log Analytics
       daily cap, ACR retention window, Event Hubs throughput-unit ceiling).
 - [ ] Region choice and the single-zone deployment posture (multi-zone deferred to Phase 4).

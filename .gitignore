@@ -293,3 +293,4 @@ resolved-models*.json
 
 # Validation script artifacts (scripts/validate-catalog-full.py)
 logs/validation/
+tmp/
