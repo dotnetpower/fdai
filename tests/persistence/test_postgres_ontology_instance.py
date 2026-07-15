@@ -76,6 +76,7 @@ def _store() -> PostgresOntologyInstanceStore:
 
 
 async def test_postgres_ontology_round_trip_and_traversal() -> None:
+    _requires_live_db()
     _upgrade_head()
     store = _store()
     suffix = uuid.uuid4().hex

@@ -45,6 +45,7 @@ def _upgrade_head() -> None:
 
 
 async def test_postgres_process_create_transition_and_replay() -> None:
+    _requires_live_db()
     _upgrade_head()
     store = PostgresProcessRuntimeStore(
         config=PostgresProcessRuntimeStoreConfig(dsn=_requires_live_db())
