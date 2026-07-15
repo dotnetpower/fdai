@@ -178,9 +178,7 @@ class TestAuditDataSource:
                 "rca_recommendations": [
                     {"priority": "P0", "action": "Add connection headroom preflight"}
                 ],
-                "rca_limitations": [
-                    {"limitation": "Retry volume was sampled", "status": "open"}
-                ],
+                "rca_limitations": [{"limitation": "Retry volume was sampled", "status": "open"}],
                 "recorded_at": _NOW.isoformat(),
             },
             action_kind="rca.hypothesis",

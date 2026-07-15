@@ -1,7 +1,7 @@
 {
   // FDAI developer tasks. The two folderOpen tasks make trunk-based
   // (no-branch) collaboration safe out of the box:
-  //   - "hooks: install" wires the shared .githooks/pre-push gate.
+  //   - "hooks: install" wires the shared pre-commit and pre-push gates.
   //   - "git: auto-pull" keeps local `main` close to the remote so
   //     conflicts surface early. It only rebases a clean working tree.
   // First-open note: VS Code asks once to allow automatic tasks
@@ -11,7 +11,7 @@
     {
       "label": "hooks: install (core.hooksPath)",
       "type": "shell",
-      "command": "git config core.hooksPath .githooks && chmod +x .githooks/* scripts/git-auto-pull.sh 2>/dev/null; echo 'pre-push hook installed (core.hooksPath=.githooks)'",
+      "command": "git config core.hooksPath .githooks && chmod +x .githooks/* scripts/git-auto-pull.sh 2>/dev/null; echo 'pre-commit and pre-push hooks installed (core.hooksPath=.githooks)'",
       "problemMatcher": [],
       "presentation": {
         "reveal": "silent",

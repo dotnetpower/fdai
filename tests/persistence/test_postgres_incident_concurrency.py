@@ -80,9 +80,7 @@ async def test_conflicting_replica_transitions_have_one_postgres_winner() -> Non
 
 async def test_notification_claim_has_one_postgres_winner() -> None:
     _upgrade_head()
-    store = PostgresIncidentNotificationDeliveryStore(
-        config=PostgresStateStoreConfig(dsn=_dsn())
-    )
+    store = PostgresIncidentNotificationDeliveryStore(config=PostgresStateStoreConfig(dsn=_dsn()))
     audit_id = f"integration-notice-{uuid.uuid4()}"
     now = datetime.now(tz=UTC)
 

@@ -172,9 +172,7 @@ def test_created_incident_audit_projects_into_roster() -> None:
             session_id="s1",
         )
     )
-    asyncio.run(
-        submitter.submit(question="confirm", principal=principal, session_id="s1")
-    )
+    asyncio.run(submitter.submit(question="confirm", principal=principal, session_id="s1"))
     stored = tuple(store.audit_entries)[0]
     entry = stored["entry"]
     item = AuditItem(
@@ -281,9 +279,7 @@ def test_incident_confirmation_crosses_submitter_replica() -> None:
             session_id="s1",
         )
     )
-    confirmed = asyncio.run(
-        second.submit(question="confirm", principal=principal, session_id="s1")
-    )
+    confirmed = asyncio.run(second.submit(question="confirm", principal=principal, session_id="s1"))
 
     assert prepared["reason"] == "incident_confirmation_required"
     assert confirmed["submitted"] is True
@@ -333,9 +329,7 @@ def test_sessionless_incident_request_and_confirmation_are_refused() -> None:
         )
     )
     confirmed = asyncio.run(submitter.submit(question="confirm", principal=principal))
-    ordinary_action = asyncio.run(
-        submitter.submit(question="restart svc-1", principal=principal)
-    )
+    ordinary_action = asyncio.run(submitter.submit(question="restart svc-1", principal=principal))
 
     assert prepared["reason"] == "incident_session_required"
     assert confirmed["reason"] == "incident_session_required"

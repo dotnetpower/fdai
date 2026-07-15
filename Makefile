@@ -55,11 +55,10 @@ gates: ## repo hygiene: punctuation / guids / translations / core-imports
 
 check: lint gates test ## full local CI parity: lint + gates + test
 
-pre-commit-install: ## install .pre-commit-config.yaml hooks into .git/hooks
-	uv run pre-commit install
+pre-commit-install: hooks-install ## backwards-compatible alias for hooks-install
+	@echo "pre-commit-install is configured through the tracked .githooks/pre-commit hook."
 
-hooks-install: ## enable the shared pre-push hook (git config core.hooksPath .githooks)
+hooks-install: ## enable the shared tracked git hooks (git config core.hooksPath .githooks)
 	git config core.hooksPath .githooks
 	chmod +x .githooks/* scripts/git-auto-pull.sh 2>/dev/null || true
-	@echo "pre-push hook enabled (core.hooksPath=.githooks). Bypass once with: git push --no-verify"
-
+	@echo "pre-commit and pre-push hooks enabled (core.hooksPath=.githooks)."

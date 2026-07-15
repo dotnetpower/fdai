@@ -373,9 +373,7 @@ async def test_create_response_from_wrong_project_maps_to_failed() -> None:
 
     ex, client = _executor(handler)
     try:
-        receipt = await ex.execute(
-            _request(mode=Mode.ENFORCE, labels=("shadow", "enforce"))
-        )
+        receipt = await ex.execute(_request(mode=Mode.ENFORCE, labels=("shadow", "enforce")))
     finally:
         await client.aclose()
 
@@ -398,9 +396,7 @@ async def test_reconciliation_recovers_issue_after_create_record_crash() -> None
     ledger = InMemoryJiraLedger()
     ex, client = _executor(handler, ledger=ledger)
     try:
-        receipt = await ex.execute(
-            _request(mode=Mode.ENFORCE, labels=("shadow", "enforce"))
-        )
+        receipt = await ex.execute(_request(mode=Mode.ENFORCE, labels=("shadow", "enforce")))
     finally:
         await client.aclose()
 

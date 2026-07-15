@@ -75,9 +75,7 @@ class InMemoryStateStore(StateStore):
     async def write_state(self, key: str, value: Mapping[str, Any]) -> None:
         self._state[key] = deepcopy(dict(value))
 
-    async def append_incident_transition(
-        self, entry: Mapping[str, Any]
-    ) -> IncidentAppendStatus:
+    async def append_incident_transition(self, entry: Mapping[str, Any]) -> IncidentAppendStatus:
         """Append one incident transition to the shared audit chain.
 
         Idempotent on ``entry["idempotency_key"]``: a re-delivery of

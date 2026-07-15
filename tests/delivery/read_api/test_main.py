@@ -196,9 +196,7 @@ class TestBuildApp:
         assert profile.json()["oid"] == "cli-user"
         assert profile.headers["cache-control"] == "no-store"
 
-    def test_local_cli_mode_is_refused_in_production(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_local_cli_mode_is_refused_in_production(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(_LOCAL_AZURE_CLI_ENV, "1")
         monkeypatch.setenv("RUNTIME_ENV", "prod")
         resolver = RoleResolver(group_mapping=_mapping())

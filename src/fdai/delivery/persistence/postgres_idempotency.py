@@ -41,9 +41,7 @@ _UPDATE_IF_SQL = (
     "UPDATE action_idempotency SET result = %s, recorded_at = now() "
     "WHERE idempotency_key = %s AND result = %s::jsonb"
 )
-_DELETE_IF_SQL = (
-    "DELETE FROM action_idempotency WHERE idempotency_key = %s AND result = %s::jsonb"
-)
+_DELETE_IF_SQL = "DELETE FROM action_idempotency WHERE idempotency_key = %s AND result = %s::jsonb"
 _INSERT_OR_REPLACE_IF_SQL = (
     "INSERT INTO action_idempotency (idempotency_key, result) VALUES (%s, %s) "
     "ON CONFLICT (idempotency_key) DO UPDATE SET result = EXCLUDED.result, recorded_at = now() "

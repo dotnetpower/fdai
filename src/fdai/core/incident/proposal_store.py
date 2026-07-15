@@ -127,8 +127,10 @@ def proposal_from_record(record: Mapping[str, Any]) -> IncidentCreationProposal:
         ):
             raise ValueError("source_sha256 MUST be a lowercase SHA-256 digest")
         raw_keys = record["correlation_keys"]
-        if not isinstance(raw_keys, list) or not raw_keys or not all(
-            isinstance(key, str) and key for key in raw_keys
+        if (
+            not isinstance(raw_keys, list)
+            or not raw_keys
+            or not all(isinstance(key, str) and key for key in raw_keys)
         ):
             raise ValueError("correlation_keys MUST be a non-empty string list")
         severity = IncidentSeverity(_required_string(record, "severity"))

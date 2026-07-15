@@ -20,9 +20,7 @@ class ProjectingIncidentStateStore(InMemoryStateStore):
         self._projected_keys: set[str] = set()
         self._projection_lock = asyncio.Lock()
 
-    async def append_incident_transition(
-        self, entry: Mapping[str, Any]
-    ) -> IncidentAppendStatus:
+    async def append_incident_transition(self, entry: Mapping[str, Any]) -> IncidentAppendStatus:
         key = str(entry.get("idempotency_key") or "")
         if not key:
             raise ValueError("incident transition MUST carry a non-empty idempotency_key")

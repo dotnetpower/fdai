@@ -290,11 +290,10 @@ class ToolCallShadowExecutor:
                     remember=False,
                 )
 
-            if (
-                self._receipt_observer is not None
-                and receipt.outcome
-                in {ToolCallOutcome.SUCCEEDED, ToolCallOutcome.ALREADY_APPLIED}
-            ):
+            if self._receipt_observer is not None and receipt.outcome in {
+                ToolCallOutcome.SUCCEEDED,
+                ToolCallOutcome.ALREADY_APPLIED,
+            }:
                 try:
                     await self._receipt_observer(request, receipt)
                 except Exception as exc:  # noqa: BLE001 - linkage boundary

@@ -332,6 +332,7 @@ class ConsoleActionSubmitter:
             "resource_id": bounded_resource,
         }
 
+
 AuthorizePrincipalFn = Callable[[Request], Awaitable[Principal]]
 """Resolve the request's authenticated :class:`Principal` (roles) or raise 401.
 

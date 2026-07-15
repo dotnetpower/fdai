@@ -943,8 +943,7 @@ def app() -> Starlette:
     local_azure_cli = os.environ.get(_LOCAL_AZURE_CLI_ENV) == "1"
     if local_azure_cli and (dev_mode or local_entra):
         raise RuntimeError(
-            f"{_LOCAL_AZURE_CLI_ENV} MUST NOT be combined with {_DEV_ENV} or "
-            f"{_LOCAL_ENTRA_ENV}"
+            f"{_LOCAL_AZURE_CLI_ENV} MUST NOT be combined with {_DEV_ENV} or {_LOCAL_ENTRA_ENV}"
         )
     if not dev_mode and not local_entra and not local_azure_cli:
         raise RuntimeError(
@@ -1128,9 +1127,7 @@ def app() -> Starlette:
     from fdai.shared.contracts.models import IncidentSeverity
 
     incident_workflow = IncidentLifecycleWorkflow(
-        registry=IncidentRegistry(
-            state_store=ProjectingIncidentStateStore(read_model=read_model)
-        ),
+        registry=IncidentRegistry(state_store=ProjectingIncidentStateStore(read_model=read_model)),
         allowed_agent_principals={"Huginn", "Heimdall", "Forseti"},
     )
 

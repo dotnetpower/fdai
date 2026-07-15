@@ -11,9 +11,7 @@ from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
 async def test_confirmed_chat_incident_is_visible_in_local_roster_once() -> None:
     read_model = InMemoryConsoleReadModel()
     workflow = IncidentLifecycleWorkflow(
-        registry=IncidentRegistry(
-            state_store=ProjectingIncidentStateStore(read_model=read_model)
-        )
+        registry=IncidentRegistry(state_store=ProjectingIncidentStateStore(read_model=read_model))
     )
     principal = Principal(id="operator@example.com", role=Role.CONTRIBUTOR)
     turn = workflow.prepare_chat(
@@ -44,9 +42,7 @@ async def test_confirmed_chat_incident_is_visible_in_local_roster_once() -> None
 
 async def test_external_ticket_link_is_visible_in_incident_roster() -> None:
     read_model = InMemoryConsoleReadModel()
-    registry = IncidentRegistry(
-        state_store=ProjectingIncidentStateStore(read_model=read_model)
-    )
+    registry = IncidentRegistry(state_store=ProjectingIncidentStateStore(read_model=read_model))
     workflow = IncidentLifecycleWorkflow(registry=registry)
     principal = Principal(id="operator@example.com", role=Role.CONTRIBUTOR)
     turn = workflow.prepare_chat(

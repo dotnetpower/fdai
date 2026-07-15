@@ -520,15 +520,12 @@ def build_app(
         raise ValueError("local Azure CLI auth and dev_mode MUST NOT be enabled together")
     if local_cli_enabled and os.environ.get(_LOCAL_AZURE_CLI_ENV) != "1":
         raise ValueError(
-            "local_cli_principal is configured but "
-            f"{_LOCAL_AZURE_CLI_ENV}=1 is not set"
+            f"local_cli_principal is configured but {_LOCAL_AZURE_CLI_ENV}=1 is not set"
         )
     if local_cli_enabled:
         runtime_env = os.environ.get("RUNTIME_ENV", "").strip().lower()
         if runtime_env in ("staging", "prod"):
-            raise ValueError(
-                f"local Azure CLI auth is prohibited in RUNTIME_ENV={runtime_env!r}"
-            )
+            raise ValueError(f"local Azure CLI auth is prohibited in RUNTIME_ENV={runtime_env!r}")
         if local_cli_principal is None or local_cli_profile is None:
             raise ValueError("local Azure CLI auth configuration is incomplete")
         if local_cli_profile.get("oid") != local_cli_principal.oid:
@@ -660,6 +657,7 @@ def build_app(
     ]
 
     if local_cli_profile is not None:
+
         async def get_local_auth_profile(_: Request) -> Response:
             return JSONResponse(dict(local_cli_profile))
 

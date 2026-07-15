@@ -692,8 +692,7 @@ def _build_tool_executor(
         except json.JSONDecodeError as exc:
             raise RuntimeError("FDAI_JIRA_TOOL_MAP_JSON MUST be valid JSON") from exc
         if not isinstance(decoded_map, dict) or not all(
-            isinstance(key, str) and key
-            and isinstance(value, str) and value
+            isinstance(key, str) and key and isinstance(value, str) and value
             for key, value in decoded_map.items()
         ):
             raise RuntimeError("FDAI_JIRA_TOOL_MAP_JSON MUST map strings to strings")
@@ -713,9 +712,7 @@ def _build_tool_executor(
             ),
             http_client=http_client,
             secrets=EnvSecretProvider(),
-            ledger=PostgresJiraLedger(
-                config=PostgresIdempotencyStoreConfig(dsn=dsn)
-            ),
+            ledger=PostgresJiraLedger(config=PostgresIdempotencyStoreConfig(dsn=dsn)),
         )
         enforce = os.environ.get("FDAI_JIRA_ENFORCE", "").strip() == "1"
         _LOGGER.info(
@@ -1388,9 +1385,9 @@ async def _run() -> int:
                 incident_id = request.metadata.get("incident_id") or request.arguments.get(
                     "incident_id"
                 )
-                provider = request.metadata.get(
+                provider = request.metadata.get("ticket_provider") or request.arguments.get(
                     "ticket_provider"
-                ) or request.arguments.get("ticket_provider")
+                )
                 if not incident_id or not provider:
                     return
                 await link_ticket_receipt(

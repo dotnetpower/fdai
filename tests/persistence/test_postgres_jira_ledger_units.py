@@ -55,9 +55,7 @@ class FakeIdempotencyStore:
 
 
 def _ledger() -> tuple[PostgresJiraLedger, FakeIdempotencyStore]:
-    ledger = PostgresJiraLedger(
-        config=PostgresIdempotencyStoreConfig(dsn="postgresql://example")
-    )
+    ledger = PostgresJiraLedger(config=PostgresIdempotencyStoreConfig(dsn="postgresql://example"))
     fake = FakeIdempotencyStore()
     ledger._store = fake  # type: ignore[assignment]  # noqa: SLF001 - adapter unit seam
     return ledger, fake

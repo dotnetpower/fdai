@@ -154,10 +154,7 @@ def incident_notice_audit_id(notice: IncidentLifecycleNotice) -> str:
     previous = notice.previous_state
     if previous is None:
         raise ValueError("state_changed incident notice requires previous_state")
-    return (
-        f"incident:{incident_id}:state:{previous.value}:"
-        f"{incident_state.value}:{timestamp}"
-    )
+    return f"incident:{incident_id}:state:{previous.value}:{incident_state.value}:{timestamp}"
 
 
 def _notice_incident_fields(

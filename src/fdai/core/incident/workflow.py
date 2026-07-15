@@ -391,4 +391,3 @@ class IncidentLifecycleWorkflow:
                 },
             )
             return IncidentNotificationDeferred(error_type=type(exc).__name__)
-

@@ -172,8 +172,7 @@ class JiraToolExecutorConfig:
                 raise ValueError("JiraToolExecutorConfig.tool_map keys MUST be non-empty")
             if not _PROJECT_KEY.fullmatch(project_key):
                 raise ValueError(
-                    "JiraToolExecutorConfig project keys MUST match "
-                    "^[A-Z][A-Z0-9_]{0,99}$"
+                    "JiraToolExecutorConfig project keys MUST match ^[A-Z][A-Z0-9_]{0,99}$"
                 )
 
 
@@ -390,8 +389,7 @@ class JiraToolExecutor:
                     raise _JiraHttpError(
                         status_code=response.status_code,
                         message=(
-                            f"Jira returned HTTP {response.status_code} "
-                            f"while trying to {operation}"
+                            f"Jira returned HTTP {response.status_code} while trying to {operation}"
                         ),
                     )
                 body = bytearray()

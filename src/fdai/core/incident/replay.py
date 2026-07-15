@@ -87,9 +87,7 @@ def _replay_members(
         raise ValueError(f"members precede incident.open: {incident_id}")
     added = tuple(UUID(value) for value in _required_string_list(entry, "member_event_ids"))
     restored[incident_id] = current.model_copy(
-        update={
-            "member_event_ids": tuple(dict.fromkeys((*current.member_event_ids, *added)))
-        }
+        update={"member_event_ids": tuple(dict.fromkeys((*current.member_event_ids, *added)))}
     )
 
 
@@ -103,12 +101,8 @@ def _replay_assignment(
         return
     from_assignee = _optional_string(entry, "from_assignee_oid")
     if current.assignee_oid != from_assignee:
-        raise ValueError(
-            f"assignment from_assignee mismatch for {current.incident_id}"
-        )
-    restored[current.incident_id] = current.model_copy(
-        update={"assignee_oid": target_assignee}
-    )
+        raise ValueError(f"assignment from_assignee mismatch for {current.incident_id}")
+    restored[current.incident_id] = current.model_copy(update={"assignee_oid": target_assignee})
 
 
 def _require_existing_incident(
@@ -165,8 +159,7 @@ def _replay_transition(
         IncidentSeverity(severity_value) if severity_value is not None else current.severity
     )
     if target_severity is not current.severity and not (
-        current.state is IncidentState.RESOLVED
-        and transition.to_state is IncidentState.TRIAGING
+        current.state is IncidentState.RESOLVED and transition.to_state is IncidentState.TRIAGING
     ):
         raise ValueError("severity changed outside resolved -> triaging reopen")
     restored[incident_id] = apply_incident_transition(
@@ -239,8 +232,10 @@ def _optional_string(entry: Mapping[str, object], key: str) -> str | None:
 
 def _required_string_list(entry: Mapping[str, object], key: str) -> tuple[str, ...]:
     value = entry[key]
-    if not isinstance(value, list) or not value or not all(
-        isinstance(item, str) and item for item in value
+    if (
+        not isinstance(value, list)
+        or not value
+        or not all(isinstance(item, str) and item for item in value)
     ):
         raise ValueError(f"{key} MUST be a non-empty string list")
     return tuple(value)

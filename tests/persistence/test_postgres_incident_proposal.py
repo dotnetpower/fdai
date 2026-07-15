@@ -60,10 +60,7 @@ async def test_concurrent_take_returns_proposal_once() -> None:
     await store.save(operator_id=operator_id, session_id=session_id, proposal=proposal)
 
     results = await asyncio.gather(
-        *(
-            store.take(operator_id=operator_id, session_id=session_id, now=now)
-            for _ in range(8)
-        )
+        *(store.take(operator_id=operator_id, session_id=session_id, now=now) for _ in range(8))
     )
 
     assert [result.status for result in results].count("found") == 1

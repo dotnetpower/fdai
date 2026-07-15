@@ -142,9 +142,7 @@ class PostgresStateStore(StateStore):
                     (key, json.dumps(dict(value), default=str)),
                 )
 
-    async def append_incident_transition(
-        self, entry: Mapping[str, Any]
-    ) -> IncidentAppendStatus:
+    async def append_incident_transition(self, entry: Mapping[str, Any]) -> IncidentAppendStatus:
         """Route incident transitions into the same audit chain.
 
         The audit chain stays the single source of truth for
@@ -279,9 +277,7 @@ class PostgresStateStore(StateStore):
         if mode not in ("shadow", "enforce"):
             raise ValueError(f"audit entry mode MUST be 'shadow'|'enforce', got {mode!r}")
         await conn.execute("SELECT pg_advisory_xact_lock(%s)", (_AUDIT_APPEND_LOCK_KEY,))
-        cursor = await conn.execute(
-            "SELECT entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1"
-        )
+        cursor = await conn.execute("SELECT entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1")
         row = await cursor.fetchone()
         previous = row[0] if row is not None else _GENESIS_HASH
         entry_hash = _next_hash(previous, payload)

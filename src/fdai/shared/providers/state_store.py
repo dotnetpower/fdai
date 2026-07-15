@@ -49,9 +49,7 @@ class StateStore(Protocol):
         """
         ...
 
-    async def append_incident_transition(
-        self, entry: Mapping[str, Any]
-    ) -> IncidentAppendStatus:
+    async def append_incident_transition(self, entry: Mapping[str, Any]) -> IncidentAppendStatus:
         """Append one incident lifecycle transition.
 
         Semantically an ``append_audit_entry`` restricted to incident
@@ -132,9 +130,7 @@ def classify_incident_append(
     return IncidentAppendStatus.APPLIED
 
 
-def _same_incident_intent(
-    existing: Mapping[str, Any], incoming: Mapping[str, Any]
-) -> bool:
+def _same_incident_intent(existing: Mapping[str, Any], incoming: Mapping[str, Any]) -> bool:
     kind = str(incoming.get("kind") or "")
     if kind == "incident.members":
         existing_members = existing.get("member_event_ids")
@@ -180,9 +176,7 @@ def _same_incident_intent(
 def _required(entry: Mapping[str, Any], key: str) -> str:
     value = entry.get(key)
     if not isinstance(value, str) or not value:
-        raise IncidentWriteConflictError(
-            f"incident entry {key} MUST be a non-empty string"
-        )
+        raise IncidentWriteConflictError(f"incident entry {key} MUST be a non-empty string")
     return value
 
 

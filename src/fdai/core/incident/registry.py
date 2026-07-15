@@ -185,9 +185,7 @@ class IncidentRegistry:
             if status is IncidentAppendStatus.DUPLICATE:
                 canonical = await self._reload_canonical(incident_id)
                 added = tuple(
-                    member
-                    for member in members
-                    if member not in canonical.member_event_ids
+                    member for member in members if member not in canonical.member_event_ids
                 )
                 if added:
                     await self._persist(
@@ -270,8 +268,7 @@ class IncidentRegistry:
             self._state_machine.validate(current=incident.state, target=to_state)
             target_severity = severity or incident.severity
             if target_severity is not incident.severity and not (
-                incident.state is IncidentState.RESOLVED
-                and to_state is IncidentState.TRIAGING
+                incident.state is IncidentState.RESOLVED and to_state is IncidentState.TRIAGING
             ):
                 raise ValueError("severity can change only on resolved -> triaging reopen")
             moment = at or datetime.now(tz=UTC)

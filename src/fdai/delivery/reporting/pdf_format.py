@@ -137,8 +137,7 @@ def _render_widget(widget: RenderedWidget, index: int) -> str:
         else ""
     )
     children = "".join(
-        _render_widget(child, child_index)
-        for child_index, child in enumerate(widget.children, 1)
+        _render_widget(child, child_index) for child_index, child in enumerate(widget.children, 1)
     )
     return f"""<section class="report-section" id="{_anchor(widget.id)}">
   <p class="chapter-kicker">Section {index:02d}</p>
@@ -181,7 +180,7 @@ def _table(columns: Any, rows: Any) -> str:
         return '<p class="unavailable">No evidence rows were available.</p>'
     return (
         f'<div class="table-wrap"><table><thead><tr>{head}</tr></thead>'
-        f'<tbody>{"".join(body_rows)}</tbody></table></div>'
+        f"<tbody>{''.join(body_rows)}</tbody></table></div>"
     )
 
 

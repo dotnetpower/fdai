@@ -119,6 +119,5 @@ async def test_sla_breach_has_stable_deadline_identity() -> None:
     message = dispatcher.messages[0]
     assert message.severity is Severity.CRITICAL
     assert message.audit_id == (
-        "incident:00000000-0000-0000-0000-000000000001:"
-        "sla:open:2026-07-15T00:05:00+00:00"
+        "incident:00000000-0000-0000-0000-000000000001:sla:open:2026-07-15T00:05:00+00:00"
     )

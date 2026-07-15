@@ -123,9 +123,7 @@ def test_postgres_replace_if_uses_json_compare_and_swap(
     monkeypatch.setattr(psycopg.AsyncConnection, "connect", _connect)
     store = PostgresIdempotencyStore(config=PostgresIdempotencyStoreConfig(dsn="postgresql://x"))
 
-    replaced = asyncio.run(
-        store.replace_if("k", {"state": "pending"}, {"state": "completed"})
-    )
+    replaced = asyncio.run(store.replace_if("k", {"state": "pending"}, {"state": "completed"}))
 
     assert replaced is True
     assert any("result = %s::jsonb" in sql for sql, _ in conn.executed)

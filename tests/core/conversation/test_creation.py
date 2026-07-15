@@ -79,9 +79,7 @@ async def test_create_incident_requires_contributor() -> None:
 
 @pytest.mark.asyncio
 async def test_create_incident_requires_explicit_confirmation() -> None:
-    command = CreateIncidentCommand(
-        registry=IncidentRegistry(state_store=InMemoryStateStore())
-    )
+    command = CreateIncidentCommand(registry=IncidentRegistry(state_store=InMemoryStateStore()))
 
     with pytest.raises(
         IncidentConfirmationError,

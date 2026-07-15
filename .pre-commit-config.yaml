@@ -3,8 +3,10 @@
 # "the same checks that CI runs" also run locally before a push.
 #
 # Install once:
-#   uv run pre-commit install
-# (pre-commit ships in the `dev` extra; no extra pip install needed.)
+#   make hooks-install
+# This repository uses core.hooksPath=.githooks, whose tracked pre-commit hook
+# delegates here. pre-commit ships in the `dev` extra; no extra pip install is
+# needed.
 #
 # Run explicitly against everything:
 #   uv run pre-commit run --all-files

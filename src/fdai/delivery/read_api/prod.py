@@ -480,9 +480,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             )
             incident_notifier = DurableIncidentLifecycleNotifier(
                 delegate=RoutedIncidentLifecycleNotifier(dispatcher=notification_router),
-                delivery_store=PostgresIncidentNotificationDeliveryStore(
-                    config=state_store_config
-                ),
+                delivery_store=PostgresIncidentNotificationDeliveryStore(config=state_store_config),
             )
             production_action_types = load_action_type_catalog(
                 _REPO_ROOT / "rule-catalog" / "action-types",
@@ -499,9 +497,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                     registry=incident_registry,
                     notifier=incident_notifier,
                 ),
-                incident_proposals=PostgresIncidentProposalStore(
-                    config=state_store_config
-                ),
+                incident_proposals=PostgresIncidentProposalStore(config=state_store_config),
             )
 
             async def _rehydrate_incidents() -> None:

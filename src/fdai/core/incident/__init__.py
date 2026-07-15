@@ -23,61 +23,61 @@ replace the backend without touching this module.
 from __future__ import annotations
 
 from .durable_notifications import (
-  DurableIncidentLifecycleNotifier,
-  DurableNotificationResult,
-  notice_from_lifecycle_entry,
+    DurableIncidentLifecycleNotifier,
+    DurableNotificationResult,
+    notice_from_lifecycle_entry,
 )
 from .intent import (
-  IncidentChatStatus,
-  IncidentChatTurn,
-  IncidentCreationProposal,
-  prepare_incident_chat,
+    IncidentChatStatus,
+    IncidentChatTurn,
+    IncidentCreationProposal,
+    prepare_incident_chat,
 )
 from .lifecycle import (
-  IncidentConfirmationError,
-  IncidentLifecycleNotice,
-  IncidentLifecycleNotifier,
-  IncidentNoticeKind,
-  IncidentNotificationDeferred,
-  IncidentRosterResult,
-  IncidentTicketLink,
-  IncidentWorkflowError,
-  IncidentWorkflowForbiddenError,
-  IncidentWorkflowResult,
-  NullIncidentLifecycleNotifier,
+    IncidentConfirmationError,
+    IncidentLifecycleNotice,
+    IncidentLifecycleNotifier,
+    IncidentNoticeKind,
+    IncidentNotificationDeferred,
+    IncidentRosterResult,
+    IncidentTicketLink,
+    IncidentWorkflowError,
+    IncidentWorkflowForbiddenError,
+    IncidentWorkflowResult,
+    NullIncidentLifecycleNotifier,
 )
 from .metrics import IncidentLifecycleMetrics, project_incident_metrics
 from .notification_delivery import (
-  IncidentNotificationDeliveryStore,
-  InMemoryIncidentNotificationDeliveryStore,
-  NotificationClaimStatus,
-  NotificationDeliveryClaim,
+    IncidentNotificationDeliveryStore,
+    InMemoryIncidentNotificationDeliveryStore,
+    NotificationClaimStatus,
+    NotificationDeliveryClaim,
 )
 from .notifications import RoutedIncidentLifecycleNotifier
 from .proposal_store import (
-  IncidentProposalStore,
-  InMemoryIncidentProposalStore,
-  ProposalTakeResult,
+    IncidentProposalStore,
+    InMemoryIncidentProposalStore,
+    ProposalTakeResult,
 )
 from .registry import (
-  IncidentMutationResult,
-  IncidentOpenResult,
-  IncidentRegistry,
-  IncidentReplayError,
-  incident_id_for,
+    IncidentMutationResult,
+    IncidentOpenResult,
+    IncidentRegistry,
+    IncidentReplayError,
+    incident_id_for,
 )
 from .sla import IncidentSlaMonitor, IncidentSlaPolicy, evaluate_incident_sla
 from .state_machine import (
-  LEGAL_TRANSITIONS,
-  IncidentStateMachine,
-  IncidentTransition,
-  IncidentTransitionError,
+    LEGAL_TRANSITIONS,
+    IncidentStateMachine,
+    IncidentTransition,
+    IncidentTransitionError,
 )
 from .storm import (
-  RemediationStep,
-  StormCoordinator,
-  StormPolicy,
-  StormSignal,
+    RemediationStep,
+    StormCoordinator,
+    StormPolicy,
+    StormSignal,
 )
 from .ticket_link import link_ticket_receipt
 from .workflow import IncidentLifecycleWorkflow
