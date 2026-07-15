@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: a6036e41bccfffe5d0d43422a25b473a8ac13c65
+translation_source_sha: 01b4d7e62c42228c530ad98290dcb8cb0cb286b9
 translation_revised: 2026-07-15
 ---
 
@@ -232,6 +232,17 @@ operations / interface), `3` = governance staff.
 | Njord | Cost | 1 | CostAnomaly, Budget | propose_cost_action | no |
 | Freyr | Capacity | 1 | CapacityForecast, SizingRecommendation | propose_capacity_action | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
+
+Heimdall의 repeated-event detector는 authoritative anomaly를 emit한 뒤 optional
+`incident_candidate_hook`을 호출할 수 있습니다. 이 hook은 정규화된 resource,
+event type, correlation, severity, reason code, evidence key를 composition 소유
+`IncidentLifecycleWorkflow`에 전달합니다. Heimdall은 Incident를 직접 쓰거나 새
+object type을 publish하지 않습니다. Workflow는 `IncidentRegistry`가 audited
+record를 쓰기 전에 agent allowlist와 event evidence를 다시 확인합니다. Hook
+실패는 agent behavior counter에 기록되며 anomaly path는 계속 유지됩니다.
+Production control-plane composition은 durable registry를 먼저 rehydrate하고
+pantheon이 enabled일 때 이 hook을 bind합니다. Read API는 Heimdall을 impersonate하지
+않습니다.
 
 15개 에이전트는 조합을 통해 SRE, ARB (change safety), FinOps 워크플로우를
 공동으로 커버한다; topic 계약은 §7, 처리 불가 요청 (handoff) 이 동일 파이프라인에

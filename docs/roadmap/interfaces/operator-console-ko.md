@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 5c013eeb4f35dcdb56fe7a19039e5d7a1eaa87e4
+translation_source_sha: ea4770ccc5e0d8288ad9f8280e05003f09bcb218
 translation_revised: 2026-07-15
 ---
 
@@ -1065,6 +1065,41 @@ API 계약은 다음과 같습니다.
 | `GET /incidents?status=active|resolved|all&limit=<n>&cursor=<opaque>` | 최근 활동 순으로 인시던트 요약을 반환합니다. |
 | `GET /audit?correlation_id=<id>&limit=<n>&cursor=<opaque>` | 선택한 인시던트의 추가 전용 이력을 반환합니다. |
 | `GET /audit/{correlation_id}/trace` | 순서가 지정된 파이프라인 추적을 재구성합니다. |
+| `POST /chat/action` | 인증된 write-direction chat path에서 incident 생성 요청을 준비하거나 확인합니다. |
+
+Incident roster는 read-only로 유지됩니다. Incident 생성은 별도의 인증된 chat
+action route를 사용하며 panel에 mutation button을 추가하지 않습니다. 인식된
+incident-open 요청은 다음 순서로 처리됩니다.
+
+1. Contributor capability, severity, target correlation key를 요구합니다.
+2. 사람이 읽을 수 있는 summary와 10분 expiry를 포함한
+  `incident_confirmation_required`를 반환합니다. 이 시점에는 incident가 없습니다.
+3. 같은 principal과 `session_id`에서 `confirm` 또는 `확인` 메시지를 보내면 audited
+  incident를 생성하고 id와 초기 `open` 상태를 반환합니다.
+
+Pending proposal의 `session_id`는 200자로 제한됩니다. Oversized session 또는
+idempotency key는 truncate하지 않고 거부하므로 서로 다른 식별자가 같은 confirmation으로
+합쳐지지 않습니다. Production은 proposal을 Postgres에 저장하고 atomic하게 consume하므로
+confirmation이 다른 replica에 도착해도 처리할 수 있습니다. Persisted record에는 source
+prompt 원문이 아니라 SHA-256만 포함됩니다.
+
+누락된 값은 `incident_details_required`, 취소는
+`incident_creation_cancelled`를 반환합니다. 관련 없는 action command는 기존
+Bragi-to-Huginn typed proposal path를 계속 사용합니다. allowlist에 포함된 agent는
+member-event evidence와 reason을 제공해 같은 built-in workflow를 사용하지만,
+operator를 impersonate하거나 incident registry를 우회하지 않습니다.
+
+동일한 authenticated route는 exact lifecycle command grammar만 받으며 free-form status
+prose를 추측하지 않습니다.
+
+- `transition incident <uuid> to <state>` 또는
+  `incident <uuid> 상태 <state>으로 변경`
+- `assign incident <uuid> to <oid>` 또는
+  `incident <uuid> 담당자 <oid> 지정`
+
+둘 다 nonblank conversation `session_id`, Contributor capability, registry의 persisted
+expected-state check가 필요합니다. Illegal edge, unknown id, cross-replica conflict는
+canonical incident를 변경하지 않고 `incident_lifecycle_rejected`를 반환합니다.
 
 `correlation_id`가 인시던트 키입니다. Projection은 최상위 correlation이 없는
 행의 `event_id` 또는 명시적인 인시던트 lifecycle link가 정확히 하나의
@@ -1080,6 +1115,23 @@ correlation으로 확인될 때만 해당 행을 연결할 수 있습니다. 모
 반환합니다. 패널은 Audit 및 Trace 링크를 제공하지만 execute, approve, rollback
 버튼은 제공하지 않습니다. 이러한 작업은 remediation PR 및 ChatOps에 유지됩니다.
 
+Incident 생성, 각 합법적 상태 변경, 요청된 roster summary는 A2 운영 알림 대상입니다.
+재전송된 open과 같은 상태 transition은 두 번 알리지 않습니다. Lifecycle 메시지는
+incident id, severity, 정규화된 상태를 포함하지만 자유 형식 reason text와 resource
+correlation key는 제외합니다. Roster 알림은 20개 id로 제한되고 전체
+`/incidents` view로 연결됩니다. Event별 `audit_id`는 channel idempotency가 이후
+transition을 누락시키지 않도록 합니다. Durable sent checkpoint와 startup replay는
+crash로 놓친 알림을 재시도합니다. Delivery 전에 replica는 bounded lease가 있는 atomic
+claim token을 경쟁하며 하나만 전송합니다. 해당 token만 notice를 sent로 표시하거나
+실패 후 release할 수 있습니다. Unresolved channel은 HIL escalation sink로 fallback합니다.
+
+Incident alert subscription은 [channels-and-notifications-ko.md](channels-and-notifications-ko.md)의
+channel-as-audience contract를 따릅니다. 설정된 A2 operations channel membership이
+open, transition, roster, SLA-breach notice를 지속적으로 받는 대상을 결정합니다.
+Console은 per-user direct-message subscription을 만들지 않습니다. Assignment와 external
+ticket linkage는 authenticated write-direction chat/tool operation으로 유지되고 audit
+history에 표시됩니다. Read-only roster는 연결된 `ticket_id`를 표시합니다.
+
 목록은 optional canonical `vertical` filter를 허용하며 audit route는 `mode`,
 `tier`, `action`, `outcome`, `vertical`, bounded `window=<n>d` filter를 cursor
 pagination 전에 서버에서 적용합니다. 따라서 분석 deep link는 browser 첫 page만
@@ -1091,6 +1143,12 @@ button이 있고 선택된 각 row는 `aria-selected`를 노출하며 control은
 `aria-controls`로 incident detail region을 가리킵니다. 알 수 없는 top-level URL은
 canonical `/overview`로 replace되므로 같은 화면이 typo path 아래 여러 conversation
 cache를 만들지 않습니다.
+
+선택한 인시던트 상세는 요약과 근거 계층을 분리합니다. 교정 타임라인보다 먼저
+서버 소유 인시던트 ID, 티켓 ID, lifecycle 상태와 소스, 처분, 판정, 담당 영역,
+최신 모드, 타임스탬프, 이력 수를 표시합니다. 누락된 값은 사용할 수 없음으로
+렌더링하며 브라우저가 영향, 소유권, 복구를 추론하지 않습니다. 상세는
+History > Reports의 correlation 범위 **Incident RCA Dossier**로 연결됩니다.
 
 Overview는 autonomy measurement가 없거나 malformed여도 모든 필수 분석 section을
 계속 표시합니다. Section을 제거하거나 0으로 추정하지 않고 명시적 unavailable
@@ -1146,6 +1204,25 @@ API 계약은 단일 GET route입니다:
 - 동일한 상관관계 audit 스트림에서 조합한 **대응 계획**: 판정
   (`auto` / `hil` / `deny` / `abstain`), 전달된 작업 종류, 그 모드,
   롤백 참조.
+- **구조화된 T1 인과 체인.** T1 가설은 root/failure 이벤트 ID, 모호성,
+  순서가 있는 hop을 포함하는 `causal_chain`을 전달할 수 있습니다. 각 hop은
+  cause/effect 이벤트 및 리소스 참조, 선행 시간(초), 관계, 신뢰도를 보존합니다.
+  malformed 또는 누락된 chain 데이터는 브라우저에서 부분 재구성하지 않고
+  사용할 수 없음으로 렌더링합니다.
+
+리포트 카탈로그는 `incident-rca-dossier`를 포함합니다. 필수
+`correlation_id` 변수가 가설, 인용, causal hop, 대응, chronology 위젯을 단일
+인시던트로 한정합니다. 선택적 `pdf-report` extra가 설치되면 Reports가 인증된
+GET-only **PDF 다운로드** 컨트롤을 노출합니다. PDF는 표지, at-a-glance 페이지,
+목차, section 페이지, running header/footer, source SHA-256을 갖춘 FDAI 소유 A4
+레이아웃을 사용합니다. RCA 전용 renderer는 단색 Calm Slate steel-blue 표지, executive
+summary, 근거 완성도, 측정된 영향, chronology, 인과/대안 가설, 대응/복구,
+control gap, 교정/예방 조치, 제한사항, audit 부록을 제공합니다. Card는 색상 상단선이나
+좌측선 대신 균일한 neutral hairline을 사용합니다. 서버 소유 report envelope을
+렌더링할 뿐 새 RCA를 수행하지 않으며, 기록되지 않은 section은 명시적으로 사용할
+수 없음으로 표시합니다. Print-native chronology table과 SVG causal diagram은
+browser Grid/Flex pagination 결함을 피하고, content-driven chapter group은 reference
+report를 9페이지로 유지합니다.
 
 RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 여전히 리스크
 게이트 + 검증기에 있습니다. Route는 Reader 게이트가 적용되고, 변경 동사에는

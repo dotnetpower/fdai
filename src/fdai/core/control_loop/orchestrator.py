@@ -948,6 +948,11 @@ class ControlLoop:
                         if hypothesis
                         else []
                     ),
+                    "rca_causal_chain": (
+                        hypothesis.causal_chain.to_dict()
+                        if hypothesis and hypothesis.causal_chain
+                        else None
+                    ),
                     "recorded_at": datetime.now(tz=UTC).isoformat(),
                 }
             )

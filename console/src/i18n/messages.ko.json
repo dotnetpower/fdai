@@ -19,23 +19,43 @@
     "settings": "설정",
     "incidents": "인시던트",
     "rca": "RCA",
-    "scope": "범위"
+    "scope": "범위",
+    "labs": "Labs"
   },
   "nav": {
     "group": {
-      "now": "실시간",
-      "history": "이력",
-      "knowledge": "지식",
-      "safety": "안전",
-      "overview": "개요"
+      "overview": "전체 현황",
+      "operations": "운영",
+      "agents": "에이전트",
+      "governance": "거버넌스",
+      "evidence": "감사·증적",
+      "labs": "Labs"
     },
     "groupHint": {
-      "now": "실시간 컨트롤 플레인 상태",
-      "history": "감사 및 사후 추적",
-      "knowledge": "시스템이 아는 것",
-      "safety": "승급 및 영향 범위 결정",
-      "overview": "KPI 및 롤업 요약"
+      "overview": "KPI 및 전체 요약",
+      "operations": "실시간 운영과 오퍼레이터 대응",
+      "agents": "에이전트 조직과 실행 상태",
+      "governance": "규칙, 범위 및 안전 통제",
+      "evidence": "감사, 분석, 출처 및 보고서",
+      "labs": "개발 전용 UI 실험"
     },
+    "primaryLabel": "기본 탐색",
+    "explorerLabel": "메뉴 탐색기",
+    "hideGroup": "{group} - 탐색 숨기기",
+    "moreActions": "더 보기",
+    "customize": "메뉴 편집",
+    "hideNavigation": "탐색 숨기기",
+    "reset": "메뉴 초기화",
+    "done": "완료",
+    "visible": "표시",
+    "menu": "메뉴",
+    "hidden": "숨김",
+    "noHidden": "숨긴 메뉴 없음",
+    "reorder": "{panel} 순서 변경",
+    "reorderHint": "드래그해 순서를 변경하세요. 키보드는 Alt+위/아래 화살표를 사용합니다.",
+    "hidePanel": "{panel} 숨기기",
+    "hideActiveDisabled": "이 메뉴를 숨기려면 다른 메뉴를 먼저 여세요.",
+    "showPanel": "{panel} 표시",
     "panel": {
       "live": "실시간",
       "agents": "에이전트",
@@ -64,7 +84,8 @@
       "settings": "설정",
       "incidents": "인시던트",
       "rca": "RCA",
-      "scope": "범위"
+      "scope": "범위",
+      "labs": "Labs"
     },
     "panelSub": {
       "live": "실시간 파이프라인 활동",
@@ -89,7 +110,8 @@
       "reports": "리포트 카탈로그에서 렌더링한 선언형 라이브 보드",
       "documents": "거버넌스 적용 문서를 업로드, 검사, 보호, 인덱싱",
       "settings": "표시, 접근성 및 로컬 콘솔 환경 설정",
-      "incidents": "인시던트 상태, 처분 및 교정 이력"
+      "incidents": "인시던트 상태, 처분 및 교정 이력",
+      "labs": "개발 전용 디자인 및 UI 도구"
     }
   },
   "reports": {
@@ -102,6 +124,8 @@
     "variables": "리포트 변수",
     "refresh": "리포트 렌더링",
     "refreshing": "렌더링 중...",
+    "downloadPdf": "PDF 다운로드",
+    "downloadingPdf": "PDF 준비 중...",
     "generated": "생성 시각 {time}",
     "registry": "콘솔 렌더러가 등록된 위젯 타입 {total}개 중 {supported}개를 지원합니다. 미지원 타입은 명시적으로 unavailable 상태를 유지합니다.",
     "viewPurpose": "리포팅 서브시스템이 렌더링한 read-only 카탈로그 리포트입니다. 위젯은 서버 소유 근거를 표시하며 작업을 실행하지 않습니다.",
@@ -126,11 +150,16 @@
     "noCitations": "인용 없음 - 근거 부족.",
     "remediation": "함의된 교정",
     "recordedAt": "기록 시간",
+    "causalChain": "인과 체인",
+    "causalSummary": "홉 {hops}개, 가능한 루트 {ambiguity}개",
+    "causalLead": "선행 시간 {seconds}초",
+    "causalConfidence": "에지 신뢰도 {value}",
     "modeColumn": "모드",
     "grounded": "근거 있음",
     "abstained": "근거 부족 -> HIL",
     "abstainedNotice": "이 가설은 근거가 부족합니다. 사람 승인(HIL)으로 라우팅되며 신뢰할 수 있는 원인으로 취급되지 않습니다.",
     "response": "대응 계획",
+    "report": "상세 RCA 보고서 열기",
     "verdict": "판정",
     "decision": "결정",
     "action": "작업",
@@ -193,7 +222,16 @@
     "select": "교정 이력을 확인할 인시던트를 선택하세요.",
     "selectNamed": "{title} 인시던트를 선택하고 교정 이력 표시",
     "correlation": "상관관계 ID",
+    "incidentId": "인시던트 ID",
+    "ticketId": "티켓 ID",
     "opened": "열린 시간",
+    "lastUpdated": "마지막 업데이트",
+    "currentStatus": "현재 상태",
+    "currentDisposition": "현재 처분",
+    "currentVerdict": "현재 판정",
+    "verticalLabel": "담당 영역",
+    "latestMode": "최신 모드",
+    "statusSource": "상태 소스",
     "history": "이력 항목",
     "timeline": "교정 타임라인",
     "actor": "주체",
@@ -204,6 +242,7 @@
     "audit": "필터링된 감사 로그 열기",
     "trace": "엔드투엔드 추적 열기",
     "rca": "근본 원인 분석 열기",
+    "report": "인시던트 RCA 상세 보고서 열기",
     "loadMore": "인시던트 더 불러오기",
     "loadingMore": "불러오는 중...",
     "end": "인시던트 목록의 끝입니다.",
@@ -248,6 +287,12 @@
       "received": "수신됨",
       "failed": "실패"
     }
+  },
+  "labs": {
+    "subtitle": "개발 전용 디자인 및 UI 실험입니다. 이 도구는 관리 리소스를 변경하지 않습니다.",
+    "toolsLabel": "Lab 도구",
+    "logoLab": "로고 Lab",
+    "logoLabDescription": "선택한 Cloud Aperture 마크와 대안 브랜드 lockup을 확인합니다."
   },
   "settings": {
     "subtitle": "이 브라우저에 저장되는 표시 및 접근성 환경 설정입니다.",

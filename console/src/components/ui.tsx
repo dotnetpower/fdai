@@ -9,6 +9,7 @@
 
 import type { ComponentChildren, JSX } from "preact";
 import { useState } from "preact/hooks";
+import { useNavigationDomain } from "./navigation-title";
 
 // ---------------------------------------------------------------------------
 // PageHeader - page identity (title + optional subtitle + optional actions)
@@ -21,10 +22,19 @@ export interface PageHeaderProps {
 }
 
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
+  const domain = useNavigationDomain();
   return (
     <header class="page-header">
       <div class="page-header-text">
-        <h2 class="page-header-title">{title}</h2>
+        <h2 class="page-header-title">
+          {domain ? (
+            <>
+              <span class="page-header-domain">{domain}</span>
+              <span class="page-header-separator" aria-hidden="true">/</span>
+            </>
+          ) : null}
+          <span>{title}</span>
+        </h2>
         {subtitle ? <p class="page-header-subtitle muted">{subtitle}</p> : null}
       </div>
       {actions ? <div class="page-header-actions">{actions}</div> : null}

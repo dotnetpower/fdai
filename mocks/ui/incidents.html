@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Incidents - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=sidebar-v5" />
+  <script src="assets/calm-slate.js?v=sidebar-v5" defer></script>
+  <style>
+    .in-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .in-summary .cs-card { padding: 16px 18px; }
+    .in-summary .cs-kpi-value { font-size: 24px; }
+
+    .in-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .in-filter { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); }
+    .in-filter button { border: 0; border-radius: 6px; padding: 6px 12px; background: transparent; color: var(--cs-text-soft); font: inherit; font-size: 12.5px; cursor: pointer; }
+    .in-filter button:hover { background: var(--cs-shade); color: var(--cs-text); }
+    .in-filter button.is-active { background: var(--cs-navy); color: #fff; }
+    .in-filter-note { margin-left: auto; color: var(--cs-text-soft); font-size: 12.5px; }
+
+    .in-workspace { display: grid; grid-template-columns: 350px minmax(0, 1fr); gap: 18px; align-items: start; }
+    .in-roster { border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); overflow: hidden; }
+    .in-roster-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 15px; border-bottom: 1px solid var(--cs-hairline); }
+    .in-roster-head h2 { margin: 0; font-size: 14px; }
+    .in-roster-list { display: flex; flex-direction: column; }
+    .in-incident { display: grid; grid-template-columns: 4px minmax(0, 1fr); gap: 11px; width: 100%; padding: 13px 14px 13px 10px; border: 0; border-bottom: 1px solid var(--cs-hairline); background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+    .in-incident:last-child { border-bottom: 0; }
+    .in-incident:hover { background: var(--cs-shade); }
+    .in-incident.is-selected { background: rgba(68,104,142,.08); box-shadow: inset 3px 0 0 var(--cs-steel); }
+    .in-incident[hidden] { display: none; }
+    .in-severity-rail { width: 4px; min-height: 54px; border-radius: 3px; background: var(--cs-steel); }
+    .in-severity-rail.is-critical { background: var(--cs-dusty-red); }
+    .in-severity-rail.is-high { background: var(--cs-terracotta); }
+    .in-severity-rail.is-medium { background: var(--cs-steel); }
+    .in-incident-title { display: block; margin-bottom: 4px; color: var(--cs-text); font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+    .in-incident-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; color: var(--cs-text-soft); font-size: 11.5px; }
+    .in-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cs-steel); }
+    .in-status-dot.is-open { background: var(--cs-dusty-red); }
+    .in-status-dot.is-progress { background: var(--cs-terracotta); }
+    .in-status-dot.is-resolved { background: var(--cs-sage); }
+
+    .in-detail { border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); overflow: hidden; }
+    .in-detail[hidden] { display: none; }
+    .in-detail-head { padding: 20px 22px 17px; border-bottom: 1px solid var(--cs-hairline); }
+    .in-detail-title-row { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+    .in-detail-title-row h2 { flex: 1 1 360px; margin: 0; font-size: 19px; }
+    .in-detail-lead { margin: 8px 0 0; color: var(--cs-text-soft); font-size: 13px; }
+    .in-detail-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+    .in-meta { padding: 10px 12px; border-radius: var(--cs-radius-sm); background: var(--cs-shade); }
+    .in-meta span { display: block; color: var(--cs-text-soft); font-size: 10.5px; text-transform: uppercase; }
+    .in-meta strong { display: block; margin-top: 2px; color: var(--cs-text); font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+    .in-links { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 22px; border-bottom: 1px solid var(--cs-hairline); background: #fff; }
+    .in-links a { padding: 5px 10px; border: 1px solid var(--cs-hairline); border-radius: 7px; color: var(--cs-steel); font-size: 12px; font-weight: 600; }
+    .in-links a:hover { background: var(--cs-shade); text-decoration: none; }
+
+    .in-history { padding: 19px 22px 23px; }
+    .in-history-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .in-history-title h3 { margin: 0; font-size: 15px; }
+    .in-history-title span { color: var(--cs-text-soft); font-size: 11.5px; }
+    .in-timeline { position: relative; padding-left: 28px; }
+    .in-timeline::before { content: ""; position: absolute; left: 7px; top: 10px; bottom: 12px; width: 2px; background: var(--cs-hairline); }
+    .in-event { position: relative; padding: 0 0 17px; }
+    .in-event:last-child { padding-bottom: 0; }
+    .in-event::before { content: ""; position: absolute; left: -26px; top: 5px; width: 10px; height: 10px; border: 2px solid var(--cs-card); border-radius: 50%; background: var(--cs-steel); box-shadow: 0 0 0 1px var(--cs-hairline); }
+    .in-event.is-auto::before { background: var(--cs-sage); }
+    .in-event.is-hil::before { background: var(--cs-terracotta); }
+    .in-event.is-audit::before { background: var(--cs-navy); }
+    .in-event-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .in-event-title { color: var(--cs-text); font-size: 13.5px; font-weight: 600; }
+    .in-event-time { margin-left: auto; color: var(--cs-text-soft); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .in-event-note { margin: 3px 0 7px; color: var(--cs-text-soft); font-size: 12.5px; }
+    .in-event-facts { display: flex; gap: 6px; flex-wrap: wrap; }
+    .in-event-facts span { padding: 2px 7px; border-radius: 5px; background: var(--cs-shade); color: var(--cs-text-soft); font-size: 10.5px; }
+
+    @media (max-width: 980px) {
+      .in-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .in-workspace { grid-template-columns: 1fr; }
+      .in-roster-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .in-incident:nth-child(odd) { border-right: 1px solid var(--cs-hairline); }
+    }
+    @media (max-width: 620px) {
+      .in-summary, .in-roster-list, .in-detail-meta { grid-template-columns: 1fr; }
+      .in-filter-note { width: 100%; margin-left: 0; }
+      .in-incident:nth-child(odd) { border-right: 0; }
+      .in-detail-head, .in-history { padding-left: 16px; padding-right: 16px; }
+      .in-links { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="cs-container cs-page">
+    <div class="cs-page-header cs-mb-16">
+      <div class="cs-eyebrow">Now + history &middot; incident-centric read model</div>
+      <h1>Incidents</h1>
+      <p class="cs-lead">See every correlated incident, its current disposition, and the complete
+        remediation trail in one read-only workspace. The correlation id joins detection, verdict,
+        delivery, rollback, and audit evidence without introducing a second source of truth.</p>
+    </div>
+
+    <div class="cs-readonly-banner">
+      <strong>Read-only.</strong> This panel composes GET-only incident and audit projections.
+      Approvals and changes remain in ChatOps or remediation pull requests.
+    </div>
+
+    <section class="in-summary" aria-label="Incident summary">
+      <div class="cs-card cs-kpi">
+        <div class="cs-kpi-accent is-terracotta"></div>
+        <span class="cs-kpi-label">Active incidents</span>
+        <span class="cs-kpi-value">3</span>
+        <span class="cs-kpi-foot">1 critical &middot; 1 high &middot; 1 medium</span>
+      </div>
+      <div class="cs-card cs-kpi">
+        <div class="cs-kpi-accent is-sage"></div>
+        <span class="cs-kpi-label">Resolved in 24h</span>
+        <span class="cs-kpi-value">12</span>
+        <span class="cs-kpi-foot">median 6m 42s</span>
+      </div>
+      <div class="cs-card cs-kpi">
+        <div class="cs-kpi-accent is-teal"></div>
+        <span class="cs-kpi-label">Auto-contained</span>
+        <span class="cs-kpi-value">8</span>
+        <span class="cs-kpi-foot">66.7% of resolved incidents</span>
+      </div>
+      <div class="cs-card cs-kpi">
+        <div class="cs-kpi-accent is-plum"></div>
+        <span class="cs-kpi-label">Awaiting approval</span>
+        <span class="cs-kpi-value">1</span>
+        <span class="cs-kpi-foot">oldest 8m</span>
+      </div>
+    </section>
+
+    <div class="in-toolbar">
+      <div class="in-filter" role="group" aria-label="Filter incidents by status">
+        <button type="button" class="is-active" data-incident-filter="active" aria-pressed="true">Active</button>
+        <button type="button" data-incident-filter="resolved" aria-pressed="false">Resolved</button>
+        <button type="button" data-incident-filter="all" aria-pressed="false">All</button>
+      </div>
+      <span class="cs-tag">vertical <strong>all</strong></span>
+      <span class="cs-tag">window <strong>30d</strong></span>
+      <span class="in-filter-note" id="incident-count">Showing 3 active incidents</span>
+    </div>
+
+    <div class="in-workspace">
+      <section class="in-roster" aria-labelledby="incident-roster-title">
+        <div class="in-roster-head">
+          <h2 id="incident-roster-title">Incident roster</h2>
+          <span class="cs-muted" style="font-size:11.5px">last update 09:52</span>
+        </div>
+        <div class="in-roster-list">
+          <button class="in-incident is-selected" type="button" data-incident="inc-api-latency" data-status="active" aria-pressed="true">
+            <span class="in-severity-rail is-critical"></span>
+            <span>
+              <span class="in-incident-title">API latency after configuration rollout</span>
+              <span class="in-incident-meta"><span class="in-status-dot is-progress"></span>in progress <span>&middot;</span> change safety <span>&middot;</span> 4m</span>
+            </span>
+          </button>
+          <button class="in-incident" type="button" data-incident="inc-pitr-disabled" data-status="active" aria-pressed="false">
+            <span class="in-severity-rail is-high"></span>
+            <span>
+              <span class="in-incident-title">Point-in-time recovery disabled</span>
+              <span class="in-incident-meta"><span class="in-status-dot is-open"></span>open <span>&middot;</span> resilience <span>&middot;</span> 8m</span>
+            </span>
+          </button>
+          <button class="in-incident" type="button" data-incident="inc-cost-spike" data-status="active" aria-pressed="false">
+            <span class="in-severity-rail is-medium"></span>
+            <span>
+              <span class="in-incident-title">Unexpected compute cost increase</span>
+              <span class="in-incident-meta"><span class="in-status-dot is-progress"></span>in progress <span>&middot;</span> cost governance <span>&middot;</span> 17m</span>
+            </span>
+          </button>
+          <button class="in-incident" type="button" data-incident="inc-secret-expiry" data-status="resolved" aria-pressed="false" hidden>
+            <span class="in-severity-rail is-high"></span>
+            <span>
+              <span class="in-incident-title">Workload secret nearing expiry</span>
+              <span class="in-incident-meta"><span class="in-status-dot is-resolved"></span>resolved <span>&middot;</span> change safety <span>&middot;</span> 42m ago</span>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <section>
+        <article class="in-detail" data-incident-detail="inc-api-latency">
+          <header class="in-detail-head">
+            <div class="in-detail-title-row">
+              <h2>API latency after configuration rollout</h2>
+              <span class="cs-risk critical">critical</span>
+              <span class="cs-status wait">in progress</span>
+            </div>
+            <p class="in-detail-lead">Latency breached the service threshold within two minutes of a
+              configuration revision. The action is contained; rollback verification is running.</p>
+            <div class="in-detail-meta">
+              <div class="in-meta"><span>Correlation id</span><strong class="cs-mono">inc-01J2-API-LATENCY</strong></div>
+              <div class="in-meta"><span>Opened</span><strong>2026-07-15 09:48:12Z</strong></div>
+              <div class="in-meta"><span>Last updated</span><strong>2026-07-15 09:52:31Z</strong></div>
+              <div class="in-meta"><span>Disposition</span><strong>rollback verifying</strong></div>
+            </div>
+          </header>
+          <nav class="in-links" aria-label="Incident evidence links">
+            <a href="rca.html?correlation=inc-01J2-API-LATENCY">Open RCA</a>
+            <a href="rule-trace.html">Open trace</a>
+            <a href="audit.html">Open audit</a>
+          </nav>
+          <div class="in-history">
+            <div class="in-history-title"><h3>Remediation history</h3><span>6 records &middot; newest first</span></div>
+            <div class="in-timeline">
+              <div class="in-event is-audit">
+                <div class="in-event-row"><span class="in-event-title">Rollback verification started</span><span class="cs-tag">Vidar</span><time class="in-event-time">09:52:31</time></div>
+                <p class="in-event-note">Health probes are compared with the frozen pre-change baseline for five minutes.</p>
+                <div class="in-event-facts"><span>mode enforce</span><span>rollback rbk-01J2-773</span><span>audit aud-01J2-941</span></div>
+              </div>
+              <div class="in-event is-auto">
+                <div class="in-event-row"><span class="in-event-title">Configuration revision reverted</span><span class="cs-tag">Thor</span><time class="in-event-time">09:51:44</time></div>
+                <p class="in-event-note">The approved GitOps revert restored the prior revision. No direct console mutation occurred.</p>
+                <div class="in-event-facts"><span>action config.rollback</span><span>delivery pr_native</span><span>result applied</span></div>
+              </div>
+              <div class="in-event is-hil">
+                <div class="in-event-row"><span class="in-event-title">Risk gate issued auto verdict</span><span class="cs-tag">Forseti</span><time class="in-event-time">09:50:57</time></div>
+                <p class="in-event-note">Blast radius remained one revision and the tested rollback contract was available.</p>
+                <div class="in-event-facts"><span>verdict auto</span><span>tier T0</span><span>confidence 1.00</span></div>
+              </div>
+              <div class="in-event">
+                <div class="in-event-row"><span class="in-event-title">Incident opened and correlated</span><span class="cs-tag">Huginn</span><time class="in-event-time">09:48:12</time></div>
+                <p class="in-event-note">Seven latency alerts and one deployment event were deduplicated into this correlation id.</p>
+                <div class="in-event-facts"><span>events 8 -&gt; 1</span><span>vertical change safety</span><span>mode enforce</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="in-detail" data-incident-detail="inc-pitr-disabled" hidden>
+          <header class="in-detail-head">
+            <div class="in-detail-title-row"><h2>Point-in-time recovery disabled</h2><span class="cs-risk high">high</span><span class="cs-status wait">approval required</span></div>
+            <p class="in-detail-lead">A resilience rule detected missing recovery protection. The proposed remediation is grounded and waiting for two distinct approvers.</p>
+            <div class="in-detail-meta">
+              <div class="in-meta"><span>Correlation id</span><strong class="cs-mono">inc-01J2-PITR-OFF</strong></div>
+              <div class="in-meta"><span>Opened</span><strong>2026-07-15 09:44:55Z</strong></div>
+              <div class="in-meta"><span>Last updated</span><strong>2026-07-15 09:51:08Z</strong></div>
+              <div class="in-meta"><span>Disposition</span><strong>hil pending</strong></div>
+            </div>
+          </header>
+          <nav class="in-links" aria-label="Incident evidence links"><a href="rca.html?correlation=inc-01J2-PITR-OFF">Open RCA</a><a href="rule-trace.html">Open trace</a><a href="audit.html">Open audit</a></nav>
+          <div class="in-history"><div class="in-history-title"><h3>Remediation history</h3><span>4 records</span></div><div class="in-timeline">
+            <div class="in-event is-hil"><div class="in-event-row"><span class="in-event-title">Approval requested</span><span class="cs-tag">Var</span><time class="in-event-time">09:51:08</time></div><p class="in-event-note">Two-person approval is required before the remediation pull request can merge.</p><div class="in-event-facts"><span>verdict hil</span><span>mode enforce</span><span>rollback pr_revert</span></div></div>
+            <div class="in-event"><div class="in-event-row"><span class="in-event-title">Incident opened</span><span class="cs-tag">Huginn</span><time class="in-event-time">09:44:55</time></div><p class="in-event-note">The finding was correlated with the recovery policy evaluation.</p></div>
+          </div></div>
+        </article>
+
+        <article class="in-detail" data-incident-detail="inc-cost-spike" hidden>
+          <header class="in-detail-head"><div class="in-detail-title-row"><h2>Unexpected compute cost increase</h2><span class="cs-risk medium">medium</span><span class="cs-status idle">investigating</span></div><p class="in-detail-lead">Spend increased above the seven-day baseline. Njord is correlating usage and pricing changes in shadow mode.</p><div class="in-detail-meta"><div class="in-meta"><span>Correlation id</span><strong class="cs-mono">inc-01J2-COST-SPIKE</strong></div><div class="in-meta"><span>Opened</span><strong>2026-07-15 09:35:02Z</strong></div><div class="in-meta"><span>Last updated</span><strong>2026-07-15 09:50:26Z</strong></div><div class="in-meta"><span>Disposition</span><strong>analysis running</strong></div></div></header>
+          <nav class="in-links" aria-label="Incident evidence links"><a href="rca.html?correlation=inc-01J2-COST-SPIKE">Open RCA</a><a href="rule-trace.html">Open trace</a><a href="audit.html">Open audit</a></nav>
+          <div class="in-history"><div class="in-history-title"><h3>Remediation history</h3><span>3 records</span></div><div class="in-timeline"><div class="in-event"><div class="in-event-row"><span class="in-event-title">Cost hypothesis entered shadow evaluation</span><span class="cs-tag">Njord</span><time class="in-event-time">09:50:26</time></div><p class="in-event-note">No action is eligible until usage attribution and pricing evidence agree.</p><div class="in-event-facts"><span>mode shadow</span><span>verdict pending</span></div></div></div></div>
+        </article>
+
+        <article class="in-detail" data-incident-detail="inc-secret-expiry" hidden>
+          <header class="in-detail-head"><div class="in-detail-title-row"><h2>Workload secret nearing expiry</h2><span class="cs-risk high">high</span><span class="cs-status ok">resolved</span></div><p class="in-detail-lead">The secret reference was rotated through a remediation pull request and post-change health checks passed.</p><div class="in-detail-meta"><div class="in-meta"><span>Correlation id</span><strong class="cs-mono">inc-01J2-SECRET-EXP</strong></div><div class="in-meta"><span>Opened</span><strong>2026-07-15 08:41:16Z</strong></div><div class="in-meta"><span>Resolved</span><strong>2026-07-15 09:10:43Z</strong></div><div class="in-meta"><span>Disposition</span><strong>remediated</strong></div></div></header>
+          <nav class="in-links" aria-label="Incident evidence links"><a href="rca.html?correlation=inc-01J2-SECRET-EXP">Open RCA</a><a href="rule-trace.html">Open trace</a><a href="audit.html">Open audit</a></nav>
+          <div class="in-history"><div class="in-history-title"><h3>Remediation history</h3><span>7 records</span></div><div class="in-timeline"><div class="in-event is-auto"><div class="in-event-row"><span class="in-event-title">Incident resolved</span><span class="cs-tag">Saga</span><time class="in-event-time">09:10:43</time></div><p class="in-event-note">Rotation, rollout, and health verification completed with no rollback.</p><div class="in-event-facts"><span>verdict auto</span><span>mode enforce</span><span>audit sealed</span></div></div></div></div>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      var filterButtons = Array.from(document.querySelectorAll("[data-incident-filter]"));
+      var incidentButtons = Array.from(document.querySelectorAll("[data-incident]"));
+      var detailPanels = Array.from(document.querySelectorAll("[data-incident-detail]"));
+      var count = document.getElementById("incident-count");
+
+      function selectIncident(id) {
+        incidentButtons.forEach(function (button) {
+          var selected = button.dataset.incident === id;
+          button.classList.toggle("is-selected", selected);
+          button.setAttribute("aria-pressed", String(selected));
+        });
+        detailPanels.forEach(function (panel) {
+          panel.hidden = panel.dataset.incidentDetail !== id;
+        });
+      }
+
+      function applyFilter(status) {
+        var visible = incidentButtons.filter(function (button) {
+          var show = status === "all" || button.dataset.status === status;
+          button.hidden = !show;
+          return show;
+        });
+        filterButtons.forEach(function (button) {
+          var active = button.dataset.incidentFilter === status;
+          button.classList.toggle("is-active", active);
+          button.setAttribute("aria-pressed", String(active));
+        });
+        count.textContent = "Showing " + visible.length + " " + status + " incident" + (visible.length === 1 ? "" : "s");
+        if (visible.length) selectIncident(visible[0].dataset.incident);
+      }
+
+      incidentButtons.forEach(function (button) {
+        button.addEventListener("click", function () { selectIncident(button.dataset.incident); });
+      });
+      filterButtons.forEach(function (button) {
+        button.addEventListener("click", function () { applyFilter(button.dataset.incidentFilter); });
+      });
+    })();
+  </script>
+</body>
+</html>

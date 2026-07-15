@@ -1,0 +1,222 @@
+@page {
+  size: A4;
+  margin: 20mm 17mm 20mm;
+  @top-left {
+    content: string(chapter);
+    color: #6b7178;
+    font: 8pt "Noto Sans KR", "DejaVu Sans", sans-serif;
+    border-bottom: .4pt solid #e3e1de;
+    padding-bottom: 3mm;
+  }
+  @top-right {
+    content: "FDAI · Operational Evidence";
+    color: #6b7178;
+    font: 8pt "Noto Sans KR", "DejaVu Sans", sans-serif;
+    border-bottom: .4pt solid #e3e1de;
+    padding-bottom: 3mm;
+  }
+  @bottom-left {
+    content: "INTERNAL OPERATIONAL RECORD";
+    color: #6b7178;
+    font: 7.5pt "Noto Sans KR", "DejaVu Sans", sans-serif;
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    color: #6b7178;
+    font: 7.5pt "Noto Sans KR", "DejaVu Sans", sans-serif;
+  }
+}
+@page :first {
+  margin: 0;
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-left { content: none; }
+  @bottom-right { content: none; }
+}
+
+:root {
+  --ink: #2c333a;
+  --soft: #6b7178;
+  --rule: #e3e1de;
+  --shade: #f4f2f0;
+  --steel: #44688e;
+  --navy: #3e4c59;
+  --cover-blue: #123968;
+  --cover-blue-bright: #1f5f99;
+  --cyan: #3a8f9d;
+  --sage: #5e8259;
+  --terracotta: #bc7449;
+  --red: #ac5a5a;
+}
+* { box-sizing: border-box; }
+html { font: 9.5pt/1.55 "Noto Sans KR", "DejaVu Sans", sans-serif; color: var(--ink); }
+body { margin: 0; background: #fff; }
+p { margin: 0 0 3mm; orphans: 2; widows: 2; }
+code { font: 8pt/1.45 "DejaVu Sans Mono", monospace; overflow-wrap: anywhere; }
+a { color: var(--steel); text-decoration: none; }
+
+.cover { page-break-after: always; min-height: 297mm; }
+.cover-band {
+  padding: 34mm 22mm 25mm;
+  background: var(--steel);
+  color: #fff;
+}
+.cover-band .kicker, .chapter-kicker { margin: 0 0 5mm; text-transform: uppercase; letter-spacing: .08em; font-size: 8pt; font-weight: 700; }
+.cover-band h1 { margin: 0; max-width: 150mm; color: #fff; font-size: 31pt; line-height: 1.14; }
+.cover-band .subtitle { margin: 5mm 0 0; color: rgba(255,255,255,.82); font-size: 12pt; }
+.cover-meta { display: grid; grid-template-columns: 38mm 1fr; gap: 3mm 7mm; margin: 18mm 22mm 12mm; }
+.cover-meta dt { color: var(--soft); font-size: 7.5pt; font-weight: 700; text-transform: uppercase; }
+.cover-meta dd { margin: 0; overflow-wrap: anywhere; }
+.classification { display: inline-block; margin: 0 22mm 9mm; padding: 2mm 4mm; border: .6pt solid var(--terracotta); color: #8a4f2d; background: #fbf0e9; font-size: 8pt; font-weight: 700; letter-spacing: .08em; }
+.cover-note { margin: 0 22mm; padding-top: 5mm; border-top: .4pt solid var(--rule); color: var(--soft); font-size: 8.5pt; }
+
+.overview, .toc { page-break-after: always; }
+.overview h1, .toc h1, .report-section > h1 { string-set: chapter content(); margin: 0 0 8mm; padding-bottom: 4mm; border-bottom: 1pt solid var(--navy); font-size: 21pt; line-height: 1.2; }
+.chapter-kicker { margin-bottom: 3mm; color: var(--steel); }
+.kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin-bottom: 7mm; }
+.kpi { padding: 5mm; border: .5pt solid var(--rule); border-radius: 1.5mm; background: #fff; break-inside: avoid; }
+.kpi span { display: block; margin-bottom: 2mm; color: var(--soft); font-size: 7.5pt; text-transform: uppercase; }
+.kpi strong { display: block; color: var(--navy); font-size: 22pt; line-height: 1; }
+.summary-block { margin-bottom: 5mm; padding: 5mm; border: .5pt solid var(--rule); border-radius: 1.5mm; background: var(--shade); }
+.summary-block h2 { margin: 0 0 2mm; font-size: 11pt; }
+.summary-block p { margin: 0; color: var(--soft); }
+
+.toc ol { margin: 0; padding: 0; list-style: none; counter-reset: toc; }
+.toc li { display: flex; padding: 3mm 0; border-bottom: .4pt solid var(--rule); counter-increment: toc; }
+.toc li::before { content: counter(toc, decimal-leading-zero); width: 12mm; color: var(--steel); font-weight: 700; }
+.toc a { flex: 1; color: var(--ink); font-weight: 600; }
+.toc a::after { content: leader(".") target-counter(attr(href), page); color: var(--soft); font-weight: 400; }
+
+.report-section { page-break-before: always; }
+.report-section .chapter-kicker { margin-top: 0; }
+.hero-value { display: flex; align-items: baseline; gap: 3mm; padding: 8mm; border: .6pt solid var(--rule); border-radius: 2mm; background: var(--shade); }
+.hero-value strong { color: var(--navy); font-size: 28pt; }
+.hero-value span { color: var(--soft); font-size: 10pt; }
+.table-wrap { width: 100%; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 7.6pt; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th, td { padding: 2.3mm; border-bottom: .4pt solid var(--rule); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+thead th { color: var(--ink); background: transparent; border-bottom: 1pt solid var(--navy); font-size: 7pt; text-transform: uppercase; }
+tbody tr:nth-child(even) { background: var(--shade); }
+.key-value th { width: 35%; color: var(--soft); background: var(--shade); }
+.prose { padding: 5mm; border: .5pt solid var(--rule); border-radius: 1.5mm; background: var(--shade); }
+.unavailable { padding: 4mm; border: .5pt solid #e8c9b5; background: #fbf0e9; color: #8a4f2d; }
+.muted { color: var(--soft); }
+
+/* Incident RCA dossier -------------------------------------------------- */
+.dossier-cover .cover-band { min-height: 102mm; }
+.cover-mark { display: flex; align-items: baseline; gap: 4mm; margin-bottom: 24mm; }
+.cover-mark span { font-size: 13pt; font-weight: 800; letter-spacing: .08em; }
+.cover-mark small { padding-left: 1mm; font-size: 8pt; opacity: .78; }
+.cover-document-number { margin: 11mm 22mm 0; color: var(--cover-blue); font: 700 9pt "DejaVu Sans Mono", monospace; letter-spacing: .08em; }
+
+.dossier-overview, .dossier-toc { page-break-after: always; }
+.dossier-overview > h1, .dossier-toc > h1, .dossier-section-head > h1 {
+  string-set: chapter content();
+  margin: 0 0 7mm;
+  padding-bottom: 4mm;
+  border-bottom: .5pt solid var(--rule);
+  color: var(--ink);
+  font-size: 20pt;
+  line-height: 1.2;
+}
+.dossier-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3.5mm; margin-bottom: 7mm; }
+.dossier-kpi { min-height: 25mm; padding: 4mm; border: .5pt solid var(--rule); border-radius: 1.5mm; background: #fff; box-shadow: 0 1mm 3mm rgba(46,54,64,.05); break-inside: avoid; }
+.dossier-kpi span { display: block; margin-bottom: 2mm; color: var(--soft); font-size: 7pt; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.dossier-kpi strong { display: block; color: var(--ink); font-size: 16pt; line-height: 1.1; overflow-wrap: anywhere; }
+
+.executive-layout { display: grid; grid-template-columns: 1.6fr .7fr; gap: 4mm; margin-bottom: 6mm; }
+.executive-summary, .authority-note { padding: 5mm; border-radius: 1.5mm; break-inside: avoid; }
+.executive-summary { border: .5pt solid var(--rule); background: #fff; box-shadow: 0 1mm 3mm rgba(46,54,64,.05); }
+.executive-summary h2, .authority-note strong { margin: 0 0 3mm; color: var(--ink); font-size: 11pt; }
+.executive-summary p { padding-bottom: 2mm; border-bottom: .3pt solid #dce6ef; }
+.executive-summary p:last-child { padding-bottom: 0; border-bottom: 0; }
+.authority-note { border: .5pt dashed var(--rule); color: var(--ink); background: var(--shade); }
+.authority-note strong { display: block; color: var(--ink); }
+.authority-note p { margin: 0; color: var(--soft); font-size: 8.5pt; }
+
+.completeness-panel { padding: 4mm 5mm; border: .5pt solid var(--rule); border-radius: 1.5mm; background: #fff; }
+.completeness-panel header { display: flex; align-items: baseline; justify-content: space-between; }
+.completeness-panel h2 { margin: 0; color: var(--ink); font-size: 10pt; }
+.completeness-panel header strong { color: var(--steel); font-size: 15pt; }
+.completeness-bar { height: 2.5mm; margin: 2mm 0 3mm; border-radius: 2mm; background: var(--shade); overflow: hidden; }
+.completeness-bar span { display: block; height: 100%; background: var(--steel); }
+.completeness-chips { display: flex; flex-wrap: wrap; gap: 1.5mm; }
+.completeness-chips span { padding: 1mm 2mm; border-radius: 1mm; font-size: 6.5pt; }
+.completeness-chips .available { color: #285f45; background: #e7f2ec; }
+.completeness-chips .missing { color: #83532f; background: #fbf0e9; }
+
+.dossier-section { margin-top: 10mm; page-break-before: auto; break-before: auto; }
+.dossier-section-head { break-inside: avoid; page-break-inside: avoid; }
+.dossier-section-head > h1 { break-after: avoid; page-break-after: avoid; }
+#dossier-incident-profile,
+#dossier-root-cause-hypotheses,
+#dossier-response-plan,
+#dossier-audit-chronology { page-break-before: always; break-before: page; }
+.dossier-section h2 { margin: 7mm 0 3mm; color: var(--ink); font-size: 12pt; }
+.fact-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2.5mm; margin-bottom: 6mm; }
+.fact { min-height: 17mm; padding: 3mm 4mm; border: .5pt solid var(--rule); border-radius: 1.5mm; background: var(--shade); break-inside: avoid; }
+.fact span { display: block; color: var(--soft); font-size: 7pt; font-weight: 700; text-transform: uppercase; }
+.fact strong { display: block; margin-top: 1.5mm; font-size: 9pt; overflow-wrap: anywhere; }
+
+.impact-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3mm; }
+.impact-grid article { padding: 4mm; border: .5pt solid var(--rule); border-radius: 1.5mm; break-inside: avoid; }
+.impact-grid span { color: var(--soft); font-size: 7pt; text-transform: uppercase; }
+.impact-grid strong { display: block; margin: 1mm 0; color: var(--ink); font-size: 17pt; }
+.impact-grid p, .impact-grid footer { margin: 0; font-size: 7.5pt; }
+.impact-grid footer { margin-top: 2mm; color: var(--soft); }
+
+.chronology-table-wrap { width: 100%; }
+.chronology-table { table-layout: fixed; font-size: 7.5pt; }
+.chronology-table th:nth-child(1) { width: 30mm; }
+.chronology-table th:nth-child(2) { width: 27mm; }
+.chronology-table th:nth-child(4) { width: 32mm; }
+.chronology-table td { padding: 3mm; }
+.chronology-table strong, .chronology-table small { display: block; }
+.chronology-table small { margin-top: 1mm; color: var(--soft); font-size: 6.7pt; }
+.chronology-time { color: var(--soft); font: 6.8pt "DejaVu Sans Mono", monospace; }
+.chronology-time span, .chronology-time strong { display: block; white-space: nowrap; }
+.chronology-phase { display: inline-block; padding: .8mm 1.8mm; border-radius: 1mm; background: var(--shade); color: var(--steel); font-size: 6.5pt; font-weight: 700; text-transform: uppercase; }
+
+.hypothesis-card { margin-bottom: 4mm; padding: 5mm; border: .5pt solid var(--rule); border-radius: 1.5mm; background: #fff; box-shadow: 0 1mm 3mm rgba(46,54,64,.05); break-inside: avoid; }
+.hypothesis-card.abstained { border-color: #ecd9d9; background: #f7ecec; }
+.hypothesis-meta { display: flex; gap: 2mm; }
+.hypothesis-meta span { padding: 1mm 2mm; border-radius: 1mm; color: var(--cover-blue); background: #e4eef6; font-size: 7pt; font-weight: 700; text-transform: uppercase; }
+.hypothesis-card h2 { margin: 4mm 0 2mm; color: var(--ink); font-size: 14pt; }
+.hypothesis-card footer { margin-top: 3mm; padding-top: 2mm; border-top: .4pt solid var(--rule); color: var(--soft); font-size: 7.5pt; }
+
+.causal-chain-diagram { display: block; width: 100%; height: auto; break-inside: avoid; }
+.causal-box { stroke: var(--rule); stroke-width: 1; }
+.causal-box-cause { fill: var(--shade); }
+.causal-box-effect { fill: #fff; }
+.causal-line { stroke: var(--steel); stroke-width: 2; }
+.causal-arrow { fill: var(--steel); }
+.causal-label { fill: var(--soft); font: 700 9px "Noto Sans KR", "DejaVu Sans", sans-serif; letter-spacing: .7px; }
+.causal-title { fill: var(--ink); font: 700 13px "Noto Sans KR", "DejaVu Sans", sans-serif; }
+.causal-code { fill: var(--soft); font: 10px "DejaVu Sans Mono", monospace; }
+.causal-edge-label { fill: var(--ink); font: 700 10px "Noto Sans KR", "DejaVu Sans", sans-serif; }
+.causal-edge-detail { fill: var(--soft); font: 9px "Noto Sans KR", "DejaVu Sans", sans-serif; }
+
+.factor-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3mm; }
+.factor-grid article, .alternative, .control-gap, .limitation { margin-bottom: 3mm; padding: 4mm; border: .5pt solid var(--rule); border-radius: 1.5mm; background: #fff; box-shadow: 0 1mm 3mm rgba(46,54,64,.04); break-inside: avoid; }
+.factor-grid article > span { color: var(--steel); font-size: 7pt; font-weight: 700; text-transform: uppercase; }
+.factor-grid h2, .alternative h2, .control-gap h2, .limitation h2 { margin: 1mm 0 2mm; color: var(--ink); font-size: 10pt; }
+.factor-grid footer, .alternative footer, .control-gap footer, .limitation footer { color: var(--soft); font-size: 7pt; }
+
+.alternative header { display: flex; align-items: baseline; justify-content: space-between; }
+.alternative header span { padding: 1mm 2mm; border-radius: 1mm; color: var(--cover-blue); background: #e4eef6; font-size: 7pt; font-weight: 700; }
+.two-column-evidence, .gap-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; }
+.two-column-evidence div, .gap-comparison div { padding: 3mm; background: var(--shade); }
+.two-column-evidence strong, .gap-comparison span { color: var(--soft); font-size: 7pt; text-transform: uppercase; }
+
+.response-step, .recommendation { display: grid; grid-template-columns: 12mm 1fr; gap: 4mm; margin-bottom: 3mm; padding: 4mm; border: .5pt solid var(--rule); border-radius: 1.5mm; background: #fff; box-shadow: 0 1mm 3mm rgba(46,54,64,.04); break-inside: avoid; }
+.step-number, .priority { width: 10mm; min-height: 10mm; display: flex; align-items: center; justify-content: center; border: .5pt solid var(--rule); border-radius: 1.5mm; color: var(--ink); background: var(--shade); font-size: 8pt; font-weight: 800; }
+.recommendation .priority { color: var(--terracotta); background: #fbf0e9; text-transform: uppercase; }
+.response-step h2, .recommendation h2 { margin: 0 0 1mm; color: var(--ink); font-size: 10pt; }
+.response-step p, .recommendation p { margin: 0; }
+.response-step footer, .recommendation footer { margin-top: 2mm; color: var(--soft); font-size: 7pt; }
+
+.section-unavailable { padding: 7mm; border: .5pt dashed var(--rule); border-radius: 1.5mm; background: var(--shade); text-align: center; }
+.section-unavailable strong { display: block; color: var(--ink); font-size: 10pt; }
+.section-unavailable p { margin: 2mm 0 0; color: var(--soft); }

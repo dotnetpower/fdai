@@ -156,6 +156,21 @@ export class ReadApiClient {
     );
   }
 
+  async downloadReport(
+    reportId: string,
+    format: string,
+    variables: Readonly<Record<string, string>> = {},
+  ): Promise<Blob> {
+    const params = new URLSearchParams(variables);
+    params.set("format", format);
+    const response = await this.#getResponse(
+      `/reports/${encodeURIComponent(reportId)}/render`,
+      params,
+      format === "pdf" ? "application/pdf" : "application/octet-stream",
+    );
+    return response.blob();
+  }
+
   /**
    * Fetch a fork-supplied read-only panel payload. Backs the `ReadPanel`
    * seam in `src/fdai/delivery/read_api/panels.py`: a fork registers
@@ -169,11 +184,31 @@ export class ReadApiClient {
   }
 
   async #get<T>(path: string, params?: URLSearchParams): Promise<T> {
+    const response = await this.#getResponse(path, params, "application/json");
+    // Success-path parse is also fallible - a proxy that returns text/html
+    // on a stray 200 (a login page, a WAF interstitial) would otherwise
+    // throw SyntaxError and break the uniform ReadApiError contract every
+    // caller catches on. Wrap it so the error type stays consistent.
+    try {
+      return (await response.json()) as T;
+    } catch {
+      throw new ReadApiError(
+        response.status,
+        `response body was not JSON (${response.headers.get("content-type") ?? "no content-type"})`,
+      );
+    }
+  }
+
+  async #getResponse(
+    path: string,
+    params: URLSearchParams | undefined,
+    accept: string,
+  ): Promise<Response> {
     const url = new URL(path, this.#config.readApiBaseUrl);
     if (params && params.toString().length > 0) {
       url.search = params.toString();
     }
-    const headers: Record<string, string> = { accept: "application/json" };
+    const headers: Record<string, string> = { accept };
     const authHeader = await this.#auth.getAuthorizationHeader();
     if (authHeader !== null) headers["authorization"] = authHeader;
     const response = await fetch(url.toString(), {
@@ -191,18 +226,7 @@ export class ReadApiClient {
       }
       throw new ReadApiError(response.status, message);
     }
-    // Success-path parse is also fallible - a proxy that returns text/html
-    // on a stray 200 (a login page, a WAF interstitial) would otherwise
-    // throw SyntaxError and break the uniform ReadApiError contract every
-    // caller catches on. Wrap it so the error type stays consistent.
-    try {
-      return (await response.json()) as T;
-    } catch {
-      throw new ReadApiError(
-        response.status,
-        `response body was not JSON (${response.headers.get("content-type") ?? "no content-type"})`,
-      );
-    }
+    return response;
   }
 }
 
@@ -313,6 +337,7 @@ export function decodeRcaView(value: unknown): RcaView {
           };
         }),
         remediation_ref: apiNullableString(item, "remediation_ref", "RCA hypothesis"),
+        causal_chain: decodeRcaCausalChain(item["causal_chain"]),
         mode: apiMode(item["mode"]),
         recorded_at: apiString(item, "recorded_at", "RCA hypothesis"),
       };
@@ -331,6 +356,34 @@ export function decodeRcaView(value: unknown): RcaView {
               recorded_at: apiNullableString(item, "recorded_at", "RCA response"),
             };
           })(),
+  };
+}
+
+function decodeRcaCausalChain(value: unknown): RcaView["hypotheses"][number]["causal_chain"] {
+  if (value === null || value === undefined) return null;
+  const chain = apiRecord(value, "RCA causal chain");
+  if (!Array.isArray(chain["hops"]) || chain["hops"].length === 0) {
+    throw contractError("RCA causal chain.hops MUST be a non-empty array");
+  }
+  return {
+    root_event_id: apiString(chain, "root_event_id", "RCA causal chain"),
+    failure_event_id: apiString(chain, "failure_event_id", "RCA causal chain"),
+    confidence: apiRatio(chain, "confidence", "RCA causal chain"),
+    ambiguity: apiPositiveInteger(chain, "ambiguity", "RCA causal chain"),
+    hops: chain["hops"].map((raw, index) => {
+      const hop = apiRecord(raw, `RCA causal chain.hops[${index}]`);
+      const leadSeconds = apiNumber(hop, "lead_seconds", "RCA causal hop");
+      if (leadSeconds < 0) throw contractError("RCA causal hop.lead_seconds MUST be non-negative");
+      return {
+        cause_event_id: apiString(hop, "cause_event_id", "RCA causal hop"),
+        effect_event_id: apiString(hop, "effect_event_id", "RCA causal hop"),
+        cause_resource_ref: apiString(hop, "cause_resource_ref", "RCA causal hop"),
+        effect_resource_ref: apiString(hop, "effect_resource_ref", "RCA causal hop"),
+        lead_seconds: leadSeconds,
+        relationship: apiString(hop, "relationship", "RCA causal hop"),
+        confidence: apiRatio(hop, "confidence", "RCA causal hop"),
+      };
+    }),
   };
 }
 

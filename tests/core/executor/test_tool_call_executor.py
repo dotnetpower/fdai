@@ -16,6 +16,7 @@ execution path. Same six invariants apply:
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from uuid import UUID
 
@@ -43,6 +44,8 @@ from fdai.shared.providers.testing import (
 )
 from fdai.shared.providers.tool import (
     ToolCallOutcome,
+    ToolCallReceipt,
+    ToolCallRequest,
     ToolError,
     ToolPreconditionError,
 )
@@ -144,6 +147,71 @@ class TestHappyPath:
         assert request.action_type_name == "tool.generate-pdf"
         assert request.tool_ref == "document:reports/resilience/2026-07"
 
+    @pytest.mark.asyncio
+    async def test_successful_receipt_observer_runs_before_terminal_success(self) -> None:
+        observed: list[tuple[ToolCallRequest, ToolCallReceipt]] = []
+
+        async def observer(request: ToolCallRequest, receipt: ToolCallReceipt) -> None:
+            observed.append((request, receipt))
+
+        adapter = RecordingToolExecutor()
+        executor = ToolCallShadowExecutor(
+            executor=adapter,
+            audit_store=InMemoryStateStore(),
+            resource_lock=ResourceLockManager(),
+            receipt_observer=observer,
+        )
+
+        result = await executor.execute(action=_action())
+
+        assert result.outcome is ToolCallExecutionOutcome.DISPATCHED
+        assert len(observed) == 1
+
+    @pytest.mark.asyncio
+    async def test_receipt_observer_failure_retries_linkage_on_redelivery(self) -> None:
+        calls = 0
+
+        async def observer(request: ToolCallRequest, receipt: ToolCallReceipt) -> None:  # noqa: ARG001
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise RuntimeError("injected linkage failure")
+
+        adapter = RecordingToolExecutor()
+        executor = ToolCallShadowExecutor(
+            executor=adapter,
+            audit_store=InMemoryStateStore(),
+            resource_lock=ResourceLockManager(),
+            receipt_observer=observer,
+        )
+        action = _action()
+
+        first = await executor.execute(action=action)
+        retried = await executor.execute(action=action)
+
+        assert first.outcome is ToolCallExecutionOutcome.FAILED
+        assert retried.outcome is ToolCallExecutionOutcome.ALREADY_APPLIED
+        assert calls == 2
+
+    @pytest.mark.asyncio
+    async def test_explicit_enforce_executor_passes_enforce_request_to_adapter(self) -> None:
+        adapter = RecordingToolExecutor()
+        audit = InMemoryStateStore()
+        executor = ToolCallShadowExecutor(
+            executor=adapter,
+            audit_store=audit,
+            resource_lock=ResourceLockManager(),
+            enforce=True,
+        )
+
+        result = await executor.execute(action=_action(mode=Mode.ENFORCE))
+
+        assert result.outcome is ToolCallExecutionOutcome.DISPATCHED
+        assert result.mode is Mode.ENFORCE
+        assert adapter.records[0].mode is Mode.ENFORCE
+        assert adapter.records[0].labels == ("enforce",)
+        assert _unwrap(list(audit.audit_entries)[0])["mode"] == "enforce"
+
 
 # ---------------------------------------------------------------------------
 # Idempotency
@@ -167,6 +235,41 @@ class TestIdempotency:
         await exec_.execute(action=_action(idempotency_key="b", target="document:reports/b"))
         assert len(adapter.records) == 2
         assert len(list(audit.audit_entries)) == 2
+
+    @pytest.mark.asyncio
+    async def test_durable_record_failure_does_not_populate_memory_cache(self) -> None:
+        class FailOnceIdempotency:
+            def __init__(self) -> None:
+                self.records = 0
+                self.payload: dict[str, Any] | None = None
+
+            async def seen(self, key: str) -> dict[str, Any] | None:  # noqa: ARG002
+                return self.payload
+
+            async def record(self, key: str, result: dict[str, Any]) -> bool:  # noqa: ARG002
+                self.records += 1
+                if self.records == 1:
+                    raise RuntimeError("injected durable write failure")
+                self.payload = dict(result)
+                return True
+
+        adapter = RecordingToolExecutor()
+        durable = FailOnceIdempotency()
+        executor = ToolCallShadowExecutor(
+            executor=adapter,
+            audit_store=InMemoryStateStore(),
+            resource_lock=ResourceLockManager(),
+            idempotency=durable,
+        )
+        action = _action()
+
+        with pytest.raises(RuntimeError, match="durable write failure"):
+            await executor.execute(action=action)
+        retried = await executor.execute(action=action)
+
+        assert retried.outcome is ToolCallExecutionOutcome.ALREADY_APPLIED
+        assert len(adapter.records) == 1
+        assert durable.records == 2
 
 
 # ---------------------------------------------------------------------------
@@ -215,6 +318,26 @@ class TestRefusals:
 
 class TestAdapterFailures:
     @pytest.mark.asyncio
+    async def test_cancellation_is_audited_then_reraised(self) -> None:
+        class CancelledToolExecutor:
+            async def execute(self, request: ToolCallRequest) -> ToolCallReceipt:  # noqa: ARG002
+                raise asyncio.CancelledError
+
+        audit = InMemoryStateStore()
+        executor = ToolCallShadowExecutor(
+            executor=CancelledToolExecutor(),
+            audit_store=audit,
+            resource_lock=ResourceLockManager(),
+        )
+
+        with pytest.raises(asyncio.CancelledError):
+            await executor.execute(action=_action())
+
+        entry = _unwrap(list(audit.audit_entries)[0])
+        assert entry["action_kind"] == "executor.tool_call.failed"
+        assert entry["reason"] == "tool-call execution cancelled"
+
+    @pytest.mark.asyncio
     async def test_precondition_error_abstains(self) -> None:
         exec_, adapter, audit = _executor()
         adapter.next_error(ToolPreconditionError("document target locked"))
@@ -255,6 +378,35 @@ class TestAdapterFailures:
         entry = _unwrap(list(audit.audit_entries)[0])
         assert entry["action_kind"] == "executor.tool_call.failed"
         assert entry["rollback_succeeded"] is False
+
+    @pytest.mark.asyncio
+    async def test_tool_error_is_audited_but_retries_adapter(self) -> None:
+        exec_, adapter, audit = _executor()
+        adapter.next_error(ToolError("transport", "registry unreachable"))
+        action = _action()
+
+        first = await exec_.execute(action=action)
+        retried = await exec_.execute(action=action)
+
+        assert first.outcome is ToolCallExecutionOutcome.FAILED
+        assert retried.outcome is ToolCallExecutionOutcome.DISPATCHED
+        assert len(adapter.records) == 1
+        assert len(list(audit.audit_entries)) == 2
+
+    @pytest.mark.asyncio
+    async def test_failed_receipt_is_audited_but_retries_adapter(self) -> None:
+        exec_, adapter, audit = _executor()
+        adapter.force_outcome(ToolCallOutcome.FAILED, rollback_succeeded=False)
+        action = _action()
+
+        first = await exec_.execute(action=action)
+        adapter.force_outcome(ToolCallOutcome.SUCCEEDED)
+        retried = await exec_.execute(action=action)
+
+        assert first.outcome is ToolCallExecutionOutcome.FAILED
+        assert retried.outcome is ToolCallExecutionOutcome.DISPATCHED
+        assert len(adapter.records) == 2
+        assert len(list(audit.audit_entries)) == 2
 
     @pytest.mark.asyncio
     async def test_uncontrolled_adapter_error_fails_closed(self) -> None:

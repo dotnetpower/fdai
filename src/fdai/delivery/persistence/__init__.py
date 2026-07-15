@@ -23,6 +23,13 @@ from fdai.delivery.persistence.postgres_idempotency import (
     PostgresIdempotencyStore,
     PostgresIdempotencyStoreConfig,
 )
+from fdai.delivery.persistence.postgres_incident_notification import (
+    PostgresIncidentNotificationDeliveryStore,
+)
+from fdai.delivery.persistence.postgres_incident_proposal import (
+    PostgresIncidentProposalStore,
+)
+from fdai.delivery.persistence.postgres_jira_ledger import PostgresJiraLedger
 from fdai.delivery.persistence.postgres_ontology import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
@@ -63,6 +70,9 @@ __all__ = [
     "PostgresAdvisoryResourceLockConfig",
     "PostgresIdempotencyStore",
     "PostgresIdempotencyStoreConfig",
+    "PostgresIncidentProposalStore",
+    "PostgresJiraLedger",
+    "PostgresIncidentNotificationDeliveryStore",
     "PostgresOperatorMemoryStore",
     "PostgresOperatorMemoryStoreConfig",
     "PostgresOntologyInstanceStore",

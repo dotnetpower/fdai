@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FDAI Logo Lab</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1c1e24;
+        --muted: #636a77;
+        --line: #dcdfe6;
+        --paper: #f7f7f8;
+        --white: #ffffff;
+        --night: #0f1115;
+        font-family: "Bahnschrift", "Aptos Display", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; color: var(--ink); background: var(--paper); }
+      main { width: min(1120px, calc(100% - 40px)); margin: 0 auto; padding: 48px 0 64px; }
+      header { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+      h1 { margin: 0; font-size: clamp(28px, 5vw, 54px); line-height: 0.95; font-weight: 740; letter-spacing: 0; }
+      header p { max-width: 430px; margin: 0; color: var(--muted); line-height: 1.45; }
+      .concepts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); background: var(--white); }
+      article { min-width: 0; padding: 24px; border-right: 1px solid var(--line); }
+      article:last-child { border-right: 0; }
+      .index { margin: 0 0 28px; color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+      .hero { display: grid; place-items: center; min-height: 220px; }
+      .hero img { width: 144px; height: 144px; }
+      h2 { margin: 16px 0 4px; font-size: 21px; letter-spacing: 0; }
+      article > p:last-of-type { min-height: 42px; margin: 0 0 20px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+      .sizes { display: flex; align-items: center; gap: 20px; min-height: 48px; padding-top: 18px; border-top: 1px solid var(--line); }
+      .sizes img:nth-child(1) { width: 48px; height: 48px; }
+      .sizes img:nth-child(2) { width: 32px; height: 32px; }
+      .sizes img:nth-child(3) { width: 16px; height: 16px; }
+      .lockups { display: grid; grid-template-columns: 1fr 1fr; margin-top: 24px; border: 1px solid var(--line); }
+      .lockup { display: flex; align-items: center; gap: 15px; min-height: 116px; padding: 24px 30px; background: var(--white); }
+      .lockup:last-child { color: #f6f8ff; background: var(--night); }
+      .lockup img { width: 54px; height: 54px; }
+      .wordmark { font-size: 28px; font-weight: 760; letter-spacing: 0.06em; }
+      .descriptor { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+      .lockup:last-child .descriptor { color: #a4abb8; }
+      @media (max-width: 760px) {
+        header { align-items: start; flex-direction: column; }
+        .concepts { grid-template-columns: 1fr; }
+        article { border-right: 0; border-bottom: 1px solid var(--line); }
+        article:last-child { border-bottom: 0; }
+        .hero { min-height: 180px; }
+        .lockups { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Cloud,<br />controlled.</h1>
+        <p>Three cloud-native variations of the convergent gate, tested at product, navigation, and favicon sizes.</p>
+      </header>
+
+      <section class="concepts" aria-label="FDAI logo concepts">
+        <article>
+          <p class="index">C1 / Outline</p>
+          <div class="hero"><img src="concepts/fdai-cloud-canopy.svg" alt="Cloud Canopy logo concept" /></div>
+          <h2>Cloud Canopy</h2>
+          <p>A cloud boundary shelters the three trust routes while preserving the original forward action.</p>
+          <div class="sizes" aria-label="Cloud Canopy at smaller sizes">
+            <img src="concepts/fdai-cloud-canopy.svg" alt="" /><img src="concepts/fdai-cloud-canopy.svg" alt="" /><img src="concepts/fdai-cloud-canopy.svg" alt="" />
+          </div>
+        </article>
+        <article>
+          <p class="index">C2 / Negative Space</p>
+          <div class="hero"><img src="concepts/fdai-cloud-aperture.svg" alt="Cloud Aperture logo concept" /></div>
+          <h2>Cloud Aperture</h2>
+          <p>A solid cloud contains the routing system as negative space, making infrastructure the primary signal.</p>
+          <div class="sizes" aria-label="Cloud Aperture at smaller sizes">
+            <img src="concepts/fdai-cloud-aperture.svg" alt="" /><img src="concepts/fdai-cloud-aperture.svg" alt="" /><img src="concepts/fdai-cloud-aperture.svg" alt="" />
+          </div>
+        </article>
+        <article>
+          <p class="index">C3 / Gateway</p>
+          <div class="hero"><img src="concepts/fdai-cloud-gateway.svg" alt="Cloud Gateway logo concept" /></div>
+          <h2>Cloud Gateway</h2>
+          <p>Three visible routes enter a compact cloud and resolve as one safe action inside its boundary.</p>
+          <div class="sizes" aria-label="Cloud Gateway at smaller sizes">
+            <img src="concepts/fdai-cloud-gateway.svg" alt="" /><img src="concepts/fdai-cloud-gateway.svg" alt="" /><img src="concepts/fdai-cloud-gateway.svg" alt="" />
+          </div>
+        </article>
+      </section>
+
+      <section class="lockups" aria-label="Cloud Aperture wordmark lockups">
+        <div class="lockup">
+          <img src="concepts/fdai-cloud-aperture.svg" alt="" />
+          <div><span class="wordmark">FDAI</span><span class="descriptor">Forward Deployed Agents</span></div>
+        </div>
+        <div class="lockup">
+          <img src="concepts/fdai-cloud-aperture.svg" alt="" />
+          <div><span class="wordmark">FDAI</span><span class="descriptor">Forward Deployed Agents</span></div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

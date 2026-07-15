@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 662a099efa975e2f5017655582bc975fc11e8bee
-translation_revised: 2026-07-14
+translation_source_sha: dd15026e675edd762bec219b0ba5a626ea48c997
+translation_revised: 2026-07-15
 ---
 
 # 프로젝트 구조
@@ -183,6 +183,15 @@ fdai/
   발행하지 않고 액션을 실행하지 않습니다. HIL 승인은 ChatOps 또는 remediation-pr로 흐르며,
   콘솔 버튼으로 절대 흐르지 않습니다
   ([security-and-identity-ko.md](security-and-identity-ko.md) 참조).
+  탐색 셸은 아이콘 전용 Activity Bar와 다섯 개의 안정적인 영역인 `전체 현황`, `운영`,
+  `에이전트`, `거버넌스`, `감사·증적`을 사용합니다. 인접한 Explorer는 선택한 영역에 등록된
+  패널을 렌더링합니다. 영어가 기본 표시 언어이며, 한국어 카탈로그는 group id, panel id,
+  route를 바꾸지 않고 한국어 레이블을 제공합니다. 운영자는 브라우저 로컬의 계정별 설정에서
+  패널 순서를 바꾸거나 숨길 수 있습니다. 숨김은 탐색 표시에만 적용되므로 직접 route와 검색은
+  계속 사용할 수 있고, 현재 활성 패널은 숨길 수 없습니다. 세부 route는 공통 페이지 제목 안에
+  간결한 영역 / 패널 계층을 렌더링하여 Explorer를 접어도 맥락을 유지합니다. 영역 루트와 독립
+  유틸리티는 계층이 제목을 반복할 뿐인 경우 단일 제목을 유지합니다. 로컬 dev mode는 Settings
+  바로 위에 `Labs` 영역도 표시하며, production 탐색에서는 이 개발 전용 영역을 생략합니다.
 
 ## 구조 CI 게이트
 
@@ -270,6 +279,8 @@ phase 는 `core/` 를 편집하지 않고 composition root 에서 새 구현을 
 | Rule / policy source | rule-catalog + `policies/` 로더 | - | 번들된 범용 규칙 | 고객 규칙 세트 / 임계값 |
 | **Ontology ObjectType / LinkType** | `src/fdai/rule_catalog/schema/`의 `load_object_type_catalog(root, *, schema_registry)` 및 `load_link_type_catalog(root, *, schema_registry, object_types=...)` | - | upstream ObjectType 4개(`Resource`, `Rule`, `Signal`, `Finding`)와 `rule-catalog/vocabulary/{object-types,link-types}/` 아래의 LinkType들. 엔트리포인트가 `Container.ontology_object_types` / `Container.ontology_link_types`로 주입 | fork는 자체 YAML 디렉토리(예: `fork/vocabulary/object-types/ArchitectureProposal.yaml`)를 추가로 로드해 두 루트를 concatenate 후 `dataclasses.replace(container, ontology_object_types=..., ontology_link_types=...)`로 주입. 두 루트 간 `name` 중복은 fail-close. 자세한 절차는 [downstream-fork-seam-recipes-ko.md § 5.8a](../fork-and-sequencing/downstream-fork-seam-recipes-ko.md#58a-ontology-object-type--link-type-additions). |
 | **Workflow 카탈로그 (프로세스 자동화)** | `src/fdai/rule_catalog/schema/workflow.py`의 `load_workflow_catalog(root, *, schema_registry, action_type_names, rule_ids=...)`; `src/fdai/core/workflow/`의 `compile_workflow(...)` | - | `rule-catalog/workflows/` 아래 shadow-first Workflow들. 엔트리포인트가 ActionType + rule 카탈로그 뒤에 `Container.workflows`로 주입; 모든 스텝이 `ActionType`과 (설정 시) Rule id를 cross-reference, 시작 시 fail-close | fork는 자체 `fork/workflows/` 디렉토리에 Workflow YAML을 추가로 로드해 concatenate한 ActionType / rule 집합과 함께 `dataclasses.replace(container, workflows=...)`로 주입. 두 루트 간 `name` 중복은 fail-close. 자세한 내용은 [process-automation-ko.md](../decisioning/process-automation-ko.md). |
+| **Incident confirmation** | `core/incident/proposal_store.py`의 `IncidentProposalStore` | - | local development용 bounded `InMemoryIncidentProposalStore`; production의 `PostgresIncidentProposalStore`는 replica 간 atomic consume 사용 | 같은 principal/session binding, expiry, atomic single-consumer semantics를 보존하는 durable store만 주입 |
+| **Incident notification delivery** | `DurableIncidentLifecycleNotifier`로 감싼 `IncidentLifecycleNotifier`; atomic claim/complete/release용 `IncidentNotificationDeliveryStore` | - | local은 in-memory claim, production은 lease가 있는 PostgreSQL row-lock claim; notification matrix + HIL escalation fallback | `ChannelRegistry`에 Teams, Slack, email, webhook, pager adapter를 bind하고 stable `audit_id`, single-claimer semantics, lease recovery, startup replay 유지 |
 | Delivery adapter | delivery 인터페이스 | - | `gitops-pr` / `chatops` | 다른 PR 호스트 / 채팅 채널 |
 | Risk scoring & thresholds | risk-gate config | - | 범용 임계값 | 고객 리스크 정책 |
 | Model provider | model client (capability별) | - | 설정된 기본 엔드포인트 | 고객 승인 모델 |

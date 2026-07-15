@@ -44,6 +44,7 @@ from fdai.agents._framework.pantheon import HARD_DEPENDENCY_AGENTS, PANTHEON_NAM
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
 from fdai.agents.bragi import Bragi, Turn
 from fdai.agents.forseti import Forseti
+from fdai.agents.heimdall import Heimdall, IncidentCandidateHook
 from fdai.agents.huginn import Huginn
 from fdai.agents.saga import Saga, compute_fingerprint
 from fdai.agents.thor import ActionExecutor, ActionRunStore, Thor
@@ -94,6 +95,7 @@ class PantheonRuntime:
         thor_state_store: ActionRunStore | None = None,
         rollback_executors: dict[str, RollbackExecutor] | None = None,
         operator_rbac: dict[str, frozenset[str]] | None = None,
+        incident_candidate_hook: IncidentCandidateHook | None = None,
     ) -> PantheonRuntime:
         """Instantiate + wire the pantheon against ``provider``.
 
@@ -161,6 +163,9 @@ class PantheonRuntime:
             instantiated["Saga"] = saga
         if rollback_executors is not None:
             instantiated["Vidar"] = Vidar(executors=rollback_executors)
+        heimdall = instantiated["Heimdall"]
+        if incident_candidate_hook is not None and isinstance(heimdall, Heimdall):
+            heimdall.register_incident_candidate(incident_candidate_hook)
 
         # Safety: force Thor to shadow unless an explicit promotion opts
         # into enforce. Without this the pantheon Thor would auto-execute

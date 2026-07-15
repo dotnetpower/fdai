@@ -20,6 +20,8 @@ from typing import Any
 
 from fdai.delivery.read_api.read_model import (
     AuditItem,
+    RcaCausalChainView,
+    RcaCausalHopView,
     RcaCitationView,
     RcaHypothesisView,
     RcaResponsePlan,
@@ -66,6 +68,7 @@ def _project_hypothesis(item: AuditItem) -> RcaHypothesisView:
         reason=_string(entry, "rca_reason"),
         citations=_project_citations(entry.get("rca_citations")),
         remediation_ref=_string(entry, "rca_remediation_ref"),
+        causal_chain=_project_causal_chain(entry.get("rca_causal_chain")),
         mode=item.mode,
         recorded_at=item.recorded_at,
     )
@@ -83,6 +86,73 @@ def _project_citations(raw: Any) -> tuple[RcaCitationView, ...]:
         if kind and ref:
             citations.append(RcaCitationView(kind=kind, ref=ref))
     return tuple(citations)
+
+
+def _project_causal_chain(raw: Any) -> RcaCausalChainView | None:
+    if not isinstance(raw, Mapping):
+        return None
+    root_event_id = _string(raw, "root_event_id")
+    failure_event_id = _string(raw, "failure_event_id")
+    confidence = _float(raw, "confidence")
+    ambiguity = _int(raw, "ambiguity")
+    raw_hops = raw.get("hops")
+    if (
+        not root_event_id
+        or not failure_event_id
+        or confidence is None
+        or ambiguity is None
+        or ambiguity < 1
+        or not isinstance(raw_hops, Sequence)
+        or isinstance(raw_hops, (str, bytes))
+    ):
+        return None
+    hops: list[RcaCausalHopView] = []
+    for candidate in raw_hops:
+        hop = _project_causal_hop(candidate)
+        if hop is None:
+            return None
+        hops.append(hop)
+    if not hops:
+        return None
+    return RcaCausalChainView(
+        root_event_id=root_event_id,
+        failure_event_id=failure_event_id,
+        confidence=confidence,
+        ambiguity=ambiguity,
+        hops=tuple(hops),
+    )
+
+
+def _project_causal_hop(raw: Any) -> RcaCausalHopView | None:
+    if not isinstance(raw, Mapping):
+        return None
+    strings = {
+        key: _string(raw, key)
+        for key in (
+            "cause_event_id",
+            "effect_event_id",
+            "cause_resource_ref",
+            "effect_resource_ref",
+            "relationship",
+        )
+    }
+    lead_seconds = _float(raw, "lead_seconds")
+    confidence = _float(raw, "confidence")
+    if (
+        any(value is None for value in strings.values())
+        or lead_seconds is None
+        or confidence is None
+    ):
+        return None
+    return RcaCausalHopView(
+        cause_event_id=strings["cause_event_id"] or "",
+        effect_event_id=strings["effect_event_id"] or "",
+        cause_resource_ref=strings["cause_resource_ref"] or "",
+        effect_resource_ref=strings["effect_resource_ref"] or "",
+        lead_seconds=lead_seconds,
+        relationship=strings["relationship"] or "",
+        confidence=confidence,
+    )
 
 
 def _project_response(ordered: Sequence[AuditItem]) -> RcaResponsePlan | None:
@@ -161,6 +231,11 @@ def _float(entry: Mapping[str, Any], key: str) -> float | None:
     if isinstance(value, (int, float)):
         return float(value)
     return None
+
+
+def _int(entry: Mapping[str, Any], key: str) -> int | None:
+    value = entry.get(key)
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
 __all__ = ["project_rca"]

@@ -398,8 +398,15 @@ External collaborators are onboarded via **Entra B2B invitation**, producing a g
 
 Human users never hold PATs or long-lived secrets:
 
-- **Local dev**: device code flow via `az login --use-device-code`, scoped to a dedicated
-  `fdai-api-dev` audience against a dev tenant.
+- **Local console seed harness**: `FDAI_READ_API_LOCAL_AZURE_CLI=1` resolves the
+  interactive user selected by `az login --use-device-code`. The API checks the active
+  account and decodes a short-lived ARM token only to obtain the stable Entra `oid`; the
+  token stays in the local API process and never reaches the browser. The projected
+  principal has a fixed `Contributor` development ceiling and is blocked when
+  `RUNTIME_ENV` is `staging` or `prod`.
+- **Direct API client**: request a token scoped to a dedicated `fdai-api-dev` audience
+  against a development tenant. The standard signature, audience, issuer, expiry, and
+  App-Role checks in section 10.2 still apply.
 - **CI**: workload identity federation (OIDC), already required by
   [deployment.md](../deployment/deployment.md). GitHub Actions and Azure DevOps both support it.
 - **PATs aren't supported**. Secret scanning in CI blocks accidental commits

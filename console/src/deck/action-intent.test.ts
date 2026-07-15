@@ -27,6 +27,17 @@ describe("detectActionIntent", () => {
     expect(detectActionIntent("???")).toBe(false);
   });
 
+  test("routes bilingual incident creation and confirmation", () => {
+    expect(detectActionIntent("prod-api-01 대상으로 SEV2 장애 케이스 열어줘")).toBe(true);
+    expect(detectActionIntent("Create a SEV2 incident for target prod-api-01")).toBe(true);
+    expect(detectActionIntent("확인")).toBe(true);
+    expect(detectActionIntent("confirm")).toBe(true);
+    expect(detectActionIntent("장애 원인이 뭐야?")).toBe(false);
+    expect(detectActionIntent("transition incident 00000000-0000-0000-0000-000000000001 to triaging")).toBe(true);
+    expect(detectActionIntent("incident 00000000-0000-0000-0000-000000000001 상태 triaging으로 변경")).toBe(true);
+    expect(detectActionIntent("assign incident 00000000-0000-0000-0000-000000000001 to user-1")).toBe(true);
+  });
+
   // Parity with the server `_AMBIGUOUS_ACTION_VERBS` / `_QUESTION_MARKERS`
   // guard (fdai.agents._framework.introspection.is_action_intent). Without
   // this, the deck would misroute a question that leads with an ambiguous verb

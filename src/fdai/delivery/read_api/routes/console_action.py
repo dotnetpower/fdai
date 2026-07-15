@@ -1,10 +1,11 @@
 """Console action submission - the write-direction conversational entry.
 
 The read-only console deck answers questions (see :mod:`chat`). This module
-adds the ONE write-direction path an operator conversation needs: submitting an
-action the operator asked for (``restart vm-1``) into the typed pantheon
-pipeline, where Forseti judges it, Var approves a high-risk one, and Thor
-executes - the operator's chat NEVER executes anything itself.
+adds the ONE write-direction path an operator conversation needs. Ordinary
+mutation requests (``restart vm-1``) enter the typed pantheon pipeline, where
+Forseti judges them, Var approves high-risk requests, and Thor executes.
+Incident requests prepare and confirm an audited control-plane record through
+``IncidentLifecycleWorkflow``; they never invoke a resource executor.
 
 Boundary contract (why this is not a "console button that executes"):
 
@@ -13,6 +14,9 @@ Boundary contract (why this is not a "console button that executes"):
   ingests). It holds no executor identity and calls no mutation surface. The
   proposal is a *signal*, exactly like a rule-fired event - the same precedent
   as the HIL approval callback (operator-console.md 13.3).
+- **Confirm incident records.** Incident creation requires severity, target,
+  Contributor RBAC, and a same-principal/session confirmation. The registry is
+  the sole writer and the chat route holds no cloud mutation identity.
 - **Server-derived RBAC.** The operator's role comes from the validated bearer
   token (:class:`~fdai.core.rbac.resolver.Principal`), never from client JSON.
   An operator without ``author-draft-pr`` capability (Reader) is refused before
@@ -33,7 +37,7 @@ import json
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Final
 
 from starlette.exceptions import HTTPException
@@ -46,9 +50,16 @@ from fdai.core.console_request import (
     PriorRequestOutcome,
     evaluate_operator_rerequest,
 )
+from fdai.core.incident.proposal_store import (
+    IncidentProposalStore,
+    InMemoryIncidentProposalStore,
+)
+from fdai.core.incident.workflow import IncidentLifecycleWorkflow
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Capability, has_capability
 from fdai.shared.providers.event_bus import EventBus
+
+from .incident_chat import submit_incident_chat
 
 _LOG = logging.getLogger(__name__)
 
@@ -135,6 +146,11 @@ class ConsoleActionSubmitter:
     action_type_names: frozenset[str] = frozenset()
     prior_outcome_lookup: PriorOutcomeLookup | None = None
     refusal_observer: RefusalObserver | None = None
+    incident_workflow: IncidentLifecycleWorkflow | None = None
+    incident_proposals: IncidentProposalStore = field(
+        default_factory=InMemoryIncidentProposalStore,
+        repr=False,
+    )
 
     def __post_init__(self) -> None:
         # Fail fast at composition: an empty topic would publish proposals into
@@ -227,6 +243,30 @@ class ConsoleActionSubmitter:
                 correlation_id=correlation_id,
                 extra={"required_capability": _SUBMIT_CAPABILITY.value},
             )
+        if session_id is not None and len(session_id) > MAX_SESSION_ID_CHARS:
+            return {
+                "submitted": False,
+                "reason": "session_id_too_long",
+                "correlation_id": correlation_id,
+            }
+        if idempotency_key is not None and len(idempotency_key) > MAX_IDEMPOTENCY_CHARS:
+            return {
+                "submitted": False,
+                "reason": "idempotency_key_too_long",
+                "correlation_id": correlation_id,
+            }
+        if self.incident_workflow is not None:
+            incident_result = await submit_incident_chat(
+                workflow=self.incident_workflow,
+                proposals=self.incident_proposals,
+                question=question,
+                principal=principal,
+                session_id=session_id,
+                correlation_id=correlation_id,
+                max_question_chars=MAX_QUESTION_CHARS,
+            )
+            if incident_result is not None:
+                return incident_result
         action_type, resource_id = translate_action_intent(question, self.action_type_names)
         if action_type is None:
             return {
@@ -292,7 +332,6 @@ class ConsoleActionSubmitter:
             "resource_id": bounded_resource,
         }
 
-
 AuthorizePrincipalFn = Callable[[Request], Awaitable[Principal]]
 """Resolve the request's authenticated :class:`Principal` (roles) or raise 401.
 
@@ -346,9 +385,22 @@ def make_console_action_route(
         session_id = body.get("session_id")
         if session_id is not None and not isinstance(session_id, str):
             raise HTTPException(status_code=400, detail="session_id MUST be a string")
+        if isinstance(session_id, str) and len(session_id) > MAX_SESSION_ID_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"session_id exceeds cap ({len(session_id)} > {MAX_SESSION_ID_CHARS})",
+            )
         idempotency_key = body.get("idempotency_key")
         if idempotency_key is not None and not isinstance(idempotency_key, str):
             raise HTTPException(status_code=400, detail="idempotency_key MUST be a string")
+        if isinstance(idempotency_key, str) and len(idempotency_key) > MAX_IDEMPOTENCY_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "idempotency_key exceeds cap "
+                    f"({len(idempotency_key)} > {MAX_IDEMPOTENCY_CHARS})"
+                ),
+            )
 
         result = await submitter.submit(
             question=prompt.strip(),

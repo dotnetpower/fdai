@@ -40,18 +40,23 @@ validation; none executes a managed-resource mutation directly. Core read
 routes enforce `405` on mutating verbs
 (`tests/delivery/read_api/test_main.py::TestReadOnlyInvariant`).
 
-The **Knowledge > Documents** panel is a separate content-ingestion surface, not
+The **Evidence > Documents** panel is a separate content-ingestion surface, not
 a managed-resource mutation path. Its dedicated client talks only to the
 ingestion gateway, uploads source bytes directly to the gateway-provided object
 target, and requires the operator to acknowledge the effective shared audience.
 The GET-only `ReadApiClient` remains unchanged and never gains upload helpers.
 
 The panel registry in [`src/panels.tsx`](src/panels.tsx) groups the complete
-operator surface by intent: Overview, Now, History, Knowledge, and Safety.
-Settings is a standalone global utility pinned to the bottom of the left rail,
-outside the five intent-group flyouts.
+operator surface into five stable navigation domains: Overview, Operations,
+Agents, Governance, and Evidence. An icon-only Activity Bar selects a domain,
+and the adjacent Explorer shows its panels. Settings is a standalone global
+utility pinned to the bottom of the Activity Bar. Detail routes render a compact
+domain / panel hierarchy inside the shared page title (for example,
+`Overview / LLM cost`). Domain roots and Settings keep a single title to avoid
+repetition. In local dev mode, a `Labs` group appears immediately above Settings
+and links to development-only design tools such as the Logo lab.
 
-The **Now > Incidents** panel is the incident-centric entry point. It groups
+The **Operations > Incidents** panel is the incident-centric entry point. It groups
 the append-only audit stream by `correlation_id`, shows lifecycle status and
 the latest remediation disposition, and loads one incident's audit history on
 selection. Active, Resolved, and All filters use server-side keyset
@@ -296,7 +301,7 @@ call a bounded set of contributors and aggregate their evidence. Every request
 uses the signed-in operator's bearer token and a stable, server-namespaced
 conversation session. The question path never issues a privileged call.
 
-### Submitting an action (propose, never execute)
+### Submitting an action or incident
 
 For an explicit operator command (`restart vm-1`), the deck does not ask the
 narrator - it POSTs to `/chat/action`
@@ -309,6 +314,12 @@ shadow-first, and RBAC is enforced server-side - a Reader gets `403`). The deck
 renders the outcome (submitted with a correlation id / refused by role /
 unmapped) and never holds any execution authority. See
 [operator-console.md § 13.6](../docs/roadmap/interfaces/operator-console.md#136-action-submit---post-chataction-propose-never-execute).
+
+Incident creation uses the same endpoint but a different built-in workflow.
+The deck recognizes English and Korean incident-open requests, displays the
+server's severity/target summary, and sends `confirm` or `확인` back with the
+same conversation id. Only then does `IncidentRegistry` create the audited
+control-plane record. This path never invokes Thor or a cloud executor.
 The local development composition runs the same proposal through a persistent
 in-memory pantheon bus, so a submitted restart reaches Forseti and finishes as
 a Thor shadow action instead of stopping at HTTP acceptance. Production binds
@@ -500,11 +511,11 @@ matching seams:
    gate as the core routes, and fails fast on a malformed / colliding path -
    so the read-only invariant holds for extensions exactly as for core routes.
 2. **Console side** - add a `ConsolePanel` entry to `EXTRA_PANELS` in
-   [`src/panels.tsx`](src/panels.tsx). The nav bar and router iterate the
-  registry, so a new panel appears with no other change. Panels use their
-  intent-group flyout by default; global utilities can opt into the standalone
-  bottom position with `placement: "bottom"`. Panels fetch their data through
-  the GET-only `client.panel<T>(path)` helper.
+  [`src/panels.tsx`](src/panels.tsx). The Activity Bar, Explorer, and router
+  iterate the registry, so a new panel appears with no other change. Panels
+  use their navigation domain by default; global utilities can opt into the
+  standalone bottom position with `placement: "bottom"`. Panels fetch their
+  data through the GET-only `client.panel<T>(path)` helper.
 
 Both halves ship a copy-paste reference that is **not** registered upstream
 (so the default UI stays minimal): `ExampleFinOpsPanel` in `panels.py` and
@@ -526,7 +537,7 @@ console/
     ├── main.tsx        - Preact render root
     ├── app.tsx         - top-level router + init
     ├── config.ts       - env-var-driven runtime config
-    ├── auth.ts         - MSAL.js wrapper + dev-mode bypass
+    ├── auth.ts         - MSAL.js wrapper + anonymous / Azure CLI dev modes
     ├── api.ts          - read-only ReadApiClient (core GET methods + panel())
     ├── preferences.ts  - validated browser-local display preferences
     ├── types.ts        - TS mirrors of read_model.py shapes
@@ -567,6 +578,10 @@ FDAI_READ_API_DEV_MODE=1 \
 VITE_DEV_MODE=1 VITE_READ_API_BASE_URL=http://127.0.0.1:8000 npm run dev
 ```
 
+The local read API allows both Vite's development origin on port `5173`
+and the production-preview origin on port `4173`. To smoke-test the built
+artifact, run `npm run build && npm run preview` against the same API.
+
 When Vite uses another port, add that exact origin to the read API process.
 Wildcards aren't accepted.
 
@@ -580,6 +595,43 @@ FDAI_READ_API_DEV_MODE=1 \
 The dev-mode env var is a **boot-time tripwire** - the API refuses to build a
 `dev_mode=True` app unless `FDAI_READ_API_DEV_MODE=1` is set. A fork's
 production build pipeline never sets that env var.
+
+## Local Azure CLI sign-in
+
+Use this mode when you want the local console to reuse the interactive account
+already selected by `az login`, without opening the MSAL sign-in page. Confirm
+the active account first, especially when you use more than one Azure CLI
+profile:
+
+```sh
+az login --use-device-code
+az account show --query '{subscription:name,user:user.name,tenant:tenantId}' --output table
+```
+
+The read API inherits `AZURE_CONFIG_DIR` from its process. If you use a named
+Azure CLI profile, set the same `AZURE_CONFIG_DIR` when starting the API. The
+API checks `az account show`, obtains a short-lived ARM token, and keeps that
+token inside the API process. It exposes only the stable object id, username,
+display name, and local role projection to the SPA.
+
+```sh
+# Terminal 1: seed API projected as the current Azure CLI user.
+FDAI_READ_API_LOCAL_AZURE_CLI=1 \
+  uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
+        --factory --host 127.0.0.1 --port 8000
+
+# Terminal 2: SPA with MSAL bypassed in favor of the local CLI profile.
+cd console
+VITE_DEV_MODE=0 VITE_LOCAL_AZURE_CLI_AUTH=1 \
+    VITE_READ_API_BASE_URL=http://127.0.0.1:8000 \
+    npm run dev
+```
+
+The local principal has a fixed `Contributor` development ceiling, matching
+the existing anonymous dev harness. It doesn't import production App Roles or
+grant Azure resource permissions to the browser. The API refuses this mode
+when `RUNTIME_ENV` is `staging` or `prod`, and it can't be combined with
+`FDAI_READ_API_DEV_MODE=1` or `FDAI_READ_API_LOCAL_ENTRA=1`.
 
 ## Local sign-in test (real Entra)
 
@@ -647,6 +699,7 @@ CI env):
 | `VITE_MSAL_TENANT_ID` | Entra tenant id (single-tenant per fork). |
 | `VITE_MSAL_API_SCOPE` | API audience scope (e.g. `api://<api-guid>/access`). |
 | `VITE_DEV_MODE` | `1` to bypass MSAL. Never set in production. |
+| `VITE_LOCAL_AZURE_CLI_AUTH` | `1` to project the current local `az login` user through the dev read API. Never set in production or together with `VITE_DEV_MODE`. |
 | `VITE_CONSOLE_BASE_PATH` | Optional subpath if not served at origin root. |
 | `VITE_WORKFLOW_CATALOG_REPO` | Optional `owner/repo` of the catalog repo. When set, a validated workflow draft shows a one-click "Open a PR on GitHub" (new-file link); the console still never commits. |
 | `VITE_WORKFLOW_CATALOG_BRANCH` | Branch the new-file PR link targets (default `main`). |

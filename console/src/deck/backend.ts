@@ -1012,7 +1012,7 @@ function parseRouter(raw: unknown): RouterSnapshot | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Action submission (POST /chat/action) - propose, never execute
+// Write-direction chat (POST /chat/action) - propose actions or manage incidents
 // ---------------------------------------------------------------------------
 
 function actionUrl(): string {
@@ -1043,13 +1043,18 @@ export interface ActionSubmitResult {
   readonly reason?: string;
   /** The capability the operator was missing (for `rbac_capability`). */
   readonly requiredCapability?: string;
+  /** Server-authored operator communication for incident prepare/confirm. */
+  readonly message?: string;
+  readonly incidentId?: string;
+  readonly incidentState?: string;
+  readonly created?: boolean;
 }
 
 /**
- * Submit an operator command to `POST /chat/action`. The endpoint publishes an
- * `ActionProposal` into the typed pipeline (Forseti judges, Var approves a
- * high-risk one, Thor executes shadow-first) - it never executes here. RBAC is
- * enforced server-side from the validated token; a Reader gets `403`.
+ * Submit an operator command to `POST /chat/action`. Ordinary mutations publish
+ * an `ActionProposal` into the typed pipeline. Incident requests use the
+ * audited built-in lifecycle workflow and require same-session confirmation.
+ * RBAC is enforced server-side from the validated token; a Reader gets `403`.
  *
  * Never throws: a transport error or an unwired endpoint resolves to a
  * `submitted: false` result the deck can render as a plain message.
@@ -1099,12 +1104,19 @@ export async function submitAction(
     ...(typeof payload.required_capability === "string"
       ? { requiredCapability: payload.required_capability }
       : {}),
+    ...(typeof payload.message === "string" ? { message: payload.message } : {}),
+    ...(typeof payload.incident_id === "string" ? { incidentId: payload.incident_id } : {}),
+    ...(typeof payload.incident_state === "string"
+      ? { incidentState: payload.incident_state }
+      : {}),
+    ...(typeof payload.created === "boolean" ? { created: payload.created } : {}),
   };
   return result;
 }
 
 /** A plain-language deck message describing an action-submit result. */
 export function renderActionResult(r: ActionSubmitResult): string {
+  if (r.actionType?.startsWith("incident.") && r.message) return r.message;
   if (r.submitted) {
     return (
       `Submitted "${r.actionType ?? "action"}" to the pipeline for judgment. ` +
@@ -1125,6 +1137,13 @@ export function renderActionResult(r: ActionSubmitResult): string {
       );
     case "invalid_principal":
       return "I couldn't identify your account, so I did not submit that action. Try signing in again.";
+    case "incident_confirmation_required":
+    case "incident_details_required":
+    case "incident_creation_cancelled":
+    case "incident_confirmation_expired":
+    case "incident_confirmation_invalid":
+    case "incident_session_required":
+      return r.message ?? "The incident request needs more information before it can continue.";
     case "unmapped_action_intent":
       return "I recognised that as a command, but it maps to no known action yet, so I did not submit it.";
     case "not_wired":

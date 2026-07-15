@@ -20,23 +20,43 @@
     "settings": "Settings",
     "incidents": "Incidents",
     "rca": "RCA",
-    "scope": "Scope"
+    "scope": "Scope",
+    "labs": "Labs"
   },
   "nav": {
     "group": {
-      "now": "Now",
-      "history": "History",
-      "knowledge": "Knowledge",
-      "safety": "Safety",
-      "overview": "Overview"
+      "overview": "Overview",
+      "operations": "Operations",
+      "agents": "Agents",
+      "governance": "Governance",
+      "evidence": "Evidence",
+      "labs": "Labs"
     },
     "groupHint": {
-      "now": "Real-time control-plane state",
-      "history": "Audit and post-hoc traces",
-      "knowledge": "What the system knows",
-      "safety": "Promotion and blast-radius decisions",
-      "overview": "KPIs and rolled-up summaries"
+      "overview": "KPIs and rolled-up summaries",
+      "operations": "Live operations and operator attention",
+      "agents": "Agent organization and runtime activity",
+      "governance": "Rules, scope, and safety controls",
+      "evidence": "Audit, analysis, sources, and reports",
+      "labs": "Development-only UI experiments"
     },
+    "primaryLabel": "Primary navigation",
+    "explorerLabel": "Navigation explorer",
+    "hideGroup": "{group} - hide navigation",
+    "moreActions": "More actions",
+    "customize": "Customize menu",
+    "hideNavigation": "Hide navigation",
+    "reset": "Reset menu",
+    "done": "Done",
+    "visible": "visible",
+    "menu": "menu",
+    "hidden": "Hidden",
+    "noHidden": "No hidden menus",
+    "reorder": "Reorder {panel}",
+    "reorderHint": "Drag to reorder. Press Alt+Up or Alt+Down for keyboard reordering.",
+    "hidePanel": "Hide {panel}",
+    "hideActiveDisabled": "Open another panel before hiding this one.",
+    "showPanel": "Show {panel}",
     "panel": {
       "live": "Live",
       "agents": "Agents",
@@ -65,7 +85,8 @@
       "settings": "Settings",
       "incidents": "Incidents",
       "rca": "RCA",
-      "scope": "Scope"
+      "scope": "Scope",
+      "labs": "Labs"
     },
     "panelSub": {
       "live": "Real-time pipeline activity",
@@ -95,7 +116,8 @@
       "settings": "Display, accessibility, and local console preferences",
       "incidents": "Incident status, disposition, and remediation history",
       "rca": "Root cause: grounded hypothesis, citations, and response plan",
-      "scope": "Effective monitoring and automated-action scope by subscription and RG"
+      "scope": "Effective monitoring and automated-action scope by subscription and RG",
+      "labs": "Development-only design and UI tools"
     }
   },
   "reports": {
@@ -108,6 +130,8 @@
     "variables": "Report variables",
     "refresh": "Render report",
     "refreshing": "Rendering...",
+    "downloadPdf": "Download PDF",
+    "downloadingPdf": "Preparing PDF...",
     "generated": "Generated at {time}",
     "registry": "Console renderers cover {supported} of {total} registered widget types. Unsupported types remain explicitly unavailable.",
     "viewPurpose": "Read-only catalog reports rendered by the reporting subsystem. Widgets display server-owned evidence and never execute actions.",
@@ -132,11 +156,16 @@
     "noCitations": "No citations - insufficient grounding.",
     "remediation": "Implied remediation",
     "recordedAt": "Recorded",
+    "causalChain": "Causal chain",
+    "causalSummary": "{hops} hops, {ambiguity} plausible roots",
+    "causalLead": "Lead {seconds}s",
+    "causalConfidence": "Edge confidence {value}",
     "modeColumn": "Mode",
     "grounded": "Grounded",
     "abstained": "Insufficient grounding -> HIL",
     "abstainedNotice": "This hypothesis is not grounded. It routes to human approval (HIL) and is never treated as a confident cause.",
     "response": "Response plan",
+    "report": "Open detailed RCA report",
     "verdict": "Verdict",
     "decision": "Decision",
     "action": "Action",
@@ -199,7 +228,16 @@
     "select": "Select an incident to inspect its remediation history.",
     "selectNamed": "Select {title} and show its remediation history",
     "correlation": "Correlation id",
+    "incidentId": "Incident id",
+    "ticketId": "Ticket id",
     "opened": "Opened",
+    "lastUpdated": "Last updated",
+    "currentStatus": "Current status",
+    "currentDisposition": "Current disposition",
+    "currentVerdict": "Current verdict",
+    "verticalLabel": "Owning vertical",
+    "latestMode": "Latest mode",
+    "statusSource": "Status source",
     "history": "History entries",
     "timeline": "Remediation timeline",
     "actor": "Actor",
@@ -210,6 +248,7 @@
     "audit": "Open filtered audit log",
     "trace": "Open end-to-end trace",
     "rca": "Open root-cause analysis",
+    "report": "Open incident RCA dossier",
     "loadMore": "Load more incidents",
     "loadingMore": "Loading...",
     "end": "End of incident list.",
@@ -254,6 +293,12 @@
       "received": "Received",
       "failed": "Failed"
     }
+  },
+  "labs": {
+    "subtitle": "Development-only design and UI experiments. These tools never mutate managed resources.",
+    "toolsLabel": "Lab tools",
+    "logoLab": "Logo lab",
+    "logoLabDescription": "Inspect the selected Cloud Aperture mark and alternative brand lockups."
   },
   "settings": {
     "subtitle": "Display and accessibility preferences stored in this browser.",

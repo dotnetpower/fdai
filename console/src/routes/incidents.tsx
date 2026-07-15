@@ -318,10 +318,24 @@ function IncidentDetail({
       <h3 id={`${INCIDENT_DETAIL_ID}-title`} class="section-title">{t("incidents.detail")}</h3>
       <KpiGrid>
         <KpiCard label={t("incidents.correlation")} value={<span class="mono small">{incident.correlation_id}</span>} />
+        <KpiCard label={t("incidents.incidentId")} value={<span class="mono small">{incident.incident_id ?? t("incidents.none")}</span>} />
+        <KpiCard label={t("incidents.ticketId")} value={<span class="mono small">{incident.ticket_id ?? t("incidents.none")}</span>} />
         <KpiCard label={t("incidents.opened")} value={<span class="mono small">{incident.opened_at}</span>} />
+        <KpiCard label={t("incidents.lastUpdated")} value={<span class="mono small">{incident.last_updated_at}</span>} />
+        <KpiCard label={t("incidents.currentStatus")} value={<StatusPill kind={statusPill(incident.status)} label={localized("status", incident.status)} />} />
+        <KpiCard label={t("incidents.currentDisposition")} value={localized("disposition", incident.disposition)} />
+        <KpiCard label={t("incidents.currentVerdict")} value={<StatusPill kind={verdictPill(incident.verdict)} label={incident.verdict} />} />
+        <KpiCard label={t("incidents.verticalLabel")} value={localized("vertical", incident.vertical)} />
+        <KpiCard label={t("incidents.latestMode")} value={<StatusPill kind={incident.latest_mode} label={incident.latest_mode} />} />
+        <KpiCard label={t("incidents.statusSource")} value={<span class="mono small">{incident.status_source}</span>} />
         <KpiCard label={t("incidents.history")} value={incident.history_count} />
       </KpiGrid>
       <p>
+        <a href={routeHref("reports", {
+          segments: ["incident-rca-dossier"],
+          params: { correlation_id: incident.correlation_id },
+        })}>{t("incidents.report")}</a>
+        {" | "}
         <a href={routeHref("audit", { params: { correlation: incident.correlation_id } })}>{t("incidents.audit")}</a>
         {" | "}
         <a href={routeHref("trace", { params: { correlation: incident.correlation_id } })}>{t("incidents.trace")}</a>
@@ -394,5 +408,12 @@ function severityPill(severity: string): PillKind {
   if (severity === "critical" || severity === "high") return "danger";
   if (severity === "medium") return "hil";
   if (severity === "low" || severity === "info") return "info";
+  return "neutral";
+}
+
+function verdictPill(verdict: string): PillKind {
+  if (verdict === "auto") return "auto";
+  if (verdict === "hil") return "hil";
+  if (verdict === "deny") return "danger";
   return "neutral";
 }

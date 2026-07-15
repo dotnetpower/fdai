@@ -29,7 +29,11 @@ from typing import Any, Final
 import psycopg
 from psycopg.rows import dict_row
 
-from fdai.shared.providers.state_store import StateStore
+from fdai.shared.providers.state_store import (
+    IncidentAppendStatus,
+    StateStore,
+    classify_incident_append,
+)
 
 _GENESIS_HASH: Final[str] = "0" * 64
 
@@ -93,57 +97,13 @@ class PostgresStateStore(StateStore):
         path twice for the same event.
         """
         payload = dict(entry)
-        event_id = str(payload.get("event_id") or "00000000-0000-0000-0000-000000000000")
-        correlation_id = payload.get("correlation_id")
-        actor = str(payload.get("actor", "fdai"))
-        action_kind = str(payload.get("action_kind", "unknown"))
-        mode = str(payload.get("mode", "shadow"))
-        if mode not in ("shadow", "enforce"):
-            raise ValueError(f"audit entry mode MUST be 'shadow'|'enforce', got {mode!r}")
-
         async with await psycopg.AsyncConnection.connect(
             self._config.dsn,
             connect_timeout=self._config.connect_timeout_s,
         ) as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
-                # Serialize concurrent hash-chain appenders. Without this
-                # advisory lock two writers can both read the same
-                # `previous_hash`, compute two distinct child hashes, and
-                # INSERT twice - forking the chain silently (the UNIQUE
-                # index on `entry_hash` does not catch this because the
-                # two hashes are different). `pg_advisory_xact_lock` is
-                # released automatically at transaction end, so the lock
-                # never leaks across a crash.
-                await conn.execute(
-                    "SELECT pg_advisory_xact_lock(%s)",
-                    (_AUDIT_APPEND_LOCK_KEY,),
-                )
-                cur = await conn.execute(
-                    "SELECT entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1"
-                )
-                row = await cur.fetchone()
-                previous = row[0] if row is not None else _GENESIS_HASH
-                entry_hash = _next_hash(previous, payload)
-                await conn.execute(
-                    """
-                    INSERT INTO audit_log
-                        (event_id, correlation_id, actor, action_kind, mode,
-                         entry, previous_hash, entry_hash)
-                    VALUES
-                        (%s::uuid, %s, %s, %s, %s, %s::jsonb, %s, %s)
-                    """,
-                    (
-                        event_id,
-                        correlation_id,
-                        actor,
-                        action_kind,
-                        mode,
-                        _canonical(payload),
-                        previous,
-                        entry_hash,
-                    ),
-                )
+                await self._append_audit_in_transaction(conn, payload)
 
     async def read_state(self, key: str) -> Mapping[str, Any] | None:
         async with await psycopg.AsyncConnection.connect(
@@ -182,21 +142,84 @@ class PostgresStateStore(StateStore):
                     (key, json.dumps(dict(value), default=str)),
                 )
 
-    async def append_incident_transition(self, entry: Mapping[str, Any]) -> None:
+    async def append_incident_transition(
+        self, entry: Mapping[str, Any]
+    ) -> IncidentAppendStatus:
         """Route incident transitions into the same audit chain.
 
         The audit chain stays the single source of truth for
         tamper-evident lifecycle history. The transition's own
         ``idempotency_key`` upstream (from
         :class:`~fdai.core.incident.IncidentTransition`) plus the
-        UNIQUE index on ``entry_hash`` provide dedup + tamper
-        evidence; no separate schema is needed for P1.
+        idempotency-key advisory lock and audit lookup provide dedup;
+        the audit hash chain provides tamper evidence.
         """
         payload = dict(entry)
+        incident_id = str(payload.get("incident_id") or "")
+        if not incident_id:
+            raise ValueError("incident transition MUST carry a non-empty incident_id")
         payload.setdefault("actor", str(payload.get("actor_oid", "fdai")))
         payload.setdefault("action_kind", str(payload.get("kind", "incident.transition")))
         payload.setdefault("mode", "shadow")
-        await self.append_audit_entry(payload)
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as conn:
+            async with conn.transaction():
+                await self._set_statement_timeout(conn)
+                await conn.execute(
+                    "SELECT pg_advisory_xact_lock(%s)",
+                    (_incident_lock(incident_id),),
+                )
+                cursor = await conn.execute(
+                    """
+                    SELECT entry
+                    FROM audit_log
+                    WHERE entry->>'incident_id' = %s
+                      AND entry->>'kind' LIKE 'incident.%%'
+                    ORDER BY seq ASC
+                    """,
+                    (incident_id,),
+                )
+                rows = await cursor.fetchall()
+                history = tuple(_json_object(row[0]) for row in rows)
+                status = classify_incident_append(history, payload)
+                if status is IncidentAppendStatus.DUPLICATE:
+                    return status
+                await self._append_audit_in_transaction(conn, payload)
+                return status
+
+    async def read_incident_transitions(self) -> tuple[Mapping[str, Any], ...]:
+        """Return lifecycle audit payloads in append order for recovery."""
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            row_factory=dict_row,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as conn:
+            async with conn.transaction():
+                await self._set_statement_timeout(conn)
+                cursor = await conn.execute(
+                    """
+                    SELECT entry
+                    FROM audit_log
+                    WHERE entry->>'kind' IN (
+                        'incident.open',
+                        'incident.members',
+                        'incident.assigned',
+                        'incident.ticket',
+                        'incident.transition'
+                    )
+                    ORDER BY seq ASC
+                    """
+                )
+                rows = await cursor.fetchall()
+        entries: list[Mapping[str, Any]] = []
+        for row in rows:
+            entry = row["entry"]
+            if not isinstance(entry, dict):
+                raise RuntimeError("incident lifecycle audit entry is not a JSON object")
+            entries.append(dict(entry))
+        return tuple(entries)
 
     # ------------------------------------------------------------------
     # Diagnostics
@@ -246,6 +269,57 @@ class PostgresStateStore(StateStore):
         # the (validated int) timeout literally.
         ms = int(self._config.statement_timeout_ms)
         await conn.execute(f"SET LOCAL statement_timeout = {ms}")
+
+    async def _append_audit_in_transaction(
+        self,
+        conn: psycopg.AsyncConnection[Any],
+        payload: Mapping[str, Any],
+    ) -> None:
+        mode = str(payload.get("mode", "shadow"))
+        if mode not in ("shadow", "enforce"):
+            raise ValueError(f"audit entry mode MUST be 'shadow'|'enforce', got {mode!r}")
+        await conn.execute("SELECT pg_advisory_xact_lock(%s)", (_AUDIT_APPEND_LOCK_KEY,))
+        cursor = await conn.execute(
+            "SELECT entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1"
+        )
+        row = await cursor.fetchone()
+        previous = row[0] if row is not None else _GENESIS_HASH
+        entry_hash = _next_hash(previous, payload)
+        await conn.execute(
+            """
+            INSERT INTO audit_log
+                (event_id, correlation_id, actor, action_kind, mode,
+                 entry, previous_hash, entry_hash)
+            VALUES
+                (%s::uuid, %s, %s, %s, %s, %s::jsonb, %s, %s)
+            """,
+            (
+                str(payload.get("event_id") or "00000000-0000-0000-0000-000000000000"),
+                payload.get("correlation_id"),
+                str(payload.get("actor", "fdai")),
+                str(payload.get("action_kind", "unknown")),
+                mode,
+                _canonical(payload),
+                previous,
+                entry_hash,
+            ),
+        )
+
+
+def _incident_lock(incident_id: str) -> int:
+    """Return a stable positive 63-bit per-incident advisory-lock key."""
+    digest = hashlib.sha256(incident_id.encode()).digest()
+    return int.from_bytes(digest[:8], byteorder="big", signed=False) & ((1 << 63) - 1)
+
+
+def _json_object(value: object) -> Mapping[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, str):
+        decoded = json.loads(value)
+        if isinstance(decoded, dict):
+            return decoded
+    raise RuntimeError("incident lifecycle audit entry is not a JSON object")
 
 
 __all__ = ["PostgresStateStore", "PostgresStateStoreConfig"]

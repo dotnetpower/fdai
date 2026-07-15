@@ -21,6 +21,8 @@ from fdai.core.rca.causal_chain import (
 from fdai.core.rca.contract import (
     Citation,
     CitationKind,
+    RcaCausalChain,
+    RcaCausalHop,
     RcaOutcome,
     RcaResult,
     RcaTier,
@@ -51,6 +53,8 @@ __all__ = [
     "KnowledgeEvidenceGatherer",
     "NoopIncidentMemberSource",
     "RcaCoordinator",
+    "RcaCausalChain",
+    "RcaCausalHop",
     "RcaModel",
     "RcaOutcome",
     "RcaReasoner",

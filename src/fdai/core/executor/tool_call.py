@@ -30,8 +30,9 @@ distinguishable from the PR-native and direct-API paths.
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -56,6 +57,8 @@ from fdai.shared.providers.tool import (
 )
 
 _LOG = logging.getLogger(__name__)
+
+ToolReceiptObserver = Callable[[ToolCallRequest, ToolCallReceipt], Awaitable[None]]
 
 
 class ToolCallExecutionOutcome(StrEnum):
@@ -165,12 +168,16 @@ class ToolCallShadowExecutor:
         resource_lock: ResourceLock,
         config: ExecutorConfig | None = None,
         idempotency: IdempotencyStore | None = None,
+        receipt_observer: ToolReceiptObserver | None = None,
+        enforce: bool = False,
     ) -> None:
         self._executor = executor
         self._audit_store = audit_store
         self._resource_lock = resource_lock
         self._config = config or ExecutorConfig()
         self._idempotency = idempotency
+        self._receipt_observer = receipt_observer
+        self._enforce = enforce
         # idempotency_key -> ToolCallExecutionResult. Same FIFO-bounded
         # policy as :class:`ShadowExecutor` so a long-running control
         # loop cannot grow unbounded memory on distinct events. The
@@ -191,7 +198,7 @@ class ToolCallShadowExecutor:
         # Shadow-only path (P1) - reject enforce-mode Actions BEFORE the
         # lock. The adapter would also raise ToolPromotionError but this
         # saves a per-target lock cycle on a pure refusal.
-        if action.mode is not Mode.SHADOW:
+        if action.mode is not Mode.SHADOW and not self._enforce:
             return await self._finish(
                 action=action,
                 outcome=ToolCallExecutionOutcome.REJECTED_MODE,
@@ -258,7 +265,17 @@ class ToolCallShadowExecutor:
                     outcome=ToolCallExecutionOutcome.FAILED,
                     reason=f"adapter error [{exc.kind}]: {exc}",
                     rollback_succeeded=False,
+                    remember=False,
                 )
+            except asyncio.CancelledError:
+                await self._finish(
+                    action=action,
+                    outcome=ToolCallExecutionOutcome.FAILED,
+                    reason="tool-call execution cancelled",
+                    rollback_succeeded=False,
+                    remember=False,
+                )
+                raise
             except Exception as exc:  # noqa: BLE001 - executor boundary
                 # Uncontrolled adapter failure: fail closed. Log via the
                 # module logger so an operator can investigate, then audit
@@ -270,8 +287,26 @@ class ToolCallShadowExecutor:
                     outcome=ToolCallExecutionOutcome.FAILED,
                     reason=f"uncontrolled adapter error: {exc!r}",
                     rollback_succeeded=False,
+                    remember=False,
                 )
 
+            if (
+                self._receipt_observer is not None
+                and receipt.outcome
+                in {ToolCallOutcome.SUCCEEDED, ToolCallOutcome.ALREADY_APPLIED}
+            ):
+                try:
+                    await self._receipt_observer(request, receipt)
+                except Exception as exc:  # noqa: BLE001 - linkage boundary
+                    _LOG.exception("tool-call receipt observer failed")
+                    return await self._finish(
+                        action=action,
+                        outcome=ToolCallExecutionOutcome.FAILED,
+                        reason=f"receipt observer error: {type(exc).__name__}",
+                        receipt_ref=receipt.receipt_ref,
+                        rollback_succeeded=False,
+                        remember=False,
+                    )
             return await self._finish_from_receipt(action=action, receipt=receipt)
 
     # ------------------------------------------------------------------
@@ -312,6 +347,7 @@ class ToolCallShadowExecutor:
             reason=receipt.detail,
             receipt_ref=receipt.receipt_ref,
             rollback_succeeded=receipt.rollback_succeeded,
+            remember=receipt.outcome is not ToolCallOutcome.FAILED,
         )
 
     async def _finish(
@@ -322,11 +358,12 @@ class ToolCallShadowExecutor:
         reason: str | None,
         receipt_ref: str | None = None,
         rollback_succeeded: bool | None = None,
+        remember: bool = True,
     ) -> ToolCallExecutionResult:
         result = ToolCallExecutionResult(
             action_id=str(action.action_id),
             outcome=outcome,
-            mode=Mode.SHADOW,
+            mode=action.mode,
             receipt_ref=receipt_ref,
             rollback_succeeded=rollback_succeeded,
             reason=reason,
@@ -345,11 +382,12 @@ class ToolCallShadowExecutor:
         # cached "already handled" hit that silently suppresses the audit
         # trail on the retry.
         await self._write_audit(action=action, result=result)
-        self._remember(action.idempotency_key, result)
         # Durable dedup: record only outcomes that ran the tool so a
         # post-restart retry does not re-run it.
         if self._idempotency is not None and outcome in _TC_RAN_OUTCOMES:
             await self._idempotency.record(action.idempotency_key, _tc_result_to_payload(result))
+        if remember:
+            self._remember(action.idempotency_key, result)
         return result
 
     def _remember(self, key: str, result: ToolCallExecutionResult) -> None:
@@ -368,7 +406,7 @@ class ToolCallShadowExecutor:
             "idempotency_key": action.idempotency_key,
             "actor": "fdai.core.executor.tool_call",
             "action_kind": f"executor.tool_call.{result.outcome.value}",
-            "mode": Mode.SHADOW.value,
+            "mode": action.mode.value,
             "execution_path": "tool_call",
             "citing_rule_ids": list(action.citing_rules),
             "outcome": result.outcome.value,
@@ -404,12 +442,13 @@ def _build_tool_call_request(action: Action) -> ToolCallRequest:
         rule_ids=tuple(action.citing_rules),
         tool_ref=action.target_resource_ref,
         arguments=dict(action.params),
-        labels=("shadow",),
-        mode=Mode.SHADOW,
+        labels=(("enforce",) if action.mode is Mode.ENFORCE else ("shadow",)),
+        mode=action.mode,
     )
 
 
 __all__ = [
+    "ToolReceiptObserver",
     "ToolCallExecutionOutcome",
     "ToolCallExecutionResult",
     "ToolCallShadowExecutor",

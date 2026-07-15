@@ -93,6 +93,32 @@ describe("submitAction", () => {
     expect(body.idempotency_key.length).toBeGreaterThan(0);
     expect(body.prompt).toBe("restart svc-1");
   });
+
+  test("preserves incident confirmation and lifecycle fields", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        fakeResponse(200, {
+          submitted: false,
+          reason: "incident_confirmation_required",
+          action_type: "incident.create",
+          correlation_id: "conv-incident",
+          message: "SEV2 Incident를 생성할게. 확인하면 생성해.",
+          incident_id: "incident-1",
+          incident_state: "open",
+          created: false,
+        }),
+      ),
+    );
+
+    const result = await submitAction("SEV2 장애 케이스 열어줘", "s1");
+
+    expect(result.actionType).toBe("incident.create");
+    expect(result.message).toMatch(/확인하면 생성/);
+    expect(result.incidentId).toBe("incident-1");
+    expect(result.incidentState).toBe("open");
+    expect(result.created).toBe(false);
+  });
 });
 
 describe("renderActionResult", () => {
@@ -149,5 +175,27 @@ describe("renderActionResult", () => {
     });
     expect(msg).toMatch(/couldn't identify your account/);
     expect(msg).not.toMatch(/did not respond/);
+  });
+
+  test("incident prepare and create use the server communication", () => {
+    const prepared = renderActionResult({
+      submitted: false,
+      status: 200,
+      actionType: "incident.create",
+      reason: "incident_confirmation_required",
+      message: "SEV2 Incident를 생성할게. 확인하면 생성해.",
+    });
+    const created = renderActionResult({
+      submitted: true,
+      status: 200,
+      actionType: "incident.create",
+      correlationId: "incident-1",
+      message: "Incident incident-1 created in open state.",
+    });
+
+    expect(prepared).toMatch(/확인하면 생성/);
+    expect(prepared).not.toMatch(/did not respond/);
+    expect(created).toMatch(/created in open state/);
+    expect(created).not.toMatch(/Forseti/);
   });
 });

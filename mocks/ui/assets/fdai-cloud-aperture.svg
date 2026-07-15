@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">FDAI Cloud Aperture concept</title>
+  <desc id="desc">A cloud silhouette contains three negative-space trust routes converging into one forward action.</desc>
+  <defs>
+    <mask id="route-cutouts">
+      <rect width="64" height="64" fill="white"/>
+      <g fill="none" stroke="black" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter">
+        <path d="M0 21h13c8 0 8 11 18 11h10"/>
+        <path d="M0 32h41"/>
+        <path d="M0 43h13c8 0 8-11 18-11h10"/>
+      </g>
+      <path fill="black" d="m35 22 13 10-13 10z"/>
+    </mask>
+  </defs>
+  <path fill="#2B7FE0" mask="url(#route-cutouts)" d="M14 51C7 51 3 46 3 40c0-6 4-11 10-12 1-9 9-16 19-16 7 0 13 3 17 9 8 0 13 6 13 14 0 9-7 16-17 16H14Z"/>
+</svg>

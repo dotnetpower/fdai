@@ -79,15 +79,79 @@ machine, and no lifecycle hook. As a result:
 - **State machine**: `open → triaging → mitigated → resolved → closed`
   with reopen paths `resolved → triaging`. Illegal transitions raise
   `IncidentTransitionError`. Transitions are idempotent by
-  `(incident_id, target_state, actor_oid)`.
+  `(incident_id, target_state, actor_oid)`. Severity can change only on the
+  `resolved → triaging` reopen edge and is preserved in replay.
 - **Persistence**: extends `StateStore` with
   `append_incident_transition(entry: Mapping)`; the concrete Postgres
   adapter hash-chains transitions into the same audit stream (see
   [security-and-identity.md § Auditability](../architecture/security-and-identity.md)),
-  so nothing bypasses the append-only guarantee.
+  so nothing bypasses the append-only guarantee. The append returns
+  `applied` or `duplicate`; stale expected state raises
+  `IncidentWriteConflictError`. PostgreSQL holds a per-incident advisory lock,
+  checks the persisted current state, and appends to the global audit hash
+  chain in one transaction. A losing replica reloads the canonical audit
+  projection before returning the conflict.
 - **Ownership**: `core/incident/` (new package). Verticals emit
   candidate transitions; the incident module is the sole writer that
   can call `append_incident_transition`.
+- **Lifecycle metadata**: assignment changes append `incident.assigned`; a
+  successful GitHub/Jira/tool receipt appends `incident.ticket` with provider,
+  external id, and an optional HTTPS URL. Both are idempotent, replay-safe,
+  and visible through the same audit-backed incident roster. Vendor calls stay
+  in delivery adapters; the registry only links their successful receipt.
+
+**Built-in lifecycle workflow.** `IncidentLifecycleWorkflow` provides the
+single creation and transition path above `IncidentRegistry`:
+
+- An operator with the Contributor role can ask to open an incident in English
+  or Korean. The deterministic parser requires an incident/open intent,
+  severity, and target. It asks for missing fields instead of guessing. A
+  complete request produces a 10-minute proposal and explains what will be
+  created; only the same operator in the same conversation can confirm it.
+- An allowlisted agent can open an incident without conversational
+  confirmation only when it supplies at least one member event and a non-empty
+  reason. This keeps autonomous creation grounded in observed evidence.
+  Production passes Heimdall's repeated-event candidate hook to the same
+  durable workflow before the pantheon starts consuming events.
+- Open and same-state transition replays remain idempotent and do not send a
+  duplicate notification. Every lifecycle audit row carries the deterministic
+  incident id as its top-level `correlation_id`, so the console roster can
+  project it without inferring an association from a resource name. New member
+  events append `incident.members` rows so correlation growth survives restart.
+- Creation, legal state changes, and requested roster summaries emit A2
+  operational notifications through `RoutedIncidentLifecycleNotifier` wrapped
+  by `DurableIncidentLifecycleNotifier`. Each lifecycle occurrence has a stable
+  `audit_id`; a sent checkpoint prevents repeat delivery, and startup replay
+  retries any audit row without a checkpoint. If no real channel adapter is
+  bound, the production default routes the notice to the StateStore-backed HIL
+  escalation sink instead of dropping it. Lifecycle messages omit free-form
+  reasons and resource correlation keys; roster messages include at most 20
+  incident ids and link to the full roster.
+
+The in-process registry remains a projection, not the source of truth.
+Production startup reads ordered `incident.open`, `incident.members`, and
+`incident.transition` rows from Postgres and rebuilds the registry before the
+API accepts traffic. Invalid ids, state ordering, or timestamps fail startup
+without replacing the prior snapshot. Pending chat proposals use the async
+`IncidentProposalStore`: local development binds a bounded in-memory store,
+while production uses an atomic Postgres `DELETE ... RETURNING` consume so only
+one replica can accept a confirmation. Persisted proposals store a hash of the
+operator text, never the raw prompt. The local projecting store still makes a
+chat-created incident appear in `/incidents` immediately.
+
+**SLA escalation and metrics.** `IncidentSlaPolicy` accepts configured
+acknowledgment and resolution seconds for every severity. The production
+monitor is disabled until `FDAI_INCIDENT_SLA_POLICY_JSON` is supplied; when
+enabled it derives the current state-entry timestamp from ordered audit rows,
+emits a stable `sla_breach` A2 notice at the deadline, and relies on durable
+notification checkpoints to suppress repeat scans. Resolved and closed
+incidents do not alert. `project_incident_metrics` projects deduplicated audit
+rows into creation totals (agent/operator), current state and severity counts,
+assignment and ticket counts, reopen count, and mean acknowledgment/resolution
+duration. These are measured facts suitable for KPI and briefing surfaces.
+Successful `tool_call` ticket receipts pass through a receipt observer before
+terminal executor success. Linkage failure stays retryable: the adapter ledger
+returns `already_applied` on redelivery and only the incident link is retried.
 
 **Storm handling.** When one root fault fans out into many correlated
 incidents, firing every remediation at once multiplies blast radius,

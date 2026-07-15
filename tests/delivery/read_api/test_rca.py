@@ -94,6 +94,45 @@ def test_projection_orders_hypotheses_newest_first_with_citations() -> None:
     ]
 
 
+def test_projection_retains_structured_causal_chain() -> None:
+    item = _rca_item(1, "corr-chain", tier="t1")
+    item.entry["rca_causal_chain"] = {
+        "root_event_id": "change-1",
+        "failure_event_id": "failure-1",
+        "confidence": 0.82,
+        "ambiguity": 1,
+        "hops": [
+            {
+                "cause_event_id": "change-1",
+                "effect_event_id": "failure-1",
+                "cause_resource_ref": "service-a",
+                "effect_resource_ref": "service-b",
+                "lead_seconds": 75.0,
+                "relationship": "dependency",
+                "confidence": 0.82,
+            }
+        ],
+    }
+    hypothesis = project_rca((item,), correlation_id="corr-chain").hypotheses[0]
+    assert hypothesis.causal_chain is not None
+    assert hypothesis.causal_chain.root_event_id == "change-1"
+    assert hypothesis.causal_chain.hops[0].lead_seconds == 75.0
+    assert hypothesis.to_dict()["causal_chain"]["hops"][0]["relationship"] == "dependency"
+
+
+def test_malformed_causal_chain_is_unavailable_not_partial() -> None:
+    item = _rca_item(1, "corr-bad-chain", tier="t1")
+    item.entry["rca_causal_chain"] = {
+        "root_event_id": "change-1",
+        "failure_event_id": "failure-1",
+        "confidence": 0.82,
+        "ambiguity": 1,
+        "hops": [{"cause_event_id": "change-1"}],
+    }
+    hypothesis = project_rca((item,), correlation_id="corr-bad-chain").hypotheses[0]
+    assert hypothesis.causal_chain is None
+
+
 def test_abstained_hypothesis_is_marked_not_grounded() -> None:
     items = (
         _rca_item(

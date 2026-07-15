@@ -24,6 +24,7 @@ Fail-fast contract:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import signal
@@ -31,6 +32,7 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
+from uuid import NAMESPACE_URL, uuid5
 
 import httpx
 import yaml
@@ -52,7 +54,7 @@ from .core.executor.action_builder import ActionBuilder
 from .core.executor.direct_api import DirectApiShadowExecutor
 from .core.executor.lock import ResourceLockManager
 from .core.executor.renderer import TemplateRenderer
-from .core.executor.tool_call import ToolCallShadowExecutor
+from .core.executor.tool_call import ToolCallShadowExecutor, ToolReceiptObserver
 from .core.hil_resume import HilResumeCoordinator
 from .core.notifications.matrix import load_matrix_from_yaml
 from .core.quality_gate import QualityGate, RuleBasedVerifier
@@ -654,6 +656,8 @@ def _build_tool_executor(
     audit_store: Any,
     resource_lock: ResourceLock,
     idempotency: IdempotencyStore | None = None,
+    receipt_observer: ToolReceiptObserver | None = None,
+    http_client: httpx.AsyncClient | None = None,
 ) -> ToolCallShadowExecutor | None:
     """Select the tool-call executor for this process.
 
@@ -669,16 +673,70 @@ def _build_tool_executor(
     shape.
     """
 
-    if os.environ.get("FDAI_TOOL_CALL_FAKE", "").strip() != "1":
+    jira_base_url = os.environ.get("FDAI_JIRA_BASE_URL", "").strip()
+    if jira_base_url:
+        if http_client is None:
+            raise RuntimeError("FDAI_JIRA_BASE_URL requires a shared HTTP client")
+        dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+        if not dsn:
+            raise RuntimeError("Jira tool execution requires FDAI_STATE_STORE_DSN")
+        account_email = os.environ.get("FDAI_JIRA_ACCOUNT_EMAIL", "").strip()
+        token_secret = os.environ.get("FDAI_JIRA_API_TOKEN_SECRET", "").strip()
+        raw_map = os.environ.get("FDAI_JIRA_TOOL_MAP_JSON", "").strip()
+        if not account_email or not token_secret or not raw_map:
+            raise RuntimeError(
+                "Jira tool execution requires account email, token secret, and tool map"
+            )
+        try:
+            decoded_map = json.loads(raw_map)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("FDAI_JIRA_TOOL_MAP_JSON MUST be valid JSON") from exc
+        if not isinstance(decoded_map, dict) or not all(
+            isinstance(key, str) and key
+            and isinstance(value, str) and value
+            for key, value in decoded_map.items()
+        ):
+            raise RuntimeError("FDAI_JIRA_TOOL_MAP_JSON MUST map strings to strings")
+        from .delivery.jira.tool import JiraToolExecutor, JiraToolExecutorConfig
+        from .delivery.persistence import (
+            PostgresIdempotencyStoreConfig,
+            PostgresJiraLedger,
+        )
+        from .shared.providers.local import EnvSecretProvider
+
+        adapter: Any = JiraToolExecutor(
+            config=JiraToolExecutorConfig(
+                base_url=jira_base_url,
+                account_email=account_email,
+                api_token_secret=token_secret,
+                tool_map=decoded_map,
+            ),
+            http_client=http_client,
+            secrets=EnvSecretProvider(),
+            ledger=PostgresJiraLedger(
+                config=PostgresIdempotencyStoreConfig(dsn=dsn)
+            ),
+        )
+        enforce = os.environ.get("FDAI_JIRA_ENFORCE", "").strip() == "1"
+        _LOGGER.info(
+            "tool_call_backend",
+            extra={"backend": "jira", "enforce": enforce},
+        )
+    elif os.environ.get("FDAI_TOOL_CALL_FAKE", "").strip() == "1":
+        adapter = RecordingToolExecutor()
+        enforce = False
+        _LOGGER.info("tool_call_backend", extra={"backend": "recording"})
+    else:
         _LOGGER.info("tool_call_backend", extra={"backend": "none"})
         return None
 
-    _LOGGER.info("tool_call_backend", extra={"backend": "recording"})
     return ToolCallShadowExecutor(
-        executor=RecordingToolExecutor(),
+        executor=adapter,
         audit_store=audit_store,
         resource_lock=resource_lock,
         idempotency=idempotency,
+        receipt_observer=receipt_observer,
+        enforce=enforce,
     )
 
 
@@ -707,6 +765,43 @@ def _build_idempotency_store() -> IdempotencyStore | None:
 
     _LOGGER.info("idempotency_backend", extra={"backend": "postgres"})
     return PostgresIdempotencyStore(config=PostgresIdempotencyStoreConfig(dsn=dsn))
+
+
+def _build_incident_notifier(audit_store: Any) -> Any:
+    """Compose durable A2 incident delivery for the control-plane process."""
+    from .core.incident import (
+        DurableIncidentLifecycleNotifier,
+        InMemoryIncidentNotificationDeliveryStore,
+        RoutedIncidentLifecycleNotifier,
+    )
+    from .core.notifications.router import ChannelRegistry, NotificationRouter
+    from .delivery.notifications import StateStoreHilEscalationSink
+
+    dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+    if dsn:
+        from .delivery.persistence import (
+            PostgresIncidentNotificationDeliveryStore,
+            PostgresStateStoreConfig,
+        )
+
+        delivery_store: Any = PostgresIncidentNotificationDeliveryStore(
+            config=PostgresStateStoreConfig(dsn=dsn)
+        )
+    else:
+        delivery_store = InMemoryIncidentNotificationDeliveryStore()
+    matrix = load_matrix_from_yaml(
+        _resolve_catalog_root().parent / "config" / "notifications-matrix.yaml"
+    )
+    router = NotificationRouter(
+        matrix=matrix,
+        registry=ChannelRegistry(),
+        audit_store=audit_store,
+        hil_sink=StateStoreHilEscalationSink(state_store=audit_store),
+    )
+    return DurableIncidentLifecycleNotifier(
+        delegate=RoutedIncidentLifecycleNotifier(dispatcher=router),
+        delivery_store=delivery_store,
+    )
 
 
 def _build_inventory_age_provider() -> Any:
@@ -794,6 +889,8 @@ def _build_control_loop(
     *,
     http_client: httpx.AsyncClient | None = None,
     stage_publisher: StagePublisher | None = None,
+    audit_store: Any | None = None,
+    tool_receipt_observer: ToolReceiptObserver | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -890,7 +987,7 @@ def _build_control_loop(
     action_types_by_name = {a.name: a for a in action_types}
     action_builder = ActionBuilder(action_types_by_name=action_types_by_name)
 
-    audit_store = _build_audit_store()
+    audit_store = audit_store or _build_audit_store()
     publisher = _build_publisher(http_client)
     renderer = TemplateRenderer(remediation_root=remediation_root)
     resource_lock = _build_resource_lock()
@@ -940,6 +1037,8 @@ def _build_control_loop(
         audit_store=audit_store,
         resource_lock=resource_lock,
         idempotency=idempotency_store,
+        receipt_observer=tool_receipt_observer,
+        http_client=http_client,
     )
 
     # Detection-and-explanation seams (observability-and-detection.md).
@@ -1245,10 +1344,68 @@ async def _run() -> int:
             # Same for the HIL channel - an Incoming Webhook URL opts in.
             if os.environ.get("FDAI_CHATOPS_WEBHOOK_URL") and http_client is None:
                 http_client = _new_http_client()
+            from .core.incident import (
+                IncidentLifecycleWorkflow,
+                IncidentRegistry,
+                link_ticket_receipt,
+            )
+            from .shared.contracts.models import IncidentSeverity
+
+            incident_audit_store = _build_audit_store()
+            incident_registry = IncidentRegistry(state_store=incident_audit_store)
+            incident_entries = await incident_audit_store.read_incident_transitions()
+            incident_registry.rehydrate(incident_entries)
+            incident_notifier = _build_incident_notifier(incident_audit_store)
+            await incident_notifier.replay(incident_entries)
+            incident_workflow = IncidentLifecycleWorkflow(
+                registry=incident_registry,
+                notifier=incident_notifier,
+                allowed_agent_principals={"Huginn", "Heimdall", "Forseti"},
+            )
+
+            async def _open_incident_candidate(candidate: dict[str, Any]) -> None:
+                evidence_key = str(candidate.get("evidence_key") or "")
+                resource_id = str(candidate.get("resource_id") or "")
+                event_type = str(candidate.get("event_type") or "generic")
+                if not evidence_key or not resource_id:
+                    return
+                evidence_id = uuid5(
+                    NAMESPACE_URL,
+                    f"fdai.incident.evidence://{evidence_key}",
+                )
+                await incident_workflow.open_from_agent(
+                    producer_principal="Heimdall",
+                    correlation_keys=(
+                        f"resource:{resource_id}",
+                        f"signal:{event_type}",
+                    ),
+                    severity=IncidentSeverity.SEV3,
+                    member_event_ids=(evidence_id,),
+                    reason=str(candidate.get("reason_code") or "detected_anomaly"),
+                )
+
+            async def _observe_tool_receipt(request: Any, receipt: Any) -> None:
+                incident_id = request.metadata.get("incident_id") or request.arguments.get(
+                    "incident_id"
+                )
+                provider = request.metadata.get(
+                    "ticket_provider"
+                ) or request.arguments.get("ticket_provider")
+                if not incident_id or not provider:
+                    return
+                await link_ticket_receipt(
+                    registry=incident_registry,
+                    request=request,
+                    receipt=receipt,
+                    actor_oid="Thor",
+                )
+
             control_loop = _build_control_loop(
                 container,
                 http_client=http_client,
                 stage_publisher=stage_publisher,
+                audit_store=incident_audit_store,
+                tool_receipt_observer=_observe_tool_receipt,
             )
             _LOGGER.info(
                 "control_loop_ready",
@@ -1292,6 +1449,7 @@ async def _run() -> int:
                     enforce=pantheon_enforce,
                     disabled_agents=disabled_agents,
                     divergence=divergence_ledger,
+                    incident_candidate_hook=_open_incident_candidate,
                 )
                 hb_raw = os.environ.get("FDAI_PANTHEON_HEARTBEAT_SECONDS", "").strip()
                 if hb_raw:

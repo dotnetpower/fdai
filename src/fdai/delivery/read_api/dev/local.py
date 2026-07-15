@@ -17,6 +17,13 @@ mypy, IDE indexing - has no side effect)::
     FDAI_READ_API_DEV_MODE=1 \\
         uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \\
             --factory --port 8000
+
+Or reuse the current interactive Azure CLI login without exposing its token
+to the browser::
+
+    FDAI_READ_API_LOCAL_AZURE_CLI=1 \
+        uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
+            --factory --port 8000
 """
 
 from __future__ import annotations
@@ -62,6 +69,9 @@ from fdai.core.tiers.t0_deterministic.opa_evaluator import (  # noqa: E402
 from fdai.delivery.read_api.auth import (  # noqa: E402
     UnsafeClaimsExtractor,
     build_authenticator,
+)
+from fdai.delivery.read_api.dev.azure_cli_identity import (  # noqa: E402
+    resolve_azure_cli_identity,
 )
 from fdai.delivery.read_api.entra_verifier import (  # noqa: E402
     EntraJwtVerifier,
@@ -122,11 +132,14 @@ from fdai.shared.providers.testing.sse import InMemorySseSink  # noqa: E402
 
 _DEV_ENV = "FDAI_READ_API_DEV_MODE"
 _LOCAL_ENTRA_ENV = "FDAI_READ_API_LOCAL_ENTRA"
+_LOCAL_AZURE_CLI_ENV = "FDAI_READ_API_LOCAL_AZURE_CLI"
 _CORS_ORIGINS_ENV = "FDAI_READ_API_CORS_ALLOW_ORIGINS"
 _LOCAL_ACTION_TOPIC = "aw.events"
 _DEFAULT_CORS_ORIGINS = (
     "http://127.0.0.1:5173",
     "http://localhost:5173",
+    "http://127.0.0.1:4173",
+    "http://localhost:4173",
     "http://127.0.0.1:8090",
     "http://localhost:8090",
 )
@@ -927,12 +940,20 @@ def app() -> Starlette:
     """Factory. uvicorn invokes this once at server start with ``--factory``."""
     dev_mode = os.environ.get(_DEV_ENV) == "1"
     local_entra = os.environ.get(_LOCAL_ENTRA_ENV) == "1"
-    if not dev_mode and not local_entra:
+    local_azure_cli = os.environ.get(_LOCAL_AZURE_CLI_ENV) == "1"
+    if local_azure_cli and (dev_mode or local_entra):
+        raise RuntimeError(
+            f"{_LOCAL_AZURE_CLI_ENV} MUST NOT be combined with {_DEV_ENV} or "
+            f"{_LOCAL_ENTRA_ENV}"
+        )
+    if not dev_mode and not local_entra and not local_azure_cli:
         raise RuntimeError(
             f"fdai.delivery.read_api.dev.local requires {_DEV_ENV}=1 (auth bypassed) "
-            f"or {_LOCAL_ENTRA_ENV}=1 (real Entra sign-in against seed data); this "
-            "module is a local dev entrypoint and MUST NOT boot in production."
+            f"or {_LOCAL_ENTRA_ENV}=1 (real Entra sign-in against seed data) or "
+            f"{_LOCAL_AZURE_CLI_ENV}=1 (current az login user); this module is a "
+            "local dev entrypoint and MUST NOT boot in production."
         )
+    local_cli_identity = resolve_azure_cli_identity() if local_azure_cli else None
     read_model = InMemoryConsoleReadModel()
     _seed(read_model)
     resolver = RoleResolver(group_mapping=_group_mapping_from_env())
@@ -941,7 +962,7 @@ def app() -> Starlette:
     # tenant JWKS (FDAI_ENTRA_TENANT_ID + FDAI_API_AUDIENCE required) while the
     # console still renders the in-memory seed above - so an engineer can drive
     # the full MSAL sign-in + App-Role gate locally without a live audit store.
-    if dev_mode:
+    if dev_mode or local_azure_cli:
         authenticator = build_authenticator(
             verifier=UnsafeClaimsExtractor(),
             resolver=resolver,
@@ -1100,15 +1121,48 @@ def app() -> Starlette:
     live_stream_config, agent_activity_config = _build_agent_streams()
     local_action_types = frozenset(action_type.name for action_type in action_types)
     event_bus = LiveInMemoryEventBus()
+    from uuid import NAMESPACE_URL, uuid5
+
+    from fdai.core.incident import IncidentLifecycleWorkflow, IncidentRegistry
+    from fdai.delivery.read_api.dev.incident_store import ProjectingIncidentStateStore
+    from fdai.shared.contracts.models import IncidentSeverity
+
+    incident_workflow = IncidentLifecycleWorkflow(
+        registry=IncidentRegistry(
+            state_store=ProjectingIncidentStateStore(read_model=read_model)
+        ),
+        allowed_agent_principals={"Huginn", "Heimdall", "Forseti"},
+    )
+
+    async def open_incident_candidate(candidate: dict[str, Any]) -> None:
+        evidence_key = str(candidate.get("evidence_key") or "")
+        resource_id = str(candidate.get("resource_id") or "")
+        event_type = str(candidate.get("event_type") or "generic")
+        if not evidence_key or not resource_id:
+            return
+        evidence_id = uuid5(NAMESPACE_URL, f"fdai.incident.evidence://{evidence_key}")
+        await incident_workflow.open_from_agent(
+            producer_principal="Heimdall",
+            correlation_keys=(f"resource:{resource_id}", f"signal:{event_type}"),
+            severity=IncidentSeverity.SEV3,
+            member_event_ids=(evidence_id,),
+            reason=str(candidate.get("reason_code") or "detected_anomaly"),
+        )
+
+    local_operator_oid = (
+        local_cli_identity.principal.oid if local_cli_identity is not None else "dev-anon"
+    )
     pantheon_runtime = PantheonRuntime.build(
         provider=event_bus,
         raw_event_topic=_LOCAL_ACTION_TOPIC,
-        operator_rbac={"dev-anon": local_action_types},
+        operator_rbac={local_operator_oid: local_action_types},
+        incident_candidate_hook=open_incident_candidate,
     )
     console_action = ConsoleActionSubmitter(
         event_bus=event_bus,
         raw_event_topic=_LOCAL_ACTION_TOPIC,
         action_type_names=local_action_types,
+        incident_workflow=incident_workflow,
     )
 
     runtime_task: asyncio.Task[None] | None = None
@@ -1140,6 +1194,12 @@ def app() -> Starlette:
         read_model=read_model,
         config=ReadApiConfig(
             dev_mode=dev_mode,
+            local_cli_principal=(
+                local_cli_identity.principal if local_cli_identity is not None else None
+            ),
+            local_cli_profile=(
+                local_cli_identity.to_dict() if local_cli_identity is not None else None
+            ),
             cors_allow_origins=_cors_origins_from_env(),
             live_stream=live_stream_config,
             agent_activity=agent_activity_config,
@@ -1326,6 +1386,9 @@ async def _build_dynamic_process_views(
         ontology_store=ontology,
         process_store=runtime,
     )
+    from fdai.delivery.reporting import install_pdf_format_if_available
+
+    install_pdf_format_if_available(formats)
     view_specs = load_view_catalog(
         _REPO_ROOT / "rule-catalog" / "views",
         report_ids={spec.id for spec in report_engine.catalog().list()},

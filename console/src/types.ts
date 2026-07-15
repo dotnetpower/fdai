@@ -55,6 +55,24 @@ export interface RcaCitation {
   readonly ref: string;
 }
 
+export interface RcaCausalHop {
+  readonly cause_event_id: string;
+  readonly effect_event_id: string;
+  readonly cause_resource_ref: string;
+  readonly effect_resource_ref: string;
+  readonly lead_seconds: number;
+  readonly relationship: string;
+  readonly confidence: number;
+}
+
+export interface RcaCausalChain {
+  readonly root_event_id: string;
+  readonly failure_event_id: string;
+  readonly confidence: number;
+  readonly ambiguity: number;
+  readonly hops: readonly RcaCausalHop[];
+}
+
 export interface RcaHypothesis {
   readonly seq: number;
   readonly tier: RcaTier;
@@ -65,6 +83,7 @@ export interface RcaHypothesis {
   readonly reason: string | null;
   readonly citations: readonly RcaCitation[];
   readonly remediation_ref: string | null;
+  readonly causal_chain: RcaCausalChain | null;
   readonly mode: "shadow" | "enforce";
   readonly recorded_at: string;
 }

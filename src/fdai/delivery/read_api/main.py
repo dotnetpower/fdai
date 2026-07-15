@@ -15,8 +15,10 @@ Contract (`app-shape.instructions.md § Operator console`):
 - **Never** shares an identity with the executor. The API validates the
   caller's Entra token; it does not (and can not) call executor MI.
 - Authenticated **anonymous fallback** is available only when
-  ``FDAI_READ_API_DEV_MODE=1`` at process start - used by the
-  local dev harness (``dev-and-deploy-parity.md``) and by pytest.
+    ``FDAI_READ_API_DEV_MODE=1`` at process start - used by the
+    local dev harness (``dev-and-deploy-parity.md``) and by pytest.
+- A separate local Azure CLI mode projects the current ``az login`` user
+    into the dev harness without sending the CLI token to the browser.
 
 Every handler is a plain ``async def`` - the framework-agnostic
 :class:`~fdai.core.rbac.enforcer.RoleEnforcer` sits behind
@@ -100,6 +102,7 @@ _READER_ROLES: tuple[Role, ...] = (Role.READER, Role.CONTRIBUTOR, Role.APPROVER,
 
 _DEV_MODE_ENV = "FDAI_READ_API_DEV_MODE"
 _DEV_MODE_PRINCIPAL = "dev-anon"
+_LOCAL_AZURE_CLI_ENV = "FDAI_READ_API_LOCAL_AZURE_CLI"
 
 
 class _SecurityHeadersMiddleware:
@@ -173,6 +176,16 @@ class ReadApiConfig:
     dev_mode: bool = False
     """When True, unauthenticated requests are treated as anonymous
     Readers. Only for local dev + pytest."""
+
+    local_cli_principal: Principal | None = None
+    """Current ``az login`` user projected into the local dev harness.
+
+    Requires ``FDAI_READ_API_LOCAL_AZURE_CLI=1`` and is refused in staging
+    or production. The associated access token never enters this config.
+    """
+
+    local_cli_profile: Mapping[str, object] | None = None
+    """Browser-safe profile served by ``GET /local-auth/me`` in CLI mode."""
 
     cors_allow_origins: tuple[str, ...] = ()
     """Origins the console SPA is served from. Empty tuple disables CORS
@@ -410,11 +423,12 @@ class ReadApiConfig:
     """Opt-in console action submitter
     (:class:`~fdai.delivery.read_api.routes.console_action.ConsoleActionSubmitter`).
     When set, registers ``POST /chat/action`` - the ONE write-direction
-    conversational path: it publishes an operator ``ActionProposal`` onto the
-    raw event topic where the pantheon judges/approves/executes it. It holds no
-    executor identity and never mutates a resource (propose, never execute);
-    RBAC is server-derived (Contributor+ ``author-draft-pr``). Leave ``None`` to
-    keep the console read-only with no action-submit surface."""
+    conversational path. Ordinary mutation requests publish an operator
+    ``ActionProposal`` for pantheon judgment; incident requests prepare and
+    confirm an audited control-plane record. It holds no executor identity and
+    never mutates a cloud resource directly. RBAC is server-derived
+    (Contributor+ ``author-draft-pr``). Leave ``None`` to keep the console
+    read-only with no action-submit surface."""
 
     expose_pantheon: bool = False
     """Opt-in pantheon graph + workflows endpoints. When True, registers
@@ -497,6 +511,29 @@ def build_app(
                 "The read API MUST require signed Entra tokens outside dev."
             )
 
+    local_cli_principal = resolved_config.local_cli_principal
+    local_cli_profile = resolved_config.local_cli_profile
+    local_cli_enabled = local_cli_principal is not None
+    if local_cli_enabled != (local_cli_profile is not None):
+        raise ValueError("local_cli_principal and local_cli_profile MUST be configured together")
+    if local_cli_enabled and resolved_config.dev_mode:
+        raise ValueError("local Azure CLI auth and dev_mode MUST NOT be enabled together")
+    if local_cli_enabled and os.environ.get(_LOCAL_AZURE_CLI_ENV) != "1":
+        raise ValueError(
+            "local_cli_principal is configured but "
+            f"{_LOCAL_AZURE_CLI_ENV}=1 is not set"
+        )
+    if local_cli_enabled:
+        runtime_env = os.environ.get("RUNTIME_ENV", "").strip().lower()
+        if runtime_env in ("staging", "prod"):
+            raise ValueError(
+                f"local Azure CLI auth is prohibited in RUNTIME_ENV={runtime_env!r}"
+            )
+        if local_cli_principal is None or local_cli_profile is None:
+            raise ValueError("local Azure CLI auth configuration is incomplete")
+        if local_cli_profile.get("oid") != local_cli_principal.oid:
+            raise ValueError("local_cli_profile oid MUST match local_cli_principal")
+
     # Reject CORS wildcards outside dev. `allow_origins=('*',)` combined
     # with any future credentialed request is a cross-origin data leak;
     # the doc already says "MUST NOT be ('*',) in production" but the
@@ -513,6 +550,8 @@ def build_app(
         """Return the caller's ``oid`` (or ``dev-anon``) or raise 401/403."""
         if resolved_config.dev_mode:
             return _DEV_MODE_PRINCIPAL
+        if local_cli_principal is not None:
+            return local_cli_principal.oid
         header = request.headers.get("authorization")
         principal = authenticator.require_roles(header, required=_READER_ROLES)
         return principal.oid
@@ -527,6 +566,8 @@ def build_app(
         """
         if resolved_config.dev_mode:
             return Principal(oid=_DEV_MODE_PRINCIPAL, roles=frozenset({Role.CONTRIBUTOR}))
+        if local_cli_principal is not None:
+            return local_cli_principal
         header = request.headers.get("authorization")
         return authenticator.require_roles(header, required=_READER_ROLES)
 
@@ -617,6 +658,12 @@ def build_app(
         Route("/hil-queue", get_hil_queue, methods=["GET"]),
         Route("/healthz", healthz, methods=["GET"]),
     ]
+
+    if local_cli_profile is not None:
+        async def get_local_auth_profile(_: Request) -> Response:
+            return JSONResponse(dict(local_cli_profile))
+
+        routes.append(Route("/local-auth/me", get_local_auth_profile, methods=["GET"]))
 
     for _core_panel in (IncidentsPanel(read_model), RcaPanel(read_model)):
         routes.append(Route(_core_panel.path, _make_panel_handler(_core_panel), methods=["GET"]))
@@ -1082,10 +1129,10 @@ def build_app(
     )
     if resolved_config.cors_allow_origins:
         # Console SPA cross-origin fetches. The base surface is GET-only;
-        # POST is opened up ONLY when a chat backend is wired, and only
-        # for the /chat translator (which never mutates state).
+        # POST is opened only when the read-only chat backend or the explicit
+        # write-direction console action route is wired.
         allow_methods = ["GET"]
-        if resolved_config.chat is not None:
+        if resolved_config.chat is not None or resolved_config.console_action is not None:
             allow_methods.append("POST")
         middleware.append(
             Middleware(

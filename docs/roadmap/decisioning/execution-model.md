@@ -601,8 +601,28 @@ router is an optional seam: absent, the loop behaves exactly as before.
   one MCP server tool onto one `tool.*` ActionType.
 - `core/` knows only the Protocol; a fork binds a live adapter (a native
   Python registry, an MCP client, an HTTP callout) at the composition
-  root. The Day-1 binding is `RecordingToolExecutor` (no real function
-  runs).
+  root. The default binding is `RecordingToolExecutor` (no real function
+  runs). A configured `FDAI_JIRA_BASE_URL` binds `JiraToolExecutor` with a
+  PostgreSQL idempotency ledger and distributed resource lock. It remains
+  shadow until both the ActionType promotion gate and `FDAI_JIRA_ENFORCE=1`
+  permit enforce mode. Enforce creation adds a deterministic
+  `fdai-idem-<sha256>` label. Before any POST, it atomically writes a durable
+  pending claim and searches through Jira's enhanced `/rest/api/3/search/jql`
+  endpoint. A retry after a create-before-ledger crash may reconcile the
+  existing issue and return `already_applied`; while a prior claim remains but
+  Jira has not exposed an issue yet, it fails closed instead of risking a
+  duplicate. Search failures before POST and definitive create `4xx` responses
+  release a newly acquired claim. Transport failures, `5xx` responses, and
+  malformed successful create responses keep the claim quarantined because the
+  side effect is ambiguous. Each retry searches Jira again, and retryable
+  adapter failures are audited but not cached by the core executor. The
+  `fdai-idem-` label namespace is adapter-owned: request-supplied labels with
+  that prefix are discarded so one request cannot alias another key. Audit
+  entries record the Action's actual `shadow` or `enforce` mode. Cancellation
+  before POST releases the claim and writes a failed audit entry before it is
+  re-raised. The core populates its in-memory dedupe cache only after the
+  durable execution result is recorded, so a transient durable-write failure
+  remains retryable.
 - On `auto` decision, the call proceeds without HIL; the ActionType's
   `preconditions` and `stop_conditions` are enforced by the executor.
 - On `hil` decision, the executor parks the action and resumes it on
@@ -617,6 +637,11 @@ router is an optional seam: absent, the loop behaves exactly as before.
   mutation ActionType; the executor writes exactly one audit entry per
   attempt with `action_kind=executor.tool_call.<outcome>` and
   `execution_path=tool_call`.
+- `tool.open-incident-ticket` is the built-in ticket ActionType. Shadow
+  receipts are never linked as real tickets. A successful enforce receipt
+  passes through `link_ticket_receipt` before terminal executor success and
+  appends `incident.ticket`; linkage failure stays retryable and cannot be
+  cached as success.
 
 Best for: document generation, notifications, ticketing, and any
 registered function a workflow step wants to invoke via

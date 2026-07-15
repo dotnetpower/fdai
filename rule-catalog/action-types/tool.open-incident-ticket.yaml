@@ -1,0 +1,86 @@
+schema_version: 1.0.0
+name: tool.open-incident-ticket
+version: 1.0.0
+operation: create
+interfaces:
+- IdempotentByKey
+rollback_contract: state_forward_only
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 14
+  min_samples: 30
+  min_accuracy: 0.98
+  max_policy_escapes: 0
+preconditions: []
+stop_conditions:
+- kind: time_box_exceeded_seconds
+  seconds: 120
+- kind: provider_api_error_streak
+  count: 3
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: >-
+  Open an external incident ticket through the ToolExecutor and link the
+  successful enforce-mode receipt back to the append-only incident lifecycle.
+  Shadow mode plans the request but never creates or links a ticket.
+category: tool
+trigger_kind:
+  kind: operator_request
+execution_path: tool_call
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: contributor
+  t1:
+    max_autonomy: enforce_hil
+    min_role: contributor
+  t2:
+    max_autonomy: shadow_only
+    min_role: approver
+argument_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - incident_id
+  - ticket_provider
+  - summary
+  properties:
+    incident_id:
+      type: string
+      format: uuid
+      x-fdai-audit-safe: true
+    ticket_provider:
+      type: string
+      enum:
+      - jira
+      x-fdai-audit-safe: true
+    summary:
+      type: string
+      minLength: 1
+      maxLength: 255
+      x-fdai-audit-safe: true
+    description:
+      type: string
+      maxLength: 30000
+      x-fdai-audit-safe: true
+    issue_type:
+      type: string
+      minLength: 1
+      maxLength: 100
+      x-fdai-audit-safe: true
+    labels:
+      type: array
+      maxItems: 20
+      items:
+        type: string
+        minLength: 1
+        maxLength: 100
+    ticket_url:
+      type: string
+      format: uri
+      x-fdai-audit-safe: true
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 read-API 프로덕션 배포
 translation_of: read-api-prod.md
-translation_source_sha: eebe7f4fe3df00a693919c86ff3281dcb3296849
+translation_source_sha: 2469b331e2a3b27616cde682d2a6ea332c3176fb
 translation_revised: 2026-07-15
 ---
 # 콘솔 read-API 프로덕션 배포
@@ -62,7 +62,10 @@ translation_revised: 2026-07-15
 | `FDAI_READ_API_STATEMENT_TIMEOUT_MS` | `20000` | 모든 read 쿼리에 `SET LOCAL statement_timeout`으로 적용. |
 | `FDAI_READ_API_CONNECT_TIMEOUT_S` | `10` | TCP + auth 핸드셰이크를 제한해 죽은 DB가 빠르게 실패하도록. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` | 비어 있음 | 프로덕션 Live 및 Agents SSE relay를 활성화합니다. `:9093`의 Event Hubs Kafka endpoint를 사용하며, 값이 비어 있으면 두 선택적 route를 등록하지 않습니다. |
+| `KAFKA_TOPIC_EVENTS` | 비어 있음 | Kafka bootstrap과 함께 typed action 및 confirmed incident workflow용 `POST /chat/action`을 활성화합니다. Huginn이 consume하는 raw ingress topic과 같은 값을 사용합니다. |
 | `FDAI_STAGE_TOPIC` | `aw.pipeline.stages` | worker가 게시하고 Live 및 Agents relay가 소비하는 단계 토픽입니다. worker와 read API는 같은 값을 사용하는 것이 좋습니다. |
+| `FDAI_INCIDENT_SLA_POLICY_JSON` | 비어 있음(disabled) | 모든 `sev1`부터 `sev5`까지 positive `acknowledge_seconds` 및 `resolve_seconds` 값을 가진 strict JSON object입니다. Durable A2 SLA-breach monitoring을 활성화합니다. |
+| `FDAI_INCIDENT_SLA_INTERVAL_SECONDS` | `60` | Positive SLA scan interval입니다. Policy JSON이 있을 때만 사용합니다. |
 
 ## 실행
 

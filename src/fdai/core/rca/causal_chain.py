@@ -43,6 +43,8 @@ from enum import StrEnum
 from fdai.core.rca.contract import (
     Citation,
     CitationKind,
+    RcaCausalChain,
+    RcaCausalHop,
     RcaTier,
     RootCauseHypothesis,
 )
@@ -563,6 +565,24 @@ def chain_to_hypothesis(
             f"preceded the failure on '{failure_resource_ref}' by {_format_lead(total_lead)}"
         )
     citations = tuple(Citation(kind=CitationKind.EVENT, ref=eid) for eid in chain.event_ids)
+    causal_chain = RcaCausalChain(
+        root_event_id=chain.root_event_id,
+        failure_event_id=chain.failure_event_id,
+        hops=tuple(
+            RcaCausalHop(
+                cause_event_id=hop.cause_event_id,
+                effect_event_id=hop.effect_event_id,
+                cause_resource_ref=hop.cause_resource_ref,
+                effect_resource_ref=hop.effect_resource_ref,
+                lead_seconds=hop.lead.total_seconds(),
+                relationship=hop.relationship.value,
+                confidence=hop.confidence,
+            )
+            for hop in chain.hops
+        ),
+        confidence=chain.confidence,
+        ambiguity=chain.ambiguity,
+    )
     return RootCauseHypothesis(
         tier=RcaTier.T1,
         cause=cause,
@@ -570,6 +590,7 @@ def chain_to_hypothesis(
         citations=citations,
         evidence_refs=chain.event_ids,
         remediation_ref=None,
+        causal_chain=causal_chain,
     )
 
 

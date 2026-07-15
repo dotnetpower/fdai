@@ -28,7 +28,8 @@ from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
 from fdai.core.rbac.enforcer import RoleEnforcer
-from fdai.core.rbac.resolver import GroupMapping, RoleResolver
+from fdai.core.rbac.resolver import GroupMapping, Principal, RoleResolver
+from fdai.core.rbac.roles import Role
 from fdai.delivery.read_api.auth import (
     AuthenticationError,
     Authenticator,
@@ -42,6 +43,7 @@ from fdai.delivery.read_api.read_model import (
 from fdai.delivery.read_api.routes.panels import ExampleFinOpsPanel
 
 _DEV_MODE_ENV = "FDAI_READ_API_DEV_MODE"
+_LOCAL_AZURE_CLI_ENV = "FDAI_READ_API_LOCAL_AZURE_CLI"
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +145,73 @@ class TestBuildApp:
         # No Authorization header → 401
         response = client.get("/audit")
         assert response.status_code == 401
+
+    def test_local_cli_mode_requires_explicit_env(self, no_dev_env: None) -> None:
+        del no_dev_env
+        resolver = RoleResolver(group_mapping=_mapping())
+        auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=resolver)
+        with pytest.raises(ValueError, match=_LOCAL_AZURE_CLI_ENV):
+            build_app(
+                authenticator=auth,
+                read_model=InMemoryConsoleReadModel(),
+                config=ReadApiConfig(
+                    local_cli_principal=Principal(
+                        oid="cli-user",
+                        roles=frozenset({Role.CONTRIBUTOR}),
+                    ),
+                    local_cli_profile={"oid": "cli-user", "username": "user@example.com"},
+                ),
+            )
+
+    def test_local_cli_mode_serves_profile_and_authorizes_without_bearer(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(_LOCAL_AZURE_CLI_ENV, "1")
+        resolver = RoleResolver(group_mapping=_mapping())
+        auth = build_authenticator(
+            verifier=lambda _: (_ for _ in ()).throw(AssertionError("verifier MUST NOT run")),
+            resolver=resolver,
+        )
+        app = build_app(
+            authenticator=auth,
+            read_model=InMemoryConsoleReadModel(),
+            config=ReadApiConfig(
+                local_cli_principal=Principal(
+                    oid="cli-user",
+                    roles=frozenset({Role.CONTRIBUTOR}),
+                ),
+                local_cli_profile={
+                    "oid": "cli-user",
+                    "username": "user@example.com",
+                    "roles": ["Contributor"],
+                    "source": "azure-cli",
+                },
+            ),
+        )
+        client = TestClient(app)
+
+        assert client.get("/audit").status_code == 200
+        profile = client.get("/local-auth/me")
+        assert profile.status_code == 200
+        assert profile.json()["oid"] == "cli-user"
+        assert profile.headers["cache-control"] == "no-store"
+
+    def test_local_cli_mode_is_refused_in_production(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(_LOCAL_AZURE_CLI_ENV, "1")
+        monkeypatch.setenv("RUNTIME_ENV", "prod")
+        resolver = RoleResolver(group_mapping=_mapping())
+        auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=resolver)
+        with pytest.raises(ValueError, match="prohibited"):
+            build_app(
+                authenticator=auth,
+                read_model=InMemoryConsoleReadModel(),
+                config=ReadApiConfig(
+                    local_cli_principal=Principal(oid="cli-user"),
+                    local_cli_profile={"oid": "cli-user"},
+                ),
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -510,6 +579,31 @@ class TestCors:
             response.status_code == 400
             or response.headers.get("access-control-allow-methods", "").lower() == "get"
         )
+
+    def test_cors_preflight_allows_post_for_console_action(self, no_dev_env: None) -> None:
+        del no_dev_env
+        resolver = RoleResolver(group_mapping=_mapping())
+        auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=resolver)
+        app = build_app(
+            authenticator=auth,
+            read_model=InMemoryConsoleReadModel(),
+            config=ReadApiConfig(
+                cors_allow_origins=("https://console.example.com",),
+                console_action=object(),
+            ),
+        )
+        client = TestClient(app)
+
+        response = client.options(
+            "/chat/action",
+            headers={
+                "origin": "https://console.example.com",
+                "access-control-request-method": "POST",
+            },
+        )
+
+        assert response.status_code == 200
+        assert "POST" in response.headers["access-control-allow-methods"]
 
 
 # ---------------------------------------------------------------------------

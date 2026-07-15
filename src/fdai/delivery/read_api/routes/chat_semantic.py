@@ -139,11 +139,10 @@ class OnnxSemanticVerifier:
                 return
             _verify_file(self._config.model_path, self._config.model_sha256)
             _verify_file(self._config.tokenizer_path, self._config.tokenizer_sha256)
-            import numpy
-            from tokenizers import Tokenizer
-
+            numpy = importlib.import_module("numpy")
+            tokenizers = importlib.import_module("tokenizers")
             onnxruntime = importlib.import_module("onnxruntime")
-            tokenizer = Tokenizer.from_file(str(self._config.tokenizer_path))
+            tokenizer = tokenizers.Tokenizer.from_file(str(self._config.tokenizer_path))
             tokenizer.enable_truncation(max_length=self._config.max_length)
             tokenizer.enable_padding(length=self._config.max_length)
             session = onnxruntime.InferenceSession(

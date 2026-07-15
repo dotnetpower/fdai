@@ -62,7 +62,10 @@ Optional (defaults apply):
 | `FDAI_READ_API_STATEMENT_TIMEOUT_MS` | `20000` | Applied via `SET LOCAL statement_timeout` on every read query. |
 | `FDAI_READ_API_CONNECT_TIMEOUT_S` | `10` | Bounds the TCP + auth handshake so a dead DB fails fast. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` | empty | Enables the production Live and Agents SSE relays. Uses the Event Hubs Kafka endpoint on `:9093`; an empty value leaves both optional routes unregistered. |
+| `KAFKA_TOPIC_EVENTS` | empty | With Kafka bootstrap, enables `POST /chat/action` for typed actions and the confirmed incident workflow. The value is the same raw ingress topic consumed by Huginn. |
 | `FDAI_STAGE_TOPIC` | `aw.pipeline.stages` | Stage topic published by the worker and consumed by the Live and Agents relays. The worker and read API should use the same value. |
+| `FDAI_INCIDENT_SLA_POLICY_JSON` | empty (disabled) | Strict JSON object with positive `acknowledge_seconds` and `resolve_seconds` values for every `sev1` through `sev5`; enables durable A2 SLA-breach monitoring. |
+| `FDAI_INCIDENT_SLA_INTERVAL_SECONDS` | `60` | Positive SLA scan interval; used only when the policy JSON is present. |
 
 ## Run it
 

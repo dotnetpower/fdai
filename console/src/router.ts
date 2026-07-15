@@ -29,6 +29,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   "control-assurance": "/control-assurance",
   verticals: "/verticals",
   "trust-routing": "/trust-routing",
+  labs: "/labs",
 };
 
 const PATH_PANELS = new Map(

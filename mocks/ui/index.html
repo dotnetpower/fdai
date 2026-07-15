@@ -85,11 +85,13 @@
       <ul>
         <li><a data-page="live.html"                 data-title="Live"><span class="dot"></span>Live</a></li>
         <li><a data-page="dashboard.html"            data-title="Overview"><span class="dot is-sage"></span>Overview</a></li>
+        <li><a data-page="incidents.html"            data-title="Incidents"><span class="dot is-terracotta"></span>Incidents</a></li>
         <li><a data-page="hil.html"                  data-title="HIL queue"><span class="dot is-terracotta"></span>HIL queue</a></li>
         <li><a data-page="promotion.html"            data-title="Promotion"><span class="dot is-teal"></span>Promotion</a></li>
         <li><a data-page="rules.html"                data-title="Rules"><span class="dot"></span>Rules</a></li>
         <li><a data-page="actions.html"              data-title="Actions (ontology)"><span class="dot is-plum"></span>Actions (ontology)</a></li>
         <li><a data-page="audit.html"                data-title="Audit"><span class="dot is-terracotta"></span>Audit</a></li>
+        <li><a data-page="rca.html"                  data-title="RCA"><span class="dot is-teal"></span>RCA</a></li>
       </ul>
 
       <h3>Fleet &amp; safety</h3>
@@ -119,6 +121,7 @@
       <h3>Report &amp; kit</h3>
       <ul>
         <li><a data-page="report.html"               data-title="Weekly report"><span class="dot is-terracotta"></span>Weekly report</a></li>
+        <li><a data-page="rca-report.html"           data-title="RCA report"><span class="dot is-teal"></span>RCA report</a></li>
         <li><a data-page="components.html"           data-title="Component gallery"><span class="dot"></span>Components</a></li>
       </ul>
 
@@ -152,10 +155,10 @@
           const a = items.find((el) => el.dataset.page === page);
           title = a ? a.dataset.title : page.replace(/\.html$/, '');
         }
-        frame.src = page;
+        frame.src = page + '?shell=left-v5';
         nowTitle.textContent = title;
         nowPath.textContent = page;
-        nowOpen.setAttribute('href', page);
+        nowOpen.setAttribute('href', page + '?shell=left-v5');
         items.forEach((el) => el.classList.toggle('is-active', el.dataset.page === page));
         try { history.replaceState(null, '', '#' + page); } catch (_) { /* opaque hash ok */ }
         if (window.matchMedia && window.matchMedia('(max-width: 780px)').matches) {

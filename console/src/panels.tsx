@@ -2,7 +2,7 @@
  * Console panel registry - the frontend half of the fork extension seam.
  *
  * The upstream console ships a deliberately minimal UI grouped by
- * operator intent (Now / History / Knowledge / Safety / Overview), plus
+ * operator domain (Overview / Operations / Agents / Governance / Evidence), plus
  * standalone global utilities pinned to the bottom of the rail. A fork
  * that wants a vertical-specific surface (a FinOps cost dashboard,
  * a drift board, a DR-drill history) does NOT edit `app.tsx` or
@@ -15,12 +15,12 @@
  * and actions still flow through ChatOps / remediation PRs, never a
  * console button (app-shape.instructions.md § Operator console).
  *
- * Groups reflect operator personas, not internal architecture layers:
- *  - `now`       - Live cockpit, waiting approvals, active attention
- *  - `history`   - Audit and post-hoc reconstruction
- *  - `knowledge` - What the system knows (ontology, agents, rules)
- *  - `safety`    - Promotion / blast-radius / what-if decisions
- *  - `overview`  - KPIs and cross-cutting summaries
+ * Groups reflect stable operator domains, not internal architecture layers:
+ *  - `overview`   - KPIs and cross-cutting summaries
+ *  - `operations` - Live operations and operator attention
+ *  - `agents`     - Agent organization and runtime activity
+ *  - `governance` - Rules, ontology, scope, and safety controls
+ *  - `evidence`   - Audit, RCA, traces, reports, and governed sources
  */
 
 import type { ComponentType } from "preact";
@@ -56,37 +56,47 @@ const ControlAssuranceRoute = lazy(async () => ({ default: (await import("./rout
 const VerticalOutcomesRoute = lazy(async () => ({ default: (await import("./routes/analytics-hubs")).VerticalOutcomesRoute }));
 const TrustRoutingRoute = lazy(async () => ({ default: (await import("./routes/analytics-hubs")).TrustRoutingRoute }));
 const SettingsRoute = lazy(async () => ({ default: (await import("./routes/settings")).SettingsRoute }));
+const LabsRoute = lazy(async () => ({ default: (await import("./routes/labs")).LabsRoute }));
 
 /** Props every panel component receives. Read-only client only. */
 export interface PanelProps {
   readonly client: ReadApiClient;
 }
 
-/** The 5 operator-intent groups the upstream console ships. Fork
- * panels MUST pick one; the LeftRail groups by this key. Adding a new
- * group is a design decision (docs update required); do not extend
+/** The five stable production navigation domains plus dev-only Labs.
+ * Fork panels MUST pick one; the Explorer groups by this key. Adding a
+ * new group is a design decision (docs update required); do not extend
  * this union in a fork without upstreaming the change. */
-export type PanelGroup = "now" | "history" | "knowledge" | "safety" | "overview";
+export type PanelGroup = "overview" | "operations" | "agents" | "governance" | "evidence" | "labs";
 
 /** Optional visual placement for panels that are global utilities rather
- * than members of an operator-intent flyout. Grouped placement is the
+ * than members of an Explorer domain. Grouped placement is the
  * default so fork panels keep their existing behavior. */
-export type PanelPlacement = "bottom" | "drilldown";
+export type PanelPlacement = "bottom";
 
 export interface PanelGroupMeta {
   readonly id: PanelGroup;
-  /** Display label on the rail, e.g. "Now". */
+  /** Display label for the Activity Bar tooltip and Explorer heading. */
   readonly label: string;
-  /** Short helper shown in the hover popover heading. */
+  /** Short helper shown beneath the Explorer heading. */
   readonly hint: string;
+  readonly placement?: "bottom";
+  readonly devOnly?: boolean;
 }
 
 export const PANEL_GROUPS: readonly PanelGroupMeta[] = [
   { id: "overview", label: t("nav.group.overview"), hint: t("nav.groupHint.overview") },
-  { id: "now", label: t("nav.group.now"), hint: t("nav.groupHint.now") },
-  { id: "history", label: t("nav.group.history"), hint: t("nav.groupHint.history") },
-  { id: "knowledge", label: t("nav.group.knowledge"), hint: t("nav.groupHint.knowledge") },
-  { id: "safety", label: t("nav.group.safety"), hint: t("nav.groupHint.safety") },
+  { id: "operations", label: t("nav.group.operations"), hint: t("nav.groupHint.operations") },
+  { id: "agents", label: t("nav.group.agents"), hint: t("nav.groupHint.agents") },
+  { id: "governance", label: t("nav.group.governance"), hint: t("nav.groupHint.governance") },
+  { id: "evidence", label: t("nav.group.evidence"), hint: t("nav.groupHint.evidence") },
+  {
+    id: "labs",
+    label: t("nav.group.labs"),
+    hint: t("nav.groupHint.labs"),
+    placement: "bottom",
+    devOnly: true,
+  },
 ];
 
 export interface ConsolePanel {
@@ -95,15 +105,14 @@ export interface ConsolePanel {
    * them. Renaming an id is a breaking change; add an alias route
    * instead. */
   readonly id: string;
-  /** Operator-facing label shown in the rail popover and page header.
+  /** Operator-facing label shown in the Explorer and page header.
    * May be renamed freely. */
   readonly label: string;
-  /** Optional one-line description shown in the hover popover as a
-   * subtitle. */
+  /** Optional one-line panel description. */
   readonly subtitle?: string;
-  /** Which of the 5 operator-intent groups this panel belongs to. */
+  /** Which stable navigation domain (or dev-only Labs) this panel belongs to. */
   readonly group: PanelGroup;
-  /** Optional standalone rail placement. Omit to render in the group flyout. */
+  /** Optional standalone Activity Bar placement. Omit to render in the Explorer. */
   readonly placement?: PanelPlacement;
   /** The view component, rendered with {@link PanelProps}. */
   readonly component: ComponentType<PanelProps>;
@@ -119,155 +128,155 @@ const DASHBOARD_PANEL: ConsolePanel = {
 
 /** The panels the upstream console always ships, grouped by intent. */
 export const CORE_PANELS: readonly ConsolePanel[] = [
-  // ── Now ─────────────────────────────────────────────
+  // Operations
   {
     id: "live",
     label: t("nav.panel.live"),
     subtitle: t("nav.panelSub.live"),
-    group: "now",
+    group: "operations",
     component: LiveRoute,
   },
   {
     id: "incidents",
     label: t("nav.panel.incidents"),
     subtitle: t("nav.panelSub.incidents"),
-    group: "now",
+    group: "operations",
     component: IncidentsRoute,
   },
   {
     id: "agents",
     label: t("nav.panel.agents"),
     subtitle: t("nav.panelSub.agents"),
-    group: "now",
+    group: "agents",
     component: AgentsRoute,
   },
   {
     id: "hil-queue",
     label: t("nav.panel.hilQueue"),
     subtitle: t("nav.panelSub.hilQueue"),
-    group: "now",
+    group: "operations",
     component: HilQueueRoute,
   },
   {
     id: "provision",
     label: t("nav.panel.provision"),
     subtitle: t("nav.panelSub.provision"),
-    group: "now",
+    group: "operations",
     component: ProvisionRoute,
   },
   {
     id: "processes",
     label: t("nav.panel.processes"),
     subtitle: t("nav.panelSub.processes"),
-    group: "now",
+    group: "operations",
     component: ProcessesRoute,
   },
-  // ── History ─────────────────────────────────────────────────────────
-  {
-    id: "agent-activity",
-    label: t("nav.panel.agentActivity"),
-    subtitle: t("nav.panelSub.agentActivity"),
-    group: "history",
-    component: AgentActivityRoute,
-  },
+  // Agents and evidence
   {
     id: "audit",
     label: t("nav.panel.audit"),
     subtitle: t("nav.panelSub.audit"),
-    group: "history",
+    group: "evidence",
     component: AuditRoute,
   },
   {
     id: "reports",
     label: t("nav.panel.reports"),
     subtitle: t("nav.panelSub.reports"),
-    group: "history",
+    group: "evidence",
     component: ReportsRoute,
   },
   {
     id: "trace",
     label: t("nav.panel.trace"),
     subtitle: t("nav.panelSub.trace"),
-    group: "history",
+    group: "evidence",
     component: RuleTraceRoute,
   },
   {
     id: "rca",
     label: t("nav.panel.rca"),
     subtitle: t("nav.panelSub.rca"),
-    group: "history",
+    group: "evidence",
     component: RcaRoute,
   },
-  // ── Knowledge ───────────────────────────────────────────────────────
+  // Governance and evidence sources
   {
     id: "architecture",
     label: t("nav.panel.architecture"),
     subtitle: t("nav.panelSub.architecture"),
-    group: "knowledge",
+    group: "governance",
     component: ArchitectureRoute,
   },
   {
     id: "ontology",
     label: t("nav.panel.ontology"),
     subtitle: t("nav.panelSub.ontology"),
-    group: "knowledge",
+    group: "governance",
     component: OntologyRoute,
   },
   {
     id: "pantheon",
     label: t("nav.panel.pantheon"),
     subtitle: t("nav.panelSub.pantheon"),
-    group: "knowledge",
+    group: "agents",
     component: PantheonRoute,
+  },
+  {
+    id: "agent-activity",
+    label: t("nav.panel.agentActivity"),
+    subtitle: t("nav.panelSub.agentActivity"),
+    group: "agents",
+    component: AgentActivityRoute,
   },
   {
     id: "handover",
     label: t("nav.panel.handover"),
     subtitle: t("nav.panelSub.handover"),
-    group: "knowledge",
+    group: "agents",
     component: HandoverRoute,
   },
   {
     id: "rules",
     label: t("nav.panel.rules"),
     subtitle: t("nav.panelSub.rules"),
-    group: "knowledge",
+    group: "governance",
     component: RuleCatalogRoute,
   },
   {
     id: "workflow-builder",
     label: t("nav.panel.workflowBuilder"),
     subtitle: t("nav.panelSub.workflowBuilder"),
-    group: "knowledge",
+    group: "governance",
     component: WorkflowBuilderRoute,
   },
   {
     id: "documents",
     label: t("nav.panel.documents"),
     subtitle: t("nav.panelSub.documents"),
-    group: "knowledge",
+    group: "evidence",
     component: DocumentIngestionRoute,
   },
-  // ── Safety ──────────────────────────────────────────────────────────
+  // Governance controls
   {
     id: "blast-radius",
     label: t("nav.panel.blastRadius"),
     subtitle: t("nav.panelSub.blastRadius"),
-    group: "safety",
+    group: "governance",
     component: BlastRadiusRoute,
   },
   {
     id: "promotion-gates",
     label: t("nav.panel.promotionGates"),
     subtitle: t("nav.panelSub.promotionGates"),
-    group: "safety",
+    group: "governance",
     component: PromotionGatesRoute,
   },
   {
     id: "scope",
     label: t("nav.panel.scope"),
     subtitle: t("nav.panelSub.scope"),
-    group: "safety",
+    group: "governance",
     component: ScopeRoute,
   },
   // ── Overview ────────────────────────────────────────────────────────
@@ -277,7 +286,6 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     label: t("nav.panel.operatingOutcomes"),
     subtitle: t("nav.panelSub.operatingOutcomes"),
     group: "overview",
-    placement: "drilldown",
     component: OperatingOutcomesRoute,
   },
   {
@@ -285,7 +293,6 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     label: t("nav.panel.controlAssurance"),
     subtitle: t("nav.panelSub.controlAssurance"),
     group: "overview",
-    placement: "drilldown",
     component: ControlAssuranceRoute,
   },
   {
@@ -293,7 +300,6 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     label: t("nav.panel.verticalOutcomes"),
     subtitle: t("nav.panelSub.verticalOutcomes"),
     group: "overview",
-    placement: "drilldown",
     component: VerticalOutcomesRoute,
   },
   {
@@ -301,7 +307,6 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     label: t("nav.panel.trustRouting"),
     subtitle: t("nav.panelSub.trustRouting"),
     group: "overview",
-    placement: "drilldown",
     component: TrustRoutingRoute,
   },
   {
@@ -309,8 +314,14 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     label: t("nav.panel.llmCost"),
     subtitle: t("nav.panelSub.llmCost"),
     group: "overview",
-    placement: "drilldown",
     component: LlmCostRoute,
+  },
+  {
+    id: "labs",
+    label: t("nav.panel.labs"),
+    subtitle: t("nav.panelSub.labs"),
+    group: "labs",
+    component: LabsRoute,
   },
   {
     id: "settings",
@@ -330,7 +341,7 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
  * ```ts
  * import { ExampleFinOpsPanel } from "./routes/example-finops";
  * export const EXTRA_PANELS: readonly ConsolePanel[] = [
- *   { id: "finops", label: "Cost", group: "overview", placement: "drilldown", component: ExampleFinOpsPanel },
+ *   { id: "finops", label: "Cost", group: "overview", component: ExampleFinOpsPanel },
  * ];
  * ```
  */

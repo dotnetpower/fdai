@@ -40,6 +40,7 @@
 
   --cs-maxw: 1160px;
   --cs-gap: 20px;
+  --cs-sidebar-w: 244px;
   --cs-font: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
 }
 
@@ -87,21 +88,105 @@ code { font-family: "Cascadia Code", "Consolas", monospace; font-size: .88em; ba
   margin-top: 2px;
 }
 
-/* ----- Top bar (calm, no color band) ----- */
-.cs-topbar {
+/* ----- Shared application sidebar ----- */
+body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
+.cs-app-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 80;
+  width: var(--cs-sidebar-w);
+  overflow-y: auto;
+  padding: 16px 10px 24px;
   background: var(--cs-card);
-  border-bottom: 1px solid var(--cs-hairline);
-  position: sticky; top: 0; z-index: 20;
+  border-right: 1px solid var(--cs-hairline);
 }
-.cs-topbar-inner { display: flex; align-items: center; gap: 20px; height: 60px; }
-.cs-brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; color: var(--cs-text); text-decoration: none; }
-a.cs-brand:hover { color: var(--cs-navy); text-decoration: none; }
+.cs-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 4px 16px;
+  padding: 2px 6px 14px;
+  border-bottom: 1px solid var(--cs-hairline);
+  color: var(--cs-navy);
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.cs-sidebar-brand:hover { color: var(--cs-navy); text-decoration: none; }
 .cs-brand-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--cs-steel); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; font-weight: 700; transition: background .15s ease; }
-a.cs-brand:hover .cs-brand-mark { background: var(--cs-navy); }
-.cs-nav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
-.cs-nav a { color: var(--cs-text-soft); padding: 7px 12px; border-radius: var(--cs-radius-sm); font-size: 14px; }
-.cs-nav a:hover { background: var(--cs-shade); color: var(--cs-text); text-decoration: none; }
-.cs-nav a.cs-active { background: var(--cs-navy); color: #fff; }
+.cs-sidebar-brand:hover .cs-brand-mark { background: var(--cs-navy); }
+.cs-sidebar-group { margin-top: 14px; }
+.cs-sidebar-group:first-of-type { margin-top: 0; }
+.cs-sidebar-group h2 {
+  margin: 0 8px 4px;
+  color: var(--cs-text-soft);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+.cs-sidebar-group ul { margin: 0; padding: 0; list-style: none; }
+.cs-sidebar-group li { margin: 1px 0; }
+.cs-sidebar-group a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--cs-radius-sm);
+  color: var(--cs-text);
+  font-size: 13px;
+}
+.cs-sidebar-group a:hover { background: var(--cs-shade); text-decoration: none; }
+.cs-sidebar-group a.cs-active {
+  border-color: rgba(68,104,142,.20);
+  background: rgba(68,104,142,.10);
+  color: var(--cs-navy);
+  font-weight: 600;
+}
+.cs-sidebar-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--cs-hairline); }
+.cs-sidebar-dot.is-sage { background: var(--cs-sage); }
+.cs-sidebar-dot.is-steel { background: var(--cs-steel); }
+.cs-sidebar-dot.is-plum { background: var(--cs-plum); }
+.cs-sidebar-dot.is-teal { background: var(--cs-teal); }
+.cs-sidebar-dot.is-terracotta { background: var(--cs-terracotta); }
+.cs-sidebar-menu {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 90;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  box-shadow: var(--cs-shadow);
+  cursor: pointer;
+}
+.cs-sidebar-menu::before { content: "\2630"; font-size: 20px; line-height: 1; }
+.cs-sidebar-backdrop { display: none; }
+
+@media (max-width: 780px) {
+  body.cs-has-sidebar { padding-left: 0; padding-top: 58px; }
+  .cs-app-sidebar { transform: translateX(-100%); transition: transform .18s ease; box-shadow: var(--cs-shadow-hover); }
+  body.cs-sidebar-open .cs-app-sidebar { transform: translateX(0); }
+  .cs-sidebar-menu { display: inline-flex; align-items: center; justify-content: center; }
+  body.cs-sidebar-open .cs-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    border: 0;
+    background: rgba(46,54,64,.28);
+    cursor: pointer;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-app-sidebar { transition: none; }
+}
 
 /* ----- Page header block ----- */
 .cs-page-header { margin-bottom: 8px; }
@@ -162,6 +247,7 @@ a.cs-brand:hover .cs-brand-mark { background: var(--cs-navy); }
 
 /* ----- Table (critique / audit) ----- */
 .cs-table-wrap { border: 0; border-radius: 0; overflow: visible; }
+@media (max-width: 620px) { .cs-table-wrap { max-width: 100%; overflow-x: auto; } }
 .cs-table {
   width: 100%;
   border-collapse: collapse;

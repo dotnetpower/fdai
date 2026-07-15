@@ -279,7 +279,10 @@ Make RCA a first-class output of the tiers instead of an implicit side effect.
   (`core/rca/member_source.py`; a fork's adapter marks which members are
   changes) and appends one shadow `rca.hypothesis` (tier t1) per event,
   bounded by the configured `causal_chain_window` and an optional
-  resource-dependency graph. The upstream reference implementation
+  resource-dependency graph. The hypothesis retains a transport-safe
+  `causal_chain` (root/failure ids, ambiguity, and ordered hop evidence),
+  and the control loop writes that structure into the append-only audit
+  entry instead of collapsing it into prose. The upstream reference implementation
   `DeploymentHistoryMemberSource` (`core/rca/deployment_member_source.py`)
   bridges a real `DeploymentHistoryProvider` (e.g. the Azure Resource
   Graph adapter) plus an incident-record lookup into the antecedent
@@ -292,6 +295,7 @@ Make RCA a first-class output of the tiers instead of an implicit side effect.
   (`GET /rca?correlation=<id>`, pure projection in
   `delivery/read_api/routes/rca_projection.py`). Given an incident
   `correlation_id` it renders the tiered hypotheses, their citations, the
+  structured T1 causal chain when recorded,
   grounding state (an abstained hypothesis shows as "insufficient grounding
   -> HIL", never a confident cause), and the linked response plan (verdict /
   action / mode / rollback) composed from the same correlated audit stream.

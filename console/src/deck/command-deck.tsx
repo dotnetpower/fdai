@@ -564,12 +564,8 @@ export function CommandDeck() {
     }
   }, []);
 
-  // While the deck overlay is open, mark the document so the persistent left
-  // rail can stack above the overlay (see `body.deck-open .left-rail` in
-  // styles.css). The rail's navigation popover opens into the overlay region;
-  // because the rail is a lower stacking context, without this the popover
-  // renders BEHIND the chat and cannot be clicked. Scoped to the open state so
-  // the rule-detail drawer scrim (which should dim the rail) is unaffected.
+  // While the deck overlay is open, mark the document so navigation-specific
+  // overlay rules can apply without affecting other drawers.
   useEffect(() => {
     const cls = "deck-open";
     if (open) document.body.classList.add(cls);
@@ -697,7 +693,7 @@ export function CommandDeck() {
   // operator's keystrokes (a stray Space then scrolls the page or toggles a
   // background button - e.g. closing the deck). Pull focus back to the input
   // whenever it escapes to anything that is neither inside the overlay nor the
-  // still-interactive left rail. A genuine click on a background control still
+  // still-interactive navigation shell. A genuine click on a background control still
   // fires (click precedes focus); only the stuck-focus is corrected.
   useEffect(() => {
     if (!open) return;
@@ -706,7 +702,7 @@ export function CommandDeck() {
       if (!target) return;
       const overlay = overlayRef.current;
       if (overlay && overlay.contains(target)) return;
-      if (target.closest(".left-rail")) return;
+      if (target.closest(".navigation-shell")) return;
       requestAnimationFrame(() => inputRef.current?.focus());
     };
     document.addEventListener("focusin", onFocusIn);

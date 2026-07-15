@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">FDAI Cloud Canopy concept</title>
+  <desc id="desc">Three trust routes converge beneath a cloud canopy into one safe forward action.</desc>
+  <g fill="none" stroke="#2B7FE0" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M4 15h12c9 0 9 17 21 17h9"/>
+    <path d="M4 32h42"/>
+    <path d="M4 49h12c9 0 9-17 21-17h9"/>
+    <path d="M27 24c0-7 6-12 13-11 4-6 13-5 16 2 4 1 7 6 7 11-1 5-5 9-10 10" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <path fill="#2B7FE0" d="m42 21 14 11-14 11z"/>
+</svg>

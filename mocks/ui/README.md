@@ -18,11 +18,14 @@ Operator console (read-only). Overview / Now / History surfaces:
 |------|---------|
 | [live.html](live.html) | Live cockpit - activity swarm of tiles for control-plane events flowing through T0 / T1 / T2, KPI strip with sparkline, audit ticker |
 | [dashboard.html](dashboard.html) | Overview - success/guard KPIs, trust-tier + risk-gate distribution, mode mix, top HIL items, recent audit |
+| [incidents.html](incidents.html) | Incident-centric roster with active/resolved filtering, current disposition, and per-incident remediation history |
 | [hil.html](hil.html) | HIL queue - plain-first approval cards with safety facts, filters by risk / category / vertical |
 | [promotion.html](promotion.html) | Shadow to enforce candidates and the four gate checks (accuracy, escapes, guard budget, safety invariants) |
 | [rules.html](rules.html) | Rule catalog: accepted rules, discovery-loop candidates, scoped overrides |
 | [actions.html](actions.html) | ActionType ontology - trigger, execution path, rollback contract, six-axis risk ceiling |
 | [audit.html](audit.html) | Append-only stream - execute, reject, timeout, abstain, deny, override change, rollback |
+| [rca.html](rca.html) | Root-cause hypothesis with tier, confidence, grounded citations, causal chain, response plan, and explicit abstained state |
+| [rca-report.html](rca-report.html) | Browser-scale detailed RCA report using the same Calm Slate shell, spacing, cards, tables, and evidence hierarchy as the console mocks |
 
 Fleet / Safety surfaces (mirror console panels under `Now` and `Safety`):
 
@@ -66,7 +69,9 @@ Report and kit:
   comparison, critique table, pill tags, severity badges, trust-tier chips, buttons, forms,
   alerts, tabs, meters, and the Live cockpit (activity swarm, sparkline strip, audit ticker).
   All classes are prefixed `cs-`.
-- [assets/calm-slate.js](assets/calm-slate.js) - minimal tab switching only; no privileged calls.
+- [assets/calm-slate.js](assets/calm-slate.js) - shared left navigation, tab switching, and
+  chart detail modals; no privileged calls. Direct page loads render the full navigation.
+  Pages embedded by the kit landing suppress their local shell so the navigation is not nested.
 - [assets/live.js](assets/live.js) - Live cockpit only. Generates synthetic control-plane events,
   routes them through T0 / T1 / T2 with the roadmap's distribution, and renders the swarm,
   sparkline, and audit ticker. Pure client-side, no backend.
@@ -78,6 +83,10 @@ Open any page directly in a browser (no build step):
 ```
 ui/index.html
 ```
+
+The kit landing keeps the page index and preview in one frame. Opening a page directly uses the
+same left navigation and highlights the current page. On narrow screens, use the menu button to
+open the navigation without reducing the content width.
 
 Reuse the kit by linking the stylesheet and applying `cs-` classes:
 

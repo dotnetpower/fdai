@@ -110,6 +110,9 @@ _ACTION_VERBS: frozenset[str] = frozenset(
         "purge",
         "grant",
         "revoke",
+        "open",
+        "transition",
+        "assign",
     }
 )
 

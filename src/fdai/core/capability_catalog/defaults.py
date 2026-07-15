@@ -64,7 +64,10 @@ _CAPABILITIES: tuple[Capability, ...] = (
         capability_id="incident.create",
         name="Create an incident",
         category=CapabilityCategory.INCIDENT,
-        summary="Open an incident with severity, root cause, and plan; hand off to GitHub.",
+        summary=(
+            "Prepare and confirm an incident with severity and correlation; "
+            "audit it and notify subscribers."
+        ),
         side_effect_class=SideEffectClass.EXECUTE,
         default_mode=Mode.SHADOW,
         required_role="contributor",

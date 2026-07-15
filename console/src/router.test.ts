@@ -6,6 +6,7 @@ describe("clean console routes", () => {
     expect(panelPath("dashboard")).toBe("/overview");
     expect(panelPath("hil-queue")).toBe("/approvals");
     expect(panelPath("agent-activity")).toBe("/agent-activity");
+    expect(panelPath("labs")).toBe("/labs");
   });
 
   test("builds path segments without spaces or underscores", () => {

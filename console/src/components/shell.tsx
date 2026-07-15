@@ -11,7 +11,9 @@ import {
   setConsolePreference,
   type ConsolePreferences,
 } from "../preferences";
-import { LeftRail } from "./left-rail";
+import { panelPath } from "../router";
+import { NavigationShell } from "./navigation-shell";
+import { NavigationTitleProvider } from "./navigation-title";
 
 interface ShellProps {
   readonly activePanelId: string;
@@ -52,7 +54,16 @@ export function Shell({ activePanelId, auth, children }: ShellProps) {
   return (
     <div class="shell">
       <header class="topbar">
-        <h1 class="topbar-title">FDAI Console</h1>
+        <a class="brand-lockup" href={panelPath("dashboard")} aria-label="FDAI Console home">
+          <img
+            class="brand-logo"
+            src={`${import.meta.env.BASE_URL}brand/concepts/fdai-cloud-aperture.svg`}
+            alt=""
+          />
+          <span class="brand-wordmark">FDAI</span>
+          <span class="brand-separator" aria-hidden="true" />
+          <span class="brand-product">Console</span>
+        </a>
         <div class="principal">
           <button
             type="button"
@@ -86,7 +97,12 @@ export function Shell({ activePanelId, auth, children }: ShellProps) {
               </svg>
             )}
           </button>
-          {auth.devMode ? (
+          {auth.localAzureCli && auth.account ? (
+            <>
+              <span>{auth.account.username}</span>
+              <span class="badge">Azure CLI</span>
+            </>
+          ) : auth.devMode ? (
             <span class="badge">dev mode</span>
           ) : auth.account ? (
             <>
@@ -104,8 +120,16 @@ export function Shell({ activePanelId, auth, children }: ShellProps) {
         </div>
       </header>
       <div class="shell-body">
-        <LeftRail activePanelId={activePanelId} />
-        <main>{children}</main>
+        <NavigationShell
+          activePanelId={activePanelId}
+          principalId={auth.account?.homeAccountId ?? null}
+          devMode={auth.devMode}
+        />
+        <main>
+          <NavigationTitleProvider activePanelId={activePanelId}>
+            {children}
+          </NavigationTitleProvider>
+        </main>
       </div>
     </div>
   );

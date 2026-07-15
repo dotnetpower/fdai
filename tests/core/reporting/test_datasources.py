@@ -117,6 +117,130 @@ class TestAuditDataSource:
         )
         assert result.scalar == 3
 
+    async def test_rca_dossier_projections_are_correlation_scoped(self) -> None:
+        reader = InMemoryConsoleReadModel()
+        reader.record_audit_entry(
+            {
+                "event_id": "00000000-0000-0000-0000-000000000001",
+                "correlation_id": "corr-target",
+                "rca_tier": "t1",
+                "rca_outcome": "grounded",
+                "rca_cause": "configuration change preceded failure",
+                "rca_confidence": 0.82,
+                "incident_id": "incident-1",
+                "incident_title": "API latency after rollout",
+                "severity": "critical",
+                "status": "resolved",
+                "vertical": "change_safety",
+                "rca_citations": [
+                    {
+                        "kind": "change",
+                        "ref": "change-1",
+                        "summary": "Connection limit changed",
+                        "freshness": "current",
+                    }
+                ],
+                "rca_causal_chain": {
+                    "hops": [
+                        {
+                            "cause_event_id": "change-1",
+                            "cause_resource_ref": "service-a",
+                            "relationship": "dependency",
+                            "effect_event_id": "failure-1",
+                            "effect_resource_ref": "service-b",
+                            "lead_seconds": 75.0,
+                            "confidence": 0.82,
+                        }
+                    ]
+                },
+                "rca_impact": [
+                    {
+                        "metric": "API p95 latency",
+                        "observed": 1840,
+                        "threshold": 750,
+                        "unit": "ms",
+                        "impact": "Latency objective breached",
+                        "evidence_ref": "metric:latency",
+                    }
+                ],
+                "rca_contributing_factors": [
+                    {"category": "capacity", "factor": "No pool headroom alert"}
+                ],
+                "rca_alternative_hypotheses": [
+                    {"hypothesis": "Compute saturation", "status": "excluded"}
+                ],
+                "rca_recovery_validation": [
+                    {"metric": "API p95 latency", "after": "340 ms", "status": "passed"}
+                ],
+                "rca_control_gaps": [
+                    {"control": "Capacity guard", "gap": "No pre-deploy pool check"}
+                ],
+                "rca_recommendations": [
+                    {"priority": "P0", "action": "Add connection headroom preflight"}
+                ],
+                "rca_limitations": [
+                    {"limitation": "Retry volume was sampled", "status": "open"}
+                ],
+                "recorded_at": _NOW.isoformat(),
+            },
+            action_kind="rca.hypothesis",
+        )
+        reader.record_audit_entry(
+            {
+                "event_id": "00000000-0000-0000-0000-000000000002",
+                "correlation_id": "corr-other",
+                "rca_tier": "t0",
+                "recorded_at": _NOW.isoformat(),
+            },
+            action_kind="rca.hypothesis",
+        )
+        datasource = AuditDataSource(reader=reader)
+        common = {
+            "since": _HOUR_AGO,
+            "until": _NOW + timedelta(minutes=1),
+            "variables": {"correlation_id": "corr-target"},
+        }
+        hypotheses = await datasource.query(
+            QuerySpec(datasource="audit", parameters={"projection": "rca_hypotheses"}),
+            **common,
+        )
+        citations = await datasource.query(
+            QuerySpec(datasource="audit", parameters={"projection": "rca_citations"}),
+            **common,
+        )
+        hops = await datasource.query(
+            QuerySpec(datasource="audit", parameters={"projection": "rca_causal_hops"}),
+            **common,
+        )
+        assert len(hypotheses.rows) == 1
+        assert hypotheses.rows[0]["tier"] == "t1"
+        assert citations.rows[0]["ref"] == "change-1"
+        assert citations.rows[0]["summary"] == "Connection limit changed"
+        assert hops.rows[0]["lead_seconds"] == 75.0
+
+        async def projection(name: str) -> DataSet:
+            return await datasource.query(
+                QuerySpec(datasource="audit", parameters={"projection": name}),
+                **common,
+            )
+
+        profile = await projection("rca_incident_profile")
+        impact = await projection("rca_impact")
+        factors = await projection("rca_contributing_factors")
+        alternatives = await projection("rca_alternative_hypotheses")
+        recovery = await projection("rca_recovery_validation")
+        gaps = await projection("rca_control_gaps")
+        recommendations = await projection("rca_recommendations")
+        limitations = await projection("rca_limitations")
+        assert profile.rows[0]["incident_id"] == "incident-1"
+        assert impact.rows[0]["observed"] == 1840
+        assert factors.rows[0]["category"] == "capacity"
+        assert alternatives.rows[0]["status"] == "excluded"
+        assert recovery.rows[0]["status"] == "passed"
+        assert gaps.rows[0]["control"] == "Capacity guard"
+        assert recommendations.rows[0]["priority"] == "P0"
+        assert limitations.rows[0]["status"] == "open"
+
 
 class TestReportFeedDataSource:
     def _feed(self) -> ReportFeed:

@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: be3d9ee151164ceee739cfe8e56c5d365261bec6
+translation_source_sha: 2336606f4e7b832329d7fb0b395ced26d009467a
 translation_revised: 2026-07-12
 ---
 
@@ -580,8 +580,27 @@ operational-alert 도 emit 한다 - outbound-only, 정보성이며 승인 버튼
   Protocol 을 구현한 `McpToolExecutor` 가 MCP 서버 tool 하나를 `tool.*`
   ActionType 하나에 매핑한다.
 - `core/` 는 Protocol 만 안다; fork 가 composition root 에서 live 어댑터
-  (네이티브 Python registry, MCP 클라이언트, HTTP callout) 를 bind. Day-1
-  binding 은 `RecordingToolExecutor` (실제 함수 실행 없음).
+  (네이티브 Python registry, MCP 클라이언트, HTTP callout) 를 bind. Default
+  binding 은 `RecordingToolExecutor` (실제 함수 실행 없음). Configured
+  `FDAI_JIRA_BASE_URL`은 PostgreSQL idempotency ledger 및 distributed resource
+  lock과 함께 `JiraToolExecutor`를 bind합니다. ActionType promotion gate와
+  `FDAI_JIRA_ENFORCE=1`이 모두 enforce를 허용하기 전까지 shadow를 유지합니다.
+  Enforce creation은 deterministic `fdai-idem-<sha256>` label을 추가합니다. POST 전에
+  durable pending claim을 atomically 기록하고 Jira enhanced
+  `/rest/api/3/search/jql` endpoint에서 해당 label을 검색합니다.
+  Create-before-ledger crash 이후 retry는 기존 issue를 reconcile하고
+  `already_applied`를 반환할 수 있습니다. Prior claim이 남았지만 Jira에서 issue가 아직
+  보이지 않으면 duplicate 위험을 감수하지 않고 fail closed합니다. POST 전 search
+  failure와 definitive create `4xx` response는 새로 획득한 claim을 release합니다.
+  Transport failure, `5xx` response, malformed successful create response는 side effect가
+  ambiguous하므로 claim을 quarantine 상태로 유지합니다. 각 retry는 Jira를 다시 검색하며,
+  retryable adapter failure는 audit하지만 core executor cache에는 넣지 않습니다.
+  `fdai-idem-` label namespace는 adapter가 소유합니다. Request가 해당 prefix로 제공한
+  label은 제거하여 한 request가 다른 key를 alias하지 못하게 합니다. Audit entry는
+  Action의 실제 `shadow` 또는 `enforce` mode를 기록합니다. POST 전 cancellation은
+  claim을 release하고 failed audit entry를 기록한 뒤 다시 raise합니다. Core는 durable
+  execution result를 기록한 뒤에만 in-memory dedupe cache를 채우므로 transient durable
+  write failure는 retryable 상태로 남습니다.
 - `auto` 결정 시, HIL 없이 call 진행; ActionType 의 `preconditions` 와
   `stop_conditions` 를 executor 가 enforce.
 - `hil` 결정 시, executor 가 액션을 park 하고 `direct_api` 와 동일한 HIL
@@ -596,6 +615,10 @@ operational-alert 도 emit 한다 - outbound-only, 정보성이며 승인 버튼
   executor 는 시도당 정확히 하나의 audit entry 를
   `action_kind=executor.tool_call.<outcome>` 와
   `execution_path=tool_call` 로 쓴다.
+- `tool.open-incident-ticket`은 기본 제공 ticket ActionType입니다. Shadow receipt는
+  실제 ticket으로 link되지 않습니다. 성공한 enforce receipt는 terminal executor
+  success 전에 `link_ticket_receipt`를 통과하고 `incident.ticket`을 append합니다.
+  Linkage failure는 retryable하며 success로 cache되지 않습니다.
 
 Best for: 문서 생성, 알림, 티켓팅, 그리고 워크플로 스텝이 PR 을 열거나
 substrate 를 건드리지 않고 `action_type_ref` 로 invoke 하려는 임의의 등록된

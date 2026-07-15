@@ -37,6 +37,18 @@ _INSERT_SQL = (
     "INSERT INTO action_idempotency (idempotency_key, result) "
     "VALUES (%s, %s) ON CONFLICT (idempotency_key) DO NOTHING"
 )
+_UPDATE_IF_SQL = (
+    "UPDATE action_idempotency SET result = %s, recorded_at = now() "
+    "WHERE idempotency_key = %s AND result = %s::jsonb"
+)
+_DELETE_IF_SQL = (
+    "DELETE FROM action_idempotency WHERE idempotency_key = %s AND result = %s::jsonb"
+)
+_INSERT_OR_REPLACE_IF_SQL = (
+    "INSERT INTO action_idempotency (idempotency_key, result) VALUES (%s, %s) "
+    "ON CONFLICT (idempotency_key) DO UPDATE SET result = EXCLUDED.result, recorded_at = now() "
+    "WHERE action_idempotency.result = %s::jsonb OR action_idempotency.result = EXCLUDED.result"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +123,73 @@ class PostgresIdempotencyStore:
             await self._ensure_table(conn)
             cur = await conn.execute(_INSERT_SQL, (key, json.dumps(dict(result))))
             # rowcount is 1 on insert, 0 when ON CONFLICT skipped it.
+            return cur.rowcount == 1
+
+    async def replace_if(
+        self,
+        key: str,
+        expected: Mapping[str, Any],
+        result: Mapping[str, Any],
+    ) -> bool:
+        """Atomically replace ``expected`` with ``result`` for ``key``."""
+
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            autocommit=True,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as conn:
+            await self._set_statement_timeout(conn)
+            await self._ensure_table(conn)
+            cur = await conn.execute(
+                _UPDATE_IF_SQL,
+                (
+                    json.dumps(dict(result)),
+                    key,
+                    json.dumps(dict(expected)),
+                ),
+            )
+            return cur.rowcount == 1
+
+    async def remove_if(self, key: str, expected: Mapping[str, Any]) -> bool:
+        """Atomically remove ``key`` only when its result equals ``expected``."""
+
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            autocommit=True,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as conn:
+            await self._set_statement_timeout(conn)
+            await self._ensure_table(conn)
+            cur = await conn.execute(
+                _DELETE_IF_SQL,
+                (key, json.dumps(dict(expected))),
+            )
+            return cur.rowcount == 1
+
+    async def insert_or_replace_if(
+        self,
+        key: str,
+        expected: Mapping[str, Any],
+        result: Mapping[str, Any],
+    ) -> bool:
+        """Insert ``result`` or atomically replace ``expected`` with it."""
+
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            autocommit=True,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as conn:
+            await self._set_statement_timeout(conn)
+            await self._ensure_table(conn)
+            encoded_result = json.dumps(dict(result))
+            cur = await conn.execute(
+                _INSERT_OR_REPLACE_IF_SQL,
+                (
+                    key,
+                    encoded_result,
+                    json.dumps(dict(expected)),
+                ),
+            )
             return cur.rowcount == 1
 
 

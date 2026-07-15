@@ -20,14 +20,16 @@ defaults to shadow mode).
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
+from uuid import UUID, uuid4
 
 from fdai.core.conversation.session import (
     Principal,
     Role,
     principal_has_role_at_least,
 )
+from fdai.core.incident.lifecycle import IncidentConfirmationError
 from fdai.core.incident.registry import IncidentRegistry
+from fdai.core.incident.workflow import IncidentLifecycleWorkflow
 from fdai.core.scheduler.models import ScheduledTask
 from fdai.core.scheduler.store import ScheduleStore
 from fdai.shared.contracts.models import Incident, IncidentSeverity
@@ -49,10 +51,15 @@ def _require_floor(principal: Principal, action: str) -> None:
 class CreateIncidentCommand:
     """Open an incident from the conversational surface (slide 15)."""
 
-    __slots__ = ("_registry",)
+    __slots__ = ("_workflow",)
 
-    def __init__(self, *, registry: IncidentRegistry) -> None:
-        self._registry = registry
+    def __init__(
+        self,
+        *,
+        registry: IncidentRegistry,
+        workflow: IncidentLifecycleWorkflow | None = None,
+    ) -> None:
+        self._workflow = workflow or IncidentLifecycleWorkflow(registry=registry)
 
     async def create(
         self,
@@ -61,27 +68,23 @@ class CreateIncidentCommand:
         correlation_keys: Iterable[str],
         severity: IncidentSeverity,
         member_event_ids: Iterable[UUID] = (),
+        confirmed: bool = False,
     ) -> Incident:
-        """Open (or return the existing) incident for the correlation keys.
+        """Open a confirmed structured incident request.
 
         Idempotent by correlation-key set - re-running with the same keys
         returns the same deterministic incident, never a duplicate.
         """
         _require_floor(principal, "create_incident")
-        keys = tuple(correlation_keys)
-        members = tuple(member_event_ids)
-        if not members:
-            # A manually-opened incident still needs an anchor member event;
-            # synthesize a deterministic one from the correlation keys so
-            # re-runs do not grow the member set.
-            anchor = uuid5(NAMESPACE_URL, "fdai.incident.manual://" + "|".join(sorted(keys)))
-            members = (anchor,)
-        return await self._registry.open(
-            correlation_keys=keys,
+        if not confirmed:
+            raise IncidentConfirmationError("explicit incident creation confirmation is required")
+        result = await self._workflow.open_confirmed_operator(
+            principal=principal,
+            correlation_keys=tuple(correlation_keys),
             severity=severity,
-            member_event_ids=members,
-            actor_oid=principal.id,
+            member_event_ids=tuple(member_event_ids),
         )
+        return result.incident
 
 
 class CreateScheduledTaskCommand:

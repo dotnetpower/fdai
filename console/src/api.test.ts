@@ -98,6 +98,21 @@ describe("read API response decoders", () => {
           reason: "matched control",
           citations: [{ kind: "rule", ref: "storage.public-access" }],
           remediation_ref: "storage.disable-public-access",
+          causal_chain: {
+            root_event_id: "change-1",
+            failure_event_id: "failure-1",
+            confidence: 0.82,
+            ambiguity: 1,
+            hops: [{
+              cause_event_id: "change-1",
+              effect_event_id: "failure-1",
+              cause_resource_ref: "service-a",
+              effect_resource_ref: "service-b",
+              lead_seconds: 75,
+              relationship: "dependency",
+              confidence: 0.82,
+            }],
+          },
           mode: "shadow",
           recorded_at: "2026-07-14T10:02:00Z",
         },
@@ -113,6 +128,7 @@ describe("read API response decoders", () => {
     };
     const view = decodeRcaView(grounded);
     expect(view.hypotheses[0]?.grounded).toBe(true);
+    expect(view.hypotheses[0]?.causal_chain?.hops[0]?.lead_seconds).toBe(75);
     expect(view.response?.verdict).toBe("auto");
     expect(() =>
       decodeRcaView({
@@ -137,6 +153,7 @@ describe("read API response decoders", () => {
           reason: "insufficient grounding",
           citations: [],
           remediation_ref: null,
+          causal_chain: null,
           mode: "shadow",
           recorded_at: "2026-07-14T10:00:00Z",
         },

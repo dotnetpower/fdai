@@ -761,6 +761,63 @@ def test_build_direct_api_executor_shares_audit_and_lock(
 # ---------------------------------------------------------------------------
 
 
+def test_build_tool_executor_wires_configured_jira_shadow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.__main__ import _build_tool_executor
+    from fdai.core.executor.lock import ResourceLockManager
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    monkeypatch.setenv("FDAI_JIRA_BASE_URL", "https://jira.example.com")
+    monkeypatch.setenv("FDAI_JIRA_ACCOUNT_EMAIL", "operator@example.com")
+    monkeypatch.setenv("FDAI_JIRA_API_TOKEN_SECRET", "jira-token")
+    monkeypatch.setenv(
+        "FDAI_JIRA_TOOL_MAP_JSON",
+        '{"tool.open-incident-ticket":"OPS"}',
+    )
+    monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql://example")
+    client = httpx.AsyncClient()
+
+    executor = _build_tool_executor(
+        audit_store=InMemoryStateStore(),
+        resource_lock=ResourceLockManager(),
+        http_client=client,
+    )
+
+    assert executor is not None
+    assert executor._enforce is False  # noqa: SLF001 - composition assertion
+    asyncio.run(client.aclose())
+
+
+def test_build_tool_executor_jira_enforce_requires_explicit_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.__main__ import _build_tool_executor
+    from fdai.core.executor.lock import ResourceLockManager
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    monkeypatch.setenv("FDAI_JIRA_BASE_URL", "https://jira.example.com")
+    monkeypatch.setenv("FDAI_JIRA_ACCOUNT_EMAIL", "operator@example.com")
+    monkeypatch.setenv("FDAI_JIRA_API_TOKEN_SECRET", "jira-token")
+    monkeypatch.setenv(
+        "FDAI_JIRA_TOOL_MAP_JSON",
+        '{"tool.open-incident-ticket":"OPS"}',
+    )
+    monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql://example")
+    monkeypatch.setenv("FDAI_JIRA_ENFORCE", "1")
+    client = httpx.AsyncClient()
+
+    executor = _build_tool_executor(
+        audit_store=InMemoryStateStore(),
+        resource_lock=ResourceLockManager(),
+        http_client=client,
+    )
+
+    assert executor is not None
+    assert executor._enforce is True  # noqa: SLF001 - composition assertion
+    asyncio.run(client.aclose())
+
+
 def test_build_control_loop_wires_rca_and_correlator(
     monkeypatch: pytest.MonkeyPatch, app_config: AppConfig
 ) -> None:

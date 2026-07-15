@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rule trace - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=sidebar-v5" />
+  <script src="assets/calm-slate.js?v=sidebar-v5" defer></script>
   <style>
     /* Rule trace: pipeline path for one correlation id. */
     .rt-inbar { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-bottom: 20px; }
@@ -38,24 +39,6 @@
   </style>
 </head>
 <body>
-  <header class="cs-topbar">
-    <div class="cs-container cs-topbar-inner">
-      <a class="cs-brand" href="index.html"><span class="cs-brand-mark">AW</span> FDAI</a>
-      <nav class="cs-nav">
-        <a href="live.html">Live</a>
-        <a href="dashboard.html">Overview</a>
-        <a href="hil.html">HIL</a>
-        <a href="agents.html">Fleet</a>
-        <a href="rules.html">Rules</a>
-        <a href="actions.html">Actions</a>
-        <a href="audit.html">Audit</a>
-        <a href="rule-trace.html" class="cs-active">Trace</a>
-        <a href="report.html">Report</a>
-        <a href="index.html">Kit</a>
-      </nav>
-    </div>
-  </header>
-
   <main class="cs-container cs-page">
     <div class="cs-page-header cs-mb-16">
       <div class="cs-eyebrow">History &middot; per-correlation trace</div>

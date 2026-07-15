@@ -24,6 +24,7 @@ from fdai.agents._framework.provider_adapters import (
     StateStoreAuditChainAdapter,
 )
 from fdai.agents._framework.runtime import PantheonRuntime
+from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
@@ -58,6 +59,35 @@ def test_object_event_fans_out_to_forseti_and_heimdall() -> None:
     runtime, _ = _build()
     subscribers = {name for name, _ in runtime.bridge._subs["object.event"]}
     assert {"Forseti", "Heimdall"} <= subscribers
+
+
+async def test_runtime_injects_heimdall_incident_candidate_hook() -> None:
+    candidates: list[dict[str, object]] = []
+
+    async def capture(candidate: dict[str, object]) -> None:
+        candidates.append(candidate)
+
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        incident_candidate_hook=capture,
+    )
+    heimdall = runtime.agents["Heimdall"]
+    assert isinstance(heimdall, Heimdall)
+
+    for index in range(5):
+        await heimdall.on_typed_message(
+            "object.event",
+            {
+                "resource_id": "vm-1",
+                "event_type": "cpu_spike",
+                "correlation_id": "corr-1",
+                "idempotency_key": f"event-{index}",
+            },
+        )
+
+    assert len(candidates) == 1
+    assert candidates[0]["producer_principal"] == "Heimdall"
 
 
 def test_publishing_agents_are_bound_to_the_bridge() -> None:

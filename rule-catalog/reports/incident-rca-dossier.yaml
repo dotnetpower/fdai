@@ -1,0 +1,142 @@
+id: incident-rca-dossier
+version: 1.0.0
+name: Incident RCA Dossier
+description: |
+  Correlation-scoped incident and root-cause evidence package. Combines
+  grounded hypotheses, causal-chain hops, citations, response history,
+  and the append-only audit chronology without inferring missing evidence.
+tags:
+  - incident
+  - rca
+  - post-incident
+time_range:
+  last: 30d
+
+variables:
+  - name: correlation_id
+    default: ""
+    description: Correlation id that scopes every widget in this report.
+
+widgets:
+  - id: evidence-record-count
+    type: query_value
+    title: Correlated audit records
+    query:
+      datasource: audit
+      parameters:
+        projection: count_total
+    options:
+      unit: records
+
+  - id: incident-profile
+    type: table
+    title: Incident profile and document scope
+    query:
+      datasource: audit
+      parameters:
+        projection: rca_incident_profile
+
+  - id: impact-assessment
+    type: table
+    title: Impact assessment
+    query:
+      datasource: audit
+      parameters:
+        projection: rca_impact
+
+  - id: event-chronology
+    type: table
+    title: Incident chronology
+    query:
+      datasource: audit
+      parameters:
+        projection: rca_milestones
+
+  - id: root-cause-hypotheses
+    type: table
+    title: Root-cause hypotheses
+    query:
+      datasource: audit
+      parameters:
+        projection: rca_hypotheses
+
+  - id: causal-chain
+    type: table
+    title: Deterministic causal chain
+    query:
+      datasource: audit
+      parameters:
+        projection: rca_causal_hops
+
+  - id: contributing-factors
+    type: table
+    title: Contributing factors
+    query:
+      datasource: audit
+      parameters:
+        projection: rca_contributing_factors
+
+  - id: alternative-hypotheses
+    type: table
+    title: Alternative hypotheses and exclusion rationale
+    query:
+      datasource: audit
+      parameters:
+        projection: rca_alternative_hypotheses
+
+  - id: grounded-citations
+    type: table
+    title: Grounded evidence register
+    query:
+      datasource: audit
+      parameters:
+        projection: rca_citations
+
+  - id: response-plan
+    type: table
+    title: Response and remediation history
+    query:
+      datasource: audit
+      parameters:
+        projection: rca_response_plan
+
+  - id: recovery-validation
+    type: table
+    title: Recovery validation
+    query:
+      datasource: audit
+      parameters:
+        projection: rca_recovery_validation
+
+  - id: control-gaps
+    type: table
+    title: Control-gap analysis
+    query:
+      datasource: audit
+      parameters:
+        projection: rca_control_gaps
+
+  - id: recommendations
+    type: table
+    title: Corrective and preventive actions
+    query:
+      datasource: audit
+      parameters:
+        projection: rca_recommendations
+
+  - id: limitations
+    type: table
+    title: Limitations and unknowns
+    query:
+      datasource: audit
+      parameters:
+        projection: rca_limitations
+
+  - id: audit-chronology
+    type: table
+    title: Append-only audit chronology
+    query:
+      datasource: audit
+      parameters:
+        projection: rows
+        limit: 500

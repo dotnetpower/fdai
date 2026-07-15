@@ -1123,6 +1123,43 @@ The API contract is:
 | `GET /incidents?status=active|resolved|all&limit=<n>&cursor=<opaque>` | Return incident summaries newest activity first. |
 | `GET /audit?correlation_id=<id>&limit=<n>&cursor=<opaque>` | Return the selected incident's append-only history. |
 | `GET /audit/{correlation_id}/trace` | Reconstruct the ordered pipeline trace. |
+| `POST /chat/action` | Prepare or confirm an incident creation request on the authenticated write-direction chat path. |
+
+The incident roster stays read-only. Incident creation uses the separate
+authenticated chat action route and never adds a mutation button to the panel.
+For a recognized incident-open request, the route behaves as follows:
+
+1. It requires Contributor capability, severity, and a target correlation key.
+2. It returns `incident_confirmation_required` with a human-readable summary
+  and a 10-minute expiry. No incident exists at this point.
+3. A `confirm` or `확인` message from the same principal and `session_id`
+  creates the audited incident and returns its id and initial `open` state.
+
+The pending proposal is bounded by a 200-character `session_id`. Oversized
+session or idempotency keys are rejected rather than truncated, preventing two
+distinct identifiers from collapsing to the same confirmation. Production
+stores the proposal in Postgres and consumes it atomically, so confirmation can
+land on another replica. The persisted record contains a SHA-256 of the source
+prompt, not the raw operator text.
+
+Missing values return `incident_details_required`; cancellation returns
+`incident_creation_cancelled`. An unrelated action command continues through
+the existing Bragi-to-Huginn typed proposal path. An allowlisted agent uses the
+same built-in workflow with member-event evidence and a reason, but does not
+impersonate an operator or bypass the incident registry.
+
+The same authenticated route accepts only exact lifecycle command grammar;
+it does not guess from free-form status prose:
+
+- `transition incident <uuid> to <state>` or
+  `incident <uuid> 상태 <state>으로 변경`
+- `assign incident <uuid> to <oid>` or
+  `incident <uuid> 담당자 <oid> 지정`
+
+Both require a nonblank conversation `session_id`, Contributor capability, and
+the registry's persisted expected-state check. Illegal edges, unknown ids, and
+cross-replica conflicts return `incident_lifecycle_rejected` without changing
+the canonical incident.
 
 `correlation_id` is the incident key. The projection can attach a row without
 a top-level correlation only when its `event_id` or explicit incident
@@ -1139,6 +1176,26 @@ GET for history. Every route is Reader-gated and returns `405` for mutating
 verbs. The panel provides links to Audit and Trace but no execute, approve, or
 rollback button; those operations remain in remediation PRs and ChatOps.
 
+Incident creation, each legal state change, and requested roster summaries are
+eligible for A2 operational notification. Replayed opens and same-state
+transitions do not notify twice. Lifecycle messages contain the incident id,
+severity, and normalized state, but omit free-form reason text and resource
+correlation keys. A roster notification is bounded to 20 ids and links back to
+the complete `/incidents` view. Event-specific `audit_id` values keep channel
+idempotency from suppressing later transitions. Durable sent checkpoints and
+startup replay retry any notice missed by a crash. Before delivery, replicas
+compete for an atomic claim token with a bounded lease; only one sends, and
+only that token can mark the notice sent or release it after failure.
+Unresolved channels fall back to the HIL escalation sink.
+
+Incident alert subscription follows the channel-as-audience contract in
+[channels-and-notifications.md](channels-and-notifications.md): membership in
+the configured A2 operations channel determines who continuously receives
+open, transition, roster, and SLA-breach notices. The console does not create
+per-user direct-message subscriptions. Assignment and external ticket linkage
+remain authenticated write-direction chat/tool operations and appear as audit
+history; the read-only roster surfaces the linked `ticket_id`.
+
 The roster accepts an optional canonical `vertical` filter, and the audit
 route applies `mode`, `tier`, `action`, `outcome`, `vertical`, and bounded
 `window=<n>d` filters on the server before cursor pagination. An analytical
@@ -1152,6 +1209,13 @@ cell contains the selection button, each selected row exposes
 `aria-controls`. Unknown top-level URLs are replaced with canonical
 `/overview`, so one visible screen cannot create multiple conversation caches
 under typo paths.
+
+The selected incident detail keeps the summary and evidence layers separate.
+It shows the server-owned incident id, ticket id, lifecycle status and source,
+disposition, verdict, owning vertical, latest mode, timestamps, and history
+count before the remediation timeline. Missing values render unavailable; the
+browser does not infer impact, ownership, or recovery. The detail links to the
+correlation-scoped **Incident RCA Dossier** in History > Reports.
 
 Overview keeps every required analytical section visible when autonomy
 measurement is absent or malformed. It renders an explicit unavailable state
@@ -1213,6 +1277,27 @@ section 4). The panel reads the correlated audit rows and projects:
 - **Response plan** composed from the same correlated audit stream: the
   verdict (`auto` / `hil` / `deny` / `abstain`), the delivered action kind,
   its mode, and the rollback reference.
+- **Structured T1 causal chain.** A T1 hypothesis can carry
+  `causal_chain` with root/failure event ids, ambiguity, and ordered hops.
+  Each hop preserves cause/effect event and resource refs, lead seconds,
+  relationship, and confidence. Malformed or absent chain data renders
+  unavailable instead of being partially reconstructed in the browser.
+
+The reporting catalog includes `incident-rca-dossier`. Its required
+`correlation_id` variable scopes hypothesis, citation, causal-hop, response,
+and chronology widgets to one incident. When the optional `pdf-report` extra
+is installed, Reports exposes an authenticated GET-only **Download PDF**
+control. The PDF uses an FDAI-owned A4 layout with cover, at-a-glance page,
+table of contents, section pages, running headers/footers, and a source
+SHA-256. The RCA-specific renderer uses a solid Calm Slate steel-blue cover, an executive
+summary, evidence completeness, measured impact, chronology, causal and
+alternative hypotheses, response/recovery, control gaps, corrective/preventive
+actions, limitations, and an audit appendix. Cards use uniform neutral
+hairlines rather than colored top or left rails. It renders the server-owned
+report envelope and performs no new RCA; an unrecorded section is explicitly
+unavailable. Print-native chronology tables and SVG causal diagrams avoid the
+browser Grid/Flex pagination defects, while content-driven chapter groups keep
+the reference report to nine pages.
 
 An RCA hypothesis answers "why", never "execute": execution eligibility stays
 with the risk gate + verifier. The route is Reader-gated, returns `405` for

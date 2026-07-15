@@ -36,6 +36,7 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 
+from fdai.core.reporting.datasources.audit_rca import project_rca_report
 from fdai.core.reporting.models import DataSet, QuerySpec
 
 _DEFAULT_LIMIT = 500
@@ -53,6 +54,7 @@ class AuditRow(Protocol):
     action_kind: str
     mode: str
     recorded_at: str
+    entry: Mapping[str, Any]
 
 
 @runtime_checkable
@@ -102,11 +104,13 @@ class AuditDataSource:
         until: datetime,
         variables: Mapping[str, str],
     ) -> DataSet:
-        del variables
         projection = str(spec.parameters.get("projection", "rows"))
         limit = _clamp(spec.parameters.get("limit"))
         page = await self._reader.list_audit(limit=limit)
         rows = _in_window(page.items, since=since, until=until)
+        correlation_id = variables.get("correlation_id", "").strip()
+        if correlation_id:
+            rows = tuple(row for row in rows if row.correlation_id == correlation_id)
 
         if projection == "rows":
             return _rows_dataset(rows)
@@ -124,6 +128,9 @@ class AuditDataSource:
             return _series_bucket(rows, bucket="day")
         if projection == "count_total":
             return DataSet(scalar=len(rows), metadata={"projection": projection})
+        rca_report = project_rca_report(projection, rows)
+        if rca_report is not None:
+            return rca_report
         return DataSet(metadata={"unknown_projection": projection})
 
 

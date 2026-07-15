@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RCA report - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=sidebar-v5" />
+  <script src="assets/calm-slate.js?v=sidebar-v5" defer></script>
+  <style>
+    .rr-page { max-width: 1160px; }
+    .rr-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+    .rr-toolbar nav { display: flex; gap: 6px; margin-left: auto; }
+    .rr-toolbar nav a { padding: 5px 10px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-card); font-size: 12px; font-weight: 600; }
+    .rr-toolbar nav a:hover { background: var(--cs-shade); text-decoration: none; }
+
+    .rr-document-head { padding: 28px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .rr-document-mark { display: flex; align-items: baseline; gap: 8px; margin-bottom: 24px; color: var(--cs-steel); }
+    .rr-document-mark strong { font-size: 14px; letter-spacing: .05em; }
+    .rr-document-mark span { color: var(--cs-text-soft); font-size: 12px; }
+    .rr-document-kicker { margin: 0 0 7px; color: var(--cs-text-soft); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .rr-document-head h2 { margin: 0; font-size: 28px; }
+    .rr-document-subtitle { margin: 7px 0 20px; color: var(--cs-text-soft); }
+    .rr-document-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .rr-meta { padding: 11px 12px; border-radius: var(--cs-radius-sm); background: var(--cs-shade); }
+    .rr-meta span { display: block; color: var(--cs-text-soft); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .rr-meta strong { display: block; margin-top: 3px; font-size: 12px; overflow-wrap: anywhere; }
+
+    .rr-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+    .rr-kpi { min-height: 92px; padding: 14px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); box-shadow: 0 1px 5px rgba(46,54,64,.04); }
+    .rr-kpi span { display: block; color: var(--cs-text-soft); font-size: 10.5px; font-weight: 700; text-transform: uppercase; }
+    .rr-kpi strong { display: block; margin-top: 7px; font-size: 21px; line-height: 1.1; }
+
+    .rr-summary-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(240px, .7fr); gap: 14px; margin-top: 16px; }
+    .rr-summary, .rr-authority { padding: 18px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .rr-summary h3, .rr-authority h3 { margin: 0 0 10px; font-size: 15px; }
+    .rr-summary dl { display: grid; grid-template-columns: 130px 1fr; gap: 0; margin: 0; }
+    .rr-summary dt, .rr-summary dd { padding: 8px 0; border-bottom: 1px solid var(--cs-hairline); }
+    .rr-summary dt { font-size: 12px; font-weight: 700; }
+    .rr-summary dd { margin: 0; color: var(--cs-text-soft); font-size: 13px; }
+    .rr-summary dt:last-of-type, .rr-summary dd:last-of-type { border-bottom: 0; }
+    .rr-authority { border-style: dashed; background: var(--cs-shade); }
+    .rr-authority p { margin: 0; color: var(--cs-text-soft); font-size: 13px; }
+
+    .rr-completeness { margin-top: 14px; padding: 15px 18px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); }
+    .rr-completeness-head { display: flex; justify-content: space-between; align-items: baseline; }
+    .rr-completeness-head h3 { margin: 0; font-size: 14px; }
+    .rr-completeness-head strong { font-size: 18px; color: var(--cs-steel); }
+    .rr-progress { height: 7px; margin: 8px 0 11px; border-radius: 5px; background: var(--cs-shade); overflow: hidden; }
+    .rr-progress span { display: block; width: 100%; height: 100%; background: var(--cs-steel); }
+    .rr-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+    .rr-chips span { padding: 2px 7px; border-radius: 5px; color: var(--cs-sage); background: rgba(94,130,89,.10); font-size: 10.5px; }
+
+    .rr-section { margin: 44px 0; }
+    .rr-section-head { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--cs-hairline); }
+    .rr-section-num { width: 32px; height: 32px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 7px; background: var(--cs-navy); color: #fff; font-size: 13px; font-weight: 700; }
+    .rr-section-head h2 { margin: 0 0 2px; font-size: 20px; }
+    .rr-section-head p { margin: 0; color: var(--cs-text-soft); font-size: 13px; }
+    .rr-card { padding: 18px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .rr-card h3 { margin: 0 0 8px; font-size: 15px; }
+    .rr-card p:last-child { margin-bottom: 0; }
+    .rr-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+
+    .rr-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+    .rr-fact { padding: 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-shade); }
+    .rr-fact span { display: block; color: var(--cs-text-soft); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .rr-fact strong { display: block; margin-top: 3px; font-size: 12.5px; overflow-wrap: anywhere; }
+    .rr-impact strong { display: block; margin: 5px 0; font-size: 24px; }
+    .rr-impact span, .rr-impact small { color: var(--cs-text-soft); }
+
+    .rr-timeline { margin: 0; padding: 0; list-style: none; }
+    .rr-timeline li { display: grid; grid-template-columns: 90px 1fr; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--cs-hairline); }
+    .rr-timeline li:last-child { border-bottom: 0; }
+    .rr-timeline time { color: var(--cs-text-soft); font: 11px "Cascadia Code", "Consolas", monospace; }
+    .rr-timeline strong { display: block; font-size: 13px; }
+    .rr-timeline p { margin: 3px 0 0; color: var(--cs-text-soft); font-size: 12px; }
+
+    .rr-hypothesis { padding: 22px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .rr-hypothesis-meta { display: flex; gap: 6px; margin-bottom: 12px; }
+    .rr-hypothesis-meta span { padding: 3px 8px; border-radius: 5px; background: var(--cs-shade); color: var(--cs-text-soft); font-size: 10.5px; font-weight: 700; text-transform: uppercase; }
+    .rr-hypothesis h3 { margin: 0 0 7px; font-size: 19px; }
+    .rr-hypothesis p { margin: 0; color: var(--cs-text-soft); }
+
+    .rr-chain { display: grid; grid-template-columns: minmax(0, 1fr) 90px minmax(0, 1fr); align-items: stretch; }
+    .rr-chain-node { padding: 17px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-shade); }
+    .rr-chain-node:last-child { background: var(--cs-card); }
+    .rr-chain-node span { display: block; color: var(--cs-text-soft); font-size: 10px; text-transform: uppercase; }
+    .rr-chain-node strong, .rr-chain-node code { display: block; margin-top: 5px; overflow-wrap: anywhere; }
+    .rr-chain-edge { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--cs-text-soft); font-size: 10.5px; text-align: center; }
+    .rr-chain-edge b { color: var(--cs-steel); font-size: 24px; line-height: 1; }
+
+    .rr-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .rr-compare > div { padding: 13px; border-radius: var(--cs-radius-sm); background: var(--cs-shade); }
+    .rr-compare span { display: block; margin-bottom: 5px; color: var(--cs-text-soft); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+
+    .rr-action { display: grid; grid-template-columns: 46px 1fr; gap: 13px; align-items: start; padding: 15px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); }
+    .rr-priority { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid rgba(188,116,73,.20); border-radius: 7px; background: rgba(188,116,73,.10); color: var(--cs-terracotta); font-size: 11px; font-weight: 700; }
+    .rr-action h3 { margin: 0 0 4px; font-size: 14px; }
+    .rr-action p, .rr-action small { margin: 0; color: var(--cs-text-soft); font-size: 12px; }
+
+    @media (max-width: 980px) {
+      .rr-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .rr-document-meta, .rr-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 680px) {
+      .rr-page .cs-readonly-banner { display: block; }
+      .rr-page .cs-readonly-banner strong { display: block; margin-bottom: 3px; }
+      .rr-toolbar nav { width: 100%; margin-left: 0; }
+      .rr-document-head { padding: 18px; }
+      .rr-document-head h2 { font-size: 24px; }
+      .rr-document-meta, .rr-kpis, .rr-summary-grid, .rr-grid-2, .rr-facts { grid-template-columns: 1fr; }
+      .rr-summary dl { grid-template-columns: 1fr; }
+      .rr-summary dt { padding-bottom: 2px; border-bottom: 0; }
+      .rr-summary dd { padding-top: 0; }
+      .rr-chain { grid-template-columns: 1fr; }
+      .rr-chain-edge { min-height: 58px; }
+      .rr-chain-edge b { transform: rotate(90deg); }
+      .rr-compare { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="cs-container cs-page rr-page">
+    <div class="cs-page-header cs-mb-16">
+      <div class="cs-eyebrow">History &middot; generated evidence dossier</div>
+      <h1>Incident RCA report</h1>
+      <p class="cs-lead">A browser-scale preview of the detailed post-incident report. It uses the
+        same Calm Slate spacing, surfaces, and type hierarchy as the operator console; the PDF
+        renderer applies the equivalent rules to A4 pages.</p>
+    </div>
+
+    <div class="cs-readonly-banner">
+      <strong>Read-only evidence.</strong> This report arranges recorded facts. It does not create a
+      new root cause, approve an action, or infer a missing section.
+    </div>
+
+    <div class="rr-toolbar">
+      <span class="cs-tag is-steel">16-page PDF</span>
+      <span class="cs-tag">correlation <code>corr-example</code></span>
+      <span class="cs-status ok">evidence complete</span>
+      <nav aria-label="Report links">
+        <a href="rca.html">RCA view</a>
+        <a href="incidents.html">Incident</a>
+        <a href="audit.html">Audit</a>
+      </nav>
+    </div>
+
+    <section class="rr-document-head" aria-labelledby="rr-title">
+      <div class="rr-document-mark"><strong>FDAI</strong><span>Operational Intelligence</span></div>
+      <p class="rr-document-kicker">Post-incident root-cause analysis</p>
+      <h2 id="rr-title">API latency after rollout</h2>
+      <p class="rr-document-subtitle">Evidence dossier &middot; critical severity &middot; resolved</p>
+      <div class="rr-document-meta">
+        <div class="rr-meta"><span>Report id</span><strong class="cs-mono">incident-rca-dossier v1.0.0</strong></div>
+        <div class="rr-meta"><span>Correlation id</span><strong class="cs-mono">corr-example</strong></div>
+        <div class="rr-meta"><span>Generated</span><strong>2026-07-15T01:00:00Z</strong></div>
+        <div class="rr-meta"><span>Evidence window</span><strong>2026-07-14 &rarr; 2026-07-15</strong></div>
+      </div>
+    </section>
+
+    <div class="rr-kpis" aria-label="RCA summary metrics">
+      <div class="rr-kpi"><span>Severity</span><strong>critical</strong></div>
+      <div class="rr-kpi"><span>Incident status</span><strong>resolved</strong></div>
+      <div class="rr-kpi"><span>Observed duration</span><strong>6m 52s</strong></div>
+      <div class="rr-kpi"><span>RCA confidence</span><strong>0.82</strong></div>
+      <div class="rr-kpi"><span>Evidence citations</span><strong>2</strong></div>
+      <div class="rr-kpi"><span>Audit records</span><strong>7</strong></div>
+    </div>
+
+    <div class="rr-summary-grid">
+      <article class="rr-summary">
+        <h3>Executive summary</h3>
+        <dl>
+          <dt>What happened</dt><dd>API latency breached its p95 objective after a configuration rollout.</dd>
+          <dt>Impact</dt><dd>p95 reached 1840 ms; 18% of requests exceeded the latency objective.</dd>
+          <dt>Most likely cause</dt><dd>A connection-limit revision exhausted the API pool.</dd>
+          <dt>Response</dt><dd><code>config.rollback</code> completed with an auto verdict.</dd>
+          <dt>Recovery</dt><dd>Post-rollback latency returned to 340 ms and passed the target.</dd>
+        </dl>
+      </article>
+      <aside class="rr-authority">
+        <h3>Authority boundary</h3>
+        <p>RCA explains the most likely cause. The risk gate and verifier remain authoritative over
+          execution. Missing evidence stays unavailable.</p>
+      </aside>
+    </div>
+
+    <div class="rr-completeness">
+      <div class="rr-completeness-head"><h3>Evidence completeness</h3><strong>100%</strong></div>
+      <div class="rr-progress"><span></span></div>
+      <div class="rr-chips"><span>Impact</span><span>Chronology</span><span>Root cause</span><span>Causal chain</span><span>Alternatives</span><span>Recovery</span><span>CAPA</span><span>Limitations</span></div>
+    </div>
+
+    <section class="rr-section" id="profile">
+      <div class="rr-section-head"><span class="rr-section-num">01</span><div><h2>Incident profile and impact</h2><p>Scope, ownership, duration, and measured service effect.</p></div></div>
+      <div class="rr-facts">
+        <div class="rr-fact"><span>Incident id</span><strong>incident-1</strong></div>
+        <div class="rr-fact"><span>Owning vertical</span><strong>change safety</strong></div>
+        <div class="rr-fact"><span>Opened</span><strong>01:00:00Z</strong></div>
+        <div class="rr-fact"><span>Last updated</span><strong>01:06:52Z</strong></div>
+      </div>
+      <div class="rr-grid-2" style="margin-top:14px">
+        <article class="rr-card rr-impact"><span>API p95 latency</span><strong>1840 ms</strong><small>Baseline 320 ms &middot; threshold 750 ms</small><p>18% of requests exceeded the latency objective.</p></article>
+        <article class="rr-card rr-impact"><span>Recovery value</span><strong>340 ms</strong><small>Validated after rollback</small><p>The metric returned below the guard threshold.</p></article>
+      </div>
+    </section>
+
+    <section class="rr-section" id="chronology">
+      <div class="rr-section-head"><span class="rr-section-num">02</span><div><h2>Incident chronology</h2><p>Meaningful milestones from detection through recovery.</p></div></div>
+      <article class="rr-card"><ol class="rr-timeline">
+        <li><time>01:00:00Z</time><div><strong>Alerts correlated with a deployment event</strong><p>Huginn &middot; detection &middot; enforce</p></div></li>
+        <li><time>01:02:00Z</time><div><strong>T1 causal hypothesis grounded</strong><p>Forseti &middot; analysis &middot; confidence 0.82</p></div></li>
+        <li><time>01:04:00Z</time><div><strong>Prior configuration revision restored</strong><p>Thor / Vidar &middot; response &middot; succeeded</p></div></li>
+        <li><time>01:06:52Z</time><div><strong>Recovery checks passed</strong><p>Saga &middot; audit &middot; incident resolved</p></div></li>
+      </ol></article>
+    </section>
+
+    <section class="rr-section" id="root-cause">
+      <div class="rr-section-head"><span class="rr-section-num">03</span><div><h2>Root-cause analysis</h2><p>Grounded hypothesis, uncertainty, and implied remediation.</p></div></div>
+      <article class="rr-hypothesis"><div class="rr-hypothesis-meta"><span>T1</span><span>grounded</span><span>0.82</span></div><h3>A connection-limit revision exhausted the API pool</h3><p>Change timing and telemetry align with a prior resolved incident. Implied remediation: <code>config.rollback</code>.</p></article>
+    </section>
+
+    <section class="rr-section" id="causal-chain">
+      <div class="rr-section-head"><span class="rr-section-num">04</span><div><h2>Causal chain</h2><p>Recorded cause/effect resources and temporal relationship.</p></div></div>
+      <div class="rr-chain"><div class="rr-chain-node"><span>Cause</span><strong>database-pool</strong><code>change-1</code></div><div class="rr-chain-edge"><b>&rarr;</b><span>dependency</span><small>75s &middot; 0.82</small></div><div class="rr-chain-node"><span>Effect</span><strong>api-service</strong><code>failure-1</code></div></div>
+    </section>
+
+    <section class="rr-section" id="analysis">
+      <div class="rr-section-head"><span class="rr-section-num">05</span><div><h2>Contributing factors and alternatives</h2><p>Conditions that amplified the event and hypotheses that were excluded.</p></div></div>
+      <div class="rr-grid-2">
+        <article class="rr-card"><h3>No connection headroom alert</h3><p>The pool reached exhaustion before operators saw a capacity warning.</p><small class="cs-muted">confidence 0.77 &middot; metric:db.pool.available</small></article>
+        <article class="rr-card"><h3>Compute saturation &middot; excluded</h3><div class="rr-compare"><div><span>Supporting evidence</span>CPU rose during the event.</div><div><span>Contradiction</span>CPU increase followed queue growth.</div></div></article>
+      </div>
+    </section>
+
+    <section class="rr-section" id="response">
+      <div class="rr-section-head"><span class="rr-section-num">06</span><div><h2>Response, recovery, and control gaps</h2><p>What ran, how recovery was verified, and why prevention failed.</p></div></div>
+      <div class="rr-grid-2">
+        <article class="rr-card"><h3>Response and recovery</h3><p><strong>Action:</strong> <code>config.rollback</code></p><p><strong>Decision:</strong> auto &middot; enforce &middot; succeeded</p><p><strong>Validation:</strong> p95 1840 ms &rarr; 340 ms &middot; passed</p></article>
+        <article class="rr-card"><h3>Control gap</h3><div class="rr-compare"><div><span>Expected</span>Block limits below concurrency headroom.</div><div><span>Observed</span>No pre-deploy pool-capacity check.</div></div><p class="cs-muted" style="margin-top:10px">Change safety policy did not model connection demand.</p></article>
+      </div>
+    </section>
+
+    <section class="rr-section" id="capa">
+      <div class="rr-section-head"><span class="rr-section-num">07</span><div><h2>Corrective and preventive actions</h2><p>Prioritized owner, due date, and verification contract.</p></div></div>
+      <article class="rr-action"><span class="rr-priority">P0</span><div><h3>Add deterministic connection-headroom preflight</h3><p>Owner: Change Safety owner &middot; Due: 2026-07-22 &middot; Status: proposed</p><small>Verification: frozen rollout scenario blocks unsafe limits.</small></div></article>
+    </section>
+
+    <section class="rr-section" id="limitations">
+      <div class="rr-section-head"><span class="rr-section-num">08</span><div><h2>Limitations and audit appendix</h2><p>Known uncertainty and immutable evidence reference.</p></div></div>
+      <div class="rr-grid-2">
+        <article class="rr-card"><h3>Client retry volume was sampled</h3><p>Exact affected request count is a lower bound.</p><small class="cs-muted">Next evidence: retain full retry telemetry &middot; open</small></article>
+        <article class="rr-card"><h3>Document control</h3><p>Source SHA-256 identifies the server-owned report envelope. The PDF performs no new RCA.</p><small class="cs-muted">Audit sequence 1-7 &middot; append-only</small></article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

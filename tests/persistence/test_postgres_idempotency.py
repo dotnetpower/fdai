@@ -112,6 +112,67 @@ def test_postgres_record_returns_false_on_conflict(monkeypatch: pytest.MonkeyPat
     assert inserted is False
 
 
+def test_postgres_replace_if_uses_json_compare_and_swap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = _FakeConn(row=None, rowcount=1)
+
+    async def _connect(*_a: object, **_k: object) -> _FakeConn:
+        return conn
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", _connect)
+    store = PostgresIdempotencyStore(config=PostgresIdempotencyStoreConfig(dsn="postgresql://x"))
+
+    replaced = asyncio.run(
+        store.replace_if("k", {"state": "pending"}, {"state": "completed"})
+    )
+
+    assert replaced is True
+    assert any("result = %s::jsonb" in sql for sql, _ in conn.executed)
+
+
+def test_postgres_remove_if_returns_false_when_expected_value_changed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = _FakeConn(row=None, rowcount=0)
+
+    async def _connect(*_a: object, **_k: object) -> _FakeConn:
+        return conn
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", _connect)
+    store = PostgresIdempotencyStore(config=PostgresIdempotencyStoreConfig(dsn="postgresql://x"))
+
+    removed = asyncio.run(store.remove_if("k", {"state": "pending"}))
+
+    assert removed is False
+    assert any(sql.strip().startswith("DELETE") for sql, _ in conn.executed)
+
+
+def test_postgres_insert_or_replace_if_is_one_atomic_statement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = _FakeConn(row=None, rowcount=1)
+
+    async def _connect(*_a: object, **_k: object) -> _FakeConn:
+        return conn
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", _connect)
+    store = PostgresIdempotencyStore(config=PostgresIdempotencyStoreConfig(dsn="postgresql://x"))
+
+    completed = asyncio.run(
+        store.insert_or_replace_if(
+            "k",
+            {"state": "pending"},
+            {"state": "completed", "receipt_ref": "OPS-42"},
+        )
+    )
+
+    assert completed is True
+    mutations = [sql for sql, _ in conn.executed if "action_idempotency" in sql]
+    assert len(mutations) == 2  # CREATE TABLE + one atomic completion statement
+    assert "ON CONFLICT" in mutations[1]
+
+
 def test_postgres_seen_returns_stored_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     conn = _FakeConn(row={"result": {"outcome": "published"}}, rowcount=0)
 

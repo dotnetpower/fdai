@@ -42,10 +42,16 @@ Optional (respect defaults):
   MUST NOT contain ``*`` outside dev; ``build_app`` fails fast if it does.
 - ``FDAI_READ_API_STATEMENT_TIMEOUT_MS`` (default ``20000``).
 - ``FDAI_READ_API_CONNECT_TIMEOUT_S`` (default ``10``).
+- ``FDAI_INCIDENT_SLA_POLICY_JSON`` - enables the periodic incident SLA
+    monitor. The JSON object defines positive integer ``acknowledge_seconds``
+    and ``resolve_seconds`` values for every key from ``sev1`` through ``sev5``.
+- ``FDAI_INCIDENT_SLA_INTERVAL_SECONDS`` (default ``60`` when the SLA policy
+    is present) - positive scan interval. Ignored without the policy.
 """
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
@@ -58,7 +64,12 @@ from fdai.core.rbac.resolver import GroupMapping, RoleResolver
 from fdai.core.reporting.composition import default_reporting_engine
 from fdai.core.reporting.datasources import AuditReader
 from fdai.core.views import ViewEngine, load_view_catalog
-from fdai.delivery.persistence import PostgresHilApprovalRegistry, PostgresStateStore
+from fdai.delivery.persistence import (
+    PostgresHilApprovalRegistry,
+    PostgresIncidentNotificationDeliveryStore,
+    PostgresIncidentProposalStore,
+    PostgresStateStore,
+)
 from fdai.delivery.persistence.postgres import PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventoryGraphProvider,
@@ -82,6 +93,7 @@ from fdai.delivery.read_api.postgres_read_model import (
 from fdai.delivery.read_api.routes.hil_callback import HilCallbackConfig
 from fdai.delivery.read_api.routes.process_views import ProcessViewsConfig
 from fdai.delivery.read_api.routes.reporting import ReportingConfig
+from fdai.delivery.reporting import install_pdf_format_if_available
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog
@@ -98,6 +110,9 @@ _AUDIENCE_ENV: Final[str] = "FDAI_API_AUDIENCE"
 _HIL_SECRET_ENV: Final[str] = "FDAI_CHATOPS_WEBHOOK_SECRET"  # noqa: S105 - env name
 _HIL_TOPIC_ENV: Final[str] = "FDAI_HIL_DECISION_TOPIC"
 _STAGE_TOPIC_ENV: Final[str] = "FDAI_STAGE_TOPIC"
+_EVENT_TOPIC_ENV: Final[str] = "KAFKA_TOPIC_EVENTS"
+_INCIDENT_SLA_POLICY_ENV: Final[str] = "FDAI_INCIDENT_SLA_POLICY_JSON"
+_INCIDENT_SLA_INTERVAL_ENV: Final[str] = "FDAI_INCIDENT_SLA_INTERVAL_SECONDS"
 
 _DEFAULT_STATEMENT_TIMEOUT_MS: Final[int] = 20_000
 _DEFAULT_CONNECT_TIMEOUT_S: Final[int] = 10
@@ -308,6 +323,7 @@ def _build_dynamic_views(
         ontology_store=ontology_store,
         process_store=process_store,
     )
+    install_pdf_format_if_available(formats)
     view_specs = load_view_catalog(
         _REPO_ROOT / "rule-catalog" / "views",
         report_ids={spec.id for spec in report_engine.catalog().list()},
@@ -365,7 +381,10 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     hil_decision_publisher = None
     live_stream = None
     agent_activity = None
+    console_action = None
+    startup_callbacks: tuple[Callable[[], Awaitable[None]], ...] = ()
     shutdown_callbacks: tuple[Callable[[], Awaitable[None]], ...] = ()
+    incident_sla_stop: Callable[[], Awaitable[None]] | None = None
     hil_secret = env.get(_HIL_SECRET_ENV, "").strip()
     kafka_bootstrap = env.get("FDAI_KAFKA_BOOTSTRAP_SERVERS", "").strip()
     if hil_secret or kafka_bootstrap:
@@ -401,6 +420,12 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 or _require_env(env, "FDAI_KAFKA_BOOTSTRAP_SERVERS")
             ),
         )
+        state_store_config = PostgresStateStoreConfig(
+            dsn=read_model._config.dsn,
+            statement_timeout_ms=read_model._config.statement_timeout_ms,
+            connect_timeout_s=read_model._config.connect_timeout_s,
+        )
+        state_store = PostgresStateStore(config=state_store_config)
 
         if kafka_bootstrap:
             stage_topic = env.get(_STAGE_TOPIC_ENV, "").strip() or DEFAULT_STAGE_TOPIC
@@ -420,13 +445,6 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             )
 
         if hil_secret:
-            state_store = PostgresStateStore(
-                config=PostgresStateStoreConfig(
-                    dsn=read_model._config.dsn,
-                    statement_timeout_ms=read_model._config.statement_timeout_ms,
-                    connect_timeout_s=read_model._config.connect_timeout_s,
-                )
-            )
             hil_callback = HilCallbackConfig(secret=hil_secret)
             hil_registry = PostgresHilApprovalRegistry(
                 store=state_store,
@@ -439,11 +457,91 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 topic=env.get(_HIL_TOPIC_ENV, "").strip() or DEFAULT_HIL_DECISION_TOPIC,
             )
 
+        event_topic = env.get(_EVENT_TOPIC_ENV, "").strip()
+        if kafka_bootstrap and event_topic:
+            from fdai.core.incident import (
+                DurableIncidentLifecycleNotifier,
+                IncidentLifecycleWorkflow,
+                IncidentRegistry,
+                RoutedIncidentLifecycleNotifier,
+            )
+            from fdai.core.incident.sla import IncidentSlaMonitor, IncidentSlaPolicy
+            from fdai.core.notifications.matrix import load_matrix_from_yaml
+            from fdai.core.notifications.router import ChannelRegistry, NotificationRouter
+            from fdai.delivery.notifications import StateStoreHilEscalationSink
+            from fdai.delivery.read_api.routes.console_action import ConsoleActionSubmitter
+
+            incident_registry = IncidentRegistry(state_store=state_store)
+            notification_router = NotificationRouter(
+                matrix=load_matrix_from_yaml(_REPO_ROOT / "config" / "notifications-matrix.yaml"),
+                registry=ChannelRegistry(),
+                audit_store=state_store,
+                hil_sink=StateStoreHilEscalationSink(state_store=state_store),
+            )
+            incident_notifier = DurableIncidentLifecycleNotifier(
+                delegate=RoutedIncidentLifecycleNotifier(dispatcher=notification_router),
+                delivery_store=PostgresIncidentNotificationDeliveryStore(
+                    config=state_store_config
+                ),
+            )
+            production_action_types = load_action_type_catalog(
+                _REPO_ROOT / "rule-catalog" / "action-types",
+                schema_registry=PackageResourceSchemaRegistry(),
+                probes_root=_REPO_ROOT / "rule-catalog" / "probes",
+            )
+            console_action = ConsoleActionSubmitter(
+                event_bus=event_bus,
+                raw_event_topic=event_topic,
+                action_type_names=frozenset(
+                    action_type.name for action_type in production_action_types
+                ),
+                incident_workflow=IncidentLifecycleWorkflow(
+                    registry=incident_registry,
+                    notifier=incident_notifier,
+                ),
+                incident_proposals=PostgresIncidentProposalStore(
+                    config=state_store_config
+                ),
+            )
+
+            async def _rehydrate_incidents() -> None:
+                entries = await state_store.read_incident_transitions()
+                incident_registry.rehydrate(entries)
+                await incident_notifier.replay(entries)
+
+            startup_callbacks = (_rehydrate_incidents,)
+            raw_sla_policy = env.get(_INCIDENT_SLA_POLICY_ENV, "").strip()
+            if raw_sla_policy:
+                try:
+                    decoded_sla_policy = json.loads(raw_sla_policy)
+                    if not isinstance(decoded_sla_policy, dict):
+                        raise ValueError("policy MUST be a JSON object")
+                    sla_policy = IncidentSlaPolicy.from_mapping(decoded_sla_policy)
+                except (json.JSONDecodeError, ValueError) as exc:
+                    raise ProdReadApiConfigError(
+                        f"{_INCIDENT_SLA_POLICY_ENV} is invalid: {exc}"
+                    ) from exc
+                sla_monitor = IncidentSlaMonitor(
+                    source=state_store,
+                    notifier=incident_notifier,
+                    policy=sla_policy,
+                    interval_seconds=_parse_positive_int(
+                        env,
+                        _INCIDENT_SLA_INTERVAL_ENV,
+                        60,
+                    ),
+                )
+                startup_callbacks = (*startup_callbacks, sla_monitor.start)
+                incident_sla_stop = sla_monitor.stop
+
         async def _close_event_transport() -> None:
             await event_bus.close()
             await http_client.aclose()
 
-        shutdown_callbacks = (_close_event_transport,)
+        shutdown_callbacks = (
+            *((incident_sla_stop,) if incident_sla_stop is not None else ()),
+            _close_event_transport,
+        )
     config = ReadApiConfig(
         dev_mode=False,
         cors_allow_origins=cors_origins,
@@ -462,8 +560,10 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         hil_callback=hil_callback,
         hil_registry=hil_registry,
         hil_decision_publisher=hil_decision_publisher,
+        console_action=console_action,
         live_stream=live_stream,
         agent_activity=agent_activity,
+        startup_callbacks=startup_callbacks,
         shutdown_callbacks=shutdown_callbacks,
     )
     return build_app(authenticator=authenticator, read_model=read_model, config=config)

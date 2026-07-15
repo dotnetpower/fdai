@@ -251,6 +251,17 @@ operations / interface), `3` = governance staff.
 | Freyr | Capacity | 1 | CapacityForecast, SizingRecommendation | propose_capacity_action | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
 
+Heimdall's repeated-event detector can also call an optional
+`incident_candidate_hook` after it emits the authoritative anomaly. The hook
+carries the normalized resource, event type, correlation, severity, reason
+code, and evidence key to the composition-owned `IncidentLifecycleWorkflow`.
+Heimdall does not write the Incident or publish a new object type. The workflow
+rechecks the agent allowlist and event evidence before `IncidentRegistry`
+writes the audited record. A hook failure records an agent behavior counter
+and leaves the anomaly path intact. The production control-plane composition
+rehydrates the durable registry first and binds this hook when the pantheon is
+enabled; the read API does not impersonate Heimdall.
+
 The 15 agents are jointly sufficient to cover SRE, ARB (change safety), and
 FinOps workflows through composition; see §7 for the topic contract and
 §8.6 for how handoff (unhandled requests) integrates with the same pipeline.

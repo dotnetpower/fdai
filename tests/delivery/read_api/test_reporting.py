@@ -30,6 +30,7 @@ from fdai.delivery.read_api.auth import build_authenticator
 from fdai.delivery.read_api.main import ReadApiConfig, build_app
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.read_api.routes.reporting import ReportingConfig
+from fdai.delivery.reporting import install_pdf_format
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 REPORTS_ROOT = REPO_ROOT / "rule-catalog" / "reports"
@@ -102,14 +103,14 @@ def _build_engine(
     return engine, reader
 
 
-def _client(engine: ReportEngine) -> TestClient:
+def _client(engine: ReportEngine, formats: FormatRegistry | None = None) -> TestClient:
     auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None)
     app = build_app(
         authenticator=auth,
         read_model=_seeded_reader(),
         config=ReadApiConfig(
             dev_mode=True,
-            reporting=ReportingConfig(engine=engine, formats=_formats()),
+            reporting=ReportingConfig(engine=engine, formats=formats or _formats()),
         ),
     )
     return TestClient(app)
@@ -186,6 +187,22 @@ class TestReportingRoutes:
         assert "widget_id" in reader.fieldnames
         widget_ids = {row["widget_id"] for row in rows}
         assert "total-shadow" in widget_ids
+
+    def test_render_incident_rca_dossier_as_pdf_when_extra_is_installed(self) -> None:
+        pytest.importorskip("weasyprint")
+        engine, _ = _build_engine(reports_root=REPORTS_ROOT)
+        formats = install_pdf_format(_formats())
+        client = _client(engine, formats)
+        response = client.get(
+            "/reports/incident-rca-dossier/render",
+            params={"format": "pdf", "correlation_id": "corr-example"},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/pdf")
+        assert response.headers["content-disposition"] == (
+            'attachment; filename="incident-rca-dossier.pdf"'
+        )
+        assert response.content.startswith(b"%PDF")
 
     def test_render_unknown_format_is_400(self) -> None:
         engine, _ = _build_engine(reports_root=REPORTS_ROOT)

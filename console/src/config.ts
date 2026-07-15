@@ -21,6 +21,9 @@ export interface ConsoleConfig {
   /** When true, MSAL is bypassed and the read API is called anonymously
    *  (matches `FDAI_READ_API_DEV_MODE=1` on the API). */
   readonly devMode: boolean;
+  /** When true, MSAL is bypassed and the local read API projects the
+   *  current `az login` user (matches `FDAI_READ_API_LOCAL_AZURE_CLI=1`). */
+  readonly localAzureCliAuth: boolean;
   /** Optional `owner/repo` of the catalog repository. When set, the
    *  workflow builder can offer a one-click "Open a PR on GitHub" for a
    *  validated draft (a new-file link; the console still never commits).
@@ -43,6 +46,7 @@ export function loadConfig(): ConsoleConfig {
     msalTenantId: envVar("VITE_MSAL_TENANT_ID"),
     msalApiScope: envVar("VITE_MSAL_API_SCOPE"),
     devMode: envVar("VITE_DEV_MODE", "0") === "1",
+    localAzureCliAuth: envVar("VITE_LOCAL_AZURE_CLI_AUTH", "0") === "1",
     workflowCatalogRepo: envVar("VITE_WORKFLOW_CATALOG_REPO"),
     workflowCatalogBranch: envVar("VITE_WORKFLOW_CATALOG_BRANCH", "main"),
   };

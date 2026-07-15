@@ -7,6 +7,7 @@ objects up to the DB round-trip).
 
 from __future__ import annotations
 
+import json
 from typing import Final
 
 import pytest
@@ -168,6 +169,64 @@ def test_build_prod_app_enables_live_routes_when_kafka_is_configured(
     paths = {route.path for route in app.routes}
     assert "/live/stream" in paths
     assert "/agents/stream" in paths
+
+
+def test_build_prod_app_enables_incident_action_when_event_topic_is_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.delivery.read_api.routes.console_action import ConsoleActionSubmitter
+
+    env = dict(_GOOD_ENV)
+    env["FDAI_KAFKA_BOOTSTRAP_SERVERS"] = "example.servicebus.windows.net:9093"
+    env["KAFKA_TOPIC_EVENTS"] = "fdai.events"
+    monkeypatch.setenv("IDENTITY_ENDPOINT", "http://localhost/identity")
+    monkeypatch.setenv("IDENTITY_HEADER", "test-header")
+
+    app = build_prod_app(env)
+
+    route = next(route for route in app.routes if route.path == "/chat/action")
+    assert route.methods == {"POST"}
+    submitter = next(
+        cell.cell_contents
+        for cell in route.endpoint.__closure__ or ()
+        if isinstance(cell.cell_contents, ConsoleActionSubmitter)
+    )
+    assert "tool.open-incident-ticket" in submitter.action_type_names
+
+
+def test_build_prod_app_accepts_strict_incident_sla_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    env = dict(_GOOD_ENV)
+    env["FDAI_KAFKA_BOOTSTRAP_SERVERS"] = "example.servicebus.windows.net:9093"
+    env["KAFKA_TOPIC_EVENTS"] = "fdai.events"
+    thresholds = {f"sev{index}": 300 * index for index in range(1, 6)}
+    env["FDAI_INCIDENT_SLA_POLICY_JSON"] = json.dumps(
+        {
+            "acknowledge_seconds": thresholds,
+            "resolve_seconds": thresholds,
+        }
+    )
+    monkeypatch.setenv("IDENTITY_ENDPOINT", "http://localhost/identity")
+    monkeypatch.setenv("IDENTITY_HEADER", "test-header")
+
+    app = build_prod_app(env)
+
+    assert isinstance(app, Starlette)
+
+
+def test_build_prod_app_rejects_malformed_incident_sla_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    env = dict(_GOOD_ENV)
+    env["FDAI_KAFKA_BOOTSTRAP_SERVERS"] = "example.servicebus.windows.net:9093"
+    env["KAFKA_TOPIC_EVENTS"] = "fdai.events"
+    env["FDAI_INCIDENT_SLA_POLICY_JSON"] = "{}"
+    monkeypatch.setenv("IDENTITY_ENDPOINT", "http://localhost/identity")
+    monkeypatch.setenv("IDENTITY_HEADER", "test-header")
+
+    with pytest.raises(ProdReadApiConfigError, match="FDAI_INCIDENT_SLA_POLICY_JSON"):
+        build_prod_app(env)
 
 
 def test_build_prod_app_opts_into_hil_callback_without_executor_identity(

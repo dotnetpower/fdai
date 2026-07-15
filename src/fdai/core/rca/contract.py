@@ -14,7 +14,7 @@ and abstains (routes to HIL) - see
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import StrEnum
 
 
@@ -72,6 +72,44 @@ class Citation:
 
 
 @dataclass(frozen=True, slots=True)
+class RcaCausalHop:
+    """One transport-safe edge in a reconstructed RCA causal chain."""
+
+    cause_event_id: str
+    effect_event_id: str
+    cause_resource_ref: str
+    effect_resource_ref: str
+    lead_seconds: float
+    relationship: str
+    confidence: float
+
+    def to_dict(self) -> dict[str, object]:
+        """Return the audit-safe wire representation."""
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class RcaCausalChain:
+    """Structured T1 causal chain retained alongside the hypothesis prose."""
+
+    root_event_id: str
+    failure_event_id: str
+    hops: tuple[RcaCausalHop, ...]
+    confidence: float
+    ambiguity: int
+
+    def to_dict(self) -> dict[str, object]:
+        """Return the append-only audit representation."""
+        return {
+            "root_event_id": self.root_event_id,
+            "failure_event_id": self.failure_event_id,
+            "confidence": self.confidence,
+            "ambiguity": self.ambiguity,
+            "hops": [hop.to_dict() for hop in self.hops],
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class RootCauseHypothesis:
     """A root-cause hypothesis with grounded citations.
 
@@ -88,6 +126,7 @@ class RootCauseHypothesis:
     citations: tuple[Citation, ...]
     evidence_refs: tuple[str, ...] = ()
     remediation_ref: str | None = None
+    causal_chain: RcaCausalChain | None = None
 
     @property
     def grounded(self) -> bool:
@@ -122,6 +161,8 @@ class RcaResult:
 __all__ = [
     "Citation",
     "CitationKind",
+    "RcaCausalChain",
+    "RcaCausalHop",
     "RcaOutcome",
     "RcaResult",
     "RcaTier",

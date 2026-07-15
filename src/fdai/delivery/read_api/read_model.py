@@ -294,6 +294,42 @@ class RcaCitationView:
 
 
 @dataclass(frozen=True, slots=True)
+class RcaCausalHopView:
+    """One evidence-bearing edge in a projected RCA causal chain."""
+
+    cause_event_id: str
+    effect_event_id: str
+    cause_resource_ref: str
+    effect_resource_ref: str
+    lead_seconds: float
+    relationship: str
+    confidence: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class RcaCausalChainView:
+    """Structured T1 chain retained by the audit-to-console projection."""
+
+    root_event_id: str
+    failure_event_id: str
+    confidence: float
+    ambiguity: int
+    hops: Sequence[RcaCausalHopView]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "root_event_id": self.root_event_id,
+            "failure_event_id": self.failure_event_id,
+            "confidence": self.confidence,
+            "ambiguity": self.ambiguity,
+            "hops": [hop.to_dict() for hop in self.hops],
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class RcaHypothesisView:
     """One root-cause hypothesis as projected from the audit ledger.
 
@@ -314,6 +350,7 @@ class RcaHypothesisView:
     reason: str | None
     citations: Sequence[RcaCitationView]
     remediation_ref: str | None
+    causal_chain: RcaCausalChainView | None
     mode: str
     recorded_at: str
 
@@ -328,6 +365,7 @@ class RcaHypothesisView:
             "reason": self.reason,
             "citations": [c.to_dict() for c in self.citations],
             "remediation_ref": self.remediation_ref,
+            "causal_chain": self.causal_chain.to_dict() if self.causal_chain else None,
             "mode": self.mode,
             "recorded_at": self.recorded_at,
         }

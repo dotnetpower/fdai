@@ -1,16 +1,17 @@
 /**
- * SVG glyphs for the LeftRail group and standalone icons.
+ * SVG glyphs for Activity Bar groups and standalone icons.
  *
  * Single responsibility: given a group id, return a JSX SVG. No layout,
  * no interaction, no state. Icons intentionally use ``currentColor`` so
  * the rail styling controls their tint.
  *
  * Icon choices reflect operator intent:
- *  - Now       : lightning bolt (real-time)
- *  - History   : clock rewind (past)
- *  - Knowledge : nodes / graph (what the system knows)
- *  - Safety    : shield check (protection)
- *  - Overview  : bar chart (summary)
+ *  - Overview   : bar chart (summary)
+ *  - Operations : lightning bolt (live work)
+ *  - Agents     : collaborating principals
+ *  - Governance : shield check (control)
+ *  - Evidence   : clock rewind (audit and reconstruction)
+ *  - Labs       : flask (development-only experiments)
  */
 
 import type { JSX } from "preact";
@@ -27,7 +28,7 @@ const iconProps = {
   "stroke-linejoin": "round" as const,
 };
 
-function IconNow(): JSX.Element {
+function IconOperations(): JSX.Element {
   return (
     <svg {...iconProps}>
       <path d="M13 2 L3 14 L11 14 L11 22 L21 10 L13 10 Z" />
@@ -35,7 +36,7 @@ function IconNow(): JSX.Element {
   );
 }
 
-function IconHistory(): JSX.Element {
+function IconEvidence(): JSX.Element {
   return (
     <svg {...iconProps}>
       <path d="M12 4 A8 8 0 1 1 4.6 15.5" />
@@ -45,20 +46,18 @@ function IconHistory(): JSX.Element {
   );
 }
 
-function IconKnowledge(): JSX.Element {
+function IconAgents(): JSX.Element {
   return (
     <svg {...iconProps}>
-      <circle cx="6" cy="6" r="2.2" />
-      <circle cx="18" cy="6" r="2.2" />
-      <circle cx="12" cy="18" r="2.2" />
-      <path d="M6.5 8 L11.2 16.2" />
-      <path d="M17.5 8 L12.8 16.2" />
-      <path d="M8 6 L16 6" />
+      <circle cx="9" cy="8" r="3" />
+      <circle cx="17" cy="10" r="2" />
+      <path d="M3 20 C3 16 6 13 9 13 C12 13 15 16 15 20" />
+      <path d="M14 15 C17 15 19 17 19 20" />
     </svg>
   );
 }
 
-function IconSafety(): JSX.Element {
+function IconGovernance(): JSX.Element {
   return (
     <svg {...iconProps}>
       <path d="M12 3 L4 6 V12 C4 17 8 20.5 12 21.5 C16 20.5 20 17 20 12 V6 Z" />
@@ -79,6 +78,16 @@ function IconOverview(): JSX.Element {
   );
 }
 
+function IconLabs(): JSX.Element {
+  return (
+    <svg {...iconProps}>
+      <path d="M9 3 H15" />
+      <path d="M10 3 V9 L5 18 A2 2 0 0 0 7 21 H17 A2 2 0 0 0 19 18 L14 9 V3" />
+      <path d="M8 15 H16" />
+    </svg>
+  );
+}
+
 export function settingsIcon(): JSX.Element {
   return (
     <svg {...iconProps}>
@@ -90,15 +99,17 @@ export function settingsIcon(): JSX.Element {
 
 export function groupIcon(group: PanelGroup): JSX.Element {
   switch (group) {
-    case "now":
-      return <IconNow />;
-    case "history":
-      return <IconHistory />;
-    case "knowledge":
-      return <IconKnowledge />;
-    case "safety":
-      return <IconSafety />;
     case "overview":
       return <IconOverview />;
+    case "operations":
+      return <IconOperations />;
+    case "agents":
+      return <IconAgents />;
+    case "governance":
+      return <IconGovernance />;
+    case "evidence":
+      return <IconEvidence />;
+    case "labs":
+      return <IconLabs />;
   }
 }

@@ -87,38 +87,59 @@ event_anchor AS (
 ),
 incident_open_raw AS (
     SELECT entry->>'incident_id' AS incident_id,
-           COALESCE(
-               correlation_id,
-               (
-                   SELECT CASE
-                       WHEN COUNT(DISTINCT SUBSTRING(value FROM 6)) = 1
-                       THEN MIN(SUBSTRING(value FROM 6))
-                       ELSE NULL
-                   END
-                     FROM jsonb_array_elements_text(
-                         CASE
-                             WHEN jsonb_typeof(entry->'correlation_keys') = 'array'
-                             THEN entry->'correlation_keys'
-                             ELSE '[]'::jsonb
-                         END
-                     ) AS value
-                    WHERE value LIKE 'corr:%%'
-               )
-           ) AS correlation_id
+           CASE
+               WHEN correlation_id IS NOT NULL AND correlation_id <> ''
+               THEN correlation_id
+               ELSE key_stats.correlation_id
+           END AS explicit_correlation_id,
+           CASE
+               WHEN correlation_id IS NOT NULL AND correlation_id <> ''
+               THEN FALSE
+               ELSE key_stats.candidate_count > 1
+           END AS ambiguous
       FROM bounded_audit
+      LEFT JOIN LATERAL (
+          SELECT COUNT(DISTINCT SUBSTRING(value FROM 6)) AS candidate_count,
+                 CASE
+                     WHEN COUNT(DISTINCT SUBSTRING(value FROM 6)) = 1
+                     THEN MIN(SUBSTRING(value FROM 6))
+                     ELSE NULL
+                 END AS correlation_id
+            FROM jsonb_array_elements_text(
+                CASE
+                    WHEN jsonb_typeof(entry->'correlation_keys') = 'array'
+                    THEN entry->'correlation_keys'
+                    ELSE '[]'::jsonb
+                END
+            ) AS value
+           WHERE value LIKE 'corr:%%'
+      ) AS key_stats ON TRUE
      WHERE entry->>'kind' = 'incident.open'
 ),
 incident_open AS (
-    SELECT incident_id, MIN(correlation_id) AS correlation_id
+    SELECT incident_id,
+           CASE
+               WHEN BOOL_OR(ambiguous)
+                    OR COUNT(DISTINCT explicit_correlation_id) > 1
+               THEN NULL
+               WHEN COUNT(DISTINCT explicit_correlation_id) = 1
+               THEN MIN(explicit_correlation_id)
+               ELSE incident_id
+           END AS correlation_id,
+           BOOL_OR(ambiguous)
+               OR COUNT(DISTINCT explicit_correlation_id) > 1 AS ambiguous
       FROM incident_open_raw
-     WHERE correlation_id IS NOT NULL AND correlation_id <> ''
      GROUP BY incident_id
-    HAVING COUNT(DISTINCT correlation_id) = 1
 ),
 normalized AS (
     SELECT a.*,
-           COALESCE(a.correlation_id, ea.correlation_id, io.correlation_id)
-               AS normalized_correlation_id,
+           CASE
+               WHEN a.correlation_id IS NOT NULL AND a.correlation_id <> ''
+               THEN a.correlation_id
+               WHEN a.entry->>'kind' LIKE 'incident.%%'
+               THEN CASE WHEN NOT io.ambiguous THEN io.correlation_id ELSE NULL END
+               ELSE COALESCE(ea.correlation_id, io.correlation_id)
+           END AS normalized_correlation_id,
            CASE
                WHEN a.entry->>'kind' = 'incident.transition' THEN a.entry->>'to_state'
                WHEN a.entry->>'kind' = 'incident.open' THEN a.entry->>'state'

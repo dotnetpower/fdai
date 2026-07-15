@@ -3,6 +3,102 @@
 (function () {
   "use strict";
 
+  var navigationGroups = [
+    ["Console", [
+      ["live.html", "Live", ""],
+      ["dashboard.html", "Overview", "is-sage"],
+      ["incidents.html", "Incidents", "is-terracotta"],
+      ["hil.html", "HIL queue", "is-terracotta"],
+      ["promotion.html", "Promotion", "is-teal"],
+      ["rules.html", "Rules", ""],
+      ["actions.html", "Actions (ontology)", "is-plum"],
+      ["audit.html", "Audit", "is-terracotta"],
+      ["rca.html", "RCA", "is-teal"]
+    ]],
+    ["Fleet & safety", [
+      ["agents.html", "Fleet roster", "is-sage"],
+      ["agents-constellation.html", "Constellation", ""],
+      ["pantheon.html", "Pantheon", "is-plum"],
+      ["agent-activity.html", "Agent activity", ""],
+      ["blast-radius.html", "Blast radius", "is-terracotta"],
+      ["provision.html", "Provisioning", ""],
+      ["llm-cost.html", "LLM cost", "is-teal"]
+    ]],
+    ["Knowledge", [
+      ["ontology.html", "Ontology", "is-plum"],
+      ["rule-trace.html", "Rule trace", "is-teal"],
+      ["workflow-builder.html", "Workflow builder", ""]
+    ]],
+    ["Chat", [
+      ["deck.html", "Command deck", "is-plum"],
+      ["deck-sources.html", "Deck sources", ""]
+    ]],
+    ["Report & kit", [
+      ["report.html", "Weekly report", "is-terracotta"],
+      ["rca-report.html", "RCA report", "is-teal"],
+      ["components.html", "Components", ""]
+    ]],
+    ["Explorations", [
+      ["agent-icons.html", "Agent icons", "is-plum"],
+      ["hcard-variants.html", "HIL card variants", "is-teal"]
+    ]]
+  ];
+
+  function createNavigation() {
+    if (window.self !== window.top) {
+      document.body.classList.add("cs-embedded");
+      return;
+    }
+
+    var currentPage = window.location.pathname.split("/").pop() || "dashboard.html";
+    var sidebar = document.createElement("aside");
+    sidebar.className = "cs-app-sidebar";
+    sidebar.setAttribute("aria-label", "Mock navigation");
+
+    var html = '<a class="cs-sidebar-brand" href="dashboard.html"><span class="cs-brand-mark">AW</span> FDAI</a>';
+    navigationGroups.forEach(function (group) {
+      html += '<section class="cs-sidebar-group"><h2>' + group[0] + '</h2><ul>';
+      group[1].forEach(function (item) {
+        var active = item[0] === currentPage;
+        html += '<li><a href="' + item[0] + '"' + (active ? ' class="cs-active" aria-current="page"' : '') + '>' +
+          '<span class="cs-sidebar-dot ' + item[2] + '"></span>' + item[1] + '</a></li>';
+      });
+      html += "</ul></section>";
+    });
+    sidebar.innerHTML = html;
+
+    var menuButton = document.createElement("button");
+    menuButton.className = "cs-sidebar-menu";
+    menuButton.type = "button";
+    menuButton.setAttribute("aria-label", "Toggle navigation");
+    menuButton.setAttribute("aria-expanded", "false");
+
+    function setNavigationOpen(open) {
+      document.body.classList.toggle("cs-sidebar-open", open);
+      menuButton.setAttribute("aria-expanded", String(open));
+    }
+
+    menuButton.addEventListener("click", function () {
+      setNavigationOpen(!document.body.classList.contains("cs-sidebar-open"));
+    });
+
+    var backdrop = document.createElement("button");
+    backdrop.className = "cs-sidebar-backdrop";
+    backdrop.type = "button";
+    backdrop.setAttribute("aria-label", "Close navigation");
+    backdrop.addEventListener("click", function () { setNavigationOpen(false); });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") setNavigationOpen(false);
+    });
+
+    document.body.prepend(sidebar);
+    document.body.prepend(backdrop);
+    document.body.prepend(menuButton);
+    document.body.classList.add("cs-has-sidebar");
+  }
+
+  document.addEventListener("DOMContentLoaded", createNavigation);
+
   // ---- Tabs (unchanged) -----------------------------------------------------
   document.addEventListener("click", function (event) {
     var tab = event.target.closest("[data-cs-tab]");

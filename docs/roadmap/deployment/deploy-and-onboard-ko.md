@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: c9efd83346750a9c7337ab9773cc482ea2f4daec
+translation_source_sha: 7bef658c7b3717357a4c217b4287f51c8d98fd44
 translation_revised: 2026-07-15
 ---
 
@@ -458,6 +458,8 @@ flowchart TD
 | `FDAI_MEASUREMENT_MODE` | env | upstream | `shadow` (기본) 또는 `enforce` - `infra/modules/measurement-runners/` 의 Container Apps Jobs 러너를 지배. |
 | `FDAI_DIRECT_API_FAKE` | env | dev-only | `1` 은 executor direct-API 경로를 in-memory fake 로 스왑; 테스트와 로컬 개발용. |
 | `FDAI_TOOL_CALL_FAKE` | env | dev-only | `1` 은 executor tool-call 경로를 in-memory fake (`RecordingToolExecutor`) 로 스왑; 테스트와 로컬 개발용. |
+| `FDAI_JIRA_BASE_URL` / `FDAI_JIRA_ACCOUNT_EMAIL` / `FDAI_JIRA_API_TOKEN_SECRET` / `FDAI_JIRA_TOOL_MAP_JSON` | env + KV ref | fork | Production `JiraToolExecutor`를 설정합니다. `TOOL_MAP_JSON`은 `tool.open-incident-ticket`을 Jira project key에 매핑합니다. Token 값은 KV-backed `FDAI_SECRET_<API_TOKEN_SECRET>`에서 resolve하며 mapping에 token을 넣지 않습니다. Durable Jira ledger와 distributed resource lock을 위해 `FDAI_STATE_STORE_DSN`이 필요합니다. |
+| `FDAI_JIRA_ENFORCE` | env | fork | unset/`0` 기본값은 Jira를 shadow-only로 유지합니다. `1`은 ActionType promotion gate와 risk/HIL decision도 enforce를 허용한 경우에만 enforce request를 허용합니다. Shadow receipt는 실제 incident ticket으로 link되지 않습니다. |
 | `FDAI_PROFILE_ID` | env | fork | `rule-catalog/profiles/` 에서 한 프로파일을 선택 ([rule-catalog-profiles-ko.md](../rules-and-detection/rule-catalog-profiles-ko.md) 참조). **2026-07 기준 composition-root 배선 대기.** |
 | `FDAI_NARRATOR_PROVIDER` / `FDAI_NARRATOR_BASE_URL` / `FDAI_NARRATOR_MODEL` / `FDAI_NARRATOR_API_VERSION` / `FDAI_NARRATOR_API_KEY` | env + KV ref | fork | Operator-console narrator translator 설정 ([operator-console-ko.md](../interfaces/operator-console-ko.md) 참조); `API_KEY` 는 반드시 KV 경유. 빈 provider = 결정론적 폴백. |
 | `FDAI_CHATOPS_APPROVE_CALLBACK_URL` / `FDAI_CHATOPS_REJECT_CALLBACK_URL` / `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` | env + KV ref | fork | Chatops HIL 콜백 엔드포인트와 공유 webhook secret입니다. Secret 은 반드시 KV를 경유합니다. Secret 을 설정하면 production callback route 와 durable Postgres decision registry 가 활성화됩니다. |

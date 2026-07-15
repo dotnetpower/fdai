@@ -14,7 +14,11 @@ from copy import deepcopy
 from threading import Lock
 from typing import Any
 
-from fdai.shared.providers.state_store import StateStore
+from fdai.shared.providers.state_store import (
+    IncidentAppendStatus,
+    StateStore,
+    classify_incident_append,
+)
 
 _GENESIS_HASH = "0" * 64
 
@@ -63,20 +67,7 @@ class InMemoryStateStore(StateStore):
 
     async def append_audit_entry(self, entry: Mapping[str, Any]) -> None:
         with self._lock:
-            previous = self._audit[-1]["entry_hash"] if self._audit else _GENESIS_HASH
-            stored: dict[str, Any] = {
-                "entry": deepcopy(dict(entry)),
-                "previous_hash": previous,
-                "entry_hash": _next_hash(previous, entry),
-            }
-            self._audit.append(stored)
-            # Bounded mode: drop the oldest half in one shot when we
-            # cross the cap. Amortised O(1) per append; keeps chain
-            # verification honest against the retained tail only.
-            cap = self._max_audit_entries
-            if cap is not None and len(self._audit) > cap:
-                drop = len(self._audit) - cap // 2
-                del self._audit[:drop]
+            self._append_audit_locked(entry)
 
     async def read_state(self, key: str) -> Mapping[str, Any] | None:
         return deepcopy(self._state.get(key)) if key in self._state else None
@@ -84,7 +75,9 @@ class InMemoryStateStore(StateStore):
     async def write_state(self, key: str, value: Mapping[str, Any]) -> None:
         self._state[key] = deepcopy(dict(value))
 
-    async def append_incident_transition(self, entry: Mapping[str, Any]) -> None:
+    async def append_incident_transition(
+        self, entry: Mapping[str, Any]
+    ) -> IncidentAppendStatus:
         """Append one incident transition to the shared audit chain.
 
         Idempotent on ``entry["idempotency_key"]``: a re-delivery of
@@ -92,19 +85,35 @@ class InMemoryStateStore(StateStore):
         chain (matches the Postgres adapter's UNIQUE constraint
         contract).
         """
-        key = str(entry.get("idempotency_key") or "")
-        if not key:
-            raise ValueError("incident transition MUST carry a non-empty idempotency_key")
         with self._lock:
-            if key in self._incident_transitions:
-                return
+            history = tuple(self._incident_transitions.values())
+            status = classify_incident_append(history, entry)
+            if status is IncidentAppendStatus.DUPLICATE:
+                return status
+            key = str(entry["idempotency_key"])
             self._incident_transitions[key] = deepcopy(dict(entry))
-        # Route through the standard audit-chain path so hash-chain
-        # verification stays global and postmortem timelines see the
-        # transitions.
-        await self.append_audit_entry(entry)
+            self._append_audit_locked(entry)
+            return status
+
+    async def read_incident_transitions(self) -> tuple[Mapping[str, Any], ...]:
+        """Return lifecycle payloads in append order for registry recovery."""
+        with self._lock:
+            return tuple(deepcopy(entry) for entry in self._incident_transitions.values())
 
     # ---- Test helpers --------------------------------------------------------
+
+    def _append_audit_locked(self, entry: Mapping[str, Any]) -> None:
+        previous = self._audit[-1]["entry_hash"] if self._audit else _GENESIS_HASH
+        stored: dict[str, Any] = {
+            "entry": deepcopy(dict(entry)),
+            "previous_hash": previous,
+            "entry_hash": _next_hash(previous, entry),
+        }
+        self._audit.append(stored)
+        cap = self._max_audit_entries
+        if cap is not None and len(self._audit) > cap:
+            drop = len(self._audit) - cap // 2
+            del self._audit[:drop]
 
     @property
     def incident_transitions(self) -> Iterable[Mapping[str, Any]]:

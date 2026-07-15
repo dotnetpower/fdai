@@ -181,6 +181,17 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   issues no privileged calls and executes no actions. HIL approvals flow through ChatOps or
   the remediation-pr, never through console buttons
   (see [security-and-identity.md](security-and-identity.md)).
+  The navigation shell uses an icon-only Activity Bar with five stable domains:
+  `Overview`, `Operations`, `Agents`, `Governance`, and `Evidence`. The adjacent Explorer
+  renders the panels registered for the selected domain. English is the default display
+  language, and the Korean catalog provides `전체 현황`, `운영`, `에이전트`, `거버넌스`, and
+  `감사·증적` without changing group ids, panel ids, or routes. An operator can reorder or hide
+  panels in browser-local, account-scoped preferences. Hiding changes navigation display only;
+  direct routes and search remain available, and the active panel cannot be hidden. Detail
+  routes render a compact domain / panel hierarchy inside the shared page title so context
+  remains visible when the Explorer is collapsed. Domain roots and standalone utilities keep
+  a single title when hierarchy would only repeat it. Local dev mode also exposes a `Labs`
+  group immediately above Settings; production navigation omits this development-only group.
 
 ## Structural CI Gates
 
@@ -267,6 +278,8 @@ non-Azure phase registers a new implementation at the composition root without e
 | Rule / policy source | rule-catalog + `policies/` loader | - | bundled generic rules | customer rule set / thresholds |
 | **Ontology ObjectType / LinkType** | `load_object_type_catalog(root, *, schema_registry)` and `load_link_type_catalog(root, *, schema_registry, object_types=...)` in `src/fdai/rule_catalog/schema/` | - | four upstream ObjectTypes (`Resource`, `Rule`, `Signal`, `Finding`) and the shipped LinkTypes under `rule-catalog/vocabulary/{object-types,link-types}/`, loaded into `Container.ontology_object_types` / `Container.ontology_link_types` by the entry point | fork ships additional YAML under a fork-local directory (e.g. `fork/vocabulary/object-types/ArchitectureProposal.yaml`), loads both roots at its composition root, and passes the concatenated tuples via `dataclasses.replace(container, ontology_object_types=..., ontology_link_types=...)`. Duplicate `name` across roots fails-closed. See [downstream-fork-seam-recipes.md § 5.8a](../fork-and-sequencing/downstream-fork-seam-recipes.md#58a-ontology-object-type--link-type-additions). |
 | **Workflow catalog (process automation)** | `load_workflow_catalog(root, *, schema_registry, action_type_names, rule_ids=...)` in `src/fdai/rule_catalog/schema/workflow.py`; `compile_workflow(...)` in `src/fdai/core/workflow/` | - | shadow-first Workflows under `rule-catalog/workflows/`, loaded into `Container.workflows` by the entry point after the ActionType + rule catalogs; every step cross-references an `ActionType` and (when set) a Rule id, fail-closed at startup | fork ships additional Workflow YAML under a fork-local `fork/workflows/` directory, loads it at its composition root with the concatenated ActionType / rule sets, and passes the tuple via `dataclasses.replace(container, workflows=...)`. Duplicate `name` across roots fails-closed. See [process-automation.md](../decisioning/process-automation.md). |
+| **Incident confirmation** | `IncidentProposalStore` in `core/incident/proposal_store.py` | - | bounded `InMemoryIncidentProposalStore` for local development; `PostgresIncidentProposalStore` in production uses atomic consume across replicas | inject another durable store only when it preserves same-principal/session binding, expiry, and atomic single-consumer semantics |
+| **Incident notification delivery** | `IncidentLifecycleNotifier` wrapped by `DurableIncidentLifecycleNotifier`; `IncidentNotificationDeliveryStore` for atomic claim/complete/release | - | in-memory claims for local; PostgreSQL row-lock claims with leases in production; notification matrix + HIL escalation fallback | bind Teams, Slack, email, webhook, or pager adapters in `ChannelRegistry`; preserve stable `audit_id`, single-claimer semantics, lease recovery, and startup replay |
 | Delivery adapter | delivery interface | - | `gitops-pr` / `chatops` | a different PR host / chat channel |
 | Risk scoring & thresholds | risk-gate config | - | generic thresholds | customer risk policy |
 | Model provider | model client (per capability) | - | configured default endpoints | customer-approved models |

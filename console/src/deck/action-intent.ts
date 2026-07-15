@@ -21,12 +21,20 @@ const ACTION_VERBS: ReadonlySet<string> = new Set([
   "provision", "rollback", "revert", "approve", "reject", "disable", "enable",
   "create", "kill", "drain", "terminate", "mutate", "patch", "update", "set",
   "start", "stop", "promote", "retire", "override", "flush", "purge", "grant",
-  "revoke",
+  "revoke", "open", "transition", "assign",
 ]);
 
 /** Polite prefixes stripped before inspecting the leading verb. */
 const FILLER: ReadonlySet<string> = new Set([
   "please", "can", "could", "would", "you", "kindly", "pls", "hey", "ok", "okay",
+]);
+
+const INCIDENT_TERMS: readonly string[] = ["incident", "case", "인시던트", "케이스", "장애"];
+const INCIDENT_CREATE_TERMS: readonly string[] = [
+  "create", "open", "register", "start", "생성", "열어", "오픈", "등록", "접수",
+];
+const INCIDENT_CONFIRMATIONS: ReadonlySet<string> = new Set([
+  "confirm", "confirmed", "yes", "proceed", "확인", "생성", "진행", "cancel", "취소",
 ]);
 
 /**
@@ -75,6 +83,21 @@ export function leadingVerb(text: string): string | null {
  * are mirrored above; drift would misroute a question to `POST /chat/action`.
  */
 export function detectActionIntent(text: string): boolean {
+  const normalized = text.slice(0, MAX_QUESTION_LEN).trim().toLowerCase();
+  if (INCIDENT_CONFIRMATIONS.has(normalized)) return true;
+  if (
+    INCIDENT_TERMS.some((term) => normalized.includes(term)) &&
+    INCIDENT_CREATE_TERMS.some((term) => normalized.includes(term))
+  ) {
+    return true;
+  }
+  if (
+    normalized.includes("incident") &&
+    ((normalized.includes("상태") && normalized.includes("변경")) ||
+      (normalized.includes("담당자") && normalized.includes("지정")))
+  ) {
+    return true;
+  }
   const verb = leadingVerb(text);
   if (verb === null) return false;
   if (AMBIGUOUS_ACTION_VERBS.has(verb)) {

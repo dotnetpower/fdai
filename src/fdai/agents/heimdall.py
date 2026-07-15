@@ -9,6 +9,7 @@ registers. Deduplication of admin cards uses a rolling window per
 
 from __future__ import annotations
 
+import logging
 import time
 from collections import Counter, deque
 from collections.abc import Awaitable, Callable
@@ -27,6 +28,11 @@ from fdai.agents._framework.pantheon import _HEIMDALL
 
 AlerterHook = Callable[[dict[str, Any]], Awaitable[None]]
 """Var-provided hook that delivers the admin notification card."""
+
+IncidentCandidateHook = Callable[[dict[str, Any]], Awaitable[None]]
+"""Composition-provided hook that validates and opens an incident candidate."""
+
+_LOG = logging.getLogger(__name__)
 
 #: The admin-card rate limit is per rolling hour. A limiter that never reset
 #: would silence a user permanently after the first burst - so an attacker
@@ -67,6 +73,7 @@ class Heimdall(Agent):
         security_high_threshold: int = 5,
         security_window_events: int = 100,
         alerter_hook: AlerterHook | None = None,
+        incident_candidate_hook: IncidentCandidateHook | None = None,
         alert_rate_per_hour: int = 5,
         clock: Callable[[], float] | None = None,
     ) -> None:
@@ -79,6 +86,7 @@ class Heimdall(Agent):
         self._security_high_threshold = security_high_threshold
         self._alert_counters: Counter[tuple[str, str]] = Counter()
         self._alerter_hook = alerter_hook
+        self._incident_candidate_hook = incident_candidate_hook
         self._alert_rate_per_hour = alert_rate_per_hour
         # Per-initiator rolling-hour alert budget: (window_start, count).
         # Injected clock keeps the window deterministic under test; defaults
@@ -91,6 +99,10 @@ class Heimdall(Agent):
 
     def register_alerter(self, hook: AlerterHook) -> None:
         self._alerter_hook = hook
+
+    def register_incident_candidate(self, hook: IncidentCandidateHook) -> None:
+        """Bind the composition-owned incident candidate validator/writer."""
+        self._incident_candidate_hook = hook
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.event":
@@ -112,7 +124,7 @@ class Heimdall(Agent):
         if len(history) < self._rate_threshold:
             return
         window_tail = list(history)[-self._rate_threshold :]
-        if len(set(window_tail)) == 1 and self.bus is not None:
+        if len(set(window_tail)) == 1:
             anomaly = {
                 "producer_principal": "Heimdall",
                 "correlation_id": event.get("correlation_id", ""),
@@ -121,8 +133,26 @@ class Heimdall(Agent):
                 "count_in_window": self._rate_threshold,
                 "severity": "medium",
             }
-            await self.bus.publish("Heimdall", "object.anomaly", anomaly)
             history.clear()
+            if self.bus is not None:
+                await self.bus.publish("Heimdall", "object.anomaly", anomaly)
+            if self._incident_candidate_hook is not None:
+                candidate = {
+                    **anomaly,
+                    "reason_code": "repeated_event_threshold",
+                    "evidence_key": str(
+                        event.get("idempotency_key") or event.get("event_id") or ""
+                    ),
+                }
+                try:
+                    await self._incident_candidate_hook(candidate)
+                    self.record_behavior("incident_candidate")
+                except Exception:  # noqa: BLE001 - anomaly remains authoritative
+                    self.record_behavior("incident_candidate_failed")
+                    _LOG.exception(
+                        "incident_candidate_hook_failed",
+                        extra={"correlation_id": anomaly["correlation_id"]},
+                    )
 
     async def _maybe_classify_severity(self, event: dict[str, Any]) -> str:
         self._security_recent.append(event)
@@ -236,4 +266,4 @@ class Heimdall(Agent):
         return IntrospectionResult(answer=answer, facts=facts)
 
 
-__all__ = ["Heimdall", "AlerterHook"]
+__all__ = ["Heimdall", "AlerterHook", "IncidentCandidateHook"]

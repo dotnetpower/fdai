@@ -8,16 +8,21 @@ import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
+from fdai.core.rbac.resolver import Principal
+from fdai.core.rbac.roles import Role
 from fdai.delivery.read_api.dev import local as _local
+from fdai.delivery.read_api.dev.azure_cli_identity import LocalAzureCliIdentity
 
 _DEV_ENV = "FDAI_READ_API_DEV_MODE"
 _LOCAL_ENTRA_ENV = "FDAI_READ_API_LOCAL_ENTRA"
+_LOCAL_AZURE_CLI_ENV = "FDAI_READ_API_LOCAL_AZURE_CLI"
 
 
 class TestLocalEntrypoint:
     def test_refuses_without_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(_DEV_ENV, raising=False)
         monkeypatch.delenv(_LOCAL_ENTRA_ENV, raising=False)
+        monkeypatch.delenv(_LOCAL_AZURE_CLI_ENV, raising=False)
         with pytest.raises(RuntimeError, match=_DEV_ENV):
             _local.app()
 
@@ -82,6 +87,18 @@ class TestLocalEntrypoint:
         assert response.status_code == 200
         assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5178"
 
+    def test_vite_preview_origin_is_allowed_by_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(_DEV_ENV, "1")
+        monkeypatch.delenv("FDAI_READ_API_CORS_ALLOW_ORIGINS", raising=False)
+        client = TestClient(_local.app())
+
+        response = client.get("/healthz", headers={"origin": "http://127.0.0.1:4173"})
+
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:4173"
+
     def test_custom_console_origin_rejects_wildcard(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(_DEV_ENV, "1")
         monkeypatch.setenv("FDAI_READ_API_CORS_ALLOW_ORIGINS", "*")
@@ -95,6 +112,7 @@ class TestLocalEntraLoginHarness:
 
     def _enable(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(_DEV_ENV, raising=False)
+        monkeypatch.delenv(_LOCAL_AZURE_CLI_ENV, raising=False)
         monkeypatch.setenv(_LOCAL_ENTRA_ENV, "1")
         monkeypatch.setenv("FDAI_ENTRA_TENANT_ID", "00000000-0000-0000-0000-000000000abc")
         monkeypatch.setenv("FDAI_API_AUDIENCE", "api://00000000-0000-0000-0000-000000000def")
@@ -121,3 +139,23 @@ class TestLocalEntraLoginHarness:
         monkeypatch.delenv("FDAI_API_AUDIENCE", raising=False)
         with pytest.raises(ValueError, match="FDAI_ENTRA_TENANT_ID"):
             _local.app()
+
+
+class TestLocalAzureCliHarness:
+    def test_builds_with_resolved_cli_identity(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv(_DEV_ENV, raising=False)
+        monkeypatch.delenv(_LOCAL_ENTRA_ENV, raising=False)
+        monkeypatch.setenv(_LOCAL_AZURE_CLI_ENV, "1")
+        identity = LocalAzureCliIdentity(
+            principal=Principal(
+                oid="cli-user",
+                roles=frozenset({Role.CONTRIBUTOR}),
+            ),
+            username="user@example.com",
+        )
+        monkeypatch.setattr(_local, "resolve_azure_cli_identity", lambda: identity)
+
+        client = TestClient(_local.app())
+
+        assert client.get("/audit").status_code == 200
+        assert client.get("/local-auth/me").json()["source"] == "azure-cli"

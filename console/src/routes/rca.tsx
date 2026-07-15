@@ -156,6 +156,13 @@ function RcaBody({ data }: { readonly data: RcaView }) {
   return (
     <div class="stack">
       <p>
+        <a href={routeHref("reports", {
+          segments: ["incident-rca-dossier"],
+          params: { correlation_id: data.correlation_id },
+        })}>
+          {t("rca.report")}
+        </a>
+        {" | "}
         <a href={routeHref("audit", { params: { correlation: data.correlation_id } })}>
           {t("rca.audit")}
         </a>
@@ -257,7 +264,46 @@ function HypothesisCard({ hypothesis }: { readonly hypothesis: RcaHypothesis }) 
           <strong>{t("rca.reason")}:</strong> {hypothesis.reason}
         </p>
       ) : null}
+      <CausalChainSection hypothesis={hypothesis} />
       <CitationsTable hypothesis={hypothesis} />
+    </section>
+  );
+}
+
+function CausalChainSection({ hypothesis }: { readonly hypothesis: RcaHypothesis }) {
+  const chain = hypothesis.causal_chain;
+  if (chain === null) return null;
+  return (
+    <section class="rca-chain" aria-labelledby={`rca-chain-${hypothesis.seq}`}>
+      <div class="section-header">
+        <h4 id={`rca-chain-${hypothesis.seq}`} class="section-title">{t("rca.causalChain")}</h4>
+        <span class="footnote">
+          {t("rca.causalSummary", {
+            hops: chain.hops.length,
+            ambiguity: chain.ambiguity,
+          })}
+        </span>
+      </div>
+      <ol class="rca-chain-list">
+        {chain.hops.map((hop, index) => (
+          <li key={`${hop.cause_event_id}:${hop.effect_event_id}:${index}`}>
+            <div class="rca-chain-edge">
+              <span class="status-pill status-pill-info">{hop.relationship}</span>
+              <span class="footnote">
+                {t("rca.causalLead", { seconds: hop.lead_seconds.toFixed(1) })}
+              </span>
+              <span class="footnote">
+                {t("rca.causalConfidence", { value: hop.confidence.toFixed(2) })}
+              </span>
+            </div>
+            <div class="rca-chain-nodes">
+              <span><strong>{hop.cause_resource_ref}</strong><code>{hop.cause_event_id}</code></span>
+              <span aria-hidden="true">-&gt;</span>
+              <span><strong>{hop.effect_resource_ref}</strong><code>{hop.effect_event_id}</code></span>
+            </div>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

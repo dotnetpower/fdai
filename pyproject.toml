@@ -129,6 +129,9 @@ dev = [
 serve = [
     "uvicorn>=0.32,<1",
 ]
+pdf-report = [
+    "weasyprint>=66,<70",
+]
 
 [project.urls]
 Homepage = "https://github.com/dotnetpower/fdai"
@@ -197,6 +200,12 @@ files = ["src/fdai"]
 # wraps every call, so the untyped surface is narrow.
 [[tool.mypy.overrides]]
 module = ["aiokafka", "aiokafka.abc"]
+ignore_missing_imports = true
+
+# WeasyPrint is isolated to the optional delivery/reporting adapter and ships
+# no py.typed marker. The adapter validates its byte-return boundary.
+[[tool.mypy.overrides]]
+module = ["weasyprint"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

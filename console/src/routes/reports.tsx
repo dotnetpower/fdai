@@ -29,6 +29,7 @@ export function ReportsRoute({ client }: Props) {
   const requestedId = currentRoute().segments[0] ?? null;
   const [state, setState] = useState<AsyncState<ReportsData>>({ status: "loading" });
   const [refreshing, setRefreshing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,10 +43,11 @@ export function ReportsRoute({ client }: Props) {
         const selected = requestedId
           ? catalog.items.find((report) => report.id === requestedId) ?? null
           : catalog.items[0] ?? null;
+        const queryVariables = new URLSearchParams(window.location.search);
         const variables = Object.fromEntries(
           (selected?.variables ?? []).map((variable) => [
             variable.name,
-            variable.default ?? variable.values[0] ?? "",
+            queryVariables.get(variable.name) ?? variable.default ?? variable.values[0] ?? "",
           ]),
         );
         const complete = selected?.variables.every((variable) =>
@@ -101,6 +103,28 @@ export function ReportsRoute({ client }: Props) {
     }
   };
 
+  const downloadSelected = async () => {
+    if (state.status !== "ready" || state.data.selected === null || downloading) return;
+    setDownloading(true);
+    try {
+      const blob = await client.downloadReport(
+        state.data.selected.id,
+        "pdf",
+        state.data.variables,
+      );
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${state.data.selected.id}.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setState({ status: "error", message: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div class="stack reports-route">
       <PageHeader title={t("route.reports")} subtitle={t("reports.subtitle")} />
@@ -109,8 +133,10 @@ export function ReportsRoute({ client }: Props) {
           <ReportsBody
             data={data}
             refreshing={refreshing}
+            downloading={downloading}
             onVariableChange={updateVariable}
             onRender={renderSelected}
+            onDownload={downloadSelected}
           />
         )}
       </AsyncBoundary>
@@ -121,13 +147,17 @@ export function ReportsRoute({ client }: Props) {
 function ReportsBody({
   data,
   refreshing,
+  downloading,
   onVariableChange,
   onRender,
+  onDownload,
 }: {
   readonly data: ReportsData;
   readonly refreshing: boolean;
+  readonly downloading: boolean;
   readonly onVariableChange: (name: string, value: string) => void;
   readonly onRender: () => Promise<void>;
+  readonly onDownload: () => Promise<void>;
 }) {
   const variablesComplete = data.selected?.variables.every((variable) =>
     (data.variables[variable.name] ?? "").trim().length > 0,
@@ -215,6 +245,15 @@ function ReportsBody({
                 <button type="button" class="primary" disabled={refreshing || !variablesComplete} onClick={() => void onRender()}>
                   {refreshing ? t("reports.refreshing") : t("reports.refresh")}
                 </button>
+                {data.catalog.formats.includes("pdf") ? (
+                  <button
+                    type="button"
+                    disabled={downloading || !variablesComplete || data.rendered === null}
+                    onClick={() => void onDownload()}
+                  >
+                    {downloading ? t("reports.downloadingPdf") : t("reports.downloadPdf")}
+                  </button>
+                ) : null}
               </div>
             ) : null}
 

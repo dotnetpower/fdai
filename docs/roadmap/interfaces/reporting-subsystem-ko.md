@@ -1,7 +1,7 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 0bed53b6f163aa71bddfa71b82911b31ef4e43b8
+translation_source_sha: 7a0946284cb0f047ab155a9a85a3086d4cb02570
 translation_revised: 2026-07-15
 ---
 # 리포팅 서브시스템
@@ -179,9 +179,46 @@ Protocol을 받아 wire-up을 한 방향으로 유지합니다.
 | `text` | `text/plain; charset=utf-8` | stdout 친화 요약 |
 | `ndjson` | `application/x-ndjson` | 헤더 라인 + 위젯별 한 라인 |
 | `prometheus` **(opt-in)** | `text/plain; version=0.0.4` | scalar / timeseries만; 기본 등록 X |
+| `pdf` **(opt-in)** | `application/pdf` | A4 근거 dossier; `pdf-report` extra로 설치하고 WeasyPrint import가 정상일 때만 등록 |
 
 포크는 `FormatEncoder`를 구현하고 `FormatRegistry.register`를
 호출해 `pdf` / `xlsx` / 무엇이든 추가합니다.
+
+업스트림 `delivery/reporting/pdf_format.py` 어댑터는 WeasyPrint를 `core/`로
+가져오지 않고 선택적 PDF 형식을 구현합니다. 모든 위젯 값을 escape하고 source
+envelope SHA-256을 추가하며 표지, at-a-glance, 목차, chapter, provenance surface를
+렌더링합니다. `uv sync --extra pdf-report`로 설치합니다. extra가 없는 배포는 format
+registry에 `pdf`를 표시하지 않습니다. `incident-rca-dossier` 카탈로그 리포트는
+가설, 인용, causal hop, 대응 이력, chronology에 correlation 범위 audit projection을
+사용합니다.
+
+`incident-rca-dossier`는 generic widget-per-page 레이아웃 대신 전용 renderer를
+사용합니다. FDAI 소유 인쇄 언어는 단색 Calm Slate steel-blue 표지,
+executive brief, 근거 완성도 점수, 13개 chapter를 사용합니다. Chapter는 인시던트
+profile과 측정된 영향, chronology, 근본 원인, causal chain, 기여 요인, 대안 가설,
+근거 register, 대응, 복구 검증, control gap, 교정/예방 조치, 제한사항, audit 부록입니다.
+Content card는 색상 상단선이나 좌측선 대신 균일한 neutral hairline, off-white 면,
+여백을 사용합니다. Renderer는 빈 chapter를 prose로 채우지 않고 근거를 사용할 수
+없음으로 표시합니다.
+
+인쇄 레이아웃 primitive는 browser mock의 레이아웃 구현과 의도적으로 분리합니다.
+Chronology는 CSS Grid나 음수 margin이 아니라 반복 header가 있는 semantic table을
+사용합니다. Causal chain은 literal paint/font attribute를 가진 native SVG(`rect`,
+`line`, `polygon`, `text`)이므로 WeasyPrint의 SVG 내부 CSS cascade 지원에 의존하지
+않습니다. Pagination은 관련 chapter를 묶고 profile, root-cause, response, audit
+그룹만 새 페이지에서 시작합니다. 고객 중립 reference fixture는 chapter당 한 페이지를
+예약하지 않고 9페이지로 렌더링됩니다.
+
+PDF regression test는 실제 WeasyPrint box tree를 렌더링하고 9-11페이지 범위,
+full-width chronology table, full-width SVG diagram, 온전한 chapter header 13개를
+강제합니다. 폐기한 grid timeline과 grid causal markup도 거부하므로 원래의 좁은 card
+실패가 조용히 재발할 수 없습니다.
+
+선택적으로 기록된 audit 필드(`rca_impact`, `rca_contributing_factors`,
+`rca_alternative_hypotheses`, `rca_recovery_validation`, `rca_control_gaps`,
+`rca_recommendations`, `rca_limitations`)가 분석 chapter를 채웁니다. 각 필드는
+`core/reporting/datasources/audit_rca.py`가 투영하는 bounded mapping 목록입니다.
+PDF 계층은 서버 소유 사실을 배치할 뿐 자체 분석을 수행하지 않습니다.
 
 ## FE JSON 계약
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from uuid import UUID
 
 import pytest
 
@@ -15,6 +16,7 @@ from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionRunState, Thor
 from fdai.agents.var import Var
 from fdai.agents.vidar import Vidar
+from fdai.shared.contracts.models import IncidentSeverity
 
 # ---------------------------------------------------------------------------
 # Huginn
@@ -122,6 +124,45 @@ def test_heimdall_no_anomaly_on_mixed_event_types() -> None:
             )
         )
     assert bus.messages_on("object.anomaly") == []
+
+
+def test_heimdall_threshold_candidate_can_open_incident() -> None:
+    from fdai.core.incident import IncidentLifecycleWorkflow, IncidentRegistry
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    registry = IncidentRegistry(state_store=InMemoryStateStore())
+    workflow = IncidentLifecycleWorkflow(
+        registry=registry,
+        allowed_agent_principals={"Heimdall"},
+    )
+
+    async def open_candidate(candidate: dict[str, object]) -> None:
+        await workflow.open_from_agent(
+            producer_principal=str(candidate["producer_principal"]),
+            correlation_keys=(f"resource:{candidate['resource_id']}",),
+            severity=IncidentSeverity.SEV3,
+            member_event_ids=(UUID("00000000-0000-0000-0000-000000000001"),),
+            reason=str(candidate["reason_code"]),
+        )
+
+    heimdall = Heimdall(rate_threshold=2, incident_candidate_hook=open_candidate)
+    for index in range(2):
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "vm-1",
+                    "event_type": "cpu_spike",
+                    "correlation_id": "c",
+                    "idempotency_key": f"event-{index}",
+                },
+            )
+        )
+
+    incidents = tuple(registry.snapshot().values())
+    assert len(incidents) == 1
+    assert incidents[0].severity is IncidentSeverity.SEV3
+    assert heimdall.behavior_snapshot()["incident_candidate"] == 1
 
 
 def test_heimdall_security_severity_high_on_irreversible() -> None:

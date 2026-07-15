@@ -1,8 +1,8 @@
 ---
 title: 스코프 개선 및 구조적 갭
 translation_of: scope-expansion.md
-translation_source_sha: 4c715171d54b4cb050398cc538db52809b9b342d
-translation_revised: 2026-07-11
+translation_source_sha: 1a4412c26bb69eb50883ce142c540706373dea82
+translation_revised: 2026-07-15
 ---
 # 스코프 개선 및 구조적 갭
 
@@ -81,15 +81,74 @@ machine 도, lifecycle hook 도 없다. 결과적으로:
 - **State machine**: `open → triaging → mitigated → resolved → closed`
   + reopen path `resolved → triaging`. 불법 transition 은
   `IncidentTransitionError`. Transition 은
-  `(incident_id, target_state, actor_oid)` 로 idempotent.
+  `(incident_id, target_state, actor_oid)` 로 idempotent. Severity는
+  `resolved → triaging` reopen edge에서만 변경할 수 있으며 replay에 보존됩니다.
 - **Persistence**: `StateStore` 를
   `append_incident_transition(entry: Mapping)` 로 확장; concrete
   Postgres adapter 는 transition 을 동일한 audit stream 으로 hash-chain
   (see [security-and-identity.md § Auditability](../architecture/security-and-identity-ko.md)),
-  append-only 보장을 어느 것도 bypass 하지 않음.
+  append-only 보장을 어느 것도 bypass 하지 않음. Append는 `applied` 또는
+  `duplicate`를 반환하며 stale expected state는 `IncidentWriteConflictError`를
+  발생시킵니다. PostgreSQL은 per-incident advisory lock을 잡고 persisted current
+  state를 확인한 뒤 global audit hash chain에 한 transaction으로 append합니다.
+  Losing replica는 conflict를 반환하기 전에 canonical audit projection을 reload합니다.
 - **Ownership**: `core/incident/` (신규 패키지). Vertical 은 candidate
   transition 을 emit; incident 모듈만이
   `append_incident_transition` 을 호출할 수 있는 유일한 writer.
+- **Lifecycle metadata**: assignment 변경은 `incident.assigned`를 append합니다.
+  성공한 GitHub/Jira/tool receipt는 provider, external id, optional HTTPS URL을
+  포함한 `incident.ticket`을 append합니다. 둘 다 idempotent하고 replay-safe하며
+  동일한 audit-backed incident roster에 표시됩니다. Vendor call은 delivery adapter에
+  유지되고 registry는 성공 receipt만 연결합니다.
+
+**기본 제공 lifecycle workflow.** `IncidentLifecycleWorkflow`는
+`IncidentRegistry` 위에서 생성과 transition을 처리하는 단일 경로를 제공합니다.
+
+- Contributor 역할의 운영자는 영어 또는 한국어 채팅으로 incident 생성을 요청할
+  수 있습니다. 결정론적 parser는 incident/open 의도, severity, 대상을 요구하며
+  누락된 값은 추측하지 않고 다시 묻습니다. 완전한 요청은 생성 내용을 설명하는
+  10분짜리 proposal을 만들고, 같은 conversation의 같은 운영자만 확인할 수 있습니다.
+- allowlist에 포함된 agent는 하나 이상의 member event와 비어 있지 않은 reason을
+  제공할 때만 대화형 확인 없이 incident를 열 수 있습니다. 따라서 자율 생성은
+  관찰된 evidence에 grounding됩니다.
+  Production은 pantheon이 event consume을 시작하기 전에 Heimdall의 repeated-event
+  candidate hook을 동일한 durable workflow에 전달합니다.
+- open 재전송과 같은 상태로의 transition은 idempotent하며 중복 알림을 보내지
+  않습니다. 모든 lifecycle audit row는 결정론적 incident id를 top-level
+  `correlation_id`로 전달하므로 console roster가 resource name에서 연관 관계를
+  추론하지 않고 투영할 수 있습니다. 새 member event는 `incident.members` row를
+  append하므로 correlation 확장이 재시작 후에도 유지됩니다.
+- 생성, 합법적인 상태 변경, 요청된 roster summary는
+  `DurableIncidentLifecycleNotifier`로 감싼 `RoutedIncidentLifecycleNotifier`를 통해
+  A2 운영 알림을 보냅니다. 각 lifecycle occurrence는 stable `audit_id`를 가지며,
+  sent checkpoint는 반복 전달을 막고 startup replay는 checkpoint가 없는 audit
+  row를 재시도합니다. 실제 channel adapter가 bind되지 않으면 production default는
+  알림을 버리지 않고 StateStore-backed HIL escalation sink로 라우팅합니다.
+  Lifecycle 메시지는 자유 형식 reason과 resource correlation key를 제외하며,
+  roster 메시지는 최대 20개 incident id와 전체 roster 링크를 포함합니다.
+
+in-process registry는 source of truth가 아니라 projection입니다. Production startup은
+Postgres에서 정렬된 `incident.open`, `incident.members`, `incident.transition` row를
+읽고 API가 traffic을 받기 전에 registry를 재구성합니다. 유효하지 않은 id, state
+ordering, timestamp는 이전 snapshot을 교체하지 않고 startup을 실패시킵니다. Pending
+chat proposal은 async `IncidentProposalStore`를 사용합니다. Local development는 bounded
+in-memory store를 bind하고 production은 atomic Postgres `DELETE ... RETURNING` consume을
+사용하므로 하나의 replica만 confirmation을 수락할 수 있습니다. Persisted proposal은
+operator text 원문이 아니라 hash만 저장합니다. Local projecting store는 채팅에서
+생성한 incident를 `/incidents`에 즉시 표시합니다.
+
+**SLA escalation 및 metrics.** `IncidentSlaPolicy`는 모든 severity에 대해 설정된
+acknowledgment 및 resolution seconds를 받습니다. Production monitor는
+`FDAI_INCIDENT_SLA_POLICY_JSON`이 공급되기 전까지 disabled입니다. Enable되면 ordered
+audit row에서 현재 state-entry timestamp를 도출하고 deadline에 stable `sla_breach`
+A2 notice를 emit하며 durable notification checkpoint로 반복 scan을 dedup합니다.
+Resolved 및 closed incident는 alert하지 않습니다. `project_incident_metrics`는
+deduplicated audit row를 agent/operator 생성 수, 현재 state/severity 수, assignment 및
+ticket 수, reopen 수, mean acknowledgment/resolution duration으로 투영합니다. 이 값은
+KPI 및 briefing surface에 사용할 수 있는 measured fact입니다.
+성공한 `tool_call` ticket receipt는 terminal executor success 전에 receipt observer를
+통과합니다. Linkage 실패는 retryable합니다. Redelivery에서 adapter ledger가
+`already_applied`를 반환하고 incident link만 다시 시도합니다.
 
 **Storm 처리.** 하나의 근본 결함이 다수의 상관 incident 로 fan-out 될 때,
 모든 remediation 을 한꺼번에 발화하면 blast radius 가 배가되고 공유

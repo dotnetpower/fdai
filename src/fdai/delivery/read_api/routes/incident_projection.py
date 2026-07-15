@@ -16,6 +16,13 @@ from fdai.delivery.read_api.read_model import (
 _ACTIVE_STATUSES: frozenset[IncidentStatus] = frozenset({"open", "in_progress"})
 _LIFECYCLE_STATES = frozenset({"open", "triaging", "mitigated", "resolved", "closed"})
 _SEVERITIES = frozenset({"critical", "high", "medium", "low", "info"})
+_INCIDENT_SEVERITIES = {
+    "sev1": "critical",
+    "sev2": "high",
+    "sev3": "medium",
+    "sev4": "low",
+    "sev5": "info",
+}
 _VERTICALS = {
     "resilience": "resilience",
     "change_safety": "change_safety",
@@ -32,25 +39,38 @@ def correlate_audit_items(items: Iterable[AuditItem]) -> dict[str, tuple[AuditIt
     ordered = sorted(items, key=lambda item: item.seq)
     event_correlations: dict[str, set[str]] = defaultdict(set)
     incident_candidates: dict[str, set[str]] = defaultdict(set)
+    ambiguous_incidents: set[str] = set()
     for item in ordered:
         if item.correlation_id:
             event_correlations[item.event_id].add(item.correlation_id)
         incident_id = _string(item.entry, "incident_id")
-        correlation = item.correlation_id or _correlation_key(item.entry)
+        correlation_status, key_correlation = _correlation_key_state(item.entry)
+        correlation = item.correlation_id or key_correlation
+        if incident_id and item.correlation_id is None and correlation_status == "ambiguous":
+            ambiguous_incidents.add(incident_id)
         if incident_id and correlation:
             incident_candidates[incident_id].add(correlation)
     incident_correlations = {
         incident_id: next(iter(candidates))
         for incident_id, candidates in incident_candidates.items()
-        if len(candidates) == 1
+        if len(candidates) == 1 and incident_id not in ambiguous_incidents
     }
     grouped: dict[str, list[AuditItem]] = defaultdict(list)
     for item in ordered:
-        correlation = item.correlation_id or _correlation_key(item.entry)
+        correlation_status, key_correlation = _correlation_key_state(item.entry)
+        correlation = item.correlation_id or key_correlation
         if correlation is None:
             incident_id = _string(item.entry, "incident_id")
             if incident_id:
                 correlation = incident_correlations.get(incident_id)
+                if (
+                    correlation is None
+                    and incident_id not in ambiguous_incidents
+                    and not incident_candidates.get(incident_id)
+                    and correlation_status == "absent"
+                    and _is_incident_lifecycle(item.entry)
+                ):
+                    correlation = incident_id
         if correlation is None:
             candidates = event_correlations.get(item.event_id, set())
             if len(candidates) == 1:
@@ -230,8 +250,10 @@ def _metadata_value(
     for item in items:
         for key in keys:
             value = _nested_string(item.entry, key)
-            if value and value.lower() in allowed:
-                return value.lower()
+            if value:
+                normalized = _INCIDENT_SEVERITIES.get(value.lower(), value.lower())
+                if normalized in allowed:
+                    return normalized
     return "unknown"
 
 
@@ -253,6 +275,10 @@ def _nested_string(entry: Mapping[str, Any], key: str) -> str | None:
 
 
 def _correlation_key(entry: Mapping[str, Any]) -> str | None:
+    return _correlation_key_state(entry)[1]
+
+
+def _correlation_key_state(entry: Mapping[str, Any]) -> tuple[str, str | None]:
     values = entry.get("correlation_keys")
     if isinstance(values, Sequence) and not isinstance(values, (str, bytes)):
         candidates = {
@@ -261,8 +287,15 @@ def _correlation_key(entry: Mapping[str, Any]) -> str | None:
             if isinstance(value, str) and value.startswith("corr:") and len(value) > 5
         }
         if len(candidates) == 1:
-            return next(iter(candidates))
-    return None
+            return "unique", next(iter(candidates))
+        if len(candidates) > 1:
+            return "ambiguous", None
+    return "absent", None
+
+
+def _is_incident_lifecycle(entry: Mapping[str, Any]) -> bool:
+    kind = _string(entry, "kind")
+    return bool(kind and kind.startswith("incident."))
 
 
 def _string(entry: Mapping[str, Any], key: str) -> str | None:

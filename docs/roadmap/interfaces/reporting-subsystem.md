@@ -173,9 +173,50 @@ Postgres view) by implementing `ReportDataSource` and calling
 | `text` | `text/plain; charset=utf-8` | Stdout-friendly summary |
 | `ndjson` | `application/x-ndjson` | Header line + one line per widget |
 | `prometheus` **(opt-in)** | `text/plain; version=0.0.4` | Scalar / timeseries widgets only; NOT registered by default |
+| `pdf` **(opt-in)** | `application/pdf` | A4 evidence dossier; installed with the `pdf-report` extra and registered only when WeasyPrint imports cleanly |
 
 A fork adds `pdf` / `xlsx` / whatever by implementing `FormatEncoder`
 and calling `FormatRegistry.register`.
+
+The upstream delivery adapter at `delivery/reporting/pdf_format.py` implements
+the optional PDF format without importing WeasyPrint into `core/`. It escapes
+all widget values, adds a source-envelope SHA-256, and renders cover,
+at-a-glance, table-of-contents, chapter, and provenance surfaces. Install with
+`uv sync --extra pdf-report`; deployments without the extra do not advertise
+`pdf` in the format registry. The `incident-rca-dossier` catalog report uses
+correlation-scoped audit projections for hypotheses, citations, causal hops,
+response history, and chronology.
+
+`incident-rca-dossier` uses a dedicated renderer rather than the generic
+widget-per-page layout. Its FDAI-owned print language uses a solid Calm Slate
+steel-blue cover, an executive brief, evidence-completeness score, and
+13 chapters: incident profile and measured impact, chronology, root cause,
+causal chain, contributing factors, alternatives, evidence register, response,
+recovery validation, control gaps, corrective/preventive actions, limitations,
+and the audit appendix. Content cards use uniform neutral hairlines, off-white
+surfaces, and whitespace rather than colored top or left rails. The renderer
+never fills an empty chapter with prose; it marks the evidence unavailable.
+
+Print layout primitives are intentionally distinct from the browser mock's
+layout implementation. Chronology uses a semantic table with repeated headers,
+not CSS Grid or negative margins. The causal chain is native SVG (`rect`,
+`line`, `polygon`, and `text`) with literal paint/font attributes so WeasyPrint
+does not depend on CSS cascade support inside SVG. Pagination groups related
+chapters and starts only profile, root-cause, response, and audit groups on a
+new page. The customer-neutral reference fixture renders in nine pages rather
+than reserving one page per chapter.
+
+PDF regression tests render the real WeasyPrint box tree and enforce a 9-11
+page range, full-width chronology table, full-width SVG diagram, and 13 intact
+chapter headers. They also reject the retired grid timeline and grid causal
+markup so the original narrow-card failure cannot return silently.
+
+Optional recorded audit fields (`rca_impact`, `rca_contributing_factors`,
+`rca_alternative_hypotheses`, `rca_recovery_validation`, `rca_control_gaps`,
+`rca_recommendations`, and `rca_limitations`) populate the analytical chapters.
+Each field is a bounded list of mappings projected by
+`core/reporting/datasources/audit_rca.py`. The PDF layer only arranges these
+server-owned facts and performs no analysis of its own.
 
 ## FE JSON contract
 
