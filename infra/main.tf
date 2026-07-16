@@ -732,6 +732,21 @@ module "llm_azure_openai" {
   tags                  = local.tags
 }
 
+module "llm_private_endpoint" {
+  count                 = var.enable_llm && var.enable_private_networking ? 1 : 0
+  source                = "./modules/private-endpoint"
+  name                  = "pe-oai-${var.workload}${local.full_suffix}"
+  location              = var.region
+  resource_group_name   = module.resource_group.name
+  subnet_id             = module.network[0].pe_subnet_id
+  vnet_id               = module.network[0].vnet_id
+  target_resource_id    = module.llm_azure_openai[0].resource_id
+  subresource_name      = "account"
+  private_dns_zone_name = "privatelink.openai.azure.com"
+  extra_vnet_links      = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}
+  tags                  = local.tags
+}
+
 # -----------------------------------------------------------------------
 # Phase-4 continuous measurement - two Container Apps Jobs that wire the
 # regression detector + pattern-growth intake into scheduled runs.
