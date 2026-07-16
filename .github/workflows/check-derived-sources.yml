@@ -1,0 +1,51 @@
+name: check-derived-sources
+
+# Keeps user-facing docs in sync with the roadmap reference docs they were
+# authored from. A user-facing doc (docs/user-guide/**, root README) may pin
+# roadmap sources in its front-matter:
+#
+#   derives_from:
+#     - source: docs/roadmap/architecture/goals-and-metrics.md
+#       sha: <git hash-object of that file>
+#
+# This gate fails when a pinned sha no longer matches the current
+# `git hash-object` of its source - i.e. the development reference doc
+# changed and the user-facing doc must be reviewed and re-pinned with
+# scripts/refresh-derived-sha.py.
+
+on:
+  pull_request:
+    paths:
+      - "docs/**/*.md"
+      - "README.md"
+      - "scripts/check-derived-sources.py"
+      - ".github/workflows/check-derived-sources.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/**/*.md"
+      - "README.md"
+      - "scripts/check-derived-sources.py"
+      - ".github/workflows/check-derived-sources.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Run derived-sources check
+        run: python3 scripts/check-derived-sources.py

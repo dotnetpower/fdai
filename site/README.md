@@ -93,3 +93,36 @@ FDAI, and keeps deep engineering internals on GitHub only.
   not change that gate: every `docs/**/*.md` still ships as an English + Korean
   pair regardless of whether the site mounts it.
 
+## Roadmap docs are reference, not user docs
+
+`docs/roadmap/**` are **development reference** docs - the engineering source
+of truth for the design. `docs/user-guide/**` are **user-facing** docs authored
+for readers. The two have different natures, so a user-facing page is
+**authored from** roadmap material rather than mirroring it.
+
+When a user-facing doc summarizes facts defined in a roadmap doc (for example,
+tier coverage figures from
+[goals-and-metrics](../docs/roadmap/architecture/goals-and-metrics.md)), it
+records the derivation in its front-matter so the copy cannot drift silently:
+
+```yaml
+derives_from:
+  - source: docs/roadmap/architecture/goals-and-metrics.md
+    sha: <git hash-object of that file at authoring time>
+```
+
+- [`scripts/check-derived-sources.py`](../scripts/check-derived-sources.py) is a
+  CI gate that recomputes `git hash-object` of every declared `source` and fails
+  when a recorded `sha` no longer matches - i.e. the roadmap source moved and the
+  user-facing doc must be reviewed. It is **opt-in**: only docs that declare
+  `derives_from` are checked.
+- After reviewing the user-facing doc against the updated roadmap source,
+  re-pin with [`scripts/refresh-derived-sha.py <doc>`](../scripts/refresh-derived-sha.py).
+- The `derives_from` field is allowed by the Starlight front-matter schema via
+  the `docsSchema({ extend: ... })` extension in
+  [`src/content.config.ts`](src/content.config.ts).
+
+This mirrors the translation freshness gate: `translation_source_sha` pins
+`foo-ko.md` to `foo.md`; `derives_from[].sha` pins a user-facing doc to its
+roadmap reference source(s). The chain composes - a roadmap change flags the
+English user doc, whose refresh flags the Korean translation.

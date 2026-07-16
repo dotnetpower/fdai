@@ -100,6 +100,14 @@ if [[ -f scripts/check-arb-readiness.py ]]; then
     run_gate "architecture-review" python3 scripts/check-arb-readiness.py
 fi
 
+# User-facing docs pinned to roadmap reference docs via derives_from[].sha.
+# Fails when a roadmap source moved and the user-facing doc has not been
+# reviewed + re-pinned (scripts/refresh-derived-sha.py). Opt-in: only docs
+# that declare derives_from are checked.
+if [[ -f scripts/check-derived-sources.py ]]; then
+    run_gate "derived-sources" python3 scripts/check-derived-sources.py
+fi
+
 # Framework-surface integrity: offline signature + content verification.
 # Upstream: advisory (edits are legitimate; re-sign before release, rc 0).
 # Fork: hard fail on any edit/add under the signed surface (rc 1). Skipped
