@@ -6,6 +6,7 @@ import { remarkStripFirstH1 } from "./src/plugins/strip-first-h1.mjs";
 import { remarkMermaid } from "./src/plugins/mermaid.mjs";
 import { remarkRewriteLinks } from "./src/plugins/rewrite-links.mjs";
 import { remarkCards } from "./src/plugins/cards.mjs";
+import { remarkSteps } from "./src/plugins/steps.mjs";
 
 // GitHub Pages project page: https://dotnetpower.github.io/fdai/
 // Overridable at build time via SITE_URL / BASE_PATH env vars so a fork can
@@ -54,6 +55,9 @@ export default defineConfig({
   // grid. It runs LAST so remarkRewriteLinks has already rewritten each
   // card's `.md` link target to an on-site URL before the card HTML is
   // emitted (authoring cards as raw HTML would bypass that rewrite).
+  // remarkSteps tags a `<!-- fdai:steps -->` marked ordered list with the
+  // `fdai-steps` class so it renders as a numbered step sequence; it keeps
+  // the list a real ordered list (class only), so its links stay rewritten.
   markdown: {
     remarkPlugins: [
       remarkCjkFriendly,
@@ -61,6 +65,7 @@ export default defineConfig({
       remarkMermaid,
       remarkRewriteLinks,
       remarkCards,
+      remarkSteps,
     ],
   },
   integrations: [

@@ -894,3 +894,59 @@ header.header site-search button {
   font-size: var(--sl-text-sm);
   color: var(--sl-color-gray-3);
 }
+
+/*
+ * Steps - a marked ordered list (src/plugins/steps.mjs) rendered as a
+ * numbered sequence with a connecting rail. The list stays a real <ol>,
+ * so we suppress the native marker and draw our own counter badge. Uses
+ * Starlight theme variables to adapt to default + nebula themes.
+ */
+ol.fdai-steps {
+  list-style: none;
+  counter-reset: fdai-step;
+  margin: 1.5rem 0 2rem;
+  padding: 0;
+}
+
+ol.fdai-steps > li {
+  counter-increment: fdai-step;
+  position: relative;
+  margin: 0;
+  padding: 0 0 1.4rem 3rem;
+}
+
+/* Connecting rail between badges, drawn behind them. */
+ol.fdai-steps > li::after {
+  content: "";
+  position: absolute;
+  top: 0.2rem;
+  left: 0.95rem;
+  width: 2px;
+  height: 100%;
+  background: var(--sl-color-gray-5);
+}
+
+ol.fdai-steps > li:last-child::after {
+  display: none;
+}
+
+/* Numbered badge. */
+ol.fdai-steps > li::before {
+  content: counter(fdai-step);
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1px solid var(--sl-color-gray-5);
+  background: var(--sl-color-bg-nav, var(--sl-color-black));
+  color: var(--sl-color-white);
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

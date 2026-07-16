@@ -171,6 +171,8 @@ flowchart TB
 Start with one bounded operational scope and one action family. The goal of the
 first rollout is to produce evidence, not to maximize automation on day one.
 
+<!-- fdai:steps -->
+
 1. **Choose the boundary.** Select a resource-group-equivalent scope, name its
   owner, and identify the events and actions that belong inside it.
 2. **Run readiness checks.** Complete the

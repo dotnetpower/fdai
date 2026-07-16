@@ -2,7 +2,7 @@
 title: FDAI 시작하기
 description: FDAI 5분 오리엔테이션 - 무엇인지, 언제 적합한지, 다음으로 어디를 볼지.
 translation_of: get-started.md
-translation_source_sha: 1ef4bbc4c477437749d44631ccc208dfcecd4358
+translation_source_sha: ecb5fae15620e3eba12720688d15c14f298dc3a3
 translation_revised: 2026-07-17
 ---
 
@@ -152,6 +152,8 @@ flowchart TB
 
 하나의 제한된 운영 범위와 하나의 액션 제품군으로 시작하는 것이 좋습니다. 첫 번째
 롤아웃의 목표는 첫날부터 자동화를 최대화하는 것이 아니라 증거를 만드는 것입니다.
+
+<!-- fdai:steps -->
 
 1. **경계를 선택합니다.** 리소스 그룹과 동등한 범위를 선택하고, 소유자를 지정하고,
   범위 안에 포함할 이벤트와 액션을 식별합니다.
