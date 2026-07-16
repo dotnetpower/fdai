@@ -3,7 +3,7 @@ title: 온톨로지 기반 자동화(Ontology-driven automation)
 description: FDAI가 타입 있는 액션 온톨로지를 어떻게 실행 가능한 자동화로 바꾸는가 - 인스턴스화, 비즈니스 파이프라인, 모든 액션이 물려받는 안전 계약.
 translation_of: ontology-driven-automation.md
 translation_source_sha: 330c38260266218bfba9f084720c6469c57ff669
-translation_revised: 2026-07-13
+translation_revised: 2026-07-17
 sidebar:
   order: 4
 ---
@@ -107,7 +107,7 @@ flowchart LR
 
 - **`rule_violation`** - 컨트롤 루프가 액션을 제안(push 방향).
 - **`operator_request`** - 사람이 콘솔로 요청(pull 방향).
-- **`both`** - 어느 표면에도 속하는 액션. `ops.restart-service`는 운영자("이거
+- **`both`** - 어느 쪽 표면에든 속하는 액션. `ops.restart-service`는 운영자("이거
   재시작")나 health-probe 규칙 어느 쪽으로도 트리거될 수 있습니다.
 
 스키마의 나머지는 트리거 종류에 종속되지 않습니다. risk-gate와 감사 계약은 두 경로에
