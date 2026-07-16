@@ -338,6 +338,11 @@ export default defineConfig({
               link: "/capabilities/change-safety/",
             },
             {
+              label: "Cost Governance",
+              translations: { ko: "\ube44\uc6a9 \uac70\ubc84\ub10c\uc2a4" },
+              link: "/capabilities/cost-governance/",
+            },
+            {
               label: "Resilience & SRE",
               translations: { ko: "\ud68c\ubcf5\ud0c4\ub825\uc131\uacfc SRE" },
               link: "/concepts/sre-foundations/",
