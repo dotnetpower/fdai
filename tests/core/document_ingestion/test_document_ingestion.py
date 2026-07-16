@@ -329,6 +329,20 @@ async def test_storage_commit_mismatch_holds_source() -> None:
     assert version.failure_code == "storage_commit_mismatch"
 
 
+async def test_complete_upload_replay_returns_received_without_duplicate_activity() -> None:
+    service, _, _, _, _, _, activity = _dependencies()
+    session = await _upload(service, b"content")
+    activity_count = len(activity.events)
+
+    replayed = await service.complete_upload(
+        actor_id="uploader",
+        upload_id=session.upload_id,
+    )
+
+    assert replayed.state is DocumentState.RECEIVED
+    assert len(activity.events) == activity_count
+
+
 async def test_safe_text_reaches_ready_and_indexes_line_citations() -> None:
     service, worker, _, _, artifacts, index, activity = _dependencies()
     session = await _upload(service, b"first\nsecond\n")

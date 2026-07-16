@@ -29,6 +29,21 @@ from fdai.shared.providers.document_ingestion import (
     UploadGrant,
 )
 
+_COMPLETED_UPLOAD_STATES = frozenset(
+    {
+        DocumentState.RECEIVED,
+        DocumentState.QUARANTINED,
+        DocumentState.SCANNING,
+        DocumentState.PROTECTION_CHECK,
+        DocumentState.EXTRACTING,
+        DocumentState.INDEXING,
+        DocumentState.READY,
+        DocumentState.READY_WITH_WARNINGS,
+        DocumentState.HELD,
+        DocumentState.FAILED,
+    }
+)
+
 
 @dataclass(frozen=True, slots=True)
 class CreateUploadRequest:
@@ -230,6 +245,11 @@ class DocumentIngestionService:
             actor_id=actor_id, actor_groups=actor_groups, version=version
         )
         if session.state is not DocumentState.UPLOADING:
+            if (
+                session.state in _COMPLETED_UPLOAD_STATES
+                and session.failure_code != "storage_commit_mismatch"
+            ):
+                return session
             raise ValueError("upload session is not awaiting completion")
         info = await self._objects.stat(session.object_key)
         if info.size_bytes != session.expected_size or info.sha256 != session.expected_sha256:

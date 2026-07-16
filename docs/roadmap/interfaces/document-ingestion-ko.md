@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 222a931faa675e21ca7bc2e0e4ead8f1e51bca0d
+translation_source_sha: ced515820bf97eb3ecefd0fc60fb6a3f2a6b416c
 translation_revised: 2026-07-16
 ---
 # 문서 인제스트와 Drop Zone
@@ -458,6 +458,9 @@ FDAI_INGESTION_GATEWAY_DEV_MODE=1 \
 
 Source byte는 client와 object storage 사이에서 직접 이동합니다. Authentication token과 storage
 grant는 log에 남을 수 있는 query string으로 받지 않습니다.
+Object가 수락된 후 `complete`를 다시 호출하면 현재 session을 `202`로 반환하고
+`document.received` event를 다시 publish하지 않습니다. 따라서 HTTP response가 유실되어도
+안전하게 retry할 수 있습니다.
 
 Artifact write, index commit, purpose별 consumer delivery에는 각각 bounded deadline을 적용합니다.
 `FDAI_DOCUMENT_INDEXING_STAGE_TIMEOUT_SECONDS`를 양의 초 단위 값으로 설정하세요. Azure 배포의

@@ -448,6 +448,8 @@ process to a comma-separated list of exact HTTP(S) origins.
 
 The source bytes travel directly between client and object storage. Authentication tokens and
 storage grants are never accepted in query strings that may be logged.
+After the object is accepted, replaying `complete` returns the current session with `202` and does
+not publish another `document.received` event. This makes a lost HTTP response safe to retry.
 
 Each artifact write, index commit, and purpose-specific consumer delivery has a bounded deadline.
 Set `FDAI_DOCUMENT_INDEXING_STAGE_TIMEOUT_SECONDS` to a positive number of seconds; the Azure
