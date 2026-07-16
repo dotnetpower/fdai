@@ -21,9 +21,13 @@ ENV UV_LINK_MODE=copy \
 
 RUN apk add --no-cache build-base zlib-dev
 RUN pip install --no-cache-dir uv==0.4.30
-RUN wget -q -O /usr/local/bin/opa \
-    https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static \
-    && chmod 755 /usr/local/bin/opa \
+ARG OPA_VERSION=v1.18.2
+ARG OPA_SHA256=9903e5125ac281104f2c4b7371d10cc3b74a98933743fcbfc174f9bf0ab20de8
+RUN wget -q -O /tmp/opa \
+    "https://github.com/open-policy-agent/opa/releases/download/${OPA_VERSION}/opa_linux_amd64_static" \
+    && echo "${OPA_SHA256}  /tmp/opa" | sha256sum -c - \
+    && install -m 755 /tmp/opa /usr/local/bin/opa \
+    && rm /tmp/opa \
     && opa version
 
 WORKDIR /app
