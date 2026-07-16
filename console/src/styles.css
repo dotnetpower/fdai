@@ -7578,8 +7578,7 @@ main { padding-bottom: 60px !important; }
   position: relative;
   z-index: 1;
   width: min(92vw, 400px);
-  max-height: calc(100dvh - 48px);
-  overflow-y: auto;
+  overflow: hidden;
   padding: 42px 36px 30px;
   text-align: center;
   border-radius: 20px;
