@@ -4597,16 +4597,24 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 
 .deck-turn {
   max-width: 780px;
-  padding: 12px 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-elevated);
+  display: flex;
+  flex-direction: column;
 }
+/* User question: a right-aligned rounded bubble (chat style). Only the body
+ * carries the fill, so the timestamp/foot sits outside the bubble. */
 .deck-turn-operator {
   align-self: flex-end;
-  background: color-mix(in oklab, var(--accent) 14%, var(--bg-elevated));
-  border-color: color-mix(in oklab, var(--accent) 40%, var(--border));
+  max-width: min(100%, 560px);
+  align-items: flex-end;
 }
+.deck-turn-operator .deck-turn-body {
+  padding: 9px 15px;
+  border-radius: 16px;
+  background: color-mix(in oklab, var(--accent) 12%, var(--bg-elevated));
+  color: var(--fg);
+}
+/* Bragi answer: plain body text on the deck background - no card chrome, so
+ * the reply reads as prose rather than a boxed panel. */
 .deck-turn-deck {
   align-self: flex-start;
   width: min(100%, 780px);
@@ -4619,18 +4627,26 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: none; }
 }
-.deck-turn.is-search-match {
-  border-color: color-mix(in oklab, var(--accent) 60%, var(--border));
+.deck-turn.is-search-match .deck-turn-body {
+  outline: 1px solid color-mix(in oklab, var(--accent) 45%, var(--border));
+  outline-offset: 2px;
+  border-radius: 8px;
 }
-.deck-turn.is-active-search-match {
-  background: color-mix(in oklab, var(--accent) 16%, var(--bg-elevated));
+.deck-turn.is-active-search-match .deck-turn-body {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+  border-radius: 8px;
 }
+/* Timestamp: shown quietly beneath each message instead of in the header. */
+.deck-turn-foot {
+  display: flex;
+  margin-top: 4px;
+}
+.deck-turn-operator .deck-turn-foot { justify-content: flex-end; }
+.deck-turn-deck .deck-turn-foot { justify-content: flex-start; }
 .deck-turn-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: 12px;
   margin-bottom: 6px;
 }
@@ -4922,6 +4938,17 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-gr-tool:hover { border-color: var(--fg-muted); color: var(--fg); }
 .deck-gr-tool:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.deck-gr-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  color: var(--fg-muted);
+}
+.deck-gr-icon:hover { color: var(--fg); }
+.deck-gr-icon svg { display: block; }
 .deck-gr-src-inline { align-self: center; }
 .deck-verification {
   display: inline-flex;
@@ -4947,6 +4974,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   font-weight: 550;
 }
 .deck-verification-mark { font-size: 12px; font-weight: 800; }
+.deck-verification-short { font-weight: 650; }
 .deck-verification-spinner {
   width: 10px;
   height: 10px;
@@ -4959,15 +4987,15 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   flex-wrap: wrap;
-  padding: 5px 11px;
+  padding: 3px 9px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--bg-elevated);
-  color: var(--fg);
+  color: var(--fg-muted);
   font: inherit;
-  font-size: 11.5px;
+  font-size: 10.5px;
   cursor: pointer;
 }
 .deck-gr-pill:hover { border-color: var(--fg-muted); }
@@ -4997,10 +5025,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-gr-item {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: 4px 8px;
   font-size: 12px;
-  padding: 3px 6px;
+  padding: 4px 6px;
   border-radius: 5px;
 }
 .deck-gr-item:hover { background: color-mix(in oklab, var(--accent) 8%, transparent); }
@@ -5016,6 +5045,15 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   color: var(--fg);
   font-variant-numeric: tabular-nums;
   word-break: break-word;
+}
+.deck-gr-path,
+.deck-gr-anchors {
+  flex: 0 0 100%;
+  padding-left: 96px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  opacity: 0.7;
+  word-break: break-all;
 }
 
 .deck-turn-time {
@@ -5426,27 +5464,39 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-followups {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 10px 0 0;
+  flex-direction: column;
+  gap: 1px;
+  margin: 8px 0 0;
   padding: 0;
   list-style: none;
 }
 .deck-followup {
-  padding: 4px 10px;
-  border: 1px dashed var(--border);
-  border-radius: 999px;
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 4px;
+  border: none;
+  border-radius: 6px;
   background: transparent;
   color: var(--fg-muted);
-  font-size: 11.5px;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
   cursor: pointer;
   font-family: inherit;
 }
+.deck-followup::before {
+  content: "\21B3";
+  flex: 0 0 auto;
+  color: var(--fg-muted);
+  opacity: 0.65;
+}
 .deck-followup:hover {
   color: var(--accent-strong);
-  border-color: var(--accent);
-  border-style: solid;
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
 }
+.deck-followup:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Input row ------------------------------------------------------------ */
 .deck-input-row {
@@ -5492,6 +5542,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   cursor: pointer;
 }
 .deck-slash-item:hover,
+.deck-slash-item.is-active,
 .deck-slash-item:focus-visible {
   background: color-mix(in oklab, var(--accent) 12%, var(--bg));
   outline: none;

@@ -411,9 +411,14 @@ export async function askBackend(
   // the turn (they can differ if the backend echoes a canonical name).
   const chosen = router?.chose ?? model;
   const source = explicitSource ?? (
-    latencyMs !== null && latencyMs >= 0
+    (latencyMs !== null && latencyMs >= 0
       ? `llm:${chosen} · ${latencyMs}ms`
-      : `llm:${chosen}`
+      : `llm:${chosen}`) +
+    tokenSuffix(
+      typeof payload === "object" && payload !== null
+        ? (payload as Record<string, unknown>).usage
+        : undefined,
+    )
   );
   const base = {
     text: answerText,
@@ -839,7 +844,8 @@ export async function askBackendStream(
   const chosen = router?.chose ?? model;
   const explicitSource = typeof done.source === "string" ? done.source : null;
   const source = explicitSource ?? (
-    latencyMs !== null && latencyMs >= 0 ? `llm:${chosen} · ${latencyMs}ms` : `llm:${chosen}`
+    (latencyMs !== null && latencyMs >= 0 ? `llm:${chosen} · ${latencyMs}ms` : `llm:${chosen}`) +
+    tokenSuffix(done.usage)
   );
   const base: Answer & { readonly source: string } = {
     text: finalText,
@@ -1148,6 +1154,34 @@ function extractNumber(payload: unknown, key: string): number | null {
   if (typeof payload !== "object" || payload === null) return null;
   const v = (payload as Record<string, unknown>)[key];
   return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+/** Total token count from an OpenAI/Azure `usage` block, or null. */
+function totalTokensOf(raw: unknown): number | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const u = raw as Record<string, unknown>;
+  const total = u.total_tokens;
+  if (typeof total === "number" && Number.isFinite(total) && total >= 0) return Math.round(total);
+  const prompt = u.prompt_tokens;
+  const completion = u.completion_tokens;
+  if (
+    typeof prompt === "number" &&
+    Number.isFinite(prompt) &&
+    typeof completion === "number" &&
+    Number.isFinite(completion)
+  ) {
+    return Math.round(prompt + completion);
+  }
+  return null;
+}
+
+/** `" · <N> tok"` suffix for the source badge, or `""` when usage is absent. */
+function tokenSuffix(usage: unknown): string {
+  const total = totalTokensOf(usage);
+  if (total === null) return "";
+  const label =
+    total >= 1000 ? `${(total / 1000).toFixed(total >= 10000 ? 0 : 1)}k` : `${total}`;
+  return ` · ${label} tok`;
 }
 
 function parseRouter(raw: unknown): RouterSnapshot | undefined {

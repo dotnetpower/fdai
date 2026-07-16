@@ -112,7 +112,8 @@ export function GroundedReply({
         <div
           class={`deck-verification is-${boundedCorrection ? "verified" : verification.status}`}
           role="status"
-          aria-label={`Answer ${boundedCorrection ? "verified" : verification.status}`}
+          aria-label={verificationLabel(verification)}
+          title={verificationLabel(verification)}
         >
           <span class="deck-verification-mark" aria-hidden="true">
             {verification.status === "verified" ||
@@ -123,7 +124,9 @@ export function GroundedReply({
                 ? "\u21bb"
                 : "!"}
           </span>
-          <span>{verificationLabel(verification)}</span>
+          <span class="deck-verification-short">
+            {shortVerificationStatus(verification, boundedCorrection)}
+          </span>
         </div>
       ) : null}
 
@@ -140,17 +143,24 @@ export function GroundedReply({
 
       {!streaming && text.trim().length > 0 ? (
         <div class="deck-gr-tools">
-          <button type="button" class="deck-gr-tool" onClick={copy} title="Copy reply">
-            {copied ? "Copied" : "Copy"}
+          <button
+            type="button"
+            class="deck-gr-tool deck-gr-icon"
+            onClick={copy}
+            title={copied ? "Copied" : "Copy reply"}
+            aria-label="Copy reply"
+          >
+            {copied ? <IconCheck /> : <IconCopy />}
           </button>
           {onRegenerate ? (
             <button
               type="button"
-              class="deck-gr-tool"
+              class="deck-gr-tool deck-gr-icon"
               onClick={onRegenerate}
               title="Ask this question again"
+              aria-label="Regenerate"
             >
-              Regenerate
+              <IconRegenerate />
             </button>
           ) : null}
           {source && cites.length === 0 ? (
@@ -187,19 +197,95 @@ export function GroundedReply({
             <span class="deck-gr-more">{open ? "hide sources" : "show sources"}</span>
           </button>
 
-          {open ? (
-            <ul class="deck-gr-list">
-              {cites.map((c, i) => (
-                <li key={`${c.label}-${i}`} class="deck-gr-item">
-                  <span class="deck-gr-k">{c.label}</span>
-                  {c.value !== undefined ? <span class="deck-gr-v">{c.value}</span> : null}
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          {open ? <SourceDetail verification={verification} cites={cites} /> : null}
         </>
       ) : null}
     </div>
+  );
+}
+
+/** Short one-word status for the compact verification chip; the full sentence
+ *  stays available on hover (title). */
+function shortVerificationStatus(
+  verification: AnswerVerification,
+  boundedCorrection: boolean,
+): string {
+  if (boundedCorrection) return "Verified";
+  switch (verification.status) {
+    case "verified":
+      return "Verified";
+    case "consistent":
+      return "Consistent";
+    case "corrected":
+      return "Corrected";
+    case "unverified":
+      return "Unverified";
+  }
+}
+
+/** Expanded "show sources" detail. Prefers the evidence manifest (field, value,
+ *  path, anchors) so the operator sees exactly what each claim was grounded in;
+ *  falls back to plain citation labels when no manifest is attached. */
+function SourceDetail({
+  verification,
+  cites,
+}: {
+  readonly verification: AnswerVerification | undefined;
+  readonly cites: readonly Citation[];
+}) {
+  const entries = verification?.evidence_manifest?.entries ?? [];
+  if (entries.length > 0) {
+    return (
+      <ul class="deck-gr-list">
+        {entries.map((e, i) => (
+          <li key={`${e.ref}-${i}`} class="deck-gr-item">
+            <span class="deck-gr-k">{e.field || e.kind}</span>
+            <span class="deck-gr-v">{e.raw_value}</span>
+            {e.path ? <span class="deck-gr-path muted">{e.path}</span> : null}
+            {e.anchors.length > 0 ? (
+              <span class="deck-gr-anchors muted">{e.anchors.join(", ")}</span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  return (
+    <ul class="deck-gr-list">
+      {cites.map((c, i) => (
+        <li key={`${c.label}-${i}`} class="deck-gr-item">
+          <span class="deck-gr-k">{c.label}</span>
+          {c.value !== undefined ? <span class="deck-gr-v">{c.value}</span> : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Inline monochrome icons (currentColor) for the reply tool row. */
+function IconCopy() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+      <path d="M10.5 5.5V4A1.5 1.5 0 0 0 9 2.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5" />
+    </svg>
+  );
+}
+
+function IconCheck() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 8.5 6.5 12 13 4.5" />
+    </svg>
+  );
+}
+
+function IconRegenerate() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 8a5 5 0 1 1-1.46-3.54" />
+      <path d="M13 2.5V5h-2.5" />
+    </svg>
   );
 }
 

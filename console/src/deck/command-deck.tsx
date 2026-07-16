@@ -306,6 +306,8 @@ export function CommandDeck() {
   const [draft, setDraft] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSearchMatch, setActiveSearchMatch] = useState(0);
+  // Highlighted row in the "/" slash-command palette (keyboard navigable).
+  const [slashActiveIndex, setSlashActiveIndex] = useState(0);
   // Active conversation session. The general screen deck is "screen"; a chat
   // scoped to one agent uses e.g. "agent:Forseti" and keeps a separate
   // transcript so threads never bleed into each other.
@@ -948,17 +950,37 @@ export function CommandDeck() {
   }, [openDeck, switchSession, streamContextTurn, userScope]);
 
   // Navigation keeps the overlay open but starts (or restores) the default
-  // conversation owned by this user and the new canonical menu URL.
+  // conversation owned by this user and the new canonical menu URL. Exception:
+  // in full workspace mode the deck covers the whole content area, so a menu
+  // click would land on a page hidden behind it - close the deck instead so
+  // the navigated screen is visible.
+  //
+  // The listener is attached once and reads live state through refs, so it can
+  // never miss a navigation that happens right after the deck opens (an effect
+  // gated on `open` would attach a frame late). Closing when already closed is
+  // a harmless no-op, so the handler does not need an open-guard.
+  const layoutModeRef = useRef(layoutMode);
+  const openRef = useRef(open);
+  const routeLabelRef = useRef<string | undefined>(snapshot?.routeLabel);
+  useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
+  useEffect(() => { openRef.current = open; }, [open]);
+  useEffect(() => { routeLabelRef.current = snapshot?.routeLabel; }, [snapshot?.routeLabel]);
   useEffect(() => {
-    if (!open) return;
     const switchToCurrentRoute = () => {
+      if (layoutModeRef.current === "workspace") {
+        // Full workspace covers the content area; a menu click would land on a
+        // page hidden behind the deck, so close it to reveal the destination.
+        closeDeck();
+        return;
+      }
+      if (!openRef.current) return;
       const key = screenConversationKey(userScope, currentPathname());
       if (sessionKeyRef.current !== key) {
         switchSession(
           key,
           null,
           undefined,
-          snapshot?.routeLabel ?? currentPathname(),
+          routeLabelRef.current ?? currentPathname(),
           "screen-default",
         );
       }
@@ -969,7 +991,7 @@ export function CommandDeck() {
       window.removeEventListener("popstate", switchToCurrentRoute);
       window.removeEventListener("fdai:route-changed", switchToCurrentRoute);
     };
-  }, [open, snapshot?.routeLabel, switchSession, userScope]);
+  }, [closeDeck, switchSession, userScope]);
 
   useEffect(() => () => cancelActiveRequest(), [cancelActiveRequest]);
 
@@ -1468,9 +1490,50 @@ export function CommandDeck() {
   // Arrow-Down walks back to the live draft. Only fires when the caret is on
   // the first line (Up) or last line (Down) so multi-line editing is
   // unaffected. Delegated to the pure `draft-history` reducer.
+  //
+  // Slash-command hint palette: surfaces while the operator is still typing the
+  // command token (a leading `/` with no whitespace yet). Empties out the
+  // moment the input stops looking like a bare command.
+  const slashSuggestions = useMemo(() => {
+    const trimmed = draft.trim();
+    if (!/^\/\S*$/.test(trimmed)) return [] as DeckSlashCommand[];
+    const token = trimmed.slice(1).toLowerCase();
+    return DECK_SLASH_COMMANDS.filter(
+      (c) => c.name.startsWith(token) || c.aliases.some((a) => a.startsWith(token)),
+    );
+  }, [draft]);
+  // Keep the highlighted palette row in range as the filtered set changes.
+  useEffect(() => {
+    setSlashActiveIndex((i) => (slashSuggestions.length === 0 ? 0 : Math.min(i, slashSuggestions.length - 1)));
+  }, [slashSuggestions.length]);
   const onInputKeyDown = useCallback(
     (e: KeyboardEvent) => {
       const el = e.target as HTMLTextAreaElement;
+      // When the "/" palette is open, arrow keys move the selection and Enter
+      // runs the highlighted command instead of submitting or recalling history.
+      if (slashSuggestions.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setSlashActiveIndex((i) => (i + 1) % slashSuggestions.length);
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSlashActiveIndex((i) => (i - 1 + slashSuggestions.length) % slashSuggestions.length);
+          return;
+        }
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          const picked = slashSuggestions[Math.min(slashActiveIndex, slashSuggestions.length - 1)];
+          if (picked) runSlashCommand(`/${picked.name}`);
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setDraft("");
+          return;
+        }
+      }
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         if (runSlashCommand(el.value)) return;
@@ -1499,23 +1562,11 @@ export function CommandDeck() {
         }
       }
     },
-    [submit, runSlashCommand],
+    [submit, runSlashCommand, slashSuggestions, slashActiveIndex],
   );
 
   const headline = snapshot?.headline ?? "Idle. Open any route to publish a view snapshot.";
   const routeLabel = snapshot?.routeLabel ?? t("deck.label");
-
-  // Slash-command hint palette: surfaces while the operator is still typing the
-  // command token (a leading `/` with no whitespace yet). Empties out the
-  // moment the input stops looking like a bare command.
-  const slashSuggestions = useMemo(() => {
-    const trimmed = draft.trim();
-    if (!/^\/\S*$/.test(trimmed)) return [] as DeckSlashCommand[];
-    const token = trimmed.slice(1).toLowerCase();
-    return DECK_SLASH_COMMANDS.filter(
-      (c) => c.name.startsWith(token) || c.aliases.some((a) => a.startsWith(token)),
-    );
-  }, [draft]);
 
   return (
     <>
@@ -1796,11 +1847,12 @@ export function CommandDeck() {
           >
             {slashSuggestions.length > 0 ? (
               <ul class="deck-slash-palette" aria-label="slash commands">
-                {slashSuggestions.map((cmd) => (
+                {slashSuggestions.map((cmd, i) => (
                   <li key={cmd.name}>
                     <button
                       type="button"
-                      class="deck-slash-item"
+                      class={`deck-slash-item${i === slashActiveIndex ? " is-active" : ""}`}
+                      onMouseEnter={() => setSlashActiveIndex(i)}
                       onMouseDown={(e) => {
                         // Keep composer focus; run before the input blurs.
                         e.preventDefault();
@@ -2024,8 +2076,8 @@ function TurnBubble({
       id={`deck-turn-${turn.id}`}
       class={`deck-turn deck-turn-${turn.role}${turn.streaming ? " is-streaming" : ""}${searchMatch ? " is-search-match" : ""}${activeSearchMatch ? " is-active-search-match" : ""}`}
     >
-      <header class="deck-turn-head">
-        {turn.agent || isDeck ? (
+      {isDeck ? (
+        <header class="deck-turn-head">
           <span class="deck-turn-role deck-turn-agent">
             <span
               class="deck-turn-agent-icon"
@@ -2037,19 +2089,16 @@ function TurnBubble({
             />
             {turn.agent ?? DEFAULT_NARRATOR}
           </span>
-        ) : (
-          <span class="deck-turn-role">you</span>
-        )}
-        {turn.source ? (
-          <span
-            class="deck-turn-source"
-            title={routerTooltip(turn.router) ?? "reply source"}
-          >
-            {turn.source}
-          </span>
-        ) : null}
-        <span class="deck-turn-time muted">{turn.at}</span>
-      </header>
+          {turn.source ? (
+            <span
+              class="deck-turn-source"
+              title={routerTooltip(turn.router) ?? "reply source"}
+            >
+              {turn.source}
+            </span>
+          ) : null}
+        </header>
+      ) : null}
       {isDeck ? (
         <GroundedReply
           turnId={turn.id}
@@ -2085,6 +2134,9 @@ function TurnBubble({
           ))}
         </ul>
       ) : null}
+      <div class="deck-turn-foot">
+        <span class="deck-turn-time muted">{turn.at}</span>
+      </div>
     </article>
   );
 }
