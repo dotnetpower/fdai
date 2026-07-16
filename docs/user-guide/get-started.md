@@ -230,15 +230,15 @@ is not enough by itself.
 
 ## Next steps
 
-| To learn about | Read |
-|----------------|------|
-| The SRE functions FDAI automates | [concepts/sre-foundations.md](concepts/sre-foundations.md) |
-| Why deterministic first | [concepts/deterministic-first.md](concepts/deterministic-first.md) |
-| The three trust tiers in depth | [concepts/risk-tiers.md](concepts/risk-tiers.md) |
-| How the action ontology drives automation | [concepts/ontology-driven-automation.md](concepts/ontology-driven-automation.md) |
-| How agents collaborate and self-heal | [concepts/agents-and-self-healing.md](concepts/agents-and-self-healing.md) |
-| Shadow-mode rollout and promotion | [concepts/shadow-then-enforce.md](concepts/shadow-then-enforce.md) |
-| Approving a change on the operator side | [guides/approve-change.md](guides/approve-change.md) |
-| Reading the audit log | [guides/read-audit-log.md](guides/read-audit-log.md) |
-| Narrowing a rule for one scope | [guides/override-a-rule.md](guides/override-a-rule.md) |
-| The full engineering roadmap | [../roadmap/README.md](../roadmap/README.md) |
+<!-- fdai:cards -->
+
+- [SRE foundations](concepts/sre-foundations.md) - The SRE functions FDAI automates.
+- [Deterministic-first](concepts/deterministic-first.md) - Why known decisions stay deterministic.
+- [Risk tiers](concepts/risk-tiers.md) - The three trust tiers in depth.
+- [Ontology-driven automation](concepts/ontology-driven-automation.md) - How the action ontology drives automation.
+- [Agents and self-healing](concepts/agents-and-self-healing.md) - How agents collaborate and self-heal.
+- [Shadow then enforce](concepts/shadow-then-enforce.md) - Shadow-mode rollout and promotion.
+- [Approve a change](guides/approve-change.md) - Approving a change on the operator side.
+- [Read the audit log](guides/read-audit-log.md) - Reading the audit log.
+- [Override a rule](guides/override-a-rule.md) - Narrowing a rule for one scope.
+- [Engineering roadmap](../roadmap/README.md) - The full engineering reference.

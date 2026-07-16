@@ -2,7 +2,7 @@
 title: FDAI 시작하기
 description: FDAI 5분 오리엔테이션 - 무엇인지, 언제 적합한지, 다음으로 어디를 볼지.
 translation_of: get-started.md
-translation_source_sha: 996b29e9052ccfb20620a83b8405af6025162777
+translation_source_sha: 1ef4bbc4c477437749d44631ccc208dfcecd4358
 translation_revised: 2026-07-17
 ---
 
@@ -211,15 +211,15 @@ flowchart TB
 
 ## 다음 단계
 
-| 학습 대상 | 문서 |
-|-----------|------|
-| FDAI가 자동화하는 SRE 기능 | [concepts/sre-foundations-ko.md](concepts/sre-foundations-ko.md) |
-| 왜 결정론 우선인가 | [concepts/deterministic-first-ko.md](concepts/deterministic-first-ko.md) |
-| 세 신뢰 티어의 상세 | [concepts/risk-tiers-ko.md](concepts/risk-tiers-ko.md) |
-| 액션 온톨로지가 자동화를 이끄는 방식 | [concepts/ontology-driven-automation-ko.md](concepts/ontology-driven-automation-ko.md) |
-| 에이전트들이 협력하고 자가 치유하는 방식 | [concepts/agents-and-self-healing-ko.md](concepts/agents-and-self-healing-ko.md) |
-| Shadow 모드 롤아웃과 승격 | [concepts/shadow-then-enforce-ko.md](concepts/shadow-then-enforce-ko.md) |
-| 운영자 관점의 변경 승인 | [guides/approve-change-ko.md](guides/approve-change-ko.md) |
-| 감사 로그 읽기 | [guides/read-audit-log-ko.md](guides/read-audit-log-ko.md) |
-| 특정 스코프에서 규칙 좁히기 | [guides/override-a-rule-ko.md](guides/override-a-rule-ko.md) |
-| 전체 엔지니어링 로드맵 | [../roadmap/README-ko.md](../roadmap/README-ko.md) |
+<!-- fdai:cards -->
+
+- [SRE 기초](concepts/sre-foundations-ko.md) - FDAI가 자동화하는 SRE 기능.
+- [결정론 우선](concepts/deterministic-first-ko.md) - 왜 알려진 결정은 결정론적으로 남는가.
+- [리스크 티어](concepts/risk-tiers-ko.md) - 세 신뢰 티어의 상세.
+- [온톨로지 기반 자동화](concepts/ontology-driven-automation-ko.md) - 액션 온톨로지가 자동화를 이끄는 방식.
+- [에이전트와 자가 치유](concepts/agents-and-self-healing-ko.md) - 에이전트들이 협력하고 자가 치유하는 방식.
+- [Shadow 후 enforce](concepts/shadow-then-enforce-ko.md) - Shadow 모드 롤아웃과 승격.
+- [변경 승인](guides/approve-change-ko.md) - 운영자 관점의 변경 승인.
+- [감사 로그 읽기](guides/read-audit-log-ko.md) - 감사 로그 읽기.
+- [규칙 오버라이드](guides/override-a-rule-ko.md) - 특정 스코프에서 규칙 좁히기.
+- [엔지니어링 로드맵](../roadmap/README-ko.md) - 전체 엔지니어링 참고 자료.

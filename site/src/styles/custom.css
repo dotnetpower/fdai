@@ -828,3 +828,69 @@ header.header site-search button {
   color: #8ea3c6;
 }
 
+/*
+ * Card grid - emitted by src/plugins/cards.mjs from a `<!-- fdai:cards -->`
+ * marked list. A docs-site "Next steps" deck: each card is a full anchor so
+ * the whole surface is clickable. Styled with Starlight theme variables so
+ * it adapts to both the default docs theme and the route-scoped nebula
+ * theme (get-started.css) without per-page overrides. Per the console
+ * visual-boundary rule, cards use a neutral full border + whole-surface
+ * hover, never a colored top/left edge accent.
+ */
+.fdai-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+  gap: 0.85rem;
+  margin: 1.5rem 0 2rem;
+}
+
+.fdai-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.6rem;
+  background: var(--sl-color-bg-nav, var(--sl-color-black));
+  text-decoration: none;
+  line-height: 1.45;
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.fdai-card:hover {
+  border-color: var(--sl-color-text-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.fdai-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: var(--sl-color-white);
+}
+
+.fdai-card-title::after {
+  content: "\2192"; /* right arrow */
+  margin-inline-start: auto;
+  color: var(--sl-color-text-accent);
+  opacity: 0;
+  transform: translateX(-0.25rem);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.fdai-card:hover .fdai-card-title::after {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.fdai-card-desc {
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+}
