@@ -43,9 +43,9 @@ variable "grant_executor_role" {
 }
 
 variable "additional_user_principal_ids" {
-  description = "Additional principals that may invoke Azure OpenAI deployments but receive no management-plane role."
-  type        = set(string)
-  default     = []
+  description = "Additional principals keyed by stable role name. Values may be unknown until apply."
+  type        = map(string)
+  default     = {}
 }
 
 variable "resolved_capabilities" {

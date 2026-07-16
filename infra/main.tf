@@ -710,11 +710,13 @@ module "llm_azure_openai" {
   resource_group_name   = module.resource_group.name
   executor_principal_id = module.identity.principal_id
   additional_user_principal_ids = (
-    concat(
+    merge(
       var.enable_read_api && var.python_task_author_capability != ""
-      ? [module.read_api_identity[0].principal_id]
-      : [],
-      var.enable_document_ingestion ? [module.ingestion_identity[0].principal_id] : [],
+      ? { read_api = module.read_api_identity[0].principal_id }
+      : {},
+      var.enable_document_ingestion
+      ? { ingestion = module.ingestion_identity[0].principal_id }
+      : {},
     )
   )
   resolved_capabilities = var.resolved_capabilities
