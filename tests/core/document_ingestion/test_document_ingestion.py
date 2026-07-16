@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import io
 import zipfile
@@ -82,6 +83,18 @@ class _PromotableInMemoryStore(InMemoryDocumentObjectStore):
         return f"governed/{session.document_id.hex}/{session.version_id.hex}/source"
 
 
+class _HangingArtifactStore:
+    def __init__(self) -> None:
+        self.deleted: list[tuple[UUID, UUID]] = []
+
+    async def put(self, _envelope) -> str:
+        await asyncio.Event().wait()
+        raise AssertionError("unreachable")
+
+    async def delete(self, document_id: UUID, version_id: UUID) -> None:
+        self.deleted.append((document_id, version_id))
+
+
 def _capabilities(*, direct_upload: bool = True) -> IngestionCapabilities:
     return IngestionCapabilities(
         supported_formats=("text", "ooxml", "pdf-detect-only"),
@@ -121,6 +134,8 @@ def _dependencies(
     *,
     malware: MalwareVerdict = MalwareVerdict.CLEAN,
     objects: InMemoryDocumentObjectStore | None = None,
+    artifacts: DocumentArtifactStore | None = None,
+    indexing_stage_timeout_seconds: float = 90.0,
 ):
     access = InMemoryDocumentAccessProvider(
         contributors={"collection-a": frozenset({"uploader"})},
@@ -129,7 +144,7 @@ def _dependencies(
     )
     metadata = InMemoryDocumentMetadataStore()
     objects = objects or InMemoryDocumentObjectStore(chunk_size=7)
-    artifacts = InMemoryDocumentArtifactStore()
+    artifacts = artifacts or InMemoryDocumentArtifactStore()
     index = InMemoryDocumentIndex()
     activity = RecordingDocumentActivitySink()
     service = DocumentIngestionService(
@@ -152,6 +167,7 @@ def _dependencies(
         index=index,
         activity=activity,
         clock=lambda: _NOW,
+        indexing_stage_timeout_seconds=indexing_stage_timeout_seconds,
     )
     return service, worker, metadata, objects, artifacts, index, activity
 
@@ -324,6 +340,22 @@ async def test_safe_text_reaches_ready_and_indexes_line_citations() -> None:
     assert [unit.locator for unit in envelope.units] == ["line:1", "line:2"]
     assert (session.document_id, session.version_id) in index.envelopes
     assert activity.events[-1][0] == "document.ready"
+
+
+async def test_hung_artifact_write_times_out_and_fails_closed() -> None:
+    artifacts = _HangingArtifactStore()
+    service, worker, _, _, _, index, _ = _dependencies(
+        artifacts=artifacts,
+        indexing_stage_timeout_seconds=0.01,
+    )
+    session = await _upload(service, b"content")
+
+    version = await worker.process(session.upload_id)
+
+    assert version.state is DocumentState.FAILED
+    assert version.failure_code == "indexing_failed"
+    assert not index.envelopes
+    assert artifacts.deleted == [(session.document_id, session.version_id)]
 
 
 @pytest.mark.parametrize(

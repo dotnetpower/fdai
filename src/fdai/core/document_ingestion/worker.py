@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime
+from typing import TypeVar
 from uuid import UUID
 
 from fdai.core.document_ingestion.state_machine import transition
@@ -37,6 +40,8 @@ _EXTRACTABLE_PROTECTION = frozenset(
         ProtectionState.RIGHTS_MANAGED_ACCESSIBLE,
     }
 )
+_LOGGER = logging.getLogger(__name__)
+_ResultT = TypeVar("_ResultT")
 
 
 class DocumentIngestionWorker:
@@ -56,7 +61,10 @@ class DocumentIngestionWorker:
         activity: DocumentActivitySink,
         consumers: Iterable[DocumentReadyConsumer] = (),
         clock: Callable[[], datetime] | None = None,
+        indexing_stage_timeout_seconds: float = 90.0,
     ) -> None:
+        if indexing_stage_timeout_seconds <= 0:
+            raise ValueError("indexing_stage_timeout_seconds MUST be positive")
         self._access = access
         self._metadata = metadata
         self._objects = objects
@@ -68,6 +76,7 @@ class DocumentIngestionWorker:
         self._activity = activity
         self._consumers = {consumer.purpose: consumer for consumer in consumers}
         self._clock = clock or (lambda: datetime.now(tz=UTC))
+        self._indexing_stage_timeout_seconds = indexing_stage_timeout_seconds
 
     async def process(self, upload_id: UUID) -> DocumentVersion:
         session = await self._metadata.get_upload(upload_id)
@@ -144,9 +153,15 @@ class DocumentIngestionWorker:
         if version.state is DocumentState.EXTRACTING:
             session, version = await self._advance(session, version, DocumentState.INDEXING)
         try:
-            await self._artifacts.put(envelope)
-            await self._index.commit(envelope)
-            consumer_warnings = await self._consume(session, envelope)
+            await self._run_indexing_stage(
+                "artifact_put", session.upload_id, self._artifacts.put(envelope)
+            )
+            await self._run_indexing_stage(
+                "index_commit", session.upload_id, self._index.commit(envelope)
+            )
+            consumer_warnings = await self._run_indexing_stage(
+                "consumer_delivery", session.upload_id, self._consume(session, envelope)
+            )
         except Exception:  # noqa: BLE001 - no partially indexed document becomes available
             await self._index.delete(version.document_id, version.version_id)
             await self._artifacts.delete(version.document_id, version.version_id)
@@ -181,6 +196,36 @@ class DocumentIngestionWorker:
         if session.storage_mode is SourceStorageMode.EPHEMERAL_PROCESSING:
             await self._objects.delete(session.object_key)
         return version
+
+    async def _run_indexing_stage(
+        self,
+        stage: str,
+        upload_id: UUID,
+        operation: Awaitable[_ResultT],
+    ) -> _ResultT:
+        try:
+            async with asyncio.timeout(self._indexing_stage_timeout_seconds):
+                return await operation
+        except TimeoutError:
+            _LOGGER.error(
+                "document_ingestion_stage_timeout",
+                extra={
+                    "upload_id": str(upload_id),
+                    "stage": stage,
+                    "timeout_seconds": self._indexing_stage_timeout_seconds,
+                },
+            )
+            raise
+        except Exception as exc:
+            _LOGGER.error(
+                "document_ingestion_stage_failed",
+                extra={
+                    "upload_id": str(upload_id),
+                    "stage": stage,
+                    "exception_type": type(exc).__name__,
+                },
+            )
+            raise
 
     async def _consume(self, session: UploadSession, envelope: DocumentEnvelope) -> tuple[str, ...]:
         warnings: list[str] = []

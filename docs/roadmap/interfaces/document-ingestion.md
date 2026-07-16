@@ -445,6 +445,12 @@ process to a comma-separated list of exact HTTP(S) origins.
 The source bytes travel directly between client and object storage. Authentication tokens and
 storage grants are never accepted in query strings that may be logged.
 
+Each artifact write, index commit, and purpose-specific consumer delivery has a bounded deadline.
+Set `FDAI_DOCUMENT_INDEXING_STAGE_TIMEOUT_SECONDS` to a positive number of seconds; the Azure
+deployment defaults to 90. A timeout records `indexing_failed`, leaves the accepted source in
+quarantine, removes partial derived/index data, and emits a structured stage log containing the
+upload id and stage name but no document content or provider error text.
+
 State transitions publish typed events such as `document.received`, `document.held`,
 `document.ready`, `document.superseded`, `document.access_changed`, and `document.deleted`.
 Consumers are idempotent. Knowledge indexing and manual distillation subscribe to `document.ready`
@@ -461,7 +467,7 @@ only when the version's declared purpose includes them. Purpose-specific process
 | Scanner unavailable | Keep in quarantine and retry; never skip scanning. |
 | RMS access denied | Record metadata-only or hold according to policy; never strip protection. |
 | Parser crash or timeout | Retry in a fresh sandbox within budget, then fail or return approved partial output. |
-| OCR/embedding provider outage | Preserve accepted source and checkpoint; resume the affected stage later. |
+| Artifact/index/embedding timeout | Preserve the accepted source in quarantine, remove partial derived/index data, record `indexing_failed`, and emit a bounded stage diagnostic. |
 | ACL source unavailable | Fail closed for reads and retrieval until authorization can be re-established. |
 | Index deletion failure | Keep the document unavailable, retry deletion, and report `deletion_pending`. |
 | Queue overload | Apply admission control and per-collection fairness; operational event processing keeps priority. |
@@ -483,11 +489,10 @@ rights-reconciliation lag, orphaned partial uploads, indexing lag, deletion lag,
 
 The upstream implementation now ships the contracts, fail-closed lifecycle, dedicated ASGI
 gateway, console drop zone, streaming browser hash, local direct-upload adapter, safe text/OOXML
-extractor, protection signature detection, structure-aware chunking, a searchable in-memory
-embedding index, a governed pgvector document-index adapter, test adapters, and deletion lineage.
-Production forks still bind the pgvector adapter with their secret-backed DSN and embedding
-provider, and supply governed object/metadata stores plus approved malware, Purview/RMS, OCR, and
-rich-format providers.
+extractor, protection signature detection, structure-aware chunking, ADLS Gen2 source and artifact
+stores, PostgreSQL metadata, a governed pgvector index, Azure OpenAI embeddings, Event Hubs Kafka
+processing, ClamAV scanning, test adapters, and deletion lineage. Production forks can replace
+providers through dependency injection when they require Purview/RMS, OCR, or richer formats.
 
 | Slice | Upstream status |
 |-------|-----------------|

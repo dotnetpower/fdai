@@ -161,6 +161,9 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         artifacts=artifact_store,
         index=document_index,
         activity=activity,
+        indexing_stage_timeout_seconds=_positive_int(
+            env, "FDAI_DOCUMENT_INDEXING_STAGE_TIMEOUT_SECONDS", 90
+        ),
     )
     worker_service = DocumentIngestionEventConsumer(
         event_bus=event_bus,

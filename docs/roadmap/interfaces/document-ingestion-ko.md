@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 5bf236bb6ce3bf869d2a34dabf3772ea86139cbb
+translation_source_sha: 09a277d2a8afc9dbda2180a4cf1f82a859808b9b
 translation_revised: 2026-07-16
 ---
 # 문서 인제스트와 Drop Zone
@@ -454,6 +454,12 @@ FDAI_INGESTION_GATEWAY_DEV_MODE=1 \
 Source byte는 client와 object storage 사이에서 직접 이동합니다. Authentication token과 storage
 grant는 log에 남을 수 있는 query string으로 받지 않습니다.
 
+Artifact write, index commit, purpose별 consumer delivery에는 각각 bounded deadline을 적용합니다.
+`FDAI_DOCUMENT_INDEXING_STAGE_TIMEOUT_SECONDS`를 양의 초 단위 값으로 설정하세요. Azure 배포의
+기본값은 90입니다. Timeout이 발생하면 `indexing_failed`를 기록하고 수락된 source를 quarantine에
+유지하며 partial derived/index data를 제거합니다. Structured stage log에는 upload id와 stage
+name만 기록하고 document content나 provider error text는 기록하지 않습니다.
+
 State transition은 `document.received`, `document.held`, `document.ready`,
 `document.superseded`, `document.access_changed`, `document.deleted` 같은 typed event를
 publish합니다. Consumer는 idempotent하게 동작합니다. Knowledge indexing과 manual distillation은
@@ -471,7 +477,7 @@ Purpose별 processing은 `DocumentReadyConsumer`를 bind할 수도 있습니다.
 | Scanner unavailable | Quarantine에 유지하고 retry하며 scanning을 건너뛰지 않습니다. |
 | RMS access denied | Policy에 따라 metadata-only로 기록하거나 hold하며 protection을 제거하지 않습니다. |
 | Parser crash 또는 timeout | Budget 안에서 새 sandbox로 retry한 후 fail하거나 승인된 partial output을 반환합니다. |
-| OCR/embedding provider outage | 수락된 source와 checkpoint를 보존하고 이후 해당 stage를 resume합니다. |
+| Artifact/index/embedding timeout | 수락된 source를 quarantine에 유지하고 partial derived/index data를 제거하며 `indexing_failed`와 bounded stage diagnostic을 기록합니다. |
 | ACL source unavailable | Authorization을 다시 확인할 때까지 read와 retrieval을 fail closed합니다. |
 | Index deletion failure | Document를 unavailable 상태로 유지하고 deletion을 retry하며 `deletion_pending`을 보고합니다. |
 | Queue overload | Admission control과 collection별 fairness를 적용하고 operational event processing에 우선순위를 둡니다. |
@@ -494,11 +500,10 @@ rights-reconciliation lag, orphaned partial upload, indexing lag, deletion lag, 
 
 Upstream 구현은 이제 contract, fail-closed lifecycle, 전용 ASGI gateway, console drop zone,
 streaming browser hash, local direct-upload adapter, 안전한 text/OOXML extractor, protection
-signature detection, structure-aware chunking, 검색 가능한 in-memory embedding index, governed
-pgvector document-index adapter, test adapter, deletion lineage를 제공합니다. Production fork는
-pgvector adapter에 secret-backed DSN과 embedding provider를 bind하고, 거버넌스가 적용된
-object/metadata store와 승인된 malware, Purview/RMS, OCR, rich-format provider를 계속 제공해야
-합니다.
+signature detection, structure-aware chunking, ADLS Gen2 source/artifact store, PostgreSQL
+metadata, governed pgvector index, Azure OpenAI embedding, Event Hubs Kafka processing, ClamAV
+scanning, test adapter, deletion lineage를 제공합니다. Production fork는 Purview/RMS, OCR,
+rich format이 필요할 때 dependency injection으로 provider를 교체할 수 있습니다.
 
 | Slice | Upstream 상태 |
 |-------|---------------|
