@@ -158,11 +158,17 @@ def _project_one(correlation_id: str, history: Sequence[AuditItem]) -> IncidentS
 
 
 def _involved_agents(items: Sequence[AuditItem]) -> tuple[str, ...]:
-    involved: list[str] = []
+    traversed_control_loop = any(
+        item.action_kind.lower().startswith(("control_loop.", "risk_gate.", "hil."))
+        for item in items
+    )
+    involved: list[str] = ["Huginn", "Heimdall"] if traversed_control_loop else []
     for item in items:
         agent = _audit_agent(item)
         if agent is not None and agent not in involved:
             involved.append(agent)
+    if traversed_control_loop and "Saga" not in involved:
+        involved.append("Saga")
     return tuple(involved)
 
 
@@ -268,7 +274,7 @@ def _tokens(item: AuditItem) -> set[str]:
     action_kind = item.action_kind.lower()
     values = {
         action_kind,
-        *action_kind.split("."),
+        *action_kind.replace(".", "_").split("_"),
         (_string(entry, "decision") or "").lower(),
         (_string(entry, "gate_decision") or "").lower(),
         (_string(entry, "outcome") or "").lower(),

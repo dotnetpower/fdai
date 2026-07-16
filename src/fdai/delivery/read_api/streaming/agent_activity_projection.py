@@ -294,6 +294,8 @@ def _next_status(current: TicketStatus, event: StageEvent) -> TicketStatus:
         return current
     if event.stage is StageName.AUDIT and event.phase is StagePhase.DONE:
         outcome = str(event.detail.get("outcome") or "").lower()
+        if _terminal_decision(event) == "hil":
+            return TicketStatus.INVESTIGATING
         if outcome in {
             "executed",
             "resolved",
@@ -303,7 +305,7 @@ def _next_status(current: TicketStatus, event: StageEvent) -> TicketStatus:
             "rollback_completed",
         }:
             return TicketStatus.RESOLVED
-        return TicketStatus.INVESTIGATING
+        return current
     if event.stage in (StageName.VERIFY, StageName.GATE, StageName.EXECUTE):
         return TicketStatus.INVESTIGATING
     return current

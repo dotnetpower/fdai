@@ -140,7 +140,7 @@ class TestIncidentTicket:
         tickets = [e for e in events if isinstance(e, IncidentTicketEvent)]
         assert tickets[-1].status is TicketStatus.RESOLVED
 
-    def test_audit_abstain_stays_active(self) -> None:
+    def test_audit_abstain_preserves_open_status(self) -> None:
         _proj, events = _run(
             [
                 _stage(StageName.INGEST),
@@ -152,7 +152,7 @@ class TestIncidentTicket:
             ]
         )
         tickets = [e for e in events if isinstance(e, IncidentTicketEvent)]
-        assert tickets[-1].status is TicketStatus.INVESTIGATING
+        assert tickets[-1].status is TicketStatus.OPEN
 
     def test_audit_hil_keeps_only_var_engaged(self) -> None:
         _proj, events = _run(

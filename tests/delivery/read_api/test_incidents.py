@@ -155,8 +155,29 @@ def test_hil_action_kinds_project_as_awaiting_approval() -> None:
     assert summary.status == "in_progress"
     assert summary.verdict == "hil"
     assert summary.disposition == "awaiting_hil"
-    assert summary.involved_agents == ("Var",)
+    assert summary.involved_agents == ("Huginn", "Heimdall", "Var", "Saga")
     assert summary.vertical == "change_safety"
+
+
+def test_operator_request_abstain_stays_open_and_reports_no_action() -> None:
+    summary = project_incidents(
+        (
+            _item(
+                1,
+                "corr-operator",
+                action_kind="control_loop.operator_request_abstain",
+                entry={
+                    "action_kind": "control_loop.operator_request_abstain",
+                    "producer_principal": "Heimdall",
+                },
+            ),
+        )
+    )[0]
+
+    assert summary.status == "open"
+    assert summary.verdict == "abstain"
+    assert summary.disposition == "no_action"
+    assert summary.involved_agents == ("Huginn", "Heimdall", "Saga")
 
 
 def test_multiple_correlation_keys_and_conflicting_opens_fail_closed() -> None:

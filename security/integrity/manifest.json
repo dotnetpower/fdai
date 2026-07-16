@@ -87,7 +87,7 @@
     "src/fdai/core/control_loop/__init__.py": "9c842ae6b8ed0b958f51b6f76aa0f58b33b50bafc2f604c7fae0c7809e4e64e0",
     "src/fdai/core/control_loop/_helpers.py": "96323502707a0e6f952360155734fc64bb0114847c684db7128f0529dd5ba606",
     "src/fdai/core/control_loop/models.py": "993b02e65b425f6a170b9b346b696d653520e9ddebcfdbd78df2b5c3ffe592e2",
-    "src/fdai/core/control_loop/operator_request.py": "91ec863719098bd8a4088ea83d62a0f2de3cdb5f3642d2a7a68e00911af96542",
+    "src/fdai/core/control_loop/operator_request.py": "d0aed78536fdb342a7b8649cbc18c8dd14bffcc1c5b1db8a6aa52308e01807a1",
     "src/fdai/core/control_loop/orchestrator.py": "62a1edc0b82e5053c0d045bdb582e1ecd911182b37f5096dfb969b33077c7984",
     "src/fdai/core/control_loop/stages/__init__.py": "b2a822149bfe5768179c44effa6e57056ac72563dd34807656fc7646dd92062d",
     "src/fdai/core/control_loop/stages/base.py": "a5bc7901b4113353ef76df10768caa0a850aedc3a2c2a534ed272fad3d70e91b",
@@ -549,7 +549,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-16T13:22:15Z",
+  "generated_at": "2026-07-16T13:35:01Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
