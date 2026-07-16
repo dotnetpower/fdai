@@ -950,3 +950,77 @@ ol.fdai-steps > li::before {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+/*
+ * Tabs - a marked region (src/plugins/tabs.mjs) rendered as a CSS-only tab
+ * group: hidden radio inputs drive which panel shows via :checked sibling
+ * selectors, so no JavaScript is needed. Supports up to 6 tabs per group.
+ */
+.fdai-tabs {
+  margin: 1.5rem 0 2rem;
+}
+
+.fdai-tab-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fdai-tablist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--sl-color-gray-5);
+  margin-bottom: 0.9rem;
+}
+
+.fdai-tab-label {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 0.4rem 0.4rem 0 0;
+  color: var(--sl-color-gray-3);
+  font-size: var(--sl-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.fdai-tab-label:hover {
+  color: var(--sl-color-white);
+}
+
+.fdai-tabpanel {
+  display: none;
+}
+
+.fdai-tab-code {
+  margin: 0;
+}
+
+/* Map each checked input to its label + panel (1-based, up to 6 tabs). */
+.fdai-tab-input:nth-of-type(1):checked ~ .fdai-tablist > .fdai-tab-label:nth-of-type(1),
+.fdai-tab-input:nth-of-type(2):checked ~ .fdai-tablist > .fdai-tab-label:nth-of-type(2),
+.fdai-tab-input:nth-of-type(3):checked ~ .fdai-tablist > .fdai-tab-label:nth-of-type(3),
+.fdai-tab-input:nth-of-type(4):checked ~ .fdai-tablist > .fdai-tab-label:nth-of-type(4),
+.fdai-tab-input:nth-of-type(5):checked ~ .fdai-tablist > .fdai-tab-label:nth-of-type(5),
+.fdai-tab-input:nth-of-type(6):checked ~ .fdai-tablist > .fdai-tab-label:nth-of-type(6) {
+  color: var(--sl-color-white);
+  border-color: var(--sl-color-gray-5);
+  background: var(--sl-color-bg-nav, var(--sl-color-black));
+}
+
+.fdai-tab-input:nth-of-type(1):checked ~ .fdai-tabpanels > .fdai-tabpanel:nth-of-type(1),
+.fdai-tab-input:nth-of-type(2):checked ~ .fdai-tabpanels > .fdai-tabpanel:nth-of-type(2),
+.fdai-tab-input:nth-of-type(3):checked ~ .fdai-tabpanels > .fdai-tabpanel:nth-of-type(3),
+.fdai-tab-input:nth-of-type(4):checked ~ .fdai-tabpanels > .fdai-tabpanel:nth-of-type(4),
+.fdai-tab-input:nth-of-type(5):checked ~ .fdai-tabpanels > .fdai-tabpanel:nth-of-type(5),
+.fdai-tab-input:nth-of-type(6):checked ~ .fdai-tabpanels > .fdai-tabpanel:nth-of-type(6) {
+  display: block;
+}
+
+/* Keyboard focus visibility for the CSS-only tab controls. */
+.fdai-tab-input:focus-visible ~ .fdai-tablist > .fdai-tab-label {
+  outline: 2px solid var(--sl-color-text-accent);
+  outline-offset: 2px;
+}

@@ -7,6 +7,7 @@ import { remarkMermaid } from "./src/plugins/mermaid.mjs";
 import { remarkRewriteLinks } from "./src/plugins/rewrite-links.mjs";
 import { remarkCards } from "./src/plugins/cards.mjs";
 import { remarkSteps } from "./src/plugins/steps.mjs";
+import { remarkTabs } from "./src/plugins/tabs.mjs";
 
 // GitHub Pages project page: https://dotnetpower.github.io/fdai/
 // Overridable at build time via SITE_URL / BASE_PATH env vars so a fork can
@@ -66,6 +67,7 @@ export default defineConfig({
       remarkRewriteLinks,
       remarkCards,
       remarkSteps,
+      remarkTabs,
     ],
   },
   integrations: [
@@ -358,6 +360,11 @@ export default defineConfig({
           label: "Deploy & onboard",
           translations: { ko: "\ubc30\ud3ec\uc640 \uc628\ubcf4\ub529" },
           items: [
+            {
+              label: "Deploy Quickstart",
+              translations: { ko: "\ubc30\ud3ec Quickstart" },
+              link: "/deploy-quickstart/",
+            },
             {
               label: "Preflight",
               translations: { ko: "\uc0ac\uc804 \uc810\uac80" },
