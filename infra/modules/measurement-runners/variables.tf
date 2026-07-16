@@ -45,6 +45,12 @@ variable "image" {
   type        = string
 }
 
+variable "acr_login_server" {
+  description = "Private ACR login server. Empty keeps anonymous public image pulls."
+  type        = string
+  default     = ""
+}
+
 variable "scenario_set_version" {
   description = "Frozen P0 scenario-set version the baseline runner replays (e.g. v2026.07)."
   type        = string

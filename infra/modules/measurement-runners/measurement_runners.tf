@@ -39,6 +39,14 @@ resource "azurerm_container_app_job" "baseline_regression" {
     identity_ids = [var.executor_identity_id]
   }
 
+  dynamic "registry" {
+    for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
+    content {
+      server   = var.acr_login_server
+      identity = var.executor_identity_id
+    }
+  }
+
   secret {
     name                = "state-store-dsn"
     identity            = var.executor_identity_id
@@ -102,6 +110,14 @@ resource "azurerm_container_app_job" "pattern_growth" {
   identity {
     type         = "UserAssigned"
     identity_ids = [var.executor_identity_id]
+  }
+
+  dynamic "registry" {
+    for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
+    content {
+      server   = var.acr_login_server
+      identity = var.executor_identity_id
+    }
   }
 
 

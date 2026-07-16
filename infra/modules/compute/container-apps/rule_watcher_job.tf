@@ -29,6 +29,14 @@ resource "azurerm_container_app_job" "rule_watcher" {
     identity_ids = [var.executor_identity_id]
   }
 
+  dynamic "registry" {
+    for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
+    content {
+      server   = var.acr_login_server
+      identity = var.executor_identity_id
+    }
+  }
+
   schedule_trigger_config {
     // 03:00 UTC daily - off-peak for all supported regions. The CLI itself
     // filters by cadence, so weekly / monthly sources also fire from here.

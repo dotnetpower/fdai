@@ -763,6 +763,7 @@ module "measurement_runners" {
   resource_group_name          = module.resource_group.name
   executor_identity_id         = module.identity.resource_id
   image                        = var.core_image
+  acr_login_server             = module.container_registry.login_server
   scenario_set_version         = var.measurement_scenario_set_version
   state_store_dsn_secret_id    = azurerm_key_vault_secret.state_store_dsn.id
   environment = merge({

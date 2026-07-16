@@ -267,6 +267,14 @@ resource "azurerm_container_app_job" "oob" {
     identity_ids = concat([var.executor_identity_id], var.extra_identity_ids)
   }
 
+  dynamic "registry" {
+    for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
+    content {
+      server   = var.acr_login_server
+      identity = var.executor_identity_id
+    }
+  }
+
   schedule_trigger_config {
     cron_expression          = "0 * * * *"
     replica_completion_count = 1

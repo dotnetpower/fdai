@@ -30,6 +30,14 @@ resource "azurerm_container_app_job" "dr_drill" {
     identity_ids = [var.executor_identity_id]
   }
 
+  dynamic "registry" {
+    for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
+    content {
+      server   = var.acr_login_server
+      identity = var.executor_identity_id
+    }
+  }
+
   schedule_trigger_config {
     // Default: 04:00 UTC on the 1st and 15th of each month - two runs a
     // month gives PITR coverage against the standard 7-day retention

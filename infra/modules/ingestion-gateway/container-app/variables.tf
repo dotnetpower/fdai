@@ -79,7 +79,7 @@ variable "gateway_memory" {
 
 variable "clamav_cpu" {
   type    = number
-  default = 1
+  default = 1.5
 }
 
 variable "clamav_memory" {
