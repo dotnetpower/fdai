@@ -655,7 +655,7 @@
   },
   "deck": {
     "answerPlan": {
-      "intent": {"definition": "Definition", "why": "Why", "procedure": "Procedure", "comparison": "Comparison", "diagnosis": "Diagnosis", "status": "Status", "list": "List", "summary": "Summary", "proposal": "Proposal", "open_question": "Open question"},
+      "intent": {"definition": "Definition", "why": "Why", "procedure": "Procedure", "comparison": "Comparison", "diagnosis": "Diagnosis", "status": "Status", "list": "List", "summary": "Summary", "proposal": "Proposal", "open_question": "Open question", "greeting": "Greeting"},
       "detail": {"brief": "Brief", "standard": "Standard", "deep": "Deep"},
       "format": {"prose": "Prose", "bullets": "Bullets", "numbered_steps": "Numbered steps", "table": "Table", "checklist": "Checklist", "mixed": "Mixed"}
     },

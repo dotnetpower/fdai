@@ -387,7 +387,7 @@ def test_lean_and_glossary_share_the_same_rules_block() -> None:
 
 def test_snapshot_is_embedded_in_system() -> None:
     ctx = {"routeId": "rules", "facts": [{"key": "active_rules", "value": 61}]}
-    system = _system_of(_build_messages("hi", ctx, []))
+    system = _system_of(_build_messages("tell me about this screen", ctx, []))
     embedded = system.split(_SNAPSHOT_MARKER, 1)[1].strip()
     payload = json.loads(embedded)
 

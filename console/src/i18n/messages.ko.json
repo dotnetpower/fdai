@@ -649,7 +649,7 @@
   },
   "deck": {
     "answerPlan": {
-      "intent": {"definition": "정의", "why": "이유", "procedure": "절차", "comparison": "비교", "diagnosis": "진단", "status": "상태", "list": "목록", "summary": "요약", "proposal": "제안", "open_question": "열린 질문"},
+      "intent": {"definition": "정의", "why": "이유", "procedure": "절차", "comparison": "비교", "diagnosis": "진단", "status": "상태", "list": "목록", "summary": "요약", "proposal": "제안", "open_question": "열린 질문", "greeting": "인사"},
       "detail": {"brief": "간단히", "standard": "표준", "deep": "상세"},
       "format": {"prose": "문장", "bullets": "항목", "numbered_steps": "번호 단계", "table": "표", "checklist": "체크리스트", "mixed": "혼합"}
     },

@@ -92,7 +92,7 @@
     "src/fdai/core/control_loop/stages/__init__.py": "b2a822149bfe5768179c44effa6e57056ac72563dd34807656fc7646dd92062d",
     "src/fdai/core/control_loop/stages/base.py": "a5bc7901b4113353ef76df10768caa0a850aedc3a2c2a534ed272fad3d70e91b",
     "src/fdai/core/conversation/__init__.py": "a27298fc7ce30237cd66fab31bd455f0145dc38e3fe35b31283134218b915345",
-    "src/fdai/core/conversation/answer_plan.py": "b3ed081e2eb18e4709f8228c5b900a5f0e62297147274b1c5c5e6e56c1faef9a",
+    "src/fdai/core/conversation/answer_plan.py": "9bf59f23d8d08f9ca3f6c87d1b43375225fbdbfad87a7d6f9a51317c3fcd96ab",
     "src/fdai/core/conversation/context_bridge.py": "e4a2716fec192469e4909f470869032d87b1d46871bb75fb0e1db12ebe92dedf",
     "src/fdai/core/conversation/coordinator.py": "8556ef089c529e76dadf41fc6f197acf5fa14b7aac0fc24f9c31f1f571368e00",
     "src/fdai/core/conversation/creation.py": "2298039b810f98e84bfab890f2978035d0d805925ffbb5c0e89092f43a10f3a3",
@@ -549,7 +549,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-16T13:35:01Z",
+  "generated_at": "2026-07-16T20:11:42Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

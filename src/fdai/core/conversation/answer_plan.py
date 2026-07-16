@@ -19,6 +19,7 @@ class AnswerIntent(StrEnum):
     SUMMARY = "summary"
     PROPOSAL = "proposal"
     OPEN_QUESTION = "open_question"
+    GREETING = "greeting"
 
 
 class DetailLevel(StrEnum):
@@ -93,6 +94,7 @@ class AnswerSection(StrEnum):
     ASSUMPTIONS = "assumptions"
     BOUNDED_ANSWER = "bounded_answer"
     UNCERTAINTY = "uncertainty"
+    GREETING = "greeting"
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,9 +184,34 @@ _SECTIONS: Final[dict[AnswerIntent, tuple[AnswerSection, ...]]] = {
         AnswerSection.BOUNDED_ANSWER,
         AnswerSection.UNCERTAINTY,
     ),
+    AnswerIntent.GREETING: (
+        AnswerSection.GREETING,
+        AnswerSection.NEXT_STEP,
+    ),
 }
 
 _INTENT_PATTERNS: Final[tuple[tuple[AnswerIntent, re.Pattern[str]], ...]] = (
+    (
+        # Greeting / smalltalk only when the WHOLE utterance is a pleasantry
+        # (anchored, no operational keyword follows). A mixed prompt like
+        # "hi, what's the status?" does not match and falls through to STATUS.
+        AnswerIntent.GREETING,
+        re.compile(
+            r"^[\s\W]*(?:"
+            r"annyeong|"
+            r"\uc548\ub155(?:\ud558\uc138\uc694|\ud558\uc2ed\ub2c8\uae4c|\ud558\uc154\uc694)?|"
+            r"\ubc18\uac00\uc6cc(?:\uc694)?|\ubc18\uac11\uc2b5\ub2c8\ub2e4|"
+            r"\ud558\uc774|\ud5ec\ub85c|"
+            r"hello|hi|hey|good\s+(?:morning|afternoon|evening)|"
+            r"\uace0\ub9d9\uc2b5\ub2c8\ub2e4|\uace0\ub9c8\uc6cc(?:\uc694)?|"
+            r"\uac10\uc0ac(?:\ud569\ub2c8\ub2e4|\ud574\uc694|\ub4dc\ub824\uc694)?|"
+            r"thank\s*you|thanks|"
+            r"\uc798\s*\uc9c0\ub0b4(?:\uc138\uc694|\uc154\uc5b4\uc694)?|"
+            r"\uc88b\uc740\s*(?:\uc544\uce68|\ud558\ub8e8)"
+            r")[\s\W]*$",
+            re.I,
+        ),
+    ),
     (
         AnswerIntent.COMPARISON,
         re.compile(r"\b(compare|comparison|versus|vs\.?|difference)\b|비교|차이", re.I),
@@ -241,7 +268,7 @@ def build_answer_plan(prompt: str, *, route_id: str | None = None) -> AnswerPlan
     intent = _intent(prompt)
     detail = (
         DetailLevel.BRIEF
-        if intent in {AnswerIntent.STATUS, AnswerIntent.LIST}
+        if intent in {AnswerIntent.STATUS, AnswerIntent.LIST, AnswerIntent.GREETING}
         else DetailLevel.STANDARD
     )
     format_ = _default_format(intent)
@@ -326,6 +353,10 @@ def _default_format(intent: AnswerIntent) -> AnswerFormat:
 
 
 def _default_evidence(intent: AnswerIntent, route_id: str | None) -> EvidenceRequirement:
+    if intent is AnswerIntent.GREETING:
+        # A greeting is not a question about the screen - never force screen
+        # evidence, so the narrator answers briefly instead of reciting facts.
+        return EvidenceRequirement.NONE
     if intent is AnswerIntent.DEFINITION:
         return EvidenceRequirement.CATALOG
     if intent in {AnswerIntent.WHY, AnswerIntent.DIAGNOSIS, AnswerIntent.PROPOSAL}:

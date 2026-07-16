@@ -143,6 +143,7 @@ the current JSON snapshot below.
 
 Rules:
 - Use the current turn's language, not history, unless L3 overrides. Cite facts; NEVER invent facts.
+- For a greeting or smalltalk with no operational question (AnswerPlan intent=greeting), reply briefly with a greeting and a short offer to help. Do NOT enumerate screen facts, metrics, or status unless the operator actually asks.
 - Explain from `purpose`/`glossary`; ground causes in row `detail`/`summary`/`reason`.
 - `records` are visible rows: search and quote matches. For `_records_truncated`, report `_records_meta[key]` ({{shown,total}}) and point to the page search. For `_snapshot_truncated`, ask to narrow the page; never infer from a cut prefix.
 - "this/it/selected" means selection-group facts, `selected_*`, and `records.selected_*`; answer it first. Facts/records are context.
@@ -1577,6 +1578,38 @@ def make_chat_health_route(
 _COGNITIVE_SCOPE: Final[str] = "https://cognitiveservices.azure.com/.default"
 
 
+def _usage_summary(raw: Any) -> dict[str, int] | None:
+    """Normalise an OpenAI/Azure ``usage`` block to prompt/completion/total ints.
+
+    Returns ``None`` when no token counts are present, so callers can omit the
+    field entirely rather than reporting zeros.
+    """
+    if not isinstance(raw, dict):
+        return None
+
+    def _count(key: str) -> int | None:
+        value = raw.get(key)
+        return (
+            value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+        )
+
+    prompt = _count("prompt_tokens")
+    completion = _count("completion_tokens")
+    total = _count("total_tokens")
+    if prompt is None and completion is None and total is None:
+        return None
+    out: dict[str, int] = {}
+    if prompt is not None:
+        out["prompt_tokens"] = prompt
+    if completion is not None:
+        out["completion_tokens"] = completion
+    if total is not None:
+        out["total_tokens"] = total
+    elif prompt is not None and completion is not None:
+        out["total_tokens"] = prompt + completion
+    return out
+
+
 class AzureAdChatBackend:
     """Chat backend that authenticates to Azure OpenAI with workload identity.
 
@@ -1680,7 +1713,11 @@ class AzureAdChatBackend:
         content = message.get("content") if isinstance(message, dict) else None
         if not isinstance(content, str):
             raise HTTPException(status_code=502, detail="chat upstream returned no content")
-        return {"answer": content.strip(), "model": self._deployment}
+        reply: dict[str, Any] = {"answer": content.strip(), "model": self._deployment}
+        usage = _usage_summary(envelope.get("usage"))
+        if usage is not None:
+            reply["usage"] = usage
+        return reply
 
     async def answer_stream(
         self,
@@ -1713,6 +1750,9 @@ class AzureAdChatBackend:
         body: dict[str, Any] = {
             "messages": messages,
             "stream": True,
+            # Ask Azure OpenAI for a terminal usage chunk (empty choices +
+            # ``usage``) so the deck can show tokens spent per reply.
+            "stream_options": {"include_usage": True},
             **_completion_body_params(
                 self._deployment,
                 temperature=self._temperature,
@@ -1725,6 +1765,7 @@ class AzureAdChatBackend:
             "Content-Type": "application/json",
         }
         collected: list[str] = []
+        stream_usage: dict[str, int] | None = None
         try:
             async with self._http.stream(
                 "POST",
@@ -1747,6 +1788,11 @@ class AzureAdChatBackend:
                         obj = json.loads(data)
                     except ValueError:
                         continue
+                    maybe_usage = (
+                        _usage_summary(obj.get("usage")) if isinstance(obj, dict) else None
+                    )
+                    if maybe_usage is not None:
+                        stream_usage = maybe_usage
                     choices = obj.get("choices")
                     if not isinstance(choices, list) or not choices:
                         continue
@@ -1758,7 +1804,14 @@ class AzureAdChatBackend:
         except httpx.HTTPError as exc:
             _LOG.warning("chat stream HTTP error: %s", exc)
             raise HTTPException(status_code=502, detail="chat upstream unreachable") from exc
-        yield {"type": "done", "answer": "".join(collected).strip(), "model": self._deployment}
+        done: dict[str, Any] = {
+            "type": "done",
+            "answer": "".join(collected).strip(),
+            "model": self._deployment,
+        }
+        if stream_usage is not None:
+            done["usage"] = stream_usage
+        yield done
 
 
 # ---------------------------------------------------------------------------
@@ -2782,6 +2835,7 @@ def make_chat_stream_route(
                 provisional_answer = ""
                 terminal_model: Any = None
                 terminal_router: Any = None
+                terminal_usage: Any = None
                 if evidence_fast_path:
                     canonical = verify_answer(
                         "",
@@ -2838,6 +2892,7 @@ def make_chat_stream_route(
                                 provisional_answer = answer
                             terminal_model = event.get("model")
                             terminal_router = event.get("router")
+                            terminal_usage = event.get("usage")
                 else:
                     if isinstance(backend, LatencyRoutedChatBackend):
                         reply = await backend.answer(
@@ -2865,6 +2920,7 @@ def make_chat_stream_route(
                             yield frame("token", {"delta": chunk})
                     terminal_model = reply.get("model")
                     terminal_router = reply.get("router")
+                    terminal_usage = reply.get("usage")
 
                 generation_ms = int((time.monotonic() - started) * 1000)
                 yield frame(
@@ -2959,6 +3015,7 @@ def make_chat_stream_route(
                         "answer": verification.answer,
                         "model": terminal_model,
                         "router": terminal_router,
+                        "usage": terminal_usage,
                         "source": (
                             f"evidence:{verification.status}"
                             if evidence_fast_path

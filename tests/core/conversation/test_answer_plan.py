@@ -38,6 +38,13 @@ from fdai.core.conversation.answer_plan import (
         ("incident를 요약해줘", AnswerIntent.SUMMARY),
         ("Tell me about this screen", AnswerIntent.OPEN_QUESTION),
         ("이 화면 알려줘", AnswerIntent.OPEN_QUESTION),
+        ("안녕", AnswerIntent.GREETING),
+        ("안녕하세요", AnswerIntent.GREETING),
+        ("hi", AnswerIntent.GREETING),
+        ("hello", AnswerIntent.GREETING),
+        ("good morning", AnswerIntent.GREETING),
+        ("고마워", AnswerIntent.GREETING),
+        ("thanks", AnswerIntent.GREETING),
     ],
 )
 def test_bilingual_intent_corpus(prompt: str, intent: AnswerIntent) -> None:
@@ -89,3 +96,30 @@ def test_last_current_turn_detail_modifier_wins() -> None:
     reversed_plan = build_answer_plan("Briefly, but in detail explain ActionType")
     assert reversed_plan.detail_level is DetailLevel.DEEP
     assert reversed_plan.explicit_overrides == ("brief", "deep")
+
+
+def test_greeting_is_brief_and_needs_no_screen_evidence() -> None:
+    # A bare greeting must not force screen evidence, so the narrator answers
+    # briefly instead of reciting screen facts (which would spawn atomic
+    # claims and risk a false "unverified" on a friendly reply).
+    plan = build_answer_plan("안녕", route_id="overview")
+
+    assert plan.intent is AnswerIntent.GREETING
+    assert plan.detail_level is DetailLevel.BRIEF
+    assert plan.evidence_requirement is EvidenceRequirement.NONE
+    assert plan.max_words == 80
+
+
+@pytest.mark.parametrize(
+    ("prompt", "intent"),
+    [
+        # A greeting followed by a real question keeps the operational intent.
+        ("안녕, 현재 상태 알려줘", AnswerIntent.STATUS),
+        ("hi, what is ActionType?", AnswerIntent.DEFINITION),
+        ("hello, why was this denied?", AnswerIntent.WHY),
+    ],
+)
+def test_greeting_prefix_does_not_swallow_operational_intent(
+    prompt: str, intent: AnswerIntent
+) -> None:
+    assert build_answer_plan(prompt, route_id="overview").intent is intent
