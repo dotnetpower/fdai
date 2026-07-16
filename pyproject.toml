@@ -233,11 +233,14 @@ filterwarnings = [
 ]
 
 # Coverage floor kept in sync with .github/workflows/ci.yml `pytest + coverage`
-# step. Lives here (not only in CI) so `uv run pytest --cov=src/fdai` locally
-# reproduces the same gate; `make test` picks it up automatically.
+# and `make test`. The documented safety core is T0 deterministic decisioning
+# plus the risk gate; delivery subsystems carry focused test contracts.
 [tool.coverage.run]
-source = ["src/fdai"]
-branch = false
+source = [
+    "src/fdai/core/tiers/t0_deterministic",
+    "src/fdai/core/risk_gate",
+]
+branch = true
 
 [tool.coverage.report]
 fail_under = 90

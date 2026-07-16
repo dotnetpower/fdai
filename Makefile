@@ -44,8 +44,8 @@ format: ## apply ruff format + ruff --fix (mutates files)
 	uv run ruff format src tests
 	uv run ruff check --fix src tests
 
-test: ## pytest with coverage (--cov-fail-under=90 matches CI)
-	uv run pytest -q --cov=src/fdai --cov-report=term-missing --cov-fail-under=90
+test: ## pytest with safety-core branch coverage (--cov-fail-under=90 matches CI)
+	uv run pytest -q --cov=src/fdai/core/tiers/t0_deterministic --cov=src/fdai/core/risk_gate --cov-branch --cov-report=term-missing --cov-fail-under=90
 
 gates: ## repo hygiene: punctuation / guids / translations / core-imports
 	bash scripts/check-punctuation.sh

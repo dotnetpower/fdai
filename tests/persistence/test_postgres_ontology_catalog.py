@@ -6,8 +6,13 @@ from fdai.delivery.persistence.postgres_ontology import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
 )
-from fdai.shared.contracts.models import OntologyLinkType, OntologyObjectType, PropertyDecl
-from fdai.shared.contracts.models.enums import LinkCardinality, PropertyType
+from fdai.shared.contracts.models import (
+    LinkCardinality,
+    OntologyLinkType,
+    OntologyObjectType,
+    PropertyDecl,
+    PropertyType,
+)
 
 
 def _async_context(value: object) -> MagicMock:

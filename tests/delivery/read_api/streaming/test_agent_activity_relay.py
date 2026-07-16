@@ -93,7 +93,8 @@ async def test_full_incident_resolves() -> None:
         (StageName.EXECUTE, StagePhase.BEGIN),
         (StageName.AUDIT, StagePhase.DONE),
     ]:
-        await relay.emit(_stage(stage, phase))
+        detail = {"outcome": "executed"} if stage is StageName.AUDIT else None
+        await relay.emit(_stage(stage, phase, detail=detail))
     tickets = [e for e in pub.events if isinstance(e, IncidentTicketEvent)]
     assert tickets[-1].status.value == "resolved"
 

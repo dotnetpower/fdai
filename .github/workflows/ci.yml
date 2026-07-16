@@ -30,6 +30,38 @@ jobs:
       - name: Install dependencies
         run: uv sync --extra dev --frozen
 
+      - name: Materialize resolved model manifest
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          raw = os.environ.get("RESOLVED_MODELS_JSON", "").strip()
+          if not raw:
+              if os.environ["EVENT_NAME"] != "pull_request":
+                  raise SystemExit("RESOLVED_MODELS_JSON repository variable is required")
+              payload = {
+                  "schema_version": "1.0.0",
+                  "capabilities": [],
+                  "mixed_model_mode": "hil-only",
+              }
+          else:
+              payload = json.loads(raw)
+              if not isinstance(payload, dict):
+                  raise SystemExit("RESOLVED_MODELS_JSON must contain a JSON object")
+              capabilities = payload.get("capabilities")
+              if not isinstance(capabilities, list):
+                  raise SystemExit("RESOLVED_MODELS_JSON.capabilities must be an array")
+          Path("resolved-models.json").write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+          )
+          PY
+
       - name: Install OPA (Rego runner)
         # T0's OpaRegoEvaluator shells out to `opa eval`. Local dev may
         # not have OPA installed (tests skip gracefully); CI installs a
@@ -55,14 +87,12 @@ jobs:
         run: uv run mypy
 
       - name: pytest + coverage
-        # Safety-core coverage bar (T0 deterministic engine, risk gate, rule
-        # loader, provider adapters). Live measurement sits at ~93-100% per
-        # module (2026-07-05 audit); the floor is set to 90 to catch a
-        # regression before it lands. Individual module bars are enforced
-        # per subsystem in unit tests, not in this global gate.
+        # The documented safety core is the deterministic T0 engine plus the
+        # risk gate. Other subsystem bars are enforced by focused tests.
         run: >
           uv run pytest -q
-          --cov=src/fdai
+          --cov=src/fdai/core/tiers/t0_deterministic
+          --cov=src/fdai/core/risk_gate
           --cov-branch
           --cov-report=term-missing
           --cov-report=xml

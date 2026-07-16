@@ -44,8 +44,9 @@ def _upgrade_head() -> None:
 
 
 async def test_conflicting_replica_transitions_have_one_postgres_winner() -> None:
+    dsn = _dsn()
     _upgrade_head()
-    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=_dsn()))
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
     unique = uuid.uuid4().hex
     first = IncidentRegistry(state_store=store)
     incident = await first.open(
@@ -79,8 +80,9 @@ async def test_conflicting_replica_transitions_have_one_postgres_winner() -> Non
 
 
 async def test_notification_claim_has_one_postgres_winner() -> None:
+    dsn = _dsn()
     _upgrade_head()
-    store = PostgresIncidentNotificationDeliveryStore(config=PostgresStateStoreConfig(dsn=_dsn()))
+    store = PostgresIncidentNotificationDeliveryStore(config=PostgresStateStoreConfig(dsn=dsn))
     audit_id = f"integration-notice-{uuid.uuid4()}"
     now = datetime.now(tz=UTC)
 

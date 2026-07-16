@@ -180,17 +180,18 @@ def project_stage(projection: AgentActivityProjection, event: StageEvent) -> Pro
 
     1. an ``incident.ticket`` when the ticket is first opened or changes
        status (``open`` on first sighting, ``investigating`` at verify/gate,
-       ``resolved`` when the audit stage completes);
+         ``resolved`` only when the completed audit carries a successful terminal
+         outcome);
     2. a ``conversation.turn`` (kind ``handoff``) when the owning agent differs
        from the one that handled the previous frame - a real stage transition
        between two agents IS a pantheon handoff (Forseti -> Var to escalate a
        HIL gate, Forseti -> Thor to execute, ... -> Saga to record). Grounded
        in the actual transition, never fabricated dialogue;
-    3. an ``agent.state`` for the stage's owning agent - the active ring for
-       any successful stage frame (the agent performed that stage), and
-       ``idle`` only on a ``failed`` frame. The real ControlLoop reports a
-       stage as a single ``done`` frame, so ``done`` shows the active ring
-       (the pantheon lit up with what each agent just did), not ``idle``.
+     3. an ``agent.state`` for the stage's owning agent - the active ring for
+         any successful stage frame (the agent performed that stage), and
+         ``idle`` on a failed frame. A completed audit then returns every
+         involved agent to ``idle``, except Var remains ``approving`` while a
+         HIL decision awaits human approval.
 
     Deterministic and side-effect-free; ``ts`` is taken from the event so a
     replay reproduces identical output.
