@@ -326,6 +326,14 @@ export function decodeIncidentPage(value: unknown): IncidentPage {
   return {
     items: root["items"].map((raw, index) => {
       const item = apiRecord(raw, `incident page.items[${index}]`);
+      const involvedAgents = item["involved_agents"];
+      if (
+        involvedAgents !== undefined &&
+        (!Array.isArray(involvedAgents) ||
+          !involvedAgents.every((agent) => typeof agent === "string"))
+      ) {
+        throw contractError("incident item.involved_agents MUST be an array of strings");
+      }
       return {
         correlation_id: apiString(item, "correlation_id", "incident item"),
         incident_id: apiNullableString(item, "incident_id", "incident item"),
@@ -341,6 +349,7 @@ export function decodeIncidentPage(value: unknown): IncidentPage {
         last_updated_at: apiString(item, "last_updated_at", "incident item"),
         latest_mode: apiMode(item["latest_mode"]),
         history_count: apiPositiveInteger(item, "history_count", "incident item"),
+        involved_agents: involvedAgents ?? [],
       };
     }),
     next_cursor: cursor,

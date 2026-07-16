@@ -104,13 +104,32 @@ const SYSTEM_AGENT = "System";
  * every core row into one ``System`` bucket.
  */
 export function agentOf(item: AuditItem): string {
-  if (item.actor in AGENT_LAYER) return item.actor;
   const principal = item.entry["producer_principal"];
   if (typeof principal === "string" && principal.trim()) {
     return principal in AGENT_LAYER ? principal : principal.trim();
   }
+  if (item.actor in AGENT_LAYER) return item.actor;
+  const semanticOwner = semanticAgentOwner(item);
+  if (semanticOwner !== null) return semanticOwner;
   if (item.actor && item.actor.trim()) return humanizeActor(item.actor);
   return SYSTEM_AGENT;
+}
+
+function semanticAgentOwner(item: AuditItem): string | null {
+  if (!item.actor.startsWith("fdai.")) return null;
+  const actionKind = item.action_kind.toLowerCase();
+  const stage = typeof item.entry["stage"] === "string"
+    ? item.entry["stage"].toLowerCase()
+    : "";
+  if (actionKind.startsWith("hil.") || item.actor === "fdai.core.hil_resume") return "Var";
+  if (actionKind.startsWith("risk_gate.")) return "Forseti";
+  if (actionKind.startsWith("rca.") || item.actor === "fdai.core.rca") return "Forseti";
+  if (actionKind.startsWith("governance.")) return "Mimir";
+  if (actionKind.startsWith("measurement.pattern_growth")) return "Norns";
+  if (actionKind.startsWith("control_loop.")) {
+    return stage === "trust_router" ? "Heimdall" : "Forseti";
+  }
+  return null;
 }
 
 /** Shorten a dotted service actor for display: ``fdai.core.control_loop`` ->

@@ -49,11 +49,21 @@ describe("agentOf attribution", () => {
     expect(layerOf(agentOf(item))).toBe("judgment");
   });
 
-  test("live: a dotted service actor is humanized, not bucketed as System", () => {
+  test("live: an RCA service row is attributed to Forseti", () => {
     const item = makeItem({ actor: "fdai.core.rca", entry: { stage: "t0", tier: "t0" } });
-    expect(agentOf(item)).toBe("core.rca");
-    // Unknown producers fall back to the neutral system layer colour.
-    expect(layerOf(agentOf(item))).toBe("system");
+    expect(agentOf(item)).toBe("Forseti");
+    expect(layerOf(agentOf(item))).toBe("judgment");
+  });
+
+  test("live: trust routing and HIL rows map to their canonical owners", () => {
+    const routed = makeItem({ entry: { stage: "trust_router" } });
+    const hil = makeItem({
+      actor: "fdai.core.hil_resume",
+      action_kind: "hil.requested",
+      entry: {},
+    });
+    expect(agentOf(routed)).toBe("Heimdall");
+    expect(agentOf(hil)).toBe("Var");
   });
 
   test("an empty actor with no principal falls back to System", () => {

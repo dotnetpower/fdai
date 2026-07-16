@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 9dee13e5d6a2a7ee1808b32b82797f033071603b
+translation_source_sha: 25ca73aa2e19d2868315c5202ac002313ac1ad81
 translation_revised: 2026-07-16
 ---
 
@@ -1217,12 +1217,20 @@ expected-state check가 필요합니다. Illegal edge, unknown id, cross-replica
 canonical incident를 변경하지 않고 `incident_lifecycle_rejected`를 반환합니다.
 
 `correlation_id`가 인시던트 키입니다. Projection은 최상위 correlation이 없는
-행의 `event_id` 또는 명시적인 인시던트 lifecycle link가 정확히 하나의
-correlation으로 확인될 때만 해당 행을 연결할 수 있습니다. 모호한 행은 연결하지
-않으며 read model은 리소스 이름으로 연관 관계를 만들지 않습니다. Lifecycle
-상태가 있으면 이를 authoritative하게 사용합니다. 그렇지 않으면 audit stage에서
-`open`, `in_progress`, `resolved`를 도출합니다. 교정이 deny되거나 실패했다는
+행의 `event_id`가 이미 알려진 correlation과 같거나 명시적인 인시던트 lifecycle
+link가 정확히 하나의 correlation으로 확인될 때만 해당 행을 연결할 수 있습니다.
+모호한 행은 연결하지 않으며 read model은 리소스 이름으로 연관 관계를 만들지
+않습니다. Pending HIL 항목은 server-owned park record에서 rule severity와 category를
+복원할 수 있지만 append-only audit row는 다시 쓰지 않습니다. Lifecycle 상태가
+있으면 이를 authoritative하게 사용합니다. 그렇지 않으면 audit stage에서 `open`,
+`in_progress`, `resolved`를 도출합니다. 교정이 deny, abstain 또는 실패했다는
 사실만으로 기반 인시던트가 해결되었다고 표시하지 않습니다.
+
+각 incident summary는 기록된 `producer_principal`, canonical action owner, stage
+ownership에서 server-side로 도출한 `involved_agents`를 포함합니다. Agents surface는
+이 durable incident snapshot을 먼저 hydrate한 다음 더 새로운 `/agents/stream` stage
+delta를 적용합니다. 따라서 새 tab도 Incidents와 일치하면서 live stage transition을
+유지합니다.
 
 목록은 요약만 반환하며 모든 audit 행을 포함하지 않습니다. Cursor가 각 서버
 페이지의 범위를 제한합니다. 항목을 선택하면 별도의 필터링된 GET으로 이력을

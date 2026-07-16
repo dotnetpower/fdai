@@ -129,6 +129,7 @@ class IncidentSummary:
     last_updated_at: str
     latest_mode: str
     history_count: int
+    involved_agents: Sequence[str]
     last_seq: int
 
     def to_dict(self) -> dict[str, Any]:

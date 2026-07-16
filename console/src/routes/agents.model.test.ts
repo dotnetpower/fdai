@@ -116,6 +116,39 @@ describe("agents.model", () => {
     s = reducer(s, { kind: "reset" });
     expect(s.incidentOrder).toHaveLength(0);
   });
+
+  it("hydrates real incident history without overwriting a newer live frame", () => {
+    let s = makeInitialState();
+    s = reducer(s, { kind: "message", msg: ticketMsg("inc-live", "resolved") });
+    s = reducer(s, {
+      kind: "hydrate",
+      incidents: [
+        {
+          correlation_id: "inc-history",
+          incident_id: null,
+          ticket_id: null,
+          title: "Historical HIL",
+          severity: "high",
+          status: "in_progress",
+          status_source: "audit_projection",
+          disposition: "awaiting_hil",
+          verdict: "hil",
+          vertical: "change_safety",
+          opened_at: "2026-07-11T00:00:00+00:00",
+          last_updated_at: "2026-07-12T00:00:00+00:00",
+          latest_mode: "shadow",
+          history_count: 8,
+          involved_agents: ["Heimdall", "Forseti", "Var"],
+        },
+      ],
+    });
+    expect(s.incidentOrder).toEqual(["inc-history", "inc-live"]);
+    expect(s.incidents["inc-history"]?.status).toBe("investigating");
+    expect(s.incidents["inc-history"]?.involved).toEqual(["Heimdall", "Forseti", "Var"]);
+    expect(s.incidents["inc-live"]?.status).toBe("resolved");
+    expect(s.agents.Var?.state).toBe("approving");
+    expect(s.agents.Var?.correlationId).toBe("inc-history");
+  });
 });
 
 describe("agents.model engagement helpers", () => {

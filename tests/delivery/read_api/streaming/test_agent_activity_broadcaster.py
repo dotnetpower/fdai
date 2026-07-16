@@ -141,7 +141,11 @@ async def test_consumes_stage_frames_and_publishes_agent_activity() -> None:
     for frame in (
         _stage_dict(StageName.INGEST),
         _stage_dict(StageName.GATE, detail={"gate_decision": "auto"}),
-        _stage_dict(StageName.AUDIT, StagePhase.DONE),
+        _stage_dict(
+            StageName.AUDIT,
+            StagePhase.DONE,
+            detail={"outcome": "executed", "decision": "auto"},
+        ),
     ):
         await bus.publish(topic, "evt-1", frame)
 

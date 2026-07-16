@@ -209,8 +209,10 @@ async def _audit_abstain(host: OperatorRequestHost, *, event: Event, reason: str
     await host._audit_store.append_audit_entry(
         {
             "event_id": str(event.event_id),
+            "correlation_id": event.correlation_id or str(event.event_id),
             "idempotency_key": event.idempotency_key,
             "actor": "fdai.core.control_loop",
+            "producer_principal": "Forseti",
             "action_kind": "control_loop.operator_request_abstain",
             "mode": Mode.SHADOW.value,
             "reason": reason,

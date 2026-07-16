@@ -179,6 +179,21 @@ async def test_all_events_share_event_id(tmp_path: Path) -> None:
     assert len(corr_ids) == 1
 
 
+@pytest.mark.asyncio
+async def test_audit_rows_preserve_explicit_correlation_id(tmp_path: Path) -> None:
+    recorder = RecordingStagePublisher()
+    audit = InMemoryStateStore()
+    loop = _make_loop(stage_publisher=recorder, audit=audit, tmp_path=tmp_path)
+    payload = _event_dict("evt-audit-correlation")
+    payload["correlation_id"] = "corr-audit-correlation"
+
+    await loop.process(payload)
+
+    entries = [row["entry"] for row in audit.audit_entries]
+    assert entries
+    assert {entry.get("correlation_id") for entry in entries} == {"corr-audit-correlation"}
+
+
 # ---------------------------------------------------------------------------
 # T1 fallback path: verify.done fires again for T1, then audit.done.
 # ---------------------------------------------------------------------------

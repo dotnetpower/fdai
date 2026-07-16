@@ -204,6 +204,7 @@ def project_stage(projection: AgentActivityProjection, event: StageEvent) -> Pro
 
     prior = incidents.get(correlation_id)
     prev_agent = prior.last_agent if prior is not None else None
+    waiting_for_approval = _terminal_decision(event) == "hil"
     if prior is None:
         incident = replace(
             IncidentProjection(
@@ -218,8 +219,11 @@ def project_stage(projection: AgentActivityProjection, event: StageEvent) -> Pro
         incidents[correlation_id] = incident
         ticket_events.append(_ticket_event(incident, ts))
     else:
+        involved = prior.with_agent(agent)
+        if waiting_for_approval:
+            involved = involved.with_agent("Var")
         incident = replace(
-            prior.with_agent(agent),
+            involved,
             status=_next_status(prior.status, event),
             last_agent=agent if agent != _UNKNOWN_AGENT else prior.last_agent,
         )
@@ -253,10 +257,34 @@ def project_stage(projection: AgentActivityProjection, event: StageEvent) -> Pro
         detail=_state_detail(event),
     )
 
+    terminal_states: list[AgentStateEvent] = []
+    if event.stage is StageName.AUDIT and event.phase is StagePhase.DONE:
+        for involved_agent in incident.involved:
+            terminal_states.append(
+                AgentStateEvent(
+                    agent=involved_agent,
+                    state=(
+                        AgentState.APPROVING
+                        if waiting_for_approval and involved_agent == "Var"
+                        else AgentState.IDLE
+                    ),
+                    ts=ts,
+                    correlation_id=(
+                        correlation_id if waiting_for_approval and involved_agent == "Var" else None
+                    ),
+                    detail=(
+                        "awaiting human approval"
+                        if waiting_for_approval and involved_agent == "Var"
+                        else "pipeline stage complete"
+                    ),
+                )
+            )
+
     events: list[AgentStateEvent | IncidentTicketEvent | ConversationTurnEvent] = [
         *ticket_events,
         *turn_events,
         agent_event,
+        *terminal_states,
     ]
     return ProjectionResult(projection=AgentActivityProjection(incidents=incidents), events=events)
 
@@ -265,10 +293,26 @@ def _next_status(current: TicketStatus, event: StageEvent) -> TicketStatus:
     if current is TicketStatus.RESOLVED:
         return current
     if event.stage is StageName.AUDIT and event.phase is StagePhase.DONE:
-        return TicketStatus.RESOLVED
+        outcome = str(event.detail.get("outcome") or "").lower()
+        if outcome in {
+            "executed",
+            "resolved",
+            "remediated",
+            "mitigated",
+            "rollback_succeeded",
+            "rollback_completed",
+        }:
+            return TicketStatus.RESOLVED
+        return TicketStatus.INVESTIGATING
     if event.stage in (StageName.VERIFY, StageName.GATE, StageName.EXECUTE):
         return TicketStatus.INVESTIGATING
     return current
+
+
+def _terminal_decision(event: StageEvent) -> str:
+    if event.stage is not StageName.AUDIT or event.phase is not StagePhase.DONE:
+        return ""
+    return str(event.detail.get("decision") or event.detail.get("gate_decision") or "").lower()
 
 
 def _ticket_event(incident: IncidentProjection, ts: str) -> IncidentTicketEvent:

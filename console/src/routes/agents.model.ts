@@ -18,6 +18,7 @@ import type {
   ConversationTurnMessage,
   TicketStatus,
 } from "../hooks/use-agent-stream";
+import type { IncidentSummary } from "../types";
 
 /** Cognitive layer of each agent (drives the node colour). */
 export type AgentLayer =
@@ -211,10 +212,71 @@ function applyTurn(
 
 export type AgentsAction =
   | { readonly kind: "message"; readonly msg: AgentActivityMessage }
+  | { readonly kind: "hydrate"; readonly incidents: readonly IncidentSummary[] }
   | { readonly kind: "reset" };
+
+function hydrateIncidents(
+  state: AgentsState,
+  summaries: readonly IncidentSummary[],
+): AgentsState {
+  const incidents = { ...state.incidents };
+  for (const summary of summaries) {
+    const existing = incidents[summary.correlation_id];
+    if (
+      existing &&
+      new Date(existing.updatedAt).getTime() > new Date(summary.last_updated_at).getTime()
+    ) continue;
+    incidents[summary.correlation_id] = {
+      correlationId: summary.correlation_id,
+      ticketId: summary.ticket_id ?? summary.incident_id ?? `INC-${summary.correlation_id}`,
+      title: summary.title,
+      severity: summary.severity,
+      status: summary.status === "in_progress" ? "investigating" : summary.status,
+      involved: summary.involved_agents,
+      rca: existing?.rca ?? null,
+      turns: existing?.turns ?? [],
+      updatedAt: summary.last_updated_at,
+    };
+  }
+  const agents = { ...state.agents };
+  const awaitingApproval = summaries.find(
+    (summary) =>
+      summary.disposition === "awaiting_hil" &&
+      summary.status !== "resolved" &&
+      summary.involved_agents.includes("Var"),
+  );
+  const currentVar = agents.Var;
+  if (
+    awaitingApproval &&
+    currentVar &&
+    new Date(currentVar.since || 0).getTime() <=
+      new Date(awaitingApproval.last_updated_at).getTime()
+  ) {
+    agents.Var = {
+      ...currentVar,
+      state: "approving",
+      correlationId: awaitingApproval.correlation_id,
+      since: awaitingApproval.last_updated_at,
+      detail: "awaiting human approval",
+    };
+  }
+  const incidentOrder = [
+    ...summaries.map((summary) => summary.correlation_id),
+    ...state.incidentOrder,
+  ].filter((id, index, all) => all.indexOf(id) === index).slice(0, MAX_INCIDENTS);
+  return {
+    ...state,
+    agents,
+    incidents: Object.fromEntries(
+      Object.entries(incidents).filter(([id]) => incidentOrder.includes(id)),
+    ),
+    incidentOrder,
+  };
+}
 
 export function reducer(state: AgentsState, action: AgentsAction): AgentsState {
   if (action.kind === "reset") return makeInitialState();
+  if (action.kind === "hydrate") return hydrateIncidents(state, action.incidents);
   const { msg } = action;
   switch (msg.type) {
     case "agent.state":

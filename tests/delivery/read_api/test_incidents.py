@@ -64,6 +64,7 @@ def test_projection_groups_direct_and_event_anchored_history() -> None:
     assert summary.vertical == "change_safety"
     assert summary.status == "resolved"
     assert summary.disposition == "action_delivered"
+    assert summary.involved_agents == ("Saga",)
 
 
 def test_lifecycle_status_is_authoritative_and_hil_stays_active() -> None:
@@ -123,6 +124,39 @@ def test_denied_terminal_audit_does_not_claim_incident_resolution() -> None:
     summary = project_incidents(items)[0]
     assert summary.status == "in_progress"
     assert summary.disposition == "no_action"
+
+
+def test_hil_action_kinds_project_as_awaiting_approval() -> None:
+    items = (
+        _item(
+            1,
+            "corr-hil",
+            action_kind="hil.requested",
+            entry={
+                "action_kind": "hil.requested",
+                "approval_id": "approval-1",
+                "rule_id": "network.load-balancer.unused-backend",
+                "category": "config_drift",
+            },
+        ),
+        _item(
+            2,
+            "corr-hil",
+            action_kind="hil.request.dispatch_unavailable",
+            entry={
+                "action_kind": "hil.request.dispatch_unavailable",
+                "approval_id": "approval-1",
+            },
+        ),
+    )
+
+    summary = project_incidents(items)[0]
+
+    assert summary.status == "in_progress"
+    assert summary.verdict == "hil"
+    assert summary.disposition == "awaiting_hil"
+    assert summary.involved_agents == ("Var",)
+    assert summary.vertical == "change_safety"
 
 
 def test_multiple_correlation_keys_and_conflicting_opens_fail_closed() -> None:

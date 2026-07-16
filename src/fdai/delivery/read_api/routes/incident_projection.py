@@ -25,13 +25,38 @@ _INCIDENT_SEVERITIES = {
 }
 _VERTICALS = {
     "resilience": "resilience",
+    "dr": "resilience",
+    "reliability": "resilience",
+    "chaos": "resilience",
+    "change": "change_safety",
     "change_safety": "change_safety",
     "change-safety": "change_safety",
+    "config_drift": "change_safety",
+    "security": "change_safety",
     "cost": "cost_governance",
     "cost_governance": "cost_governance",
     "cost-governance": "cost_governance",
     "finops": "cost_governance",
 }
+_PANTHEON_AGENTS = frozenset(
+    {
+        "Odin",
+        "Thor",
+        "Forseti",
+        "Huginn",
+        "Heimdall",
+        "Var",
+        "Vidar",
+        "Bragi",
+        "Saga",
+        "Mimir",
+        "Norns",
+        "Muninn",
+        "Njord",
+        "Freyr",
+        "Loki",
+    }
+)
 
 
 def correlate_audit_items(items: Iterable[AuditItem]) -> dict[str, tuple[AuditItem, ...]]:
@@ -127,8 +152,41 @@ def _project_one(correlation_id: str, history: Sequence[AuditItem]) -> IncidentS
         last_updated_at=latest.recorded_at,
         latest_mode=latest.mode,
         history_count=len(ordered),
+        involved_agents=_involved_agents(ordered),
         last_seq=latest.seq,
     )
+
+
+def _involved_agents(items: Sequence[AuditItem]) -> tuple[str, ...]:
+    involved: list[str] = []
+    for item in items:
+        agent = _audit_agent(item)
+        if agent is not None and agent not in involved:
+            involved.append(agent)
+    return tuple(involved)
+
+
+def _audit_agent(item: AuditItem) -> str | None:
+    principal = _string(item.entry, "producer_principal")
+    if principal in _PANTHEON_AGENTS:
+        return principal
+    action_kind = item.action_kind.lower()
+    stage = (_string(item.entry, "stage") or "").lower()
+    if action_kind.startswith("hil.") or item.actor == "fdai.core.hil_resume":
+        return "Var"
+    if action_kind.startswith("risk_gate."):
+        return "Forseti"
+    if action_kind.startswith("rca.") or item.actor == "fdai.core.rca":
+        return "Forseti"
+    if action_kind.startswith("governance."):
+        return "Mimir"
+    if action_kind.startswith("measurement.pattern_growth"):
+        return "Norns"
+    if action_kind.startswith("control_loop."):
+        return "Heimdall" if stage == "trust_router" else "Forseti"
+    if item.actor in _PANTHEON_AGENTS:
+        return item.actor
+    return None
 
 
 def _latest_lifecycle_state(items: Sequence[AuditItem]) -> str | None:
@@ -207,8 +265,10 @@ def _verdict(items: Sequence[AuditItem]) -> str:
 
 def _tokens(item: AuditItem) -> set[str]:
     entry = item.entry
+    action_kind = item.action_kind.lower()
     values = {
-        item.action_kind.lower(),
+        action_kind,
+        *action_kind.split("."),
         (_string(entry, "decision") or "").lower(),
         (_string(entry, "gate_decision") or "").lower(),
         (_string(entry, "outcome") or "").lower(),

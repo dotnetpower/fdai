@@ -363,6 +363,12 @@ function IncidentDetail({
         <KpiCard label={t("incidents.latestMode")} value={<StatusPill kind={incident.latest_mode} label={incident.latest_mode} />} />
         <KpiCard label={t("incidents.statusSource")} value={<span class="mono small">{incident.status_source}</span>} />
         <KpiCard label={t("incidents.history")} value={incident.history_count} />
+        <KpiCard
+          label={t("incidents.involvedAgents")}
+          value={incident.involved_agents.length > 0
+            ? incident.involved_agents.join(", ")
+            : t("incidents.none")}
+        />
       </KpiGrid>
       <p>
         <a href={routeHref("reports", {

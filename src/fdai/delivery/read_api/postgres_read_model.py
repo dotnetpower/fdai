@@ -85,6 +85,18 @@ event_anchor AS (
      GROUP BY event_id
     HAVING COUNT(DISTINCT correlation_id) = 1
 ),
+correlation_anchor AS (
+    SELECT DISTINCT correlation_id
+      FROM bounded_audit
+     WHERE correlation_id IS NOT NULL AND correlation_id <> ''
+),
+hil_park AS (
+    SELECT value->>'approval_id' AS approval_id,
+         LOWER(value->'rule'->>'severity') AS severity,
+         LOWER(value->'rule'->>'category') AS category
+     FROM state_kv
+    WHERE key LIKE 'hil_park:%%'
+),
 incident_open_raw AS (
     SELECT a.entry->>'incident_id' AS incident_id,
            CASE
@@ -138,14 +150,26 @@ normalized AS (
                THEN a.correlation_id
                WHEN a.entry->>'kind' LIKE 'incident.%%'
                THEN CASE WHEN NOT io.ambiguous THEN io.correlation_id ELSE NULL END
-               ELSE COALESCE(ea.correlation_id, io.correlation_id)
+               ELSE COALESCE(
+                   a.entry->>'correlation_id',
+                   ea.correlation_id,
+                   ca.correlation_id,
+                   io.correlation_id
+               )
            END AS normalized_correlation_id,
+           COALESCE(a.entry->>'severity', hp.severity) AS projection_severity,
+           COALESCE(a.entry->>'category', hp.category) AS projection_category,
            CASE
                WHEN a.entry->>'kind' = 'incident.transition' THEN a.entry->>'to_state'
                WHEN a.entry->>'kind' = 'incident.open' THEN a.entry->>'state'
                ELSE NULL
            END AS lifecycle_state,
-           CASE LOWER(COALESCE(a.entry->>'vertical', a.entry->>'category', ''))
+           CASE LOWER(COALESCE(
+               a.entry->>'vertical',
+               a.entry->>'category',
+               hp.category,
+               ''
+           ))
                WHEN 'resilience' THEN 'resilience'
                WHEN 'dr' THEN 'resilience'
                WHEN 'reliability' THEN 'resilience'
@@ -161,7 +185,9 @@ normalized AS (
            END AS vertical_bucket
     FROM bounded_audit AS a
       LEFT JOIN event_anchor AS ea ON ea.event_id = a.event_id
+            LEFT JOIN correlation_anchor AS ca ON ca.correlation_id = a.event_id::text
       LEFT JOIN incident_open AS io ON io.incident_id = a.entry->>'incident_id'
+    LEFT JOIN hil_park AS hp ON hp.approval_id = a.entry->>'approval_id'
 ),
 ranked AS (
     SELECT normalized.*,
@@ -227,7 +253,7 @@ selected AS (
 SELECT n.seq, n.event_id, n.correlation_id, n.actor, n.action_kind,
        n.mode, n.entry, n.previous_hash, n.entry_hash, n.created_at,
          n.normalized_correlation_id, s.last_seq AS group_last_seq,
-         n.group_history_count,
+         n.group_history_count, n.projection_severity, n.projection_category,
     (SELECT snapshot_seq FROM snapshot) AS snapshot_seq
   FROM selected AS s
   JOIN ranked AS n
@@ -640,6 +666,16 @@ class PostgresConsoleReadModel(ConsoleReadModel):
                 group_history_count[correlation] = int(row["group_history_count"])
             normalized_row = dict(row)
             normalized_row["correlation_id"] = correlation
+            entry = normalized_row.get("entry")
+            if isinstance(entry, Mapping):
+                projection_entry = dict(entry)
+                severity = normalized_row.get("projection_severity")
+                category = normalized_row.get("projection_category")
+                if isinstance(severity, str) and severity and "severity" not in projection_entry:
+                    projection_entry["severity"] = severity
+                if isinstance(category, str) and category and "category" not in projection_entry:
+                    projection_entry["category"] = category
+                normalized_row["entry"] = projection_entry
             grouped_rows[correlation].append(row_to_audit_item(normalized_row))
 
         visible_correlations = group_order[:bounded]

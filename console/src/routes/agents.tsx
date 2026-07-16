@@ -157,6 +157,7 @@ export function AgentsRoute({ client }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(
     initialRoute.search.get("correlation"),
   );
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
 
   const stream = useMemo(agentStreamDescriptor, []);
 
@@ -165,6 +166,21 @@ export function AgentsRoute({ client }: Props) {
     getAuthorizationHeader: client.authorizationHeader,
     onEvent: (msg) => dispatch({ kind: "message", msg }),
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    void client.listIncidents({ status: "all", limit: 30 }).then((page) => {
+      if (!cancelled) {
+        dispatch({ kind: "hydrate", incidents: page.items });
+        setSnapshotError(null);
+      }
+    }).catch((error: unknown) => {
+      if (!cancelled) {
+        setSnapshotError(error instanceof Error ? error.message : String(error));
+      }
+    });
+    return () => { cancelled = true; };
+  }, [client]);
 
   // Auto-follow the newest incident until the operator picks one.
   const [pinned, setPinned] = useState(initialRoute.search.has("correlation"));
@@ -422,7 +438,8 @@ export function AgentsRoute({ client }: Props) {
           <p class="agents-sub">
             Live work across the fixed 15-agent pantheon. Inspect current tasks,
             open each agent's evidence timeline, or ask about its grounded context.
-            State comes from <code>GET /agents/stream</code>.
+            State combines the durable <code>GET /incidents</code> snapshot with live
+            deltas from <code>GET /agents/stream</code>.
           </p>
         </div>
         <div class="agents-meta">
@@ -461,6 +478,10 @@ export function AgentsRoute({ client }: Props) {
           </span>
         </div>
       </header>
+
+      {snapshotError ? (
+        <UnavailableState message={`Durable incident history is unavailable: ${snapshotError}`} />
+      ) : null}
 
       {layout === "roster" ? (
         <AgentRoster
@@ -641,7 +662,7 @@ function AgentRoster({
           approve or execute actions.
           {streamSource === "local"
             ? " Local streams are quiet by default. Scenario replay runs only when explicitly enabled; replayed items are generated examples, not Azure incidents."
-            : " Incidents come from the configured runtime event stream."}
+            : " Incident history comes from the durable audit projection; current work comes from the runtime stage stream."}
         </span>
       </section>
 

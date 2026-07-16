@@ -262,6 +262,7 @@
     "latestMode": "Latest mode",
     "statusSource": "Status source",
     "history": "History entries",
+    "involvedAgents": "Involved agents",
     "timeline": "Remediation timeline",
     "actor": "Actor",
     "action": "Action",

@@ -130,17 +130,76 @@ class TestIncidentTicket:
             [
                 _stage(StageName.INGEST),
                 _stage(StageName.GATE),
-                _stage(StageName.AUDIT, StagePhase.DONE),
+                _stage(
+                    StageName.AUDIT,
+                    StagePhase.DONE,
+                    detail={"outcome": "executed", "decision": "auto"},
+                ),
             ]
         )
         tickets = [e for e in events if isinstance(e, IncidentTicketEvent)]
         assert tickets[-1].status is TicketStatus.RESOLVED
 
+    def test_audit_abstain_stays_active(self) -> None:
+        _proj, events = _run(
+            [
+                _stage(StageName.INGEST),
+                _stage(
+                    StageName.AUDIT,
+                    StagePhase.DONE,
+                    detail={"outcome": "abstained_routing", "decision": "abstain"},
+                ),
+            ]
+        )
+        tickets = [e for e in events if isinstance(e, IncidentTicketEvent)]
+        assert tickets[-1].status is TicketStatus.INVESTIGATING
+
+    def test_audit_hil_keeps_only_var_engaged(self) -> None:
+        _proj, events = _run(
+            [
+                _stage(StageName.INGEST),
+                _stage(
+                    StageName.AUDIT,
+                    StagePhase.DONE,
+                    detail={"outcome": "hil", "decision": "hil"},
+                ),
+            ]
+        )
+        tickets = [e for e in events if isinstance(e, IncidentTicketEvent)]
+        states = [e for e in events if isinstance(e, AgentStateEvent)]
+        assert tickets[-1].status is TicketStatus.INVESTIGATING
+        assert "Var" in tickets[-1].involved_agents
+        assert states[-1].agent == "Var"
+        assert states[-1].state is AgentState.APPROVING
+        assert states[-1].correlation_id == "corr-1"
+
+    def test_terminal_audit_resets_completed_agents_to_idle(self) -> None:
+        _proj, events = _run(
+            [
+                _stage(StageName.INGEST),
+                _stage(StageName.ROUTE),
+                _stage(
+                    StageName.AUDIT,
+                    StagePhase.DONE,
+                    detail={"outcome": "executed", "decision": "auto"},
+                ),
+            ]
+        )
+        states = [e for e in events if isinstance(e, AgentStateEvent)]
+        terminal = states[-3:]
+        assert {event.agent for event in terminal} == {"Huginn", "Heimdall", "Saga"}
+        assert all(event.state is AgentState.IDLE for event in terminal)
+        assert all(event.correlation_id is None for event in terminal)
+
     def test_resolved_is_terminal(self) -> None:
         proj, _ = _run(
             [
                 _stage(StageName.INGEST),
-                _stage(StageName.AUDIT, StagePhase.DONE),
+                _stage(
+                    StageName.AUDIT,
+                    StagePhase.DONE,
+                    detail={"outcome": "executed", "decision": "auto"},
+                ),
             ]
         )
         # A late stray frame on a resolved incident does not un-resolve it.

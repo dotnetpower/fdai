@@ -1,7 +1,7 @@
 ---
 title: 콘솔 read-API 프로덕션 배포
 translation_of: read-api-prod.md
-translation_source_sha: 73dc3c5d2dbd2cb93593c818bac0c04da80ef0fb
+translation_source_sha: 1edf6bd60d2fc6265957fb22d63b847a5790d897
 translation_revised: 2026-07-16
 ---
 # 콘솔 read-API 프로덕션 배포
@@ -40,6 +40,11 @@ translation_revised: 2026-07-16
   닫습니다. 이 SSE GET route는 snapshot GET route와 동일한 Entra bearer 인증을
   사용합니다. 브라우저의 native `EventSource` API는 `Authorization` header를 첨부할 수
   없으므로 콘솔은 인증된 fetch streaming으로 이를 소비합니다.
+- **Durable Agents bootstrap.** Agents 페이지는 server에서 참여 agent를 도출한
+  Postgres 기반 incident roster를 먼저 로드한 다음 `/agents/stream`의 더 새로운
+  stage event를 overlay합니다. Audit-stage frame은 기록된 remediation outcome이
+  있을 때만 ticket을 resolve합니다. HIL, deny, abstain은 active로 유지되고 완료된
+  stage owner는 idle로 돌아갑니다.
 
 ## 환경변수 계약
 

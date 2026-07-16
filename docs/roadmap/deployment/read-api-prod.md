@@ -41,6 +41,11 @@ model from environment only. This doc covers the production entrypoint.
   routes use the same Entra bearer authorization as snapshot GET routes. The
   console consumes them with authenticated fetch streaming because the browser's
   native `EventSource` API cannot attach an `Authorization` header.
+- **Durable Agents bootstrap.** The Agents page first loads the Postgres-backed
+  incident roster, including server-derived involved agents, and then overlays
+  newer stage events from `/agents/stream`. An audit-stage frame resolves a
+  ticket only for a recorded remediation outcome; HIL, deny, and abstain remain
+  active and completed stage owners return to idle.
 
 ## Environment contract
 

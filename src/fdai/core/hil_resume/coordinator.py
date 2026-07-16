@@ -297,6 +297,8 @@ class HilResumeCoordinator:
             detail={
                 "action_type": action.action_type,
                 "rule_id": rule.id,
+                "severity": rule.severity.value,
+                "category": rule.category.value,
                 "submitter_oid": submitter_oid,
                 "assignee_oid": resolved_assignee,
                 "on_call": _on_call_detail(on_call),

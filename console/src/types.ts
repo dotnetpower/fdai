@@ -40,6 +40,7 @@ export interface IncidentSummary {
   readonly last_updated_at: string;
   readonly latest_mode: "shadow" | "enforce";
   readonly history_count: number;
+  readonly involved_agents: readonly string[];
 }
 
 export interface IncidentPage {

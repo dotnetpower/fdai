@@ -666,8 +666,10 @@ class ControlLoop:
         await self._audit_store.append_audit_entry(
             {
                 "event_id": str(event.event_id),
+                "correlation_id": event.correlation_id or str(event.event_id),
                 "idempotency_key": event.idempotency_key,
                 "actor": "fdai.core.control_loop",
+                "producer_principal": "Mimir",
                 "action_kind": "governance.assignment_resolved",
                 "mode": Mode.SHADOW.value,
                 "rule_id": resolution.rule_id,
@@ -836,8 +838,10 @@ class ControlLoop:
             await self._audit_store.append_audit_entry(
                 {
                     "event_id": str(event.event_id),
+                    "correlation_id": event.correlation_id or str(event.event_id),
                     "idempotency_key": f"{event.idempotency_key}:rca:{finding.rule_id}",
                     "actor": "fdai.core.rca",
+                    "producer_principal": "Forseti",
                     "action_kind": "rca.hypothesis",
                     "mode": Mode.SHADOW.value,
                     "rule_id": finding.rule_id,
@@ -905,8 +909,10 @@ class ControlLoop:
             await self._audit_store.append_audit_entry(
                 {
                     "event_id": str(event.event_id),
+                    "correlation_id": event.correlation_id or str(event.event_id),
                     "idempotency_key": f"{event.idempotency_key}:rca_t1_chain",
                     "actor": "fdai.core.rca",
+                    "producer_principal": "Forseti",
                     "action_kind": "rca.hypothesis",
                     "mode": Mode.SHADOW.value,
                     "incident_id": incident_id,
@@ -967,8 +973,10 @@ class ControlLoop:
             await self._audit_store.append_audit_entry(
                 {
                     "event_id": str(event.event_id),
+                    "correlation_id": event.correlation_id or str(event.event_id),
                     "idempotency_key": f"{event.idempotency_key}:rca_t2",
                     "actor": "fdai.core.rca",
+                    "producer_principal": "Forseti",
                     "action_kind": "rca.hypothesis",
                     "mode": Mode.SHADOW.value,
                     "incident_id": incident_id,
@@ -1105,8 +1113,10 @@ class ControlLoop:
         await self._audit_store.append_audit_entry(
             {
                 "event_id": str(event.event_id),
+                "correlation_id": event.correlation_id or str(event.event_id),
                 "idempotency_key": event.idempotency_key,
                 "actor": "fdai.core.control_loop",
+                "producer_principal": "Heimdall" if stage == "trust_router" else "Forseti",
                 "action_kind": "control_loop.abstain",
                 "mode": Mode.SHADOW.value,
                 "stage": stage,
@@ -1125,10 +1135,12 @@ class ControlLoop:
     ) -> None:
         """Record an unexpected process-boundary failure without raw payload data."""
         event_id = payload.get("event_id") or payload.get("id") or "unknown"
+        correlation_id = payload.get("correlation_id") or event_id
         idempotency_key = payload.get("idempotency_key") or "unknown"
         await self._audit_store.append_audit_entry(
             {
                 "event_id": str(event_id),
+                "correlation_id": str(correlation_id),
                 "idempotency_key": str(idempotency_key),
                 "actor": "fdai.core.control_loop",
                 "action_kind": "control_loop.unhandled_failure",
@@ -1165,8 +1177,10 @@ class ControlLoop:
         await self._audit_store.append_audit_entry(
             {
                 "event_id": str(event.event_id),
+                "correlation_id": event.correlation_id or str(event.event_id),
                 "idempotency_key": event.idempotency_key,
                 "actor": "fdai.core.control_loop",
+                "producer_principal": "Forseti",
                 "action_kind": "control_loop.t1_evaluate",
                 "mode": Mode.SHADOW.value,
                 "stage": "t1_similarity",
@@ -1398,8 +1412,10 @@ class ControlLoop:
             await self._audit_store.append_audit_entry(
                 {
                     "event_id": event_id,
+                    "correlation_id": correlation_id,
                     "idempotency_key": event.idempotency_key,
                     "actor": "fdai.core.control_loop",
+                    "producer_principal": "Forseti",
                     "action_kind": "control_loop.t2_action_build_abstain",
                     "mode": Mode.SHADOW.value,
                     "reason": str(exc),
@@ -1484,8 +1500,10 @@ class ControlLoop:
         await self._audit_store.append_audit_entry(
             {
                 "event_id": str(event.event_id),
+                "correlation_id": event.correlation_id or str(event.event_id),
                 "idempotency_key": event.idempotency_key,
                 "actor": "fdai.core.control_loop",
+                "producer_principal": "Forseti",
                 "action_kind": "control_loop.t2_evaluate",
                 "mode": Mode.SHADOW.value,
                 "stage": "t2_reasoning",

@@ -1285,13 +1285,21 @@ cross-replica conflicts return `incident_lifecycle_rejected` without changing
 the canonical incident.
 
 `correlation_id` is the incident key. The projection can attach a row without
-a top-level correlation only when its `event_id` or explicit incident
-lifecycle link resolves to exactly one correlation. Ambiguous rows stay
-unattached; the read model never invents an association from a resource name.
-Lifecycle state is authoritative when present. Otherwise the projection
-derives `open`, `in_progress`, or `resolved` from audit stages. A denied or
-failed remediation does not by itself claim that the underlying incident is
-resolved.
+a top-level correlation only when its `event_id` equals an already-known
+correlation, or when an explicit incident lifecycle link resolves to exactly
+one correlation. Ambiguous rows stay unattached; the read model never invents
+an association from a resource name. For a pending HIL item, the projection
+may read its server-owned park record to recover rule severity and category;
+it does not rewrite the append-only audit row. Lifecycle state is authoritative
+when present. Otherwise the projection derives `open`, `in_progress`, or
+`resolved` from audit stages. A denied, abstained, or failed remediation does
+not by itself claim that the underlying incident is resolved.
+
+Each incident summary includes `involved_agents`, derived server-side from the
+recorded `producer_principal`, canonical action owner, and stage ownership. The
+Agents surface hydrates this durable incident snapshot first, then applies
+newer `/agents/stream` stage deltas. This keeps a newly opened tab consistent
+with Incidents while preserving live stage transitions.
 
 The roster returns summaries only. It does not embed every audit row, and the
 cursor bounds each server-side page. Selection performs a separate filtered

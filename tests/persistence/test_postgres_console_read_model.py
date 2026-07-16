@@ -110,6 +110,54 @@ async def test_dashboard_metrics_reflects_seeded_rows() -> None:
 
 
 @pytest.mark.asyncio
+async def test_incidents_join_control_rows_by_event_correlation_anchor() -> None:
+    url = _requires_live_db()
+    _upgrade_head()
+    dsn = _plain_dsn(url)
+    writer = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    reader = PostgresConsoleReadModel(config=PostgresConsoleReadModelConfig(dsn=dsn))
+    correlation_id = str(uuid.uuid4())
+    approval_id = f"integration-approval-{uuid.uuid4()}"
+    await writer.write_state(
+        f"hil_park:{approval_id}",
+        {
+            "status": "pending",
+            "approval_id": approval_id,
+            "rule": {"severity": "high", "category": "config_drift"},
+        },
+    )
+    await writer.append_audit_entry(
+        {
+            "event_id": correlation_id,
+            "actor": "fdai.core.control_loop",
+            "action_kind": "risk_gate.unified",
+            "mode": "shadow",
+            "decision": "hil",
+        }
+    )
+    await writer.append_audit_entry(
+        {
+            "event_id": "00000000-0000-0000-0000-000000000000",
+            "correlation_id": correlation_id,
+            "actor": "fdai.core.hil_resume",
+            "action_kind": "hil.requested",
+            "mode": "shadow",
+            "rule_id": "integration.rule",
+            "approval_id": approval_id,
+        }
+    )
+
+    page = await reader.list_incidents(status="all", limit=500)
+    incident = next(item for item in page.items if item.correlation_id == correlation_id)
+
+    assert incident.history_count == 2
+    assert incident.verdict == "hil"
+    assert incident.disposition == "awaiting_hil"
+    assert incident.severity == "high"
+    assert incident.vertical == "change_safety"
+
+
+@pytest.mark.asyncio
 async def test_list_hil_queue_projects_pending_park_records() -> None:
     url = _requires_live_db()
     _upgrade_head()

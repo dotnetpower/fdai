@@ -42,6 +42,17 @@ def test_incident_query_types_optional_parameters() -> None:
     assert "CAST(%(vertical)s AS TEXT) IS NULL" in _INCIDENT_PAGE_SQL
 
 
+def test_incident_query_joins_event_ids_that_equal_known_correlations() -> None:
+    assert "correlation_anchor AS (" in _INCIDENT_PAGE_SQL
+    assert "LEFT JOIN correlation_anchor AS ca ON ca.correlation_id = a.event_id::text" in (
+        _INCIDENT_PAGE_SQL
+    )
+    assert "ca.correlation_id" in _INCIDENT_PAGE_SQL
+    assert "hil_park AS (" in _INCIDENT_PAGE_SQL
+    assert "hp.approval_id = a.entry->>'approval_id'" in _INCIDENT_PAGE_SQL
+    assert "n.projection_severity" in _INCIDENT_PAGE_SQL
+
+
 def _row(
     *,
     seq: int = 1,

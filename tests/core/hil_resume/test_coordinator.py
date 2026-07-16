@@ -276,6 +276,13 @@ async def test_request_approval_parks_and_pushes() -> None:
     assert len(channel.sent) == 1
     assert channel.sent[0].approval_id == "aid-1"
     assert "hil.requested" in _audit_kinds(store)
+    requested = next(
+        row["entry"]
+        for row in store.audit_entries
+        if row["entry"].get("action_kind") == "hil.requested"
+    )
+    assert requested["severity"] == "low"
+    assert requested["category"] == "config_drift"
     # Parking alone NEVER executes.
     assert publisher.records == ()
 

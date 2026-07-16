@@ -142,8 +142,10 @@ def build_shadow_authority_audit(
     )
     return {
         "event_id": str(event.event_id),
+        "correlation_id": event.correlation_id or str(event.event_id),
         "idempotency_key": event.idempotency_key,
         "actor": "fdai.core.control_loop",
+        "producer_principal": "Forseti",
         "action_kind": "risk_gate.shadow_authority",
         "mode": Mode.SHADOW.value,
         "action_id": str(action.action_id),
@@ -198,8 +200,10 @@ def _unified_audit_dict(
 ) -> dict[str, Any]:
     return {
         "event_id": str(event.event_id),
+        "correlation_id": event.correlation_id or str(event.event_id),
         "idempotency_key": event.idempotency_key,
         "actor": "fdai.core.control_loop",
+        "producer_principal": "Forseti",
         "action_kind": "risk_gate.unified",
         "mode": Mode.SHADOW.value,
         "action_id": str(action.action_id),
