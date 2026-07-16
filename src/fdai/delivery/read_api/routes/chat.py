@@ -1699,9 +1699,13 @@ class AzureAdChatBackend:
         import asyncio
 
         try:
-            token = await asyncio.to_thread(self._identity().get_token_sync, _COGNITIVE_SCOPE)
+            token = (
+                await self._workload_identity.get_token(_COGNITIVE_SCOPE)
+                if self._workload_identity is not None
+                else await asyncio.to_thread(self._identity().get_token_sync, _COGNITIVE_SCOPE)
+            )
         except Exception as exc:
-            _LOG.warning("chat backend az-login failed: %s", exc)
+            _LOG.warning("chat backend workload identity failed: %s", exc)
             raise HTTPException(status_code=502, detail="chat auth failed") from exc
 
         messages = _build_messages(prompt, view_context, history)

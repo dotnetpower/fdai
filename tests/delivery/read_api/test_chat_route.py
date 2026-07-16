@@ -222,6 +222,44 @@ class TestChatRouteLatencySurface:
         assert reply == {"answer": "managed identity ready", "model": "narrator-mini"}
         assert identity.audiences == ["https://cognitiveservices.azure.com/.default"]
 
+    async def test_azure_stream_uses_injected_workload_identity(self) -> None:
+        identity = _RecordingIdentity()
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.headers["Authorization"] == "Bearer test-token"
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                text=(
+                    'data: {"choices":[{"delta":{"content":"managed "}}]}\n\n'
+                    'data: {"choices":[{"delta":{"content":"stream"}}]}\n\n'
+                    "data: [DONE]\n\n"
+                ),
+            )
+
+        backend = AzureAdChatBackend(
+            endpoint="https://example.openai.azure.com/",
+            deployment="narrator-mini",
+            identity=identity,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+
+        events = [
+            event
+            async for event in backend.answer_stream(
+                prompt="status",
+                view_context={},
+                history=[],
+            )
+        ]
+
+        assert events == [
+            {"type": "token", "delta": "managed "},
+            {"type": "token", "delta": "stream"},
+            {"type": "done", "answer": "managed stream", "model": "narrator-mini"},
+        ]
+        assert identity.audiences == ["https://cognitiveservices.azure.com/.default"]
+
     def test_disabled_backend_returns_501(self) -> None:
         client = TestClient(_app(_DisabledBackend()))
         resp = client.post("/chat", json={"prompt": "hi", "view_context": {}, "history": []})
