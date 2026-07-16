@@ -1,27 +1,14 @@
 ---
 /*
- * DocsPageFrame.astro - preserves Starlight's default page frame and adds
- * the shared nebula atmosphere to the bilingual user-guide routes.
+ * DocsPageFrame.astro - passthrough over Starlight's default page frame.
+ *
+ * Documentation content renders on the standard (flat) background. The
+ * decorative WebGL nebula is reserved for the landing splash (CustomHero);
+ * doc pages intentionally do not carry an atmospheric backdrop so the
+ * content reads on a clean surface, consistent across every doc route.
  */
 import Default from "@astrojs/starlight/components/PageFrame.astro";
-import NebulaBackground from "./NebulaBackground.astro";
-
-const routeId = Astro.locals.starlightRoute.id;
-const localizedRouteId = routeId.startsWith("ko/") ? routeId.slice(3) : routeId;
-const hasGuidedExperience =
-  localizedRouteId === "get-started" ||
-  localizedRouteId.startsWith("concepts/") ||
-  localizedRouteId.startsWith("guides/");
 ---
-
-{hasGuidedExperience && (
-  <NebulaBackground
-    attachToBody
-    intensity={0.68}
-    speed={0.32}
-    class="get-started-nebula"
-  />
-)}
 
 <Default>
   <slot name="header" slot="header" />
