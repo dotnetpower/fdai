@@ -3,7 +3,7 @@ title: 변경 승인(Approve a change)
 description: FDAI가 HIL 결정을 기다리도록 대기열에 넣은 변경을 검토하고 승인 또는 거부하는 방법.
 translation_of: approve-change.md
 translation_source_sha: b94885dff781dc22a98e25e4f2a199181ce0cc1f
-translation_revised: 2026-07-13
+translation_revised: 2026-07-17
 ---
 
 # 변경 승인(Approve a change)
@@ -14,7 +14,7 @@ translation_revised: 2026-07-13
 ## HIL 요청 구성
 
 구성된 모든 알림 채널에서 승인 대기 사실을 받을 수 있습니다. 실제 승인 결정은 Teams
-Adaptive Card, 재인증을 구성한 Slack 흐름, remediation PR 검토처럼 신원을 확인할 수
+Adaptive Card, 재인증이 구성된 Slack 흐름, remediation PR 검토처럼 신원을 확인할 수
 있는 A1 표면으로 반환해야 합니다. 이메일, SMS, 호출 시스템은 요청 대기 사실을 알릴 수
 있지만 승인을 제출할 수 없습니다.
 
@@ -58,7 +58,7 @@ Adaptive Card, 재인증을 구성한 Slack 흐름, remediation PR 검토처럼 
   재개합니다. 감사 로그는 누가 언제 승인했는지, 어떤 코멘트를
   남겼는지 기록합니다.
 - **거부** - 변경은 폐기됩니다. 감사 항목은 여전히 기록(승인자, 이유, 이벤트 ID)
-  되어 발견 루프가 패턴을 학습합니다.
+  되어 discovery loop가 패턴을 학습합니다.
 - **시간 초과** - HIL 요청은 구성 가능한 타임아웃을 가집니다. 만료 시 변경은 거부와
   동일하게 폐기됩니다. **타임아웃 자동 승인은 절대 없습니다.**
 
