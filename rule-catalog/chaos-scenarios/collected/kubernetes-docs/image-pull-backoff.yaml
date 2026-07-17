@@ -1,0 +1,24 @@
+id: chaos.kubernetes-docs.image-pull-backoff
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/containers/images/#imagepullbackoff
+  source_ref: section=imagepullbackoff;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: dependency
+target_type: pod
+fault_family: deny
+intensity: high
+duration_seconds: 360
+expected_signal: rollout_stall
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Restore the previous resolvable image reference and restart the rollout.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: A workload cannot pull its declared image and the rollout stalls.
+tags:
+- kubernetes
+- vendor-doc

@@ -72,7 +72,10 @@ run_gate() {
 
 # ---- fast gates (always) ----------------------------------------------------
 
-if command -v ruff >/dev/null 2>&1; then
+if command -v uv >/dev/null 2>&1; then
+    run_gate "ruff format (src tests)" uv run ruff format --check src tests
+    run_gate "ruff lint (src tests)" uv run ruff check src tests
+elif command -v ruff >/dev/null 2>&1; then
     run_gate "ruff format (src tests)" ruff format --check src tests
     run_gate "ruff lint (src tests)" ruff check src tests
 else
@@ -129,15 +132,22 @@ fi
 # ---- full gates (opt-in) ----------------------------------------------------
 
 if [[ "$MODE" == "full" ]]; then
-    if command -v pytest >/dev/null 2>&1; then
+    if command -v uv >/dev/null 2>&1; then
+        pytest_cmd=(uv run pytest)
+    elif command -v pytest >/dev/null 2>&1; then
+        pytest_cmd=(pytest)
+    else
+        pytest_cmd=()
+    fi
+    if [[ ${#pytest_cmd[@]} -gt 0 ]]; then
         if [[ -n "$PYTEST_PATH" ]]; then
-            run_gate "pytest ($PYTEST_PATH)" pytest -q --no-cov "$PYTEST_PATH"
+            run_gate "pytest ($PYTEST_PATH)" "${pytest_cmd[@]}" -q --no-cov "$PYTEST_PATH"
         else
             if [[ -n "${FDAI_DATABASE_URL:-}" ]]; then
-                run_gate "pytest (all)" pytest -q --no-cov
+                run_gate "pytest (all)" "${pytest_cmd[@]}" -q --no-cov
             else
                 printf '%s\n' "verify.sh: FDAI_DATABASE_URL unset; skipping integration marker"
-                run_gate "pytest (no integration)" pytest -q --no-cov -m "not integration"
+                run_gate "pytest (no integration)" "${pytest_cmd[@]}" -q --no-cov -m "not integration"
             fi
         fi
     else

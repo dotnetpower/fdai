@@ -30,7 +30,7 @@ export function SettingsContextSections({
     pendingDeletes,
     openingPolicy,
     latestSourceTurnId,
-    saveSemanticPreferences,
+    saveContextPreferences,
     addDailyBriefing,
     enableOpeningBriefing,
     removeOpeningBriefing,
@@ -112,7 +112,7 @@ export function SettingsContextSections({
           </SettingRow>
         </div>
         <div class="settings-actions">
-          <button type="button" class="btn" disabled={savingContext} onClick={() => void saveSemanticPreferences()}>
+          <button type="button" class="btn" disabled={savingContext} onClick={() => void saveContextPreferences()}>
             {t("settings.saveContext")}
           </button>
         </div>

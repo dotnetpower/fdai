@@ -6,8 +6,8 @@ inject faults through `ChaosEngine` + `ChaosExperiment` CRDs
 (litmuschaos.io/v1alpha1). Each experiment has a fixed slug, a target
 scope (pod, container, node), and a small parameter set.
 
-This ingester is a hand-curated CSP-neutral projection of the ~15 most
-widely used generic experiments from the hub - the ones whose fault
+This ingester is a hand-curated CSP-neutral projection of 16 widely
+used generic experiments from the hub - the ones whose fault
 semantics map cleanly onto a signal FDAI's detection layer already
 knows. Every entry ships with a `litmus:<experiment>` injector backed by
 the Litmus ChaosEngine adapter. The upstream experiment identity stays
@@ -16,11 +16,9 @@ in `provenance.source_ref` and is also the installed ChaosExperiment name.
 Reasoning about the "why is Litmus separate from Chaos Mesh" question
 mirrors the earlier Chaos Studio insight: Litmus is a *managed
 orchestrator* that composes underlying kernel / kubectl / stress
-primitives. On our Azure-only stack we could execute the majority of
-them via `chaos-mesh:*` or `kubectl:*` seams. Keeping them as
-`needs-injector` here preserves the vendor identity in
-`provenance.source_ref` so an operator can cross-reference the Litmus
-hub docs, while the symptom index + RCA still see them as candidates.
+primitives. FDAI keeps the vendor identity in `provenance.source_ref`
+and dispatches the entries through the shipped `litmus:*` delivery
+adapter so operators can cross-reference the Litmus hub definition.
 
 Source: hub.litmuschaos.io (upstream experiment specs). Idempotent -
 the runner rewrites the same files every run and prunes stale ones.

@@ -3,7 +3,7 @@
 Emits YAML scenarios into
 `rule-catalog/chaos-scenarios/collected/synthesized/` and (for GPU)
 `rule-catalog/chaos-scenarios/collected/gpu/`. No LLM; no external
-network. Meant to seed the catalog before real ingesters ship.
+        "probe-only:gpu-sku-mismatch",
 
 Design intent (see docs/internals/sre-scenario-library-scaling.md):
 
@@ -20,9 +20,8 @@ never get written. Every emitted scenario:
     the catalog loader keeps `needs-injector` scenarios out of
     `promoted/`.
   - Ships `gates.shadow_status: pending` and `enforce_status: null`.
-  - Ships `requires_hardware: true` for GPU scenarios (moonchoi's
-    subscription cannot provision a GPU VM, per the maintainer;
-    they stay shadow-only until a hardware substrate is available).
+    - Ships `requires_hardware: true` for GPU scenarios; they stay
+        shadow-only until a suitable hardware substrate is available.
 
 Idempotent: rewrites the same file names on every run. Safe to `git
 diff` and commit.
@@ -527,7 +526,7 @@ _GPU_AXES: tuple[tuple, ...] = (
         "gpu_cost",
         "cost_governance",
         {"observed_sku": "H100", "recommended_sku": "A100"},
-        "Workload runs on H100 but profile fits A100 (3-5x cost)",
+        "Workload profile indicates A100 may satisfy requirements at lower cost",
         "Advisory: re-SKU the deployment; no injection.",
     ),
     (

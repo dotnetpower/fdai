@@ -82,6 +82,25 @@ class ShadowFaultInjector:
         self.stopped.append(target)
 
 
+class DetectionOnlyInjector:
+    """Marker for a read-only scenario that probes without perturbation."""
+
+    def __init__(self, *, fault_type: str) -> None:
+        if not fault_type:
+            raise ValueError("fault_type MUST be non-empty")
+        self._fault_type = fault_type
+
+    @property
+    def fault_type(self) -> str:
+        return self._fault_type
+
+    async def inject(self, *, target: str, params: Mapping[str, str]) -> None:
+        raise RuntimeError("detection-only scenarios MUST NOT inject")
+
+    async def stop(self, *, target: str) -> None:
+        raise RuntimeError("detection-only scenarios MUST NOT roll back a mutation")
+
+
 class NoSignalProbe:
     """Default probe - reports the signal was not observed."""
 
@@ -100,6 +119,7 @@ class InMemoryExperimentRecorder:
 
 
 __all__ = [
+    "DetectionOnlyInjector",
     "ExperimentRecorder",
     "FaultInjector",
     "InMemoryExperimentRecorder",

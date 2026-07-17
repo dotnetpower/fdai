@@ -20,6 +20,7 @@ import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t } from "../i18n";
 import type {
   AnswerPlanMetadata,
+  AnswerPlanningMetadata,
   AnswerVerification,
   GroundedCodeArtifact,
   VerificationProgress,
@@ -36,6 +37,7 @@ export function GroundedReply({
   verification,
   verificationProgress,
   answerPlan,
+  answerPlanning,
   codeArtifacts,
   onRegenerate,
 }: {
@@ -48,6 +50,7 @@ export function GroundedReply({
   readonly verification: AnswerVerification | undefined;
   readonly verificationProgress: VerificationProgress | undefined;
   readonly answerPlan: AnswerPlanMetadata | undefined;
+  readonly answerPlanning: AnswerPlanningMetadata | undefined;
   readonly codeArtifacts: readonly GroundedCodeArtifact[] | undefined;
   /** Re-run the operator question that produced this reply, if known. */
   readonly onRegenerate?: () => void;
@@ -92,6 +95,29 @@ export function GroundedReply({
             ) : null}
           </div>
         </Tooltip>
+      ) : null}
+      {answerPlanning && answerPlanning.consulted_agents.length > 0 ? (
+        <div class="deck-answer-plan">
+          <span>
+            {t("deck.answerPlanning.consulted")}: {answerPlanning.consulted_agents.join(", ")}
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>
+            {t("deck.answerPlanning.uniqueSources", {
+              count: answerPlanning.unique_evidence_count,
+            })}
+          </span>
+          {answerPlanning.conflicting_evidence_refs.length > 0 ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>
+                {t("deck.answerPlanning.unresolvedConflicts", {
+                  count: answerPlanning.conflicting_evidence_refs.length,
+                })}
+              </span>
+            </>
+          ) : null}
+        </div>
       ) : null}
       <div class="deck-turn-body">
         <RichContent
@@ -138,15 +164,6 @@ export function GroundedReply({
                 <span class="deck-verification-short">
                   {shortVerificationStatus(verification, boundedCorrection)}
                 </span>
-              </div>
-            </Tooltip>
-          ) : null}
-
-          {verification?.semantic ? (
-            <Tooltip content={t("deck.tooltip.semanticShadow")}>
-              <div class="deck-verification is-semantic-shadow" role="note">
-                <span class="deck-verification-mark" aria-hidden="true">S</span>
-                <span>{semanticVerificationLabel(verification.semantic)}</span>
               </div>
             </Tooltip>
           ) : null}
@@ -329,22 +346,6 @@ function CodeEvidence({ artifacts }: { readonly artifacts: readonly GroundedCode
       </div>
     </details>
   );
-}
-
-function semanticVerificationLabel(
-  semantic: NonNullable<AnswerVerification["semantic"]>,
-): string {
-  const latency = semantic.latency_ms > 0 ? `, ${semantic.latency_ms}ms` : "";
-  switch (semantic.verdict) {
-    case "entailed":
-      return `Semantic shadow: supported${latency}`;
-    case "contradicted":
-      return `Semantic shadow: possible contradiction${latency}`;
-    case "unknown":
-      return `Semantic shadow: inconclusive${latency}`;
-    case "unavailable":
-      return "Semantic shadow: unavailable";
-  }
 }
 
 export function verificationLabel(verification: AnswerVerification): string {

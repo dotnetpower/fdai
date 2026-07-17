@@ -473,25 +473,4 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.verification?.reason_code).toBe("malformed_verification_artifact");
   });
 
-  test("parses semantic shadow metadata without changing terminal status", async () => {
-    const body = [
-      'event: token\ndata: {"seq":1,"delta":"Looks healthy"}\n\n',
-      'event: done\ndata: {"seq":2,"answer":"Looks healthy","model":"gpt-test",' +
-        '"verification":{"status":"consistent","authority":"client_snapshot",' +
-        '"checks_completed":0,"checks_total":0,"evidence_refs":[],' +
-        '"reason_code":"screen_no_checkable_claims","claims":[],' +
-        '"failed_claim_ids":[],"semantic":{"verdict":"contradicted",' +
-        '"provider":"onnx-local","model_id":"example/nli-onnx","latency_ms":12,' +
-        '"entailment_score":0.03,"contradiction_score":0.93,"reason_code":null}}}\n\n',
-    ].join("");
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
-    const mod = await import("./backend");
-    mod.fallbackTypewriter.intervalMs = 0;
-
-    const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
-
-    expect(reply.verification?.status).toBe("consistent");
-    expect(reply.verification?.semantic?.verdict).toBe("contradicted");
-    expect(reply.verification?.semantic?.latency_ms).toBe(12);
-  });
 });

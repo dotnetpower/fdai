@@ -2,7 +2,7 @@
 title: SRE 시나리오 검증
 description: FDAI가 사용하는 모든 SRE scenario set과 catalog validation, replay, shadow coverage, live enforce validation의 구분입니다.
 translation_of: scenario-validation-inventory.md
-translation_source_sha: 8d8fa0d6b5a5ee56ba9ebe53359cf050d10ee645
+translation_source_sha: 72c513fd73473acb90ba95e97ed582ee9caf11f9
 translation_revised: 2026-07-17
 ---
 
@@ -13,7 +13,7 @@ well-formed 상태이고 알려진 signal에 연결됐음을 증명합니다. Re
 결과에 도달함을 증명합니다. Live enforce run은 일회용 Azure substrate에서 실제 fault가
 주입되고 관찰되고 원복됐음을 증명합니다. 이 evidence level은 서로 바꿔 쓸 수 없습니다.
 
-이 페이지는 현재 SRE scenario set과 catalog scenario ID 132개를 모두 보여 줍니다.
+이 페이지는 현재 SRE scenario set과 catalog scenario ID 135개를 모두 보여 줍니다.
 Snapshot은 2026-07-17에 repository에서 다시 계산했습니다.
 
 ## 검증 수준
@@ -25,8 +25,8 @@ Snapshot은 2026-07-17에 repository에서 다시 계산했습니다.
 | Frozen control-loop set `v2026.07` | 9 | Integrity 및 replay test 66개 통과 | Change, DR, FinOps 기대 결과가 shipped loop에서 replay됨 |
 | Agent decision scenario | 6 | Agent scenario test 22개에 포함되어 통과 | Forseti가 예상 auto, HIL, deny, abstain 반환 |
 | Agent pipeline scenario | 8 | Agent scenario test 22개에 포함되어 통과 | Forseti, Thor, Var, Saga의 cross-agent safety invariant 유지 |
-| Chaos catalog | 132 | 132/132 schema, signal, symptom-index validation | 모든 catalog record가 구조적으로 유효하고 검색 가능 |
-| Default-factory dispatch subset | 92 | 92/92 injector 및 probe pair dry-run build | Delivery wiring 존재. Live fault run을 뜻하지 않음 |
+| Chaos catalog | 135 | 135/135 schema, signal, symptom-index validation | 모든 catalog record가 구조적으로 유효하고 검색 가능 |
+| Default-factory dispatch subset | 93 | 93/93 injector 및 probe pair dry-run build | Delivery wiring 존재. Live fault run을 뜻하지 않음 |
 | Promoted catalog | 0 | 승격된 entry 없음 | Collected entry가 enforce eligibility를 상속하지 않음 |
 
 > 별도의 Command Deck claim corpus 14개는 unsupported escape 0건과 clean rejection 0건으로
@@ -119,12 +119,12 @@ cold-start measurement gap이 남아 있습니다. First-poll 값을 실제 cold
 | Self-approval attempt | 차단되고 security signal로 측정됨 |
 | Repeated self-approval | Retry가 security count를 부풀리지 않음 |
 
-## Chaos catalog: scenario ID 132개
+## Chaos catalog: scenario ID 135개
 
 현재 catalog에서 default factory가 executable로 분류하고 dry-run에서 build하는 entry는
-92개입니다. 나머지 40개는 AWS FIS cross-CSP reference 17개, injector 또는 hardware가
-필요한 GPU scenario 22개, legacy Redis reboot scenario 1개입니다. 132개 모두
-`collected/`에 있으며 `promoted/`에는 0개가 있습니다.
+93개입니다. 나머지 42개는 AWS FIS cross-CSP reference 17개, injector 또는 hardware가
+필요한 GPU scenario 21개, Kubernetes documentation candidate 3개, legacy Redis reboot
+scenario 1개입니다. 135개 모두 `collected/`에 있으며 `promoted/`에는 0개가 있습니다.
 
 <details>
 <summary>Azure Chaos Studio - ID 15개</summary>
@@ -186,6 +186,15 @@ cold-start measurement gap이 남아 있습니다. First-poll 값을 실제 cold
 - `chaos.litmus.pod-network-duplication`
 - `chaos.litmus.pod-network-latency`
 - `chaos.litmus.pod-network-loss`
+
+</details>
+
+<details>
+<summary>Kubernetes documentation - ID 3개</summary>
+
+- `chaos.kubernetes-docs.dns-resolution-failure`
+- `chaos.kubernetes-docs.image-pull-backoff`
+- `chaos.kubernetes-docs.pod-disruption-budget-gap`
 
 </details>
 

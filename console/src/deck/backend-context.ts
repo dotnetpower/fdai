@@ -1,5 +1,4 @@
 import { getLocale } from "../i18n";
-import { readConsolePreferences } from "../preferences";
 import { ROUTE_ACTION_HINTS } from "./answerer";
 import type { AnswerVerification, BackendTurn } from "./backend-types";
 import type { ViewSnapshot } from "./context";
@@ -37,9 +36,6 @@ export function createBackendRequestPayload(
     session_id: sessionId,
     view_context: viewContextWithUser(snapshot),
     history: toBackendHistory(history),
-    verification_preferences: {
-      semantic_enabled: readConsolePreferences().semanticVerification === "shadow",
-    },
   };
 }
 

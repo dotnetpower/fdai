@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://fdai/rule-catalog/chaos-scenarios/schema/chaos-scenario.schema.json",
   "title": "FDAI chaos scenario",
-  "description": "Catalog-as-code shape for one fault-injection scenario, mirroring the upstream `fdai.core.chaos.contract.FaultScenario` dataclass plus provenance / gate progress / domain fields. Every YAML file under `rule-catalog/chaos-scenarios/{collected,promoted,chaos-scenarios-custom}/**` MUST validate against this schema.",
+  "description": "Catalog-as-code shape for one fault-injection scenario, mirroring the upstream `fdai.core.chaos.contract.FaultScenario` dataclass plus provenance / gate progress / domain fields. Every YAML file under `rule-catalog/chaos-scenarios/{collected,promoted}/**` and `rule-catalog/chaos-scenarios-custom/**` MUST validate against this schema.",
   "type": "object",
   "additionalProperties": false,
   "required": [

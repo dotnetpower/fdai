@@ -26,8 +26,11 @@ from fdai.agents._framework.provider_adapters import (
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
+from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
+from fdai.core.chaos.coverage import ScenarioCoverageAggregator
+from fdai.core.chaos.symptom_index import build_from_entries
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -88,6 +91,37 @@ async def test_runtime_injects_heimdall_incident_candidate_hook() -> None:
 
     assert len(candidates) == 1
     assert candidates[0]["producer_principal"] == "Heimdall"
+
+
+async def test_runtime_feeds_uncovered_incident_symptom_to_norns() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        scenario_coverage_aggregator=ScenarioCoverageAggregator(
+            index=build_from_entries([]),
+            gap_threshold=1,
+        ),
+    )
+    heimdall = runtime.agents["Heimdall"]
+    norns = runtime.agents["Norns"]
+    assert isinstance(heimdall, Heimdall)
+    assert isinstance(norns, Norns)
+
+    for index in range(5):
+        await heimdall.on_typed_message(
+            "object.event",
+            {
+                "resource_id": "vm-1",
+                "resource_type": "vm",
+                "event_type": "brand_new_signal",
+                "correlation_id": "corr-gap",
+                "idempotency_key": f"gap-{index}",
+            },
+        )
+
+    assert len(norns.pending_candidates) == 1
+    assert norns.pending_candidates[0]["proposal_kind"] == "new-scenario"
+    assert norns.pending_candidates[0]["evidence"]["target_type"] == "vm"
 
 
 def test_publishing_agents_are_bound_to_the_bridge() -> None:

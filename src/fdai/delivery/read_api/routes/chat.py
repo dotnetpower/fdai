@@ -129,13 +129,11 @@ from fdai.delivery.read_api.routes.chat_route_common import (
     AuthorizeFn,
     ModelPreferenceResolver,
     _request_id,
-    _semantic_verification_enabled,
     _session_id,
     _turn_metadata,
     _uses_evidence_fast_path,
     _with_compiled_user_policy,
 )
-from fdai.delivery.read_api.routes.chat_semantic import SemanticVerifier
 from fdai.delivery.read_api.routes.chat_stream import (
     DEFAULT_STREAM_PATH,
     make_chat_stream_route,
@@ -149,7 +147,7 @@ from fdai.delivery.read_api.routes.chat_stream_protocol import (
     _with_sse_heartbeats,
 )
 from fdai.delivery.read_api.routes.chat_system_health import render_system_health_answer
-from fdai.delivery.read_api.routes.chat_verification import attach_semantic_shadow, verify_answer
+from fdai.delivery.read_api.routes.chat_verification import verify_answer
 from fdai.shared.providers.briefing import ConversationPolicyStore
 from fdai.shared.providers.user_context import ConversationHistoryStore
 
@@ -195,7 +193,6 @@ def make_chat_route(
     web_search_resolver: ChatWebSearchEvidenceResolver | None = None,
     agent_delegate: AgentChatDelegate | None = None,
     answer_planning_delegate: AnswerPlanningDelegate | None = None,
-    semantic_verifier: SemanticVerifier | None = None,
     conversation_policy_store: ConversationPolicyStore | None = None,
     conversation_history_store: ConversationHistoryStore | None = None,
     user_context_ontology_projector: UserContextOntologyProjector | None = None,
@@ -283,7 +280,6 @@ def make_chat_route(
         view_context["_answer_plan"] = answer_plan.to_dict()
         session_id = _session_id(body)
         request_id = _request_id(body)
-        semantic_enabled = _semantic_verification_enabled(body)
         if conversation_history_store is not None:
             await append_operator_turn(
                 store=conversation_history_store,
@@ -355,7 +351,6 @@ def make_chat_route(
                     "source": f"evidence:{verification.status}",
                     "verification": verification.to_dict(),
                 }
-                semantic_hypothesis = verification.answer
             elif health_answer is not None:
                 verification = verify_answer(
                     health_answer,
@@ -368,7 +363,6 @@ def make_chat_route(
                     "source": "evidence:system-health",
                     "verification": verification.to_dict(),
                 }
-                semantic_hypothesis = health_answer
             elif concept_answer is not None:
                 verification = verify_answer(
                     concept_answer,
@@ -381,7 +375,6 @@ def make_chat_route(
                     "source": "evidence:fdai-glossary",
                     "verification": verification.to_dict(),
                 }
-                semantic_hypothesis = concept_answer
             else:
                 if isinstance(backend, LatencyRoutedChatBackend):
                     reply = await backend.answer(
@@ -396,9 +389,9 @@ def make_chat_route(
                         view_context=view_context,
                         history=history,
                     )
-                semantic_hypothesis = str(reply.get("answer", ""))
+                provisional_answer = str(reply.get("answer", ""))
                 verification = verify_answer(
-                    semantic_hypothesis,
+                    provisional_answer,
                     view_context,
                     locale=_response_locale(clean_prompt, view_context),
                 )
@@ -406,13 +399,6 @@ def make_chat_route(
                     **reply,
                     "answer": verification.answer,
                 }
-            verification = await attach_semantic_shadow(
-                verification,
-                provisional=semantic_hypothesis,
-                view_context=view_context,
-                enabled=semantic_enabled,
-                verifier=semantic_verifier,
-            )
             reply = {
                 **reply,
                 "answer": verification.answer,

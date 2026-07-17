@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 52dafbdf85ccb886bd9c755495b0901424048d42
+translation_source_sha: d673d426969ad12e5f36a8ab5eaf0bfece06e0ed
 translation_revised: 2026-07-17
 ---
 
@@ -1112,7 +1112,7 @@ snapshot 복사본이 아니라 claim이 실제 사용한 entry만 포함.
 
 Bounded-scope 추출은 `no`, `none`, `없습니다` 또는 "이 화면에 표시되지 않음"처럼
 명시적인 부재 표현만 처리. `all`, `always`, `모든`, `전부` 같은 positive universal
-prose는 qualitative 표현으로 유지하고 선택적 semantic shadow verifier에 맡김.
+prose는 qualitative 표현으로 유지하며 `verified`로 표시하지 않음.
 Universal 단어 하나만으로 일반 화면 설명을 deterministic global-scope claim으로
 바꾸지 않음.
 
@@ -1133,24 +1133,20 @@ unsupported-claim escape rate와 clean-answer rejection rate가 모두 정확히
 accounting도 독립 테스트. 이 gate는 qualitative prose의 semantic verification을
 주장하지 않음: extract 가능한 structured claim이 없는 answer는
 `screen_no_checkable_claims`와 함께 `consistent`로 표시하고 `verified`로 표시하지
-않음. 전체 자연어 claim에 대해 9.5-level coverage를 주장하려면 measured semantic
-entailment leg와 더 큰 labeled corpus가 여전히 필요.
+않음.
 
-Settings panel은 **Experimental semantic verification** toggle을 노출. Browser-local,
-기본 off이며 각 chat request에 verification preference로 전달. Toggle 활성화가
-availability를 의미하지는 않음: fork가 `local-nli` optional dependency를 설치하고
-hash-pinned ONNX model/tokenizer 경로를 제공한 경우에만 read API가 semantic leg를
-실행. Package 또는 artifact 누락, load 실패, inference timeout은 `unavailable`로
-보고하며 deterministic terminal decision을 지연하거나 downgrade하지 않음.
+Optional local semantic verifier는 2026-07-17 measured retention gate 실패 후 제거됨.
+고정된 MIT license multilingual MiniLM ONNX model을 customer-neutral English/Korean
+case 200개에서 실행. 설정 threshold `0.8`에서 contradiction set 탐지율은 `0.0%`, 전체
+case의 `80.0%`는 `unknown` 반환. Clean-answer false positive와 authority change는 모두
+0, warm p95 latency는 `10.05 ms`, cold start는 `1126 ms`, peak RSS는 약 `571 MiB`,
+model과 tokenizer footprint는 `124498008` byte. Unknown outcome은 benefit으로 계산하지
+않으므로 측정 결과는 promotion이 아니라 제거를 선택.
 
-첫 semantic leg는 shadow-only이며 subtractive. Qualitative prose 또는 deterministic
-claim target이 없는 screen answer만 평가하고 `entailed`, `contradicted`, `unknown`,
-`unavailable` metadata를 emit하며, `unverified`를 `consistent`로 또는 `consistent`를
-`verified`로 바꾸면 안 됨. 첫 enabled request 이후 model을 lazy-load하므로 disabled
-user와 scale-to-zero startup은 model cost를 지불하지 않음. Package/model은 제거
-가능 상태 유지: 후속 measured issue에서 frozen English/Korean corpus, p95 latency,
-memory/cold-start delta, contradiction catch rate, unknown rate, clean-answer false-positive
-rate를 기준으로 promotion 또는 제거를 결정.
+`local-nli` dependency group, ONNX provider, Settings toggle, request flag, response
+metadata, 관련 runtime test를 함께 제거. Deterministic evidence와 atomic-claim verifier는
+권위가 유지되고 변경되지 않음. 향후 proposal이 material contradiction benefit을 측정해
+제시하기 전까지 qualitative prose는 verified로 표시하지 않음.
 
 #### 13.4.2.1 결정론적 AnswerPlan
 

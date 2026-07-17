@@ -23,6 +23,9 @@ from collections.abc import Awaitable, Callable
 
 import httpx
 
+from fdai.core.stewardship.handover_bootstrap.people import ResolvedIdentity
+from fdai.core.stewardship.model import StewardKind
+
 _DEFAULT_BASE_URL = "https://graph.microsoft.com/v1.0"
 
 TokenProvider = Callable[[], Awaitable[str]]
@@ -107,8 +110,61 @@ class GraphGroupMembershipProvider:
         return tuple(members)
 
 
+class GraphPersonDirectory:
+    """Resolve one exact user or group display name without guessing."""
+
+    def __init__(
+        self,
+        *,
+        client: httpx.AsyncClient,
+        token_provider: TokenProvider,
+        base_url: str = _DEFAULT_BASE_URL,
+    ) -> None:
+        self._client = client
+        self._token = token_provider
+        self._base = base_url.rstrip("/")
+
+    async def resolve(self, display_name: str) -> ResolvedIdentity | None:
+        normalized = display_name.strip()
+        if len(normalized) < 2 or len(normalized) > 128:
+            return None
+        escaped = normalized.replace("'", "''")
+        token = await self._token()
+        headers = {"Authorization": f"Bearer {token}"}
+        matches: list[ResolvedIdentity] = []
+        for resource, kind, select in (
+            ("users", StewardKind.USER, "id,displayName,accountEnabled"),
+            ("groups", StewardKind.GROUP, "id,displayName"),
+        ):
+            response = await self._client.get(
+                f"{self._base}/{resource}",
+                params={
+                    "$select": select,
+                    "$filter": f"displayName eq '{escaped}'",
+                    "$top": "2",
+                },
+                headers=headers,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            values = payload.get("value")
+            if not isinstance(values, list):
+                raise RuntimeError("Microsoft Graph directory response has no value array")
+            for value in values:
+                if not isinstance(value, dict):
+                    continue
+                if kind is StewardKind.USER and value.get("accountEnabled") is not True:
+                    continue
+                oid = value.get("id")
+                name = value.get("displayName")
+                if isinstance(oid, str) and oid and name == normalized:
+                    matches.append(ResolvedIdentity(oid=oid, kind=kind))
+        return matches[0] if len(matches) == 1 else None
+
+
 __all__ = [
     "GraphGroupMembershipProvider",
     "GraphIdentityDirectory",
+    "GraphPersonDirectory",
     "TokenProvider",
 ]

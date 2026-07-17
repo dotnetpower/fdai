@@ -23,8 +23,9 @@ repos:
     rev: v0.15.20
     hooks:
       - id: ruff
-        args: ["--fix"]
+        args: ["--no-fix"]
       - id: ruff-format
+        args: ["--check"]
 
   # 2. Baseline hygiene - trailing whitespace, missing newline at EOF,
   #    large-file guard, merge-conflict marker guard.

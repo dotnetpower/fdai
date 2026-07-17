@@ -11,7 +11,7 @@ that the control loop reaches the expected result. A live enforce run proves
 that a real fault was injected, observed, and reverted on a disposable Azure
 substrate. These evidence levels are not interchangeable.
 
-This page lists every current SRE scenario set and every one of the 132 catalog
+This page lists every current SRE scenario set and every one of the 135 catalog
 scenario IDs. The snapshot was recalculated from the repository on 2026-07-17.
 
 ## Validation levels
@@ -23,8 +23,8 @@ scenario IDs. The snapshot was recalculated from the repository on 2026-07-17.
 | Frozen control-loop set `v2026.07` | 9 | 66 integrity and replay tests passed | Balanced Change, DR, and FinOps expected outcomes replay through the shipped loop |
 | Agent decision scenarios | 6 | Included in 22 agent scenario tests passed | Forseti returns expected auto, HIL, deny, or abstain outcomes |
 | Agent pipeline scenarios | 8 | Included in 22 agent scenario tests passed | Forseti, Thor, Var, and Saga preserve cross-agent safety invariants |
-| Chaos catalog | 132 | 132/132 schema, signal, and symptom-index validation | Every catalog record is structurally valid and searchable |
-| Default-factory dispatch subset | 92 | 92/92 injector and probe pairs build in dry-run | Delivery wiring exists; this is not a live fault run |
+| Chaos catalog | 135 | 135/135 schema, signal, and symptom-index validation | Every catalog record is structurally valid and searchable |
+| Default-factory dispatch subset | 93 | 93/93 injector and probe pairs build in dry-run | Delivery wiring exists; this is not a live fault run |
 | Promoted catalog | 0 | No entries promoted | No collected entry has inherited enforce eligibility |
 
 > A separate 14-case Command Deck claim corpus validates answer grounding with
@@ -119,13 +119,13 @@ true cold-start latency.
 | Self-approval attempt | Blocked and measured as a security signal |
 | Repeated self-approval | Retry does not inflate the security count |
 
-## Chaos catalog: 132 scenario IDs
+## Chaos catalog: 135 scenario IDs
 
-The catalog currently contains 92 entries that the default factory classifies
-as executable and builds in dry-run. The remaining 40 are 17 AWS FIS
-cross-CSP references, 22 GPU scenarios requiring an injector or hardware, and
-the legacy Redis reboot scenario. All 132 remain under `collected/`; zero are
-under `promoted/`.
+The catalog currently contains 93 entries that the default factory classifies
+as executable and builds in dry-run. The remaining 42 are 17 AWS FIS
+cross-CSP references, 21 GPU scenarios requiring an injector or hardware,
+three Kubernetes documentation candidates, and the legacy Redis reboot
+scenario. All 135 remain under `collected/`; zero are under `promoted/`.
 
 <details>
 <summary>Azure Chaos Studio - 15 IDs</summary>
@@ -187,6 +187,15 @@ under `promoted/`.
 - `chaos.litmus.pod-network-duplication`
 - `chaos.litmus.pod-network-latency`
 - `chaos.litmus.pod-network-loss`
+
+</details>
+
+<details>
+<summary>Kubernetes documentation - 3 IDs</summary>
+
+- `chaos.kubernetes-docs.dns-resolution-failure`
+- `chaos.kubernetes-docs.image-pull-backoff`
+- `chaos.kubernetes-docs.pod-disruption-budget-gap`
 
 </details>
 

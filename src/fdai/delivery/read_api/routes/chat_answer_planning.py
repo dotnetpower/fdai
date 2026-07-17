@@ -111,6 +111,7 @@ async def _failure_result(kind: str) -> AnswerPlanningResult:
         elapsed_ms=0,
         unique_evidence_count=0,
         duplicate_evidence_count=0,
+        conflicting_evidence_refs=(),
         covered_sections=(),
         estimated_added_tokens=0,
         budget=config,

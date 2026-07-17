@@ -5,14 +5,67 @@ from __future__ import annotations
 import httpx
 import pytest
 
+from fdai.core.stewardship.model import StewardKind
 from fdai.delivery.stewardship import (
     GraphGroupMembershipProvider,
     GraphIdentityDirectory,
+    GraphPersonDirectory,
 )
 
 
 async def _token() -> str:
     return "test-token"
+
+
+async def test_person_directory_resolves_one_exact_active_user() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/users"):
+            return httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "id": "00000000-0000-0000-0000-000000000101",
+                            "displayName": "Example Operator",
+                            "accountEnabled": True,
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(200, json={"value": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        directory = GraphPersonDirectory(client=client, token_provider=_token)
+        identity = await directory.resolve("Example Operator")
+
+    assert identity is not None
+    assert identity.kind is StewardKind.USER
+
+
+async def test_person_directory_resolves_group_and_abstains_on_ambiguity() -> None:
+    ambiguous = False
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/users"):
+            values = (
+                [{"id": "user-1", "displayName": "Operations", "accountEnabled": True}]
+                if ambiguous
+                else []
+            )
+            return httpx.Response(200, json={"value": values})
+        return httpx.Response(
+            200,
+            json={"value": [{"id": "group-1", "displayName": "Operations"}]},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        directory = GraphPersonDirectory(client=client, token_provider=_token)
+        resolved = await directory.resolve("Operations")
+        ambiguous = True
+        unresolved = await directory.resolve("Operations")
+
+    assert resolved is not None and resolved.kind is StewardKind.GROUP
+    assert unresolved is None
 
 
 def _client(handler) -> httpx.AsyncClient:

@@ -167,6 +167,18 @@
       "severity_bucket": "high",
       "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-partition.yaml",
       "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.pod-disruption-budget-gap",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/pod-disruption-budget-gap.yaml",
+      "target_type": "pod"
     }
   ],
   "backend_health|pod|high": [
@@ -180,6 +192,20 @@
       "requires_hardware": false,
       "severity_bucket": "high",
       "source_path": "rule-catalog/chaos-scenarios/collected/chaos-mesh/network-partition.yaml",
+      "target_type": "pod"
+    }
+  ],
+  "backend_health|pod|medium": [
+    {
+      "category": "compute",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.pod-disruption-budget-gap",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/pod-disruption-budget-gap.yaml",
       "target_type": "pod"
     }
   ],
@@ -307,6 +333,18 @@
       "severity_bucket": "low",
       "source_path": "rule-catalog/chaos-scenarios/collected/synthesized/lb-deny-backend-health-mild.yaml",
       "target_type": "lb"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.pod-disruption-budget-gap",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/pod-disruption-budget-gap.yaml",
+      "target_type": "pod"
     }
   ],
   "cold_start_latency_spike|inference_endpoint|": [
@@ -1391,7 +1429,7 @@
       "expected_signal": "gpu_sku_mismatch",
       "gpu_domain": "cost_governance",
       "id": "chaos.gpu.gpu-quota_shrink-gpu-sku-mismatch",
-      "injector": "needs-injector",
+      "injector": "probe-only:gpu-sku-mismatch",
       "intensity": "high",
       "requires_hardware": false,
       "severity_bucket": "medium",
@@ -1405,7 +1443,7 @@
       "expected_signal": "gpu_sku_mismatch",
       "gpu_domain": "cost_governance",
       "id": "chaos.gpu.gpu-quota_shrink-gpu-sku-mismatch",
-      "injector": "needs-injector",
+      "injector": "probe-only:gpu-sku-mismatch",
       "intensity": "high",
       "requires_hardware": false,
       "severity_bucket": "medium",
@@ -1419,7 +1457,7 @@
       "expected_signal": "gpu_sku_mismatch",
       "gpu_domain": "cost_governance",
       "id": "chaos.gpu.gpu-quota_shrink-gpu-sku-mismatch",
-      "injector": "needs-injector",
+      "injector": "probe-only:gpu-sku-mismatch",
       "intensity": "high",
       "requires_hardware": false,
       "severity_bucket": "medium",
@@ -3978,6 +4016,18 @@
       "category": "network",
       "expected_signal": "request_failure",
       "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.dns-resolution-failure",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/dns-resolution-failure.yaml",
+      "target_type": "dns"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
       "id": "chaos.litmus.pod-dns-error",
       "injector": "litmus:pod-dns-error",
       "intensity": "extreme",
@@ -4010,6 +4060,20 @@
       "requires_hardware": false,
       "severity_bucket": "high",
       "source_path": "rule-catalog/chaos-scenarios/collected/litmus/pod-dns-error.yaml",
+      "target_type": "dns"
+    }
+  ],
+  "request_failure|dns|medium": [
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.dns-resolution-failure",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/dns-resolution-failure.yaml",
       "target_type": "dns"
     }
   ],
@@ -4650,6 +4714,18 @@
       "category": "network",
       "expected_signal": "request_failure",
       "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.dns-resolution-failure",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/dns-resolution-failure.yaml",
+      "target_type": "dns"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
       "id": "chaos.litmus.pod-dns-error",
       "injector": "litmus:pod-dns-error",
       "intensity": "extreme",
@@ -4731,6 +4807,18 @@
       "severity_bucket": "low",
       "source_path": "rule-catalog/chaos-scenarios/collected/synthesized/pod-corrupt-rollout-stall-mild.yaml",
       "target_type": "pod"
+    },
+    {
+      "category": "dependency",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.image-pull-backoff",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/image-pull-backoff.yaml",
+      "target_type": "pod"
     }
   ],
   "rollout_stall|pod|high": [
@@ -4773,6 +4861,18 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/synthesized/pod-corrupt-rollout-stall-high.yaml",
       "target_type": "pod"
+    },
+    {
+      "category": "dependency",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.image-pull-backoff",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/image-pull-backoff.yaml",
+      "target_type": "pod"
     }
   ],
   "rollout_stall||": [
@@ -4810,6 +4910,18 @@
       "requires_hardware": false,
       "severity_bucket": "low",
       "source_path": "rule-catalog/chaos-scenarios/collected/synthesized/pod-corrupt-rollout-stall-mild.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "dependency",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.image-pull-backoff",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/image-pull-backoff.yaml",
       "target_type": "pod"
     }
   ],

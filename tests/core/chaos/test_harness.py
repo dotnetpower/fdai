@@ -15,6 +15,7 @@ from fdai.core.chaos import (
     default_scenarios,
 )
 from fdai.core.chaos.contract import FaultScenario
+from fdai.core.chaos.injector import DetectionOnlyInjector
 from fdai.shared.contracts.models import Mode
 
 
@@ -63,6 +64,41 @@ async def test_shadow_never_touches_injector() -> None:
     assert injector.injected == []  # provably no perturbation
     assert result.reverted is True
     assert recorder.results == [result]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("mode", "expected_outcome"),
+    [
+        (Mode.SHADOW, ExperimentOutcome.SHADOWED),
+        (Mode.ENFORCE, ExperimentOutcome.VALIDATED),
+    ],
+)
+async def test_detection_only_path_probes_without_injection_or_hold(
+    mode: Mode,
+    expected_outcome: ExperimentOutcome,
+) -> None:
+    scenario = FaultScenario(
+        scenario_id="chaos.gpu.sku-mismatch",
+        fault_type="quota_shrink",
+        description="GPU SKU mismatch",
+        target_selector="gpu:profile",
+        expected_signal="gpu_sku_mismatch",
+        blast_radius_cap=1,
+        duration_seconds=360,
+    )
+    harness = FaultInjectionHarness(
+        injectors=(DetectionOnlyInjector(fault_type="quota_shrink"),),
+        probe=_AlwaysProbe(result=True),
+        sleeper=lambda _: pytest.fail("detection-only path MUST NOT hold"),
+    )
+
+    result = await harness.run(scenario, approved_targets=("gpu-profile",), mode=mode)
+
+    assert result.outcome is expected_outcome
+    assert result.detected is True
+    assert result.injected is False
+    assert result.stopped is True
 
 
 @pytest.mark.asyncio

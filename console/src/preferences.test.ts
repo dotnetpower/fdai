@@ -16,7 +16,6 @@ describe("console preferences", () => {
       theme: "light",
       locale: "en",
       motion: "system",
-      semanticVerification: "off",
       showTokenUsage: true,
     });
   });
@@ -26,13 +25,11 @@ describe("console preferences", () => {
       "fdai:console:theme": "dark",
       "fdai:console:locale": "ko",
       "fdai:console:motion": "reduced",
-      "fdai:console:semantic-verification": "shadow",
       "fdai:console:show-token-usage": "false",
     }))).toEqual({
       theme: "dark",
       locale: "ko",
       motion: "reduced",
-      semanticVerification: "shadow",
       showTokenUsage: false,
     });
   });
@@ -48,13 +45,11 @@ describe("console preferences", () => {
       "fdai:console:theme": "system",
       "fdai:console:locale": "fr",
       "fdai:console:motion": "full",
-      "fdai:console:semantic-verification": "enforce",
       "fdai:console:show-token-usage": "maybe",
     }))).toEqual({
       theme: "light",
       locale: "en",
       motion: "system",
-      semanticVerification: "off",
       showTokenUsage: true,
     });
   });
@@ -64,13 +59,6 @@ describe("console preferences", () => {
     expect(readConsolePreferences("", null).theme).toBe("dark");
     resetConsolePreferences();
     expect(readConsolePreferences("", null).theme).toBe("light");
-  });
-
-  test("enables semantic verification only in shadow mode", () => {
-    setConsolePreference("semanticVerification", "shadow");
-    expect(readConsolePreferences("", null).semanticVerification).toBe("shadow");
-    resetConsolePreferences();
-    expect(readConsolePreferences("", null).semanticVerification).toBe("off");
   });
 
   test("accepts a newer preference written by another tab", () => {

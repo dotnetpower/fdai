@@ -63,16 +63,6 @@ export interface AnswerEvidenceManifest {
   readonly entries: readonly EvidenceManifestEntry[];
 }
 
-export interface SemanticVerification {
-  readonly verdict: "entailed" | "contradicted" | "unknown" | "unavailable";
-  readonly provider: string;
-  readonly model_id: string | null;
-  readonly latency_ms: number;
-  readonly entailment_score: number | null;
-  readonly contradiction_score: number | null;
-  readonly reason_code: string | null;
-}
-
 export interface AnswerVerification {
   readonly status: AnswerVerificationStatus;
   readonly authority: string;
@@ -83,7 +73,6 @@ export interface AnswerVerification {
   readonly claims?: readonly AtomicAnswerClaim[];
   readonly evidence_manifest?: AnswerEvidenceManifest;
   readonly failed_claim_ids?: readonly string[];
-  readonly semantic?: SemanticVerification;
 }
 
 export interface DelegationMetadata {
@@ -121,6 +110,7 @@ export interface AnswerPlanningMetadata {
   readonly elapsed_ms: number;
   readonly unique_evidence_count: number;
   readonly duplicate_evidence_count: number;
+  readonly conflicting_evidence_refs: readonly string[];
   readonly covered_sections: readonly string[];
   readonly estimated_added_tokens: number;
   readonly budget: {

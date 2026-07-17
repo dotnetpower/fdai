@@ -1,0 +1,24 @@
+id: chaos.kubernetes-docs.pod-disruption-budget-gap
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+  source_ref: section=pod-disruption-budgets;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: compute
+target_type: pod
+fault_family: stop
+intensity: high
+duration_seconds: 360
+expected_signal: backend_health
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Restore healthy replicas and stop additional voluntary disruptions.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Concurrent voluntary disruptions exceed the workload availability budget.
+tags:
+- kubernetes
+- vendor-doc

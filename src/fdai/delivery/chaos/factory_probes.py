@@ -10,6 +10,7 @@ from fdai.delivery.chaos.aoai_ratelimit import AoaiRateLimitProbe
 from fdai.delivery.chaos.azure_ops import AzCliStateProbe
 from fdai.delivery.chaos.chaos_mesh import ChaosMeshInjectedProbe
 from fdai.delivery.chaos.factory_bodies import _crd_name, _litmus_engine_name
+from fdai.delivery.chaos.gpu_governance import GpuSkuMismatchProbe
 from fdai.delivery.chaos.litmus import LitmusChaosResultProbe
 from fdai.delivery.chaos.live_injectors import (
     AzureMonitorCpuProbe,
@@ -19,6 +20,16 @@ from fdai.delivery.chaos.live_injectors import (
     KubeRolloutStallProbe,
 )
 from fdai.delivery.chaos.mysql_load import AzureMonitorDbCpuProbe
+
+
+def _build_gpu_sku_mismatch_probe(entry: CatalogEntry, ctx: dict[str, Any]) -> SignalProbe:
+    params = entry.spec.get("params") or {}
+    return GpuSkuMismatchProbe(
+        assess=ctx["gpu_sku_assessment_fn"],
+        expected_observed_sku=str(params["observed_sku"]),
+        expected_recommended_sku=str(params["recommended_sku"]),
+        min_confidence=float(ctx.get("gpu_sku_min_confidence", 0.8)),
+    )
 
 
 def _build_chaos_mesh_probe(entry: CatalogEntry, ctx: dict[str, Any]) -> SignalProbe:

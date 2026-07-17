@@ -128,6 +128,7 @@ class AnswerPlanningResult:
     elapsed_ms: int
     unique_evidence_count: int
     duplicate_evidence_count: int
+    conflicting_evidence_refs: tuple[str, ...]
     covered_sections: tuple[AnswerSection, ...]
     estimated_added_tokens: int
     budget: AnswerPlanningConfig
@@ -156,6 +157,7 @@ class AnswerPlanningResult:
             "elapsed_ms": self.elapsed_ms,
             "unique_evidence_count": self.unique_evidence_count,
             "duplicate_evidence_count": self.duplicate_evidence_count,
+            "conflicting_evidence_refs": list(self.conflicting_evidence_refs),
             "covered_sections": [section.value for section in self.covered_sections],
             "estimated_added_tokens": self.estimated_added_tokens,
             "budget": {
@@ -238,6 +240,7 @@ async def run_answer_planning_round(
     )
     evidence = [item for contribution in ordered for item in contribution.evidence_refs]
     unique_evidence = tuple(dict.fromkeys(evidence))
+    conflicting_evidence_refs = _conflicting_evidence_refs(ordered)
     plan_sections = set(plan.sections)
     covered = tuple(
         section
@@ -248,7 +251,7 @@ async def run_answer_planning_round(
     )
     if pending:
         status = PlanningStatus.TIMED_OUT
-    elif ordered_failures:
+    elif ordered_failures or conflicting_evidence_refs:
         status = PlanningStatus.DEGRADED
     else:
         status = PlanningStatus.COMPLETED
@@ -261,6 +264,7 @@ async def run_answer_planning_round(
         elapsed_ms=max(0, int((time.monotonic() - started) * 1_000)),
         unique_evidence_count=len(unique_evidence),
         duplicate_evidence_count=len(evidence) - len(unique_evidence),
+        conflicting_evidence_refs=conflicting_evidence_refs,
         covered_sections=covered,
         estimated_added_tokens=sum(_estimated_tokens(item) for item in ordered),
         budget=effective_config,
@@ -320,6 +324,18 @@ def _estimated_tokens(contribution: AnswerContribution) -> int:
     return max(1, (characters + 3) // 4)
 
 
+def _conflicting_evidence_refs(
+    contributions: Sequence[AnswerContribution],
+) -> tuple[str, ...]:
+    claims_by_ref: dict[str, set[str]] = {}
+    for contribution in contributions:
+        for fact in contribution.facts:
+            claims_by_ref.setdefault(fact.evidence_ref, set()).add(
+                " ".join(fact.claim.casefold().split())
+            )
+    return tuple(sorted(ref for ref, claims in claims_by_ref.items() if len(claims) > 1))
+
+
 def _skipped(
     primary_agent: str | None,
     reason: str,
@@ -334,6 +350,7 @@ def _skipped(
         elapsed_ms=0,
         unique_evidence_count=0,
         duplicate_evidence_count=0,
+        conflicting_evidence_refs=(),
         covered_sections=(),
         estimated_added_tokens=0,
         budget=config,

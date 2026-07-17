@@ -11,6 +11,7 @@ from starlette.applications import Starlette
 
 from fdai.core.document_ingestion import DocumentIngestionService, DocumentIngestionWorker
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
+from fdai.core.stewardship.handover_bootstrap import HandoverBootstrapper
 from fdai.delivery.azure.document_storage import (
     AzureDataLakeArtifactStore,
     AzureDataLakeConfig,
@@ -24,6 +25,10 @@ from fdai.delivery.azure.llm.embeddings import (
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.ingestion_gateway.access import ClaimsDocumentAccessProvider
 from fdai.delivery.ingestion_gateway.activity import DurableDocumentActivitySink
+from fdai.delivery.ingestion_gateway.handover import (
+    HandoverBootstrapConsumer,
+    StateStoreHandoverDraftStore,
+)
 from fdai.delivery.ingestion_gateway.main import IngestionGatewayConfig, build_app
 from fdai.delivery.ingestion_gateway.worker_service import DocumentIngestionEventConsumer
 from fdai.delivery.malware import ClamAvMalwareScanner, ClamAvScannerConfig
@@ -38,6 +43,7 @@ from fdai.delivery.pgvector.document_index import (
 )
 from fdai.delivery.read_api.auth import build_authenticator
 from fdai.delivery.read_api.entra_verifier import EntraJwtVerifier
+from fdai.delivery.stewardship import GraphPersonDirectory
 from fdai.shared.contracts import IngestionCapabilities, SourceStorageMode
 from fdai.shared.providers.local.document_ingestion import (
     SignatureProtectionInspector,
@@ -80,6 +86,16 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         timeout=httpx.Timeout(connect=10.0, read=60.0, write=60.0, pool=10.0)
     )
     identity = ManagedIdentityWorkloadIdentity(http_client=http_client)
+
+    async def graph_token() -> str:
+        token = await identity.get_token("https://graph.microsoft.com/.default")
+        return token.token
+
+    person_directory = GraphPersonDirectory(
+        client=http_client,
+        token_provider=graph_token,
+        base_url=env.get("FDAI_GRAPH_BASE_URL", "https://graph.microsoft.com/v1.0"),
+    )
     storage_config = AzureDataLakeConfig(
         account_name=env["FDAI_ADLS_ACCOUNT_NAME"].strip(),
         account_url=env["FDAI_ADLS_ACCOUNT_URL"].strip(),
@@ -124,6 +140,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         ),
     )
     state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    handover_drafts = StateStoreHandoverDraftStore(state_store=state_store)
     activity = DurableDocumentActivitySink(
         state_store=state_store,
         event_bus=event_bus,
@@ -161,6 +178,12 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         artifacts=artifact_store,
         index=document_index,
         activity=activity,
+        consumers=(
+            HandoverBootstrapConsumer(
+                bootstrapper=HandoverBootstrapper(directory=person_directory),
+                store=handover_drafts,
+            ),
+        ),
         indexing_stage_timeout_seconds=_positive_int(
             env, "FDAI_DOCUMENT_INDEXING_STAGE_TIMEOUT_SECONDS", 90
         ),
@@ -179,6 +202,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         service=service,
         worker=worker,
         search_index=document_index,
+        handover_drafts=handover_drafts,
         config=IngestionGatewayConfig(
             proxy_upload=True,
             background_services=(worker_service.run, worker_service.reconcile),

@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: bdb8a32f825934d8c90a1c8b1de7472d8114c47e
+translation_source_sha: 215f560061db127115784f654c93079609e08fdb
 translation_revised: 2026-07-17
 ---
 # 문서 인제스트와 Drop Zone
@@ -449,6 +449,13 @@ FDAI_INGESTION_GATEWAY_DEV_MODE=1 \
 `127.0.0.1`과 `localhost`의 로컬 콘솔 포트 `4173`, `5173`, `5180`, `5190`을 허용합니다.
 다른 포트를 사용하려면 gateway process의 `FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS`를
 쉼표로 구분한 정확한 HTTP(S) origin 목록으로 설정하세요.
+
+Production gateway는 `handover_bootstrap` consumer를 durable `PostgresStateStore`
+projection에 bind하고 gateway managed identity로 Microsoft Graph의 정확한 user/group display
+name을 해석합니다. Identity에는 최소 권한 Graph application role인 `User.Read.All`과
+`Group.Read.All`이 필요합니다. 일치 항목이 없거나 모호하면 사람 검토를 위해 unresolved로
+남깁니다. Grounded mixed-model `HandoverInterpreter`가 구성되지 않으면 interpreter는
+abstain하고 deterministic extraction은 계속됩니다.
 
 | Method and path | Purpose |
 |-----------------|---------|

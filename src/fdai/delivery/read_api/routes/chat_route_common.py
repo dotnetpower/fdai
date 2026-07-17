@@ -67,24 +67,6 @@ def _request_id(body: Mapping[str, Any]) -> str:
     return value
 
 
-def _semantic_verification_enabled(body: Mapping[str, Any]) -> bool:
-    raw = body.get("verification_preferences")
-    if raw is None:
-        return False
-    if not isinstance(raw, Mapping):
-        raise HTTPException(
-            status_code=400,
-            detail="verification_preferences MUST be an object",
-        )
-    enabled = raw.get("semantic_enabled", False)
-    if not isinstance(enabled, bool):
-        raise HTTPException(
-            status_code=400,
-            detail="verification_preferences.semantic_enabled MUST be boolean",
-        )
-    return enabled
-
-
 def _uses_evidence_fast_path(view_context: Mapping[str, Any]) -> bool:
     """Return whether server evidence can render the answer without a model."""
 

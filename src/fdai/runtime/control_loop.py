@@ -15,6 +15,7 @@ from fdai.composition import (
     Container,
 )
 from fdai.core.architecture_review import ArchitectureReviewProjector
+from fdai.core.chaos.symptom_index import SymptomIndex, build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.core.event_ingest import EventCorrelator, EventIngest
 from fdai.core.executor import ShadowExecutor
@@ -161,6 +162,7 @@ def _build_control_loop(
     stage_publisher: StagePublisher | None = None,
     audit_store: Any | None = None,
     tool_receipt_observer: ToolReceiptObserver | None = None,
+    symptom_index: SymptomIndex | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -331,6 +333,7 @@ def _build_control_loop(
     # grounding gate abstains rather than fabricating.
     rca_coordinator = RcaCoordinator(
         reasoner=rca_reasoner,
+        symptom_index=symptom_index if symptom_index is not None else build_from_promoted(),
         knowledge_gatherer=KnowledgeEvidenceGatherer(source=container.knowledge_source),
     )
 

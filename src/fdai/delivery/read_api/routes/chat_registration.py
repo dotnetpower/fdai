@@ -28,7 +28,6 @@ from fdai.delivery.read_api.routes.chat import (
 )
 from fdai.delivery.read_api.routes.chat_answer_planning import compatible_planning_delegate
 from fdai.delivery.read_api.routes.chat_evidence import OperationalEvidenceResolver
-from fdai.delivery.read_api.routes.chat_semantic import semantic_verifier_from_env
 from fdai.delivery.read_api.routes.chat_system_health import SystemHealthChatTools
 from fdai.delivery.read_api.routes.chat_tools import ReadModelChatTools
 from fdai.shared.providers.briefing import ConversationPolicyStore
@@ -63,7 +62,6 @@ def append_chat_routes(
 
     evidence = OperationalEvidenceResolver(read_model)
     tools = SystemHealthChatTools(read_model, ReadModelChatTools(read_model))
-    semantic_verifier = semantic_verifier_from_env()
     routes.extend(
         (
             make_chat_route(
@@ -74,7 +72,6 @@ def append_chat_routes(
                 web_search_resolver=web_search_resolver,
                 agent_delegate=agent_delegate,
                 answer_planning_delegate=compatible_planning_delegate(agent_delegate),
-                semantic_verifier=semantic_verifier,
                 conversation_policy_store=conversation_policy_store,
                 conversation_history_store=conversation_history_store,
                 user_context_ontology_projector=user_context_ontology_projector,
@@ -93,7 +90,6 @@ def append_chat_routes(
                 web_search_resolver=web_search_resolver,
                 agent_delegate=agent_delegate,
                 answer_planning_delegate=compatible_planning_delegate(agent_delegate),
-                semantic_verifier=semantic_verifier,
                 conversation_policy_store=conversation_policy_store,
                 conversation_history_store=conversation_history_store,
                 user_context_ontology_projector=user_context_ontology_projector,

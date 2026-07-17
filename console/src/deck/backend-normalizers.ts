@@ -10,7 +10,6 @@ import type {
   RetrievalSourcePreview,
   RouterCandidate,
   RouterSnapshot,
-  SemanticVerification,
 } from "./backend-types";
 
 export function parseRetrievalSourcePreviews(
@@ -83,7 +82,6 @@ export function parseAnswerVerification(raw: unknown): AnswerVerification | unde
     : [];
   const claims = parseAtomicClaims(record.claims);
   const manifest = parseEvidenceManifest(record.evidence_manifest);
-  const semantic = parseSemanticVerification(record.semantic);
   const artifactPresent = record.claims !== undefined || record.evidence_manifest !== undefined;
   const malformedArtifact = artifactPresent && (claims === null || manifest === null);
   return {
@@ -99,33 +97,6 @@ export function parseAnswerVerification(raw: unknown): AnswerVerification | unde
     claims: claims ?? [],
     ...(manifest ? { evidence_manifest: manifest } : {}),
     failed_claim_ids: failedClaimIds,
-    ...(semantic ? { semantic } : {}),
-  };
-}
-
-function parseSemanticVerification(raw: unknown): SemanticVerification | null | undefined {
-  if (raw === undefined || raw === null) return undefined;
-  if (typeof raw !== "object" || Array.isArray(raw)) return null;
-  const semantic = raw as Record<string, unknown>;
-  const verdict = semantic.verdict;
-  if (
-    !["entailed", "contradicted", "unknown", "unavailable"].includes(String(verdict)) ||
-    typeof semantic.provider !== "string" ||
-    (semantic.model_id !== null && typeof semantic.model_id !== "string") ||
-    typeof semantic.latency_ms !== "number" ||
-    (semantic.entailment_score !== null && typeof semantic.entailment_score !== "number") ||
-    (semantic.contradiction_score !== null &&
-      typeof semantic.contradiction_score !== "number") ||
-    (semantic.reason_code !== null && typeof semantic.reason_code !== "string")
-  ) return null;
-  return {
-    verdict: verdict as SemanticVerification["verdict"],
-    provider: semantic.provider,
-    model_id: semantic.model_id as string | null,
-    latency_ms: semantic.latency_ms,
-    entailment_score: semantic.entailment_score as number | null,
-    contradiction_score: semantic.contradiction_score as number | null,
-    reason_code: semantic.reason_code as string | null,
   };
 }
 

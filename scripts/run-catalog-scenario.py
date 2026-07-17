@@ -18,15 +18,19 @@ Usage:
     python scripts/run-catalog-scenario.py --dry-run
 
     # Enforce one scenario end-to-end against the FDAI_ENFORCE_* substrate
-    python scripts/run-catalog-scenario.py --run chaos.chaos-mesh.pod-failure
+    python scripts/run-catalog-scenario.py --run chaos.chaos-mesh.pod-failure \
+        --confirm-enforce
 
     # Enforce every executable entry (safe: needs-injector entries
     # are filtered out before injection)
-    python scripts/run-catalog-scenario.py --run-all
+    python scripts/run-catalog-scenario.py --run-all --confirm-enforce
 
 Substrate config comes from the same `FDAI_ENFORCE_*` env vars the
 other enforce runners read; see `scripts/run-enforce-scenarios.py` for
-the full list. Missing env vars in `--run` / `--run-all` mode fail
+the full list. Enforce modes also require `FDAI_ENFORCE_APPROVAL_REF`
+and the explicit `--confirm-enforce` flag. The approval reference is
+recorded in every result; validation against the authoritative HIL
+state belongs to the promotion evidence contract. Missing inputs fail
 fast; `--list` and `--dry-run` need no env vars.
 
 Reports land under `logs/catalog-runs/<timestamp>/`. Every run writes
@@ -46,10 +50,24 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from fdai.core.chaos.contract import ExperimentResult
+from fdai.core.chaos.catalog_evidence import (
+    CatalogEvidenceLevel,
+    build_catalog_validation_summary,
+    write_catalog_validation_summary,
+)
+from fdai.core.chaos.contract import ExperimentResult, FaultScenario
 from fdai.core.chaos.factory import ScenarioFactory, UnavailableInjectorError
 from fdai.core.chaos.harness import FaultInjectionHarness
-from fdai.core.chaos.scenario_catalog import CatalogEntry, load_all
+from fdai.core.chaos.promotion_evidence import (
+    ScenarioEvidenceKey,
+    load_promotion_ledger,
+)
+from fdai.core.chaos.scenario_catalog import (
+    CatalogEntry,
+    catalog_fingerprint,
+    load_all,
+    load_promoted,
+)
 from fdai.delivery.chaos.factories import default_factory
 from fdai.shared.contracts.models import Mode
 
@@ -71,6 +89,7 @@ def _substrate_context() -> dict[str, Any]:
         "FDAI_ENFORCE_BACKEND_SVC": "backend_service",
         "FDAI_ENFORCE_BACKEND_LABEL": "workload_label_raw",
         "FDAI_ENFORCE_VM": "vm_name",
+        "FDAI_ENFORCE_PROMOTION_EVIDENCE": "promotion_evidence_path",
     }
     missing = [env for env in required if not os.environ.get(env)]
     if missing:
@@ -88,6 +107,29 @@ def _substrate_context() -> dict[str, Any]:
     ctx["backend_restore_replicas"] = int(os.environ.get("FDAI_ENFORCE_BACKEND_REPLICAS", "3"))
     ctx["backend_image"] = os.environ.get("FDAI_ENFORCE_BACKEND_IMAGE", "nginx")
     return ctx
+
+
+def _with_promotion_approval(
+    entry: CatalogEntry,
+    ctx: dict[str, Any],
+    catalog_entries: list[CatalogEntry],
+) -> dict[str, Any]:
+    evidence_path = Path(str(ctx["promotion_evidence_path"]))
+    ledger = load_promotion_ledger(evidence_path)
+    key = ScenarioEvidenceKey(
+        scenario_id=entry.id,
+        scenario_version=int(entry.spec["version"]),
+        catalog_fingerprint=catalog_fingerprint(catalog_entries),
+    )
+    approval_ref = ledger.approval_ref_for(key)
+    if approval_ref is None:
+        raise SystemExit(
+            f"{entry.id!r} is not enforce-eligible for the current catalog fingerprint"
+        )
+    approved = dict(ctx)
+    approved.pop("promotion_evidence_path", None)
+    approved["approval_ref"] = approval_ref
+    return approved
 
 
 def _serialize(result: ExperimentResult) -> dict[str, Any]:
@@ -119,6 +161,7 @@ async def _run_one(
             "outcome": "build_error",
             "error": f"{type(exc).__name__}:{exc}",
             "elapsed_seconds": round(time.monotonic() - t0, 2),
+            "approval_ref": ctx["approval_ref"],
         }
         (out_dir / f"{_slugify(entry.id)}.json").write_text(
             json.dumps(payload, indent=2, sort_keys=True) + "\n"
@@ -141,12 +184,14 @@ async def _run_one(
         result = await harness.run(scenario, approved_targets=approved_targets, mode=Mode.ENFORCE)
         payload = _serialize(result)
         payload["elapsed_seconds"] = round(time.monotonic() - t0, 2)
+        payload["approval_ref"] = ctx["approval_ref"]
     except Exception as exc:  # noqa: BLE001 - report driver errors
         payload = {
             "scenario_id": entry.id,
             "outcome": "driver_error",
             "error": f"{type(exc).__name__}:{exc}",
             "elapsed_seconds": round(time.monotonic() - t0, 2),
+            "approval_ref": ctx["approval_ref"],
         }
     (out_dir / f"{_slugify(entry.id)}.json").write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n"
@@ -165,10 +210,8 @@ def _slugify(scenario_id: str) -> str:
     return scenario_id.replace(".", "-").replace("/", "-")
 
 
-def _to_fault_scenario(entry: CatalogEntry):
+def _to_fault_scenario(entry: CatalogEntry) -> FaultScenario:
     """Adapt a CatalogEntry to the harness's FaultScenario dataclass."""
-    from fdai.core.chaos.contract import FaultScenario
-
     return FaultScenario(
         scenario_id=entry.id,
         fault_type=str(entry.spec.get("fault_family", "unknown")),
@@ -196,7 +239,7 @@ def _list_command(factory: ScenarioFactory) -> int:
     return 0
 
 
-async def _dry_run(factory: ScenarioFactory) -> int:
+async def _dry_run(factory: ScenarioFactory, summary_path: Path | None = None) -> int:
     """Build every executable pair with a synthetic context; report per-entry PASS/FAIL."""
     ctx = {
         "sub_id": "00000000-0000-0000-0000-000000000000",
@@ -231,34 +274,53 @@ async def _dry_run(factory: ScenarioFactory) -> int:
         ),
         "aoai_load_request_fn": lambda: 200,
         "aoai_probe_request_fn": lambda: 429,
+        "gpu_sku_assessment_fn": lambda _targets: {
+            "observed_sku": "H100",
+            "recommended_sku": "A100",
+            "confidence": 0.9,
+        },
         "vm_resource_id": (
             "/subscriptions/00000000-0000-0000-0000-000000000000/"
             "resourceGroups/rg-test/providers/Microsoft.Compute/virtualMachines/vm-test"
         ),
     }
-    entries = factory.executable_entries(load_all())
+    all_entries = load_all()
+    entries = factory.executable_entries(all_entries)
     fails = 0
+    reports: dict[str, dict[str, object]] = {}
     for e in entries:
         try:
             factory.build(e, ctx)
         except Exception as exc:  # noqa: BLE001 - dry-run: never raise
             fails += 1
+            reports[e.id] = {"outcome": "build_error"}
             print(f"FAIL {e.id}: {type(exc).__name__}:{exc}", flush=True)
+        else:
+            reports[e.id] = {"outcome": "dispatchable"}
+    if summary_path is not None:
+        summary = build_catalog_validation_summary(
+            entries=all_entries,
+            reports=reports,
+            evidence_level=CatalogEvidenceLevel.DISPATCHABILITY,
+            runner_version="run-catalog-scenario/1",
+        )
+        write_catalog_validation_summary(summary, summary_path)
     print(f"\ndry-run: {len(entries) - fails}/{len(entries)} entries dispatchable", flush=True)
     return 1 if fails else 0
 
 
 async def _run_one_by_id(scenario_id: str, factory: ScenarioFactory) -> int:
-    ctx = _substrate_context()
-    entries = [e for e in load_all() if e.id == scenario_id]
+    all_entries = load_all()
+    entries = [e for e in load_promoted() if e.id == scenario_id]
     if not entries:
-        raise SystemExit(f"scenario id {scenario_id!r} not found in catalog")
+        raise SystemExit(f"scenario id {scenario_id!r} not found in the promoted runtime catalog")
     entry = entries[0]
     if not factory.is_executable(entry):
         raise SystemExit(
             f"{scenario_id!r} is not executable via the default factory "
             f"(injector={entry.spec['injector']!r}, signal={entry.expected_signal!r})"
         )
+    ctx = _with_promotion_approval(entry, _substrate_context(), all_entries)
     out_dir = _report_dir()
     max_hold = float(os.environ.get("FDAI_MAX_HOLD_SECONDS", "180"))
     payload = await _run_one(entry, factory, ctx, out_dir, max_hold)
@@ -268,14 +330,15 @@ async def _run_one_by_id(scenario_id: str, factory: ScenarioFactory) -> int:
 
 
 async def _run_all(factory: ScenarioFactory, limit: int | None) -> int:
-    ctx = _substrate_context()
-    entries = factory.executable_entries(load_all())
+    all_entries = load_all()
+    entries = factory.executable_entries(load_promoted())
     if limit is not None:
         entries = entries[:limit]
     out_dir = _report_dir()
     max_hold = float(os.environ.get("FDAI_MAX_HOLD_SECONDS", "180"))
     reports: list[dict[str, Any]] = []
     for e in entries:
+        ctx = _with_promotion_approval(e, _substrate_context(), all_entries)
         reports.append(await _run_one(e, factory, ctx, out_dir, max_hold))
         await asyncio.sleep(10)
     (out_dir / "report.json").write_text(json.dumps({"runs": reports}, indent=2, sort_keys=True))
@@ -333,6 +396,16 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         help="Cap on --run-all (executes the first N executable entries).",
     )
+    p.add_argument(
+        "--confirm-enforce",
+        action="store_true",
+        help="Confirm that the already-approved run may mutate the disposable substrate.",
+    )
+    p.add_argument(
+        "--evidence-summary",
+        type=Path,
+        help="Write a sanitized, fingerprint-bound validation summary.",
+    )
     args = p.parse_args(argv)
 
     factory = default_factory()
@@ -340,7 +413,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.list:
         return _list_command(factory)
     if args.dry_run:
-        return asyncio.run(_dry_run(factory))
+        return asyncio.run(_dry_run(factory, args.evidence_summary))
+    if not args.confirm_enforce:
+        raise SystemExit("--run / --run-all requires explicit --confirm-enforce")
     if args.run:
         return asyncio.run(_run_one_by_id(args.run, factory))
     if args.run_all:

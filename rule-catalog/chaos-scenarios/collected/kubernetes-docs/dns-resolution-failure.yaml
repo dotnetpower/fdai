@@ -1,0 +1,24 @@
+id: chaos.kubernetes-docs.dns-resolution-failure
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/tasks/administer-cluster/dns-debugging-resolution/
+  source_ref: section=check-the-local-dns-configuration-first;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: network
+target_type: dns
+fault_family: misroute
+intensity: high
+duration_seconds: 360
+expected_signal: request_failure
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Restore the prior resolver configuration and verify service lookup.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Workload DNS configuration prevents service-name resolution.
+tags:
+- kubernetes
+- vendor-doc

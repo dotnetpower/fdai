@@ -46,9 +46,11 @@ from fdai.agents.bragi import Bragi, Turn
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall, IncidentCandidateHook
 from fdai.agents.huginn import Huginn
+from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga, compute_fingerprint
 from fdai.agents.thor import ActionExecutor, ActionRunStore, Thor
 from fdai.agents.vidar import RollbackExecutor, Vidar
+from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.shared.providers.event_bus import EventBus
 
 _LOG = logging.getLogger(__name__)
@@ -96,6 +98,7 @@ class PantheonRuntime:
         rollback_executors: dict[str, RollbackExecutor] | None = None,
         operator_rbac: dict[str, frozenset[str]] | None = None,
         incident_candidate_hook: IncidentCandidateHook | None = None,
+        scenario_coverage_aggregator: ScenarioCoverageAggregator | None = None,
     ) -> PantheonRuntime:
         """Instantiate + wire the pantheon against ``provider``.
 
@@ -157,6 +160,8 @@ class PantheonRuntime:
             consumer_group_prefix=consumer_group_prefix,
         )
         instantiated = instantiate_pantheon()
+        if scenario_coverage_aggregator is not None:
+            instantiated["Norns"] = Norns(coverage_aggregator=scenario_coverage_aggregator)
         if operator_rbac is not None:
             instantiated["Forseti"] = Forseti(rbac=operator_rbac)
         if saga is not None:
@@ -164,8 +169,27 @@ class PantheonRuntime:
         if rollback_executors is not None:
             instantiated["Vidar"] = Vidar(executors=rollback_executors)
         heimdall = instantiated["Heimdall"]
-        if incident_candidate_hook is not None and isinstance(heimdall, Heimdall):
-            heimdall.register_incident_candidate(incident_candidate_hook)
+        norns = instantiated["Norns"]
+        if (
+            (incident_candidate_hook is not None or scenario_coverage_aggregator is not None)
+            and isinstance(heimdall, Heimdall)
+            and isinstance(norns, Norns)
+        ):
+
+            async def observe_and_open(candidate: dict[str, Any]) -> None:
+                if scenario_coverage_aggregator is not None:
+                    norns.observe_incident_symptom(
+                        incident_id=str(
+                            candidate.get("correlation_id") or candidate.get("evidence_key") or ""
+                        ),
+                        signal=str(candidate.get("event_type") or ""),
+                        target_type=str(candidate.get("target_type") or "unknown"),
+                        severity=str(candidate.get("severity") or "medium"),
+                    )
+                if incident_candidate_hook is not None:
+                    await incident_candidate_hook(candidate)
+
+            heimdall.register_incident_candidate(observe_and_open)
 
         # Safety: force Thor to shadow unless an explicit promotion opts
         # into enforce. Without this the pantheon Thor would auto-execute

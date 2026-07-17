@@ -26,6 +26,7 @@ from uuid import uuid4
 
 from fdai.core.chaos.contract import ExperimentOutcome, ExperimentResult, FaultScenario
 from fdai.core.chaos.injector import (
+    DetectionOnlyInjector,
     ExperimentRecorder,
     FaultInjector,
     InMemoryExperimentRecorder,
@@ -139,6 +140,16 @@ class FaultInjectionHarness:
                 error=(f"approved_targets={len(targets)} exceeds cap={scenario.blast_radius_cap}"),
             )
 
+        injector = self._resolve(scenario.fault_type)
+        if isinstance(injector, DetectionOnlyInjector):
+            return await self._run_detection_only(
+                experiment_id=experiment_id,
+                scenario=scenario,
+                mode=mode,
+                targets=targets,
+                started=started,
+            )
+
         # Shadow never touches an injector - judge and log only.
         if mode is Mode.SHADOW:
             return await self._finish(
@@ -153,7 +164,6 @@ class FaultInjectionHarness:
                 stopped=False,
             )
 
-        injector = self._resolve(scenario.fault_type)
         if injector is None:
             return await self._finish(
                 experiment_id=experiment_id,
@@ -258,6 +268,58 @@ class FaultInjectionHarness:
             # caller's shutdown / timeout semantics are preserved.
             raise asyncio.CancelledError
         return result
+
+    async def _run_detection_only(
+        self,
+        *,
+        experiment_id: str,
+        scenario: FaultScenario,
+        mode: Mode,
+        targets: tuple[str, ...],
+        started: datetime,
+    ) -> ExperimentResult:
+        if not targets:
+            return await self._finish(
+                experiment_id=experiment_id,
+                scenario=scenario,
+                mode=mode,
+                targets=targets,
+                started=started,
+                outcome=ExperimentOutcome.ABORTED,
+                detected=False,
+                injected=False,
+                stopped=True,
+                error="no_approved_targets",
+            )
+        try:
+            detected = await asyncio.wait_for(
+                self._probe.observed(signal=scenario.expected_signal, targets=targets),
+                timeout=self._op_timeout,
+            )
+            outcome = (
+                ExperimentOutcome.SHADOWED
+                if mode is Mode.SHADOW
+                else (ExperimentOutcome.VALIDATED if detected else ExperimentOutcome.NOT_DETECTED)
+            )
+            error = None
+        except Exception as exc:  # noqa: BLE001 - read-only probe fails closed
+            detected = False
+            outcome = (
+                ExperimentOutcome.SHADOWED if mode is Mode.SHADOW else ExperimentOutcome.ABORTED
+            )
+            error = f"{type(exc).__name__}:{exc}"
+        return await self._finish(
+            experiment_id=experiment_id,
+            scenario=scenario,
+            mode=mode,
+            targets=targets,
+            started=started,
+            outcome=outcome,
+            detected=detected,
+            injected=False,
+            stopped=True,
+            error=error,
+        )
 
     async def _stop_all(self, injector: FaultInjector, targets: Sequence[str]) -> bool:
         """Stop every target; report whether rollback fully succeeded.

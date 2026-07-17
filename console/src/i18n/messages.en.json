@@ -397,8 +397,6 @@
     "readPath": "KPI read path",
     "readPathHint": "Authenticated read-model access used by the console overview.",
     "verification": "Answer verification",
-    "semanticVerification": "Experimental semantic verification",
-    "semanticVerificationHint": "Shadow-check qualitative answers with the optional local NLI provider. Deterministic verification remains authoritative.",
     "enabled": "Enabled",
     "disabled": "Disabled",
     "reset": "Reset account and display preferences",
@@ -749,6 +747,11 @@
       "format": {"prose": "Prose", "bullets": "Bullets", "numbered_steps": "Numbered steps", "table": "Table", "checklist": "Checklist", "mixed": "Mixed"},
       "preferenceApplied": "Saved preference"
     },
+    "answerPlanning": {
+      "consulted": "Consulted",
+      "uniqueSources": "{count} unique source(s)",
+      "unresolvedConflicts": "{count} unresolved conflict(s)"
+    },
     "codeEvidence": {
       "label": "Code evidence",
       "count": "{count} grounded artifact(s)",
@@ -784,7 +787,6 @@
       "replySource": "Reply source",
       "backendProbing": "Probing chat backend...",
       "backendFallback": "Model unavailable ({mode}); using the deterministic answerer",
-      "semanticShadow": "Experimental shadow signal; does not change the answer trust status",
       "copyReply": "Copy reply",
       "copied": "Copied",
       "regenerate": "Regenerate",

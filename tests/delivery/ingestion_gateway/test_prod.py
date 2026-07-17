@@ -43,4 +43,5 @@ def test_prod_factory_composes_all_runtime_adapters(monkeypatch: pytest.MonkeyPa
 
     paths = {route.path for route in application.routes}
     assert "/ingestion/uploads" in paths
+    assert "/ingestion/uploads/{upload_id}/handover-draft" in paths
     assert "/documents/search" in paths

@@ -34,7 +34,7 @@ from typing import Any
 from fdai.agents._framework.bounded import BoundedLruDict
 
 _ALLOWED_KINDS: frozenset[str] = frozenset(
-    {"new", "revision", "retirement", "threshold_adjustment"}
+    {"new", "new-scenario", "revision", "retirement", "threshold_adjustment"}
 )
 # Evidence keys that must be strictly positive when present.
 _POSITIVE_COUNT_KEYS: tuple[str, ...] = (

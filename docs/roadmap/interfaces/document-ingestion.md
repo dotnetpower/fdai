@@ -440,6 +440,14 @@ standard local console ports `4173`, `5173`, `5180`, and `5190` on both `127.0.0
 `localhost`. For another port, set `FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS` on the gateway
 process to a comma-separated list of exact HTTP(S) origins.
 
+The production gateway binds the `handover_bootstrap` consumer to a durable
+`PostgresStateStore` projection and resolves exact user/group display names through
+Microsoft Graph with the gateway managed identity. The identity needs the least
+privileged Graph application roles `User.Read.All` and `Group.Read.All`. Zero or
+ambiguous matches remain unresolved for human review. When no grounded mixed-model
+`HandoverInterpreter` is configured, the interpreter abstains and deterministic
+extraction continues.
+
 | Method and path | Purpose |
 |-----------------|---------|
 | `GET /healthz` | unauthenticated process liveness for deployment verification; returns only `{"status":"ok"}` |

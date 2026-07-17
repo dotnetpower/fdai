@@ -66,32 +66,6 @@ export function SettingsDisplaySections({
         </div>
       </section>
 
-      <section class="settings-section" aria-labelledby="settings-verification">
-        <h3 id="settings-verification">{t("settings.verification")}</h3>
-        <div class="settings-list">
-          <SettingRow
-            label={t("settings.semanticVerification")}
-            hint={t("settings.semanticVerificationHint")}
-          >
-            <label class="settings-toggle-control">
-              <input
-                type="checkbox"
-                checked={preferences.semanticVerification === "shadow"}
-                onChange={(event) => update(
-                  "semanticVerification",
-                  event.currentTarget.checked ? "shadow" : "off",
-                )}
-              />
-              <span aria-hidden="true" />
-              <strong>
-                {preferences.semanticVerification === "shadow"
-                  ? t("settings.enabled")
-                  : t("settings.disabled")}
-              </strong>
-            </label>
-          </SettingRow>
-        </div>
-      </section>
     </>
   );
 }

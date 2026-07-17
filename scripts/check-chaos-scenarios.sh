@@ -125,4 +125,32 @@ then
     exit 1
 fi
 
+# ---- 4. tracked validation summary matches the current catalog -----------
+
+summary_path="rule-catalog/chaos-scenarios/evidence/catalog-validation-summary.json"
+if [[ ! -f "$summary_path" ]]; then
+    echo "check-chaos-scenarios: missing $summary_path" >&2
+    echo "  fix: python3 scripts/run-catalog-scenario.py --dry-run --evidence-summary $summary_path" >&2
+    exit 1
+fi
+
+if ! PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}" \
+    "${python_cmd[@]}" - "$summary_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+from fdai.core.chaos.catalog_evidence import assert_catalog_summary_current
+from fdai.core.chaos.scenario_catalog import load_all
+
+path = Path(sys.argv[1])
+payload = json.loads(path.read_text(encoding="utf-8"))
+assert_catalog_summary_current(payload, load_all())
+print(f"catalog validation summary is current: {path}")
+PY
+then
+    echo "check-chaos-scenarios: tracked validation summary is stale" >&2
+    exit 1
+fi
+
 echo "check-chaos-scenarios: OK (catalog, symptom index, inventories match)"

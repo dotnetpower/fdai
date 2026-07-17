@@ -57,13 +57,11 @@ from fdai.delivery.read_api.routes.chat_route_common import (
     AuthorizeFn,
     ModelPreferenceResolver,
     _request_id,
-    _semantic_verification_enabled,
     _session_id,
     _turn_metadata,
     _uses_evidence_fast_path,
     _with_compiled_user_policy,
 )
-from fdai.delivery.read_api.routes.chat_semantic import SemanticVerifier
 from fdai.delivery.read_api.routes.chat_stream_protocol import (
     DEFAULT_STREAM_HEARTBEAT_S,
     _chunk_answer_for_stream,
@@ -72,7 +70,7 @@ from fdai.delivery.read_api.routes.chat_stream_protocol import (
     _with_sse_heartbeats,
 )
 from fdai.delivery.read_api.routes.chat_system_health import render_system_health_answer
-from fdai.delivery.read_api.routes.chat_verification import attach_semantic_shadow, verify_answer
+from fdai.delivery.read_api.routes.chat_verification import verify_answer
 from fdai.shared.providers.briefing import ConversationPolicyStore
 from fdai.shared.providers.user_context import ConversationHistoryStore
 
@@ -91,7 +89,6 @@ def make_chat_stream_route(
     web_search_resolver: ChatWebSearchEvidenceResolver | None = None,
     agent_delegate: AgentChatDelegate | None = None,
     answer_planning_delegate: AnswerPlanningDelegate | None = None,
-    semantic_verifier: SemanticVerifier | None = None,
     conversation_policy_store: ConversationPolicyStore | None = None,
     conversation_history_store: ConversationHistoryStore | None = None,
     user_context_ontology_projector: UserContextOntologyProjector | None = None,
@@ -172,7 +169,6 @@ def make_chat_stream_route(
         )
         view_context["_answer_plan"] = answer_plan.to_dict()
         session_id = _session_id(body)
-        semantic_enabled = _semantic_verification_enabled(body)
         request_id = _request_id(body)
         if conversation_history_store is not None:
             await append_operator_turn(
@@ -398,27 +394,6 @@ def make_chat_stream_route(
                         "total": verification.checks_total,
                     },
                 )
-                if (
-                    semantic_enabled
-                    and verification.authority == "client_snapshot"
-                    and verification.reason_code == "screen_no_checkable_claims"
-                ):
-                    yield frame(
-                        "verification",
-                        {
-                            "phase": "semantic_verifying",
-                            "label": "Running optional semantic shadow check",
-                            "completed": verification.checks_completed,
-                            "total": verification.checks_total,
-                        },
-                    )
-                    verification = await attach_semantic_shadow(
-                        verification,
-                        provisional=provisional_answer,
-                        view_context=enriched_context,
-                        enabled=True,
-                        verifier=semantic_verifier,
-                    )
                 yield frame(
                     "verification",
                     {
@@ -429,11 +404,6 @@ def make_chat_stream_route(
                         "authority": verification.authority,
                         "evidence_refs": list(verification.evidence_refs),
                         "reason_code": verification.reason_code,
-                        "semantic": (
-                            verification.semantic.to_dict()
-                            if verification.semantic is not None
-                            else None
-                        ),
                     },
                 )
                 if verification.answer != provisional_answer:

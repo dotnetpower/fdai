@@ -86,13 +86,12 @@ export function useSettingsController(client: ReadApiClient) {
       glossary: composeGlossary([TERMS.userPreference]),
       headline:
         `${preferences.theme} theme, ${preferences.locale} locale, ` +
-        `${preferences.motion} motion, semantic verification ${preferences.semanticVerification}`,
+        `${preferences.motion} motion`,
       capturedAt: new Date().toISOString(),
       facts: [
         { key: "theme", value: preferences.theme, group: "display" },
         { key: "locale", value: preferences.locale, group: "display" },
         { key: "motion", value: preferences.motion, group: "accessibility" },
-        { key: "semantic_verification", value: preferences.semanticVerification, group: "verification" },
       ],
       records: {},
     }),
@@ -137,7 +136,7 @@ export function useSettingsController(client: ReadApiClient) {
     (conversation) => conversation.latest_operator_turn_id !== null,
   )?.latest_operator_turn_id ?? null;
 
-  const saveSemanticPreferences = async (): Promise<void> => {
+  const saveContextPreferences = async (): Promise<void> => {
     if (!isValidTimezone(timezone)) {
       setContextError(t("settings.contextTimezoneInvalid"));
       return;
@@ -318,7 +317,7 @@ export function useSettingsController(client: ReadApiClient) {
     update,
     updateLocale,
     reset,
-    saveSemanticPreferences,
+    saveContextPreferences,
     addDailyBriefing,
     enableOpeningBriefing,
     removeOpeningBriefing,

@@ -322,9 +322,11 @@ deterministic-first, grounded, abstaining pipeline:
    (symmetric to the `core/rca` reasoner seam). A model proposal that is not
    grounded is discarded by the orchestrator.
 3. **Identity resolution** (`people.py`). Each mentioned name/team is resolved
-   to an Entra object id through the async `PersonDirectory` seam (Graph in a
-   fork). An unresolved name is **flagged, never guessed** into an id; the
-   upstream default (`NullPersonDirectory`) resolves nothing.
+  to an Entra object id through the async `PersonDirectory` seam. Production
+  binds `GraphPersonDirectory`, which accepts one exact active user or group
+  display-name match and abstains on zero or ambiguous matches. An unresolved
+  name is **flagged, never guessed** into an id; the local default
+  (`NullPersonDirectory`) resolves nothing.
 4. **Confidence floor + draft assembly** (`bootstrap.py`). Grounded mappings at
    or above the floor become the draft; below-floor mappings are set aside for
    a human, unresolved people and agents with no confident owner are surfaced,
@@ -334,12 +336,20 @@ deterministic-first, grounded, abstaining pipeline:
 The document-ingestion gateway accepts `handover_bootstrap` as an explicit
 `DocumentPurpose`. After quarantine, protection checks, and extraction complete,
 `DocumentIngestionWorker` dispatches the safe `DocumentEnvelope` to the injected
-`DocumentReadyConsumer` for that purpose. The upstream local composition binds
-`HandoverBootstrapConsumer`, stores the grounded draft separately from the source
-document, and exposes it through authenticated
+`DocumentReadyConsumer` for that purpose. Both local and production compositions
+bind `HandoverBootstrapConsumer` and expose the result through authenticated
 `GET /ingestion/uploads/{upload_id}/handover-draft`. The console polls the processing
 state and renders the draft JSON summary and YAML for review. It doesn't apply the map
-or create a privileged mutation path.
+or create a privileged mutation path. Local development stores drafts in memory;
+production stores them through `PostgresStateStore`, so a worker or gateway restart
+doesn't lose the review artifact.
+
+Production Graph calls use the gateway's managed identity and the
+`https://graph.microsoft.com/.default` scope. Assign only the Microsoft Graph
+application permissions needed for exact lookup (`User.Read.All` and
+`Group.Read.All`), and review them regularly. The adapter doesn't log names, object
+ids, tokens, or provider response bodies. `FDAI_GRAPH_BASE_URL` is an optional
+test/sovereign-cloud override; the public Graph v1.0 endpoint is the default.
 
 Every emitted mapping cites its source span (`SourceSpan`), so nothing is
 ungrounded. `draft_yaml.py` renders the draft as `stewardship:`-shaped YAML that
@@ -349,10 +359,11 @@ unresolved people. The delivery layer surfaces that YAML as a governance draft
 PR a human reviews and merges - the console stays read-only, and no map is ever
 applied autonomously.
 
-Seams a fork binds: `HandoverInterpreter` (the T2 model), `PersonDirectory`
-(name -> Entra object id), a durable handover-draft store, and the purpose-specific
-`DocumentReadyConsumer`. These seams are async and injected; `core/` holds neither a
-cloud SDK nor an HTTP client (the module-boundary rule still applies).
+The remaining fork binding is `HandoverInterpreter` for grounded T2 interpretation
+of structure the deterministic extractor cannot resolve. Upstream production keeps
+the abstaining implementation unless a mixed-model binding is explicitly supplied;
+deterministic extraction and Graph resolution still run. All seams are async and
+injected; `core/` holds neither a cloud SDK nor an HTTP client.
 
 ## 12. Out of scope (tracked separately)
 

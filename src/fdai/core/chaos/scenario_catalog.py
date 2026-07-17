@@ -27,6 +27,7 @@ malformed catalog file must never silently load into the trust router.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import pathlib
 from collections.abc import Mapping
@@ -108,11 +109,15 @@ def _iter_yaml_files(root: pathlib.Path) -> list[pathlib.Path]:
     return sorted(set(out))
 
 
-def _load_one(path: pathlib.Path, validator: jsonschema.Draft202012Validator) -> CatalogEntry:
-    with path.open("r", encoding="utf-8") as f:
-        body = yaml.safe_load(f)
-    if not isinstance(body, dict):
-        raise ScenarioCatalogError(f"{path}: top-level YAML must be a mapping")
+def _requires_shadow_pass(path: pathlib.Path) -> bool:
+    return "promoted" in path.parts or _FORK_CUSTOM_DIR in path.parts
+
+
+def _entry_from_body(
+    path: pathlib.Path,
+    body: dict[str, Any],
+    validator: jsonschema.Draft202012Validator,
+) -> CatalogEntry:
     errors = sorted(validator.iter_errors(body), key=lambda e: list(e.absolute_path))
     if errors:
         joined = "; ".join(f"{list(e.absolute_path)}: {e.message}" for e in errors)
@@ -123,15 +128,30 @@ def _load_one(path: pathlib.Path, validator: jsonschema.Draft202012Validator) ->
             f"{path}: expected_signal {signal!r} is not registered in "
             f"fdai.core.detection.signals. Register the SignalSpec first."
         )
-    if body["injector"] in {"needs-injector", "cross-csp-reference"} and str(path.parent).endswith(
-        "promoted"
-    ):
+    requires_shadow_pass = _requires_shadow_pass(path)
+    if requires_shadow_pass and body["injector"] in {
+        "needs-injector",
+        "cross-csp-reference",
+    }:
         raise ScenarioCatalogError(
             f"{path}: injector {body['injector']!r} is not allowed in "
-            f"promoted/; leave the file in collected/ until an executable "
-            f"injector is wired."
+            f"the runtime catalog; leave the file in collected/ until an "
+            f"executable injector is wired."
+        )
+    if requires_shadow_pass and body["gates"]["shadow_status"] != "passed":
+        raise ScenarioCatalogError(
+            f"{path}: shadow_status must be 'passed' before a scenario can "
+            f"load into the runtime catalog."
         )
     return CatalogEntry(id=str(body["id"]), source_path=path, spec=dict(body))
+
+
+def _load_one(path: pathlib.Path, validator: jsonschema.Draft202012Validator) -> CatalogEntry:
+    with path.open("r", encoding="utf-8") as f:
+        body = yaml.safe_load(f)
+    if not isinstance(body, dict):
+        raise ScenarioCatalogError(f"{path}: top-level YAML must be a mapping")
+    return _entry_from_body(path, body, validator)
 
 
 def _apply_overrides(
@@ -148,6 +168,7 @@ def _apply_overrides(
     """
     if not overrides_dir.exists():
         return entries
+    validator = jsonschema.Draft202012Validator(_load_schema())
     by_id = {e.id: e for e in entries}
     for path in _iter_yaml_files(overrides_dir):
         with path.open("r", encoding="utf-8") as f:
@@ -171,7 +192,12 @@ def _apply_overrides(
                 merged[key] = new_sub
             else:
                 merged[key] = value
-        by_id[target.id] = CatalogEntry(id=target.id, source_path=target.source_path, spec=merged)
+        try:
+            by_id[target.id] = _entry_from_body(target.source_path, merged, validator)
+        except ScenarioCatalogError as exc:
+            raise ScenarioCatalogError(
+                f"{path}: override produces an invalid scenario - {exc}"
+            ) from exc
     return list(by_id.values())
 
 
@@ -218,10 +244,25 @@ def load_all(root: pathlib.Path = DEFAULT_ROOT) -> list[CatalogEntry]:
     return _apply_overrides(entries, fork_overrides)
 
 
+def catalog_fingerprint(entries: list[CatalogEntry]) -> str:
+    """Return a stable SHA-256 over canonical scenario bodies."""
+    canonical = [
+        {"id": entry.id, "spec": entry.spec} for entry in sorted(entries, key=lambda item: item.id)
+    ]
+    payload = json.dumps(
+        canonical,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
 __all__ = [
     "DEFAULT_ROOT",
     "CatalogEntry",
     "ScenarioCatalogError",
+    "catalog_fingerprint",
     "load_all",
     "load_promoted",
 ]

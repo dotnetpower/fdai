@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: a004d43caecd687931415ed8dc1051d4873343e3
-translation_revised: 2026-07-15
+translation_source_sha: a2494b6edb2a81c58ae4d78f61f2d9104b73c498
+translation_revised: 2026-07-17
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -292,9 +292,11 @@ maintainer 수가 1 미만으로 떨어지는 변경은 client-side와 server-si
    넘길 수 있다. 업스트림은 `AbstainingInterpreter`(아무것도 제안하지 않음)를 기본 제공하므로
    LLM이 없는 배포는 절대 추측하지 않는다. fork는 mixed-model 근거 기반 구현을 바인딩한다
    (`core/rca` reasoner 시임과 대칭). 근거 없는 모델 제안은 오케스트레이터가 폐기한다.
-3. **신원 해석** (`people.py`). 언급된 각 이름/팀을 async `PersonDirectory` 시임(fork에서는
-   Graph)을 통해 Entra objectId로 해석한다. 해석되지 않은 이름은 id로 **추측하지 않고
-   플래그**한다. 업스트림 기본값(`NullPersonDirectory`)은 아무것도 해석하지 않는다.
+3. **신원 해석** (`people.py`). 언급된 각 이름/팀을 async `PersonDirectory` seam으로
+  Entra objectId에 해석합니다. Production은 정확한 active user/group display-name match가
+  한 건일 때만 수락하고 0건 또는 모호한 결과에는 abstain하는 `GraphPersonDirectory`를
+  bind합니다. 해석되지 않은 이름은 id로 **추측하지 않고 플래그**합니다. Local 기본값인
+  `NullPersonDirectory`는 아무것도 해석하지 않습니다.
 4. **신뢰도 플로어 + 초안 조립** (`bootstrap.py`). 플로어 이상의 근거 매핑은 초안이 되고,
    플로어 미만은 사람 검토용으로 따로 두며, 미해결 인물과 확실한 소유자가 없는 에이전트를
    표면화하고, 플로어를 넘긴 것이 없으면 기권한다. 출력은 `StewardMapDraft`다.
@@ -302,11 +304,19 @@ maintainer 수가 1 미만으로 떨어지는 변경은 client-side와 server-si
 Document ingestion gateway는 `handover_bootstrap`을 명시적 `DocumentPurpose`로 받습니다.
 Quarantine, protection check, extraction이 끝나면 `DocumentIngestionWorker`가 안전한
 `DocumentEnvelope`를 해당 purpose에 주입된 `DocumentReadyConsumer`로 전달합니다. Upstream
-local composition은 `HandoverBootstrapConsumer`를 bind하고, 근거가 있는 draft를 source
-document와 별도로 저장한 후 인증된
+local과 production composition은 `HandoverBootstrapConsumer`를 bind하고 인증된
 `GET /ingestion/uploads/{upload_id}/handover-draft`로 제공합니다. Console은 processing state를
 polling하고 검토용 draft JSON summary와 YAML을 렌더링합니다. Map을 적용하거나 privileged
-mutation path를 만들지 않습니다.
+mutation path를 만들지 않습니다. Local development는 draft를 memory에 저장하고 production은
+`PostgresStateStore`를 사용하므로 worker 또는 gateway restart 후에도 review artifact가
+유지됩니다.
+
+Production Graph call은 gateway managed identity와
+`https://graph.microsoft.com/.default` scope를 사용합니다. Exact lookup에 필요한 Microsoft
+Graph application permission인 `User.Read.All`과 `Group.Read.All`만 할당하고 정기적으로
+검토하는 것이 좋습니다. Adapter는 name, object id, token, provider response body를 log하지
+않습니다. `FDAI_GRAPH_BASE_URL`은 test 또는 sovereign-cloud용 optional override이며 기본값은
+public Graph v1.0 endpoint입니다.
 
 모든 emit된 매핑은 소스 스팬(`SourceSpan`)을 인용하므로 근거 없는 것은 없다. `draft_yaml.py`는
 초안을 `stewardship:` 형태의 YAML로 렌더링하며, 이는 동일한 resolver와 fail-fast 게이트를 통해
@@ -314,9 +324,10 @@ mutation path를 만들지 않습니다.
 플레이스홀더 id 포함). 딜리버리 계층은 그 YAML을 사람이 검토·머지하는 거버넌스 draft PR로
 노출한다. 콘솔은 읽기 전용을 유지하며 어떤 맵도 자율 적용되지 않는다.
 
-fork가 bind하는 seam은 `HandoverInterpreter`(T2 모델), `PersonDirectory`(이름 -> Entra
-objectId), durable handover-draft store, purpose별 `DocumentReadyConsumer`입니다. 이 seam은
-async이며 주입됩니다. `core/`는 cloud SDK나 HTTP client를 갖지 않습니다(모듈 경계 규칙 유지).
+남은 fork binding은 deterministic extractor가 해석하지 못한 구조를 grounded T2로 해석하는
+`HandoverInterpreter`입니다. Upstream production은 mixed-model binding을 명시적으로 공급하지
+않으면 abstaining implementation을 유지하며 deterministic extraction과 Graph resolution은 계속
+실행됩니다. 모든 seam은 async로 주입되고 `core/`는 cloud SDK나 HTTP client를 갖지 않습니다.
 
 ## 12. 범위 밖 (별도 추적)
 

@@ -855,6 +855,7 @@ def test_build_control_loop_wires_rca_and_correlator(
 
     loop = _build_control_loop(default_container(app_config), http_client=None)
     assert loop._rca_coordinator is not None
+    assert loop._rca_coordinator.has_symptom_index
     assert loop._event_correlator is not None
     assert loop._risk_table is not None
     assert loop._risk_table.version == "1.0.0"
@@ -862,6 +863,21 @@ def test_build_control_loop_wires_rca_and_correlator(
     assert loop._t1_engine is not None
     assert loop._t2_engine is not None
     assert loop._inventory_age_provider is None
+
+
+def test_build_control_loop_uses_injected_symptom_index(app_config: AppConfig) -> None:
+    from fdai.__main__ import _build_control_loop
+    from fdai.composition import default_container
+    from fdai.core.chaos.symptom_index import build_from_entries
+
+    symptom_index = build_from_entries([])
+    loop = _build_control_loop(
+        default_container(app_config),
+        http_client=None,
+        symptom_index=symptom_index,
+    )
+
+    assert loop._rca_coordinator._symptom_index is symptom_index  # noqa: SLF001
 
 
 def test_build_control_loop_uses_injected_stage_publisher(

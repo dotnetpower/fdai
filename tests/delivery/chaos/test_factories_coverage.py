@@ -64,6 +64,11 @@ def _synthetic_context() -> dict[str, Any]:
         ),
         "aoai_load_request_fn": lambda: 200,
         "aoai_probe_request_fn": lambda: 429,
+        "gpu_sku_assessment_fn": lambda _targets: {
+            "observed_sku": "H100",
+            "recommended_sku": "A100",
+            "confidence": 0.9,
+        },
         "vm_resource_id": (
             "/subscriptions/00000000-0000-0000-0000-000000000000"
             "/resourceGroups/rg-test/providers/Microsoft.Compute"
@@ -140,4 +145,4 @@ def test_executable_count_matches_catalog_split() -> None:
         "is a NON_EXECUTABLE_MARKERS injector - a probe gap would silently "
         "drop entries into non-executable and break this invariant."
     )
-    assert len(executable) == 92
+    assert len(executable) == 93

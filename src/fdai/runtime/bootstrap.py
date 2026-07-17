@@ -16,6 +16,8 @@ from fdai.composition import (
     LlmBindings,
     default_container_from_env,
 )
+from fdai.core.chaos.coverage import ScenarioCoverageAggregator
+from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.runtime.configuration import (
     _attach_runtime_github_change_feed,
@@ -194,12 +196,14 @@ async def _run() -> int:
                     actor_oid="Thor",
                 )
 
+            runtime_symptom_index = build_from_promoted()
             control_loop = _build_control_loop(
                 container,
                 http_client=http_client,
                 stage_publisher=stage_publisher,
                 audit_store=incident_audit_store,
                 tool_receipt_observer=_observe_tool_receipt,
+                symptom_index=runtime_symptom_index,
             )
             _LOGGER.info(
                 "control_loop_ready",
@@ -244,6 +248,9 @@ async def _run() -> int:
                     disabled_agents=disabled_agents,
                     divergence=divergence_ledger,
                     incident_candidate_hook=_open_incident_candidate,
+                    scenario_coverage_aggregator=ScenarioCoverageAggregator(
+                        index=runtime_symptom_index
+                    ),
                 )
                 hb_raw = os.environ.get("FDAI_PANTHEON_HEARTBEAT_SECONDS", "").strip()
                 if hb_raw:

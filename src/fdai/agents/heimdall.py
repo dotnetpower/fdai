@@ -129,6 +129,7 @@ class Heimdall(Agent):
                 "producer_principal": "Heimdall",
                 "correlation_id": event.get("correlation_id", ""),
                 "resource_id": resource_id,
+                "target_type": str(event.get("resource_type") or "unknown"),
                 "event_type": window_tail[0],
                 "count_in_window": self._rate_threshold,
                 "severity": "medium",

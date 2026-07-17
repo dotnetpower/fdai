@@ -166,28 +166,7 @@ function validVerification(value: unknown): value is NonNullable<PersistedTurn["
     record.evidence_manifest !== undefined &&
     !validEvidenceManifest(record.evidence_manifest)
   ) return false;
-  if (record.semantic !== undefined && !validSemanticVerification(record.semantic)) {
-    return false;
-  }
   return true;
-}
-
-function validSemanticVerification(value: unknown): boolean {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const semantic = value as Record<string, unknown>;
-  return (
-    (semantic.verdict === "entailed" ||
-      semantic.verdict === "contradicted" ||
-      semantic.verdict === "unknown" ||
-      semantic.verdict === "unavailable") &&
-    typeof semantic.provider === "string" &&
-    (semantic.model_id === null || typeof semantic.model_id === "string") &&
-    typeof semantic.latency_ms === "number" &&
-    (semantic.entailment_score === null || typeof semantic.entailment_score === "number") &&
-    (semantic.contradiction_score === null ||
-      typeof semantic.contradiction_score === "number") &&
-    (semantic.reason_code === null || typeof semantic.reason_code === "string")
-  );
 }
 
 function validClaims(value: unknown): boolean {

@@ -9,14 +9,14 @@ fault_family: quota_shrink
 intensity: high
 duration_seconds: 360.0
 expected_signal: gpu_sku_mismatch
-injector: needs-injector
+injector: probe-only:gpu-sku-mismatch
 blast_radius_cap: 1
 rollback_note: 'Advisory: re-SKU the deployment; no injection.'
 gates:
   shadow_status: pending
   enforce_status: null
 requires_hardware: false
-description: Workload runs on H100 but profile fits A100 (3-5x cost)
+description: Workload profile indicates A100 may satisfy requirements at lower cost
 params:
   observed_sku: H100
   recommended_sku: A100

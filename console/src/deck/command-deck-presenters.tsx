@@ -258,6 +258,7 @@ export function TurnBubble({
           verification={turn.verification}
           verificationProgress={turn.verificationProgress}
           answerPlan={turn.answerPlan}
+          answerPlanning={turn.answerPlanning}
           codeArtifacts={turn.codeArtifacts}
           {...(onRegenerate ? { onRegenerate } : {})}
         />

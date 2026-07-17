@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 
-from fdai.core.chaos.injector import FaultInjector
+from fdai.core.chaos.injector import DetectionOnlyInjector, FaultInjector
 from fdai.core.chaos.scenario_catalog import CatalogEntry
 from fdai.delivery.chaos.aoai_ratelimit import AoaiRateLimitInjector
 from fdai.delivery.chaos.azure_ops import (
@@ -38,6 +38,10 @@ from fdai.delivery.chaos.live_injectors import (
     KubectlPodKillInjector,
 )
 from fdai.delivery.chaos.mysql_load import AzMysqlQueryLoadInjector
+
+
+def _build_detection_only(entry: CatalogEntry, ctx: dict[str, Any]) -> FaultInjector:
+    return DetectionOnlyInjector(fault_type=str(entry.spec["fault_family"]))
 
 
 def _build_chaos_mesh(entry: CatalogEntry, ctx: dict[str, Any]) -> FaultInjector:

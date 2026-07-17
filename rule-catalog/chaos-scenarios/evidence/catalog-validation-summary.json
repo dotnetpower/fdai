@@ -1,0 +1,1095 @@
+{
+  "catalog_entry_count": 135,
+  "catalog_fingerprint": "9f254132bd579c3ec0cccbf0a108fb6ecddeb4acb7c0c2b8812b998a6f01cdd9",
+  "entries": [
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ec2-reboot-instances",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ec2-send-spot-instance-interruptions",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ec2-stop-instances",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ec2-terminate-instances",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ecs-stop-task",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.eks-pod-cpu-stress",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.eks-pod-network-latency",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.network-disrupt-connectivity",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.rds-failover-db-cluster",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.rds-reboot-db-instances",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.s3-bucket-pause-replication",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ssm-cpu-stress",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ssm-disk-fill",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ssm-kill-process",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ssm-memory-stress",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ssm-network-latency",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ssm-network-packet-loss",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.agent-cpu-pressure",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.agent-network-disconnect",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.agent-network-latency",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.agent-network-packet-loss",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.agent-physical-memory-pressure",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.agent-stop-service",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.cosmos-db-failover",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.keyvault-deny-access",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.load-balancer-backend-remove",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.nsg-security-rule",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.redis-reboot",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.service-bus-firewall-block",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.vm-redeploy",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.vm-shutdown",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.azure-chaos-studio.vmss-shutdown",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.block-delay",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.container-kill",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.dns-error",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.http-delay",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.http-replace",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.io-fault",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.kernel-panic",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.network-bandwidth",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.network-corrupt",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.network-duplicate",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.network-loss",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.network-partition",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.pod-failure",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.chaos-mesh.stress-memory",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.db-saturate-db-cpu-extreme",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.db-saturate-db-cpu-high",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.db-saturate-db-cpu-mild",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.disk-delay-host-cpu-extreme",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.disk-delay-host-cpu-high",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.disk-delay-host-cpu-mild",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.dns-delay-gateway-latency-extreme",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.dns-delay-gateway-latency-high",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.dns-delay-gateway-latency-mild",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.lb-deny-backend-health-extreme",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.lb-deny-backend-health-high",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.lb-deny-backend-health-mild",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.llm_endpoint-throttle-rate-limit-extreme",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.llm_endpoint-throttle-rate-limit-high",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.llm_endpoint-throttle-rate-limit-mild",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-corrupt-rollout-stall-extreme",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-corrupt-rollout-stall-high",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-corrupt-rollout-stall-mild",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-delay-gateway-latency-extreme",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-delay-gateway-latency-extreme-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-delay-gateway-latency-high",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-delay-gateway-latency-high-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-delay-gateway-latency-mild",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-delay-gateway-latency-mild-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-drop-request-failure-extreme",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-drop-request-failure-extreme-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-drop-request-failure-high",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-drop-request-failure-high-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-drop-request-failure-mild",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-drop-request-failure-mild-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-saturate-node-cpu-extreme",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-saturate-node-cpu-extreme-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-saturate-node-cpu-high",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-saturate-node-cpu-high-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-saturate-node-cpu-mild",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-saturate-node-cpu-mild-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-stop-pod-restart-extreme",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-stop-pod-restart-high",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.pod-stop-pod-restart-mild",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.vm-saturate-host-cpu-extreme",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.vm-saturate-host-cpu-extreme-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.vm-saturate-host-cpu-high",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.vm-saturate-host-cpu-high-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.vm-saturate-host-cpu-mild",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.vm-saturate-host-cpu-mild-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.vm-saturate-host-memory-extreme",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.vm-saturate-host-memory-high",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.general.vm-saturate-host-memory-mild",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.gpu-delay-gpu-pcie-degradation",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.gpu-ecc_error-gpu-ecc-uncorrectable",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.gpu-ecc_error-gpu-ecc-uncorrectable-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.gpu-hang-gpu-util-zero-wasted",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.gpu-oom-gpu-vram-oom",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.gpu-oom-gpu-vram-oom-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.gpu-quota_shrink-gpu-idle-hours-wasted",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.gpu-quota_shrink-gpu-sku-mismatch",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.gpu-thermal_throttle-gpu-temp-throttle",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.gpu-throttle-gpu-power-throttle",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.gpu-xid_event-gpu-xid-event",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.gpu-xid_event-gpu-xid-event-v2",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.gpu_cluster-saturate-gpu-util-saturated",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.inference_endpoint-cache_overflow-kv-cache-pressure",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.inference_endpoint-delay-inference-p99-spike",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.inference_endpoint-delay-weights-fetch-stall",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.inference_endpoint-ramp-cold-start-latency-spike",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.llm_endpoint-quota_shrink-token-spend-spike",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.training_job-checkpoint_fail-spot-preempt-cascade",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.training_job-delay-distributed-straggler",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.training_job-hang-nccl-timeout",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.gpu.training_job-preempt-spot-preempt-cascade",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.dns-resolution-failure",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.image-pull-backoff",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.pod-disruption-budget-gap",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.container-kill",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.disk-fill",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.node-cpu-hog",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.node-drain",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.node-memory-hog",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.pod-cpu-hog",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.pod-delete",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.pod-dns-error",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.pod-http-latency",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.pod-http-status-code",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.pod-io-stress",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.pod-memory-hog",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.pod-network-corruption",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.pod-network-duplication",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.pod-network-latency",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "dispatchable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.litmus.pod-network-loss",
+      "scenario_version": 1
+    }
+  ],
+  "evidence_level": "dispatchability",
+  "full_bundle": {
+    "retention_days": 90,
+    "sha256": null,
+    "storage": "ci_or_release_artifact"
+  },
+  "generated_at": "2026-07-17T10:53:24.959258+00:00",
+  "runner_version": "run-catalog-scenario/1",
+  "schema_version": 1
+}

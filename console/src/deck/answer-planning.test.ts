@@ -18,6 +18,7 @@ const validPlanning = {
   elapsed_ms: 12,
   unique_evidence_count: 1,
   duplicate_evidence_count: 0,
+  conflicting_evidence_refs: [],
   covered_sections: ["trade_offs"],
   estimated_added_tokens: 24,
   budget: {
@@ -40,6 +41,7 @@ describe("Answer Planning metadata boundary", () => {
     { ...validPlanning, consulted_agents: ["Freyr", "Njord", "Loki"] },
     { ...validPlanning, elapsed_ms: 10_000 },
     { ...validPlanning, estimated_added_tokens: 801 },
+    { ...validPlanning, conflicting_evidence_refs: Array(33).fill("evidence:ref") },
     { ...validPlanning, budget: { ...validPlanning.budget, max_contributors: 3 } },
     { ...validPlanning, budget: { ...validPlanning.budget, nested_rounds: true } },
     { ...validPlanning, prompt: "hidden prompt", contributions: [{ ...validPlanning.contributions[0], confidence: 2 }] },

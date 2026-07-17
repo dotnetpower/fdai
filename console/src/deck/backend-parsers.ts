@@ -83,7 +83,8 @@ export function parseAnswerPlanning(raw: unknown): AnswerPlanningMetadata | unde
   if (record.primary_agent !== null && !boundedString(record.primary_agent, 64)) return undefined;
   const consulted = boundedStringArray(record.consulted_agents, 2, 64);
   const covered = boundedStringArray(record.covered_sections, 12, 64);
-  if (consulted === undefined || covered === undefined) return undefined;
+  const conflicts = boundedStringArray(record.conflicting_evidence_refs, 32, 512);
+  if (consulted === undefined || covered === undefined || conflicts === undefined) return undefined;
   if (!Array.isArray(record.contributions) || record.contributions.length > 2) return undefined;
   const contributions: AnswerPlanningContributionMetadata[] = [];
   for (const rawContribution of record.contributions) {
@@ -134,6 +135,7 @@ export function parseAnswerPlanning(raw: unknown): AnswerPlanningMetadata | unde
     elapsed_ms: record.elapsed_ms,
     unique_evidence_count: record.unique_evidence_count,
     duplicate_evidence_count: record.duplicate_evidence_count,
+    conflicting_evidence_refs: conflicts,
     covered_sections: covered,
     estimated_added_tokens: record.estimated_added_tokens,
     budget: {

@@ -1192,28 +1192,23 @@ clean-answer rejection rate to remain exactly `0.0`; metric accounting is
 tested independently so an empty or inverted label set cannot pass silently.
 This gate does not claim semantic verification of qualitative prose: an answer
 with no extractable structured claim is labeled `consistent` with
-`screen_no_checkable_claims`, never `verified`. A measured semantic entailment
-leg and a larger labeled corpus remain required before claiming 9.5-level
-coverage across all natural-language claims.
+`screen_no_checkable_claims`, never `verified`.
 
-The Settings panel exposes an **Experimental semantic verification** toggle.
-It is browser-local, defaults off, and travels with each chat request as a
-verification preference. Enabling the toggle does not imply availability: the
-read API runs the semantic leg only when a fork installed the `local-nli`
-optional dependency and supplied hash-pinned ONNX model and tokenizer paths.
-Missing packages, missing artifacts, load failures, and inference timeouts are
-reported as `unavailable`; they never delay or downgrade the deterministic
-terminal decision.
+The optional local semantic verifier was removed after its measured retention
+gate failed on 2026-07-17. A pinned MIT-licensed multilingual MiniLM ONNX model
+ran against 200 customer-neutral English/Korean cases. It caught `0.0%` of the
+contradiction set at the configured `0.8` threshold and returned `unknown` for
+`80.0%` of all cases. Clean-answer false positives and authority changes both
+remained `0`, warm p95 latency was `10.05 ms`, cold start was `1126 ms`, peak
+RSS was about `571 MiB`, and model plus tokenizer footprint was `124498008`
+bytes. Unknown outcomes count as no benefit, so the measured result selected
+removal rather than promotion.
 
-The first semantic leg is shadow-only and subtractive. It evaluates only
-screen answers that have qualitative prose or no deterministic claim target,
-emits `entailed`, `contradicted`, `unknown`, or `unavailable` metadata, and
-MUST NOT convert `unverified` to `consistent` or `consistent` to `verified`.
-The model is loaded lazily after the first enabled request so disabled users
-and scale-to-zero startup pay no model cost. Its package and model stay
-removable: promotion or removal is decided in a later measured issue using a
-frozen English/Korean corpus, p95 latency and memory/cold-start deltas,
-contradiction catch rate, unknown rate, and clean-answer false-positive rate.
+The `local-nli` dependency group, ONNX provider, Settings toggle, request flag,
+response metadata, and related runtime tests were removed together. The
+deterministic evidence and atomic-claim verifier remain authoritative and
+unchanged. Qualitative prose remains explicitly not verified unless a future
+proposal supplies a new measured design with material contradiction benefit.
 
 #### 13.4.2.1 Deterministic AnswerPlan
 

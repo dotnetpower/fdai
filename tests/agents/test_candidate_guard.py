@@ -35,6 +35,24 @@ def test_unknown_proposal_kind_rejected() -> None:
     assert guard.inspect(c).reason == "unknown_proposal_kind:sabotage"
 
 
+def test_grounded_new_scenario_candidate_is_accepted_as_inert_input() -> None:
+    guard = CandidateGuard()
+    verdict = guard.inspect(
+        {
+            "proposal_kind": "new-scenario",
+            "proposed_by": "Norns",
+            "source_signal": "scenario_coverage_gap",
+            "evidence": {
+                "signal": "brand_new_signal",
+                "target_type": "vm",
+                "severity": "medium",
+            },
+        }
+    )
+
+    assert verdict.accepted
+
+
 def test_missing_provenance_rejected() -> None:
     guard = CandidateGuard()
     c = _valid()

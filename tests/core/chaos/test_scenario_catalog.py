@@ -10,9 +10,27 @@ import pytest
 from fdai.core.chaos.scenario_catalog import (
     CatalogEntry,
     ScenarioCatalogError,
+    catalog_fingerprint,
     load_all,
     load_promoted,
 )
+
+
+def test_catalog_fingerprint_is_order_independent_and_content_sensitive(
+    tmp_path: pathlib.Path,
+) -> None:
+    first = CatalogEntry("chaos.test.first", tmp_path / "first.yaml", {"version": 1})
+    second = CatalogEntry("chaos.test.second", tmp_path / "second.yaml", {"version": 1})
+
+    original = catalog_fingerprint([first, second])
+
+    assert catalog_fingerprint([second, first]) == original
+    assert (
+        catalog_fingerprint(
+            [first, CatalogEntry(second.id, tmp_path / "moved.yaml", {"version": 2})]
+        )
+        != original
+    )
 
 
 def _write(root: pathlib.Path, sub: str, name: str, body: str) -> pathlib.Path:
@@ -162,6 +180,19 @@ def test_cross_csp_reference_rejected_in_promoted(tmp_path: pathlib.Path) -> Non
         load_promoted(root=root)
 
 
+@pytest.mark.parametrize("shadow_status", ["pending", "failed"])
+def test_unpassed_shadow_rejected_in_promoted(tmp_path: pathlib.Path, shadow_status: str) -> None:
+    root = _stage_root(tmp_path)
+    _write(
+        root,
+        "promoted/nested",
+        "unpassed-shadow",
+        _valid_body().replace("shadow_status: passed", f"shadow_status: {shadow_status}"),
+    )
+    with pytest.raises(ScenarioCatalogError, match="shadow_status must be 'passed'"):
+        load_promoted(root=root)
+
+
 def test_needs_injector_allowed_in_collected(tmp_path: pathlib.Path) -> None:
     root = _stage_root(tmp_path)
     _write(
@@ -207,6 +238,17 @@ def test_fork_custom_augments_promoted(tmp_path: pathlib.Path) -> None:
     assert ids == {"chaos.aks.pod-kill-a", "chaos.aks.pod-kill-b"}
 
 
+def test_fork_custom_requires_passed_shadow_gate(tmp_path: pathlib.Path) -> None:
+    root = _stage_root(tmp_path)
+    custom_dir = root.parent / "chaos-scenarios-custom"
+    custom_dir.mkdir()
+    (custom_dir / "pending.yaml").write_text(
+        dedent(_valid_body()).lstrip().replace("shadow_status: passed", "shadow_status: pending")
+    )
+    with pytest.raises(ScenarioCatalogError, match="runtime catalog"):
+        load_promoted(root=root)
+
+
 def test_fork_overrides_merge_params(tmp_path: pathlib.Path) -> None:
     root = _stage_root(tmp_path)
     # Write a base scenario with a params block already present.
@@ -233,6 +275,26 @@ def test_fork_overrides_merge_params(tmp_path: pathlib.Path) -> None:
     e = entries[0]
     assert e.spec["duration_seconds"] == 720
     assert e.spec["params"] == {"grace_period_seconds": "5", "new_key": "hi"}
+
+
+@pytest.mark.parametrize(
+    ("override_body", "message"),
+    [
+        ("duration_seconds: 0", "schema validation failed"),
+        ("expected_signal: no_such_signal", "not registered"),
+        ("gates:\n  shadow_status: pending", "runtime catalog"),
+    ],
+)
+def test_fork_override_is_revalidated(
+    tmp_path: pathlib.Path, override_body: str, message: str
+) -> None:
+    root = _stage_root(tmp_path)
+    _write(root, "promoted", "p", _valid_body("chaos.aks.pod-kill-a"))
+    overrides_dir = root.parent / "chaos-scenarios-overrides"
+    overrides_dir.mkdir()
+    (overrides_dir / "invalid.yaml").write_text(f"id: chaos.aks.pod-kill-a\n{override_body}\n")
+    with pytest.raises(ScenarioCatalogError, match=message):
+        load_promoted(root=root)
 
 
 def test_override_without_matching_base_is_ignored(tmp_path: pathlib.Path) -> None:

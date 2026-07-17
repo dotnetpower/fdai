@@ -53,7 +53,7 @@ def _contribution(
 ) -> AnswerContribution:
     return AnswerContribution(
         agent=agent,
-        facts=tuple(GroundedFact(f"{agent} fact", ref) for ref in evidence),
+        facts=tuple(GroundedFact(f"Fact grounded by {ref}", ref) for ref in evidence),
         caveats=(),
         suggested_sections=(section,),
         evidence_refs=evidence,
@@ -90,6 +90,7 @@ async def test_collects_two_contributors_in_score_order_and_measures_duplicates(
     assert tuple(item.agent for item in result.contributions) == ("Freyr", "Njord")
     assert result.unique_evidence_count == 3
     assert result.duplicate_evidence_count == 1
+    assert result.conflicting_evidence_refs == ()
     assert result.covered_sections == (AnswerSection.EVIDENCE,)
     assert 0 < result.estimated_added_tokens <= 800
     assert result.to_dict()["budget"] == {
@@ -100,6 +101,45 @@ async def test_collects_two_contributors_in_score_order_and_measures_duplicates(
         "nested_rounds": False,
     }
     assert sorted(provider.calls) == [("Freyr", 400), ("Njord", 400)]
+
+
+@pytest.mark.asyncio
+async def test_conflicting_claims_for_one_evidence_ref_degrade_without_picking_a_winner() -> None:
+    shared_ref = "metric:capacity"
+    provider = _Provider(
+        {
+            "Freyr": AnswerContribution(
+                agent="Freyr",
+                facts=(GroundedFact("Capacity is exhausted", shared_ref),),
+                caveats=(),
+                suggested_sections=(AnswerSection.EVIDENCE,),
+                evidence_refs=(shared_ref,),
+                confidence=0.9,
+            ),
+            "Njord": AnswerContribution(
+                agent="Njord",
+                facts=(GroundedFact("Capacity is available", shared_ref),),
+                caveats=(),
+                suggested_sections=(AnswerSection.EVIDENCE,),
+                evidence_refs=(shared_ref,),
+                confidence=0.9,
+            ),
+        }
+    )
+
+    result = await run_answer_planning_round(
+        prompt="Why was this denied?",
+        plan=build_answer_plan("Why was this denied?"),
+        route=AnswerPlanningRoute(
+            primary_agent="Forseti",
+            candidates=(PlanningCandidate("Freyr", 0.9), PlanningCandidate("Njord", 0.8)),
+        ),
+        provider=provider,
+    )
+
+    assert result.status is PlanningStatus.DEGRADED
+    assert result.conflicting_evidence_refs == (shared_ref,)
+    assert result.to_dict()["conflicting_evidence_refs"] == [shared_ref]
 
 
 @pytest.mark.asyncio

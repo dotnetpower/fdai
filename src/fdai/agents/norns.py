@@ -28,8 +28,8 @@ summary land in later waves:
 
 Optional scenario-coverage learner:
 
-5. **Scenario-coverage aggregator** (optional, wired by composition
-   root) - repeated live incidents whose symptom the compiled
+5. **Scenario-coverage aggregator** (optional, active when a composition
+    root supplies it) - repeated live incidents whose symptom the compiled
    chaos-scenarios index cannot match propose a `scenario-coverage-gap`
    candidate. Same discipline: never mutates the catalog. See
    :class:`fdai.core.chaos.coverage.ScenarioCoverageAggregator` and

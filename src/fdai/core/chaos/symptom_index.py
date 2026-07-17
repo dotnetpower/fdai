@@ -6,7 +6,9 @@ produce that symptom. Consumed by:
 
 - **RCA / trust router**: when an event enters the pipeline, look up
   `symptom_index[(signal_id, target_type, severity)]` to get the
-  candidate scenarios that explain it in O(1); T1 similarity re-ranks.
+    candidate scenarios that explain it in O(1). The current RCA path
+    uses deterministic widening and supplies the results as T2 evidence;
+    similarity re-ranking is not wired yet.
 - **Chaos harness (advisory)**: given the same symptom, propose the
   smallest scenario that reproduces it as a repro / verification
   experiment; Loki proposes, Forseti judges, Var approves.
@@ -29,9 +31,9 @@ Design intent (see
 - The index also carries a fallback: if no exact triple matches, the
   router can widen to `(signal_id, target_type, None)` or
   `(signal_id, None, None)` via the `lookup_widening` helper.
-- The compiled artifact is regenerated on catalog load and never
-  checked in; a snapshot can be written to disk for cold-start speed
-  via `write_snapshot`.
+- The committed tooling snapshot is generated explicitly by
+    `scripts/build-symptom-index.py`; runtime callers can rebuild from
+    promoted entries in memory or load a snapshot for cold-start speed.
 """
 
 from __future__ import annotations
