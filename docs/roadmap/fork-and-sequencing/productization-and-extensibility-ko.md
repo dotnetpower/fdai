@@ -1,7 +1,7 @@
 ---
 title: 제품화 및 확장성 계획
 translation_of: productization-and-extensibility.md
-translation_source_sha: a66116104224ba7c9b9225fa4d30d9a0c64edd1f
+translation_source_sha: dbe2e24c902301a6efc8ba1e001b0d16965986af
 translation_revised: 2026-07-17
 ---
 # 제품화 및 확장성 계획
@@ -93,7 +93,7 @@ durable ledger와 bounded failover를 갖게 됩니다.
 | P1-22 | 더 넓은 localization coverage | 기존 i18n | 구현됨: 모든 새 CLI/channel/admin surface가 English fallback 또는 paired catalog 사용, productization gate가 catalog parity, translation, punctuation 강제 |
 | P1-23 | Heterogeneous model endpoint 및 gateway contract | P0-21 | 구현됨: capability binding이 Azure OpenAI 또는 self-hosted provider, direct 또는 APIM route, Azure 또는 OpenAI-v1 protocol, Entra audience, typed capacity, feature, verified provenance를 분리하며 core quorum 및 narrator transport가 binding을 fail closed 방식으로 사용 |
 | P1-24 | PTU-aware capacity 및 APIM routing | P1-23 | 구현됨: Standard TPM과 regional/global/data-zone PTU를 별도로 검증하고 live Model Capacities discovery 및 정확한 Terraform PTU count가 통과하며 optional existing-APIM policy가 day-zero inventory 변경 없이 Entra, managed-identity backend, PTU-first bounded Standard spillover, durable route evidence를 적용 |
-| P1-25 | Model endpoint discovery 및 Settings inventory | P1-23 | 부분 구현: deterministic source aggregation, domain-separated signed GPU registration, sanitized read-only Settings inventory, runtime health reuse 통과, concrete ARM 및 APIM management-plane collector가 exit gate로 남음 |
+| P1-25 | Model endpoint discovery 및 Settings inventory | P1-23 | 구현됨: installable discovery가 concrete Azure OpenAI account/deployment 및 APIM API/backend/policy state를 검증하고 protected resolved metadata에 binding을 atomic merge하며 domain-separated signed GPU registration을 지원하고 runtime health가 있는 sanitized read-only Settings inventory를 projection |
 
 Public extension kit는 `examples/extension-kit/extension-kit.template.json`에 있고 machine schema는
 `rule-catalog/schema/extension-kit.schema.json`에 있습니다. 다음을 실행합니다.

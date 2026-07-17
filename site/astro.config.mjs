@@ -104,6 +104,7 @@ export default defineConfig({
         Banner: "./src/components/StaleTranslationBanner.astro",
         Hero: "./src/components/CustomHero.astro",
         PageFrame: "./src/components/DocsPageFrame.astro",
+        Sidebar: "./src/components/FocusedSidebar.astro",
         SiteTitle: "./src/components/SiteTitle.astro",
       },
       // Client-side Mermaid renderer. Loaded from jsDelivr as an ES module
@@ -304,7 +305,7 @@ export default defineConfig({
             },
             {
               label: "Shadow, then enforce",
-              translations: { ko: "\uc12c\ub3c4\uc6b0 \ud6c4 \uac15\uc81c" },
+              translations: { ko: "shadow 후 enforce" },
               link: "/concepts/shadow-then-enforce/",
             },
           ],

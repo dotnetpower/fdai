@@ -1,4 +1,12 @@
 {
+  "tooltip": {
+    "opensNewTab": "Opens in a new tab",
+    "openTrace": "Open this correlation in the Trace panel",
+    "activitySpan": "{count} step(s) - {duration}",
+    "agentMessages": "{count} agent-to-agent message(s)",
+    "workTiming": "Started {start} - worked {duration}",
+    "affectedResources": "{count} resource(s) violate this rule"
+  },
   "route": {
     "dashboard": "Dashboard",
     "hilQueue": "Approvals",
@@ -766,7 +774,24 @@
     "previousMatch": "Previous match",
     "nextMatch": "Next match",
     "removeCachedConversation": "Remove cached conversation",
-    "removeCachedConversationHint": "Remove this tab's cached transcript. Audit history is unchanged."
+    "removeCachedConversationHint": "Remove this tab's cached transcript. Audit history is unchanged.",
+    "tooltip": {
+      "chattingWith": "Chatting with {session}",
+      "backToGeneral": "Back to the general screen deck",
+      "floatingPanel": "Floating panel",
+      "dockRight": "Dock right",
+      "fullWorkspace": "Full workspace",
+      "replySource": "Reply source",
+      "backendProbing": "Probing chat backend...",
+      "backendFallback": "Model unavailable ({mode}); using the deterministic answerer",
+      "semanticShadow": "Experimental shadow signal; does not change the answer trust status",
+      "copyReply": "Copy reply",
+      "copied": "Copied",
+      "regenerate": "Regenerate",
+      "regenerateHint": "Ask this question again",
+      "evidenceReferences": "Checked against {count} evidence reference(s)",
+      "groundedSources": "Grounded on {count} source(s)"
+    }
   },
   "workflowBuilder": {
     "subtitle": "Browse and design catalog workflows, or author a governed Python VM task. YAML changes remain PR-native; Python source must validate and stage as an immutable artifact before a shadow plan, schedule, or typed run request."

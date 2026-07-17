@@ -49,12 +49,17 @@ caught at build time.
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from fdai.core.quality_gate._audit import quality_decision_audit_fields
+from fdai.core.quality_gate._debate_helpers import resolve_disagreement
+from fdai.core.quality_gate._verification import (
+    cross_check_candidate,
+    verify_grounding,
+)
 from fdai.shared.contracts.models import Rule
 
 if TYPE_CHECKING:
@@ -352,59 +357,20 @@ class QualityGate:
             reasons.append("verifier_abstained")
 
         # 2. Grounding (RAG citation validity)
-        known = self._grounding.known_rule_ids()
-        grounded: list[str] = []
-        # Duck-typed hook: a richer :class:`GroundingSource` (e.g.
-        # :class:`~fdai.core.quality_gate.rag_grounding.RagGroundingSource`)
-        # MAY expose ``supports(candidate, rule_id) -> bool`` to validate
-        # that a citation is topically relevant to the candidate, not
-        # only that its id exists in the catalog. The base Protocol
-        # stays unchanged so older grounding sources fall back to the
-        # ID-exists-only behavior.
-        supports_fn = getattr(self._grounding, "supports", None)
-        for rule_id in candidate.cited_rule_ids:
-            if rule_id not in known:
-                reasons.append(f"unknown_cited_rule:{rule_id}")
-                continue
-            if supports_fn is not None:
-                try:
-                    supported = supports_fn(candidate, rule_id)
-                except Exception:  # noqa: BLE001 - fail-closed: treat as ungrounded
-                    # A grounding backend failure (embedding/cosine error)
-                    # MUST NOT crash the gate. Treat the citation as
-                    # ungrounded (the safe direction) and route to HIL.
-                    supported = False
-                if not supported:
-                    reasons.append(f"ungrounded_citation:{rule_id}")
-                    continue
-            grounded.append(rule_id)
-        if self._config.require_grounding and not grounded:
-            reasons.append("no_grounded_citation")
+        grounding_result = verify_grounding(
+            candidate,
+            self._grounding,
+            require_grounding=self._config.require_grounding,
+        )
+        known = grounding_result.known_rule_ids
+        grounded = list(grounding_result.grounded_rule_ids)
+        reasons.extend(grounding_result.reasons)
 
         # 3. Mixed-model cross-check (agreement on action_type)
-        agree = 0
-        votes: list[ModelVote] = []
-        first_proposer_output: tuple[str, Mapping[str, Any]] | None = None
-        # Models are independent read-only calls; run them concurrently so
-        # the cross-check adds one model's latency, not the sum, to the T2
-        # budget. Results are gathered in registration order, so votes and
-        # the first-proposer selection stay deterministic.
-        proposals = await asyncio.gather(*(model.propose(candidate) for model in self._models))
-        for i, (model, (proposed_type, proposed_params)) in enumerate(
-            zip(self._models, proposals, strict=True)
-        ):
-            if i == 0:
-                first_proposer_output = (proposed_type, proposed_params)
-            agreed = proposed_type == candidate.action_type
-            if agreed:
-                agree += 1
-            votes.append(
-                ModelVote(
-                    model_id=str(getattr(model, "model_id", f"model-{i}")),
-                    proposed_action_type=proposed_type,
-                    agreed=agreed,
-                )
-            )
+        cross_check = await cross_check_candidate(candidate, self._models)
+        agree = cross_check.agree_count
+        votes = list(cross_check.votes)
+        first_proposer_output = cross_check.first_proposer_output
         cross_check_below_quorum = agree < self._config.require_cross_check_quorum
         if cross_check_below_quorum:
             reasons.append(
@@ -417,40 +383,17 @@ class QualityGate:
         # we drop the disagreement reason; on ABORT we keep it and
         # thread the orchestrator's reason into the audit trail.
         debate_resolved_disagreement = False
-        if (
-            cross_check_below_quorum
-            and self._debate_orchestrator is not None
-            and self._debate_router_config is not None
-            and first_proposer_output is not None
-        ):
-            # Deferred imports break the circular chain:
-            # ``debate`` + ``debate_router`` both import ``QualityCandidate``
-            # from this module, so importing them at module scope loops.
-            from fdai.core.quality_gate.debate import DebateVerdict
-            from fdai.core.quality_gate.debate_router import (
-                DebateRoute,
-                decide_debate_route,
-            )
-
-            router_decision = decide_debate_route(
+        if cross_check_below_quorum:
+            debate_resolution = await resolve_disagreement(
                 candidate=candidate,
-                cross_check_disagreed=True,
-                orchestrator_available=True,
-                config=self._debate_router_config,
+                orchestrator=self._debate_orchestrator,
+                router_config=self._debate_router_config,
+                first_proposer_output=first_proposer_output,
+                known_rule_ids=known,
+                retry_proposer=self._debate_retry_proposer,
             )
-            reasons.append(f"debate_route:{router_decision.route.value}:{router_decision.reason}")
-            if router_decision.route is DebateRoute.DEBATE:
-                debate_outcome = await self._debate_orchestrator.run(
-                    candidate=candidate,
-                    proposer_output=first_proposer_output,
-                    known_rule_ids=known,
-                    retry_proposer=self._debate_retry_proposer,
-                )
-                reasons.append(
-                    f"debate_outcome:{debate_outcome.verdict.value}:{debate_outcome.reason}"
-                )
-                if debate_outcome.verdict is DebateVerdict.PROCEED:
-                    debate_resolved_disagreement = True
+            reasons.extend(debate_resolution.reasons)
+            debate_resolved_disagreement = debate_resolution.resolved
 
         # 3b-2. Escalation ladder (shadow observation). When a config is
         # wired, record whether a *future enforce* path would climb to a
@@ -648,77 +591,6 @@ class QualityGate:
         if not self._models:  # pragma: no cover - constructor enforces >= 1
             raise RuntimeError("no cross-check model available for retry")
         return await self._models[0].propose(candidate)
-
-
-_RATIONALE_AUDIT_CAP: int = 500
-"""Max chars of a rubric ``rationale`` written to audit when a fork
-opts into ``include_rationale`` - bounds the untrusted free-text surface."""
-
-
-def quality_decision_audit_fields(
-    decision: QualityDecision,
-    *,
-    include_rationale: bool = False,
-) -> dict[str, Any]:
-    """Flatten a :class:`QualityDecision` into JSON-safe audit fields.
-
-    The append-only audit log is the source of truth for shadow-mode
-    measurement: without the ``rubric_*`` provenance here, a shadow rubric
-    records nothing to compute catch / false-positive rates on. A fork's
-    control-loop audit writer calls this and merges the result into its
-    per-decision audit entry.
-
-    Security (L0 audit rule - no secrets / customer values):
-
-    - Every field except the rubric ``rationale`` is a **structured** id,
-      score, enum, or resource reference - safe for an append-only audit.
-    - The rubric ``rationale`` is **untrusted LLM free-text** that MAY
-      reflect candidate values, so it is EXCLUDED by default. A fork that
-      opts in (``include_rationale=True``) MUST run the output through its
-      own secret-scanning / redaction before persisting; it is the only
-      non-structured field this helper can emit, and truncated to
-      ``_RATIONALE_AUDIT_CAP`` chars to bound the surface.
-    - ``candidate_target_resource_ref`` is the resource the decision was
-      *about* - audit essence (what happened), not a leaked value.
-    """
-    fields: dict[str, Any] = {
-        "outcome": decision.outcome.value,
-        "candidate_action_type": decision.candidate.action_type,
-        "candidate_target_resource_ref": decision.candidate.target_resource_ref,
-        "aggregate_confidence": decision.aggregate_confidence,
-        "reasons": list(decision.reasons),
-        "grounded_rule_ids": list(decision.grounded_rule_ids),
-        "model_votes": [
-            {
-                "model_id": v.model_id,
-                "proposed_action_type": v.proposed_action_type,
-                "agreed": v.agreed,
-            }
-            for v in decision.model_votes
-        ],
-        "rubric_verdict": decision.rubric_verdict,
-        "rubric_min_score": decision.rubric_min_score,
-        "rubric_shadow": decision.rubric_shadow,
-        "rubric_scores": [
-            {
-                "criterion": s.criterion,
-                "score": s.score,
-                "threshold": s.threshold,
-                "passed": s.passed,
-                "supporting_rule_ids": list(s.supporting_rule_ids),
-                **({"rationale": s.rationale[:_RATIONALE_AUDIT_CAP]} if include_rationale else {}),
-            }
-            for s in decision.rubric_scores
-        ],
-    }
-    if decision.escalation_route is not None:
-        # Recorded only when the ladder is wired, so an un-escalated
-        # deployment's audit entries stay unchanged.
-        fields["escalation_route"] = decision.escalation_route
-        fields["escalation_reason"] = decision.escalation_reason
-    if decision.self_consistency is not None:
-        fields["self_consistency"] = decision.self_consistency
-    return fields
 
 
 __all__ = [

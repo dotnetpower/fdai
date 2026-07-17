@@ -11,6 +11,7 @@ import type {
   ActionTypePaletteEntry,
   WorkflowCatalogEntry,
   WorkflowDefinitionCatalogResponse,
+  WorkflowDefinitionEntry,
 } from "../workflow/validate";
 
 // ---------------------------------------------------------------------------
@@ -51,6 +52,60 @@ export interface CombinedData {
   readonly palette: readonly ActionTypePaletteEntry[];
   readonly workflows: readonly WorkflowCatalogEntry[];
   readonly definitions: WorkflowDefinitionCatalogResponse;
+}
+
+export type WorkflowGroup = "built_in" | "shared" | "mine";
+
+export function hasActionTypeRef(
+  step: { readonly action_type_ref?: string | null },
+): boolean {
+  return typeof step.action_type_ref === "string" && step.action_type_ref.trim().length > 0;
+}
+
+export function requestedActionType(
+  palette: readonly ActionTypePaletteEntry[],
+  actionName: string | null,
+): ActionTypePaletteEntry | null {
+  return actionName === null
+    ? null
+    : palette.find((entry) => entry.name === actionName) ?? null;
+}
+
+export function workflowGroup(value: string | null): WorkflowGroup {
+  return value === "shared" || value === "mine" ? value : "built_in";
+}
+
+export function workflowGroupLabel(value: WorkflowGroup): string {
+  if (value === "built_in") return "Built-in";
+  if (value === "shared") return "Shared";
+  return "Mine";
+}
+
+export function workflowFromDefinition(
+  definition: WorkflowDefinitionEntry,
+): WorkflowCatalogEntry {
+  const document = definition.workflow_document;
+  return {
+    ...document,
+    step_count: document.steps.length,
+    yaml: JSON.stringify(document, null, 2),
+  };
+}
+
+export function workflowSelection(
+  workflows: readonly Pick<WorkflowCatalogEntry, "name" | "steps">[],
+  requestedWorkflow: string | null,
+  requestedAction: string | null,
+): string | null {
+  if (requestedWorkflow !== null) return requestedWorkflow;
+  if (requestedAction !== null) {
+    return workflows.find((workflow) =>
+      workflow.steps.some((step) => step.action_type_ref === requestedAction)
+    )?.name ?? null;
+  }
+  return workflows.find((workflow) => workflow.steps.some(hasActionTypeRef))?.name
+    ?? workflows[0]?.name
+    ?? null;
 }
 
 // ---------------------------------------------------------------------------

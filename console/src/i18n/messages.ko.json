@@ -1,4 +1,12 @@
 {
+  "tooltip": {
+    "opensNewTab": "새 탭에서 열림",
+    "openTrace": "이 상관관계를 추적 패널에서 열기",
+    "activitySpan": "{count}단계 - {duration}",
+    "agentMessages": "에이전트 간 메시지 {count}건",
+    "workTiming": "{start} 시작 - {duration} 작업",
+    "affectedResources": "리소스 {count}개가 이 규칙을 위반"
+  },
   "route": {
     "dashboard": "대시보드",
     "hilQueue": "승인",
@@ -760,7 +768,24 @@
     "previousMatch": "이전 검색 결과",
     "nextMatch": "다음 검색 결과",
     "removeCachedConversation": "캐시된 대화 제거",
-    "removeCachedConversationHint": "이 탭에 캐시된 대화만 제거합니다. 감사 이력은 유지됩니다."
+    "removeCachedConversationHint": "이 탭에 캐시된 대화만 제거합니다. 감사 이력은 유지됩니다.",
+    "tooltip": {
+      "chattingWith": "{session}와 대화 중",
+      "backToGeneral": "일반 화면 명령 덱으로 돌아가기",
+      "floatingPanel": "플로팅 패널",
+      "dockRight": "오른쪽에 고정",
+      "fullWorkspace": "전체 작업 영역",
+      "replySource": "답변 출처",
+      "backendProbing": "채팅 백엔드 확인 중...",
+      "backendFallback": "모델을 사용할 수 없음({mode}); 결정론적 응답기 사용 중",
+      "semanticShadow": "실험적 shadow 신호이며 답변 신뢰 상태를 변경하지 않습니다",
+      "copyReply": "답변 복사",
+      "copied": "복사됨",
+      "regenerate": "다시 생성",
+      "regenerateHint": "이 질문 다시 요청",
+      "evidenceReferences": "증거 참조 {count}건과 대조됨",
+      "groundedSources": "출처 {count}건에 근거함"
+    }
   },
   "workflowBuilder": {
     "subtitle": "Catalog workflow를 둘러보고 설계하거나 governed Python VM task를 작성합니다. YAML 변경은 PR-native로 유지되며 Python source는 shadow plan, schedule, typed run request 전에 검증되어 immutable artifact로 stage되어야 합니다."

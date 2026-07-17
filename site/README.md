@@ -4,31 +4,32 @@ Astro Starlight source for the [FDAI](../README.md) documentation site.
 Deployed to GitHub Pages at
 [dotnetpower.github.io/fdai](https://dotnetpower.github.io/fdai/).
 
-Docs sources live in [docs/roadmap](../docs/roadmap/) as the canonical Markdown; this
-folder is a **read-only presentation layer** that mounts those files and adds
-navigation, search, i18n, and theming. Editing a page here means editing the sibling
-Markdown in `docs/roadmap/` - the site rebuilds automatically on push to `main`.
+Docs sources live under [docs/user-guide](../docs/user-guide/),
+[docs/roadmap](../docs/roadmap/), and [docs/runbooks](../docs/runbooks/) as
+canonical Markdown. This folder is a **read-only presentation layer** that mounts
+those files and adds navigation, search, i18n, and theming. Edit the canonical
+Markdown rather than a mounted link; the site rebuilds automatically on push to
+`main`.
 
 ## How the docs are mounted (no file copies)
 
-The canonical Markdown under [docs/roadmap](../docs/roadmap/) is exposed to
-Starlight through **symbolic links**, not by copying content. Before every
+Canonical Markdown is exposed to Starlight through **symbolic links**, not by
+copying content. Before every
 `npm run dev` / `npm run build`, [scripts/mount-docs.mjs](scripts/mount-docs.mjs)
 recreates the symlink tree:
 
 ```
-site/src/content/docs/roadmap/index.md         → docs/roadmap/README.md
-site/src/content/docs/roadmap/foo.md           → docs/roadmap/foo.md
-site/src/content/docs/roadmap/phases/foo.md    → docs/roadmap/phases/foo.md
-site/src/content/docs/ko/roadmap/index.md      → docs/roadmap/README-ko.md
-site/src/content/docs/ko/roadmap/foo.md        → docs/roadmap/foo-ko.md
-site/src/content/docs/ko/roadmap/phases/foo.md → docs/roadmap/phases/foo-ko.md
+site/src/content/docs/sre/index.md                    → docs/user-guide/sre/README.md
+site/src/content/docs/ko/sre/index.md                 → docs/user-guide/sre/README-ko.md
+site/src/content/docs/reference/roadmap/index.md      → docs/roadmap/README.md
+site/src/content/docs/ko/reference/roadmap/index.md   → docs/roadmap/README-ko.md
+site/src/content/docs/runbooks/index.md               → docs/runbooks/README.md
+site/src/content/docs/ko/runbooks/index.md            → docs/runbooks/README-ko.md
 ```
 
-Everything under `site/src/content/docs/roadmap/` and `site/src/content/docs/ko/`
-is gitignored so the links never enter the tree. Regeneration is idempotent -
-the mount step wipes and re-creates the tree each run, so renames or deletions
-in `docs/roadmap/` propagate automatically.
+Mounted links are gitignored so they never enter the tree. Regeneration is
+idempotent - the mount manifest removes only links created by the previous run,
+so hand-authored pages remain intact and source renames or deletions propagate.
 
 **Why symlinks instead of a custom `glob()` loader with `base: '../docs/roadmap'`?**
 Starlight's maintainer flagged three regressions with the custom-location
@@ -45,12 +46,25 @@ The visual language mirrors [`examples/option-b-tailwind.html`](../examples/opti
 Those tokens are ported into Starlight CSS variables in `src/styles/` - see the
 follow-up commits.
 
+## Navigation
+
+The global sidebar keeps each major documentation area compact. Selecting
+**SRE** switches the existing Starlight sidebar into a focused view that shows
+only the SRE subtree and a **Back to all documentation sections** control. The
+page URL does not change, direct `/sre/**` links start focused automatically,
+and English/Korean labels follow the page locale. With JavaScript disabled, the
+normal Starlight disclosure tree remains available.
+
+The route and locale contract is covered by `test/focused-navigation.test.mjs`;
+desktop and mobile DOM behavior is verified with Playwright during UI changes.
+
 ## Local development
 
 ```bash
 cd site
 npm install
-npm run dev       # http://localhost:4321/fdai/
+npm run dev -- --host 127.0.0.1 --port 5274
+npm test
 npm run build     # dist/
 npm run preview
 ```

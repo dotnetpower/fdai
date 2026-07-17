@@ -148,6 +148,7 @@ if [[ -z "$wheel" ]]; then
   exit 1
 fi
 uvx --from "$wheel" fdaictl version --output json
+uvx --from "$wheel" fdai-model-endpoint-discovery --help >/dev/null
 uvx --from "$wheel" fdaictl onboard guided --help >/dev/null
 uvx --from "$wheel" fdaictl deploy plan --help >/dev/null
 uvx --from "$wheel" fdaictl deploy status --help >/dev/null

@@ -17,6 +17,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Fragment, type ComponentChildren } from "preact";
+import { Tooltip } from "../components/tooltip";
 import { CopyButton } from "../components/ui";
 import type { ActionTypePaletteEntry, ValidateResponse } from "../workflow/validate";
 import { buildDraft, githubNewFileUrl } from "./workflow-builder.helpers";
@@ -231,17 +232,17 @@ function MessageBubble({
             aria-label="Suggested replies"
           >
             {message.options.map((o) => (
-              <button
-                type="button"
-                class="wf-chip"
-                key={o.value}
-                title={o.hint}
-                aria-label={o.hint ? `${o.label} - ${o.hint}` : o.label}
-                disabled={!interactive}
-                onClick={() => onChip(o.value)}
-              >
-                {o.label}
-              </button>
+              <Tooltip key={o.value} content={o.hint}>
+                <button
+                  type="button"
+                  class="wf-chip"
+                  aria-label={o.hint ? `${o.label} - ${o.hint}` : o.label}
+                  disabled={!interactive}
+                  onClick={() => onChip(o.value)}
+                >
+                  {o.label}
+                </button>
+              </Tooltip>
             ))}
           </div>
         ) : null}

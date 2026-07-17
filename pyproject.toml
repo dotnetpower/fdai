@@ -142,6 +142,7 @@ Documentation = "https://github.com/dotnetpower/fdai/blob/main/docs/roadmap/READ
 
 [project.scripts]
 fdaictl = "fdai.deployment_cli.cli:main"
+fdai-model-endpoint-discovery = "fdai.delivery.azure.llm.endpoint_discovery_cli:main"
 
 [build-system]
 requires = ["hatchling>=1.24"]
@@ -179,6 +180,7 @@ ignore = []
 # argument lists - the S6xx subprocess warnings assume attacker-controlled
 # input, which does not apply here.
 "scripts/**" = ["S603", "S607"]
+"scripts/validate-catalog-full.py" = ["N999", "S603", "S607"]
 "tools/**" = ["S603", "S607"]
 # Alembic migrations construct DELETE-IN-list queries from hardcoded module
 # constants (`_LINK_TYPES`, `_OBJECT_TYPES`); no user input flows into the

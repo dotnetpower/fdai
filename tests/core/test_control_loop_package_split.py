@@ -1,9 +1,8 @@
-"""Structural drift guards for the G-2 control_loop split (phase 1).
+"""Structural drift guards for the G-2 control_loop split.
 
-Phase 1 of G-2 (tracker #14, issue #16) extracts the module-level
-helpers out of the 1725-LOC monolith. The follow-up Stage refactor is
-deferred; these tests pin the current layout so it does not silently
-re-monolith and so the follow-up has a stable baseline.
+G-2 extracts pure helpers and stateful stage orchestration from the
+1725-LOC monolith. These tests pin the public facade and focused module
+layout so the control loop does not silently re-monolith.
 """
 
 from __future__ import annotations
@@ -38,14 +37,24 @@ _PUBLIC_NAMES = (
 
 
 # ---------------------------------------------------------------------------
-# H1: layout - exactly the three files that phase 1 produces plus the
-# optional stages/ scaffold (see H9).
+# H1: layout - the public composition shell plus focused stage modules.
 # ---------------------------------------------------------------------------
 
 
 def test_control_loop_package_layout() -> None:
     top_pyfiles = {p.name for p in _CL_DIR.glob("*.py")}
-    required = {"__init__.py", "orchestrator.py", "_helpers.py"}
+    required = {
+        "__init__.py",
+        "_boundary.py",
+        "_execution.py",
+        "_fallback.py",
+        "_helpers.py",
+        "_process.py",
+        "_rca.py",
+        "models.py",
+        "operator_request.py",
+        "orchestrator.py",
+    }
     missing = required - top_pyfiles
     assert not missing, f"control_loop/ missing files: {sorted(missing)}"
 
@@ -62,17 +71,16 @@ def test_public_name_still_resolves(name: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# H3: orchestrator.py LOC ceiling. Pre-split was 1725 LOC. Phase 1
-# brought it to ~1479. Ceiling set to 1600 so a small edit fits but a
-# regression that puts everything back in one file fails loudly.
+# H3: orchestrator.py LOC ceiling. Pre-split was 1725 LOC. Stage extraction
+# leaves the public composition shell below the enforced 800-LOC ceiling.
 # ---------------------------------------------------------------------------
 
 
 def test_orchestrator_loc_ceiling() -> None:
     loc = (_CL_DIR / "orchestrator.py").read_text().count("\n")
-    assert loc <= 1600, (
-        f"orchestrator.py has {loc} LOC (> 1600). G-2 phase 2 (Stage "
-        "protocol) is the next step; do not let this file grow back."
+    assert loc <= 800, (
+        f"orchestrator.py has {loc} LOC (> 800). Keep stage orchestration "
+        "in focused control_loop modules; do not let this file grow back."
     )
 
 

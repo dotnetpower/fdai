@@ -10,7 +10,9 @@
 import type { ComponentChildren, JSX } from "preact";
 import { useState } from "preact/hooks";
 import { useTransientFlag } from "../hooks/use-transient-flag";
+import { t } from "../i18n";
 import { useNavigationDomain } from "./navigation-title";
+import { Tooltip } from "./tooltip";
 
 // ---------------------------------------------------------------------------
 // PageHeader - page identity (title + optional subtitle + optional actions)
@@ -290,9 +292,9 @@ export interface StatusPillProps {
 
 export function StatusPill({ kind, label, title }: StatusPillProps) {
   return (
-    <span class={`status-pill status-pill-${kind}`} title={title}>
-      {label}
-    </span>
+    <Tooltip content={title}>
+      <span class={`status-pill status-pill-${kind}`}>{label}</span>
+    </Tooltip>
   );
 }
 
@@ -361,17 +363,18 @@ export function ExternalLink({ href, children }: ExternalLinkProps) {
     return <span class="ext-link ext-link--unsafe">{children}</span>;
   }
   return (
-    <a
-      class="ext-link"
-      href={safe}
-      target="_blank"
-      rel="noopener noreferrer"
-      title="Opens in a new tab"
-    >
-      <span class="ext-link-text">{children}</span>
-      <ExternalGlyph />
-      <span class="sr-only"> (opens in a new tab)</span>
-    </a>
+    <Tooltip content={t("tooltip.opensNewTab")}>
+      <a
+        class="ext-link"
+        href={safe}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <span class="ext-link-text">{children}</span>
+        <ExternalGlyph />
+        <span class="sr-only"> (opens in a new tab)</span>
+      </a>
+    </Tooltip>
   );
 }
 

@@ -6,7 +6,7 @@
 # to remember five separate script names. Mirrors the gates already required
 # by the coding-conventions and language instructions:
 #
-#   - ruff (Python lint)                        [core-only in --fast]
+#   - ruff format + lint (Python source/tests)
 #   - check-punctuation.sh (ASCII typography)
 #   - check-guids.sh (customer-agnostic GUIDs)
 #   - check-translations.sh (foo.md <-> foo-ko.md SHA parity)
@@ -73,11 +73,12 @@ run_gate() {
 # ---- fast gates (always) ----------------------------------------------------
 
 if command -v ruff >/dev/null 2>&1; then
-    run_gate "ruff (src/fdai)" ruff check src/fdai
+    run_gate "ruff format (src tests)" ruff format --check src tests
+    run_gate "ruff lint (src tests)" ruff check src tests
 else
     echo "verify.sh: 'ruff' not found on PATH; skipping (activate the venv first)" >&2
-    NAMES+=("ruff (src/fdai)")
-    RESULTS+=("SKIP")
+    NAMES+=("ruff format (src tests)" "ruff lint (src tests)")
+    RESULTS+=("SKIP" "SKIP")
 fi
 
 run_gate "punctuation"  bash scripts/check-punctuation.sh

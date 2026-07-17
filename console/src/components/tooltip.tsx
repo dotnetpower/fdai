@@ -6,7 +6,7 @@ import {
   shift,
   type Placement,
 } from "@floating-ui/dom";
-import { cloneElement, type ComponentChildren, type VNode } from "preact";
+import { cloneElement, type ComponentChildren, type JSX, type VNode } from "preact";
 import { createPortal } from "preact/compat";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 
@@ -15,21 +15,35 @@ export const TOOLTIP_EXIT_MS = 50;
 
 type TooltipState = "delayed-open" | "instant-open" | "closed";
 
+interface TooltipTriggerProps {
+  readonly "aria-describedby"?: string;
+  readonly onFocus?: (event: JSX.TargetedFocusEvent<HTMLElement>) => void;
+  readonly onBlur?: (event: JSX.TargetedFocusEvent<HTMLElement>) => void;
+  readonly onKeyDown?: (event: JSX.TargetedKeyboardEvent<HTMLElement>) => void;
+}
+
 interface TooltipProps {
-  readonly children: VNode<{ readonly "aria-describedby"?: string }>;
-  readonly content: ComponentChildren;
+  readonly children: VNode<TooltipTriggerProps>;
+  readonly content?: ComponentChildren;
   readonly placement?: Placement;
   readonly delay?: number;
   readonly sideOffset?: number;
 }
 
-export function Tooltip({
+export function Tooltip(props: TooltipProps) {
+  if (props.content === undefined || props.content === null || props.content === "") {
+    return props.children;
+  }
+  return <ActiveTooltip {...props} content={props.content} />;
+}
+
+function ActiveTooltip({
   children,
   content,
   placement = "top",
   delay = TOOLTIP_DELAY_MS,
   sideOffset = 4,
-}: TooltipProps) {
+}: TooltipProps & { readonly content: ComponentChildren }) {
   const id = useId();
   const anchorRef = useRef<HTMLSpanElement | null>(null);
   const tooltipRef = useRef<HTMLSpanElement | null>(null);
@@ -77,6 +91,15 @@ export function Tooltip({
     clearTimer(closeTimerRef);
   }, []);
 
+  useEffect(() => {
+    if (state === null || typeof document === "undefined") return;
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") hide();
+    };
+    document.addEventListener("keydown", dismissOnEscape);
+    return () => document.removeEventListener("keydown", dismissOnEscape);
+  }, [state]);
+
   useLayoutEffect(() => {
     const anchor = anchorRef.current;
     const tooltip = tooltipRef.current;
@@ -107,6 +130,18 @@ export function Tooltip({
 
   const describedTrigger = cloneElement(children, {
     "aria-describedby": state === null ? undefined : id,
+    onFocus: (event: JSX.TargetedFocusEvent<HTMLElement>) => {
+      children.props.onFocus?.(event);
+      show(0);
+    },
+    onBlur: (event: JSX.TargetedFocusEvent<HTMLElement>) => {
+      children.props.onBlur?.(event);
+      if (!anchorRef.current?.contains(event.relatedTarget as Node | null)) hide();
+    },
+    onKeyDown: (event: JSX.TargetedKeyboardEvent<HTMLElement>) => {
+      children.props.onKeyDown?.(event);
+      if (event.key === "Escape") hide();
+    },
   });
   const side = position.placement.split("-")[0];
 
@@ -118,14 +153,7 @@ export function Tooltip({
         if (event.pointerType !== "touch") show(delay);
       }}
       onPointerLeave={hide}
-      onFocus={() => show(0)}
-      onBlur={(event) => {
-        if (!anchorRef.current?.contains(event.relatedTarget as Node | null)) hide();
-      }}
       onClick={hide}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") hide();
-      }}
     >
       {describedTrigger}
       {state !== null && typeof document !== "undefined"

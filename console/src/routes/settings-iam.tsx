@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { ReadApiClient } from "../api";
 import type { AuthContext } from "../auth";
+import { Tooltip } from "../components/tooltip";
 import { DataTable, PageHeader, StatusPill, type PillKind } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -348,7 +349,9 @@ function MyAccess({ overview, username, auth }: {
           <span>{t("settings.iam.effectiveCapabilities")}</span>
           <div class="settings-capability-chips">
             {overview.principal.capabilities.map((capability) => (
-              <span key={capability} title={capability}>{humanizeCapability(capability)}</span>
+              <Tooltip key={capability} content={capability}>
+                <span>{humanizeCapability(capability)}</span>
+              </Tooltip>
             ))}
           </div>
         </div>
@@ -497,9 +500,9 @@ function RolesView({ roles }: { readonly roles: readonly IamRoleDefinition[] }) 
             render: (role: IamRoleDefinition) => (
               <span class="settings-capability-chips">
                 {role.capabilities.map((capability) => (
-                  <span key={capability} title={capability}>
-                    {humanizeCapability(capability)}
-                  </span>
+                  <Tooltip key={capability} content={capability}>
+                    <span>{humanizeCapability(capability)}</span>
+                  </Tooltip>
                 ))}
               </span>
             ),

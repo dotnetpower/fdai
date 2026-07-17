@@ -1,0 +1,91 @@
+---
+import MobileMenuFooter from "virtual:starlight/components/MobileMenuFooter";
+import SidebarPersister from "@astrojs/starlight/components/SidebarPersister.astro";
+import SidebarSublist from "@astrojs/starlight/components/SidebarSublist.astro";
+import type { SidebarEntry } from "@astrojs/starlight/utils/routing/types";
+import {
+  navigationLabels,
+  navigationModeForPath,
+  navigationScrollKey,
+} from "../scripts/focused-navigation.mjs";
+
+const { sidebar } = Astro.locals.starlightRoute;
+const mode = navigationModeForPath(Astro.url.pathname);
+const labels = navigationLabels(Astro.currentLocale ?? "en");
+
+function findSreGroup(entries: SidebarEntry[]): Extract<SidebarEntry, { type: "group" }> | undefined {
+  return entries.find(
+    (entry): entry is Extract<SidebarEntry, { type: "group" }> =>
+      entry.type === "group" &&
+      entry.entries.some(
+        (child) => child.type === "link" && /\/(?:ko\/)?sre\/?$/.test(child.href),
+      ),
+  );
+}
+
+const sreGroup = findSreGroup(sidebar);
+const sreOverview = sreGroup?.entries.find(
+  (entry): entry is Extract<SidebarEntry, { type: "link" }> =>
+    entry.type === "link" && /\/(?:ko\/)?sre\/?$/.test(entry.href),
+);
+const allDocs = sidebar.find(
+  (entry): entry is Extract<SidebarEntry, { type: "link" }> =>
+    entry.type === "link" && /\/(?:ko\/)?get-started\/?$/.test(entry.href),
+);
+
+const globalSidebar: SidebarEntry[] = sidebar.map((entry) => {
+  if (entry !== sreGroup || !sreOverview) return entry;
+  return {
+    ...sreOverview,
+    label: sreGroup.label,
+    isCurrent: false,
+  };
+});
+
+const focusedSidebar = sreGroup?.entries ?? [];
+const scrollKey = navigationScrollKey(Astro.currentLocale ?? "en", "sre");
+---
+
+{
+  mode === "sre" && sreGroup ? (
+    <>
+      <div class="fdai-focused-nav-header">
+        <a class="fdai-focused-nav-back" href={allDocs?.href ?? "/"} aria-label={labels.back}>
+          <span aria-hidden="true">←</span>
+          <span>SRE</span>
+        </a>
+      </div>
+      <div data-fdai-server-sidebar="sre">
+        <SidebarSublist sublist={focusedSidebar} />
+      </div>
+      <script is:inline define:vars={{ scrollKey }}>
+        (() => {
+          const sidebar = document.getElementById("starlight__sidebar");
+          if (!sidebar) return;
+          try {
+            const value = Number(sessionStorage.getItem(scrollKey));
+            if (Number.isFinite(value) && value >= 0) sidebar.scrollTop = value;
+          } catch {}
+          sidebar.addEventListener(
+            "click",
+            (event) => {
+              if (!(event.target instanceof Element) || !event.target.closest("a[href]")) return;
+              try {
+                sessionStorage.setItem(scrollKey, String(sidebar.scrollTop));
+              } catch {}
+            },
+            { capture: true }
+          );
+        })();
+      </script>
+    </>
+  ) : (
+    <SidebarPersister>
+      <SidebarSublist sublist={globalSidebar} />
+    </SidebarPersister>
+  )
+}
+
+<div class="md:sl-hidden">
+  <MobileMenuFooter />
+</div>

@@ -204,6 +204,18 @@ a same-family Standard deployment on HTTP 429, and emits the mandatory evidence 
 creates an APIM service. Root composition keeps the module disabled by default, so the minimum-cost
 day-zero inventory is unchanged.
 
+`fdai-model-endpoint-discovery` is the protected management-plane merge command. Its strict config
+lists expected Azure OpenAI accounts/deployments and APIM APIs/backends; it accepts no endpoint URL
+or credential value. The Azure source verifies account kind, deployment readiness, model
+family/version, SKU, and TPM/PTU capacity. The APIM source verifies the API, both backend ids,
+managed-identity policy, HTTP 429 switch, and all FDAI evidence headers. Duplicate capability routes
+fail before output. The command merges verified bindings into an existing `resolved-models.json`
+using an atomic mode-`0600` write and refuses overwrite without `--force`.
+
+Signed self-hosted registrations use the same source aggregation path through an injected
+`Ed25519SignedRegistrationSource`. This keeps raw GPU endpoints out of the generic Azure discovery
+config and requires a publisher key before the registration document is parsed.
+
 ## Model Provisioning and Lifecycle
 
 Model availability, versions, and deprecations shift continuously. Hard-coding a model id

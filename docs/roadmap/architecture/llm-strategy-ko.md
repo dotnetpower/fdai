@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 0454d97e56ceb0f135cb6fd93466d73aa8f260e2
+translation_source_sha: 28f7da359ac988f8f6609e9d511f696f16d2b645
 translation_revised: 2026-07-17
 ---
 
@@ -191,6 +191,18 @@ Azure OpenAI backend에 인증하며 첫 request를 PTU로 보내고 HTTP 429에
 deployment로 정확히 한 번 retry한 뒤 mandatory evidence header를 emit합니다. APIM service는
 생성하지 않습니다. Root composition은 module을 기본 disabled로 유지하므로 minimum-cost day-zero
 inventory는 변경되지 않습니다.
+
+`fdai-model-endpoint-discovery`는 protected management-plane merge command입니다. Strict config는
+예상 Azure OpenAI account/deployment 및 APIM API/backend를 나열하며 endpoint URL 또는 credential
+value를 받지 않습니다. Azure source는 account kind, deployment readiness, model family/version,
+SKU, TPM/PTU capacity를 검증합니다. APIM source는 API, 두 backend id, managed-identity policy,
+HTTP 429 switch, 모든 FDAI evidence header를 검증합니다. Duplicate capability route는 output 전에
+실패합니다. Command는 검증된 binding을 기존 `resolved-models.json`에 atomic mode-`0600` write로
+merge하고 `--force` 없이 overwrite하지 않습니다.
+
+Signed self-hosted registration은 injected `Ed25519SignedRegistrationSource`를 통해 같은 source
+aggregation path를 사용합니다. 따라서 raw GPU endpoint는 generic Azure discovery config에 들어가지
+않고 publisher key가 registration document parse 전에 필요합니다.
 
 ## 모델 프로비저닝과 라이프사이클
 

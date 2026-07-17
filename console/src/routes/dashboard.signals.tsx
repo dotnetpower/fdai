@@ -1,4 +1,5 @@
 import type { AutonomyPayload, VerticalSummary } from "../types";
+import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 import { routeHref } from "../router";
 import { formatUsd } from "./dashboard.model";
@@ -69,14 +70,14 @@ export function TierBands({ tier }: { readonly tier: AutonomyPayload["tier"] }) 
           ? `${Math.round(band[0] * 100)}-${Math.round(band[1] * 100)}%`
           : "";
         return (
-          <a
-            key={key}
-            href={routeHref("trust-routing", { segments: [key] })}
-            class={`overview-tier overview-tier-${key} ${inBand ? "ok" : "warn"}`}
-            title={bandText ? t("overview.tier.band", { range: bandText }) : ""}
-          >
-            {key.toUpperCase()} {share === null ? "unavailable" : `${Math.round(share * 100)}%`}
-          </a>
+          <Tooltip key={key} content={bandText ? t("overview.tier.band", { range: bandText }) : undefined}>
+            <a
+              href={routeHref("trust-routing", { segments: [key] })}
+              class={`overview-tier overview-tier-${key} ${inBand ? "ok" : "warn"}`}
+            >
+              {key.toUpperCase()} {share === null ? "unavailable" : `${Math.round(share * 100)}%`}
+            </a>
+          </Tooltip>
         );
       })}
     </section>

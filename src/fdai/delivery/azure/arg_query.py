@@ -72,8 +72,6 @@ Safety / cost invariants
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final
@@ -81,6 +79,28 @@ from urllib.parse import urlparse
 
 import httpx
 
+from fdai.delivery.azure.arg_projection import (
+    arm_id_to_type as _arm_id_to_type,  # noqa: F401 - tested compatibility import
+)
+from fdai.delivery.azure.arg_projection import (
+    build_arm_to_neutral_map as _build_arm_to_neutral_map,
+)
+from fdai.delivery.azure.arg_projection import (
+    extract_attached_to_links_from_row as _extract_attached_to_links_from_row,
+)
+from fdai.delivery.azure.arg_projection import (
+    extract_depends_on_links_from_row as _project_depends_on_links_from_row,
+)
+from fdai.delivery.azure.arg_projection import (
+    extract_rg_contains_links as _extract_rg_contains_links,
+)
+from fdai.delivery.azure.arg_projection import (
+    to_neutral_id as _to_neutral_id,
+)
+from fdai.delivery.azure.arg_projection import (
+    truncate_props as _truncate_props,
+)
+from fdai.delivery.azure.arg_transport import fetch_arg_pages
 from fdai.delivery.azure.inventory import ResourceQueryFn
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
 from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
@@ -254,98 +274,34 @@ class AzureArgQueryFactory:
         self, *, resource_type: str, arm_type: str
     ) -> tuple[tuple[ResourceRecord, ...], tuple[LinkRecord, ...]]:
         query = self._build_query(arm_type=arm_type)
-        url = (
-            f"{self._config.arg_endpoint.rstrip('/')}"
-            "/providers/Microsoft.ResourceGraph/resources"
-            f"?api-version={self._config.arg_api_version}"
+        return await fetch_arg_pages(
+            identity=self._identity,
+            http_client=self._http,
+            audience=self._config.audience,
+            endpoint=self._config.arg_endpoint,
+            api_version=self._config.arg_api_version,
+            subscriptions=self._config.subscription_scopes,
+            query=query,
+            resource_type=resource_type,
+            page_size=self._config.page_size,
+            max_pages=self._config.max_pages,
+            timeout_seconds=self._config.timeout_seconds,
+            error_type=ArgQueryError,
+            map_row=lambda row: self._map_row(row, resource_type=resource_type),
+            project_links=self._project_links,
         )
 
-        token = await self._identity.get_token(self._config.audience)
-        headers = {
-            "Authorization": f"Bearer {token.token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
-
-        collected: list[ResourceRecord] = []
-        collected_links: list[LinkRecord] = []
-        skip_token: str | None = None
-
-        for page in range(self._config.max_pages):
-            body: dict[str, Any] = {
-                "subscriptions": list(self._config.subscription_scopes),
-                "query": query,
-                "options": {"$top": self._config.page_size},
-            }
-            if skip_token is not None:
-                body["options"]["$skipToken"] = skip_token
-
-            try:
-                response = await self._http.post(
-                    url,
-                    headers=headers,
-                    content=json.dumps(body),
-                    timeout=self._config.timeout_seconds,
-                )
-            except httpx.HTTPError as exc:
-                raise ArgQueryError(
-                    f"ARG request failed for {resource_type!r} (page {page}): {exc}"
-                ) from exc
-
-            if response.status_code >= 400:
-                # Truncate the body so a huge error page does not blow up
-                # the audit log. Body content is untrusted vendor text.
-                snippet = response.text[:200].replace("\n", " ")
-                raise ArgQueryError(
-                    f"ARG returned HTTP {response.status_code} for {resource_type!r} "
-                    f"(page {page}): {snippet!r}"
-                )
-
-            try:
-                payload = response.json()
-            except ValueError as exc:
-                raise ArgQueryError(
-                    f"ARG returned non-JSON for {resource_type!r} (page {page})"
-                ) from exc
-
-            data = payload.get("data")
-            if not isinstance(data, list):
-                raise ArgQueryError(
-                    f"ARG payload missing 'data' array for {resource_type!r} (page {page})"
-                )
-
-            for row in data:
-                if not isinstance(row, Mapping):
-                    continue
-                record = self._map_row(row, resource_type=resource_type)
-                if record is not None:
-                    collected.append(record)
-                    # Extract attached_to links from the untruncated row
-                    # (props truncation happens inside _map_row and could
-                    # otherwise drop the referenced ids).
-                    collected_links.extend(
-                        _extract_attached_to_links_from_row(
-                            row, child=record, arm_to_neutral=self._arm_to_neutral
-                        )
-                    )
-                    collected_links.extend(
-                        _extract_depends_on_links_from_row(
-                            row, child=record, arm_to_neutral=self._arm_to_neutral
-                        )
-                    )
-
-            next_token = payload.get("$skipToken")
-            if not isinstance(next_token, str) or not next_token:
-                break
-            skip_token = next_token
-        else:
-            # Loop ran to max_pages without breaking → pagination cap hit.
-            raise ArgQueryError(
-                f"ARG pagination cap ({self._config.max_pages}) exceeded for {resource_type!r}; "
-                "narrow the query or raise max_pages via config"
-            )
-
-        return tuple(collected), tuple(collected_links)
+    def _project_links(
+        self, row: Mapping[str, Any], record: ResourceRecord
+    ) -> tuple[LinkRecord, ...]:
+        return (
+            *_extract_attached_to_links_from_row(
+                row, child=record, arm_to_neutral=self._arm_to_neutral
+            ),
+            *_extract_depends_on_links_from_row(
+                row, child=record, arm_to_neutral=self._arm_to_neutral
+            ),
+        )
 
     def _map_row(self, row: Mapping[str, Any], *, resource_type: str) -> ResourceRecord | None:
         arm_id = row.get("id")
@@ -366,257 +322,6 @@ class AzureArgQueryFactory:
             props=props,
             provider_ref=arm_id,
         )
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-_RESOURCE_GROUP_TYPE: Final[str] = "resource-group"
-
-
-def _to_neutral_id(arm_id: str) -> str:
-    """Fold the ARM path into a CSP-neutral resource identifier.
-
-    The ontology's ``resource_id`` is defined as a stable, non-vendor path
-    keyed on tenancy scope + resource name (docs/roadmap/architecture/llm-strategy.md
-    § Ontology Foundation). For P1 we adopt a conservative rule: strip the
-    leading ``/subscriptions/...`` prefix and lowercase - enough for the
-    audit log to link ontology → provider, without leaking ARM.
-    Later phases MAY refine this once the ontology promotes ``tenancy``
-    to a first-class field.
-    """
-    trimmed = arm_id.strip()
-    scope_prefix = _scope_prefix(trimmed)
-    # ARM ids start with `/subscriptions/<guid>/resourceGroups/<name>/...`
-    marker = "/resourceGroups/"
-    idx = trimmed.lower().find(marker.lower())
-    if idx == -1:
-        parts = [part for part in trimmed.lower().strip("/").split("/") if part]
-        suffix = "/".join(parts[2:] if parts[:1] == ["subscriptions"] else parts)
-        return f"{scope_prefix}/{suffix}"
-    return f"{scope_prefix}/resource-group{trimmed[idx + len(marker) - len('/') :].lower()}"
-
-
-def _scope_prefix(arm_id: str) -> str:
-    parts = [part for part in arm_id.strip("/").split("/") if part]
-    subscription = (
-        parts[1].lower() if len(parts) > 1 and parts[0].lower() == "subscriptions" else "unknown"
-    )
-    digest = hashlib.sha256(subscription.encode("utf-8")).hexdigest()[:16]
-    return f"scope-{digest}"
-
-
-def _truncate_props(props: Mapping[str, Any], *, max_bytes: int) -> dict[str, Any]:
-    """Cap the JSON-serialized size of ``props`` so untrusted vendor data stays inert."""
-    encoded = json.dumps(props, default=str, ensure_ascii=False, separators=(",", ":"))
-    if len(encoded.encode("utf-8")) <= max_bytes:
-        # Round-trip through JSON to normalise types (dates → strings).
-        return dict(json.loads(encoded))
-
-    # Drop the widest offender first - usually `properties` (nested dict).
-    # Truncation is best-effort; the record still carries the ARM id via
-    # `provider_ref`, so an operator can retrieve full detail out-of-band.
-    trimmed = dict(props)
-    for key in ("properties", "tags"):
-        trimmed.pop(key, None)
-        rerun = json.dumps(trimmed, default=str, ensure_ascii=False, separators=(",", ":"))
-        if len(rerun.encode("utf-8")) <= max_bytes:
-            result = dict(json.loads(rerun))
-            result["_truncated"] = True
-            return result
-
-    return {"_truncated": True, "resource_id_hint": props.get("name")}
-
-
-def _extract_rg_contains_links(
-    resources: Sequence[ResourceRecord],
-) -> tuple[LinkRecord, ...]:
-    """Emit one ``contains(resource-group, resource)`` edge per RG-scoped resource.
-
-    Purely a function of the ARM id (via ``provider_ref``) - never
-    reads ``props`` - so the trust boundary from vendor properties
-    stays intact. A resource without ``provider_ref`` (rare; the mapper
-    always sets it, but a hand-crafted fixture might not) is skipped.
-
-    Deduplication is by the standard link key
-    ``(from_id, link_type, to_id)`` - repeats within one shard collapse
-    into a single edge, matching the ``LinkRecord`` idempotency contract
-    on :class:`~fdai.shared.providers.inventory.InventoryBatch`.
-
-    The Resource-Group node itself is emitted implicitly through the
-    edge's ``from_id`` - the resource-group ``ResourceRecord`` MAY or
-    MAY NOT appear in the same shard (the caller's shard set decides).
-    That is fine: the ingest layer stores links whose endpoints may
-    predate observation of the referenced node.
-    """
-    rg_marker = "/resourceGroups/"
-    seen: set[tuple[str, str, str]] = set()
-    links: list[LinkRecord] = []
-    for record in resources:
-        arm_id = record.provider_ref
-        if not arm_id:
-            continue
-        marker_idx = arm_id.lower().find(rg_marker.lower())
-        if marker_idx == -1:
-            continue
-        # Locate the segment immediately after the RG name; the parent
-        # RG's ARM id ends there. Guards against `contains(rg, rg)`
-        # self-edges when scanning the resource-group type itself.
-        after_marker = marker_idx + len(rg_marker)
-        next_slash = arm_id.find("/", after_marker)
-        if next_slash == -1:
-            # The resource IS a resource-group (arm_id ends after the
-            # RG name). No parent to emit - that edge lives on the
-            # subscription level, out of P1 scope.
-            continue
-        rg_arm_id = arm_id[:next_slash]
-        rg_neutral_id = _to_neutral_id(rg_arm_id)
-        key = (rg_neutral_id, "contains", record.resource_id)
-        if key in seen:
-            continue
-        seen.add(key)
-        links.append(
-            LinkRecord(
-                from_id=rg_neutral_id,
-                from_type=_RESOURCE_GROUP_TYPE,
-                link_type="contains",
-                to_id=record.resource_id,
-                to_type=record.type,
-            )
-        )
-    return tuple(links)
-
-
-# Well-known top-level `properties.<key>.id` paths that carry ARM ids to
-# a referenced resource. Deliberately narrow so a change here is a
-# reviewable, versioned expansion - never a wildcard walk of untrusted
-# vendor data.
-_ATTACHED_TO_PROPERTY_KEYS: Final[tuple[str, ...]] = (
-    "subnet",
-    "networkSecurityGroup",
-    "publicIPAddress",
-)
-
-
-def _build_arm_to_neutral_map(registry: ResourceTypeRegistry) -> dict[str, str]:
-    """Reverse ``ResourceTypeRegistry.get(id).azure_arm_type`` lookup.
-
-    Case-insensitive matching - ARM type spellings occasionally drift
-    (`Microsoft.Storage/storageAccounts` vs
-    `microsoft.storage/storageaccounts` on legacy events); the map keys
-    are lowered and the callers lowercase their inputs.
-    """
-    out: dict[str, str] = {}
-    for entry in registry:
-        if entry.azure_arm_type is None:
-            continue
-        out[entry.azure_arm_type.lower()] = entry.id
-    return out
-
-
-def _arm_id_to_type(arm_id: str) -> str | None:
-    """Extract the ``Microsoft.X/Y[/Z]`` type suffix from a full ARM id.
-
-    Handles the multi-segment case (``.../providers/Microsoft.Network/
-    virtualNetworks/vnet1/subnets/sub1`` → ``Microsoft.Network/
-    virtualNetworks/subnets``). Returns ``None`` when the id does not
-    have a ``/providers/`` segment.
-    """
-    marker = "/providers/"
-    idx = arm_id.find(marker)
-    if idx == -1:
-        return None
-    parts = arm_id[idx + len(marker) :].split("/")
-    if len(parts) < 2:
-        return None
-    # parts = [namespace, primary_type, name, sub_type, sub_name, ...]
-    # Rebuild the type path by taking every OTHER segment starting at
-    # index 1: namespace/primary/sub1/sub2/...
-    provider = parts[0]
-    type_segments: list[str] = []
-    # parts pattern after provider: [type_a, name_a, type_b, name_b, ...]
-    for i in range(1, len(parts), 2):
-        type_segments.append(parts[i])
-    if not type_segments:
-        return None
-    return f"{provider}/{'/'.join(type_segments)}"
-
-
-def _extract_attached_to_links_from_row(
-    row: Mapping[str, Any],
-    *,
-    child: ResourceRecord,
-    arm_to_neutral: Mapping[str, str],
-) -> tuple[LinkRecord, ...]:
-    """Walk the whitelisted ``properties.<key>.id`` paths.
-
-    Emits one ``attached_to(child, target)`` per resolvable reference:
-
-    - The referenced value MUST be a non-empty string ARM id.
-    - The referenced ARM type MUST be in the vocabulary's reverse map;
-      unmapped targets are dropped (safer than emitting an unknown
-      ``to_type`` that the ontology would reject at ingest).
-    - Duplicates within one row collapse into a single edge.
-    """
-    properties = row.get("properties")
-    if not isinstance(properties, Mapping):
-        return ()
-
-    seen: set[tuple[str, str, str]] = set()
-    links: list[LinkRecord] = []
-    for key in _ATTACHED_TO_PROPERTY_KEYS:
-        nested = properties.get(key)
-        if not isinstance(nested, Mapping):
-            continue
-        ref_id = nested.get("id")
-        if not isinstance(ref_id, str) or not ref_id:
-            continue
-        arm_type = _arm_id_to_type(ref_id)
-        if arm_type is None:
-            continue
-        to_type = arm_to_neutral.get(arm_type.lower())
-        if to_type is None:
-            continue
-        target_neutral = _to_neutral_id(ref_id)
-        dedup_key = (child.resource_id, "attached_to", target_neutral)
-        if dedup_key in seen:
-            continue
-        seen.add(dedup_key)
-        links.append(
-            LinkRecord(
-                from_id=child.resource_id,
-                from_type=child.type,
-                link_type="attached_to",
-                to_id=target_neutral,
-                to_type=to_type,
-            )
-        )
-    return tuple(links)
-
-
-# Well-known `properties.<key>` paths that carry a **soft** dependency -
-# the child cannot function without the target but is not part of its
-# lifecycle (contrast with `contains`). Deliberately narrow so a change
-# here is a reviewable, versioned expansion - never a wildcard walk of
-# untrusted vendor data.
-#
-# Two shapes are supported:
-#
-# 1. Nested ARM-id: `properties.<key>.id` (matches the `attached_to`
-#    shape) - currently used by App Service / Function / AKS storage
-#    account references.
-# 2. Top-level ARM-id string: `properties.<key>` (Diagnostic Settings
-#    `workspaceResourceId` and similar).
-#
-# `properties.acrLoginServer` is a DNS name, not an ARM id; resolving
-# it back to a registry ARM id needs a separate login-server → ARM id
-# lookup that is not wired in this cycle. The code recognises the key
-# and short-circuits ("skip if not resolvable") so the whitelist stays
-# authoritative while the resolver lands in a follow-up cycle.
-_DEPENDS_ON_ID_PROPERTY_KEYS: Final[tuple[str, ...]] = ("storageAccount",)
-_DEPENDS_ON_ARM_ID_STRING_KEYS: Final[tuple[str, ...]] = ("workspaceResourceId",)
 
 
 def _resolve_acr_login_server_to_arm_id(login_server: str) -> str | None:
@@ -640,85 +345,13 @@ def _extract_depends_on_links_from_row(
     child: ResourceRecord,
     arm_to_neutral: Mapping[str, str],
 ) -> tuple[LinkRecord, ...]:
-    """Walk the whitelisted soft-dependency property paths.
-
-    Emits one ``depends_on(child, target)`` per resolvable reference:
-
-    - ``properties.storageAccount.id`` (nested ARM id) - App Service /
-      Function / AKS → storage.
-    - ``properties.workspaceResourceId`` (top-level ARM id string) -
-      Diagnostic Setting → log-workspace.
-    - ``properties.acrLoginServer`` (top-level DNS string) - resolved
-      back to an ARM id via
-      :func:`_resolve_acr_login_server_to_arm_id`; dropped when the
-      resolver returns ``None`` (the current default).
-
-    Same safety envelope as :func:`_extract_attached_to_links_from_row`:
-
-    - The referenced value MUST be a non-empty string ARM id.
-    - The referenced ARM type MUST be in the vocabulary's reverse map;
-      unmapped targets are dropped (safer than emitting an unknown
-      ``to_type`` that the ontology would reject at ingest).
-    - Duplicates within one row (across all whitelisted paths) collapse
-      into a single edge - matches the ``LinkRecord`` idempotency
-      contract on :class:`~fdai.shared.providers.inventory.InventoryBatch`.
-    """
-    properties = row.get("properties")
-    if not isinstance(properties, Mapping):
-        return ()
-
-    seen: set[tuple[str, str, str]] = set()
-    links: list[LinkRecord] = []
-
-    def _try_emit(ref_id: str) -> None:
-        arm_type = _arm_id_to_type(ref_id)
-        if arm_type is None:
-            return
-        to_type = arm_to_neutral.get(arm_type.lower())
-        if to_type is None:
-            return
-        target_neutral = _to_neutral_id(ref_id)
-        dedup_key = (child.resource_id, "depends_on", target_neutral)
-        if dedup_key in seen:
-            return
-        seen.add(dedup_key)
-        links.append(
-            LinkRecord(
-                from_id=child.resource_id,
-                from_type=child.type,
-                link_type="depends_on",
-                to_id=target_neutral,
-                to_type=to_type,
-            )
-        )
-
-    # 1. Nested `properties.<key>.id` references.
-    for key in _DEPENDS_ON_ID_PROPERTY_KEYS:
-        nested = properties.get(key)
-        if not isinstance(nested, Mapping):
-            continue
-        ref_id = nested.get("id")
-        if not isinstance(ref_id, str) or not ref_id:
-            continue
-        _try_emit(ref_id)
-
-    # 2. Top-level `properties.<key>` ARM-id string references.
-    for key in _DEPENDS_ON_ARM_ID_STRING_KEYS:
-        ref_id = properties.get(key)
-        if not isinstance(ref_id, str) or not ref_id:
-            continue
-        _try_emit(ref_id)
-
-    # 3. `properties.acrLoginServer` - DNS-name string requiring a
-    # separate registry lookup. Skip when the resolver cannot map the
-    # login-server back to an ARM id (the current default).
-    login_server = properties.get("acrLoginServer")
-    if isinstance(login_server, str) and login_server:
-        resolved = _resolve_acr_login_server_to_arm_id(login_server)
-        if resolved is not None:
-            _try_emit(resolved)
-
-    return tuple(links)
+    """Compatibility wrapper retaining the facade-level resolver hook."""
+    return _project_depends_on_links_from_row(
+        row,
+        child=child,
+        arm_to_neutral=arm_to_neutral,
+        acr_resolver=_resolve_acr_login_server_to_arm_id,
+    )
 
 
 # Guard against accidental widening: this file MUST NOT introduce

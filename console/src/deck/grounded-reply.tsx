@@ -15,6 +15,7 @@
  */
 
 import { useState } from "preact/hooks";
+import { Tooltip } from "../components/tooltip";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t } from "../i18n";
 import type {
@@ -76,19 +77,21 @@ export function GroundedReply({
   return (
     <div class="deck-gr">
       {answerPlan ? (
-        <div class="deck-answer-plan" title={t(`deck.answerPlan.format.${answerPlan.format}`)}>
-          <span>Bragi</span>
-          <span aria-hidden="true">·</span>
-          <span>{t(`deck.answerPlan.intent.${answerPlan.intent}`)}</span>
-          <span aria-hidden="true">·</span>
-          <span>{t(`deck.answerPlan.detail.${answerPlan.detail_level}`)}</span>
-          {answerPlan.preference_applied ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <span>{t("deck.answerPlan.preferenceApplied")}</span>
-            </>
-          ) : null}
-        </div>
+        <Tooltip content={t(`deck.answerPlan.format.${answerPlan.format}`)}>
+          <div class="deck-answer-plan">
+            <span>Bragi</span>
+            <span aria-hidden="true">·</span>
+            <span>{t(`deck.answerPlan.intent.${answerPlan.intent}`)}</span>
+            <span aria-hidden="true">·</span>
+            <span>{t(`deck.answerPlan.detail.${answerPlan.detail_level}`)}</span>
+            {answerPlan.preference_applied ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{t("deck.answerPlan.preferenceApplied")}</span>
+              </>
+            ) : null}
+          </div>
+        </Tooltip>
       ) : null}
       <div class="deck-turn-body">
         <RichContent
@@ -117,86 +120,90 @@ export function GroundedReply({
       {!streaming && (verification || text.trim().length > 0 || cites.length > 0) ? (
         <div class="deck-gr-actions">
           {verification ? (
-            <div
-              class={`deck-verification is-${boundedCorrection ? "verified" : verification.status}`}
-              role="status"
-              aria-label={verificationLabel(verification)}
-              title={verificationLabel(verification)}
-            >
-              <span class="deck-verification-mark" aria-hidden="true">
-                {verification.status === "verified" ||
-                verification.status === "consistent" ||
-                boundedCorrection
-                  ? "\u2713"
-                  : verification.status === "corrected"
-                    ? "\u21bb"
-                    : "!"}
-              </span>
-              <span class="deck-verification-short">
-                {shortVerificationStatus(verification, boundedCorrection)}
-              </span>
-            </div>
+            <Tooltip content={verificationLabel(verification)}>
+              <div
+                class={`deck-verification is-${boundedCorrection ? "verified" : verification.status}`}
+                role="status"
+                aria-label={verificationLabel(verification)}
+              >
+                <span class="deck-verification-mark" aria-hidden="true">
+                  {verification.status === "verified" ||
+                  verification.status === "consistent" ||
+                  boundedCorrection
+                    ? "\u2713"
+                    : verification.status === "corrected"
+                      ? "\u21bb"
+                      : "!"}
+                </span>
+                <span class="deck-verification-short">
+                  {shortVerificationStatus(verification, boundedCorrection)}
+                </span>
+              </div>
+            </Tooltip>
           ) : null}
 
           {verification?.semantic ? (
-            <div
-              class="deck-verification is-semantic-shadow"
-              role="note"
-              title="Experimental shadow signal; does not change the answer trust status"
-            >
-              <span class="deck-verification-mark" aria-hidden="true">S</span>
-              <span>{semanticVerificationLabel(verification.semantic)}</span>
-            </div>
+            <Tooltip content={t("deck.tooltip.semanticShadow")}>
+              <div class="deck-verification is-semantic-shadow" role="note">
+                <span class="deck-verification-mark" aria-hidden="true">S</span>
+                <span>{semanticVerificationLabel(verification.semantic)}</span>
+              </div>
+            </Tooltip>
           ) : null}
 
           {text.trim().length > 0 ? (
             <>
-              <button
-                type="button"
-                class="deck-gr-tool deck-gr-icon"
-                onClick={copy}
-                title={copied ? "Copied" : "Copy reply"}
-                aria-label="Copy reply"
-              >
-                {copied ? <IconCheck /> : <IconCopy />}
-              </button>
-              {onRegenerate ? (
+              <Tooltip content={copied ? t("deck.tooltip.copied") : t("deck.tooltip.copyReply")}>
                 <button
                   type="button"
                   class="deck-gr-tool deck-gr-icon"
-                  onClick={onRegenerate}
-                  title="Ask this question again"
-                  aria-label="Regenerate"
+                  onClick={copy}
+                  aria-label={t("deck.tooltip.copyReply")}
                 >
-                  <IconRegenerate />
+                  {copied ? <IconCheck /> : <IconCopy />}
                 </button>
+              </Tooltip>
+              {onRegenerate ? (
+                <Tooltip content={t("deck.tooltip.regenerateHint")}>
+                  <button
+                    type="button"
+                    class="deck-gr-tool deck-gr-icon"
+                    onClick={onRegenerate}
+                    aria-label={t("deck.tooltip.regenerate")}
+                  >
+                    <IconRegenerate />
+                  </button>
+                </Tooltip>
               ) : null}
             </>
           ) : null}
 
           {cites.length > 0 && verification?.status !== "unverified" ? (
-            <button
-              type="button"
-              class="deck-gr-pill"
-              onClick={() => setOpen((v) => !v)}
-              aria-expanded={open}
-              title={
+            <Tooltip
+              content={
                 evidenceReferences
-                  ? `Checked against ${cites.length} evidence reference(s)`
-                  : `Grounded on ${cites.length} source(s)`
+                  ? t("deck.tooltip.evidenceReferences", { count: cites.length })
+                  : t("deck.tooltip.groundedSources", { count: cites.length })
               }
             >
-              <span class="deck-gr-check" aria-hidden="true">{"\u2713"}</span>
-              <span>
-                <strong>{cites.length}</strong>{" "}
-                {evidenceReferences
-                  ? "evidence"
-                  : cites.length === 1
-                    ? "source"
-                    : "sources"}
-              </span>
-              <span class="deck-gr-more">{open ? "hide" : "show"}</span>
-            </button>
+              <button
+                type="button"
+                class="deck-gr-pill"
+                onClick={() => setOpen((v) => !v)}
+                aria-expanded={open}
+              >
+                <span class="deck-gr-check" aria-hidden="true">{"\u2713"}</span>
+                <span>
+                  <strong>{cites.length}</strong>{" "}
+                  {evidenceReferences
+                    ? "evidence"
+                    : cites.length === 1
+                      ? "source"
+                      : "sources"}
+                </span>
+                <span class="deck-gr-more">{open ? "hide" : "show"}</span>
+              </button>
+            </Tooltip>
           ) : null}
         </div>
       ) : null}

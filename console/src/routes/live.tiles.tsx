@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import { architectureHref } from "../components/architecture-map.model";
+import { Tooltip } from "../components/tooltip";
 import type { LiveStageName } from "../hooks/use-live-stream";
 import { routeHref } from "../router";
 import { t } from "./i18n/live";
@@ -100,9 +101,9 @@ export function LiveTile({ tile, filter, selected, now, onClick }: TileProps) {
         stage_agents={tile.stage_agents}
       />
       <div class="live-tile-top">
-        <span class="live-tile-action" title={tile.rule ?? [...tile.action_types].join(", ")}>
-          {heading}
-        </span>
+        <Tooltip content={tile.rule ?? [...tile.action_types].join(", ")}>
+          <span class="live-tile-action">{heading}</span>
+        </Tooltip>
         <span class={`live-tier live-tier-${tier}`}>{tierLabel}</span>
       </div>
       <div class="live-tile-target">
@@ -111,12 +112,9 @@ export function LiveTile({ tile, filter, selected, now, onClick }: TileProps) {
       </div>
       <div class="live-tile-foot">
         {tile.last_agent ? (
-          <span
-            class="live-tile-agent"
-            title={`${tile.last_agent} - ${agentRole(tile.last_agent)}`}
-          >
-            {tile.last_agent}
-          </span>
+          <Tooltip content={`${tile.last_agent} - ${agentRole(tile.last_agent)}`}>
+            <span class="live-tile-agent">{tile.last_agent}</span>
+          </Tooltip>
         ) : null}
         {gate ? (
           <span class={`live-gate live-gate-${gate}`}>{decisionLabel(gate)}</span>
@@ -124,9 +122,9 @@ export function LiveTile({ tile, filter, selected, now, onClick }: TileProps) {
           <span class="muted">…</span>
         )}
         {tile.mode ? (
-          <span class="live-tile-mode" title={t("live.work.executionMode", { mode: tile.mode })}>
-            {tile.mode}
-          </span>
+          <Tooltip content={t("live.work.executionMode", { mode: tile.mode })}>
+            <span class="live-tile-mode">{tile.mode}</span>
+          </Tooltip>
         ) : null}
         <span class="muted live-tile-age">{formatAge(ageMs)}</span>
       </div>
@@ -152,11 +150,11 @@ export function StageDots({
           ? `${stageLabel(stage)} - ${relayAgent} (${agentRole(relayAgent)})`
           : stageLabel(stage);
         return (
-          <span
-            key={stage}
-            class={`live-tile-dot ${completed.has(stage) ? "done" : ""} ${last_stage === stage ? "current" : ""}`}
-            title={tip}
-          />
+          <Tooltip key={stage} content={tip}>
+            <span
+              class={`live-tile-dot ${completed.has(stage) ? "done" : ""} ${last_stage === stage ? "current" : ""}`}
+            />
+          </Tooltip>
         );
       })}
     </div>

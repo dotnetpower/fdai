@@ -51,7 +51,7 @@ fdai/
 │   │   ├── user_context_projection.py  # metadata-only principal context / workflow binding projection into runtime ontology
 │   │   ├── console_request/    # operator-console write-direction re-request policy (Scenario B deny-override), a single pure `evaluate_operator_rerequest`
 │   │   ├── verticals/          # Resilience / Change Safety / Cost Governance (P3 integration surface); each is a sub-package (G-6) with its own orchestrator + submodules, plus the shared `Vertical` Protocol in `base.py` and the `VerticalRegistry` seam
-│   │   ├── control_loop/       # P1 pipeline: `orchestrator.py` (ControlLoop), `models.py` (typed results), `operator_request.py` (authoritative proposal -> inventory -> risk/HIL/executor lifecycle), `_helpers.py` (pure utilities), and `stages/` (Stage Protocol scaffold)
+│   │   ├── control_loop/       # P1 pipeline: `orchestrator.py` (ControlLoop composition), `_process.py` (ordered event stages), `_fallback.py` (T1/T2), `_execution.py` (governance/risk/dispatch), `_rca.py` (shadow RCA), `_boundary.py` (audit/notification/stage adapters), `models.py` (typed results), `operator_request.py` (authoritative proposal lifecycle), `_helpers.py` (pure utilities), and `stages/` (Stage Protocol scaffold)
 │   │   └── ontology_explorer.py    # deterministic Mermaid renderer for the loaded ObjectType / LinkType catalog
 │   ├── shared/                # cross-cutting; MUST NOT import from core/
 │   │   ├── contracts/          # models.py + registry.py + validation.py + JSON Schemas

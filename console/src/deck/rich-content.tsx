@@ -306,11 +306,8 @@ function MiniChart({ spec }: { readonly spec: ChartSpec }) {
               class={`deck-chart-row${hover === i ? " is-hover" : ""}`}
               onMouseEnter={() => setHover(i)}
               onMouseLeave={() => setHover((h) => (h === i ? null : h))}
-              title={`${d.label}: ${fmt(d)}`}
             >
-              <span class="deck-chart-label" title={d.label}>
-                {d.label}
-              </span>
+              <span class="deck-chart-label">{d.label}</span>
               <span class="deck-chart-track">
                 <span
                   class="deck-chart-fill"

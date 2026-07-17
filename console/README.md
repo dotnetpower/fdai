@@ -659,6 +659,20 @@ in by registering both.
 Panels are read-only like the rest of the console: no action / approval button.
 Cost / change actions still flow through remediation PRs and ChatOps approvals.
 
+## Tooltip contract
+
+Use [`src/components/tooltip.tsx`](src/components/tooltip.tsx) for short,
+non-interactive explanations. Keep the trigger's `aria-label` concise; the
+shared component adds `aria-describedby` while the explanation is open. It
+opens after 100 ms for a pointer, opens immediately on keyboard focus, closes
+after 50 ms, dismisses on Escape or click, ignores touch hover, stays inside
+the viewport, and disables animation when reduced motion is requested.
+
+Avoid native DOM `title` attributes. A `title` prop on a component such as
+`PageHeader`, `EmptyState`, or `DetailSection` is still a visible-heading API,
+not a tooltip. [`src/components/title-inventory.test.ts`](src/components/title-inventory.test.ts)
+classifies those component props and blocks new native title bubbles.
+
 ## Layout
 
 ```text
@@ -681,6 +695,7 @@ console/
     ├── components/
     │   ├── left-rail.tsx - grouped flyouts + bottom global utilities
     │   ├── rail-icons.tsx - group and standalone navigation glyphs
+    │   ├── tooltip.tsx  - shared accessible portal tooltip
     │   └── shell.tsx   - top bar + left rail shell
     └── routes/
       ├── dashboard.tsx             - Overview data loading + composition
