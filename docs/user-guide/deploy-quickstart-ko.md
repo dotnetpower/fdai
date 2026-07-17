@@ -1,30 +1,32 @@
 ---
-title: 배포 Quickstart
-description: FDAI 최소 세트 인벤토리를 Azure에 프로비저닝 - 두 가지 동등한 경로(azd 턴키 또는 Terraform 직접), 먼저 미리보기, 계획이 맞을 때만 적용.
+title: 배포 빠른 시작
+description: FDAI 최소 세트 인벤토리를 Azure에 프로비저닝하는 방법. 동등한 두 경로(azd 턴키 또는 Terraform 직접 실행) 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 4ed39d29aafab144c9e4cfc307ff741abf889846
+translation_source_sha: e44ed055ebfe08abe00b00fa109c7f42a7d7d0ac
 translation_revised: 2026-07-17
 ---
 
-# 배포 Quickstart
+# 배포 빠른 시작
 
-FDAI는 `infra/` 아래의 코드형 인프라(IaC)에서 프로비저닝되며, Terraform이 실행
-엔진이자 진실의 원천입니다. 두 가지 동등한 경로가 동일한 최소 세트 Azure 인벤토리를
-세웁니다: 턴키 `azd` 래퍼, 또는 Terraform 직접. 둘 다 적용 전에 미리보기하므로,
-실수로 프로비저닝하는 일은 불가능합니다.
+FDAI는 `infra/` 아래의 코드형 인프라(IaC)를 사용해 프로비저닝하며, Terraform을 실행
+엔진이자 단일 기준으로 사용합니다. 턴키 `azd` 래퍼를 사용하거나 Terraform을 직접 실행하는 두
+가지 동등한 경로로 동일한 최소 세트 Azure 인벤토리를 구성할 수 있습니다. 두 경로 모두
+미리보기 우선 워크플로를 지원합니다. 별도의 apply 단계를 실행하기 전에 plan을 검토하세요.
 
 ## 시작하기 전에
 
-- 리소스를 만들 수 있는 **Azure 구독**과 **Azure CLI**(`az`) - 그리고 턴키
-  경로를 위한 **Azure Developer CLI**(`azd`).
-- 완료된 [배포 사전 점검](../roadmap/deployment/deployment-preflight-ko.md) -
-  컨트롤 루프가 시작되기 전에 쿼터, 권한, 연결, 롤백 차단 요소를 수집합니다.
-- `*.tfvars` 파일에 담긴 환경별 값 - 이 파일은 **결코 커밋되지 않습니다**.
+- 리소스를 만들 수 있는 **Azure 구독**과 **Azure CLI**(`az`)가 필요합니다. 턴키
+   경로에는 **Azure Developer CLI**(`azd`)도 필요합니다.
+- [배포 사전 점검](../roadmap/deployment/deployment-preflight-ko.md)을 완료해야 합니다.
+   이 점검은 컨트롤 루프가 시작되기 전에 쿼터, 권한, 연결, 롤백 차단 요소를 수집합니다.
+- 환경별 값을 `*.tfvars` 파일에 입력합니다. 이 파일은 **커밋하지 마세요**.
+- 배포 호스트에서 모든 private endpoint로 연결할 수 있어야 합니다. Private-only 환경에서는
+   운영자 워크스테이션 대신 VNet에 연결된 배포 runner에서 Terraform을 실행하세요.
 
 ## 최소 세트 인벤토리 프로비저닝
 
 먼저 미리보기하세요. 계획이 예상과 일치할 때만 적용하세요. 워크플로에 맞는 경로를
-고르면 됩니다 - 둘 다 동일한 `infra/` Terraform을 프로비저닝합니다.
+선택하면 됩니다. 두 경로 모두 동일한 `infra/` Terraform 구성을 사용합니다.
 
 <!-- fdai:tabs -->
 
@@ -35,7 +37,7 @@ azd auth login
 azd env new fdai-dev
 # 안전한 미리보기 - `azd provision --preview` 실행, 아무것도 적용하지 않음
 scripts/azd-up.sh
-# 실제 프로비저닝 - 두 번째 게이트가 실수 적용을 막음
+# 실제 프로비저닝 - 두 번째 게이트가 실수로 적용하는 일을 막음
 FDAI_AZD_CONFIRM=1 scripts/azd-up.sh
 ```
 
@@ -56,18 +58,17 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
 
 <!-- fdai:steps -->
 
-1. **인벤토리 검증.** 리소스가 프로비저닝되었고 실행자(executor) 아이덴티티가
-   범위가 제한된 최소 권한만 가지는지 확인합니다.
-2. **하나의 제한된 스코프 온보딩.** 리소스 그룹과 동등한 스코프 하나로 시작하고
+1. **인벤토리 검증.** 리소스가 프로비저닝됐는지, 실행자(executor) 아이덴티티가 지정된
+   범위에서 최소 권한만 갖는지 확인합니다.
+2. **제한된 범위 하나 온보딩.** 리소스 그룹 수준과 동등한 범위 하나로 시작하고
    소유자를 지정합니다.
-3. **shadow 모드로 관찰.** FDAI가 변경 없이 판단과 감사만 하도록 두고, 실행 예정
-   액션을 검토합니다.
-4. **하나의 액션 승격.** 승격 게이트를 통과한 액션만 enforce로 켜고, 나머지는
+3. **shadow 모드로 관찰.** FDAI가 변경을 적용하지 않고 판단과 감사만 수행하도록 두고,
+   실행됐을 액션을 검토합니다.
+4. **하나의 액션 승격.** 승격 게이트를 통과한 액션만 enforce로 전환하고, 나머지는
    shadow로 둡니다.
 
-[시작하기](../get-started/) 가이드가 이 첫 번째 안전한 롤아웃을 자세히 다루고,
-[배포와 온보딩](../roadmap/deployment/deploy-and-onboard-ko.md)이 전체 배포
-참고 자료입니다.
+[시작하기](get-started-ko.md) 가이드에서는 이 첫 번째 안전한 롤아웃을 자세히 다룹니다.
+[배포와 온보딩](../roadmap/deployment/deploy-and-onboard-ko.md)은 전체 배포 참고 자료입니다.
 
 ## 관련 문서
 
@@ -75,5 +76,5 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
 
 - [사전 점검](../roadmap/deployment/deployment-preflight-ko.md) - 프로비저닝 전에 차단 요소를 해소합니다.
 - [배포와 온보딩](../roadmap/deployment/deploy-and-onboard-ko.md) - 전체 배포 참고 자료와 Azure 인벤토리.
-- [시작하기](../get-started/) - 오리엔테이션과 첫 번째 안전한 롤아웃.
-- [운영자 콘솔](../roadmap/interfaces/operator-console-ko.md) - FDAI가 라이브가 되면 실행하고 질의합니다.
+- [시작하기](get-started-ko.md) - 오리엔테이션과 첫 번째 안전한 롤아웃.
+- [운영자 콘솔](../roadmap/interfaces/operator-console-ko.md) - FDAI가 실행된 후 상태를 조회하는 방법.
