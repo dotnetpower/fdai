@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2536471a21739cb8326d2da7d18584ab025a232e
-translation_revised: 2026-07-17
+translation_source_sha: b64b78c51054b627c1fe72dc5ff7c17b3f7427aa
+translation_revised: 2026-07-18
 ---
 
 # 프로젝트 구조
@@ -228,10 +228,10 @@ fdai/
 
 | 게이트 | 규칙 | 현재 모드 |
 |--------|------|-----------|
-| [check-core-imports.sh](../../../scripts/check-core-imports.sh) | `core/` 는 클라우드 SDK, HTTP 클라이언트, `fdai.delivery.*` 를 import 금지 | enforce |
-| [check-agents-imports.sh](../../../scripts/check-agents-imports.sh) | `agents/` 도 같은 집합 금지 | enforce |
-| [check-file-loc.sh](../../../scripts/check-file-loc.sh) | 400 LOC 초과 시 warn, enforce 모드에서 800 초과 시 fail | warn-only |
-| [check-subsystem-fanout.sh](../../../scripts/check-subsystem-fanout.sh) | 한 파일이 `core.*` sibling subsystem 을 8개 이상 import 하면 warn, 15개 이상이면 enforce 모드에서 fail | warn-only |
+| [check-core-imports.sh](../../../scripts/quality/architecture/check-core-imports.sh) | `core/` 는 클라우드 SDK, HTTP 클라이언트, `fdai.delivery.*` 를 import 금지 | enforce |
+| [check-agents-imports.sh](../../../scripts/quality/architecture/check-agents-imports.sh) | `agents/` 도 같은 집합 금지 | enforce |
+| [check-file-loc.sh](../../../scripts/quality/architecture/check-file-loc.sh) | 400 LOC 초과 시 warn, enforce 모드에서 800 초과 시 fail | warn-only |
+| [check-subsystem-fanout.sh](../../../scripts/quality/architecture/check-subsystem-fanout.sh) | 한 파일이 `core.*` sibling subsystem 을 8개 이상 import 하면 warn, 15개 이상이면 enforce 모드에서 fail | warn-only |
 
 ### 새 게이트 추가
 

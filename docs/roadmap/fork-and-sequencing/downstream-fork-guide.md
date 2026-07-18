@@ -74,9 +74,9 @@ Do these before your first `git commit` on the fork.
    repository, NOT at `dotnetpower/fdai`. Getting this wrong
    once has a chance of leaking customer commits upstream.
 4. **Enable secret scanning** in the fork's CI - reuse the upstream
-   `scripts/check-punctuation.sh`,
-   `scripts/check-guids.sh`, `scripts/check-core-imports.sh`, and
-   `scripts/check-translations.sh`. **These are not sufficient on
+   `scripts/quality/repository/check-punctuation.sh`,
+   `scripts/quality/repository/check-guids.sh`, `scripts/quality/architecture/check-core-imports.sh`, and
+   `scripts/quality/localization/check-translations.sh`. **These are not sufficient on
    their own.** `check-guids.sh` matches the `8-4-4-4-12` hex shape
    only; it does not know about your customer's resource names,
    endpoints, bearer-token prefixes, or short account ids. Add
@@ -124,9 +124,9 @@ edit `core/`, one of two things is happening:
 
 The rule is enforced by three invariants:
 
-- Upstream's `scripts/check-core-imports.sh` refuses any `core/`
+- Upstream's `scripts/quality/architecture/check-core-imports.sh` refuses any `core/`
   file that imports from `delivery/*` or from a cloud SDK.
-- Upstream's `scripts/check-protected-paths.sh` inspects the
+- Upstream's `scripts/integrity/check-protected-paths.sh` inspects the
   changed files and warns (upstream) or **hard-blocks (fork)** any
   edit to the framework surface - `src/fdai/core/`,
   `src/fdai/composition/`, `src/fdai/shared/providers/`,
@@ -151,7 +151,7 @@ The rule is enforced by three invariants:
   (a SHA-256 map of every framework-surface file) with an Ed25519
   key; the public key ships in the tree
   ([`upstream-signing-key.pub`](../../../security/integrity/upstream-signing-key.pub)).
-  [`scripts/check-integrity.sh`](../../../scripts/check-integrity.sh)
+  [`scripts/integrity/check-integrity.sh`](../../../scripts/integrity/check-integrity.sh)
   re-hashes the surface and verifies the signature with **no network,
   no OCSP, no cert chain** - air-gapped friendly. It reports two
   things independently: a **signature** failure (a forged or corrupt
@@ -170,7 +170,7 @@ The rule is enforced by three invariants:
 To verify a checkout offline at any time:
 
 ```bash
-scripts/check-integrity.sh        # signature + content, fully offline
+scripts/integrity/check-integrity.sh        # signature + content, fully offline
 ```
 
 The `framework-integrity` gate in `scripts/verify.sh` runs it
@@ -271,7 +271,7 @@ class ForkAuditNote(ContractBase):
 ```
 
 The upstream models MUST NOT be edited (they are on the framework
-surface guarded by [`check-protected-paths.sh`](../../../scripts/check-protected-paths.sh));
+surface guarded by [`check-protected-paths.sh`](../../../scripts/integrity/check-protected-paths.sh));
 add a fork submodule under the fork's own package instead.
 
 ## 6. Upstream sync procedure
@@ -314,8 +314,8 @@ git fetch upstream --tags
 git checkout main
 git merge upstream/main            # or rebase - team choice
 # Resolve conflicts (usually zero if the fork rule is honored)
-./scripts/check-punctuation.sh     # sanity gates
-./scripts/check-translations.sh
+./scripts/quality/repository/check-punctuation.sh     # sanity gates
+./scripts/quality/localization/check-translations.sh
 uv run pytest -q tests/ fork/tests/  # full suite
 git push origin main
 ```

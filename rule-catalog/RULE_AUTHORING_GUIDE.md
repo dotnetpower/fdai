@@ -153,7 +153,7 @@ Run these in order - each catches a different class of drift:
 uv run pytest tests/rule_catalog -q      # schema + cross-reference load
 uv run pytest tests/pipeline -q          # end-to-end control loop with OPA
 uv run pytest tests/core/tiers -q        # T0 evaluator round-trip
-scripts/check-translations.sh            # docs pair invariant (if you touched user docs)
+scripts/quality/localization/check-translations.sh            # docs pair invariant (if you touched user docs)
 ```
 
 A pytest failure with `test_shipped_catalog_loads_and_covers_every_action_type`

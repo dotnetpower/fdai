@@ -17,7 +17,7 @@ def test_release_workflow_is_approval_gated_reproducible_and_secret_safe() -> No
     assert "npm --prefix console ci --no-audit --no-fund" in workflow
     assert "uv run alembic upgrade head" in workflow
     assert "uv run bash scripts/verify.sh --full" in workflow
-    assert "bash scripts/verify-productization.sh" in workflow
+    assert "bash scripts/deployment/release/verify-productization.sh" in workflow
     assert "git diff --exit-code" in workflow
     assert "pypa/gh-action-pip-audit@v1.0.8" in workflow
     assert "needs: [verify, dependency-audit]" in workflow

@@ -24,7 +24,7 @@ Adding a real Azure client is a fork-side injection; it MUST NOT edit `core/`.
 
 ## Audit - What Works Local, What Needs Azure
 
-Snapshot as of 2026-07-05. "Local" = passes on a fresh `git clone` after `bash scripts/dev-up.sh`
+Snapshot as of 2026-07-05. "Local" = passes on a fresh `git clone` after `bash scripts/deployment/local/dev-up.sh`
 and `uv run pytest` with **no Azure credentials**.
 
 ### Fully working locally (no Azure needed)
@@ -272,7 +272,7 @@ Everything above stays customer-agnostic. A fork customises without touching `co
 Each work item MUST be provable at CI time:
 
 - `runtime.env == "dev"` end-to-end pytest run **imports zero `delivery.azure.*` modules**
-  (enforced by `scripts/check-core-imports.sh` - extend it to gate `delivery.azure.llm.*`
+  (enforced by `scripts/quality/architecture/check-core-imports.sh` - extend it to gate `delivery.azure.llm.*`
   imports on `dev-mode` fixtures).
 - Terraform plan with `enable_llm=false` succeeds on a fresh subscription with only
   `Reader` role - proving the LLM module is truly opt-in.

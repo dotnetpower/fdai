@@ -46,7 +46,7 @@ Design boundaries
   it depends only on the CSP-neutral Protocols under
   ``fdai.shared.providers``. No ``azure.*`` import, no
   ``fdai.delivery.*`` import (enforced by
-  :file:`scripts/check-core-imports.sh`).
+  :file:`scripts/quality/architecture/check-core-imports.sh`).
 - Attribution is a **classification only** - the detector never mutates
   state, never revert, never blocks the primary pipeline. On any
   publisher / bus error the detector still records the audit entry

@@ -94,7 +94,7 @@ jobs:
         run: uv run bash scripts/verify.sh --full
 
       - name: Run productization and isolated wheel verification
-        run: bash scripts/verify-productization.sh
+        run: bash scripts/deployment/release/verify-productization.sh
 
       - name: Confirm verification did not rewrite tracked source
         run: git diff --exit-code
@@ -166,7 +166,7 @@ jobs:
             if [ -n "$MAX_CLI_VERSION" ]; then
               args+=(--max-cli-version "$MAX_CLI_VERSION")
             fi
-            uv run python scripts/build-deployment-bundle.py "${args[@]}"
+            uv run python scripts/deployment/release/build-deployment-bundle.py "${args[@]}"
           }
           build_bundle first/bundle first/bundle.tar.gz first/bundle-public.pem
           build_bundle second/bundle second/bundle.tar.gz second/bundle-public.pem

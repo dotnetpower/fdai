@@ -42,6 +42,6 @@ echo "ops_resource_group_name = $(terraform output -raw ops_resource_group_name)
 echo "runner_principal_id     = $(terraform output -raw runner_principal_id)"
 echo
 echo "Next:"
-echo "  1. ../../scripts/set-gh-actions-config.sh   # sets repo Variables/Secrets"
+echo "  1. ../../scripts/deployment/azure/set-gh-actions-config.sh   # sets repo Variables/Secrets"
 echo "  2. ./register-runner.sh <owner>/<repo>      # registers the self-hosted runner"
 echo "  3. gh workflow run deploy-dev.yml -f apply=true"

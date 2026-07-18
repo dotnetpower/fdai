@@ -122,21 +122,21 @@ upstream gap (open an upstream issue or ship a fork-local wrapper) - see
 Do not rely on human review alone. Gate every change:
 
 - **Secret scanning** in CI (e.g., `gitleaks` or `trufflehog`) blocks known secret patterns.
-- **GUID gate**: `scripts/check-guids.sh` blocks any GUID-shaped id (8-4-4-4-12 hex)
+- **GUID gate**: `scripts/quality/repository/check-guids.sh` blocks any GUID-shaped id (8-4-4-4-12 hex)
   outside the all-zero placeholder pattern (`00000000-0000-0000-0000-XXXXXXXXXXXX`).
   Runs in CI as the `guids` job. Rationale: Azure tenant, subscription, and
   resource ids all share this shape; blocking them at commit time is the only
   reliable way to keep the repo customer-agnostic.
 - **Custom regex check** in CI for other repo-specific tokens (known resource-name
   prefixes, `*.azure.com`/cloud endpoints) is future work.
-- **Framework-surface guard**: `scripts/check-protected-paths.sh` warns (upstream)
+- **Framework-surface guard**: `scripts/integrity/check-protected-paths.sh` warns (upstream)
   or hard-blocks (fork) any edit to the files a fork MUST NOT touch (`src/fdai/core/`,
   `src/fdai/composition.py`, `src/fdai/shared/providers/`, `src/fdai/shared/contracts/`,
   `src/fdai/agents/`, `rule-catalog/schema/`, `.github/instructions/`). A fork opts into
   block mode with `FDAI_FORK=1`, a `.fdai-fork` marker, or `git config fdai.fork true`.
   Runs in the pre-push hook and the `protected-paths` CI job; `.github/CODEOWNERS`
   is its review-time counterpart.
-- **Signed integrity manifest** (offline, tamper-evident): `scripts/check-integrity.sh`
+- **Signed integrity manifest** (offline, tamper-evident): `scripts/integrity/check-integrity.sh`
   verifies every framework-surface file against
   [security/integrity/manifest.json](../../security/integrity/manifest.json) (SHA-256 map,
   Ed25519-signed by upstream; the public key ships in the tree). It runs fully offline
@@ -148,7 +148,7 @@ Do not rely on human review alone. Gate every change:
   tamper-**evidence**, not tamper-**proof** (a fork owner still controls their runtime),
   so it complements - not replaces - the guard and CODEOWNERS.
 - **Auto re-sign (upstream signer only)**: the `.githooks/pre-commit` hook runs
-  `scripts/resign-if-surface-staged.sh`, which re-signs the manifest and stages it into
+  `scripts/integrity/resign-if-surface-staged.sh`, which re-signs the manifest and stages it into
   the same commit **whenever a framework-surface file is staged AND the upstream private
   signing key is present** (`secrets/integrity-signing-key.pem` or `$FDAI_INTEGRITY_KEY`).
   This removes the manual "re-sign before release" chore for the maintainer. It is a

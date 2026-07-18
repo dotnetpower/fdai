@@ -240,7 +240,7 @@ missing OID produces a `stale_oid` finding and the person is dropped from live
 escalation (falling through to the next tier / maintainer). This runs off the hot
 path (scheduled), never inline in the control loop.
 
-### 7.4 CI gate (`scripts/check-stewardship.sh`)
+### 7.4 CI gate (`scripts/governance/check-stewardship.sh`)
 
 Runs in `scripts/verify.sh` and CI:
 

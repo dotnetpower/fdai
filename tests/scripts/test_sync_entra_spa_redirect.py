@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_SCRIPT_PATH = _REPO_ROOT / "scripts" / "sync-entra-spa-redirect.py"
+_SCRIPT_PATH = _REPO_ROOT / "scripts" / "deployment" / "azure" / "sync-entra-spa-redirect.py"
 
 
 @pytest.fixture(scope="module")

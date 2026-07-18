@@ -9,7 +9,7 @@ identity) into Azure resources. Entry command: `terraform apply` per
 ## Turnkey path (`azd`)
 
 For a one-command experience, [`azure.yaml`](../azure.yaml) drives this Terraform
-through the Azure Developer CLI. `scripts/azd-up.sh` (or `make azd-up`) runs a
+through the Azure Developer CLI. `scripts/deployment/azure/azd-up.sh` (or `make azd-up`) runs a
 non-mutating `azd provision --preview` by default; set `FDAI_AZD_CONFIRM=1` to
 run a real `azd up`. The two-gate design keeps an accidental apply impossible.
 

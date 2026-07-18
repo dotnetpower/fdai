@@ -11,21 +11,21 @@ name: check-derived-sources
 # This gate fails when a pinned sha no longer matches the current
 # `git hash-object` of its source - i.e. the development reference doc
 # changed and the user-facing doc must be reviewed and re-pinned with
-# scripts/refresh-derived-sha.py.
+# scripts/quality/localization/refresh-derived-sha.py.
 
 on:
   pull_request:
     paths:
       - "docs/**/*.md"
       - "README.md"
-      - "scripts/check-derived-sources.py"
+      - "scripts/quality/localization/check-derived-sources.py"
       - ".github/workflows/check-derived-sources.yml"
   push:
     branches: [main]
     paths:
       - "docs/**/*.md"
       - "README.md"
-      - "scripts/check-derived-sources.py"
+      - "scripts/quality/localization/check-derived-sources.py"
       - ".github/workflows/check-derived-sources.yml"
   workflow_dispatch:
 
@@ -48,4 +48,4 @@ jobs:
         run: pip install pyyaml
 
       - name: Run derived-sources check
-        run: python3 scripts/check-derived-sources.py
+        run: python3 scripts/quality/localization/check-derived-sources.py

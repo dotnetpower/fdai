@@ -32,7 +32,7 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
 - **Bilingual docs (MUST)**: user-facing docs (root `README.md` and everything under
   `docs/**/*.md`) ship as `foo.md` (English canonical) + `foo-ko.md` (Korean translation)
   pairs. **Any edit to `foo.md` MUST update `foo-ko.md` in the same PR**, and vice versa.
-  Adding a new user-facing doc MUST add both files. The `scripts/check-translations.sh`
+  Adding a new user-facing doc MUST add both files. The `scripts/quality/localization/check-translations.sh`
   CI gate blocks merges where a `-ko.md` is missing or its recorded
   `translation_source_sha` does not match `git hash-object foo.md`. `.github/**` stays
   English canonical (no `-ko.md` pair). Full rules:
@@ -55,11 +55,11 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
 - Keep modules small and single-purpose; the core engine MUST stay UI-agnostic and portable.
   Prefer files under ~400 lines and functions with a single clear responsibility. Three
   CI-enforced structural gates back this rule:
-  [scripts/check-file-loc.sh](../../scripts/check-file-loc.sh) (warn > 400 LOC, fail > 800
+  [scripts/quality/architecture/check-file-loc.sh](../../scripts/quality/architecture/check-file-loc.sh) (warn > 400 LOC, fail > 800
   in enforce mode),
-  [scripts/check-agents-imports.sh](../../scripts/check-agents-imports.sh) (mirror of the
+  [scripts/quality/architecture/check-agents-imports.sh](../../scripts/quality/architecture/check-agents-imports.sh) (mirror of the
   `core/` boundary applied to `agents/`), and
-  [scripts/check-subsystem-fanout.sh](../../scripts/check-subsystem-fanout.sh)
+  [scripts/quality/architecture/check-subsystem-fanout.sh](../../scripts/quality/architecture/check-subsystem-fanout.sh)
   (warn >= 8 sibling `core.*` subsystems imported by one file, fail >= 15 in enforce mode).
   All three ship warn-only; each G-series refactor tracked in issue #14 flips its target
   file's threshold to `enforce`.

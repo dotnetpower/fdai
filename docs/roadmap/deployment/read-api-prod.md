@@ -141,7 +141,7 @@ Vault secret directly ([app-shape.instructions.md § Azure Mapping](../../../.gi
 - `tests/persistence/test_postgres_console_read_model.py` -
   end-to-end round-trip against a live Postgres. Skipped unless
   `FDAI_DATABASE_URL` is set; the local `docker-compose` dev stack
-  (`bash scripts/dev-up.sh`) exposes it as
+  (`bash scripts/deployment/local/dev-up.sh`) exposes it as
   `postgresql+psycopg://fdai:devonly@localhost:5432/fdai`.
 
 ## Related docs

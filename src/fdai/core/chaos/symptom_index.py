@@ -32,7 +32,7 @@ Design intent (see
   router can widen to `(signal_id, target_type, None)` or
   `(signal_id, None, None)` via the `lookup_widening` helper.
 - The committed tooling snapshot is generated explicitly by
-    `scripts/build-symptom-index.py`; runtime callers can rebuild from
+    `scripts/catalog/build-symptom-index.py`; runtime callers can rebuild from
     promoted entries in memory or load a snapshot for cold-start speed.
 """
 

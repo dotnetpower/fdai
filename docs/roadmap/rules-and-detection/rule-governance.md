@@ -120,7 +120,7 @@ assignment's top-level `effect` is the default for rules without an override.
 > in `promotions_approved`. The **enforcement** `do-not-enforce` -> `enforce` activation - the go-live
 > flip that takes an enforce-tier effect out of shadow - needs the same approval, so a two-step
 > `deny(shadow)` then `deny(enforce)` cannot reach production unreviewed. A thin `git`-diff CI script
-> ([`check-governance-transitions.py`](../../../scripts/check-governance-transitions.py)) wraps the
+> ([`check-governance-transitions.py`](../../../scripts/governance/check-governance-transitions.py)) wraps the
 > validator: it materializes the catalog at the base ref and the working tree and fails the build on
 > a rejected transition. The gate governs **effect + enforcement** transitions; it does not flag a
 > scope / blast-radius **widening** (a lower-specificity scope can be offset by a tighter `selector`, so a

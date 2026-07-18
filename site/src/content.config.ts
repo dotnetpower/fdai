@@ -12,8 +12,8 @@ import { docsSchema } from "@astrojs/starlight/schema";
 // user-facing docs (docs/user-guide/**) are authored for readers. When a
 // user-facing page summarizes facts defined in a roadmap doc, it records
 // that source plus the source's git hash-object so the derivation is
-// explicit and drift is caught: scripts/check-derived-sources.py fails CI
-// when a pinned sha no longer matches, and scripts/refresh-derived-sha.py
+// explicit and drift is caught: scripts/quality/localization/check-derived-sources.py fails CI
+// when a pinned sha no longer matches, and scripts/quality/localization/refresh-derived-sha.py
 // re-pins after review. Extending the schema keeps Starlight's front-matter
 // validation from rejecting the field.
 const derivesFrom = z

@@ -3,7 +3,7 @@ title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
 derives_from:
   - source: docs/roadmap/deployment/deploy-and-onboard.md
-    sha: 804b61e58e5a76180e4f0e3a18229d2f97df51db
+    sha: 7ccf5ffe70b7c2eaac800957533fbbfa5c421050
 ---
 
 # Deploy Quickstart
@@ -43,9 +43,9 @@ path fits your workflow - they provision the same `infra/` Terraform.
 azd auth login
 azd env new fdai-dev
 # safe preview - runs `azd provision --preview`, applies nothing
-scripts/azd-up.sh
+scripts/deployment/azure/azd-up.sh
 # provision for real - second gate prevents an accidental apply
-FDAI_AZD_CONFIRM=1 scripts/azd-up.sh
+FDAI_AZD_CONFIRM=1 scripts/deployment/azure/azd-up.sh
 ```
 
 #### terraform (direct)

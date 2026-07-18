@@ -228,10 +228,10 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 
 | Gate | Rule | Mode today |
 |------|------|------------|
-| [check-core-imports.sh](../../../scripts/check-core-imports.sh) | `core/` forbids cloud SDKs, HTTP clients, and `fdai.delivery.*` | enforce |
-| [check-agents-imports.sh](../../../scripts/check-agents-imports.sh) | `agents/` forbids the same set | enforce |
-| [check-file-loc.sh](../../../scripts/check-file-loc.sh) | warn > 400 LOC, fail > 800 in enforce mode | warn-only |
-| [check-subsystem-fanout.sh](../../../scripts/check-subsystem-fanout.sh) | warn >= 8 sibling `core.*` subsystems in one file, fail >= 15 | warn-only |
+| [check-core-imports.sh](../../../scripts/quality/architecture/check-core-imports.sh) | `core/` forbids cloud SDKs, HTTP clients, and `fdai.delivery.*` | enforce |
+| [check-agents-imports.sh](../../../scripts/quality/architecture/check-agents-imports.sh) | `agents/` forbids the same set | enforce |
+| [check-file-loc.sh](../../../scripts/quality/architecture/check-file-loc.sh) | warn > 400 LOC, fail > 800 in enforce mode | warn-only |
+| [check-subsystem-fanout.sh](../../../scripts/quality/architecture/check-subsystem-fanout.sh) | warn >= 8 sibling `core.*` subsystems in one file, fail >= 15 | warn-only |
 
 ### Adding a new gate
 

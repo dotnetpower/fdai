@@ -14,7 +14,13 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from fdai.deployment_cli.bundle import verify_deployment_bundle
 
-_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "build-deployment-bundle.py"
+_SCRIPT = (
+    Path(__file__).resolve().parents[2]
+    / "scripts"
+    / "deployment"
+    / "release"
+    / "build-deployment-bundle.py"
+)
 _EPOCH = 1_700_000_000
 
 

@@ -1,4 +1,4 @@
-"""Tests for scripts/refresh-translation-sha.py.
+"""Tests for scripts/quality/localization/refresh-translation-sha.py.
 
 Covers the historical whole-tree bug (arguments were ignored) and the
 idempotency contract (a re-run over an in-sync tree MUST leave every file
@@ -18,7 +18,7 @@ from types import ModuleType
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_SCRIPT_PATH = _REPO_ROOT / "scripts" / "refresh-translation-sha.py"
+_SCRIPT_PATH = _REPO_ROOT / "scripts" / "quality" / "localization" / "refresh-translation-sha.py"
 
 
 @pytest.fixture(scope="module")

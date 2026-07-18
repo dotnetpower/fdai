@@ -3,7 +3,7 @@
 Talks to the GitHub REST API v2022-11-28 through :class:`httpx.AsyncClient`
 under a bounded per-request timeout; ``core/`` never sees an ``httpx``
 symbol thanks to the import-lint gate in
-[`scripts/check-core-imports.sh`](../../../../scripts/check-core-imports.sh).
+[`scripts/quality/architecture/check-core-imports.sh`](../../../../scripts/quality/architecture/check-core-imports.sh).
 
 Wire-level flow per publish
 ---------------------------

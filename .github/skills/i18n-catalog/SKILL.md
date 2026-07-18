@@ -61,11 +61,11 @@ are English canonical (no required `-ko.md` pair).
 
 - **Any edit to `foo.md` MUST update `foo-ko.md` in the same PR**, and
   vice versa. Adding a new user-facing `foo.md` MUST add `foo-ko.md`.
-- CI enforces this via [`scripts/check-translations.sh`](../../../scripts/check-translations.sh):
+- CI enforces this via [`scripts/quality/localization/check-translations.sh`](../../../scripts/quality/localization/check-translations.sh):
   compares `git hash-object foo.md` against the `translation_source_sha`
   recorded in `foo-ko.md`.
 - After editing English docs, run
-  [`scripts/refresh-translation-sha.py`](../../../scripts/refresh-translation-sha.py)
+  [`scripts/quality/localization/refresh-translation-sha.py`](../../../scripts/quality/localization/refresh-translation-sha.py)
   to re-sync all pair SHAs at once (only files whose SHA changed are
   rewritten).
 
@@ -112,7 +112,7 @@ truth; Korean MAY lag.
 
 ### Catalog-parity gate
 
-- CI runs [`scripts/check-catalog-parity.sh`](../../../scripts/check-catalog-parity.sh):
+- CI runs [`scripts/quality/localization/check-catalog-parity.sh`](../../../scripts/quality/localization/check-catalog-parity.sh):
   every key in `<name>.ko.json` MUST exist in `<name>.en.json`. Orphan
   `ko` keys are blocked; `en` is the source of truth. `ko` MAY be a
   subset (fallback covers it).
@@ -146,11 +146,11 @@ and cross-fork search - localize the labels around it, not the record itself.
 ## Punctuation and Formats
 
 - **ASCII punctuation only** (blocked by
-  [`scripts/check-punctuation.sh`](../../../scripts/check-punctuation.sh)):
+  [`scripts/quality/repository/check-punctuation.sh`](../../../scripts/quality/repository/check-punctuation.sh)):
   `-`, `"`, `'`, `...`. No em-dash / en-dash / smart quotes /
   ellipsis character / no-break space. This applies inside `-ko.md`
   and inside `.ko.json` too.
-- Auto-fix: `python3 scripts/normalize-punctuation.py` (fence-aware
+- Auto-fix: `python3 scripts/quality/localization/normalize-punctuation.py` (fence-aware
   for `.md`; add `--whole-file` for source files whose content is
   entirely code).
 - Timestamps: ISO 8601 / RFC 3339. Decimal separator `.`; no digit

@@ -201,11 +201,11 @@ local development, verification, and session hand-off consistent.
 | Path | Purpose |
 |------|---------|
 | [scripts/verify.sh](../../../scripts/verify.sh) | Single pre-commit gate: fast text/lint gates by default, `--full [path]` runs pytest. |
-| [scripts/dev-up.sh](../../../scripts/dev-up.sh) / [dev-down.sh](../../../scripts/dev-down.sh) / [dev-logs.sh](../../../scripts/dev-logs.sh) / [dev-status.sh](../../../scripts/dev-status.sh) | Local Docker Compose stack (pgvector + Redpanda) lifecycle. |
-| [scripts/tests-for-diff.sh](../../../scripts/tests-for-diff.sh) | Run only the pytest files affected by the current diff. |
-| [scripts/genesis-up.sh](../../../scripts/genesis-up.sh) | Stream `terraform apply` into the Day-1 Genesis surface via `delivery/provisioning`. |
-| [scripts/azd-up.sh](../../../scripts/azd-up.sh) | `azd up` wrapper (safe-preview default). |
-| [scripts/resume.sh](../../../scripts/resume.sh) | Session-resume snapshot for cross-session hand-off. |
+| [scripts/deployment/local/dev-up.sh](../../../scripts/deployment/local/dev-up.sh) / [dev-down.sh](../../../scripts/deployment/local/dev-down.sh) / [dev-logs.sh](../../../scripts/deployment/local/dev-logs.sh) / [dev-status.sh](../../../scripts/deployment/local/dev-status.sh) | Local Docker Compose stack (pgvector + Redpanda) lifecycle. |
+| [scripts/automation/tests-for-diff.sh](../../../scripts/automation/tests-for-diff.sh) | Run only the pytest files affected by the current diff. |
+| [scripts/deployment/azure/genesis-up.sh](../../../scripts/deployment/azure/genesis-up.sh) | Stream `terraform apply` into the Day-1 Genesis surface via `delivery/provisioning`. |
+| [scripts/deployment/azure/azd-up.sh](../../../scripts/deployment/azure/azd-up.sh) | `azd up` wrapper (safe-preview default). |
+| [scripts/automation/resume.sh](../../../scripts/automation/resume.sh) | Session-resume snapshot for cross-session hand-off. |
 | [.github/prompts/verify.prompt.md](../../../.github/prompts/verify.prompt.md) | `/verify` - run `scripts/verify.sh`. |
 | [.github/prompts/critique-batch.prompt.md](../../../.github/prompts/critique-batch.prompt.md) | `/critique-batch` - critique-and-harden loop (paired with the `coding-hardening` skill). |
 | [.github/prompts/harden-coverage.prompt.md](../../../.github/prompts/harden-coverage.prompt.md) | `/harden-coverage` - coverage hardening on low-coverage modules. |

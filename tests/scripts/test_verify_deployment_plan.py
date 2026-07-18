@@ -12,7 +12,13 @@ from types import ModuleType
 
 import pytest
 
-_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "verify-deployment-plan.py"
+_SCRIPT = (
+    Path(__file__).resolve().parents[2]
+    / "scripts"
+    / "deployment"
+    / "azure"
+    / "verify-deployment-plan.py"
+)
 _NOW = datetime(2026, 7, 17, 10, 0, tzinfo=UTC)
 _PLAN_ID = "plan-123-1"
 _CONTEXT_DIGEST = "d" * 64

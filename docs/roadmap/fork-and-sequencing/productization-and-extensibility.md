@@ -171,8 +171,8 @@ item closes only after these common checks pass where applicable:
 uv run ruff check <changed-paths>
 uv run mypy <changed-python-package>
 uv run pytest <focused-tests> -q
-bash scripts/check-translations.sh
-bash scripts/check-punctuation.sh
+bash scripts/quality/localization/check-translations.sh
+bash scripts/quality/repository/check-punctuation.sh
 ```
 
 Release batches additionally run `scripts/verify.sh --full` from a clean checkout, build the wheel
@@ -181,7 +181,7 @@ migration upgrade checks against a disposable PostgreSQL database. The release w
 this sequence before its Environment can expose the signing key; a separate dependency audit must
 also pass, and only the gated bundle job receives repository write permission.
 
-Run `scripts/verify-productization.sh` for the executable productization gate. It covers the
+Run `scripts/deployment/release/verify-productization.sh` for the executable productization gate. It covers the
 subsystems in this plan, verifies that Alembic has one head, builds the wheel, and launches
 `fdaictl version --output json` through an isolated `uvx` install. It does not replace the full
 repository gate or a live disposable-database migration run.

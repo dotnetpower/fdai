@@ -11,7 +11,7 @@
     {
       "label": "hooks: install (core.hooksPath)",
       "type": "shell",
-      "command": "git config core.hooksPath .githooks && chmod +x .githooks/* scripts/git-auto-pull.sh 2>/dev/null; echo 'pre-commit and pre-push hooks installed (core.hooksPath=.githooks)'",
+      "command": "git config core.hooksPath .githooks && chmod +x .githooks/* scripts/automation/git-auto-pull.sh 2>/dev/null; echo 'pre-commit and pre-push hooks installed (core.hooksPath=.githooks)'",
       "problemMatcher": [],
       "presentation": {
         "reveal": "silent",
@@ -25,7 +25,7 @@
     {
       "label": "git: auto-pull (background)",
       "type": "shell",
-      "command": "bash scripts/git-auto-pull.sh",
+      "command": "bash scripts/automation/git-auto-pull.sh",
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {

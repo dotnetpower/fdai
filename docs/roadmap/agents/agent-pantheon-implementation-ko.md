@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 00dea26741cc291a0b2a36f8037d469cb6a4cb63
-translation_revised: 2026-07-15
+translation_source_sha: 80b1298ad206d44713ecb9a32a53be88639ef85d
+translation_revised: 2026-07-18
 ---
 
 # 에이전트 판테온 구현 계획
@@ -111,8 +111,8 @@ translation_revised: 2026-07-15
 
 **Exit gate**
 
-- 3개 CI translation gate 모두 green (`scripts/check-translations.sh`).
-- Ontology YAML lint 통과 (기존 `scripts/validate-catalog-full.py` 가 오늘
+- 3개 CI translation gate 모두 green (`scripts/quality/localization/check-translations.sh`).
+- Ontology YAML lint 통과 (기존 `scripts/catalog/validate-catalog-full.py` 가 오늘
   이를 커버).
 - `docs/roadmap/README.md` (+`-ko.md`) 가 새 workflows 문서 참조;
   renumbering 은 pantheon-doc PR 에서 이미 완료.
@@ -166,7 +166,7 @@ translation_revised: 2026-07-15
 **Exit gate**
 
 - `pytest tests/agents/` green.
-- `scripts/check-core-imports.sh` 여전히 green (`agents/` 외부에 새
+- `scripts/quality/architecture/check-core-imports.sh` 여전히 green (`agents/` 외부에 새
   cross-layer import 없음).
 - 새 패키지에 `mypy` (또는 repo 의 현재 타입-체크 bar) clean.
 

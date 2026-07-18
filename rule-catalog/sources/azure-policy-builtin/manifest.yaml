@@ -7,7 +7,7 @@
 # the normalized rules under `rule-catalog/collected/azure-builtin/`.
 #
 # The `resolved_ref` field is a placeholder here (0000...) so the
-# hygiene gate (`scripts/check-guids.sh`) does not flag a real SHA
+# hygiene gate (`scripts/quality/repository/check-guids.sh`) does not flag a real SHA
 # that would tie the repo to a specific point-in-time. A real fork
 # swaps the placeholder for the actual commit SHA it pinned against
 # in a PR that also refreshes `rule-catalog/collected/azure-builtin/`.

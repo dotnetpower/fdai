@@ -61,15 +61,15 @@ def test_ci_job_invokes_expected_script(ci_workflow: dict, job: str, script: str
     )
 
 
-def test_pre_push_hook_invokes_all_three_gates() -> None:
+def test_pre_push_hook_invokes_all_structural_gates() -> None:
     body = _PRE_PUSH.read_text()
-    for gate in (
-        "check-agents-imports",
-        "check-file-loc",
-        "check-subsystem-fanout",
-        "check-doc-links",
+    for gate_path in (
+        "scripts/quality/architecture/check-agents-imports.sh",
+        "scripts/quality/architecture/check-file-loc.sh",
+        "scripts/quality/architecture/check-subsystem-fanout.sh",
+        "scripts/quality/repository/check-doc-links.sh",
     ):
-        assert gate in body, (
-            f"pre-push hook no longer invokes {gate}.sh - a routine push"
+        assert gate_path in body, (
+            f"pre-push hook no longer invokes {gate_path} - a routine push"
             " will now miss the structural gate locally. See tracker #14."
         )

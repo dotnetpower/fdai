@@ -52,7 +52,7 @@ repos:
         files: ^(src/|pyproject\.toml$)
       - id: resign-integrity
         name: resign-if-surface-staged.sh (auto re-sign manifest, upstream signer only)
-        entry: bash scripts/resign-if-surface-staged.sh
+        entry: bash scripts/integrity/resign-if-surface-staged.sh
         language: system
         pass_filenames: false
         # No-op unless the upstream private key is present AND a framework-
@@ -61,27 +61,27 @@ repos:
         files: ^(src/fdai/(core/|composition\.py|composition/|shared/providers/|shared/contracts/|agents/)|rule-catalog/schema/|\.github/instructions/)
       - id: check-punctuation
         name: check-punctuation.sh
-        entry: bash scripts/check-punctuation.sh
+        entry: bash scripts/quality/repository/check-punctuation.sh
         language: system
         pass_filenames: false
       - id: check-guids
         name: check-guids.sh
-        entry: bash scripts/check-guids.sh
+        entry: bash scripts/quality/repository/check-guids.sh
         language: system
         pass_filenames: false
       - id: check-translations
         name: check-translations.sh
-        entry: bash scripts/check-translations.sh
+        entry: bash scripts/quality/localization/check-translations.sh
         language: system
         pass_filenames: false
       - id: check-core-imports
         name: check-core-imports.sh
-        entry: bash scripts/check-core-imports.sh
+        entry: bash scripts/quality/architecture/check-core-imports.sh
         language: system
         pass_filenames: false
       - id: check-integrity
         name: check-integrity.sh (framework-surface signature, offline)
-        entry: bash scripts/check-integrity.sh
+        entry: bash scripts/integrity/check-integrity.sh
         language: system
         pass_filenames: false
         # Only run when a framework-surface path (or the manifest itself)

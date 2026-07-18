@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 804b61e58e5a76180e4f0e3a18229d2f97df51db
+translation_source_sha: 7ccf5ffe70b7c2eaac800957533fbbfa5c421050
 translation_revised: 2026-07-18
 ---
 
@@ -108,11 +108,11 @@ fallback합니다. 실패한 경로는 마지막 완전한 graph를 유지하고
   사전에 알려준다.
 - [`onboard.sh`](../../../infra/bootstrap/onboard.sh) 는 create-state-account -> bootstrap
   apply -> GitHub Actions 설정 출력을 한 번에 수행(idempotent).
-- [`set-gh-actions-config.sh`](../../../scripts/set-gh-actions-config.sh) 는 bootstrap output 에서
+- [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh) 는 bootstrap output 에서
   repo Variables + Secrets 를 설정(비번은 생성 후 파이프, 절대 출력 안 함).
 - [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh) 는 러너 토큰을 발급하고
   `run-command` 로 VNet 러너를 등록.
-- [`teardown-env.sh`](../../../scripts/teardown-env.sh) 는 러너 deallocate/start(비용) 와 ops hub
+- [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh) 는 러너 deallocate/start(비용) 와 ops hub
   + state account 를 절대 건드리지 않는 env 별 `terraform destroy` 가드를 제공.
 
 #### 프로덕션 하드닝 knob

@@ -377,7 +377,7 @@ against the manifest compatibility range, rejects traversal and symlinks, requir
 listed file set and a listed JSON SBOM, streams every SHA-256 check, and enforces a total-size cap.
 It never contains signing-key or bundle-building code.
 
-`scripts/build-deployment-bundle.py` implements the release-only build side. It discovers only
+`scripts/deployment/release/build-deployment-bundle.py` implements the release-only build side. It discovers only
 tracked files under `infra/`, `policies/`, `rule-catalog/schema/`, `rule-catalog/profiles/`, and
 `rule-catalog/risk-classification.yaml`; plan, tfvars, tfstate, PEM/key, symlink, untracked, and
 outside-root paths are rejected. It normalizes file mode, mtime, tar owner/group, gzip timestamp,

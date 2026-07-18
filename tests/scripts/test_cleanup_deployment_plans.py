@@ -10,7 +10,13 @@ from types import ModuleType
 
 import pytest
 
-_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "cleanup-deployment-plans.py"
+_SCRIPT = (
+    Path(__file__).resolve().parents[2]
+    / "scripts"
+    / "deployment"
+    / "azure"
+    / "cleanup-deployment-plans.py"
+)
 _NOW = datetime(2026, 7, 17, 10, 0, tzinfo=UTC)
 
 

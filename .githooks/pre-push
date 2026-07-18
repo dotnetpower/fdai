@@ -107,8 +107,8 @@ fi
 #    hard block on any edit under src/fdai/core, composition.py, the provider
 #    Protocols, contracts, agents, rule-catalog/schema, or .github/instructions.
 # ---------------------------------------------------------------------------
-if [ -x scripts/check-protected-paths.sh ] || [ -f scripts/check-protected-paths.sh ]; then
-  if ! bash scripts/check-protected-paths.sh "$range"; then
+if [ -x scripts/integrity/check-protected-paths.sh ] || [ -f scripts/integrity/check-protected-paths.sh ]; then
+  if ! bash scripts/integrity/check-protected-paths.sh "$range"; then
     echo "pre-push: BLOCKED - framework-surface guard (fork mode)."
     exit 1
   fi
@@ -122,8 +122,8 @@ fi
 #     advisory (rc 0) - re-sign before release. Skipped until the signed
 #     manifest exists so a fresh checkout never fails on a missing artifact.
 # ---------------------------------------------------------------------------
-if [ -f scripts/check-integrity.sh ] && [ -f security/integrity/manifest.json.sig ]; then
-  if ! bash scripts/check-integrity.sh; then
+if [ -f scripts/integrity/check-integrity.sh ] && [ -f security/integrity/manifest.json.sig ]; then
+  if ! bash scripts/integrity/check-integrity.sh; then
     echo "pre-push: BLOCKED - framework-surface integrity (fork mode)."
     exit 1
   fi

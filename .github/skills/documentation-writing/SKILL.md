@@ -198,13 +198,13 @@ and `~합니다` in the same bullet list.
 - ASCII punctuation only. No em-dash `—`, en-dash `–`, ellipsis `…`, smart
   quotes, or no-break space. See
   [`../../instructions/language.instructions.md`](../../instructions/language.instructions.md).
-  CI: `scripts/check-punctuation.sh`.
+  CI: `scripts/quality/repository/check-punctuation.sh`.
 - Korean is allowed in docs (FDAI is fully bilingual); there is no english-only
   gate. See same file.
 - Bilingual pair: every `docs/**/*.md` and root `README.md` has a matching
   `-ko.md` with valid front-matter and current `translation_source_sha`.
-  CI: `scripts/check-translations.sh`. Auto-refresh:
-  `python3 scripts/refresh-translation-sha.py`.
+  CI: `scripts/quality/localization/check-translations.sh`. Auto-refresh:
+  `python3 scripts/quality/localization/refresh-translation-sha.py`.
 - Every link resolves to a real file or a stable public URL. Do not link
   to files that "will exist".
 - Diagrams: mermaid over ASCII art. When ASCII art is unavoidable, wrap it
@@ -216,7 +216,7 @@ Do not:
 
 - Open a doc with a code block, a table, or a diagram. Start with a
   sentence.
-- Reintroduce em-dash or en-dash. `scripts/check-punctuation.sh` will
+- Reintroduce em-dash or en-dash. `scripts/quality/repository/check-punctuation.sh` will
   block the PR.
 - Copy the Tier A template into a technical reference. Not every doc needs
   "What can you achieve?".
@@ -241,12 +241,12 @@ Before merging a PR that touches a `.md` file:
    table linking to real files.
 7. Bilingual pair: `-ko.md` updated with translated prose (not just the
    English left in place) and its front-matter SHA refreshed via
-   `python3 scripts/refresh-translation-sha.py`.
+   `python3 scripts/quality/localization/refresh-translation-sha.py`.
 8. CI gates: run locally before pushing:
 
     ```bash
-    bash scripts/check-punctuation.sh
-    bash scripts/check-translations.sh
+    bash scripts/quality/repository/check-punctuation.sh
+    bash scripts/quality/localization/check-translations.sh
     ```
 
 9. Links: every relative link resolves; no `will exist` placeholders.

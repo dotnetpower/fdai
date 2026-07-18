@@ -3,9 +3,9 @@
 # dependency injection at a composition root instead).
 #
 # This file is consumed by:
-#   - scripts/check-protected-paths.sh   (fork edit guard: warn upstream / block fork)
-#   - scripts/gen-integrity-manifest.py  (tamper-evident signed manifest)
-#   - scripts/check-integrity.sh         (offline signature + content verification)
+#   - scripts/integrity/check-protected-paths.sh   (fork edit guard: warn upstream / block fork)
+#   - scripts/integrity/gen-integrity-manifest.py  (tamper-evident signed manifest)
+#   - scripts/integrity/check-integrity.sh         (offline signature + content verification)
 #
 # Keep in sync with:
 #   - docs/roadmap/fork-and-sequencing/downstream-fork-guide.md § 3 (the one hard rule)

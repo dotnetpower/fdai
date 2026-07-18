@@ -221,7 +221,7 @@ jobs:
 
       - name: Verify production architecture-review evidence
         if: inputs.environment == 'prod'
-        run: python3 scripts/check-arb-readiness.py --require-production-ready
+        run: python3 scripts/governance/check-arb-readiness.py --require-production-ready
         working-directory: ${{ github.workspace }}
 
       - name: Bind production Terraform inputs
@@ -369,7 +369,7 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s\n' "$PREFLIGHT_EGRESS_HOSTS_JSON" > runner-egress-hosts.json
-          python3 ../scripts/check-runner-egress.py runner-egress-hosts.json \
+          python3 ../scripts/deployment/azure/check-runner-egress.py runner-egress-hosts.json \
             --output runner-egress-evidence.json --timeout-seconds 5
 
       - name: Terraform plan
@@ -482,7 +482,7 @@ jobs:
             --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
             --container-name deployment-plans --auth-mode login \
             --num-results 1001 --only-show-errors --output json > plan-blobs.json
-          python3 ../scripts/cleanup-deployment-plans.py plan-blobs.json > expired-plan-blobs.txt
+          python3 ../scripts/deployment/azure/cleanup-deployment-plans.py plan-blobs.json > expired-plan-blobs.txt
           deleted=0
           while IFS= read -r blob_name; do
             [ -z "$blob_name" ] && continue
@@ -609,7 +609,7 @@ jobs:
             --name "${blob_prefix}/azure-preflight-evidence.json" \
             --file plan-azure-preflight-evidence.json \
             --auth-mode login --overwrite --only-show-errors --output none
-          python3 ../scripts/verify-deployment-plan.py \
+          python3 ../scripts/deployment/azure/verify-deployment-plan.py \
             --plan dev.plan --metadata plan-metadata.json \
             --preflight-evidence plan-preflight-evidence.json \
             --azure-preflight-evidence plan-azure-preflight-evidence.json \
@@ -702,7 +702,7 @@ jobs:
             echo "console_default_hostname is empty after console deployment." >&2
             exit 1
           fi
-          python3 ../scripts/sync-entra-spa-redirect.py \
+          python3 ../scripts/deployment/azure/sync-entra-spa-redirect.py \
             --tenant-id "$EXPECTED_AZURE_TENANT_ID" \
             --spa-client-id "$ENTRA_CONSOLE_SPA_CLIENT_ID" \
             --origin "https://$hostname"

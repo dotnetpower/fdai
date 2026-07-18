@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 9f6e1bb8051285309e493d132124b739863f4ec9
-translation_revised: 2026-07-17
+translation_source_sha: 12a769e87bea80edb331f9996090e0e9200569f9
+translation_revised: 2026-07-18
 ---
 
 # 프로세스 자동화(Process Automation)
@@ -300,7 +300,7 @@ audit record 를 쓰지만 cloud resource 를 변경할 수 없습니다.
 FDAI_READ_API_DEV_MODE=1 uv run uvicorn \
   'fdai.delivery.read_api.dev.local:app' --factory --port 8000
 
-uv run python scripts/run-workflow.py architecture-review \
+uv run python scripts/automation/run-workflow.py architecture-review \
   --target fdai-control-plane
 ```
 

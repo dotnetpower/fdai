@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: a2494b6edb2a81c58ae4d78f61f2d9104b73c498
-translation_revised: 2026-07-17
+translation_source_sha: 6fffb5b24289f9b7a1b078e467fac69b44095765
+translation_revised: 2026-07-18
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -223,7 +223,7 @@ maintainer/steward OID가 여전히 활성 계정으로 해석되는지 확인�
 만들고 그 사람은 live 에스컬레이션에서 제거된다(다음 tier / maintainer로 폴백). 이는 hot path
 바깥(스케줄)에서 실행되며 제어 루프에서 절대 인라인으로 돌지 않는다.
 
-### 7.4 CI 게이트 (`scripts/check-stewardship.sh`)
+### 7.4 CI 게이트 (`scripts/governance/check-stewardship.sh`)
 
 `scripts/verify.sh`와 CI에서 실행:
 

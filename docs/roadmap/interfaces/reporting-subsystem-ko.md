@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 2017e57804a21440a09b529ced765c926fffd0d9
-translation_revised: 2026-07-17
+translation_source_sha: 61c47574ab50b967c022fd153fc1c12b26153939
+translation_revised: 2026-07-18
 ---
 # 리포팅 서브시스템
 
@@ -466,10 +466,10 @@ validate합니다.
 - **`core/`는 절대로 `delivery/`를 import하지 않음**. Audit
   어댑터는 좁은 duck-typed Protocol을 받아 composition wire-up을
   한 방향으로 유지합니다
-  ([`scripts/check-core-imports.sh`](../../../scripts/check-core-imports.sh)가 강제).
+  ([`scripts/quality/architecture/check-core-imports.sh`](../../../scripts/quality/architecture/check-core-imports.sh)가 강제).
 - **ASCII-only markdown / audit 표면**. Markdown encoder는 smart
   quotes / em-dash / NBSP를 방출하지 않으며;
-  [`scripts/check-punctuation.sh`](../../../scripts/check-punctuation.sh)가 강제.
+  [`scripts/quality/repository/check-punctuation.sh`](../../../scripts/quality/repository/check-punctuation.sh)가 강제.
 
 ### Hardening (batch-5 비평 기반 pass)
 

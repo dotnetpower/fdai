@@ -77,7 +77,7 @@ bus-factor 1).
 
 ## Verification checklist (must pass before handover is "done")
 
-- [ ] `bash scripts/check-stewardship.sh` is green (15 agents, maintainer floor,
+- [ ] `bash scripts/governance/check-stewardship.sh` is green (15 agents, maintainer floor,
       no forbidden role fields).
 - [ ] `pytest tests/core/stewardship/ -q --no-cov` passes.
 - [ ] `python -c "from pathlib import Path; from fdai.core.stewardship import

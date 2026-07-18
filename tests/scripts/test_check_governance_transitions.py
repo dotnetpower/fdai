@@ -8,7 +8,7 @@ from types import ModuleType
 
 import pytest
 
-_SCRIPT = Path(__file__).parents[2] / "scripts" / "check-governance-transitions.py"
+_SCRIPT = Path(__file__).parents[2] / "scripts" / "governance" / "check-governance-transitions.py"
 
 
 def _load_script() -> ModuleType:

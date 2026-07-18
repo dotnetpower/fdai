@@ -1,7 +1,7 @@
 """Behavioral tests for the three structural CI gates.
 
-Covers ``scripts/check-file-loc.sh``, ``scripts/check-agents-imports.sh``,
-and ``scripts/check-subsystem-fanout.sh``. Each script is driven against a
+Covers the file LOC, agent import, and subsystem fan-out checks under
+``scripts/quality/architecture/``. Each script is driven against a
 throwaway workspace layout so warn-vs-enforce mode, threshold overrides,
 allowlist handling, and the fail-loud path are all pinned against regression.
 
@@ -18,9 +18,10 @@ from pathlib import Path
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-_FILE_LOC = _REPO_ROOT / "scripts" / "check-file-loc.sh"
-_AGENTS = _REPO_ROOT / "scripts" / "check-agents-imports.sh"
-_FANOUT = _REPO_ROOT / "scripts" / "check-subsystem-fanout.sh"
+_GATE_DIR = _REPO_ROOT / "scripts" / "quality" / "architecture"
+_FILE_LOC = _GATE_DIR / "check-file-loc.sh"
+_AGENTS = _GATE_DIR / "check-agents-imports.sh"
+_FANOUT = _GATE_DIR / "check-subsystem-fanout.sh"
 _GIT = shutil.which("git") or "git"
 _BASH = shutil.which("bash") or "bash"
 

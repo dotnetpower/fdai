@@ -3,7 +3,7 @@
 Each adapter implements exactly one of the six Protocols in
 :mod:`fdai.shared.providers.notifications`. They live under
 ``delivery/`` so ``core/`` cannot import them (enforced by
-``scripts/check-core-imports.sh``).
+``scripts/quality/architecture/check-core-imports.sh``).
 
 - :mod:`.teams` - Microsoft Teams incoming-webhook (Adaptive Card body).
 - :mod:`.slack` - Slack incoming-webhook (Block Kit body).

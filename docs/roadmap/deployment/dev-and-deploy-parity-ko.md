@@ -1,8 +1,8 @@
 ---
 title: Dev/Deploy Parity - 로컬 Fake vs Azure-First 프로비저닝
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 979d092bcf970326b52bdfe7d6a76d6c0c8e78eb
-translation_revised: 2026-07-17
+translation_source_sha: cda845da82d9111c9ac676b0eb40ec66f6e84d5c
+translation_revised: 2026-07-18
 ---
 
 # Dev/Deploy Parity - 로컬 Fake vs Azure-First 프로비저닝
@@ -26,7 +26,7 @@ translation_revised: 2026-07-17
 
 ## 전수조사 - 로컬 동작 vs Azure 필요
 
-2026-07-05 기준. "로컬" = fresh `git clone` 후 `bash scripts/dev-up.sh` + `uv run pytest`가
+2026-07-05 기준. "로컬" = fresh `git clone` 후 `bash scripts/deployment/local/dev-up.sh` + `uv run pytest`가
 **Azure 자격증명 없이** 통과.
 
 ### 완전 로컬 동작 (Azure 불필요)
@@ -269,7 +269,7 @@ Future work로 유지. 전체 설계는 이미
 각 작업 항목은 CI에서 증명 가능해야:
 
 - `runtime.env == "dev"` 종단 pytest 실행이 **`delivery.azure.*` 모듈을 zero import**
-  (`scripts/check-core-imports.sh` 로 강제 - dev-mode 픽스처에서 `delivery.azure.llm.*`
+  (`scripts/quality/architecture/check-core-imports.sh` 로 강제 - dev-mode 픽스처에서 `delivery.azure.llm.*`
   import 게이팅 추가).
 - `Reader` 롤만 있는 fresh subscription에서 `enable_llm=false` 로 Terraform plan 성공 →
   LLM 모듈이 정말 opt-in 임을 증명.

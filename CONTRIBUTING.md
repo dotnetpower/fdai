@@ -76,8 +76,8 @@ is enforced: every code change that touches behavior, a public
 interface, a DI seam, a config key, or a schema updates the affected
 doc in the same PR. Bilingual pairs (`foo.md` + `foo-ko.md` under
 `docs/**/` and root `README.md`) are gated by
-`scripts/check-translations.sh`; if you edit an English source, run
-[`scripts/refresh-translation-sha.py`](scripts/refresh-translation-sha.py)
+`scripts/quality/localization/check-translations.sh`; if you edit an English source, run
+[`scripts/quality/localization/refresh-translation-sha.py`](scripts/quality/localization/refresh-translation-sha.py)
 after updating the Korean sibling so the recorded
 `translation_source_sha` matches.
 

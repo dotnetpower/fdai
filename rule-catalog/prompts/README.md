@@ -26,7 +26,7 @@ for the full design.
 - New prompts default to `default_mode: shadow`. Promotion to `enforce` is a
   separately reviewed change and MUST cite the measured `promotion_gate` result.
 - All bodies use ASCII punctuation only. The repo-wide
-  [`scripts/check-punctuation.sh`](../../scripts/check-punctuation.sh) enforces this.
+  [`scripts/quality/repository/check-punctuation.sh`](../../scripts/quality/repository/check-punctuation.sh) enforces this.
 
 ## Loading
 

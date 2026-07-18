@@ -750,7 +750,7 @@ reconciler poll, or a fork-authored CLI.
 - Kept `core/`-safe: the module imports only from
   `fdai.core.operator_memory` and
   `fdai.shared.providers.hil_channel` (a Protocol package),
-  so `scripts/check-core-imports.sh` continues to pass. No
+  so `scripts/quality/architecture/check-core-imports.sh` continues to pass. No
   `delivery.*` import lands.
 
 ## Wave 3 step B pipeline slice 2 - what shipped
@@ -1134,7 +1134,7 @@ without any risk to the current T2 flow.
   retry.
 - Kept `core/`-safe: the module imports only from
   `fdai.core.quality_gate.gate` and stdlib; no
-  `delivery.*`, no LLM SDK. `scripts/check-core-imports.sh`
+  `delivery.*`, no LLM SDK. `scripts/quality/architecture/check-core-imports.sh`
   continues to pass at 74 files.
 
 ## Wave 4 beta-1 - what shipped
@@ -1413,7 +1413,7 @@ through the debate.
   6. Otherwise -> SKIP with reason `default_skip`.
 - Kept `core/`-safe: imports only from
   `fdai.core.quality_gate.gate` and stdlib; no
-  `delivery.*`, no LLM SDK. `scripts/check-core-imports.sh`
+  `delivery.*`, no LLM SDK. `scripts/quality/architecture/check-core-imports.sh`
   continues to pass.
 - 11 tests in `tests/quality_gate/test_debate_router.py` cover
   every precedence rule + the config's overlap validator + the
@@ -1517,7 +1517,7 @@ contract every future adapter honors.
 - Kept `core/`-safe: imports only from stdlib and
   `fdai.core.operator_memory.sanitizer` (for the shared
   marker list). No LLM SDK, no `delivery.*`.
-  `scripts/check-core-imports.sh` continues to pass.
+  `scripts/quality/architecture/check-core-imports.sh` continues to pass.
 - 19 tests in `tests/core/web_search/test_web_search.py` cover
   every constructor invariant (4 + 3), NoOp provider behaviour +
   Protocol runtime-check (2), domain allowlist enforcement (3),

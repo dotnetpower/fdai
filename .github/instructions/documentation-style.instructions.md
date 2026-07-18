@@ -106,7 +106,7 @@ These apply to **every** tier:
 
 - **ASCII punctuation only** ([language.instructions.md](language.instructions.md#formats-machine-parseable)).
   Use `-`, `"`, `'`, `...`. Never em-dash, en-dash, smart quotes, ellipsis
-  character, or no-break space. CI blocks these via `scripts/check-punctuation.sh`.
+  character, or no-break space. CI blocks these via `scripts/quality/repository/check-punctuation.sh`.
 - **Bold lead-ins**: bulleted lists in Tier A / B docs use a `**Bold key**:`
   lead-in when practical, so the eye can scan.
 - **Concrete examples**: any capability described in prose SHOULD have an
@@ -126,7 +126,7 @@ These apply to **every** tier:
 - **Bilingual pair**: a change to `foo.md` MUST update `foo-ko.md` in the
   same PR and refresh `translation_source_sha`
   ([language.instructions.md](language.instructions.md#user-facing-doc-translations-ko)).
-  Use `python3 scripts/refresh-translation-sha.py` after editing English
+  Use `python3 scripts/quality/localization/refresh-translation-sha.py` after editing English
   docs to re-sync all pairs.
 
 ## Anti-Patterns

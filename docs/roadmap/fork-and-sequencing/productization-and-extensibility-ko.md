@@ -1,8 +1,8 @@
 ---
 title: 제품화 및 확장성 계획
 translation_of: productization-and-extensibility.md
-translation_source_sha: dbe2e24c902301a6efc8ba1e001b0d16965986af
-translation_revised: 2026-07-17
+translation_source_sha: a0ae8d966de3028ad72e414f6ceaae600d1448a9
+translation_revised: 2026-07-18
 ---
 # 제품화 및 확장성 계획
 
@@ -175,8 +175,8 @@ mount하고 durable PostgreSQL claim store를 기본으로 사용합니다.
 uv run ruff check <changed-paths>
 uv run mypy <changed-python-package>
 uv run pytest <focused-tests> -q
-bash scripts/check-translations.sh
-bash scripts/check-punctuation.sh
+bash scripts/quality/localization/check-translations.sh
+bash scripts/quality/repository/check-punctuation.sh
 ```
 
 Release batch는 clean checkout에서 `scripts/verify.sh --full`도 실행하고 wheel 및 deployment
@@ -185,7 +185,7 @@ PostgreSQL database에서 migration upgrade check를 실행합니다. Release wo
 signing key를 노출하기 전에 이 순서를 적용합니다. 별도 dependency audit도 통과해야 하며
 gated bundle job만 repository write permission을 받습니다.
 
-Executable productization gate에는 `scripts/verify-productization.sh`를 실행합니다. 이 계획의
+Executable productization gate에는 `scripts/deployment/release/verify-productization.sh`를 실행합니다. 이 계획의
 subsystem을 검사하고 Alembic head가 하나인지 확인하고 wheel을 build하고 isolated `uvx`
 install로 `fdaictl version --output json`을 실행합니다. Full repository gate 또는 live disposable
 database migration run을 대체하지 않습니다.

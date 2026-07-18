@@ -1,8 +1,8 @@
 ---
 title: 콘솔 read-API 프로덕션 배포
 translation_of: read-api-prod.md
-translation_source_sha: 1edf6bd60d2fc6265957fb22d63b847a5790d897
-translation_revised: 2026-07-16
+translation_source_sha: 1b3baac16a3df26c3f9cd5015a30554dcdfab2cb
+translation_revised: 2026-07-18
 ---
 # 콘솔 read-API 프로덕션 배포
 
@@ -137,7 +137,7 @@ uvicorn fdai.delivery.read_api.prod:app \
   커서 파싱, KPI 집계 (DB 왕복 없음).
 - `tests/persistence/test_postgres_console_read_model.py` -
   라이브 Postgres 대상 end-to-end 라운드트립. `FDAI_DATABASE_URL`이 없으면
-  스킵. 로컬 `docker-compose` dev 스택 (`bash scripts/dev-up.sh`)이
+  스킵. 로컬 `docker-compose` dev 스택 (`bash scripts/deployment/local/dev-up.sh`)이
   `postgresql+psycopg://fdai:devonly@localhost:5432/fdai`로 노출한다.
 
 ## 관련 문서

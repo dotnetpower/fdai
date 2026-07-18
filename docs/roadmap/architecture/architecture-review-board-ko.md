@@ -1,8 +1,8 @@
 ---
 title: Architecture Review Board 패킷
 translation_of: architecture-review-board.md
-translation_source_sha: 2e5b8d4f890404d02509d5c875f6cf896dbd31b9
-translation_revised: 2026-07-13
+translation_source_sha: fcfd38edba8fe4000e61716884b85b05a3d093ce
+translation_revised: 2026-07-18
 ---
 # Architecture Review Board 패킷
 
@@ -40,13 +40,13 @@ Machine-readable 결정 상태는
 변경에서 구조 검사를 실행합니다.
 
 ```bash
-python3 scripts/check-arb-readiness.py
+python3 scripts/governance/check-arb-readiness.py
 ```
 
 Production promotion pipeline은 fail-closed 형식을 사용합니다.
 
 ```bash
-python3 scripts/check-arb-readiness.py --require-production-ready
+python3 scripts/governance/check-arb-readiness.py --require-production-ready
 ```
 
 ## 범위와 컨텍스트
@@ -207,7 +207,7 @@ evidence가 review를 통해 갱신된 후에만 수락합니다.
 3. 적절한 governance path에서 각 blocker를 해결하거나 공식적으로 accept합니다.
 4. Production artifact를 `ready`로 표시하고 design review를 승인한 뒤 production approval을
    `ready`로 설정합니다.
-5. Promotion job에서 `python3 scripts/check-arb-readiness.py --require-production-ready`를
+5. Promotion job에서 `python3 scripts/governance/check-arb-readiness.py --require-production-ready`를
    실행합니다.
 6. ARB 결정, approver, condition, exception expiry를 audit store에 기록합니다.
 

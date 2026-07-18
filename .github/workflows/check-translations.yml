@@ -12,7 +12,7 @@ on:
       - "README.md"
       - "README-ko.md"
       - "docs/**/*.md"
-      - "scripts/check-translations.sh"
+      - "scripts/quality/localization/check-translations.sh"
       - ".github/workflows/check-translations.yml"
   push:
     branches: [main]
@@ -20,7 +20,7 @@ on:
       - "README.md"
       - "README-ko.md"
       - "docs/**/*.md"
-      - "scripts/check-translations.sh"
+      - "scripts/quality/localization/check-translations.sh"
       - ".github/workflows/check-translations.yml"
   workflow_dispatch:
 
@@ -35,4 +35,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run translation pair check
-        run: bash scripts/check-translations.sh
+        run: bash scripts/quality/localization/check-translations.sh

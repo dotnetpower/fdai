@@ -189,7 +189,7 @@
         "first_measured_ttfo_ms": {
           "type": ["number", "null"],
           "minimum": 0,
-          "description": "Time-to-first-observed in ms from `scripts/measure-detection-latency.py`; null until measured."
+          "description": "Time-to-first-observed in ms from `scripts/catalog/measure-detection-latency.py`; null until measured."
         },
         "last_validated_at": {
           "type": ["string", "null"],

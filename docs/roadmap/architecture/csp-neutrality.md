@@ -466,7 +466,7 @@ without knowing which backend recorded it.
 - Upstream defaults are no-op providers so downstream consumers can be authored
   against a stable interface before any concrete adapter is wired.
 - Vendor SDK imports stay confined to `delivery/<vendor>/`; `core/` imports only the
-  Protocol - enforced by [`scripts/check-core-imports.sh`](../../../scripts/check-core-imports.sh).
+  Protocol - enforced by [`scripts/quality/architecture/check-core-imports.sh`](../../../scripts/quality/architecture/check-core-imports.sh).
 
 ## Azure-Phase Realization (Summary)
 

@@ -11,7 +11,7 @@ import pytest
 import yaml
 
 _REPO_ROOT = Path(__file__).parents[2]
-_SCRIPT = _REPO_ROOT / "scripts" / "check-arb-readiness.py"
+_SCRIPT = _REPO_ROOT / "scripts" / "governance" / "check-arb-readiness.py"
 _MANIFEST = _REPO_ROOT / "config" / "architecture-review.yaml"
 
 

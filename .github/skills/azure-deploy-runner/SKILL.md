@@ -103,7 +103,7 @@ Two Terraform layers plus a runner VM.
 
 ## Standard Deploy Flow
 
-1. **Preflight (from the laptop)**: run `scripts/dev-status.sh` and
+1. **Preflight (from the laptop)**: run `scripts/deployment/local/dev-status.sh` and
    confirm the correct `az account show` subscription. When two
    profiles are present (default + a customer profile under
    `$HOME/.azure-customer`), check the customer one with
@@ -164,7 +164,7 @@ Two Terraform layers plus a runner VM.
   it in the current session.
 - Never run a destructive `terraform apply` against another tenant
   from a session that is authenticated to a wrong profile. Confirm
-  the `az account show` output first (see `scripts/dev-status.sh`).
+  the `az account show` output first (see `scripts/deployment/local/dev-status.sh`).
 - Do not add customer / tenant / subscription / resource identifiers
   to this skill, to the repo, or to any docs. They live only in the
   maintainer's `/memories/`. See
@@ -179,4 +179,4 @@ Two Terraform layers plus a runner VM.
 - App shape:
   [.github/instructions/app-shape.instructions.md](../../instructions/app-shape.instructions.md).
 - Session snapshot:
-  [scripts/dev-status.sh](../../../scripts/dev-status.sh).
+  [scripts/deployment/local/dev-status.sh](../../../scripts/deployment/local/dev-status.sh).

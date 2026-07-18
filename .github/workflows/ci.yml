@@ -168,7 +168,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: check-translations.sh
-        run: bash scripts/check-translations.sh
+        run: bash scripts/quality/localization/check-translations.sh
 
   catalog-parity:
     name: L2 message-catalog parity (ko keys subset of en)
@@ -178,7 +178,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: check-catalog-parity.sh
-        run: bash scripts/check-catalog-parity.sh
+        run: bash scripts/quality/localization/check-catalog-parity.sh
 
   punctuation:
     name: ASCII punctuation (no em-dash / smart-quotes / nbsp)
@@ -188,7 +188,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: check-punctuation.sh
-        run: bash scripts/check-punctuation.sh
+        run: bash scripts/quality/repository/check-punctuation.sh
 
   guids:
     name: No customer/personal GUIDs (generic-scope guard)
@@ -198,7 +198,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: check-guids.sh
-        run: bash scripts/check-guids.sh
+        run: bash scripts/quality/repository/check-guids.sh
 
   architecture-review:
     name: architecture-review readiness contract
@@ -211,7 +211,7 @@ jobs:
         run: python3 -m pip install --quiet pyyaml
 
       - name: Validate architecture-review manifest
-        run: python3 scripts/check-arb-readiness.py
+        run: python3 scripts/governance/check-arb-readiness.py
 
   stewardship:
     name: agent stewardship handover-map guard
@@ -224,7 +224,7 @@ jobs:
         run: python3 -m pip install --quiet pyyaml
 
       - name: check-stewardship.sh
-        run: bash scripts/check-stewardship.sh
+        run: bash scripts/governance/check-stewardship.sh
 
   chaos-scenarios:
     name: chaos-scenarios catalog + symptom-index guard
@@ -245,7 +245,7 @@ jobs:
         run: python3 -m pip install --quiet -e .
 
       - name: check-chaos-scenarios.sh
-        run: bash scripts/check-chaos-scenarios.sh
+        run: bash scripts/catalog/check-chaos-scenarios.sh
 
   core-imports:
     name: core/ module-boundary guard (no cloud SDK, no HTTP client)
@@ -255,7 +255,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: check-core-imports.sh
-        run: bash scripts/check-core-imports.sh
+        run: bash scripts/quality/architecture/check-core-imports.sh
 
   agents-imports:
     name: agents/ module-boundary guard (no cloud SDK, no HTTP client, no delivery/)
@@ -269,7 +269,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: check-agents-imports.sh
-        run: bash scripts/check-agents-imports.sh
+        run: bash scripts/quality/architecture/check-agents-imports.sh
 
   file-loc:
     name: file LOC guard (warn > 400, fail > 800 in enforce mode)
@@ -283,7 +283,7 @@ jobs:
       - name: check-file-loc.sh
         env:
           FILE_LOC_MODE: enforce
-        run: bash scripts/check-file-loc.sh
+        run: bash scripts/quality/architecture/check-file-loc.sh
 
   subsystem-fanout:
     name: core/ subsystem fan-out guard (warn >= 8, fail >= 15 in enforce mode)
@@ -297,7 +297,7 @@ jobs:
       - name: check-subsystem-fanout.sh
         env:
           SUBSYSTEM_FANOUT_MODE: enforce
-        run: bash scripts/check-subsystem-fanout.sh
+        run: bash scripts/quality/architecture/check-subsystem-fanout.sh
 
   doc-links:
     name: broken markdown link guard (symlink-aware)
@@ -311,7 +311,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: check-doc-links.sh
-        run: bash scripts/check-doc-links.sh
+        run: bash scripts/quality/repository/check-doc-links.sh
 
   protected-paths:
     name: framework-surface guard (advisory upstream, block in fork)
@@ -345,7 +345,7 @@ jobs:
             range="${before}...${{ github.sha }}"
           fi
           echo "protected-paths: diffing range '$range'"
-          bash scripts/check-protected-paths.sh "$range"
+          bash scripts/integrity/check-protected-paths.sh "$range"
 
   secret-scan:
     name: gitleaks
@@ -441,7 +441,7 @@ jobs:
             base="$before"
           fi
           echo "governance-transitions: base ref '$base'"
-          uv run python scripts/check-governance-transitions.py --base "$base"
+          uv run python scripts/governance/check-governance-transitions.py --base "$base"
 
   freeze-scenarios:
     name: Frozen scenario-set immutability (PR only)

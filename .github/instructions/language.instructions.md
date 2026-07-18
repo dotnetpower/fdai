@@ -35,7 +35,7 @@ about which human language you may write:
   branch names stay ASCII for cross-language, cross-platform, and tooling
   compatibility. Write Korean in comments, docstrings, and string **values** -
   never in a name or a path.
-- **ASCII punctuation only** (still enforced by `scripts/check-punctuation.sh`):
+- **ASCII punctuation only** (still enforced by `scripts/quality/repository/check-punctuation.sh`):
   use `-`, `"`, `'`, `...`; never em-dash, en-dash, smart quotes, the ellipsis
   character, or a no-break space - those break `grep`, `diff`, and search
   regardless of language.
@@ -204,13 +204,13 @@ NOT change what the typed pipeline decides.
 - Use `.` as the decimal separator and no digit-grouping in machine-read values.
 - **ASCII punctuation only (MUST, CI-enforced).** Use `-`, `"`, `'`, and `...`. The
   following Unicode characters are BLOCKED in every tracked text file by
-  `scripts/check-punctuation.sh`:
+  `scripts/quality/repository/check-punctuation.sh`:
   - U+2014 EM DASH  and  U+2013 EN DASH  -> use ASCII `-`
   - U+2026 HORIZONTAL ELLIPSIS  -> use `...`
   - U+201C / U+201D smart double quotes  -> use ASCII `"`
   - U+2018 / U+2019 smart single quotes  -> use ASCII `'`
   - U+00A0 NO-BREAK SPACE (invisible; breaks grep/diff)  -> use a normal space
-  Auto-fix: `python3 scripts/normalize-punctuation.py` (fence-aware for `.md`;
+  Auto-fix: `python3 scripts/quality/localization/normalize-punctuation.py` (fence-aware for `.md`;
   add `--whole-file` for source files where the whole content is code).
 
 ## Why
@@ -245,16 +245,16 @@ NOT change what the typed pipeline decides.
 
 - **No english-only gate.** Korean is allowed anywhere in natural-language text; there
   is no CI check that blocks it. (`scripts/check-english-only.sh` has been retired.)
-- **Punctuation gate**: `scripts/check-punctuation.sh` runs in CI and enforces the
+- **Punctuation gate**: `scripts/quality/repository/check-punctuation.sh` runs in CI and enforces the
   ASCII-only punctuation rule above; it blocks em-dash, en-dash, ellipsis,
   smart-quotes, and no-break-space anywhere in a tracked text file (including inside
   `-ko.md`, code blocks, and comments) - regardless of language.
-- **Translation-pair gate**: `scripts/check-translations.sh` runs in CI and enforces
+- **Translation-pair gate**: `scripts/quality/localization/check-translations.sh` runs in CI and enforces
   the [paired-update rule](#user-facing-doc-translations-ko) for docs that use the
   pair convention: every in-scope `foo.md` has a `foo-ko.md`, every `foo-ko.md` has
   front-matter with `translation_of` and `translation_source_sha`, and each
   `translation_source_sha` matches the current `git hash-object` of the source file.
-- **Catalog-parity gate**: `scripts/check-catalog-parity.sh` runs in CI and enforces
+- **Catalog-parity gate**: `scripts/quality/localization/check-catalog-parity.sh` runs in CI and enforces
   the [Product i18n](#product-i18n-l2) rule for L2 message catalogs: for every
   `<name>.en.json` / `<name>.ko.json` sibling pair, the `ko` keys MUST be a subset of
   the `en` keys (no orphan translations; `en` is the source of truth, `ko` MAY lag

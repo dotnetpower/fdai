@@ -139,7 +139,7 @@ Set these GitHub Actions repository variables for each deployment target:
 
 When `deploy-dev.yml` runs with both `apply=true` and `deploy_console=true`, it
 reads `console_default_hostname` from Terraform and runs
-`scripts/sync-entra-spa-redirect.py`. The helper:
+`scripts/deployment/azure/sync-entra-spa-redirect.py`. The helper:
 
 1. Verifies that the active Azure CLI tenant equals `AZURE_TENANT_ID`.
 2. Preserves every existing SPA redirect URI and adds the deployed HTTPS origin

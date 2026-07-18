@@ -9,7 +9,13 @@ from types import ModuleType
 
 import pytest
 
-_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "check-runner-egress.py"
+_SCRIPT = (
+    Path(__file__).resolve().parents[2]
+    / "scripts"
+    / "deployment"
+    / "azure"
+    / "check-runner-egress.py"
+)
 
 
 @pytest.fixture(scope="module")

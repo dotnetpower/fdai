@@ -93,41 +93,29 @@ else
     overall=1
 fi
 
-run_gate "punctuation"  bash scripts/check-punctuation.sh
-run_gate "guids"        bash scripts/check-guids.sh
-run_gate "translations" bash scripts/check-translations.sh
+run_gate "punctuation"  bash scripts/quality/repository/check-punctuation.sh
+run_gate "guids"        bash scripts/quality/repository/check-guids.sh
+run_gate "translations" bash scripts/quality/localization/check-translations.sh
 
-if [[ -x scripts/check-catalog-parity.sh ]]; then
-    run_gate "catalog-parity" bash scripts/check-catalog-parity.sh
-fi
+run_gate "catalog-parity" bash scripts/quality/localization/check-catalog-parity.sh
 
-if [[ -f scripts/check-stewardship.sh ]]; then
-    run_gate "stewardship" bash scripts/check-stewardship.sh
-fi
+run_gate "stewardship" bash scripts/governance/check-stewardship.sh
 
-if [[ -f scripts/check-chaos-scenarios.sh ]]; then
-    run_gate "chaos-scenarios" bash scripts/check-chaos-scenarios.sh
-fi
+run_gate "chaos-scenarios" bash scripts/catalog/check-chaos-scenarios.sh
 
-if [[ -f scripts/check-arb-readiness.py ]]; then
-    run_gate "architecture-review" python3 scripts/check-arb-readiness.py
-fi
+run_gate "architecture-review" python3 scripts/governance/check-arb-readiness.py
 
 # User-facing docs pinned to roadmap reference docs via derives_from[].sha.
 # Fails when a roadmap source moved and the user-facing doc has not been
-# reviewed + re-pinned (scripts/refresh-derived-sha.py). Opt-in: only docs
+# reviewed + re-pinned (scripts/quality/localization/refresh-derived-sha.py). Opt-in: only docs
 # that declare derives_from are checked.
-if [[ -f scripts/check-derived-sources.py ]]; then
-    run_gate "derived-sources" python3 scripts/check-derived-sources.py
-fi
+run_gate "derived-sources" python3 scripts/quality/localization/check-derived-sources.py
 
 # Framework-surface integrity: offline signature + content verification.
 # Upstream: advisory (edits are legitimate; re-sign before release, rc 0).
 # Fork: hard fail on any edit/add under the signed surface (rc 1). Skipped
-# gracefully until the signed manifest exists.
-if [[ -f scripts/check-integrity.sh && -f security/integrity/manifest.json.sig ]]; then
-    run_gate "framework-integrity" bash scripts/check-integrity.sh
-fi
+# loudly when any signed artifact is missing.
+run_gate "framework-integrity" bash scripts/integrity/check-integrity.sh
 
 # ---- full gates (opt-in) ----------------------------------------------------
 

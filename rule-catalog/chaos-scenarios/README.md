@@ -89,7 +89,7 @@ requires_hardware: false
 
 ## Compiled artifact
 
-[`scripts/build-symptom-index.py`](../../scripts/build-symptom-index.py) builds
+[`scripts/catalog/build-symptom-index.py`](../../scripts/catalog/build-symptom-index.py) builds
 the committed `chaos-scenarios.index.json` snapshot from `load_all()` by
 default. Pass `--promoted-only` for a runtime-only snapshot. Runtime callers
 can also rebuild the index in memory from `load_promoted()` or load a snapshot.
@@ -107,6 +107,6 @@ rejects a summary after any scenario body or version changes.
 Generate the current dispatchability summary without a substrate:
 
 ```bash
-python scripts/run-catalog-scenario.py --dry-run \
+python scripts/catalog/run-catalog-scenario.py --dry-run \
   --evidence-summary rule-catalog/chaos-scenarios/evidence/catalog-validation-summary.json
 ```

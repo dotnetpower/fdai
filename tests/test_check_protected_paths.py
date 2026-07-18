@@ -1,4 +1,4 @@
-"""Behavioral tests for ``scripts/check-protected-paths.sh``.
+"""Behavioral tests for ``scripts/integrity/check-protected-paths.sh``.
 
 The guard warns (upstream) or hard-blocks (fork) when a change touches the
 framework surface. These tests drive the script through a throwaway git repo
@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-_SCRIPT = _REPO_ROOT / "scripts" / "check-protected-paths.sh"
+_SCRIPT = _REPO_ROOT / "scripts" / "integrity" / "check-protected-paths.sh"
 _SURFACE_LIST = _REPO_ROOT / "scripts" / "lib" / "framework-surface.txt"
 _CODEOWNERS = _REPO_ROOT / ".github" / "CODEOWNERS"
 

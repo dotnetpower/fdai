@@ -11,7 +11,7 @@ import pytest
 from fdai.core.chaos.scenario_catalog import load_all
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_SCRIPT = _REPO_ROOT / "scripts" / "ingest-kubernetes-docs-catalog.py"
+_SCRIPT = _REPO_ROOT / "scripts" / "catalog" / "ingest-kubernetes-docs-catalog.py"
 
 
 def _load_script() -> ModuleType:

@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 7e4810f53ce75c26b3ab71a77d8322c451b1e057
-translation_revised: 2026-07-15
+translation_source_sha: 9a64fe997d5d8a8a48dd7030fe22c73d9b1e2bd7
+translation_revised: 2026-07-18
 ---
 
 # Downstream Fork 가이드
@@ -78,9 +78,9 @@ Fork에서 첫 `git commit` 전에 이것들을 하세요.
    아니라 fork 저장소를 가리켜야 함. 한 번 실수하면 고객 커밋이
    upstream으로 leak될 가능성이 있음.
 4. **Fork의 CI에서 secret scanning 활성화** - upstream의
-   `scripts/check-punctuation.sh`,
-   `scripts/check-guids.sh`, `scripts/check-core-imports.sh`,
-   `scripts/check-translations.sh` 재사용. **이것만으로는
+   `scripts/quality/repository/check-punctuation.sh`,
+   `scripts/quality/repository/check-guids.sh`, `scripts/quality/architecture/check-core-imports.sh`,
+   `scripts/quality/localization/check-translations.sh` 재사용. **이것만으로는
    충분하지 않습니다.** `check-guids.sh`는 `8-4-4-4-12` hex 형식에만
    매치 - 고객 리소스 이름, endpoint, bearer 토큰 prefix, 짧은 account
    id는 catch 하지 못합니다. Fork-specific regex 패턴 (같은 스타일의
@@ -125,9 +125,9 @@ Fork에서 첫 `git commit` 전에 이것들을 하세요.
 
 이 규칙은 세 invariant로 강제됩니다:
 
-- Upstream의 `scripts/check-core-imports.sh`가 `delivery/*` 또는
+- Upstream의 `scripts/quality/architecture/check-core-imports.sh`가 `delivery/*` 또는
   클라우드 SDK에서 import하는 `core/` 파일을 거부.
-- Upstream의 `scripts/check-protected-paths.sh`가 변경된 파일을
+- Upstream의 `scripts/integrity/check-protected-paths.sh`가 변경된 파일을
   검사해 framework surface - `src/fdai/core/`,
   `src/fdai/composition/`, `src/fdai/shared/providers/`,
   `src/fdai/shared/contracts/`, `src/fdai/agents/`,
@@ -150,7 +150,7 @@ Fork에서 첫 `git commit` 전에 이것들을 하세요.
   (모든 framework-surface 파일의 SHA-256 맵)을 Ed25519 키로 서명하며,
   공개키는 트리에 동봉됩니다
   ([`upstream-signing-key.pub`](../../../security/integrity/upstream-signing-key.pub)).
-  [`scripts/check-integrity.sh`](../../../scripts/check-integrity.sh)가
+  [`scripts/integrity/check-integrity.sh`](../../../scripts/integrity/check-integrity.sh)가
   surface를 다시 해싱하고 서명을 검증하는데 **네트워크도, OCSP도,
   인증서 체인도 필요 없습니다** - air-gapped 친화적입니다. 두 가지를
   독립적으로 보고합니다: **서명(signature)** 실패(위조되거나 손상된
@@ -168,7 +168,7 @@ Fork에서 첫 `git commit` 전에 이것들을 하세요.
 체크아웃을 언제든 오프라인으로 검증하려면:
 
 ```bash
-scripts/check-integrity.sh        # 서명 + 콘텐츠, 완전 오프라인
+scripts/integrity/check-integrity.sh        # 서명 + 콘텐츠, 완전 오프라인
 ```
 
 `scripts/verify.sh`의 `framework-integrity` 게이트가 서명된 매니페스토가
@@ -265,7 +265,7 @@ class ForkAuditNote(ContractBase):
     note_text: str
 ```
 
-Upstream 모델은 편집 **금지** ([`check-protected-paths.sh`](../../../scripts/check-protected-paths.sh))
+Upstream 모델은 편집 **금지** ([`check-protected-paths.sh`](../../../scripts/integrity/check-protected-paths.sh))
 로 가드되는 framework surface). 포크는 자기 자신의 패키지 하위에 서브
 모듈을 추가하세요.
 
@@ -307,8 +307,8 @@ git fetch upstream --tags
 git checkout main
 git merge upstream/main            # 또는 rebase - 팀 선택
 # Conflict 해결 (fork 규칙 준수 시 일반적으로 zero)
-./scripts/check-punctuation.sh     # sanity gate
-./scripts/check-translations.sh
+./scripts/quality/repository/check-punctuation.sh     # sanity gate
+./scripts/quality/localization/check-translations.sh
 uv run pytest -q tests/ fork/tests/  # 전체 스위트
 git push origin main
 ```

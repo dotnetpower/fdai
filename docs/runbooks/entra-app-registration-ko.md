@@ -1,8 +1,8 @@
 ---
 title: Entra 앱 등록
 translation_of: entra-app-registration.md
-translation_source_sha: b2bfc600e86daa6e03a248d45ffde41dfeefc1f4
-translation_revised: 2026-07-17
+translation_source_sha: 99ad731a1e59e21405ae293539bcddcad7569372
+translation_revised: 2026-07-18
 ---
 
 # Entra 앱 등록
@@ -141,7 +141,7 @@ az rest --method PATCH \
 | `ENTRA_CONSOLE_SPA_CLIENT_ID` | 해당 tenant의 `fdai-console-spa` application client id. |
 
 `deploy-dev.yml`을 `apply=true` 및 `deploy_console=true`로 실행하면 Terraform의
-`console_default_hostname`을 읽고 `scripts/sync-entra-spa-redirect.py`를
+`console_default_hostname`을 읽고 `scripts/deployment/azure/sync-entra-spa-redirect.py`를
 실행합니다. 이 helper는 다음 작업을 수행합니다.
 
 1. 활성 Azure CLI tenant가 `AZURE_TENANT_ID`와 같은지 확인합니다.

@@ -37,13 +37,13 @@ The machine-readable decision state lives in
 check on every change:
 
 ```bash
-python3 scripts/check-arb-readiness.py
+python3 scripts/governance/check-arb-readiness.py
 ```
 
 A production promotion pipeline uses the fail-closed form:
 
 ```bash
-python3 scripts/check-arb-readiness.py --require-production-ready
+python3 scripts/governance/check-arb-readiness.py --require-production-ready
 ```
 
 ## Scope and context
@@ -205,7 +205,7 @@ only after its status and evidence are updated through review.
 3. Resolve or formally accept each blocker through the appropriate governance path.
 4. Mark production artifacts `ready`, approve the design review, and set production approval to
    `ready`.
-5. Run `python3 scripts/check-arb-readiness.py --require-production-ready` in the promotion job.
+5. Run `python3 scripts/governance/check-arb-readiness.py --require-production-ready` in the promotion job.
 6. Record the ARB decision, approvers, conditions, and expiry of any exception in the audit store.
 
 Passing this gate permits a production deployment review. It does not enable any ActionType; each

@@ -307,7 +307,7 @@ the same `ProcessRuntimeStore`. Use the CLI wrapper to exercise it:
 FDAI_READ_API_DEV_MODE=1 uv run uvicorn \
   'fdai.delivery.read_api.dev.local:app' --factory --port 8000
 
-uv run python scripts/run-workflow.py architecture-review \
+uv run python scripts/automation/run-workflow.py architecture-review \
   --target fdai-control-plane
 ```
 

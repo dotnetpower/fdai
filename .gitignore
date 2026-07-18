@@ -276,10 +276,10 @@ secrets/
 .secrets/
 
 # --------------------------------------------------------------------------
-# Framework-surface integrity signing (scripts/sign-integrity.sh).
+# Framework-surface integrity signing (scripts/integrity/sign-integrity.sh).
 # The Ed25519 PRIVATE signing key never enters the tree (covered by *.pem /
 # secrets/ above). The signed manifest, its signature, and the PUBLIC key are
-# committed so any fork can verify OFFLINE (scripts/check-integrity.sh).
+# committed so any fork can verify OFFLINE (scripts/integrity/check-integrity.sh).
 # The public key uses a .pub extension precisely so *.pem does not swallow it.
 # --------------------------------------------------------------------------
 !security/integrity/manifest.json
@@ -307,6 +307,6 @@ rule-catalog/sources/*/*/
 resolved-models.json
 resolved-models*.json
 
-# Validation script artifacts (scripts/validate-catalog-full.py)
+# Validation script artifacts (scripts/catalog/validate-catalog-full.py)
 logs/validation/
 tmp/

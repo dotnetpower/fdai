@@ -26,7 +26,7 @@ principles into a phased engineering plan.
   basis of being Korean.
 - **Two tooling constraints remain** (not about language choice): identifiers,
   filenames, and branch names MUST be ASCII (`a-z A-Z 0-9 _ - .`), and punctuation MUST
-  be ASCII (enforced by `scripts/check-punctuation.sh`). Write Korean in comments and
+  be ASCII (enforced by `scripts/quality/repository/check-punctuation.sh`). Write Korean in comments and
   string **values**, never in a name or a path.
 - **Machine records SHOULD stay English** - audit entries, event payloads, serialized
   verdicts, log keys, rule ids, and config keys are machine-consumed (replay,

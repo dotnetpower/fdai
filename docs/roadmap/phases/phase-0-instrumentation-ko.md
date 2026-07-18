@@ -1,8 +1,8 @@
 ---
 title: Phase 0 - 계측과 언블록
 translation_of: phase-0-instrumentation.md
-translation_source_sha: 357a471976f27bd1b9d47be3dc7e92359ddc8699
-translation_revised: 2026-07-13
+translation_source_sha: 844fbb0cb6e363c0958dfa12c270476321d748fc
+translation_revised: 2026-07-18
 ---
 
 # Phase 0 - 계측과 언블록
@@ -35,7 +35,7 @@ phase들이 이득을 증명할 기준 베이스라인을 **확립** ; 자체로
 | 3 | **베이스라인 리포트** - 고정된 시나리오 세트에서 측정된 pinned reference agent, 방법론과 원시 카운트 있는 커밋된 아티팩트로 기록. | 재현 가능: 같은 시나리오 세트 버전에서 pinned agent 재실행이 보고된 신뢰구간 내 수치 산출. |
 | 4 | **아이덴티티 매핑** - 프로비저닝된 외부 IdP ↔ Entra ↔ Managed Identity 경로 ([security-and-identity-ko.md#인가-모델authorization-model](../architecture/security-and-identity-ko.md#인가-모델authorization-model)). | 종단 경로가 자동 최소권한 프로브 통과; deny-by-default 검증; 접근 재인증 스케줄. |
 | 5 | **정책 예외 워크플로** - 준수하는 자율 배포를 위한 요청 가능, time-boxed, 감사, 소유자 승인된 예외 경로. | 워크플로가 소유자와 SLA로 문서화; dry-run 요청이 감사 하에 부여·만료, 어떤 컨트롤도 우회하지 않음. |
-| 6 | **로컬 개발 프리셋** - `src/fdai/shared/providers/` 의 storage / event-bus / secret / workload-identity provider 인터페이스, 오프라인 유닛 테스트 + 디버그 용 in-memory 페이크 페어, 리어-레벨 통합 테스트용 **pgvector + Redpanda** Docker Compose (`infra/local/`) 프리셋. [tech-stack-ko.md § 로컬 개발](../architecture/tech-stack-ko.md#로컬-개발) 의 로컬-개발 계약과 [project-structure-ko.md § 주입 가능한-seams](../architecture/project-structure-ko.md#주입-가능한-seams) 의 DI seam 을 실현. | Docker 없이 `pytest` 가 in-memory 페이크로 green; `scripts/dev-up.sh` 가 `pgvector/pgvector:pg16` + `redpandadata/redpanda` 컨테이너를 건강하게 울림; **동일 계약-테스트 스위트** 가 페이크와 Compose 스택 모두에 대해 통과. |
+| 6 | **로컬 개발 프리셋** - `src/fdai/shared/providers/` 의 storage / event-bus / secret / workload-identity provider 인터페이스, 오프라인 유닛 테스트 + 디버그 용 in-memory 페이크 페어, 리어-레벨 통합 테스트용 **pgvector + Redpanda** Docker Compose (`infra/local/`) 프리셋. [tech-stack-ko.md § 로컬 개발](../architecture/tech-stack-ko.md#로컬-개발) 의 로컬-개발 계약과 [project-structure-ko.md § 주입 가능한-seams](../architecture/project-structure-ko.md#주입-가능한-seams) 의 DI seam 을 실현. | Docker 없이 `pytest` 가 in-memory 페이크로 green; `scripts/deployment/local/dev-up.sh` 가 `pgvector/pgvector:pg16` + `redpandadata/redpanda` 컨테이너를 건강하게 울림; **동일 계약-테스트 스위트** 가 페이크와 Compose 스택 모두에 대해 통과. |
 
 ## Work Items
 
@@ -144,7 +144,7 @@ P0에는 enforce-mode 능력이 범위에 없음.
 |------|------|------|--------|------|------|
 | **W6.1** | Storage / bus / secret / identity provider 인터페이스 | W1.2 | `src/fdai/shared/providers/` 의 `StateStore`, `EventBus`, `SecretProvider`, `WorkloadIdentity` Protocol 클래스 - 각각 네 개의 CSP-중립 계약 중 하나에 매핑 | `mypy --strict` 통과; 인프라에 닿는 모든 core 모듈이 이 Protocol 만 import (W1.7 import-lint 규칙이 `core/` 의 클라우드 SDK 금지 강제) | S |
 | **W6.2** | In-memory 페이크 어댑터 + 공유 계약-테스트 스위트 | W6.1 | `src/fdai/shared/providers/testing/` - dict 기반 `StateStore`(audit 용 hash-chain 생산), 큐 + 컨슈머-그룹 `EventBus`, `SecretProvider`, `WorkloadIdentity`; `tests/providers/` 에 `[fake, postgres, redpanda]` 로 파라미터라이즈된 계약 테스트 | 계약-테스트 스위트가 **Docker 없이** 페이크에서 green, Docker 가용 시 Compose 스택에서도 green; *동일* 테스트 파일이 두 매트릭스 모두 통과 | M |
-| **W6.3** | Docker Compose 개발 프리셋 + 래퍼 스크립트 | W6.1 | `pgvector/pgvector:pg16` 와 `redpandadata/redpanda:latest` 가 실행되는 `infra/local/docker-compose.yml` (single-node, zookeeper 불필요); 헬스 체크와 함께 스택을 올리고 내리는 `scripts/dev-up.sh` / `scripts/dev-down.sh`; `Makefile` 타겟 `dev-up`, `dev-down`, `dev-logs` | Fresh clone: `scripts/dev-up.sh` 가 종료코드 0과 건강한 두 컨테이너 반환; 노출된 포트에 `psql` 연결되고 `CREATE EXTENSION vector` 성공; Redpanda 프로듀서 + 컨슈머 라운드트립이 `localhost:9092` 에서 완료. Azure / 클라우드 호출 없음 | M |
+| **W6.3** | Docker Compose 개발 프리셋 + 래퍼 스크립트 | W6.1 | `pgvector/pgvector:pg16` 와 `redpandadata/redpanda:latest` 가 실행되는 `infra/local/docker-compose.yml` (single-node, zookeeper 불필요); 헬스 체크와 함께 스택을 올리고 내리는 `scripts/deployment/local/dev-up.sh` / `scripts/deployment/local/dev-down.sh`; `Makefile` 타겟 `dev-up`, `dev-down`, `dev-logs` | Fresh clone: `scripts/deployment/local/dev-up.sh` 가 종료코드 0과 건강한 두 컨테이너 반환; 노출된 포트에 `psql` 연결되고 `CREATE EXTENSION vector` 성공; Redpanda 프로듀서 + 컨슈머 라운드트립이 `localhost:9092` 에서 완료. Azure / 클라우드 호출 없음 | M |
 
 ### 시퀀싱된 태스크 타임라인
 
@@ -252,7 +252,7 @@ gantt
       할당된 계획으로 명시적 waive.
 - [ ] **정책 예외 워크플로** 문서화되고 소유자 할당되고 dry-run 검증(부여, 감사, auto-expire)
 - [ ] **로컬 개발 프리셋이 양방향으로 동작**: `pytest` 가 in-memory 페이크에 대해 오프라인으로
-      green, **그리고** `scripts/dev-up.sh` 가 건강한 pgvector + Redpanda 스택을 생산하고
+      green, **그리고** `scripts/deployment/local/dev-up.sh` 가 건강한 pgvector + Redpanda 스택을 생산하고
       동일한 계약-테스트 스위트가 그것에 대해서도 통과. 개발자가 Azure 프로비저닝 없이 호스팅된
       IDE에서 어느 서브시스템이든 디버그 가능.
       - 또는 문서화된 계획으로 명시적 waive.

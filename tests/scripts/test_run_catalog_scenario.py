@@ -1,4 +1,4 @@
-"""Regression tests for scripts/run-catalog-scenario.py."""
+"""Regression tests for scripts/catalog/run-catalog-scenario.py."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from fdai.core.chaos.scenario_catalog import CatalogEntry, catalog_fingerprint
 from fdai.delivery.chaos.factories import default_factory
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_SCRIPT_PATH = _REPO_ROOT / "scripts" / "run-catalog-scenario.py"
+_SCRIPT_PATH = _REPO_ROOT / "scripts" / "catalog" / "run-catalog-scenario.py"
 
 
 def _load_script() -> ModuleType:

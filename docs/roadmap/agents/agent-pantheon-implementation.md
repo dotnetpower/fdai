@@ -109,8 +109,8 @@ measurable; a wave does not close on prose.
 
 **Exit gate**
 
-- All three CI translation gates green (`scripts/check-translations.sh`).
-- Ontology YAML lint passes (existing `scripts/validate-catalog-full.py`
+- All three CI translation gates green (`scripts/quality/localization/check-translations.sh`).
+- Ontology YAML lint passes (existing `scripts/catalog/validate-catalog-full.py`
   covers this today).
 - `docs/roadmap/README.md` (and `-ko.md`) references the new workflows
   doc; renumbering already done in the pantheon-doc PR.
@@ -165,7 +165,7 @@ measurable; a wave does not close on prose.
 **Exit gate**
 
 - `pytest tests/agents/` green.
-- `scripts/check-core-imports.sh` still green (no new cross-layer
+- `scripts/quality/architecture/check-core-imports.sh` still green (no new cross-layer
   imports outside `agents/`).
 - `mypy` (or the repo's current type-check bar) clean on the new
   package.

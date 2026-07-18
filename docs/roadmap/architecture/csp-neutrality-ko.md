@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 413d9be7aa1ee2926aede0db21ed37797a99002c
-translation_revised: 2026-07-17
+translation_source_sha: a837ba2303db71a9eea1e3772b443f80615f4d55
+translation_revised: 2026-07-18
 ---
 
 # CSP-중립성 계약
@@ -453,7 +453,7 @@ backend 가 기록했는지 모른 채 service 를 가로질러 request 를 walk
 - Upstream default 는 no-op provider - 어떤 concrete adapter 도 wire 되기 전에
   downstream consumer 가 안정된 interface 로 author 가능.
 - Vendor SDK import 는 `delivery/<vendor>/` 에 confined; `core/` 는 Protocol 만 import -
-  [`scripts/check-core-imports.sh`](../../../scripts/check-core-imports.sh) 에 의해 강제.
+  [`scripts/quality/architecture/check-core-imports.sh`](../../../scripts/quality/architecture/check-core-imports.sh) 에 의해 강제.
 
 ## Azure-Phase 실현 (요약)
 

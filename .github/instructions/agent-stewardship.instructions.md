@@ -22,7 +22,7 @@ strong default; **MAY** is optional.
   It MUST NOT change or restate any pantheon `ActionType` role binding. The five
   fork-locked fields (`initiators`, `judge`, `executor`, `approver`, `auditor`)
   live only in the ontology. The stewardship config MUST NOT contain a top-level
-  key named any of those; `scripts/check-stewardship.sh` rejects it.
+  key named any of those; `scripts/governance/check-stewardship.sh` rejects it.
 - A steward is never granted the executor Managed Identity, an approval
   capability, or any RBAC role by virtue of being a steward. RBAC
   ([user-rbac-and-identity.md](../../docs/roadmap/interfaces/user-rbac-and-identity.md))
@@ -74,7 +74,7 @@ strong default; **MAY** is optional.
   `agent-stewardship-and-handover.md` **and** its `-ko.md` in the same change
   (the SHA gate blocks drift).
 - Any new fail-fast rule MUST come with a resolver test; any new finding MUST come
-  with a coverage test. Run `scripts/check-stewardship.sh` and
+  with a coverage test. Run `scripts/governance/check-stewardship.sh` and
   `pytest tests/core/stewardship/` before proposing the change complete.
 - Editing the shipped `config/agent-stewardship.yaml` in production is a
   governance draft-PR flow (console is read-only); it notifies the affected

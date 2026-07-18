@@ -35,7 +35,7 @@ def test_ingester_output_is_valid_and_deterministic(
     shutil.copyfile(_SCHEMA, schema_dir / _SCHEMA.name)
     out_dir = root / "collected" / source
 
-    namespace = runpy.run_path(str(_REPO_ROOT / "scripts" / script_name))
+    namespace = runpy.run_path(str(_REPO_ROOT / "scripts" / "catalog" / script_name))
     main = namespace["main"]
     assert callable(main)
     main.__globals__["_OUT_DIR"] = out_dir

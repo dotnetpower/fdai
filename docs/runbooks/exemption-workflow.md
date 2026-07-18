@@ -51,7 +51,7 @@ pipeline instead. If the wrong dimension is auto-vs-HIL, tune
 4. **Owner-tier review + merge**. The merge has no side effect on the
    live Azure resources today; enforcement suppression takes effect once
    the catalog pipeline (Phase 2) picks the exemption up.
-5. **Auto-expiry**. A scheduled job (`scripts/exemption-expire.py`, moved
+5. **Auto-expiry**. A scheduled job (`scripts/governance/exemption-expire.py`, moved
    to a Container Apps Job after W4.1) flips each artifact to
    `state=expired` the moment `expires_at` passes, and re-applies the
    underlying rule assignment. The event is audit-logged.
@@ -91,5 +91,5 @@ pipeline observes the state change).
 | Design: Human Override | [../../.github/instructions/architecture.instructions.md#human-override](../../.github/instructions/architecture.instructions.md#human-override) |
 | Exemption schema | [../../src/fdai/rule_catalog/schema/exemption.schema.json](../../src/fdai/rule_catalog/schema/exemption.schema.json) |
 | CI check (`exemption-check` job) | [../../.github/workflows/ci.yml](../../.github/workflows/ci.yml) |
-| Expiry CLI | [../../scripts/exemption-expire.py](../../scripts/exemption-expire.py) |
+| Expiry CLI | [../../scripts/governance/exemption-expire.py](../../scripts/governance/exemption-expire.py) |
 | PR template | [../../.github/PULL_REQUEST_TEMPLATE/exemption.md](../../.github/PULL_REQUEST_TEMPLATE/exemption.md) |

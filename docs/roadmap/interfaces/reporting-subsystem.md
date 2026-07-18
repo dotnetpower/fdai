@@ -462,10 +462,10 @@ route.
   the reporting subsystem does not introduce a new async boundary.
 - **`core/` never imports `delivery/`**. The audit adapter takes a
   narrow duck-typed Protocol so the composition wire-up stays one-way
-  (guarded by [`scripts/check-core-imports.sh`](../../../scripts/check-core-imports.sh)).
+  (guarded by [`scripts/quality/architecture/check-core-imports.sh`](../../../scripts/quality/architecture/check-core-imports.sh)).
 - **ASCII-only markdown / audit surfaces**. The markdown encoder ships
   no smart quotes / em-dash / NBSP; enforced by
-  [`scripts/check-punctuation.sh`](../../../scripts/check-punctuation.sh).
+  [`scripts/quality/repository/check-punctuation.sh`](../../../scripts/quality/repository/check-punctuation.sh).
 
 ### Hardening (batch-5 critique-driven pass)
 

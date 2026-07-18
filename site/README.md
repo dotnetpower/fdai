@@ -135,13 +135,13 @@ derives_from:
     sha: <git hash-object of that file at authoring time>
 ```
 
-- [`scripts/check-derived-sources.py`](../scripts/check-derived-sources.py) is a
+- [`scripts/quality/localization/check-derived-sources.py`](../scripts/quality/localization/check-derived-sources.py) is a
   CI gate that recomputes `git hash-object` of every declared `source` and fails
   when a recorded `sha` no longer matches - i.e. the roadmap source moved and the
   user-facing doc must be reviewed. It is **opt-in**: only docs that declare
   `derives_from` are checked.
 - After reviewing the user-facing doc against the updated roadmap source,
-  re-pin with [`scripts/refresh-derived-sha.py <doc>`](../scripts/refresh-derived-sha.py).
+  re-pin with [`scripts/quality/localization/refresh-derived-sha.py <doc>`](../scripts/quality/localization/refresh-derived-sha.py).
 - The `derives_from` field is allowed by the Starlight front-matter schema via
   the `docsSchema({ extend: ... })` extension in
   [`src/content.config.ts`](src/content.config.ts).

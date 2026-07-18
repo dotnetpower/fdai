@@ -9,7 +9,7 @@ import shutil
 from fdai.core.chaos.scenario_catalog import load_all
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-_SCRIPT = _REPO_ROOT / "scripts" / "generate-scenarios.py"
+_SCRIPT = _REPO_ROOT / "scripts" / "catalog" / "generate-scenarios.py"
 _SCHEMA = _REPO_ROOT / "rule-catalog" / "chaos-scenarios" / "schema" / "chaos-scenario.schema.json"
 
 
