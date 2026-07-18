@@ -21,9 +21,9 @@ class LocalModelWiring:
     settings: ModelSettingsService
 
 
-def build_local_model_wiring(repo_root: Path) -> LocalModelWiring:
+def build_local_model_wiring(repo_root: Path, *, metering_sink: Any = None) -> LocalModelWiring:
     """Build local narrator providers and their settings service."""
-    backend = build_chat_backend()
+    backend = build_chat_backend(metering_sink)
     web_search = build_chat_web_search()
     return LocalModelWiring(
         backend=backend,

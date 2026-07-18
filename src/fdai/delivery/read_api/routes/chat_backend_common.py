@@ -9,6 +9,9 @@ from typing import Any, Final, NoReturn, Protocol
 import httpx
 from starlette.exceptions import HTTPException
 
+from fdai.core.metering.context import current_invocation_scope
+from fdai.core.metering.records import InvocationScope
+from fdai.core.metering.usage import TokenUsage
 from fdai.delivery.azure.llm.request_target import COGNITIVE_SERVICES_SCOPE
 
 _LOG = logging.getLogger(__name__)
@@ -175,3 +178,19 @@ def _usage_summary(raw: Any) -> dict[str, int] | None:
     elif prompt is not None and completion is not None:
         out["total_tokens"] = prompt + completion
     return out
+
+
+def _token_usage(summary: dict[str, int] | None) -> TokenUsage | None:
+    """Return a measured token value when both provider components exist."""
+    if summary is None:
+        return None
+    prompt = summary.get("prompt_tokens")
+    completion = summary.get("completion_tokens")
+    if prompt is None or completion is None:
+        return None
+    return TokenUsage(prompt_tokens=prompt, completion_tokens=completion)
+
+
+def _metering_scope() -> InvocationScope:
+    """Return the workload scope explicitly bound by the calling route."""
+    return current_invocation_scope()

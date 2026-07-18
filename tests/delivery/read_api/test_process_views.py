@@ -13,7 +13,14 @@ from starlette.testclient import TestClient
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
 from fdai.core.reporting.engine import ReportEngine
 from fdai.core.reporting.models import RenderedReport
-from fdai.core.views import ViewAppliesTo, ViewEngine, ViewRegion, ViewSpec
+from fdai.core.views import (
+    LocalizedWorkflowAppText,
+    ViewAppliesTo,
+    ViewEngine,
+    ViewRegion,
+    ViewSpec,
+    WorkflowAppManifest,
+)
 from fdai.delivery.read_api.auth import build_authenticator
 from fdai.delivery.read_api.main import ReadApiConfig, build_app
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
@@ -101,6 +108,19 @@ async def _client(
         reports=cast(ReportEngine, reports or _Reports()),
         processes=store,
     )
+    app_manifest = WorkflowAppManifest(
+        schema_version="1.0.0",
+        id="architecture-review",
+        workflow_ref="architecture-review",
+        view_ref="architecture-review",
+        lifecycle="published",
+        audience="reader",
+        label=LocalizedWorkflowAppText(en="Architecture review", ko="Architecture review"),
+        description=LocalizedWorkflowAppText(en="Review evidence", ko="Review evidence"),
+        exposure="hub",
+        group="operations",
+        order=100,
+    )
     auth = build_authenticator(
         verifier=lambda token: {"oid": "u"},
         resolver=RoleResolver(
@@ -120,6 +140,7 @@ async def _client(
             dev_mode=True,
             process_views=ProcessViewsConfig(
                 engine=engine,
+                apps=(app_manifest,),
                 prefix=prefix,
                 source="test-runtime",
                 synthetic=True,
@@ -143,6 +164,17 @@ async def test_process_view_list_and_render() -> None:
     assert rendered.status_code == 200
     assert rendered.json()["process"]["current_step"] == "evidence"
     assert rendered.json()["regions"][0]["report"]["id"] == "architecture-review-process"
+
+
+async def test_workflow_apps_lists_only_published_hub_manifests() -> None:
+    client = await _client()
+
+    response = client.get("/views/workflow-apps")
+
+    assert response.status_code == 200
+    assert response.json()["count"] == 1
+    assert response.json()["items"][0]["route"] == "/workflow-apps/architecture-review"
+    assert response.json()["items"][0]["workflow_ref"] == "architecture-review"
 
 
 async def test_process_journal_returns_snapshot_and_append_only_events() -> None:

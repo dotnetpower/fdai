@@ -1,7 +1,7 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 61c47574ab50b967c022fd153fc1c12b26153939
+translation_source_sha: 52f7ea42c7ef5922e90809bf1b15594782e7f9f9
 translation_revised: 2026-07-18
 ---
 # 리포팅 서브시스템
@@ -83,10 +83,12 @@ Console SPA는 이제 `/reports`의 **이력 > 리포트**와
 `/reports/<report-id>` canonical 상세 route를 제공합니다. 카탈로그와
 runtime registry를 읽고, 선언된 변수를 제한된 control로 렌더링하며,
 `GET /reports/<id>/render` 요청만 전송합니다. 공유 widget renderer는
-upstream 리포트 카탈로그에서 사용하는 모든 타입인 `query_value`,
-`bar_chart`, `timeseries`, `top_list`, `table`, `list_stream`,
-`check_status`, `topology_map`과 재귀 `group`, keyboard-accessible `tabs`를
-지원합니다.
+[`widget-capabilities.json`](../../../rule-catalog/reports/widget-capabilities.json)을
+통해 upstream 38개 type을 모두 accounting합니다. 37개는 검토된 semantic HTML,
+SVG 또는 CSS primitive로 렌더링하고, `iframe`은 생성된 workflow surface에서
+의도적으로 차단합니다. Capability catalog는 SPA가 사용하며 test에서 backend
+registry와 exact-match하므로 새 upstream builder가 unavailable workflow UI로 조용히
+퇴화할 수 없습니다.
 
 이 지원 타입으로 작성된 리포트는 FE 코드 변경 없이 표시됩니다. 새로 만든
 visualization type에는 검토된 SPA renderer가 여전히 필요합니다. Registry route는
@@ -96,9 +98,9 @@ unavailable 상태를 보여줍니다.
 
 ## 위젯 카탈로그
 
-기본으로 제공되는 35개 빌더, 7개 계열로 분류. 각 빌더는 FE가
-`type`을 키로 렌더하는 Datadog-inspired `data` 페이로드를
-방출합니다.
+기본으로 제공되는 9개 계열의 builder 36개와 engine-special `group`, `tabs`
+container를 합쳐 38개 type을 제공합니다. 각 builder는 FE가 `type`을 키로
+렌더링하는 Datadog-inspired `data` payload를 방출합니다.
 
 | Family | `type` | Payload highlights |
 |--------|--------|--------------------|
@@ -131,6 +133,8 @@ unavailable 상태를 보여줍니다.
 |              | `geomap` | `points, areas` (mixed projections) |
 | cost   | `cost_summary` | `currency, total, rows: [{group, amount}]` |
 |        | `budget_summary` | `budget, actual, variance, utilization` |
+| workflow | `process_steps` | 순서가 있는 `steps`, completed/total, progress ratio, truncation evidence |
+|          | `comparison` | field별 `before`, `after`, `changed`, changed/total count |
 | annotations | `free_text` | `body` (markdown) |
 |             | `note` | `body, severity (info|warning|critical|ok)` |
 |             | `image` | `src, alt, caption?`; non-https / non-raster 거부 |
@@ -138,6 +142,14 @@ unavailable 상태를 보여줍니다.
 | composite | `group` | 재귀 children; 엔진 특별 처리 |
 |           | `tabs` | 재귀 children; 엔진 특별 처리 |
 |           | `split_graph` | `panels` (DataSet.series에서 fan-out) |
+
+Generic renderer는 specialized SDK가 불필요한 runtime code를 추가하는 경우 bounded
+fallback을 사용합니다. `geomap`은 remote map script 없이 coordinate 및 region table을
+렌더링하고, Sankey는 감사 가능한 weighted edge list를 표시하며, flame graph는 depth와
+frame count를 제한합니다. Raster `image` source는 browser에서 다시 검증하고 SVG,
+credential이 포함된 URL 및 non-HTTPS scheme을 거부합니다. `iframe`은 non-workflow
+consumer를 위한 backend builder로 남지만 생성된 WorkflowApp surface에서는 렌더링하지
+않습니다.
 
 포크는 `WidgetBuilder`를 구현하고 composition 시점에
 `WidgetRegistry.register`를 호출해 새 backend type을 추가합니다.
@@ -147,13 +159,14 @@ unavailable 상태를 보여줍니다.
 
 ## 데이터소스 카탈로그
 
-기본 제공 7개 어댑터. 각각 기존 seam을 감싸므로 리포팅
+기본 제공 8개 어댑터. 각각 기존 seam을 감싸므로 리포팅
 서브시스템은 새 I/O primitive를 도입하지 않습니다:
 
 | Name | Wraps | Sample projections |
 |------|-------|--------------------|
 | `audit` | duck-typed `AuditReader` (`ConsoleReadModel` 매치) | `rows`, `count_by_action_kind`, `count_by_mode`, `count_by_actor`, `count_by_correlation`, `series_hourly`, `series_daily`, `count_total` |
 | `report_feed` | `core.report_feed.ReportFeed` | `rows`, `count_by_severity`, `count_by_category`, `count_by_kind`, `count_by_resource`, `latest_per_resource`, `count_total` |
+| `security_assessment` | security category `ReportFeed` signal -> 결정론적 `SecurityAssessment` | `summary_value`, severity/category/resource count, control status/row, recommendation, CVE, source, positive control, gap, resource, compliance, evidence |
 | `metric` | `shared.providers.metric.MetricProvider` | `series` (with `group_by`), `scalar_sum`, `percentiles` |
 | `log_query` | `shared.providers.log_query.LogQueryProvider` | `rows`, `count_by_severity`, `pattern_group`, `series_hourly`, `count_total` |
 | `static` / `noop` | 인메모리 | 고정 / 빈 결과; 테스트 시드 |
@@ -167,6 +180,22 @@ Protocol을 받아 wire-up을 한 방향으로 유지합니다.
 포크는 `ReportDataSource`를 구현하고
 `DataSourceRegistry.register`를 호출해 새 source(Cost Management,
 클러스터 인벤토리, 커스텀 Postgres view 등)를 추가합니다.
+
+### Security Assessment 리포트
+
+`rule-catalog/reports/security-assessment.yaml`은
+`/reports/security-assessment`에서 읽기 전용 심층 assessment를 제공합니다.
+Datasource는 `SignalKind.SECURITY_ASSESSMENT` record를 정규화된 control observation으로
+변환하고 다른 security category signal은 finding으로 변환합니다. 한 render window의
+assessment를 datasource 내부에서 cache하므로 20개 이상의 widget이 underlying feed를
+widget마다 반복 조회하지 않고 한 번만 조회합니다.
+
+페이지에는 executive verdict와 completeness metric, pass/evidence/source coverage,
+control status, severity/category/resource 분포를 표시합니다. 탭 테이블은 configuration과
+patch control, 우선순위별 remediation, CVE 적용 가능성, data source coverage, 검증된
+positive control, unknown 및 evidence gap, resource rollup, compliance mapping, evidence
+citation을 제공합니다. 사용할 수 없는 source는 gap으로 렌더링되고 completeness를
+낮추며 암묵적인 passing control로 바뀌지 않습니다.
 
 ## Format 카탈로그
 

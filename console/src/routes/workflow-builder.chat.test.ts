@@ -58,7 +58,7 @@ describe("workflow-builder chat engine", () => {
     expect(turn.text).toContain("workflow_authoring");
   });
 
-  it("reads a full sentence: trigger + two actions -> offers an extra step", () => {
+  it("reads a full sentence and requires explicit plan confirmation", () => {
     const start = startChat(PALETTE);
     const turn = respondToChat(
       start.slots,
@@ -72,9 +72,11 @@ describe("workflow-builder chat engine", () => {
     const refs = turn.slots.form.steps.map((s) => s.action_type_ref);
     expect(refs).toContain("remediate.right-size");
     expect(refs).toContain("notify.publish-change-summary");
-    // With trigger + actions settled, the next question offers extra steps.
-    expect(turn.slots.stage).toBe("offer_extra");
-    expect(findValues(turn.options)).toContain("done");
+    expect(turn.slots.stage).toBe("confirm_plan");
+    expect(findValues(turn.options)).toContain("plan:keep");
+    const confirmed = respondToChat(turn.slots, "plan:keep", PALETTE);
+    expect(confirmed.slots.stage).toBe("offer_extra");
+    expect(findValues(confirmed.options)).toContain("done");
   });
 
   it("asks for a trigger when the sentence has an action but no clear signal", () => {
@@ -96,7 +98,7 @@ describe("workflow-builder chat engine", () => {
     const t2 = respondToChat(t1.slots, "trigger:object.anomaly", PALETTE);
     expect(t2.slots.triggerConfirmed).toBe(true);
     expect(t2.slots.form.signalType).toBe("object.anomaly");
-    expect(t2.slots.stage).toBe("offer_extra");
+    expect(t2.slots.stage).toBe("confirm_plan");
   });
 
   it("walks to a ready draft through done + keep-name", () => {
@@ -106,28 +108,34 @@ describe("workflow-builder chat engine", () => {
       "When cost spikes, right-size the resource",
       PALETTE,
     );
-    const t2 = respondToChat(t1.slots, "done", PALETTE); // finish extras
-    expect(t2.slots.stage).toBe("confirm_name");
-    const t3 = respondToChat(t2.slots, "name:keep", PALETTE);
-    expect(t3.draftReady).toBe(true);
-    expect(t3.slots.stage).toBe("ready");
-    expect(t3.slots.form.name.length).toBeGreaterThan(0);
-    expect(t3.slots.form.description.length).toBeGreaterThan(0);
+    const t2 = respondToChat(t1.slots, "plan:keep", PALETTE);
+    const t3 = respondToChat(t2.slots, "done", PALETTE);
+    expect(t3.slots.stage).toBe("confirm_safety");
+    const t4 = respondToChat(t3.slots, "safety:keep", PALETTE);
+    expect(t4.slots.stage).toBe("confirm_name");
+    const t5 = respondToChat(t4.slots, "name:keep", PALETTE);
+    expect(t5.draftReady).toBe(true);
+    expect(t5.slots.stage).toBe("ready");
+    expect(t5.slots.form.name.length).toBeGreaterThan(0);
+    expect(t5.slots.form.description.length).toBeGreaterThan(0);
     // Refine + restart options are offered at the ready stage.
-    const vals = findValues(t3.options);
+    const vals = findValues(t5.options);
     expect(vals).toContain("refine:extra");
+    expect(vals).toContain("refine:safety");
     expect(vals).toContain("restart");
   });
 
   it("adds an extra action step when one is picked in offer_extra", () => {
     const start = startChat(PALETTE);
     const t1 = respondToChat(start.slots, "When cost spikes, right-size the resource", PALETTE);
-    expect(t1.slots.stage).toBe("offer_extra");
-    const t2 = respondToChat(t1.slots, "action:notify.publish-change-summary", PALETTE);
-    const refs = t2.slots.form.steps.map((s) => s.action_type_ref);
+    expect(t1.slots.stage).toBe("confirm_plan");
+    const t2 = respondToChat(t1.slots, "plan:keep", PALETTE);
+    expect(t2.slots.stage).toBe("offer_extra");
+    const t3 = respondToChat(t2.slots, "action:notify.publish-change-summary", PALETTE);
+    const refs = t3.slots.form.steps.map((s) => s.action_type_ref);
     expect(refs).toContain("remediate.right-size");
     expect(refs).toContain("notify.publish-change-summary");
-    expect(t2.slots.extraOffered).toBe(true);
+    expect(t3.slots.extraOffered).toBe(true);
   });
 
   it("restart returns a fresh welcome turn", () => {
@@ -185,14 +193,18 @@ describe("chat engine full-flow integration", () => {
     const t1 = respondToChat(start.slots, goal, PALETTE);
     // Walk whatever stage remains until ready, always taking the safe path.
     let turn = t1;
-    for (let i = 0; i < 6 && !turn.draftReady; i += 1) {
+    for (let i = 0; i < 10 && !turn.draftReady; i += 1) {
       const stage = turn.slots.stage;
       if (stage === "need_action") {
         turn = respondToChat(turn.slots, "action:remediate.restart-service", PALETTE);
       } else if (stage === "need_trigger") {
         turn = respondToChat(turn.slots, "trigger:object.anomaly", PALETTE);
+      } else if (stage === "confirm_plan") {
+        turn = respondToChat(turn.slots, "plan:keep", PALETTE);
       } else if (stage === "offer_extra") {
         turn = respondToChat(turn.slots, "done", PALETTE);
+      } else if (stage === "confirm_safety") {
+        turn = respondToChat(turn.slots, "safety:keep", PALETTE);
       } else if (stage === "confirm_name") {
         turn = respondToChat(turn.slots, "name:keep", PALETTE);
       } else {
@@ -224,10 +236,14 @@ describe("chat engine full-flow integration", () => {
     const start = startChat(PALETTE);
     let turn = respondToChat(start.slots, "When cost spikes, right-size the resource", PALETTE);
     // advance to confirm_name
-    for (let i = 0; i < 4 && turn.slots.stage !== "confirm_name"; i += 1) {
+    for (let i = 0; i < 8 && turn.slots.stage !== "confirm_name"; i += 1) {
       if (turn.slots.stage === "offer_extra") turn = respondToChat(turn.slots, "done", PALETTE);
       else if (turn.slots.stage === "need_trigger")
         turn = respondToChat(turn.slots, "trigger:object.anomaly", PALETTE);
+      else if (turn.slots.stage === "confirm_plan")
+        turn = respondToChat(turn.slots, "plan:keep", PALETTE);
+      else if (turn.slots.stage === "confirm_safety")
+        turn = respondToChat(turn.slots, "safety:keep", PALETTE);
       else break;
     }
     expect(turn.slots.stage).toBe("confirm_name");
@@ -298,13 +314,17 @@ describe("chat ready draft -> buildDraft shape", () => {
   function readyForm(goal: string) {
     const start = startChat(PALETTE);
     let turn = respondToChat(start.slots, goal, PALETTE);
-    for (let i = 0; i < 6 && !turn.draftReady; i += 1) {
+    for (let i = 0; i < 10 && !turn.draftReady; i += 1) {
       const stage = turn.slots.stage;
       if (stage === "need_action")
         turn = respondToChat(turn.slots, "action:remediate.restart-service", PALETTE);
       else if (stage === "need_trigger")
         turn = respondToChat(turn.slots, "trigger:object.anomaly", PALETTE);
+      else if (stage === "confirm_plan")
+        turn = respondToChat(turn.slots, "plan:keep", PALETTE);
       else if (stage === "offer_extra") turn = respondToChat(turn.slots, "done", PALETTE);
+      else if (stage === "confirm_safety")
+        turn = respondToChat(turn.slots, "safety:keep", PALETTE);
       else if (stage === "confirm_name") turn = respondToChat(turn.slots, "name:keep", PALETTE);
       else break;
     }
@@ -348,8 +368,12 @@ describe("chat ready draft -> buildDraft shape", () => {
     const t1 = respondToChat(start.slots, "action:remediate.restart-service", PALETTE);
     const sched = t1.options.find((o) => o.value.includes("cron:"))!;
     let turn = respondToChat(t1.slots, sched.value, PALETTE);
-    for (let i = 0; i < 4 && !turn.draftReady; i += 1) {
+    for (let i = 0; i < 8 && !turn.draftReady; i += 1) {
+      if (turn.slots.stage === "confirm_plan")
+        turn = respondToChat(turn.slots, "plan:keep", PALETTE);
       if (turn.slots.stage === "offer_extra") turn = respondToChat(turn.slots, "done", PALETTE);
+      else if (turn.slots.stage === "confirm_safety")
+        turn = respondToChat(turn.slots, "safety:keep", PALETTE);
       else if (turn.slots.stage === "confirm_name")
         turn = respondToChat(turn.slots, "name:keep", PALETTE);
       else break;

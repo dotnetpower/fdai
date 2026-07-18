@@ -131,6 +131,16 @@ def summarize_by_mode(records: Iterable[LlmInvocation]) -> tuple[UsageSummary, .
     return _group_by(records, lambda r: r.mode.value)
 
 
+def summarize_by_model(records: Iterable[LlmInvocation]) -> tuple[UsageSummary, ...]:
+    """One summary per configured model key, sorted by model key."""
+    return _group_by(records, lambda r: r.model_key)
+
+
+def summarize_by_scope(records: Iterable[LlmInvocation]) -> tuple[UsageSummary, ...]:
+    """One summary per explicit usage scope, sorted by scope."""
+    return _group_by(records, lambda r: r.usage_scope.value)
+
+
 def summarize_total(records: Iterable[LlmInvocation]) -> UsageSummary:
     """A single grand-total summary across every record (key ``"total"``)."""
     return _summarize_group("total", records)
@@ -173,12 +183,53 @@ def summaries_as_mapping(summaries: Iterable[UsageSummary]) -> tuple[Mapping[str
     )
 
 
+def usage_summaries_as_mapping(
+    summaries: Iterable[UsageSummary],
+) -> tuple[Mapping[str, object], ...]:
+    """Render token-only summaries for operator-facing usage projections."""
+    return tuple(
+        {
+            "key": summary.key,
+            "invocations": summary.invocations,
+            "prompt_tokens": summary.usage.prompt_tokens,
+            "completion_tokens": summary.usage.completion_tokens,
+            "total_tokens": summary.usage.total_tokens,
+        }
+        for summary in summaries
+    )
+
+
+def invocations_as_mapping(
+    records: Iterable[LlmInvocation],
+) -> tuple[Mapping[str, object], ...]:
+    """Render measured call facts without derived price fields."""
+    return tuple(
+        {
+            "occurred_at": record.occurred_at.isoformat(),
+            "correlation_id": record.correlation_id,
+            "capability_id": record.capability_id,
+            "model_key": record.model_key,
+            "tier": record.tier,
+            "mode": record.mode.value,
+            "usage_scope": record.usage_scope.value,
+            "prompt_tokens": record.usage.prompt_tokens,
+            "completion_tokens": record.usage.completion_tokens,
+            "total_tokens": record.usage.total_tokens,
+        }
+        for record in records
+    )
+
+
 __all__ = [
     "UsageSummary",
+    "invocations_as_mapping",
     "summaries_as_mapping",
+    "summarize_by_model",
     "summarize_by_conversation",
     "summarize_by_day",
     "summarize_by_mode",
     "summarize_by_month",
+    "summarize_by_scope",
     "summarize_total",
+    "usage_summaries_as_mapping",
 ]

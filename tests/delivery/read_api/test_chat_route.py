@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -26,14 +27,26 @@ from fdai.core.conversation.answer_planning import (
     PlanningCandidate,
 )
 from fdai.core.conversation.answer_preferences import ResponsePreferenceProfile
+from fdai.core.metering import (
+    InMemoryMeteringSink,
+    InvocationScope,
+    MeteringEmitter,
+    with_invocation_scope,
+)
+from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.read_api.routes import chat_registration
 from fdai.delivery.read_api.routes.chat import (
     AzureAdChatBackend,
     ChatBackend,
     ChatBackendUnavailableError,
+    OpenAiCompatibleChatBackend,
+    OpenAiCompatibleChatBackendConfig,
     make_chat_route,
     make_chat_stream_route,
 )
+from fdai.delivery.read_api.routes.chat_registration import append_chat_routes
 from fdai.shared.providers.workload_identity import IdentityToken
+from fdai.shared.telemetry.correlation import current_correlation_id, with_correlation
 
 _KOREAN_AGENT_AUTONOMY_PROMPT = (
     "\ub300\ud654\ub97c \ud1b5\ud574\uc11c\ub9cc "
@@ -88,6 +101,43 @@ class _FixedAnswerBackend(ChatBackend):
         history: list[dict[str, str]],  # noqa: ARG002
     ) -> dict[str, str]:
         return {"answer": self._answer, "model": "fixed"}
+
+
+def test_available_backend_registration_logs_info_without_endpoint(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    logger = logging.getLogger("fdai.tests.chat-registration")
+    caplog.set_level(logging.INFO, logger=logger.name)
+    monkeypatch.setattr(
+        chat_registration,
+        "describe_backend",
+        lambda _backend: {
+            "available": True,
+            "mode": "azure-ad",
+            "model": "narrator-mini",
+            "endpoint": "customer-resource.example.com",
+        },
+    )
+    routes: list[Any] = []
+
+    append_chat_routes(
+        routes,
+        backend=_RecordingBackend(model="narrator-mini", delay_ms=0),
+        agent_delegate=None,
+        authorize=_allow,
+        read_model=InMemoryConsoleReadModel(),
+        core_paths=(),
+        panel_paths=(),
+        logger=logger,
+    )
+
+    record = next(record for record in caplog.records if record.message == "chat_backend_ready")
+    assert record.levelno == logging.INFO
+    assert record.mode == "azure-ad"
+    assert record.model == "narrator-mini"
+    assert not hasattr(record, "endpoint")
+    assert "customer-resource.example.com" not in caplog.text
 
 
 async def _allow(_: Request) -> str:
@@ -265,6 +315,32 @@ class _AlwaysOperationalResolver:
 
 
 class TestChatRouteLatencySurface:
+    def test_route_binds_opaque_chat_metering_correlation(self) -> None:
+        class CorrelationBackend:
+            correlation_id: str | None = None
+
+            async def answer(
+                self,
+                *,
+                prompt: str,  # noqa: ARG002
+                view_context: dict[str, Any],  # noqa: ARG002
+                history: list[dict[str, str]],  # noqa: ARG002
+            ) -> dict[str, str]:
+                self.correlation_id = current_correlation_id()
+                return {"answer": "hello", "model": "test"}
+
+        backend = CorrelationBackend()
+        response = TestClient(_app(backend)).post(
+            "/chat",
+            json={"prompt": "Show current status", "session_id": "operator-session"},
+        )
+
+        assert response.status_code == 200
+        assert backend.correlation_id is not None
+        assert backend.correlation_id.startswith("chat-")
+        assert "test-reader" not in backend.correlation_id
+        assert "operator-session" not in backend.correlation_id
+
     def test_reply_includes_model_and_latency_ms(self) -> None:
         backend = _RecordingBackend(model="gpt-5.4-mini", delay_ms=25)
         client = TestClient(_app(backend))
@@ -347,6 +423,121 @@ class TestChatRouteLatencySurface:
         assert reply == {"answer": "managed identity ready", "model": "narrator-mini"}
         assert identity.audiences == ["https://cognitiveservices.azure.com/.default"]
 
+    async def test_azure_backend_records_operator_chat_usage(self) -> None:
+        identity = _RecordingIdentity()
+        sink = InMemoryMeteringSink()
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [{"message": {"content": "measured"}}],
+                    "usage": {"prompt_tokens": 120, "completion_tokens": 30},
+                },
+            )
+
+        backend = AzureAdChatBackend(
+            endpoint="https://example.openai.azure.com/",
+            deployment="narrator-mini",
+            identity=identity,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+            metering=MeteringEmitter(
+                sink=sink,
+                capability_id="t1.judge",
+                model_key="narrator-mini",
+                tier="T1",
+                usage_scope=InvocationScope.OPERATOR_CHAT,
+            ),
+        )
+
+        with (
+            with_correlation("chat-test"),
+            with_invocation_scope(InvocationScope.OPERATOR_CHAT),
+        ):
+            reply = await backend.answer(prompt="status", view_context={}, history=[])
+
+        (record,) = await sink.invocations()
+        assert reply["usage"] == {
+            "prompt_tokens": 120,
+            "completion_tokens": 30,
+            "total_tokens": 150,
+        }
+        assert record.correlation_id == "chat-test"
+        assert record.model_key == "narrator-mini"
+        assert record.usage_scope is InvocationScope.OPERATOR_CHAT
+
+    async def test_openai_backend_records_operator_chat_usage(self) -> None:
+        sink = InMemoryMeteringSink()
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [{"message": {"content": "measured"}}],
+                    "usage": {"prompt_tokens": 60, "completion_tokens": 15},
+                },
+            )
+
+        backend = OpenAiCompatibleChatBackend(
+            config=OpenAiCompatibleChatBackendConfig(
+                provider="openai",
+                base_url="https://models.example.com",
+                api_key="test-key",  # noqa: S106 - synthetic test credential
+                model="narrator-mini",
+            ),
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+            metering=MeteringEmitter(
+                sink=sink,
+                capability_id="t1.judge",
+                model_key="narrator-mini",
+                tier="T1",
+                usage_scope=InvocationScope.OPERATOR_CHAT,
+            ),
+        )
+
+        with (
+            with_correlation("chat-openai-test"),
+            with_invocation_scope(InvocationScope.OPERATOR_CHAT),
+        ):
+            reply = await backend.answer(prompt="status", view_context={}, history=[])
+
+        (record,) = await sink.invocations()
+        assert reply["usage"]["total_tokens"] == 75
+        assert record.correlation_id == "chat-openai-test"
+        assert record.usage_scope is InvocationScope.OPERATOR_CHAT
+
+    async def test_narrator_probe_usage_is_not_counted_as_chat(self) -> None:
+        identity = _RecordingIdentity()
+        sink = InMemoryMeteringSink()
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [{"message": {"content": "probe"}}],
+                    "usage": {"prompt_tokens": 20, "completion_tokens": 5},
+                },
+            )
+
+        backend = AzureAdChatBackend(
+            endpoint="https://example.openai.azure.com/",
+            deployment="narrator-mini",
+            identity=identity,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+            metering=MeteringEmitter(
+                sink=sink,
+                capability_id="t1.judge",
+                model_key="narrator-mini",
+                tier="T1",
+            ),
+        )
+
+        with with_correlation("narrator-probe"):
+            await backend.answer(prompt="health", view_context={}, history=[])
+
+        (record,) = await sink.invocations()
+        assert record.usage_scope is InvocationScope.CONTROL_PLANE
+
     async def test_azure_stream_uses_injected_workload_identity(self) -> None:
         identity = _RecordingIdentity()
 
@@ -384,6 +575,55 @@ class TestChatRouteLatencySurface:
             {"type": "done", "answer": "managed stream", "model": "narrator-mini"},
         ]
         assert identity.audiences == ["https://cognitiveservices.azure.com/.default"]
+
+    async def test_azure_stream_records_terminal_usage_once(self) -> None:
+        identity = _RecordingIdentity()
+        sink = InMemoryMeteringSink()
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                text=(
+                    'data: {"choices":[{"delta":{"content":"measured"}}]}\n\n'
+                    'data: {"choices":[],"usage":{"prompt_tokens":80,'
+                    '"completion_tokens":20,"total_tokens":100}}\n\n'
+                    "data: [DONE]\n\n"
+                ),
+            )
+
+        backend = AzureAdChatBackend(
+            endpoint="https://example.openai.azure.com/",
+            deployment="narrator-mini",
+            identity=identity,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+            metering=MeteringEmitter(
+                sink=sink,
+                capability_id="t1.judge",
+                model_key="narrator-mini",
+                tier="T1",
+                usage_scope=InvocationScope.OPERATOR_CHAT,
+            ),
+        )
+
+        with (
+            with_correlation("chat-stream-test"),
+            with_invocation_scope(InvocationScope.OPERATOR_CHAT),
+        ):
+            events = [
+                event
+                async for event in backend.answer_stream(
+                    prompt="status",
+                    view_context={},
+                    history=[],
+                )
+            ]
+
+        records = await sink.invocations()
+        assert len(records) == 1
+        assert records[0].correlation_id == "chat-stream-test"
+        assert records[0].usage.total_tokens == 100
+        assert events[-1]["usage"]["total_tokens"] == 100
 
     async def test_apim_openai_v1_narrator_uses_gateway_audience(self) -> None:
         identity = _RecordingIdentity()

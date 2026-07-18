@@ -207,10 +207,12 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   reporting line, and evidence links without inventing metrics that the read API did not return.
   It separately shows runtime bindings: 11 typed EventBus subscribers plus Huginn's raw-ingress
   subscriber stay ready while Njord and Freyr wait for external adapters and Loki waits for a
-  scheduled trigger. Resource discovery is not owned by a named agent. The dedicated Inventory
-  sync job queries Azure Resource Graph with ARM fallback, promotes an immutable snapshot, and
-  publishes deltas into Huginn; the deployed default schedule is every six hours, while the local
-  harness runs no Azure discovery.
+  scheduled trigger. Huginn owns real-time resource discovery ingress: Azure create, update, and
+  delete signals arrive through the canonical event topic, then an injected delivery projector
+  enriches and applies ordered inventory deltas without putting Azure I/O inside the agent. The
+  dedicated Inventory sync job queries Azure Resource Graph with ARM fallback every six hours by
+  default and atomically promotes a complete reconciliation snapshot. Heimdall monitors discovery
+  freshness, lag, and coverage; the local harness runs no Azure discovery.
   Organization offers Directory and Org chart views; `?view=org` preserves a direct link to the
   live reporting hierarchy, and each node opens that agent's focused runtime detail.
   Its filters and search are browser-local presentation controls; Activity links preserve the
@@ -219,10 +221,19 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   not make an active agent appear blank. Local dev mode also exposes a `Labs`
   group immediately above Settings; production navigation omits this development-only group.
 
+## Repository Script Layout
+
+Repository automation is grouped by responsibility under `scripts/`; only the
+layout README, `verify.sh`, and the Python package marker stay as root files. Quality gates,
+integrity tooling, governance checks, catalog utilities, deployment helpers,
+and general automation each have their own directory. See
+[scripts/README.md](../../../scripts/README.md) for the ownership map and
+placement rules.
+
 ## Structural CI Gates
 
 Four CI-enforced scripts back the boundary rules above so drift cannot creep
-back once a refactor lands. They all live under `scripts/` and run in every
+back once a refactor lands. They live under `scripts/quality/architecture/` and run in every
 CI pipeline plus the local pre-push hook. Corresponding docs in
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md).
 
@@ -235,7 +246,7 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 
 ### Adding a new gate
 
-1. Write `scripts/check-<name>.sh` following the pattern in the existing
+1. Write `scripts/quality/architecture/check-<name>.sh` following the pattern in the existing
    scripts (warn/fail thresholds via env vars, allowlist with a preceding
    `#` justification comment, stale-entry rejection, GitHub Actions
    annotations, `CHECK_QUIET=1` summary mode).
@@ -367,7 +378,7 @@ non-Azure phase registers a new implementation at the composition root without e
 | **Real-time outbound stream** | `SseSink` (async publish + async-iterator subscribe over an SSE-shaped payload) | - | `InMemorySseSink` (test/dev); HTTP `text/event-stream` adapter lands with the console read-only surface | replace with a WebSocket adapter for a two-way surface; a webhook-only variant for headless observers. `shared/streaming/SseBroadcaster` relays `EventBus` topics into channels. |
 | **Pipeline stage publisher** | `StagePublisher` (in `shared/providers/stage_publisher.py`) with `emit(StageEvent)` | - | `NullStagePublisher` (discards; keeps stage code side-effect-free by default) | in-process dev / single-replica: `SseSinkStagePublisher` fans out directly onto `SseSink`. Multi-replica prod: `EventBusStagePublisher` writes to a Kafka topic (default `aw.pipeline.stages`) and the existing `SseBroadcaster` relays that topic to the SSE channel every replica consumes. Pipeline stages (`event_ingest`, `trust_router`, T0/T1/T2, `risk_gate`, `executor`, `audit`) accept the Protocol so wiring is fully backward-compatible - the upstream default emits nothing. |
 | **Console read panel** | `ReadPanel` (in `delivery/read_api/panels.py`) | - | core routes only (`/audit`, `/kpi`, `/hil-queue`); `ExampleFinOpsPanel` ships as reference but is **not** registered, so the upstream UI stays minimal | fork adds vertical dashboards (FinOps cost, drift board, DR-drill history) via `ReadApiConfig.extra_panels` (each wrapped as a GET-only route, path validated at build) + a matching entry in the console `panels.tsx` registry |
-| **LLM metering** | `MeteringSink` / `MeteringReader` (in `core/metering/sink.py`); `MeteringEmitter` records measured provider `usage`; prices load from `rule-catalog/llm-pricing.yaml` into a `PricingTable` | - | `InMemoryMeteringSink` (process-lifetime; drives the single-process dev harness). The T2 adapters (`cross_check`, `rca_model`) emit measured tokens + cost; `LlmCostPanel` serves `GET /kpi/llm-cost` rolled up per conversation / day / month | a fork injects a **durable** sink into `AzureWireOverrides.metering_sink` (core process) and a matching `MeteringReader` into `LlmCostPanel` (read-api process) - e.g. Postgres `agent_transcript` rows - since the headless core and the console are separate processes |
+| **LLM metering** | `MeteringSink` / `MeteringReader` (in `core/metering/sink.py`); `MeteringEmitter` records measured provider `usage` with an explicit `control_plane` or `operator_chat` scope | - | one shared `InMemoryMeteringSink` in the single-process dev harness. T1, T2, and narrator adapters emit measured tokens; `LlmCostPanel` retains `GET /kpi/llm-cost` and exposes token-only scope / model / call / conversation / day / month projections | production uses the durable Postgres `llm_invocation` store across the headless core and read API; configured pricing remains internal to budget controls and isn't projected as provider spend |
 | **Infra module** | `infra/modules/<seam>/` (Terraform sub-module selected by `var.<seam>_kind`) | - | Container Apps + PostgreSQL Flex + Event Hubs Kafka + Key Vault + Log Analytics | pick a different sub-module per [csp-neutrality.md § Approved Alternative Azure Implementations](csp-neutrality.md#approved-alternative-azure-implementations); the module's output contract stays fixed |
 
 Because every seam is an injected interface, adding a customer or a second cloud is a matter of

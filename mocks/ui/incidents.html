@@ -23,15 +23,11 @@
     .in-roster-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 15px; border-bottom: 1px solid var(--cs-hairline); }
     .in-roster-head h2 { margin: 0; font-size: 14px; }
     .in-roster-list { display: flex; flex-direction: column; }
-    .in-incident { display: grid; grid-template-columns: 4px minmax(0, 1fr); gap: 11px; width: 100%; padding: 13px 14px 13px 10px; border: 0; border-bottom: 1px solid var(--cs-hairline); background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+    .in-incident { display: block; width: 100%; padding: 13px 14px; border: 0; border-bottom: 1px solid var(--cs-hairline); background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
     .in-incident:last-child { border-bottom: 0; }
     .in-incident:hover { background: var(--cs-shade); }
-    .in-incident.is-selected { background: rgba(68,104,142,.08); box-shadow: inset 3px 0 0 var(--cs-steel); }
+    .in-incident.is-selected { background: rgba(68,104,142,.08); outline: 1px solid rgba(68,104,142,.28); outline-offset: -1px; }
     .in-incident[hidden] { display: none; }
-    .in-severity-rail { width: 4px; min-height: 54px; border-radius: 3px; background: var(--cs-steel); }
-    .in-severity-rail.is-critical { background: var(--cs-dusty-red); }
-    .in-severity-rail.is-high { background: var(--cs-terracotta); }
-    .in-severity-rail.is-medium { background: var(--cs-steel); }
     .in-incident-title { display: block; margin-bottom: 4px; color: var(--cs-text); font-size: 13.5px; font-weight: 600; line-height: 1.35; }
     .in-incident-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; color: var(--cs-text-soft); font-size: 11.5px; }
     .in-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cs-steel); }
@@ -104,25 +100,21 @@
 
     <section class="in-summary" aria-label="Incident summary">
       <div class="cs-card cs-kpi">
-        <div class="cs-kpi-accent is-terracotta"></div>
         <span class="cs-kpi-label">Active incidents</span>
         <span class="cs-kpi-value">3</span>
         <span class="cs-kpi-foot">1 critical &middot; 1 high &middot; 1 medium</span>
       </div>
       <div class="cs-card cs-kpi">
-        <div class="cs-kpi-accent is-sage"></div>
         <span class="cs-kpi-label">Resolved in 24h</span>
         <span class="cs-kpi-value">12</span>
         <span class="cs-kpi-foot">median 6m 42s</span>
       </div>
       <div class="cs-card cs-kpi">
-        <div class="cs-kpi-accent is-teal"></div>
         <span class="cs-kpi-label">Auto-contained</span>
         <span class="cs-kpi-value">8</span>
         <span class="cs-kpi-foot">66.7% of resolved incidents</span>
       </div>
       <div class="cs-card cs-kpi">
-        <div class="cs-kpi-accent is-plum"></div>
         <span class="cs-kpi-label">Awaiting approval</span>
         <span class="cs-kpi-value">1</span>
         <span class="cs-kpi-foot">oldest 8m</span>
@@ -148,31 +140,27 @@
         </div>
         <div class="in-roster-list">
           <button class="in-incident is-selected" type="button" data-incident="inc-api-latency" data-status="active" aria-pressed="true">
-            <span class="in-severity-rail is-critical"></span>
             <span>
               <span class="in-incident-title">API latency after configuration rollout</span>
-              <span class="in-incident-meta"><span class="in-status-dot is-progress"></span>in progress <span>&middot;</span> change safety <span>&middot;</span> 4m</span>
+              <span class="in-incident-meta"><span class="cs-sev critical">critical</span><span class="in-status-dot is-progress"></span>in progress <span>&middot;</span> change safety <span>&middot;</span> 4m</span>
             </span>
           </button>
           <button class="in-incident" type="button" data-incident="inc-pitr-disabled" data-status="active" aria-pressed="false">
-            <span class="in-severity-rail is-high"></span>
             <span>
               <span class="in-incident-title">Point-in-time recovery disabled</span>
-              <span class="in-incident-meta"><span class="in-status-dot is-open"></span>open <span>&middot;</span> resilience <span>&middot;</span> 8m</span>
+              <span class="in-incident-meta"><span class="cs-sev high">high</span><span class="in-status-dot is-open"></span>open <span>&middot;</span> resilience <span>&middot;</span> 8m</span>
             </span>
           </button>
           <button class="in-incident" type="button" data-incident="inc-cost-spike" data-status="active" aria-pressed="false">
-            <span class="in-severity-rail is-medium"></span>
             <span>
               <span class="in-incident-title">Unexpected compute cost increase</span>
-              <span class="in-incident-meta"><span class="in-status-dot is-progress"></span>in progress <span>&middot;</span> cost governance <span>&middot;</span> 17m</span>
+              <span class="in-incident-meta"><span class="cs-sev medium">medium</span><span class="in-status-dot is-progress"></span>in progress <span>&middot;</span> cost governance <span>&middot;</span> 17m</span>
             </span>
           </button>
           <button class="in-incident" type="button" data-incident="inc-secret-expiry" data-status="resolved" aria-pressed="false" hidden>
-            <span class="in-severity-rail is-high"></span>
             <span>
               <span class="in-incident-title">Workload secret nearing expiry</span>
-              <span class="in-incident-meta"><span class="in-status-dot is-resolved"></span>resolved <span>&middot;</span> change safety <span>&middot;</span> 42m ago</span>
+              <span class="in-incident-meta"><span class="cs-sev high">high</span><span class="in-status-dot is-resolved"></span>resolved <span>&middot;</span> change safety <span>&middot;</span> 42m ago</span>
             </span>
           </button>
         </div>

@@ -14,22 +14,28 @@ touches Azure SDKs directly (keeps the CSP-neutrality gate happy).
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import asyncio
+import inspect
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Final
 
 import httpx
 
 from fdai.shared.providers.notifications.base import (
+    ChannelDeliveryError,
     ChannelKind,
+    ChannelUnavailableError,
     DeliveryReceipt,
     NotificationMessage,
     TrustTier,
 )
 
-from ._http import post_json
+from ._http import post_json_response, truncate
 
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 15.0
+_DEFAULT_POLL_INTERVAL_SECONDS: Final[float] = 1.0
+_DEFAULT_MAX_POLL_ATTEMPTS: Final[int] = 60
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +53,8 @@ class AzureCommunicationEmailConfig:
         {TrustTier.A2_OPERATIONAL_ALERT, TrustTier.A4_DIGEST}
     )
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
+    poll_interval_seconds: float = _DEFAULT_POLL_INTERVAL_SECONDS
+    max_poll_attempts: int = _DEFAULT_MAX_POLL_ATTEMPTS
 
 
 class AzureCommunicationEmailChannel:
@@ -59,10 +67,14 @@ class AzureCommunicationEmailChannel:
         *,
         config: AzureCommunicationEmailConfig,
         http_client: httpx.AsyncClient,
-        token_provider: Callable[[], str] | None = None,
+        token_provider: Callable[[], str | Awaitable[str]] | None = None,
     ) -> None:
         if config.timeout_seconds <= 0:
             raise ValueError("timeout_seconds MUST be > 0")
+        if config.poll_interval_seconds < 0:
+            raise ValueError("poll_interval_seconds MUST be >= 0")
+        if config.max_poll_attempts < 1:
+            raise ValueError("max_poll_attempts MUST be >= 1")
         if not config.endpoint:
             raise ValueError("endpoint MUST NOT be empty")
         if not config.endpoint.startswith("https://"):
@@ -94,12 +106,14 @@ class AzureCommunicationEmailChannel:
         }
         if self._token_provider is not None:
             token = self._token_provider()
+            if inspect.isawaitable(token):
+                token = await token
             if token:
                 headers["Authorization"] = f"Bearer {token}"
         endpoint = self._config.endpoint.rstrip("/")
         url = f"{endpoint}/emails:send?api-version={self._config.api_version}"
         payload = _acs_email_payload(message, self._config)
-        await post_json(
+        response = await post_json_response(
             client=self._http,
             url=url,
             payload=payload,
@@ -107,11 +121,71 @@ class AzureCommunicationEmailChannel:
             timeout_seconds=self._config.timeout_seconds,
             ok_statuses=(200, 202),
         )
+        provider_message_id = message.correlation_id
+        if response.status_code == 202:
+            operation_url = response.headers.get("Operation-Location", "").strip()
+            if not operation_url:
+                raise ChannelDeliveryError(
+                    "ACS Email accepted the request without an Operation-Location header"
+                )
+            if not operation_url.startswith(f"{endpoint}/"):
+                raise ChannelDeliveryError(
+                    "ACS Email returned an operation URL outside the configured endpoint"
+                )
+            provider_message_id = await self._wait_for_delivery(
+                operation_url=operation_url,
+                headers=headers,
+                fallback_id=message.correlation_id,
+            )
         return DeliveryReceipt(
             channel_kind=ChannelKind.EMAIL,
             channel_id=self._config.channel_id,
             delivered=True,
-            provider_message_id=message.correlation_id,
+            provider_message_id=provider_message_id,
+        )
+
+    async def _wait_for_delivery(
+        self,
+        *,
+        operation_url: str,
+        headers: dict[str, str],
+        fallback_id: str,
+    ) -> str:
+        for attempt in range(self._config.max_poll_attempts):
+            try:
+                response = await self._http.get(
+                    operation_url,
+                    headers=headers,
+                    timeout=self._config.timeout_seconds,
+                )
+            except httpx.HTTPError as exc:
+                raise ChannelUnavailableError(
+                    f"GET {operation_url} transport error: {exc}"
+                ) from exc
+            if response.status_code != 200:
+                raise ChannelDeliveryError(
+                    f"GET {operation_url} -> HTTP {response.status_code}: "
+                    f"{truncate(response.text or '')!r}"
+                )
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                raise ChannelDeliveryError(
+                    "ACS Email operation returned an invalid JSON response"
+                ) from exc
+            status = str(payload.get("status", ""))
+            provider_message_id = str(payload.get("id") or fallback_id)
+            if status == "Succeeded":
+                return provider_message_id
+            if status in {"Failed", "Canceled"}:
+                error = truncate(str(payload.get("error") or "unknown provider error"))
+                raise ChannelDeliveryError(
+                    f"ACS Email operation {provider_message_id} ended as {status}: {error}"
+                )
+            if attempt + 1 < self._config.max_poll_attempts:
+                await asyncio.sleep(self._config.poll_interval_seconds)
+        raise ChannelUnavailableError(
+            "ACS Email operation did not complete within the configured poll budget"
         )
 
 

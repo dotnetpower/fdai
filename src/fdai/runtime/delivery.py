@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -14,12 +14,14 @@ from fdai.core.executor.tool_call import ToolCallShadowExecutor, ToolReceiptObse
 from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.runtime.configuration import _resolve_catalog_root
 from fdai.shared.providers.idempotency import IdempotencyStore
+from fdai.shared.providers.notifications import NotificationChannel
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.testing.direct_api import RecordingDirectApiExecutor
 from fdai.shared.providers.testing.remediation_pr import RecordingRemediationPrPublisher
 from fdai.shared.providers.testing.tool import RecordingToolExecutor
 
 _LOGGER = logging.getLogger("fdai.startup")
+_ACS_SCOPE = "https://communication.azure.com/.default"
 
 
 def _build_publisher(http_client: httpx.AsyncClient | None) -> Any:
@@ -442,14 +444,86 @@ def _build_tool_executor(
     )
 
 
-def _build_incident_notifier(audit_store: Any) -> Any:
+def _build_notification_registry(http_client: httpx.AsyncClient | None) -> Any:
+    """Bind configured send-only notification adapters."""
+    from fdai.core.notifications.router import ChannelRegistry
+
+    endpoint = os.environ.get("FDAI_EMAIL_ENDPOINT", "").strip()
+    if not endpoint:
+        return ChannelRegistry()
+    if http_client is None:
+        raise RuntimeError(
+            "FDAI_EMAIL_ENDPOINT is set but no HTTP client is available. "
+            "The composition root MUST create an httpx.AsyncClient before "
+            "building notification channels."
+        )
+
+    sender_address = os.environ.get("FDAI_EMAIL_SENDER_ADDRESS", "").strip()
+    recipients_raw = os.environ.get("FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON", "").strip()
+    identity_client_id = os.environ.get("FDAI_NOTIFICATION_MI_CLIENT_ID", "").strip()
+    if not sender_address or not recipients_raw or not identity_client_id:
+        raise RuntimeError(
+            "FDAI_EMAIL_ENDPOINT requires FDAI_EMAIL_SENDER_ADDRESS, "
+            "FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON, and FDAI_NOTIFICATION_MI_CLIENT_ID"
+        )
+    try:
+        recipients_value = json.loads(recipients_raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON is not valid JSON") from exc
+    if (
+        not isinstance(recipients_value, list)
+        or not recipients_value
+        or not all(isinstance(address, str) and address.strip() for address in recipients_value)
+    ):
+        raise RuntimeError("FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON MUST be a non-empty string array")
+    recipients = tuple(dict.fromkeys(address.strip() for address in recipients_value))
+
+    from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+    from fdai.delivery.notifications import (
+        AzureCommunicationEmailChannel,
+        AzureCommunicationEmailConfig,
+    )
+
+    identity = ManagedIdentityWorkloadIdentity.from_env(
+        http_client=http_client,
+        client_id_env="FDAI_NOTIFICATION_MI_CLIENT_ID",
+    )
+
+    async def token_provider() -> str:
+        return (await identity.get_token(_ACS_SCOPE)).token
+
+    channels: dict[str, NotificationChannel] = {}
+    for channel_id in ("email-oncall", "email-governance"):
+        channel = AzureCommunicationEmailChannel(
+            config=AzureCommunicationEmailConfig(
+                channel_id=channel_id,
+                endpoint=endpoint,
+                sender_address=sender_address,
+                recipient_addresses=recipients,
+            ),
+            http_client=http_client,
+            token_provider=token_provider,
+        )
+        channels[channel_id] = cast(NotificationChannel, channel)
+    _LOGGER.info(
+        "notification_email_backend",
+        extra={"backend": "acs-email", "channel_count": len(channels)},
+    )
+    return ChannelRegistry(channels=channels)
+
+
+def _build_incident_notifier(
+    audit_store: Any,
+    *,
+    http_client: httpx.AsyncClient | None = None,
+) -> Any:
     """Compose durable A2 incident delivery for the control-plane process."""
     from fdai.core.incident import (
         DurableIncidentLifecycleNotifier,
         InMemoryIncidentNotificationDeliveryStore,
         RoutedIncidentLifecycleNotifier,
     )
-    from fdai.core.notifications.router import ChannelRegistry, NotificationRouter
+    from fdai.core.notifications.router import NotificationRouter
     from fdai.delivery.notifications import StateStoreHilEscalationSink
 
     dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
@@ -469,7 +543,7 @@ def _build_incident_notifier(audit_store: Any) -> Any:
     )
     router = NotificationRouter(
         matrix=matrix,
-        registry=ChannelRegistry(),
+        registry=_build_notification_registry(http_client),
         audit_store=audit_store,
         hil_sink=StateStoreHilEscalationSink(state_store=audit_store),
     )

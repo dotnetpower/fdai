@@ -310,7 +310,7 @@ class AzureArgQueryFactory:
 
         neutral_id = _to_neutral_id(arm_id)
         props: dict[str, Any] = {}
-        for key in ("name", "location", "tags", "properties", "resourceGroup"):
+        for key in ("name", "location", "kind", "sku", "tags", "properties", "resourceGroup"):
             if key in row and row[key] is not None:
                 props[key] = row[key]
 

@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: e275b2df57f00e84e4e96b5919afc27f953b1d41
+translation_source_sha: 6735ffccf6069e1e7ced900f8cf96e10935536c5
 translation_revised: 2026-07-18
 ---
 
@@ -385,11 +385,13 @@ Hubs ingest topic 에 publish 합니다. 변경을 직접 실행하지 않으며
 shared trust-router 및 risk-gate 로 다시 진입합니다. Publish 실패 시 scheduled item 은
 재시도 가능한 상태를 유지하고 job 은 non-zero 결과를 반환합니다.
 
-Inventory job 은 완전한 ARG/ARM snapshot 을 원자적으로 promote 한 후 subscription 별 Azure
-Activity Log delta 를 읽습니다. Delta resource 는 canonical Event 로 forward 되며 각 cursor 는
-stream 이 final fence 를 emit 한 후에만 advance 합니다. Control loop 는 graph-dependent
-ActionType 에 대해 active Postgres snapshot age 를 읽습니다. Freshness lookup 이 없거나 실패하거나
-stale 하면 action 을 사람 검토로 보냅니다.
+Azure resource create, update, delete signal은 canonical Event Hubs ingress를 통해 계속
+흐릅니다. Huginn은 이 실시간 discovery ingress를 소유하고 정규화된 Event에 resource identity,
+change kind, bounded property를 보존합니다. Dedicated projector는 partition order에 따라 resource,
+link, tombstone delta를 durable inventory overlay에 적용합니다. Inventory job은 별도로 기본 6시간마다
+완전한 ARG/ARM reconciliation snapshot을 promote하고 새 generation에 포함된 overlay entry를
+정리합니다. Heimdall은 stale snapshot, cursor lag, fallback spike, coverage loss를 감지합니다.
+Freshness lookup이 없거나 degraded 또는 stale이면 graph-dependent action을 사람 검토로 보냅니다.
 
 ## Open Decisions
 

@@ -9,7 +9,7 @@ from typing import Any, Final
 import psycopg
 from psycopg.rows import dict_row
 
-from fdai.core.metering.records import InvocationMode, LlmInvocation
+from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvocation
 from fdai.core.metering.usage import TokenUsage
 
 
@@ -44,9 +44,9 @@ class PostgresMeteringStore:
                     """
                     INSERT INTO llm_invocation (
                         occurred_at, correlation_id, capability_id, model_key,
-                        tier, mode, prompt_tokens, completion_tokens, cost, currency
+                        tier, mode, usage_scope, prompt_tokens, completion_tokens, cost, currency
                     ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     ) ON CONFLICT DO NOTHING
                     """,
                     (
@@ -56,6 +56,7 @@ class PostgresMeteringStore:
                         invocation.model_key,
                         invocation.tier,
                         invocation.mode.value,
+                        invocation.usage_scope.value,
                         invocation.usage.prompt_tokens,
                         invocation.usage.completion_tokens,
                         invocation.cost,
@@ -69,7 +70,7 @@ class PostgresMeteringStore:
             cursor = await connection.execute(
                 """
                 SELECT occurred_at, correlation_id, capability_id, model_key,
-                      tier, mode, prompt_tokens, completion_tokens, cost, currency
+                      tier, mode, usage_scope, prompt_tokens, completion_tokens, cost, currency
                   FROM llm_invocation
                  ORDER BY occurred_at, invocation_id
                 """
@@ -101,6 +102,7 @@ def _row_to_invocation(row: dict[str, Any]) -> LlmInvocation:
             prompt_tokens=int(row["prompt_tokens"]),
             completion_tokens=int(row["completion_tokens"]),
         ),
+        usage_scope=InvocationScope(str(row["usage_scope"])),
         cost=Decimal(str(raw_cost)) if raw_cost is not None else None,
         currency=str(row["currency"]) if row["currency"] is not None else None,
     )

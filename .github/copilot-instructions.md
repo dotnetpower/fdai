@@ -19,11 +19,14 @@ principles into a phased engineering plan.
 
 ## Language Policy (MUST)
 
-- **FDAI is fully bilingual: English and Korean are both allowed in any
-  natural-language text anywhere in the repository** - source comments, docstrings,
-  string literals, logs, error messages, tests, docs, commit messages, GitHub issues,
-  and `.github/**`. There is **no english-only gate**; Korean is never a defect on the
-  basis of being Korean.
+- **FDAI is fully bilingual: English and Korean are both allowed in repository
+  natural-language text** - source comments, docstrings, string literals, logs,
+  error messages, tests, docs, and `.github/**`. There is **no repository-wide
+  english-only gate**; Korean is never a defect on the basis of being Korean.
+- **GitHub issues are English-only project-tracking artifacts.** Titles, bodies,
+  and comments MUST be English, as defined in
+  [CONTRIBUTING.md](../CONTRIBUTING.md#opening-issues). This narrow collaboration
+  rule does not restrict live maintainer chat or repository prose.
 - **Two tooling constraints remain** (not about language choice): identifiers,
   filenames, and branch names MUST be ASCII (`a-z A-Z 0-9 _ - .`), and punctuation MUST
   be ASCII (enforced by `scripts/quality/repository/check-punctuation.sh`). Write Korean in comments and

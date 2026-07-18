@@ -70,6 +70,12 @@ locals {
     var.vm_task_enforce ? {
       FDAI_VM_TASK_ENFORCE = "1"
     } : {},
+    var.email_endpoint == "" ? {} : {
+      FDAI_EMAIL_ENDPOINT                 = var.email_endpoint
+      FDAI_EMAIL_SENDER_ADDRESS           = var.email_sender_address
+      FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON = var.email_recipient_addresses_json
+      FDAI_NOTIFICATION_MI_CLIENT_ID      = var.notification_identity_client_id
+    },
   )
 }
 
@@ -238,6 +244,11 @@ resource "azurerm_container_app" "core" {
       env {
         name  = "FDAI_START_PANTHEON"
         value = "1"
+      }
+
+      env {
+        name  = "FDAI_INVENTORY_RAW_TOPIC"
+        value = var.inventory_raw_topic
       }
 
       env {

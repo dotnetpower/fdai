@@ -318,6 +318,12 @@ variable "inventory_cron_expression" {
   default     = "0 */6 * * *"
 }
 
+variable "enable_realtime_inventory_discovery" {
+  description = "Enable managed-identity Event Grid delivery of subscription resource writes and deletes to Huginn's raw inventory topic."
+  type        = bool
+  default     = true
+}
+
 variable "inventory_sources" {
   description = "Ordered inventory source fallback list. Supported values: arg,arm."
   type        = string
@@ -448,6 +454,40 @@ variable "chatops_webhook_secret" {
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "enable_email_notifications" {
+  description = "Provision Azure Communication Services Email and bind the send-only A2/A4 notification channels."
+  type        = bool
+  default     = false
+}
+
+variable "notification_email_recipients" {
+  description = "Email recipients for A2 operational alerts and A4 digests. Supply through CI variables; never commit populated addresses."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = (
+      !var.enable_email_notifications ||
+      (length(var.notification_email_recipients) > 0 && alltrue([
+        for address in var.notification_email_recipients : can(regex("^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$", address))
+      ]))
+    )
+    error_message = "enable_email_notifications requires at least one syntactically valid notification_email_recipients entry."
+  }
+}
+
+variable "email_data_location" {
+  description = "ACS Email data-at-rest geography. This is independent from the Azure resource region."
+  type        = string
+  default     = "Korea"
+}
+
+variable "import_existing_email_notifications" {
+  description = "Import a pre-existing ACS Email stack into Terraform state. Use only for the first convergence plan after an approved out-of-band bootstrap."
+  type        = bool
+  default     = false
 }
 
 # ---------------------------------------------------------------------------

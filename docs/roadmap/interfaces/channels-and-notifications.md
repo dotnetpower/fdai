@@ -438,7 +438,7 @@ channel_routing:
 |---------|-------|
 | **Teams** | Adaptive Cards for A1; keep the OAuth scope set minimal (`ChannelMessage.Send.Group` + bot signaling). SSO + OBO already covered in [user-rbac-and-identity.md §10.4](user-rbac-and-identity.md#104-chatops-teams-sign-in). Digest audience is a **group-connected team backed by an `aw-*` Entra security group** so membership follows Entra without a separate list. |
 | **Slack** | Block Kit for A2/A3; the approval callback URL redirects through `fdai-api` so Entra re-auth happens in the browser, not inside Slack. `chat:write` scope only. Fork MUST supply the userId↔OID mapping store; the adapter refuses A1 traffic when a Slack user has no mapped Entra OID. Slack channel membership is administered in Slack; keep it in sync with the corresponding `aw-*` group manually or via SCIM. |
-| **Email** | Send-only. Never include an approval link; digest and alert only. Sender identity is a Graph API mailbox scoped to the notification role. Redaction is mandatory - no correlation payload beyond `audit_id` and dashboard URL. Recommended DL: an **Entra dynamic distribution group** mirroring `aw-approvers` / `aw-owners`. |
+| **Email** | Send-only through Azure Communication Services Email. Never include an approval link; digest and alert only. Terraform provisions an Azure-managed sender domain and a dedicated notification managed identity scoped to the Communication Services resource. The adapter requests a short-lived `https://communication.azure.com/.default` token, waits for the provider operation to reach `Succeeded`, and records the provider message id. Redaction is mandatory - no correlation payload beyond `audit_id` and dashboard URL. Recommended recipient: an **Entra dynamic distribution group** mirroring `aw-approvers` / `aw-owners`. |
 | **Generic webhook** | HMAC-SHA256 signature, monotonic timestamp, single-use nonce. Receiver failures never block; core retries per adapter policy and moves on. |
 | **PagerDuty / Opsgenie** | Deduplication key = the observability correlation id so a burst collapses. Runbook URL is required in every alert. |
 | **SMS** | Payload restricted to `<severity> <audit_id> <short-url-to-runbook>`. No secrets, no customer names, no free-form text. Break-glass reachability primarily. |
@@ -460,7 +460,8 @@ channel_routing:
 | `Channel` interface + `NotificationMessage` / `ApprovalRequest` types | ✓ | - |
 | Teams adapter (default A1 + A2 + A3 + A4 impl) | ✓ | tenant / group-connected team binding |
 | **Slack adapter with A1 enabled by default (P1)** | ✓ | workspace credentials + userId↔OID mapping (required) |
-| Email / Webhook / Pager / SMS adapters | ✓ (skeletons) | credentials + enablement |
+| ACS Email adapter | ✓ (A2/A4, managed identity, final-status polling) | recipient binding + enablement |
+| Webhook / Pager / SMS adapters | ✓ (skeletons) | credentials + enablement |
 | Routing-config schema + startup validation | ✓ | actual routing values in `rule-catalog/channel-routing/` |
 | HIL escalation sink (`on_all_fail` fail-safe queue) | ✓ (`StateStoreHilEscalationSink` - StateStore-backed, tenant-agnostic) | own queue backend (optional) |
 | Seven default digests + audience derivation rules | ✓ | cron timezone, channel ids, on/off per digest |

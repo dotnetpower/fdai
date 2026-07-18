@@ -38,6 +38,7 @@ from fdai.core.reporting.datasources import (
     NoopDataSource,
     OntologyDataSource,
     ReportFeedDataSource,
+    SecurityAssessmentDataSource,
 )
 from fdai.core.reporting.engine import ReportEngine
 from fdai.core.reporting.formats import install_default_formats
@@ -49,6 +50,7 @@ from fdai.core.reporting.registry import (
     WidgetRegistry,
 )
 from fdai.core.reporting.widgets import install_default_widgets
+from fdai.core.reporting.widgets.composite import GROUP_LIKE_WIDGET_TYPES
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from fdai.core.report_feed.feed import ReportFeed
@@ -59,7 +61,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 
 _KNOWN_DATASOURCE_NAMES: frozenset[str] = frozenset(
-    {"audit", "report_feed", "metric", "log_query", "ontology"}
+    {"audit", "report_feed", "metric", "log_query", "ontology", "security_assessment"}
 )
 
 
@@ -116,10 +118,18 @@ def default_reporting_engine(
             ReportFeedDataSource(feed=report_feed),
             provenance=_provenance("report_feed", wired=True),
         )
+        sources.register(
+            SecurityAssessmentDataSource(feed=report_feed),
+            provenance=_provenance("security_assessment", wired=True),
+        )
     else:
         sources.register(
             NoopDataSource(name="report_feed"),
             provenance=_provenance("report_feed", wired=False),
+        )
+        sources.register(
+            NoopDataSource(name="security_assessment"),
+            provenance=_provenance("security_assessment", wired=False),
         )
 
     if metric_provider is not None:
@@ -159,7 +169,7 @@ def default_reporting_engine(
     if reports_root is not None:
         specs = load_report_catalog(
             reports_root,
-            allowed_widget_types=frozenset(widgets.types()) | {"group"},
+            allowed_widget_types=frozenset(widgets.types()) | GROUP_LIKE_WIDGET_TYPES,
             allowed_datasources=frozenset(sources.names()),
         )
         catalog = ReportCatalog(specs)

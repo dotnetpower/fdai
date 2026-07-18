@@ -1,0 +1,82 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Console Web: Read API",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "module": "uvicorn",
+      "args": [
+        "fdai.delivery.read_api.dev.local:app",
+        "--factory",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8010",
+        "--reload"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "FDAI_READ_API_DEV_MODE": "1",
+        "FDAI_NARRATOR_AUTO_OPEN_AOAI": "0",
+        "FDAI_READ_API_CORS_ALLOW_ORIGINS": "http://127.0.0.1:5273,http://localhost:5273"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true
+    },
+    {
+      "name": "Console Web: Ingestion Gateway",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "module": "uvicorn",
+      "args": [
+        "fdai.delivery.ingestion_gateway.dev:app",
+        "--factory",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8011",
+        "--reload"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "FDAI_INGESTION_GATEWAY_DEV_MODE": "1",
+        "FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS": "http://127.0.0.1:5273,http://localhost:5273"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true
+    },
+    {
+      "name": "Console Web: Frontend",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev -- --port 5273 --strictPort",
+      "cwd": "${workspaceFolder}/console",
+      "env": {
+        "VITE_DEV_MODE": "1",
+        "VITE_READ_API_BASE_URL": "http://127.0.0.1:8010",
+        "VITE_INGESTION_API_BASE_URL": "http://127.0.0.1:8011"
+      },
+      "serverReadyAction": {
+        "pattern": "Local:\\s+(https?://\\S+)",
+        "uriFormat": "%s",
+        "action": "debugWithChrome"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Console Web: Full Stack",
+      "configurations": [
+        "Console Web: Read API",
+        "Console Web: Ingestion Gateway",
+        "Console Web: Frontend"
+      ],
+      "stopAll": true
+    }
+  ]
+}

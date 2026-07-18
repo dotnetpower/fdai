@@ -17,6 +17,7 @@ from starlette.routing import Route
 
 from fdai.core.conversation.answer_plan import build_answer_plan
 from fdai.core.conversation.answer_planning import AnswerPlanningResult
+from fdai.core.metering import InvocationScope, with_invocation_scope
 from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.read_api.routes.chat_answer_planning import (
@@ -56,6 +57,7 @@ from fdai.delivery.read_api.routes.chat_route_common import (
     AnswerPreferenceResolver,
     AuthorizeFn,
     ModelPreferenceResolver,
+    _metering_correlation_id,
     _request_id,
     _session_id,
     _turn_metadata,
@@ -73,6 +75,7 @@ from fdai.delivery.read_api.routes.chat_system_health import render_system_healt
 from fdai.delivery.read_api.routes.chat_verification import verify_answer
 from fdai.shared.providers.briefing import ConversationPolicyStore
 from fdai.shared.providers.user_context import ConversationHistoryStore
+from fdai.shared.telemetry.correlation import with_correlation
 
 _LOG = logging.getLogger(__name__)
 
@@ -319,43 +322,51 @@ def make_chat_stream_route(
                             view_context=enriched_context,
                             history=history,
                         )
-                    async for event in _with_sse_heartbeats(
-                        upstream, interval=DEFAULT_STREAM_HEARTBEAT_S
+                    with (
+                        with_correlation(_metering_correlation_id(user_id, session_id)),
+                        with_invocation_scope(InvocationScope.OPERATOR_CHAT),
                     ):
-                        if event is None:
-                            # Idle keep-alive: nothing arrived in the last
-                            # `interval` seconds - emit a comment frame so
-                            # proxies do not drop the connection while the
-                            # reasoning model is still thinking.
-                            yield _sse_heartbeat()
-                            continue
-                        etype = event.get("type")
-                        if etype == "token":
-                            delta = event.get("delta", "")
-                            if isinstance(delta, str):
-                                provisional_answer += delta
-                            yield frame("token", {"delta": delta})
-                        elif etype == "done":
-                            answer = event.get("answer")
-                            if isinstance(answer, str) and answer:
-                                provisional_answer = answer
-                            terminal_model = event.get("model")
-                            terminal_router = event.get("router")
-                            terminal_usage = event.get("usage")
+                        async for event in _with_sse_heartbeats(
+                            upstream, interval=DEFAULT_STREAM_HEARTBEAT_S
+                        ):
+                            if event is None:
+                                # Idle keep-alive: nothing arrived in the last
+                                # `interval` seconds - emit a comment frame so
+                                # proxies do not drop the connection while the
+                                # reasoning model is still thinking.
+                                yield _sse_heartbeat()
+                                continue
+                            etype = event.get("type")
+                            if etype == "token":
+                                delta = event.get("delta", "")
+                                if isinstance(delta, str):
+                                    provisional_answer += delta
+                                yield frame("token", {"delta": delta})
+                            elif etype == "done":
+                                answer = event.get("answer")
+                                if isinstance(answer, str) and answer:
+                                    provisional_answer = answer
+                                terminal_model = event.get("model")
+                                terminal_router = event.get("router")
+                                terminal_usage = event.get("usage")
                 else:
-                    if isinstance(backend, LatencyRoutedChatBackend):
-                        reply = await backend.answer(
-                            prompt=clean_prompt,
-                            view_context=enriched_context,
-                            history=history,
-                            preferred_model=preferred_model,
-                        )
-                    else:
-                        reply = await backend.answer(
-                            prompt=clean_prompt,
-                            view_context=enriched_context,
-                            history=history,
-                        )
+                    with (
+                        with_correlation(_metering_correlation_id(user_id, session_id)),
+                        with_invocation_scope(InvocationScope.OPERATOR_CHAT),
+                    ):
+                        if isinstance(backend, LatencyRoutedChatBackend):
+                            reply = await backend.answer(
+                                prompt=clean_prompt,
+                                view_context=enriched_context,
+                                history=history,
+                                preferred_model=preferred_model,
+                            )
+                        else:
+                            reply = await backend.answer(
+                                prompt=clean_prompt,
+                                view_context=enriched_context,
+                                history=history,
+                            )
                     answer = reply.get("answer", "")
                     if isinstance(answer, str) and answer:
                         provisional_answer = answer

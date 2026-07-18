@@ -247,11 +247,14 @@ Forseti reasons; Norns closes the discovery loop.
 
 **Scope**
 
-- **Huginn (`src/fdai/agents/huginn.py`)** - subscribe to the existing
-  event ingest adapters (Azure Activity Log stream forwarded to
-  Kafka). Normalize to `Event`, dedup by stable key, publish to
-  `object.event`.
-- **Heimdall (`src/fdai/agents/heimdall.py`)** - anomaly detector
+- **Huginn (`src/fdai/agents/huginn.py`)** - own the real-time resource
+  discovery ingress. Subscription-scoped Azure write/delete events arrive on
+  the raw Event Hub through managed-identity Event Grid delivery, a runtime
+  normalizer republishes canonical Events, and Huginn deduplicates, invokes the
+  injected durable inventory projector, then publishes `object.event`. The
+  six-hour Inventory sync job remains the full ARG/ARM reconciliation path.
+- **Heimdall (`src/fdai/agents/heimdall.py`)** - discovery freshness/coverage
+  assurance plus anomaly detector
   (statistical threshold, adaptive baseline via T0/T1), drift detector
   (declared vs actual state via Muninn snapshot compare), forecast
   (statistical time-series; ARIMA or exponential smoothing). Publish
@@ -829,13 +832,13 @@ owned data plus `owns_code_paths`) without changing the contract; the narrator
 renders in the operator's locale (L3) while the intent, verdict, and audit
 underneath stay L0 English (language.instructions.md).
 
-**Metering (measured, never estimated).** Every hot-path T2 call records the
-provider's measured `usage` through a `MeteringSink`; `MeteringEmitter` computes
-spend from the config-driven `rule-catalog/llm-pricing.yaml` price table, and the
-read-API `LlmCostPanel` serves `GET /kpi/llm-cost` rolled up per conversation
-(`correlation_id`), per day, and per month. The upstream in-memory sink spans a
-single-process dev harness; a fork injects a durable sink so the headless core
-(where the LLM runs) and the read-API console share one metering stream.
+**Metering (measured, never estimated).** Every metered T1, T2, and narrator call
+records the provider's measured `usage` through a `MeteringSink`. The narrator
+uses `operator_chat`; other calls use `control_plane`. The read-API
+`LlmCostPanel` retains `GET /kpi/llm-cost` as a compatibility path and exposes
+token-only rollups by scope, model, call, conversation, day, and month. The
+single-process dev harness shares one in-memory sink; production uses the
+durable Postgres `llm_invocation` store across the headless core and read API.
 
 ## 14. Timeline shape (not commitments)
 

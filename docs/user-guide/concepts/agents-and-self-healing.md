@@ -36,7 +36,7 @@ graph TD
   Thor --> Vidar["Vidar - Recovery"]
   Thor --> Var["Var - Approver"]
   Thor --> Bragi["Bragi - Narrator"]
-  Forseti --> Huginn["Huginn - Event Collector"]
+  Forseti --> Huginn["Huginn - Event Collector / Resource Discovery"]
   Forseti --> Heimdall["Heimdall - Observer"]
   Forseti --> Njord["Njord - Cost"]
   Forseti --> Freyr["Freyr - Capacity"]
@@ -50,8 +50,8 @@ graph TD
 | Thor | Responder | Dispatches verdicts; the sole privileged executor |
 | Var | Approver | Carries the human HIL approval; distinct from Thor |
 | Vidar | Recovery | Owns rollback and DR failover |
-| Huginn | Event Collector | Ingests and correlates raw events |
-| Heimdall | Observer | Watches drift and resource change |
+| Huginn | Event Collector / Resource Discovery | Owns real-time resource-change ingress and correlation |
+| Heimdall | Observer | Watches discovery freshness, coverage, drift, and resource change |
 | Njord / Freyr / Loki | Specialists | Advise on cost, capacity, chaos - they never execute |
 | Mimir / Norns / Muninn | Governance staff | Rule stewardship, learning, memory |
 | Saga | Auditor | Writes the append-only audit log |
@@ -96,7 +96,7 @@ handles every event. Here is one failover, end to end:
 
 ```mermaid
 graph LR
-  Huginn["Huginn<br/>collects signals"] --> Heimdall["Heimdall<br/>correlates drift"]
+  Huginn["Huginn<br/>discovers changes"] --> Heimdall["Heimdall<br/>checks coverage"]
   Heimdall --> Forseti["Forseti<br/>judges verdict"]
   Njord -. advises .-> Forseti
   Freyr -. advises .-> Forseti
@@ -109,8 +109,9 @@ graph LR
   Saga -. signals .-> Norns["Norns<br/>learns"]
 ```
 
-1. **Sense.** Huginn ingests the failure signals; Heimdall correlates them into
-   one incident rather than a storm of alerts.
+1. **Sense.** Huginn ingests resource changes and failure signals in real time;
+  the periodic Inventory job reconciles missed changes, and Heimdall checks
+  freshness and coverage before correlating one incident instead of an alert storm.
 2. **Judge.** Forseti scores the incident, consults the specialists for cost and
    capacity trade-offs, and issues a verdict: auto, HIL, or deny.
 3. **Act.** Thor dispatches. Low-risk recovery runs autonomously; a high-risk

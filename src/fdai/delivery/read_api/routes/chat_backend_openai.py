@@ -9,10 +9,14 @@ from typing import Any
 import httpx
 from starlette.exceptions import HTTPException
 
+from fdai.core.metering.emitter import MeteringEmitter
 from fdai.delivery.read_api.routes.chat_backend_common import (
     _completion_body_params,
     _default_chat_http_client,
+    _metering_scope,
     _raise_upstream_error,
+    _token_usage,
+    _usage_summary,
 )
 from fdai.delivery.read_api.routes.chat_prompt import _build_messages
 
@@ -29,7 +33,7 @@ class OpenAiCompatibleChatBackendConfig:
     model: str  # deployment name for provider=azure
     api_version: str = "2024-08-01-preview"
     temperature: float = 0.2
-    max_tokens: int = 800
+    max_tokens: int = 2048
     # 90s accommodates reasoning models (gpt-5, o1/o3/o4) that can take
     # 60-90s to emit the first token. The SSE route layers a heartbeat on
     # top so HTTP intermediaries do not drop an idle connection.
@@ -50,6 +54,7 @@ class OpenAiCompatibleChatBackend:
         *,
         config: OpenAiCompatibleChatBackendConfig,
         http_client: httpx.AsyncClient | None = None,
+        metering: MeteringEmitter | None = None,
     ) -> None:
         if config.provider not in {"openai", "azure"}:
             raise ValueError("provider MUST be 'openai' or 'azure'")
@@ -61,6 +66,7 @@ class OpenAiCompatibleChatBackend:
             raise ValueError("model MUST NOT be empty")
         self._config = config
         self._http = http_client if http_client is not None else _default_chat_http_client()
+        self._metering = metering
 
     def _url(self) -> str:
         base = self._config.base_url.rstrip("/")
@@ -127,4 +133,11 @@ class OpenAiCompatibleChatBackend:
         content = message.get("content") if isinstance(message, dict) else None
         if not isinstance(content, str):
             raise HTTPException(status_code=502, detail="chat upstream returned no content")
-        return {"answer": content.strip(), "model": self._config.model}
+        reply: dict[str, Any] = {"answer": content.strip(), "model": self._config.model}
+        usage = _usage_summary(envelope.get("usage"))
+        if usage is not None:
+            reply["usage"] = usage
+        measured_usage = _token_usage(usage)
+        if measured_usage is not None and self._metering is not None:
+            await self._metering.emit_safe(measured_usage, usage_scope=_metering_scope())
+        return reply

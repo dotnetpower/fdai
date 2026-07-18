@@ -44,10 +44,10 @@ def build_stewardship_map() -> Any:
     return None
 
 
-def build_chat_backend() -> Any:
+def build_chat_backend(metering_sink: Any = None) -> Any:
     from fdai.delivery.read_api.routes.chat import backend_from_env
 
-    return backend_from_env()
+    return backend_from_env(metering_sink=metering_sink)
 
 
 def build_chat_web_search() -> Any:

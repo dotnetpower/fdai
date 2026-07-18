@@ -335,3 +335,24 @@ def _build_inventory_context_provider() -> Any:
     )
 
     return PostgresInventoryContextProvider(config=PostgresInventorySnapshotStoreConfig(dsn=dsn))
+
+
+def _build_inventory_delta_projector() -> Any:
+    dsn = (
+        os.environ.get("FDAI_INVENTORY_DSN", "").strip()
+        or os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+    )
+    if not dsn:
+        _require_durable_backend(
+            env_var="FDAI_INVENTORY_DSN or FDAI_STATE_STORE_DSN",
+            backend="inventory delta projector",
+        )
+        return None
+    from fdai.delivery.persistence.postgres_inventory_delta import (
+        PostgresInventoryDeltaProjector,
+    )
+    from fdai.delivery.persistence.postgres_inventory_snapshot import (
+        PostgresInventorySnapshotStoreConfig,
+    )
+
+    return PostgresInventoryDeltaProjector(config=PostgresInventorySnapshotStoreConfig(dsn=dsn))

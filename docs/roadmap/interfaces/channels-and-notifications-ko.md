@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 472810f340117420271d199d2c310beded00fc84
-translation_revised: 2026-07-17
+translation_source_sha: e353f47263ad3f890677d1f672aa7478f05d941c
+translation_revised: 2026-07-18
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -429,7 +429,7 @@ channel_routing:
 |------|------|
 | **Teams** | A1에 Adaptive Cards; OAuth 스코프 세트를 최소로 유지(`ChannelMessage.Send.Group` + 봇 시그널링). SSO + OBO는 이미 [user-rbac-and-identity-ko.md §10.4](user-rbac-and-identity-ko.md#104-chatops-teams-sign-in)에 커버. 다이제스트 오디언스는 **`aw-*` Entra 보안 그룹으로 백업된 group-connected 팀** - 멤버십이 별도 리스트 없이 Entra를 따름. |
 | **Slack** | A2/A3에 Block Kit; 승인 콜백 URL은 `fdai-api`를 통해 리다이렉트하여 Entra 재인증이 Slack 안이 아니라 브라우저에서 발생. `chat:write` 스코프만. 포크는 userId↔OID 매핑 저장소를 공급해야 함; Slack 사용자에게 매핑된 Entra OID가 없으면 어댑터는 A1 트래픽 거부. Slack 채널 멤버십은 Slack에서 관리; 해당 `aw-*` 그룹과 수동 또는 SCIM으로 sync 유지. |
-| **Email** | Send-only. 승인 링크 절대 포함 안 함; 다이제스트와 알림만. 발신자 아이덴티티는 알림 롤에 범위된 Graph API 메일박스. Redaction 필수 - `audit_id`와 대시보드 URL 이상의 상관 페이로드 없음. 권장 DL: `aw-approvers` / `aw-owners`를 미러링하는 **Entra 동적 분배 그룹**. |
+| **Email** | Azure Communication Services Email을 통한 send-only 채널입니다. 승인 링크는 포함하지 않고 다이제스트와 알림만 전달합니다. Terraform은 Azure-managed sender domain과 Communication Services 리소스에 범위가 제한된 전용 notification managed identity를 프로비저닝합니다. 어댑터는 단기 `https://communication.azure.com/.default` 토큰을 요청하고 provider operation이 `Succeeded`가 될 때까지 기다린 후 provider message id를 기록합니다. Redaction은 필수이며 `audit_id`와 대시보드 URL 이상의 상관 페이로드를 포함하지 않습니다. 권장 수신자는 `aw-approvers` / `aw-owners`를 미러링하는 **Entra 동적 분배 그룹**입니다. |
 | **Generic webhook** | HMAC-SHA256 서명, 단조 타임스탬프, 단발 nonce. Receiver 실패는 절대 블록 안 함; 코어가 어댑터 정책대로 재시도 후 이동. |
 | **PagerDuty / Opsgenie** | Dedup 키 = observability 상관 id 이므로 버스트가 접힘. 런북 URL은 모든 알림에 필수. |
 | **SMS** | 페이로드는 `<severity> <audit_id> <short-url-to-runbook>`로 제한. 시크릿 없음, 고객 이름 없음, 자유 텍스트 없음. 주로 break-glass 도달성. |
@@ -451,7 +451,8 @@ channel_routing:
 | `Channel` 인터페이스 + `NotificationMessage` / `ApprovalRequest` 타입 | ✓ | - |
 | Teams 어댑터 (기본 A1 + A2 + A3 + A4 구현) | ✓ | tenant / group-connected 팀 바인딩 |
 | **A1 기본 활성화된 Slack 어댑터 (P1)** | ✓ | workspace 자격증명 + userId↔OID 매핑(필수) |
-| Email / Webhook / Pager / SMS 어댑터 | ✓ (스켈레톤) | 자격증명 + 활성화 |
+| ACS Email 어댑터 | ✓ (A2/A4, managed identity, 최종 상태 polling) | 수신자 바인딩 + 활성화 |
+| Webhook / Pager / SMS 어댑터 | ✓ (스켈레톤) | 자격증명 + 활성화 |
 | 라우팅-config 스키마 + 시작 검증 | ✓ | 실제 라우팅 값 in `rule-catalog/channel-routing/` |
 | HIL escalation sink (`on_all_fail` fail-safe 큐) | ✓ (`StateStoreHilEscalationSink` - StateStore 기반, tenant-무관) | 자체 큐 백엔드(선택) |
 | 7개 기본 다이제스트 + 오디언스 파생 규칙 | ✓ | cron 타임존, 채널 id, 다이제스트별 on/off |

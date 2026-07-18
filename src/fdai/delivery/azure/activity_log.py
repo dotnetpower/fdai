@@ -60,6 +60,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
+from urllib.parse import urlparse
 
 import httpx
 
@@ -113,7 +114,8 @@ class AzureActivityLogFactoryConfig:
     def __post_init__(self) -> None:
         if not self.subscription_scope:
             raise ValueError("AzureActivityLogFactoryConfig.subscription_scope MUST be non-empty")
-        if not self.arg_endpoint.lower().startswith("https://"):
+        parsed_endpoint = urlparse(self.arg_endpoint)
+        if parsed_endpoint.scheme != "https" or not parsed_endpoint.netloc:
             raise ValueError(
                 "AzureActivityLogFactoryConfig.arg_endpoint MUST use https:// "
                 "- the bearer token is sent on every request "
@@ -141,6 +143,7 @@ class AzureActivityLogFactory:
         self._identity: Final[WorkloadIdentity] = identity
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureActivityLogFactoryConfig] = config
+        self._endpoint_host: Final[str] = urlparse(config.arg_endpoint).netloc.lower()
         # ARM type -> CSP-neutral resource_type reverse map, computed once.
         self._arm_to_neutral: Final[Mapping[str, str]] = _build_arm_to_neutral_map(resource_types)
 
@@ -198,6 +201,9 @@ class AzureActivityLogFactory:
         )
 
     async def _get(self, url: str) -> Mapping[str, Any]:
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or parsed.netloc.lower() != self._endpoint_host:
+            raise ActivityLogError("Activity Log nextLink changed scheme or host")
         token = await self._identity.get_token(self._config.audience)
         headers = {
             "Authorization": f"Bearer {token.token}",

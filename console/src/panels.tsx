@@ -36,6 +36,7 @@ const AgentsRoute = lazy(async () => ({ default: (await import("./routes/agents"
 const HilQueueRoute = lazy(async () => ({ default: (await import("./routes/hil-queue")).HilQueueRoute }));
 const ProvisionRoute = lazy(async () => ({ default: (await import("./routes/provision")).ProvisionRoute }));
 const ProcessesRoute = lazy(async () => ({ default: (await import("./routes/processes")).ProcessesRoute }));
+const WorkflowAppsRoute = lazy(async () => ({ default: (await import("./routes/workflow-apps")).WorkflowAppsRoute }));
 const ReportsRoute = lazy(async () => ({ default: (await import("./routes/reports")).ReportsRoute }));
 const AgentActivityRoute = lazy(async () => ({ default: (await import("./routes/agent-activity")).AgentActivityRoute }));
 const AuditRoute = lazy(async () => ({ default: (await import("./routes/audit")).AuditRoute }));
@@ -193,6 +194,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.processes"),
     group: "operations",
     component: ProcessesRoute,
+  },
+  {
+    id: "workflow-apps",
+    label: t("nav.panel.workflowApps"),
+    subtitle: t("nav.panelSub.workflowApps"),
+    group: "operations",
+    component: WorkflowAppsRoute,
   },
   {
     id: "scheduler-runs",

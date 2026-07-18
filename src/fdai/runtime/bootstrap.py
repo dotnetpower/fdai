@@ -31,12 +31,17 @@ from fdai.runtime.consumers import (
     _consume,
     _consume_canaries,
     _consume_hil_decisions,
+    _consume_resource_changes,
     _log_pantheon_exit,
 )
-from fdai.runtime.control_loop import _build_control_loop, _build_irp_event_handler
+from fdai.runtime.control_loop import (
+    _build_control_loop,
+    _build_irp_event_handler,
+    _load_resource_types,
+)
 from fdai.runtime.delivery import _build_incident_notifier
 from fdai.runtime.health import RuntimeHealthServer
-from fdai.runtime.providers import _build_audit_store
+from fdai.runtime.providers import _build_audit_store, _build_inventory_delta_projector
 from fdai.shared.config.models import LlmMode
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -147,6 +152,8 @@ async def _run() -> int:
             # Same for the HIL channel - an Incoming Webhook URL opts in.
             if os.environ.get("FDAI_CHATOPS_WEBHOOK_URL") and http_client is None:
                 http_client = _new_http_client()
+            if os.environ.get("FDAI_EMAIL_ENDPOINT") and http_client is None:
+                http_client = _new_http_client()
             from fdai.core.incident import (
                 IncidentLifecycleWorkflow,
                 IncidentRegistry,
@@ -158,7 +165,10 @@ async def _run() -> int:
             incident_registry = IncidentRegistry(state_store=incident_audit_store)
             incident_entries = await incident_audit_store.read_incident_transitions()
             incident_registry.rehydrate(incident_entries)
-            incident_notifier = _build_incident_notifier(incident_audit_store)
+            incident_notifier = _build_incident_notifier(
+                incident_audit_store,
+                http_client=http_client,
+            )
             await incident_notifier.replay(incident_entries)
             incident_workflow = IncidentLifecycleWorkflow(
                 registry=incident_registry,
@@ -255,6 +265,7 @@ async def _run() -> int:
                     disabled_agents=disabled_agents,
                     divergence=divergence_ledger,
                     incident_candidate_hook=_open_incident_candidate,
+                    discovery_projector=_build_inventory_delta_projector(),
                     scenario_coverage_aggregator=ScenarioCoverageAggregator(
                         index=runtime_symptom_index
                     ),
@@ -323,6 +334,19 @@ async def _run() -> int:
                     irp_handler=_build_irp_event_handler(container=container, bus=bus),
                 )
             )
+            resource_change_task: asyncio.Task[None] | None = None
+            inventory_raw_topic = os.environ.get("FDAI_INVENTORY_RAW_TOPIC", "").strip()
+            if inventory_raw_topic:
+                resource_change_task = asyncio.create_task(
+                    _consume_resource_changes(
+                        bus=bus,
+                        raw_topic=inventory_raw_topic,
+                        canonical_topic=container.config.kafka.topic_events,
+                        resource_types=_load_resource_types(),
+                        stop=stop,
+                    ),
+                    name="huginn-resource-discovery",
+                )
             canary_task: asyncio.Task[None] | None = None
             canary_topic = os.environ.get("FDAI_CANARY_TOPIC", "").strip()
             if canary_topic:
@@ -364,6 +388,8 @@ async def _run() -> int:
                 pantheon_task.add_done_callback(_log_pantheon_exit)
 
             wait_set = {consumer_task, wait_task}
+            if resource_change_task is not None:
+                wait_set.add(resource_change_task)
             if canary_task is not None:
                 wait_set.add(canary_task)
             if hil_decision_task is not None:
@@ -374,6 +400,8 @@ async def _run() -> int:
             )
             consumer_task.cancel()
             wait_task.cancel()
+            if resource_change_task is not None:
+                resource_change_task.cancel()
             if canary_task is not None:
                 canary_task.cancel()
             if hil_decision_task is not None:
@@ -386,6 +414,8 @@ async def _run() -> int:
             # ``finally``. Without this a cancelled consumer can be
             # racing the aiokafka close and log noisy warnings on exit.
             cleanup_tasks: list[asyncio.Task[Any]] = [consumer_task, wait_task]
+            if resource_change_task is not None:
+                cleanup_tasks.append(resource_change_task)
             if canary_task is not None:
                 cleanup_tasks.append(canary_task)
             if hil_decision_task is not None:

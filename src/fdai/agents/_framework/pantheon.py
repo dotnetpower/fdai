@@ -81,7 +81,7 @@ _HUGINN = AgentSpec(
     executes=(),
     initiates=(),
     subscribes=(),  # ingested from external adapters, not from bus
-    question_domains=("event_source_health",),
+    question_domains=("event_source_health", "resource_discovery"),
     owns_code_paths=("src/fdai/agents/huginn.py",),
 )
 

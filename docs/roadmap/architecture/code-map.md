@@ -200,7 +200,10 @@ local development, verification, and session hand-off consistent.
 
 | Path | Purpose |
 |------|---------|
-| [scripts/verify.sh](../../../scripts/verify.sh) | Single pre-commit gate: fast text/lint gates by default, `--full [path]` runs pytest. |
+| [scripts/verify.sh](../../../scripts/verify.sh) | Single local gate: fast text/lint and clean-checkout contracts by default; `--full` adds safety-core coverage plus console and CLI verification, while `--full <path>` runs a focused pytest target. |
+| [scripts/quality/ci/check-ci-contracts.py](../../../scripts/quality/ci/check-ci-contracts.py) | Clean-checkout, Docker build-context, and live-DB skip-order regression checks shared by local verification and CI. |
+| [scripts/quality/ci/run-python-tests.sh](../../../scripts/quality/ci/run-python-tests.sh) | Capped parallel non-integration tests, serial live-DB integration tests, slow-test reporting, and the safety-core coverage floor. |
+| [scripts/quality/ci/run-operator-surfaces.sh](../../../scripts/quality/ci/run-operator-surfaces.sh) | Console and CLI tests, type checks, production build, and entry-bundle budget. |
 | [scripts/deployment/local/dev-up.sh](../../../scripts/deployment/local/dev-up.sh) / [dev-down.sh](../../../scripts/deployment/local/dev-down.sh) / [dev-logs.sh](../../../scripts/deployment/local/dev-logs.sh) / [dev-status.sh](../../../scripts/deployment/local/dev-status.sh) | Local Docker Compose stack (pgvector + Redpanda) lifecycle. |
 | [scripts/automation/tests-for-diff.sh](../../../scripts/automation/tests-for-diff.sh) | Run only the pytest files affected by the current diff. |
 | [scripts/deployment/azure/genesis-up.sh](../../../scripts/deployment/azure/genesis-up.sh) | Stream `terraform apply` into the Day-1 Genesis surface via `delivery/provisioning`. |

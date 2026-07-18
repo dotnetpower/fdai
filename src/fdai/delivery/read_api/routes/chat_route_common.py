@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, Final
@@ -65,6 +66,12 @@ def _request_id(body: Mapping[str, Any]) -> str:
     if len(value) > 128:
         raise HTTPException(status_code=400, detail="request_id exceeds cap (128)")
     return value
+
+
+def _metering_correlation_id(user_id: str, session_id: str) -> str:
+    """Return an opaque, stable metering key for one operator conversation."""
+    digest = hashlib.sha256(f"{user_id}\0{session_id}".encode()).hexdigest()[:32]
+    return f"chat-{digest}"
 
 
 def _uses_evidence_fast_path(view_context: Mapping[str, Any]) -> bool:

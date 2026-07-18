@@ -286,6 +286,11 @@ subnet boundaries, resource status, and `attached_to` / `depends_on` links in on
 canvas. Pan, zoom, filtering, selection, and deep links are local view operations only.
 The console cannot add, move, resize, or delete resources.
 
+Production responses merge the immutable reconciliation snapshot with the
+ordered real-time resource/link overlay. The toolbar shows pending real-time
+change count alongside snapshot freshness so an operator can distinguish a
+recent Huginn projection from the last six-hour full reconciliation.
+
 The default selector shows FDAI's own control-plane architecture. Named application views
 then separate each service FDAI can judge. Every view uses the same boundary-normalization
 pass before rendering, so a resource cannot appear outside its declared parent scope. The

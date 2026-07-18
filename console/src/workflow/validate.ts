@@ -127,11 +127,37 @@ export interface ValidateResponse {
   readonly yaml_preview: string | null;
 }
 
+export interface SavedWorkflowDraft {
+  readonly definitionId: string;
+  readonly workflowName: string;
+  readonly lifecycle: string;
+}
+
 let authContext: AuthContext | null = null;
 
 /** Set once at app init so the validate POST can attach the bearer token. */
 export function setWorkflowAuth(auth: AuthContext | null): void {
   authContext = auth;
+}
+
+/** Persist a validated workflow as a principal-owned private DRAFT.
+ * This does not publish, bind, enable, or execute the workflow. */
+export async function createWorkflowDefinition(
+  workflow: Readonly<Record<string, unknown>>,
+): Promise<SavedWorkflowDraft> {
+  const payload = await workflowMutation("/workflows/definitions", "POST", {
+    workflow,
+    confirmed: true,
+  });
+  if (payload["valid"] !== true || !isRecord(payload["definition"])) {
+    throw new Error("Workflow draft creation returned an invalid response.");
+  }
+  const definition = payload["definition"];
+  return {
+    definitionId: requiredResponseString(definition, "definition_id"),
+    workflowName: requiredResponseString(definition, "workflow_name"),
+    lifecycle: requiredResponseString(definition, "lifecycle"),
+  };
 }
 
 export async function createWorkflowBinding(input: {
@@ -176,8 +202,16 @@ async function workflowMutation(
   if (!response.ok) {
     let detail = `HTTP ${response.status}`;
     try {
-      const payload = await response.json() as { detail?: string };
-      detail = payload.detail ?? detail;
+      const payload = await response.json() as { detail?: string; issues?: unknown };
+      if (typeof payload.detail === "string" && payload.detail) {
+        detail = payload.detail;
+      } else if (Array.isArray(payload.issues)) {
+        const messages = payload.issues.flatMap((issue) => {
+          if (!isRecord(issue) || typeof issue["message"] !== "string") return [];
+          return [issue["message"]];
+        });
+        if (messages.length > 0) detail = messages.slice(0, 3).join("; ");
+      }
     } catch {
       /* keep status */
     }
@@ -185,6 +219,18 @@ async function workflowMutation(
   }
   if (response.status === 204) return {};
   return await response.json() as Record<string, unknown>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function requiredResponseString(value: Record<string, unknown>, key: string): string {
+  const field = value[key];
+  if (typeof field !== "string" || field.trim().length === 0) {
+    throw new Error("Workflow draft creation returned an invalid response.");
+  }
+  return field;
 }
 
 function validateUrl(): string {

@@ -82,9 +82,11 @@ workload identity, inventory) into Azure resources - see
 Recommended mapping:
 
 - Event bus: **Event Hubs Standard** consumed **only through its Kafka endpoint on `:9093`**
-  (Kafka wire protocol is the CSP-neutral contract); Service Bus and Event Grid are **not**
-  in the day-zero inventory. Where a native Azure signal is needed (Activity Log, resource
-  events), it is forwarded into a Kafka topic on Event Hubs - the core sees Kafka only.
+  (Kafka wire protocol is the CSP-neutral contract); Service Bus is not in the day-zero
+  inventory. Event Grid MAY exist only as a managed-identity transport bridge from Azure
+  subscription resource-write/delete signals into a raw Event Hub. It is not a core contract,
+  broker, or decision surface. Huginn normalizes those records after Kafka ingress, so the core
+  still sees Kafka only. Event Hubs local authentication remains disabled.
 - Core consumer: **Azure Container Apps** (Consumption) - **one app with one modular Python
   process** that composes the core subsystems behind internal interfaces. The current
   Terraform baseline keeps `minReplicas = 1`; scale-to-zero remains blocked until an

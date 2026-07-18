@@ -65,6 +65,7 @@ from fdai.core.reporting.widgets.reliability import (
     ServiceSummaryBuilder,
     SloSummaryBuilder,
 )
+from fdai.core.reporting.widgets.workflow import ComparisonBuilder, ProcessStepsBuilder
 
 
 def default_widget_builders() -> Iterable[WidgetBuilder]:
@@ -110,6 +111,9 @@ def default_widget_builders() -> Iterable[WidgetBuilder]:
         # cost
         CostSummaryBuilder(),
         BudgetSummaryBuilder(),
+        # workflow presentation
+        ProcessStepsBuilder(),
+        ComparisonBuilder(),
         # composite / annotations
         SplitGraphBuilder(),
         FreeTextBuilder(),

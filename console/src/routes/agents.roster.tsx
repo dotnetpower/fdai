@@ -78,12 +78,13 @@ export function AgentRoster({
       <section class="agent-discovery-note" aria-label="Resource discovery ownership">
         <div>
           <strong>Resource discovery</strong>
-          <span>Inventory sync job</span>
+          <span>Huginn real-time ingress</span>
         </div>
         <p>
-          Azure Resource Graph first, ARM fallback, then immutable inventory snapshot and delta
-          events into Huginn. The design cadence is every 6 hours; deployment schedule status is
-          unavailable without scheduler evidence. The local harness does not run Azure discovery.
+          Azure resource writes and deletes enter through Event Hubs and Huginn continuously.
+          The Inventory sync job still runs Azure Resource Graph with ARM fallback every 6 hours
+          to reconcile missed signals. Heimdall monitors freshness and coverage. The local harness
+          does not run Azure discovery.
         </p>
       </section>
 

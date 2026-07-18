@@ -15,11 +15,36 @@ permissions:
   contents: read
 
 jobs:
-  lint-and-test:
-    name: lint • mypy • pytest (with coverage)
+  lint:
+    name: ruff • mypy
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv (Python 3.13)
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: ruff format --check
+        run: uv run ruff format --check src tests
+
+      - name: ruff check
+        run: uv run ruff check src tests
+
+      - name: mypy --strict
+        run: uv run mypy
+
+  python-tests:
+    name: pytest • safety-core coverage
     runs-on: ubuntu-24.04
     env:
       FDAI_DATABASE_URL: postgresql://fdai:devonly@127.0.0.1:5432/fdai
+      FDAI_PYTEST_MAX_WORKERS: "8"
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -78,11 +103,10 @@ jobs:
           )
           PY
 
+      - name: Validate clean-checkout contracts
+        run: python3 scripts/quality/ci/check-ci-contracts.py
+
       - name: Install OPA (Rego runner)
-        # T0's OpaRegoEvaluator shells out to `opa eval`. Local dev may
-        # not have OPA installed (tests skip gracefully); CI installs a
-        # pinned version so the merge gate exercises the subprocess path.
-        # Checksum pinned to defend against a mid-flight artifact swap.
         run: |
           set -euo pipefail
           curl -fsSL -o /tmp/opa \
@@ -93,36 +117,8 @@ jobs:
           sudo mv /tmp/opa /usr/local/bin/opa
           opa version
 
-      - name: ruff format --check
-        run: uv run ruff format --check src tests
-
-      - name: ruff check
-        run: uv run ruff check src tests
-
-      - name: mypy --strict
-        run: uv run mypy
-
       - name: pytest + coverage
-        # The documented safety core is the complete event-to-audit hot path.
-        # Combined line/branch coverage stays above 90%; individual low files
-        # remain visible in the term-missing report for focused hardening.
-        run: >
-          uv run pytest -q
-          --cov=src/fdai/core/event_ingest
-          --cov=src/fdai/core/trust_router
-          --cov=src/fdai/core/tiers/t0_deterministic
-          --cov=src/fdai/core/tiers/t1_lightweight
-          --cov=src/fdai/core/tiers/t2_reasoning
-          --cov=src/fdai/core/quality_gate
-          --cov=src/fdai/core/risk_gate
-          --cov=src/fdai/core/hil_resume
-          --cov=src/fdai/core/executor
-          --cov=src/fdai/core/audit
-          --cov=src/fdai/core/control_loop
-          --cov-branch
-          --cov-report=term-missing
-          --cov-report=xml
-          --cov-fail-under=90
+        run: bash scripts/quality/ci/run-python-tests.sh
 
       - name: Upload coverage report
         if: always()
@@ -151,14 +147,11 @@ jobs:
       - name: Install locked console dependencies
         run: npm --prefix console ci --no-audit --no-fund
 
-      - name: Test and build console
-        run: npm --prefix console test && npm --prefix console run build
-
       - name: Install locked CLI dependencies
         run: npm --prefix cli ci --no-audit --no-fund
 
-      - name: Test and typecheck CLI
-        run: npm --prefix cli test && npm --prefix cli run typecheck
+      - name: Test, typecheck, and build operator surfaces
+        run: bash scripts/quality/ci/run-operator-surfaces.sh
 
   translations:
     name: docs/**/*.md ↔ -ko.md pair check

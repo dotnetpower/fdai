@@ -79,7 +79,7 @@ MAY publish that object type's topic.
 | **Odin** | Master Planner (cross-vertical arbiter, final tie-break) | governance | ArbitrationDecision | `object.arbitration-decision` | `object.arbitration-request`, `object.verdict` (portfolio) | no | no |
 | **Thor** | Responder - **sole privileged executor**; MUST NOT judge | pipeline | ActionRun, ActionAttempt | `object.action-run` | `object.verdict`, `object.approval`, `object.rollback` | no | no |
 | **Forseti** | Judge - issues Verdict (auto/hil/deny); reports to Odin, not Thor | pipeline | Verdict, RCA, SecurityEvent, ArbitrationRequest | `object.verdict`, `object.security-event`, `object.arbitration-request` | `object.anomaly`, `object.drift`, `object.cost-anomaly`, `object.capacity-forecast`, `object.arbitration-decision`, `object.rule` | yes (T2 abstain only) | no |
-| **Huginn** | Event Collector - normalize + dedup + correlate | pipeline | Event | `object.event` | (external ingress) | no | no |
+| **Huginn** | Event Collector / real-time resource discovery ingress - normalize + dedup + correlate | pipeline | Event | `object.event` | (external ingress) | no | no |
 | **Heimdall** | Observer - anomaly/drift/forecast + security-severity correlation | pipeline | Anomaly, Drift, Forecast | `object.anomaly`, `object.drift`, `object.forecast` | `object.event`, `object.security-event`, `object.chaos-experiment` | no | no |
 | **Vidar** | Recovery - rollback + DR failover principal | pipeline | Rollback | `object.rollback` | `object.action-run` (failed) | no | **yes** |
 | **Var** | Approver - HIL principal; MUST stay distinct from Thor | pipeline | Approval | `object.approval` | `object.action-run` (hil) | no | no |
@@ -115,14 +115,20 @@ MAY publish that object type's topic.
    domain specialists (Njord, Freyr, Loki) MUST NOT invoke an LLM synchronously.
    Hot-path LLM is allowed only in the three declared places: Bragi translator,
    Forseti T2 abstain, Norns off-path batch.
-6. **Hard dependencies fail safe (MUST).** Saga and Vidar are hard dependencies.
+6. **Discovery ownership stays split (MUST).** Huginn owns real-time resource
+   discovery ingress and remains the sole writer of `Event`. Provider adapters
+   own cloud parsing and enrichment; the inventory projector owns durable
+   resource/link/tombstone projection; the Inventory sync job owns periodic
+   full reconciliation; Heimdall owns discovery-health findings. Huginn MUST
+   NOT import a cloud SDK or write an inventory database directly.
+7. **Hard dependencies fail safe (MUST).** Saga and Vidar are hard dependencies.
    A change MUST NOT allow a mutation to proceed when Saga (audit) or Vidar
    (rollback) is unavailable; degrade to shadow, never fail open.
-7. **Fork-locked ActionType bindings (MUST).** The five role fields on every
+8. **Fork-locked ActionType bindings (MUST).** The five role fields on every
    ActionType - `initiators`, `judge`, `approver`, `executor`, `auditor` - plus
    `compensating_action`, `irreversible`, and `rollback_contract` are pantheon
    safety boundaries. Code and config MUST NOT repoint them per fork.
-8. **Two ports share nothing but the trace (MUST).** The typed pub/sub port and
+9. **Two ports share nothing but the trace (MUST).** The typed pub/sub port and
    the conversational port are separate. A conversational answer MUST NOT bypass
    the typed pipeline's judge/approve/execute steps.
 
@@ -147,7 +153,7 @@ do all of the following before proposing the change as complete:
    handler whose topic is not in the agent's `subscribes`, and any publish whose
    topic the agent does not own.
 4. **Preserve every structural invariant in section 3.** Re-check the change
-   against all eight. A change that weakens judge/executor separation,
+   against all nine. A change that weakens judge/executor separation,
    single-writer, approval/execution separation, hard-dependency fail-safe, or
    the deterministic hot-path is not mergeable.
 5. **Uphold the safety invariants for any autonomous action path.** Every action
@@ -293,6 +299,6 @@ deepen it. Do not delete this list without closing the item.
   is future work.
 
 > One line: editing an agent means first restating its role from section 2,
-> keeping the eight structural invariants (section 3), and satisfying the nine
+> keeping the nine structural invariants (section 3), and satisfying the nine
 > code-change rules (section 4) - including proposing the follow-up work for any
 > dead seam you touch.

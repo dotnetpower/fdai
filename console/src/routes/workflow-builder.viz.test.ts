@@ -39,8 +39,8 @@ describe("workflow-builder buildVizModel", () => {
     const nodes = buildVizModel(
       form({
         steps: [
-          { key: 0, id: "rs", action_type_ref: "remediate.right-size", guard_rule_ref: "", compensated_by: "", on_failure: "" },
-          { key: 1, id: "note", action_type_ref: "notify.publish-change-summary", guard_rule_ref: "", compensated_by: "", on_failure: "" },
+          { key: 0, id: "rs", action_type_ref: "remediate.right-size", guard_rule_ref: "", compensated_by: "", on_failure: "", params: {} },
+          { key: 1, id: "note", action_type_ref: "notify.publish-change-summary", guard_rule_ref: "", compensated_by: "", on_failure: "", params: {} },
         ],
       }),
       PALETTE,
@@ -53,8 +53,8 @@ describe("workflow-builder buildVizModel", () => {
     const nodes = buildVizModel(
       form({
         steps: [
-          { key: 0, id: "", action_type_ref: "  ", guard_rule_ref: "", compensated_by: "", on_failure: "" },
-          { key: 1, id: "rs", action_type_ref: "remediate.right-size", guard_rule_ref: "", compensated_by: "", on_failure: "" },
+          { key: 0, id: "", action_type_ref: "  ", guard_rule_ref: "", compensated_by: "", on_failure: "", params: {} },
+          { key: 1, id: "rs", action_type_ref: "remediate.right-size", guard_rule_ref: "", compensated_by: "", on_failure: "", params: {} },
         ],
       }),
       PALETTE,
@@ -68,7 +68,7 @@ describe("workflow-builder buildVizModel", () => {
     const nodes = buildVizModel(
       form({
         steps: [
-          { key: 0, id: "w", action_type_ref: "weird.thing", guard_rule_ref: "", compensated_by: "", on_failure: "" },
+          { key: 0, id: "w", action_type_ref: "weird.thing", guard_rule_ref: "", compensated_by: "", on_failure: "", params: {} },
         ],
       }),
       PALETTE,

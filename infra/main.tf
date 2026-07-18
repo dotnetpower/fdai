@@ -49,7 +49,8 @@ locals {
   tags = merge(local.base_tags, var.additional_tags)
 
   # Kafka topics served by Event Hubs (see docs/roadmap/deployment/deploy-and-onboard.md § Event Source Subscription).
-  canary_topic = "aw.control.canary"
+  canary_topic        = "aw.control.canary"
+  inventory_raw_topic = "aw.inventory.raw"
   event_topics = [
     "aw.change.events",
     "aw.dr.events",
@@ -57,7 +58,7 @@ locals {
     "aw.pantheon.objects",
     local.canary_topic,
   ]
-  event_auxiliary_topics = ["aw.hil.decisions", "aw.pipeline.stages"]
+  event_auxiliary_topics = ["aw.hil.decisions", "aw.pipeline.stages", local.inventory_raw_topic]
 }
 
 # -----------------------------------------------------------------------
@@ -203,6 +204,15 @@ module "canary_identity" {
   tags                = merge(local.tags, { "fdai:component" = "control-loop-canary" })
 }
 
+module "notification_identity" {
+  count               = var.enable_email_notifications ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-notification"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "notification-delivery" })
+}
+
 # Read API identity is intentionally distinct from the executor. It can pull
 # the API image and read the state-store DSN, but receives no VM Run Command or
 # mutation role. This preserves the console/proposal identity boundary.
@@ -238,6 +248,83 @@ resource "azurerm_role_assignment" "read_api_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
   principal_id         = module.read_api_identity[0].principal_id
+}
+
+# -----------------------------------------------------------------------
+# Notification delivery - ACS Email with an Azure-managed sender domain.
+# -----------------------------------------------------------------------
+resource "azurerm_communication_service" "notifications" {
+  count               = var.enable_email_notifications ? 1 : 0
+  name                = "acs-${var.workload}${local.full_suffix}"
+  resource_group_name = module.resource_group.name
+  data_location       = var.email_data_location
+  tags                = merge(local.tags, { "fdai:component" = "notification-delivery" })
+}
+
+resource "azurerm_email_communication_service" "notifications" {
+  count               = var.enable_email_notifications ? 1 : 0
+  name                = "ec-${var.workload}${local.full_suffix}"
+  resource_group_name = module.resource_group.name
+  data_location       = var.email_data_location
+  tags                = merge(local.tags, { "fdai:component" = "notification-delivery" })
+}
+
+resource "azurerm_email_communication_service_domain" "notifications" {
+  count             = var.enable_email_notifications ? 1 : 0
+  name              = "AzureManagedDomain"
+  email_service_id  = azurerm_email_communication_service.notifications[0].id
+  domain_management = "AzureManaged"
+  tags              = merge(local.tags, { "fdai:component" = "notification-delivery" })
+}
+
+resource "azurerm_communication_service_email_domain_association" "notifications" {
+  count                    = var.enable_email_notifications ? 1 : 0
+  communication_service_id = azurerm_communication_service.notifications[0].id
+  email_service_domain_id  = azurerm_email_communication_service_domain.notifications[0].id
+}
+
+resource "azurerm_role_assignment" "notification_email_sender" {
+  count                = var.enable_email_notifications ? 1 : 0
+  name                 = uuidv5("url", "fdai.notification-email-sender:${azurerm_communication_service.notifications[0].id}")
+  scope                = azurerm_communication_service.notifications[0].id
+  role_definition_name = "Communication and Email Service Owner"
+  principal_id         = module.notification_identity[0].principal_id
+}
+
+import {
+  for_each = var.import_existing_email_notifications ? toset(["notification"]) : toset([])
+  to       = module.notification_identity[0].azurerm_user_assigned_identity.primary
+  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-${var.workload}${local.full_suffix}-notification"
+}
+
+import {
+  for_each = var.import_existing_email_notifications ? toset(["notification"]) : toset([])
+  to       = azurerm_communication_service.notifications[0]
+  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/communicationServices/acs-${var.workload}${local.full_suffix}"
+}
+
+import {
+  for_each = var.import_existing_email_notifications ? toset(["notification"]) : toset([])
+  to       = azurerm_email_communication_service.notifications[0]
+  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/emailServices/ec-${var.workload}${local.full_suffix}"
+}
+
+import {
+  for_each = var.import_existing_email_notifications ? toset(["notification"]) : toset([])
+  to       = azurerm_email_communication_service_domain.notifications[0]
+  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/emailServices/ec-${var.workload}${local.full_suffix}/domains/AzureManagedDomain"
+}
+
+import {
+  for_each = var.import_existing_email_notifications ? toset(["notification"]) : toset([])
+  to       = azurerm_communication_service_email_domain_association.notifications[0]
+  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/communicationServices/acs-${var.workload}${local.full_suffix}|/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/emailServices/ec-${var.workload}${local.full_suffix}/domains/AzureManagedDomain"
+}
+
+import {
+  for_each = var.import_existing_email_notifications ? toset(["notification"]) : toset([])
+  to       = azurerm_role_assignment.notification_email_sender[0]
+  id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/communicationServices/acs-${var.workload}${local.full_suffix}/providers/Microsoft.Authorization/roleAssignments/${uuidv5("url", "fdai.notification-email-sender:/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-${var.workload}${local.full_suffix}/providers/Microsoft.Communication/communicationServices/acs-${var.workload}${local.full_suffix}")}"
 }
 
 resource "azurerm_role_assignment" "command_api_eventhubs_sender" {
@@ -303,6 +390,37 @@ resource "azurerm_role_assignment" "inventory_eventhubs_sender" {
   scope                = module.event_bus.topic_ids[local.event_topics[0]]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.inventory_identity.principal_id
+}
+
+resource "azurerm_role_assignment" "inventory_eventhubs_raw_sender" {
+  scope                = module.event_bus.auxiliary_topic_ids[local.inventory_raw_topic]
+  role_definition_name = "Azure Event Hubs Data Sender"
+  principal_id         = module.inventory_identity.principal_id
+}
+
+resource "azurerm_eventgrid_event_subscription" "inventory_resource_changes" {
+  count = var.enable_realtime_inventory_discovery ? 1 : 0
+
+  name                  = "evgs-${var.workload}${local.full_suffix}-inventory"
+  scope                 = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  eventhub_endpoint_id  = module.event_bus.auxiliary_topic_ids[local.inventory_raw_topic]
+  event_delivery_schema = "EventGridSchema"
+  included_event_types = [
+    "Microsoft.Resources.ResourceWriteSuccess",
+    "Microsoft.Resources.ResourceDeleteSuccess",
+  ]
+
+  delivery_identity {
+    type                   = "UserAssigned"
+    user_assigned_identity = module.inventory_identity.resource_id
+  }
+
+  retry_policy {
+    event_time_to_live    = 1440
+    max_delivery_attempts = 30
+  }
+
+  depends_on = [azurerm_role_assignment.inventory_eventhubs_raw_sender]
 }
 
 resource "azurerm_role_assignment" "canary_acr_pull" {
@@ -688,12 +806,16 @@ module "compute" {
   executor_identity_client_id  = module.identity.client_id
   inventory_identity_id        = module.inventory_identity.resource_id
   inventory_identity_client_id = module.inventory_identity.client_id
+  inventory_raw_topic          = local.inventory_raw_topic
   canary_identity_id           = module.canary_identity.resource_id
   canary_identity_client_id    = module.canary_identity.client_id
   canary_topic                 = local.canary_topic
   canary_cron_expression       = var.canary_cron_expression
   image                        = var.core_image
   max_replicas                 = var.max_replicas
+  extra_identity_ids = (
+    var.enable_email_notifications ? [module.notification_identity[0].resource_id] : []
+  )
 
   # Private-networking: bind the Container App Environment to the delegated
   # infra subnet so the app's Key Vault references resolve the KV private
@@ -727,6 +849,21 @@ module "compute" {
   # so the deterministic detection pipeline sees real telemetry with no
   # fork required. See src/fdai/composition/wire_azure.py.
   monitor_workspace_customer_id = module.log_analytics.workspace_customer_id
+
+  email_endpoint = (
+    var.enable_email_notifications
+    ? "https://${azurerm_communication_service.notifications[0].hostname}"
+    : ""
+  )
+  email_sender_address = (
+    var.enable_email_notifications
+    ? "DoNotReply@${azurerm_email_communication_service_domain.notifications[0].from_sender_domain}"
+    : ""
+  )
+  email_recipient_addresses_json = jsonencode(var.notification_email_recipients)
+  notification_identity_client_id = (
+    var.enable_email_notifications ? module.notification_identity[0].client_id : ""
+  )
 
   # Persistence DSNs (KV-backed; executor MI reads at runtime).
   state_store_dsn_secret_id     = azurerm_key_vault_secret.state_store_dsn.id
@@ -800,6 +937,8 @@ module "compute" {
     azurerm_role_assignment.inventory_eventhubs_sender,
     azurerm_role_assignment.canary_acr_pull,
     azurerm_role_assignment.canary_eventhubs_sender,
+    azurerm_communication_service_email_domain_association.notifications,
+    azurerm_role_assignment.notification_email_sender,
   ]
 }
 

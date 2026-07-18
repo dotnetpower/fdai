@@ -2,8 +2,8 @@
 title: 에이전트와 자가 치유(Agents and self-healing)
 description: FDAI의 고정된 에이전트 조직이 클라우드를 감시하고, 장애 해결을 위해 협력하며, 여러분을 승인-거절 수준에 두는 방식.
 translation_of: agents-and-self-healing.md
-translation_source_sha: e866c3606541e816c80d6a65be5921d601d6dfc6
-translation_revised: 2026-07-17
+translation_source_sha: b649fd36f2a637c12578a5cbf9226db4c520bee3
+translation_revised: 2026-07-18
 sidebar:
   order: 5
 ---
@@ -40,7 +40,7 @@ graph TD
   Thor --> Vidar["Vidar - Recovery"]
   Thor --> Var["Var - Approver"]
   Thor --> Bragi["Bragi - Narrator"]
-  Forseti --> Huginn["Huginn - Event Collector"]
+  Forseti --> Huginn["Huginn - Event Collector / Resource Discovery"]
   Forseti --> Heimdall["Heimdall - Observer"]
   Forseti --> Njord["Njord - Cost"]
   Forseti --> Freyr["Freyr - Capacity"]
@@ -54,8 +54,8 @@ graph TD
 | Thor | Responder | 판정 디스패치; 유일한 특권 executor |
 | Var | Approver | 사람의 HIL 승인 결정을 담당하며 Thor와 분리 |
 | Vidar | Recovery | 롤백과 DR failover 소유 |
-| Huginn | Event Collector | 원시 이벤트 수집 및 연계 |
-| Heimdall | Observer | 드리프트와 리소스 변경 감시 |
+| Huginn | Event Collector / Resource Discovery | 실시간 resource-change ingress와 correlation 소유 |
+| Heimdall | Observer | discovery freshness, coverage, drift, resource change 감시 |
 | Njord / Freyr / Loki | 도메인 전문가 | 비용·용량·카오스 자문 - 실행하지 않음 |
 | Mimir / Norns / Muninn | 거버넌스 스태프 | 규칙 관리·학습·메모리 |
 | Saga | Auditor | append-only 감사 로그 기록 |
@@ -99,7 +99,7 @@ graph TD
 
 ```mermaid
 graph LR
-  Huginn["Huginn<br/>신호 수집"] --> Heimdall["Heimdall<br/>드리프트 상관"]
+  Huginn["Huginn<br/>변경 discovery"] --> Heimdall["Heimdall<br/>coverage 확인"]
   Heimdall --> Forseti["Forseti<br/>판정"]
   Njord -. 자문 .-> Forseti
   Freyr -. 자문 .-> Forseti
@@ -112,8 +112,9 @@ graph LR
   Saga -. 신호 .-> Norns["Norns<br/>학습"]
 ```
 
-1. **감지.** Huginn이 장애 신호를 수집하고, Heimdall이 알림 폭풍이 아니라 하나의 인시던트로
-  묶습니다.
+1. **감지.** Huginn이 resource change와 장애 signal을 실시간으로 수집하고, periodic Inventory
+  job이 누락된 변경을 reconcile합니다. Heimdall은 freshness와 coverage를 확인한 뒤 alert storm
+  대신 하나의 incident로 correlate합니다.
 2. **판단.** Forseti가 인시던트를 점수화하고, 비용·용량 트레이드오프를 위해
    전문가에게 자문하며, 판정을 발행합니다: auto·HIL·deny.
 3. **행동.** Thor가 디스패치합니다. 저위험 복구는 자율 실행되고, 고위험 failover는

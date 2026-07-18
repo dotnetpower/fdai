@@ -9,6 +9,7 @@ behind a provider protocol added in a later wave.
 from __future__ import annotations
 
 from collections import OrderedDict
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 from fdai.agents._framework.base import Agent
@@ -34,6 +35,9 @@ _MAX_FIELD_CHARS = 512
 #: bloat vectors are too many keys and oversized string values.
 _MAX_ATTR_KEYS = 64
 
+DiscoveryProjector = Callable[[Mapping[str, Any]], Awaitable[object]]
+"""Injected durable inventory projector; cloud and database I/O stay outside Huginn."""
+
 
 def _bound(value: Any) -> Any:
     """Truncate a string value to the ingress field cap; pass non-strings."""
@@ -52,17 +56,40 @@ def _bound_attributes(attrs: Any) -> dict[str, Any]:
     return out
 
 
+def _bound_json(value: Any, *, depth: int = 0) -> Any:
+    """Bound a canonical inventory change without changing its typed shape."""
+    if isinstance(value, str):
+        return value[:_MAX_FIELD_CHARS]
+    if value is None or isinstance(value, int | float | bool):
+        return value
+    if depth >= 4:
+        return str(value)[:_MAX_FIELD_CHARS]
+    if isinstance(value, Mapping):
+        return {
+            str(key)[:_MAX_FIELD_CHARS]: _bound_json(item, depth=depth + 1)
+            for key, item in list(value.items())[:_MAX_ATTR_KEYS]
+        }
+    if isinstance(value, list | tuple):
+        return [_bound_json(item, depth=depth + 1) for item in value[:_MAX_ATTR_KEYS]]
+    return str(value)[:_MAX_FIELD_CHARS]
+
+
 class Huginn(Agent):
     """Wave-3 Huginn: normalize + dedup + publish."""
 
     def __init__(
-        self, *, bus: PantheonBus | None = None, dedup_capacity: int = _DEDUP_CAPACITY
+        self,
+        *,
+        bus: PantheonBus | None = None,
+        dedup_capacity: int = _DEDUP_CAPACITY,
+        discovery_projector: DiscoveryProjector | None = None,
     ) -> None:
         super().__init__(spec=_HUGINN)
         self.bus = bus
         if dedup_capacity < 1:
             raise ValueError("dedup_capacity MUST be >= 1")
         self._dedup_capacity = dedup_capacity
+        self._discovery_projector = discovery_projector
         # OrderedDict as an LRU set: key -> None, oldest first.
         self._seen_keys: OrderedDict[str, None] = OrderedDict()
 
@@ -94,19 +121,32 @@ class Huginn(Agent):
             self._seen_keys.move_to_end(key)
             self.record_behavior("deduped")
             return None
-        self._seen_keys[key] = None
-        if len(self._seen_keys) > self._dedup_capacity:
-            self._seen_keys.popitem(last=False)
+        event_payload = raw.get("payload")
+        canonical_payload = event_payload if isinstance(event_payload, Mapping) else {}
+        inventory_change = canonical_payload.get("inventory_change")
+        resource_value = (
+            inventory_change.get("resource") if isinstance(inventory_change, Mapping) else None
+        )
+        resource: Mapping[str, Any] = resource_value if isinstance(resource_value, Mapping) else {}
 
         payload: dict[str, Any] = {
             "producer_principal": "Huginn",
             "correlation_id": str(raw.get("correlation_id", key))[:_MAX_FIELD_CHARS],
             "idempotency_key": key,
-            "resource_id": _bound(raw.get("resource_id")),
-            "resource_type": _bound(raw.get("resource_type")),
+            "event_id": _bound(raw.get("event_id") or key),
+            "source": _bound(raw.get("source") or "unknown"),
+            "resource_id": _bound(
+                raw.get("resource_id") or raw.get("resource_ref") or resource.get("resource_id")
+            ),
+            "resource_type": _bound(raw.get("resource_type") or resource.get("type")),
             "event_type": str(raw.get("event_type", "generic"))[:_MAX_FIELD_CHARS],
             "attributes": _bound_attributes(raw.get("attributes", {})),
         }
+        if isinstance(inventory_change, Mapping):
+            payload["inventory_change"] = _bound_json(inventory_change)
+            signal_kind = canonical_payload.get("signal_kind")
+            if isinstance(signal_kind, str):
+                payload["attributes"]["signal_kind"] = _bound(signal_kind)
         # Operator-proposal fields (`initiator_principal`, `action_type`,
         # `params`) are honored ONLY for an explicit operator request
         # (``event_type == "operator_request"``). This is the trust gate: a
@@ -126,8 +166,18 @@ class Huginn(Agent):
         # scenario can see an ingress flood (the flooding concern one layer up
         # from the judge). Recorded on the decision to emit, before publish.
         self.record_behavior("ingested")
+        if "inventory_change" in payload and self._discovery_projector is not None:
+            try:
+                await self._discovery_projector(payload)
+                self.record_behavior("discovery_projected")
+            except Exception:
+                self.record_behavior("discovery_projection_failed")
+                raise
         if self.bus is not None:
             await self.bus.publish("Huginn", "object.event", payload)
+        self._seen_keys[key] = None
+        if len(self._seen_keys) > self._dedup_capacity:
+            self._seen_keys.popitem(last=False)
         return payload
 
     # ---- conversational port -------------------------------------------

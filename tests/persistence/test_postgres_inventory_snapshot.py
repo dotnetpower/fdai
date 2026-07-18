@@ -10,6 +10,9 @@ from pathlib import Path
 
 import pytest
 
+from fdai.delivery.persistence.postgres_inventory_delta import (
+    PostgresInventoryDeltaProjector,
+)
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventoryContextProvider,
     PostgresInventoryGraphProvider,
@@ -111,3 +114,89 @@ async def test_promotion_rejects_dangling_link() -> None:
     )
     with pytest.raises(ValueError, match="missing endpoint"):
         await store.promote(attempt, _manifest("arg"))
+
+
+async def test_realtime_overlay_upsert_and_delete_override_active_snapshot() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    projector = PostgresInventoryDeltaProjector(config=config)
+    graph_provider = PostgresInventoryGraphProvider(config=config)
+    context_provider = PostgresInventoryContextProvider(config=config)
+
+    manifest = _manifest("arg")
+    attempt = await store.begin(manifest)
+    await store.stage(
+        attempt,
+        InventoryBatch(
+            resources=(
+                ResourceRecord("rg-overlay", "resource-group", {"name": "rg"}),
+                ResourceRecord("rg-overlay/vm-old", "compute.vm", {"name": "old"}),
+            ),
+            links=(
+                LinkRecord(
+                    from_id="rg-overlay",
+                    from_type="resource-group",
+                    link_type="contains",
+                    to_id="rg-overlay/vm-old",
+                    to_type="compute.vm",
+                ),
+            ),
+        ),
+    )
+    await store.promote(attempt, manifest)
+
+    await projector(
+        {
+            "event_id": "event-upsert",
+            "idempotency_key": "inventory-upsert",
+            "inventory_change": {
+                "kind": "upsert",
+                "resource": {
+                    "resource_id": "rg-overlay/vm-new",
+                    "type": "compute.vm",
+                    "props": {"name": "new"},
+                    "provider_ref": "/subscriptions/example/resourceGroups/rg/vm-new",
+                    "last_seen": "2026-07-18T02:00:00Z",
+                },
+                "links": [
+                    {
+                        "change_kind": "upsert",
+                        "from_id": "rg-overlay",
+                        "from_type": "resource-group",
+                        "link_type": "contains",
+                        "to_id": "rg-overlay/vm-new",
+                        "to_type": "compute.vm",
+                        "props": {},
+                    }
+                ],
+            },
+        }
+    )
+    await projector(
+        {
+            "event_id": "event-delete",
+            "idempotency_key": "inventory-delete",
+            "inventory_change": {
+                "kind": "delete",
+                "resource": {
+                    "resource_id": "rg-overlay/vm-old",
+                    "type": "compute.vm",
+                    "props": {},
+                    "provider_ref": "/subscriptions/example/resourceGroups/rg/vm-old",
+                    "last_seen": "2026-07-18T02:01:00Z",
+                },
+                "links": [],
+            },
+        }
+    )
+
+    graph = await graph_provider("rg-overlay", 2, ("contains",))
+    ids = {resource["id"] for resource in graph["resources"]}
+    assert "rg-overlay/vm-new" in ids
+    assert "rg-overlay/vm-old" not in ids
+    assert graph["realtime"]["pending_changes"] == 2
+    assert await context_provider("rg-overlay/vm-old") is None
+    context = await context_provider("rg-overlay/vm-new")
+    assert context is not None
+    assert context["props"] == {"name": "new"}

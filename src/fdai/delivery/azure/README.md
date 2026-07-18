@@ -24,8 +24,17 @@ Current adapters
   the `Inventory` adapter fans out over. Handles `$skipToken` pagination
   under a bounded page cap, truncates untrusted vendor properties, and
   fail-closes on any HTTP / JSON / body-shape error via `ArgQueryError`.
-  **Link extraction (`contains` / `attached_to` / `depends_on`) is
-  reserved for P2** - this file returns `()` for links today.
+  Extracts bounded `contains`, `attached_to`, and `depends_on` links from
+  trusted ARM-id and property paths.
+- [`resource_change.py`](resource_change.py) - strict Event Grid
+  write/delete normalizer for Huginn's real-time resource discovery ingress.
+  It reuses the ARG neutral-id and relationship projection rules, emits
+  bounded `inventory_change` Events, and rejects malformed or unknown resource
+  types so the raw consumer can dead-letter them.
+- [`activity_log.py`](activity_log.py) - bounded direct Activity Log recovery
+  reader. It is opt-in through `FDAI_INVENTORY_RECOVERY_DELTA`; production uses
+  the managed-identity push path by default. Pagination cursors must remain on
+  the configured HTTPS management host before a bearer token is attached.
 - [`metric_logs.py`](metric_logs.py) - `AzureMonitorLogsMetricProvider`,
   the Azure Monitor Logs (Log Analytics KQL) implementation of the
   `MetricProvider` seam ([contract](../../shared/providers/metric.py)).

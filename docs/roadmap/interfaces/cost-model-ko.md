@@ -1,8 +1,8 @@
 ---
 title: 비용 모델 (예시)
 translation_of: cost-model.md
-translation_source_sha: fedc2158a8cc055dfbd21076986a0991660cccf0
-translation_revised: 2026-07-11
+translation_source_sha: b9dd9f07913f7039d71e0b276f594adaca70ad2b
+translation_revised: 2026-07-18
 ---
 
 # 비용 모델 (예시)
@@ -115,11 +115,12 @@ Reasoning-tier (T2) 추론은 **Azure 리소스 라인이 아님** - [llm-strate
 - Provider-side rate limit과 요청당 timeout이 단일 이벤트가 상한을 격리적으로 폭파하지 않도록
   유지.
 
-**실제 지출 측정.** 위 수치는 *envelope*이다. 컨트롤 플레인은 실제 숫자를 기록한다: 각 T2
-모델 호출의 측정된 `usage`(prompt + completion 토큰)를 `MeteringSink`가 캡처하고, 설정 기반
-`rule-catalog/llm-pricing.yaml` 표로 가격을 매기며, `LlmCostPanel`이 `GET /kpi/llm-cost`로
-노출한다 - 토큰 사용량과 비용을 **대화별, 일별, 월별**로 롤업. 추정치를 오퍼레이터가 지켜볼 수
-있는 측정된 라인으로 바꾼다 ([operator-console-ko.md § 4.4](operator-console-ko.md#44-cost와-rate-limit) 참조).
+**Provider 사용량 측정.** 위 수치는 invoice가 아닌 *envelope*입니다. 각 모델 호출에서
+provider가 측정한 `usage`(prompt + completion 토큰)를 `MeteringSink`가 캡처합니다.
+`LlmCostPanel`은 호환 경로 `GET /kpi/llm-cost`를 유지하지만 operator projection에는 토큰만
+노출합니다. workload scope, model, invocation, conversation, 일, 월별로 확인할 수 있습니다.
+설정된 가격은 내부 budget gate에 계속 사용할 수 있지만, 리전 및 협상 요율이 다르므로 콘솔은
+이를 실제 지출로 표시하지 않습니다 ([operator-console-ko.md § 4.4](operator-console-ko.md#44-cost와-rate-limit) 참조).
 
 ## 트래픽 스케일링
 

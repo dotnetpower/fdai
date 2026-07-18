@@ -19,13 +19,13 @@ It does not govern live maintainer chat. Related rules live in
 [coding-conventions.instructions.md](coding-conventions.instructions.md) (commits/PRs)
 and [generic-scope.instructions.md](generic-scope.instructions.md) (no customer data).
 
-## Bilingual policy (English + Korean, everywhere)
+## Bilingual policy (English + Korean)
 
 FDAI is **fully bilingual: English and Korean are both first-class** and MAY be
-used in any natural-language text anywhere in the repository - source comments,
-docstrings, string literals, logs, error messages, tests, fixtures, commit
-messages, GitHub issues, `.github/**`, and docs. **Korean is never a defect on
-the basis of being Korean; there is no english-only gate.**
+used in natural-language repository text - source comments, docstrings, string
+literals, logs, error messages, tests, fixtures, `.github/**`, and docs. **Korean
+is never a defect on the basis of being Korean; there is no repository-wide
+english-only gate.** GitHub issues are the narrow exception described below.
 
 Only two constraints remain, and they are about **tooling compatibility**, not
 about which human language you may write:
@@ -39,6 +39,15 @@ about which human language you may write:
   use `-`, `"`, `'`, `...`; never em-dash, en-dash, smart quotes, the ellipsis
   character, or a no-break space - those break `grep`, `diff`, and search
   regardless of language.
+
+### GitHub issue language (English-only)
+
+GitHub issues are shared project-tracking artifacts, not localized product or
+documentation surfaces. Issue titles, bodies, and comments **MUST be English**
+and are never translated. This rule matches
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md#opening-issues) and applies whether an
+issue is opened manually, by an agent, or by an automated handoff. Live
+maintainer chat remains outside this policy and MAY use either language.
 
 ### Surfaces and localization mechanisms (optional, recommended)
 
@@ -243,8 +252,10 @@ NOT change what the typed pipeline decides.
 
 ## Automation & Review Check
 
-- **No english-only gate.** Korean is allowed anywhere in natural-language text; there
-  is no CI check that blocks it. (`scripts/check-english-only.sh` has been retired.)
+- **No repository-wide english-only gate.** Korean is allowed in natural-language
+  repository text; there is no CI check that blocks it.
+  (`scripts/check-english-only.sh` has been retired.) GitHub issue language is
+  enforced by author and reviewer discipline.
 - **Punctuation gate**: `scripts/quality/repository/check-punctuation.sh` runs in CI and enforces the
   ASCII-only punctuation rule above; it blocks em-dash, en-dash, ellipsis,
   smart-quotes, and no-break-space anywhere in a tracked text file (including inside
@@ -266,9 +277,10 @@ NOT change what the typed pipeline decides.
   the second weakens replay / correlation (SHOULD keep English). Korean prose anywhere
   else is fine.
 
-> One line: **FDAI is fully bilingual - English and Korean are both allowed in any
-> natural-language text anywhere in the repo.** The only hard constraints are ASCII
-> identifiers / filenames / branch names and ASCII punctuation (both tooling
-> concerns). Machine records (audit / events / log keys / config keys) SHOULD stay
-> English for replay and cross-fork search. The `-ko.md` doc pairs and L2 message
-> catalogs remain the recommended mechanisms for structured bilingual delivery.
+> One line: **FDAI repository prose is fully bilingual; GitHub issues are the
+> English-only project-tracking exception.** The other hard constraints are ASCII
+> identifiers / filenames / branch names and ASCII punctuation (all tooling or
+> collaboration concerns). Machine records (audit / events / log keys / config keys)
+> SHOULD stay English for replay and cross-fork search. The `-ko.md` doc pairs and L2
+> message catalogs remain the recommended mechanisms for structured bilingual
+> delivery.

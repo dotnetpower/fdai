@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 from starlette.exceptions import HTTPException
 
+from fdai.core.metering.emitter import MeteringEmitter
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
@@ -17,7 +18,9 @@ from fdai.delivery.azure.llm.request_target import (
 from fdai.delivery.read_api.routes.chat_backend_common import (
     _completion_body_params,
     _default_chat_http_client,
+    _metering_scope,
     _raise_upstream_error,
+    _token_usage,
     _usage_summary,
 )
 from fdai.delivery.read_api.routes.chat_prompt import _build_messages
@@ -41,7 +44,7 @@ class AzureAdChatBackend:
         deployment: str,
         api_version: str = "2024-08-01-preview",
         temperature: float = 0.2,
-        max_tokens: int = 800,
+        max_tokens: int = 2048,
         # 90s: reasoning models (gpt-5, o1/o3/o4) can take 60-90s to first
         # token; the SSE route layers a heartbeat on top for intermediaries.
         timeout_seconds: float = 90.0,
@@ -49,6 +52,7 @@ class AzureAdChatBackend:
         auth_audience: str = COGNITIVE_SERVICES_SCOPE,
         http_client: httpx.AsyncClient | None = None,
         identity: WorkloadIdentity | None = None,
+        metering: MeteringEmitter | None = None,
     ) -> None:
         target = ModelRequestTarget(
             endpoint=endpoint,
@@ -66,6 +70,7 @@ class AzureAdChatBackend:
         self._http = http_client if http_client is not None else _default_chat_http_client()
         self._workload_identity = identity
         self._target = target
+        self._metering = metering
         # Lazy identity - defer import so this module stays importable
         # in tests that never touch Azure.
         self._identity_cached: Any = None
@@ -145,6 +150,9 @@ class AzureAdChatBackend:
         usage = _usage_summary(envelope.get("usage"))
         if usage is not None:
             reply["usage"] = usage
+        measured_usage = _token_usage(usage)
+        if measured_usage is not None and self._metering is not None:
+            await self._metering.emit_safe(measured_usage, usage_scope=_metering_scope())
         return reply
 
     async def answer_stream(
@@ -244,4 +252,7 @@ class AzureAdChatBackend:
         }
         if stream_usage is not None:
             done["usage"] = stream_usage
+        measured_usage = _token_usage(stream_usage)
+        if measured_usage is not None and self._metering is not None:
+            await self._metering.emit_safe(measured_usage, usage_scope=_metering_scope())
         yield done

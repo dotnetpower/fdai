@@ -21,7 +21,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 
 from fdai.core.metering.pricing import PricingTable
-from fdai.core.metering.records import InvocationMode, LlmInvocation
+from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvocation
 from fdai.core.metering.sink import MeteringSink
 from fdai.core.metering.usage import TokenUsage
 from fdai.shared.telemetry.correlation import current_correlation_id
@@ -50,6 +50,7 @@ class MeteringEmitter:
         tier: str,
         pricing: PricingTable | None = None,
         mode: InvocationMode = InvocationMode.ENFORCE,
+        usage_scope: InvocationScope = InvocationScope.CONTROL_PLANE,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         if not capability_id:
@@ -64,13 +65,20 @@ class MeteringEmitter:
         self._tier = tier
         self._pricing = pricing
         self._mode = mode
+        self._usage_scope = usage_scope
         self._clock = clock or _utc_now
         # Warn-once latches so a misconfiguration is visible without
         # spamming a log line on every event.
         self._warned_unpriced = False
         self._warned_uncorrelated = False
 
-    async def emit_safe(self, usage: TokenUsage, *, correlation_id: str | None = None) -> None:
+    async def emit_safe(
+        self,
+        usage: TokenUsage,
+        *,
+        correlation_id: str | None = None,
+        usage_scope: InvocationScope | None = None,
+    ) -> None:
         """Record ``usage`` for the bound capability; never raise on failure.
 
         When no ``correlation_id`` is passed the emitter reads the one
@@ -112,6 +120,7 @@ class MeteringEmitter:
                 tier=self._tier,
                 mode=self._mode,
                 usage=usage,
+                usage_scope=usage_scope or self._usage_scope,
                 cost=cost,
                 currency=currency,
             )

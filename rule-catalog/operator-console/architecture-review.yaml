@@ -1,0 +1,16 @@
+schema_version: 1.0.0
+id: architecture-review
+workflow_ref: architecture-review
+view_ref: architecture-review
+lifecycle: published
+audience: reader
+label:
+  en: Architecture review
+  ko: 아키텍처 검토
+description:
+  en: Review architecture evidence, decisions, and workflow runs.
+  ko: 아키텍처 증적, 결정 및 워크플로우 실행을 검토합니다.
+navigation:
+  exposure: hub
+  group: operations
+  order: 100

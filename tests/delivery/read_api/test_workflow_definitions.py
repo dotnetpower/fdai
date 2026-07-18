@@ -92,6 +92,37 @@ def test_binding_requires_confirmation_and_uses_authenticated_principal() -> Non
     assert "equivalent" in duplicate.text
 
 
+def test_binding_trigger_fields_are_complete_and_mutually_exclusive() -> None:
+    client, definition_id = _fixture()
+    base = {"confirmed": True, "definition_id": definition_id}
+
+    missing_schedule = client.post(
+        "/workflows/bindings",
+        json={**base, "trigger": "schedule", "cron_expression": "0 7 * * *"},
+    )
+    assert missing_schedule.status_code == 400
+    assert "requires cron_expression and timezone" in missing_schedule.text
+
+    mixed_signal = client.post(
+        "/workflows/bindings",
+        json={
+            **base,
+            "trigger": "signal",
+            "signal_type": "object.event",
+            "timezone": "UTC",
+        },
+    )
+    assert mixed_signal.status_code == 400
+    assert "MUST NOT declare schedule fields" in mixed_signal.text
+
+    polluted_deck_open = client.post(
+        "/workflows/bindings",
+        json={**base, "trigger": "deck_open", "signal_type": "object.event"},
+    )
+    assert polluted_deck_open.status_code == 400
+    assert "MUST NOT declare schedule or signal fields" in polluted_deck_open.text
+
+
 def test_projection_failure_does_not_reverse_committed_binding_mutations() -> None:
     projector = MagicMock()
     projector.project_workflow_binding = AsyncMock(side_effect=RuntimeError("projection down"))

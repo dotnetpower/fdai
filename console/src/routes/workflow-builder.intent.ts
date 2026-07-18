@@ -93,6 +93,10 @@ export interface IntentSuggestion {
    * the matcher fell back to the default drift trigger. Lets callers branch
    * on trigger confidence without string-matching `reasons`. */
   readonly triggerConfident: boolean;
+  /** True when more distinct ActionTypes matched than the bounded preview
+   * can safely propose. The chat MUST disclose this instead of silently
+   * dropping the remaining actions. */
+  readonly actionMatchesTruncated: boolean;
 }
 
 /** Over-generic words that appear in many ActionType names/descriptions;
@@ -140,8 +144,10 @@ export function suggestDraftFromText(
 
   // --- Actions: synonym phrases first, then token overlap on name+label ---
   const scored = new Map<string, number>();
+  const excluded = new Set<string>();
   for (const syn of ACTION_SYNONYMS) {
-    if (!syn.words.some((w) => norm.includes(w))) continue;
+    const matchedWords = syn.words.filter((word) => norm.includes(word));
+    if (matchedWords.length === 0) continue;
     // Target one action: prefer an exact leaf match, else the shortest name
     // that contains the fragment - so "right size" boosts remediate.right-size,
     // not also remediate.right-size-role.
@@ -151,9 +157,16 @@ export function suggestDraftFromText(
       palette
         .filter((p) => p.name.includes(syn.match))
         .sort((a, b) => a.name.length - b.name.length)[0];
-    if (target) scored.set(target.name, (scored.get(target.name) ?? 0) + 5);
+    if (!target) continue;
+    if (matchedWords.every((word) => phraseIsNegated(norm, word))) {
+      excluded.add(target.name);
+      scored.delete(target.name);
+      continue;
+    }
+    scored.set(target.name, (scored.get(target.name) ?? 0) + 5);
   }
   for (const p of palette) {
+    if (excluded.has(p.name)) continue;
     const bag = `${humanizeActionName(p.name)} ${p.name}`.toLowerCase();
     let s = 0;
     for (const tok of tokens) if (bag.includes(tok)) s += 1;
@@ -164,12 +177,16 @@ export function suggestDraftFromText(
   const ranked = [...scored.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   const actions: ActionTypePaletteEntry[] = [];
   const pickedLeaves: string[] = [];
+  let actionMatchesTruncated = false;
   for (const [name] of ranked) {
-    if (actions.length >= 3) break;
     const leaf = leafOf(name);
     if (pickedLeaves.some((l) => leaf.startsWith(l) || l.startsWith(leaf))) continue;
     const entry = palette.find((p) => p.name === name);
     if (entry) {
+      if (actions.length >= 3) {
+        actionMatchesTruncated = true;
+        break;
+      }
       actions.push(entry);
       pickedLeaves.push(leaf);
     }
@@ -217,6 +234,7 @@ export function suggestDraftFromText(
       guard_rule_ref: "",
       compensated_by: "",
       on_failure: "",
+      params: {},
     };
   });
   if (form.steps.length === 0) form.steps = [emptyStep(0)];
@@ -228,5 +246,12 @@ export function suggestDraftFromText(
     form.name = `${slug}-workflow`;
   }
   form.description = text.trim().slice(0, 200);
-  return { form, reasons, triggerConfident };
+  return { form, reasons, triggerConfident, actionMatchesTruncated };
+}
+
+function phraseIsNegated(normalizedText: string, phrase: string): boolean {
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  return new RegExp(`(?:do\\s+not|don\\s+t|never|avoid|without)\\s+(?:\\w+\\s+){0,2}${escaped}`).test(
+    normalizedText,
+  );
 }

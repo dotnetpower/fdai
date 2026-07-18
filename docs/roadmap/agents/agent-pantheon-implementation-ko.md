@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 80b1298ad206d44713ecb9a32a53be88639ef85d
+translation_source_sha: d6315118e14f10403cda0a25f589f6c376b8a4f3
 translation_revised: 2026-07-18
 ---
 
@@ -243,10 +243,14 @@ discovery loop 를 닫는다.
 
 **Scope**
 
-- **Huginn (`src/fdai/agents/huginn.py`)** - 기존 event ingest adapter
-  구독 (Kafka 로 forward 된 Azure Activity Log stream). `Event` 로
-  정규화, stable key 로 dedup, `object.event` 로 publish.
-- **Heimdall (`src/fdai/agents/heimdall.py`)** - anomaly detector
+- **Huginn (`src/fdai/agents/huginn.py`)** - 실시간 resource discovery
+  ingress를 소유합니다. Subscription scope의 Azure write/delete event는 managed identity
+  Event Grid delivery를 통해 raw Event Hub로 들어오고, runtime normalizer가 canonical
+  Event로 다시 publish합니다. Huginn은 dedup 후 주입된 durable inventory projector를
+  호출하고 `object.event`를 publish합니다. 6시간 Inventory sync job은 full ARG/ARM
+  reconciliation 경로로 유지됩니다.
+- **Heimdall (`src/fdai/agents/heimdall.py`)** - discovery freshness/coverage
+  assurance와 anomaly detector
   (statistical threshold, T0/T1 을 통한 adaptive baseline), drift
   detector (Muninn snapshot 비교를 통한 declared vs actual state),
   forecast (statistical time-series; ARIMA 또는 exponential smoothing).
@@ -793,13 +797,14 @@ narrator 를 swap 한다(소유 데이터 + `owns_code_paths` 에 대한 RAG);
 narrator 는 오퍼레이터 locale(L3)로 렌더하고, 그 밑의 intent, verdict,
 audit 는 L0 영어로 유지된다 (language.instructions.md).
 
-**Metering (측정값, 추정 아님).** 모든 hot-path T2 호출은 provider 의 측정된
-`usage` 를 `MeteringSink` 로 기록한다; `MeteringEmitter` 는 config 기반
-`rule-catalog/llm-pricing.yaml` 가격표에서 비용을 계산하고, read-API
-`LlmCostPanel` 이 `GET /kpi/llm-cost` 를 conversation(`correlation_id`)당,
-일당, 월당으로 롤업해 서빙한다. upstream in-memory sink 는 단일 프로세스
-dev harness 범위이고; fork 는 durable sink 를 주입해 headless core(LLM 이
-도는 곳)와 read-API 콘솔이 하나의 metering 스트림을 공유하게 한다.
+**Metering (측정값, 추정 아님).** Metering 대상 T1, T2, narrator 호출은
+provider가 측정한 `usage`를 `MeteringSink`로 기록합니다. narrator는
+`operator_chat`을 사용하고 나머지 호출은 `control_plane`을 사용합니다.
+Read-API `LlmCostPanel`은 `GET /kpi/llm-cost`를 호환 경로로 유지하며 scope,
+model, call, conversation, 일, 월별 token-only rollup을 노출합니다. 단일 프로세스
+dev harness는 하나의 in-memory sink를 공유하고 production은 durable Postgres
+`llm_invocation` store를 통해 headless core와 read API가 같은 metering stream을
+사용합니다.
 
 ## 14. 타임라인 shape (commitment 아님)
 

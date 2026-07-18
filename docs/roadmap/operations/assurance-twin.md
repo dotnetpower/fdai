@@ -190,6 +190,62 @@ read-only `ReadPanel` route
 ([project-structure.md](../architecture/project-structure.md#injectable-seams)); it issues no
 privileged calls.
 
+### Deep security assessment
+
+The security-scoped report keeps more context than a severity-only finding
+list. Collectors normalize Azure Resource Graph properties, server parameters,
+Defender assessments, WAF records, policy compliance, diagnostic settings, and
+version/advisory matches into `SecurityControlObservation` values. Each
+observation records the current and expected values, control status,
+applicability, source and collection time, evidence references, remediation and
+validation steps, priority and due interval, CVE applicability and patch state,
+compliance mappings, and managed-service patch notes.
+
+The assessment records which source supplied each fact:
+
+| Source data | Information extracted |
+|-------------|-----------------------|
+| Azure Resource Graph resource properties | AKS version, private API, RBAC, network policy, Entra/local-account state, workload identity, image cleaner, add-ons, upgrade channels; MySQL network, backup, HA, encryption, and version |
+| Azure Resource Graph `sku` and `kind` | AKS and MySQL service tier and resource kind |
+| AKS node-pool resource properties | Node image version, secure boot, and virtual TPM |
+| MySQL server parameters | Secure transport, allowed TLS versions, and audit logging |
+| Azure Monitor diagnostic settings | Whether approved platform logs and metrics are routed to an evidence store |
+| Defender for Cloud assessments | Runtime protection coverage and actionable unhealthy findings |
+| Application Gateway WAF logs | Matched/blocked rules, attack details, resource, and event evidence |
+| Security bulletins and advisory matches | CVE id, applicability, patch state, source URL, and managed-service backport note |
+| Rule and compliance metadata | Expected value, rationale, remediation, validation, priority, due interval, and compliance controls |
+| Report-feed timestamps and source errors | Evidence window, source availability, partial reads, and freshness gaps |
+
+After an observed ARG or ARM inventory snapshot is promoted, the inventory job
+reads only the active AKS, node-pool, and MySQL records under a bounded row cap,
+runs the deterministic Azure analyzer, and writes timestamped control signals to
+the durable report feed. Supplemental providers can add server parameters,
+diagnostic-setting state, Defender coverage, and advisory matches. When they are
+not configured, their controls and source coverage remain `unknown` or
+`unavailable` instead of failing the control.
+
+`build_security_assessment` remains a pure deterministic fold. It derives the
+verdict and also reports:
+
+- finding, rule, resource, resource-type, control, and evidence counts;
+- pass, fail, warning, not-applicable, and unknown control counts;
+- control pass rate, evidence coverage, and source coverage;
+- category and resource-type distributions;
+- positive controls and unknown controls;
+- prioritized recommendations with due timestamps and validation steps;
+- CVE applicability, patch status, and compliance mappings;
+- available, partial, unavailable, and stale data-source counts.
+
+A `clear` verdict describes the observed risk only. It does not imply that the
+assessment is complete. `completion_status`, source coverage, stale sources,
+unknown controls, and missing evidence stay visible so an unavailable provider
+cannot turn into a false clean result.
+
+The read-only `Security Assessment` catalog report renders these projections
+through the existing Reports page. It uses KPI, control-status, chart, table,
+group, tabs, and note widgets, so no new browser execution surface or
+privileged identity is introduced.
+
 ## Module placement
 
 The subsystem lives in `core/assurance_twin/` and imports only `shared/`

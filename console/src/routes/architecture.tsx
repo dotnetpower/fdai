@@ -252,6 +252,8 @@ function ArchitectureBody({
       facts: [
         { key: "snapshot_freshness", value: graph.freshness, group: "inventory" },
         { key: "source", value: graph.source ?? "inventory", group: "inventory" },
+        { key: "realtime_pending_changes", value: graph.realtime?.pending_changes ?? 0, group: "inventory" },
+        { key: "realtime_latest_at", value: graph.realtime?.latest_at ?? "none", group: "inventory" },
         { key: "truncated", value: graph.truncated, group: "inventory" },
       ],
       records: {
@@ -307,6 +309,12 @@ function ArchitectureBody({
         </label>
         <div class={`inventory-freshness is-${graph.freshness}`}>
           <span />snapshot {graph.freshness} <small>{formatAge(graph.snapshot_at, now)}</small>
+          {(graph.realtime?.pending_changes ?? 0) > 0 ? (
+            <small>
+              {graph.realtime?.pending_changes} real-time change
+              {graph.realtime?.pending_changes === 1 ? "" : "s"}
+            </small>
+          ) : null}
         </div>
       </div>
       <div class="architecture-stage">

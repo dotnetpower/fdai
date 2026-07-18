@@ -272,6 +272,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     web_search_configured = web_search_raw not in {"", "0", "false", "no", "off"}
     if resolved_models_path or narrator_api_key_configured or web_search_configured:
         from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+        from fdai.delivery.persistence import PostgresMeteringStore, PostgresMeteringStoreConfig
 
         chat_http = httpx.AsyncClient(
             timeout=httpx.Timeout(connect=5.0, read=90.0, write=15.0, pool=5.0)
@@ -283,6 +284,13 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             dict(env),
             identity=chat_identity,
             http_client=chat_http,
+            metering_sink=PostgresMeteringStore(
+                config=PostgresMeteringStoreConfig(
+                    dsn=read_model._config.dsn,
+                    statement_timeout_ms=read_model._config.statement_timeout_ms,
+                    connect_timeout_s=read_model._config.connect_timeout_s,
+                )
+            ),
         )
         chat_web_search = chat_web_search_from_env(
             env,

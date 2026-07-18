@@ -49,7 +49,9 @@ export type ChatStage =
   | "welcome"
   | "need_action"
   | "need_trigger"
+  | "confirm_plan"
   | "offer_extra"
+  | "confirm_safety"
   | "confirm_name"
   | "ready";
 
@@ -75,10 +77,17 @@ export interface ChatSlots {
   readonly extraOffered: boolean;
   /** True once the workflow name is settled. */
   readonly nameConfirmed: boolean;
+  /** True once the operator explicitly accepts the inferred trigger and
+   * ordered action chain. Inference alone never sets this flag. */
+  readonly planConfirmed: boolean;
+  /** True once the operator reviews the fail-closed and promotion posture. */
+  readonly safetyConfirmed: boolean;
   /** Free-text resource mention pulled from the goal (e.g. "aks-cluster-01"). */
   readonly resourceHint: string;
   /** The operator's first plain-language goal, verbatim. */
   readonly goalText: string;
+  /** Bounded inference disclosures that must remain visible at confirmation. */
+  readonly warnings: readonly string[];
 }
 
 /** A single bot turn: what to say, the option chips, and the slots after
@@ -105,8 +114,11 @@ export function startChat(palette: readonly ActionTypePaletteEntry[]): BotTurn {
     actionsConfirmed: false,
     extraOffered: false,
     nameConfirmed: false,
+    planConfirmed: false,
+    safetyConfirmed: false,
     resourceHint: "",
     goalText: "",
+    warnings: [],
   };
   const text =
     "Let's design a workflow together. Tell me, in plain words, **what should " +
@@ -160,8 +172,35 @@ function applyInput(
   palette: readonly ActionTypePaletteEntry[],
 ): ChatSlots {
   // Refine options (available after `ready`) reopen an earlier stage.
-  if (input === OPT.refineExtra) return { ...slots, stage: "offer_extra", extraOffered: false };
-  if (input === OPT.refineTrigger) return { ...slots, stage: "need_trigger", triggerConfirmed: false };
+  if (input === OPT.refineExtra) {
+    return { ...slots, stage: "offer_extra", extraOffered: false, safetyConfirmed: false };
+  }
+  if (input === OPT.refineActions) {
+    const form = cloneForm(slots.form);
+    form.steps = [];
+    return {
+      ...slots,
+      form,
+      stage: "need_action",
+      actionsConfirmed: false,
+      planConfirmed: false,
+      extraOffered: false,
+      safetyConfirmed: false,
+      warnings: [],
+    };
+  }
+  if (input === OPT.refineTrigger) {
+    return {
+      ...slots,
+      stage: "need_trigger",
+      triggerConfirmed: false,
+      planConfirmed: false,
+      safetyConfirmed: false,
+    };
+  }
+  if (input === OPT.refineSafety) {
+    return { ...slots, stage: "confirm_safety", safetyConfirmed: false };
+  }
 
   // Explicit trigger pick.
   if (input.startsWith(OPT.trigger)) {
@@ -196,6 +235,10 @@ function applyInput(
   // Finish adding extra actions.
   if (input === OPT.done) return { ...slots, extraOffered: true };
 
+  if (input === OPT.planKeep) return { ...slots, planConfirmed: true };
+
+  if (input === OPT.safetyKeep) return { ...slots, safetyConfirmed: true };
+
   // Keep the suggested name.
   if (input === OPT.nameKeep) return { ...slots, nameConfirmed: true };
 
@@ -216,6 +259,14 @@ function applyFreeText(
     const form = cloneForm(slots.form);
     form.name = slugifyName(text);
     return { ...slots, form, nameConfirmed: true };
+  }
+
+  // Safety stage: free text is the workflow anti-scope. This is descriptive
+  // evidence for review; typed policy and ActionType ceilings remain authoritative.
+  if (slots.stage === "confirm_safety") {
+    const form = cloneForm(slots.form);
+    form.antiScope = text.trim();
+    return { ...slots, form, safetyConfirmed: true };
   }
 
   // Trigger stage: infer only the trigger from the sentence.
@@ -260,6 +311,9 @@ function applyFreeText(
     resourceHint,
     triggerConfirmed,
     actionsConfirmed: slots.actionsConfirmed || hasActions,
+    warnings: sug.actionMatchesTruncated
+      ? ["More than three distinct actions matched; review and add the omitted steps explicitly."]
+      : slots.warnings,
   };
 }
 
@@ -311,7 +365,27 @@ function nextTurn(
     };
   }
 
-  // 3. Offer one round of extra / complementary actions.
+  // 3. Inference proposes; the operator explicitly confirms the plan.
+  if (!slots.planConfirmed) {
+    const s: ChatSlots = { ...slots, stage: "confirm_plan" };
+    const warning = slots.warnings.length > 0
+      ? `\n\n**Review note:** ${slots.warnings.join(" ")}`
+      : "";
+    return {
+      text:
+        `${understoodLine(prev, slots)}Please confirm this trigger and ordered action chain before ` +
+        `I continue.${warning}`,
+      options: [
+        { label: "Use this plan", value: OPT.planKeep },
+        { label: "Change the actions", value: OPT.refineActions },
+        { label: "Change the trigger", value: OPT.refineTrigger },
+      ],
+      slots: s,
+      draftReady: false,
+    };
+  }
+
+  // 4. Offer one round of extra / complementary actions.
   if (!slots.extraOffered) {
     const extras = extraChips(palette, slots);
     const s: ChatSlots = { ...slots, stage: "offer_extra" };
@@ -325,7 +399,23 @@ function nextTurn(
     };
   }
 
-  // 4. Settle the name.
+  // 5. Make the default failure and promotion posture explicit. Free text
+  // entered here becomes anti_scope; skipping keeps it unset.
+  if (!slots.safetyConfirmed) {
+    const s: ChatSlots = { ...slots, stage: "confirm_safety" };
+    return {
+      text:
+        "Safety review: this draft stays in **shadow** mode, has no automatic failure " +
+        "fallback, and requires 14 days, 100 samples, 0.95 accuracy, and zero policy " +
+        "escapes before promotion. A failed step stops the run. Keep these safeguards, " +
+        "or type what this workflow must never do to record an anti-scope boundary.",
+      options: [{ label: "Keep these safeguards", value: OPT.safetyKeep }],
+      slots: s,
+      draftReady: false,
+    };
+  }
+
+  // 6. Settle the name.
   if (!slots.nameConfirmed) {
     const suggested = ensureName(slots);
     const s: ChatSlots = { ...slots, form: suggested, stage: "confirm_name" };
@@ -339,17 +429,19 @@ function nextTurn(
     };
   }
 
-  // 5. Ready - finalize description + name and hand off for preview.
+  // 7. Ready - finalize description + name and hand off for preview.
   const form = finalizeForm(slots);
   const s: ChatSlots = { ...slots, form, stage: "ready" };
   return {
     text:
       "Here's the workflow I built from our conversation. I've generated the YAML " +
-      "and a visual of how it runs, and validated it below (a dry test - nothing is " +
+      "and a visual of how it runs, and structurally validated it below (nothing is " +
       "created). Copy the YAML into a remediation PR when you're happy, or keep refining.",
     options: [
       { label: "Add another step", value: OPT.refineExtra },
+      { label: "Change the actions", value: OPT.refineActions },
       { label: "Change the trigger", value: OPT.refineTrigger },
+      { label: "Review safety", value: OPT.refineSafety },
       { label: "Start over", value: OPT.restart },
     ],
     slots: s,
@@ -379,4 +471,3 @@ function understoodLine(prev: ChatSlots, now: ChatSlots): string {
   const res = now.resourceHint ? ` (on \`${now.resourceHint}\`)` : "";
   return `Got it - ${parts.join(", ")}${res}.\n\n`;
 }
-

@@ -127,6 +127,7 @@ All default to the dev posture (the live env is unchanged) and tighten via tfvar
 | Postgres durability | `postgres_backup_retention_days`, `postgres_geo_redundant_backup` | `35`, `true` |
 | Postgres availability | `postgres_high_availability_mode` | `ZoneRedundant` |
 | HIL delivery | `enable_chatops_hil`, `chatops_webhook_url`, `chatops_webhook_secret` | enabled + CI secrets |
+| Email notifications | `enable_email_notifications`, `notification_email_recipients`, `email_data_location` | enabled + recipient group |
 | Registry | `acr_sku` | `Premium` |
 | Monitoring | `enable_monitoring`, `alert_email`, `alert_webhook_url` | on + destination |
 | Cost | `monthly_budget_amount`, `budget_alert_emails`, bootstrap `runner_auto_shutdown_time` | set |
@@ -137,6 +138,12 @@ links a private DNS zone to the app and ops VNet, disables public access, and re
 that server, so review the plan and rehearse backup/restore before promotion. The assertions in
 `infra/production-gates.tf` block a production plan until the signed image digest, private
 networking, durability, alert destination, and cost budget minimums are supplied.
+
+An approved out-of-band ACS Email bootstrap can set
+`import_existing_email_notifications=true` for its first dev convergence plan. The import
+blocks adopt the Communication Service, Email Service, Azure-managed domain, association,
+notification identity, and deterministic role assignment. Turn the flag off after the plan
+is applied; new environments should let Terraform create the stack directly.
 
 CI adds two credential-free guards: [`infra-lint.yml`](../../../.github/workflows/infra-lint.yml)
 (fmt + validate + tfsec + Checkov on every infra PR) and
@@ -510,6 +517,7 @@ full expanded catalog and defaults are authored during the inventory PR.
 | `FDAI_LOCAL_AZURE_CONFIG_DIR` | env | dev-only | Optional isolated Azure CLI profile. When omitted, the adapter removes an inherited `AZURE_CONFIG_DIR` and uses the default profile. |
 | `FDAI_POLICIES_ROOT` | env | fork | absolute path to the OPA / Rego bundle root consumed by T0 and the verifier. Defaults to the in-repo `policies/` when unset. |
 | `FDAI_MI_CLIENT_ID` | env | upstream | User-assigned MI client id for the current process. The core receives the executor id; the inventory job receives its distinct read-only discovery id. |
+| `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | upstream / fork | Enables the ACS Email A2/A4 channels. Terraform derives the endpoint and Azure-managed sender, attaches a dedicated notification MI, and injects the client id. A fork supplies recipients through `NOTIFICATION_EMAIL_RECIPIENTS_JSON`; no access key or connection string enters the app. Partial configuration fails startup. |
 | `FDAI_MEASUREMENT_MODE` | env | upstream | `shadow` (default) or `enforce` - governs the Container Apps Jobs runners in `infra/modules/measurement-runners/`. |
 | `FDAI_DIRECT_API_FAKE` | env | dev-only | `1` swaps the executor direct-API path for the in-memory fake; used by tests and local dev. |
 | `FDAI_TOOL_CALL_FAKE` | env | dev-only | `1` swaps the executor tool-call path for the in-memory fake (`RecordingToolExecutor`); used by tests and local dev. |
@@ -551,13 +559,19 @@ wiring is stable.
 
 | Vertical | Azure signal candidates | Delivery |
 |--------|-------------------------|----------|
-| Change | Activity Log (resource-write / delete), Change Analysis, Resource Health | Diagnostic Settings → Event Hubs Kafka topic (`aw.change.events`) |
+| Change | Activity Log (resource-write / delete), Change Analysis, Resource Health | Push into the canonical Event Hubs Kafka ingress; Huginn owns real-time discovery normalization and the Inventory sync job reconciles the full graph |
 | DR / Chaos | Resource Health, backup vault events, PostgreSQL / SQL replication-lag metrics, restore-rehearsal outcomes | Diagnostic Settings + scheduled Container Apps Job probes → Kafka topic (`aw.dr.events`) |
 | FinOps | cost anomaly alerts, budget alerts, Advisor cost recommendations | Cost Management pull → Kafka topic (`aw.finops.events`); anomaly alerts fan in through the same Diagnostic-Settings path |
 
 Every event is stamped with an **idempotency key at ingress** so a replay is a no-op; DLQs
 MUST be reachable and covered by the [alert routing](../operations/operating-and-verification.md#alert-routing)
 before enforce is enabled anywhere.
+
+The Azure forwarding mechanism must preserve the no-shared-secret boundary. Do not enable Event
+Hubs local authentication only to satisfy a Diagnostic Settings export. When the selected Azure
+signal source cannot publish with managed identity, use the bounded Activity Log recovery reader
+until an approved push transport is available. The six-hour Inventory sync job remains required
+in every deployment as the completeness backstop.
 
 ## Verification After Provisioning
 

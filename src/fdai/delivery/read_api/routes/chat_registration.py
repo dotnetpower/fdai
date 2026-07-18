@@ -110,11 +110,12 @@ def append_chat_routes(
 
     descriptor = describe_backend(backend)
     if descriptor.get("available"):
-        logger.warning(
-            "CommandDeck chat backend ready: mode=%s model=%s endpoint=%s",
-            descriptor.get("mode"),
-            descriptor.get("model"),
-            descriptor.get("endpoint"),
+        logger.info(
+            "chat_backend_ready",
+            extra={
+                "mode": descriptor.get("mode"),
+                "model": descriptor.get("model"),
+            },
         )
     else:
         logger.warning(

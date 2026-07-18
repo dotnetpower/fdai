@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b64b78c51054b627c1fe72dc5ff7c17b3f7427aa
+translation_source_sha: dcc1b7e2ca42fbc2f1d7e32be1d45c2645e75438
 translation_revised: 2026-07-18
 ---
 
@@ -207,10 +207,12 @@ fdai/
   인시던트 연결, 보고선, 증적 링크를 투영합니다. 필터와 검색은 브라우저 로컬 표시 제어이며,
   또한 runtime binding을 별도로 표시합니다. 11개의 typed EventBus subscriber와 Huginn의 raw-ingress
   subscriber는 대기 상태를 유지하고, Njord와 Freyr는 외부 adapter를 기다리며 Loki는 scheduled
-  trigger를 기다립니다. 리소스 discovery는 특정 이름의 agent가 소유하지 않습니다. 전용 Inventory
-  sync job이 Azure Resource Graph를 먼저 조회하고 ARM fallback을 사용한 뒤 immutable snapshot을
-  승격하고 delta를 Huginn으로 게시합니다. 배포 기본 주기는 6시간이며 로컬 harness는 Azure
-  discovery를 실행하지 않습니다.
+  trigger를 기다립니다. Huginn은 실시간 resource discovery ingress를 소유합니다. Azure create,
+  update, delete signal은 canonical event topic으로 들어오고, 주입된 delivery projector가 Azure
+  I/O를 agent 내부에 넣지 않은 채 enrichment와 ordered inventory delta 적용을 담당합니다. 전용
+  Inventory sync job은 기본 6시간마다 Azure Resource Graph를 조회하고 ARM fallback을 사용해 완전한
+  reconciliation snapshot을 원자적으로 promote합니다. Heimdall은 discovery freshness, lag,
+  coverage를 관찰하며 로컬 harness는 Azure discovery를 실행하지 않습니다.
   Organization은 Directory와 Org chart 보기를 제공하며, `?view=org`는 실시간 보고 계층의 직접
   링크를 유지하고 각 노드는 해당 에이전트의 런타임 상세 포커스를 엽니다.
   Activity 링크는 선택한 에이전트를 route query에 유지합니다. Activity는 영구 audit timeline보다
@@ -218,10 +220,17 @@ fdai/
   지연되거나 없어도 활성 에이전트가 빈 화면으로 보이지 않습니다. 로컬 dev mode는 Settings
   바로 위에 `Labs` 영역도 표시하며, production 탐색에서는 이 개발 전용 영역을 생략합니다.
 
+## 리포지토리 스크립트 레이아웃
+
+리포지토리 자동화는 책임에 따라 `scripts/` 아래에 그룹화합니다. 루트 파일로는 레이아웃
+README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이트, 무결성 도구, 거버넌스 검사,
+카탈로그 유틸리티, 배포 도우미, 일반 자동화는 각각 전용 디렉터리를 사용합니다.
+소유권 맵과 배치 규칙은 [scripts/README.md](../../../scripts/README.md)를 참조하세요.
+
 ## 구조 CI 게이트
 
 위 경계 규칙을 CI에서 강제하는 네 개의 스크립트가 있으며, 리팩터가 랜딩된 뒤에 드리프트가
-슬금슬금 돌아오는 것을 막습니다. 전부 `scripts/` 아래에 있고 CI 파이프라인과 로컬 pre-push
+슬금슬금 돌아오는 것을 막습니다. 전부 `scripts/quality/architecture/` 아래에 있고 CI 파이프라인과 로컬 pre-push
 훅에서 모두 실행됩니다. 상응 문서는
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
 에 있습니다.
@@ -235,7 +244,7 @@ fdai/
 
 ### 새 게이트 추가
 
-1. 기존 스크립트 패턴을 따라 `scripts/check-<name>.sh` 를 작성합니다 (환경변수로 warn/fail
+1. 기존 스크립트 패턴을 따라 `scripts/quality/architecture/check-<name>.sh` 를 작성합니다 (환경변수로 warn/fail
    threshold, 앞선 `#` 정당성 코멘트를 요구하는 allowlist, stale 엔트리 거부,
    GitHub Actions 어노테이션, `CHECK_QUIET=1` 요약 모드).
 2. 현재 트리를 깨지 않도록 **warn-only** 로 배포합니다.
@@ -366,7 +375,7 @@ phase 는 `core/` 를 편집하지 않고 composition root 에서 새 구현을 
 | **실시간 아웃바운드 스트림** | `SseSink` (async publish + async-iterator subscribe, SSE 페이로드) | - | `InMemorySseSink` (테스트/데브); HTTP `text/event-stream` 어댑터는 콘솔 read-only 표면과 함께 랜딩 | 양방향 표면이 필요하면 WebSocket 어댑터로 교체; 헤드리스 observer는 webhook 전용. `shared/streaming/SseBroadcaster` 가 `EventBus` 토픽을 채널로 릴레이. |
 | **파이프라인 스테이지 발행자** | `StagePublisher` (`shared/providers/stage_publisher.py`) 의 `emit(StageEvent)` | - | `NullStagePublisher` (기본 - 스테이지 코드가 관찰 사이드이펙트 없이 실행되도록 유지) | 인프로세스 데브 / 단일 레플리카: `SseSinkStagePublisher` 가 `SseSink` 로 바로 fan-out. 멀티 레플리카 프로덕션: `EventBusStagePublisher` 가 Kafka 토픽(기본 `aw.pipeline.stages`) 에 발행하고 기존 `SseBroadcaster` 가 모든 레플리카가 소비하는 SSE 채널로 릴레이. 파이프라인 스테이지 (`event_ingest`, `trust_router`, T0/T1/T2, `risk_gate`, `executor`, `audit`) 가 프로토콜을 받도록 backward-compat - 업스트림 기본은 아무 것도 emit 하지 않음. |
 | **콘솔 read 패널** | `ReadPanel` (`delivery/read_api/panels.py`) | - | 코어 라우트만 (`/audit`, `/kpi`, `/hil-queue`); `ExampleFinOpsPanel` 은 참조용으로 제공되지만 UI 최소화를 위해 **미등록** | 포크가 `ReadApiConfig.extra_panels` (각각 GET 전용 라우트로 래핑, 빌드 시 path 검증) + 콘솔 `panels.tsx` 레지스트리 항목으로 버티컬 대시보드(FinOps 비용, 드리프트 보드, DR 드릴 이력) 추가 |
-| **LLM 계량(metering)** | `MeteringSink` / `MeteringReader` (`core/metering/sink.py`); `MeteringEmitter` 가 측정된 provider `usage` 기록; 가격은 `rule-catalog/llm-pricing.yaml` 에서 `PricingTable` 로 로드 | - | `InMemoryMeteringSink` (프로세스 수명; 단일-프로세스 데브 하네스 구동). T2 어댑터(`cross_check`, `rca_model`)가 측정된 토큰 + 비용을 emit; `LlmCostPanel` 이 `GET /kpi/llm-cost` 를 대화 / 일 / 월별로 롤업 제공 | 헤드리스 코어와 콘솔은 별도 프로세스이므로, 포크가 **durable** sink 를 `AzureWireOverrides.metering_sink` (코어 프로세스) 에, 대응하는 `MeteringReader` 를 `LlmCostPanel` (read-api 프로세스) 에 주입 - 예: Postgres `agent_transcript` 행 |
+| **LLM 계량(metering)** | `MeteringSink` / `MeteringReader` (`core/metering/sink.py`); `MeteringEmitter`가 명시적인 `control_plane` 또는 `operator_chat` scope와 함께 provider가 측정한 `usage`를 기록 | - | 단일 프로세스 dev harness는 하나의 `InMemoryMeteringSink`를 공유합니다. T1, T2, narrator adapter가 측정된 토큰을 emit하며 `LlmCostPanel`은 `GET /kpi/llm-cost`를 유지하고 scope / model / call / conversation / 일 / 월별 token-only projection을 노출합니다. | production은 headless core와 read API가 durable Postgres `llm_invocation` store를 함께 사용합니다. 설정된 가격은 내부 budget control에 남고 provider 지출로 projection되지 않습니다. |
 | **Infra module** | `infra/modules/<seam>/` (Terraform 서브-모듈, `var.<seam>_kind` 로 선택) | - | Container Apps + PostgreSQL Flex + Event Hubs Kafka + Key Vault + Log Analytics | [csp-neutrality-ko.md § 승인된 대안 Azure 구현](csp-neutrality-ko.md#승인된-대안-azure-구현approved-alternative-azure-implementations) 에 따라 다른 서브-모듈 선택; 모듈의 output 계약은 고정 유지 |
 
 모든 seam이 주입되는 인터페이스이므로 고객 추가나 두 번째 클라우드는 구현 등록 문제입니다 -

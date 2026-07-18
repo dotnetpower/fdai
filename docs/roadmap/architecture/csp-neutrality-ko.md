@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: a837ba2303db71a9eea1e3772b443f80615f4d55
+translation_source_sha: f285b87817e00b20fb9ed4753a7b37185a354e87
 translation_revised: 2026-07-18
 ---
 
@@ -237,15 +237,15 @@ executor 는 런타임 서브스트레이트에서 얻은 **짧은 수명의 OID
 - `full_snapshot(since=None) -> AsyncIterator[InventoryBatch]` - 초기 또는 주기적
   reconciliation 로드, 타입된 `Resource` 레코드와 `contains` / `attached_to` /
   `depends_on` 링크 레코드 배치로 emit.
-- `delta(cursor) -> AsyncIterator[InventoryBatch]` - 주어진 커서 이후의 증분 변경,
-  provider 의 네이티브 변경 스트림이 구동. Azure 어댑터는 이를 주입된
-  `ActivityLogFetchFn` seam 뒤에서 실현한다: 포워딩된 변경 스트림을 멱등 upsert
-  배치로 페이징하며, 진행하는 커서와 `full_snapshot` 과 동일한 `final=True`
-  atomic-promote 펜스를 emit 한다. 이 seam 을 만족하는 바인딩은 둘: 이벤트버스-네이티브
-  경로(Diagnostic-Settings-포워딩된 Kafka 토픽 - 아래 MUST 에 따른 프로덕션 기본값)와,
-  포워더가 아직 프로비저닝되지 않은 환경을 위한 직접 Activity Log REST 팩토리
-  (`AzureActivityLogFactory`). fetch 가 바인딩되지 않으면 `delta` 는 빈 `final=True`
-  펜스를 반환한다.
+- `delta(cursor) -> AsyncIterator[InventoryBatch]` - 주어진 cursor 이후의 증분 변경이며
+  provider의 native change stream이 구동합니다. Production에서는 resource create,
+  update, delete signal이 canonical Kafka ingress로 계속 들어옵니다. Huginn은 실시간
+  discovery ingress를 소유하고 정규화된 `Event` record를 publish하며, 주입된 inventory
+  projector는 순서가 보장된 resource, link, tombstone delta를 durable overlay에
+  적용합니다. Azure adapter는 bounded recovery source로 direct Activity Log REST factory
+  (`AzureActivityLogFactory`)도 유지합니다. Periodic full snapshot은 reconciliation의
+  authoritative source로 남으며 누락된 signal을 복구한 뒤 base generation을 원자적으로
+  교체합니다.
 
 읽기 전용 콘솔은 승격된 그래프의 별도 프로젝션을 `GET /inventory/graph`를 통해
 사용합니다. 이 경로는 `ReadApiConfig.inventory_graph_provider`가 주입된 경우에만
@@ -264,7 +264,7 @@ Postgres inventory snapshot처럼 `scope`를 resource id 또는 prefix로 사용
 
 | CSP / 서브스트레이트 | 인벤토리 소스 | Delta 소스 | 와이어 |
 |---|---|---|---|
-| Azure | **Azure Resource Graph** (ARM 위 Kusto) | Activity Log → [이벤트버스](#1-이벤트버스-계약--kafka-와이어-프로토콜) 계약 (Diagnostic-Settings-포워딩된 Kafka 토픽) | HTTPS + `Authorization: Bearer <OIDC>` |
+| Azure | **Azure Resource Graph** (ARM 위 Kusto) | [이벤트버스](#1-이벤트버스-계약--kafka-와이어-프로토콜)를 통한 Activity Log resource change, Huginn 정규화, ordered overlay projection | HTTPS + `Authorization: Bearer <OIDC>` |
 | AWS *(TBD)* | AWS Config + Resource Explorer | Config configuration-item 스트림이 Kafka 로 포워드 | HTTPS + SigV4 |
 | GCP *(TBD)* | Cloud Asset Inventory | Asset feed 가 Kafka 로 포워드 | HTTPS + Google IAM |
 | Any K8s | 리소스-모델 번역기를 통한 `apiserver` list-watch | `watch` 스트림이 Kafka 로 포워드 | HTTPS + service-account token |
@@ -292,6 +292,13 @@ Postgres inventory snapshot처럼 `scope`를 resource id 또는 prefix로 사용
 - **Delta 는 별도 사이드-채널이 아니라 이벤트 버스를 통해 흐름**. Provider 변경 신호
   (Activity Log, Config item, Asset feed, apiserver watch) 는 Kafka 토픽으로 포워드되어
   다른 `Signal` 과 정확히 같이 소비 - 동일한 멱등성, 동일한 DLQ.
+- **Huginn은 실시간 discovery ingress를 소유**하고 provider adapter는 cloud parsing과
+  point enrichment를 소유합니다. Inventory projector는 durable resource, link, tombstone
+  적용을 소유합니다. Heimdall은 freshness, delivery lag, fallback, coverage degradation을
+  관찰하며 cloud inventory를 직접 조회하지 않습니다.
+- **Periodic reconciliation은 계속 필요합니다.** Inventory sync job은 기본 6시간 주기로
+  완전한 ARG/ARM generation을 만들고 원자적으로 promote하며, 해당 generation에 이미
+  반영된 overlay entry를 정리합니다. Delta stream만으로 completeness를 증명하지 않습니다.
 - **미인식 `ResourceType` 또는 LinkType** 은 이슈를 열고 드롭됨; 어댑터는 런타임에 새
   온톨로지 타입을 자동 등록하지 않음
   ([llm-strategy-ko.md § 포크 확장](llm-strategy-ko.md#포크-확장-self-extending-온톨로지)).

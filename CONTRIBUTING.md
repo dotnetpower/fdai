@@ -51,11 +51,12 @@ The [`Makefile`](Makefile) is the single entry point for local CI parity:
 
 | Command | What it runs |
 |--------|--------------|
-| `make check` | `lint` + `gates` + `test` - reproduces the CI merge gate. Run this before pushing. |
+| `make check` | `lint` + `gates` + `test` + `operator` - reproduces the CI merge gate. Run this before pushing. |
 | `make lint`  | `ruff format --check` + `ruff check` + `mypy --strict`. |
 | `make format`| `ruff format` + `ruff check --fix`. Mutates files - review the diff. |
-| `make gates` | `scripts/check-*.sh` (english-only, punctuation, guids, translations, core-imports). |
-| `make test`  | `pytest -q` with the safety-core coverage floor (`--cov-fail-under=90`, wired in [`pyproject.toml`](pyproject.toml)). |
+| `make gates` | Repository hygiene, localization, and architecture boundary checks. |
+| `make test`  | Parallel unit tests, serial live-DB integration tests, and the safety-core coverage floor. |
+| `make operator` | Console and CLI tests, type checks, builds, and the console entry-bundle budget. |
 
 The full CI pipeline lives in
 [.github/workflows/ci.yml](.github/workflows/ci.yml); `make check` is
@@ -63,10 +64,24 @@ the fastest way to reproduce it without pushing.
 
 ### Coverage floor
 
-`make test` fails when total coverage falls below 90%. The individual
-safety-critical modules (T0 deterministic engine, risk gate, rule
-catalog loader, provider adapters) sit near ceiling; if your change
-drops a module, add unit tests in the same PR.
+`make test` fails when combined safety-core branch coverage falls below 90%.
+The target list is defined once in [`pyproject.toml`](pyproject.toml) and the
+shared runner at
+[`scripts/quality/ci/run-python-tests.sh`](scripts/quality/ci/run-python-tests.sh)
+is called by both local verification and CI.
+
+The runner uses at most eight pytest-xdist workers for non-integration tests
+and keeps live-DB integration tests serial. On 2026-07-18, the same 8,073
+non-integration tests without coverage took 147.81 seconds serially and 38.92
+seconds with the capped parallel configuration on the maintainer workstation.
+The command always reports the 25 slowest tests so fixture and I/O regressions
+remain visible.
+
+Before running tests, `scripts/verify.sh` checks clean-checkout and Docker build
+context contracts. It catches untracked required guard inputs, missing
+Dockerfile `COPY` sources, a broken `tests/scenarios/` re-include, an invalid
+resolved model manifest, and live-DB tests that perform setup before their skip
+guard.
 
 ### Docs are code
 

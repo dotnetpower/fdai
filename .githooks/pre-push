@@ -134,16 +134,25 @@ fi
 #    fail surface). Kept lightweight so pushes stay fast. Tracker #14,
 #    issue #22.
 # ---------------------------------------------------------------------------
-for gate in check-agents-imports check-file-loc check-subsystem-fanout check-doc-links; do
-  if [ -x "scripts/${gate}.sh" ] || [ -f "scripts/${gate}.sh" ]; then
-    # Pre-push runs in warn-only mode for the two threshold gates (H2/H5
-    # give them their loud voices in CI); suppress per-file lines with
-    # CHECK_QUIET so a routine push does not flood the terminal.
-    if ! CHECK_QUIET=1 bash "scripts/${gate}.sh" > /tmp/pre-push-${gate}.out 2>&1; then
-      echo "pre-push: BLOCKED - ${gate} failed:"
-      sed 's/^/  /' /tmp/pre-push-${gate}.out
-      exit 1
-    fi
+for gate_path in \
+  scripts/quality/architecture/check-agents-imports.sh \
+  scripts/quality/architecture/check-file-loc.sh \
+  scripts/quality/architecture/check-subsystem-fanout.sh \
+  scripts/quality/repository/check-doc-links.sh
+do
+  gate="${gate_path##*/}"
+  gate="${gate%.sh}"
+  if [ ! -f "$gate_path" ]; then
+    echo "pre-push: BLOCKED - required structural gate is missing: $gate_path"
+    exit 1
+  fi
+  # Pre-push runs in warn-only mode for the two threshold gates (H2/H5
+  # give them their loud voices in CI); suppress per-file lines with
+  # CHECK_QUIET so a routine push does not flood the terminal.
+  if ! CHECK_QUIET=1 bash "$gate_path" > /tmp/pre-push-${gate}.out 2>&1; then
+    echo "pre-push: BLOCKED - ${gate} failed:"
+    sed 's/^/  /' /tmp/pre-push-${gate}.out
+    exit 1
   fi
 done
 

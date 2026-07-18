@@ -14,8 +14,10 @@
 #   - check-stewardship.sh (handover map: 15 agents, maintainer floor, no role fields)
 #   - check-chaos-scenarios.sh (chaos-scenarios catalog + compiled symptom index)
 #   - check-arb-readiness.py (ARB artifact, blocker, owner, evidence contract)
+#   - clean-checkout / Docker build-context contracts
 #   - mypy (strict static types)
-#   - pytest                                    [--full only]
+#   - pytest + safety-core coverage             [--full only]
+#   - console + CLI tests/typecheck/build       [--full only]
 #
 # Usage:
 #   scripts/verify.sh              # --fast (text + lint + strict type gates)
@@ -93,16 +95,15 @@ else
     overall=1
 fi
 
+run_gate "ci-contracts" python3 scripts/quality/ci/check-ci-contracts.py
+
 run_gate "punctuation"  bash scripts/quality/repository/check-punctuation.sh
 run_gate "guids"        bash scripts/quality/repository/check-guids.sh
 run_gate "translations" bash scripts/quality/localization/check-translations.sh
 
 run_gate "catalog-parity" bash scripts/quality/localization/check-catalog-parity.sh
-
 run_gate "stewardship" bash scripts/governance/check-stewardship.sh
-
 run_gate "chaos-scenarios" bash scripts/catalog/check-chaos-scenarios.sh
-
 run_gate "architecture-review" python3 scripts/governance/check-arb-readiness.py
 
 # User-facing docs pinned to roadmap reference docs via derives_from[].sha.
@@ -120,29 +121,11 @@ run_gate "framework-integrity" bash scripts/integrity/check-integrity.sh
 # ---- full gates (opt-in) ----------------------------------------------------
 
 if [[ "$MODE" == "full" ]]; then
-    if command -v uv >/dev/null 2>&1; then
-        pytest_cmd=(uv run pytest)
-    elif command -v pytest >/dev/null 2>&1; then
-        pytest_cmd=(pytest)
+    if [[ -n "$PYTEST_PATH" ]]; then
+        run_gate "pytest ($PYTEST_PATH)" uv run pytest -q --no-cov "$PYTEST_PATH"
     else
-        pytest_cmd=()
-    fi
-    if [[ ${#pytest_cmd[@]} -gt 0 ]]; then
-        if [[ -n "$PYTEST_PATH" ]]; then
-            run_gate "pytest ($PYTEST_PATH)" "${pytest_cmd[@]}" -q --no-cov "$PYTEST_PATH"
-        else
-            if [[ -n "${FDAI_DATABASE_URL:-}" ]]; then
-                run_gate "pytest (all)" "${pytest_cmd[@]}" -q --no-cov
-            else
-                printf '%s\n' "verify.sh: FDAI_DATABASE_URL unset; skipping integration marker"
-                run_gate "pytest (no integration)" "${pytest_cmd[@]}" -q --no-cov -m "not integration"
-            fi
-        fi
-    else
-        echo "verify.sh: 'pytest' not found; activate .venv before --full" >&2
-        NAMES+=("pytest")
-        RESULTS+=("SKIP")
-        overall=1
+        run_gate "pytest + coverage" bash scripts/quality/ci/run-python-tests.sh
+        run_gate "operator surfaces" bash scripts/quality/ci/run-operator-surfaces.sh
     fi
 fi
 

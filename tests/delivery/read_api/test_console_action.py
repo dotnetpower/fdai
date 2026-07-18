@@ -11,6 +11,7 @@ there.
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -31,6 +32,7 @@ from fdai.delivery.read_api.read_model import AuditItem, InMemoryConsoleReadMode
 from fdai.delivery.read_api.routes.console_action import (
     ConsoleActionSubmitter,
     RefusalRecord,
+    append_console_action_route,
     make_console_action_route,
 )
 from fdai.delivery.read_api.routes.incident_projection import project_incidents
@@ -729,6 +731,34 @@ def test_build_app_omits_action_route_when_not_wired(_dev_mode: None) -> None:
     client, _bus = _built_client(wire_action=False)
     resp = client.post("/chat/action", json={"prompt": "restart svc-1"})
     assert resp.status_code == 404
+
+
+def test_action_route_registration_logs_structured_info(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    submitter, _bus = _submitter()
+    logger = logging.getLogger("fdai.tests.console-action-registration")
+    caplog.set_level(logging.INFO, logger=logger.name)
+    routes: list[Any] = []
+
+    async def authorize(_request: Request) -> Principal:
+        return _principal("u", Role.CONTRIBUTOR)
+
+    append_console_action_route(
+        routes,
+        submitter=submitter,
+        authorize_principal=authorize,
+        core_paths=frozenset(),
+        logger=logger,
+    )
+
+    record = next(
+        record for record in caplog.records if record.message == "console_action_route_wired"
+    )
+    assert record.levelno == logging.INFO
+    assert record.path == "/chat/action"
+    assert record.mode == "propose-only"
+    assert record.required_capability == "contributor"
 
 
 # ---------------------------------------------------------------------------

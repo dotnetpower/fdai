@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 
+from fdai.core.metering import MeteringEmitter, MeteringSink
 from fdai.delivery.azure.llm.request_target import COGNITIVE_SERVICES_SCOPE
 from fdai.delivery.read_api.routes.chat_backend_azure import AzureAdChatBackend
 from fdai.delivery.read_api.routes.chat_backend_common import ChatBackend, DisabledChatBackend
@@ -19,12 +20,38 @@ from fdai.delivery.read_api.routes.chat_backend_router import LatencyRoutedChatB
 from fdai.rule_catalog.schema.model_endpoint import ModelApiStyle
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
+#: Default completion-token ceiling for the console narrator. Raised from the
+#: historical 800 because the narrator emits structured, multi-section answers
+#: (assumptions / answer / uncertainty) and reasoning models (gpt-5, o-series)
+#: also spend part of ``max_completion_tokens`` on hidden reasoning - 800 cut
+#: detailed replies mid-sentence (``finish_reason: length``). Override with
+#: ``FDAI_NARRATOR_MAX_TOKENS``.
+_DEFAULT_NARRATOR_MAX_TOKENS = 2048
+_NARRATOR_MAX_TOKENS_ENV = "FDAI_NARRATOR_MAX_TOKENS"
+
+
+def _narrator_max_tokens(env: dict[str, str]) -> int:
+    """Resolve the narrator completion-token ceiling from the environment.
+
+    Returns :data:`_DEFAULT_NARRATOR_MAX_TOKENS` when unset or malformed so a
+    bad value never silently disables the narrator.
+    """
+    raw = env.get(_NARRATOR_MAX_TOKENS_ENV, "").strip()
+    if not raw:
+        return _DEFAULT_NARRATOR_MAX_TOKENS
+    try:
+        value = int(raw)
+    except ValueError:
+        return _DEFAULT_NARRATOR_MAX_TOKENS
+    return value if value >= 1 else _DEFAULT_NARRATOR_MAX_TOKENS
+
 
 def backend_from_env(
     env: dict[str, str] | None = None,
     *,
     identity: WorkloadIdentity | None = None,
     http_client: httpx.AsyncClient | None = None,
+    metering_sink: MeteringSink | None = None,
 ) -> ChatBackend:
     """Resolve a ChatBackend from environment variables.
 
@@ -42,6 +69,7 @@ def backend_from_env(
        to its built-in deterministic answerer.
     """
     src = env if env is not None else dict(os.environ)
+    max_tokens = _narrator_max_tokens(src)
     # 1) API-key config.
     base_url = src.get("FDAI_NARRATOR_BASE_URL")
     api_key = src.get("FDAI_NARRATOR_API_KEY")
@@ -55,11 +83,19 @@ def backend_from_env(
                 api_key=api_key,
                 model=model,
                 api_version=src.get("FDAI_NARRATOR_API_VERSION", "2024-08-01-preview"),
+                max_tokens=max_tokens,
             ),
             http_client=http_client,
+            metering=_chat_metering(metering_sink, model),
         )
     # 2) Keyless Azure via resolved-models.json + az CLI.
-    disk = _resolve_disk_azure_backend(src, identity=identity, http_client=http_client)
+    disk = _resolve_disk_azure_backend(
+        src,
+        identity=identity,
+        http_client=http_client,
+        max_tokens=max_tokens,
+        metering_sink=metering_sink,
+    )
     if disk is not None:
         return disk
     return DisabledChatBackend()
@@ -70,6 +106,8 @@ def _resolve_disk_azure_backend(
     *,
     identity: WorkloadIdentity | None = None,
     http_client: httpx.AsyncClient | None = None,
+    max_tokens: int = _DEFAULT_NARRATOR_MAX_TOKENS,
+    metering_sink: MeteringSink | None = None,
 ) -> ChatBackend | None:
     """Look up ``resolved-models.json`` and build an Azure AD backend.
 
@@ -100,6 +138,8 @@ def _resolve_disk_azure_backend(
         data.get("narrator_candidates"),
         identity=identity,
         http_client=http_client,
+        max_tokens=max_tokens,
+        metering_sink=metering_sink,
     )
     if routed is not None:
         return routed
@@ -108,6 +148,8 @@ def _resolve_disk_azure_backend(
         data.get("narrator"),
         identity=identity,
         http_client=http_client,
+        max_tokens=max_tokens,
+        metering_sink=metering_sink,
     )
 
 
@@ -116,6 +158,8 @@ def _build_single_azure_backend(
     *,
     identity: WorkloadIdentity | None = None,
     http_client: httpx.AsyncClient | None = None,
+    max_tokens: int = _DEFAULT_NARRATOR_MAX_TOKENS,
+    metering_sink: MeteringSink | None = None,
 ) -> AzureAdChatBackend | None:
     if not isinstance(narrator, dict):
         return None
@@ -140,6 +184,8 @@ def _build_single_azure_backend(
         auth_audience=auth_audience,
         identity=identity,
         http_client=http_client,
+        max_tokens=max_tokens,
+        metering=_chat_metering(metering_sink, deployment),
     )
 
 
@@ -148,6 +194,8 @@ def _build_routed_backend(
     *,
     identity: WorkloadIdentity | None = None,
     http_client: httpx.AsyncClient | None = None,
+    max_tokens: int = _DEFAULT_NARRATOR_MAX_TOKENS,
+    metering_sink: MeteringSink | None = None,
 ) -> LatencyRoutedChatBackend | None:
     """Build the latency-routed backend from a ``narrator_candidates`` list.
 
@@ -192,12 +240,28 @@ def _build_routed_backend(
                     auth_audience=auth_audience,
                     identity=identity,
                     http_client=http_client,
+                    max_tokens=max_tokens,
+                    metering=_chat_metering(metering_sink, deployment),
                 ),
             )
         )
     if len(candidates) < 2:
         return None
     return LatencyRoutedChatBackend(candidates=candidates)
+
+
+def _chat_metering(
+    sink: MeteringSink | None,
+    model_key: str,
+) -> MeteringEmitter | None:
+    if sink is None:
+        return None
+    return MeteringEmitter(
+        sink=sink,
+        capability_id="t1.judge",
+        model_key=model_key,
+        tier="T1",
+    )
 
 
 def _find_resolved_models(env: dict[str, str]) -> str | None:

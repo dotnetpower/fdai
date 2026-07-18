@@ -20,6 +20,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from fdai.core.conversation.answer_plan import build_answer_plan
+from fdai.core.metering import InvocationScope, with_invocation_scope
 from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.read_api.routes.chat_answer_planning import (
@@ -128,6 +129,7 @@ from fdai.delivery.read_api.routes.chat_route_common import (
     AnswerPreferenceResolver,
     AuthorizeFn,
     ModelPreferenceResolver,
+    _metering_correlation_id,
     _request_id,
     _session_id,
     _turn_metadata,
@@ -150,6 +152,7 @@ from fdai.delivery.read_api.routes.chat_system_health import render_system_healt
 from fdai.delivery.read_api.routes.chat_verification import verify_answer
 from fdai.shared.providers.briefing import ConversationPolicyStore
 from fdai.shared.providers.user_context import ConversationHistoryStore
+from fdai.shared.telemetry.correlation import with_correlation
 
 _LOG = logging.getLogger(__name__)
 
@@ -376,19 +379,23 @@ def make_chat_route(
                     "verification": verification.to_dict(),
                 }
             else:
-                if isinstance(backend, LatencyRoutedChatBackend):
-                    reply = await backend.answer(
-                        prompt=clean_prompt,
-                        view_context=view_context,
-                        history=history,
-                        preferred_model=preferred_model,
-                    )
-                else:
-                    reply = await backend.answer(
-                        prompt=clean_prompt,
-                        view_context=view_context,
-                        history=history,
-                    )
+                with (
+                    with_correlation(_metering_correlation_id(user_id, session_id)),
+                    with_invocation_scope(InvocationScope.OPERATOR_CHAT),
+                ):
+                    if isinstance(backend, LatencyRoutedChatBackend):
+                        reply = await backend.answer(
+                            prompt=clean_prompt,
+                            view_context=view_context,
+                            history=history,
+                            preferred_model=preferred_model,
+                        )
+                    else:
+                        reply = await backend.answer(
+                            prompt=clean_prompt,
+                            view_context=view_context,
+                            history=history,
+                        )
                 provisional_answer = str(reply.get("answer", ""))
                 verification = verify_answer(
                     provisional_answer,

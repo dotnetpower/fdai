@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Mapping
+from pathlib import Path
 from urllib.parse import urlparse
 
 from fdai.shared.config.models import AppConfig
@@ -28,7 +30,10 @@ def configure_telemetry(config: AppConfig, *, level: int = logging.INFO) -> None
     ``configure_tracing``, and ``configure_metrics`` guards against
     repeated installation.
     """
-    configure_logging(level=level)
+    configure_logging(
+        level=level,
+        warning_log_path=_local_warning_log_path(config, Path.cwd()),
+    )
     endpoint, insecure = _otlp_config(os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", ""))
     configure_tracing(
         service_name=_SERVICE_NAME,
@@ -42,6 +47,20 @@ def configure_telemetry(config: AppConfig, *, level: int = logging.INFO) -> None
         otlp_endpoint=endpoint,
         otlp_insecure=insecure,
     )
+
+
+def _local_warning_log_path(
+    config: AppConfig,
+    start: Path,
+    environ: Mapping[str, str] | None = None,
+) -> Path | None:
+    resolved_environ = os.environ if environ is None else environ
+    if config.runtime.env != "dev" or "PYTEST_CURRENT_TEST" in resolved_environ:
+        return None
+    for candidate in (start, *start.parents):
+        if (candidate / ".git").exists() and (candidate / "src/fdai").is_dir():
+            return candidate / ".fdai/logs/warnings.jsonl"
+    return None
 
 
 def _otlp_config(raw: str) -> tuple[str | None, bool]:

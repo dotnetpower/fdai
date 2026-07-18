@@ -146,8 +146,7 @@ class AzureCliInventory:
         yield InventoryBatch(resources=(), links=(), cursor="az-cli:end", final=True)
 
     async def _empty(self) -> AsyncIterator[InventoryBatch]:
-        if False:  # pragma: no cover - required so this is an async generator
-            yield InventoryBatch()
+        yield InventoryBatch(final=True)
 
     async def _fetch(self, resource_type: str) -> tuple[ResourceRecord, ...]:
         argv = [self.executable, *_NEUTRAL_TYPE_TO_AZ_ARGS[resource_type]]

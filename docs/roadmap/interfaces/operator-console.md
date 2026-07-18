@@ -331,42 +331,33 @@ is that this is the normal-cost surface. The upstream default ships a
 `console.max_tool_hops_per_turn`, default 8) - a product whose Cost
 Governance vertical polices spend cannot ship its own console with an
 unbounded LLM surface. There is no per-user *rate* limit by default; a
-fork MAY add one via config. Every LLM invocation records the tier, model
-deployment id, and prompt/completion token counts to the audit log so a
-fork can build a cost report post-hoc without instrumenting the console
-further.
+fork MAY add one via config. Every measured LLM invocation records its
+tier, model deployment id, workload scope, and prompt/completion token
+counts in the metering stream.
 
-**Shipped cost view.** Upstream ships the metering the paragraph above
-assumes: the T2 adapters record measured provider `usage` through a
-`MeteringSink`, `MeteringEmitter` computes cost from the config-driven
-`rule-catalog/llm-pricing.yaml` price table, and the `LlmCostPanel`
-serves `GET /kpi/llm-cost` - token usage and spend rolled up **per
-conversation** (by `correlation_id`), **per day**, and **per month**,
-plus a grand total. The console renders it as the read-only **LLM cost**
-panel in the Overview group. Because the headless core (where the LLM
-runs) and the read-API console are separate processes, the upstream
-`InMemoryMeteringSink` only spans a single-process dev harness; a
-production fork injects a durable sink (`AzureWireOverrides.metering_sink`)
-and reader (into `LlmCostPanel`) - typically Postgres `agent_transcript`
-rows. Prices are illustrative list-price defaults a fork overrides for
-its region / currency / negotiated rate.
-The panel also returns nullable `latest_occurred_at`, calculated from the
-measured invocation records. The LLM cost screen shows that timestamp and uses
-it as the Deck snapshot's `capturedAt`; it doesn't replace stale metering
-freshness with the browser's current time. An empty metering source returns
-`null`.
+**Shipped usage view.** T1 and T2 adapters record measured provider
+`usage` through a `MeteringSink`. The narrator uses the same stream with
+the explicit `operator_chat` scope; other calls use `control_plane`.
+`LlmCostPanel` retains the compatibility path `GET /kpi/llm-cost`, but
+its public projection contains token usage only. It returns totals by
+scope, model, mode, conversation (`correlation_id`), day, and month, plus
+a bounded newest-first invocation ledger with model and capability on
+every row. The console renders this as the read-only **LLM usage** panel.
 
-The metering path is hardened to fail safe: prices are validated finite
-at load (a NaN/Infinity rate is rejected), every invocation records the
-currency of its cost so a rollup never sums two currencies as one
-(flagged `mixed` when they differ), the T1 embedding tier is metered
-alongside the T2 reasoners, tokens are recorded even when a T2 call fails
-to HIL (no under-reporting), and the panel splits spend by
-`shadow`/`enforce` mode and caps the per-conversation table (costliest
-first). `wire_azure_container` default-loads the shipped price table when
-a sink is wired, and the in-memory sink is a bounded ring so a
-long-running process cannot grow without limit. Emission is best-effort -
-a metering failure is logged, never raised into the decision path.
+Derived price isn't exposed by the read API or console because regional,
+currency, and negotiated rates can make a configured estimate differ
+from the provider invoice. A deployment can still use its configured
+price table for an internal budget gate. Because the headless core and
+read API are separate processes, production uses the durable Postgres
+`llm_invocation` store; the single-process development harness shares one
+`InMemoryMeteringSink` between narrator calls and the panel.
+
+The panel returns nullable `latest_occurred_at` from measured invocation
+records. The LLM usage screen uses that timestamp as the Deck snapshot's
+`capturedAt` and doesn't replace stale metering freshness with browser
+time. An empty metering source returns `null`. Emission remains
+best-effort: a metering failure is logged and doesn't interrupt the
+decision or chat path.
 
 ## 5. DI seams
 

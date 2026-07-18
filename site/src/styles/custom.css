@@ -299,6 +299,11 @@ pre.mermaid:has(svg) {
   cursor: zoom-in;
 }
 
+pre.mermaid[role="button"]:focus-visible {
+  outline: 2px solid var(--sl-color-text-accent);
+  outline-offset: 0.25rem;
+}
+
 .mermaid-zoom-overlay {
   position: fixed;
   inset: 0;
@@ -321,15 +326,26 @@ pre.mermaid:has(svg) {
   justify-content: center;
   cursor: grab;
   touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .mermaid-zoom-stage:active {
   cursor: grabbing;
 }
 
+.mermaid-zoom-stage.dragging {
+  cursor: grabbing;
+}
+
 .mermaid-zoom-inner {
-  transform-origin: center center;
-  will-change: transform;
+  flex: 0 0 auto;
+}
+
+.mermaid-zoom-inner > svg {
+  display: block;
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
 }
 
 .mermaid-zoom-toolbar {
@@ -339,6 +355,14 @@ pre.mermaid:has(svg) {
   z-index: 1;
   display: flex;
   gap: 0.5rem;
+  align-items: center;
+}
+
+.mermaid-zoom-status {
+  min-width: 3.25rem;
+  color: var(--sl-color-white);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
 }
 
 .mermaid-zoom-toolbar button {

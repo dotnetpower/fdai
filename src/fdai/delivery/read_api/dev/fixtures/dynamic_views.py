@@ -140,12 +140,15 @@ async def _build_dynamic_process_views(
     from fdai.core.architecture_review import ArchitectureReviewProjector
     from fdai.core.reporting.composition import default_reporting_engine
     from fdai.core.reporting.datasources import AuditReader
-    from fdai.core.views import ViewEngine, load_view_catalog
+    from fdai.core.views import ViewEngine, load_view_catalog, load_workflow_app_catalog
     from fdai.core.workflow.approval import WorkflowApprovalPlanner
     from fdai.core.workflow.orchestrator import WorkflowOrchestrator
     from fdai.core.workflow.projection import (
         ProcessOntologyProjector,
         ProjectingProcessRuntimeStore,
+    )
+    from fdai.delivery.read_api.dev.fixtures.security_assessment import (
+        build_dev_security_assessment_feed,
     )
     from fdai.delivery.read_api.routes.process_views import ProcessViewsConfig
     from fdai.delivery.read_api.routes.reporting import ReportingConfig
@@ -277,13 +280,14 @@ async def _build_dynamic_process_views(
     report_engine, formats = default_reporting_engine(
         reports_root=_REPO_ROOT / "rule-catalog" / "reports",
         audit_reader=cast(AuditReader, read_model),
+        report_feed=build_dev_security_assessment_feed(now),
         metric_provider=metric_provider,
         ontology_store=ontology,
         process_store=runtime,
     )
     from fdai.core.reporting.models import DataSourceProvenance
 
-    for datasource in ("audit", "ontology"):
+    for datasource in ("audit", "ontology", "report_feed", "security_assessment"):
         report_engine.datasource_registry().register(
             report_engine.datasource_registry().get(datasource),
             provenance=DataSourceProvenance(
@@ -312,6 +316,11 @@ async def _build_dynamic_process_views(
         report_ids={spec.id for spec in report_engine.catalog().list()},
         workflow_names={workflow.name for workflow in workflows},
     )
+    workflow_apps = load_workflow_app_catalog(
+        _REPO_ROOT / "rule-catalog" / "operator-console",
+        workflow_names={workflow.name for workflow in workflows},
+        view_workflows={spec.id: spec.applies_to.workflow_ref for spec in view_specs},
+    )
     view_engine = ViewEngine(specs=view_specs, reports=report_engine, processes=runtime)
     action_types_by_name = {action_type.name: action_type for action_type in action_types}
     workflow_orchestrator = WorkflowOrchestrator(
@@ -328,6 +337,7 @@ async def _build_dynamic_process_views(
         ReportingConfig(engine=report_engine, formats=formats),
         ProcessViewsConfig(
             engine=view_engine,
+            apps=workflow_apps,
             source="synthetic-dev",
             synthetic=True,
             durable=False,

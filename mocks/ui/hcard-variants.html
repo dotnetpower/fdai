@@ -21,29 +21,23 @@
     .vx-tag.is-baseline { color: var(--cs-text-soft); background: var(--cs-shade); }
     .vx-tag.is-rec { color: var(--cs-sage); background: rgba(94,130,89,.12); }
 
-    /* ---------- Variant B: no rail, severity icon in title row ---------- */
+    /* ---------- Variant A: severity icon in title row ---------- */
     .vx-card-b { display: block; padding: 16px 18px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-bottom: 14px; }
     .vx-sev-icon { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; margin-right: 4px; font-size: 12px; font-weight: 700; flex: 0 0 auto; }
     .vx-sev-icon.is-critical { color: #fff; background: var(--cs-dusty-red); }
     .vx-sev-icon.is-high     { color: #fff; background: var(--cs-terracotta); }
     .vx-sev-icon.is-medium   { color: #fff; background: var(--cs-steel); }
 
-    /* ---------- Variant C: severity pill only (rail removed, everything else identical) ---------- */
+    /* ---------- Variant B: severity pill only ---------- */
     .vx-card-c { display: block; padding: 16px 18px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-bottom: 14px; }
 
-    /* ---------- Variant D: 2px top accent line ---------- */
-    .vx-card-d { display: block; padding: 16px 18px 16px; border: 1px solid var(--cs-hairline); border-top: 2px solid var(--cs-steel); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-bottom: 14px; }
-    .vx-card-d.is-critical { border-top-color: var(--cs-dusty-red); }
-    .vx-card-d.is-high     { border-top-color: var(--cs-terracotta); }
-    .vx-card-d.is-medium   { border-top-color: var(--cs-steel); }
-
-    /* ---------- Variant E: very subtle background tint + soft border tint ---------- */
+    /* ---------- Variant C: very subtle background tint + soft border tint ---------- */
     .vx-card-e { display: block; padding: 16px 18px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-bottom: 14px; }
     .vx-card-e.is-critical { background: linear-gradient(0deg, rgba(172,90,90,.04), rgba(172,90,90,.04)), var(--cs-card); border-color: rgba(172,90,90,.22); }
     .vx-card-e.is-high     { background: linear-gradient(0deg, rgba(188,116,73,.04), rgba(188,116,73,.04)), var(--cs-card); border-color: rgba(188,116,73,.22); }
     .vx-card-e.is-medium   { background: linear-gradient(0deg, rgba(68,104,142,.04), rgba(68,104,142,.04)), var(--cs-card); border-color: rgba(68,104,142,.22); }
 
-    /* ---------- Variant F: title-row eyebrow ("CRITICAL - REMEDIATION") ---------- */
+    /* ---------- Variant D: title-row eyebrow ("CRITICAL - REMEDIATION") ---------- */
     .vx-card-f { display: block; padding: 16px 18px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-bottom: 14px; }
     .vx-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 4px; }
     .vx-eyebrow.is-critical { color: var(--cs-dusty-red); }
@@ -65,11 +59,9 @@
     <div class="cs-page-header cs-mb-16">
       <div class="cs-eyebrow">Design exploration &middot; internal</div>
       <h1>HIL card - severity affordance variants</h1>
-      <p class="cs-lead">The current HIL / Overview card uses a 4&nbsp;px colored rail on the left
-        to signal severity. But the right-side <code>CRITICAL</code> pill already carries the same
-        color and word, so the rail is redundant. Below are five alternatives that keep the
-        severity legible without the left bar. All variants use the same underlying card - only
-        the severity affordance changes.</p>
+      <p class="cs-lead">Top and left edge accents are not supported on content containers.
+        Below are four compliant alternatives that keep severity local to the content through
+        text, icons, pills, a complete border, or a whole-surface tint.</p>
     </div>
 
     <div class="vx-legend">
@@ -82,44 +74,11 @@
 
 
     <!-- ============================================================
-         Variant A - baseline (current)
+         Variant A - severity icon in title row
          ============================================================ -->
     <section class="vx-section">
-      <h2>A. Current baseline
-        <span class="vx-tag is-baseline">baseline</span>
-      </h2>
-      <p class="vx-desc"><strong>4&nbsp;px left rail</strong> tinted by severity, plus the right-side
-        <code>critical</code> pill. The rail and the pill both encode the same information.</p>
-
-      <div class="cs-hcard is-critical">
-        <div class="cs-hcard-rail"></div>
-        <div class="cs-hcard-body">
-          <div class="cs-hcard-head">
-            <h3 class="cs-hcard-title">Enable point-in-time recovery on managed database</h3>
-            <span class="cs-risk critical">critical</span>
-            <span class="cs-tier t1">T1</span>
-            <span class="cs-cat remediation">remediation</span>
-            <span class="cs-vert resilience">resilience</span>
-          </div>
-          <p class="cs-mb-0">Similarity match with a prior incident (score 0.93); verifier passed
-            schema + policy + what-if.</p>
-          <div class="cs-hcard-foot">
-            <span>waiting <strong style="color:var(--cs-text)">8m</strong></span>
-            <span>2 approvers &middot; break-glass allowed</span>
-            <span class="cs-mono">evt-01H7A4X-...</span>
-            <span style="margin-left:auto"><a class="cs-link" href="#">details &rarr;</a></span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-
-    <!-- ============================================================
-         Variant B - severity icon in title row
-         ============================================================ -->
-    <section class="vx-section">
-      <h2>B. Small severity glyph next to the title</h2>
-      <p class="vx-desc">Rail removed. A <strong>tiny colored square with an icon</strong>
+      <h2>A. Small severity glyph next to the title</h2>
+      <p class="vx-desc">A <strong>tiny colored square with an icon</strong>
         (<code>!</code> for critical, <code>&#9650;</code> for high, <code>&#9679;</code> for medium)
         sits just before the title. Scannable at a glance, and works if the pill is off-screen on
         narrow layouts.</p>
@@ -184,13 +143,13 @@
 
 
     <!-- ============================================================
-         Variant C - severity pill only (rail removed, no other change)
+         Variant B - severity pill only
          ============================================================ -->
     <section class="vx-section">
-      <h2>C. Just the severity pill
+      <h2>B. Just the severity pill
         <span class="vx-tag is-rec">simplest</span>
       </h2>
-      <p class="vx-desc">Rail deleted, nothing added. The right-side pill (<code>critical</code>,
+      <p class="vx-desc">The right-side pill (<code>critical</code>,
         <code>high</code>, <code>medium</code>) is already a colored token with a leading dot -
         it does the whole job by itself. Cleanest and least visual noise.</p>
 
@@ -251,57 +210,10 @@
 
 
     <!-- ============================================================
-         Variant D - 2px top accent line
+         Variant C - subtle background tint + soft border tint
          ============================================================ -->
     <section class="vx-section">
-      <h2>D. 2&nbsp;px top accent line</h2>
-      <p class="vx-desc">Instead of a left rail, a <strong>thin horizontal line across the top</strong>
-        of the card. Feels more like a "document header" - a bit more editorial. Reads well when
-        several cards are stacked because the accent lines up with the card top edge.</p>
-
-      <div class="vx-card-d is-critical">
-        <div class="cs-hcard-head">
-          <h3 class="cs-hcard-title">Enable point-in-time recovery on managed database</h3>
-          <span class="cs-risk critical">critical</span>
-          <span class="cs-tier t1">T1</span>
-          <span class="cs-cat remediation">remediation</span>
-          <span class="cs-vert resilience">resilience</span>
-        </div>
-        <p class="cs-mb-0">Similarity match with a prior incident (score 0.93); verifier passed
-          schema + policy + what-if.</p>
-        <div class="cs-hcard-foot">
-          <span>waiting <strong style="color:var(--cs-text)">8m</strong></span>
-          <span>2 approvers &middot; break-glass allowed</span>
-          <span class="cs-mono">evt-01H7A4X-...</span>
-          <span style="margin-left:auto"><a class="cs-link" href="#">details &rarr;</a></span>
-        </div>
-      </div>
-
-      <div class="vx-card-d is-high">
-        <div class="cs-hcard-head">
-          <h3 class="cs-hcard-title">Raise production autoscale floor from 2 to 4</h3>
-          <span class="cs-risk high">high</span>
-          <span class="cs-tier t2">T2</span>
-          <span class="cs-cat ops">ops</span>
-          <span class="cs-vert change">change safety</span>
-        </div>
-        <p class="cs-mb-0">T2 reasoner grounded on WAF-Reliability RL-08; verifier passed
-          policy + what-if.</p>
-        <div class="cs-hcard-foot">
-          <span>waiting <strong style="color:var(--cs-text)">21m</strong></span>
-          <span>1 approver</span>
-          <span class="cs-mono">evt-01H7B2Q-...</span>
-          <span style="margin-left:auto"><a class="cs-link" href="#">details &rarr;</a></span>
-        </div>
-      </div>
-    </section>
-
-
-    <!-- ============================================================
-         Variant E - subtle background tint + soft border tint
-         ============================================================ -->
-    <section class="vx-section">
-      <h2>E. Whole-card tint (very subtle)</h2>
+      <h2>C. Whole-card tint (very subtle)</h2>
       <p class="vx-desc">The <strong>entire card</strong> picks up a 4% wash of the severity color
         and a matching soft border. Ambient, not shouty - your eye still lands on the title first,
         but the "temperature" of a critical card is different from a medium one when you scroll a
@@ -364,10 +276,10 @@
 
 
     <!-- ============================================================
-         Variant F - title-row eyebrow
+         Variant D - title-row eyebrow
          ============================================================ -->
     <section class="vx-section">
-      <h2>F. Eyebrow line above the title</h2>
+      <h2>D. Eyebrow line above the title</h2>
       <p class="vx-desc">A one-line <strong>"CRITICAL &middot; REMEDIATION"</strong> eyebrow sits
         above the card title in the severity color. Because that eyebrow already carries
         <em>severity</em> and <em>category</em>, the two right-side pills for the same values are

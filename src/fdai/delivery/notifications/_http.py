@@ -47,6 +47,28 @@ async def post_json(
     :class:`ChannelUnavailableError`. Both carry a truncated body so the
     router can log them without leaking or exploding.
     """
+    response = await post_json_response(
+        client=client,
+        url=url,
+        payload=payload,
+        headers=headers,
+        timeout_seconds=timeout_seconds,
+        ok_statuses=ok_statuses,
+    )
+    body = truncate(response.text or "")
+    return response.status_code, body
+
+
+async def post_json_response(
+    *,
+    client: httpx.AsyncClient,
+    url: str,
+    payload: Mapping[str, Any] | list[Any],
+    headers: Mapping[str, str] | None = None,
+    timeout_seconds: float,
+    ok_statuses: tuple[int, ...] = (200, 201, 202, 204),
+) -> httpx.Response:
+    """POST JSON and retain response headers for long-running operations."""
     try:
         response = await client.post(
             url,
@@ -60,7 +82,7 @@ async def post_json(
     body = truncate(response.text or "")
     if response.status_code not in ok_statuses:
         raise ChannelDeliveryError(f"POST {url} → HTTP {response.status_code}: {body!r}")
-    return response.status_code, body
+    return response
 
 
-__all__ = ["post_json", "truncate"]
+__all__ = ["post_json", "post_json_response", "truncate"]

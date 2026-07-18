@@ -107,7 +107,7 @@ def build_arm_to_neutral_map(registry: ResourceTypeRegistry) -> dict[str, str]:
 def arm_id_to_type(arm_id: str) -> str | None:
     """Extract the ``Microsoft.X/Y[/Z]`` type suffix from an ARM id."""
     marker = "/providers/"
-    idx = arm_id.find(marker)
+    idx = arm_id.lower().find(marker)
     if idx == -1:
         return None
     parts = arm_id[idx + len(marker) :].split("/")

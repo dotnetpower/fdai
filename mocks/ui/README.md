@@ -93,11 +93,15 @@ Reuse the kit by linking the stylesheet and applying `cs-` classes:
 ```html
 <link rel="stylesheet" href="assets/calm-slate.css" />
 <div class="cs-card cs-kpi">
-  <div class="cs-kpi-accent"></div>
   <span class="cs-kpi-label">Auto-resolution rate</span>
   <span class="cs-kpi-value">87.4%</span>
 </div>
 ```
+
+Content containers never use colored top or left edge accents. This includes KPI stamps,
+severity rails, inset selection rails, and pseudo-element strips. Put status in text, icons,
+pills, a complete neutral or softly tinted border, or a subtle whole-surface tint. Position-based
+mechanics such as navigation selection, chart edges, progress, and focus outlines remain valid.
 
 ## Palette
 

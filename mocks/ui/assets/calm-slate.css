@@ -220,11 +220,6 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 .cs-kpi .cs-kpi-label { color: var(--cs-text-soft); font-size: 13px; }
 .cs-kpi .cs-kpi-value { font-size: 30px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
 .cs-kpi .cs-kpi-foot { font-size: 12.5px; color: var(--cs-text-soft); display: flex; align-items: center; gap: 6px; }
-.cs-kpi-accent { width: 28px; height: 3px; border-radius: 3px; background: var(--cs-steel); margin-bottom: 4px; }
-.cs-kpi-accent.is-sage { background: var(--cs-sage); }
-.cs-kpi-accent.is-terracotta { background: var(--cs-terracotta); }
-.cs-kpi-accent.is-teal { background: var(--cs-teal); }
-.cs-kpi-accent.is-plum { background: var(--cs-plum); }
 
 /* trend chips (muted) */
 .cs-trend { font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: var(--cs-radius-pill); }
@@ -493,13 +488,10 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 .cs-readonly-banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px dashed var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-shade); color: var(--cs-text-soft); font-size: 12.5px; margin-bottom: 20px; }
 .cs-readonly-banner strong { color: var(--cs-text); font-weight: 600; }
 
-/* HIL / Action cards - whole-card severity tint (variant E, picked 2026-07-12).
-   The right-side severity pill already carries color + word, so instead of a
-   4px left rail we tint the whole card with a 4% wash of the severity color
-   plus a matching soft border. Ambient, not shouty. The legacy .cs-hcard-rail
-   element is kept in existing HTML (dashboard.html, hil.html) but hidden. */
+/* HIL / Action cards - whole-card severity tint.
+  The content-local severity pill carries color + word. The card uses a subtle
+  whole-surface wash and complete soft border, never a top or left edge accent. */
 .cs-hcard { display: block; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); overflow: hidden; box-shadow: var(--cs-shadow); margin-bottom: 14px; }
-.cs-hcard-rail { display: none; }
 .cs-hcard.is-critical { background: linear-gradient(0deg, rgba(172,90,90,.04), rgba(172,90,90,.04)), var(--cs-card); border-color: rgba(172,90,90,.22); }
 .cs-hcard.is-high     { background: linear-gradient(0deg, rgba(188,116,73,.04), rgba(188,116,73,.04)), var(--cs-card); border-color: rgba(188,116,73,.22); }
 .cs-hcard.is-medium   { background: linear-gradient(0deg, rgba(68,104,142,.04), rgba(68,104,142,.04)), var(--cs-card); border-color: rgba(68,104,142,.22); }
@@ -562,7 +554,6 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
   padding: 8px 10px 10px 12px;
   background: var(--cs-card);
   border: 1px solid var(--cs-hairline);
-  border-left: 3px solid var(--cs-hairline);
   border-radius: 9px;
   box-shadow: 0 1px 2px rgba(46,54,64,.04);
   font-size: 12px;
@@ -570,25 +561,8 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
   overflow: hidden;
   transition: background-color .25s ease, border-color .25s ease, opacity .35s ease, transform .18s ease;
 }
-.cs-tile[data-empty="true"] { background: transparent; border-color: transparent; border-left-color: var(--cs-hairline); box-shadow: none; opacity: .35; }
+.cs-tile[data-empty="true"] { background: transparent; border-color: transparent; box-shadow: none; opacity: .35; }
 .cs-tile[data-empty="true"] .cs-tile-inner { visibility: hidden; }
-
-/* Tier rail (left) */
-.cs-tile[data-tier="t0"] { border-left-color: var(--cs-sage); }
-.cs-tile[data-tier="t1"] { border-left-color: var(--cs-teal); }
-.cs-tile[data-tier="t2"] { border-left-color: var(--cs-plum); }
-
-/* Outcome stamp (top edge) - shows on state=done only */
-.cs-tile::before {
-  content: "";
-  position: absolute; left: -1px; right: -1px; top: -1px; height: 3px;
-  background: transparent;
-  transition: background-color .3s ease;
-}
-.cs-tile[data-state="done"][data-outcome="auto"]::before { background: var(--cs-sage); }
-.cs-tile[data-state="done"][data-outcome="hil"]::before { background: var(--cs-terracotta); }
-.cs-tile[data-state="done"][data-outcome="abstain"]::before { background: var(--cs-plum); }
-.cs-tile[data-state="done"][data-outcome="deny"]::before { background: var(--cs-dusty-red); }
 
 /* HIL / deny call attention with rim glow */
 .cs-tile[data-state="done"][data-outcome="hil"] { box-shadow: 0 0 0 1px rgba(188,116,73,.35), 0 2px 8px rgba(188,116,73,.15); }
@@ -687,7 +661,7 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 /* Reduced-motion: freeze everything to final state */
 @media (prefers-reduced-motion: reduce) {
   .cs-live-heartbeat, .cs-ticker-head::before { animation: none; }
-  .cs-tile, .cs-tile-bar > span, .cs-tile::before { transition: none; }
+  .cs-tile, .cs-tile-bar > span { transition: none; }
   .cs-tile[data-state="active"] { animation: none; }
   .cs-ticker-list li { animation: none; }
 }

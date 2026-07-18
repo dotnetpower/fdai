@@ -610,8 +610,9 @@ boot rather than surfacing at first dispatch.
 An operator authors a custom business process through the console's
 **workflow-builder** view, not by hand-writing YAML from memory and not by
 filling a multi-section form. The surface maps the process onto the ontology
-and is **read-only by construction**: it validates, previews, and visualizes,
-but it never commits.
+and uses a bounded authoring contract: it validates, previews, and visualizes;
+an explicit save creates only a principal-owned private `draft`. Publishing,
+binding, enabling, and execution remain separate reviewed paths.
 
 The view has two modes. The default is a **launchpad plus a read-only list of
 the built-in workflows**: a `read-only browse table` lists every shipped
@@ -633,10 +634,11 @@ contract: it works with the narrator absent and never invents a mutation the
 `ActionType` palette does not already carry.
 
 The engine walks a fixed set of stages
-(`welcome -> need_action -> need_trigger -> offer_extra -> confirm_name ->
-ready`) and, at each turn, returns one bot message: a short explanation of what
-it now understands, the next question, and clickable **option chips** whose
-values are echoed back to the engine. Design properties:
+(`welcome -> need_action -> need_trigger -> confirm_plan -> offer_extra ->
+confirm_safety -> confirm_name -> ready`) and, at each turn, returns one bot
+message: a short explanation of what it now understands, the next question,
+and clickable **option chips** whose values are echoed back to the engine.
+Design properties:
 
 - the welcome turn shows **worked examples** (e.g. "when a pod on
   `aks-cluster-01` runs hot, notify me"), so the operator sees what kinds of
@@ -650,6 +652,12 @@ values are echoed back to the engine. Design properties:
   "when -> do" sentence, and at `offer_extra` it proposes further steps
   (another action, a guard, a notification) as chips the operator accepts or
   declines;
+- inferred actions and triggers never advance without an explicit
+  `confirm_plan` turn. When more than three distinct actions match the bounded
+  proposal, the confirmation discloses that additional actions were omitted;
+- `confirm_safety` states the fail-closed behavior, shadow posture, and
+  promotion thresholds. The operator can record an `anti_scope` boundary
+  before naming the workflow;
 - the workflow name is **auto-suggested** from the goal (a snake_case id) and
   confirmed in one turn, so the operator never has to invent an identifier.
 
@@ -664,9 +672,14 @@ inline in the chat:
   so the chat shows how the process will actually run;
 - the **canonical YAML** as a copyable code block, presented as "here is the
   workflow I generated";
-- a **dry-run test result** from `POST /workflows/validate` ("structurally
+- a **structural validation result** from `POST /workflows/validate` ("structurally
   valid, every step resolves..."), so the operator can test the design before
-  taking it anywhere;
+  taking it anywhere. This check doesn't execute, simulate, or predict the
+  workflow;
+- an explicit **Save private draft** action that calls
+  `POST /workflows/definitions` with confirmation and creates a private
+  `draft`. The saved definition isn't runnable and doesn't appear in
+  Operations;
 - the git-native next step: copy the YAML into
   `rule-catalog/workflows/<name>.yaml` and open a remediation PR.
 
@@ -682,9 +695,8 @@ The operator's own typed text is echoed as plain text (never through the
 markdown parser), and only the newest turn's chips stay interactive so a stale
 suggestion cannot corrupt a later stage.
 
-The same three opt-in, Reader-gated read API routes back it, all pure
-projections that
-write no state (see
+Three opt-in, Reader-gated read API routes back validation and browsing as pure
+projections that write no state (see
 [`workflow_authoring.py`](../../../src/fdai/delivery/read_api/routes/workflow_authoring.py)):
 
 - **`GET /workflows/catalog`** - the built-in Workflow catalog. A read-only
@@ -710,17 +722,15 @@ These routes are opt-in through
 rule ids, and schema registry); unset upstream so the console stays minimal,
 wired in the local dev harness so the view renders out of the box.
 
-The console keeps the read-only invariant
+The console keeps the privileged read-only invariant
 ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)):
-the palette and catalog are GETs through the GET-only `ReadApiClient`, and the
-validate call is the single non-GET the console makes - a read-only validator
-that lives outside `ReadApiClient` (mirroring the chat backend) and changes no
-state. There
-is no console button that commits. A valid draft yields YAML the operator copies
-into `rule-catalog/workflows/<name>.yaml` and lands as a remediation PR through
-the git-native path, so audit, review, and rollback come for free. New drafts
-are locked to `shadow`; promotion to enforce stays the separate governance PR of
-[section 6](#6-governance).
+the palette and catalog are GETs through the GET-only `ReadApiClient`, validation
+is pure, and saving writes only a principal-owned private authoring record. The
+save route never receives the executor identity and cannot publish, bind, enable,
+or run the definition. A valid draft also yields YAML the operator can propose at
+`rule-catalog/workflows/<name>.yaml` through the git-native path. New catalog
+entries remain locked to `shadow`; promotion to enforce stays the separate
+governance PR of [section 6](#6-governance).
 
 ### 8.2 Dynamic runtime view
 
@@ -759,6 +769,38 @@ runtime journal. The screen exposes no start, approve, retry, or execute button.
 The architecture map remains separate. It visualizes the actual infrastructure
 topology returned by the inventory graph. Process views visualize workflow state
 and domain projections. Neither surface is the source of truth for the other.
+
+### 8.3 Workflow apps and menu exposure
+
+A workflow that needs a reusable read surface registers a **WorkflowApp**
+manifest separately from its Workflow and ViewSpec. The manifest controls
+discovery only. It never adds execution logic, an action button, JavaScript, or
+an arbitrary backend route.
+
+The console exposes one stable **Workflow apps** entry in the Operations domain.
+That hub lists the published manifests visible to the current principal. Each
+app uses `/workflow-apps/{app_id}` and reuses the generic Process list, journal,
+ViewSpec, ReportSpec, and widget renderer filtered by `workflow_ref`. A generated
+workflow never becomes a new compiled `ConsolePanel` by itself, so runtime
+catalog growth cannot change the frontend bundle or flood the Activity Bar.
+
+The manifest lifecycle controls exposure:
+
+- `draft` manifests remain visible only in authoring and never enter Operations.
+- `shadow` manifests may provide a workflow-specific Process detail ViewSpec,
+  but don't appear in the Workflow apps hub.
+- `published` manifests appear in the hub after workflow, ViewSpec, and role
+  cross-references validate.
+- `retired` manifests leave navigation while existing audit and Process deep
+  links remain readable.
+
+`WorkflowApp` ids and routes are permanent machine references. Labels and
+descriptions are localized presentation values and may change. The read API
+returns only manifests authorized for the principal; hiding an unauthorized app
+in the browser is not an access-control mechanism. A workflow that requires a
+new interaction model or executable frontend code follows the build-time
+`EXTRA_PANELS` plus injected `ReadPanel` path and a separate reviewed release. It
+is never generated or loaded as remote code from a conversation.
 
 ## 9. Relationship to agent-workflows.md
 

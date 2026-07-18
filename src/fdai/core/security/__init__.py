@@ -6,10 +6,24 @@ from fdai.core.security.assessment import (
     SecurityVerdict,
     build_security_assessment,
 )
+from fdai.core.security.observations import (
+    ControlStatus,
+    RemediationPriority,
+    SecurityControlObservation,
+    SecurityRecommendation,
+    SecuritySourceCoverage,
+    SourceStatus,
+)
 
 __all__ = [
     "SecurityAssessment",
+    "SecurityControlObservation",
     "SecurityFindingEntry",
+    "SecurityRecommendation",
+    "SecuritySourceCoverage",
     "SecurityVerdict",
+    "SourceStatus",
+    "ControlStatus",
+    "RemediationPriority",
     "build_security_assessment",
 ]

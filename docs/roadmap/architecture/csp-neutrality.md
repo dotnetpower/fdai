@@ -246,14 +246,13 @@ single `Inventory` Protocol with two operations returning CSP-neutral records:
   reconciliation load, emitted as batches of typed `Resource` records and
   `contains` / `attached_to` / `depends_on` link records.
 - `delta(cursor) -> AsyncIterator[InventoryBatch]` - incremental changes since the given
-  cursor, driven by the provider's native change stream. The Azure adapter realizes this
-  behind an injected `ActivityLogFetchFn` seam that pages the forwarded change stream into
-  idempotent-upsert batches with an advancing cursor and the same `final=True` atomic-promote
-  fence as `full_snapshot`. Two bindings satisfy the seam: the event-bus-native path (a
-  Diagnostic-Settings-forwarded Kafka topic, the production default per the MUST below) and a
-  direct Activity Log REST factory (`AzureActivityLogFactory`) for environments where the
-  forwarder is not yet provisioned. With no fetch bound, `delta` returns an empty `final=True`
-  fence.
+  cursor, driven by the provider's native change stream. In production, resource create,
+  update, and delete signals enter the canonical Kafka ingress continuously. Huginn owns the
+  real-time discovery ingress and publishes normalized `Event` records, while an injected
+  inventory projector applies ordered resource, link, and tombstone deltas to a durable overlay.
+  The Azure adapter also keeps a direct Activity Log REST factory (`AzureActivityLogFactory`)
+  as a bounded recovery source. The periodic full snapshot remains authoritative for
+  reconciliation and atomically replaces the base generation after repairing missed signals.
 
 The read-only console consumes a separate projection of the promoted graph through
 `GET /inventory/graph`. The route is enabled only when
@@ -273,7 +272,7 @@ query behavior and don't opt into the named-view not-found contract.
 
 | CSP / substrate | Inventory source | Delta source | Wire |
 |---|---|---|---|
-| Azure | **Azure Resource Graph** (Kusto over ARM) | Activity Log via the [event-bus](#1-event-bus-contract--kafka-wire-protocol) contract (a Diagnostic-Settings-forwarded Kafka topic) | HTTPS + `Authorization: Bearer <OIDC>` |
+| Azure | **Azure Resource Graph** (Kusto over ARM) | Activity Log resource changes through the [event-bus](#1-event-bus-contract--kafka-wire-protocol), normalized by Huginn and projected as an ordered overlay | HTTPS + `Authorization: Bearer <OIDC>` |
 | AWS *(TBD)* | AWS Config + Resource Explorer | Config configuration-item stream forwarded to Kafka | HTTPS + SigV4 |
 | GCP *(TBD)* | Cloud Asset Inventory | Asset feed forwarded to Kafka | HTTPS + Google IAM |
 | Any K8s | `apiserver` list-watch through a resource-model translator | `watch` stream forwarded to Kafka | HTTPS + service-account token |
@@ -302,6 +301,14 @@ query behavior and don't opt into the named-view not-found contract.
 - **Deltas flow through the event bus**, not through a separate side-channel. A provider
   change signal (Activity Log, Config item, Asset feed, apiserver watch) is forwarded into
   a Kafka topic and consumed exactly like any other `Signal` - same idempotency, same DLQ.
+- **Huginn owns real-time discovery ingress** while provider adapters own cloud parsing and
+  point enrichment. The inventory projector owns durable resource, link, and tombstone
+  application. Heimdall monitors freshness, delivery lag, fallback, and coverage degradation;
+  it does not query the cloud inventory.
+- **Periodic reconciliation remains required**. The Inventory sync job produces a complete
+  ARG/ARM generation on its six-hour default cadence, promotes it atomically, and retires
+  overlay entries already covered by that generation. A delta stream is never treated as a
+  proof of completeness.
 - **Unknown `ResourceType` or LinkType** opens an issue and is dropped; the adapter never
   auto-registers a new ontology type at runtime
   ([llm-strategy.md § Fork Extension](llm-strategy.md#fork-extension-self-extending-ontology)).

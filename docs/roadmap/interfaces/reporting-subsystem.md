@@ -78,10 +78,14 @@ Code map (see [project-structure.md](../architecture/project-structure.md)):
 The Console SPA now exposes **History > Reports** at `/reports` and a
 canonical detail route at `/reports/<report-id>`. It reads the catalog and
 runtime registry, renders declared variables as bounded controls, and sends
-only `GET /reports/<id>/render` requests. The shared widget renderer covers
-every type used by the upstream report catalog: `query_value`, `bar_chart`,
-`timeseries`, `top_list`, `table`, `list_stream`, `check_status`, and
-`topology_map`, plus recursive `group` and keyboard-accessible `tabs`.
+only `GET /reports/<id>/render` requests. The shared widget renderer accounts
+for all 38 upstream types through
+[`widget-capabilities.json`](../../../rule-catalog/reports/widget-capabilities.json):
+37 render through reviewed semantic HTML, SVG, or CSS primitives, while
+`iframe` is intentionally blocked on generated workflow surfaces. The
+capability catalog is consumed by the SPA and exact-matched against the backend
+registry in tests, so a new upstream builder cannot silently degrade to an
+unavailable workflow UI.
 
 A report that uses these registered visual types appears without an FE code
 change. A newly invented visualization type still needs a reviewed renderer
@@ -91,8 +95,9 @@ unavailable state instead of exposing raw JSON or guessing a presentation.
 
 ## Widget catalog
 
-35 upstream builders across seven families. Every builder emits a
-Datadog-inspired `data` payload the FE renders keyed on `type`.
+36 upstream builders across nine families, plus the engine-special `group` and
+`tabs` containers, produce 38 types. Every builder emits a Datadog-inspired
+`data` payload the FE renders keyed on `type`.
 
 | Family | `type` | Payload highlights |
 |--------|--------|--------------------|
@@ -125,6 +130,8 @@ Datadog-inspired `data` payload the FE renders keyed on `type`.
 |              | `geomap` | `points, areas` (mixed projections) |
 | cost   | `cost_summary` | `currency, total, rows: [{group, amount}]` |
 |        | `budget_summary` | `budget, actual, variance, utilization` |
+| workflow | `process_steps` | ordered `steps`, completed/total, progress ratio, truncation evidence |
+|          | `comparison` | field-level `before`, `after`, `changed`, changed/total counts |
 | annotations | `free_text` | `body` (markdown) |
 |             | `note` | `body, severity (info|warning|critical|ok)` |
 |             | `image` | `src, alt, caption?`; rejects non-https / non-raster |
@@ -132,6 +139,14 @@ Datadog-inspired `data` payload the FE renders keyed on `type`.
 | composite | `group` | recursive children; engine-special-cased |
 |           | `tabs` | recursive children; engine-special-cased |
 |           | `split_graph` | `panels` fanned out from `DataSet.series` |
+
+The generic renderer uses bounded fallbacks where a specialized SDK would add
+unnecessary runtime code: `geomap` renders coordinate and region tables without
+a remote map script, Sankey renders an auditable weighted edge list, and flame
+graphs cap depth and frame count. Raster `image` sources are revalidated in the
+browser; SVG, credentialed URLs, and non-HTTPS schemes are rejected. `iframe`
+remains a backend builder for non-workflow consumers but is never rendered by
+the generated WorkflowApp surface.
 
 A fork adds a new backend type by implementing `WidgetBuilder` and calling
 `WidgetRegistry.register` at composition time. `GET /reports/registry` lets
@@ -141,13 +156,14 @@ small renderer before the SPA can present it.
 
 ## Datasource catalog
 
-Seven upstream adapters. Each wraps an existing seam so the reporting
+Eight upstream adapters. Each wraps an existing seam so the reporting
 subsystem introduces no new I/O primitive:
 
 | Name | Wraps | Sample projections |
 |------|-------|--------------------|
 | `audit` | duck-typed `AuditReader` (matches `ConsoleReadModel`) | `rows`, `count_by_action_kind`, `count_by_mode`, `count_by_actor`, `count_by_correlation`, `series_hourly`, `series_daily`, `count_total` |
 | `report_feed` | `core.report_feed.ReportFeed` | `rows`, `count_by_severity`, `count_by_category`, `count_by_kind`, `count_by_resource`, `latest_per_resource`, `count_total` |
+| `security_assessment` | security-category `ReportFeed` signals -> deterministic `SecurityAssessment` | `summary_value`, severity/category/resource counts, control status/rows, recommendations, CVEs, sources, positive controls, gaps, resources, compliance, evidence |
 | `metric` | `shared.providers.metric.MetricProvider` | `series` (with `group_by`), `scalar_sum`, `percentiles` |
 | `log_query` | `shared.providers.log_query.LogQueryProvider` | `rows`, `count_by_severity`, `pattern_group`, `series_hourly`, `count_total` |
 | `static` / `noop` | in-memory | fixed / empty result; test seed |
@@ -161,6 +177,23 @@ the wire-up stays one-way.
 A fork adds a new source (Cost Management, cluster inventory, custom
 Postgres view) by implementing `ReportDataSource` and calling
 `DataSourceRegistry.register`.
+
+### Security Assessment report
+
+`rule-catalog/reports/security-assessment.yaml` exposes a read-only deep
+assessment at `/reports/security-assessment`. Its datasource converts
+`SignalKind.SECURITY_ASSESSMENT` records into normalized control observations
+and converts other security-category signals into findings. One render-window
+assessment is cached inside the datasource so its 20 or more widgets query the
+underlying feed once, not once per widget.
+
+The page includes executive verdict and completeness metrics,
+pass/evidence/source coverage, control status, severity/category/resource
+distributions, and tabbed tables for configuration and patch controls,
+prioritized remediation, CVE applicability, data-source coverage, verified
+positive controls, unknowns and evidence gaps, resource rollups, compliance
+mappings, and evidence citations. An unavailable source is rendered as a gap
+and lowers completeness; it never becomes an implicit passing control.
 
 ## Format catalog
 

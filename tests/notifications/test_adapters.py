@@ -343,7 +343,12 @@ class TestEmailAdapter:
 
         def handler(request: httpx.Request) -> httpx.Response:
             captured.append(request)
-            return httpx.Response(202, text="")
+            if request.method == "POST":
+                return httpx.Response(
+                    202,
+                    headers={"Operation-Location": "https://acs.example/operations/email-1"},
+                )
+            return httpx.Response(200, json={"id": "provider-email-1", "status": "Succeeded"})
 
         async with _client(handler) as http:
             adapter = AzureCommunicationEmailChannel(
@@ -353,6 +358,7 @@ class TestEmailAdapter:
                     sender_address="ops@example.com",
                     recipient_addresses=("recv@example.com",),
                     trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT}),
+                    poll_interval_seconds=0,
                 ),
                 http_client=http,
                 token_provider=lambda: "the-token",
@@ -367,11 +373,17 @@ class TestEmailAdapter:
         body = _json.loads(request.content.decode("utf-8"))
         assert body["recipients"]["to"][0]["address"] == "recv@example.com"
         assert body["senderAddress"] == "ops@example.com"
+        assert receipt.provider_message_id == "provider-email-1"
 
     async def test_no_token_provider_omits_bearer(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             assert "Authorization" not in request.headers
-            return httpx.Response(202)
+            if request.method == "POST":
+                return httpx.Response(
+                    202,
+                    headers={"Operation-Location": "https://acs.example/operations/email-2"},
+                )
+            return httpx.Response(200, json={"id": "email-2", "status": "Succeeded"})
 
         async with _client(handler) as http:
             adapter = AzureCommunicationEmailChannel(
@@ -381,6 +393,7 @@ class TestEmailAdapter:
                     sender_address="ops@example.com",
                     recipient_addresses=("recv@example.com",),
                     trust_tiers=frozenset({TrustTier.A4_DIGEST}),
+                    poll_interval_seconds=0,
                 ),
                 http_client=http,
             )
@@ -389,7 +402,12 @@ class TestEmailAdapter:
     async def test_empty_token_omits_bearer(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             assert "Authorization" not in request.headers
-            return httpx.Response(202)
+            if request.method == "POST":
+                return httpx.Response(
+                    202,
+                    headers={"Operation-Location": "https://acs.example/operations/email-3"},
+                )
+            return httpx.Response(200, json={"id": "email-3", "status": "Succeeded"})
 
         async with _client(handler) as http:
             adapter = AzureCommunicationEmailChannel(
@@ -399,11 +417,82 @@ class TestEmailAdapter:
                     sender_address="ops@example.com",
                     recipient_addresses=("recv@example.com",),
                     trust_tiers=frozenset({TrustTier.A4_DIGEST}),
+                    poll_interval_seconds=0,
                 ),
                 http_client=http,
                 token_provider=lambda: "",
             )
             await adapter.send(_message(audit_id=None))
+
+    async def test_awaits_async_token_provider(self) -> None:
+        async def token_provider() -> str:
+            return "async-token"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.headers["Authorization"] == "Bearer async-token"
+            if request.method == "POST":
+                return httpx.Response(
+                    202,
+                    headers={"Operation-Location": "https://acs.example/operations/email-4"},
+                )
+            return httpx.Response(200, json={"id": "email-4", "status": "Succeeded"})
+
+        async with _client(handler) as http:
+            adapter = AzureCommunicationEmailChannel(
+                config=AzureCommunicationEmailConfig(
+                    channel_id="email-4",
+                    endpoint="https://acs.example",
+                    recipient_addresses=("recv@example.com",),
+                    poll_interval_seconds=0,
+                ),
+                http_client=http,
+                token_provider=token_provider,
+            )
+            await adapter.send(_message())
+
+    async def test_final_provider_failure_raises(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "POST":
+                return httpx.Response(
+                    202,
+                    headers={"Operation-Location": "https://acs.example/operations/failed"},
+                )
+            return httpx.Response(
+                200,
+                json={"id": "failed", "status": "Failed", "error": {"code": "Rejected"}},
+            )
+
+        async with _client(handler) as http:
+            adapter = AzureCommunicationEmailChannel(
+                config=AzureCommunicationEmailConfig(
+                    channel_id="email-failed",
+                    endpoint="https://acs.example",
+                    recipient_addresses=("recv@example.com",),
+                    poll_interval_seconds=0,
+                ),
+                http_client=http,
+            )
+            with pytest.raises(ChannelDeliveryError, match="ended as Failed"):
+                await adapter.send(_message())
+
+    async def test_rejects_operation_url_outside_configured_endpoint(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                202,
+                headers={"Operation-Location": "https://untrusted.example/operations/email"},
+            )
+
+        async with _client(handler) as http:
+            adapter = AzureCommunicationEmailChannel(
+                config=AzureCommunicationEmailConfig(
+                    channel_id="email-untrusted-operation",
+                    endpoint="https://acs.example",
+                    recipient_addresses=("recv@example.com",),
+                ),
+                http_client=http,
+            )
+            with pytest.raises(ChannelDeliveryError, match="outside the configured endpoint"):
+                await adapter.send(_message())
 
 
 # ---------------------------------------------------------------------------

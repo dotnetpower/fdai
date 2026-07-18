@@ -72,6 +72,16 @@ output "core_app_name" {
   value       = module.compute.core_app_name
 }
 
+output "email_communication_service_id" {
+  description = "ACS resource id for send-only A2/A4 notification delivery. Empty when email notifications are disabled."
+  value       = length(azurerm_communication_service.notifications) > 0 ? azurerm_communication_service.notifications[0].id : ""
+}
+
+output "email_sender_address" {
+  description = "Azure-managed sender address used by FDAI notifications. Empty when email notifications are disabled."
+  value       = length(azurerm_email_communication_service_domain.notifications) > 0 ? "DoNotReply@${azurerm_email_communication_service_domain.notifications[0].from_sender_domain}" : ""
+}
+
 output "canary_job_name" {
   description = "Synthetic control-loop canary publisher Job name."
   value       = module.compute.canary_job_name

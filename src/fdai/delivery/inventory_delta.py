@@ -47,6 +47,13 @@ def _resource_event(*, scope: str, resource: ResourceRecord) -> Event:
     last_seen = resource.last_seen
     detected_at = _parse_timestamp(last_seen)
     identity = f"{scope}:{resource_id}:{resource_type}:{last_seen or 'unknown'}"
+    resource_payload = {
+        "resource_id": resource_id,
+        "type": resource_type,
+        "props": dict(resource.props),
+        "provider_ref": resource.provider_ref,
+        "last_seen": resource.last_seen,
+    }
     return Event(
         schema_version="1.0.0",
         event_id=uuid5(NAMESPACE_URL, f"fdai.inventory-delta://{identity}"),
@@ -55,11 +62,13 @@ def _resource_event(*, scope: str, resource: ResourceRecord) -> Event:
         event_type="inventory.resource_changed",
         resource_ref=resource_id,
         payload={
-            "resource": {
-                "resource_id": resource_id,
-                "type": resource_type,
-                "props": dict(resource.props),
-            }
+            "signal_kind": "azure.activity_log",
+            "resource": resource_payload,
+            "inventory_change": {
+                "kind": "upsert",
+                "resource": resource_payload,
+                "links": [],
+            },
         },
         detected_at=detected_at,
         ingested_at=datetime.now(tz=UTC),

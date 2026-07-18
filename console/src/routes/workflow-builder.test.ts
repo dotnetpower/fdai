@@ -14,8 +14,39 @@ import {
 } from "./workflow-builder";
 import type { ActionTypePaletteEntry } from "../workflow/validate";
 import type { WorkflowBindingEntry } from "../workflow/validate";
+import { buildDraft, catalogToForm } from "./workflow-builder.helpers";
 
 describe("workflow catalog wire tolerance", () => {
+  test("preserves step parameters through catalog clone and draft assembly", () => {
+    const workflow = {
+      schema_version: "1.0.0",
+      name: "parameterized-workflow",
+      version: "1.0.0",
+      trigger: { kind: "signal", signal_type: "object.event" },
+      default_mode: "shadow",
+      promotion_gate: {
+        min_shadow_days: 14,
+        min_samples: 100,
+        min_accuracy: 0.95,
+        max_policy_escapes: 0,
+      },
+      steps: [{
+        id: "notify",
+        action_type_ref: "notify.publish-change-summary",
+        params: { channel: "operations", retries: 2, urgent: false },
+      }],
+      step_count: 1,
+      yaml: "",
+    } as const;
+
+    const draft = buildDraft(catalogToForm(workflow));
+    expect(draft["steps"]).toEqual([{
+      id: "notify",
+      action_type_ref: "notify.publish-change-summary",
+      params: { channel: "operations", retries: 2, urgent: false },
+    }]);
+  });
+
   test("keeps built-in browsing available when principal definitions are unwired", async () => {
     const definitions = await loadWorkflowDefinitions({
       panel: async () => { throw new ReadApiError(404, "Not Found"); },
@@ -211,6 +242,18 @@ describe("suggestDraftFromText", () => {
     );
     expect(s).not.toBeNull();
     expect(s!.form.steps.length).toBeLessThanOrEqual(3);
+    expect(s!.actionMatchesTruncated).toBe(true);
+  });
+
+  test("does not turn a negated action into a proposed mutation", () => {
+    const suggestion = suggestDraftFromText(
+      "When cost spikes, do not restart the service",
+      PALETTE,
+    );
+    expect(suggestion).not.toBeNull();
+    expect(suggestion!.form.steps.map((step) => step.action_type_ref)).not.toContain(
+      "ops.restart-service",
+    );
   });
 
   test("suggested step ids are unique within the draft", () => {

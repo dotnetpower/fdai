@@ -423,13 +423,13 @@ export const AGENT_ROLE: Readonly<Record<string, AgentRole>> = {
   },
   Huginn: {
     title: "Event Collector",
-    summary: "Ingests and normalizes events; deterministic-first, no hot-path LLM.",
+    summary: "Owns real-time resource discovery ingress and normalizes events; cloud I/O stays in adapters.",
     reportsTo: "Forseti",
     staff: false,
   },
   Heimdall: {
     title: "Observer",
-    summary: "Observes and correlates signals into findings; deterministic-first.",
+    summary: "Monitors discovery freshness and coverage, then correlates signals into findings.",
     reportsTo: "Forseti",
     staff: false,
   },

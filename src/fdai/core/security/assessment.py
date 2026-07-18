@@ -29,10 +29,18 @@ Design invariants (identical to the posture report)
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from enum import StrEnum
 
+from fdai.core.security.observations import (
+    ControlStatus,
+    RemediationPriority,
+    SecurityControlObservation,
+    SecurityRecommendation,
+    SecuritySourceCoverage,
+    SourceStatus,
+)
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.projection import Finding, Severity
 
@@ -49,6 +57,13 @@ _SEVERITY_RANK: dict[str, int] = {s: i for i, s in enumerate(_SEVERITY_ORDER)}
 _UNKNOWN_SEVERITY_RANK = len(_SEVERITY_ORDER)
 # A finding at or above this severity is a blocker for the verdict.
 _BLOCKING_SEVERITY: Severity = "high"
+_PRIORITY_RANK: dict[RemediationPriority, int] = {
+    RemediationPriority.CRITICAL: 0,
+    RemediationPriority.HIGH: 1,
+    RemediationPriority.MEDIUM: 2,
+    RemediationPriority.LOW: 3,
+    RemediationPriority.NONE: 4,
+}
 
 
 def _severity_rank(severity: str) -> int:
@@ -93,6 +108,41 @@ class SecurityAssessment:
     entries: tuple[SecurityFindingEntry, ...]
     blocks_action: bool = False
     summary: str = ""
+    finding_count: int = 0
+    rule_count: int = 0
+    affected_resource_count: int = 0
+    affected_resource_type_count: int = 0
+    evidence_reference_count: int = 0
+    findings_without_evidence: int = 0
+    controls_without_evidence: int = 0
+    controls: tuple[SecurityControlObservation, ...] = ()
+    control_count: int = 0
+    control_status_counts: Mapping[str, int] = field(default_factory=dict)
+    category_counts: Mapping[str, int] = field(default_factory=dict)
+    resource_type_counts: Mapping[str, int] = field(default_factory=dict)
+    positive_controls: tuple[SecurityControlObservation, ...] = ()
+    unknown_controls: tuple[SecurityControlObservation, ...] = ()
+    recommendations: tuple[SecurityRecommendation, ...] = ()
+    source_coverage: tuple[SecuritySourceCoverage, ...] = ()
+    completion_status: str = "unmeasured"
+    control_pass_rate_percent: float | None = None
+    evidence_coverage_percent: float | None = None
+    source_coverage_percent: float | None = None
+    available_source_count: int = 0
+    partial_source_count: int = 0
+    unavailable_source_count: int = 0
+    stale_source_count: int = 0
+    cve_count: int = 0
+    applicable_cve_count: int = 0
+    compliance_control_count: int = 0
+    recommendation_count: int = 0
+    critical_recommendation_count: int = 0
+    high_recommendation_count: int = 0
+
+    def to_dict(self) -> dict[str, object]:
+        """Return the canonical JSON-friendly assessment projection."""
+
+        return _assessment_to_dict(self)
 
 
 def _verdict(highest: Severity | None) -> SecurityVerdict:
@@ -109,6 +159,8 @@ def build_security_assessment(
     scope: str,
     assessed_at: datetime,
     mode: Mode = Mode.SHADOW,
+    controls: Sequence[SecurityControlObservation] = (),
+    source_coverage: Sequence[SecuritySourceCoverage] = (),
 ) -> SecurityAssessment:
     """Fold security ``findings`` into a graded assessment (pure).
 
@@ -137,10 +189,46 @@ def build_security_assessment(
             )
         )
 
+    frozen_controls = tuple(
+        sorted(
+            controls,
+            key=lambda control: (
+                -_severity_rank(control.severity),
+                control.category,
+                control.control_id,
+                control.resource_ref,
+            ),
+        )
+    )
+    for control in frozen_controls:
+        if control.status in {ControlStatus.FAIL, ControlStatus.WARNING} and (
+            highest is None or _severity_rank(control.severity) > _severity_rank(highest)
+        ):
+            highest = control.severity
+
     entries.sort(key=lambda e: (-_severity_rank(e.severity), e.rule_id))
     verdict = _verdict(highest)
     blocking = mode is Mode.ENFORCE and verdict is not SecurityVerdict.CLEAR
-    summary = _summary(verdict=verdict, counts=counts, total=len(entries))
+    status_counts = _control_status_counts(frozen_controls)
+    summary = _summary(
+        verdict=verdict,
+        counts=counts,
+        total=len(entries),
+        control_counts=status_counts,
+    )
+    recommendations = _recommendations(frozen_controls, assessed_at=assessed_at)
+    frozen_sources = tuple(sorted(source_coverage, key=lambda source: source.source))
+    all_evidence_items = len(entries) + len(frozen_controls)
+    evidenced_items = sum(bool(entry.evidence_refs) for entry in entries) + sum(
+        bool(control.evidence_refs) for control in frozen_controls
+    )
+    cves = {cve for control in frozen_controls for cve in control.cve_ids}
+    applicable_cves = {
+        cve
+        for control in frozen_controls
+        if control.applicability == "applicable"
+        for cve in control.cve_ids
+    }
 
     return SecurityAssessment(
         scope=scope,
@@ -152,14 +240,298 @@ def build_security_assessment(
         entries=tuple(entries),
         blocks_action=blocking,
         summary=summary,
+        finding_count=len(entries),
+        rule_count=len({entry.rule_id for entry in entries}),
+        affected_resource_count=len(
+            {entry.resource_ref for entry in entries}
+            | {control.resource_ref for control in frozen_controls}
+        ),
+        affected_resource_type_count=len(
+            {entry.resource_type for entry in entries}
+            | {control.resource_type for control in frozen_controls}
+        ),
+        evidence_reference_count=sum(len(entry.evidence_refs) for entry in entries)
+        + sum(len(control.evidence_refs) for control in frozen_controls),
+        findings_without_evidence=sum(not entry.evidence_refs for entry in entries),
+        controls_without_evidence=sum(not control.evidence_refs for control in frozen_controls),
+        controls=frozen_controls,
+        control_count=len(frozen_controls),
+        control_status_counts=status_counts,
+        category_counts=_count_by(frozen_controls, "category"),
+        resource_type_counts=_count_by(frozen_controls, "resource_type"),
+        positive_controls=tuple(
+            control for control in frozen_controls if control.status is ControlStatus.PASS
+        ),
+        unknown_controls=tuple(
+            control for control in frozen_controls if control.status is ControlStatus.UNKNOWN
+        ),
+        recommendations=recommendations,
+        source_coverage=frozen_sources,
+        completion_status=_completion_status(
+            entries=entries,
+            controls=frozen_controls,
+            sources=frozen_sources,
+        ),
+        control_pass_rate_percent=_control_pass_rate(status_counts),
+        evidence_coverage_percent=_percent(evidenced_items, all_evidence_items),
+        source_coverage_percent=_source_coverage_percent(frozen_sources),
+        available_source_count=sum(
+            source.status is SourceStatus.AVAILABLE for source in frozen_sources
+        ),
+        partial_source_count=sum(
+            source.status is SourceStatus.PARTIAL for source in frozen_sources
+        ),
+        unavailable_source_count=sum(
+            source.status is SourceStatus.UNAVAILABLE for source in frozen_sources
+        ),
+        stale_source_count=sum(source.fresh is False for source in frozen_sources),
+        cve_count=len(cves),
+        applicable_cve_count=len(applicable_cves),
+        compliance_control_count=len(
+            {
+                compliance
+                for control in frozen_controls
+                for compliance in control.compliance_controls
+            }
+        ),
+        recommendation_count=len(recommendations),
+        critical_recommendation_count=sum(
+            item.priority is RemediationPriority.CRITICAL for item in recommendations
+        ),
+        high_recommendation_count=sum(
+            item.priority is RemediationPriority.HIGH for item in recommendations
+        ),
     )
 
 
-def _summary(*, verdict: SecurityVerdict, counts: Mapping[Severity, int], total: int) -> str:
-    if total == 0:
+def _summary(
+    *,
+    verdict: SecurityVerdict,
+    counts: Mapping[Severity, int],
+    total: int,
+    control_counts: Mapping[str, int],
+) -> str:
+    control_total = sum(control_counts.values())
+    if total == 0 and control_total == 0:
         return "No security findings in scope."
     parts = ", ".join(f"{counts[s]} {s}" for s in reversed(_SEVERITY_ORDER) if counts[s] > 0)
-    return f"{verdict.value.upper()}: {total} finding(s) ({parts})."
+    finding_summary = f"{total} finding(s)" + (f" ({parts})" if parts else "")
+    if control_total == 0:
+        return f"{verdict.value.upper()}: {finding_summary}."
+    return (
+        f"{verdict.value.upper()}: {finding_summary}; {control_total} control(s) "
+        f"({control_counts[ControlStatus.PASS.value]} pass, "
+        f"{control_counts[ControlStatus.FAIL.value]} fail, "
+        f"{control_counts[ControlStatus.WARNING.value]} warning, "
+        f"{control_counts[ControlStatus.UNKNOWN.value]} unknown)."
+    )
+
+
+def _control_status_counts(
+    controls: Sequence[SecurityControlObservation],
+) -> dict[str, int]:
+    counts = {status.value: 0 for status in ControlStatus}
+    for control in controls:
+        counts[control.status.value] += 1
+    return counts
+
+
+def _count_by(controls: Sequence[SecurityControlObservation], field: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for control in controls:
+        value = str(getattr(control, field))
+        counts[value] = counts.get(value, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _recommendations(
+    controls: Sequence[SecurityControlObservation], *, assessed_at: datetime
+) -> tuple[SecurityRecommendation, ...]:
+    recommendations = [
+        SecurityRecommendation(
+            control_id=control.control_id,
+            resource_ref=control.resource_ref,
+            priority=control.priority,
+            severity=control.severity,
+            action=control.remediation,
+            validation=control.validation,
+            due_at=(
+                assessed_at + timedelta(days=control.due_days)
+                if control.due_days is not None
+                else None
+            ),
+            evidence_refs=control.evidence_refs,
+        )
+        for control in controls
+        if control.status in {ControlStatus.FAIL, ControlStatus.WARNING, ControlStatus.UNKNOWN}
+        and control.remediation
+    ]
+    recommendations.sort(
+        key=lambda item: (
+            _PRIORITY_RANK[item.priority],
+            -_severity_rank(item.severity),
+            item.control_id,
+            item.resource_ref,
+        )
+    )
+    return tuple(recommendations)
+
+
+def _control_pass_rate(counts: Mapping[str, int]) -> float | None:
+    applicable = (
+        counts[ControlStatus.PASS.value]
+        + counts[ControlStatus.FAIL.value]
+        + counts[ControlStatus.WARNING.value]
+    )
+    return _percent(counts[ControlStatus.PASS.value], applicable)
+
+
+def _percent(numerator: float, denominator: float) -> float | None:
+    if denominator == 0:
+        return None
+    return round(100.0 * numerator / denominator, 1)
+
+
+def _source_coverage_percent(sources: Sequence[SecuritySourceCoverage]) -> float | None:
+    if not sources:
+        return None
+    score = sum(
+        1.0
+        if source.status is SourceStatus.AVAILABLE
+        else 0.5
+        if source.status is SourceStatus.PARTIAL
+        else 0.0
+        for source in sources
+    )
+    return _percent(score, len(sources))
+
+
+def _completion_status(
+    *,
+    entries: Sequence[SecurityFindingEntry],
+    controls: Sequence[SecurityControlObservation],
+    sources: Sequence[SecuritySourceCoverage],
+) -> str:
+    if not entries and not controls:
+        return "unmeasured"
+    if sources and all(source.status is SourceStatus.UNAVAILABLE for source in sources):
+        return "incomplete"
+    if (
+        any(control.status is ControlStatus.UNKNOWN for control in controls)
+        or any(source.status is not SourceStatus.AVAILABLE for source in sources)
+        or any(not entry.evidence_refs for entry in entries)
+        or any(not control.evidence_refs for control in controls)
+    ):
+        return "partial"
+    return "complete"
+
+
+def _assessment_to_dict(report: SecurityAssessment) -> dict[str, object]:
+    return {
+        "scope": report.scope,
+        "assessed_at": report.assessed_at.isoformat(),
+        "mode": report.mode.value,
+        "verdict": report.verdict.value,
+        "blocks_action": report.blocks_action,
+        "summary": report.summary,
+        "highest_severity": report.highest_severity,
+        "finding_count": report.finding_count,
+        "rule_count": report.rule_count,
+        "affected_resource_count": report.affected_resource_count,
+        "affected_resource_type_count": report.affected_resource_type_count,
+        "counts_by_severity": dict(report.counts_by_severity),
+        "evidence_reference_count": report.evidence_reference_count,
+        "findings_without_evidence": report.findings_without_evidence,
+        "controls_without_evidence": report.controls_without_evidence,
+        "control_count": report.control_count,
+        "control_status_counts": dict(report.control_status_counts),
+        "category_counts": dict(report.category_counts),
+        "resource_type_counts": dict(report.resource_type_counts),
+        "completion_status": report.completion_status,
+        "control_pass_rate_percent": report.control_pass_rate_percent,
+        "evidence_coverage_percent": report.evidence_coverage_percent,
+        "source_coverage_percent": report.source_coverage_percent,
+        "available_source_count": report.available_source_count,
+        "partial_source_count": report.partial_source_count,
+        "unavailable_source_count": report.unavailable_source_count,
+        "stale_source_count": report.stale_source_count,
+        "cve_count": report.cve_count,
+        "applicable_cve_count": report.applicable_cve_count,
+        "compliance_control_count": report.compliance_control_count,
+        "recommendation_count": report.recommendation_count,
+        "critical_recommendation_count": report.critical_recommendation_count,
+        "high_recommendation_count": report.high_recommendation_count,
+        "entries": [_finding_to_dict(entry) for entry in report.entries],
+        "controls": [_control_to_dict(control) for control in report.controls],
+        "positive_controls": [control.control_id for control in report.positive_controls],
+        "unknown_controls": [control.control_id for control in report.unknown_controls],
+        "recommendations": [_recommendation_to_dict(item) for item in report.recommendations],
+        "source_coverage": [_source_to_dict(source) for source in report.source_coverage],
+    }
+
+
+def _finding_to_dict(entry: SecurityFindingEntry) -> dict[str, object]:
+    return {
+        "rule_id": entry.rule_id,
+        "resource_type": entry.resource_type,
+        "resource_ref": entry.resource_ref,
+        "severity": entry.severity,
+        "reason": entry.reason,
+        "evidence_refs": list(entry.evidence_refs),
+    }
+
+
+def _control_to_dict(control: SecurityControlObservation) -> dict[str, object]:
+    return {
+        "control_id": control.control_id,
+        "title": control.title,
+        "category": control.category,
+        "resource_type": control.resource_type,
+        "resource_ref": control.resource_ref,
+        "status": control.status.value,
+        "severity": control.severity,
+        "current_value": control.current_value,
+        "expected_value": control.expected_value,
+        "rationale": control.rationale,
+        "source": control.source,
+        "collected_at": control.collected_at.isoformat(),
+        "evidence_refs": list(control.evidence_refs),
+        "remediation": control.remediation,
+        "validation": control.validation,
+        "priority": control.priority.value,
+        "due_days": control.due_days,
+        "applicability": control.applicability,
+        "cve_ids": list(control.cve_ids),
+        "compliance_controls": list(control.compliance_controls),
+        "source_urls": list(control.source_urls),
+        "managed_service_note": control.managed_service_note,
+        "patch_status": control.patch_status,
+    }
+
+
+def _recommendation_to_dict(item: SecurityRecommendation) -> dict[str, object]:
+    return {
+        "control_id": item.control_id,
+        "resource_ref": item.resource_ref,
+        "priority": item.priority.value,
+        "severity": item.severity,
+        "action": item.action,
+        "validation": item.validation,
+        "due_at": item.due_at.isoformat() if item.due_at is not None else None,
+        "evidence_refs": list(item.evidence_refs),
+    }
+
+
+def _source_to_dict(source: SecuritySourceCoverage) -> dict[str, object]:
+    return {
+        "source": source.source,
+        "status": source.status.value,
+        "record_count": source.record_count,
+        "as_of": source.as_of.isoformat() if source.as_of is not None else None,
+        "scope": source.scope,
+        "error": source.error,
+        "fresh": source.fresh,
+    }
 
 
 __all__ = [

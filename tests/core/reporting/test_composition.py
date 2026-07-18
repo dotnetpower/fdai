@@ -21,12 +21,17 @@ class TestDefaultReportingEngine:
     def test_no_providers_wires_noop_stubs(self) -> None:
         engine, formats = default_reporting_engine(reports_root=REPORTS_ROOT)
         # Every well-known name is wired even without a provider.
-        assert {"audit", "report_feed", "metric", "log_query"} <= set(
+        assert {"audit", "report_feed", "metric", "log_query", "security_assessment"} <= set(
             engine.datasource_registry().names()
         )
         # Sample catalog loaded and validated against the wired names.
         ids = {s.id for s in engine.catalog().list()}
-        assert {"shadow-mode-daily", "signal-feed-overview", "metric-explorer"} <= ids
+        assert {
+            "shadow-mode-daily",
+            "signal-feed-overview",
+            "metric-explorer",
+            "security-assessment",
+        } <= ids
         # Default format registry ships at least the core three (may add more).
         assert {"csv", "json", "markdown"} <= set(formats.names())
 
@@ -93,7 +98,7 @@ widgets:
             log_query_provider=StaticLogQueryProvider([]),
         )
         names = set(engine.datasource_registry().names())
-        assert {"audit", "report_feed", "metric", "log_query"} <= names
+        assert {"audit", "report_feed", "metric", "log_query", "security_assessment"} <= names
         # The sample catalog still validates and renders end to end.
         rendered = _sync_render(engine, "shadow-mode-daily")
         assert rendered.provenance.availability == "available"

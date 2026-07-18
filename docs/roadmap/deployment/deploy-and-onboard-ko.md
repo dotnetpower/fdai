@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 7ccf5ffe70b7c2eaac800957533fbbfa5c421050
+translation_source_sha: 059eed7a25fd1f93acb441cce2a1b6c2ace83979
 translation_revised: 2026-07-18
 ---
 
@@ -129,6 +129,7 @@ fallback합니다. 실패한 경로는 마지막 완전한 graph를 유지하고
 | Postgres 내구성 | `postgres_backup_retention_days`, `postgres_geo_redundant_backup` | `35`, `true` |
 | Postgres 가용성 | `postgres_high_availability_mode` | `ZoneRedundant` |
 | HIL 전달 | `enable_chatops_hil`, `chatops_webhook_url`, `chatops_webhook_secret` | 활성화 + CI secret |
+| Email 알림 | `enable_email_notifications`, `notification_email_recipients`, `email_data_location` | 활성화 + 수신자 그룹 |
 | Registry | `acr_sku` | `Premium` |
 | 모니터링 | `enable_monitoring`, `alert_email`, `alert_webhook_url` | on + 목적지 |
 | 비용 | `monthly_budget_amount`, `budget_alert_emails`, bootstrap `runner_auto_shutdown_time` | 설정 |
@@ -139,6 +140,12 @@ VNet에 private DNS zone을 연결하며 public access와 `AllowAllAzureServices
 plan을 review하고 backup/restore를 rehearsal하는 것이 좋습니다. `infra/production-gates.tf`의
 assertion은 signed image digest, private networking, durability, alert destination, cost budget
 최소값이 제공될 때까지 production plan을 차단합니다.
+
+승인된 out-of-band ACS Email bootstrap은 첫 dev convergence plan에서
+`import_existing_email_notifications=true`를 설정할 수 있습니다. Import block은
+Communication Service, Email Service, Azure-managed domain, association, notification identity,
+deterministic role assignment을 state로 가져옵니다. Plan을 적용한 뒤 flag를 끄는 것이 좋으며,
+새 환경에서는 Terraform이 stack을 직접 생성하도록 합니다.
 
 CI 는 자격증명 없는 가드 2개를 더한다: [`infra-lint.yml`](../../../.github/workflows/infra-lint.yml)
 (모든 infra PR 에 fmt + validate + tfsec + Checkov) 와
@@ -503,6 +510,7 @@ flowchart TD
 | `FDAI_LOCAL_AZURE_CONFIG_DIR` | env | dev-only | 선택적 격리 Azure CLI profile입니다. 미설정 시 adapter가 상속된 `AZURE_CONFIG_DIR`를 제거하고 기본 profile을 사용합니다. |
 | `FDAI_POLICIES_ROOT` | env | fork | T0 와 verifier 가 소비하는 OPA / Rego 번들 루트의 절대 경로. 미설정 시 in-repo `policies/` 를 기본값. |
 | `FDAI_MI_CLIENT_ID` | env | upstream | 현재 process의 user-assigned MI client id. Core에는 executor id를 주입하고 inventory job에는 별도 read-only discovery id를 주입합니다. |
+| `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | upstream / fork | ACS Email A2/A4 채널을 활성화합니다. Terraform이 endpoint와 Azure-managed sender를 파생하고 전용 notification MI를 연결한 뒤 client id를 주입합니다. 포크는 `NOTIFICATION_EMAIL_RECIPIENTS_JSON`으로 수신자를 공급하며 앱에는 access key나 connection string이 들어가지 않습니다. 부분 설정은 startup을 차단합니다. |
 | `FDAI_MEASUREMENT_MODE` | env | upstream | `shadow` (기본) 또는 `enforce` - `infra/modules/measurement-runners/` 의 Container Apps Jobs 러너를 지배. |
 | `FDAI_DIRECT_API_FAKE` | env | dev-only | `1` 은 executor direct-API 경로를 in-memory fake 로 스왑; 테스트와 로컬 개발용. |
 | `FDAI_TOOL_CALL_FAKE` | env | dev-only | `1` 은 executor tool-call 경로를 in-memory fake (`RecordingToolExecutor`) 로 스왑; 테스트와 로컬 개발용. |
@@ -543,13 +551,19 @@ Onboarding 콘솔은 모든 Azure probe 입력이 있을 때만 `probe_mode=conf
 
 | 버티컬 | Azure 신호 후보 | 딜리버리 |
 |--------|----------------|---------|
-| Change | Activity Log (resource-write / delete), Change Analysis, Resource Health | Diagnostic Settings → Event Hubs Kafka 토픽 (`aw.change.events`) |
+| Change | Activity Log (resource-write / delete), Change Analysis, Resource Health | Canonical Event Hubs Kafka ingress로 push하며 Huginn이 실시간 discovery 정규화를 소유하고 Inventory sync job이 전체 graph를 reconcile합니다. |
 | DR / Chaos | Resource Health, backup vault 이벤트, PostgreSQL / SQL replication-lag 메트릭, restore-rehearsal 결과 | Diagnostic Settings + 스케줄 Container Apps Job 프로브 → Kafka 토픽 (`aw.dr.events`) |
 | FinOps | 비용 이상 알림, 예산 알림, Advisor 비용 권고 | Cost Management pull → Kafka 토픽 (`aw.finops.events`); 이상 알림은 같은 Diagnostic-Settings 경로로 fan in |
 
 모든 이벤트는 ingress에서 **idempotency 키가 스탬프** 되어 리플레이는 no-op; DLQ는 도달 가능
 해야 하며 어디에서든 enforce가 활성화되기 전에
 [alert routing](../operations/operating-and-verification-ko.md#alert-routing)이 커버해야 함.
+
+Azure forwarding mechanism은 shared secret이 없는 경계를 유지하는 것이 좋습니다. Diagnostic
+Settings export를 위해 Event Hubs local authentication만 다시 활성화하지 않습니다. 선택한 Azure
+signal source가 managed identity로 publish할 수 없다면 승인된 push transport가 준비될 때까지 bounded
+Activity Log recovery reader를 사용합니다. 6시간 Inventory sync job은 모든 배포에서 completeness
+backstop으로 계속 필요합니다.
 
 ## 프로비저닝 후 검증
 

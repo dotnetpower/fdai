@@ -132,10 +132,11 @@ async def test_crud_and_survives_restart() -> None:
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_scheduler_run_once_over_postgres_store() -> None:
+    url = _requires_live_db()
+
     from fdai.core.scheduler.service import SchedulerService
     from fdai.shared.providers.testing import InMemoryEventBus
 
-    url = _requires_live_db()
     _upgrade_head()
     dsn = _plain_dsn(url)
     store = PostgresScheduleStore(config=PostgresScheduleStoreConfig(dsn=dsn))

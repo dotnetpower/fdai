@@ -179,6 +179,30 @@ async def test_nextlink_paging_encodes_running_max() -> None:
 
 
 @pytest.mark.asyncio
+async def test_cross_host_nextlink_is_rejected_before_token_delivery() -> None:
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={"value": [], "nextLink": "https://example.com/capture"},
+        )
+
+    factory, client, _ = _factory(handler)
+    fetch = factory.build_fetch_fn()
+    try:
+        first = await fetch("2026-07-10T05:00:00+00:00")
+        assert first.cursor is not None
+        with pytest.raises(ActivityLogError, match="scheme or host"):
+            await fetch(first.cursor)
+    finally:
+        await client.aclose()
+
+    assert len(requests) == 1
+
+
+@pytest.mark.asyncio
 async def test_failed_status_and_unknown_type_dropped() -> None:
     vocab = _vocab()
     _, arm_type = _arm_type_for(vocab)

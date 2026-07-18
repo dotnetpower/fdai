@@ -292,9 +292,10 @@ Each criterion is measurable against the Phase 0 telemetry and scenario set, not
   completeness is asserted.
 - The **inventory graph is populated** before any T0 verdict fires: the parallel full-scan
   completes atomically (fail-closed on partial failure), links land under the CSP-neutral
-  vocabulary, and re-running the scan is a no-op idempotent upsert. Between scans, Activity Log
-  deltas re-enter the event topic under a durable cursor. Graph-dependent actions read active
-  snapshot age at the RiskGate and route to HIL when freshness is unknown or stale.
+  vocabulary, and re-running the scan is a no-op idempotent upsert. Between scans, Azure resource
+  changes enter through Huginn and an ordered durable overlay applies resource, link, and tombstone
+  deltas. Graph-dependent actions read snapshot plus overlay freshness at the RiskGate and route
+  to HIL when freshness or coverage is unknown, degraded, or stale.
 
 ## Dependencies
 

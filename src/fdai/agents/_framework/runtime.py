@@ -46,7 +46,7 @@ from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
 from fdai.agents.bragi import Bragi, Turn
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall, IncidentCandidateHook
-from fdai.agents.huginn import Huginn
+from fdai.agents.huginn import DiscoveryProjector, Huginn
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga, compute_fingerprint
 from fdai.agents.thor import ActionExecutor, ActionRunStore, Thor
@@ -100,6 +100,7 @@ class PantheonRuntime:
         rollback_executors: dict[str, RollbackExecutor] | None = None,
         operator_rbac: dict[str, frozenset[str]] | None = None,
         incident_candidate_hook: IncidentCandidateHook | None = None,
+        discovery_projector: DiscoveryProjector | None = None,
         scenario_coverage_aggregator: ScenarioCoverageAggregator | None = None,
         action_types: tuple[OntologyActionType, ...] = (),
     ) -> PantheonRuntime:
@@ -163,6 +164,8 @@ class PantheonRuntime:
             consumer_group_prefix=consumer_group_prefix,
         )
         instantiated = instantiate_pantheon()
+        if discovery_projector is not None:
+            instantiated["Huginn"] = Huginn(discovery_projector=discovery_projector)
         action_semantics = (
             ActionSemanticsCatalog.from_action_types(action_types) if action_types else None
         )

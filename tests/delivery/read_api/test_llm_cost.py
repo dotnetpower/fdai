@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 from starlette.testclient import TestClient
 
-from fdai.core.metering.records import InvocationMode, LlmInvocation
+from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvocation
 from fdai.core.metering.sink import InMemoryMeteringSink
 from fdai.core.metering.usage import TokenUsage
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
@@ -24,16 +24,24 @@ _DEV_MODE_ENV = "FDAI_READ_API_DEV_MODE"
 
 
 def _inv(
-    *, corr: str, when: datetime, prompt: int, completion: int, cost: str | None
+    *,
+    corr: str,
+    when: datetime,
+    prompt: int,
+    completion: int,
+    cost: str | None,
+    model: str = "gpt-4o",
+    scope: InvocationScope = InvocationScope.CONTROL_PLANE,
 ) -> LlmInvocation:
     return LlmInvocation(
         occurred_at=when,
         correlation_id=corr,
         capability_id="t2.reasoner.primary",
-        model_key="gpt-4o",
+        model_key=model,
         tier="T2",
         mode=InvocationMode.ENFORCE,
         usage=TokenUsage(prompt_tokens=prompt, completion_tokens=completion),
+        usage_scope=scope,
         cost=None if cost is None else Decimal(cost),
     )
 
@@ -65,6 +73,8 @@ async def _seeded_sink() -> InMemoryMeteringSink:
             prompt=800,
             completion=50,
             cost=None,
+            model="gpt-4.1-mini",
+            scope=InvocationScope.OPERATOR_CHAT,
         )
     )
     return sink
@@ -76,12 +86,25 @@ async def test_render_all_groupings() -> None:
     assert payload["source"] == "metering"
     assert payload["latest_occurred_at"] == "2026-07-10T09:00:00+00:00"
     assert payload["invocations"] == 3
-    assert payload["total"]["cost"] == "0.50"
+    assert payload["total"]["total_tokens"] == 2650
+    assert payload["chat"]["total_tokens"] == 850
+    assert payload["chat_by_model"] == [
+        {
+            "key": "gpt-4.1-mini",
+            "invocations": 1,
+            "prompt_tokens": 800,
+            "completion_tokens": 50,
+            "total_tokens": 850,
+        }
+    ]
+    assert [row["key"] for row in payload["by_model"]] == ["gpt-4.1-mini", "gpt-4o"]
+    assert payload["records"][0]["model_key"] == "gpt-4.1-mini"
+    assert payload["records"][0]["usage_scope"] == "operator_chat"
+    assert "cost" not in payload["total"]
+    assert "currency" not in payload
     assert [row["key"] for row in payload["by_conversation"]] == ["evt-a", "evt-b"]
     assert [row["key"] for row in payload["by_day"]] == ["2026-07-09", "2026-07-10"]
     assert [row["key"] for row in payload["by_month"]] == ["2026-07"]
-    # evt-b is unpriced -> transparent
-    assert payload["by_conversation"][1]["has_unpriced"] is True
     # H8: shadow-vs-enforce split is always present.
     assert "by_mode" in payload
     assert payload["by_conversation_truncated"] is False
@@ -106,8 +129,7 @@ async def test_by_conversation_capped_and_flagged() -> None:
     assert payload["by_conversation_truncated"] is True
     assert payload["conversation_count"] == 5
     assert len(payload["by_conversation"]) == 2
-    # Costliest first: evt-4 (0.04) and evt-3 (0.03).
-    assert [r["key"] for r in payload["by_conversation"]] == ["evt-4", "evt-3"]
+    assert [r["key"] for r in payload["by_conversation"]] == ["evt-0", "evt-1"]
 
 
 async def test_render_group_filter() -> None:

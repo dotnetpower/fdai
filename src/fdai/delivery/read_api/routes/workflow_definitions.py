@@ -161,6 +161,12 @@ def make_workflow_definition_routes(
             cron_expression = _optional_text(body, "cron_expression")
             timezone = _optional_text(body, "timezone")
             signal_type = _optional_text(body, "signal_type")
+            _validate_binding_trigger(
+                trigger,
+                cron_expression=cron_expression,
+                timezone=timezone,
+                signal_type=signal_type,
+            )
             existing_bindings = await config.bindings.list_for_principal(principal_id=principal_id)
             if any(
                 item.definition_id == definition_id
@@ -295,6 +301,29 @@ def _scalar_mapping(raw: object) -> dict[str, str | int | float | bool]:
             raise ValueError("parameters MUST contain scalar values")
         result[key] = value
     return result
+
+
+def _validate_binding_trigger(
+    trigger: WorkflowBindingTrigger,
+    *,
+    cron_expression: str | None,
+    timezone: str | None,
+    signal_type: str | None,
+) -> None:
+    if trigger is WorkflowBindingTrigger.SCHEDULE:
+        if cron_expression is None or timezone is None:
+            raise ValueError("schedule binding requires cron_expression and timezone")
+        if signal_type is not None:
+            raise ValueError("schedule binding MUST NOT declare signal_type")
+        return
+    if trigger is WorkflowBindingTrigger.SIGNAL:
+        if signal_type is None:
+            raise ValueError("signal binding requires signal_type")
+        if cron_expression is not None or timezone is not None:
+            raise ValueError("signal binding MUST NOT declare schedule fields")
+        return
+    if cron_expression is not None or timezone is not None or signal_type is not None:
+        raise ValueError("deck_open binding MUST NOT declare schedule or signal fields")
 
 
 def _required_text(body: Mapping[str, Any], key: str) -> str:

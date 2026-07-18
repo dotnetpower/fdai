@@ -5,6 +5,9 @@ from __future__ import annotations
 import io
 import json
 import logging
+import stat
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -14,6 +17,7 @@ from fdai.shared.telemetry import (
     log_extra,
     with_correlation,
 )
+from fdai.shared.telemetry.logging import JsonFormatter, RetainedJsonlHandler
 
 
 @pytest.fixture()
@@ -98,3 +102,64 @@ def test_logger_exception_serializes_traceback_into_exception_field(
     exc_text = str(entry["exception"])
     assert "RuntimeError" in exc_text
     assert "boom" in exc_text
+
+
+def test_warning_file_records_warning_and_error_only(tmp_path: Path) -> None:
+    stream = io.StringIO()
+    warning_path = tmp_path / ".fdai/logs/warnings.jsonl"
+    configure_logging(
+        level=logging.DEBUG,
+        stream=stream,
+        warning_log_path=warning_path,
+    )
+    logger = get_logger("fdai.tests.warning-file")
+
+    logger.info("not persisted")
+    logger.warning("warning persisted")
+    logger.error("error persisted")
+
+    entries = [json.loads(line) for line in warning_path.read_text().splitlines()]
+    assert [entry["level"] for entry in entries] == ["WARNING", "ERROR"]
+    assert stat.S_IMODE(warning_path.stat().st_mode) == 0o600
+    assert stat.S_IMODE(warning_path.parent.stat().st_mode) == 0o700
+    configure_logging(level=logging.DEBUG, stream=io.StringIO())
+
+
+def test_warning_file_retains_only_last_24_hours(tmp_path: Path) -> None:
+    now = datetime(2026, 7, 18, 12, 0, tzinfo=UTC)
+    cutoff = now - timedelta(hours=24)
+    warning_path = tmp_path / "warnings.jsonl"
+    warning_path.write_text(
+        "\n".join(
+            (
+                json.dumps(
+                    {
+                        "timestamp": (cutoff - timedelta(seconds=1)).isoformat(),
+                        "message": "expired",
+                    }
+                ),
+                json.dumps({"timestamp": cutoff.isoformat(), "message": "boundary"}),
+                json.dumps(
+                    {
+                        "timestamp": (now - timedelta(hours=1)).isoformat(),
+                        "message": "fresh",
+                    }
+                ),
+                "not-json",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    handler = RetainedJsonlHandler(
+        warning_path,
+        retention=timedelta(hours=24),
+        cleanup_interval_seconds=3600,
+        clock=lambda: now,
+    )
+    handler.setFormatter(JsonFormatter())
+    handler.close()
+
+    entries = [json.loads(line) for line in warning_path.read_text().splitlines()]
+    assert [entry["message"] for entry in entries] == ["boundary", "fresh"]

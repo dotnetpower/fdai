@@ -29,6 +29,13 @@ class InvocationMode(StrEnum):
     ENFORCE = "enforce"
 
 
+class InvocationScope(StrEnum):
+    """Operator-facing workload that caused an LLM invocation."""
+
+    CONTROL_PLANE = "control_plane"
+    OPERATOR_CHAT = "operator_chat"
+
+
 @dataclass(frozen=True, slots=True)
 class LlmInvocation:
     """A single measured LLM call, ready for cost rollups.
@@ -52,6 +59,7 @@ class LlmInvocation:
     tier: str
     mode: InvocationMode
     usage: TokenUsage
+    usage_scope: InvocationScope = InvocationScope.CONTROL_PLANE
     cost: Decimal | None = None
     currency: str | None = None
 
@@ -85,4 +93,4 @@ class LlmInvocation:
         return self.occurred_at.astimezone(UTC)
 
 
-__all__ = ["InvocationMode", "LlmInvocation"]
+__all__ = ["InvocationMode", "InvocationScope", "LlmInvocation"]

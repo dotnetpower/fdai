@@ -3,13 +3,12 @@
  * form. It renders the deterministic interview (workflow-builder.chat.ts)
  * as a message thread with option chips, and at the `ready` stage it runs
  * the existing pure validate path on the accumulated draft and shows the
- * generated YAML, a visual "when -> do" flow, the dry-test result, and a
+ * generated YAML, a visual "when -> do" flow, the structural validation result, and a
  * one-click "open a PR" link.
  *
- * Read-only by construction: `POST /workflows/validate` is a pure check
- * and nothing here mutates control-plane state. The operator copies the
- * YAML into a remediation PR through the git-native path, never a console
- * button (app-shape.instructions.md § Operator console).
+ * Safe authoring by construction: `POST /workflows/validate` is a pure check,
+ * and an explicitly confirmed save creates only a private DRAFT. Publishing,
+ * binding, enabling, and executing remain separate reviewed paths.
  *
  * SRP: React tree + local view state only. All decision logic lives in
  * the engine; all draft assembly / validation reuse the shared helpers.
@@ -19,7 +18,12 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Fragment, type ComponentChildren } from "preact";
 import { Tooltip } from "../components/tooltip";
 import { CopyButton } from "../components/ui";
-import type { ActionTypePaletteEntry, ValidateResponse } from "../workflow/validate";
+import {
+  createWorkflowDefinition,
+  type ActionTypePaletteEntry,
+  type SavedWorkflowDraft,
+  type ValidateResponse,
+} from "../workflow/validate";
 import { buildDraft, githubNewFileUrl } from "./workflow-builder.helpers";
 import type { FormState } from "./workflow-builder.model";
 import { validateWorkflowDraft } from "../workflow/validate";
@@ -114,8 +118,8 @@ export function WorkflowChat({ palette, onBack }: Props) {
           ← Back to workflows
         </button>
         <span class="muted small">
-          Conversational designer - deterministic, read-only. Nothing is created until you open a
-          PR.
+          Conversational designer - saves private drafts only. Publishing and execution require
+          separate reviewed paths.
         </span>
       </div>
 
@@ -311,6 +315,9 @@ function WorkflowPreview({
   const [result, setResult] = useState<ValidateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [validating, setValidating] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState<SavedWorkflowDraft | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   // Bumped by the Retry button to re-run a validation that failed on a
   // transient network error, without rebuilding the draft.
   const [retryKey, setRetryKey] = useState(0);
@@ -339,6 +346,19 @@ function WorkflowPreview({
   const yaml = result?.yaml_preview ?? null;
   const prUrl = yaml ? githubNewFileUrl(`rule-catalog/workflows/${form.name}.yaml`, yaml) : null;
 
+  const saveDraft = async (): Promise<void> => {
+    if (!result?.valid || saving || saved !== null) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      setSaved(await createWorkflowDefinition(draft));
+    } catch (caught) {
+      setSaveError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div class="wf-preview">
       <WorkflowViz form={form} palette={palette} />
@@ -360,10 +380,10 @@ function WorkflowPreview({
       </div>
 
       <div class="wf-preview-section">
-        <h4 class="wf-preview-title">Dry test</h4>
+        <h4 class="wf-preview-title">Structural validation</h4>
         {validating ? (
           <p class="muted small" aria-busy="true">
-            Testing the draft against the server-side loader...
+            Validating the draft against the server-side schema and catalog references...
           </p>
         ) : error ? (
           <div class="wf-test-fail" role="alert">
@@ -387,18 +407,30 @@ function WorkflowPreview({
 
       {yaml ? (
         <div class="wf-preview-section wf-preview-cta">
+          <button
+            type="button"
+            class="btn"
+            disabled={!result?.valid || saving || saved !== null}
+            onClick={() => void saveDraft()}
+          >
+            {saving ? "Saving private draft..." : saved ? "Private draft saved" : "Save private draft"}
+          </button>
           {prUrl ? (
-            <a class="btn" href={prUrl} target="_blank" rel="noopener noreferrer">
-              Open a PR on GitHub →
+            <a class="btn secondary" href={prUrl} target="_blank" rel="noopener noreferrer">
+              Propose catalog file on GitHub →
             </a>
           ) : null}
           <span class="muted small">
-            The console never commits. This opens a pre-filled new-file PR at
-            {" "}
-            <code>rule-catalog/workflows/{form.name}.yaml</code>; it lands in <strong>shadow</strong>
-            {" "}
-            mode until a separate promotion PR.
+            Saving creates a principal-owned private <strong>DRAFT</strong>. It cannot run or appear
+            in Operations. The GitHub path proposes <code>rule-catalog/workflows/{form.name}.yaml</code>
+            {" "}for separate catalog review; promotion remains a later governance change.
           </span>
+          {saved ? (
+            <p class="wf-test-pass" role="status">
+              Saved <code>{saved.workflowName}</code> as {saved.lifecycle} ({saved.definitionId}).
+            </p>
+          ) : null}
+          {saveError ? <p class="wf-test-fail" role="alert">Could not save draft: {saveError}</p> : null}
         </div>
       ) : null}
     </div>
@@ -410,7 +442,8 @@ function TestResult({ result }: { readonly result: ValidateResponse }) {
     return (
       <p class="wf-test-pass">
         Passed - the draft is structurally valid, every step resolves to a real ActionType, and it
-        loads cleanly. Running it now would execute in shadow (judge-and-log, no mutation).
+        loads cleanly. This check does not execute or simulate the workflow. A published draft
+        still starts in shadow mode.
       </p>
     );
   }

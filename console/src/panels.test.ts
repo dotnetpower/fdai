@@ -18,6 +18,7 @@ describe("panel navigation placement", () => {
       "provision",
       "onboarding",
       "processes",
+      "workflow-apps",
       "scheduler-runs",
     ]);
     expect(panelForId("incidents").id).toBe("incidents");

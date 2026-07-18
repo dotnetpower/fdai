@@ -238,7 +238,7 @@ operations / interface), `3` = governance staff.
 | Odin | Master Planner | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
 | Thor | Responder | 2 | ActionRun, ActionAttempt | (dispatches; owns none directly - see §8.1) | no |
 | Forseti | Judge | 2 | Verdict, RCA | (produces verdicts; no executor role) | yes (T2 abstain only) |
-| Huginn | Event Collector | 2 | Event | ingest_event | no |
+| Huginn | Event Collector / Real-time Resource Discovery | 2 | Event | ingest_event | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, SecurityEvent | detect_anomaly, detect_drift, forecast, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
@@ -262,6 +262,16 @@ and leaves the anomaly path intact. The production control-plane composition
 rehydrates the durable registry first and binds this hook when the pantheon is
 enabled; the read API does not impersonate Heimdall.
 
+Huginn is the logical owner of real-time resource discovery. Azure resource
+create, update, and delete signals enter through the canonical Event Hubs Kafka
+ingress and Huginn normalizes, deduplicates, correlates, and publishes them as
+`Event`. Azure-specific parsing, point enrichment, and durable inventory
+projection remain injected delivery responsibilities; Huginn never imports an
+Azure SDK or writes the inventory database directly. The scheduled Inventory
+sync job remains the periodic reconciliation backstop that repairs missed
+signals with a complete ARG/ARM snapshot. Heimdall observes discovery health,
+freshness, cursor lag, and coverage anomalies; it does not acquire resources.
+
 The 15 agents are jointly sufficient to cover SRE, ARB (change safety), and
 FinOps workflows through composition; see §7 for the topic contract and
 §8.6 for how handoff (unhandled requests) integrates with the same pipeline.
@@ -278,8 +288,8 @@ and self-improvement. **X**-agent participates in the workflows named in
 | Odin | weekly portfolio review, priority-policy tuning | arbitrate_domain_conflict on Forseti signal | portfolio outcome score self-audit | 7 (Agent health), tie-break for 2 (Predictive scale) |
 | Thor | execution-path health check, retry-strategy cache warmup | verdict dispatch, rollback trigger, rate-limit enforce | pre-flight simulation for high-risk actions | 1 (Cost-aware remediation), 2 (Predictive scale) |
 | Forseti | rule-cache refresh, retrospective what-if batch, verdict coherence self-test | judge event (T0/T1/T2), emit domain_conflict, emit SecurityEvent | novelty drift detection (T0 vs T2 mix) | 1, 2, 5 (Security escalation), 8 (Judgment coherence) |
-| Huginn | source health check, dedup window maintenance, backpressure signal | normalize + dedup + correlate + publish | adaptive schema learning (T1 clustering, off-path) | feeds every workflow |
-| Heimdall | anomaly baseline update, forecast refresh, external-actor list refresh, agent-health probe | anomaly detect, drift detect, SecurityEvent correlate, notify_admin | multi-signal cross-correlation | 1, 2, 3 (DR drill), 5, 7 (Agent health), 9 (Rollback rehearsal) |
+| Huginn | source health check, discovery cursor/backpressure check, dedup window maintenance | normalize + dedup + correlate + publish resource create/update/delete Events | adaptive schema learning (T1 clustering, off-path) | feeds every workflow |
+| Heimdall | anomaly baseline update, forecast refresh, discovery freshness/coverage probe, external-actor list refresh, agent-health probe | anomaly detect, drift detect, discovery degradation correlate, SecurityEvent correlate, notify_admin | multi-signal cross-correlation | 1, 2, 3 (DR drill), 5, 7 (Agent health), 9 (Rollback rehearsal) |
 | Vidar | rollback-path validation, DR readiness score, recovery-time SLI | perform_rollback, dr_failover | rollback rehearsal (shadow) | 3, 9 |
 | Var | approval SLA monitor, approver availability tracking | present HIL card, enforce quorum, timeout / escalation | approval provenance record | 4 (Override -> Discovery), 5 |
 | Bragi | expired-session cleanup, UserPreference index refresh | NL routing, multi-agent aggregation, NL rendering | intent classifier retraining (T1, off-path) | 7, 10 (Retrospective what-if) |
@@ -302,8 +312,8 @@ promotion gates can evaluate deterministically.
 | Odin | cross-vertical conflict resolution time, portfolio target attainment | tie-break recurrence rate |
 | Thor | execution success rate, execution latency p99 | rollback trigger rate, race failures |
 | Forseti | verdict accuracy vs post-hoc override, T2 escalation rate (target < 10%) | mixed-model disagreement rate, grounding-missing rate |
-| Huginn | event processing latency p99, dedup accuracy | schema-match failure rate |
-| Heimdall | anomaly precision + recall, forecast MAPE | false-positive rate, missed critical |
+| Huginn | event processing latency p99, discovery delivery latency p99, dedup accuracy | schema-match failure rate, discovery cursor lag |
+| Heimdall | anomaly precision + recall, forecast MAPE, discovery coverage detection | false-positive rate, missed critical, stale inventory detection delay |
 | Vidar | rollback success rate, MTTR | rollback-path validation failure |
 | Var | HIL SLA compliance, quorum compliance | expiry rate, repeated escalations |
 | Bragi | routing accuracy (post-audit), session satisfaction | handoff rate (target < 5%) |

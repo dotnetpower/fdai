@@ -414,11 +414,14 @@ configured Event Hubs ingest topic. They do not execute changes; findings and du
 the shared trust-router and risk-gate. Publish failure keeps the scheduled item retryable and
 returns a non-zero job result.
 
-The inventory job promotes a complete ARG/ARM snapshot atomically, then reads Azure Activity Log
-deltas per subscription. Delta resources are forwarded as canonical Events, and each cursor
-advances only after the stream emits its final fence. The control loop reads the active Postgres
-snapshot age for graph-dependent ActionTypes; a missing, failed, or stale freshness lookup routes
-the action to human review.
+Azure resource create, update, and delete signals flow continuously through the canonical Event
+Hubs ingress. Huginn owns this real-time discovery ingress and preserves the resource identity,
+change kind, and bounded properties in the normalized Event. A dedicated projector applies
+resource, link, and tombstone deltas to the durable inventory overlay in partition order. The
+Inventory job separately promotes a complete ARG/ARM reconciliation snapshot every six hours by
+default and retires overlay entries covered by the new generation. Heimdall detects stale
+snapshots, cursor lag, fallback spikes, and coverage loss. A missing, degraded, or stale freshness
+lookup routes graph-dependent actions to human review.
 
 ## Open Decisions
 

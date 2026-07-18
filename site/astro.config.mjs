@@ -1,4 +1,5 @@
 // @ts-check
+import { readFileSync } from "node:fs";
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import remarkCjkFriendly from "remark-cjk-friendly";
@@ -28,6 +29,10 @@ const BASE_PATH = process.env.BASE_PATH ?? (IS_PROD ? "/fdai" : "/");
 // public/og-cover.png; `npm run gen-og` regenerates it. Join without a
 // double slash regardless of whether BASE_PATH is "/" (dev) or "/fdai".
 const OG_IMAGE = `${SITE_URL}${BASE_PATH.replace(/\/$/, "")}/og-cover.png`;
+const MERMAID_ZOOM_SCRIPT = readFileSync(
+  new URL("./src/scripts/mermaid-zoom.mjs", import.meta.url),
+  "utf8",
+);
 
 export default defineConfig({
   site: SITE_URL,
@@ -201,86 +206,7 @@ export default defineConfig({
           // theme toggle.
           tag: "script",
           attrs: { type: "module" },
-          content: `
-            let overlay, stage, inner, scale = 1, tx = 0, ty = 0;
-            let dragging = false, sx = 0, sy = 0;
-            const apply = () =>
-              inner.style.transform =
-                'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
-            const zoomBy = (f) => { scale = Math.min(8, Math.max(0.2, scale * f)); apply(); };
-            const close = () => {
-              if (!overlay) return;
-              overlay.classList.remove('open');
-              document.documentElement.style.overflow = '';
-            };
-            const build = () => {
-              overlay = document.createElement('div');
-              overlay.className = 'mermaid-zoom-overlay';
-              overlay.setAttribute('role', 'dialog');
-              overlay.setAttribute('aria-modal', 'true');
-              const bar = document.createElement('div');
-              bar.className = 'mermaid-zoom-toolbar';
-              const mk = (label, title, fn) => {
-                const b = document.createElement('button');
-                b.type = 'button';
-                b.textContent = label;
-                b.title = title;
-                b.setAttribute('aria-label', title);
-                b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
-                bar.appendChild(b);
-              };
-              mk('+', 'Zoom in', () => zoomBy(1.2));
-              mk('-', 'Zoom out', () => zoomBy(1 / 1.2));
-              mk('Reset', 'Reset view', () => { scale = 1; tx = 0; ty = 0; apply(); });
-              mk('x', 'Close', close);
-              stage = document.createElement('div');
-              stage.className = 'mermaid-zoom-stage';
-              inner = document.createElement('div');
-              inner.className = 'mermaid-zoom-inner';
-              stage.appendChild(inner);
-              overlay.appendChild(bar);
-              overlay.appendChild(stage);
-              document.body.appendChild(overlay);
-              overlay.addEventListener('click', (e) => {
-                if (e.target === overlay || e.target === stage) close();
-              });
-              stage.addEventListener('wheel', (e) => {
-                e.preventDefault();
-                zoomBy(e.deltaY < 0 ? 1.1 : 1 / 1.1);
-              }, { passive: false });
-              stage.addEventListener('pointerdown', (e) => {
-                dragging = true; sx = e.clientX - tx; sy = e.clientY - ty;
-                if (stage.setPointerCapture) stage.setPointerCapture(e.pointerId);
-              });
-              window.addEventListener('pointermove', (e) => {
-                if (!dragging) return;
-                tx = e.clientX - sx; ty = e.clientY - sy; apply();
-              });
-              window.addEventListener('pointerup', () => { dragging = false; });
-              document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && overlay.classList.contains('open')) close();
-              });
-            };
-            const open = (svg) => {
-              if (!overlay) build();
-              inner.innerHTML = '';
-              const clone = svg.cloneNode(true);
-              clone.removeAttribute('height');
-              clone.style.maxWidth = 'none';
-              clone.style.width = 'min(90vw, 1400px)';
-              clone.style.height = 'auto';
-              inner.appendChild(clone);
-              scale = 1; tx = 0; ty = 0; apply();
-              overlay.classList.add('open');
-              document.documentElement.style.overflow = 'hidden';
-            };
-            document.addEventListener('click', (e) => {
-              const pre = e.target.closest ? e.target.closest('pre.mermaid') : null;
-              if (!pre) return;
-              const svg = pre.querySelector('svg');
-              if (svg) open(svg);
-            });
-          `,
+          content: MERMAID_ZOOM_SCRIPT,
         },
       ],
       sidebar: [
@@ -288,6 +214,11 @@ export default defineConfig({
           label: "Get started",
           translations: { ko: "\uc2dc\uc791\ud558\uae30" },
           link: "/get-started/",
+        },
+        {
+          label: "Architecture",
+          translations: { ko: "\uc544\ud0a4\ud14d\ucc98" },
+          link: "/architecture/",
         },
         {
           label: "How FDAI decides",

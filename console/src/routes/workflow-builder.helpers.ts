@@ -25,6 +25,7 @@ export function emptyStep(key: number): DraftStep {
     guard_rule_ref: "",
     compensated_by: "",
     on_failure: "",
+    params: {},
   };
 }
 
@@ -67,6 +68,7 @@ export function catalogToForm(w: WorkflowCatalogEntry): FormState {
       guard_rule_ref: s.guard_rule_ref ?? "",
       compensated_by: s.compensated_by ?? "",
       on_failure: s.on_failure ?? "",
+      params: { ...(s.params ?? {}) },
     })),
   };
 }
@@ -150,6 +152,7 @@ export function buildDraft(form: FormState): Record<string, unknown> {
     if (s.guard_rule_ref.trim()) step["guard_rule_ref"] = s.guard_rule_ref.trim();
     if (s.compensated_by.trim()) step["compensated_by"] = s.compensated_by.trim();
     if (s.on_failure.trim()) step["on_failure"] = s.on_failure.trim();
+    if (Object.keys(s.params).length > 0) step["params"] = { ...s.params };
     return step;
   });
 

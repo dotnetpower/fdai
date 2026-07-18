@@ -10,7 +10,13 @@ import pytest
 
 from fdai.core.reporting.engine import ReportEngine
 from fdai.core.reporting.models import RenderedReport
-from fdai.core.views import ViewCatalogError, ViewEngine, load_view_catalog
+from fdai.core.views import (
+    ViewCatalogError,
+    ViewEngine,
+    WorkflowAppCatalogError,
+    load_view_catalog,
+    load_workflow_app_catalog,
+)
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
@@ -49,6 +55,39 @@ def test_shipped_view_catalog_cross_references_workflow_and_report() -> None:
     )
     assert [spec.id for spec in specs] == ["architecture-review"]
     assert specs[0].applies_to.workflow_ref == "architecture-review"
+
+
+def test_shipped_workflow_app_catalog_cross_references_workflow_and_view() -> None:
+    manifests = load_workflow_app_catalog(
+        _ROOT / "rule-catalog" / "operator-console",
+        workflow_names=_workflow_names(),
+        view_workflows={"architecture-review": "architecture-review"},
+    )
+    assert [manifest.id for manifest in manifests] == ["architecture-review"]
+    assert manifests[0].route == "/workflow-apps/architecture-review"
+    assert manifests[0].is_hub_visible is True
+
+
+def test_workflow_app_rejects_mismatched_view_workflow(tmp_path: Path) -> None:
+    (tmp_path / "app.yaml").write_text(
+        """schema_version: 1.0.0
+id: review-app
+workflow_ref: architecture-review
+view_ref: other-view
+lifecycle: published
+audience: reader
+label: {en: Review, ko: Review}
+description: {en: Review evidence, ko: Review evidence}
+navigation: {exposure: hub, group: operations, order: 1}
+""",
+        encoding="utf-8",
+    )
+    with pytest.raises(WorkflowAppCatalogError, match="same workflow"):
+        load_workflow_app_catalog(
+            tmp_path,
+            workflow_names={"architecture-review"},
+            view_workflows={"other-view": "different-workflow"},
+        )
 
 
 def test_unknown_report_ref_fails_closed(tmp_path: Path) -> None:

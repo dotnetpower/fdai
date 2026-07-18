@@ -91,6 +91,41 @@ def _arm_row(*, arm_id: str, arm_type: str, extra: dict[str, Any] | None = None)
     return row
 
 
+@pytest.mark.asyncio
+async def test_inventory_preserves_sku_and_kind_for_security_assessment() -> None:
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.ContainerService/"
+        "managedClusters/aks-example"
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=arm_id,
+                        arm_type="Microsoft.ContainerService/managedClusters",
+                        extra={"kind": "Base", "sku": {"name": "Base", "tier": "Free"}},
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        resources, _ = await factory.build_query_fn()("kubernetes-cluster")
+
+    assert resources[0].props["kind"] == "Base"
+    assert resources[0].props["sku"] == {"name": "Base", "tier": "Free"}
+
+
 def _make_client(
     handler: httpx.MockTransport,
 ) -> httpx.AsyncClient:

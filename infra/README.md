@@ -169,6 +169,13 @@ supplies a cron expression. Full latency analysis:
 - Event-based paths (`KubeEvents`, Activity Log, forwarded diagnostics via
   the Kafka bus): unchanged, sub-second (already event-driven).
 
+Azure resource writes and deletes use a dedicated `aw.inventory.raw` Event Hub.
+A subscription-scoped Event Grid subscription delivers with the inventory
+user-assigned managed identity, while Event Hubs local authentication remains
+disabled. The core normalizes that raw stream into the canonical change topic
+for Huginn. The Inventory Container Apps Job still performs the complete
+ARG/ARM reconciliation every six hours by default.
+
 See [envs/dev.tfvars.example](envs/dev.tfvars.example) for the full commented example.
 
 ## Naming

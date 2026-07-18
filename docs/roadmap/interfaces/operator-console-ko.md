@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 34fee6092a5ecd2c3591dff2c16b8aa6504bc66d
+translation_source_sha: 5857d1dadd6bc502feabd16a2dcea5729e8d51de
 translation_revised: 2026-07-18
 ---
 
@@ -320,35 +320,29 @@ turn 당 token budget과 session 당 hop cap (config 키
 `console.max_tool_hops_per_turn`, 기본 8)을 ship - Cost Governance vertical
 이 지출을 단속하는 제품이 자신의 콘솔을 무계 LLM surface로 ship 할 수
 없음. 기본에 사용자당 *rate* limit은 없음; fork는 config로 추가 MAY.
-매 LLM 호출은 tier, model deployment id, prompt/completion token count를
-audit log에 기록하므로 fork는 콘솔을 추가로 계측하지 않고도 cost 리포트
-를 post-hoc로 빌드 가능.
+측정된 각 LLM 호출은 tier, model deployment id, workload scope,
+prompt/completion token count를 metering stream에 기록합니다.
 
-**제공되는 비용 뷰.** 위 문단이 가정하는 계량(metering)을 업스트림이
-제공한다: T2 어댑터가 측정된 provider `usage` 를 `MeteringSink` 로 기록하고,
-`MeteringEmitter` 가 설정 기반 `rule-catalog/llm-pricing.yaml` 가격표로 비용을
-계산하며, `LlmCostPanel` 이 `GET /kpi/llm-cost` 를 제공한다 - 토큰 사용량과
-비용을 **대화별**(`correlation_id`), **일별**, **월별**로 롤업하고 총합도
-포함한다. 콘솔은 이를 Overview 그룹의 read-only **LLM cost** 패널로 렌더링한다.
-헤드리스 코어(LLM 실행)와 read-API 콘솔은 별도 프로세스이므로, 업스트림
-`InMemoryMeteringSink` 는 단일-프로세스 데브 하네스에서만 유효하다; 프로덕션
-포크는 durable sink(`AzureWireOverrides.metering_sink`)와 reader(`LlmCostPanel`
-에)를 주입한다 - 보통 Postgres `agent_transcript` 행. 가격은 예시 list-price
-기본값이며 포크가 리전 / 통화 / 협상가로 override 한다.
-Panel은 측정된 invocation record에서 계산한 nullable `latest_occurred_at`도 반환합니다.
-LLM cost 화면은 이 timestamp를 표시하고 Deck snapshot의 `capturedAt`으로 사용합니다.
-오래된 metering freshness를 browser current time으로 대체하지 않습니다. 빈 metering source는
-`null`을 반환합니다.
+**제공되는 사용량 뷰.** T1과 T2 어댑터는 provider가 측정한 `usage`를
+`MeteringSink`로 기록합니다. narrator도 같은 스트림을 사용하며 명시적인
+`operator_chat` scope를 기록하고, 나머지 호출은 `control_plane`을 사용합니다.
+`LlmCostPanel`은 호환 경로 `GET /kpi/llm-cost`를 유지하지만 공개 projection에는
+토큰 사용량만 포함합니다. scope, model, mode, conversation(`correlation_id`),
+일, 월별 합계와 함께 각 행에 model 및 capability가 있는 최신 호출 원장을
+상한 내에서 반환합니다. 콘솔은 이를 read-only **LLM 사용량** 패널로 렌더링합니다.
 
-계량 경로는 fail-safe로 하드닝되어 있다: 가격은 로드 시 유한(finite)인지
-검증하고(NaN/Infinity 요율 거부), 매 호출은 비용의 통화를 함께 기록하여
-롤업이 두 통화를 하나로 합산하지 않으며(다르면 `mixed`로 표시), T1 임베딩
-티어도 T2 reasoner와 함께 계량하고, T2 호출이 HIL로 실패해도 토큰을 기록하며
-(과소계상 없음), 패널은 지출을 `shadow`/`enforce` 모드로 분리하고 대화별
-테이블을 상한 처리한다(비용 큰 순). `wire_azure_container`는 sink가 배선되면
-제공된 가격표를 기본 로드하고, in-memory sink는 bounded ring이라 장기 실행
-프로세스가 무한정 커지지 않는다. emit은 best-effort - 계량 실패는 로그만 남기고
-결정 경로로 raise되지 않는다.
+리전, 통화, 협상 요율 차이로 설정 기반 추정치와 provider invoice가 달라질 수
+있으므로 read API와 콘솔에는 파생 비용을 노출하지 않습니다. 배포는 내부 budget
+gate에서 설정된 가격표를 계속 사용할 수 있습니다. 헤드리스 코어와 read API는
+별도 프로세스이므로 production은 durable Postgres `llm_invocation` store를
+사용합니다. 단일 프로세스 개발 하네스는 narrator 호출과 패널이 하나의
+`InMemoryMeteringSink`를 공유합니다.
+
+패널은 측정된 invocation record에서 계산한 nullable `latest_occurred_at`도
+반환합니다. LLM 사용량 화면은 이 timestamp를 Deck snapshot의 `capturedAt`으로
+사용하며 오래된 metering freshness를 browser time으로 대체하지 않습니다. 빈
+metering source는 `null`을 반환합니다. emit은 best-effort이므로 계량 실패는
+로그로 남고 decision 또는 chat 경로를 중단하지 않습니다.
 
 ## 5. DI seam
 

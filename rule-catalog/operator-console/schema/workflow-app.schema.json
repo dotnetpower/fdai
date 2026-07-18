@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/workflow-app/1.0.0",
+  "title": "WorkflowApp",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "workflow_ref",
+    "view_ref",
+    "lifecycle",
+    "audience",
+    "label",
+    "description",
+    "navigation"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+    "workflow_ref": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,79}$"},
+    "view_ref": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+    "lifecycle": {"type": "string", "enum": ["draft", "shadow", "published", "retired"]},
+    "audience": {"const": "reader"},
+    "label": {"$ref": "#/$defs/localizedText"},
+    "description": {"$ref": "#/$defs/localizedText"},
+    "navigation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exposure", "group", "order"],
+      "properties": {
+        "exposure": {"type": "string", "enum": ["hidden", "hub"]},
+        "group": {"const": "operations"},
+        "order": {"type": "integer", "minimum": 0, "maximum": 1000}
+      }
+    }
+  },
+  "$defs": {
+    "localizedText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["en", "ko"],
+      "properties": {
+        "en": {"type": "string", "minLength": 1, "maxLength": 200},
+        "ko": {"type": "string", "minLength": 1, "maxLength": 200}
+      }
+    }
+  }
+}

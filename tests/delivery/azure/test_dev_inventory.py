@@ -262,10 +262,10 @@ class TestErrorPaths:
 
 
 class TestDelta:
-    def test_delta_returns_empty_stream(self) -> None:
+    def test_delta_returns_empty_final_fence(self) -> None:
         inv = AzureCliInventory()
 
         async def _run() -> list[InventoryBatch]:
             return [b async for b in inv.delta(cursor="anything")]
 
-        assert asyncio.run(_run()) == []
+        assert asyncio.run(_run()) == [InventoryBatch(final=True)]

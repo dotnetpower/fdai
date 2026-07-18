@@ -6,7 +6,7 @@
 # Real deployment lives under `infra/` (Terraform); see the roadmap.
 
 .PHONY: dev-up dev-down dev-logs dev-nuke help \
-        lint format test gates check pre-commit-install hooks-install \
+	lint format test operator gates check pre-commit-install hooks-install \
         azd-up genesis-up
 
 help: ## show this help
@@ -45,7 +45,10 @@ format: ## apply ruff format + ruff --fix (mutates files)
 	uv run ruff check --fix src tests
 
 test: ## pytest with safety-core branch coverage (--cov-fail-under=90 matches CI)
-	uv run pytest -q --cov=src/fdai/core/tiers/t0_deterministic --cov=src/fdai/core/risk_gate --cov-branch --cov-report=term-missing --cov-fail-under=90
+	bash scripts/quality/ci/run-python-tests.sh
+
+operator: ## console + CLI tests, typecheck, build, and entry-bundle budget
+	bash scripts/quality/ci/run-operator-surfaces.sh
 
 gates: ## repo hygiene: punctuation / guids / translations / core-imports
 	bash scripts/quality/repository/check-punctuation.sh
@@ -53,7 +56,7 @@ gates: ## repo hygiene: punctuation / guids / translations / core-imports
 	bash scripts/quality/localization/check-translations.sh
 	bash scripts/quality/architecture/check-core-imports.sh
 
-check: lint gates test ## full local CI parity: lint + gates + test
+check: lint gates test operator ## full local CI parity
 
 pre-commit-install: hooks-install ## backwards-compatible alias for hooks-install
 	@echo "pre-commit-install is configured through the tracked .githooks/pre-commit hook."

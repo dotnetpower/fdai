@@ -47,6 +47,10 @@ export interface InventoryGraphResponse {
   readonly links: readonly InventoryLink[];
   readonly truncated: boolean;
   readonly cursor?: string | null;
+  readonly realtime?: {
+    readonly pending_changes: number;
+    readonly latest_at: string | null;
+  };
   readonly active_view?: string;
   readonly views?: readonly ArchitectureView[];
 }

@@ -210,8 +210,11 @@ docs. Reuse them verbatim.
   MUST NOT judge.
 - **Forseti** (Judge) - issues the `Verdict` (auto / hil / deny) after mixed-model
   cross-check, verifier, and grounding; reports to Odin, not Thor.
-- **Huginn** (Event Collector), **Heimdall** (Observer) - sensing; deterministic-first,
-  MUST NOT invoke an LLM synchronously in the hot-path.
+- **Huginn** (Event Collector / real-time resource discovery ingress), **Heimdall**
+  (Observer / discovery assurance) - sensing; deterministic-first, MUST NOT invoke an LLM
+  synchronously in the hot-path. Huginn owns normalized resource-change Events while injected
+  adapters parse Azure signals and project durable inventory deltas. The Inventory sync job
+  remains the periodic reconciliation backstop.
 - **Var** (Approver) - HIL approval principal; MUST stay distinct from Thor.
 - **Vidar** (Recovery) - rollback and DR failover principal.
 - **Bragi** (Narrator) - conversational-port translator only; a Bragi that calls an

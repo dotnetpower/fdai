@@ -1,0 +1,141 @@
+id: security-assessment
+version: 1.0.0
+name: Security Assessment
+description: >-
+  Grounded security posture with control state, evidence coverage, source
+  completeness, vulnerability applicability, prioritized remediation, and
+  positive controls. Missing evidence remains visible instead of becoming a
+  clean result.
+tags: [security, posture, compliance, assessment]
+time_range:
+  last: 30d
+variables:
+  - name: scope
+    default: monitored-scope
+    description: Bounded assessment scope projected by the configured sources.
+widgets:
+  - id: executive-summary
+    type: group
+    title: Executive summary
+    children:
+      - id: verdict
+        type: query_value
+        title: Verdict
+        query: {datasource: security_assessment, parameters: {projection: summary_value, field: verdict}}
+      - id: completion
+        type: query_value
+        title: Assessment completeness
+        query: {datasource: security_assessment, parameters: {projection: summary_value, field: completion_status}}
+      - id: pass-rate
+        type: query_value
+        title: Applicable controls passing
+        query: {datasource: security_assessment, parameters: {projection: summary_value, field: control_pass_rate_percent}}
+        options: {unit: "%", precision: 1}
+      - id: evidence-coverage
+        type: query_value
+        title: Evidence coverage
+        query: {datasource: security_assessment, parameters: {projection: summary_value, field: evidence_coverage_percent}}
+        options: {unit: "%", precision: 1}
+      - id: source-coverage
+        type: query_value
+        title: Source coverage
+        query: {datasource: security_assessment, parameters: {projection: summary_value, field: source_coverage_percent}}
+        options: {unit: "%", precision: 1}
+      - id: affected-resources
+        type: query_value
+        title: Affected resources
+        query: {datasource: security_assessment, parameters: {projection: summary_value, field: affected_resource_count}}
+      - id: recommendations
+        type: query_value
+        title: Recommended actions
+        query: {datasource: security_assessment, parameters: {projection: summary_value, field: recommendation_count}}
+      - id: applicable-cves
+        type: query_value
+        title: Applicable CVEs
+        query: {datasource: security_assessment, parameters: {projection: summary_value, field: applicable_cve_count}}
+
+  - id: control-status
+    type: check_status
+    title: Control status
+    query: {datasource: security_assessment, parameters: {projection: control_status}}
+
+  - id: distribution
+    type: group
+    title: Finding distribution
+    children:
+      - id: severity-distribution
+        type: bar_chart
+        title: Findings by severity
+        query: {datasource: security_assessment, parameters: {projection: severity_counts}}
+        options: {label_field: severity, value_field: value}
+      - id: category-distribution
+        type: bar_chart
+        title: Controls by category
+        query: {datasource: security_assessment, parameters: {projection: category_counts}}
+        options: {label_field: category, value_field: value}
+      - id: resource-type-distribution
+        type: bar_chart
+        title: Controls by resource type
+        query: {datasource: security_assessment, parameters: {projection: resource_type_counts}}
+        options: {label_field: resource_type, value_field: value}
+
+  - id: result-tabs
+    type: tabs
+    title: Assessment detail
+    children:
+      - id: controls
+        type: table
+        title: Configuration and patch controls
+        query: {datasource: security_assessment, parameters: {projection: control_rows}}
+        options: {limit: 500}
+      - id: remediation
+        type: table
+        title: Prioritized remediation plan
+        query: {datasource: security_assessment, parameters: {projection: recommendation_rows}}
+        options: {limit: 500}
+      - id: vulnerabilities
+        type: table
+        title: CVE applicability and patch state
+        query: {datasource: security_assessment, parameters: {projection: cve_rows}}
+        options: {limit: 500}
+      - id: sources
+        type: table
+        title: Data source coverage and freshness
+        query: {datasource: security_assessment, parameters: {projection: source_rows}}
+        options: {limit: 200}
+      - id: positive-controls
+        type: table
+        title: Verified positive controls
+        query: {datasource: security_assessment, parameters: {projection: positive_rows}}
+        options: {limit: 500}
+      - id: gaps
+        type: table
+        title: Unknowns and evidence gaps
+        query: {datasource: security_assessment, parameters: {projection: gap_rows}}
+        options: {limit: 500}
+      - id: resources
+        type: table
+        title: Resource posture rollup
+        query: {datasource: security_assessment, parameters: {projection: resource_rows}}
+        options: {limit: 500}
+      - id: compliance
+        type: table
+        title: Compliance control mapping
+        query: {datasource: security_assessment, parameters: {projection: compliance_rows}}
+        options: {limit: 500}
+      - id: evidence
+        type: table
+        title: Evidence and source citations
+        query: {datasource: security_assessment, parameters: {projection: evidence_rows}}
+        options: {limit: 1000}
+
+  - id: methodology
+    type: note
+    title: Assessment method
+    options:
+      severity: info
+      body: >-
+        Results are deterministic folds over bounded security signals. A clean
+        verdict never hides unavailable sources, unknown controls, stale data,
+        missing evidence, or managed-service patch uncertainty. Remediation is
+        advisory and remains on the governed action path.

@@ -26,6 +26,7 @@ from fdai.core.reporting.registry import (
     WidgetRegistry,
 )
 from fdai.core.reporting.widgets import install_default_widgets
+from fdai.core.reporting.widgets.composite import GROUP_LIKE_WIDGET_TYPES
 from fdai.delivery.read_api.auth import build_authenticator
 from fdai.delivery.read_api.main import ReadApiConfig, build_app
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
@@ -84,6 +85,7 @@ def _build_engine(
             # them as noop stubs so the sample catalog validates when a
             # real backend is not yet bound.
             NoopDataSource(name="report_feed"),
+            NoopDataSource(name="security_assessment"),
             NoopDataSource(name="metric"),
             NoopDataSource(name="log_query"),
             NoopDataSource(name="ontology"),
@@ -93,7 +95,7 @@ def _build_engine(
     if reports_root is not None:
         specs = load_report_catalog(
             reports_root,
-            allowed_widget_types=frozenset(widgets.types()) | {"group"},
+            allowed_widget_types=frozenset(widgets.types()) | GROUP_LIKE_WIDGET_TYPES,
             allowed_datasources=frozenset(sources.names()),
         )
         catalog = ReportCatalog(specs)
@@ -124,7 +126,12 @@ class TestReportingRoutes:
         assert response.status_code == 200
         payload = response.json()
         ids = {item["id"] for item in payload["items"]}
-        assert {"shadow-mode-daily", "signal-feed-overview", "metric-explorer"} <= ids
+        assert {
+            "shadow-mode-daily",
+            "signal-feed-overview",
+            "metric-explorer",
+            "security-assessment",
+        } <= ids
         assert {"csv", "json", "markdown"} <= set(payload["formats"])
 
     def test_registry_lists_wired_names(self) -> None:
@@ -156,6 +163,29 @@ class TestReportingRoutes:
         response = client.get("/reports/does-not-exist")
         assert response.status_code == 404
         assert "not found" in response.json()["error"]
+
+    def test_security_assessment_definition_exposes_deep_result_page(self) -> None:
+        engine, _ = _build_engine(reports_root=REPORTS_ROOT)
+        response = _client(engine).get("/reports/security-assessment")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["id"] == "security-assessment"
+        assert payload["widget_count"] >= 20
+        assert payload["datasources"] == ["security_assessment"]
+        widget_ids = {widget["id"] for widget in payload["widgets"]}
+        assert {"executive-summary", "control-status", "result-tabs"} <= widget_ids
+
+    def test_security_assessment_render_is_read_only_and_available(self) -> None:
+        engine, _ = _build_engine(reports_root=REPORTS_ROOT)
+        response = _client(engine).get(
+            "/reports/security-assessment/render",
+            params={"scope": "monitored-scope"},
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["id"] == "security-assessment"
+        assert payload["variables"] == {"scope": "monitored-scope"}
+        assert len(payload["widgets"]) >= 5
 
     def test_render_default_format_is_json(self) -> None:
         engine, _ = _build_engine(reports_root=REPORTS_ROOT)

@@ -14,6 +14,7 @@ from fdai.core.reporting.widgets import (
     AlertStatusBuilder,
     BudgetSummaryBuilder,
     CheckStatusBuilder,
+    ComparisonBuilder,
     CostSummaryBuilder,
     EventStreamBuilder,
     FlameGraphBuilder,
@@ -23,6 +24,7 @@ from fdai.core.reporting.widgets import (
     IframeBuilder,
     ListStreamBuilder,
     PieChartBuilder,
+    ProcessStepsBuilder,
     ProgressBarBuilder,
     RetentionBuilder,
     ScatterPlotBuilder,
@@ -123,6 +125,37 @@ class TestListsExpansion:
         result = TopListBuilder().build(spec=_spec("top_list"), data=data)
         assert result["rows"][0]["name"] == "num"
         assert result["total_rows"] == 5
+
+
+class TestWorkflowPresentation:
+    def test_process_steps_normalizes_status_and_progress(self) -> None:
+        result = ProcessStepsBuilder().build(
+            spec=_spec("process_steps"),
+            data=DataSet(
+                rows=(
+                    {"id": "collect", "name": "Collect", "status": "succeeded"},
+                    {"id": "judge", "name": "Judge", "status": "running"},
+                    {"id": "apply", "name": "Apply", "status": "unexpected"},
+                )
+            ),
+        )
+        assert result["completed"] == 1
+        assert result["progress_ratio"] == 1 / 3
+        assert result["steps"][2]["status"] == "unknown"
+
+    def test_comparison_marks_changed_fields_without_judging_outcome(self) -> None:
+        result = ComparisonBuilder().build(
+            spec=_spec("comparison"),
+            data=DataSet(
+                rows=(
+                    {"field": "replicas", "before": 2, "after": 4},
+                    {"field": "region", "before": "a", "after": "a"},
+                )
+            ),
+        )
+        assert result["changed_count"] == 1
+        assert result["rows"][0]["changed"] is True
+        assert result["rows"][1]["changed"] is False
 
     def test_clamp_limit_handles_bad_zero_and_oversized(self) -> None:
         rows = tuple({"value": i} for i in range(30))
@@ -373,5 +406,7 @@ class TestDefaultRegistryGrew:
             "budget_summary",
             "split_graph",
             "iframe",
+            "process_steps",
+            "comparison",
         }
         assert must_have <= names

@@ -21,6 +21,53 @@ from fdai.shared.providers.inventory_snapshot import (
 
 _PROMOTION_LOCK: Final[int] = 732_410_991
 _MAX_GRAPH_ROWS: Final[int] = 5000
+_SCOPED_RESOURCES_QUERY = (
+    "WITH RECURSIVE effective_resources AS ("
+    "SELECT r.resource_id, r.resource_type, r.props, r.provider_ref, r.last_seen "
+    "FROM inventory_snapshot_resource r WHERE r.snapshot_id=%s AND NOT EXISTS ("
+    "SELECT 1 FROM inventory_realtime_resource d WHERE d.resource_id=r.resource_id) "
+    "UNION ALL SELECT d.resource_id, d.resource_type, d.props, d.provider_ref, d.observed_at "
+    "FROM inventory_realtime_resource d WHERE d.change_kind='upsert'), "
+    "effective_links AS ("
+    "SELECT l.from_id, l.from_type, l.link_type, l.to_id, l.to_type, l.props "
+    "FROM inventory_snapshot_link l WHERE l.snapshot_id=%s AND NOT EXISTS ("
+    "SELECT 1 FROM inventory_realtime_link d WHERE d.from_id=l.from_id "
+    "AND d.link_type=l.link_type AND d.to_id=l.to_id) "
+    "UNION ALL SELECT d.from_id, d.from_type, d.link_type, d.to_id, d.to_type, d.props "
+    "FROM inventory_realtime_link d WHERE d.change_kind='upsert'), "
+    "walk(resource_id, level) AS ("
+    "SELECT resource_id, 0 FROM effective_resources "
+    "WHERE resource_id=%s OR resource_id LIKE %s "
+    "UNION SELECT CASE WHEN l.from_id=w.resource_id THEN l.to_id ELSE l.from_id END, "
+    "w.level+1 FROM walk w JOIN effective_links l ON "
+    "(l.from_id=w.resource_id OR l.to_id=w.resource_id) "
+    "AND l.link_type=ANY(%s::text[]) WHERE w.level < %s) "
+    "SELECT DISTINCT r.resource_id, r.resource_type, r.props "
+    "FROM effective_resources r JOIN walk w ON w.resource_id=r.resource_id "
+    "ORDER BY r.resource_id LIMIT %s"
+)
+_ALL_RESOURCES_QUERY = (
+    "WITH effective_resources AS ("
+    "SELECT r.resource_id, r.resource_type, r.props, r.provider_ref, r.last_seen "
+    "FROM inventory_snapshot_resource r WHERE r.snapshot_id=%s AND NOT EXISTS ("
+    "SELECT 1 FROM inventory_realtime_resource d WHERE d.resource_id=r.resource_id) "
+    "UNION ALL SELECT d.resource_id, d.resource_type, d.props, d.provider_ref, d.observed_at "
+    "FROM inventory_realtime_resource d WHERE d.change_kind='upsert') "
+    "SELECT resource_id, resource_type, props FROM effective_resources "
+    "ORDER BY resource_id LIMIT %s"
+)
+_SELECT_EFFECTIVE_LINKS_QUERY = (
+    "WITH effective_links AS ("
+    "SELECT l.from_id, l.from_type, l.link_type, l.to_id, l.to_type, l.props "
+    "FROM inventory_snapshot_link l WHERE l.snapshot_id=%s AND NOT EXISTS ("
+    "SELECT 1 FROM inventory_realtime_link d WHERE d.from_id=l.from_id "
+    "AND d.link_type=l.link_type AND d.to_id=l.to_id) "
+    "UNION ALL SELECT d.from_id, d.from_type, d.link_type, d.to_id, d.to_type, d.props "
+    "FROM inventory_realtime_link d WHERE d.change_kind='upsert') "
+    "SELECT from_id, to_id, link_type FROM effective_links "
+    "WHERE from_id=ANY(%s::text[]) AND to_id=ANY(%s::text[]) "
+    "AND link_type=ANY(%s::text[]) ORDER BY from_id, link_type, to_id"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,8 +188,8 @@ class PostgresInventorySnapshotStore:
                     "WHERE a.singleton=TRUE FOR UPDATE"
                 )
                 active = await active_cursor.fetchone()
+                candidate_started = manifest.started_at or completed
                 if active is not None:
-                    candidate_started = manifest.started_at or completed
                     if candidate_started < active["started_at"]:
                         raise ValueError("inventory candidate is older than the active snapshot")
                     if (
@@ -192,6 +239,14 @@ class PostgresInventorySnapshotStore:
                     "snapshot_id=EXCLUDED.snapshot_id, updated_at=EXCLUDED.updated_at",
                     (attempt_id,),
                 )
+                await connection.execute(
+                    "DELETE FROM inventory_realtime_link WHERE observed_at <= %s",
+                    (candidate_started,),
+                )
+                await connection.execute(
+                    "DELETE FROM inventory_realtime_resource WHERE observed_at <= %s",
+                    (candidate_started,),
+                )
 
     async def fail(self, attempt_id: str, failure: InventoryAttemptFailure) -> None:
         async with await self._connect() as connection:
@@ -237,6 +292,7 @@ class PostgresInventoryGraphProvider:
     ) -> Mapping[str, Any]:
         async with await self._connect() as connection:
             await self._set_timeout(connection)
+            await connection.execute("SELECT pg_advisory_xact_lock_shared(%s)", (_PROMOTION_LOCK,))
             active = await connection.execute(
                 "SELECT s.id, s.source, s.observation_kind, s.scopes, s.resource_types, "
                 "s.completed_at, s.metadata FROM inventory_active a JOIN inventory_snapshot s "
@@ -254,35 +310,27 @@ class PostgresInventoryGraphProvider:
                 (snapshot["id"], snapshot["completed_at"]),
             )
             newer_failure = await failure_cursor.fetchone()
+            overlay_cursor = await connection.execute(
+                "SELECT COUNT(*) AS pending_changes, MAX(observed_at) AS latest_at "
+                "FROM inventory_realtime_resource"
+            )
+            overlay = await overlay_cursor.fetchone()
             if scope:
                 resources_cursor = await connection.execute(
-                    "WITH RECURSIVE walk(resource_id, level) AS ("
-                    "SELECT resource_id, 0 FROM inventory_snapshot_resource "
-                    "WHERE snapshot_id=%s AND (resource_id=%s OR resource_id LIKE %s) "
-                    "UNION SELECT CASE WHEN l.from_id=w.resource_id "
-                    "THEN l.to_id ELSE l.from_id END, "
-                    "w.level+1 FROM walk w JOIN inventory_snapshot_link l ON l.snapshot_id=%s "
-                    "AND (l.from_id=w.resource_id OR l.to_id=w.resource_id) "
-                    "AND l.link_type=ANY(%s::text[]) WHERE w.level < %s) "
-                    "SELECT DISTINCT r.resource_id, r.resource_type, r.props "
-                    "FROM inventory_snapshot_resource r JOIN walk w ON w.resource_id=r.resource_id "
-                    "WHERE r.snapshot_id=%s ORDER BY r.resource_id LIMIT %s",
+                    _SCOPED_RESOURCES_QUERY,
                     (
+                        snapshot["id"],
                         snapshot["id"],
                         scope,
                         f"{scope}/%",
-                        snapshot["id"],
                         list(link_types),
                         depth,
-                        snapshot["id"],
                         _MAX_GRAPH_ROWS + 1,
                     ),
                 )
             else:
                 resources_cursor = await connection.execute(
-                    "SELECT resource_id, resource_type, props "
-                    "FROM inventory_snapshot_resource WHERE snapshot_id=%s "
-                    "ORDER BY resource_id LIMIT %s",
+                    _ALL_RESOURCES_QUERY,
                     (snapshot["id"], _MAX_GRAPH_ROWS + 1),
                 )
             rows = await resources_cursor.fetchall()
@@ -292,9 +340,7 @@ class PostgresInventoryGraphProvider:
             links: Sequence[Mapping[str, Any]] = ()
             if ids:
                 links_cursor = await connection.execute(
-                    "SELECT from_id, to_id, link_type FROM inventory_snapshot_link "
-                    "WHERE snapshot_id=%s AND from_id=ANY(%s::text[]) AND to_id=ANY(%s::text[]) "
-                    "AND link_type=ANY(%s::text[]) ORDER BY from_id, link_type, to_id",
+                    _SELECT_EFFECTIVE_LINKS_QUERY,
                     (snapshot["id"], ids, ids, list(link_types)),
                 )
                 links = await links_cursor.fetchall()
@@ -319,6 +365,8 @@ class PostgresInventoryGraphProvider:
         if newer_failure is not None:
             coverage_gaps.append(str(newer_failure.get("failure_code") or "source_unavailable"))
         degraded = freshness != "fresh" or bool(coverage_gaps)
+        overlay_latest = overlay["latest_at"] if overlay is not None else None
+        pending_changes = int(overlay["pending_changes"] or 0) if overlay is not None else 0
         return {
             "snapshot_id": snapshot["id"],
             "snapshot_at": completed.isoformat(),
@@ -332,6 +380,10 @@ class PostgresInventoryGraphProvider:
             },
             "coverage_gaps": coverage_gaps,
             "degraded": degraded,
+            "realtime": {
+                "pending_changes": pending_changes,
+                "latest_at": overlay_latest.isoformat() if overlay_latest is not None else None,
+            },
             "resources": [_resource_payload(row) for row in rows],
             "links": [
                 {"source": row["from_id"], "target": row["to_id"], "type": row["link_type"]}
@@ -339,7 +391,11 @@ class PostgresInventoryGraphProvider:
             ],
             "views": [],
             "truncated": truncated,
-            "cursor": snapshot["id"],
+            "cursor": (
+                f"{snapshot['id']}:{overlay_latest.isoformat()}"
+                if overlay_latest is not None
+                else snapshot["id"]
+            ),
         }
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
@@ -363,7 +419,6 @@ class PostgresInventoryAgeProvider:
         self._config = config
 
     async def __call__(self, resource_ref: str) -> int | None:
-        del resource_ref
         async with await psycopg.AsyncConnection.connect(
             self._config.dsn,
             row_factory=dict_row,
@@ -373,13 +428,37 @@ class PostgresInventoryAgeProvider:
                 "SELECT set_config('statement_timeout', %s, true)",
                 (str(self._config.statement_timeout_ms),),
             )
+            await connection.execute("SELECT pg_advisory_xact_lock_shared(%s)", (_PROMOTION_LOCK,))
             cursor = await connection.execute(
-                "SELECT EXTRACT(EPOCH FROM (NOW() - s.completed_at)) AS age_seconds "
+                "SELECT EXTRACT(EPOCH FROM (NOW() - s.completed_at)) AS age_seconds, "
+                "s.observation_kind, s.metadata, "
+                "EXISTS (SELECT 1 FROM inventory_realtime_resource d "
+                "WHERE d.resource_id=%s AND d.change_kind='upsert') OR ("
+                "EXISTS (SELECT 1 FROM inventory_snapshot_resource r "
+                "WHERE r.snapshot_id=s.id AND r.resource_id=%s) AND NOT EXISTS ("
+                "SELECT 1 FROM inventory_realtime_resource d WHERE d.resource_id=%s)) "
+                "AS resource_present, EXISTS (SELECT 1 FROM inventory_snapshot newer "
+                "WHERE newer.id<>s.id AND newer.started_at>s.completed_at AND ("
+                "newer.status='failed' OR (newer.status='collecting' AND "
+                "newer.started_at < NOW() - INTERVAL '30 minutes'))) AS newer_failure "
                 "FROM inventory_active a JOIN inventory_snapshot s ON s.id=a.snapshot_id "
-                "WHERE a.singleton=TRUE AND s.status='active'"
+                "WHERE a.singleton=TRUE AND s.status='active'",
+                (resource_ref, resource_ref, resource_ref),
             )
             row = await cursor.fetchone()
         if row is None or row["age_seconds"] is None:
+            return None
+        if not row["resource_present"] or row["newer_failure"]:
+            return None
+        if row["observation_kind"] != InventoryObservationKind.OBSERVED.value:
+            return None
+        metadata = row["metadata"]
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata)
+        covered_links = (
+            set(metadata.get("link_types", ())) if isinstance(metadata, Mapping) else set()
+        )
+        if not {"contains", "attached_to", "depends_on"}.issubset(covered_links):
             return None
         return max(0, int(row["age_seconds"]))
 
@@ -400,16 +479,21 @@ class PostgresInventoryContextProvider:
                 "SELECT set_config('statement_timeout', %s, true)",
                 (str(self._config.statement_timeout_ms),),
             )
+            await connection.execute("SELECT pg_advisory_xact_lock_shared(%s)", (_PROMOTION_LOCK,))
             cursor = await connection.execute(
-                "SELECT r.resource_id, r.resource_type, r.props "
-                "FROM inventory_active a "
-                "JOIN inventory_snapshot s ON s.id=a.snapshot_id "
+                "WITH effective AS ("
+                "SELECT d.resource_id, d.resource_type, d.props, d.change_kind, 0 AS priority "
+                "FROM inventory_realtime_resource d WHERE d.resource_id=%s "
+                "UNION ALL SELECT r.resource_id, r.resource_type, r.props, 'upsert', 1 "
+                "FROM inventory_active a JOIN inventory_snapshot s ON s.id=a.snapshot_id "
                 "JOIN inventory_snapshot_resource r ON r.snapshot_id=a.snapshot_id "
-                "WHERE a.singleton=TRUE AND s.status='active' AND r.resource_id=%s",
-                (resource_ref,),
+                "WHERE a.singleton=TRUE AND s.status='active' AND r.resource_id=%s) "
+                "SELECT resource_id, resource_type, props, change_kind FROM effective "
+                "ORDER BY priority LIMIT 1",
+                (resource_ref, resource_ref),
             )
             row = await cursor.fetchone()
-        if row is None:
+        if row is None or row["change_kind"] == "delete":
             return None
         props = row["props"]
         if isinstance(props, str):
@@ -454,6 +538,7 @@ def _unavailable_graph() -> dict[str, Any]:
         "coverage": {"scopes": [], "resource_types": []},
         "coverage_gaps": ["no active inventory snapshot"],
         "degraded": True,
+        "realtime": {"pending_changes": 0, "latest_at": None},
         "resources": [],
         "links": [],
         "views": [],

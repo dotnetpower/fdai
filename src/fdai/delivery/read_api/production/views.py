@@ -10,7 +10,7 @@ from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.report_feed import ReportFeed
 from fdai.core.reporting.composition import default_reporting_engine
 from fdai.core.reporting.datasources import AuditReader
-from fdai.core.views import ViewEngine, load_view_catalog
+from fdai.core.views import ViewEngine, load_view_catalog, load_workflow_app_catalog
 from fdai.core.workflow.approval import WorkflowApprovalPlanner
 from fdai.core.workflow.orchestrator import WorkflowOrchestrator
 from fdai.delivery.persistence import (
@@ -121,6 +121,11 @@ def _build_dynamic_views(
         report_ids={spec.id for spec in report_engine.catalog().list()},
         workflow_names={workflow.name for workflow in workflows},
     )
+    workflow_apps = load_workflow_app_catalog(
+        _REPO_ROOT / "rule-catalog" / "operator-console",
+        workflow_names={workflow.name for workflow in workflows},
+        view_workflows={spec.id: spec.applies_to.workflow_ref for spec in view_specs},
+    )
     action_types_by_name = {action_type.name: action_type for action_type in action_types}
     workflow_execution = WorkflowExecutionConfig(
         workflows=tuple(workflows),
@@ -150,6 +155,7 @@ def _build_dynamic_views(
         ReportingConfig(engine=report_engine, formats=formats),
         ProcessViewsConfig(
             engine=ViewEngine(specs=view_specs, reports=report_engine, processes=process_store),
+            apps=workflow_apps,
             source="postgres",
             synthetic=False,
             durable=True,

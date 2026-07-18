@@ -544,8 +544,11 @@ def append_console_action_route(
             authorize_principal=authorize_principal,
         )
     )
-    logger.warning(
-        "Console action-submit route wired at POST %s (propose-only, "
-        "Contributor+ required); operator commands enter the typed pipeline.",
-        DEFAULT_ACTION_PATH,
+    logger.info(
+        "console_action_route_wired",
+        extra={
+            "path": DEFAULT_ACTION_PATH,
+            "mode": "propose-only",
+            "required_capability": "contributor",
+        },
     )

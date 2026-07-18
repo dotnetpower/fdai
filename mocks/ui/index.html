@@ -155,10 +155,11 @@
           const a = items.find((el) => el.dataset.page === page);
           title = a ? a.dataset.title : page.replace(/\.html$/, '');
         }
-        frame.src = page + '?shell=left-v5';
+        const previewUrl = page + '?shell=left-v5&preview=' + Date.now();
+        frame.src = previewUrl;
         nowTitle.textContent = title;
         nowPath.textContent = page;
-        nowOpen.setAttribute('href', page + '?shell=left-v5');
+        nowOpen.setAttribute('href', previewUrl);
         items.forEach((el) => el.classList.toggle('is-active', el.dataset.page === page));
         try { history.replaceState(null, '', '#' + page); } catch (_) { /* opaque hash ok */ }
         if (window.matchMedia && window.matchMedia('(max-width: 780px)').matches) {

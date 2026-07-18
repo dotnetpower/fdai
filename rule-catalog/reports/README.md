@@ -21,7 +21,8 @@ read-only ``GET /reports/*`` routes.
 3. Pick the widget types you need from
    [docs/roadmap/interfaces/reporting-subsystem.md](../../docs/roadmap/interfaces/reporting-subsystem.md#widget-catalog).
 4. Wire each widget's `query.datasource` to a registered source
-   (`audit`, `report_feed`, `metric`, `log_query`, `static`, `noop`, or
+  (`audit`, `report_feed`, `security_assessment`, `metric`, `log_query`,
+  `static`, `noop`, or
    a fork-registered custom source).
 5. Validate locally by loading the catalog through
    `python -c "from fdai.core.reporting.catalog import load_report_catalog; load_report_catalog(...)"`
@@ -29,6 +30,11 @@ read-only ``GET /reports/*`` routes.
 
 Widget shapes and the JSON contract the FE consumes live in
 [docs/roadmap/interfaces/reporting-subsystem.md](../../docs/roadmap/interfaces/reporting-subsystem.md).
+
+`security-assessment.yaml` is the reference for deep evidence reports. It keeps
+observed/expected values, assessment completeness, source freshness, positive
+controls, remediation validation, CVE applicability, compliance mappings, and
+missing evidence visible through existing generic widgets.
 
 ## What the loader enforces
 

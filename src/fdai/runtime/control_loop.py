@@ -56,6 +56,7 @@ from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog
 from fdai.rule_catalog.schema.resource_type import (
+    ResourceTypeRegistry,
     load_resource_type_registry_from_mapping,
 )
 from fdai.rule_catalog.schema.rule import load_rule_catalog
@@ -160,6 +161,12 @@ def _build_workflow_coordinator(
     )
 
 
+def _load_resource_types() -> ResourceTypeRegistry:
+    vocabulary_file = _resolve_catalog_root() / "vocabulary" / "resource-types.yaml"
+    with vocabulary_file.open("r", encoding="utf-8") as handle:
+        return load_resource_type_registry_from_mapping(yaml.safe_load(handle))
+
+
 def _build_control_loop(
     container: Container,
     *,
@@ -178,7 +185,6 @@ def _build_control_loop(
     catalog_root = _resolve_catalog_root()
     policies_root = _resolve_policies_root(catalog_root)
     action_types_root = catalog_root / "action-types"
-    vocabulary_file = catalog_root / "vocabulary" / "resource-types.yaml"
     object_types_root = catalog_root / "vocabulary" / "object-types"
     link_types_root = catalog_root / "vocabulary" / "link-types"
     remediation_root = catalog_root / "remediation"
@@ -191,8 +197,7 @@ def _build_control_loop(
         schema_registry=registry,
         probes_root=probes_root if probes_root.is_dir() else None,
     )
-    with vocabulary_file.open("r", encoding="utf-8") as fh:
-        resource_types = load_resource_type_registry_from_mapping(yaml.safe_load(fh))
+    resource_types = _load_resource_types()
 
     # Ontology ObjectType / LinkType catalogs (fail-closed if directories
     # exist but any file is invalid). Missing directories are tolerated

@@ -17,7 +17,8 @@ name: deploy-dev
 #       RESOLVED_CAPABILITIES_JSON, READ_API_AUDIENCE, RBAC_*_GROUP_ID,
 #       INGESTION_CORS_ALLOW_ORIGINS, CLAMAV_IMAGE,
 #       SCHEDULER_TICK_CRON_EXPRESSION, ANALYZER_TICK_CRON_EXPRESSION,
-#       ANALYZER_TARGETS_JSON, ANALYZER_WINDOW_SECONDS, ANALYZER_BUDGET_SECONDS
+#       ANALYZER_TARGETS_JSON, ANALYZER_WINDOW_SECONDS, ANALYZER_BUDGET_SECONDS,
+#       ENABLE_EMAIL_NOTIFICATIONS, NOTIFICATION_EMAIL_RECIPIENTS_JSON
 #       (required when deploy_document_ingestion=true; prod images use digests)
 #   - Repo secrets:
 #       POSTGRES_ADMIN_LOGIN, POSTGRES_ADMIN_PASSWORD,
@@ -140,6 +141,9 @@ jobs:
       TF_VAR_analyzer_targets_json: ${{ vars.ANALYZER_TARGETS_JSON }}
       TF_VAR_analyzer_window_seconds: ${{ vars.ANALYZER_WINDOW_SECONDS }}
       TF_VAR_analyzer_budget_seconds: ${{ vars.ANALYZER_BUDGET_SECONDS }}
+      TF_VAR_enable_email_notifications: ${{ vars.ENABLE_EMAIL_NOTIFICATIONS == 'true' }}
+      TF_VAR_notification_email_recipients: "${{ vars.NOTIFICATION_EMAIL_RECIPIENTS_JSON || '[]' }}"
+      TF_VAR_import_existing_email_notifications: ${{ inputs.environment == 'dev' && vars.IMPORT_EXISTING_EMAIL_NOTIFICATIONS == 'true' }}
       TF_VAR_runner_vnet_id: ${{ vars.OPS_VNET_ID }}
       TF_VAR_runner_vnet_name: ${{ vars.OPS_VNET_NAME }}
       TF_VAR_ops_resource_group_name: ${{ vars.OPS_RESOURCE_GROUP_NAME }}

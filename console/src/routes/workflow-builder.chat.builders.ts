@@ -45,8 +45,12 @@ export const OPT = {
   action: "action:", // action:<actionTypeName>
   done: "done", // offer_extra: finish adding actions
   nameKeep: "name:keep", // confirm_name: keep the suggested name
+  planKeep: "plan:keep",
+  safetyKeep: "safety:keep",
   refineExtra: "refine:extra",
+  refineActions: "refine:actions",
   refineTrigger: "refine:trigger",
+  refineSafety: "refine:safety",
   restart: "restart",
 } as const;
 
@@ -197,7 +201,15 @@ export function addActionStep(form: FormState, actionName: string): FormState {
   const key = Math.max(-1, ...next.steps.map((s) => s.key)) + 1;
   next.steps = [
     ...steps,
-    { key, id, action_type_ref: actionName, guard_rule_ref: "", compensated_by: "", on_failure: "" },
+    {
+      key,
+      id,
+      action_type_ref: actionName,
+      guard_rule_ref: "",
+      compensated_by: "",
+      on_failure: "",
+      params: {},
+    },
   ];
   return next;
 }
@@ -269,5 +281,8 @@ export function slugifyName(text: string): string {
 
 /** Deep-copy a FormState (steps array is mutable). */
 export function cloneForm(form: FormState): FormState {
-  return { ...form, steps: form.steps.map((s) => ({ ...s })) };
+  return {
+    ...form,
+    steps: form.steps.map((step) => ({ ...step, params: { ...step.params } })),
+  };
 }

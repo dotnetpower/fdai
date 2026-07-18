@@ -65,6 +65,11 @@ variable "inventory_identity_client_id" {
   type        = string
 }
 
+variable "inventory_raw_topic" {
+  description = "Raw Event Grid resource-change Event Hub consumed by Huginn's realtime discovery normalizer."
+  type        = string
+}
+
 variable "canary_identity_id" {
   description = "Dedicated canary publisher UAMI resource id."
   type        = string
@@ -120,6 +125,30 @@ variable "extra_identity_ids" {
   EOT
   type        = list(string)
   default     = []
+}
+
+variable "email_endpoint" {
+  description = "ACS Email endpoint. Empty leaves email notification adapters disabled."
+  type        = string
+  default     = ""
+}
+
+variable "email_sender_address" {
+  description = "Verified ACS Email sender address."
+  type        = string
+  default     = ""
+}
+
+variable "email_recipient_addresses_json" {
+  description = "JSON array of A2/A4 notification recipient addresses."
+  type        = string
+  default     = "[]"
+}
+
+variable "notification_identity_client_id" {
+  description = "Client id selecting the dedicated notification UAMI."
+  type        = string
+  default     = ""
 }
 
 variable "image" {

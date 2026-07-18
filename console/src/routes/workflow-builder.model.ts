@@ -27,6 +27,7 @@ export interface DraftStep {
   guard_rule_ref: string;
   compensated_by: string;
   on_failure: string;
+  params: Record<string, string | number | boolean>;
 }
 
 /** The full builder form state. Mirrors the workflow YAML shape (minus
@@ -215,6 +216,7 @@ function _emptyStep(key: number): DraftStep {
     guard_rule_ref: "",
     compensated_by: "",
     on_failure: "",
+    params: {},
   };
 }
 

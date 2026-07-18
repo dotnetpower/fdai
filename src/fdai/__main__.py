@@ -28,6 +28,7 @@ from fdai.runtime.delivery import (
     _build_direct_api_executor,
     _build_hil_channel,
     _build_incident_notifier,
+    _build_notification_registry,
     _build_publisher,
     _build_tool_executor,
 )
@@ -56,6 +57,7 @@ __all__ = [
     "_build_hil_channel",
     "_build_idempotency_store",
     "_build_incident_notifier",
+    "_build_notification_registry",
     "_build_inventory_age_provider",
     "_build_inventory_context_provider",
     "_build_irp_event_handler",

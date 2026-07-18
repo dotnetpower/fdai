@@ -68,15 +68,14 @@
     .fc-chip { padding: 4px 10px; border-radius: var(--cs-radius-sm); font-size: 12px; font-weight: 500; border: 1px solid rgba(79,132,126,.30); color: var(--cs-teal); background: rgba(79,132,126,.06); cursor: pointer; }
     .fc-chip:hover { background: rgba(79,132,126,.12); }
 
-    /* Agent-to-agent conversation strip (each row has a colored left rail). */
+    /* Agent-to-agent conversation strip. Sender identity is content-local. */
     .fc-convo { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
-    .fc-turn { display: grid; grid-template-columns: 3px 1fr; gap: 10px; padding: 8px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); align-items: center; font-size: 12.5px; }
-    .fc-turn .fc-turn-bar { background: var(--cs-steel); border-radius: 2px; align-self: stretch; }
-    .fc-turn.from-heimdall .fc-turn-bar { background: var(--cs-terracotta); }
-    .fc-turn.from-forseti  .fc-turn-bar { background: var(--cs-steel); }
-    .fc-turn.from-loki     .fc-turn-bar { background: var(--cs-sage); }
-    .fc-turn.from-var      .fc-turn-bar { background: var(--cs-steel); }
-    .fc-turn.from-thor     .fc-turn-bar { background: var(--cs-steel); }
+    .fc-turn { padding: 8px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); font-size: 12.5px; }
+    .fc-turn.from-heimdall .fc-from { color: var(--cs-terracotta); }
+    .fc-turn.from-forseti  .fc-from { color: var(--cs-steel); }
+    .fc-turn.from-loki     .fc-from { color: var(--cs-sage); }
+    .fc-turn.from-var      .fc-from { color: var(--cs-steel); }
+    .fc-turn.from-thor     .fc-from { color: var(--cs-steel); }
     .fc-from { font-weight: 600; color: var(--cs-text); }
     .fc-arrow { color: var(--cs-text-soft); margin: 0 4px; }
     .fc-to   { font-weight: 600; color: var(--cs-text); }
@@ -292,35 +291,30 @@
 
           <div class="fc-convo" aria-label="Agent-to-agent conversation for FDAI-8812">
             <div class="fc-turn from-heimdall">
-              <div class="fc-turn-bar"></div>
               <div class="fc-body">
                 <span class="fc-from">Heimdall</span><span class="fc-arrow">&rarr;</span><span class="fc-to">Forseti</span>
                 &nbsp; anomaly score <code>0.92</code> &middot; pod restart rate <em>3 / min over baseline</em>
               </div>
             </div>
             <div class="fc-turn from-forseti">
-              <div class="fc-turn-bar"></div>
               <div class="fc-body">
                 <span class="fc-from">Forseti</span><span class="fc-arrow">&rarr;</span><span class="fc-to">Loki</span>
                 &nbsp; is a chaos experiment scheduled on this workload?
               </div>
             </div>
             <div class="fc-turn from-loki">
-              <div class="fc-turn-bar"></div>
               <div class="fc-body">
                 <span class="fc-from">Loki</span><span class="fc-arrow">&rarr;</span><span class="fc-to">Forseti</span>
                 &nbsp; yes &middot; <code>aks-pod-kill</code>, blast radius capped at 1 target
               </div>
             </div>
             <div class="fc-turn from-forseti">
-              <div class="fc-turn-bar"></div>
               <div class="fc-body">
                 <span class="fc-from">Forseti</span><span class="fc-arrow">&rarr;</span><span class="fc-to">Var</span>
                 &nbsp; proposed auto-heal &middot; scale-out replica set; requesting approval
               </div>
             </div>
             <div class="fc-turn from-var">
-              <div class="fc-turn-bar"></div>
               <div class="fc-body">
                 <span class="fc-from">Var</span><span class="fc-arrow">&rarr;</span><span class="fc-to">Thor</span>
                 &nbsp; approved &middot; within blast-radius policy

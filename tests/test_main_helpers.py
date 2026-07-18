@@ -21,6 +21,7 @@ from fdai.__main__ import (
     _build_audit_store,
     _build_hil_channel,
     _build_idempotency_store,
+    _build_notification_registry,
     _build_pattern_library,
     _build_publisher,
     _build_resource_lock,
@@ -694,6 +695,55 @@ def test_build_hil_channel_honors_timeout_env(
     channel = _build_hil_channel(http_client=httpx.AsyncClient())
     assert channel is not None
     assert channel._config.timeout_seconds == 42.5
+
+
+def _clear_email_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in (
+        "FDAI_EMAIL_ENDPOINT",
+        "FDAI_EMAIL_SENDER_ADDRESS",
+        "FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON",
+        "FDAI_NOTIFICATION_MI_CLIENT_ID",
+        "IDENTITY_ENDPOINT",
+        "IDENTITY_HEADER",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_build_notification_registry_is_empty_when_email_is_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_email_env(monkeypatch)
+    assert _build_notification_registry(None).channels == {}
+
+
+def test_build_notification_registry_binds_a2_and_a4_email_channels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_email_env(monkeypatch)
+    monkeypatch.setenv("FDAI_EMAIL_ENDPOINT", "https://acs.example")
+    monkeypatch.setenv("FDAI_EMAIL_SENDER_ADDRESS", "sender@example.com")
+    monkeypatch.setenv(
+        "FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON",
+        '["operator@example.com", "operator@example.com"]',
+    )
+    monkeypatch.setenv("FDAI_NOTIFICATION_MI_CLIENT_ID", "notification-client")
+    monkeypatch.setenv("IDENTITY_ENDPOINT", "http://localhost/identity")
+    monkeypatch.setenv("IDENTITY_HEADER", "identity-header")
+
+    registry = _build_notification_registry(httpx.AsyncClient())
+
+    assert set(registry.channels) == {"email-oncall", "email-governance"}
+    channel = registry.channels["email-oncall"]
+    assert channel._config.recipient_addresses == ("operator@example.com",)
+
+
+def test_build_notification_registry_rejects_partial_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_email_env(monkeypatch)
+    monkeypatch.setenv("FDAI_EMAIL_ENDPOINT", "https://acs.example")
+    with pytest.raises(RuntimeError, match="requires FDAI_EMAIL_SENDER_ADDRESS"):
+        _build_notification_registry(httpx.AsyncClient())
 
 
 # ---------------------------------------------------------------------------

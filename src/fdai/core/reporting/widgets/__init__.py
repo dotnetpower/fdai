@@ -64,6 +64,7 @@ from fdai.core.reporting.widgets.reliability import (
     ServiceSummaryBuilder,
     SloSummaryBuilder,
 )
+from fdai.core.reporting.widgets.workflow import ComparisonBuilder, ProcessStepsBuilder
 
 __all__ = [
     "AlertStatusBuilder",
@@ -72,6 +73,7 @@ __all__ = [
     "ChangeBuilder",
     "CheckStatusBuilder",
     "CostSummaryBuilder",
+    "ComparisonBuilder",
     "DistributionBuilder",
     "EventStreamBuilder",
     "FlameGraphBuilder",
@@ -88,6 +90,7 @@ __all__ = [
     "NoteBuilder",
     "PieChartBuilder",
     "ProgressBarBuilder",
+    "ProcessStepsBuilder",
     "QueryValueBuilder",
     "RetentionBuilder",
     "SankeyBuilder",

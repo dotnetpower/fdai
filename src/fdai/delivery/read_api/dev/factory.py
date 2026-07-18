@@ -235,7 +235,8 @@ def build_local_app(
         action_topic=_LOCAL_ACTION_TOPIC,
         repo_root=_REPO_ROOT,
     )
-    models = build_local_model_wiring(_REPO_ROOT)
+    metering = InMemoryMeteringSink(initial=_synthetic_llm_invocations())
+    models = build_local_model_wiring(_REPO_ROOT, metering_sink=metering)
 
     async def open_narrator_endpoint() -> None:
         """Local-dev startup hook (on by default; disable with
@@ -301,7 +302,7 @@ def build_local_app(
                 ),
                 OnboardingPanel(probe=EmptyResourceProbe(), configured=False),
                 LlmCostPanel(
-                    InMemoryMeteringSink(initial=_synthetic_llm_invocations()),
+                    metering,
                     source="synthetic-dev",
                 ),
             ),

@@ -70,6 +70,9 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
   is built until it is scoped in a future phase.
 - Make behavior configuration-driven; do not bury environment specifics in code. Configuration
   MUST be validated against a schema at startup and the process MUST fail fast on invalid config.
+- Use distinct local variable names for unrelated types in separate branches. Strict mypy fixes
+  the inferred type from the first assignment, so reusing one name for different page, result, or
+  record types creates avoidable type-check failures.
 - Customer-specific behavior MUST be supplied by **dependency injection** - a fork registers its
   implementations at the composition root and selects bindings via config; it MUST NOT edit
   `core/`. See the injectable seams in
