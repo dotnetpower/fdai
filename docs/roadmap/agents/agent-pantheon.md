@@ -255,6 +255,10 @@ Heimdall's repeated-event detector can also call an optional
 `incident_candidate_hook` after it emits the authoritative anomaly. The hook
 carries the normalized resource, event type, correlation, severity, reason
 code, and evidence key to the composition-owned `IncidentLifecycleWorkflow`.
+Only events repeated inside the configured rate window form that anomaly;
+sparse monitoring samples never accumulate across windows. A routine heartbeat,
+healthy probe, or within-threshold observation creates neither a finding nor an
+Incident.
 Heimdall does not write the Incident or publish a new object type. The workflow
 rechecks the agent allowlist and event evidence before `IncidentRegistry`
 writes the audited record. A hook failure records an agent behavior counter

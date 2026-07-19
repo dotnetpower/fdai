@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 6735ffccf6069e1e7ced900f8cf96e10935536c5
-translation_revised: 2026-07-18
+translation_source_sha: 95a8722fd6b850e931c2dd66fb1628b70da89699
+translation_revised: 2026-07-19
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -33,6 +33,10 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
 - 감지 신호는 액션이 아니라 **finding**. 다른 이벤트처럼 라우팅되고 risk-gate 됨; 예측이나
   이상은 절대 자체로 auto-remediate 하지 않음 - 리스크 게이트와 HIL이 관장하는 shadow-mode
   finding 또는 remediation PR을 발동.
+- Routine monitoring은 Incident가 아닙니다. Healthy heartbeat, 성공한 probe,
+  within-threshold sample은 observation evidence만 기록합니다. Detector가 bounded하고
+  grounded된 finding을 emit하고 `IncidentLifecycleWorkflow`가 allowed agent principal,
+  correlation key, reason, member-event evidence를 다시 확인한 뒤에만 Incident가 열립니다.
 - 새 감지기는 **shadow 모드** 로 출시되고 shadow→enforce 규칙에 따라 승격; 정확도와
   false-positive 비율은 Phase 0 베이스라인 대비 측정됨.
 
@@ -60,6 +64,9 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
   멤버는 감사에 링크되어 남음.
 - **출력**: 멤버 이벤트 id와 안정 idempotency 키를 운반하는 하나의 상관된 인시던트 이벤트;
   순서/멱등 키 보존.
+- **Lifecycle 경계**: correlation id는 investigation key이며 Incident가 존재한다는 증거가
+  아닙니다. Lifecycle record는 `IncidentRegistry`가 소유합니다. Audit-only local fixture는
+  Audit과 Trace에서 계속 볼 수 있지만 operational Incident roster에서는 제외됩니다.
 - **업스트림 구현**: `core/event_ingest/correlator.py`
   (`EventCorrelator`) 가 이벤트의 correlation-id (또는 resource ref) 와
   time-window bucket 으로부터 `incident_id_for` 를 통해 인시던트 anchor 를

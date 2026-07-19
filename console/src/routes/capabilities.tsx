@@ -8,9 +8,9 @@ import { currentRoute, navigate, replaceRouteState, routeHref } from "../router"
 import {
   panelArray,
   panelBoolean,
-  panelNumber,
+  panelNonEmptyString,
+  panelNonNegativeInteger,
   panelRecord,
-  panelString,
   panelStringArray,
 } from "./panel-decode";
 
@@ -47,24 +47,47 @@ export function CapabilitiesRoute({ client }: { readonly client: ReadApiClient }
 
 export function decodeCapabilities(value: unknown): CapabilityResponse {
   const root = panelRecord(value, "capabilities");
-  return {
-    source: panelString(root, "source", "capabilities"),
-    execution_eligibility: panelBoolean(root, "execution_eligibility", "capabilities"),
-    count: panelNumber(root, "count", "capabilities"),
-    capabilities: panelArray(root["capabilities"], "capabilities.items").map((raw, index) => {
+  const capabilities = panelArray(root["capabilities"], "capabilities.items").map((raw, index) => {
       const item = panelRecord(raw, `capabilities.items[${index}]`);
       return {
-        capability_id: panelString(item, "capability_id", "capability"),
-        name: panelString(item, "name", "capability"),
-        category: panelString(item, "category", "capability"),
-        summary: panelString(item, "summary", "capability"),
-        side_effect_class: panelString(item, "side_effect_class", "capability"),
-        default_mode: panelString(item, "default_mode", "capability"),
-        required_role: panelString(item, "required_role", "capability"),
-        slide_ref: panelString(item, "slide_ref", "capability"),
+        capability_id: panelNonEmptyString(item, "capability_id", "capability"),
+        name: panelNonEmptyString(item, "name", "capability"),
+        category: panelNonEmptyString(item, "category", "capability"),
+        summary: panelNonEmptyString(item, "summary", "capability"),
+        side_effect_class: panelNonEmptyString(item, "side_effect_class", "capability"),
+        default_mode: panelNonEmptyString(item, "default_mode", "capability"),
+        required_role: panelNonEmptyString(item, "required_role", "capability"),
+        slide_ref: panelNonEmptyString(item, "slide_ref", "capability"),
         tags: panelStringArray(item["tags"], "capability.tags"),
       };
-    }),
+    });
+  const count = panelNonNegativeInteger(root, "count", "capabilities");
+  if (count !== capabilities.length) throw new Error("invalid read API response: capabilities.count MUST match items");
+  const ids = capabilities.map((item) => item.capability_id);
+  if (new Set(ids).size !== ids.length) throw new Error("invalid read API response: capability ids MUST be unique");
+  return {
+    source: panelNonEmptyString(root, "source", "capabilities"),
+    execution_eligibility: panelBoolean(root, "execution_eligibility", "capabilities"),
+    count,
+    capabilities,
+  };
+}
+
+export interface CapabilityRouteState {
+  readonly query: string;
+  readonly category: string;
+  readonly effect: string;
+  readonly role: string;
+  readonly selectedId: string | null;
+}
+
+export function capabilityRouteStateFromSearch(search: URLSearchParams): CapabilityRouteState {
+  return {
+    query: search.get("q") ?? "",
+    category: search.get("category") ?? "all",
+    effect: search.get("effect") ?? "all",
+    role: search.get("role") ?? "all",
+    selectedId: search.get("capability"),
   };
 }
 
@@ -83,12 +106,28 @@ export function isMutatingCapability(sideEffectClass: string): boolean {
 }
 
 function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
-  const initial = currentRoute().search;
-  const [query, setQuery] = useState(initial.get("q") ?? "");
-  const [category, setCategory] = useState(initial.get("category") ?? "all");
-  const [effect, setEffect] = useState(initial.get("effect") ?? "all");
-  const [role, setRole] = useState(initial.get("role") ?? "all");
-  const [selectedId, setSelectedId] = useState(initial.get("capability"));
+  const initial = capabilityRouteStateFromSearch(currentRoute().search);
+  const [query, setQuery] = useState(initial.query);
+  const [category, setCategory] = useState(initial.category);
+  const [effect, setEffect] = useState(initial.effect);
+  const [role, setRole] = useState(initial.role);
+  const [selectedId, setSelectedId] = useState(initial.selectedId);
+  useEffect(() => {
+    const sync = () => {
+      const route = capabilityRouteStateFromSearch(currentRoute().search);
+      setQuery(route.query);
+      setCategory(route.category);
+      setEffect(route.effect);
+      setRole(route.role);
+      setSelectedId(route.selectedId);
+    };
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+    };
+  }, []);
   const categories = new Set(data.capabilities.map((item) => item.category)).size;
   const mutatingDeclarations = data.capabilities.filter(
     (item) => isMutatingCapability(item.side_effect_class),

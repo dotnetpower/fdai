@@ -60,7 +60,7 @@ Producers
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
@@ -69,6 +69,7 @@ from starlette.requests import Request
 from starlette.routing import Route
 
 from fdai.delivery.read_api.streaming.live_stream import make_live_stream_route
+from fdai.delivery.read_api.streaming.sse_protocol import iso_ts_utc
 from fdai.shared.providers.sse import SseEvent, SseSink
 from fdai.shared.providers.stage_publisher import ObservationSource
 
@@ -278,6 +279,7 @@ class AgentActivityStreamConfig:
     sink: SseSink | None = None
     emitter_factory: Callable[[SseSink], Any] | None = None
     broadcaster_factory: Callable[[AgentActivityPublisher], AgentActivityProducer] | None = None
+    snapshot_factory: Callable[[], Sequence[AgentActivityEvent]] | None = None
 
     def __post_init__(self) -> None:
         if not self.path.startswith("/"):
@@ -300,6 +302,7 @@ def make_agent_activity_stream_route(
     path: str,
     keepalive_seconds: float,
     authorize: Callable[[Request], Awaitable[str]],
+    snapshot_factory: Callable[[], Sequence[AgentActivityEvent]] | None = None,
 ) -> Route:
     """Return the ``GET`` agent-activity SSE Route.
 
@@ -314,6 +317,33 @@ def make_agent_activity_stream_route(
         path=path,
         keepalive_seconds=keepalive_seconds,
         authorize=authorize,
+        initial_events=(
+            (lambda: (event.to_sse_event() for event in snapshot_factory()))
+            if snapshot_factory is not None
+            else None
+        ),
+    )
+
+
+def runtime_agent_state_snapshot(health: Mapping[str, Any]) -> tuple[AgentStateEvent, ...]:
+    """Project initialized, healthy pantheon agents into resting SSE states."""
+    if int(health.get("consumers_live") or 0) <= 0:
+        return ()
+    agent_health = health.get("agent_health")
+    if not isinstance(agent_health, Mapping):
+        return ()
+    ts = iso_ts_utc()
+    sensing_agents = {"Huginn", "Heimdall"}
+    return tuple(
+        AgentStateEvent(
+            agent=str(agent),
+            state=AgentState.WATCHING if agent in sensing_agents else AgentState.IDLE,
+            ts=ts,
+            detail="Runtime agent initialized",
+            source=ObservationSource.RUNTIME_OBSERVED,
+        )
+        for agent, snapshot in agent_health.items()
+        if isinstance(snapshot, Mapping) and snapshot.get("status") != "error"
     )
 
 
@@ -331,4 +361,5 @@ __all__ = [
     "TicketStatus",
     "TurnKind",
     "make_agent_activity_stream_route",
+    "runtime_agent_state_snapshot",
 ]

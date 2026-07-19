@@ -18,7 +18,17 @@ from starlette.routing import Route
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Capability, has_capability
 from fdai.delivery.azure.llm.latency_routed_cross_check import ModelHealthTransition
+from fdai.delivery.azure.llm.model_catalog import (
+    GptModelCatalogReader,
+    GptModelCatalogSnapshot,
+    ModelCatalogUnavailableError,
+)
 from fdai.delivery.read_api.routes.chat import LatencyRoutedChatBackend
+from fdai.rule_catalog.schema.llm_registry import (
+    LlmRegistry,
+    LlmRegistryError,
+    load_llm_registry_from_yaml,
+)
 from fdai.shared.providers.state_store import StateStore
 
 _PREFERENCE_PREFIX = "user-model-preference:"
@@ -51,9 +61,12 @@ class ModelSettingsService:
     automatic_discovery: bool = True
     automatic_provisioning: bool = True
     model_routing_status: ModelRoutingStatusReader | None = None
+    registry_path: Path | None = None
+    model_catalog_reader: GptModelCatalogReader | None = None
 
     def __post_init__(self) -> None:
         self._load_resolved()
+        self._load_registry()
 
     async def preferred_model(self, principal_id: str) -> str | None:
         record = await self.store.read_state(_preference_key(principal_id))
@@ -102,6 +115,7 @@ class ModelSettingsService:
         principal_id: str,
         *,
         can_manage_web_search: bool = False,
+        refresh_model_catalog: bool = False,
     ) -> dict[str, Any]:
         resolved = self._load_resolved()
         capabilities = [
@@ -128,6 +142,7 @@ class ModelSettingsService:
         hil_only_count = sum(item["status"] == "hil-only" for item in capabilities)
         web_search = await self._web_search_projection(can_manage=can_manage_web_search)
         model_routing = await self._model_routing_projection()
+        model_catalog = await self._model_catalog_projection(force_refresh=refresh_model_catalog)
         endpoint_inventory = [
             _endpoint_binding_view(item)
             for item in resolved.get("endpoint_bindings", [])
@@ -173,7 +188,47 @@ class ModelSettingsService:
             "web_search": web_search,
             "model_routing": model_routing,
             "t2_selection_scope": "system-governed",
+            "t2_model_policy": self._t2_model_policy_projection(resolved, model_catalog),
+            "model_catalog": model_catalog,
         }
+
+    def _t2_model_policy_projection(
+        self,
+        resolved: dict[str, Any],
+        model_catalog: dict[str, Any],
+    ) -> dict[str, Any]:
+        registry = self._load_registry()
+        primary = _resolved_capability(resolved, "t2.reasoner.primary")
+        secondary = _resolved_capability(resolved, "t2.reasoner.secondary")
+        primary_publisher = _optional_string(primary.get("publisher"))
+        secondary_publisher = _optional_string(secondary.get("publisher"))
+        return {
+            "selection_scope": "governance-draft",
+            "invariant": "distinct-publisher",
+            "primary_candidates": _primary_candidates(
+                registry,
+                model_catalog,
+            ),
+            "secondary_candidates": _registry_candidates(registry, "t2.reasoner.secondary"),
+            "active_primary": _resolved_model_choice(primary),
+            "active_secondary": _resolved_model_choice(secondary),
+            "quorum_ready": (
+                primary.get("status") in {"resolved", "capacity-reduced"}
+                and secondary.get("status") in {"resolved", "capacity-reduced"}
+                and primary_publisher is not None
+                and secondary_publisher is not None
+                and primary_publisher != secondary_publisher
+            ),
+        }
+
+    async def _model_catalog_projection(self, *, force_refresh: bool = False) -> dict[str, Any]:
+        if self.model_catalog_reader is None:
+            return _unavailable_model_catalog()
+        try:
+            snapshot = await self.model_catalog_reader.snapshot(force_refresh=force_refresh)
+        except ModelCatalogUnavailableError:
+            return _unavailable_model_catalog()
+        return _model_catalog_view(snapshot)
 
     async def _model_routing_projection(self) -> list[dict[str, Any]]:
         if self.model_routing_status is None:
@@ -304,6 +359,14 @@ class ModelSettingsService:
             raise ModelSettingsUnavailableError("resolved model metadata is invalid")
         return value
 
+    def _load_registry(self) -> LlmRegistry | None:
+        if self.registry_path is None:
+            return None
+        try:
+            return load_llm_registry_from_yaml(self.registry_path)
+        except (OSError, LlmRegistryError) as exc:
+            raise ModelSettingsUnavailableError("LLM registry metadata is unavailable") from exc
+
     async def _web_search_projection(self, *, can_manage: bool) -> dict[str, Any]:
         if self.web_search_resolver is None:
             return {
@@ -404,6 +467,7 @@ def make_model_settings_routes(
                     principal.roles,
                     Capability.MANAGE_GROUP_MEMBERSHIP,
                 ),
+                refresh_model_catalog=request.query_params.get("refresh_catalog") == "1",
             )
         except ModelSettingsUnavailableError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -588,6 +652,119 @@ def _endpoint_binding_view(item: dict[str, Any]) -> dict[str, Any]:
         "managed_by": "catalog-and-resolver",
         "user_selectable": False,
     }
+
+
+def _resolved_capability(resolved: Mapping[str, Any], name: str) -> Mapping[str, Any]:
+    capabilities = resolved.get("capabilities")
+    if not isinstance(capabilities, list):
+        return {}
+    return next(
+        (item for item in capabilities if isinstance(item, Mapping) and item.get("name") == name),
+        {},
+    )
+
+
+def _resolved_model_choice(capability: Mapping[str, Any]) -> dict[str, str] | None:
+    publisher = _optional_string(capability.get("publisher"))
+    family = _optional_string(capability.get("family"))
+    if publisher is None or family is None:
+        return None
+    return {"publisher": publisher, "family": family}
+
+
+def _registry_candidates(registry: LlmRegistry | None, role: str) -> list[dict[str, str]]:
+    if registry is None or role not in registry.models:
+        return []
+    return [
+        {"publisher": preference.publisher, "family": preference.family}
+        for preference in registry.models[role].preferences
+    ]
+
+
+def _primary_candidates(
+    registry: LlmRegistry | None,
+    model_catalog: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    candidates: dict[str, dict[str, Any]] = {
+        preference["family"]: {
+            **preference,
+            "catalog_status": "registry-only",
+            "version": None,
+            "deployments": [],
+            "available_tpm": 0,
+        }
+        for preference in _registry_candidates(registry, "t2.reasoner.primary")
+    }
+    raw_models = model_catalog.get("models")
+    if isinstance(raw_models, list):
+        for model in raw_models:
+            if not isinstance(model, dict):
+                continue
+            family = model.get("family")
+            if not isinstance(family, str):
+                continue
+            if not model.get("selectable") and family not in candidates:
+                continue
+            existing = candidates.get(family)
+            if existing is not None and existing.get("catalog_status") != "registry-only":
+                continue
+            candidates[family] = {
+                "publisher": "OpenAI",
+                "family": family,
+                "catalog_status": model.get("status"),
+                "version": model.get("version"),
+                "deployments": model.get("deployments", []),
+                "available_tpm": model.get("available_tpm", 0),
+            }
+    return list(candidates.values())
+
+
+def _model_catalog_view(snapshot: GptModelCatalogSnapshot) -> dict[str, Any]:
+    return {
+        "available": True,
+        "source": "azure-control-plane",
+        "region": snapshot.region,
+        "models": [
+            {
+                "publisher": "OpenAI",
+                "family": model.family,
+                "version": model.version,
+                "lifecycle": model.lifecycle,
+                "skus": [
+                    {"name": sku.name, "available_tpm": sku.available_tpm} for sku in model.skus
+                ],
+                "available_tpm": max(
+                    (sku.available_tpm for sku in model.skus),
+                    default=0,
+                ),
+                "deployments": list(model.deployments),
+                "deployed": model.deployed,
+                "provisionable": model.provisionable,
+                "selectable": model.selectable,
+                "status": (
+                    "deployed"
+                    if model.deployed
+                    else "provisionable"
+                    if model.provisionable
+                    else "quota-unavailable"
+                ),
+            }
+            for model in snapshot.models
+        ],
+    }
+
+
+def _unavailable_model_catalog() -> dict[str, Any]:
+    return {
+        "available": False,
+        "source": "unavailable",
+        "region": None,
+        "models": [],
+    }
+
+
+def _optional_string(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
 
 
 def _mapping_value(item: Mapping[str, Any], key: str) -> Mapping[str, Any]:

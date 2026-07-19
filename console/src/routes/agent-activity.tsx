@@ -33,8 +33,10 @@ import { observationSourceLabel, type ObservationSource } from "../hooks/observa
 import { t } from "../i18n";
 import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
 import {
+  activityProvenanceCounts,
   agentActivityRank,
   agentOf,
+  auditProvenanceOf,
   entryStr,
   isAgentActivitySelectionValid,
   layerOf,
@@ -43,7 +45,9 @@ import {
   tierOf,
 } from "./agent-activity-semantics";
 export {
+  activityProvenanceCounts,
   agentOf,
+  auditProvenanceOf,
   entryConversation,
   isAgentActivitySelectionValid,
   layerOf,
@@ -52,6 +56,7 @@ export {
 } from "./agent-activity-semantics";
 import { ActivityWaterfall } from "./agent-activity-waterfall";
 import {
+  activityFiltersFromSearch,
   ActivityToolbar,
   filterAgentActivity,
   GroupedAgentActivity,
@@ -86,17 +91,7 @@ interface Data {
 type ActivityView = "activity" | "waterfall";
 
 function activityFiltersFromRoute(): ActivityFilters {
-  const search = currentRoute().search;
-  const window = search.get("window");
-  const layer = search.get("layer");
-  const verb = search.get("verb");
-  return {
-    window: window === "15m" || window === "1h" || window === "7d" ? window : "24h",
-    layer: layer === "governance" || layer === "pipeline" || layer === "domain" ? layer : "all",
-    verb: verb === "execute" || verb === "approve" || verb === "reject" ||
-      verb === "rollback" || verb === "abstain" || verb === "audit" ? verb : "all",
-    query: search.get("q") ?? "",
-  };
+  return activityFiltersFromSearch(currentRoute().search);
 }
 
 export function AgentActivityRoute({ client }: Props) {
@@ -297,9 +292,10 @@ function ActivityBody({
     () => selected ? incidentsForAgent(runtime, selected) : [],
     [runtime, selected],
   );
-  const selectedAuditCount = selected
-    ? (perAgent.find(([agent]) => agent === selected)?.[1] ?? 0)
-    : filtered.length;
+  const provenanceCounts = useMemo(
+    () => activityProvenanceCounts(visible),
+    [visible],
+  );
 
   usePublishViewContext(
     () => ({
@@ -307,7 +303,7 @@ function ActivityBody({
       routeLabel: "Agent activity",
       purpose:
         "Per-agent timeline reconstructed from the audit log - which pantheon " +
-        "agent did what, when, and why. Each incident (correlation id) is one " +
+        "agent did what, when, and why. Each correlation id groups one " +
         "hand-off cascade: Huginn senses, Forseti judges, Thor opens a " +
         "remediation PR, Var queues an approval, Saga records it. Read-only.",
       glossary: composeGlossary([
@@ -331,6 +327,8 @@ function ActivityBody({
         { key: "stream_status", value: streamStatus, group: "runtime" },
         { key: "stream_source", value: observationSourceLabel(streamSource), group: "runtime" },
         { key: "live_agents", value: liveAgents, group: "runtime" },
+        { key: "operational_audit_rows", value: provenanceCounts.operational, group: "evidence" },
+        { key: "sample_audit_rows", value: provenanceCounts.sample, group: "evidence" },
         { key: "window", value: filters.window, group: "filters" },
         { key: "layer", value: filters.layer, group: "filters" },
         { key: "verb", value: filters.verb, group: "filters" },
@@ -355,6 +353,7 @@ function ActivityBody({
           summary: summaryOf(item) ?? "-",
           detail: entryStr(item, "detail") ?? "-",
           reason: entryStr(item, "reason") ?? "-",
+          provenance: auditProvenanceOf(item),
         })),
       },
     }),
@@ -367,6 +366,7 @@ function ActivityBody({
       streamStatus,
       streamSource,
       liveAgents,
+      provenanceCounts,
       filters,
     ],
   );
@@ -391,6 +391,13 @@ function ActivityBody({
         lastEventAt={lastEventAt}
         refreshing={refreshing}
       />
+      {provenanceCounts.sample > 0 ? (
+        <div class="callout" role="status">
+          <strong>Local sample audit data</strong> - {provenanceCounts.sample} visible row(s)
+          are synthetic UI evidence. They remain available in Audit and Trace, but do not
+          represent live observation and do not create Incident roster entries.
+        </div>
+      ) : null}
       {!selectionValid && selected ? (
         <UnavailableState message={`Agent ${selected} is not in the fixed pantheon or the loaded audit activity.`} />
       ) : null}
@@ -398,7 +405,8 @@ function ActivityBody({
         <LiveAgentActivity
           node={selectedNode}
           incidents={selectedIncidents}
-          auditCount={selectedAuditCount}
+          operationalAuditCount={provenanceCounts.operational}
+          sampleAuditCount={provenanceCounts.sample}
           streamStatus={streamStatus}
         />
       ) : null}
@@ -481,18 +489,18 @@ function ActivityBody({
 function LiveAgentActivity({
   node,
   incidents,
-  auditCount,
+  operationalAuditCount,
+  sampleAuditCount,
   streamStatus,
 }: {
   readonly node: AgentNode;
   readonly incidents: readonly Incident[];
-  readonly auditCount: number;
+  readonly operationalAuditCount: number;
+  readonly sampleAuditCount: number;
   readonly streamStatus: AgentStreamStatus;
 }) {
   const role = AGENT_ROLE[node.name];
-  const activeIncident = node.correlationId
-    ? incidents.find((incident) => incident.correlationId === node.correlationId)
-    : undefined;
+  const activeIncident = matchingLiveIncident(node.correlationId, incidents);
   return (
     <section class="aa-selected-agent" aria-label={`${node.name} live activity`}>
       <header>
@@ -507,9 +515,11 @@ function LiveAgentActivity({
       <p>{node.observed ? node.detail ?? STATE_TASK[node.state] : "No runtime signal observed for this agent."}</p>
       <dl>
         <div><dt>Stream</dt><dd>{streamStatus}</dd></div>
-        <div><dt>Active incident</dt><dd>{activeIncident?.ticketId ?? node.correlationId ?? "None"}</dd></div>
+        <div><dt>Active correlation</dt><dd>{node.correlationId ?? "None"}</dd></div>
+        <div><dt>Active incident</dt><dd>{activeIncident?.ticketId ?? "None"}</dd></div>
         <div><dt>Live incidents</dt><dd>{incidents.length}</dd></div>
-        <div><dt>Audit rows</dt><dd>{auditCount}</dd></div>
+        <div><dt>Operational audit</dt><dd>{operationalAuditCount}</dd></div>
+        <div><dt>Local samples</dt><dd>{sampleAuditCount}</dd></div>
       </dl>
       <nav aria-label={`${node.name} evidence links`}>
         <a href={routeHref("agents", { params: { view: "org", agent: node.name, correlation: node.correlationId } })}>
@@ -517,7 +527,9 @@ function LiveAgentActivity({
         </a>
         {node.correlationId ? (
           <>
-            <a href={routeHref("incidents", { params: { status: "all", correlation: node.correlationId } })}>Incident</a>
+            {activeIncident ? (
+              <a href={routeHref("incidents", { params: { status: "all", correlation: node.correlationId } })}>Incident</a>
+            ) : null}
             <a href={routeHref("trace", { params: { correlation: node.correlationId } })}>Trace</a>
           </>
         ) : null}
@@ -542,4 +554,12 @@ function LiveAgentActivity({
       ) : null}
     </section>
   );
+}
+
+export function matchingLiveIncident(
+  correlationId: string | null,
+  incidents: readonly Incident[],
+): Incident | null {
+  if (correlationId === null) return null;
+  return incidents.find((incident) => incident.correlationId === correlationId) ?? null;
 }

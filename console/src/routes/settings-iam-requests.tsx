@@ -31,30 +31,15 @@ export function AccessRequestsView({
   readonly client: ReadApiClient;
   readonly reload: () => Promise<void>;
 }) {
-  const [deniedVisible, setDeniedVisible] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
 
   if (!canManage) {
     return (
-      <section class="settings-iam-panel settings-locked-request-panel">
-        <button
-          type="button"
-          class="settings-lock-action"
-          aria-expanded={deniedVisible}
-          onClick={() => setDeniedVisible(true)}
-        >
-          <LockIcon />
-          <span>
-            <strong>{t("settings.iam.requestsRestricted")}</strong>
-            <small>{t("settings.iam.requestsRestrictedHint")}</small>
-          </span>
-        </button>
-        {deniedVisible ? (
-          <div class="settings-permission-denied" role="alert">
-            {t("settings.iam.ownerPermissionRequired")}
-          </div>
-        ) : null}
+      <section class="settings-iam-panel settings-locked-panel" role="alert">
+        <LockIcon />
+        <strong>{t("settings.iam.accessDenied")}</strong>
+        <p>{t("settings.iam.ownerPermissionRequired")}</p>
       </section>
     );
   }

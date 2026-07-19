@@ -335,9 +335,9 @@ function PrincipalLabel({ displayName, secondary, type }: {
 
 function LockedIamPanel({ message }: { readonly message: string }) {
   return (
-    <div class="settings-locked-panel">
+    <div class="settings-locked-panel" role="alert">
       <LockIcon />
-      <strong>{t("settings.iam.restricted")}</strong>
+      <strong>{t("settings.iam.accessDenied")}</strong>
       <p>{message}</p>
     </div>
   );

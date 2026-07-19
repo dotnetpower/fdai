@@ -51,6 +51,13 @@ def test_upstream_registry_file_loads_clean() -> None:
     assert "t2.reasoner.primary" in registry.models
     assert "t2.reasoner.secondary" in registry.models
     assert registry.models["t1.embedding"].sku is Sku.STANDARD
+    assert {
+        preference.family for preference in registry.models["t2.reasoner.primary"].preferences
+    } >= {
+        "gpt-5",
+        "gpt-5.2",
+        "gpt-5.4",
+    }
 
 
 def test_load_from_mapping_accepts_minimal_shape() -> None:

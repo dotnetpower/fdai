@@ -478,6 +478,32 @@ latency. This preference applies only to the T1 narrator. T1 internal judgment, 
 all T2 secondary/critic/rubric/escalation assignments remain system-governed. The T2 primary
 pool keeps its same-publisher invariant and isn't personalized per operator.
 
+Settings > Models also provides a **T2 model-policy draft builder**. The read API projects only
+the primary and secondary publisher/family preferences from `rule-catalog/llm-registry.yaml`;
+it doesn't expose endpoints or credentials. An operator can select one candidate for each role
+only when their publishers differ, then copy a validated YAML fragment for a governance PR.
+The browser doesn't write this selection to runtime state. The active pair changes only after
+the catalog PR is reviewed, the resolver regenerates `resolved-models.json`, and the deployment
+loads that artifact. When registry metadata isn't mounted, the candidate lists are unavailable
+instead of being inferred from narrator models.
+
+In local operator mode, the page also combines the live regional GPT catalog,
+subscription quota, and existing deployments from the Azure CLI session. The
+reader runs asynchronously, caches results for five minutes, and supports an
+explicit read-only refresh. The projection contains only family, version,
+lifecycle, supported SKU, available quota, and deployment names. Azure resource
+ids, endpoints, and credentials remain hidden. A model is labeled `deployed`,
+`provisionable`, or `quota-unavailable`; deprecated/chat/codex/realtime families
+aren't offered as new T2 role choices.
+
+Selecting a deployed model adds it to the T2 governance draft. Selecting a
+provisionable model creates the same draft with an auto-provision note. Neither
+path mutates Azure from the console. After review, the bootstrap resolver
+rechecks catalog, quota, deployer permission, and publisher distinctness;
+Terraform then creates the capability deployment. Production read APIs don't
+gain subscription-wide Reader solely for this screen. When live discovery
+isn't available, the page falls back to the registry and resolved snapshot.
+
 The same page projects a read-only endpoint inventory for verified bindings. It shows capability,
 provider, direct or APIM route, API style, deployment, model family, TPM/PTU/GPU capacity, feature
 flags, discovery source, and verification time. It never returns `endpoint_ref`, auth audience,

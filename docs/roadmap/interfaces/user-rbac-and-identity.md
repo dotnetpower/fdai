@@ -414,12 +414,20 @@ External collaborators are onboarded via **Entra B2B invitation**, producing a g
 
 Human users never hold PATs or long-lived secrets:
 
-- **Local console seed harness**: `FDAI_READ_API_LOCAL_AZURE_CLI=1` resolves the
-  interactive user selected by `az login --use-device-code`. The API checks the active
-  account and decodes a short-lived ARM token only to obtain the stable Entra `oid`; the
-  token stays in the local API process and never reaches the browser. The projected
-  principal has a fixed `Contributor` development ceiling and is blocked when
-  `RUNTIME_ENV` is `staging` or `prod`.
+- **Azure-backed local console**: `FDAI_READ_API_LOCAL_ENTRA=1` is the canonical
+  interactive development mode. The browser signs in through Entra, and the API
+  verifies the JWT signature, issuer, audience, lifetime, and App Roles exactly as
+  production does. The server's Azure CLI session supplies short-lived tokens only to
+  Azure adapters such as Microsoft Graph, Azure Resource Graph, and Azure OpenAI; it
+  never replaces the browser principal. A principal with no App Role sees the
+  access-request page, and a missing bearer token fails closed.
+- **CLI principal alternative**: `FDAI_READ_API_LOCAL_AZURE_CLI=1` and
+  `VITE_LOCAL_AZURE_CLI_AUTH=1` project the current CLI user with a fixed local role
+  ceiling when browser sign-in isn't required. This is an explicit alternative, not the
+  canonical full-stack profile.
+- **Synthetic fixtures**: anonymous authorization, static users, seed audit records,
+  and scenario replay are available only through `app(test_fixtures=True)` under
+  pytest. They aren't an interactive development data source.
 - **Direct API client**: request a token scoped to a dedicated `fdai-api-dev` audience
   against a development tenant. The standard signature, audience, issuer, expiry, and
   App-Role checks in section 10.2 still apply.
@@ -441,13 +449,14 @@ Human users never hold PATs or long-lived secrets:
 
 ## 11. Console Settings and Access Requests
 
-The Settings activity-bar group gives operators four stable routes without widening the
+The Settings activity-bar group gives operators six stable routes without widening the
 console's cloud permissions:
 
 | Route | Purpose |
 |-------|---------|
 | `/settings/general` | Browser-local display, language, motion, and answer-verification preferences. |
-| `/settings/models` | Resolved T1/T2 models, automatic lifecycle status, latency evidence, and the signed-in user's T1 narrator preference. |
+| `/settings/models` | Resolved T1/T2 models, lifecycle and latency evidence, the signed-in user's T1 narrator preference, and a distinct-publisher T2 catalog draft builder that never changes runtime state. |
+| `/settings/memory` | Durable operator guidance when a provider is registered; otherwise an explicit unavailable state. |
 | `/settings/iam` | Signed-in principal, App Roles, effective capabilities, referenced users, and access requests. |
 | `/settings/integrations` | Read-only identity, delivery, and operator-channel connection status. |
 | `/settings/diagnostics` | Read API endpoint and authentication-session diagnostics. |
@@ -461,19 +470,21 @@ domains instead of leaving the previous domain menu visible.
 `GET /iam` returns the server-verified principal, the five fixed role definitions, and the
 effective capability union. `GET /iam/access-requests` returns requests visible to that
 principal. Access-request identities are Owner-only; Reader, Contributor, and Approver
-requests receive `403` and the console renders a locked surface. An unassigned user sees only
-their own request through the role-optional `GET /iam/self` projection.
+requests receive `403`. The Users and Access requests tabs remain visible with a lock icon;
+selecting either tab renders an immediate Access denied surface instead of ignoring the
+interaction. An unassigned user sees only their own request through the role-optional
+`GET /iam/self` projection.
 
 The Users tab combines two bounded sources. It shows the verified signed-in principal and
 users referenced by visible access requests. An Owner can also search the configured
 `HumanIdentityDirectory` through `GET /iam/directory/users?q=...` and select an account to
 prefill a governed access request. The browser never receives provider credentials.
 
-`GET /iam/directory/roster` projects the configured FDAI role groups and their person
-members. The Users tab can filter People and Groups, but role requests are available only
-for active people. Selecting a role opens a confirmation form that requires an operational
-justification before it records a `set` request. After approval, the assignment worker should
-replace the principal's routine FDAI role memberships with the selected role.
+`GET /iam/directory/roster` projects the FDAI enterprise application's live App Role
+assignments. The Entra adapter discovers the service principal, maps each App Role id to its
+role value, and expands assigned groups through transitive membership. Direct user
+assignments and group-derived assignments are merged by stable subject id. The Users tab can
+filter People and Groups, but role requests are available only for active people.
 
 `HumanIdentityDirectory` is cloud-provider-neutral. Every adapter returns a stable
 `provider`, `subject_id`, username, display name, user type, and active flag. Microsoft
@@ -486,12 +497,11 @@ Before the API accepts a governed role request, it stamps the configured provide
 `get_by_subject_id` to verify the subject, username, and active state. Client-supplied
 provider labels never select the identity backend.
 
-The anonymous local development mode keeps a synthetic directory for offline UI work. The
-authenticated local modes, `FDAI_READ_API_LOCAL_ENTRA=1` and
-`FDAI_READ_API_LOCAL_AZURE_CLI=1`, use the same Microsoft Graph adapter with the current Azure
-CLI credential and the five configured `FDAI_RBAC_*_GROUP_ID` values. They don't fall back to
-synthetic users, so alias search, the role roster, and access-request targets reflect the
-signed-in tenant while provider credentials remain outside the browser.
+Interactive local mode doesn't fall back to a synthetic directory. The Microsoft Graph
+adapter uses the server's Azure CLI credential to discover the FDAI service principal, its
+live App Role assignments, and transitive group members. Alias search, the role roster, and
+access-request targets therefore reflect the signed-in tenant while provider credentials
+remain outside the browser. Offline fixture identities remain pytest-only.
 
 ### 11.2 Governed request flow
 

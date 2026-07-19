@@ -39,6 +39,19 @@ export function documentCapabilityFailure(error: unknown): string {
   return error instanceof Error ? error.message : t("documents.unavailable");
 }
 
+export function documentFilesForUpload(
+  files: readonly File[],
+  capabilities: IngestionCapabilities | null,
+): readonly UploadRow[] {
+  if (capabilities === null) return [];
+  return files.slice(0, capabilities.max_batch_count).map((file, index) => ({
+    key: `${file.name}:${file.size}:${file.lastModified}:${index}`,
+    file,
+    state: file.size > capabilities.max_file_size ? "failed" : "queued",
+    ...(file.size > capabilities.max_file_size ? { error: t("documents.fileTooLarge") } : {}),
+  }));
+}
+
 export function DocumentIngestionRoute({ client }: Props) {
   const api = useMemo(() => new IngestionApiClient(loadConfig(), client), [client]);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -95,16 +108,8 @@ export function DocumentIngestionRoute({ client }: Props) {
   );
 
   const addFiles = (files: FileList | readonly File[]) => {
-    if (uploadBatchLock.current) return;
-    const maxBatch = capabilities?.max_batch_count ?? 1;
-    const maxSize = capabilities?.max_file_size ?? 0;
-    const selected = Array.from(files).slice(0, maxBatch);
-    setRows(selected.map((file, index) => ({
-      key: `${file.name}:${file.size}:${file.lastModified}:${index}`,
-      file,
-      state: maxSize > 0 && file.size > maxSize ? "failed" : "queued",
-      ...(maxSize > 0 && file.size > maxSize ? { error: t("documents.fileTooLarge") } : {}),
-    })));
+    if (uploadBatchLock.current || capabilities === null) return;
+    setRows(documentFilesForUpload(Array.from(files), capabilities));
   };
 
   const updateRow = (key: string, update: Partial<UploadRow>) => {
@@ -224,19 +229,22 @@ export function DocumentIngestionRoute({ client }: Props) {
 
       <section
         class={`document-drop-zone${dragging ? " is-dragging" : ""}`}
+        aria-labelledby="document-drop-title"
         onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+        }}
         onDrop={(event) => { event.preventDefault(); setDragging(false); addFiles(event.dataTransfer?.files ?? []); }}
       >
         <input ref={inputRef} type="file" multiple hidden disabled={uploading} onChange={(event) => addFiles(event.currentTarget.files ?? [])} />
         <div class="document-drop-icon" aria-hidden="true">⇧</div>
-        <h3>{t("documents.dropTitle")}</h3>
+        <h3 id="document-drop-title">{t("documents.dropTitle")}</h3>
         <p>{t("documents.dropHint")}</p>
         <button type="button" class="secondary" onClick={() => inputRef.current?.click()} disabled={!capabilities || uploading}>
           {t("documents.chooseFiles")}
         </button>
         <small>{t("documents.limits", { formats, size: maxSize, count: capabilities?.max_batch_count ?? "-" })}</small>
-        {capabilityError ? <div class="alert error">{capabilityError}</div> : null}
+        {capabilityError ? <div class="alert error" role="alert">{capabilityError}</div> : null}
       </section>
 
       {rows.length > 0 ? (
@@ -271,19 +279,31 @@ export function DocumentIngestionRoute({ client }: Props) {
   );
 }
 
-async function waitForTerminal(
+export async function waitForTerminal(
   api: IngestionApiClient,
   uploadId: string,
   active: () => boolean = () => true,
 ): Promise<import("../ingestion-api").UploadSession> {
+  let transientFailures = 0;
   for (let attempt = 0; attempt < 240; attempt += 1) {
     if (!active()) throw new Error("Upload batch cancelled");
-    const session = await api.status(uploadId);
+    let session: import("../ingestion-api").UploadSession;
+    try {
+      session = await api.status(uploadId);
+      transientFailures = 0;
+    } catch (error) {
+      const transient = !(error instanceof IngestionApiError) || error.status >= 500;
+      transientFailures += 1;
+      if (!transient || transientFailures > 3) throw error;
+      if (!active()) throw new Error("Upload batch cancelled");
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 500));
+      continue;
+    }
     if (["ready", "ready_with_warnings", "held", "failed", "deleted"].includes(session.state)) {
       return session;
     }
     if (!active()) throw new Error("Upload batch cancelled");
-    await new Promise((resolve) => window.setTimeout(resolve, 500));
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 500));
   }
   throw new Error(t("documents.processingTimeout"));
 }

@@ -82,7 +82,7 @@ class Heimdall(Agent):
         self.bus = bus
         self._rate_threshold = rate_threshold
         self._rate_window = rate_window
-        self._recent_events: dict[str, deque[str]] = {}
+        self._recent_events: dict[str, deque[tuple[float, str]]] = {}
         self._security_recent: deque[dict[str, Any]] = deque(maxlen=security_window_events)
         self._security_high_threshold = security_high_threshold
         self._alert_counters: Counter[tuple[str, str]] = Counter()
@@ -122,10 +122,13 @@ class Heimdall(Agent):
             resource_id, deque(maxlen=self._rate_threshold * 2)
         )
         _evict_oldest(self._recent_events, _MAX_TRACKED_KEYS, keep=resource_id)
-        history.append(str(event.get("event_type", "generic")))
+        now = self._clock()
+        while history and now - history[0][0] > self._rate_window:
+            history.popleft()
+        history.append((now, str(event.get("event_type", "generic"))))
         if len(history) < self._rate_threshold:
             return
-        window_tail = list(history)[-self._rate_threshold :]
+        window_tail = [event_type for _, event_type in list(history)[-self._rate_threshold :]]
         if len(set(window_tail)) == 1:
             anomaly = {
                 "producer_principal": "Heimdall",
@@ -140,12 +143,14 @@ class Heimdall(Agent):
             if self.bus is not None:
                 await self.bus.publish("Heimdall", "object.anomaly", anomaly)
             if self._incident_candidate_hook is not None:
+                evidence_key = str(event.get("idempotency_key") or event.get("event_id") or "")
+                if not evidence_key:
+                    self.record_behavior("incident_candidate_missing_evidence")
+                    return
                 candidate = {
                     **anomaly,
                     "reason_code": "repeated_event_threshold",
-                    "evidence_key": str(
-                        event.get("idempotency_key") or event.get("event_id") or ""
-                    ),
+                    "evidence_key": evidence_key,
                 }
                 try:
                     await self._incident_candidate_hook(candidate)
@@ -249,7 +254,7 @@ class Heimdall(Agent):
         if resources:
             rid = resources[0]
             history = list(self._recent_events[rid])
-            event_types = sorted(set(history))
+            event_types = sorted({event_type for _, event_type in history})
             facts.update(
                 {
                     "resource_id": rid,

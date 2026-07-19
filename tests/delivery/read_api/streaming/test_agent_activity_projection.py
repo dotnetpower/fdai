@@ -180,7 +180,7 @@ class TestIncidentTicket:
         assert states[-1].state is AgentState.APPROVING
         assert states[-1].correlation_id == "corr-1"
 
-    def test_terminal_audit_resets_completed_agents_to_idle(self) -> None:
+    def test_terminal_audit_resets_completed_agents_to_resting_state(self) -> None:
         _proj, events = _run(
             [
                 _stage(StageName.INGEST),
@@ -195,7 +195,12 @@ class TestIncidentTicket:
         states = [e for e in events if isinstance(e, AgentStateEvent)]
         terminal = states[-3:]
         assert {event.agent for event in terminal} == {"Huginn", "Heimdall", "Saga"}
-        assert all(event.state is AgentState.IDLE for event in terminal)
+        terminal_by_agent = {event.agent: event.state for event in terminal}
+        assert terminal_by_agent == {
+            "Huginn": AgentState.WATCHING,
+            "Heimdall": AgentState.WATCHING,
+            "Saga": AgentState.IDLE,
+        }
         assert all(event.correlation_id is None for event in terminal)
 
     def test_resolved_is_terminal(self) -> None:

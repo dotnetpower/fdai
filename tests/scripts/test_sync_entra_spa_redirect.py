@@ -60,7 +60,7 @@ class FakeAzureCli:
 
 
 def test_adds_origin_without_replacing_existing_redirects(script_module: ModuleType) -> None:
-    runner = FakeAzureCli(redirect_uris=["http://localhost:5173", "https://console.example.com"])
+    runner = FakeAzureCli(redirect_uris=["http://localhost:5273", "https://console.example.com"])
 
     changed = script_module.synchronize_redirect_uri(
         tenant_id="target-tenant",
@@ -71,7 +71,7 @@ def test_adds_origin_without_replacing_existing_redirects(script_module: ModuleT
 
     assert changed is True
     assert runner.redirect_uris == [
-        "http://localhost:5173",
+        "http://localhost:5273",
         "https://console.example.com",
         "https://deployed.example.com",
     ]

@@ -116,9 +116,15 @@ describe("report variable evidence", () => {
       { as_of: "2026-07-17T09:00:00Z" },
     ])).toBe("2026-07-17T09:00:00Z");
     expect(aggregateEvidenceAsOf([
+      { as_of: "2026-07-17T10:00:00+09:00" },
+      { as_of: "2026-07-17T02:00:00Z" },
+    ])).toBe("2026-07-17T10:00:00+09:00");
+    expect(aggregateEvidenceAsOf([
       { as_of: "2026-07-17T10:00:00Z" },
       { as_of: null },
     ])).toBeNull();
+    expect(aggregateEvidenceAsOf([{ as_of: "2026-07-17" }])).toBeNull();
+    expect(aggregateEvidenceAsOf([{ as_of: "2026-13-45T25:00:00Z" }])).toBeNull();
   });
 
   test("invalidates rendered evidence when a variable changes", () => {

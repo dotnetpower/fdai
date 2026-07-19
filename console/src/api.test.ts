@@ -205,6 +205,20 @@ describe("read API response decoders", () => {
         hypotheses: [{ ...grounded.hypotheses[0], tier: "t9" }],
       }),
     ).toThrow(/tier MUST/);
+    expect(() => decodeRcaView({ ...grounded, correlation_id: " " }))
+      .toThrow(/correlation_id MUST NOT be empty/);
+    expect(() => decodeRcaView({
+      ...grounded,
+      hypotheses: [grounded.hypotheses[0], grounded.hypotheses[0]],
+    })).toThrow(/unique ascending seq/);
+    expect(() => decodeRcaView({
+      ...grounded,
+      hypotheses: [{ ...grounded.hypotheses[0], recorded_at: "2026-07-14" }],
+    })).toThrow(/RFC 3339/);
+    expect(() => decodeRcaView({
+      ...grounded,
+      response: { ...grounded.response, recorded_at: "later" },
+    })).toThrow(/RFC 3339/);
   });
 
   test("decodes an RCA view with an abstained hypothesis and null response", () => {

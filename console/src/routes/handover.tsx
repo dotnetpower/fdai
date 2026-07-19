@@ -13,7 +13,8 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { routeHref } from "../router";
-import { panelArray, panelBoolean, panelNullableString, panelNumber, panelRecord, panelString, panelStringArray } from "./panel-decode";
+import { PANTHEON } from "./agents.model";
+import { panelArray, panelBoolean, panelContractError, panelNullableString, panelNumber, panelRecord, panelString, panelStringArray } from "./panel-decode";
 
 /**
  * Handover panel. Fetches ``GET /stewardship`` and renders the handover map
@@ -25,10 +26,14 @@ import { panelArray, panelBoolean, panelNullableString, panelNumber, panelRecord
  * are governance draft PRs, never a console mutation.
  */
 
+type StewardKind = "user" | "group";
+type StewardResponsibility = "accountable" | "informed";
+type FindingSeverity = "warn" | "info";
+
 interface StewardDto {
-  readonly kind: string;
+  readonly kind: StewardKind;
   readonly id: string;
-  readonly responsibility: string;
+  readonly responsibility: StewardResponsibility;
 }
 
 interface AgentStewardshipDto {
@@ -50,7 +55,7 @@ interface MapDto {
 
 interface FindingDto {
   readonly code: string;
-  readonly severity: string;
+  readonly severity: FindingSeverity;
   readonly message: string;
   readonly agent: string | null;
 }
@@ -119,11 +124,11 @@ export function HandoverRoute({ client }: Props) {
   );
 }
 
-function decodeStewardship(value: unknown): StewardshipResponse {
+export function decodeStewardship(value: unknown): StewardshipResponse {
   const root = panelRecord(value, "stewardship");
   const map = panelRecord(root["map"], "stewardship.map");
   const coverage = panelRecord(root["coverage"], "stewardship.coverage");
-  return {
+  const decoded: StewardshipResponse = {
     map: {
       version: panelNumber(map, "version", "stewardship.map"),
       maintainers: panelStringArray(map["maintainers"], "stewardship.map.maintainers"),
@@ -140,9 +145,13 @@ function decodeStewardship(value: unknown): StewardshipResponse {
           stewards: panelArray(agent["stewards"], "stewardship agent.stewards").map((value, stewardIndex) => {
             const steward = panelRecord(value, `stewardship agent.stewards[${stewardIndex}]`);
             return {
-              kind: panelString(steward, "kind", "steward"),
+              kind: stewardshipEnum(steward, "kind", ["user", "group"]),
               id: panelString(steward, "id", "steward"),
-              responsibility: panelString(steward, "responsibility", "steward"),
+              responsibility: stewardshipEnum(
+                steward,
+                "responsibility",
+                ["accountable", "informed"],
+              ),
             };
           }),
         };
@@ -157,13 +166,45 @@ function decodeStewardship(value: unknown): StewardshipResponse {
         const finding = panelRecord(value, `stewardship.coverage.findings[${index}]`);
         return {
           code: panelString(finding, "code", "stewardship finding"),
-          severity: panelString(finding, "severity", "stewardship finding"),
+          severity: stewardshipEnum(finding, "severity", ["warn", "info"]),
           message: panelString(finding, "message", "stewardship finding"),
           agent: panelNullableString(finding, "agent", "stewardship finding"),
         };
       }),
     },
   };
+  const expectedNames = PANTHEON.map((agent) => agent.name);
+  const actualNames = decoded.map.agents.map((agent) => agent.name);
+  if (
+    actualNames.length !== expectedNames.length ||
+    new Set(actualNames).size !== actualNames.length ||
+    expectedNames.some((name) => !actualNames.includes(name))
+  ) {
+    throw panelContractError("stewardship.map.agents MUST contain the fixed 15-agent pantheon exactly once");
+  }
+  if (decoded.map.maintainer_count !== decoded.map.maintainers.length) {
+    throw panelContractError("stewardship.map.maintainer_count MUST match maintainers.length");
+  }
+  if (
+    decoded.coverage.total_agents !== decoded.map.agents.length ||
+    decoded.coverage.maintainer_count !== decoded.map.maintainer_count ||
+    decoded.coverage.autonomous_agents !== decoded.map.agents.filter((agent) => agent.autonomous).length
+  ) {
+    throw panelContractError("stewardship.coverage counts MUST match the handover map");
+  }
+  return decoded;
+}
+
+function stewardshipEnum<const T extends string>(
+  value: Readonly<Record<string, unknown>>,
+  key: string,
+  allowed: readonly T[],
+): T {
+  const decoded = panelString(value, key, "stewardship");
+  if (!allowed.includes(decoded as T)) {
+    throw panelContractError(`stewardship.${key} MUST be one of ${allowed.join(", ")}`);
+  }
+  return decoded as T;
 }
 
 function HandoverBody({ data }: { readonly data: StewardshipResponse }) {

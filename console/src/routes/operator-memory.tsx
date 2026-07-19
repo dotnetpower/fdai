@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import { isOptionalReadApiUnavailable, type ReadApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -40,7 +40,9 @@ export function OperatorMemoryRoute({ client }: { readonly client: ReadApiClient
       }
     } catch (error) {
       if (request === generation.current) {
-        setState({ status: "error", message: error instanceof Error ? error.message : String(error) });
+        setState(isOptionalReadApiUnavailable(error)
+          ? { status: "unavailable", message: t("settings.operatorMemory.unavailable") }
+          : { status: "error", message: error instanceof Error ? error.message : String(error) });
       }
     }
   };

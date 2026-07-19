@@ -14,21 +14,7 @@ import {
   milliseconds,
   startClockOf,
 } from "./agent-activity-semantics";
-import type { ActivityFilters } from "./agent-activity-groups";
-
-function activityFiltersFromRoute(): ActivityFilters {
-  const search = currentRoute().search;
-  const window = search.get("window");
-  const layer = search.get("layer");
-  const verb = search.get("verb");
-  return {
-    window: window === "15m" || window === "1h" || window === "7d" ? window : "24h",
-    layer: layer === "governance" || layer === "pipeline" || layer === "domain" ? layer : "all",
-    verb: verb === "execute" || verb === "approve" || verb === "reject" ||
-      verb === "rollback" || verb === "abstain" || verb === "audit" ? verb : "all",
-    query: search.get("q") ?? "",
-  };
-}
+import { activityFiltersFromSearch } from "./agent-activity-groups";
 
 /** Small speech-bubble glyph marking a row that carries an agent-to-agent
  * conversation. Inline SVG (no emoji in code per the language policy). */
@@ -102,7 +88,7 @@ function buildGroups(items: readonly AuditItem[]): readonly WaterfallGroup[] {
     });
     groups.push({ correlation, startMs, spanMs: actualSpanMs, bars });
   }
-  // Newest incident first, matching the audit projection's newest-first order.
+  // Newest correlation group first, matching the audit projection's order.
   groups.sort((a, b) => b.startMs - a.startMs);
   return groups;
 }
@@ -136,7 +122,7 @@ export function ActivityWaterfall({ items, selected }: ActivityWaterfallProps) {
   }, []);
 
   const openStep = (step: number | null): void => {
-    const filters = activityFiltersFromRoute();
+    const filters = activityFiltersFromSearch(currentRoute().search);
     navigate(routeHref("agent-activity", {
       params: {
         agent: selected,
@@ -158,7 +144,7 @@ export function ActivityWaterfall({ items, selected }: ActivityWaterfallProps) {
       return next;
     });
 
-  // When an agent is filtered, keep only incidents that agent touched (so the
+  // When an agent is filtered, keep only correlation groups that agent touched (so the
   // hand-off context around it stays visible) and dim the other lanes.
   const shown = useMemo(
     () =>
@@ -177,7 +163,7 @@ export function ActivityWaterfall({ items, selected }: ActivityWaterfallProps) {
   if (shown.length === 0) {
     return (
       <EmptyState
-        title="No matching incidents"
+        title="No matching correlation groups"
         body="No correlated activity for this agent yet. Clear the filter to see the full waterfall."
       />
     );
@@ -198,7 +184,7 @@ export function ActivityWaterfall({ items, selected }: ActivityWaterfallProps) {
                   type="button"
                   class="waterfall-toggle"
                   aria-expanded={!isCollapsed}
-                  aria-label={isCollapsed ? "Expand incident" : "Collapse incident"}
+                  aria-label={isCollapsed ? "Expand correlation group" : "Collapse correlation group"}
                   onClick={() => toggle(g.correlation)}
                 >
                   <span class={`waterfall-chevron ${isCollapsed ? "" : "waterfall-chevron-open"}`} aria-hidden="true">

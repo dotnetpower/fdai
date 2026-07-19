@@ -530,6 +530,7 @@ export function AgentsRoute({ client }: Props) {
             <AgentFocus
               node={selectedAgentNode}
               incidents={selectedAgentIncidents}
+              selectedIncidentId={selectedId}
               onClose={() => openFocus(null, selectedId)}
               onChat={() =>
                 openDeckWithContext({

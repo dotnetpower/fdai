@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import json
 import time
 
 import pytest
@@ -13,6 +15,10 @@ from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
 from fdai.delivery.read_api.dev import local as _local
 from fdai.delivery.read_api.dev.azure_cli_identity import LocalAzureCliIdentity
+from fdai.delivery.read_api.dev.config import (
+    entra_application_id_from_env,
+    local_entra_verifier_environment,
+)
 
 _DEV_ENV = "FDAI_READ_API_DEV_MODE"
 _LOCAL_ENTRA_ENV = "FDAI_READ_API_LOCAL_ENTRA"
@@ -20,6 +26,12 @@ _LOCAL_AZURE_CLI_ENV = "FDAI_READ_API_LOCAL_AZURE_CLI"
 _LOCAL_SCENARIO_REPLAY_ENV = "FDAI_LOCAL_SCENARIO_REPLAY"
 _LOCAL_AZURE_DISCOVERY_ENV = "FDAI_LOCAL_AZURE_DISCOVERY"
 _LOCAL_AZURE_SUBSCRIPTION_ENV = "FDAI_LOCAL_AZURE_SUBSCRIPTION_ID"
+
+
+def _unsigned_token(claims: dict[str, object]) -> str:
+    header = base64.urlsafe_b64encode(b'{"alg":"none"}').rstrip(b"=").decode()
+    payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
+    return f"{header}.{payload}.local"
 
 
 def _python_task() -> dict[str, object]:
@@ -36,20 +48,36 @@ def _python_task() -> dict[str, object]:
 
 
 class TestLocalEntrypoint:
-    def test_inventory_graph_defaults_to_synthetic(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from fdai.delivery.read_api.routes.demo_inventory_graph import (
-            demo_inventory_graph_provider,
+    def test_maps_local_vite_msal_settings_to_read_api_contract(self) -> None:
+        env = local_entra_verifier_environment(
+            {
+                "VITE_MSAL_TENANT_ID": "tenant-id",
+                "VITE_MSAL_API_SCOPE": "api://api-app-id/access",
+            }
+        )
+
+        assert env["FDAI_ENTRA_TENANT_ID"] == "tenant-id"
+        assert env["FDAI_API_AUDIENCE"] == "api-app-id"
+        assert entra_application_id_from_env(env) == "api-app-id"
+
+    def test_inventory_graph_defaults_to_azure_cli(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fdai.delivery.read_api.dev.azure_inventory_graph import (
+            AzureCliInventoryGraphProvider,
         )
 
         monkeypatch.delenv(_LOCAL_AZURE_DISCOVERY_ENV, raising=False)
-        assert _local._build_inventory_graph_provider() is demo_inventory_graph_provider
+        monkeypatch.delenv(_LOCAL_AZURE_SUBSCRIPTION_ENV, raising=False)
 
-    def test_local_azure_discovery_requires_explicit_subscription(
+        provider = _local._build_inventory_graph_provider()
+
+        assert isinstance(provider, AzureCliInventoryGraphProvider)
+
+    def test_local_azure_discovery_rejects_synthetic_opt_out(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv(_LOCAL_AZURE_DISCOVERY_ENV, "1")
-        monkeypatch.delenv(_LOCAL_AZURE_SUBSCRIPTION_ENV, raising=False)
-        with pytest.raises(ValueError, match=_LOCAL_AZURE_SUBSCRIPTION_ENV):
+        monkeypatch.setenv(_LOCAL_AZURE_DISCOVERY_ENV, "0")
+
+        with pytest.raises(ValueError, match="MUST use Azure"):
             _local._build_inventory_graph_provider()
 
     def test_local_azure_discovery_builds_cli_provider(
@@ -67,7 +95,9 @@ class TestLocalEntrypoint:
         provider = _local._build_inventory_graph_provider()
         assert isinstance(provider, AzureCliInventoryGraphProvider)
 
-    def test_agent_stream_is_quiet_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_agent_stream_uses_real_runtime_relay_by_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.delenv(_LOCAL_SCENARIO_REPLAY_ENV, raising=False)
         monkeypatch.delenv("FDAI_AGENTS_REAL_RELAY", raising=False)
 
@@ -75,6 +105,7 @@ class TestLocalEntrypoint:
 
         assert live.sink is not None
         assert live.emitter_factory is None
+        assert live.stage_publisher_wrapper is not None
         assert agents.sink is not None
         assert agents.emitter_factory is None
 
@@ -90,26 +121,37 @@ class TestLocalEntrypoint:
         assert agents.sink is not None
         assert agents.emitter_factory is None
 
-    def test_agent_stream_allows_explicit_synthetic_demo(
+    def test_agent_stream_ignores_removed_synthetic_demo_switch(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv(_LOCAL_SCENARIO_REPLAY_ENV, "1")
         monkeypatch.setenv("FDAI_AGENTS_REAL_RELAY", "0")
 
-        _live, agents = _local._build_agent_streams()
+        live, agents = _local._build_agent_streams()
 
-        assert agents.sink is None
+        assert live.emitter_factory is not None
+        assert agents.sink is not None
+        assert agents.emitter_factory is None
 
-    def test_refuses_without_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_refuses_without_interactive_auth_mode(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(_DEV_ENV, raising=False)
         monkeypatch.delenv(_LOCAL_ENTRA_ENV, raising=False)
         monkeypatch.delenv(_LOCAL_AZURE_CLI_ENV, raising=False)
-        with pytest.raises(RuntimeError, match=_DEV_ENV):
+        with pytest.raises(RuntimeError, match="interactive local read API"):
             _local.app()
+
+    def test_fixture_mode_is_not_available_to_interactive_processes(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(_DEV_ENV, "1")
+        monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+        with pytest.raises(RuntimeError, match="pytest-only"):
+            _local.app(test_fixtures=True)
 
     def test_builds_and_serves_seeded_data(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(_DEV_ENV, "1")
-        application = _local.app()
+        application = _local.app(test_fixtures=True)
         assert isinstance(application, Starlette)
         client = TestClient(application)
         assert "/provision/stream" in {route.path for route in application.routes}
@@ -134,6 +176,24 @@ class TestLocalEntrypoint:
         assert review["id"] == "architecture-review"
         assert review["process"]["status"] == "waiting"
         assert review["regions"][0]["report"]["id"] == "architecture-review-process"
+
+    def test_dev_mode_honors_owner_role_from_present_bearer_token(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(_DEV_ENV, "1")
+        client = TestClient(_local.app(test_fixtures=True))
+        token = _unsigned_token({"oid": "owner-1", "roles": ["Owner"]})
+
+        anonymous = client.get("/iam").json()["principal"]
+        owner = client.get(
+            "/iam",
+            headers={"authorization": f"Bearer {token}"},
+        ).json()["principal"]
+
+        assert anonymous["roles"] == ["Contributor"]
+        assert owner["oid"] == "owner-1"
+        assert owner["roles"] == ["Owner"]
+        assert "manage-group-membership" in owner["capabilities"]
         metric_report = client.get(
             "/reports/metric-explorer/render",
             params={
@@ -152,7 +212,7 @@ class TestLocalEntrypoint:
 
     def test_wires_action_proposal_route(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(_DEV_ENV, "1")
-        application = _local.app()
+        application = _local.app(test_fixtures=True)
         with TestClient(application) as client:
             response = client.post(
                 "/chat/action",
@@ -180,7 +240,7 @@ class TestLocalEntrypoint:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv(_DEV_ENV, "1")
-        application = _local.app()
+        application = _local.app(test_fixtures=True)
         with TestClient(application) as client:
             staged = client.post("/python-tasks/stage", json=_python_task())
             assert staged.status_code == 200
@@ -206,13 +266,13 @@ class TestLocalEntrypoint:
 
     async def test_builds_inside_running_event_loop(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(_DEV_ENV, "1")
-        application = _local.app()
+        application = _local.app(test_fixtures=True)
         assert isinstance(application, Starlette)
 
     def test_custom_console_origin_is_allowed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(_DEV_ENV, "1")
         monkeypatch.setenv("FDAI_READ_API_CORS_ALLOW_ORIGINS", "http://127.0.0.1:5178")
-        client = TestClient(_local.app())
+        client = TestClient(_local.app(test_fixtures=True))
 
         response = client.get("/healthz", headers={"origin": "http://127.0.0.1:5178"})
 
@@ -224,23 +284,47 @@ class TestLocalEntrypoint:
     ) -> None:
         monkeypatch.setenv(_DEV_ENV, "1")
         monkeypatch.delenv("FDAI_READ_API_CORS_ALLOW_ORIGINS", raising=False)
-        client = TestClient(_local.app())
+        client = TestClient(_local.app(test_fixtures=True))
 
         response = client.get("/healthz", headers={"origin": "http://127.0.0.1:4173"})
 
         assert response.status_code == 200
         assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:4173"
 
+    def test_vite_development_origin_is_allowed_by_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(_DEV_ENV, "1")
+        monkeypatch.delenv("FDAI_READ_API_CORS_ALLOW_ORIGINS", raising=False)
+        client = TestClient(_local.app(test_fixtures=True))
+
+        response = client.get("/healthz", headers={"origin": "http://127.0.0.1:5273"})
+
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5273"
+
+    def test_nonstandard_vite_origin_is_not_allowed_by_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(_DEV_ENV, "1")
+        monkeypatch.delenv("FDAI_READ_API_CORS_ALLOW_ORIGINS", raising=False)
+        client = TestClient(_local.app(test_fixtures=True))
+
+        response = client.get("/healthz", headers={"origin": "http://127.0.0.1:5173"})
+
+        assert response.status_code == 200
+        assert "access-control-allow-origin" not in response.headers
+
     def test_custom_console_origin_rejects_wildcard(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(_DEV_ENV, "1")
         monkeypatch.setenv("FDAI_READ_API_CORS_ALLOW_ORIGINS", "*")
 
         with pytest.raises(ValueError, match="explicit HTTP"):
-            _local.app()
+            _local.app(test_fixtures=True)
 
 
 class TestLocalEntraLoginHarness:
-    """`FDAI_READ_API_LOCAL_ENTRA=1` serves seed data behind REAL Entra auth."""
+    """Entra verification over Azure-backed local or isolated fixture data."""
 
     def _enable(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(_DEV_ENV, raising=False)
@@ -251,8 +335,18 @@ class TestLocalEntraLoginHarness:
 
     def test_builds_with_real_verifier(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self._enable(monkeypatch)
-        application = _local.app()
+        application = _local.app(test_fixtures=True)
         assert isinstance(application, Starlette)
+
+    def test_builds_azure_backed_mode_without_test_fixtures(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._enable(monkeypatch)
+
+        application = _local.app()
+
+        assert isinstance(application, Starlette)
+        assert "/iam" in {route.path for route in application.routes}
 
     def test_unauthenticated_request_is_401_not_dev_anon(
         self, monkeypatch: pytest.MonkeyPatch
@@ -260,7 +354,7 @@ class TestLocalEntraLoginHarness:
         # The whole point: auth is enforced (not bypassed to dev-anon), so a
         # request with no bearer token is rejected before any data is served.
         self._enable(monkeypatch)
-        client = TestClient(_local.app())
+        client = TestClient(_local.app(test_fixtures=True))
         assert client.get("/audit").status_code == 401
         assert client.get("/kpi").status_code == 401
 
@@ -270,7 +364,7 @@ class TestLocalEntraLoginHarness:
         monkeypatch.delenv("FDAI_ENTRA_TENANT_ID", raising=False)
         monkeypatch.delenv("FDAI_API_AUDIENCE", raising=False)
         with pytest.raises(ValueError, match="FDAI_ENTRA_TENANT_ID"):
-            _local.app()
+            _local.app(test_fixtures=True)
 
 
 class TestLocalAzureCliHarness:
@@ -289,5 +383,16 @@ class TestLocalAzureCliHarness:
 
         client = TestClient(_local.app())
 
-        assert client.get("/audit").status_code == 200
+        assert client.get("/audit").json()["items"] == []
+        assert client.get("/hil-queue").json()["items"] == []
+        paths = {route.path for route in client.app.routes}
+        assert "/inventory/graph" in paths
+        assert "/models/settings" in paths
+        assert "/agents/stream" not in paths
+        assert "/live/stream" not in paths
+        assert "/provision/stream" not in paths
+        assert "/simulate/blast-radius" not in paths
+        assert "/scope" not in paths
+        assert "/promotion-gates" not in paths
+        assert "/stewardship" not in paths
         assert client.get("/local-auth/me").json()["source"] == "azure-cli"

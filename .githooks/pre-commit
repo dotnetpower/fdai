@@ -19,4 +19,27 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
+# pre-commit stashes unstaged changes while it runs staged-file fixers. When
+# the same path is both staged and modified, an auto-fix (for example the EOF
+# newline hook) can conflict with stash restoration, so pre-commit rolls the
+# fix back and the next commit repeats the identical failure. Stop before that
+# loop and tell the maintainer exactly which paths need staging or separation.
+mapfile -t staged_paths < <(git diff --cached --name-only --diff-filter=ACMR)
+mapfile -t unstaged_paths < <(git diff --name-only --diff-filter=ACMR)
+if [ "${#staged_paths[@]}" -gt 0 ] && [ "${#unstaged_paths[@]}" -gt 0 ]; then
+  overlap="$(
+    comm -12 \
+      <(printf '%s\n' "${staged_paths[@]}" | LC_ALL=C sort -u) \
+      <(printf '%s\n' "${unstaged_paths[@]}" | LC_ALL=C sort -u)
+  )"
+  if [ -n "$overlap" ]; then
+    echo "pre-commit: BLOCKED - paths have both staged and unstaged changes:" >&2
+    printf '  %s\n' $overlap >&2
+    echo "  Stage their current contents before committing:" >&2
+    echo "    git add -- <paths-above>" >&2
+    echo "  Or separate the unstaged edits into a later commit." >&2
+    exit 1
+  fi
+fi
+
 exec uv run pre-commit run --hook-stage pre-commit

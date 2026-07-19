@@ -5,6 +5,7 @@ import {
   consumeAgentActivitySse,
   decodeAgentActivityMessage,
   isPermanentAgentStreamFailure,
+  shouldResumeAgentStream,
   type AgentActivityMessage,
 } from "./use-agent-stream";
 
@@ -70,6 +71,12 @@ describe("agent activity stream boundary", () => {
     expect(isPermanentAgentStreamFailure(503)).toBe(false);
     expect(agentReconnectDelay(0)).toBe(1000);
     expect(agentReconnectDelay(20)).toBe(30000);
+  });
+
+  test("does not resume a permanently failed stream on tab visibility", () => {
+    expect(shouldResumeAgentStream(true, false)).toBe(false);
+    expect(shouldResumeAgentStream(false, true)).toBe(false);
+    expect(shouldResumeAgentStream(false, false)).toBe(true);
   });
 
   test("rejects successful responses that are not SSE", async () => {

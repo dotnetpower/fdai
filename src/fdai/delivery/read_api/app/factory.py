@@ -164,10 +164,22 @@ def build_app(
                 f"(RUNTIME_ENV={runtime_env!r})."
             )
 
+    def _dev_request_principal(
+        request: Request,
+        *,
+        require_console_access: bool,
+    ) -> Principal:
+        header = request.headers.get("authorization")
+        if header:
+            if require_console_access:
+                return authenticator.require_roles(header, required=_READER_ROLES)
+            return authenticator.authenticate(header)
+        return Principal(oid=_DEV_MODE_PRINCIPAL, roles=frozenset({Role.CONTRIBUTOR}))
+
     async def _authorize(request: Request) -> str:
         """Return the caller's ``oid`` (or ``dev-anon``) or raise 401/403."""
         if resolved_config.dev_mode:
-            return _DEV_MODE_PRINCIPAL
+            return _dev_request_principal(request, require_console_access=True).oid
         if local_cli_principal is not None:
             return local_cli_principal.oid
         header = request.headers.get("authorization")
@@ -178,12 +190,13 @@ def build_app(
         """Return the caller's full :class:`Principal` (roles) or raise 401/403.
 
         The action-submit route needs the role bag to gate on capability
-        server-side. In dev mode there is no token; return a Contributor-roled
-        dev principal so the local harness can exercise the submit path (dev
-        mode is refused outside local by :func:`build_app`).
+        server-side. Dev mode projects role claims when the local sign-in
+        chooser supplies a bearer token; anonymous dev sessions retain the
+        Contributor ceiling. Dev mode is refused outside local by
+        :func:`build_app`.
         """
         if resolved_config.dev_mode:
-            return Principal(oid=_DEV_MODE_PRINCIPAL, roles=frozenset({Role.CONTRIBUTOR}))
+            return _dev_request_principal(request, require_console_access=True)
         if local_cli_principal is not None:
             return local_cli_principal
         header = request.headers.get("authorization")
@@ -192,7 +205,7 @@ def build_app(
     async def _authenticate_principal(request: Request) -> Principal:
         """Authenticate a caller without requiring an assigned App Role."""
         if resolved_config.dev_mode:
-            return Principal(oid=_DEV_MODE_PRINCIPAL, roles=frozenset({Role.CONTRIBUTOR}))
+            return _dev_request_principal(request, require_console_access=False)
         if local_cli_principal is not None:
             return local_cli_principal
         return authenticator.authenticate(request.headers.get("authorization"))

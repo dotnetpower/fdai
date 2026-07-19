@@ -1,10 +1,17 @@
-import { describe, expect, it } from "vitest";
-import { IngestionApiError } from "../ingestion-api";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { IngestionApiError, type IngestionApiClient } from "../ingestion-api";
 import { t } from "../i18n";
-import { claimUploadBatch, documentCapabilityFailure } from "./document-ingestion";
+import {
+  claimUploadBatch,
+  documentCapabilityFailure,
+  documentFilesForUpload,
+  waitForTerminal,
+} from "./document-ingestion";
 import { buildDocumentViewSnapshot } from "./document-ingestion.view";
 
 describe("Documents ViewSnapshot", () => {
+  afterEach(() => vi.useRealTimers());
+
   it("allows only one upload batch to own the route lock", () => {
     const lock = { current: false };
     expect(claimUploadBatch(lock)).toBe(true);
@@ -18,6 +25,37 @@ describe("Documents ViewSnapshot", () => {
       .toBe(t("documents.unavailable"));
     expect(documentCapabilityFailure(new IngestionApiError(503, "gateway unavailable")))
       .toBe("gateway unavailable");
+  });
+
+  it("does not queue files until upload limits are authoritative", () => {
+    const file = { name: "guide.txt", size: 5, lastModified: 1 } as File;
+    expect(documentFilesForUpload([file], null)).toEqual([]);
+    expect(documentFilesForUpload([file], {
+      supported_formats: ["text"],
+      storage_modes: ["managed_copy"],
+      max_file_size: 4,
+      max_batch_count: 1,
+      archives_enabled: false,
+      policy_versions: ["v1"],
+      direct_upload: true,
+    })[0]).toMatchObject({ state: "failed", error: t("documents.fileTooLarge") });
+  });
+
+  it("retries transient status failures but fails 4xx responses immediately", async () => {
+    vi.useFakeTimers();
+    const ready = { upload_id: "upload-1", state: "ready" };
+    const status = vi.fn()
+      .mockRejectedValueOnce(new IngestionApiError(503, "retry"))
+      .mockResolvedValueOnce(ready);
+    const completed = waitForTerminal({ status } as unknown as IngestionApiClient, "upload-1");
+    await vi.advanceTimersByTimeAsync(500);
+    await expect(completed).resolves.toBe(ready);
+    expect(status).toHaveBeenCalledTimes(2);
+
+    const denied = vi.fn().mockRejectedValue(new IngestionApiError(404, "missing"));
+    await expect(waitForTerminal({ status: denied } as unknown as IngestionApiClient, "upload-2"))
+      .rejects.toThrow("missing");
+    expect(denied).toHaveBeenCalledTimes(1);
   });
 
   it("publishes visible sections, controls, constraints, and current state", () => {

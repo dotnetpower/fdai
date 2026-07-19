@@ -5,6 +5,7 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { currentRoute, routeHref } from "../router";
+import { isRfc3339Timestamp } from "../time-format";
 import { ProcessWidget, SUPPORTED_REPORT_WIDGET_TYPES } from "./process-view-renderer";
 import type {
   RenderedReportView,
@@ -71,11 +72,14 @@ export function aggregateEvidenceAsOf(
   sources: readonly { readonly as_of: string | null }[],
 ): string | null {
   if (sources.length === 0 || sources.some((source) => source.as_of === null)) return null;
-  const timestamps = sources
-    .map((source) => source.as_of!)
-    .filter((value) => Number.isFinite(Date.parse(value)))
-    .sort();
-  return timestamps.length === sources.length ? timestamps[0] ?? null : null;
+  if (sources.some((source) => !isRfc3339Timestamp(source.as_of!))) return null;
+  const timestamps = sources.map((source) => ({
+    value: source.as_of!,
+    epoch: Date.parse(source.as_of!),
+  }));
+  if (timestamps.some(({ epoch }) => !Number.isFinite(epoch))) return null;
+  timestamps.sort((left, right) => left.epoch - right.epoch);
+  return timestamps[0]?.value ?? null;
 }
 
 export function reportDownloadCanComplete(

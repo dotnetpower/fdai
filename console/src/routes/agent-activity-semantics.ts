@@ -27,6 +27,7 @@ export function agentOf(item: AuditItem): string {
   if (item.actor in AGENT_LAYER) return item.actor;
   const semanticOwner = semanticAgentOwner(item);
   if (semanticOwner !== null) return semanticOwner;
+  if (item.actor === "fdai") return "System";
   if (item.actor && item.actor.trim()) return humanizeActor(item.actor);
   return "System";
 }
@@ -82,6 +83,28 @@ export function summaryOf(item: AuditItem): string | null {
 export function tierOf(item: AuditItem): string | null {
   const tier = item.entry["tier"];
   return typeof tier === "string" ? tier.toUpperCase() : null;
+}
+
+export type AuditProvenance = "operational" | "sample";
+
+export function auditProvenanceOf(item: AuditItem): AuditProvenance {
+  return item.entry["fixture_source"] === "read-api-dev-seed" ||
+    item.entry["observation_source"] === "synthetic-dev"
+    ? "sample"
+    : "operational";
+}
+
+export function activityProvenanceCounts(items: readonly AuditItem[]): {
+  readonly operational: number;
+  readonly sample: number;
+} {
+  let operational = 0;
+  let sample = 0;
+  for (const item of items) {
+    if (auditProvenanceOf(item) === "sample") sample += 1;
+    else operational += 1;
+  }
+  return { operational, sample };
 }
 
 export function outcomePill(outcome: string): PillKind {
@@ -151,6 +174,7 @@ const SHOWN_ENTRY_KEYS: ReadonlySet<string> = new Set([
   "tier", "outcome", "decision", "pipeline_stage", "reason",
   "producer_principal", "action_kind", "correlation_id", "recorded_at", "event_id",
   "actor", "mode",
+  "fixture_source", "observation_source",
 ]);
 
 function fmtScalar(value: unknown): string {

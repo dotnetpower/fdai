@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 5857d1dadd6bc502feabd16a2dcea5729e8d51de
-translation_revised: 2026-07-18
+translation_source_sha: eb6dd6ce8d0c4d5d068fb16cdd8d334191805654
+translation_revised: 2026-07-19
 ---
 
 # 오퍼레이터 콘솔 (Conversational)
@@ -925,7 +925,7 @@ read-only 콘솔 SPA는 오퍼레이터가 지금 보는 화면을 `ViewSnapshot
   "glossary": [
     {
       "term": "correlation id",
-      "plain": "한 event의 모든 에이전트 스텝을 묶는 incident 키",
+      "plain": "관련 step과 evidence를 묶는 investigation key이며 Incident 존재 증거는 아님",
       "tech": "correlation_id",   // 정밀 내부 토큰 (optional)
       "seeAlso": "trace",          // 심화할 route (optional)
       "match": "correlation_id"    // 이 term이 설명하는 records 컬럼 (optional)
@@ -1306,7 +1306,8 @@ prose를 추측하지 않습니다.
 expected-state check가 필요합니다. Illegal edge, unknown id, cross-replica conflict는
 canonical incident를 변경하지 않고 `incident_lifecycle_rejected`를 반환합니다.
 
-`correlation_id`가 인시던트 키입니다. Projection은 최상위 correlation이 없는
+`correlation_id`는 evidence를 연결하는 investigation key이며 그 자체로 Incident lifecycle
+record가 존재한다는 증거가 아닙니다. Projection은 최상위 correlation이 없는
 행의 `event_id`가 이미 알려진 correlation과 같거나 명시적인 인시던트 lifecycle
 link가 정확히 하나의 correlation으로 확인될 때만 해당 행을 연결할 수 있습니다.
 모호한 행은 연결하지 않으며 read model은 리소스 이름으로 연관 관계를 만들지
@@ -1315,6 +1316,9 @@ link가 정확히 하나의 correlation으로 확인될 때만 해당 행을 연
 있으면 이를 authoritative하게 사용합니다. 그렇지 않으면 audit stage에서 `open`,
 `in_progress`, `resolved`를 도출합니다. 교정이 deny, abstain 또는 실패했다는
 사실만으로 기반 인시던트가 해결되었다고 표시하지 않습니다.
+Local read API audit fixture는 명시적인 sample provenance를 가지며 Audit, Trace,
+Agent activity에서 계속 볼 수 있습니다. Operational Incident roster에서는 제외되므로
+정상 또는 within-threshold monitoring sample이 열린 Incident처럼 보이지 않습니다.
 
 각 incident summary는 기록된 `producer_principal`, canonical action owner, stage
 ownership에서 server-side로 도출한 `involved_agents`를 포함합니다. Agents surface는

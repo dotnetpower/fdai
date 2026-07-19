@@ -3,6 +3,7 @@ import { StatusPill, type PillKind } from "../components/ui";
 import type { AgentStreamStatus } from "../hooks/use-agent-stream";
 import { observationSourceLabel, type ObservationSource } from "../hooks/observation-source";
 import { routeHref } from "../router";
+import { activityProvenanceCounts, auditProvenanceOf } from "./agent-activity-semantics";
 
 export type ActivityWindow = "15m" | "1h" | "24h" | "7d";
 export type ActivityLayer = "all" | "governance" | "pipeline" | "domain";
@@ -20,6 +21,19 @@ export interface ActivityFilters {
   readonly layer: ActivityLayer;
   readonly verb: ActivityVerb;
   readonly query: string;
+}
+
+export function activityFiltersFromSearch(search: URLSearchParams): ActivityFilters {
+  const window = search.get("window");
+  const layer = search.get("layer");
+  const verb = search.get("verb");
+  return {
+    window: window === "15m" || window === "1h" || window === "7d" ? window : "24h",
+    layer: layer === "governance" || layer === "pipeline" || layer === "domain" ? layer : "all",
+    verb: verb === "execute" || verb === "approve" || verb === "reject" ||
+      verb === "rollback" || verb === "abstain" || verb === "audit" ? verb : "all",
+    query: search.get("q") ?? "",
+  };
 }
 
 interface GroupedActivityProps {
@@ -219,13 +233,18 @@ function AgentActivityGroup({
     counts.set(verb, (counts.get(verb) ?? 0) + 1);
   }
   const summary = [...counts.entries()].map(([verb, count]) => `${verb} ${count}`).join(" / ");
+  const provenance = activityProvenanceCounts(items);
   return (
     <section class="aa-group">
       <header class="aa-group-head">
         <span class="aa-dot" data-layer={displayLayer} aria-hidden="true" />
         <strong>{agent}</strong>
         <span class="aa-layer-tag">{pantheonLayerOf(agent)}</span>
-        <span class="aa-group-meta">{items.length} records · {summary}</span>
+        <span class="aa-group-meta">
+          {items.length} records
+          {provenance.sample > 0 ? ` · ${provenance.sample} local sample` : ""}
+          {` · ${summary}`}
+        </span>
       </header>
       <div class="aa-rows">
         {items.map((item) => <AgentActivityRow key={item.seq} item={item} />)}
@@ -243,6 +262,7 @@ function AgentActivityRow({ item }: { readonly item: AuditItem }) {
     stringEntry(item, "reason") ||
     item.action_kind;
   const target = stringEntry(item, "resource_ref") || stringEntry(item, "target_resource_ref");
+  const provenance = auditProvenanceOf(item);
   return (
     <div class="aa-row">
       <time dateTime={item.recorded_at}>{clock(item.recorded_at)}</time>
@@ -253,6 +273,7 @@ function AgentActivityRow({ item }: { readonly item: AuditItem }) {
         {summary !== item.action_kind ? <> · {summary}</> : null}
       </span>
       <span class="aa-row-meta">
+        {provenance === "sample" ? <StatusPill kind="neutral" label="local sample" /> : null}
         <StatusPill kind={modePill(item.mode)} label={item.mode} />
         {outcome ? <StatusPill kind={outcomePill(outcome)} label={outcome} /> : null}
         {item.correlation_id ? (

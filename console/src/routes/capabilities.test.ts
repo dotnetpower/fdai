@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { decodeCapabilities, isMutatingCapability } from "./capabilities";
+import {
+  capabilityRouteStateFromSearch,
+  decodeCapabilities,
+  isMutatingCapability,
+} from "./capabilities";
 
 describe("capability catalog provenance", () => {
   test("keeps a stable accessible name for the capability search control", () => {
@@ -21,5 +25,42 @@ describe("capability catalog provenance", () => {
 
     expect(decoded.source).toBe("static-catalog");
     expect(decoded.execution_eligibility).toBe(false);
+  });
+
+  test("restores filters and selection from a canonical route", () => {
+    expect(capabilityRouteStateFromSearch(new URLSearchParams(
+      "q=restart&category=incident&effect=execute&role=owner&capability=incident.restart",
+    ))).toEqual({
+      query: "restart",
+      category: "incident",
+      effect: "execute",
+      role: "owner",
+      selectedId: "incident.restart",
+    });
+  });
+
+  test("rejects contradictory or ambiguous catalog evidence", () => {
+    const item = {
+      capability_id: "incident.restart",
+      name: "Restart",
+      category: "incident",
+      summary: "Restart an incident target.",
+      side_effect_class: "execute",
+      default_mode: "shadow",
+      required_role: "owner",
+      slide_ref: "workflow-builder",
+      tags: [],
+    };
+    const root = {
+      source: "static-catalog",
+      execution_eligibility: false,
+      count: 1,
+      capabilities: [item],
+    };
+    expect(() => decodeCapabilities({ ...root, count: 2 })).toThrow(/count MUST match/);
+    expect(() => decodeCapabilities({ ...root, capabilities: [item, item], count: 2 }))
+      .toThrow(/ids MUST be unique/);
+    expect(() => decodeCapabilities({ ...root, capabilities: [{ ...item, capability_id: " " }] }))
+      .toThrow(/MUST NOT be empty/);
   });
 });

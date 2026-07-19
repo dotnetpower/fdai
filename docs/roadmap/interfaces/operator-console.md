@@ -969,7 +969,7 @@ answer "why did this happen" without a per-screen answerer:
   "glossary": [
     {
       "term": "correlation id",
-      "plain": "the incident key grouping every agent step for one event",
+      "plain": "the investigation key grouping related steps and evidence; not proof of an Incident",
       "tech": "correlation_id",   // precise internal token (optional)
       "seeAlso": "trace",          // route to dig deeper (optional)
       "match": "correlation_id"    // records column whose values this term explains (optional)
@@ -1373,7 +1373,8 @@ the registry's persisted expected-state check. Illegal edges, unknown ids, and
 cross-replica conflicts return `incident_lifecycle_rejected` without changing
 the canonical incident.
 
-`correlation_id` is the incident key. The projection can attach a row without
+`correlation_id` is the investigation key used to join evidence; it does not by
+itself prove that an Incident lifecycle record exists. The projection can attach a row without
 a top-level correlation only when its `event_id` equals an already-known
 correlation, or when an explicit incident lifecycle link resolves to exactly
 one correlation. Ambiguous rows stay unattached; the read model never invents
@@ -1383,6 +1384,10 @@ it does not rewrite the append-only audit row. Lifecycle state is authoritative
 when present. Otherwise the projection derives `open`, `in_progress`, or
 `resolved` from audit stages. A denied, abstained, or failed remediation does
 not by itself claim that the underlying incident is resolved.
+Local read-API audit fixtures carry explicit sample provenance and stay visible
+in Audit, Trace, and Agent activity. They are excluded from the operational
+Incident roster, so a normal or within-threshold monitoring sample cannot look
+like an opened Incident.
 
 Each incident summary includes `involved_agents`, derived server-side from the
 recorded `producer_principal`, canonical action owner, and stage ownership. The

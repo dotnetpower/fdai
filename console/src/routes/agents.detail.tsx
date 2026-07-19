@@ -8,6 +8,13 @@ import {
 } from "./agents.model";
 import { STATE_LABEL } from "./agents.view-model";
 
+export function isAgentEventExpanded(
+  correlationId: string,
+  selectedIncidentId: string | null,
+): boolean {
+  return correlationId === selectedIncidentId;
+}
+
 /**
  * Focus panel shown when the operator clicks an agent. Answers "who is this
  * and what events is it working?" - the role title + one-line duty, its
@@ -17,12 +24,14 @@ import { STATE_LABEL } from "./agents.view-model";
 export function AgentFocus({
   node,
   incidents,
+  selectedIncidentId,
   onClose,
   onChat,
   onPickIncident,
 }: {
   readonly node: AgentNode;
   readonly incidents: readonly Incident[];
+  readonly selectedIncidentId: string | null;
   readonly onClose: () => void;
   readonly onChat: () => void;
   readonly onPickIncident: (id: string) => void;
@@ -74,19 +83,26 @@ export function AgentFocus({
           <p class="agents-empty">No incidents involve {node.name} yet.</p>
         ) : (
           <ul>
-            {incidents.map((inc) => (
-              <li key={inc.correlationId}>
-                <button
-                  type="button"
-                  class={`incident-row sev-${inc.severity} status-${inc.status}`}
-                  onClick={() => onPickIncident(inc.correlationId)}
-                >
-                  <span class="incident-status">{inc.status}</span>
-                  <span class="incident-title">{inc.title}</span>
-                  <span class="incident-ticket">{inc.ticketId}</span>
-                </button>
-              </li>
-            ))}
+            {incidents.map((inc) => {
+              const isOpen = isAgentEventExpanded(inc.correlationId, selectedIncidentId);
+              return (
+                <li key={inc.correlationId} class={`incident-item${isOpen ? " is-open" : ""}`}>
+                  <button
+                    type="button"
+                    class={`incident-row sev-${inc.severity} status-${inc.status}${
+                      isOpen ? " is-selected" : ""
+                    }`}
+                    aria-expanded={isOpen}
+                    onClick={() => onPickIncident(inc.correlationId)}
+                  >
+                    <span class="incident-status">{inc.status}</span>
+                    <span class="incident-title">{inc.title}</span>
+                    <span class="incident-ticket">{inc.ticketId}</span>
+                  </button>
+                  {isOpen && <IncidentWorkflow incident={inc} />}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

@@ -163,9 +163,10 @@ the fork-locked organization, ownership, reporting lines, flags, and workflow
 registrations. `GET /agents/stream` adds each agent's current runtime state,
 task detail, correlation id, and engaged count. The page follows the Calm
 Slate prototype with governance, pipeline, and domain card groups plus a
-registry-derived reporting tree. Local synthetic events are labeled `demo
-stream`; production Kafka relay events are labeled `live stream`. Neither
-source grants the console execution authority.
+registry-derived reporting tree. Interactive local development does not create
+an agent stream; the runtime layer stays unavailable until the Azure FDAI
+runtime relay is configured. Neither source grants the console execution
+authority.
 
 The **History > Agent activity** panel
 ([`src/routes/agent-activity.tsx`](src/routes/agent-activity.tsx)) reuses the
@@ -359,11 +360,9 @@ violate it" over three GET routes
 | `GET /rules/{id}/findings` | Affected resources (resource + the attribute at fault) behind a `findings_provider` seam. Upstream ships none -> honest `evaluated=false`; a fork wires an inventory-evaluation source. |
 
 The seams are `ReadApiConfig.rule_catalog_rules`, `_collected_rules`,
-`_policies_root`, `_remediation_root`, and `_findings_provider`. The dev harness
-(`src/fdai/delivery/read_api/_local.py`) wires a demo findings provider
-(`demo_findings.py`) that evaluates the shipped Rego against a small synthetic,
-customer-agnostic inventory via real OPA - each finding's `problem` is the
-policy's own `deny_reason`, not invented. A selected rule is deep-linked into
+`_policies_root`, `_remediation_root`, and `_findings_provider`. Interactive
+local development leaves findings unavailable until an Azure-backed inventory
+evaluation source is configured; it never evaluates a synthetic inventory. A selected rule is deep-linked into
 the URL hash (`#/rules?rule=<id>&origin=<origin>`), so a rule detail is
 shareable and the browser back button closes the drawer.
 
@@ -449,11 +448,10 @@ accordion: selecting a row pins it and expands its workflow card (steps,
 agent-to-agent conversation, RCA) inline directly beneath that row; clicking
 the open row again collapses it.
 
-The local read API relays the same ControlLoop stage frames into Live and
-Agents by default, so the two screens describe one event stream. Set
-`FDAI_AGENTS_REAL_RELAY=0` only for an isolated synthetic UI narrative. The
-console labels the transport as `local` or `live`; authentication mode is not
-treated as evidence provenance.
+The interactive local read API does not start a local ControlLoop or Pantheon
+runtime. Live and Agents remain unavailable until a deployed Azure FDAI runtime
+relay supplies authoritative frames. Authentication mode is not treated as
+evidence provenance.
 
 ### Org-chart layout + agent focus (Now > Agents)
 
@@ -720,35 +718,38 @@ console/
 
 ## Local development
 
+The canonical local topology is the VS Code compound
+`Console Web: Full Stack` in [`.vscode/launch.json`](../.vscode/launch.json):
+console SPA `5273`, read API `8010`, and ingestion gateway `8011`. Start that
+compound from Run and Debug, or run the equivalent commands below.
+
 ```sh
 cd console
 npm install
-# Terminal 1: run the read API in dev mode (anonymous auth).
-FDAI_READ_API_DEV_MODE=1 \
+# Terminal 1: load local MSAL values and verify browser Entra tokens.
+set -a; . console/.env.local; set +a
+FDAI_READ_API_LOCAL_ENTRA=1 \
   uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
-        --factory --port 8000
+  --factory --port 8010
 
-# Terminal 2: run the SPA against the dev-mode API. The local auth chooser
-# appears before the console.
-VITE_DEV_MODE=1 VITE_READ_API_BASE_URL=http://127.0.0.1:8000 npm run dev
+# Terminal 2: run the SPA with browser Entra sign-in.
+VITE_DEV_MODE=0 \
+  VITE_READ_API_BASE_URL=http://127.0.0.1:8010 npm run dev
 ```
 
-When the three `VITE_MSAL_*` values are configured, the local chooser offers
-both **Sign in with Entra ID** and **Continue in dev mode**. The Entra option
-establishes a real browser identity session, while the dev API continues to use
-its fixed local authorization ceiling. Use the [Local sign-in test](#local-sign-in-test-real-entra)
-when you need end-to-end JWT and App-Role enforcement.
+The browser access token is the authorization principal. The API verifies its
+signature, issuer, audience, lifetime, and App Roles. Separately, the server
+uses the current Azure CLI session to obtain short-lived tokens when an Azure
+adapter needs Microsoft Graph, Azure Resource Graph, or Azure OpenAI. The CLI
+identity never replaces the browser principal. Local seed data, static users,
+and scenario replay are pytest-only and aren't supported by the interactive
+profile.
 
-The bypass marker lives in `sessionStorage`, so it applies only to the current
-browser tab. Choose **Exit local session** in the top bar to return to the
-chooser. To keep the previous immediate-bypass behavior, set:
-
-```sh
-VITE_DEV_MODE=1 VITE_LOCAL_LOGIN_PROMPT=0 npm run dev
-```
-
-The Documents route uses the dedicated ingestion gateway rather than the read
-API. Start its guarded in-memory local factory on a separate port:
+The Documents route uses a dedicated ingestion gateway rather than the read
+API. The in-memory gateway is test-only and isn't part of `Console Web: Full
+Stack`. Documents render unavailable until an Azure-backed ingestion adapter is
+configured. Automated gateway tests may start the isolated factory on port
+`8011`:
 
 ```bash
 FDAI_INGESTION_GATEWAY_DEV_MODE=1 \
@@ -761,7 +762,7 @@ factory supports local direct upload only and refuses to boot unless the dev
 mode environment variable is explicit. Accepted text and OOXML documents are
 split by structural unit, embedded with the deterministic local model, and
 stored in a searchable in-memory index. The index is cleared when the gateway
-restarts. The factory allows the standard local console ports `4173`, `5173`,
+restarts. The factory allows the standard local console ports `4173`, `5273`,
 `5180`, and `5190` on both `127.0.0.1` and `localhost`. For another port, pass
 one or more exact origins to the gateway process:
 
@@ -772,7 +773,7 @@ FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS=http://127.0.0.1:5178 \
   --factory --host 127.0.0.1 --port 8011
 ```
 
-The local read API allows both Vite's development origin on port `5173`
+The local read API allows both Vite's development origin on port `5273`
 and the production-preview origin on port `4173`. To smoke-test the built
 artifact, run `npm run build && npm run preview` against the same API.
 
@@ -780,15 +781,29 @@ When Vite uses another port, add that exact origin to the read API process.
 Wildcards aren't accepted.
 
 ```sh
-FDAI_READ_API_DEV_MODE=1 \
+FDAI_READ_API_LOCAL_ENTRA=1 \
   FDAI_READ_API_CORS_ALLOW_ORIGINS=http://127.0.0.1:5178 \
   uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
     --factory --port 8010
 ```
 
-The dev-mode env var is a **boot-time tripwire** - the API refuses to build a
-`dev_mode=True` app unless `FDAI_READ_API_DEV_MODE=1` is set. A fork's
-production build pipeline never sets that env var.
+The interactive API requires either `FDAI_READ_API_LOCAL_ENTRA=1` (canonical)
+or the explicit CLI-principal alternative. It rejects anonymous dev mode,
+scenario replay, and synthetic inventory outside pytest fixtures.
+
+Settings > Models uses the local Azure CLI session to combine the target
+region's GPT catalog, subscription quota, and deployments on the Azure OpenAI
+account named by `resolved-models.json`. Results are cached for five minutes;
+**Refresh catalog** bypasses that cache. Set `FDAI_MODEL_CATALOG_LIVE=0` when
+working offline. Discovery is read-only and returns only model family, version,
+SKU, quota, and deployment names. It never returns resource ids, endpoints, or
+credentials.
+
+A deployed model such as GPT-5.4 can be selected as the T2 primary immediately
+in the governance draft builder. A catalog model with quota but no deployment
+is labeled **Auto-provision ready**. Selecting it prepares a registry fragment;
+the reviewed resolver and Terraform pipeline create the deployment later. The
+console never calls Azure deployment create/update APIs directly.
 
 ### Auto-open the narrator endpoint (local dev)
 
@@ -837,65 +852,29 @@ token inside the API process. It exposes only the stable object id, username,
 display name, and local role projection to the SPA.
 
 ```sh
-# Terminal 1: seed API projected as the current Azure CLI user.
+# Terminal 1: Azure-backed API projected as the current Azure CLI user.
 FDAI_READ_API_LOCAL_AZURE_CLI=1 \
   uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
-        --factory --host 127.0.0.1 --port 8000
+  --factory --host 127.0.0.1 --port 8010
 
 # Terminal 2: SPA with MSAL bypassed in favor of the local CLI profile.
 cd console
-VITE_DEV_MODE=0 VITE_LOCAL_AZURE_CLI_AUTH=1 \
-    VITE_READ_API_BASE_URL=http://127.0.0.1:8000 \
+VITE_LOCAL_AZURE_CLI_AUTH=1 \
+  VITE_READ_API_BASE_URL=http://127.0.0.1:8010 \
     npm run dev
 ```
 
-The local principal has a fixed `Contributor` development ceiling, matching
-the existing anonymous dev harness. It doesn't import production App Roles or
+The local principal has a fixed `Contributor` development ceiling. It doesn't import production App Roles or
 grant Azure resource permissions to the browser. The API refuses this mode
 when `RUNTIME_ENV` is `staging` or `prod`, and it can't be combined with
 `FDAI_READ_API_DEV_MODE=1` or `FDAI_READ_API_LOCAL_ENTRA=1`.
 
-## Local sign-in test (real Entra)
+## Test-only authentication fixtures
 
-To exercise the **actual** MSAL sign-in + JWT verification + App-Role gate
-locally - not the anonymous bypass - run the same seed harness with
-`FDAI_READ_API_LOCAL_ENTRA=1` instead of `FDAI_READ_API_DEV_MODE`. The API then
-verifies genuine Entra access tokens against the tenant JWKS
-([`entra_verifier.py`](../src/fdai/delivery/read_api/entra_verifier.py)) while
-still serving the in-memory seed, so no live audit store is needed.
-
-Prerequisite - two Entra app registrations in your tenant (see
-[user-rbac-and-identity.md § 10](../docs/roadmap/interfaces/user-rbac-and-identity.md#10-sign-in-flow-reference)):
-
-1. **SPA app** (`fdai-console-spa`): platform *Single-page application*, redirect
-   URI `http://localhost:5173`. Note its client id.
-2. **API app** (`fdai-api`): Application ID URI `api://<api-guid>`, one exposed
-   scope `access`, and App Roles `Reader` / `Contributor` / `Approver` / `Owner`.
-   Assign your user the `Reader` (or higher) App Role in *Enterprise
-   applications*.
-
-```sh
-# Terminal 1: read API with REAL Entra verification (seed data).
-FDAI_READ_API_LOCAL_ENTRA=1 \
-    FDAI_ENTRA_TENANT_ID=<tenant-guid> \
-    FDAI_API_AUDIENCE=api://<api-guid> \
-  uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
-        --factory --port 8000
-
-# Terminal 2: SPA in NON-dev mode - MSAL actually signs you in.
-VITE_DEV_MODE=0 \
-    VITE_READ_API_BASE_URL=http://127.0.0.1:8000 \
-    VITE_MSAL_CLIENT_ID=<spa-client-id> \
-    VITE_MSAL_TENANT_ID=<tenant-guid> \
-    VITE_MSAL_API_SCOPE=api://<api-guid>/access \
-    npm run dev
-```
-
-Open `http://localhost:5173`, click **Sign in with Entra ID**, complete the
-Entra prompt, and the console loads the seed behind your real token. An
-unauthenticated call returns `401`; a signed-in user with no App Role gets `403`
-(assign a role to fix). This proves the production auth path end-to-end without
-deploying anything.
+Automated tests can invoke `app(test_fixtures=True)` to exercise anonymous and
+real-Entra verification over isolated data. The builder checks for pytest and
+fails in an interactive process. This fixture path is not a local Console data
+profile and must never be presented as Azure observation.
 
 ## Production build
 
@@ -916,13 +895,13 @@ CI env):
 | Env var | Meaning |
 |---------|---------|
 | `VITE_READ_API_BASE_URL` | Origin of the read API (e.g. `https://api.<fork>`). |
-| `VITE_INGESTION_API_BASE_URL` | Origin of the dedicated document-ingestion gateway. Defaults to `http://127.0.0.1:8011` for local development. |
+| `VITE_INGESTION_API_BASE_URL` | Origin of the Azure-backed document-ingestion gateway. Port `8011` is reserved for isolated automated gateway tests. |
 | `VITE_MSAL_CLIENT_ID` | Entra App Registration client id (SPA). |
 | `VITE_MSAL_TENANT_ID` | Entra tenant id (single-tenant per fork). |
 | `VITE_MSAL_API_SCOPE` | API audience scope (e.g. `api://<api-guid>/access`). |
-| `VITE_DEV_MODE` | `1` to enable the local development authorization ceiling. Shows the local auth chooser by default. Never set in production. |
-| `VITE_LOCAL_LOGIN_PROMPT` | Local-only chooser toggle. Defaults to `1` with `VITE_DEV_MODE=1`; set `0` for immediate dev bypass. |
-| `VITE_LOCAL_AZURE_CLI_AUTH` | `1` to project the current local `az login` user through the dev read API. Never set in production or together with `VITE_DEV_MODE`. |
+| `VITE_DEV_MODE` | Test-only authorization bypass paired with read-API fixtures. The interactive full-stack profile never sets it. |
+| `VITE_LOCAL_LOGIN_PROMPT` | Test-only chooser toggle used with `VITE_DEV_MODE`; not an interactive Azure data mode. |
+| `VITE_LOCAL_AZURE_CLI_AUTH` | `1` to project the current local `az login` user through the local read API. Explicit alternative to browser Entra sign-in; never set in production or together with `VITE_DEV_MODE`. |
 | `VITE_CONSOLE_BASE_PATH` | Optional subpath if not served at origin root. |
 | `VITE_WORKFLOW_CATALOG_REPO` | Optional `owner/repo` of the catalog repo. When set, a validated workflow draft shows a one-click "Open a PR on GitHub" (new-file link); the console still never commits. |
 | `VITE_WORKFLOW_CATALOG_BRANCH` | Branch the new-file PR link targets (default `main`). |

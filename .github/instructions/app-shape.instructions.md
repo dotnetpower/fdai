@@ -53,6 +53,46 @@ shape maps to environments and CI/CD.
 - **Approval and execution are distinct principals** - no self-approval. See
   [../../docs/roadmap/architecture/security-and-identity.md](../../docs/roadmap/architecture/security-and-identity.md).
 
+## Local Console Port Contract (MUST)
+
+- [../../.vscode/launch.json](../../.vscode/launch.json) is the source of truth for the
+  local `Console Web: Full Stack` topology: console SPA `5273` and read API `8010`.
+  Port `8011` remains reserved for the isolated test ingestion gateway, but that synthetic
+  gateway MUST NOT be part of the interactive full-stack compound. Documents remain
+  unavailable until an Azure-backed ingestion adapter is configured.
+- Vite production preview uses `4173`; it MUST NOT replace the `5273` development origin
+  in launch configurations, Entra SPA redirects, or local-development documentation.
+- `5173` is not an FDAI standard console port. A custom frontend port MAY be used only when
+  each local API receives that exact HTTP(S) origin through its documented CORS environment
+  variable. Wildcard origins are prohibited.
+- Port changes MUST update the launch configuration, Vite configuration, local API CORS
+  defaults, tests, Entra redirect examples, and paired English/Korean documentation together.
+
+## Local Azure Truth Contract (MUST)
+
+- The interactive local full-stack profile uses the operator's current Azure CLI identity and
+  reads the Azure development environment. `FDAI_READ_API_LOCAL_AZURE_CLI=1` and
+  `VITE_LOCAL_AZURE_CLI_AUTH=1` are the standard local authentication pair;
+  `FDAI_READ_API_DEV_MODE=1` and `VITE_DEV_MODE=1` are test-only and MUST NOT be used by the
+  VS Code full-stack launch profile.
+- Interactive local routes MUST NOT seed or synthesize audit rows, Incidents, Approvals,
+  agent activity, live control-loop frames, findings, inventory, scope, blast-radius graphs,
+  scheduler runs, cost records, promotion evidence, security assessments, or Process runs.
+- A local panel MUST read its authoritative Azure-backed source. When the corresponding FDAI
+  Azure data plane is not deployed, not configured, unreachable, or unauthorized, the panel
+  MUST render unavailable or an explicitly sourced empty state. It MUST NOT substitute demo
+  data, catalog-shaped resource templates, generated narratives, or an in-memory fallback and
+  present them as observed state.
+- Repository catalogs and schemas remain valid local sources for catalog/reference screens;
+  they are configuration-as-code, not runtime evidence. Runtime claims MUST carry their actual
+  source and MUST NOT be inferred from catalog declarations.
+- Synthetic fixtures remain permitted only inside automated tests, mocks, and examples. A
+  test-only fixture builder MUST be explicit and MUST fail if invoked by an interactive local
+  process.
+- Offline development without Azure access is fail-closed: reference/catalog screens may load,
+  but Azure runtime screens remain unavailable. There is no synthetic offline mode for the
+  interactive Console.
+
 ## Console Visual Boundary (MUST)
 
 - Console cards, panels, page sections, callouts, workflow nodes, table rows, and list rows

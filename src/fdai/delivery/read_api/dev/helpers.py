@@ -13,14 +13,10 @@ from fdai.delivery.read_api.streaming.agent_activity_stream import (
     AgentActivityStreamConfig,
     SseAgentActivityPublisher,
 )
-from fdai.delivery.read_api.streaming.live_control_loop import (
-    ControlLoopEmitterUnavailable,
-    build_control_loop_emitter,
-)
+from fdai.delivery.read_api.streaming.live_control_loop import build_control_loop_emitter
 from fdai.delivery.read_api.streaming.live_stream import (
     LiveEmitter,
     LiveStreamConfig,
-    SyntheticLiveEmitter,
 )
 from fdai.shared.providers.sse import SseSink
 from fdai.shared.providers.testing.sse import InMemorySseSink
@@ -74,43 +70,37 @@ def build_live_stream_config(stage_publisher_wrapper: Any = None) -> LiveStreamC
     channel = "aw.pipeline.stages"
 
     def factory(sink_arg: SseSink, channel_arg: str) -> LiveEmitter:
-        try:
-            return build_control_loop_emitter(
-                sink_arg,
-                channel_arg,
-                events_per_second=3.0,
-                stage_publisher_wrapper=stage_publisher_wrapper,
-            )
-        except ControlLoopEmitterUnavailable:
-            return SyntheticLiveEmitter(
-                sink=sink_arg,
-                channel=channel_arg,
-                events_per_second=3.0,
-            )
+        return build_control_loop_emitter(
+            sink_arg,
+            channel_arg,
+            events_per_second=3.0,
+            stage_publisher_wrapper=stage_publisher_wrapper,
+        )
 
     return LiveStreamConfig(
         path="/live/stream",
         channel=channel,
         sink=sink,
         emitter_factory=factory,
+        stage_publisher_wrapper=stage_publisher_wrapper,
     )
 
 
 def build_agent_streams() -> tuple[LiveStreamConfig, AgentActivityStreamConfig]:
-    if os.environ.get(LOCAL_SCENARIO_REPLAY_ENV, "").strip() != "1":
-        return (
-            LiveStreamConfig(sink=InMemorySseSink()),
-            AgentActivityStreamConfig(sink=InMemorySseSink()),
-        )
-    if os.environ.get("FDAI_AGENTS_REAL_RELAY") == "0":
-        return build_live_stream_config(), AgentActivityStreamConfig()
-
     agent_sink: SseSink = InMemorySseSink()
     agent_publisher = SseAgentActivityPublisher(sink=agent_sink)
 
     def wrapper(inner: Any) -> Any:
         return ControlLoopAgentActivityRelay(publisher=agent_publisher, inner=inner)
 
+    if os.environ.get(LOCAL_SCENARIO_REPLAY_ENV, "").strip() != "1":
+        return (
+            LiveStreamConfig(
+                sink=InMemorySseSink(),
+                stage_publisher_wrapper=wrapper,
+            ),
+            AgentActivityStreamConfig(sink=agent_sink),
+        )
     return (
         build_live_stream_config(stage_publisher_wrapper=wrapper),
         AgentActivityStreamConfig(sink=agent_sink),
@@ -118,22 +108,19 @@ def build_agent_streams() -> tuple[LiveStreamConfig, AgentActivityStreamConfig]:
 
 
 def build_inventory_graph_provider() -> Any:
-    from fdai.delivery.read_api.routes.demo_inventory_graph import demo_inventory_graph_provider
-
-    if os.environ.get(LOCAL_AZURE_DISCOVERY_ENV, "").strip() != "1":
-        return demo_inventory_graph_provider
-    subscription_id = os.environ.get(LOCAL_AZURE_SUBSCRIPTION_ENV, "").strip()
-    if not subscription_id:
+    if os.environ.get(LOCAL_AZURE_DISCOVERY_ENV, "").strip() == "0":
         raise ValueError(
-            "FDAI_LOCAL_AZURE_SUBSCRIPTION_ID MUST be set when local Azure discovery is enabled"
+            "FDAI_LOCAL_AZURE_DISCOVERY=0 is not supported; "
+            "interactive local inventory MUST use Azure"
         )
+    subscription_id = os.environ.get(LOCAL_AZURE_SUBSCRIPTION_ENV, "").strip()
     from fdai.delivery.azure.dev_inventory import AzureCliInventory
     from fdai.delivery.read_api.dev.azure_inventory_graph import AzureCliInventoryGraphProvider
 
     config_dir = os.environ.get(LOCAL_AZURE_CONFIG_DIR_ENV, "").strip() or None
     return AzureCliInventoryGraphProvider(
         inventory=AzureCliInventory(
-            subscription_id=subscription_id,
+            subscription_id=subscription_id or None,
             azure_config_dir=config_dir,
         )
     )

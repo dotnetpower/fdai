@@ -40,6 +40,7 @@ class LiveStreamConfig:
     sink: SseSink | None = None
     emitter_factory: Callable[[SseSink, str], LiveEmitter] | None = None
     broadcaster_factory: Callable[[StagePublisher], LiveStageProducer] | None = None
+    stage_publisher_wrapper: Callable[[StagePublisher], StagePublisher] | None = None
 
     def __post_init__(self) -> None:
         if not self.path.startswith("/"):

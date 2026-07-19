@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { safeExternalHref } from "./ui";
+import { mobileColumnLabel, safeExternalHref } from "./ui";
 
 /**
  * ExternalLink is used to render URLs that originate on the read-API wire
@@ -25,5 +25,14 @@ describe("safeExternalHref", () => {
     expect(safeExternalHref("not a url")).toBeNull();
     expect(safeExternalHref("/relative/path")).toBeNull();
     expect(safeExternalHref("")).toBeNull();
+  });
+});
+
+describe("responsive data-table labels", () => {
+  test("prefers an explicit mobile label, then a text header, then the stable key", () => {
+    expect(mobileColumnLabel({ key: "seq", header: "Sequence", mobileLabel: "Step", render: () => null }))
+      .toBe("Step");
+    expect(mobileColumnLabel({ key: "seq", header: "Sequence", render: () => null })).toBe("Sequence");
+    expect(mobileColumnLabel({ key: "seq", header: null, render: () => null })).toBe("seq");
   });
 });

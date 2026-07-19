@@ -18,11 +18,12 @@ import {
   activeAgentCount,
   AGENT_ROLE,
   makeInitialState,
+  PANTHEON,
   reducer,
   STATE_TASK,
   type AgentsState,
 } from "./agents.model";
-import { panelArray, panelBoolean, panelNullableString, panelNumber, panelRecord, panelString, panelStringArray } from "./panel-decode";
+import { panelArray, panelBoolean, panelContractError, panelNullableString, panelNumber, panelRecord, panelString, panelStringArray } from "./panel-decode";
 
 /**
  * Pantheon panel. Fetches ``GET /pantheon/graph`` and
@@ -151,10 +152,9 @@ export function PantheonRoute({ client }: Props) {
   );
 }
 
-function decodePantheonGraph(value: unknown): PantheonGraphResponse {
+export function decodePantheonGraph(value: unknown): PantheonGraphResponse {
   const root = panelRecord(value, "pantheon graph");
-  return {
-    agents: panelArray(root["agents"], "pantheon graph.agents").map((value, index) => {
+  const agents = panelArray(root["agents"], "pantheon graph.agents").map((value, index) => {
       const agent = panelRecord(value, `pantheon graph.agents[${index}]`);
       return {
         name: panelString(agent, "name", "pantheon agent"),
@@ -169,7 +169,43 @@ function decodePantheonGraph(value: unknown): PantheonGraphResponse {
         off_path_llm: panelBoolean(agent, "off_path_llm", "pantheon agent"),
         hard_dependency: panelBoolean(agent, "hard_dependency", "pantheon agent"),
       };
-    }),
+    });
+  const agentCount = panelNumber(root, "agent_count", "pantheon graph");
+  const expectedNames = PANTHEON.map((agent) => agent.name);
+  const actualNames = agents.map((agent) => agent.name);
+  if (agentCount !== agents.length) {
+    throw panelContractError("pantheon graph.agent_count MUST match agents.length");
+  }
+  if (
+    actualNames.length !== expectedNames.length ||
+    new Set(actualNames).size !== actualNames.length ||
+    expectedNames.some((name) => !actualNames.includes(name))
+  ) {
+    throw panelContractError("pantheon graph.agents MUST contain the fixed 15-agent pantheon exactly once");
+  }
+  const parentByAgent = new Map(agents.map((agent) => [agent.name, agent.reports_to]));
+  if (parentByAgent.get("Odin") !== null || agents.filter((agent) => agent.reports_to === null).length !== 1) {
+    throw panelContractError("pantheon graph.agents MUST have Odin as its only reporting root");
+  }
+  for (const agent of agents) {
+    const visited = new Set<string>();
+    let current: string | null = agent.name;
+    while (current !== null) {
+      if (visited.has(current)) {
+        throw panelContractError(`pantheon graph reporting chain for ${agent.name} MUST be acyclic`);
+      }
+      visited.add(current);
+      if (!parentByAgent.has(current)) {
+        throw panelContractError(`pantheon graph reporting chain for ${agent.name} MUST reference known agents`);
+      }
+      current = parentByAgent.get(current) ?? null;
+    }
+    if (!visited.has("Odin")) {
+      throw panelContractError(`pantheon graph reporting chain for ${agent.name} MUST terminate at Odin`);
+    }
+  }
+  return {
+    agents,
     org_edges: panelArray(root["org_edges"], "pantheon graph.org_edges").map((value, index) => {
       const edge = panelRecord(value, `pantheon graph.org_edges[${index}]`);
       return {
@@ -177,17 +213,16 @@ function decodePantheonGraph(value: unknown): PantheonGraphResponse {
         to: panelString(edge, "to", "pantheon org edge"),
       };
     }),
-    agent_count: panelNumber(root, "agent_count", "pantheon graph"),
+    agent_count: agentCount,
     hard_dependency_agents: panelStringArray(root["hard_dependency_agents"], "pantheon graph.hard_dependency_agents"),
     hot_path_llm_agents: panelStringArray(root["hot_path_llm_agents"], "pantheon graph.hot_path_llm_agents"),
     mermaid: panelString(root, "mermaid", "pantheon graph"),
   };
 }
 
-function decodePantheonWorkflows(value: unknown): PantheonWorkflowsResponse {
+export function decodePantheonWorkflows(value: unknown): PantheonWorkflowsResponse {
   const root = panelRecord(value, "pantheon workflows");
-  return {
-    workflows: panelArray(root["workflows"], "pantheon workflows.workflows").map((value, index) => {
+  const workflows = panelArray(root["workflows"], "pantheon workflows.workflows").map((value, index) => {
       const workflow = panelRecord(value, `pantheon workflows.workflows[${index}]`);
       return {
         id: panelString(workflow, "id", "pantheon workflow"),
@@ -198,9 +233,27 @@ function decodePantheonWorkflows(value: unknown): PantheonWorkflowsResponse {
         default_mode: panelString(workflow, "default_mode", "pantheon workflow"),
         promotion_gate: panelString(workflow, "promotion_gate", "pantheon workflow"),
       };
-    }),
-    count: panelNumber(root, "count", "pantheon workflows"),
-  };
+    });
+  const count = panelNumber(root, "count", "pantheon workflows");
+  const knownAgents = new Set(PANTHEON.map((agent) => agent.name));
+  if (count !== workflows.length) {
+    throw panelContractError("pantheon workflows.count MUST match workflows.length");
+  }
+  if (new Set(workflows.map((workflow) => workflow.id)).size !== workflows.length) {
+    throw panelContractError("pantheon workflows.id MUST be unique");
+  }
+  for (const workflow of workflows) {
+    if (!knownAgents.has(workflow.primary_agent)) {
+      throw panelContractError(`pantheon workflow ${workflow.id} primary_agent MUST be a fixed agent`);
+    }
+    if (
+      workflow.participating_agents.some((agent) => !knownAgents.has(agent)) ||
+      !workflow.participating_agents.includes(workflow.primary_agent)
+    ) {
+      throw panelContractError(`pantheon workflow ${workflow.id} participants MUST be fixed agents and include primary_agent`);
+    }
+  }
+  return { workflows, count };
 }
 
 const LAYER_ORDER = ["governance", "pipeline", "domain"] as const;

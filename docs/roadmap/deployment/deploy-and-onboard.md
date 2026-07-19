@@ -509,18 +509,19 @@ full expanded catalog and defaults are authored during the inventory PR.
 | `RULE_CATALOG_REF` | env | fork | git ref of catalog snapshot |
 | `AUTONOMY_MODE_DEFAULT` | env | fork | MUST default to `shadow` |
 | `FDAI_LOG_LEVEL` | env | upstream | Python logger level for the core app (`DEBUG` / `INFO` / `WARNING` / `ERROR`). Default `INFO`. |
-| `FDAI_READ_API_DEV_MODE` | env | dev-only | `1` bypasses Entra JWT validation in the read API for local dev. MUST NOT be set in staging / prod. |
-| `FDAI_READ_API_LOCAL_ENTRA` | env | dev-only | `1` runs the local seed harness with **real** Entra JWT verification (requires `FDAI_ENTRA_TENANT_ID` + `FDAI_API_AUDIENCE`) so sign-in can be tested locally. Mutually exclusive with dev-mode; MUST NOT be set in staging / prod. |
-| `FDAI_LOCAL_SCENARIO_REPLAY` | env | dev-only | Unset by default, leaving Live and Agents streams quiet. Set to `1` only for an explicit generated-scenario demo; never set it in staging / prod. |
-| `FDAI_LOCAL_AZURE_DISCOVERY` | env | dev-only | `1` replaces the synthetic local Architecture graph with read-only Azure CLI discovery. Requires an explicit local subscription id. |
-| `FDAI_LOCAL_AZURE_SUBSCRIPTION_ID` | env | dev-only | Subscription passed to every local `az group/resource list` call when local Azure discovery is enabled. Never commit a populated value. |
+| `FDAI_READ_API_LOCAL_AZURE_CLI` | env | local-only | Standard interactive local mode. Requires the current `az login` identity, keeps its token server-side, and exposes only browser-safe profile metadata. Paired with `VITE_LOCAL_AZURE_CLI_AUTH=1`. |
+| `FDAI_READ_API_DEV_MODE` | env | test-only | Authentication bypass for automated read-API tests. The VS Code full-stack profile MUST NOT set it. |
+| `FDAI_READ_API_LOCAL_ENTRA` | env | test-only | Exercises real Entra JWT verification over isolated pytest fixtures. It is not an interactive data profile and MUST NOT seed the local Console. |
+| `FDAI_LOCAL_SCENARIO_REPLAY` | env | test-only | Generated scenario replay for automated tests and explicit mock applications. Interactive local startup rejects it. |
+| `FDAI_LOCAL_AZURE_DISCOVERY` | env | local-only | Azure discovery is mandatory. Unset or `1` uses read-only `AzureCliInventory`; `0` is rejected and never selects a synthetic graph. |
+| `FDAI_LOCAL_AZURE_SUBSCRIPTION_ID` | env | dev-only | Optional subscription passed to every local `az group/resource list` call. When omitted, discovery uses the active subscription in the selected Azure CLI profile. Never commit a populated value. |
 | `FDAI_LOCAL_AZURE_CONFIG_DIR` | env | dev-only | Optional isolated Azure CLI profile. When omitted, the adapter removes an inherited `AZURE_CONFIG_DIR` and uses the default profile. |
 | `FDAI_POLICIES_ROOT` | env | fork | absolute path to the OPA / Rego bundle root consumed by T0 and the verifier. Defaults to the in-repo `policies/` when unset. |
 | `FDAI_MI_CLIENT_ID` | env | upstream | User-assigned MI client id for the current process. The core receives the executor id; the inventory job receives its distinct read-only discovery id. |
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | upstream / fork | Enables the ACS Email A2/A4 channels. Terraform derives the endpoint and Azure-managed sender, attaches a dedicated notification MI, and injects the client id. A fork supplies recipients through `NOTIFICATION_EMAIL_RECIPIENTS_JSON`; no access key or connection string enters the app. Partial configuration fails startup. |
 | `FDAI_MEASUREMENT_MODE` | env | upstream | `shadow` (default) or `enforce` - governs the Container Apps Jobs runners in `infra/modules/measurement-runners/`. |
-| `FDAI_DIRECT_API_FAKE` | env | dev-only | `1` swaps the executor direct-API path for the in-memory fake; used by tests and local dev. |
-| `FDAI_TOOL_CALL_FAKE` | env | dev-only | `1` swaps the executor tool-call path for the in-memory fake (`RecordingToolExecutor`); used by tests and local dev. |
+| `FDAI_DIRECT_API_FAKE` | env | test-only | `1` swaps the executor direct-API path for the in-memory fake in automated tests. Interactive local startup does not wire an executor. |
+| `FDAI_TOOL_CALL_FAKE` | env | test-only | `1` swaps the executor tool-call path for `RecordingToolExecutor` in automated tests. Interactive local startup does not wire an executor. |
 | `FDAI_WORKFLOW_SHADOW` | env | upstream | `1` enables event-triggered catalog Workflows in non-mutating shadow mode. The Azure core app sets it by default. |
 | `FDAI_IRP_ENABLED` / `FDAI_IRP_BUDGET_SECONDS` | env | upstream | Enables alert-shaped event handling through the budgeted investigation -> typed proposal path. The proposal re-enters the standard risk/HIL/executor loop. |
 | `FDAI_CHAOS_CONTEXT_JSON` / `FDAI_CHAOS_ENFORCE` | env | fork | Runtime context for promoted chaos injectors. Enforce stays disabled unless the explicit flag is `1`, the scenario is promoted, and both injector and probe are registered. |

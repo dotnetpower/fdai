@@ -15,6 +15,14 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { currentRoute, navigate, routeHref } from "../router";
+import { isRfc3339Timestamp } from "../time-format";
+import {
+  panelArray,
+  panelNonEmptyString,
+  panelNonNegativeInteger,
+  panelNullableString,
+  panelRecord,
+} from "./panel-decode";
 
 /**
  * Rule-fire trace viewer panel. Given a correlation id, calls
@@ -70,9 +78,9 @@ export function RuleTraceRoute({ client }: Props) {
     requestGeneration.current = generation;
     setState({ status: "loading" });
     try {
-      const data = await client.panel<TraceResponse>(
+      const data = decodeTraceResponse(await client.panel<unknown>(
         `/audit/${encodeURIComponent(id)}/trace`,
-      );
+      ));
       if (requestGeneration.current === generation) setState({ status: "ready", data });
     } catch (err) {
       if (requestGeneration.current === generation) {
@@ -157,6 +165,42 @@ export function RuleTraceRoute({ client }: Props) {
       </AsyncBoundary>
     </div>
   );
+}
+
+export function decodeTraceResponse(value: unknown): TraceResponse {
+  const root = panelRecord(value, "trace");
+  const correlationId = panelNonEmptyString(root, "correlation_id", "trace");
+  const steps = panelArray(root["steps"], "trace.steps").map((value, index) => {
+    const row = panelRecord(value, `trace.steps[${index}]`);
+    const recordedAt = panelNonEmptyString(row, "recorded_at", "trace step");
+    if (!isRfc3339Timestamp(recordedAt)) {
+      throw new Error("invalid read API response: trace step.recorded_at MUST be RFC 3339");
+    }
+    return {
+      seq: panelNonNegativeInteger(row, "seq", "trace step"),
+      recorded_at: recordedAt,
+      stage: panelNonEmptyString(row, "stage", "trace step"),
+      decision: panelNullableString(row, "decision", "trace step"),
+      reason: panelNullableString(row, "reason", "trace step"),
+      action_kind: panelNonEmptyString(row, "action_kind", "trace step"),
+      mode: panelNonEmptyString(row, "mode", "trace step"),
+      entry_hash: panelNonEmptyString(row, "entry_hash", "trace step"),
+    };
+  });
+  const stepCount = panelNonNegativeInteger(root, "step_count", "trace");
+  if (stepCount !== steps.length) {
+    throw new Error("invalid read API response: trace.step_count MUST match steps");
+  }
+  const sequence = steps.map((step) => step.seq);
+  if (new Set(sequence).size !== sequence.length || sequence.some((seq, index) => index > 0 && seq <= sequence[index - 1]!)) {
+    throw new Error("invalid read API response: trace steps MUST have unique ascending seq values");
+  }
+  return {
+    correlation_id: correlationId,
+    step_count: stepCount,
+    steps,
+    terminal_stage: panelNullableString(root, "terminal_stage", "trace"),
+  };
 }
 
 function decisionPill(decision: string | null): PillKind {

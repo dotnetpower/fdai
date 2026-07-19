@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { AuthContext } from "./auth";
-import { shouldLoadIamSelf, shouldShowAccessRequired } from "./access-routing";
+import {
+  shouldAllowLocalDevBypass,
+  shouldLoadIamSelf,
+  shouldShowAccessRequired,
+} from "./access-routing";
 import type { IamSelfStatus } from "./routes/settings-iam.model";
 
 function auth(devMode: boolean, account: AuthContext["account"]): AuthContext {
@@ -39,7 +43,17 @@ describe("access routing", () => {
     const anonymousDev = auth(true, null);
 
     expect(shouldLoadIamSelf(anonymousDev)).toBe(false);
+    expect(shouldAllowLocalDevBypass(anonymousDev)).toBe(true);
     expect(shouldShowAccessRequired(anonymousDev, undefined)).toBe(false);
+  });
+
+  it("does not allow dev bypass when interactive Entra sign-in is configured", () => {
+    const interactive = {
+      ...auth(true, null),
+      interactiveSignIn: true,
+    };
+
+    expect(shouldAllowLocalDevBypass(interactive)).toBe(false);
   });
 
   it("allows an assigned account into the console", () => {

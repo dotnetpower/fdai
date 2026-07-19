@@ -31,7 +31,9 @@ from fdai.delivery.read_api.streaming.agent_activity_stream import (
     SseAgentActivityPublisher,
     TicketStatus,
     TurnKind,
+    runtime_agent_state_snapshot,
 )
+from fdai.shared.providers.stage_publisher import ObservationSource
 from fdai.shared.providers.testing.sse import InMemorySseSink
 
 
@@ -102,6 +104,34 @@ class TestConfig:
                 emitter_factory=lambda _sink: None,
                 broadcaster_factory=lambda _pub: None,  # type: ignore[arg-type,return-value]
             )
+
+
+class TestRuntimeSnapshot:
+    def test_projects_only_initialized_healthy_agents(self) -> None:
+        events = runtime_agent_state_snapshot(
+            {
+                "consumers_live": 12,
+                "agent_health": {
+                    "Huginn": {"status": "ok"},
+                    "Forseti": {"status": "ok"},
+                    "Thor": {"status": "error"},
+                },
+            }
+        )
+
+        assert [(event.agent, event.state) for event in events] == [
+            ("Huginn", AgentState.WATCHING),
+            ("Forseti", AgentState.IDLE),
+        ]
+        assert all(event.source is ObservationSource.RUNTIME_OBSERVED for event in events)
+
+    def test_returns_empty_snapshot_without_live_consumers(self) -> None:
+        assert (
+            runtime_agent_state_snapshot(
+                {"consumers_live": 0, "agent_health": {"Huginn": {"status": "ok"}}}
+            )
+            == ()
+        )
 
 
 class TestBroadcasterWiring:

@@ -14,18 +14,24 @@ def group_mapping() -> GroupMapping:
     )
 
 
-def test_anonymous_dev_uses_static_directory() -> None:
+async def test_anonymous_dev_uses_empty_static_directory() -> None:
     result = build_local_iam_directory(group_mapping(), use_graph=False)
 
     assert isinstance(result.directory, StaticHumanIdentityDirectory)
+    assert await result.directory.list_role_roster(result.role_group_ids) == ()
     assert result.role_group_ids["Owner"] == "owner-group"
     assert result.shutdown_callbacks == ()
 
 
 async def test_authenticated_local_mode_uses_graph_directory() -> None:
-    result = build_local_iam_directory(group_mapping(), use_graph=True)
+    result = build_local_iam_directory(
+        group_mapping(),
+        use_graph=True,
+        application_id="api-app-id",
+    )
 
     assert isinstance(result.directory, EntraHumanIdentityDirectory)
+    assert result.directory.application_id == "api-app-id"
     assert len(result.shutdown_callbacks) == 1
 
     await result.shutdown_callbacks[0]()

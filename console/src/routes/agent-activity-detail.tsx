@@ -6,6 +6,7 @@ import { routeHref } from "../router";
 import type { AuditItem } from "../types";
 import {
   agentOf,
+  auditProvenanceOf,
   clockMs,
   entryConversation,
   entryMap,
@@ -45,8 +46,10 @@ export function StepDetail({
   const conversation = entryConversation(item);
   const phases = lifecycleOf(item);
   const otherFields = otherEntryFields(item);
+  const provenance = auditProvenanceOf(item);
 
   const record: readonly (readonly [string, ComponentChildren])[] = [
+    ["Evidence source", provenance === "sample" ? "Local sample" : "Operational audit"],
     ["Tier", tier ? <span class="mono">{tier}</span> : null],
     ["Mode", <StatusPill kind={modePill(item.mode)} label={item.mode} />],
     ["Outcome", outcome ? <StatusPill kind={outcomePill(outcome)} label={outcome} /> : null],

@@ -1,8 +1,8 @@
 ---
 title: Entra 앱 등록
 translation_of: entra-app-registration.md
-translation_source_sha: 99ad731a1e59e21405ae293539bcddcad7569372
-translation_revised: 2026-07-18
+translation_source_sha: df70a946a5216858dcb06d2112055cfa6b18c4c9
+translation_revised: 2026-07-19
 ---
 
 # Entra 앱 등록
@@ -118,7 +118,7 @@ SCOPE_GUID=$(az ad app show --id "$API_APPID" \
 python3 - "$API_APPID" "$SCOPE_GUID" <<'PY' > /tmp/fdai_spa.json
 import json, sys
 print(json.dumps({
-  "spa": {"redirectUris": ["http://localhost:5173", "http://127.0.0.1:5173"]},
+  "spa": {"redirectUris": ["http://localhost:5273", "http://127.0.0.1:5273"]},
   "requiredResourceAccess": [{
     "resourceAppId": sys.argv[1],
     "resourceAccess": [{"id": sys.argv[2], "type": "Scope"}],

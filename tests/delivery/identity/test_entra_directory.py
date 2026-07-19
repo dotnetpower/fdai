@@ -157,6 +157,97 @@ async def test_entra_directory_builds_group_and_people_role_roster() -> None:
     assert roster[-1].roles == ("Reader", "Owner")
 
 
+async def test_entra_directory_discovers_application_role_roster() -> None:
+    identity = FakeIdentity()
+    service_principal_requests = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal service_principal_requests
+        path = request.url.path
+        if path == "/v1.0/servicePrincipals":
+            service_principal_requests += 1
+            assert request.url.params["$filter"] == "appId eq 'api-app-id'"
+            return httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "id": "api-service-principal",
+                            "appRoles": [
+                                {"id": "reader-role", "value": "Reader"},
+                                {"id": "owner-role", "value": "Owner"},
+                            ],
+                        }
+                    ],
+                },
+            )
+        if path == "/v1.0/servicePrincipals/api-service-principal/appRoleAssignedTo":
+            return httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "appRoleId": "reader-role",
+                            "principalId": "reader-group",
+                            "principalType": "Group",
+                        },
+                        {
+                            "appRoleId": "owner-role",
+                            "principalId": "owner-user",
+                            "principalType": "User",
+                        },
+                    ],
+                },
+            )
+        if path == "/v1.0/groups/reader-group":
+            return httpx.Response(
+                200,
+                json={"id": "reader-group", "displayName": "fdai-readers-dev"},
+            )
+        if path.endswith("/transitiveMembers/microsoft.graph.user"):
+            return httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "id": "reader-user",
+                            "displayName": "Reader User",
+                            "userPrincipalName": "reader@tenant.example",
+                            "accountEnabled": True,
+                        }
+                    ],
+                },
+            )
+        if path == "/v1.0/users/owner-user":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "owner-user",
+                    "displayName": "Owner User",
+                    "userPrincipalName": "owner@tenant.example",
+                    "accountEnabled": True,
+                },
+            )
+        return httpx.Response(404)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        directory = EntraHumanIdentityDirectory(
+            client=client,
+            identity=identity,
+            application_id="api-app-id",
+        )
+        roster = await directory.list_role_roster({"Reader": "ignored-placeholder"})
+        cached_roster = await directory.list_role_roster({"Reader": "ignored-placeholder"})
+
+    assert [(item.display_name, item.roles) for item in roster] == [
+        ("fdai-readers-dev", ("Reader",)),
+        ("Owner User", ("Owner",)),
+        ("Reader User", ("Reader",)),
+    ]
+    assert cached_roster == roster
+    assert service_principal_requests == 1
+
+
 async def test_entra_directory_rejects_cross_origin_next_link() -> None:
     identity = FakeIdentity()
     requests: list[httpx.Request] = []

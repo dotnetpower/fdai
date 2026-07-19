@@ -436,7 +436,7 @@ FDAI_INGESTION_GATEWAY_DEV_MODE=1 \
 
 Point `VITE_INGESTION_API_BASE_URL` at `http://127.0.0.1:8011`. The local factory refuses to
 start without the explicit dev-mode variable and isn't a production composition. It allows the
-standard local console ports `4173`, `5173`, `5180`, and `5190` on both `127.0.0.1` and
+standard local console ports `4173`, `5273`, `5180`, and `5190` on both `127.0.0.1` and
 `localhost`. For another port, set `FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS` on the gateway
 process to a comma-separated list of exact HTTP(S) origins.
 

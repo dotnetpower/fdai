@@ -8,8 +8,11 @@ import {
   DEFAULT_WEB_SEARCH_DOMAINS,
   decodeModelSettings,
   draftRevisionIsCurrent,
+  modelChoiceKey,
   normalizeAndValidateDomains,
   projectionGenerationIsCurrent,
+  renderT2GovernanceDraft,
+  t2PairIsValid,
   webSearchControlsDisabled,
 } from "./settings-models.model";
 
@@ -102,6 +105,46 @@ const payload = {
     }],
   }],
   t2_selection_scope: "system-governed",
+  t2_model_policy: {
+    selection_scope: "governance-draft",
+    invariant: "distinct-publisher",
+    primary_candidates: [
+      {
+        publisher: "OpenAI",
+        family: "gpt-4o",
+        version: "2024-11-20",
+        catalog_status: "deployed",
+        deployments: ["gpt-4o"],
+        available_tpm: 100000,
+      },
+      { publisher: "OpenAI", family: "gpt-4.1" },
+    ],
+    secondary_candidates: [
+      { publisher: "Anthropic", family: "claude-opus-4" },
+      { publisher: "MistralAI", family: "mistral-large-2" },
+    ],
+    active_primary: { publisher: "OpenAI", family: "gpt-4o" },
+    active_secondary: null,
+    quorum_ready: false,
+  },
+  model_catalog: {
+    available: true,
+    source: "azure-control-plane",
+    region: "example-region",
+    models: [{
+      publisher: "OpenAI",
+      family: "gpt-5.4",
+      version: "2026-03-05",
+      lifecycle: "GenerallyAvailable",
+      skus: [{ name: "GlobalStandard", available_tpm: 125000 }],
+      available_tpm: 125000,
+      deployments: ["gpt-5.4"],
+      deployed: true,
+      provisionable: true,
+      selectable: true,
+      status: "deployed",
+    }],
+  },
 };
 
 afterEach(() => vi.unstubAllGlobals());
@@ -123,6 +166,15 @@ describe("Settings Models contracts", () => {
     expect(decoded.narrator.candidates[0]?.ttftP50Ms).toBe(220);
     expect(decoded.narrator.candidates[0]?.totalP50Ms).toBe(800);
     expect(decoded.t2SelectionScope).toBe("system-governed");
+    expect(decoded.t2ModelPolicy.primaryCandidates).toHaveLength(2);
+    expect(decoded.t2ModelPolicy.activePrimary?.family).toBe("gpt-4o");
+    expect(decoded.t2ModelPolicy.quorumReady).toBe(false);
+    expect(decoded.t2ModelPolicy.primaryCandidates[0]?.catalogStatus).toBe("deployed");
+    expect(decoded.modelCatalog.models[0]).toMatchObject({
+      family: "gpt-5.4",
+      deployed: true,
+      availableTpm: 125000,
+    });
     expect(decoded.resolvedMetadata.source).toBe("resolved-models.json");
     expect(decoded.resolvedMetadata.asOf).toBe("2026-07-17T08:00:00+00:00");
     expect(decoded.webSearch.enabled).toBe(true);
@@ -138,6 +190,53 @@ describe("Settings Models contracts", () => {
       capacityValue: 30,
       userSelectable: false,
     });
+  });
+
+  it("validates and renders a distinct-publisher T2 governance draft", () => {
+    const primary = modelChoice("OpenAI", "gpt-4o");
+    const secondary = modelChoice("Anthropic", "claude-opus-4");
+
+    expect(modelChoiceKey(primary)).toBe("OpenAI|gpt-4o");
+    expect(t2PairIsValid(primary, secondary)).toBe(true);
+    expect(renderT2GovernanceDraft(primary, secondary)).toContain(
+      '- {publisher: "Anthropic", family: "claude-opus-4"}',
+    );
+    expect(renderT2GovernanceDraft(primary, secondary)).toContain("preserve SKU and capacity");
+    expect(renderT2GovernanceDraft(primary, secondary)).toContain(
+      "re-check catalog and quota",
+    );
+  });
+
+  it("rejects a same-publisher T2 governance draft", () => {
+    const primary = modelChoice("OpenAI", "gpt-4o");
+    const secondary = modelChoice("OpenAI", "gpt-4.1");
+
+    expect(t2PairIsValid(primary, secondary)).toBe(false);
+    expect(() => renderT2GovernanceDraft(primary, secondary)).toThrow("distinct publishers");
+  });
+
+  it("marks a quota-backed undeployed primary for resolver and Terraform provisioning", () => {
+    const primary = {
+      ...modelChoice("OpenAI", "gpt-5.4"),
+      catalogStatus: "provisionable" as const,
+      version: "2026-03-05",
+      availableTpm: 125000,
+    };
+    const secondary = modelChoice("Anthropic", "claude-opus-4");
+
+    expect(renderT2GovernanceDraft(primary, secondary)).toContain(
+      "Bootstrap resolver and Terraform will provision the primary",
+    );
+  });
+
+  it("degrades an older projection without T2 policy to an unavailable draft builder", () => {
+    const { t2_model_policy: _omitted, ...olderPayload } = payload;
+
+    const decoded = decodeModelSettings(olderPayload);
+
+    expect(decoded.t2ModelPolicy.primaryCandidates).toEqual([]);
+    expect(decoded.t2ModelPolicy.secondaryCandidates).toEqual([]);
+    expect(decoded.t2ModelPolicy.quorumReady).toBe(false);
   });
 
   it.each([
@@ -289,3 +388,14 @@ describe("Settings Models contracts", () => {
     expect(() => decodeModelSettings(value)).toThrow();
   });
 });
+
+function modelChoice(publisher: string, family: string) {
+  return {
+    publisher,
+    family,
+    version: null,
+    catalogStatus: "registry-only" as const,
+    deployments: [],
+    availableTpm: 0,
+  };
+}

@@ -12,6 +12,7 @@ from fdai.delivery.read_api.read_model import (
     IncidentStatusFilter,
     IncidentSummary,
 )
+from fdai.delivery.read_api.routes.provenance import is_dev_seed_fixture
 
 _ACTIVE_STATUSES: frozenset[IncidentStatus] = frozenset({"open", "in_progress"})
 _LIFECYCLE_STATES = frozenset({"open", "triaging", "mitigated", "resolved", "closed"})
@@ -111,9 +112,10 @@ def project_incidents(
     """Project audit rows into newest-first incident summaries."""
     if status not in {"active", "resolved", "all"}:
         raise ValueError(f"invalid incident status filter: {status!r}")
+    operational_items = (item for item in items if not is_dev_seed_fixture(item.entry))
     summaries = tuple(
         _project_one(correlation_id, history)
-        for correlation_id, history in correlate_audit_items(items).items()
+        for correlation_id, history in correlate_audit_items(operational_items).items()
     )
     filtered = (
         item

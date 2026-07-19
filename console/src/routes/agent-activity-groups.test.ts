@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { AuditItem } from "../types";
 import {
+  activityFiltersFromSearch,
   activityVerb,
   filterAgentActivity,
   pantheonLayerOf,
@@ -37,6 +38,15 @@ const BASE_FILTERS: ActivityFilters = {
 const agentOf = (value: AuditItem) => value.actor;
 
 describe("agent activity filters", () => {
+  test("parses supported route filters and defaults unknown values", () => {
+    expect(activityFiltersFromSearch(new URLSearchParams(
+      "window=15m&layer=pipeline&verb=execute&q=incident",
+    ))).toEqual({ window: "15m", layer: "pipeline", verb: "execute", query: "incident" });
+    expect(activityFiltersFromSearch(new URLSearchParams(
+      "window=forever&layer=unknown&verb=mutate",
+    ))).toEqual({ window: "24h", layer: "all", verb: "all", query: "" });
+  });
+
   test("uses the latest audit row as the relative window anchor", () => {
     const rows = [
       item(1, "Thor", "action.execute", "2026-07-15T10:00:00Z"),

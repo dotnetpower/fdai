@@ -7,7 +7,6 @@ import logging
 import os
 import signal
 from typing import Any
-from uuid import NAMESPACE_URL, uuid5
 
 import httpx
 
@@ -157,6 +156,8 @@ async def _run() -> int:
             from fdai.core.incident import (
                 IncidentLifecycleWorkflow,
                 IncidentRegistry,
+                detected_incident_correlation_keys,
+                detected_incident_event_id,
                 link_ticket_receipt,
             )
             from fdai.shared.contracts.models import IncidentSeverity
@@ -182,18 +183,15 @@ async def _run() -> int:
                 event_type = str(candidate.get("event_type") or "generic")
                 if not evidence_key or not resource_id:
                     return
-                evidence_id = uuid5(
-                    NAMESPACE_URL,
-                    f"fdai.incident.evidence://{evidence_key}",
-                )
                 await incident_workflow.open_from_agent(
                     producer_principal="Heimdall",
-                    correlation_keys=(
-                        f"resource:{resource_id}",
-                        f"signal:{event_type}",
+                    correlation_keys=detected_incident_correlation_keys(
+                        resource_id=resource_id,
+                        event_type=event_type,
+                        correlation_id=str(candidate.get("correlation_id") or ""),
                     ),
                     severity=IncidentSeverity.SEV3,
-                    member_event_ids=(evidence_id,),
+                    member_event_ids=(detected_incident_event_id(evidence_key),),
                     reason=str(candidate.get("reason_code") or "detected_anomaly"),
                 )
 

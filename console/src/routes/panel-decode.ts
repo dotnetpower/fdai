@@ -17,11 +17,53 @@ export function panelString(value: Readonly<Record<string, unknown>>, key: strin
   return value[key];
 }
 
+export function panelNonEmptyString(
+  value: Readonly<Record<string, unknown>>,
+  key: string,
+  label: string,
+): string {
+  const item = panelString(value, key, label);
+  if (item.trim().length === 0) throw panelContractError(`${label}.${key} MUST NOT be empty`);
+  return item;
+}
+
 export function panelNumber(value: Readonly<Record<string, unknown>>, key: string, label: string): number {
   if (typeof value[key] !== "number" || !Number.isFinite(value[key])) {
     throw panelContractError(`${label}.${key} MUST be a finite number`);
   }
   return value[key];
+}
+
+export function panelNonNegativeInteger(
+  value: Readonly<Record<string, unknown>>,
+  key: string,
+  label: string,
+): number {
+  const item = panelNumber(value, key, label);
+  if (!Number.isInteger(item) || item < 0) {
+    throw panelContractError(`${label}.${key} MUST be a non-negative integer`);
+  }
+  return item;
+}
+
+export function panelNonNegativeNumber(
+  value: Readonly<Record<string, unknown>>,
+  key: string,
+  label: string,
+): number {
+  const item = panelNumber(value, key, label);
+  if (item < 0) throw panelContractError(`${label}.${key} MUST be non-negative`);
+  return item;
+}
+
+export function panelRatio(
+  value: Readonly<Record<string, unknown>>,
+  key: string,
+  label: string,
+): number {
+  const item = panelNumber(value, key, label);
+  if (item < 0 || item > 1) throw panelContractError(`${label}.${key} MUST be between 0 and 1`);
+  return item;
 }
 
 export function panelBoolean(value: Readonly<Record<string, unknown>>, key: string, label: string): boolean {

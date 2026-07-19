@@ -17,8 +17,13 @@
         "--reload"
       ],
       "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/console/.env.local",
       "env": {
-        "FDAI_READ_API_DEV_MODE": "1",
+        "FDAI_READ_API_LOCAL_ENTRA": "1",
+        "FDAI_READ_API_DEV_MODE": "0",
+        "FDAI_READ_API_LOCAL_AZURE_CLI": "0",
+        "FDAI_LOCAL_AZURE_DISCOVERY": "1",
+        "FDAI_LOCAL_SCENARIO_REPLAY": "0",
         "FDAI_NARRATOR_AUTO_OPEN_AOAI": "0",
         "FDAI_READ_API_CORS_ALLOW_ORIGINS": "http://127.0.0.1:5273,http://localhost:5273"
       },
@@ -57,7 +62,9 @@
       "command": "npm run dev -- --port 5273 --strictPort",
       "cwd": "${workspaceFolder}/console",
       "env": {
-        "VITE_DEV_MODE": "1",
+        "VITE_LOCAL_AZURE_CLI_AUTH": "0",
+        "VITE_DEV_MODE": "0",
+        "VITE_LOCAL_LOGIN_PROMPT": "0",
         "VITE_READ_API_BASE_URL": "http://127.0.0.1:8010",
         "VITE_INGESTION_API_BASE_URL": "http://127.0.0.1:8011"
       },
@@ -73,7 +80,6 @@
       "name": "Console Web: Full Stack",
       "configurations": [
         "Console Web: Read API",
-        "Console Web: Ingestion Gateway",
         "Console Web: Frontend"
       ],
       "stopAll": true

@@ -81,6 +81,7 @@ from .storm import (
 )
 from .ticket_link import link_ticket_receipt
 from .workflow import IncidentLifecycleWorkflow
+from .workflow_support import detected_incident_correlation_keys, detected_incident_event_id
 
 __all__ = [
     "LEGAL_TRANSITIONS",
@@ -123,6 +124,8 @@ __all__ = [
     "StormPolicy",
     "StormSignal",
     "RoutedIncidentLifecycleNotifier",
+    "detected_incident_correlation_keys",
+    "detected_incident_event_id",
     "incident_id_for",
     "link_ticket_receipt",
     "evaluate_incident_sla",

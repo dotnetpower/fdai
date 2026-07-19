@@ -39,7 +39,11 @@ class LocalCatalogWiring:
     findings_summary_provider: Any
 
 
-def build_local_catalog_wiring(repo_root: Path) -> LocalCatalogWiring:
+def build_local_catalog_wiring(
+    repo_root: Path,
+    *,
+    include_test_fixtures: bool = False,
+) -> LocalCatalogWiring:
     """Load local ontology, action, rule, collected, and workflow catalogs."""
     registry = PackageResourceSchemaRegistry()
     object_types_root = repo_root / "rule-catalog" / "vocabulary" / "object-types"
@@ -73,7 +77,9 @@ def build_local_catalog_wiring(repo_root: Path) -> LocalCatalogWiring:
         remediation_root=remediation_root,
     )
     collected_rules = _load_collected_rules(repo_root)
-    findings_provider, findings_summary_provider = _build_findings(rules, policies_root)
+    findings_provider, findings_summary_provider = (
+        _build_findings(rules, policies_root) if include_test_fixtures else (None, None)
+    )
 
     workflows: tuple[Any, ...] = ()
     workflow_authoring = None

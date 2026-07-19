@@ -12,6 +12,7 @@ from fdai.delivery.read_api.auth import build_authenticator
 from fdai.delivery.read_api.main import ReadApiConfig, build_app
 from fdai.delivery.read_api.read_model import AuditItem, InMemoryConsoleReadModel
 from fdai.delivery.read_api.routes.incident_projection import project_incidents
+from fdai.delivery.read_api.routes.provenance import DEV_SEED_FIXTURE_SOURCE
 
 
 def _item(
@@ -65,6 +66,25 @@ def test_projection_groups_direct_and_event_anchored_history() -> None:
     assert summary.status == "resolved"
     assert summary.disposition == "action_delivered"
     assert summary.involved_agents == ("Saga",)
+
+
+def test_projection_excludes_local_seed_fixtures_without_hiding_operational_rows() -> None:
+    items = (
+        _item(
+            1,
+            "corr-sample",
+            entry={
+                "fixture_source": DEV_SEED_FIXTURE_SOURCE,
+                "observation_source": "synthetic-dev",
+                "outcome": "within_threshold",
+            },
+        ),
+        _item(2, "corr-operational", entry={"stage": "gate", "decision": "hil"}),
+    )
+
+    summaries = project_incidents(items)
+
+    assert [summary.correlation_id for summary in summaries] == ["corr-operational"]
 
 
 def test_lifecycle_status_is_authoritative_and_hil_stays_active() -> None:

@@ -126,6 +126,66 @@ def test_heimdall_no_anomaly_on_mixed_event_types() -> None:
     assert bus.messages_on("object.anomaly") == []
 
 
+def test_heimdall_does_not_open_anomaly_for_sparse_monitoring_events() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    clock = {"now": 0.0}
+    candidates: list[dict[str, object]] = []
+
+    async def capture(candidate: dict[str, object]) -> None:
+        candidates.append(candidate)
+
+    heimdall = Heimdall(
+        bus=bus,
+        rate_threshold=3,
+        rate_window=60,
+        incident_candidate_hook=capture,
+        clock=lambda: clock["now"],
+    )
+    for index in range(3):
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "vm-1",
+                    "event_type": "health_probe_ok",
+                    "correlation_id": "monitoring",
+                    "idempotency_key": f"event-{index}",
+                },
+            )
+        )
+        clock["now"] += 61
+
+    assert bus.messages_on("object.anomaly") == []
+    assert candidates == []
+
+
+def test_heimdall_does_not_handoff_incident_without_event_evidence() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    candidates: list[dict[str, object]] = []
+
+    async def capture(candidate: dict[str, object]) -> None:
+        candidates.append(candidate)
+
+    heimdall = Heimdall(bus=bus, rate_threshold=2, incident_candidate_hook=capture)
+    for _ in range(2):
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "vm-1",
+                    "event_type": "cpu_spike",
+                    "correlation_id": "corr-1",
+                },
+            )
+        )
+
+    assert len(bus.messages_on("object.anomaly")) == 1
+    assert candidates == []
+    assert heimdall.behavior_snapshot()["incident_candidate_missing_evidence"] == 1
+
+
 def test_heimdall_threshold_candidate_can_open_incident() -> None:
     from fdai.core.incident import IncidentLifecycleWorkflow, IncidentRegistry
     from fdai.shared.providers.testing.state_store import InMemoryStateStore

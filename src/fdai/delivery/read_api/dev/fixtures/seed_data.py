@@ -14,6 +14,7 @@ from fdai.delivery.read_api.dev.fixtures.seed_measurements import (
     synthetic_verdicts,
 )
 from fdai.delivery.read_api.read_model import HilQueueItem, InMemoryConsoleReadModel
+from fdai.delivery.read_api.routes.provenance import DEV_SEED_FIXTURE_SOURCE
 
 
 def _synthetic_verdicts() -> list[Any]:
@@ -90,6 +91,8 @@ def _seed(read_model: InMemoryConsoleReadModel) -> None:
             "inputs": inputs,
             "outputs": outputs,
             "conversation": list(_CONVERSATIONS.get(i, ())),
+            "fixture_source": DEV_SEED_FIXTURE_SOURCE,
+            "observation_source": "synthetic-dev",
             "recorded_at": finished.isoformat(),
         }
         # The FinOps panel sums a top-level ``estimated_savings``; a cost row
@@ -172,5 +175,7 @@ def _seed_trace(read_model: InMemoryConsoleReadModel, correlation: str) -> None:
     for offset, entry in enumerate(steps):
         entry_copy = dict(entry)
         entry_copy["correlation_id"] = correlation
+        entry_copy["fixture_source"] = DEV_SEED_FIXTURE_SOURCE
+        entry_copy["observation_source"] = "synthetic-dev"
         entry_copy["recorded_at"] = (base + timedelta(seconds=offset)).isoformat()
         read_model.record_audit_entry(entry_copy)

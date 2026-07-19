@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 28f7da359ac988f8f6609e9d511f696f16d2b645
-translation_revised: 2026-07-17
+translation_source_sha: 9d42206ec649cc0887957ef1ef6680ae28c56023
+translation_revised: 2026-07-19
 ---
 
 # LLM 전략(LLM Strategy)
@@ -450,6 +450,30 @@ Streaming router는 비어 있지 않은 첫 model token이 도착할 때 time t
 T1 내부 judgment, embedding 및 모든 T2 secondary/critic/rubric/escalation 할당은
 시스템 관리 상태로 유지됩니다. T2 primary pool은 same-publisher invariant를 유지하며
 operator별로 개인화되지 않습니다.
+
+Settings > Models는 **T2 모델 정책 초안 builder**도 제공합니다. Read API는
+`rule-catalog/llm-registry.yaml`의 primary 및 secondary publisher/family 선호만
+projection하며 endpoint나 credential은 노출하지 않습니다. Operator는 publisher가 서로
+다른 경우에만 각 role의 후보를 하나씩 선택하고 governance PR에 사용할 검증된 YAML
+fragment를 복사할 수 있습니다. 브라우저는 이 선택을 runtime state에 쓰지 않습니다.
+Catalog PR 검토, resolver의 `resolved-models.json` 재생성 및 deployment의 artifact load가
+완료된 후에만 active pair가 변경됩니다. Registry metadata가 mount되지 않은 경우 narrator
+모델에서 후보를 추론하지 않고 candidate list를 사용할 수 없음으로 표시합니다.
+
+Local operator mode에서 이 page는 Azure CLI session의 live regional GPT catalog,
+subscription quota 및 기존 deployment도 결합합니다. Reader는 async로 실행되고 결과를
+5분 동안 cache하며 명시적인 read-only refresh를 지원합니다. Projection에는 family,
+version, lifecycle, 지원 SKU, 가용 quota 및 deployment 이름만 포함합니다. Azure resource
+id, endpoint 및 credential은 계속 숨깁니다. 모델은 `deployed`, `provisionable` 또는
+`quota-unavailable`로 표시되며 deprecated/chat/codex/realtime family는 새 T2 role 선택
+후보로 제공하지 않습니다.
+
+배포된 모델을 선택하면 T2 governance 초안에 추가됩니다. Provisionable 모델을 선택하면
+auto-provision 안내가 포함된 같은 초안을 생성합니다. 두 경로 모두 console에서 Azure를
+변경하지 않습니다. 검토 후 bootstrap resolver가 catalog, quota, 배포자 권한 및 publisher
+distinctness를 다시 확인하고 Terraform이 capability deployment를 생성합니다. Production
+read API는 이 화면만을 위해 subscription-wide Reader를 추가로 받지 않습니다. Live
+discovery를 사용할 수 없으면 page는 registry와 resolved snapshot으로 fallback합니다.
 
 같은 page는 검증된 binding의 read-only endpoint inventory를 projection합니다. Capability,
 provider, direct 또는 APIM route, API style, deployment, model family, TPM/PTU/GPU capacity,

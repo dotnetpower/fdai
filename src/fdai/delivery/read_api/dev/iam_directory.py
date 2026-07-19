@@ -11,9 +11,7 @@ from fdai.core.rbac.resolver import GroupMapping
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.identity import EntraHumanIdentityDirectory
 from fdai.shared.providers.human_identity import (
-    HumanIdentity,
     HumanIdentityDirectory,
-    IdentityRosterEntry,
     StaticHumanIdentityDirectory,
 )
 
@@ -29,6 +27,7 @@ def build_local_iam_directory(
     group_mapping: GroupMapping,
     *,
     use_graph: bool,
+    application_id: str | None = None,
 ) -> LocalIamDirectory:
     role_group_ids = {
         "Reader": group_mapping.reader_group_id,
@@ -39,7 +38,7 @@ def build_local_iam_directory(
     }
     if not use_graph:
         return LocalIamDirectory(
-            directory=_static_iam_directory(),
+            directory=StaticHumanIdentityDirectory(),
             role_group_ids=role_group_ids,
         )
 
@@ -47,6 +46,7 @@ def build_local_iam_directory(
     directory = EntraHumanIdentityDirectory(
         client=client,
         identity=AsyncAzureCliWorkloadIdentity(),
+        application_id=application_id,
     )
 
     async def close() -> None:
@@ -56,58 +56,6 @@ def build_local_iam_directory(
         directory=directory,
         role_group_ids=role_group_ids,
         shutdown_callbacks=(close,),
-    )
-
-
-def _static_iam_directory() -> StaticHumanIdentityDirectory:
-    return StaticHumanIdentityDirectory(
-        (
-            HumanIdentity(
-                provider="entra",
-                subject_id="00000000-0000-0000-0000-000000000001",
-                username="alex@example.com",
-                display_name="Alex Kim",
-            ),
-            HumanIdentity(
-                provider="entra",
-                subject_id="00000000-0000-0000-0000-000000000002",
-                username="casey@example.com",
-                display_name="Casey Park",
-                user_type="guest",
-            ),
-        ),
-        roster=(
-            IdentityRosterEntry(
-                provider="entra",
-                subject_id="00000000-0000-0000-0000-000000000101",
-                display_name="fdai-readers",
-                principal_type="group",
-                roles=("Reader",),
-            ),
-            IdentityRosterEntry(
-                provider="entra",
-                subject_id="00000000-0000-0000-0000-000000000102",
-                display_name="fdai-owners",
-                principal_type="group",
-                roles=("Owner",),
-            ),
-            IdentityRosterEntry(
-                provider="entra",
-                subject_id="00000000-0000-0000-0000-000000000001",
-                display_name="Alex Kim",
-                principal_type="person",
-                roles=("Reader",),
-                username="alex@example.com",
-            ),
-            IdentityRosterEntry(
-                provider="entra",
-                subject_id="00000000-0000-0000-0000-000000000002",
-                display_name="Casey Park",
-                principal_type="person",
-                roles=("Contributor",),
-                username="casey@example.com",
-            ),
-        ),
     )
 
 

@@ -15,7 +15,17 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
-import { panelArray, panelBoolean, panelNumber, panelRecord, panelString, panelStringArray } from "./panel-decode";
+import {
+  panelArray,
+  panelBoolean,
+  panelNonEmptyString,
+  panelNonNegativeInteger,
+  panelNonNegativeNumber,
+  panelNumber,
+  panelRatio,
+  panelRecord,
+  panelStringArray,
+} from "./panel-decode";
 
 /**
  * Promotion-gate dashboard panel. Fetches ``GET /kpi/promotion-gates``
@@ -176,27 +186,41 @@ export function PromotionGatesRoute({ client }: Props) {
 export function decodePromotionGates(value: unknown): Response {
   const root = panelRecord(value, "promotion gates");
   const windowDays = root["window_days"];
-  if (windowDays !== null && (typeof windowDays !== "number" || !Number.isFinite(windowDays))) {
-    throw new ReadApiError(502, "invalid read API response: promotion gates.window_days MUST be a number or null");
+  if (windowDays !== null && (typeof windowDays !== "number" || !Number.isFinite(windowDays) || windowDays < 0)) {
+    throw new ReadApiError(502, "invalid read API response: promotion gates.window_days MUST be a non-negative number or null");
+  }
+  const rows = panelArray(root["rows"], "promotion gates.rows").map((value, index) => {
+      const row = panelRecord(value, `promotion gates.rows[${index}]`);
+      const reviewedCount = panelNonNegativeInteger(row, "reviewed_count", "promotion gate row");
+      const agreedCount = panelNonNegativeInteger(row, "agreed_count", "promotion gate row");
+      if (agreedCount > reviewedCount) {
+        throw new ReadApiError(
+          502,
+          "invalid read API response: promotion gate row.agreed_count MUST NOT exceed reviewed_count",
+        );
+      }
+      return {
+        action_type_name: panelNonEmptyString(row, "action_type_name", "promotion gate row"),
+        shadow_days_elapsed: panelNonNegativeNumber(row, "shadow_days_elapsed", "promotion gate row"),
+        sample_count: panelNonNegativeInteger(row, "sample_count", "promotion gate row"),
+        reviewed_count: reviewedCount,
+        agreed_count: agreedCount,
+        policy_escapes: panelNonNegativeInteger(row, "policy_escapes", "promotion gate row"),
+        accuracy: panelRatio(row, "accuracy", "promotion gate row"),
+        ready: panelBoolean(row, "ready", "promotion gate row"),
+        gaps: [...new Set(panelStringArray(row["gaps"], "promotion gate row.gaps"))].sort(),
+      };
+    });
+  const readyCount = panelNonNegativeInteger(root, "ready_count", "promotion gates");
+  const blockedCount = panelNonNegativeInteger(root, "blocked_count", "promotion gates");
+  if (readyCount !== rows.filter((row) => row.ready).length || blockedCount !== rows.filter((row) => !row.ready).length) {
+    throw new ReadApiError(502, "invalid read API response: promotion gate summary counts MUST match rows");
   }
   return {
     window_days: windowDays,
-    ready_count: panelNumber(root, "ready_count", "promotion gates"),
-    blocked_count: panelNumber(root, "blocked_count", "promotion gates"),
-    rows: panelArray(root["rows"], "promotion gates.rows").map((value, index) => {
-      const row = panelRecord(value, `promotion gates.rows[${index}]`);
-      return {
-        action_type_name: panelString(row, "action_type_name", "promotion gate row"),
-        shadow_days_elapsed: panelNumber(row, "shadow_days_elapsed", "promotion gate row"),
-        sample_count: panelNumber(row, "sample_count", "promotion gate row"),
-        reviewed_count: panelNumber(row, "reviewed_count", "promotion gate row"),
-        agreed_count: panelNumber(row, "agreed_count", "promotion gate row"),
-        policy_escapes: panelNumber(row, "policy_escapes", "promotion gate row"),
-        accuracy: panelNumber(row, "accuracy", "promotion gate row"),
-        ready: panelBoolean(row, "ready", "promotion gate row"),
-        gaps: panelStringArray(row["gaps"], "promotion gate row.gaps"),
-      };
-    }),
+    ready_count: readyCount,
+    blocked_count: blockedCount,
+    rows,
   };
 }
 

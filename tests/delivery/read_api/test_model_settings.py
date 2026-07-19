@@ -16,6 +16,11 @@ from fdai.delivery.azure.llm.latency_routed_cross_check import (
     ModelFailureKind,
     ModelHealthTransition,
 )
+from fdai.delivery.azure.llm.model_catalog import (
+    GptModelCatalogEntry,
+    GptModelCatalogSnapshot,
+    ModelSkuAvailability,
+)
 from fdai.delivery.read_api.routes.chat import LatencyRoutedChatBackend, make_chat_route
 from fdai.delivery.read_api.routes.model_settings import (
     ModelSettingsService,
@@ -85,6 +90,32 @@ class _RoutingStatus:
                 failure_count=1,
                 cooldown_seconds=60,
                 recorded_at=at,
+            ),
+        )
+
+
+class _CatalogReader:
+    async def snapshot(self, *, force_refresh: bool = False) -> GptModelCatalogSnapshot:
+        del force_refresh
+        return GptModelCatalogSnapshot(
+            region="example-region",
+            models=(
+                GptModelCatalogEntry(
+                    family="gpt-5.4",
+                    version="2026-03-05",
+                    lifecycle="GenerallyAvailable",
+                    skus=(ModelSkuAvailability(name="GlobalStandard", available_tpm=125_000),),
+                    deployments=("gpt-5.4",),
+                    selectable=True,
+                ),
+                GptModelCatalogEntry(
+                    family="gpt-5.4",
+                    version="2026-02-01",
+                    lifecycle="GenerallyAvailable",
+                    skus=(ModelSkuAvailability(name="GlobalStandard", available_tpm=50000),),
+                    deployments=(),
+                    selectable=True,
+                ),
             ),
         )
 
@@ -169,16 +200,39 @@ def _resolved(path: Path) -> Path:
     return path
 
 
+def _registry(path: Path) -> Path:
+    path.write_text(
+        """schema_version: \"1.0.0\"
+mixed_model_mode: azure-foundry
+models:
+    t2.reasoner.primary:
+        preferences:
+            - {publisher: OpenAI, family: gpt-4o}
+            - {publisher: OpenAI, family: gpt-4.1}
+        capacity_tpm: 20000
+    t2.reasoner.secondary:
+        preferences:
+            - {publisher: Anthropic, family: claude-opus-4}
+            - {publisher: MistralAI, family: mistral-large-2}
+        capacity_tpm: 10000
+""",
+        encoding="utf-8",
+    )
+    return path
+
+
 def _service(tmp_path: Path) -> ModelSettingsService:
     router = LatencyRoutedChatBackend(
         candidates=[("narrator-fast", _Backend()), ("narrator-steady", _Backend())]
     )
     return ModelSettingsService(
         resolved_models_path=_resolved(tmp_path / "resolved-models.json"),
+        registry_path=_registry(tmp_path / "llm-registry.yaml"),
         store=InMemoryStateStore(),
         backend=router,
         web_search_resolver=_WebSearchResolver(),
         model_routing_status=_RoutingStatus(),
+        model_catalog_reader=_CatalogReader(),
     )
 
 
@@ -215,6 +269,76 @@ async def test_projects_capabilities_provisioning_and_latency_candidates(tmp_pat
         "narrator-steady",
     ]
     assert projection["t2_selection_scope"] == "system-governed"
+    assert projection["t2_model_policy"] == {
+        "selection_scope": "governance-draft",
+        "invariant": "distinct-publisher",
+        "primary_candidates": [
+            {
+                "publisher": "OpenAI",
+                "family": "gpt-4o",
+                "catalog_status": "registry-only",
+                "version": None,
+                "deployments": [],
+                "available_tpm": 0,
+            },
+            {
+                "publisher": "OpenAI",
+                "family": "gpt-4.1",
+                "catalog_status": "registry-only",
+                "version": None,
+                "deployments": [],
+                "available_tpm": 0,
+            },
+            {
+                "publisher": "OpenAI",
+                "family": "gpt-5.4",
+                "catalog_status": "deployed",
+                "version": "2026-03-05",
+                "deployments": ["gpt-5.4"],
+                "available_tpm": 125_000,
+            },
+        ],
+        "secondary_candidates": [
+            {"publisher": "Anthropic", "family": "claude-opus-4"},
+            {"publisher": "MistralAI", "family": "mistral-large-2"},
+        ],
+        "active_primary": None,
+        "active_secondary": None,
+        "quorum_ready": False,
+    }
+    assert projection["model_catalog"] == {
+        "available": True,
+        "source": "azure-control-plane",
+        "region": "example-region",
+        "models": [
+            {
+                "publisher": "OpenAI",
+                "family": "gpt-5.4",
+                "version": "2026-03-05",
+                "lifecycle": "GenerallyAvailable",
+                "skus": [{"name": "GlobalStandard", "available_tpm": 125_000}],
+                "available_tpm": 125_000,
+                "deployments": ["gpt-5.4"],
+                "deployed": True,
+                "provisionable": True,
+                "selectable": True,
+                "status": "deployed",
+            },
+            {
+                "publisher": "OpenAI",
+                "family": "gpt-5.4",
+                "version": "2026-02-01",
+                "lifecycle": "GenerallyAvailable",
+                "skus": [{"name": "GlobalStandard", "available_tpm": 50000}],
+                "available_tpm": 50000,
+                "deployments": [],
+                "deployed": False,
+                "provisionable": True,
+                "selectable": True,
+                "status": "provisionable",
+            },
+        ],
+    }
     assert projection["endpoint_inventory"] == [
         {
             "binding_id": "t2-primary-prod",

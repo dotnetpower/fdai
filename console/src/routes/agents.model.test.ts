@@ -80,6 +80,18 @@ describe("agents.model", () => {
     expect(s.agents.Heimdall?.correlationId).toBe("inc-1");
   });
 
+  it("ignores state frames outside the fixed pantheon", () => {
+    const initial = makeInitialState();
+    const next = reducer(initial, {
+      kind: "message",
+      msg: stateMsg("UnknownAgent", "collecting", "inc-1"),
+    });
+
+    expect(next).toBe(initial);
+    expect(Object.keys(next.agents)).toHaveLength(15);
+    expect(next.agents.UnknownAgent).toBeUndefined();
+  });
+
   it("opens then resolves an incident, preserving the rca", () => {
     let s = makeInitialState();
     s = reducer(s, { kind: "message", msg: ticketMsg("inc-1", "open") });
@@ -105,7 +117,31 @@ describe("agents.model", () => {
     let s = makeInitialState();
     s = reducer(s, { kind: "message", msg: turnMsg("inc-9") });
     expect(s.incidents["inc-9"]?.turns).toHaveLength(1);
+    expect(s.incidents["inc-9"]?.involved).toEqual(["Heimdall", "Forseti"]);
+    expect(incidentsForAgent(s, "Heimdall").map((incident) => incident.correlationId))
+      .toEqual(["inc-9"]);
     expect(s.incidentOrder).toEqual(["inc-9"]);
+  });
+
+  it("adds known turn participants to an existing incident once", () => {
+    let s = makeInitialState();
+    s = reducer(s, { kind: "message", msg: ticketMsg("inc-1", "open") });
+    s = reducer(s, { kind: "message", msg: turnMsg("inc-1") });
+    s = reducer(s, { kind: "message", msg: turnMsg("inc-1") });
+
+    expect(s.incidents["inc-1"]?.involved).toEqual(["Heimdall", "Forseti"]);
+  });
+
+  it("prunes turn-first incident stubs outside the retention window", () => {
+    let s = makeInitialState();
+    for (let index = 0; index < 31; index += 1) {
+      s = reducer(s, { kind: "message", msg: turnMsg(`inc-${index}`) });
+    }
+
+    expect(s.incidentOrder).toHaveLength(30);
+    expect(Object.keys(s.incidents)).toHaveLength(30);
+    expect(s.incidents["inc-0"]).toBeUndefined();
+    expect(s.incidentOrder[0]).toBe("inc-30");
   });
 
   it("counts engaged (non-idle, non-watching) agents", () => {

@@ -26,6 +26,13 @@ interface Props {
 
 type IamTab = "my-access" | "users" | "roles" | "requests";
 
+export function isIamTabRestricted(
+  tab: IamTab,
+  canManage: boolean | null,
+): boolean {
+  return canManage === false && (tab === "users" || tab === "requests");
+}
+
 export function isCurrentIamLoad(currentGeneration: number, candidate: number): boolean {
   return currentGeneration === candidate;
 }
@@ -105,15 +112,14 @@ export function SettingsIamRoute({ client, auth }: Props) {
   const username = auth.account?.username ?? null;
   const displayUsername = username ?? t("settings.unavailable");
   const roles = overview?.principal.roles ?? currentTokenRoles(auth);
-  const canManage = overview?.principal.capabilities.includes("manage-group-membership") ?? false;
+  const canManage = overview === null
+    ? null
+    : overview.principal.capabilities.includes("manage-group-membership");
 
   const selectTab = (nextTab: IamTab) => {
     setTab(nextTab);
     const segment = nextTab === "my-access" ? [] : [nextTab];
     navigate(routeHref("settings-iam", { segments: segment }));
-    if (nextTab === "users" || nextTab === "requests") {
-      void load();
-    }
   };
 
   const loadMoreRequests = async () => {
@@ -146,37 +152,43 @@ export function SettingsIamRoute({ client, auth }: Props) {
   );
 
   return (
-    <div class="stack settings-route">
+    <div class="stack settings-route settings-iam-route">
       <PageHeader title={t("route.settingsIam")} subtitle={t("settings.iam.subtitle")} />
       <div
         class="settings-tabs"
         role="tablist"
         aria-label={t("settings.iam.tabsLabel")}
-        onKeyDown={(event) => handleTabKey(event, tab, canManage, selectTab)}
+        onKeyDown={(event) => handleTabKey(event, tab, selectTab)}
       >
         {([
           ["my-access", t("settings.iam.myAccess")],
           ["users", t("settings.iam.users")],
           ["roles", t("settings.iam.roles")],
           ["requests", t("settings.iam.requests")],
-        ] as const).map(([id, label]) => (
+        ] as const).map(([id, label]) => {
+          const restricted = isIamTabRestricted(id, canManage);
+          return (
           <button
             key={id}
             id={`settings-iam-tab-${id}`}
             type="button"
             role="tab"
-            class={!invalidTab && tab === id ? "is-active" : undefined}
+            class={[
+              !invalidTab && tab === id ? "is-active" : "",
+              restricted ? "is-restricted" : "",
+            ].filter(Boolean).join(" ") || undefined}
             aria-selected={!invalidTab && tab === id}
             aria-controls={`settings-iam-panel-${id}`}
             tabIndex={tab === id ? 0 : -1}
-            disabled={!canManage && (id === "users" || id === "requests")}
             onClick={() => selectTab(id)}
           >
-            {label}
+            <span>{label}</span>
+            {restricted ? <LockIcon /> : null}
           </button>
-        ))}
+          );
+        })}
       </div>
-      {!canManage && overview ? (
+      {canManage === false ? (
         <p class="muted small">{t("settings.iam.ownerTabsHint")}</p>
       ) : null}
 
@@ -209,7 +221,7 @@ export function SettingsIamRoute({ client, auth }: Props) {
         rosterAvailable,
         rosterError,
         username,
-        canManage,
+        canManage: canManage ?? false,
         assignRole: async (identity, role, justification, idempotencyKey) => {
           await submitIamAccessRequest(auth, client.readApiBaseUrl, {
             idempotencyKey,
@@ -459,16 +471,12 @@ function errorMessage(reason: unknown): string {
 function handleTabKey(
   event: KeyboardEvent,
   current: IamTab,
-  canManage: boolean,
   select: (tab: IamTab) => void,
 ): void {
   if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-  const available = canManage
-    ? IAM_TABS
-    : IAM_TABS.filter((tab) => tab !== "users" && tab !== "requests");
   const offset = event.key === "ArrowRight" ? 1 : -1;
-  const currentIndex = Math.max(0, available.indexOf(current));
-  const next = available[(currentIndex + offset + available.length) % available.length];
+  const currentIndex = Math.max(0, IAM_TABS.indexOf(current));
+  const next = IAM_TABS[(currentIndex + offset + IAM_TABS.length) % IAM_TABS.length];
   if (next === undefined) return;
   event.preventDefault();
   select(next);
@@ -574,4 +582,13 @@ function roleKind(role: IamRole): PillKind {
     case "Owner": return "warning";
     case "BreakGlass": return "danger";
   }
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="5" y="10" width="14" height="10" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
 }

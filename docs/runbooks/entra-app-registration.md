@@ -115,7 +115,7 @@ SCOPE_GUID=$(az ad app show --id "$API_APPID" \
 python3 - "$API_APPID" "$SCOPE_GUID" <<'PY' > /tmp/fdai_spa.json
 import json, sys
 print(json.dumps({
-  "spa": {"redirectUris": ["http://localhost:5173", "http://127.0.0.1:5173"]},
+  "spa": {"redirectUris": ["http://localhost:5273", "http://127.0.0.1:5273"]},
   "requiredResourceAccess": [{
     "resourceAppId": sys.argv[1],
     "resourceAccess": [{"id": sys.argv[2], "type": "Scope"}],

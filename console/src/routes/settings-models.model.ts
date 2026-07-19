@@ -76,6 +76,51 @@ export interface ModelRoutingRoleView {
   readonly candidates: readonly ModelRoutingCandidateView[];
 }
 
+export interface T2ModelChoiceView {
+  readonly publisher: string;
+  readonly family: string;
+  readonly version: string | null;
+  readonly catalogStatus: "registry-only" | "deployed" | "provisionable" | "quota-unavailable";
+  readonly deployments: readonly string[];
+  readonly availableTpm: number;
+}
+
+export interface GptModelSkuView {
+  readonly name: string;
+  readonly availableTpm: number;
+}
+
+export interface GptModelCatalogEntryView {
+  readonly publisher: "OpenAI";
+  readonly family: string;
+  readonly version: string;
+  readonly lifecycle: string;
+  readonly skus: readonly GptModelSkuView[];
+  readonly availableTpm: number;
+  readonly deployments: readonly string[];
+  readonly deployed: boolean;
+  readonly provisionable: boolean;
+  readonly selectable: boolean;
+  readonly status: "deployed" | "provisionable" | "quota-unavailable";
+}
+
+export interface GptModelCatalogView {
+  readonly available: boolean;
+  readonly source: string;
+  readonly region: string | null;
+  readonly models: readonly GptModelCatalogEntryView[];
+}
+
+export interface T2ModelPolicyView {
+  readonly selectionScope: "governance-draft";
+  readonly invariant: "distinct-publisher";
+  readonly primaryCandidates: readonly T2ModelChoiceView[];
+  readonly secondaryCandidates: readonly T2ModelChoiceView[];
+  readonly activePrimary: T2ModelChoiceView | null;
+  readonly activeSecondary: T2ModelChoiceView | null;
+  readonly quorumReady: boolean;
+}
+
 export const DEFAULT_WEB_SEARCH_DOMAINS = [
   "learn.microsoft.com",
   "azure.microsoft.com",
@@ -135,6 +180,8 @@ export interface ModelSettingsView {
   readonly webSearch: WebSearchSettingsView;
   readonly modelRouting: readonly ModelRoutingRoleView[];
   readonly t2SelectionScope: "system-governed";
+  readonly t2ModelPolicy: T2ModelPolicyView;
+  readonly modelCatalog: GptModelCatalogView;
 }
 
 export function decodeModelSettings(value: unknown): ModelSettingsView {
@@ -144,6 +191,27 @@ export function decodeModelSettings(value: unknown): ModelSettingsView {
   const resolvedMetadata = object(root["resolved_metadata"], "model settings.resolved_metadata");
   const narrator = object(root["narrator"], "model settings.narrator");
   const webSearch = object(root["web_search"], "model settings.web_search");
+  const t2ModelPolicy = object(
+    root["t2_model_policy"] ?? {
+      selection_scope: "governance-draft",
+      invariant: "distinct-publisher",
+      primary_candidates: [],
+      secondary_candidates: [],
+      active_primary: null,
+      active_secondary: null,
+      quorum_ready: false,
+    },
+    "model settings.t2_model_policy",
+  );
+  const modelCatalog = object(
+    root["model_catalog"] ?? {
+      available: false,
+      source: "unavailable",
+      region: null,
+      models: [],
+    },
+    "model settings.model_catalog",
+  );
   const modelRouting = array(root["model_routing"], "model settings.model_routing").map(
     (entry) => decodeModelRouting(entry),
   );
@@ -160,6 +228,16 @@ export function decodeModelSettings(value: unknown): ModelSettingsView {
   requireUnique(capabilities.map((item) => item.name), "model capability.name");
   requireUnique(endpointInventory.map((item) => item.bindingId), "endpoint binding.binding_id");
   requireUnique(candidates.map((item) => item.deployment), "narrator candidate.deployment");
+  const primaryCandidates = array(
+    t2ModelPolicy["primary_candidates"],
+    "t2_model_policy.primary_candidates",
+  ).map((entry) => decodeT2ModelChoice(entry, "T2 primary candidate"));
+  const secondaryCandidates = array(
+    t2ModelPolicy["secondary_candidates"],
+    "t2_model_policy.secondary_candidates",
+  ).map((entry) => decodeT2ModelChoice(entry, "T2 secondary candidate"));
+  requireUnique(primaryCandidates.map(modelChoiceKey), "T2 primary candidate");
+  requireUnique(secondaryCandidates.map(modelChoiceKey), "T2 secondary candidate");
   const scope = string(narrator["selection_scope"], "narrator.selection_scope");
   if (scope !== "per-user") throw new Error("narrator.selection_scope MUST be per-user");
   const t2Scope = string(root["t2_selection_scope"], "t2_selection_scope");
@@ -216,6 +294,131 @@ export function decodeModelSettings(value: unknown): ModelSettingsView {
     },
     modelRouting,
     t2SelectionScope: "system-governed",
+    t2ModelPolicy: {
+      selectionScope: knownString(
+        t2ModelPolicy["selection_scope"],
+        "t2_model_policy.selection_scope",
+        ["governance-draft"],
+      ) as "governance-draft",
+      invariant: knownString(
+        t2ModelPolicy["invariant"],
+        "t2_model_policy.invariant",
+        ["distinct-publisher"],
+      ) as "distinct-publisher",
+      primaryCandidates,
+      secondaryCandidates,
+      activePrimary: decodeNullableT2ModelChoice(
+        t2ModelPolicy["active_primary"],
+        "t2_model_policy.active_primary",
+      ),
+      activeSecondary: decodeNullableT2ModelChoice(
+        t2ModelPolicy["active_secondary"],
+        "t2_model_policy.active_secondary",
+      ),
+      quorumReady: boolean(t2ModelPolicy["quorum_ready"], "t2_model_policy.quorum_ready"),
+    },
+    modelCatalog: {
+      available: boolean(modelCatalog["available"], "model_catalog.available"),
+      source: string(modelCatalog["source"], "model_catalog.source"),
+      region: nullableString(modelCatalog["region"], "model_catalog.region"),
+      models: array(modelCatalog["models"], "model_catalog.models").map(decodeCatalogModel),
+    },
+  };
+}
+
+export function modelChoiceKey(choice: T2ModelChoiceView): string {
+  return `${encodeURIComponent(choice.publisher)}|${encodeURIComponent(choice.family)}`;
+}
+
+export function t2PairIsValid(
+  primary: T2ModelChoiceView | null,
+  secondary: T2ModelChoiceView | null,
+): boolean {
+  return primary !== null && secondary !== null && primary.publisher !== secondary.publisher;
+}
+
+export function renderT2GovernanceDraft(
+  primary: T2ModelChoiceView,
+  secondary: T2ModelChoiceView,
+): string {
+  if (!t2PairIsValid(primary, secondary)) {
+    throw new Error("T2 model pair MUST use distinct publishers");
+  }
+  const provisioningNote = primary.catalogStatus === "deployed"
+    ? `# Primary deployment already exists: ${primary.deployments.join(", ") || primary.family}.`
+    : primary.catalogStatus === "provisionable"
+      ? "# Bootstrap resolver and Terraform will provision the primary after this PR is approved."
+      : "# Bootstrap resolver must re-check catalog and quota before provisioning the primary.";
+  return [
+    "# FDAI T2 model policy governance draft.",
+    "# Review in a PR; this artifact does not change the running control plane.",
+    "# Merge these preferences into the existing roles; preserve SKU and capacity fields.",
+    provisioningNote,
+    "models:",
+    "  t2.reasoner.primary:",
+    "    preferences:",
+    `      - {publisher: ${JSON.stringify(primary.publisher)}, family: ${JSON.stringify(primary.family)}}`,
+    "  t2.reasoner.secondary:",
+    "    preferences:",
+    `      - {publisher: ${JSON.stringify(secondary.publisher)}, family: ${JSON.stringify(secondary.family)}}`,
+    "",
+  ].join("\n");
+}
+
+function decodeT2ModelChoice(value: unknown, label: string): T2ModelChoiceView {
+  const item = object(value, label);
+  return {
+    publisher: string(item["publisher"], `${label}.publisher`),
+    family: string(item["family"], `${label}.family`),
+    version: nullableString(item["version"], `${label}.version`),
+    catalogStatus: knownString(
+      item["catalog_status"] ?? "registry-only",
+      `${label}.catalog_status`,
+      ["registry-only", "deployed", "provisionable", "quota-unavailable"],
+    ) as T2ModelChoiceView["catalogStatus"],
+    deployments: array(item["deployments"] ?? [], `${label}.deployments`).map((deployment) =>
+      string(deployment, `${label}.deployments[]`)
+    ),
+    availableTpm: nonNegativeNumber(item["available_tpm"] ?? 0, `${label}.available_tpm`),
+  };
+}
+
+function decodeNullableT2ModelChoice(value: unknown, label: string): T2ModelChoiceView | null {
+  return value === null ? null : decodeT2ModelChoice(value, label);
+}
+
+function decodeCatalogModel(value: unknown): GptModelCatalogEntryView {
+  const item = object(value, "model catalog entry");
+  const publisher = string(item["publisher"], "model catalog entry.publisher");
+  if (publisher !== "OpenAI") throw new Error("model catalog entry.publisher is invalid");
+  return {
+    publisher,
+    family: string(item["family"], "model catalog entry.family"),
+    version: string(item["version"], "model catalog entry.version"),
+    lifecycle: string(item["lifecycle"], "model catalog entry.lifecycle"),
+    skus: array(item["skus"], "model catalog entry.skus").map((raw) => {
+      const sku = object(raw, "model catalog SKU");
+      return {
+        name: string(sku["name"], "model catalog SKU.name"),
+        availableTpm: nonNegativeNumber(
+          sku["available_tpm"],
+          "model catalog SKU.available_tpm",
+        ),
+      };
+    }),
+    availableTpm: nonNegativeNumber(
+      item["available_tpm"],
+      "model catalog entry.available_tpm",
+    ),
+    deployments: array(item["deployments"], "model catalog entry.deployments").map(
+      (deployment) => string(deployment, "model catalog entry.deployments[]"),
+    ),
+    deployed: boolean(item["deployed"], "model catalog entry.deployed"),
+    provisionable: boolean(item["provisionable"], "model catalog entry.provisionable"),
+    selectable: boolean(item["selectable"], "model catalog entry.selectable"),
+    status: knownString(item["status"], "model catalog entry.status", [
+      "deployed", "provisionable", "quota-unavailable",
+    ]) as GptModelCatalogEntryView["status"],
   };
 }
 

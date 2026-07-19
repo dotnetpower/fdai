@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 215f560061db127115784f654c93079609e08fdb
-translation_revised: 2026-07-17
+translation_source_sha: e75fd62835a435c3931d7ab094ef38f1753052dd
+translation_revised: 2026-07-19
 ---
 # 문서 인제스트와 Drop Zone
 
@@ -446,7 +446,7 @@ FDAI_INGESTION_GATEWAY_DEV_MODE=1 \
 
 `VITE_INGESTION_API_BASE_URL`을 `http://127.0.0.1:8011`로 설정하세요. 로컬 factory는
 명시적 dev-mode 변수가 없으면 시작되지 않으며 production composition이 아닙니다. 기본적으로
-`127.0.0.1`과 `localhost`의 로컬 콘솔 포트 `4173`, `5173`, `5180`, `5190`을 허용합니다.
+`127.0.0.1`과 `localhost`의 로컬 콘솔 포트 `4173`, `5273`, `5180`, `5190`을 허용합니다.
 다른 포트를 사용하려면 gateway process의 `FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS`를
 쉼표로 구분한 정확한 HTTP(S) origin 목록으로 설정하세요.
 

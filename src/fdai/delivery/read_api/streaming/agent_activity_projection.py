@@ -84,6 +84,7 @@ _HANDOFF_TEXT: dict[StageName, str] = {
 
 _UNKNOWN_AGENT = "unknown"
 _DEFAULT_SEVERITY = "info"
+_SENSING_AGENTS = frozenset({"Huginn", "Heimdall"})
 
 
 def stage_agent(stage: StageName, detail: Mapping[str, object]) -> str:
@@ -102,6 +103,10 @@ def _active_state(stage: StageName, agent: str) -> AgentState:
     if agent == "Var":
         return AgentState.APPROVING
     return _STAGE_ACTIVE_STATE.get(stage, AgentState.WATCHING)
+
+
+def _resting_state(agent: str) -> AgentState:
+    return AgentState.WATCHING if agent in _SENSING_AGENTS else AgentState.IDLE
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,9 +199,9 @@ def project_stage(projection: AgentActivityProjection, event: StageEvent) -> Pro
        in the actual transition, never fabricated dialogue;
      3. an ``agent.state`` for the stage's owning agent - the active ring for
          any successful stage frame (the agent performed that stage), and
-         ``idle`` on a failed frame. A completed audit then returns every
-         involved agent to ``idle``, except Var remains ``approving`` while a
-         HIL decision awaits human approval.
+         ``idle`` on a failed frame. A completed audit returns sensing agents
+         to ``watching`` and every other involved agent to ``idle``, except Var
+         remains ``approving`` while a HIL decision awaits human approval.
 
     Deterministic and side-effect-free; ``ts`` is taken from the event so a
     replay reproduces identical output.
@@ -274,7 +279,7 @@ def project_stage(projection: AgentActivityProjection, event: StageEvent) -> Pro
                     state=(
                         AgentState.APPROVING
                         if waiting_for_approval and involved_agent == "Var"
-                        else AgentState.IDLE
+                        else _resting_state(involved_agent)
                     ),
                     ts=ts,
                     correlation_id=(

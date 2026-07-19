@@ -4,8 +4,21 @@ from __future__ import annotations
 
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.incident import IncidentLifecycleWorkflow, IncidentRegistry
+from fdai.delivery.read_api.dev.fixtures.seed_data import _seed
 from fdai.delivery.read_api.dev.incident_store import ProjectingIncidentStateStore
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
+
+
+async def test_local_sample_audit_does_not_create_incident_roster_entries() -> None:
+    read_model = InMemoryConsoleReadModel()
+
+    _seed(read_model)
+
+    audit = await read_model.list_audit(limit=100)
+    incidents = await read_model.list_incidents(status="all")
+    assert audit.items
+    assert all(item.entry.get("fixture_source") == "read-api-dev-seed" for item in audit.items)
+    assert incidents.items == ()
 
 
 async def test_confirmed_chat_incident_is_visible_in_local_roster_once() -> None:

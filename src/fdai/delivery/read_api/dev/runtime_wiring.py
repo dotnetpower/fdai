@@ -6,10 +6,14 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from uuid import NAMESPACE_URL, uuid5
 
 from fdai.agents import PantheonRuntime
-from fdai.core.incident import IncidentLifecycleWorkflow, IncidentRegistry
+from fdai.core.incident import (
+    IncidentLifecycleWorkflow,
+    IncidentRegistry,
+    detected_incident_correlation_keys,
+    detected_incident_event_id,
+)
 from fdai.core.scheduler.store import InMemoryScheduleStore
 from fdai.delivery.read_api.dev.incident_store import ProjectingIncidentStateStore
 from fdai.delivery.read_api.dev.operator_runtime import build_local_operator_runtime
@@ -19,6 +23,7 @@ from fdai.delivery.read_api.routes.python_tasks import (
     PythonTaskRunSubmitter,
 )
 from fdai.shared.contracts.models import IncidentSeverity
+from fdai.shared.providers.stage_publisher import StagePublisher
 from fdai.shared.providers.testing.live_event_bus import LiveInMemoryEventBus
 from fdai.shared.providers.testing.python_task_author import TemplatePythonTaskAuthor
 from fdai.shared.providers.testing.vm_task import (
@@ -63,12 +68,15 @@ def build_local_runtime_wiring(
         event_type = str(candidate.get("event_type") or "generic")
         if not evidence_key or not resource_id:
             return
-        evidence_id = uuid5(NAMESPACE_URL, f"fdai.incident.evidence://{evidence_key}")
         await incident_workflow.open_from_agent(
             producer_principal="Heimdall",
-            correlation_keys=(f"resource:{resource_id}", f"signal:{event_type}"),
+            correlation_keys=detected_incident_correlation_keys(
+                resource_id=resource_id,
+                event_type=event_type,
+                correlation_id=str(candidate.get("correlation_id") or ""),
+            ),
             severity=IncidentSeverity.SEV3,
-            member_event_ids=(evidence_id,),
+            member_event_ids=(detected_incident_event_id(evidence_key),),
             reason=str(candidate.get("reason_code") or "detected_anomaly"),
         )
 
@@ -115,6 +123,12 @@ def build_local_runtime_wiring(
     live_stage_sink = live_stream_config.sink
     if live_stage_sink is None:  # pragma: no cover - local stream invariant
         raise RuntimeError("local operator runtime requires a live-stream sink")
+    stage_publisher: StagePublisher = SseSinkStagePublisher(
+        live_stage_sink,
+        channel=live_stream_config.channel,
+    )
+    if live_stream_config.stage_publisher_wrapper is not None:
+        stage_publisher = live_stream_config.stage_publisher_wrapper(stage_publisher)
     operator_runtime = build_local_operator_runtime(
         bus=event_bus,
         topic=action_topic,
@@ -123,10 +137,7 @@ def build_local_runtime_wiring(
         artifacts=artifacts,
         targets=targets,
         runner=runner,
-        stage_publisher=SseSinkStagePublisher(
-            live_stage_sink,
-            channel=live_stream_config.channel,
-        ),
+        stage_publisher=stage_publisher,
     )
 
     runtime_task: asyncio.Task[None] | None = None

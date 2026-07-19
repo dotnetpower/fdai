@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: a1760e6c21626c5a4bbb32bdf1d13d6925d21c7f
-translation_revised: 2026-07-18
+translation_source_sha: 9a28b625555af5af1912157a801b9e11406afa4f
+translation_revised: 2026-07-19
 ---
 
 # 에이전트 판테온
@@ -237,7 +237,11 @@ Heimdall의 repeated-event detector는 authoritative anomaly를 emit한 뒤 opti
 `incident_candidate_hook`을 호출할 수 있습니다. 이 hook은 정규화된 resource,
 event type, correlation, severity, reason code, evidence key를 composition 소유
 `IncidentLifecycleWorkflow`에 전달합니다. Heimdall은 Incident를 직접 쓰거나 새
-object type을 publish하지 않습니다. Workflow는 `IncidentRegistry`가 audited
+object type을 publish하지 않습니다. Configured rate window 안에서 반복된 event만
+anomaly를 형성하며 sparse monitoring sample은 window를 넘어 누적되지 않습니다.
+Routine heartbeat, healthy probe, within-threshold observation은 finding이나 Incident를
+생성하지 않습니다.
+Workflow는 `IncidentRegistry`가 audited
 record를 쓰기 전에 agent allowlist와 event evidence를 다시 확인합니다. Hook
 실패는 agent behavior counter에 기록되며 anomaly path는 계속 유지됩니다.
 Production control-plane composition은 durable registry를 먼저 rehydrate하고

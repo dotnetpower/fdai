@@ -24,4 +24,35 @@ def manual_incident_event_id(correlation_keys: Iterable[str]) -> UUID:
     return uuid5(NAMESPACE_URL, "fdai.incident.manual://" + canonical)
 
 
-__all__ = ["manual_incident_event_id", "require_incident_operator"]
+def detected_incident_event_id(evidence_key: str) -> UUID:
+    """Derive the stable member-event id for one grounded detector candidate."""
+    normalized = evidence_key.strip()
+    if not normalized:
+        raise ValueError("detected incident evidence_key MUST be non-empty")
+    return uuid5(NAMESPACE_URL, f"fdai.incident.evidence://{normalized}")
+
+
+def detected_incident_correlation_keys(
+    *,
+    resource_id: str,
+    event_type: str,
+    correlation_id: str = "",
+) -> tuple[str, ...]:
+    """Build bounded keys that separate independent anomaly investigations."""
+    resource = resource_id.strip()
+    signal = event_type.strip()
+    if not resource or not signal:
+        raise ValueError("detected incident requires resource_id and event_type")
+    keys = [f"resource:{resource}", f"signal:{signal}"]
+    correlation = correlation_id.strip()
+    if correlation:
+        keys.append(f"correlation:{correlation}")
+    return tuple(keys)
+
+
+__all__ = [
+    "detected_incident_correlation_keys",
+    "detected_incident_event_id",
+    "manual_incident_event_id",
+    "require_incident_operator",
+]

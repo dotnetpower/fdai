@@ -10,17 +10,23 @@ import {
   saveNarratorPreference,
   saveWebSearchSettings,
 } from "./settings-models.command";
+import { modelText } from "./settings-models.i18n";
 import {
   DEFAULT_WEB_SEARCH_DOMAINS,
   decodeModelSettings,
   draftRevisionIsCurrent,
+  modelChoiceKey,
   normalizeAndValidateDomains,
   projectionGenerationIsCurrent,
+  renderT2GovernanceDraft,
+  t2PairIsValid,
+  type GptModelCatalogEntryView,
   type ModelCapabilityView,
   type ModelEndpointInventoryView,
   type ModelRoutingCandidateView,
   type ModelSettingsView,
   type NarratorCandidateView,
+  type T2ModelChoiceView,
   webSearchControlsDisabled,
 } from "./settings-models.model";
 
@@ -35,6 +41,8 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   const [view, setView] = useState<ModelSettingsView | null>(null);
   const [selection, setSelection] = useState("auto");
   const [loading, setLoading] = useState(true);
+  const [refreshingCatalog, setRefreshingCatalog] = useState(false);
+  const [catalogQuery, setCatalogQuery] = useState("");
   const [saving, setSaving] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(true);
   const [allowedDomainsText, setAllowedDomainsText] = useState(
@@ -42,6 +50,9 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   );
   const [savingWebSearch, setSavingWebSearch] = useState(false);
   const [webSearchError, setWebSearchError] = useState<string | null>(null);
+  const [t2PrimaryKey, setT2PrimaryKey] = useState("");
+  const [t2SecondaryKey, setT2SecondaryKey] = useState("");
+  const [t2CopyState, setT2CopyState] = useState<"idle" | "copied" | "failed">("idle");
   const [error, setError] = useState<string | null>(null);
   const loadGeneration = useRef(0);
   const mounted = useRef(true);
@@ -66,12 +77,14 @@ export function SettingsModelsRoute({ client, auth }: Props) {
     }
   };
 
-  const load = async () => {
+  const load = async (background = false, refreshCatalog = false) => {
     const generation = ++loadGeneration.current;
-    setLoading(true);
+    if (background) setRefreshingCatalog(true);
+    else setLoading(true);
     setError(null);
     try {
-      const next = decodeModelSettings(await client.panel<unknown>("/models/settings"));
+      const path = refreshCatalog ? "/models/settings?refresh_catalog=1" : "/models/settings";
+      const next = decodeModelSettings(await client.panel<unknown>(path));
       if (!projectionGenerationIsCurrent(loadGeneration.current, generation)) return;
       applyProjection(next);
       setWebSearchError(null);
@@ -79,17 +92,57 @@ export function SettingsModelsRoute({ client, auth }: Props) {
       if (!projectionGenerationIsCurrent(loadGeneration.current, generation)) return;
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
-      if (projectionGenerationIsCurrent(loadGeneration.current, generation)) setLoading(false);
+      if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
+        setLoading(false);
+        setRefreshingCatalog(false);
+      }
     }
   };
 
   useEffect(() => {
-    void load();
+    void load(false);
     return () => {
       mounted.current = false;
       loadGeneration.current += 1;
     };
   }, [client]);
+
+  useEffect(() => {
+    if (view === null) return;
+    setT2PrimaryKey((current) => validChoiceKey(
+      current,
+      view.t2ModelPolicy.primaryCandidates,
+      view.t2ModelPolicy.activePrimary,
+    ));
+    setT2SecondaryKey((current) => validChoiceKey(
+      current,
+      view.t2ModelPolicy.secondaryCandidates,
+      view.t2ModelPolicy.activeSecondary,
+    ));
+  }, [view]);
+
+  const t2Primary = choiceByKey(view?.t2ModelPolicy.primaryCandidates ?? [], t2PrimaryKey);
+  const t2Secondary = choiceByKey(
+    view?.t2ModelPolicy.secondaryCandidates ?? [],
+    t2SecondaryKey,
+  );
+  const t2PairValid = t2PairIsValid(t2Primary, t2Secondary);
+  const t2Draft = t2PairValid && t2Primary !== null && t2Secondary !== null
+    ? renderT2GovernanceDraft(t2Primary, t2Secondary)
+    : "";
+  const visibleCatalogModels = view === null
+    ? []
+    : filterCatalogModels(view.modelCatalog.models, catalogQuery);
+
+  const copyT2Draft = async () => {
+    if (!t2PairValid || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(t2Draft);
+      setT2CopyState("copied");
+    } catch {
+      setT2CopyState("failed");
+    }
+  };
 
   const save = async () => {
     const submittedRevisions = {
@@ -192,6 +245,8 @@ export function SettingsModelsRoute({ client, auth }: Props) {
         { key: "web_search_provider", value: view.webSearch.provider, group: "web_search" },
         { key: "resolved_metadata_source", value: view.resolvedMetadata.source, group: "models" },
         { key: "resolved_metadata_as_of", value: view.resolvedMetadata.asOf, group: "models" },
+        { key: "model_catalog_available", value: view.modelCatalog.available, group: "models" },
+        { key: "model_catalog_count", value: view.modelCatalog.models.length, group: "models" },
         {
           key: "web_search_current_model",
           value: view.webSearch.currentAutoPick ?? "unavailable",
@@ -252,6 +307,179 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                 value={view.region ?? t("settings.models.unavailable")}
                 status={view.mixedModelMode ?? t("settings.models.unavailable")}
               />
+            </div>
+          </section>
+
+          <section class="settings-iam-panel" aria-labelledby="model-catalog-heading">
+            <header class="settings-iam-panel-head">
+              <div>
+                <h3 id="model-catalog-heading">{modelText("catalogTitle")}</h3>
+                <p>{modelText("catalogHint")}</p>
+              </div>
+              <div class="settings-model-catalog-head-actions">
+                <StatusPill
+                  kind={view.modelCatalog.available ? "success" : "warning"}
+                  label={view.modelCatalog.available
+                    ? modelText("catalogLive")
+                    : modelText("catalogUnavailable")}
+                />
+                <button
+                  type="button"
+                  class="secondary"
+                  disabled={refreshingCatalog}
+                  onClick={() => { void load(true, true); }}
+                >
+                  {refreshingCatalog ? modelText("refreshing") : modelText("refreshCatalog")}
+                </button>
+              </div>
+            </header>
+            <div class="settings-model-catalog-controls">
+              <label for="model-catalog-search">{modelText("searchCatalog")}</label>
+              <input
+                id="model-catalog-search"
+                type="search"
+                value={catalogQuery}
+                placeholder={modelText("searchCatalogPlaceholder")}
+                onInput={(event) => setCatalogQuery(event.currentTarget.value)}
+              />
+              <span>
+                {modelText("catalogSummary")
+                  .replace("{visible}", String(visibleCatalogModels.length))
+                  .replace("{total}", String(view.modelCatalog.models.length))}
+              </span>
+            </div>
+            {!view.modelCatalog.available ? (
+              <p class="settings-model-catalog-empty muted">{modelText("catalogUnavailableHint")}</p>
+            ) : visibleCatalogModels.length === 0 ? (
+              <p class="settings-model-catalog-empty muted">{modelText("catalogNoMatches")}</p>
+            ) : (
+              <div class="settings-model-catalog-grid">
+                {visibleCatalogModels.map((model) => (
+                  <CatalogModelCard
+                    key={`${model.family}:${model.version}`}
+                    model={model}
+                    onSelect={() => {
+                      const candidate = view.t2ModelPolicy.primaryCandidates.find(
+                        (item) => item.family === model.family,
+                      );
+                      if (candidate === undefined) return;
+                      setT2PrimaryKey(modelChoiceKey(candidate));
+                      setT2CopyState("idle");
+                      document.getElementById("t2-primary-model")?.focus();
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+            <p class="settings-iam-panel-foot">{modelText("autoProvisionBoundary")}</p>
+          </section>
+
+          <section class="settings-iam-panel" aria-labelledby="t2-model-policy-heading">
+            <header class="settings-iam-panel-head">
+              <div>
+                <h3 id="t2-model-policy-heading">{modelText("t2Policy")}</h3>
+                <p>{modelText("t2PolicyHint")}</p>
+              </div>
+              <StatusPill
+                kind={view.t2ModelPolicy.quorumReady ? "success" : "warning"}
+                label={view.t2ModelPolicy.quorumReady
+                  ? modelText("quorumReady")
+                  : modelText("approvalRequired")}
+              />
+            </header>
+            <div class="settings-t2-boundary" role="note">
+              <strong>{modelText("prArtifactOnly")}</strong>
+              <span>{modelText("prArtifactOnlyHint")}</span>
+            </div>
+            <dl class="settings-t2-current">
+              <div>
+                <dt>{modelText("activePrimary")}</dt>
+                <dd>{modelChoiceLabel(view.t2ModelPolicy.activePrimary)}</dd>
+              </div>
+              <div>
+                <dt>{modelText("activeSecondary")}</dt>
+                <dd>{modelChoiceLabel(view.t2ModelPolicy.activeSecondary)}</dd>
+              </div>
+              <div>
+                <dt>{modelText("mixedModelInvariant")}</dt>
+                <dd>{modelText("distinctPublisher")}</dd>
+              </div>
+            </dl>
+            <div class="settings-t2-picker">
+              <label for="t2-primary-model">
+                <span>{modelText("primaryReasoner")}</span>
+                <select
+                  id="t2-primary-model"
+                  value={t2PrimaryKey}
+                  disabled={view.t2ModelPolicy.primaryCandidates.length === 0}
+                  onChange={(event) => {
+                    setT2PrimaryKey(event.currentTarget.value);
+                    setT2CopyState("idle");
+                  }}
+                >
+                  {view.t2ModelPolicy.primaryCandidates.length === 0 ? (
+                    <option value="">{t("settings.models.unavailable")}</option>
+                  ) : null}
+                  {view.t2ModelPolicy.primaryCandidates.map((candidate) => (
+                    <option key={modelChoiceKey(candidate)} value={modelChoiceKey(candidate)}>
+                      {modelChoiceOptionLabel(candidate)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label for="t2-secondary-model">
+                <span>{modelText("secondaryReasoner")}</span>
+                <select
+                  id="t2-secondary-model"
+                  value={t2SecondaryKey}
+                  disabled={view.t2ModelPolicy.secondaryCandidates.length === 0}
+                  onChange={(event) => {
+                    setT2SecondaryKey(event.currentTarget.value);
+                    setT2CopyState("idle");
+                  }}
+                >
+                  {view.t2ModelPolicy.secondaryCandidates.length === 0 ? (
+                    <option value="">{t("settings.models.unavailable")}</option>
+                  ) : null}
+                  {view.t2ModelPolicy.secondaryCandidates.map((candidate) => (
+                    <option key={modelChoiceKey(candidate)} value={modelChoiceKey(candidate)}>
+                      {modelChoiceLabel(candidate)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div class={`settings-t2-invariant ${t2PairValid ? "is-valid" : "is-invalid"}`} role="status">
+              <strong>
+                {t2PairValid
+                  ? modelText("pairValid")
+                  : modelText("pairInvalid")}
+              </strong>
+              <span>{modelText("pairValidationHint")}</span>
+            </div>
+            <div class="settings-t2-artifact">
+              <div>
+                <strong>{modelText("draftPreview")}</strong>
+                <span>{modelText("draftTarget")}</span>
+              </div>
+              <pre tabIndex={0} aria-label={modelText("draftPreview")}>
+                {t2Draft || modelText("noValidPair")}
+              </pre>
+              <div class="settings-t2-actions">
+                <button
+                  type="button"
+                  class="secondary"
+                  disabled={!t2PairValid}
+                  onClick={() => { void copyT2Draft(); }}
+                >
+                  {t2CopyState === "copied"
+                    ? modelText("draftCopied")
+                    : modelText("copyDraft")}
+                </button>
+                {t2CopyState === "failed" ? (
+                  <span class="error" role="alert">{modelText("copyDraftFailed")}</span>
+                ) : null}
+              </div>
             </div>
           </section>
 
@@ -482,6 +710,101 @@ function domainValidationMessage(
   return t("settings.models.domainInvalid", { domains: invalidDomains.join(", ") });
 }
 
+function choiceByKey(
+  candidates: readonly T2ModelChoiceView[],
+  key: string,
+): T2ModelChoiceView | null {
+  return candidates.find((candidate) => modelChoiceKey(candidate) === key) ?? null;
+}
+
+function validChoiceKey(
+  current: string,
+  candidates: readonly T2ModelChoiceView[],
+  active: T2ModelChoiceView | null,
+): string {
+  if (choiceByKey(candidates, current) !== null) return current;
+  if (active !== null && choiceByKey(candidates, modelChoiceKey(active)) !== null) {
+    return modelChoiceKey(active);
+  }
+  return candidates[0] ? modelChoiceKey(candidates[0]) : "";
+}
+
+function modelChoiceLabel(choice: T2ModelChoiceView | null): string {
+  return choice === null
+    ? t("settings.models.unavailable")
+    : `${choice.family} · ${choice.publisher}`;
+}
+
+function modelChoiceOptionLabel(choice: T2ModelChoiceView): string {
+  const status = choice.catalogStatus === "deployed"
+    ? modelText("deployed")
+    : choice.catalogStatus === "provisionable"
+      ? modelText("autoProvisionReady")
+      : choice.catalogStatus === "quota-unavailable"
+        ? modelText("quotaUnavailable")
+        : modelText("registryCandidate");
+  return `${modelChoiceLabel(choice)} · ${status}`;
+}
+
+function filterCatalogModels(
+  models: readonly GptModelCatalogEntryView[],
+  query: string,
+): readonly GptModelCatalogEntryView[] {
+  const normalized = query.trim().toLocaleLowerCase();
+  return models.filter((model) => {
+    if (!model.selectable && !model.deployed) return false;
+    return normalized === ""
+      || `${model.family} ${model.version} ${model.status}`.toLowerCase().includes(normalized);
+  });
+}
+
+function CatalogModelCard({ model, onSelect }: {
+  readonly model: GptModelCatalogEntryView;
+  readonly onSelect: () => void;
+}) {
+  const actionable = model.selectable && (model.deployed || model.provisionable);
+  return (
+    <article class="settings-model-catalog-card">
+      <header>
+        <div>
+          <strong>{model.family}</strong>
+          <small>{model.version}</small>
+        </div>
+        <StatusPill
+          kind={model.deployed ? "success" : model.provisionable ? "info" : "warning"}
+          label={model.deployed
+            ? modelText("deployed")
+            : model.provisionable
+              ? modelText("autoProvisionReady")
+              : modelText("quotaUnavailable")}
+        />
+      </header>
+      <dl>
+        <div>
+          <dt>{modelText("availableQuota")}</dt>
+          <dd>{formatTpm(model.availableTpm)}</dd>
+        </div>
+        <div>
+          <dt>{modelText("supportedSkus")}</dt>
+          <dd>{model.skus.map((sku) => sku.name).join(", ") || "-"}</dd>
+        </div>
+        <div>
+          <dt>{modelText("deployments")}</dt>
+          <dd>{model.deployments.join(", ") || modelText("notDeployed")}</dd>
+        </div>
+      </dl>
+      <button type="button" class="secondary" disabled={!actionable} onClick={onSelect}>
+        {model.deployed ? modelText("selectT2Primary") : modelText("planAutoProvision")}
+      </button>
+    </article>
+  );
+}
+
+function formatTpm(value: number): string {
+  if (value <= 0) return "0 TPM";
+  return `${new Intl.NumberFormat().format(Math.round(value / 1000))}K TPM`;
+}
+
 function SummaryDatum({ label, value, status }: {
   readonly label: string;
   readonly value: string;
@@ -501,6 +824,7 @@ function candidateColumns() {
     {
       key: "model",
       header: t("settings.models.model"),
+      mobileLabel: t("settings.models.model"),
       render: (item: NarratorCandidateView) => (
         <span class="settings-model-name"><strong>{item.deployment}</strong><small>{item.family ?? "-"}</small></span>
       ),
@@ -508,16 +832,19 @@ function candidateColumns() {
     {
       key: "ttft",
       header: t("settings.models.ttft"),
+      mobileLabel: t("settings.models.ttft"),
       render: (item: NarratorCandidateView) => latency(item.ttftP50Ms, item.ttftP95Ms, item.ttftSamples),
     },
     {
       key: "total",
       header: t("settings.models.totalLatency"),
+      mobileLabel: t("settings.models.totalLatency"),
       render: (item: NarratorCandidateView) => latency(item.totalP50Ms, item.totalP95Ms, item.totalSamples),
     },
     {
       key: "status",
       header: t("settings.models.status"),
+      mobileLabel: t("settings.models.status"),
       render: (item: NarratorCandidateView) => <StatusPill kind="success" label={item.status} />,
     },
   ];
@@ -528,11 +855,13 @@ function routingCandidateColumns() {
     {
       key: "deployment",
       header: t("settings.models.model"),
+      mobileLabel: t("settings.models.model"),
       render: (item: ModelRoutingCandidateView) => item.deployment,
     },
     {
       key: "status",
       header: t("settings.models.status"),
+      mobileLabel: t("settings.models.status"),
       render: (item: ModelRoutingCandidateView) => (
         <StatusPill
           kind={item.status === "recovered" ? "success" : "warning"}
@@ -543,11 +872,13 @@ function routingCandidateColumns() {
     {
       key: "failure",
       header: t("settings.models.fallbackReason"),
+      mobileLabel: t("settings.models.fallbackReason"),
       render: (item: ModelRoutingCandidateView) => item.failureKind ?? t("settings.models.none"),
     },
     {
       key: "cooldown",
       header: t("settings.models.cooldown"),
+      mobileLabel: t("settings.models.cooldown"),
       render: (item: ModelRoutingCandidateView) => `${item.cooldownSeconds}s`,
     },
   ];
@@ -558,19 +889,22 @@ function capabilityColumns() {
     {
       key: "capability",
       header: t("settings.models.capability"),
+      mobileLabel: t("settings.models.capability"),
       render: (item: ModelCapabilityView) => (
         <span class="settings-model-name"><strong>{item.name}</strong><small>{item.invocation}</small></span>
       ),
     },
-    { key: "tier", header: t("settings.models.tier"), render: (item: ModelCapabilityView) => item.tier },
+    { key: "tier", header: t("settings.models.tier"), mobileLabel: t("settings.models.tier"), render: (item: ModelCapabilityView) => item.tier },
     {
       key: "model",
       header: t("settings.models.model"),
+      mobileLabel: t("settings.models.model"),
       render: (item: ModelCapabilityView) => item.family ?? t("settings.models.unavailable"),
     },
     {
       key: "status",
       header: t("settings.models.status"),
+      mobileLabel: t("settings.models.status"),
       render: (item: ModelCapabilityView) => (
         <StatusPill kind={item.status === "resolved" ? "success" : "warning"} label={item.status} />
       ),
@@ -578,6 +912,7 @@ function capabilityColumns() {
     {
       key: "capacity",
       header: t("settings.models.capacity"),
+      mobileLabel: t("settings.models.capacity"),
       render: (item: ModelCapabilityView) => (
         `${item.capacityValue} ${item.capacityUnit.toUpperCase()}`
       ),
@@ -585,6 +920,7 @@ function capabilityColumns() {
     {
       key: "reason",
       header: t("settings.models.resolutionReason"),
+      mobileLabel: t("settings.models.resolutionReason"),
       render: (item: ModelCapabilityView) => item.reasons.length > 0 ? (
         <details>
           <summary class="details-summary">
@@ -602,6 +938,7 @@ function endpointColumns() {
     {
       key: "binding",
       header: t("settings.models.capability"),
+      mobileLabel: t("settings.models.capability"),
       render: (item: ModelEndpointInventoryView) => (
         <span class="settings-model-name">
           <strong>{item.capability}</strong>
@@ -612,6 +949,7 @@ function endpointColumns() {
     {
       key: "route",
       header: t("settings.models.route"),
+      mobileLabel: t("settings.models.route"),
       render: (item: ModelEndpointInventoryView) => (
         <span class="settings-model-name">
           <strong>{item.routeKind}</strong>
@@ -622,6 +960,7 @@ function endpointColumns() {
     {
       key: "model",
       header: t("settings.models.model"),
+      mobileLabel: t("settings.models.model"),
       render: (item: ModelEndpointInventoryView) => (
         <span class="settings-model-name">
           <strong>{item.deployment}</strong>
@@ -632,11 +971,13 @@ function endpointColumns() {
     {
       key: "protocol",
       header: t("settings.models.protocol"),
+      mobileLabel: t("settings.models.protocol"),
       render: (item: ModelEndpointInventoryView) => `${item.apiStyle} / ${item.authKind}`,
     },
     {
       key: "capacity",
       header: t("settings.models.capacity"),
+      mobileLabel: t("settings.models.capacity"),
       render: (item: ModelEndpointInventoryView) => (
         `${item.capacityValue} ${item.capacityUnit.toUpperCase()}`
       ),
@@ -644,6 +985,7 @@ function endpointColumns() {
     {
       key: "discovery",
       header: t("settings.models.discovery"),
+      mobileLabel: t("settings.models.discovery"),
       render: (item: ModelEndpointInventoryView) => (
         <span class="settings-model-name">
           <strong>{item.discoverySource}</strong>

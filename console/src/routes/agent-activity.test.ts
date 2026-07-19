@@ -1,11 +1,14 @@
 import { describe, expect, test } from "vitest";
 import type { AuditItem } from "../types";
 import {
+  activityProvenanceCounts,
   agentOf,
+  auditProvenanceOf,
   entryConversation,
   isAgentActivitySelectionValid,
   layerOf,
   lifecycleOf,
+  matchingLiveIncident,
   otherEntryFields,
 } from "./agent-activity";
 
@@ -15,6 +18,33 @@ describe("agent activity deep-link selection", () => {
     expect(isAgentActivitySelectionValid("custom-worker", ["custom-worker"])).toBe(true);
     expect(isAgentActivitySelectionValid("not-a-real-agent", ["Forseti"])).toBe(false);
     expect(isAgentActivitySelectionValid(null, [])).toBe(true);
+  });
+});
+
+describe("live incident evidence matching", () => {
+  test("does not treat a correlation id alone as an Incident", () => {
+    expect(matchingLiveIncident("corr-only", [])).toBeNull();
+    expect(matchingLiveIncident(null, [])).toBeNull();
+  });
+});
+
+describe("agent activity evidence provenance", () => {
+  test("separates local seed rows from operational audit", () => {
+    const sample = makeItem({
+      actor: "Heimdall",
+      entry: {
+        fixture_source: "read-api-dev-seed",
+        observation_source: "synthetic-dev",
+      },
+    });
+    const operational = makeItem({ actor: "Heimdall", entry: {} });
+
+    expect(auditProvenanceOf(sample)).toBe("sample");
+    expect(auditProvenanceOf(operational)).toBe("operational");
+    expect(activityProvenanceCounts([sample, operational])).toEqual({
+      operational: 1,
+      sample: 1,
+    });
   });
 });
 
@@ -78,6 +108,11 @@ describe("agentOf attribution", () => {
 
   test("an empty actor with no principal falls back to System", () => {
     const item = makeItem({ actor: "", entry: {} });
+    expect(agentOf(item)).toBe("System");
+  });
+
+  test("the bare FDAI runtime actor is not presented as a custom agent", () => {
+    const item = makeItem({ actor: "fdai", entry: {} });
     expect(agentOf(item)).toBe("System");
   });
 

@@ -37,10 +37,11 @@ SEED_AUDIT_ROWS: tuple[_SeedRow, ...] = (
         "within_threshold",
         "10:02:00",
         "corr-a",
-        "Metric anomaly check: no deviation over threshold",
-        "Scored the vm-1 metric window against the learned baseline; the "
-        "z-score (0.7) stayed under the 3.0 alert threshold, so no anomaly "
-        "finding was raised - detection ran in shadow and only logged.",
+        "Supplementary metric check: no anomaly or Incident opened",
+        "Scored the vm-1 metric window against the learned baseline while the "
+        "original security finding continued through the control loop. The "
+        "z-score (0.7) stayed under the 3.0 alert threshold, so Heimdall added "
+        "no anomaly finding and opened no Incident.",
         220,
         {
             "finding_id": "fnd-0001",

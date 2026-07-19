@@ -16,6 +16,7 @@ import {
   apiString,
   contractError,
 } from "./api-contract";
+import { isRfc3339Timestamp } from "./time-format";
 
 export function decodeAuditPage(value: unknown): AuditPage {
   const root = apiRecord(value, "audit page");
@@ -90,14 +91,17 @@ export function decodeRcaView(value: unknown): RcaView {
     throw contractError("RCA view.hypotheses MUST be an array");
   }
   const response = root["response"];
-  return {
-    correlation_id: apiString(root, "correlation_id", "RCA view"),
-    incident_id: apiNullableString(root, "incident_id", "RCA view"),
-    hypotheses: root["hypotheses"].map((raw, index) => {
+  const correlationId = apiString(root, "correlation_id", "RCA view");
+  if (correlationId.trim().length === 0) throw contractError("RCA view.correlation_id MUST NOT be empty");
+  const hypotheses = root["hypotheses"].map((raw, index) => {
       const item = apiRecord(raw, `RCA view.hypotheses[${index}]`);
       const citations = item["citations"];
       if (!Array.isArray(citations)) {
         throw contractError(`RCA view.hypotheses[${index}].citations MUST be an array`);
+      }
+      const recordedAt = apiString(item, "recorded_at", "RCA hypothesis");
+      if (!isRfc3339Timestamp(recordedAt)) {
+        throw contractError("RCA hypothesis.recorded_at MUST be an RFC 3339 timestamp");
       }
       return {
         seq: apiPositiveInteger(item, "seq", "RCA hypothesis"),
@@ -117,23 +121,36 @@ export function decodeRcaView(value: unknown): RcaView {
         remediation_ref: apiNullableString(item, "remediation_ref", "RCA hypothesis"),
         causal_chain: decodeRcaCausalChain(item["causal_chain"]),
         mode: apiMode(item["mode"]),
-        recorded_at: apiString(item, "recorded_at", "RCA hypothesis"),
+        recorded_at: recordedAt,
       };
-    }),
+    });
+  const sequence = hypotheses.map((hypothesis) => hypothesis.seq);
+  if (new Set(sequence).size !== sequence.length || sequence.some((seq, index) => index > 0 && seq <= sequence[index - 1]!)) {
+    throw contractError("RCA hypotheses MUST have unique ascending seq values");
+  }
+  const decodedResponse = response === null
+    ? null
+    : (() => {
+        const item = apiRecord(response, "RCA view.response");
+        const recordedAt = apiNullableString(item, "recorded_at", "RCA response");
+        if (recordedAt !== null && !isRfc3339Timestamp(recordedAt)) {
+          throw contractError("RCA response.recorded_at MUST be an RFC 3339 timestamp or null");
+        }
+        return {
+          verdict: apiString(item, "verdict", "RCA response"),
+          decision: apiNullableString(item, "decision", "RCA response"),
+          action_kind: apiNullableString(item, "action_kind", "RCA response"),
+          mode: item["mode"] === null ? null : apiMode(item["mode"]),
+          rollback_reference: apiNullableString(item, "rollback_reference", "RCA response"),
+          recorded_at: recordedAt,
+        };
+      })();
+  return {
+    correlation_id: correlationId,
+    incident_id: apiNullableString(root, "incident_id", "RCA view"),
+    hypotheses,
     response:
-      response === null
-        ? null
-        : (() => {
-            const item = apiRecord(response, "RCA view.response");
-            return {
-              verdict: apiString(item, "verdict", "RCA response"),
-              decision: apiNullableString(item, "decision", "RCA response"),
-              action_kind: apiNullableString(item, "action_kind", "RCA response"),
-              mode: item["mode"] === null ? null : apiMode(item["mode"]),
-              rollback_reference: apiNullableString(item, "rollback_reference", "RCA response"),
-              recorded_at: apiNullableString(item, "recorded_at", "RCA response"),
-            };
-          })(),
+      decodedResponse,
   };
 }
 
@@ -222,11 +239,6 @@ export function decodeHilQueuePage(value: unknown): HilQueuePage {
     total,
     detail_level: detailLevel,
   };
-}
-
-function isRfc3339Timestamp(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) &&
-    Number.isFinite(Date.parse(value));
 }
 
 function apiIncidentStatus(value: unknown): "open" | "in_progress" | "resolved" {

@@ -30,6 +30,10 @@ are synthetic.
 - A detection signal is a **finding**, not an action. It is routed and risk-gated like any
   event; a prediction or anomaly **never auto-remediates on its own** - it raises a
   shadow-mode finding or a remediation PR that the risk gate and HIL govern.
+- Routine monitoring is not an Incident. A healthy heartbeat, successful probe, or
+  within-threshold sample records observation evidence only. An Incident can open only after
+  a detector emits a bounded, grounded finding and `IncidentLifecycleWorkflow` rechecks the
+  allowed agent principal, correlation keys, reason, and member-event evidence.
 - New detectors ship in **shadow mode** and are promoted per the shadow→enforce rule; their
   accuracy and false-positive rate are measured against the Phase 0 baseline.
 
@@ -58,6 +62,9 @@ single **incident** so downstream tiers reason about one thing, not a storm.
   gain, and no data is lost - members stay linked in the audit.
 - **Output**: one correlated incident event carrying its member event ids and a stable
   idempotency key; ordering/idempotency keys are preserved.
+- **Lifecycle boundary**: a correlation id is an investigation key, not proof that an
+  Incident exists. `IncidentRegistry` owns the lifecycle record. Audit-only local fixtures
+  remain available to Audit and Trace but are excluded from the operational Incident roster.
 - **Upstream implementation**: `core/event_ingest/correlator.py`
   (`EventCorrelator`) derives the incident anchor deterministically from
   an event's correlation-id (or resource ref) plus a time-window bucket

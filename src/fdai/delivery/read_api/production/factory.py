@@ -306,8 +306,11 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     if resolved_models_path:
         from fdai.delivery.read_api.routes.model_settings import ModelSettingsService
 
+        resolved_models_file = Path(resolved_models_path)
+        registry_file = resolved_models_file.parent / "rule-catalog" / "llm-registry.yaml"
         model_settings = ModelSettingsService(
-            resolved_models_path=Path(resolved_models_path),
+            resolved_models_path=resolved_models_file,
+            registry_path=registry_file if registry_file.is_file() else None,
             store=state_store,
             backend=chat,
             web_search_resolver=chat_web_search,

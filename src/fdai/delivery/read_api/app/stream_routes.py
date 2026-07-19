@@ -115,6 +115,7 @@ def append_stream_routes(
                 path=agent_cfg.path,
                 keepalive_seconds=agent_cfg.keepalive_seconds,
                 authorize=authorize,
+                snapshot_factory=agent_cfg.snapshot_factory,
             )
         )
 

@@ -25,13 +25,21 @@ class LocalViewWiring:
     user_context: Any
 
 
-def build_local_view_wiring(*, repo_root: Path, read_model: Any) -> LocalViewWiring:
+def build_local_view_wiring(
+    *,
+    repo_root: Path,
+    read_model: Any,
+    include_test_fixtures: bool = False,
+) -> LocalViewWiring:
     """Build local catalogs, dynamic process views, and user context."""
-    catalog = build_local_catalog_wiring(repo_root)
+    catalog = build_local_catalog_wiring(
+        repo_root,
+        include_test_fixtures=include_test_fixtures,
+    )
     reporting = None
     process_views = None
     workflow_execution = None
-    if catalog.object_types and catalog.link_types and catalog.workflows:
+    if include_test_fixtures and catalog.object_types and catalog.link_types and catalog.workflows:
         reporting, process_views, workflow_execution = _build_dynamic_process_views_sync(
             read_model=read_model,
             object_types=catalog.object_types,

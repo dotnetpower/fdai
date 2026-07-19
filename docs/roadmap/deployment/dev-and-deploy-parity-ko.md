@@ -1,20 +1,25 @@
 ---
-title: Dev/Deploy Parity - 로컬 Fake vs Azure-First 프로비저닝
+title: Dev/Deploy Parity - 테스트 Fake와 Azure 기반 로컬 개발
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: cda845da82d9111c9ac676b0eb40ec66f6e84d5c
-translation_revised: 2026-07-18
+translation_source_sha: 5a4b226cb330b83b47006ee6dc40d41add4843db
+translation_revised: 2026-07-19
 ---
 
-# Dev/Deploy Parity - 로컬 Fake vs Azure-First 프로비저닝
+# Dev/Deploy Parity - 테스트 Fake와 Azure 기반 로컬 개발
 
-**목표**: FDAI의 모든 기능이 **개발자 랩탑에서 Azure 리소스 하나 없이 종단으로
-동작**해야 하고, 동시에 Azure에 배포하면 **배포자의 Azure 권한과 리전 카탈로그가 어떤 LLM
-(기타 리소스 포함) 이 프로비저닝될지를 결정**해야 한다. 두 명제가 동시에 참이어야 함:
+**목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive local
+Console은 운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의
+Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다.
+세 명제가 동시에 참입니다:
 
-- **Dev truth**: `dev-up.sh` + `uv run`으로 컨트롤 루프 전체가 오프라인 실행. 이 모드에서
-  모든 LLM/클라우드 seam은 **결정론적 fake** 로 바인딩. 프로덕션과의 feature parity는
-  "같은 T0 verdict, 같은 shadow-mode 결정, 같은 audit entry"로 측정 - T2 fake가
-  결정론적이므로 T2 quality 자체는 의도적으로 낮음.
+- **자동화 테스트 truth**: pytest와 committed mock은 결정론적 fake를 사용할 수 있습니다.
+  명시적 test-fixture builder를 사용하며 Azure 관측 상태로 표현하지 않습니다.
+- **Full-stack local truth**: `Console Web: Full Stack`은 현재 Azure CLI identity를
+  요구합니다. Inventory와 model availability는 Azure에서 읽습니다. Audit, Incident,
+  Approval, Agent activity, live control-loop state, cost, promotion evidence, scope,
+  scheduler data는 authoritative FDAI Azure data plane이 배포되고 설정된 경우에만
+  표시합니다. Source가 없으면 unavailable 또는 명시적 empty로 표시하며 생성 예제로
+  대체하지 않습니다.
 - **Deploy truth**: `terraform apply` 가 CSP-neutral 컨트랙트의 Azure 측 실현체를 생성.
   **LLM 부분은 배포자-스코프**: bootstrap resolver가 배포자 아이덴티티를 대상 리전
   카탈로그와 대조해 **배포자가 만들 권한이 있는 것만** 프로비저닝하고, resolved
@@ -26,10 +31,11 @@ translation_revised: 2026-07-18
 
 ## 전수조사 - 로컬 동작 vs Azure 필요
 
-2026-07-05 기준. "로컬" = fresh `git clone` 후 `bash scripts/deployment/local/dev-up.sh` + `uv run pytest`가
-**Azure 자격증명 없이** 통과.
+2026-07-19 기준. "자동화 테스트"는 test runner가 실행하는 pytest 또는 committed mock을
+뜻합니다. "Full-stack local"은 현재 Azure CLI context를 사용하는 VS Code compound
+launch입니다. Test fixture는 이 launch profile에서 활성화되지 않습니다.
 
-### 완전 로컬 동작 (Azure 불필요)
+### 자동화 테스트에서 완전 동작 (Azure 불필요)
 
 | 서브시스템 | 로컬 backend | 비고 |
 |-----------|-------------|------|
@@ -50,29 +56,25 @@ translation_revised: 2026-07-18
 | State store (통합 테스트) | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
 | Event bus (통합 테스트) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
 
-### 로컬 개발의 콘솔 live feed
+### 로컬 개발의 Console 데이터
 
-로컬 read API는 Live, Agents, Provisioning feed를 등록하지만 기본적으로 producer를 시작하지
-않으므로 세 stream은 조용히 대기합니다. Provisioning 페이지는 사용할 수 없는 route 오류를
-표시하지 않고 연결된 상태에서 `provision.*` event를 기다립니다. Stream이 연결되었다는 사실만으로
-run이 시작되었거나 progress가 0%라는 뜻은 아닙니다. 첫 provisioning event가 도착하기 전에는
-"관찰된 run 없음"을 표시하고 progress meter를 렌더링하지 않습니다. 명시적인 Live와 Agents
-demo가 필요할 때만 `FDAI_LOCAL_SCENARIO_REPLAY=1`을 설정합니다. 이 모드에서
-`ControlLoopLiveEmitter`는
-`tests/scenarios/v2026.07/` 아래의 제공 이벤트와 catalog에서
-파생한 합성 resource template을 순환합니다. 각 replay에 새로운 event, correlation,
-idempotency identity를 부여하고 구성된 개발 속도로 실제 `ControlLoop.process()` 경로에
-보냅니다. 그런 다음 `ControlLoopAgentActivityRelay`가 실제 stage 결과를 agent 상태와
-`INC-<correlation_id>` ticket으로 투영합니다. 판정은 production 코드를 실행하지만 입력
-resource와 incident는 Azure tenant에서 관찰한 값이 아니라 생성된 예제입니다. Production의
-Agents broadcaster는 대신 구성된 Kafka `aw.pipeline.stages` topic을 소비하므로 incident는
-배포된 runtime stream을 나타냅니다.
+로컬 read API는 `FDAI_READ_API_LOCAL_AZURE_CLI=1`로 인증하며 SPA는
+`VITE_LOCAL_AZURE_CLI_AUTH=1`을 함께 사용합니다. Access token은 server-side에 남습니다.
+Inventory graph는 `AzureCliInventory`를 통해 선택한 Azure subscription을 읽고 model
+catalog는 실제 Azure model availability를 읽습니다.
 
-### 지금은 Azure가 필요 - 로컬 모드 추가 필요
+로컬 factory는 local Pantheon runtime, scenario replay, synthetic Live/Agents emitter,
+seeded audit model, demo finding, generated Process, synthetic scheduler/cost meter, scope
+template, blast-radius graph를 시작하지 않습니다. FDAI Azure PostgreSQL/Event Hubs/runtime
+resource가 없으면 해당 panel은 unavailable 또는 runtime claim이 없는 empty로 표시됩니다.
+Repository catalog와 schema는 runtime evidence가 아닌 configuration-as-code이므로 계속
+표시합니다.
+
+### Azure-backed integration
 
 | 서브시스템 | 상태 | 갭 |
 |-----------|------|-----|
-| Azure Resource Graph inventory | 어댑터 파일 존재 (`delivery/azure/inventory.py`) | 로컬 recorder 없음 / dev용 fixture-driven inventory backend 없음 |
+| Azure Resource Graph inventory | Production adapter 존재 (`delivery/azure/inventory.py`) | Full-stack local은 항상 읽기 전용 `AzureCliInventory`를 사용하며 synthetic opt-out을 거부합니다. |
 | Managed Identity 토큰 (`WorkloadIdentity`) | Protocol만, 어댑터 없음 | Dev 모드용 결정론적 인-메모리 토큰 issuer 필요 |
 | Key Vault secret provider (`SecretProvider`) | Protocol만, 어댑터 없음 | Dev 모드는 `.env` 에서 secret 읽어야 (이미 fork 패턴; `EnvSecretProvider`로 정식화) |
 | GitOps PR publisher | 실제 GitHub 어댑터 존재 | Dev 모드 `RecordingRemediationPrPublisher` fake 이미 있음 ✅ |
@@ -96,14 +98,15 @@ out-of-process 의존을 건드리는 모든 seam은 다음을 갖춰야:
 1. **`shared/providers/` 의 Protocol** - 중립 wire contract. `core/` 는 Protocol만 import.
    `EventBus`, `StateStore`, `SecretProvider`, `WorkloadIdentity`, `Inventory` 및 LLM seam
    (`EmbeddingModel`, `CrossCheckModel`, `VerifierPolicy`, `GroundingSource`) 이미 준수.
-2. **로컬 fake 구현** - 결정론적, 인-프로세스, secret-free. `runtime.env == "dev"` OR
-   `llm.mode == "local-fake"` OR Azure 측 산출물 (예: `resolved-models.json`) 부재 시 자동
-   선택.
-3. **Azure 어댑터** - `delivery/azure/` 하위 (절대 `core/` 아님). `runtime.env in
-   ("staging","prod")` AND Azure 측 산출물 존재 AND 배포자 아이덴티티가 해당 capability에 대해
-   유효한 deployment를 해결한 경우 선택.
-4. **미스매치 시 fail-fast** - `runtime.env == "prod"` 인데 Azure 어댑터가 capability 해결
-   실패하면 프로세스가 시작을 거부. 프로덕션에서 로컬 fake로의 조용한 fallback은 **금지**
+2. **테스트 fake 구현** - 결정론적, in-process, secret-free입니다. 자동화 테스트 또는
+  committed mock/example app이 명시적 fixture builder로만 선택하며 interactive local
+  Console은 사용하지 않습니다.
+3. **Azure adapter** - `delivery/azure/` 하위에 두며 `core/`에는 두지 않습니다.
+  Interactive local profile과 deployed environment 모두 identity와 source가 있을 때 이를
+  선택합니다.
+4. **Mismatch 시 fail-fast 또는 unavailable** - interactive/deployed runtime은 test fake로
+  fallback하지 않습니다. 필수 startup source는 startup을 실패시키고 optional read panel은
+  unavailable로 표시합니다. 조용한 fallback은 **금지**
    ([llm-strategy.md § Bootstrap Provisioner](../architecture/llm-strategy-ko.md#bootstrap-provisioner) 의
    "no HIL-silent fallback" 룰과 일치).
 

@@ -12,6 +12,7 @@ from fdai.core.document_ingestion import DocumentIngestionService, DocumentInges
 from fdai.core.rbac.enforcer import RoleEnforcer
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
 from fdai.delivery.ingestion_gateway import IngestionGatewayConfig, build_app
+from fdai.delivery.ingestion_gateway import dev as _dev
 from fdai.delivery.read_api.auth import Authenticator
 from fdai.shared.contracts import IngestionCapabilities, SourceStorageMode
 from fdai.shared.providers.local.document_ingestion import (
@@ -127,7 +128,7 @@ def test_dev_direct_upload_complete_process_versions_and_delete(monkeypatch) -> 
         config=IngestionGatewayConfig(
             dev_mode=True,
             direct_upload=True,
-            cors_allow_origins=("http://localhost:5173",),
+            cors_allow_origins=("http://localhost:5273",),
         ),
     )
     client = TestClient(app)
@@ -160,11 +161,19 @@ def test_dev_direct_upload_complete_process_versions_and_delete(monkeypatch) -> 
     preflight = client.options(
         "/ingestion/uploads",
         headers={
-            "origin": "http://localhost:5173",
+            "origin": "http://localhost:5273",
             "access-control-request-method": "POST",
         },
     )
-    assert preflight.headers["access-control-allow-origin"] == "http://localhost:5173"
+    assert preflight.headers["access-control-allow-origin"] == "http://localhost:5273"
+
+
+def test_dev_factory_uses_standard_console_origins_by_default() -> None:
+    origins = _dev._cors_origins_from_env({})
+
+    assert "http://localhost:5273" in origins
+    assert "http://localhost:4173" in origins
+    assert "http://localhost:5173" not in origins
 
 
 def test_direct_upload_route_is_hidden_outside_dev() -> None:

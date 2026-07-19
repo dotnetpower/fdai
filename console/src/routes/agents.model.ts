@@ -138,10 +138,10 @@ function applyAgentState(
   msg: Extract<AgentActivityMessage, { type: "agent.state" }>,
 ): AgentsState {
   const prev = state.agents[msg.agent];
-  const layer = prev?.layer ?? _LAYER_OF[msg.agent] ?? "governance";
+  if (prev === undefined) return state;
   const node: AgentNode = {
     name: msg.agent,
-    layer,
+    layer: prev.layer,
     state: msg.state,
     observed: true,
     correlationId: msg.correlation_id,
@@ -186,6 +186,9 @@ function applyTurn(
   msg: Extract<AgentActivityMessage, { type: "conversation.turn" }>,
 ): AgentsState {
   const existing = state.incidents[msg.correlation_id];
+  const participants = [msg.from_agent, msg.to_agent].filter(
+    (name, index, names) => state.agents[name] !== undefined && names.indexOf(name) === index,
+  );
   if (existing === undefined) {
     // A turn can arrive before its ticket in a lossy stream; seed a stub.
     const stub: Incident = {
@@ -194,19 +197,26 @@ function applyTurn(
       title: "(incident forming)",
       severity: "unknown",
       status: "open",
-      involved: [],
+      involved: participants,
       rca: null,
       turns: [msg],
       updatedAt: msg.ts,
     };
+    const incidentOrder = [msg.correlation_id, ...state.incidentOrder].slice(0, MAX_INCIDENTS);
     return {
       ...state,
-      incidents: { ...state.incidents, [msg.correlation_id]: stub },
-      incidentOrder: [msg.correlation_id, ...state.incidentOrder].slice(0, MAX_INCIDENTS),
+      incidents: Object.fromEntries(
+        Object.entries({ ...state.incidents, [msg.correlation_id]: stub })
+          .filter(([id]) => incidentOrder.includes(id)),
+      ),
+      incidentOrder,
     };
   }
   const incident: Incident = {
     ...existing,
+    involved: [...existing.involved, ...participants].filter(
+      (name, index, names) => names.indexOf(name) === index,
+    ),
     turns: [...existing.turns, msg],
     updatedAt: msg.ts,
   };

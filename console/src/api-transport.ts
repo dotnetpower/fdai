@@ -30,8 +30,20 @@ export class ReadApiTransport {
   }
 
   readonly authorizationHeader = async (): Promise<string | null> => {
-    return this.#auth.getAuthorizationHeader();
+    return this.#authorizationHeader();
   };
+
+  async #authorizationHeader(): Promise<string | null> {
+    const authHeader = await this.#auth.getAuthorizationHeader();
+    if (
+      authHeader === null
+      && this.#auth.account !== null
+      && this.#auth.localAzureCli !== true
+    ) {
+      throw new ReadApiError(401, "Authentication token unavailable for signed-in account.");
+    }
+    return authHeader;
+  }
 
   async getJson<T>(path: string, params?: URLSearchParams): Promise<T> {
     const response = await this.getResponse(path, params, "application/json");
@@ -55,7 +67,7 @@ export class ReadApiTransport {
       url.search = params.toString();
     }
     const headers: Record<string, string> = { accept };
-    const authHeader = await this.#auth.getAuthorizationHeader();
+    const authHeader = await this.#authorizationHeader();
     if (authHeader !== null) headers["authorization"] = authHeader;
     const response = await fetch(url.toString(), {
       method: "GET",

@@ -24,7 +24,7 @@ export const TERMS = {
   correlationId: {
     term: "correlation id",
     plain:
-      "the incident key that groups every agent step for one event - the whole chain from detection to verdict to remediation shares it",
+      "the investigation key that groups related agent steps and evidence; it does not by itself prove an Incident lifecycle record exists",
     tech: "correlation_id",
     seeAlso: "trace",
     match: "correlation_id",

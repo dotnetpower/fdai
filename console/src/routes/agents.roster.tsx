@@ -84,7 +84,7 @@ export function AgentRoster({
           Azure resource writes and deletes enter through Event Hubs and Huginn continuously.
           The Inventory sync job still runs Azure Resource Graph with ARM fallback every 6 hours
           to reconcile missed signals. Heimdall monitors freshness and coverage. The local harness
-          does not run Azure discovery.
+           uses read-only Azure CLI discovery by default.
         </p>
       </section>
 
@@ -92,7 +92,7 @@ export function AgentRoster({
         <RosterSummary
           label="Subscriber bindings"
           value={runtimeConsumerCount()}
-          detail="declared, not health-probed"
+           detail="configured runtime roles"
           kind="consumers"
         />
         <RosterSummary label="Engaged" value={active ?? "-"} detail={runtimeCurrent ? "working now" : "live stream unavailable"} kind="engaged" />

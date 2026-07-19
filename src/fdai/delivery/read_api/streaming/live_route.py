@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
 
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
@@ -15,7 +15,7 @@ from fdai.delivery.read_api.streaming.sse_protocol import (
     encode_sse_frame,
     iso_ts_utc,
 )
-from fdai.shared.providers.sse import SseSink
+from fdai.shared.providers.sse import SseEvent, SseSink
 
 _LOGGER = logging.getLogger(__name__)
 _KEEPALIVE_COMMENT = b": keepalive\n\n"
@@ -28,6 +28,7 @@ def make_live_stream_route(
     path: str,
     keepalive_seconds: float,
     authorize: Callable[[Request], Awaitable[str]],
+    initial_events: Callable[[], Iterable[SseEvent]] | None = None,
 ) -> Route:
     """Return the authenticated, read-only SSE route."""
 
@@ -40,6 +41,16 @@ def make_live_stream_route(
                 {"event": "hello", "ts": iso_ts_utc(), "channel": channel},
                 kind="hello",
             )
+            if initial_events is not None:
+                try:
+                    for event in initial_events():
+                        yield encode_sse_event(event)
+                except Exception:  # noqa: BLE001 - a snapshot must not close the live delta
+                    _LOGGER.warning(
+                        "live_stream_initial_snapshot_failed",
+                        extra={"channel": channel},
+                        exc_info=True,
+                    )
             out_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=1024)
             stop = asyncio.Event()
 

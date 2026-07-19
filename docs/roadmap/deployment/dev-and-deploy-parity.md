@@ -1,17 +1,20 @@
 ---
-title: Dev/Deploy Parity - Local Fakes vs Azure-First Provisioning
+title: Dev/Deploy Parity - Test Fakes and Azure-Backed Local Development
 ---
-# Dev/Deploy Parity - Local Fakes vs Azure-First Provisioning
+# Dev/Deploy Parity - Test Fakes and Azure-Backed Local Development
 
-**Goal**: every FDAI capability MUST run **end-to-end on a developer laptop with zero
-Azure resources**, AND deploy cleanly to Azure where the **deployer's Azure permissions +
-region catalog decide which LLM (and other) resources are provisioned**. Two truths must hold
-at the same time:
+**Goal**: automated tests remain deterministic and secret-free, while every interactive local
+Console session shows the operator's actual Azure development environment. Azure deployment
+still uses the **deployer's Azure permissions + region catalog to decide which LLM and other
+resources are provisioned**. Three truths hold at the same time:
 
-- **Dev truth**: `dev-up.sh` + `uv run` runs the whole control loop offline. Every LLM /
-  cloud seam is bound to a **deterministic fake** in this mode. Feature parity with prod is
-  measured by "same T0 verdicts, same shadow-mode decisions, same audit entries"; the
-  quantitative T2 quality is intentionally lower because the T2 fake is deterministic.
+- **Automated-test truth**: pytest and committed mocks may bind deterministic fakes. They use an
+  explicit test-fixture builder and never represent observed Azure state.
+- **Full-stack local truth**: `Console Web: Full Stack` requires the current Azure CLI identity.
+  Inventory and model availability come from Azure. Audit, Incidents, Approvals, Agent activity,
+  live control-loop state, cost, promotion evidence, scope, and scheduler data appear only when
+  their authoritative FDAI Azure data plane is deployed and configured. Missing sources render
+  unavailable or explicitly empty; the Console never substitutes generated examples.
 - **Deploy truth**: `terraform apply` provisions the Azure-side realizations of the
   CSP-neutral contracts. The **LLM subset is deployer-scoped**: the bootstrap resolver
   queries the deployer's identity against the target region's catalog, provisions
@@ -24,10 +27,11 @@ Adding a real Azure client is a fork-side injection; it MUST NOT edit `core/`.
 
 ## Audit - What Works Local, What Needs Azure
 
-Snapshot as of 2026-07-05. "Local" = passes on a fresh `git clone` after `bash scripts/deployment/local/dev-up.sh`
-and `uv run pytest` with **no Azure credentials**.
+Snapshot as of 2026-07-19. "Automated test" means pytest or a committed mock invoked by the
+test runner. "Full-stack local" means the VS Code compound launch using the current Azure CLI
+context. Test fixtures are never enabled by that launch profile.
 
-### Fully working locally (no Azure needed)
+### Fully working in automated tests (no Azure needed)
 
 | Subsystem | Local backend | Notes |
 |-----------|---------------|-------|
@@ -48,28 +52,25 @@ and `uv run pytest` with **no Azure credentials**.
 | State store (integration tests) | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
 | Event bus (integration tests) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
 
-### Console live feeds in local development
+### Console data in local development
 
-The local read API registers its Live, Agents, and Provisioning feeds but starts no producer
-by default, so all three streams stay quiet. The Provisioning page remains connected and waits
-for `provision.*` events instead of failing with an unavailable route. A connected stream alone
-does not mean that a run started or that progress is 0%; the page shows "no run observed" and
-doesn't render a progress meter until the first provisioning event arrives. Set
-`FDAI_LOCAL_SCENARIO_REPLAY=1` only for an explicit Live and Agents demo. In that mode,
-`ControlLoopLiveEmitter` cycles the shipped events under `tests/scenarios/v2026.07/` plus
-catalog-derived synthetic resource templates, gives each replay a fresh event, correlation,
-and idempotency identity, and sends it through the real `ControlLoop.process()` path at the
-configured development rate. `ControlLoopAgentActivityRelay` then projects those real stage
-results into agent states and `INC-<correlation_id>` tickets. The decisions exercise production
-code, but the input resources and incidents are generated examples, not observations from an
-Azure tenant. In production, the Agents broadcaster consumes the configured Kafka
-`aw.pipeline.stages` topic instead, so its incidents represent the deployed runtime stream.
+The local read API authenticates with `FDAI_READ_API_LOCAL_AZURE_CLI=1`; the SPA pairs it with
+`VITE_LOCAL_AZURE_CLI_AUTH=1`. The access token remains server-side. The inventory graph reads
+the selected Azure subscription through `AzureCliInventory`, and the model catalog reads actual
+Azure model availability.
 
-### Currently needs Azure (must gain a local mode)
+The local factory does not start a local Pantheon runtime, scenario replay, synthetic Live or
+Agents emitter, seeded audit model, demo findings, generated Process, synthetic scheduler,
+synthetic cost meter, scope template, or blast-radius graph. When FDAI's Azure PostgreSQL/Event
+Hubs/runtime resources are absent, those panels are unavailable or empty with no runtime claim.
+Repository catalogs and schemas remain visible because they are configuration-as-code, not
+observed runtime evidence.
+
+### Azure-backed integrations
 
 | Subsystem | Status | Gap |
 |-----------|--------|-----|
-| Azure Resource Graph inventory | Adapter file exists (`delivery/azure/inventory.py`) | No local recorder / no fixture-driven inventory backend for dev |
+| Azure Resource Graph inventory | Production adapter exists (`delivery/azure/inventory.py`) | Full-stack local always uses read-only `AzureCliInventory`; synthetic opt-out is rejected |
 | Managed Identity token (`WorkloadIdentity`) | Protocol only, no adapter | Dev-mode MUST use a deterministic in-memory token issuer |
 | Key Vault secret provider (`SecretProvider`) | Protocol only, no adapter | Dev-mode MUST read secrets from `.env` (already the fork pattern; formalise it as a `EnvSecretProvider`) |
 | GitOps PR publisher | Real GitHub adapter exists | Dev-mode already has a `RecordingRemediationPrPublisher` fake ✅ |
@@ -94,15 +95,14 @@ Every seam that touches an out-of-process dependency MUST provide:
    Protocol only. This already holds for `EventBus`, `StateStore`, `SecretProvider`,
    `WorkloadIdentity`, `Inventory`, and the LLM seams (`EmbeddingModel`,
    `CrossCheckModel`, `VerifierPolicy`, `GroundingSource`).
-2. **A local-fake implementation** - deterministic, in-process, secret-free. Selected
-   automatically when `runtime.env == "dev"` OR when `llm.mode == "local-fake"` OR when the
-   Azure-side artifact (e.g. `resolved-models.json`) is absent.
-3. **An Azure adapter** - under `delivery/azure/` (never `core/`). Selected when
-   `runtime.env in ("staging", "prod")` AND the Azure-side artifact exists AND the deployer's
-   identity resolved a valid deployment for the capability.
-4. **Fail-fast in the mismatch case** - if `runtime.env == "prod"` and the Azure adapter
-   cannot resolve a capability, the process refuses to start. Silent fallback to the local
-   fake in production is **prohibited** (matches the "no HIL-silent fallback" rule in
+2. **A test-fake implementation** - deterministic, in-process, and secret-free. It is selected
+  only by automated tests or committed mock/example applications through an explicit fixture
+  builder, never by the interactive local Console.
+3. **An Azure adapter** - under `delivery/azure/` (never `core/`). It is selected for both the
+  interactive local profile and deployed environments when the identity and source exist.
+4. **Fail-fast or unavailable in the mismatch case** - an interactive or deployed runtime never
+  falls back to a test fake. A required startup source fails startup; an optional read panel
+  renders unavailable. Silent fallback is **prohibited** (matches the "no HIL-silent fallback" rule in
    [llm-strategy.md § Bootstrap Provisioner](../architecture/llm-strategy.md#bootstrap-provisioner)).
 
 Every test that exercises the pipeline runs in mode (1)+(2) so the CI parity gate never

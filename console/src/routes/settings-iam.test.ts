@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import type { AuthContext } from "../auth";
 import {
   iamIdentityPresentation,
+  isIamTabRestricted,
   iamTabFromSegment,
   isCurrentIamLoad,
   referencedUsers,
@@ -85,6 +86,14 @@ describe("IAM settings contracts", () => {
     expect(iamTabFromSegment(undefined)).toBe("my-access");
     expect(iamTabFromSegment("roles")).toBe("roles");
     expect(iamTabFromSegment("not-a-tab")).toBeNull();
+  });
+
+  test("marks Owner-only tabs as restricted without removing navigation", () => {
+    expect(isIamTabRestricted("users", null)).toBe(false);
+    expect(isIamTabRestricted("users", false)).toBe(true);
+    expect(isIamTabRestricted("requests", false)).toBe(true);
+    expect(isIamTabRestricted("roles", false)).toBe(false);
+    expect(isIamTabRestricted("users", true)).toBe(false);
   });
 
   test("separates local Entra identity from the dev authorization principal", () => {

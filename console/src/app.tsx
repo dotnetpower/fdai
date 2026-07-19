@@ -3,7 +3,11 @@ import { lazy, Suspense } from "preact/compat";
 import { ReadApiClient } from "./api";
 import type { AuthContext } from "./auth";
 import { initAuth } from "./auth";
-import { shouldLoadIamSelf, shouldShowAccessRequired } from "./access-routing";
+import {
+  shouldAllowLocalDevBypass,
+  shouldLoadIamSelf,
+  shouldShowAccessRequired,
+} from "./access-routing";
 import { loadConfig, type ConsoleConfig } from "./config";
 import {
   clearLocalAuthBypass,
@@ -114,6 +118,10 @@ export function App() {
       try {
         const config = loadConfig();
         const auth = await initAuth(config);
+        if (!shouldAllowLocalDevBypass(auth) && readLocalAuthBypass()) {
+          clearLocalAuthBypass();
+          if (!cancelled) setLocalDevBypass(false);
+        }
         const client = new ReadApiClient(config, auth);
         let iamSelf: IamSelfStatus | undefined;
         if (shouldLoadIamSelf(auth)) {
@@ -228,17 +236,20 @@ export function App() {
     auth.devMode &&
     state.config?.localLoginPrompt &&
     !auth.account &&
-    !localDevBypass
+    (!shouldAllowLocalDevBypass(auth) || !localDevBypass)
   ) {
+    const allowDevBypass = shouldAllowLocalDevBypass(auth);
     return (
       <Suspense fallback={null}>
         <LoginRoute
           auth={auth}
-          allowDevBypass
-          onDevBypass={async () => {
-            await establishLocalAuthBypass(() => client.dashboardMetrics());
-            setLocalDevBypass(true);
-          }}
+          allowDevBypass={allowDevBypass}
+          {...(allowDevBypass ? {
+            onDevBypass: async () => {
+              await establishLocalAuthBypass(() => client.dashboardMetrics());
+              setLocalDevBypass(true);
+            },
+          } : {})}
         />
       </Suspense>
     );
@@ -261,7 +272,10 @@ export function App() {
         activePanelId={panel.id}
         auth={auth}
         {...(
-          auth.devMode && state.config?.localLoginPrompt && localDevBypass
+          auth.devMode
+          && state.config?.localLoginPrompt
+          && shouldAllowLocalDevBypass(auth)
+          && localDevBypass
             ? { onExitLocalSession: () => {
                 clearLocalAuthBypass();
                 setLocalDevBypass(false);

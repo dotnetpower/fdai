@@ -42,6 +42,9 @@ models:
   t2.reasoner.primary:
     preferences:
       - {publisher: OpenAI, family: gpt-4o}
+      - {publisher: OpenAI, family: gpt-5.4}
+      - {publisher: OpenAI, family: gpt-5.2}
+      - {publisher: OpenAI, family: gpt-5}
       - {publisher: OpenAI, family: gpt-4.1}
       - {publisher: OpenAI, family: gpt-4-turbo}
     sku: Standard

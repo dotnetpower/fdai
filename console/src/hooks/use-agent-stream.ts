@@ -165,6 +165,10 @@ export function isPermanentAgentStreamFailure(status: number): boolean {
   return status === 401 || status === 403;
 }
 
+export function shouldResumeAgentStream(permanentFailure: boolean, hidden: boolean): boolean {
+  return !permanentFailure && !hidden;
+}
+
 export async function consumeAgentActivitySse(
   response: Response,
   onEvent: (event: AgentActivityMessage) => void,
@@ -292,8 +296,9 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
     };
     const handleVisibility = (): void => {
       if (cancelled) return;
-      if (isHidden()) disconnect("idle");
-      else void connect();
+      const hidden = isHidden();
+      if (hidden) disconnect("idle");
+      else if (shouldResumeAgentStream(permanentFailure, hidden)) void connect();
     };
     if (isHidden()) publishStatus("idle");
     else void connect();

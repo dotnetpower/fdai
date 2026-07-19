@@ -280,7 +280,8 @@ describe("no-snapshot fallback (static universal glossary)", () => {
 
   test("answers 'what is a correlation id' with no snapshot", () => {
     const a = answer("what is a correlation id?", null);
-    expect(a.text.toLowerCase()).toContain("incident key");
+    expect(a.text.toLowerCase()).toContain("investigation key");
+    expect(a.text).toContain("does not by itself prove an Incident");
   });
 
   test("Korean 'what is HIL' resolves with no snapshot", () => {

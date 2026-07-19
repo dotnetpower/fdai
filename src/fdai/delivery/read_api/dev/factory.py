@@ -1,8 +1,9 @@
-"""Local dev entrypoint for the console read API.
+"""Azure-backed local entrypoint for the console read API.
 
-Boots the Starlette app with :class:`UnsafeClaimsExtractor` (dev-only
-JWT decoder) and an :class:`InMemoryConsoleReadModel` seeded with a few
-synthetic entries so the console has something to render.
+The interactive factory requires the current Azure CLI identity and never
+seeds runtime evidence. Repository catalogs remain available as reference
+data; Azure runtime panels stay empty or unavailable until their authoritative
+Azure data-plane adapters are configured.
 
 **Never wire this in production.** The env-var tripwire in
 :func:`fdai.delivery.read_api.main.build_app` refuses to build a
@@ -14,16 +15,12 @@ Usage (uvicorn's ``--factory`` flag calls :func:`app` at server start,
 so importing this module during unrelated tooling - pytest collection,
 mypy, IDE indexing - has no side effect)::
 
-    FDAI_READ_API_DEV_MODE=1 \\
-        uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \\
-            --factory --port 8000
-
-Or reuse the current interactive Azure CLI login without exposing its token
-to the browser::
-
     FDAI_READ_API_LOCAL_AZURE_CLI=1 \
         uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
             --factory --port 8000
+
+Synthetic composition is available only through the explicit
+``test_fixtures=True`` argument used by pytest integration tests.
 """
 
 from __future__ import annotations
@@ -31,6 +28,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -68,6 +66,10 @@ from fdai.delivery.read_api.dev.azure_cli_identity import (  # noqa: E402
 )
 from fdai.delivery.read_api.dev.config import (  # noqa: E402
     cors_origins_from_env as _cors_origins_from_env,
+)
+from fdai.delivery.read_api.dev.config import (  # noqa: E402
+    entra_application_id_from_env,
+    local_entra_verifier_environment,
 )
 from fdai.delivery.read_api.dev.config import (  # noqa: E402
     group_mapping_from_env as _group_mapping_from_env,
@@ -133,6 +135,9 @@ from fdai.delivery.read_api.routes.rule_fire_trace_reader import (  # noqa: E402
     ConsoleReadModelTraceReader,
 )
 from fdai.delivery.read_api.routes.scheduler_runs import SchedulerRunsPanel  # noqa: E402
+from fdai.delivery.read_api.streaming.agent_activity_stream import (  # noqa: E402
+    runtime_agent_state_snapshot,
+)
 from fdai.delivery.read_api.streaming.provision_stream import ProvisionStreamConfig  # noqa: E402
 from fdai.shared.providers.testing.state_store import InMemoryStateStore  # noqa: E402
 
@@ -152,12 +157,23 @@ _REPO_ROOT = Path(__file__).resolve().parents[5]
 
 
 def build_local_app(
-    *, identity_resolver: Callable[[], Any] = resolve_azure_cli_identity
+    *,
+    identity_resolver: Callable[[], Any] = resolve_azure_cli_identity,
+    test_fixtures: bool = False,
 ) -> Starlette:
     """Factory. uvicorn invokes this once at server start with ``--factory``."""
     dev_mode = os.environ.get(_DEV_ENV) == "1"
     local_entra = os.environ.get(_LOCAL_ENTRA_ENV) == "1"
     local_azure_cli = os.environ.get(_LOCAL_AZURE_CLI_ENV) == "1"
+    if test_fixtures and "PYTEST_CURRENT_TEST" not in os.environ:
+        raise RuntimeError("synthetic local fixtures are pytest-only")
+    if not test_fixtures and (dev_mode or not (local_entra or local_azure_cli)):
+        raise RuntimeError(
+            "interactive local read API requires FDAI_READ_API_LOCAL_ENTRA=1 or "
+            "FDAI_READ_API_LOCAL_AZURE_CLI=1; dev-mode and synthetic fallback are test-only"
+        )
+    if not test_fixtures and os.environ.get("FDAI_LOCAL_SCENARIO_REPLAY", "").strip() == "1":
+        raise RuntimeError("interactive local scenario replay is not supported; use Azure evidence")
     if local_azure_cli and (dev_mode or local_entra):
         raise RuntimeError(
             f"{_LOCAL_AZURE_CLI_ENV} MUST NOT be combined with {_DEV_ENV} or {_LOCAL_ENTRA_ENV}"
@@ -171,7 +187,8 @@ def build_local_app(
         )
     local_cli_identity = identity_resolver() if local_azure_cli else None
     read_model = InMemoryConsoleReadModel()
-    _seed(read_model)
+    if test_fixtures:
+        _seed(read_model)
     group_mapping = _group_mapping_from_env()
     resolver = RoleResolver(group_mapping=group_mapping)
     # dev_mode (auth off) wins when both flags are set. Otherwise this is the
@@ -186,16 +203,21 @@ def build_local_app(
         )
     else:
         authenticator = build_authenticator(
-            verifier=EntraJwtVerifier.from_env(),
+            verifier=EntraJwtVerifier.from_env(local_entra_verifier_environment()),
             resolver=resolver,
         )
 
     iam = build_local_iam_directory(
         group_mapping,
         use_graph=local_entra or local_azure_cli,
+        application_id=entra_application_id_from_env(),
     )
 
-    views = build_local_view_wiring(repo_root=_REPO_ROOT, read_model=read_model)
+    views = build_local_view_wiring(
+        repo_root=_REPO_ROOT,
+        read_model=read_model,
+        include_test_fixtures=test_fixtures,
+    )
     catalog = views.catalog
     ontology_object_types = catalog.object_types
     ontology_link_types = catalog.link_types
@@ -222,20 +244,32 @@ def build_local_app(
     workflow_definitions = user_context_group.workflow_definitions
     seed_user_workflow_ontology = user_context_group.seed_callback
 
-    live_stream_config, agent_activity_config = _build_agent_streams()
-    local_operator_oid = (
-        local_cli_identity.principal.oid if local_cli_identity is not None else "dev-anon"
+    live_stream_config = None
+    agent_activity_config = None
+    runtime = None
+    if test_fixtures:
+        live_stream_config, agent_activity_config = _build_agent_streams()
+        local_operator_oid = (
+            local_cli_identity.principal.oid if local_cli_identity is not None else "dev-anon"
+        )
+        runtime = build_local_runtime_wiring(
+            read_model=read_model,
+            action_types=tuple(action_types),
+            workflows=tuple(built_in_workflows),
+            live_stream_config=live_stream_config,
+            local_operator_oid=local_operator_oid,
+            action_topic=_LOCAL_ACTION_TOPIC,
+            repo_root=_REPO_ROOT,
+        )
+        agent_activity_config = replace(
+            agent_activity_config,
+            snapshot_factory=lambda: runtime_agent_state_snapshot(
+                runtime.pantheon_runtime.health()
+            ),
+        )
+    metering = InMemoryMeteringSink(
+        initial=_synthetic_llm_invocations() if test_fixtures else (),
     )
-    runtime = build_local_runtime_wiring(
-        read_model=read_model,
-        action_types=tuple(action_types),
-        workflows=tuple(built_in_workflows),
-        live_stream_config=live_stream_config,
-        local_operator_oid=local_operator_oid,
-        action_topic=_LOCAL_ACTION_TOPIC,
-        repo_root=_REPO_ROOT,
-    )
-    metering = InMemoryMeteringSink(initial=_synthetic_llm_invocations())
     models = build_local_model_wiring(_REPO_ROOT, metering_sink=metering)
 
     async def open_narrator_endpoint() -> None:
@@ -264,10 +298,9 @@ def build_local_app(
             ),
             cors_allow_origins=_cors_origins_from_env(),
             live_stream=live_stream_config,
-            # Keep the read-only page connected while no provisioning producer is active.
-            provision_stream=ProvisionStreamConfig(),
+            provision_stream=ProvisionStreamConfig() if test_fixtures else None,
             agent_activity=agent_activity_config,
-            blast_radius_graph=_build_blast_radius_graph(),
+            blast_radius_graph=_build_blast_radius_graph() if test_fixtures else None,
             ontology_object_types=tuple(ontology_object_types),
             ontology_link_types=tuple(ontology_link_types),
             ontology_action_types=tuple(action_types),
@@ -284,57 +317,77 @@ def build_local_app(
             rule_catalog_remediation_root=(remediation_root if remediation_root.is_dir() else None),
             rule_catalog_findings_provider=rule_catalog_findings_provider,
             rule_catalog_findings_summary_provider=rule_catalog_findings_summary_provider,
-            promotion_gate_action_types=tuple(action_types),
-            promotion_gate_source=InMemoryShadowVerdictSource(verdicts=_synthetic_verdicts()),
-            scope_source=_build_scope_view(),
-            extra_panels=(
-                ExampleFinOpsPanel(read_model),
-                AutonomyMeasurementPanel(read_model),
-                CapabilityCatalogPanel(),
-                OperatorMemoryPanel(
-                    service=OperatorMemoryReviewService(store=InMemoryOperatorMemoryStore()),
-                    compactions=InMemoryMemoryCompactionRepository(),
-                ),
-                SchedulerRunsPanel(
-                    service=ScheduleRunHistoryService(ledger=InMemoryScheduleRunLedger()),
-                    source="synthetic-dev",
-                    durable=False,
-                ),
-                OnboardingPanel(probe=EmptyResourceProbe(), configured=False),
-                LlmCostPanel(
-                    metering,
-                    source="synthetic-dev",
-                ),
+            promotion_gate_action_types=tuple(action_types) if test_fixtures else (),
+            promotion_gate_source=(
+                InMemoryShadowVerdictSource(verdicts=_synthetic_verdicts())
+                if test_fixtures
+                else None
             ),
-            trace_reader=trace_reader,
-            bitemporal_reader=trace_reader,
-            what_if_reader=trace_reader,
-            what_if_evaluators=what_if_evaluators,
+            scope_source=_build_scope_view() if test_fixtures else None,
+            extra_panels=(
+                (
+                    ExampleFinOpsPanel(read_model),
+                    AutonomyMeasurementPanel(read_model),
+                    CapabilityCatalogPanel(),
+                    OperatorMemoryPanel(
+                        service=OperatorMemoryReviewService(store=InMemoryOperatorMemoryStore()),
+                        compactions=InMemoryMemoryCompactionRepository(),
+                    ),
+                    SchedulerRunsPanel(
+                        service=ScheduleRunHistoryService(ledger=InMemoryScheduleRunLedger()),
+                        source="synthetic-dev",
+                        durable=False,
+                    ),
+                    OnboardingPanel(probe=EmptyResourceProbe(), configured=False),
+                    LlmCostPanel(
+                        metering,
+                        source="synthetic-dev",
+                    ),
+                )
+                if test_fixtures
+                else ()
+            ),
+            trace_reader=trace_reader if test_fixtures else None,
+            bitemporal_reader=trace_reader if test_fixtures else None,
+            what_if_reader=trace_reader if test_fixtures else None,
+            what_if_evaluators=what_if_evaluators if test_fixtures else {},
             chat=models.backend,
             chat_web_search=models.web_search,
             chat_probe_interval_seconds=_chat_probe_interval_seconds(),
-            chat_agent_delegate=PantheonChatDelegate(runtime.pantheon_runtime),
-            console_action=runtime.console_action,
+            chat_agent_delegate=(
+                PantheonChatDelegate(runtime.pantheon_runtime) if runtime is not None else None
+            ),
+            console_action=runtime.console_action if runtime is not None else None,
             iam_access=AccessRequestService(store=InMemoryStateStore()),
             iam_directory=iam.directory,
             iam_role_group_ids=iam.role_group_ids,
             expose_pantheon=True,
-            stewardship_map=_build_stewardship_map(),
+            stewardship_map=_build_stewardship_map() if test_fixtures else None,
             workflow_authoring=workflow_authoring,
-            workflow_execution=views.workflow_execution,
-            python_tasks=runtime.python_tasks,
-            reporting=views.reporting,
-            process_views=views.process_views,
-            startup_callbacks=(seed_user_workflow_ontology, runtime.start_pantheon_runtime)
-            + (open_narrator_endpoint,)
-            + ((runtime.operator_runtime.start,) if runtime.operator_runtime is not None else ()),
-            shutdown_callbacks=(runtime.stop_pantheon_runtime,)
-            + ((runtime.operator_runtime.stop,) if runtime.operator_runtime is not None else ())
+            workflow_execution=views.workflow_execution if test_fixtures else None,
+            python_tasks=runtime.python_tasks if runtime is not None else None,
+            reporting=views.reporting if test_fixtures else None,
+            process_views=views.process_views if test_fixtures else None,
+            startup_callbacks=(seed_user_workflow_ontology, open_narrator_endpoint)
+            + ((runtime.start_pantheon_runtime,) if runtime is not None else ())
+            + (
+                (runtime.operator_runtime.start,)
+                if runtime is not None and runtime.operator_runtime is not None
+                else ()
+            ),
+            shutdown_callbacks=((runtime.stop_pantheon_runtime,) if runtime is not None else ())
+            + (
+                (runtime.operator_runtime.stop,)
+                if runtime is not None and runtime.operator_runtime is not None
+                else ()
+            )
             + iam.shutdown_callbacks,
         ),
     )
-    application.state.pantheon_runtime = runtime.pantheon_runtime
-    application.state.local_operator_runtime = runtime.operator_runtime
+    application.state.pantheon_runtime = runtime.pantheon_runtime if runtime is not None else None
+    application.state.local_operator_runtime = (
+        runtime.operator_runtime if runtime is not None else None
+    )
     return application
 
 

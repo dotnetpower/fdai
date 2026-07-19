@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 059eed7a25fd1f93acb441cce2a1b6c2ace83979
-translation_revised: 2026-07-18
+translation_source_sha: 4229253f633c6e7881ff937cafa45f22336456bd
+translation_revised: 2026-07-19
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -502,18 +502,19 @@ flowchart TD
 | `RULE_CATALOG_REF` | env | fork | 카탈로그 스냅샷 git ref |
 | `AUTONOMY_MODE_DEFAULT` | env | fork | **반드시** `shadow` 기본값 |
 | `FDAI_LOG_LEVEL` | env | upstream | 코어 앱의 Python 로거 레벨 (`DEBUG` / `INFO` / `WARNING` / `ERROR`). 기본 `INFO`. |
-| `FDAI_READ_API_DEV_MODE` | env | dev-only | `1` 은 로컬 개발용으로 read API 의 Entra JWT 검증을 우회. staging / prod 에서 **금지**. |
-| `FDAI_READ_API_LOCAL_ENTRA` | env | dev-only | `1` 은 로컬 seed 하네스를 **실제** Entra JWT 검증과 함께 실행(`FDAI_ENTRA_TENANT_ID` + `FDAI_API_AUDIENCE` 필요)해 로컬에서 사인인 테스트 가능. dev-mode 와 상호배타; staging / prod 에서 **금지**. |
-| `FDAI_LOCAL_SCENARIO_REPLAY` | env | dev-only | 기본값은 미설정이며 Live와 Agents stream은 조용히 대기합니다. 생성 scenario demo가 명시적으로 필요할 때만 `1`로 설정하며 staging / prod에서는 설정하지 않습니다. |
-| `FDAI_LOCAL_AZURE_DISCOVERY` | env | dev-only | `1`이면 synthetic 로컬 Architecture graph를 읽기 전용 Azure CLI discovery로 교체합니다. 명시적인 로컬 subscription id가 필요합니다. |
-| `FDAI_LOCAL_AZURE_SUBSCRIPTION_ID` | env | dev-only | 로컬 Azure discovery가 활성화될 때 모든 `az group/resource list` 호출에 전달하는 subscription입니다. 채워진 값을 commit하지 않습니다. |
+| `FDAI_READ_API_LOCAL_AZURE_CLI` | env | local-only | 표준 interactive local mode입니다. 현재 `az login` identity를 요구하고 token은 server-side에 유지하며 browser-safe profile metadata만 노출합니다. `VITE_LOCAL_AZURE_CLI_AUTH=1`과 함께 사용합니다. |
+| `FDAI_READ_API_DEV_MODE` | env | test-only | Automated read API test용 authentication bypass입니다. VS Code full-stack profile은 설정하지 않습니다. |
+| `FDAI_READ_API_LOCAL_ENTRA` | env | test-only | 격리된 pytest fixture에서 실제 Entra JWT verification을 검사합니다. Interactive data profile이 아니며 local Console을 seed하지 않습니다. |
+| `FDAI_LOCAL_SCENARIO_REPLAY` | env | test-only | Automated test와 명시적 mock application용 generated scenario replay입니다. Interactive local startup은 이를 거부합니다. |
+| `FDAI_LOCAL_AZURE_DISCOVERY` | env | local-only | Azure discovery는 필수입니다. 미설정 또는 `1`은 read-only `AzureCliInventory`를 사용하고 `0`은 거부하며 synthetic graph를 선택하지 않습니다. |
+| `FDAI_LOCAL_AZURE_SUBSCRIPTION_ID` | env | dev-only | 모든 로컬 `az group/resource list` 호출에 전달하는 선택적 subscription입니다. 미설정 시 선택한 Azure CLI profile의 active subscription을 사용합니다. 채워진 값을 commit하지 않습니다. |
 | `FDAI_LOCAL_AZURE_CONFIG_DIR` | env | dev-only | 선택적 격리 Azure CLI profile입니다. 미설정 시 adapter가 상속된 `AZURE_CONFIG_DIR`를 제거하고 기본 profile을 사용합니다. |
 | `FDAI_POLICIES_ROOT` | env | fork | T0 와 verifier 가 소비하는 OPA / Rego 번들 루트의 절대 경로. 미설정 시 in-repo `policies/` 를 기본값. |
 | `FDAI_MI_CLIENT_ID` | env | upstream | 현재 process의 user-assigned MI client id. Core에는 executor id를 주입하고 inventory job에는 별도 read-only discovery id를 주입합니다. |
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | upstream / fork | ACS Email A2/A4 채널을 활성화합니다. Terraform이 endpoint와 Azure-managed sender를 파생하고 전용 notification MI를 연결한 뒤 client id를 주입합니다. 포크는 `NOTIFICATION_EMAIL_RECIPIENTS_JSON`으로 수신자를 공급하며 앱에는 access key나 connection string이 들어가지 않습니다. 부분 설정은 startup을 차단합니다. |
 | `FDAI_MEASUREMENT_MODE` | env | upstream | `shadow` (기본) 또는 `enforce` - `infra/modules/measurement-runners/` 의 Container Apps Jobs 러너를 지배. |
-| `FDAI_DIRECT_API_FAKE` | env | dev-only | `1` 은 executor direct-API 경로를 in-memory fake 로 스왑; 테스트와 로컬 개발용. |
-| `FDAI_TOOL_CALL_FAKE` | env | dev-only | `1` 은 executor tool-call 경로를 in-memory fake (`RecordingToolExecutor`) 로 스왑; 테스트와 로컬 개발용. |
+| `FDAI_DIRECT_API_FAKE` | env | test-only | Automated test에서 executor direct-API 경로를 in-memory fake로 바꿉니다. Interactive local startup은 executor를 연결하지 않습니다. |
+| `FDAI_TOOL_CALL_FAKE` | env | test-only | Automated test에서 executor tool-call 경로를 `RecordingToolExecutor`로 바꿉니다. Interactive local startup은 executor를 연결하지 않습니다. |
 | `FDAI_WORKFLOW_SHADOW` | env | upstream | `1`이면 event-triggered catalog Workflow를 non-mutating shadow mode로 활성화합니다. Azure core app은 기본 설정입니다. |
 | `FDAI_IRP_ENABLED` / `FDAI_IRP_BUDGET_SECONDS` | env | upstream | alert-shaped event를 budgeted investigation -> typed proposal 경로로 처리합니다. proposal은 표준 risk/HIL/executor loop에 재진입합니다. |
 | `FDAI_CHAOS_CONTEXT_JSON` / `FDAI_CHAOS_ENFORCE` | env | fork | promoted chaos injector runtime context. 명시 flag가 `1`이고 scenario가 promoted 상태이며 injector와 probe가 모두 등록된 경우에만 enforce를 허용합니다. |

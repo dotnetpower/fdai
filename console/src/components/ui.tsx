@@ -171,6 +171,8 @@ export interface Column<Row> {
   readonly key: string;
   readonly header: ComponentChildren;
   readonly render: (row: Row) => ComponentChildren;
+  /** Plain-text label shown beside a cell in responsive row layouts. */
+  readonly mobileLabel?: string;
   /** CSS class applied to the cell, e.g. `"mono"`, `"num"`. */
   readonly cellClass?: string;
   /** CSS class applied to the header cell. */
@@ -193,6 +195,12 @@ export interface DataTableProps<Row> {
   readonly rowActionControls?: string;
 }
 
+export function mobileColumnLabel<Row>(column: Column<Row>): string {
+  if (column.mobileLabel?.trim()) return column.mobileLabel;
+  if (typeof column.header === "string" && column.header.trim()) return column.header;
+  return column.key;
+}
+
 export function DataTable<Row>({
   columns,
   rows,
@@ -206,7 +214,9 @@ export function DataTable<Row>({
 }: DataTableProps<Row>) {
   if (rows.length === 0) {
     return (
-      <div class="data-table-empty muted">{empty ?? "No rows to display."}</div>
+      <div class="data-table-empty muted" role="status" aria-live="polite">
+        {empty ?? "No rows to display."}
+      </div>
     );
   }
   const clickable = onRowClick !== undefined;
@@ -245,7 +255,7 @@ export function DataTable<Row>({
                 }
               >
                 {columns.map((c, columnIndex) => (
-                  <td key={c.key} class={c.cellClass}>
+                  <td key={c.key} class={c.cellClass} data-label={mobileColumnLabel(c)}>
                     {explicitAction && columnIndex === 0 ? (
                       <button
                         type="button"

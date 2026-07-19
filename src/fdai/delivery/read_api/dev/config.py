@@ -10,8 +10,6 @@ from fdai.core.rbac.resolver import GroupMapping
 
 _CORS_ORIGINS_ENV = "FDAI_READ_API_CORS_ALLOW_ORIGINS"
 _DEFAULT_CORS_ORIGINS = (
-    "http://127.0.0.1:5173",
-    "http://localhost:5173",
     "http://127.0.0.1:5273",
     "http://localhost:5273",
     "http://127.0.0.1:5180",
@@ -23,6 +21,42 @@ _DEFAULT_CORS_ORIGINS = (
     "http://127.0.0.1:8090",
     "http://localhost:8090",
 )
+
+
+def local_entra_verifier_environment(
+    environ: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Map local Vite MSAL settings to the read API verifier contract."""
+    env = dict(environ if environ is not None else os.environ)
+    if not env.get("FDAI_ENTRA_TENANT_ID", "").strip():
+        tenant_id = env.get("VITE_MSAL_TENANT_ID", "").strip()
+        if tenant_id:
+            env["FDAI_ENTRA_TENANT_ID"] = tenant_id
+    if not env.get("FDAI_API_AUDIENCE", "").strip():
+        scope = env.get("VITE_MSAL_API_SCOPE", "").strip()
+        if scope and "/" in scope:
+            scope_resource = scope.rsplit("/", 1)[0]
+            env["FDAI_API_AUDIENCE"] = (
+                scope_resource.removeprefix("api://")
+                if scope_resource.startswith("api://")
+                else scope_resource
+            )
+    return env
+
+
+def entra_application_id_from_env(
+    environ: Mapping[str, str] | None = None,
+) -> str | None:
+    """Return the FDAI API application client id when locally discoverable."""
+    env = local_entra_verifier_environment(environ)
+    explicit = env.get("FDAI_API_APPLICATION_ID", "").strip()
+    if explicit:
+        return explicit
+    audience = env.get("FDAI_API_AUDIENCE", "").strip()
+    if audience.startswith("api://"):
+        audience = audience.removeprefix("api://")
+    application_id = audience.strip("/")
+    return application_id or None
 
 
 def group_mapping_from_env(environ: Mapping[str, str] | None = None) -> GroupMapping:
@@ -76,4 +110,9 @@ def cors_origins_from_env(environ: Mapping[str, str] | None = None) -> tuple[str
     return origins
 
 
-__all__ = ["cors_origins_from_env", "group_mapping_from_env"]
+__all__ = [
+    "cors_origins_from_env",
+    "entra_application_id_from_env",
+    "group_mapping_from_env",
+    "local_entra_verifier_environment",
+]

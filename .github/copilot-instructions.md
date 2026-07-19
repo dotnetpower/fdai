@@ -131,6 +131,11 @@ principles into a phased engineering plan.
   [Working on issues](../CONTRIBUTING.md#working-on-issues).
 - Do not claim performance multipliers or other quantified gains without a stated, measured
   baseline.
+- **Interactive local means real Azure development data.** The VS Code full-stack profile uses
+  the current Azure CLI identity. Never enable synthetic seed/demo/fallback data for the local
+  Console; an absent Azure source renders unavailable or explicitly empty. Synthetic fixtures
+  are test/mock/example-only. Full contract:
+  [instructions/app-shape.instructions.md](instructions/app-shape.instructions.md#local-azure-truth-contract-must).
 
 ## Repo Hints (agent-facing)
 

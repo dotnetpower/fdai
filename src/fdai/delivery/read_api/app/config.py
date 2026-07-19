@@ -20,8 +20,8 @@ from fdai.shared.providers.hil_registry import HilApprovalRegistry
 class ReadApiConfig:
     """Composition-root configuration for :func:`build_app`.
 
-    ``dev_mode`` short-circuits authentication for local development and
-    tests. It MUST default to ``False`` and MUST NOT be true in a
+    ``dev_mode`` short-circuits authentication for automated tests. It MUST
+    default to ``False`` and MUST NOT be true in interactive local or a
     production composition root - the fork's IaC pipeline enforces that
     by never setting ``FDAI_READ_API_DEV_MODE`` on deployed
     revisions.
@@ -29,7 +29,7 @@ class ReadApiConfig:
 
     dev_mode: bool = False
     """When True, unauthenticated requests are treated as anonymous
-    Readers. Only for local dev + pytest."""
+    Readers. Only for pytest fixtures."""
 
     local_cli_principal: Principal | None = None
     """Current ``az login`` user projected into the local dev harness.
@@ -126,10 +126,9 @@ class ReadApiConfig:
     streaming route (default ``/agents/stream``) that fans out
     ``agent.state`` / ``incident.ticket`` / ``conversation.turn`` events to
     the ``Now > Agents`` console panel. Read-only: the console renders agent
-    collaboration, it never executes. In the dev harness (no external sink)
-    a synthetic emitter (``SyntheticAgentActivityEmitter``) supplies an idle
-    heartbeat plus periodic incident narratives. Default
-    ``None``. See
+    collaboration, it never executes. Interactive local development leaves
+    this unset unless an actual runtime relay is bound; synthetic activity is
+    test-only. Default ``None``. See
     :mod:`fdai.delivery.read_api.streaming.agent_activity_stream`."""
 
     blast_radius_graph: Any = None

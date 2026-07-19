@@ -8,8 +8,9 @@ only how to *append* audit entries), this module defines a narrow
 implementation (e.g. a Postgres-backed adapter). The upstream repo ships:
 
 - :class:`ConsoleReadModel` - the Protocol,
-- :class:`InMemoryConsoleReadModel` - a dev / test fake that also drives
-  the pytest suite.
+- :class:`InMemoryConsoleReadModel` - a test fake. The Azure-only local
+    factory may use it empty when no FDAI Azure state plane is deployed, but
+    interactive code never seeds it or presents it as observed Azure state.
 
 The Protocol is intentionally colocated with the read-API delivery layer
 (not under ``shared/providers/``) because it is a **console-facing view
@@ -116,11 +117,12 @@ class ConsoleReadModel(Protocol):
 
 
 class InMemoryConsoleReadModel(_InMemoryConsoleReadModel, ConsoleReadModel):
-    """Dict-backed :class:`ConsoleReadModel` for tests + local dev.
+    """Dict-backed :class:`ConsoleReadModel` for tests and empty local state.
 
     Not suitable for production - entries vanish on process restart.
     Adds :meth:`record_audit_entry` and :meth:`record_hil_pending` so
-    tests can seed the model without a full control-loop replay.
+    tests can seed the model without a full control-loop replay. Interactive
+    local composition MUST leave it empty.
     """
 
     pass

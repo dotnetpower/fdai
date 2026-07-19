@@ -9,6 +9,7 @@ from uuid import UUID
 import pytest
 
 from fdai.core.conversation.session import Principal, Role
+from fdai.core.incident import detected_incident_correlation_keys, detected_incident_event_id
 from fdai.core.incident.registry import IncidentRegistry
 from fdai.core.incident.workflow import (
     IncidentConfirmationError,
@@ -31,6 +32,31 @@ class RecordingNotifier:
     async def notify(self, notice: IncidentLifecycleNotice) -> str:
         self.notices.append(notice)
         return notice.kind.value
+
+
+def test_detected_incident_keys_are_grounded_and_investigation_scoped() -> None:
+    first = detected_incident_correlation_keys(
+        resource_id="vm-1",
+        event_type="cpu_spike",
+        correlation_id="corr-1",
+    )
+    replayed = detected_incident_correlation_keys(
+        resource_id="vm-1",
+        event_type="cpu_spike",
+        correlation_id="corr-1",
+    )
+    follow_on = detected_incident_correlation_keys(
+        resource_id="vm-1",
+        event_type="cpu_spike",
+        correlation_id="corr-2",
+    )
+
+    assert first == replayed
+    assert first != follow_on
+    assert "correlation:corr-1" in first
+    assert detected_incident_event_id("event-1") == detected_incident_event_id("event-1")
+    with pytest.raises(ValueError, match="evidence_key"):
+        detected_incident_event_id(" ")
 
 
 def _operator(role: Role = Role.CONTRIBUTOR) -> Principal:
