@@ -5,6 +5,7 @@ import {
   ARCHITECTURE_LAYERS,
   RESOURCE_COLOR_TOKENS,
   architectureHref,
+  architectureViewKindLabel,
   architectureViewFromHash,
   graphSubset,
   layerOf,
@@ -302,7 +303,7 @@ function ArchitectureBody({
             onChange={(event) => onViewScopeChange((event.target as HTMLSelectElement).value)}
           >
             {(graph.views ?? []).map((view) => (
-              <option value={view.id}>{view.kind === "fdai" ? "FDAI - " : "App - "}{view.label}</option>
+              <option value={view.id}>{architectureViewKindLabel(view)} - {view.label}</option>
             ))}
           </select>
           <small>{graph.views?.find((view) => view.id === graph.active_view)?.description}</small>

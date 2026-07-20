@@ -70,7 +70,18 @@ async def test_failed_candidate_retains_last_active_snapshot() -> None:
     first = await store.begin(_manifest("arg"))
     await store.stage(
         first,
-        InventoryBatch(resources=(ResourceRecord("rg-test", "resource-group", {"name": "rg"}),)),
+        InventoryBatch(
+            resources=(
+                ResourceRecord(
+                    "rg-test",
+                    "resource-group",
+                    {
+                        "name": "rg",
+                        "tags": {"fdai:managed": "true", "fdai:workload": "fdai"},
+                    },
+                ),
+            )
+        ),
     )
     await store.promote(first, _manifest("arg"))
 

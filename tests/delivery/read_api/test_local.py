@@ -388,6 +388,9 @@ class TestLocalAzureCliHarness:
         paths = {route.path for route in client.app.routes}
         assert "/inventory/graph" in paths
         assert "/models/settings" in paths
+        assert "/workflows/run" in paths
+        assert "/views/process" in paths
+        assert "/arb/status" in paths
         assert "/agents/stream" not in paths
         assert "/live/stream" not in paths
         assert "/provision/stream" not in paths
@@ -396,3 +399,20 @@ class TestLocalAzureCliHarness:
         assert "/promotion-gates" not in paths
         assert "/stewardship" not in paths
         assert client.get("/local-auth/me").json()["source"] == "azure-cli"
+
+        started = client.post(
+            "/workflows/run",
+            json={
+                "workflow": "architecture-review",
+                "target_resource_id": "fdai-control-plane",
+                "trigger_ts": "2026-07-20T00:00:00Z",
+                "mode": "shadow",
+            },
+        )
+        assert started.status_code == 200
+        assert started.json()["process"]["status"] == "waiting"
+        status = client.get("/arb/status").json()
+        assert status["contract"]["healthy"] is True
+        assert status["production"]["ready"] is False
+        assert status["runtime"]["health"] == "healthy"
+        assert status["runtime"]["next_action"] == "publish evidence.updated"

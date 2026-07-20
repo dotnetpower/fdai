@@ -78,8 +78,9 @@ export function createActionSubmitter(
 export function renderActionResult(result: ActionSubmitResult): string {
   if (result.actionType?.startsWith("incident.") && result.message) return result.message;
   if (result.submitted) {
+    const incident = result.incidentId ? ` Incident ${result.incidentId} is open.` : "";
     return (
-      `Submitted "${result.actionType ?? "action"}" to the pipeline for judgment. ` +
+      `Submitted "${result.actionType ?? "action"}" to the pipeline for judgment.${incident} ` +
       `Nothing runs until Forseti judges it and (if high-risk) an approver signs off - ` +
       `execution is shadow-first. Track it by correlation ${result.correlationId ?? "-"} in the Trace panel.`
     );

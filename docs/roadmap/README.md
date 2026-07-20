@@ -72,6 +72,7 @@ build. Read the reference docs first, then the phases in order.
 | 20b | [installable-deployment-cli.md](deployment/installable-deployment-cli.md) | installable `fdaictl` facade: isolated `uv` installation, read-only preflight, signed deployment bundles, and exact-plan submission to the private runner |
 | 21 | [assurance-twin.md](operations/assurance-twin.md) | queryable ontology twin for architecture review / Q&A / assessment: text-to-query, proactive review, whole-graph what-if, shadow proposals |
 | 22 | [operational-readiness.md](operations/operational-readiness.md) | dev-to-ops handoff gate: ownership-transfer trigger, whole-scope RBAC / policy / reliability review, ReadinessReport, environment-promotion gate |
+| 22a | [operator-initiated-sre-and-arb.md](operations/operator-initiated-sre-and-arb.md) | non-incident identity, operator-initiated SRE response, live stage progress, ARB health/manual start, workflow enforce, and local/deployed parity |
 
 ### Cost, users, channels, risk, parity
 

@@ -30,8 +30,8 @@ describe("architecture view selection", () => {
   const graph = {
     active_view: "fdai-control-plane",
     views: [
-      { id: "fdai-control-plane", label: "FDAI", kind: "fdai" as const, description: "", root_resource_id: "fdai" },
-      { id: "commerce-api", label: "Commerce", kind: "application" as const, description: "", root_resource_id: "commerce" },
+      { id: "fdai-control-plane", label: "FDAI", kind: "fdai" as const, classification: "ownership_tag" as const, description: "", root_resource_id: "fdai" },
+      { id: "commerce-api", label: "Commerce", kind: "service" as const, classification: "service_tag" as const, description: "", root_resource_id: "commerce" },
     ],
   };
 

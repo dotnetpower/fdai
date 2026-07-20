@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import cast
 
+from fdai.core.architecture_review import ArchitectureReviewProductionGateEvaluator
 from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.report_feed import ReportFeed
@@ -144,6 +145,10 @@ def _build_dynamic_views(
                 )
             ),
             process_store=process_store,
+            guard_evaluator=ArchitectureReviewProductionGateEvaluator(
+                manifest_path=_REPO_ROOT / "config" / "architecture-review.yaml",
+                repo_root=_REPO_ROOT,
+            ),
         ),
     )
     workflow_authoring = WorkflowAuthoringConfig(

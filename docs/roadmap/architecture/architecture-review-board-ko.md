@@ -1,8 +1,8 @@
 ---
 title: Architecture Review Board 패킷
 translation_of: architecture-review-board.md
-translation_source_sha: fcfd38edba8fe4000e61716884b85b05a3d093ce
-translation_revised: 2026-07-18
+translation_source_sha: 82a96927a8e732839af5a83e18b6bef4dc0d170d
+translation_revised: 2026-07-20
 ---
 # Architecture Review Board 패킷
 
@@ -198,6 +198,18 @@ Active critical/high risk는 `config/architecture-review.yaml`의 `blockers`에 
 
 Accepted risk는 resolved blocker가 아닙니다. Production gate는 critical/high 항목의 status와
 evidence가 review를 통해 갱신된 후에만 수락합니다.
+
+## Runtime 상태 및 수동 review
+
+`GET /arb/status`는 contract 구조, production readiness, 최신 `architecture-review`
+Process를 분리합니다. Manifest가 유효하지만 production evidence가 없으면 contract healthy,
+production blocked로 보고합니다. Evidence 또는 approval을 기다리는 Process는 `next_action`과
+함께 healthy로 표시하고 `failed`, `timed_out`, `cancelled`는 runtime unhealthy로 표시합니다.
+
+Contributor는 `POST /workflows/run`으로 shadow review를 시작하거나 재개할 수 있습니다.
+Owner는 `architecture-review`가 `FDAI_WORKFLOW_ENFORCE_ALLOWLIST`에 있을 때만
+`mode=enforce`를 요청할 수 있습니다. ARB는 control-only이므로 enforce는 실제 approval 및
+decision transition을 저장하지만 resource를 배포하거나 ActionType을 승격하지 않습니다.
 
 ## Production 종료 절차
 

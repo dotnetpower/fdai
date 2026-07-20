@@ -22,7 +22,8 @@ export interface InventoryLink {
 export interface ArchitectureView {
   readonly id: string;
   readonly label: string;
-  readonly kind: "fdai" | "application";
+  readonly kind: "fdai" | "service" | "resource_group";
+  readonly classification: "ownership_tag" | "service_tag" | "resource_group_fallback";
   readonly description: string;
   readonly root_resource_id: string;
 }
@@ -384,6 +385,12 @@ export function architectureViewFromHash(value: string): string | null {
   const queryIndex = value.indexOf("?");
   const search = queryIndex >= 0 ? value.slice(queryIndex + 1) : value.replace(/^\?/, "");
   return new URLSearchParams(search).get("view");
+}
+
+export function architectureViewKindLabel(view: ArchitectureView): string {
+  if (view.kind === "fdai") return "FDAI";
+  if (view.kind === "service") return "Service";
+  return "Resource group";
 }
 
 export function graphSubset(

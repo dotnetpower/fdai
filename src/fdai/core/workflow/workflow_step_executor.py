@@ -10,13 +10,14 @@ from fdai.core.runbook.models import RunbookStep, RunbookStepOutcome, RunbookSte
 from fdai.core.workflow.approval import StepApproval
 from fdai.core.workflow.workflow_runtime import (
     ACTOR,
+    WorkflowActionDispatcher,
     WorkflowGuardEvaluator,
     approval_decisions,
     event_id,
     step_result,
     truthy,
 )
-from fdai.shared.contracts.models import OntologyActionType, WorkflowStepKind
+from fdai.shared.contracts.models import Mode, OntologyActionType, WorkflowStepKind
 from fdai.shared.providers.process_runtime import (
     ProcessEvent,
     ProcessEventKind,
@@ -33,6 +34,7 @@ class ShadowWorkflowStepExecutor:
     __slots__ = (
         "_process_id",
         "_action_types",
+        "_action_dispatcher",
         "_audit",
         "_approvals",
         "_guards",
@@ -42,6 +44,8 @@ class ShadowWorkflowStepExecutor:
         "_snapshot",
         "_context",
         "_now",
+        "_mode",
+        "_target_resource_id",
     )
 
     def __init__(
@@ -49,6 +53,7 @@ class ShadowWorkflowStepExecutor:
         *,
         process_id: str,
         action_types: Mapping[str, OntologyActionType],
+        action_dispatcher: WorkflowActionDispatcher | None = None,
         audit_store: StateStore,
         approvals: Mapping[str, StepApproval],
         guards: Mapping[str, str] | None = None,
@@ -58,9 +63,12 @@ class ShadowWorkflowStepExecutor:
         snapshot: ProcessSnapshot,
         context: Mapping[str, str] | None = None,
         now: datetime | None = None,
+        mode: Mode = Mode.SHADOW,
+        target_resource_id: str = "",
     ) -> None:
         self._process_id = process_id
         self._action_types = action_types
+        self._action_dispatcher = action_dispatcher
         self._audit = audit_store
         self._approvals = approvals
         self._guards = guards or {}
@@ -70,6 +78,8 @@ class ShadowWorkflowStepExecutor:
         self._snapshot = snapshot
         self._context = context or {}
         self._now = now or datetime.now(tz=UTC)
+        self._mode = mode
+        self._target_resource_id = target_resource_id or snapshot.target_resource_id
 
     async def execute(self, *, runbook_id: str, step: RunbookStep) -> RunbookStepResult:
         self._snapshot = await self._transition(
@@ -97,7 +107,7 @@ class ShadowWorkflowStepExecutor:
                 "correlation_id": self._snapshot.correlation_id,
                 "actor": ACTOR,
                 "action_kind": "workflow.step",
-                "mode": "shadow",
+                "mode": self._mode.value,
                 "process_id": self._process_id,
                 "workflow": runbook_id,
                 "step_id": step.id,
@@ -127,7 +137,21 @@ class ShadowWorkflowStepExecutor:
         elif not known:
             result = step_result(step, RunbookStepOutcome.FAILURE, "unknown_action_type")
         elif guard_evaluated and guard_passed is False:
-            result = step_result(step, RunbookStepOutcome.SUCCESS, "guard_blocked_shadow_noop")
+            result = step_result(
+                step,
+                (
+                    RunbookStepOutcome.SUCCESS
+                    if self._mode is Mode.SHADOW
+                    else RunbookStepOutcome.FAILURE
+                ),
+                (
+                    "guard_blocked_shadow_noop"
+                    if self._mode is Mode.SHADOW
+                    else "guard_blocked_enforce"
+                ),
+            )
+        elif step.kind is WorkflowStepKind.ACTION and self._mode is Mode.ENFORCE:
+            result = await self._dispatch_action(step)
         else:
             result = step_result(step, RunbookStepOutcome.SUCCESS, "shadow_judge_and_log")
 
@@ -161,6 +185,30 @@ class ShadowWorkflowStepExecutor:
             payload=event_payload,
         )
         return result
+
+    async def _dispatch_action(self, step: RunbookStep) -> RunbookStepResult:
+        if self._action_dispatcher is None:
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                "enforce_action_dispatcher_not_configured",
+            )
+        try:
+            await self._action_dispatcher.dispatch(
+                process_id=self._process_id,
+                correlation_id=self._snapshot.correlation_id,
+                step=step,
+                target_resource_id=self._target_resource_id,
+                params=self._params.get(step.id, {}),
+                context=self._context,
+            )
+        except Exception as exc:  # noqa: BLE001 - dispatcher boundary fails closed
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                f"action_dispatch_failed:{type(exc).__name__}",
+            )
+        return step_result(step, RunbookStepOutcome.SUCCESS, "action_proposal_dispatched")
 
     async def _control_result(
         self,

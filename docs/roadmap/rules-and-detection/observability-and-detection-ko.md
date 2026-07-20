@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 95a8722fd6b850e931c2dd66fb1628b70da89699
-translation_revised: 2026-07-19
+translation_source_sha: c9714e7304f7158c125366b4710162ac6f5021b0
+translation_revised: 2026-07-20
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -67,12 +67,17 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
 - **Lifecycle 경계**: correlation id는 investigation key이며 Incident가 존재한다는 증거가
   아닙니다. Lifecycle record는 `IncidentRegistry`가 소유합니다. Audit-only local fixture는
   Audit과 Trace에서 계속 볼 수 있지만 operational Incident roster에서는 제외됩니다.
+- **운영 작업 policy**: Normalized Event는 `incident_correlation`을 선언합니다. 기본
+  `correlate`는 incident grouping을 유지합니다. Discovery, inventory, scheduler,
+  workflow-control producer는 `none`을 설정하고 trace/audit용 `correlation_id`는 유지하며
+  Incident ID는 파생하지 않습니다.
 - **업스트림 구현**: `core/event_ingest/correlator.py`
   (`EventCorrelator`) 가 이벤트의 correlation-id (또는 resource ref) 와
   time-window bucket 으로부터 `incident_id_for` 를 통해 인시던트 anchor 를
   결정론적으로 도출한다; 한 window 에서 key 를 공유하는 버스트는 하나의
   인시던트로 접히고, 새 window 는 linked follow-on 을 연다. anchor 없는
-  이벤트는 `correlated=False` 로 보고된다(드롭 없음). key 들은
+  이벤트 또는 `incident_correlation=none` 이벤트는 `correlated=False` 로 보고됩니다
+  (드롭 없음). key 들은
   `IncidentRegistry.open` 에 공급되어 멤버십을 idempotent 하게 누적한다.
 
 ## 2. 이상 감지(Anomaly Detection)

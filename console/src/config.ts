@@ -18,6 +18,9 @@ export interface ConsoleConfig {
   readonly msalTenantId: string;
   /** API audience (`api://<fdai-api-guid>/access`). */
   readonly msalApiScope: string;
+  /** Maximum wait for a bearer token before the console surfaces an
+   *  authentication error instead of leaving panels in a loading state. */
+  readonly authTokenTimeoutMs: number;
   /** When true, MSAL is bypassed and the read API is called anonymously
    *  (matches `FDAI_READ_API_DEV_MODE=1` on the API). */
   readonly devMode: boolean;
@@ -42,6 +45,15 @@ function envVar(key: string, fallback = ""): string {
   return value;
 }
 
+function positiveIntegerEnv(key: string, fallback: string): number {
+  const raw = envVar(key, fallback);
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${key} must be a positive integer.`);
+  }
+  return value;
+}
+
 export function loadConfig(): ConsoleConfig {
   const devMode = envVar("VITE_DEV_MODE", "0") === "1";
   return {
@@ -50,6 +62,7 @@ export function loadConfig(): ConsoleConfig {
     msalClientId: envVar("VITE_MSAL_CLIENT_ID"),
     msalTenantId: envVar("VITE_MSAL_TENANT_ID"),
     msalApiScope: envVar("VITE_MSAL_API_SCOPE"),
+    authTokenTimeoutMs: positiveIntegerEnv("VITE_AUTH_TOKEN_TIMEOUT_MS", "10000"),
     devMode,
     localAzureCliAuth: envVar("VITE_LOCAL_AZURE_CLI_AUTH", "0") === "1",
     localLoginPrompt: envVar("VITE_LOCAL_LOGIN_PROMPT", devMode ? "1" : "0") === "1",

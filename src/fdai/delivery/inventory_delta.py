@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, uuid5
 
-from fdai.shared.contracts.models import Event, Mode
+from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.inventory import Inventory, ResourceRecord
 from fdai.shared.providers.state_store import StateStore
@@ -72,6 +72,7 @@ def _resource_event(*, scope: str, resource: ResourceRecord) -> Event:
         },
         detected_at=detected_at,
         ingested_at=datetime.now(tz=UTC),
+        incident_correlation=IncidentCorrelation.NONE,
         mode=Mode.SHADOW,
     )
 

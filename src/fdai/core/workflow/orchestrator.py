@@ -19,6 +19,7 @@ from fdai.core.workflow.workflow_runtime import (
 )
 from fdai.core.workflow.workflow_runtime import (
     ProcessRun,
+    WorkflowActionDispatcher,
     WorkflowGuardEvaluator,
     derive_process_id,
     process_state_key,  # noqa: F401 - compatibility import
@@ -42,7 +43,7 @@ from fdai.core.workflow.workflow_runtime import (
     truthy as _truthy,  # noqa: F401 - compatibility import
 )
 from fdai.core.workflow.workflow_step_executor import ShadowWorkflowStepExecutor
-from fdai.shared.contracts.models import OntologyActionType, Workflow
+from fdai.shared.contracts.models import Mode, OntologyActionType, Workflow
 from fdai.shared.providers.process_runtime import (
     ProcessEvent,
     ProcessEventKind,
@@ -56,7 +57,14 @@ from fdai.shared.providers.state_store import StateStore
 class WorkflowOrchestrator:
     """Plan and run a workflow through the non-mutating shadow executor."""
 
-    __slots__ = ("_planner", "_action_types", "_audit", "_guard_evaluator", "_process_store")
+    __slots__ = (
+        "_planner",
+        "_action_types",
+        "_action_dispatcher",
+        "_audit",
+        "_guard_evaluator",
+        "_process_store",
+    )
 
     def __init__(
         self,
@@ -66,12 +74,28 @@ class WorkflowOrchestrator:
         audit_store: StateStore,
         process_store: ProcessRuntimeStore,
         guard_evaluator: WorkflowGuardEvaluator | None = None,
+        action_dispatcher: WorkflowActionDispatcher | None = None,
     ) -> None:
         self._planner = planner
         self._action_types = action_types
+        self._action_dispatcher = action_dispatcher
         self._audit = audit_store
         self._guard_evaluator = guard_evaluator
         self._process_store = process_store
+
+    def with_action_dispatcher(
+        self,
+        dispatcher: WorkflowActionDispatcher,
+    ) -> WorkflowOrchestrator:
+        """Return an equivalent orchestrator with typed action republish enabled."""
+        return WorkflowOrchestrator(
+            planner=self._planner,
+            action_types=self._action_types,
+            audit_store=self._audit,
+            process_store=self._process_store,
+            guard_evaluator=self._guard_evaluator,
+            action_dispatcher=dispatcher,
+        )
 
     async def run(
         self,
@@ -82,8 +106,9 @@ class WorkflowOrchestrator:
         context: Mapping[str, str] | None = None,
         correlation_id: str | None = None,
         now: datetime | None = None,
+        mode: Mode = Mode.SHADOW,
     ) -> ProcessRun:
-        """Execute a workflow in shadow without mutating a resource."""
+        """Run a workflow in the requested mode through governed step dispatch."""
         plan = self._planner.plan(workflow)
         approvals = {step.step_id: step for step in plan.steps}
         process_id = derive_process_id(
@@ -124,6 +149,7 @@ class WorkflowOrchestrator:
                 step_results=(),
                 approval_plan=plan,
                 replayed=True,
+                mode=mode.value,
             )
 
         subst_context: dict[str, str] = {
@@ -143,7 +169,7 @@ class WorkflowOrchestrator:
                     "correlation_id": resolved_correlation_id,
                     "actor": _ACTOR,
                     "action_kind": "workflow.process-plan",
-                    "mode": "shadow",
+                    "mode": mode.value,
                     "declared_mode": workflow.default_mode.value,
                     "process_id": process_id,
                     "workflow": workflow.name,
@@ -180,6 +206,7 @@ class WorkflowOrchestrator:
         executor = ShadowWorkflowStepExecutor(
             process_id=process_id,
             action_types=self._action_types,
+            action_dispatcher=self._action_dispatcher,
             audit_store=self._audit,
             approvals=approvals,
             guards=guards,
@@ -189,6 +216,8 @@ class WorkflowOrchestrator:
             snapshot=snapshot,
             context=context,
             now=now,
+            mode=mode,
+            target_resource_id=target_resource_id,
         )
         runner = RunbookRunner(executor=executor, audit_store=self._audit)
         result = await runner.run(
@@ -198,6 +227,7 @@ class WorkflowOrchestrator:
                 "event_id": _event_id(process_id, "terminal-audit"),
                 "correlation_id": resolved_correlation_id,
                 "process_id": process_id,
+                "mode": mode.value,
             },
         )
 
@@ -212,6 +242,7 @@ class WorkflowOrchestrator:
                 step_results=result.step_results,
                 approval_plan=plan,
                 replayed=not created,
+                mode=mode.value,
             )
 
         current = await self._process_store.get(process_id)
@@ -232,6 +263,7 @@ class WorkflowOrchestrator:
                 step_results=result.step_results,
                 approval_plan=plan,
                 replayed=not created,
+                mode=mode.value,
             )
 
         terminal_kind = (
@@ -261,6 +293,7 @@ class WorkflowOrchestrator:
             step_results=result.step_results,
             approval_plan=plan,
             replayed=not created,
+            mode=mode.value,
         )
 
 

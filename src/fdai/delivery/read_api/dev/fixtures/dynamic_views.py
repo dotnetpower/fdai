@@ -323,6 +323,8 @@ async def _build_dynamic_process_views(
     )
     view_engine = ViewEngine(specs=view_specs, reports=report_engine, processes=runtime)
     action_types_by_name = {action_type.name: action_type for action_type in action_types}
+    from fdai.core.architecture_review import ArchitectureReviewProductionGateEvaluator
+
     workflow_orchestrator = WorkflowOrchestrator(
         planner=WorkflowApprovalPlanner(
             action_types=action_types_by_name,
@@ -332,6 +334,10 @@ async def _build_dynamic_process_views(
         action_types=action_types_by_name,
         audit_store=InMemoryStateStore(),
         process_store=runtime,
+        guard_evaluator=ArchitectureReviewProductionGateEvaluator(
+            manifest_path=_REPO_ROOT / "config" / "architecture-review.yaml",
+            repo_root=_REPO_ROOT,
+        ),
     )
     return (
         ReportingConfig(engine=report_engine, formats=formats),

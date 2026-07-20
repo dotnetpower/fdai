@@ -1715,6 +1715,14 @@ Var approves a high-risk one, and only Thor executes (shadow-first).
   "action_type": ..., "resource_id": ...}`. The operator tracks progress by the
   `correlation_id` (Trace panel / audit); the pipeline result (auto shadow-exec,
   HIL wait, or deny) is asynchronous.
+- **Investigation Incident**. An explicit `tool.run-investigation <kind> <resource>` command is
+  itself confirmation to open or reuse a deterministic Incident for the session, target, and
+  resource kind. The proposal uses the Incident ID as its correlation and carries `incident_id`
+  in typed parameters. Ordinary questions and discovery work create no Incident.
+- **Live stage turn**. After a successful submit, the web deck opens an authenticated,
+  correlation-filtered `/live/stream` reader and updates one transcript turn through Huginn
+  ingest, Forseti route/verify/gate, Thor execute, and Saga audit. Audit is terminal; timeout or
+  stream failure leaves the durable Trace correlation as the recovery source.
 - **This is the second documented write route** alongside the 13.3 approval
   callback; both record a signal and never hold the executor Managed Identity.
 

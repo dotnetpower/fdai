@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Final
 
@@ -96,6 +97,7 @@ from fdai.delivery.read_api.production.persistence import build_production_persi
 from fdai.delivery.read_api.production.runtime_wiring import build_production_runtime
 from fdai.delivery.read_api.production.user_context import build_production_user_context
 from fdai.delivery.read_api.production.views import _build_dynamic_views
+from fdai.delivery.read_api.routes.arb_status import ArchitectureReviewStatusPanel
 from fdai.delivery.read_api.routes.chat import backend_from_env
 from fdai.delivery.read_api.routes.chat_web_search import chat_web_search_from_env
 from fdai.delivery.read_api.routes.python_tasks import (
@@ -195,6 +197,28 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         shutdown_callbacks=shutdown_callbacks,
     )
     shutdown_callbacks = runtime.shutdown_callbacks
+    enforce_workflows = frozenset(
+        item.strip()
+        for item in env.get(_env.WORKFLOW_ENFORCE_ALLOWLIST_ENV, "").split(",")
+        if item.strip()
+    )
+    if enforce_workflows:
+        if runtime.event_bus is None or not runtime.event_topic:
+            raise ProdReadApiConfigError(
+                f"{_env.WORKFLOW_ENFORCE_ALLOWLIST_ENV} requires configured event transport"
+            )
+        from fdai.delivery.workflow_action_dispatcher import EventBusWorkflowActionDispatcher
+
+        workflow_execution = replace(
+            workflow_execution,
+            orchestrator=workflow_execution.orchestrator.with_action_dispatcher(
+                EventBusWorkflowActionDispatcher(
+                    event_bus=runtime.event_bus,
+                    topic=runtime.event_topic,
+                )
+            ),
+            enforce_workflows=enforce_workflows,
+        )
     from fdai.delivery.vm_task import PlanningVmTaskRunner
 
     vm_task_store_config = PostgresVmTaskConfig(
@@ -356,10 +380,17 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         conversation_history_store=conversation_history_store,
         conversation_policy_store=conversation_policy_store,
         user_context_ontology_projector=user_context_ontology_projector,
-        extra_panels=build_production_panels(
-            read_model=read_model,
-            onboarding_probe=onboarding.probe,
-            onboarding_configured=onboarding.configured,
+        extra_panels=(
+            *build_production_panels(
+                read_model=read_model,
+                onboarding_probe=onboarding.probe,
+                onboarding_configured=onboarding.configured,
+            ),
+            ArchitectureReviewStatusPanel(
+                manifest_path=_REPO_ROOT / "config" / "architecture-review.yaml",
+                repo_root=_REPO_ROOT,
+                engine=process_views.engine,
+            ),
         ),
         hil_callback=runtime.hil_callback,
         hil_registry=runtime.hil_registry,

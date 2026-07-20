@@ -8,6 +8,7 @@ import {
   type VerificationProgress,
 } from "./backend";
 import { detectActionIntent } from "./action-intent";
+import { watchActionProgress } from "./action-progress";
 import { DEFAULT_NARRATOR, type Turn } from "./command-deck-presenters";
 import { replyAgent, sessionIdFor } from "./command-deck-session";
 import {
@@ -146,17 +147,62 @@ export function useCommandDeckSubmit({
         );
         if (isCurrent()) {
           setPending(false);
-          setTurns((current) => [
-            ...current,
-            {
+          const resultTurn: Turn = {
               id: newId(),
               role: "deck",
               text: renderActionResult(result),
               agent: DEFAULT_NARRATOR,
               terminal: true,
               at: shortTime(),
-            },
-          ]);
+          };
+          const progressId = newId();
+          const progressTurn: Turn | null = result.submitted && result.correlationId
+            ? {
+                id: progressId,
+                role: "deck",
+                text: `Tracking ${result.correlationId}`,
+                agent: DEFAULT_NARRATOR,
+                source: "action-progress",
+                streaming: true,
+                terminal: false,
+                at: shortTime(),
+              }
+            : null;
+          setTurns((current) => {
+            const next = [...current, resultTurn, ...(progressTurn ? [progressTurn] : [])];
+            turnsRef.current = next;
+            return next;
+          });
+          if (progressTurn && result.correlationId) {
+            void watchActionProgress(result.correlationId, (snapshot) => {
+              setTurns((current) => {
+                const next = current.map((turn) =>
+                  turn.id === progressId
+                    ? {
+                        ...turn,
+                        text: snapshot.text,
+                        streaming: !snapshot.terminal,
+                        terminal: snapshot.terminal,
+                      }
+                    : turn,
+                );
+                turnsRef.current = next;
+                return next;
+              });
+              pinTranscriptToLatest();
+            }).catch(() => {
+              setTurns((current) => current.map((turn) =>
+                turn.id === progressId
+                  ? {
+                      ...turn,
+                      text: `${turn.text}\n- Progress stream unavailable. Use the trace for this correlation.`,
+                      streaming: false,
+                      terminal: true,
+                    }
+                  : turn,
+              ));
+            });
+          }
         }
       } finally {
         if (isCurrent()) {

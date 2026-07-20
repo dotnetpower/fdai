@@ -153,6 +153,45 @@ def test_investigation_command_publishes_schema_valid_arguments() -> None:
     }
 
 
+def test_investigation_opens_incident_and_reuses_its_correlation() -> None:
+    bus = InMemoryEventBus()
+    registry = IncidentRegistry(state_store=InMemoryStateStore())
+    submitter = ConsoleActionSubmitter(
+        event_bus=bus,
+        raw_event_topic=_TOPIC,
+        action_type_names=frozenset({"tool.run-investigation"}),
+        incident_workflow=IncidentLifecycleWorkflow(registry=registry),
+    )
+    principal = _principal("u-contrib", Role.CONTRIBUTOR)
+
+    first = asyncio.run(
+        submitter.submit(
+            question="run investigation azure_openai aoai-1",
+            principal=principal,
+            session_id="sre-session",
+        )
+    )
+    second = asyncio.run(
+        submitter.submit(
+            question="run investigation azure_openai aoai-1",
+            principal=principal,
+            session_id="sre-session",
+        )
+    )
+
+    assert first["submitted"] is True
+    assert first["incident_id"] == first["correlation_id"]
+    assert second["incident_id"] == first["incident_id"]
+    assert len(registry.snapshot()) == 1
+    envelopes = asyncio.run(_drain(bus, _TOPIC))
+    assert len(envelopes) == 2
+    assert {item.payload["idempotency_key"] for item in envelopes} == {
+        f"u-contrib::investigation::{first['incident_id']}"
+    }
+    assert all(item.payload["incident_id"] == first["incident_id"] for item in envelopes)
+    assert all(item.payload["params"]["incident_id"] == first["incident_id"] for item in envelopes)
+
+
 def test_unmapped_command_abstains_without_publishing() -> None:
     sub, bus = _submitter()
     res = asyncio.run(

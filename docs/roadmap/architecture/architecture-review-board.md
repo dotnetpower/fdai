@@ -197,6 +197,18 @@ The active critical and high risks are machine-readable under `blockers` in
 An accepted risk is not a resolved blocker. The production gate accepts a critical or high item
 only after its status and evidence are updated through review.
 
+## Runtime status and manual review
+
+`GET /arb/status` separates contract structure, production readiness, and the latest
+`architecture-review` Process. A valid manifest with missing production evidence reports contract
+healthy and production blocked. A Process waiting for evidence or approval reports healthy with a
+`next_action`; `failed`, `timed_out`, and `cancelled` report runtime unhealthy.
+
+Contributor can start or resume shadow review through `POST /workflows/run`. Owner can request
+`mode=enforce` only when `architecture-review` is in
+`FDAI_WORKFLOW_ENFORCE_ALLOWLIST`. ARB is control-only, so enforce persists real approval and
+decision transitions but never deploys resources or promotes an ActionType.
+
 ## Production exit procedure
 
 1. Bind every required owner slot in the customer fork.

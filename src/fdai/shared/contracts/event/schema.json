@@ -70,6 +70,15 @@
       "format": "date-time",
       "description": "RFC 3339 timestamp of arrival at event-ingest."
     },
+    "incident_correlation": {
+      "type": "string",
+      "enum": [
+        "correlate",
+        "none"
+      ],
+      "default": "correlate",
+      "description": "Whether the event may derive an Incident ID. Operational work uses none and remains traceable by correlation_id."
+    },
     "tier": {
       "type": [
         "string",

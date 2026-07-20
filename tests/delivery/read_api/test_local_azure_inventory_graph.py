@@ -26,7 +26,11 @@ class _Inventory:
                 ResourceRecord(
                     resource_id="resourcegroups/rg-example",
                     type="resource-group",
-                    props={"name": "rg-example", "resourceGroup": "rg-example"},
+                    props={
+                        "name": "rg-example",
+                        "resourceGroup": "rg-example",
+                        "tags": {"fdai:managed": "true", "fdai:workload": "fdai"},
+                    },
                     provider_ref="/subscriptions/example/resourceGroups/rg-example",
                 ),
                 ResourceRecord(
@@ -66,7 +70,7 @@ def test_projects_contains_graph_without_provider_refs_and_caches() -> None:
     assert first["cursor"] == "done"
     resources = first["resources"]
     assert len(resources) == 3
-    assert all("provider_ref" not in resource for resource in resources)
+    assert all("provider_ref" not in resource and "props" not in resource for resource in resources)
     assert all(0 <= resource["x"] <= 18 and 0 <= resource["y"] <= 12 for resource in resources)
     assert all(
         resource.get("x", 0) + resource.get("w", 0) <= 18

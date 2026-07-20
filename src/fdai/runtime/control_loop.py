@@ -14,7 +14,10 @@ import yaml
 from fdai.composition import (
     Container,
 )
-from fdai.core.architecture_review import ArchitectureReviewProjector
+from fdai.core.architecture_review import (
+    ArchitectureReviewProductionGateEvaluator,
+    ArchitectureReviewProjector,
+)
 from fdai.core.chaos.symptom_index import SymptomIndex, build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.core.event_ingest import EventCorrelator, EventIngest
@@ -153,6 +156,10 @@ def _build_workflow_coordinator(
         action_types=action_types_by_name,
         audit_store=audit_store,
         process_store=runtime_store,
+        guard_evaluator=ArchitectureReviewProductionGateEvaluator(
+            manifest_path=catalog_root.parent / "config" / "architecture-review.yaml",
+            repo_root=catalog_root.parent,
+        ),
     )
     _LOGGER.info("workflow_coordinator_enabled", extra={"workflows": len(workflows)})
     return WorkflowTriggerCoordinator(

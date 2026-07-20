@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: eb6dd6ce8d0c4d5d068fb16cdd8d334191805654
-translation_revised: 2026-07-19
+translation_source_sha: e0d537a30d3b47019bb545ab223eacc4d9126d74
+translation_revised: 2026-07-20
 ---
 
 # 오퍼레이터 콘솔 (Conversational)
@@ -1612,6 +1612,14 @@ high-risk를 승인하며, Thor만 실행한다(shadow-first).
   "action_type": ..., "resource_id": ...}`. 오퍼레이터는 `correlation_id`
   (Trace 패널 / audit)로 진행을 추적; 파이프라인 결과(auto shadow-exec,
   HIL 대기, deny)는 비동기.
+- **Investigation Incident**. 명시적 `tool.run-investigation <kind> <resource>` 명령 자체를
+  확인으로 간주하여 session, target, resource kind에 대한 deterministic Incident를 만들거나
+  재사용합니다. Proposal은 Incident ID를 correlation으로 사용하고 typed parameter에
+  `incident_id`를 전달합니다. 일반 질문과 discovery 작업은 Incident를 만들지 않습니다.
+- **Live stage turn**. 제출 성공 후 web deck은 인증된 correlation-filtered `/live/stream`
+  reader를 열고 하나의 transcript turn을 Huginn ingest, Forseti route/verify/gate, Thor
+  execute, Saga audit 순서로 갱신합니다. Audit가 terminal이며 timeout 또는 stream 실패 시
+  durable Trace correlation이 recovery source로 남습니다.
 - **이것은 13.3 approval callback과 나란한 두 번째 문서화된 write route**;
   둘 다 시그널을 기록할 뿐 executor Managed Identity를 갖지 않는다.
 

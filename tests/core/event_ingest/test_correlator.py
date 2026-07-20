@@ -14,7 +14,7 @@ from uuid import UUID
 import pytest
 
 from fdai.core.event_ingest import EventCorrelator
-from fdai.shared.contracts.models import Event, Mode
+from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 
 _T0 = datetime(2026, 7, 8, 9, 0, 0, tzinfo=UTC)
 
@@ -27,6 +27,7 @@ def _event(
     resource_id: str | None = None,
     detected_at: datetime = _T0,
     idem: str = "k",
+    incident_correlation: IncidentCorrelation = IncidentCorrelation.CORRELATE,
 ) -> Event:
     payload: dict[str, object] = {}
     if resource_id is not None:
@@ -43,6 +44,7 @@ def _event(
         correlation_id=correlation_id,
         resource_ref=resource_ref,
         payload=payload,
+        incident_correlation=incident_correlation,
     )
 
 
@@ -88,6 +90,20 @@ def test_uncorrelatable_event_passes_through() -> None:
     assert r.correlated is False
     assert r.incident_id is None
     assert r.reason == "no_correlation_anchor"
+
+
+def test_operational_event_keeps_trace_without_incident() -> None:
+    r = EventCorrelator().correlate(
+        _event(
+            correlation_id="inventory:resource-1",
+            resource_ref="resource-1",
+            incident_correlation=IncidentCorrelation.NONE,
+        )
+    )
+    assert r.correlated is False
+    assert r.incident_id is None
+    assert r.correlation_keys == ()
+    assert r.reason == "incident_correlation_disabled"
 
 
 def test_burst_collapses_to_one_incident() -> None:

@@ -57,6 +57,7 @@ def test_huginn_preserves_and_projects_canonical_inventory_change() -> None:
     assert normalized is not None
     assert normalized["resource_id"] == "resource-1"
     assert normalized["resource_type"] == "compute.vm"
+    assert normalized["incident_correlation"] == "none"
     assert normalized["inventory_change"]["kind"] == "upsert"
     assert normalized["inventory_change"]["links"][0]["props"] == {}
     assert projected == [normalized]

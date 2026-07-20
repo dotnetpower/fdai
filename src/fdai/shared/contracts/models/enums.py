@@ -44,6 +44,13 @@ class Mode(StrEnum):
     ENFORCE = "enforce"
 
 
+class IncidentCorrelation(StrEnum):
+    """Whether an Event may be grouped into an Incident."""
+
+    CORRELATE = "correlate"
+    NONE = "none"
+
+
 class Operation(StrEnum):
     """Executor operation vocabulary shared by Action and ontology ActionType."""
 

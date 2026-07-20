@@ -21,9 +21,9 @@ from starlette.responses import JSONResponse
 from starlette.routing import BaseRoute, Route
 
 from fdai.core.rbac.resolver import Principal
-from fdai.core.rbac.roles import Capability, has_capability
+from fdai.core.rbac.roles import Capability, Role, has_capability
 from fdai.core.workflow.orchestrator import WorkflowOrchestrator
-from fdai.shared.contracts.models import Workflow
+from fdai.shared.contracts.models import Mode, Workflow
 
 DEFAULT_RUN_PATH: Final[str] = "/workflows/run"
 DEFAULT_MAX_BODY_BYTES: Final[int] = 32_000
@@ -37,11 +37,12 @@ AuthorizePrincipal = Callable[[Request], Awaitable[Principal]]
 
 @dataclass(frozen=True, slots=True)
 class WorkflowExecutionConfig:
-    """Catalog and shadow orchestrator exposed through the command route."""
+    """Catalog and governed orchestrator exposed through the command route."""
 
     workflows: tuple[Workflow, ...]
     orchestrator: WorkflowOrchestrator
     path: str = DEFAULT_RUN_PATH
+    enforce_workflows: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if not self.path.startswith("/"):
@@ -49,6 +50,9 @@ class WorkflowExecutionConfig:
         names = [workflow.name for workflow in self.workflows]
         if len(names) != len(set(names)):
             raise ValueError("workflow execution catalog names MUST be unique")
+        unknown = self.enforce_workflows - set(names)
+        if unknown:
+            raise ValueError(f"unknown enforce workflows: {', '.join(sorted(unknown))}")
 
 
 def make_workflow_run_route(
@@ -82,6 +86,15 @@ def make_workflow_run_route(
         workflow = workflows.get(workflow_name)
         if workflow is None:
             raise HTTPException(status_code=404, detail=f"unknown workflow {workflow_name!r}")
+        mode = _mode(raw.get("mode"))
+        if mode is Mode.ENFORCE:
+            if Role.OWNER not in principal.roles:
+                raise HTTPException(status_code=403, detail="enforce workflow run requires Owner")
+            if workflow_name not in config.enforce_workflows:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"workflow {workflow_name!r} is not enabled for enforce runs",
+                )
         target = _required_string(raw, "target_resource_id", max_chars=MAX_IDENTIFIER_CHARS)
         trigger_ts = _timestamp(raw.get("trigger_ts"))
         correlation_id = _optional_string(
@@ -98,6 +111,7 @@ def make_workflow_run_route(
             trigger_ts=trigger_ts,
             context=context,
             correlation_id=correlation_id,
+            mode=mode,
         )
         process_path = f"/views/process/{run.process_id}"
         return JSONResponse(
@@ -106,7 +120,7 @@ def make_workflow_run_route(
                     "id": run.process_id,
                     "workflow_ref": run.workflow_name,
                     "status": run.status.value,
-                    "mode": "shadow",
+                    "mode": run.mode,
                     "replayed": run.replayed,
                     "target_resource_id": target,
                     "trigger_ts": trigger_ts.isoformat(),
@@ -196,6 +210,17 @@ def _timestamp(value: object) -> datetime:
     if parsed.tzinfo is None:
         raise HTTPException(status_code=400, detail="trigger_ts MUST include a timezone")
     return parsed.astimezone(UTC)
+
+
+def _mode(value: object) -> Mode:
+    if value is None:
+        return Mode.SHADOW
+    if not isinstance(value, str):
+        raise HTTPException(status_code=400, detail="mode MUST be shadow or enforce")
+    try:
+        return Mode(value.strip().lower())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="mode MUST be shadow or enforce") from exc
 
 
 def _context(value: object) -> dict[str, str]:

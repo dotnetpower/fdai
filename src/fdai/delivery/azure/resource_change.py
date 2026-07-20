@@ -15,7 +15,7 @@ from fdai.delivery.azure.arg_projection import (
     truncate_props,
 )
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
-from fdai.shared.contracts.models import Event, Mode
+from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.providers.inventory import ResourceRecord
 
 _SOURCE: Final[str] = "azure_event_grid.resource_change"
@@ -155,6 +155,7 @@ def _normalize_one(
         },
         detected_at=observed_at,
         ingested_at=ingested_at,
+        incident_correlation=IncidentCorrelation.NONE,
         mode=Mode.SHADOW,
     )
 

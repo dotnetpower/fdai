@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from fdai.core.incident.registry import incident_id_for
-from fdai.shared.contracts.models import Event
+from fdai.shared.contracts.models import Event, IncidentCorrelation
 
 _DEFAULT_WINDOW_SECONDS = 60.0
 
@@ -67,6 +67,14 @@ class EventCorrelator:
 
     def correlate(self, event: Event) -> CorrelationResult:
         """Anchor ``event`` to an incident id, or report uncorrelatable."""
+        if event.incident_correlation is IncidentCorrelation.NONE:
+            return CorrelationResult(
+                correlated=False,
+                incident_id=None,
+                correlation_keys=(),
+                window_bucket=None,
+                reason="incident_correlation_disabled",
+            )
         base_keys = self._base_keys(event)
         if not base_keys:
             return CorrelationResult(

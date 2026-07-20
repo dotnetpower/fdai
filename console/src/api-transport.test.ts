@@ -10,6 +10,7 @@ const config: ConsoleConfig = {
   msalClientId: "",
   msalTenantId: "",
   msalApiScope: "",
+  authTokenTimeoutMs: 10_000,
   devMode: true,
   localAzureCliAuth: false,
   localLoginPrompt: true,
@@ -29,6 +30,7 @@ function auth(overrides: Partial<AuthContext> = {}): AuthContext {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -47,6 +49,32 @@ describe("read API authentication boundary", () => {
     await expect(transport.getJson("/iam/self")).rejects.toEqual(
       expect.objectContaining<Partial<ReadApiError>>({ status: 401 }),
     );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("fails closed when silent token acquisition stalls", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = new ReadApiTransport(config, auth({
+      account: {
+        homeAccountId: "home-1",
+        localAccountId: "user-1",
+        username: "user@example.com",
+      },
+      getAuthorizationHeader: () => new Promise<string | null>(() => {}),
+    }));
+
+    const request = transport.getJson("/iam/self");
+    const expectation = expect(request).rejects.toEqual(
+      expect.objectContaining<Partial<ReadApiError>>({
+        status: 401,
+        message: "Authentication token request timed out. Retry or sign in again.",
+      }),
+    );
+    await vi.runAllTimersAsync();
+
+    await expectation;
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

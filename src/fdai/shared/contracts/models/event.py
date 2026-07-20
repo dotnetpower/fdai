@@ -9,7 +9,7 @@ from uuid import UUID
 from pydantic import Field
 
 from ._base import IdempotencyKey, SemVer, _Base
-from .enums import Decision, Mode, Tier
+from .enums import Decision, IncidentCorrelation, Mode, Tier
 
 
 class Event(_Base):
@@ -29,6 +29,7 @@ class Event(_Base):
     payload: dict[str, Any] = Field(default_factory=dict)
     detected_at: datetime
     ingested_at: datetime
+    incident_correlation: IncidentCorrelation = IncidentCorrelation.CORRELATE
     tier: Tier | None = None
     decision: Decision | None = None
     mode: Mode

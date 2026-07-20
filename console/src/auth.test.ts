@@ -10,6 +10,7 @@ function config(overrides: Partial<ConsoleConfig> = {}): ConsoleConfig {
     msalClientId: "",
     msalTenantId: "",
     msalApiScope: "",
+    authTokenTimeoutMs: 10_000,
     devMode: false,
     localAzureCliAuth: true,
     localLoginPrompt: false,

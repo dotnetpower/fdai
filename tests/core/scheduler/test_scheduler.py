@@ -213,6 +213,7 @@ async def test_run_once_fires_due_task_and_marks_run() -> None:
     topic, key, payload = bus.published[0]
     assert key == "vm-a"
     assert payload["event_type"] == "probe.disk"
+    assert payload["incident_correlation"] == "none"
     assert payload["payload"]["scheduled_task"]["task_id"] == "t1"
     isolation = payload["payload"]["scheduled_task"]["isolation"]
     assert isolation["profile_id"] == "scheduled.default-deny"

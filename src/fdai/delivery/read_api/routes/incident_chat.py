@@ -9,12 +9,12 @@ from typing import Any, cast
 from uuid import UUID
 
 from fdai.core.incident.intent import IncidentCreationProposal
-from fdai.core.incident.lifecycle import IncidentConfirmationError
+from fdai.core.incident.lifecycle import IncidentConfirmationError, IncidentWorkflowResult
 from fdai.core.incident.proposal_store import IncidentProposalStore
 from fdai.core.incident.workflow import IncidentLifecycleWorkflow
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
-from fdai.shared.contracts.models import IncidentState
+from fdai.shared.contracts.models import IncidentSeverity, IncidentState
 
 _UUID = r"(?P<incident_id>[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})"
 _STATE = r"(?P<state>open|triaging|mitigated|resolved|closed)"
@@ -111,6 +111,27 @@ async def submit_incident_chat(
         "expires_at": proposal.expires_at.isoformat(),
         "message": turn.response,
     }
+
+
+async def open_investigation_incident(
+    *,
+    workflow: IncidentLifecycleWorkflow,
+    principal: Principal,
+    session_id: str,
+    resource_kind: str,
+    resource_ref: str,
+    severity: IncidentSeverity,
+) -> IncidentWorkflowResult:
+    """Open or reuse the Incident confirmed by an explicit investigation command."""
+    return await workflow.open_confirmed_operator(
+        principal=_workflow_principal(principal),
+        correlation_keys=(
+            f"resource:{resource_ref}",
+            f"investigation:{resource_kind}",
+            f"session:{session_id}",
+        ),
+        severity=severity,
+    )
 
 
 async def _consume_confirmation(
@@ -286,4 +307,4 @@ def _session_required(correlation_id: str) -> dict[str, Any]:
     }
 
 
-__all__ = ["submit_incident_chat"]
+__all__ = ["open_investigation_incident", "submit_incident_chat"]

@@ -65,12 +65,15 @@ single **incident** so downstream tiers reason about one thing, not a storm.
 - **Lifecycle boundary**: a correlation id is an investigation key, not proof that an
   Incident exists. `IncidentRegistry` owns the lifecycle record. Audit-only local fixtures
   remain available to Audit and Trace but are excluded from the operational Incident roster.
+- **Operational-work policy**: normalized Events declare `incident_correlation`. The default
+  `correlate` preserves incident grouping. Discovery, inventory, scheduler, and workflow-control
+  producers set `none`, retain `correlation_id` for trace and audit, and derive no Incident ID.
 - **Upstream implementation**: `core/event_ingest/correlator.py`
   (`EventCorrelator`) derives the incident anchor deterministically from
   an event's correlation-id (or resource ref) plus a time-window bucket
   via `incident_id_for`; a burst sharing a key in one window collapses to
   one incident and a new window opens a linked follow-on. An event with
-  no anchor is reported `correlated=False` (never dropped). The keys feed
+  `incident_correlation=none` or no anchor is reported `correlated=False` (never dropped). The keys feed
   `IncidentRegistry.open`, which accumulates membership idempotently.
 
 ## 2. Anomaly Detection

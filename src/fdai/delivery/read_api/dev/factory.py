@@ -64,6 +64,9 @@ from fdai.delivery.read_api.auth import (  # noqa: E402
 from fdai.delivery.read_api.dev.azure_cli_identity import (  # noqa: E402
     resolve_azure_cli_identity,
 )
+from fdai.delivery.read_api.dev.command_transport import (  # noqa: E402
+    build_local_command_transport,
+)
 from fdai.delivery.read_api.dev.config import (  # noqa: E402
     cors_origins_from_env as _cors_origins_from_env,
 )
@@ -117,6 +120,9 @@ from fdai.delivery.read_api.entra_verifier import (  # noqa: E402
 from fdai.delivery.read_api.main import ReadApiConfig, build_app  # noqa: E402
 from fdai.delivery.read_api.read_model import (  # noqa: E402
     InMemoryConsoleReadModel,
+)
+from fdai.delivery.read_api.routes.arb_status import (  # noqa: E402
+    ArchitectureReviewStatusPanel,
 )
 from fdai.delivery.read_api.routes.chat_agent_delegate import (  # noqa: E402
     PantheonChatDelegate,
@@ -244,8 +250,35 @@ def build_local_app(
     workflow_definitions = user_context_group.workflow_definitions
     seed_user_workflow_ontology = user_context_group.seed_callback
 
-    live_stream_config = None
-    agent_activity_config = None
+    command_transport = (
+        None
+        if test_fixtures
+        else build_local_command_transport(
+            read_model=read_model,
+            action_types=tuple(action_types),
+        )
+    )
+    workflow_execution = views.workflow_execution
+    enforce_workflows = frozenset(
+        item.strip()
+        for item in os.environ.get("FDAI_WORKFLOW_ENFORCE_ALLOWLIST", "").split(",")
+        if item.strip()
+    )
+    if workflow_execution is not None and command_transport is not None:
+        workflow_execution = replace(
+            workflow_execution,
+            orchestrator=workflow_execution.orchestrator.with_action_dispatcher(
+                command_transport.action_dispatcher
+            ),
+            enforce_workflows=enforce_workflows,
+        )
+    elif enforce_workflows and not test_fixtures:
+        raise RuntimeError("FDAI_WORKFLOW_ENFORCE_ALLOWLIST requires local Azure event transport")
+
+    live_stream_config = command_transport.live_stream if command_transport is not None else None
+    agent_activity_config = (
+        command_transport.agent_activity if command_transport is not None else None
+    )
     runtime = None
     if test_fixtures:
         live_stream_config, agent_activity_config = _build_agent_streams()
@@ -271,6 +304,17 @@ def build_local_app(
         initial=_synthetic_llm_invocations() if test_fixtures else (),
     )
     models = build_local_model_wiring(_REPO_ROOT, metering_sink=metering)
+    arb_status_panels = (
+        (
+            ArchitectureReviewStatusPanel(
+                manifest_path=_REPO_ROOT / "config" / "architecture-review.yaml",
+                repo_root=_REPO_ROOT,
+                engine=views.process_views.engine,
+            ),
+        )
+        if views.process_views is not None
+        else ()
+    )
 
     async def open_narrator_endpoint() -> None:
         """Local-dev startup hook (on by default; disable with
@@ -346,7 +390,8 @@ def build_local_app(
                 )
                 if test_fixtures
                 else ()
-            ),
+            )
+            + arb_status_panels,
             trace_reader=trace_reader if test_fixtures else None,
             bitemporal_reader=trace_reader if test_fixtures else None,
             what_if_reader=trace_reader if test_fixtures else None,
@@ -357,17 +402,23 @@ def build_local_app(
             chat_agent_delegate=(
                 PantheonChatDelegate(runtime.pantheon_runtime) if runtime is not None else None
             ),
-            console_action=runtime.console_action if runtime is not None else None,
+            console_action=(
+                runtime.console_action
+                if runtime is not None
+                else command_transport.console_action
+                if command_transport is not None
+                else None
+            ),
             iam_access=AccessRequestService(store=InMemoryStateStore()),
             iam_directory=iam.directory,
             iam_role_group_ids=iam.role_group_ids,
             expose_pantheon=True,
             stewardship_map=_build_stewardship_map() if test_fixtures else None,
             workflow_authoring=workflow_authoring,
-            workflow_execution=views.workflow_execution if test_fixtures else None,
+            workflow_execution=workflow_execution,
             python_tasks=runtime.python_tasks if runtime is not None else None,
             reporting=views.reporting if test_fixtures else None,
-            process_views=views.process_views if test_fixtures else None,
+            process_views=views.process_views,
             startup_callbacks=(seed_user_workflow_ontology, open_narrator_endpoint)
             + ((runtime.start_pantheon_runtime,) if runtime is not None else ())
             + (
@@ -381,6 +432,7 @@ def build_local_app(
                 if runtime is not None and runtime.operator_runtime is not None
                 else ()
             )
+            + ((command_transport.shutdown,) if command_transport is not None else ())
             + iam.shutdown_callbacks,
         ),
     )

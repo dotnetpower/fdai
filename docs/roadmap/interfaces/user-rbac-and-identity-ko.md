@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: d697546ec722fabbb2a176c8165ecc0bdb021508
-translation_revised: 2026-07-19
+translation_source_sha: 61fc89dc513fdf842d21a61026eb52dbbbd3d719
+translation_revised: 2026-07-20
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -313,6 +313,10 @@ Adaptive Card, 코어 감사 writer로 전파.
   `/authorize` 로 리다이렉트.
 - **토큰 저장**: access + id 토큰은 메모리 또는 `sessionStorage`(절대 `localStorage` 아님);
   refresh는 MSAL `acquireTokenSilent` 가 관리.
+- **자동 토큰 시간 제한**: 콘솔은 기본적으로 `acquireTokenSilent`를 최대 10초 동안
+  기다립니다. 토큰 획득이 멈추면 현재 패널을 계속 로드 상태로 두지 않고 재시도 작업이 있는
+  인증 오류를 표시합니다. 포크의 아이덴티티 정책에 다른 제한 시간이 필요한 경우
+  `VITE_AUTH_TOKEN_TIMEOUT_MS`를 양의 정수로 설정할 수 있습니다.
 - **사인아웃**: `/logout?post_logout_redirect_uri=...` 이 콘솔 세션과 테넌트의 Entra 세션
   모두 클리어.
 

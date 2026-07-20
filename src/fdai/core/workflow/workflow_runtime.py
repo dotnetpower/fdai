@@ -40,6 +40,24 @@ class WorkflowGuardEvaluator(Protocol):
         ...
 
 
+@runtime_checkable
+class WorkflowActionDispatcher(Protocol):
+    """Republish one enforce action step into the typed control-loop ingress."""
+
+    async def dispatch(
+        self,
+        *,
+        process_id: str,
+        correlation_id: str,
+        step: RunbookStep,
+        target_resource_id: str,
+        params: Mapping[str, object],
+        context: Mapping[str, str],
+    ) -> str:
+        """Return the durable proposal or idempotency reference."""
+        ...
+
+
 def process_state_key(process_id: str) -> str:
     """Return the state-store key for a process record."""
     return f"{_PROCESS_KEY_PREFIX}{process_id}"
@@ -75,6 +93,7 @@ class ProcessRun:
     step_results: tuple[RunbookStepResult, ...]
     approval_plan: ApprovalPlan
     replayed: bool = False
+    mode: str = "shadow"
 
 
 def derive_process_id(*, workflow_name: str, target_resource_id: str, trigger_ts: datetime) -> str:

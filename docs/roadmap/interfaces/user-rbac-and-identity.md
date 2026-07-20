@@ -320,6 +320,11 @@ recommendations; a fork tunes them via Conditional Access.
   session, it redirects to `/authorize` immediately.
 - **Token store**: access + id tokens in memory or `sessionStorage` (never
   `localStorage`); refresh managed by MSAL `acquireTokenSilent`.
+- **Silent token timeout**: the console waits up to 10 seconds by default for
+  `acquireTokenSilent`. If acquisition stalls, it shows an authentication error with a
+  retry action instead of leaving the current panel loading indefinitely. A fork can set
+  `VITE_AUTH_TOKEN_TIMEOUT_MS` to a positive integer when its identity policy needs a
+  different bound.
 - **Sign-out**: `/logout?post_logout_redirect_uri=...` clears both console session and the
   Entra session for the tenant.
 

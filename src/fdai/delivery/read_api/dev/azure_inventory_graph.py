@@ -10,10 +10,9 @@ from datetime import UTC, datetime
 from time import monotonic
 from typing import Any
 
-from fdai.delivery.read_api.routes.inventory_graph import InventoryGraphViewNotFoundError
+from fdai.delivery.read_api.routes.architecture_views import project_architecture_graph
 from fdai.shared.providers.inventory import Inventory, ResourceRecord
 
-_VIEW_ID = "azure-cli-subscription"
 _ROOT_ID = "azure-subscription"
 
 
@@ -40,12 +39,18 @@ class AzureCliInventoryGraphProvider:
         depth: int,
         link_types: tuple[str, ...],
     ) -> dict[str, Any]:
-        if scope is not None and scope != _VIEW_ID:
-            raise InventoryGraphViewNotFoundError(f"architecture view not found: {scope}")
         del depth
         graph = await self._graph()
-        payload = dict(graph)
-        payload["links"] = [dict(link) for link in graph["links"] if link["type"] in link_types]
+        projection = project_architecture_graph(
+            resources=graph["resources"],
+            links=graph["links"],
+            requested_view=scope,
+        )
+        payload = {
+            **graph,
+            **projection,
+            "links": [dict(link) for link in projection["links"] if link["type"] in link_types],
+        }
         return payload
 
     async def _graph(self) -> dict[str, Any]:
@@ -124,6 +129,7 @@ def _project_graph(
             "y": 0.25,
             "w": root_width,
             "h": root_height,
+            "props": {},
         }
     ]
     links: list[dict[str, str]] = []
@@ -173,18 +179,6 @@ def _project_graph(
         "snapshot_at": datetime.now(UTC).isoformat(),
         "freshness": "fresh",
         "source": "azure-cli-local",
-        "active_view": _VIEW_ID,
-        "views": [
-            {
-                "id": _VIEW_ID,
-                "label": "Azure CLI subscription",
-                "kind": "application",
-                "description": (
-                    "Read-only resources discovered from the explicit local Azure CLI subscription"
-                ),
-                "root_resource_id": _ROOT_ID,
-            }
-        ],
         "resources": resources,
         "links": links,
         "truncated": truncated,
@@ -207,6 +201,7 @@ def _resource_payload(
         "name": str(record.props.get("name") or record.resource_id),
         "status": "unknown",
         "parent_id": parent_id,
+        "props": dict(record.props),
         "x": x,
         "y": y,
     }

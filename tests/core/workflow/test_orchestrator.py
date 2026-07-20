@@ -190,6 +190,65 @@ async def test_declared_mode_recorded_even_when_enforce() -> None:
     assert plan_entries[0]["mode"] == "shadow"
 
 
+class _RecordingActionDispatcher:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    async def dispatch(self, **kwargs: object) -> str:
+        self.calls.append(dict(kwargs))
+        return "proposal-1"
+
+
+async def test_enforce_action_step_republishes_through_dispatcher() -> None:
+    audit = InMemoryStateStore()
+    dispatcher = _RecordingActionDispatcher()
+    planner = WorkflowApprovalPlanner(
+        action_types=_ACTION_TYPES,
+        group_mapping=_group_mapping(),
+        matrix=_matrix(),
+    )
+    orchestrator = WorkflowOrchestrator(
+        planner=planner,
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
+        action_dispatcher=dispatcher,
+    )
+
+    run = await orchestrator.run(
+        _workflow(),
+        target_resource_id="res-1",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "operator-1"},
+        mode=Mode.ENFORCE,
+    )
+
+    assert run.status is ProcessStatus.SUCCEEDED
+    assert run.mode == "enforce"
+    assert len(dispatcher.calls) == 2
+    assert all(result.reason == "action_proposal_dispatched" for result in run.step_results)
+    workflow_entries = [
+        row["entry"]
+        for row in audit.audit_entries
+        if row["entry"]["action_kind"].startswith("workflow.")
+    ]
+    assert all(entry["mode"] == "enforce" for entry in workflow_entries)
+
+
+async def test_enforce_action_step_fails_without_dispatcher() -> None:
+    audit = InMemoryStateStore()
+
+    run = await _orchestrator(audit).run(
+        _workflow(),
+        target_resource_id="res-1",
+        trigger_ts=_TRIGGER_TS,
+        mode=Mode.ENFORCE,
+    )
+
+    assert run.status is ProcessStatus.FAILED
+    assert run.step_results[0].reason == "enforce_action_dispatcher_not_configured"
+
+
 async def test_gated_step_carries_approver_assignment_into_audit() -> None:
     audit = InMemoryStateStore()
     await _orchestrator(audit).run(_workflow(), target_resource_id="res-1", trigger_ts=_TRIGGER_TS)

@@ -206,10 +206,10 @@ hold per step: a stop-condition, a rollback contract, a blast-radius cap, and
 an audit-log entry. The runner adds one aggregate `runbook.terminal` audit row
 so a reviewer can reconstruct the whole run by id.
 
-### 4.1 Shadow orchestrator (P1)
+### 4.1 Governed shadow and enforce orchestrator
 
-The [`WorkflowOrchestrator`](../../../src/fdai/core/workflow/orchestrator.py) is the
-first live consumer. It plans approvals ([section 6.1](#61-approver-assignment)),
+The [`WorkflowOrchestrator`](../../../src/fdai/core/workflow/orchestrator.py) plans
+approvals ([section 6.1](#61-approver-assignment)),
 derives an idempotent `Process` id from `(workflow, target_resource_id,
 trigger_ts)`, compiles the workflow, and walks it with the
 [`ShadowWorkflowStepExecutor`](../../../src/fdai/core/workflow/orchestrator.py) - a
@@ -221,10 +221,12 @@ runner's `runbook.terminal`. The run also writes the dedicated
 `ProcessRuntimeStore`: one current snapshot plus an append-only transition journal.
 The PostgreSQL adapter updates the snapshot and appends its typed `ProcessEvent`
 in one transaction with optimistic revision checking. In-memory storage implements
-the same contract for tests and local development. Promotion to a live executor
-that re-enters the risk-gate -> executor -> delivery path is a separate, gated
-change; until then a workflow run cannot change cloud state, matching the
-shadow-before-enforce invariant.
+the same contract for tests and local development. An explicit enforce run uses
+`WorkflowActionDispatcher`: each action step republishes an idempotent
+`operator_request` to typed ingress and still passes ActionType promotion, risk,
+HIL, and Thor execution. A missing dispatcher or failed guard fails the Process
+closed. Control-only workflows such as ARB persist real approval and decision
+transitions without gaining resource mutation authority.
 
 The event entry is the
 [`WorkflowTriggerCoordinator`](../../../src/fdai/core/workflow/coordinator.py): an
@@ -290,21 +292,21 @@ Projection delivery uses a durable retry outbox:
 This separation lets runtime processing continue if the ontology store is briefly
 unavailable while preserving every projection intent for recovery.
 
-### 4.4 Manual shadow command
+### 4.4 Manual shadow or enforce command
 
 You can start or resume a catalog Workflow without waiting for its production
 signal by calling the optional Contributor-gated `POST /workflows/run` command.
 The route accepts a catalog workflow name, target resource id, RFC 3339 trigger
-timestamp, and bounded string context. It invokes the same
-`WorkflowOrchestrator` used by event triggers. The orchestrator is shadow-only
-by construction, so the command writes Process and audit records but cannot
-change a cloud resource.
+timestamp, bounded string context, and `mode`. Contributor can run shadow.
+Enforce requires Owner and a deployment `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` entry.
+Action steps republish to the normal typed pipeline; the workflow never calls an
+executor directly.
 
 The local dev composition wires the command and the Processes read routes to
 the same `ProcessRuntimeStore`. Use the CLI wrapper to exercise it:
 
 ```bash
-FDAI_READ_API_DEV_MODE=1 uv run uvicorn \
+FDAI_READ_API_LOCAL_AZURE_CLI=1 uv run uvicorn \
   'fdai.delivery.read_api.dev.local:app' --factory --port 8000
 
 uv run python scripts/automation/run-workflow.py architecture-review \

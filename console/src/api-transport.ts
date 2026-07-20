@@ -34,7 +34,14 @@ export class ReadApiTransport {
   };
 
   async #authorizationHeader(): Promise<string | null> {
-    const authHeader = await this.#auth.getAuthorizationHeader();
+    const authHeader = await withTimeout(
+      this.#auth.getAuthorizationHeader(),
+      this.#config.authTokenTimeoutMs,
+      () => new ReadApiError(
+        401,
+        "Authentication token request timed out. Retry or sign in again.",
+      ),
+    );
     if (
       authHeader === null
       && this.#auth.account !== null
@@ -85,5 +92,21 @@ export class ReadApiTransport {
       throw new ReadApiError(response.status, message);
     }
     return response;
+  }
+}
+
+async function withTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  timeoutError: () => Error,
+): Promise<T> {
+  let timer: ReturnType<typeof globalThis.setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = globalThis.setTimeout(() => reject(timeoutError()), timeoutMs);
+  });
+  try {
+    return await Promise.race([operation, timeout]);
+  } finally {
+    if (timer !== undefined) globalThis.clearTimeout(timer);
   }
 }

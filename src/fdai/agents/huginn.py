@@ -132,6 +132,11 @@ class Huginn(Agent):
         payload: dict[str, Any] = {
             "producer_principal": "Huginn",
             "correlation_id": str(raw.get("correlation_id", key))[:_MAX_FIELD_CHARS],
+            "incident_correlation": (
+                "none"
+                if str(raw.get("event_type", "")).startswith("inventory.")
+                else str(raw.get("incident_correlation", "correlate"))[:_MAX_FIELD_CHARS]
+            ),
             "idempotency_key": key,
             "event_id": _bound(raw.get("event_id") or key),
             "source": _bound(raw.get("source") or "unknown"),

@@ -30,6 +30,7 @@ async def _provider(scope: str | None, depth: int, links: tuple[str, ...]) -> di
                 "id": "fdai-control-plane",
                 "label": "FDAI control plane",
                 "kind": "fdai",
+                "classification": "ownership_tag",
                 "description": "FDAI runtime",
                 "root_resource_id": "sub-example",
             }
@@ -105,7 +106,7 @@ async def test_demo_provider_defaults_to_fdai_and_separates_application_views() 
         "operations-portal", 4, ("contains", "depends_on")
     )
     assert fdai["active_view"] == "fdai-control-plane"
-    assert [view["kind"] for view in fdai["views"]] == ["fdai", "application", "application"]
+    assert [view["kind"] for view in fdai["views"]] == ["fdai", "service", "service"]
     id_sets = [
         {resource["id"] for resource in graph["resources"]}
         for graph in (fdai, commerce, operations)

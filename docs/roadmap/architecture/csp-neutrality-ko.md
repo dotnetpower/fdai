@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: f285b87817e00b20fb9ed4753a7b37185a354e87
-translation_revised: 2026-07-18
+translation_source_sha: 673b559bae9809ca2f1782c5d69651c6a5c4e8a8
+translation_revised: 2026-07-20
 ---
 
 # CSP-중립성 계약
@@ -253,14 +253,34 @@ executor 는 런타임 서브스트레이트에서 얻은 **짧은 수명의 OID
 링크, 스냅샷 신선도, 잘림 메타데이터를 반환합니다. 이 경로는 Azure Resource Graph를
 직접 호출하지 않으며 실행자 ID를 전달받지 않습니다.
 
-이 프로젝션은 이름이 지정된 아키텍처 뷰를 제공합니다. 기본 뷰는 FDAI 자체 컨트롤
-플레인이며, 추가 `application` 뷰는 FDAI가 판단하고 관찰할 수 있는 서비스를
-분리합니다. `scope=<view-id>`를 지정하면 동일한 CSP-중립 와이어 계약을 유지하면서
-해당 뷰의 경계가 제한된 리소스와 링크 집합을 반환합니다. Named-view provider는
-명시된 view id가 등록되지 않았으면 default view로 대체하지 않고 `404`를 반환합니다.
-Console은 default manifest를 다시 불러와 등록된 복구 link를 표시할 수 있습니다.
-Postgres inventory snapshot처럼 `scope`를 resource id 또는 prefix로 사용하는 provider는
-기존 resource-scoped query 동작을 유지하며 named-view not-found 계약을 사용하지 않습니다.
+이 프로젝션은 이름이 지정된 아키텍처 뷰를 제공합니다. `scope` 없는 요청은 권위 있는
+`fdai:managed=true`와 `fdai:workload=fdai` 인벤토리 tag pair로 식별된 FDAI 자체
+컨트롤 플레인만 반환합니다. 값이 정확히 `fdai`인 모호하지 않은 허용 service tag도 전체
+pair가 없는 helper resource를 위한 FDAI 소유권 신호로 예약합니다. containment를
+보존하기 위해 상위 resource group 및 subscription 경계를 포함할 수 있지만 관련 없는
+리소스는 포함하지 않습니다. 두 소유권 신호가 모두 없으면 전체 subscription으로 범위를
+넓히지 않고 빈 FDAI 뷰를 유지합니다.
+
+추가 뷰는 결정적 근거를 사용하여 FDAI 외 리소스를 분리합니다.
+
+- **서비스 뷰**: 비어 있지 않은 service tag가 서비스를 식별합니다. 허용되는 key는
+  `fdai:service`, `service`, `application`, `app`, `workload`, `azd-service-name`입니다.
+  Provider는 resource name에서 서비스 ID를 추론하지 않습니다. 허용된 key가 서로 다른
+  값으로 확인되면 classification을 모호한 것으로 처리하고 resource group fallback을
+  사용합니다. 하나의 서비스 뷰는 여러 resource group의 리소스를 포함할 수 있으며
+  필요한 상위 경계를 함께 포함합니다.
+- **Resource group fallback 뷰**: 리소스에 사용할 수 있는 service tag가 없으면 해당
+  리소스를 포함하는 resource group을 뷰 경계로 사용합니다. 이 fallback은 서비스 ID를
+  만들어 내지 않고 관찰된 구조를 보존합니다.
+
+`scope=<view-id>`를 지정하면 동일한 CSP-중립 와이어 계약을 유지하면서 해당 뷰의
+경계가 제한된 리소스와 링크 집합을 반환합니다. View metadata는
+`kind=fdai|service|resource_group`과 classification 근거(`ownership_tag`, `service_tag`,
+`resource_group_fallback`)를 기록합니다. Named-view provider는 명시된 view id가
+등록되지 않았으면 default view로 대체하지 않고 `404`를 반환합니다. Console은 default
+manifest를 다시 불러와 등록된 복구 link를 표시할 수 있습니다. Postgres production
+projection과 local Azure CLI projection은 동일한 view classification 규칙을 사용하여
+local 및 deployed console의 의미를 일치시킵니다.
 
 | CSP / 서브스트레이트 | 인벤토리 소스 | Delta 소스 | 와이어 |
 |---|---|---|---|

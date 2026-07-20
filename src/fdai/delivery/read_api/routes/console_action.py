@@ -58,9 +58,10 @@ from fdai.core.incident.proposal_store import (
 from fdai.core.incident.workflow import IncidentLifecycleWorkflow
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Capability, has_capability
+from fdai.shared.contracts.models import IncidentSeverity
 from fdai.shared.providers.event_bus import EventBus
 
-from .incident_chat import submit_incident_chat
+from .incident_chat import open_investigation_incident, submit_incident_chat
 
 _LOG = logging.getLogger(__name__)
 
@@ -148,6 +149,7 @@ class ConsoleActionSubmitter:
     prior_outcome_lookup: PriorOutcomeLookup | None = None
     refusal_observer: RefusalObserver | None = None
     incident_workflow: IncidentLifecycleWorkflow | None = None
+    investigation_incident_severity: IncidentSeverity = IncidentSeverity.SEV3
     incident_proposals: IncidentProposalStore = field(
         default_factory=InMemoryIncidentProposalStore,
         repr=False,
@@ -298,6 +300,7 @@ class ConsoleActionSubmitter:
             "question": bounded_question,
             "session_id": bounded_session,
         }
+        investigation: tuple[str, str] | None = None
         if action_type == "tool.run-chaos-experiment":
             chaos_request = _parse_chaos_request(bounded_question)
             if chaos_request is None:
@@ -320,6 +323,7 @@ class ConsoleActionSubmitter:
                     "action_type": action_type,
                 }
             resource_kind, resource_ref = investigation_request
+            investigation = investigation_request
             bounded_resource = resource_ref[:MAX_RESOURCE_ID_CHARS]
             action_params = {
                 "resource_ref": bounded_resource,
@@ -342,17 +346,46 @@ class ConsoleActionSubmitter:
                     resource_id=bounded_resource,
                     extra={"action_type": action_type},
                 )
+        incident_id: str | None = None
+        if investigation is not None and self.incident_workflow is not None:
+            if not bounded_session:
+                return {
+                    "submitted": False,
+                    "reason": "incident_session_required",
+                    "correlation_id": correlation_id,
+                    "action_type": action_type,
+                    "message": (
+                        "Investigation requires a conversation session so its Incident and "
+                        "progress trace can be resumed."
+                    ),
+                }
+            resource_kind, resource_ref = investigation
+            opened = await open_investigation_incident(
+                workflow=self.incident_workflow,
+                principal=principal,
+                session_id=bounded_session,
+                resource_kind=resource_kind,
+                resource_ref=resource_ref,
+                severity=self.investigation_incident_severity,
+            )
+            incident_id = str(opened.incident.incident_id)
+            correlation_id = incident_id
+            action_params = {**action_params, "incident_id": incident_id}
+
         client_key = (idempotency_key or "").strip()[:MAX_IDEMPOTENCY_CHARS]
         # Namespace the dedup key by the initiator so one operator cannot reuse
         # (or guess) another operator's idempotency key to suppress their action
         # at Huginn. Absent a client key, fall back to the unique correlation.
         # The whole key is bounded so a long oid + key cannot become a huge bus
         # partition value.
-        dedup_key = (
-            f"{principal.oid}::{client_key}"[:MAX_IDEMPOTENCY_CHARS]
-            if client_key
-            else correlation_id
-        )
+        if incident_id is not None:
+            dedup_key = f"{principal.oid}::investigation::{incident_id}"[:MAX_IDEMPOTENCY_CHARS]
+        else:
+            dedup_key = (
+                f"{principal.oid}::{client_key}"[:MAX_IDEMPOTENCY_CHARS]
+                if client_key
+                else correlation_id
+            )
         proposal: dict[str, Any] = {
             "idempotency_key": dedup_key,
             "correlation_id": correlation_id,
@@ -363,6 +396,8 @@ class ConsoleActionSubmitter:
             "event_type": "operator_request",
             "params": action_params,
         }
+        if incident_id is not None:
+            proposal["incident_id"] = incident_id
         # Key by resource (per-resource ordering) so concurrent proposals on
         # the same resource serialize; fall back to the dedup key.
         key = bounded_resource or dedup_key
@@ -372,12 +407,25 @@ class ConsoleActionSubmitter:
             action_type,
             correlation_id,
         )
-        return {
+        response: dict[str, Any] = {
             "submitted": True,
             "correlation_id": correlation_id,
             "action_type": action_type,
             "resource_id": bounded_resource,
         }
+        if incident_id is not None:
+            response.update(
+                {
+                    "incident_id": incident_id,
+                    "incident_state": "open",
+                    "links": {
+                        "incident": f"/incidents/{incident_id}",
+                        "trace": f"/audit?correlation_id={correlation_id}",
+                        "live": f"/live?correlation_id={correlation_id}",
+                    },
+                }
+            )
+        return response
 
     async def _publish_incident_ticket_proposal(
         self,

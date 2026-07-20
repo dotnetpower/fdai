@@ -4,16 +4,33 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+from fdai.core.architecture_review import ArchitectureReviewProductionGateEvaluator
+from fdai.core.notifications.matrix import load_matrix_from_yaml
+from fdai.core.reporting.engine import ReportEngine
+from fdai.core.reporting.models import RenderedReport
+from fdai.core.views import ViewEngine
+from fdai.core.workflow.approval import WorkflowApprovalPlanner
+from fdai.core.workflow.orchestrator import WorkflowOrchestrator
 from fdai.delivery.read_api.dev.catalog_wiring import (
     LocalCatalogWiring,
     build_local_catalog_wiring,
 )
+from fdai.delivery.read_api.dev.config import group_mapping_from_env
 from fdai.delivery.read_api.dev.fixtures.dynamic_views import (
     _build_dynamic_process_views_sync,
 )
 from fdai.delivery.read_api.dev.user_context import build_local_user_context
+from fdai.delivery.read_api.routes.process_views import ProcessViewsConfig
+from fdai.delivery.read_api.routes.workflow_execution import WorkflowExecutionConfig
+from fdai.shared.providers.testing import InMemoryProcessRuntimeStore, InMemoryStateStore
+
+
+class _NoLocalReports:
+    async def render(self, report_id: str, *, variables: dict[str, str]) -> RenderedReport:
+        del variables
+        raise KeyError(f"local Process has no report view {report_id!r}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +63,38 @@ def build_local_view_wiring(
             link_types=catalog.link_types,
             workflows=catalog.workflows,
             action_types=catalog.action_types,
+        )
+    elif catalog.workflows:
+        process_store = InMemoryProcessRuntimeStore()
+        action_types_by_name = {item.name: item for item in catalog.action_types}
+        workflow_execution = WorkflowExecutionConfig(
+            workflows=catalog.workflows,
+            orchestrator=WorkflowOrchestrator(
+                planner=WorkflowApprovalPlanner(
+                    action_types=action_types_by_name,
+                    group_mapping=group_mapping_from_env(),
+                    matrix=load_matrix_from_yaml(
+                        repo_root / "config" / "notifications-matrix.yaml"
+                    ),
+                ),
+                action_types=action_types_by_name,
+                audit_store=InMemoryStateStore(),
+                process_store=process_store,
+                guard_evaluator=ArchitectureReviewProductionGateEvaluator(
+                    manifest_path=repo_root / "config" / "architecture-review.yaml",
+                    repo_root=repo_root,
+                ),
+            ),
+        )
+        process_views = ProcessViewsConfig(
+            engine=ViewEngine(
+                specs=(),
+                reports=cast(ReportEngine, _NoLocalReports()),
+                processes=process_store,
+            ),
+            source="local-runtime",
+            synthetic=False,
+            durable=False,
         )
     user_context = build_local_user_context(
         schema_registry=catalog.schema_registry,

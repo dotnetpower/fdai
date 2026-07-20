@@ -292,11 +292,15 @@ ordered real-time resource/link overlay. The toolbar shows pending real-time
 change count alongside snapshot freshness so an operator can distinguish a
 recent Huginn projection from the last six-hour full reconciliation.
 
-The default selector shows FDAI's own control-plane architecture. Named application views
-then separate each service FDAI can judge. Every view uses the same boundary-normalization
-pass before rendering, so a resource cannot appear outside its declared parent scope. The
-right-side Map controls provide Iso / Top / Front camera presets, layer and display toggles,
-and the canvas includes Zoom in / out / Fit controls.
+The default selector shows only FDAI's own tagged control-plane resources and the parent
+boundaries needed to render their containment. The service identity `fdai` is reserved for this
+default view rather than exposed as a duplicate service. Named service views use the explicit
+`fdai:service`, `service`, `application`, `app`, `workload`, or `azd-service-name` inventory
+tags. Missing or conflicting service values fall back to a resource-group view instead of being
+guessed into an application. Every view uses the same boundary-normalization pass before
+rendering, so a resource cannot appear outside its declared parent scope. The right-side Map
+controls provide Iso / Top / Front camera presets, layer and display toggles, and the canvas
+includes Zoom in / out / Fit controls.
 
 The canvas renders floor reflections first, then opaque resource bodies, connection paths,
 and finally resource abbreviations and labels. This keeps dependency lines visible above the

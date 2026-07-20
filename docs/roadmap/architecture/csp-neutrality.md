@@ -261,14 +261,33 @@ records plus `contains` / `attached_to` / `depends_on` links, snapshot freshness
 truncation metadata. The route never calls Azure Resource Graph directly and never receives
 the executor identity.
 
-The projection publishes named architecture views. The default view is FDAI's own control
-plane; additional `application` views partition the services FDAI can judge and observe.
+The projection publishes named architecture views. A request without `scope` returns only
+FDAI's own control plane, identified by the authoritative `fdai:managed=true` plus
+`fdai:workload=fdai` inventory-tag pair. An unambiguous accepted service tag whose value is
+exactly `fdai` is also reserved as an FDAI ownership signal for helper resources that don't carry
+the full pair. Parent resource-group and subscription boundaries may be included to preserve
+containment, but unrelated resources aren't included. When neither ownership signal is present,
+the default remains an empty FDAI view instead of widening to the whole subscription.
+
+Additional views partition non-FDAI resources with deterministic evidence:
+
+- **Service view**: a non-empty service tag identifies the service. The accepted keys are
+  `fdai:service`, `service`, `application`, `app`, `workload`, and `azd-service-name`.
+  Providers don't infer service identity from resource names. When accepted keys resolve to
+  conflicting values, classification is ambiguous and uses the resource-group fallback. A
+  service view may contain resources from more than one resource group and includes the required
+  parent boundaries.
+- **Resource-group fallback view**: when a resource has no usable service tag, its containing
+  resource group becomes the view boundary. This fallback preserves observed structure without
+  inventing a service identity.
+
 Supplying `scope=<view-id>` returns that view's bounded resource and link set while preserving
-the same CSP-neutral wire contract. A named-view provider returns `404` when an explicit view
-id isn't registered; it doesn't substitute the default view. The console can then load the
-default manifest to show the registered recovery links. Providers that use `scope` for a
-resource id or prefix, such as the Postgres inventory snapshot, retain their resource-scoped
-query behavior and don't opt into the named-view not-found contract.
+the same CSP-neutral wire contract. View metadata records `kind=fdai|service|resource_group`
+and the classification evidence (`ownership_tag`, `service_tag`, or `resource_group_fallback`).
+A named-view provider returns `404` when an explicit view id isn't registered; it doesn't
+substitute the default view. The console can then load the default manifest to show the
+registered recovery links. The Postgres production projection and local Azure CLI projection
+use the same view-classification rules so local and deployed consoles keep the same meaning.
 
 | CSP / substrate | Inventory source | Delta source | Wire |
 |---|---|---|---|

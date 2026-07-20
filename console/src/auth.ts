@@ -9,13 +9,15 @@
  * See docs/roadmap/interfaces/user-rbac-and-identity.md § 10.1 for the full flow.
  */
 
-import {
+import type {
+  AccountInfo,
+  Configuration,
   PublicClientApplication,
-  type AccountInfo,
-  type Configuration,
-  InteractionRequiredAuthError,
 } from "@azure/msal-browser";
 import type { ConsoleConfig } from "./config";
+
+type InteractionRequiredAuthErrorConstructor =
+  typeof import("@azure/msal-browser").InteractionRequiredAuthError;
 
 export interface AuthAccount {
   readonly homeAccountId: string;
@@ -98,15 +100,18 @@ class MsalAuth implements AuthContext {
   readonly devMode: boolean;
   #client: PublicClientApplication;
   #scope: string;
+  #interactionRequiredAuthError: InteractionRequiredAuthErrorConstructor;
   #account: AccountInfo | null = null;
 
   constructor(
     client: PublicClientApplication,
     scope: string,
+    interactionRequiredAuthError: InteractionRequiredAuthErrorConstructor,
     options: { readonly devMode?: boolean } = {},
   ) {
     this.#client = client;
     this.#scope = scope;
+    this.#interactionRequiredAuthError = interactionRequiredAuthError;
     this.devMode = options.devMode ?? false;
   }
 
@@ -131,7 +136,7 @@ class MsalAuth implements AuthContext {
       });
       return `Bearer ${result.accessToken}`;
     } catch (err) {
-      if (err instanceof InteractionRequiredAuthError) {
+      if (err instanceof this.#interactionRequiredAuthError) {
         await this.signIn();
       }
       return null;
@@ -189,6 +194,9 @@ export async function initAuth(config: ConsoleConfig): Promise<AuthContext> {
 }
 
 async function initializeMsal(config: ConsoleConfig, devMode: boolean): Promise<AuthContext> {
+  const { InteractionRequiredAuthError, PublicClientApplication } = await import(
+    "@azure/msal-browser"
+  );
   const msalConfig: Configuration = {
     auth: {
       clientId: config.msalClientId,
@@ -204,7 +212,7 @@ async function initializeMsal(config: ConsoleConfig, devMode: boolean): Promise<
   };
   const client = new PublicClientApplication(msalConfig);
   await client.initialize();
-  const auth = new MsalAuth(client, config.msalApiScope, { devMode });
+  const auth = new MsalAuth(client, config.msalApiScope, InteractionRequiredAuthError, { devMode });
   await auth.initialize();
   return auth;
 }

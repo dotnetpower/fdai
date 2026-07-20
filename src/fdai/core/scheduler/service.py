@@ -31,7 +31,7 @@ from fdai.core.scheduler.run_ledger import (
     ScheduleRunLedger,
 )
 from fdai.core.scheduler.store import ScheduleStore
-from fdai.shared.contracts.models import Event, Mode
+from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.telemetry.transitions import (
     RoutingTransition,
@@ -234,6 +234,7 @@ class SchedulerService:
             payload=payload,
             detected_at=at,
             ingested_at=at,
+            incident_correlation=IncidentCorrelation.NONE,
             mode=self._mode,
         )
 
@@ -257,6 +258,7 @@ class SchedulerService:
             "schema_version": "1.0.0",
             "idempotency_key": idempotency_key,
             "correlation_id": idempotency_key,
+            "incident_correlation": IncidentCorrelation.NONE.value,
             "initiator_principal": initiator,
             "operator_initiated": True,
             "action_type": action_type,

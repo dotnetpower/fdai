@@ -12,6 +12,7 @@ from uuid import uuid4
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai.delivery.read_api.routes.architecture_views import project_architecture_graph
 from fdai.shared.providers.inventory import InventoryBatch
 from fdai.shared.providers.inventory_snapshot import (
     InventoryAttemptFailure,
@@ -21,31 +22,6 @@ from fdai.shared.providers.inventory_snapshot import (
 
 _PROMOTION_LOCK: Final[int] = 732_410_991
 _MAX_GRAPH_ROWS: Final[int] = 5000
-_SCOPED_RESOURCES_QUERY = (
-    "WITH RECURSIVE effective_resources AS ("
-    "SELECT r.resource_id, r.resource_type, r.props, r.provider_ref, r.last_seen "
-    "FROM inventory_snapshot_resource r WHERE r.snapshot_id=%s AND NOT EXISTS ("
-    "SELECT 1 FROM inventory_realtime_resource d WHERE d.resource_id=r.resource_id) "
-    "UNION ALL SELECT d.resource_id, d.resource_type, d.props, d.provider_ref, d.observed_at "
-    "FROM inventory_realtime_resource d WHERE d.change_kind='upsert'), "
-    "effective_links AS ("
-    "SELECT l.from_id, l.from_type, l.link_type, l.to_id, l.to_type, l.props "
-    "FROM inventory_snapshot_link l WHERE l.snapshot_id=%s AND NOT EXISTS ("
-    "SELECT 1 FROM inventory_realtime_link d WHERE d.from_id=l.from_id "
-    "AND d.link_type=l.link_type AND d.to_id=l.to_id) "
-    "UNION ALL SELECT d.from_id, d.from_type, d.link_type, d.to_id, d.to_type, d.props "
-    "FROM inventory_realtime_link d WHERE d.change_kind='upsert'), "
-    "walk(resource_id, level) AS ("
-    "SELECT resource_id, 0 FROM effective_resources "
-    "WHERE resource_id=%s OR resource_id LIKE %s "
-    "UNION SELECT CASE WHEN l.from_id=w.resource_id THEN l.to_id ELSE l.from_id END, "
-    "w.level+1 FROM walk w JOIN effective_links l ON "
-    "(l.from_id=w.resource_id OR l.to_id=w.resource_id) "
-    "AND l.link_type=ANY(%s::text[]) WHERE w.level < %s) "
-    "SELECT DISTINCT r.resource_id, r.resource_type, r.props "
-    "FROM effective_resources r JOIN walk w ON w.resource_id=r.resource_id "
-    "ORDER BY r.resource_id LIMIT %s"
-)
 _ALL_RESOURCES_QUERY = (
     "WITH effective_resources AS ("
     "SELECT r.resource_id, r.resource_type, r.props, r.provider_ref, r.last_seen "
@@ -290,6 +266,7 @@ class PostgresInventoryGraphProvider:
     async def __call__(
         self, scope: str | None, depth: int, link_types: tuple[str, ...]
     ) -> Mapping[str, Any]:
+        del depth
         async with await self._connect() as connection:
             await self._set_timeout(connection)
             await connection.execute("SELECT pg_advisory_xact_lock_shared(%s)", (_PROMOTION_LOCK,))
@@ -315,33 +292,20 @@ class PostgresInventoryGraphProvider:
                 "FROM inventory_realtime_resource"
             )
             overlay = await overlay_cursor.fetchone()
-            if scope:
-                resources_cursor = await connection.execute(
-                    _SCOPED_RESOURCES_QUERY,
-                    (
-                        snapshot["id"],
-                        snapshot["id"],
-                        scope,
-                        f"{scope}/%",
-                        list(link_types),
-                        depth,
-                        _MAX_GRAPH_ROWS + 1,
-                    ),
-                )
-            else:
-                resources_cursor = await connection.execute(
-                    _ALL_RESOURCES_QUERY,
-                    (snapshot["id"], _MAX_GRAPH_ROWS + 1),
-                )
+            resources_cursor = await connection.execute(
+                _ALL_RESOURCES_QUERY,
+                (snapshot["id"], _MAX_GRAPH_ROWS + 1),
+            )
             rows = await resources_cursor.fetchall()
             truncated = len(rows) > _MAX_GRAPH_ROWS
             rows = rows[:_MAX_GRAPH_ROWS]
             ids = [str(row["resource_id"]) for row in rows]
             links: Sequence[Mapping[str, Any]] = ()
             if ids:
+                classification_link_types = tuple(dict.fromkeys((*link_types, "contains")))
                 links_cursor = await connection.execute(
                     _SELECT_EFFECTIVE_LINKS_QUERY,
-                    (snapshot["id"], ids, ids, list(link_types)),
+                    (snapshot["id"], ids, ids, list(classification_link_types)),
                 )
                 links = await links_cursor.fetchall()
         completed = snapshot["completed_at"]
@@ -367,6 +331,15 @@ class PostgresInventoryGraphProvider:
         degraded = freshness != "fresh" or bool(coverage_gaps)
         overlay_latest = overlay["latest_at"] if overlay is not None else None
         pending_changes = int(overlay["pending_changes"] or 0) if overlay is not None else 0
+        graph_links = [
+            {"source": row["from_id"], "target": row["to_id"], "type": row["link_type"]}
+            for row in links
+        ]
+        projection = project_architecture_graph(
+            resources=[_resource_payload(row, include_props=True) for row in rows],
+            links=graph_links,
+            requested_view=scope,
+        )
         return {
             "snapshot_id": snapshot["id"],
             "snapshot_at": completed.isoformat(),
@@ -384,12 +357,10 @@ class PostgresInventoryGraphProvider:
                 "pending_changes": pending_changes,
                 "latest_at": overlay_latest.isoformat() if overlay_latest is not None else None,
             },
-            "resources": [_resource_payload(row) for row in rows],
-            "links": [
-                {"source": row["from_id"], "target": row["to_id"], "type": row["link_type"]}
-                for row in links
-            ],
-            "views": [],
+            "active_view": projection["active_view"],
+            "resources": projection["resources"],
+            "links": [link for link in projection["links"] if link["type"] in link_types],
+            "views": projection["views"],
             "truncated": truncated,
             "cursor": (
                 f"{snapshot['id']}:{overlay_latest.isoformat()}"
@@ -507,18 +478,21 @@ class PostgresInventoryContextProvider:
         }
 
 
-def _resource_payload(row: Mapping[str, Any]) -> dict[str, Any]:
+def _resource_payload(row: Mapping[str, Any], *, include_props: bool = False) -> dict[str, Any]:
     props = row["props"]
     if isinstance(props, str):
         props = json.loads(props)
     props = dict(props) if isinstance(props, Mapping) else {}
-    return {
+    payload = {
         "id": row["resource_id"],
         "type": row["resource_type"],
         "name": str(props.get("name") or row["resource_id"]),
         "status": str(props.get("status") or "unknown"),
         **({"parent_id": props["parent_id"]} if props.get("parent_id") else {}),
     }
+    if include_props:
+        payload["props"] = props
+    return payload
 
 
 def _source_priority(metadata: object) -> int:
@@ -531,6 +505,7 @@ def _source_priority(metadata: object) -> int:
 
 
 def _unavailable_graph() -> dict[str, Any]:
+    projection = project_architecture_graph(resources=(), links=(), requested_view=None)
     return {
         "snapshot_at": datetime.now(tz=UTC).isoformat(),
         "freshness": "unknown",
@@ -541,9 +516,10 @@ def _unavailable_graph() -> dict[str, Any]:
         "coverage_gaps": ["no active inventory snapshot"],
         "degraded": True,
         "realtime": {"pending_changes": 0, "latest_at": None},
-        "resources": [],
-        "links": [],
-        "views": [],
+        "active_view": projection["active_view"],
+        "resources": projection["resources"],
+        "links": projection["links"],
+        "views": projection["views"],
         "truncated": False,
         "cursor": None,
     }

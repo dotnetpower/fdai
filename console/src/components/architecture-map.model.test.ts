@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
   architectureHref,
+  architectureViewKindLabel,
   architectureViewFromHash,
   constrainGraph,
   geometryOf,
@@ -172,6 +173,33 @@ describe("architecture map model", () => {
     expect(selectedResourceIdFromHash("#/architecture?resource=web%20api")).toBe("web api");
     expect(architectureHref("web-api", "commerce-api")).toBe("/architecture?resource=web-api&view=commerce-api");
     expect(architectureViewFromHash("#/architecture?view=commerce-api")).toBe("commerce-api");
+  });
+
+  test("labels architecture view boundaries explicitly", () => {
+    expect(architectureViewKindLabel({
+      id: "fdai-control-plane",
+      label: "FDAI",
+      kind: "fdai",
+      classification: "ownership_tag",
+      description: "",
+      root_resource_id: "fdai",
+    })).toBe("FDAI");
+    expect(architectureViewKindLabel({
+      id: "service:orders",
+      label: "Orders",
+      kind: "service",
+      classification: "service_tag",
+      description: "",
+      root_resource_id: "rg-orders",
+    })).toBe("Service");
+    expect(architectureViewKindLabel({
+      id: "rg-shared",
+      label: "rg-shared",
+      kind: "resource_group",
+      classification: "resource_group_fallback",
+      description: "",
+      root_resource_id: "rg-shared",
+    })).toBe("Resource group");
   });
 
   test("clamps regions and nodes inside their parent boundaries", () => {
