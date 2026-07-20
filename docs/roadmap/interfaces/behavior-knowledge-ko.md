@@ -1,7 +1,7 @@
 ---
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
-translation_source_sha: 62ae7379044f7c149616bd2c62913f0a373dbe9d
+translation_source_sha: cc6e79403b0325d9e7ab70c9f84f433db9386444
 translation_revised: 2026-07-21
 ---
 
@@ -164,4 +164,4 @@ localization, directness를 평가합니다. 2026-07-20 측정 결과는 `10.0/1
 | 대화 안전성 및 tool | [Operator Console](operator-console-ko.md) |
 | Provider 및 delivery 경계 | [Project Structure](../architecture/project-structure-ko.md) |
 | Odin 및 Forseti 책임 | [Agent Pantheon](../agents/agent-pantheon-ko.md) |
-| Incident lifecycle | [Incident Response and Reliability](../operations/incident-response-and-reliability-ko.md) |
+| Incident lifecycle | [Operator-Initiated SRE and ARB](../operations/operator-initiated-sre-and-arb-ko.md) |

@@ -160,4 +160,4 @@ database parity test runs when `FDAI_DATABASE_URL` is configured.
 | Conversational safety and tools | [Operator Console](operator-console.md) |
 | Provider and delivery boundaries | [Project Structure](../architecture/project-structure.md) |
 | Odin and Forseti responsibilities | [Agent Pantheon](../agents/agent-pantheon.md) |
-| Incident lifecycle | [Incident Response and Reliability](../operations/incident-response-and-reliability.md) |
+| Incident lifecycle | [Operator-Initiated SRE and ARB](../operations/operator-initiated-sre-and-arb.md) |
