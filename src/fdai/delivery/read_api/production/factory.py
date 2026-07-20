@@ -62,8 +62,10 @@ from typing import Final
 import httpx
 from starlette.applications import Starlette
 
+from fdai.agents import OWNED_OBJECT_TOPICS
 from fdai.core.rbac.access_request import AccessRequestService
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
+from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.delivery.persistence import (
     PostgresModelHealthTransitionSink,
     PostgresModelHealthTransitionSinkConfig,
@@ -76,11 +78,17 @@ from fdai.delivery.persistence.postgres_scheduler_store import (
     PostgresScheduleStore,
     PostgresScheduleStoreConfig,
 )
+from fdai.delivery.persistence.postgres_task_worker import (
+    PostgresTaskWorkerStore,
+    PostgresTaskWorkerStoreConfig,
+)
 from fdai.delivery.persistence.postgres_vm_task import (
     PostgresPythonTaskArtifactStore,
     PostgresVmTaskConfig,
     PostgresVmTaskTargetResolver,
 )
+from fdai.delivery.read_api.background_runtime import build_background_task_runtime
+from fdai.delivery.read_api.busy_input_runtime import build_postgres_busy_input_runtime
 from fdai.delivery.read_api.main import ReadApiConfig, build_app
 from fdai.delivery.read_api.production import env_contract as _env
 from fdai.delivery.read_api.production.config import (
@@ -95,15 +103,20 @@ from fdai.delivery.read_api.production.onboarding import build_production_onboar
 from fdai.delivery.read_api.production.panels import build_production_panels
 from fdai.delivery.read_api.production.persistence import build_production_persistence
 from fdai.delivery.read_api.production.runtime_wiring import build_production_runtime
+from fdai.delivery.read_api.production.skill_sources import build_production_skill_sources
+from fdai.delivery.read_api.production.skills import build_production_skill_runtime
 from fdai.delivery.read_api.production.user_context import build_production_user_context
 from fdai.delivery.read_api.production.views import _build_dynamic_views
 from fdai.delivery.read_api.routes.arb_status import ArchitectureReviewStatusPanel
 from fdai.delivery.read_api.routes.chat import backend_from_env
 from fdai.delivery.read_api.routes.chat_web_search import chat_web_search_from_env
+from fdai.delivery.read_api.routes.post_turn_event_bus import EventBusPostTurnReviewIntake
+from fdai.delivery.read_api.routes.post_turn_review import PostTurnReviewQueue
 from fdai.delivery.read_api.routes.python_tasks import (
     PythonTaskRoutesConfig,
     PythonTaskRunSubmitter,
 )
+from fdai.shared.providers.local import EnvSecretProvider
 
 _REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[5]
 
@@ -193,16 +206,52 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     user_context_ontology_projector = user_context_group.ontology_projector
     user_context = user_context_group.routes
     workflow_definitions = user_context_group.workflow_definitions
+    skill_runtime = build_production_skill_runtime(
+        env=env,
+        dsn=read_model._config.dsn,
+        statement_timeout_ms=read_model._config.statement_timeout_ms,
+        connect_timeout_s=read_model._config.connect_timeout_s,
+    )
+    skill_sources = build_production_skill_sources(
+        env=env,
+        dsn=read_model._config.dsn,
+        statement_timeout_ms=read_model._config.statement_timeout_ms,
+        connect_timeout_s=read_model._config.connect_timeout_s,
+        secrets=EnvSecretProvider(env=env, prefix=""),
+        refresh_runtime=skill_runtime.startup,
+    )
     runtime = build_production_runtime(
         env=env,
         repo_root=_REPO_ROOT,
         read_model=read_model,
         state_store=state_store,
         state_store_config=state_store_config,
-        startup_callbacks=user_context_group.startup_callbacks,
-        shutdown_callbacks=shutdown_callbacks,
+        startup_callbacks=(
+            *user_context_group.startup_callbacks,
+            skill_runtime.startup,
+            skill_sources.startup,
+        ),
+        shutdown_callbacks=(*shutdown_callbacks, skill_sources.shutdown),
     )
     shutdown_callbacks = runtime.shutdown_callbacks
+    post_turn_review_queue = (
+        PostTurnReviewQueue(
+            preferences=user_context.preferences,
+            intake=EventBusPostTurnReviewIntake(
+                bus=MultiplexedEventBus(
+                    bus=runtime.event_bus,
+                    logical_topics=OWNED_OBJECT_TOPICS,
+                    physical_topic=env.get(
+                        "FDAI_PANTHEON_OBJECT_TOPIC", "aw.pantheon.objects"
+                    ).strip(),
+                )
+            ),
+        )
+        if runtime.event_bus is not None
+        else None
+    )
+    if post_turn_review_queue is not None:
+        shutdown_callbacks = (*shutdown_callbacks, post_turn_review_queue.close)
     if enforce_workflows:
         if runtime.event_bus is None or not runtime.event_topic:
             raise ProdReadApiConfigError(
@@ -347,6 +396,51 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 )
             ),
         )
+    log_query_provider = None
+    monitor_workspace_id = env.get("FDAI_MONITOR_WORKSPACE_ID", "").strip()
+    if chat is not None and monitor_workspace_id:
+        from fdai.delivery.azure.log_query import (
+            AzureLogAnalyticsQueryConfig,
+            AzureLogAnalyticsQueryProvider,
+        )
+        from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+
+        log_query_http = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=35.0, write=10.0, pool=5.0)
+        )
+        log_query_provider = AzureLogAnalyticsQueryProvider(
+            config=AzureLogAnalyticsQueryConfig(workspace_id=monitor_workspace_id),
+            identity=ManagedIdentityWorkloadIdentity.from_env(
+                http_client=log_query_http,
+                env=env,
+            ),
+            http_client=log_query_http,
+        )
+
+        async def _close_log_query_http() -> None:
+            await log_query_http.aclose()
+
+        shutdown_callbacks = (*shutdown_callbacks, _close_log_query_http)
+    background_runtime = build_background_task_runtime(
+        chat=chat,
+        state_store=state_store,
+        conversation_history=conversation_history_store,
+        dsn=read_model._config.dsn,
+        statement_timeout_ms=read_model._config.statement_timeout_ms,
+        connect_timeout_s=read_model._config.connect_timeout_s,
+        env=env,
+    )
+    if background_runtime is not None:
+        shutdown_callbacks = (*shutdown_callbacks, background_runtime.coordinator.shutdown)
+    busy_input_runtime = (
+        build_postgres_busy_input_runtime(
+            dsn=read_model._config.dsn,
+            statement_timeout_ms=read_model._config.statement_timeout_ms,
+            connect_timeout_s=read_model._config.connect_timeout_s,
+        )
+        if chat is not None
+        else None
+    )
     config = ReadApiConfig(
         dev_mode=False,
         cors_allow_origins=cors_origins,
@@ -363,6 +457,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 connect_timeout_s=read_model._config.connect_timeout_s,
             )
         ),
+        log_query_provider=log_query_provider,
         reporting=reporting,
         process_views=process_views,
         workflow_authoring=workflow_authoring,
@@ -372,6 +467,9 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         model_settings=model_settings,
         python_tasks=python_tasks,
         chat=chat,
+        skill_disclosure=skill_runtime.disclosure,
+        skill_sources=skill_sources.routes,
+        busy_input_runtime=busy_input_runtime,
         chat_web_search=chat_web_search,
         chat_probe_interval_seconds=_parse_positive_int(
             env,
@@ -379,14 +477,26 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             300,
         ),
         conversation_history_store=conversation_history_store,
+        conversation_search=user_context.conversation_search,
         conversation_policy_store=conversation_policy_store,
         user_context_ontology_projector=user_context_ontology_projector,
+        post_turn_review_submitter=post_turn_review_queue,
+        task_worker_store=PostgresTaskWorkerStore(
+            config=PostgresTaskWorkerStoreConfig(
+                dsn=read_model._config.dsn,
+                statement_timeout_ms=read_model._config.statement_timeout_ms,
+                connect_timeout_s=read_model._config.connect_timeout_s,
+            )
+        ),
+        background_tasks=(background_runtime.routes if background_runtime is not None else None),
         extra_panels=(
             *build_production_panels(
                 read_model=read_model,
                 onboarding_probe=onboarding.probe,
                 onboarding_configured=onboarding.configured,
+                state_store=state_store,
             ),
+            skill_runtime.panel,
             ArchitectureReviewStatusPanel(
                 manifest_path=_REPO_ROOT / "config" / "architecture-review.yaml",
                 repo_root=_REPO_ROOT,
@@ -413,7 +523,9 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         startup_callbacks=runtime.startup_callbacks,
         shutdown_callbacks=shutdown_callbacks,
     )
-    return build_app(authenticator=authenticator, read_model=read_model, config=config)
+    application = build_app(authenticator=authenticator, read_model=read_model, config=config)
+    application.state.skill_disclosure = skill_runtime.disclosure
+    return application
 
 
 def app() -> Starlette:

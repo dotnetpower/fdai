@@ -25,8 +25,8 @@ const {
   steps = [
     { label: "Ingest", desc: "Normalise, dedup, and correlate raw events into incidents." },
     { label: "Route", desc: "The trust router scores confidence and picks the cheapest tier: T0, T1, or T2." },
-    { label: "Gate", desc: "The risk gate rules auto, HIL, or deny; T2 first clears the quality gate." },
-    { label: "Execute", desc: "The executor applies the change with a stop-condition, rollback, and blast-radius limit." },
+    { label: "Check", desc: "The safety check routes to automatic action, human approval, or denial; T2 first clears the quality check." },
+    { label: "Execute", desc: "The executor applies the change with a stop-condition, rollback, and impact-scope limit." },
     { label: "Audit", desc: "Every decision - including no-ops - is appended to the immutable audit log." },
   ],
 } = Astro.props as Props;

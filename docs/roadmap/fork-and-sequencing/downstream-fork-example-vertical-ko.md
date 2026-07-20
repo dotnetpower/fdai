@@ -1,8 +1,8 @@
 ---
 title: Fork Example Vertical - 새 비즈니스 오브젝트 end-to-end
 translation_of: downstream-fork-example-vertical.md
-translation_source_sha: abdf924713bbb17f4f2af9cc8686954e1d013217
-translation_revised: 2026-07-11
+translation_source_sha: 76c87760fb60df19a453d1fb4c9d07c6852a57c2
+translation_revised: 2026-07-21
 ---
 
 # Fork Example Vertical: 새 비즈니스 오브젝트 end-to-end
@@ -141,8 +141,8 @@ fork Kafka 토픽에 publish. Upstream의 `event-ingest` 모듈이 배포된
 불필요 - fork의 producer는 스키마에 매칭되는 JSON만 POST.
 
 **Idempotency**: 각 signal은 stable id (`gov.proposal.<uuid>` /
-`gov.review.<uuid>`) carry MUST - 배포된 deduplication이 unique 이벤트당
-정확히 한 번의 처리를 보장.
+`gov.review.<uuid>`)를 가져야 합니다. 배포된 deduplication은 redelivery가 동일 side effect를
+두 번 적용하지 않게 하며, 실패한 처리를 성공한 것으로 가장하지 않습니다.
 
 **Schema note**: 배포된 `event/1.0.0` 스키마는 generic (payload는 open
 object). Fork 편집 불필요. Fork는 어댑터 테스트 안에서 payload shape에
@@ -163,8 +163,8 @@ Recipe 참조:
 schema_version: "1.0.0"
 name: governance.assign-reviewers
 version: "1.0.0"
-operation: configure          # GovernanceProposal에 reviewer ref로 태깅
-interfaces: [Governance]
+operation: update
+interfaces: [ControlPlane, IdempotentByKey, RequiresInventoryFresh]
 rollback_contract: state_forward_only
 irreversible: false
 default_mode: shadow
@@ -174,20 +174,36 @@ promotion_gate:
   min_accuracy: 0.98
   max_policy_escapes: 0
 preconditions:
-  - kind: property_exists
-    property: affected_components
+  - kind: graph_fresh_within_seconds
+    value: 300
   - kind: link_exists
     link_type: affects
+  - kind: no_conflicting_open_action_on_resource
 stop_conditions:
-  - kind: count
-    count: 1            # proposal당 assign-reviewers 한 번; 재시도는 no-op
-trigger_kind: rule_violation
+  - kind: provider_api_error_streak
+    count: 3
+  - kind: time_box_exceeded_seconds
+    seconds: 300
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: Assign the deterministic reviewer set for one governance proposal.
+category: governance
+trigger_kind:
+  kind: rule_violation
+execution_path: pr_native
+ceiling_by_tier:
+  t0: { max_autonomy: enforce_hil, min_role: approver }
+  t1: { max_autonomy: shadow_only, min_role: approver }
+  t2: { max_autonomy: shadow_only, min_role: approver }
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector
 ```
 
-Reviewer 배정은 non-destructive이므로 rollback은 `state_forward_only`:
-잘못된 배정은 supersede 하는 배정 레코드로 교정하지 그래프를 되감아서
-교정하지 않음. `count: 1` stop condition은 재시도를 idempotent 하게
-만듦 (동일 proposal에 대한 re-fire 시그널이 추가 edge를 생성하지 않음).
+Reviewer 배정은 non-destructive이므로 rollback은 `state_forward_only`입니다.
+잘못된 배정은 superseding assignment record로 교정합니다. `IdempotentByKey`와
+`no_conflicting_open_action_on_resource`가 동일 proposal 재처리를 제한합니다.
 
 ### 4.2 `governance.publish-decision`
 
@@ -196,8 +212,8 @@ Reviewer 배정은 non-destructive이므로 rollback은 `state_forward_only`:
 schema_version: "1.0.0"
 name: governance.publish-decision
 version: "1.0.0"
-operation: create             # publisher를 통해 결정 아티팩트 생성
-interfaces: [Governance, DataPlane]
+operation: create
+interfaces: [ControlPlane, DataPlaneMutating, IdempotentByKey, RequiresInventoryFresh]
 rollback_contract: pr_revert  # publisher가 retraction 페이지 발행
 irreversible: false
 default_mode: shadow
@@ -207,12 +223,32 @@ promotion_gate:
   min_accuracy: 0.99
   max_policy_escapes: 0
 preconditions:
-  - kind: property_exists
-    property: decision_ref
+  - kind: graph_fresh_within_seconds
+    value: 300
+  - kind: resource_property_equals
+    property: state
+    value: approved
+  - kind: no_conflicting_open_action_on_resource
 stop_conditions:
-  - kind: count
-    count: 1
-trigger_kind: rule_violation
+  - kind: provider_api_error_streak
+    count: 3
+  - kind: time_box_exceeded_seconds
+    seconds: 300
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: Publish the approved decision artifact for one governance proposal.
+category: governance
+trigger_kind:
+  kind: rule_violation
+execution_path: pr_native
+ceiling_by_tier:
+  t0: { max_autonomy: enforce_hil, min_role: approver }
+  t1: { max_autonomy: shadow_only, min_role: approver }
+  t2: { max_autonomy: shadow_only, min_role: approver }
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector
 ```
 
 `rollback_contract: pr_revert`가 Confluence publisher의 retract-page
@@ -235,23 +271,24 @@ Recipe 참조:
 schema_version: "1.0.0"
 id: fork-x.governance.assign-reviewers
 version: "1.0.0"
-source: authored
+source: custom
 severity: medium
-category: governance
+category: compliance
 resource_type: governance.proposal   # 아래 caveat 참조
 check_logic:
   kind: rego
   reference: policies/fork-x/governance/assign_reviewers.rego
 remediation:
   template_ref: remediation/fork-x/governance/assign_reviewers.yaml
+  cost_impact_monthly_usd: 0
 remediates: governance.assign-reviewers
 provenance:
-  source_ref: internal.governance-baseline
-  resolved_ref: internal
-  content_hash: sha256:<...>
-  license: proprietary
-  redistribution: internal
-  retrieved_at: 2026-07-08T00:00:00Z
+  source_url: https://example.com/governance-baseline
+  resolved_ref: "0000000000000000000000000000000000000000"
+  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  license: LicenseRef-reference-only
+  redistribution: reference-only
+  retrieved_at: "2026-07-08T00:00:00Z"
 ```
 
 **`resource_type` caveat**: 배포된 rule 로더는 `resource_type`을
@@ -278,23 +315,24 @@ upstream 설계 pass를 block.
 schema_version: "1.0.0"
 id: fork-x.governance.publish-decision
 version: "1.0.0"
-source: authored
+source: custom
 severity: medium
-category: governance
+category: compliance
 resource_type: governance.proposal
 check_logic:
   kind: rego
   reference: policies/fork-x/governance/publish_decision.rego
 remediation:
   template_ref: remediation/fork-x/governance/publish_decision.yaml
+  cost_impact_monthly_usd: 0
 remediates: governance.publish-decision
 provenance:
-  source_ref: internal.governance-baseline
-  resolved_ref: internal
-  content_hash: sha256:<...>
-  license: proprietary
-  redistribution: internal
-  retrieved_at: 2026-07-08T00:00:00Z
+  source_url: https://example.com/governance-baseline
+  resolved_ref: "0000000000000000000000000000000000000000"
+  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  license: LicenseRef-reference-only
+  redistribution: reference-only
+  retrieved_at: "2026-07-08T00:00:00Z"
 ```
 
 두 rule 모두 `policies/fork-x/governance/` 아래 policy를 배포. Rego는

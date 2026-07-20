@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/fdai/skill-bundle.schema.json",
+  "title": "FDAI governed skill bundle manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "allowed_agents",
+    "description",
+    "digest",
+    "instruction",
+    "members",
+    "name",
+    "required_tools",
+    "source",
+    "version"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9.-]{2,127}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "version"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9.-]{2,127}$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^==(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+          }
+        }
+      }
+    },
+    "allowed_agents": {
+      "$ref": "#/$defs/uniqueNames"
+    },
+    "required_tools": {
+      "$ref": "#/$defs/uniqueNames"
+    },
+    "instruction": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 8192
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "$defs": {
+    "uniqueNames": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  }
+}

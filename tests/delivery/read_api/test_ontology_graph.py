@@ -65,6 +65,10 @@ def test_ontology_graph_returns_mermaid_and_counts() -> None:
     assert action["default_mode"] == "shadow"
     assert action["rollback_contract"] == "state_forward_only"
     assert action["stop_conditions"]
+    issue = next(item for item in body["nodes"] if item["name"] == "Issue")
+    assert issue["lifecycle"]["owner"] == "Saga"
+    assert issue["lifecycle"]["creation"][0]["source_refs"]
+    assert issue["lifecycle"]["deduplication"]["strategy"] == "deterministic fingerprint"
 
 
 def test_slim_mode_omits_properties() -> None:

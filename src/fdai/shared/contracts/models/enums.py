@@ -334,6 +334,7 @@ class WorkflowStepKind(StrEnum):
     DECISION = "decision"
     PARALLEL = "parallel"
     GATE = "gate"
+    EVIDENCE = "evidence"
 
 
 __all__ = [

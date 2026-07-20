@@ -12,6 +12,7 @@ from fdai.core.capability_catalog.catalog import (
     Capability,
     CapabilityCatalog,
     CapabilityCategory,
+    CapabilityParity,
     DuplicateCapabilityError,
     SideEffectClass,
 )
@@ -40,6 +41,7 @@ __all__ = [
     "Capability",
     "CapabilityCatalog",
     "CapabilityCategory",
+    "CapabilityParity",
     "CapabilityBinding",
     "CapabilityBindingKind",
     "CapabilityBundle",

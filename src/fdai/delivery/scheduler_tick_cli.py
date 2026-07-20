@@ -43,17 +43,29 @@ from typing import Protocol
 from fdai.composition import default_container_from_env
 from fdai.core.briefing import BriefingCoordinator, BriefingSchedulerService
 from fdai.core.report_feed import ReportFeed
+from fdai.core.scheduler.continuation import (
+    ScheduledContinuationService,
+    StateStoreContinuationAuditSink,
+)
 from fdai.core.scheduler.service import SchedulerService
 from fdai.core.user_context_projection import UserContextOntologyProjector
+from fdai.delivery.channels.scheduled_continuation import (
+    ScheduledContinuationDeliveryCoordinator,
+)
 from fdai.delivery.event_publisher import EventPublisherContext
 from fdai.delivery.persistence import (
     PostgresBriefingRunStore,
     PostgresBriefingStoreConfig,
     PostgresBriefingSubscriptionStore,
+    PostgresConversationHistoryStore,
     PostgresReportSignalStore,
     PostgresReportSignalStoreConfig,
+    PostgresScheduledContinuationStoreConfig,
+    PostgresScheduledConversationAnchorStore,
     PostgresScheduleRunLedger,
     PostgresScheduleRunLedgerConfig,
+    PostgresStateStore,
+    PostgresStateStoreConfig,
     PostgresUserContextRetention,
     PostgresUserContextStoreConfig,
 )
@@ -174,6 +186,19 @@ async def _tick() -> int:
             )
         ),
         worker_id=os.environ.get("HOSTNAME", "scheduler-job"),
+        continuations=ScheduledContinuationService(
+            store=PostgresScheduledConversationAnchorStore(
+                config=PostgresScheduledContinuationStoreConfig(dsn=dsn)
+            ),
+            audit=StateStoreContinuationAuditSink(
+                store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+            ),
+        ),
+        continuation_delivery=ScheduledContinuationDeliveryCoordinator(
+            conversations=PostgresConversationHistoryStore(
+                config=PostgresUserContextStoreConfig(dsn=dsn)
+            )
+        ),
     ).run_once()
     now = datetime.now(tz=UTC)
     retention = PostgresUserContextRetention(config=PostgresUserContextStoreConfig(dsn=dsn))

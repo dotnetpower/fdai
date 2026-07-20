@@ -5,8 +5,10 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+from datetime import UTC, datetime
 
 import httpx
+import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
@@ -21,8 +23,11 @@ from fdai.delivery.channels import (
     make_teams_activity_route,
 )
 from fdai.shared.providers.conversation_channel import (
+    ChannelDeliveryError,
     ChannelDeliveryOperation,
+    ChannelDeliveryReceipt,
     ChannelMention,
+    ChannelThreadMode,
     ConversationChannelKind,
     OutboundResponse,
 )
@@ -33,14 +38,19 @@ class _Identity:
     async def get_token(self, audience: str) -> IdentityToken:
         return IdentityToken(
             token="workload-token",
-            expires_at=4_000_000_000,
+            expires_at=datetime(2099, 1, 1, tzinfo=UTC),
             audience=audience,
         )
 
 
 class _DiscardPublisher:
-    async def publish(self, response: OutboundResponse) -> None:
-        del response
+    async def publish(self, response: OutboundResponse) -> ChannelDeliveryReceipt:
+        return ChannelDeliveryReceipt(
+            channel_kind=response.channel_kind,
+            channel_id=response.channel_id,
+            operation=response.operation,
+            message_id="discarded-message",
+        )
 
 
 def _response(kind: ConversationChannelKind, **changes: object) -> OutboundResponse:
@@ -99,6 +109,31 @@ async def test_teams_publisher_uses_server_owned_endpoint_and_identity() -> None
     assert captured["url"] == "https://bot.example.com/conversations/1/activities"
     assert captured["authorization"] == "Bearer workload-token"
     assert captured["body"] == {"type": "message", "text": "reply", "replyToId": "message-1"}
+
+
+async def test_teams_dedicated_thread_starts_without_reply_target() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(201, json={"id": "activity-dedicated"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        publisher = TeamsBotFrameworkReplyPublisher(
+            config=TeamsReplyPublisherConfig(),
+            identity=_Identity(),
+            endpoint_resolver=lambda _: "https://bot.example.com/conversations/1/activities",
+            http_client=client,
+        )
+        await publisher.publish(
+            _response(
+                ConversationChannelKind.TEAMS,
+                thread_id=None,
+                thread_mode=ChannelThreadMode.DEDICATED,
+            )
+        )
+
+    assert captured["body"] == {"type": "message", "text": "reply"}
 
 
 async def test_slack_native_rich_operations_return_acknowledgements() -> None:
@@ -324,6 +359,37 @@ async def test_teams_rich_features_degrade_to_thread_text() -> None:
     ]
     assert streamed.degraded_to_text is True
     assert edited.degraded_to_text is True
+
+
+async def test_provider_failure_classification_controls_safe_retry() -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(429))
+    ) as client:
+        slack = SlackWebApiReplyPublisher(
+            config=SlackReplyPublisherConfig(),
+            token="app-token",
+            http_client=client,
+        )
+        with pytest.raises(ChannelDeliveryError) as rejected:
+            await slack.publish(_response(ConversationChannelKind.SLACK))
+
+    assert rejected.value.code == "http_429"
+    assert rejected.value.acknowledgement_ambiguous is False
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(201, content=b"not-json"))
+    ) as client:
+        teams = TeamsBotFrameworkReplyPublisher(
+            config=TeamsReplyPublisherConfig(),
+            identity=_Identity(),
+            endpoint_resolver=lambda _: "https://bot.example.com/conversations/1/activities",
+            http_client=client,
+        )
+        with pytest.raises(ChannelDeliveryError) as ambiguous:
+            await teams.publish(_response(ConversationChannelKind.TEAMS))
+
+    assert ambiguous.value.code == "ack_invalid"
+    assert ambiguous.value.acknowledgement_ambiguous is True
 
 
 def test_slack_route_rejects_bad_signature_and_accepts_signed_event() -> None:

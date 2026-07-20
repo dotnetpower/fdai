@@ -104,6 +104,41 @@ def test_korean_settings_explanation_does_not_false_reject_universal_prose() -> 
     assert result.checks_total == 2
 
 
+def test_korean_dashboard_explanation_disambiguates_repeated_zero_facts() -> None:
+    answer = "이 화면에는 4개의 주요 영역이 있습니다. 감사 이벤트는 0건이고 승인 대기는 0건입니다."
+    result = verify_answer(
+        answer,
+        {
+            "routeId": "dashboard",
+            "facts": [
+                {
+                    "key": "section_count",
+                    "aliases": ["primary sections", "주요 영역"],
+                    "value": 4,
+                },
+                {
+                    "key": "event_count",
+                    "label": "Events (audit)",
+                    "aliases": ["audit events", "감사 이벤트"],
+                    "value": 0,
+                },
+                {
+                    "key": "hil_pending",
+                    "label": "Approvals pending",
+                    "aliases": ["pending approvals", "승인 대기"],
+                    "value": 0,
+                },
+            ],
+        },
+        locale="ko",
+    )
+
+    assert result.status == "consistent"
+    assert result.answer == answer
+    assert result.reason_code == "screen_claims_supported"
+    assert result.failed_claim_ids == ()
+
+
 def test_glossary_answer_removes_unsupported_screen_scope_addition() -> None:
     answer = (
         "\uc5d0\uc774\uc804\ud2b8\ub294 typed port\uc640 conversational port\ub97c "

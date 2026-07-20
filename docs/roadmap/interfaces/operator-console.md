@@ -5,10 +5,10 @@ title: Operator Console (Conversational)
 # Operator Console (Conversational)
 
 How a human operator talks *back to* FDAI through a conversational
-interface - CLI REPL first, Teams / Slack chat next, web chat last. This
+interface across the CLI, Teams, Slack, and web chat. This
 document is authoritative for the **conversational surface**: the layered
 architecture, the tool catalog, the LLM tier model, session persistence,
-per-tool RBAC, safety invariants, and the phased rollout.
+per-tool RBAC, safety invariants, and current rollout status.
 
 Push-direction notifications (system → human) live in
 [channels-and-notifications.md](channels-and-notifications.md); the read-only
@@ -103,12 +103,11 @@ flowchart TD
 ```
 
 - **Layer 3 (Channel)** is thin. Every channel adapter converts one turn
-  from the wire format (stdin / Teams Activity / Slack event / WebSocket
+  from the wire format (stdin / Teams Activity / Slack event / authenticated HTTP request and SSE)
   frame) into a `ConversationTurn` and back. No judgment lives here.
 - **Layer 2 (Coordinator)** owns intent classification, RBAC gating, tool
-  dispatch, verifier re-check, and session bookkeeping. The narrator is a
-  DI seam (`ConversationalModel` Protocol - see §5) so a fork can bind any
-  LLM provider; the upstream default is Azure OpenAI.
+  dispatch, verifier re-check, and session bookkeeping. Core translation uses the `Narrator`
+  Protocol; web generation uses the read API backend seam, so deployments can bind providers.
 - **Layer 1 (Core)** is exactly the deterministic core that already ships.
   The console adds no new judgment path, no new persistence store, and no
   new execution vector. A console tool call resolves to a call the
@@ -118,21 +117,20 @@ flowchart TD
 
 - [`src/fdai/core/conversation/`](../../../src/fdai/core/conversation)
   - `coordinator.py` - `ConversationCoordinator` (Layer 2 orchestrator).
-  - `tools.py` - `ConsoleTool` Protocol + per-tool implementations that
+  - `tools.py` - `SystemConsoleTool` Protocol + per-tool implementations that
     delegate to Layer 1 modules only.
-  - `narrator.py` - `ConversationalModel` Protocol + the tier-select logic
-    (t1.judge default, t2.reasoner.primary escalation).
-  - `session.py` - `ConversationSession` dataclass; state is projected from
-    the append-only audit log.
+  - `narrator.py` - synchronous `Narrator` Protocol, deterministic verb schemas, and RBAC-scoped descriptors.
+  - `session.py` - disposable core/CLI `ConversationSession` projection. Principal-scoped
+    `ConversationHistoryStore` owns production web transcripts.
 - [`cli/`](../../../cli)
   - `src/repl.ts` - IME-safe stdin/stdout channel for the shared `POST /chat`
     coordinator.
   - `src/cockpit.ts` - live SSE presentation that publishes a
     self-describing screen snapshot to the same coordinator.
 - [`src/fdai/core/conversation/channel_gateway.py`](../../../src/fdai/core/conversation/channel_gateway.py)
-  - authenticates senders through an injected principal resolver, derives bounded session ids,
-    claims message idempotency keys, calls the existing coordinator, and routes the response to
-    the originating thread.
+  - authenticates senders, claims message idempotency keys, calls the existing coordinator, and
+    persists the complete response before provider send when durable delivery is configured.
+    Verified bindings and recovery follow [durable delivery](durable-conversation-delivery.md).
 - [`src/fdai/delivery/channels/`](../../../src/fdai/delivery/channels)
   - `teams.py` - normalizes Bot Framework activities after bearer-token verification and uses an
     injected publisher for replies. It never trusts a payload-supplied reply URL.
@@ -140,11 +138,7 @@ flowchart TD
     events, normalizes messages, and uses an injected publisher for replies.
   - Web chat continues to use the authenticated read-console chat API. A dedicated WebSocket
     adapter remains optional future transport work.
-- [`src/fdai/delivery/read_api/routes/scheduler_runs.py`](../../../src/fdai/delivery/read_api/routes/scheduler_runs.py)
-  and [`console/src/routes/scheduler-runs.tsx`](../../../console/src/routes/scheduler-runs.tsx)
-  - expose task-scoped scheduler dispatch evidence through a reader-role `GET` panel and a
-    read-only Operations view. The route supports status filtering and opaque cursor pagination,
-    but has no retry, cancel, execute, or approval control.
+- Scheduler Runs, Automation Blueprints, Scheduled Continuations, [governed trajectory datasets](governed-trajectory-datasets.md), and [execution backend status](execution-backends.md) expose read-only metadata. These views have no enable, submit, retry, cancel, cleanup, execute, or approval controls; omit credentials and Thor's identity; and keep commands outside the SPA.
 - [`tools/chat.py`](../../../tools/chat.py) - headless JSONL development harness
   for the core coordinator. It is not a second policy implementation.
 
@@ -154,10 +148,9 @@ Protocols. All Azure SDK / httpx / Bot Framework calls live under
 
 ## 3. Tool catalog
 
-Tools are **pipeline-stage views**. Each one has a stable name, a JSON
-Schema for arguments (generated from the function signature at
-registration time), an RBAC floor, and a documented failure surface. New
-tools are additive; they never override a rule or a policy.
+Tools are **pipeline-stage views**. A core tool has a stable name, bounded `argument_hint`, RBAC
+floor, side-effect class, and documented failure surface. Web/provider-specific tools can add
+their own typed request contracts. New tools are additive; they never override a rule or policy.
 
 `RuntimeToolDiscovery` provides search and describe over installed narrator schemas. It
 intersects schema metadata with the actually installed tool names, applies the same RBAC ladder as
@@ -179,7 +172,8 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 | `explain_verdict(event_id)` | Read the audit trail for one already-processed event; return the tier, decision, citing rule ids, verifier report, mode. | Reader | `StateStore.query_audit()` |
 | `explore_catalog(query)` | Search the shipped rule catalog / action-type catalog / ontology vocabulary by id, keyword, or resource_type. | Reader | Loaded catalogs (no I/O) |
 | `query_audit(filters)` | Structured audit query: by event id, actor, decision, mode, time window. Paginated. | Reader | `StateStore.query_audit()` |
-| `query_inventory(resource_type, filter)` | ARG-backed inventory query, CSP-neutral vocabulary in, CSP-neutral records out. Optional `id_substring` / `resource_group` scoping; each record returns its property bag (name, location, tags). Paginated. | Reader | `Inventory.list(...)` |
+| `query_inventory(resource_type, filter)` | Server-owned Azure inventory-view count, list, type, location, resource-group, name, status, and relationship queries. Returns bounded allowlisted fields plus active view and snapshot source/freshness; local VM state comes from `az vm list --show-details`; provider failure renders unavailable. | Reader | `InventoryGraphProvider` |
+| `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | Submit a credential-free bounded capture under an exact server-owned policy. Returns an immutable artifact receipt; never returns a page or interaction API. | Reader | `BrowserEvidenceCaptureService` |
 
 **Reader-floor tools are provably side-effect-free.** `describe_event`
 runs `EventIngest -> TrustRouter -> T0Engine` **in memory only**: it does
@@ -187,7 +181,7 @@ not invoke T1 embedding lookups, T2 models, external adapters, or any
 mutation surface, and it writes no PR and no audit entry. Its
 `side_effect_class` is `read`, and a shadow-mode test asserts it never
 touches the executor, the PR adapter, or the state store. This is what
-keeps it safe at the Reader floor.
+keeps it safe at the Reader floor. Browser capture follows [Browser evidence collection](browser-evidence.md); Bragi never receives a browser handle.
 
 ### 3.2 Week-1 additions (write / approve / runbook)
 
@@ -197,7 +191,7 @@ keeps it safe at the Reader floor.
 | `approve_hil(approval_id, decision, justification)` | Resolve one queued HIL item. Verifier + `no_self_approval` invariant re-checked. | Approver | Approver group; same principal as PR gate enforcement in [security-and-identity.md](../architecture/security-and-identity.md). |
 | `list_hil()` | Return currently queued HIL items visible to the caller's role. | Approver | Reader-visible would leak intent to non-approvers; kept Approver-scoped. |
 | `run_runbook(name, params, dry_run)` | Execute one runbook under `docs/runbooks/`. `dry_run=true` requires Contributor; `dry_run=false` requires Owner. | Contributor / Owner | Concrete runbook adapters (e.g. `db_dr_drill_cli`) are already shipped; this tool routes by name. |
-| `activate_break_glass(reason, expiry)` | Explicitly promote the current session to BreakGlass. Time-boxed, distinct from role gates, always audited + paged to Owners. | Any authenticated user | Session-scoped only; expires when the session ends or `expiry` passes. No permanent grant. |
+| `activate_break_glass(reason, expiry)` | Validate TTL/reason and create Owner-page and audit receipts. | Reader | The current implementation does not change the session principal/role or grant elevation. |
 
 Two clarifications on the write set:
 
@@ -217,7 +211,7 @@ Two clarifications on the write set:
 
 | Tool | Purpose | RBAC floor | Depends on |
 |------|---------|-----------|-------------|
-| `query_log(query, window)` | Log Analytics KQL query. | Reader | new `AzureMonitorAdapter` |
+| `query_log(query, window)` | Bounded, single-workspace Log Analytics KQL query. | Reader | new `AzureMonitorAdapter` |
 | `query_metric(namespace, metric, window, aggregation)` | Azure Monitor metrics API. | Reader | new `AzureMonitorAdapter` |
 | `query_deployments(window)` | Git + ARM deployment-history join. | Reader | new `DeploymentHistoryAdapter` |
 | `correlate_incident(incident_id)` | Multi-signal correlation over ingest events + audit + inventory + logs + metrics for one incident id. | Reader | Above three + `event_ingest` |
@@ -234,24 +228,23 @@ Each tool declares:
 - `name` - CLI-friendly snake_case verb (no `describe-*` / `explore-*`
   prefix taxonomy; the verb itself is the category).
 - `description` - one sentence, English, no marketing language.
-- `parameters` - JSON Schema generated from a typed `TypedDict` /
-  dataclass; validation is boundary-enforced (invalid arguments → HTTP-400-
-  shaped error, never a partial call).
+- `argument_hint` - bounded argument shape expected by the canonical verb parser. Each tool
+  reapplies typed and bounded validation before invocation; invalid arguments never become a
+  partial call.
 - `rbac_floor` - the lowest role that MAY call the tool.
 - `side_effect_class` - `read` / `simulate` / `approve` / `execute` /
   `breakglass`. The audit entry carries this class so downstream analytics
   can slice cheaply.
 - `failure_modes` - typed error surface documented in the tool's docstring.
 
-A `list_tools()` administrative call returns the schema; the narrator
-receives the same schema via the LLM function-calling contract.
+`RuntimeToolDiscovery` and `tools.search`/`tools.describe` return descriptors without handlers or
+invocation capability. The narrator sees only the same descriptors allowed by the principal role.
 
 ## 4. Narrator - LLM tier model
 
-The narrator is the console's LLM layer. It is a **DI seam**
-(`ConversationalModel` Protocol; see §5.1) so a fork can swap providers.
-Upstream binds Azure OpenAI to the deployed `oai-fdai-dev-krc`
-account.
+The narrator is the console's LLM translator layer. Core/CLI use the `Narrator` Protocol, while
+web progressive-answer generation uses a separate read API backend seam. Azure binding is selected
+from `resolved-models.json` and environment composition, never a fixed account name.
 
 ### 4.1 Three tiers (mirrors the trust router)
 
@@ -365,82 +358,70 @@ Every seam is a Protocol; the composition root wires the concrete
 implementation. `core/` imports Protocols only
 ([coding-conventions.instructions.md § Provider Protocols](../../../.github/instructions/coding-conventions.instructions.md#safety)).
 
-### 5.1 `ConversationalModel`
+### 5.1 `Narrator` and the web generation backend
 
 ```python
-class ConversationalModel(Protocol):
-    async def turn(
+class Narrator(Protocol):
+    def translate(
         self,
         *,
-        system_prompt: str,
-        messages: Sequence[ChatMessage],
-        tools_schema: Sequence[ToolSchema],
-        tier: ChatTier,
-    ) -> ConversationalResponse: ...
+        utterance: str,
+        tools: Sequence[ToolSchema],
+        principal_role: str,
+    ) -> str | None: ...
 ```
 
-- `system_prompt` is composed once at coordinator construction from the
-  narrator base prompt (`rule-catalog/prompts/narrator/base.vN.yaml`),
-  the RBAC-scoped tool list, and any operator-memory scope that applies
-  to the calling principal.
-- `messages` is the current session transcript in
-  OpenAI-style role/content shape. Prior tool_call results are inlined as
-  role `tool`.
-- `tools_schema` is the JSON-Schema tool set the coordinator has already
-  filtered by RBAC.
-- `tier` is `Chat T1` or `Chat T2` and drives model selection inside the
-  adapter (fork-specific).
-- `ConversationalResponse` carries `text`, optional `tool_calls`,
-  `finish_reason`, `confidence_signals`, and audit-friendly metadata
-  (`prompt_tokens`, `completion_tokens`, `model_deployment_id`).
+- The core narrator receives only RBAC-visible tool descriptors and returns a canonical verb line
+  or abstention. Coordinator parsing and tool RBAC remain authoritative.
+- `AzureOpenAINarratorModel` owns its strict translator prompt in adapter code.
+- Web `/chat` and `/chat/stream` use a separate asynchronous backend for AnswerPlan, evidence
+  resolution, generation, and progressive verification; the synchronous Protocol is not a
+  multi-turn generation API.
 
 The upstream default is
 `AzureOpenAINarratorModel` under
 [`src/fdai/delivery/azure/llm/narrator.py`](../../../src/fdai/delivery/azure/llm/narrator.py)
-(added Day 1). It calls Azure OpenAI chat completions with the function-
-calling contract; the model deployment is selected from
-`resolved-models.json` (`t1.judge` for tier T1, `t2.reasoner.primary` for
-tier T2).
+It calls Azure OpenAI chat completions as a strict one-line translator; composition supplies the
+resolved endpoint and deployment.
 
 ### 5.2 `ConsoleTool`
 
 ```python
-class ConsoleTool(Protocol):
+class SystemConsoleTool(Protocol):
     name: str
     description: str
-    parameters: type[TypedDict]
     rbac_floor: Role
     side_effect_class: SideEffectClass
 
-    async def call(
+    def call(
         self,
         *,
         arguments: Mapping[str, Any],
         principal: Principal,
-        session: ConversationSession,
     ) -> ToolResult: ...
 ```
 
-- `call()` receives an **already-validated** arguments mapping (validation
-  is done at the coordinator boundary against `parameters` schema).
-- `principal` is the Layer-2 authenticated principal; `session` provides
-  read access to prior turns.
+- `call()` receives coordinator-parsed arguments and the authenticated principal, then applies its
+  own typed bounds. A web tool requiring history uses a separate asynchronous read API provider.
 - `ToolResult` is a typed dataclass with `data` (serialisable), `preview`
   (short human-readable string the narrator gets to summarise), and
   optional `evidence_refs` (audit ids, PR urls, ARG resource ids) the
   narrator MUST cite verbatim.
 
-### 5.3 `ChannelAdapter`
+### 5.3 `ConversationChannelAdapter`
 
 ```python
-class ChannelAdapter(Protocol):
-    channel_kind: ChannelKind
-    async def receive(self) -> AsyncIterator[InboundTurn]: ...
-    async def send(self, response: OutboundResponse) -> None: ...
+class ConversationChannelAdapter(Protocol):
+  channel_kind: ConversationChannelKind
+  def receive(self) -> AsyncIterator[InboundTurn]: ...
+  async def send(
+    self, response: OutboundResponse
+  ) -> ChannelDeliveryReceipt | None: ...
 ```
 
-- One adapter per wire (CLI, Teams Bot Framework, Slack Socket Mode,
-  WebSocket).
+- One adapter per vendor wire. Teams uses Bot Framework activities; Slack uses the signed HTTP
+  Events API; web uses authenticated JSON/SSE read API routes. The CLI calls the shared read API
+  and is not another vendor adapter.
 - `InboundTurn` validates bounded channel, message, sender, thread, and text fields before the
   coordinator sees them. `ConversationChannelGateway` denies unresolved senders and suppresses
   duplicate message ids before any tool can run.
@@ -463,17 +444,17 @@ on any node without replaying raw text from the audit log.
 ```python
 @dataclass(frozen=True)
 class ConversationSession:
-    session_id: str                # UUID; generated at first turn
-    principal_id: str              # Entra OID or CLI principal id
+  session_id: str
+  principal: Principal
     channel_id: str                # channel adapter's channel identifier
     started_at: datetime
-    break_glass: BreakGlassGrant | None  # if session activated it (§7.3)
-    turns: tuple[Turn, ...]        # loaded from ConversationHistoryStore
+  turns: list[Turn]              # bounded core/CLI working projection
 ```
 
 - `Turn` = `{turn_id, role, content, tool_calls?, tool_results?, tier,
   audit_entry_id}`.
-- `turns` is loaded lazily through the principal-scoped conversation route.
+- Production web history uses principal-scoped `ConversationHistoryStore` as its memory of record;
+  the core session object is a disposable working projection.
 
 ### 6.2 Persistence rules
 
@@ -491,6 +472,10 @@ class ConversationSession:
 - **Learner consent**: learner-facing turn projection is metadata-only by
   default. A raw turn body is available only when the same principal has an
   explicit `share_with_learner: true` preference.
+- **Post-turn review**: after both conversation turns are persisted, the chat route submits a bounded
+  envelope to a non-blocking queue. Bragi publishes it on `object.turn`; Norns performs deterministic
+  eligibility and optional mixed-family review outside response latency. The Reader-visible `post-turn-reviews`
+  panel is GET-only and exposes durable status, evidence references, proposal state, and aggregate acceptance without proposal bodies or approval controls.
 - **Retention and projection cleanup**: the scheduler removes inactive
   conversations and old briefing runs after 90 days and removes memory facts
   at their explicit expiry. Each PostgreSQL source deletion atomically queues
@@ -521,8 +506,9 @@ class ConversationSession:
   conversation** delete browser copies only; they never delete durable server
   history. This browser index is navigation state only. On a cache miss, the
   Command Deck reloads principal-scoped turns from the server and mirrors them
-  back into `sessionStorage`. The open Command Deck remains open across route navigation and live
-  screen re-renders; only an explicit close action or `Escape` dismisses it.
+  back into `sessionStorage`. A floating Deck remains open across route navigation and
+  live screen re-renders. In full-workspace mode, an Activity Bar group closes it and
+  opens that group's first visible child page; otherwise explicit close or `Escape` dismisses it.
   L3 response language follows the current turn: a Korean prompt renders a
   Korean answer even when the console display locale is English. Otherwise,
   the operator's configured locale controls the answer language.
@@ -605,13 +591,13 @@ assembly writes a `context_manifest` to the turn audit (verbatim ids,
 summary hashes, retrieved ids, dropped ids, per-tier tokens) so any prompt
 is reconstructable from the memory of record.
 
-The end-to-end entry point is
-[`assemble_turn_context`](../../../src/fdai/core/conversation/context_bridge.py):
-one async call per turn that ties session verbatim, operator memory (trusted
-typed facts), the retrieval seam (older turns relevant to the utterance), and
-prior summaries into a single budget-bounded `WorkingContext`. With no
-retriever wired it degrades to `session_to_working_context` plus operator
-memory, so the surface works before a vector store lands.
+The end-to-end [`assemble_turn_context`](../../../src/fdai/core/conversation/context_bridge.py)
+combines session verbatim, operator memory, retrieval, and summaries into one bounded context. With
+no retriever, it uses `session_to_working_context` plus operator memory.
+
+The unchanged `deterministic-tiered-v1@1.0.0` default now passes through the mandatory
+`ContextSelectionPolicy` validator. Bounded candidates stay outside request latency; the GET-only
+comparison view has no lifecycle controls. See [Context Selection Policy](../decisioning/context-selection-policy.md).
 
 **Same mechanism for agents.** The agent conversational port
 (agent-to-agent introspection) uses the same composer over a
@@ -654,39 +640,31 @@ disallowed today - `approve_hil`, `run_runbook --live`) MUST carry:
    item, even if the caller holds Owner. This is the same invariant as
    the PR gate ([security-and-identity.md](../architecture/security-and-identity.md));
    chat adds the invariant name to the audit reason on refusal.
-7. **BreakGlass must be time-boxed and explicit.** `activate_break_glass`
+7. **A BreakGlass request must be time-boxed and explicit.** `activate_break_glass`
    requires `(reason, expiry <= 4h)` and pages every configured Owner via
    the push-direction Slack/Teams adapter
    ([channels-and-notifications.md](channels-and-notifications.md)). No
-   silent elevation. **The grant is fail-closed on notification:** if the
+  silent elevation. **The request is fail-closed on notification:** if the
    primary pager channel is down, the coordinator tries the configured
-   fallback channel; if *no* channel confirms delivery, the grant is
+  fallback channel; if *no* channel confirms delivery, the request is
    **refused** (a break-glass with no audit witness is more dangerous than
    a delayed emergency), and the refusal is itself audited so an Owner can
-   see the attempt. A BreakGlass grant only raises the caller's
-   *approval eligibility* for a HIL item they are otherwise under-
-   privileged for; it never returns `auto` and never lets the caller
-   approve their own request (invariant 6 still holds). The exact
+  see the attempt. The shipped tool returns pager and audit receipts only; it does not change
+  `ConversationSession`, `Principal`, or the RiskGate role axis, so it raises no approval
+  eligibility. Until a session-scoped grant store and dispatch integration exist, no elevation
+  occurs. A future grant must never return `auto` or permit self-approval (invariant 6). The exact
    eligibility semantics are defined in
    [user-rbac-and-identity.md § 2](user-rbac-and-identity.md#2-role-model-4-tiers--break-glass)
    and mirrored by the RiskGate role axis
    ([execution-model.md § 2.5](../decisioning/execution-model.md#25-axis-f---role-rbac)).
 
-### 7.3 BreakGlass grant shape
+### 7.3 BreakGlass request receipt
 
-```python
-@dataclass(frozen=True)
-class BreakGlassGrant:
-    activated_at: datetime
-    expires_at: datetime           # <= activated_at + 4h
-    reason: str                    # >= 20 char, no secret patterns
-    pager_receipt: str             # id from the push notification
-```
-
-Break-glass is **session-scoped**; ending the session revokes it. The 4h
-ceiling is the config key `console.break_glass_max_ttl_seconds` (default
-`14400`); a fork MAY lower it but MAY NOT raise it (the loader rejects a
-value above `14400`).
+The current `ActivateBreakGlassTool` result contains `activated_at`, `expires_at`, a redacted
+reason, `pager_receipt`, and `audit_id`. Its `max_ttl_seconds` default and ceiling are `14400`; a
+larger adapter setting is rejected. This result is not an authorization grant record, and no
+persistent store currently enforces session-end or expiry revocation. No downstream path may use
+the receipt as elevation evidence.
 
 ### 7.4 HIL fall-through when the LLM proposes a write
 
@@ -705,21 +683,20 @@ verifier re-check (invariant 5):
 ## 8. Channel integration (push vs pull)
 
 The channel abstraction ([channels-and-notifications.md](channels-and-notifications.md))
-already handles push (system → human). This doc adds the pull direction
-(human → system) as a **separate adapter set** that shares credentials
-and channel routing config with the push adapters. The separation matters
-because the trust posture is different: a push adapter has send-only
-credentials; a pull adapter must maintain a Bot Framework session /
-Socket Mode socket that can receive user input.
+already handles push (system → human). Pull uses **separate adapters and configuration contracts**.
+A deployment can reuse a secret provider or workload identity, but it does not derive inbound
+conversation enablement from the outbound notification matrix. This separation preserves the
+different trust posture and blast radius of send-only and receive-plus-send surfaces.
 
 The shared pull-direction contract, gateway, Slack signed ingress, Teams authenticated activity
 normalizer, bounded Starlette routes, Slack Web API publisher, and Teams Bot Framework publisher
 are implemented. The Slack route verifies timestamped signatures. The Teams route calls an
 injected bearer authenticator before parsing activity JSON. Reply publishers use only configured
 HTTPS endpoints, injected app/workload credentials, and server-owned conversation resolution.
-Production composition still needs to bind the concrete Bot Framework JWT verifier, channel
-principal resolver, app credentials, and background gateway lifecycle. Those bindings stay in
-`delivery/`; they do not change the coordinator.
+`ProductionChannelRuntime` binds the concrete Bot Framework JWT verifier, Teams principal resolver,
+Slack secrets/app credentials, fixed-endpoint publishers, and background gateway lifecycle.
+Missing required credentials or identity bindings fail startup before traffic. Those bindings stay
+in `delivery/`; they do not change the coordinator.
 
 `ChannelAccessService` is the sender-access foundation for those principal resolvers. Each channel
 selects `disabled`, `allowlist`, or `pairing`. Unknown senders resolve to no principal and never
@@ -738,22 +715,21 @@ idempotent and does not merge principal records, roles, sessions, or audit histo
 
 | Channel | Push (existing) | Pull (this doc) | Shared config |
 |---------|-----------------|-----------------|---------------|
-| Teams | `TeamsHilAdapter` (Adaptive Card via Incoming Webhook or Bot Framework send) | `TeamsBotChannel` + bounded activity route + workload-identity reply publisher; concrete JWT/principal composition remains | Tenant, channel id, app registration |
-| Slack | `SlackWebhookChannel` (Block Kit via Incoming Webhook) | `SlackBotChannel` + signed Events API route + fixed-endpoint Web API reply publisher; app composition remains | Workspace, channel id, app credentials |
+| Teams | A1 HIL and outbound notification adapters | `TeamsBotChannel` + authenticated bounded activity route + workload-identity reply publisher + principal binding | Deployments can reuse selected identity/secret providers. |
+| Slack | `SlackWebhookChannel` and A1 adapter | `SlackBotChannel` + signed Events API route + fixed-endpoint Web API reply publisher | Deployments can reuse selected secret providers. |
 | Email | send-only | (not planned; asynchronous, ill-suited to interactive) | n/a |
 | Webhook | send-only | (not planned; caller must own an interactive protocol themselves) | n/a |
 | Pager (PagerDuty) | send-only | (not planned) | n/a |
 | SMS | send-only | (not planned) | n/a |
-| Web chat | n/a | `WebChatChannel` (WebSocket on read-console) | Console SPA config |
-| CLI | n/a | `CliReplChannel` (stdin/stdout) | local az login |
+| Web chat | n/a | Authenticated `POST /chat` and `POST /chat/stream` SSE | Console SPA/read API config |
+| CLI | n/a | stdin/stdout UI calling the shared read API `/chat` | local auth/read API config |
 
-### 8.1 Same channel routing config
+### 8.1 Separate channel configuration
 
-A fork registers a channel once in
-[`config/notifications-matrix.yaml`](../../../config/notifications-matrix.yaml)
-and gets **both** push and pull routing derived from it. This preserves
-the "one abstraction, many adapters" rule from
-[channels-and-notifications.md § 1](channels-and-notifications.md#1-design-principles).
+[`config/notifications-matrix.yaml`](../../../config/notifications-matrix.yaml) owns outbound
+notification routing only. Conversation channels use separate enablement, secret references,
+Teams identity/principal bindings, and queue-capacity settings. Sharing a credential backend does
+not merge configuration ownership.
 
 ## 9. Growth model (catalog + operator memory)
 
@@ -801,51 +777,21 @@ The result is that a common investigation pattern in chat becomes a
 first-class rule in the catalog - **the console grows the catalog, not
 itself**.
 
-## 10. Phased rollout
+## 10. Rollout reconciliation
 
-Every phase is measurable and gated shadow-first, matching the phase
-discipline in [phase-0-instrumentation.md](../phases/phase-0-instrumentation.md).
+The original Day/Week/Month sequence is historical implementation context, not the current
+availability source.
 
-### Day 1 (this session)
+| Slice | Current status |
+|-------|----------------|
+| Core/CLI translator | `Narrator`, `AzureOpenAINarratorModel`, coordinator, read tools, Python headless harness, and shared-API TypeScript CLI ship. |
+| Write/approval tools | Simulation, HIL, runbook, and proposal routes ship. Break-glass stops at the pager/audit request receipt in §7.3 and grants no elevation. |
+| Teams/Slack conversation | `ProductionChannelRuntime`, authenticated ingress, principal resolution, publishers, and optional durable replies ship; environment-owned enablement and credentials remain required. |
+| Web chat and memory | JSON/SSE chat, principal-scoped history/preferences/memory, AnswerPlan, and progressive verification ship. |
+| Observation/discovery | Azure observation tools and recurrent-query hooks require bound providers and measured evidence. Catalog presence alone proves neither provider health nor promotion. |
 
-- `AzureCliWorkloadIdentity` (identity adapter for local az login).
-- `ConversationalModel` Protocol + `AzureOpenAIConversationalModel`
-  adapter.
-- `ConversationCoordinator` + 5 Day-1 tools (§3.1).
-- `CliReplChannel` + `tools/chat.py` entry point.
-- Coordinator writes every turn to the existing audit log.
-- **Exit gate**: a Reader-role operator can complete every Day-1 tool
-  scenario from a CLI REPL against the deployed `rg-fdai-dev-krc`
-  environment; unit tests cover RBAC gating, escalation triggers, and
-  the verifier re-check invariants.
-
-### Week 1
-
-- `simulate_change`, `approve_hil`, `list_hil`, `run_runbook`,
-  `activate_break_glass` (§3.2).
-- `TeamsBotChannel` and `SlackBotChannel` (pull adapters).
-- Read-API approval callback endpoint (POST
-  `/hil/{approval_id}/decision`, HMAC verified).
-- Composition-root `default_workload_identity_from_env()` picks between
-  `ManagedIdentityWorkloadIdentity` (production Container Apps),
-  `AzureCliWorkloadIdentity` (local dev), and `LocalWorkloadIdentity`
-  (tests).
-- **Exit gate**: an Approver in Teams can complete a full "detect →
-  chat inspect → approve → shadow PR opens" cycle against the deployed
-  environment; the audit log carries every turn, verdict, and PR link.
-
-### Month 1
-
-- Month-1 observation tools (§3.3).
-- `operator_memory` read/write from the console (Week 1 landed the
-  schema; Month 1 exposes it to the narrator as a scope-bounded seam).
-- Discovery-loop hook (§9.3).
-- Web chat channel on the Console SPA.
-- **Exit gate**: at least one rule candidate produced by the recurrent-
-  query signal has completed shadow evaluation and been reviewed; the
-  Month-1 observation tools have unit + integration tests against real
-  Azure Monitor / Log Analytics fixtures under
-  [`tests/delivery/azure/`](../../../tests/delivery/azure).
+Live Azure completion evidence and capability promotion remain governed by deployment verification
+and the authoritative registry, never inferred from phase names in this document.
 
 ## 11. Testability
 
@@ -853,28 +799,24 @@ discipline in [phase-0-instrumentation.md](../phases/phase-0-instrumentation.md)
   write-class tool call", "RBAC floor is enforced before the narrator
   sees the tool schema", "audit entry precedes every tool dispatch",
   "escalation records tier and trigger".
-- **Narrator adapter** - contract tests using `httpx.MockTransport` for
-  the Azure OpenAI endpoint; deterministic responses; verify the tier
-  selection round-trip.
+- **Narrator adapter** - contract tests using `httpx.MockTransport` for the strict Azure OpenAI
+  translator and resolved deployment binding.
 - **Tools** - each tool has a shadow-mode test showing it never mutates
   when its `side_effect_class == read | simulate`; a `write` /
   `approve` test showing the verifier re-check gate.
-- **Channels** - CLI REPL: golden transcript. Teams / Slack: adapter
-  tests using MockTransport-equivalent for Bot Framework / Socket Mode
-  frames.
+- **Channels** - CLI REPL golden transcript, Teams Bot Framework activity/JWT, Slack signed HTTP
+  Events API, and publisher receipts.
 - **RBAC matrix** - table-driven test over every (Role × Tool) cell to
   prove the floor from §3.1-§3.3 is applied.
-- **Break-glass** - a test proving `activate_break_glass` refuses
-  `expiry > 4h`, that a session end revokes the grant, and that the
-  Owner notification fired.
+- **Break-glass** - tests prove `activate_break_glass` refuses `expiry > 4h`, requires Owner
+  notification and audit receipts, and does not mutate the session principal. Persistent grants
+  and session-end revocation are not shipped contracts.
 - **Determinism** - two runs of the same CLI transcript through a fake
-  `ConversationalModel` produce byte-identical audit trails (given fixed
+  `Narrator` produce byte-identical audit trails (given fixed
   timestamps and idempotency keys).
-- **Session recovery** - a session whose coordinator crashed mid-turn
-  reloads by `session_id` and reprojects the exact prior `turns` from the
-  append-only audit log (§6); an assertion compares the reprojected
-  transcript to the pre-crash one, proving the coordinator holds no state
-  the audit log does not.
+- **Session recovery** - principal-scoped `ConversationHistoryStore` reloads prior turns by session
+  id, while stable request idempotency prevents duplicate appends. Audit/ontology retain hashes and
+  references rather than raw transcripts.
 
 ## 12. Failure modes
 
@@ -885,12 +827,11 @@ discipline in [phase-0-instrumentation.md](../phases/phase-0-instrumentation.md)
 - **Verifier abstain on write-class tool** - substitute
   `enqueue_hil(...)` (see §7.4), return the HIL id, audit reason
   `verifier_abstained`.
-- **Channel adapter disconnects** - the coordinator persists no in-flight
-  turn state beyond the audit trail; a reconnect resumes the session by
-  session_id.
-- **Break-glass expiry mid-turn** - the coordinator refuses the next
-  tool_call requiring elevated capabilities, returns "grant expired, use
-  `activate_break_glass` again with justification".
+- **Channel adapter disconnects** - when durable delivery is configured, the complete response and
+  terminal/ambiguous state remain in the ledger. The direct path still resumes durable conversation
+  history by session id but does not claim exactly-once provider send.
+- **Break-glass request receipt** - the coordinator does not interpret the receipt as elevated
+  capability. A future grant integration must recheck TTL before every privileged tool call.
 - **Tool implementation raises** - the tool's typed error surface (§3.4)
   is wrapped as a `ToolResult(status=error)`; the narrator sees a
   structured error, not an exception traceback.
@@ -975,7 +916,7 @@ answer "why did this happen" without a per-screen answerer:
       "match": "correlation_id"    // records column whose values this term explains (optional)
     }
   ],
-  "facts": [{ "key": "rows", "value": 5, "group": "page" }],
+  "facts": [{ "key": "rows", "label": "Visible rows", "aliases": ["visible rows", "표시 행"], "value": 5, "group": "page" }],
   "records": {
     "activity": [
       { "correlation_id": "corr-j", "detail": "…why this happened…", "outcome": "…" }
@@ -998,23 +939,17 @@ should contain:
 - Domain record collections: the actual visible rows needed for lookup and
   causal explanation.
 
-A route may delegate this contract to a pure sibling `*.view.ts` builder. The
-contract gate resolves that builder and still requires its `purpose`,
-`glossary`, and shared glossary catalog import. For a current-screen
-explanation, Bragi synthesizes purpose -> sections -> current status ->
-controls -> constraints/safety. It does not reduce the answer to a raw fact
-list. Stable `key` and `control` tokens remain available for deterministic
-verification, while normal answers use `label`, `detail`, and
-`disabled_reason`. The verifier treats a published `disabled_reason` as causal
-evidence only when all reason-text anchors occur in the answer's cause.
+A route may delegate this contract to `*.view.ts`. Its optional `explanations` envelope standardizes
+selection, relationships, lifecycle criteria, deduplication, and provenance; absent metadata means
+"not declared", never a guess. Ontology and Agent Activity are the first adopters; other routes reuse
+the envelope incrementally. The server bounds it and the verifier hashes entries used by claims.
 
 #### 13.4.1 Cross-screen operational evidence
 
-`ViewSnapshot` is authoritative only for the rendered route. When a turn asks
-about a recent incident, issue, outage, failure, or root cause outside that
-screen, the read API invokes `OperationalEvidenceResolver` against the
-server-owned `ConsoleReadModel`; it never trusts operational evidence supplied
-by the browser. The resolver searches at most 12 recent incidents and at most
+`ViewSnapshot` is authoritative only for the rendered route. On the ontology route, a bare
+`Issue` or problem noun remains a current-screen domain reference. Explicit recency, incident, outage, failure, or cause
+language invokes `OperationalEvidenceResolver` against the server-owned `ConsoleReadModel`; it
+never trusts operational evidence supplied by the browser. The resolver searches at most 12 recent incidents and at most
 100 correlated audit rows per candidate, then injects a compact
 `_operational_evidence` block into both `/chat` and `/chat/stream`.
 
@@ -1030,8 +965,8 @@ present, so ordinary screen questions retain the lean prompt budget.
 For other cross-screen questions, the web adapter uses this authority order:
 
 1. `OperationalEvidenceResolver` for incident and root-cause questions.
-2. Server-owned read-model tools for KPI, pending approval, audit, and incident
-  list questions. Broad system-health questions use the same KPI authority but
+2. Server-owned inventory/read-model tools for Azure resources, KPI, pending approval, audit, and
+  incident lists. Inventory questions take a deterministic `query_inventory` fast path; broad health uses the same KPI authority but
   take a deterministic `read-model-health` path before model synthesis. The
   answer reports the observed event sample, approval backlog, execution-mode
   mix, and evidence time; it does not infer that every component is healthy.
@@ -1103,7 +1038,7 @@ focus trap. The selected mode is tab-scoped, and compact mobile viewports use
 the full-screen geometry.
 
 - `verified` means the terminal answer was rendered from server-owned
-  operational evidence.
+  operational or inventory evidence.
 - `consistent` means the answer was checked against the browser's current
   screen snapshot but was not independently verified by a server projection.
 - `corrected` means the provisional model text was replaced by a deterministic
@@ -1124,7 +1059,7 @@ preserving conversation order and accessibility focus. Only the terminal
 canonical revision is persisted or supplied as history to a later turn.
 
 The first shipped verifier uses no second model call. For cross-screen
-operational questions it deterministically renders the terminal answer from
+operational and Azure inventory questions it deterministically renders the terminal answer from
 the typed evidence state (`matched`, `ambiguous`, `none`, or `unavailable`),
 so model prose cannot change the selected incident, search scope, RCA cause,
 or absence claim. `none`, `ambiguous`, `unavailable`, and `matched` without a
@@ -1137,9 +1072,8 @@ may remove unsupported scope-only addenda and re-run deterministic verification;
 other unsupported claims still end in abstention. For a complete screen
 snapshot with a partial claim mismatch, one bounded rewrite may remove the
 entire sentences that contain unsupported claims and verify the remaining
-answer again. This correction requires at least one supported claim before and
-after the rewrite. A `0/N` result, truncated snapshot, or extraction overflow
-still ends in abstention.
+answer again. Facts may publish bounded localized `aliases`; duplicate values bind to the nearest
+matching `label` or alias and remain ambiguous without a match. This correction requires at least one supported claim before and after the rewrite. A `0/N` result, truncated snapshot, or extraction overflow still ends in abstention.
 
 Latency targets are: first progress event within 100 ms of request admission,
 fast-path terminal answer within 500 ms p95 after evidence lookup completes,
@@ -1155,7 +1089,7 @@ Screen-only provisional answers additionally produce an atomic claim artifact
 without a second model call. The deterministic extractor recognizes IDs,
 numbers, percentages, timestamps, causal assertions, and bounded-scope claims;
 each claim records its source span, normalized value, support state, and exact
-snapshot evidence references. An `evidence_manifest` records route, capture
+snapshot evidence references, including fact aliases used for matching. An `evidence_manifest` records route, capture
 time, completeness, source paths, and a canonical content hash. It contains
 only entries used by claims, not a duplicate of the full snapshot.
 
@@ -1490,12 +1424,18 @@ ready. The fixed runtime-binding map reports declared subscriber bindings only;
 it doesn't prove that a consumer process is healthy. Deployment schedule
 status stays unavailable until a scheduler projection supplies it.
 
-The Capabilities route is an inert catalog projection. Its response identifies
-`source=static-catalog` and `execution_eligibility=false`; entries describe
-declared side-effect classes, required roles, and default modes. Catalog
-presence doesn't prove a provider binding, runtime health, or permission to
-execute. Those decisions remain with composition, RBAC, verification, and the
-risk gate.
+The Capabilities route is an inert catalog projection with `source=static-catalog` and
+`execution_eligibility=false`; entries describe side-effect classes, roles, and default modes.
+Catalog presence doesn't prove provider binding, runtime health, or execution permission. The
+Skills route projects installed skill and governed bundle metadata, ordered members, compatibility,
+eligibility, references, and bounded diagnostics from `GET /skills`, with no lifecycle or mutation control.
+Bragi uses the same Reader-gated disclosure; content reads recheck trust and budgets, while execution decisions stay with composition, RBAC, verification, and the risk gate.
+Approved source evidence is available through GET routes under `/api/v1/skill-sources`, but the
+current SPA Skills route reads `/skills` and does not yet consume those routes. A future read-only
+source view can browse, search, inspect quarantine, and check disabled update candidates. Candidate
+approval and source revocation remain separate authenticated POST routes for Approver and Owner
+automation. The Skills panel provides no lifecycle control. See
+[skill-source-management.md](skill-source-management.md).
 
 Operational read surfaces render provenance from their payload instead of
 static claims. Scheduler Runs shows its ledger `source` and `durable` flag; LLM
@@ -1820,43 +1760,25 @@ PostgreSQL transaction. A periodic monitor records health transitions, and only 
 servers are routable. Endpoint validation rejects credentials, query strings, fragments, and
 non-loopback plaintext HTTP.
 
-This outbound catalog is distinct from publishing FDAI itself as an MCP server. The upstream
-console does **not** ship that inbound MCP server on Day 1. Once the in-process tool set is stable
-and the RBAC matrix is exercised, a later addition can publish the same tool catalog
-(`list_tools` / `call_tool`) plus operator-console read resources as MCP resources.
+This outbound catalog is distinct from publishing FDAI itself as an MCP server. The repository
+currently ships no inbound MCP server process, `list_tools`/`call_tool` wire endpoint, or external
+MCP principal mapping. A fork MUST NOT infer an FDAI-to-client MCP surface from this document.
 
-The MCP layer is **additive**: the same coordinator handles MCP-sourced
-tool calls exactly as CLI/Teams-sourced ones, and the RBAC gate stays
-identical. A fork MAY expose the MCP server to external agents (Claude
-Code, Copilot Chat, or any other MCP client) at their discretion; the
-upstream surface documents the wire contract and ships the server
-process but does not open it publicly.
+A future inbound MCP proposal can additively reuse the coordinator and RBAC, reject anonymous
+callers, map mTLS or audience-scoped Entra identities to service `Principal` records, and audit the
+resolved role. That remains future scope requiring its own threat model, protocol tests, and
+deployment gates.
 
-**External principal mapping.** An MCP-sourced tool call MUST resolve to a
-concrete `Principal` with a real role before the RBAC gate runs - there is
-no anonymous MCP caller. The MCP server authenticates the calling agent
-(mTLS client cert or an Entra token audience-scoped to `fdai-api`)
-and maps it to a service `Principal` whose role is assigned exactly like a
-human's (an `aw-*` group / App Role, §5 of
-[user-rbac-and-identity.md](user-rbac-and-identity.md)). An agent with no
-mapped role is denied at the gate, identically to an under-privileged
-human; the audit entry records `principal.kind = "mcp-agent"` with the
-resolved role.
+## 15. Decision status
 
-## 15. Open decisions (tracked)
-
-- **OD-C1** - narrator prompt catalog naming: `rule-catalog/prompts/narrator/`
-  vs `rule-catalog/prompts/console/`. Blocking for Wave-N of the prompt
-  composition doc ([prompt-composition.md](../decisioning/prompt-composition.md)).
-- **OD-C2** - operator_memory schema. Owned by the parallel session;
-  Week 1 signs off before console starts writing.
-- **OD-C3** - "self-approval" definition for BreakGlass grants -
-  whether an active break-glass grant reduces the no-self-approval
-  invariant to a stronger form (paired-approver only). Owner:
-  security-and-identity doc author.
-- **OD-C4** - CLI REPL history file location & retention. Default
-  proposal: `~/.fdai/console-history.jsonl`, capped at 10 MiB,
-  redacted before write. Blocking Day 1 implementation.
+- **OD-C1 resolved** - the strict core narrator prompt lives in `AzureOpenAINarratorModel`; the
+  broader prompt catalog uses `rule-catalog/prompts/base`, `packs`, `scenarios`, and `tools`.
+- **OD-C2 resolved** - principal-scoped user memory/preferences and separate governed operator
+  memory now have schemas, provenance, consent, and retention paths.
+- **OD-C3 residual** - persistent BreakGlass grant/elevation is not implemented. A future design
+  must retain no-self-approval and separately approve any distinct-approver requirement.
+- **OD-C4 current behavior** - CLI history is bounded process-memory navigation only. A persistent
+  history file and retention/redaction contract are neither shipped nor blockers for the current CLI.
 
 ## 16. Related docs
 

@@ -1,9 +1,9 @@
 ---
 title: 변경 승인(Approve a change)
-description: FDAI가 HIL 결정을 기다리도록 대기열에 넣은 변경을 검토하고 승인 또는 거부하는 방법.
+description: FDAI가 사람 승인을 기다리도록 대기열에 넣은 변경을 검토하고 승인 또는 거부하는 방법입니다.
 translation_of: approve-change.md
-translation_source_sha: b94885dff781dc22a98e25e4f2a199181ce0cc1f
-translation_revised: 2026-07-17
+translation_source_sha: a40fde86bcb8509d4927110cded6f73e43512003
+translation_revised: 2026-07-20
 ---
 
 # 변경 승인(Approve a change)

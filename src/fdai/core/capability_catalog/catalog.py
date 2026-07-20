@@ -47,6 +47,14 @@ class SideEffectClass(StrEnum):
     BREAKGLASS = "breakglass"
 
 
+class CapabilityParity(StrEnum):
+    """How FDAI realizes a comparable external SRE-agent capability."""
+
+    NATIVE = "native"
+    SAFER_ALTERNATIVE = "safer-alternative"
+    EXTERNAL_BINDING = "external-binding"
+
+
 @dataclass(frozen=True, slots=True)
 class Capability:
     """One discoverable control-plane capability (inert metadata)."""
@@ -61,10 +69,17 @@ class Capability:
     slide_ref: str | None = None
     enabled: bool = True
     tags: tuple[str, ...] = field(default_factory=tuple)
+    parity: CapabilityParity = CapabilityParity.NATIVE
+    official_source: str | None = None
+    evidence_refs: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         if not self.capability_id:
             raise ValueError("Capability.capability_id MUST be non-empty")
+        if self.official_source is not None and not self.official_source.startswith("https://"):
+            raise ValueError("Capability.official_source MUST use HTTPS")
+        if any(not ref.strip() or len(ref) > 300 for ref in self.evidence_refs):
+            raise ValueError("Capability.evidence_refs MUST be non-empty and bounded")
         # A capability that can mutate MUST default to shadow - listing it can
         # never imply an ungated auto-action.
         if (
@@ -126,6 +141,9 @@ class CapabilityCatalog:
                 "required_role": cap.required_role,
                 "slide_ref": cap.slide_ref,
                 "tags": list(cap.tags),
+                "parity": cap.parity.value,
+                "official_source": cap.official_source,
+                "evidence_refs": list(cap.evidence_refs),
             }
             for cap in self.list()
         )
@@ -135,6 +153,7 @@ __all__ = [
     "Capability",
     "CapabilityCatalog",
     "CapabilityCategory",
+    "CapabilityParity",
     "DuplicateCapabilityError",
     "SideEffectClass",
 ]

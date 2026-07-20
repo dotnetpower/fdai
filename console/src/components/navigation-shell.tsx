@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { requestWorkspaceDeckCloseForNavigation } from "../deck/open-deck";
 import { t } from "../i18n";
 import {
   DEFAULT_NAVIGATION_PREFERENCES,
@@ -17,7 +18,7 @@ import {
   type ConsolePanel,
   type PanelGroup,
 } from "../panels";
-import { panelPath } from "../router";
+import { navigate, panelPath } from "../router";
 import { groupIcon, settingsIcon } from "./rail-icons";
 import { Tooltip } from "./tooltip";
 
@@ -132,6 +133,12 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
   }
 
   function selectGroup(group: PanelGroup): void {
+    const workspacePath = workspaceGroupNavigationPath(group, preferences);
+    if (workspacePath) {
+      setSelectedGroup(group);
+      navigate(workspacePath);
+      return;
+    }
     if (group === selectedGroup && preferences.explorerOpen) {
       setExplorerOpen(false);
       return;
@@ -463,6 +470,23 @@ function orderPanels(
     (positions.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
     (positions.get(right.id) ?? Number.MAX_SAFE_INTEGER),
   );
+}
+
+export function firstVisiblePanelInGroup(
+  group: PanelGroup,
+  preferences: NavigationPreferences,
+): ConsolePanel | undefined {
+  return orderPanels(panelsInGroup(group), preferences.groupOrder[group])
+    .find((panel) => !preferences.hiddenPanelIds.includes(panel.id));
+}
+
+export function workspaceGroupNavigationPath(
+  group: PanelGroup,
+  preferences: NavigationPreferences,
+  closeWorkspaceDeck: () => boolean = requestWorkspaceDeckCloseForNavigation,
+): string | null {
+  const firstPanel = firstVisiblePanelInGroup(group, preferences);
+  return firstPanel && closeWorkspaceDeck() ? panelPath(firstPanel.id) : null;
 }
 
 function isMobile(): boolean {

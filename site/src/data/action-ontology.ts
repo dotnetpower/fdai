@@ -116,7 +116,7 @@ export const ACTION_TYPES: ActionType[] = [
     blastKind: "static",
     blast: "1 resource",
     description:
-      "Delete a resource proven orphaned (unattached disk, unassociated public IP). Fires only when attached_to and depends_on are both absent. Rollback uses the provider PITR / soft-delete window; if it has expired the risk-gate routes to HIL.",
+      "Delete a resource proven orphaned (unattached disk, unassociated public IP). Fires only when attached_to and depends_on are both absent. Rollback uses the provider PITR / soft-delete window; if it has expired the safety check requires human approval.",
   },
   {
     name: "remediate.enable-purge-protection",
@@ -131,7 +131,7 @@ export const ACTION_TYPES: ActionType[] = [
     blastKind: "static",
     blast: "1 resource",
     description:
-      "Turn on purge protection on a secret-store. Irreversible: once on, the provider does not allow turning it off. The risk-gate routes this to HIL + quorum until the promotion gate is measured on the frozen scenario set.",
+      "Turn on purge protection on a secret-store. Irreversible: once on, the provider does not allow turning it off. The safety check requires human approval and quorum until the promotion gate is measured on the frozen scenario set.",
   },
   {
     name: "remediate.right-size",
@@ -146,7 +146,7 @@ export const ACTION_TYPES: ActionType[] = [
     blastKind: "graph",
     blast: "<= 10 resources (graph-derived)",
     description:
-      "Adjust compute count or SKU to match observed utilization (Cost Governance). Non-destructive; rollback is a PR to the prior spec. Runs post-shadow only after the scenario set proves it never degrades a dependent.",
+      "Adjust compute count or SKU to match observed utilization (Cost Governance). Non-destructive; rollback is a PR to the prior spec. Runs after observation mode only after the scenario set proves it never degrades a dependent.",
   },
   {
     name: "remediate.restrict-network-access",

@@ -193,6 +193,8 @@ async def test_store_crud_and_mark_run() -> None:
         await store.create(_task())
     updated = await store.mark_run("t1", _NOW)
     assert updated.last_run == _NOW
+    renamed = await store.update(_task(name="renamed", last_run=_NOW))
+    assert renamed.name == "renamed"
     await store.cancel("t1")
     with pytest.raises(ScheduleNotFoundError):
         await store.get("t1")
@@ -222,6 +224,23 @@ async def test_run_once_fires_due_task_and_marks_run() -> None:
     # Second tick in the same interval bucket: task already ran -> not due.
     report2 = await svc.run_once(now=_NOW + timedelta(seconds=1))
     assert report2.fired == 0
+
+
+async def test_run_task_now_is_idempotent_and_rejects_disabled_task() -> None:
+    store = InMemoryScheduleStore()
+    await store.create(_task(resource_ref="vm-a"))
+    bus = _RecordingBus()
+    service = SchedulerService(store=store, event_bus=bus)
+
+    first = await service.run_task_now("t1", idempotency_key="request-1", now=_NOW)
+    second = await service.run_task_now("t1", idempotency_key="request-1", now=_NOW)
+    assert first.fired == 1
+    assert second.duplicates_suppressed == 1
+    assert len(bus.published) == 1
+
+    await store.update(_task(enabled=False, last_run=_NOW))
+    with pytest.raises(ValueError, match="disabled"):
+        await service.run_task_now("t1", idempotency_key="request-2", now=_NOW)
 
 
 async def test_scheduler_emits_stable_dispatch_transition() -> None:

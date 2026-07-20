@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: d6315118e14f10403cda0a25f589f6c376b8a4f3
-translation_revised: 2026-07-18
+translation_source_sha: d4cd1b5aa0d96bb5f6468fd52201744723fd1e27
+translation_revised: 2026-07-21
 ---
 
 # 에이전트 판테온 구현 계획
@@ -24,6 +24,12 @@ translation_revised: 2026-07-18
 > [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
 > 의 배치를 따른다.
 
+> **구현 상태 (2026-07-20):** W0-W8은 구현되었습니다. 아래 섹션은 rollout
+> 순서와 acceptance 의도를 보존합니다. 현재 공유 에이전트 구성 요소는
+> `src/fdai/agents/_framework/`에 있고, 현재 wave coverage는
+> `tests/agents/test_wave2_governance.py`부터
+> `test_wave8_kpi_degradation.py`까지에 있습니다.
+
 ## 1. 이 문서가 존재하는 이유
 
 판테온 문서 ([agent-pantheon.md](agent-pantheon-ko.md)) 는 15개 에이전트 계약을
@@ -38,11 +44,11 @@ translation_revised: 2026-07-18
   (`escalate_to_github_issue`, `notify_admin_privilege_violation`,
   `arbitrate_domain_conflict`, 각 에이전트의 `question_domains` 핸들러
   pseudo-action) 이 `rule-catalog/action-types/` 에 합류.
-- **Python core**: 새 패키지 `src/fdai/agents/` 에 base class, 15개
-  에이전트 stub, topic registry, two-port 스캐폴딩.
+- **Python core**: `src/fdai/agents/` 아래 15개 flat specialist module과
+  `_framework/` 아래 공유 base, registry, topic, bus, runtime, two-port 구성 요소.
 - **테스트**: registry 무결성, single-writer topic 강제, ActionType 역할
   바인딩, pantheon 서브그래프 ontology 조회.
-- **Wave 6-9**: 증분 per-agent 동작 + cross-agent 워크플로우, 전체에 걸쳐
+- **Wave W0-W8**: 증분 per-agent 동작 + cross-agent 워크플로우, 전체에 걸쳐
   shadow-mode 게이팅.
 
 아래 웨이브들은 이 작업을 순차화하여 각 웨이브가 측정 가능한 exit 기준으로
@@ -79,7 +85,7 @@ translation_revised: 2026-07-18
 | **W4** | Bragi + Odin: routing, per-user context, arbitration 이 있는 conversational port | 오퍼레이터 NL query 하나가 routing -> primary + contributors -> aggregated response 로 walk-through; Odin 이 합성 domain_conflict 를 arbitrate |
 | **W5** | Domain specialists: Njord, Freyr, Loki 가 Forseti 에 advisory 바인딩 | cost / capacity / chaos advice 가 합성 verdict 에 attach; Loki 실험이 blast-radius 존중하며 shadow 로 실행 |
 | **W6** | Handoff + security escalation: Issue dedup, fingerprint index, admin-channel notification | (a) 합성 unhandled request 가 정확히 1개 GitHub issue + repeat 시 comment 생성; (b) RBAC-insufficient proposal 이 정확히 1개 admin card + repeat 시 dedup 생성 |
-| **W7** | Cross-agent workflows: [agent-workflows.md](agent-workflows-ko.md) 의 10개 워크플로우가 shadow 로, 한 번에 하나씩 | 각 워크플로우: shadow trace 종단간 + KPI baseline 캡처; 아직 어떤 워크플로우도 enforce 로 승격 안 됨 |
+| **W7** | Cross-agent workflows: [agent-workflows.md](agent-workflows-ko.md) 의 12개 워크플로우가 shadow 로, 한 번에 하나씩 | 각 워크플로우: shadow trace 종단간 + KPI baseline 캡처; 아직 어떤 워크플로우도 enforce 로 승격 안 됨 |
 | **W8** | Promotion gates + measurement: per-agent KPI collector, promotion_gate 배선, degradation drill | (a) 각 에이전트가 선언된 KPI 를 리포트; (b) 각 degradation policy 가 주입 실패로 검증; (c) 임의 단일 워크플로우가 gate 통과 후 별도 PR 로 enforce 모드 승격 가능 |
 
 ## 4. Wave 0 - Docs foundation
@@ -87,7 +93,7 @@ translation_revised: 2026-07-18
 **Scope**
 
 - **`docs/roadmap/agents/agent-workflows.md` (+ ko)** - sequence diagram 과 exit
-  criteria 가 있는 10개 cross-agent 워크플로우. 워크플로우 인벤토리는 이
+  criteria 가 있는 12개 cross-agent 워크플로우. 워크플로우 인벤토리는 이
   문서 §5 참고.
 - **`docs/roadmap/agents/agent-pantheon.md` §4 detail** - 15개 에이전트 각각이
   네 개의 서브섹션 (Recurring / Event / Meta / Cross-agent tasks) + KPI
@@ -130,38 +136,30 @@ translation_revised: 2026-07-18
 
 **Scope**
 
-- 새 패키지 `src/fdai/agents/`:
-  - `base.py` - 추상 `Agent` 클래스: 필드 (`name`, `layer`, `owns`,
+- `src/fdai/agents/` 패키지:
+  - `_framework/base.py` - 추상 `Agent` 클래스: 필드 (`name`, `layer`, `owns`,
     `executes`, `subscribes`, `publishes`, `question_domains`,
     `owns_code_paths`, `llm_bindings`, `rate_limits`), 메서드
     (`on_typed_message`, `on_conversation_turn`, `health`), 강제된
     single-writer publish helper.
-  - `registry.py` - `Agent` object type YAML 로드, pantheon registry
+  - `_framework/registry.py` - pantheon specification을 로드하고 registry를
     빌드, `get(name)`, `all()`, `owner_of(topic)`,
     `owner_of(object_type)` 노출.
-  - `topics.py` - typed topic 계약: naming (`object.<type>`), partition
+  - `_framework/topics.py` - typed topic 계약: naming (`object.<type>`), partition
     key 전략 (mutation 은 per-resource, judgment/audit 는
     per-correlation), idempotency, back-pressure default.
-  - `pipe.py` - 기존 event bus provider protocol
-    ([project-structure.md](../architecture/project-structure-ko.md#customization-via-dependency-injection))
-    을 감싸는 thin adapter 로 `producer_principal == owner_agent` 강제.
-  - `stubs/` - 에이전트당 파일 하나 (`odin.py`, `thor.py`, ...) 로
-    `Agent` 의 no-op 서브클래스. 각 stub 은 registry 가 import 시 완전
-    하도록 소유 type 과 구독 topic 을 선언.
+  - `_framework/bus.py`와 `_framework/bus_bridge.py` -
+    `producer_principal == owner_agent`를 강제하는 in-memory contract와 EventBus bridge.
+  - Flat specialist module (`odin.py`, `thor.py`, ...) - 고정 pantheon
+    agent마다 하나의 구현.
 - `src/fdai/agents/__init__.py` 가 registry entry point 를 export.
 
 **테스트 (`tests/agents/`)**
 
-- `test_registry.py`: 15개 에이전트 존재, 중복 없음, layer 값 유효,
-  `owns` 세트가 pairwise disjoint (single-writer invariant).
-- `test_topics.py`: caller 가 owner 가 아닌 topic 에 publish 시 raise;
-  선언된 모든 topic 이 정확히 하나의 owner 를 가짐; partition-key 전략
-  해석됨.
-- `test_action_role_binding.py`: `rule-catalog/action-types/` 의 모든
-  ActionType 이 5개 역할 (`initiators`, `judge`, `approver`,
-  `executor`, `auditor`) 을 registry 의 실제 `Agent` 로 해석함.
-- `test_owns_code_paths.py`: 각 에이전트의 선언된 코드 경로가 존재하며
-  write 작업에 대해 다른 에이전트의 소유 경로와 겹치지 않음.
+- `test_framework_layout.py`, `test_registry.py`, `test_topics.py`가 package
+  shape, 고정 15-agent registry, single-writer ownership, partition-key 동작을 검증.
+- `test_ontology_alignment.py`, `test_action_intent_parity.py`가 ontology와
+  ActionType이 pantheon specification과 일치하는지 검증.
 
 **Exit gate**
 
@@ -210,19 +208,19 @@ discovery loop 를 닫는다.
 - **Norns (`src/fdai/agents/norns.py`)** - 두 entry point: batch (기존
   scheduler 를 통한 hourly cron) 과 stream (`object.audit-entry` 구독).
   Pattern extraction 을 T1 clustering 우선으로 구현; T2 LLM summary hook
-  은 W7 에 남겨둠. `RuleCandidate` 와 `close_issue` action 발행.
+  은 W7 에 남겨둠. `RuleCandidate` 와 `close_issue` action 발행. Publish 전에
+  내부 Urd (과거 근거), Verdandi (현재 계약), Skuld (미래 안전성) 관점의 `3/3`
+  합의를 요구합니다. 이들은 agent 또는 principal이 아닙니다. Norns는 하나의
+  aggregate consensus result만 내보내고 불일치는 bounded hold record로 보관합니다.
 
 **테스트**
 
-- `test_saga_audit_chain.py`: 순차 append 가 monotonic chain 생성; 합성
-  변조 (out-of-order 또는 missing hash) 는 integrity check 로 감지.
-- `test_saga_issue_dedup.py`: 같은 fingerprint escalation 두 번은 1개
-  issue + 1개 comment 결과; Muninn 의 index 일치.
-- `test_mimir_promotion.py`: candidate -> shadow -> promotion 경로가 새
-  `Rule` object 를 write; Forseti stub 이 cache-invalidation event 를
-  봄.
-- `test_norns_pattern.py`: 반복 fingerprint 를 가진 10개 합성 audit-entry
-  가 정확히 1개 `RuleCandidate` 생성.
+- `test_wave2_governance.py`가 Saga audit/issue 동작, Mimir rule governance,
+  Muninn state, Norns candidate flow를 검증.
+- `test_candidate_guard.py`와 `test_norns_coverage.py`가 inert candidate
+  safety와 bounded learning 동작을 검증.
+- `test_norns_consensus.py`가 Norns single-writer 경계에서 unanimous publish와
+  disagreement hold 동작을 검증합니다.
 
 **Exit gate**
 
@@ -286,16 +284,10 @@ default 를 유지하며 privileged executor 를 호출하지 않습니다.
 
 **테스트**
 
-- `test_verdict_loop_shadow.py`: 100개 합성 anomaly event; 모든 event
-  가 `succeeded` (shadow) 또는 `dropped` entry 로 Saga 에 도달; 정책
-  위반 escape zero.
-- `test_thor_mutex.py`: 같은 `resource_id` 에 대한 두 개 동시 proposal
-  serialize; 두 번째는 첫 번째 대기.
-- `test_forseti_verdict_stable.py`: 동일 input event 는 동일 verdict
-  생성; verdict `risk_verdict` 가 `risk-classification.yaml` lookup 과
-  정확히 일치.
-- `test_vidar_rollback.py`: 주입된 failure 가 정확히 하나의 rollback
-  trigger; audit chain 이 compensating entry 표시.
+- `test_wave3_pipeline.py`가 shadow verdict, dispatch, approval, rollback
+  경로를 검증.
+- `test_runtime_chain.py`와 `test_thor_durable.py`가 end-to-end routing,
+  durable ActionRun, resource lock, restart recovery를 검증.
 
 **Exit gate**
 
@@ -336,20 +328,15 @@ default 를 유지하며 privileged executor 를 호출하지 않습니다.
 
 **테스트**
 
-- `test_bragi_routing.py`: 각 `question_domain` 에 대한 sample NL query
-  가 올바른 primary agent 로 라우팅; 승자 선택 tie-break 순서 검증.
-- `test_bragi_multi_turn.py`: 같은 세션의 follow-up query 가
-  `prior_turns_ref` 대비 anaphora ("그 사람 또 뭐 바꿨어") 해결.
-- `test_bragi_rbac.py`: cross-user 세션 read 시도가 empty 반환하고
-  Saga 가 시도 기록.
-- `test_odin_arbitration.py`: 주입된 `domain_conflict` verdict 가
-  정확히 하나의 `ArbitrationDecision` 결과; Forseti 가 수신하고
-  finalize.
+- `test_wave4_interface.py`와 `test_conversational_port.py`가 routing,
+  session isolation, contributor aggregation, read-only question path를 검증.
+- `test_arbitration.py`가 결정론적 conflict resolution과 Forseti/Odin
+  round trip을 검증.
 
 **Exit gate**
 
-- 오퍼레이터가 합성 Heimdall change-index 에 "누가 stgdemo123 public
-  network 변경했어" 를 질문; Bragi 가 payload 에 `primary`,
+- 오퍼레이터가 합성 Heimdall change-index 에 "누가 example resource의
+  public network를 변경했어"라고 질문; Bragi 가 payload 에 `primary`,
   `contributors`, `trace_ref` 를 포함한 Heimdall + Saga + Muninn 의
   aggregated response 반환.
 
@@ -382,13 +369,8 @@ default 를 유지하며 privileged executor 를 호출하지 않습니다.
 
 **테스트**
 
-- `test_njord_cost_advice.py`: `remediate.resize_vm_up` action 의
-  verdict 가 `njord_cost_delta` annotation 획득.
-- `test_freyr_forecast.py`: 100개 합성 utilization sample 이 stable
-  forecast 생성; input variance 가 threshold 를 넘으면 degradation
-  policy 활성화.
-- `test_loki_blast_radius.py`: 10개 target 에 대한 propose 된 실험이
-  동시 propose storm 하에서도 선언된 `blast_radius=3` 에서 중단.
+- `test_wave5_specialists.py`가 Njord cost advice, Freyr forecasting,
+  Loki blast-radius enforcement를 검증.
 
 **Exit gate**
 
@@ -418,15 +400,9 @@ default 를 유지하며 privileged executor 를 호출하지 않습니다.
 
 **테스트**
 
-- `test_issue_dedup.py`: 3개 동일 handoff 가 1개 issue + 2개 comment
-  생성; 3개 다른 fingerprint handoff 가 3개 issue 생성.
-- `test_issue_auto_close.py`: 승격 후 주입된 regression-clean signal 이
-  승격 PR 을 링크하는 comment 와 함께 fingerprint 된 issue 를 close.
-- `test_security_severity.py`: 한 번의 RBAC-denied `delete_storage`
-  proposal 이 정확히 하나의 `high`-severity 카드 생성; 같은 user 5분
-  내 5회 denial 이 counter 와 함께 1개 카드로 합침.
-- `test_security_rate_limit.py`: 같은 user 시간당 >5개 카드가 digest 로
-  합침.
+- `test_wave6_handoff_security.py`가 issue deduplication, repeat comment,
+  closure, severity, admin notification 동작을 검증.
+- `test_rate_limiter.py`가 bounded notification과 escalation rate를 검증.
 
 **Exit gate**
 
@@ -444,7 +420,7 @@ default 를 유지하며 privileged executor 를 호출하지 않습니다.
 
 ## 11. Wave 7 - Shadow 로 cross-agent workflows
 
-[agent-workflows.md](agent-workflows-ko.md) 의 10개 워크플로우 각각이 자기
+[agent-workflows.md](agent-workflows-ko.md) 의 12개 워크플로우 각각이 자기
 shadow-mode gate 를 가진 자기 PR 로 착지. 대략적 순서:
 
 1. Cost-aware remediation (Njord + Forseti + Thor)
@@ -456,7 +432,7 @@ shadow-mode gate 를 가진 자기 PR 로 착지. 대략적 순서:
 7. Agent health degradation (Heimdall + Odin + Bragi)
 8. Judgment coherence audit (Forseti + Norns + Mimir)
 9. Rollback rehearsal (Loki + Vidar + Heimdall + Saga)
-10. Retrospective what-if (Saga + Forseti + Norns + Mimir)
+10. Retrospective what-if (Saga + Forseti + Norns + Mimir); 11. Operational readiness handoff (Forseti); 12. Scheduled governed Python task (Forseti + Thor)
 
 **Per-workflow exit gate**
 
@@ -506,14 +482,8 @@ shadow-mode gate 를 가진 자기 PR 로 착지. 대략적 순서:
 
 **테스트**
 
-- `test_promotion_gate_forseti.py`: scenario set + KPI threshold 로
-  14일 shadow; 통과 = 승격 허용.
-- `test_degradation_saga.py`: Saga kill, mutation 시도, 거부 + admin
-  alert 검증.
-- `test_degradation_vidar.py`: Vidar kill, mutation 시도, shadow 강등
-  검증.
-- `test_degradation_forseti.py`: Forseti kill, Huginn / Heimdall queue
-  가 event loss 없이 증가 검증 (Kafka retention).
+- `test_wave8_kpi_degradation.py`가 KPI emission, promotion check, 고정
+  pantheon의 injected degradation 동작을 검증.
 
 **Exit gate**
 
@@ -569,8 +539,9 @@ PR 에서 ship
 
 웨이브 W1 - W8 은 에이전트 동작을 구현하고 테스트로 검증하지만,
 에이전트들은 프로세스가 실제 이벤트 버스에 그들을 배선한 뒤에야 서로
-통신한다. 그 seam 이 `src/fdai/agents/runtime.py`(`PantheonRuntime`)
-이며, headless 엔트리포인트 `src/fdai/__main__.py` 에서 구동된다:
+통신한다. 그 seam 은 `src/fdai/agents/_framework/runtime.py`
+(`PantheonRuntime`)이며 `src/fdai/runtime/bootstrap.py`에서 조립됩니다.
+Headless `src/fdai/__main__.py`는 이 bootstrap에 위임합니다:
 
 - `PantheonRuntime.build(provider, raw_event_topic)` 은 15 개 에이전트를
   전부 인스턴스화하고, 발행(publish)하는 각 에이전트를 주입된 `EventBus`
@@ -592,18 +563,17 @@ PR 에서 ship
   않는다(shadow 오버레이는 주 파이프라인의 의존성이 아니다). 종료 시
   차례로 취소된다.
 
-이 런타임은 **opt-in 이며 기본 shadow** 다. `FDAI_START_PANTHEON`(truthy)
-로 게이트되고 `FDAI_START_CONSUMER` 를 요구한다(판테온은 컨슈머가
-구성하는 동일한 Kafka 버스에 bind 하므로, 컨슈머 없이 요청되면
-`__main__` 이 `pantheon_requested_without_consumer` 를 로깅하고 배선을
-건너뛴다).
+이 런타임은 **기본 활성화되고 기본 shadow**입니다. `FDAI_START_PANTHEON=0`
+(`false`, `no`, `off`도 동일)이 런타임을 비활성화합니다.
+`FDAI_START_CONSUMER`가 필요하며 consumer bus가 없으면 bootstrap이
+`pantheon_requested_without_consumer`를 로깅하고 배선을 건너뜁니다.
 
 shadow 는 **가정이 아니라 강제된다**: `PantheonRuntime.build` 가 Thor 를
 shadow 모드로 강제(`enforce=False`, 기본)하므로 판테온 Thor 는
 judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. enforce 로의 승격은
 명시적이고 별도 리뷰되는 opt-in(`FDAI_PANTHEON_ENFORCE` /
 `build(enforce=True)`)이며 절대 기본이 아니다. 에이전트는
-`src/fdai/agents/adapters.py` 의 in-memory audit / issue / admin 어댑터를
+`src/fdai/agents/_framework/adapters.py` 의 in-memory audit / issue / admin 어댑터를
 쓴다; fork 는 `build(saga=...)` 로 durable(StateStore 기반) `Saga` 를
 주입하고 나머지 어댑터도 durable 백엔드로 교체한다(§13.3 참조).
 
@@ -614,8 +584,8 @@ judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. enforce 로
 - **부분 판테온.** `build(disabled_agents=...)` /
   `FDAI_PANTHEON_DISABLED_AGENTS` 로 fork 가 부분집합을 구동할 수 있다
   (agent-pantheon.md 10): disabled 에이전트는 bind 도 구독 도 되지 않는다.
-  알 수 없는 이름과 하드디폼덗시 에이전트(Saga / Vidar)는 거부된다 -
-  audit / rollback 비활성화는 mutation 안전 invariant 를 깨밌다; Huginn
+  알 수 없는 이름과 hard-dependency 에이전트(Saga / Vidar)는 거부됩니다.
+  audit / rollback 비활성화는 mutation 안전 invariant를 깨뜨립니다. Huginn
   비활성화는 ingress 를 idle 시킨다(경고).
 - **cross-vertical 중재 (라이브 루프).** 이벤트가 상충하는 `domain_advice`
   (`{domain: recommendation}`)를 실으면 Forseti -
@@ -642,7 +612,7 @@ judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. enforce 로
   비활성화합니다.
   two-port 계약상, 액션을 원하는 conversational 요청은 typed 파이프라인으로
   재진입해야 한다 - 포트가 이를 우회하지 않는다. narrator LLM(T2 intent +
-  풍부한 에이전트별 답변)은 추후 이 seam 위에 얹진다.
+  풍부한 에이전트별 답변)은 추후 이 seam 위에 얹힙니다.
 - **자가치유 컨슈머.** 죽은 컨슈머는 지수 백오프
   (`max_consumer_restarts`, `restart_backoff_base`,
   `restart_backoff_max`)로 재시작하고, cap 초과 시에만 포기(카운트+로깅)
@@ -731,13 +701,13 @@ judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. enforce 로
   경고(`pantheon_ingress_unkeyed_event`)와 함께 drop 된다(P1 루프가 같은
   레코드를 여전히 처리하므로).
 
-에이전트의 `bus` seam 은 `PantheonBus` Protocol(`src/fdai/agents/bus.py`)로
+에이전트의 `bus` seam 은 `PantheonBus` Protocol(`src/fdai/agents/_framework/bus.py`)로
 타입되며, in-memory `InMemoryBus`(테스트)와 Kafka 기반
 `EventBusBridge`(프로덕션) 둘 다 이를 만족한다; base 클래스의
 `Agent.bind_bus` 로 composition root 가 모든 에이전트를 균일하게 bind 한다.
 
 **실제 브로커 전제조건:** 에이전트가 발행/구독하는 `object.<type>`
-토픽은 `FDAI_START_PANTHEON` 을 켜기 전에 Event Hubs 에 존재해야 한다;
+토픽은 pantheon runtime을 명시적으로 비활성화하지 않을 때 Event Hubs에 존재해야 합니다.
 그 hub 프로비저닝은 infra 관심사(`infra/modules/event-bus/`)이며 플래그
 자체의 범위 밖이다.
 
@@ -809,7 +779,7 @@ dev harness는 하나의 in-memory sink를 공유하고 production은 durable Po
 ## 14. 타임라인 shape (commitment 아님)
 
 웨이브는 strictly sequential (W0 -> W8). W7 이 가장 넓은 웨이브 (워크플로우당
-sub-PR 10개) 이고 W8 과 overlap (KPI collector 는 워크플로우와 병렬로
+sub-PR 12개) 이고 W8 과 overlap (KPI collector 는 워크플로우와 병렬로
 착지 가능).
 
 ```mermaid
@@ -822,7 +792,7 @@ timeline
     W4 : Interface : Bragi + Odin
     W5 : Specialists : Njord + Freyr + Loki
     W6 : Handoff + Security : Issue dedup + admin alerts
-    W7 : Workflows : 10 workflows in shadow
+    W7 : Workflows : 12 workflows in shadow
     W8 : KPI + Promotion : gates + drills + first enforce
 ```
 
@@ -844,7 +814,7 @@ timeline
 | 학습 주제 | 읽기 |
 |----------|------|
 | 판테온 설계 (역할, ontology, 계약) | [agent-pantheon.md](agent-pantheon-ko.md) |
-| W7 에서 착지하는 10개 워크플로우 | [agent-workflows.md](agent-workflows-ko.md) (W0) |
+| W7 에서 착지하는 12개 워크플로우 | [agent-workflows.md](agent-workflows-ko.md) (W0) |
 | W0 이 참조하는 ActionType 스키마 | [action-ontology.md](../decisioning/action-ontology-ko.md) |
 | W8 이 참조하는 KPI measurement 파이프라인 | [goals-and-metrics.md](../architecture/goals-and-metrics-ko.md) |
 | W2, W5, W6 이 참조하는 fork seam | [project-structure.md](../architecture/project-structure-ko.md#customization-via-dependency-injection), [downstream-fork-guide.md](../fork-and-sequencing/downstream-fork-guide-ko.md) |

@@ -14,7 +14,7 @@ Module names and the control loop follow
 ```text
 fdai/
 ├── src/fdai/            # Python (3.12+, src-layout); one language across the monorepo
-│   ├── core/                  # headless control plane (no UI, no direct cloud SDK imports). G-1 phase 1 (tracker #14) grouped the 41 subsystems (of the 47 core directories - see [code-map.md](code-map.md)) into 5 domain-group facades - `pipeline/` (event_ingest, trust_router, tiers, quality_gate, risk_gate, hil_resume, executor, audit, control_loop), `incident/` (rca, slo, runbook, postmortem, oncall, irp, investigation, chaos, capacity), `operator/` (conversation, operator_memory, working_context, rbac, notifications, report_feed), `knowledge/` (prompts, tools, web_search, capability_catalog, rule_catalog_profiles, ontology_explorer), `platform/` (scheduler, metering, measurement, security, reporting, onboarding, workflow, detection, deploy_preflight, assurance_twin), plus `verticals/` (G-6). Phase 1 is additive: both `from fdai.core.<subsystem> import X` and `from fdai.core.<domain> import <subsystem>` resolve. Phase 2 (deferred) is the physical `git mv` mass move.
+│   ├── core/                  # headless control plane (no UI, no direct cloud SDK imports). G-1 phase 1 (tracker #14) introduced domain-group facades over the core subsystems: `pipeline/` (event_ingest, trust_router, tiers, quality_gate, risk_gate, hil_resume, executor, audit, control_loop), `incident/` (rca, slo, runbook, postmortem, oncall, irp, investigation, chaos, capacity), `operator/` (conversation, operator_memory, working_context, rbac, notifications, report_feed), `knowledge/` (prompts, tools, web_search, capability_catalog, rule_catalog_profiles, ontology_explorer), `platform/` (scheduler, metering, measurement, security, reporting, onboarding, workflow, detection, deploy_preflight, assurance_twin), plus `verticals/` (G-6). Phase 1 is additive: both `from fdai.core.<subsystem> import X` and `from fdai.core.<domain> import <subsystem>` resolve. Phase 2 (deferred) is the physical `git mv` mass move.
 │   │   ├── event_ingest/       # bus consumers; normalize to event schema; dedup by idempotency key; correlate related events into incidents
 │   │   ├── trust_router/       # routes each event to T0 | T1 | T2 by computed confidence
 │   │   ├── tiers/
@@ -24,16 +24,23 @@ fdai/
 │   │   ├── prompts/            # catalog-as-code prompt composer (loads `rule-catalog/prompts/`, supplies T2)
 │   │   ├── tools/              # T2 tool-catalog registry + `ToolExecutor` (shadow-mode gated)
 │   │   ├── web_search/         # last-resort web-search seam (`NoOpWebSearchProvider` default; domain allowlist + sanitizer)
+│   │   ├── browser_evidence/   # read-only origin/DNS policy, redaction, immutable artifacts, custody, and shadow comparison
 │   │   ├── operator_memory/    # HIL-approved operator memory injected as untrusted `<operator_note>` data
+│   │   ├── learning/           # consent-gated off-path turn eligibility, consensus, dedup ledger, and inert proposal routing
+│   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, and offline validation
+│   │   ├── task_worker/        # isolated depth-one read-only workers: capability attenuation, lifecycle, durable state, and parent synthesis
+│   │   ├── background_task/    # durable detached read-only sessions: lease/CAS, progress, cancellation, process-loss, and completion handoff
 │   │   ├── briefing/           # deterministic opening/scheduled briefings over report-feed evidence
+│   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprints, and scoped continuations
 │   │   ├── document_ingestion/ # upload-session lifecycle + fail-closed scan/protection/extract/index worker
-│   │   ├── working_context/    # bounded per-turn prompt assembly: composer (token budget) + planner/orchestrator (O(log L) hierarchical folds) + summarizer/retriever seams
+│   │   ├── working_context/    # bounded per-turn prompt assembly: immutable selection policy + mandatory validator + shadow evidence/replay + planner/orchestrator folds + summarizer/retriever seams
 │   │   ├── quality_gate/       # mixed-model cross-check, verifier, grounding (guards T2)
 │   │   ├── rca/                # root-cause analysis (T0 deterministic + T2 reasoner behind seam; grounding-gated)
 │   │   ├── risk_gate/          # unified authority: risk score + auto vs HIL vs deny; enforces the four safety invariants
 │   │   ├── rbac/               # human RBAC for the read API (5-role matrix, resolver, enforcer)
 │   │   ├── hil_resume/         # HIL approval round-trip: park, push to channel, resume on decision
 │   │   ├── executor/           # per-resource lock, idempotent apply via delivery adapters
+│   │   ├── execution_backend/  # profile intersection, durable lifecycle coordination, and shadow probes; no judgment authority
 │   │   ├── audit/              # append-only, hash-chained audit log + KPI/metric emission
 │   │   ├── notifications/      # channel-routing layer over the notifications matrix
 │   │   ├── detection/          # out-of-band anomaly / forecast finding producers (re-enter event-ingest)
@@ -41,14 +48,15 @@ fdai/
 │   │   ├── slo/                # workload SLO / burn-rate evaluator (distinct from control-plane SLOs)
 │   │   ├── runbook/            # runbook orchestrator (linear sequence + on-failure branch)
 │   │   ├── workflow/           # version-pinned WorkflowDefinition + principal WorkflowBinding compilation; approval planner + shadow orchestrator + trigger index + event coordinator
-│   │   ├── python_task/         # static validation for generated multi-file PythonTask artifacts; never imports or executes task code
+│   │   ├── python_task/         # static validation for generated multi-file PythonTask artifacts and reviewed programmatic pipelines; never imports or executes task code
+│   │   ├── programmatic_pipeline/ # capability-scoped read-only tool loops: immutable contracts, broker, receipts, compact result, and deterministic benchmark
 │   │   ├── postmortem/         # LLM-optional postmortem / PIR draft generator
 │   │   ├── rule_catalog_profiles/  # profile / pack layer - named rule bundles with `extends` chains + overrides
 │   │   ├── measurement/        # Phase-4 continuous measurement (regression, pattern growth, model tracking, latency budget, prompt probe, runners)
 │   │   ├── mscp_profile/       # pure mscp-operational-v1 provenance, effect verification, cycle guard, and runtime-integrity policies; no execution authority
 │   │   ├── deploy_preflight/   # pre-deployment feasibility probes → grounded readiness report
 │   │   ├── assurance_twin/     # read-only ontology twin: text-to-query review / Q&A / assessment (proposes, never executes)
-│   │   ├── conversation/       # operator-console coordinator (Layer 2): NL turn → one read-only tool call
+│   │   ├── conversation/       # operator-console coordination, verified principal bindings, durable outbound delivery, adapter health, and busy-input arbitration
 │   │   ├── user_context_projection.py  # metadata-only principal context / workflow binding projection into runtime ontology
 │   │   ├── console_request/    # operator-console write-direction re-request policy (Scenario B deny-override), a single pure `evaluate_operator_rerequest`
 │   │   ├── verticals/          # Resilience / Change Safety / Cost Governance (P3 integration surface); each is a sub-package (G-6) with its own orchestrator + submodules, plus the shared `Vertical` Protocol in `base.py` and the `VerticalRegistry` seam
@@ -59,13 +67,13 @@ fdai/
 │   │   │   ├── event/          # event/schema.json
 │   │   │   ├── action/         # action/schema.json
 │   │   │   ├── rule/           # rule/schema.json
-│   │   │   ├── ontology/       # object-type / link-type / action-type JSON Schemas
+│   │   │   ├── ontology/       # object/link/action schemas; ObjectType may declare lifecycle criteria + provenance
 │   │   │   └── workflow/       # workflow/schema.json (process-automation catalog)
 │   │   ├── ontology/           # runtime ontology helpers (ACL, audit purposes, purpose taxonomy)
 │   │   ├── providers/          # CSP-neutral cloud provider interfaces (adapters implement them)
-│   │   │                       #   event_bus.py, secret_provider.py, state_store.py,
-│   │   │                       #   workload_identity.py, inventory.py, vm_task.py, python_task_author.py + LLM / channel / RBAC / feasibility-probe seams
-│   │   │                       # `providers/local/` = dev-mode fakes (`EnvSecretProvider`, `LocalWorkloadIdentity`, `FileFixtureInventory`);
+│   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,
+│   │   │                       #   workload_identity.py, inventory.py, log_query.py, trace_query.py, incident_platform.py, behavior_knowledge.py, programmatic_pipeline.py + LLM / channel / RBAC seams
+│   │   │                       # `providers/local/` = process-local transport adapters (`LocalEventBus`, bounded `LocalSseSink`) plus explicit offline helpers (`EnvSecretProvider`, `LocalWorkloadIdentity`, `FileFixtureInventory`);
 │   │   │                       # `providers/testing/` = in-memory fakes used across the test suite (never bound in prod)
 │   │   ├── streaming/          # `SseBroadcaster` + `StagePublisher`: relay EventBus topics → SSE channels
 │   │   ├── telemetry/          # structured logging, tracing, metric helpers
@@ -73,14 +81,20 @@ fdai/
 │   ├── delivery/              # action delivery adapters (behind one shared interface)
 │   │   ├── gitops_pr/          # remediation-pr adapter: GitHub App / Azure DevOps, Checks API
 │   │   ├── chatops/            # channel adapters (Teams / Slack / email / webhook / pager / SMS)
-│   │   ├── notifications/      # per-channel senders (email HTTP, HIL sink) wired by `shared/providers` seams
-│   │   ├── persistence/        # Postgres / pgvector concrete implementations of `shared/providers` state seams
-│   │   ├── azure/              # Azure-specific SDK adapters (the only tree allowed to import `azure-*`)
-│   │   │                       #   `vm_task.py` uses Managed Run Command; `llm/python_task_author.py` generates inert drafts
+│   │   ├── notifications/      # per-channel senders; sibling `incident_platform/` provides PagerDuty/ServiceNow lifecycle and PagerDuty roster adapters
+│   │   ├── persistence/        # Postgres / pgvector stores, including conversation binding and outbound delivery CAS ledgers
+│   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, and built-in behavior seeds
+│   │   ├── pgvector/           # persistent document and behavior vector indexes
+│   │   ├── azure/              # Azure-specific adapters, including bounded logs/metrics/App Insights trace evidence (the only tree allowed to import `azure-*`)
+│   │   │                       #   `vm_task.py` uses Managed Run Command; `container_apps_job_backend.py` starts pinned Job templates; `llm/python_task_author.py` generates inert drafts
 │   │   ├── vm_task/            # planning-only read adapter + ontology ToolExecutor bridge; no cloud SDK imports
+│   │   ├── execution_backend/  # bubblewrap and VM-task lifecycle adapters over existing sandbox authority
+│   │   ├── programmatic_pipeline/ # local isolated child runner; Azure strict submission adapter remains under delivery/azure
+│   │   ├── browser/             # optional isolated async Playwright evidence capture; GET/HEAD only, no page handle
+│   │   ├── trajectory/         # deterministic JSONL streaming export with quarantine and atomic partial-file cleanup
 │   │   ├── chaos/              # live chaos-inject adapters when a `Chaos` runbook step goes enforce: `live_injectors.py` (CSP-neutral primitive fan-out) + `chaos_mesh.py` (Chaos Mesh CRDs) + `mysql_load.py` (MySQL benchmark load)
 │   │   ├── remediation/        # concrete `DirectApiExecutor` for direct-API remediation (`live_direct_api.py`); the Protocol lives in `shared/providers/`
-│   │   ├── read_api/           # thin ASGI - `main.py` composes the routes/ + streaming/ subpackages (G-5, tracker #14). `routes/` holds one module per HTTP surface: **GET** (audit, kpi, hil-callback, rule-catalog, ontology-graph, inventory-graph, panels, promotion-gates, reporting, workflow-authoring, console-action, what-if, blast-radius, bitemporal, llm-cost, measurement-summary, pantheon, demo-findings, rule-fire-trace) plus two **POST** carve-outs (chat, webhook - `webhook` is optional and mounted only when `webhook_ingress` is bound); `streaming/` holds the three SSE fan-outs (live_stream, live_control_loop, provision_stream); `dev/` holds `local.py` (was `_local.py`) - dev-only, dropped from production container images; `auth.py` / `entra_verifier.py` / `read_model.py` stay at the top level as shared infrastructure
+│   │   ├── read_api/           # thin ASGI - `main.py` composes one module per HTTP surface under `routes/`, SSE fan-out under `streaming/`, and separate `dev/` / `production/` wiring. GET routes project bounded state; POST command routes submit governed records or typed proposals and never call a privileged executor directly
 │   │   ├── ingestion_gateway/  # dedicated content-write ASGI: scoped upload sessions, status, cancellation, version listing, governed deletion
 │   │   ├── provisioning/       # surface-A Genesis bootstrap: pure `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O injected, no subprocess)
 │   │   └── scheduler_tick_cli.py  # standalone entry point that drives the scheduler tick from a cron / Container Apps Job
@@ -91,6 +105,7 @@ fdai/
 │   │   └── codegen/            # authoring helpers (`new_action_type`, `new_object_type`) - generate scaffolds, never mutate the live catalog
 │   ├── agents/                # pantheon runtime - 15 named agent modules (odin / thor / forseti / huginn / heimdall / ...), typed topics + bus, adapters + registry; see [agent-pantheon.md](../agents/agent-pantheon.md)
 │   ├── composition/           # composition root package (G-3, tracker #14): `__init__.py` (facade + `default_container` + `default_container_from_env`) + `_helpers.py` (Container / LlmBindings / LlmBindingsUnavailableError) + `wire_capabilities.py` (validated fork CapabilityBundle installer) + `wire_llm.py` (Azure OpenAI LLM binder) + `wire_azure.py` (fork-wire container + `AzureWireOverrides`) + `wire_change_feed.py` (Azure DevOps / GitHub change-feed factories) + `wire_metric_provider.py` (MetricProvider binder; Azure Monitor Logs auto-bind when `FDAI_MONITOR_WORKSPACE_ID` is set - split out of `wire_azure` to hold the LOC ceiling, G-4)
+│   ├── runtime/               # headless lifecycle and composition, including durable post-turn review wiring into Norns
 │   └── __main__.py            # entry point (starts the P1 control loop)
 ├── rule-catalog/              # catalog-as-code DATA (YAML) - no Python; pipeline lives in src/fdai/rule_catalog/
 │   ├── schema/                 # JSON Schema definitions (data)
@@ -151,7 +166,7 @@ fdai/
 │   └── package.json            # deps: ink, react (run with tsx, no build step)
 ├── site/                      # Astro / Starlight docs site (renders docs/**/*.md with i18n + search)
 ├── ui/                        # (future) static UI kit (Calm Slate theme) - placeholder
-├── tests/                     # cross-subsystem regression suites + shared fixtures (unit tests colocate)
+├── tests/                     # subsystem-focused unit tests plus cross-subsystem regression suites and shared fixtures
 ├── docs/roadmap/              # this roadmap and design docs
 ├── pyproject.toml             # single manifest for the Python monorepo
 └── .github/                   # instructions/ and workflows/ (CI: lint, secret-scan, coverage)
@@ -162,9 +177,9 @@ fdai/
 > (`trust-router`, `deterministic-engine`, `rule-catalog`, `risk-gate`, `remediation-pr`,
 > `shadow-mode`, `HIL`). Python identifier rules require `snake_case` on disk
 > (`event_ingest`, `trust_router`, `rule_catalog`); the kebab-case names above are the
-> **logical vocabulary** used in docs, rule ids, config keys, and audit records. Unit
-> tests colocate with each subsystem; `tests/` holds only cross-subsystem regression and
-> property suites.
+> **logical vocabulary** used in docs, rule ids, config keys, and audit records. Tests mirror
+> the source layout under `tests/core/`, `tests/delivery/`, `tests/agents/`, and related roots;
+> cross-subsystem regression and property suites live in the same top-level `tests/` tree.
 
 ## Module Boundaries
 
@@ -174,9 +189,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   only through the CSP-neutral interfaces in `shared/providers/`, whose implementations live
   in `delivery/` and `infra/` and are injected at composition time. This keeps a second cloud
   a matter of adding an adapter, never editing `core/`.
-- **allowed imports**: `core/` may import `shared/` (contracts, providers, telemetry, config)
-  only; `delivery/`, `infra/`, and `console/` may depend on `shared/` contracts but not on
-  `core/` internals; `shared/` imports nothing from `core/` (no cycles).
+- **allowed imports**: `shared/` imports nothing from `core/`; `core/` may import only
+  `shared/` contracts, providers, telemetry, and config; `delivery/` may compose `core/` and
+  `shared/` behind adapter boundaries; `composition/` binds all layers. `core/` never imports
+  `delivery/`, and browser code never imports Python implementation modules.
 - **policies and rules are data, not code paths**: T0 loads `rule-catalog/` entries and
   `policies/` at runtime; adding a rule or policy never requires an engine change. Rules
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.
@@ -185,9 +201,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
 - **delivery is swappable**: `gitops-pr` and `chatops` are adapters behind one interface, so
   the executor emits an abstract action and the adapter renders it (remediation-pr, Adaptive
   Card). The executor holds the only privileged identity; adapters never share it.
-- **console is read-only**: it visualizes state, audit, shadow results, and the HIL queue but
-  issues no privileged calls and executes no actions. HIL approvals flow through ChatOps or
-  the remediation-pr, never through console buttons
+- **console has no privileged identity**: it visualizes state, audit, shadow results, and the
+  HIL queue. Command surfaces may submit authenticated records or typed proposals to the read
+  API, but they cannot call a resource executor directly; risk, approval, audit, and executor
+  boundaries remain server-side
   (see [security-and-identity.md](security-and-identity.md)).
   The navigation shell uses an icon-only Activity Bar with five stable domains:
   `Overview`, `Operations`, `Agents`, `Governance`, and `Evidence`. The adjacent Explorer
@@ -344,12 +361,25 @@ Production uses `PostgresTrustedArtifactStore` and the `trusted_artifact` table.
 ids share one schema but remain separated by `artifact_kind`; insert requires expected revision 0,
 and every update requires an exact revision and increments by one. The table repeats the content
 size, SHA-256, 64-byte signature, state, timestamp, and revision constraints. It stores no private
-key or provider credential. A restarted composition can re-verify the stored raw artifact and
-signature before rebuilding enabled runtime state.
+key or provider credential. Production read-API startup loads skill records, resolves publisher
+public keys from `FDAI_SKILL_TRUSTED_PUBLISHERS_PATH`, and atomically publishes a reverified
+`RuntimeSkillDisclosure` shared by Bragi, optional typed RPC, and the GET-only Skills panel. Local
+composition publishes an empty fail-closed snapshot when no durable skill store is configured.
+Governed multi-skill manifests use the separate `skill_bundle` artifact kind and
+`fdai.skill-bundle-signature.v1` domain. Startup rebuilds skills before bundles so exact member
+versions and enabled state are validated before the shared runtime snapshot is published.
+
+Approved external skill repositories use the separate durable source pipeline in
+[skill-source-management.md](../interfaces/skill-source-management.md). `core/skills/source_registry.py`
+owns immutable source identity; `core/supply_chain/skill_source_*.py` owns quarantine, disabled
+candidate approval, scheduled ETag refresh, and revocation policy. PostgreSQL adapters persist the
+five Alembic `0045` tables. Reader GET routes expose source evidence, while separate Approver and
+Owner POST routes install disabled candidates or revoke without deleting provenance. Production
+reloads the runtime disclosure after either command so durable disablement takes effect immediately.
 
 ### Injectable Seams
 
-The five seams marked **CSP-neutrality contract** below realize the wire-level contracts in
+The eight seams marked **CSP-neutrality contract** below realize the wire-level contracts in
 [csp-neutrality.md](csp-neutrality.md). `core/` sees only the interface; a fork or a future
 non-Azure phase registers a new implementation at the composition root without editing `core/`.
 
@@ -360,18 +390,25 @@ non-Azure phase registers a new implementation at the composition root without e
 | Secret & config | `SecretProvider` / `ConfigProvider` | **CSP-neutrality contract** - [secret](csp-neutrality.md#3-secret-contract--environment--k8s-secret) | env + Container Apps KV-reference bridge | ESO + Key Vault / AWS Secrets Manager / GCP Secret Manager / HashiCorp Vault |
 | Workload identity | `WorkloadIdentity` (audience-scoped OIDC token) | **CSP-neutrality contract** - [workload identity](csp-neutrality.md#4-workload-identity-contract--oidc-token) | user-assigned Managed Identity (IMDS → Entra token) | IRSA, GCP Workload Identity Federation, SPIFFE/SPIRE SVID |
 | Inventory | `Inventory` plus `InventorySnapshotStore` (CSP-neutral batches, immutable candidate staging, atomic active pointer) | **CSP-neutrality contract** - [inventory](csp-neutrality.md#5-inventory-contract--resource-graph) | Scheduled Azure collector under a dedicated read-only MI: ARG full-scan, direct ARM-list fallback, signed declarative recovery, PostgreSQL last-known-good projection | A fork injects another ordered source while preserving coverage, authority, and atomic-promotion semantics |
-| Cloud provider | provider client | (uses the five above) | reference/generic Azure adapter | a specific CSP adapter |
+| Metric ingestion | `MetricProvider` | **CSP-neutrality contract** - [metrics](csp-neutrality.md#6-metric-query-contract--csp-neutral-sample-iterator) | `NoopMetricProvider` or Azure Monitor Logs binding | CloudWatch, Prometheus, Datadog, or another normalized metric adapter |
+| Log ingestion | `LogQueryProvider` | **CSP-neutrality contract** - [logs](csp-neutrality.md#7-log-query-contract--structured-log-records) | `NoopLogQueryProvider`; Azure adapter binds KQL when configured | Loki, Elasticsearch, CloudWatch Logs, or another structured log adapter |
+| Trace ingestion | `TraceQueryProvider` | **CSP-neutrality contract** - [traces](csp-neutrality.md#8-trace-query-contract--distributed-trace-spans) | `NoopTraceQueryProvider`; Azure adapter binds Application Insights when configured | Tempo, Jaeger, Honeycomb, or another span adapter |
+| Cloud provider | provider client | (uses the eight above) | reference/generic Azure adapter | a specific CSP adapter |
 | **Schema source** | `SchemaRegistry` (raw JSON Schema loader) | - | `PackageResourceSchemaRegistry` (schemas ship inside the package) | remote schema-registry adapter; snapshot pinned by content hash |
 | **Boundary validation** | `ContractValidator` / `EventValidator` (fail-closed input check) | - | `JsonSchemaContractValidator` + `JsonSchemaEventValidator` (draft-2020-12) | fork MAY layer domain-specific checks (e.g. source allowlist) without editing `core/` |
+| **Governed trajectory datasets** | Immutable audit / conversation / tool / approval / outcome snapshot Protocols, `TrajectoryAccessAuthorizer`, and `TrajectoryDatasetStore` in `shared/providers/trajectory.py`; `TrajectoryJoinService` and `TrajectoryDatasetAdminService` in `core/trajectory/` | - | Deny-by-default allowlist authorizer, in-memory metadata store, deterministic JSONL exporter, PostgreSQL metadata/quarantine adapters, Owner-only GET projection, and offline validator | inject policy-backed scope authorization and immutable source readers while preserving authorization-before-materialization, bounded excerpts, checksums, retention/legal hold, and reviewed-only Norns intake ([design](../interfaces/governed-trajectory-datasets.md)) |
 | Rule / policy source | rule-catalog + `policies/` loader | - | bundled generic rules | customer rule set / thresholds |
 | **Capability bundle runtime** | `CapabilityRuntime` + `CapabilityBundle` and trust-verified `ExtensionManager` in `core/capability_catalog/`; `install_capability_bundle(...)` in `composition/` | - | default discovery catalog with no fork bindings; extensions install disabled | add a reviewed reasoning tool provider or bind a capability to an existing `ActionType` / `Workflow`; digest, trust, compatibility, manifest parity, and all references validate before activation |
+| **Context selection policy** | `ContextSelectionPolicy`, mandatory invariant wrapper, revision-safe authority, shadow runner, replay, and evidence store in `core/working_context/`; `context_selection_policy` references in `CapabilityRuntime` | - | immutable `deterministic-tiered-v1@1.0.0`; candidate installation disabled; durable evidence reuses `StateStore` | register a reviewed policy implementation at composition, bind its exact id/version through `CapabilityRuntime`, measure it in bounded shadow, and promote only with an evidence window plus rollback target ([design](../decisioning/context-selection-policy.md)) |
+| **Browser evidence** | `BrowserEvidenceProvider`, origin policy, capture request, artifact store, and custody sink in `shared/providers/browser_evidence.py`; policy and services in `core/browser_evidence/` | - | unbound by default; optional isolated Playwright delivery adapter, PostgreSQL artifacts, append-only custody, evidence workflow step, and GET-only inspection | bind exact server-owned policies and a restricted-egress runtime without executor identity; content stays untrusted and shadow-only ([design](../interfaces/browser-evidence.md)) |
 | **MSCP effect observation** | `ExpectedEffectProvider` and `IndependentEffectObserver` in `core/mscp_profile/`; optional pair on immutable `Container` | - | unbound by default; the headless runtime passes a complete pair into ControlLoop for predict -> dispatch -> observe -> shadow-audit ordering | bind both collaborators with `dataclasses.replace`; partial binding fails fast and shadow results never raise autonomy ([design](mscp-operational-profile.md)) |
 | **Typed external RPC** | `RpcRegistry`, `RpcMethod`, scopes, and idempotency contract in `core/rpc/`; bounded HTTP client/route, deterministic Python stub codegen, and `build_production_rpc_app(...)` in `delivery/rpc/` | - | no RPC route is mounted by the control plane; opt-in standalone app binds built-in tool discovery and PostgreSQL hashed claims | a fork supplies the identity-aware authorizer and explicit additional methods; side-effect methods require durable idempotency claims and still submit typed proposals rather than invoking an executor directly |
 | **Ontology ObjectType / LinkType** | `load_object_type_catalog(root, *, schema_registry)` and `load_link_type_catalog(root, *, schema_registry, object_types=...)` in `src/fdai/rule_catalog/schema/` | - | four upstream ObjectTypes (`Resource`, `Rule`, `Signal`, `Finding`) and the shipped LinkTypes under `rule-catalog/vocabulary/{object-types,link-types}/`, loaded into `Container.ontology_object_types` / `Container.ontology_link_types` by the entry point | fork ships additional YAML under a fork-local directory (e.g. `fork/vocabulary/object-types/ArchitectureProposal.yaml`), loads both roots at its composition root, and passes the concatenated tuples via `dataclasses.replace(container, ontology_object_types=..., ontology_link_types=...)`. Duplicate `name` across roots fails-closed. See [downstream-fork-seam-recipes.md § 5.8a](../fork-and-sequencing/downstream-fork-seam-recipes.md#58a-ontology-object-type--link-type-additions). |
-| **Workflow catalog (process automation)** | `load_workflow_catalog(root, *, schema_registry, action_type_names, rule_ids=...)` in `src/fdai/rule_catalog/schema/workflow.py`; `compile_workflow(...)` in `src/fdai/core/workflow/` | - | shadow-first Workflows under `rule-catalog/workflows/`, loaded into `Container.workflows` by the entry point after the ActionType + rule catalogs; every step cross-references an `ActionType` and (when set) a Rule id, fail-closed at startup | fork ships additional Workflow YAML under a fork-local `fork/workflows/` directory, loads it at its composition root with the concatenated ActionType / rule sets, and passes the tuple via `dataclasses.replace(container, workflows=...)`. Duplicate `name` across roots fails-closed. See [process-automation.md](../decisioning/process-automation.md). |
+| **Workflow catalog (process automation)** | `load_workflow_catalog(root, *, schema_registry, action_type_names, rule_ids=...)` in `src/fdai/rule_catalog/schema/workflow.py`; `compile_workflow(...)` in `src/fdai/core/workflow/` | - | shadow-first Workflows under `rule-catalog/workflows/`; every action step cross-references an `ActionType`, while evidence/control steps use dedicated typed contracts | fork ships additional Workflow YAML under a fork-local `fork/workflows/` directory, loads it at its composition root with the concatenated ActionType / rule sets, and passes the tuple via `dataclasses.replace(container, workflows=...)`. Duplicate `name` across roots fails-closed. See [process-automation.md](../decisioning/process-automation.md). |
 | **Governed Python task** | `PythonTaskAuthor`, `PythonTaskArtifactStore`, `VmTaskTargetResolver`, and `VmTaskRunner` in `shared/providers/` | - | local template author + in-memory artifacts/targets + planning runner; production stores immutable artifacts in Postgres, resolves targets from active inventory, and the headless executor binds Azure Managed Run Command | a fork supplies another author, artifact repository, target resolver, or compute runner while preserving content hashes, declared capabilities, idempotency, non-executing read-API plans, and typed proposal dispatch. See [process-automation.md § 4.5](../decisioning/process-automation.md#45-governed-python-tasks-and-cron-schedules). |
 | **Governed sandbox profiles** | `SandboxProfileCatalog`, `VmTaskSandboxCatalog`, `ToolSandboxCatalog`, and `DocumentConverterSandboxCatalog` in `core/sandbox/`; `DocumentConverter` in `shared/providers/` | - | unprofiled command, VM-task, tool, and converter requests fail closed; profiled wrappers enforce capability, mode, suffix, timeout, argument/input/output byte, and workspace/network ceilings immediately before concrete adapters | a fork supplies explicit server-owned profiles with each adapter binding. It may implement a converter or alternate runner behind the provider contracts, but cannot expose host paths, executables, credentials, or broader request authority. See [process-automation.md § 4.6](../decisioning/process-automation.md#46-governed-command-and-shell-artifacts). |
-| **Governed command, shell task, and code workspace** | `CommandRunner`, `CommandPlan`, `ShellTaskChecker`, `ShellTaskSpec`, `CodeWorkspaceProvider`, and `CodePatchSet` in `shared/providers/`; `CommandCatalog`, default command specs, shell structural validation, and workspace patch validation in `core/tools/` and `core/python_task/` | - | `RecordingCommandRunner`, `BashSyntaxChecker`, opt-in `BubblewrapCommandRunner`, copy-on-write `GitCodeWorkspaceProvider`, and opt-in `AzureCliCommandRunner` for `azure.resource.list`; generated Python rejects `process`, shell artifacts validate but do not execute, local commands run only in private read-only workspaces, and the upstream app binds no live runner by default | a fork may bind the credential-free local runner and private workspace provider, or the credentialed Azure read broker. It must preserve server-owned scope and identity, deterministic argv rendering, no raw command strings, stale-file hash checks, idempotency, output bounds, and the `tool_call` / `direct_api` / `run_runbook` path split. See [process-automation.md § 4.6](../decisioning/process-automation.md#46-governed-command-and-shell-artifacts). |
+| **Governed execution backend** | `ExecutionBackend` and `ExecutionSubmissionLedger` in `shared/providers/execution_backend.py`; profile intersection and coordinator in `core/execution_backend/`; `bind_execution_backends(...)` in `composition/` | - | profiles load disabled, existing sandbox validation runs first, PostgreSQL stores idempotent lifecycle attempts, bubblewrap and VM adapters preserve behavior, and Azure Container Apps Job starts only pre-provisioned pinned templates | supply server-owned profiles and concrete adapters at composition. A binding can narrow but cannot add workloads, credentials, network, workspace access, limits, region, or scope. It owns no eligibility, approval, rollback, or audit decision. See [execution-backends.md](../interfaces/execution-backends.md). |
+| **Governed command, shell task, and code workspace** | `CommandRunner`, `CommandPlan`, `ShellTaskChecker`, `ShellTaskSpec`, `CodeWorkspaceProvider`, and `CodePatchSet` in `shared/providers/`; `CommandCatalog`, default command specs, shell structural validation, and workspace patch validation in `core/tools/` and `core/python_task/` | - | `RecordingCommandRunner`, `BashSyntaxChecker`, opt-in `BubblewrapCommandRunner`, copy-on-write `GitCodeWorkspaceProvider`, and opt-in `AzureCliCommandRunner` for typed `azure.resource.list`, `azure.group.list`, `azure.vm.list`, and `azure.vm.status` reads; local VM inventory uses `az vm list --show-details`; generated Python rejects `process`, shell artifacts validate but do not execute, and the upstream app binds no live runner by default | a fork may bind the credential-free local runner and private workspace provider, or the credentialed Azure read broker. It must preserve server-owned scope and identity, deterministic argv rendering, no raw command strings, stale-file hash checks, idempotency, output bounds, and the `tool_call` / `direct_api` / `run_runbook` path split. See [process-automation.md § 4.6](../decisioning/process-automation.md#46-governed-command-and-shell-artifacts). |
 | **Incident confirmation** | `IncidentProposalStore` in `core/incident/proposal_store.py` | - | bounded `InMemoryIncidentProposalStore` for local development; `PostgresIncidentProposalStore` in production uses atomic consume across replicas | inject another durable store only when it preserves same-principal/session binding, expiry, and atomic single-consumer semantics |
 | **Incident notification delivery** | `IncidentLifecycleNotifier` wrapped by `DurableIncidentLifecycleNotifier`; `IncidentNotificationDeliveryStore` for atomic claim/complete/release | - | in-memory claims for local; PostgreSQL row-lock claims with leases in production; notification matrix + HIL escalation fallback | bind Teams, Slack, email, webhook, or pager adapters in `ChannelRegistry`; preserve stable `audit_id`, single-claimer semantics, lease recovery, and startup replay |
 | Delivery adapter | delivery interface | - | `gitops-pr` / `chatops` | a different PR host / chat channel |
@@ -386,10 +423,10 @@ non-Azure phase registers a new implementation at the composition root without e
 Because every seam is an injected interface, adding a customer or a second cloud is a matter of
 registering an implementation - the strict one-way dependency direction above is preserved.
 
-**Concurrency posture**: the five **I/O provider Protocols** - `EventBus`, `StateStore`,
-`SecretProvider`, `WorkloadIdentity`, `Inventory` - are **async by default**. Their concrete
-implementations (Kafka client, asyncpg, Key Vault HTTP, OIDC token exchange, ARG/HTTP
-inventory queries) block the event loop if forced to be sync. The **CPU / startup seams** - `SchemaRegistry`,
+**Concurrency posture**: I/O-bearing provider Protocols such as `EventBus`, `StateStore`,
+`SecretProvider`, `WorkloadIdentity`, `Inventory`, `MetricProvider`, `LogQueryProvider`, and
+`TraceQueryProvider` are **async by default**. Their concrete implementations block the event
+loop if forced to be sync. The **CPU / startup seams** - `SchemaRegistry`,
 `ContractValidator` / `EventValidator`, `ConfigProvider` - stay **sync**: they run once at
 startup, or are pure CPU boundary validation with no I/O, so an async wrapper would only add
 noise. Tests use `pytest-asyncio` with `asyncio_mode = "auto"` so a plain `async def

@@ -6,11 +6,23 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from fdai.delivery.read_api.routes.chat_behavior_evidence import (
+    behavior_evidence_refs,
+    render_behavior_answer,
+)
 from fdai.delivery.read_api.routes.chat_claims import (
     AtomicClaim,
     EvidenceManifest,
     ScreenClaimResult,
     verify_screen_claims,
+)
+from fdai.delivery.read_api.routes.chat_inventory import (
+    inventory_evidence_refs,
+    render_inventory_answer,
+)
+from fdai.delivery.read_api.routes.chat_log_query import (
+    log_query_evidence_refs,
+    render_log_query_answer,
 )
 
 VerificationStatus = Literal["verified", "consistent", "corrected", "unverified"]
@@ -72,6 +84,106 @@ def verify_answer(
     rendered from the server-owned evidence state, so unsupported model text
     never becomes the terminal conversation history.
     """
+
+    tool = view_context.get("_tool_evidence")
+    if isinstance(tool, Mapping) and tool.get("tool") == "query_log":
+        log_answer = render_log_query_answer(tool, locale=locale)
+        if log_answer is None:
+            return AnswerVerification(
+                status="unverified",
+                answer="Azure Monitor Logs evidence could not be rendered.",
+                authority="server_log_query",
+                checks_completed=0,
+                checks_total=1,
+                reason_code="log_query_evidence_invalid",
+            )
+        result = tool.get("result")
+        state = result.get("status") if isinstance(result, Mapping) else None
+        log_refs = log_query_evidence_refs(tool)
+        if state in {"matched", "empty"}:
+            return AnswerVerification(
+                status=_changed(provisional, log_answer),
+                answer=log_answer,
+                authority="server_log_query",
+                checks_completed=1,
+                checks_total=1,
+                evidence_refs=log_refs,
+                reason_code="log_query_bounded",
+            )
+        return AnswerVerification(
+            status="unverified",
+            answer=log_answer,
+            authority="server_log_query",
+            checks_completed=0,
+            checks_total=1,
+            evidence_refs=log_refs,
+            reason_code="log_query_unavailable",
+        )
+
+    if isinstance(tool, Mapping) and tool.get("tool") == "query_inventory":
+        inventory_answer = render_inventory_answer(tool, locale=locale)
+        if inventory_answer is None:
+            return AnswerVerification(
+                status="unverified",
+                answer="Azure inventory evidence could not be rendered.",
+                authority="server_inventory_graph",
+                checks_completed=0,
+                checks_total=1,
+                reason_code="inventory_evidence_invalid",
+            )
+        result = tool.get("result")
+        state = result.get("status") if isinstance(result, Mapping) else None
+        inventory_refs = inventory_evidence_refs(tool)
+        if state == "matched":
+            return AnswerVerification(
+                status=_changed(provisional, inventory_answer),
+                answer=inventory_answer,
+                authority="server_inventory_graph",
+                checks_completed=1,
+                checks_total=1,
+                evidence_refs=inventory_refs,
+                reason_code="inventory_snapshot_grounded",
+            )
+        return AnswerVerification(
+            status="unverified",
+            answer=inventory_answer,
+            authority="server_inventory_graph",
+            checks_completed=0,
+            checks_total=1,
+            evidence_refs=inventory_refs,
+            reason_code="inventory_evidence_unavailable",
+        )
+
+    behavior = view_context.get("_behavior_evidence")
+    if isinstance(behavior, Mapping):
+        answer = render_behavior_answer(behavior, locale=locale)
+        state = behavior.get("status")
+        behavior_refs = behavior_evidence_refs(behavior)
+        if state in {"matched", "comparison"}:
+            return AnswerVerification(
+                status=_changed(provisional, answer),
+                answer=answer,
+                authority="behavior_knowledge_index",
+                checks_completed=len(behavior_refs),
+                checks_total=len(behavior_refs),
+                evidence_refs=behavior_refs,
+                reason_code="behavior_contract_fresh",
+            )
+        reason = {
+            "stale": "behavior_source_stale",
+            "conflict": "behavior_contract_conflict",
+            "none": "behavior_evidence_absent",
+            "unavailable": "behavior_index_unavailable",
+        }.get(str(state), "behavior_evidence_unknown")
+        return AnswerVerification(
+            status="unverified",
+            answer=answer,
+            authority="behavior_knowledge_index",
+            checks_completed=0,
+            checks_total=max(1, len(behavior_refs)),
+            evidence_refs=behavior_refs,
+            reason_code=reason,
+        )
 
     raw = view_context.get("_operational_evidence")
     if not isinstance(raw, Mapping):

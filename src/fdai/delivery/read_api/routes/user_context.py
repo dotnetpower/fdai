@@ -16,6 +16,12 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from fdai.core.briefing import OpeningBriefingService, next_cron_run
+from fdai.core.scheduler.continuation import (
+    ContinuationAccess,
+    ContinuationAccessDeniedError,
+    ScheduledContinuationService,
+    scheduled_result_to_typed_fact,
+)
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.shared.providers.briefing import (
     BriefingConflictError,
@@ -29,8 +35,20 @@ from fdai.shared.providers.briefing import (
     ConversationPolicyRecord,
     ConversationPolicyStore,
 )
+from fdai.shared.providers.conversation_search import (
+    ConversationSearch,
+    ConversationSearchMode,
+    ConversationSearchQuery,
+    ConversationSearchScope,
+)
+from fdai.shared.providers.scheduled_continuation import (
+    ContinuationMode,
+    ScheduledConversationAnchorStore,
+    ScheduledResultOrigin,
+)
 from fdai.shared.providers.user_context import (
     ConversationHistoryStore,
+    ConversationTurnRole,
     UserContextConflictError,
     UserMemoryCategory,
     UserMemoryFact,
@@ -54,12 +72,16 @@ def _same_subscription_intent(
         and existing.delivery_modes == requested.delivery_modes
         and existing.channel_binding_ref == requested.channel_binding_ref
         and existing.max_lateness_seconds == requested.max_lateness_seconds
+        and existing.continuation_mode is requested.continuation_mode
+        and existing.continuation_origin == requested.continuation_origin
+        and existing.continuation_ttl_seconds == requested.continuation_ttl_seconds
     )
 
 
 @dataclass(frozen=True, slots=True)
 class UserContextRoutesConfig:
     conversations: ConversationHistoryStore
+    conversation_search: ConversationSearch
     preferences: UserPreferenceStore
     memories: UserMemoryStore
     policies: ConversationPolicyStore
@@ -67,6 +89,8 @@ class UserContextRoutesConfig:
     runs: BriefingRunStore
     opening_briefing: OpeningBriefingService
     ontology_projector: UserContextOntologyProjector | None = None
+    continuations: ScheduledConversationAnchorStore | None = None
+    continuation_service: ScheduledContinuationService | None = None
 
 
 def make_user_context_routes(
@@ -97,6 +121,14 @@ def make_user_context_routes(
                     ),
                 }
             )
+        continuations = (
+            await config.continuations.list_for_principal(
+                principal_id=principal_id,
+                limit=100,
+            )
+            if config.continuations is not None
+            else ()
+        )
         return JSONResponse(
             {
                 "preference": _json(preference) if preference else None,
@@ -104,6 +136,7 @@ def make_user_context_routes(
                 "policies": [_json(item) for item in policies],
                 "subscriptions": [_json(item) for item in subscriptions],
                 "briefing_runs": [_json(item) for item in runs],
+                "scheduled_continuations": [_json(item) for item in continuations],
                 "conversations": conversation_views,
             }
         )
@@ -172,6 +205,45 @@ def make_user_context_routes(
             limit=limit,
         )
         return JSONResponse({"turns": [_json(turn) for turn in turns]})
+
+    async def search_conversations(request: Request) -> Response:
+        principal_id = await authorize(request)
+        try:
+            query = _conversation_search_query(request)
+            page = await config.conversation_search.search(
+                scope=ConversationSearchScope(principal_id=principal_id),
+                query=query,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        payload = _json(page)
+        payload.pop("query_ms", None)
+        return JSONResponse(payload)
+
+    async def conversation_search_context(request: Request) -> Response:
+        principal_id = await authorize(request)
+        try:
+            context_result = await config.conversation_search.context(
+                scope=ConversationSearchScope(principal_id=principal_id),
+                result_id=request.path_params["result_id"],
+                before=_query_int(request, "before", default=1),
+                after=_query_int(request, "after", default=1),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if context_result is None:
+            raise HTTPException(status_code=404, detail="conversation search result not found")
+        return JSONResponse(_json(context_result))
+
+    async def conversation_lineage(request: Request) -> Response:
+        principal_id = await authorize(request)
+        lineage = await config.conversation_search.lineage(
+            scope=ConversationSearchScope(principal_id=principal_id),
+            conversation_id=request.path_params["conversation_id"],
+        )
+        if lineage is None:
+            raise HTTPException(status_code=404, detail="conversation not found")
+        return JSONResponse(_json(lineage))
 
     async def delete_conversation(request: Request) -> Response:
         principal_id = await authorize(request)
@@ -316,6 +388,24 @@ def make_user_context_routes(
                 detail="only in_app briefing delivery is currently supported",
             )
         try:
+            continuation_mode = ContinuationMode(str(body.get("continuation_mode", "none")))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="invalid continuation_mode") from exc
+        continuation_origin = None
+        if continuation_mode is not ContinuationMode.NONE:
+            conversation_id = _required_text(body, "origin_conversation_id")
+            conversation = await config.conversations.get_conversation(
+                principal_id=principal_id,
+                conversation_id=conversation_id,
+            )
+            if conversation is None:
+                raise HTTPException(status_code=404, detail="origin conversation not found")
+            continuation_origin = ScheduledResultOrigin(
+                channel_kind="web",
+                channel_ref=conversation.channel_id,
+                conversation_ref=conversation.conversation_id,
+            )
+        try:
             record = BriefingSubscription(
                 subscription_id=subscription_id,
                 principal_id=principal_id,
@@ -329,6 +419,9 @@ def make_user_context_routes(
                 created_at=now,
                 channel_binding_ref=_optional_text(body, "channel_binding_ref"),
                 max_lateness_seconds=int(body.get("max_lateness_seconds", 3600)),
+                continuation_mode=continuation_mode,
+                continuation_origin=continuation_origin,
+                continuation_ttl_seconds=int(body.get("continuation_ttl_seconds", 604_800)),
             )
             existing = next(
                 (
@@ -380,8 +473,55 @@ def make_user_context_routes(
             await config.ontology_projector.project_briefing_run(run)
         return JSONResponse({"briefing": _json(run) if run else None})
 
+    async def open_continuation(request: Request) -> Response:
+        principal_id = await authorize(request)
+        service = config.continuation_service
+        if service is None:
+            raise HTTPException(status_code=404, detail="scheduled continuation unavailable")
+        try:
+            anchor = await service.resolve(
+                anchor_id=request.path_params["anchor_id"],
+                access=ContinuationAccess(principal_id=principal_id),
+                now=datetime.now(tz=UTC),
+            )
+        except ContinuationAccessDeniedError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        fact = scheduled_result_to_typed_fact(anchor, token_estimator=lambda text: len(text) // 4)
+        return JSONResponse(
+            {
+                "anchor": _json(anchor),
+                "context_fact": _json(fact),
+            }
+        )
+
+    async def expire_continuation(request: Request) -> Response:
+        principal_id = await authorize(request)
+        service = config.continuation_service
+        if service is None:
+            raise HTTPException(status_code=404, detail="scheduled continuation unavailable")
+        try:
+            anchor = await service.expire(
+                anchor_id=request.path_params["anchor_id"],
+                access=ContinuationAccess(principal_id=principal_id),
+                now=datetime.now(tz=UTC),
+            )
+        except ContinuationAccessDeniedError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return JSONResponse(_json(anchor))
+
     return (
         Route("/me/context", context, methods=["GET"]),
+        Route("/me/conversations/search", search_conversations, methods=["GET"]),
+        Route(
+            "/me/conversations/search/{result_id:str}/context",
+            conversation_search_context,
+            methods=["GET"],
+        ),
+        Route(
+            "/me/conversations/{conversation_id:str}/lineage",
+            conversation_lineage,
+            methods=["GET"],
+        ),
         Route(
             "/me/conversations/{conversation_id:str}/turns",
             conversation_turns,
@@ -405,7 +545,60 @@ def make_user_context_routes(
             methods=["DELETE"],
         ),
         Route("/me/opening-briefing", opening_briefing, methods=["POST"]),
+        Route(
+            "/me/scheduled-continuations/{anchor_id:str}/open",
+            open_continuation,
+            methods=["POST"],
+        ),
+        Route(
+            "/me/scheduled-continuations/{anchor_id:str}",
+            expire_continuation,
+            methods=["DELETE"],
+        ),
     )
+
+
+def _conversation_search_query(request: Request) -> ConversationSearchQuery:
+    text = request.query_params.get("q", "")
+    mode = ConversationSearchMode(request.query_params.get("mode", "terms"))
+    roles_raw = _query_values(request, "role")
+    channels = _query_values(request, "channel")
+    return ConversationSearchQuery(
+        text=text,
+        mode=mode,
+        limit=_query_int(request, "limit", default=20),
+        context_turns=_query_int(request, "context", default=1),
+        channels=channels,
+        roles=tuple(ConversationTurnRole(value) for value in roles_raw),
+        conversation_id=request.query_params.get("conversation_id") or None,
+        incident_id=request.query_params.get("incident_id") or None,
+        correlation_id=request.query_params.get("correlation_id") or None,
+        recorded_after=_query_datetime(request, "after"),
+        recorded_before=_query_datetime(request, "before"),
+    )
+
+
+def _query_values(request: Request, name: str) -> tuple[str, ...]:
+    values = request.query_params.getlist(name)
+    return tuple(value.strip() for value in values if value.strip())
+
+
+def _query_int(request: Request, name: str, *, default: int) -> int:
+    raw = request.query_params.get(name)
+    try:
+        return int(raw) if raw is not None else default
+    except ValueError as exc:
+        raise ValueError(f"{name} MUST be an integer") from exc
+
+
+def _query_datetime(request: Request, name: str) -> datetime | None:
+    raw = request.query_params.get(name)
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"{name} MUST be an ISO 8601 timestamp") from exc
 
 
 async def _body(request: Request) -> dict[str, Any]:

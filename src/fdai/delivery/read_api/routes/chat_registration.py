@@ -6,6 +6,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Collection
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from starlette.requests import Request
@@ -13,8 +14,11 @@ from starlette.routing import BaseRoute
 
 from fdai.core.conversation.answer_plan import AnswerFormat, AnswerIntent, DetailLevel
 from fdai.core.conversation.answer_preferences import ResponsePreferenceProfile
+from fdai.core.skills import RuntimeSkillDisclosure
 from fdai.core.user_context_projection import UserContextOntologyProjector
+from fdai.delivery.read_api.busy_input_runtime import BusyInputRuntime
 from fdai.delivery.read_api.read_model import ConsoleReadModel
+from fdai.delivery.read_api.routes.busy_input import make_busy_input_routes
 from fdai.delivery.read_api.routes.chat import (
     DEFAULT_ROUTE_PATH,
     AgentChatDelegate,
@@ -27,10 +31,19 @@ from fdai.delivery.read_api.routes.chat import (
     make_chat_stream_route,
 )
 from fdai.delivery.read_api.routes.chat_answer_planning import compatible_planning_delegate
+from fdai.delivery.read_api.routes.chat_behavior_evidence import (
+    RepositoryBehaviorEvidenceResolver,
+)
 from fdai.delivery.read_api.routes.chat_evidence import OperationalEvidenceResolver
+from fdai.delivery.read_api.routes.chat_inventory import InventoryChatTools
+from fdai.delivery.read_api.routes.chat_log_query import LogQueryChatTools
+from fdai.delivery.read_api.routes.chat_skills import RuntimeSkillChatTools
 from fdai.delivery.read_api.routes.chat_system_health import SystemHealthChatTools
 from fdai.delivery.read_api.routes.chat_tools import ReadModelChatTools
+from fdai.delivery.read_api.routes.inventory_graph import InventoryGraphProvider
+from fdai.delivery.read_api.routes.post_turn_review import PostTurnReviewSubmitter
 from fdai.shared.providers.briefing import ConversationPolicyStore
+from fdai.shared.providers.conversation_search import ConversationSearch
 from fdai.shared.providers.user_context import ConversationHistoryStore, UserPreferenceStore
 
 
@@ -38,11 +51,17 @@ def append_chat_routes(
     routes: list[BaseRoute],
     *,
     backend: ChatBackend | None,
+    skill_disclosure: RuntimeSkillDisclosure | None = None,
+    busy_input_runtime: BusyInputRuntime | None = None,
     agent_delegate: AgentChatDelegate | None,
     web_search_resolver: ChatWebSearchEvidenceResolver | None = None,
     conversation_policy_store: ConversationPolicyStore | None = None,
     conversation_history_store: ConversationHistoryStore | None = None,
+    conversation_search: ConversationSearch | None = None,
+    inventory_graph_provider: InventoryGraphProvider | None = None,
+    log_query_provider: Any = None,
     answer_preference_store: UserPreferenceStore | None = None,
+    post_turn_review_submitter: PostTurnReviewSubmitter | None = None,
     user_context_ontology_projector: UserContextOntologyProjector | None = None,
     model_settings: object | None = None,
     authorize: Callable[[Request], Awaitable[str]],
@@ -61,12 +80,33 @@ def append_chat_routes(
         raise ValueError(f"chat path {DEFAULT_ROUTE_PATH!r} collides with a panel path")
 
     evidence = OperationalEvidenceResolver(read_model)
-    tools = SystemHealthChatTools(read_model, ReadModelChatTools(read_model))
+    behavior = RepositoryBehaviorEvidenceResolver(Path.cwd())
+    read_tools = ReadModelChatTools(read_model, conversation_search)
+    log_tools = (
+        read_tools
+        if log_query_provider is None
+        else LogQueryChatTools(log_query_provider, fallback=read_tools)
+    )
+    inventory_tools = (
+        log_tools
+        if inventory_graph_provider is None
+        else InventoryChatTools(inventory_graph_provider, fallback=log_tools)
+    )
+    skill_tools = (
+        inventory_tools
+        if skill_disclosure is None
+        else RuntimeSkillChatTools(skill_disclosure, fallback=inventory_tools)
+    )
+    tools = SystemHealthChatTools(
+        read_model,
+        skill_tools,
+    )
     routes.extend(
         (
             make_chat_route(
                 backend=backend,
                 authorize=authorize,
+                behavior_resolver=behavior,
                 evidence_resolver=evidence,
                 tool_resolver=tools,
                 web_search_resolver=web_search_resolver,
@@ -81,10 +121,15 @@ def append_chat_routes(
                     else None
                 ),
                 answer_preference_resolver=_answer_preference_resolver(answer_preference_store),
+                post_turn_review_submitter=post_turn_review_submitter,
+                busy_input_coordinator=(
+                    busy_input_runtime.coordinator if busy_input_runtime is not None else None
+                ),
             ),
             make_chat_stream_route(
                 backend=backend,
                 authorize=authorize,
+                behavior_resolver=behavior,
                 evidence_resolver=evidence,
                 tool_resolver=tools,
                 web_search_resolver=web_search_resolver,
@@ -99,6 +144,10 @@ def append_chat_routes(
                     else None
                 ),
                 answer_preference_resolver=_answer_preference_resolver(answer_preference_store),
+                post_turn_review_submitter=post_turn_review_submitter,
+                busy_input_coordinator=(
+                    busy_input_runtime.coordinator if busy_input_runtime is not None else None
+                ),
             ),
             make_chat_health_route(
                 backend=backend,
@@ -107,6 +156,13 @@ def append_chat_routes(
             ),
         )
     )
+    if busy_input_runtime is not None:
+        routes.extend(
+            make_busy_input_routes(
+                coordinator=busy_input_runtime.coordinator,
+                authorize=authorize,
+            )
+        )
 
     descriptor = describe_backend(backend)
     if descriptor.get("available"):

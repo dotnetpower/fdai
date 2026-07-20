@@ -18,14 +18,30 @@ FRONTMATTER = re.compile(r"\A---\n(?P<body>.*?)\n---\n", re.DOTALL)
 
 
 def _tracked_paths() -> tuple[str, ...]:
-    completed = subprocess.run(
+    tracked = subprocess.run(
         ["git", "ls-files"],
         cwd=REPO_ROOT,
         check=True,
         capture_output=True,
         text=True,
     )
-    return tuple(line for line in completed.stdout.splitlines() if line)
+    untracked = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return tuple(
+        sorted(
+            {
+                line
+                for output in (tracked.stdout, untracked.stdout)
+                for line in output.splitlines()
+                if line
+            }
+        )
+    )
 
 
 def _load_manifest() -> dict[str, Any]:

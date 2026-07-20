@@ -79,7 +79,7 @@ def build_interactive_pantheon_wiring(
     read_model: Any,
     action_types: tuple[Any, ...],
 ) -> LocalRuntimeWiring:
-    """Wire all agents to authoritative local Azure transport without fixture executors."""
+    """Wire all agents to the selected local transport without fixture executors."""
     incident_workflow = IncidentLifecycleWorkflow(
         registry=IncidentRegistry(state_store=ProjectingIncidentStateStore(read_model=read_model)),
         allowed_agent_principals={"Huginn", "Heimdall", "Forseti"},

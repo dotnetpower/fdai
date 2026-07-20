@@ -1,8 +1,8 @@
 ---
 title: 기술 스택
 translation_of: tech-stack.md
-translation_source_sha: 2c7166603d31954fd7a66c1b30820a07ad5f1aac
-translation_revised: 2026-07-13
+translation_source_sha: 16cc224af56745c68a0ad1dac60110beb07f4d25
+translation_revised: 2026-07-21
 ---
 
 # 기술 스택
@@ -46,11 +46,11 @@ translation_revised: 2026-07-13
 |--------|------|------|--------------------------|
 | Core engine 런타임 | **Python (3.12+)** - `src/fdai/` 아래 src-layout | LLM / OPA / IaC-스캐너 SDK가 가장 성숙, mypy로 타이핑 강제 가능, 모든 서브시스템이 한 언어 ([OD-1](#od-1-core-런타임-언어) 참조) | TypeScript (Node), Go, .NET - 동일 인터페이스 뒤에서 향후 성능 기반 분리 시 예비 |
 | Policy engine | **OPA / Rego** | CSP-중립 policy-as-code; T0와 T2 verifier가 재사용 | Gatekeeper (K8s), Cloud Custodian |
-| IaC | **Terraform** (Azure 대상, HCL) | OD 해결; Terraform이 엔트리 커맨드 대상 (`terraform apply`), [csp-neutrality-ko.md](csp-neutrality-ko.md) 의 4개 CSP-중립 계약에서 렌더링; Bicep과 OpenTofu는 호환 대안 | 엄격한 OSS 툴체인이 필요하면 **OpenTofu** (MPL-2.0 포크); Azure-only 편의는 Bicep; 범용 언어 선호 시 Pulumi |
+| IaC | **Terraform** (Azure 대상, HCL) | OD 해결; Terraform이 엔트리 커맨드 대상 (`terraform apply`)이며 [csp-neutrality-ko.md](csp-neutrality-ko.md)의 8개 CSP-중립 계약을 렌더링; Bicep과 OpenTofu는 호환 대안 | 엄격한 OSS 툴체인이 필요하면 **OpenTofu** (MPL-2.0 포크); Azure-only 편의는 Bicep; 범용 언어 선호 시 Pulumi |
 | Event bus | **Event Hubs** 를 **`:9093` 의 Kafka endpoint 로만** 소비 (Kafka 와이어 프로토콜이 CSP-중립 계약 - [csp-neutrality-ko.md](csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜) 참조) | 하나의 와이어 프로토콜이 모든 관리형 대상 (MSK, GCP Managed Kafka, Confluent, Redpanda) 을 커버 → 비-Azure 어댑터는 config 스왑 | MSK Serverless / GCP Managed Kafka / Confluent / Redpanda / self-hosted Strimzi - 비-Azure 옵션은 TBD |
 | Event/message 스키마 | 버전된 레지스트리에 JSON Schema (또는 CloudEvents envelope) | 타입 있는 버전된 이벤트 계약; 안전한 진화와 인그레스 검증 가능 | Avro/Protobuf + Confluent-호환 레지스트리 |
 | Dead-letter 처리 | Kafka **dead-letter 토픽** 규약 (예: `<topic>.dlq`) + replay/redrive 워커 | 어떤 이벤트도 조용히 드롭되지 않음; poison 메시지는 격리·재처리 가능; 모든 프로바이더에서 동일 | 벤더 native DLQ 는 **미사용** (프로바이더별 동작 상이) |
-| Compute | **Azure Container Apps** (Consumption, KEDA + scale-to-zero) - **하나의 앱 + 사이드카 컨테이너** 로 코어 서브시스템 구성, **OCI 이미지 + Knative 호환 매니페스트 서브셋** 에서 배포 ([csp-neutrality-ko.md](csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트) 참조) | 항시 비용 없이 이벤트 스케일링; 매니페스트는 Cloud Run / App Runner / 어떤 K8s 위의 Knative 로도 렌더링 → 런타임 이식 가능 | Cloud Run (native Knative), App Runner, AKS/EKS/GKE 위의 Knative; 커스텀 네트워킹/DaemonSets/GPU 필요 시 AKS |
+| Compute | **Azure Container Apps** (Consumption) - modular core app 하나, 분리된 read API와 ingestion gateway app, 같은 environment의 bounded Job을 **OCI image + Knative 호환 manifest subset**에서 렌더링 ([csp-neutrality-ko.md](csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트) 참조) | Headless core contract를 바꾸지 않고 edge/read app과 bounded job을 독립적으로 scale; manifest는 Cloud Run / App Runner / K8s 위 Knative로도 렌더링 | Cloud Run (native Knative), App Runner, AKS/EKS/GKE 위의 Knative; 커스텀 네트워킹/DaemonSets/GPU 필요 시 AKS |
 | 경량 트리거 | **Container Apps Jobs** (Compute와 동일 환경); 다른 대상에서는 K8s `CronJob` / Cloud Run Job / EventBridge 로 렌더링 | out-of-band 변경 감지, 비용 이상 훅, 스케줄 프로브 - 별도 Functions plan 프로비저닝을 회피 | 네이티브 바인딩이 필요하면 Azure Functions; Knative eventing |
 | State / audit / KPI | **PostgreSQL** (기본) 또는 **Cosmos DB** | append-only 감사 로그, 패턴 라이브러리, KPI 저장; 런타임 온톨로지 인스턴스 상태도 호스팅 ([llm-strategy-ko.md § Ontology Storage Layout](llm-strategy-ko.md#ontology-storage-layout)) | [Data Store Selection](#data-store-selection-criteria) 참조 |
 | Vector 검색 (T1) | pgvector (PostgreSQL과 co-located) | 임베딩을 감사/상태 옆에 유지; 하나의 datastore로 운영 | 큰 스케일에서는 전용 vector DB (Qdrant/Milvus) - [Vector Search Rationale](#vector-search-rationale) 참조 |
@@ -130,11 +130,12 @@ translation_revised: 2026-07-13
   endpoint 에 대해 재검증.
 - Deterministic engine과 risk gate는 완전 오프라인(클라우드 호출 없음)으로 실행되어 빠른 단위
   테스트.
-- **Dev에서 LLM은 기본 fake 유지**: `runtime.env == "dev"` 는 결정론적 인-메모리 fake
-  (`DeterministicEmbeddingModel`, `MatchTypeCrossCheckModel`, `StaticVerifier`,
-  `InMemoryGroundingSource`) 를 바인딩 - Azure OpenAI 자격증명 없음, 라이브 엔드포인트 없음,
-  토큰 비용 없음. Azure 측 어댑터는 `delivery/azure/llm/` 하위에 살고 composition root가
-  `llm.mode == "azure"` 일 때만 import. 전체 parity 컨트랙트 + 작업 계획:
+- **LLM mode는 environment와 독립**: `llm.mode` 기본값 `local-fake`가 결정론적 in-memory
+  fake(`DeterministicEmbeddingModel`, `MatchTypeCrossCheckModel`, `StaticVerifier`,
+  `InMemoryGroundingSource`)를 Azure credential이나 token cost 없이 bind합니다. Local 또는
+  deployed runtime은 `llm.mode == "azure"`를 명시적으로 선택할 수 있으며 `runtime.env`는
+  evidence/model profile을 선택하지 않습니다. Azure adapter는 `delivery/azure/llm/` 아래에
+  있고 composition root만 import합니다. 전체 parity contract + 작업 계획:
   [dev-and-deploy-parity-ko.md](../deployment/dev-and-deploy-parity-ko.md).
 - rule-catalog 엔트리와 이벤트 페이로드 픽스처는 영문·시크릿 없음.
 

@@ -60,8 +60,10 @@ Current adapters
   `LogQueryProvider` seam
   ([contract](../../shared/providers/observation.py)) behind the console
   `query_log` tool. Runs an opaque, caller-supplied KQL query against a
-  single workspace: KQL is read-only, the `window` is sent as the
-  server-side `timespan`, the result is clipped to `max_rows`
-  (`truncated=True` when exceeded) under a hard `max_rows_cap` + request
-  timeout, and any HTTP / JSON / table-shape error fail-closes via
-  `LogQueryError`.
+  single workspace. The adapter validates one tabular expression, blocks
+  cross-workspace functions, limits the ISO 8601 `window` to 31 days,
+  sends it as the server-side `timespan`, and appends `take max_rows + 1`.
+  The result is clipped to `max_rows` (`truncated=True` when exceeded)
+  under hard row, query-character, response-byte, and request-timeout caps.
+  Identity, HTTP, partial-response, JSON, and table-shape errors fail closed
+  through `LogQueryError`.

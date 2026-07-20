@@ -171,6 +171,13 @@ resource "azurerm_container_app" "read_api" {
         name  = "FDAI_MI_CLIENT_ID"
         value = var.read_api_identity_client_id
       }
+      dynamic "env" {
+        for_each = var.monitor_workspace_customer_id == "" ? [] : [var.monitor_workspace_customer_id]
+        content {
+          name  = "FDAI_MONITOR_WORKSPACE_ID"
+          value = env.value
+        }
+      }
       env {
         name  = "FDAI_COMMAND_MI_CLIENT_ID"
         value = var.command_api_identity_client_id

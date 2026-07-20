@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef } from "preact/hooks";
 import { fetchOpeningBriefing } from "../user-context-client";
 import type { Turn } from "./command-deck-presenters";
 import { record as recordHistory, type DraftHistory } from "./draft-history";
-import { DECK_OPEN_EVENT, type DeckOpenDetail } from "./open-deck";
+import {
+  DECK_OPEN_EVENT,
+  installWorkspaceDeckNavigationHandler,
+  type DeckOpenDetail,
+} from "./open-deck";
 import {
   screenConversationKey,
   userConversationKey,
@@ -237,6 +241,10 @@ export function useCommandDeckEvents(options: EventsOptions) {
   useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
   useEffect(() => { openRef.current = open; }, [open]);
   useEffect(() => { routeLabelRef.current = routeLabel; }, [routeLabel]);
+  useEffect(() => installWorkspaceDeckNavigationHandler(
+    () => openRef.current && layoutModeRef.current === "workspace",
+    closeDeck,
+  ), [closeDeck]);
   useEffect(() => {
     const switchToCurrentRoute = () => {
       if (layoutModeRef.current === "workspace" || layoutModeRef.current === "dock") {

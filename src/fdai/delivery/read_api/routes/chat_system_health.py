@@ -23,7 +23,12 @@ _SYSTEM_HEALTH: Final = re.compile(
 
 
 class ChatToolResolver(Protocol):
-    async def resolve(self, prompt: str) -> dict[str, Any] | None: ...
+    async def resolve(
+        self,
+        prompt: str,
+        *,
+        principal_id: str,
+    ) -> dict[str, Any] | None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,7 +38,12 @@ class SystemHealthChatTools:
     read_model: ConsoleReadModel
     fallback: ChatToolResolver | None = None
 
-    async def resolve(self, prompt: str) -> dict[str, Any] | None:
+    async def resolve(
+        self,
+        prompt: str,
+        *,
+        principal_id: str,
+    ) -> dict[str, Any] | None:
         if _SYSTEM_HEALTH.search(prompt):
             metrics = await self.read_model.dashboard_metrics()
             return {
@@ -42,7 +52,7 @@ class SystemHealthChatTools:
                 "result": metrics.to_dict(),
             }
         if self.fallback is not None:
-            return await self.fallback.resolve(prompt)
+            return await self.fallback.resolve(prompt, principal_id=principal_id)
         return None
 
 

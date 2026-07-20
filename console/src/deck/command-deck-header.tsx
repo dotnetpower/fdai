@@ -114,17 +114,19 @@ export function CommandDeckHeader({
           <kbd>{navigator.platform.toLowerCase().includes("mac") ? "⌘K" : "Ctrl K"}</kbd>
         </div>
       </div>
-      <Tooltip content={t("deck.newConversation")}>
-        <button
-          type="button"
-          class="deck-header-new"
-          onClick={onNewConversation}
-          aria-label={t("deck.newConversation")}
-        >
-          <span class="deck-header-new-glyph" aria-hidden="true">+</span>
-          <span class="deck-header-new-label">{t("deck.newConversation")}</span>
-        </button>
-      </Tooltip>
+      <span class="deck-header-new-slot">
+        <Tooltip content={t("deck.newConversation")}>
+          <button
+            type="button"
+            class="deck-header-new"
+            onClick={onNewConversation}
+            aria-label={t("deck.newConversation")}
+          >
+            <span class="deck-header-new-glyph" aria-hidden="true">+</span>
+            <span class="deck-header-new-label">{t("deck.newConversation")}</span>
+          </button>
+        </Tooltip>
+      </span>
       <div class="deck-layout-controls" aria-label="Command deck layout">
         <Tooltip content={t("deck.tooltip.floatingPanel")}>
           <button

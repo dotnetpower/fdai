@@ -12,7 +12,7 @@ one step at a time, under the same safety invariants as a single remediation.
 
 This document is the machine-readable counterpart to
 [agent-workflows.md](../agents/agent-workflows.md). Where that document describes the
-eleven cross-agent workflows in prose and sequence diagrams, this one defines
+twelve cross-agent workflows in prose and sequence diagrams, this one defines
 the catalog schema, the ontology additions, and the runtime wiring that let a
 workflow ship as catalog-as-code and run in shadow mode.
 
@@ -35,11 +35,11 @@ a single responsibility.
 | **Process** | the *runtime instance and state* of a running workflow: which step is current, which resource it targets, which findings it advanced through | `Process` ObjectType (ontology) |
 | **Runbook** | the *execution mechanism*: walk the step list, honor `on_failure`, write the aggregate audit row | [`src/fdai/core/runbook/`](../../../src/fdai/core/runbook) |
 
-The separation matters: a `Workflow` declares *what* runs and *when*; a
-`Runbook` is the thin executor a compiled `Workflow` produces; a `Process` is
-the audited state of one live run. A step never carries its own mutation logic
-- it delegates to an `ActionType`, so every step inherits the four safety
-invariants for free.
+The separation matters: a `Workflow` declares *what* runs and *when*; a `Runbook` is the thin
+executor a compiled `Workflow` produces; a `Process` is the audited state of one live run. Mutation
+steps delegate to an `ActionType` and inherit its safety invariants. The read-only `evidence` step
+instead uses `WorkflowEvidenceDispatcher`, has no action authority, and fails closed when browser
+evidence is unavailable ([design](../interfaces/browser-evidence.md)).
 
 ## 2. Workflow catalog schema
 
@@ -201,10 +201,9 @@ There is no direct RPC between steps and no bypass of the risk-gate. This
 matches the pantheon rule that any request to act re-enters the typed pipeline
 ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
 
-Because every step is an `ActionType` invocation, the four safety invariants
-hold per step: a stop-condition, a rollback contract, a blast-radius cap, and
-an audit-log entry. The runner adds one aggregate `runbook.terminal` audit row
-so a reviewer can reconstruct the whole run by id.
+Every state-changing action step is an `ActionType` invocation, so its four safety invariants hold.
+Evidence and control steps have no mutation authority and use their dedicated typed contracts. The
+runner adds one aggregate `runbook.terminal` audit row for reconstruction.
 
 ### 4.1 Governed shadow and enforce orchestrator
 
@@ -437,7 +436,7 @@ the console's `/processes/scheduler-runs` nested view preserves task and status 
 and renders cursor-paginated evidence without action buttons or executor identity. The response
 also carries `source` and `durable`: production reports `postgres` and `true`, while the local
 in-memory harness reports `synthetic-dev` and `false`. The console renders these fields instead of
-inferring durability from the route name or static copy.
+inferring durability from the route name or static copy; [Reviewable Automation Blueprints](automation-blueprints.md) owns repeated-work suggestions.
 
 The local read API uses the same authoritative ControlLoop with in-memory task,
 inventory, audit, and HIL adapters. A Workflow Builder run request therefore
@@ -806,7 +805,7 @@ is never generated or loaded as remote code from a conversation.
 
 ## 9. Relationship to agent-workflows.md
 
-[agent-workflows.md](../agents/agent-workflows.md) is the design reference: the eleven
+[agent-workflows.md](../agents/agent-workflows.md) is the design reference: the twelve
 workflows, their agents, their sequence diagrams, and their exit criteria. This
 document is the implementation contract those workflows compile into. The two
 stay in sync: a new workflow lands as a doc entry in agent-workflows.md and a
@@ -818,8 +817,8 @@ in the same PR.
 - **A workflow that declares a new mutation primitive.** Steps reference the
   existing `ActionType` catalog; a missing capability is an upstream
   `ActionType` PR, not an inline step body.
-- **A step that bypasses the risk-gate.** Every step re-enters the typed
-  pipeline. A step that calls an executor directly is a defect.
+- **A state-changing step that bypasses the risk-gate.** Every action step re-enters the typed
+  pipeline. Evidence and control steps cannot call an executor.
 - **An always-on process orchestrator.** Processes are event-driven and
   scale-to-zero; a polling daemon contradicts the app shape
   ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).

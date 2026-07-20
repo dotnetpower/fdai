@@ -8,7 +8,8 @@ Estimated monthly cost of the minimum Azure resource inventory defined in
 down by fixed vs variable spend and by traffic scenario. Cost-efficiency principles come from
 [deploy-and-onboard.md](../deployment/deploy-and-onboard.md#cost-efficiency-principles).
 
-> **Illustrative - not a quote.** Azure list prices change by region, over time, and by
+> **Historical planning example - not a deployment estimate.** The bands below are a planning
+> snapshot for the original minimum set, not a total from the current Terraform plan. Azure list prices change by region, over time, and by
 > subscription agreement (EA / CSP / MCAPS / Reserved Instances / Savings Plans). Every
 > number in this document is an **approximation** and MUST be reconfirmed against the
 > [Azure Pricing Calculator](https://azure.microsoft.com/pricing/calculator/) before any
@@ -24,17 +25,18 @@ down by fixed vs variable spend and by traffic scenario. Cost-efficiency princip
   reduce these by 5-20%; Reserved Instances / Savings Plans can reduce compute + database
   spend by 30-60% on 1-year / 3-year terms.
 - **Traffic (baseline)**: **low traffic** - events in the thousands to tens of thousands per
-  month, KEDA holds the core Container App at zero replicas most of the time.
+  month. The current core Container App uses `min_replicas = 1` because no Event Hubs lag scaler
+  is configured. Scheduled jobs return to zero between executions.
 - **Retention**: Log Analytics 30-day default
   ([deploy-and-onboard.md](../deployment/deploy-and-onboard.md#azure-resource-inventory-minimum-set)).
 - **Free tier**: assume the free grants for Container Apps monthly compute and Log Analytics
   first-GB ingestion are **not** consumed by unrelated workloads.
-- **LLM cost (T2 inference)**: **excluded from the infrastructure envelope** and reported
-  separately in [T2 LLM Cost](#t2-llm-cost). LLM spend is bounded by the model budget cap in
+- **Model cost (T1/T2 inference)**: when `enable_llm=true`, Azure OpenAI/Foundry token or
+  provisioned-capacity cost is added and reported separately in [T2 LLM Cost](#t2-llm-cost).
+  Model spend is bounded by the model budget cap in
   [llm-strategy.md](../architecture/llm-strategy.md); overflow degrades to HIL, never uncapped inference.
-- **Non-Azure targets**: TBD per
-  [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must);
-  cost estimates for other CSPs are not modeled here.
+- **Non-Azure targets**: Azure is the current implementation target; this document does not model
+  costs for other CSPs.
 
 Every subsequent figure is subject to these assumptions.
 
@@ -56,11 +58,11 @@ a moderately busier month.
 
 | # | Resource | Cost model | Baseline monthly (USD) | Category | Notes |
 |---|----------|-----------|------------------------|----------|-------|
-| 1 | Container Apps environment | environment fee = $0; vCPU-second + GB-second consumption | **$0 - $10** | variable | free monthly grant (≈180k vCPU-s + 360k GB-s) often absorbs low traffic |
-| 2 | Container App (unified core, 4 sidecars) | rolled into #1 | rolled into #1 | variable | KEDA scale-to-zero |
-| 3 | Container Apps Job (probes) | rolled into #1 | **$0 - $2** | variable | short scheduled runs share the free grant |
+| 1 | Container Apps environment | environment fee = $0; vCPU-second + GB-second consumption | **recalculate from current plan** | variable | depends on the core replica floor and enabled app count |
+| 2 | Container App (unified core, one Python process) | rolled into #1 | rolled into #1 | variable | default `min_replicas = 1`, `max_replicas = 3`; zero requires a verified lag scaler |
+| 3 | Container Apps Jobs | rolled into #1 | **recalculate from current plan** | variable | scheduler, out-of-band, inventory, canary, and enabled worker jobs share Consumption usage |
 | 4 | Event Hubs **Standard** namespace (1 TU, auto-inflate off) | throughput unit hourly (~$0.03/hr × 730h) + ingress events (~$0.028/million) | **≈ $22** | fixed | consumed as the Kafka wire event bus on `:9093`; DLQ is a Kafka `<topic>.dlq` convention, no extra resource |
-| 5 | Diagnostic Settings forwarders (Activity Log / resource events) | free plumbing; the destination Event Hubs TU cost sits in row 4 | **$0** | - | replaces standalone Service Bus + Event Grid custom topics from the previous inventory |
+| 5 | Event Grid inventory subscription + Diagnostic Settings | Event Grid delivery operations plus destination-service usage | **recalculate from current plan** | variable | no custom topic; inventory events go to Event Hubs and diagnostics to Log Analytics |
 | 6 | PostgreSQL Flexible **Burstable B1ms** (1 vCore, 2 GB) | compute + storage + backup | **≈ $20 - $25** | fixed | compute ≈$15, 32 GB SSD ≈$4, 7-day backup ≈$3-5 |
 | 7 | Key Vault Standard | ~$0.03 per 10k operations | **≈ $1** | variable (bounded) | low at baseline |
 | 8 | User-assigned Managed Identity | free | **$0** | - | |
@@ -70,29 +72,43 @@ a moderately busier month.
 Non-billable elements included in the deployment (see
 [deploy-and-onboard.md](../deployment/deploy-and-onboard.md#azure-resource-inventory-minimum-set)):
 
-- Azure Bot Free tier (Teams Adaptive Cards for HIL).
+- Azure Bot Free tier is supplied separately by downstream deployments that enable Teams; upstream
+  Terraform does not provision it by default.
 - Static Web Apps Free tier (read-only console hosting).
 - App registration + workload identity federation.
 - Diagnostic Settings forwarders themselves (cost sits in the Event Hubs row).
 
-## Monthly Envelope (Baseline, T2 LLM Excluded)
+## Monthly Envelope (Historical Planning Snapshot, Model Cost Excluded)
 
 Combining the categories above under the baseline assumptions:
 
 | Bucket | Contents | Monthly (USD) |
 |--------|----------|---------------|
-| **Fixed** | Event Hubs + PostgreSQL + Key Vault + ACR + Log Analytics baseline | **≈ $53** |
-| **Variable** | Container Apps compute + Log Analytics ingestion above baseline | **$5 - $20** |
-| **Total (infrastructure only)** | | **≈ $58 - $75 / month** |
+| **Fixed** | Event Hubs + PostgreSQL + ACR | **≈ $47 - $52** |
+| **Variable** | Container Apps/jobs under the original scale-to-zero assumption + Key Vault + Log Analytics | **≈ $6 - $28** |
+| **Total (original minimum-set example)** | not an estimate of the current Terraform topology | **≈ $53 - $80 / month (historical)** |
 
-A deployment that stays idle for most of the month (KEDA at 0 replicas, no ingest bursts) is
-closer to the lower bound; a deployment absorbing steady event traffic and telemetry lands
-mid-range.
+This total assumes the original scale-to-zero topology and MUST NOT be used as the budget for the
+current core with `min_replicas = 1`. Before deployment, extract enabled resources and SKUs from
+`terraform plan` and recalculate them with Azure Pricing Calculator or the Retail Prices API.
+Production HA PostgreSQL, private networking, Azure OpenAI, document ingestion, the read
+API/console, and email channels are separate line items.
+
+### Current Terraform inventory reconciliation
+
+| Scope | Current resources | Estimate treatment |
+|-------|-------------------|--------------------|
+| Base | Container Apps environment, one core replica, scheduled jobs, Event Hubs, Event Grid inventory subscription, PostgreSQL, Key Vault, identities, Log Analytics/Application Insights, ACR, canary | Recalculate every enabled SKU and replica/resource usage from the plan. |
+| Production delta | Zone-redundant PostgreSQL HA, 35-day geo backup, private networking/DNS, and private runner path | Price separately from the dev B1ms band. |
+| `enable_llm` | Azure OpenAI/Foundry account and capability deployments | Add token/PTU and embedding usage to the model budget. |
+| `enable_document_ingestion` | ADLS Gen2 ZRS/HNS, blob/dfs private endpoints, ingestion app + ClamAV, migration worker | Price storage capacity/operations, endpoints, and always-on replicas separately. |
+| Channel/console opt-in | Read API/channel app, Static Web Apps, ACS Email/SMS, and other enabled adapters | Price from actual enablement and delivery volume. |
 
 ## T2 LLM Cost
 
-Reasoning-tier (T2) inference is **not an Azure resource line** - it is external model API
-spend governed by [llm-strategy.md](../architecture/llm-strategy.md). Reported separately because:
+Reasoning-tier (T2) inference is a **usage or provisioned-capacity cost** separated from the fixed
+infrastructure total. The current implementation supports opt-in Azure OpenAI/Foundry deployments;
+[llm-strategy.md](../architecture/llm-strategy.md) governs model choice and the budget gate. It is reported separately because:
 
 - It varies by orders of magnitude with the model family and the mixed-model cross-check
   requirement (each T2 judgment invokes at least two distinct models per
@@ -133,12 +149,12 @@ inventory, not a hard SLA.
 
 | Scenario | Expected infra monthly | First items to press | Recommended action |
 |----------|------------------------|----------------------|--------------------|
-| **Baseline (≤10 k events/mo)** | $45 - $70 | (none) | keep the minimum set |
-| **10 k - 100 k events/mo** | $70 - $150 | Log Analytics ingestion, Container Apps compute | keep tiers; set a Log Analytics **daily cap**; watch ingestion budget alert |
-| **100 k - 1 M events/mo** | $200 - $500 | Log Analytics ingestion (dominant), Container Apps compute, PostgreSQL storage | consider **Basic Logs** for audit stream (~74% ingestion saving vs Analytics logs), PostgreSQL storage tier up, review sidecar → separate Container App graduation |
+| **Baseline (≤10 k events/mo)** | current plan + measured usage | core replica floor, standing services | validate the enabled minimum set and budgets |
+| **10 k - 100 k events/mo** | recalculate from plan + telemetry | Log Analytics ingestion, Container Apps compute | keep tiers; set a Log Analytics **daily cap**; watch ingestion budget alert |
+| **100 k - 1 M events/mo** | recalculate from plan + telemetry | Log Analytics ingestion, Container Apps compute, PostgreSQL storage | consider **Basic Logs** for audit stream, PostgreSQL storage tier up, and core replica/resource sizing |
 | **≥ 1 M events/mo** | re-model | most rows | re-run the inventory review; evaluate Event Hubs additional TUs or Dedicated, PostgreSQL General Purpose, dedicated vector store |
 
-The graduation triggers (sidecar → separate Container App, PostgreSQL tier up, Log Analytics
+The graduation triggers (core replica/resource sizing, PostgreSQL tier up, Log Analytics
 split) are captured in [Open Decisions](#open-decisions).
 
 ## Optimization Options
@@ -152,13 +168,13 @@ specific trade-off documented so the choice is not made blind.
 | **Log Analytics daily cap** | prevents runaway ingestion months | over-cap logs are dropped or throttled per the workspace policy |
 | **Basic Logs tier** for the audit stream | ~74% off Analytics-tier ingestion | slower / paid queries against Basic Logs (kept as-is for archival + occasional replay) |
 | **ACR retention policy** on untagged manifests | small storage savings | old debug images are pruned; keep signed release digests explicitly |
-| **Container Apps min-replicas = 0 everywhere** | already the default; keep it | cold-start latency counted per [operating-and-verification.md](../operations/operating-and-verification.md#self-health-signals) |
+| **Set replica floors per workload** | scheduled jobs return to zero; core defaults to 1 | core needs an Event Hubs lag scaler and wake-up verification before using 0 |
 | **MCAPS / Founder Hub / free trial credits** | offsets first months entirely | eligibility is time-boxed; not a durable lever |
 | **Move console images to GHCR** | saves ACR Basic (~$5/mo) | mixes registries - only worth it if the fork is not tightly Azure-integrated (fork chose ACR - see [deploy-and-onboard.md](../deployment/deploy-and-onboard.md#azure-resource-inventory-minimum-set)) |
 
 ### Warm-capacity policy (cold-start vs MTTR)
 
-Scale-to-zero is the default, but blanket min-replicas = 0 pushes cold-start
+Scale-to-zero is a target for eligible jobs and lanes, not the current core default. Blanket min-replicas = 0 pushes cold-start
 latency onto MTTR for urgent recovery - a SEV1 failover cannot wait for a
 container to boot. `core/capacity/warm_pool.py` (`WarmCapacityPolicy`) resolves
 the tension deterministically: it recommends a **warm** lane (min-replicas > 0)
@@ -166,7 +182,7 @@ only for the work that cannot absorb a cold start - incidents at or above a
 configured severity (default SEV2), an active event storm (a burst of
 remediations that would otherwise serialize on cold starts), and off-hours (when
 no human is already warm at the console so autonomous recovery is the only fast
-path) - and leaves everything else on scale-to-zero. The thresholds are
+path) - and leaves scaler-backed, wake-up-verified lanes on scale-to-zero. The thresholds are
 fork-tunable config, and the policy is a pure recommendation: the deployment
 layer reads the `min_replicas` floor at plan time and the runtime reads
 `warm_required` per action class. This keeps the idle-cost envelope intact while
@@ -176,12 +192,12 @@ protecting recovery latency where it matters.
 
 Costs deliberately outside this document:
 
-- **T2 LLM API spend** - reported separately in [T2 LLM Cost](#t2-llm-cost).
+- **T1/T2 model usage or provisioned capacity** - reported separately in [T2 LLM Cost](#t2-llm-cost).
 - **Human labor** - operator on-call time, HIL approver time.
 - **GitHub / Azure DevOps** - GitOps host is a non-Azure cost (see the same category note in
   [deploy-and-onboard.md](../deployment/deploy-and-onboard.md#prerequisites)).
-- **DR / secondary-region resources** - deferred to Phase 4 (TBD) per
-  [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must).
+- **DR / secondary-region resources** - outside the current minimum inventory and estimated from a
+  separate deployment topology and plan.
 - **Network egress at scale** - assumed negligible at baseline; revisit when traffic reaches
   the 100 k / month tier.
 
@@ -198,8 +214,8 @@ Costs deliberately outside this document:
 - [ ] Concrete tier values within the minimum set (PostgreSQL storage, Log Analytics daily
       cap, ACR retention window, Event Hubs throughput-unit ceiling).
 - [ ] Graduation triggers: **numeric thresholds** at which each cost row is re-tiered
-      (event/month rate that triggers PostgreSQL step-up, Basic Logs split, sidecar → its
-      own Container App).
+      (event/month rate that triggers PostgreSQL step-up, Basic Logs split, or core replica/resource
+      resizing).
 - [ ] T2 model tier choice (small / mid / frontier) and the per-tenant monthly budget cap.
 - [ ] `pricing.confirmed_at` mechanism on the fork's cost dashboard - how and how often the
       numbers in this document are re-verified against the Azure Pricing Calculator.

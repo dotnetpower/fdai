@@ -195,11 +195,14 @@ def _resource_payload(
     width: float | None = None,
     height: float | None = None,
 ) -> dict[str, Any]:
+    power_state = record.props.get("powerState")
+    provisioning_state = record.props.get("provisioningState")
+    status = str(power_state or provisioning_state or "unknown")
     payload: dict[str, Any] = {
         "id": record.resource_id,
         "type": record.type,
         "name": str(record.props.get("name") or record.resource_id),
-        "status": "unknown",
+        "status": status,
         "parent_id": parent_id,
         "props": dict(record.props),
         "x": x,

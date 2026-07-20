@@ -12,13 +12,16 @@ route a mitigation, but it never executes one directly.
 
 ## Authoring gate
 
-Every plan starts as a draft. Activation checks that required runbooks,
-rollback references, owners, channels, and approval roles are present. A plan
-that fails readiness remains inactive.
+Every plan starts as a draft. Activation checks that stop conditions, rollback,
+impact-scope bounds (blast radius), an approver, and a notification channel are
+all declared and satisfied. Omitting a requirement does not bypass the gate; it
+leaves the plan inactive.
 
-Pretesting evaluates the plan against similar resolved incidents. The report
-shows which historical cases the plan could cover and where required evidence
-or steps are missing. Pretest success is evidence for review, not automatic
+Pretesting evaluates the plan deterministically against resolved historical
+incidents. Only incidents containing the plan's trigger signal enter the
+denominator. A case is covered when its recorded resolving action appears in
+the plan's response steps. The report records matched count, total count, and
+unmatched incident references. Coverage is evidence for review, not automatic
 activation.
 
 Plan activation and action promotion are separate decisions. Activating a plan
@@ -27,7 +30,7 @@ any referenced `ActionType`, lower its risk tier, or grant execution authority.
 
 | Plan concern | Owning decision | Safe failure |
 |--------------|-----------------|--------------|
-| Required steps, owner, channel, rollback | Plan readiness gate | Keep the plan inactive |
+| Stop, rollback, impact scope, approver, channel | Plan readiness gate | Keep the plan inactive |
 | Historical coverage | Pretest review | Record gaps; don't activate automatically |
 | Action safety and promotion | Action registry and risk gate | Shadow, HIL, or deny |
 | Runtime mutation | Executor checks | No-op, stop, or rollback |

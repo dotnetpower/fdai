@@ -10,10 +10,12 @@ Covers:
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 
 import pytest
 
+from fdai.agents.saga import compute_fingerprint
 from fdai.rule_catalog.schema.object_type import (
     ObjectTypeCatalogError,
     load_object_type_catalog,
@@ -84,6 +86,25 @@ def test_every_shipped_object_type_has_id_key() -> None:
         assert entry.key == "id", f"{entry.name}: shipped built-in must key on 'id'"
 
 
+def test_issue_declares_authoritative_lifecycle_criteria() -> None:
+    catalog = load_object_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    issue = next(entry for entry in catalog if entry.name == "Issue")
+
+    assert issue.lifecycle is not None
+    assert issue.lifecycle.owner == "Saga"
+    assert {criterion.code for criterion in issue.lifecycle.creation} == {
+        "agent_handoff",
+        "bragi_unhandled_query",
+    }
+    assert issue.lifecycle.deduplication is not None
+    assert issue.lifecycle.deduplication.strategy == "deterministic fingerprint"
+    assert issue.lifecycle.deduplication.fields == list(
+        inspect.signature(compute_fingerprint).parameters
+    )
+    assert issue.lifecycle.deduplication.on_repeat.startswith("Append")
+    assert issue.lifecycle.closure[0].code == "resolving_capability_promoted"
+
+
 def test_key_must_name_a_declared_property() -> None:
     raw = {
         "schema_version": "1.0.0",
@@ -99,6 +120,32 @@ def test_key_must_name_a_declared_property() -> None:
     joined = " ".join(i.message for i in info.value.issues).lower()
     assert "not_declared" in joined
     assert "not a declared property" in joined
+
+
+def test_lifecycle_criterion_requires_authority_reference() -> None:
+    raw = {
+        "schema_version": "1.0.0",
+        "name": "ExplainedType",
+        "version": "1.0.0",
+        "key": "id",
+        "properties": {"id": {"type": "string", "required": True}},
+        "lifecycle": {
+            "owner": "Saga",
+            "creation": [
+                {
+                    "code": "created",
+                    "when": "A trigger fires.",
+                    "result": "The object is created.",
+                }
+            ],
+            "authority_refs": ["example.py#create"],
+        },
+    }
+
+    with pytest.raises(ObjectTypeCatalogError) as info:
+        load_object_type_from_mapping(raw, schema_registry=_registry())
+
+    assert any("source_refs" in f"{issue.key} {issue.message}" for issue in info.value.issues)
 
 
 def test_duplicate_name_across_files_fails(tmp_path: Path) -> None:

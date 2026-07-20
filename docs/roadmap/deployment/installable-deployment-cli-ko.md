@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 5021efcf331f5e1529babf110abb8ec947aaf49d
-translation_revised: 2026-07-18
+translation_source_sha: eda3d56356f2c4213f23dc13b20266249a5a10b7
+translation_revised: 2026-07-21
 ---
 # 설치형 배포 CLI
 
@@ -15,8 +15,9 @@ translation_revised: 2026-07-18
 > target guard, network-free `deploy preflight`, Terraform plan JSON analysis, local
 > `security audit`을 사용할 수 있습니다. Remote deployment contract, plan-only GitHub workflow
 > dispatch, exact-plan apply guard도 구현되었습니다. Bounded live Azure Policy, Compute quota,
-> Resource Graph identity, value-blind Key Vault secret probe를 사용할 수 있습니다. Network
-> egress, signed release artifact, production workflow wiring은 계획 상태입니다.
+> Resource Graph identity, value-blind Key Vault secret probe와 runner TLS egress evidence를
+> 사용할 수 있습니다. Signed bundle build/verify/release workflow와 production exact-plan
+> apply wiring도 구현됐습니다. Signed wheel/mirror/disconnected delivery와 teardown은 남았습니다.
 >
 > **실행 경계:** Terraform은 인프라 실행 엔진이자 source of truth로 유지됩니다. `fdaictl`은
 > validation, plan 분석, workflow 제출, 배포 후 검사를 위한 얇은 orchestration 계층입니다.
@@ -81,7 +82,8 @@ uvx --from fdai==<version> fdaictl deploy preflight --environment dev
 > `version`, `doctor`, `onboard init`, guarded `onboard guided`, portable `backup create` 및
 > `backup restore`, `deploy preflight`, plan-only `deploy plan` dispatch는 구현되었습니다.
 > Sanitized plan metadata status는 `deploy status`로 조회할 수 있고 guarded exact-plan
-> submission은 `deploy apply`로 사용할 수 있습니다. Teardown은 아직 unavailable입니다.
+> submission은 `deploy apply`로 사용할 수 있습니다. `release upgrade|rollback`,
+> `extension validate`, `trajectory validate`도 구현됐고 teardown은 아직 unavailable입니다.
 
 ## 명령 모델
 
@@ -103,6 +105,9 @@ uvx --from fdai==<version> fdaictl deploy preflight --environment dev
 | `fdaictl deploy apply --plan-id <id>` | 정확히 승인된 plan을 remote apply에 제출 | 있음, runner에서 실행 |
 | `fdaictl deploy status` | Sanitized plan digest, expiry, status, workflow URL 조회 | 없음 |
 | `fdaictl deploy teardown` | 보호된 environment teardown workflow 제출 | 있음, runner에서 실행 |
+| `fdaictl release upgrade` / `rollback` | 서명된 bundle active pointer를 검증 후 atomic 전환 | 없음 |
+| `fdaictl extension validate` | Extension manifest/archive compatibility 및 security offline 검사 | 없음 |
+| `fdaictl trajectory validate` | Governed trajectory dataset checksum/schema/order/source mapping 검사 | 없음 |
 
 C1 명령은 자동화를 위해 안정적인 JSON schema를 사용합니다. `onboard init`은 활성 subscription
 및 tenant identifier, environment, region, remote-runner 경계, shadow-mode 기본값만 gitignored
@@ -267,8 +272,8 @@ fdaictl deploy preflight \
    checksum, signature, 선택된 environment를 확인합니다.
 2. **Identity 및 target 검사:** 활성 Azure subscription, deployer role assignment, provider
    registration, target region, runner identity를 확인합니다.
-3. **Static infrastructure 검사:** Terraform formatting, initialization, validation, plan
-   generation을 실행합니다. Policy 및 dependency 분석을 위해 plan을 JSON으로 변환합니다.
+3. **Static infrastructure 검사:** 제공된 `terraform show -json` plan을 검증합니다. 실제
+  fmt/init/validate/plan 생성은 approved runner의 `deploy plan` workflow가 소유합니다.
 4. **Bounded live 검사:** 읽기 전용 adapter를 통해 Azure Policy, Resource Graph, quota, network
    configuration, 필요한 secret의 존재 여부를 조회합니다.
 5. **Readiness 결정:** 하나의 grounded report를 만들고, 각 finding이 enforce 상태인지 아직
@@ -330,6 +335,9 @@ file 중 하나가 변경되면 apply가 차단됩니다.
 ```bash
 fdaictl bootstrap probe-policy --allow-probe-resources
 ```
+
+이 bootstrap mutation command는 **계획됨**이며 현재 CLI parser에 등록되지 않았습니다. 지금은
+`infra/bootstrap/preflight-policy-check.sh`를 명시적으로 실행합니다.
 
 이 명령은 실행 전에 resource scope, cleanup behavior, stop condition, 예상 비용을 표시하는 것이
 좋습니다. 이 명령은 `fdaictl deploy preflight`의 일부가 아니며 preflight가 암시적으로 호출하지
@@ -513,8 +521,8 @@ metadata를 기록하며 CLI는 bounded run-scoped zip에서 sanitized status를
 apply transport, GitHub Environment approval boundary, immutable claim, audit receipt가 구현되어
 있습니다. Runner egress preflight evidence는 immutable plan metadata에 고정되고 post-apply
 check는 receipt 기록 전에 Terraform convergence, migration 성공, enabled endpoint health를
-요구합니다. Apply increment 완료 전 comprehensive runner-side Policy, quota, identity, secret
-evidence가 남아 있습니다.
+요구합니다. Runner-side Policy, quota, identity, secret, egress evidence는 C4 exact-plan gate의
+필수 입력입니다.
 
 ## Private-everything tenant
 
@@ -573,11 +581,12 @@ Remote apply를 노출하기 전에 읽기 전용 경계를 검증할 수 있도
 - Secret, state file, binary plan이 terminal output 또는 local machine에 도달하지 않음.
 - CLI와 deployment bundle을 이전에 서명된 version으로 함께 rollback할 수 있음.
 
-## 미결 질문
+## 미결 질문 및 결정
 
 - 첫 wheel과 deployment bundle을 어떤 approved package index 및 release store에 게시할까요?
-- Release pipeline에서 어떤 signature 및 attestation format을 표준으로 사용할까요?
-- 각 environment의 최대 saved-plan retention period는 얼마인가요?
+- [x] Signature/attestation - detached Ed25519 manifest signature + deterministic CycloneDX
+  file SBOM + GitHub build provenance/SBOM attestation.
+- [x] Saved-plan retention - 1시간 logical expiry, 24시간 뒤 bounded physical cleanup 대상.
 - `fdaictl deploy teardown`을 첫 apply release에 포함할까요? 아니면 teardown drill이 측정될
   때까지 별도의 guarded script로 유지할까요?
 

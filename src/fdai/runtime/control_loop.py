@@ -34,7 +34,7 @@ from fdai.core.quality_gate import (
     RuleBasedVerifier,
 )
 from fdai.core.rbac.resolver import GroupMapping
-from fdai.core.rca import KnowledgeEvidenceGatherer, RcaCoordinator
+from fdai.core.rca import KnowledgeEvidenceGatherer, RcaCoordinator, TelemetryEvidenceGatherer
 from fdai.core.risk_gate import ActionPromotionRegistry, RiskGate
 from fdai.core.risk_gate.risk_table import load_risk_table
 from fdai.core.tiers.t0_deterministic import T0Engine
@@ -363,6 +363,10 @@ def _build_control_loop(
     rca_coordinator = RcaCoordinator(
         reasoner=rca_reasoner,
         symptom_index=symptom_index if symptom_index is not None else build_from_promoted(),
+        evidence_gatherer=TelemetryEvidenceGatherer(
+            log_provider=container.log_query_provider,
+            trace_provider=container.trace_query_provider,
+        ),
         knowledge_gatherer=KnowledgeEvidenceGatherer(source=container.knowledge_source),
     )
 

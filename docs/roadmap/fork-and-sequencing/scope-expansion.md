@@ -20,6 +20,12 @@ CSP-neutral wire contracts live in
 control loop live in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
 
+> **Implementation status (2026-07-21).** Incident, all eight telemetry wire contracts,
+> workload SLO, runbook, on-call, postmortem, and vertical registry from section 3 are shipped.
+> Its `Problem` paragraphs preserve the historical gaps at adoption time. T2 candidate Action
+> construction and unified risk/HIL routing are also shipped; only handing a risk-eligible T2
+> Action to the executor remains.
+
 ## 1. In-scope axes (kept + expanded)
 
 | Axis | Position | Rationale |
@@ -27,13 +33,13 @@ control loop live in
 | **Change Safety** | Kept vertical. Foundational. | Deterministic-first ⇢ policy-gate ⇢ shadow → enforce is the strongest current story. |
 | **Resilience (DR/Chaos)** | Kept vertical. Chaos Studio adapter shipped. | Prod-exclusion invariant + `chaos:opt-out` tag already give a safety floor that is rare in industry. |
 | **Cost Governance (FinOps)** | Kept vertical. | Aligns with FinOps guardrail pattern that is well-established. |
-| **Incident lifecycle** | **New first-class object.** See § 3.1. | Blocks postmortem, RCA depth, on-call handoff. Cannot ship those without this. |
-| **Telemetry ingestion** | **Layer-0 seam expansion 5 → 8.** See § 3.2. | Metric / log / trace consumers are missing; anomaly + predictive + RCA are capped without them. |
-| **Workload SLO / error budget** | **New subsystem.** See § 3.3. | Control-plane SLOs exist ([deployment.md § 157](../deployment/deployment.md)); the workload-facing SLI/SLO/burn-rate abstraction that ranks incident priority does not. Kept separate from control-plane SLOs to avoid conflating the two identities. |
-| **Runbook orchestration** | **New primitive layer.** See § 3.4. | Present ActionTypes are leaves; a runbook is a DAG over ActionTypes with a rollback branch. |
-| **On-call schedule** | **New provider.** See § 3.5. | HIL routing today is role-based, not schedule-based. Break-glass pager exists but knows nothing about who is on shift. |
-| **Postmortem draft** | **New core module.** See § 3.6. | Fed by Incident + audit trail. LLM-optional (template-based default). |
-| **Full T1/T2 wiring into ControlLoop** | **T1 + T2 wired (shadow-only); T2 execution pending.** See § 3.7. | `ControlLoop.__init__` accepts optional `t1_engine` + `t2_engine`; the loop runs `T0.abstain -> T1.reuse-log -> T2.propose + quality-gate`, auditing each verdict without executing. Building an `Action` from an eligible T2 candidate + routing it through the risk-gate remains. |
+| **Incident lifecycle** | **Shipped.** See § 3.1. | Durable lifecycle, proposals, notifications, SLA, and storm coordination. |
+| **Telemetry ingestion** | **Eight Layer-0 seams and Azure adapters shipped.** See § 3.2. | Metric/log/trace ground SLO, detection, and RCA. |
+| **Workload SLO / error budget** | **Shipped.** See § 3.3. | Workload SLI/SLO/burn remains distinct from control-plane SLO. |
+| **Runbook orchestration** | **Shipped.** See § 3.4. | Bounded step and rollback orchestration. |
+| **On-call schedule** | **Shipped.** See § 3.5. | Static and PagerDuty schedules with role fallback. |
+| **Postmortem draft** | **Shipped.** See § 3.6. | Template-first drafts and grounded learning candidates. |
+| **Full T1/T2 wiring into ControlLoop** | **Action build + risk/HIL route shipped; eligible execution pending.** See § 3.7. | Quality-gated T2 candidates reach the unified risk gate as Actions. |
 
 ## 2. Explicitly-deferred axes (not in this expansion)
 
@@ -41,9 +47,7 @@ control loop live in
 |------|----------|-----------|
 | Multi-cloud (AWS / GCP) | Deferred to future phase. | Implementation focus stays Azure; the wire-contract seams (§ 3.2) keep an AWS adapter additive. |
 | Predictive capacity / autoscaling | Deferred. | Depends on telemetry ingestion (§ 3.2) being real, not stubbed. Ship § 3.2 first, then this in a later phase. |
-| Status page / stakeholder broadcast | Deferred. | The Incident object (§ 3.1) is the prerequisite; broadcast is a delivery-layer adapter and lands independently. |
-| PagerDuty / OpsGenie integration | Deferred. | The `OnCallSchedule` provider (§ 3.5) defines the seam; specific vendor adapters land in the fork model, not upstream. |
-| DORA metric ingestion (change-failure-rate, deploy-frequency) | Deferred. | MTTR + lead time already exist in [goals-and-metrics.md](../architecture/goals-and-metrics.md); the two missing pieces need a git-history reader that is out of P2 scope. |
+| Public status-page endpoint | Deferred. | Stakeholder briefings and multi-channel delivery shipped; only the public endpoint binding remains external. |
 
 ## 3. Structural changes (design contract)
 
@@ -52,6 +56,9 @@ Every subsystem below MUST honor the standing invariants in
 every autonomous action carries a stop-condition, a rollback path, a
 blast-radius limit, and an audit entry, and new capabilities ship in
 shadow mode first.
+
+The `Problem` paragraphs below are historical adoption gaps; `Design` describes the landed
+contract. Use the implementation status above and the section 6 coverage table for current status.
 
 ### 3.1 Incident as a first-class object
 
@@ -323,24 +330,21 @@ findings, actions) but no synthesizer.
 
 ### 3.7 T1 / T2 tiers wired into `ControlLoop`
 
-**Status.** T1 and T2 are both wired into the loop; T2 execution is the
+**Status.** T1 and T2 are wired into the loop. T2 candidate Action construction, unified risk
+evaluation, and deny/HIL routing are shipped; executor handoff for a risk-eligible candidate is the
 remaining step. `ControlLoop.__init__` accepts optional `t1_engine`
 (`T1Tier`) and `t2_engine` (`T2Tier`), both Protocol-typed. `process`
 runs `T0.abstain -> T1.reuse-log -> T2.propose + quality-gate`, and each
 tier hop writes its own audit entry so the decision stays
-reconstructable. Both tiers are **shadow-only** in this wiring: a T1
-similarity hit is recorded as `T1_REUSE_LOGGED` and a T2 verdict as
-`T2_PROPOSED_LOGGED` / `T2_ESCALATED` / `T2_DENIED` / `T2_ABSTAINED`, but
-neither executes - the authoritative decision stays `abstain` and nothing
-is built or routed. T2 output clears the `QualityGate` (mixed-model
+reconstructable. T1 reuse remains **shadow-only**. T2 candidate outcomes are recorded as
+`T2_PROPOSED_LOGGED` / `T2_ESCALATED` / `T2_DENIED` / `T2_ABSTAINED`, and a proposed candidate
+may continue through Action construction and risk/HIL routing. T2 output clears the `QualityGate` (mixed-model
 cross-check + verifier + grounding) before it is even eligible.
 
 **Remaining design (T2 execution).**
 
-- Build an `Action` from an eligible `QualityCandidate`
-  (`T2Outcome.PROPOSED`) and route it through the risk-gate + executor -
-  the one step that turns the shadow-only T2 log into a gated action,
-  mirroring the same P2 step the T1 reuse still needs.
+- Hand a T2 Action whose unified risk decision is `auto` to the selected executor and record its
+  terminal receipt. Action construction and risk routing are complete.
 - Only a gate `ELIGIBLE` verdict may reach the risk-gate; `ESCALATE` /
   `DENIED` / `ABSTAIN` never auto-execute. Execution eligibility is
   granted by the deterministic gate, never the model.
@@ -427,6 +431,11 @@ against the FDAI subsystem that implements each one. `Covered` means a
 subsystem exists but a declared dependency is still deferred; `Deferred`
 means only the seam is designed (§ 2 / § 3), not wired.
 
+The detailed comparison now tracks 51 atomic Azure SRE Agent capabilities, official Microsoft
+Learn sources, runtime parity status, and exact FDAI evidence in
+[the SRE Agent parity audit](../../internals/sre-agent-parity-audit.md). The table below remains the
+short duty-level summary.
+
 | SRE duty | Status | Where |
 |----------|--------|-------|
 | Incident detection / triage / lifecycle | Covered | `core/incident/` (§ 3.1), `core/event_ingest/` |
@@ -440,18 +449,13 @@ means only the seam is designed (§ 2 / § 3), not wired.
 | Posture review / architecture Q&A | Covered | `core/assurance_twin/`, [assurance-twin.md](../operations/assurance-twin.md) |
 | **Dev-to-ops handoff (policy + RBAC review)** | Covered | [operational-readiness.md](../operations/operational-readiness.md) (ORR) |
 | **Identity / RBAC least-privilege posture** | Covered | workload RBAC rule pack (`*.role-assignment.*`) + `remediate.right-size-role` |
-| SLO / error budget | Partial | `core/slo/`: `MetricBurnRateSource` bridges the § 3.2 metric seam to the burn-rate evaluator and `SloBurnRunner.run_once` publishes `slo.error_budget_burn` events (fail-closed on missing data); only a real vendor `MetricProvider` adapter + an infra cron trigger remain |
-| Monitoring / alerting (external signal ingestion) | Partial | `core/detection/` correlation shipped; the § 3.2 metric seam feeds SLO burn-rate and detection anomaly (`MetricSeriesSource`), and the log / trace seams feed RCA telemetry grounding (`TelemetryEvidenceGatherer`); only real vendor adapters remain |
-| On-call schedule / paging | Partial | § 3.5 `OnCallSchedule` seam + core `OnCallResolver` (fail-safe fallback) wired into HIL parking + audit (records who was on shift); a PagerDuty / OpsGenie vendor adapter and card DM-targeting land in a fork (§ 2) |
-| Status page / stakeholder broadcast | Deferred | § 2 (Incident object is the prerequisite) |
-| DORA change-failure-rate / deploy-frequency | Deferred | § 2 (needs a git-history reader) |
+| SLO / error budget | Covered | `core/slo/` plus routed Prometheus, Azure Monitor Metrics, and KQL providers; `SloBurnRunner` remains fail-closed on missing data |
+| Monitoring / alerting (external signal ingestion) | Covered | metrics, bounded KQL, App Insights traces, Activity Log, diagnostic stream, anomaly, forecast, and RCA telemetry grounding |
+| On-call schedule / paging | Covered | fail-safe `OnCallResolver`, PagerDuty roster adapter with explicit Entra mapping, PagerDuty Events v2 paging, and role fallback |
+| Status page / stakeholder broadcast | Covered | stakeholder briefing composer plus Teams, Slack, email, webhook, PagerDuty, and SMS channels; a public status-page endpoint remains an external binding |
+| DORA change-failure-rate / deploy-frequency | Covered | `core/measurement/dora.py` computes all four DORA measures from normalized deployment observations with explicit invalid/coverage counts |
 
-The two `Partial` rows now share a single remaining prerequisite - a real
-vendor `MetricProvider` adapter bound at the composition root. The § 3.2
-Protocols, their in-memory bindings, the `core/slo/` bridge that consumes them,
-and the `SloBurnRunner` that publishes breach events all exist; only the
-concrete backend and the out-of-band cron trigger that calls `run_once` are
-left, and both land additively (a fork adapter + an infra job) without a
-`core/` rewrite. The `Deferred` rows are seams by design, not gaps in the
-control loop.
-
+Deployment credentials and endpoints remain external configuration, not repository gaps. An
+unconfigured adapter reports unavailable or uses the documented role fallback; it never substitutes
+fixtures or promotes autonomy. Direct write CLI and global auto-approval are intentionally replaced
+by FDAI's typed action, policy, risk, approval, rollback, lock, idempotency, and audit path.

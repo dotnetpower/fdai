@@ -39,7 +39,12 @@ class _Inventory:
                         "microsoft.compute/virtualmachines/vm-example"
                     ),
                     type="compute.vm",
-                    props={"name": "vm-example", "resourceGroup": "rg-example"},
+                    props={
+                        "name": "vm-example",
+                        "resourceGroup": "rg-example",
+                        "powerState": "VM running",
+                        "provisioningState": "Succeeded",
+                    },
                     provider_ref="/subscriptions/example/resourceGroups/rg-example/vm-example",
                 ),
             ),
@@ -77,6 +82,8 @@ def test_projects_contains_graph_without_provider_refs_and_caches() -> None:
         and resource.get("y", 0) + resource.get("h", 0) <= 12
         for resource in resources
     )
+    vm = next(resource for resource in resources if resource["type"] == "compute.vm")
+    assert vm["status"] == "VM running"
     assert first["links"] == [
         {
             "source": "azure-subscription",

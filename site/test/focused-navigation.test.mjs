@@ -44,10 +44,11 @@ test("sidebar scroll storage is isolated by locale and mode", () => {
   assert.equal(navigationScrollKey("ko", "sre"), "fdai-sidebar-scroll:ko:sre");
 });
 
-test("sidebar keeps shadow and enforce as canonical technical terms", async () => {
+test("sidebar leads with plain-language execution modes", async () => {
   const config = await readFile(new URL("../astro.config.mjs", import.meta.url), "utf8");
 
-  assert.match(config, /translations: \{ ko: "shadow 후 enforce" \}/);
+  assert.match(config, /label: "Observe, then enable changes"/);
+  assert.match(config, /translations: \{ ko: "관찰 후 변경 적용" \}/);
   assert.doesNotMatch(config, /섬도우|쉐도우|섀도우/);
 });
 

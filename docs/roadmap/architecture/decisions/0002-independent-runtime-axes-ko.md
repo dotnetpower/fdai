@@ -1,7 +1,7 @@
 ---
 title: ADR-0002 Independent Runtime and Customization Axes
 translation_of: 0002-independent-runtime-axes.md
-translation_source_sha: 66e2e580e38114bdbbf1427aec88773478e108e9
+translation_source_sha: ef947df1e66033eb1a293306de43b7f8d03f07da
 translation_revised: 2026-07-21
 ---
 # ADR-0002: 독립적인 Runtime 및 Customization 축
@@ -65,6 +65,10 @@ FDAI는 다음 축을 독립 configuration으로 취급합니다.
   Browser principal 또는 executor identity를 대체하지 않습니다.
 - 동일한 agent pantheon, catalog, promotion registry, risk gate, Process journal, stage event를
   local에서도 실행합니다.
+- Pantheon startup은 기본 활성 상태입니다. `FDAI_START_PANTHEON`이 없으면 모든 agent를
+  활성화하고 명시적인 false 값만 비활성화합니다. Event Hubs configuration은 Azure transport를
+  선택하며 runtime 존재 여부를 결정하지 않습니다. Event Hubs가 없으면 local in-process
+  EventBus가 agent message와 status를 전달하고 Azure evidence는 unavailable 상태를 유지합니다.
 - Privileged execution은 Thor의 deployed managed identity 뒤에 유지합니다. Local process는
   governed command를 development event bus로 publish하며 developer token으로 실행하지 않습니다.
 - Authoritative provider가 없으면 unavailable로 표시하거나 fail closed합니다. Fixture를 선택하지

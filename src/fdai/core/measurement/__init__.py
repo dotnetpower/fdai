@@ -11,6 +11,8 @@ The six modules here are:
   automatic demotion to shadow on guard-metric breaches.
 - :mod:`.mttr` - pure MTTR (KPI 3a) aggregator folding resolved
   incidents into mean / median / p90 resolution seconds.
+- :mod:`.dora` - pure deployment frequency, lead time, change-failure,
+  and failed-change recovery aggregation with explicit coverage counts.
 - :mod:`.pattern_growth` - T1 pattern-library growth guardrails
   (auto-resolved-only intake + temporal-holdout validation).
 - :mod:`.model_tracking` - per-model cost/quality tracker; swaps are
@@ -28,3 +30,7 @@ The six modules here are:
 """
 
 from __future__ import annotations
+
+from fdai.core.measurement.dora import DeploymentObservation, DoraSummary, compute_dora
+
+__all__ = ["DeploymentObservation", "DoraSummary", "compute_dora"]

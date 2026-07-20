@@ -30,6 +30,7 @@ module "read_api" {
   image                        = var.read_api_image
   read_api_identity_id         = module.read_api_identity[0].resource_id
   read_api_identity_client_id  = module.read_api_identity[0].client_id
+  monitor_workspace_customer_id = module.log_analytics.workspace_customer_id
   resolved_models_path         = var.read_api_resolved_models_path
   web_search_enabled           = var.read_api_web_search_enabled
   web_search_allowed_domains   = var.read_api_web_search_allowed_domains
@@ -58,6 +59,12 @@ to enable `/chat`, `/chat/stream`, and `/chat/health`. The production factory
 uses the dedicated read-API managed identity to invoke the configured narrator.
 Leave the value empty to keep those routes disabled.
 
+The module also projects `monitor_workspace_customer_id` as
+`FDAI_MONITOR_WORKSPACE_ID`. When chat and this value are configured, explicit
+`query_log` commands use the same dedicated read-API managed identity to run
+bounded KQL against that workspace. The browser cannot select another workspace
+or provide an identity.
+
 Web search stays disabled by default. To enable it, set
 `read_api_web_search_enabled=true` and provide exact public source hosts in
 `read_api_web_search_allowed_domains`. The module projects the result cap,
@@ -72,5 +79,5 @@ Postgres. Its bounded write routes can stage immutable Python task artifacts,
 store cron bindings, and publish typed proposals. It cannot create an Azure VM
 Run Command: the dedicated identity receives ACR pull, state-store secret read,
 Event Hubs send/receive for typed pipeline and live projection topics, and Azure OpenAI model
-invocation only. VM execution authority remains on the separate executor identity and
-target-scoped role.
+invocation plus read-only Azure and Log Analytics access. VM execution authority remains on
+the separate executor identity and target-scoped role.

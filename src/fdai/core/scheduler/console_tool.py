@@ -21,6 +21,7 @@ store is never touched. The caller writes exactly one audit entry per call
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any, Final
 
 from fdai.core.conversation.session import (
@@ -30,6 +31,7 @@ from fdai.core.conversation.session import (
 )
 from fdai.core.conversation.tools import SideEffectClass, ToolResult
 from fdai.core.scheduler.models import ScheduledTask
+from fdai.core.scheduler.service import SchedulerService
 from fdai.core.scheduler.store import ScheduleNotFoundError, ScheduleStore
 
 _MIN_INTERVAL_SECONDS: Final[float] = 60.0
@@ -182,8 +184,131 @@ class CancelScheduleTool:
         )
 
 
+class SetScheduleEnabledTool:
+    """Pause or resume one schedule without deleting its definition."""
+
+    rbac_floor: Role = Role.CONTRIBUTOR
+    side_effect_class: SideEffectClass = "execute"
+
+    def __init__(self, *, store: ScheduleStore, enabled: bool) -> None:
+        self._store = store
+        self._enabled = enabled
+        self.name = "resume_schedule" if enabled else "pause_schedule"
+        self.description = f"{'Resume' if enabled else 'Pause'} a scheduled monitoring task."
+
+    async def call(self, *, arguments: Mapping[str, Any], principal: Principal) -> ToolResult:
+        if not principal_has_role_at_least(principal.role, self.rbac_floor):
+            return _deny(self.name, self.rbac_floor)
+        task_id = str(arguments.get("task_id") or "").strip()
+        if not task_id:
+            return ToolResult(status="error", preview=f"{self.name} requires 'task_id'.")
+        try:
+            current = await self._store.get(task_id)
+            updated = await self._store.update(replace(current, enabled=self._enabled))
+        except ScheduleNotFoundError:
+            return ToolResult(status="error", preview=f"no scheduled task {task_id!r}")
+        state = "resumed" if self._enabled else "paused"
+        return ToolResult(
+            status="ok",
+            data={"task": _task_view(updated)},
+            preview=f"{state} schedule {task_id}",
+            evidence_refs=(f"schedule:{task_id}",),
+        )
+
+
+class UpdateScheduleTool:
+    """Edit bounded schedule fields while preserving identity and history."""
+
+    name = "update_schedule"
+    description = "Edit a schedule name, interval, event type, resource, cron, or timezone."
+    rbac_floor: Role = Role.CONTRIBUTOR
+    side_effect_class: SideEffectClass = "execute"
+
+    def __init__(self, *, store: ScheduleStore) -> None:
+        self._store = store
+
+    async def call(self, *, arguments: Mapping[str, Any], principal: Principal) -> ToolResult:
+        if not principal_has_role_at_least(principal.role, self.rbac_floor):
+            return _deny(self.name, self.rbac_floor)
+        task_id = str(arguments.get("task_id") or "").strip()
+        if not task_id:
+            return ToolResult(status="error", preview="update_schedule requires 'task_id'.")
+        try:
+            current = await self._store.get(task_id)
+            interval = float(arguments.get("interval_seconds", current.interval_seconds))
+            if interval < _MIN_INTERVAL_SECONDS:
+                raise ValueError(f"interval_seconds must be >= {int(_MIN_INTERVAL_SECONDS)}")
+            updated = replace(
+                current,
+                name=str(arguments.get("name", current.name)).strip(),
+                interval_seconds=interval,
+                event_type=str(arguments.get("event_type", current.event_type)).strip(),
+                resource_ref=(
+                    str(arguments["resource_ref"]).strip() or None
+                    if "resource_ref" in arguments
+                    else current.resource_ref
+                ),
+                cron_expression=(
+                    str(arguments["cron_expression"]).strip() or None
+                    if "cron_expression" in arguments
+                    else current.cron_expression
+                ),
+                timezone=str(arguments.get("timezone", current.timezone)).strip(),
+            )
+            updated = await self._store.update(updated)
+        except ScheduleNotFoundError:
+            return ToolResult(status="error", preview=f"no scheduled task {task_id!r}")
+        except (TypeError, ValueError) as exc:
+            return ToolResult(status="error", preview=f"invalid schedule update: {exc}")
+        return ToolResult(
+            status="ok",
+            data={"task": _task_view(updated)},
+            preview=f"updated schedule {task_id}",
+            evidence_refs=(f"schedule:{task_id}",),
+        )
+
+
+class RunScheduleNowTool:
+    """Immediately dispatch a schedule through its normal event path."""
+
+    name = "run_schedule_now"
+    description = "Run one enabled scheduled task now through the normal control loop."
+    rbac_floor: Role = Role.CONTRIBUTOR
+    side_effect_class: SideEffectClass = "execute"
+
+    def __init__(self, *, scheduler: SchedulerService) -> None:
+        self._scheduler = scheduler
+
+    async def call(self, *, arguments: Mapping[str, Any], principal: Principal) -> ToolResult:
+        if not principal_has_role_at_least(principal.role, self.rbac_floor):
+            return _deny(self.name, self.rbac_floor)
+        task_id = str(arguments.get("task_id") or "").strip()
+        idempotency_key = str(arguments.get("idempotency_key") or "").strip()
+        if not task_id or not idempotency_key:
+            return ToolResult(
+                status="error",
+                preview="run_schedule_now requires 'task_id' and 'idempotency_key'.",
+            )
+        try:
+            report = await self._scheduler.run_task_now(
+                task_id,
+                idempotency_key=idempotency_key,
+            )
+        except (ScheduleNotFoundError, ValueError) as exc:
+            return ToolResult(status="error", preview=f"run_schedule_now failed: {exc}")
+        return ToolResult(
+            status="ok",
+            data={"task_id": task_id, "fired": report.fired},
+            preview=f"ran schedule {task_id} now",
+            evidence_refs=(f"schedule:{task_id}",),
+        )
+
+
 __all__ = [
     "CancelScheduleTool",
     "CreateScheduleTool",
     "ListSchedulesTool",
+    "RunScheduleNowTool",
+    "SetScheduleEnabledTool",
+    "UpdateScheduleTool",
 ]

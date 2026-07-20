@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 673b559bae9809ca2f1782c5d69651c6a5c4e8a8
-translation_revised: 2026-07-20
+translation_source_sha: 1846464f1f2b1e4c0a929eca7977d08ceb845af2
+translation_revised: 2026-07-21
 ---
 
 # CSP-중립성 계약
@@ -23,7 +23,7 @@ translation_revised: 2026-07-20
 와이어 수준 계약** 을 통해야 합니다. 각 계약의 Azure 구현이 오늘 우리가 만드는 것이며,
 fork 나 미래 phase 는 `core/` 를 편집하지 않고 **같은 계약** 의 새 구현을 등록해서 다른 CSP 를 추가합니다.
 
-**동시성(Concurrency)**: 여덟 개의 provider Protocol 은 **기본 async** 입니다 (Kafka poll
+**동시성(Concurrency)**: I/O를 수행하는 provider seam은 **기본 async** 입니다 (Kafka poll
 loop, Postgres asyncpg, Key Vault HTTP, OIDC 토큰 교환, inventory-graph 쿼리, 그리고
 § 6-8 의 세 telemetry-ingestion 쿼리는 모두 I/O bound). Sync 는 event loop 를 블록하지
 않도록 CPU / startup 전용 seam - `SchemaRegistry`, `ContractValidator`, `ConfigProvider` -
@@ -182,7 +182,7 @@ seam):
 **규칙 (MUST):**
 
 - 코어는 `shared/providers/` 의 주입된 `SecretProvider` 인터페이스 **를 통해서만** secret
-  을 읽음 ([project-structure-ko.md](project-structure-ko.md#injectable-seams));
+  을 읽음 ([project-structure-ko.md](project-structure-ko.md#주입-가능한-seams));
   어떤 벤더 SDK 의 `SecretClient` 도 `core/` 에 나타나지 않음.
 - **Secret 이름은 프로바이더 전체에서 안정적 스키마** 를 따름 (upper-snake env var 이름) -
   앱이 프로바이더를 모르게.
@@ -328,7 +328,7 @@ local 및 deployed console의 의미를 일치시킵니다.
 **Anti-patterns (MUST NOT):**
 
 - `core/` 에서 `azure-mgmt-*`, `boto3`, `google-cloud-*` 클라이언트 import.
-  클라우드 인벤토리 SDK 는 provider 어댑터 패키지에만 살았.
+  클라우드 인벤토리 SDK 는 provider 어댑터 패키지에만 있어야 함.
 - Kusto / ARG 쿼리를 `core/` 코드 경로에 임베드 (그것들은 manifest / 쿼리 템플릿이
   구동하는 Azure 어댑터에 속함).
 - 초기 full scan 을 글로벌 락 하에 실행하거나, executor 의 per-resource 락 하에서 실행;
@@ -484,7 +484,7 @@ backend 가 기록했는지 모른 채 service 를 가로질러 request 를 walk
 
 ## Azure-Phase 실현 (요약)
 
-오늘의 구현은 네 계약에 다음과 같이 슬롯됩니다. 명명된 각 서비스는 **채택 시점에 재확인할
+오늘의 구현은 다섯 foundational contract에 다음과 같이 슬롯됩니다. 명명된 각 서비스는 **채택 시점에 재확인할
 권장사항** 이지만 ([tech-stack-ko.md](tech-stack-ko.md)) 계약 자체는 바뀌지 않습니다.
 
 | 계약 | Azure 실현 | Idle 비용 자세 |
@@ -502,8 +502,8 @@ Kafka 와이어 전용입니다. 프로바이더 네이티브 pub/sub 은 오직
 
 ## 승인된 대안 Azure 구현(Approved Alternative Azure Implementations)
 
-다섯 개의 와이어-레벨 계약이 이미 코어를 CSP-이식 가능하게 유지합니다. 이 표는 각 계약이
-`core/` 를 건드리지 않고 스왑할 수 있는 **Azure 내부** 대안을 나열합니다. 스왑은
+Foundational contract와 인접 platform seam이 코어를 CSP-이식 가능하게 유지합니다. 이 표는
+각 seam이 `core/`를 건드리지 않고 스왑할 수 있는 **Azure 내부** 대안을 나열합니다. 스왑은
 **infra 모듈 경계**에서 일어남 - fork 가 `infra/modules/<seam>/` 아래 다른 서브-모듈을
 고르거나 (또는 순수 코드 레벨 변경이면 composition root에서 DI 바인딩 오버라이드).
 "유지되는 것" 컬럼의 모든 것은 계약이지 구현이 아니며 스왑 전체에서 보존됩니다;
@@ -542,9 +542,10 @@ Kafka 와이어 전용입니다. 프로바이더 네이티브 pub/sub 은 오직
 
 다른 CSP 를 추가하는 것은 **fork 수준 config 작업** 이며 코어 변경이 아닙니다:
 
-1. Composition root 에서 `shared/providers/` 의 다섯 프로바이더 인터페이스의 새 구현을
+1. Composition root 에서 `shared/providers/` 의 여덟 provider interface 새 구현을
    등록 ([project-structure-ko.md](project-structure-ko.md#customization-via-dependency-injection)).
-2. `bootstrap.servers`, `SecretProvider`, `RuntimeAdapter`, `WorkloadIdentity`, `Inventory` 바인딩을 새 CSP 로 지시.
+2. `bootstrap.servers`, `SecretProvider`, `RuntimeAdapter`, `WorkloadIdentity`, `Inventory`,
+   `MetricProvider`, `LogQueryProvider`, `TraceQueryProvider` 바인딩을 새 CSP로 지시.
 3. 같은 OCI 이미지 + Knative 호환 매니페스트를 대상 런타임으로 렌더링.
 4. Azure 구현과의 parity 가 측정될 때까지 **shadow mode** 로 배송
    ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
@@ -572,4 +573,4 @@ Kafka 와이어 전용입니다. 프로바이더 네이티브 pub/sub 은 오직
 | 이 계약을 실현하는 구체 스택 | [tech-stack-ko.md](tech-stack-ko.md) |
 | 계약에서 렌더링되는 Azure 리소스 인벤토리 | [deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set](../deployment/deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set) |
 | 신원 모델과 secret 취급 심층 | [security-and-identity-ko.md](security-and-identity-ko.md) |
-| 각 계약을 composition root에 노출하는 DI seam | [project-structure-ko.md#injectable-seams](project-structure-ko.md#injectable-seams) |
+| 각 계약을 composition root에 노출하는 DI seam | [project-structure-ko.md#주입-가능한-seams](project-structure-ko.md#주입-가능한-seams) |

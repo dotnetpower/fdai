@@ -17,6 +17,7 @@ from fdai.core.prompts.types import (
     ComposedPrompt,
     LayerRef,
     PromptLayer,
+    SkillDisclosureRequest,
 )
 
 
@@ -54,7 +55,9 @@ class StaticPromptComposer(PromptComposer):
         *,
         capability_id: str,
         scope: OperatorScope | None = None,
+        skill_disclosure: SkillDisclosureRequest | None = None,
     ) -> ComposedPrompt:
+        del skill_disclosure
         self.calls.append((capability_id, scope))
         return ComposedPrompt(
             system_text=self._system_text,

@@ -9,6 +9,7 @@ on:
     paths:
       - "site/**"
       - "docs/**"
+      - "tools/architecture-diagrams/**"
       - "README.md"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -37,7 +38,17 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: site/package-lock.json
+          cache-dependency-path: |
+            site/package-lock.json
+            tools/architecture-diagrams/package-lock.json
+
+      - name: Install diagram compiler dependencies
+        working-directory: tools/architecture-diagrams
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify architecture diagrams
+        working-directory: tools/architecture-diagrams
+        run: npm test && npm run typecheck && npm run check
 
       - name: Install dependencies
         working-directory: site

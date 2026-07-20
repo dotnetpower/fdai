@@ -129,6 +129,66 @@ async def test_eligible_when_all_gates_pass() -> None:
     assert decision.aggregate_confidence > 0.7
 
 
+@pytest.mark.asyncio
+async def test_prompt_evidence_is_optional_on_votes_and_serialized_when_present() -> None:
+    from fdai.core.prompts import (
+        ComposedPrompt,
+        LayerRef,
+        PromptLayer,
+        SkillReplayRecord,
+        SkillSelectionStatus,
+    )
+    from fdai.core.quality_gate import CrossCheckProposal, quality_decision_audit_fields
+
+    composed = ComposedPrompt(
+        system_text="evidence prompt",
+        layer_manifest=(LayerRef(id="base", version=1, layer=PromptLayer.BASE, token_estimate=4),),
+        token_estimate=4,
+        skill_records=(
+            SkillReplayRecord(
+                operation="load_skill",
+                name="inventory-evidence",
+                version="1.2.3",
+                raw_markdown_sha256="a" * 64,
+                body_sha256="b" * 64,
+                reference_path=None,
+                reference_sha256=None,
+                status=SkillSelectionStatus.SELECTED,
+            ),
+        ),
+    )
+    replay = composed.replay_manifest()
+
+    class _EvidenceModel:
+        model_id = "evidence-aware"
+
+        async def propose(self, candidate: QualityCandidate):
+            return candidate.action_type, dict(candidate.params)
+
+        async def propose_with_evidence(self, candidate: QualityCandidate):
+            return CrossCheckProposal(
+                action_type=candidate.action_type,
+                params=dict(candidate.params),
+                prompt_replay_manifest=replay,
+            )
+
+    gate = QualityGate(
+        verifier=StaticVerifier(outcome=True),
+        cross_check_models=(_EvidenceModel(), MatchTypeCrossCheckModel()),
+        grounding=_grounding(),
+    )
+
+    decision = await gate.evaluate(_candidate())
+    fields = quality_decision_audit_fields(decision)
+
+    assert decision.model_votes[0].prompt_replay_manifest == replay
+    assert decision.model_votes[1].prompt_replay_manifest is None
+    evidence_fields = fields["model_votes"][0]["prompt_replay_manifest"]
+    assert evidence_fields["system_text_sha256"] == replay.system_text_sha256
+    assert evidence_fields["skill_records"][0]["body_sha256"] == "b" * 64
+    assert "prompt_replay_manifest" not in fields["model_votes"][1]
+
+
 # ---------------------------------------------------------------------------
 # Verifier paths
 # ---------------------------------------------------------------------------

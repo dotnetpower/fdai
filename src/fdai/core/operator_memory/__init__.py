@@ -37,6 +37,13 @@ from fdai.core.operator_memory.hil_pipeline import (
     HilRejectMaterial,
     HilRejectMaterializer,
 )
+from fdai.core.operator_memory.proposals import (
+    InMemoryOperatorMemoryProposalStore,
+    OperatorMemoryProposal,
+    OperatorMemoryProposalError,
+    OperatorMemoryProposalState,
+    OperatorMemoryProposalWorkshop,
+)
 from fdai.core.operator_memory.review import (
     OperatorMemoryReviewItem,
     OperatorMemoryReviewService,
@@ -78,6 +85,11 @@ __all__ = [
     "OperatorMemoryPolicyError",
     "OperatorMemoryReviewItem",
     "OperatorMemoryReviewService",
+    "InMemoryOperatorMemoryProposalStore",
+    "OperatorMemoryProposal",
+    "OperatorMemoryProposalError",
+    "OperatorMemoryProposalState",
+    "OperatorMemoryProposalWorkshop",
     "OperatorMemoryStore",
     "OperatorScope",
     "ScopeKind",

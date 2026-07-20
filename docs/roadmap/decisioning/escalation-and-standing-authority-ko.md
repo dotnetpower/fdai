@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 55628f479ecf4b4fcb477af1d0d54cf319d8ff16
-translation_revised: 2026-07-11
+translation_source_sha: 0aa187344d378320c144bf5cac89a0458da3f146
+translation_revised: 2026-07-21
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -23,6 +23,11 @@ translation_revised: 2026-07-11
 > 시점에 결정론적으로 재검증된다 - 절대 fail-open 경로가 아니며 LLM 이 실행을 부여하지
 > 못한다. 이 문서의 모든 신규 역량은 **shadow 우선** 으로 ship 된다
 > ([architecture.instructions.md § Safety Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
+
+> **구현 상태 (2026-07-21):** Proposed. 이 문서의 사람 무응답 ladder,
+> standing-authority catalog, temporal supervisor, runtime binding은 아직 구현되지 않았습니다.
+> `core/quality_gate/escalation_ladder.py`는 별도의 model escalation policy이며 이 설계를
+> 구현하지 않습니다.
 
 ## 이 문서가 다루는 것
 

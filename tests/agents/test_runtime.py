@@ -13,6 +13,7 @@ drains one hop.
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 
 import pytest
 
@@ -31,6 +32,7 @@ from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.chaos.symptom_index import build_from_entries
+from fdai.core.learning import PostTurnReviewInput, review_input_to_mapping
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -122,6 +124,55 @@ async def test_runtime_feeds_uncovered_incident_symptom_to_norns() -> None:
     assert len(norns.pending_candidates) == 1
     assert norns.pending_candidates[0]["proposal_kind"] == "new-scenario"
     assert norns.pending_candidates[0]["evidence"]["target_type"] == "vm"
+
+
+class _PostTurnCoordinator:
+    def __init__(self) -> None:
+        self.inputs: list[PostTurnReviewInput] = []
+
+    async def review(self, review_input: PostTurnReviewInput) -> object:
+        self.inputs.append(review_input)
+        return object()
+
+
+def test_runtime_injects_post_turn_review_into_norns() -> None:
+    provider = InMemoryEventBus()
+    coordinator = _PostTurnCoordinator()
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic=_RAW_TOPIC,
+        post_turn_review=coordinator,  # type: ignore[arg-type]
+    )
+    review_input = PostTurnReviewInput(
+        review_id="review-runtime-1",
+        principal_scope="principal-hash-1",
+        operator_turn_id="operator-turn-1",
+        assistant_turn_id="assistant-turn-1",
+        completed_at=datetime(2026, 7, 20, tzinfo=UTC),
+    )
+
+    async def _drive() -> None:
+        await provider.publish(
+            "object.turn",
+            "principal-hash-1",
+            {
+                "producer_principal": "Bragi",
+                "kind": "post_turn_review",
+                "review": review_input_to_mapping(review_input),
+            },
+        )
+        run_task = asyncio.create_task(runtime.run())
+        for _ in range(50):
+            await asyncio.sleep(0)
+        await runtime.stop()
+        run_task.cancel()
+        try:
+            await run_task
+        except (asyncio.CancelledError, Exception):  # noqa: S110 - cleanup
+            pass
+
+    asyncio.run(_drive())
+    assert coordinator.inputs == [review_input]
 
 
 def test_publishing_agents_are_bound_to_the_bridge() -> None:

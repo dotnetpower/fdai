@@ -9,6 +9,7 @@ scheduler's due-lookup path (``list_all`` + ``mark_run``) round-trips.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -27,6 +28,11 @@ from fdai.core.scheduler.store import ScheduleNotFoundError
 from fdai.delivery.persistence.postgres_scheduler_store import (
     PostgresScheduleStore,
     PostgresScheduleStoreConfig,
+    _row_to_task,
+)
+from fdai.shared.providers.scheduled_continuation import (
+    ContinuationMode,
+    ScheduledResultOrigin,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -45,6 +51,53 @@ def test_config_rejects_empty_dsn() -> None:
 def test_config_rejects_bad_timeout() -> None:
     with pytest.raises(ValueError, match="timeout"):
         PostgresScheduleStoreConfig(dsn="postgresql://x", statement_timeout_ms=0)
+
+
+def test_scheduled_task_continuation_row_codec_round_trips() -> None:
+    row = {
+        "task_id": "task-continuable",
+        "name": "continuable task",
+        "interval_seconds": 60,
+        "event_type": "synthetic.monitor.scope",
+        "created_by": "principal-a",
+        "event_payload": {},
+        "resource_ref": "scope-a",
+        "enabled": True,
+        "start_at": None,
+        "last_run": None,
+        "cron_expression": None,
+        "schedule_kind": "interval",
+        "timezone": "UTC",
+        "exit_event_type": None,
+        "exit_observed_at": None,
+        "isolation_profile": {
+            "profile_id": "scheduled.default-deny",
+            "max_session_seconds": 300,
+            "max_context_chars": 16000,
+            "max_tool_calls": 0,
+            "allowed_tool_ids": [],
+            "command_sandbox_profile_id": None,
+        },
+        "continuation_mode": "origin_thread",
+        "continuation_origin": json.dumps(
+            {
+                "audience": "direct",
+                "channel_kind": "web",
+                "channel_ref": "console",
+                "conversation_ref": "conversation-1",
+                "thread_ref": None,
+            }
+        ),
+    }
+
+    task = _row_to_task(row)
+
+    assert task.continuation_mode is ContinuationMode.ORIGIN_THREAD
+    assert task.continuation_origin == ScheduledResultOrigin(
+        channel_kind="web",
+        channel_ref="console",
+        conversation_ref="conversation-1",
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -11,8 +11,13 @@ from dataclasses import dataclass, field
 
 import httpx
 import pytest
+from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.core.conversation.adapter_health import (
+    AdapterHealthService,
+    InMemoryAdapterHealthAuditSink,
+)
 from fdai.delivery.channels.prod import (
     ProductionChannelConfig,
     ProductionChannelRuntime,
@@ -20,6 +25,7 @@ from fdai.delivery.channels.prod import (
 )
 from fdai.delivery.channels.teams_auth import BotServiceIdentity
 from fdai.shared.providers.conversation_channel import ConversationChannelAdapter
+from fdai.shared.providers.conversation_delivery import InMemoryConversationDeliveryStore
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 
 
@@ -45,6 +51,20 @@ class _Gateway:
                 pass
         finally:
             self.stopped.append(adapter.channel_kind.value)
+
+
+class _HealthAuthenticator:
+    async def authenticate(self, request: Request) -> str | None:
+        return (
+            "owner-example"
+            if request.headers.get("authorization") == "Bearer health-owner"
+            else None
+        )
+
+
+class _HealthAuthorizer:
+    def can_manage_adapter(self, *, actor_id: str, adapter_id: str) -> bool:
+        return actor_id == "owner-example" and adapter_id == "slack"
 
 
 def _slack_body() -> bytes:
@@ -142,6 +162,78 @@ def test_teams_runtime_wires_auth_principal_and_workload_publisher() -> None:
         assert gateway.started == ["teams"]
 
     assert gateway.stopped == ["teams"]
+
+
+def test_runtime_reconciles_delivery_before_starting_channel_consumers() -> None:
+    events: list[str] = []
+
+    class _Reconciler:
+        async def reconcile_startup(self) -> int:
+            events.append("reconcile")
+            return 1
+
+        async def drain_due(self) -> tuple[object, ...]:
+            events.append("drain")
+            return ()
+
+    class _OrderedGateway(_Gateway):
+        async def run(self, adapter: ConversationChannelAdapter) -> None:
+            events.append("consumer")
+            await super().run(adapter)
+
+    runtime = ProductionChannelRuntime(
+        config=ProductionChannelConfig(slack_enabled=True, teams_enabled=False),
+        gateway=_OrderedGateway(),
+        secrets=_Secrets(
+            values={
+                "slack-signing-secret": "signing-secret",
+                "slack-bot-token": "bot-token",
+            }
+        ),
+        delivery_reconciler=_Reconciler(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200))),
+    )
+
+    with TestClient(build_channel_app(runtime)):
+        pass
+
+    assert events[:2] == ["reconcile", "drain"]
+    assert "consumer" in events
+
+
+def test_runtime_mounts_separately_authenticated_adapter_health_commands() -> None:
+    runtime = ProductionChannelRuntime(
+        config=ProductionChannelConfig(slack_enabled=True, teams_enabled=False),
+        gateway=_Gateway(),
+        secrets=_Secrets(
+            values={
+                "slack-signing-secret": "signing-secret",
+                "slack-bot-token": "bot-token",
+            }
+        ),
+        adapter_health_service=AdapterHealthService(
+            store=InMemoryConversationDeliveryStore(),
+            audit=InMemoryAdapterHealthAuditSink(),
+            authorizer=_HealthAuthorizer(),
+        ),
+        adapter_health_authenticator=_HealthAuthenticator(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200))),
+    )
+
+    with TestClient(build_channel_app(runtime)) as client:
+        denied = client.post(
+            "/commands/adapters/slack/pause",
+            json={"channel_kind": "slack", "reason": "maintenance"},
+        )
+        paused = client.post(
+            "/commands/adapters/slack/pause",
+            json={"channel_kind": "slack", "reason": "maintenance"},
+            headers={"Authorization": "Bearer health-owner"},
+        )
+
+    assert denied.status_code == 401
+    assert paused.status_code == 200
+    assert paused.json()["mode"] == "paused"
 
 
 def test_runtime_fails_startup_when_slack_secret_is_missing() -> None:

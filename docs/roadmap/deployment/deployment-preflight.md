@@ -21,18 +21,24 @@ reports them all at once, up front.
 > value below is supplied by config or a fork - the upstream ships the machinery
 > and generic taxonomy, never a customer's specific guardrail values
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+>
+> **Implementation status.** The production `deploy-dev` workflow runs
+> `fdaictl deploy preflight`, stores sanitized Azure/runner evidence in private Blob storage,
+> and binds both digests to the exact plan. The control-loop remediation-PR path and a real
+> GitHub Check publisher are not wired yet.
 
 ## Where It Sits in the Loop
 
-The pass runs at two entry points, sharing one analyzer:
+The design defines two entry points that share one analyzer. The human deploy path is
+shipped; the control-plane path currently stops at the seam:
 
-- **Control plane**: before the [executor](../architecture/project-structure.md) emits a
+- **Control plane (planned)**: before the [executor](../architecture/project-structure.md) emits a
   remediation PR, the analyzer checks that the change would actually land in the
   target scope. A blocking finding degrades the action to `hil` rather than
   opening a PR that would fail policy.
-- **Human deploy**: as a standalone CI check on an infrastructure PR, the report
-  is posted as a PR comment / GitHub Check so an operator sees blockers before
-  `terraform apply`, not after.
+- **Human deploy (shipped)**: the private-runner workflow creates the report before plan
+  and binds its evidence digest into exact-plan metadata. PR comment/GitHub Check delivery
+  remains a follow-up.
 
 Both paths are **deterministic-first** (T0-flavored): static analysis with no
 cloud calls resolves most findings; bounded, read-only live probes confirm the
@@ -148,15 +154,12 @@ without editing `core/`.
   new default toggle or rule
   ([architecture.instructions.md § Rule Catalog](../../../.github/instructions/architecture.instructions.md#rule-catalog)).
 
-## Delivery Increments
+## Delivery Status
 
-Shipped now: the probe seam, the generic deterministic probes, the analyzer +
-report, composition wiring, and tests. Next increments, staged so each is
-separately reviewable:
+Shipped: the probe seam, generic deterministic probes, analyzer + report, Azure CLI-backed
+`fdaictl` entry point, protected-plan evidence binding in the deploy workflow, and tests.
 
-1. Live Azure adapters under `delivery/azure/preflight/` (Policy Insights,
-   Resource Graph, Firewall / NSG, Quota), shadow-mode first. **Delivered for
-   protected-plan evidence**: a shared read-only ARM client (`AzureArmClient`, injected
+1. **Azure probes and protected-plan evidence (shipped)**: a shared read-only ARM client (`AzureArmClient`, injected
    `httpx.AsyncClient` + `WorkloadIdentity` bearer token, fail-closed) plus the
    `AzurePolicyGuardrailProbe` (real Azure Policy `deny` guardrails - `Not
    allowed` / `Allowed resource types`) and the `AzureQuotaProbe` (Compute
@@ -173,11 +176,15 @@ separately reviewable:
   bounded TLS egress evidence, stores only sanitized reports in private Blob storage, and binds
   both evidence digests into exact-plan verification. The Firewall / NSG topology adapter remains
   a separate future enhancement; it is not required for direct runner reachability evidence.
-2. The `infra/modules/` capability-mode toggles in the table above.
-3. A GitHub Check that posts the report on an infrastructure PR.
-4. A cached **Deployment Environment Profile** (which guardrails apply to a
-   scope), refreshed via the Inventory delta stream so a deploy reads the cache
-   instead of re-probing.
+  2. **Capability-mode toggle scaffold (shipped)**: `infra/modules/preflight-toggles/` and the
+    disk reference consumer validate the contracts. Root app-graph consumer wiring is planned.
+  3. **Check-publishing primitive (shipped)**: the core function, provider Protocol, and
+    in-memory publisher exist. The GitHub Check adapter and infrastructure-PR wiring are planned.
+  4. **Deployment Environment Profile primitive (shipped)**: bounded in-memory cache, TTL,
+    and Inventory-delta invalidation helper exist. The composition refresh task and durable
+    cache wiring are planned.
+  5. **Control-loop pre-PR gate (planned)**: invoke the same analyzer before the executor creates
+    a remediation PR and lower blocking findings to `hil` on the live path.
 
 ## References
 

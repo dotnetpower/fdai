@@ -1,0 +1,97 @@
+name: Issue lifecycle contract
+
+on:
+  issues:
+    types: [opened, edited, reopened, closed]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Enforce exit criteria and lifecycle labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const action = context.payload.action;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = issue.number;
+            const body = issue.body ?? "";
+            const marker = "<!-- fdai-exit-criteria-contract -->";
+            const label = "needs-exit-criteria";
+            const hasHeading = /^##\s+(Exit criteria|Acceptance criteria)\s*$/im.test(body);
+            const hasCheckbox = /^\s*-\s+\[[ xX]\]\s+\S/m.test(body);
+            const hasUnchecked = /^\s*-\s+\[\s\]\s+\S/m.test(body);
+            const residualMarker = "<!-- fdai-residual-work-contract -->";
+
+            async function removeLabel(name) {
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+              }
+            }
+
+            if (action === "reopened") {
+              await removeLabel("completed");
+            }
+
+            if (!hasHeading || !hasCheckbox) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: [label] });
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number,
+                per_page: 100,
+              });
+              if (!comments.some((comment) => comment.body?.includes(marker))) {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number,
+                  body: `${marker}\nThis issue needs an \`## Exit criteria\` section with at least one observable checkbox item before implementation or closure.`,
+                });
+              }
+              core.setFailed("Issue exit criteria are missing or not checkable.");
+              return;
+            }
+
+            await removeLabel(label);
+            if (action === "closed" && issue.state_reason !== "not_planned") {
+              if (hasUnchecked) {
+                await removeLabel("completed");
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number,
+                  state: "open",
+                });
+                const comments = await github.paginate(github.rest.issues.listComments, {
+                  owner,
+                  repo,
+                  issue_number,
+                  per_page: 100,
+                });
+                if (!comments.some((comment) => comment.body?.includes(residualMarker))) {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number,
+                    body: `${residualMarker}\nThis issue was reopened because unchecked exit criteria still record residual work. Complete or revise the criteria before closing.`,
+                  });
+                }
+                core.setFailed("Residual work remains; the issue was reopened.");
+                return;
+              }
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number,
+                labels: ["completed"],
+              });
+            }

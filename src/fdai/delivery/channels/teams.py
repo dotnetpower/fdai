@@ -94,7 +94,7 @@ def _normalize_activity(
         return None
     if sender.get("role") == "bot":
         return None
-    sender_id = principal_id or sender.get("aadObjectId") or sender.get("id")
+    sender_id = sender.get("aadObjectId") or sender.get("id")
     channel_id = conversation.get("id")
     message_id = activity.get("id")
     text = activity.get("text")
@@ -117,6 +117,7 @@ def _normalize_activity(
         sender_id=sender_id,
         text=text,
         thread_id=reply_to if isinstance(reply_to, str) and reply_to else message_id,
+        metadata=({"verified_principal_id": principal_id} if principal_id is not None else {}),
         attachments=attachments,
     )
 

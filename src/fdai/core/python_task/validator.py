@@ -18,6 +18,47 @@ _FILESYSTEM_MODULES = frozenset({"pathlib"})
 _FILESYSTEM_WRITE_MODULES = frozenset({"shutil", "tempfile"})
 _DYNAMIC_CALLS = frozenset({"compile", "eval", "exec", "__import__"})
 _SECRET_MARKERS = ("AccountKey=", "SharedAccessKey=", "-----BEGIN PRIVATE KEY-----")
+_PROGRAMMATIC_PIPELINE_MODULES = frozenset(
+    {
+        "collections",
+        "csv",
+        "datetime",
+        "decimal",
+        "functools",
+        "hashlib",
+        "itertools",
+        "json",
+        "math",
+        "operator",
+        "re",
+        "statistics",
+        "string",
+        "fdai_pipeline_client",
+    }
+)
+_PROGRAMMATIC_PIPELINE_FORBIDDEN_CALLS = frozenset(
+    {
+        "breakpoint",
+        "delattr",
+        "dir",
+        "getattr",
+        "globals",
+        "hasattr",
+        "input",
+        "locals",
+        "open",
+        "setattr",
+        "vars",
+    }
+)
+_PROGRAMMATIC_PIPELINE_RECURSIVE_CALLS = frozenset(
+    {
+        "client.run_pipeline",
+        "client.run_programmatic_pipeline",
+        "run_pipeline",
+        "run_programmatic_pipeline",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +85,125 @@ class PythonTaskValidationReport:
     @property
     def valid(self) -> bool:
         return not self.issues
+
+
+@dataclass(frozen=True, slots=True)
+class ProgrammaticPipelineValidationReport:
+    source_digest: str
+    issues: tuple[PythonTaskValidationIssue, ...]
+    imported_modules: tuple[str, ...]
+
+    @property
+    def valid(self) -> bool:
+        return not self.issues
+
+
+def validate_programmatic_pipeline_source(
+    source: str,
+    *,
+    path: str = "pipeline.py",
+) -> ProgrammaticPipelineValidationReport:
+    """Validate reviewed pipeline source without importing or executing it."""
+
+    import hashlib
+
+    issues: list[PythonTaskValidationIssue] = []
+    imported: set[str] = set()
+    try:
+        tree = ast.parse(source, filename=path)
+        compile(tree, path, "exec")
+    except (SyntaxError, ValueError) as exc:
+        issues.append(_issue("syntax_error", path, str(exc)))
+        tree = None
+
+    if tree is not None:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(alias.name.split(".", 1)[0] for alias in node.names)
+                if any(
+                    alias.name.split(".", 1)[0] == "fdai_pipeline_client" for alias in node.names
+                ):
+                    issues.append(
+                        _issue(
+                            "forbidden_client_import",
+                            path,
+                            "import PipelineClient directly from fdai_pipeline_client",
+                        )
+                    )
+            elif isinstance(node, ast.ImportFrom):
+                if node.level or node.module is None:
+                    issues.append(
+                        _issue(
+                            "forbidden_import",
+                            path,
+                            "relative imports are not allowed in programmatic pipelines",
+                        )
+                    )
+                else:
+                    imported.add(node.module.split(".", 1)[0])
+                    if node.module == "fdai_pipeline_client" and (
+                        len(node.names) != 1 or node.names[0].name != "PipelineClient"
+                    ):
+                        issues.append(
+                            _issue(
+                                "forbidden_client_import",
+                                path,
+                                "only PipelineClient may be imported from generated client",
+                            )
+                        )
+            elif isinstance(node, ast.Call):
+                name = _qualified_call_name(node.func)
+                if name in _DYNAMIC_CALLS:
+                    issues.append(
+                        _issue("dynamic_code", path, f"dynamic code call {name!r} is not allowed")
+                    )
+                elif name in _PROGRAMMATIC_PIPELINE_FORBIDDEN_CALLS:
+                    issues.append(
+                        _issue(
+                            "forbidden_runtime_access",
+                            path,
+                            f"runtime access call {name!r} is not allowed",
+                        )
+                    )
+                elif name in _PROGRAMMATIC_PIPELINE_RECURSIVE_CALLS:
+                    issues.append(
+                        _issue(
+                            "recursive_pipeline",
+                            path,
+                            "programmatic pipelines cannot invoke another pipeline",
+                        )
+                    )
+            elif isinstance(node, ast.Name) and node.id.startswith("__"):
+                issues.append(
+                    _issue(
+                        "forbidden_introspection",
+                        path,
+                        "dunder names are not allowed in programmatic pipelines",
+                    )
+                )
+            elif isinstance(node, ast.Attribute) and node.attr.startswith("_"):
+                issues.append(
+                    _issue(
+                        "forbidden_introspection",
+                        path,
+                        "private attributes are not allowed in programmatic pipelines",
+                    )
+                )
+
+        for module in sorted(imported - _PROGRAMMATIC_PIPELINE_MODULES):
+            issues.append(
+                _issue(
+                    "forbidden_import",
+                    path,
+                    f"module {module!r} is not allowed in programmatic pipelines",
+                )
+            )
+
+    return ProgrammaticPipelineValidationReport(
+        source_digest=hashlib.sha256(source.encode("utf-8")).hexdigest(),
+        issues=tuple(issues),
+        imported_modules=tuple(sorted(imported)),
+    )
 
 
 def validate_python_task(
@@ -203,6 +363,15 @@ def _call_name(node: ast.expr) -> str:
     return ""
 
 
+def _qualified_call_name(node: ast.expr) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        prefix = _qualified_call_name(node.value)
+        return f"{prefix}.{node.attr}" if prefix else node.attr
+    return ""
+
+
 def _open_capability(node: ast.Call) -> PythonTaskCapability:
     mode: str | None = None
     if len(node.args) >= 2 and isinstance(node.args[1], ast.Constant):
@@ -227,8 +396,10 @@ def _issue(code: str, path: str, message: str) -> PythonTaskValidationIssue:
 
 
 __all__ = [
+    "ProgrammaticPipelineValidationReport",
     "PythonTaskPolicy",
     "PythonTaskValidationIssue",
     "PythonTaskValidationReport",
+    "validate_programmatic_pipeline_source",
     "validate_python_task",
 ]

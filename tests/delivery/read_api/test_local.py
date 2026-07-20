@@ -22,6 +22,7 @@ from fdai.delivery.read_api.dev.config import (
 )
 from fdai.delivery.read_api.dev.runtime_wiring import build_interactive_pantheon_wiring
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.read_api.streaming.agent_activity_stream import runtime_agent_state_snapshot
 from fdai.shared.providers.testing.live_event_bus import LiveInMemoryEventBus
 
 _DEV_ENV = "FDAI_READ_API_DEV_MODE"
@@ -30,6 +31,7 @@ _LOCAL_AZURE_CLI_ENV = "FDAI_READ_API_LOCAL_AZURE_CLI"
 _LOCAL_SCENARIO_REPLAY_ENV = "FDAI_LOCAL_SCENARIO_REPLAY"
 _LOCAL_AZURE_DISCOVERY_ENV = "FDAI_LOCAL_AZURE_DISCOVERY"
 _LOCAL_AZURE_SUBSCRIPTION_ENV = "FDAI_LOCAL_AZURE_SUBSCRIPTION_ID"
+_START_PANTHEON_ENV = "FDAI_START_PANTHEON"
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -79,6 +81,7 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     assert api_env["FDAI_READ_API_LOCAL_ENTRA"] == "1"
     assert api_env["FDAI_READ_API_DEV_MODE"] == "0"
     assert api_env["FDAI_READ_API_LOCAL_AZURE_CLI"] == "0"
+    assert _START_PANTHEON_ENV not in api_env
     assert frontend_env["VITE_DEV_MODE"] == "0"
     assert frontend_env["VITE_LOCAL_AZURE_CLI_AUTH"] == "0"
     assert compound["configurations"] == [
@@ -195,6 +198,8 @@ class TestLocalEntrypoint:
         assert isinstance(application, Starlette)
         client = TestClient(application)
         assert "/provision/stream" in {route.path for route in application.routes}
+        assert "/skills" in {route.path for route in application.routes}
+        assert application.state.skill_disclosure.inspect()["installed_count"] == 0
         # Seed produced at least one audit row + one HIL entry.
         audit = client.get("/audit").json()
         assert len(audit["items"]) >= 1
@@ -382,11 +387,38 @@ class TestLocalEntraLoginHarness:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         self._enable(monkeypatch)
+        monkeypatch.delenv(_START_PANTHEON_ENV, raising=False)
 
         application = _local.app()
 
         assert isinstance(application, Starlette)
         assert "/iam" in {route.path for route in application.routes}
+        assert "/agents/stream" in {route.path for route in application.routes}
+        assert application.state.pantheon_runtime is not None
+        assert len(application.state.pantheon_runtime.agents) == 15
+
+    def test_explicit_pantheon_disable_omits_runtime_and_stream(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._enable(monkeypatch)
+        monkeypatch.setenv(_START_PANTHEON_ENV, "0")
+
+        application = _local.app()
+        paths = {route.path for route in application.routes}
+
+        assert application.state.pantheon_runtime is None
+        assert "/agents/stream" not in paths
+        assert "/live/stream" not in paths
+
+    def test_local_transport_rejects_enforce_allowlist(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._enable(monkeypatch)
+        monkeypatch.delenv(_START_PANTHEON_ENV, raising=False)
+        monkeypatch.setenv("FDAI_WORKFLOW_ENFORCE_ALLOWLIST", "architecture-review")
+
+        with pytest.raises(RuntimeError, match="requires local Azure event transport"):
+            _local.app()
 
     def test_unauthenticated_request_is_401_not_dev_anon(
         self, monkeypatch: pytest.MonkeyPatch
@@ -403,15 +435,44 @@ class TestLocalEntraLoginHarness:
         monkeypatch.setenv(_LOCAL_ENTRA_ENV, "1")
         monkeypatch.delenv("FDAI_ENTRA_TENANT_ID", raising=False)
         monkeypatch.delenv("FDAI_API_AUDIENCE", raising=False)
+        monkeypatch.delenv("VITE_MSAL_TENANT_ID", raising=False)
+        monkeypatch.delenv("VITE_MSAL_API_SCOPE", raising=False)
         with pytest.raises(ValueError, match="FDAI_ENTRA_TENANT_ID"):
             _local.app(test_fixtures=True)
 
 
 class TestLocalAzureCliHarness:
+    def test_default_local_transport_starts_all_pantheon_consumers(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv(_DEV_ENV, raising=False)
+        monkeypatch.delenv(_LOCAL_ENTRA_ENV, raising=False)
+        monkeypatch.setenv(_LOCAL_AZURE_CLI_ENV, "1")
+        monkeypatch.delenv(_START_PANTHEON_ENV, raising=False)
+        identity = LocalAzureCliIdentity(
+            principal=Principal(
+                oid="cli-user",
+                roles=frozenset({Role.CONTRIBUTOR}),
+            ),
+            username="user@example.com",
+        )
+        monkeypatch.setattr(_local, "resolve_azure_cli_identity", lambda: identity)
+
+        with TestClient(_local.app()) as client:
+            runtime = client.app.state.pantheon_runtime
+            paths = {route.path for route in client.app.routes}
+
+            assert runtime is not None
+            assert len(runtime.agents) == 15
+            assert runtime.health()["consumers_live"] > 0
+            assert len(runtime_agent_state_snapshot(runtime.health())) == 15
+            assert "/agents/stream" in paths
+
     def test_builds_with_resolved_cli_identity(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(_DEV_ENV, raising=False)
         monkeypatch.delenv(_LOCAL_ENTRA_ENV, raising=False)
         monkeypatch.setenv(_LOCAL_AZURE_CLI_ENV, "1")
+        monkeypatch.delenv(_START_PANTHEON_ENV, raising=False)
         identity = LocalAzureCliIdentity(
             principal=Principal(
                 oid="cli-user",
@@ -431,8 +492,8 @@ class TestLocalAzureCliHarness:
         assert "/workflows/run" in paths
         assert "/views/process" in paths
         assert "/arb/status" in paths
-        assert "/agents/stream" not in paths
-        assert "/live/stream" not in paths
+        assert "/agents/stream" in paths
+        assert "/live/stream" in paths
         assert "/provision/stream" not in paths
         assert "/simulate/blast-radius" not in paths
         assert "/scope" not in paths

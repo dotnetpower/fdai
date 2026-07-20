@@ -11,7 +11,9 @@ from starlette.routing import Route
 
 from fdai.core.conversation import RuntimeToolDiscovery
 from fdai.core.rpc import RpcIdempotencyStore, RpcMethod, RpcRegistry
+from fdai.core.rpc.skill_discovery import skill_discovery_rpc_methods
 from fdai.core.rpc.tool_discovery import tool_discovery_rpc_methods
+from fdai.core.skills import RuntimeSkillDisclosure
 from fdai.delivery.persistence.postgres_rpc_idempotency import (
     PostgresRpcIdempotencyStore,
     PostgresRpcIdempotencyStoreConfig,
@@ -42,6 +44,7 @@ def build_production_rpc_app(
     authorize: RpcAuthorization,
     additional_methods: tuple[RpcMethod, ...] = (),
     idempotency_store: RpcIdempotencyStore | None = None,
+    skill_disclosure: RuntimeSkillDisclosure | None = None,
 ) -> Starlette:
     """Build an opt-in RPC app with explicit methods and durable side-effect claims."""
     store = idempotency_store or PostgresRpcIdempotencyStore(
@@ -52,7 +55,10 @@ def build_production_rpc_app(
         )
     )
     registry = RpcRegistry(idempotency_store=store)
-    for method in (*tool_discovery_rpc_methods(discovery), *additional_methods):
+    skill_methods = (
+        () if skill_disclosure is None else skill_discovery_rpc_methods(skill_disclosure)
+    )
+    for method in (*tool_discovery_rpc_methods(discovery), *skill_methods, *additional_methods):
         registry = registry.register(method)
 
     async def healthz(_request: Request) -> Response:

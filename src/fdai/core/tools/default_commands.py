@@ -17,6 +17,8 @@ from fdai.shared.providers.command_runner import (
 
 _TEST_PATH = r"(?:tests|src/fdai)(?:/[A-Za-z0-9_.-]+)*"
 _RESOURCE_GROUP = r"[A-Za-z0-9_.()-]{1,90}"
+_RESOURCE_NAME = r"[A-Za-z0-9_.()-]{1,128}"
+_RESOURCE_TYPE = r"[A-Za-z0-9_.-]{1,128}(?:/[A-Za-z0-9_.-]{1,128})?"
 _SUBSCRIPTION = r"[A-Za-z0-9-]{1,64}"
 
 
@@ -94,6 +96,105 @@ def default_command_catalog() -> CommandCatalog:
                         kind=CommandArgumentKind.STRING,
                         flag="--resource-group",
                         pattern=_RESOURCE_GROUP,
+                        required=False,
+                    ),
+                    CommandArgumentSpec(
+                        name="resource_type",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--resource-type",
+                        pattern=_RESOURCE_TYPE,
+                        required=False,
+                    ),
+                    CommandArgumentSpec(
+                        name="subscription",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--subscription",
+                        pattern=_SUBSCRIPTION,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.CLOUD_READ,
+                network_profile=CommandNetworkProfile.AZURE_CONTROL_PLANE,
+                output_format=CommandOutputFormat.JSON,
+                credential_profile="azure.reader",
+            ),
+            CommandSpec(
+                command_id="azure.group.list",
+                version=1,
+                executable_ref="azure.cli",
+                fixed_argv=("group", "list", "--only-show-errors", "--output", "json"),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="subscription",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--subscription",
+                        pattern=_SUBSCRIPTION,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.CLOUD_READ,
+                network_profile=CommandNetworkProfile.AZURE_CONTROL_PLANE,
+                output_format=CommandOutputFormat.JSON,
+                credential_profile="azure.reader",
+            ),
+            CommandSpec(
+                command_id="azure.vm.list",
+                version=1,
+                executable_ref="azure.cli",
+                fixed_argv=(
+                    "vm",
+                    "list",
+                    "--show-details",
+                    "--only-show-errors",
+                    "--output",
+                    "json",
+                ),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="resource_group",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--resource-group",
+                        pattern=_RESOURCE_GROUP,
+                        required=False,
+                    ),
+                    CommandArgumentSpec(
+                        name="subscription",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--subscription",
+                        pattern=_SUBSCRIPTION,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.CLOUD_READ,
+                network_profile=CommandNetworkProfile.AZURE_CONTROL_PLANE,
+                output_format=CommandOutputFormat.JSON,
+                timeout_seconds=120,
+                max_output_bytes=1_000_000,
+                credential_profile="azure.reader",
+            ),
+            CommandSpec(
+                command_id="azure.vm.status",
+                version=1,
+                executable_ref="azure.cli",
+                fixed_argv=(
+                    "vm",
+                    "get-instance-view",
+                    "--only-show-errors",
+                    "--output",
+                    "json",
+                ),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="resource_group",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--resource-group",
+                        pattern=_RESOURCE_GROUP,
+                    ),
+                    CommandArgumentSpec(
+                        name="name",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--name",
+                        pattern=_RESOURCE_NAME,
                     ),
                     CommandArgumentSpec(
                         name="subscription",

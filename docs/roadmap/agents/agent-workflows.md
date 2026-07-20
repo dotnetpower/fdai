@@ -19,10 +19,11 @@ and is promoted per-workflow after Wave 8 measures its KPIs.
 > workflow uses direct RPC between agents. HIL steps go through Var; audit
 > goes through Saga. There are no shortcuts.
 >
-> **Machine-readable form.** Each workflow below compiles to a catalog entry
-> under [`rule-catalog/workflows/`](../../../rule-catalog/workflows); the schema,
-> the `Process` ObjectType, and the compile-to-Runbook wiring are defined in
-> [process-automation.md](../decisioning/process-automation.md).
+> **Machine-readable form.** Shipped executable workflows live under
+> [`rule-catalog/workflows/`](../../../rule-catalog/workflows). This design
+> inventory is broader than the current catalog and does not imply one file per
+> section. The schema, `Process` ObjectType, and compile-to-Runbook wiring are
+> defined in [process-automation.md](../decisioning/process-automation.md).
 
 ## 0. Workflow shape
 
@@ -142,20 +143,21 @@ and observability all still work.
 
 **Trigger.** Loki schedule (weekly by default, fork-configurable).
 
-**Agents.** Loki (planner), Vidar (execution), Heimdall (observation),
-Norns (learning), Saga.
+**Agents.** Loki (planner), Forseti (judge), Var (approver), Vidar (execution),
+Heimdall (observation), Norns (learning), Saga.
 
 ```mermaid
 sequenceDiagram
     participant L as Loki
     participant F as Forseti
+    participant Va as Var
     participant V as Vidar
     participant H as Heimdall
     participant N as Norns
     participant S as Saga
     L->>F: proposed_action {dr_drill, scope, blast_radius}
-    F->>Var: verdict = hil (drills are always HIL)
-    Var-->>F: approval
+    F->>Va: verdict = hil (drills are always HIL)
+    Va-->>F: approval
     F->>V: verdict {execute_drill}
     V->>V: execute rollback / failover in shadow env
     V->>H: observe_request
@@ -245,8 +247,8 @@ sequenceDiagram
     H->>H: correlate with recent events (rolling window)
     H->>H: classify severity: low|medium|high|critical
     alt severity >= high
-        H->>Forseti: propose notify_admin_privilege_violation
-        Forseti-->>V: verdict = auto (governance notification)
+        H->>F: propose notify_admin_privilege_violation
+        F-->>V: verdict = auto (governance notification)
         V->>S: audit (card sent)
     end
     alt severity == critical
@@ -332,6 +334,7 @@ sequenceDiagram
     participant H as Heimdall
     participant O as Odin
     participant Br as Bragi
+    participant C as Admin channel
     participant S as Saga
     H->>H: probe each agent (heartbeat + KPI)
     alt degradation detected
@@ -339,7 +342,7 @@ sequenceDiagram
         H->>O: agent_health_signal {agent, severity, evidence}
         O->>O: apply degradation policy per pantheon 11
         O->>Br: briefing_update {impact, mitigation_active}
-        Br->>Bragi_channel: proactive card to admins
+        Br->>C: proactive card to admins
     end
 ```
 
@@ -367,16 +370,17 @@ non-determinism bugs.
 **Trigger.** Forseti recurring self-test (daily). Samples recent
 verdicts, re-runs them, compares.
 
-**Agents.** Forseti (self-tester), Norns (drift analyzer), Mimir
-(reviews if drift is caused by rule change), Saga.
+**Agents.** Forseti (self-tester), Muninn (audit sample), Norns (drift
+analyzer), Mimir (reviews if drift is caused by rule change), Saga.
 
 ```mermaid
 sequenceDiagram
     participant F as Forseti
+    participant Mu as Muninn
     participant N as Norns
     participant M as Mimir
     participant S as Saga
-    F->>Muninn: fetch recent audit sample (N=1000)
+    F->>Mu: fetch recent audit sample (N=1000)
     F->>F: re-run judgment on same inputs
     F->>N: coherence_report {mismatches}
     N->>N: classify: rule_change | model_drift | non_determinism
@@ -410,19 +414,20 @@ incident time that rollback is broken.
 **Trigger.** Loki schedule (monthly). Picks a subset of ActionTypes
 based on `fork_config.rollback_rehearsal_scope`.
 
-**Agents.** Loki (planner), Vidar (rehearser), Heimdall (observer),
-Saga.
+**Agents.** Loki (planner), Forseti (judge), Var (approver), Vidar (rehearser),
+Heimdall (observer), Saga.
 
 ```mermaid
 sequenceDiagram
     participant L as Loki
     participant F as Forseti
+    participant Va as Var
     participant V as Vidar
     participant H as Heimdall
     participant S as Saga
     L->>F: proposed_action {rehearse_rollback, action_type_id}
-    F->>Var: verdict = hil (all rehearsals HIL)
-    Var-->>F: approval
+    F->>Va: verdict = hil (all rehearsals HIL)
+    Va-->>F: approval
     F->>V: verdict {execute}
     V->>V: apply mutation in shadow env
     V->>V: invoke rollback per rollback_contract

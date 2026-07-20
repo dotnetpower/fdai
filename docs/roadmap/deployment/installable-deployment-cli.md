@@ -13,8 +13,9 @@ machine.
 > active Azure target guard, network-free `deploy preflight`, Terraform plan JSON analysis, and
 > local `security audit` are available. The remote deployment contract, plan-only GitHub workflow
 > dispatch, and exact-plan apply guard are also implemented. Bounded live Azure Policy, Compute
-> quota, Resource Graph identity, and value-blind Key Vault secret probes are available. Network
-> egress, signed release artifacts, and production workflow wiring remain planned.
+> quota, Resource Graph identity, value-blind Key Vault secret probes, and runner TLS egress
+> evidence are available. Signed bundle build/verify/release and production exact-plan apply
+> wiring are implemented. Signed wheel/mirror/disconnected delivery and teardown remain.
 >
 > **Execution boundary:** Terraform remains the infrastructure execution engine and source of
 > truth. `fdaictl` is a thin orchestration layer over validation, plan analysis, workflow
@@ -80,7 +81,8 @@ system tools. `fdaictl doctor` reports missing and incompatible tools with corre
 > `version`, `doctor`, `onboard init`, guarded `onboard guided`, portable `backup create` and
 > `backup restore`, `deploy preflight`, and plan-only `deploy plan` dispatch are implemented.
 > Sanitized plan metadata status is available through `deploy status`, and guarded exact-plan
-> submission is available through `deploy apply`. Teardown remains unavailable.
+> submission is available through `deploy apply`. `release upgrade|rollback`,
+> `extension validate`, and `trajectory validate` are implemented; teardown remains unavailable.
 
 ## Command model
 
@@ -102,6 +104,9 @@ lead to a mutation makes the remote execution boundary visible.
 | `fdaictl deploy apply --plan-id <id>` | Submit the exact approved plan for remote apply | Yes, on the runner |
 | `fdaictl deploy status` | Read sanitized plan digest, expiry, status, and workflow URL | No |
 | `fdaictl deploy teardown` | Submit the guarded environment teardown workflow | Yes, on the runner |
+| `fdaictl release upgrade` / `rollback` | Verify and atomically switch the signed-bundle active pointer | No |
+| `fdaictl extension validate` | Check extension manifest/archive compatibility and security offline | No |
+| `fdaictl trajectory validate` | Check governed dataset checksums, schema, order, and source mapping | No |
 
 The C1 commands use stable JSON schemas for automation. `onboard init` captures only the active
 subscription and tenant identifiers, environment, region, remote-runner boundary, and shadow-mode
@@ -264,8 +269,8 @@ The command runs these stages in order:
    compatibility, checksums, signatures, and the selected environment.
 2. **Identity and target checks:** Confirm the active Azure subscription, deployer role
    assignments, provider registrations, target region, and runner identity.
-3. **Static infrastructure checks:** Run Terraform formatting, initialization, validation, and
-   plan generation. Convert the plan to JSON for policy and dependency analysis.
+3. **Static infrastructure checks:** Validate supplied `terraform show -json` plan data. The
+  approved runner's `deploy plan` workflow owns fmt/init/validate and plan generation.
 4. **Bounded live checks:** Query Azure Policy, Resource Graph, quota, network configuration, and
    required secret existence through read-only adapters.
 5. **Readiness decision:** Assemble one grounded report, record whether each finding is enforced
@@ -329,6 +334,9 @@ command:
 ```bash
 fdaictl bootstrap probe-policy --allow-probe-resources
 ```
+
+This bootstrap mutation command is **planned** and is not registered in the current CLI parser.
+For now, invoke `infra/bootstrap/preflight-policy-check.sh` explicitly.
 
 This command should show the resource scope, cleanup behavior, stop condition, and expected cost
 before it runs. It is not part of `fdaictl deploy preflight`, and preflight must not invoke it
@@ -512,8 +520,8 @@ plan plus metadata, and the CLI retrieves sanitized status through a bounded run
 exact-plan apply transport, GitHub Environment approval boundary, immutable claim, and audit receipt
 are implemented. Runner egress preflight evidence is bound into immutable plan metadata, and
 post-apply checks require Terraform convergence, migration success, and enabled endpoint health
-before the receipt is written. Comprehensive runner-side Policy, quota, identity, and secret
-evidence remains before the apply increment is complete.
+before the receipt is written. Runner-side Policy, quota, identity, secret, and egress evidence
+are required inputs to the C4 exact-plan gate.
 
 ## Private-everything tenants
 
@@ -571,11 +579,13 @@ The design is ready to promote from roadmap to implementation when these criteri
 - No secret, state file, or binary plan reaches terminal output or the local machine.
 - The CLI and deployment bundle can roll back together to a previously signed version.
 
-## Open questions
+## Open questions and decisions
 
 - Which approved package index and release store publish the first wheel and deployment bundle?
-- What signature and attestation format should the release pipeline standardize on?
-- What is the maximum saved-plan retention period for each environment?
+- [x] Signature/attestation - detached Ed25519 manifest signature, deterministic CycloneDX file
+  SBOM, and GitHub build-provenance/SBOM attestations.
+- [x] Saved-plan retention - one-hour logical expiry and bounded physical cleanup eligibility
+  after 24 hours.
 - Should `fdaictl deploy teardown` ship with the first apply release or remain a separate guarded
   script until teardown drills are measured?
 

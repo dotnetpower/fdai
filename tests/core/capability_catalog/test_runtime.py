@@ -170,6 +170,33 @@ def test_reference_builder_uses_loaded_catalog_objects() -> None:
         provenance_source="test",
     )
 
-    references = build_capability_references(reasoning_tools=(artifact,))
+    references = build_capability_references(
+        reasoning_tools=(artifact,),
+        context_selection_policies=("candidate-v1@1.0.0",),
+    )
 
     assert references.reasoning_tools == {"audit.query": "AuditLogQueryProvider"}
+    assert references.context_selection_policies == frozenset({"candidate-v1@1.0.0"})
+
+
+def test_context_selection_policy_binding_is_reference_only() -> None:
+    runtime = CapabilityRuntime().install(
+        CapabilityBundle(
+            capabilities=(_capability("context.selection.candidate"),),
+            bindings=(
+                CapabilityBinding(
+                    capability_id="context.selection.candidate",
+                    kind=CapabilityBindingKind.CONTEXT_SELECTION_POLICY,
+                    target_ref="candidate-v1@1.0.0",
+                ),
+            ),
+        ),
+        references=CapabilityReferences(
+            context_selection_policies=frozenset({"candidate-v1@1.0.0"})
+        ),
+    )
+
+    resolved = runtime.resolve("context.selection.candidate")
+
+    assert resolved.binding.target_ref == "candidate-v1@1.0.0"
+    assert resolved.provider is None

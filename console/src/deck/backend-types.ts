@@ -50,6 +50,7 @@ export interface EvidenceManifestEntry {
   readonly raw_value: string;
   readonly normalized_value: string;
   readonly anchors: readonly string[];
+  readonly aliases?: readonly string[];
 }
 
 export interface AnswerEvidenceManifest {

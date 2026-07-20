@@ -160,8 +160,13 @@ def test_build_prod_app_returns_starlette_app() -> None:
     assert "/workflows/catalog" in paths
     assert "/workflows/run" in paths
     assert "/capabilities" in paths
+    assert "/skills" in paths
     assert "/onboarding" in paths
     assert "/kpi/llm-cost" in paths
+    assert "/chat/busy-input" not in paths
+    assert "/chat/busy-input/mode" not in paths
+    assert "/chat/busy-input/cancel-current" not in paths
+    assert app.state.skill_disclosure.inspect()["installed_count"] == 0
 
 
 def test_build_prod_app_rejects_unimplemented_identity_provider() -> None:
@@ -196,6 +201,11 @@ def test_build_prod_app_wires_managed_identity_narrator(
 
     paths = {route.path for route in app.routes}
     assert {"/chat", "/chat/stream", "/chat/health"} <= paths
+    assert {
+        "/chat/busy-input",
+        "/chat/busy-input/mode",
+        "/chat/busy-input/cancel-current",
+    } <= paths
 
 
 def test_build_prod_app_rejects_partial_onboarding_probe_config() -> None:

@@ -11,6 +11,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from fdai.core.runbook.models import RunbookStep, RunbookStepOutcome, RunbookStepResult
 from fdai.core.workflow.approval import ApprovalPlan
+from fdai.shared.providers.browser_evidence import BrowserEvidenceReceipt
 from fdai.shared.providers.process_runtime import ProcessStatus
 
 ACTOR = "fdai.core.workflow.orchestrator"
@@ -56,6 +57,20 @@ class WorkflowActionDispatcher(Protocol):
     ) -> str:
         """Return the durable proposal or idempotency reference."""
         ...
+
+
+@runtime_checkable
+class WorkflowEvidenceDispatcher(Protocol):
+    """Submit one credential-free browser evidence request."""
+
+    async def dispatch(
+        self,
+        *,
+        process_id: str,
+        correlation_id: str,
+        step: RunbookStep,
+        params: Mapping[str, object],
+    ) -> BrowserEvidenceReceipt: ...
 
 
 def process_state_key(process_id: str) -> str:

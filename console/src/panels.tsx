@@ -40,6 +40,8 @@ const WorkflowAppsRoute = lazy(async () => ({ default: (await import("./routes/w
 const ReportsRoute = lazy(async () => ({ default: (await import("./routes/reports")).ReportsRoute }));
 const AgentActivityRoute = lazy(async () => ({ default: (await import("./routes/agent-activity")).AgentActivityRoute }));
 const AuditRoute = lazy(async () => ({ default: (await import("./routes/audit")).AuditRoute }));
+const BrowserEvidenceRoute = lazy(async () => ({ default: (await import("./routes/browser-evidence")).BrowserEvidenceRoute }));
+const ConversationSearchRoute = lazy(async () => ({ default: (await import("./routes/conversation-search")).ConversationSearchRoute }));
 const RuleTraceRoute = lazy(async () => ({ default: (await import("./routes/rule-trace")).RuleTraceRoute }));
 const RcaRoute = lazy(async () => ({ default: (await import("./routes/rca")).RcaRoute }));
 const ArchitectureRoute = lazy(async () => ({ default: (await import("./routes/architecture")).ArchitectureRoute }));
@@ -51,11 +53,16 @@ const WorkflowBuilderRoute = lazy(async () => ({ default: (await import("./route
 const DocumentIngestionRoute = lazy(async () => ({ default: (await import("./routes/document-ingestion")).DocumentIngestionRoute }));
 const BlastRadiusRoute = lazy(async () => ({ default: (await import("./routes/blast-radius")).BlastRadiusRoute }));
 const PromotionGatesRoute = lazy(async () => ({ default: (await import("./routes/promotion-gates")).PromotionGatesRoute }));
+const ContextSelectionComparisonsRoute = lazy(async () => ({ default: (await import("./routes/context-selection-comparisons")).ContextSelectionComparisonsRoute }));
 const ScopeRoute = lazy(async () => ({ default: (await import("./routes/scope")).ScopeRoute }));
 const LlmCostRoute = lazy(async () => ({ default: (await import("./routes/llm-cost")).LlmCostRoute }));
 const CapabilitiesRoute = lazy(async () => ({ default: (await import("./routes/capabilities")).CapabilitiesRoute }));
+const SkillsRoute = lazy(async () => ({ default: (await import("./routes/skills")).SkillsRoute }));
 const OnboardingRoute = lazy(async () => ({ default: (await import("./routes/onboarding")).OnboardingRoute }));
 const SchedulerRunsRoute = lazy(async () => ({ default: (await import("./routes/scheduler-runs")).SchedulerRunsRoute }));
+const AutomationBlueprintsRoute = lazy(async () => ({ default: (await import("./routes/automation-blueprints")).AutomationBlueprintsRoute }));
+const ScheduledContinuationsRoute = lazy(async () => ({ default: (await import("./routes/scheduled-continuations")).ScheduledContinuationsRoute }));
+const ConversationDeliveryRoute = lazy(async () => ({ default: (await import("./routes/conversation-delivery")).ConversationDeliveryRoute }));
 const OperatingOutcomesRoute = lazy(async () => ({ default: (await import("./routes/analytics-hubs")).OperatingOutcomesRoute }));
 const ControlAssuranceRoute = lazy(async () => ({ default: (await import("./routes/analytics-hubs")).ControlAssuranceRoute }));
 const VerticalOutcomesRoute = lazy(async () => ({ default: (await import("./routes/analytics-hubs")).VerticalOutcomesRoute }));
@@ -209,6 +216,27 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     group: "operations",
     component: SchedulerRunsRoute,
   },
+  {
+    id: "automation-blueprints",
+    label: t("nav.panel.automationBlueprints"),
+    subtitle: t("nav.panelSub.automationBlueprints"),
+    group: "operations",
+    component: AutomationBlueprintsRoute,
+  },
+  {
+    id: "scheduled-continuations",
+    label: t("nav.panel.scheduledContinuations"),
+    subtitle: t("nav.panelSub.scheduledContinuations"),
+    group: "operations",
+    component: ScheduledContinuationsRoute,
+  },
+  {
+    id: "conversation-delivery",
+    label: t("nav.panel.conversationDelivery"),
+    subtitle: t("nav.panelSub.conversationDelivery"),
+    group: "operations",
+    component: ConversationDeliveryRoute,
+  },
   // Agents and evidence
   {
     id: "audit",
@@ -216,6 +244,20 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.audit"),
     group: "evidence",
     component: AuditRoute,
+  },
+  {
+    id: "browser-evidence",
+    label: t("nav.panel.browserEvidence"),
+    subtitle: t("nav.panelSub.browserEvidence"),
+    group: "evidence",
+    component: BrowserEvidenceRoute,
+  },
+  {
+    id: "conversation-search",
+    label: t("nav.panel.conversationSearch"),
+    subtitle: t("nav.panelSub.conversationSearch"),
+    group: "evidence",
+    component: ConversationSearchRoute,
   },
   {
     id: "reports",
@@ -296,6 +338,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     component: CapabilitiesRoute,
   },
   {
+    id: "skills",
+    label: t("nav.panel.skills"),
+    subtitle: t("nav.panelSub.skills"),
+    group: "governance",
+    component: SkillsRoute,
+  },
+  {
     id: "documents",
     label: t("nav.panel.documents"),
     subtitle: t("nav.panelSub.documents"),
@@ -316,6 +365,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.promotionGates"),
     group: "governance",
     component: PromotionGatesRoute,
+  },
+  {
+    id: "context-selection-comparisons",
+    label: t("nav.panel.contextSelectionComparisons"),
+    subtitle: t("nav.panelSub.contextSelectionComparisons"),
+    group: "governance",
+    component: ContextSelectionComparisonsRoute,
   },
   {
     id: "scope",

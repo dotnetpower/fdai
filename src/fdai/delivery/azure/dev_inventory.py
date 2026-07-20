@@ -4,7 +4,7 @@ Zero-dep alternative to :class:`~fdai.delivery.azure.inventory.AzureResourceGrap
 for the operator console CLI. Instead of holding an :class:`httpx.AsyncClient`
 + :class:`WorkloadIdentity` and running Kusto queries against Azure
 Resource Graph, this adapter shells out to well-known ``az`` commands
-(``az group list``, ``az resource list``) and folds the JSON back
+(``az group list``, ``az resource list``, ``az vm list --show-details``) and folds the JSON back
 into :class:`ResourceRecord` shapes.
 
 Why a dev adapter?
@@ -23,8 +23,8 @@ Why a dev adapter?
 Scope
 -----
 
-- Ships two neutral resource types today: ``resource-group`` and
-  ``object-storage``. Adding another type is one entry in
+- Ships six neutral resource types today, including resource groups, data
+    services, AKS, storage, and VMs with live power state. Adding another type is one entry in
   :data:`_NEUTRAL_TYPE_TO_AZ_ARGS` plus (optionally) a props extractor.
 - ``delta`` returns an empty final batch (Activity Log delta stream
   belongs to the production adapter).
@@ -92,10 +92,9 @@ _NEUTRAL_TYPE_TO_AZ_ARGS: Final[dict[str, tuple[str, ...]]] = {
         "json",
     ),
     "compute.vm": (
-        "resource",
+        "vm",
         "list",
-        "--resource-type",
-        "Microsoft.Compute/virtualMachines",
+        "--show-details",
         "--output",
         "json",
     ),
@@ -232,6 +231,11 @@ def _record_from_az_row(*, row: dict[str, Any], resource_type: str, now_iso: str
     # Resource-group-specific fields land at the top level of `row`.
     if resource_type == "resource-group":
         props["managed_by"] = row.get("managedBy")
+    if resource_type == "compute.vm":
+        if power_state := row.get("powerState"):
+            props["powerState"] = power_state
+        if provisioning_state := row.get("provisioningState"):
+            props["provisioningState"] = provisioning_state
     return ResourceRecord(
         resource_id=resource_id,
         type=resource_type,

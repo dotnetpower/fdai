@@ -9,6 +9,7 @@ import { remarkRewriteLinks } from "./src/plugins/rewrite-links.mjs";
 import { remarkCards } from "./src/plugins/cards.mjs";
 import { remarkSteps } from "./src/plugins/steps.mjs";
 import { remarkTabs } from "./src/plugins/tabs.mjs";
+import { remarkDisplayTerminology } from "./src/plugins/display-terminology.mjs";
 
 // GitHub Pages project page: https://dotnetpower.github.io/fdai/
 // Overridable at build time via SITE_URL / BASE_PATH env vars so a fork can
@@ -29,6 +30,7 @@ const BASE_PATH = process.env.BASE_PATH ?? (IS_PROD ? "/fdai" : "/");
 // public/og-cover.png; `npm run gen-og` regenerates it. Join without a
 // double slash regardless of whether BASE_PATH is "/" (dev) or "/fdai".
 const OG_IMAGE = `${SITE_URL}${BASE_PATH.replace(/\/$/, "")}/og-cover.png`;
+const DIAGRAM_VIEWER_SCRIPT = `${BASE_PATH.replace(/\/$/, "")}/diagrams/architecture-diagram.js`;
 const MERMAID_ZOOM_SCRIPT = readFileSync(
   new URL("./src/scripts/mermaid-zoom.mjs", import.meta.url),
   "utf8",
@@ -67,6 +69,7 @@ export default defineConfig({
   markdown: {
     remarkPlugins: [
       remarkCjkFriendly,
+      remarkDisplayTerminology,
       remarkStripFirstH1,
       remarkMermaid,
       remarkRewriteLinks,
@@ -124,6 +127,10 @@ export default defineConfig({
       // Content lives in an inline module script because Starlight's head
       // slot inserts raw HTML - Astro's script pipeline is out of scope.
       head: [
+        {
+          tag: "script",
+          attrs: { type: "module", src: DIAGRAM_VIEWER_SCRIPT },
+        },
         // Social share (Open Graph / Twitter) 4:3 cover image. Starlight
         // emits og:title / og:description / twitter:card but no image, so a
         // shared link previews without a card. Declaring the image plus its
@@ -235,8 +242,8 @@ export default defineConfig({
               link: "/concepts/risk-tiers/",
             },
             {
-              label: "Shadow, then enforce",
-              translations: { ko: "shadow 후 enforce" },
+              label: "Observe, then enable changes",
+              translations: { ko: "관찰 후 변경 적용" },
               link: "/concepts/shadow-then-enforce/",
             },
           ],

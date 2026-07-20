@@ -304,19 +304,21 @@ flowchart LR
     REG[llm-registry.yaml] --> RES
     RES --> CAT[query catalog:<br/>available families + versions in region]
     CAT --> PICK{for each capability:<br/>first preference available}
-    PICK -->|none available| FAIL[abort bootstrap: no HIL-silent fallback]
+    PICK -->|none available| HIL[mark capability hil-only<br/>report completeness impact]
     PICK -->|resolved| DEPLOY[create deployment<br/>with TPM or PTU capacity]
     DEPLOY --> INV[verify mixed-model invariant:<br/>primary.publisher ≠ secondary.publisher]
     INV -->|violated| FAIL
     INV -->|ok| MAP[write resolved-models.json to Key Vault<br/>+ audit entry]
 ```
 
-**Bootstrap invariants (MUST, fail-fast)**
-
-- Every capability provisions from at least one preference. Zero-match aborts the
-  bootstrap - the deployer must expand the region or update the registry.
-- `t2.reasoner.primary.publisher` and `t2.reasoner.secondary.publisher` MUST differ
-  (Mixed-Model Family Strategies below). Same-publisher pairs abort the bootstrap.
+**Bootstrap invariants (MUST)**
+- Environmental failures such as a missing role, unavailable preferred family, or zero
+  quota mark the affected capability `hil-only` and continue. The provisioning assessment
+  makes that degradation visible and a deployment can choose `--assess-fail-on critical`
+  to block it.
+- When both T2 reasoners resolve outside explicit `hil-only` mode,
+  `t2.reasoner.primary.publisher` and `t2.reasoner.secondary.publisher` MUST differ.
+  A same-publisher pair is a hard resolver error.
 - The resolved mapping records `{deployment, family, version, publisher}` per capability
   so the audit log can name the exact model that decided any case.
 
@@ -806,9 +808,8 @@ of it. All fields except `preconditions` / `stop_conditions` / `blast_radius` /
 - `irreversible` - true only when the pre-action state cannot be fully restored (e.g.
   `purge` of a soft-deleted resource). Rollback_contract is still required and describes
   best-effort recovery.
-- `default_mode` - new upstream ActionTypes MUST default to `shadow`; only the trivial
-  no-op categories (`observe`, `revert` bound to an audited prior action) may ship with
-  `enforce`.
+- `default_mode` - every upstream ActionType MUST ship as `shadow`. Promotion to enforce
+  is a separate governed action after its promotion gate passes.
 - `promotion_gate` - measurable criteria (`min_shadow_days`, `min_samples`,
   `min_accuracy`, `max_policy_escapes`) a shadow-mode ActionType MUST clear on the
   frozen scenario set before an assignment can promote it to enforce. Rule assignments
@@ -839,7 +840,7 @@ provider adapters agree on intent.
 | `drop` | DB-DDL removal (schema / object) | `pitr` |
 | `purge` | soft-delete then hard-delete; `irreversible: true` | best-effort `snapshot_restore` |
 | `scale` | count / SKU adjustment | `pr_revert` to prior spec |
-| `restart` | in-place process/pod bounce | none required (transient); `scripted` if step spans nodes |
+| `restart` | in-place process/pod bounce | `scripted` or `state_forward_only`, depending on the provider contract |
 | `failover` | trigger managed failover; `RequiresMaintenanceWindow` | `scripted` (failback) |
 | `rotate` | secret / cert rotation | `snapshot_restore` (prior version retained) |
 | `revert` | explicit rollback of a prior action instance | `pr_revert` on the revert PR itself |
@@ -948,12 +949,11 @@ rule/model versions in effect.
 
 ### Fork Extension (self-extending ontology)
 
-The ontology is **domain-agnostic in the core** and **extensible per fork**, mirroring the
-self-extending principle of the referenced ontology design. A fork adds a new resource
-type by registering an `ObjectType` and its property/link contracts through
-`shared/providers/`; upstream never edits `core/` to accept it.
-
-- New `Resource` subtypes register through the provider interface and inherit the pipeline
+The ontology is **domain-agnostic in the core** and **extensible per fork**. A fork adds
+`ObjectType` and `LinkType` catalog entries in its own package and binds a provider that emits
+records conforming to those definitions; it never edits `core/` or the upstream contract
+package.
+- New `Resource` subtypes enter through reviewed catalog entries and inherit the pipeline
   automatically - `evaluate`, `reuse`, and `similarity` work over them with no code change
   in `core/`.
 - New `LinkType`s (e.g. a fork-specific causal relation) declare their cardinality,

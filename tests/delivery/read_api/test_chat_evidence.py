@@ -49,6 +49,15 @@ def test_detects_cross_screen_operational_question_but_not_current_screen_cause(
     assert needs_operational_evidence(korean_screen) is False
 
 
+def test_ontology_issue_terms_alone_do_not_trigger_incident_lookup() -> None:
+    ontology = {"routeId": "ontology"}
+    assert needs_operational_evidence("what is Issue?", ontology) is False
+    assert needs_operational_evidence("Agent와 연결된 Issue는 뭐야?", ontology) is False
+    assert needs_operational_evidence("이슈는 뭐야?", ontology) is False
+    assert needs_operational_evidence("recent memory issue cause", ontology) is True
+    assert needs_operational_evidence("what issue happened?") is True
+
+
 def test_memory_signal_tokens_do_not_match_headroom() -> None:
     assert _is_memory_incident_text("capacity has ample headroom") is False
     assert _is_memory_incident_text("the process was OOM killed") is True

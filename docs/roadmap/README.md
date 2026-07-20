@@ -39,8 +39,8 @@ require a measured baseline before they can be claimed
 
 ## How to read this folder
 
-Reference docs (1-18) describe the system; phase docs (P0-P4) sequence the
-build. Read the reference docs first, then the phases in order.
+Reference docs describe the system; phase docs (P0-P4) sequence the build.
+Read the reference docs first, then the phases in order.
 
 ### Core reference (system shape)
 
@@ -90,16 +90,24 @@ build. Read the reference docs first, then the phases in order.
 | 18 | [dev-and-deploy-parity.md](deployment/dev-and-deploy-parity.md) | authoritative interactive local/deployed parity, explicit fixture profile, and deployer-scoped LLM gates |
 | 19 | [operator-console.md](interfaces/operator-console.md) | conversational surface (CLI / Teams / Slack / web), three-layer architecture, per-tool RBAC matrix, LLM tier model, session persistence |
 | 19a | [document-ingestion.md](interfaces/document-ingestion.md) | drop-zone UX, large and protected document handling, format extraction, private storage, shared visibility, retention, and deletion contracts |
+| 19b | [scheduled-result-continuations.md](interfaces/scheduled-result-continuations.md) | scoped conversation anchors for exact scheduled runs, evidence provenance, channel threads, access, expiry, and delivery ordering |
+| 19c | [skill-source-management.md](interfaces/skill-source-management.md) | durable approved sources, quarantine, ETag refresh, disabled-first approval, and provenance-preserving revocation |
+| 19d | [durable-conversation-delivery.md](interfaces/durable-conversation-delivery.md) | verified cross-channel bindings, durable reply ledger, process-loss recovery, adapter controls, and read-only reliability metrics |
+| 19e | [governed-trajectory-datasets.md](interfaces/governed-trajectory-datasets.md) | authorization-first observable trajectories, deterministic JSONL/checksums, quarantine, offline replay validation, retention/legal hold, and reviewed-only Norns intake |
 | 20 | [action-ontology.md](decisioning/action-ontology.md) | ActionType schema (remediation + ops + governance), trigger axis, tier / role / prod / live-probe ceilings, fork override seams |
-| 21 | [execution-model.md](decisioning/execution-model.md) | Unified RiskGate, 5-axis authority matrix, three executor paths (PR-native / direct API / PR-manual), live-blast probe combinator, resolved_ceiling audit block |
+| 21 | [execution-model.md](decisioning/execution-model.md) | Unified RiskGate, six-axis authority matrix, three executor paths (PR-native / direct API / PR-manual), live-blast probe combinator, resolved_ceiling audit block |
 
 ### Agent organization
 
 | # | Document | What it covers |
 |---|----------|----------------|
 | 22 | [agent-pantheon.md](agents/agent-pantheon.md) | fixed 15-agent pantheon (Odin / Thor / Forseti / ...) as ontology first-class citizens: org chart, single-writer topics, two-port model (typed pub/sub + conversational NL), NL query orchestration with fingerprint dedup, per-user context, extended ActionType roles (initiator / judge / approver / executor / auditor), lifecycle state machine, Heimdall-driven privilege-escalation monitoring |
-| 23 | [agent-workflows.md](agents/agent-workflows.md) | the 10 cross-agent workflows the pantheon composes into product capabilities: cost-aware remediation, predictive scale, DR drill orchestration, override -> discovery, security escalation, handoff -> capability, agent health degradation, judgment coherence audit, rollback rehearsal, retrospective what-if. Each has trigger + sequence diagram + exit criteria + promotion gate |
+| 22a | [bounded-task-workers.md](agents/bounded-task-workers.md) | isolated depth-one read-only investigations outside the fixed Pantheon: capability attenuation, bounded lifecycle, durable branch records, untrusted parent synthesis, and GET-only projections |
+| 22b | [background-task-sessions.md](interfaces/background-task-sessions.md) | durable detached operator investigations: immediate creation, lease/CAS ownership, bounded progress, process-loss reconciliation, conversation handoff, and delivery boundary |
+| 22c | [busy-input-modes.md](interfaces/busy-input-modes.md) | channel-neutral durable queue, interrupt, and safe-boundary steer modes for active web, Slack, and Teams conversations |
+| 23 | [agent-workflows.md](agents/agent-workflows.md) | the 12 cross-agent workflows the pantheon composes into product capabilities: cost-aware remediation, predictive scale, DR drill orchestration, override -> discovery, security escalation, handoff -> capability, agent health degradation, judgment coherence audit, rollback rehearsal, retrospective what-if, operational readiness handoff, and scheduled governed Python task. Each has trigger + sequence diagram + exit criteria + promotion gate |
 | 23b | [process-automation.md](decisioning/process-automation.md) | machine-readable counterpart to agent-workflows.md: the Workflow catalog schema (catalog-as-code under `rule-catalog/workflows/`), the `Process` ObjectType + `targets` / `advances` LinkTypes, the compile-to-Runbook control-loop wiring, saga compensation, and shadow-first governance. A business process is an ordered list of `ActionType` steps the trust-router dispatches one at a time |
+| 23c | [customer-workflow-automation-plan.md](decisioning/customer-workflow-automation-plan.md) | delivery plan for adopting organizations: readiness baseline, six rollout waves, customer adapter boundaries, approval and recovery work, behavior simulation, promotion evidence, verification matrix, and production completion criteria |
 
 ### Prompt subsystem
 
@@ -112,7 +120,7 @@ build. Read the reference docs first, then the phases in order.
 
 | # | Document | What it covers |
 |---|----------|----------------|
-| 24b | [reporting-subsystem.md](interfaces/reporting-subsystem.md) | declarative visualization pipeline: YAML report catalog, four registries (datasource / widget / format / catalog), 16 upstream widget builders (Datadog-inspired), 5 datasource adapters over existing seams, JSON / Markdown / CSV encoders, four `GET /reports/*` routes, fork extension recipes (add report / datasource / widget / format / prefix). BE-only, read-only, FE contract stable across additions. |
+| 24b | [reporting-subsystem.md](interfaces/reporting-subsystem.md) | declarative visualization pipeline: YAML report catalog, datasource / widget / format registries, registered widget builders and datasource adapters over existing seams, pluggable encoders, read-only `GET /reports/*` routes, and fork extension recipes. The backend-only contract remains stable as registries grow. |
 
 ### Sequencing (cross-doc plan)
 

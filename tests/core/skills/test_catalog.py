@@ -40,6 +40,8 @@ def test_verified_skill_installs_disabled_and_enables_with_known_refs() -> None:
     installed = SkillCatalog().install(_skill(), verifier=_Verifier())
 
     assert installed.get("inventory-evidence").enabled is False
+    assert installed.get("inventory-evidence").raw_markdown == _skill()
+    assert installed.get("inventory-evidence").references == ()
     enabled = installed.enable(
         "inventory-evidence",
         available_tools=frozenset({"query_inventory"}),

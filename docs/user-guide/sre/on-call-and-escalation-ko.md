@@ -1,8 +1,8 @@
 ---
 title: 온콜과 에스컬레이션
-description: FDAI가 accountable responder를 선택하고 pending decision을 에스컬레이션하며 paging integration이 없을 때 fail closed하는 방법입니다.
+description: FDAI가 대응의 최종 책임자를 선택하고 대기 중인 결정을 에스컬레이션하며 페이징 연동이 없을 때 안전하게 중단하는 방법입니다.
 translation_of: on-call-and-escalation.md
-translation_source_sha: 39e11a933f7e61dd97feff5a3537b8e4b2a3fc88
+translation_source_sha: 7f8474eff0520df0c0be4029bb8e41842095abd3
 translation_revised: 2026-07-20
 ---
 

@@ -8,11 +8,14 @@ from typing import Any
 
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.core.rbac.resolver import Principal
+from fdai.core.skills import RuntimeSkillDisclosure
+from fdai.delivery.read_api.busy_input_runtime import BusyInputRuntime
 from fdai.delivery.read_api.routes.hil_callback import HilCallbackConfig
 from fdai.delivery.read_api.routes.panels import ReadPanel
 from fdai.delivery.read_api.streaming.agent_activity_stream import AgentActivityStreamConfig
 from fdai.delivery.read_api.streaming.live_stream import LiveStreamConfig
 from fdai.delivery.read_api.streaming.provision_stream import ProvisionStreamConfig
+from fdai.shared.providers.conversation_delivery import ConversationDeliveryStore
 from fdai.shared.providers.hil_registry import HilApprovalRegistry
 
 
@@ -52,6 +55,19 @@ class ReadApiConfig:
     Each panel is registered as a ``GET``-only route, preserving the
     read-only invariant. The app factory fails fast on a malformed or
     colliding panel path."""
+
+    conversation_delivery_store: ConversationDeliveryStore | None = None
+    """Optional durable reply ledger projected as GET-only delivery metrics."""
+
+    conversation_delivery_source: str = "postgres"
+    """Source label emitted by the delivery metrics panel."""
+
+    trajectory_datasets: Any = None
+    """Optional Owner-only GET projection for governed trajectory metadata.
+
+    The service authorizes dataset purpose and access scope before reading the
+    store. It exposes no export body, training command, or promotion action.
+    """
 
     hil_callback: HilCallbackConfig | None = None
     """Opt-in ChatOps HIL callback config. When set, registers a single
@@ -164,6 +180,11 @@ class ReadApiConfig:
     Reader-gated ``GET /inventory/graph``. The provider reads the inventory
     projection only; the console never receives a cloud or executor identity."""
 
+    log_query_provider: Any = None
+    """Optional bounded read-only log-query provider used by explicit
+    ``query_log`` Command Deck commands. The provider owns workspace scope and
+    identity; browser input can supply only KQL, an ISO duration, and a row cap."""
+
     scope_source: Any = None
     """Opt-in effective-scope view: a
     :class:`~fdai.delivery.read_api.routes.scope.ScopeSource`. When set,
@@ -270,6 +291,22 @@ class ReadApiConfig:
     endpoint unregistered (the FE deck then falls back to its built-in
     deterministic answerer)."""
 
+    skill_disclosure: RuntimeSkillDisclosure | None = None
+    """Optional read-only runtime skill snapshot shared by the narrator,
+    typed RPC composition, and Skills inspection panel. Skill reads never
+    install, enable, approve, or execute an artifact."""
+
+    skill_sources: Any = None
+    """Optional durable approved-source projections and separately authorized
+    approve/revoke commands under ``/api/v1/skill-sources``. The console uses
+    only the GET routes; POST commands require server-derived Approver/Owner
+    authority and never expose an executor identity."""
+
+    busy_input_runtime: BusyInputRuntime | None = None
+    """Optional durable queue, interrupt, and steer runtime for chat turns.
+    It is meaningful only when :attr:`chat` is configured; production binds
+    the PostgreSQL implementation and test/dev compositions may leave it off."""
+
     chat_web_search: Any = None
     """Optional controlled public-web evidence resolver for chat turns.
     The resolver remains deny-by-default, sends only the bounded operator
@@ -296,6 +333,23 @@ class ReadApiConfig:
     """Optional principal-scoped durable Conversation and Turn store. When
     configured, both chat routes append authenticated inbound turns and final
     verified answers using request-id idempotency."""
+
+    conversation_search: Any = None
+    """Optional principal-scoped read provider for prior conversation turns.
+    Chat tool resolution receives the server-authorized principal and returns
+    untrusted evidence only."""
+
+    post_turn_review_submitter: Any = None
+    """Optional bounded off-path submitter for completed, verified turns.
+    It receives no executor identity and cannot delay or change the chat result."""
+
+    task_worker_store: Any = None
+    """Optional principal-scoped read-only task-worker projection store.
+    Registers GET-only list, detail, and event routes; worker creation and
+    cancellation remain outside the read API."""
+
+    background_tasks: Any = None
+    """Optional durable read-only background investigation commands and projections."""
 
     user_context_ontology_projector: Any = None
     """Optional metadata-only projector for Conversation, Turn, preference,

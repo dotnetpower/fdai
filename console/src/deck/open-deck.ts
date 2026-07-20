@@ -12,6 +12,9 @@
 /** The window event name the CommandDeck listens for. */
 export const DECK_OPEN_EVENT = "fdai:deck:open";
 
+/** Cancelable request used by Activity Bar group navigation. */
+export const DECK_WORKSPACE_NAVIGATION_EVENT = "fdai:deck:workspace-navigation";
+
 /** Detail payload carried by a {@link DECK_OPEN_EVENT}. */
 export interface DeckOpenDetail {
   /** Optional draft to seed the deck input with (the operator still sends it). */
@@ -58,4 +61,31 @@ export function openDeckWithPrompt(prompt?: string): void {
 export function openDeckWithContext(detail: DeckOpenDetail): void {
   if (typeof window === "undefined" || typeof CustomEvent === "undefined") return;
   window.dispatchEvent(new CustomEvent<DeckOpenDetail>(DECK_OPEN_EVENT, { detail }));
+}
+
+/**
+ * Ask an open full-workspace Deck to close before group navigation.
+ *
+ * Returns true only when the Deck accepts the cancelable request. Other Deck
+ * modes and a closed Deck leave Activity Bar behavior unchanged.
+ */
+export function requestWorkspaceDeckCloseForNavigation(): boolean {
+  if (typeof window === "undefined" || typeof Event === "undefined") return false;
+  const event = new Event(DECK_WORKSPACE_NAVIGATION_EVENT, { cancelable: true });
+  return !window.dispatchEvent(event);
+}
+
+/** Register the Deck side of the workspace-navigation handshake. */
+export function installWorkspaceDeckNavigationHandler(
+  shouldClose: () => boolean,
+  closeDeck: () => void,
+): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  const handler = (event: Event) => {
+    if (!shouldClose()) return;
+    event.preventDefault();
+    closeDeck();
+  };
+  window.addEventListener(DECK_WORKSPACE_NAVIGATION_EVENT, handler);
+  return () => window.removeEventListener(DECK_WORKSPACE_NAVIGATION_EVENT, handler);
 }

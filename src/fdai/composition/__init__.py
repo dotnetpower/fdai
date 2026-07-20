@@ -15,25 +15,12 @@ build a config in code (no environment surprises), and only the operator's
 entry point calls :func:`default_container_from_env`, which does read the
 process environment.
 
-LLM bindings
-------------
+LLM bindings use deterministic in-memory fakes in local mode. Azure mode starts
+unbound and requires :func:`bind_azure_llm_bindings`; accessing it earlier raises
+:class:`LlmBindingsUnavailableError` rather than silently falling back.
 
-The container carries an :class:`LlmBindings` that resolves the T1 embedding
-model and the T2 cross-check models. In ``llm.mode == 'local-fake'`` (the
-default in dev), the composition root binds the deterministic in-memory
-fakes from ``core/tiers/t1_lightweight/testing.py`` and
-``core/quality_gate/testing.py`` - the pipeline works end-to-end with zero
-Azure credentials. In ``llm.mode == 'azure'``, ``Container.llm_bindings``
-starts as ``None``; the entry point MUST call :func:`bind_azure_llm_bindings`
-with a live :class:`httpx.AsyncClient` and a :class:`WorkloadIdentity` to
-attach the real adapters. Attempting to use ``Container.llm_bindings``
-before that hand-off raises :class:`LlmBindingsUnavailableError`, so the
-process cannot silently degrade to fakes in production.
-
-Design references
------------------
-- ``docs/roadmap/architecture/project-structure.md § Customization via Dependency Injection``
-- ``docs/roadmap/deployment/deploy-and-onboard.md § Runtime Configuration Matrix``
+See ``docs/roadmap/architecture/project-structure.md`` and
+``docs/roadmap/deployment/deploy-and-onboard.md`` for the binding contracts.
 """
 
 from __future__ import annotations
@@ -107,6 +94,11 @@ from ._helpers import (  # noqa: E402 - after TYPE_CHECKING block
 )
 
 install_capability_bundle = _wire_capabilities.install_capability_bundle
+
+from .wire_execution_backends import (  # noqa: E402 - public composition facade
+    bind_execution_backends,
+    load_execution_backend_registry_file,
+)
 
 
 def _local_fake_llm_bindings() -> LlmBindings:
@@ -319,6 +311,7 @@ def bind_drop_directory_manual_source(
 # wire_change_feed.py (one adapter family per wire file per the split
 # contract). Re-exported here so a fork's composition root can import
 # them from the facade.
+from .wire_browser_evidence import bind_browser_evidence  # noqa: E402, F401
 from .wire_change_feed import (  # noqa: E402, F401 - public re-export
     bind_azure_devops_change_feed,
     bind_github_change_feed,
@@ -381,6 +374,7 @@ from .readiness import OperationalReadinessService  # noqa: E402
 from .wire_azure import AzureWireOverrides, wire_azure_container  # noqa: E402
 from .wire_llm import bind_azure_llm_bindings  # noqa: E402
 from .wire_metric_provider import attach_metric_provider  # noqa: E402
+from .wire_trajectory import TrajectoryRuntime, wire_trajectory_runtime  # noqa: E402
 
 __all__ = [
     "AzureWireOverrides",
@@ -388,7 +382,10 @@ __all__ = [
     "LlmBindings",
     "LlmBindingsUnavailableError",
     "OperationalReadinessService",
+    "TrajectoryRuntime",
     "attach_metric_provider",
+    "bind_browser_evidence",
+    "bind_execution_backends",
     "bind_azure_llm_bindings",
     "bind_azure_devops_change_feed",
     "bind_github_change_feed",
@@ -396,5 +393,7 @@ __all__ = [
     "default_container_from_env",
     "install_capability_bundle",
     "load_pricing_table",
+    "load_execution_backend_registry_file",
     "wire_azure_container",
+    "wire_trajectory_runtime",
 ]

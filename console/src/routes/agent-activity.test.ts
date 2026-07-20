@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 import type { AuditItem } from "../types";
 import {
+  activityPresentationState,
   activityProvenanceCounts,
+  agentActivityExplanations,
   agentOf,
   auditProvenanceOf,
   entryConversation,
@@ -10,7 +12,9 @@ import {
   lifecycleOf,
   matchingLiveIncident,
   otherEntryFields,
+  selectedAgentAuditEmptyBody,
 } from "./agent-activity";
+import type { AgentNode, Incident } from "./agents.model";
 
 describe("agent activity deep-link selection", () => {
   test("accepts fixed agents and grounded service producers only", () => {
@@ -18,6 +22,59 @@ describe("agent activity deep-link selection", () => {
     expect(isAgentActivitySelectionValid("custom-worker", ["custom-worker"])).toBe(true);
     expect(isAgentActivitySelectionValid("not-a-real-agent", ["Forseti"])).toBe(false);
     expect(isAgentActivitySelectionValid(null, [])).toBe(true);
+  });
+
+  test("publishes selected-agent incident relationships through the common envelope", () => {
+    const incident: Incident = {
+      correlationId: "corr-1",
+      ticketId: "ticket-1",
+      title: "Memory pressure",
+      severity: "high",
+      status: "open",
+      involved: ["Heimdall"],
+      rca: null,
+      turns: [],
+      updatedAt: "2026-07-20T00:00:00Z",
+    };
+
+    expect(agentActivityExplanations("Heimdall", [incident])).toMatchObject({
+      selection: { entity_kind: "Agent", entity_id: "Heimdall" },
+      relationships: [{
+        link: "participates_in",
+        from: "Heimdall",
+        neighbor: "corr-1",
+      }],
+      provenance: { authority: "agent_runtime_and_audit" },
+    });
+  });
+
+  test("keeps live Huginn evidence visible when the durable audit timeline is empty", () => {
+    const huginn: AgentNode = {
+      name: "Huginn",
+      layer: "sensing",
+      state: "watching",
+      detail: "Runtime agent initialized",
+      correlationId: null,
+      since: "2026-07-20T00:00:00Z",
+      observed: true,
+    };
+
+    expect(activityPresentationState({
+      totalAuditCount: 0,
+      visibleAuditCount: 0,
+      selected: "Huginn",
+      selectionValid: true,
+      hasSelectedNode: true,
+    })).toEqual({
+      showLiveSummary: true,
+      emptyKind: "selected-audit",
+    });
+    expect(selectedAgentAuditEmptyBody(huginn, "runtime-observed")).toContain(
+      "Huginn is watching",
+    );
+    expect(selectedAgentAuditEmptyBody(huginn, "runtime-observed")).toContain(
+      "There is no active correlation or incident",
+    );
   });
 });
 

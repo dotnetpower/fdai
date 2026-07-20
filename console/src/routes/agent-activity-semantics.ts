@@ -62,6 +62,36 @@ export function isAgentActivitySelectionValid(
   return selected === null || selected in AGENT_LAYER || observedAgents.includes(selected);
 }
 
+export interface ActivityPresentationState {
+  readonly showLiveSummary: boolean;
+  readonly emptyKind: "all-audit" | "filtered" | "selected-audit" | null;
+}
+
+export function activityPresentationState({
+  totalAuditCount,
+  visibleAuditCount,
+  selected,
+  selectionValid,
+  hasSelectedNode,
+}: {
+  readonly totalAuditCount: number;
+  readonly visibleAuditCount: number;
+  readonly selected: string | null;
+  readonly selectionValid: boolean;
+  readonly hasSelectedNode: boolean;
+}): ActivityPresentationState {
+  return {
+    showLiveSummary: selectionValid && selected !== null && hasSelectedNode,
+    emptyKind: !selectionValid || visibleAuditCount > 0
+      ? null
+      : selected !== null
+        ? "selected-audit"
+        : totalAuditCount === 0
+          ? "all-audit"
+          : "filtered",
+  };
+}
+
 export function agentActivityRank(label: string): number {
   return label === "System" ? 2 : label in AGENT_LAYER ? 0 : 1;
 }

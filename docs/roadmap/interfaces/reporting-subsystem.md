@@ -7,10 +7,9 @@ Declarative, extensible visualization pipeline that lets a fork build
 "any report shape" - time-series overviews, top-N tables, cost
 summaries, SLO burn boards, signal-feed rollups, security postmortems,
 future FE experiments - **without changing the FE contract**. Everything
-lives behind three registries (datasource / widget / format) plus a
-YAML catalog; adding a new report is a YAML file, adding a new data
-source is one Protocol implementation, adding a new visualization shape
-is one small pure function.
+lives behind four registries (report / datasource / widget / format) and a YAML catalog; adding a
+new report is a YAML file and adding a new data source is one Protocol implementation. A new
+visualization shape requires both a pure backend builder and a reviewed SPA renderer.
 
 Read-only by contract. Every route is a `GET`; no widget executes
 anything. The subsystem is the read half of the same console that never
@@ -70,7 +69,7 @@ Code map (see [project-structure.md](../architecture/project-structure.md)):
 - `src/fdai/core/reporting/` - the whole engine (framework-neutral).
 - `src/fdai/core/reporting/composition.py` - `default_reporting_engine`
   factory for fork composition roots.
-- `src/fdai/delivery/read_api/reporting.py` - the four `GET` routes.
+- `src/fdai/delivery/read_api/routes/reporting.py` - the eight `GET` routes.
 - `rule-catalog/reports/` - the YAML catalog + JSON Schema.
 
 ### Console SPA implementation status
@@ -156,8 +155,10 @@ small renderer before the SPA can present it.
 
 ## Datasource catalog
 
-Eight upstream adapters. Each wraps an existing seam so the reporting
-subsystem introduces no new I/O primitive:
+The available datasource adapters wrap existing seams or explicit local sources. Default
+composition registers `audit`, `report_feed`, `security_assessment`, `metric`, `log_query`, and
+`ontology`, using same-name `noop` bindings when providers are absent. `static`, `callable`, and
+`filesystem_manifest` are available for tests or explicit fork registration.
 
 | Name | Wraps | Sample projections |
 |------|-------|--------------------|
@@ -166,6 +167,7 @@ subsystem introduces no new I/O primitive:
 | `security_assessment` | security-category `ReportFeed` signals -> deterministic `SecurityAssessment` | `summary_value`, severity/category/resource counts, control status/rows, recommendations, CVEs, sources, positive controls, gaps, resources, compliance, evidence |
 | `metric` | `shared.providers.metric.MetricProvider` | `series` (with `group_by`), `scalar_sum`, `percentiles` |
 | `log_query` | `shared.providers.log_query.LogQueryProvider` | `rows`, `count_by_severity`, `pattern_group`, `series_hourly`, `count_total` |
+| `ontology` | `OntologyInstanceStore` + `ProcessRuntimeStore` | ontology object/link/process projections |
 | `static` / `noop` | in-memory | fixed / empty result; test seed |
 | `callable` | any sync/async `(spec, since, until, variables) -> DataSet` fn | as declared by the callable |
 | `filesystem_manifest` | filesystem `Path` | `rows`, `count_total`; refuses `..` traversal |
@@ -377,15 +379,18 @@ Loader ([`core.reporting.catalog.load_report_catalog`](../../../src/fdai/core/re
 - rejects duplicate report ids across files;
 - rejects multi-document YAML.
 
-Three sample reports ship upstream:
+Six reports ship in the current catalog:
 
 - [`shadow-mode-daily.yaml`](../../../rule-catalog/reports/shadow-mode-daily.yaml) - audit KPI + top lists.
 - [`signal-feed-overview.yaml`](../../../rule-catalog/reports/signal-feed-overview.yaml) - report-feed rollup with a `category` variable.
 - [`metric-explorer.yaml`](../../../rule-catalog/reports/metric-explorer.yaml) - generic parameterized metric explorer.
+- [`architecture-review-process.yaml`](../../../rule-catalog/reports/architecture-review-process.yaml) - architecture review process evidence.
+- [`incident-rca-dossier.yaml`](../../../rule-catalog/reports/incident-rca-dossier.yaml) - correlation-scoped RCA dossier.
+- [`security-assessment.yaml`](../../../rule-catalog/reports/security-assessment.yaml) - security control assessment.
 
 ## Read-API routes
 
-Four GETs, mounted under a configurable prefix (default `/reports`) by
+Eight GETs, mounted under a configurable prefix (default `/reports`) by
 [`build_reporting_routes`](../../../src/fdai/delivery/read_api/routes/reporting.py):
 
 | Route | Purpose |
@@ -403,7 +408,7 @@ The routes plug into the existing read-API through `ReadApiConfig.reporting`:
 
 ```python
 from fdai.core.reporting.composition import default_reporting_engine
-from fdai.delivery.read_api.reporting import ReportingConfig
+from fdai.delivery.read_api.routes.reporting import ReportingConfig
 from fdai.delivery.read_api.main import ReadApiConfig, build_app
 
 engine, formats = default_reporting_engine(
@@ -498,9 +503,9 @@ route.
 - **Per-widget error isolation**. A broken source never fails the whole
   report; the offending widget is rendered with `error` set. Mirrors
   the `ReportFeed` pattern.
-- **No new I/O primitive**. Every datasource wraps an existing seam
-  (`AuditReader`, `MetricProvider`, `LogQueryProvider`, `ReportFeed`) -
-  the reporting subsystem does not introduce a new async boundary.
+- **Explicit I/O boundaries**. Default provider-backed datasources wrap approved seams
+  (`AuditReader`, `MetricProvider`, `LogQueryProvider`, `ReportFeed`, ontology/process stores).
+  Local `filesystem_manifest` and `callable` adapters are opt-in, bounded, read-only registrations.
 - **`core/` never imports `delivery/`**. The audit adapter takes a
   narrow duck-typed Protocol so the composition wire-up stays one-way
   (guarded by [`scripts/quality/architecture/check-core-imports.sh`](../../../scripts/quality/architecture/check-core-imports.sh)).

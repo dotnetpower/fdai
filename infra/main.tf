@@ -1111,6 +1111,7 @@ module "read_api" {
   image                             = var.read_api_image == "" ? var.core_image : var.read_api_image
   read_api_identity_id              = module.read_api_identity[0].resource_id
   read_api_identity_client_id       = module.read_api_identity[0].client_id
+  monitor_workspace_customer_id     = module.log_analytics.workspace_customer_id
   command_api_identity_id           = module.command_api_identity[0].resource_id
   command_api_identity_client_id    = module.command_api_identity[0].client_id
   resolved_models_path              = var.read_api_resolved_models_path

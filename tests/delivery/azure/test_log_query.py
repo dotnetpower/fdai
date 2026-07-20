@@ -69,6 +69,8 @@ def _provider(
         {"workspace_id": ""},
         {"timeout_seconds": 0},
         {"max_rows_cap": 0},
+        {"max_query_chars": 0},
+        {"max_response_bytes": 0},
     ],
 )
 def test_config_rejects_invalid_values(overrides: dict[str, object]) -> None:
@@ -104,7 +106,7 @@ async def test_maps_rows_and_sends_timespan_and_auth() -> None:
     assert result.metadata["workspace_id"] == "00000000-0000-0000-0000-000000000001"
 
     body = json.loads(captured[0].content)
-    assert body["query"] == "AppEvents | take 2"
+    assert body["query"] == "AppEvents | take 2\n| take 101"
     assert body["timespan"] == "PT1H"
     assert captured[0].headers["Authorization"] == "Bearer test-token"
     assert "/workspaces/00000000-0000-0000-0000-000000000001/query" in str(captured[0].url)
@@ -169,6 +171,41 @@ async def test_empty_query_or_window_fails_closed(query: str, window: str) -> No
         await provider.query_log(query=query, window=window)
 
 
+@pytest.mark.parametrize(
+    ("query", "window", "message"),
+    [
+        ("X; Y", "PT1H", "one tabular"),
+        ('workspace("other").X', "PT1H", "cross-workspace"),
+        ('app("other").requests', "PT1H", "cross-workspace"),
+        ("X", "P32D", "at most P31D"),
+        ("X", "PT0S", "greater than zero"),
+        ("X", "yesterday", "ISO 8601"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_unsafe_or_unbounded_input_fails_closed(
+    query: str, window: str, message: str
+) -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - unreached
+        return httpx.Response(200, json=_table([]))
+
+    provider = _provider(handler)
+    with pytest.raises(LogQueryError, match=message):
+        await provider.query_log(query=query, window=window)
+
+
+@pytest.mark.asyncio
+async def test_query_length_and_non_positive_row_limit_fail_closed() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - unreached
+        return httpx.Response(200, json=_table([]))
+
+    provider = _provider(handler, _config(max_query_chars=3))
+    with pytest.raises(LogQueryError, match="character limit"):
+        await provider.query_log(query="Usage", window="PT1H")
+    with pytest.raises(LogQueryError, match="max_rows"):
+        await provider.query_log(query="X", window="PT1H", max_rows=0)
+
+
 # ---------------------------------------------------------------------------
 # Fail-closed transport / shape paths
 # ---------------------------------------------------------------------------
@@ -195,6 +232,24 @@ async def test_transport_error_fails_closed() -> None:
 
 
 @pytest.mark.asyncio
+async def test_identity_error_fails_closed() -> None:
+    class FailingIdentity(WorkloadIdentity):
+        async def get_token(self, audience: str) -> IdentityToken:
+            raise RuntimeError("credential unavailable")
+
+    async def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - unreached
+        return httpx.Response(200, json=_table([]))
+
+    provider = AzureLogAnalyticsQueryProvider(
+        config=_config(),
+        identity=FailingIdentity(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+    with pytest.raises(LogQueryError, match="identity token acquisition failed"):
+        await provider.query_log(query="X", window="PT1H")
+
+
+@pytest.mark.asyncio
 async def test_non_json_fails_closed() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, text="not json")
@@ -205,12 +260,32 @@ async def test_non_json_fails_closed() -> None:
 
 
 @pytest.mark.asyncio
+async def test_oversized_response_fails_closed() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b'{"tables": []}' + b" " * 20)
+
+    provider = _provider(handler, _config(max_response_bytes=10))
+    with pytest.raises(LogQueryError, match="byte limit"):
+        await provider.query_log(query="X", window="PT1H")
+
+
+@pytest.mark.asyncio
+async def test_partial_error_payload_fails_closed() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"tables": _table([])["tables"], "partialError": {}})
+
+    provider = _provider(handler)
+    with pytest.raises(LogQueryError, match="partial or error"):
+        await provider.query_log(query="X", window="PT1H")
+
+
+@pytest.mark.asyncio
 async def test_missing_tables_fails_closed() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"error": "nope"})
 
     provider = _provider(handler)
-    with pytest.raises(LogQueryError, match="missing 'tables'"):
+    with pytest.raises(LogQueryError, match="partial or error"):
         await provider.query_log(query="X", window="PT1H")
 
 

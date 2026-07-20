@@ -38,8 +38,8 @@ from fdai.core.metering.emitter import MeteringEmitter
 from fdai.core.metering.usage import TokenUsage
 from fdai.core.operator_memory import OperatorScope
 from fdai.core.prompts.composer import PromptComposer
-from fdai.core.prompts.types import PromptMode
-from fdai.core.quality_gate.gate import QualityCandidate
+from fdai.core.prompts.types import PromptMode, PromptReplayManifest
+from fdai.core.quality_gate.gate import CrossCheckProposal, QualityCandidate
 from fdai.core.tools import ToolExecutor, ToolRegistry
 from fdai.delivery.azure.llm.gateway_evidence import record_gateway_route_evidence
 from fdai.delivery.azure.llm.latency_routed_cross_check import ModelHealthTransitionSink
@@ -97,6 +97,12 @@ class AzureOpenAICrossCheckModelConfig:
     auth_audience: str = COGNITIVE_SERVICES_SCOPE
     route_kind: ModelRouteKind = ModelRouteKind.DIRECT
     binding_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _ResolvedSystemPrompt:
+    text: str
+    replay_manifest: PromptReplayManifest | None
 
 
 class AzureOpenAICrossCheckModel:
@@ -199,9 +205,15 @@ class AzureOpenAICrossCheckModel:
         self._name_to_id: Final[Mapping[str, str]] = name_to_id
 
     async def propose(self, candidate: QualityCandidate) -> tuple[str, Mapping[str, Any]]:
+        proposal = await self.propose_with_evidence(candidate)
+        return proposal.action_type, proposal.params
+
+    async def propose_with_evidence(self, candidate: QualityCandidate) -> CrossCheckProposal:
+        """Return a proposal plus prompt evidence scoped to this call."""
+
         token = await self._identity.get_token(self._target.auth_audience)
         request = self._target.operation("chat/completions")
-        system_prompt = await self._resolve_system_prompt(candidate)
+        resolved_prompt = await self._resolve_system_prompt(candidate)
         user_prompt = json.dumps(
             {
                 "action_type": candidate.action_type,
@@ -212,7 +224,7 @@ class AzureOpenAICrossCheckModel:
             sort_keys=True,
         )
         messages: list[dict[str, Any]] = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": resolved_prompt.text},
             {"role": "user", "content": user_prompt},
         ]
 
@@ -283,7 +295,12 @@ class AzureOpenAICrossCheckModel:
                     continue
 
                 content = message.get("content")
-                return _parse_final_answer(content)
+                action_type, params = _parse_final_answer(content)
+                return CrossCheckProposal(
+                    action_type=action_type,
+                    params=params,
+                    prompt_replay_manifest=resolved_prompt.replay_manifest,
+                )
 
             # The loop always either returns or raises inside the body;
             # we never fall through, but mypy needs the explicit sentinel.
@@ -292,7 +309,7 @@ class AzureOpenAICrossCheckModel:
             if self._metering is not None:
                 await self._metering.emit_safe(total_usage)
 
-    async def _resolve_system_prompt(self, candidate: QualityCandidate) -> str:
+    async def _resolve_system_prompt(self, candidate: QualityCandidate) -> _ResolvedSystemPrompt:
         """Return the system message for one ``propose()`` call.
 
         When a :class:`PromptComposer` is wired (Wave 3 step C-2), the
@@ -309,7 +326,7 @@ class AzureOpenAICrossCheckModel:
         composer = self._prompt_composer
         capability_id = self._capability_id
         if composer is None or capability_id is None:
-            return self._config.system_prompt
+            return _ResolvedSystemPrompt(text=self._config.system_prompt, replay_manifest=None)
         scope: OperatorScope | None = None
         if self._scope_resolver is not None:
             scope = self._scope_resolver(candidate)
@@ -319,7 +336,10 @@ class AzureOpenAICrossCheckModel:
             raise RuntimeError(
                 f"prompt composition failed for capability_id={capability_id!r}: {exc}"
             ) from exc
-        return composed.system_text
+        return _ResolvedSystemPrompt(
+            text=composed.system_text,
+            replay_manifest=composed.replay_manifest(),
+        )
 
     async def _dispatch_tool_call(self, call: Mapping[str, Any]) -> dict[str, Any]:
         """Validate one tool_call, dispatch it, and format the tool message."""

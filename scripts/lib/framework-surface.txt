@@ -19,6 +19,7 @@
 #     'composition.py.bak')
 src/fdai/core/
 src/fdai/composition.py
+src/fdai/composition/
 src/fdai/shared/providers/
 src/fdai/shared/contracts/
 src/fdai/agents/

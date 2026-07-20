@@ -365,7 +365,7 @@ async def wire_azure_container(
         model_health_sink=overrides.model_health_sink,
     )
 
-    return attach_metric_provider(
+    container_with_metrics = attach_metric_provider(
         container_with_llm,
         identity=identity,
         http_client=http_client,
@@ -375,4 +375,12 @@ async def wire_azure_container(
         prometheus_base_url=overrides.prometheus_base_url,
         prometheus_queries=overrides.prometheus_queries,
         prometheus_audience=overrides.prometheus_audience,
+    )
+    from .wire_observation_providers import attach_observation_providers
+
+    return attach_observation_providers(
+        container_with_metrics,
+        workspace_id=overrides.monitor_workspace_id,
+        identity=identity,
+        http_client=http_client,
     )

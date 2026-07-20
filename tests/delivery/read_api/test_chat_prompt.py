@@ -22,6 +22,7 @@ from fdai.delivery.read_api.routes.chat import (
     _CAPABILITIES,
     _GLOSSARY,
     DEFAULT_MAX_CONTEXT_BYTES,
+    DEFAULT_MAX_EXPLANATION_ITEMS,
     DEFAULT_MAX_HISTORY_TURNS,
     DEFAULT_MAX_RECORDS_PER_KEY,
     _build_messages,
@@ -472,6 +473,22 @@ def test_base_rules_reference_purpose_and_glossary() -> None:
     assert "detail" in base and "summary" in base and "reason" in base
 
 
+def test_base_rules_use_structured_explanations_for_hard_questions() -> None:
+    system = _system_of(
+        _build_messages(
+            "Issue creation criteria?",
+            {"explanations": {"lifecycles": []}},
+            [],
+        )
+    )
+
+    assert "relationships" in system
+    assert "lifecycle criteria" in system
+    assert "deduplication" in system
+    assert "provenance" in system
+    assert "type declaration" in system
+
+
 def test_snapshot_purpose_and_glossary_are_forwarded() -> None:
     # A self-describing snapshot's purpose + glossary reach the model verbatim,
     # so the narrator can explain the screen and its terms/chips.
@@ -542,6 +559,33 @@ def test_records_over_cap_are_trimmed_with_hint() -> None:
     assert len(ctx["records"]["rules"]) == 120
     assert "_records_truncated" not in ctx
     assert "_records_meta" not in ctx
+
+
+def test_explanations_are_bounded_without_dropping_the_snapshot() -> None:
+    ctx = {
+        "routeId": "ontology",
+        "explanations": {
+            "selection": {"entity_kind": "ObjectType", "entity_id": "Agent"},
+            "relationships": [
+                {"link": f"link-{index}", "neighbor": f"Type{index}"}
+                for index in range(DEFAULT_MAX_EXPLANATION_ITEMS + 5)
+            ],
+            "lifecycles": [],
+        },
+    }
+
+    trimmed = _trim_view_context(ctx)
+
+    assert trimmed["routeId"] == "ontology"
+    assert len(trimmed["explanations"]["relationships"]) == DEFAULT_MAX_EXPLANATION_ITEMS
+    assert trimmed["_explanations_truncated"] is True
+    assert trimmed["_explanations_meta"]["relationships"] == {
+        "shown": DEFAULT_MAX_EXPLANATION_ITEMS,
+        "total": DEFAULT_MAX_EXPLANATION_ITEMS + 5,
+    }
+    # Original object is not mutated.
+    assert len(ctx["explanations"]["relationships"]) == DEFAULT_MAX_EXPLANATION_ITEMS + 5
+    assert "_explanations_truncated" not in ctx
 
 
 def test_records_under_cap_untouched() -> None:

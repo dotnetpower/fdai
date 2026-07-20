@@ -13,6 +13,7 @@ Covers:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -46,7 +47,7 @@ def _action_type_names() -> set[str]:
     return {a.name for a in catalog}
 
 
-def _base_mapping() -> dict:
+def _base_mapping() -> dict[str, Any]:
     return {
         "schema_version": "1.0.0",
         "name": "sample-flow",
@@ -148,6 +149,18 @@ def test_workflow_step_can_reference_a_tool_action_type() -> None:
             {"id": "gate", "kind": "gate", "gate_ref": "known.gate"},
             WorkflowStepKind.GATE,
         ),
+        (
+            {
+                "id": "capture",
+                "kind": "evidence",
+                "params": {
+                    "policy_id": "dashboard",
+                    "policy_version": 1,
+                    "source_url": "https://dashboard.example/evidence",
+                },
+            },
+            WorkflowStepKind.EVIDENCE,
+        ),
     ],
 )
 def test_typed_control_steps_load_without_action_type(
@@ -173,6 +186,7 @@ def test_typed_control_steps_load_without_action_type(
         {"id": "decide", "kind": "decision", "outcomes": ["approved"]},
         {"id": "parallel", "kind": "parallel", "branches": ["security"]},
         {"id": "gate", "kind": "gate"},
+        {"id": "capture", "kind": "evidence", "params": {"policy_id": "dashboard"}},
     ],
 )
 def test_invalid_control_step_contract_fails(step: dict[str, object]) -> None:

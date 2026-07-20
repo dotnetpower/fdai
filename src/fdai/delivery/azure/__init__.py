@@ -7,3 +7,15 @@ Modules under this package MAY import ``azure-*`` SDKs. Everything under
 ``shared/providers/`` - these adapters are the only place a
 provider-specific client is instantiated.
 """
+
+from fdai.delivery.azure.programmatic_pipeline import (
+    AzureIsolatedPipelineRunner,
+    AzureIsolatedPipelineRunnerConfig,
+    AzurePipelineSubmissionClient,
+)
+
+__all__ = [
+    "AzureIsolatedPipelineRunner",
+    "AzureIsolatedPipelineRunnerConfig",
+    "AzurePipelineSubmissionClient",
+]

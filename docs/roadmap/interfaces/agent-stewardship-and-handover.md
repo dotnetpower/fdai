@@ -17,6 +17,12 @@ the two are resolved and validated independently.
 > Customer-agnostic: every objectId, group id, and name below is a **placeholder**
 > (all-zero UUID). Deployment configuration supplies the real Entra values
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+>
+> **Implementation status.** Loader/validation, coverage, escalation, deterministic change
+> recipient/audit-payload primitives, the read-only console projection, handover document
+> ingestion, and Graph person resolution are shipped. Automatic production stewardship-map
+> binding, Terraform injection of `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`, GitHub App draft-PR
+> creation, and post-merge notification/audit hooks remain composition/deployment work.
 
 ## 1. Design principles
 
@@ -38,9 +44,9 @@ the two are resolved and validated independently.
 5. **Console stays read-only.** The stewardship settings surface renders state;
    edits are authored as draft PRs by the GitHub App, exactly like every other
    governance change ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
-6. **Every change is notified and audited.** Changing a defined workflow or a
-   stewardship mapping notifies the affected stewards plus the maintainer and
-   writes an append-only Saga audit entry.
+6. **Every change must be notified and audited.** Core deterministically computes recipients and
+  the audit payload. Live PR/merge integration must bind those primitives to notification and
+  audit adapters.
 
 ## 2. Concepts and vocabulary
 
@@ -211,7 +217,7 @@ control loop never blocks on Graph.
 
 Handover correctness is safety-relevant, so validation is layered.
 
-### 7.1 Startup fail-fast (`StewardshipMap.from_config`)
+### 7.1 Loader fail-fast (`load_stewardship_from_mapping`)
 
 Hard errors (raise `StewardshipValidationError`, block a clean boot of the layer):
 
@@ -222,7 +228,8 @@ Hard errors (raise `StewardshipValidationError`, block a clean boot of the layer
 - an `accept_autonomous` without a `reason`,
 - a malformed subject (`kind` not in {user, group}, id not a UUID shape),
 - when `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`, any steward or maintainer id left at the
-  all-zero placeholder. Every deployed environment sets this flag; fork status is irrelevant.
+  all-zero placeholder. Every deployed environment that binds a stewardship map must set this
+  flag explicitly; fork status is irrelevant.
 
 ### 7.2 Non-blocking findings (warn, surfaced in the coverage report)
 
@@ -252,11 +259,14 @@ Runs in `scripts/verify.sh` and CI:
 - placeholder policy: tracked upstream config requires all-zero values; deployed environments
   require non-placeholder bindings through `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`.
 
-## 8. Workflow-change notification and audit
+## 8. Workflow-change notification and audit (integration target)
 
 A "defined workflow" is any governance artifact that encodes how work flows:
 `rule-catalog/workflows/*.yaml`, `config/agent-stewardship.yaml`,
 `config/notifications-matrix.yaml`. When a person wants to change one:
+
+The lifecycle below is the target contract. Recipient and audit-payload primitives in
+`core/stewardship/notify.py` are implemented; the GitHub App and merge hook are not wired yet.
 
 1. **Draft PR.** The change is authored as a draft PR by the GitHub App (console
    never mutates directly). Standard CODEOWNERS + no-self-approval + quorum apply.
@@ -274,18 +284,17 @@ permanently recorded.
 
 ## 9. Console settings surface
 
-Two read-only views under the console (`console/src/routes/`):
+The read-only Handover view at `console/src/routes/handover.tsx` contains two sections:
 
 - **Handover map** - 15 agent cards, each showing its stewards (resolved display
   names via Graph), responsibility tags, bus-factor, and a validation badge
   (clean / warn / fail).
 - **Maintainers** - the maintainer list with the min-1/rec-2 status banner.
 
-Editing follows the governance draft-PR flow: an Owner clicks "Propose change",
-the console asks the GitHub App to open a draft PR against
-`config/agent-stewardship.yaml`, and the change lands only after review. A maintainer
-count that would drop below 1 is rejected client-side and server-side; below 2 shows
-the recommendation banner but is allowed.
+The console currently shows "Propose a change" guidance and the config path; it provides no
+mutation button or GitHub App call. An Owner edits `config/agent-stewardship.yaml` and opens a
+draft PR. The loader rejects fewer than one maintainer; the console shows a recommendation banner
+below two.
 
 ## 10. Security and safety
 

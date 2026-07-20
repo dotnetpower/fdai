@@ -22,6 +22,12 @@ in [coding-conventions.instructions.md](../../../.github/instructions/coding-con
 > adapters follow the layout in
 > [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md).
 
+> **Implementation status (2026-07-20):** W0-W8 are implemented. The sections
+> below preserve the rollout order and acceptance intent. Current shared agent
+> machinery lives under `src/fdai/agents/_framework/`; current wave coverage
+> lives in `tests/agents/test_wave2_governance.py` through
+> `test_wave8_kpi_degradation.py`.
+
 ## 1. Why this doc exists
 
 The pantheon doc ([agent-pantheon.md](agent-pantheon.md)) defines the
@@ -36,11 +42,12 @@ The pantheon doc ([agent-pantheon.md](agent-pantheon.md)) defines the
   (`escalate_to_github_issue`, `notify_admin_privilege_violation`,
   `arbitrate_domain_conflict`, plus each agent's `question_domains`
   handler pseudo-action) join `rule-catalog/action-types/`.
-- **Python core**: a new package `src/fdai/agents/` with a base class,
-  15 agent stubs, topic registry, and the two-port scaffolding.
+- **Python core**: `src/fdai/agents/` with 15 flat specialist modules and
+  shared base, registry, topic, bus, runtime, and two-port machinery under
+  `_framework/`.
 - **Tests**: registry integrity, single-writer topic enforcement, ActionType
   role binding, ontology graph query for the pantheon subgraph.
-- **Waves 6-9**: incremental per-agent behavior + cross-agent workflows,
+- **Waves W0-W8**: incremental per-agent behavior + cross-agent workflows,
   with shadow-mode gating throughout.
 
 The waves below sequence this work so that each wave delivers a working
@@ -77,14 +84,14 @@ measurable; a wave does not close on prose.
 | **W4** | Bragi + Odin: conversational port with routing, per-user context, arbitration | one operator NL query walks routing -> primary + contributors -> aggregated response; Odin arbitrates a synthetic domain_conflict |
 | **W5** | Domain specialists: Njord, Freyr, Loki with advisory bindings to Forseti | cost / capacity / chaos advice attaches to a synthetic verdict; Loki experiment runs in shadow with blast-radius respected |
 | **W6** | Handoff + security escalation: Issue dedup, fingerprint index, admin-channel notification | (a) synthetic unhandled request produces exactly one GitHub issue + comment on repeat; (b) RBAC-insufficient proposal produces exactly one admin card + dedup on repeat |
-| **W7** | Cross-agent workflows: the 10 workflows from [agent-workflows.md](agent-workflows.md) in shadow, one at a time | each workflow: shadow trace end-to-end + KPI baseline captured; no workflow promoted to enforce yet |
+| **W7** | Cross-agent workflows: the 12 workflows from [agent-workflows.md](agent-workflows.md) in shadow, one at a time | each workflow: shadow trace end-to-end + KPI baseline captured; no workflow promoted to enforce yet |
 | **W8** | Promotion gates + measurement: per-agent KPI collectors, promotion_gate wiring, degradation drills | (a) each agent reports its declared KPI; (b) each degradation policy verified by injected failure; (c) any single workflow may be promoted enforce-mode on separate PR after its gate passes |
 
 ## 4. Wave 0 - Docs foundation
 
 **Scope**
 
-- **`docs/roadmap/agents/agent-workflows.md` (+ ko)** - the 10 cross-agent
+- **`docs/roadmap/agents/agent-workflows.md` (+ ko)** - the 12 cross-agent
   workflows with sequence diagrams and exit criteria. See §5 of this doc
   for the workflow inventory.
 - **`docs/roadmap/agents/agent-pantheon.md` §4 detail** - each of the 15 agents
@@ -128,39 +135,31 @@ measurable; a wave does not close on prose.
 
 **Scope**
 
-- New package `src/fdai/agents/` with:
-  - `base.py` - abstract `Agent` class: fields (`name`, `layer`,
+- Package `src/fdai/agents/` with:
+  - `_framework/base.py` - abstract `Agent` class: fields (`name`, `layer`,
     `owns`, `executes`, `subscribes`, `publishes`, `question_domains`,
     `owns_code_paths`, `llm_bindings`, `rate_limits`), methods
     (`on_typed_message`, `on_conversation_turn`, `health`), and enforced
     single-writer publish helper.
-  - `registry.py` - loads `Agent` object type YAML, builds the pantheon
+  - `_framework/registry.py` - loads the pantheon specifications and builds the
     registry, exposes `get(name)`, `all()`, `owner_of(topic)`,
     `owner_of(object_type)`.
-  - `topics.py` - typed topic contract: naming (`object.<type>`),
+  - `_framework/topics.py` - typed topic contract: naming (`object.<type>`),
     partition key strategy (per-resource for mutations, per-correlation
     for judgment/audit), idempotency, back-pressure defaults.
-  - `pipe.py` - a thin adapter that wraps the existing event bus
-    provider protocol (see [project-structure.md](../architecture/project-structure.md#customization-via-dependency-injection))
-    and enforces `producer_principal == owner_agent`.
-  - `stubs/` - one file per agent (`odin.py`, `thor.py`, ...) with a
-    no-op subclass of `Agent`. Each stub declares its owned types and
-    subscribed topics so the registry is complete on import.
+  - `_framework/bus.py` and `_framework/bus_bridge.py` - the in-memory contract
+    and EventBus bridge that enforce `producer_principal == owner_agent`.
+  - Flat specialist modules (`odin.py`, `thor.py`, ...) - one implementation
+    per fixed pantheon agent.
 - `src/fdai/agents/__init__.py` exports the registry entry point.
 
 **Tests (`tests/agents/`)**
 
-- `test_registry.py`: 15 agents present, no duplicates, layer values
-  valid, `owns` sets pairwise disjoint (single-writer invariant).
-- `test_topics.py`: publishing to a topic whose owner is not the caller
-  raises; every declared topic has exactly one owner; partition-key
-  strategy resolves.
-- `test_action_role_binding.py`: every ActionType in
-  `rule-catalog/action-types/` has all five roles (`initiators`,
-  `judge`, `approver`, `executor`, `auditor`) resolving to a real
-  `Agent` in the registry.
-- `test_owns_code_paths.py`: each agent's declared code paths exist and
-  do not overlap another agent's owned paths for write operations.
+- `test_framework_layout.py`, `test_registry.py`, and `test_topics.py` cover
+  package shape, the fixed 15-agent registry, single-writer ownership, and
+  partition-key behavior.
+- `test_ontology_alignment.py` and `test_action_intent_parity.py` cover ontology
+  and ActionType alignment with the pantheon specifications.
 
 **Exit gate**
 
@@ -212,20 +211,20 @@ Forseti reasons; Norns closes the discovery loop.
   (hourly cron via existing scheduler) and stream (subscribe to
   `object.audit-entry`). Implement pattern extraction as T1 clustering
   first; leave T2 LLM summary hook for W7. Publish `RuleCandidate` and
-  `close_issue` actions.
+  `close_issue` actions. Before publication, require `3/3` agreement from
+  the internal Urd (past evidence), Verdandi (current contract), and Skuld
+  (future safety) perspectives. They are not agents or principals; Norns
+  emits one aggregate consensus result and retains disagreements as bounded
+  hold records.
 
 **Tests**
 
-- `test_saga_audit_chain.py`: sequential appends produce a monotonic
-  chain; a synthetic tamper (out-of-order or missing hash) is detected
-  by the integrity check.
-- `test_saga_issue_dedup.py`: same-fingerprint escalation twice results
-  in one issue + one comment; index in Muninn matches.
-- `test_mimir_promotion.py`: candidate -> shadow -> promotion path
-  writes a new `Rule` object; Forseti stub sees cache-invalidation
-  event.
-- `test_norns_pattern.py`: 10 synthetic audit-entries with a repeating
-  fingerprint produce exactly one `RuleCandidate`.
+- `test_wave2_governance.py` covers Saga audit/issue behavior, Mimir rule
+  governance, Muninn state, and Norns candidate flow.
+- `test_candidate_guard.py` and `test_norns_coverage.py` cover inert candidate
+  safety and bounded learning behavior.
+- `test_norns_consensus.py` covers unanimous publication and disagreement
+  hold behavior at the Norns single-writer boundary.
 
 **Exit gate**
 
@@ -292,16 +291,10 @@ defaults and never invokes the privileged executor.
 
 **Tests**
 
-- `test_verdict_loop_shadow.py`: 100 synthetic anomaly events; every
-  event reaches Saga with either a `succeeded` (shadow) or `dropped`
-  entry; zero policy-violation escapes.
-- `test_thor_mutex.py`: two concurrent proposals against the same
-  `resource_id` serialize; the second waits for the first.
-- `test_forseti_verdict_stable.py`: identical input event produces
-  identical verdict; verdict `risk_verdict` matches
-  `risk-classification.yaml` lookup exactly.
-- `test_vidar_rollback.py`: injected failure triggers exactly one
-  rollback; audit chain shows the compensating entry.
+- `test_wave3_pipeline.py` covers the shadow verdict, dispatch, approval, and
+  rollback path.
+- `test_runtime_chain.py` and `test_thor_durable.py` cover end-to-end routing,
+  durable ActionRuns, resource locks, and restart recovery.
 
 **Exit gate**
 
@@ -345,21 +338,14 @@ defaults and never invokes the privileged executor.
 
 **Tests**
 
-- `test_bragi_routing.py`: sample NL queries against each
-  `question_domain` route to the correct primary agent; winner
-  selection tie-break order verified.
-- `test_bragi_multi_turn.py`: follow-up query in the same session
-  resolves anaphora ("what else did that user change?") against
-  `prior_turns_ref`.
-- `test_bragi_rbac.py`: cross-user session read attempt returns
-  empty and Saga records the attempt.
-- `test_odin_arbitration.py`: injected `domain_conflict` verdict
-  results in exactly one `ArbitrationDecision`; Forseti receives and
-  finalizes.
+- `test_wave4_interface.py` and `test_conversational_port.py` cover routing,
+  session isolation, contributor aggregation, and the read-only question path.
+- `test_arbitration.py` covers deterministic conflict resolution and the
+  Forseti/Odin round trip.
 
 **Exit gate**
 
-- Operator asks "who changed stgdemo123 public network" against a
+- Operator asks "who changed the example resource's public network" against a
   synthetic Heimdall change-index; Bragi returns aggregated response
   from Heimdall + Saga + Muninn with `primary`, `contributors`,
   `trace_ref` in the payload.
@@ -395,15 +381,8 @@ defaults and never invokes the privileged executor.
 
 **Tests**
 
-- `test_njord_cost_advice.py`: verdict on a
-  `remediate.resize_vm_up` action gains a `njord_cost_delta`
-  annotation.
-- `test_freyr_forecast.py`: 100 synthetic utilization samples
-  produce a stable forecast; degradation policy activates when
-  input variance exceeds threshold.
-- `test_loki_blast_radius.py`: proposed experiment against 10
-  targets stops at the declared `blast_radius=3` even under a
-  concurrent proposal storm.
+- `test_wave5_specialists.py` covers Njord cost advice, Freyr forecasting, and
+  Loki blast-radius enforcement.
 
 **Exit gate**
 
@@ -435,16 +414,9 @@ defaults and never invokes the privileged executor.
 
 **Tests**
 
-- `test_issue_dedup.py`: 3 identical handoffs produce 1 issue and
-  2 comments; 3 different-fingerprint handoffs produce 3 issues.
-- `test_issue_auto_close.py`: injected regression-clean signal
-  after promotion closes the fingerprinted issue with a comment
-  linking the promoting PR.
-- `test_security_severity.py`: one RBAC-denied `delete_storage`
-  proposal produces exactly one `high`-severity card; 5 same-user
-  denials in 5 minutes collapse into one card with counter.
-- `test_security_rate_limit.py`: >5 cards/hour to the same user
-  collapse into a digest.
+- `test_wave6_handoff_security.py` covers issue deduplication, repeat comments,
+  closure, severity, and admin notification behavior.
+- `test_rate_limiter.py` covers bounded notification and escalation rates.
 
 **Exit gate**
 
@@ -464,7 +436,7 @@ defaults and never invokes the privileged executor.
 
 ## 11. Wave 7 - Cross-agent workflows in shadow
 
-Each of the 10 workflows in [agent-workflows.md](agent-workflows.md)
+Each of the 12 workflows in [agent-workflows.md](agent-workflows.md)
 lands as its own PR with its own shadow-mode gate. Rough sequence:
 
 1. Cost-aware remediation (Njord + Forseti + Thor)
@@ -476,7 +448,7 @@ lands as its own PR with its own shadow-mode gate. Rough sequence:
 7. Agent health degradation (Heimdall + Odin + Bragi)
 8. Judgment coherence audit (Forseti + Norns + Mimir)
 9. Rollback rehearsal (Loki + Vidar + Heimdall + Saga)
-10. Retrospective what-if (Saga + Forseti + Norns + Mimir)
+10. Retrospective what-if (Saga + Forseti + Norns + Mimir); 11. Operational readiness handoff (Forseti); 12. Scheduled governed Python task (Forseti + Thor)
 
 **Per-workflow exit gate**
 
@@ -526,14 +498,8 @@ lands as its own PR with its own shadow-mode gate. Rough sequence:
 
 **Tests**
 
-- `test_promotion_gate_forseti.py`: 14-day shadow with the
-  scenario set + KPI thresholds; passes = promotion allowed.
-- `test_degradation_saga.py`: kill Saga, attempt a mutation, verify
-  refusal + admin alert.
-- `test_degradation_vidar.py`: kill Vidar, attempt a mutation,
-  verify demotion to shadow.
-- `test_degradation_forseti.py`: kill Forseti, verify Huginn /
-  Heimdall queue grows without event loss (Kafka retention).
+- `test_wave8_kpi_degradation.py` covers KPI emission, promotion checks, and
+  injected degradation behavior for the fixed pantheon.
 
 **Exit gate**
 
@@ -589,9 +555,9 @@ with flags off).
 
 Waves W1 - W8 land agent behavior and exercise it through tests, but
 the agents only communicate once the process wires them to a real
-event bus. That seam is `src/fdai/agents/runtime.py`
-(`PantheonRuntime`), driven from the headless entrypoint
-`src/fdai/__main__.py`:
+event bus. That seam is `src/fdai/agents/_framework/runtime.py`
+(`PantheonRuntime`), assembled by `src/fdai/runtime/bootstrap.py`; the headless
+`src/fdai/__main__.py` delegates to that bootstrap:
 
 - `PantheonRuntime.build(provider, raw_event_topic)` instantiates all
   15 agents, binds every publishing agent to one
@@ -614,11 +580,10 @@ event bus. That seam is `src/fdai/agents/runtime.py`
   but never cancels the P1 wait set (the shadow overlay is never a
   dependency of the primary pipeline). Shutdown cancels it in turn.
 
-The runtime is **opt-in and shadow by default**. It is gated on
-`FDAI_START_PANTHEON` (truthy) and requires `FDAI_START_CONSUMER`
-(the pantheon binds to the same Kafka bus the consumer builds; when
-requested without it, `__main__` logs `pantheon_requested_without_consumer`
-and skips wiring).
+The runtime is **enabled and shadow by default**. `FDAI_START_PANTHEON=0`
+(also `false`, `no`, or `off`) disables it. It requires
+`FDAI_START_CONSUMER`; without the consumer bus, bootstrap logs
+`pantheon_requested_without_consumer` and skips wiring.
 
 Shadow is **enforced, not assumed**: `PantheonRuntime.build` forces
 Thor into shadow mode (`enforce=False`, the default) so the pantheon
@@ -626,7 +591,7 @@ Thor judges-and-logs only and never double-executes alongside the P1
 loop. Promotion to enforce is an explicit, separately reviewed opt-in
 (`FDAI_PANTHEON_ENFORCE` / `build(enforce=True)`) - never the default.
 Agents use the in-memory audit / issue / admin adapters from
-`src/fdai/agents/adapters.py`; a fork injects a durable, StateStore-backed
+`src/fdai/agents/_framework/adapters.py`; a fork injects a durable, StateStore-backed
 `Saga` via `build(saga=...)` and swaps the other adapters for durable
 backends (see §13.3).
 
@@ -768,14 +733,14 @@ Configurable + observable seams:
   than flooding the DLQ, since the P1 loop still processes the record.
 
 The agent `bus` seam is typed against the `PantheonBus` Protocol
-(`src/fdai/agents/bus.py`), which both the in-memory `InMemoryBus`
+(`src/fdai/agents/_framework/bus.py`), which both the in-memory `InMemoryBus`
 (tests) and the Kafka-backed `EventBusBridge` (production) satisfy;
 `Agent.bind_bus` on the base class lets the composition root bind every
 agent uniformly.
 
 **Prerequisite for the real broker:** the `object.<type>` topics the
-agents publish and subscribe on must exist on Event Hubs before
-`FDAI_START_PANTHEON` is enabled; provisioning those hubs is an infra
+agents publish and subscribe on must exist on Event Hubs whenever the pantheon
+runtime is not explicitly disabled; provisioning those hubs is an infra
 concern (`infra/modules/event-bus/`), out of scope for the flag itself.
 
 ### 13.6 LLM invocation surface (across waves)
@@ -842,7 +807,7 @@ durable Postgres `llm_invocation` store across the headless core and read API.
 
 ## 14. Timeline shape (not commitments)
 
-Waves are strictly sequential (W0 -> W8). W7 is the widest wave (10
+Waves are strictly sequential (W0 -> W8). W7 is the widest wave (12
 sub-PRs, one per workflow) and will overlap with W8 (KPI collectors
 can land in parallel with workflows).
 
@@ -856,7 +821,7 @@ timeline
     W4 : Interface : Bragi + Odin
     W5 : Specialists : Njord + Freyr + Loki
     W6 : Handoff + Security : Issue dedup + admin alerts
-    W7 : Workflows : 10 workflows in shadow
+    W7 : Workflows : 12 workflows in shadow
     W8 : KPI + Promotion : gates + drills + first enforce
 ```
 
@@ -879,7 +844,7 @@ timeline
 | To learn about | Read |
 |----------------|------|
 | The pantheon design (roles, ontology, contract) | [agent-pantheon.md](agent-pantheon.md) |
-| The 10 workflows landed in W7 | [agent-workflows.md](agent-workflows.md) (W0) |
+| The 12 workflows landed in W7 | [agent-workflows.md](agent-workflows.md) (W0) |
 | ActionType schema referenced by W0 | [action-ontology.md](../decisioning/action-ontology.md) |
 | KPI measurement pipeline referenced by W8 | [goals-and-metrics.md](../architecture/goals-and-metrics.md) |
 | Fork seams referenced by W2, W5, W6 | [project-structure.md](../architecture/project-structure.md#customization-via-dependency-injection), [downstream-fork-guide.md](../fork-and-sequencing/downstream-fork-guide.md) |

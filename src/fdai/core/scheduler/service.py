@@ -144,12 +144,47 @@ class SchedulerService:
         tasks = await self._store.list_all()
         due = compute_due(tasks, now=at)
 
+        return await self._dispatch(due, at=at)
+
+    async def run_task_now(
+        self,
+        task_id: str,
+        *,
+        idempotency_key: str,
+        now: datetime | None = None,
+    ) -> SchedulerRunReport:
+        """Dispatch one enabled task immediately with caller-stable idempotency."""
+
+        if not idempotency_key.strip() or len(idempotency_key) > 128:
+            raise ValueError("run-now idempotency_key MUST be non-empty and bounded")
+        task = await self._store.get(task_id)
+        if not task.enabled:
+            raise ValueError("cannot run a disabled scheduled task")
+        at = now or self._clock()
+        return await self._dispatch(
+            (task,),
+            at=at,
+            manual_idempotency_key=idempotency_key.strip(),
+        )
+
+    async def _dispatch(
+        self,
+        tasks: Sequence[ScheduledTask],
+        *,
+        at: datetime,
+        manual_idempotency_key: str | None = None,
+    ) -> SchedulerRunReport:
+
         fired = 0
         duplicates_suppressed = 0
         publish_errors: list[tuple[str, str]] = []
-        for task in due:
+        for task in tasks:
             key = task.resource_ref or task.task_id
-            run_id = _schedule_idempotency_key(task, at)
+            run_id = (
+                f"schedule:{task.task_id}:manual:{manual_idempotency_key}"
+                if manual_idempotency_key is not None
+                else _schedule_idempotency_key(task, at)
+            )
             claimed = await self._ledger.claim(
                 ScheduleDispatchRun(
                     run_id=run_id,

@@ -1,16 +1,17 @@
 ---
 title: 콘솔 read-API 프로덕션 배포
 translation_of: read-api-prod.md
-translation_source_sha: 1b3baac16a3df26c3f9cd5015a30554dcdfab2cb
-translation_revised: 2026-07-18
+translation_source_sha: af8ec34c29aa9874b692d5d84d79e74400ddfae9
+translation_revised: 2026-07-21
 ---
 # 콘솔 read-API 프로덕션 배포
 
 업스트림 리포는 콘솔 read API용 ASGI 진입점 두 개를 제공한다:
-개발용 하네스 ([`src/fdai/delivery/read_api/dev/local.py`](../../../src/fdai/delivery/read_api/dev/local.py))는
-:class:`UnsafeClaimsExtractor` 뒤에 :class:`InMemoryConsoleReadModel`을
-띄우고, 프로덕션 진입점 ([`src/fdai/delivery/read_api/prod.py`](../../../src/fdai/delivery/read_api/prod.py))은
-실제 Entra JWT 검증과 Postgres 기반 read 모델을 환경변수만으로 조립한다.
+로컬 facade ([`src/fdai/delivery/read_api/dev/local.py`](../../../src/fdai/delivery/read_api/dev/local.py))는
+기본적으로 Entra 또는 명시적 Azure CLI principal과 authoritative Azure view를 요구하고,
+pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic view를 허용합니다.
+프로덕션 facade ([`src/fdai/delivery/read_api/prod.py`](../../../src/fdai/delivery/read_api/prod.py))은
+실제 Entra JWT 검증과 Postgres 기반 read 모델을 환경변수로 조립합니다.
 이 문서는 프로덕션 진입점을 다룬다.
 
 > **범위**: Tier B 참조 문서다. 전체 dev/prod 패리티 계약은
@@ -25,9 +26,9 @@ translation_revised: 2026-07-18
   유지됩니다. Opt-in POST route는 proposal, approval 또는 access request를 기록하지만
   executor ID를 보유하지 않습니다. 또한
   staging/prod 트립와이어(CORS `*` 거부, dev-mode 거부)가 그대로 적용된다.
-- **환경변수 전용 조립.** 팩토리가 필요로 하는 모든 값은 포크의 IaC가 Key Vault
-  참조에서 채우는 환경변수로 도착한다. 설정 파일이 필요 없고, 고객 식별자가
-  이미지에 박히지 않는다.
+- **환경변수 전용 조립.** 팩토리가 필요로 하는 값은 환경변수로 도착합니다. Database DSN과
+  webhook secret은 Key Vault reference를 사용하고 tenant/audience/group/topic 같은 non-secret
+  값은 IaC가 plain env로 주입합니다. 설정 파일이나 고객 식별자는 이미지에 박히지 않습니다.
 - **누락된 config는 즉시 실패.** 필수 env가 없으면 시작 시점에
   :class:`ProdReadApiConfigError`(`ValueError`의 서브클래스)가 발생한다.
   깨진 리비전은 절대 소켓을 바인딩하지 못한다. env가 통째로 비어있는
@@ -115,8 +116,10 @@ uvicorn fdai.delivery.read_api.prod:app \
 
 ## 어디에 뭐가 있나
 
-- [`prod.py`](../../../src/fdai/delivery/read_api/prod.py) - 환경변수 전용
-  composition root와 `app()` 팩토리.
+- [`prod.py`](../../../src/fdai/delivery/read_api/prod.py) - 안정적인 import facade와 `app()` 팩토리.
+- [`production/config.py`](../../../src/fdai/delivery/read_api/production/config.py) 및
+  [`production/factory.py`](../../../src/fdai/delivery/read_api/production/factory.py) - 환경 검증,
+  Postgres/Entra/provider composition의 실제 owner.
 - [`postgres_read_model.py`](../../../src/fdai/delivery/read_api/postgres_read_model.py)
   - `audit_log` + `state_kv` 위의 구체 :class:`ConsoleReadModel`. row -> dataclass
     매퍼와 경계가 정해진 KPI 집계는 같은 모듈의 순수함수로 분리되어 있어

@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from types import MappingProxyType
+from typing import TYPE_CHECKING
 
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.command_runner import (
@@ -32,6 +33,9 @@ from fdai.shared.providers.vm_task import (
     VmTaskRequest,
     VmTaskRunner,
 )
+
+if TYPE_CHECKING:
+    from fdai.core.programmatic_pipeline.models import ProgrammaticToolPipelineRequest
 
 _PROFILE_ID = re.compile(r"^[a-z][a-z0-9.-]{2,127}$")
 
@@ -112,11 +116,15 @@ class SandboxProfileCatalog:
     def list(self) -> tuple[SandboxProfile, ...]:
         return tuple(self._profiles[key] for key in sorted(self._profiles))
 
+    def require(self, command_id: str) -> SandboxProfile:
+        try:
+            return self._profiles_by_command[command_id]
+        except KeyError as exc:
+            raise SandboxPolicyError(f"command {command_id!r} has no sandbox profile") from exc
+
     def constrain(self, plan: CommandPlan) -> CommandPlan:
         """Validate a plan and lower its limits to the owning profile ceilings."""
-        profile = self._profiles_by_command.get(plan.command_id)
-        if profile is None:
-            raise SandboxPolicyError(f"command {plan.command_id!r} has no sandbox profile")
+        profile = self.require(plan.command_id)
         if plan.execution_class not in profile.execution_classes:
             raise SandboxPolicyError("command execution class is outside its sandbox profile")
         if plan.network_profile not in profile.network_profiles:
@@ -202,10 +210,14 @@ class VmTaskSandboxCatalog:
     def list(self) -> tuple[VmTaskSandboxProfile, ...]:
         return tuple(self._profiles[key] for key in sorted(self._profiles))
 
+    def require(self, task_id: str) -> VmTaskSandboxProfile:
+        try:
+            return self._profiles_by_task[task_id]
+        except KeyError as exc:
+            raise SandboxPolicyError(f"VM task {task_id!r} has no sandbox profile") from exc
+
     def constrain(self, request: VmTaskRequest) -> VmTaskRequest:
-        profile = self._profiles_by_task.get(request.task.task_id)
-        if profile is None:
-            raise SandboxPolicyError(f"VM task {request.task.task_id!r} has no sandbox profile")
+        profile = self.require(request.task.task_id)
         unsupported = request.task.capabilities - profile.allowed_capabilities
         if unsupported:
             names = ", ".join(sorted(capability.value for capability in unsupported))
@@ -341,6 +353,85 @@ class ProfiledToolExecutor(ToolExecutor):
 
 
 @dataclass(frozen=True, slots=True)
+class ProgrammaticPipelineSandboxProfile:
+    """Server-owned ceiling for reviewed read-only Python pipelines."""
+
+    profile_id: str
+    allowed_read_tools: frozenset[str]
+    max_timeout_seconds: float
+    max_input_items: int
+    max_input_bytes: int
+    max_tool_calls: int
+    max_call_input_bytes: int
+    max_call_output_bytes: int
+    max_stdout_bytes: int
+    max_stderr_bytes: int
+    max_final_json_bytes: int
+
+    def __post_init__(self) -> None:
+        if _PROFILE_ID.fullmatch(self.profile_id) is None:
+            raise ValueError("pipeline sandbox profile_id MUST be lowercase ASCII")
+        if not self.allowed_read_tools:
+            raise ValueError("pipeline sandbox allowed_read_tools MUST be non-empty")
+        if not 0.1 <= self.max_timeout_seconds <= 300:
+            raise ValueError("pipeline sandbox timeout MUST be in [0.1, 300]")
+        if (
+            min(
+                self.max_input_items,
+                self.max_input_bytes,
+                self.max_tool_calls,
+                self.max_call_input_bytes,
+                self.max_call_output_bytes,
+                self.max_stdout_bytes,
+                self.max_stderr_bytes,
+                self.max_final_json_bytes,
+            )
+            < 1
+        ):
+            raise ValueError("pipeline sandbox limits MUST be positive")
+
+
+class ProgrammaticPipelineSandboxCatalog:
+    """Immutable lookup and constraint surface for pipeline profiles."""
+
+    def __init__(
+        self,
+        profiles: tuple[ProgrammaticPipelineSandboxProfile, ...] = (),
+    ) -> None:
+        by_id = {profile.profile_id: profile for profile in profiles}
+        if len(by_id) != len(profiles):
+            raise SandboxPolicyError("duplicate programmatic pipeline sandbox profile")
+        self._profiles = MappingProxyType(by_id)
+
+    def constrain(
+        self,
+        request: ProgrammaticToolPipelineRequest,
+    ) -> ProgrammaticToolPipelineRequest:
+        try:
+            profile = self._profiles[request.sandbox_profile_id]
+        except KeyError as exc:
+            raise SandboxPolicyError("programmatic pipeline has no sandbox profile") from exc
+        if not request.allowed_read_tools.issubset(profile.allowed_read_tools):
+            raise SandboxPolicyError("pipeline tools are outside the sandbox profile")
+        limits = request.limits
+        checks = (
+            (limits.timeout_seconds, profile.max_timeout_seconds, "timeout"),
+            (limits.max_input_items, profile.max_input_items, "input count"),
+            (limits.max_input_bytes, profile.max_input_bytes, "input bytes"),
+            (limits.max_tool_calls, profile.max_tool_calls, "tool calls"),
+            (limits.max_call_input_bytes, profile.max_call_input_bytes, "call input"),
+            (limits.max_call_output_bytes, profile.max_call_output_bytes, "call output"),
+            (limits.max_stdout_bytes, profile.max_stdout_bytes, "stdout"),
+            (limits.max_stderr_bytes, profile.max_stderr_bytes, "stderr"),
+            (limits.max_final_json_bytes, profile.max_final_json_bytes, "final JSON"),
+        )
+        for value, ceiling, label in checks:
+            if value > ceiling:
+                raise SandboxPolicyError(f"pipeline {label} exceeds its sandbox profile")
+        return request
+
+
+@dataclass(frozen=True, slots=True)
 class DocumentConverterSandboxProfile:
     """Server-owned envelope for one or more binary document converters."""
 
@@ -446,6 +537,8 @@ __all__ = [
     "ProfiledDocumentConverter",
     "ProfiledToolExecutor",
     "ProfiledVmTaskRunner",
+    "ProgrammaticPipelineSandboxCatalog",
+    "ProgrammaticPipelineSandboxProfile",
     "SandboxBackend",
     "SandboxPolicyError",
     "SandboxProfile",

@@ -100,9 +100,11 @@ shape maps to environments and CI/CD.
 - Execution venue, deployment environment, evidence profile, promotion state, human identity,
   executor identity, and upstream/fork distribution are independent axes. The canonical decision
   is [ADR-0002](../../docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md).
-- Interactive local starts the same 15-agent Pantheon when authoritative Event Hubs transport is
-  configured. Missing transport renders live agent/runtime surfaces unavailable; it never selects
-  an in-memory bus or executor.
+- Interactive local starts the same 15-agent Pantheon by default. An unset
+  `FDAI_START_PANTHEON` means enabled; only `0`, `false`, `no`, or `off` disables it. Event Hubs
+  settings select the Azure transport but do not activate the runtime. Without them, the local
+  in-process EventBus adapter carries agent messages and SSE state without fabricating Azure
+  evidence or binding an executor.
 - Local and deployed read the same Workflow allowlist, ActionType promotion state, risk table,
   approval policy, Process transitions, and stage events. Local execution MUST NOT force a promoted
   capability back to shadow or promote an unpromoted capability.

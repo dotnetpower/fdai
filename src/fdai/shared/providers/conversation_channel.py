@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 
 MAX_CHANNEL_ID_CHARS = 200
 MAX_MESSAGE_ID_CHARS = 200
@@ -31,6 +31,20 @@ class ChannelDeliveryOperation(StrEnum):
     STREAM = "stream"
     EDIT = "edit"
     REACTION = "reaction"
+
+
+class ChannelThreadMode(StrEnum):
+    ORIGIN = "origin"
+    DEDICATED = "dedicated"
+
+
+class ChannelDeliveryError(RuntimeError):
+    """A provider send failed with an explicit acknowledgement risk classification."""
+
+    def __init__(self, message: str, *, code: str, acknowledgement_ambiguous: bool) -> None:
+        super().__init__(message)
+        self.code = code
+        self.acknowledgement_ambiguous = acknowledgement_ambiguous
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +135,7 @@ class OutboundResponse:
     stream_chunks: tuple[str, ...] = ()
     edit_message_id: str | None = None
     reaction: str | None = None
+    thread_mode: ChannelThreadMode = ChannelThreadMode.ORIGIN
 
     def __post_init__(self) -> None:
         _bounded("channel_id", self.channel_id, MAX_CHANNEL_ID_CHARS)
@@ -143,6 +158,8 @@ class OutboundResponse:
             _bounded("reaction", self.reaction, 64)
             if self.mentions:
                 raise ValueError("OutboundResponse reactions cannot carry mentions")
+        if self.thread_mode is ChannelThreadMode.DEDICATED and self.thread_id is not None:
+            raise ValueError("dedicated thread delivery cannot declare an existing thread_id")
         rich_modes = sum(
             (
                 bool(self.stream_chunks),
@@ -175,6 +192,63 @@ class ConversationChannelAdapter(Protocol):
     async def send(self, response: OutboundResponse) -> ChannelDeliveryReceipt | None: ...
 
 
+def outbound_response_to_json(response: OutboundResponse) -> dict[str, Any]:
+    """Serialize the complete bounded response for durable replay."""
+    return {
+        "channel_kind": response.channel_kind.value,
+        "channel_id": response.channel_id,
+        "in_reply_to": response.in_reply_to,
+        "thread_id": response.thread_id,
+        "status": response.status,
+        "text": response.text,
+        "data": dict(response.data),
+        "evidence_refs": list(response.evidence_refs),
+        "mentions": [
+            {"target_id": mention.target_id, "display_text": mention.display_text}
+            for mention in response.mentions
+        ],
+        "stream_chunks": list(response.stream_chunks),
+        "edit_message_id": response.edit_message_id,
+        "reaction": response.reaction,
+        "thread_mode": response.thread_mode.value,
+    }
+
+
+def outbound_response_from_json(value: object) -> OutboundResponse:
+    """Decode a stored response and reapply every boundary invariant."""
+    if not isinstance(value, Mapping):
+        raise ValueError("stored outbound response MUST be an object")
+    mentions = value.get("mentions", ())
+    if not isinstance(mentions, list) or any(not isinstance(item, Mapping) for item in mentions):
+        raise ValueError("stored outbound response mentions MUST be objects")
+    data = value.get("data", {})
+    if not isinstance(data, Mapping):
+        raise ValueError("stored outbound response data MUST be an object")
+    return OutboundResponse(
+        channel_kind=ConversationChannelKind(str(value["channel_kind"])),
+        channel_id=str(value["channel_id"]),
+        in_reply_to=str(value["in_reply_to"]),
+        thread_id=str(value["thread_id"]) if value.get("thread_id") is not None else None,
+        status=str(value["status"]),
+        text=str(value["text"]),
+        data=cast(Mapping[str, Any], data),
+        evidence_refs=tuple(str(item) for item in value.get("evidence_refs", ())),
+        mentions=tuple(
+            ChannelMention(
+                target_id=str(item["target_id"]),
+                display_text=str(item["display_text"]),
+            )
+            for item in cast(list[Mapping[str, object]], mentions)
+        ),
+        stream_chunks=tuple(str(item) for item in value.get("stream_chunks", ())),
+        edit_message_id=(
+            str(value["edit_message_id"]) if value.get("edit_message_id") is not None else None
+        ),
+        reaction=str(value["reaction"]) if value.get("reaction") is not None else None,
+        thread_mode=ChannelThreadMode(str(value.get("thread_mode", "origin"))),
+    )
+
+
 def _bounded(name: str, value: str, maximum: int) -> None:
     if not value or not value.strip():
         raise ValueError(f"InboundTurn.{name} MUST be non-empty")
@@ -185,8 +259,10 @@ def _bounded(name: str, value: str, maximum: int) -> None:
 __all__ = [
     "ChannelAttachment",
     "ChannelDeliveryOperation",
+    "ChannelDeliveryError",
     "ChannelDeliveryReceipt",
     "ChannelMention",
+    "ChannelThreadMode",
     "ConversationChannelAdapter",
     "ConversationChannelKind",
     "InboundTurn",
@@ -194,4 +270,6 @@ __all__ = [
     "MAX_MENTION_COUNT",
     "MAX_STREAM_CHUNKS",
     "OutboundResponse",
+    "outbound_response_from_json",
+    "outbound_response_to_json",
 ]

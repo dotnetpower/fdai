@@ -25,6 +25,8 @@ from fdai.shared.providers.command_runner import (
 )
 
 _RESOURCE_GROUP = re.compile(r"^[A-Za-z0-9_.()-]{1,90}$")
+_RESOURCE_NAME = re.compile(r"^[A-Za-z0-9_.()-]{1,128}$")
+_RESOURCE_TYPE = re.compile(r"^[A-Za-z0-9_.-]{1,128}(?:/[A-Za-z0-9_.-]{1,128})?$")
 _SUBSCRIPTION = re.compile(r"^[A-Za-z0-9-]{1,64}$")
 _CLIENT_ID = re.compile(r"^[A-Za-z0-9-]{1,128}$")
 _SECRET_MARKERS = (
@@ -74,7 +76,7 @@ AzureCliInvoker = Callable[
 
 
 class AzureCliCommandRunner(CommandRunner):
-    """Execute the exact `azure.resource.list` plan under managed identity."""
+    """Execute allowlisted Azure read plans under managed identity."""
 
     def __init__(
         self,
@@ -190,8 +192,8 @@ class AzureCliCommandRunner(CommandRunner):
 
 
 def _validate_plan(plan: CommandPlan, config: AzureCliCommandRunnerConfig) -> None:
-    if plan.command_id != "azure.resource.list" or plan.command_version != 1:
-        raise ValueError("Azure CLI broker accepts azure.resource.list v1 only")
+    if plan.command_version != 1 or plan.command_id not in _COMMAND_VALIDATORS:
+        raise ValueError("Azure CLI broker accepts registered Azure read commands at v1 only")
     if plan.executable_ref != "azure.cli":
         raise ValueError("Azure CLI broker requires executable_ref 'azure.cli'")
     if plan.execution_class is not CommandExecutionClass.CLOUD_READ:
@@ -202,20 +204,88 @@ def _validate_plan(plan: CommandPlan, config: AzureCliCommandRunnerConfig) -> No
         raise ValueError("Azure CLI broker requires JSON output")
     if plan.credential_profile != config.credential_profile:
         raise ValueError("Azure CLI credential profile does not match the trusted binding")
-    expected_prefix = (
-        "resource",
-        "list",
-        "--only-show-errors",
-        "--output",
-        "json",
-        "--resource-group",
+    _COMMAND_VALIDATORS[plan.command_id](plan.argv, config.subscription_id)
+
+
+def _validate_resource_list(argv: tuple[str, ...], subscription_id: str) -> None:
+    _validate_option_argv(
+        argv,
+        prefix=("resource", "list", "--only-show-errors", "--output", "json"),
+        optional={"--resource-group": _RESOURCE_GROUP, "--resource-type": _RESOURCE_TYPE},
+        required={},
+        subscription_id=subscription_id,
     )
-    if len(plan.argv) != 9 or plan.argv[:6] != expected_prefix:
-        raise ValueError("Azure resource-list argv does not match the registered command")
-    if _RESOURCE_GROUP.fullmatch(plan.argv[6]) is None:
-        raise ValueError("Azure resource group argument is invalid")
-    if plan.argv[7] != "--subscription" or plan.argv[8] != config.subscription_id:
+
+
+def _validate_group_list(argv: tuple[str, ...], subscription_id: str) -> None:
+    _validate_option_argv(
+        argv,
+        prefix=("group", "list", "--only-show-errors", "--output", "json"),
+        optional={},
+        required={},
+        subscription_id=subscription_id,
+    )
+
+
+def _validate_vm_list(argv: tuple[str, ...], subscription_id: str) -> None:
+    _validate_option_argv(
+        argv,
+        prefix=("vm", "list", "--show-details", "--only-show-errors", "--output", "json"),
+        optional={"--resource-group": _RESOURCE_GROUP},
+        required={},
+        subscription_id=subscription_id,
+    )
+
+
+def _validate_vm_status(argv: tuple[str, ...], subscription_id: str) -> None:
+    _validate_option_argv(
+        argv,
+        prefix=("vm", "get-instance-view", "--only-show-errors", "--output", "json"),
+        optional={},
+        required={"--resource-group": _RESOURCE_GROUP, "--name": _RESOURCE_NAME},
+        subscription_id=subscription_id,
+    )
+
+
+def _validate_option_argv(
+    argv: tuple[str, ...],
+    *,
+    prefix: tuple[str, ...],
+    optional: Mapping[str, re.Pattern[str]],
+    required: Mapping[str, re.Pattern[str]],
+    subscription_id: str,
+) -> None:
+    if argv[: len(prefix)] != prefix:
+        raise ValueError("Azure command argv does not match the registered command prefix")
+    remainder = argv[len(prefix) :]
+    if len(remainder) % 2:
+        raise ValueError("Azure command options MUST be flag/value pairs")
+    seen: dict[str, str] = {}
+    for index in range(0, len(remainder), 2):
+        flag, value = remainder[index : index + 2]
+        if flag in seen:
+            raise ValueError("Azure command option appears more than once")
+        seen[flag] = value
+    allowed = {**optional, **required}
+    unknown = sorted(set(seen) - set(allowed) - {"--subscription"})
+    if unknown:
+        raise ValueError(f"Azure command contains unsupported option(s): {unknown}")
+    for flag, pattern in allowed.items():
+        option_value = seen.get(flag)
+        if flag in required and option_value is None:
+            raise ValueError(f"Azure command requires {flag}")
+        if option_value is not None and pattern.fullmatch(option_value) is None:
+            raise ValueError(f"Azure command argument for {flag} is invalid")
+    if seen.get("--subscription") != subscription_id:
         raise ValueError("Azure subscription argument does not match the trusted binding")
+
+
+_COMMAND_VALIDATORS: Final[dict[str, Callable[[tuple[str, ...], str], None]]] = {
+    "azure.resource.list": _validate_resource_list,
+    "azure.group.list": _validate_group_list,
+    "azure.vm.list": _validate_vm_list,
+    "azure.vm.status": _validate_vm_status,
+}
 
 
 def _isolated_env(config_dir: str) -> dict[str, str]:

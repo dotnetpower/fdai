@@ -38,7 +38,14 @@ Design reference:
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 
+from fdai.core.working_context.selection import (
+    ContextSelectionInput,
+    ContextSelectionOutput,
+    ContextTrustClass,
+    ModelCapabilityMetadata,
+)
 from fdai.core.working_context.types import (
     ContextBudget,
     ContextManifest,
@@ -47,6 +54,10 @@ from fdai.core.working_context.types import (
     WorkingContext,
     WorkingContextError,
 )
+from fdai.core.working_context.validation import execute_context_selection_policy
+
+DETERMINISTIC_TIERED_POLICY_ID = "deterministic-tiered-v1"
+DETERMINISTIC_TIERED_POLICY_VERSION = "1.0.0"
 
 # Prompt ordering: oldest / broadest context first, freshest verbatim
 # last, so the delivery adapter maps the tuple straight onto the chat
@@ -87,7 +98,7 @@ def _fill(
     return picked, budget - used
 
 
-def compose_working_context(
+def _compose_deterministic(
     *,
     budget: ContextBudget,
     entries: Sequence[TranscriptEntry],
@@ -182,4 +193,76 @@ def compose_working_context(
     return WorkingContext(entries=ordered, manifest=manifest)
 
 
-__all__ = ["compose_working_context"]
+@dataclass(frozen=True, slots=True)
+class DeterministicTieredPolicy:
+    """Immutable policy adapter over the authoritative tiered composer."""
+
+    policy_id: str = DETERMINISTIC_TIERED_POLICY_ID
+    policy_version: str = DETERMINISTIC_TIERED_POLICY_VERSION
+
+    def select(self, selection_input: ContextSelectionInput) -> ContextSelectionOutput:
+        context = _compose_deterministic(
+            budget=selection_input.budget,
+            entries=selection_input.entries,
+        )
+        return ContextSelectionOutput(
+            selected_entry_ids=tuple(entry.entry_id for entry in context.entries),
+            manifest=context.manifest,
+        )
+
+
+DEFAULT_CONTEXT_SELECTION_POLICY = DeterministicTieredPolicy()
+
+
+def context_selection_input(
+    *,
+    budget: ContextBudget,
+    entries: Sequence[TranscriptEntry],
+    model: ModelCapabilityMetadata | None = None,
+) -> ContextSelectionInput:
+    """Freeze pre-estimated entries and caller-owned model metadata."""
+
+    trust_classes: dict[str, ContextTrustClass] = {}
+    for entry in entries:
+        trust_class = (
+            ContextTrustClass.TRUSTED_INTERNAL
+            if entry.trusted
+            else ContextTrustClass.UNTRUSTED_EXTERNAL
+        )
+        prior = trust_classes.get(entry.entry_id)
+        if prior is not None and prior is not trust_class:
+            raise ValueError(f"duplicate entry id {entry.entry_id!r} has conflicting trust classes")
+        trust_classes[entry.entry_id] = trust_class
+    return ContextSelectionInput(
+        entries=tuple(entries),
+        trust_classes=trust_classes,
+        budget=budget,
+        model=model
+        or ModelCapabilityMetadata(
+            model_id="composer-default",
+            context_window=budget.total_window,
+        ),
+    )
+
+
+def compose_working_context(
+    *,
+    budget: ContextBudget,
+    entries: Sequence[TranscriptEntry],
+) -> WorkingContext:
+    """Run the immutable authoritative policy through mandatory validation."""
+
+    return execute_context_selection_policy(
+        policy=DEFAULT_CONTEXT_SELECTION_POLICY,
+        selection_input=context_selection_input(budget=budget, entries=entries),
+    )
+
+
+__all__ = [
+    "DEFAULT_CONTEXT_SELECTION_POLICY",
+    "DETERMINISTIC_TIERED_POLICY_ID",
+    "DETERMINISTIC_TIERED_POLICY_VERSION",
+    "DeterministicTieredPolicy",
+    "compose_working_context",
+    "context_selection_input",
+]

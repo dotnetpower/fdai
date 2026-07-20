@@ -12,7 +12,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ..core.browser_evidence.service import BrowserEvidenceCaptureService
+from ..core.browser_evidence.surfaces import (
+    BrowserEvidenceConsoleTool,
+    BrowserEvidenceWorkflowStepDispatcher,
+)
 from ..core.capability_catalog import CapabilityRuntime
+from ..core.execution_backend import ExecutionBackendCoordinator
 from ..core.mscp_profile import ExpectedEffectProvider, IndependentEffectObserver
 from ..core.quality_gate.critic import CriticModel
 from ..core.quality_gate.debate import DebateOrchestrator
@@ -22,6 +28,8 @@ from ..core.quality_gate.rubric import RubricEvaluator
 from ..core.rca import RcaReasoner
 from ..core.tiers.t1_lightweight.tier import EmbeddingModel
 from ..core.tiers.t2_reasoning import T2Proposer
+from ..core.trajectory import TrajectoryJoinService
+from ..core.working_context import ContextSelectionPolicyAuthority
 from ..shared.config.models import AppConfig
 from ..shared.contracts.models import OntologyLinkType, OntologyObjectType, Workflow
 from ..shared.contracts.registry import SchemaRegistry
@@ -32,12 +40,15 @@ from ..shared.providers.exemption import ExemptionRegistry
 from ..shared.providers.feasibility_probe import FeasibilityProbe
 from ..shared.providers.inventory import EmptyInventory, Inventory
 from ..shared.providers.knowledge import EmptyKnowledgeSource, KnowledgeSource
+from ..shared.providers.log_query import LogQueryProvider, NoopLogQueryProvider
 from ..shared.providers.manual_classifier import (
     AbstainingManualClassifier,
     ManualClassifier,
 )
 from ..shared.providers.manual_source import EmptyManualSource, ManualSource
 from ..shared.providers.metric import MetricProvider, NoopMetricProvider
+from ..shared.providers.trace_query import NoopTraceQueryProvider, TraceQueryProvider
+from ..shared.providers.trajectory import TrajectoryDatasetStore
 
 
 class LlmBindingsUnavailableError(RuntimeError):
@@ -143,6 +154,8 @@ class Container:
     workflows: tuple[Workflow, ...] = ()
     llm_bindings: LlmBindings | None = field(default=None)
     metric_provider: MetricProvider = field(default_factory=NoopMetricProvider)
+    log_query_provider: LogQueryProvider = field(default_factory=NoopLogQueryProvider)
+    trace_query_provider: TraceQueryProvider = field(default_factory=NoopTraceQueryProvider)
     inventory: Inventory = field(default_factory=EmptyInventory)
     knowledge_source: KnowledgeSource = field(default_factory=EmptyKnowledgeSource)
     change_feed: ChangeFeed = field(default_factory=EmptyChangeFeed)
@@ -150,13 +163,26 @@ class Container:
     manual_source: ManualSource = field(default_factory=EmptyManualSource)
     manual_classifier: ManualClassifier = field(default_factory=AbstainingManualClassifier)
     capability_runtime: CapabilityRuntime = field(default_factory=CapabilityRuntime)
+    context_selection_policy_authority: ContextSelectionPolicyAuthority | None = None
+    trajectory_dataset_store: TrajectoryDatasetStore | None = None
+    trajectory_join_service: TrajectoryJoinService | None = None
     mscp_expected_effect_provider: ExpectedEffectProvider | None = None
     mscp_effect_observer: IndependentEffectObserver | None = None
+    execution_backend_coordinator: ExecutionBackendCoordinator | None = None
+    browser_evidence_capture_service: BrowserEvidenceCaptureService | None = None
+    browser_evidence_console_tool: BrowserEvidenceConsoleTool | None = None
+    browser_evidence_workflow_dispatcher: BrowserEvidenceWorkflowStepDispatcher | None = None
 
     def __post_init__(self) -> None:
         if (self.mscp_expected_effect_provider is None) != (self.mscp_effect_observer is None):
             raise ValueError(
                 "Container MSCP expected-effect provider and observer MUST be bound together"
+            )
+        if self.context_selection_policy_authority is None:
+            object.__setattr__(
+                self,
+                "context_selection_policy_authority",
+                ContextSelectionPolicyAuthority(capability_runtime=self.capability_runtime),
             )
 
     def require_llm_bindings(self) -> LlmBindings:

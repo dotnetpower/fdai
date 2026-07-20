@@ -50,7 +50,7 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | 2 | **Contributor** | `aw-contributors` | Azure Contributor | Reader + 규칙, 룰셋, 할당, exemption, override 초안 PR 작성 |
 | 3 | **Approver** | `aw-approvers` | (Reviewer) | Reader + governance PR 리뷰/승인 + 런타임 HIL 요청 승인 + enforce 승격 / exemption / override 승인 (고위험은 quorum - §5 참조) |
 | 4 | **Owner** | `aw-owners` | Azure Owner | Approver + kill-switch 트리거 + Entra 그룹 멤버십 관리 + 인프라 IaC 적용 |
-| - | **Break-Glass** | `aw-break-glass` | (뱄도 비상 계정) | 비상 스코프 부여, kill-switch override, 그리고 정규 Approver/Owner 가 부재 시 **time-boxed 비상 HIL 승인 자격** (paired-approver, no self-approval); 멤버십은 작은 전용 세트, 자격증명은 하드웨어 MFA로 봉인, 모든 사인인이 알림 발동 |
+| - | **Break-Glass** | `aw-break-glass` | (별도 비상 계정) | Console 조회, kill-switch, 비상 access grant capability만 가집니다. Runtime HIL 승인 capability는 없으며 Owner의 superset이 아닙니다. |
 
 **티어 추가 없이 모델을 안전하게 유지하는 규칙**
 
@@ -63,6 +63,10 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 - **활성화 시 검증된 자격을 보존합니다.** Token 확인 과정은 유효 역할에서 `BreakGlass`를
   제거하지만 별도의 자격 플래그를 유지합니다. 시간 제한 활성화는 긴급 역할을 추가하기 전에
   이 플래그를 확인합니다.
+- **현재 activation 경계.** `RoleResolver.activate_break_glass`는 incident id와 future expiry를
+  검증하는 pure activation primitive입니다. Production API에는 이를 호출하는 endpoint, persistent
+  activation store, TTL enforcement composition이 아직 없습니다. 따라서 token의 BreakGlass claim만으로
+  runtime principal이 elevation되지 않으며, HIL approval eligibility도 생기지 않습니다.
 - **PIM은 선택**. 상류는 요구하지 않음. Entra ID P2 있는 포크는 just-in-time 활성화를 위해
   `aw-approvers` / `aw-owners` 위에 PIM을 얹을 수 있지만, 기본 모델은 P1에서 작동.
 
@@ -78,7 +82,7 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | Exemption 승인 (time-boxed) | | | ✓ | ✓ | |
 | Override 승인 (long-lived 가능) | | | ✓ | ✓ | |
 | 런타임 HIL 요청 승인 | | | ✓ | ✓ | |
-| 런타임 HIL 요청 승인 (비상, break-glass 활성, paired) | | | | | ✓ |
+| 런타임 HIL 요청 승인 (비상) | | | | | |
 | 글로벌 kill-switch 트리거 | | | | ✓ | ✓ |
 | 비상 스코프 접근 부여 | | | | | ✓ |
 | `aw-*` 그룹 멤버십 관리 | | | | ✓ | |
@@ -86,9 +90,11 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | Executor Managed Identity 보유 | (절대) - MI는 비-사람 |||||
 
 Production API는 durable command service가 연결된 경우에만 `POST /system/kill-switch`를
-노출합니다. Owner와 활성 Break-Glass principal은 호출할 수 있지만 Reader, Contributor,
-Approver는 호출할 수 없습니다. 이 endpoint는 console button이 아니며 executor identity를
-사용하지 않고 revision state 변경과 audit entry를 원자적으로 기록합니다.
+노출합니다. Owner 또는 externally activated BreakGlass role은 capability check를 통과하지만,
+현재 production auth composition에는 BreakGlass activation path가 없으므로 일반 token resolution에서
+도달 가능한 emergency caller는 Owner입니다. Reader, Contributor, Approver는 호출할 수 없습니다.
+이 endpoint는 console button이 아니며 executor identity를 사용하지 않고 revision state 변경과
+audit entry를 원자적으로 기록합니다.
 
 ## 4. Entra ID 아티팩트
 
@@ -138,9 +144,11 @@ CA는 Entra ID P1에서 가능(P2 불필요). 그룹별 권장 정책:
 
 ### 4.4 App Roles (토큰 표면)
 
-API는 원시 그룹 claim이 아니라 **App Roles** 로 authorize. App Roles는 `fdai-api` app
-registration에 선언되고 Enterprise Applications 뷰에서 `aw-*` 그룹에 할당; 사인인 사용자의
-access token은 API가 직접 검증하는 `roles` claim(예: `"roles": ["Approver"]`)을 운반.
+API는 **App Roles를 canonical token surface로 우선 사용**합니다. App Roles는 `fdai-api` app
+registration에 선언되고 Enterprise Applications 뷰에서 `aw-*` 그룹에 할당되며 access token의
+`roles` claim으로 전달됩니다. Migration compatibility를 위해 `roles`가 비어 있고 inline `groups`
+claim이 사용 가능한 경우 `RoleResolver`는 configured objectId mapping을 fallback으로 사용합니다.
+Group-overage token에는 이 fallback이 불가능하므로 FDAI App Role이 반드시 필요합니다.
 
 | App Role 값 | 할당 대상 (Entra 보안 그룹) |
 |-------------|--------------------------|
@@ -150,7 +158,7 @@ access token은 API가 직접 검증하는 `roles` claim(예: `"roles": ["Approv
 | `Owner` | `aw-owners` |
 | `BreakGlass` | `aw-break-glass` |
 
-원시 그룹 claim 대신 App Roles를 쓰는 이유:
+App Roles를 canonical surface로 쓰는 이유:
 
 - **테넌트 간 이식 가능.** App Role 값은 코드에 정의된 상수; 그룹 `objectId` 는 테넌트마다
   다름. 포크는 코드가 아니라 그룹 할당을 변경.

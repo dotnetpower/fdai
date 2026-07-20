@@ -9,6 +9,10 @@ from typing import Any
 
 from fdai.core.briefing import BriefingCoordinator, OpeningBriefingService
 from fdai.core.report_feed import ReportFeed
+from fdai.core.scheduler.continuation import (
+    ScheduledContinuationService,
+    StateStoreContinuationAuditSink,
+)
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.core.workflow.definition import (
     build_workflow_definition,
@@ -20,8 +24,13 @@ from fdai.delivery.persistence import (
     PostgresBriefingSubscriptionStore,
     PostgresConversationHistoryStore,
     PostgresConversationPolicyStore,
+    PostgresConversationSearch,
     PostgresReportSignalStore,
     PostgresReportSignalStoreConfig,
+    PostgresScheduledContinuationStoreConfig,
+    PostgresScheduledConversationAnchorStore,
+    PostgresStateStore,
+    PostgresStateStoreConfig,
     PostgresUserContextStoreConfig,
     PostgresUserMemoryStore,
     PostgresUserPreferenceStore,
@@ -82,11 +91,15 @@ def build_production_user_context(
     policies = PostgresConversationPolicyStore(config=briefing_store_config)
     subscriptions = PostgresBriefingSubscriptionStore(config=briefing_store_config)
     runs = PostgresBriefingRunStore(config=briefing_store_config)
+    continuations = PostgresScheduledConversationAnchorStore(
+        config=PostgresScheduledContinuationStoreConfig(**connection)
+    )
     report_feed = ReportFeed(
         (PostgresReportSignalStore(config=PostgresReportSignalStoreConfig(**connection)),)
     )
     routes = UserContextRoutesConfig(
         conversations=conversations,
+        conversation_search=PostgresConversationSearch(config=user_store_config),
         preferences=preferences,
         memories=memories,
         policies=policies,
@@ -98,6 +111,13 @@ def build_production_user_context(
             coordinator=BriefingCoordinator(report_feed=report_feed),
         ),
         ontology_projector=projector,
+        continuations=continuations,
+        continuation_service=ScheduledContinuationService(
+            store=continuations,
+            audit=StateStoreContinuationAuditSink(
+                store=PostgresStateStore(config=PostgresStateStoreConfig(**connection))
+            ),
+        ),
     )
     definitions = PostgresWorkflowDefinitionStore(config=workflow_store_config)
     bindings = PostgresWorkflowBindingStore(config=workflow_store_config)

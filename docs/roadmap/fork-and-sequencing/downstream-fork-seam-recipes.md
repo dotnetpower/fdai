@@ -20,26 +20,6 @@ For a full "new business-object vertical from scratch" walkthrough
 that stitches these recipes together, see
 [downstream-fork-example-vertical.md](downstream-fork-example-vertical.md).
 
-**Contents**
-
-1. [Azure OpenAI adapters (LlmBindings)](#51-azure-openai-adapters-llmbindings)
-2. [OperatorMemoryStore](#52-operatormemorystore-in-memory--postgres--custom)
-3. [HilRejectMaterializer + second-approval channel](#53-hilrejectmaterializer--second-approval-channel)
-4. [WebSearchProvider](#54-websearchprovider)
-5. [HilChannel (Teams / Slack / custom)](#55-hilchannel-teams--slack--custom)
-6. [ScopeResolver (ARM id -> OperatorScope)](#56-scoperesolver-arm-id---operatorscope)
-7. [CriticModel + JudgeModel (debate activation)](#57-criticmodel--judgemodel-debate-activation)
-8. [Rule catalog additions](#58-rule-catalog-additions)
-9. [Ontology ObjectType / LinkType additions](#58a-ontology-object-type--link-type-additions)
-10. [Risk overlays (Rego)](#59-risk-overlays-rego)
-11. [Runtime failure modes and abstain contracts](#510-runtime-failure-modes-and-abstain-contracts)
-12. [Testing your fork end-to-end](#511-testing-your-fork-end-to-end)
-13. [ActionType catalog additions](#512-actiontype-catalog-additions)
-14. [Delivery adapter (custom publisher)](#513-delivery-adapter-custom-publisher)
-15. [Console ReadPanel additions](#514-console-readpanel-additions)
-16. [Fork entry point (`entry.py`)](#515-fork-entry-point-entrypy)
-17. [Capability bundle registration](#517-capability-bundle-registration)
-
 ### 5.1 Azure OpenAI adapters (LlmBindings)
 
 **When to override**: pointing at a different Azure OpenAI endpoint,
@@ -51,15 +31,12 @@ a different set of deployments, or a non-Azure LLM provider.
 `bind_azure_llm_bindings()` factory reads `resolved-models.json` and
 wires Azure OpenAI adapters.
 
-**`resolved-models.json` is a runtime secret, not a checked-in
-artifact.** It is produced by the bootstrap `llm_resolver_cli`
-(see 5.7), stored in Key Vault, and mounted at the container path
-named by `LLM_RESOLVED_MODELS_PATH` (e.g.
-`/mnt/secrets/resolved-models.json`). A fork MUST NOT commit this
-file: it embeds the deployer's subscription id, deployment names,
-and region metadata. Regenerate it when the llm-registry, quota,
-or region availability changes; the resolver is idempotent -
-re-running it with unchanged inputs produces the same file.
+**Live `resolved-models.json` is a deployment artifact.** The bootstrap resolver emits it, and
+`LLM_RESOLVED_MODELS_PATH` accepts a filesystem path or inline JSON. Never commit a live result:
+it carries deployer/subscription/deployment/region provenance. Upstream's tracked
+`resolved-models*.json` files are synthetic generated baselines with all-zero identities and must
+not be hand-edited. A direct Key Vault loader is deferred with the reconciler; day zero uses a
+secretRef env value or mounted file.
 
 **How to bind (Azure endpoint override)**:
 
@@ -103,7 +80,7 @@ first event. A fork that does not use operator memory MUST still
 pass `InMemoryOperatorMemoryStore()` explicitly - the API refuses
 to default a required seam.
 
-**Backwards compatibility**: upstream's `__main__._finalize_llm_bindings`
+**Backwards compatibility**: upstream's `runtime.configuration._finalize_llm_bindings`
 is now a thin wrapper that reads env vars (`FDAI_LLM_ENDPOINT`,
 `FDAI_CATALOG_ROOT`, `FDAI_OPERATOR_MEMORY_DSN`) and
 delegates to `wire_azure_container`. Existing tests and the
@@ -390,9 +367,9 @@ a fork's tests focus on its live adapters.
 `fork/rules/`) and passes it to a **separate** `load_rule_catalog`
 call.
 
-**Duplicate `id` is a hard error**. `load_rule_catalog` fail-
-closes on same-id entries across files, even across roots - the
-ontology dispatch relies on `id` being globally unique. This
+**Duplicate `id` is a hard error**. `load_rule_catalog` rejects duplicates within one root;
+`RuleIndex.build` rejects cross-root duplicates after concatenation. The ontology dispatch relies
+on globally unique ids. This
 means:
 
 - To ADD a rule: give it a fork-unique id (e.g. prefix with your
@@ -441,8 +418,11 @@ fork_rules = load_rule_catalog(
 index = RuleIndex.build(upstream_rules + fork_rules)
 ```
 
+`RuleIndex.build` is the final cross-root uniqueness check. A consumer that doesn't build the
+index must perform the same id check over the combined tuple.
+
 **How to test**: reuse the shipped rule-loader tests as a template
-(`tests/rule_catalog/schema/test_rule.py`); add a fork-specific
+(`tests/rule_catalog/test_rule_catalog.py`); add a fork-specific
 fixture directory and a smoke test that both catalogs load without
 id conflicts.
 
@@ -458,11 +438,9 @@ section; 5.8 alone is enough.
 - `fdai.rule_catalog.schema.object_type.load_object_type_catalog(root, *, schema_registry)`
 - `fdai.rule_catalog.schema.link_type.load_link_type_catalog(root, *, schema_registry, object_types=...)`
 
-Both return immutable tuples validated against the shipped
-`ontology/object-type` and `ontology/link-type` JSON Schemas plus
-the pydantic models in `fdai.shared.contracts.models`. Duplicate
-`name` across the upstream root and a fork root is a hard error - the
-ontology dispatch and the assurance twin both index on `name`.
+Both return immutable tuples validated against the shipped JSON Schemas and pydantic models. Each
+loader rejects duplicates within its own root. The composition root must separately validate
+cross-root name uniqueness before combining upstream and fork tuples.
 
 **How to add a new ObjectType**:
 
@@ -496,6 +474,9 @@ ontology dispatch and the assurance twin both index on `name`.
        schema_registry=registry,
    )
    objects = upstream_objects + fork_objects
+     object_names = [item.name for item in objects]
+     if len(object_names) != len(set(object_names)):
+       raise ValueError("duplicate ObjectType name across upstream and fork roots")
 
    upstream_links = load_link_type_catalog(
        Path("rule-catalog/vocabulary/link-types"),
@@ -507,10 +488,14 @@ ontology dispatch and the assurance twin both index on `name`.
        schema_registry=registry,
        object_types=objects,
    )
+     links = upstream_links + fork_links
+     link_names = [item.name for item in links]
+     if len(link_names) != len(set(link_names)):
+       raise ValueError("duplicate LinkType name across upstream and fork roots")
    container = replace(
        container,
        ontology_object_types=objects,
-       ontology_link_types=upstream_links + fork_links,
+       ontology_link_types=links,
    )
    ```
 
@@ -584,12 +569,12 @@ control loop degrades to HIL rather than into an ungated action.
 | Seam | Live adapter fails | Expected behaviour |
 |------|--------------------|--------------------|
 | `EmbeddingModel` / `CrossCheckModel` | HTTP error, timeout | Raise; upstream catches and abstains the quality candidate (HIL). Never return a synthesised empty response. |
-| `CriticModel` / `JudgeModel` | HTTP error, quota | Raise; `DebateOrchestrator` catches and returns `debate_status="unresolved"` which routes to HIL. |
-| `WebSearchProvider` | HTTP error, timeout | Return `WebSearchResult(query=query, snippets=(), reasons=("<provider-error>",))`. Do not raise - snippets are supplementary evidence, not a gate. |
+| `CriticModel` / `JudgeModel` | HTTP error, quota | Raise; `DebateOrchestrator` returns `DebateVerdict.ABORT` with `error_class`, which routes to HIL. |
+| `WebSearchProvider` | HTTP error, timeout | May raise or return an empty result. The caller converts exceptions into sanitized `provider_error` evidence without raising action authority. |
 | `HilChannel.send` | Delivery fails | Raise; upstream logs and the audit trail marks the approval as `dispatch_failed`. The action stays pending; no auto-execute. |
 | `HilChannel.poll` | Backend unreachable | Raise; upstream keeps the approval in `pending` on next tick. |
-| `OperatorMemoryStore` | DB down at write | Raise; the materializer rolls back the second-approver record and the reject stays as an audit-only event. |
-| `OperatorMemoryStore` | DB down at read | Return `()`; the composer proceeds with an empty operator-memory block. Prompt composition MUST survive an empty store. |
+| `OperatorMemoryStore` | DB down at write | Raise; no entry is stored and the caller fails the approval workflow closed. |
+| `OperatorMemoryStore` | DB down at read | Raise; the composer fails the current request closed instead of silently using stale or empty memory. |
 | `SecretProvider.get` | Secret missing / KV down | Raise `SecretNotFoundError`; startup fails fast. A missing secret is never silently defaulted. |
 | `ScopeResolver` | Cannot parse the resource ref | Return `None`; the materializer skips operator-memory attachment for that event but the action itself is not blocked. |
 | `RemediationPrPublisher` (5.13) | PR host down | Raise; the executor records an `execution_failed` audit entry and the action stays in shadow. Never fabricate a `PublishReceipt`. |
@@ -672,21 +657,20 @@ promote through the same pipeline):
   roots.
 - `operation` - CSP-neutral verb from the `Operation` enum in
   `fdai.shared.contracts.models` (`tag`, `create`, `update`, `delete`,
-  `scale`, `restart`, `rotate`, `configure`, `revert`, ...). If you need
+  `scale`, `restart`, `rotate`, `revert`, ...). `configure` is not a current enum value. If you need
   a verb that does not exist, open an upstream issue - the enum is the
   audit vocabulary and MUST NOT be forked.
 - `interfaces` - list of `ActionInterface` names the executor honours
-  (e.g. `ControlPlane`, `DataPlane`, `Governance`). Risk-gate composes
+  (e.g. `ControlPlane`, `DataPlaneMutating`, `IdempotentByKey`,
+  `RequiresInventoryFresh`). `DataPlane` and `Governance` are not current enum values. Risk-gate composes
   its feature vector from this set.
 - `rollback_contract` - one of `pr_revert`, `scripted`, `pitr`,
   `snapshot_restore`, `state_forward_only`. The legacy `none` value is
   gone; a genuinely one-way mutation sets `irreversible: true` and is
   routed HIL+quorum by the risk-gate, but still MUST declare a
   best-effort rollback description.
-- `default_mode` - MUST be `shadow` for every upstream shipment. A
-  fork's own catalog MAY set `enforce` on Day-1 for a category the fork
-  has already validated in a prior deployment, but the fork's CI SHOULD
-  keep the same "shadow first, promote by measurement" invariant.
+- `default_mode` - MUST be `shadow` for every upstream and fork catalog entry. The loader rejects
+  `enforce`; authoritative promotion state is stored separately.
 - `promotion_gate` - `min_shadow_days`, `min_samples`, `min_accuracy`,
   `max_policy_escapes`. Rule assignments MAY tighten these, never
   loosen.
@@ -694,8 +678,8 @@ promote through the same pipeline):
   verifier evaluates before the risk-gate. Empty lists are allowed only
   when the executor has independent invariants (e.g. an idempotent tag
   set); most `governance.*` ActionTypes declare at least one.
-- `trigger_kind` (optional) - `rule_violation`, `operator_request`, or
-  `both`. When `operator_request` or `both`, you MUST also declare
+- `trigger_kind` (optional) - an object with `kind: rule_violation`,
+  `kind: operator_request`, or `kind: both`. For `operator_request` or `both`, declare
   `argument_schema` (JSON Schema) so the console can validate arguments
   at the coordinator boundary.
 
@@ -718,6 +702,9 @@ fork_actions = load_action_type_catalog(
     probes_root=None,   # fork MAY ship its own probes; None skips the cross-check
 )
 action_types = upstream_actions + fork_actions
+action_names = [item.name for item in action_types]
+if len(action_names) != len(set(action_names)):
+  raise ValueError("duplicate ActionType name across upstream and fork roots")
 ```
 
 The Rule loader (5.8) then receives `action_types=action_types` and
@@ -748,7 +735,7 @@ as a template. A fork's tests SHOULD assert:
 [`ops.publish-change-summary`](../../../rule-catalog/action-types/ops.publish-change-summary.yaml)
 as a shadow-mode ActionType with an operator-request `argument_schema`,
 a `pr_revert` rollback contract, and a paired rule + Rego + Markdown
-template. Copy that four-file scaffold as your starting point for any
+template. Copy the six-file scaffold, including ObjectType and LinkType, as your starting point for any
 new mutation category.
 
 **Anti-patterns**:
@@ -779,9 +766,8 @@ class RemediationPrPublisher(Protocol):
     async def publish(self, pr: RemediationPr) -> PublishReceipt: ...
 ```
 
-`RemediationPr` carries the fully-rendered payload (title, body,
-diff, labels, correlation id), and `PublishReceipt` MUST include a
-stable `external_ref` your audit log can cite later. The upstream
+`RemediationPr` carries the fully-rendered payload (title, body, patch, patch path, labels,
+action/idempotency ids), and `PublishReceipt` must include a stable `pr_ref` the audit log can cite. The upstream
 executor is Protocol-typed; a fork constructs the publisher and
 injects it via the composition root.
 
@@ -817,15 +803,15 @@ class ConfluencePagePublisher(RemediationPrPublisher):
 
     async def publish(self, pr: RemediationPr) -> PublishReceipt:
         token = await self._secret_provider.get(self._api_token_secret)
-        # 1. Translate pr.title / pr.body / pr.diff into a Confluence body.
+        # 1. Translate pr.title / pr.body / pr.patch into a Confluence body.
         # 2. POST to <base_url>/wiki/rest/api/content with self._space_key.
         # 3. Extract the page id and self-link from the response.
-        # 4. Return a PublishReceipt whose external_ref cites the page id
+        # 4. Return a PublishReceipt whose pr_ref cites the page id
         #    so the audit log links back to the exact revision.
         return PublishReceipt(
-            external_ref="confluence:page:<id>",
+            pr_ref="confluence:page:<id>",
             url="<page-url>",
-            observed_at=pr.correlation_id.timestamp,
+            already_existed=False,
         )
 ```
 
@@ -838,7 +824,7 @@ from fdai.core.executor import ShadowExecutor
 # ... in your build_control_loop() ...
 
 publisher = ConfluencePagePublisher(
-    secret_provider=container.secret_provider,
+    secret_provider=secret_provider,  # constructed separately by fork composition
     api_token_secret="confluence.api.token",
     base_url="https://example.atlassian.net",
     space_key="ARB",
@@ -860,7 +846,7 @@ policy is append-only. Do NOT pick `none` - it is no longer a valid
 value.
 
 **How to test**: mirror
-`tests/delivery/gitops_pr/test_publisher.py`. Wire tests use
+`tests/delivery/gitops_pr/test_adapter.py`. Wire tests use
 `httpx.MockTransport` against the vendor API; contract tests assert
 `isinstance(adapter, RemediationPrPublisher)` at runtime because the
 Protocol is `@runtime_checkable`.
@@ -885,7 +871,7 @@ console - a FinOps cost summary, a drift board, a governance-decision
 history, a DR-drill run log. If you only consume the shipped
 `/audit`, `/kpi`, `/hil-queue` routes, skip this recipe.
 
-**The seam**: `fdai.delivery.read_api.panels.ReadPanel` Protocol plus
+**The seam**: `fdai.delivery.read_api.routes.panels.ReadPanel` Protocol plus
 the `ReadApiConfig.extra_panels` tuple in
 [`fdai.delivery.read_api.main`](../../../src/fdai/delivery/read_api/main.py).
 A `ReadPanel` declares its own HTTP path and returns a serialised
@@ -909,17 +895,20 @@ traversal).
 
 ```python
 # fork/adapters/read_panels.py
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Any
 
-from fdai.delivery.read_api.panels import ReadPanel
+from fdai.delivery.read_api.routes.panels import ReadPanel
 
 @dataclass(frozen=True)
 class GovernanceDecisionsPanel(ReadPanel):
     """Recent governance decisions with their reviewer set + outcome."""
 
     path: str = "/panels/governance/decisions"
+    name: str = "governance-decisions"
 
-    async def render(self) -> dict:
+    async def render(self, *, params: Mapping[str, str]) -> dict[str, Any]:
         # 1. Query the fork's projection store (Postgres view, read model, ...).
         # 2. Redact any identity value that is not console-safe.
         # 3. Return a JSON-serialisable dict; the read-API serialises it.
@@ -937,6 +926,8 @@ from fdai.delivery.read_api.main import ReadApiConfig, build_app
 from fork.adapters.read_panels import GovernanceDecisionsPanel
 
 app = build_app(
+  authenticator=authenticator,
+  read_model=read_model,
     config=ReadApiConfig(
         extra_panels=(GovernanceDecisionsPanel(),),
     ),
@@ -950,13 +941,13 @@ for its UI stack) so the panel appears in the sidebar. That console
 edit lives entirely under `console/` in the fork's repo; upstream
 `console/` stays generic.
 
-**How to test**: `tests/delivery/read_api/test_panels.py` covers the
+**How to test**: `tests/delivery/read_api/test_main.py` covers the
 mount / path-validation logic upstream. A fork adds:
 
 1. A unit test over your panel's `render()` with a stubbed data
    source.
-2. An HTTP-level test that boots `build_app(ReadApiConfig(extra_panels=(YourPanel(),)))`
-   with FastAPI's test client and asserts the panel is reachable via
+2. An HTTP-level test that boots `build_app(authenticator=..., read_model=...,
+  config=ReadApiConfig(extra_panels=(YourPanel(),)))` with Starlette's test client and asserts the panel is reachable via
    GET at its declared path.
 3. A negative test asserting the panel refuses to accept non-GET
    verbs (the mount code enforces this; the test protects against
@@ -981,21 +972,20 @@ mount / path-validation logic upstream. A fork adds:
 of upstream's `__main__`"; this recipe shows what a working
 `fork/entry.py` looks like.
 
-**The seam**: upstream's
-[`src/fdai/__main__.py`](../../../src/fdai/__main__.py) is intentionally
-composed from small helpers - `_resolve_catalog_root`,
+**The seam**: upstream's [`src/fdai/__main__.py`](../../../src/fdai/__main__.py) is a
+compatibility facade over `fdai.runtime.*` helpers such as `_resolve_catalog_root`,
 `_build_audit_store`, `_build_operator_memory_store`,
 `_build_pattern_library`, `_build_publisher`, `_build_hil_channel`,
 `_finalize_llm_bindings`, `_build_control_loop`, `_consume`, `_run` -
 so a fork's `entry.py` composes the same shape while substituting the
 helpers it owns.
 
-**What to reuse verbatim** (import from upstream, do not redefine):
+**What to reuse as compatibility helpers** (import from upstream, do not redefine):
 
 - `_resolve_catalog_root` / `_resolve_policies_root` -
   environment / filesystem discovery.
-- `_finalize_llm_bindings` - wraps `wire_azure_container` and pulls
-  the endpoint / catalog / memory-store env vars.
+- `_finalize_llm_bindings` - compatibility wrapper for the env-driven upstream entry. A
+  programmatic fork should call public `wire_azure_container` with `AzureWireOverrides` directly.
 - `_consume` / `_run` - the Kafka event loop and top-level
   signal-handling scaffolding.
 
@@ -1141,10 +1131,8 @@ in-memory fakes and assert:
 - Copy-pasting the entire `__main__.py` and editing in place. You
   lose the upstream sync line-of-defence. Wrap or import; never
   fork-clone the whole file.
-- Bypassing `_finalize_llm_bindings` in Azure mode. That helper is
-  the one place `wire_azure_container` gets called with the correct
-  env-var contract; a fork that calls `wire_azure_container` directly
-  is likely to miss an env fallback.
+- Binding Azure twice by mixing env-driven `_finalize_llm_bindings` with programmatic
+  `wire_azure_container`. Choose one path and never bypass `AzureWireOverrides` validation.
 - Registering the fork's `entry.py` under a different script name
   than `fdai` and forgetting to update the container CMD. Result:
   the image runs upstream's `__main__` and none of your fork wiring

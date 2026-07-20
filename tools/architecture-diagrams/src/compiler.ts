@@ -4,12 +4,20 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { layoutDiagram } from "./layout/elk.js";
+import { assertLayoutIntegrity } from "./layout/integrity.js";
 import type { DiagramSpec, Locale } from "./model/types.js";
 import { renderSvg } from "./render/svg.js";
 
 const diagramFontPath = fileURLToPath(
   new URL("../assets/fonts/noto-sans-kr-diagrams.ttf", import.meta.url),
 );
+
+export function resolveCssFallbacks(source: string): string {
+  return source.replace(
+    /var\(--[a-z0-9-]+,\s*([^)]+)\)/gi,
+    (_match, fallback: string) => fallback.trim(),
+  );
+}
 
 export interface DiagramArtifact {
   path: string;
@@ -18,6 +26,7 @@ export interface DiagramArtifact {
 
 export async function compileDiagram(spec: DiagramSpec): Promise<DiagramArtifact[]> {
   const layout = await layoutDiagram(spec);
+  assertLayoutIntegrity(spec, layout);
   const artifacts: DiagramArtifact[] = [];
   for (const locale of ["en", "ko"] satisfies Locale[]) {
     const svg = await renderSvg(spec, layout, locale);
@@ -28,7 +37,7 @@ export async function compileDiagram(spec: DiagramSpec): Promise<DiagramArtifact
     artifacts.push({
       path: `${spec.id}.${locale}.png`,
       content: Buffer.from(
-        new Resvg(svg, {
+        new Resvg(resolveCssFallbacks(svg), {
           background: "#f7f9fc",
           fitTo: { mode: "width", value: 1800 },
           font: {

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -761,6 +764,115 @@ async def test_cross_check_composes_prompt_per_event() -> None:
     assert system_1["role"] == "system"
     assert system_1["content"] == "composed[t2.reasoner.primary][no-scope][1]"
     assert system_2["content"] == "composed[t2.reasoner.primary][no-scope][2]"
+
+
+@pytest.mark.asyncio
+async def test_cross_check_prompt_evidence_reaches_model_vote_and_audit() -> None:
+    from fdai.core.quality_gate import (
+        QualityDecision,
+        QualityOutcome,
+        quality_decision_audit_fields,
+    )
+    from fdai.core.quality_gate._verification import cross_check_candidate
+
+    transport = _mock_cross_check_transport(
+        json.dumps({"action_type": "remediate.tag-add", "params": {}}),
+        captured=[],
+    )
+    composer = _RecordingComposer()
+    candidate = _candidate()
+    async with httpx.AsyncClient(transport=transport) as http:
+        adapter = AzureOpenAICrossCheckModel(
+            identity=_StaticIdentity(),
+            http_client=http,
+            config=AzureOpenAICrossCheckModelConfig(
+                endpoint="https://oai-test.openai.azure.com",
+                deployment="t2-primary",
+                system_prompt="unused-fallback",
+            ),
+            prompt_composer=composer,  # type: ignore[arg-type]
+            capability_id="t2.reasoner.primary",
+        )
+        cross_check = await cross_check_candidate(candidate, (adapter,))
+    decision = QualityDecision(
+        outcome=QualityOutcome.ELIGIBLE,
+        candidate=candidate,
+        model_votes=cross_check.votes,
+    )
+
+    vote = decision.model_votes[0]
+    assert vote.prompt_replay_manifest is not None
+    audit = quality_decision_audit_fields(decision)
+    replay = audit["model_votes"][0]["prompt_replay_manifest"]
+    assert replay["system_text_sha256"] == vote.prompt_replay_manifest.system_text_sha256
+    assert replay["layer_manifest"][0]["id"] == "base"
+
+
+class _ConcurrentComposer:
+    async def compose(
+        self,
+        *,
+        capability_id: str,
+        scope: object = None,
+        skill_disclosure: object = None,
+    ) -> object:
+        from fdai.core.operator_memory import OperatorScope
+        from fdai.core.prompts import ComposedPrompt, LayerRef, PromptLayer
+
+        del capability_id, skill_disclosure
+        assert isinstance(scope, OperatorScope)
+        await asyncio.sleep(0)
+        text = f"prompt-for:{scope.resource_group_ref}"
+        return ComposedPrompt(
+            system_text=text,
+            layer_manifest=(
+                LayerRef(id=text, version=1, layer=PromptLayer.BASE, token_estimate=1),
+            ),
+            token_estimate=1,
+        )
+
+
+@pytest.mark.asyncio
+async def test_concurrent_cross_check_proposals_keep_prompt_evidence_isolated() -> None:
+    from fdai.core.operator_memory import OperatorScope
+
+    transport = _mock_cross_check_transport(
+        json.dumps({"action_type": "remediate.tag-add", "params": {}}),
+        captured=[],
+    )
+
+    def resolve(candidate: QualityCandidate) -> OperatorScope:
+        return OperatorScope(resource_group_ref=candidate.target_resource_ref)
+
+    async with httpx.AsyncClient(transport=transport) as http:
+        adapter = AzureOpenAICrossCheckModel(
+            identity=_StaticIdentity(),
+            http_client=http,
+            config=AzureOpenAICrossCheckModelConfig(
+                endpoint="https://oai-test.openai.azure.com",
+                deployment="t2-primary",
+                system_prompt="unused-fallback",
+            ),
+            prompt_composer=_ConcurrentComposer(),  # type: ignore[arg-type]
+            capability_id="t2.reasoner.primary",
+            scope_resolver=resolve,
+        )
+        first, second = await asyncio.gather(
+            adapter.propose_with_evidence(replace(_candidate(), target_resource_ref="scope-a")),
+            adapter.propose_with_evidence(replace(_candidate(), target_resource_ref="scope-b")),
+        )
+
+    assert first.prompt_replay_manifest is not None
+    assert second.prompt_replay_manifest is not None
+    assert (
+        first.prompt_replay_manifest.system_text_sha256
+        == hashlib.sha256(b"prompt-for:scope-a").hexdigest()
+    )
+    assert (
+        second.prompt_replay_manifest.system_text_sha256
+        == hashlib.sha256(b"prompt-for:scope-b").hexdigest()
+    )
+    assert first.prompt_replay_manifest != second.prompt_replay_manifest
 
 
 @pytest.mark.asyncio

@@ -36,6 +36,30 @@ export interface BriefingSubscriptionPayload {
   readonly revision: number;
 }
 
+export interface ScheduledContinuationPayload {
+  readonly anchor_id: string;
+  readonly task_id: string;
+  readonly run_id: string;
+  readonly owner_principal_id: string;
+  readonly scope_ref: string;
+  readonly mode: "origin_thread" | "dedicated_thread";
+  readonly origin: {
+    readonly channel_kind: string;
+    readonly channel_ref: string;
+    readonly conversation_ref: string;
+    readonly thread_ref: string | null;
+    readonly audience: "direct";
+  };
+  readonly result_digest: string;
+  readonly result_summary: string;
+  readonly evidence_refs: readonly string[];
+  readonly observation_started_at: string;
+  readonly observation_ended_at: string;
+  readonly created_at: string;
+  readonly expires_at: string;
+  readonly state: "active" | "expired";
+}
+
 export interface ConversationPolicyPayload {
   readonly policy_id: string;
   readonly kind: "opening_briefing" | "response_defaults";
@@ -74,12 +98,48 @@ export interface ConversationTurnPayload {
   readonly metadata: Readonly<Record<string, string>>;
 }
 
+export interface ConversationTextRangePayload {
+  readonly start: number;
+  readonly end: number;
+}
+
+export interface ConversationSearchHitPayload {
+  readonly result_id: string;
+  readonly turn_id: string;
+  readonly conversation_id: string;
+  readonly channel_id: string;
+  readonly role: ConversationTurnPayload["role"];
+  readonly snippet: {
+    readonly text: string;
+    readonly highlights: readonly ConversationTextRangePayload[];
+  };
+  readonly recorded_at: string;
+  readonly rank: number;
+  readonly incident_id: string | null;
+  readonly correlation_id: string | null;
+  readonly evidence_refs: readonly string[];
+}
+
+export interface ConversationSearchPayload {
+  readonly hits: readonly ConversationSearchHitPayload[];
+  readonly result_cap: number;
+  readonly index_rows: number;
+  readonly index_bytes: number;
+}
+
+export interface ConversationSearchContextPayload {
+  readonly hit: ConversationSearchHitPayload;
+  readonly before: readonly ConversationSearchHitPayload[];
+  readonly after: readonly ConversationSearchHitPayload[];
+}
+
 export interface UserContextPayload {
   readonly preference: UserPreferencePayload | null;
   readonly memories: readonly UserMemoryPayload[];
   readonly policies: readonly ConversationPolicyPayload[];
   readonly subscriptions: readonly BriefingSubscriptionPayload[];
   readonly briefing_runs: readonly BriefingRunPayload[];
+  readonly scheduled_continuations: readonly ScheduledContinuationPayload[];
   readonly conversations: readonly ConversationSummaryPayload[];
 }
 
@@ -115,6 +175,46 @@ export async function fetchConversationTurns(
     "GET",
   );
   return (response.turns as readonly ConversationTurnPayload[] | undefined) ?? [];
+}
+
+export async function searchConversations(input: {
+  readonly query: string;
+  readonly mode?: "terms" | "phrase" | "prefix";
+  readonly limit?: number;
+  readonly channel?: string;
+  readonly role?: ConversationTurnPayload["role"];
+  readonly conversationId?: string;
+  readonly incidentId?: string;
+  readonly recordedAfter?: string;
+  readonly recordedBefore?: string;
+}): Promise<ConversationSearchPayload> {
+  const params = new URLSearchParams({
+    q: input.query,
+    mode: input.mode ?? "terms",
+    limit: String(input.limit ?? 20),
+  });
+  if (input.channel) params.append("channel", input.channel);
+  if (input.role) params.append("role", input.role);
+  if (input.conversationId) params.set("conversation_id", input.conversationId);
+  if (input.incidentId) params.set("incident_id", input.incidentId);
+  if (input.recordedAfter) params.set("after", input.recordedAfter);
+  if (input.recordedBefore) params.set("before", input.recordedBefore);
+  return decodeConversationSearch(
+    await request(`/me/conversations/search?${params.toString()}`, "GET"),
+  );
+}
+
+export async function fetchConversationSearchContext(
+  resultId: string,
+  before = 1,
+  after = 1,
+): Promise<ConversationSearchContextPayload> {
+  return decodeConversationSearchContext(
+    await request(
+      `/me/conversations/search/${encodeURIComponent(resultId)}/context?before=${before}&after=${after}`,
+      "GET",
+    ),
+  );
 }
 
 export async function putUserPreference(input: {
@@ -229,7 +329,75 @@ export function decodeUserContext(value: unknown): UserContextPayload {
     policies: array(root["policies"], "policies").map(decodePolicy),
     subscriptions: array(root["subscriptions"], "subscriptions").map(decodeSubscription),
     briefing_runs: array(root["briefing_runs"], "briefing_runs").map(decodeBriefingRun),
+    scheduled_continuations: array(
+      root["scheduled_continuations"],
+      "scheduled_continuations",
+    ).map(decodeScheduledContinuation),
     conversations: array(root["conversations"], "conversations").map(decodeConversation),
+  };
+}
+
+export function decodeConversationSearch(value: unknown): ConversationSearchPayload {
+  const root = object(value, "conversation search");
+  return {
+    hits: array(root["hits"], "conversation search.hits").map(decodeSearchHit),
+    result_cap: positiveInteger(root["result_cap"], "conversation search.result_cap"),
+    index_rows: nonNegativeInteger(root["index_rows"], "conversation search.index_rows"),
+    index_bytes: nonNegativeInteger(root["index_bytes"], "conversation search.index_bytes"),
+  };
+}
+
+export function decodeConversationSearchContext(
+  value: unknown,
+): ConversationSearchContextPayload {
+  const root = object(value, "conversation search context");
+  return {
+    hit: decodeSearchHit(root["hit"]),
+    before: array(root["before"], "conversation search context.before").map(decodeSearchHit),
+    after: array(root["after"], "conversation search context.after").map(decodeSearchHit),
+  };
+}
+
+function decodeSearchHit(value: unknown): ConversationSearchHitPayload {
+  const item = object(value, "conversation search hit");
+  const role = string(item["role"], "conversation search hit.role");
+  if (!["operator", "assistant", "tool", "system"].includes(role)) {
+    throw new Error("conversation search hit.role is invalid");
+  }
+  const snippet = object(item["snippet"], "conversation search hit.snippet");
+  return {
+    result_id: string(item["result_id"], "conversation search hit.result_id"),
+    turn_id: string(item["turn_id"], "conversation search hit.turn_id"),
+    conversation_id: string(
+      item["conversation_id"],
+      "conversation search hit.conversation_id",
+    ),
+    channel_id: string(item["channel_id"], "conversation search hit.channel_id"),
+    role: role as ConversationSearchHitPayload["role"],
+    snippet: {
+      text: string(snippet["text"], "conversation search hit.snippet.text"),
+      highlights: array(
+        snippet["highlights"],
+        "conversation search hit.snippet.highlights",
+      ).map((raw) => {
+        const range = object(raw, "conversation search highlight");
+        return {
+          start: nonNegativeInteger(range["start"], "conversation search highlight.start"),
+          end: positiveInteger(range["end"], "conversation search highlight.end"),
+        };
+      }),
+    },
+    recorded_at: dateString(item["recorded_at"], "conversation search hit.recorded_at"),
+    rank: finiteNumber(item["rank"], "conversation search hit.rank"),
+    incident_id: nullableString(item["incident_id"], "conversation search hit.incident_id"),
+    correlation_id: nullableString(
+      item["correlation_id"],
+      "conversation search hit.correlation_id",
+    ),
+    evidence_refs: stringArray(
+      item["evidence_refs"],
+      "conversation search hit.evidence_refs",
+    ),
   };
 }
 
@@ -335,6 +503,66 @@ function decodeBriefingRun(value: unknown): BriefingRunPayload {
   };
 }
 
+function decodeScheduledContinuation(value: unknown): ScheduledContinuationPayload {
+  const item = object(value, "scheduled continuation");
+  const origin = object(item["origin"], "scheduled continuation.origin");
+  const mode = string(item["mode"], "scheduled continuation.mode");
+  const state = string(item["state"], "scheduled continuation.state");
+  const audience = string(origin["audience"], "scheduled continuation.origin.audience");
+  if (!(["origin_thread", "dedicated_thread"] as const).includes(mode as never)) {
+    throw new Error("scheduled continuation.mode is invalid");
+  }
+  if (!(["active", "expired"] as const).includes(state as never)) {
+    throw new Error("scheduled continuation.state is invalid");
+  }
+  if (audience !== "direct") throw new Error("scheduled continuation audience is invalid");
+  const resultDigest = string(item["result_digest"], "scheduled continuation.result_digest");
+  if (!/^[a-f0-9]{64}$/.test(resultDigest)) {
+    throw new Error("scheduled continuation.result_digest MUST be SHA-256");
+  }
+  return {
+    anchor_id: string(item["anchor_id"], "scheduled continuation.anchor_id"),
+    task_id: string(item["task_id"], "scheduled continuation.task_id"),
+    run_id: string(item["run_id"], "scheduled continuation.run_id"),
+    owner_principal_id: string(
+      item["owner_principal_id"],
+      "scheduled continuation.owner_principal_id",
+    ),
+    scope_ref: string(item["scope_ref"], "scheduled continuation.scope_ref"),
+    mode: mode as ScheduledContinuationPayload["mode"],
+    origin: {
+      channel_kind: string(origin["channel_kind"], "scheduled continuation.origin.channel_kind"),
+      channel_ref: string(origin["channel_ref"], "scheduled continuation.origin.channel_ref"),
+      conversation_ref: string(
+        origin["conversation_ref"],
+        "scheduled continuation.origin.conversation_ref",
+      ),
+      thread_ref: nullableString(
+        origin["thread_ref"],
+        "scheduled continuation.origin.thread_ref",
+      ),
+      audience: "direct",
+    },
+    result_digest: resultDigest,
+    result_summary: string(item["result_summary"], "scheduled continuation.result_summary"),
+    evidence_refs: stringArray(
+      item["evidence_refs"],
+      "scheduled continuation.evidence_refs",
+    ),
+    observation_started_at: dateString(
+      item["observation_started_at"],
+      "scheduled continuation.observation_started_at",
+    ),
+    observation_ended_at: dateString(
+      item["observation_ended_at"],
+      "scheduled continuation.observation_ended_at",
+    ),
+    created_at: dateString(item["created_at"], "scheduled continuation.created_at"),
+    expires_at: dateString(item["expires_at"], "scheduled continuation.expires_at"),
+    state: state as ScheduledContinuationPayload["state"],
+  };
+}
+
 function decodeConversation(value: unknown): ConversationSummaryPayload {
   const item = object(value, "conversation");
   return {
@@ -380,6 +608,13 @@ function boolean(value: unknown, label: string): boolean {
 function nonNegativeInteger(value: unknown, label: string): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
     throw new Error(`${label} MUST be a non-negative integer`);
+  }
+  return value;
+}
+
+function finiteNumber(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${label} MUST be a finite number`);
   }
   return value;
 }

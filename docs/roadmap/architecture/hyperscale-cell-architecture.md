@@ -13,7 +13,8 @@ queries at hyperscale without breaking any safety invariant.
 > **Scope:** this doc is a **forward-looking scale-out design**, not the day-zero
 > deployment. The minimum-cost topology in
 > [deploy-and-onboard.md](../deployment/deploy-and-onboard.md) (Event Hubs Standard 1 TU, one
-> Container App with sidecars, Postgres B1ms) stays the default. This blueprint
+> modular core Container App plus separated read API and ingestion gateway apps,
+> bounded Container Apps Jobs, and Postgres B1ms) stays the default. This blueprint
 > is entered only when a tenant crosses the hyperscale trigger below, and it
 > lands under Phase 4 ([phases/phase-4-scale.md](../phases/phase-4-scale.md)).
 
@@ -154,9 +155,10 @@ drifts the moment a subscription is added. Fan-in is a **governance artifact**.
 
 ## Cell-based scale units
 
-The single-app-plus-sidecars shape in
-[app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
-is **one cell**. Plan B runs many.
+The runtime environment described in
+[app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) -
+one modular core app, separated read API and ingestion gateway apps, and bounded
+jobs - is **one cell**. Plan B runs many.
 
 - **A cell = one scale unit** bound to a cell key: its own Event Hubs namespace,
   its own runtime environment, and its own storage. The key is
@@ -335,8 +337,8 @@ and [coding-conventions.instructions.md](../../../.github/instructions/coding-co
 
 **Container Apps is the default runtime** for both the min-cost day-zero
 topology and the `standard` hyperscale profile (KEDA scale-to-zero, lowest ops
-burden). A single Container App with sidecars, sharded per cell, sustains
-roughly **10-16k events/s** (32 Event Hubs partitions x a few hundred
+burden). The modular core app, sharded per cell while edge/read apps scale
+independently, targets roughly **10-16k events/s** (32 Event Hubs partitions x a few hundred
 deterministic decisions/s per replica); bursts to the ~40k events/s Standard
 ceiling are absorbed by partition buffering and drained as lag - no loss. The
 `max_replicas` ceiling is 300, but Kafka consumer parallelism is bounded by the

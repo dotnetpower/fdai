@@ -361,6 +361,7 @@ describe("askBackendStream fallback typewriter", () => {
               raw_value: "corr-1",
               normalized_value: "corr-1",
               anchors: ["correlation"],
+              aliases: ["incident id"],
             }],
           },
         },
@@ -449,6 +450,7 @@ describe("askBackendStream fallback typewriter", () => {
           raw_value: "corr-1",
           normalized_value: "corr-1",
           anchors: ["correlation"],
+          aliases: ["incident id"],
         }],
       },
     });

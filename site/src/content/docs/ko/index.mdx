@@ -1,10 +1,10 @@
 ---
 title: Forward Deployed Agents
-description: Forward Deployed Agents - 결정론 우선, 이벤트 기반, 리스크 게이트.
+description: Forward Deployed Agents - 결정론 우선, 이벤트 기반, 안전성 검토를 거치는 클라우드 운영.
 template: splash
 hero:
   title: 클라우드에 상주하는 자율 에이전트 조직
-  tagline: 여러분의 클라우드 운영을 책임지는 15개 전문 AI 에이전트 조직입니다. 에이전트 팬테온을 여러분의 환경에 배포하면 각 에이전트가 자기 역할(감지, 판단, 실행, 승인, 감사)을 맡아 하나의 조직으로 Cloud Ops와 SRE를 아우릅니다. 결정론 우선, 리스크 게이트, 최소한의 사람 개입으로.
+  tagline: 여러분의 클라우드 운영을 책임지는 15개 전문 AI 에이전트 조직입니다. 에이전트 팬테온을 여러분의 환경에 배포하면 각 에이전트가 자기 역할(감지, 판단, 실행, 승인, 감사)을 맡아 하나의 조직으로 Cloud Ops와 SRE를 아우릅니다. 결정론 우선, 안전성 검토, 최소한의 사람 개입으로 운영합니다.
   actions:
     - text: 시작하기
       link: /ko/get-started/
@@ -31,9 +31,9 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
 <ul class="trust-bar">
   <li>Azure 네이티브</li>
   <li>결정론 우선</li>
-  <li>shadow 먼저, 그다음 enforce</li>
+  <li>먼저 관찰하고, 검증 후 변경 적용</li>
   <li>모든 액션 감사</li>
-  <li>고위험은 HIL</li>
+  <li>고위험은 사람 승인</li>
 </ul>
 
 ## 하나의 워크로드, 첫 커밋부터 프로덕션까지
@@ -58,7 +58,7 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
         <span class="chip chip--cost">cost</span>
         <span class="chip chip--rel">reliability</span>
       </div>
-      <p class="cc-foot">PR 시점에 포착. 수정 제안이 shadow로 첨부됩니다 - 여러분이 승인하기 전엔 아무것도 바뀌지 않습니다.</p>
+      <p class="cc-foot">PR 시점에 포착. 수정 제안이 관찰 모드로 첨부됩니다 - 여러분이 승인하기 전엔 아무것도 바뀌지 않습니다.</p>
     </div>
   </section>
 
@@ -66,7 +66,7 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
     <div class="act-copy">
       <span class="act-kicker"><span class="act-num">2</span> 이관 시점</span>
       <h3 class="act-title">dev-to-ops 검토가 스스로 실행됩니다</h3>
-      <p class="act-lead">워크로드가 운영팀의 책임으로 넘어갈 준비가 되면, ownership-transfer 신호가 <strong>Operational Readiness Review</strong>를 촉발합니다. 조직은 하나의 diff가 아니라 스코프 전체에 누적된 태세를 policy, identity/RBAC, reliability, dependency ordering 축으로 평가합니다. <strong>Forseti</strong>가 판정을 내리고, <strong>Njord</strong> · <strong>Freyr</strong> · <strong>Loki</strong>가 보조하며, <strong>Saga</strong>가 감사와 보고서를 씁니다. 여러분에게 요청되는 것은 단 하나, 승인입니다. 보고서는 자동으로 생성됩니다.</p>
+      <p class="act-lead">워크로드가 운영팀의 책임으로 넘어갈 준비가 되면, 담당 이관 신호가 <strong>Operational Readiness Review</strong>를 촉발합니다. 조직은 하나의 diff가 아니라 스코프 전체에 누적된 태세를 policy, identity/RBAC, reliability, dependency ordering 축으로 평가합니다. <strong>Forseti</strong>가 결정을 내리고, <strong>Njord</strong> · <strong>Freyr</strong> · <strong>Loki</strong>가 보조하며, <strong>Saga</strong>가 감사와 보고서를 씁니다. 여러분에게 요청되는 것은 단 하나, 승인입니다. 보고서는 자동으로 생성됩니다.</p>
     </div>
     <div class="handoff-card">
       <div class="hc-head">
@@ -75,7 +75,7 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
       </div>
       <ul class="hc-dims">
         <li class="dim ok"><span class="dim-name">policy_guardrail</span><span class="dim-mark">clear</span></li>
-        <li class="dim warn"><span class="dim-name">identity_rbac</span><span class="dim-mark">1 finding</span></li>
+        <li class="dim warn"><span class="dim-name">identity_rbac</span><span class="dim-mark">발견된 문제 1개</span></li>
         <li class="dim ok"><span class="dim-name">reliability</span><span class="dim-mark">clear</span></li>
         <li class="dim ok"><span class="dim-name">dependency_ordering</span><span class="dim-mark">clear</span></li>
       </ul>
@@ -95,7 +95,7 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
     <div class="act-copy">
       <span class="act-kicker"><span class="act-num">3</span> 프로덕션</span>
       <h3 class="act-title">그다음엔 그냥 여러분의 클라우드에 상주합니다</h3>
-      <p class="act-lead">운영이 여러분의 몫이 되면, 같은 조직이 제어 루프를 계속 운영합니다. 결정론 우선, 리스크 게이트, shadow 우선: 대부분의 이벤트는 모델 없이 처리되고, <strong>Thor</strong>가 안전한 다수를 실행하며, <strong>Vidar</strong>가 롤백과 DR 페일오버를 맡고, no-op을 포함한 모든 결정이 감사됩니다. 고위험 소수는 <strong>Var</strong>를 통해 여러분이 승인하고, 나머지는 조직이 처리하고 보고합니다. 조직이 모든 이벤트에 대해 돌리는 루프는 다음과 같습니다.</p>
+      <p class="act-lead">운영이 여러분의 몫이 되면, 같은 조직이 제어 루프를 계속 운영합니다. 결정론 우선, 안전성 검토, 관찰 우선: 대부분의 이벤트는 모델 없이 처리되고, <strong>Thor</strong>가 안전한 다수를 실행하며, <strong>Vidar</strong>가 롤백과 DR 페일오버를 맡고, no-op을 포함한 모든 결정이 감사됩니다. 고위험 소수는 <strong>Var</strong>를 통해 여러분이 승인하고, 나머지는 조직이 처리하고 보고합니다. 조직이 모든 이벤트에 대해 돌리는 루프는 다음과 같습니다.</p>
     </div>
   </section>
 </div>
@@ -108,8 +108,8 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
   steps={[
     { label: "수집", desc: "원시 이벤트를 정규화, 중복 제거, 상관관계로 묶어 인시던트로 만듭니다." },
     { label: "라우팅", desc: "트러스트 라우터가 신뢰도를 계산해 가장 저렴한 티어(T0, T1, T2)를 고릅니다." },
-    { label: "게이트", desc: "리스크 게이트가 auto, HIL, deny를 판정하고, T2는 먼저 품질 게이트를 통과합니다." },
-    { label: "실행", desc: "실행기가 stop-condition, 롤백, blast-radius 제한과 함께 변경을 적용합니다." },
+    { label: "검토", desc: "안전성 검토가 자동 실행, 사람 승인, 차단 중 하나로 라우팅하고, T2는 먼저 품질 검토를 통과합니다." },
+    { label: "실행", desc: "실행기가 stop-condition, 롤백, 영향 범위 제한과 함께 변경을 적용합니다." },
     { label: "감사", desc: "no-op을 포함한 모든 결정이 불변 감사 로그에 기록됩니다." },
   ]}
 />
@@ -122,7 +122,7 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
   labels={[
     { label: "결정론적", sub: "규칙 - 정책 - 체크리스트" },
     { label: "경량 재사용", sub: "임베딩 유사도 - 소형 분류기" },
-    { label: "추론", sub: "mixed-model - verifier - grounding" },
+    { label: "추론", sub: "mixed-model - verifier - 근거 확인" },
   ]}
 />
 
@@ -147,13 +147,13 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
   <li>
     <span class="impact-tick" aria-hidden="true">↳</span>
     <strong>모든 자율 액션은 네 가지 불변식을 지닙니다.</strong> stop-condition ·
-    롤백 경로 · blast-radius 제한 · 실행 기록 항목. 넷 중 하나라도 없으면
-    액션은 AUTO가 아니라 HIL로 갑니다.
+    롤백 경로 · 영향 범위 제한 · 실행 기록 항목. 넷 중 하나라도 없으면
+    액션은 자동 실행되지 않고 사람 승인을 요청합니다.
   </li>
   <li>
     <span class="impact-tick" aria-hidden="true">↳</span>
-    <strong>새 능력은 shadow로 시작하며, 예고 없이 등장하지 않습니다.</strong>
-    enforce로의 승격은 Phase 0 기준선 대비 별도의 측정 가능한 게이트입니다.
+    <strong>새 능력은 관찰 모드로 시작하며, 예고 없이 등장하지 않습니다.</strong>
+    변경 적용은 Phase 0 기준선 대비 별도의 측정 가능한 검토 단계입니다.
   </li>
   <li>
     <span class="impact-tick" aria-hidden="true">↳</span>
@@ -164,17 +164,17 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
 
 ## 하나의 코어, 세 도메인
 
-<p class="hero-note">세 도메인 모두 같은 이벤트 기반 · 리스크 게이트 코어를 공유합니다. 다른 점은 각 도메인이 로드하는 규칙과 액션뿐입니다.</p>
+<p class="hero-note">세 도메인 모두 같은 이벤트 기반 코어와 안전성 검토를 공유합니다. 다른 점은 각 도메인이 로드하는 규칙과 액션뿐입니다.</p>
 
 <CardGrid stagger>
   <Card title="Change Safety · Phase 1" icon="pencil">
-    규칙 카탈로그, T0 정책 게이트, remediation PR. Change 게이트는 먼저 shadow로 도입한 뒤 enforce로 승격합니다.
+    규칙 카탈로그, T0 정책 검토, 수정 PR. 변경 검토는 먼저 관찰 모드로 도입한 뒤 변경 적용을 활성화합니다.
   </Card>
   <Card title="Resilience · Phase 3" icon="rocket">
-    스케줄링된 회복력 검증, DB DR 훈련, blast-radius 제한 카오스 실험 - 항상 stop-condition과 롤백 경로를 갖춥니다.
+    스케줄링된 회복력 검증, DB DR 훈련, 영향 범위 제한 카오스 실험 - 항상 stop-condition과 롤백 경로를 갖춥니다.
   </Card>
   <Card title="Cost Governance · Phase 3" icon="approve-check">
-    비용 이상 탐지, 라이트사이징 PR, 리소스 그룹별 예산 가드레일. 리스크 분류에 따라 auto vs HIL로 나뉩니다.
+    비용 이상 탐지, 라이트사이징 PR, 리소스 그룹별 예산 가드레일. 위험 분류에 따라 자동 실행 또는 사람 승인으로 나뉩니다.
   </Card>
 </CardGrid>
 
@@ -187,7 +187,7 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
     마스터 플래너. 버티컬 간 중재와 판정 확정 전 최종 타이브레이크.
   </Card>
   <Card title="판단과 실행" icon="approve-check">
-    **Forseti**가 판단(auto / HIL / deny), **Thor**가 디스패치·실행, **Var**가 사람 승인, **Vidar**가 롤백·DR 페일오버를 담당합니다. 어떤 에이전트도 판단과 실행을 겸하지 않습니다.
+    **Forseti**가 판단(자동 실행 / 사람 승인 / 차단), **Thor**가 디스패치·실행, **Var**가 사람 승인, **Vidar**가 롤백·DR 페일오버를 담당합니다. 어떤 에이전트도 판단과 실행을 겸하지 않습니다.
   </Card>
   <Card title="감지" icon="magnifier">
     **Huginn**이 이벤트를 수집·상관하고, **Heimdall**이 상태와 드리프트를 관측합니다. 결정론 우선 - 핫패스에 LLM은 없습니다.
@@ -207,13 +207,13 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
 
 <ActionOntologyExplorer
   heading="액션 온톨로지 살펴보기"
-  intro="모든 자율 변경은 하나의 타입화된 ActionType 항목입니다. 리스크 게이트가 실행 전에 읽는 축을 확인하려면 하나를 골라보세요."
+  intro="모든 자율 변경은 하나의 타입화된 ActionType 항목입니다. 안전성 검토가 실행 전에 읽는 축을 확인하려면 하나를 골라보세요."
   filterLabel="롤백 기준 필터"
   filterAllLabel="전체"
   selectHint="액션 타입 선택"
-  irreversibleLabel="비가역 - HIL 강제"
-  invariantsNote="모든 액션은 네 가지를 전부 갖춥니다: stop-condition, 롤백 경로, blast-radius 제한, 실행 기록 항목."
-  scopeNote="배포된 remediation 카탈로그를 표시합니다(규칙 발화, PR-native, shadow 우선). 온톨로지는 스펙상 ops, governance 카테고리도 포함합니다."
+  irreversibleLabel="비가역 - 사람 승인 필수"
+  invariantsNote="모든 액션은 네 가지를 전부 갖춥니다: stop-condition, 롤백 경로, 영향 범위 제한, 실행 기록 항목."
+  scopeNote="배포된 수정 카탈로그를 표시합니다(규칙 발화, PR-native, 관찰 우선). 온톨로지는 스펙상 ops, governance 카테고리도 포함합니다."
   axisLabels={{
     category: "카테고리",
     operation: "오퍼레이션",
@@ -241,8 +241,8 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
     <span class="phase-marker" aria-hidden="true" />
     <div class="phase-label">Phase 1</div>
     <div class="phase-title">Rule catalog &amp; T0</div>
-    <p>규칙 카탈로그 정규화, T0 정책 게이트 가동, remediation PR 자동 생성.</p>
-    <p class="phase-exit"><strong>Exit:</strong> Change 게이트가 대상 스코프에서 shadow 모드로 운영.</p>
+    <p>규칙 카탈로그 정규화, T0 정책 검토 가동, 수정 PR 자동 생성.</p>
+    <p class="phase-exit"><strong>Exit:</strong> 변경 검토가 대상 스코프에서 관찰 모드로 운영.</p>
   </li>
   <li>
     <span class="phase-marker" aria-hidden="true" />
@@ -268,7 +268,7 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
 
 ## 이제 조직을 투입할 준비가 되셨나요?
 
-<p class="hero-note">에이전트 조직을 여러분의 Azure 환경에 배포하고, 모든 액션을 shadow로 시작한 뒤, 수치가 뒷받침되면 enforce로 승격하세요.</p>
+<p class="hero-note">에이전트 조직을 여러분의 Azure 환경에 배포하고, 모든 액션을 관찰 모드로 시작한 뒤, 수치가 뒷받침되면 변경 적용을 활성화하세요.</p>
 
 <div class="cta-row">
   <a class="cta-btn cta-btn--primary" href={`${import.meta.env.BASE_URL.replace(/\/?$/, "/")}ko/get-started/`}>시작하기</a>

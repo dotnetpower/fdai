@@ -32,12 +32,14 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+import httpx
 from starlette.applications import Starlette
 
 # Dev harness: make our own INFO logs visible so live-stream open/close
 # events show up alongside uvicorn's access log.
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(name)s: %(message)s")
 
+from fdai.agents import OWNED_OBJECT_TOPICS  # noqa: E402
 from fdai.core.audit.what_if_replay import WhatIfEvaluator  # noqa: E402
 from fdai.core.measurement.promotion_gate import (  # noqa: E402
     InMemoryShadowVerdictSource,
@@ -57,6 +59,7 @@ from fdai.core.scheduler import (  # noqa: E402
     InMemoryScheduleRunLedger,
     ScheduleRunHistoryService,
 )
+from fdai.delivery.event_bus_multiplex import MultiplexedEventBus  # noqa: E402
 from fdai.delivery.read_api.auth import (  # noqa: E402
     UnsafeClaimsExtractor,
     build_authenticator,
@@ -140,14 +143,23 @@ from fdai.delivery.read_api.routes.panels import (  # noqa: E402
     CapabilityCatalogPanel,
     ExampleFinOpsPanel,
 )
+from fdai.delivery.read_api.routes.post_turn_event_bus import (  # noqa: E402
+    EventBusPostTurnReviewIntake,
+)
+from fdai.delivery.read_api.routes.post_turn_review import PostTurnReviewQueue  # noqa: E402
 from fdai.delivery.read_api.routes.rule_fire_trace_reader import (  # noqa: E402
     ConsoleReadModelTraceReader,
 )
 from fdai.delivery.read_api.routes.scheduler_runs import SchedulerRunsPanel  # noqa: E402
+from fdai.delivery.read_api.routes.skills import RuntimeSkillsPanel  # noqa: E402
+from fdai.delivery.read_api.skill_runtime import (  # noqa: E402
+    empty_runtime_skill_disclosure,
+)
 from fdai.delivery.read_api.streaming.agent_activity_stream import (  # noqa: E402
     runtime_agent_state_snapshot,
 )
 from fdai.delivery.read_api.streaming.provision_stream import ProvisionStreamConfig  # noqa: E402
+from fdai.shared.config.runtime_flags import pantheon_start_enabled  # noqa: E402
 from fdai.shared.providers.testing.state_store import InMemoryStateStore  # noqa: E402
 
 _DEV_ENV = "FDAI_READ_API_DEV_MODE"
@@ -261,13 +273,15 @@ def build_local_app(
 
     command_transport = (
         None
-        if test_fixtures
+        if test_fixtures or not pantheon_start_enabled(os.environ)
         else build_local_command_transport(
             read_model=read_model,
             action_types=tuple(action_types),
         )
     )
     workflow_execution = views.workflow_execution
+    if enforce_workflows and command_transport is not None and command_transport.kind != "azure":
+        raise RuntimeError("FDAI_WORKFLOW_ENFORCE_ALLOWLIST requires local Azure event transport")
     if workflow_execution is not None and command_transport is not None:
         workflow_execution = replace(
             workflow_execution,
@@ -284,6 +298,7 @@ def build_local_app(
         command_transport.agent_activity if command_transport is not None else None
     )
     runtime = None
+    post_turn_review_queue = None
     if test_fixtures:
         live_stream_config, agent_activity_config = _build_agent_streams()
         local_operator_oid = (
@@ -306,13 +321,28 @@ def build_local_app(
             ),
         )
     elif command_transport is not None:
+        pantheon_event_bus = (
+            MultiplexedEventBus(
+                bus=command_transport.event_bus,
+                logical_topics=OWNED_OBJECT_TOPICS,
+                physical_topic=os.environ.get(
+                    "FDAI_PANTHEON_OBJECT_TOPIC", "aw.pantheon.objects"
+                ).strip(),
+            )
+            if command_transport.kind == "azure"
+            else command_transport.event_bus
+        )
         interactive_runtime = build_interactive_pantheon_wiring(
-            event_bus=command_transport.event_bus,
+            event_bus=pantheon_event_bus,
             event_topic=command_transport.event_topic,
             read_model=read_model,
             action_types=tuple(action_types),
         )
         runtime = interactive_runtime
+        post_turn_review_queue = PostTurnReviewQueue(
+            preferences=user_context.preferences,
+            intake=EventBusPostTurnReviewIntake(bus=pantheon_event_bus),
+        )
         if agent_activity_config is not None:
             agent_activity_config = replace(
                 agent_activity_config,
@@ -324,6 +354,30 @@ def build_local_app(
         initial=_synthetic_llm_invocations() if test_fixtures else (),
     )
     models = build_local_model_wiring(_REPO_ROOT, metering_sink=metering)
+    log_query_provider = None
+    log_query_shutdown_callbacks: tuple[Callable[[], Any], ...] = ()
+    monitor_workspace_id = os.environ.get("FDAI_MONITOR_WORKSPACE_ID", "").strip()
+    if monitor_workspace_id:
+        from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
+        from fdai.delivery.azure.log_query import (
+            AzureLogAnalyticsQueryConfig,
+            AzureLogAnalyticsQueryProvider,
+        )
+
+        log_query_http = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=35.0, write=10.0, pool=5.0)
+        )
+        log_query_provider = AzureLogAnalyticsQueryProvider(
+            config=AzureLogAnalyticsQueryConfig(workspace_id=monitor_workspace_id),
+            identity=AsyncAzureCliWorkloadIdentity(),
+            http_client=log_query_http,
+        )
+
+        async def close_log_query_http() -> None:
+            await log_query_http.aclose()
+
+        log_query_shutdown_callbacks = (close_log_query_http,)
+    skill_disclosure = empty_runtime_skill_disclosure()
     arb_status_panels = (
         (
             ArchitectureReviewStatusPanel(
@@ -369,12 +423,15 @@ def build_local_app(
             ontology_link_types=tuple(ontology_link_types),
             ontology_action_types=tuple(action_types),
             conversation_history_store=conversation_history_store,
+            conversation_search=user_context.conversation_search,
             conversation_policy_store=conversation_policy_store,
             user_context_ontology_projector=user_context_ontology_projector,
+            post_turn_review_submitter=post_turn_review_queue,
             user_context=user_context,
             model_settings=models.settings,
             workflow_definitions=workflow_definitions,
             inventory_graph_provider=_build_inventory_graph_provider(),
+            log_query_provider=log_query_provider,
             rule_catalog_rules=tuple(rule_catalog_rules),
             rule_catalog_collected_rules=tuple(rule_catalog_collected),
             rule_catalog_policies_root=policies_root if policies_root.is_dir() else None,
@@ -411,12 +468,14 @@ def build_local_app(
                 if test_fixtures
                 else ()
             )
+            + (RuntimeSkillsPanel(skill_disclosure),)
             + arb_status_panels,
             trace_reader=trace_reader if test_fixtures else None,
             bitemporal_reader=trace_reader if test_fixtures else None,
             what_if_reader=trace_reader if test_fixtures else None,
             what_if_evaluators=what_if_evaluators if test_fixtures else {},
             chat=models.backend,
+            skill_disclosure=skill_disclosure,
             chat_web_search=models.web_search,
             chat_probe_interval_seconds=_chat_probe_interval_seconds(),
             chat_agent_delegate=(
@@ -447,12 +506,14 @@ def build_local_app(
                 else ()
             ),
             shutdown_callbacks=((runtime.stop_pantheon_runtime,) if runtime is not None else ())
+            + ((post_turn_review_queue.close,) if post_turn_review_queue is not None else ())
             + (
                 (runtime.operator_runtime.stop,)
                 if runtime is not None and runtime.operator_runtime is not None
                 else ()
             )
             + ((command_transport.shutdown,) if command_transport is not None else ())
+            + log_query_shutdown_callbacks
             + iam.shutdown_callbacks,
         ),
     )
@@ -460,6 +521,7 @@ def build_local_app(
     application.state.local_operator_runtime = (
         runtime.operator_runtime if runtime is not None else None
     )
+    application.state.skill_disclosure = skill_disclosure
     return application
 
 

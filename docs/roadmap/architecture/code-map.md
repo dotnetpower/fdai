@@ -9,17 +9,15 @@ hop. This is the **scannable partner** to [project-structure.md](project-structu
 which explains the module boundaries and the DI seams in detail.
 
 Use this doc when you need to answer "where does X live?" without opening
-`list_dir` five times. The tables below cover the 48 core subsystem
-directories (50 rows if you count the three `tiers/*` subdirs; the
-companion [project-structure.md](project-structure.md) counts 41 by
-excluding the five G-1 domain-group facades), the 15 pantheon agents, and
-the delivery / shared plumbing packages.
+`list_dir` five times. The tables below cover the core control-plane
+subsystems, the 15 pantheon agents, and the delivery / shared plumbing
+packages.
 
 ## Design at a glance
 
 - **`src/fdai/core/`** is the headless control plane. No UI, no direct cloud
-  SDK imports. 48 subsystem directories plus the top-level
-  `ontology_explorer.py` module, grouped by control-loop role below.
+  SDK imports. The control-plane subsystems and the top-level
+  `ontology_explorer.py` module are grouped by control-loop role below.
 - **`src/fdai/agents/`** is the 15-agent pantheon (flat, one file per agent)
   plus `_framework/` (bus, runtime, registry, pantheon spec).
 - **`src/fdai/delivery/`** are outbound adapters (Azure, chatops, PR gates,
@@ -46,6 +44,7 @@ the safety-core modules held to the >= 90% coverage floor.
 | risk_gate | Unified auto vs HIL vs deny authority | [src/fdai/core/risk_gate/](../../../src/fdai/core/risk_gate/) | [tests/core/risk_gate/](../../../tests/core/risk_gate/) | [decisioning/](../decisioning/) |
 | hil_resume | Park + push + resume on human decision | [src/fdai/core/hil_resume/](../../../src/fdai/core/hil_resume/) | [tests/core/hil_resume/](../../../tests/core/hil_resume/) | project-structure.md |
 | executor | Per-resource lock, idempotent apply | [src/fdai/core/executor/](../../../src/fdai/core/executor/) | [tests/core/](../../../tests/core/) (executor tests) | project-structure.md |
+| execution_backend | Profile intersection, durable reconciliation, and shadow health probes; no eligibility authority ([design](../interfaces/execution-backends.md)) | [src/fdai/core/execution_backend/](../../../src/fdai/core/execution_backend/) | [tests/core/execution_backend/](../../../tests/core/execution_backend/) | [execution-backends.md](../interfaces/execution-backends.md) |
 | audit | Append-only hash-chained log + KPI emission | [src/fdai/core/audit/](../../../src/fdai/core/audit/) | [tests/core/audit/](../../../tests/core/audit/) | [security-and-identity.md](security-and-identity.md) |
 | control_loop | Pipeline orchestrator (Stage protocol) | [src/fdai/core/control_loop/](../../../src/fdai/core/control_loop/) | [tests/core/](../../../tests/core/) | project-structure.md |
 | pipeline | Domain-group facade for the above | [src/fdai/core/pipeline/](../../../src/fdai/core/pipeline/) | (same as members) | project-structure.md |
@@ -72,10 +71,19 @@ the safety-core modules held to the >= 90% coverage floor.
 |-----------|----------------|--------|-------|
 | knowledge | Long-term knowledge store seam | [src/fdai/core/knowledge/](../../../src/fdai/core/knowledge/) | [tests/core/knowledge/](../../../tests/core/knowledge/) |
 | operator_memory | HIL-approved operator note store | [src/fdai/core/operator_memory/](../../../src/fdai/core/operator_memory/) | [tests/core/operator_memory/](../../../tests/core/operator_memory/) |
+| learning | Consent-gated off-path post-turn eligibility, mixed-family consensus, deduplication, and inert proposal routing ([design](../decisioning/post-turn-improvement-review.md)) | [src/fdai/core/learning/](../../../src/fdai/core/learning/) | [tests/core/learning/](../../../tests/core/learning/) |
+| trajectory | Authorization-first immutable source join, versioned observable envelope, deterministic JSONL export, offline validation/replay, retention/legal hold, and reviewed-only Norns aggregate intake ([design](../interfaces/governed-trajectory-datasets.md)) | [src/fdai/core/trajectory/](../../../src/fdai/core/trajectory/) and [src/fdai/shared/providers/trajectory.py](../../../src/fdai/shared/providers/trajectory.py) | [tests/core/trajectory/](../../../tests/core/trajectory/), [tests/delivery/trajectory/](../../../tests/delivery/trajectory/), and focused API/persistence/agent tests |
+| task_worker | Isolated depth-one read-only investigations with attenuated capabilities, durable branch state, and untrusted parent synthesis ([design](../agents/bounded-task-workers.md)) | [src/fdai/core/task_worker/](../../../src/fdai/core/task_worker/) | [tests/core/task_worker/](../../../tests/core/task_worker/) |
+| background_task | Durable detached read-only sessions with lease/CAS ownership, coalesced progress, honest process-loss state, and completion handoff ([design](../interfaces/background-task-sessions.md)) | [src/fdai/core/background_task/](../../../src/fdai/core/background_task/) | [tests/core/background_task/](../../../tests/core/background_task/) |
 | briefing | Deterministic opening and scheduled briefings over the report feed | [src/fdai/core/briefing/](../../../src/fdai/core/briefing/) | [tests/core/briefing/](../../../tests/core/briefing/) |
+| busy_input | Durable queue, interrupt, and safe-boundary steer arbitration shared by web, Slack, and Teams conversations ([design](../interfaces/busy-input-modes.md)) | [src/fdai/core/conversation/](../../../src/fdai/core/conversation/) | [tests/conversation/](../../../tests/conversation/) |
+| durable_delivery | Verified principal bindings, persisted outbound responses, bounded recovery, and adapter breakers ([design](../interfaces/durable-conversation-delivery.md)) | [src/fdai/core/conversation/](../../../src/fdai/core/conversation/) | [tests/conversation/](../../../tests/conversation/) and [tests/persistence/](../../../tests/persistence/) |
 | user_context_projection | Metadata-only user context and workflow binding projection into the runtime ontology | [src/fdai/core/user_context_projection.py](../../../src/fdai/core/user_context_projection.py) | [tests/core/test_user_context_projection.py](../../../tests/core/test_user_context_projection.py) |
-| working_context | Per-turn prompt assembly (token-bounded) | [src/fdai/core/working_context/](../../../src/fdai/core/working_context/) | [tests/core/](../../../tests/core/) |
+| working_context | Per-turn prompt assembly, invariant validation, capability-gated policy lifecycle, bounded shadow comparison, and approved-fixture replay ([design](../decisioning/context-selection-policy.md)) | [src/fdai/core/working_context/](../../../src/fdai/core/working_context/) | [tests/core/working_context/](../../../tests/core/working_context/) |
 | prompts | Catalog-as-code prompt composer | [src/fdai/core/prompts/](../../../src/fdai/core/prompts/) | [tests/core/](../../../tests/core/) |
+| skills | Progressive disclosure, governed bundles, and durable approved-source quarantine ([bundle design](../decisioning/governed-skill-bundles.md), [source design](../interfaces/skill-source-management.md)) | [src/fdai/core/skills/](../../../src/fdai/core/skills/) and [src/fdai/core/supply_chain/](../../../src/fdai/core/supply_chain/) | [tests/core/skills/](../../../tests/core/skills/), [tests/core/supply_chain/](../../../tests/core/supply_chain/), and [tests/persistence/](../../../tests/persistence/) |
+| programmatic_pipeline | Reviewed bounded read-only tool loops with run capabilities, durable receipts, isolated runners, and compact results ([design](../interfaces/programmatic-tool-pipelines.md)) | [src/fdai/core/programmatic_pipeline/](../../../src/fdai/core/programmatic_pipeline/) | [tests/core/programmatic_pipeline/](../../../tests/core/programmatic_pipeline/) and [tests/delivery/programmatic_pipeline/](../../../tests/delivery/programmatic_pipeline/) |
+| browser_evidence | Origin and DNS policy, redaction, immutable artifacts, evidence-only surfaces, and shadow comparison ([design](../interfaces/browser-evidence.md)) | [src/fdai/core/browser_evidence/](../../../src/fdai/core/browser_evidence/) | [tests/core/browser_evidence/](../../../tests/core/browser_evidence/) and [tests/delivery/browser/](../../../tests/delivery/browser/) |
 | tools | T2 tool registry + ToolExecutor + typed command catalog | [src/fdai/core/tools/](../../../src/fdai/core/tools/) | [tests/core/tools/](../../../tests/core/tools/) |
 | web_search | Last-resort web-search seam | [src/fdai/core/web_search/](../../../src/fdai/core/web_search/) | [tests/core/web_search/](../../../tests/core/web_search/) |
 | capability_catalog | What each agent knows how to do | [src/fdai/core/capability_catalog/](../../../src/fdai/core/capability_catalog/) | [tests/core/capability_catalog/](../../../tests/core/capability_catalog/) |
@@ -106,9 +114,9 @@ the safety-core modules held to the >= 90% coverage floor.
 | assurance_twin | Read-only ontology twin (never executes) | [src/fdai/core/assurance_twin/](../../../src/fdai/core/assurance_twin/) | [tests/core/assurance_twin/](../../../tests/core/assurance_twin/) |
 | architecture_review | Architecture-review manifest -> governed ontology projection | [src/fdai/core/architecture_review/](../../../src/fdai/core/architecture_review/) | [tests/core/architecture_review/](../../../tests/core/architecture_review/) |
 | workflow | Compile and run version-pinned WorkflowDefinition records with principal bindings, Process journal, and projection retry | [src/fdai/core/workflow/](../../../src/fdai/core/workflow/) | [tests/core/workflow/](../../../tests/core/workflow/) |
-| scheduler | Cron-shaped triggers | [src/fdai/core/scheduler/](../../../src/fdai/core/scheduler/) | [tests/core/scheduler/](../../../tests/core/scheduler/) |
+| scheduler | Create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprints, and scoped continuations ([design](../interfaces/scheduled-result-continuations.md)) | [src/fdai/core/scheduler/](../../../src/fdai/core/scheduler/) | [tests/core/scheduler/](../../../tests/core/scheduler/) |
 | metering | Usage metering counters | [src/fdai/core/metering/](../../../src/fdai/core/metering/) | [tests/core/metering/](../../../tests/core/metering/) |
-| measurement | Phase-4 continuous measurement | [src/fdai/core/measurement/](../../../src/fdai/core/measurement/) | [tests/core/measurement/](../../../tests/core/measurement/) |
+| measurement | Phase-4 continuous measurement, including MTTR and four DORA measures | [src/fdai/core/measurement/](../../../src/fdai/core/measurement/) | [tests/core/measurement/](../../../tests/core/measurement/) |
 | mscp_profile | Level-neutral `mscp-operational-v1` provenance, pure effect/cycle/integrity checks, and optional ControlLoop shadow observation ([design](mscp-operational-profile.md)) | [src/fdai/core/mscp_profile/](../../../src/fdai/core/mscp_profile/) | [tests/core/mscp_profile/](../../../tests/core/mscp_profile/) |
 | security | Security-signal producers | [src/fdai/core/security/](../../../src/fdai/core/security/) | [tests/core/security/](../../../tests/core/security/) |
 | platform | Platform-primitive facade | [src/fdai/core/platform/](../../../src/fdai/core/platform/) | [tests/core/](../../../tests/core/) |
@@ -143,18 +151,23 @@ for the fork-locked role bindings and change contract.
 
 | Adapter | Purpose | Source |
 |---------|---------|--------|
-| azure | Azure resource operations + probes | [src/fdai/delivery/azure/](../../../src/fdai/delivery/azure/) |
+| azure | Azure operations, inventory, typed commands, metrics, bounded KQL, App Insights evidence, and the pinned-template Container Apps Job backend | [src/fdai/delivery/azure/](../../../src/fdai/delivery/azure/) |
 | shell | Bash no-exec checks, private Git workspaces, and the credential-free bubblewrap command runner | [src/fdai/delivery/shell/](../../../src/fdai/delivery/shell/) |
+| execution_backend | Lifecycle adapters that preserve bubblewrap and VM-task sandbox authority | [src/fdai/delivery/execution_backend/](../../../src/fdai/delivery/execution_backend/) |
+| programmatic_pipeline | Local isolated child runner and broker transport | [src/fdai/delivery/programmatic_pipeline/](../../../src/fdai/delivery/programmatic_pipeline/) |
+| browser | Optional isolated async Playwright capture with GET/HEAD interception and no general browser handle | [src/fdai/delivery/browser/](../../../src/fdai/delivery/browser/) |
+| trajectory | Deterministic streaming exporter, PostgreSQL metadata/quarantine store, Owner-only read projection, and offline CLI | [src/fdai/delivery/trajectory/](../../../src/fdai/delivery/trajectory/), [postgres_trajectory.py](../../../src/fdai/delivery/persistence/postgres_trajectory.py), [trajectory_datasets.py](../../../src/fdai/delivery/read_api/routes/trajectory_datasets.py), [deployment_cli/trajectory.py](../../../src/fdai/deployment_cli/trajectory.py) |
 | azure_devops | Azure DevOps PR / pipeline gate | [src/fdai/delivery/azure_devops/](../../../src/fdai/delivery/azure_devops/) |
 | github | GitHub App / Checks API | [src/fdai/delivery/github/](../../../src/fdai/delivery/github/) |
 | gitops_pr | PR-native remediation packager | [src/fdai/delivery/gitops_pr/](../../../src/fdai/delivery/gitops_pr/) |
 | chatops | Teams / Slack Adaptive Cards | [src/fdai/delivery/chatops/](../../../src/fdai/delivery/chatops/) |
-| notifications | Channel dispatch layer | [src/fdai/delivery/notifications/](../../../src/fdai/delivery/notifications/) |
+| notifications | Channel dispatch plus PagerDuty/ServiceNow incident lifecycle and PagerDuty roster adapters | [notifications/](../../../src/fdai/delivery/notifications/), [incident_platform/](../../../src/fdai/delivery/incident_platform/) |
 | read_api | Console read-only HTTP surface | [src/fdai/delivery/read_api/](../../../src/fdai/delivery/read_api/) |
 | provisioning | Terraform / IaC apply driver | [src/fdai/delivery/provisioning/](../../../src/fdai/delivery/provisioning/) |
-| persistence | Postgres + pgvector store, including durable LLM metering and report-signal projections | [src/fdai/delivery/persistence/](../../../src/fdai/delivery/persistence/) |
+| persistence | Postgres + pgvector stores, including durable conversation delivery, execution submissions/attempts, LLM metering, report-signal projections, skill-source state, and programmatic pipeline receipts/aggregates | [src/fdai/delivery/persistence/](../../../src/fdai/delivery/persistence/) |
 | document_index | Structure-aware document chunking and local embedding retrieval | [src/fdai/delivery/document_index/](../../../src/fdai/delivery/document_index/) |
-| pgvector | Vector-index helpers | [src/fdai/delivery/pgvector/](../../../src/fdai/delivery/pgvector/) |
+| behavior_knowledge | Localized object and architecture behavior seeds, hybrid/comparison retrieval, tracked-source freshness, and a 20-question quality gate ([design](../interfaces/behavior-knowledge.md)) | [src/fdai/delivery/behavior_knowledge/](../../../src/fdai/delivery/behavior_knowledge/) |
+| pgvector | Persistent document and behavior vector-index adapters | [src/fdai/delivery/pgvector/](../../../src/fdai/delivery/pgvector/) |
 | datadog | Datadog metric / event adapter (`DatadogMetricProvider` in `metric.py`) | [src/fdai/delivery/datadog/](../../../src/fdai/delivery/datadog/) |
 | prometheus | Prometheus scrape adapter (`PrometheusMetricProvider` in `metric.py`) | [src/fdai/delivery/prometheus/](../../../src/fdai/delivery/prometheus/) |
 | splunk | Splunk log adapter (`SplunkMetricProvider` in `metric.py`) | [src/fdai/delivery/splunk/](../../../src/fdai/delivery/splunk/) |
@@ -173,10 +186,10 @@ for the fork-locked role bindings and change contract.
 
 | Package | Purpose | Source |
 |---------|---------|--------|
-| contracts | Cross-package Pydantic contracts | [src/fdai/shared/contracts/](../../../src/fdai/shared/contracts/) |
+| contracts | Cross-package Pydantic contracts, including optional ObjectType lifecycle criteria | [src/fdai/shared/contracts/](../../../src/fdai/shared/contracts/) |
 | ontology | Domain ontology (ObjectType / LinkType / ActionType) | [src/fdai/shared/ontology/](../../../src/fdai/shared/ontology/) |
-| providers | Provider Protocols (EventBus / StateStore / etc.) | [src/fdai/shared/providers/](../../../src/fdai/shared/providers/) |
-| config | Config loader + schema | [src/fdai/shared/config/](../../../src/fdai/shared/config/) |
+| providers | Provider Protocols including `ExecutionBackend`, plus process-local EventBus, bounded SSE, isolated programmatic pipeline runners, [access-scoped conversation search](../interfaces/conversation-search.md), and [structured behavior knowledge](../interfaces/behavior-knowledge.md) | [src/fdai/shared/providers/](../../../src/fdai/shared/providers/) |
+| config | Config loader, schema, and shared runtime activation flags | [src/fdai/shared/config/](../../../src/fdai/shared/config/) |
 | streaming | Kafka / Event Hub abstraction | [src/fdai/shared/streaming/](../../../src/fdai/shared/streaming/) |
 | resilience | Retry / circuit-breaker helpers | [src/fdai/shared/resilience/](../../../src/fdai/shared/resilience/) |
 | telemetry | Structured logging + metrics helpers | [src/fdai/shared/telemetry/](../../../src/fdai/shared/telemetry/) |
@@ -191,6 +204,8 @@ for the fork-locked role bindings and change contract.
 | [src/fdai/composition/wire_azure.py](../../../src/fdai/composition/wire_azure.py) | Fork-wire container + `AzureWireOverrides`. |
 | [src/fdai/composition/wire_change_feed.py](../../../src/fdai/composition/wire_change_feed.py) | Change-feed factory wiring (Azure DevOps / GitHub change producers). |
 | [src/fdai/composition/wire_metric_provider.py](../../../src/fdai/composition/wire_metric_provider.py) | `MetricProvider` binder (Azure Monitor Logs auto-bind when `FDAI_MONITOR_WORKSPACE_ID` is set); split out of `wire_azure` to hold the LOC ceiling (G-4). |
+| [src/fdai/composition/wire_trajectory.py](../../../src/fdai/composition/wire_trajectory.py) | Binds authorization-first source joins, dataset metadata, quarantine export, and read-only administration without enabling the feature in the default container. |
+| [src/fdai/composition/wire_execution_backends.py](../../../src/fdai/composition/wire_execution_backends.py) | Validates server-selected profiles and binds required backends plus the durable ledger without enabling profiles by default. |
 | [src/fdai/rule_catalog/](../../../src/fdai/rule_catalog/) | Loader for the `rule-catalog/` tree (YAML). |
 | [rule-catalog/](../../../rule-catalog/) | The rule / policy / action-type catalog (data). |
 
@@ -202,6 +217,7 @@ local development, verification, and session hand-off consistent.
 | Path | Purpose |
 |------|---------|
 | [scripts/verify.sh](../../../scripts/verify.sh) | Single local gate: fast text/lint and clean-checkout contracts by default; `--full` adds safety-core coverage plus console and CLI verification, while `--full <path>` runs a focused pytest target. |
+| [tools/architecture-diagrams/](../../../tools/architecture-diagrams/) | Bilingual YAML-to-SVG/PNG architecture compiler plus the progressive site viewer; canonical specs live in [docs/diagrams/](../../diagrams/). |
 | [scripts/lib/design-routes.json](../../../scripts/lib/design-routes.json) | Machine-readable path -> required instructions/design docs -> owning docs -> focused validation routes. |
 | [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) / [.github/hooks/design-context.json](../../../.github/hooks/design-context.json) | Records successful design-document reads per agent session and blocks edits when required context is missing or stale. |
 | [check-design-doc-impact.py](../../../scripts/quality/architecture/check-design-doc-impact.py) / [check-document-size.py](../../../scripts/quality/architecture/check-document-size.py) | Docs-after enforcement plus the new-doc and legacy-growth size ratchet. |

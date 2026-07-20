@@ -10,13 +10,14 @@
     "validate": "tsx src/cli.ts validate",
     "render": "tsx src/cli.ts render",
     "check": "tsx src/cli.ts check",
-    "build:viewer": "esbuild src/viewer/architecture-diagram.ts --bundle --format=esm --minify --outfile=dist/architecture-diagram.js"
+    "build:viewer": "tsx src/viewer/build-cli.ts"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "elkjs": "^0.11.0",
+    "lucide": "^0.547.0",
     "yaml": "^2.8.1"
   },
   "devDependencies": {

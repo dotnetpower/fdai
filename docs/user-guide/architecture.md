@@ -24,48 +24,9 @@ not replace the control loop or bypass its deterministic safety gates.
 Five loosely coupled layers communicate through typed events, versioned
 contracts, and Git rather than sharing one application process or identity.
 
-```mermaid
-flowchart LR
-  subgraph Sources[Operational signals]
-    AZ[Azure resource changes]
-    OBS[Metrics, logs, and traces]
-    OPS[Operator requests]
-    JOB[Scheduled probes]
-  end
-
-  subgraph Core[Headless control plane]
-    ING[event ingest]
-    ROUTE[trust router]
-    DECIDE[T0 / T1 / T2]
-    RISK[risk gate]
-    EXEC[executor]
-    AUDIT[append-only audit]
-  end
-
-  subgraph Touchpoints[Human and delivery surfaces]
-    CONSOLE[read-only console]
-    CHAT[ChatOps approval]
-    GIT[remediation PR]
-  end
-
-  CATALOG[(rule and action catalog)]
-  STATE[(PostgreSQL and pgvector)]
-
-  AZ --> ING
-  OBS --> ING
-  OPS --> ING
-  JOB --> ING
-  ING --> ROUTE --> DECIDE --> RISK
-  CATALOG --> DECIDE
-  RISK -->|low risk| EXEC
-  RISK -->|approval required| CHAT
-  CHAT -->|approved typed decision| EXEC
-  EXEC --> GIT
-  EXEC --> AUDIT
-  ROUTE --> AUDIT
-  AUDIT --> STATE
-  STATE --> CONSOLE
-```
+<fdai-architecture-diagram manifest="../diagrams/generated/fdai-system-overview.manifest.json" locale="en" style="display:block">
+  <img src="../diagrams/generated/fdai-system-overview.en.svg" alt="Azure changes, telemetry, operator requests, and scheduled probes enter Event Hubs through its Kafka endpoint on port 9093. The FDAI control plane selects a trust tier and verifies evidence and risk. Eligible actions reach the privileged executor, insufficient evidence is held for review, failed actions enter rollback, and every outcome reaches the audit store. Human approval, remediation pull requests, and the read-only console stay outside the control-plane boundary." loading="eager" style="display:block;width:100%;height:auto" />
+</fdai-architecture-diagram>
 
 The console reads projections from the state and audit stores. It does not
 share the executor identity, approve changes, or call Azure mutation APIs.

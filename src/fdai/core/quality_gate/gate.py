@@ -54,6 +54,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from fdai.core.prompts import PromptReplayManifest
 from fdai.core.quality_gate._audit import quality_decision_audit_fields
 from fdai.core.quality_gate._debate_helpers import resolve_disagreement
 from fdai.core.quality_gate._verification import (
@@ -145,6 +146,15 @@ class QualityCandidate:
 
 
 @dataclass(frozen=True, slots=True)
+class CrossCheckProposal:
+    """One model proposal with optional prompt replay evidence."""
+
+    action_type: str
+    params: Mapping[str, Any]
+    prompt_replay_manifest: PromptReplayManifest | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ModelVote:
     """One cross-check model's vote, recorded for reproducible audit.
 
@@ -156,6 +166,7 @@ class ModelVote:
     model_id: str
     proposed_action_type: str
     agreed: bool
+    prompt_replay_manifest: PromptReplayManifest | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -233,6 +244,13 @@ class CrossCheckModel(Protocol):
     """
 
     async def propose(self, candidate: QualityCandidate) -> tuple[str, Mapping[str, Any]]: ...
+
+
+@runtime_checkable
+class PromptEvidenceCrossCheckModel(Protocol):
+    """Optional extension returning per-call prompt evidence without shared state."""
+
+    async def propose_with_evidence(self, candidate: QualityCandidate) -> CrossCheckProposal: ...
 
 
 @runtime_checkable
@@ -575,9 +593,11 @@ class QualityGate:
 
 
 __all__ = [
+    "CrossCheckProposal",
     "CrossCheckModel",
     "GroundingSource",
     "ModelVote",
+    "PromptEvidenceCrossCheckModel",
     "QualityCandidate",
     "QualityDecision",
     "QualityGate",

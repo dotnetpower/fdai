@@ -21,7 +21,7 @@ contract per concern**, not through a vendor SDK. The Azure implementation of ea
 is what we build today; a fork or a future phase adds another CSP by registering a new
 implementation of the **same contract**, without editing `core/`.
 
-**Concurrency**: the eight provider Protocols are **async by default** (Kafka poll loop,
+**Concurrency**: the I/O-bearing provider seams are **async by default** (Kafka poll loop,
 Postgres asyncpg, Key Vault HTTP, OIDC token exchange, inventory-graph queries, and the
 three telemetry-ingestion queries in § 6-8 are all I/O-bound). Sync is reserved for CPU /
 startup-only seams - `SchemaRegistry`, `ContractValidator`, `ConfigProvider` - so they do
@@ -496,7 +496,7 @@ without knowing which backend recorded it.
 
 ## Azure-Phase Realization (Summary)
 
-Today's implementation slots into the four contracts as follows. Every named service is a
+Today's implementation slots into the five foundational contracts as follows. Every named service is a
 **recommendation to confirm at adoption time** ([tech-stack.md](tech-stack.md)); the
 contract is what does not change.
 
@@ -515,9 +515,8 @@ Kafka topic) and never as a runtime dependency of `core/`.
 
 ## Approved Alternative Azure Implementations
 
-The five wire-level contracts already keep the core CSP-portable. This table lists the
-**Azure-internal** alternates each contract may swap to, without touching `core/`. Swapping
-**Azure-internal** alternates each contract may swap to, without touching `core/`. Swapping
+The foundational contracts and adjacent platform seams keep the core CSP-portable. This table
+lists the **Azure-internal** alternates each seam may swap to without touching `core/`. Swapping
 happens at the **infra module boundary** - a fork picks a different sub-module under
 `infra/modules/<seam>/` (or overrides the DI binding at the composition root when the
 change is purely code-level). Everything in the "What stays" column is contract, not
@@ -557,10 +556,10 @@ the swapped module and its immediate config.
 
 Adding another CSP is a **fork-level configuration exercise**, not a core change:
 
-1. Register a new implementation of the five provider interfaces in `shared/providers/` at
+1. Register new implementations of the eight provider interfaces in `shared/providers/` at
    the composition root ([project-structure.md](project-structure.md#customization-via-dependency-injection)).
-2. Point `bootstrap.servers`, the `SecretProvider`, the `RuntimeAdapter`, the
-   `WorkloadIdentity`, and the `Inventory` bindings at the new CSP.
+2. Point `bootstrap.servers`, `SecretProvider`, `RuntimeAdapter`, `WorkloadIdentity`,
+  `Inventory`, `MetricProvider`, `LogQueryProvider`, and `TraceQueryProvider` at the new CSP.
 3. Render the same OCI image + Knative-compatible manifest into the target runtime.
 4. Ship in **shadow mode** ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md#safety-invariants))
    until parity with the Azure implementation is measured.

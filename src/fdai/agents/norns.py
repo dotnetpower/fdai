@@ -7,6 +7,12 @@ quality gate before it can take effect (see
 `docs/roadmap/rules-and-detection/rule-governance.md` and the discovery loop in
 `architecture.instructions.md`).
 
+Every candidate passes the internal Urd (past evidence), Verdandi (current
+contract), and Skuld (future safety) perspectives before publication. These
+perspectives are not agents or principals. Norns publishes one aggregate
+consensus result only when all three agree and retains disagreements as
+bounded hold records.
+
 Four deterministic (T0) learners run here; T1 clustering and T2 batch
 summary land in later waves:
 
@@ -38,7 +44,9 @@ Optional scenario-coverage learner:
 
 from __future__ import annotations
 
-from collections import Counter
+import hashlib
+from collections import Counter, deque
+from datetime import datetime
 from typing import Any
 
 from fdai.agents._framework.action_semantics import outcome_result
@@ -49,8 +57,15 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     capped_list,
 )
+from fdai.agents._framework.norns_consensus import NornsConsensus
 from fdai.agents._framework.pantheon import _NORNS
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
+from fdai.core.learning import (
+    PostTurnReviewCoordinator,
+    RuleCandidateHint,
+    review_input_from_mapping,
+)
+from fdai.core.trajectory import ReviewedTrajectoryDataset
 
 # Adverse outcomes that count against an action's success record.
 _ADVERSE_RESULTS: frozenset[str] = frozenset({"rollback", "failure", "reverted"})
@@ -73,6 +88,7 @@ class Norns(Agent):
         override_retire_threshold: int = 5,
         rejection_revise_threshold: int = 5,
         coverage_aggregator: ScenarioCoverageAggregator | None = None,
+        post_turn_review: PostTurnReviewCoordinator | None = None,
     ) -> None:  # Fail fast on misconfiguration: a non-positive threshold or a
         # rate outside [0, 1] would make the learner propose on thin or
         # impossible evidence (e.g. min_outcome_samples=0 fires on a single
@@ -103,6 +119,8 @@ class Norns(Agent):
         # a re-flush only sends candidates past the cursor, so a candidate is
         # never republished (which would trip Mimir's flood guard).
         self._flush_cursor = 0
+        self._consensus = NornsConsensus()
+        self._consensus_holds: deque[dict[str, object]] = deque(maxlen=1_000)
         # Outcome-threshold learner state.
         self._rollback_alarm_rate = rollback_alarm_rate
         self._min_outcome_samples = min_outcome_samples
@@ -131,6 +149,8 @@ class Norns(Agent):
         self._approval_counts: dict[str, dict[str, int]] = {}
         self._approval_proposed: set[str] = set()
         self._counted_approvals: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
+        self._post_turn_hint_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
+        self._reviewed_trajectory_manifests: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         # Scenario-coverage learner (optional; composition root wires it).
         # When bound, live incident symptoms that the compiled
         # chaos-scenarios symptom index cannot match accumulate here and
@@ -139,6 +159,22 @@ class Norns(Agent):
         # public `observe_incident_symptom` method is a no-op - the same
         # discipline as the other learners: never mutate the catalog.
         self._coverage_aggregator = coverage_aggregator
+        self._post_turn_review = post_turn_review
+
+    def observe_reviewed_trajectory_dataset(self, dataset: ReviewedTrajectoryDataset) -> bool:
+        """Consume one reviewed aggregate without training or promoting anything.
+
+        The type carries only counts and a human review receipt. Raw trajectory
+        records are not accepted, and this method emits no candidate by itself.
+        """
+
+        if not isinstance(dataset, ReviewedTrajectoryDataset):
+            raise TypeError("Norns trajectory input MUST be a ReviewedTrajectoryDataset")
+        if dataset.manifest_checksum in self._reviewed_trajectory_manifests:
+            return False
+        self._reviewed_trajectory_manifests.add(dataset.manifest_checksum)
+        self.record_behavior("reviewed_trajectory_dataset_consumed")
+        return True
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.issue":
@@ -151,12 +187,28 @@ class Norns(Agent):
             # Var publishes the final HIL decision (approved / rejected); the
             # approval-pattern learner scores recurring rejections from it.
             self._observe_approval(payload)
+        elif topic == "object.turn":
+            await self._observe_post_turn_review(payload)
         # object.override is deliberately NOT handled here: it is not a pantheon
         # bus topic (agent-pantheon.md 2 - overrides flow through the exemption
         # / rule-catalog machinery). That machinery calls observe_override()
         # directly.
         # Off-path batch: forward any newly-formed inert candidates to Mimir.
         await self.flush_candidates()
+
+    async def _observe_post_turn_review(self, payload: dict[str, Any]) -> None:
+        if payload.get("kind") != "post_turn_review":
+            return
+        if payload.get("producer_principal") != "Bragi":
+            raise ValueError("post-turn review turn MUST be published by Bragi")
+        if self._post_turn_review is None:
+            self.record_behavior("post_turn_review_unavailable")
+            return
+        raw = payload.get("review")
+        if not isinstance(raw, dict):
+            raise ValueError("post-turn review payload MUST contain a review object")
+        await self._post_turn_review.review(review_input_from_mapping(raw))
+        self.record_behavior("post_turn_review_completed")
 
     # ---- candidate publication (Norns -> Mimir discovery loop) ---------
 
@@ -172,21 +224,38 @@ class Norns(Agent):
         learner pass, and a batch tick / the sync learners' caller MAY call it
         directly to drain override / coverage candidates.
 
-        Idempotent: a published candidate is dropped from
-        ``pending_candidates`` once sent, so it holds only not-yet-published
-        proposals - a genuinely bounded buffer (no lifetime-history retention)
-        and a re-flush can never republish an already-sent candidate (which
-        Mimir's flood guard would quarantine). Publication is rate-limited per
-        the agent's declared ``rate_limits`` (agent-pantheon.md 7.9): when the
-        budget is exhausted the flush stops and leaves the not-yet-sent
-        candidates queued on the buffer, so a burst is throttled, never
-        dropped. No-op without a bus (unit learners run bus-less). Returns the
-        number of candidates published on this call.
+        Before publication, the internal Urd, Verdandi, and Skuld perspectives
+        must agree. A disagreement is removed from ``pending_candidates`` and
+        retained as a bounded aggregate hold record. A published candidate is
+        also removed once sent, so the buffer holds only proposals awaiting a
+        decision or bus capacity. Publication is rate-limited per the agent's
+        declared ``rate_limits`` (agent-pantheon.md 7.9): when the budget is
+        exhausted the flush stops and leaves the not-yet-sent candidates
+        queued, so a burst is throttled, never dropped. Returns the number of
+        candidates published on this call.
         """
         published = 0
         while self._flush_cursor < len(self.pending_candidates):
             candidate = self.pending_candidates[self._flush_cursor]
-            payload = {"producer_principal": "Norns", **candidate}
+            consensus = self._consensus.evaluate(candidate)
+            if not consensus.unanimous:
+                self._consensus_holds.append(
+                    {
+                        "decision": "hold",
+                        "source_signal": str(candidate.get("source_signal", "")),
+                        "proposal_kind": str(candidate.get("proposal_kind", "")),
+                        "holding_perspectives": consensus.holding_perspectives(),
+                        "reason_codes": consensus.reason_codes(),
+                    }
+                )
+                self._flush_cursor += 1
+                self.record_behavior("rule_candidate_consensus_held")
+                continue
+            payload = {
+                "producer_principal": "Norns",
+                **candidate,
+                "norns_consensus": consensus.summary(),
+            }
             if not await self._publish_proposal("object.rule-candidate", payload):
                 # Bus-less (unit) or rate-limited: stop and leave the queued
                 # candidates for a later pass. No learning signal is dropped -
@@ -195,10 +264,9 @@ class Norns(Agent):
             self._flush_cursor += 1
             self.record_behavior("rule_candidate_published")
             published += 1
-        # Drop the consumed (published) prefix so pending_candidates stays a
-        # bounded buffer of only not-yet-published proposals (no slow memory
-        # retention on a long-lived learner). The cursor counts published
-        # entries; slicing them off resets it to 0.
+        # Drop the consumed (published or held) prefix so pending_candidates
+        # stays a bounded buffer of only unresolved proposals. The cursor
+        # counts consumed entries; slicing them off resets it to 0.
         if self._flush_cursor:
             del self.pending_candidates[: self._flush_cursor]
             self._flush_cursor = 0
@@ -415,6 +483,57 @@ class Norns(Agent):
                 }
             )
 
+    async def submit_rule_hint(
+        self,
+        hint: RuleCandidateHint,
+        *,
+        proposed_by: str,
+        at: datetime,
+    ) -> str:
+        """Convert one verified post-turn hint into an inert RuleCandidate.
+
+        Norns remains the sole writer. The caller supplies a verified hint,
+        but this method still derives a deterministic reference, deduplicates
+        it, and publishes only through Norns' existing rate-limited topic.
+        """
+        if proposed_by != self.spec.name:
+            raise ValueError("post-turn rule hints MUST be proposed by Norns")
+        if at.tzinfo is None:
+            raise ValueError("post-turn rule hint timestamp MUST be timezone-aware")
+        material = "\0".join(
+            (
+                hint.proposal_kind,
+                hint.target_ref,
+                hint.pattern,
+                *sorted(hint.evidence_refs),
+            )
+        )
+        digest = hashlib.sha256(material.encode()).hexdigest()
+        proposal_ref = f"rule-candidate-hint:{digest[:32]}"
+        if digest in self._post_turn_hint_proposed:
+            return proposal_ref
+        self._post_turn_hint_proposed.add(digest)
+        self.pending_candidates.append(
+            {
+                "source_signal": "post_turn_review",
+                "evidence": {
+                    "evidence_refs": list(hint.evidence_refs),
+                    "pattern_digest": hashlib.sha256(hint.pattern.encode()).hexdigest(),
+                    "confidence": hint.confidence,
+                },
+                "provenance": {
+                    "proposal_ref": proposal_ref,
+                    "observed_at": at.isoformat(),
+                },
+                "proposed_by": self.spec.name,
+                "proposal_kind": hint.proposal_kind,
+                "target_rule_id": hint.target_ref,
+                "suggested_pattern": hint.pattern,
+            }
+        )
+        await self.flush_candidates()
+        return proposal_ref
+
     # ---- observers -----------------------------------------------------
 
     def occurrences(self, fingerprint: str) -> int:
@@ -436,11 +555,16 @@ class Norns(Agent):
         counts = self._approval_counts.get(action_type)
         return counts["rejected"] if counts else 0
 
+    def consensus_holds(self) -> tuple[dict[str, object], ...]:
+        """Return bounded aggregate hold records for operator inspection."""
+        return tuple(self._consensus_holds)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
             **capability_facts(self.spec),
             "fingerprints_tracked": len(self._fingerprint_counter),
             "pending_candidates": len(self.pending_candidates),
+            "consensus_holds": len(self._consensus_holds),
             "outcomes_tracked": capped_list(sorted(self._outcomes)),
             "outcomes_tracked_count": len(self._outcomes),
         }

@@ -126,6 +126,7 @@ Pick labels along these axes (add as many as apply):
 | `vertical:` | `resilience`, `change-safety`, `cost-governance` | the product vertical it serves |
 | safety / governance | `safety-invariant`, `shadow-mode`, `hil`, `security`, `rule-governance` | when a safety or governance concern is central |
 | cross-cutting | `i18n`, `csp-neutral`, `discovery-loop`, `needs-live-azure`, `shadow-to-enforce` | translation, provider-neutrality, discovery, or work that needs a live Azure setup / an enforce-promotion gate |
+| lifecycle | `needs-exit-criteria`, `completed`, `review-needed` | invalid work-item contract, all criteria satisfied, or waiting for author/reviewer confirmation |
 | type (built-in) | `bug`, `enhancement`, `documentation`, `question`, `help wanted` | the nature of the work |
 
 Guidance:
@@ -138,6 +139,10 @@ Guidance:
   updates this table and the label set (`gh label create`).
 - Never put customer-identifying values in an issue title, body, or label
   ([generic-scope.instructions.md](.github/instructions/generic-scope.instructions.md)).
+- **Exit criteria are required.** Every issue body includes an `## Exit criteria` section with
+  one or more observable, binary checkbox items (`- [ ] ...`). State the outcome that proves the
+  work is complete, not only the implementation activity. An issue without exit criteria receives
+  `needs-exit-criteria` and is not ready for implementation or closure.
 
 Do NOT open a public issue for a security finding - see
 [Reporting security issues](#reporting-security-issues) below.
@@ -159,9 +164,20 @@ whenever you act on an issue (writing code, investigating, or just reviewing):
   confirmation pass before it is closed. Do not self-close another person's
   issue silently. For an issue you opened yourself, the label is optional -
   close it directly once the comment trail shows it is done.
+- **Residual work keeps the issue open (MUST).** Compare the implementation and verification
+  evidence against every exit criterion. If any criterion remains unsatisfied, comment with the
+  exact residual work and keep the issue open. Do not use `completed` for partial delivery.
+- **Completed means evidenced and closable (MUST).** When every exit criterion is satisfied, add
+  an English completion comment, apply `completed`, and close the issue only when no residual work
+  remains. Use GitHub's `not planned` state plus an explanatory comment for `wontfix`, duplicate,
+  or invalid closure; those outcomes do not receive `completed`.
+- **Reopen resets completion (MUST).** Remove `completed` when an issue is reopened. Reapply it only
+  after the current exit criteria are satisfied again.
 
-Both rules are enforced by convention (reviewer + agent discipline), not CI.
-Use `gh issue comment <n>` and `gh issue edit <n> --add-label review-needed`.
+These rules are enforced by the issue form, the lifecycle workflow, reviewer judgment, and agent
+discipline.
+Use `gh issue comment <n>`, `gh issue edit <n> --add-label completed`, and
+`gh issue edit <n> --add-label review-needed` as applicable.
 
 ## Pull requests
 

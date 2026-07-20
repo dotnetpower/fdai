@@ -1,24 +1,31 @@
 ---
-title: Risk Classification (auto vs HIL vs deny)
+title: Risk Classification (automatic execution vs human approval vs denial)
 ---
-# Risk Classification (auto vs HIL vs deny)
+# Risk Classification (automatic execution vs human approval vs denial)
 
-The risk gate ([architecture.instructions.md § Control Loop](../../../.github/instructions/architecture.instructions.md#control-loop))
-routes every candidate action to one of `auto`, `hil`, or `deny`. This file is authoritative
-for **the classification rules that produce that routing**: their shape, the initial rule
-table, ownership, and update process. It resolves P0 Open Decision *"Risk-classification
+The risk-classification table ([architecture.instructions.md § Control Loop](../../../.github/instructions/architecture.instructions.md#control-loop))
+classifies every candidate action's baseline as `auto`, `hil`, or `deny`. The unified RiskGate
+can lower the final outcome through its six-axis ceiling, including to `shadow`. This file is
+authoritative for **the baseline classification rules**: their shape, initial rule table,
+ownership, and update process. It resolves P0 Open Decision *"Risk-classification
 policy (auto vs HIL) and initial policy approver"* from
 [security-and-identity.md](../architecture/security-and-identity.md#open-decisions).
 
 > Customer-agnostic: every value below (cost threshold, tag key, resource-group name) is a
 > **default** in the upstream; a fork tunes them via config
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+>
+> **Implementation status.** The `RiskTable` loader/evaluator, feature extractor, unified
+> execution-authority resolver, environment classifier, and control-loop audit builder are
+> shipped. The current audit payload records the matched rule id, final decision, quorum, and
+> resolved ceiling. Feature-vector snapshots and catalog versions are not wired into it yet.
 
 ## Where the Table Lives
 
 - **Runtime path**: `rule-catalog/risk-classification.yaml` - catalog-as-code, reviewed via
-  PR like rules/assignments/exemptions/overrides. `aw-approvers` reviewers with an
-  **elevated quorum of 2** for any change ([user-rbac-and-identity.md § 5.1](../interfaces/user-rbac-and-identity.md#51-codeowners-single-approver-group-path-based-reviewer-count)).
+  PR like rules/assignments/exemptions/overrides. Repository CODEOWNERS names the GitHub
+  `fdai-owners` team. The deployment's branch protection/CI applies the two-person
+  `aw-approvers` governance contract ([user-rbac-and-identity.md § 5.1](../interfaces/user-rbac-and-identity.md#51-codeowners-single-approver-group-path-based-reviewer-count)).
 - **Policy owner**: the `aw-owners` Entra security group. Ownership sits with Owner-tier
   because the table gates the entire autonomy surface.
 - **Evaluation**: first-match wins. Rules are ordered from strictest (`deny`) to most
@@ -57,7 +64,7 @@ No new data collection is introduced.
 | `data_plane_touched` | bool | ontology `ActionType.interfaces` include `DataPlaneMutating` |
 | `graph_stale` | bool | ontology `ActionType.interfaces` include `RequiresInventoryFresh` AND the target Resource's inventory record exceeds `freshness_ttl` |
 | `cross_resource_impact` | int | `ActionType.blast_radius.computation == graph_derived` ⇒ count of affected Resources returned by the traversal; `unknown` when the graph is unavailable and the ActionType lacks `GraphTraversalRequired` |
-| `cost_impact_monthly` | number (USD/month) | rule's `remediation.cost_impact` estimate, or observed post-hoc reconciliation |
+| `cost_impact_monthly` | number (USD/month) | rule's `remediation.cost_impact_monthly_usd` estimate, or observed post-hoc reconciliation |
 | `verifier_confidence` | number [0..1] | LLM quality-gate signal (only set for T2-produced actions) |
 
 Dimensions are strictly typed; a rule that references an unknown key fails at CI load.
@@ -70,42 +77,53 @@ version: 1.0.0
 owner_group: aw-owners
 rules:
   # ── DENY (never execute) ──
-  - if: { policy_violation: true }
+  - id: deny-policy-violation
+    if: { policy_violation: true }
     decision: deny
     reason: "policy-as-code verifier rejected the action"
-  - if: { blast_radius: subscription }
+  - id: deny-subscription-blast
+    if: { blast_radius: subscription }
     decision: deny
     reason: "no autonomous change spans a full subscription"
-  - if: { graph_stale: true }
+  - id: deny-graph-stale
+    if: { graph_stale: true }
     decision: deny
     reason: "inventory graph is stale; refuse to act on a possibly-ghost resource"
 
   # ── HIL (human approval required) ──
-  - if: { irreversible: true }
+  - id: hil-irreversible
+    if: { irreversible: true }
     decision: hil
     reason: "irreversible mutation always requires an approver quorum >= 2"
     quorum: 2
-  - if: { destructive: true }
+  - id: hil-destructive
+    if: { destructive: true }
     decision: hil
     reason: "delete/drop/purge/detach always requires an approver"
-  - if: { environment: prod, allowlist_prod_auto: false }
+  - id: hil-prod
+    if: { environment: prod, allowlist_prod_auto: false }
     decision: hil
     reason: "prod defaults to HIL unless the rule is on the prod-auto allowlist"
-  - if: { data_plane_touched: true }
+  - id: hil-data-plane
+    if: { data_plane_touched: true }
     decision: hil
     reason: "data-plane mutations always require an approver"
-  - if: { cost_impact_monthly: '>= 100' }
+  - id: hil-cost
+    if: { cost_impact_monthly: '>= 100' }
     decision: hil
     reason: "cost impact above the auto threshold"
-  - if: { blast_radius: resource_group }
+  - id: hil-resource-group-blast
+    if: { blast_radius: resource_group }
     decision: hil
     reason: "RG-wide changes require an approver"
-  - if: { verifier_confidence: '< 0.85' }
+  - id: hil-low-confidence
+    if: { verifier_confidence: '< 0.85' }
     decision: hil
     reason: "T2 quality-gate confidence below auto threshold"
 
   # ── AUTO (execute without approval) ──
-  - if:
+  - id: auto-low-risk
+    if:
       all:
         - reversible: true
         - blast_radius: resource
@@ -115,7 +133,8 @@ rules:
     reason: "reversible, resource-scoped, low cost, control-plane only"
 
   # ── FAIL-CLOSE ──
-  - default: hil
+  - id: default-hil
+    default: hil
     reason: "no matching rule - fail toward safety"
 ```
 
@@ -181,7 +200,7 @@ to `risk-classification.yaml`. The runtime risk table still sees only
 - Rationale: covers small right-sizing / stop-idle / tier-adjust remediations without
   approving large disposals. Chosen conservatively for Phase 1 shadow measurement; the
   threshold is a config value, adjustable via a governance PR after measurement.
-- The estimate comes from the rule's `remediation.cost_impact` field; if the rule cannot
+- The estimate comes from the rule's `remediation.cost_impact_monthly_usd` field; if the rule cannot
   estimate, the value is `unknown` → treated as `>= 100` → HIL.
 
 ## Allowlist for Prod-Auto
@@ -214,12 +233,15 @@ Updating the risk table follows the standard governance PR flow:
 
 ## Audit
 
-Every risk-gate outcome writes an audit entry recording:
+The current control-loop audit entry records:
 
-- The matched rule id (or `default` if fail-through).
-- The feature vector snapshot at decision time.
-- The `catalog_version` of `risk-classification.yaml`.
-- The routing outcome (`auto` / `hil` / `deny`) and any downstream approval ids.
+- The matched rule id (`default-hil` on fail-through).
+- The final decision (`auto` / `hil` / `shadow` / `deny`) and quorum.
+- The `resolved_ceiling` with every axis that contributed to the final decision.
+
+The feature-vector snapshot and `risk-classification.yaml` catalog version exist on the
+`ExecutionAuthorityDecision`/`RiskTable` objects but are not serialized into the audit payload yet.
+Both fields are needed to make replay self-contained after a catalog change.
 
 A future retrospective can filter the audit log by matched rule id to identify
 over-triggered rules (e.g. "every prod change is HIL because everything hits Rule 5") and

@@ -28,6 +28,8 @@ export interface ViewFact {
   readonly key: string;
   /** Optional operator-facing label that the narrator uses instead of the key. */
   readonly label?: string;
+  /** Localized synonyms used only to bind narrated claims to this fact. */
+  readonly aliases?: readonly string[];
   /** Human-readable value or JSON-serialisable primitive. */
   readonly value: string | number | boolean | null;
   /** Optional group heading for the digest column. */
@@ -58,6 +60,50 @@ export interface GlossaryTerm {
   readonly match?: string;
 }
 
+export interface ViewExplanationCriterion {
+  readonly code: string;
+  readonly when: string;
+  readonly result: string;
+  readonly source_refs: readonly string[];
+}
+
+export interface ViewEntityLifecycle {
+  readonly entity_kind: string;
+  readonly entity_id: string;
+  readonly owner: string;
+  readonly creation: readonly ViewExplanationCriterion[];
+  readonly deduplication?: {
+    readonly strategy: string;
+    readonly fields: readonly string[];
+    readonly on_repeat: string;
+  };
+  readonly closure: readonly ViewExplanationCriterion[];
+  readonly authority_refs: readonly string[];
+}
+
+export interface ViewExplanations {
+  readonly selection?: {
+    readonly entity_kind: string;
+    readonly entity_id: string;
+    readonly label: string;
+  };
+  readonly relationships?: readonly {
+    readonly link: string;
+    readonly from: string;
+    readonly to: string;
+    readonly neighbor: string;
+    readonly direction: "incoming" | "outgoing" | "self";
+    readonly cardinality?: string;
+    readonly causal?: boolean;
+    readonly detail?: string;
+  }[];
+  readonly lifecycles?: readonly ViewEntityLifecycle[];
+  readonly provenance?: {
+    readonly authority: string;
+    readonly refs: readonly string[];
+  };
+}
+
 /** A structured snapshot for one route. */
 export interface ViewSnapshot {
   /** Panel id, matches the hash route (`live`, `dashboard`, ...). */
@@ -83,6 +129,8 @@ export interface ViewSnapshot {
   readonly glossary?: readonly GlossaryTerm[];
   /** Bulk records the answerer can search (tiles, audit rows, HIL items). */
   readonly records?: Readonly<Record<string, readonly Record<string, unknown>[]>>;
+  /** Structured selection, relationship, lifecycle, and provenance evidence. */
+  readonly explanations?: ViewExplanations;
   /** ISO timestamp captured on publish. */
   readonly capturedAt: string;
 }

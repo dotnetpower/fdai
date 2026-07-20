@@ -82,5 +82,26 @@
     "answer": "Operations need attention.",
     "view_context": {"facts": []},
     "expected_supported": true
+  },
+  {
+    "case_id": "localized-duplicate-numbers-supported",
+    "answer": "감사 이벤트는 0건이고 승인 대기는 0건입니다.",
+    "view_context": {
+      "facts": [
+        {
+          "key": "event_count",
+          "label": "Events (audit)",
+          "aliases": ["audit events", "감사 이벤트"],
+          "value": 0
+        },
+        {
+          "key": "hil_pending",
+          "label": "Approvals pending",
+          "aliases": ["pending approvals", "승인 대기"],
+          "value": 0
+        }
+      ]
+    },
+    "expected_supported": true
   }
 ]

@@ -1,6 +1,6 @@
 ---
 title: Approve a change
-description: How to review and approve (or reject) a change FDAI has queued for human-in-the-loop decision.
+description: How to review and approve or reject a change FDAI has queued for human approval.
 ---
 
 # Approve a change

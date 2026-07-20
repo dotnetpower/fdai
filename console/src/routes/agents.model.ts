@@ -18,6 +18,7 @@ import type {
   ConversationTurnMessage,
   TicketStatus,
 } from "../hooks/use-agent-stream";
+import type { FrameSource } from "../hooks/observation-source";
 import type { IncidentSummary } from "../types";
 
 /** Cognitive layer of each agent (drives the node colour). */
@@ -112,10 +113,26 @@ export interface AgentsState {
   readonly incidents: Record<string, Incident>;
   /** Incident correlation ids, newest first. */
   readonly incidentOrder: readonly string[];
+  /** Observed SSE frames from this browser connection, newest first. */
+  readonly liveActivity: readonly LiveAgentActivityEvent[];
+}
+
+export interface LiveAgentActivityEvent {
+  readonly kind: AgentActivityMessage["type"];
+  readonly agent: string;
+  readonly agents: readonly string[];
+  readonly state: AgentStatus | null;
+  readonly summary: string;
+  readonly detail: string | null;
+  readonly correlationId: string | null;
+  readonly ts: string;
+  readonly source: FrameSource;
 }
 
 /** Cap retained incidents so a long-lived tab cannot grow without bound. */
 const MAX_INCIDENTS = 30;
+/** Cap live frames so a long-lived tab has stable memory use. */
+const MAX_LIVE_ACTIVITY = 100;
 
 export function makeInitialState(): AgentsState {
   const agents: Record<string, AgentNode> = {};
@@ -130,7 +147,64 @@ export function makeInitialState(): AgentsState {
       detail: null,
     };
   }
-  return { agents, incidents: {}, incidentOrder: [] };
+  return { agents, incidents: {}, incidentOrder: [], liveActivity: [] };
+}
+
+function projectLiveActivity(msg: AgentActivityMessage): LiveAgentActivityEvent | null {
+  if (msg.type === "agent.state") {
+    if (_LAYER_OF[msg.agent] === undefined) return null;
+    return {
+      kind: msg.type,
+      agent: msg.agent,
+      agents: [msg.agent],
+      state: msg.state,
+      summary: msg.detail ?? msg.state,
+      detail: msg.detail,
+      correlationId: msg.correlation_id,
+      ts: msg.ts,
+      source: msg.source ?? "unknown",
+    };
+  }
+  if (msg.type === "incident.ticket") {
+    const agents = msg.involved_agents.filter((agent) => _LAYER_OF[agent] !== undefined);
+    return {
+      kind: msg.type,
+      agent: agents[0] ?? "System",
+      agents,
+      state: null,
+      summary: `${msg.title} - ${msg.status}`,
+      detail: msg.rca,
+      correlationId: msg.correlation_id,
+      ts: msg.ts,
+      source: msg.source ?? "unknown",
+    };
+  }
+  const agents = [msg.from_agent, msg.to_agent].filter(
+    (agent, index, names) => _LAYER_OF[agent] !== undefined && names.indexOf(agent) === index,
+  );
+  return {
+    kind: msg.type,
+    agent: msg.from_agent,
+    agents,
+    state: null,
+    summary: `${msg.from_agent} to ${msg.to_agent} - ${msg.kind}`,
+    detail: msg.text,
+    correlationId: msg.correlation_id,
+    ts: msg.ts,
+    source: msg.source ?? "unknown",
+  };
+}
+
+function recordLiveActivity(
+  state: AgentsState,
+  msg: AgentActivityMessage,
+): AgentsState {
+  const event = projectLiveActivity(msg);
+  if (event === null) return state;
+  return {
+    ...state,
+    liveActivity: [event, ...state.liveActivity].slice(0, MAX_LIVE_ACTIVITY),
+  };
 }
 
 function applyAgentState(
@@ -292,15 +366,16 @@ export function reducer(state: AgentsState, action: AgentsAction): AgentsState {
   if (action.kind === "reset") return makeInitialState();
   if (action.kind === "hydrate") return hydrateIncidents(state, action.incidents);
   const { msg } = action;
+  const next = recordLiveActivity(state, msg);
   switch (msg.type) {
     case "agent.state":
-      return applyAgentState(state, msg);
+      return applyAgentState(next, msg);
     case "incident.ticket":
-      return applyTicket(state, msg);
+      return applyTicket(next, msg);
     case "conversation.turn":
-      return applyTurn(state, msg);
+      return applyTurn(next, msg);
     default:
-      return state;
+      return next;
   }
 }
 
@@ -318,6 +393,19 @@ export function currentRuntimeCount(streamOpen: boolean, count: number): number 
 /** True when an agent is actively working (not resting or merely watching). */
 export function isEngaged(node: AgentNode): boolean {
   return node.state !== "idle" && node.state !== "watching";
+}
+
+export function liveActivityForAgent(
+  events: readonly LiveAgentActivityEvent[],
+  agent: string | null,
+): readonly LiveAgentActivityEvent[] {
+  return agent === null ? events : events.filter((event) => event.agents.includes(agent));
+}
+
+export function isLiveWorkActivity(event: LiveAgentActivityEvent): boolean {
+  return event.kind !== "agent.state" || (
+    event.state !== "idle" && event.state !== "watching"
+  );
 }
 
 /**

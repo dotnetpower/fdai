@@ -4,8 +4,8 @@ description: FDAI의 15-agent organization이 event-driven control plane에서 s
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: ab10f1c767c35d30e3ee66c30e4d54a8c9d63fad
-translation_revised: 2026-07-18
+translation_source_sha: cb40282cd23eb393809db8b8d37dce0c7af14824
+translation_revised: 2026-07-20
 ---
 
 # FDAI 아키텍처
@@ -27,48 +27,9 @@ deterministic safety gate를 우회하지 않습니다.
 느슨하게 결합된 5개 layer는 하나의 application process 또는 identity를 공유하는 대신
 typed event, versioned contract, Git을 통해 통신합니다.
 
-```mermaid
-flowchart LR
-  subgraph Sources[Operational signal]
-    AZ[Azure resource change]
-    OBS[Metric, log, trace]
-    OPS[Operator request]
-    JOB[Scheduled probe]
-  end
-
-  subgraph Core[Headless control plane]
-    ING[event ingest]
-    ROUTE[trust router]
-    DECIDE[T0 / T1 / T2]
-    RISK[risk gate]
-    EXEC[executor]
-    AUDIT[append-only audit]
-  end
-
-  subgraph Touchpoints[Human 및 delivery surface]
-    CONSOLE[read-only console]
-    CHAT[ChatOps approval]
-    GIT[remediation PR]
-  end
-
-  CATALOG[(rule 및 action catalog)]
-  STATE[(PostgreSQL 및 pgvector)]
-
-  AZ --> ING
-  OBS --> ING
-  OPS --> ING
-  JOB --> ING
-  ING --> ROUTE --> DECIDE --> RISK
-  CATALOG --> DECIDE
-  RISK -->|low risk| EXEC
-  RISK -->|approval required| CHAT
-  CHAT -->|approved typed decision| EXEC
-  EXEC --> GIT
-  EXEC --> AUDIT
-  ROUTE --> AUDIT
-  AUDIT --> STATE
-  STATE --> CONSOLE
-```
+<fdai-architecture-diagram manifest="../../diagrams/generated/fdai-system-overview.manifest.json" locale="ko" style="display:block">
+  <img src="../../diagrams/generated/fdai-system-overview.ko.svg" alt="Azure 리소스 변경, 관찰 데이터, 운영자 요청, 예약 점검이 포트 9093의 Kafka endpoint를 통해 Event Hubs로 들어갑니다. FDAI 컨트롤 플레인은 결정 수준을 선택하고 근거와 위험을 검토합니다. 실행 가능한 작업은 권한 있는 실행기로 보내고, 근거가 부족하면 검토 대기로 보관하며, 실행 실패는 롤백 경로로 보냅니다. 모든 결과는 감사 저장소에 기록됩니다. 사람 승인, 수정 pull request, 읽기 전용 콘솔은 컨트롤 플레인 경계 밖에 있습니다." loading="eager" style="display:block;width:100%;height:auto" />
+</fdai-architecture-diagram>
 
 Console은 state 및 audit store의 projection을 읽습니다. Executor identity를 공유하거나
 change를 승인하거나 Azure mutation API를 호출하지 않습니다.

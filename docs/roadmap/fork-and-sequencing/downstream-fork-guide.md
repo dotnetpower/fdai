@@ -126,8 +126,7 @@ Do these before your first `git commit` on the fork.
 
 ## 3. The one hard rule
 
-**Never edit files under `src/fdai/core/`.** Everything a
-fork wants to customize has a seam. If you find yourself wanting to
+**Never edit files under `src/fdai/core/`.** Supported customization paths use seams. If you find yourself wanting to
 edit `core/`, one of two things is happening:
 
 1. You are trying to inject a value that belongs in configuration
@@ -242,7 +241,7 @@ before the Rule that names it, and so on):
 | [5.10](downstream-fork-seam-recipes.md#510-runtime-failure-modes-and-abstain-contracts) | Runtime failure modes and abstain contracts |
 | [5.11](downstream-fork-seam-recipes.md#511-testing-your-fork-end-to-end) | Testing your fork end-to-end |
 | [5.12](downstream-fork-seam-recipes.md#512-actiontype-catalog-additions) | `ActionType` catalog additions |
-| [5.13](downstream-fork-seam-recipes.md#513-delivery-adapter-custom-publisher) | Delivery adapter (custom publisher) |
+| [5.13](downstream-fork-seam-recipes.md#513-delivery-adapter-custom-publisher) | Delivery, incident-platform, and on-call provider bindings |
 | [5.14](downstream-fork-seam-recipes.md#514-console-readpanel-additions) | Console `ReadPanel` additions |
 | [5.15](downstream-fork-seam-recipes.md#515-fork-entry-point-entrypy) | Fork entry point (`entry.py`) |
 | [5.16](downstream-fork-seam-recipes.md#516-manual-distillation-manualsource--manualclassifier--distiller) | Manual distillation (`ManualSource` / `ManualClassifier` / `Distiller`) |
@@ -268,10 +267,10 @@ to its own business object, and has a green baseline before adding
 lifecycle. The walkthrough above shows what grows on top when the
 workflow needs reviewers and multi-step approval.
 
-**Extending a contract model (rare)**: the six domain contract
+**Extending a contract model (rare)**: the seven domain contract
 modules live under [`src/fdai/shared/contracts/models/`](../../../src/fdai/shared/contracts/models)
 (`event.py` / `action.py` / `rule.py` / `incident.py` / `ontology.py`
-/ `workflow.py`), each re-exported from the package facade. A fork
+/ `workflow.py` / `document.py`), each re-exported from the package facade. A fork
 that legitimately needs a bespoke contract subclasses `ContractBase`
 (the public alias of the internal `_Base`) so the four invariants
 (`extra=forbid`, `frozen`, `str_strip_whitespace`, `validate_default`)

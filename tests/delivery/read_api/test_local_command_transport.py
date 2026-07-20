@@ -6,17 +6,23 @@ import pytest
 
 from fdai.delivery.read_api.dev.command_transport import build_local_command_transport
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
+from fdai.shared.providers.local import LocalEventBus
 
 
-def test_transport_is_absent_without_explicit_azure_configuration() -> None:
-    assert (
-        build_local_command_transport(
-            read_model=InMemoryConsoleReadModel(),
-            action_types=(),
-            environ={},
-        )
-        is None
+def test_transport_defaults_to_local_without_azure_configuration() -> None:
+    wiring = build_local_command_transport(
+        read_model=InMemoryConsoleReadModel(),
+        action_types=(),
+        environ={},
     )
+
+    assert wiring.kind == "local"
+    assert isinstance(wiring.event_bus, LocalEventBus)
+    assert wiring.event_topic == "aw.events"
+    assert wiring.live_stream.sink is not None
+    assert wiring.agent_activity.sink is not None
+    assert wiring.live_stream.broadcaster_factory is None
+    assert wiring.agent_activity.broadcaster_factory is None
 
 
 @pytest.mark.parametrize(
@@ -46,7 +52,7 @@ def test_configured_transport_uses_real_broadcasters_without_connecting_eagerly(
         },
     )
 
-    assert wiring is not None
+    assert wiring.kind == "azure"
     assert wiring.live_stream.broadcaster_factory is not None
     assert wiring.live_stream.emitter_factory is None
     assert wiring.agent_activity.broadcaster_factory is not None

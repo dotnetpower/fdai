@@ -57,10 +57,12 @@ def extract_claims(answer: str) -> tuple[tuple[ClaimDraft, ...], bool]:
             if normalized is None:
                 continue
             occupied.append((match.start(), match.end()))
+            sentence, sentence_start, _ = sentence_span_at(answer, match.start(), match.end())
             drafts.append(
                 ClaimDraft(
                     kind=kind,  # type: ignore[arg-type]
-                    text=sentence_at(answer, match.start(), match.end()),
+                    text=sentence,
+                    text_start=sentence_start,
                     start=match.start(),
                     end=match.end(),
                     raw_value=raw,
@@ -78,6 +80,7 @@ def extract_claims(answer: str) -> tuple[tuple[ClaimDraft, ...], bool]:
                     ClaimDraft(
                         kind="causal",
                         text=sentence,
+                        text_start=start,
                         start=start,
                         end=end,
                         raw_value=cause,
@@ -91,6 +94,7 @@ def extract_claims(answer: str) -> tuple[tuple[ClaimDraft, ...], bool]:
                 ClaimDraft(
                     kind="scope",
                     text=sentence,
+                    text_start=start,
                     start=start,
                     end=end,
                     raw_value=sentence,
@@ -109,18 +113,25 @@ def window(text: str, start: int, end: int, radius: int = 48) -> str:
 
 
 def sentence_at(text: str, start: int, end: int) -> str:
+    return sentence_span_at(text, start, end)[0]
+
+
+def sentence_span_at(text: str, start: int, end: int) -> tuple[str, int, int]:
     for sentence, sentence_start, sentence_end in sentences(text):
         if sentence_start <= start and end <= sentence_end:
-            return sentence
-    return text[start:end]
+            return sentence, sentence_start, sentence_end
+    return text[start:end], start, end
 
 
 def sentences(text: str) -> tuple[tuple[str, int, int], ...]:
     out: list[tuple[str, int, int]] = []
     for match in re.finditer(r"[^\n.!?]+(?:[.!?]+|$)", text):
-        sentence = match.group(0).strip()
+        raw = match.group(0)
+        sentence = raw.strip()
         if sentence:
-            out.append((sentence, match.start(), match.end()))
+            leading = len(raw) - len(raw.lstrip())
+            trailing = len(raw) - len(raw.rstrip())
+            out.append((sentence, match.start() + leading, match.end() - trailing))
     return tuple(out)
 
 

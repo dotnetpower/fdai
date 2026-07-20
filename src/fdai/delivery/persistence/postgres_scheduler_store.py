@@ -41,11 +41,17 @@ from fdai.core.scheduler.models import (
     ScheduleKind,
 )
 from fdai.core.scheduler.store import ScheduleNotFoundError
+from fdai.shared.providers.scheduled_continuation import (
+    ContinuationAudience,
+    ContinuationMode,
+    ScheduledResultOrigin,
+)
 
 _COLUMNS: Final[str] = (
     "task_id, name, interval_seconds, event_type, created_by, "
     "event_payload, resource_ref, enabled, start_at, last_run, cron_expression, "
-    "schedule_kind, timezone, exit_event_type, exit_observed_at, isolation_profile"
+    "schedule_kind, timezone, exit_event_type, exit_observed_at, isolation_profile, "
+    "continuation_mode, continuation_origin"
 )
 
 
@@ -87,7 +93,7 @@ class PostgresScheduleStore:
                         INSERT INTO scheduled_task ({_COLUMNS})
                         VALUES (
                             %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s::jsonb
+                            %s, %s, %s, %s, %s::jsonb, %s, %s::jsonb
                         )
                         """,  # noqa: S608 - _COLUMNS is a module constant, values parametrized
                         (
@@ -123,6 +129,12 @@ class PostgresScheduleStore:
                                 },
                                 sort_keys=True,
                             ),
+                            task.continuation_mode.value,
+                            (
+                                _origin_json(task.continuation_origin)
+                                if task.continuation_origin is not None
+                                else None
+                            ),
                         ),
                     )
             except psycopg.errors.UniqueViolation as exc:
@@ -149,6 +161,61 @@ class PostgresScheduleStore:
             )
             rows = await cur.fetchall()
         return tuple(_row_to_task(row) for row in rows)
+
+    async def update(self, task: ScheduledTask) -> ScheduledTask:
+        async with await self._connect(row_factory=True) as conn:
+            async with conn.transaction():
+                await self._set_session_knobs(conn)
+                cur = await conn.execute(
+                    f"""
+                    UPDATE scheduled_task
+                       SET name = %s,
+                           interval_seconds = %s,
+                           event_type = %s,
+                           event_payload = %s::jsonb,
+                           resource_ref = %s,
+                           enabled = %s,
+                           start_at = %s,
+                           last_run = %s,
+                           cron_expression = %s,
+                           schedule_kind = %s,
+                           timezone = %s,
+                           exit_event_type = %s,
+                           exit_observed_at = %s,
+                           isolation_profile = %s::jsonb,
+                           continuation_mode = %s,
+                           continuation_origin = %s::jsonb
+                     WHERE task_id = %s
+                     RETURNING {_COLUMNS}
+                    """,  # noqa: S608 - column list is static and values are parametrized
+                    (
+                        task.name,
+                        float(task.interval_seconds),
+                        task.event_type,
+                        json.dumps(dict(task.event_payload), default=str),
+                        task.resource_ref,
+                        task.enabled,
+                        task.start_at,
+                        task.last_run,
+                        task.cron_expression,
+                        task.kind.value,
+                        task.timezone,
+                        task.exit_event_type,
+                        task.exit_observed_at,
+                        _isolation_json(task),
+                        task.continuation_mode.value,
+                        (
+                            _origin_json(task.continuation_origin)
+                            if task.continuation_origin is not None
+                            else None
+                        ),
+                        task.task_id,
+                    ),
+                )
+                row = await cur.fetchone()
+        if row is None:
+            raise ScheduleNotFoundError(task.task_id)
+        return _row_to_task(row)
 
     async def cancel(self, task_id: str) -> None:
         async with await self._connect() as conn:
@@ -204,6 +271,21 @@ class PostgresScheduleStore:
         await conn.execute(f"SET LOCAL statement_timeout = {timeout_ms}")
 
 
+def _isolation_json(task: ScheduledTask) -> str:
+    profile = task.isolation_profile
+    return json.dumps(
+        {
+            "profile_id": profile.profile_id,
+            "max_session_seconds": profile.max_session_seconds,
+            "max_context_chars": profile.max_context_chars,
+            "max_tool_calls": profile.max_tool_calls,
+            "allowed_tool_ids": sorted(profile.allowed_tool_ids),
+            "command_sandbox_profile_id": profile.command_sandbox_profile_id,
+        },
+        sort_keys=True,
+    )
+
+
 def _row_to_task(row: dict[str, Any]) -> ScheduledTask:
     payload = row["event_payload"]
     if isinstance(payload, str):
@@ -241,6 +323,38 @@ def _row_to_task(row: dict[str, Any]) -> ScheduledTask:
                 else None
             ),
         ),
+        continuation_mode=ContinuationMode(str(row["continuation_mode"])),
+        continuation_origin=(
+            _origin(row["continuation_origin"])
+            if row.get("continuation_origin") is not None
+            else None
+        ),
+    )
+
+
+def _origin_json(origin: ScheduledResultOrigin) -> str:
+    return json.dumps(
+        {
+            "audience": origin.audience.value,
+            "channel_kind": origin.channel_kind,
+            "channel_ref": origin.channel_ref,
+            "conversation_ref": origin.conversation_ref,
+            "thread_ref": origin.thread_ref,
+        },
+        sort_keys=True,
+    )
+
+
+def _origin(raw: Any) -> ScheduledResultOrigin:
+    value = json.loads(raw) if isinstance(raw, str) else raw
+    if not isinstance(value, dict):
+        raise ValueError("scheduled task continuation_origin MUST be a JSON object")
+    return ScheduledResultOrigin(
+        channel_kind=str(value["channel_kind"]),
+        channel_ref=str(value["channel_ref"]),
+        conversation_ref=str(value["conversation_ref"]),
+        thread_ref=(str(value["thread_ref"]) if value.get("thread_ref") is not None else None),
+        audience=ContinuationAudience(str(value["audience"])),
     )
 
 

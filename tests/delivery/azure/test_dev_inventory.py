@@ -105,6 +105,39 @@ class TestFullSnapshot:
         assert rec.props["name"] == "orders"
         assert rec.props["resourceGroup"] == "rg-payments"
 
+    def test_vm_uses_show_details_and_maps_power_state(self) -> None:
+        payload = json.dumps(
+            [
+                {
+                    "id": (
+                        "/subscriptions/x/resourceGroups/rg-app/providers/"
+                        "Microsoft.Compute/virtualMachines/vm-app"
+                    ),
+                    "name": "vm-app",
+                    "resourceGroup": "rg-app",
+                    "location": "koreacentral",
+                    "powerState": "VM running",
+                    "provisioningState": "Succeeded",
+                }
+            ]
+        )
+        captured: dict[str, list[str]] = {}
+
+        def _side_effect(*args, **kwargs):  # type: ignore[no-untyped-def]
+            captured["argv"] = list(args[0])
+            return _completed(payload)
+
+        with patch(
+            "fdai.delivery.azure.dev_inventory.subprocess.run",
+            side_effect=_side_effect,
+        ):
+            batches = asyncio.run(_drain(AzureCliInventory(resource_types=("compute.vm",))))
+
+        record = batches[0].resources[0]
+        assert captured["argv"][1:4] == ["vm", "list", "--show-details"]
+        assert record.props["powerState"] == "VM running"
+        assert record.props["provisioningState"] == "Succeeded"
+
     def test_resource_group_recovered_from_arm_id_when_field_absent(self) -> None:
         # A row missing the explicit `resourceGroup` field still recovers it
         # from the ARM path.

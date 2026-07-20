@@ -1,0 +1,353 @@
+from __future__ import annotations
+
+import asyncio
+import os
+import subprocess
+import sys
+import uuid
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import psycopg
+import pytest
+
+from fdai.core.background_task import (
+    BackgroundTask,
+    BackgroundTaskBudget,
+    BackgroundTaskConflictError,
+    BackgroundTaskKind,
+    BackgroundTaskOrigin,
+    BackgroundTaskProgress,
+    BackgroundTaskResult,
+    BackgroundTaskStatus,
+    BackgroundTaskStore,
+    BackgroundTaskUsage,
+)
+from fdai.delivery.persistence import (
+    PostgresBackgroundTaskStore,
+    PostgresBackgroundTaskStoreConfig,
+)
+
+_ROOT = Path(__file__).resolve().parents[2]
+_NOW = datetime(2026, 7, 20, 12, tzinfo=UTC)
+_OWNER_PREFIX = "test-background-task-"
+
+
+def _dsn() -> str:
+    value = os.environ.get("FDAI_DATABASE_URL")
+    if not value:
+        pytest.skip("FDAI_DATABASE_URL is unset")
+    return value.replace("postgresql+psycopg://", "postgresql://", 1)
+
+
+def _upgrade() -> None:
+    result = subprocess.run(  # noqa: S603 - controlled module invocation
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.fixture
+async def database_url() -> str:
+    dsn = _dsn()
+    _upgrade()
+    async with await psycopg.AsyncConnection.connect(dsn) as connection:
+        await connection.execute(
+            "DELETE FROM background_task_attempt WHERE owner_principal_id LIKE %s",
+            (f"{_OWNER_PREFIX}%",),
+        )
+    return dsn
+
+
+def _store(dsn: str) -> BackgroundTaskStore:
+    store = PostgresBackgroundTaskStore(config=PostgresBackgroundTaskStoreConfig(dsn=dsn))
+    protocol_store: BackgroundTaskStore = store
+    return protocol_store
+
+
+def _task(
+    task_id: str,
+    *,
+    owner: str | None = None,
+    max_progress_events: int = 3,
+) -> BackgroundTask:
+    task_owner = owner or f"{_OWNER_PREFIX}owner"
+    return BackgroundTask(
+        task_id=task_id,
+        owner_principal_id=task_owner,
+        origin=BackgroundTaskOrigin(
+            conversation_id=f"conversation:{task_id}",
+            channel_kind="web",
+            channel_id="channel:example",
+            thread_id="thread:example",
+        ),
+        kind=BackgroundTaskKind.READ_ONLY_INVESTIGATION,
+        prompt="Inspect bounded evidence without mutation.",
+        context_digest=f"sha256:{task_id}",
+        capability_profile_id="background.read-only",
+        budget=BackgroundTaskBudget(max_progress_events=max_progress_events),
+        correlation_id=f"correlation:{task_id}",
+        idempotency_key=f"idempotency:{task_id}",
+        created_at=_NOW,
+        retention_until=_NOW + timedelta(days=30),
+    )
+
+
+def _result(*, started_at: datetime, finished_at: datetime) -> BackgroundTaskResult:
+    return BackgroundTaskResult(
+        summary="Bounded investigation completed.",
+        evidence_refs=("evidence:one",),
+        terminal_reason="completed",
+        usage=BackgroundTaskUsage(tokens=21, cost_microusd=7, tool_calls=2),
+        started_at=started_at,
+        finished_at=finished_at,
+    )
+
+
+@pytest.mark.integration
+async def test_two_postgres_stores_claim_one_attempt_exactly_once(
+    database_url: str,
+) -> None:
+    task = _task(f"background-claim-{uuid.uuid4().hex}")
+    first = _store(database_url)
+    second = _store(database_url)
+    stored, created = await first.create(task)
+    assert created and stored.status is BackgroundTaskStatus.QUEUED
+
+    claims = await asyncio.gather(
+        first.claim_next(
+            coordinator="coordinator:first",
+            lease_token="lease:first",
+            now=_NOW,
+            lease_seconds=30,
+        ),
+        second.claim_next(
+            coordinator="coordinator:second",
+            lease_token="lease:second",
+            now=_NOW,
+            lease_seconds=30,
+        ),
+    )
+
+    assert sum(claim is not None for claim in claims) == 1
+    claimed = next(claim for claim in claims if claim is not None)
+    assert claimed.status is BackgroundTaskStatus.CLAIMED
+    assert claimed.revision == 2
+
+
+@pytest.mark.integration
+async def test_start_renew_completion_and_terminal_immutability(
+    database_url: str,
+) -> None:
+    task = _task(f"background-lifecycle-{uuid.uuid4().hex}")
+    store = _store(database_url)
+    await store.create(task)
+    claimed = await store.claim_next(
+        coordinator="coordinator:lifecycle",
+        lease_token="lease:lifecycle",
+        now=_NOW,
+        lease_seconds=30,
+    )
+    assert claimed is not None
+    running = await store.start(
+        claimed.attempt_id,
+        expected_revision=claimed.revision,
+        lease_token="lease:lifecycle",
+        now=_NOW + timedelta(seconds=1),
+    )
+    renewed = await store.renew(
+        running.attempt_id,
+        expected_revision=running.revision,
+        lease_token="lease:lifecycle",
+        now=_NOW + timedelta(seconds=2),
+        lease_seconds=30,
+        usage=BackgroundTaskUsage(tokens=8, tool_calls=1),
+    )
+    result = _result(
+        started_at=running.updated_at,
+        finished_at=_NOW + timedelta(seconds=3),
+    )
+    completed = await store.complete(
+        renewed.attempt_id,
+        expected_revision=renewed.revision,
+        lease_token="lease:lifecycle",
+        status=BackgroundTaskStatus.SUCCEEDED,
+        result=result,
+        now=result.finished_at,
+    )
+
+    assert completed.result == result
+    assert completed.usage == result.usage
+    assert completed.lease is None
+    with pytest.raises(BackgroundTaskConflictError):
+        await store.complete(
+            completed.attempt_id,
+            expected_revision=completed.revision,
+            lease_token="lease:lifecycle",
+            status=BackgroundTaskStatus.FAILED,
+            result=result,
+            now=result.finished_at,
+        )
+
+
+@pytest.mark.integration
+async def test_expired_lease_and_owner_scope_fail_closed(database_url: str) -> None:
+    owner = f"{_OWNER_PREFIX}owner-scope"
+    task = _task(f"background-owner-{uuid.uuid4().hex}", owner=owner)
+    store = _store(database_url)
+    await store.create(task)
+    claimed = await store.claim_next(
+        coordinator="coordinator:expiry",
+        lease_token="lease:expiry",
+        now=_NOW,
+        lease_seconds=1,
+    )
+    assert claimed is not None
+
+    assert await store.get(task.task_id, owner="another-owner") is None
+    assert await store.list(owner="another-owner") == ()
+    with pytest.raises(BackgroundTaskConflictError):
+        await store.start(
+            claimed.attempt_id,
+            expected_revision=claimed.revision,
+            lease_token="lease:expiry",
+            now=_NOW + timedelta(seconds=1),
+        )
+    with pytest.raises(PermissionError):
+        await store.cancel(
+            task.task_id,
+            actor="another-owner",
+            is_admin=False,
+            now=_NOW + timedelta(seconds=2),
+        )
+
+    cancelled = await store.cancel(
+        task.task_id,
+        actor="admin-principal",
+        is_admin=True,
+        now=_NOW + timedelta(seconds=2),
+    )
+    assert cancelled.status is BackgroundTaskStatus.CANCELLED
+    assert cancelled.result is not None
+    assert cancelled.result.terminal_reason == "cancelled_by_operator"
+
+    owner_task = _task(f"background-owner-cancel-{uuid.uuid4().hex}", owner=owner)
+    await store.create(owner_task)
+    owner_cancelled = await store.cancel(
+        owner_task.task_id,
+        actor=owner,
+        is_admin=False,
+        now=_NOW + timedelta(seconds=3),
+    )
+    assert owner_cancelled.status is BackgroundTaskStatus.CANCELLED
+
+
+@pytest.mark.integration
+async def test_progress_sequence_budget_and_owner_scope(database_url: str) -> None:
+    owner = f"{_OWNER_PREFIX}progress-owner"
+    task = _task(
+        f"background-progress-{uuid.uuid4().hex}",
+        owner=owner,
+        max_progress_events=2,
+    )
+    store = _store(database_url)
+    attempt, _ = await store.create(task)
+    first = BackgroundTaskProgress(
+        attempt_id=attempt.attempt_id,
+        sequence=0,
+        kind="investigation.started",
+        message="Started bounded evidence collection.",
+        at=_NOW,
+        usage=BackgroundTaskUsage(),
+    )
+    second = BackgroundTaskProgress(
+        attempt_id=attempt.attempt_id,
+        sequence=1,
+        kind="investigation.progress",
+        message="Collected one bounded evidence reference.",
+        at=_NOW + timedelta(seconds=1),
+        usage=BackgroundTaskUsage(tool_calls=1),
+    )
+
+    assert await store.append_progress(first) == first
+    with pytest.raises(BackgroundTaskConflictError):
+        await store.append_progress(replace(second, sequence=2))
+    assert await store.append_progress(second) == second
+    assert await store.progress(task.task_id, owner=owner) == (first, second)
+    with pytest.raises(LookupError):
+        await store.progress(task.task_id, owner="another-owner")
+    with pytest.raises(BackgroundTaskConflictError):
+        await store.append_progress(
+            BackgroundTaskProgress(
+                attempt_id=attempt.attempt_id,
+                sequence=2,
+                kind="investigation.progress",
+                message="This event exceeds the task budget.",
+                at=_NOW + timedelta(seconds=2),
+                usage=second.usage,
+            )
+        )
+
+
+@pytest.mark.integration
+async def test_idempotent_create_and_restart_round_trip(database_url: str) -> None:
+    owner = f"{_OWNER_PREFIX}restart-owner"
+    task = _task(f"background-restart-{uuid.uuid4().hex}", owner=owner)
+    store = _store(database_url)
+    initial, created = await store.create(task)
+    duplicate, duplicate_created = await store.create(task)
+    conflicting = replace(
+        task,
+        task_id=f"background-conflict-{uuid.uuid4().hex}",
+        context_digest="sha256:conflicting-task",
+        correlation_id="correlation:conflicting-task",
+    )
+    with pytest.raises(BackgroundTaskConflictError):
+        await store.create(conflicting)
+
+    restarted = _store(database_url)
+    loaded = await restarted.get(task.task_id, owner=owner)
+    listed = await restarted.list(owner=owner)
+
+    assert created is True
+    assert duplicate_created is False
+    assert duplicate == initial
+    assert loaded == initial
+    assert task.task_id in {attempt.task.task_id for attempt in listed}
+
+
+@pytest.mark.integration
+async def test_expired_lease_reconciles_to_unknown_without_requeue(
+    database_url: str,
+) -> None:
+    task = _task(f"background-expired-{uuid.uuid4().hex}")
+    store = _store(database_url)
+    await store.create(task)
+    claimed = await store.claim_next(
+        coordinator="coordinator:expired",
+        lease_token="lease:expired",
+        now=_NOW,
+        lease_seconds=1,
+    )
+    assert claimed is not None
+
+    reconciled = await store.reconcile_expired(now=_NOW + timedelta(seconds=1))
+
+    assert len(reconciled) == 1
+    assert reconciled[0].status is BackgroundTaskStatus.UNKNOWN
+    assert reconciled[0].result is not None
+    assert reconciled[0].result.terminal_reason == "process_lost"
+    assert (
+        await store.claim_next(
+            coordinator="coordinator:next",
+            lease_token="lease:next",
+            now=_NOW + timedelta(seconds=2),
+            lease_seconds=30,
+        )
+        is None
+    )

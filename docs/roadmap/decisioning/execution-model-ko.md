@@ -1,16 +1,16 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: b0075cdaf0574ba5ff157ce9c5d7cc93630ac873
-translation_revised: 2026-07-17
+translation_source_sha: 9561c6975e046977c4e85253a8127e033a7721df
+translation_revised: 2026-07-21
 ---
 
 # Execution 모델
 
 FDAI 이 액션 실행 **여부** 와 **방법** 을 결정하는 방식. 이 문서는
 통합 RiskGate, 권위적 [risk-classification.md](risk-classification-ko.md)
-first-match 표가 **6-axis** ActionType ceiling 과 결합하는 방식, 3개의
-executor 경로 (PR-native / direct API / PR-manual), live-blast probe
+first-match 표가 **6-axis** ActionType ceiling 과 결합하는 방식, 4개의
+executor 경로 (PR-native / direct API / PR-manual / tool call), live-blast probe
 combinator, 그리고 live 변경이 만족해야 하는 safety invariant 를
 권위적으로 정의한다.
 
@@ -40,6 +40,9 @@ combinator, 그리고 live 변경이 만족해야 하는 safety invariant 를
 > [action-ontology.md § 7](action-ontology-ko.md#7-fork-override-seam)
 > 에 문서화된 override seam 으로 tune.
 
+> **구현 상태 (2026-07-21):** Authority, risk table, kill switch, HIL resume, 4개 path,
+> probe catalog, typed operator proposal은 구현됐습니다. Azure Monitor probe I/O는 deployment binding입니다.
+
 ## 1. 여기서 "execute" 의 의미
 
 이 문서 이전까지, FDAI 이 하는 모든 것은 **shadow** 였음 - judge
@@ -49,7 +52,7 @@ mutation surface (git PR merge, Azure ARM API, scripted rollback runner)
 유지; execution 은 promoted state, per-action, measured evidence 로
 gated, 매 dispatch 에서 re-check.
 
-3개의 실 실행 경로 (§5):
+4개의 실행 경로 (§5)가 있으며 venue lifecycle은 Thor 뒤에 유지됩니다([backend 설계](../interfaces/execution-backends-ko.md)).
 
 - **PR-native** - 변경이 merge policy 가 auto-accept 하는 git PR 로
   landing (또는 사람이 accept). 감사 + rollback 은 git 으로부터.
@@ -59,9 +62,11 @@ gated, 매 dispatch 에서 re-check.
 - **PR-manual** - 변경이 `hil` label 을 carry 하는 PR 로 landing; auto-
   merge 없음, approver 가 accept MUST. 자동화된 검증이 부족한 high-risk
   액션에 사용.
+- **Tool call** - 새 executor bypass 없이 `ToolExecutor` contract를 통해 등록된
+  capability-bounded 함수를 호출.
 
-단일 ActionType 이 어느 경로를 사용하는지 declare; fork 는 환경별
-온톨로지 overlay 를 통해 override.
+단일 ActionType이 path를 선언하고 fork는 ontology overlay로 override합니다. Backend는 path나 role을
+추가하지 않으며 risk, Var approval, lock, Vidar rollback, Saga audit은 외부에 남고 profile은 낮출 수만 있습니다.
 
 ## 2. 6-axis ceiling + risk-classification 표
 
@@ -128,8 +133,8 @@ Trust router 로부터.
 | Tier | 기본 posture |
 |------|-----------------|
 | T0 (deterministic) | `enforce_auto` 허용 - T0 판정은 policy-as-code pass |
-| T1 (lightweight similarity) | Upstream 은 `enforce_hil` 이상 절대 안 됨; fork 가 ActionType 별로 raise MAY 하되 ActionType 의 `ceiling_by_tier.t1.max_autonomy` 스키마가 `enforce_auto` 를 permit 해야 함 ([action-ontology.md § 2](action-ontology-ko.md#2-스키마) 참조) |
-| T2 (frontier reasoning) | Upstream 은 `shadow_only` 이상 절대 안 됨; fork 가 raise MAY 하지만 ActionType 을 명시적으로 naming 하는 Rego 정책 하에서만 (action-ontology §7.2) |
+| T1 (lightweight similarity) | Upstream catalog ceiling은 보수적이며 overlay는 autonomy를 낮출 수만 있습니다. Authority 상향은 별도 governed promotion path를 사용하며 dispatch-time override가 아닙니다. |
+| T2 (frontier reasoning) | Catalog loader가 T2를 `shadow_only`로 hard-cap합니다. Hard cap 변경은 reviewed upstream policy change이며 fork overlay가 아닙니다. |
 
 ### 2.2 Axis C - ActionType ceiling
 
@@ -320,14 +325,11 @@ class RiskDecision:
   의 async seam 목록 밖에 두며, 기존 동기
   [`RiskGate.evaluate`](../../../src/fdai/core/risk_gate/gate.py) 와 일치.
   Probe 사전-fetch 는 이미 async 인 ControlLoop / coordinator 에서 수행.
-- **기존 `RiskDecision` 으로부터의 마이그레이션.** 오늘
-  [gate.py](../../../src/fdai/core/risk_gate/gate.py) 는
-  `RiskDecision(outcome: RiskDecisionOutcome, ...)` 를 노출. 마이그레이션은
-  additive 이며 단계적: (1) `quorum`, `matched_rule_id`, `catalog_version`,
-  `resolved_ceiling`, `execution_path` 필드를 safe default 로 추가; (2) 기존
-  caller 가 깨지지 않도록 한 릴리스 동안 `outcome` 를 `decision` 의
-  derived alias 로 유지; (3) ControlLoop 과 콘솔이 모두 `decision` 을 read
-  하면 alias 제거. 각 단계는 §10 의 property test 가 green 인 리뷰 PR.
+- **Compatibility boundary.** Runtime safety gate는 typed
+  `RiskDecision(outcome: RiskDecisionOutcome, ...)`를 유지하고 authority evaluator는
+  `ExecutionAuthorityDecision`을 생성합니다. `evaluator.py`가 둘을
+  `UnifiedRiskDecision`으로 결합하며 caller는 원본 dataclass의 staged field migration이
+  아니라 이 combined contract를 사용합니다.
 - `promotion_state` 는 기존
   [`ActionPromotionRegistry`](../../../src/fdai/core/risk_gate/gate.py)
   로부터 read - shadow-mode ActionType 은 axis 가 permit 하는 것과 관계
@@ -658,9 +660,9 @@ Chat-특화 invariant ([operator-console.md § 7.2](../interfaces/operator-conso
   에서 RiskGate 실행". 이 문서가 해당 RiskGate 의 정의; 콘솔은 그저
   호출.
 - **Chat invariant 6 (no self-approval)** = RiskGate 의 role axis
-  (Axis E) 가 caller 의 Entra `oid` 가 큐잉된 item 의 requester 와
+  (Axis F) 가 caller 의 Entra `oid` 가 큐잉된 item 의 requester 와
   매치할 때 `approve_hil` refuse.
-- **Chat invariant 7 (BreakGlass time-boxed)** = Axis E 의 BreakGlass
+- **Chat invariant 7 (BreakGlass time-boxed)** = Axis F 의 BreakGlass
   동작 (§2.5): BreakGlass 는 approval 을 위한 eligible role 을 raise
   하지만 HIL 을 절대 우회 안 함.
 
@@ -708,12 +710,12 @@ Chat-특화 invariant ([operator-console.md § 7.2](../interfaces/operator-conso
 스키마-체크 된 shape 이 필수; contract test 가 매 dispatch 가 `risk_table`
 axis 포함 schema-valid 블록 을 emit 함을 assert.
 
-## 9. 단계별 rollout
+## 9. Rollout 기록
 
-Execution 모델은 데이터 + 정책 변경; 어떤 서브시스템의 tier upgrade 도
-요구하지 않음. Rollout 은
-[action-ontology.md § 10](action-ontology-ko.md#10-migration-계획) 의
-ActionType 마이그레이션에 매치.
+Execution 모델은 subsystem tier upgrade 없이 data + policy 변경으로 landing했습니다.
+아래 sequence는 rollout 기록이며
+[action-ontology.md § 10](action-ontology-ko.md#10-migration-기록)의
+ActionType migration record와 일치합니다.
 
 ### Day 1
 
@@ -764,9 +766,6 @@ ActionType 마이그레이션에 매치.
   short-circuit, irreversible-quorum, prod downgrade, BreakGlass-eligible)
   를 사용; 각 생성 row 는 `min()` semantics 와 어느 입력도 autonomy 를
   raise 하지 않음을 assert.
-- **Overlay 우선순위 + resolved_ceiling** - 동일 axis 에 모든 네 overlay
-  layer 가 active 인 fixture; higher-precedence layer 승리 및
-  `overlay_layers_applied` 아래 이름 등장 assert.
 - **Overlay 우선순위 + resolved_ceiling** - 동일 axis 에 모든 네 overlay
   layer 가 active 인 fixture; higher-precedence layer 승리 및
   `overlay_layers_applied` 아래 이름 등장 assert.

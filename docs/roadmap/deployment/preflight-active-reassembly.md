@@ -5,12 +5,10 @@ title: Preflight Active Plan Reassembly (policy blocker to re-rendered terraform
 
 When [deployment-preflight](deployment-preflight.md) reports a `policy_guardrail`
 or `supply_chain_egress` blocker that has a registered capability-mode toggle,
-the system does not stop at "here is the problem". It **actively re-renders the
-terraform plan** into a supported alternate shape - one that never emits the
-denied operation in the first place - and delivers the change as a remediation
-PR through the existing [executor](../architecture/project-structure.md). This turns a denied
-resource type or a blocked package source from a hard stop into a self-clearing
-finding.
+the shipped pure loop can calculate and re-verify overrides that **actively re-render the
+terraform plan** into a supported alternate shape. That shape never emits the denied operation.
+Delivery as a remediation PR through the existing
+[executor](../architecture/project-structure.md) begins after live composition wiring lands.
 
 This document is authoritative for **the active-reassembly loop, its
 convergence and stop-conditions, the ActionType that carries it, and the honest
@@ -23,6 +21,10 @@ the toggle modules themselves live in
 > baked in upstream. The upstream ships the reassembly machinery and the generic
 > toggle catalog; a fork supplies the specific guardrail values and consumer
 > wiring ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+>
+> **Implementation status.** The bounded convergence loop, toggle proposal builder, ActionType,
+> data-only toggle modules, and reference consumer are shipped. The real policy-finding trigger,
+> plan renderer, `ProposalSink` -> Huginn binding, PR publisher, and audit write are not wired yet.
 
 ## Why This Is Possible (and Not Magic)
 
@@ -38,15 +40,13 @@ The rails already exist; active reassembly connects them end to end:
    encode the compliant shape (`disk_provisioning=attach_existing`,
    `registry_source=acr_mirror`, ...) as data-only Terraform.
 
-The two pieces that were missing - and that this design adds - are:
+The two pieces this design added now have these states:
 
-- **A toggle-apply executor**: something that takes an `autofix`
-  `terraform_toggle` finding, renders the tfvars override, and opens a
-  remediation PR. Today the resolution is declared but never acted on; the report
-  is only *posted* to a PR
+- **Toggle proposal builder (shipped)**: renders every `autofix` toggle in a cleared outcome as
+  one typed proposal. The live sink/publisher binding is still absent, so it does not open a PR
   ([check_publish.py](../../../src/fdai/core/deploy_preflight/check_publish.py)).
-- **A convergence loop**: re-run preflight over the reassembled plan so a fix for
-  one blocker cannot silently introduce another.
+- **Convergence loop (shipped)**: uses caller-provided plan-render and reanalysis callbacks to
+  ensure a fix for one blocker cannot silently introduce another.
 
 ## The Reassembly Loop
 
@@ -132,8 +132,8 @@ otherwise the finding degrades to guidance + `hil`:
 3. the reassembled plan re-passes preflight (verifier re-check);
 4. the override stays within the declared `blast_radius`.
 
-`autofix: false` toggles still render a *proposed* diff, but as review guidance
-on the PR, not an auto-opened remediation - the operator flips the variable.
+`autofix: false` toggles submit no proposal or diff. They remain manual guidance in the report,
+the whole pass escalates, and the operator reviews the variable change.
 
 ### Action Granularity: One Action per Toggle
 
@@ -179,9 +179,9 @@ it reuses:
   from the prior plan, and the rollback reference is embedded in the PR body.
 - **Blast-radius limit** - the reassembly touches only the declared infra
   variables; exceeding the cap abstains to `hil`.
-- **Audit-log entry** - every terminal outcome (reassembled + PR posted,
-  converged-clear, non-convergence -> hil, partial-blocker -> hil, probe raise ->
-  fail-closed) writes one hash-chained audit record.
+- **Audit-log entry** - the pure loop returns an audit-grade terminal reason and toggle
+  provenance. Live composition writes the hash-chained audit record when it submits the result;
+  the currently unwired core primitive does not call the audit store.
 
 Reassembly ships **shadow-first**: the PR is a draft, judged and rendered but not
 merged, until the toggle mapping's false-positive rate is measured and the
@@ -201,8 +201,8 @@ category is explicitly promoted to enforce.
 | Reference consumer wiring (one toggle) | [infra/modules/preflight-toggles/reference-disk-consumer/](../../../infra/modules/preflight-toggles/reference-disk-consumer/README.md) | shipped (fork copies it) |
 | **Composition wiring: `ProposalSink` + live trigger** | composition root + `delivery/azure/preflight/` | **remaining** |
 
-`core/` sees only the `FeasibilityProbe` Protocol and the
-`RemediationPrPublisher` seam; the reassembly loop constructs no cloud SDK
+`core/` sees only the `FeasibilityProbe` Protocol and a caller-supplied `ProposalSink` callable;
+the reassembly loop constructs no cloud SDK
 and opens no PR itself - it decides the overrides and hands them to the executor
 (via the ActionType), which owns the publish and the invariants.
 

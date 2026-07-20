@@ -276,6 +276,13 @@ infra/backend.tf
 secrets/
 .secrets/
 
+# Governed trajectory exports contain deployment-scoped operational evidence.
+# Only code, schemas, and synthetic tests are tracked; exported datasets stay local.
+/trajectory-exports/
+*.trajectory.jsonl
+*.trajectory.jsonl.manifest.json
+*.trajectory.jsonl.partial
+
 # --------------------------------------------------------------------------
 # Framework-surface integrity signing (scripts/integrity/sign-integrity.sh).
 # The Ed25519 PRIVATE signing key never enters the tree (covered by *.pem /

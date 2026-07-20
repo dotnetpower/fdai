@@ -38,6 +38,12 @@ variable "read_api_identity_client_id" {
   type        = string
 }
 
+variable "monitor_workspace_customer_id" {
+  description = "Log Analytics workspace customer id exposed as FDAI_MONITOR_WORKSPACE_ID for bounded Command Deck KQL reads."
+  type        = string
+  default     = ""
+}
+
 variable "chatops_webhook_secret_id" {
   description = "Key Vault secret id containing the HIL callback HMAC secret."
   type        = string

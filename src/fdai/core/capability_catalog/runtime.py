@@ -24,6 +24,7 @@ class CapabilityBindingKind(StrEnum):
 
     REASONING_TOOL = "reasoning_tool"
     ACTION_TYPE = "action_type"
+    CONTEXT_SELECTION_POLICY = "context_selection_policy"
     WORKFLOW = "workflow"
 
 
@@ -51,6 +52,7 @@ class CapabilityReferences:
 
     reasoning_tools: Mapping[str, str | None] = field(default_factory=dict)
     action_types: frozenset[str] = frozenset()
+    context_selection_policies: frozenset[str] = frozenset()
     workflows: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
@@ -60,6 +62,11 @@ class CapabilityReferences:
             MappingProxyType(dict(self.reasoning_tools)),
         )
         object.__setattr__(self, "action_types", frozenset(self.action_types))
+        object.__setattr__(
+            self,
+            "context_selection_policies",
+            frozenset(self.context_selection_policies),
+        )
         object.__setattr__(self, "workflows", frozenset(self.workflows))
 
 
@@ -189,6 +196,7 @@ def _validate_binding(
     available_by_kind = {
         CapabilityBindingKind.REASONING_TOOL: references.reasoning_tools,
         CapabilityBindingKind.ACTION_TYPE: references.action_types,
+        CapabilityBindingKind.CONTEXT_SELECTION_POLICY: references.context_selection_policies,
         CapabilityBindingKind.WORKFLOW: references.workflows,
     }
     if binding.target_ref not in available_by_kind[binding.kind]:
@@ -210,6 +218,7 @@ def build_capability_references(
     *,
     reasoning_tools: Iterable[ToolArtifact] = (),
     action_types: Iterable[OntologyActionType] = (),
+    context_selection_policies: Iterable[str] = (),
     workflows: Iterable[Workflow] = (),
 ) -> CapabilityReferences:
     """Build cross-reference inputs directly from loaded runtime catalogs."""
@@ -217,6 +226,7 @@ def build_capability_references(
     return CapabilityReferences(
         reasoning_tools={artifact.id: artifact.provider for artifact in reasoning_tools},
         action_types=frozenset(action_type.name for action_type in action_types),
+        context_selection_policies=frozenset(context_selection_policies),
         workflows=frozenset(workflow.name for workflow in workflows),
     )
 

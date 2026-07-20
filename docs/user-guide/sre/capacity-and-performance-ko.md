@@ -1,8 +1,8 @@
 ---
 title: 용량과 성능
-description: FDAI가 측정된 demand와 forecast를 제한된 capacity finding 및 governed scaling proposal로 바꾸는 방법입니다.
+description: FDAI가 측정된 수요와 예측을 범위가 제한된 용량 문제와 통제된 확장 제안으로 바꾸는 방법입니다.
 translation_of: capacity-and-performance.md
-translation_source_sha: 16073782a54625984110ef8f500508953a740df5
+translation_source_sha: 048fdc27d7c9a221ca7bac765a842f2828c4a446
 translation_revised: 2026-07-20
 ---
 

@@ -15,13 +15,10 @@ Teams-specific flows in
 Web-UI (the read-only console) is out of scope for this doc; the console's identity flow
 lives in [user-rbac-and-identity.md](user-rbac-and-identity.md).
 
-> **Direction scope.** This document covers **push** (system → human):
-> notifications, alerts, and approval-card fan-out. The **pull** direction
-> (human → system: conversational queries, tool calls, session-scoped
-> approvals via the same channels) is documented in
-> [operator-console.md](operator-console.md). Push and pull share channel
-> credentials + routing config but ship as distinct adapters so send-only
-> and receive-plus-send blast-radius stay separate.
+> **Direction scope.** Outbound notifications, A1 approvals, and bidirectional conversations use
+> separate Protocols. This document owns their shared trust/category/routing principles and
+> outbound delivery; [operator-console.md](operator-console.md) owns conversation tool and session
+> semantics. Adapters can share credentials, but the three contracts keep distinct blast radii.
 
 > Customer-agnostic: every channel id, group name, and endpoint below is a **placeholder**.
 > A fork supplies its own tenant, workspace, and endpoint values via config
@@ -29,8 +26,9 @@ lives in [user-rbac-and-identity.md](user-rbac-and-identity.md).
 
 ## 1. Design Principles
 
-1. **One abstraction, many adapters.** Core code never names Teams or Slack; it emits a
-   category-tagged message and the router picks channels. New channels are additive.
+1. **Three narrow abstractions, many adapters.** `NotificationChannel` owns A2/A4 push,
+  `HilChannel` owns A1 send/poll, and `ConversationChannelAdapter` owns A3 inbound/outbound.
+  Core code never names Teams or Slack; new vendor adapters are additive.
 2. **Categorize by purpose, not vendor.** A channel supports one or more of four
    categories (§3). Vendors are constrained by which categories they can safely serve.
 3. **Trust-tiered.** Approval-category traffic (A1) MUST NOT flow through a channel that
@@ -65,9 +63,9 @@ flowchart LR
     API --> RG
 ```
 
-- Adapters live under `delivery/chatops/<vendor>/` (see
-  [project-structure.md](../architecture/project-structure.md)). Each adapter implements the same
-  `Channel` interface from `shared/providers/`.
+- Outbound adapters live under `delivery/notifications/`, bidirectional adapters under
+  `delivery/channels/`, and A1 approval adapters under `delivery/chatops/`. Their contracts live in
+  `shared/providers/notifications/`, `conversation_channel.py`, and `hil_channel.py`, respectively.
 - The **channel-router** is a thin core module: it takes a category and a message and
   picks channels per the fork's routing config (§6). It holds no vendor knowledge.
 - **Approval callbacks from any adapter land at `fdai-api`**, which re-validates
@@ -201,10 +199,10 @@ channel, principal, or credential data.
 
 ### 4.2 Rich thread and delivery behavior
 
-`OutboundResponse` carries vendor-neutral rich delivery intent without giving core code a Slack or
-Teams dependency. Existing text replies remain the default. A response can optionally add bounded
-mentions and select exactly one rich operation: incremental stream chunks, an edit target, or a
-reaction. Ambiguous combinations and oversized values fail before a publisher call.
+`OutboundResponse` carries vendor-neutral rich delivery and thread intent without giving core code
+a Slack or Teams dependency. Existing text replies remain the default; scheduled continuations use
+explicit origin or dedicated thread mode and carry an opaque anchor id as metadata. A response can
+add bounded mentions and one rich operation; ambiguous or oversized values fail before publishing.
 
 Concrete publishers map that intent as follows:
 
@@ -228,6 +226,14 @@ timestamp for posts. Teams requires the Bot Framework resource id for message cr
 malformed acknowledgements fail the send rather than reporting delivery. The adapters forward the
 receipt to the caller; transport failures still raise and follow the existing retry/audit path.
 
+### 4.3 Durable reply delivery and adapter controls
+
+External conversation replies use the persisted ledger in
+[durable-conversation-delivery.md](durable-conversation-delivery.md). Provider HTTP rejection is a
+definitive failure eligible for bounded retry. Transport interruption or a missing/malformed
+acknowledgement is ambiguous and never retried automatically. Pause/resume mutations live only in
+separately authenticated ChatOps command routes; the console receives GET-only reliability metrics.
+
 Authenticated generic webhooks can opt into `TypedWebhookMapping`. The mapping fixes one
 allowlisted normalized event type and target agent at configuration time; payload-supplied event,
 agent, command, or session values cannot override them. Server-owned dot paths project only
@@ -236,52 +242,17 @@ fail before publication. A bounded session key is the SHA-256 digest of explicit
 values, so raw external identity values do not become session ids. The projected event still
 enters event-ingest, trust routing, risk gating, and audit; the webhook never executes an action.
 
-## 5. Channel Interface (contract)
+## 5. Channel Interfaces (contracts)
 
-The `Channel` interface lives in `shared/providers/` and is implemented per vendor under
-`delivery/chatops/<vendor>/`. Core code depends only on this contract.
+- **A2/A4:** `NotificationChannel.send(NotificationMessage) -> DeliveryReceipt`.
+  `NotificationMessage.category` is a semantic route key; `trust_tier` carries A1-A4.
+- **A1:** `HilChannel.send(HilApprovalRequest) -> HilApprovalReceipt` and
+  `poll(receipt) -> HilResponse`.
+- **A3:** `ConversationChannelAdapter.receive() -> InboundTurn` and
+  `send(OutboundResponse) -> ChannelDeliveryReceipt`.
 
-```typescript
-type ChannelCategory = 'A1' | 'A2' | 'A3' | 'A4';
-type TrustLevel = 'entra-native' | 'external-mapped' | 'send-only';
-
-interface Channel {
-  id: string;                            // "teams-hil-prd", "slack-ops-alerts"
-  categories: ChannelCategory[];         // which categories this channel is allowed to serve
-  trust_level: TrustLevel;
-
-  // A2 / A4 (send-only) - every channel implements
-  send(msg: NotificationMessage): Promise<DeliveryReceipt>;
-
-  // A1 - implemented by approval-capable channels only
-  awaitDecision?(req: ApprovalRequest, ttl: Duration): Promise<ApprovalOutcome>;
-
-  // A3 - implemented by chat-command-capable channels only
-  registerCommand?(cmd: ChatCommandSpec, handler: CommandHandler): void;
-}
-
-interface NotificationMessage {
-  category: ChannelCategory;
-  correlation_id: string;                // §7 in user-rbac-and-identity.md
-  audit_id?: string;
-  title: string;
-  body_markdown: string;                 // pre-redacted; adapter re-scans for known-secret patterns
-  links: { label: string; url: string }[];    // links only - no inline action buttons for A2/A4
-  severity?: 'info' | 'warn' | 'error' | 'critical';
-}
-
-interface ApprovalRequest {
-  category: 'A1';
-  correlation_id: string;
-  approval_id: string;                   // opaque; the decision endpoint is what actually authorizes
-  action_hash: string;                   // binds the approval to a specific pending action
-  idempotency_key: string;
-  ttl: Duration;                         // fail-closed on expiry
-}
-```
-
-- **Adapters MUST NOT authorize the decision themselves.** `awaitDecision` returns
-  whatever the user clicks; the core router hands that raw click to `fdai-api`,
+- **Adapters MUST NOT authorize the decision themselves.** `HilChannel.poll` returns
+  the raw response; the core router hands it to `fdai-api`,
   which is the sole authority (identity re-verify, replay check, no-self-approval).
 - **Adapters MUST re-scan the message body** for known secret patterns (same regex set
   used by the CI secret scanner) before dispatching, as a last-line defense.
@@ -347,71 +318,31 @@ per-event noise.
 Routing is declarative config, evaluated by the channel-router. Adding, replacing, or
 reordering channels is a config change, never a code change.
 
-**Config location**: the routing config lives in the **catalog-as-code repo** alongside
-rules, assignments, exemptions, and overrides (path: `rule-catalog/channel-routing/`). It
-inherits the same CODEOWNERS / signed-commit / no-direct-push protections; a routing
-change is reviewed like a governance change. Owner-tier reviewers are required on any
-change touching A1 routing.
+**Config location**: outbound routing lives in
+[`config/notifications-matrix.yaml`](../../../config/notifications-matrix.yaml). Routing changes
+receive governance review, with Owner-tier review for A1 routes. Conversation channel enablement
+uses its separate environment/configuration contract.
 
 ```yaml
-channel_routing:
-  hil_approval:                    # category A1
-    primary:   teams-hil-prd
-    fallback:  [teams-hil-standby, slack-hil-prd]   # A1 fallback MUST be A1-capable
-    on_all_fail: queue_and_page_ops                 # never auto-execute
-    ttl: 30m                                        # then fail-closed → HIL queue + A2 alert
-
-  operational_alerts:              # category A2
-    primary:   teams-ops-prd
-    fallback:  [pagerduty-primary, email-oncall]
-    dedupe_window: 10m                              # via observability correlation
-
-  chat_commands:                   # category A3
-    channels:
-      - teams-hil-prd
-      - slack-hil-prd
-    # role check is per-command (§3.1); the router does not re-implement it
-
-  digests:                         # category A4 - seven default digests
-    shadow_accuracy_daily:
-      cron: "0 9 * * *"
-      audience:
-        - channel: teams-hil-prd
-        - channel: email-governance
-    enforce_promotion_candidates_weekly:
-      cron: "0 9 * * MON"
-      audience:
-        - channel: teams-hil-prd
-        - channel: email-governance
-        - mention-artifact-owner: rule_author
-    override_retrospective_weekly:
-      cron: "0 9 * * MON"
-      audience:
-        - channel: teams-hil-prd
-        - channel: email-governance
-        - mention-artifact-owner: override_requester
-    governance_pr_aging_weekly:
-      cron: "0 9 * * MON"
-      audience:
-        - channel: teams-hil-prd
-        - mention-artifact-owner: pr_author_and_reviewers
-    exemption_expiry_lookahead_weekly:
-      cron: "0 9 * * MON"
-      audience:
-        - channel: teams-hil-prd
-        - channel: email-governance
-        - mention-artifact-owner: exemption_requester
-    kpi_and_cost_monthly:
-      cron: "0 9 1 * *"
-      audience:
-        - channel: email-governance                # Owners-backed DL
-        - channel: teams-hil-prd
-        - github-issue: kpi-monthly-archive        # append-only archive in the repo
-    break_glass_usage_summary:
-      trigger: on-event-and-weekly                 # immediate on every BG sign-in + Monday rollup
-      audience:
-        - channel: teams-break-glass
-        - role-dm: Owner                           # the only allowed role-dm audience
+matrix:
+  version: 1
+  default_route: hil_approval
+  routes:
+    hil_approval:
+      trust_tier: a1_hil_approval
+      primary: teams-hil-prd
+      fallback: [teams-hil-standby, slack-hil-prd]
+      on_all_fail: hil_escalate
+    operational_alert:
+      trust_tier: a2_operational_alert
+      primary: teams-ops-prd
+      fallback: [pagerduty-primary, email-oncall]
+      on_all_fail: hil_escalate
+    digest_shadow_accuracy_daily:
+      trust_tier: a4_digest
+      primary: teams-hil-prd
+      fallback: [email-governance]
+      on_all_fail: hil_escalate
 ```
 
 **Router rules (MUST)**
@@ -457,12 +388,12 @@ channel_routing:
 
 | Item | Upstream (this repo) | Fork |
 |------|----------------------|------|
-| `Channel` interface + `NotificationMessage` / `ApprovalRequest` types | ✓ | - |
+| Three provider contracts plus their message/receipt types | ✓ | - |
 | Teams adapter (default A1 + A2 + A3 + A4 impl) | ✓ | tenant / group-connected team binding |
 | **Slack adapter with A1 enabled by default (P1)** | ✓ | workspace credentials + userId↔OID mapping (required) |
 | ACS Email adapter | ✓ (A2/A4, managed identity, final-status polling) | recipient binding + enablement |
-| Webhook / Pager / SMS adapters | ✓ (skeletons) | credentials + enablement |
-| Routing-config schema + startup validation | ✓ | actual routing values in `rule-catalog/channel-routing/` |
+| Webhook / PagerDuty / SMS adapters | ✓ (concrete delivery adapters) | credentials + enablement |
+| Routing-config schema + startup validation | ✓ | deployment-specific bindings/overlays |
 | HIL escalation sink (`on_all_fail` fail-safe queue) | ✓ (`StateStoreHilEscalationSink` - StateStore-backed, tenant-agnostic) | own queue backend (optional) |
 | Seven default digests + audience derivation rules | ✓ | cron timezone, channel ids, on/off per digest |
 | Secret-scan regex set (reused by adapters) | ✓ | extend patterns if needed |
@@ -472,8 +403,8 @@ channel_routing:
 ## 10. Open Decisions
 
 - [ ] Adapter-health alert thresholds and dedupe windows.
-- [ ] Which vendors' incoming webhooks (if any) may open incidents into FDAI -
-      today only observability opens A2 traffic; external webhooks in are separate scope.
+- [x] Incoming webhook scope - only authenticated `TypedWebhookMapping` can publish an allowlisted
+  event/agent target; payloads cannot select commands, targets, or sessions.
 - [ ] The `mention-artifact-owner` behavior when the artifact owner is a **guest** user
       (mention still resolves in Teams, but should the digest suppress or route
       differently to reduce information leakage?).

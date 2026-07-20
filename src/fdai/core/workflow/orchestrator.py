@@ -20,6 +20,7 @@ from fdai.core.workflow.workflow_runtime import (
 from fdai.core.workflow.workflow_runtime import (
     ProcessRun,
     WorkflowActionDispatcher,
+    WorkflowEvidenceDispatcher,
     WorkflowGuardEvaluator,
     derive_process_id,
     process_state_key,  # noqa: F401 - compatibility import
@@ -61,6 +62,7 @@ class WorkflowOrchestrator:
         "_planner",
         "_action_types",
         "_action_dispatcher",
+        "_evidence_dispatcher",
         "_audit",
         "_guard_evaluator",
         "_process_store",
@@ -75,10 +77,12 @@ class WorkflowOrchestrator:
         process_store: ProcessRuntimeStore,
         guard_evaluator: WorkflowGuardEvaluator | None = None,
         action_dispatcher: WorkflowActionDispatcher | None = None,
+        evidence_dispatcher: WorkflowEvidenceDispatcher | None = None,
     ) -> None:
         self._planner = planner
         self._action_types = action_types
         self._action_dispatcher = action_dispatcher
+        self._evidence_dispatcher = evidence_dispatcher
         self._audit = audit_store
         self._guard_evaluator = guard_evaluator
         self._process_store = process_store
@@ -95,6 +99,22 @@ class WorkflowOrchestrator:
             process_store=self._process_store,
             guard_evaluator=self._guard_evaluator,
             action_dispatcher=dispatcher,
+            evidence_dispatcher=self._evidence_dispatcher,
+        )
+
+    def with_evidence_dispatcher(
+        self,
+        dispatcher: WorkflowEvidenceDispatcher,
+    ) -> WorkflowOrchestrator:
+        """Return an equivalent orchestrator with evidence capture enabled."""
+        return WorkflowOrchestrator(
+            planner=self._planner,
+            action_types=self._action_types,
+            audit_store=self._audit,
+            process_store=self._process_store,
+            guard_evaluator=self._guard_evaluator,
+            action_dispatcher=self._action_dispatcher,
+            evidence_dispatcher=dispatcher,
         )
 
     async def run(
@@ -207,6 +227,7 @@ class WorkflowOrchestrator:
             process_id=process_id,
             action_types=self._action_types,
             action_dispatcher=self._action_dispatcher,
+            evidence_dispatcher=self._evidence_dispatcher,
             audit_store=self._audit,
             approvals=approvals,
             guards=guards,

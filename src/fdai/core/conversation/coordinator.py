@@ -70,6 +70,10 @@ class _IntentMatch:
 
 
 _VERB_PATTERNS: tuple[tuple[str, str], ...] = (
+    (
+        r"^\s*(?P<verb>search[_\s-]?conversations?)\b\s*(?P<rest>.*)$",
+        "search_conversations",
+    ),
     (r"^\s*(?P<verb>search[_\s-]?tools?)\b\s*(?P<rest>.*)$", "search_tools"),
     (r"^\s*(?P<verb>describe[_\s-]?tool)\b\s*(?P<rest>.*)$", "describe_tool"),
     # Explicit verb + argument. Anchored so an accidental substring
@@ -250,8 +254,10 @@ class ConversationCoordinator:
 
         tool = self._tools.get(match.tool_name)
         if tool is None:
-            # Should not happen - intent matcher can only name registered tools.
-            raise KeyError(f"intent matched an unregistered tool: {match.tool_name!r}")
+            return ToolResult(
+                status="error",
+                preview=f"tool {match.tool_name!r} is not installed",
+            )
 
         if not principal_has_role_at_least(session.principal.role, tool.rbac_floor):
             preview = (

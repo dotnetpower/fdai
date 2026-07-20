@@ -14,6 +14,10 @@ from fdai.core.incident.registry import IncidentRegistry
 from fdai.core.incident.workflow import IncidentConfirmationError
 from fdai.core.scheduler.store import InMemoryScheduleStore
 from fdai.shared.contracts.models import IncidentSeverity, IncidentState
+from fdai.shared.providers.scheduled_continuation import (
+    ContinuationMode,
+    ScheduledResultOrigin,
+)
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
@@ -109,6 +113,28 @@ async def test_create_scheduled_task_persists_to_shared_store() -> None:
     assert [t.task_id for t in stored] == [task.task_id]
     assert task.created_by == "op@example.com"
     assert task.enabled is True
+
+
+@pytest.mark.asyncio
+async def test_create_scheduled_task_accepts_server_resolved_continuation_origin() -> None:
+    command = CreateScheduledTaskCommand(store=InMemoryScheduleStore())
+    origin = ScheduledResultOrigin(
+        channel_kind="web",
+        channel_ref="console",
+        conversation_ref="conversation-1",
+    )
+
+    task = await command.create(
+        principal=_contributor(),
+        name="hourly scoped briefing",
+        interval_seconds=3600,
+        event_type="synthetic.monitor.scope",
+        continuation_mode=ContinuationMode.ORIGIN_THREAD,
+        continuation_origin=origin,
+    )
+
+    assert task.continuation_mode is ContinuationMode.ORIGIN_THREAD
+    assert task.continuation_origin == origin
 
 
 @pytest.mark.asyncio

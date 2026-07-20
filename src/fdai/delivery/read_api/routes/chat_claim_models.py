@@ -18,6 +18,7 @@ class EvidenceEntry:
     raw_value: str
     normalized_value: str
     anchors: tuple[str, ...]
+    aliases: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -28,6 +29,7 @@ class EvidenceEntry:
             "raw_value": self.raw_value,
             "normalized_value": self.normalized_value,
             "anchors": list(self.anchors),
+            "aliases": list(self.aliases),
         }
 
 
@@ -105,6 +107,7 @@ class ScreenClaimResult:
 class ClaimDraft:
     kind: ClaimKind
     text: str
+    text_start: int
     start: int
     end: int
     raw_value: str

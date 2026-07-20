@@ -9,6 +9,13 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Protocol
 
+from fdai.core.skills.bundle_catalog import SkillBundleCatalog
+from fdai.core.skills.bundle_manifest import SkillBundleTrustVerifier
+from fdai.core.skills.bundle_workshop import (
+    SkillBundleProposal,
+    SkillBundleProposalStore,
+    SkillBundleWorkshop,
+)
 from fdai.core.skills.catalog import (
     SkillCatalog,
     SkillCatalogError,
@@ -111,10 +118,77 @@ class SkillWorkshop:
         store: SkillProposalStore,
         audit: SkillWorkshopAudit,
         authorizer: SkillReviewAuthorizer,
+        bundle_store: SkillBundleProposalStore | None = None,
     ) -> None:
         self._store = store
         self._audit = audit
         self._authorizer = authorizer
+        self._bundle_workshop = (
+            SkillBundleWorkshop(store=bundle_store, audit=audit, authorizer=authorizer)
+            if bundle_store is not None
+            else None
+        )
+
+    async def propose_bundle(
+        self,
+        raw_manifest: bytes,
+        *,
+        proposed_by_agent: str,
+        at: datetime,
+    ) -> SkillBundleProposal:
+        return await self._bundles().propose(
+            raw_manifest,
+            proposed_by_agent=proposed_by_agent,
+            at=at,
+        )
+
+    async def review_bundle(
+        self,
+        proposal_id: str,
+        *,
+        reviewer_id: str,
+        approve: bool,
+        reason: str,
+        at: datetime,
+    ) -> SkillBundleProposal:
+        return await self._bundles().review(
+            proposal_id,
+            reviewer_id=reviewer_id,
+            approve=approve,
+            reason=reason,
+            at=at,
+        )
+
+    async def materialize_bundle(
+        self,
+        proposal_id: str,
+        *,
+        actor_id: str,
+        at: datetime,
+    ) -> bytes:
+        return await self._bundles().materialize(proposal_id, actor_id=actor_id, at=at)
+
+    async def promote_bundle(
+        self,
+        proposal_id: str,
+        *,
+        actor_id: str,
+        at: datetime,
+        catalog: SkillBundleCatalog,
+        verifier: SkillBundleTrustVerifier,
+    ) -> SkillBundleCatalog:
+        return await self._bundles().promote(
+            proposal_id,
+            actor_id=actor_id,
+            at=at,
+            catalog=catalog,
+            verifier=verifier,
+        )
+
+    def _bundles(self) -> SkillBundleWorkshop:
+        if self._bundle_workshop is None:
+            raise SkillWorkshopError("skill bundle proposal store is not configured")
+        return self._bundle_workshop
 
     async def propose(
         self,

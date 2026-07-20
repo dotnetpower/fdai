@@ -27,6 +27,12 @@ _OPERATIONAL_INTENT: Final = re.compile(
     "|\uc2e4\ud328|\ubb38\uc81c|\uc6d0\uc778|\uadfc\ubcf8 \uc6d0\uc778",
     re.IGNORECASE,
 )
+_EXPLICIT_OPERATIONAL_CONTEXT: Final = re.compile(
+    r"\b(recent|latest|last|incident|outage|failure|root cause|cause|why did)\b"
+    "|\ucd5c\uadfc|\ucd5c\uc2e0|\uc9c1\uc804|\uc778\uc2dc\ub358\ud2b8|\uc7a5\uc560"
+    "|\uc2e4\ud328|\uc6d0\uc778|\uadfc\ubcf8 \uc6d0\uc778",
+    re.IGNORECASE,
+)
 _CURRENT_SCREEN_ONLY: Final = re.compile(
     r"\b(this screen|this page|this tile|selected|on screen|shown here)\b"
     "|\uc774 \ud654\uba74|\uc774 \ud398\uc774\uc9c0|\uc774 \ud0c0\uc77c|\uc120\ud0dd\ud55c"
@@ -96,10 +102,24 @@ _AUDIT_FIELDS: Final = (
 )
 
 
-def needs_operational_evidence(prompt: str) -> bool:
-    """Return whether a turn asks for operational evidence beyond the screen."""
+def needs_operational_evidence(
+    prompt: str,
+    view_context: Mapping[str, Any] | None = None,
+) -> bool:
+    """Return whether a turn explicitly asks for operational evidence beyond the screen.
 
-    return bool(_OPERATIONAL_INTENT.search(prompt) and not _CURRENT_SCREEN_ONLY.search(prompt))
+    ``Issue`` and ``problem`` alone are domain nouns on the ontology screen.
+    That route requires recency, incident, outage, failure, or cause language
+    before it leaves the current-screen authority.
+    """
+
+    operational = bool(
+        _OPERATIONAL_INTENT.search(prompt) and not _CURRENT_SCREEN_ONLY.search(prompt)
+    )
+    if not operational:
+        return False
+    route = str((view_context or {}).get("routeId") or "").lower()
+    return route != "ontology" or bool(_EXPLICIT_OPERATIONAL_CONTEXT.search(prompt))
 
 
 def _topic_terms(prompt: str) -> tuple[str, ...]:

@@ -8,6 +8,7 @@ integration test at the bottom.
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from textwrap import dedent
 
@@ -18,6 +19,8 @@ from fdai.core.prompts import (
     DefaultPromptComposer,
     FileSystemPromptRegistry,
     PromptLayer,
+    SkillDisclosureRequest,
+    SkillSelectionStatus,
 )
 from fdai.core.prompts.testing import StaticPromptComposer
 
@@ -970,3 +973,295 @@ def test_deterministic_canary_generator_returns_stub_for_unprimed_layer() -> Non
     gen = DeterministicCanaryGenerator(tokens={"base": "CN_KNOWN"})
     assert gen.next_token(layer_id="base") == "CN_KNOWN"
     assert gen.next_token(layer_id="unprimed") == "CN_stub_unprimed"
+
+
+# ---------------------------------------------------------------------------
+# Explicit runtime skill disclosure
+# ---------------------------------------------------------------------------
+
+
+class _SkillTrustVerifier:
+    def __init__(self, *, trusted: bool = True) -> None:
+        self.trusted = trusted
+
+    def verify(self, skill, raw_markdown: bytes) -> bool:
+        return self.trusted
+
+
+def _raw_runtime_skill(
+    *,
+    name: str,
+    body: str,
+    required_tools: tuple[str, ...] = ("inventory.query",),
+    allowed_agents: tuple[str, ...] = ("Bragi",),
+    reference: tuple[str, bytes, str] | None = None,
+) -> tuple[bytes, dict[str, bytes]]:
+    import yaml
+
+    from fdai.core.skills import skill_body_digest
+
+    manifest: dict[str, object] = {
+        "name": name,
+        "version": "1.2.3",
+        "description": f"Metadata for {name}.",
+        "source": f"test:{name}",
+        "body_sha256": skill_body_digest(body),
+        "required_tools": list(required_tools),
+        "allowed_agents": list(allowed_agents),
+    }
+    references: dict[str, bytes] = {}
+    if reference is not None:
+        path, content, media_type = reference
+        manifest["references"] = [
+            {
+                "path": path,
+                "sha256": hashlib.sha256(content).hexdigest(),
+                "size_bytes": len(content),
+                "media_type": media_type,
+            }
+        ]
+        references[path] = content
+    front_matter = yaml.safe_dump(manifest, sort_keys=False)
+    return f"---\n{front_matter}---\n{body}\n".encode(), references
+
+
+def _runtime_skill_catalog(
+    *skills: tuple[str, str, tuple[str, bytes, str] | None],
+) -> tuple[object, _SkillTrustVerifier]:
+    from fdai.core.skills import SkillCatalog
+
+    verifier = _SkillTrustVerifier()
+    catalog = SkillCatalog()
+    for name, body, reference in skills:
+        raw, references = _raw_runtime_skill(name=name, body=body, reference=reference)
+        catalog = catalog.install_bundle(raw, references, verifier=verifier).enable(
+            name,
+            available_tools=frozenset({"inventory.query"}),
+            known_agents=frozenset({"Bragi"}),
+        )
+    return catalog, verifier
+
+
+def _skill_request(**overrides) -> SkillDisclosureRequest:
+    values = {
+        "agent": "Bragi",
+        "available_tools": frozenset({"inventory.query"}),
+        "query": "  inventory   evidence  ",
+        "selected_skill_names": ("inventory-evidence",),
+    }
+    values.update(overrides)
+    return SkillDisclosureRequest(**values)
+
+
+@pytest.mark.asyncio
+async def test_skill_disclosure_absence_and_unconfigured_catalog_are_exact_compatibility(
+    tmp_path: Path,
+) -> None:
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.reasoner.primary", "BASE"))
+    registry = FileSystemPromptRegistry(tmp_path)
+    catalog, verifier = _runtime_skill_catalog(("inventory-evidence", "SECRET-SKILL-BODY", None))
+    baseline = await DefaultPromptComposer(registry=registry).compose(
+        capability_id="t2.reasoner.primary"
+    )
+    configured_without_request = await DefaultPromptComposer(
+        registry=registry,
+        skill_catalog=catalog,
+        skill_trust_verifier=verifier,
+    ).compose(capability_id="t2.reasoner.primary")
+    unconfigured_with_request = await DefaultPromptComposer(registry=registry).compose(
+        capability_id="t2.reasoner.primary",
+        skill_disclosure=_skill_request(),
+    )
+
+    assert configured_without_request == baseline
+    assert unconfigured_with_request == baseline
+
+
+def test_skill_catalog_and_verifier_must_be_wired_as_a_pair(tmp_path: Path) -> None:
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.reasoner.primary", "BASE"))
+    registry = FileSystemPromptRegistry(tmp_path)
+    catalog, verifier = _runtime_skill_catalog()
+
+    with pytest.raises(ValueError, match="provided together"):
+        DefaultPromptComposer(registry=registry, skill_catalog=catalog)
+    with pytest.raises(ValueError, match="provided together"):
+        DefaultPromptComposer(registry=registry, skill_trust_verifier=verifier)
+
+
+@pytest.mark.asyncio
+async def test_skill_index_precedes_complete_body_and_contains_metadata_only(
+    tmp_path: Path,
+) -> None:
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.reasoner.primary", "BASE"))
+    registry = FileSystemPromptRegistry(tmp_path)
+    catalog, verifier = _runtime_skill_catalog(("inventory-evidence", "COMPLETE-SKILL-BODY", None))
+    composer = DefaultPromptComposer(
+        registry=registry,
+        skill_catalog=catalog,
+        skill_trust_verifier=verifier,
+    )
+
+    result = await composer.compose(
+        capability_id="t2.reasoner.primary",
+        skill_disclosure=_skill_request(),
+    )
+
+    layers = [entry.layer for entry in result.layer_manifest]
+    assert layers.index(PromptLayer.SKILL_INDEX) < layers.index(PromptLayer.SKILL_BODY)
+    index_end = result.system_text.index("</skill-index>")
+    body_start = result.system_text.index('<skill name="inventory-evidence"')
+    assert "COMPLETE-SKILL-BODY" not in result.system_text[:index_end]
+    assert result.system_text[body_start:].endswith("COMPLETE-SKILL-BODY\n</skill>")
+    assert result.skill_records[0].version == "1.2.3"
+    assert result.skill_records[0].body_sha256
+    assert result.layer_manifest[-1].version == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("disclosure", "reason"),
+    [
+        (_skill_request(agent="Saga"), "skill_agent_not_allowed"),
+        (_skill_request(available_tools=frozenset()), "skill_required_tools_unavailable"),
+        (_skill_request(body_budget_chars=1), "skill_body_budget_exceeded"),
+    ],
+)
+async def test_rejected_skill_is_recorded_without_body(
+    tmp_path: Path,
+    disclosure: SkillDisclosureRequest,
+    reason: str,
+) -> None:
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.reasoner.primary", "BASE"))
+    catalog, verifier = _runtime_skill_catalog(("inventory-evidence", "MUST-NOT-LEAK", None))
+    composer = DefaultPromptComposer(
+        registry=FileSystemPromptRegistry(tmp_path),
+        skill_catalog=catalog,
+        skill_trust_verifier=verifier,
+    )
+
+    result = await composer.compose(
+        capability_id="t2.reasoner.primary",
+        skill_disclosure=disclosure,
+    )
+
+    assert "MUST-NOT-LEAK" not in result.system_text
+    assert not any(ref.layer is PromptLayer.SKILL_BODY for ref in result.layer_manifest)
+    assert result.skill_records[0].status is SkillSelectionStatus.REJECTED
+    assert result.skill_records[0].rejection_reason == reason
+
+
+@pytest.mark.asyncio
+async def test_untrusted_selected_skill_is_rejected_without_content(tmp_path: Path) -> None:
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.reasoner.primary", "BASE"))
+    catalog, verifier = _runtime_skill_catalog(("inventory-evidence", "UNTRUSTED-BODY", None))
+    verifier.trusted = False
+    composer = DefaultPromptComposer(
+        registry=FileSystemPromptRegistry(tmp_path),
+        skill_catalog=catalog,
+        skill_trust_verifier=verifier,
+    )
+
+    result = await composer.compose(
+        capability_id="t2.reasoner.primary",
+        skill_disclosure=_skill_request(),
+    )
+
+    assert "UNTRUSTED-BODY" not in result.system_text
+    assert result.skill_records[0].rejection_reason == "skill_trust_verification_failed"
+
+
+@pytest.mark.asyncio
+async def test_one_complete_reference_is_untrusted_data_with_replay_digest(
+    tmp_path: Path,
+) -> None:
+    reference = ("references/guide.txt", b"COMPLETE <reference> DATA", "text/plain")
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.reasoner.primary", "BASE"))
+    catalog, verifier = _runtime_skill_catalog(("inventory-evidence", "BODY", reference))
+    composer = DefaultPromptComposer(
+        registry=FileSystemPromptRegistry(tmp_path),
+        skill_catalog=catalog,
+        skill_trust_verifier=verifier,
+    )
+
+    result = await composer.compose(
+        capability_id="t2.reasoner.primary",
+        skill_disclosure=_skill_request(
+            selected_skill_names=(),
+            reference_selection=("inventory-evidence", reference[0]),
+        ),
+    )
+
+    assert 'trusted="false"' in result.system_text
+    assert "COMPLETE &lt;reference&gt; DATA" in result.system_text
+    assert any(ref.layer is PromptLayer.SKILL_REFERENCE for ref in result.layer_manifest)
+    record = result.skill_records[0]
+    assert record.status is SkillSelectionStatus.SELECTED
+    assert record.reference_sha256 == hashlib.sha256(reference[1]).hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_rejected_reference_budget_records_declared_digest_without_content(
+    tmp_path: Path,
+) -> None:
+    reference = ("references/guide.txt", b"REFERENCE-MUST-NOT-LEAK", "text/plain")
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.reasoner.primary", "BASE"))
+    catalog, verifier = _runtime_skill_catalog(("inventory-evidence", "BODY", reference))
+    composer = DefaultPromptComposer(
+        registry=FileSystemPromptRegistry(tmp_path),
+        skill_catalog=catalog,
+        skill_trust_verifier=verifier,
+    )
+
+    result = await composer.compose(
+        capability_id="t2.reasoner.primary",
+        skill_disclosure=_skill_request(
+            selected_skill_names=(),
+            reference_selection=("inventory-evidence", reference[0]),
+            reference_budget_bytes=1,
+        ),
+    )
+
+    assert "REFERENCE-MUST-NOT-LEAK" not in result.system_text
+    record = result.skill_records[0]
+    assert record.status is SkillSelectionStatus.REJECTED
+    assert record.rejection_reason == "skill_reference_budget_exceeded"
+    assert record.reference_sha256 == hashlib.sha256(reference[1]).hexdigest()
+
+
+def test_skill_disclosure_normalizes_query_and_enforces_selection_bounds() -> None:
+    request = _skill_request(query="  inventory\n\t evidence ")
+    assert request.query == "inventory evidence"
+
+    with pytest.raises(ValueError, match="more than 4"):
+        _skill_request(selected_skill_names=("a", "b", "c", "d", "e"))
+    with pytest.raises(ValueError, match="duplicates"):
+        _skill_request(selected_skill_names=("same", "same"))
+    with pytest.raises(ValueError, match="one .* tuple"):
+        _skill_request(reference_selection=(("a", "references/a"), ("b", "references/b")))
+
+
+@pytest.mark.asyncio
+async def test_same_skill_request_and_catalog_produce_identical_replay_manifest(
+    tmp_path: Path,
+) -> None:
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.reasoner.primary", "BASE"))
+    catalog, verifier = _runtime_skill_catalog(("inventory-evidence", "DETERMINISTIC-BODY", None))
+    composer = DefaultPromptComposer(
+        registry=FileSystemPromptRegistry(tmp_path),
+        skill_catalog=catalog,
+        skill_trust_verifier=verifier,
+    )
+    request = _skill_request()
+
+    first = await composer.compose(capability_id="t2.reasoner.primary", skill_disclosure=request)
+    second = await composer.compose(capability_id="t2.reasoner.primary", skill_disclosure=request)
+
+    assert first.replay_manifest() == second.replay_manifest()

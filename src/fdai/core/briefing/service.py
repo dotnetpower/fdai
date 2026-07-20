@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from croniter import croniter
 
 from fdai.core.report_feed import ReportFeed
+from fdai.core.scheduler.continuation import ScheduledContinuationService
 from fdai.shared.contracts.models import Severity
 from fdai.shared.providers.briefing import (
     BriefingKind,
@@ -23,6 +25,12 @@ from fdai.shared.providers.briefing import (
     BriefingSubscriptionStore,
     ConversationPolicyKind,
     ConversationPolicyStore,
+)
+from fdai.shared.providers.scheduled_continuation import (
+    ContinuationMode,
+    ScheduledContinuationDelivery,
+    ScheduledConversationAnchor,
+    anchor_id_for_run,
 )
 
 _SEVERITY_FLOOR: dict[str, int] = {"low": 0, "medium": 1, "high": 2, "critical": 3}
@@ -151,12 +159,16 @@ class BriefingSchedulerService:
         runs: BriefingRunStore,
         coordinator: BriefingCoordinator,
         worker_id: str,
+        continuations: ScheduledContinuationService | None = None,
+        continuation_delivery: ScheduledContinuationDelivery | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._subscriptions = subscriptions
         self._runs = runs
         self._coordinator = coordinator
         self._worker_id = worker_id
+        self._continuations = continuations
+        self._continuation_delivery = continuation_delivery
         self._clock = clock or (lambda: datetime.now(tz=UTC))
 
     async def run_once(self, *, limit: int = 100) -> tuple[BriefingRun, ...]:
@@ -218,6 +230,7 @@ class BriefingSchedulerService:
             )
             try:
                 stored = await self._runs.create(run)
+                await self._create_continuation(subscription, stored)
                 await self._subscriptions.advance(
                     subscription_id=subscription.subscription_id,
                     principal_id=subscription.principal_id,
@@ -236,6 +249,50 @@ class BriefingSchedulerService:
                 continue
             completed.append(stored)
         return tuple(completed)
+
+    async def _create_continuation(
+        self,
+        subscription: BriefingSubscription,
+        run: BriefingRun,
+    ) -> ScheduledConversationAnchor | None:
+        if (
+            subscription.continuation_mode is ContinuationMode.NONE
+            or run.status is BriefingRunStatus.FAILED
+        ):
+            return None
+        if self._continuations is None:
+            raise RuntimeError("continuable briefing requires a continuation service")
+        origin = subscription.continuation_origin
+        scope_ref = subscription.spec.scope_ref
+        result_digest = run.result_digest
+        if origin is None or scope_ref is None or result_digest is None:
+            raise RuntimeError("continuable briefing is missing immutable result metadata")
+        anchor = await self._continuations.create(
+            ScheduledConversationAnchor(
+                anchor_id=anchor_id_for_run(
+                    task_id=subscription.subscription_id,
+                    run_id=run.run_id,
+                ),
+                task_id=subscription.subscription_id,
+                run_id=run.run_id,
+                owner_principal_id=subscription.principal_id,
+                scope_ref=scope_ref,
+                mode=subscription.continuation_mode,
+                origin=origin,
+                result_digest=result_digest,
+                result_summary=f"{run.title}\n\n{run.body_markdown}",
+                evidence_refs=run.evidence_refs,
+                observation_started_at=run.started_at
+                - timedelta(seconds=subscription.spec.lookback_seconds),
+                observation_ended_at=run.started_at,
+                created_at=run.started_at,
+                expires_at=run.started_at
+                + timedelta(seconds=subscription.continuation_ttl_seconds),
+            )
+        )
+        if self._continuation_delivery is not None:
+            await self._continuation_delivery.deliver(anchor)
+        return anchor
 
 
 def next_cron_run(expression: str, timezone: str, *, after: datetime) -> datetime:
@@ -263,6 +320,10 @@ def _run(
         BriefingRunStatus.PARTIAL if content.source_errors else BriefingRunStatus.DELIVERED
     )
     digest = hashlib.sha256(idempotency_key.encode()).hexdigest()[:24]
+    continuation_mode = subscription.continuation_mode if subscription else ContinuationMode.NONE
+    result_digest = (
+        _result_digest(content) if continuation_mode is not ContinuationMode.NONE else None
+    )
     return BriefingRun(
         run_id=f"briefing-run-{digest}",
         subscription_id=(subscription.subscription_id if subscription else None),
@@ -277,7 +338,26 @@ def _run(
         item_count=content.item_count,
         evidence_refs=content.evidence_refs,
         source_errors=content.source_errors,
+        continuation_mode=continuation_mode,
+        continuation_origin=(subscription.continuation_origin if subscription else None),
+        result_digest=result_digest,
     )
+
+
+def _result_digest(content: BriefingContent) -> str:
+    payload = json.dumps(
+        {
+            "body_markdown": content.body_markdown,
+            "evidence_refs": content.evidence_refs,
+            "item_count": content.item_count,
+            "source_errors": content.source_errors,
+            "title": content.title,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def _safe(value: str, limit: int) -> str:

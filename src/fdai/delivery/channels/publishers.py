@@ -11,8 +11,10 @@ from urllib.parse import urlparse
 import httpx
 
 from fdai.shared.providers.conversation_channel import (
+    ChannelDeliveryError,
     ChannelDeliveryOperation,
     ChannelDeliveryReceipt,
+    ChannelThreadMode,
     ConversationChannelKind,
     OutboundResponse,
 )
@@ -168,7 +170,11 @@ class SlackWebApiReplyPublisher:
         payload = await self._call(self._config.api_url, body)
         message_id = payload.get("ts")
         if not isinstance(message_id, str) or not message_id:
-            raise RuntimeError("Slack reply did not include a delivery acknowledgement")
+            raise ChannelDeliveryError(
+                "Slack reply did not include a delivery acknowledgement",
+                code="ack_missing",
+                acknowledgement_ambiguous=True,
+            )
         return message_id
 
     async def _call(self, endpoint: str, body: Mapping[str, object]) -> Mapping[str, Any]:
@@ -180,15 +186,31 @@ class SlackWebApiReplyPublisher:
                 timeout=self._config.timeout_seconds,
             )
         except httpx.HTTPError as exc:
-            raise RuntimeError("Slack reply transport failed") from exc
+            raise ChannelDeliveryError(
+                "Slack reply transport failed",
+                code="transport_interrupted",
+                acknowledgement_ambiguous=True,
+            ) from exc
         if not result.is_success:
-            raise RuntimeError(f"Slack reply returned HTTP {result.status_code}")
+            raise ChannelDeliveryError(
+                f"Slack reply returned HTTP {result.status_code}",
+                code=f"http_{result.status_code}",
+                acknowledgement_ambiguous=False,
+            )
         try:
             payload = result.json()
         except ValueError as exc:
-            raise RuntimeError("Slack reply returned invalid JSON") from exc
+            raise ChannelDeliveryError(
+                "Slack reply returned invalid JSON",
+                code="ack_invalid",
+                acknowledgement_ambiguous=True,
+            ) from exc
         if not isinstance(payload, Mapping) or payload.get("ok") is not True:
-            raise RuntimeError("Slack reply was not accepted")
+            raise ChannelDeliveryError(
+                "Slack reply was not accepted",
+                code="provider_rejected",
+                acknowledgement_ambiguous=False,
+            )
         return payload
 
 
@@ -243,7 +265,7 @@ class TeamsBotFrameworkReplyPublisher:
             _operation_fallback_text(response) if degraded else response.text,
             native_mentions=self._config.supports_mentions,
         )
-        if response.in_reply_to:
+        if response.thread_mode is ChannelThreadMode.ORIGIN and response.in_reply_to:
             body["replyToId"] = response.in_reply_to
         payload = await self._request("POST", endpoint, body, token=token.token)
         message_id = _teams_acknowledgement(payload)
@@ -358,17 +380,33 @@ class TeamsBotFrameworkReplyPublisher:
                 timeout=self._config.timeout_seconds,
             )
         except httpx.HTTPError as exc:
-            raise RuntimeError("Teams reply transport failed") from exc
+            raise ChannelDeliveryError(
+                "Teams reply transport failed",
+                code="transport_interrupted",
+                acknowledgement_ambiguous=True,
+            ) from exc
         if not result.is_success:
-            raise RuntimeError(f"Teams reply returned HTTP {result.status_code}")
+            raise ChannelDeliveryError(
+                f"Teams reply returned HTTP {result.status_code}",
+                code=f"http_{result.status_code}",
+                acknowledgement_ambiguous=False,
+            )
         if not result.content:
             return None
         try:
             payload = result.json()
         except ValueError as exc:
-            raise RuntimeError("Teams reply returned invalid JSON") from exc
+            raise ChannelDeliveryError(
+                "Teams reply returned invalid JSON",
+                code="ack_invalid",
+                acknowledgement_ambiguous=True,
+            ) from exc
         if not isinstance(payload, Mapping):
-            raise RuntimeError("Teams reply acknowledgement is invalid")
+            raise ChannelDeliveryError(
+                "Teams reply acknowledgement is invalid",
+                code="ack_invalid",
+                acknowledgement_ambiguous=True,
+            )
         return payload
 
 
@@ -437,7 +475,11 @@ def _activity_endpoint(base: str, message_id: str) -> str:
 def _teams_acknowledgement(payload: Mapping[str, Any] | None) -> str:
     message_id = _optional_teams_acknowledgement(payload)
     if message_id is None:
-        raise RuntimeError("Teams reply did not include a delivery acknowledgement")
+        raise ChannelDeliveryError(
+            "Teams reply did not include a delivery acknowledgement",
+            code="ack_missing",
+            acknowledgement_ambiguous=True,
+        )
     return message_id
 
 

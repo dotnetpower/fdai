@@ -34,8 +34,8 @@ executor.
 
 ## 1. One ontology, two triggers
 
-The pre-existing 16 shipped ActionTypes were all rule-fired remediation
-(`remediate.tag-add`, `remediate.disable-public-access`, ...). Operator
+The original ActionType set was rule-fired remediation only. The current catalog
+contains remediation, ops, governance, and tool entries under the same schema. Operator
 console pull-direction (§4 of
 [operator-console.md](../interfaces/operator-console.md)) needs actions that are
 triggered by an **operator's chat request** rather than a rule fire:
@@ -78,7 +78,7 @@ name: string                            # STABLE UNIQUE IDENTIFIER, snake+dot: "
                                         # every shipped YAML and is the migration-safe key.)
 version: semver
 category:                               # top-level bucket - a SINGLE value, not a list
-                                        # one of: remediation | ops | governance
+                                        # one of: remediation | ops | governance | tool
                                         #   remediation - rule-fired, config-drift-style
                                         #   ops         - operator-requested runtime action
                                         #   governance  - policy / exemption / promotion changes
@@ -108,6 +108,7 @@ promotion_gate:
 
 # --- Execution path (execution-model.md details) ------------------------
 execution_path: pr_native | direct_api | pr_manual
+                | tool_call
                                         # pr_native → shipped GitOpsPrAdapter (default)
                                         # direct_api → ops-fast-path (Azure ARM call)
                                         # pr_manual → PR with hil label, no auto-merge
@@ -149,12 +150,12 @@ ceiling_by_tier:
     min_role: reader | contributor | approver | owner
   t1:
     max_autonomy: enforce_auto | enforce_hil | shadow_only
-                                         # upstream ships enforce_hil|shadow_only; a fork MAY
-                                         # set enforce_auto (schema permits; still gated by
-                                         # the Rego requirement in execution-model 2.1)
+                                         # shipped YAML is bounded by the catalog loader;
+                                         # overlays may only lower autonomy
     min_role: contributor | approver | owner
   t2:
-    max_autonomy: shadow_only            # T2 defaults to shadow-only; explicit fork override to raise
+    max_autonomy: shadow_only            # catalog loader requires shadow-only;
+                                         # a reviewed policy change owns any hard-cap revision
     min_role: approver | owner
 # NOTE: min_role uses the ordinary ladder reader<contributor<approver<owner only.
 # BreakGlass is OFF-LADDER (a separate Entra group, not nested in Owner) and is never a
@@ -186,7 +187,7 @@ provenance:
   retrieved_at: RFC3339
 ```
 
-Existing shipped ActionTypes get **auto-migrated** with:
+The catalog backfill has completed with:
 
 - `trigger_kind.kind = rule_violation`
 - `category = remediation`
@@ -198,7 +199,7 @@ Existing shipped ActionTypes get **auto-migrated** with:
 
 ## 3. Category catalog
 
-Three top-level categories. New categories require a doc PR + a
+Four top-level categories. New categories require a doc PR + a
 short-form entry in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)
 so the domain vocabulary stays flat.
@@ -223,6 +224,9 @@ Rule-fired, config-drift-style. Currently shipped:
 - `remediate.enable-purge-protection`
 - `remediate.set-retention-policy`
 - `remediate.assign-identity`
+- `remediate.apply-preflight-toggle`
+- `remediate.azure-policy-managed`
+- `remediate.right-size-role`
 
 Default `execution_path: pr_native` (GitOps). A fork MAY override to
 `direct_api` per action where the API mutation is a single idempotent
@@ -631,9 +635,9 @@ what the 7.1 overlay layer is for). See
     brittle name-scan of Rego text at load time.
   - `live_probe_ref` -> the referenced probe MUST exist under
     `rule-catalog/probes/` (or under a fork-only path). Missing probe
-    is fatal. On Day 1 no shipped ActionType sets `live_probe_ref` and
-    `rule-catalog/probes/` ships with only a `README.md` placeholder, so
-    this cross-check is a no-op until Month 1 binds the first probe.
+    is fatal. The upstream probe catalog now ships VM traffic, storage access,
+    load-balancer health, and blast-radius descriptors; `ops.restart-service`
+    and `ops.scale-in` bind `vm_traffic_last_5m`.
   - Every `argument_schema` property flagged `x-fdai-redact: true`
     MUST be a leaf `string`/`number`; the loader collects the redaction
     path set and hands it to the audit redactor so the value never lands
@@ -708,22 +712,20 @@ in [execution-model.md § 8](execution-model.md#8-resolved_ceiling-audit-block).
 A future overlay change never breaks past audit entries because the
 ceiling that was in effect at dispatch time is recorded verbatim.
 
-## 10. Migration plan
+## 10. Migration record
 
-The ontology change lands in three steps; each step is a reviewed
-catalog-as-code PR (see [rule-governance.md](../rules-and-detection/rule-governance.md)):
+The ontology change landed in three reviewed catalog-as-code steps
+(see [rule-governance.md](../rules-and-detection/rule-governance.md)):
 
-1. **Schema extension** - the loader learns the new fields with
-   safe defaults. All 16 shipped ActionTypes still validate.
+1. **Schema extension** - the loader learned the new fields with safe defaults.
 2. **Backfill** - `trigger_kind = rule_violation` is set on every
    existing entry; `ceiling_by_tier` is populated from the pre-existing
    implicit ceilings (`default_mode`, `promotion_gate.max_policy_escapes`).
 3. **Ops catalog** - the shipped ops.* set (§3.2) lands with
    `argument_schema`, `direct_api` path, and the appropriate ceilings.
 
-The operator console does not consume `trigger_kind = operator_request`
-ActionTypes until step 3 completes; earlier steps are strictly
-non-breaking for the ControlLoop.
+The steps are complete; current catalog entries are validated by the loader and
+operator proposals re-enter the normal ControlLoop.
 
 ## 11. Testability
 
@@ -807,27 +809,22 @@ cannot act.
   T0Engine -> ActionBuilder -> RiskGate -> Executor loop (§4.1)
   dispatches remediation ActionTypes today. This is the primary
   autonomy surface and is fully wired.
-- **`operator_request` -> ActionType dispatch is P2** (#6, #7). The
-  console today ships `read` and `simulate` tools plus `approve`
-  (HIL), `execute` (runbook), and `breakglass` tools whose read-only /
-  simulate / approval invariants are test-enforced
-  (`tests/conversation/*`). The narrator is a translator that emits a
-  T0 verb string and never invents ActionType arguments (§4.2). The
-  end-to-end `narrator -> tool_call(ops.*, args) -> coordinator
-  validates argument_schema -> RiskGate` path is scoped for P2; until it
-  lands, `argument_schema` is validated at load time (§8) but is not a
-  live dispatch surface. No ops ActionType can be invoked from chat
-  without that coordinator, so the gap is fail-closed.
+- **`operator_request` -> typed proposal dispatch is live** (#6, #7).
+  The optional `/chat/action` route and Bragi proposal sink translate a registered
+  operator command into an `ActionProposal`, enforce server-derived RBAC, and publish
+  it to the canonical ingress topic. They never call an executor directly. The
+  catalog loader validates `argument_schema`; each live command surface remains
+  responsible for accepting only its bounded server-owned argument shape.
 - **Three `governance.*` dispatchers are P2 backlog** (#8). Only
   `governance.override-ceiling` has a live dispatcher
   (`core/risk_gate/override_writer.py`); `promote-action-type`,
   `retire-rule`, and the runtime `grant-exemption` writer land with the
   P2 PR-native writer. Their YAML entries are inert catalog data until
   then (shadow-default, no dispatcher = no side effect).
-- **`live_probe_ref` is a Month-1 seam** (#9). No shipped ActionType
-  sets it and `rule-catalog/probes/` ships a placeholder only, so the
-  load-time cross-check is a no-op until the first probe binds. Static
-  `blast_radius` is the active blast bound until then.
+- **`live_probe_ref` is live for selected ops actions** (#9).
+  `ops.restart-service` and `ops.scale-in` bind the shipped
+  `vm_traffic_last_5m` probe. Actions without a probe continue to use the
+  static blast bound; a missing referenced probe fails catalog load.
 - **Agents read the ontology; they do not free-form reason over it**
   (#10, #11). The autonomy decision is procedural: the RiskGate reads
   ActionType fields (`ceiling_by_tier`, `blast_radius`, `irreversible`,

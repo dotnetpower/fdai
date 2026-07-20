@@ -28,6 +28,7 @@ def install_capability_bundle(
     *,
     reasoning_tools: tuple[ToolArtifact, ...] = (),
     action_types: tuple[OntologyActionType, ...] = (),
+    context_selection_policies: tuple[str, ...] = (),
     workflows: tuple[Workflow, ...] = (),
 ) -> Container:
     """Validate and install one downstream capability bundle.
@@ -42,10 +43,18 @@ def install_capability_bundle(
         references=build_capability_references(
             reasoning_tools=reasoning_tools,
             action_types=action_types,
+            context_selection_policies=context_selection_policies,
             workflows=workflows,
         ),
     )
-    return replace(container, capability_runtime=runtime)
+    authority = container.context_selection_policy_authority
+    if authority is not None:
+        authority = authority.with_capability_runtime(runtime)
+    return replace(
+        container,
+        capability_runtime=runtime,
+        context_selection_policy_authority=authority,
+    )
 
 
 __all__ = ["default_capability_runtime", "install_capability_bundle"]

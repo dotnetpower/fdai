@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 1e9b75853812fc7450e1b21f3a4f08af743fa737
-translation_revised: 2026-07-15
+translation_source_sha: 71388cd5d28db06d12be8070f4d013b437dedf10
+translation_revised: 2026-07-21
 ---
 
 # Action 온톨로지
@@ -35,8 +35,8 @@ verb 추가는 YAML 파일 하나 - 엔진에 branching 없음, 새 executor 없
 
 ## 1. 하나의 온톨로지, 두 트리거
 
-기존 shipped 16개 ActionType 은 모두 룰이 발화시킨 remediation
-(`remediate.tag-add`, `remediate.disable-public-access`, ...). 오퍼레이터
+초기 ActionType 집합은 룰이 발화시킨 remediation만 포함했습니다. 현재 catalog는
+같은 schema 아래 remediation, ops, governance, tool entry를 포함합니다. 오퍼레이터
 콘솔 pull-방향 ([operator-console.md](../interfaces/operator-console-ko.md) §4) 는 룰
 발화가 아니라 **오퍼레이터의 chat 요청** 으로 트리거되는 액션이 필요:
 "이 pod 재시작", "scale out", "cache flush". 이들은 같은 safety envelope
@@ -77,7 +77,7 @@ name: string                            # 안정된 UNIQUE 식별자, snake+dot:
                                         # `name` 이 이미 있고 마이그레이션-safe 키).
 version: semver
 category:                               # 최상위 bucket - 리스트가 아니라 단일 값
-                                        # remediation | ops | governance 중 하나
+                                        # remediation | ops | governance | tool 중 하나
                                         #   remediation - 룰 발화, config-drift 스타일
                                         #   ops         - 오퍼레이터 요청 runtime 액션
                                         #   governance  - 정책 / 예외 / promotion 변경
@@ -106,7 +106,7 @@ promotion_gate:
   max_policy_escapes: int
 
 # --- Execution path (execution-model.md 상세) ----------------------------
-execution_path: pr_native | direct_api | pr_manual
+execution_path: pr_native | direct_api | pr_manual | tool_call
                                         # pr_native → shipped GitOpsPrAdapter (기본)
                                         # direct_api → ops-fast-path (Azure ARM call)
                                         # pr_manual → hil label PR, auto-merge 없음
@@ -130,7 +130,7 @@ stop_conditions:
     seconds: int
   - ...
 
-# --- Blast radius (\uae30\uc874 static) ---------------------------------------
+# --- Blast radius (기존 static) ---------------------------------------
 blast_radius:
   computation: static_enum | graph_derived
   static_bucket: resource | resource_group | subscription
@@ -148,12 +148,12 @@ ceiling_by_tier:
     min_role: reader | contributor | approver | owner
   t1:
     max_autonomy: enforce_auto | enforce_hil | shadow_only
-                                         # upstream 은 enforce_hil|shadow_only ship; fork 가
-                                         # enforce_auto 설정 MAY (스키마 permit; execution-model
-                                         # 2.1 의 Rego 요구에 여전히 gated)
+                                         # shipped YAML은 catalog loader가 제한하며
+                                         # overlay는 autonomy를 낮출 수만 있음
     min_role: contributor | approver | owner
   t2:
-    max_autonomy: shadow_only            # T2 는 shadow-only 기본; raise 는 명시적 fork override
+    max_autonomy: shadow_only            # catalog loader가 shadow-only를 요구하며
+                                         # hard-cap 변경은 reviewed policy change가 소유
     min_role: approver | owner
 # NOTE: min_role 은 통상 ladder reader<contributor<approver<owner 만 사용.
 # BreakGlass 는 OFF-LADDER (Owner 에 nested 안 된 별도 Entra 그룹) 이며 절대
@@ -185,7 +185,7 @@ provenance:
   retrieved_at: RFC3339
 ```
 
-기존 shipped ActionType 은 **자동 마이그레이션**:
+Catalog backfill은 다음 상태로 완료되었습니다:
 
 - `trigger_kind.kind = rule_violation`
 - `category = remediation`
@@ -196,7 +196,7 @@ provenance:
 
 ## 3. Category 카탈로그
 
-세 최상위 category. 신규 category 는 doc PR + 도메인 어휘를 flat 하게
+네 최상위 category. 신규 category 는 doc PR + 도메인 어휘를 flat 하게
 유지하기 위해
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)
 에 short-form entry 필요.
@@ -221,6 +221,9 @@ provenance:
 - `remediate.enable-purge-protection`
 - `remediate.set-retention-policy`
 - `remediate.assign-identity`
+- `remediate.apply-preflight-toggle`
+- `remediate.azure-policy-managed`
+- `remediate.right-size-role`
 
 기본 `execution_path: pr_native` (GitOps). Fork 는 API 변경이 하나의
 idempotent call 인 액션 별로 `direct_api` 로 override MAY.
@@ -533,7 +536,7 @@ prod_downgrade:
   `FDAI_OVERRIDE_ACTION_TYPE_<id>_MAX_AUTONOMY=shadow_only`.
 - **Downgrade-only**: 값은 `shadow_only` 또는 `enforce_hil` MUST, 절대
   `enforce_auto` 아님 - config toggle 은 autonomy 를 낮추기만 할 수 있고
-  즌대 올릴 수 없음 (모든 overlay 와 동일한 never-raise 규칙).
+  절대 올릴 수 없음 (모든 overlay 와 동일한 never-raise 규칙).
 - **항상 감사됨**: config override 적용은 env-var 이름과 resolved 값을
   담은 audit entry (`action_kind=catalog.override.config`) 를 write하므로
   emergency downgrade 가 절대 silent 하지 않음.
@@ -607,10 +610,9 @@ ActionType 을 조용히 shadow 할 수 없다 (shadowing 은 7.1 overlay 계층
     (`policies/action_types/`) 이지 YAML ceiling 이 아님 - 로드 시 Rego
     text 의 brittle name-scan 을 피함.
   - `live_probe_ref` -> 참조된 probe 는 `rule-catalog/probes/` 아래 (또는
-    fork-only path 아래) 존재 MUST. 누락된 probe 는 fatal. Day 1 엔 어떤
-    shipped ActionType 도 `live_probe_ref` 설정 안 하고 `rule-catalog/probes/`
-    는 `README.md` placeholder 만 ship 하므로, 이 cross-check 는 Month 1 이
-    첫 probe 를 bind 할 때까지 no-op.
+    fork-only path 아래) 존재 MUST. 누락된 probe 는 fatal. Upstream probe catalog는
+    VM traffic, storage access, load-balancer health, blast-radius descriptor를 ship하며
+    `ops.restart-service`와 `ops.scale-in`은 `vm_traffic_last_5m`을 bind합니다.
   - `x-fdai-redact: true` 로 flag 된 모든 `argument_schema` property 는
     leaf `string`/`number` MUST; 로더가 redaction path set 을 수집해 audit
     redactor 에 전달해 값이 verbatim landing 안 함 (§5.2). 알 수 없는
@@ -679,22 +681,20 @@ attach 한 audit entry 를 write:
 에서 권위적. 향후 overlay 변경은 dispatch 시점에 in effect 였던 ceiling 이
 verbatim 기록되므로 과거 audit entry 를 절대 break 하지 않음.
 
-## 10. Migration 계획
+## 10. Migration 기록
 
-온톨로지 변경은 세 단계로 landing; 각 단계는 reviewed catalog-as-code PR
-(see [rule-governance.md](../rules-and-detection/rule-governance-ko.md)):
+온톨로지 변경은 세 reviewed catalog-as-code 단계로 landing했습니다
+([rule-governance.md](../rules-and-detection/rule-governance-ko.md) 참조):
 
-1. **스키마 확장** - 로더가 신규 field 를 safe default 로 학습. 모든
-   16개 shipped ActionType 이 여전히 validate.
+1. **스키마 확장** - 로더가 신규 field를 safe default로 학습.
 2. **Backfill** - `trigger_kind = rule_violation` 이 모든 기존 entry 에
    set; `ceiling_by_tier` 는 pre-existing implicit ceiling (`default_mode`,
    `promotion_gate.max_policy_escapes`) 로부터 populate.
 3. **Ops 카탈로그** - shipped ops.* 집합 (§3.2) 이 `argument_schema`,
    `direct_api` path, appropriate ceiling 과 함께 landing.
 
-오퍼레이터 콘솔은 3단계 완료 전에 `trigger_kind = operator_request`
-ActionType 을 소비하지 않음; 이전 단계들은 ControlLoop 에 strictly
-non-breaking.
+세 단계는 완료되었습니다. 현재 catalog entry는 loader가 검증하며 operator proposal은
+정상 ControlLoop로 다시 진입합니다.
 
 ## 11. Testability
 
@@ -771,27 +771,21 @@ ActionType 은 act 할 수 없다.
   ActionBuilder -> RiskGate -> Executor loop (§4.1) 이 오늘 remediation
   ActionType 을 dispatch 한다. 이것이 primary autonomy surface 이며 완전히
   wired 됨.
-- **`operator_request` -> ActionType dispatch 는 P2** (#6, #7). console
-  은 오늘 `read` 와 `simulate` tool 에 더해 `approve` (HIL), `execute`
-  (runbook), `breakglass` tool 을 ship 하며 그 read-only / simulate /
-  approval invariant 는 test 로 강제됨 (`tests/conversation/*`).
-  narrator 는 T0 verb 문자열을 emit 하는 translator 이고 ActionType
-  argument 를 invent 하지 않음 (§4.2). end-to-end `narrator ->
-  tool_call(ops.*, args) -> coordinator 가 argument_schema 검증 ->
-  RiskGate` 경로는 P2 로 scope 됨; landing 전까지 `argument_schema` 는
-  load time 에 검증되지만 (§8) live dispatch surface 는 아님. 그
-  coordinator 없이는 어떤 ops ActionType 도 chat 에서 invoke 될 수 없으므로,
-  gap 은 fail-closed.
+- **`operator_request` -> typed proposal dispatch는 live** (#6, #7).
+  Optional `/chat/action` route와 Bragi proposal sink는 등록된 operator command를
+  `ActionProposal`로 변환하고 server-derived RBAC를 강제한 뒤 canonical ingress topic에
+  publish합니다. Executor를 직접 호출하지 않습니다. Catalog loader가 `argument_schema`를
+  검증하며 각 live command surface는 bounded server-owned argument shape만 받습니다.
 - **`governance.*` dispatcher 3 개는 P2 backlog** (#8). `governance.
   override-ceiling` 만 live dispatcher
   (`core/risk_gate/override_writer.py`) 를 가짐; `promote-action-type`,
   `retire-rule`, runtime `grant-exemption` writer 는 P2 PR-native writer
   와 함께 landing. 그때까지 YAML entry 는 inert catalog data
   (shadow-default, dispatcher 없음 = side effect 없음).
-- **`live_probe_ref` 는 Month-1 seam** (#9). shipped ActionType 중
-  set 하는 것이 없고 `rule-catalog/probes/` 는 placeholder 만 ship 하므로,
-  load-time cross-check 는 first probe 가 bind 할 때까지 no-op. 그때까지
-  static `blast_radius` 가 active blast bound.
+- **`live_probe_ref`는 selected ops action에서 live** (#9).
+  `ops.restart-service`와 `ops.scale-in`은 shipped `vm_traffic_last_5m` probe를
+  bind합니다. Probe가 없는 action은 static blast bound를 사용하며 참조된 probe가
+  없으면 catalog load가 실패합니다.
 - **Agent 는 ontology 를 read 하지, 그 위에서 free-form reason 하지 않음**
   (#10, #11). autonomy decision 은 procedural: RiskGate 가 ActionType
   field (`ceiling_by_tier`, `blast_radius`, `irreversible`, `operation`,

@@ -83,6 +83,11 @@ class WorkflowStep(_Base):
                 raise ValueError("parallel step requires at least 2 unique branches")
         elif self.kind is WorkflowStepKind.GATE and self.gate_ref is None:
             raise ValueError("gate step requires gate_ref")
+        elif self.kind is WorkflowStepKind.EVIDENCE:
+            required = {"policy_id", "policy_version", "source_url"}
+            missing = sorted(required - self.params.keys())
+            if missing:
+                raise ValueError(f"evidence step requires params: {', '.join(missing)}")
         if self.compensated_by is not None and self.kind is not WorkflowStepKind.ACTION:
             raise ValueError("compensated_by is supported only on action steps")
         return self

@@ -22,6 +22,11 @@ existing single-pass control loop.
 > this doc ships **shadow-first** ([architecture.instructions.md § Safety
 > Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
 
+> **Implementation status (2026-07-21):** Proposed. The human non-response
+> ladder, standing-authority catalogs, temporal supervisor, and runtime bindings
+> described here have not landed. `core/quality_gate/escalation_ladder.py` is a
+> separate model-escalation policy and does not implement this design.
+
 ## What this doc covers
 
 The control loop in

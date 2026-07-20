@@ -56,8 +56,10 @@ from fdai.core.quality_gate.escalation_ladder import (
 )
 from fdai.core.quality_gate.gate import (
     CrossCheckModel,
+    CrossCheckProposal,
     GroundingSource,
     ModelVote,
+    PromptEvidenceCrossCheckModel,
     QualityCandidate,
     QualityDecision,
     QualityGate,
@@ -105,6 +107,7 @@ __all__ = [
     "CriticStance",
     "CriticVerdict",
     "CrossCheckModel",
+    "CrossCheckProposal",
     "DebateOrchestrator",
     "DebateOrchestratorConfig",
     "DebateOutcome",
@@ -123,6 +126,7 @@ __all__ = [
     "JudgeOutput",
     "JudgeVerdict",
     "ModelVote",
+    "PromptEvidenceCrossCheckModel",
     "ProposerRetry",
     "QualityCandidate",
     "QualityDecision",

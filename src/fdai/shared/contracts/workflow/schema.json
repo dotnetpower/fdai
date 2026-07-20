@@ -101,7 +101,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["action", "wait", "approval", "decision", "parallel", "gate"],
+            "enum": ["action", "wait", "approval", "decision", "parallel", "gate", "evidence"],
             "default": "action"
           },
           "action_type_ref": {

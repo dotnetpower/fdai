@@ -5,6 +5,7 @@ from fdai.core.conversation._system_audit_tools import (
     ExplainVerdictTool,
     QueryAuditTool,
 )
+from fdai.core.conversation._system_conversation_search_tool import SearchConversationsTool
 from fdai.core.conversation._system_event_tool import DescribeEventTool
 from fdai.core.conversation._system_inventory_tool import (
     InventoryProvider,
@@ -30,4 +31,5 @@ __all__ = [
     "QueryLogTool",
     "QueryMetricTool",
     "QueryOperatorMemoryTool",
+    "SearchConversationsTool",
 ]

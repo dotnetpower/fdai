@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any, Final
 
 from fdai.agents import PANTHEON_NAMES
 from fdai.delivery.read_api.read_model import ConsoleReadModel
+from fdai.shared.providers.conversation_search import (
+    ConversationSearch,
+    ConversationSearchQuery,
+    ConversationSearchScope,
+)
 
 _AGENT_TOKEN: Final = re.compile(r"[A-Za-z][A-Za-z0-9-]*")
 
@@ -32,6 +37,11 @@ _INCIDENTS: Final = re.compile(
     "|\uc778\uc2dc\ub358\ud2b8 \ubaa9\ub85d|\uc778\uc2dc\ub358\ud2b8 \uba87",
     re.IGNORECASE,
 )
+_CONVERSATION_SEARCH: Final = re.compile(
+    r"^\s*(?:search[_\s-]?conversations?|conversation history|prior conversations)\s+(.*)$"
+    "|^\s*(?:\ub300\ud654 \uac80\uc0c9|\uc774\uc804 \ub300\ud654)\s+(.+)$",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,11 +49,37 @@ class ReadModelChatTools:
     """Resolve direct read intents against the console's authoritative view."""
 
     read_model: ConsoleReadModel
+    conversation_search: ConversationSearch | None = None
 
-    async def resolve(self, prompt: str) -> dict[str, Any] | None:
+    async def resolve(
+        self,
+        prompt: str,
+        *,
+        principal_id: str,
+    ) -> dict[str, Any] | None:
         named_agents = {name.lower() for name in PANTHEON_NAMES}
         if any(token.lower() in named_agents for token in _AGENT_TOKEN.findall(prompt)):
             return None
+        search_match = _CONVERSATION_SEARCH.match(prompt)
+        if search_match is not None and self.conversation_search is not None:
+            query_text = next(
+                (group.strip() for group in search_match.groups() if group and group.strip()),
+                "",
+            )
+            if not query_text:
+                return None
+            page = await self.conversation_search.search(
+                scope=ConversationSearchScope(principal_id=principal_id),
+                query=ConversationSearchQuery(text=query_text),
+            )
+            payload = asdict(page)
+            payload.pop("query_ms", None)
+            payload["trusted"] = False
+            return {
+                "tool": "search_conversations",
+                "authority": "server_conversation_search",
+                "result": payload,
+            }
         if _HIL.search(prompt):
             hil_page = await self.read_model.list_hil_queue(limit=20)
             return {

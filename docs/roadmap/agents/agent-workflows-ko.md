@@ -1,8 +1,8 @@
 ---
 title: 에이전트 워크플로우
 translation_of: agent-workflows.md
-translation_source_sha: dbd6bbb18e925baa31d8175aa613d65eddb6660c
-translation_revised: 2026-07-17
+translation_source_sha: e25405fb818ce3c7a6c3e56897a8bee4c4e38e22
+translation_revised: 2026-07-20
 ---
 
 # 에이전트 워크플로우
@@ -10,7 +10,7 @@ translation_revised: 2026-07-17
 판테온이 제품 수준 capability 로 조합하는 12개 cross-agent 워크플로우. 각
 워크플로우는 참여 에이전트, 트리거, 종단간 sequence, exit criteria 를
 명명한다. 모든 워크플로우는 shadow 모드로 먼저 배포
-([agent-pantheon-implementation.md § Wave 7](agent-pantheon-implementation-ko.md#11-wave-7---shadow-\ub85c-cross-agent-workflows))
+([agent-pantheon-implementation.md § Wave 7](agent-pantheon-implementation-ko.md#11-wave-7---shadow-로-cross-agent-workflows))
 되고 Wave 8 이 KPI 를 측정한 후 per-workflow 로 승격된다.
 
 > **범위:** 워크플로우는 고객-무관이다. 예시의 구체적 리소스 이름은
@@ -22,10 +22,11 @@ translation_revised: 2026-07-17
 > 어떤 워크플로우도 에이전트 간 직접 RPC 를 사용하지 않는다. HIL 스텝은
 > Var 를 통과; audit 는 Saga 를 통과. 지름길 없음.
 >
-> **머신-리더블 형태.** 아래 각 워크플로우는
-> [`rule-catalog/workflows/`](../../../rule-catalog/workflows) 아래 카탈로그
-> 엔트리로 컴파일된다; 스키마, `Process` ObjectType, compile-to-Runbook
-> 배선은 [process-automation.md](../decisioning/process-automation-ko.md) 에 정의된다.
+> **머신-리더블 형태.** Shipped executable workflow는
+> [`rule-catalog/workflows/`](../../../rule-catalog/workflows) 아래에 있습니다.
+> 이 design inventory는 현재 catalog보다 넓으며 section마다 파일 하나가 있다는
+> 의미가 아닙니다. Schema, `Process` ObjectType, compile-to-Runbook 배선은
+> [process-automation.md](../decisioning/process-automation-ko.md)에 정의됩니다.
 
 ## 0. 워크플로우 shape
 
@@ -142,20 +143,21 @@ Vidar 의 rollback path, DR failover 메커니즘, observability 가 모두
 
 **Trigger.** Loki 스케줄 (default weekly, fork-configurable).
 
-**Agents.** Loki (planner), Vidar (execution), Heimdall (observation),
-Norns (learning), Saga.
+**Agents.** Loki (planner), Forseti (judge), Var (approver), Vidar (execution),
+Heimdall (observation), Norns (learning), Saga.
 
 ```mermaid
 sequenceDiagram
     participant L as Loki
     participant F as Forseti
+    participant Va as Var
     participant V as Vidar
     participant H as Heimdall
     participant N as Norns
     participant S as Saga
     L->>F: proposed_action {dr_drill, scope, blast_radius}
-    F->>Var: verdict = hil (drills are always HIL)
-    Var-->>F: approval
+    F->>Va: verdict = hil (drills are always HIL)
+    Va-->>F: approval
     F->>V: verdict {execute_drill}
     V->>V: execute rollback / failover in shadow env
     V->>H: observe_request
@@ -224,7 +226,7 @@ rate < 10% (Mimir reject rate).
 ## 5. Security escalation
 
 **Purpose.**
-[agent-pantheon.md § 9](agent-pantheon-ko.md#9-\ubcf4\uc548-\ubc0f-\uad8c\ud55c-\ucd08\uacfc-\uac10\uc2dc)
+[agent-pantheon.md § 9](agent-pantheon-ko.md#9-보안-및-권한-초과-감시)
 의 권한 초과 감시 흐름을 promotion gate 가 있는 first-class 워크플로우로
 formalize.
 
@@ -246,8 +248,8 @@ sequenceDiagram
     H->>H: correlate with recent events (rolling window)
     H->>H: classify severity: low|medium|high|critical
     alt severity >= high
-        H->>Forseti: propose notify_admin_privilege_violation
-        Forseti-->>V: verdict = auto (governance notification)
+        H->>F: propose notify_admin_privilege_violation
+        F-->>V: verdict = auto (governance notification)
         V->>S: audit (card sent)
     end
     alt severity == critical
@@ -333,6 +335,7 @@ sequenceDiagram
     participant H as Heimdall
     participant O as Odin
     participant Br as Bragi
+    participant C as Admin channel
     participant S as Saga
     H->>H: probe each agent (heartbeat + KPI)
     alt degradation detected
@@ -340,7 +343,7 @@ sequenceDiagram
         H->>O: agent_health_signal {agent, severity, evidence}
         O->>O: apply degradation policy per pantheon 11
         O->>Br: briefing_update {impact, mitigation_active}
-        Br->>Bragi_channel: proactive card to admins
+        Br->>C: proactive card to admins
     end
 ```
 
@@ -366,16 +369,17 @@ rule 카탈로그 corruption, non-determinism 버그를 잡음.
 **Trigger.** Forseti recurring self-test (daily). 최근 verdict 를
 sample, 재실행, 비교.
 
-**Agents.** Forseti (self-tester), Norns (drift analyzer), Mimir (drift 가
-rule 변경으로 인한 것인 경우 리뷰), Saga.
+**Agents.** Forseti (self-tester), Muninn (audit sample), Norns (drift analyzer),
+Mimir (drift가 rule 변경으로 인한 것인 경우 리뷰), Saga.
 
 ```mermaid
 sequenceDiagram
     participant F as Forseti
+    participant Mu as Muninn
     participant N as Norns
     participant M as Mimir
     participant S as Saga
-    F->>Muninn: fetch recent audit sample (N=1000)
+    F->>Mu: fetch recent audit sample (N=1000)
     F->>F: re-run judgment on same inputs
     F->>N: coherence_report {mismatches}
     N->>N: classify: rule_change | model_drift | non_determinism
@@ -409,19 +413,20 @@ investigatory.
 **Trigger.** Loki 스케줄 (monthly). `fork_config.rollback_rehearsal_scope`
 에 기반한 ActionType 서브셋 선택.
 
-**Agents.** Loki (planner), Vidar (rehearser), Heimdall (observer),
-Saga.
+**Agents.** Loki (planner), Forseti (judge), Var (approver), Vidar (rehearser),
+Heimdall (observer), Saga.
 
 ```mermaid
 sequenceDiagram
     participant L as Loki
     participant F as Forseti
+    participant Va as Var
     participant V as Vidar
     participant H as Heimdall
     participant S as Saga
     L->>F: proposed_action {rehearse_rollback, action_type_id}
-    F->>Var: verdict = hil (all rehearsals HIL)
-    Var-->>F: approval
+    F->>Va: verdict = hil (all rehearsals HIL)
+    Va-->>F: approval
     F->>V: verdict {execute}
     V->>V: apply mutation in shadow env
     V->>V: invoke rollback per rollback_contract
@@ -606,6 +611,6 @@ command 를 받거나 source 를 event bus 로 전달하거나 risk gate 를 우
 | 학습 주제 | 읽기 |
 |----------|------|
 | 위에서 참조된 판테온 역할 | [agent-pantheon.md](agent-pantheon-ko.md) |
-| 각 워크플로우를 착지시키는 웨이브 계획 | [agent-pantheon-implementation.md § Wave 7](agent-pantheon-implementation-ko.md#11-wave-7---shadow-\ub85c-cross-agent-workflows) |
+| 각 워크플로우를 착지시키는 웨이브 계획 | [agent-pantheon-implementation.md § Wave 7](agent-pantheon-implementation-ko.md#11-wave-7---shadow-로-cross-agent-workflows) |
 | 각 워크플로우가 소비하는 ActionType 스키마 | [action-ontology.md](../decisioning/action-ontology-ko.md) |
 | 각 verdict 가 대응하는 risk classification | [risk-classification.md](../decisioning/risk-classification-ko.md) |

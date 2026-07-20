@@ -1,14 +1,14 @@
 ---
-title: 먼저 shadow, 그다음 enforce
-description: 왜 모든 새 자율 액션이 shadow로 먼저 배포되고, 어떻게 자동 실행 권한을 얻는가.
+title: 먼저 관찰하고, 검증 후 변경 적용
+description: 모든 새 자율 액션이 관찰 모드로 시작하고 자동 실행 권한을 얻는 과정입니다.
 translation_of: shadow-then-enforce.md
-translation_source_sha: 780cd4915400ca732a20a7eb3f9ab998431081a7
-translation_revised: 2026-07-17
+translation_source_sha: 4671cfd6724eb90921cb0fa5ebaea3c6f307b036
+translation_revised: 2026-07-20
 sidebar:
   order: 6
 ---
 
-# 먼저 shadow, 그다음 enforce
+# 먼저 관찰하고, 검증 후 변경 적용
 
 FDAI의 새 자율 액션은 한꺼번에 켜지지 않습니다. 모든 규칙, 탐지기,
 remediation은 먼저 **shadow 모드**로 배포됩니다. 프로덕션에서 내렸을 결정을

@@ -6,8 +6,8 @@ import asyncio
 import logging
 import os
 import signal
-from collections.abc import Mapping
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
 import httpx
 
@@ -19,6 +19,7 @@ from fdai.composition import (
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
+from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
 from fdai.runtime.configuration import (
     _attach_runtime_github_change_feed,
     _attach_runtime_knowledge_source,
@@ -41,18 +42,22 @@ from fdai.runtime.control_loop import (
 )
 from fdai.runtime.delivery import _build_incident_notifier
 from fdai.runtime.health import RuntimeHealthServer
-from fdai.runtime.providers import _build_audit_store, _build_inventory_delta_projector
+from fdai.runtime.post_turn_review import (
+    build_azure_post_turn_models,
+    build_post_turn_review_runtime,
+    post_turn_review_dsn,
+)
+from fdai.runtime.providers import (
+    _build_audit_store,
+    _build_inventory_delta_projector,
+    _build_operator_memory_store,
+)
 from fdai.shared.config.models import LlmMode
+from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
-
-
-def _pantheon_start_enabled(environ: Mapping[str, str]) -> bool:
-    """Start all agents unless the operator explicitly disables the runtime."""
-    raw = environ.get("FDAI_START_PANTHEON", "1").strip().lower()
-    return raw not in {"0", "false", "no", "off"}
 
 
 async def _run() -> int:
@@ -244,7 +249,7 @@ async def _run() -> int:
             # adapters and Thor's executor stays in shadow, so running it
             # beside the P1 loop adds no autonomous mutation. See
             # docs/roadmap/agents/agent-pantheon-implementation.md.
-            start_pantheon = _pantheon_start_enabled(os.environ)
+            start_pantheon = pantheon_start_enabled(os.environ)
             if start_pantheon:
                 pantheon_enforce = os.environ.get("FDAI_PANTHEON_ENFORCE", "").lower() in (
                     "1",
@@ -261,6 +266,30 @@ async def _run() -> int:
                 # decision; joined by correlation id to measure shadow
                 # agreement (the promotion baseline).
                 divergence_ledger = ShadowDivergenceLedger()
+                post_turn_models: tuple[PostTurnProposalModel, ...] = ()
+                if container.config.llm.mode == LlmMode.AZURE:
+                    if http_client is None or identity is None:
+                        raise RuntimeError(
+                            "Azure post-turn review requires HTTP and workload identity bindings"
+                        )
+                    resolved_models_path = container.config.llm.resolved_models_path
+                    if resolved_models_path is None:
+                        raise RuntimeError(
+                            "Azure post-turn review requires resolved model configuration"
+                        )
+                    post_turn_models = build_azure_post_turn_models(
+                        repo_root=Path(__file__).resolve().parents[3],
+                        resolved_models_path=resolved_models_path,
+                        endpoint=os.environ["FDAI_LLM_ENDPOINT"],
+                        identity=identity,
+                        http_client=http_client,
+                    )
+                post_turn_review = build_post_turn_review_runtime(
+                    state_store=incident_audit_store,
+                    operator_memory=_build_operator_memory_store(),
+                    models=post_turn_models,
+                    dsn=post_turn_review_dsn(),
+                )
                 pantheon_runtime = PantheonRuntime.build(
                     provider=bus,
                     raw_event_topic=container.config.kafka.topic_events,
@@ -272,8 +301,12 @@ async def _run() -> int:
                     scenario_coverage_aggregator=ScenarioCoverageAggregator(
                         index=runtime_symptom_index
                     ),
+                    post_turn_review=post_turn_review.coordinator,
                     action_types=control_loop.action_types,
                 )
+                norns = pantheon_runtime.agents.get("Norns")
+                if norns is not None:
+                    post_turn_review.bind_rule_hints(cast(RuleHintSubmitter, norns))
                 hb_raw = os.environ.get("FDAI_PANTHEON_HEARTBEAT_SECONDS", "").strip()
                 if hb_raw:
                     try:
@@ -295,7 +328,7 @@ async def _run() -> int:
                         "heartbeat_s": pantheon_heartbeat,
                     },
                 )
-        elif os.environ.get("FDAI_START_PANTHEON", "").lower() in ("1", "true"):
+        elif pantheon_start_enabled(os.environ):
             # Pantheon needs the same Kafka bus the consumer builds; without
             # FDAI_START_CONSUMER there is no bus to bind to. Warn rather
             # than silently no-op so a miswired container is visible.

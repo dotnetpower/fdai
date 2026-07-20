@@ -1,6 +1,6 @@
 ---
 title: Capacity and Performance
-description: How FDAI turns measured demand and forecasts into bounded capacity findings and governed scaling proposals.
+description: How FDAI turns measured demand and forecasts into bounded capacity issues and governed scaling proposals.
 ---
 
 # Capacity and Performance

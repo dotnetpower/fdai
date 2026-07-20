@@ -11,9 +11,14 @@ from fdai.core.scheduler.console_tool import (
     CancelScheduleTool,
     CreateScheduleTool,
     ListSchedulesTool,
+    RunScheduleNowTool,
+    SetScheduleEnabledTool,
+    UpdateScheduleTool,
 )
 from fdai.core.scheduler.models import ScheduledTask
+from fdai.core.scheduler.service import SchedulerService
 from fdai.core.scheduler.store import InMemoryScheduleStore
+from fdai.shared.providers.event_bus import PublishReceipt
 
 _CONTRIB = Principal(id="oid-c", role=Role.CONTRIBUTOR, display_name="Dev")
 _READER = Principal(id="oid-r", role=Role.READER, display_name="Viewer")
@@ -170,3 +175,51 @@ def test_tool_rbac_floors_and_side_effects() -> None:
     assert ListSchedulesTool(store=store).side_effect_class == "read"
     assert ListSchedulesTool(store=store).rbac_floor is Role.READER
     assert CancelScheduleTool(store=store).rbac_floor is Role.CONTRIBUTOR
+
+
+class _Bus:
+    def __init__(self) -> None:
+        self.count = 0
+
+    async def publish(self, topic, key, payload):
+        self.count += 1
+        return PublishReceipt(topic=topic, partition=0, offset=self.count)
+
+    def subscribe(self, topic, group_id):  # pragma: no cover - unused
+        raise NotImplementedError
+
+    async def dead_letter(self, topic, key, payload, reason):  # pragma: no cover
+        raise NotImplementedError
+
+
+async def test_pause_resume_edit_and_run_now() -> None:
+    store = InMemoryScheduleStore()
+    await store.create(
+        ScheduledTask(
+            task_id="t-1",
+            name="daily check",
+            interval_seconds=3600,
+            event_type="probe.health",
+            created_by="oid-c",
+        )
+    )
+    paused = await SetScheduleEnabledTool(store=store, enabled=False).call(
+        arguments={"task_id": "t-1"}, principal=_CONTRIB
+    )
+    assert paused.data["task"]["enabled"] is False
+    resumed = await SetScheduleEnabledTool(store=store, enabled=True).call(
+        arguments={"task_id": "t-1"}, principal=_CONTRIB
+    )
+    assert resumed.data["task"]["enabled"] is True
+    edited = await UpdateScheduleTool(store=store).call(
+        arguments={"task_id": "t-1", "name": "hourly health", "interval_seconds": 1800},
+        principal=_CONTRIB,
+    )
+    assert edited.data["task"]["name"] == "hourly health"
+    bus = _Bus()
+    ran = await RunScheduleNowTool(scheduler=SchedulerService(store=store, event_bus=bus)).call(
+        arguments={"task_id": "t-1", "idempotency_key": "request-1"},
+        principal=_CONTRIB,
+    )
+    assert ran.status == "ok"
+    assert ran.data["fired"] == 1

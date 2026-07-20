@@ -15,6 +15,9 @@ describe("clean console routes", () => {
     expect(panelPath("hil-queue")).toBe("/approvals");
     expect(panelPath("agent-activity")).toBe("/agent-activity");
     expect(panelPath("scheduler-runs")).toBe("/scheduler-runs");
+    expect(panelPath("scheduled-continuations")).toBe("/scheduled-continuations");
+    expect(panelPath("conversation-delivery")).toBe("/conversation-delivery");
+    expect(panelPath("browser-evidence")).toBe("/browser-evidence");
     expect(panelPath("labs")).toBe("/labs");
     expect(panelPath("settings-general")).toBe("/settings/general");
     expect(panelPath("settings-models")).toBe("/settings/models");

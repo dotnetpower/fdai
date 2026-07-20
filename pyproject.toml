@@ -128,6 +128,11 @@ serve = [
 pdf-report = [
     "weasyprint>=66,<70",
 ]
+# Isolated browser-evidence workers install this extra explicitly. The core and
+# read-API images omit it so browser code and binaries never inherit executor identity.
+browser-evidence = [
+    "playwright>=1.51,<2",
+]
 
 [project.urls]
 Homepage = "https://github.com/dotnetpower/fdai"

@@ -1,9 +1,9 @@
 ---
 title: SRE 시나리오 검증
-description: FDAI가 사용하는 모든 SRE scenario set과 catalog validation, replay, shadow coverage, live enforce validation의 구분입니다.
+description: FDAI가 사용하는 모든 SRE 시나리오 세트와 카탈로그 검증, 재생, 관찰 모드 적용 범위, 실제 변경 적용 검증의 구분입니다.
 translation_of: scenario-validation-inventory.md
-translation_source_sha: 72c513fd73473acb90ba95e97ed582ee9caf11f9
-translation_revised: 2026-07-17
+translation_source_sha: eec036d319e29ac1aca3f7773b78f6df8a99022d
+translation_revised: 2026-07-20
 ---
 
 # SRE 시나리오 검증

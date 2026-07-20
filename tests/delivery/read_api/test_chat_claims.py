@@ -62,6 +62,82 @@ def test_marks_duplicate_unanchored_number_ambiguous() -> None:
     assert result.claims[0].reason_code == "multiple_unanchored_evidence"
 
 
+def test_record_identity_disambiguates_duplicate_ontology_property_counts() -> None:
+    result = verify_screen_claims(
+        "Issue has 10 properties.",
+        _context(
+            records={
+                "object_types": [
+                    {"name": "Issue", "properties": 10},
+                    {"name": "UserPreference", "properties": 10},
+                ]
+            }
+        ),
+    )
+
+    assert result.supported is True
+    assert result.claims[0].evidence_refs == ("snapshot:record:object_types:0:properties",)
+
+
+def test_lifecycle_cause_is_grounded_in_explanations_envelope() -> None:
+    result = verify_screen_claims(
+        "Issue is created because An Agent emits HandoffEscalation.",
+        {
+            "routeId": "ontology",
+            "explanations": {
+                "lifecycles": [
+                    {
+                        "entity_kind": "ObjectType",
+                        "entity_id": "Issue",
+                        "owner": "Saga",
+                        "creation": [
+                            {
+                                "code": "agent_handoff",
+                                "when": "An Agent emits HandoffEscalation.",
+                                "result": "Saga creates Issue.",
+                                "source_refs": ["Issue.yaml"],
+                            }
+                        ],
+                        "closure": [],
+                        "authority_refs": ["Issue.yaml"],
+                    }
+                ]
+            },
+        },
+    )
+
+    assert result.supported is True
+    assert result.claims[0].kind == "causal"
+    assert result.claims[0].evidence_refs == ("snapshot:explanations:lifecycles:0:creation:0:when",)
+    assert result.manifest.entries[0].field == "when"
+
+
+def test_localized_fact_labels_disambiguate_duplicate_numbers() -> None:
+    result = verify_screen_claims(
+        "감사 이벤트는 0건이고 승인 대기는 0건입니다.",
+        _context(
+            facts=[
+                {
+                    "key": "event_count",
+                    "label": "Events (audit)",
+                    "aliases": ["audit events", "감사 이벤트"],
+                    "value": 0,
+                },
+                {
+                    "key": "hil_pending",
+                    "label": "Approvals pending",
+                    "aliases": ["pending approvals", "승인 대기"],
+                    "value": 0,
+                },
+            ]
+        ),
+    )
+
+    assert result.supported is True
+    assert result.claims[0].evidence_refs == ("snapshot:fact:event_count",)
+    assert result.claims[1].evidence_refs == ("snapshot:fact:hil_pending",)
+
+
 def test_supports_display_percentage_derived_from_ratio_fact() -> None:
     result = verify_screen_claims(
         "Auto resolution is 92%.",

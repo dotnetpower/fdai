@@ -57,6 +57,21 @@ test("rejects an edge with an unknown endpoint", () => {
   assert.throws(() => validateDiagram(diagram), /Unknown edge endpoint 'missing'/);
 });
 
+test("allows an edge to target a group boundary", () => {
+  const diagram = parseDiagram(minimalDiagram);
+  diagram.edges[0]!.to = "control-plane";
+  assert.doesNotThrow(() => validateDiagram(diagram));
+});
+
+test("rejects an edge with an unknown node port", () => {
+  const diagram = parseDiagram(minimalDiagram);
+  diagram.edges[0]!.to = "processor:missing";
+  assert.throws(
+    () => validateDiagram(diagram),
+    /Unknown edge port 'processor:missing'/,
+  );
+});
+
 test("requires both display locales", () => {
   const diagram = parseDiagram(minimalDiagram) as unknown as Record<string, unknown>;
   const locales = diagram.locales as Record<string, unknown>;

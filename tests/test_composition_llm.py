@@ -1153,6 +1153,10 @@ async def test_wire_azure_container_binds_monitor_with_workspace(tmp_path: Path)
     )
     from fdai.delivery.azure.metric_logs import AzureMonitorLogsMetricProvider
     from fdai.delivery.azure.metrics_api import AzureMonitorMetricsProvider
+    from fdai.delivery.azure.telemetry_query import (
+        AzureLogAnalyticsRcaLogProvider,
+        AzureLogAnalyticsTraceProvider,
+    )
     from fdai.shared.providers.routed_metric import RoutedMetricProvider
 
     resolved = tmp_path / "resolved-models.json"
@@ -1172,6 +1176,8 @@ async def test_wire_azure_container_binds_monitor_with_workspace(tmp_path: Path)
     )
     routed = finalized.metric_provider
     assert isinstance(routed, RoutedMetricProvider)
+    assert isinstance(finalized.log_query_provider, AzureLogAnalyticsRcaLogProvider)
+    assert isinstance(finalized.trace_query_provider, AzureLogAnalyticsTraceProvider)
     # Direct-mapped metric goes to the fast Metrics API route.
     assert routed.route_for(METRIC_MYSQL_CPU_PERCENT) == (AzureMonitorMetricsProvider.__name__)
     # Rate-based metric (needs client-side compute) falls through to AML.

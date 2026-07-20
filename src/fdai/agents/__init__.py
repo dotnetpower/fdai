@@ -28,11 +28,13 @@ from fdai.agents._framework.topics import (
     topic_for_object_type,
 )
 from fdai.agents._framework.workflows import WORKFLOWS, WorkflowSpec
+from fdai.agents.norns import Norns
 
 __all__ = [
     "Agent",
     "AgentSpec",
     "Layer",
+    "Norns",
     "PantheonBus",
     "PantheonRegistry",
     "PantheonRuntime",

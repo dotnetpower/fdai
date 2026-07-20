@@ -17,6 +17,7 @@ _MAX_ARTIFACT_BYTES = 32 * 1024 * 1024
 class TrustedArtifactKind(StrEnum):
     EXTENSION = "extension"
     SKILL = "skill"
+    SKILL_BUNDLE = "skill_bundle"
 
 
 class TrustedArtifactState(StrEnum):

@@ -17,6 +17,7 @@ from starlette.routing import Route
 
 from fdai.core.conversation.answer_plan import build_answer_plan
 from fdai.core.conversation.answer_planning import AnswerPlanningResult
+from fdai.core.conversation.busy_input_coordinator import BusyInputCoordinator
 from fdai.core.metering import InvocationScope, with_invocation_scope
 from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.core.user_context_projection import UserContextOntologyProjector
@@ -32,8 +33,16 @@ from fdai.delivery.read_api.routes.chat_backend_common import (
     _reject_direct_override,
 )
 from fdai.delivery.read_api.routes.chat_backend_router import LatencyRoutedChatBackend
+from fdai.delivery.read_api.routes.chat_busy_input import (
+    MAX_STEER_RERUNS,
+    ChatTurnInterruptedError,
+    answer_with_busy_input,
+    append_next_steer,
+    interruptible_events,
+)
 from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
     AgentChatDelegate,
+    ChatBehaviorEvidenceResolver,
     ChatToolResolver,
     ChatWebSearchEvidenceResolver,
     OperationalEvidenceResolverProtocol,
@@ -41,6 +50,7 @@ from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
     _retrieval_source_previews,
     _web_search_summary,
     _with_agent_evidence,
+    _with_behavior_evidence,
     _with_operational_evidence,
     _with_tool_evidence,
     _with_web_evidence,
@@ -73,6 +83,11 @@ from fdai.delivery.read_api.routes.chat_stream_protocol import (
 )
 from fdai.delivery.read_api.routes.chat_system_health import render_system_health_answer
 from fdai.delivery.read_api.routes.chat_verification import verify_answer
+from fdai.delivery.read_api.routes.post_turn_review import (
+    PostTurnReviewSubmission,
+    PostTurnReviewSubmitter,
+    explicit_corrections,
+)
 from fdai.shared.providers.briefing import ConversationPolicyStore
 from fdai.shared.providers.user_context import ConversationHistoryStore
 from fdai.shared.telemetry.correlation import with_correlation
@@ -87,6 +102,7 @@ def make_chat_stream_route(
     *,
     backend: ChatBackend,
     authorize: AuthorizeFn,
+    behavior_resolver: ChatBehaviorEvidenceResolver | None = None,
     evidence_resolver: OperationalEvidenceResolverProtocol | None = None,
     tool_resolver: ChatToolResolver | None = None,
     web_search_resolver: ChatWebSearchEvidenceResolver | None = None,
@@ -97,6 +113,8 @@ def make_chat_stream_route(
     user_context_ontology_projector: UserContextOntologyProjector | None = None,
     model_preference_resolver: ModelPreferenceResolver | None = None,
     answer_preference_resolver: AnswerPreferenceResolver | None = None,
+    post_turn_review_submitter: PostTurnReviewSubmitter | None = None,
+    busy_input_coordinator: BusyInputCoordinator | None = None,
     path: str = DEFAULT_STREAM_PATH,
     max_body_bytes: int = DEFAULT_MAX_BODY_BYTES,
 ) -> Route:
@@ -173,16 +191,39 @@ def make_chat_stream_route(
         view_context["_answer_plan"] = answer_plan.to_dict()
         session_id = _session_id(body)
         request_id = _request_id(body)
-        if conversation_history_store is not None:
-            await append_operator_turn(
-                store=conversation_history_store,
-                principal_id=user_id,
-                conversation_id=session_id,
-                request_id=request_id,
-                content=clean_prompt,
-                recorded_at=datetime.now(tz=UTC),
-                ontology_projector=user_context_ontology_projector,
-            )
+        active_turn = None
+        if busy_input_coordinator is not None:
+            try:
+                active_turn = await busy_input_coordinator.begin_turn(
+                    session_id=session_id,
+                    turn_id=request_id,
+                    principal_id=user_id,
+                )
+            except RuntimeError as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail="conversation session already has an active turn",
+                ) from exc
+        try:
+            operator_turn = None
+            if conversation_history_store is not None:
+                operator_turn = await append_operator_turn(
+                    store=conversation_history_store,
+                    principal_id=user_id,
+                    conversation_id=session_id,
+                    request_id=request_id,
+                    content=clean_prompt,
+                    recorded_at=datetime.now(tz=UTC),
+                    ontology_projector=user_context_ontology_projector,
+                )
+        except Exception:
+            if busy_input_coordinator is not None and active_turn is not None:
+                await busy_input_coordinator.finish_turn(
+                    session_id=session_id,
+                    turn_id=request_id,
+                    principal_id=user_id,
+                )
+            raise
 
         async def event_source() -> AsyncIterator[bytes]:
             nonlocal answer_plan
@@ -222,10 +263,16 @@ def make_chat_stream_route(
                     user_id=user_id,
                     store=conversation_policy_store,
                 )
+                enriched_context = await _with_behavior_evidence(
+                    clean_prompt,
+                    enriched_context,
+                    behavior_resolver,
+                )
                 enriched_context = await _with_tool_evidence(
                     clean_prompt,
                     enriched_context,
                     tool_resolver,
+                    principal_id=user_id,
                 )
                 enriched_context = await _with_operational_evidence(
                     clean_prompt, enriched_context, evidence_resolver
@@ -309,64 +356,92 @@ def make_chat_stream_route(
                     for chunk in _chunk_answer_for_stream(provisional_answer):
                         yield frame("token", {"delta": chunk})
                 elif stream is not None:
-                    if isinstance(backend, LatencyRoutedChatBackend):
-                        upstream = backend.answer_stream(
-                            prompt=clean_prompt,
-                            view_context=enriched_context,
-                            history=history,
-                            preferred_model=preferred_model,
-                        )
-                    else:
-                        upstream = stream(
-                            prompt=clean_prompt,
-                            view_context=enriched_context,
-                            history=history,
-                        )
-                    with (
-                        with_correlation(_metering_correlation_id(user_id, session_id)),
-                        with_invocation_scope(InvocationScope.OPERATOR_CHAT),
-                    ):
-                        async for event in _with_sse_heartbeats(
-                            upstream, interval=DEFAULT_STREAM_HEARTBEAT_S
-                        ):
-                            if event is None:
-                                # Idle keep-alive: nothing arrived in the last
-                                # `interval` seconds - emit a comment frame so
-                                # proxies do not drop the connection while the
-                                # reasoning model is still thinking.
-                                yield _sse_heartbeat()
-                                continue
-                            etype = event.get("type")
-                            if etype == "token":
-                                delta = event.get("delta", "")
-                                if isinstance(delta, str):
-                                    provisional_answer += delta
-                                yield frame("token", {"delta": delta})
-                            elif etype == "done":
-                                answer = event.get("answer")
-                                if isinstance(answer, str) and answer:
-                                    provisional_answer = answer
-                                terminal_model = event.get("model")
-                                terminal_router = event.get("router")
-                                terminal_usage = event.get("usage")
-                else:
-                    with (
-                        with_correlation(_metering_correlation_id(user_id, session_id)),
-                        with_invocation_scope(InvocationScope.OPERATOR_CHAT),
-                    ):
+                    steer_reruns = 0
+                    while steer_reruns <= MAX_STEER_RERUNS:
                         if isinstance(backend, LatencyRoutedChatBackend):
-                            reply = await backend.answer(
+                            upstream = backend.answer_stream(
                                 prompt=clean_prompt,
                                 view_context=enriched_context,
                                 history=history,
                                 preferred_model=preferred_model,
                             )
                         else:
-                            reply = await backend.answer(
+                            upstream = stream(
                                 prompt=clean_prompt,
                                 view_context=enriched_context,
                                 history=history,
                             )
+                        provisional_answer = ""
+                        with (
+                            with_correlation(_metering_correlation_id(user_id, session_id)),
+                            with_invocation_scope(InvocationScope.OPERATOR_CHAT),
+                        ):
+                            events = _with_sse_heartbeats(
+                                upstream, interval=DEFAULT_STREAM_HEARTBEAT_S
+                            )
+                            async for event in interruptible_events(
+                                events,
+                                active_turn=active_turn,
+                            ):
+                                if event is None:
+                                    yield _sse_heartbeat()
+                                    continue
+                                etype = event.get("type")
+                                if etype == "token":
+                                    delta = event.get("delta", "")
+                                    if isinstance(delta, str):
+                                        provisional_answer += delta
+                                    yield frame("token", {"delta": delta})
+                                elif etype == "done":
+                                    answer = event.get("answer")
+                                    if isinstance(answer, str) and answer:
+                                        provisional_answer = answer
+                                    terminal_model = event.get("model")
+                                    terminal_router = event.get("router")
+                                    terminal_usage = event.get("usage")
+                        if steer_reruns >= MAX_STEER_RERUNS or not await append_next_steer(
+                            history=history,
+                            coordinator=busy_input_coordinator,
+                            active_turn=active_turn,
+                        ):
+                            break
+                        steer_reruns += 1
+                        revision += 1
+                        yield frame(
+                            "status",
+                            {
+                                "phase": "steering",
+                                "label": "Applying operator guidance",
+                            },
+                        )
+                else:
+
+                    async def invoke_backend(
+                        active_history: list[dict[str, str]],
+                    ) -> dict[str, Any]:
+                        if isinstance(backend, LatencyRoutedChatBackend):
+                            return await backend.answer(
+                                prompt=clean_prompt,
+                                view_context=enriched_context,
+                                history=active_history,
+                                preferred_model=preferred_model,
+                            )
+                        return await backend.answer(
+                            prompt=clean_prompt,
+                            view_context=enriched_context,
+                            history=active_history,
+                        )
+
+                    with (
+                        with_correlation(_metering_correlation_id(user_id, session_id)),
+                        with_invocation_scope(InvocationScope.OPERATOR_CHAT),
+                    ):
+                        reply = await answer_with_busy_input(
+                            invoke=invoke_backend,
+                            history=history,
+                            coordinator=busy_input_coordinator,
+                            active_turn=active_turn,
+                        )
                     answer = reply.get("answer", "")
                     if isinstance(answer, str) and answer:
                         provisional_answer = answer
@@ -431,7 +506,7 @@ def make_chat_stream_route(
                     )
                 answer_planning = await planning_metadata(planning_task)
                 if conversation_history_store is not None:
-                    await append_assistant_turn(
+                    assistant_turn = await append_assistant_turn(
                         store=conversation_history_store,
                         principal_id=user_id,
                         conversation_id=session_id,
@@ -445,6 +520,16 @@ def make_chat_stream_route(
                         ),
                         ontology_projector=user_context_ontology_projector,
                     )
+                    if post_turn_review_submitter is not None and operator_turn is not None:
+                        post_turn_review_submitter.submit_nowait(
+                            operator_turn=operator_turn,
+                            assistant_turn=assistant_turn,
+                            submission=PostTurnReviewSubmission(
+                                validation_outcomes=(verification.status,),
+                                evidence_refs=verification.evidence_refs,
+                                explicit_corrections=explicit_corrections(clean_prompt),
+                            ),
+                        )
                 yield frame(
                     "done",
                     {
@@ -475,6 +560,14 @@ def make_chat_stream_route(
                         ],
                     },
                 )
+            except ChatTurnInterruptedError:
+                yield frame(
+                    "interrupted",
+                    {
+                        "detail": "chat turn interrupted",
+                        "session_id": session_id,
+                    },
+                )
             except ChatBackendUnavailableError:
                 yield frame("error", {"detail": "chat backend not configured"})
             except HTTPException as exc:
@@ -484,6 +577,12 @@ def make_chat_stream_route(
                 yield frame("error", {"detail": "chat stream failed"})
             finally:
                 await cancel_planning(planning_task)
+                if busy_input_coordinator is not None and active_turn is not None:
+                    await busy_input_coordinator.finish_turn(
+                        session_id=session_id,
+                        turn_id=request_id,
+                        principal_id=user_id,
+                    )
 
         return StreamingResponse(
             event_source(),

@@ -51,16 +51,16 @@ interface Props {
 const {
   heading = "Explore the action ontology",
   intro =
-    "Every autonomous change is one typed ActionType entry. Pick one to see the axes the risk gate reads before it runs.",
+    "Every autonomous change is one typed ActionType entry. Pick one to see the axes the safety check reads before it runs.",
   filterLabel = "Filter by rollback",
   filterAllLabel = "All",
   selectHint = "Select an action type",
   axisLabels = {},
-  irreversibleLabel = "irreversible - HIL forced",
+  irreversibleLabel = "irreversible - human approval required",
   invariantsNote =
-    "Every action carries all four: stop-condition, rollback path, blast-radius limit, audit-log entry.",
+    "Every action carries all four: stop-condition, rollback path, impact-scope limit, audit-log entry.",
   scopeNote =
-    "Showing the shipped remediation catalog (rule-fired, PR-native, shadow-first). The ontology also spans ops and governance categories in the spec.",
+    "Showing the shipped fix catalog (rule-fired, PR-native, observation-first). The ontology also spans ops and governance categories in the spec.",
 } = Astro.props as Props;
 
 const axis = {
@@ -69,7 +69,7 @@ const axis = {
   trigger: axisLabels.trigger ?? "Trigger",
   execution: axisLabels.execution ?? "Execution path",
   rollback: axisLabels.rollback ?? "Rollback",
-  blast: axisLabels.blast ?? "Blast radius",
+  blast: axisLabels.blast ?? "Impact scope",
   mode: axisLabels.mode ?? "Default mode",
 };
 

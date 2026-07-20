@@ -19,7 +19,7 @@ agents/
 │                        # arbitration, introspection, kpi, adapters,
 │                        # provider_adapters, factory, workflows,
 │                        # topics, candidate_guard, divergence,
-│                        # bus_bridge (16 files)
+│                        # bus_bridge, norns_consensus, ...
 ├── odin.py    thor.py    forseti.py   huginn.py   heimdall.py
 ├── var.py     vidar.py   bragi.py     saga.py     mimir.py
 ├── muninn.py  norns.py   njord.py     freyr.py    loki.py
@@ -41,6 +41,7 @@ agents/
 | `_framework/factory.py` | `instantiate_pantheon()` - build all 15 concrete instances |
 | `_framework/workflows.py` | The 10 cross-agent `WorkflowSpec` catalog |
 | `_framework/kpi.py` | `KpiCollector`, `PromotionGate`, `PromotionGateThreshold` |
+| `_framework/norns_consensus.py` | Internal Urd / Verdandi / Skuld perspectives; requires `3/3` agreement and exposes one bounded aggregate result to Norns |
 | `odin.py` `thor.py` `forseti.py` ... | One file per pantheon agent (15 total). Each subclasses `Agent`, binds its `AgentSpec`, and implements `on_typed_message` / helper methods per its wave-plan mandate |
 
 ## Testing
@@ -50,6 +51,7 @@ agents/
 - `tests/agents/test_stubs.py` - all 15 stubs instantiate + honest abstain
 - `tests/agents/test_ontology_alignment.py` - YAML `Agent` object type <-> Python pantheon parity
 - `tests/agents/test_wave2_governance.py` - Saga chain + Issue dedup, Mimir promotion, Muninn store, Norns fingerprint counter
+- `tests/agents/test_norns_consensus.py` - Norns `3/3` consensus publication and disagreement hold behavior
 - `tests/agents/test_wave3_pipeline.py` - Huginn / Heimdall / Forseti / Var / Vidar / Thor + end-to-end verdict loop
 - `tests/agents/test_wave4_interface.py` - Bragi routing + scoring, Odin arbitration + priority table
 - `tests/agents/test_wave5_specialists.py` - Njord anomaly, Freyr forecast, Loki blast-radius

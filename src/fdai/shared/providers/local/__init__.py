@@ -18,6 +18,7 @@ from fdai.shared.providers.local.document_ingestion import (
     StandardLibraryDocumentExtractor,
     UnavailableMalwareScanner,
 )
+from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai.shared.providers.local.feasibility import (
     DenylistResourceTypeProbe,
     EgressDenylistProbe,
@@ -32,6 +33,7 @@ from fdai.shared.providers.local.inventory import (
     load_inventory_fixture,
 )
 from fdai.shared.providers.local.secret import EnvSecretProvider
+from fdai.shared.providers.local.sse import LocalSseSink
 
 __all__ = [
     "DenylistResourceTypeProbe",
@@ -41,6 +43,8 @@ __all__ = [
     "LocalWorkloadIdentity",
     "LocalWorkloadIdentityConfig",
     "LocalDirectoryDocumentObjectStore",
+    "LocalEventBus",
+    "LocalSseSink",
     "SignatureProtectionInspector",
     "StandardLibraryDocumentExtractor",
     "UnavailableMalwareScanner",

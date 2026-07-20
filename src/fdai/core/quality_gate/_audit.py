@@ -34,6 +34,15 @@ def quality_decision_audit_fields(
                 "model_id": vote.model_id,
                 "proposed_action_type": vote.proposed_action_type,
                 "agreed": vote.agreed,
+                **(
+                    {
+                        "prompt_replay_manifest": _prompt_replay_manifest_fields(
+                            vote.prompt_replay_manifest
+                        )
+                    }
+                    if vote.prompt_replay_manifest is not None
+                    else {}
+                ),
             }
             for vote in decision.model_votes
         ],
@@ -62,3 +71,57 @@ def quality_decision_audit_fields(
     if decision.self_consistency is not None:
         fields["self_consistency"] = decision.self_consistency
     return fields
+
+
+def _prompt_replay_manifest_fields(manifest: Any) -> dict[str, Any]:
+    return {
+        "system_text_sha256": manifest.system_text_sha256,
+        "token_estimate": manifest.token_estimate,
+        "canary_tokens": [
+            {"layer_id": layer_id, "token": token} for layer_id, token in manifest.canary_tokens
+        ],
+        "layer_manifest": [
+            {
+                "id": layer.id,
+                "version": layer.version,
+                "layer": layer.layer.value,
+                "token_estimate": layer.token_estimate,
+            }
+            for layer in manifest.layer_manifest
+        ],
+        "skill_records": [
+            {
+                "operation": record.operation,
+                "name": record.name,
+                "version": record.version,
+                "raw_markdown_sha256": record.raw_markdown_sha256,
+                "body_sha256": record.body_sha256,
+                "reference_path": record.reference_path,
+                "reference_sha256": record.reference_sha256,
+                "status": record.status.value,
+                "rejection_reason": record.rejection_reason,
+            }
+            for record in manifest.skill_records
+        ],
+        "skill_bundle_records": [
+            {
+                "operation": record.operation,
+                "name": record.name,
+                "version": record.version,
+                "manifest_sha256": record.manifest_sha256,
+                "digest": record.digest,
+                "members": [
+                    {
+                        "name": member.name,
+                        "version": member.version,
+                        "raw_markdown_sha256": member.raw_markdown_sha256,
+                        "body_sha256": member.body_sha256,
+                    }
+                    for member in record.members
+                ],
+                "status": record.status.value,
+                "rejection_reason": record.rejection_reason,
+            }
+            for record in manifest.skill_bundle_records
+        ],
+    }

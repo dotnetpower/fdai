@@ -45,11 +45,11 @@ and the threat model in [security-and-identity.md](security-and-identity.md).
 |---------|----------------|-----------|------------------------------|
 | Core engine runtime | **Python (3.12+)** - src-layout under `src/fdai/` | mature LLM / OPA / IaC-scanner SDKs, strong typing via mypy, one language across every subsystem (see [OD-1](#od-1-core-runtime-language)) | TypeScript (Node), Go, .NET - reserved for a future perf-driven split behind the same interface |
 | Policy engine | **OPA / Rego** | CSP-neutral policy-as-code; reused by T0 and the T2 verifier | Gatekeeper (K8s), Cloud Custodian |
-| IaC | **Terraform** (Azure targeting, HCL) | resolves the OD; Terraform is the entry-command target (`terraform apply`), rendered from the four CSP-neutral contracts in [csp-neutrality.md](csp-neutrality.md); Bicep and OpenTofu remain compatible fallbacks | **OpenTofu** (MPL-2.0 fork) if a strictly OSS toolchain is required; Bicep for Azure-only convenience; Pulumi if a general-purpose language is preferred |
+| IaC | **Terraform** (Azure targeting, HCL) | resolves the OD; Terraform is the entry-command target (`terraform apply`) and renders the eight CSP-neutral contracts in [csp-neutrality.md](csp-neutrality.md); Bicep and OpenTofu remain compatible fallbacks | **OpenTofu** (MPL-2.0 fork) if a strictly OSS toolchain is required; Bicep for Azure-only convenience; Pulumi if a general-purpose language is preferred |
 | Event bus | **Event Hubs** consumed **only via its Kafka endpoint on `:9093`** (Kafka wire protocol is the CSP-neutral contract - see [csp-neutrality.md](csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol)) | one wire protocol serves every managed target (MSK, GCP Managed Kafka, Confluent, Redpanda), so a non-Azure adapter is a config swap | MSK Serverless / GCP Managed Kafka / Confluent / Redpanda / self-hosted Strimzi - non-Azure options are TBD |
 | Event/message schema | JSON Schema (or CloudEvents envelope) in a versioned registry | typed, versioned event contracts; enables safe evolution and validation at ingress | Avro/Protobuf + Confluent-compatible registry |
 | Dead-letter handling | Kafka **dead-letter topic** convention (e.g. `<topic>.dlq`) + a replay/redrive worker | no event is silently dropped; poison messages are quarantined and re-processable; identical across providers | vendor-native DLQ **not used** (behavior diverges per provider) |
-| Compute | **Azure Container Apps** (Consumption, KEDA + scale-to-zero) - **one app with sidecar containers** for core subsystems, deployed from an **OCI image + Knative-compatible manifest subset** (see [csp-neutrality.md](csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest)) | event scaling without always-on cost; the manifest also renders to Cloud Run / App Runner / Knative on any K8s so runtime is portable | Cloud Run (native Knative), App Runner, Knative on AKS/EKS/GKE; AKS when custom networking/DaemonSets/GPU are needed |
+| Compute | **Azure Container Apps** (Consumption) - one modular core app, separated read API and ingestion gateway apps, plus bounded Jobs in one environment, all rendered from **OCI images + a Knative-compatible manifest subset** (see [csp-neutrality.md](csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest)) | independent edge/read scaling and bounded jobs without changing the headless core contract; manifests also render to Cloud Run / App Runner / Knative on K8s | Cloud Run (native Knative), App Runner, Knative on AKS/EKS/GKE; AKS when custom networking/DaemonSets/GPU are needed |
 | Light triggers | **Container Apps Jobs** (same environment as Compute); renders to K8s `CronJob` / Cloud Run Job / EventBridge on other targets | out-of-band change detection, cost-anomaly hooks, scheduled probes - avoids provisioning a separate Functions plan | Azure Functions if a native binding is required; Knative eventing |
 | State / audit / KPI | **PostgreSQL** (default) or **Cosmos DB** | append-only audit log, pattern library, KPI store; also hosts the runtime ontology instance state ([llm-strategy.md § Ontology Storage Layout](llm-strategy.md#ontology-storage-layout)) | see [Data Store Selection](#data-store-selection-criteria) |
 | Vector search (T1) | pgvector (co-located with PostgreSQL) | keep embeddings next to audit/state; one datastore to operate | dedicated vector DB (Qdrant/Milvus) at higher scale - see [Vector Search Rationale](#vector-search-rationale) |
@@ -126,11 +126,13 @@ These feed the rule catalog ([phase-1-rule-catalog-t0.md](../phases/phase-1-rule
   match production behind the same event interface. Cloud-integration tests re-verify
   against the Event Hubs Kafka endpoint before promotion.
 - Deterministic engine and risk gate run fully offline (no cloud calls) for fast unit tests.
-- **LLM stays fake by default in dev**: `runtime.env == "dev"` binds the deterministic
-  in-memory fakes (`DeterministicEmbeddingModel`, `MatchTypeCrossCheckModel`,
-  `StaticVerifier`, `InMemoryGroundingSource`) - no Azure OpenAI credentials, no live
-  endpoints, no token cost. The Azure-side adapters live under `delivery/azure/llm/` and
-  are only imported by the composition root when `llm.mode == "azure"`. Full parity
+- **LLM mode is independent from environment**: `llm.mode` defaults to `local-fake` and
+  binds deterministic in-memory fakes (`DeterministicEmbeddingModel`,
+  `MatchTypeCrossCheckModel`, `StaticVerifier`, `InMemoryGroundingSource`) without Azure
+  credentials or token cost. Local or deployed runtimes may explicitly select
+  `llm.mode == "azure"`; `runtime.env` never chooses the evidence/model profile. Azure
+  adapters live under `delivery/azure/llm/` and are imported only by the composition root.
+  Full parity
   contract + work plan: [dev-and-deploy-parity.md](../deployment/dev-and-deploy-parity.md).
 - Fixtures for rule-catalog entries and event payloads are English and secret-free.
 

@@ -35,6 +35,41 @@ See also:
 
 from __future__ import annotations
 
+from fdai.core.conversation.adapter_health import (
+    AdapterFallbackAuthorizer,
+    AdapterFallbackNotifier,
+    AdapterFallbackRoute,
+    AdapterHealthAuthorizer,
+    AdapterHealthConfig,
+    AdapterHealthService,
+)
+from fdai.core.conversation.binding_delivery_context import (
+    ChannelScopeResolver,
+    VerifiedBindingDeliveryContextResolver,
+)
+from fdai.core.conversation.busy_input import (
+    BusyInput,
+    BusyInputDecision,
+    BusyInputDisposition,
+    BusyInputKind,
+    BusyInputMode,
+    BusyPendingStatus,
+    BusySessionState,
+    PendingBusyInput,
+    arbitrate_busy_input,
+    consume_pending_input,
+    finish_active_turn,
+)
+from fdai.core.conversation.busy_input_coordinator import (
+    ActiveConversationTurn,
+    BusyInputCoordinator,
+    BusyInputMetrics,
+)
+from fdai.core.conversation.busy_input_store import (
+    BusyInputConflictError,
+    BusyInputStore,
+    InMemoryBusyInputStore,
+)
 from fdai.core.conversation.channel_access import (
     ChannelAccessError,
     ChannelAccessMode,
@@ -51,9 +86,13 @@ from fdai.core.conversation.channel_access import (
 from fdai.core.conversation.channel_gateway import (
     AttachmentIngestionResult,
     ChannelAttachmentIngestor,
+    ChannelBusyInputModeResolver,
+    ChannelDeliveryContext,
+    ChannelDeliveryContextResolver,
     ChannelMessageLedger,
     ChannelPrincipalResolver,
     ConversationChannelGateway,
+    DurableChannelDelivery,
     SessionLoader,
 )
 from fdai.core.conversation.context_bridge import (
@@ -77,6 +116,13 @@ from fdai.core.conversation.identity_links import (
     CrossChannelIdentityLinkStore,
     InMemoryCrossChannelIdentityLinkStore,
 )
+from fdai.core.conversation.identity_verification import (
+    AuthorizedChannelPrincipal,
+    ChannelIdentityVerificationError,
+    ChannelIdentityVerificationHooks,
+    ChannelPrincipalAuthorizationMapping,
+    PrincipalScopeAuthorization,
+)
 from fdai.core.conversation.narrator import (
     DeterministicKeywordNarrator,
     Narrator,
@@ -84,11 +130,29 @@ from fdai.core.conversation.narrator import (
     default_tool_schemas,
     format_prompt_tool_list,
 )
+from fdai.core.conversation.outbound_delivery import (
+    DurableOutboundDeliveryConfig,
+    DurableOutboundDeliveryCoordinator,
+)
+from fdai.core.conversation.principal_binding import (
+    PrincipalConversationBindingAuthorizer,
+    PrincipalConversationBindingService,
+    PrincipalConversationBindingStore,
+)
 from fdai.core.conversation.session import (
     ConversationSession,
     Principal,
     Role,
     Turn,
+)
+from fdai.core.conversation.skill_discovery import (
+    DescribeRuntimeSkillBundleTool,
+    DescribeRuntimeSkillTool,
+    ListRuntimeSkillBundlesTool,
+    ListRuntimeSkillsTool,
+    LoadRuntimeSkillBundleTool,
+    LoadRuntimeSkillTool,
+    ReadRuntimeSkillReferenceTool,
 )
 from fdai.core.conversation.system_tools import (
     AuditReader,
@@ -102,6 +166,7 @@ from fdai.core.conversation.system_tools import (
     QueryLogTool,
     QueryMetricTool,
     QueryOperatorMemoryTool,
+    SearchConversationsTool,
 )
 from fdai.core.conversation.tool_discovery import (
     DescribeRuntimeTool,
@@ -127,19 +192,43 @@ from fdai.core.conversation.write_tools import (
 
 __all__ = [
     "AbstainResult",
+    "AdapterFallbackAuthorizer",
+    "AdapterFallbackNotifier",
+    "AdapterFallbackRoute",
+    "AdapterHealthAuthorizer",
+    "AdapterHealthConfig",
+    "AdapterHealthService",
     "ActivateBreakGlassTool",
+    "ActiveConversationTurn",
     "ApproveHilTool",
     "AuditReader",
     "AuditWriter",
     "AttachmentIngestionResult",
+    "AuthorizedChannelPrincipal",
+    "BusyInput",
+    "BusyInputConflictError",
+    "BusyInputCoordinator",
+    "BusyInputDecision",
+    "BusyInputDisposition",
+    "BusyInputKind",
+    "BusyInputMode",
+    "BusyInputMetrics",
+    "BusyInputStore",
+    "BusyPendingStatus",
+    "BusySessionState",
     "ChannelAccessError",
     "ChannelAccessMode",
     "ChannelAccessService",
     "ChannelAttachmentIngestor",
+    "ChannelBusyInputModeResolver",
+    "ChannelDeliveryContext",
+    "ChannelDeliveryContextResolver",
     "ChannelIdentityDirectory",
     "ChannelMessageLedger",
     "ChannelPairingStore",
     "ChannelPrincipalResolver",
+    "ChannelPrincipalAuthorizationMapping",
+    "ChannelScopeResolver",
     "ChannelSenderKey",
     "CrossChannelIdentityLink",
     "CrossChannelIdentityLinkError",
@@ -155,27 +244,46 @@ __all__ = [
     "CreationForbiddenError",
     "DescribeEventTool",
     "DescribeRuntimeTool",
+    "DescribeRuntimeSkillTool",
+    "DescribeRuntimeSkillBundleTool",
+    "DurableChannelDelivery",
+    "DurableOutboundDeliveryConfig",
+    "DurableOutboundDeliveryCoordinator",
     "DeterministicKeywordNarrator",
     "ExplainVerdictTool",
     "ExploreCatalogTool",
     "InventoryProvider",
+    "InMemoryBusyInputStore",
     "InMemoryChannelPairingStore",
     "InMemoryCrossChannelIdentityLinkStore",
+    "ChannelIdentityVerificationError",
+    "ChannelIdentityVerificationHooks",
     "ListHilTool",
+    "ListRuntimeSkillsTool",
+    "ListRuntimeSkillBundlesTool",
+    "LoadRuntimeSkillBundleTool",
+    "LoadRuntimeSkillTool",
     "Narrator",
     "Principal",
+    "PrincipalConversationBindingAuthorizer",
+    "PrincipalConversationBindingService",
+    "PrincipalConversationBindingStore",
+    "PrincipalScopeAuthorization",
     "PairingApprovalAuthorizer",
     "PairingChallenge",
     "PairingCreateResult",
     "PairingRequest",
+    "PendingBusyInput",
     "QueryAuditTool",
     "QueryDeploymentsTool",
     "QueryInventoryTool",
     "QueryLogTool",
     "QueryMetricTool",
     "QueryOperatorMemoryTool",
+    "ReadRuntimeSkillReferenceTool",
     "Role",
     "RunRunbookTool",
+    "SearchConversationsTool",
     "SearchRuntimeToolsTool",
     "RuntimeToolDiscovery",
     "SessionLoader",
@@ -186,9 +294,13 @@ __all__ = [
     "ToolDiscoveryError",
     "ToolSchema",
     "Turn",
+    "VerifiedBindingDeliveryContextResolver",
+    "arbitrate_busy_input",
     "assemble_turn_context",
+    "consume_pending_input",
     "default_tool_schemas",
     "format_prompt_tool_list",
+    "finish_active_turn",
     "operator_memory_to_entries",
     "session_to_working_context",
 ]

@@ -36,10 +36,10 @@ never hold the executor identity described below.
   explicit **action whitelist**. No broad standing permissions.
 - `DefaultAzureCredential()` (or any similarly named SDK entry point) is **prohibited in
   `core/`**; it appears only inside the Azure provider adapter behind the interface.
-- **Per-vertical identity is the target end-state**, phased over the roadmap: Phase 1 ships
-  a single `mi-aw-executor` (Change Safety only), Phase 3 splits into
-  `mi-aw-change` / `mi-aw-dr` / `mi-aw-finops` when Resilience and Cost Governance land - see
-  [Identity Mapping (Phased)](#identity-mapping-phased) below.
+- **Per-vertical identities are provisioned alongside the aggregate router identity.** Terraform
+  creates `id-<workload><suffix>-executor`, `-change`, `-resilience`, and `-finops` identities.
+  Fork-owned policy modules bind the vertical action whitelists; see
+  [Identity Mapping](#identity-mapping) below.
 - Human approval identities (HIL) are distinct from execution identities; approval and
   execution are never the same principal, and no identity may assume another domain's identity
   (cross-domain assumption is denied, not just unused).
@@ -49,18 +49,22 @@ never hold the executor identity described below.
   executor holds no long-lived secret. Where a secret is unavoidable it is short-lived and
   auto-rotated (see Secrets and Config).
 
-### Identity Mapping (Phased)
+### Identity Mapping
 
-Resolves P0 Open Decision *"Executor-side identity mapping"*. The plan is phased so Phase 1
-does not carry unused per-domain infrastructure, but the interface (per-domain routing at
-the risk-gate) is in place from day one so the Phase 3 split is a config change, not a
-rewrite.
+This resolves the P0 Open Decision *"Executor-side identity mapping"*. The current Terraform
+shape preserves one aggregate action-router identity and three vertical identities so delivery
+adapters can select a principal by domain without changing `core/`.
 
-| Phase | MI(s) | Azure role strategy | Scope |
-|-------|-------|---------------------|-------|
-| **P1** (Change only) | 1 × `mi-aw-executor` | **Built-in role composition** - e.g. `Reader` + `Tag Contributor` + `Network Contributor` scoped to the Change action set. Each role assignment is enumerated in IaC. | **RG-scoped**, one assignment per governed resource group (fork Terraform iterates `for_each rg`). |
-| **P2** (Custom Role transition) | 1 × `mi-aw-executor` | Derive a **Custom Role** whose `actions:` is the action whitelist observed in the Phase 1 shadow log - measurement-based least privilege, not theoretical. The Custom Role replaces the built-in composition in a governance PR. | RG-scoped (unchanged). |
-| **P3** (Domain split) | 3 × `mi-aw-change`, `mi-aw-dr`, `mi-aw-finops` | Each MI gets its own Custom Role, derived the same way from that domain's shadow log. Cross-domain assumption is denied (matches the invariant above). | RG-scoped, per-domain scope sets. |
+| Identity | Current purpose | Azure role strategy | Scope |
+|----------|-----------------|---------------------|-------|
+| `id-<workload><suffix>-executor` | aggregate control-loop transport and action routing | upstream grants only platform roles needed by the runtime, such as topic-scoped Event Hubs access and Key Vault secret reads | resource or service scoped; never subscription-wide |
+| `id-<workload><suffix>-change` | Change Safety delivery principal | fork-owned action whitelist or measured custom role | governed resource groups for Change Safety |
+| `id-<workload><suffix>-resilience` | Resilience and recovery delivery principal | fork-owned action whitelist or measured custom role | governed recovery scopes |
+| `id-<workload><suffix>-finops` | Cost Governance delivery principal | fork-owned action whitelist or measured custom role | governed cost-optimization scopes |
+
+Read-only inventory, ingestion, canary, and other service identities remain separate from this
+executor set. Creating a vertical identity does not grant it resource permissions; those role
+assignments are explicit fork deployment policy.
 
 Rules that apply to every phase (MUST):
 
@@ -72,13 +76,11 @@ Rules that apply to every phase (MUST):
 - **Every action whitelist change is a governance PR** with `Justification:` and
   Owner-tier quorum on any change touching a Managed Identity role assignment
   ([user-rbac-and-identity.md](../interfaces/user-rbac-and-identity.md)).
-- **Shadow log capture** is a Phase 1 deliverable: every action emitted by the
+- **Shadow log capture** records every action emitted by the
   executor MI in shadow mode records the exact Azure resource-provider operation it
   would call, so the Phase 2 Custom Role derivation is deterministic and auditable.
 
-The Phase 3 split reuses the risk-gate's `Rule.domain` routing (already in the ontology
-dispatch fields); no core code change is needed - the delivery layer selects the MI by
-`Rule.domain` and the extra IaC provisions the new MIs.
+The delivery layer selects a vertical MI from the action domain; no core code change is needed.
 
 ## Authorization Model
 
@@ -189,6 +191,10 @@ no-op".
   shadow (metrics defined in [goals-and-metrics.md](goals-and-metrics.md)).
 - Regressions demote back to shadow automatically; every promotion and demotion writes an
   audit entry.
+- Working-context policy candidates use the same capability authority without gaining action
+  capability. They install disabled, run bounded off-path comparisons, require an exact version,
+  evidence window, and rollback target for promotion, and engage a per-policy kill switch on an
+  invariant violation. See [Context Selection Policy](../decisioning/context-selection-policy.md).
 
 ## HIL Approval Integrity
 
@@ -217,6 +223,13 @@ no-op".
 
 ## Threat Model (STRIDE)
 
+Browser-only evidence uses a separate credential-free runtime with no executor identity or host
+filesystem mount. Exact HTTPS origin policies, per-connection DNS revalidation, restricted egress,
+GET/HEAD interception, visual and text redaction, secret canaries, prompt-injection scanning,
+content hashes, and append-only custody records form one fail-closed boundary. Browser content is
+always untrusted and cannot approve or execute an action. See
+[Browser evidence collection](../interfaces/browser-evidence.md).
+
 Event payloads and tool output are **untrusted**; the deterministic verifier and policy
 re-check are the authority, never model or event text.
 
@@ -234,7 +247,7 @@ re-check are the authority, never model or event text.
 
 | Priority | Decision | Owner | Target |
 |----------|----------|-------|--------|
-| ~~P0~~ | ~~Executor-side identity mapping~~ - **resolved** in [Identity Mapping (Phased)](#identity-mapping-phased) | - | - |
+| ~~P0~~ | ~~Executor-side identity mapping~~ - **resolved** in [Identity Mapping](#identity-mapping) | - | - |
 | ~~P0~~ | ~~Risk-classification policy (auto vs HIL) and initial policy approver~~ - **resolved** in [risk-classification.md](../decisioning/risk-classification.md) | - | - |
 | P1 | Policy-exemption workflow owner and SLA | TBD | before production |
 | P1 | Audit tamper-evidence scheme (hash-chain + anchoring cadence) | TBD | before production |

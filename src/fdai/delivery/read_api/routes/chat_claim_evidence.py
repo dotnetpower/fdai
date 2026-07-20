@@ -43,6 +43,17 @@ def collect_evidence(view_context: Mapping[str, Any]) -> tuple[EvidenceEntry, ..
             if not isinstance(fact, Mapping):
                 continue
             field = optional_text(fact.get("key")) or f"fact_{index}"
+            label = optional_text(fact.get("label"))
+            raw_aliases = fact.get("aliases")
+            aliases = (
+                tuple(
+                    alias.strip()
+                    for alias in raw_aliases
+                    if isinstance(alias, str) and alias.strip()
+                )
+                if isinstance(raw_aliases, Sequence) and not isinstance(raw_aliases, (str, bytes))
+                else ()
+            )
             append_entry(
                 entries,
                 ref=f"snapshot:fact:{field}",
@@ -50,6 +61,7 @@ def collect_evidence(view_context: Mapping[str, Any]) -> tuple[EvidenceEntry, ..
                 field=field,
                 value=fact.get("value"),
                 extra_anchors=(str(fact.get("group", "")),),
+                aliases=tuple(dict.fromkeys((*(filter(None, (label,))), *aliases))),
             )
     records = view_context.get("records")
     if isinstance(records, Mapping):
@@ -61,6 +73,12 @@ def collect_evidence(view_context: Mapping[str, Any]) -> tuple[EvidenceEntry, ..
             for row_index, row in enumerate(rows):
                 if not isinstance(row, Mapping):
                     continue
+                row_anchors = tuple(
+                    str(row[key])
+                    for key in ("name", "key", "link", "from", "to", "neighbor", "label")
+                    if row.get(key) is not None
+                    and isinstance(row.get(key), (str, int, float, bool))
+                )
                 for field, value in row.items():
                     if not isinstance(field, str):
                         continue
@@ -75,7 +93,7 @@ def collect_evidence(view_context: Mapping[str, Any]) -> tuple[EvidenceEntry, ..
                                 path=f"/records/{collection}/{row_index}/{field}/{value_index}",
                                 field=field,
                                 value=item,
-                                extra_anchors=(collection,),
+                                extra_anchors=(collection, *row_anchors),
                             )
                         continue
                     append_entry(
@@ -84,8 +102,16 @@ def collect_evidence(view_context: Mapping[str, Any]) -> tuple[EvidenceEntry, ..
                         path=f"/records/{collection}/{row_index}/{field}",
                         field=field,
                         value=value,
-                        extra_anchors=(collection,),
+                        extra_anchors=(collection, *row_anchors),
                     )
+    explanations = view_context.get("explanations")
+    if isinstance(explanations, Mapping):
+        collect_nested_evidence(
+            entries,
+            explanations,
+            ref_prefix="snapshot:explanations",
+            path_prefix="/explanations",
+        )
     _collect_server_evidence(entries, view_context)
     return tuple(entries)
 
@@ -166,6 +192,7 @@ def append_entry(
     field: str,
     value: Any,
     extra_anchors: tuple[str, ...],
+    aliases: tuple[str, ...] = (),
 ) -> None:
     if len(entries) >= MAX_EVIDENCE_ENTRIES:
         return
@@ -200,9 +227,9 @@ def append_entry(
     else:
         return
     entry_anchors = anchors(" ".join((field, *extra_anchors, raw if kind == "text" else "")))
-    entries.append(EvidenceEntry(ref, path, field, kind, raw, normalized, entry_anchors))
+    entries.append(EvidenceEntry(ref, path, field, kind, raw, normalized, entry_anchors, aliases))
     if kind == "text":
-        _append_embedded_entries(entries, ref, path, field, raw, entry_anchors)
+        _append_embedded_entries(entries, ref, path, field, raw, entry_anchors, aliases)
     if kind == "number" and is_ratio_field(field):
         ratio_value = decimal_value(raw)
         if ratio_value is not None and Decimal("0") <= ratio_value <= Decimal("1"):
@@ -217,6 +244,7 @@ def append_entry(
                         f"{percent}%",
                         percent,
                         entry_anchors,
+                        aliases,
                     )
                 )
 
@@ -228,6 +256,7 @@ def _append_embedded_entries(
     field: str,
     raw: str,
     entry_anchors: tuple[str, ...],
+    aliases: tuple[str, ...],
 ) -> None:
     occupied: list[tuple[int, int]] = []
     for index, match in enumerate(ID_RE.finditer(raw)):
@@ -241,6 +270,7 @@ def _append_embedded_entries(
                 match.group(0),
                 match.group(0),
                 entry_anchors,
+                aliases,
             )
         )
     for index, match in enumerate(PERCENT_RE.finditer(raw)):
@@ -258,6 +288,7 @@ def _append_embedded_entries(
                     match.group(0),
                     normalized,
                     entry_anchors,
+                    aliases,
                 )
             )
     for index, match in enumerate(NUMBER_RE.finditer(raw)):
@@ -274,6 +305,7 @@ def _append_embedded_entries(
                     match.group(0),
                     normalized,
                     entry_anchors,
+                    aliases,
                 )
             )
 

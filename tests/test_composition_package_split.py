@@ -27,6 +27,12 @@ _EXPECTED_FILES = frozenset(
         "wire_llm.py",
         "wire_azure.py",
         "wire_change_feed.py",
+        # Durable execution profile and ledger binding.
+        "wire_execution_backends.py",
+        # Azure observation adapters extracted from the main Azure wire.
+        "wire_observation_providers.py",
+        # Governed trajectory source, export, store, and administration wiring.
+        "wire_trajectory.py",
         # Validates additive fork capability bundles and keeps their
         # catalog cross-reference assembly out of the facade.
         "wire_capabilities.py",
@@ -37,6 +43,9 @@ _EXPECTED_FILES = frozenset(
         # per-file LOC ceiling; assembles the metric-provider composite
         # from whichever telemetry backends the deploy exposes.
         "wire_metric_provider.py",
+        # Binds the evidence-only browser provider, exact origin policies,
+        # immutable artifact store, and custody sink as one fail-closed seam.
+        "wire_browser_evidence.py",
     }
 )
 
@@ -56,6 +65,7 @@ _PUBLIC_NAMES = (
     "load_pricing_table",
     "install_capability_bundle",
     "OperationalReadinessService",
+    "bind_browser_evidence",
 )
 
 # Names that MUST also appear in __all__ (subset of _PUBLIC_NAMES). The
@@ -73,6 +83,7 @@ _ALL_MEMBERS = (
     "load_pricing_table",
     "install_capability_bundle",
     "OperationalReadinessService",
+    "bind_browser_evidence",
 )
 
 
@@ -197,12 +208,13 @@ def test_no_circular_import() -> None:
 
 def test_wire_files_do_not_import_each_other() -> None:
     # wire_azure MAY import bind_azure_llm_bindings from wire_llm (it
-    # composes it) AND attach_metric_provider from wire_metric_provider
-    # (the metric-composite path extracted for the LOC ceiling).
+    # composes it), attach_metric_provider from wire_metric_provider, and
+    # attach_observation_providers from wire_observation_providers.
     # All other cross-wire imports are forbidden.
     allowed = {
         ("wire_azure.py", "wire_llm.py"),
         ("wire_azure.py", "wire_metric_provider.py"),
+        ("wire_azure.py", "wire_observation_providers.py"),
     }
     offenders: list[tuple[str, str, str]] = []
     for path in _COMP_DIR.glob("wire_*.py"):

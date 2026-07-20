@@ -1,0 +1,396 @@
+{
+  "id": "fdai-system-overview",
+  "version": 1,
+  "updated": "2026-07-20",
+  "locales": {
+    "en": {
+      "title": "FDAI system architecture",
+      "description": "Signals enter a governed control plane and leave through approval-aware delivery paths.",
+      "alt": "Azure changes, telemetry, operator requests, and scheduled probes enter Event Hubs through its Kafka endpoint on port 9093. The FDAI control plane ingests each event, selects a trust tier, verifies the decision, applies the risk gate, and either executes, requests approval, or holds. Outcomes are delivered through remediation pull requests and recorded in PostgreSQL for the read-only console."
+    },
+    "ko": {
+      "title": "FDAI 시스템 아키텍처",
+      "description": "운영 신호가 통제된 결정 경로를 거쳐 승인, 실행, 감사 결과로 이어집니다.",
+      "alt": "Azure 리소스 변경, 관찰 데이터, 운영자 요청, 예약 점검이 포트 9093의 Kafka endpoint를 통해 Event Hubs로 들어갑니다. FDAI 컨트롤 플레인은 이벤트를 수집하고 결정 수준을 선택한 뒤 근거와 위험을 검증합니다. 실행 가능한 작업은 권한 있는 실행기로 전달되고, 승인이 필요한 작업은 사람 승인으로 보내며, 불확실한 작업은 검토 대기로 보관합니다. 실행 실패는 롤백 경로로 이어지고 모든 결과는 PostgreSQL 감사 저장소에 기록됩니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-system-overview.en.svg",
+      "png": "fdai-system-overview.en.png"
+    },
+    "ko": {
+      "svg": "fdai-system-overview.ko.svg",
+      "png": "fdai-system-overview.ko.png"
+    }
+  },
+  "nodes": [
+    {
+      "id": "azure-changes",
+      "kind": "azure-service",
+      "label": {
+        "en": "Azure resource changes",
+        "ko": "Azure 리소스 변경"
+      },
+      "description": {
+        "en": "Resource discovery and change notifications",
+        "ko": "리소스 검색 및 변경 알림"
+      }
+    },
+    {
+      "id": "telemetry",
+      "kind": "azure-service",
+      "label": {
+        "en": "Metrics, logs, and traces",
+        "ko": "메트릭, 로그 및 추적"
+      },
+      "description": {
+        "en": "Azure Monitor operational evidence",
+        "ko": "Azure Monitor 운영 근거"
+      }
+    },
+    {
+      "id": "operator-request",
+      "kind": "person",
+      "label": {
+        "en": "Operator request",
+        "ko": "운영자 요청"
+      },
+      "description": {
+        "en": "Operator request",
+        "ko": "운영자 요청"
+      }
+    },
+    {
+      "id": "scheduled-probe",
+      "kind": "process",
+      "label": {
+        "en": "Scheduled probe",
+        "ko": "예약 점검"
+      },
+      "description": {
+        "en": "Scheduled probe",
+        "ko": "예약 점검"
+      }
+    },
+    {
+      "id": "event-hubs",
+      "kind": "azure-service",
+      "label": {
+        "en": "Event Hubs / Kafka :9093",
+        "ko": "Event Hubs / Kafka :9093"
+      },
+      "description": {
+        "en": "Azure-managed event bus consumed only through the Kafka wire endpoint",
+        "ko": "Kafka wire endpoint로만 사용하는 Azure managed event bus"
+      }
+    },
+    {
+      "id": "event-ingest",
+      "kind": "process",
+      "label": {
+        "en": "Event ingest",
+        "ko": "이벤트 수집"
+      },
+      "description": {
+        "en": "Validate, normalize, deduplicate, and correlate",
+        "ko": "검증, 정규화, 중복 제거 및 상관 분석"
+      }
+    },
+    {
+      "id": "trust-router",
+      "kind": "decision",
+      "label": {
+        "en": "Trust router",
+        "ko": "결정 수준 선택"
+      },
+      "description": {
+        "en": "Select the lowest competent T0, T1, or T2 tier",
+        "ko": "결정 가능한 가장 낮은 T0, T1, T2 수준 선택"
+      }
+    },
+    {
+      "id": "decision-engine",
+      "kind": "process",
+      "label": {
+        "en": "T0 / T1 / T2 decision",
+        "ko": "T0 / T1 / T2 결정"
+      },
+      "description": {
+        "en": "Deterministic rules, evidence reuse, or grounded reasoning",
+        "ko": "결정적 규칙, 근거 재사용 또는 근거 기반 추론"
+      }
+    },
+    {
+      "id": "risk-gate",
+      "kind": "decision",
+      "label": {
+        "en": "Verification and safety check",
+        "ko": "근거 및 안전성 검토"
+      },
+      "description": {
+        "en": "Verify evidence and apply the autonomy ceiling",
+        "ko": "근거를 확인하고 자율 실행 상한 적용"
+      }
+    },
+    {
+      "id": "executor",
+      "kind": "process",
+      "label": {
+        "en": "Privileged executor",
+        "ko": "권한 있는 실행기"
+      },
+      "description": {
+        "en": "Idempotent action with lock, stop condition, and rollback",
+        "ko": "잠금, 중지 조건, 롤백을 갖춘 재시도 가능한 작업"
+      }
+    },
+    {
+      "id": "held-for-review",
+      "kind": "service",
+      "label": {
+        "en": "Held for review",
+        "ko": "검토 대기"
+      },
+      "description": {
+        "en": "No change is applied when evidence or policy is insufficient",
+        "ko": "근거나 정책 조건이 부족하면 변경하지 않고 검토 대기"
+      }
+    },
+    {
+      "id": "rule-catalog",
+      "kind": "store",
+      "label": {
+        "en": "Rule and action catalog",
+        "ko": "규칙 및 작업 카탈로그"
+      },
+      "description": {
+        "en": "Rule and action catalog",
+        "ko": "규칙 및 작업 카탈로그"
+      }
+    },
+    {
+      "id": "rollback-path",
+      "kind": "process",
+      "label": {
+        "en": "Rollback path",
+        "ko": "롤백 경로"
+      },
+      "description": {
+        "en": "Restore or move state forward after a failed action",
+        "ko": "실행 실패 후 상태 복원 또는 안전한 전진 복구"
+      }
+    },
+    {
+      "id": "audit-store",
+      "kind": "azure-service",
+      "label": {
+        "en": "PostgreSQL and pgvector",
+        "ko": "PostgreSQL 및 pgvector"
+      },
+      "description": {
+        "en": "Append-only audit, state, evidence, and context",
+        "ko": "추가 전용 감사, 상태, 근거 및 컨텍스트"
+      }
+    },
+    {
+      "id": "chatops",
+      "kind": "service",
+      "label": {
+        "en": "Human approval in ChatOps",
+        "ko": "ChatOps 사람 승인"
+      },
+      "description": {
+        "en": "Human approval in ChatOps",
+        "ko": "ChatOps 사람 승인"
+      }
+    },
+    {
+      "id": "remediation-pr",
+      "kind": "service",
+      "label": {
+        "en": "Remediation pull request",
+        "ko": "수정 pull request"
+      },
+      "description": {
+        "en": "Remediation pull request",
+        "ko": "수정 pull request"
+      }
+    },
+    {
+      "id": "read-only-console",
+      "kind": "service",
+      "label": {
+        "en": "Read-only console",
+        "ko": "읽기 전용 콘솔"
+      },
+      "description": {
+        "en": "Read-only console",
+        "ko": "읽기 전용 콘솔"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "changes-to-bus",
+      "from": "azure-changes",
+      "to": "event-hubs",
+      "kind": "event",
+      "label": null
+    },
+    {
+      "id": "telemetry-to-bus",
+      "from": "telemetry",
+      "to": "event-hubs",
+      "kind": "event",
+      "label": null
+    },
+    {
+      "id": "operator-to-bus",
+      "from": "operator-request",
+      "to": "event-hubs",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "probe-to-bus",
+      "from": "scheduled-probe",
+      "to": "event-hubs",
+      "kind": "event",
+      "label": null
+    },
+    {
+      "id": "bus-to-ingest",
+      "from": "event-hubs",
+      "to": "event-ingest",
+      "kind": "event",
+      "label": {
+        "en": "normalized events",
+        "ko": "정규화된 이벤트"
+      }
+    },
+    {
+      "id": "ingest-to-router",
+      "from": "event-ingest",
+      "to": "trust-router",
+      "kind": "event",
+      "label": null
+    },
+    {
+      "id": "router-to-decision",
+      "from": "trust-router",
+      "to": "decision-engine",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "catalog-to-decision",
+      "from": "rule-catalog",
+      "to": "decision-engine",
+      "kind": "read",
+      "label": null
+    },
+    {
+      "id": "decision-to-risk",
+      "from": "decision-engine",
+      "to": "risk-gate",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "risk-to-executor",
+      "from": "risk-gate",
+      "to": "executor",
+      "kind": "mutation",
+      "label": {
+        "en": "eligible action",
+        "ko": "실행 가능한 작업"
+      }
+    },
+    {
+      "id": "risk-to-hold",
+      "from": "risk-gate",
+      "to": "held-for-review",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "risk-to-approval",
+      "from": "risk-gate",
+      "to": "chatops",
+      "kind": "approval",
+      "label": {
+        "en": "approval request",
+        "ko": "승인 요청"
+      }
+    },
+    {
+      "id": "approval-to-executor",
+      "from": "chatops",
+      "to": "executor",
+      "kind": "approval",
+      "label": {
+        "en": "approved decision",
+        "ko": "승인된 결정"
+      }
+    },
+    {
+      "id": "executor-to-remediation",
+      "from": "executor",
+      "to": "remediation-pr",
+      "kind": "mutation",
+      "label": {
+        "en": "approved change",
+        "ko": "승인된 변경"
+      }
+    },
+    {
+      "id": "executor-to-audit",
+      "from": "executor",
+      "to": "audit-store",
+      "kind": "audit",
+      "label": null
+    },
+    {
+      "id": "executor-to-rollback",
+      "from": "executor",
+      "to": "rollback-path",
+      "kind": "rollback",
+      "label": {
+        "en": "action failed",
+        "ko": "실행 실패"
+      }
+    },
+    {
+      "id": "rollback-to-audit",
+      "from": "rollback-path",
+      "to": "audit-store",
+      "kind": "audit",
+      "label": null
+    },
+    {
+      "id": "hold-to-audit",
+      "from": "held-for-review",
+      "to": "audit-store",
+      "kind": "audit",
+      "label": null
+    },
+    {
+      "id": "risk-to-audit",
+      "from": "risk-gate",
+      "to": "audit-store",
+      "kind": "audit",
+      "label": null
+    },
+    {
+      "id": "audit-to-console",
+      "from": "audit-store",
+      "to": "read-only-console",
+      "kind": "read",
+      "label": {
+        "en": "audited projection",
+        "ko": "감사 projection"
+      }
+    }
+  ]
+}

@@ -12,9 +12,9 @@ we sent. It expands the LLM contract in
 the trust routing in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
 
-> **Scope.** Upstream is generic and Azure-first. Web search and any
-> customer-specific override arrive as fork-only bindings; the core repo ships
-> deny-by-default fakes so a fork MUST opt in explicitly
+> **Scope.** Upstream is generic and Azure-first. Web search is deployment opt-in
+> through the reviewed Azure Responses adapter; customer-specific overrides remain
+> fork-only. Core still ships deny-by-default fakes
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
 > **Status.** Waves 1, 2, 2.5-A, 2.5-B step 1, 2.5-B step 2a, 2.5-B
@@ -23,7 +23,7 @@ the trust routing in
 > step D-2a, 3 step D-2b-i, 3 step D-2b-ii-alpha, 3 step D-2b-ii-beta,
 > 3 step D-2b-ii-gamma-1, 3 step D-2b-ii-gamma-2, 4 alpha, 4 beta-1,
 > 4 beta-2, 4.5 alpha, 4.5 beta, 4.5 gamma, 4.5 delta-1, 4.5
-> delta-2a, 4.5 delta-2b, and 5 alpha have landed - the
+> delta-2a, 4.5 delta-2b, 5 alpha, and the Azure Responses provider slice have landed - the
 > evolving-system-prompt design is now **fully live** for T2:
 > operator memory end-to-end, the recognition-probe chapter,
 > per-event re-composition inside `AzureOpenAICrossCheckModel`,
@@ -41,9 +41,8 @@ the trust routing in
 > `AzureOpenAICrossCheckModelConfig` and now serves as the
 > startup-safety fallback when no composer is wired. Wave 3 step B
 > **pipeline slice 3** (fork-first second-approval channel) and
-> Wave 5 **beta** (fork-only concrete provider adapter +
-> composition-root wire that threads snippets into the T2 tool
-> manifest) are documented here but not yet implemented. Every
+> Wave 5 **T2 integration** (threading snippets into the core T2 tool
+> manifest) is documented here but not yet implemented. Every
 > wave promotes only after its shadow gate passes; see
 > [Rollout waves](#rollout-waves).
 
@@ -61,13 +60,12 @@ verifier, never a shortcut around it.
 ## Role x layer matrix
 
 Prompts have two axes. **Layers** are what content types compose an assembled
-prompt; **roles** decide which base / pack / tool set applies. Wave 1 ships
-only the reviewer role; the others are declared so future waves slot into a
-stable seam.
+prompt; **roles** decide which base / pack / tool set applies. The catalog now
+ships reviewer, Proposer, Critic, Judge, and Rubric base prompts.
 
 | Layer \\ Role | Proposer | Critic | Judge |
 |--------------|----------|--------|-------|
-| Base (role skeleton) | `base/t2-proposer.vN.yaml` | `base/t2-critic.vN.yaml` | `base/t2-judge.vN.yaml` |
+| Base (role skeleton) | `base/t2-proposer.v1.yaml` | `base/t2-critic.v1.yaml` | `base/t2-judge.v1.yaml` |
 | Task Skill Pack | `packs/<capability>.proposer.vN.yaml` | `packs/<capability>.critic.vN.yaml` | (usually shared with proposer pack) |
 | Tool Manifest | tools + optional `web.search` | tools (read-only) | none (Judge cannot call tools) |
 | Domain Context (RAG) | rule / past-incident citations | same | same |
@@ -75,10 +73,8 @@ stable seam.
 | Operator Memory | scope-bounded | scope-bounded | scope-bounded |
 | Debate Transcript | (empty on first turn) | Proposer output | Proposer + Critic outputs |
 
-Today the reviewer role runs a two-model cross-check (Wave 2 keeps this). Wave
-4 adds the Critic and Wave 4.5 promotes the loop to a Proposer / Critic / Judge
-orchestrator; the matrix already reserves each cell so those additions do not
-require a refactor.
+The two-model reviewer remains the default T2 path. The routed Proposer / Critic /
+Judge debate runs only on configured disagreements.
 
 A fourth role, the **Rubric** judge, reuses the Base layer
 (`base/t2-rubric.vN.yaml`) and the Domain Context layer; it scores the
@@ -120,18 +116,18 @@ rule-catalog/
     base/
       t2-cross-check.v1.yaml      # Wave 1 (shipped)
       t2-proposer.v1.yaml         # Wave 3 (shipped, shadow)
-      t2-critic.vN.yaml           # Wave 4 (planned)
-      t2-judge.vN.yaml            # Wave 4.5 (planned)
+      t2-critic.v1.yaml           # shipped, shadow
+      t2-judge.v1.yaml            # shipped, shadow
       t2-rubric.v1.yaml           # rubric hallucination filter (shipped, shadow)
     packs/                        # Wave 2+
     tools/                        # Wave 2.5+
-    roles/                        # Wave 3+
 ```
 
 ### Runtime data (Postgres, hash-addressed blobs)
 
-Two new tables land alongside the existing state / audit schema. They are
-append-only and hash-addressable so replay never re-fetches external content.
+  This is the target persistence model. `operator_memory` is shipped; dedicated
+  `agent_transcript` and `web_evidence` tables remain planned. The read API currently
+  attaches sanitized web evidence to the durable conversation turn.
 
 ```sql
 CREATE TABLE operator_memory (
@@ -181,7 +177,7 @@ policy this inherits.
 ## Provider protocols (DI seams)
 
 The core stays behind Protocols; the Azure adapter provides one implementation
-per seam. New seams introduced by this design:
+per seam. Current and planned seams in this design are:
 
 | Seam | Kind | Wave | Role |
 |------|------|------|------|
@@ -189,10 +185,11 @@ per seam. New seams introduced by this design:
 | `PromptComposer` | async | 2 | Assemble Role x Layer per event |
 | `ToolRegistry` | sync | 2.5 | Load tool YAML manifests |
 | `ToolExecutor` | async | 2.5 | Dispatch model-issued tool calls |
+| `ProgrammaticPipelineRunner` | async | bounded pipeline | Run reviewed tool loops in an isolated venue |
 | `OperatorMemoryStore` | async | 3 | Read / append scope-bounded notes |
 | `WebSearchProvider` | async | 5 | Outbound HTTP behind allowlist |
-| `EvidenceStore` | async | 5 | Persist hash-addressed web snapshots |
-| `AgentTranscriptStore` | async | 4.5 | Append-only debate rows |
+| `EvidenceStore` | async | 5 (planned) | Persist hash-addressed web snapshots |
+| `AgentTranscriptStore` | async | 4.5 (planned) | Append-only debate rows |
 | `DebateOrchestrator` | async | 4.5 | Proposer -> Critic -> Judge loop |
 
 I/O-bound seams follow the async-by-default rule for provider protocols
@@ -204,16 +201,14 @@ declared in
 Tools are catalog-as-code, mirroring the rule catalog. Each YAML declares its
 description, invocation schema, capability gate, allowlist, and output wrapper.
 
-- **Allowlist per capability**: a capability's `llm-registry` entry names the
-  tools its Proposer / Critic may call. This keeps the tool manifest short so
-  the "lost in the middle" failure mode does not creep in.
-- **Untrusted output**: every tool result is wrapped
-  (`<tool_result trusted="false" tool="..." ...>...</tool_result>`) and treated
-  as data. The verifier and policy re-check remain authoritative.
-- **Budget**: each tool declares `cost_budget_usd_per_call` and the composer
-  enforces a per-event ceiling; overrun aborts to HIL.
-- **Judge holds no tools**: judgment is separation-of-duties; a Judge that
-  calls tools would collapse into a second Proposer.
+- **Capability and budget**: `llm-registry` selects a short Proposer/Critic allowlist, and each
+  tool's `cost_budget_usd_per_call` contributes to the per-event ceiling.
+- **Untrusted output**: `<tool_result trusted="false" ...>` remains data for verifier and policy
+  re-check; the Judge receives no tools so it cannot collapse into a second Proposer.
+- **Programmatic loops**: reviewed read/filter/aggregate Python can call a bounded subset through a
+  generated client after digest, sandbox, run-capability, byte/call-limit, and receipt checks. It
+  receives no provider credential or recursive/mutation authority. See
+  [Programmatic Tool Pipelines](../interfaces/programmatic-tool-pipelines.md).
 
 ### Reviewed runtime skills
 
@@ -221,17 +216,13 @@ Runtime skills are portable Markdown instructions that teach an agent how to use
 registered tools. They are separate from repository coding-agent skills and grant no tool,
 identity, role, or execution authority.
 
-- **Strict artifact:** YAML front matter declares `name`, semantic `version`, description,
-  provenance source, body SHA-256, required tool ids, and an optional fixed-agent allowlist.
-  Unknown keys, including dependency installers, are rejected.
-- **Trust before activation:** an injected `SkillTrustVerifier` approves publisher provenance.
-  The body digest and trust decision must pass before the artifact installs, and every install is
-  disabled by default.
-- **Reference gates:** enable fails when a required tool or named agent is unknown. Prompt
-  projection rechecks tool availability so a removed tool cannot leave stale instructions active.
-- **Whole-block budget:** an eligible skill enters the prompt as one complete trusted instruction
-  block. If the combined projection exceeds the configured character budget, composition fails
-  instead of truncating instructions into a different behavior.
+- **Three stages:** the bounded index contains metadata only; `load_skill` returns one complete selected `SKILL.md`; `read_skill_reference` returns one declared support artifact. `list_skills` and `describe_skill` are also Reader operations and never change lifecycle.
+- **Signed artifact manifest:** YAML front matter covers identity, version, provenance, body digest, required tools, allowed agents, and content-addressed references. Unsafe paths, undeclared or partial files, symlink-shaped metadata, digest mismatch, and configured budget overflow fail closed.
+- **Eligibility and replay:** every load rechecks enabled state, tool availability, agent allowlist, stored bytes, publisher signature, and reference digests. Prompt replay records operation, skill
+  name, version, body/raw digests, reference digest, selected/rejected status, and rejection reason.
+- **Progressive prompt:** the index precedes selected bodies and references. A body is trusted reviewed instruction only after verification; a reference stays untrusted data. Existing
+  reference-free single-file skills stay unchanged. Explicit multi-skill composition is owned by [Governed Skill Bundles](governed-skill-bundles.md).
+- **Measured benchmark:** a frozen 16-skill catalog across network incident, cost spike, and deployment failure scenarios reduced the full projection from 8194 estimated tokens to 1544-1546 with one selected complete body, a measured 81.1-81.2% reduction.
 - **No dynamic code:** runtime skills cannot install binaries, inject environment secrets, load a
   provider, or bypass the tool catalog and risk gate.
 - **Audited proposal workshop:** `SkillWorkshop` validates an agent draft and stores it as inert
@@ -239,8 +230,12 @@ identity, role, or execution authority.
   proposer cannot self-review. Every transition is sent to an append-only audit sink without
   embedding the Markdown body. PostgreSQL persistence survives restart and applies review and
   materialization with expected-state compare-and-swap. Promotion re-runs digest and publisher
-  trust verification, then installs the approved artifact disabled. It never enables the skill or
-  changes an active prompt; reference and budget gates still apply afterward.
+  trust verification, then installs the approved artifact disabled without changing an active prompt.
+- **Approved source refresh:** registered GitHub sources resolve immutable commits with ETag state,
+  fetch only declared files, and persist exact bytes in quarantine. Passing content becomes a
+  disabled candidate. Approver installation remains disabled-first, and Owner revocation disables
+  the source and durable artifacts without deleting provenance. See
+  [Skill Source Management](../interfaces/skill-source-management.md).
 
 ### Operator-memory review and compaction
 
@@ -258,7 +253,7 @@ deleting any body. Compaction grants no role, tool, action, or execution authori
 
 ## Web search policy
 
-Web search is the last-resort tool. It is opt-in per fork and never a
+Web search is the last-resort tool. It is opt-in per deployment and never a
 grounding source.
 
 - **Default off**: upstream ships a no-op `WebSearchProvider`. Set
@@ -368,6 +363,9 @@ PR review comment on rem PR      --/         v
   the same rule feed the rule-catalog discovery loop as candidate revisions or
   retirements.
 
+> Working-context selection is separately owned by [Context Selection Policy](context-selection-policy.md):
+> immutable `deterministic-tiered-v1@1.0.0`, mandatory validation, shadow evidence, replay, and rollback.
+
 ## Recognition measurement
 
 Long prompts silently drop instructions. We treat "the model actually reads
@@ -449,7 +447,8 @@ promotion gates to hold.
 | 4.5 delta-2a | `DebateRouter` pure policy module in `core/quality_gate/debate_router.py`: `DebateRoutingDecision` + `DebateRouterConfig` (`enabled` killswitch, `on_cross_check_disagreement` axis, `always_for_action_types` / `never_for_action_types` allow/deny lists) + `decide_debate_route()` fail-closed predicate. Orchestrator unavailability short-circuits to SKIP; killswitch dominates the allowlist; denylist wins over allowlist | yes |
 | 4.5 delta-2b | `QualityGate` accepts optional `debate_orchestrator` + `debate_router_config`. On cross-check disagreement, calls `decide_debate_route()`; if `DEBATE`, runs the orchestrator with a no-directive `retry_proposer` that re-invokes the primary cross-check model. `DebateOutcome.PROCEED` flips the disagreement to `ELIGIBLE` (provided no other soft issues remain); `ABORT` keeps `DISAGREE`. Half-wiring (only one of the two params) raises at construction | yes |
 | 5 alpha | Web search seam in `core/web_search/`: `WebSearchQuery` / `WebSnippet` / `WebSearchResult` types, `WebSearchProvider` async Protocol, `NoOpWebSearchProvider` deny-by-default fake (returns zero snippets on every query with `reasons=("no_op_provider",)`), and sanitizer helpers (`validate_snippet_domain`, `detect_snippet_injection_markers`, `wrap_web_snippet`) that produce a `<web_snippet trusted="false" ...>...</web_snippet>` envelope after refusing off-allowlist domains and injection markers | yes |
-| 5 beta | Concrete provider adapter (fork-only - Bing, SerpAPI, curated crawler) + composition-root wire that binds `WebSearchProvider` when a fork opts in and threads snippets into the T2 tool manifest per the web-search policy | planned |
+| 5 beta-A | Azure Responses provider + latency-routed model pool + read API chat opt-in wiring | yes |
+| 5 beta-B | Core T2 composition wire that threads sanitized snippets into the tool manifest per policy | planned |
 
 ## Wave 1 - what shipped
 
@@ -463,7 +462,7 @@ Wave 1 introduces the seam without changing runtime behavior.
   `FileSystemPromptRegistry` implementation, aggregate-error validation.
 - `bind_azure_llm_bindings` accepts an optional `system_prompt` and threads it
   through every cross-check config.
-- `__main__._finalize_llm_bindings` loads the base prompt via
+- `runtime.configuration._finalize_llm_bindings` loads the base prompt via
   `FileSystemPromptRegistry` and passes it in.
 
 ## Wave 2 - what shipped
@@ -484,7 +483,7 @@ Wave 2 completes the seam by turning prompt assembly into a proper composer.
 - `bind_azure_llm_bindings(..., system_prompt=)` is required and forwarded
   to both T2 reasoner configs so mixed-model cross-check sees identical
   instruction context.
-- `__main__._finalize_llm_bindings` constructs `DefaultPromptComposer`,
+- `runtime.configuration._finalize_llm_bindings` constructs `DefaultPromptComposer`,
   awaits `compose(capability_id="t2.reasoner.primary")`, and logs the
   composed layer manifest before wiring the adapters.
 
@@ -612,7 +611,7 @@ promotes a tool.
   `tool_executor` and threads them into all three cross-check
   construction sites (hil-only primary, primary reasoner, secondary
   reasoner) so mixed-model cross-check sees the same tool manifest.
-- `__main__._finalize_llm_bindings` builds a `FileSystemToolRegistry`
+- `runtime.configuration._finalize_llm_bindings` builds a `FileSystemToolRegistry`
   + `DefaultToolExecutor(providers={})` in azure mode. Upstream ships
   with an empty providers map on purpose: every shipped tool is
   shadow, so the adapter advertises zero tools and no dispatch ever
@@ -763,7 +762,7 @@ second-approval channel; this slice is the connecting tissue that
 makes an entry appended by one path immediately visible to the
 composer on the next event.
 
-- `_build_operator_memory_store()` in `src/fdai/__main__.py`
+- `_build_operator_memory_store()` in `src/fdai/runtime/providers.py`
   mirrors the existing `_build_audit_store()` pattern: when
   `FDAI_OPERATOR_MEMORY_DSN` is set (populated by the
   container's Key Vault secret ref) the wire returns a
@@ -854,7 +853,7 @@ roots that never pass a composer keep sending the static
   (`t2.reasoner.primary` / `t2.reasoner.secondary`) so cross-check
   quorum sees consistent instruction context per role rather than a
   single shared prompt.
-- `__main__._finalize_llm_bindings` now passes the upstream composer
+- `runtime.configuration._finalize_llm_bindings` now passes the upstream composer
   through with `scope_resolver=None`. The ARM-id parser that maps a
   `QualityCandidate.target_resource_ref` to an `OperatorScope` lives
   in a fork's composition root; the upstream repo stays CSP-neutral.
@@ -913,7 +912,7 @@ tokens and the D-1 evaluators to publish dashboard rows.
   packs, tool manifest, operator memory) and refreshes each
   ``LayerRef.token_estimate`` so the manifest reflects what the
   model actually sees.
-- Production behavior is unchanged: `__main__._finalize_llm_bindings`
+- Production behavior is unchanged: `runtime.configuration._finalize_llm_bindings`
   does not pass a canary generator, so the current wire prompt stays
   identical to the pre-D-2a shape.
 - The token estimate update after canary injection is a first
@@ -1212,7 +1211,7 @@ the capability gets `LlmBindings.critic_model` bound to a live
   resolves AND the prompt is supplied - two conditions, both
   required, so a partial fork configuration (capability without
   prompt, or vice versa) never lands a half-wired adapter.
-- `__main__._finalize_llm_bindings` composes the Critic system
+- `runtime.configuration._finalize_llm_bindings` composes the Critic system
   prompt via `composer.compose(capability_id="t2.critic")`. When
   the compose step raises `LookupError` (no critic base prompt in
   the catalog), the wire silently degrades to `critic_model=None`
@@ -1358,7 +1357,7 @@ instead of the two-model cross-check quorum.
   `judge_model` land, a default
   `DebateOrchestrator(critic, judge, DebateOrchestratorConfig(max_rounds=1))`
   is auto-constructed.
-- `__main__._finalize_llm_bindings` composes the Judge system
+- `runtime.configuration._finalize_llm_bindings` composes the Judge system
   prompt via `composer.compose(capability_id="t1.judge")` with
   `LookupError`-graceful degradation (mirror of the Critic path):
   emits `judge_prompt_composed` on success or `judge_prompt_missing`
@@ -1480,10 +1479,9 @@ shape when no debate params are passed, so every existing
 ## Wave 5 alpha - what shipped
 
 Wave 5 alpha lands the upstream **seam** for web search: types,
-Protocol, deny-by-default fake, and sanitizer defenses. Concrete
-providers (Bing, SerpAPI, curated crawler) stay fork-only per the
-[Web search policy](#web-search-policy); this step ships the
-contract every future adapter honors.
+Protocol, deny-by-default fake, and sanitizer defenses. The reviewed Azure
+Responses adapter and read API chat wiring landed afterward; core T2 prompt
+composition still stops at this seam.
 
 - `src/fdai/core/web_search/types.py` -
   `WebSearchQuery` (frozen dataclass with `__post_init__` refusing

@@ -1,5 +1,16 @@
 """Scheduled tasks - operator-created recurring monitoring jobs."""
 
+from fdai.core.scheduler.continuation import (
+    ContinuationAccess,
+    ContinuationAccessDeniedError,
+    ContinuationAuditEvent,
+    ContinuationAuditKind,
+    InMemoryContinuationAuditSink,
+    InMemoryScheduledConversationAnchorStore,
+    ScheduledContinuationService,
+    StateStoreContinuationAuditSink,
+    scheduled_result_to_typed_fact,
+)
 from fdai.core.scheduler.history import (
     ScheduleRunHistoryItem,
     ScheduleRunHistoryPage,
@@ -35,6 +46,12 @@ from fdai.core.scheduler.store import (
 
 __all__ = [
     "SCHEDULE_EVENT_TOPIC",
+    "ContinuationAccess",
+    "ContinuationAccessDeniedError",
+    "ContinuationAuditEvent",
+    "ContinuationAuditKind",
+    "InMemoryContinuationAuditSink",
+    "InMemoryScheduledConversationAnchorStore",
     "InMemoryScheduleStore",
     "InMemoryScheduleRunLedger",
     "ScheduleNotFoundError",
@@ -52,6 +69,9 @@ __all__ = [
     "ScheduleRunHistoryService",
     "SchedulerRunReport",
     "SchedulerService",
+    "ScheduledContinuationService",
+    "StateStoreContinuationAuditSink",
     "compute_due",
     "isolation_payload",
+    "scheduled_result_to_typed_fact",
 ]

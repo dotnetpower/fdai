@@ -10,6 +10,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TextIO
 
+from fdai.core.trajectory import TrajectoryValidationError
 from fdai.deployment_cli.bundle import (
     BundleVerificationError,
     ReleaseChannel,
@@ -51,6 +52,7 @@ from fdai.deployment_cli.release_channels import (
     upgrade_release,
 )
 from fdai.deployment_cli.security_audit import run_security_audit
+from fdai.deployment_cli.trajectory import validate_trajectory_dataset
 
 VERSION_SCHEMA = "fdai.deployment-cli.version.v1"
 
@@ -196,6 +198,18 @@ def _build_parser() -> argparse.ArgumentParser:
     extension_validate.add_argument("--archive", type=Path, required=True)
     extension_validate.add_argument("--host-version", required=True)
     extension_validate.add_argument("--output", choices=("text", "json"), default="text")
+    trajectory_parser = subcommands.add_parser(
+        "trajectory", help="inspect governed trajectory datasets offline"
+    )
+    trajectory_commands = trajectory_parser.add_subparsers(dest="trajectory_command", required=True)
+    trajectory_validate = trajectory_commands.add_parser(
+        "validate", help="validate checksums, schema, ordering, and source mapping"
+    )
+    trajectory_validate.add_argument("--dataset", type=Path, required=True)
+    trajectory_validate.add_argument("--manifest", type=Path, required=True)
+    trajectory_validate.add_argument("--purpose", required=True)
+    trajectory_validate.add_argument("--access-scope", required=True)
+    trajectory_validate.add_argument("--output", choices=("text", "json"), default="text")
     return parser
 
 
@@ -415,6 +429,28 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None) -> int:
                 )
             print("SECURE" if security_report.secure else "ACTION REQUIRED", file=output)
         return 0 if security_report.secure else 3
+    if args.command == "trajectory" and args.trajectory_command == "validate":
+        try:
+            trajectory_report = validate_trajectory_dataset(
+                dataset_path=args.dataset,
+                manifest_path=args.manifest,
+                purpose=args.purpose,
+                access_scope=args.access_scope,
+            )
+        except (OSError, TrajectoryValidationError, ValueError) as exc:
+            if args.output == "json":
+                print(json.dumps({"error": str(exc), "valid": False}), file=output)
+            else:
+                print(f"INVALID: {exc}", file=output)
+            return 4
+        if args.output == "json":
+            print(trajectory_report.to_json(), file=output)
+        else:
+            print(
+                f"VALID {trajectory_report.dataset_id}: {trajectory_report.record_count} records",
+                file=output,
+            )
+        return 0
     if args.command == "bundle" and args.bundle_command == "verify":
         try:
             public_key = args.public_key.read_bytes()

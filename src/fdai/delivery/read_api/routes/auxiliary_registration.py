@@ -72,13 +72,19 @@ def append_auxiliary_routes(
     chat_registration.append_chat_routes(
         routes,
         backend=config.chat,
+        skill_disclosure=config.skill_disclosure,
+        busy_input_runtime=config.busy_input_runtime,
         agent_delegate=config.chat_agent_delegate,
         web_search_resolver=config.chat_web_search,
         conversation_policy_store=config.conversation_policy_store,
         conversation_history_store=config.conversation_history_store,
+        conversation_search=config.conversation_search,
+        inventory_graph_provider=config.inventory_graph_provider,
+        log_query_provider=config.log_query_provider,
         answer_preference_store=(
             config.user_context.preferences if config.user_context is not None else None
         ),
+        post_turn_review_submitter=config.post_turn_review_submitter,
         user_context_ontology_projector=config.user_context_ontology_projector,
         model_settings=config.model_settings,
         authorize=authorize,
@@ -92,6 +98,45 @@ def append_auxiliary_routes(
         from fdai.delivery.read_api.routes.user_context import make_user_context_routes
 
         routes.extend(make_user_context_routes(config=config.user_context, authorize=authorize))
+
+    if config.task_worker_store is not None:
+        from fdai.delivery.read_api.routes.task_workers import make_task_worker_routes
+
+        routes.extend(make_task_worker_routes(store=config.task_worker_store, authorize=authorize))
+
+    if config.background_tasks is not None:
+        from fdai.delivery.read_api.routes.background_tasks import (
+            make_background_task_routes,
+        )
+
+        routes.extend(
+            make_background_task_routes(
+                config=config.background_tasks,
+                authorize_principal=authorize_principal,
+            )
+        )
+
+    if config.trajectory_datasets is not None:
+        from fdai.delivery.read_api.routes.trajectory_datasets import (
+            make_trajectory_dataset_routes,
+        )
+
+        routes.extend(
+            make_trajectory_dataset_routes(
+                service=config.trajectory_datasets,
+                authorize_principal=authorize_principal,
+            )
+        )
+
+    if config.skill_sources is not None:
+        from fdai.delivery.read_api.routes.skill_sources import make_skill_source_routes
+
+        routes.extend(
+            make_skill_source_routes(
+                config=config.skill_sources,
+                authorize_principal=authorize_principal,
+            )
+        )
 
     if config.model_settings is not None:
         from fdai.delivery.read_api.routes.model_settings import make_model_settings_routes

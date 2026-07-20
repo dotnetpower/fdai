@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from fdai.core.quality_gate.gate import (
         CrossCheckModel,
+        CrossCheckProposal,
         GroundingSource,
         ModelVote,
         QualityCandidate,
@@ -63,13 +64,13 @@ async def cross_check_candidate(
 ) -> CrossCheckResult:
     from fdai.core.quality_gate.gate import ModelVote
 
-    proposals = await asyncio.gather(*(model.propose(candidate) for model in models))
+    proposals = await asyncio.gather(*(_propose_model(model, candidate) for model in models))
     agree = 0
     votes: list[ModelVote] = []
     first_proposer_output: tuple[str, Any] | None = None
-    for index, (model, (proposed_type, proposed_params)) in enumerate(
-        zip(models, proposals, strict=True)
-    ):
+    for index, (model, proposal) in enumerate(zip(models, proposals, strict=True)):
+        proposed_type = proposal.action_type
+        proposed_params = proposal.params
         if index == 0:
             first_proposer_output = (proposed_type, proposed_params)
         agreed = proposed_type == candidate.action_type
@@ -80,6 +81,22 @@ async def cross_check_candidate(
                 model_id=str(getattr(model, "model_id", f"model-{index}")),
                 proposed_action_type=proposed_type,
                 agreed=agreed,
+                prompt_replay_manifest=proposal.prompt_replay_manifest,
             )
         )
     return CrossCheckResult(tuple(votes), agree, first_proposer_output)
+
+
+async def _propose_model(
+    model: CrossCheckModel,
+    candidate: QualityCandidate,
+) -> CrossCheckProposal:
+    from fdai.core.quality_gate.gate import (
+        CrossCheckProposal,
+        PromptEvidenceCrossCheckModel,
+    )
+
+    if isinstance(model, PromptEvidenceCrossCheckModel):
+        return await model.propose_with_evidence(candidate)
+    action_type, params = await model.propose(candidate)
+    return CrossCheckProposal(action_type=action_type, params=params)

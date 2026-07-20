@@ -165,7 +165,8 @@ function parseEvidenceManifest(raw: unknown): AnswerEvidenceManifest | null | un
       typeof entry.kind !== "string" ||
       typeof entry.raw_value !== "string" ||
       typeof entry.normalized_value !== "string" ||
-      !validStringArray(entry.anchors)
+      !validStringArray(entry.anchors) ||
+      (entry.aliases !== undefined && !validStringArray(entry.aliases))
     ) return null;
     entries.push({
       ref: entry.ref,
@@ -175,6 +176,7 @@ function parseEvidenceManifest(raw: unknown): AnswerEvidenceManifest | null | un
       raw_value: entry.raw_value,
       normalized_value: entry.normalized_value,
       anchors: entry.anchors,
+      ...(entry.aliases === undefined ? {} : { aliases: entry.aliases }),
     });
   }
   if (

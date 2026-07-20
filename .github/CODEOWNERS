@@ -20,6 +20,7 @@
 # ---------------------------------------------------------------------------
 /src/fdai/core/                  @dotnetpower/fdai-owners
 /src/fdai/composition.py         @dotnetpower/fdai-owners
+/src/fdai/composition/           @dotnetpower/fdai-owners
 /src/fdai/shared/providers/      @dotnetpower/fdai-owners
 /src/fdai/shared/contracts/      @dotnetpower/fdai-owners
 /src/fdai/agents/                @dotnetpower/fdai-owners

@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DECK_OPEN_EVENT, openDeckWithPrompt } from "./open-deck";
+import {
+  DECK_OPEN_EVENT,
+  DECK_WORKSPACE_NAVIGATION_EVENT,
+  installWorkspaceDeckNavigationHandler,
+  openDeckWithPrompt,
+  requestWorkspaceDeckCloseForNavigation,
+} from "./open-deck";
 
 class FakeCustomEvent<T> {
   readonly type: string;
@@ -45,5 +51,31 @@ describe("openDeckWithPrompt", () => {
   it("is a no-op when window is unavailable (SSR)", () => {
     vi.stubGlobal("window", undefined);
     expect(() => openDeckWithPrompt("x")).not.toThrow();
+  });
+});
+
+describe("requestWorkspaceDeckCloseForNavigation", () => {
+  it("closes once and returns true when the workspace Deck accepts", () => {
+    const target = new EventTarget();
+    const closeDeck = vi.fn();
+    vi.stubGlobal("window", target);
+    const uninstall = installWorkspaceDeckNavigationHandler(() => true, closeDeck);
+
+    expect(requestWorkspaceDeckCloseForNavigation()).toBe(true);
+    expect(closeDeck).toHaveBeenCalledOnce();
+
+    uninstall();
+    expect(requestWorkspaceDeckCloseForNavigation()).toBe(false);
+    expect(closeDeck).toHaveBeenCalledOnce();
+  });
+
+  it("returns false when the Deck is closed or not in workspace mode", () => {
+    const target = new EventTarget();
+    const closeDeck = vi.fn();
+    vi.stubGlobal("window", target);
+    installWorkspaceDeckNavigationHandler(() => false, closeDeck);
+
+    expect(requestWorkspaceDeckCloseForNavigation()).toBe(false);
+    expect(closeDeck).not.toHaveBeenCalled();
   });
 });

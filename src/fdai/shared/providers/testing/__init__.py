@@ -20,6 +20,7 @@ from .briefing import (
     InMemoryConversationPolicyStore,
 )
 from .command_runner import RecordingCommandRunner
+from .conversation_search import InMemoryConversationSearch
 from .direct_api import RecordingDirectApiExecutor
 from .document_ingestion import (
     InMemoryDocumentAccessProvider,
@@ -63,6 +64,7 @@ __all__ = [
     "InMemoryBriefingRunStore",
     "InMemoryBriefingSubscriptionStore",
     "InMemoryConversationHistoryStore",
+    "InMemoryConversationSearch",
     "InMemoryConversationPolicyStore",
     "InMemoryEventBus",
     "LiveInMemoryEventBus",

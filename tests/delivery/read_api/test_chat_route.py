@@ -301,7 +301,13 @@ class _FailIfCalledPlanningDelegate(_PlanningDelegate):
 
 
 class _ToolResolver:
-    async def resolve(self, prompt: str) -> dict[str, Any] | None:  # noqa: ARG002
+    async def resolve(
+        self,
+        prompt: str,  # noqa: ARG002
+        *,
+        principal_id: str,
+    ) -> dict[str, Any] | None:
+        assert principal_id == "test-reader"
         return {
             "tool": "get_kpi",
             "authority": "server_read_model",
@@ -706,6 +712,182 @@ class TestChatRouteLatencySurface:
         assert response.status_code == 200
         assert backend.view_context is not None
         assert "_operational_evidence" not in backend.view_context
+
+    def test_ontology_issue_question_never_invokes_operational_fast_path(self) -> None:
+        backend = _RecordingBackend(model="gpt-x", delay_ms=0)
+        app = Starlette(
+            routes=[
+                make_chat_route(
+                    backend=backend,
+                    authorize=_allow,
+                    evidence_resolver=_AlwaysOperationalResolver(),
+                )
+            ]
+        )
+
+        response = TestClient(app).post(
+            "/chat",
+            json={
+                "prompt": "Agent와 연결된 Issue는 뭐야?",
+                "view_context": {
+                    "routeId": "ontology",
+                    "facts": [{"key": "selected_object_type", "value": "Agent"}],
+                    "records": {
+                        "selected_relationships": [
+                            {
+                                "link": "raises",
+                                "from": "Agent",
+                                "to": "Issue",
+                                "neighbor": "Issue",
+                            }
+                        ]
+                    },
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        assert backend.calls == 1
+        assert backend.view_context is not None
+        assert "_operational_evidence" not in backend.view_context
+
+    def test_ontology_issue_relationship_answer_finishes_consistent(self) -> None:
+        app = Starlette(
+            routes=[
+                make_chat_route(
+                    backend=_FixedAnswerBackend("Agent raises Issue. Issue has 10 properties."),
+                    authorize=_allow,
+                    evidence_resolver=_AlwaysOperationalResolver(),
+                )
+            ]
+        )
+
+        response = TestClient(app).post(
+            "/chat",
+            json={
+                "prompt": "Agent와 연결된 Issue는 뭐야?",
+                "view_context": {
+                    "routeId": "ontology",
+                    "facts": [{"key": "selected_object_type", "value": "Agent"}],
+                    "records": {
+                        "selected_relationships": [
+                            {"link": "raises", "from": "Agent", "to": "Issue"}
+                        ],
+                        "object_types": [
+                            {"name": "Issue", "properties": 10},
+                            {"name": "UserPreference", "properties": 10},
+                        ],
+                    },
+                },
+            },
+        )
+
+        payload = response.json()
+        assert response.status_code == 200
+        assert payload["model"] == "fixed"
+        assert payload["answer"] == "Agent raises Issue. Issue has 10 properties."
+        assert payload["verification"]["status"] == "consistent"
+        assert payload["verification"]["failed_claim_ids"] == []
+
+    def test_view_lifecycle_question_does_not_delegate_to_an_agent(self) -> None:
+        backend = _RecordingBackend(model="gpt-x", delay_ms=0)
+        delegate = _AgentDelegate()
+        app = Starlette(
+            routes=[
+                make_chat_route(
+                    backend=backend,
+                    authorize=_allow,
+                    agent_delegate=delegate,
+                )
+            ]
+        )
+
+        response = TestClient(app).post(
+            "/chat",
+            json={
+                "prompt": "Issue는 어떤 기준으로 생성되고 중복은 어떻게 처리해?",
+                "view_context": {
+                    "routeId": "ontology",
+                    "explanations": {
+                        "selection": {
+                            "entity_kind": "ObjectType",
+                            "entity_id": "Agent",
+                            "label": "Agent",
+                        },
+                        "lifecycles": [
+                            {
+                                "entity_kind": "ObjectType",
+                                "entity_id": "Issue",
+                                "owner": "Saga",
+                                "creation": [
+                                    {
+                                        "code": "agent_handoff",
+                                        "when": "An Agent emits HandoffEscalation.",
+                                        "result": "Saga creates Issue.",
+                                        "source_refs": ["Issue.yaml"],
+                                    }
+                                ],
+                                "closure": [],
+                                "authority_refs": ["Issue.yaml"],
+                            }
+                        ],
+                    },
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        assert backend.calls == 1
+        assert delegate.calls == []
+
+    def test_view_lifecycle_causal_answer_finishes_consistent_with_evidence(self) -> None:
+        app = Starlette(
+            routes=[
+                make_chat_route(
+                    backend=_FixedAnswerBackend(
+                        "Issue is created because An Agent emits HandoffEscalation."
+                    ),
+                    authorize=_allow,
+                )
+            ]
+        )
+
+        response = TestClient(app).post(
+            "/chat",
+            json={
+                "prompt": "Issue는 어떤 기준으로 생성돼?",
+                "view_context": {
+                    "routeId": "ontology",
+                    "explanations": {
+                        "lifecycles": [
+                            {
+                                "entity_kind": "ObjectType",
+                                "entity_id": "Issue",
+                                "owner": "Saga",
+                                "creation": [
+                                    {
+                                        "code": "agent_handoff",
+                                        "when": "An Agent emits HandoffEscalation.",
+                                        "result": "Saga creates Issue.",
+                                        "source_refs": ["Issue.yaml"],
+                                    }
+                                ],
+                                "closure": [],
+                                "authority_refs": ["Issue.yaml"],
+                            }
+                        ]
+                    },
+                },
+            },
+        )
+
+        payload = response.json()
+        assert response.status_code == 200
+        assert payload["model"] == "fixed"
+        assert payload["verification"]["status"] == "consistent"
+        assert payload["verification"]["evidence_refs"] == [
+            "snapshot:explanations:lifecycles:0:creation:0:when"
+        ]
 
     def test_no_match_non_stream_fast_path_skips_model(self) -> None:
         backend = _RecordingBackend(model="must-not-run", delay_ms=10_000)

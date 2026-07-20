@@ -21,7 +21,12 @@ from fdai.delivery.channels.teams_auth import (
     TeamsAuthenticationError,
     TeamsPrincipalResolver,
 )
-from fdai.shared.providers.conversation_channel import OutboundResponse
+from fdai.shared.providers.conversation_channel import (
+    ChannelDeliveryOperation,
+    ChannelDeliveryReceipt,
+    ConversationChannelKind,
+    OutboundResponse,
+)
 
 _APP_ID = "00000000-0000-0000-0000-000000000001"
 _TENANT_ID = "00000000-0000-0000-0000-000000000002"
@@ -44,8 +49,13 @@ class _FakeJwksClient:
 
 
 class _Publisher:
-    async def publish(self, response: OutboundResponse) -> None:
-        del response
+    async def publish(self, response: OutboundResponse) -> ChannelDeliveryReceipt:
+        return ChannelDeliveryReceipt(
+            channel_kind=ConversationChannelKind.TEAMS,
+            channel_id=response.channel_id,
+            operation=ChannelDeliveryOperation.POST,
+            message_id="activity-reply-example",
+        )
 
 
 @pytest.fixture(scope="module")
@@ -83,7 +93,11 @@ def _token(
     )
 
 
-def _activity(*, service_url: str = _SERVICE_URL, tenant_id: str = _TENANT_ID) -> dict:
+def _activity(
+    *,
+    service_url: str = _SERVICE_URL,
+    tenant_id: str = _TENANT_ID,
+) -> dict[str, object]:
     return {
         "type": "message",
         "id": "activity-1",
@@ -159,7 +173,9 @@ def test_route_rejects_service_url_and_principal_mismatch(
     assert tenant_mismatch.status_code == 403
 
 
-async def test_route_enqueues_canonical_principal(rsa_key: rsa.RSAPrivateKey) -> None:
+async def test_route_keeps_vendor_sender_separate_from_canonical_principal(
+    rsa_key: rsa.RSAPrivateKey,
+) -> None:
     channel = TeamsBotChannel(publisher=_Publisher())
     resolver = TeamsPrincipalResolver(
         tenant_id=_TENANT_ID,
@@ -185,8 +201,9 @@ async def test_route_enqueues_canonical_principal(rsa_key: rsa.RSAPrivateKey) ->
     turn = await anext(channel.receive())
 
     assert response.status_code == 202
-    assert turn.sender_id == "operator-1"
-    assert turn.sender_id != _OBJECT_ID
+    assert turn.sender_id == _OBJECT_ID
+    assert turn.metadata["verified_principal_id"] == "operator-1"
+    assert turn.sender_id != turn.metadata["verified_principal_id"]
 
 
 def test_auth_and_principal_resolver_load_strict_environment() -> None:

@@ -53,6 +53,7 @@ from fdai.delivery.read_api.auth import (
 )
 from fdai.delivery.read_api.read_model import ConsoleReadModel
 from fdai.delivery.read_api.routes import auxiliary_registration, dynamic_views
+from fdai.delivery.read_api.routes.conversation_delivery import ConversationDeliveryPanel
 from fdai.delivery.read_api.routes.core_reads import append_local_auth_route, make_core_read_routes
 from fdai.delivery.read_api.routes.hil_callback import (
     make_hil_callback_route,
@@ -274,10 +275,19 @@ def build_app(
         )
 
     append_local_auth_route(routes, profile=local_cli_profile)
+    extra_panels = resolved_config.extra_panels
+    if resolved_config.conversation_delivery_store is not None:
+        extra_panels = (
+            *extra_panels,
+            ConversationDeliveryPanel(
+                store=resolved_config.conversation_delivery_store,
+                source=resolved_config.conversation_delivery_source,
+            ),
+        )
     seen_panel_paths = append_read_panels(
         routes,
         read_model=read_model,
-        extra_panels=resolved_config.extra_panels,
+        extra_panels=extra_panels,
         handler_factory=_make_panel_handler,
         core_paths=_CORE_ROUTE_PATHS,
     )

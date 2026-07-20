@@ -23,15 +23,15 @@ but never add or rename agents.
 
 Consumers of this document:
 
-- The event-driven core reads the topic and object-type ownership tables in
-  §5 and §7 to wire schema-validated pub/sub.
-- The Operator Console ([operator-console.md](../interfaces/operator-console.md)) reads §7.3
-  and §7.5 to route natural-language questions to the correct primary agent
+- The event-driven core reads the agent and topic ownership tables in
+  §4 and §6 to wire schema-validated pub/sub.
+- The Operator Console ([operator-console.md](../interfaces/operator-console.md)) reads §6.3
+  and §6.5 to route natural-language questions to the correct primary agent
   with per-user context.
 - The rule-catalog and executor ([action-ontology.md](../decisioning/action-ontology.md),
-  [execution-model.md](../decisioning/execution-model.md)) read §8 to bind each ActionType
+  [execution-model.md](../decisioning/execution-model.md)) read §7 to bind each ActionType
   to its initiator, judge, approver, executor, and auditor.
-- Forks read §11 to see which seams are open (topic subscriptions, config
+- Forks read §10 to see which seams are open (topic subscriptions, config
   overrides) and which are locked (no new agents, no rename).
 
 ## 1. Design principles
@@ -44,17 +44,17 @@ it makes the roles legible and auditable.
 - **Deterministic-first, LLM-capable.** Every agent CAN call an LLM through
   its own bindings, but the runtime hot-path routes almost everything at T0
   (rule / table lookup) or T1 (similarity). LLM calls are reserved for
-  narrow, declared uses (§9). LLM use is a capability, not a default.
+  narrow, declared uses (§8). LLM use is a capability, not a default.
 - **Two-port model.** Every agent exposes a typed pub/sub port for machine
-  traffic and a conversational port for humans and other agents (§7).
+  traffic and a conversational port for humans and other agents (§6).
 - **Single-writer, multi-reader topics.** Each object type has exactly one
-  owner agent that publishes; anyone may subscribe (§7.1).
+  owner agent that publishes; anyone may subscribe (§6.1).
 - **Judge is not the executor.** Forseti issues a verdict; Thor dispatches
   the verdict; Var carries the human approval. No agent both judges and
   executes.
 - **Pantheon fixed upstream.** The 15-agent set, the org chart, and the
   role assignments are locked. Forks customize behaviour through configured
-  seams (§11) - not by adding, removing, or renaming agents.
+  seams (§10) - not by adding, removing, or renaming agents.
 - **Repository layout mirrors the two tiers.** The 15 named agents live
   flat at the top level of [`src/fdai/agents/`](../../../src/fdai/agents);
   the supporting framework (bus, runtime, registry, base, pantheon spec,
@@ -146,7 +146,8 @@ comparable across verticals:
   not a raw metric.
 
 Odin resolves the conflict with a deterministic **multi-objective**
-arbiter (`fdai.agents.arbitration.MultiObjectiveArbiter`) rather than a
+arbiter (`MultiObjectiveArbiter` in
+`src/fdai/agents/_framework/arbitration.py`) rather than a
 blunt priority table:
 
 - Each domain has a configured **weight** (derived from the priority order
@@ -201,24 +202,27 @@ exactly.
 Norns closes the learning loop shown as `Saga -. signals .-> Norns` in
 the relationship diagram. It never mutates the catalog or any threshold
 directly - every output is an inert `RuleCandidate` proposal that must
-pass the quality gate. Three deterministic (T0) learners run:
+pass the quality gate.
 
-- **Fingerprint aggregator** - a repeated handoff fingerprint proposes a
-  *new* rule (Wave 2 baseline).
-- **Outcome-threshold learner** - when an action's measured rollback
-  rate over a minimum sample exceeds the alarm rate, Norns proposes a
-  *threshold_adjustment* that **raises** the action's confidence bar so
-  it escalates to HIL more often. Learning only ever moves the threshold
-  in the safer direction; a relaxation is never auto-proposed.
-- **Override learner** - recurring operator overrides on the same rule
-  propose a *revision* (or a *retirement* when the overrides `disabled`
-  it), realizing the "recurring overrides signal a revise/retire" rule
-  from `architecture.instructions.md`. The proposal carries the override
-  count and latest mode as grounding.
+Before publication, three deterministic internal perspectives must agree:
 
-Every proposal records numeric evidence (sample size, rollback rate,
-override count) so Mimir and the quality gate can judge it on measured
-data, not assertion.
+| Perspective | Bounded check |
+|-------------|---------------|
+| Urd (past) | Historical evidence is grounded. |
+| Verdandi (present) | The current `RuleCandidate` contract and Norns ownership are valid. |
+| Skuld (future) | The proposal does not directly raise autonomy or enter enforcement mode. |
+
+They are not agents, identities, or bus principals. Norns remains the sole writer of
+`object.rule-candidate`: `3/3` agreement emits one bounded `norns_consensus` summary;
+disagreement retains an aggregate hold without free-form reasoning. Deterministic candidate
+sources cover repeated fingerprints (`new`), high rollback rates (`threshold_adjustment`),
+overrides or approval rejections (`revision` / `retirement`), and optional scenario gaps
+(`new-scenario`). Every source passes the same consensus boundary.
+
+Every proposal records numeric evidence so Mimir and the quality gate can judge measured data.
+The separate trajectory intake accepts only a human-reviewed `ReviewedTrajectoryDataset` with a
+manifest checksum and aggregate counts. It rejects raw records, deduplicates by checksum, and
+creates no candidate, training run, or promotion from consumption alone.
 
 ## 4. Agent catalog
 
@@ -236,7 +240,7 @@ operations / interface), `3` = governance staff.
 | Name | Role | Layer | Owns object types | Executes action types | LLM in hot-path? |
 |------|------|-------|-------------------|-----------------------|-------------------|
 | Odin | Master Planner | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
-| Thor | Responder | 2 | ActionRun, ActionAttempt | (dispatches; owns none directly - see §8.1) | no |
+| Thor | Responder | 2 | ActionRun, ActionAttempt | (dispatches; owns none directly - see §7.1) | no |
 | Forseti | Judge | 2 | Verdict, RCA | (produces verdicts; no executor role) | yes (T2 abstain only) |
 | Huginn | Event Collector / Real-time Resource Discovery | 2 | Event | ingest_event | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, SecurityEvent | detect_anomaly, detect_drift, forecast, notify_admin_privilege_violation | no |
@@ -277,8 +281,8 @@ signals with a complete ARG/ARM snapshot. Heimdall observes discovery health,
 freshness, cursor lag, and coverage anomalies; it does not acquire resources.
 
 The 15 agents are jointly sufficient to cover SRE, ARB (change safety), and
-FinOps workflows through composition; see §7 for the topic contract and
-§8.6 for how handoff (unhandled requests) integrates with the same pipeline.
+FinOps workflows through composition; see §6 for the topic contract and
+§6.4 plus §7.6 for how handoff integrates with the same pipeline.
 
 ### 4.1 Per-agent task inventory
 
@@ -290,15 +294,15 @@ and self-improvement. **X**-agent participates in the workflows named in
 | Agent | R (recurring) | E (event) | M (meta) | X-agent |
 |-------|---------------|-----------|----------|---------|
 | Odin | weekly portfolio review, priority-policy tuning | arbitrate_domain_conflict on Forseti signal | portfolio outcome score self-audit | 7 (Agent health), tie-break for 2 (Predictive scale) |
-| Thor | execution-path health check, retry-strategy cache warmup | verdict dispatch, rollback trigger, rate-limit enforce | pre-flight simulation for high-risk actions | 1 (Cost-aware remediation), 2 (Predictive scale) |
-| Forseti | rule-cache refresh, retrospective what-if batch, verdict coherence self-test | judge event (T0/T1/T2), emit domain_conflict, emit SecurityEvent | novelty drift detection (T0 vs T2 mix) | 1, 2, 5 (Security escalation), 8 (Judgment coherence) |
+| Thor | execution-path health check, retry-strategy cache warmup | verdict dispatch, rollback trigger, rate-limit enforce | pre-flight simulation for high-risk actions | 1 (Cost-aware remediation), 2 (Predictive scale), 11 (Readiness), 12 (Scheduled Python) |
+| Forseti | rule-cache refresh, retrospective what-if batch, verdict coherence self-test | judge event (T0/T1/T2), emit domain_conflict, emit SecurityEvent | novelty drift detection (T0 vs T2 mix) | 1, 2, 5 (Security escalation), 8 (Judgment coherence), 11, 12 |
 | Huginn | source health check, discovery cursor/backpressure check, dedup window maintenance | normalize + dedup + correlate + publish resource create/update/delete Events | adaptive schema learning (T1 clustering, off-path) | feeds every workflow |
 | Heimdall | anomaly baseline update, forecast refresh, discovery freshness/coverage probe, external-actor list refresh, agent-health probe | anomaly detect, drift detect, discovery degradation correlate, SecurityEvent correlate, notify_admin | multi-signal cross-correlation | 1, 2, 3 (DR drill), 5, 7 (Agent health), 9 (Rollback rehearsal) |
 | Vidar | rollback-path validation, DR readiness score, recovery-time SLI | perform_rollback, dr_failover | rollback rehearsal (shadow) | 3, 9 |
-| Var | approval SLA monitor, approver availability tracking | present HIL card, enforce quorum, timeout / escalation | approval provenance record | 4 (Override -> Discovery), 5 |
-| Bragi | expired-session cleanup, UserPreference index refresh | NL routing, multi-agent aggregation, NL rendering | intent classifier retraining (T1, off-path) | 7, 10 (Retrospective what-if) |
+| Var | approval SLA monitor, approver availability tracking | present HIL card, enforce quorum, timeout / escalation | approval provenance record | 4 (Override -> Discovery), 5, 11, 12 |
+| Bragi | expired-session cleanup, UserPreference index refresh | NL routing, multi-agent aggregation, NL rendering | intent classifier retraining (T1, off-path) | 7, 10 (Retrospective what-if), 12 |
 | Saga | audit-chain integrity self-check, issue-close scan, fingerprint index compaction | append AuditEntry, escalate_to_github_issue, replay for reconstruction | audit chain tamper detection | every workflow (audit) |
-| Mimir | rule-source polling, regression suite, deprecation cycle | promote / revoke rule, cache-invalidation broadcast | freshness-score, stale-rule detection | 4, 6 (Handoff -> Capability), 8 |
+| Mimir | rule-source polling, regression suite, deprecation cycle | promote / revoke rule, cache-invalidation broadcast | freshness-score, stale-rule detection | 4, 6 (Handoff -> Capability), 8, 11 |
 | Muninn | snapshot rotation, RAG index rebuild, cache eviction | context fetch for Forseti, state query for Bragi | trending-query pre-warm, ontology cross-check | supports every judgment-touching workflow |
 | Norns | hourly batch audit analysis, streaming pattern extraction | pattern signal, RuleCandidate publish, close_issue signal | model performance drift detection | 4, 6, 8 (Judgment coherence), 10 |
 | Njord | cost ingestion (daily), budget monitor, cost forecasting | cost anomaly, budget breach alert, cost-advisor query | RI / SP optimization proposals | 1, 2 |
@@ -404,11 +408,11 @@ properties:
   reports_to: Agent?               # org chart edge
   owns: [ObjectType]               # write-authority (single-writer)
   executes: [ActionType]           # references action-ontology.md
-  initiates: [ActionType]          # can propose (see §8.1)
+  initiates: [ActionType]          # can propose (see §7.1)
   subscribes: [Topic]              # typed-port subscriptions
   publishes: [Topic]               # typed-port publications
-  question_domains: [string]       # NL query categories (§7.3)
-  owns_code_paths: [glob]          # RAG scope for self-introspection (§9)
+  question_domains: [string]       # NL query categories (§6.3)
+  owns_code_paths: [glob]          # RAG scope for self-introspection (§8)
   llm_bindings: [ModelId]          # models this agent may invoke
   rate_limits:
     proposals_per_minute: int
@@ -446,7 +450,7 @@ One topic per object type, named `object.<type>`. Every message carries
 | object.rule-candidate | Norns | Mimir |
 | object.rule | Mimir | Forseti (cache reload) |
 | object.conversation | Bragi | (session index) |
-| object.turn | Bragi | Muninn |
+| object.turn | Bragi | Muninn, Norns (consent-filtered post-turn review only) |
 | object.user-preference | Bragi | Muninn |
 | object.cost-anomaly | Njord | Forseti |
 | object.capacity-forecast | Freyr | Forseti |
@@ -500,7 +504,7 @@ Bragi is the router, not the answerer. Routing runs deterministic-first:
 4. **T2 intent classification.** If T0/T1 both abstain, LLM classifies
    intent, and Bragi re-runs the scoring with the classified intent.
 5. **Handoff.** If scoring margin is still below threshold, emit
-   `HandoffEscalation` (§7.4). The system files a GitHub issue rather than
+  `HandoffEscalation` (§6.4). The system files a GitHub issue rather than
    guess.
 
 Winner selection is scored, not first-match, when several agents match:
@@ -545,7 +549,7 @@ answer to HIL.
 ### 6.4 Handoff escalation protocol
 
 When an agent cannot resolve a request through its owned data, T0, T1, or
-T2 (per its LLM policy in §9), it publishes a `HandoffEscalation` object.
+T2 (per its LLM policy in §8), it publishes a `HandoffEscalation` object.
 Saga materializes the escalation into a GitHub issue via the
 `escalate_to_github_issue` action.
 
@@ -586,7 +590,8 @@ partitioned by `user_id`:
   the attempt.
 - **Learner boundary.** Norns is limited to metadata by default
   (`share_with_learner: false` per `UserPreference`). Opt-in surfaces the
-  turn body for pattern extraction; opt-out is the shipping default.
+  turn body for pattern extraction; opt-out is the default. Batch trajectory intake accepts only
+  reviewed aggregates, never raw turn or trajectory bodies.
 - **Retention.** Active conversation: 30 days. Cold storage: 60 additional
   days. Total: 90 days, then delete. Aggregated anonymized metrics survive
   in Saga's own audit stream.
@@ -608,7 +613,7 @@ judge: Agent            # who issues the verdict (always Forseti today)
 approver: Agent?        # who signs off on HIL (Var when HIL applies)
 executor: Agent         # the sole principal that mutates
 auditor: Agent          # who appends the audit trail (Saga)
-compensating_action: ActionType?   # required unless irreversible: true
+rollback_contract: RollbackKind    # required for every ActionType
 ```
 
 The registry rejects an ActionType whose `producer_principal` on any
@@ -669,17 +674,17 @@ independently. Failure isolation:
 Per-resource ordering is preserved by the partition key; cross-resource
 ordering is not implied.
 
-### 7.5 Compensating actions and irreversibility
+### 7.5 Rollback contracts and irreversibility
 
-Every mutation ActionType MUST reference a `compensating_action` unless it
-declares `irreversible: true`. Examples:
+Every ActionType declares a live `rollback_contract`, including an irreversible
+action. Current values are `pr_revert`, `scripted`, `pitr`, `snapshot_restore`,
+and `state_forward_only`. Examples:
 
-| ActionType | compensating_action | irreversible |
-|------------|---------------------|--------------|
-| restart_vm | (self; restart returns to running state) | false |
-| resize_vm_up | resize_vm_down | false |
-| disable_public_access | enable_public_access | false |
-| delete_storage | (n/a) | true |
+| ActionType | rollback_contract | irreversible |
+|------------|-------------------|--------------|
+| `remediate.tag-add` | `pr_revert` | false |
+| `remediate.rotate-secret` | `snapshot_restore` | false |
+| `tool.run-chaos-experiment` | `scripted` | false |
 
 `irreversible: true` action MUST route through HIL + quorum: at least two
 distinct approvers, no self-approval. Forseti attaches `quorum_required:
@@ -687,11 +692,11 @@ distinct approvers, no self-approval. Forseti attaches `quorum_required:
 
 ### 7.6 Handoff as an ActionType
 
-Escalation to GitHub issues (§7.4) is itself an `ActionType`, so it
+Escalation to GitHub issues (§6.4) is itself an `ActionType`, so it
 inherits the same lifecycle, audit, and override machinery:
 
 ```yaml
-id: escalate_to_github_issue
+name: governance.escalate-to-github-issue
 category: governance
 initiators: [Bragi, Forseti, Heimdall, Norns, Saga]
 judge: Forseti
@@ -700,7 +705,8 @@ executor: Saga
 auditor: Saga
 side_effect_class: external
 rollback_contract: state_forward_only
-default_mode: enforce
+default_mode: shadow
+promotion_gate: {min_shadow_days: 7, min_samples: 50, min_accuracy: 0.99, max_policy_escapes: 0}
 irreversible: false
 ```
 
@@ -737,23 +743,17 @@ treats only a strict `True` as operator-initiated.
 
 ### 7.8 Fork override boundaries
 
-Forks may override the following ActionType fields:
+A file, Rego, config, or runtime overlay may only tighten an existing
+ActionType. It can lower an autonomy ceiling, add stricter preconditions or
+stop conditions, reduce blast radius, or strengthen a promotion gate. Every
+overlay is downgrade-only and audited. Promotion from shadow to enforce is a
+separate governed ActionType and reviewed PR after the promotion gate passes.
 
-- `preconditions`, `stop_conditions`
-- `default_mode` (only in the strict-to-lenient-not-allowed direction:
-  fork cannot silently move enforce -> shadow, but shadow -> enforce is
-  fine when the promotion gate passes)
-- `params.schema` (additions only, never removals)
-- `promotion_gate` (may only strengthen, never weaken)
-
-Forks may NOT override:
-
-- `executor`, `judge`, `approver`, `auditor`, `initiators`
-- `compensating_action`, `irreversible`, `rollback_contract`
-
-These are pantheon safety boundaries. The override lint runs in CI on
-`rule-catalog/action-types-overrides/` and fails the merge when a locked
-field appears.
+Role bindings (`executor`, `judge`, `approver`, `auditor`, `initiators`) and
+the rollback contract remain fixed pantheon safety boundaries. A new
+ActionType belongs under `rule-catalog/action-types-custom/`; it is not an
+overlay. See [action-ontology.md § 7](../decisioning/action-ontology.md#7-fork-override-seams)
+for the authoritative precedence and allowed channels.
 
 ### 7.9 Rate limits per agent
 
@@ -786,9 +786,10 @@ LLM bindings; only a few do so in the hot-path.
 | Freyr | no | no | yes |
 | Loki | no | no | yes |
 
-Every agent's conversational port uses an LLM to render natural-language
-responses over its owned data plus the code it owns via `owns_code_paths`
-(RAG). This is the only path by which an agent introspects itself.
+Every agent's conversational port can render deterministic introspection from
+its immutable `AgentSpec` and owned facts. An optional narrator may render the
+same facts with an LLM and RAG over `owns_code_paths`; that presentation layer
+does not change the typed decision or execution path.
 
 ## 9. Security and privilege-escalation monitoring
 
@@ -835,7 +836,7 @@ a distinct template.
 Same-user, same-action alerts within a 1-hour window collapse into one
 card with an incremented counter. Per-user limit is 5 cards per hour;
 excess collapses into a digest to prevent alert storms. The fingerprint
-scheme reuses the §7.4 dedup pattern.
+scheme reuses the §6.4 dedup pattern.
 
 ### 9.5 Legitimate escalation
 
@@ -887,9 +888,8 @@ follows.
   card, HIL ticket) MUST use the fingerprint scheme.
 - **Fork adds an agent.** The pantheon is fixed upstream. Adding a new
   agent is an upstream change, not a fork change.
-- **Action without a compensating action.** Every mutation ships with
-  `compensating_action` or `irreversible: true` + HIL quorum. There is
-  no third option.
+- **Action without a rollback contract.** Every ActionType ships with a live
+  `rollback_contract`; irreversible actions additionally require HIL quorum.
 
 ## Next steps
 

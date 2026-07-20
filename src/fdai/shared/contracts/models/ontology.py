@@ -43,6 +43,27 @@ class PropertyDecl(_Base):
     )
 
 
+class LifecycleCriterion(_Base):
+    code: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
+    when: Annotated[str, Field(min_length=1)]
+    result: Annotated[str, Field(min_length=1)]
+    source_refs: list[Annotated[str, Field(min_length=1)]] = Field(min_length=1)
+
+
+class LifecycleDeduplication(_Base):
+    strategy: Annotated[str, Field(min_length=1)]
+    fields: list[Annotated[str, Field(min_length=1)]] = Field(min_length=1)
+    on_repeat: Annotated[str, Field(min_length=1)]
+
+
+class ObjectLifecycle(_Base):
+    owner: Annotated[str, Field(min_length=1)]
+    creation: list[LifecycleCriterion] = Field(min_length=1)
+    deduplication: LifecycleDeduplication | None = None
+    closure: list[LifecycleCriterion] = Field(default_factory=list)
+    authority_refs: list[Annotated[str, Field(min_length=1)]] = Field(min_length=1)
+
+
 class OntologyObjectType(_Base):
     schema_version: SemVer
     name: Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{0,63}$")]
@@ -50,6 +71,7 @@ class OntologyObjectType(_Base):
     key: Annotated[str, Field(min_length=1)]
     properties: dict[str, PropertyDecl]
     description: str | None = None
+    lifecycle: ObjectLifecycle | None = None
 
 
 class OntologyLinkType(_Base):
@@ -171,6 +193,9 @@ __all__ = [
     "ActionPrecondition",
     "ActionStopCondition",
     "CeilingByTier",
+    "LifecycleCriterion",
+    "LifecycleDeduplication",
+    "ObjectLifecycle",
     "OntologyActionType",
     "OntologyLinkType",
     "OntologyObjectType",

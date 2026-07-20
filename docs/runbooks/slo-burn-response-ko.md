@@ -1,9 +1,9 @@
 ---
 title: SLO Burn 대응 Runbook
-description: Error-budget burn finding을 검증하고 governed response로 라우팅하는 템플릿입니다.
+description: 발견된 오류 예산 소진 문제를 검증하고 통제된 대응으로 라우팅하는 템플릿입니다.
 translation_of: slo-burn-response.md
-translation_source_sha: d86815ec9da4cae8663123f26a7c598677ad532b
-translation_revised: 2026-07-18
+translation_source_sha: b6165b4f1b729facd55ac723442c592711b6cf97
+translation_revised: 2026-07-20
 ---
 
 # SLO Burn 대응 Runbook

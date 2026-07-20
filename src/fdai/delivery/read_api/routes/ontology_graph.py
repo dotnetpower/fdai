@@ -80,6 +80,9 @@ def make_ontology_graph_route(
                 "property_count": len(ot.properties),
                 "properties": sorted(ot.properties.keys()),
                 "description": ot.description,
+                "lifecycle": ot.lifecycle.model_dump(mode="json")
+                if ot.lifecycle is not None
+                else None,
             }
             for ot in object_types
         ]

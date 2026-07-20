@@ -43,6 +43,7 @@ class MemorySource(StrEnum):
     CHATOPS_PREFERENCE = "chatops.preference"
     PR_REVIEW = "pr.review"
     MEMORY_COMPACTION = "memory.compaction"
+    POST_TURN_REVIEW = "post-turn.review"
 
 
 class MemoryCategory(StrEnum):

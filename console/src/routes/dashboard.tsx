@@ -15,7 +15,7 @@ import {
   type AsyncState,
   type Column,
 } from "../components/ui";
-import { usePublishViewContext } from "../deck/context";
+import { type ViewFact, usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { routeHref } from "../router";
@@ -129,18 +129,38 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
       // Publish that surface (not just the audit KPIs) so the deck can answer
       // "what is the auto-resolution rate / savings per vertical / are the
       // guards ok?". `synthetic` is surfaced so the deck can flag dev values.
-      const autonomyFacts: {
-        key: string;
-        value: string | number | boolean | null;
-        group?: string;
-      }[] = autonomy
+      const autonomyFacts: ViewFact[] = autonomy
         ? [
             { key: "measurement_synthetic", value: autonomy.synthetic, group: "autonomy" },
-            { key: "auto_resolution_rate", value: autonomy.success.auto_resolution_rate.value, group: "autonomy" },
+            {
+              key: "auto_resolution_rate",
+              label: t("overview.metric.autoRes"),
+              aliases: ["auto-resolution", "automatic resolution", "자동 해결", "자율 해결"],
+              value: autonomy.success.auto_resolution_rate.value,
+              group: "autonomy",
+            },
             { key: "auto_resolution_baseline", value: autonomy.success.auto_resolution_rate.baseline, group: "autonomy" },
-            { key: "human_touchpoints_per_100", value: autonomy.success.human_touchpoints_per_100.value, group: "autonomy" },
-            { key: "mttr_seconds", value: autonomy.success.mttr_seconds.value, group: "autonomy" },
-            { key: "change_lead_time_seconds", value: autonomy.success.change_lead_time_seconds.value, group: "autonomy" },
+            {
+              key: "human_touchpoints_per_100",
+              label: t("overview.metric.touchpoints"),
+              aliases: ["human touchpoints", "사람 개입", "사람 검토"],
+              value: autonomy.success.human_touchpoints_per_100.value,
+              group: "autonomy",
+            },
+            {
+              key: "mttr_seconds",
+              label: t("overview.metric.mttr"),
+              aliases: ["mean time to recovery", "평균 복구시간"],
+              value: autonomy.success.mttr_seconds.value,
+              group: "autonomy",
+            },
+            {
+              key: "change_lead_time_seconds",
+              label: t("overview.metric.leadTime"),
+              aliases: ["change lead time", "변경 리드타임"],
+              value: autonomy.success.change_lead_time_seconds.value,
+              group: "autonomy",
+            },
           ]
         : [];
       const autonomyRecords: Record<string, readonly Record<string, unknown>[]> = autonomy
@@ -195,10 +215,40 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
         capturedAt: new Date().toISOString(),
         facts: [
           { key: "health", value: health, group: "overview" },
-          { key: "event_count", value: kpi.event_count, group: "overview" },
-          { key: "shadow_share", value: formatShare(kpi.shadow_share), group: "overview" },
-          { key: "t0_share", value: t0Share, group: "overview" },
-          { key: "hil_pending", value: kpi.hil_pending, group: "overview" },
+          {
+            key: "section_count",
+            aliases: ["primary sections", "numbered sections", "주요 영역", "번호 섹션"],
+            value: 4,
+            group: "page",
+          },
+          {
+            key: "event_count",
+            label: t("overview.detailMetric.events"),
+            aliases: ["audit events", "event count", "감사 이벤트", "이벤트 수"],
+            value: kpi.event_count,
+            group: "overview",
+          },
+          {
+            key: "shadow_share",
+            label: t("overview.detailMetric.shadow"),
+            aliases: ["shadow coverage", "shadow share", "Shadow 비율", "관찰 모드 비율"],
+            value: formatShare(kpi.shadow_share),
+            group: "overview",
+          },
+          {
+            key: "t0_share",
+            label: t("overview.tier.label"),
+            aliases: ["T0 share", "deterministic share", "T0 비율", "결정론 비율"],
+            value: t0Share,
+            group: "overview",
+          },
+          {
+            key: "hil_pending",
+            label: t("overview.detailMetric.approvals"),
+            aliases: ["approvals pending", "pending approvals", "승인 대기", "대기 승인"],
+            value: kpi.hil_pending,
+            group: "overview",
+          },
           {
             key: "measurement_state",
             value: autonomy === null ? "unavailable" : autonomy.synthetic ? "simulated" : "measured",
@@ -224,6 +274,55 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
           ...autonomyFacts,
         ],
         records: {
+          sections: [
+            {
+              position: 1,
+              label: t("overview.section.outcomes"),
+              detail: t("overview.section.outcomesHint"),
+              evidence_state: autonomy === null ? "unavailable" : "available",
+            },
+            {
+              position: 2,
+              label: t("overview.section.assurance"),
+              detail: t("overview.section.assuranceHint"),
+              evidence_state: "available",
+            },
+            {
+              position: 3,
+              label: t("overview.section.organization"),
+              detail: t("overview.section.organizationHint"),
+              evidence_state: autonomy === null ? "unavailable" : "available",
+            },
+            {
+              position: 4,
+              label: t("overview.section.verticals"),
+              detail: t("overview.section.verticalsHint"),
+              evidence_state: autonomy === null ? "unavailable" : "available",
+            },
+          ],
+          controls: [
+            {
+              control: "open_audit_events",
+              label: t("overview.detailMetric.events"),
+              detail: t("overview.detailMetric.eventsHint"),
+              enabled: true,
+            },
+            {
+              control: "open_pending_approvals",
+              label: t("overview.detailMetric.approvals"),
+              detail: kpi.hil_pending > 0
+                ? t("overview.detailMetric.approvalHint")
+                : t("overview.detailMetric.approvalClear"),
+              enabled: true,
+            },
+          ],
+          constraints: autonomy === null
+            ? [{
+                constraint: "autonomy_evidence_required",
+                label: t("overview.evidence.unavailable"),
+                detail: t("overview.evidence.unavailableHint"),
+              }]
+            : [],
           by_action_kind: Object.entries(kpi.by_action_kind)
             .sort(([, a], [, b]) => b - a)
             .map(([key, count]) => ({ key, count })),

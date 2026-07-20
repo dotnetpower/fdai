@@ -1,6 +1,6 @@
 ---
 title: On-Call and Escalation
-description: How FDAI selects accountable responders, escalates pending decisions, and fails closed when paging integrations are unavailable.
+description: How FDAI selects the final owner for a response, escalates pending decisions, and fails closed when paging integrations are unavailable.
 ---
 
 # On-Call and Escalation

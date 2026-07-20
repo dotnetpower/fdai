@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: d8107156c9dfdf088fd9781305169cda2d9004f0
-translation_revised: 2026-07-18
+translation_source_sha: 34fd1b9914e9167b9f65198fa83d86598bdb6415
+translation_revised: 2026-07-21
 ---
 # 리포팅 서브시스템
 
@@ -10,10 +10,10 @@ translation_revised: 2026-07-18
 개요, 상위 N개 테이블, 비용 요약, SLO 소진 보드, 시그널 피드
 롤업, 보안 사후 분석, 나중에 나올 FE 실험까지 - 만들 수 있게
 해주는 선언적·확장 가능한 시각화 파이프라인입니다. 모든 것은 세
-개의 레지스트리(datasource / widget / format) + YAML 카탈로그
+개의 레지스트리(report / datasource / widget / format)와 YAML 카탈로그
 뒤에 있으며, 새 리포트 추가는 YAML 파일 하나, 새 데이터 소스
-추가는 Protocol 구현 하나, 새 시각화 형태 추가는 짧은 순수 함수
-하나면 끝입니다.
+추가는 Protocol 구현 하나로 끝납니다. 새 시각화 형태는 순수 backend builder와 검토된 SPA
+renderer가 모두 필요합니다.
 
 계약상 read-only입니다. 모든 라우트는 `GET`이며, 어떤 위젯도
 아무것도 실행하지 않습니다. 이 서브시스템은 실행자 신원을 절대로
@@ -74,7 +74,7 @@ source나 문제 있는 빌더는 그 위젯을 `error` 설정 + 빈 `data`로
 - `src/fdai/core/reporting/` - 엔진 전체 (framework-neutral).
 - `src/fdai/core/reporting/composition.py` - 포크 composition
   root용 `default_reporting_engine` factory.
-- `src/fdai/delivery/read_api/reporting.py` - 네 개의 `GET` 라우트.
+- `src/fdai/delivery/read_api/routes/reporting.py` - 여덟 개의 `GET` 라우트.
 - `rule-catalog/reports/` - YAML 카탈로그 + JSON Schema.
 
 ### Console SPA 구현 상태
@@ -159,7 +159,12 @@ consumer를 위한 backend builder로 남지만 생성된 WorkflowApp surface에
 
 ## 데이터소스 카탈로그
 
-기본 제공 8개 어댑터. 각각 기존 seam을 감싸므로 리포팅
+제공되는 datasource adapter는 기존 seam 또는 명시적인 local source를 감쌉니다. 기본 composition은
+`audit`, `report_feed`, `security_assessment`, `metric`, `log_query`, `ontology`를 등록하고 provider가
+없으면 같은 이름의 `noop` binding을 사용합니다. `static`, `callable`, `filesystem_manifest`는
+테스트 또는 명시적 fork registration에 사용할 수 있습니다.
+
+각각 기존 seam을 감싸므로 리포팅
 서브시스템은 새 I/O primitive를 도입하지 않습니다:
 
 | Name | Wraps | Sample projections |
@@ -169,6 +174,7 @@ consumer를 위한 backend builder로 남지만 생성된 WorkflowApp surface에
 | `security_assessment` | security category `ReportFeed` signal -> 결정론적 `SecurityAssessment` | `summary_value`, severity/category/resource count, control status/row, recommendation, CVE, source, positive control, gap, resource, compliance, evidence |
 | `metric` | `shared.providers.metric.MetricProvider` | `series` (with `group_by`), `scalar_sum`, `percentiles` |
 | `log_query` | `shared.providers.log_query.LogQueryProvider` | `rows`, `count_by_severity`, `pattern_group`, `series_hourly`, `count_total` |
+| `ontology` | `OntologyInstanceStore` + `ProcessRuntimeStore` | ontology object/link/process projection |
 | `static` / `noop` | 인메모리 | 고정 / 빈 결과; 테스트 시드 |
 | `callable` | 임의의 sync/async `(spec, since, until, variables) -> DataSet` 함수 | 콜러블이 선언 |
 | `filesystem_manifest` | 파일시스템 `Path` | `rows`, `count_total`; `..` traversal 거부 |
@@ -371,15 +377,18 @@ widgets:
 - 파일 간 중복 리포트 id 거부;
 - 다중 문서 YAML 거부.
 
-기본 제공되는 샘플 리포트 세 개:
+현재 catalog에 제공되는 리포트 여섯 개:
 
 - [`shadow-mode-daily.yaml`](../../../rule-catalog/reports/shadow-mode-daily.yaml) - audit KPI + top lists.
 - [`signal-feed-overview.yaml`](../../../rule-catalog/reports/signal-feed-overview.yaml) - `category` 변수가 있는 report-feed 롤업.
 - [`metric-explorer.yaml`](../../../rule-catalog/reports/metric-explorer.yaml) - 일반 파라미터화 metric explorer.
+- [`architecture-review-process.yaml`](../../../rule-catalog/reports/architecture-review-process.yaml) - architecture review process evidence.
+- [`incident-rca-dossier.yaml`](../../../rule-catalog/reports/incident-rca-dossier.yaml) - correlation-scoped RCA dossier.
+- [`security-assessment.yaml`](../../../rule-catalog/reports/security-assessment.yaml) - security control assessment.
 
 ## Read-API 라우트
 
-네 개의 GET, 설정 가능한 prefix(기본 `/reports`) 아래에서
+여덟 개의 GET을 설정 가능한 prefix(기본 `/reports`) 아래에서
 [`build_reporting_routes`](../../../src/fdai/delivery/read_api/routes/reporting.py)가
 마운트:
 
@@ -399,7 +408,7 @@ widgets:
 
 ```python
 from fdai.core.reporting.composition import default_reporting_engine
-from fdai.delivery.read_api.reporting import ReportingConfig
+from fdai.delivery.read_api.routes.reporting import ReportingConfig
 from fdai.delivery.read_api.main import ReadApiConfig, build_app
 
 engine, formats = default_reporting_engine(
@@ -495,10 +504,10 @@ validate합니다.
 - **위젯별 오류 격리**. 하나의 broken source가 전체 리포트를 실패
   시키지 않으며; 해당 위젯이 `error`가 설정된 상태로 렌더됩니다.
   `ReportFeed` 패턴을 미러링.
-- **새 I/O primitive 없음**. 모든 datasource는 기존 seam
-  (`AuditReader`, `MetricProvider`, `LogQueryProvider`,
-  `ReportFeed`)을 감쌉니다 - 리포팅 서브시스템은 새 async 경계를
-  도입하지 않습니다.
+- **명시적 I/O 경계**. 기본 provider-backed datasource는 승인된 seam
+  (`AuditReader`, `MetricProvider`, `LogQueryProvider`, `ReportFeed`, ontology/process store)을
+  감쌉니다. Local `filesystem_manifest`와 `callable` adapter는 opt-in, bounded, read-only
+  registration입니다.
 - **`core/`는 절대로 `delivery/`를 import하지 않음**. Audit
   어댑터는 좁은 duck-typed Protocol을 받아 composition wire-up을
   한 방향으로 유지합니다

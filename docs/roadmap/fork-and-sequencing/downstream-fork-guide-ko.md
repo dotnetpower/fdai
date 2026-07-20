@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 7e1063200e1f67183816b4dee2f59851a25d2f41
-translation_revised: 2026-07-20
+translation_source_sha: c70204044c0740d3ff4806f8b16a6e4b9a9c5144
+translation_revised: 2026-07-21
 ---
 
 # Downstream Fork 가이드
@@ -129,8 +129,8 @@ Fork에서 첫 `git commit` 전에 이것들을 하세요.
 
 ## 3. 유일한 강한 규칙
 
-**`src/fdai/core/` 아래 파일을 절대 편집하지 마세요.** Fork가
-커스터마이즈하고 싶은 모든 것에는 seam이 있습니다. `core/`를 편집하고
+**`src/fdai/core/` 아래 파일을 절대 편집하지 마세요.** 지원되는 customization 경로는
+seam을 사용합니다. `core/`를 편집하고
 싶어질 때, 둘 중 하나가 일어나고 있는 것입니다:
 
 1. Configuration이나 fake에 속하는 값을 주입하려 함. 이미 존재하는
@@ -240,7 +240,7 @@ ActionType이 이를 이름 지정하는 Rule 전에 landing):
 | [5.10](downstream-fork-seam-recipes-ko.md#510-런타임-실패-모드와-abstain-계약) | 런타임 실패 모드와 abstain 계약 |
 | [5.11](downstream-fork-seam-recipes-ko.md#511-fork-end-to-end-테스트) | Fork end-to-end 테스트 |
 | [5.12](downstream-fork-seam-recipes-ko.md#512-actiontype-카탈로그-추가) | `ActionType` 카탈로그 추가 |
-| [5.13](downstream-fork-seam-recipes-ko.md#513-delivery-adapter-커스텀-publisher) | Delivery adapter (커스텀 publisher) |
+| [5.13](downstream-fork-seam-recipes-ko.md#513-delivery-adapter-커스텀-publisher) | Delivery, incident-platform, on-call provider binding |
 | [5.14](downstream-fork-seam-recipes-ko.md#514-console-readpanel-추가) | Console `ReadPanel` 추가 |
 | [5.15](downstream-fork-seam-recipes-ko.md#515-fork-진입점-entrypy) | Fork 진입점 (`entry.py`) |
 | [5.16](downstream-fork-seam-recipes-ko.md#516-매뉴얼-증류-manualsource--manualclassifier--distiller) | 매뉴얼 증류 (`ManualSource` / `ManualClassifier` / `Distiller`) |
@@ -264,10 +264,10 @@ Markdown 템플릿)과 1개 테스트 파일
 workflow가 reviewer와 multi-step 승인을 필요로 할 때 그 위에 무엇이 자라는지
 보여줌.
 
-**Contract 모델 확장 (드물게)**: 여섯 개 도메인 contract 모듈은
+**Contract 모델 확장 (드물게)**: 일곱 개 도메인 contract 모듈은
 [`src/fdai/shared/contracts/models/`](../../../src/fdai/shared/contracts/models)
 아래에 있으며 (`event.py` / `action.py` / `rule.py` / `incident.py` /
-`ontology.py` / `workflow.py`), 전부 패키지 파사드에서 re-export 됩니다.
+`ontology.py` / `workflow.py` / `document.py`), 전부 패키지 파사드에서 re-export 됩니다.
 포크가 정당하게 bespoke contract를 필요로 한다면 `ContractBase` (내부
 `_Base` 의 공개 별칭) 를 상속하세요. 네 가지 invariant (`extra=forbid`,
 `frozen`, `str_strip_whitespace`, `validate_default`) 를 `model_config`

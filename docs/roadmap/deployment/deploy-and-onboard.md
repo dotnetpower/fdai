@@ -62,9 +62,9 @@ the durable hub that makes the deploy possible and survives app rebuilds:
   separate from the app RG, with a runner subnet and a private-endpoint subnet;
 - a **terraform remote-state storage account** locked to private, fronted by a blob private
   endpoint on `privatelink.blob.core.windows.net` linked to the ops VNet;
-- a **self-hosted deploy runner VM** (no public IP) with a system-assigned managed identity
-  that holds `Contributor` on the app RG and `Storage Blob Data Contributor` on the state
-  account. It is the only host with line-of-sight to the app's private endpoints.
+- a **self-hosted deploy runner VM** (no public IP) whose system-assigned managed identity
+  holds `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on
+  the ops RG, and `Storage Blob Data Contributor` on the state account.
 
 The app config peers its spoke VNet to the ops hub (both directions) and links its private
 DNS zones to the ops VNet via the `extra_vnet_links` seam, so the runner resolves the app's
@@ -228,16 +228,16 @@ placement (none today).
 - **ACR names never contain hyphens**; the prefix `cr` is fused with the workload token
   (`crfdai`). When env/region suffixes join, do NOT reintroduce hyphens - use one
   continuous lowercase alphanumeric string (e.g. `crfdaidevkrc01`).
-- **Storage account** (if ever added) is 24-char lowercase alphanumeric only - same
-  no-hyphen rule (`stfdai...`).
+- **Storage accounts** use at most 24 lowercase alphanumeric characters. Document storage
+  adds a stable six-character hash derived from subscription + environment for global uniqueness.
 - If a legal name exceeds the character limit after adding env/region/instance, use the
   documented short-name `aip` in place of `fdai` - and only for that resource kind.
   Do not sprinkle `aip` where the full name still fits.
 
 ### What this rule forbids
 
-- **No random or opaque suffixes** in Terraform (`crfdaicyutlgcnv3` from a hash source
-  is a review blocker). Determinism is a debugging tool.
+- **No random suffixes.** A short deterministic hash is allowed where globally unique names
+  require it, such as Storage; a suffix that changes on every plan is a review blocker.
 - **No customer names or environment values baked into the identifier** - those live in
   `*.tfvars` and the tag map, never in the resource name.
 - **No inline naming logic in Python** - the app reads whatever it is handed via env vars;
@@ -328,18 +328,18 @@ replica caps are still **deployment-specific** and tuned per environment; the sh
 | 2 | **Container App** (unified core) | 1 app, `minReplicas: 1`, max 3 by default | one modular process composes `event-ingest`, `trust-router`, `executor`, and `audit` | Kafka-lag scale-to-zero remains deferred until credential-free scaler authentication is verified; see [Compute Shape](#compute-shape-single-modular-process) |
 | 3 | **Container Apps Job** | Consumption | scheduled probes and out-of-band change detection | replaces Azure Functions; shares the environment |
 | 4 | **Event Hubs namespace** | Standard (1 TU, auto-inflate off) | Kafka-wire event bus (endpoint on `:9093`) | realizes the [Event Bus contract](../architecture/csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol); DLQ is a Kafka `<topic>.dlq` convention, not a native DLQ resource |
-| 5 | **Diagnostic Settings + `azure-events`-style forwarders** | included with Log Analytics / Activity Log | forward Activity Log / resource events into an Event Hubs Kafka topic | replaces standalone Event Grid system topics; the core sees Kafka only |
+| 5 | **Event Grid inventory subscription + Diagnostic Settings** | subscription event delivery / Log Analytics | send resource writes/deletes to `aw.inventory.raw` and platform diagnostics to the workspace | Event Grid publishes to Event Hubs with the inventory UAMI; the core sees Kafka only |
 | 6 | **PostgreSQL Flexible Server** | Dev: Burstable **B1ms**, HA disabled, 7-day backup; prod: zone-redundant HA, 35-day geo backup | audit + KPI + pattern library + **pgvector** T1 embeddings, single store | production plan fails unless `postgres_high_availability_mode=ZoneRedundant` |
 | 7 | **Key Vault** | Standard | secret backend consumed via **Container Apps native secret + Key Vault reference** - realizes the [Secret contract](../architecture/csp-neutrality.md#3-secret-contract--environment--k8s-secret) | Premium (HSM) not required; app never calls a secret SDK |
 | 8 | **User-assigned Managed Identity** | - | executor's least-privilege, action-whitelisted identity; realizes the [Workload Identity contract](../architecture/csp-neutrality.md#4-workload-identity-contract--oidc-token) | Phase 1 ships **one** MI (`mi-aw-executor`) using built-in role composition, RG-scoped; Phase 3 splits into per-domain MIs - see [security-and-identity.md § Identity Mapping (Phased)](../architecture/security-and-identity.md#identity-mapping-phased) |
-| 9 | **Log Analytics workspace** | Pay-as-you-go, **30-day default retention** | traces / metrics / logs / audit-forward; App Insights binds to it | retention is **UI-configurable** post-deploy, defaulting to 30 days |
+| 9 | **Log Analytics workspace + Application Insights** | Pay-as-you-go, **30-day default retention** | traces / metrics / logs / audit-forward | an `appi-*` resource binds to the workspace; retention is **UI-configurable** post-deploy |
 | 10 | **Container Registry (ACR)** | Basic (Standard if geo-replication needed later) | signed images + build attestations | pin by digest, never a mutable tag |
 | 11 | **Azure OpenAI / AI Foundry account** (**opt-in**, `var.enable_llm`) | Standard | T1 embedding + T2 mixed-model reasoner deployments (one per capability from `resolved-models.json`) | provisioned only when the deployer holds `Cognitive Services Contributor` on the sub AND the region exposes the preferred family; otherwise the affected capabilities degrade to **`hil-only`** (see [dev-and-deploy-parity.md § Deployer-Scoped LLM Provisioning](dev-and-deploy-parity.md#deployer-scoped-llm-provisioning)). Never deployed in `dev` mode - dev-mode binds deterministic fakes. |
 | 12 | **ADLS Gen2 document account** (**opt-in**, `enable_document_ingestion`) | StorageV2 Standard ZRS, HNS | private quarantine, immutable governed versions, derived envelopes | Shared Key and public access disabled in private mode; soft delete + lifecycle; `blob` and `dfs` private endpoints |
 | 13 | **Document ingestion Container App** (**opt-in**) | Consumption, gateway + ClamAV sidecar | authenticated bounded upload relay, safety scan, extraction, pgvector indexing, lifecycle events | dedicated UAMI; external HTTPS gateway cannot access executor permissions; durable worker consumes document lifecycle records from shared `aw.pipeline.stages` |
 | 14 | **Control-loop canary Job** | Consumption, every 5 minutes | publishes one idempotent event to `aw.control.canary` | dedicated UAMI has only ACR pull and Event Hubs send; the core records a no-op audit through a separate consumer path |
 
-Additional required elements that **do not incur a billable Azure resource of their own**:
+Additional identity, channel, and console elements are deployment-owned or opt-in:
 
 - **App registrations × 3** - split audiences per
   [user-rbac-and-identity.md#41-app-registrations](../interfaces/user-rbac-and-identity.md#41-app-registrations):
@@ -358,7 +358,8 @@ Additional required elements that **do not incur a billable Azure resource of th
   compliant-device on `aw-owners`, dedicated hardware token + sign-in alert on
   `aw-break-glass`. Available on Entra ID P1
   ([user-rbac-and-identity.md#43-conditional-access](../interfaces/user-rbac-and-identity.md#43-conditional-access)).
-- **Azure Bot (Free tier)** - Teams Adaptive Cards for HIL approvals.
+- **Azure Bot (Free tier, not provisioned)** - a downstream deployment that selects Teams
+  Adaptive Cards supplies it. Upstream Terraform ships only the signed webhook seam.
 - **Signed HIL webhook** - production supplies the URL and a 32+ character HMAC secret through
   CI secrets. Terraform stores both in Key Vault; the core reads URL + secret and the read API
   receives only the callback secret.
@@ -366,8 +367,8 @@ Additional required elements that **do not incur a billable Azure resource of th
   provisioned hub entity, not the namespace. Inventory and canary can send only to their own
   topics. The read API command identity sends proposals/HIL decisions and receives the stage
   topic. Document ingestion is limited to `aw.pipeline.stages`.
-- **Static Web Apps (Free tier)** - read-only console hosting; free tier covers the intended
-  bandwidth.
+- **Static Web Apps (Free tier, opt-in)** - hosts the read-only console when
+  `enable_console=true`.
 - **Workload identity federation** - CI/CD short-lived OIDC tokens; not a resource, no cost.
 
 ### Document ingestion deployment
@@ -400,22 +401,20 @@ justifies them):
 
 - **Service Bus namespace and Event Grid custom topics** - the event bus is the Kafka
   endpoint on Event Hubs ([csp-neutrality.md § Event Bus Contract](../architecture/csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol));
-  Activity Log / resource events are forwarded via Diagnostic Settings into an Event Hubs
-  Kafka topic. Event Grid system topics remain available as a signal *source*, but no
-  standalone Event Grid resource is provisioned when Diagnostic-Settings forwarding covers
-  the need.
+  a subscription-scoped Event Grid subscription for inventory writes/deletes is enabled by
+  default, but no separate custom topic is created.
 - Dedicated vector database (pgvector inside PostgreSQL suffices at initial scale).
 - Front Door, Application Gateway, API Management (no public inbound endpoint; console is
   read-only static hosting).
 - Secondary-region resources for DR (Phase 4 - TBD; see
   [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
-- Separate Application Insights resource (it binds to the shared Log Analytics workspace).
 
-### Compute Shape (single modular process)
+### Compute Shape (single modular control-loop core)
 
-The core currently deploys as one signed image and one Python process inside one Container App.
-Code-level subsystem boundaries remain explicit through Protocols and the composition root; there
-is no undocumented localhost IPC or sidecar image lifecycle.
+The authoritative control-loop core deploys as one signed image and one Python process inside one
+Container App. The opt-in read API and document-ingestion gateway are separate Container Apps for
+their identity and ingress boundaries. Core subsystem boundaries remain explicit through Protocols
+and the composition root; there is no undocumented localhost IPC.
 
 - **Runtime**: `python -m fdai` starts the Kafka consumer and composes routing, quality, risk,
   execution, and audit stages in one process.
@@ -452,8 +451,9 @@ flowchart TD
 - **Migrations MUST run before the first control-loop tick**. The Container App itself does
   not migrate on start (to keep replicas identical + prevent races). Run
   `alembic upgrade head` from a workstation or a CI job that can reach the provisioned
-  Postgres FQDN with the admin DSN. The 6 migrations under `alembic/versions/` are
-  reversible - a broken deploy can `alembic downgrade -1` back to the prior baseline.
+  Postgres FQDN with the admin DSN. Every tracked migration under `alembic/versions/` defines
+  `downgrade()`, but schema/data rollback can be destructive. Rehearse backup/restore and each
+  migration-specific downgrade in staging before using it.
 - Post-deploy smoke tests and the synthetic canary are defined in
   [operating-and-verification.md](../operations/operating-and-verification.md).
 
@@ -483,12 +483,11 @@ full expanded catalog and defaults are authored during the inventory PR.
 |-----|--------|-------|-------|
 | `AZURE_TENANT_ID` | env | deployment | non-secret |
 | `AZURE_SUBSCRIPTION_ID` | env | deployment | non-secret |
-| `AZURE_RG` | env | deployment | target resource group |
+| `AZURE_RESOURCE_GROUP` | env | deployment | target resource group |
 | `KAFKA_BOOTSTRAP_SERVERS` | env | deployment | Event Hubs Kafka endpoint (`<ns>.servicebus.windows.net:9093`); realizes the [Event Bus contract](../architecture/csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol) |
 | `KAFKA_SECURITY_PROTOCOL` | env | deployment | `SASL_SSL` on Azure; provider-specific value elsewhere |
 | `KAFKA_SASL_MECHANISM` | env | deployment | `OAUTHBEARER` on Azure |
-| `KEYVAULT_URL` | env | deployment | executor MI has GET on secrets |
-| `FDAI_STATE_STORE_DSN` | KV ref | upstream | Postgres connection URI for audit + KPI; wired by `infra/main.tf` `azurerm_key_vault_secret.state_store_dsn` from `module.state_store.application_dsn`, exposed to the Container App via `secret{}` + `env{}` (see [project-structure.md](../architecture/project-structure.md) `infra/modules/compute/container-apps/`). Empty at runtime => in-memory fallback. |
+| `FDAI_STATE_STORE_DSN` | KV ref | upstream | Postgres connection URI for audit + KPI; wired by `infra/main.tf` `azurerm_key_vault_secret.state_store_dsn` from `module.state_store.application_dsn`, exposed to the Container App via `secret{}` + `env{}` (see [project-structure.md](../architecture/project-structure.md) `infra/modules/compute/container-apps/`). Local/dev may use in-memory when absent; `RUNTIME_ENV=staging|prod` fails startup. |
 | `FDAI_OPERATOR_MEMORY_DSN` | KV ref | upstream | Postgres DSN for HIL-approved operator memory. Same source as `FDAI_STATE_STORE_DSN` day-zero (single Flexible Server); a deployment MAY split it later without touching core code. |
 | `FDAI_T1_PATTERN_LIBRARY_DSN` | KV ref | upstream | Postgres DSN for the pgvector-backed T1 pattern library. Same source day-zero; wired identically. |
 | `FDAI_INVENTORY_DSN` | KV ref | upstream | PostgreSQL DSN used only by the scheduled inventory collector to stage immutable candidates and atomically promote the active graph. |
@@ -499,9 +498,6 @@ full expanded catalog and defaults are authored during the inventory PR.
 | `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_BUDGET_SECONDS` | env | deployment / upstream | Optional explicit analyzer targets and bounds. When targets are empty, the analyzer Job discovers supported resource kinds from the active inventory through `FDAI_INVENTORY_DSN`. |
 | `KAFKA_TOPIC_EVENTS` | env | deployment | primary event ingest topic |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | deployment | dead-letter suffix (default `.dlq`) |
-| `TEAMS_HIL_CHANNEL_ID` | env | deployment | HIL routing |
-| `T2_MODEL_ENDPOINT` | env | deployment | primary reasoner - populated by the bootstrap resolver from `rule-catalog/llm-registry.yaml`; see [llm-strategy.md § Model Provisioning and Lifecycle](../architecture/llm-strategy.md#model-provisioning-and-lifecycle) |
-| `T2_MODEL_ENDPOINT_CROSSCHECK` | env | deployment | mixed-model cross-check target - distinct publisher enforced at bootstrap |
 | `LLM_MODE` | env | deployment | `local-fake` for explicit tests/mocks or `azure` for authoritative profiles. Environment does not select the binding; see [dev-and-deploy-parity.md § Parity Contract](dev-and-deploy-parity.md#parity-contract-must). |
 | `LLM_RESOLVED_MODELS_PATH` | KV ref | deployment | required when `LLM_MODE=azure`; points at the `resolved-models.json` written by the bootstrap resolver |
 | `RULE_CATALOG_REF` | env | deployment | git ref of catalog snapshot |
@@ -510,6 +506,7 @@ full expanded catalog and defaults are authored during the inventory PR.
 | `FDAI_READ_API_LOCAL_AZURE_CLI` | env | local-only | Explicit CLI-principal debug alternative with a fixed role ceiling. Paired with `VITE_LOCAL_AZURE_CLI_AUTH=1`. |
 | `FDAI_READ_API_DEV_MODE` | env | test-only | Authentication bypass for automated read-API tests. The VS Code full-stack profile MUST NOT set it. |
 | `FDAI_READ_API_LOCAL_ENTRA` | env | local-only | Canonical interactive profile. Browser Entra JWT and App Roles match deployment; the server Azure CLI session is confined to Azure adapters. |
+| `FDAI_START_PANTHEON` | env | upstream / local | Disable-only control for the 15-agent runtime. Unset means enabled; `0`, `false`, `no`, or `off` disables it. Event Hubs variables select transport and do not activate the Pantheon. |
 | `FDAI_LOCAL_SCENARIO_REPLAY` | env | test-only | Generated scenario replay for automated tests and explicit mock applications. Interactive local startup rejects it. |
 | `FDAI_LOCAL_AZURE_DISCOVERY` | env | local-only | Azure discovery is mandatory. Unset or `1` uses read-only `AzureCliInventory`; `0` is rejected and never selects a synthetic graph. |
 | `FDAI_LOCAL_AZURE_SUBSCRIPTION_ID` | env | dev-only | Optional subscription passed to every local `az group/resource list` call. When omitted, discovery uses the active subscription in the selected Azure CLI profile. Never commit a populated value. |
@@ -522,7 +519,7 @@ full expanded catalog and defaults are authored during the inventory PR.
 | `FDAI_TOOL_CALL_FAKE` | env | test-only | `1` swaps the executor tool-call path for `RecordingToolExecutor` in automated tests. Interactive local startup does not wire an executor. |
 | `FDAI_WORKFLOW_SHADOW` | env | upstream | `1` enables event-triggered catalog Workflows in non-mutating shadow mode. The Azure core app sets it by default. |
 | `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` | env | deployment / local | Comma-separated Workflow names an Owner may start with `mode=enforce`. Requires Event Hubs command transport. Action steps re-enter the normal promotion/risk/HIL/executor path. |
-| `KAFKA_TOPIC_EVENTS` / `FDAI_STAGE_TOPIC` | env | upstream / local | Event and stage topics shared by deployed runtime and interactive local command/progress transport. Local transport also requires `FDAI_KAFKA_BOOTSTRAP_SERVERS` and uses the current Azure CLI token. |
+| `KAFKA_TOPIC_EVENTS` / `FDAI_STAGE_TOPIC` | env | upstream / local | Event and stage topics shared by deployed runtime and Azure-backed interactive transport. When both Kafka bootstrap and event topic are absent, interactive local uses `aw.events` plus the bounded local EventBus/SSE adapters. |
 | `FDAI_IRP_ENABLED` / `FDAI_IRP_BUDGET_SECONDS` | env | upstream | Enables alert-shaped event handling through the budgeted investigation -> typed proposal path. The proposal re-enters the standard risk/HIL/executor loop. |
 | `FDAI_CHAOS_CONTEXT_JSON` / `FDAI_CHAOS_ENFORCE` | env | deployment | Runtime context for promoted chaos injectors. Enforce stays disabled unless the explicit flag is `1`, the scenario is promoted, and both injector and probe are registered. |
 | `FDAI_JIRA_BASE_URL` / `FDAI_JIRA_ACCOUNT_EMAIL` / `FDAI_JIRA_API_TOKEN_SECRET` / `FDAI_JIRA_TOOL_MAP_JSON` | env + KV ref | deployment | Configures the production `JiraToolExecutor`. `TOOL_MAP_JSON` maps `tool.open-incident-ticket` to a Jira project key. The token value is resolved from `FDAI_SECRET_<API_TOKEN_SECRET>` (KV-backed); never place the token in the mapping. Requires `FDAI_STATE_STORE_DSN` for the durable Jira ledger and distributed resource lock. |

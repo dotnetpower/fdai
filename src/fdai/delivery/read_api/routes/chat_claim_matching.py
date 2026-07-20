@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Final
 
 from fdai.delivery.read_api.routes.chat_claim_extraction import SCREEN_ABSENCE_RE
@@ -21,7 +22,19 @@ from fdai.delivery.read_api.routes.chat_claim_text import (
 )
 
 CAUSAL_FIELDS: Final = frozenset(
-    {"cause", "detail", "disabled_reason", "gaps", "summary", "reason", "rca_cause", "rca_reason"}
+    {
+        "cause",
+        "detail",
+        "disabled_reason",
+        "gaps",
+        "summary",
+        "reason",
+        "rca_cause",
+        "rca_reason",
+        "when",
+        "result",
+        "on_repeat",
+    }
 )
 
 
@@ -123,6 +136,22 @@ def resolve_candidates(
 ) -> AtomicClaim:
     if not candidates:
         return claim(claim_id, draft, "unsupported", (), "no_supporting_evidence")
+    aliased = tuple(
+        (distance, entry)
+        for entry in candidates
+        if (distance := nearest_alias_distance(draft, entry.aliases)) is not None
+    )
+    if aliased:
+        nearest = min(distance for distance, _ in aliased)
+        selected_by_alias = tuple(entry for distance, entry in aliased if distance == nearest)
+        if len(selected_by_alias) == 1:
+            return claim(
+                claim_id,
+                draft,
+                "supported",
+                (selected_by_alias[0].ref,),
+                None,
+            )
     anchored = tuple(entry for entry in candidates if anchor_overlap(draft.anchors, entry.anchors))
     if anchored:
         strongest_score = max(anchor_score(draft.anchors, entry.anchors) for entry in anchored)
@@ -153,6 +182,30 @@ def resolve_candidates(
         tuple(entry.ref for entry in selected),
         None,
     )
+
+
+def nearest_alias_distance(draft: ClaimDraft, aliases: tuple[str, ...]) -> int | None:
+    if not aliases:
+        return None
+    text = unicodedata.normalize("NFKC", draft.text).casefold()
+    claim_start = max(0, draft.start - draft.text_start)
+    claim_end = max(claim_start, draft.end - draft.text_start)
+    distances: list[int] = []
+    for alias in aliases:
+        normalized_alias = unicodedata.normalize("NFKC", alias).casefold().strip()
+        if not normalized_alias:
+            continue
+        offset = text.find(normalized_alias)
+        while offset >= 0:
+            alias_end = offset + len(normalized_alias)
+            if alias_end <= claim_start:
+                distances.append(claim_start - alias_end)
+            elif offset >= claim_end:
+                distances.append(offset - claim_end)
+            else:
+                distances.append(0)
+            offset = text.find(normalized_alias, offset + 1)
+    return min(distances) if distances else None
 
 
 def claim(

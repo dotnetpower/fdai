@@ -11,6 +11,11 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from croniter import croniter
 
+from fdai.shared.providers.scheduled_continuation import (
+    ContinuationMode,
+    ScheduledResultOrigin,
+)
+
 
 class ConversationPolicyKind(StrEnum):
     OPENING_BRIEFING = "opening_briefing"
@@ -105,6 +110,9 @@ class BriefingSubscription:
     revision: int = 0
     channel_binding_ref: str | None = None
     max_lateness_seconds: int = 3600
+    continuation_mode: ContinuationMode = ContinuationMode.NONE
+    continuation_origin: ScheduledResultOrigin | None = None
+    continuation_ttl_seconds: int = 604_800
 
     def __post_init__(self) -> None:
         _require_text("BriefingSubscription.subscription_id", self.subscription_id)
@@ -128,6 +136,16 @@ class BriefingSubscription:
             raise ValueError("BriefingSubscription.max_lateness_seconds MUST be in [0, 604800]")
         if self.revision < 0:
             raise ValueError("BriefingSubscription.revision MUST be >= 0")
+        if not 300 <= self.continuation_ttl_seconds <= 31_536_000:
+            raise ValueError("continuation_ttl_seconds MUST be in [300, 31536000]")
+        if self.continuation_mode is ContinuationMode.NONE:
+            if self.continuation_origin is not None:
+                raise ValueError("continuation origin requires an enabled continuation mode")
+        else:
+            if self.continuation_origin is None:
+                raise ValueError("enabled continuation requires immutable origin metadata")
+            if self.spec.scope_ref is None:
+                raise ValueError("enabled continuation requires an explicit briefing scope_ref")
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +163,9 @@ class BriefingRun:
     item_count: int = 0
     evidence_refs: tuple[str, ...] = ()
     source_errors: tuple[str, ...] = ()
+    continuation_mode: ContinuationMode = ContinuationMode.NONE
+    continuation_origin: ScheduledResultOrigin | None = None
+    result_digest: str | None = None
 
     def __post_init__(self) -> None:
         _require_text("BriefingRun.run_id", self.run_id)
@@ -162,6 +183,18 @@ class BriefingRun:
             raise ValueError("BriefingRun.item_count MUST be >= 0")
         if self.subscription_id is None and self.conversation_id is None:
             raise ValueError("BriefingRun requires subscription_id or conversation_id")
+        if self.continuation_mode is ContinuationMode.NONE:
+            if self.continuation_origin is not None or self.result_digest is not None:
+                raise ValueError("continuation metadata requires an enabled continuation mode")
+        else:
+            if self.continuation_origin is None:
+                raise ValueError("enabled continuation requires immutable origin metadata")
+            if (
+                self.result_digest is None
+                or len(self.result_digest) != 64
+                or any(char not in "0123456789abcdef" for char in self.result_digest)
+            ):
+                raise ValueError("continuable briefing run requires a SHA-256 result_digest")
 
 
 class BriefingConflictError(RuntimeError):

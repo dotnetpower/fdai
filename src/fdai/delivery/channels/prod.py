@@ -15,6 +15,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from fdai.core.conversation.adapter_health import AdapterHealthService
+from fdai.delivery.channels.adapter_health_commands import (
+    AdapterHealthCommandAuthenticator,
+    make_adapter_health_command_routes,
+)
 from fdai.delivery.channels.publishers import (
     SlackReplyPublisherConfig,
     SlackWebApiReplyPublisher,
@@ -42,6 +47,12 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 class ChannelGatewayRunner(Protocol):
     async def run(self, adapter: ConversationChannelAdapter) -> None: ...
+
+
+class ChannelDeliveryStartupReconciler(Protocol):
+    async def reconcile_startup(self) -> int: ...
+
+    async def drain_due(self) -> tuple[object, ...]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +102,9 @@ class ProductionChannelRuntime:
         teams_endpoint_resolver: Any = None,
         teams_authenticate: TeamsActivityAuthenticator | None = None,
         teams_principal_resolver: TeamsPrincipalResolverProtocol | None = None,
+        delivery_reconciler: ChannelDeliveryStartupReconciler | None = None,
+        adapter_health_service: AdapterHealthService | None = None,
+        adapter_health_authenticator: AdapterHealthCommandAuthenticator | None = None,
         http_client: httpx.AsyncClient | None = None,
         environ: Mapping[str, str] | None = None,
     ) -> None:
@@ -101,6 +115,13 @@ class ProductionChannelRuntime:
         self._teams_endpoint_resolver = teams_endpoint_resolver
         self._teams_authenticate = teams_authenticate
         self._teams_principal_resolver = teams_principal_resolver
+        self._delivery_reconciler = delivery_reconciler
+        if (adapter_health_service is None) != (adapter_health_authenticator is None):
+            raise ValueError(
+                "adapter health commands require both service and separate authenticator"
+            )
+        self._adapter_health_service = adapter_health_service
+        self._adapter_health_authenticator = adapter_health_authenticator
         self._http = http_client
         self._owns_http = http_client is None
         self._environ = environ
@@ -114,6 +135,19 @@ class ProductionChannelRuntime:
         self._http = http_client
         routes: list[Route] = []
         try:
+            if self._delivery_reconciler is not None:
+                await self._delivery_reconciler.reconcile_startup()
+                await self._delivery_reconciler.drain_due()
+            if (
+                self._adapter_health_service is not None
+                and self._adapter_health_authenticator is not None
+            ):
+                routes.extend(
+                    make_adapter_health_command_routes(
+                        service=self._adapter_health_service,
+                        authenticator=self._adapter_health_authenticator,
+                    )
+                )
             if self._config.slack_enabled:
                 signing_secret, bot_token = await asyncio.gather(
                     self._secrets.get(self._config.slack_signing_secret_ref),
@@ -214,6 +248,7 @@ def _positive_int(value: str | None, default: int) -> int:
 
 
 __all__ = [
+    "ChannelDeliveryStartupReconciler",
     "ChannelGatewayRunner",
     "ProductionChannelConfig",
     "ProductionChannelRuntime",

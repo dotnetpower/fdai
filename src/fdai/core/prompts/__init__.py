@@ -37,6 +37,12 @@ from fdai.core.prompts.types import (
     PromptArtifact,
     PromptLayer,
     PromptMode,
+    PromptReplayManifest,
+    SkillBundleMemberReplayRecord,
+    SkillBundleReplayRecord,
+    SkillDisclosureRequest,
+    SkillReplayRecord,
+    SkillSelectionStatus,
 )
 
 __all__ = [
@@ -44,6 +50,7 @@ __all__ = [
     "DefaultPromptComposer",
     "FileSystemPromptRegistry",
     "LayerRef",
+    "PromptReplayManifest",
     "PromptArtifact",
     "PromptComposer",
     "PromptLayer",
@@ -51,4 +58,9 @@ __all__ = [
     "PromptRegistry",
     "PromptRegistryError",
     "PromptRegistryIssue",
+    "SkillDisclosureRequest",
+    "SkillBundleMemberReplayRecord",
+    "SkillBundleReplayRecord",
+    "SkillReplayRecord",
+    "SkillSelectionStatus",
 ]

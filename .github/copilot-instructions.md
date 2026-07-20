@@ -27,6 +27,15 @@ that context is missing or stale. A more specific instruction wins a conflict.
 7. Azure is the implemented target. Keep provider contracts neutral; non-Azure adapters are
    out of scope until explicitly approved.
 
+## Issue Lifecycle (MUST)
+
+- Every new issue includes explicit, observable **Exit criteria** as a checkbox list.
+- After working on or reviewing an issue, add an English comment with evidence and residual work.
+- When every exit criterion is satisfied, add the `completed` label. Keep the issue open while
+  any residual work remains; close it only when no residual work remains.
+- For another author's issue, add `review-needed` and wait for confirmation before closing. A
+  reopened issue loses `completed` until its exit criteria are satisfied again.
+
 English and Korean are both allowed in prose. Identifiers, paths, branches, punctuation, and
 machine-record keys stay ASCII/English as defined by
 [language.instructions.md](instructions/language.instructions.md). GitHub issues stay English.

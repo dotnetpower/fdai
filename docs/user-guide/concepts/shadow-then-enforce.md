@@ -1,11 +1,11 @@
 ---
-title: Shadow, then enforce
-description: Why every new autonomous action ships in shadow first, and how it earns the right to auto-execute.
+title: Observe, then enable changes
+description: Why every new autonomous action starts in observation mode and how it earns the right to execute automatically.
 sidebar:
   order: 6
 ---
 
-# Shadow, then enforce
+# Observe, then enable changes
 
 New autonomous actions in FDAI never turn on all at once. Each rule,
 detector, and remediation ships in **shadow mode** first - it makes the same

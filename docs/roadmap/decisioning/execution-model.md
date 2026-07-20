@@ -7,8 +7,8 @@ title: Execution Model
 How FDAI decides **whether** and **how** to run an action. This
 document is authoritative for the unified RiskGate, the way the
 authoritative [risk-classification.md](risk-classification.md) first-match
-table combines with the **six-axis** ActionType ceiling, the three
-executor paths (PR-native / direct API / PR-manual), the live-blast probe
+table combines with the **six-axis** ActionType ceiling, the four
+executor paths (PR-native / direct API / PR-manual / tool call), the live-blast probe
 combinator, and the safety invariants a live change must satisfy.
 
 > Decision-engine relationship (authoritative): FDAI has **one**
@@ -39,6 +39,9 @@ Consumers of this model:
 > documented in
 > [action-ontology.md § 7](action-ontology.md#7-fork-override-seams).
 
+> **Implementation status (2026-07-21):** Authority, risk table, kill switch, HIL resume,
+> four paths, probe catalog, and typed operator proposals are implemented. Azure Monitor probe I/O remains a deployment binding.
+
 ## 1. What "execute" means here
 
 Until this document, everything FDAI did was **shadow** - judge
@@ -48,7 +51,7 @@ scripted rollback runner) for real. Shadow mode is still the default
 for every new action; execution is a promoted state, per-action, gated
 on measured evidence and re-checked on every dispatch.
 
-Three real-world execution paths are supported (§5):
+Four execution paths are supported (§5); their venue lifecycle stays behind Thor ([backend design](../interfaces/execution-backends.md)):
 
 - **PR-native** - the change lands as a git PR that a merge policy
   auto-accepts (or a human accepts). Audit + rollback come from git.
@@ -58,9 +61,10 @@ Three real-world execution paths are supported (§5):
 - **PR-manual** - the change lands as a PR carrying the `hil` label; no
   auto-merge, an approver must accept. Used for high-risk actions where
   automated verification is not enough.
+- **Tool call** - invoke a capability-bounded function through `ToolExecutor`, without an executor bypass.
 
-A single ActionType declares which path it uses; a fork overrides per
-environment via the ontology overlays.
+A single ActionType declares its path; a fork overrides via ontology overlays. A backend adds no path
+or role: risk, Var approval, lock, Vidar rollback, and Saga audit stay outside it; profiles only narrow.
 
 ## 2. Six-axis ceiling + risk-classification table
 
@@ -128,8 +132,8 @@ Comes from the trust router.
 | Tier | Default posture |
 |------|-----------------|
 | T0 (deterministic) | `enforce_auto` allowed - the T0 verdict is a policy-as-code pass |
-| T1 (lightweight similarity) | Never higher than `enforce_hil` upstream; a fork MAY raise per-ActionType, which requires the ActionType's `ceiling_by_tier.t1.max_autonomy` schema to permit `enforce_auto` (see [action-ontology.md § 2](action-ontology.md#2-schema)) |
-| T2 (frontier reasoning) | Never higher than `shadow_only` upstream; a fork MAY raise but only under an explicit Rego policy naming the ActionType (§7.2 of action-ontology) |
+| T1 (lightweight similarity) | Upstream catalog ceilings are conservative; overlays may only lower autonomy. Raising authority requires the separate governed promotion path, never a dispatch-time override. |
+| T2 (frontier reasoning) | Catalog loading hard-caps T2 at `shadow_only`; changing that hard cap is a reviewed upstream policy change, not a fork overlay. |
 
 ### 2.2 Axis C - ActionType ceiling
 
@@ -326,15 +330,11 @@ class RiskDecision:
   [`RiskGate.evaluate`](../../../src/fdai/core/risk_gate/gate.py). The
   probe pre-fetch happens in the ControlLoop / coordinator, which are
   already async.
-- **Migration from the shipped `RiskDecision`.** Today
-  [gate.py](../../../src/fdai/core/risk_gate/gate.py) exposes
-  `RiskDecision(outcome: RiskDecisionOutcome, ...)`. The migration is
-  additive and staged: (1) add `quorum`, `matched_rule_id`,
-  `catalog_version`, `resolved_ceiling`, `execution_path` fields with safe
-  defaults; (2) keep `outcome` as a derived alias of `decision` for one
-  release so existing callers do not break; (3) remove the alias once the
-  ControlLoop and console both read `decision`. Each step is a reviewed PR
-  with the property test in §10 green.
+- **Compatibility boundary.** The runtime safety gate keeps its typed
+  `RiskDecision(outcome: RiskDecisionOutcome, ...)`; the authority evaluator
+  produces `ExecutionAuthorityDecision`, and `evaluator.py` combines both into
+  `UnifiedRiskDecision`. Callers consume that combined contract rather than a
+  staged field migration on the original dataclass.
 - `promotion_state` is read from the existing
   [`ActionPromotionRegistry`](../../../src/fdai/core/risk_gate/gate.py) -
   a shadow-mode ActionType clamps `mode` to `shadow` regardless of
@@ -683,9 +683,9 @@ are additive:
   every write-class tool call". This document is the definition of
   that RiskGate; the console just calls it.
 - **Chat invariant 6 (no self-approval)** = the RiskGate's role axis
-  (Axis E) refuses `approve_hil` when the caller's Entra `oid`
+  (Axis F) refuses `approve_hil` when the caller's Entra `oid`
   matches the requester recorded on the queued item.
-- **Chat invariant 7 (BreakGlass time-boxed)** = Axis E's BreakGlass
+- **Chat invariant 7 (BreakGlass time-boxed)** = Axis F's BreakGlass
   behaviour (§2.5): BreakGlass raises the eligible role for approval
   but never bypasses HIL.
 
@@ -734,11 +734,11 @@ audit consumers render it verbatim, so a schema-checked shape is required,
 not optional; a contract test asserts every dispatch emits a schema-valid
 block including the `risk_table` axis.
 
-## 9. Phased rollout
+## 9. Rollout record
 
-The execution model is a data + policy change; it does not require a
-tier upgrade of any subsystem. Rollout matches the ActionType
-migration in [action-ontology.md § 10](action-ontology.md#10-migration-plan).
+The execution model landed as a data + policy change without a subsystem tier
+upgrade. The sequence below records the rollout and matches the ActionType
+migration record in [action-ontology.md § 10](action-ontology.md#10-migration-record).
 
 ### Day 1
 

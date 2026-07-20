@@ -31,6 +31,8 @@ class ScheduleStore(Protocol):
 
     async def list_all(self) -> Sequence[ScheduledTask]: ...
 
+    async def update(self, task: ScheduledTask) -> ScheduledTask: ...
+
     async def cancel(self, task_id: str) -> None: ...
 
     async def mark_run(self, task_id: str, at: datetime) -> ScheduledTask: ...
@@ -58,6 +60,12 @@ class InMemoryScheduleStore:
 
     async def list_all(self) -> Sequence[ScheduledTask]:
         return tuple(self._tasks.values())
+
+    async def update(self, task: ScheduledTask) -> ScheduledTask:
+        if task.task_id not in self._tasks:
+            raise ScheduleNotFoundError(task.task_id)
+        self._tasks[task.task_id] = task
+        return task
 
     async def cancel(self, task_id: str) -> None:
         if task_id not in self._tasks:

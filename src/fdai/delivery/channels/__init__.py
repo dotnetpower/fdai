@@ -1,5 +1,9 @@
 """Bidirectional operator conversation channel adapters."""
 
+from fdai.delivery.channels.adapter_health_commands import (
+    AdapterHealthCommandAuthenticator,
+    make_adapter_health_command_routes,
+)
 from fdai.delivery.channels.document_evidence import (
     ChannelAttachmentFetcher,
     ChannelDocumentEvidenceConfig,
@@ -12,6 +16,7 @@ from fdai.delivery.channels.pairing import (
     PairingResponseSender,
 )
 from fdai.delivery.channels.prod import (
+    ChannelDeliveryStartupReconciler,
     ChannelGatewayRunner,
     ProductionChannelConfig,
     ProductionChannelRuntime,
@@ -30,6 +35,9 @@ from fdai.delivery.channels.routes import (
 )
 from fdai.delivery.channels.routes import (
     TeamsPrincipalResolver as TeamsPrincipalResolverProtocol,
+)
+from fdai.delivery.channels.scheduled_continuation import (
+    ScheduledContinuationDeliveryCoordinator,
 )
 from fdai.delivery.channels.slack import (
     SlackBotChannel,
@@ -50,7 +58,9 @@ from fdai.delivery.channels.teams_auth import (
 )
 
 __all__ = [
+    "AdapterHealthCommandAuthenticator",
     "ChannelAttachmentFetcher",
+    "ChannelDeliveryStartupReconciler",
     "ChannelGatewayRunner",
     "ChannelDocumentEvidenceConfig",
     "NativePairingChallengeFlow",
@@ -64,6 +74,7 @@ __all__ = [
     "SlackIngressResult",
     "SlackReplyPublisher",
     "SlackReplyPublisherConfig",
+    "ScheduledContinuationDeliveryCoordinator",
     "SlackWebApiReplyPublisher",
     "TeamsActivityAuthenticator",
     "TeamsAuthConfigError",
@@ -79,5 +90,6 @@ __all__ = [
     "BotServiceIdentity",
     "make_slack_events_route",
     "make_teams_activity_route",
+    "make_adapter_health_command_routes",
     "build_channel_app",
 ]

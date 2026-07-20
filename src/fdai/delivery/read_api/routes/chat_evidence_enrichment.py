@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import Any, Protocol
 
 from fdai.agents import PANTHEON_NAMES
+from fdai.core.conversation.narrator import default_tool_schemas
+from fdai.delivery.read_api.routes.chat_evidence import needs_operational_evidence
+from fdai.delivery.read_api.routes.chat_inventory import needs_inventory_evidence
 from fdai.delivery.read_api.routes.chat_prompt import (
     _AGENT_NAME_TOKEN,
     _CONCEPT_DOMAIN,
@@ -15,6 +19,12 @@ from fdai.delivery.read_api.routes.chat_prompt import (
 
 class OperationalEvidenceResolverProtocol(Protocol):
     """Read-only server evidence seam used only for cross-screen questions."""
+
+    async def resolve(self, prompt: str) -> Mapping[str, Any] | None: ...
+
+
+class ChatBehaviorEvidenceResolver(Protocol):
+    """Server-owned structured system-behavior evidence resolver."""
 
     async def resolve(self, prompt: str) -> Mapping[str, Any] | None: ...
 
@@ -34,7 +44,12 @@ class AgentChatDelegate(Protocol):
 class ChatToolResolver(Protocol):
     """Read-only deterministic tool resolver for direct operator intents."""
 
-    async def resolve(self, prompt: str) -> Mapping[str, Any] | None: ...
+    async def resolve(
+        self,
+        prompt: str,
+        *,
+        principal_id: str,
+    ) -> Mapping[str, Any] | None: ...
 
 
 class ChatWebSearchEvidenceResolver(Protocol):
@@ -45,6 +60,38 @@ class ChatWebSearchEvidenceResolver(Protocol):
         prompt: str,
         view_context: Mapping[str, Any],
     ) -> Mapping[str, Any] | None: ...
+
+
+_VIEW_EXPLANATION_INTENT = re.compile(
+    r"\b(connect(?:ed|s|ion)?|relationship|relate[ds]?|create[ds]?|creation|criteri(?:a|on)|"
+    r"owner|ownership|dedup(?:e|lication)?|repeat|close[ds]?|closure|provenance|source|why)\b"
+    "|\uc5f0\uacb0|\uad00\uacc4|\uc0dd\uc131|\uae30\uc900|\uc18c\uc720|\ub2f4\ub2f9|\uc911\ubcf5|\ubc18\ubcf5|\uc885\ub8cc|\ub2eb|\ucd9c\ucc98|\uadfc\uac70|\uc65c",
+    re.IGNORECASE,
+)
+_EXPLICIT_TOOL_VERBS = frozenset(schema.verb for schema in default_tool_schemas())
+
+
+def _uses_view_explanations(prompt: str, view_context: Mapping[str, Any]) -> bool:
+    return isinstance(view_context.get("explanations"), Mapping) and bool(
+        _VIEW_EXPLANATION_INTENT.search(prompt)
+    )
+
+
+async def _with_behavior_evidence(
+    prompt: str,
+    view_context: dict[str, Any],
+    resolver: ChatBehaviorEvidenceResolver | None,
+) -> dict[str, Any]:
+    """Replace client-supplied behavior data with server-owned evidence."""
+
+    enriched = dict(view_context)
+    enriched.pop("_behavior_evidence", None)
+    if resolver is None:
+        return enriched
+    evidence = await resolver.resolve(prompt)
+    if evidence is not None:
+        enriched["_behavior_evidence"] = dict(evidence)
+    return enriched
 
 
 async def _with_operational_evidence(
@@ -58,7 +105,13 @@ async def _with_operational_evidence(
     enriched.pop("_operational_evidence", None)
     if str(enriched.get("routeId") or "").lower() == "audit":
         return enriched
-    if resolver is None or "_tool_evidence" in enriched or "_current_screen_tool" in enriched:
+    if (
+        resolver is None
+        or "_behavior_evidence" in enriched
+        or not needs_operational_evidence(prompt, enriched)
+        or "_tool_evidence" in enriched
+        or "_current_screen_tool" in enriched
+    ):
         return enriched
     evidence = await resolver.resolve(prompt)
     if evidence is not None:
@@ -82,9 +135,11 @@ async def _with_agent_evidence(
     explicit_agent = _explicit_agent_requested(prompt)
     if (
         delegate is None
+        or "_behavior_evidence" in enriched
         or "_operational_evidence" in enriched
         or "_tool_evidence" in enriched
         or current_screen_tool is not None
+        or _uses_view_explanations(prompt, enriched)
         or (_is_concept_query(prompt) and _CONCEPT_DOMAIN.search(prompt) and not explicit_agent)
     ):
         return enriched
@@ -107,21 +162,37 @@ async def _with_tool_evidence(
     prompt: str,
     view_context: dict[str, Any],
     resolver: ChatToolResolver | None,
+    *,
+    principal_id: str,
 ) -> dict[str, Any]:
     """Replace client-supplied tool output with a server-owned result."""
 
     enriched = dict(view_context)
     enriched.pop("_tool_evidence", None)
     enriched.pop("_current_screen_tool", None)
-    if resolver is None or "_operational_evidence" in enriched:
+    explicit_command = _is_explicit_tool_command(prompt)
+    inventory_question = needs_inventory_evidence(prompt)
+    if resolver is None or (
+        not explicit_command
+        and not inventory_question
+        and ("_behavior_evidence" in enriched or "_operational_evidence" in enriched)
+    ):
         return enriched
-    evidence = await resolver.resolve(prompt)
+    evidence = await resolver.resolve(prompt, principal_id=principal_id)
     if evidence is not None:
+        if explicit_command or evidence.get("tool") == "query_inventory":
+            enriched.pop("_behavior_evidence", None)
+            enriched.pop("_operational_evidence", None)
         if _tool_matches_current_route(evidence, enriched):
             enriched["_current_screen_tool"] = evidence.get("tool")
         else:
             enriched["_tool_evidence"] = dict(evidence)
     return enriched
+
+
+def _is_explicit_tool_command(prompt: str) -> bool:
+    parts = prompt.lstrip().split(maxsplit=1)
+    return bool(parts and parts[0] in _EXPLICIT_TOOL_VERBS)
 
 
 async def _with_web_evidence(
@@ -133,7 +204,7 @@ async def _with_web_evidence(
 
     enriched = dict(view_context)
     enriched.pop("_web_evidence", None)
-    if resolver is None:
+    if resolver is None or "_behavior_evidence" in enriched:
         return enriched
     evidence = await resolver.resolve(prompt, enriched)
     if evidence is not None:
@@ -204,6 +275,17 @@ def _retrieval_source_previews(
         )
     if not server_owned:
         return sources
+
+    behavior = view_context.get("_behavior_evidence")
+    if isinstance(behavior, Mapping):
+        sources.append(
+            {
+                "kind": "behavior",
+                "label": str(behavior.get("behavior_id") or "Behavior knowledge"),
+                "detail": str(behavior.get("implementation_status") or behavior.get("status")),
+                "side_effect_class": "read",
+            }
+        )
 
     tool = view_context.get("_tool_evidence")
     if isinstance(tool, Mapping):

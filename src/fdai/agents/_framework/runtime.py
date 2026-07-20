@@ -52,6 +52,7 @@ from fdai.agents.saga import Saga, compute_fingerprint
 from fdai.agents.thor import ActionExecutor, ActionRunStore, Thor
 from fdai.agents.vidar import RollbackExecutor, Vidar
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
+from fdai.core.learning import PostTurnReviewCoordinator
 from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.providers.event_bus import EventBus
 
@@ -102,6 +103,7 @@ class PantheonRuntime:
         incident_candidate_hook: IncidentCandidateHook | None = None,
         discovery_projector: DiscoveryProjector | None = None,
         scenario_coverage_aggregator: ScenarioCoverageAggregator | None = None,
+        post_turn_review: PostTurnReviewCoordinator | None = None,
         action_types: tuple[OntologyActionType, ...] = (),
     ) -> PantheonRuntime:
         """Instantiate + wire the pantheon against ``provider``.
@@ -169,8 +171,11 @@ class PantheonRuntime:
         action_semantics = (
             ActionSemanticsCatalog.from_action_types(action_types) if action_types else None
         )
-        if scenario_coverage_aggregator is not None:
-            instantiated["Norns"] = Norns(coverage_aggregator=scenario_coverage_aggregator)
+        if scenario_coverage_aggregator is not None or post_turn_review is not None:
+            instantiated["Norns"] = Norns(
+                coverage_aggregator=scenario_coverage_aggregator,
+                post_turn_review=post_turn_review,
+            )
         if operator_rbac is not None or action_semantics is not None:
             instantiated["Forseti"] = Forseti(
                 rbac=operator_rbac,

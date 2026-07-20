@@ -10,9 +10,21 @@ schema before constructing these dataclasses.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+
+_MAX_AGENT_CHARS = 128
+_MAX_QUERY_CHARS = 4_096
+_MAX_TOOL_ID_CHARS = 128
+_MAX_SKILL_NAME_CHARS = 128
+_MAX_REFERENCE_PATH_CHARS = 255
+_MAX_SELECTED_SKILLS = 4
+_MAX_SELECTED_BUNDLES = 2
+_MAX_INDEX_BUDGET_CHARS = 32 * 1_024
+_MAX_BODY_BUDGET_CHARS = 4 * 64 * 1_024
+_MAX_REFERENCE_BUDGET_BYTES = 256 * 1_024
 
 
 class PromptLayer(StrEnum):
@@ -32,6 +44,10 @@ class PromptLayer(StrEnum):
     TOOL = "tool"
     ROLE_HEADER = "role-header"
     OPERATOR_MEMORY = "operator-memory"
+    SKILL_INDEX = "skill-index"
+    SKILL_BODY = "skill-body"
+    SKILL_REFERENCE = "skill-reference"
+    SKILL_BUNDLE = "skill-bundle"
 
 
 class PromptMode(StrEnum):
@@ -94,6 +110,157 @@ class LayerRef:
 
 
 @dataclass(frozen=True, slots=True)
+class SkillDisclosureRequest:
+    """Explicit, bounded request for role-safe runtime skill disclosure."""
+
+    agent: str
+    available_tools: frozenset[str]
+    query: str
+    selected_skill_names: tuple[str, ...] = ()
+    selected_bundle_names: tuple[str, ...] = ()
+    reference_selection: tuple[str, str] | None = None
+    index_budget_chars: int = 8_192
+    body_budget_chars: int = 64 * 1_024
+    reference_budget_bytes: int = 256 * 1_024
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.agent, str):
+            raise ValueError("skill disclosure agent MUST be a string")
+        agent = self.agent.strip()
+        if not agent or len(agent) > _MAX_AGENT_CHARS:
+            raise ValueError("skill disclosure agent MUST be non-empty and bounded")
+        object.__setattr__(self, "agent", agent)
+        if not isinstance(self.available_tools, frozenset):
+            raise ValueError("skill disclosure available_tools MUST be a frozenset")
+        if any(
+            not isinstance(tool, str)
+            or not tool
+            or tool != tool.strip()
+            or len(tool) > _MAX_TOOL_ID_CHARS
+            for tool in self.available_tools
+        ):
+            raise ValueError("skill disclosure tool ids MUST be non-empty and bounded")
+        if not isinstance(self.query, str):
+            raise ValueError("skill disclosure query MUST be a string")
+        query = " ".join(self.query.split())
+        if not query or len(query) > _MAX_QUERY_CHARS:
+            raise ValueError("skill disclosure query MUST be non-empty and bounded")
+        object.__setattr__(self, "query", query)
+        if not isinstance(self.selected_skill_names, tuple):
+            raise ValueError("skill disclosure selected names MUST be a tuple")
+        if len(self.selected_skill_names) > _MAX_SELECTED_SKILLS:
+            raise ValueError("skill disclosure MUST NOT select more than 4 skills")
+        if len(set(self.selected_skill_names)) != len(self.selected_skill_names):
+            raise ValueError("skill disclosure selected names MUST NOT contain duplicates")
+        if any(
+            not name or name != name.strip() or len(name) > _MAX_SKILL_NAME_CHARS
+            for name in self.selected_skill_names
+        ):
+            raise ValueError("skill disclosure selected names MUST be non-empty and bounded")
+        if not isinstance(self.selected_bundle_names, tuple):
+            raise ValueError("skill disclosure selected bundle names MUST be a tuple")
+        if len(self.selected_bundle_names) > _MAX_SELECTED_BUNDLES:
+            raise ValueError("skill disclosure MUST NOT select more than 2 bundles")
+        if len(set(self.selected_bundle_names)) != len(self.selected_bundle_names):
+            raise ValueError("skill disclosure selected bundle names MUST NOT contain duplicates")
+        if any(
+            not name or name != name.strip() or len(name) > _MAX_SKILL_NAME_CHARS
+            for name in self.selected_bundle_names
+        ):
+            raise ValueError("skill disclosure selected bundle names MUST be non-empty and bounded")
+        if self.reference_selection is not None:
+            if (
+                not isinstance(self.reference_selection, tuple)
+                or len(self.reference_selection) != 2
+                or any(not isinstance(value, str) for value in self.reference_selection)
+            ):
+                raise ValueError(
+                    "skill disclosure reference selection MUST be one (skill_name, path) tuple"
+                )
+            skill_name, reference_path = self.reference_selection
+            if (
+                not skill_name
+                or skill_name != skill_name.strip()
+                or len(skill_name) > _MAX_SKILL_NAME_CHARS
+                or not reference_path
+                or reference_path != reference_path.strip()
+                or len(reference_path) > _MAX_REFERENCE_PATH_CHARS
+            ):
+                raise ValueError(
+                    "skill disclosure reference selection MUST be non-empty and bounded"
+                )
+        _validate_budget(
+            "index_budget_chars",
+            self.index_budget_chars,
+            _MAX_INDEX_BUDGET_CHARS,
+        )
+        _validate_budget(
+            "body_budget_chars",
+            self.body_budget_chars,
+            _MAX_BODY_BUDGET_CHARS,
+        )
+        _validate_budget(
+            "reference_budget_bytes",
+            self.reference_budget_bytes,
+            _MAX_REFERENCE_BUDGET_BYTES,
+        )
+
+
+class SkillSelectionStatus(StrEnum):
+    """Outcome of one explicit skill body or reference selection."""
+
+    SELECTED = "selected"
+    REJECTED = "rejected"
+
+
+@dataclass(frozen=True, slots=True)
+class SkillReplayRecord:
+    """Immutable selection and digest evidence for deterministic replay."""
+
+    operation: str
+    name: str
+    version: str | None
+    raw_markdown_sha256: str | None
+    body_sha256: str | None
+    reference_path: str | None
+    reference_sha256: str | None
+    status: SkillSelectionStatus
+    rejection_reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SkillBundleMemberReplayRecord:
+    name: str
+    version: str
+    raw_markdown_sha256: str
+    body_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class SkillBundleReplayRecord:
+    operation: str
+    name: str
+    version: str | None
+    manifest_sha256: str | None
+    digest: str | None
+    members: tuple[SkillBundleMemberReplayRecord, ...]
+    status: SkillSelectionStatus
+    rejection_reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PromptReplayManifest:
+    """Prompt digest, ordered layers, and skill evidence for one proposal."""
+
+    system_text_sha256: str
+    layer_manifest: tuple[LayerRef, ...]
+    token_estimate: int
+    canary_tokens: tuple[tuple[str, str], ...] = ()
+    skill_records: tuple[SkillReplayRecord, ...] = ()
+    skill_bundle_records: tuple[SkillBundleReplayRecord, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class ComposedPrompt:
     """Resolved prompt handed to the delivery adapter.
 
@@ -117,12 +284,37 @@ class ComposedPrompt:
     layer_manifest: tuple[LayerRef, ...]
     token_estimate: int
     canary_tokens: Mapping[str, str] = field(default_factory=dict)
+    skill_records: tuple[SkillReplayRecord, ...] = ()
+    skill_bundle_records: tuple[SkillBundleReplayRecord, ...] = ()
+
+    def replay_manifest(self) -> PromptReplayManifest:
+        """Return immutable evidence without retaining mutable adapter state."""
+
+        return PromptReplayManifest(
+            system_text_sha256=hashlib.sha256(self.system_text.encode()).hexdigest(),
+            layer_manifest=self.layer_manifest,
+            token_estimate=self.token_estimate,
+            canary_tokens=tuple(sorted(self.canary_tokens.items())),
+            skill_records=self.skill_records,
+            skill_bundle_records=self.skill_bundle_records,
+        )
+
+
+def _validate_budget(name: str, value: int, maximum: int) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= maximum:
+        raise ValueError(f"skill disclosure {name} MUST be between 1 and {maximum}")
 
 
 __all__ = [
     "ComposedPrompt",
     "LayerRef",
+    "PromptReplayManifest",
     "PromptArtifact",
     "PromptLayer",
     "PromptMode",
+    "SkillDisclosureRequest",
+    "SkillBundleMemberReplayRecord",
+    "SkillBundleReplayRecord",
+    "SkillReplayRecord",
+    "SkillSelectionStatus",
 ]

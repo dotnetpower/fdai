@@ -4,9 +4,10 @@ title: Read-API Production Deployment
 # Read-API Production Deployment
 
 The upstream repo ships two ASGI entrypoints for the console read API:
-the dev harness ([`src/fdai/delivery/read_api/dev/local.py`](../../../src/fdai/delivery/read_api/dev/local.py))
-that boots an :class:`InMemoryConsoleReadModel` behind
-:class:`UnsafeClaimsExtractor`, and the production entrypoint
+the local facade ([`src/fdai/delivery/read_api/dev/local.py`](../../../src/fdai/delivery/read_api/dev/local.py))
+that requires Entra or an explicit Azure CLI principal plus authoritative Azure views by default,
+and permits `UnsafeClaimsExtractor` plus synthetic views only under pytest's
+`test_fixtures=True`; and the production facade
 ([`src/fdai/delivery/read_api/prod.py`](../../../src/fdai/delivery/read_api/prod.py))
 that composes real Entra JWT verification and a Postgres-backed read
 model from environment only. This doc covers the production entrypoint.
@@ -24,10 +25,10 @@ model from environment only. This doc covers the production entrypoint.
   the executor identity. The
   staging/prod tripwires (CORS `*` refused, dev-mode refused) apply
   identically.
-- **Env-only composition.** Every value the factory needs arrives via
-  environment variables the fork's IaC populates from Key Vault
-  references. No config file is required and no customer identifier is
-  baked into the image.
+- **Env-only composition.** Every value arrives through environment variables. The database DSN
+  and webhook secret use Key Vault references; non-secret tenant, audience, group, and topic
+  values are plain env injected by IaC. No config file or customer identifier is baked into the
+  image.
 - **Fail-fast on missing config.** Any missing required env raises
   :class:`ProdReadApiConfigError` (a `ValueError` subclass) at startup;
   a broken revision never binds a socket. A cold boot with an entirely
@@ -116,8 +117,11 @@ Vault secret directly ([app-shape.instructions.md § Azure Mapping](../../../.gi
 
 ## What lives where
 
-- [`prod.py`](../../../src/fdai/delivery/read_api/prod.py) - the
-  env-only composition root and the `app()` factory.
+- [`prod.py`](../../../src/fdai/delivery/read_api/prod.py) - the stable import facade and
+  `app()` factory.
+- [`production/config.py`](../../../src/fdai/delivery/read_api/production/config.py) and
+  [`production/factory.py`](../../../src/fdai/delivery/read_api/production/factory.py) - the
+  actual owners of environment validation and Postgres/Entra/provider composition.
 - [`postgres_read_model.py`](../../../src/fdai/delivery/read_api/postgres_read_model.py)
   - the concrete :class:`ConsoleReadModel` on top of `audit_log` +
     `state_kv`. Pure row-to-dataclass mappers + a bounded KPI

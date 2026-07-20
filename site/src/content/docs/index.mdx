@@ -1,10 +1,10 @@
 ---
 title: Forward Deployed Agents
-description: Forward Deployed Agents - deterministic-first, event-driven, risk-gated cloud operations.
+description: Forward Deployed Agents - deterministic-first, event-driven cloud operations governed by safety checks.
 template: splash
 hero:
   title: An autonomous agent organization that lives in your cloud
-  tagline: An organization of 15 specialized AI agents that runs your cloud operations. Deploy the agent pantheon into your own environment and each agent takes its role - sensing, judging, executing, approving, auditing - so one organization covers Cloud Ops and SRE, deterministic-first and risk-gated, with minimal human intervention.
+  tagline: An organization of 15 specialized AI agents that runs your cloud operations. Deploy the agent pantheon into your own environment and each agent takes its role - sensing, judging, executing, approving, auditing - so one organization covers Cloud Ops and SRE, deterministic-first and governed by safety checks, with minimal human intervention.
   actions:
     - text: Get started
       link: /get-started/
@@ -31,7 +31,7 @@ import ScrollReveal from "../../components/ScrollReveal.astro";
 <ul class="trust-bar">
   <li>Azure-native</li>
   <li>Deterministic-first</li>
-  <li>Shadow-first, then enforce</li>
+  <li>Observe first, then enable changes</li>
   <li>Every action audited</li>
   <li>Human-in-the-loop on high risk</li>
 </ul>
@@ -66,7 +66,7 @@ import ScrollReveal from "../../components/ScrollReveal.astro";
     <div class="act-copy">
       <span class="act-kicker"><span class="act-num">2</span> At the handoff</span>
       <h3 class="act-title">The dev-to-ops review runs itself</h3>
-      <p class="act-lead">When the workload is ready to become the operations team's responsibility, an ownership-transfer signal triggers the <strong>Operational Readiness Review</strong>. The org evaluates the whole scope's accumulated posture - not one diff - across policy, identity and RBAC, reliability, and dependency ordering. <strong>Forseti</strong> judges the verdict; <strong>Njord</strong>, <strong>Freyr</strong>, and <strong>Loki</strong> advise; <strong>Saga</strong> writes the audit and the report. You are asked for one thing: an approval. The report is generated for you.</p>
+      <p class="act-lead">When the workload is ready to become the operations team's responsibility, an ownership-transfer signal triggers the <strong>Operational Readiness Review</strong>. The org evaluates the whole scope's accumulated posture - not one diff - across policy, identity and RBAC, reliability, and dependency ordering. <strong>Forseti</strong> makes the decision; <strong>Njord</strong>, <strong>Freyr</strong>, and <strong>Loki</strong> advise; <strong>Saga</strong> writes the audit and the report. You are asked for one thing: an approval. The report is generated for you.</p>
     </div>
     <div class="handoff-card">
       <div class="hc-head">
@@ -75,7 +75,7 @@ import ScrollReveal from "../../components/ScrollReveal.astro";
       </div>
       <ul class="hc-dims">
         <li class="dim ok"><span class="dim-name">policy_guardrail</span><span class="dim-mark">clear</span></li>
-        <li class="dim warn"><span class="dim-name">identity_rbac</span><span class="dim-mark">1 finding</span></li>
+        <li class="dim warn"><span class="dim-name">identity_rbac</span><span class="dim-mark">1 detected issue</span></li>
         <li class="dim ok"><span class="dim-name">reliability</span><span class="dim-mark">clear</span></li>
         <li class="dim ok"><span class="dim-name">dependency_ordering</span><span class="dim-mark">clear</span></li>
       </ul>
@@ -95,7 +95,7 @@ import ScrollReveal from "../../components/ScrollReveal.astro";
     <div class="act-copy">
       <span class="act-kicker"><span class="act-num">3</span> In production</span>
       <h3 class="act-title">Then it just lives in your cloud</h3>
-      <p class="act-lead">Once it is yours to run, the same organization runs the control loop continuously. Deterministic-first, risk-gated, shadow-first: most events resolve without a model, <strong>Thor</strong> executes the safe majority, <strong>Vidar</strong> owns rollback and DR failover, and every decision - including the no-ops - is audited. You approve the high-risk few through <strong>Var</strong>; the organization handles the rest and reports back. Here is the loop it runs on every event.</p>
+      <p class="act-lead">Once it is yours to run, the same organization runs the control loop continuously. Deterministic-first, governed by safety checks, observation-first: most events resolve without a model, <strong>Thor</strong> executes the safe majority, <strong>Vidar</strong> owns rollback and DR failover, and every decision - including the no-ops - is audited. You approve the high-risk few through <strong>Var</strong>; the organization handles the rest and reports back. Here is the loop it runs on every event.</p>
     </div>
   </section>
 </div>
@@ -131,13 +131,13 @@ import ScrollReveal from "../../components/ScrollReveal.astro";
   <li>
     <span class="impact-tick" aria-hidden="true">↳</span>
     <strong>Every autonomous action carries four invariants.</strong>
-    Stop-condition · rollback path · blast-radius limit · audit-log entry.
-    Missing any of the four ⇒ the action is HIL, not AUTO.
+    Stop-condition · rollback path · impact-scope limit · audit-log entry.
+    Missing any of the four ⇒ the action requires human approval, not automatic execution.
   </li>
   <li>
     <span class="impact-tick" aria-hidden="true">↳</span>
-    <strong>New capabilities land in shadow, never as a surprise.</strong>
-    Promotion to enforce is a separate, measurable gate against the Phase 0
+    <strong>New capabilities start in observation mode, never as a surprise.</strong>
+    Enabling changes is a separate, measurable gate against the Phase 0
     baseline.
   </li>
   <li>
@@ -154,13 +154,13 @@ import ScrollReveal from "../../components/ScrollReveal.astro";
 
 <CardGrid stagger>
   <Card title="Change Safety · Phase 1" icon="pencil">
-    Rule catalog, T0 policy gate, remediation PRs. Change gate lands in shadow first, then promotes to enforce.
+    Rule catalog, T0 policy gate, fix PRs. The change check starts in observation mode, then enables changes.
   </Card>
   <Card title="Resilience · Phase 3" icon="rocket">
-    Scheduled resilience testing, DB DR drills, blast-radius-bounded chaos experiments - always with a stop-condition and rollback path.
+    Scheduled resilience testing, DB DR drills, impact-scope-bounded chaos experiments - always with a stop-condition and rollback path.
   </Card>
   <Card title="Cost Governance · Phase 3" icon="approve-check">
-    Cost anomaly detection, right-sizing PRs, budget guardrails per resource group. Auto vs HIL by risk classification.
+    Cost anomaly detection, right-sizing PRs, budget guardrails per resource group. Automatic execution or human approval follows the risk classification.
   </Card>
 </CardGrid>
 
@@ -170,10 +170,10 @@ import ScrollReveal from "../../components/ScrollReveal.astro";
 
 <CardGrid>
   <Card title="Odin - command" icon="star">
-    The master planner. Cross-vertical arbitration and the final tie-break before a verdict is finalised.
+    The master planner. Cross-vertical arbitration and the final tie-break before a decision is finalised.
   </Card>
   <Card title="Judgment and execution" icon="approve-check">
-    **Forseti** judges (auto / HIL / deny), **Thor** dispatches and executes, **Var** carries the human approval, **Vidar** owns rollback and DR failover. No agent both judges and executes.
+    **Forseti** judges (automatic execution / human approval / denial), **Thor** dispatches and executes, **Var** carries the human approval, **Vidar** owns rollback and DR failover. No agent both judges and executes.
   </Card>
   <Card title="Sensing" icon="magnifier">
     **Huginn** collects and correlates events; **Heimdall** watches health and drift. Deterministic-first - never an LLM in the hot path.
@@ -182,7 +182,7 @@ import ScrollReveal from "../../components/ScrollReveal.astro";
     **Bragi** translates operator questions into tool calls; **Saga** writes the append-only audit trail and escalates handoffs.
   </Card>
   <Card title="Governance" icon="setting">
-    **Mimir** stewards the rule catalog, **Norns** learns from outcomes, **Muninn** holds long-term memory.
+    **Mimir** owns the rule catalog, **Norns** learns from outcomes, **Muninn** holds long-term memory.
   </Card>
   <Card title="Domain specialists" icon="puzzle">
     **Njord** (cost), **Freyr** (capacity), and **Loki** (chaos) advise the judge with domain analysis - they never execute directly.
@@ -209,8 +209,8 @@ import ScrollReveal from "../../components/ScrollReveal.astro";
     <span class="phase-marker" aria-hidden="true" />
     <div class="phase-label">Phase 1</div>
     <div class="phase-title">Rule catalog &amp; T0</div>
-    <p>Rule catalog normalised, T0 policy gate live, remediation PRs generated automatically.</p>
-    <p class="phase-exit"><strong>Exit:</strong> change gate runs in shadow across the target scope.</p>
+    <p>Rule catalog normalised, T0 policy gate live, fix PRs generated automatically.</p>
+    <p class="phase-exit"><strong>Exit:</strong> the change check runs in observation mode across the target scope.</p>
   </li>
   <li>
     <span class="phase-marker" aria-hidden="true" />
@@ -236,7 +236,7 @@ import ScrollReveal from "../../components/ScrollReveal.astro";
 
 ## Ready to put the org to work?
 
-<p class="hero-note">Deploy the agent organization into your own Azure environment, start every action in shadow, and promote to enforce once the numbers hold.</p>
+<p class="hero-note">Deploy the agent organization into your own Azure environment, start every action in observation mode, and enable changes once the numbers hold.</p>
 
 <div class="cta-row">
   <a class="cta-btn cta-btn--primary" href={`${import.meta.env.BASE_URL.replace(/\/?$/, "/")}get-started/`}>Get started</a>

@@ -92,6 +92,13 @@ def test_fork_protected_edit_is_blocked(repo: Path) -> None:
     assert "BLOCKED" in res.stderr
 
 
+def test_fork_composition_package_edit_is_blocked(repo: Path) -> None:
+    _commit_edit(repo, "src/fdai/composition/wire.py", "x = 1\n", "edit composition package")
+    res = _run(repo, _RANGE, FDAI_FORK="1")
+    assert res.returncode == 1
+    assert "BLOCKED" in res.stderr
+
+
 def test_non_protected_edit_passes_both_modes(repo: Path) -> None:
     _commit_edit(repo, "fork/adapter.py", "y = 2\n", "edit fork adapter")
     assert _run(repo, _RANGE).returncode == 0

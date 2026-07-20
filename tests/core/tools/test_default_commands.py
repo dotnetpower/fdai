@@ -59,3 +59,33 @@ def test_cloud_catalog_contains_only_read_class() -> None:
             trusted_values={},
             idempotency_key="event-2",
         )
+
+
+@pytest.mark.parametrize(
+    "command_id,arguments,prefix",
+    [
+        ("azure.resource.list", {}, ("resource", "list")),
+        ("azure.group.list", {}, ("group", "list")),
+        ("azure.vm.list", {}, ("vm", "list")),
+        (
+            "azure.vm.status",
+            {"resource_group": "rg-example", "name": "vm-example"},
+            ("vm", "get-instance-view"),
+        ),
+    ],
+)
+def test_azure_read_commands_render_typed_argv(
+    command_id: str,
+    arguments: dict[str, object],
+    prefix: tuple[str, str],
+) -> None:
+    plan = default_command_catalog().resolve(
+        command_id=command_id,
+        arguments=arguments,
+        trusted_values={"subscription": "subscription-example"},
+        idempotency_key=f"event:{command_id}",
+    )
+
+    assert plan.argv[:2] == prefix
+    assert plan.argv[-2:] == ("--subscription", "subscription-example")
+    assert plan.execution_class is CommandExecutionClass.CLOUD_READ

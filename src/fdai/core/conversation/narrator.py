@@ -103,6 +103,12 @@ class Narrator(Protocol):
 # string is guaranteed to parse; Korean keywords are hand-picked from
 # common operator prompts and MUST map to the same English verb.
 _KEYWORD_TABLE: tuple[tuple[str, str], ...] = (
+    # search_conversations
+    ("search_conversations", "search_conversations"),
+    ("conversation history", "search_conversations"),
+    ("prior conversations", "search_conversations"),
+    ("\ub300\ud654 \uac80\uc0c9", "search_conversations"),
+    ("\uc774\uc804 \ub300\ud654", "search_conversations"),
     # explore_catalog
     ("explore_catalog", "explore_catalog"),
     ("list_rules", "explore_catalog"),
@@ -215,6 +221,70 @@ def default_tool_schemas() -> tuple[ToolSchema, ...]:
 
 
 _DEFAULT_SCHEMAS: tuple[ToolSchema, ...] = (
+    ToolSchema(
+        verb="list_skills",
+        tool_name="list_skills",
+        argument_hint="<query> [limit=N]",
+        summary="List eligible runtime skill metadata without loading content.",
+        rbac_floor="reader",
+        side_effect_class="read",
+    ),
+    ToolSchema(
+        verb="describe_skill",
+        tool_name="describe_skill",
+        argument_hint="<skill_name>",
+        summary="Describe one installed runtime skill without loading its body.",
+        rbac_floor="reader",
+        side_effect_class="read",
+    ),
+    ToolSchema(
+        verb="load_skill",
+        tool_name="load_skill",
+        argument_hint="<skill_name>",
+        summary="Load one complete eligible, trust-verified runtime skill body.",
+        rbac_floor="reader",
+        side_effect_class="read",
+    ),
+    ToolSchema(
+        verb="read_skill_reference",
+        tool_name="read_skill_reference",
+        argument_hint="<skill_name> <reference_path>",
+        summary="Read one complete declared runtime skill reference.",
+        rbac_floor="reader",
+        side_effect_class="read",
+    ),
+    ToolSchema(
+        verb="list_skill_bundles",
+        tool_name="list_skill_bundles",
+        argument_hint="<query> [limit=N]",
+        summary="List governed runtime skill bundle metadata without loading members.",
+        rbac_floor="reader",
+        side_effect_class="read",
+    ),
+    ToolSchema(
+        verb="describe_skill_bundle",
+        tool_name="describe_skill_bundle",
+        argument_hint="<bundle_name>",
+        summary="Describe one governed skill bundle and its compatibility metadata.",
+        rbac_floor="reader",
+        side_effect_class="read",
+    ),
+    ToolSchema(
+        verb="load_skill_bundle",
+        tool_name="load_skill_bundle",
+        argument_hint="<bundle_name>",
+        summary="Load one eligible bundle and all complete member bodies atomically.",
+        rbac_floor="reader",
+        side_effect_class="read",
+    ),
+    ToolSchema(
+        verb="search_conversations",
+        tool_name="search_conversations",
+        argument_hint="<query> [mode=terms|phrase|prefix] [limit=N]",
+        summary="Search prior authorized conversation turns without inference.",
+        rbac_floor="reader",
+        side_effect_class="read",
+    ),
     ToolSchema(
         verb="search_tools",
         tool_name="search_tools",

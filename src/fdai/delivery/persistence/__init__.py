@@ -19,11 +19,23 @@ from fdai.delivery.persistence.postgres import (
     PostgresStateStore,
     PostgresStateStoreConfig,
 )
+from fdai.delivery.persistence.postgres_automation_blueprint import (
+    PostgresAutomationBlueprintStore,
+    PostgresAutomationBlueprintStoreConfig,
+)
+from fdai.delivery.persistence.postgres_background_task import (
+    PostgresBackgroundTaskStore,
+    PostgresBackgroundTaskStoreConfig,
+)
 from fdai.delivery.persistence.postgres_briefing import (
     PostgresBriefingRunStore,
     PostgresBriefingStoreConfig,
     PostgresBriefingSubscriptionStore,
     PostgresConversationPolicyStore,
+)
+from fdai.delivery.persistence.postgres_busy_input import (
+    PostgresBusyInputStore,
+    PostgresBusyInputStoreConfig,
 )
 from fdai.delivery.persistence.postgres_channel_identity_link import (
     PostgresChannelIdentityLinkStore,
@@ -32,6 +44,13 @@ from fdai.delivery.persistence.postgres_channel_identity_link import (
 from fdai.delivery.persistence.postgres_channel_pairing import (
     PostgresChannelPairingStore,
     PostgresChannelPairingStoreConfig,
+)
+from fdai.delivery.persistence.postgres_conversation_search import (
+    PostgresConversationSearch,
+)
+from fdai.delivery.persistence.postgres_execution_backend import (
+    PostgresExecutionSubmissionLedger,
+    PostgresExecutionSubmissionLedgerConfig,
 )
 from fdai.delivery.persistence.postgres_idempotency import (
     PostgresIdempotencyStore,
@@ -64,13 +83,25 @@ from fdai.delivery.persistence.postgres_operator_memory import (
     PostgresOperatorMemoryStore,
     PostgresOperatorMemoryStoreConfig,
 )
+from fdai.delivery.persistence.postgres_operator_memory_proposal import (
+    PostgresOperatorMemoryProposalStore,
+    PostgresOperatorMemoryProposalStoreConfig,
+)
 from fdai.delivery.persistence.postgres_outbox import (
     PostgresOutboxStore,
     PostgresOutboxStoreConfig,
 )
+from fdai.delivery.persistence.postgres_post_turn_review import (
+    PostgresPostTurnReviewLedger,
+    PostgresPostTurnReviewLedgerConfig,
+)
 from fdai.delivery.persistence.postgres_process_runtime import (
     PostgresProcessRuntimeStore,
     PostgresProcessRuntimeStoreConfig,
+)
+from fdai.delivery.persistence.postgres_programmatic_pipeline import (
+    PostgresProgrammaticPipelineStore,
+    PostgresProgrammaticPipelineStoreConfig,
 )
 from fdai.delivery.persistence.postgres_report_signal import (
     PostgresReportSignalStore,
@@ -89,6 +120,10 @@ from fdai.delivery.persistence.postgres_schedule_run_ledger import (
     PostgresScheduleRunLedger,
     PostgresScheduleRunLedgerConfig,
 )
+from fdai.delivery.persistence.postgres_scheduled_continuation import (
+    PostgresScheduledContinuationStoreConfig,
+    PostgresScheduledConversationAnchorStore,
+)
 from fdai.delivery.persistence.postgres_scheduler_store import (
     PostgresScheduleStore,
     PostgresScheduleStoreConfig,
@@ -96,6 +131,21 @@ from fdai.delivery.persistence.postgres_scheduler_store import (
 from fdai.delivery.persistence.postgres_skill_proposal import (
     PostgresSkillProposalStore,
     PostgresSkillProposalStoreConfig,
+)
+from fdai.delivery.persistence.postgres_skill_quarantine import (
+    PostgresSkillQuarantineStore,
+    PostgresSkillRevocationStore,
+    PostgresSkillSourceRevoker,
+    PostgresSkillUpdateCandidateStore,
+)
+from fdai.delivery.persistence.postgres_skill_source import (
+    PostgresSkillSourceRefreshStateStore,
+    PostgresSkillSourceStore,
+    PostgresSkillSourceStoreConfig,
+)
+from fdai.delivery.persistence.postgres_task_worker import (
+    PostgresTaskWorkerStore,
+    PostgresTaskWorkerStoreConfig,
 )
 from fdai.delivery.persistence.postgres_trusted_artifact import (
     PostgresTrustedArtifactStore,
@@ -131,6 +181,12 @@ __all__ = [
     "PgVectorPatternLibraryConfig",
     "PostgresAdvisoryResourceLock",
     "PostgresAdvisoryResourceLockConfig",
+    "PostgresBackgroundTaskStore",
+    "PostgresBackgroundTaskStoreConfig",
+    "PostgresAutomationBlueprintStore",
+    "PostgresAutomationBlueprintStoreConfig",
+    "PostgresBusyInputStore",
+    "PostgresBusyInputStoreConfig",
     "PostgresBriefingRunStore",
     "PostgresBriefingStoreConfig",
     "PostgresBriefingSubscriptionStore",
@@ -139,7 +195,10 @@ __all__ = [
     "PostgresChannelIdentityLinkStore",
     "PostgresChannelIdentityLinkStoreConfig",
     "PostgresConversationHistoryStore",
+    "PostgresConversationSearch",
     "PostgresConversationPolicyStore",
+    "PostgresExecutionSubmissionLedger",
+    "PostgresExecutionSubmissionLedgerConfig",
     "PostgresIdempotencyStore",
     "PostgresIdempotencyStoreConfig",
     "PostgresIncidentProposalStore",
@@ -153,12 +212,18 @@ __all__ = [
     "PostgresIncidentNotificationDeliveryStore",
     "PostgresOperatorMemoryStore",
     "PostgresOperatorMemoryStoreConfig",
+    "PostgresOperatorMemoryProposalStore",
+    "PostgresOperatorMemoryProposalStoreConfig",
     "PostgresOntologyInstanceStore",
     "PostgresOntologyInstanceStoreConfig",
     "PostgresOutboxStore",
     "PostgresOutboxStoreConfig",
     "PostgresProcessRuntimeStore",
     "PostgresProcessRuntimeStoreConfig",
+    "PostgresProgrammaticPipelineStore",
+    "PostgresProgrammaticPipelineStoreConfig",
+    "PostgresPostTurnReviewLedger",
+    "PostgresPostTurnReviewLedgerConfig",
     "PostgresReportSignalStore",
     "PostgresReportSignalStoreConfig",
     "PostgresRpcIdempotencyStore",
@@ -167,10 +232,21 @@ __all__ = [
     "PostgresScheduleStoreConfig",
     "PostgresScheduleRunLedger",
     "PostgresScheduleRunLedgerConfig",
+    "PostgresScheduledContinuationStoreConfig",
+    "PostgresScheduledConversationAnchorStore",
     "PostgresSkillProposalStore",
     "PostgresSkillProposalStoreConfig",
+    "PostgresSkillQuarantineStore",
+    "PostgresSkillRevocationStore",
+    "PostgresSkillSourceRefreshStateStore",
+    "PostgresSkillSourceRevoker",
+    "PostgresSkillSourceStore",
+    "PostgresSkillSourceStoreConfig",
+    "PostgresSkillUpdateCandidateStore",
     "PostgresTrustedArtifactStore",
     "PostgresTrustedArtifactStoreConfig",
+    "PostgresTaskWorkerStore",
+    "PostgresTaskWorkerStoreConfig",
     "PostgresStateStore",
     "PostgresStateStoreConfig",
     "PostgresUserContextStoreConfig",

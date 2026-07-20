@@ -17,8 +17,9 @@ Knowledge Base and manual distillation without giving the console an executor id
 
 ## Design at a glance
 
-The browser uploads directly to private object storage through a short-lived, single-upload grant.
-An event-driven pipeline then scans, classifies, checks protection, extracts, chunks, and indexes
+In production, the browser sends an authenticated, bounded streaming PUT to the dedicated ingestion
+gateway, which writes to private object storage with its managed identity. The browser receives
+neither storage credentials nor an executor identity. An event-driven pipeline then scans, classifies, checks protection, extracts, chunks, and indexes
 the file. Raw bytes, normalized content, metadata, and vectors use separate stores and retention
 policies. Every preview, search result, and citation applies the document access policy again, so
 ingestion never turns a restricted document into broadly visible text.
@@ -26,7 +27,8 @@ ingestion never turns a restricted document into broadly visible text.
 ```mermaid
 flowchart LR
   U[Operator drop zone] --> S[Upload session]
-  S --> Q[Private quarantine storage]
+  S --> G[Authenticated ingestion gateway]
+  G --> Q[Private quarantine storage]
   Q --> M[Malware and content safety]
   M --> P[Protection and classification]
   P --> X[Format extractor]
@@ -78,7 +80,8 @@ collection id, actor id, and timestamp. The audit record never contains document
 
 Upload progress and processing progress are separate:
 
-1. **Uploading:** bytes transferred, pause/resume, retry, and cancel.
+1. **Uploading:** the current UI shows hashing/uploading state and cancel, sending one file as one
+  bounded PUT. Byte progress, pause/resume, and block checkpoints are future provider capabilities.
 2. **Received:** the source hash and byte count were accepted.
 3. **Safety checks:** malware, archive, secret, personal-data, and protection checks.
 4. **Extracting:** page, slide, sheet, image, and attachment progress where the extractor reports it.
@@ -86,8 +89,9 @@ Upload progress and processing progress are separate:
 6. **Ready, held, or failed:** a clear outcome with an actionable reason and no sensitive preview
    in an error message.
 
-Closing the browser does not cancel server-side processing. The operator can return to a document
-activity view using the upload id. Cancellation stops new work, revokes the upload grant, and
+Closing the browser after `complete` does not cancel server-side processing. The current Console
+polls status while the view is open; durable activity/history can be queried by upload id.
+Cancellation stops new work, invalidates the session, and
 schedules partial artifacts for deletion.
 
 ### After processing
@@ -193,7 +197,11 @@ Format support is capability-based. The service advertises available extractors 
 the UI renders that response. A fork can add an extractor without changing the ingestion state
 machine.
 
-| Family | Examples | Baseline handling |
+The current upstream production capability advertises `text`, `ooxml`, `image-metadata`, and
+`pdf-detect-only`. The table below defines target handling policy when providers are added; the
+authoritative support and limits always come from `GET /ingestion/capabilities`.
+
+| Family | Examples | Provider-enabled handling policy |
 |--------|----------|-------------------|
 | Plain text and code | TXT, Markdown, RST, JSON, YAML, XML, CSV, Terraform, Rego | Decode with declared/observed encoding, preserve line ranges, reject binary masquerading as text. |
 | Portable documents | text PDF, scanned PDF, PDF portfolios | Layout-aware text extraction; OCR for image pages; enumerate embedded files; preserve page citations. |
@@ -212,22 +220,24 @@ allowing metadata-only storage.
 
 ## Large-document and batch design
 
-Large files do not pass through the console server or remain fully resident in worker memory.
-The design uses private block/object storage, resumable transfers, streaming hashes, and bounded
-workers.
+File bytes do not pass through the read-only console/read API process, but they do pass through the
+dedicated ingestion gateway. The gateway streams to private object storage without buffering the
+whole request, and bounded workers process the result.
 
 ### Upload path
 
 1. The console asks the ingestion gateway for a short-lived upload session.
-2. The gateway authorizes collection and policy, reserves quota, and returns a write-only grant
-   scoped to one object and one expiry. The grant is never logged or written to audit.
-3. The browser uploads blocks directly to private storage with bounded parallelism and retries.
-4. The browser or gateway commits the block list and submits byte count plus a streaming SHA-256.
-5. The gateway verifies object properties, closes the session, and publishes `document.received`.
+2. The gateway authorizes collection and policy, reserves quota, and returns the authenticated
+  `/content` target for that session plus its expiry. It returns no storage credential.
+3. The current Console uploads files sequentially to the gateway as one PUT. The gateway streams to
+  ADLS and seals size and SHA-256 metadata.
+4. The client calls `complete`; the gateway verifies object properties and expected size/hash.
+5. The gateway closes the session and publishes `document.received`.
 
-The server supports pause/resume across browser restarts by persisting only upload id and completed
-block ids in browser storage. The storage grant can commit only the reserved object; it cannot list,
-read, overwrite another document, or extend its own expiry.
+The client can retrieve the current target for the same upload session, but the content PUT restarts
+from the beginning. Block checkpoints and browser-restart resume are future object-store provider
+capabilities. The gateway identity writes the reserved opaque object key and exposes no browser
+operation for listing or reading another document.
 
 ### Processing path
 
@@ -266,13 +276,13 @@ Each production deployment establishes measured baselines and sets p50/p95 targe
 - retry, hold, failure, and cancellation rates;
 - storage growth, deduplication savings, and cost per processed unit.
 
-The architecture reduces latency through direct-to-storage upload, content-hash deduplication
+The architecture reduces latency through bounded gateway streaming, content-hash deduplication
 inside the same security scope, incremental version processing, page-level parallelism, batched
 embeddings, and autoscaling event-driven workers. Cross-collection or cross-tenant deduplication is
 not supported because it can leak the existence of a restricted document.
 
-A fast UI must not hide slow safety work. "Uploaded" means bytes arrived. Only `ready` means the
-document can participate in retrieval or distillation.
+A fast UI must not hide slow safety work. "Uploaded" means bytes arrived. Only `ready`, or
+policy-approved `ready_with_warnings`, means the document can participate in retrieval or distillation.
 
 ## Storage model
 
@@ -453,16 +463,18 @@ extraction continues.
 | `GET /healthz` | unauthenticated process liveness for deployment verification; returns only `{"status":"ok"}` |
 | `GET /ingestion/capabilities` | formats, size/batch/archive limits, storage modes, policy versions |
 | `POST /ingestion/uploads` | authorize destination and create an `UploadSession` |
+| `POST /ingestion/uploads/{upload_id}/resume` | recheck authorization and session state, then return the current upload target |
+| `PUT /ingestion/uploads/{upload_id}/content` | stream authenticated, bounded source bytes into ADLS quarantine |
 | `POST /ingestion/uploads/{upload_id}/complete` | verify and commit the received object |
-| `GET /ingestion/uploads/{upload_id}` | resumable transfer and processing status |
+| `GET /ingestion/uploads/{upload_id}` | authorized upload-session and processing status |
 | `GET /ingestion/uploads/{upload_id}/handover-draft` | authorized grounded steward-map draft for the `handover_bootstrap` purpose |
 | `POST /ingestion/uploads/{upload_id}/cancel` | revoke grant and clean partial data |
 | `GET /documents/search?q=...&collection_id=...` | authenticated collection-scoped semantic retrieval with citations |
 | `GET /documents/{document_id}/versions` | authorized metadata and state history |
 | `DELETE /documents/{document_id}/versions/{version_id}` | request governed deletion |
 
-The source bytes travel directly between client and object storage. Authentication tokens and
-storage grants are never accepted in query strings that may be logged.
+Source bytes stream from the client through the dedicated gateway to object storage. Authentication
+tokens use headers; the browser receives no storage credential or query-string grant.
 After the object is accepted, replaying `complete` returns the current session with `202` and does
 not publish another `document.received` event. This makes a lost HTTP response safe to retry.
 
@@ -485,7 +497,7 @@ deduplication slot, and continues on the next bounded interval instead of termin
 
 | Failure | Safe behavior |
 |---------|---------------|
-| Browser or network disconnect | Resume committed blocks; expire abandoned sessions and delete partial objects. |
+| Browser or network disconnect | Delete a failed streaming PUT's partial object, retry from the beginning in the same session, or expire an abandoned session. |
 | Storage commit mismatch | Hold the object, reject completion, and audit expected vs observed metadata without content. |
 | Scanner unavailable | Keep in quarantine and retry; never skip scanning. |
 | RMS access denied | Record metadata-only or hold according to policy; never strip protection. |
@@ -520,17 +532,17 @@ providers through dependency injection when they require Purview/RMS, OCR, or ri
 | Slice | Upstream status |
 |-------|-----------------|
 | Contract and metadata | Shipped: `DocumentEnvelope`, state machine, capability discovery, access provider, metadata/activity seams, and console visibility notice. |
-| Safe text | Shipped generically: direct-upload gateway, quarantine lifecycle, fail-closed scanner seam, UTF-8/OOXML extraction, structure-aware overlapping chunks, local embedding retrieval, atomic pgvector version replacement/deletion, access-filtered search, and deletion. The upstream scanner abstains until a production provider is bound. |
+| Safe text | Shipped generically: gateway streaming upload, quarantine lifecycle, fail-closed scanner seam, UTF-8/OOXML extraction, structure-aware overlapping chunks, local embedding retrieval, atomic pgvector version replacement/deletion, access-filtered search, and deletion. The upstream scanner abstains until a production provider is bound. |
 | Layout | Partial: OOXML structure and PDF/protection detection ship; layout-aware PDF extraction, OCR, and previews require approved providers. |
 | Channel evidence | Shipped generically: bounded opaque Slack/Teams metadata, credential-fetcher seam, byte/hash verification, full protected ingestion, reject-before-tool gating, and citation-only `doc:` refs. PNG/JPEG/GIF/WebP signatures produce metadata-only envelopes; OCR and vendor credential composition remain provider bindings. |
 | Protection | Partial: PDF/Office/container encryption and suspicious rights metadata are detected and held. A Purview/RMS adapter, delegated authorization, and revocation reconciliation remain fork bindings. |
-| Connector and scale | Contract ready: resumable/scoped upload sessions, streaming hashes, bounded parser budgets, and provider seams ship. Azure Blob, durable metadata, connector delta sync, and measured capacity targets remain deployment work. |
+| Connector and scale | Partial: scoped upload sessions, streaming hashes, ADLS, durable PostgreSQL metadata, and bounded parser budgets ship. Block-resumable direct upload, connector delta sync, and measured capacity targets remain follow-up work. |
 
 The rollout sequence remains:
 
 1. **Contract and metadata slice:** `DocumentEnvelope`, state machine, capability discovery, access
    descriptor, audit, and a metadata-only UI.
-2. **Safe text slice:** direct block upload, quarantine, malware/secret scan, plain-text extractors,
+2. **Safe text slice:** gateway streaming upload, quarantine, malware scan, plain-text extractors,
    managed-copy storage, deletion lineage, and Knowledge Base indexing.
 3. **Layout slice:** PDF and modern Office extractors, page citations, OCR slow lane, previews, and
    extraction conformance tests.
@@ -547,12 +559,14 @@ adversarial-file tests pass in shadow.
 
 Decisions fixed by this design:
 
-- the browser uploads directly to private object storage through a scoped session;
+- the production browser uploads to an authenticated gateway target scoped to one session, and the
+  gateway streams to private object storage; direct-to-storage grants remain a future provider capability;
 - the console never receives the executor identity;
 - source, derived artifacts, metadata, vectors, audit, and scratch use separate storage classes;
 - access is enforced before retrieval and inherited by every derivative;
 - rights management is preserved, not removed;
-- large-document processing is streaming, sharded, resumable, and budgeted;
+- the current bounded upload is streaming; sharded and block-resumable large-document processing is
+  a provider target rather than a shipped production capability;
 - upload completion and processing readiness are different states;
 - no fixed upstream size limit or retention period is embedded in UI code.
 

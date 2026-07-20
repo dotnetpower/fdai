@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from fdai.core.incident import IncidentLifecycleWorkflow, IncidentRegistry
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
@@ -21,6 +21,7 @@ from fdai.delivery.read_api.streaming.live_stage_broadcaster import LiveStageBro
 from fdai.delivery.read_api.streaming.live_stream import LiveStreamConfig
 from fdai.delivery.workflow_action_dispatcher import EventBusWorkflowActionDispatcher
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.local import LocalEventBus, LocalSseSink
 
 _BOOTSTRAP_ENV = "FDAI_KAFKA_BOOTSTRAP_SERVERS"
 _EVENT_TOPIC_ENV = "KAFKA_TOPIC_EVENTS"
@@ -29,6 +30,7 @@ _STAGE_TOPIC_ENV = "FDAI_STAGE_TOPIC"
 
 @dataclass(frozen=True, slots=True)
 class LocalCommandTransport:
+    kind: Literal["local", "azure"]
     event_bus: EventBus
     event_topic: str
     console_action: ConsoleActionSubmitter
@@ -43,32 +45,58 @@ def build_local_command_transport(
     read_model: Any,
     action_types: tuple[Any, ...],
     environ: Mapping[str, str] | None = None,
-) -> LocalCommandTransport | None:
-    """Build real Event Hubs transport when both endpoint and event topic are configured."""
+) -> LocalCommandTransport:
+    """Build Azure transport when configured, otherwise the default local transport."""
     env = environ if environ is not None else os.environ
     bootstrap = env.get(_BOOTSTRAP_ENV, "").strip()
     event_topic = env.get(_EVENT_TOPIC_ENV, "").strip()
-    if not bootstrap and not event_topic:
-        return None
     if not bootstrap or not event_topic:
-        raise RuntimeError(f"{_BOOTSTRAP_ENV} and {_EVENT_TOPIC_ENV} MUST be configured together")
-
-    event_bus = EventHubsKafkaBus(
-        identity=AsyncAzureCliWorkloadIdentity(),
-        config=EventHubsKafkaBusConfig(
-            bootstrap_servers=bootstrap,
-            client_id="fdai-local-command",
-        ),
-    )
+        if bootstrap or event_topic:
+            raise RuntimeError(
+                f"{_BOOTSTRAP_ENV} and {_EVENT_TOPIC_ENV} MUST be configured together"
+            )
+        event_bus: EventBus = LocalEventBus()
+        event_topic = "aw.events"
+        kind: Literal["local", "azure"] = "local"
+    else:
+        event_bus = EventHubsKafkaBus(
+            identity=AsyncAzureCliWorkloadIdentity(),
+            config=EventHubsKafkaBusConfig(
+                bootstrap_servers=bootstrap,
+                client_id="fdai-local-command",
+            ),
+        )
+        kind = "azure"
     incident_workflow = IncidentLifecycleWorkflow(
         registry=IncidentRegistry(state_store=ProjectingIncidentStateStore(read_model=read_model))
     )
     stage_topic = env.get(_STAGE_TOPIC_ENV, "").strip() or DEFAULT_STAGE_TOPIC
 
     async def shutdown() -> None:
-        await event_bus.close()
+        if isinstance(event_bus, EventHubsKafkaBus):
+            await event_bus.close()
+
+    if kind == "local":
+        live_stream = LiveStreamConfig(sink=LocalSseSink())
+        agent_activity = AgentActivityStreamConfig(sink=LocalSseSink())
+    else:
+        live_stream = LiveStreamConfig(
+            broadcaster_factory=lambda publisher: LiveStageBroadcaster(
+                event_bus=event_bus,
+                publisher=publisher,
+                stage_topic=stage_topic,
+            )
+        )
+        agent_activity = AgentActivityStreamConfig(
+            broadcaster_factory=lambda publisher: AgentActivityBroadcaster(
+                event_bus=event_bus,
+                publisher=publisher,
+                stage_topic=stage_topic,
+            )
+        )
 
     return LocalCommandTransport(
+        kind=kind,
         event_bus=event_bus,
         event_topic=event_topic,
         console_action=ConsoleActionSubmitter(
@@ -81,20 +109,8 @@ def build_local_command_transport(
             event_bus=event_bus,
             topic=event_topic,
         ),
-        live_stream=LiveStreamConfig(
-            broadcaster_factory=lambda publisher: LiveStageBroadcaster(
-                event_bus=event_bus,
-                publisher=publisher,
-                stage_topic=stage_topic,
-            )
-        ),
-        agent_activity=AgentActivityStreamConfig(
-            broadcaster_factory=lambda publisher: AgentActivityBroadcaster(
-                event_bus=event_bus,
-                publisher=publisher,
-                stage_topic=stage_topic,
-            )
-        ),
+        live_stream=live_stream,
+        agent_activity=agent_activity,
         shutdown=shutdown,
     )
 

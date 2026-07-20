@@ -53,10 +53,25 @@ from .command_runner import (
 )
 from .conversation_channel import (
     ChannelAttachment,
+    ChannelDeliveryOperation,
+    ChannelDeliveryReceipt,
+    ChannelThreadMode,
     ConversationChannelAdapter,
     ConversationChannelKind,
     InboundTurn,
     OutboundResponse,
+)
+from .conversation_search import (
+    ConversationLineage,
+    ConversationSearch,
+    ConversationSearchContext,
+    ConversationSearchHit,
+    ConversationSearchMode,
+    ConversationSearchPage,
+    ConversationSearchQuery,
+    ConversationSearchScope,
+    ConversationSearchSnippet,
+    ConversationTextRange,
 )
 from .cost_estimator import (
     CostConfidence,
@@ -166,6 +181,16 @@ from .process_runtime import (
     ProcessSnapshot,
     ProcessStatus,
 )
+from .programmatic_pipeline import (
+    GeneratedPipelineClientContract,
+    PipelineRunnerOutput,
+    PipelineRunnerStatus,
+    PipelineRunSpec,
+    PipelineToolBroker,
+    PipelineToolCall,
+    PipelineToolResponse,
+    ProgrammaticPipelineRunner,
+)
 from .readiness import PostureAssessmentProvider, ReadinessReportPublisher
 from .remediation_pr import (
     PublishReceipt as PrPublishReceipt,
@@ -180,6 +205,17 @@ from .runbook_registry import (
     RunbookNotFoundError,
     RunbookRegistry,
     RunbookResult,
+)
+from .scheduled_continuation import (
+    ContinuationAnchorState,
+    ContinuationAudience,
+    ContinuationMode,
+    ScheduledContinuationDelivery,
+    ScheduledConversationAnchor,
+    ScheduledConversationAnchorStore,
+    ScheduledResultOrigin,
+    anchor_id_for_run,
+    scheduled_result_fact_text,
 )
 from .secret_provider import SecretNotFoundError, SecretProvider
 from .shell_checker import ShellCheckIssue, ShellCheckReport, ShellTaskChecker
@@ -244,7 +280,20 @@ __all__ = [
     "CommandRunner",
     "CommandStatus",
     "ConversationHistoryStore",
+    "ConversationLineage",
+    "ConversationSearch",
+    "ConversationSearchContext",
+    "ConversationSearchHit",
+    "ConversationSearchMode",
+    "ConversationSearchPage",
+    "ConversationSearchQuery",
+    "ConversationSearchScope",
+    "ConversationSearchSnippet",
+    "ConversationTextRange",
     "ChannelAttachment",
+    "ChannelDeliveryOperation",
+    "ChannelDeliveryReceipt",
+    "ChannelThreadMode",
     "ConversationChannelAdapter",
     "ConversationChannelKind",
     "ConversationPolicyKind",
@@ -254,6 +303,9 @@ __all__ = [
     "ConversationStatus",
     "ConversationTurnRecord",
     "ConversationTurnRole",
+    "ContinuationAnchorState",
+    "ContinuationAudience",
+    "ContinuationMode",
     "DeploymentHistoryError",
     "DeploymentHistoryProvider",
     "DeploymentHistoryResult",
@@ -326,6 +378,14 @@ __all__ = [
     "PreflightCheckPublishError",
     "PreflightCheckPublisher",
     "PreflightCheckReceipt",
+    "GeneratedPipelineClientContract",
+    "PipelineRunSpec",
+    "PipelineRunnerOutput",
+    "PipelineRunnerStatus",
+    "PipelineToolBroker",
+    "PipelineToolCall",
+    "PipelineToolResponse",
+    "ProgrammaticPipelineRunner",
     "PostureAssessmentProvider",
     "ProbeQuery",
     "ProbeResult",
@@ -351,6 +411,10 @@ __all__ = [
     "RunbookNotFoundError",
     "RunbookRegistry",
     "RunbookResult",
+    "ScheduledContinuationDelivery",
+    "ScheduledConversationAnchor",
+    "ScheduledConversationAnchorStore",
+    "ScheduledResultOrigin",
     "ShellCheckIssue",
     "ShellCheckReport",
     "ShellTaskChecker",
@@ -378,7 +442,9 @@ __all__ = [
     "WorkflowOrigin",
     "WorkflowVisibility",
     "WorkloadIdentity",
+    "anchor_id_for_run",
     "hil_pending_item_from_action",
     "mutation_target_from_execution_path",
     "resolve_cost_impact_monthly",
+    "scheduled_result_fact_text",
 ]

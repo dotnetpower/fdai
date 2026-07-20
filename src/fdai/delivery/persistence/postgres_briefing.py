@@ -24,6 +24,11 @@ from fdai.shared.providers.briefing import (
     ConversationPolicyKind,
     ConversationPolicyRecord,
 )
+from fdai.shared.providers.scheduled_continuation import (
+    ContinuationAudience,
+    ContinuationMode,
+    ScheduledResultOrigin,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,8 +169,10 @@ class PostgresBriefingSubscriptionStore(_PostgresBase):
                     "INSERT INTO briefing_subscription "
                     "(principal_id, subscription_id, name, spec, cron_expression, timezone, "
                     "delivery_modes, channel_binding_ref, enabled, next_run_at, created_at, "
-                    "max_lateness_seconds, revision) VALUES "
-                    "(%s, %s, %s, %s::jsonb, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, 1)",
+                    "max_lateness_seconds, continuation_mode, continuation_origin, "
+                    "continuation_ttl_seconds, revision) VALUES "
+                    "(%s, %s, %s, %s::jsonb, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, "
+                    "%s, %s::jsonb, %s, 1)",
                     (
                         record.principal_id,
                         record.subscription_id,
@@ -179,6 +186,13 @@ class PostgresBriefingSubscriptionStore(_PostgresBase):
                         record.next_run_at,
                         record.created_at,
                         record.max_lateness_seconds,
+                        record.continuation_mode.value,
+                        (
+                            _origin_json(record.continuation_origin)
+                            if record.continuation_origin is not None
+                            else None
+                        ),
+                        record.continuation_ttl_seconds,
                     ),
                 )
                 await enqueue_projection_upsert(
@@ -301,10 +315,10 @@ class PostgresBriefingRunStore(_PostgresBase):
                     "INSERT INTO briefing_run "
                     "(principal_id, run_id, subscription_id, conversation_id, scheduled_for, "
                     "started_at, status, idempotency_key, title, body_markdown, item_count, "
-                    "evidence_refs, "
-                    "source_errors) "
+                    "evidence_refs, source_errors, continuation_mode, continuation_origin, "
+                    "result_digest) "
                     "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, "
-                    "%s::jsonb) "
+                    "%s::jsonb, %s, %s::jsonb, %s) "
                     "ON CONFLICT (principal_id, idempotency_key) DO NOTHING RETURNING run_id",
                     (
                         run.principal_id,
@@ -320,6 +334,13 @@ class PostgresBriefingRunStore(_PostgresBase):
                         run.item_count,
                         json.dumps(run.evidence_refs),
                         json.dumps(run.source_errors),
+                        run.continuation_mode.value,
+                        (
+                            _origin_json(run.continuation_origin)
+                            if run.continuation_origin is not None
+                            else None
+                        ),
+                        run.result_digest,
                     ),
                 )
             except psycopg.errors.UniqueViolation as exc:
@@ -370,7 +391,8 @@ class PostgresBriefingRunStore(_PostgresBase):
                 "RETURNING run.principal_id, run.run_id, run.subscription_id, "
                 "run.conversation_id, run.scheduled_for, run.started_at, run.status, "
                 "run.idempotency_key, run.title, run.body_markdown, run.item_count, "
-                "run.evidence_refs, run.source_errors",
+                "run.evidence_refs, run.source_errors, run.continuation_mode, "
+                "run.continuation_origin, run.result_digest",
                 (before, limit),
             )
             return tuple(_run(row) for row in await cursor.fetchall())
@@ -379,12 +401,13 @@ class PostgresBriefingRunStore(_PostgresBase):
 _SUBSCRIPTION_SELECT = (
     "SELECT principal_id, subscription_id, name, spec, cron_expression, timezone, "
     "delivery_modes, channel_binding_ref, enabled, next_run_at, created_at, "
-    "max_lateness_seconds, revision FROM briefing_subscription"
+    "max_lateness_seconds, continuation_mode, continuation_origin, "
+    "continuation_ttl_seconds, revision FROM briefing_subscription"
 )
 _RUN_SELECT = (
     "SELECT principal_id, run_id, subscription_id, conversation_id, scheduled_for, "
     "started_at, status, idempotency_key, title, body_markdown, item_count, "
-    "evidence_refs, source_errors "
+    "evidence_refs, source_errors, continuation_mode, continuation_origin, result_digest "
     "FROM briefing_run"
 )
 
@@ -439,6 +462,9 @@ def _with_subscription_revision(
         revision=revision,
         channel_binding_ref=record.channel_binding_ref,
         max_lateness_seconds=record.max_lateness_seconds,
+        continuation_mode=record.continuation_mode,
+        continuation_origin=record.continuation_origin,
+        continuation_ttl_seconds=record.continuation_ttl_seconds,
     )
 
 
@@ -459,6 +485,11 @@ def _subscription(row: dict[str, Any]) -> BriefingSubscription:
             str(row["channel_binding_ref"]) if row["channel_binding_ref"] else None
         ),
         max_lateness_seconds=int(row["max_lateness_seconds"]),
+        continuation_mode=ContinuationMode(str(row["continuation_mode"])),
+        continuation_origin=(
+            _origin(row["continuation_origin"]) if row["continuation_origin"] is not None else None
+        ),
+        continuation_ttl_seconds=int(row["continuation_ttl_seconds"]),
     )
 
 
@@ -477,6 +508,37 @@ def _run(row: dict[str, Any]) -> BriefingRun:
         item_count=int(row["item_count"]),
         evidence_refs=tuple(row["evidence_refs"]),
         source_errors=tuple(row["source_errors"]),
+        continuation_mode=ContinuationMode(str(row["continuation_mode"])),
+        continuation_origin=(
+            _origin(row["continuation_origin"]) if row["continuation_origin"] is not None else None
+        ),
+        result_digest=(str(row["result_digest"]) if row["result_digest"] else None),
+    )
+
+
+def _origin_json(origin: ScheduledResultOrigin) -> str:
+    return json.dumps(
+        {
+            "audience": origin.audience.value,
+            "channel_kind": origin.channel_kind,
+            "channel_ref": origin.channel_ref,
+            "conversation_ref": origin.conversation_ref,
+            "thread_ref": origin.thread_ref,
+        },
+        sort_keys=True,
+    )
+
+
+def _origin(raw: Any) -> ScheduledResultOrigin:
+    value = json.loads(raw) if isinstance(raw, str) else raw
+    if not isinstance(value, dict):
+        raise ValueError("briefing continuation origin MUST be a JSON object")
+    return ScheduledResultOrigin(
+        channel_kind=str(value["channel_kind"]),
+        channel_ref=str(value["channel_ref"]),
+        conversation_ref=str(value["conversation_ref"]),
+        thread_ref=(str(value["thread_ref"]) if value.get("thread_ref") is not None else None),
+        audience=ContinuationAudience(str(value["audience"])),
     )
 
 

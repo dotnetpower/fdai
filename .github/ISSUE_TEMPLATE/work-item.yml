@@ -1,0 +1,51 @@
+name: FDAI work item
+description: Track a defect, enhancement, documentation change, or investigation with verifiable completion criteria.
+title: ""
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are English-only and customer-agnostic. Apply at least one `area:` label and one type label after creation.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or outcome
+      description: Describe the observed problem or the outcome this work must produce.
+      placeholder: What is wrong or missing, and who is affected?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and constraints
+      description: Name the intended scope, important boundaries, and explicit non-goals.
+      placeholder: Include safety, compatibility, and rollout constraints where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: exit_criteria
+    attributes:
+      label: Exit criteria
+      description: Add one or more observable, binary checkbox items. The issue remains open until every item is satisfied.
+      placeholder: |
+        - [ ] The behavior is implemented and covered by a focused test.
+        - [ ] Relevant English/Korean documentation is updated.
+        - [ ] Required verification commands pass.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Verification evidence
+      description: List the commands, scenarios, metrics, or artifacts that will prove the exit criteria.
+      placeholder: Tests, screenshots, logs, measurements, or review evidence.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety and scope declaration
+      options:
+        - label: I have not included customer-identifying values, secrets, private endpoints, or security findings.
+          required: true

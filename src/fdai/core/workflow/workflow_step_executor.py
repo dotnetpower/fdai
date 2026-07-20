@@ -11,6 +11,7 @@ from fdai.core.workflow.approval import StepApproval
 from fdai.core.workflow.workflow_runtime import (
     ACTOR,
     WorkflowActionDispatcher,
+    WorkflowEvidenceDispatcher,
     WorkflowGuardEvaluator,
     approval_decisions,
     event_id,
@@ -35,6 +36,7 @@ class ShadowWorkflowStepExecutor:
         "_process_id",
         "_action_types",
         "_action_dispatcher",
+        "_evidence_dispatcher",
         "_audit",
         "_approvals",
         "_guards",
@@ -54,6 +56,7 @@ class ShadowWorkflowStepExecutor:
         process_id: str,
         action_types: Mapping[str, OntologyActionType],
         action_dispatcher: WorkflowActionDispatcher | None = None,
+        evidence_dispatcher: WorkflowEvidenceDispatcher | None = None,
         audit_store: StateStore,
         approvals: Mapping[str, StepApproval],
         guards: Mapping[str, str] | None = None,
@@ -69,6 +72,7 @@ class ShadowWorkflowStepExecutor:
         self._process_id = process_id
         self._action_types = action_types
         self._action_dispatcher = action_dispatcher
+        self._evidence_dispatcher = evidence_dispatcher
         self._audit = audit_store
         self._approvals = approvals
         self._guards = guards or {}
@@ -219,6 +223,8 @@ class ShadowWorkflowStepExecutor:
     ) -> RunbookStepResult | None:
         if step.kind is WorkflowStepKind.ACTION:
             return None
+        if step.kind is WorkflowStepKind.EVIDENCE:
+            return await self._dispatch_evidence(step)
         if step.kind is WorkflowStepKind.PARALLEL:
             return await self._parallel_result(step)
         if step.kind is WorkflowStepKind.WAIT:
@@ -263,6 +269,34 @@ class ShadowWorkflowStepExecutor:
                 "gate_passed" if guard_passed else "gate_blocked",
             )
         return step_result(step, RunbookStepOutcome.FAILURE, "unsupported_step_kind")
+
+    async def _dispatch_evidence(self, step: RunbookStep) -> RunbookStepResult:
+        if self._evidence_dispatcher is None:
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                "evidence_dispatcher_not_configured",
+            )
+        try:
+            receipt = await self._evidence_dispatcher.dispatch(
+                process_id=self._process_id,
+                correlation_id=self._snapshot.correlation_id,
+                step=step,
+                params=self._params.get(step.id, {}),
+            )
+        except Exception as exc:  # noqa: BLE001 - evidence boundary fails closed
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                f"evidence_capture_failed:{type(exc).__name__}",
+            )
+        if receipt.status != "captured":
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                f"evidence_{receipt.status}:{receipt.reason or 'unknown'}",
+            )
+        return step_result(step, RunbookStepOutcome.SUCCESS, "browser_evidence_captured")
 
     async def _parallel_result(self, step: RunbookStep) -> RunbookStepResult:
         async def run_branch(branch: str) -> bool:

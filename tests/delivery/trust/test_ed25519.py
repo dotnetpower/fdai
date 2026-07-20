@@ -3,16 +3,32 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
+from datetime import UTC, datetime
 
+import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from fdai.core.capability_catalog.extensions import ExtensionManifest
+from fdai.core.skills.bundle_manifest import (
+    encode_skill_bundle_manifest,
+    parse_skill_bundle_manifest,
+)
 from fdai.core.skills.catalog import RuntimeSkill, parse_skill_markdown, skill_body_digest
+from fdai.core.supply_chain import (
+    TrustedArtifactKind,
+    TrustedArtifactRecord,
+    TrustedArtifactState,
+)
 from fdai.delivery.trust.ed25519 import (
     Ed25519ExtensionTrustVerifier,
+    Ed25519SkillBundleTrustVerifier,
+    Ed25519SkillCatalogVerifier,
     Ed25519SkillTrustVerifier,
+    Ed25519SkillTrustVerifierFactory,
     extension_signature_payload,
+    skill_bundle_signature_payload,
     skill_signature_payload,
 )
 
@@ -92,3 +108,107 @@ def test_non_ed25519_key_and_invalid_signature_fail_closed() -> None:
     )
 
     assert verifier.verify(skill, raw) is False
+
+
+def test_skill_verifier_factory_binds_record_signature_and_snapshots_publishers() -> None:
+    private, public = _keys()
+    skill, raw = _skill()
+    signature = private.sign(skill_signature_payload(skill, raw))
+    publishers = {skill.manifest.source: public}
+    factory = Ed25519SkillTrustVerifierFactory(publishers)
+    publishers.clear()
+    now = datetime(2026, 7, 20, 10, 0, tzinfo=UTC)
+    record = TrustedArtifactRecord(
+        kind=TrustedArtifactKind.SKILL,
+        artifact_id=skill.manifest.name,
+        version=skill.manifest.version,
+        source=skill.manifest.source,
+        content_sha256=hashlib.sha256(raw).hexdigest(),
+        artifact=raw,
+        signature=signature,
+        state=TrustedArtifactState.DISABLED,
+        revision=1,
+        created_at=now,
+        updated_at=now,
+    )
+
+    assert factory(record).verify(skill, raw) is True
+
+
+def test_skill_catalog_verifier_rechecks_record_identity_and_signature() -> None:
+    private, public = _keys()
+    skill, raw = _skill()
+    now = datetime(2026, 7, 20, 10, 0, tzinfo=UTC)
+    record = TrustedArtifactRecord(
+        kind=TrustedArtifactKind.SKILL,
+        artifact_id=skill.manifest.name,
+        version=skill.manifest.version,
+        source=skill.manifest.source,
+        content_sha256=hashlib.sha256(raw).hexdigest(),
+        artifact=raw,
+        signature=private.sign(skill_signature_payload(skill, raw)),
+        state=TrustedArtifactState.ENABLED,
+        revision=1,
+        created_at=now,
+        updated_at=now,
+    )
+    verifier = Ed25519SkillCatalogVerifier((record,), {skill.manifest.source: public})
+    other_skill, other_raw = _skill(source="other.publisher")
+
+    assert verifier.verify(skill, raw) is True
+    assert verifier.verify(skill, raw + b" ") is False
+    assert verifier.verify(other_skill, other_raw) is False
+
+
+def test_skill_catalog_verifier_rejects_duplicate_and_non_skill_records() -> None:
+    private, public = _keys()
+    skill, raw = _skill()
+    now = datetime(2026, 7, 20, 10, 0, tzinfo=UTC)
+    record = TrustedArtifactRecord(
+        kind=TrustedArtifactKind.SKILL,
+        artifact_id=skill.manifest.name,
+        version=skill.manifest.version,
+        source=skill.manifest.source,
+        content_sha256=hashlib.sha256(raw).hexdigest(),
+        artifact=raw,
+        signature=private.sign(skill_signature_payload(skill, raw)),
+        state=TrustedArtifactState.DISABLED,
+        revision=1,
+        created_at=now,
+        updated_at=now,
+    )
+
+    with pytest.raises(ValueError, match="unique"):
+        Ed25519SkillCatalogVerifier((record, record), {skill.manifest.source: public})
+    with pytest.raises(ValueError, match="only skill"):
+        Ed25519SkillCatalogVerifier(
+            (replace(record, kind=TrustedArtifactKind.EXTENSION),),
+            {skill.manifest.source: public},
+        )
+
+
+def test_skill_bundle_signature_is_domain_separated_and_manifest_bound() -> None:
+    private, public = _keys()
+    raw = encode_skill_bundle_manifest(
+        {
+            "name": "incident-evidence-pack",
+            "version": "1.0.0",
+            "description": "Reviewed incident evidence procedures.",
+            "source": "publisher.example",
+            "members": [{"name": "example.skill", "version": "==1.2.3"}],
+            "allowed_agents": ["Bragi"],
+            "required_tools": [],
+            "instruction": None,
+        }
+    )
+    bundle = parse_skill_bundle_manifest(raw)
+    signature = private.sign(skill_bundle_signature_payload(bundle))
+    verifier = Ed25519SkillBundleTrustVerifier(
+        trusted_publishers={bundle.manifest.source: public},
+        signature=signature,
+    )
+    skill, skill_raw = _skill()
+
+    assert verifier.verify(bundle, raw) is True
+    assert verifier.verify(bundle, raw + b" ") is False
+    assert signature != private.sign(skill_signature_payload(skill, skill_raw))

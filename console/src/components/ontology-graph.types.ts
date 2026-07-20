@@ -6,6 +6,8 @@
  * SRP: data + classification only. No Preact, SVG, or I/O.
  */
 
+import type { ViewEntityLifecycle } from "../deck/context";
+
 // ---------------------------------------------------------------------------
 // Public API (surfaced through `ontology-graph.tsx` for import stability)
 // ---------------------------------------------------------------------------
@@ -16,6 +18,7 @@ export interface OntologyNode {
   readonly property_count: number;
   readonly properties: readonly string[];
   readonly description: string | null;
+  readonly lifecycle?: Omit<ViewEntityLifecycle, "entity_kind" | "entity_id"> | null;
 }
 
 export interface OntologyEdge {

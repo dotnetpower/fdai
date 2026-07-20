@@ -20,6 +20,9 @@ describe("panel navigation placement", () => {
       "processes",
       "workflow-apps",
       "scheduler-runs",
+      "automation-blueprints",
+      "scheduled-continuations",
+      "conversation-delivery",
     ]);
     expect(panelForId("incidents").id).toBe("incidents");
   });
@@ -32,10 +35,10 @@ describe("panel navigation placement", () => {
       "agents", "pantheon", "agent-activity", "handover",
     ]);
     expect(panelsInGroup("governance").map((panel) => panel.id)).toEqual([
-      "architecture", "ontology", "rules", "workflow-builder", "capabilities", "blast-radius", "promotion-gates", "scope",
+      "architecture", "ontology", "rules", "workflow-builder", "capabilities", "skills", "blast-radius", "promotion-gates", "context-selection-comparisons", "scope",
     ]);
     expect(panelsInGroup("evidence").map((panel) => panel.id)).toEqual([
-      "audit", "reports", "trace", "rca", "documents",
+      "audit", "browser-evidence", "conversation-search", "reports", "trace", "rca", "documents",
     ]);
     expect(panelsInGroup("labs").map((panel) => panel.id)).toEqual(["labs"]);
     expect(panelsInGroup("settings").map((panel) => panel.id)).toEqual([

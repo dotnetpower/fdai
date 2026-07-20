@@ -16,8 +16,10 @@ from fdai.core.conversation.answer_plan import (
 )
 from fdai.delivery.read_api.routes.chat_prompt_content import (
     _AGENT_EVIDENCE_DIRECTIVE,
+    _BEHAVIOR_EVIDENCE_DIRECTIVE,
     _CAPABILITIES,
     _CONCEPT_EVIDENCE_DIRECTIVE,
+    _EXPLANATION_DIRECTIVE,
     _GLOSSARY,
     _OPERATIONAL_EVIDENCE_DIRECTIVE,
     _SCREEN_EXPLANATION_DIRECTIVE,
@@ -42,6 +44,12 @@ DEFAULT_MAX_HISTORY_TURNS: Final[int] = 8
 
 
 DEFAULT_MAX_RECORDS_PER_KEY: Final[int] = 40
+
+
+DEFAULT_MAX_EXPLANATION_ITEMS: Final[int] = 24
+
+
+DEFAULT_MAX_LIFECYCLE_CRITERIA: Final[int] = 12
 
 
 _COMPILED_USER_POLICY_KEY: Final[str] = "_compiled_user_policy"
@@ -151,7 +159,13 @@ def _with_concept_evidence(prompt: str, view_context: dict[str, Any]) -> dict[st
     enriched = dict(view_context)
     enriched.pop("_concept_evidence", None)
     if any(
-        key in enriched for key in ("_operational_evidence", "_tool_evidence", "_agent_evidence")
+        key in enriched
+        for key in (
+            "_behavior_evidence",
+            "_operational_evidence",
+            "_tool_evidence",
+            "_agent_evidence",
+        )
     ):
         return enriched
     if not _is_concept_query(prompt):
@@ -282,27 +296,89 @@ def _trim_view_context(
     when no array exceeds the cap (no needless copy).
     """
     records = view_context.get("records")
-    if not isinstance(records, dict):
+    context = view_context
+    if isinstance(records, dict):
+        trimmed: dict[str, Any] = {}
+        meta: dict[str, dict[str, int]] = {}
+        changed = False
+        for key, rows in records.items():
+            if isinstance(rows, list) and len(rows) > max_records:
+                trimmed[key] = rows[:max_records]
+                meta[key] = {"shown": max_records, "total": len(rows)}
+                changed = True
+            else:
+                trimmed[key] = rows
+                if isinstance(rows, list):
+                    meta[key] = {"shown": len(rows), "total": len(rows)}
+        if changed:
+            context = dict(view_context)
+            context["records"] = trimmed
+            context["_records_truncated"] = True
+            context["_records_meta"] = meta
+    return _trim_explanations(context)
+
+
+def _trim_explanations(view_context: dict[str, Any]) -> dict[str, Any]:
+    explanations = view_context.get("explanations")
+    if not isinstance(explanations, dict):
         return view_context
-    trimmed: dict[str, Any] = {}
-    meta: dict[str, dict[str, int]] = {}
+    bounded = dict(explanations)
     changed = False
-    for key, rows in records.items():
-        if isinstance(rows, list) and len(rows) > max_records:
-            trimmed[key] = rows[:max_records]
-            meta[key] = {"shown": max_records, "total": len(rows)}
+    meta: dict[str, dict[str, int]] = {}
+
+    for key in ("relationships", "lifecycles"):
+        values = explanations.get(key)
+        if isinstance(values, list) and len(values) > DEFAULT_MAX_EXPLANATION_ITEMS:
+            bounded[key] = values[:DEFAULT_MAX_EXPLANATION_ITEMS]
+            meta[key] = {"shown": DEFAULT_MAX_EXPLANATION_ITEMS, "total": len(values)}
             changed = True
-        else:
-            trimmed[key] = rows
-            if isinstance(rows, list):
-                meta[key] = {"shown": len(rows), "total": len(rows)}
+
+    lifecycles = bounded.get("lifecycles")
+    if isinstance(lifecycles, list):
+        bounded_lifecycles: list[Any] = []
+        for lifecycle in lifecycles:
+            if not isinstance(lifecycle, dict):
+                bounded_lifecycles.append(lifecycle)
+                continue
+            bounded_lifecycle = dict(lifecycle)
+            for key in ("creation", "closure", "authority_refs"):
+                values = lifecycle.get(key)
+                if isinstance(values, list) and len(values) > DEFAULT_MAX_LIFECYCLE_CRITERIA:
+                    bounded_lifecycle[key] = values[:DEFAULT_MAX_LIFECYCLE_CRITERIA]
+                    changed = True
+            deduplication = lifecycle.get("deduplication")
+            if isinstance(deduplication, dict):
+                fields = deduplication.get("fields")
+                if isinstance(fields, list) and len(fields) > DEFAULT_MAX_LIFECYCLE_CRITERIA:
+                    bounded_lifecycle["deduplication"] = {
+                        **deduplication,
+                        "fields": fields[:DEFAULT_MAX_LIFECYCLE_CRITERIA],
+                    }
+                    changed = True
+            bounded_lifecycles.append(bounded_lifecycle)
+        bounded["lifecycles"] = bounded_lifecycles
+
+    provenance = explanations.get("provenance")
+    if isinstance(provenance, dict):
+        refs = provenance.get("refs")
+        if isinstance(refs, list) and len(refs) > DEFAULT_MAX_EXPLANATION_ITEMS:
+            bounded["provenance"] = {
+                **provenance,
+                "refs": refs[:DEFAULT_MAX_EXPLANATION_ITEMS],
+            }
+            meta["provenance.refs"] = {
+                "shown": DEFAULT_MAX_EXPLANATION_ITEMS,
+                "total": len(refs),
+            }
+            changed = True
+
     if not changed:
         return view_context
-    new_ctx = dict(view_context)
-    new_ctx["records"] = trimmed
-    new_ctx["_records_truncated"] = True
-    new_ctx["_records_meta"] = meta
-    return new_ctx
+    context = dict(view_context)
+    context["explanations"] = bounded
+    context["_explanations_truncated"] = True
+    context["_explanations_meta"] = meta
+    return context
 
 
 def _snapshot_json_capped(view_context: dict[str, Any], cap: int) -> str:
@@ -436,8 +512,12 @@ def _build_messages(
         and any(key in records for key in ("sections", "controls", "constraints"))
         else ""
     )
+    explanation_rules = (
+        _EXPLANATION_DIRECTIVE if isinstance(view_context.get("explanations"), Mapping) else ""
+    )
     system = _SYSTEM_PROMPT.format(
         screen_explanation=screen_explanation,
+        explanation_rules=explanation_rules,
         capabilities=capabilities,
         glossary=glossary,
         snapshot_json=snapshot_json,
@@ -445,6 +525,8 @@ def _build_messages(
     messages: list[dict[str, str]] = [{"role": "system", "content": system}]
     if isinstance(compiled_policy, dict) and isinstance(compiled_policy.get("text"), str):
         messages.append({"role": "system", "content": compiled_policy["text"]})
+    if "_behavior_evidence" in view_context:
+        messages.append({"role": "system", "content": _BEHAVIOR_EVIDENCE_DIRECTIVE})
     if "_operational_evidence" in view_context:
         messages.append({"role": "system", "content": _OPERATIONAL_EVIDENCE_DIRECTIVE})
     if "_agent_evidence" in view_context:
@@ -471,12 +553,15 @@ def _build_messages(
 
 
 __all__ = [
+    "DEFAULT_MAX_EXPLANATION_ITEMS",
     "DEFAULT_MAX_CONTEXT_BYTES",
     "DEFAULT_MAX_HISTORY_TURNS",
     "DEFAULT_MAX_RECORDS_PER_KEY",
     "_AGENT_EVIDENCE_DIRECTIVE",
+    "_BEHAVIOR_EVIDENCE_DIRECTIVE",
     "_CAPABILITIES",
     "_CONCEPT_EVIDENCE_DIRECTIVE",
+    "_EXPLANATION_DIRECTIVE",
     "_GLOSSARY",
     "_OPERATIONAL_EVIDENCE_DIRECTIVE",
     "_SCREEN_EXPLANATION_DIRECTIVE",

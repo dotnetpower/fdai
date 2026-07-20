@@ -12,6 +12,13 @@ from fdai.core.briefing import (
 )
 from fdai.core.report_feed import ReportFeed, ReportSignal, StaticSignalSource
 from fdai.core.report_feed.models import ReportCategory, SignalKind
+from fdai.core.scheduler.continuation import (
+    ContinuationMode,
+    InMemoryContinuationAuditSink,
+    InMemoryScheduledConversationAnchorStore,
+    ScheduledContinuationService,
+    ScheduledResultOrigin,
+)
 from fdai.shared.contracts.models import Severity
 from fdai.shared.providers.briefing import (
     BriefingDeliveryMode,
@@ -106,6 +113,101 @@ async def test_scheduler_creates_idempotent_run_and_advances_subscription() -> N
     assert await service.run_once() == ()
     advanced = await subscriptions.list_for_principal(principal_id="principal-a")
     assert advanced[0].next_run_at > NOW
+
+
+async def test_scheduler_persists_continuation_anchor_before_advancing() -> None:
+    subscriptions = InMemoryBriefingSubscriptionStore()
+    runs = InMemoryBriefingRunStore()
+    anchors = InMemoryScheduledConversationAnchorStore()
+    await subscriptions.create(
+        BriefingSubscription(
+            subscription_id="subscription-continuable",
+            principal_id="principal-a",
+            name="Scoped briefing",
+            spec=BriefingSpec(scope_ref="scope-a"),
+            cron_expression="0 7 * * *",
+            timezone="Asia/Seoul",
+            delivery_modes=(BriefingDeliveryMode.IN_APP,),
+            enabled=True,
+            next_run_at=NOW,
+            created_at=NOW,
+            continuation_mode=ContinuationMode.ORIGIN_THREAD,
+            continuation_origin=ScheduledResultOrigin(
+                channel_kind="web",
+                channel_ref="console",
+                conversation_ref="conversation-1",
+            ),
+        )
+    )
+    service = BriefingSchedulerService(
+        subscriptions=subscriptions,
+        runs=runs,
+        coordinator=_coordinator(),
+        worker_id="worker-a",
+        continuations=ScheduledContinuationService(
+            store=anchors,
+            audit=InMemoryContinuationAuditSink(),
+        ),
+        clock=lambda: NOW,
+    )
+
+    result = await service.run_once()
+
+    assert len(result) == 1
+    stored = result[0]
+    assert stored.result_digest is not None
+    anchor = (await anchors.list_for_principal(principal_id="principal-a"))[0]
+    assert anchor.run_id == stored.run_id
+    assert anchor.result_digest == stored.result_digest
+    assert anchor.observation_ended_at == NOW
+    advanced = await subscriptions.list_for_principal(principal_id="principal-a")
+    assert advanced[0].next_run_at > NOW
+
+
+async def test_anchor_failure_keeps_persisted_run_and_schedule_unadvanced() -> None:
+    class FailingAnchorStore(InMemoryScheduledConversationAnchorStore):
+        async def create(self, anchor):  # type: ignore[no-untyped-def]
+            raise RuntimeError("anchor unavailable")
+
+    subscriptions = InMemoryBriefingSubscriptionStore()
+    runs = InMemoryBriefingRunStore()
+    created = await subscriptions.create(
+        BriefingSubscription(
+            subscription_id="subscription-continuable",
+            principal_id="principal-a",
+            name="Scoped briefing",
+            spec=BriefingSpec(scope_ref="scope-a"),
+            cron_expression="0 7 * * *",
+            timezone="Asia/Seoul",
+            delivery_modes=(BriefingDeliveryMode.IN_APP,),
+            enabled=True,
+            next_run_at=NOW,
+            created_at=NOW,
+            continuation_mode=ContinuationMode.ORIGIN_THREAD,
+            continuation_origin=ScheduledResultOrigin(
+                channel_kind="web",
+                channel_ref="console",
+                conversation_ref="conversation-1",
+            ),
+        )
+    )
+    service = BriefingSchedulerService(
+        subscriptions=subscriptions,
+        runs=runs,
+        coordinator=_coordinator(),
+        worker_id="worker-a",
+        continuations=ScheduledContinuationService(
+            store=FailingAnchorStore(),
+            audit=InMemoryContinuationAuditSink(),
+        ),
+        clock=lambda: NOW,
+    )
+
+    assert await service.run_once() == ()
+    persisted = await runs.list_for_principal(principal_id="principal-a")
+    assert len(persisted) == 1
+    unchanged = await subscriptions.list_for_principal(principal_id="principal-a")
+    assert unchanged == (created,)
 
 
 async def test_scheduler_records_late_run_as_failed_and_advances() -> None:

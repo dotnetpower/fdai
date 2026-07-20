@@ -9,6 +9,41 @@ name: Issue
 version: "1.0.0"
 key: id
 description: FDAI mirror of a GitHub issue created via escalate_to_github_issue; dedup by fingerprint.
+lifecycle:
+  owner: Saga
+  creation:
+    - code: agent_handoff
+      when: An Agent cannot resolve a request within its owned scope and emits HandoffEscalation.
+      result: Saga creates the Issue mirror and the backing GitHub issue.
+      source_refs:
+        - src/fdai/agents/saga.py#escalate_to_github_issue
+        - rule-catalog/vocabulary/object-types/HandoffEscalation.yaml
+    - code: bragi_unhandled_query
+      when: Bragi abstains from a conversational turn with handoff_needed set to true.
+      result: The runtime sends the handoff to Saga for Issue materialization.
+      source_refs:
+        - src/fdai/agents/_framework/runtime.py#_maybe_escalate_handoff
+        - src/fdai/agents/saga.py#escalate_to_github_issue
+  deduplication:
+    strategy: deterministic fingerprint
+    fields:
+      - intent_category
+      - resource_type
+      - normalized_selector
+      - primary_agent
+      - failure_reason_code
+    on_repeat: Append a correlation-scoped comment to the existing Issue instead of creating another Issue.
+  closure:
+    - code: resolving_capability_promoted
+      when: A rule or capability that resolves the fingerprint is promoted and its regression window passes.
+      result: Saga closes the Issue and records the promoting pull request.
+      source_refs:
+        - src/fdai/agents/saga.py#close_issue
+        - docs/roadmap/agents/agent-pantheon.md#64-handoff-escalation-protocol
+  authority_refs:
+    - rule-catalog/vocabulary/object-types/Issue.yaml
+    - src/fdai/agents/saga.py#escalate_to_github_issue
+    - src/fdai/agents/_framework/runtime.py#_maybe_escalate_handoff
 properties:
   id:
     type: string

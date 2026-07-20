@@ -23,8 +23,9 @@ function formatSchemaErrors(errors: ErrorObject[] | null | undefined): string {
     .join("; ");
 }
 
-function endpointNodeId(endpoint: string): string {
-  return endpoint.split(":", 1)[0] ?? endpoint;
+function endpointParts(endpoint: string): [string, string | undefined] {
+  const [elementId, portId] = endpoint.split(":", 2);
+  return [elementId ?? endpoint, portId];
 }
 
 function findDuplicate(values: string[]): string | undefined {
@@ -60,12 +61,19 @@ export function validateDiagram(value: unknown): DiagramSpec {
     }
   }
 
-  const nodeIds = new Set(spec.nodes.map((node) => node.id));
+  const nodeById = new Map(spec.nodes.map((node) => [node.id, node]));
+  const validEndpointIds = new Set(elementIds);
   for (const edge of spec.edges) {
     for (const endpoint of [edge.from, edge.to]) {
-      const nodeId = endpointNodeId(endpoint);
-      if (!nodeIds.has(nodeId)) {
+      const [elementId, portId] = endpointParts(endpoint);
+      if (!validEndpointIds.has(elementId)) {
         throw new Error(`Unknown edge endpoint '${endpoint}' on '${edge.id}'`);
+      }
+      if (portId) {
+        const node = nodeById.get(elementId);
+        if (!node?.ports?.some((port) => port.id === portId)) {
+          throw new Error(`Unknown edge port '${endpoint}' on '${edge.id}'`);
+        }
       }
     }
   }

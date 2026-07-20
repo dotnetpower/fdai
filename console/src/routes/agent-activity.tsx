@@ -26,13 +26,17 @@ import {
   UnavailableState,
   type AsyncState,
 } from "../components/ui";
-import { usePublishViewContext } from "../deck/context";
+import {
+  type ViewExplanations,
+  usePublishViewContext,
+} from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { agentStreamDescriptor, useAgentStream, type AgentStreamStatus } from "../hooks/use-agent-stream";
 import { observationSourceLabel, type ObservationSource } from "../hooks/observation-source";
 import { t } from "../i18n";
 import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
 import {
+  activityPresentationState,
   activityProvenanceCounts,
   agentActivityRank,
   agentOf,
@@ -45,6 +49,7 @@ import {
   tierOf,
 } from "./agent-activity-semantics";
 export {
+  activityPresentationState,
   activityProvenanceCounts,
   agentOf,
   auditProvenanceOf,
@@ -67,15 +72,23 @@ import {
 } from "./agent-activity-groups";
 import {
   activeAgentCount,
+  AGENT_RUNTIME_BINDING,
   AGENT_ROLE,
   incidentsForAgent,
+  liveActivityForAgent,
   makeInitialState,
   reducer,
-  STATE_TASK,
   type AgentNode,
   type AgentsState,
   type Incident,
 } from "./agents.model";
+import {
+  agentStateClass,
+  agentStateLabel,
+  currentTask,
+  stateTime,
+} from "./agents.view-model";
+import { LiveActivityJournal } from "./agent-live-activity";
 
 interface Props {
   readonly client: ReadApiClient;
@@ -86,6 +99,35 @@ const TIMELINE_LIMIT = 200;
 interface Data {
   readonly items: readonly AuditItem[];
   readonly olderAvailable: boolean;
+}
+
+export function agentActivityExplanations(
+  selectedAgent: string | null,
+  incidents: readonly Incident[],
+): ViewExplanations | undefined {
+  if (selectedAgent === null) return undefined;
+  return {
+    selection: {
+      entity_kind: "Agent",
+      entity_id: selectedAgent,
+      label: selectedAgent,
+    },
+    relationships: incidents.map((incident) => ({
+      link: "participates_in",
+      from: selectedAgent,
+      to: incident.correlationId,
+      neighbor: incident.correlationId,
+      direction: "outgoing",
+      detail: `${incident.title} (${incident.status}, ${incident.severity})`,
+    })),
+    provenance: {
+      authority: "agent_runtime_and_audit",
+      refs: [
+        `Agent:${selectedAgent}`,
+        ...incidents.map((incident) => `Incident:${incident.correlationId}`),
+      ],
+    },
+  };
 }
 
 type ActivityView = "activity" | "waterfall";
@@ -292,13 +334,26 @@ function ActivityBody({
     () => selected ? incidentsForAgent(runtime, selected) : [],
     [runtime, selected],
   );
+  const liveActivity = useMemo(
+    () => liveActivityForAgent(runtime.liveActivity, selected),
+    [runtime.liveActivity, selected],
+  );
   const provenanceCounts = useMemo(
     () => activityProvenanceCounts(visible),
     [visible],
   );
+  const presentation = activityPresentationState({
+    totalAuditCount: data.items.length,
+    visibleAuditCount: visible.length,
+    selected,
+    selectionValid,
+    hasSelectedNode: selectedNode !== undefined,
+  });
 
   usePublishViewContext(
-    () => ({
+    () => {
+      const explanations = agentActivityExplanations(selected, selectedIncidents);
+      return {
       routeId: "agent-activity",
       routeLabel: "Agent activity",
       purpose:
@@ -356,12 +411,15 @@ function ActivityBody({
           provenance: auditProvenanceOf(item),
         })),
       },
-    }),
+        ...(explanations ? { explanations } : {}),
+      };
+    },
     [
       data.items,
       data.olderAvailable,
       perAgent,
       selected,
+      selectedIncidents,
       visible,
       streamStatus,
       streamSource,
@@ -370,15 +428,6 @@ function ActivityBody({
       filters,
     ],
   );
-
-  if (data.items.length === 0) {
-    return (
-      <EmptyState
-        title="No agent activity yet"
-        body="Once the control loop records decisions, each agent's work appears here as a timeline."
-      />
-    );
-  }
 
   return (
     <div class="stack">
@@ -401,15 +450,17 @@ function ActivityBody({
       {!selectionValid && selected ? (
         <UnavailableState message={`Agent ${selected} is not in the fixed pantheon or the loaded audit activity.`} />
       ) : null}
-      {selectedNode ? (
+      {presentation.showLiveSummary && selectedNode ? (
         <LiveAgentActivity
           node={selectedNode}
           incidents={selectedIncidents}
           operationalAuditCount={provenanceCounts.operational}
           sampleAuditCount={provenanceCounts.sample}
           streamStatus={streamStatus}
+          streamSource={streamSource}
         />
       ) : null}
+      <LiveActivityJournal events={liveActivity} selectedAgent={selected} />
       {data.olderAvailable ? (
         <p class="muted footnote">Showing the latest {data.items.length} audit rows; older activity is available in the Audit log.</p>
       ) : null}
@@ -471,14 +522,20 @@ function ActivityBody({
         </button>
       </div>
 
-      {!selectionValid ? null : visible.length === 0 ? (
+      {presentation.emptyKind !== null ? (
         <EmptyState
-          title={selected ? `No recorded audit activity for ${selected}` : "No activity matches these filters"}
-          body={selected
-            ? "Live state is shown above. This agent has no attributed audit row in the current window yet."
-            : "Widen the window or clear the layer, verb, agent, and search filters."}
+          title={presentation.emptyKind === "selected-audit" && selected
+            ? `No recorded audit activity for ${selected}`
+            : presentation.emptyKind === "all-audit"
+              ? "No durable agent audit activity yet"
+              : "No activity matches these filters"}
+          body={presentation.emptyKind === "selected-audit"
+            ? selectedAgentAuditEmptyBody(selectedNode, streamSource)
+            : presentation.emptyKind === "all-audit"
+              ? "Live runtime state remains available for a selected agent. Audit events appear here only after the control loop records them."
+              : "Widen the window or clear the layer, verb, agent, and search filters."}
         />
-      ) : view === "activity" ? (
+      ) : !selectionValid ? null : view === "activity" ? (
         <GroupedAgentActivity items={visible} agentOf={agentOf} layerOf={layerOf} />
       ) : (
         <ActivityWaterfall items={waterfallItems} selected={selected} />
@@ -492,12 +549,14 @@ function LiveAgentActivity({
   operationalAuditCount,
   sampleAuditCount,
   streamStatus,
+  streamSource,
 }: {
   readonly node: AgentNode;
   readonly incidents: readonly Incident[];
   readonly operationalAuditCount: number;
   readonly sampleAuditCount: number;
   readonly streamStatus: AgentStreamStatus;
+  readonly streamSource: ObservationSource;
 }) {
   const role = AGENT_ROLE[node.name];
   const activeIncident = matchingLiveIncident(node.correlationId, incidents);
@@ -505,16 +564,18 @@ function LiveAgentActivity({
     <section class="aa-selected-agent" aria-label={`${node.name} live activity`}>
       <header>
         <div>
-          <span>{node.observed ? "Live now" : "Runtime not observed"}</span>
+          <span>{node.observed ? "Live runtime evidence" : "Runtime not observed"}</span>
           <h3>{node.name} <small>{role?.title ?? node.layer}</small></h3>
         </div>
-        <span class={`aa-selected-state state-${node.observed ? node.state : "unobserved"}`}>
-          {node.observed ? node.state : "unobserved"}
+        <span class={`aa-selected-state state-${agentStateClass(node)}`}>
+          {agentStateLabel(node)}
         </span>
       </header>
-      <p>{node.observed ? node.detail ?? STATE_TASK[node.state] : "No runtime signal observed for this agent."}</p>
+      <p><strong>Current work</strong><span>{currentTask(node)}</span></p>
       <dl>
-        <div><dt>Stream</dt><dd>{streamStatus}</dd></div>
+        <div><dt>Runtime binding</dt><dd>{AGENT_RUNTIME_BINDING[node.name] ?? "Not configured"}</dd></div>
+        <div><dt>State since</dt><dd>{stateTime(node.since)}</dd></div>
+        <div><dt>Stream</dt><dd>{streamStatus} - {observationSourceLabel(streamSource)}</dd></div>
         <div><dt>Active correlation</dt><dd>{node.correlationId ?? "None"}</dd></div>
         <div><dt>Active incident</dt><dd>{activeIncident?.ticketId ?? "None"}</dd></div>
         <div><dt>Live incidents</dt><dd>{incidents.length}</dd></div>
@@ -554,6 +615,22 @@ function LiveAgentActivity({
       ) : null}
     </section>
   );
+}
+
+export function selectedAgentAuditEmptyBody(
+  node: AgentNode | undefined,
+  streamSource: ObservationSource,
+): string {
+  if (node === undefined) {
+    return "No live runtime node or attributed audit row is available for this selection.";
+  }
+  const liveState = node.observed
+    ? `${node.name} is ${agentStateLabel(node)} from ${observationSourceLabel(streamSource)} live runtime evidence.`
+    : `No runtime state frame has been observed for ${node.name}.`;
+  const correlation = node.correlationId === null
+    ? "There is no active correlation or incident."
+    : `Correlation ${node.correlationId} has no attributed audit row in the current window.`;
+  return `${liveState} ${correlation} No durable audit row has been attributed to this agent in the current window.`;
 }
 
 export function matchingLiveIncident(

@@ -30,9 +30,17 @@ from fdai.core.conversation.session import (
 from fdai.core.incident.lifecycle import IncidentConfirmationError
 from fdai.core.incident.registry import IncidentRegistry
 from fdai.core.incident.workflow import IncidentLifecycleWorkflow
-from fdai.core.scheduler.models import ScheduledTask
-from fdai.core.scheduler.store import ScheduleStore
+from fdai.core.scheduler.models import (
+    ScheduledRunIsolationProfile,
+    ScheduledTask,
+    ScheduleKind,
+)
+from fdai.core.scheduler.store import ScheduleNotFoundError, ScheduleStore
 from fdai.shared.contracts.models import Incident, IncidentSeverity
+from fdai.shared.providers.scheduled_continuation import (
+    ContinuationMode,
+    ScheduledResultOrigin,
+)
 
 _CREATE_FLOOR: Role = Role.CONTRIBUTOR
 
@@ -105,6 +113,11 @@ class CreateScheduledTaskCommand:
         resource_ref: str | None = None,
         event_payload: Mapping[str, object] | None = None,
         task_id: str | None = None,
+        cron_expression: str | None = None,
+        timezone: str = "UTC",
+        isolation_profile: ScheduledRunIsolationProfile | None = None,
+        continuation_mode: ContinuationMode = ContinuationMode.NONE,
+        continuation_origin: ScheduledResultOrigin | None = None,
     ) -> ScheduledTask:
         """Create a scheduled task the next scheduler tick will fire."""
         _require_floor(principal, "create_scheduled_task")
@@ -116,7 +129,22 @@ class CreateScheduledTaskCommand:
             created_by=principal.id,
             event_payload=dict(event_payload or {}),
             resource_ref=resource_ref,
+            cron_expression=cron_expression,
+            schedule_kind=ScheduleKind.CRON if cron_expression is not None else None,
+            timezone=timezone,
+            isolation_profile=isolation_profile or ScheduledRunIsolationProfile(),
+            continuation_mode=continuation_mode,
+            continuation_origin=continuation_origin,
         )
+        if task_id is not None:
+            try:
+                existing = await self._store.get(task_id)
+            except ScheduleNotFoundError:
+                pass
+            else:
+                if existing == task:
+                    return existing
+                raise ValueError(f"task_id {task_id!r} already exists with different content")
         return await self._store.create(task)
 
 

@@ -1,25 +1,39 @@
 ---
-title: Implementation Plan (Standard Set)
+title: Implementation Plan Record (2026-07-06 Standard Set)
 ---
 
-# Implementation Plan (Standard Set)
+# Implementation Plan Record (2026-07-06 Standard Set)
 
-Authoritative sequencing document for the next tranche of FDAI work.
-Consolidates the design decisions of 2026-07-06 (the "standard set") and the
-phased wave plan that follows from them.
+Historical coordination record for the 2026-07-06 FDAI tranche. It preserves the proposed
+"standard set" and phased waves; current implementation authority lives in each subsystem owner
+document and the code.
 
 - **Standard Set**: six design decisions (R1, R2, R3, R4, R6, R7) that unify
   overlapping abstractions across the design docs added on 2026-07-06.
 - **Wave plan**: Foundation -> Console Day 1 -> Write set -> Ops ActionTypes
   -> Live probes, plus two parallel tracks for Assurance Twin and Preflight.
-- **Not a delivery commitment**: this doc is the coordinating record.
-  Individual PRs are still measured against their own exit gates and the
-  safety invariants in
-  [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md#safety).
 
 > Customer-agnostic scope: every module name and phase label below is generic.
 > A fork tunes without editing `core/` via the DI seams in
 > [project-structure.md](../architecture/project-structure.md).
+>
+> **Current status.** "Locked", "non-negotiable", and "shipped" below describe the historical
+> planning snapshot. Do not use sections after the reconciliation table as a current backlog or API
+> contract.
+
+## Current implementation reconciliation (2026-07-21)
+
+| Decision | Current status | Current authority |
+|----------|----------------|-------------------|
+| R1 | Not adopted | Axis A is the baseline; independent ceiling axes including static blast and env may lower autonomy. [`ceiling.py`](../../../src/fdai/core/risk_gate/ceiling.py) and [execution-model.md](../decisioning/execution-model.md) are authoritative. |
+| R2 | Not adopted | `ConversationCoordinator` receives an explicit `SystemConsoleTool` registry. ActionTypes provide discovery evidence, not automatic write-tool projection. |
+| R3 | Not adopted | `LlmBindings` aggregates role-specific Protocols/adapters. No unified `LlmBinding` or `AzureOpenAIChatBinding` exists. |
+| R4 | Partially implemented | `ScratchProjection` and the Assurance Twin consumer shipped. Deployment Preflight currently uses `FeasibilityProbe`/`PreflightAnalyzer`. |
+| R6 | Not adopted | `operator_memory` remains an independent append/supersede store, not an audit-log materialized view. |
+| R7 | Not adopted | `ExecutionPath` retains `pr_manual`, `pr_native`, and `direct_api`; there is no `require_manual_merge` field. |
+
+Track active work and open decisions only in the status/open-decision sections of the linked owner
+documents.
 
 ## 1. Why this doc exists
 
@@ -47,12 +61,10 @@ several concepts appear in two places at once:
 
 The standard set collapses each pair into one authoritative representation.
 
-## 2. Standard set (design decisions locked 2026-07-06)
+## 2. Historical standard set (proposed 2026-07-06)
 
-Each decision is scoped, testable, and non-negotiable at the schema level
-before Wave F starts. Deviating from any decision below in a downstream PR
-requires an explicit change to this document first (docs-first, per
-[coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md#documentation-workflow)).
+The following entries describe the proposed target shape at that time. When they conflict with the
+reconciliation above, follow the current authority.
 
 ### 2.1 R1 - Axes D and G are derivation-only from Axis A
 
@@ -312,7 +324,7 @@ mis-reading this document.
 - The rule catalog stays customer-agnostic. Per-customer values live in
   a fork ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
-## 4. Wave sequencing
+## 4. Historical wave sequencing
 
 The waves below are dependency-ordered. Each wave has an explicit exit
 gate; a wave is not complete until every gate is measurable and green.
@@ -739,29 +751,15 @@ flowchart LR
   A --> A_P3[Wave A P3: ambient review]
 ```
 
-## 6. Open decisions
+## 6. Historical open decisions
 
-Standing decisions pending sign-off. Each one blocks a specific wave; a
-wave does not start until its listed decisions are resolved.
+The former OD-C1 through OD-P2 questions were resolved or replaced across their owner documents and
+implementations. This snapshot no longer blocks any wave.
 
-- **OD-C1 (blocks D1)** Narrator prompt catalog path:
-  `rule-catalog/prompts/narrator/` vs `rule-catalog/prompts/console/`.
-  Reference:
-  [operator-console.md § 15](../interfaces/operator-console.md#15-open-decisions-tracked).
-- **OD-C2 (blocks W1)** `operator_memory` schema sign-off (per R6 the
-  schema is the audit `action_kind` shape; the view schema follows).
-- **OD-C3 (blocks W1)** Whether an active break-glass grant tightens
-  the no-self-approval invariant to paired-approver-only. Owner:
-  security-and-identity doc author.
-- **OD-C4 (blocks D1)** CLI REPL history path and retention. Proposal:
-  `~/.fdai/console-history.jsonl`, capped at 10 MiB, redacted
-  before write.
-- **OD-P1 (blocks W2)** Cost estimator API surface for Axis A. Owner:
-  Cost Governance vertical.
-- **OD-P2 (blocks M1)** Which starter probes ship with Azure Monitor
-  bindings vs stay `NoOpBlastProbe` at Month 1 gate.
+## 7. Historical fork implications (not the current contract)
 
-## 7. Fork implications
+These implications assumed adoption of the entire standard set. Current forks follow
+[downstream-fork-guide.md](downstream-fork-guide.md) and the machine-readable framework surface.
 
 - **R2** removes the mirror-registration step for a fork's custom ops
   actions. A fork's `rule-catalog/action-types-overrides/` entry that

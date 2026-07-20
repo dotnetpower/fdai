@@ -148,8 +148,8 @@ Kafka topic on the shipped `EventBus` seam. Upstream's
 fork's producer just posts JSON that matches the schema.
 
 **Idempotency**: each signal MUST carry a stable id
-(`gov.proposal.<uuid>` / `gov.review.<uuid>`) so the shipped
-deduplication guarantees exactly-once processing per unique event.
+(`gov.proposal.<uuid>` / `gov.review.<uuid>`). Shipped deduplication prevents a redelivery from
+applying the same side effect twice; it never pretends a failed attempt succeeded.
 
 **Schema note**: the shipped `event/1.0.0` schema is generic (payload
 is an open object). No fork edit is required. A fork MAY register
@@ -171,8 +171,8 @@ Two ActionTypes cover the workflow. Ship them under
 schema_version: "1.0.0"
 name: governance.assign-reviewers
 version: "1.0.0"
-operation: configure          # tags a GovernanceProposal with reviewer refs
-interfaces: [Governance]
+operation: update
+interfaces: [ControlPlane, IdempotentByKey, RequiresInventoryFresh]
 rollback_contract: state_forward_only
 irreversible: false
 default_mode: shadow
@@ -182,21 +182,36 @@ promotion_gate:
   min_accuracy: 0.98
   max_policy_escapes: 0
 preconditions:
-  - kind: property_exists
-    property: affected_components
+  - kind: graph_fresh_within_seconds
+    value: 300
   - kind: link_exists
     link_type: affects
+  - kind: no_conflicting_open_action_on_resource
 stop_conditions:
-  - kind: count
-    count: 1            # one assign-reviewers per proposal; retries no-op
-trigger_kind: rule_violation
+  - kind: provider_api_error_streak
+    count: 3
+  - kind: time_box_exceeded_seconds
+    seconds: 300
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: Assign the deterministic reviewer set for one governance proposal.
+category: governance
+trigger_kind:
+  kind: rule_violation
+execution_path: pr_native
+ceiling_by_tier:
+  t0: { max_autonomy: enforce_hil, min_role: approver }
+  t1: { max_autonomy: shadow_only, min_role: approver }
+  t2: { max_autonomy: shadow_only, min_role: approver }
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector
 ```
 
-Rollback is `state_forward_only` because assigning reviewers is
-non-destructive: a wrong assignment is corrected by a superseding
-assignment record, not by rewinding the graph. The `count: 1` stop
-condition makes retries idempotent (a re-fired signal on the same
-proposal produces no additional edges).
+Rollback is `state_forward_only` because assigning reviewers is non-destructive: a wrong
+assignment is corrected by a superseding assignment record. `IdempotentByKey` plus
+`no_conflicting_open_action_on_resource` bounds reprocessing of the same proposal.
 
 ### 4.2 `governance.publish-decision`
 
@@ -205,8 +220,8 @@ proposal produces no additional edges).
 schema_version: "1.0.0"
 name: governance.publish-decision
 version: "1.0.0"
-operation: create             # creates a decision artifact via the publisher
-interfaces: [Governance, DataPlane]
+operation: create
+interfaces: [ControlPlane, DataPlaneMutating, IdempotentByKey, RequiresInventoryFresh]
 rollback_contract: pr_revert  # publisher issues a retraction page
 irreversible: false
 default_mode: shadow
@@ -216,12 +231,32 @@ promotion_gate:
   min_accuracy: 0.99
   max_policy_escapes: 0
 preconditions:
-  - kind: property_exists
-    property: decision_ref
+  - kind: graph_fresh_within_seconds
+    value: 300
+  - kind: resource_property_equals
+    property: state
+    value: approved
+  - kind: no_conflicting_open_action_on_resource
 stop_conditions:
-  - kind: count
-    count: 1
-trigger_kind: rule_violation
+  - kind: provider_api_error_streak
+    count: 3
+  - kind: time_box_exceeded_seconds
+    seconds: 300
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: Publish the approved decision artifact for one governance proposal.
+category: governance
+trigger_kind:
+  kind: rule_violation
+execution_path: pr_native
+ceiling_by_tier:
+  t0: { max_autonomy: enforce_hil, min_role: approver }
+  t1: { max_autonomy: shadow_only, min_role: approver }
+  t2: { max_autonomy: shadow_only, min_role: approver }
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector
 ```
 
 `rollback_contract: pr_revert` maps to the Confluence publisher's
@@ -244,23 +279,24 @@ Two rules drive the workflow.
 schema_version: "1.0.0"
 id: fork-x.governance.assign-reviewers
 version: "1.0.0"
-source: authored
+source: custom
 severity: medium
-category: governance
+category: compliance
 resource_type: governance.proposal   # see the caveat below
 check_logic:
   kind: rego
   reference: policies/fork-x/governance/assign_reviewers.rego
 remediation:
   template_ref: remediation/fork-x/governance/assign_reviewers.yaml
+  cost_impact_monthly_usd: 0
 remediates: governance.assign-reviewers
 provenance:
-  source_ref: internal.governance-baseline
-  resolved_ref: internal
-  content_hash: sha256:<...>
-  license: proprietary
-  redistribution: internal
-  retrieved_at: 2026-07-08T00:00:00Z
+  source_url: https://example.com/governance-baseline
+  resolved_ref: "0000000000000000000000000000000000000000"
+  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  license: LicenseRef-reference-only
+  redistribution: reference-only
+  retrieved_at: "2026-07-08T00:00:00Z"
 ```
 
 **The `resource_type` caveat**: the shipped rule loader validates
@@ -288,23 +324,24 @@ long-term direction and blocks on an upstream design pass.
 schema_version: "1.0.0"
 id: fork-x.governance.publish-decision
 version: "1.0.0"
-source: authored
+source: custom
 severity: medium
-category: governance
+category: compliance
 resource_type: governance.proposal
 check_logic:
   kind: rego
   reference: policies/fork-x/governance/publish_decision.rego
 remediation:
   template_ref: remediation/fork-x/governance/publish_decision.yaml
+  cost_impact_monthly_usd: 0
 remediates: governance.publish-decision
 provenance:
-  source_ref: internal.governance-baseline
-  resolved_ref: internal
-  content_hash: sha256:<...>
-  license: proprietary
-  redistribution: internal
-  retrieved_at: 2026-07-08T00:00:00Z
+  source_url: https://example.com/governance-baseline
+  resolved_ref: "0000000000000000000000000000000000000000"
+  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  license: LicenseRef-reference-only
+  redistribution: reference-only
+  retrieved_at: "2026-07-08T00:00:00Z"
 ```
 
 Both rules ship policies under `policies/fork-x/governance/`. The

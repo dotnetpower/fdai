@@ -13,7 +13,10 @@ import {
   type OntologyEdge,
   type OntologyNode,
 } from "../components/ontology-graph";
-import { usePublishViewContext } from "../deck/context";
+import {
+  type ViewExplanations,
+  usePublishViewContext,
+} from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
@@ -39,6 +42,91 @@ export function ontologyNamedSelection(
   requested: string | null,
 ): string | null {
   return requested ?? names[0] ?? null;
+}
+
+export function selectedOntologyRecords(
+  nodes: readonly OntologyNode[],
+  edges: readonly OntologyEdge[],
+  selectedName: string | null,
+): {
+  readonly selected_object_types: readonly Record<string, unknown>[];
+  readonly selected_relationships: readonly Record<string, unknown>[];
+} {
+  if (selectedName === null) {
+    return { selected_object_types: [], selected_relationships: [] };
+  }
+  const selected = nodes.find((node) => node.name === selectedName);
+  return {
+    selected_object_types: selected
+      ? [{
+          name: selected.name,
+          properties: selected.property_count,
+          property_names: selected.properties,
+          description: selected.description ?? "-",
+        }]
+      : [],
+    selected_relationships: edges
+      .filter((edge) => edge.from_type === selectedName || edge.to_type === selectedName)
+      .map((edge) => ({
+        link: edge.name,
+        from: edge.from_type,
+        to: edge.to_type,
+        neighbor: edge.from_type === selectedName ? edge.to_type : edge.from_type,
+        direction: edge.from_type === selectedName ? "outgoing" : "incoming",
+        cardinality: edge.cardinality,
+        causal: edge.is_causal,
+        description: edge.description ?? "-",
+      })),
+  };
+}
+
+export function selectedOntologyExplanations(
+  nodes: readonly OntologyNode[],
+  edges: readonly OntologyEdge[],
+  selectedName: string | null,
+): ViewExplanations | undefined {
+  if (selectedName === null) return undefined;
+  const relationships = edges
+    .filter((edge) => edge.from_type === selectedName || edge.to_type === selectedName)
+    .map((edge) => ({
+      link: edge.name,
+      from: edge.from_type,
+      to: edge.to_type,
+      neighbor: edge.from_type === selectedName ? edge.to_type : edge.from_type,
+      direction: edge.from_type === edge.to_type
+        ? "self" as const
+        : edge.from_type === selectedName ? "outgoing" as const : "incoming" as const,
+      cardinality: edge.cardinality,
+      causal: edge.is_causal,
+      ...(edge.description ? { detail: edge.description } : {}),
+    }));
+  const relatedNames = new Set([selectedName, ...relationships.map((item) => item.neighbor)]);
+  const lifecycles = nodes.flatMap((node) =>
+    relatedNames.has(node.name) && node.lifecycle
+      ? [{
+          entity_kind: "ObjectType",
+          entity_id: node.name,
+          ...node.lifecycle,
+        }]
+      : [],
+  );
+  return {
+    selection: {
+      entity_kind: "ObjectType",
+      entity_id: selectedName,
+      label: selectedName,
+    },
+    relationships,
+    lifecycles,
+    provenance: {
+      authority: "ontology_catalog",
+      refs: [
+        `ObjectType:${selectedName}`,
+        ...relationships.map((item) => `LinkType:${item.link}`),
+        ...lifecycles.flatMap((item) => item.authority_refs),
+      ].filter((value, index, values) => values.indexOf(value) === index),
+    },
+  };
 }
 
 export function OntologyRoute({ client }: Props) {
@@ -183,6 +271,16 @@ function OntologyBody({
               description: e.description ?? "-",
             }))
           : data.link_types.map((name) => ({ name }));
+      const selectedRecords = selectedOntologyRecords(
+        data.nodes ?? [],
+        data.edges ?? [],
+        selectedName,
+      );
+      const explanations = selectedOntologyExplanations(
+        data.nodes ?? [],
+        data.edges ?? [],
+        selectedName,
+      );
       return {
         routeId: "ontology",
         routeLabel: "Ontology",
@@ -194,11 +292,13 @@ function OntologyBody({
         headline: `${data.object_type_count} ObjectTypes - ${data.link_type_count} LinkTypes - ${data.action_type_count ?? actionTypes.length} ActionTypes`,
         capturedAt: new Date().toISOString(),
         facts: [
+          { key: "selected_object_type", value: selectedName, group: "selection" },
           { key: "object_type_count", value: data.object_type_count, group: "graph" },
           { key: "link_type_count", value: data.link_type_count, group: "graph" },
           { key: "action_type_count", value: data.action_type_count ?? actionTypes.length, group: "catalog" },
         ],
         records: {
+          ...selectedRecords,
           object_types: objectTypeRecords,
           relationships: relationshipRecords,
           action_types: actionTypes.map((action) => ({
@@ -213,9 +313,10 @@ function OntologyBody({
             description: action.description ?? "-",
           })),
         },
+        ...(explanations ? { explanations } : {}),
       };
     },
-    [actionTypes, data],
+    [actionTypes, data, selectedName],
   );
   return (
     <div class="stack governance-ontology">

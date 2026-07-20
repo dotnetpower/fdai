@@ -9,6 +9,8 @@ import {
   engagedGroups,
   incidentsForAgent,
   isEngaged,
+  isLiveWorkActivity,
+  liveActivityForAgent,
   makeInitialState,
   ORG_CHART,
   PANTHEON,
@@ -78,6 +80,24 @@ describe("agents.model", () => {
     expect(s.agents.Heimdall?.state).toBe("collecting");
     expect(s.agents.Heimdall?.observed).toBe(true);
     expect(s.agents.Heimdall?.correlationId).toBe("inc-1");
+  });
+
+  it("retains observed state transitions as newest-first live activity", () => {
+    let s = makeInitialState();
+    s = reducer(s, { kind: "message", msg: stateMsg("Huginn", "watching") });
+    s = reducer(s, { kind: "message", msg: stateMsg("Huginn", "collecting", "inc-1") });
+    s = reducer(s, { kind: "message", msg: stateMsg("Huginn", "watching") });
+
+    expect(s.liveActivity.map((event) => event.state)).toEqual([
+      "watching",
+      "collecting",
+      "watching",
+    ]);
+    expect(s.liveActivity.every((event) => event.agent === "Huginn")).toBe(true);
+    expect(liveActivityForAgent(s.liveActivity, "Huginn")).toHaveLength(3);
+    expect(liveActivityForAgent(s.liveActivity, "Forseti")).toHaveLength(0);
+    expect(s.liveActivity.filter(isLiveWorkActivity).map((event) => event.state))
+      .toEqual(["collecting"]);
   });
 
   it("ignores state frames outside the fixed pantheon", () => {

@@ -11,6 +11,26 @@ from typing import Any, Protocol
 
 import yaml
 
+from fdai.core.skills.disclosure import (
+    SkillCatalogError,
+    SkillDescriptorResult,
+    SkillIndexResult,
+    SkillLoadResult,
+    SkillReferenceResult,
+    describe_skill,
+    list_skills,
+    load_skill,
+    read_skill_reference,
+)
+from fdai.core.skills.references import (
+    MAX_REFERENCE_COUNT,
+    SkillReferenceArtifact,
+    SkillReferenceManifest,
+    build_reference_artifacts,
+    validate_reference_declaration,
+    validate_reference_manifest,
+)
+
 _NAME_PATTERN = re.compile(r"^[a-z][a-z0-9.-]{2,127}$")
 _SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 _VERSION_PATTERN = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
@@ -24,8 +44,10 @@ _MANIFEST_KEYS = frozenset(
         "body_sha256",
         "required_tools",
         "allowed_agents",
+        "references",
     }
 )
+_REFERENCE_KEYS = frozenset({"path", "sha256", "size_bytes", "media_type"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +59,7 @@ class SkillManifest:
     body_sha256: str
     required_tools: tuple[str, ...] = ()
     allowed_agents: tuple[str, ...] = ()
+    references: tuple[SkillReferenceManifest, ...] = ()
 
     def __post_init__(self) -> None:
         if _NAME_PATTERN.fullmatch(self.name) is None:
@@ -51,6 +74,7 @@ class SkillManifest:
             raise ValueError("skill required_tools MUST NOT contain duplicates")
         if len(set(self.allowed_agents)) != len(self.allowed_agents):
             raise ValueError("skill allowed_agents MUST NOT contain duplicates")
+        validate_reference_manifest(self.references)
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,16 +82,14 @@ class RuntimeSkill:
     manifest: SkillManifest
     body: str
     enabled: bool = False
+    raw_markdown: bytes = b""
+    references: tuple[SkillReferenceArtifact, ...] = ()
 
 
 class SkillTrustVerifier(Protocol):
     """Verify detached publisher provenance for one skill artifact."""
 
     def verify(self, skill: RuntimeSkill, raw_markdown: bytes) -> bool: ...
-
-
-class SkillCatalogError(ValueError):
-    """Skill installation or activation failed before prompt projection."""
 
 
 class SkillCatalog:
@@ -79,9 +101,20 @@ class SkillCatalog:
         self._skills = MappingProxyType(dict(skills or {}))
 
     def install(self, raw_markdown: bytes, *, verifier: SkillTrustVerifier) -> SkillCatalog:
+        return self.install_bundle(raw_markdown, {}, verifier=verifier)
+
+    def install_bundle(
+        self,
+        raw_markdown: bytes,
+        references: Mapping[str, bytes],
+        *,
+        verifier: SkillTrustVerifier,
+    ) -> SkillCatalog:
         skill = parse_skill_markdown(raw_markdown)
         if skill.manifest.name in self._skills:
             raise SkillCatalogError(f"skill {skill.manifest.name!r} is already installed")
+        artifacts = build_reference_artifacts(skill.manifest.references, references)
+        skill = replace(skill, references=artifacts)
         if not verifier.verify(skill, raw_markdown):
             raise SkillCatalogError("skill publisher trust verification failed")
         skills = dict(self._skills)
@@ -128,6 +161,63 @@ class SkillCatalog:
 
     def list(self) -> tuple[RuntimeSkill, ...]:
         return tuple(self._skills[name] for name in sorted(self._skills))
+
+    def list_skills(
+        self,
+        *,
+        query: str,
+        agent: str,
+        available_tools: frozenset[str],
+        max_chars: int = 8_192,
+    ) -> SkillIndexResult:
+        return list_skills(
+            self._skills,
+            query=query,
+            agent=agent,
+            available_tools=available_tools,
+            max_chars=max_chars,
+        )
+
+    def describe_skill(self, name: str) -> SkillDescriptorResult:
+        return describe_skill(self._skills, name)
+
+    def load_skill(
+        self,
+        name: str,
+        *,
+        agent: str,
+        available_tools: frozenset[str],
+        verifier: SkillTrustVerifier,
+        max_chars: int,
+    ) -> SkillLoadResult:
+        return load_skill(
+            self._skills,
+            name,
+            agent=agent,
+            available_tools=available_tools,
+            verifier=verifier,
+            max_chars=max_chars,
+        )
+
+    def read_skill_reference(
+        self,
+        name: str,
+        path: str,
+        *,
+        agent: str,
+        available_tools: frozenset[str],
+        verifier: SkillTrustVerifier,
+        max_bytes: int,
+    ) -> SkillReferenceResult:
+        return read_skill_reference(
+            self._skills,
+            name,
+            path,
+            agent=agent,
+            available_tools=available_tools,
+            verifier=verifier,
+            max_bytes=max_bytes,
+        )
 
     def prompt_for(
         self,
@@ -194,12 +284,17 @@ def parse_skill_markdown(raw_markdown: bytes) -> RuntimeSkill:
             body_sha256=_required_string(values, "body_sha256"),
             required_tools=_string_tuple(values, "required_tools"),
             allowed_agents=_string_tuple(values, "allowed_agents"),
+            references=_reference_tuple(values),
         )
     except ValueError as exc:
         raise SkillCatalogError(str(exc)) from exc
     if skill_body_digest(normalized_body) != manifest.body_sha256:
         raise SkillCatalogError("skill body digest does not match front matter")
-    return RuntimeSkill(manifest=manifest, body=normalized_body)
+    return RuntimeSkill(
+        manifest=manifest,
+        body=normalized_body,
+        raw_markdown=bytes(raw_markdown),
+    )
 
 
 def skill_body_digest(body: str) -> str:
@@ -227,11 +322,59 @@ def _string_tuple(values: Mapping[str, Any], key: str) -> tuple[str, ...]:
     return tuple(value)
 
 
+def _reference_tuple(values: Mapping[str, Any]) -> tuple[SkillReferenceManifest, ...]:
+    raw_references = values.get("references", [])
+    if not isinstance(raw_references, list):
+        raise ValueError("skill references MUST be an array")
+    if len(raw_references) > MAX_REFERENCE_COUNT:
+        raise ValueError("skill references MUST NOT contain more than 16 entries")
+    references: list[SkillReferenceManifest] = []
+    for raw_reference in raw_references:
+        if not isinstance(raw_reference, Mapping) or any(
+            not isinstance(key, str) for key in raw_reference
+        ):
+            raise ValueError("skill reference entries MUST be mappings with string keys")
+        unknown = set(raw_reference) - _REFERENCE_KEYS
+        if unknown:
+            raise ValueError(f"skill reference has unknown keys: {sorted(unknown)}")
+        if set(raw_reference) != _REFERENCE_KEYS:
+            missing = _REFERENCE_KEYS - set(raw_reference)
+            raise ValueError(f"skill reference is missing keys: {sorted(missing)}")
+        path = _required_string(raw_reference, "path")
+        digest = _required_string(raw_reference, "sha256")
+        size_bytes = _required_integer(raw_reference, "size_bytes")
+        media_type = _required_string(raw_reference, "media_type")
+        validate_reference_declaration(
+            path=path,
+            sha256=digest,
+            size_bytes=size_bytes,
+            media_type=media_type,
+        )
+        references.append(
+            SkillReferenceManifest(
+                path=path,
+                sha256=digest,
+                size_bytes=size_bytes,
+                media_type=media_type,
+            )
+        )
+    return tuple(references)
+
+
+def _required_integer(values: Mapping[str, Any], key: str) -> int:
+    value = values.get(key)
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"skill {key} MUST be an integer")
+    return value
+
+
 __all__ = [
     "RuntimeSkill",
     "SkillCatalog",
     "SkillCatalogError",
     "SkillManifest",
+    "SkillReferenceArtifact",
+    "SkillReferenceManifest",
     "SkillTrustVerifier",
     "parse_skill_markdown",
     "skill_body_digest",

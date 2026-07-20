@@ -1,6 +1,6 @@
 ---
 title: SRE Scenario Validation
-description: Every SRE scenario set FDAI uses, with separate evidence levels for catalog validation, replay, shadow coverage, and live enforce validation.
+description: Every SRE scenario set FDAI uses, with separate evidence levels for catalog validation, replay, observation-mode coverage, and live enforcement validation.
 ---
 
 # SRE Scenario Validation

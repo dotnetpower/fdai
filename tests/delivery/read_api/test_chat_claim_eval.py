@@ -29,8 +29,8 @@ def _load_cases() -> list[ClaimEvalCase]:
 def test_frozen_claim_corpus_has_zero_unsupported_escapes_and_rejections() -> None:
     metrics = evaluate_claim_cases(_load_cases())
 
-    assert metrics.total == 14
-    assert metrics.clean_total == 7
+    assert metrics.total == 15
+    assert metrics.clean_total == 8
     assert metrics.unsafe_total == 7
     assert metrics.unsupported_claim_escape_rate == 0.0
     assert metrics.clean_rejection_rate == 0.0

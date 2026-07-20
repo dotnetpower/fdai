@@ -19,6 +19,11 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from croniter import croniter
 
+from fdai.shared.providers.scheduled_continuation import (
+    ContinuationMode,
+    ScheduledResultOrigin,
+)
+
 
 class ScheduleKind(StrEnum):
     INTERVAL = "interval"
@@ -83,6 +88,8 @@ class ScheduledTask:
     isolation_profile: ScheduledRunIsolationProfile = field(
         default_factory=ScheduledRunIsolationProfile
     )
+    continuation_mode: ContinuationMode = ContinuationMode.NONE
+    continuation_origin: ScheduledResultOrigin | None = None
 
     def __post_init__(self) -> None:
         if self.interval_seconds <= 0:
@@ -114,6 +121,11 @@ class ScheduledTask:
             self.exit_event_type is not None or self.exit_observed_at is not None
         ):
             raise ValueError("exit fields require event-exit schedule kind")
+        if self.continuation_mode is ContinuationMode.NONE:
+            if self.continuation_origin is not None:
+                raise ValueError("continuation origin requires an enabled continuation mode")
+        elif self.continuation_origin is None:
+            raise ValueError("enabled continuation requires immutable origin metadata")
 
     @property
     def kind(self) -> ScheduleKind:

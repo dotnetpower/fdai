@@ -23,9 +23,48 @@ See ``docs/roadmap/interfaces/operator-console.md`` section 6 and
 
 from __future__ import annotations
 
-from fdai.core.working_context.composer import compose_working_context
+from fdai.core.working_context.composer import (
+    DEFAULT_CONTEXT_SELECTION_POLICY,
+    DETERMINISTIC_TIERED_POLICY_ID,
+    DETERMINISTIC_TIERED_POLICY_VERSION,
+    DeterministicTieredPolicy,
+    compose_working_context,
+    context_selection_input,
+)
+from fdai.core.working_context.evidence import (
+    ContextSelectionEvaluation,
+    ContextSelectionEvaluationStore,
+    InMemoryContextSelectionEvaluationStore,
+    StateStoreContextSelectionEvaluationStore,
+)
+from fdai.core.working_context.governance import (
+    ContextPolicyEvidence,
+    ContextPolicyGovernanceError,
+    ContextPolicyIdentity,
+    ContextPolicyRecord,
+    ContextPolicySnapshot,
+    ContextPolicyState,
+    ContextSelectionPolicyAuthority,
+)
 from fdai.core.working_context.orchestrator import SummarizationOrchestrator
 from fdai.core.working_context.planner import FoldPlan, plan_summarization
+from fdai.core.working_context.replay import (
+    ContextReplayFixture,
+    ContextReplayResult,
+    replay_approved_context_fixtures,
+)
+from fdai.core.working_context.selection import (
+    ContextSelectionInput,
+    ContextSelectionOutput,
+    ContextSelectionPolicy,
+    ContextTrustClass,
+    ModelCapabilityMetadata,
+)
+from fdai.core.working_context.shadow import (
+    ContextSelectionShadowRunner,
+    ContextShadowConfig,
+    fingerprint_context_selection_input,
+)
 from fdai.core.working_context.summarizer import (
     DeterministicTruncationSummarizer,
     NoOpRetriever,
@@ -41,21 +80,56 @@ from fdai.core.working_context.types import (
     WorkingContext,
     WorkingContextError,
 )
+from fdai.core.working_context.validation import (
+    ContextSelectionInvariantError,
+    execute_context_selection_policy,
+    validate_context_selection,
+)
 
 __all__ = [
     "ContextBudget",
     "ContextManifest",
+    "ContextPolicyEvidence",
+    "ContextPolicyGovernanceError",
+    "ContextPolicyIdentity",
+    "ContextPolicyRecord",
+    "ContextPolicySnapshot",
+    "ContextPolicyState",
+    "ContextReplayFixture",
+    "ContextReplayResult",
+    "ContextSelectionInput",
+    "ContextSelectionEvaluation",
+    "ContextSelectionEvaluationStore",
+    "ContextSelectionInvariantError",
+    "ContextSelectionOutput",
+    "ContextSelectionPolicy",
+    "ContextSelectionPolicyAuthority",
+    "ContextSelectionShadowRunner",
+    "ContextShadowConfig",
+    "ContextTrustClass",
+    "DEFAULT_CONTEXT_SELECTION_POLICY",
+    "DETERMINISTIC_TIERED_POLICY_ID",
+    "DETERMINISTIC_TIERED_POLICY_VERSION",
     "DeterministicTruncationSummarizer",
+    "DeterministicTieredPolicy",
     "EntryKind",
     "EntryRole",
     "FoldPlan",
+    "InMemoryContextSelectionEvaluationStore",
+    "ModelCapabilityMetadata",
     "NoOpRetriever",
     "SummarizationOrchestrator",
+    "StateStoreContextSelectionEvaluationStore",
     "TranscriptEntry",
     "TranscriptRetriever",
     "TranscriptSummarizer",
     "WorkingContext",
     "WorkingContextError",
     "compose_working_context",
+    "context_selection_input",
+    "execute_context_selection_policy",
+    "fingerprint_context_selection_input",
     "plan_summarization",
+    "replay_approved_context_fixtures",
+    "validate_context_selection",
 ]

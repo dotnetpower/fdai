@@ -1,7 +1,13 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, test } from "vitest";
-import { nextMenuItemIndex, visibleNavigationGroups } from "./navigation-shell";
+import { describe, expect, test, vi } from "vitest";
+import { DEFAULT_NAVIGATION_PREFERENCES } from "../navigation-preferences";
+import {
+  firstVisiblePanelInGroup,
+  nextMenuItemIndex,
+  visibleNavigationGroups,
+  workspaceGroupNavigationPath,
+} from "./navigation-shell";
 import { TOOLTIP_DELAY_MS, TOOLTIP_EXIT_MS } from "./tooltip";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
@@ -37,6 +43,37 @@ describe("navigation shell groups", () => {
   test("keeps pointer entry deliberate and tooltip exit fast", () => {
     expect(TOOLTIP_DELAY_MS).toBe(100);
     expect(TOOLTIP_EXIT_MS).toBe(50);
+  });
+
+  test("resolves the first visible child page using the operator's group order", () => {
+    expect(firstVisiblePanelInGroup("operations", DEFAULT_NAVIGATION_PREFERENCES)?.id)
+      .toBe("live");
+    expect(firstVisiblePanelInGroup("operations", {
+      ...DEFAULT_NAVIGATION_PREFERENCES,
+      groupOrder: {
+        ...DEFAULT_NAVIGATION_PREFERENCES.groupOrder,
+        operations: ["incidents", "live"],
+      },
+      hiddenPanelIds: ["incidents"],
+    })?.id).toBe("live");
+  });
+
+  test("navigates to the first child only when a workspace Deck closes", () => {
+    const accepted = vi.fn(() => true);
+    const ignored = vi.fn(() => false);
+
+    expect(workspaceGroupNavigationPath(
+      "operations",
+      DEFAULT_NAVIGATION_PREFERENCES,
+      accepted,
+    )).toBe("/live");
+    expect(workspaceGroupNavigationPath(
+      "operations",
+      DEFAULT_NAVIGATION_PREFERENCES,
+      ignored,
+    )).toBeNull();
+    expect(accepted).toHaveBeenCalledOnce();
+    expect(ignored).toHaveBeenCalledOnce();
   });
 
   test("implements wrapping keyboard navigation for the action menu", () => {

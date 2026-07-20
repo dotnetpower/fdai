@@ -77,6 +77,11 @@ def _metering_correlation_id(user_id: str, session_id: str) -> str:
 def _uses_evidence_fast_path(view_context: Mapping[str, Any]) -> bool:
     """Return whether server evidence can render the answer without a model."""
 
+    if isinstance(view_context.get("_behavior_evidence"), Mapping):
+        return True
+    tool = view_context.get("_tool_evidence")
+    if isinstance(tool, Mapping) and tool.get("tool") in {"query_inventory", "query_log"}:
+        return True
     raw = view_context.get("_operational_evidence")
     if not isinstance(raw, Mapping):
         return False

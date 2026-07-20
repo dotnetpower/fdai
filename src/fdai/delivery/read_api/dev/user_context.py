@@ -9,6 +9,11 @@ from typing import Any
 
 from fdai.core.briefing import BriefingCoordinator, OpeningBriefingService
 from fdai.core.report_feed import ReportFeed
+from fdai.core.scheduler.continuation import (
+    InMemoryContinuationAuditSink,
+    InMemoryScheduledConversationAnchorStore,
+    ScheduledContinuationService,
+)
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.core.workflow.definition import (
     build_workflow_definition,
@@ -21,6 +26,7 @@ from fdai.shared.providers.testing import (
     InMemoryBriefingSubscriptionStore,
     InMemoryConversationHistoryStore,
     InMemoryConversationPolicyStore,
+    InMemoryConversationSearch,
     InMemoryOntologyInstanceStore,
     InMemoryUserMemoryStore,
     InMemoryUserPreferenceStore,
@@ -65,8 +71,10 @@ def build_local_user_context(
     policies = InMemoryConversationPolicyStore()
     subscriptions = InMemoryBriefingSubscriptionStore()
     runs = InMemoryBriefingRunStore()
+    continuations = InMemoryScheduledConversationAnchorStore()
     routes = UserContextRoutesConfig(
         conversations=conversations,
+        conversation_search=InMemoryConversationSearch(history=conversations),
         preferences=preferences,
         memories=memories,
         policies=policies,
@@ -78,6 +86,11 @@ def build_local_user_context(
             coordinator=BriefingCoordinator(report_feed=ReportFeed()),
         ),
         ontology_projector=projector,
+        continuations=continuations,
+        continuation_service=ScheduledContinuationService(
+            store=continuations,
+            audit=InMemoryContinuationAuditSink(),
+        ),
     )
     action_types_by_name = {item.name: item for item in action_types}
     built_in_definitions = tuple(

@@ -11,6 +11,22 @@
       "validate": ["scripts/verify.sh"]
     },
     {
+      "id": "issue-lifecycle",
+      "paths": [
+        ".github/ISSUE_TEMPLATE/**",
+        ".github/workflows/issue-lifecycle.yml",
+        "CONTRIBUTING.md",
+        "scripts/quality/repository/check-issue-lifecycle.py"
+      ],
+      "must_read": [
+        ".github/copilot-instructions.md",
+        "CONTRIBUTING.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/repository/check-issue-lifecycle.py"
+      ]
+    },
+    {
       "id": "python",
       "paths": ["src/**/*.py", "tests/**/*.py"],
       "must_read": [
@@ -60,6 +76,35 @@
       ]
     },
     {
+      "id": "context-selection-policy",
+      "paths": [
+        "src/fdai/core/working_context/**",
+        "src/fdai/core/conversation/context_bridge.py",
+        "src/fdai/core/capability_catalog/runtime.py",
+        "src/fdai/delivery/read_api/routes/context_selection_comparisons.py",
+        "src/fdai/delivery/read_api/production/panels.py",
+        "console/src/routes/context-selection-comparisons*",
+        "tests/core/working_context/**",
+        "tests/delivery/read_api/test_context_selection_comparisons.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/decisioning/context-selection-policy.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/decisioning/context-selection-policy.md",
+        "docs/roadmap/decisioning/prompt-composition.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/core/working_context tests/delivery/read_api/test_context_selection_comparisons.py tests/core/capability_catalog/test_runtime.py tests/core/conversation/test_context_bridge.py tests/core/conversation/test_assemble_turn_context.py",
+        "npm --prefix console test -- --run src/routes/context-selection-comparisons.test.ts"
+      ]
+    },
+    {
       "id": "agents",
       "paths": ["src/fdai/agents/**"],
       "must_read": [
@@ -68,6 +113,337 @@
         "docs/roadmap/agents/agent-pantheon.md"
       ],
       "docs_update": ["docs/roadmap/agents/agent-pantheon.md"]
+    },
+    {
+      "id": "bounded-task-workers",
+      "paths": [
+        "src/fdai/core/task_worker/**",
+        "src/fdai/delivery/persistence/postgres_task_worker.py",
+        "src/fdai/delivery/read_api/routes/task_workers.py",
+        "tests/core/task_worker/**",
+        "tests/persistence/test_task_worker.py",
+        "tests/delivery/read_api/test_task_workers.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        "docs/roadmap/agents/bounded-task-workers.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/agents/bounded-task-workers.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ]
+    },
+    {
+      "id": "background-task-sessions",
+      "paths": [
+        "src/fdai/core/background_task/**",
+        "src/fdai/delivery/persistence/postgres_background_task.py",
+        "src/fdai/delivery/read_api/background_executor.py",
+        "src/fdai/delivery/read_api/background_runtime.py",
+        "src/fdai/delivery/read_api/routes/background_tasks.py",
+        "tests/core/background_task/**",
+        "tests/persistence/test_background_task.py",
+        "tests/delivery/read_api/test_background*.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/background-task-sessions.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/background-task-sessions.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ]
+    },
+    {
+      "id": "busy-input-modes",
+      "paths": [
+        "src/fdai/core/conversation/busy_input*.py",
+        "src/fdai/core/conversation/channel_gateway.py",
+        "src/fdai/delivery/persistence/postgres_busy_input.py",
+        "src/fdai/delivery/read_api/busy_input_runtime.py",
+        "src/fdai/delivery/read_api/routes/busy_input.py",
+        "src/fdai/delivery/read_api/routes/chat*.py",
+        "tests/conversation/test_busy_input*.py",
+        "tests/conversation/test_channel_gateway.py",
+        "tests/persistence/test_busy_input.py",
+        "tests/delivery/read_api/test_busy_input*.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/busy-input-modes.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/busy-input-modes.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ]
+    },
+    {
+      "id": "durable-conversation-delivery",
+      "paths": [
+        "src/fdai/shared/providers/conversation_delivery.py",
+        "src/fdai/core/conversation/adapter_health.py",
+        "src/fdai/core/conversation/binding_delivery_context.py",
+        "src/fdai/core/conversation/identity_verification.py",
+        "src/fdai/core/conversation/outbound_delivery.py",
+        "src/fdai/core/conversation/principal_binding.py",
+        "src/fdai/core/conversation/channel_gateway.py",
+        "src/fdai/delivery/channels/adapter_health_commands.py",
+        "src/fdai/delivery/channels/prod.py",
+        "src/fdai/delivery/channels/publishers.py",
+        "src/fdai/delivery/channels/scheduled_continuation.py",
+        "src/fdai/delivery/channels/teams.py",
+        "src/fdai/delivery/persistence/postgres_conversation_delivery.py",
+        "src/fdai/delivery/persistence/postgres_principal_binding.py",
+        "src/fdai/delivery/read_api/app/config.py",
+        "src/fdai/delivery/read_api/app/factory.py",
+        "src/fdai/delivery/read_api/routes/conversation_delivery.py",
+        "alembic/versions/*conversation_delivery*.py",
+        "tests/**/*conversation_delivery*.py",
+        "tests/**/*outbound_delivery*.py",
+        "tests/**/*principal_binding*.py",
+        "tests/**/*identity_verification*.py",
+        "tests/**/*binding_delivery_context*.py",
+        "tests/**/*adapter_health*.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/durable-conversation-delivery.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/durable-conversation-delivery.md",
+        "docs/roadmap/interfaces/channels-and-notifications.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/scheduled-result-continuations.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/providers/test_conversation_delivery.py tests/conversation/test_outbound_delivery.py tests/conversation/test_principal_binding.py tests/conversation/test_identity_verification.py tests/conversation/test_binding_delivery_context.py tests/conversation/test_adapter_health.py tests/conversation/test_channel_gateway.py tests/persistence/test_conversation_delivery.py tests/delivery/channels/test_adapter_health_commands.py tests/delivery/channels/test_publishers_and_routes.py tests/delivery/channels/test_scheduled_continuation.py tests/delivery/channels/test_prod.py tests/delivery/read_api/test_conversation_delivery.py"
+      ]
+    },
+    {
+      "id": "progressive-skill-disclosure",
+      "paths": [
+        "src/fdai/core/skills/**",
+        "src/fdai/core/prompts/skill_disclosure.py",
+        "src/fdai/core/supply_chain/skill_*.py",
+        "src/fdai/core/conversation/skill_discovery.py",
+        "src/fdai/core/rpc/skill_discovery.py",
+        "src/fdai/delivery/read_api/**/*skill*.py",
+        "src/fdai/delivery/rpc/prod.py",
+        "console/src/routes/skills*",
+        "tests/**/*skill*.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/decisioning/prompt-composition.md",
+        "docs/roadmap/interfaces/operator-console.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/decisioning/prompt-composition.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ]
+    },
+    {
+      "id": "governed-skill-bundles",
+      "paths": [
+        "src/fdai/core/skills/bundle_*.py",
+        "src/fdai/core/supply_chain/skill_bundle_loader.py",
+        "rule-catalog/schema/skill-bundle.schema.json",
+        "alembic/versions/*skill_bundle*.py",
+        "tests/**/*bundle*.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/decisioning/governed-skill-bundles.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/decisioning/governed-skill-bundles.md",
+        "docs/roadmap/decisioning/prompt-composition.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ]
+    },
+    {
+      "id": "skill-source-management",
+      "paths": [
+        "src/fdai/core/skills/source_registry.py",
+        "src/fdai/core/supply_chain/skill_quarantine.py",
+        "src/fdai/core/supply_chain/skill_source_*.py",
+        "src/fdai/shared/providers/skill_source.py",
+        "src/fdai/delivery/github/skill_source.py",
+        "src/fdai/delivery/persistence/postgres_skill_*.py",
+        "src/fdai/delivery/read_api/**/*skill_source*.py",
+        "alembic/versions/*skill_source*.py",
+        "tests/**/*skill_source*.py",
+        "tests/persistence/test_postgres_skill_quarantine.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/skill-source-management.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/skill-source-management.md",
+        "docs/roadmap/decisioning/prompt-composition.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q tests/core/supply_chain/test_skill_source_*.py tests/persistence/test_postgres_skill_source*.py tests/persistence/test_postgres_skill_quarantine.py tests/delivery/github/test_skill_source.py tests/delivery/read_api/test_skill_sources.py"
+      ]
+    },
+    {
+      "id": "programmatic-tool-pipelines",
+      "paths": [
+        "src/fdai/core/programmatic_pipeline/**",
+        "src/fdai/core/python_task/validator.py",
+        "src/fdai/shared/providers/programmatic_pipeline.py",
+        "src/fdai/delivery/programmatic_pipeline/**",
+        "src/fdai/delivery/azure/programmatic_pipeline.py",
+        "src/fdai/delivery/persistence/postgres_programmatic_pipeline.py",
+        "alembic/versions/*programmatic_pipeline*.py",
+        "tests/**/programmatic_pipeline/**",
+        "tests/**/*programmatic_pipeline*.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/programmatic-tool-pipelines.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/programmatic-tool-pipelines.md",
+        "docs/roadmap/decisioning/prompt-composition.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q tests/core/programmatic_pipeline tests/core/python_task/test_programmatic_pipeline_validator.py tests/delivery/programmatic_pipeline tests/delivery/azure/test_programmatic_pipeline.py tests/persistence/test_postgres_programmatic_pipeline.py"
+      ]
+    },
+    {
+      "id": "governed-execution-backends",
+      "paths": [
+        "src/fdai/core/sandbox/**"
+      ],
+      "optional_paths": [
+        "src/fdai/core/execution_backend/**",
+        "src/fdai/shared/providers/execution_backend.py",
+        "src/fdai/delivery/execution_backend/**",
+        "src/fdai/delivery/azure/container_apps_job_backend.py",
+        "src/fdai/delivery/persistence/postgres_execution_backend.py",
+        "src/fdai/composition/wire_execution_backends.py",
+        "alembic/versions/*execution_backend*.py",
+        "tests/**/*execution_backend*.py",
+        "tests/**/execution_backend/**",
+        "tests/delivery/azure/test_container_apps_job_backend.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/execution-backends.md",
+        "docs/roadmap/decisioning/execution-model.md",
+        "docs/roadmap/architecture/security-and-identity.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/execution-backends.md",
+        "docs/roadmap/decisioning/execution-model.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "docs/roadmap/interfaces/operator-console.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/core/execution_backend tests/core/sandbox/test_profiles.py tests/delivery/execution_backend tests/delivery/azure/test_container_apps_job_backend.py tests/persistence/test_execution_backend_ledger.py tests/composition/test_execution_backends.py"
+      ]
+    },
+    {
+      "id": "automation-blueprints",
+      "paths": [
+        "src/fdai/core/scheduler/blueprints/**",
+        "src/fdai/delivery/persistence/postgres_automation_blueprint.py",
+        "src/fdai/delivery/read_api/routes/automation_blueprints.py",
+        "console/src/routes/automation-blueprints*",
+        "alembic/versions/*automation_blueprint*.py",
+        "tests/**/*blueprint*.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/decisioning/automation-blueprints.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/decisioning/automation-blueprints.md",
+        "docs/roadmap/decisioning/process-automation.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ]
+    },
+    {
+      "id": "governed-trajectory-datasets",
+      "paths": [
+        "src/fdai/core/trajectory/**",
+        "src/fdai/shared/providers/trajectory.py",
+        "src/fdai/delivery/trajectory/**",
+        "src/fdai/delivery/persistence/postgres_trajectory.py",
+        "src/fdai/delivery/read_api/**/*trajectory*.py",
+        "src/fdai/deployment_cli/trajectory.py",
+        "alembic/versions/*trajectory*.py",
+        "tests/**/*trajectory*.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/governed-trajectory-datasets.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/governed-trajectory-datasets.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/core/trajectory tests/delivery/trajectory tests/persistence/test_trajectory.py tests/delivery/read_api/test_trajectory_datasets.py tests/deployment_cli/test_trajectory_cli.py tests/agents/test_norns_trajectory.py"
+      ]
+    },
+    {
+      "id": "scheduled-result-continuations",
+      "paths": [
+        "src/fdai/core/scheduler/continuation.py",
+        "src/fdai/core/briefing/**",
+        "src/fdai/shared/providers/scheduled_continuation.py",
+        "src/fdai/delivery/persistence/postgres_scheduled_continuation.py",
+        "src/fdai/delivery/channels/scheduled_continuation.py",
+        "console/src/routes/scheduled-continuations*",
+        "alembic/versions/*scheduled_continuation*.py",
+        "tests/**/*scheduled_continuation*.py",
+        "tests/core/scheduler/test_continuation.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/scheduled-result-continuations.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/scheduled-result-continuations.md",
+        "docs/roadmap/interfaces/channels-and-notifications.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ]
     },
     {
       "id": "stewardship",
@@ -87,6 +463,84 @@
       "docs_update": [
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md"
+      ]
+    },
+    {
+      "id": "browser-evidence",
+      "paths": [
+        "src/fdai/core/browser_evidence/**",
+        "src/fdai/shared/providers/browser_evidence.py",
+        "src/fdai/delivery/browser/**",
+        "src/fdai/delivery/persistence/postgres_browser_evidence.py",
+        "src/fdai/delivery/read_api/routes/browser_evidence.py",
+        "src/fdai/composition/wire_browser_evidence.py",
+        "tests/core/browser_evidence/**",
+        "tests/delivery/browser/**",
+        "tests/delivery/read_api/test_browser_evidence.py",
+        "console/src/routes/browser-evidence*",
+        "alembic/versions/*browser_evidence.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/browser-evidence.md",
+        "docs/roadmap/architecture/security-and-identity.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/browser-evidence.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/architecture/security-and-identity.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/core/browser_evidence tests/delivery/browser tests/delivery/read_api/test_browser_evidence.py",
+        "npm --prefix console test -- --run src/routes/browser-evidence.test.ts"
+      ]
+    },
+    {
+      "id": "behavior-knowledge",
+      "paths": [
+        "src/fdai/shared/providers/behavior_knowledge.py",
+        "src/fdai/delivery/behavior_knowledge/**",
+        "src/fdai/delivery/pgvector/behavior_knowledge.py",
+        "src/fdai/delivery/read_api/routes/chat_behavior_evidence.py",
+        "tests/delivery/behavior_knowledge/**",
+        "tests/delivery/pgvector/test_behavior_knowledge.py",
+        "tests/delivery/read_api/test_chat_behavior_evidence.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/behavior-knowledge.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/behavior-knowledge.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/code-map.md"
+      ]
+    },
+    {
+      "id": "workflow-automation",
+      "paths": [
+        "src/fdai/core/workflow/**",
+        "src/fdai/core/runbook/**",
+        "src/fdai/delivery/workflow_action_dispatcher.py",
+        "src/fdai/delivery/tool_router.py",
+        "src/fdai/delivery/remediation/**",
+        "src/fdai/runtime/delivery.py",
+        "console/src/routes/workflow-builder*",
+        "rule-catalog/workflows/**"
+      ],
+      "must_read": [
+        "docs/roadmap/decisioning/process-automation.md",
+        "docs/roadmap/decisioning/customer-workflow-automation-plan.md",
+        "docs/roadmap/decisioning/execution-model.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/decisioning/process-automation.md",
+        "docs/roadmap/decisioning/customer-workflow-automation-plan.md"
       ]
     },
     {
