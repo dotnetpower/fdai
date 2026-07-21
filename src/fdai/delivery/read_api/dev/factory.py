@@ -234,9 +234,7 @@ def build_local_app(
             "local dev entrypoint and MUST NOT boot in production."
         )
     local_database_configured = bool(os.environ.get("FDAI_DATABASE_URL", "").strip())
-    authoritative_proxy_configured = bool(
-        os.environ.get(AUTHORITATIVE_READ_API_ENV, "").strip()
-    )
+    authoritative_proxy_configured = bool(os.environ.get(AUTHORITATIVE_READ_API_ENV, "").strip())
     if local_database_configured and authoritative_proxy_configured:
         raise RuntimeError(
             "FDAI_DATABASE_URL and FDAI_AUTHORITATIVE_READ_API_BASE_URL "
