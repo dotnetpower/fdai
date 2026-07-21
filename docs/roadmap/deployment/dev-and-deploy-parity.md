@@ -46,6 +46,12 @@ enabled by that launch profile.
 | Quality gate | `StaticVerifier` + `MatchTypeCrossCheckModel` + `InMemoryGroundingSource` | see [llm-strategy.md § T2](../architecture/llm-strategy.md#t2--reasoning-tier-quality-gate-required) |
 | T1 similarity | `DeterministicEmbeddingModel` + `InMemoryPatternLibrary` | hash-based, no real embeddings |
 
+Operator browser E2E tests use Playwright against the real Vite SPA with an explicit dev-test
+profile. Route interception supplies a declared synthetic read-source manifest, incidents, agent
+frames, and chat SSE response. These fixtures exist only inside the test runner and never activate
+for `Console Web: Full Stack`. Backend integration tests separately exercise the same request
+contract through the real Starlette route and server-owned evidence resolver.
+
 ### Backed by dev-up.sh (still local)
 
 | Subsystem | Local backend | Prod backend |

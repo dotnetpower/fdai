@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "preact/hooks";
 import { fetchOpeningBriefing } from "../user-context-client";
 import type { Turn } from "./command-deck-presenters";
+import { DEFAULT_NARRATOR } from "./command-deck-presenters";
 import { record as recordHistory, type DraftHistory } from "./draft-history";
 import {
   DECK_OPEN_EVENT,
@@ -209,10 +210,11 @@ export function useCommandDeckEvents(options: EventsOptions) {
         ? userConversationKey(userScope, requestedKey)
         : screenConversationKey(userScope, currentPathname());
       const label = typeof detail?.sessionLabel === "string" ? detail.sessionLabel : null;
+      const contextAgent = detail.binding ? DEFAULT_NARRATOR : label;
       if (key !== sessionKeyRef.current) {
         switchSession(
           key,
-          label,
+          contextAgent,
           note,
           label ?? undefined,
           requestedKey?.startsWith("agent:") ? "agent" : "screen-thread",
@@ -221,7 +223,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
           normalizeIncidentBinding(detail.binding) ?? undefined,
         );
       } else if (note && turnsRef.current.length === 0) {
-        streamContextTurn(label, note);
+        streamContextTurn(contextAgent, note);
       }
       const seed = typeof detail?.prompt === "string" ? detail.prompt : "";
       if (seed) {

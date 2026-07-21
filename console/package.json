@@ -10,7 +10,9 @@
     "check:entry": "node scripts/check-entry-bundle.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "@azure/msal-browser": "^3.28.1",
@@ -21,6 +23,7 @@
     "preact": "^10.24.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@preact/preset-vite": "^2.10.2",
     "@types/node": "^22.10.0",
     "typescript": "^5.9.0",

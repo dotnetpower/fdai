@@ -302,6 +302,27 @@ def test_operator_reply_hides_internal_snapshot_keys_by_default() -> None:
     assert "hide JSON structure, field names, and row indexes" in system
 
 
+def test_incident_prompt_keeps_bragi_identity_separate_from_selected_agent() -> None:
+    messages = _build_messages(
+        "Who are you and what is Var doing?",
+        {
+            "_operational_evidence": {
+                "authority": "server_read_model",
+                "status": "matched",
+                "selected_agent_context": "Var",
+            }
+        },
+        [],
+    )
+    normalized = " ".join(message["content"] for message in messages if message["role"] == "system")
+    normalized = " ".join(normalized.split())
+
+    assert "You are Bragi" in normalized
+    assert "answer Bragi" in normalized
+    assert "never claim to be the selected or delegated agent" in normalized
+    assert "it is not the narrator identity" in normalized
+
+
 def test_screen_explanation_uses_sections_controls_and_constraints() -> None:
     system = _system_of(
         _build_messages(

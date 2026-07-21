@@ -411,15 +411,24 @@ the same contracts to the configured event bus.
 
 Any read-only surface can raise the deck without holding a reference to it, via
 the decoupled `fdai:deck:open` window event
-([`src/deck/open-deck.ts`](src/deck/open-deck.ts) `openDeckWithPrompt`). The
+([`src/deck/open-deck.ts`](src/deck/open-deck.ts) `openDeckWithContext`). The
 Now > Agents route ([`src/routes/agents.tsx`](src/routes/agents.tsx)) uses it:
-selecting an incident publishes that incident's `ViewSnapshot` (the agent
-conversation, involved agents, status) so the deck grounds answers in the live
-thread, and an **Ask the deck about this incident** button opens the deck seeded
-with a grounded question. The seam only opens a question box - it seeds a draft
-the operator still has to send, executes nothing, and preserves the read-only
-console invariant. From there the operator asks (narrator) or proposes a runtime
-action (`/chat/action`, judged downstream, never executed here).
+the **Ask the deck about this incident** button opens an isolated conversation
+with a typed incident id, correlation id, and optional selected-agent binding.
+The server treats that binding as an untrusted hint, verifies both identifiers
+against its read model, and bypasses fuzzy ranking only for an exact match.
+Bragi remains the narrator; the selected agent is screen context, not reply
+authorship. The seam seeds a draft the operator still sends and never executes
+an action.
+
+Playwright covers this operator flow in
+[`tests/e2e/agents-incident-deck.spec.ts`](tests/e2e/agents-incident-deck.spec.ts)
+for desktop and mobile Chromium. The browser test clicks accessible controls,
+checks the outbound binding, Bragi identity, RCA-unavailable wording, bounded
+agent activity, trust status, and absence of redundant disambiguation. It uses
+explicit synthetic route fixtures only inside the test runner. A Starlette
+integration test separately sends the same contract through the real chat route
+and `OperationalEvidenceResolver`. Run it with `npm run test:e2e`.
 
 ### Agent collaboration lines + hover cards (Now > Agents)
 

@@ -2,8 +2,8 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: ca225e5551f42f00284410a96b9b275585b89b79
-translation_revised: 2026-07-21
+translation_source_sha: ec8ecf47b739c3a37f1d5822353b86c0bcf5db08
+translation_revised: 2026-07-22
 ---
 
 # 처리 중인 Conversation 입력 모드
@@ -91,6 +91,8 @@ Safe model 또는 tool boundary에서 coordinator는 principal을 다시 확인�
 consume하며 content를 in-memory user guidance로 append한 후 narrator를 다시 실행합니다. Turn 하나는
 최대 네 번의 steer rerun을 수락합니다. Consume 전에 turn이 끝나면 `finish_turn`이 unconsumed steer
 disposition을 `queued`로 원자적으로 변경합니다.
+Queued 및 steered follow-up은 active incident conversation binding을 유지합니다. Rerun은 fuzzy
+incident selection으로 돌아가거나 Bragi의 narrator identity를 변경하지 않습니다.
 
 ## Queue 동작
 

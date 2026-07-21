@@ -88,6 +88,8 @@ At a safe model or tool boundary, the coordinator rechecks the principal, consum
 exactly once, appends its content as in-memory user guidance, and reruns the narrator. A turn accepts
 at most four steer reruns. If the turn finishes before consumption, `finish_turn` atomically changes
 unconsumed steer disposition to `queued`.
+Queued and steered follow-ups retain the active incident conversation binding; a rerun never
+reverts to fuzzy incident selection or changes Bragi's narrator identity.
 
 ## Queue behavior
 

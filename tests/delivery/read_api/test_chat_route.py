@@ -44,6 +44,7 @@ from fdai.delivery.read_api.routes.chat import (
     make_chat_route,
     make_chat_stream_route,
 )
+from fdai.delivery.read_api.routes.chat_evidence import OperationalEvidenceResolver
 from fdai.delivery.read_api.routes.chat_registration import append_chat_routes
 from fdai.shared.providers.testing.user_context import InMemoryConversationHistoryStore
 from fdai.shared.providers.workload_identity import IdentityToken
@@ -232,6 +233,69 @@ def test_chat_idempotency_conflict_returns_409_instead_of_500() -> None:
 
     assert conflict.status_code == 409
     assert conflict.text == "chat request id conflicts with an existing turn"
+
+
+def test_incident_conversation_context_selects_exact_server_incident() -> None:
+    model = InMemoryConsoleReadModel()
+    for suffix in ("a", "b"):
+        model.record_audit_entry(
+            {
+                "event_id": f"evt-{suffix}",
+                "incident_id": f"INC-memory-{suffix}",
+                "correlation_id": f"corr-memory-{suffix}",
+                "recorded_at": f"2026-07-15T00:0{suffix == 'b'}:00+00:00",
+                "summary": "Host memory pressure incident",
+                "producer_principal": "Var",
+            },
+            action_kind="hil.requested",
+        )
+    backend = _RecordingBackend(model="must-not-run", delay_ms=10_000)
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                evidence_resolver=OperationalEvidenceResolver(model),
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat",
+        json={
+            "prompt": "What is happening?",
+            "conversation_context": {
+                "kind": "incident",
+                "incident_id": "INC-memory-b",
+                "correlation_id": "corr-memory-b",
+                "selected_agent": "Var",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert backend.calls == 0
+    assert "corr-memory-b" in response.json()["answer"]
+    assert "Multiple incidents" not in response.json()["answer"]
+    assert "Var: hil.requested" in response.json()["answer"]
+
+
+def test_incident_conversation_context_rejects_unknown_agent() -> None:
+    response = TestClient(_app(_RecordingBackend(model="test", delay_ms=0))).post(
+        "/chat",
+        json={
+            "prompt": "What is happening?",
+            "conversation_context": {
+                "kind": "incident",
+                "incident_id": "INC-memory",
+                "correlation_id": "corr-memory",
+                "selected_agent": "UnknownAgent",
+            },
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.text == "selected_agent MUST name a Pantheon agent"
 
 
 class _EvidenceResolver:

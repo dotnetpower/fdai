@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: defe371f1da13780bc74e051a8563ce1e6ec8b43
+translation_source_sha: 3300d69e780ddd7f058515af12dc3c8be7b809ab
 translation_revised: 2026-07-22
 ---
 
@@ -48,6 +48,12 @@ profile에서 활성화되지 않습니다.
 | Verticals (Resilience / FinOps / Change Safety) | 순수 결정 모듈 | 클라우드 없음 |
 | Quality gate | `StaticVerifier` + `MatchTypeCrossCheckModel` + `InMemoryGroundingSource` | [llm-strategy-ko.md § T2](../architecture/llm-strategy-ko.md#t2--reasoning-tier-quality-gate-required) 참조 |
 | T1 유사도 | `DeterministicEmbeddingModel` + `InMemoryPatternLibrary` | 해시 기반, 실제 임베딩 없음 |
+
+Operator browser E2E test는 명시적인 dev-test profile에서 실제 Vite SPA를 Playwright로
+실행합니다. Route interception은 선언된 synthetic read-source manifest, incident, agent frame 및
+chat SSE response를 제공합니다. 이 fixture는 test runner 안에서만 존재하며 `Console Web: Full
+Stack`에서는 활성화되지 않습니다. Backend integration test는 같은 request contract를 실제
+Starlette route와 server-owned evidence resolver로 별도 검증합니다.
 
 ### dev-up.sh 필요 (여전히 로컬)
 

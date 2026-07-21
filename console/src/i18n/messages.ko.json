@@ -1507,7 +1507,7 @@
       "lineChart": "선형 차트"
     },
     "tooltip": {
-      "chattingWith": "{session}와 대화 중",
+      "chattingWith": "대화 컨텍스트: {session}",
       "backToGeneral": "일반 화면 명령 덱으로 돌아가기",
       "floatingPanel": "플로팅 패널",
       "dockRight": "오른쪽에 고정",

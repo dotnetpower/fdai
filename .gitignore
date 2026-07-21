@@ -54,6 +54,8 @@ coverage.xml
 .pytest_cache/
 .vite/
 cover/
+console/playwright-report/
+console/test-results/
 
 # Translations
 *.mo

@@ -205,7 +205,7 @@ export function useCommandDeckSessionController({
     sessionKeyRef.current = key;
     turnsRef.current = next;
     setSessionKey(key);
-    setSessionLabel(agent);
+    setSessionLabel(conversationLabel ?? agent);
     setTurns(next);
     if (next.length === 0) void hydrateDurableTurns(key);
     setSearchQuery("");

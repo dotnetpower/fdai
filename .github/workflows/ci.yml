@@ -210,8 +210,23 @@ jobs:
       - name: Install locked CLI dependencies
         run: npm --prefix cli ci --no-audit --no-fund
 
+      - name: Install Playwright Chromium
+        run: cd console && npx playwright install --with-deps chromium
+
       - name: Test, typecheck, and build operator surfaces
         run: bash scripts/quality/ci/run-operator-surfaces.sh
+
+      - name: Test operator browser flows
+        run: npm --prefix console run test:e2e
+
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operator-playwright-results
+          path: console/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
 
   translations:
     name: docs/**/*.md ↔ -ko.md pair check

@@ -1507,7 +1507,7 @@
       "lineChart": "Line chart"
     },
     "tooltip": {
-      "chattingWith": "Chatting with {session}",
+      "chattingWith": "Conversation context: {session}",
       "backToGeneral": "Back to the general screen deck",
       "floatingPanel": "Floating panel",
       "dockRight": "Dock right",
