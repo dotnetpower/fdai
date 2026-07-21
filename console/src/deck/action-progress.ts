@@ -28,6 +28,12 @@ export interface ActionProgressSnapshot {
   readonly terminal: boolean;
 }
 
+interface ActionProgressDependencies {
+  readonly fetcher?: typeof fetch;
+  readonly requestHeaders?: () => Promise<Record<string, string>>;
+  readonly baseUrl?: string;
+}
+
 export function formatActionProgress(
   correlationId: string,
   events: ReadonlyMap<LiveStageName, LiveStageEvent>,
@@ -55,15 +61,21 @@ export async function watchActionProgress(
   correlationId: string,
   onSnapshot: (snapshot: ActionProgressSnapshot) => void,
   timeoutMs: number = 120_000,
+  dependencies: ActionProgressDependencies = {},
 ): Promise<void> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  let terminal = false;
+  const timeout = globalThis.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
   const events = new Map<LiveStageName, LiveStageEvent>();
   const config = loadConfig();
-  const base = config.readApiBaseUrl || window.location.origin;
+  const base = dependencies.baseUrl ?? (config.readApiBaseUrl || window.location.origin);
   try {
-    const headers = await chatRequestHeaders();
-    const response = await fetch(`${base.replace(/\/$/, "")}/live/stream`, {
+    const headers = await (dependencies.requestHeaders ?? chatRequestHeaders)();
+    const response = await (dependencies.fetcher ?? fetch)(`${base.replace(/\/$/, "")}/live/stream`, {
       method: "GET",
       headers: { ...headers, accept: "text/event-stream" },
       credentials: "omit",
@@ -74,12 +86,17 @@ export async function watchActionProgress(
       events.set(event.stage, event);
       const snapshot = formatActionProgress(correlationId, events);
       onSnapshot(snapshot);
-      if (snapshot.terminal) controller.abort();
+      if (snapshot.terminal) {
+        terminal = true;
+        controller.abort();
+      }
     });
   } catch (error) {
-    if (!controller.signal.aborted) throw error;
+    if (terminal) return;
+    if (timedOut) throw new Error("action progress exceeded the timeout", { cause: error });
+    throw error;
   } finally {
-    window.clearTimeout(timeout);
+    globalThis.clearTimeout(timeout);
   }
 }
 

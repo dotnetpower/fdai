@@ -1,6 +1,10 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import type { LiveStageEvent, LiveStageName } from "../hooks/use-live-stream";
-import { formatActionProgress } from "./action-progress";
+import { formatActionProgress, watchActionProgress } from "./action-progress";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function stage(
   name: LiveStageName,
@@ -46,5 +50,49 @@ describe("action progress", () => {
     expect(result.terminal).toBe(true);
     expect(result.text).toContain("Thor · execute: complete · mode=enforce");
     expect(result.text).toContain("Saga · audit: complete · outcome=executed");
+  });
+
+  test("reports timeout separately from a terminal abort", async () => {
+    vi.useFakeTimers();
+    const request = watchActionProgress(
+      "incident-1",
+      () => undefined,
+      1_000,
+      {
+        baseUrl: "http://127.0.0.1:8010",
+        requestHeaders: async () => ({}),
+        fetcher: async (_input, init) => new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("aborted", "AbortError")),
+          );
+        }),
+      },
+    );
+    const rejection = expect(request).rejects.toThrow("action progress exceeded the timeout");
+
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    await rejection;
+  });
+
+  test("completes normally when the audit frame aborts the stream", async () => {
+    const payload = JSON.stringify(stage("audit", "done", { outcome: "executed" }));
+    const snapshots: string[] = [];
+
+    await expect(watchActionProgress(
+      "incident-1",
+      (snapshot) => snapshots.push(snapshot.text),
+      1_000,
+      {
+        baseUrl: "http://127.0.0.1:8010",
+        requestHeaders: async () => ({}),
+        fetcher: async () => new Response(`event: stage\ndata: ${payload}\n\n`, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      },
+    )).resolves.toBeUndefined();
+    expect(snapshots.at(-1)).toContain("Saga · audit: complete");
   });
 });

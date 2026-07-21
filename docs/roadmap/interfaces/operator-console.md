@@ -1487,7 +1487,9 @@ visualizations provide an equivalent keyboard and screen-reader
 resource selector, and composite tab widgets move DOM focus together with
 roving selection. The Command Deck rejects an SSE frame or incomplete pending frame above 256 KiB
 before accumulating `data:` lines or parsing JSON, then uses its deterministic interrupted-stream
-fallback.
+fallback. Correlation-filtered action progress treats a terminal audit frame as normal completion,
+reports its 120-second deadline as an explicit timeout, and propagates other authentication or
+transport failures instead of hiding them as cancellation.
 
 During bootstrap, the SPA verifies the signed-in principal through authenticated
 `GET /iam/self` before opening console data. A transport failure keeps data closed and renders the
