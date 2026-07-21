@@ -1063,9 +1063,12 @@ terminal event. A correction replaces the text for the existing turn id,
 preserving conversation order and accessibility focus. Only the terminal
 canonical revision is persisted or supplied as history to a later turn.
 
-The first shipped verifier uses no second model call. For cross-screen
-operational and Azure inventory questions it deterministically renders the terminal answer from
-the typed evidence state (`matched`, `ambiguous`, `none`, or `unavailable`),
+The first shipped verifier uses no second model call. For read-source provenance, ontology browse,
+cross-screen operational, and Azure inventory questions it deterministically renders the terminal
+answer from typed evidence. Ontology browse requires both an ontology target and a browse verb,
+forwards only allowlisted identity fields with 256-character prompt values, and renders duplicate
+or malformed count and selection facts unavailable instead of quoting them. Operational states
+remain typed as `matched`, `ambiguous`, `none`, or `unavailable`,
 so model prose cannot change the selected incident, search scope, RCA cause,
 or absence claim. `none`, `ambiguous`, `unavailable`, and `matched` without a
 grounded RCA take a deterministic fast path: the server streams the canonical

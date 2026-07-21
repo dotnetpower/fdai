@@ -49,10 +49,13 @@ DEFAULT_MAX_RECORDS_PER_KEY: Final[int] = 40
 DEFAULT_MAX_EXPLANATION_ITEMS: Final[int] = 24
 
 
+_ONTOLOGY_PROMPT_FIELD_CHARS: Final[int] = 256
+
+
 _ONTOLOGY_BROWSE_INTENT: Final = re.compile(
-    r"(?:\b(?:how|where)\b|방법|어떻게|어디).*(?:\b(?:query|browse|view)\b|조회|탐색|봐)"
-    r"|(?:\b(?:query|browse|view)\b|조회|탐색|봐).*(?:\bontology\b|온톨로지|방법|어떻게|어디)",
-    re.IGNORECASE,
+    r"(?=.*(?:\bontology\b|온톨로지))"
+    r"(?=.*(?:\b(?:query|browse|view|inspect|access)\b|조회|탐색|보기|보여|볼|봐))",
+    re.IGNORECASE | re.DOTALL,
 )
 
 
@@ -349,25 +352,37 @@ def _project_ontology_browse_context(view_context: dict[str, Any]) -> dict[str, 
         "action_types": ("name", "category"),
     }
     projected: dict[str, Any] = {}
-    for key, rows in records.items():
+    for key, allowed in field_names.items():
+        rows = records.get(key)
         if not isinstance(rows, list):
-            projected[key] = rows
             continue
-        allowed = field_names.get(key)
-        if allowed is None:
-            projected[key] = rows
-            continue
-        projected[key] = [
-            {field: row[field] for field in allowed if field in row}
-            if isinstance(row, dict)
-            else row
-            for row in rows
-        ]
+        projected_rows: list[dict[str, Any]] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            projected_row = {
+                field: value
+                for field in allowed
+                if field in row and (value := _ontology_prompt_value(row[field])) is not None
+            }
+            if projected_row:
+                projected_rows.append(projected_row)
+        projected[key] = projected_rows
     return {
         **view_context,
         "records": projected,
         "_ontology_browse_projection": True,
     }
+
+
+def _ontology_prompt_value(value: Any) -> Any | None:
+    if isinstance(value, str):
+        return value[:_ONTOLOGY_PROMPT_FIELD_CHARS]
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value
+    return None
 
 
 def _trim_explanations(view_context: dict[str, Any]) -> dict[str, Any]:
@@ -546,33 +561,93 @@ def _ontology_browse_answer(
         return None
     if not _ONTOLOGY_BROWSE_INTENT.search(prompt):
         return None
-    facts = view_context.get("facts")
-    fact_values = (
-        {
-            str(item.get("key")): item.get("value")
-            for item in facts
-            if isinstance(item, dict) and isinstance(item.get("key"), str)
-        }
-        if isinstance(facts, list)
-        else {}
+    fact_values = _unique_ontology_facts(view_context.get("facts"))
+    selected = _ontology_selection(fact_values.get("selected_object_type"))
+    counts = (
+        ("ObjectType", _ontology_count(fact_values.get("object_type_count"))),
+        ("LinkType", _ontology_count(fact_values.get("link_type_count"))),
+        ("ActionType", _ontology_count(fact_values.get("action_type_count"))),
     )
-    selected = str(fact_values.get("selected_object_type") or "none")
-    objects = fact_values.get("object_type_count", "unknown")
-    links = fact_values.get("link_type_count", "unknown")
-    actions = fact_values.get("action_type_count", "unknown")
+    known_counts = [(label, value) for label, value in counts if value is not None]
     if locale and locale.casefold().startswith("ko"):
-        return (
-            "온톨로지 화면에서 객체, 링크, 작업 탭을 선택해 데이터를 조회할 수 있습니다. "
-            f"현재 ObjectType {objects}개, LinkType {links}개, ActionType {actions}개가 보이며 "
-            f"선택된 ObjectType은 {selected}입니다. 객체를 선택하면 직접 연결 관계와 속성을 "
-            "확인할 수 있습니다. 이 화면은 읽기 전용입니다."
+        count_text = (
+            "현재 snapshot에서 "
+            + ", ".join(f"{label} {value}개" for label, value in known_counts)
+            + "가 확인됩니다."
+            if known_counts
+            else "현재 snapshot에서 type count를 확인할 수 없습니다."
         )
-    return (
-        "Use the Objects, Links, and Actions tabs to inspect ontology data. "
-        f"The current snapshot shows {objects} ObjectTypes, {links} LinkTypes, and "
-        f"{actions} ActionTypes; the selected ObjectType is {selected}. Select an object "
-        "to inspect its one-hop relationships and properties. This screen is read-only."
+        selection_text = (
+            f"선택된 ObjectType은 {selected}입니다."
+            if selected is not None
+            else "현재 ObjectType 선택은 unavailable 또는 ambiguous 상태입니다."
+        )
+        return " ".join(
+            (
+                "온톨로지 화면에서 객체, 링크, 작업 탭을 선택해 데이터를 조회할 수 있습니다.",
+                count_text,
+                selection_text,
+                "객체를 선택하면 직접 연결 관계와 속성을 확인할 수 있습니다.",
+                "이 화면은 읽기 전용입니다.",
+            )
+        )
+    count_text = (
+        "The current snapshot shows "
+        + ", ".join(f"{value} {label}{'' if value == 1 else 's'}" for label, value in known_counts)
+        + "."
+        if known_counts
+        else "Current type counts are unavailable in this snapshot."
     )
+    selection_text = (
+        f"The selected ObjectType is {selected}."
+        if selected is not None
+        else "The current ObjectType selection is unavailable or ambiguous."
+    )
+    return " ".join(
+        (
+            "Use the Objects, Links, and Actions tabs to inspect ontology data.",
+            count_text,
+            selection_text,
+            "Select an object to inspect its one-hop relationships and properties.",
+            "This screen is read-only.",
+        )
+    )
+
+
+def _unique_ontology_facts(raw: Any) -> dict[str, Any]:
+    if not isinstance(raw, list):
+        return {}
+    recognized = {
+        "selected_object_type",
+        "object_type_count",
+        "link_type_count",
+        "action_type_count",
+    }
+    values: dict[str, list[Any]] = {}
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        key = item.get("key")
+        if isinstance(key, str) and key in recognized:
+            values.setdefault(key, []).append(item.get("value"))
+    return {key: items[0] for key, items in values.items() if len(items) == 1}
+
+
+def _ontology_count(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value if 0 <= value <= 1_000_000 else None
+
+
+def _ontology_selection(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    selected = value.strip()
+    if not selected or len(selected) > 128:
+        return None
+    if any(ord(character) < 32 or ord(character) == 127 for character in selected):
+        return None
+    return selected
 
 
 def _build_messages(

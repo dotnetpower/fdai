@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 8e3a05b47f2475010d7930ab2867c6254a01747c
+translation_source_sha: 0db4177e200cc5ab35b05108d89beac9a70ea2b4
 translation_revised: 2026-07-21
 ---
 
@@ -1025,9 +1025,12 @@ text의 작성자로 표시하지 않음.
 Correction은 기존 turn id의 text를 교체해 conversation 순서와 accessibility
 focus를 보존. Terminal canonical revision만 저장하거나 후속 turn history로 제공.
 
-첫 shipped verifier는 두 번째 model call을 사용하지 않음. Cross-screen operational 및
-Azure inventory 질문에서는 typed evidence 상태에서
-terminal answer를 결정론적으로 render하므로 model prose가 선택 incident, 검색
+첫 shipped verifier는 두 번째 model call을 사용하지 않음. Read-source provenance, ontology
+browse, cross-screen operational 및 Azure inventory 질문에서는 typed evidence로 terminal
+answer를 결정론적으로 render합니다. Ontology browse는 ontology target과 browse verb를 모두
+요구하고 allowlist된 identity field와 256자 이하 prompt value만 전달하며, duplicate 또는
+malformed count와 selection fact는 인용하지 않고 unavailable로 표시합니다. Operational state는
+`matched`, `ambiguous`, `none`, `unavailable`로 유지하므로 model prose가 선택 incident, 검색
 범위, RCA cause 또는 absence claim을 바꿀 수 없음. `none`, `ambiguous`,
 `unavailable`, grounded RCA가 없는 `matched`는 deterministic fast path를 사용:
 server는 evidence lookup 직후 canonical answer를 stream하고 model을 호출하지 않음.
