@@ -65,13 +65,14 @@ export function panelSourceAvailability(
   panelId: string,
   payload: ReadDataSourcesPayload,
 ): ReadSourceAvailability | null {
-  const sources = (PANEL_SOURCE_ROUTES[panelId] ?? [])
-    .map((route) => sourceForRoute(payload, route))
-    .filter((source) => source !== null);
-  if (sources.length === 0) return null;
+  const routes = PANEL_SOURCE_ROUTES[panelId];
+  if (routes === undefined) return null;
+  const resolved = routes.map((route) => sourceForRoute(payload, route));
+  const sources = resolved.filter((source) => source !== null);
   if (sources.some((source) => source.availability === "unavailable" || !source.authoritative)) {
     return "unavailable";
   }
+  if (resolved.some((source) => source === null)) return "unknown";
   return sources.every((source) => source.availability === "available")
     ? "available"
     : "unknown";

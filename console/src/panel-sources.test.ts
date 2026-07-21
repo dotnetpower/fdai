@@ -25,8 +25,21 @@ describe("panel source availability", () => {
     expect(panelSourceAvailability("dashboard", sources)).toBe("unavailable");
   });
 
-  test("returns null when no manifest source owns the panel routes", () => {
+  test("returns null for a source-independent panel", () => {
     expect(panelSourceAvailability("labs", sources)).toBeNull();
+  });
+
+  test("keeps a read-API panel unknown when no manifest source owns its route", () => {
+    expect(panelSourceAvailability("skills", sources)).toBe("unknown");
+  });
+
+  test("keeps a composite panel unknown when only some routes have owners", () => {
+    const partial: ReadDataSourcesPayload = {
+      surface: "read-data-sources",
+      sources: [sources.sources[0]!],
+    };
+
+    expect(panelSourceAvailability("dashboard", partial)).toBe("unknown");
   });
 
   test("classifies every registered console panel by source ownership", () => {

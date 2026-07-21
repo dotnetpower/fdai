@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 0776191aded455bb7a5c9a082939fd4ae9829ac3
+translation_source_sha: bde28ac20e1b02f7b6769233ce2eb097ab382c6c
 translation_revised: 2026-07-21
 ---
 
@@ -1382,7 +1382,9 @@ Scheduler Runs는 ledger `source`와 `durable` flag를, LLM Cost는
 Browser는 route 이름, environment mode, configured default에서 durability, freshness,
 provider health를 추론하지 않습니다. `availability=unavailable`인 source는
 `reachable=true`를 보고하지 않으며, 구성되지 않았거나 probe하지 않은 provider는
-`reachable=null`을 사용합니다.
+`reachable=null`을 사용합니다. Read API panel이 소유한 route 중 하나라도 manifest에 없으면
+모든 route가 누락된 경우를 포함해 source status를 `unknown`으로 유지합니다. 명시적으로
+source-independent인 panel만 source status를 표시하지 않습니다.
 
 정확한 entity 조회는 page limit 전에 server에서 filter합니다. 따라서 Incident correlation link,
 Audit entry link, Approval search는 첫 roster page 밖에서도 false absence 없이 resolve됩니다.
