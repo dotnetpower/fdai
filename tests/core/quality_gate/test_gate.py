@@ -269,6 +269,22 @@ async def test_grounding_disabled_does_not_require_citations() -> None:
 
 
 @pytest.mark.asyncio
+async def test_cross_check_disagreement_below_quorum_becomes_disagree() -> None:
+    gate = QualityGate(
+        verifier=StaticVerifier(outcome=True),
+        cross_check_models=(
+            MatchTypeCrossCheckModel(),
+            MismatchCrossCheckModel(),
+        ),
+        grounding=_grounding(),
+        config=QualityGateConfig(require_cross_check_quorum=2),
+    )
+    decision = await gate.evaluate(_candidate())
+    assert decision.outcome is QualityOutcome.DISAGREE
+    assert any("cross_check_below_quorum" in r for r in decision.reasons)
+
+
+@pytest.mark.asyncio
 async def test_cross_check_failure_cancels_and_drains_sibling_models() -> None:
     from fdai.core.quality_gate._verification import cross_check_candidate
 
@@ -293,22 +309,6 @@ async def test_cross_check_failure_cancels_and_drains_sibling_models() -> None:
         await cross_check_candidate(_candidate(), (_FailingModel(), _BlockingModel()))
 
     assert sibling_cancelled.is_set()
-
-
-@pytest.mark.asyncio
-async def test_cross_check_disagreement_below_quorum_becomes_disagree() -> None:
-    gate = QualityGate(
-        verifier=StaticVerifier(outcome=True),
-        cross_check_models=(
-            MatchTypeCrossCheckModel(),
-            MismatchCrossCheckModel(),
-        ),
-        grounding=_grounding(),
-        config=QualityGateConfig(require_cross_check_quorum=2),
-    )
-    decision = await gate.evaluate(_candidate())
-    assert decision.outcome is QualityOutcome.DISAGREE
-    assert any("cross_check_below_quorum" in r for r in decision.reasons)
 
 
 @pytest.mark.asyncio
