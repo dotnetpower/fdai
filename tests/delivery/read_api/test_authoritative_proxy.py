@@ -106,9 +106,7 @@ async def test_proxy_closes_body_without_second_start_when_remote_stream_fails()
     proxy = AuthoritativeReadProxy(
         base_url="https://read.example.test",
         client=httpx.AsyncClient(
-            transport=httpx.MockTransport(
-                lambda _: httpx.Response(200, stream=_FailingStream())
-            )
+            transport=httpx.MockTransport(lambda _: httpx.Response(200, stream=_FailingStream()))
         ),
     )
 
