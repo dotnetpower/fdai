@@ -94,13 +94,17 @@ class TrustRouter:
 def _extract_resource_type(payload: dict[str, Any]) -> str | None:
     resource = payload.get("resource")
     if isinstance(resource, dict):
-        rt = resource.get("type")
-        if isinstance(rt, str) and rt:
+        rt = _normalized_resource_type(resource.get("type"))
+        if rt is not None:
             return rt
-    flat = payload.get("resource_type")
-    if isinstance(flat, str) and flat:
-        return flat
-    return None
+    return _normalized_resource_type(payload.get("resource_type"))
+
+
+def _normalized_resource_type(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized or None
 
 
 __all__ = ["RoutingDecision", "RoutingTier", "TrustRouter"]
