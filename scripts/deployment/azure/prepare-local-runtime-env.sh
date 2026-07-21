@@ -7,9 +7,16 @@ TERRAFORM_BIN="${FDAI_TERRAFORM_BIN:-terraform}"
 AZ_BIN="${FDAI_AZ_BIN:-az}"
 SOURCE_ENV="$REPO_ROOT/console/.env.local"
 OUTPUT_ENV="${1:-$REPO_ROOT/.fdai/local-runtime.env}"
+local_consumer_instance="${FDAI_LOCAL_CONSUMER_INSTANCE:-}"
 
 if [[ ! -f "$SOURCE_ENV" ]]; then
   printf 'missing local console environment: %s\n' "$SOURCE_ENV" >&2
+  exit 1
+fi
+if [[ -z "$local_consumer_instance" ]]; then
+  local_consumer_instance="$(printf '%s' "${USER:-unknown}@$(hostname)" | sha256sum | cut -c1-12)"
+elif [[ ! "$local_consumer_instance" =~ ^[a-z0-9][a-z0-9-]{0,19}$ ]]; then
+  echo "FDAI_LOCAL_CONSUMER_INSTANCE MUST match ^[a-z0-9][a-z0-9-]{0,19}$" >&2
   exit 1
 fi
 
@@ -86,8 +93,8 @@ grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REG
   printf 'FDAI_START_CONSUMER=1\n'
   printf 'FDAI_START_PANTHEON=1\n'
   printf 'FDAI_RUNTIME_LOCAL_AZURE_CLI=1\n'
-  printf 'FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-core\n'
-  printf 'FDAI_PANTHEON_CONSUMER_GROUP_PREFIX=fdai-local-core-pantheon\n'
+  printf 'FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-%s-core\n' "$local_consumer_instance"
+  printf 'FDAI_PANTHEON_CONSUMER_GROUP_PREFIX=fdai-local-%s-pantheon\n' "$local_consumer_instance"
 } >> "$temp_env"
 
 mv "$temp_env" "$OUTPUT_ENV"

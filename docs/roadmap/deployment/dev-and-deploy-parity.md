@@ -78,6 +78,10 @@ topic during startup, the Event Hubs adapter closes the failed consumer before s
 The local runtime environment generator reads transport settings from the applied Terraform
 outputs. It compares the subscription encoded in the Terraform executor identity resource ID with
 the active Azure CLI subscription and stops before resource lookup or file creation when they differ.
+It also derives a non-identifying consumer instance hash from the local user and host so concurrent
+developers never join the same Event Hubs Kafka consumer group. Automation can set
+`FDAI_LOCAL_CONSUMER_INSTANCE` to a lowercase alphanumeric-and-hyphen identifier of at most 20
+characters when it needs a stable explicit name.
 
 Workflow definitions use the same enforce allowlist as deployment, while each ActionType remains
 subject to its authoritative promotion and risk gates. Enforce workflows still require Azure event

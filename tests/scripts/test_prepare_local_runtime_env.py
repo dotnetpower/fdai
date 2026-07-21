@@ -73,6 +73,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
             "FDAI_REPO_ROOT": str(repo),
             "FDAI_TERRAFORM_BIN": str(terraform),
             "FDAI_AZ_BIN": str(az),
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-a",
         },
         capture_output=True,
         text=True,
@@ -100,8 +101,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         "FDAI_START_CONSUMER=1",
         "FDAI_START_PANTHEON=1",
         "FDAI_RUNTIME_LOCAL_AZURE_CLI=1",
-        "FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-core",
-        "FDAI_PANTHEON_CONSUMER_GROUP_PREFIX=fdai-local-core-pantheon",
+        "FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-developer-a-core",
+        "FDAI_PANTHEON_CONSUMER_GROUP_PREFIX=fdai-local-developer-a-pantheon",
     ]
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
 
@@ -161,12 +162,16 @@ def test_omits_inventory_invalidation_topic_until_provisioned(tmp_path: Path) ->
             "FDAI_REPO_ROOT": str(repo),
             "FDAI_TERRAFORM_BIN": str(terraform),
             "FDAI_AZ_BIN": str(az),
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-b",
         },
         capture_output=True,
         text=True,
     )
 
     assert "FDAI_INVENTORY_RAW_TOPIC=" not in output.read_text(encoding="utf-8")
+    assert "FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-developer-b-core" in output.read_text(
+        encoding="utf-8"
+    )
     assert "invalidation uses TTL refresh" in completed.stderr
 
 
@@ -223,6 +228,7 @@ def test_rejects_cli_subscription_that_differs_from_terraform(tmp_path: Path) ->
             "FDAI_REPO_ROOT": str(repo),
             "FDAI_TERRAFORM_BIN": str(terraform),
             "FDAI_AZ_BIN": str(az),
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-c",
         },
         capture_output=True,
         text=True,
@@ -231,4 +237,33 @@ def test_rejects_cli_subscription_that_differs_from_terraform(tmp_path: Path) ->
     assert completed.returncode != 0
     assert "does not match the applied Terraform deployment" in completed.stderr
     assert "group lookup MUST NOT run" not in completed.stderr
+    assert not output.exists()
+
+
+def test_rejects_invalid_local_consumer_instance_before_provider_access(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / "console/.env.local").write_text("VITE_DEV_MODE=0\n", encoding="utf-8")
+    output = repo / ".fdai/local-runtime.env"
+
+    completed = subprocess.run(  # noqa: S603 - test-controlled environment
+        [_BASH, str(_SCRIPT), str(output)],
+        check=False,
+        cwd=_REPO_ROOT,
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
+            "FDAI_AZ_BIN": "/provider-access-must-not-run",
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "INVALID/value",
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "FDAI_LOCAL_CONSUMER_INSTANCE MUST match" in completed.stderr
+    assert "provider-access-must-not-run" not in completed.stderr
     assert not output.exists()
