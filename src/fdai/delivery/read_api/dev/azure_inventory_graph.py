@@ -247,9 +247,15 @@ class AzureCliInventoryGraphProvider:
         if self.invalidation_path is None or self._cached_at_utc is None:
             return False
         try:
-            return self.invalidation_path.stat().st_mtime > self._cached_at_utc.timestamp()
-        except OSError:
+            return self.invalidation_path.stat().st_mtime >= self._cached_at_utc.timestamp()
+        except FileNotFoundError:
             return False
+        except OSError as exc:
+            _LOGGER.warning(
+                "azure_cli_inventory_invalidation_check_failed",
+                extra={"error_type": type(exc).__name__},
+            )
+            return True
 
 
 def _read_cache_file(

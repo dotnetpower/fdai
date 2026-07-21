@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: a46c11bcb0f51a1d2e966abcffac35999f092d5d
+translation_source_sha: 517af0060810a092c4c4fa91b852748158b69086
 translation_revised: 2026-07-21
 ---
 
@@ -151,7 +151,8 @@ binding이 없는 stack은 TTL refresh로 수렴합니다. 명시적 subscriptio
 subscription의 snapshot을 사용할 위험을 피하기 위해 persistent cache 재사용을 비활성화합니다.
 Cache envelope은 resource limit도 bind하고 malformed 또는 과도하게 미래 시각인 snapshot을 거부하며
 각 local refresh를 240초로 제한합니다. Cache file 또는 marker I/O failure가 발생해도 마지막 complete
-in-memory graph를 유지하고 TTL 수렴으로 fallback합니다.
+in-memory graph를 유지합니다. Marker write failure는 TTL 수렴으로 fallback하고 marker metadata read
+failure 또는 snapshot과 같은 timestamp는 stale로 처리해 불확실한 cache를 신뢰하지 않고 refresh합니다.
 
 ## Parity 컨트랙트 (MUST)
 

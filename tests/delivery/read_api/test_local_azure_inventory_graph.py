@@ -483,6 +483,42 @@ def test_invalidation_marker_refreshes_cache_before_ttl(tmp_path: Path) -> None:
     assert inventory.calls == 1
 
 
+def test_equal_invalidation_timestamp_fails_closed(tmp_path: Path) -> None:
+    marker = tmp_path / "inventory.invalidated"
+    marker.write_text("changed\n", encoding="ascii")
+    provider = AzureCliInventoryGraphProvider(
+        inventory=_Inventory(),
+        invalidation_path=marker,
+    )
+    provider._cached_at_utc = datetime.fromtimestamp(marker.stat().st_mtime, tz=UTC)
+
+    assert provider._cache_invalidated() is True
+
+
+def test_invalidation_metadata_error_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    marker = tmp_path / "inventory.invalidated"
+    provider = AzureCliInventoryGraphProvider(
+        inventory=_Inventory(),
+        invalidation_path=marker,
+    )
+    provider._cached_at_utc = datetime.now(tz=UTC)
+    original_stat = Path.stat
+
+    def fail_marker_stat(path: Path, *args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+        if path == marker:
+            raise PermissionError("marker metadata unavailable")
+        return original_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", fail_marker_stat)
+
+    assert provider._cache_invalidated() is True
+    assert "azure_cli_inventory_invalidation_check_failed" in caplog.text
+
+
 def test_change_during_scan_remains_invalidated_until_follow_up_refresh(tmp_path: Path) -> None:
     cache_path, identity = inventory_cache_path(
         repo_root=tmp_path,
