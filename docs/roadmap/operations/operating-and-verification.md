@@ -13,7 +13,7 @@ for this document.
 Complements [deploy-and-onboard.md](../deployment/deploy-and-onboard.md) (provisioning) and
 [startup-and-lifecycle.md](startup-and-lifecycle.md) (bootstrap). Azure focus: non-Azure
 providers are TBD (see
-[Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
+[Always-On Rules](../../../.github/copilot-instructions.md#always-on-rules-must)).
 
 ## Self-Health Signals
 
@@ -36,6 +36,12 @@ Signals a healthy deployment MUST emit continuously. Every signal maps 1:1 to an
 | **Kill-switch state** | on / off | contained emergency posture |
 | **Canary result** | synthetic loop round-trip | silent ingress death |
 | **Time since last successful canary** | staleness | monitor of the monitor |
+
+> **Implementation status**: Transition telemetry and the synthetic canary publisher, consumer,
+> audit path, and deploy-time publisher smoke are implemented. The complete signal exporters,
+> alert-rule mapping, audit-freshness SLO, and scheduled operational drills remain production
+> readiness work. This table is the required health contract, not a claim that every alert is
+> currently provisioned.
 
 Signals emit via OpenTelemetry to the configured backend
 ([deployment.md#observability-slos-and-alerting](../deployment/deployment.md#observability-slos-and-alerting)).
@@ -74,10 +80,10 @@ healthy**. Mitigation: a periodic canary on a separately authorized topic.
 > audit-freshness query, numeric round-trip SLO, and scheduled kill-switch on/off drill remain
 > production-readiness evidence items.
 
-## Post-Deploy Smoke Tests
+## Post-Deploy Smoke Test Contract
 
-Automated tests run against the live deployment after every promotion. A failing smoke test
-**aborts the promotion and rolls traffic back**
+The target automated suite runs against the live deployment after every promotion. A failing
+smoke test should **abort the promotion and roll traffic back**
 ([deployment.md#release-and-rollback](../deployment/deployment.md#release-and-rollback)).
 
 1. **Adapter reachability** - Kafka round-trip (Event Hubs `:9093` produce + consume on a
@@ -122,7 +128,7 @@ Rules that apply to every alert:
   queue in the state store and alert via a secondary channel; nothing auto-executes on the
   fallback path.
 
-**TBD**: the concrete channel-ownership matrix and the fallback channel selection.
+> **Open decision**: Choose the concrete channel-ownership matrix and fallback channel per fork.
 
 ## Audit Investigation Flow
 
@@ -146,11 +152,11 @@ enforce events (mode is recorded on every entry).
 
 ## Runbook Set
 
-Every automated action has an operator-facing runbook. Runbooks live in a **fork-local**
-`runbooks/` folder (not committed upstream, per
-[generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
-Upstream ships the **runbook template + required sections**; the concrete text is authored
-per fork.
+Every automated action should have an operator-facing runbook. Upstream ships generic operational
+runbooks under `docs/runbooks/`; deployment-specific values and procedures stay in a fork-local
+runbook set per
+[generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md).
+The repository doesn't yet enforce one runbook per ActionType or a required-section schema.
 
 | Runbook | Purpose | Trigger |
 |---------|---------|---------|
@@ -172,7 +178,7 @@ Every runbook MUST state:
 - **Rollback of the runbook itself** (undo of the operator step).
 - The **audit trail** the runbook leaves.
 
-**TBD**: the runbook template and its required-sections schema.
+> **Open decision**: Define the runbook required-section schema and the ActionType coverage gate.
 
 ## Version and Configuration Exposure
 
@@ -228,6 +234,10 @@ the leading edge of the 30-day
 [measurement window](../architecture/goals-and-metrics.md#definitions), not a
 separate mode, and it composes existing primitives:
 
+> **Implementation status**: The scheduler and measurement primitives exist, but upstream doesn't
+> currently register the daily health/drift/deployment-baseline jobs or publish
+> `console.recurrent_query`. The bullets below define the target stabilization composition.
+
 - **Shadow-first stays the default.** Newly introduced actions remain in shadow
   through the window; promotion to enforce waits until the stabilization
   signals below are clean, so an unstable opening never auto-executes.
@@ -252,7 +262,8 @@ then hands off to steady-state operation once stabilization signals hold.
 
 ## Open Decisions
 
-- [ ] Synthetic canary cadence, payload shape, and round-trip budget.
+- [ ] Synthetic canary audit-freshness and numeric round-trip alert budget. The publisher cadence
+  defaults to five minutes and the canonical payload/idempotency shape is implemented.
 - [ ] Smoke-test suite composition (fixture set, per-step budgets, promotion-gate wiring).
 - [ ] Alert channel ownership matrix (fork vs upstream) and the fallback channel selection.
 - [ ] Runbook template - required sections, format, and CI check that a runbook is present

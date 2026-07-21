@@ -1,8 +1,8 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: 39baa0c1e2d6802b54b24e659e06d3cd351465f2
-translation_revised: 2026-07-18
+translation_source_sha: 70d7bf075657b0863c386f2c8ca754b1b9479f81
+translation_revised: 2026-07-21
 ---
 
 # 운영과 검증(Operating and Verification)
@@ -16,7 +16,7 @@ translation_revised: 2026-07-18
 [deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md) (프로비저닝) 과
 [startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md) (부트스트랩) 보완. Azure 초점:
 비-Azure 프로바이더는 TBD
-([Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
+([Always-On Rules](../../../.github/copilot-instructions.md#always-on-rules-must)).
 
 ## 자체 헬스 신호(Self-Health Signals)
 
@@ -39,6 +39,11 @@ translation_revised: 2026-07-18
 | **Kill-switch state** | on / off | 억제된 비상 자세 |
 | **Canary result** | 합성 루프 왕복 | 조용한 ingress 사망 |
 | **Time since last successful canary** | 신선도 | 모니터의 모니터 |
+
+> **구현 상태**: Transition telemetry와 synthetic canary publisher, consumer, audit path,
+> deploy-time publisher smoke가 구현되어 있습니다. 전체 signal exporter, alert-rule mapping,
+> audit-freshness SLO 및 scheduled operational drill은 production readiness 작업으로 남아 있습니다.
+> 이 표는 필요한 health contract이며 모든 alert가 현재 provision되었다는 뜻은 아닙니다.
 
 신호는 OpenTelemetry로 설정된 backend로 emit
 ([deployment-ko.md#observability-slos-and-alerting](../deployment/deployment-ko.md#observability-slos-and-alerting)).
@@ -75,10 +80,10 @@ failure가 routing 또는 safety decision을 차단할 수 없습니다.
 > query, 수치형 왕복 SLO, 예약된 kill-switch on/off drill은 production-readiness evidence로
 > 남아 있습니다.
 
-## Post-Deploy Smoke 테스트
+## Post-Deploy Smoke 테스트 계약
 
-모든 승격 후 라이브 배포에 대해 실행되는 자동 테스트. 실패한 smoke 테스트는 **승격을 중단하고
-트래픽을 롤백**
+목표 자동화 suite는 모든 승격 후 라이브 배포에 대해 실행됩니다. 실패한 smoke 테스트는 **승격을
+중단하고 트래픽을 롤백**하는 것이 좋습니다
 ([deployment-ko.md#release-and-rollback](../deployment/deployment-ko.md#release-and-rollback)).
 
 1. **Adapter 도달성** - Kafka 왕복 (Event Hubs `:9093` 프로브 토픽에 produce + consume),
@@ -120,7 +125,7 @@ promotion 전에 여전히 필요합니다.
 - **Fallback 채널**: 주 채널(Teams / paging) 도달 불가 시 HIL 항목은 상태 저장소에 큐잉되고
   보조 채널로 알림; fallback 경로에서 auto-execute 없음.
 
-**TBD**: 구체적 채널-소유권 매트릭스와 fallback 채널 선택.
+> **Open decision**: 구체적인 channel-ownership matrix와 fallback channel을 포크별로 선택합니다.
 
 ## 감사 조사 흐름
 
@@ -143,10 +148,11 @@ hash-chain됨; 같은 워크는 shadow와 enforce 이벤트에 대해 동작(모
 
 ## 런북 세트
 
-모든 자동 액션은 운영자 대상 런북을 가짐. 런북은
-[generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) 에
-따라 **fork-local** `runbooks/` 폴더에 존재(상류에 커밋되지 않음). 상류는 **런북 템플릿 +
-필수 섹션** 을 제공; 구체적 텍스트는 포크별 작성.
+모든 자동 액션에는 운영자 대상 런북이 있는 것이 좋습니다. 상류는 `docs/runbooks/` 아래에
+제네릭 운영 런북을 제공합니다. 배포별 값과 절차는
+[generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)에 따라
+fork-local 런북 세트에 유지합니다. Repository는 아직 ActionType별 런북 존재 여부 또는 필수 섹션
+schema를 강제하지 않습니다.
 
 | 런북 | 목적 | 트리거 |
 |------|------|--------|
@@ -168,7 +174,7 @@ hash-chain됨; 같은 워크는 shadow와 enforce 이벤트에 대해 동작(모
 - **런북 자체의 롤백** (운영자 스텝의 undo).
 - 런북이 남기는 **감사 트레일**.
 
-**TBD**: 런북 템플릿과 그 필수-섹션 스키마.
+> **Open decision**: 런북 필수 섹션 schema와 ActionType coverage gate를 정의합니다.
 
 ## 버전과 설정 노출
 
@@ -216,6 +222,10 @@ Testing, k6, JMeter)가 트래픽을 만든다 - 그 트래픽이 도는 동안 
 [측정 윈도우](../architecture/goals-and-metrics-ko.md#definitions) 의 선단이며, 기존
 프리미티브를 조합한다:
 
+> **구현 상태**: Scheduler와 measurement primitive는 존재하지만 upstream은 현재 daily
+> health/drift/deployment-baseline job을 등록하거나 `console.recurrent_query`를 publish하지 않습니다.
+> 아래 bullet은 목표 stabilization composition을 정의합니다.
+
 - **Shadow-first 가 기본 유지.** 새로 도입된 action 은 윈도우 동안 shadow 로 남고,
   아래 안정화 신호가 깨끗해질 때까지 enforce 승격을 미룬다 - 불안정한 오픈이 절대
   auto-execute 하지 않는다.
@@ -236,7 +246,8 @@ Testing, k6, JMeter)가 트래픽을 만든다 - 그 트래픽이 도는 동안 
 
 ## Open Decisions
 
-- [ ] 합성 카나리 주기, 페이로드 형상, 왕복 예산.
+- [ ] 합성 카나리 audit-freshness 및 수치형 round-trip alert budget. Publisher cadence는 기본
+  5분이고 canonical payload/idempotency shape는 구현되어 있습니다.
 - [ ] Smoke-테스트 스위트 구성(픽스처 세트, 스텝별 예산, 승격-게이트 배선).
 - [ ] 알림 채널 소유권 매트릭스(포크 vs 상류) 와 fallback 채널 선택.
 - [ ] 런북 템플릿 - 필수 섹션, 포맷, 모든 자동 액션에 런북 존재 여부 CI 검사.

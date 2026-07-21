@@ -130,6 +130,7 @@ CLI and ChatOps call the Contributor-gated `POST /workflows/run` route with:
   "workflow": "architecture-review",
   "target_resource_id": "fdai-control-plane",
   "mode": "shadow",
+  "trigger_ts": "2026-07-21T09:00:00Z",
   "correlation_id": "arb-review-<request-id>"
 }
 ```
@@ -139,8 +140,10 @@ CLI and ChatOps call the Contributor-gated `POST /workflows/run` route with:
   structural evaluator passes.
 - Enforce applies durable approval and decision transitions. The ARB Workflow has no resource
   mutation action, so it cannot deploy or enable an ActionType.
-- The same workflow, target, and trigger timestamp derive the same Process ID. A retry resumes the
-  Process rather than creating a duplicate review.
+- The same workflow, target, and trigger timestamp derive the same Process ID. To resume the
+  Process without creating a duplicate review, the client must resend the original `trigger_ts`
+  on retries. If `trigger_ts` is omitted, the server uses the request time and later retries are
+  not guaranteed to be identical.
 
 ## Shadow and enforce model
 

@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: b2537d4b1f1ef46cbcf88f465d129594590994e1
-translation_revised: 2026-07-20
+translation_source_sha: bd4d77c1273c205dbda0d5429691365c81f032d8
+translation_revised: 2026-07-21
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -137,6 +137,7 @@ CLI와 ChatOps는 Contributor 권한이 필요한 `POST /workflows/run` route를
   "workflow": "architecture-review",
   "target_resource_id": "fdai-control-plane",
   "mode": "shadow",
+  "trigger_ts": "2026-07-21T09:00:00Z",
   "correlation_id": "arb-review-<request-id>"
 }
 ```
@@ -146,8 +147,9 @@ CLI와 ChatOps는 Contributor 권한이 필요한 `POST /workflows/run` route를
   `enforce`를 요청할 수 있습니다.
 - Enforce는 durable approval 및 decision transition에 적용됩니다. ARB Workflow에는 resource
   mutation action이 없으므로 resource를 배포하거나 ActionType을 활성화할 수 없습니다.
-- 같은 workflow, target, trigger timestamp는 같은 Process ID를 파생합니다. 재시도는 중복
-  review를 만들지 않고 Process를 재개합니다.
+- 같은 workflow, target, trigger timestamp는 같은 Process ID를 파생합니다. Client는 재시도할 때
+  최초 `trigger_ts`를 그대로 다시 보내야 중복 review를 만들지 않고 Process를 재개합니다.
+  `trigger_ts`를 생략하면 서버가 요청 시각을 사용하므로 이후 재시도와 동일성이 보장되지 않습니다.
 
 ## Shadow 및 enforce 모델
 

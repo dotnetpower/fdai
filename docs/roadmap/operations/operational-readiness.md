@@ -20,6 +20,13 @@ settings, or no backup - because no single change introduced the whole gap. The
 ORR reviews the **accumulated posture of the scope at the moment of handoff**,
 not one diff.
 
+> **Implementation status**: The pure report coordinator in `core/readiness/` and the audited
+> orchestration service in `composition/readiness.py` are implemented. The current upstream
+> runtime doesn't register `ownership_transfer` with event ingest or bind a live posture provider,
+> `ReadinessReportPublisher`, remediation proposal, or approval workflow. The automatic trigger,
+> handoff blocking, action bridging, and Var approval below are target workflow; an injected caller
+> invokes the current service directly.
+
 > **Customer-agnostic**: the trigger label, the required-rule set, and the
 > severity that gates a handoff are all config or fork-supplied. Upstream ships
 > the machinery and the generic ReadinessReport shape, never a customer's
@@ -108,8 +115,9 @@ ownership-transfer event. Each finding keeps the same three required parts:
 - **evidence** - a CSP-neutral citation of the rule that produced it. A finding
   that cannot cite a source is a defect, the same rule the T2 verifier and the
   preflight probes follow.
-- **severity** - `blocking` (gates an enforce-mode handoff) or `warning`
-  (surfaces but never gates).
+- **severity** - preserves the source value: posture levels such as `low` through `critical`, or
+  preflight `warning` / `blocking`. The coordinator records the resolved gate separately in the
+  finding's `blocking` boolean.
 - **resolution** - how to clear it, mapped to a concrete remediation ActionType
   (for the RBAC dimension, `remediate.right-size-role`) or to guidance when no
   autofix exists.
@@ -155,9 +163,10 @@ prod). The `ownership_transfer` signal carries the target environment, and the
 gate tightens with it: a promotion into `prod` treats any `critical` finding as
 blocking regardless of the profile default, reusing the prod-downgrade posture
 that every mutating ActionType already declares
-([risk-classification.md](../decisioning/risk-classification.md)). The environment model itself
-is specified in [scope-expansion.md](../fork-and-sequencing/scope-expansion.md); the ORR consumes it,
-it does not define it.
+([risk-classification.md](../decisioning/risk-classification.md)). The environment classifier and
+promotion order are specified in
+[risk-classification.md](../decisioning/risk-classification.md#environment-promotion-handoff-target);
+the ORR consumes them and doesn't define them.
 
 ## Module placement
 
@@ -205,14 +214,16 @@ publisher to the live inventory / Checks / console adapters.
   read-only; the only path to a mutation is a proposal that enters
   `risk-gate -> executor`, with the four safety invariants (stop-condition,
   rollback, blast-radius limit, audit entry) enforced there.
-- **Approval and execution stay distinct**: a handoff is requested by the
-  submitter and approved by a distinct principal (Var), never self-approved -
-  the same no-self-approval rule the rest of the control plane holds.
+- **Approval and execution stay distinct**: The target workflow has a distinct principal approve a
+  submitter's handoff and prevents self-approval. Current `OwnershipTransfer` and
+  `OperationalReadinessService` don't receive an approval decision or approver identity, so Var
+  approval isn't wired yet.
 - **Fail closed**: a stale twin (inventory freshness beyond `freshness_ttl`)
   refuses to certify a handoff rather than certify on stale state; an
   ungroundable finding abstains; an unproven review stays shadow.
-- **Audited**: every ORR verdict, its `blocks_handoff` flag, the submitter, the
-  approver, and the target scope are an append-only audit entry through Saga.
+- **Audited**: The current service records the ORR verdict, `blocks_handoff`, submitter, target
+  scope, environment, and delivery/assessment failures in append-only state-store audit entries.
+  Approver identity and Saga agent attribution must be added with the future approval workflow.
 
 ## Next steps
 
