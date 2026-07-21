@@ -111,13 +111,14 @@ def _resting_state(agent: str) -> AgentState:
 
 @dataclass(frozen=True, slots=True)
 class IncidentProjection:
-    """The accumulated view of one incident (keyed by ``correlation_id``)."""
+    """Accumulated agent flow, optionally linked to a real Incident."""
 
     ticket_id: str
     correlation_id: str
     status: TicketStatus
     title: str
     severity: str
+    incident_id: str | None = None
     involved: tuple[str, ...] = ()
     last_agent: str | None = None
     """The agent that owned the most recent stage frame - the `from` side of the
@@ -169,6 +170,11 @@ def _ticket_id(correlation_id: str) -> str:
     return f"INC-{correlation_id}"
 
 
+def _incident_id(event: StageEvent) -> str | None:
+    value = event.detail.get("incident_id")
+    return value if isinstance(value, str) and value else None
+
+
 def _incident_title(event: StageEvent) -> str:
     rule = event.detail.get("rule")
     if isinstance(rule, str) and rule:
@@ -216,25 +222,30 @@ def project_stage(projection: AgentActivityProjection, event: StageEvent) -> Pro
     prior = incidents.get(correlation_id)
     prev_agent = prior.last_agent if prior is not None else None
     waiting_for_approval = _terminal_decision(event) == "hil"
+    observed_incident_id = _incident_id(event)
     if prior is None:
         incident = replace(
             IncidentProjection(
-                ticket_id=_ticket_id(correlation_id),
+                ticket_id=observed_incident_id or _ticket_id(correlation_id),
                 correlation_id=correlation_id,
                 status=TicketStatus.OPEN,
                 title=_incident_title(event),
                 severity=_incident_severity(event),
+                incident_id=observed_incident_id,
             ).with_agent(agent),
             last_agent=agent if agent != _UNKNOWN_AGENT else None,
         )
         incidents[correlation_id] = incident
-        ticket_events.append(_ticket_event(incident, ts, event.source))
+        if incident.incident_id is not None:
+            ticket_events.append(_ticket_event(incident, ts, event.source))
     else:
         involved = prior.with_agent(agent)
         if waiting_for_approval:
             involved = involved.with_agent("Var")
         incident = replace(
             involved,
+            ticket_id=observed_incident_id or prior.ticket_id,
+            incident_id=observed_incident_id or prior.incident_id,
             status=_next_status(prior.status, event),
             last_agent=agent if agent != _UNKNOWN_AGENT else prior.last_agent,
         )
@@ -242,7 +253,7 @@ def project_stage(projection: AgentActivityProjection, event: StageEvent) -> Pro
         # Emit a ticket frame whenever the incident changed - the console
         # populates an incident's `involved` set only from ticket frames, so a
         # newly-engaged agent MUST ride a ticket event or it never lights up.
-        if incident != prior:
+        if incident.incident_id is not None and incident != prior:
             ticket_events.append(_ticket_event(incident, ts, event.source))
 
     turn_events: list[ConversationTurnEvent] = []

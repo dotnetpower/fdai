@@ -34,6 +34,7 @@ def _stage(
     correlation_id: str = "corr-1",
     event_id: str = "evt-1",
     detail: dict[str, object] | None = None,
+    incident_id: str | None = "incident-1",
     error: str | None = None,
     source: ObservationSource = ObservationSource.UNKNOWN,
 ) -> StageEvent:
@@ -44,7 +45,7 @@ def _stage(
         phase=phase,
         source=source,
         ts=_TS,
-        detail=detail or {},
+        detail={**(detail or {}), "incident_id": incident_id},
         error=error,
     )
 
@@ -118,7 +119,7 @@ class TestIncidentTicket:
         tickets = [e for e in events if isinstance(e, IncidentTicketEvent)]
         assert len(tickets) == 1
         assert tickets[0].status is TicketStatus.OPEN
-        assert tickets[0].ticket_id == "INC-corr-1"
+        assert tickets[0].ticket_id == "incident-1"
         assert tickets[0].severity == "high"
         assert "Huginn" in tickets[0].involved_agents
 
@@ -253,12 +254,13 @@ class TestIncidentTicket:
     def test_two_correlations_do_not_cross_talk(self) -> None:
         proj, _ = _run(
             [
-                _stage(StageName.INGEST, correlation_id="corr-a"),
-                _stage(StageName.INGEST, correlation_id="corr-b"),
+                _stage(StageName.INGEST, correlation_id="corr-a", incident_id="incident-a"),
+                _stage(StageName.INGEST, correlation_id="corr-b", incident_id="incident-b"),
             ]
         )
         assert set(proj.incidents) == {"corr-a", "corr-b"}
-        assert proj.incidents["corr-a"].ticket_id == "INC-corr-a"
+        assert proj.incidents["corr-a"].ticket_id == "incident-a"
+        assert proj.incidents["corr-b"].ticket_id == "incident-b"
 
     def test_conversation_turns_are_only_grounded_handoffs(self) -> None:
         # A stage transition between two agents is a real handoff; the
@@ -276,6 +278,19 @@ class TestIncidentTicket:
         turns = [e for e in events if isinstance(e, ConversationTurnEvent)]
         assert turns, "real stage transitions MUST surface as handoff turns"
         assert all(t.kind is TurnKind.HANDOFF for t in turns)
+
+    def test_non_incident_work_keeps_activity_without_fabricating_ticket(self) -> None:
+        projection, events = _run(
+            [
+                _stage(StageName.INGEST, incident_id=None),
+                _stage(StageName.ROUTE, incident_id=None),
+            ]
+        )
+
+        assert not any(isinstance(event, IncidentTicketEvent) for event in events)
+        assert any(isinstance(event, AgentStateEvent) for event in events)
+        assert any(isinstance(event, ConversationTurnEvent) for event in events)
+        assert projection.incidents["corr-1"].incident_id is None
 
 
 class TestHandoffTurns:

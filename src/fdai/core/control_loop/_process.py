@@ -45,7 +45,11 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
         correlation_id=correlation_id,
         stage=StageName.INGEST,
         phase=StagePhase.DONE,
-        detail={"event_type": event.event_type, "mode": event.mode.value},
+        detail={
+            "event_type": event.event_type,
+            "mode": event.mode.value,
+            "incident_id": incident_id,
+        },
     )
     await host._maybe_fire_workflows(event)
 

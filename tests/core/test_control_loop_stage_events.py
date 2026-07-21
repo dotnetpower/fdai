@@ -139,6 +139,7 @@ async def test_t1_unavailable_emits_ingest_route_audit(tmp_path: Path) -> None:
     assert route_evt.detail["routed_to"] == "t1"
     ingest_evt = recorder.by_stage(StageName.INGEST)[0]
     assert ingest_evt.detail["mode"] == Mode.SHADOW.value
+    assert ingest_evt.detail["incident_id"] is None
     audit_evt = recorder.by_stage(StageName.AUDIT)[0]
     assert audit_evt.detail["outcome"] == "abstained_routing"
 
