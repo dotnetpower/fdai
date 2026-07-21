@@ -28,8 +28,11 @@ distinguishable from the PR-native path.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from collections.abc import Mapping
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -37,7 +40,9 @@ from typing import Any
 
 from fdai.core.executor.executor import (
     ExecutorConfig,
+    _idempotency_lock_key,
     _missing_safety_invariant,
+    _resource_lock_key,
 )
 from fdai.shared.contracts.models import Action, Mode
 from fdai.shared.providers.direct_api import (
@@ -104,6 +109,9 @@ class DirectApiExecutionOutcome(StrEnum):
     ``stop_condition``, missing ``rollback_ref.kind``, missing
     ``blast_radius``, missing ``citing_rules``)."""
 
+    REJECTED_IDEMPOTENCY_CONFLICT = "rejected_idempotency_conflict"
+    """The idempotency key was already bound to a different action."""
+
 
 @dataclass(frozen=True, slots=True)
 class DirectApiExecutionResult:
@@ -152,6 +160,16 @@ def _da_result_from_payload(payload: Mapping[str, Any]) -> DirectApiExecutionRes
         reason=None if payload.get("reason") is None else str(payload["reason"]),
         audit_context=dict(ctx) if isinstance(ctx, Mapping) else {},
     )
+
+
+def _direct_api_fingerprint(action: Action) -> str:
+    canonical = json.dumps(
+        action.model_dump(mode="json"),
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class DirectApiShadowExecutor:
@@ -214,12 +232,18 @@ class DirectApiShadowExecutor:
         # lock at all.
         cached = self._dedupe.get(action.idempotency_key)
         if cached is not None:
-            return cached
+            return await self._deduplicated_or_conflict(action=action, cached=cached)
 
-        async with self._resource_lock.acquire(action.target_resource_ref):
+        async with AsyncExitStack() as locks:
+            await locks.enter_async_context(
+                self._resource_lock.acquire(_idempotency_lock_key(action.idempotency_key))
+            )
             cached = self._dedupe.get(action.idempotency_key)
             if cached is not None:
-                return cached
+                return await self._deduplicated_or_conflict(action=action, cached=cached)
+            await locks.enter_async_context(
+                self._resource_lock.acquire(_resource_lock_key(action.target_resource_ref))
+            )
 
             # Durable L2 guard - a mutation recorded under this key
             # (possibly before a restart) short-circuits the substrate
@@ -228,8 +252,13 @@ class DirectApiShadowExecutor:
                 stored = await self._idempotency.seen(action.idempotency_key)
                 if stored is not None:
                     result = _da_result_from_payload(stored)
-                    self._remember(action.idempotency_key, result)
-                    return result
+                    resolved = await self._deduplicated_or_conflict(
+                        action=action,
+                        cached=result,
+                    )
+                    if resolved is result:
+                        self._remember(action.idempotency_key, result)
+                    return resolved
 
             blast_reason = self._check_blast_radius(action)
             if blast_reason is not None:
@@ -280,6 +309,23 @@ class DirectApiShadowExecutor:
     # helpers
     # ------------------------------------------------------------------
 
+    async def _deduplicated_or_conflict(
+        self,
+        *,
+        action: Action,
+        cached: DirectApiExecutionResult,
+    ) -> DirectApiExecutionResult:
+        expected = _direct_api_fingerprint(action)
+        recorded = cached.audit_context.get("idempotency_fingerprint")
+        if recorded == expected:
+            return cached
+        return await self._finish(
+            action=action,
+            outcome=DirectApiExecutionOutcome.REJECTED_IDEMPOTENCY_CONFLICT,
+            reason="idempotency key is already bound to a different action payload",
+            remember=False,
+        )
+
     def _check_blast_radius(self, action: Action) -> str | None:
         count = action.blast_radius.count
         if count is not None and count > self._config.max_affected_resources:
@@ -326,6 +372,7 @@ class DirectApiShadowExecutor:
         reason: str | None,
         receipt_ref: str | None = None,
         rollback_succeeded: bool | None = None,
+        remember: bool = True,
     ) -> DirectApiExecutionResult:
         result = DirectApiExecutionResult(
             action_id=str(action.action_id),
@@ -339,6 +386,7 @@ class DirectApiShadowExecutor:
                 "action_type": action.action_type,
                 "operation": action.operation.value,
                 "blast_radius_scope": action.blast_radius.scope.value,
+                "idempotency_fingerprint": _direct_api_fingerprint(action),
             },
         )
         # Cache non-degenerate outcomes so a retry does not re-hit the
@@ -349,11 +397,12 @@ class DirectApiShadowExecutor:
         # a cached "already handled" hit that silently suppresses the
         # audit trail on the retry.
         await self._write_audit(action=action, result=result)
-        self._remember(action.idempotency_key, result)
+        if remember:
+            self._remember(action.idempotency_key, result)
         # Durable dedup: record only mutating outcomes so a post-restart
         # retry does not re-hit the substrate. After the audit write for
         # the same reason _remember is.
-        if self._idempotency is not None and outcome in _DA_MUTATION_OUTCOMES:
+        if remember and self._idempotency is not None and outcome in _DA_MUTATION_OUTCOMES:
             await self._idempotency.record(action.idempotency_key, _da_result_to_payload(result))
         return result
 
