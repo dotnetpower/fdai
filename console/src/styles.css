@@ -10215,7 +10215,13 @@ main { padding-bottom: 60px !important; }
   border-radius: 5px;
   background: transparent;
   color: var(--fg-muted);
+  font: inherit;
+  font-size: 13px;
   cursor: pointer;
+}
+.settings-segmented button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  outline-offset: 2px;
 }
 .settings-segmented button.is-active {
   background: var(--bg-elevated);
@@ -10274,6 +10280,51 @@ main { padding-bottom: 60px !important; }
   text-align: right;
 }
 .settings-actions { display: flex; justify-content: flex-end; padding-top: 8px; }
+.settings-route .btn,
+.settings-route button.secondary {
+  min-height: 38px;
+  padding: 7px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: var(--bg-elevated);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.settings-route .btn:hover:not(:disabled),
+.settings-route button.secondary:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-elevated));
+  color: var(--accent-strong);
+}
+.settings-route .btn:focus-visible,
+.settings-route button.secondary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  outline-offset: 2px;
+}
+.settings-route .btn:disabled,
+.settings-route button.secondary:disabled {
+  background: color-mix(in srgb, var(--accent) 10%, var(--cs-shade));
+  color: var(--fg-muted);
+  cursor: not-allowed;
+  opacity: 1;
+}
+.settings-route .form-input {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+}
+.settings-route .form-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
 .settings-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -11015,6 +11066,8 @@ main { padding-bottom: 60px !important; }
 @media (max-width: 700px) {
   .settings-row { grid-template-columns: 1fr; gap: 12px; padding: 16px 0; }
   .settings-segmented { width: 100%; }
+  .settings-segmented { grid-auto-columns: minmax(0, 1fr); }
+  .settings-segmented button { min-width: 0; padding-inline: 6px; font-size: 12px; }
   .settings-toggle-control { justify-content: flex-start; }
   .settings-runtime-value { max-width: 100%; text-align: left; }
   .settings-iam-panel-head { align-items: flex-start; flex-direction: column; }

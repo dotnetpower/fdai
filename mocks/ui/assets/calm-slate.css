@@ -435,6 +435,49 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
   .cs-query-action .cs-btn { width: 100%; }
 }
 
+/* Settings - quiet rows, compact controls, and explicit state. */
+.cs-settings-page { max-width: 1040px; }
+.cs-settings-section { margin-top: 30px; border-top: 1px solid var(--cs-hairline); }
+.cs-settings-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding: 18px 0 10px; }
+.cs-settings-section-head h2 { margin: 0; font-size: 15px; }
+.cs-settings-section-head p { margin: 0; color: var(--cs-text-soft); font-size: 12.5px; }
+.cs-settings-list { border-bottom: 1px solid var(--cs-hairline); }
+.cs-setting-row { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(260px, auto); align-items: center; gap: 28px; min-height: 76px; padding: 12px 0; border-top: 1px solid var(--cs-hairline); }
+.cs-setting-row:first-child { border-top: 0; }
+.cs-setting-row > div:first-child { min-width: 0; }
+.cs-setting-row strong,
+.cs-setting-row small { display: block; }
+.cs-setting-row small { margin-top: 4px; color: var(--cs-text-soft); font-size: 12.5px; line-height: 1.45; }
+.cs-settings-segmented { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(92px, 1fr); gap: 3px; min-width: 260px; padding: 3px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-bg); }
+.cs-settings-segmented button { min-height: 34px; padding: 5px 12px; border: 0; border-radius: 5px; background: transparent; color: var(--cs-text-soft); font: 13px var(--cs-font); cursor: pointer; }
+.cs-settings-segmented button.is-active { background: var(--cs-card); color: var(--cs-text); font-weight: 700; box-shadow: 0 1px 4px rgba(46,54,64,.12); }
+.cs-settings-segmented button:focus-visible { outline: 2px solid rgba(68,104,142,.38); outline-offset: 2px; }
+.cs-settings-toggle { display: inline-flex; align-items: center; justify-content: flex-end; gap: 9px; min-width: 260px; cursor: pointer; }
+.cs-settings-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.cs-settings-toggle-track { position: relative; width: 38px; height: 22px; border: 1px solid var(--cs-hairline); border-radius: 11px; background: var(--cs-bg); }
+.cs-settings-toggle-track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--cs-text-soft); transition: transform .12s ease, background .12s ease; }
+.cs-settings-toggle input:checked + .cs-settings-toggle-track { border-color: var(--cs-steel); background: rgba(68,104,142,.14); }
+.cs-settings-toggle input:checked + .cs-settings-toggle-track::after { transform: translateX(16px); background: var(--cs-steel); }
+.cs-settings-toggle input:focus-visible + .cs-settings-toggle-track { outline: 2px solid rgba(68,104,142,.38); outline-offset: 2px; }
+.cs-settings-input { width: 260px; min-height: 40px; padding: 8px 10px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-bg); color: var(--cs-text); font: 14px var(--cs-font); }
+.cs-settings-input:focus { outline: none; border-color: var(--cs-steel); box-shadow: 0 0 0 3px rgba(68,104,142,.12); }
+.cs-settings-actions { display: flex; justify-content: flex-end; padding-top: 12px; }
+.cs-settings-card { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 16px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); }
+.cs-settings-card strong,
+.cs-settings-card small { display: block; }
+.cs-settings-card small { margin-top: 4px; }
+@media (max-width: 700px) {
+  .cs-settings-section-head { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .cs-setting-row { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 16px 0; }
+  .cs-settings-segmented,
+  .cs-settings-toggle,
+  .cs-settings-input { width: 100%; min-width: 0; }
+  .cs-settings-segmented { grid-auto-columns: minmax(0, 1fr); }
+  .cs-settings-segmented button { min-width: 0; padding-inline: 6px; font-size: 12px; }
+  .cs-settings-toggle { justify-content: flex-start; }
+  .cs-settings-card { align-items: flex-start; flex-direction: column; }
+}
+
 /* ----- Tabs ----- */
 .cs-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--cs-hairline); margin-bottom: 20px; flex-wrap: wrap; }
 .cs-tab { padding: 9px 15px; font-size: 14px; color: var(--cs-text-soft); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; border-top: none; border-left: none; border-right: none; font-family: inherit; }

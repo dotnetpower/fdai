@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-v1" />
+  <script src="assets/calm-slate.js?v=settings-v1" defer></script>
+</head>
+<body>
+  <main class="cs-container cs-page cs-settings-page">
+    <div class="cs-page-header cs-mb-24">
+      <div class="cs-eyebrow">Console preferences</div>
+      <h1>General settings</h1>
+      <p class="cs-lead">Display, accessibility, and account-scoped narrator preferences.</p>
+    </div>
+
+    <section class="cs-settings-section" aria-labelledby="settings-appearance">
+      <header class="cs-settings-section-head">
+        <h2 id="settings-appearance">Appearance</h2>
+        <p>Browser-local preferences apply immediately.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>Theme</strong><small>Applied across every console view.</small></div>
+          <div class="cs-settings-segmented" role="group" aria-label="Theme">
+            <button class="is-active" type="button" aria-pressed="true">Light</button>
+            <button type="button" aria-pressed="false">Dark</button>
+          </div>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Language</strong><small>Reloads navigation labels in the selected language.</small></div>
+          <div class="cs-settings-segmented" role="group" aria-label="Language">
+            <button class="is-active" type="button" aria-pressed="true">English</button>
+            <button type="button" aria-pressed="false">Korean</button>
+          </div>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Motion</strong><small>Reduces decorative animation while preserving live updates.</small></div>
+          <label class="cs-settings-toggle">
+            <input type="checkbox" />
+            <span class="cs-settings-toggle-track" aria-hidden="true"></span>
+            <strong>System preference</strong>
+          </label>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Show token usage</strong><small>Shows tokens beside model and latency in Command Deck.</small></div>
+          <label class="cs-settings-toggle">
+            <input type="checkbox" checked />
+            <span class="cs-settings-toggle-track" aria-hidden="true"></span>
+            <strong>Enabled</strong>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="settings-context">
+      <header class="cs-settings-section-head">
+        <h2 id="settings-context">User context</h2>
+        <p>Account-scoped answer defaults and explicit learner consent.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>Answer detail</strong><small>Explicit requests in the current turn still win.</small></div>
+          <div class="cs-settings-segmented" role="group" aria-label="Answer detail">
+            <button type="button">Brief</button>
+            <button class="is-active" type="button">Standard</button>
+            <button type="button">Deep</button>
+          </div>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Answer format</strong><small>Default structure when the current turn does not request one.</small></div>
+          <div class="cs-settings-segmented is-four" role="group" aria-label="Answer format">
+            <button class="is-active" type="button">Prose</button>
+            <button type="button">Bullets</button>
+            <button type="button">Steps</button>
+            <button type="button">Table</button>
+          </div>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Timezone</strong><small>IANA timezone used by recurring briefings.</small></div>
+          <input class="cs-settings-input" value="Asia/Seoul" aria-label="Timezone" />
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Learner access</strong><small>Off by default. Metadata remains available.</small></div>
+          <label class="cs-settings-toggle">
+            <input type="checkbox" />
+            <span class="cs-settings-toggle-track" aria-hidden="true"></span>
+            <strong>Metadata only</strong>
+          </label>
+        </div>
+      </div>
+      <div class="cs-settings-actions"><button class="cs-btn is-primary" type="button">Save user context</button></div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="settings-briefings">
+      <header class="cs-settings-section-head">
+        <h2 id="settings-briefings">Proactive briefings</h2>
+        <p>Schedule preferences only. Operational actions stay outside the console.</p>
+      </header>
+      <article class="cs-settings-card">
+        <div><strong>Brief when Command Deck opens</strong><small>Show high and critical issues once per conversation.</small></div>
+        <button class="cs-btn" type="button" disabled>Enable</button>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

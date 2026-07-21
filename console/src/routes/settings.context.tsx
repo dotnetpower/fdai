@@ -91,6 +91,7 @@ export function SettingsContextSections({
           <SettingRow label={t("settings.timezone")} hint={t("settings.timezoneHint")}>
             <input
               class="form-input settings-context-input"
+              aria-label={t("settings.timezone")}
               value={timezone}
               placeholder="Asia/Seoul"
               onInput={(event) => setTimezone(event.currentTarget.value)}

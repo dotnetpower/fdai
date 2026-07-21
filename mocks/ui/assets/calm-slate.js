@@ -36,6 +36,7 @@
     ["Report & kit", [
       ["report.html", "Weekly report", "is-terracotta"],
       ["rca-report.html", "RCA report", "is-teal"],
+      ["settings.html", "Settings", "is-steel"],
       ["components.html", "Components", ""]
     ]],
     ["Explorations", [
