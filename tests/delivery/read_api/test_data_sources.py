@@ -333,7 +333,7 @@ def test_database_content_question_uses_read_source_manifest(
                     source="empty-local-memory",
                     routes=("/audit", "/kpi", "/incidents", "/hil-queue", "/rca"),
                     availability="unavailable",
-                        reachable=None,
+                    reachable=None,
                     authoritative=False,
                     durable=False,
                     reason="Authoritative operational state is not connected.",
