@@ -10,6 +10,7 @@ import {
   graphSubset,
   hasExplicitVisualMapping,
   layerOf,
+  relatedResourceIds,
   resourceColorTokenOf,
   resourceColorOf,
   selectedResourceIdFromHash,
@@ -153,6 +154,11 @@ describe("architecture map model", () => {
     };
     expect(graphSubset(graph, new Set(["data"])).resources.map((resource) => resource.id)).toEqual(["db"]);
     expect(graphSubset(graph, new Set(["messaging"])).resources.map((resource) => resource.id)).toEqual(["events"]);
+  });
+
+  test("identifies the selected resource neighborhood", () => {
+    expect(relatedResourceIds(GRAPH, "app")).toEqual(new Set(["app", "rg", "db"]));
+    expect(relatedResourceIds(GRAPH, "missing")).toBeUndefined();
   });
 
   test("predefines every canonical resource vocabulary color", () => {

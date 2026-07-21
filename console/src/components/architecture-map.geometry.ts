@@ -27,6 +27,14 @@ export type Quad = readonly [Point, Point, Point, Point];
 
 export const WORLD = { width: 18, height: 12 };
 export const LIFT = .10;
+const ZOOM_STEP = 1.12;
+
+export function architectureZoomScale(
+  scale: number,
+  direction: "in" | "out",
+): number {
+  return clamp(scale * (direction === "in" ? ZOOM_STEP : 1 / ZOOM_STEP), 18, 132);
+}
 
 export function architectureResourceFromValue(
   resources: readonly InventoryResource[],
@@ -78,15 +86,35 @@ export function pickResource(
   let best: { resource: InventoryResource; distance: number } | null = null;
   for (const resource of graph.resources.filter((item) => !isRegion(item))) {
     const silhouette = nodeSilhouette(camera, width, height, resource);
-    if (!pointInPolygon(screenX, screenY, silhouette)) continue;
     const point = project(
       camera, width, height, resource.x ?? 0, resource.y ?? 0,
       LIFT + geometryOf(resource).height / 2,
     );
     const distance = Math.hypot(screenX - point.x, screenY - point.y);
+    const geometry = geometryOf(resource);
+    const hitRadius = Math.max(22, camera.scale * Math.max(geometry.width, geometry.depth) / 2);
+    if (!pointInPolygon(screenX, screenY, silhouette) && distance > hitRadius) continue;
     if (!best || distance < best.distance) best = { resource, distance };
   }
-  return best?.resource ?? null;
+  if (best) return best.resource;
+  return graph.resources
+    .filter(isRegion)
+    .filter((resource) => pointInPolygon(
+      screenX,
+      screenY,
+      rectangle(
+        camera,
+        width,
+        height,
+        resource.x ?? 0,
+        resource.y ?? 0,
+        resource.w ?? 0,
+        resource.h ?? 0,
+        .01,
+      ),
+    ))
+    .sort((first, second) =>
+      (first.w ?? 0) * (first.h ?? 0) - (second.w ?? 0) * (second.h ?? 0))[0] ?? null;
 }
 
 function nodeSilhouette(

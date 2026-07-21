@@ -1467,6 +1467,10 @@ During bootstrap, the SPA verifies the signed-in principal through authenticated
 full-screen sign-in recovery surface with access-check retry and sign-in actions. It does not start
 an automatic sign-in redirect because an unreachable read API would create a redirect loop.
 
+The Architecture route leads with inventory provenance and factual counts for resources, dependencies, containment boundaries, and resources whose status is unavailable. Its default top-down map favors relationship reading; isometric and front views remain optional display settings. Selecting a resource updates the canonical deep link without reloading the inventory graph, highlights its direct neighborhood, and exposes directional relationships before technical identifiers.
+Map labels avoid node and label collisions, fit long names within the canvas, and grow from 13px up to 20px as the operator zooms, including the first zoom step. The selected label can grow to 22px. Zoom-in and zoom-out steps are reciprocal, and the canvas palette follows the active console theme. The route uses the main page scroll rather than a nested inspector scroll and provides a keyboard-accessible resource and relationship index equivalent to the filtered canvas content.
+A truncated snapshot carries an explicit partial-inventory notice. Pointer interaction uses a minimum 44px node target and lets operators select containment boundaries as well as resource nodes.
+
 Time-bound and aggregate evidence remains conservative while a route stays
 open. Approval and Operator Memory rows cross their recorded TTL boundary
 without requiring a reload; Architecture continuously advances snapshot age

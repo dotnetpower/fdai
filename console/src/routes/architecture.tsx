@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalReadApiUnavailable, ReadApiError, type ReadApiClient } from "../api";
+import { ArchitectureInspector } from "../components/architecture-inspector";
 import { ArchitectureMap, type ArchitectureMapHandle } from "../components/architecture-map";
+import { ArchitectureRelationIndex } from "../components/architecture-relation-index";
 import {
   ARCHITECTURE_LAYERS,
-  RESOURCE_COLOR_TOKENS,
   architectureHref,
-  architectureViewKindLabel,
   architectureViewFromHash,
   graphSubset,
+  isRegion,
   layerOf,
-  resourceColorTokenOf,
+  relatedResourceIds,
   selectedResourceIdFromHash,
   type ArchitectureCameraView,
   type ArchitectureDisplayOptions,
@@ -21,7 +22,7 @@ import { AsyncBoundary, PageHeader, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
-import { navigate, routeHref } from "../router";
+import { navigate, replaceRouteState } from "../router";
 
 interface Props { readonly client: ReadApiClient }
 
@@ -33,12 +34,6 @@ const LAYER_LABELS: Readonly<Record<ArchitectureLayer, string>> = {
   data: "Data",
   messaging: "Messaging",
   observability: "Observability",
-};
-
-const CAMERA_LABELS: Readonly<Record<ArchitectureCameraView, string>> = {
-  iso: "Iso",
-  top: "Top",
-  front: "Front",
 };
 
 export function architectureResourceExists(
@@ -55,6 +50,12 @@ export function architectureViewExists(
   if (requestedView === null) return true;
   if (graph.active_view === requestedView) return true;
   return graph.views?.some((view) => view.id === requestedView) ?? false;
+}
+
+export function architectureSourceLabel(source?: string): string {
+  if (!source) return "Source unavailable";
+  if (source === "azure-cli-local") return "Azure CLI inventory";
+  return source.replaceAll(/[._-]+/g, " ").replace(/^./, (character) => character.toUpperCase());
 }
 
 export async function loadArchitectureGraph(
@@ -81,13 +82,13 @@ export function ArchitectureRoute({ client }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(() => selectedResourceIdFromHash(window.location.search));
   const [visibleLayers, setVisibleLayers] = useState<Set<ArchitectureLayer>>(new Set(ARCHITECTURE_LAYERS));
   const [viewScope, setViewScope] = useState<string | null>(() => architectureViewFromHash(window.location.search));
-  const [cameraView, setCameraView] = useState<ArchitectureCameraView>("iso");
+  const [cameraView, setCameraView] = useState<ArchitectureCameraView>("top");
   const [zoomPercent, setZoomPercent] = useState(100);
   const [displayOptions, setDisplayOptions] = useState<ArchitectureDisplayOptions>({
     showConnections: true,
-    showReflections: true,
+    showReflections: false,
     showLabels: true,
-    showGrid: true,
+    showGrid: false,
   });
   const mapRef = useRef<ArchitectureMapHandle>(null);
 
@@ -122,7 +123,7 @@ export function ArchitectureRoute({ client }: Props) {
 
   function selectResource(resource: InventoryResource | null): void {
     setSelectedId(resource?.id ?? null);
-    navigate(architectureHref(resource?.id, viewScope));
+    replaceRouteState(architectureHref(resource?.id, viewScope));
   }
 
   function toggleLayer(layer: ArchitectureLayer): void {
@@ -158,9 +159,10 @@ export function ArchitectureRoute({ client }: Props) {
             onSelect={selectResource}
             onToggleLayer={toggleLayer}
             onViewScopeChange={(scope) => {
-              mapRef.current?.setView("iso");
-              setCameraView("iso");
+              mapRef.current?.setView("top");
+              setCameraView("top");
               setSelectedId(null);
+              setVisibleLayers(new Set(ARCHITECTURE_LAYERS));
               setViewScope(scope);
               navigate(architectureHref(undefined, scope));
             }}
@@ -229,19 +231,22 @@ function ArchitectureBody({
     ])),
     [graph],
   );
-  const resourceColorTokens = useMemo(
-    () => [...new Set(
-      graph.resources
-        .map(resourceColorTokenOf),
-    )],
-    [graph],
+  const visibleSelectedId = architectureResourceExists(filtered.resources, selectedId)
+    ? selectedId
+    : null;
+  const selected = filtered.resources.find((resource) => resource.id === visibleSelectedId) ?? null;
+  const highlightedIds = useMemo(
+    () => relatedResourceIds(filtered, visibleSelectedId),
+    [filtered, visibleSelectedId],
   );
-  const selected = graph.resources.find((resource) => resource.id === selectedId) ?? null;
   const requestedViewExists = architectureViewExists(graph, requestedView);
   const requestedResourceExists = architectureResourceExists(graph.resources, selectedId);
-  const parent = selected?.parent_id
-    ? graph.resources.find((resource) => resource.id === selected.parent_id)
-    : null;
+  const dependencyCount = graph.links.filter((link) => link.type !== "contains").length;
+  const boundaryCount = graph.resources.filter(isRegion).length;
+  const unavailableStatusCount = graph.resources.filter(
+    (resource) => resource.status.trim().toLowerCase() === "unknown",
+  ).length;
+  const populatedLayers = ARCHITECTURE_LAYERS.filter((layer) => (layerCounts.get(layer) ?? 0) > 0);
   usePublishViewContext(
     () => ({
       routeId: "architecture",
@@ -293,132 +298,121 @@ function ArchitectureBody({
       </div>
     );
   }
+  if (!requestedResourceExists && selectedId) {
+    return (
+      <div class="state-block state-unavailable" role="alert">
+        <span class="state-icon" aria-hidden="true">?</span>
+        <div>
+          <strong>Resource unavailable</strong>
+          <p><code>{selectedId}</code> is not present in this architecture view.</p>
+          <a href={architectureHref(undefined, graph.active_view)}>Open current architecture</a>
+        </div>
+      </div>
+    );
+  }
   return (
     <div class="architecture-workspace">
       <div class="architecture-toolbar">
         <label class="architecture-view-picker">
-          <span>Architecture view</span>
+          <span>Scope</span>
           <select
             value={graph.active_view ?? graph.views?.[0]?.id ?? ""}
+            aria-describedby="architecture-view-description"
             onChange={(event) => onViewScopeChange((event.target as HTMLSelectElement).value)}
           >
-            {(graph.views ?? []).map((view) => (
-              <option value={view.id}>{architectureViewKindLabel(view)} - {view.label}</option>
-            ))}
+            {(["fdai", "service", "resource_group"] as const).map((kind) => {
+              const views = (graph.views ?? []).filter((view) => view.kind === kind);
+              if (views.length === 0) return null;
+              return (
+                <optgroup label={kind === "fdai" ? "FDAI control planes" : kind === "service" ? "Services" : "Resource groups"}>
+                  {views.map((view) => <option value={view.id}>{view.label}</option>)}
+                </optgroup>
+              );
+            })}
           </select>
-          <small>{graph.views?.find((view) => view.id === graph.active_view)?.description}</small>
+          <small id="architecture-view-description">
+            {graph.views?.find((view) => view.id === graph.active_view)?.description}
+          </small>
         </label>
-        <div class={`inventory-freshness is-${graph.freshness}`}>
-          <span />snapshot {graph.freshness} <small>{formatAge(graph.snapshot_at, now)}</small>
+        <div class="architecture-provenance" aria-label="Inventory provenance">
+          <div class={`inventory-freshness is-${graph.freshness}`}>
+            <span aria-hidden="true" />Snapshot {graph.freshness} <small>{formatAge(graph.snapshot_at, now)}</small>
+          </div>
+          <dl>
+            <div><dt>Source</dt><dd>{architectureSourceLabel(graph.source)}</dd></div>
+            <div><dt>Pending changes</dt><dd>{graph.realtime?.pending_changes ?? 0}</dd></div>
+          </dl>
           {(graph.realtime?.pending_changes ?? 0) > 0 ? (
-            <small>
-              {graph.realtime?.pending_changes} real-time change
-              {graph.realtime?.pending_changes === 1 ? "" : "s"}
-            </small>
+            <span class="architecture-pending-note">Inventory refresh in progress</span>
           ) : null}
         </div>
       </div>
-      <div class="architecture-stage">
+      {graph.truncated ? (
+        <div class="architecture-partial-notice" role="status">
+          <strong>Partial inventory graph</strong>
+          <span>The server limited this snapshot. Counts and relationships describe only the returned records.</span>
+        </div>
+      ) : null}
+      <section class="architecture-summary" aria-label="Architecture summary">
+        <div><strong>{graph.resources.length}</strong><span>Resources</span></div>
+        <div><strong>{dependencyCount}</strong><span>Dependencies</span></div>
+        <div><strong>{boundaryCount}</strong><span>Boundaries</span></div>
+        <div><strong>{unavailableStatusCount}</strong><span>Status unavailable</span></div>
+      </section>
+      <div class="architecture-layer-bar" role="group" aria-label="Visible architecture layers">
+        {populatedLayers.map((layer) => (
+          <button
+            type="button"
+            class={visibleLayers.has(layer) ? "is-active" : ""}
+            aria-pressed={visibleLayers.has(layer)}
+            onClick={() => onToggleLayer(layer)}
+          >
+            <span>{LAYER_LABELS[layer]}</span>
+            <small>{layerCounts.get(layer)}</small>
+          </button>
+        ))}
+        <output class="architecture-filter-summary" aria-live="polite">
+          Showing {filtered.resources.length} of {graph.resources.length} resources and {filtered.links.length} of {graph.links.length} relationships
+        </output>
+      </div>
+      <div class={`architecture-stage${selected ? " has-selection" : ""}`}>
         <div class="architecture-canvas-shell">
+          <p id="architecture-map-description" class="sr-only">
+            Read-only map of {filtered.resources.length} visible resources and {filtered.links.length} reported relationships. Use the resource selector or the resource and relationship index for keyboard navigation.
+          </p>
           <ArchitectureMap
             ref={mapRef}
             graph={filtered}
-            selectedId={selectedId}
+            selectedId={visibleSelectedId}
+            {...(highlightedIds ? { highlightedIds } : {})}
             onSelect={onSelect}
             options={displayOptions}
             onZoomChange={onZoomChange}
+            descriptionId="architecture-map-description"
           />
-          <div class="architecture-zoom-controls" aria-label="Map zoom controls">
+          <div class="architecture-zoom-controls" role="group" aria-label="Map zoom controls">
             <button type="button" onClick={() => mapRef.current?.zoomIn()} aria-label="Zoom in">+</button>
-            <output aria-label="Zoom level">{zoomPercent}%</output>
+            <output aria-label="Zoom level" aria-live="polite">{zoomPercent}%</output>
             <button type="button" onClick={() => mapRef.current?.zoomOut()} aria-label="Zoom out">-</button>
             <button type="button" onClick={() => mapRef.current?.fit()} aria-label="Fit map">Fit</button>
           </div>
+          <div class="architecture-edge-legend" aria-label="Relationship legend">
+            <span><i class="is-dependency" aria-hidden="true" />Depends on</span>
+            <span><i class="is-attachment" aria-hidden="true" />Attached to</span>
+            <span><i class="is-boundary" aria-hidden="true" />Boundary</span>
+          </div>
         </div>
-        <aside class="architecture-inspector">
-          <section class="map-controls-section">
-            <span class="eyebrow">Map controls</span>
-            <h3>View</h3>
-            <div class="architecture-camera-control" role="group" aria-label="Camera view">
-              {(["iso", "top", "front"] as const).map((view) => (
-                <button
-                  type="button"
-                  class={cameraView === view ? "is-active" : ""}
-                  onClick={() => onCameraViewChange(view)}
-                >
-                  {CAMERA_LABELS[view]}
-                </button>
-              ))}
-            </div>
-            <h3>Layer filter</h3>
-            <div class="architecture-layer-filters" aria-label="Architecture layers">
-              {ARCHITECTURE_LAYERS.map((layer) => (
-                <button
-                  type="button"
-                  class={visibleLayers.has(layer) ? "is-active" : ""}
-                  aria-pressed={visibleLayers.has(layer)}
-                  aria-label={`${LAYER_LABELS[layer]} layer (${formatResourceCount(layerCounts.get(layer) ?? 0)})`}
-                  disabled={(layerCounts.get(layer) ?? 0) === 0}
-                  onClick={() => onToggleLayer(layer)}
-                >
-                  <i class="architecture-filter-mark" aria-hidden="true" />
-                  <span>{LAYER_LABELS[layer]}</span>
-                  <small>{layerCounts.get(layer) ?? 0}</small>
-                </button>
-              ))}
-            </div>
-            <h3>Resource colors</h3>
-            <div class="architecture-color-legend" aria-label="Azure-aligned resource colors">
-              {resourceColorTokens.map((token) => (
-                <span>
-                  <i style={{ backgroundColor: RESOURCE_COLOR_TOKENS[token].color }} />
-                  {RESOURCE_COLOR_TOKENS[token].label}
-                </span>
-              ))}
-            </div>
-            <h3>Display</h3>
-            <div class="architecture-display-options">
-              {([
-                ["showConnections", "Connections"],
-                ["showReflections", "Reflections"],
-                ["showLabels", "Labels"],
-                ["showGrid", "Grid points"],
-              ] as const).map(([key, label]) => (
-                <label><input type="checkbox" checked={displayOptions[key]} onChange={() => onToggleDisplay(key)} />{label}</label>
-              ))}
-            </div>
-          </section>
-          <section class="architecture-selection-section">
-            {selected ? (
-              <>
-                <span class="eyebrow">{LAYER_LABELS[layerOf(selected)]}</span>
-                <h3>{selected.name}</h3>
-                <dl>
-                  <dt>Type</dt><dd>{selected.type}</dd>
-                  <dt>Status</dt><dd class={`status-${selected.status}`}>{selected.status}</dd>
-                  <dt>Parent</dt><dd>{parent?.name ?? "Tenant"}</dd>
-                  <dt>Resource id</dt><dd class="mono">{selected.id}</dd>
-                </dl>
-                <a class="btn" href={routeHref("blast-radius", { params: { target: selected.id, view: graph.active_view } })}>View blast radius</a>
-              </>
-            ) : !requestedResourceExists && selectedId ? (
-              <div class="state-block state-unavailable" role="alert">
-                <span class="state-icon" aria-hidden="true">?</span>
-                <div>
-                  <strong>Resource unavailable</strong>
-                  <p><code>{selectedId}</code> is not present in this architecture view.</p>
-                  <a href={architectureHref(undefined, graph.active_view)}>Open current architecture</a>
-                </div>
-              </div>
-            ) : (
-              <div class="architecture-empty-inspector">
-                <strong>Select a resource</strong>
-                <p>Inspect its type, status, parent boundary, and safety context.</p>
-              </div>
-            )}
-          </section>
-        </aside>
+        <ArchitectureInspector
+          graph={graph}
+          selected={selected}
+          onSelect={onSelect}
+          cameraView={cameraView}
+          onCameraViewChange={onCameraViewChange}
+          displayOptions={displayOptions}
+          onToggleDisplay={onToggleDisplay}
+        />
       </div>
+      <ArchitectureRelationIndex graph={filtered} onSelect={onSelect} />
     </div>
   );
 }
@@ -428,8 +422,4 @@ export function formatAge(timestamp: string, now = Date.now()): string {
   if (seconds < 60) return `${seconds}s ago`;
   if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
   return `${Math.round(seconds / 3600)}h ago`;
-}
-
-function formatResourceCount(count: number): string {
-  return `${count} ${count === 1 ? "resource" : "resources"}`;
 }

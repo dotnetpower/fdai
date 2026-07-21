@@ -2,6 +2,7 @@ import {
   LIFT,
   WORLD,
   circlePoints,
+  clamp,
   convexHull,
   footprintPoints,
   project,
@@ -25,10 +26,60 @@ type CanvasPaint = string | CanvasGradient | CanvasPattern;
 
 const DEFAULT_OPTIONS: ArchitectureDisplayOptions = {
   showConnections: true,
-  showReflections: true,
+  showReflections: false,
   showLabels: true,
-  showGrid: true,
+  showGrid: false,
 };
+
+interface LabelBounds {
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+  readonly bottom: number;
+}
+
+export interface ArchitectureMapPalette {
+  readonly background: string;
+  readonly surface: string;
+  readonly surfaceBorder: string;
+  readonly labelBackground: string;
+  readonly selectedLabelBackground: string;
+  readonly labelText: string;
+  readonly selectedLabelText: string;
+}
+
+export const DEFAULT_ARCHITECTURE_MAP_PALETTE: ArchitectureMapPalette = {
+  background: "#eef2f4",
+  surface: "#fbfcfd",
+  surfaceBorder: "#aeb9c3",
+  labelBackground: "rgba(255,255,255,.94)",
+  selectedLabelBackground: "rgba(239,249,248,.97)",
+  labelText: "#263543",
+  selectedLabelText: "#102f36",
+};
+
+export function architectureLabelFontSize(cameraScale: number, selected = false): number {
+  const minimum = selected ? 15 : 13;
+  const growth = selected ? .16 : .14;
+  return clamp(minimum + Math.max(0, cameraScale - 22) * growth, minimum, selected ? 22 : 20);
+}
+
+export function fitArchitectureLabel(
+  text: string,
+  maximumWidth: number,
+  measure: (value: string) => number,
+): string {
+  if (measure(text) <= maximumWidth) return text;
+  const suffix = "...";
+  let low = 0;
+  let high = text.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (measure(`${text.slice(0, middle)}${suffix}`) <= maximumWidth) low = middle;
+    else high = middle - 1;
+  }
+  return `${text.slice(0, low)}${suffix}`;
+}
 
 export function renderMap(
   context: CanvasRenderingContext2D,
@@ -39,13 +90,14 @@ export function renderMap(
   selectedId: string | null,
   highlightedIds?: ReadonlySet<string>,
   options: ArchitectureDisplayOptions = DEFAULT_OPTIONS,
+  palette: ArchitectureMapPalette = DEFAULT_ARCHITECTURE_MAP_PALETTE,
 ): void {
-  const showLabels = options.showLabels && width >= 420;
+  const showLabels = options.showLabels;
   context.clearRect(0, 0, width, height);
-  context.fillStyle = "#eef2f4";
+  context.fillStyle = palette.background;
   context.fillRect(0, 0, width, height);
   const plate = rectangle(camera, width, height, 0, 0, WORLD.width, WORLD.height, 0);
-  fillPolygon(context, plate, "#fbfcfd", "#aeb9c3");
+  fillPolygon(context, plate, palette.surface, palette.surfaceBorder);
   if (options.showGrid) drawGrid(context, width, height, camera);
 
   const regions = graph.resources.filter(isRegion).sort((first, second) =>
@@ -57,9 +109,6 @@ export function renderMap(
     context.globalAlpha = region.type === "subscription" ? .12 : .2;
     fillPolygon(context, points, color, selectedId === region.id ? "#0f6670" : color, selectedId === region.id ? 2.5 : 1.1);
     context.restore();
-    if (showLabels) {
-      drawLabel(context, project(camera, width, height, (region.x ?? 0) + .2, (region.y ?? 0) + .2, .02), region.name, color, 9);
-    }
   }
 
   const nodes = graph.resources.filter((resource) => !isRegion(resource));
@@ -67,9 +116,39 @@ export function renderMap(
   const ordered = [...nodes].sort((first, second) =>
     project(camera, width, height, second.x ?? 0, second.y ?? 0).depth -
     project(camera, width, height, first.x ?? 0, first.y ?? 0).depth);
-  for (const node of ordered) drawNodeBody(context, width, height, camera, node, selectedId, highlightedIds);
   if (options.showConnections) drawLinks(context, width, height, camera, graph, highlightedIds);
-  for (const node of ordered) drawNodeOverlay(context, width, height, camera, node, highlightedIds, showLabels);
+  for (const node of ordered) drawNodeBody(context, width, height, camera, node, selectedId, highlightedIds);
+  const labelBounds = ordered.map((node) => nodeLabelObstacle(camera, width, height, node));
+  const overlayOrder = [...ordered].sort((first, second) =>
+    Number(second.id === selectedId) - Number(first.id === selectedId));
+  for (const node of overlayOrder) {
+    drawNodeOverlay(
+      context,
+      width,
+      height,
+      camera,
+      node,
+      node.id === selectedId,
+      highlightedIds,
+      showLabels,
+      labelBounds,
+      palette,
+    );
+  }
+  if (showLabels) {
+    for (const region of regions) {
+      drawLabel(
+        context,
+        project(camera, width, height, (region.x ?? 0) + .2, (region.y ?? 0) + .2, .02),
+        region.name,
+        resourceColorOf(region),
+        architectureLabelFontSize(camera.scale) * .88,
+        labelBounds,
+        false,
+        palette,
+      );
+    }
+  }
 }
 
 function drawGrid(context: CanvasRenderingContext2D, width: number, height: number, camera: Camera): void {
@@ -221,8 +300,34 @@ function drawLinks(
     context.strokeStyle = link.type === "attached_to" ? "#397a5d" : "#426f87";
     context.lineWidth = 1.7;
     context.stroke();
+    if (link.type === "depends_on") {
+      drawArrowHead(context, start, end, "#426f87");
+    }
     context.restore();
   }
+}
+
+function drawArrowHead(
+  context: CanvasRenderingContext2D,
+  start: Pick<Point, "x" | "y">,
+  end: Pick<Point, "x" | "y">,
+  color: string,
+): void {
+  const angle = Math.atan2(end.y - start.y, end.x - start.x);
+  const size = 7;
+  context.beginPath();
+  context.moveTo(end.x, end.y);
+  context.lineTo(
+    end.x - Math.cos(angle - Math.PI / 6) * size,
+    end.y - Math.sin(angle - Math.PI / 6) * size,
+  );
+  context.lineTo(
+    end.x - Math.cos(angle + Math.PI / 6) * size,
+    end.y - Math.sin(angle + Math.PI / 6) * size,
+  );
+  context.closePath();
+  context.fillStyle = color;
+  context.fill();
 }
 
 function drawNodeBody(
@@ -464,8 +569,11 @@ function drawNodeOverlay(
   height: number,
   camera: Camera,
   node: InventoryResource,
+  selected: boolean,
   highlightedIds?: ReadonlySet<string>,
   showLabels = true,
+  occupiedLabels: LabelBounds[] = [],
+  palette: ArchitectureMapPalette = DEFAULT_ARCHITECTURE_MAP_PALETTE,
 ): void {
   const nodeX = node.x ?? 0;
   const nodeY = node.y ?? 0;
@@ -474,7 +582,8 @@ function drawNodeOverlay(
   context.globalAlpha = highlightAlpha(node.id, highlightedIds);
   const center = project(camera, width, height, nodeX, nodeY, LIFT + geometry.height + .02);
   context.fillStyle = "#fff";
-  context.font = "800 9px Aptos, Segoe UI, sans-serif";
+  const glyphSize = clamp(10 + Math.max(0, camera.scale - 22) * .12, 10, 16);
+  context.font = `800 ${glyphSize}px Aptos, Segoe UI, sans-serif`;
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.strokeStyle = "rgba(28,39,51,.38)";
@@ -482,10 +591,48 @@ function drawNodeOverlay(
   context.strokeText(abbreviation(node.type), center.x, center.y);
   context.fillText(abbreviation(node.type), center.x, center.y);
   if (showLabels) {
+    const fontSize = architectureLabelFontSize(camera.scale, selected);
     const labelPoint = project(camera, width, height, nodeX, nodeY, 0);
-    drawLabel(context, { ...labelPoint, y: labelPoint.y + 13 }, node.name, "#354252", 9);
+    drawLabel(
+      context,
+      {
+        ...labelPoint,
+        y: labelPoint.y + camera.scale * geometry.depth / 2 + fontSize / 2 + 14,
+      },
+      node.name,
+      selected ? palette.selectedLabelText : palette.labelText,
+      fontSize,
+      occupiedLabels,
+      selected,
+      palette,
+    );
   }
   context.restore();
+}
+
+function nodeLabelObstacle(
+  camera: Camera,
+  width: number,
+  height: number,
+  node: InventoryResource,
+): LabelBounds {
+  const geometry = geometryOf(node);
+  const center = project(
+    camera,
+    width,
+    height,
+    node.x ?? 0,
+    node.y ?? 0,
+    LIFT + geometry.height / 2,
+  );
+  const halfWidth = camera.scale * geometry.width / 2 + 5;
+  const halfHeight = camera.scale * geometry.depth / 2 + 5;
+  return {
+    left: center.x - halfWidth,
+    right: center.x + halfWidth,
+    top: center.y - halfHeight,
+    bottom: center.y + halfHeight,
+  };
 }
 
 function fillPolygon(
@@ -510,15 +657,61 @@ function fillPolygon(
   }
 }
 
-function drawLabel(context: CanvasRenderingContext2D, point: Pick<Point, "x" | "y">, text: string, color: string, size: number): void {
+function drawLabel(
+  context: CanvasRenderingContext2D,
+  point: Pick<Point, "x" | "y">,
+  text: string,
+  color: string,
+  size: number,
+  occupiedLabels?: LabelBounds[],
+  force = false,
+  palette: ArchitectureMapPalette = DEFAULT_ARCHITECTURE_MAP_PALETTE,
+): void {
   context.font = `600 ${size}px Aptos, Segoe UI, sans-serif`;
-  const labelWidth = context.measureText(text).width + 8;
-  context.fillStyle = "rgba(255,255,255,.9)";
-  context.fillRect(point.x - labelWidth / 2, point.y - 7, labelWidth, 14);
+  const maximumTextWidth = Math.max(72, Math.min(320, context.canvas.clientWidth - 36));
+  const fittedText = fitArchitectureLabel(
+    text,
+    maximumTextWidth,
+    (value) => context.measureText(value).width,
+  );
+  const labelWidth = context.measureText(fittedText).width + 12;
+  const labelHeight = size + 8;
+  const labelX = clamp(
+    point.x,
+    labelWidth / 2 + 8,
+    context.canvas.clientWidth - labelWidth / 2 - 8,
+  );
+  const labelY = force
+    ? clamp(point.y, labelHeight / 2 + 8, context.canvas.clientHeight - labelHeight / 2 - 8)
+    : point.y;
+  const bounds = {
+    left: labelX - labelWidth / 2,
+    right: labelX + labelWidth / 2,
+    top: labelY - labelHeight / 2,
+    bottom: labelY + labelHeight / 2,
+  };
+  if (!force && (bounds.top < 8 || bounds.bottom > context.canvas.clientHeight - 8)) return;
+  if (!force && occupiedLabels?.some((current) => labelsOverlap(current, bounds))) return;
+  occupiedLabels?.push(bounds);
+  context.fillStyle = force ? palette.selectedLabelBackground : palette.labelBackground;
+  context.fillRect(bounds.left, bounds.top, labelWidth, labelHeight);
+  if (force) {
+    context.strokeStyle = "#2f7774";
+    context.lineWidth = 1;
+    context.strokeRect(bounds.left, bounds.top, labelWidth, labelHeight);
+  }
   context.fillStyle = color;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(text, point.x, point.y);
+  context.fillText(fittedText, labelX, labelY);
+}
+
+function labelsOverlap(first: LabelBounds, second: LabelBounds): boolean {
+  const gap = 4;
+  return first.left < second.right + gap
+    && first.right + gap > second.left
+    && first.top < second.bottom + gap
+    && first.bottom + gap > second.top;
 }
 
 function highlightAlpha(id: string, highlightedIds?: ReadonlySet<string>): number {

@@ -67,6 +67,11 @@ describe("blast-radius route query", () => {
       status: "error",
       message: "invalid target",
     });
-    expect(blastRadiusFailure(new ReadApiError(503, "inventory unavailable")).status).toBe("error");
+    expect(blastRadiusFailure(new ReadApiError(503, "inventory unavailable")).status)
+      .toBe("unavailable");
+    expect(blastRadiusFailure(new ReadApiError(500, "inventory failed"))).toEqual({
+      status: "error",
+      message: "inventory failed",
+    });
   });
 });

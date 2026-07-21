@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ReadApiError } from "../api";
 import {
   architectureResourceExists,
+  architectureSourceLabel,
   architectureViewExists,
   formatAge,
   loadArchitectureGraph,
@@ -23,6 +24,11 @@ describe("architecture resource selection", () => {
 
   it("rejects an explicit resource outside the current graph", () => {
     expect(architectureResourceExists(resources, "missing-resource")).toBe(false);
+  });
+
+  it("maps inventory provenance to a readable label", () => {
+    expect(architectureSourceLabel("azure-cli-local")).toBe("Azure CLI inventory");
+    expect(architectureSourceLabel()).toBe("Source unavailable");
   });
 });
 

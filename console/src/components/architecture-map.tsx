@@ -1,8 +1,13 @@
 import { forwardRef } from "preact/compat";
 import { architectureResourceFromValue } from "./architecture-map.geometry";
 import {
+  ARCHITECTURE_LAYERS,
+  RESOURCE_COLOR_TOKENS,
+  layerOf,
+  resourceColorTokenOf,
   type ArchitectureCameraView,
   type ArchitectureDisplayOptions,
+  type ArchitectureLayer,
   type InventoryGraphResponse,
   type InventoryResource,
 } from "./architecture-map.model";
@@ -18,6 +23,7 @@ interface Props {
   readonly className?: string;
   readonly options?: ArchitectureDisplayOptions;
   readonly onZoomChange?: (percent: number) => void;
+  readonly descriptionId?: string;
 }
 
 export interface ArchitectureMapHandle {
@@ -29,9 +35,19 @@ export interface ArchitectureMapHandle {
 
 const DEFAULT_OPTIONS: ArchitectureDisplayOptions = {
   showConnections: true,
-  showReflections: true,
+  showReflections: false,
   showLabels: true,
-  showGrid: true,
+  showGrid: false,
+};
+
+const LAYER_LABELS: Readonly<Record<ArchitectureLayer, string>> = {
+  scope: "Scope and boundaries",
+  network: "Network",
+  security: "Security",
+  runtime: "Runtime",
+  data: "Data",
+  messaging: "Messaging",
+  observability: "Observability",
 };
 
 export const ArchitectureMap = forwardRef<ArchitectureMapHandle, Props>(function ArchitectureMap({
@@ -42,6 +58,7 @@ export const ArchitectureMap = forwardRef<ArchitectureMapHandle, Props>(function
   className = "",
   options = DEFAULT_OPTIONS,
   onZoomChange,
+  descriptionId,
 }, forwardedRef) {
   const canvasRef = useArchitectureMapController({
     graph,
@@ -55,7 +72,13 @@ export const ArchitectureMap = forwardRef<ArchitectureMapHandle, Props>(function
 
   return (
     <div class={`architecture-map-frame ${className}`}>
-      <canvas ref={canvasRef} class="architecture-map" aria-label="Resource architecture map" />
+      <canvas
+        ref={canvasRef}
+        class="architecture-map"
+        role="img"
+        aria-label={`Resource architecture map with ${graph.resources.length} resources`}
+        aria-describedby={descriptionId}
+      />
       <label class="architecture-resource-picker">
         <span class="sr-only">Select architecture resource</span>
         <select
@@ -67,11 +90,21 @@ export const ArchitectureMap = forwardRef<ArchitectureMapHandle, Props>(function
           )}
         >
           <option value="">Select resource</option>
-          {graph.resources.map((resource) => (
-            <option key={resource.id} value={resource.id}>
-              {resource.name} - {resource.type}
-            </option>
-          ))}
+          {ARCHITECTURE_LAYERS.map((layer) => {
+            const resources = graph.resources
+              .filter((resource) => layerOf(resource) === layer)
+              .sort((first, second) => first.name.localeCompare(second.name));
+            if (resources.length === 0) return null;
+            return (
+              <optgroup label={LAYER_LABELS[layer]}>
+                {resources.map((resource) => (
+                  <option key={resource.id} value={resource.id}>
+                    {resource.name} - {RESOURCE_COLOR_TOKENS[resourceColorTokenOf(resource)].label}
+                  </option>
+                ))}
+              </optgroup>
+            );
+          })}
         </select>
       </label>
     </div>

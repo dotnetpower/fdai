@@ -2,6 +2,7 @@ import type { Ref } from "preact";
 import { useEffect, useImperativeHandle, useRef } from "preact/hooks";
 import {
   applyCameraView,
+  architectureZoomScale,
   clamp,
   fitCamera,
   pickResource,
@@ -13,7 +14,11 @@ import type {
   InventoryResource,
 } from "./architecture-map.model";
 import { constrainGraph } from "./architecture-map.model";
-import { renderMap } from "./architecture-map-renderer";
+import {
+  DEFAULT_ARCHITECTURE_MAP_PALETTE,
+  renderMap,
+  type ArchitectureMapPalette,
+} from "./architecture-map-renderer";
 import type { ArchitectureMapHandle } from "./architecture-map";
 
 interface ControllerOptions {
@@ -37,8 +42,8 @@ export function useArchitectureMapController({
 }: ControllerOptions) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cameraRef = useRef<Camera>({
-    yaw: Math.PI / 4,
-    pitch: .58,
+    yaw: 0,
+    pitch: 1.5,
     scale: 42,
     panX: 0,
     panY: 0,
@@ -83,12 +88,12 @@ export function useArchitectureMapController({
       notifyZoom();
     },
     zoomIn() {
-      cameraRef.current.scale = clamp(cameraRef.current.scale * 1.14, 18, 132);
+      cameraRef.current.scale = architectureZoomScale(cameraRef.current.scale, "in");
       drawRef.current?.();
       notifyZoom();
     },
     zoomOut() {
-      cameraRef.current.scale = clamp(cameraRef.current.scale * .88, 18, 132);
+      cameraRef.current.scale = architectureZoomScale(cameraRef.current.scale, "out");
       drawRef.current?.();
       notifyZoom();
     },
@@ -121,6 +126,7 @@ export function useArchitectureMapController({
         state.selectedId,
         state.highlightedIds,
         state.options,
+        architectureMapPalette(canvas),
       );
     };
     const resize = () => {
@@ -138,6 +144,8 @@ export function useArchitectureMapController({
     drawRef.current = draw;
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
+    const themeObserver = new MutationObserver(draw);
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
     const localPoint = (event: PointerEvent | WheelEvent) => {
       const rect = canvas.getBoundingClientRect();
@@ -184,10 +192,9 @@ export function useArchitectureMapController({
     };
     const wheel = (event: WheelEvent) => {
       event.preventDefault();
-      cameraRef.current.scale = clamp(
-        cameraRef.current.scale * (event.deltaY < 0 ? 1.1 : .91),
-        18,
-        132,
+      cameraRef.current.scale = architectureZoomScale(
+        cameraRef.current.scale,
+        event.deltaY < 0 ? "in" : "out",
       );
       draw();
       notifyZoom();
@@ -200,6 +207,7 @@ export function useArchitectureMapController({
     resize();
     return () => {
       observer.disconnect();
+      themeObserver.disconnect();
       canvas.removeEventListener("pointerdown", pointerDown);
       canvas.removeEventListener("pointermove", pointerMove);
       canvas.removeEventListener("pointerup", pointerUp);
@@ -220,4 +228,18 @@ export function useArchitectureMapController({
   }, [graph]);
 
   return canvasRef;
+}
+
+function architectureMapPalette(canvas: HTMLCanvasElement): ArchitectureMapPalette {
+  const styles = getComputedStyle(canvas);
+  const color = (name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback;
+  return {
+    background: color("--architecture-map-background", DEFAULT_ARCHITECTURE_MAP_PALETTE.background),
+    surface: color("--architecture-map-surface", DEFAULT_ARCHITECTURE_MAP_PALETTE.surface),
+    surfaceBorder: color("--architecture-map-surface-border", DEFAULT_ARCHITECTURE_MAP_PALETTE.surfaceBorder),
+    labelBackground: color("--architecture-map-label-background", DEFAULT_ARCHITECTURE_MAP_PALETTE.labelBackground),
+    selectedLabelBackground: color("--architecture-map-selected-label-background", DEFAULT_ARCHITECTURE_MAP_PALETTE.selectedLabelBackground),
+    labelText: color("--architecture-map-label-text", DEFAULT_ARCHITECTURE_MAP_PALETTE.labelText),
+    selectedLabelText: color("--architecture-map-selected-label-text", DEFAULT_ARCHITECTURE_MAP_PALETTE.selectedLabelText),
+  };
 }

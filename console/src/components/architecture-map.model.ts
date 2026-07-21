@@ -342,6 +342,26 @@ export function resourceColorOf(resource: InventoryResource): string {
   return RESOURCE_COLOR_TOKENS[resourceColorTokenOf(resource)].color;
 }
 
+export function relatedResourceIds(
+  graph: Pick<InventoryGraphResponse, "resources" | "links">,
+  selectedId: string | null,
+): ReadonlySet<string> | undefined {
+  if (selectedId === null || !graph.resources.some((resource) => resource.id === selectedId)) {
+    return undefined;
+  }
+  const related = new Set<string>([selectedId]);
+  const selected = graph.resources.find((resource) => resource.id === selectedId);
+  if (selected?.parent_id) related.add(selected.parent_id);
+  for (const resource of graph.resources) {
+    if (resource.parent_id === selectedId) related.add(resource.id);
+  }
+  for (const link of graph.links) {
+    if (link.source === selectedId) related.add(link.target);
+    if (link.target === selectedId) related.add(link.source);
+  }
+  return related;
+}
+
 export function hasExplicitVisualMapping(type: string): boolean {
   return type in TYPE_LAYER && type in TYPE_COLOR_TOKEN;
 }
