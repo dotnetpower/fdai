@@ -1,3 +1,6 @@
+import type { IncidentConversationBinding } from "./open-deck";
+import { PANTHEON } from "../routes/agents.model";
+
 /**
  * Browser-side conversation index for the command deck.
  *
@@ -10,6 +13,7 @@
 export const CONVERSATION_INDEX_KEY = "fdai.deck.conversations.v1";
 export const GENERAL_CONVERSATION_KEY = "screen";
 const DEFAULT_MAX_CONVERSATIONS = 24;
+const PANTHEON_AGENT_NAMES = new Set(PANTHEON.map((agent) => agent.name));
 
 /** Produce a stable, non-identifying browser scope for one signed-in user. */
 export function conversationUserScope(identity: string | null, devMode: boolean): string {
@@ -59,6 +63,7 @@ export interface ConversationSummary {
   readonly originLabel: string;
   readonly createdAt: string;
   readonly updatedAt: string;
+  readonly binding?: IncidentConversationBinding;
 }
 
 export interface ConversationGroups {
@@ -151,9 +156,40 @@ export function parseConversationIndex(raw: string | null): ConversationSummary[
       ...(typeof record.agent === "string" && record.agent.length > 0
         ? { agent: record.agent }
         : {}),
+      ...(parseIncidentBinding(record.binding) ?? {}),
     });
   }
   return out;
+}
+
+export function normalizeIncidentBinding(value: unknown): IncidentConversationBinding | null {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const incidentId = typeof record.incidentId === "string" ? record.incidentId.trim() : "";
+  const correlationId = typeof record.correlationId === "string"
+    ? record.correlationId.trim()
+    : "";
+  if (
+    record.kind !== "incident" ||
+    incidentId.length === 0 ||
+    incidentId.length > 256 ||
+    correlationId.length === 0 ||
+    correlationId.length > 256
+  ) return null;
+  const selectedAgent = typeof record.selectedAgent === "string"
+    ? record.selectedAgent.trim()
+    : "";
+  return {
+    kind: "incident",
+    incidentId,
+    correlationId,
+    ...(PANTHEON_AGENT_NAMES.has(selectedAgent) ? { selectedAgent } : {}),
+  };
+}
+
+function parseIncidentBinding(value: unknown): { readonly binding: IncidentConversationBinding } | null {
+  const binding = normalizeIncidentBinding(value);
+  return binding === null ? null : { binding };
 }
 
 /** Split the flat cache index into the three operator-facing sections. */

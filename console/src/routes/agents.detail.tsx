@@ -1,4 +1,4 @@
-import { openDeckWithPrompt } from "../deck/open-deck";
+import { openDeckWithContext } from "../deck/open-deck";
 import { t } from "../i18n";
 import { routeHref } from "../router";
 import {
@@ -44,10 +44,15 @@ export function AgentFocus({
   const role = AGENT_ROLE[node.name];
   const task = node.detail ?? stateTaskLabel(node.state);
   return (
-    <div class={`agent-focus layer-${node.layer}`}>
+    <section
+      class={`agent-focus layer-${node.layer}`}
+      aria-labelledby={`agent-focus-name-${node.name}`}
+    >
       <div class="agent-focus-head">
         <div>
-          <strong class="agent-focus-name">{node.name}</strong>
+          <strong id={`agent-focus-name-${node.name}`} class="agent-focus-name">
+            {node.name}
+          </strong>
           {role && <span class="agent-focus-title">{agentRoleTitle(node.name)}</span>}
         </div>
         <button type="button" class="agent-focus-close" aria-label={t("agents.focus.closeLabel")} onClick={onClose}>
@@ -104,18 +109,24 @@ export function AgentFocus({
                     <span class="incident-title">{inc.title}</span>
                     <span class="incident-ticket">{inc.ticketId}</span>
                   </button>
-                  {isOpen && <IncidentWorkflow incident={inc} />}
+                  {isOpen && <IncidentWorkflow agent={node.name} incident={inc} />}
                 </li>
               );
             })}
           </ul>
         )}
       </div>
-    </div>
+    </section>
   );
 }
 
-export function IncidentWorkflow({ incident }: { incident: Incident | null }) {
+export function IncidentWorkflow({
+  agent,
+  incident,
+}: {
+  readonly agent: string | null;
+  readonly incident: Incident | null;
+}) {
   if (incident === null) {
     return (
       <div class="incident-workflow is-empty">
@@ -146,9 +157,22 @@ export function IncidentWorkflow({ incident }: { incident: Incident | null }) {
           type="button"
           class="incident-ask-deck"
           onClick={() =>
-            openDeckWithPrompt(
-              `About incident ${incident.ticketId} (${incident.correlationId}): what is the root cause and what are the agents doing?`,
-            )
+            openDeckWithContext({
+              sessionKey: agent
+                ? `agent:${agent}:incident:${incident.correlationId}`
+                : `incident:${incident.correlationId}`,
+              sessionLabel: agent ? `${agent} / ${incident.ticketId}` : incident.ticketId,
+              contextNote:
+                `Selected incident ${incident.ticketId} (${incident.correlationId}) ` +
+                (agent ? `from ${agent}'s Events view.` : "from the incident list."),
+              prompt: "What is the root cause status, and what are the involved agents doing?",
+              binding: {
+                kind: "incident",
+                incidentId: incident.ticketId,
+                correlationId: incident.correlationId,
+                ...(agent ? { selectedAgent: agent } : {}),
+              },
+            })
           }
         >
           {t("agents.workflow.ask")}

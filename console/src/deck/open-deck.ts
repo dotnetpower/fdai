@@ -15,6 +15,13 @@ export const DECK_OPEN_EVENT = "fdai:deck:open";
 /** Cancelable request used by Activity Bar group navigation. */
 export const DECK_WORKSPACE_NAVIGATION_EVENT = "fdai:deck:workspace-navigation";
 
+export interface IncidentConversationBinding {
+  readonly kind: "incident";
+  readonly incidentId: string;
+  readonly correlationId: string;
+  readonly selectedAgent?: string;
+}
+
 /** Detail payload carried by a {@link DECK_OPEN_EVENT}. */
 export interface DeckOpenDetail {
   /** Optional draft to seed the deck input with (the operator still sends it). */
@@ -35,6 +42,8 @@ export interface DeckOpenDetail {
   readonly sessionKey?: string;
   /** Human label for a non-general session, shown in the deck header (e.g. `Forseti`). */
   readonly sessionLabel?: string;
+  /** Structured, untrusted selection hint that the server must verify against its read model. */
+  readonly binding?: IncidentConversationBinding;
 }
 
 /**

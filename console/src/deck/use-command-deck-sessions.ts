@@ -17,6 +17,7 @@ import {
 } from "./conversation-sessions";
 import { EMPTY_HISTORY } from "./draft-history";
 import { parseTurns, serializeTurns, transcriptKeyFor } from "./transcript-store";
+import type { IncidentConversationBinding } from "./open-deck";
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -181,6 +182,7 @@ export function useCommandDeckSessionController({
     kind: ConversationSummary["kind"] = agent ? "agent" : "screen-default",
     register = true,
     metadata?: ConversationSummary,
+    binding?: IncidentConversationBinding,
   ) => {
     if (key !== sessionKeyRef.current) cancelActiveRequest();
     const store = sessionStore();
@@ -221,9 +223,10 @@ export function useCommandDeckSessionController({
       createdAt: now,
       updatedAt: now,
     };
-    const summary = existing?.kind === "screen-default" && conversationLabel
+    const labeledSummary = existing?.kind === "screen-default" && conversationLabel
       ? { ...baseSummary, label: conversationLabel, originLabel: conversationLabel }
       : baseSummary;
+    const summary = binding ? { ...labeledSummary, binding } : labeledSummary;
     sessionMetadataRef.current.set(key, summary);
     if (register) updateConversationIndex({ ...summary, updatedAt: now });
     const note = contextNote?.trim();

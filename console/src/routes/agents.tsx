@@ -606,7 +606,9 @@ export function AgentsRoute({ client }: Props) {
                         <span class="incident-title">{inc.title}</span>
                         <span class="incident-ticket">{inc.ticketId}</span>
                       </button>
-                      {isOpen && <IncidentWorkflow incident={inc} />}
+                      {isOpen && (
+                        <IncidentWorkflow agent={selectedAgent} incident={inc} />
+                      )}
                     </li>
                   );
                 })}

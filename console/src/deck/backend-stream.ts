@@ -156,6 +156,7 @@ export async function askBackendStream(
           history,
           callbacks.sessionId,
           requestId,
+          callbacks.conversationBinding,
         ),
       ),
       signal: callbacks.signal ?? null,

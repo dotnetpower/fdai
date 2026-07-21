@@ -318,6 +318,9 @@ export function useCommandDeckSubmit({
       try {
         reply = await askBackendStream(text, snapshot, history, {
           sessionId: sessionIdFor(sessionIdsRef.current, originSessionKey),
+          ...(sessionSummary?.binding
+            ? { conversationBinding: sessionSummary.binding }
+            : {}),
           onToken: (delta) => {
             if (!isCurrent()) return;
             paintQueue.push(delta);

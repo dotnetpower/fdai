@@ -39,6 +39,7 @@ import type {
   BackendTurn,
   ProgressiveAnswer,
 } from "./backend-types";
+import type { IncidentConversationBinding } from "./open-deck";
 
 export { setChatAuth } from "./auth";
 export { renderActionResult, type ActionSubmitResult } from "./backend-actions";
@@ -71,6 +72,7 @@ export async function askBackend(
   snapshot: ViewSnapshot | null,
   history: readonly BackendTurn[],
   sessionId?: string,
+  binding?: IncidentConversationBinding,
 ): Promise<ProgressiveAnswer> {
   let response: Response;
   try {
@@ -78,7 +80,7 @@ export async function askBackend(
       method: "POST",
       headers: await requestHeaders(true),
       body: JSON.stringify(
-        createBackendRequestPayload(prompt, snapshot, history, sessionId),
+        createBackendRequestPayload(prompt, snapshot, history, sessionId, undefined, binding),
       ),
       credentials: "omit",
     });

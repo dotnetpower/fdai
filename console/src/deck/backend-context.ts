@@ -2,7 +2,9 @@ import { getLocale } from "../i18n";
 import { ROUTE_ACTION_HINTS } from "./answerer";
 import type { AnswerVerification, BackendTurn } from "./backend-types";
 import type { ViewSnapshot } from "./context";
+import { normalizeIncidentBinding } from "./conversation-sessions";
 import { getDeckUser } from "./deck-user";
+import type { IncidentConversationBinding } from "./open-deck";
 
 function viewContextWithUser(snapshot: ViewSnapshot | null): Record<string, unknown> {
   const base: Record<string, unknown> = snapshot ? { ...snapshot } : {};
@@ -29,11 +31,23 @@ export function createBackendRequestPayload(
   history: readonly BackendTurn[],
   sessionId: string | undefined,
   requestId?: string,
+  binding?: IncidentConversationBinding,
 ): Record<string, unknown> {
+  const normalizedBinding = normalizeIncidentBinding(binding);
   return {
     ...(requestId === undefined ? {} : { request_id: requestId }),
     prompt,
     session_id: sessionId,
+    ...(normalizedBinding ? {
+      conversation_context: {
+        kind: normalizedBinding.kind,
+        incident_id: normalizedBinding.incidentId,
+        correlation_id: normalizedBinding.correlationId,
+        ...(normalizedBinding.selectedAgent
+          ? { selected_agent: normalizedBinding.selectedAgent }
+          : {}),
+      },
+    } : {}),
     view_context: viewContextWithUser(snapshot),
     history: toBackendHistory(history),
   };

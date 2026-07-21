@@ -8,7 +8,11 @@
 import { describe, expect, test, vi, afterEach, beforeEach } from "vitest";
 import type { ViewSnapshot } from "./context";
 
-async function callAskAndCaptureBody(snap: ViewSnapshot | null, sessionId?: string) {
+async function callAskAndCaptureBody(
+  snap: ViewSnapshot | null,
+  sessionId?: string,
+  binding?: import("./open-deck").IncidentConversationBinding,
+) {
   const capture: { body?: string } = {};
   const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
     capture.body = String(init?.body ?? "");
@@ -19,7 +23,7 @@ async function callAskAndCaptureBody(snap: ViewSnapshot | null, sessionId?: stri
   });
   vi.stubGlobal("fetch", fetchMock);
   const mod = await import("./backend");
-  await mod.askBackend("hi", snap, [], sessionId);
+  await mod.askBackend("hi", snap, [], sessionId, binding);
   return capture.body
     ? (JSON.parse(capture.body) as {
         view_context?: Record<string, unknown>;
@@ -91,6 +95,22 @@ describe("viewContextWithUser wiring", () => {
   test("sends the stable backend session id", async () => {
     const parsed = await callAskAndCaptureBody(liveSnap(), "session-42");
     expect((parsed as Record<string, unknown>).session_id).toBe("session-42");
+  });
+
+  test("sends the incident binding as structured conversation context", async () => {
+    const parsed = await callAskAndCaptureBody(liveSnap(), "session-42", {
+      kind: "incident",
+      incidentId: "INC-selected",
+      correlationId: "corr-selected",
+      selectedAgent: "Var",
+    });
+
+    expect((parsed as Record<string, unknown>).conversation_context).toEqual({
+      kind: "incident",
+      incident_id: "INC-selected",
+      correlation_id: "corr-selected",
+      selected_agent: "Var",
+    });
   });
 });
 

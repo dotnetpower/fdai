@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: ffade68182bac87e799f248113f8fb9f06990e2c
+translation_source_sha: 1b02032c4dabfc6ad71c7e63925a3f6b3b8b80c1
 translation_revised: 2026-07-21
 ---
 
@@ -936,6 +936,12 @@ abstained 또는 citation 없는 hypothesis에서 incident cause를 단정하면
 `ambiguous`는 후보를 나열하고 operator 선택을 요청하며, `none`과 `unavailable`은
 추측을 명시적으로 금지. 추가 system directive는 operational evidence가 있을
 때만 주입되므로 일반 화면 질문은 lean prompt budget을 유지.
+
+Optional incident conversation binding은 incident id, correlation id, 선택된 Pantheon agent를
+전달합니다. Browser는 server가 강제하는 것과 같은 identifier bound 및 agent allowlist로 값을
+정규화합니다. 잘못 저장된 binding은 conversation을 제거하지 않고 binding만 폐기합니다. Terminal
+answer의 agent activity는 bounded historical audit record만 설명하며, activity가 없다고 해서
+agent에게 현재 task가 없다고 추론하지 않습니다.
 
 다른 cross-screen 질문에는 web adapter가 다음 authority 순서를 사용합니다.
 

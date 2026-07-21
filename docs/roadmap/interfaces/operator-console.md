@@ -972,6 +972,12 @@ operator to choose; `none` and `unavailable` explicitly prohibit guessing.
 The extra system directive is injected only when operational evidence is
 present, so ordinary screen questions retain the lean prompt budget.
 
+An optional incident conversation binding carries the incident id, correlation id, and selected
+Pantheon agent. The browser normalizes the same identifier bounds and agent allowlist enforced by
+the server. A malformed persisted binding is discarded without removing the conversation. Agent
+activity in a terminal answer describes bounded historical audit records only; missing activity
+does not imply that an agent has no current task.
+
 For other cross-screen questions, the web adapter uses this authority order:
 
 1. `OperationalEvidenceResolver` for incident and root-cause questions.

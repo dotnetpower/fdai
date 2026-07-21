@@ -6,8 +6,10 @@ import {
   DECK_OPEN_EVENT,
   installWorkspaceDeckNavigationHandler,
   type DeckOpenDetail,
+  type IncidentConversationBinding,
 } from "./open-deck";
 import {
+  normalizeIncidentBinding,
   screenConversationKey,
   userConversationKey,
   type ConversationSummary,
@@ -47,6 +49,9 @@ interface EventsOptions {
     contextNote?: string,
     conversationLabel?: string,
     kind?: ConversationSummary["kind"],
+    register?: boolean,
+    metadata?: ConversationSummary,
+    binding?: IncidentConversationBinding,
   ) => void;
 }
 
@@ -211,6 +216,9 @@ export function useCommandDeckEvents(options: EventsOptions) {
           note,
           label ?? undefined,
           requestedKey?.startsWith("agent:") ? "agent" : "screen-thread",
+          true,
+          undefined,
+          normalizeIncidentBinding(detail.binding) ?? undefined,
         );
       } else if (note && turnsRef.current.length === 0) {
         streamContextTurn(label, note);

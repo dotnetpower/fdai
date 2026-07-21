@@ -178,4 +178,5 @@ export interface StreamCallbacks {
   ) => void;
   readonly signal?: AbortSignal;
   readonly sessionId?: string;
+  readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;
 }

@@ -3,6 +3,7 @@ import {
   DECK_OPEN_EVENT,
   DECK_WORKSPACE_NAVIGATION_EVENT,
   installWorkspaceDeckNavigationHandler,
+  openDeckWithContext,
   openDeckWithPrompt,
   requestWorkspaceDeckCloseForNavigation,
 } from "./open-deck";
@@ -51,6 +52,37 @@ describe("openDeckWithPrompt", () => {
   it("is a no-op when window is unavailable (SSR)", () => {
     vi.stubGlobal("window", undefined);
     expect(() => openDeckWithPrompt("x")).not.toThrow();
+  });
+});
+
+describe("openDeckWithContext", () => {
+  it("dispatches a structured incident binding", () => {
+    const dispatched: FakeCustomEvent<Record<string, unknown>>[] = [];
+    vi.stubGlobal("CustomEvent", FakeCustomEvent);
+    vi.stubGlobal("window", {
+      dispatchEvent: (event: FakeCustomEvent<Record<string, unknown>>) =>
+        dispatched.push(event),
+    });
+
+    openDeckWithContext({
+      sessionKey: "agent:Var:incident:corr-selected",
+      sessionLabel: "Var / INC-selected",
+      prompt: "What is the root cause status?",
+      binding: {
+        kind: "incident",
+        incidentId: "INC-selected",
+        correlationId: "corr-selected",
+        selectedAgent: "Var",
+      },
+    });
+
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0]?.detail.binding).toEqual({
+      kind: "incident",
+      incidentId: "INC-selected",
+      correlationId: "corr-selected",
+      selectedAgent: "Var",
+    });
   });
 });
 
