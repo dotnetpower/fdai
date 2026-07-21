@@ -126,7 +126,10 @@ format to stdout from the same block IR.
   counters. Each question carries those counters and recent activity as a
   self-describing snapshot to the shared `/chat` coordinator, so the answer is
   grounded in the screen without moving policy into the channel. Piped/non-TTY
-  falls back to the one-shot briefing. Nothing here mutates - read-only.
+  falls back to the one-shot briefing. The SSE reader limits each complete or
+  pending frame to 256 KiB and cancels the connection when parsing fails, so an
+  upstream frame cannot grow terminal memory without bound. Nothing here mutates
+  - read-only.
 
   **Views (natural-language screen control).** The main panel is a switchable
   component, driven by plain language (English or Korean):

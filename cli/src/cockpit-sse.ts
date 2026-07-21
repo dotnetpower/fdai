@@ -8,6 +8,8 @@ export interface StageFrame {
   error?: string;
 }
 
+export const MAX_COCKPIT_SSE_FRAME_CHARS = 256 * 1024;
+
 export async function consumeSse(
   url: string,
   onFrame: (frame: StageFrame) => void,
@@ -27,28 +29,39 @@ export async function consumeSse(
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let boundary: number;
-      while ((boundary = buffer.indexOf("\n\n")) >= 0) {
-        const block = buffer.slice(0, boundary);
-        buffer = buffer.slice(boundary + 2);
-        let event = "message";
-        let data = "";
-        for (const line of block.split("\n")) {
-          if (line.startsWith("event:")) event = line.slice(6).trim();
-          else if (line.startsWith("data:")) data += line.slice(5).trim();
-        }
-        if (event === "stage" && data) {
-          try {
-            onFrame(JSON.parse(data) as StageFrame);
-          } catch {
-            /* ignore */
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let boundary: number;
+        while ((boundary = buffer.indexOf("\n\n")) >= 0) {
+          const block = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          if (block.length > MAX_COCKPIT_SSE_FRAME_CHARS) {
+            throw new Error("SSE frame exceeds the size limit");
+          }
+          let event = "message";
+          let data = "";
+          for (const line of block.split("\n")) {
+            if (line.startsWith("event:")) event = line.slice(6).trim();
+            else if (line.startsWith("data:")) data += line.slice(5).trim();
+          }
+          if (event === "stage" && data) {
+            try {
+              onFrame(JSON.parse(data) as StageFrame);
+            } catch {
+              /* ignore */
+            }
           }
         }
+        if (buffer.length > MAX_COCKPIT_SSE_FRAME_CHARS) {
+          throw new Error("SSE frame exceeds the size limit");
+        }
       }
+    } catch (error) {
+      await reader.cancel(error).catch(() => undefined);
+      throw error;
     }
   } catch (error) {
     if (!signal.aborted) onStatus(`stream error: ${(error as Error).message}`);

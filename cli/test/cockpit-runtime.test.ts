@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createInputController } from "../src/cockpit-input.js";
 import { CockpitRenderer } from "../src/cockpit-renderer.js";
-import { consumeSse } from "../src/cockpit-sse.js";
+import { consumeSse, MAX_COCKPIT_SSE_FRAME_CHARS } from "../src/cockpit-sse.js";
 import { createCockpitState, reduceStageFrame } from "../src/cockpit-state.js";
 
 afterEach(() => {
@@ -54,6 +54,31 @@ describe("consumeSse", () => {
     );
 
     expect(statuses).toEqual(["stream 503"]);
+  });
+
+  it("rejects and cancels an oversized SSE frame", async () => {
+    const cancel = vi.fn();
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(`event: stage\ndata: ${"x".repeat(MAX_COCKPIT_SSE_FRAME_CHARS)}\n\n`));
+      },
+      cancel,
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+    const frames = vi.fn();
+    const statuses: string[] = [];
+
+    await consumeSse(
+      "https://example.com/live/stream",
+      frames,
+      (status) => statuses.push(status),
+      new AbortController().signal,
+    );
+
+    expect(frames).not.toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(statuses).toEqual(["live", "stream error: SSE frame exceeds the size limit"]);
   });
 });
 
