@@ -15,6 +15,14 @@ The continuous update pipeline is [phase-2-quality-and-t1.md](../phases/phase-2-
 > Everything here is customer-agnostic. Examples use synthetic placeholders only, per
 > [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md).
 
+> **Implementation status**: Source manifest/fetch/snapshot/watcher core; rule, Rego, Azure
+> Policy, and kube-bench parsers; strict Rule/ActionType/resource-vocabulary loaders; collected
+> Azure and kube-bench catalogs; continuous pipeline stages; and CandidateGuard are implemented.
+> The current loader-backed normalized artifact in this document is `Rule`. Dedicated
+> best-practice, config-baseline, and measurement-baseline schemas/loaders remain target shapes.
+> Not every external connector/parser, production discovery schedule/PR delivery, or
+> compliance/threat crosswalk listed below is complete.
+
 ## What We Collect
 
 Four distinct artifact kinds, each normalized to its own YAML shape but sharing `provenance`:
@@ -45,7 +53,7 @@ schema and stamps `provenance`. `resource-type` is normalized to a CSP-neutral v
 | FinOps / cost | Advisor cost recommendations, cost-anomaly heuristics, FOCUS-aligned tagging/budget controls | JSON / authored | REST API, authored |
 | DR / resilience | resiliency-review checklists, backup/replication controls, chaos-experiment templates | JSON / YAML / docs | REST API, git clone, docs repo |
 | Detection / signals | anomaly baselines and thresholds, forecast targets, correlation keys (feed the detectors in observability-and-detection) | authored / JSON | authored |
-| AWS / GCP (TBD) | AWS Well-Architected / Config managed rules, GCP Recommender / Policy Controller | JSON | REST API, git - **deferred**, non-Azure targets are TBD (see [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)) |
+| AWS / GCP (TBD) | AWS Well-Architected / Config managed rules, GCP Recommender / Policy Controller | JSON | REST API, git - **deferred**, non-Azure targets are TBD (see [Always-On Rules](../../../.github/copilot-instructions.md#always-on-rules-must)) |
 
 The FinOps and DR/resilience rows exist because the control plane spans Resilience, Change
 Safety, and Cost Governance; a sources table covering only security/config would leave two of
@@ -115,53 +123,55 @@ evidence; the phase-3 scheduler runs the *tests* (the rehearsal and failover the
 Two DB rule examples (customer-agnostic placeholders):
 
 ```yaml
-id: sql-database.encryption.tde-required
+schema_version: 1.0.0
+id: sql-database.tde-required
 version: 1.0.0
-kind: rule
-source: example-db-benchmark
+source: mcsb
 severity: high
 category: security
 resource_type: sql-database
 check_logic:
-  engine: rego
-  ref: policies/sql_database/tde_required.rego
-  entrypoint: deny_tde_disabled
+  kind: rego
+  reference: policies/sql_database/tde_required.rego
 remediation:
-  kind: iac-patch
-  ref: remediation/sql_database/enable_tde.tftpl
+  template_ref: remediation/sql_database/enable_tde.tftpl
+  cost_impact_monthly_usd: 0
+remediates: remediate.enable-tde
 provenance:
   source_url: https://example.com/db-benchmark/controls/2.1
   source_version: v1.0.0
   resolved_ref: "0000000000000000000000000000000000000000"
   content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
   license: LicenseRef-reference-only
+  redistribution: reference-only
   retrieved_at: 2026-07-03T00:00:00Z
   mapped_by: catalog-team
 ```
 
 ```yaml
-id: postgresql-server.dr.pitr-required
+schema_version: 1.0.0
+id: postgresql-server.point-in-time-restore
 version: 1.0.0
-kind: rule
-source: example-dr-catalog
+source: waf
 severity: high
 category: reliability
 resource_type: postgresql-server
 parameters:
-  min_backup_retention_days: 7
+  min_retention_days: 7
 check_logic:
-  engine: rego
-  ref: policies/postgresql/dr_pitr.rego
-  entrypoint: deny_pitr_disabled_or_short_retention
+  kind: rego
+  reference: policies/postgresql/point_in_time_restore.rego
 remediation:
-  kind: iac-patch
-  ref: remediation/postgresql/enable_pitr.tftpl
+  template_ref: remediation/postgresql/raise_backup_retention.tftpl
+  cost_impact_monthly_usd: 0
+remediates: remediate.enable-backup-protection
 provenance:
   source_url: https://example.com/dr-catalog/postgresql
   source_version: v1.0.0
   resolved_ref: "0000000000000000000000000000000000000000"
   content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
   license: Apache-2.0
+  redistribution: embeddable
   retrieved_at: 2026-07-03T00:00:00Z
   mapped_by: catalog-team
 ```
@@ -234,8 +244,8 @@ source manifest ─► fetch ─► verify ─► parse ─► map to schema ─
   dropped. A full re-collection is available for a from-scratch rebuild.
 
 Authored Rego lives in the **top-level** `policies/` (consumed by T0 and the verifier) and is
-referenced by `check_logic.ref`; collectors live under `rule-catalog/sources/<source>/`, schemas
-under `rule-catalog/schema/`, and normalized output under `rule-catalog/catalog/`. This aligns
+referenced by `check_logic.reference`; source manifests live under `rule-catalog/sources/`, runtime
+loaders/schemas under `src/fdai/rule_catalog/schema/` and `src/fdai/shared/contracts/`, and normalized output under `rule-catalog/catalog/`. This aligns
 with [project-structure.md](../architecture/project-structure.md).
 
 ## YAML Normalization
@@ -243,7 +253,7 @@ with [project-structure.md](../architecture/project-structure.md).
 Yes - the whole catalog is **YAML**, validated against JSON Schema (JSON Schema is the schema
 language; the documents it validates are YAML) and stored as catalog-as-code. JSON is retained
 only for wire formats (event/message schemas, API bodies) and runtime artifacts
-(`resolved-models.json` in Key Vault); everything a human authors in `rule-catalog/` is YAML.
+(`resolved-models.json` materialized from a protected CI variable or supplied path); everything a human authors in `rule-catalog/` is YAML.
 
 ### Field Naming and Schema Conventions
 
@@ -259,15 +269,11 @@ contradictory:
 | `id`, `version`, `source`, `severity`, `category`, `remediation`, `provenance` | identical |
 
 - `source` equals a registered manifest `source_id` (the phase-1 `source` enum).
-- `kind` is an added discriminator (`rule` \| `best-practice` \| `config-baseline` \|
-  `measurement-baseline`), **not** one of phase-1's nine required fields; it selects which
-  per-kind schema applies.
-- Each kind is validated by a schema in `rule-catalog/schema/` with `$schema` (draft 2020-12),
-  a stable `$id`, and `additionalProperties: false`. **Required fields are per kind**: a `rule`
-  requires `check_logic` + `remediation`; a `best-practice` / `config-baseline` references
-  `checks` / `controls` instead and omits them.
+- The current normalized `Rule` requires `schema_version` and has no `kind` discriminator. Its
+  strict schema is `src/fdai/shared/contracts/rule/schema.json`. The other artifact kinds shown
+  above are target shapes until dedicated schemas/loaders land.
 - Enums: `severity` ∈ `critical | high | medium | low` (matching phase-1 precedence),
-  `category` ∈ `security | reliability | cost | config-drift`, `redistribution` ∈
+  `category` ∈ `security | reliability | cost | config_drift | compliance`, `redistribution` ∈
   `embeddable | reference-only`. `version` matches a semver pattern; all timestamps are
   RFC 3339 UTC (`...Z`).
 - `parameters` is an **optional** object of typed inputs to `check_logic` (e.g. a retention
@@ -281,12 +287,9 @@ contradictory:
   [llm-strategy.md § Rule-to-Decision Lookup Pipeline](../architecture/llm-strategy.md#rule-to-decision-lookup-pipeline).
 - **`remediates` vs `remediation` - two fields, one concept:** `remediates` is the
   **ActionType id** (M:1) declaring *which category of mutation* this rule proposes;
-  `remediation` is the concrete *how* - a `{ kind, ref, parameters, cost_impact_monthly }`
-  block whose `kind` (`iac-patch`, `scripted`, ...) MUST be compatible with the
-  ActionType's `operation`. Both fields are required together on every `rule`. CI rejects
-  a rule whose `remediates` resolves to an unknown ActionType or whose `remediation.kind`
-  is incompatible with the ActionType's `operation` (e.g. a `delete` operation delivered
-  as a `tag`-shaped patch).
+  `remediation` is the concrete *how*: `{ template_ref, cost_impact_monthly_usd }`. Both fields
+  are required together on every `Rule`; the loader resolves `remediates` to a registered
+  ActionType and can verify the template path on disk.
 - **`alternatives[]` (optional):** a rule MAY declare alternative remediation ActionTypes
   ranked by preference; T0 always uses `remediates` (deterministic-first), and only the
   T2 quality gate - with grounding and mixed-model check - may swap in an alternative,
@@ -301,7 +304,7 @@ contradictory:
     - remediate.add-private-endpoint                    #   "keep-public"
   ```
 - `provenance` is a shared object on every rule-like kind:
-  `{ source_url, source_version, resolved_ref, content_hash, license, retrieved_at, mapped_by }`.
+  `{ source_url, source_version, resolved_ref, content_hash, license, redistribution, retrieved_at, mapped_by }`.
   It maps onto phase-1's "source URL/commit, imported-at timestamp, mapping author":
   `resolved_ref` = commit/digest, `retrieved_at` = imported-at, `mapped_by` = mapping author
   (a role/pipeline id, never a person).
@@ -309,63 +312,49 @@ contradictory:
 ### Source Manifest (how to collect one source)
 
 ```yaml
-source_id: example-oss-benchmark
-display_name: Example OSS Benchmark
+schema_version: "1.0.0"
+id: example-oss-benchmark
+name: Example OSS Benchmark
+url_prefix: https://example.com/benchmark
 license: LicenseRef-reference-only
 redistribution: reference-only
-priority_rank: 40
 fetch:
-  method: git
-  location: https://example.com/benchmark.git
-  ref: v1.4.0
-  resolved_ref: "0000000000000000000000000000000000000000"
-  path: controls/
-  auth:
-    secret_ref: SOURCE_EXAMPLE_TOKEN
-  rate_limit:
-    max_rps: 1
-    respect_retry_after: true
-  paginate: true
-  timeout_seconds: 30
-  max_retries: 3
-parser: yaml-benchmark
+  kind: git
+  repo: https://example.com/benchmark.git
+  revision: "0000000000000000000000000000000000000000"
+  subpath: controls/
+parser: rule-yaml
 cadence: on-demand
-collect_mode: incremental
-resource_type_map:
-  ExampleObjectStore: object-storage
-  ExampleCluster: kubernetes-cluster
 ```
 
-`ref` is the human-readable tag requested; `resolved_ref` is the **immutable** commit/digest the
-fetch pinned to and recorded (shown as an all-zero placeholder). `auth.secret_ref` names a
-secret-store **key**, never a credential value.
+`fetch.revision` is the immutable commit/digest the fetch pins (shown as an all-zero placeholder).
+Credentials are supplied to the fetch adapter through deployment configuration, never this
+manifest.
 
 ### Rule / Check (normalized)
 
 ```yaml
+schema_version: "1.0.0"
 id: object-storage.public-access.deny
-version: 1.2.0
-kind: rule
-source: example-oss-benchmark
+version: "1.0.0"
+source: mcsb
 severity: high
 category: security
 resource_type: object-storage
 check_logic:
-  engine: rego
-  ref: policies/object_storage/public_access.rego
-  entrypoint: deny_public_access
+  kind: rego
+  reference: policies/object_storage/public_access.rego
 remediation:
-  kind: iac-patch
-  ref: remediation/object_storage/disable_public_access.tftpl
-remediates: remediate.disable-public-access          # M:1 ontology dispatch (REQUIRED)
+  template_ref: remediation/object_storage/disable_public_access.tftpl
+  cost_impact_monthly_usd: 0
+remediates: remediate.disable-public-access
 provenance:
-  source_url: https://example.com/benchmark/controls/5.1
-  source_version: v1.4.0
+  source_url: https://example.com/rules/object-storage-public-access
   resolved_ref: "0000000000000000000000000000000000000000"
   content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
   license: LicenseRef-reference-only
-  retrieved_at: 2026-07-03T00:00:00Z
-  mapped_by: catalog-team
+  redistribution: reference-only
+  retrieved_at: "2026-07-05T00:00:00Z"
 ```
 
 > `remediates` is validated at load time against
@@ -451,24 +440,25 @@ provenance:
 ```
 fdai/
 ├── policies/              # authored check-logic (OPA/Rego), consumed by T0 + verifier;
-│                         #   referenced by check_logic.ref  (top-level, per project-structure)
+│                         #   referenced by check_logic.reference  (top-level, per project-structure)
 └── rule-catalog/          # catalog-as-code (YAML)
-    ├── schema/            # per-kind JSON Schema (validation language) applied to YAML documents:
-    │                      #   source-manifest, rule, best-practice, config-baseline
+    ├── schema/            # extension-kit/skill-bundle catalog-adjacent schemas
     ├── vocabulary/        # canonical CSP-neutral vocabularies (resource-types.yaml, ...)
     ├── action-types/      # ActionType instances quoted from rules' `remediates` field
     ├── sources/           # one folder per source: manifest (.yaml) + collector + parser
     │   └── <source>/
-    ├── pipeline/          # watch → collect → shadow-eval → regression → promote/rollback (Phase 2)
     ├── remediation/       # remediation templates referenced by remediation.ref
     ├── catalog/           # normalized, version-pinned YAML output (catalog-as-code)
-    ├── exemptions/        # time-boxed, audited exemption artifacts
-    └── baselines/         # measurement baselines (YAML; separate namespace + store from rules)
+    └── exemptions/        # time-boxed, audited exemption artifacts
+
+  src/fdai/rule_catalog/
+  ├── schema/                # source-manifest and catalog runtime loaders/schemas
+  └── pipeline/              # watch → collect → parse → shadow-eval → promote/rollback
 ```
 
 Authored Rego is **not** nested under `rule-catalog/`; it lives in the top-level `policies/`
 consumed by T0 and the verifier, exactly as in
-[project-structure.md](../architecture/project-structure.md). `pipeline/` is the Phase 2 continuous updater.
+[project-structure.md](../architecture/project-structure.md). `src/fdai/rule_catalog/pipeline/` is the continuous updater.
 
 - `vocabulary/resource-types.yaml` - the enumerated CSP-neutral `resource_type` identifier
   set every rule quotes from. Rename → catalog-wide migration; add → governance PR. Loader:
@@ -586,7 +576,7 @@ signal.
 
 ### Candidate Guard (upstream implementation)
 
-`fdai.agents.candidate_guard.CandidateGuard` is the deterministic gate Mimir runs on every
+`fdai.agents._framework.candidate_guard.CandidateGuard` is the deterministic gate Mimir runs on every
 `RuleCandidate` before it enters the pending list - the enforcement point for the Candidate
 Requirements above and the discovery loop's poisoning defense. It never promotes anything (the
 quality gate owns that); it decides **accept** vs **quarantine** and records a reason, so a
@@ -594,7 +584,7 @@ rejected candidate is preserved for audit rather than silently dropped. Checks a
 no model call):
 
 - **Provenance** - `proposed_by` and a known `proposal_kind`
-  (`new` / `revision` / `retirement` / `threshold_adjustment`) are required.
+  (`new` / `new-scenario` / `revision` / `retirement` / `threshold_adjustment`) are required.
 - **Grounding** - a non-empty `evidence` mapping is required; an ungrounded candidate is
   quarantined ("the model thought of it" is not evidence).
 - **Range sanity** - numeric evidence must be in range (a `rollback_rate` outside `[0, 1]` or a
@@ -605,12 +595,8 @@ no model call):
 
 ## Open Decisions
 
-- [ ] Canonical `resource-type` vocabulary and its mapping tables for Azure (non-Azure
-      mapping tables are TBD; see
-      [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
 - [ ] Which sources are reference-only vs embeddable, confirmed against each license.
-- [ ] Parser set for the initial source list (Rego, YAML-benchmark, policy-definition, docs).
-- [ ] Storage format for `check_logic`: inline expression vs external Rego module reference.
+- [ ] Remaining parser plugins for docs, Checkov/tfsec/KICS/Trivy, and other vendor formats.
 - [ ] Compliance-framework mapping (controls → NIST/PCI/ISO tags): a manifest field or a
       separate crosswalk artifact.
 - [ ] Storage for MITRE ATT&CK technique / D3FEND control mappings: reuse the compliance
