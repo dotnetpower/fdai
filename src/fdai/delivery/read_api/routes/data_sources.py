@@ -70,6 +70,9 @@ def make_data_sources_route(
     by_key: Mapping[str, ReadDataSourceStatus] = {source.key: source for source in sources}
     if len(by_key) != len(sources):
         raise ValueError("read data source keys MUST be unique")
+    routes = tuple(route for source in sources for route in source.routes)
+    if len(set(routes)) != len(routes):
+        raise ValueError("read data source routes MUST have unique owners")
 
     async def get_data_sources(request: Request) -> Response:
         await authorize(request)

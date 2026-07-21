@@ -62,6 +62,35 @@ describe("read source gating", () => {
     );
   });
 
+  test("does not fetch a descendant of an unavailable source route", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({
+      surface: "read-data-sources",
+      sources: [{
+        key: "process-state",
+        source: "not-configured",
+        routes: ["/views/process"],
+        availability: "unavailable",
+        configured: false,
+        reachable: null,
+        authoritative: false,
+        durable: null,
+        synthetic: false,
+        reason: "Process state is not connected.",
+        last_observed_at: null,
+      }],
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new ReadApiClient(config, auth);
+
+    await expect(client.panel("/views/process/run-1/events")).rejects.toEqual(
+      expect.objectContaining<Partial<ReadApiError>>({
+        status: 503,
+        message: "Process state is not connected.",
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   test("reports unauthorized requests and retries a failed source manifest", async () => {
     const onUnauthorized = vi.fn();
     const fetchMock = vi

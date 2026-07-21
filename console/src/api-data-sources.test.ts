@@ -44,6 +44,13 @@ describe("read data sources", () => {
       ...payload,
       sources: [{ ...payload.sources[0], routes: ["audit"] }],
     })).toThrow(/absolute paths/);
+    expect(() => decodeReadDataSources({
+      ...payload,
+      sources: [
+        payload.sources[0],
+        { ...payload.sources[0], key: "other", routes: ["/audit"] },
+      ],
+    })).toThrow(/unique owners/);
   });
 
   test("distinguishes a non-authoritative source from an unavailable source", () => {
@@ -60,5 +67,20 @@ describe("read data sources", () => {
 
     expect(unavailableSourceReason(decoded, "/kpi"))
       .toBe("Source operational-state is not authoritative.");
+  });
+
+  test("resolves query and descendant routes without crossing path segment boundaries", () => {
+    const decoded = decodeReadDataSources({
+      ...payload,
+      sources: [
+        { ...payload.sources[0], key: "processes", routes: ["/views/process"] },
+        { ...payload.sources[0], key: "events", routes: ["/views/process/special"] },
+      ],
+    });
+
+    expect(sourceForRoute(decoded, "/views/process?status=running")?.key).toBe("processes");
+    expect(sourceForRoute(decoded, "/views/process/run-1/events")?.key).toBe("processes");
+    expect(sourceForRoute(decoded, "/views/process/special/events")?.key).toBe("events");
+    expect(sourceForRoute(decoded, "/views/processes")).toBeNull();
   });
 });

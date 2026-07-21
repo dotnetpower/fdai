@@ -467,6 +467,10 @@ class ConversationSession:
   `conversation_turn` with a stable request idempotency key. The audit and
   generic ontology projections retain ids, hashes, routing metadata, and
   evidence references, not raw conversation bodies.
+- **Completed request replay**: retrying the same request for the same principal and conversation
+  returns the persisted terminal assistant payload without rerunning evidence retrieval, the
+  narrator, or post-turn review. Reusing the key with changed content or another conversation is
+  a conflict. JSON and SSE share this durable terminal payload.
 - **User context**: `UserPreferenceStore` holds locale, verbosity, timezone,
   and learner consent. `UserMemoryStore` accepts only explicitly confirmed
   facts with source-turn provenance and optional expiry. `operator_memory`
@@ -821,7 +825,8 @@ and the authoritative registry, never inferred from phase names in this document
   timestamps and idempotency keys).
 - **Session recovery** - principal-scoped `ConversationHistoryStore` reloads prior turns by session
   id, while stable request idempotency prevents duplicate appends. Audit/ontology retain hashes and
-  references rather than raw transcripts.
+  references rather than raw transcripts. JSON, SSE, and cross-transport retries replay one stored
+  terminal payload without a second backend invocation.
 
 ## 12. Failure modes
 
@@ -1455,6 +1460,9 @@ from a route name, environment mode, or configured default. A source with
 providers use `reachable=null`. A read-API panel remains `unknown` when any of its owned routes is
 missing from the manifest, including when every route is missing. Only explicitly source-independent
 panels omit the source status.
+Each manifest route has exactly one owner. The SPA strips query and fragment components from a
+requested path, matches exact paths or descendants on a path-segment boundary, and selects the
+longest owner. A similarly prefixed sibling path does not inherit ownership.
 
 Exact entity lookups filter on the server before page limits. Incident
 correlation links, Audit entry links, and Approval searches therefore resolve

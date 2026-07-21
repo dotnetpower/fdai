@@ -14,7 +14,10 @@ from fdai.delivery.read_api.auth import UnsafeClaimsExtractor, build_authenticat
 from fdai.delivery.read_api.dev.data_sources import build_local_data_sources
 from fdai.delivery.read_api.main import build_app
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
-from fdai.delivery.read_api.routes.data_sources import ReadDataSourceStatus
+from fdai.delivery.read_api.routes.data_sources import (
+    ReadDataSourceStatus,
+    make_data_sources_route,
+)
 
 
 class RecordingBackend:
@@ -234,6 +237,17 @@ def test_data_source_status_rejects_false_availability_claims() -> None:
         _source(availability="unavailable", reachable=True, reason="not connected")
     with pytest.raises(ValueError, match="MUST NOT be authoritative"):
         _source(synthetic=True)
+
+
+def test_data_source_manifest_rejects_duplicate_route_owners() -> None:
+    with pytest.raises(ValueError, match="routes MUST have unique owners"):
+        make_data_sources_route(
+            sources=(
+                _source(key="primary", routes=("/audit",)),
+                _source(key="secondary", routes=("/audit",)),
+            ),
+            authorize=lambda request: None,  # type: ignore[arg-type,return-value]
+        )
 
 
 def test_unconfigured_local_operational_source_has_unknown_reachability() -> None:

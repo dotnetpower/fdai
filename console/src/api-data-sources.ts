@@ -42,6 +42,10 @@ export function decodeReadDataSources(value: unknown): ReadDataSourcesPayload {
   if (new Set(sources.map((source) => source.key)).size !== sources.length) {
     throw contractError("read data source keys MUST be unique");
   }
+  const routes = sources.flatMap((source) => source.routes);
+  if (new Set(routes).size !== routes.length) {
+    throw contractError("read data source routes MUST have unique owners");
+  }
   return { surface: "read-data-sources", sources };
 }
 
@@ -49,7 +53,21 @@ export function sourceForRoute(
   payload: ReadDataSourcesPayload,
   route: string,
 ): ReadDataSourceStatus | null {
-  return payload.sources.find((source) => source.routes.includes(route)) ?? null;
+  const path = route.split(/[?#]/, 1)[0] ?? route;
+  let selected: ReadDataSourceStatus | null = null;
+  let selectedLength = -1;
+  for (const source of payload.sources) {
+    for (const ownedRoute of source.routes) {
+      if (
+        (path === ownedRoute || path.startsWith(`${ownedRoute}/`)) &&
+        ownedRoute.length > selectedLength
+      ) {
+        selected = source;
+        selectedLength = ownedRoute.length;
+      }
+    }
+  }
+  return selected;
 }
 
 export function unavailableSourceReason(
