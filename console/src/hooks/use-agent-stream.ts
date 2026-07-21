@@ -163,7 +163,7 @@ export function agentReconnectDelay(attempt: number): number {
 }
 
 export function isPermanentAgentStreamFailure(status: number): boolean {
-  return status === 401 || status === 403;
+  return status === 401;
 }
 
 export function shouldResumeAgentStream(permanentFailure: boolean, hidden: boolean): boolean {

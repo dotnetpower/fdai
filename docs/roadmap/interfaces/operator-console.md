@@ -1480,7 +1480,9 @@ healthy. Likewise, last-observed agent frames remain visible as history, but
 Engaged, Watching, and Idle are current counts only while the agent stream is
 open. Authenticated live, agent, and provisioning SSE readers cancel a connection after 45 seconds
 without any bytes, including keepalive comments, and enter the existing bounded reconnect path.
-Provisioning also cancels its reader when event delivery fails. Canvas
+Provisioning also cancels its reader when event delivery fails. Agent-stream `401` responses wait
+for full-screen login recovery, while `403` responses use bounded reconnect so a newly assigned App
+Role can take effect without a page reload. Canvas
 visualizations provide an equivalent keyboard and screen-reader
 resource selector, and composite tab widgets move DOM focus together with
 roving selection. The Command Deck rejects an SSE frame or incomplete pending frame above 256 KiB

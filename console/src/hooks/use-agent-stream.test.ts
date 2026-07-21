@@ -67,7 +67,7 @@ describe("agent activity stream boundary", () => {
 
   test("classifies auth failures and caps reconnect backoff", () => {
     expect(isPermanentAgentStreamFailure(401)).toBe(true);
-    expect(isPermanentAgentStreamFailure(403)).toBe(true);
+    expect(isPermanentAgentStreamFailure(403)).toBe(false);
     expect(isPermanentAgentStreamFailure(503)).toBe(false);
     expect(agentReconnectDelay(0)).toBe(1000);
     expect(agentReconnectDelay(20)).toBe(30000);
