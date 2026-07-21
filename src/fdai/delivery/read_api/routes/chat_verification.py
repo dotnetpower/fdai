@@ -396,7 +396,19 @@ def verify_answer(
     incident = dict(selected) if isinstance(selected, Mapping) else {}
     correlation = _text(incident.get("correlation_id"), "unknown")
     title = _text(incident.get("title"), "untitled incident")
+    incident_status = _text(incident.get("status"), "unknown")
     recorded_at = _text(incident.get("last_updated_at"), "unknown time")
+    activities = _agent_activity_lines(evidence, korean=korean)
+    activity_suffix = (
+        ("\n\n기록된 에이전트 활동:\n" if korean else "\n\nRecorded agent activity:\n")
+        + "\n".join(activities)
+        if activities
+        else (
+            "\n\n사용 가능한 감사 근거에는 에이전트별 활동이 기록되어 있지 않습니다."
+            if korean
+            else "\n\nNo agent-specific activity is recorded in the available audit evidence."
+        )
+    )
     hypotheses = _mappings(evidence.get("grounded_hypotheses"))
     refs: list[str] = [f"incident:{correlation}"]
     if hypotheses:
@@ -408,23 +420,28 @@ def verify_answer(
             for item in citations
         )
         answer = (
-            f"{correlation} ({title})\uc758 \uac80\uc99d\ub41c \uc6d0\uc778\uc740 "
+            f"{correlation} ({title})\uc758 \uc0c1\ud0dc\ub294 {incident_status}\uc774\uba70, "
+            "\uac80\uc99d\ub41c \uc6d0\uc778\uc740 "
             f"\ub2e4\uc74c\uacfc \uac19\uc2b5\ub2c8\ub2e4: {cause} \ub9c8\uc9c0\ub9c9 "
             f"\uadfc\uac70 \uc2dc\uac01\uc740 {recorded_at}\uc785\ub2c8\ub2e4."
+            f"{activity_suffix}"
             if korean
             else f"The verified cause for {correlation} ({title}) is: {cause} "
-            f"The latest evidence is from {recorded_at}."
+            f"The incident status is {incident_status}. The latest evidence is from "
+            f"{recorded_at}.{activity_suffix}"
         )
         return _result(_changed(provisional, answer), answer, "grounded_rca", tuple(refs))
 
     answer = (
-        f"{correlation} ({title})\uc740 {recorded_at}\uc5d0 \ub9c8\uc9c0\ub9c9\uc73c\ub85c "
+        f"{correlation} ({title})\uc758 \uc0c1\ud0dc\ub294 {incident_status}\uc774\uba70 "
+        f"{recorded_at}\uc5d0 \ub9c8\uc9c0\ub9c9\uc73c\ub85c "
         "\uac31\uc2e0\ub418\uc5c8\uc9c0\ub9cc, citation\uc744 \uac16\ucd98 grounded "
         "root cause\ub294 \uae30\ub85d\ub418\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4. "
-        "\uc6d0\uc778\uc744 \ud655\uc815\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4."
+        f"\uc6d0\uc778\uc744 \ud655\uc815\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.{activity_suffix}"
         if korean
-        else f"{correlation} ({title}) was last updated at {recorded_at}, but no grounded "
-        "root cause with citations is recorded. The cause cannot be confirmed."
+        else f"{correlation} ({title}) is {incident_status} and was last updated at "
+        f"{recorded_at}, but no grounded root cause with citations is recorded. "
+        f"The cause cannot be confirmed.{activity_suffix}"
     )
     return _result(
         _changed(provisional, answer),
@@ -432,6 +449,44 @@ def verify_answer(
         "no_grounded_rca",
         tuple(refs),
     )
+
+
+def _agent_activity_lines(evidence: Mapping[str, Any], *, korean: bool) -> list[str]:
+    lines: list[str] = []
+    seen: set[str] = set()
+    for item in _mappings(evidence.get("audit_evidence")):
+        agent = _optional_text(item.get("agent"))
+        if agent is None or agent in seen:
+            continue
+        action = _text(item.get("action_kind"), "recorded activity")
+        recorded_at = _text(item.get("recorded_at"), "unknown time")
+        lines.append(
+            f"- {agent}: {recorded_at}에 {action} 기록"
+            if korean
+            else f"- {agent}: {action} at {recorded_at}"
+        )
+        seen.add(agent)
+        if len(lines) >= 8:
+            break
+    if lines:
+        return lines
+    selected = evidence.get("selected_incident")
+    incident = selected if isinstance(selected, Mapping) else {}
+    involved = incident.get("involved_agents")
+    if isinstance(involved, list):
+        for raw_agent in involved:
+            agent = _optional_text(raw_agent)
+            if agent is None or agent in seen:
+                continue
+            lines.append(
+                f"- {agent}: 참여 기록은 있으나 에이전트별 감사 활동은 기록되지 않음"
+                if korean
+                else f"- {agent}: involved; no agent-specific audit activity is recorded"
+            )
+            seen.add(agent)
+            if len(lines) >= 8:
+                break
+    return lines
 
 
 def _result(
