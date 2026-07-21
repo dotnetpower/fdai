@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { AuthContext } from "./auth";
+import { observeUnauthorizedApiResponses } from "./auth-response";
 import type { ConsoleConfig } from "./config";
 import { ReadApiError, ReadApiTransport } from "./api-transport";
 
@@ -109,22 +110,29 @@ describe("read API authentication boundary", () => {
     await expect(transport.getJson("/healthz")).resolves.toEqual({ ok: true });
   });
 
-  test("reports an HTTP 401 through the authentication boundary", async () => {
+  test("reports an HTTP 401 once through the shared fetch boundary", async () => {
     const onUnauthorized = vi.fn();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(
       { error: { status: 401, message: "Authorization header missing" } },
       { status: 401 },
     )));
+    const stopObserving = observeUnauthorizedApiResponses(
+      [config.readApiBaseUrl],
+      onUnauthorized,
+    );
     const transport = new ReadApiTransport(config, auth(), { onUnauthorized });
 
-    await expect(transport.getJson("/kpi")).rejects.toEqual(
-      expect.objectContaining<Partial<ReadApiError>>({ status: 401 }),
-    );
-    expect(onUnauthorized).toHaveBeenCalledWith(
-      expect.objectContaining<Partial<ReadApiError>>({
+    try {
+      await expect(transport.getJson("/kpi")).rejects.toEqual(
+        expect.objectContaining<Partial<ReadApiError>>({ status: 401 }),
+      );
+      expect(onUnauthorized).toHaveBeenCalledOnce();
+      expect(onUnauthorized).toHaveBeenCalledWith({
         status: 401,
-        message: "Authorization header missing",
-      }),
-    );
+        message: "Authentication is required. Sign in again to continue.",
+      });
+    } finally {
+      stopObserving();
+    }
   });
 });

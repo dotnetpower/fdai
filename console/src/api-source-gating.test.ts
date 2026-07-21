@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { ReadApiClient, ReadApiError } from "./api";
 import type { AuthContext } from "./auth";
+import { observeUnauthorizedApiResponses } from "./auth-response";
 import type { ConsoleConfig } from "./config";
 
 const config: ConsoleConfig = {
@@ -74,16 +75,24 @@ describe("read source gating", () => {
         sources: [],
       }));
     vi.stubGlobal("fetch", fetchMock);
+      const stopObserving = observeUnauthorizedApiResponses(
+        [config.readApiBaseUrl],
+        onUnauthorized,
+      );
     const client = new ReadApiClient(config, auth, { onUnauthorized });
 
-    await expect(client.dataSources()).rejects.toEqual(
-      expect.objectContaining({ status: 401 }),
-    );
-    await expect(client.dataSources()).resolves.toEqual({
-      surface: "read-data-sources",
-      sources: [],
-    });
-    expect(onUnauthorized).toHaveBeenCalledOnce();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+      try {
+        await expect(client.dataSources()).rejects.toEqual(
+          expect.objectContaining({ status: 401 }),
+        );
+        await expect(client.dataSources()).resolves.toEqual({
+          surface: "read-data-sources",
+          sources: [],
+        });
+        expect(onUnauthorized).toHaveBeenCalledOnce();
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+      } finally {
+        stopObserving();
+      }
   });
 });

@@ -114,7 +114,6 @@ export class ReadApiTransport {
         /* body was not JSON - fall through */
       }
       const error = new ReadApiError(response.status, message);
-      if (response.status === 401) this.#onUnauthorized?.(error);
       throw error;
     }
     return response;
