@@ -10,6 +10,13 @@ specific actions from shadow to enforce. This phase expands the tier/gate rules 
 the model-tier design in [llm-strategy.md](../architecture/llm-strategy.md). Coverage figures (T1 ~15-20%)
 are **targets to validate**, not guarantees ([goals-and-metrics.md](../architecture/goals-and-metrics.md)).
 
+> **Implementation status**: The continuous-rule-pipeline core, T2 quality gate, T1 tier,
+> promotion registry, risk gate, and their deterministic tests are implemented. Composition from
+> a production source watcher through GitHub PR delivery, measured T1 and auto-resolution exit
+> evidence against the P0 baseline, the Assurance Twin model-backed natural-language compiler,
+> and discovery-loop binding are incomplete. The percentages and Exit Criteria below are targets,
+> not claims of current attainment.
+
 ## Deliverables
 
 - **Continuous rule-update pipeline** (living rules), delivered as catalog-as-code PRs.

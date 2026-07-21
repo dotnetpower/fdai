@@ -1,8 +1,8 @@
 ---
 title: Phase 0 - 계측과 언블록
 translation_of: phase-0-instrumentation.md
-translation_source_sha: 844fbb0cb6e363c0958dfa12c270476321d748fc
-translation_revised: 2026-07-18
+translation_source_sha: a8a26597fe7068758e0461a6d50179bc13034c3d
+translation_revised: 2026-07-21
 ---
 
 # Phase 0 - 계측과 언블록
@@ -15,6 +15,13 @@ phase들이 이득을 증명할 기준 베이스라인을 **확립** ; 자체로
 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 에 추적된 P0 아이덴티티/정책
 블로커를 해결. 출력은 [phase-1-rule-catalog-t0-ko.md](phase-1-rule-catalog-t0-ko.md) 의 직접
 전제조건.
+
+> **구현 상태**: Telemetry/config/event contracts, PostgreSQL migrations, frozen `v2026.07`
+> scenarios, `tools/reference_agent/`, `tools/baseline_run.py`, baseline reports, provider fakes,
+> pgvector/Redpanda local preset 및 exemption schema/template은 구현되어 있습니다. Entra app/group
+> provisioning, PR trailer no-self-approval CI, exemption auto-expiry/digest job 및 모든 P0 exit
+> evidence의 production 검증은 완료되지 않았습니다. 아래 task table은 원래 계획과 수용 기준을
+> 보존하며, 이 callout이 현재 repository 상태를 설명합니다.
 
 ## 재사용 용어
 
@@ -48,7 +55,7 @@ phase들이 이득을 증명할 기준 베이스라인을 **확립** ; 자체로
    이벤트 스키마.
 2. **시나리오 세트**: Resilience, Change Safety, Cost Governance 시나리오 고정 세트를
    정의하고 **freeze** , 세 버티컬에 걸쳐 균형,
-   걸쳐 균형, [goals-and-metrics-ko.md#정의definitions](../architecture/goals-and-metrics-ko.md#정의definitions)
+  [goals-and-metrics-ko.md#정의definitions](../architecture/goals-and-metrics-ko.md#정의definitions)
    포맷에 매칭되는 버전(예: `v2026.07`) 태그, 고객-비종속 데이터로 저장. 고정 세트는
    베이스라인과 트리트먼트에 동일 사용.
 3. **베이스라인 측정**: **pinned** reference agent(single-model, no tiering)를 명시된 측정
@@ -83,12 +90,12 @@ P0에는 enforce-mode 능력이 범위에 없음.
 | Task | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
 | **W1.1** | Monorepo 스켈레톤 | - | [project-structure-ko.md](../architecture/project-structure-ko.md) 의 디렉토리: `core/`, `shared/`, `rule-catalog/`, `delivery/`, `infra/`, `policies/`, `tests/`, `.github/` + placeholder README + 서브시스템별 lockfile | 디렉토리 의존 방향을 CI가 강제 (lint job이 금지된 import 플래그) | S |
-| **W1.2** | 온톨로지 + 이벤트 계약 | W1.1 | `shared/contracts/ontology/{object-type,link-type,action-type}.json`, `shared/contracts/event/schema.json`; 언어별 생성 타입 | 스키마가 CI에서 검증 (`ajv`); breaking change는 semver bump | M |
-| **W1.3** | Config 스키마 + fail-fast 로더 | W1.1 | `shared/config/schema.json` + 주 코어 언어의 로더; env + file provider | 잘못되거나 누락된 필수 필드가 구조화된 에러로 시작 중단 | S |
-| **W1.4** | OpenTelemetry 배선 | W1.1 | `shared/telemetry/` traces, metrics, logs; `correlation_id` 있는 JSON-구조화 로그; `infra/` 의 collector config | 합성 이벤트가 하나의 correlation id로 종단 trace (ingest → tier → gate → audit) | M |
+| **W1.2** | 온톨로지 + 이벤트 계약 | W1.1 | `src/fdai/shared/contracts/ontology/{object-type,link-type,action-type}.json`, `src/fdai/shared/contracts/event/schema.json`; 언어별 생성 타입 | 스키마가 CI에서 검증 (`ajv`); breaking change는 semver bump | M |
+| **W1.3** | Config 스키마 + fail-fast 로더 | W1.1 | `src/fdai/shared/config/schema.json` + Python loader; env + file provider | 잘못되거나 누락된 필수 필드가 구조화된 에러로 시작 중단 | S |
+| **W1.4** | OpenTelemetry 배선 | W1.1 | `src/fdai/shared/telemetry/` traces, metrics, logs; `correlation_id` 있는 JSON-구조화 로그; `infra/` 의 collector config | 합성 이벤트가 하나의 correlation id로 종단 trace (ingest → tier → gate → audit) | M |
 | **W1.5** | PostgreSQL DDL - instance + audit | W1.2 | `ontology_object_type`, `ontology_link_type`, `ontology_resource`, `ontology_finding`, `ontology_link`, `audit_log`(hash-chain) 마이그레이션 | `flyway`/`alembic` 마이그레이션이 빈 DB에서 클린 실행; DDL이 [llm-strategy-ko.md § Ontology Storage Layout](../architecture/llm-strategy-ko.md#ontology-storage-layout) 와 매칭 | M |
 | **W1.6** | PostgreSQL DDL - 계층 캐시 | W1.5 | `learned_action`, `ontology_embedding` (pgvector), `t2_cache`(`catalog_version` 파티션) 마이그레이션 | pgvector 확장 활성; HNSW 인덱스 빌드; 파티션 로테이션 스크립트 테스트 | S |
-| **W1.7** | CI baseline 파이프라인 | W1.1 | `.github/workflows/`: format, lint(English-only + non-ASCII 검사), secret scan (gitleaks), coverage 게이트 (safety-core placeholder에 ≥90%), dependency audit | 실패한 검사가 머지 블록; placeholder-only PR은 통과 | M |
+| **W1.7** | CI baseline 파이프라인 | W1.1 | `.github/workflows/`: format, lint, ASCII identifier/path 및 punctuation 검사, translation/catalog parity, secret scan, coverage 게이트, dependency audit | 실패한 검사가 머지 블록; 한국어와 영어 natural-language text는 모두 허용 | M |
 | **W1.8** | Golden-fixture 메트릭 테스트 | W1.4, W1.5 | `tests/telemetry/` - 기록된 합성-이벤트 trace + 픽스처가 모든 대시보드 메트릭이 원격측정에서 재현되는지 단언 | CI에서 green; trace 속성 제거가 특정 메트릭 단언 실패 | M |
 | **W1.9** | KPI 대시보드 | W1.4, W1.5, W1.8 | 성공 1-4, 가드 메트릭, 선행 지표 패널 - 각각 원격측정-소스 주석 | 어떤 패널도 수동으로 채워지지 않음; 소스 이름 변경이 패널 빌드 검사 실패 | M |
 
@@ -99,14 +106,14 @@ P0에는 enforce-mode 능력이 범위에 없음.
 | **W2.1** | 시나리오 스키마 | W1.2 | `tests/scenarios/schema.json` - 이벤트 입력, 예상 판정, 도메인, 태그 | 스키마가 CI에서 검증; 알려지지 않은 도메인/판정 값은 거부 | S |
 | **W2.2** | 균형 시나리오 작성 | W2.1 | `tests/scenarios/v2026.07/` - Change / DR / FinOps 균형 합성 이벤트(도메인당 목표 ≥ N, `N` 은 작성 시 결정) | CI에서 균형 검사: 어떤 도메인도 평균 카운트에서 10% 초과 편차 없음 | M |
 | **W2.3** | Freeze + 버전 | W2.2 | 디렉토리 `tests/scenarios/v2026.07/` 가 브랜치 보호로 **불변** ; 새 세트는 새 버전 디렉토리 | CI가 기존 버전 디렉토리의 어떤 수정도 거부 | S |
-| **W2.4** | 시나리오 커버리지 테스트 | W2.2 | Property 테스트: 고객 값 없음, English-only, 모든 시나리오가 성공과 가드 기대 모두 가짐 | 비-영문 문자열이나 GUID 패턴 주입이 테스트 실패 | S |
+| **W2.4** | 시나리오 커버리지 테스트 | W2.2 | Property 테스트: 고객 값 없음, identifier/path는 ASCII, 모든 시나리오가 성공과 가드 기대 모두 가짐 | Customer GUID 또는 non-ASCII identifier/path 주입은 실패; natural-language 값은 한국어와 영어 모두 허용 | S |
 
 ### WI3 - 베이스라인 측정 (WI2 freeze로 블록됨)
 
 | Task | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
-| **W3.1** | Pinned reference agent | W1.2, W2.3 | `tools/reference-agent/` - single-model, no tiering wrapper; 모델 id + 버전 고정; temperature 0; seed 고정 | 같은 시나리오 버전에서 두 실행이 동일 출력(결정론) | M |
-| **W3.2** | 베이스라인 러너 CLI | W3.1, W1.5 | `tools/baseline-run --scenarios v2026.07 --window 1h` - 성공 1-4 + 가드 메트릭 + 표본 크기 + 신뢰구간 기록 | CLI가 누락 메트릭에 대해 non-zero exit code | S |
+| **W3.1** | Pinned reference agent | W1.2, W2.3 | `tools/reference_agent/` - pinned implementation version을 가진 deterministic no-tiering wrapper | 같은 시나리오 버전에서 두 실행이 동일 출력(결정론) | M |
+| **W3.2** | 베이스라인 러너 CLI | W3.1, W1.5 | `python -m tools.baseline_run --scenarios tests/scenarios/v2026.07` - 성공 메트릭 + 가드 메트릭 + 표본 크기 + 신뢰구간 기록 | CLI가 누락 메트릭에 대해 non-zero exit code | S |
 | **W3.3** | 베이스라인 리포트 아티팩트 | W3.2 | `docs/baselines/v2026.07.md` - 방법론, 원시 카운트, 환경, CI, 표본 크기 | 리포트가 커밋되고 시나리오 세트 버전으로 다시 링크 | S |
 | **W3.4** | 재현성 CI | W3.3 | CI job이 `v2026.07` 에서 pinned agent를 재실행하고 보고된 CI 내 수치 단언 | 재실행이 CI 밴드 밖으로 drift하면 job 실패 | M |
 
@@ -119,7 +126,7 @@ P0에는 enforce-mode 능력이 범위에 없음.
 | **W4.3** | Azure Policy deny-by-default | W4.2 | Phase 1 Change allowlist 밖의 executor MI 액션을 거부하는 정책 할당 | non-allowlisted 액션 시도하는 프로브가 ARM 레이어에서 거부됨 | M |
 | **W4.4** | 최소권한 프로브 | W4.2, W4.3 | `tools/lpp-probe` - 허용 액션 성공, 거부 액션 실패 단언; CI에 기록된 실행 | 프로브 업데이트 없이 새 권한 추가하면 CI 실패 | S |
 | **W4.5** | App registration (dev) | W4.1 | dev 테넌트의 `fdai-console-spa`, `fdai-api`, `fdai-approval-bot` + [user-rbac-and-identity-ko.md § 4.4](../interfaces/user-rbac-and-identity-ko.md#44-app-roles-token-surface) 에 따라 선언된 App Roles | `Contributor` 에 할당된 dev 사용자가 `roles: ["Contributor"]` 토큰 받음 | M |
-| **W4.6** | Entra 보안 그룹 + App Role 바인딩 | W4.5 | 5 그룹 (`aw-readers/contributors/approvers/owners/break-glass`), 각각 Enterprise Applications에서 매칭 App Role에 바인딩 | 미할당 dev 사용자가 "administrator assignment required" body와 함께 HTTP 403 ([user-rbac-and-identity-ko.md § 10.3](../interfaces/user-rbac-and-identity-ko.md#103-first-sign-in-unassigned-users)) | S |
+| **W4.6** | Entra 보안 그룹 + App Role 바인딩 | W4.5 | 5 그룹 (`aw-readers/contributors/approvers/owners/break-glass`), 각각 Enterprise Applications에서 매칭 App Role에 바인딩 | 미할당 dev 사용자는 protected route에서 거부되고 role-optional self-service projection만 사용 가능 ([user-rbac-and-identity-ko.md § 10.3](../interfaces/user-rbac-and-identity-ko.md#103-first-sign-in-unassigned-users)) | S |
 | **W4.7** | Conditional Access 정책 | W4.6 | `aw-approvers`/`aw-owners` 에 phishing-resistant MFA; `aw-owners` 에 compliant device; `aw-break-glass` 에 named-location | FIDO2 없이 사인인하는 테스트 승인자가 블록됨 | S |
 | **W4.8** | 재인증 스케줄 | W4.6 | 문서화된 주기(`docs/runbooks/` 의 수동 분기 체크리스트, 또는 P2 라이선스된 경우 Entra Access Review) | 소유자 할당; 다음 리뷰 날짜가 감사 로그에 캡처됨 | S |
 
@@ -127,7 +134,7 @@ P0에는 enforce-mode 능력이 범위에 없음.
 
 | Task | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
-| **W5.1** | 예외 아티팩트 스키마 | W1.2 | `rule-catalog/schema/exemption.json` ([rule-governance-ko.md § JSON 형상](../rules-and-detection/rule-governance-ko.md#json-형상) 에 이미 스케치); `.github/PULL_REQUEST_TEMPLATE/exemption.md` 의 PR 템플릿 | 누락 `justification` / `expires_at` 이 CI 실패 | S |
+| **W5.1** | 예외 아티팩트 스키마 | W1.2 | `src/fdai/rule_catalog/schema/exemption.schema.json`; `.github/PULL_REQUEST_TEMPLATE/exemption.md` 의 PR 템플릿 | 누락 `justification` / `expires_at` 이 CI 실패 | S |
 | **W5.2** | Requester ≠ approver CI 검사 | W5.1, W4.5 | CI가 PR trailer Entra OID 를 리뷰어 OID에 대해 파싱; 자기승인 블록 | Author-approves-own-PR 테스트 케이스가 머지 블록 | S |
 | **W5.3** | Auto-expiry Container Apps Job | W5.1, W4.1 | `expires_at` 통과 시 audit `expired` 엔트리 emit하고 기저 할당 재적용하는 일일 cron job | Dry-run: 생성 → 대기 → 만료 → 감사 엔트리 존재; 할당 재적용 | M |
 | **W5.4** | 만료 사전 알림 | W5.3 | 14일 lookahead 다이제스트 ([channels-and-notifications-ko.md § 라우팅](../interfaces/channels-and-notifications-ko.md#6-라우팅-정책-config-driven)) `exemption_expiry_lookahead_weekly` 배선 | 월요일 아침 포스트가 만료되는 각 exemption을 requester `@mention` 과 함께 리스트 | S |
@@ -228,8 +235,9 @@ gantt
 
 ## 데이터와 범위 제약
 
-- 이 리포에 커밋된 모든 원격측정, 시나리오, 감사, KPI 데이터는 **영문, 시크릿 없음, 고객-비종속** ;
-  합성 또는 placeholder 값만 사용, 리포 범위 규칙에 따라
+- 이 리포에 커밋된 모든 원격측정, 시나리오, 감사, KPI 데이터는 **시크릿 없음, 고객-비종속**이며
+  합성 또는 placeholder 값만 사용합니다. Stable machine-record key와 identifier/path는
+  ASCII/English를 유지하고 natural-language 값은 한국어와 영어를 모두 허용합니다
   ([goals-and-metrics-ko.md#데이터-수집과-원격측정](../architecture/goals-and-metrics-ko.md#데이터-수집과-원격측정)).
   실제 환경 기록은 포크의 런타임 저장소에만 존재.
 - 대시보드의 각 메트릭은 정확히 하나의 원격측정 소스(OpenTelemetry trace, append-only 감사 로그,

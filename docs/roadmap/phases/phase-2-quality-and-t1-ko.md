@@ -1,8 +1,8 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: d58f1222f7340a43cdb2a9879bcd45001a956f65
-translation_revised: 2026-07-11
+translation_source_sha: 6f2efb3c855e355ff5ebe6c97d3b5953ceb10f25
+translation_revised: 2026-07-21
 ---
 
 # Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1
@@ -14,6 +14,12 @@ translation_revised: 2026-07-11
 티어/게이트 규칙과 [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 의 모델-티어 설계 확장.
 커버리지 수치(T1 ~15-20%) 는 보장이 아니라 **검증할 목표**
 ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)).
+
+> **구현 상태**: Continuous rule pipeline core, T2 quality gate, T1 tier, promotion registry,
+> risk gate 및 해당 deterministic tests는 구현되어 있습니다. Production source watcher에서
+> GitHub PR delivery까지의 composition, P0 baseline 대비 측정된 T1/auto-resolution exit evidence,
+> Assurance Twin의 model-backed NL compiler와 discovery-loop binding은 아직 완료되지 않았습니다.
+> 아래 percentage와 Exit 기준은 목표이며 현재 달성 주장으로 읽으면 안 됩니다.
 
 ## 산출물
 
@@ -33,6 +39,12 @@ translation_revised: 2026-07-11
   fake 는
   [`quality_gate/testing.py`](../../../src/fdai/core/quality_gate/testing.py)
   에 있어 fork 가 live LLM 없이 composition root 를 smoke.
+- **Rubric hallucination filter** (subtractive): 선택적
+  [`RubricEvaluator`](../../../src/fdai/core/quality_gate/rubric.py)가 T2 candidate의
+  `reasoning_trace`를 고정 criterion으로 채점하고 gate는 최저 점수를 `min()`으로 confidence에
+  반영합니다(가산하지 않음). Shadow-first, fail-closed이며 judge는 proposer와 구별됩니다.
+  `SelfConsistencySampler`는 `action_stability` signal을 추가합니다. 전체 설계는
+  [hallucination-rubric-gate-ko.md](../decisioning/hallucination-rubric-gate-ko.md)에 있습니다.
 - **T1 경량 티어**: 임베딩 유사도 + 안전 재검증된 학습된-액션 재사용.
   [`src/fdai/core/tiers/t1_lightweight/`](../../../src/fdai/core/tiers/t1_lightweight)
   가 `T1Tier` 오케스트레이터 + `EmbeddingModel` / `PatternLibrary` 심을 배송; 페이크

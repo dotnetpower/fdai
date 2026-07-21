@@ -13,6 +13,14 @@ P0 identity/policy blockers tracked in
 [security-and-identity.md](../architecture/security-and-identity.md). Its outputs are the direct
 prerequisite for [phase-1-rule-catalog-t0.md](phase-1-rule-catalog-t0.md).
 
+> **Implementation status**: Telemetry, configuration, and event contracts; PostgreSQL
+> migrations; the frozen `v2026.07` scenarios; `tools/reference_agent/`;
+> `tools/baseline_run.py`; baseline reports; provider fakes; the pgvector/Redpanda local preset;
+> and the exemption schema and template are implemented. Entra app/group provisioning, PR-trailer
+> no-self-approval CI, the exemption auto-expiry/digest job, and production validation of all P0
+> exit evidence are incomplete. The task tables preserve the original plan and acceptance criteria;
+> this callout describes the current repository state.
+
 ## Terms Reused
 
 Do not redefine domain terms here. `Event`, `Scenario set`, `Reference agent`,
@@ -83,12 +91,12 @@ enforce-mode capability is in scope for P0.
 | Task | Title | Deps | Deliverable | Acceptance | Size |
 |------|-------|------|-------------|------------|------|
 | **W1.1** | Monorepo skeleton | - | Directories from [project-structure.md](../architecture/project-structure.md): `core/`, `shared/`, `rule-catalog/`, `delivery/`, `infra/`, `policies/`, `tests/`, `.github/` with placeholder READMEs and lockfile per subsystem | Directory dependency direction enforced by CI (a lint job flags forbidden imports) | S |
-| **W1.2** | Ontology + event contracts | W1.1 | `shared/contracts/ontology/{object-type,link-type,action-type}.json`, `shared/contracts/event/schema.json`; generated types per language | Schema validates in CI (`ajv`); breaking changes bump semver | M |
-| **W1.3** | Config schema + fail-fast loader | W1.1 | `shared/config/schema.json` + loader in the primary core language; env + file provider | Invalid or missing required field aborts startup with a structured error | S |
-| **W1.4** | OpenTelemetry wiring | W1.1 | `shared/telemetry/` traces, metrics, logs; JSON-structured logs with `correlation_id`; collector config in `infra/` | A synthetic event traces end-to-end (ingest → tier → gate → audit) with one correlation id | M |
+| **W1.2** | Ontology + event contracts | W1.1 | `src/fdai/shared/contracts/ontology/{object-type,link-type,action-type}.json`, `src/fdai/shared/contracts/event/schema.json`; generated types per language | Schema validates in CI (`ajv`); breaking changes bump semver | M |
+| **W1.3** | Config schema + fail-fast loader | W1.1 | `src/fdai/shared/config/schema.json` + Python loader; env + file provider | Invalid or missing required field aborts startup with a structured error | S |
+| **W1.4** | OpenTelemetry wiring | W1.1 | `src/fdai/shared/telemetry/` traces, metrics, logs; JSON-structured logs with `correlation_id`; collector config in `infra/` | A synthetic event traces end-to-end (ingest → tier → gate → audit) with one correlation id | M |
 | **W1.5** | PostgreSQL DDL - instance + audit | W1.2 | Migration for `ontology_object_type`, `ontology_link_type`, `ontology_resource`, `ontology_finding`, `ontology_link`, `audit_log` (hash-chained) | `flyway`/`alembic` migration runs clean on empty DB; DDL matches [llm-strategy.md § Ontology Storage Layout](../architecture/llm-strategy.md#ontology-storage-layout) | M |
 | **W1.6** | PostgreSQL DDL - layered cache | W1.5 | Migration for `learned_action`, `ontology_embedding` (pgvector), `t2_cache` (partition by `catalog_version`) | pgvector extension enabled; HNSW index builds; partition rotation script tested | S |
-| **W1.7** | CI baseline pipeline | W1.1 | `.github/workflows/`: format, lint (English-only + non-ASCII check), secret scan (gitleaks), coverage gate (≥90% on safety-core placeholders), dependency audit | A failing check blocks merge; a placeholder-only PR passes | M |
+| **W1.7** | CI baseline pipeline | W1.1 | `.github/workflows/`: format, lint, ASCII identifier/path and punctuation checks, translation/catalog parity, secret scan, coverage gate, dependency audit | A failing check blocks merge; English and Korean natural-language text are both allowed | M |
 | **W1.8** | Golden-fixture metrics test | W1.4, W1.5 | `tests/telemetry/` - a recorded synthetic-event trace + fixture asserting every dashboard metric reproduces from telemetry | Test runs green in CI; removing a trace attribute fails a specific metric assertion | M |
 | **W1.9** | KPI dashboard | W1.4, W1.5, W1.8 | Panels for success 1-4, guard metrics, leading indicators - each with its telemetry-source annotation | No panel is manually populated; a source rename fails the panel's build check | M |
 
@@ -99,14 +107,14 @@ enforce-mode capability is in scope for P0.
 | **W2.1** | Scenario schema | W1.2 | `tests/scenarios/schema.json` - event input, expected verdict, domain, tags | Schema validates in CI; unknown domain / verdict values are rejected | S |
 | **W2.2** | Author balanced scenarios | W2.1 | `tests/scenarios/v2026.07/` - Change / DR / FinOps balanced synthetic events (target ≥ N per domain, `N` decided at authoring time) | Balance check in CI: no domain deviates > 10% from the mean count | M |
 | **W2.3** | Freeze + version | W2.2 | Directory `tests/scenarios/v2026.07/` is **immutable** via branch protection; a new set is a new version directory | CI rejects any modification to an existing versioned directory | S |
-| **W2.4** | Scenario coverage tests | W2.2 | Property tests: no customer values, English-only, every scenario has both success and guard expectations | Injecting a non-English string or GUID pattern fails the test | S |
+| **W2.4** | Scenario coverage tests | W2.2 | Property tests: no customer values, ASCII identifiers/paths, every scenario has both success and guard expectations | A customer GUID or non-ASCII identifier/path fails; natural-language values may be English or Korean | S |
 
 ### WI3 - Baseline Measurement (blocked by WI2 freeze)
 
 | Task | Title | Deps | Deliverable | Acceptance | Size |
 |------|-------|------|-------------|------------|------|
-| **W3.1** | Pinned reference agent | W1.2, W2.3 | `tools/reference-agent/` - single-model, no tiering wrapper; model id + version pinned; temperature 0; seed fixed | Two runs on the same scenario version produce identical outputs (deterministic) | M |
-| **W3.2** | Baseline runner CLI | W3.1, W1.5 | `tools/baseline-run --scenarios v2026.07 --window 1h` - records success 1-4 + guard metrics + sample size + confidence interval | CLI exit code non-zero on any missing metric | S |
+| **W3.1** | Pinned reference agent | W1.2, W2.3 | `tools/reference_agent/` - deterministic no-tiering wrapper with a pinned implementation version | Two runs on the same scenario version produce identical outputs (deterministic) | M |
+| **W3.2** | Baseline runner CLI | W3.1, W1.5 | `python -m tools.baseline_run --scenarios tests/scenarios/v2026.07` - records success metrics + guard metrics + sample size + confidence interval | CLI exit code non-zero on any missing metric | S |
 | **W3.3** | Baseline report artifact | W3.2 | `docs/baselines/v2026.07.md` - methodology, raw counts, environment, CI, sample size | Report is committed and links back to the scenario-set version | S |
 | **W3.4** | Reproducibility CI | W3.3 | CI job re-runs the pinned agent on `v2026.07` and asserts figures within reported CI | Job fails if the re-run drifts outside the CI band | M |
 
@@ -119,7 +127,7 @@ enforce-mode capability is in scope for P0.
 | **W4.3** | Azure Policy deny-by-default | W4.2 | Policy assignment that denies any executor MI action outside the Phase 1 Change allowlist | A probe attempting a non-allowlisted action is denied at the ARM layer | M |
 | **W4.4** | Least-privilege probe | W4.2, W4.3 | `tools/lpp-probe` - asserts allowed actions succeed and denied actions fail; recorded run in CI | Adding a new permission without updating the probe fails CI | S |
 | **W4.5** | App registrations (dev) | W4.1 | `fdai-console-spa`, `fdai-api`, `fdai-approval-bot` in the dev tenant with App Roles declared per [user-rbac-and-identity.md § 4.4](../interfaces/user-rbac-and-identity.md#44-app-roles-token-surface) | A dev user assigned to `Contributor` receives a `roles: ["Contributor"]` token | M |
-| **W4.6** | Entra security groups + App Role binding | W4.5 | 5 groups (`aw-readers/contributors/approvers/owners/break-glass`), each bound to the matching App Role in Enterprise Applications | An unassigned dev user gets HTTP 403 with the "administrator assignment required" body ([user-rbac-and-identity.md § 10.3](../interfaces/user-rbac-and-identity.md#103-first-sign-in-unassigned-users)) | S |
+| **W4.6** | Entra security groups + App Role binding | W4.5 | 5 groups (`aw-readers/contributors/approvers/owners/break-glass`), each bound to the matching App Role in Enterprise Applications | An unassigned dev user is denied on protected routes and can use only the role-optional self-service projection ([user-rbac-and-identity.md § 10.3](../interfaces/user-rbac-and-identity.md#103-first-sign-in-unassigned-users)) | S |
 | **W4.7** | Conditional Access policies | W4.6 | Phishing-resistant MFA on `aw-approvers`/`aw-owners`; compliant device on `aw-owners`; named-location on `aw-break-glass` | A test approver signing in without FIDO2 is blocked | S |
 | **W4.8** | Recertification schedule | W4.6 | Documented cadence (manual quarterly checklist in `docs/runbooks/`, or Entra Access Review if P2 licensed) | Owner-assigned; the next review date is captured in the audit log | S |
 
@@ -127,7 +135,7 @@ enforce-mode capability is in scope for P0.
 
 | Task | Title | Deps | Deliverable | Acceptance | Size |
 |------|-------|------|-------------|------------|------|
-| **W5.1** | Exemption artifact schema | W1.2 | `rule-catalog/schema/exemption.json` (already sketched in [rule-governance.md § JSON Shapes](../rules-and-detection/rule-governance.md#json-shapes)); PR template in `.github/PULL_REQUEST_TEMPLATE/exemption.md` | Missing `justification` / `expires_at` fails CI | S |
+| **W5.1** | Exemption artifact schema | W1.2 | `src/fdai/rule_catalog/schema/exemption.schema.json`; PR template in `.github/PULL_REQUEST_TEMPLATE/exemption.md` | Missing `justification` / `expires_at` fails CI | S |
 | **W5.2** | Requester ≠ approver CI check | W5.1, W4.5 | CI parses PR trailer Entra OID against reviewer OID; blocks self-approval | Author-approves-own-PR test case blocks the merge | S |
 | **W5.3** | Auto-expiry Container Apps Job | W5.1, W4.1 | Daily cron job that emits an audit `expired` entry when `expires_at` passes and re-applies the underlying assignment | Dry-run: create → wait → expire → audit entry present; assignment re-applied | M |
 | **W5.4** | Ahead-of-expiry alert | W5.3 | 14-day lookahead digest ([channels-and-notifications.md § routing](../interfaces/channels-and-notifications.md#6-routing-policy-config-driven)) `exemption_expiry_lookahead_weekly` wired | Monday morning post lists each expiring exemption with `@mention` to the requester | S |
@@ -233,9 +241,11 @@ Each task is done only when:
 
 ## Data and Scope Constraints
 
-- All telemetry, scenario, audit, and KPI data committed to this repo is **English,
-  secret-free, and customer-agnostic**; only synthetic or placeholder values are used, per the
-  repo scope rules ([goals-and-metrics.md#data-collection-and-telemetry](../architecture/goals-and-metrics.md#data-collection-and-telemetry)).
+- All telemetry, scenario, audit, and KPI data committed to this repo is **secret-free and
+  customer-agnostic** and uses only synthetic or placeholder values. Stable machine-record keys,
+  identifiers, and paths remain ASCII/English; natural-language values may be English or Korean,
+  per the repo scope rules
+  ([goals-and-metrics.md#data-collection-and-telemetry](../architecture/goals-and-metrics.md#data-collection-and-telemetry)).
   Real environment records live only in a fork's runtime store.
 - Each metric on the dashboard maps to exactly one telemetry source (OpenTelemetry traces, the
   append-only audit log, or cost/usage records); aspirational panels with no source are not

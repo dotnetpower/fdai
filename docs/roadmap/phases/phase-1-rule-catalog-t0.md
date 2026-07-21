@@ -19,6 +19,14 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
 [phase-0-instrumentation.md](phase-0-instrumentation.md) and feeds
 [phase-2-quality-and-t1.md](phase-2-quality-and-t1.md).
 
+> **Implementation status**: Authored rule, Rego, and remediation seeds; the ActionType catalog;
+> T0 engine; OPA evaluator; control-loop orchestration; GitOps draft-PR adapter; Azure inventory
+> snapshot/delta primitives; and frozen-scenario replay are implemented. This document's
+> "shadow only" language is the phase boundary when P1 first lands, not the current mode of the
+> whole runtime. The repository now also contains later-phase promotion, risk/HIL, and
+> enforce-capable adapters. Production inventory and GitOps delivery require deployment-specific
+> provider and credential bindings.
+
 ## Scope
 
 - **In scope**: rule-catalog schema and collectors, the T0 deterministic engine (policy-as-code
@@ -265,7 +273,8 @@ but cannot be merged by the normal flow.
 ## Testability
 
 - **Fixtures** follow the normalized rule schema and the `event-ingest` event schema; they are
-  English and secret-free per repo scope rules. Include multi-source overlap fixtures that
+  free of secrets and customer values. Stable keys, identifiers, and paths remain ASCII/English;
+  natural-language values may be English or Korean. Include multi-source overlap fixtures that
   exercise dedup and precedence, and contradictory-remediation fixtures that must escalate.
 - **Regression suite** covers: policy verdicts, what-if blast-radius computation, drift deltas,
   conflict/precedence resolution, out-of-band attribution, and false-positive suppression.
