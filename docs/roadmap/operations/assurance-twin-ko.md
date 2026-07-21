@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: be99df90df6cb0e28c86840bcd2c7c92639a6356
-translation_revised: 2026-07-18
+translation_source_sha: 7487fcce4bd49387ac5687265127ba60fdaef404
+translation_revised: 2026-07-21
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -36,6 +36,13 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 [deployment-preflight-ko.md](../deployment/deployment-preflight-ko.md) 의 배포 analyzer를 재사용합니다.
 새 서브시스템 `core/assurance_twin/` 하나와 delivery 인텐트 하나를 추가하며, 나머지는
 기존 부품의 조합입니다.
+
+> **구현 상태**: `core/assurance_twin/`에는 in-memory projection, 검증된 deterministic query,
+> posture report 조립, publisher-neutral review glue, simulation fidelity ledger가 있고 focused
+> tests가 이를 검증합니다. Production inventory composition, model-backed NL compiler, ChatOps
+> intent, Checks API publisher, discovery-loop hook, twin 전용 ReadPanel은 아직 연결되지 않았습니다.
+> 아래 ambient review, action-bridging, self-improving delivery 흐름은 목표 설계입니다. 별도의
+> Security Assessment report feed와 Azure analyzer는 현재 reporting subsystem에 구현되어 있습니다.
 
 ## 왜 챗봇이 아닌가
 
@@ -237,15 +244,16 @@ source coverage는 control 실패가 아니라 `unknown` 또는 `unavailable`로
 
 | 컴포넌트 | 책임 |
 |-----------|----------------|
-| `projection` | `Inventory.full_snapshot()` + `delta()` 로부터 읽기 전용 트윈을 구축·유지; 시뮬레이션용 scratch 투영 유지 |
-| `query` | 요청으로부터 검증된 well-typed 읽기 전용 온톨로지 질의를 컴파일; 트윈 위에서 traversal 실행 |
-| `review` | 변경 신호에서 scratch 투영에 diff를 적용하고 T0를 실행해 리뷰 finding을 emit |
+| `projection` | Immutable in-memory baseline을 만들고 scratch diff를 적용합니다. Production `Inventory.full_snapshot()` + `delta()` 유지는 목표 binding입니다. |
+| `query` | Deterministic pattern compiler로 well-typed 읽기 전용 query를 검증하고 실행합니다. Model-backed compiler는 Protocol 목표입니다. |
+| `review` | Precomputed finding을 `IacReviewPublisher`로 게시합니다. Change-signal 평가와 production publisher는 목표 binding입니다. |
 | `report` | Finding으로부터 `PostureAssessmentReport` 를 조립 |
-| `explain` | 근거 있는 결과를 규칙/그래프 인용과 함께 산문으로 렌더링(모델 보조, quality-gated) |
+| `chat` | Immutable grounded chat-session 값과 persistence Protocol을 제공합니다. Browser 또는 delivery binding은 없습니다. |
 
-Delivery는 기존 `chatops` 어댑터에 인텐트 하나를 추가하고(질문 입력, 근거 있는 답 출력)
-제안과 Checks API 리뷰에 `gitops-pr` 어댑터를 재사용합니다. 새 특권 표면은 도입되지
-않습니다.
+목표 delivery는 기존 `chatops` 어댑터에 인텐트 하나를 추가하고(질문 입력, 근거 있는 답 출력)
+제안과 Checks API 리뷰에 `gitops-pr` 어댑터를 재사용합니다. 현재 repository에는
+`IacReviewPublisher` Protocol과 test double만 있고 production publisher 또는 ChatOps binding은
+없습니다. 이를 추가하더라도 새 특권 표면을 도입하지 않습니다.
 
 ## 안전 자세
 

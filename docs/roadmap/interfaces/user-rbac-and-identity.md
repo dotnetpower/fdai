@@ -33,7 +33,9 @@ Three safety principles govern this design; every choice below preserves them:
    author, review, and approve; the MI executes.
 3. **Console is read-only** - the console never mutates the live catalog or executes
    actions ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
-   Editing flows are draft PRs authored by a GitHub App on behalf of the console user.
+  The target editing contract uses draft PRs authored by a GitHub App on behalf of the
+  console user. The current GitOps adapter publishes remediation PRs only; there is no
+  user draft-governance API yet.
 
 ## 2. Role Model (4 tiers + Break-Glass)
 
@@ -48,7 +50,7 @@ more roles.
 | 2 | **Contributor** | `aw-contributors` | Azure Contributor | All of Reader + author draft PRs for rules, rule-sets, assignments, exemptions, overrides |
 | 3 | **Approver** | `aw-approvers` | (Reviewer) | All of Reader + review/approve governance PRs + approve runtime HIL requests + approve enforce promotions / exemptions / overrides (quorum applies to high-risk - see §5) |
 | 4 | **Owner** | `aw-owners` | Azure Owner | All of Approver + trigger kill-switch + manage Entra group membership + apply infra IaC |
-| - | **Break-Glass** | `aw-break-glass` | (separate emergency account) | Emergency scope grants, kill-switch override, and **time-boxed emergency HIL approval eligibility** when a regular Approver/Owner is unavailable (paired-approver, no self-approval); membership is a small dedicated set, credentials sealed with hardware MFA, every sign-in raises an alert |
+| - | **Break-Glass** | `aw-break-glass` | (separate emergency account) | Console view, kill-switch, and emergency access-grant capabilities only. It has no runtime HIL approval capability and isn't an Owner superset. |
 
 **Rules that keep the model safe without adding tiers**
 
@@ -61,6 +63,10 @@ more roles.
 - **Activation preserves verified entitlement**. Token resolution removes `BreakGlass` from
   effective roles but retains a separate eligibility flag. Time-boxed activation checks that
   flag before adding the emergency role.
+- **Current activation boundary.** `RoleResolver.activate_break_glass` is a pure activation
+  primitive that validates an incident id and future expiry. The production API has no endpoint,
+  persistent activation store, or TTL-enforcement composition that invokes it. A BreakGlass token
+  claim therefore doesn't elevate a runtime principal or grant HIL approval eligibility.
 - **PIM is optional**. Upstream does not require it. A fork with Entra ID P2 MAY layer PIM
   on top of `aw-approvers` / `aw-owners` for just-in-time activation, but the default
   model works on P1.
@@ -77,7 +83,7 @@ more roles.
 | Approve exemption (time-boxed) | | | ✓ | ✓ | |
 | Approve override (may be long-lived) | | | ✓ | ✓ | |
 | Approve runtime HIL request | | | ✓ | ✓ | |
-| Approve runtime HIL request (emergency, break-glass active, paired) | | | | | ✓ |
+| Approve runtime HIL request (emergency) | | | | | |
 | Trigger global kill-switch | | | | ✓ | ✓ |
 | Grant emergency scoped access | | | | | ✓ |
 | Manage `aw-*` group membership | | | | ✓ | |
@@ -85,16 +91,21 @@ more roles.
 | Hold the executor Managed Identity | (never) - the MI is non-human |||||
 
 The production API exposes `POST /system/kill-switch` only when a durable command service is
-wired. Owner and active Break-Glass principals can call it; Reader, Contributor, and Approver
-cannot. The endpoint is not a console button, uses no executor identity, and atomically records
-the revisioned state change with its audit entry.
+wired. Owner and externally activated Break-Glass roles pass its capability check, but the current
+production auth composition has no BreakGlass activation path, so Owner is the emergency caller
+reachable through normal token resolution. Reader, Contributor, and Approver cannot call it. The
+endpoint is not a console button, uses no executor identity, and atomically records the revisioned
+state change with its audit entry.
 
 ## 4. Entra ID Artifacts
 
-### 4.1 App Registrations
+### 4.1 Target App Registrations
 
 Three registrations, each with its own audience and permission surface. Splitting them
 prevents an SPA-issued token from carrying backend management scopes.
+
+> The repository consumes supplied tenant, audience, client, and role/group values. Terraform
+> doesn't currently provision these registrations or their App Role assignments.
 
 | App Registration | Type | Audience | Notes |
 |------------------|------|----------|-------|
@@ -138,10 +149,12 @@ CA is available on Entra ID P1 (no P2 required). Recommended policies per group:
 
 ### 4.4 App Roles (token surface)
 
-The API authorizes on **App Roles**, not raw group claims. App Roles are declared on the
-`fdai-api` app registration and assigned to the `aw-*` groups in the Enterprise
-Applications view; a signed-in user's access token then carries a `roles` claim (e.g.
-`"roles": ["Approver"]`) that the API validates directly.
+The API prefers **App Roles** as its canonical token surface. App Roles are declared on the
+`fdai-api` app registration and assigned to the `aw-*` groups in the Enterprise Applications
+view; a signed-in user's access token then carries a `roles` claim (for example,
+`"roles": ["Approver"]`). For migration compatibility, `RoleResolver` falls back to configured
+objectId mappings when `roles` is empty and inline `groups` are available. That fallback isn't
+possible for group-overage tokens, which require an FDAI App Role.
 
 | App Role value | Assigned to (Entra security group) |
 |----------------|------------------------------------|
@@ -170,7 +183,13 @@ Entra Portal); App Roles are the **token surface** the API sees.
 Coarse roles are made safe by **quorum + justification + author≠approver** checks at the
 PR and API layer:
 
-### 5.1 CODEOWNERS (single approver group, path-based reviewer count)
+> **Implementation status**: Runtime capability checks, `RoleEnforcer.no_self_approval`, and
+> risk-gate quorum are implemented. The PR trailer, diff-risk, reviewer OID, and justification
+> checks below are the target CI contract and aren't implemented in `.github/workflows/`.
+> Current `.github/CODEOWNERS` routes exemptions, risk classification, and framework surfaces to
+> the upstream owner; it doesn't implement the complete `@aw-approvers` template below.
+
+### 5.1 Target CODEOWNERS (single approver group, path-based reviewer count)
 
 ```
 # CODEOWNERS
@@ -194,7 +213,7 @@ requirement based on **diff content**:
 Quorum-2 is the shadow→enforce promotion gate ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md))
 made concrete without introducing an "elevated approver" group.
 
-### 5.2 CI Checks (upstream-provided, fork-configured)
+### 5.2 Target CI Checks (upstream-provided, fork-configured)
 
 - **Author-is-not-approver**: parse PR author's Entra OID trailer (§6) and every reviewer's
   Entra OID; fail if any reviewer's OID equals the author's OID.
@@ -209,24 +228,29 @@ made concrete without introducing an "elevated approver" group.
 
 ### 5.3 App-Level Justification (runtime HIL)
 
-Runtime HIL approvals (Adaptive Cards) require a `justification` field on the approval
-request; the API rejects `""` / missing values with `400`. This is the PIM-activation-
-reason equivalent, applied at the point of decision rather than the point of role
-activation.
+The target Adaptive Card approval contract requires `justification` and rejects missing or empty
+values with `400`. The current HMAC callback validates that `justification` is a string but allows
+an empty string. Its enforced boundary is the callback signature and replay window,
+no-self-approval, optional signed `actor_roles` capability, and a typed registry/coordinator
+decision.
 
 ```jsonc
-POST /api/v1/approvals
+POST /hil/{approval_id}/decision
 {
   "approval_id": "hil-2026-07-04-abc123",
   "decision": "approve",
+  "actor_oid": "approver-oid",
   "justification": "verified rollback plan in runbook X; safe within maintenance window"
 }
 ```
 
-## 6. Identity Flow: Console → Draft PR → Audit
+## 6. Target Identity Flow: Console → Draft PR → Audit
 
-The console preserves read-only by delegating writes to a **GitHub App**. The user's Entra
-OID is preserved end-to-end for the no-self-approval and audit correlation checks.
+The target flow preserves the console's read-only boundary by delegating writes to a **GitHub
+App** and carrying the user's Entra OID through no-self-approval and audit correlation. The
+current `GitOpsPrAdapter` publishes executor-generated remediation draft PRs, but the console
+draft-governance endpoint, Entra OID trailer, and human OID-to-GitHub-login mapping store aren't
+implemented.
 
 ```mermaid
 sequenceDiagram
@@ -257,6 +281,12 @@ This is the identity view of the HIL approval hop. The **channel abstraction** b
 categories, trust tiers, per-vendor rules, and fallback policy - lives in
 [channels-and-notifications.md](channels-and-notifications.md).
 
+> **Current boundary**: Teams conversation ingress verifies a Bot Framework JWT and same-tenant
+> principal binding. Runtime HIL decisions use an optionally registered HMAC-signed
+> `POST /hil/{approval_id}/decision` callback that passes a typed decision to the registry or
+> `HilResumeCoordinator`. The Teams SSO OBO exchange and user callback carrying App Roles below
+> are a target flow and aren't implemented yet.
+
 ```mermaid
 sequenceDiagram
   participant CORE as core/risk-gate
@@ -273,16 +303,19 @@ sequenceDiagram
   CORE->>EX: (approved) execute
 ```
 
-- Approvals are **action-bound**: each Adaptive Card carries the `idempotency_key` and
-  `action_hash` of the pending item; replay against a different action is rejected by API.
-- Approver-is-not-originator: for HIL items generated in response to a human-authored
-  change (rare - most items come from the risk-gate autonomously), the API blocks the
-  approver whose OID matches the originating change's author.
+- The current callback binds its HMAC to the timestamp, URL `approval_id`, and body. The registry
+  or parked coordinator resolves that identifier against a pending item and enforces idempotent
+  terminal decisions.
+- No-self-approval compares the signed callback actor OID with the pending item's submitter OID.
+  End-to-end propagation from a future human-authored governance PR remains part of the target
+  flow.
 
 ## 8. Audit Correlation
 
-A governance decision leaves traces in four systems. Each carries the same
-`correlation_id` so a single decision is reconstructable end-to-end:
+The target governance flow leaves the same `correlation_id` in four systems so a single decision
+is reconstructable end-to-end. Current typed HIL and IAM paths record their own correlated state
+and audit entries, but Entra sign-in, GitHub PR, Teams OBO, and core audit aren't wired into one
+end-to-end flow.
 
 | Source | What it records |
 |--------|-----------------|
@@ -295,6 +328,11 @@ Correlation ID is generated by `fdai-api` on the first user-initiated action of 
 flow and propagated to GitHub (PR body), Adaptive Cards, and the core audit writer.
 
 ## 9. Fork vs Upstream Split
+
+The table below is the target ownership split. The current upstream includes roles and
+capabilities, the Entra verifier and resolver, RBAC group slots, IAM request/directory contracts,
+and a remediation PR adapter. App registration manifest templates, a human OID-to-GitHub-login
+mapping provider, and governance PR CI aren't implemented yet.
 
 | Item | Upstream (this repo) | Fork |
 |------|----------------------|------|
@@ -364,9 +402,10 @@ The API validates every request as follows (deny by default):
 2. **Audience** equals `api://<fdai-api-guid>`.
 3. **Issuer** equals the fork's tenant issuer URL.
 4. **Not expired** (`exp`) and **not-before valid** (`nbf`).
-5. **Roles claim present** - if `roles` is empty, respond `403` with an "administrator
-   assignment required" body. **No auto-provisioning** to `aw-readers`; explicit assignment
-   is the only path in.
+5. **Role resolution** - prefer `roles` App Roles. If that claim is empty and inline `groups` are
+  available, fall back to configured objectId mappings. Fail closed when an overage token has no
+  App Role. If no known role resolves, protected endpoints return `403`. There is **no
+  auto-provisioning** to `aw-readers`.
 6. **Stable identity** is `oid` (Entra user objectId). `upn`/email are informational only;
    audit and no-self-approval use `oid`.
 
@@ -392,12 +431,13 @@ but MUST NOT gain any capability:
 
 - Entra authentication succeeds, `roles` claim is empty.
 - API returns `403` with a one-screen message: contact an Owner to be added to a group.
-- The unassigned sign-in still writes a **`sign-in-denied`** audit entry (actor `oid`,
-  reason `no-role`) so probing is visible.
+- Role-protected endpoints return `403`, while role-optional `GET /iam/self` provides the
+  self-service projection for the Access Required screen. A dedicated `sign-in-denied` audit
+  event isn't implemented yet.
 
 ### 10.4 ChatOps (Teams) Sign-In
 
-Teams already runs an authenticated Entra session, so approvals ride Teams SSO:
+The target contract for Teams SSO OBO approval is:
 
 - The Adaptive Card "Approve"/"Reject" click reaches the bot with a Teams SSO token.
 - The bot performs the **On-Behalf-Of (OBO)** flow to exchange the Teams token for an
@@ -411,8 +451,9 @@ External collaborators are onboarded via **Entra B2B invitation**, producing a g
 `oid` in the fork tenant. Recommended fork policy:
 
 - Guests MAY be added to `aw-readers` and - with justification - `aw-contributors`.
-- Guests MUST NOT be added to `aw-approvers`, `aw-owners`, or `aw-break-glass`. A fork
-  bootstrap check rejects such assignments (deny-by-default at membership sync time).
+- Guests shouldn't be added to `aw-approvers`, `aw-owners`, or `aw-break-glass`. The repository
+  doesn't currently ship a bootstrap membership check for this human-role policy, so a fork must
+  enforce it in its Entra administration process.
 - Conditional Access policies apply uniformly to guests and members.
 
 ### 10.6 Programmatic Access (local dev, CI)
@@ -445,10 +486,13 @@ Human users never hold PATs or long-lived secrets:
 
 - Break-glass is a **dedicated account** (not a human's personal account), stored with a
   hardware FIDO2 key in physical custody.
-- Every sign-in fires an immediate alert to the break-glass alerting channel and writes an
-  elevated audit entry.
-- The account holds `Owner` and `BreakGlass` App Roles simultaneously; both are required
-  for kill-switch and emergency grants.
+- Alerting on every sign-in and writing an elevated audit record are deployment operations
+  requirements. The production API currently has no activation endpoint, persistent activation
+  store, or alerting composition.
+- A verified `BreakGlass` entitlement must be activated separately through
+  `RoleResolver.activate_break_glass`. Active BreakGlass alone carries kill-switch and emergency
+  access-grant capabilities; the capability model doesn't require simultaneous `Owner` and
+  `BreakGlass` roles.
 - Break-glass credential rotation and drill cadence are declared in
   [security-and-identity.md](../architecture/security-and-identity.md).
 

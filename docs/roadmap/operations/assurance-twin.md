@@ -39,6 +39,14 @@ deployment analyzer in [deployment-preflight.md](../deployment/deployment-prefli
 adds one new subsystem, `core/assurance_twin/`, and one delivery intent; the rest
 is composition of existing parts.
 
+> **Implementation status**: `core/assurance_twin/` contains an in-memory projection,
+> verified deterministic query execution, posture-report assembly, publisher-neutral review
+> glue, and a simulation-fidelity ledger, all covered by focused tests. Production inventory
+> composition, a model-backed NL compiler, ChatOps intent, Checks API publisher, discovery-loop
+> hook, and twin-specific ReadPanel aren't wired yet. The ambient-review, action-bridging, and
+> self-improving delivery flows below are target design. A separate Security Assessment report
+> feed and Azure analyzer are implemented in the current reporting subsystem.
+
 ## Why not a chatbot
 
 A retrieval-augmented chatbot answers the review use cases with five structural
@@ -260,15 +268,16 @@ cloud SDK and no privileged identity.
 
 | Component | Responsibility |
 |-----------|----------------|
-| `projection` | build and maintain the read-only twin from `Inventory.full_snapshot()` + `delta()`; keep a scratch projection for simulation |
-| `query` | compile a verified, well-typed, read-only ontology query from a request; execute traversals over the twin |
-| `review` | on a change signal, apply the diff to a scratch projection, run T0, emit a review finding |
+| `projection` | Build immutable in-memory baselines and apply scratch diffs. Production `Inventory.full_snapshot()` + `delta()` maintenance is a target binding. |
+| `query` | Verify and execute well-typed read-only queries with a deterministic pattern compiler. A model-backed compiler is a Protocol target. |
+| `review` | Publish precomputed findings through `IacReviewPublisher`. Change-signal evaluation and a production publisher are target bindings. |
 | `report` | assemble the `PostureAssessmentReport` from Findings |
-| `explain` | render a grounded result into prose with rule/graph citations (model-assisted, quality-gated) |
+| `chat` | Provide immutable grounded chat-session values and a persistence Protocol; no browser or delivery binding. |
 
-Delivery adds one intent to the existing `chatops` adapter (question in, grounded
-answer out) and reuses the `gitops-pr` adapter for proposals and Checks API
-reviews. No new privileged surface is introduced.
+Target delivery adds one intent to the existing `chatops` adapter (question in, grounded answer
+out) and reuses the `gitops-pr` adapter for proposals and Checks API reviews. The current
+repository has only the `IacReviewPublisher` Protocol and test double, not a production publisher
+or ChatOps binding. Adding them doesn't introduce a new privileged surface.
 
 ## Safety posture
 
