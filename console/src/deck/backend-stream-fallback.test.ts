@@ -305,6 +305,44 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.source).toBe("partial (stream error)");
   });
 
+  test("ignores every frame after the first terminal done event", async () => {
+    const body =
+      'event: token\ndata: {"seq":1,"delta":"Draft"}\n\n' +
+      'event: done\ndata: {"seq":2,"answer":"Verified answer","model":"gpt-test"}\n\n' +
+      'event: token\ndata: {"seq":3,"delta":" poisoned"}\n\n' +
+      'event: error\ndata: {"seq":4,"detail":"late reset"}\n\n' +
+      'event: done\ndata: {"seq":5,"answer":"Replaced answer","model":"other"}\n\n';
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+
+    const deltas: string[] = [];
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: (delta) => deltas.push(delta),
+    });
+
+    expect(deltas.join("")).toBe("Draft");
+    expect(reply.text).toBe("Verified answer");
+    expect(reply.source).toBe("llm:gpt-test");
+  });
+
+  test("treats an explicit interrupted event as a stopped turn", async () => {
+    const body =
+      'event: interrupted\ndata: {"seq":1,"detail":"chat turn interrupted"}\n\n';
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+
+    const deltas: string[] = [];
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: (delta) => deltas.push(delta),
+    });
+
+    expect(deltas).toEqual([]);
+    expect(reply.text).toBe("Stopped before any answer arrived.");
+    expect(reply.source).toBe("stopped");
+  });
+
   test("answers ontology query guidance when an empty stream ends in error", async () => {
     const body = 'event: error\ndata: {"detail":"upstream reset"}\n\n';
     vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));

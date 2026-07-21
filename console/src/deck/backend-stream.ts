@@ -177,6 +177,7 @@ export async function askBackendStream(
   let doneData: Record<string, unknown> | null = null;
   let errored = false;
   let interrupted = false;
+  let turnInterrupted = false;
   let lastSequence = 0;
   let lastRevision = 0;
   let terminalSeen = false;
@@ -187,6 +188,7 @@ export async function askBackendStream(
   }> = [];
 
   const handleFrame = (frame: string): void => {
+    if (terminalSeen) return;
     if (frame.length > MAX_DECK_SSE_FRAME_CHARS) {
       throw new Error("backend stream frame exceeds the size limit");
     }
@@ -245,6 +247,9 @@ export async function askBackendStream(
     } else if (event === "done") {
       doneData = object;
       terminalSeen = true;
+    } else if (event === "interrupted") {
+      turnInterrupted = true;
+      terminalSeen = true;
     } else if (event === "error") {
       errored = true;
     }
@@ -280,6 +285,7 @@ export async function askBackendStream(
   if (buffer.trim().length > 0) handleFrame(buffer);
   await flushPump();
   if (callbacks.signal?.aborted) return stopped(emittedText);
+  if (turnInterrupted) return stopped(answerText);
 
   if (errored && answerText === "") return fallback("stream error");
   if (errored || interrupted) {
