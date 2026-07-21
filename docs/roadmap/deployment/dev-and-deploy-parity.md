@@ -85,6 +85,13 @@ When FDAI's Azure PostgreSQL, Event Hubs, runtime, or executor resources are abs
 surfaces are unavailable or empty with no runtime claim. Repository catalogs and schemas remain
 visible because they are configuration-as-code, not observed runtime evidence.
 
+The local API exposes `GET /system/data-sources`. In the standard full stack, the production
+PostgreSQL read-model adapter points to local pgvector. Before accepting traffic, the local read API
+runs a bounded `SELECT 1` through that adapter. A failed probe stops startup instead of exposing a
+partially connected console. After the probe succeeds, PostgreSQL-backed entries report
+`available` and `reachable=true`; configured remote and Azure request-time sources remain `unknown`
+until their own evidence contract verifies them.
+
 Runtime skill inspection follows the same rule. Production reconstructs the enabled catalog from
 signed PostgreSQL trusted-artifact records before accepting traffic. Interactive local exposes the
 same Reader-gated `/skills` contract and narrator verbs with an empty fail-closed snapshot unless a

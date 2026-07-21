@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 93b923c5a8fe5b4dd6857dba6a76743e036baa08
+translation_source_sha: 07380dd8beab1c0863aadd7cbcdbe631606ebd7b
 translation_revised: 2026-07-21
 ---
 
@@ -88,6 +88,13 @@ executor, VM-task fake, synthetic scheduler/cost data, scope template, blast-rad
 FDAI Azure PostgreSQL, Event Hubs, runtime, executor resource가 없으면 해당 surface는 runtime
 claim 없이 unavailable 또는 empty로 표시됩니다. Repository catalog와 schema는 observed runtime
 evidence가 아니라 configuration-as-code이므로 계속 표시합니다.
+
+Local API는 `GET /system/data-sources`를 제공합니다. Standard full stack에서는 production
+PostgreSQL read-model adapter가 local pgvector를 사용합니다. Local read API는 traffic을 받기 전에
+해당 adapter를 통해 bounded `SELECT 1`을 실행합니다. Probe가 실패하면 부분적으로 연결된 콘솔을
+노출하지 않고 startup을 중단합니다. Probe가 성공하면 PostgreSQL 기반 entry는 `available` 및
+`reachable=true`를 보고합니다. 구성된 remote 및 Azure request-time source는 자체 evidence
+contract가 검증할 때까지 `unknown`을 유지합니다.
 
 Runtime skill inspection도 같은 규칙을 따릅니다. Production은 traffic을 받기 전에 signed
 PostgreSQL trusted-artifact record에서 enabled catalog를 재구성합니다. Interactive local은 durable
