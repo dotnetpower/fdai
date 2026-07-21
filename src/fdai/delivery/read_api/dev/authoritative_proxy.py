@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import posixpath
 from collections.abc import Mapping
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 import httpx
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -60,7 +61,9 @@ class AuthoritativeReadProxy:
         )
 
     def handles(self, path: str) -> bool:
-        return path in _EXACT_PATHS or any(path.startswith(prefix) for prefix in _PREFIX_PATHS)
+        return _is_canonical_path(path) and (
+            path in _EXACT_PATHS or any(path.startswith(prefix) for prefix in _PREFIX_PATHS)
+        )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -153,6 +156,16 @@ def _validated_base_url(value: str) -> str:
     if parsed.query or parsed.fragment or parsed.path not in ("", "/"):
         raise ValueError(f"{AUTHORITATIVE_READ_API_ENV} MUST contain only an origin")
     return f"https://{parsed.netloc}"
+
+
+def _is_canonical_path(path: str) -> bool:
+    if not path.startswith("/") or "\\" in path or "?" in path or "#" in path:
+        return False
+    if any(ord(character) < 32 or ord(character) == 127 for character in path):
+        return False
+    if unquote(path) != path:
+        return False
+    return posixpath.normpath(path) == path
 
 
 def _header(scope: Scope, name: bytes) -> str | None:

@@ -57,6 +57,30 @@ def test_proxy_handles_canonical_context_selection_comparisons_route() -> None:
     assert proxy.handles("/context-selection/comparisons") is False
 
 
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    (
+        ("/audit", True),
+        ("/reports/monthly", True),
+        ("/views/process/run-1", True),
+        ("/reports/../local", False),
+        ("/reports/./monthly", False),
+        ("/reports//monthly", False),
+        ("/reports/%2e%2e/local", False),
+        ("/reports%2Fmonthly", False),
+        ("/reports\\..\\local", False),
+        ("/reports/monthly\n", False),
+    ),
+)
+def test_proxy_requires_canonical_allowlisted_paths(path: str, expected: bool) -> None:
+    proxy = AuthoritativeReadProxy(
+        base_url="https://read.example.test",
+        client=httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200))),
+    )
+
+    assert proxy.handles(path) is expected
+
+
 def test_proxy_requires_bearer_and_rejects_unsafe_origins() -> None:
     proxy = AuthoritativeReadProxy(
         base_url="https://read.example.test",

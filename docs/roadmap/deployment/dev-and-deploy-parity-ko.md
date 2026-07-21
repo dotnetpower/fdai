@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: c7b55637c48aec7680075fd6ebe2376e860eb696
+translation_source_sha: a46c11bcb0f51a1d2e966abcffac35999f092d5d
 translation_revised: 2026-07-21
 ---
 
@@ -106,6 +106,8 @@ contract가 검증할 때까지 `unknown`을 유지합니다.
 `FDAI_DATABASE_URL`과 `FDAI_AUTHORITATIVE_READ_API_BASE_URL`은 상호배타적인 source profile을
 선택합니다. 둘을 함께 구성하면 provider를 만들기 전에 startup을 중단하므로 manifest가 local
 PostgreSQL을 설명하면서 allowlist request를 remote API가 처리하는 상태를 허용하지 않습니다.
+Remote forwarding은 decoded canonical allowlisted path만 일치시키며 normalized, encoded, 중복
+separator 및 control-character variant는 local에 유지합니다.
 
 Runtime skill inspection도 같은 규칙을 따릅니다. Production은 traffic을 받기 전에 signed
 PostgreSQL trusted-artifact record에서 enabled catalog를 재구성합니다. Interactive local은 durable
