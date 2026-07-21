@@ -284,6 +284,27 @@ def test_remote_manifest_owns_allowlisted_stewardship_route() -> None:
     assert stewardship.availability == "unknown"
 
 
+def test_local_runtime_stream_source_requires_composed_relays() -> None:
+    disconnected = build_local_data_sources(test_fixtures=False)
+    connected = build_local_data_sources(
+        test_fixtures=False,
+        runtime_streams_configured=True,
+    )
+
+    disconnected_streams = next(
+        source for source in disconnected if source.key == "local-runtime-streams"
+    )
+    connected_streams = next(
+        source for source in connected if source.key == "local-runtime-streams"
+    )
+    assert disconnected_streams.availability == "unavailable"
+    assert disconnected_streams.configured is False
+    assert disconnected_streams.reachable is None
+    assert connected_streams.availability == "available"
+    assert connected_streams.configured is True
+    assert connected_streams.reachable is True
+
+
 def test_data_source_manifest_is_authenticated_and_sorted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

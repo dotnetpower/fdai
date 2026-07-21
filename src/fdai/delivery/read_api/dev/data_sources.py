@@ -11,6 +11,7 @@ def build_local_data_sources(
     authoritative_proxy_configured: bool = False,
     local_database_configured: bool = False,
     local_database_startup_verified: bool = False,
+    runtime_streams_configured: bool = False,
     scope_configured: bool = False,
 ) -> tuple[ReadDataSourceStatus, ...]:
     """Describe local composition without probing providers or inventing evidence."""
@@ -256,12 +257,17 @@ def build_local_data_sources(
             key="local-runtime-streams",
             source="interactive-local-runtime",
             routes=("/agents/stream", "/live/stream"),
-            availability="available",
-            configured=True,
-            reachable=True,
+            availability="available" if runtime_streams_configured else "unavailable",
+            configured=runtime_streams_configured,
+            reachable=True if runtime_streams_configured else None,
             authoritative=True,
             durable=False,
             synthetic=False,
+            reason=(
+                None
+                if runtime_streams_configured
+                else "Local runtime stream relays are not configured."
+            ),
         ),
         ReadDataSourceStatus(
             key="scope",

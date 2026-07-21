@@ -15,6 +15,7 @@ from starlette.testclient import TestClient
 from fdai.core.control_loop import ControlLoopOutcome
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
+from fdai.delivery.read_api.dev import factory as _local_factory
 from fdai.delivery.read_api.dev import local as _local
 from fdai.delivery.read_api.dev.azure_cli_identity import LocalAzureCliIdentity
 from fdai.delivery.read_api.dev.config import (
@@ -502,6 +503,14 @@ class TestLocalEntraLoginHarness:
     ) -> None:
         self._enable(monkeypatch)
         monkeypatch.setenv(_START_PANTHEON_ENV, "0")
+        captured: dict[str, object] = {}
+        original = _local_factory.build_local_data_sources
+
+        def capture_sources(**kwargs: object):  # type: ignore[no-untyped-def]
+            captured.update(kwargs)
+            return original(**kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(_local_factory, "build_local_data_sources", capture_sources)
 
         application = _local.app()
         paths = {route.path for route in application.routes}
@@ -509,6 +518,7 @@ class TestLocalEntraLoginHarness:
         assert application.state.pantheon_runtime is None
         assert "/agents/stream" not in paths
         assert "/live/stream" not in paths
+        assert captured["runtime_streams_configured"] is False
 
     def test_full_stack_core_owns_pantheon_while_read_api_relays_streams(
         self, monkeypatch: pytest.MonkeyPatch
@@ -521,6 +531,14 @@ class TestLocalEntraLoginHarness:
             "example.servicebus.windows.net:9093",
         )
         monkeypatch.setenv(_KAFKA_EVENT_TOPIC_ENV, "aw.change.events")
+        captured: dict[str, object] = {}
+        original = _local_factory.build_local_data_sources
+
+        def capture_sources(**kwargs: object):  # type: ignore[no-untyped-def]
+            captured.update(kwargs)
+            return original(**kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(_local_factory, "build_local_data_sources", capture_sources)
 
         application = _local.app()
         paths = {route.path for route in application.routes}
@@ -528,6 +546,7 @@ class TestLocalEntraLoginHarness:
         assert application.state.pantheon_runtime is None
         assert "/agents/stream" in paths
         assert "/live/stream" in paths
+        assert captured["runtime_streams_configured"] is True
 
     def test_local_transport_rejects_enforce_allowlist(
         self, monkeypatch: pytest.MonkeyPatch

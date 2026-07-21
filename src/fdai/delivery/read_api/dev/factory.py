@@ -608,6 +608,9 @@ def build_local_app(
                 authoritative_proxy_configured=authoritative_read_proxy is not None,
                 local_database_configured=local_database_configured,
                 local_database_startup_verified=local_database_configured,
+                runtime_streams_configured=(
+                    live_stream_config is not None and agent_activity_config is not None
+                ),
                 scope_configured=scope_source is not None,
             ),
             authoritative_read_proxy=authoritative_read_proxy,
