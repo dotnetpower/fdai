@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import tempfile
 from collections.abc import Awaitable, Callable, Mapping
@@ -10,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 InventoryDeltaProjector = Callable[[Mapping[str, Any]], Awaitable[Any]]
+_LOGGER = logging.getLogger(__name__)
 
 
 class InvalidatingInventoryDeltaProjector:
@@ -21,8 +23,23 @@ class InvalidatingInventoryDeltaProjector:
 
     async def __call__(self, payload: Mapping[str, Any]) -> Any:
         result = await self._inner(payload)
-        await asyncio.to_thread(_advance_marker, self._marker_path)
+        if not _contains_inventory_change(payload):
+            return result
+        try:
+            await asyncio.to_thread(_advance_marker, self._marker_path)
+        except OSError as exc:
+            _LOGGER.warning(
+                "inventory_cache_invalidation_marker_failed",
+                extra={"error_type": type(exc).__name__},
+            )
         return result
+
+
+def _contains_inventory_change(payload: Mapping[str, Any]) -> bool:
+    if isinstance(payload.get("inventory_change"), Mapping):
+        return True
+    nested = payload.get("payload")
+    return isinstance(nested, Mapping) and isinstance(nested.get("inventory_change"), Mapping)
 
 
 def _advance_marker(path: Path) -> None:

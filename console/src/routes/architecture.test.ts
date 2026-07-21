@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ReadApiError } from "../api";
 import {
   architectureResourceExists,
+  architectureCachePollDelay,
   architectureCacheRefreshPending,
   architectureSourceLabel,
   architectureViewExists,
@@ -13,9 +14,16 @@ describe("architecture resource selection", () => {
   it("polls only while a cached snapshot refresh is pending", () => {
     expect(architectureCacheRefreshPending({ cache: { status: "refreshing" } } as never))
       .toBe(true);
+    expect(architectureCacheRefreshPending({ cache: { status: "stale" } } as never))
+      .toBe(true);
     expect(architectureCacheRefreshPending({ cache: { status: "fresh" } } as never))
       .toBe(false);
     expect(architectureCacheRefreshPending({} as never)).toBe(false);
+  });
+
+  it("backs off cache polling with a bounded delay", () => {
+    expect([0, 1, 2, 3, 4, 8].map(architectureCachePollDelay))
+      .toEqual([2_000, 4_000, 8_000, 16_000, 30_000, 30_000]);
   });
 
   it("advances snapshot age from an explicit clock", () => {

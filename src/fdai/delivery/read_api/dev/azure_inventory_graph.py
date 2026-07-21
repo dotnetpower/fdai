@@ -10,6 +10,7 @@ import math
 import os
 import tempfile
 from collections import defaultdict
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -21,8 +22,9 @@ from fdai.shared.providers.inventory import Inventory, ResourceRecord
 
 _ROOT_ID = "azure-subscription"
 _LOGGER = logging.getLogger(__name__)
-_CACHE_VERSION: Final[int] = 1
+_CACHE_VERSION: Final[int] = 2
 _MAX_CACHE_BYTES: Final[int] = 5_000_000
+_MAX_CLOCK_SKEW_SECONDS: Final[int] = 300
 
 
 def inventory_cache_path(
@@ -32,9 +34,21 @@ def inventory_cache_path(
     azure_config_dir: str | None,
 ) -> tuple[Path, str]:
     """Return a non-identifying cache path and its account-scope fingerprint."""
-    profile = str(Path(azure_config_dir).expanduser()) if azure_config_dir else "<default>"
-    fingerprint = hashlib.sha256(f"{profile}\0{subscription_id}".encode()).hexdigest()
+    normalized_subscription = subscription_id.strip()
+    if not normalized_subscription:
+        raise ValueError("subscription_id MUST NOT be empty")
+    profile = (
+        str(Path(azure_config_dir).expanduser().resolve(strict=False))
+        if azure_config_dir
+        else "<default>"
+    )
+    fingerprint = hashlib.sha256(f"{profile}\0{normalized_subscription}".encode()).hexdigest()
     return repo_root / ".fdai" / "cache" / "inventory" / f"{fingerprint}.json", fingerprint
+
+
+def inventory_invalidation_path(cache_path: Path) -> Path:
+    """Return the marker path paired with one account-scoped cache file."""
+    return cache_path.with_suffix(".invalidated")
 
 
 @dataclass(slots=True)
@@ -43,6 +57,7 @@ class AzureCliInventoryGraphProvider:
 
     inventory: Inventory
     cache_ttl_seconds: float = 60.0
+    refresh_timeout_seconds: float = 240.0
     max_resources: int = 120
     cache_path: Path | None = None
     cache_identity: str | None = None
@@ -58,6 +73,8 @@ class AzureCliInventoryGraphProvider:
     def __post_init__(self) -> None:
         if self.cache_ttl_seconds < 0:
             raise ValueError("cache_ttl_seconds MUST be >= 0")
+        if self.refresh_timeout_seconds <= 0:
+            raise ValueError("refresh_timeout_seconds MUST be positive")
         if self.max_resources < 1:
             raise ValueError("max_resources MUST be positive")
         if (self.cache_path is None) != (self.cache_identity is None):
@@ -109,23 +126,33 @@ class AzureCliInventoryGraphProvider:
                 and now - self._cached_at < self.cache_ttl_seconds
             ):
                 return self._cache_payload(status="fresh")
+            refresh_started_at = datetime.now(tz=UTC)
             records: list[ResourceRecord] = []
             final_seen = False
             cursor: str | None = None
-            async for batch in self.inventory.full_snapshot():
-                cursor = batch.cursor
-                if batch.final:
-                    final_seen = True
-                    continue
-                records.extend(batch.resources)
+            async with asyncio.timeout(self.refresh_timeout_seconds):
+                async for batch in self.inventory.full_snapshot():
+                    if final_seen:
+                        raise RuntimeError(
+                            "local Azure inventory emitted data after its final fence"
+                        )
+                    cursor = batch.cursor
+                    if batch.final:
+                        final_seen = True
+                        continue
+                    records.extend(batch.resources)
             if not final_seen:
                 raise RuntimeError("local Azure inventory ended without a final fence")
             graph = _project_graph(records, max_resources=self.max_resources, cursor=cursor)
             self._cached = graph
             self._cached_at = monotonic()
-            self._cached_at_utc = datetime.now(tz=UTC)
+            self._cached_at_utc = refresh_started_at
             self._last_refresh_failed = False
             await self._write_persistent_cache()
+            if await asyncio.to_thread(self._cache_invalidated):
+                if asyncio.current_task() is not self._refresh_task:
+                    self._schedule_refresh()
+                return self._cache_payload(status="refreshing")
             return self._cache_payload(status="fresh")
 
     def _schedule_refresh(self) -> None:
@@ -138,7 +165,9 @@ class AzureCliInventoryGraphProvider:
 
     async def _refresh_in_background(self) -> None:
         try:
-            await self._refresh(force=True)
+            refreshed = await self._refresh(force=True)
+            if refreshed["cache"]["status"] == "refreshing":
+                await self._refresh(force=True)
         except Exception as exc:  # noqa: BLE001 - preserve the last complete snapshot
             self._last_refresh_failed = True
             _LOGGER.warning(
@@ -155,17 +184,23 @@ class AzureCliInventoryGraphProvider:
     async def _load_persistent_cache(self) -> None:
         if self._persistent_loaded:
             return
-        self._persistent_loaded = True
-        if self.cache_path is None or self.cache_identity is None:
-            return
-        loaded = await asyncio.to_thread(_read_cache_file, self.cache_path, self.cache_identity)
-        if loaded is None:
-            return
-        graph, cached_at = loaded
-        self._cached = graph
-        self._cached_at_utc = cached_at
-        age = max(0.0, (datetime.now(tz=UTC) - cached_at).total_seconds())
-        self._cached_at = monotonic() - age
+        async with self._lock:
+            if self._persistent_loaded:
+                return
+            if self.cache_path is not None and self.cache_identity is not None:
+                loaded = await asyncio.to_thread(
+                    _read_cache_file,
+                    self.cache_path,
+                    self.cache_identity,
+                    self.max_resources,
+                )
+                if loaded is not None:
+                    graph, cached_at = loaded
+                    self._cached = graph
+                    self._cached_at_utc = cached_at
+                    age = max(0.0, (datetime.now(tz=UTC) - cached_at).total_seconds())
+                    self._cached_at = monotonic() - age
+            self._persistent_loaded = True
 
     async def _write_persistent_cache(self) -> None:
         if (
@@ -175,13 +210,20 @@ class AzureCliInventoryGraphProvider:
             or self._cached_at_utc is None
         ):
             return
-        await asyncio.to_thread(
-            _write_cache_file,
-            self.cache_path,
-            self.cache_identity,
-            self._cached_at_utc,
-            self._cached,
-        )
+        try:
+            await asyncio.to_thread(
+                _write_cache_file,
+                self.cache_path,
+                self.cache_identity,
+                self.max_resources,
+                self._cached_at_utc,
+                self._cached,
+            )
+        except (OSError, TypeError, ValueError) as exc:
+            _LOGGER.warning(
+                "azure_cli_inventory_cache_write_failed",
+                extra={"error_type": type(exc).__name__},
+            )
 
     def _cache_payload(self, *, status: str) -> dict[str, Any]:
         if self._cached is None:
@@ -210,7 +252,11 @@ class AzureCliInventoryGraphProvider:
             return False
 
 
-def _read_cache_file(path: Path, identity: str) -> tuple[dict[str, Any], datetime] | None:
+def _read_cache_file(
+    path: Path,
+    identity: str,
+    max_resources: int,
+) -> tuple[dict[str, Any], datetime] | None:
     try:
         if not path.is_file() or path.stat().st_size > _MAX_CACHE_BYTES:
             return None
@@ -219,16 +265,20 @@ def _read_cache_file(path: Path, identity: str) -> tuple[dict[str, Any], datetim
             not isinstance(payload, dict)
             or payload.get("version") != _CACHE_VERSION
             or payload.get("identity") != identity
+            or payload.get("max_resources") != max_resources
             or not isinstance(payload.get("graph"), dict)
         ):
             return None
         graph = payload["graph"]
-        if not isinstance(graph.get("resources"), list) or not isinstance(graph.get("links"), list):
+        if not _valid_cached_graph(graph):
             return None
         cached_at = datetime.fromisoformat(str(payload.get("cached_at")))
         if cached_at.tzinfo is None:
             return None
-        return graph, cached_at.astimezone(UTC)
+        cached_at_utc = cached_at.astimezone(UTC)
+        if (cached_at_utc - datetime.now(tz=UTC)).total_seconds() > _MAX_CLOCK_SKEW_SECONDS:
+            return None
+        return graph, cached_at_utc
     except (OSError, ValueError, json.JSONDecodeError):
         return None
 
@@ -236,6 +286,7 @@ def _read_cache_file(path: Path, identity: str) -> tuple[dict[str, Any], datetim
 def _write_cache_file(
     path: Path,
     identity: str,
+    max_resources: int,
     cached_at: datetime,
     graph: dict[str, Any],
 ) -> None:
@@ -243,6 +294,7 @@ def _write_cache_file(
     payload = {
         "version": _CACHE_VERSION,
         "identity": identity,
+        "max_resources": max_resources,
         "cached_at": cached_at.isoformat(),
         "graph": graph,
     }
@@ -258,6 +310,29 @@ def _write_cache_file(
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def _valid_cached_graph(graph: Mapping[str, Any]) -> bool:
+    resources = graph.get("resources")
+    links = graph.get("links")
+    if not isinstance(resources, list) or not isinstance(links, list):
+        return False
+    if not all(
+        isinstance(resource, dict)
+        and isinstance(resource.get("id"), str)
+        and bool(resource["id"])
+        and isinstance(resource.get("type"), str)
+        and isinstance(resource.get("name"), str)
+        for resource in resources
+    ):
+        return False
+    return all(
+        isinstance(link, dict)
+        and isinstance(link.get("source"), str)
+        and isinstance(link.get("target"), str)
+        and link.get("type") in {"contains", "attached_to", "depends_on"}
+        for link in links
+    )
 
 
 def _project_graph(
@@ -397,4 +472,8 @@ def _resource_payload(
     return payload
 
 
-__all__ = ["AzureCliInventoryGraphProvider", "inventory_cache_path"]
+__all__ = [
+    "AzureCliInventoryGraphProvider",
+    "inventory_cache_path",
+    "inventory_invalidation_path",
+]

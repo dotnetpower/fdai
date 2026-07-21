@@ -80,7 +80,11 @@ export async function loadArchitectureGraph(
 }
 
 export function architectureCacheRefreshPending(graph: InventoryGraphResponse): boolean {
-  return graph.cache?.status === "refreshing";
+  return graph.cache?.status === "refreshing" || graph.cache?.status === "stale";
+}
+
+export function architectureCachePollDelay(attempt: number): number {
+  return Math.min(30_000, 2_000 * 2 ** Math.min(Math.max(0, attempt), 4));
 }
 
 export function ArchitectureRoute({ client }: Props) {
@@ -99,6 +103,7 @@ export function ArchitectureRoute({ client }: Props) {
     showGrid: false,
   });
   const mapRef = useRef<ArchitectureMapHandle>(null);
+  const cachePollAttemptRef = useRef(0);
 
   useEffect(() => {
     const syncRoute = () => {
@@ -115,6 +120,7 @@ export function ArchitectureRoute({ client }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    cachePollAttemptRef.current = 0;
     setState({ status: "loading" });
     loadArchitectureGraph(client, viewScope).then(
       (data) => { if (!cancelled) setState({ status: "ready", data }); },
@@ -132,15 +138,29 @@ export function ArchitectureRoute({ client }: Props) {
   useEffect(() => {
     if (state.status !== "ready" || !architectureCacheRefreshPending(state.data)) return;
     let cancelled = false;
-    const timer = window.setTimeout(() => {
-      loadArchitectureGraph(client, viewScope).then(
-        (data) => { if (!cancelled) setState({ status: "ready", data }); },
-        () => undefined,
-      );
-    }, 2_000);
+    let timer: number | undefined;
+    const schedule = () => {
+      timer = window.setTimeout(() => {
+        loadArchitectureGraph(client, viewScope).then(
+          (data) => {
+            if (cancelled) return;
+            cachePollAttemptRef.current = architectureCacheRefreshPending(data)
+              ? cachePollAttemptRef.current + 1
+              : 0;
+            setState({ status: "ready", data });
+          },
+          () => {
+            if (cancelled) return;
+            cachePollAttemptRef.current += 1;
+            schedule();
+          },
+        );
+      }, architectureCachePollDelay(cachePollAttemptRef.current));
+    };
+    schedule();
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
+      if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [client, state, viewScope]);
 

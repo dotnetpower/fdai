@@ -121,6 +121,7 @@ def build_inventory_graph_provider() -> Any:
     from fdai.delivery.read_api.dev.azure_inventory_graph import (
         AzureCliInventoryGraphProvider,
         inventory_cache_path,
+        inventory_invalidation_path,
     )
 
     config_dir = os.environ.get(LOCAL_AZURE_CONFIG_DIR_ENV, "").strip() or None
@@ -140,13 +141,7 @@ def build_inventory_graph_provider() -> Any:
         cache_path=cache_path,
         cache_identity=cache_identity,
         invalidation_path=(
-            Path(__file__).resolve().parents[5]
-            / ".fdai"
-            / "cache"
-            / "inventory"
-            / f"{cache_identity}.invalidated"
-            if cache_identity is not None
-            else None
+            inventory_invalidation_path(cache_path) if cache_path is not None else None
         ),
     )
 

@@ -369,9 +369,12 @@ def _build_inventory_delta_projector() -> Any:
         from fdai.delivery.inventory_cache_invalidation import (
             InvalidatingInventoryDeltaProjector,
         )
-        from fdai.delivery.read_api.dev.azure_inventory_graph import inventory_cache_path
+        from fdai.delivery.read_api.dev.azure_inventory_graph import (
+            inventory_cache_path,
+            inventory_invalidation_path,
+        )
 
-        _, cache_identity = inventory_cache_path(
+        cache_path, _ = inventory_cache_path(
             repo_root=Path(__file__).resolve().parents[3],
             subscription_id=subscription_id,
             azure_config_dir=os.environ.get("FDAI_LOCAL_AZURE_CONFIG_DIR", "").strip() or None,
@@ -379,12 +382,6 @@ def _build_inventory_delta_projector() -> Any:
 
         return InvalidatingInventoryDeltaProjector(
             inner=projector,
-            marker_path=(
-                Path(__file__).resolve().parents[3]
-                / ".fdai"
-                / "cache"
-                / "inventory"
-                / f"{cache_identity}.invalidated"
-            ),
+            marker_path=inventory_invalidation_path(cache_path),
         )
     return projector
