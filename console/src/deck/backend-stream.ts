@@ -29,6 +29,7 @@ import type { ViewSnapshot } from "./context";
 
 export const fallbackTypewriter = { intervalMs: 12 };
 export const streamBurstPacer = { intervalMs: 16 };
+export const MAX_DECK_SSE_FRAME_CHARS = 256 * 1024;
 
 function chunksForTypewriter(text: string): string[] {
   const chunks: string[] = [];
@@ -186,6 +187,9 @@ export async function askBackendStream(
   }> = [];
 
   const handleFrame = (frame: string): void => {
+    if (frame.length > MAX_DECK_SSE_FRAME_CHARS) {
+      throw new Error("backend stream frame exceeds the size limit");
+    }
     let event = "message";
     const dataLines: string[] = [];
     for (const line of frame.split(/\r?\n/)) {
@@ -256,6 +260,9 @@ export async function askBackendStream(
         const index = boundary.index ?? 0;
         handleFrame(buffer.slice(0, index));
         buffer = buffer.slice(index + boundary[0].length);
+      }
+      if (buffer.length > MAX_DECK_SSE_FRAME_CHARS) {
+        throw new Error("backend stream frame exceeds the size limit");
       }
     }
   } catch {

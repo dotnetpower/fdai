@@ -256,6 +256,20 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.source).toBe("llm:gpt-test");
   });
 
+  test("rejects an oversized SSE frame before parsing its data lines", async () => {
+    const mod = await import("./backend");
+    const { MAX_DECK_SSE_FRAME_CHARS } = await import("./backend-stream");
+    const oversized = `event: token\ndata: ${"x".repeat(MAX_DECK_SSE_FRAME_CHARS)}\n\n`;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(oversized, { status: 200 })));
+    mod.fallbackTypewriter.intervalMs = 0;
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => undefined,
+    });
+
+    expect(reply.source).toBe("deterministic (stream interrupted)");
+  });
+
   test("flushes a UTF-8 code point split across network chunks", async () => {
     const prefix = new TextEncoder().encode('event: token\ndata: {"delta":"');
     const suffix = new TextEncoder().encode('"}\n\nevent: done\ndata: {"answer":"ok","model":"gpt-test"}\n\n');
