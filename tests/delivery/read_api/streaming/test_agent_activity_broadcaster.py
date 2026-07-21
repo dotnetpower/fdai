@@ -295,10 +295,17 @@ def test_config_guards() -> None:
     pub = _RecordingPublisher()
     with pytest.raises(ValueError, match="stage_topic MUST be non-empty"):
         AgentActivityBroadcaster(event_bus=bus, publisher=pub, stage_topic="")
+    with pytest.raises(ValueError, match="group_id MUST be non-empty"):
+        AgentActivityBroadcaster(event_bus=bus, publisher=pub, group_id="")
     with pytest.raises(ValueError, match="max_incidents MUST be positive"):
         AgentActivityBroadcaster(event_bus=bus, publisher=pub, max_incidents=0)
-    with pytest.raises(ValueError, match="retry_backoff_seconds MUST be >= 0"):
-        AgentActivityBroadcaster(event_bus=bus, publisher=pub, retry_backoff_seconds=-1.0)
+    for invalid_backoff in (0.0, -1.0, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="retry_backoff_seconds MUST be finite and positive"):
+            AgentActivityBroadcaster(
+                event_bus=bus,
+                publisher=pub,
+                retry_backoff_seconds=invalid_backoff,
+            )
 
 
 async def test_transient_bus_error_is_retried_then_recovers() -> None:

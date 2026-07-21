@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
+import pytest
+
 from fdai.delivery.read_api.streaming.live_stage_broadcaster import LiveStageBroadcaster
 from fdai.shared.providers.stage_publisher import StageEvent, StageName, StagePhase
 from fdai.shared.providers.testing import InMemorySseSink
@@ -92,3 +94,13 @@ async def test_run_after_stop_raises() -> None:
         assert "already stopped" in str(error)
     else:
         raise AssertionError("run after stop MUST fail closed")
+
+
+def test_config_rejects_invalid_retry_backoff() -> None:
+    for invalid_backoff in (0.0, -1.0, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="retry_backoff_seconds MUST be finite and positive"):
+            LiveStageBroadcaster(
+                event_bus=InMemoryEventBus(),
+                publisher=SseSinkStagePublisher(InMemorySseSink(), channel="live"),
+                retry_backoff_seconds=invalid_backoff,
+            )

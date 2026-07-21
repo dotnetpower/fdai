@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -124,10 +125,12 @@ class AgentActivityBroadcaster:
     ) -> None:
         if not stage_topic:
             raise ValueError("stage_topic MUST be non-empty")
+        if not group_id:
+            raise ValueError("group_id MUST be non-empty")
         if max_incidents <= 0:
             raise ValueError("max_incidents MUST be positive")
-        if retry_backoff_seconds < 0:
-            raise ValueError("retry_backoff_seconds MUST be >= 0")
+        if not math.isfinite(retry_backoff_seconds) or retry_backoff_seconds <= 0:
+            raise ValueError("retry_backoff_seconds MUST be finite and positive")
         self._event_bus = event_bus
         self._publisher = publisher
         self._stage_topic = stage_topic
