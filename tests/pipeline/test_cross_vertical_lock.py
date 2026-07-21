@@ -215,7 +215,7 @@ async def test_concurrent_events_on_same_resource_are_serialized(
 
     # Only same-resource acquisitions are recorded — every enter MUST be
     # followed by its own exit before the next enter (serialization).
-    same_resource = [entry for entry in events_log if entry[1] == "stg-shared"]
+    same_resource = [entry for entry in events_log if entry[1] == "fdai:resource:stg-shared"]
     assert same_resource, "no lock acquisitions recorded on the shared resource"
     balance = 0
     for kind, _rid in same_resource:
@@ -278,14 +278,15 @@ async def test_concurrent_events_on_different_resources_run_in_parallel(
     # before any exit. Balance MAY go to 2.
     balance = 0
     peak = 0
-    for kind, _rid in events_log:
+    resource_events = [entry for entry in events_log if entry[1].startswith("fdai:resource:")]
+    for kind, _rid in resource_events:
         if kind == "enter":
             balance += 1
             peak = max(peak, balance)
         else:
             balance -= 1
     assert peak >= 2, (
-        f"distinct resources did not overlap under the lock — peak={peak} trace={events_log}"
+        f"distinct resources did not overlap under the lock — peak={peak} trace={resource_events}"
     )
     assert balance == 0
 

@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 16d8b07b00fb4064c1407b723260016a2e335c99
-translation_revised: 2026-07-21
+translation_source_sha: 5206e6479705bed69ce8272bb7199ae02eb0bba7
+translation_revised: 2026-07-22
 ---
 
 # 프로세스 자동화(Process Automation)
@@ -767,13 +767,12 @@ Manifest lifecycle 은 노출을 다음과 같이 제어합니다.
 - `retired` manifest 는 navigation 에서 사라지지만 기존 audit 및 Process deep link 는
   계속 읽을 수 있습니다.
 
-`WorkflowApp` id 및 route 는 영구적인 machine reference 입니다. Label 및
-description 은 localized presentation value 이며 변경할 수 있습니다. Read API 는
-principal 에게 authorized 된 manifest 만 반환합니다. Browser 에서 unauthorized app 을
-숨기는 것은 access control 이 아닙니다. 새 interaction model 또는 executable frontend
-code 가 필요한 workflow 는 build-time `EXTRA_PANELS` 및 injected `ReadPanel` 경로와
-별도로 검토되는 release 를 사용합니다. 대화에서 remote code 로 생성하거나 load 하지
-않습니다.
+`WorkflowApp` id와 route는 영구적인 machine reference입니다. Launchpad, catalog, detail,
+automation, chat 및 Python-task view는 parity-checked route catalog와 영어 fallback으로 label을
+현지화하며 workflow id, serialized value 및 validation result는 바꾸지 않습니다. Read API는
+principal에게 authorized된 manifest만 반환하며 browser hiding은 access control이 아닙니다. 새
+interaction model이나 executable frontend code는 build-time `EXTRA_PANELS`, injected
+`ReadPanel` 및 별도 reviewed release를 사용하고 대화에서 remote code로 생성하지 않습니다.
 
 ## 9. agent-workflows.md 와의 관계
 

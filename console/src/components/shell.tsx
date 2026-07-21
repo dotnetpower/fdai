@@ -50,7 +50,7 @@ export function Shell({ activePanelId, auth, children, onExitLocalSession }: She
   return (
     <div class="shell">
       <header class="topbar">
-        <a class="brand-lockup" href={panelPath("dashboard")} aria-label={t("ui.consoleHome")}>
+        <a class="brand-lockup" href={panelPath("dashboard")} aria-label={t("shell.home")}>
           <img
             class="brand-logo"
             src={`${import.meta.env.BASE_URL}brand/concepts/fdai-cloud-aperture.svg`}
@@ -58,7 +58,7 @@ export function Shell({ activePanelId, auth, children, onExitLocalSession }: She
           />
           <span class="brand-wordmark">FDAI</span>
           <span class="brand-separator" aria-hidden="true" />
-          <span class="brand-product">{t("ui.console")}</span>
+          <span class="brand-product">{t("shell.console")}</span>
         </a>
         <div class="principal">
           {auth.localAzureCli && auth.account ? (
@@ -76,7 +76,7 @@ export function Shell({ activePanelId, auth, children, onExitLocalSession }: She
             </>
           ) : auth.devMode ? (
             <>
-              <span class="badge">{t("ui.developmentMode")}</span>
+              <span class="badge">{t("shell.devMode")}</span>
               {onExitLocalSession ? (
                 <button type="button" onClick={onExitLocalSession}>
                   {t("login.exitLocalSession")}

@@ -17,9 +17,12 @@ from fdai.delivery.behavior_knowledge.source_freshness import GitTrackedSourceVa
 from fdai.shared.providers.behavior_knowledge import BehaviorKnowledgeIndex, BehaviorSpec
 
 _BEHAVIOR_SUBJECT = re.compile(
-    r"(?:\b(?:incident(?:\s*id)?|odin|issues?|arbitration)\b|"
-    r"(?:incident|odin|issues?)(?=[가-힣]))"
-    "|인시던트|오딘|이슈|중복|개입|생성",
+    r"(?:(?<![A-Za-z0-9_])(?:incident(?:\s*id)?|odin|issues?|arbitration|trust\s*router|tier|"
+    r"resource_type|t2|grounding|cross-check|quorum|initiator|approver|hil|"
+    r"promotion|promoted|action\s*mode|blast\s*radius|idempotency(?:_key)?|principal|thor|"
+    r"substrate|cache|fifo|vidar|rollback|executor|bragi|domain|azure\s*provider|"
+    r"local\s*panel|pytest\s*fixture)(?![A-Za-z0-9_]))"
+    "|인시던트|오딘|이슈|중복|개입|생성|승인|승격|강등|실행|근거|라우터|로컬|브라우저",
     re.IGNORECASE,
 )
 _COMPARISON_INTENT = re.compile(
@@ -50,6 +53,9 @@ _OPERATIONAL_STATE_INTENT = re.compile(
     r"|활성|열린|종료|상태|개수|최근|현재|대기|해결|몇\s*개",
     re.IGNORECASE,
 )
+_CONTRACT_OVERRIDE_SUBJECT = re.compile(
+    r"(?<![A-Za-z0-9_])idempotency_key(?![A-Za-z0-9_])", re.IGNORECASE
+)
 _BARE_DEFINITION_INTENT = re.compile(
     r"^\s*(?:what\s+is|define|meaning\s+of)\s+(?:an?\s+)?(?:issue|incident)\s*\??\s*$"
     r"|^\s*(?:issue|incident)(?:의)?\s*(?:뜻|의미|정의)(?:은|는|이|가)?\s*\??\s*$",
@@ -59,9 +65,13 @@ _BARE_DEFINITION_INTENT = re.compile(
 
 def is_behavior_question(prompt: str) -> bool:
     """Return whether the prompt asks about an indexed system behavior."""
-    if _OPERATIONAL_STATE_INTENT.search(prompt) or _BARE_DEFINITION_INTENT.search(prompt):
+    if (
+        _OPERATIONAL_STATE_INTENT.search(prompt) and not _CONTRACT_OVERRIDE_SUBJECT.search(prompt)
+    ) or _BARE_DEFINITION_INTENT.search(prompt):
         return False
-    return bool(_BEHAVIOR_SUBJECT.search(prompt) and _BEHAVIOR_INTENT.search(prompt))
+    return bool(
+        _BEHAVIOR_SUBJECT.search(prompt) and (_BEHAVIOR_INTENT.search(prompt) or "?" in prompt)
+    )
 
 
 class BehaviorEvidenceResolver:

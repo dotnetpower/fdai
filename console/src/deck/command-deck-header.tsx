@@ -127,7 +127,7 @@ export function CommandDeckHeader({
           </button>
         </Tooltip>
       </span>
-      <div class="deck-layout-controls" aria-label={t("deck.layout")}>
+      <div class="deck-layout-controls" aria-label={t("deck.layoutControls")}>
         <Tooltip content={t("deck.tooltip.floatingPanel")}>
           <button
             type="button"

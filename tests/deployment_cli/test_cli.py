@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import stat
+from importlib.metadata import version
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,7 @@ from fdai.deployment_cli.onboarding import (
 
 _SUBSCRIPTION_ID = "00000000-0000-0000-0000-000000000001"
 _TENANT_ID = "00000000-0000-0000-0000-000000000002"
+_CLI_VERSION = version("fdai")
 
 
 def test_version_json_is_stable_and_machine_readable() -> None:
@@ -30,7 +32,7 @@ def test_version_json_is_stable_and_machine_readable() -> None:
     assert exit_code == 0
     assert json.loads(stdout.getvalue()) == {
         "bundle_version": "not-installed",
-        "cli_version": "0.0.0",
+        "cli_version": _CLI_VERSION,
         "schema": VERSION_SCHEMA,
     }
 
@@ -41,7 +43,7 @@ def test_version_text_is_concise() -> None:
     exit_code = main(["version"], stdout=stdout)
 
     assert exit_code == 0
-    assert stdout.getvalue() == "FDAI CLI 0.0.0 (bundle: not-installed)\n"
+    assert stdout.getvalue() == f"FDAI CLI {_CLI_VERSION} (bundle: not-installed)\n"
 
 
 def test_doctor_json_is_secret_free_and_ready() -> None:

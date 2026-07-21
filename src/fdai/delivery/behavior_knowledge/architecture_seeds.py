@@ -108,6 +108,7 @@ def build_architecture_behavior_specs(
             owner="QualityGate",
             aliases=(
                 "T2 결과는 어떤 검증을 통과해야 해?",
+                "근거 citation이 없는 T2 proposal은 다음 단계로 갈 수 있어?",
                 "모델들이 의견이 다르거나 grounding이 없으면 어떻게 돼?",
                 "What checks must a T2 proposal pass?",
             ),
@@ -188,6 +189,7 @@ def build_architecture_behavior_specs(
             owner="RiskGate / Var",
             aliases=(
                 "왜 이 작업은 사람 승인이 필요해?",
+                "HIL ticket은 어떤 경우에 최종 approved가 돼?",
                 "요청자가 자기 작업을 직접 승인할 수 있어?",
                 "Why does this action require human approval?",
             ),
@@ -733,8 +735,8 @@ def build_architecture_behavior_specs(
                     "test",
                     "tests/delivery/read_api/test_local.py",
                     "test_local_azure_discovery_rejects_synthetic_opt_out",
-                    118,
-                    128,
+                    204,
+                    211,
                 ),
             ),
             indexed_commit=indexed_commit,

@@ -228,16 +228,16 @@ export function CommandDeckView({
                   type="button"
                   class="deck-jump"
                   onClick={onJumpToLatest}
-                  aria-label={t("deck.jumpToLatest")}
+                  aria-label={t("deck.jumpLatest")}
                 >
-                  {t("deck.jumpToLatest")} ↓
+                  {t("deck.jumpLatest")} ↓
                 </button>
               ) : null}
             </section>
 
-            <aside class="deck-digest" aria-label={t("deck.whatDeckSees")}>
+            <aside class="deck-digest" aria-label={t("deck.digest.label")}>
               <div class="deck-digest-header">
-                <span class="deck-digest-title">{t("deck.whatISee")}</span>
+                <span class="deck-digest-title">{t("deck.digest.title")}</span>
                 <span class="deck-digest-meta muted">
                   {snapshot ? new Date(snapshot.capturedAt).toLocaleTimeString() : "-"}
                 </span>

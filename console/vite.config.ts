@@ -1,3 +1,5 @@
+/// <reference types="vitest/config" />
+
 import { defineConfig, loadEnv } from "vite";
 import preact from "@preact/preset-vite";
 
@@ -28,6 +30,18 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5273,
       strictPort: true,
+    },
+    test: {
+      // Backend stream tests normally take 3-4 seconds; retain a bounded
+      // allowance and avoid saturating shared runners after the Python suite.
+      testTimeout: 15_000,
+      pool: "forks",
+      poolOptions: {
+        forks: {
+          minForks: 1,
+          maxForks: 4,
+        },
+      },
     },
   };
 });

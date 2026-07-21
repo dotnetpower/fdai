@@ -1183,7 +1183,12 @@
       "noCapabilities": "No resolved model capabilities are available."
     },
     "integrationsSubtitle": "Read-only status for identity, delivery, and operator-channel integrations.",
+    "integrationsPurpose": "Inspect identity and delivery integration status without changing runtime configuration.",
+    "authenticationHeadline": "Authentication mode: {mode}.",
     "diagnosticsSubtitle": "Runtime and authentication details for this console session.",
+    "diagnosticsPurpose": "Verify console liveness and authenticated read-path availability.",
+    "diagnosticsHeadline": "Read API: {health}; KPI read path: {readPath}; authentication: {mode}.",
+    "invalidLivenessResponse": "The read API returned an invalid liveness response.",
     "identity": "Identity",
     "entra": "Microsoft Entra ID",
     "entraHint": "OIDC sign-in and API App Roles for the current tenant.",

@@ -211,7 +211,7 @@ function CodeBlock({
           <span class="deck-code-streaming">{t("deck.rich.streaming")}</span>
         ) : (
           <button type="button" class="deck-code-copy" onClick={copy}>
-            {copied ? t("deck.rich.copied") : t("deck.rich.copy")}
+            {copied ? t("deck.tooltip.copied") : t("deck.tooltip.copyReply")}
           </button>
         )}
       </figcaption>
@@ -282,7 +282,7 @@ function ChartPending() {
           </div>
         ))}
       </div>
-      <figcaption class="deck-chart-pending-cap">{t("deck.rich.preparingChartEllipsis")}</figcaption>
+      <figcaption class="deck-chart-pending-cap">{t("deck.rich.preparingChartProgress")}</figcaption>
     </figure>
   );
 }

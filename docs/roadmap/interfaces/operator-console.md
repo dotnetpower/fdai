@@ -4,8 +4,7 @@ title: Operator Console (Conversational)
 
 # Operator Console (Conversational)
 
-How a human operator talks *back to* FDAI through a conversational
-interface across the CLI, Teams, Slack, and web chat. This
+How a human operator talks *back to* FDAI through a conversational interface across the CLI, Teams, Slack, and web chat. This
 document is authoritative for the **conversational surface**: the layered
 architecture, the tool catalog, the LLM tier model, session persistence,
 per-tool RBAC, safety invariants, and current rollout status.
@@ -13,12 +12,7 @@ per-tool RBAC, safety invariants, and current rollout status.
 Push-direction notifications (system → human) live in
 [channels-and-notifications.md](channels-and-notifications.md); the read-only
 console SPA lives under
-[project-structure.md § console/](../architecture/project-structure.md#console-static-web-app).
-The SPA resolves display locale from the operator's console preference and renders reusable
-English-source messages through the main catalog or a complete route-local English/Korean catalog
-pair. Machine values, identifiers, and provider payloads stay unchanged; presentation helpers map
-known values to localized labels. Static key coverage, catalog parity, route-local fallback tests,
-and the full console test suite prevent untranslated display text from returning.
+[project-structure.md § console/](../architecture/project-structure.md#console-static-web-app); evidence provenance, stream recovery, localization, and Architecture-map resilience are owned by [console-evidence-and-resilience.md](console-evidence-and-resilience.md).
 This doc covers the **pull direction** - the operator asks, simulates,
 approves - across every channel the notification doc already ships adapters
 for. Push and pull share the same channel credentials and the same audit
@@ -467,10 +461,6 @@ class ConversationSession:
   `conversation_turn` with a stable request idempotency key. The audit and
   generic ontology projections retain ids, hashes, routing metadata, and
   evidence references, not raw conversation bodies.
-- **Completed request replay**: retrying the same request for the same principal and conversation
-  returns the persisted terminal assistant payload without rerunning evidence retrieval, the
-  narrator, or post-turn review. Reusing the key with changed content or another conversation is
-  a conflict. JSON and SSE share this durable terminal payload.
 - **User context**: `UserPreferenceStore` holds locale, verbosity, timezone,
   and learner consent. `UserMemoryStore` accepts only explicitly confirmed
   facts with source-turn provenance and optional expiry. `operator_memory`
@@ -825,8 +815,7 @@ and the authoritative registry, never inferred from phase names in this document
   timestamps and idempotency keys).
 - **Session recovery** - principal-scoped `ConversationHistoryStore` reloads prior turns by session
   id, while stable request idempotency prevents duplicate appends. Audit/ontology retain hashes and
-  references rather than raw transcripts. JSON, SSE, and cross-transport retries replay one stored
-  terminal payload without a second backend invocation.
+  references rather than raw transcripts.
 
 ## 12. Failure modes
 
@@ -972,12 +961,6 @@ operator to choose; `none` and `unavailable` explicitly prohibit guessing.
 The extra system directive is injected only when operational evidence is
 present, so ordinary screen questions retain the lean prompt budget.
 
-An optional incident conversation binding carries the incident id, correlation id, and selected
-Pantheon agent. The browser normalizes the same identifier bounds and agent allowlist enforced by
-the server. A malformed persisted binding is discarded without removing the conversation. Agent
-activity in a terminal answer describes bounded historical audit records only; missing activity
-does not imply that an agent has no current task.
-
 For other cross-screen questions, the web adapter uses this authority order:
 
 1. `OperationalEvidenceResolver` for incident and root-cause questions.
@@ -1074,12 +1057,9 @@ terminal event. A correction replaces the text for the existing turn id,
 preserving conversation order and accessibility focus. Only the terminal
 canonical revision is persisted or supplied as history to a later turn.
 
-The first shipped verifier uses no second model call. For read-source provenance, ontology browse,
-cross-screen operational, and Azure inventory questions it deterministically renders the terminal
-answer from typed evidence. Ontology browse requires both an ontology target and a browse verb,
-forwards only allowlisted identity fields with 256-character prompt values, and renders duplicate
-or malformed count and selection facts unavailable instead of quoting them. Operational states
-remain typed as `matched`, `ambiguous`, `none`, or `unavailable`,
+The first shipped verifier uses no second model call. For cross-screen
+operational and Azure inventory questions it deterministically renders the terminal answer from
+the typed evidence state (`matched`, `ambiguous`, `none`, or `unavailable`),
 so model prose cannot change the selected incident, search scope, RCA cause,
 or absence claim. `none`, `ambiguous`, `unavailable`, and `matched` without a
 grounded RCA take a deterministic fast path: the server streams the canonical
@@ -1462,13 +1442,7 @@ Cost shows `latest_occurred_at`; Settings Models shows the generated snapshot
 filename and `as_of`. Missing fields render unavailable or fail contract
 decoding. The browser doesn't infer durability, freshness, or provider health
 from a route name, environment mode, or configured default. A source with
-`availability=unavailable` never reports `reachable=true`; unconfigured or unprobed
-providers use `reachable=null`. A read-API panel remains `unknown` when any of its owned routes is
-missing from the manifest, including when every route is missing. Only explicitly source-independent
-panels omit the source status.
-Each manifest route has exactly one owner. The SPA strips query and fragment components from a
-requested path, matches exact paths or descendants on a path-segment boundary, and selects the
-longest owner. A similarly prefixed sibling path does not inherit ownership.
+from a route name, environment mode, or configured default.
 
 Exact entity lookups filter on the server before page limits. Incident
 correlation links, Audit entry links, and Approval searches therefore resolve
@@ -1484,32 +1458,9 @@ Diagnostics distinguishes process liveness from an authenticated KPI read
 path. A successful `/healthz` response never claims that operational data is
 healthy. Likewise, last-observed agent frames remain visible as history, but
 Engaged, Watching, and Idle are current counts only while the agent stream is
-open. Authenticated live, agent, and provisioning SSE readers cancel a connection after 45 seconds
-without any bytes, including keepalive comments, and enter the existing bounded reconnect path.
-Provisioning also cancels its reader when event delivery fails. Agent-stream `401` responses wait
-for full-screen login recovery, while `403` responses use bounded reconnect so a newly assigned App
-Role can take effect without a page reload. Canvas
-visualizations provide an equivalent keyboard and screen-reader
+open. Canvas visualizations provide an equivalent keyboard and screen-reader
 resource selector, and composite tab widgets move DOM focus together with
-roving selection. The Command Deck rejects an SSE frame or incomplete pending frame above 256 KiB
-before accumulating `data:` lines or parsing JSON, then uses its deterministic interrupted-stream
-fallback. Correlation-filtered action progress treats a terminal audit frame as normal completion,
-reports its 120-second deadline as an explicit timeout, and propagates other authentication or
-transport failures instead of hiding them as cancellation.
-
-During bootstrap, the SPA verifies the signed-in principal through authenticated
-`GET /iam/self` before opening console data. A transport failure keeps data closed and renders the
-full-screen sign-in recovery surface with access-check retry and sign-in actions. It does not start
-an automatic sign-in redirect because an unreachable read API would create a redirect loop.
-
-The Architecture route leads with inventory provenance and factual counts for resources, dependencies, containment boundaries, and resources whose status is unavailable. Its default isometric map makes containment and resource shape visible; top and front views remain optional display settings. Simple inventory projections reflow three or more resource groups into at most two columns, widen each boundary, and render direct resources at up to 1.25 times their base size. Authored layouts with nested boundaries keep their supplied geometry. Selecting a resource updates the canonical deep link without reloading the inventory graph, highlights its direct neighborhood, and exposes directional relationships before technical identifiers.
-Map labels avoid node and label collisions, fit long names within the canvas, and grow from 13px up to 20px as the operator zooms, including the first zoom step. The selected label can grow to 22px. Zoom-in and zoom-out steps are reciprocal, and the canvas palette follows the active console theme. The route uses the main page scroll rather than a nested inspector scroll and provides a keyboard-accessible resource and relationship index equivalent to the filtered canvas content.
-A truncated snapshot carries an explicit partial-inventory notice. Pointer interaction uses a minimum 44px node target and lets operators select containment boundaries as well as resource nodes.
-Architecture renders a subscription-scoped cached snapshot immediately when one exists. It labels an
-expired or change-invalidated snapshot as stale, shows the refresh-in-progress state, and polls only
-until the read API atomically promotes the completed background refresh. Cache state never upgrades
-the server-owned freshness verdict. Polling retries transient failures with a bounded 2-to-30-second
-backoff while keeping the stale graph usable.
+roving selection.
 
 Time-bound and aggregate evidence remains conservative while a route stays
 open. Approval and Operator Memory rows cross their recorded TTL boundary

@@ -1,8 +1,8 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: efb9f6fffbbc2e6f1efb16e4bdc9bb3834887955
-translation_revised: 2026-07-21
+translation_source_sha: b4e685493759172c1351173e2d1d2d126ad08656
+translation_revised: 2026-07-22
 ---
 
 # Execution 모델
@@ -530,15 +530,11 @@ RiskGate 가 `hil` 을 반환하면 executor 는 실행되지 않고 control loo
   확인한다. Expiry 시각 이후의 승인은 atomic하게 `TIMEOUT`으로 resolve하고
   `hil.timeout`을 기록하며 실행하지 않는다. 만료 record는 Reader HIL queue와
   `hil_pending` KPI projection에서 제외한다.
-- **idempotent** - park 는 첫 terminal 결정에서 `status=resolved` 로
-  전환; 중복 결정은 no-op, 상충 결정은 거부되어 승인이 double-apply
-  될 수 없음.
-- **approval ID claim** - parking은 approval ID와 requested audit record를 atomic하게
-  claim합니다. 동일 요청 replay는 channel push 없이 기존 park를 반환하고, 같은 ID의 다른
-  요청 content는 audited conflict로 처리되어 기존 park를 덮어쓸 수 없습니다.
-- **self-approval 금지** - `approver_oid == submitter_oid` 는 실행 전에
-  거부; loop 은 system submitter 신원으로 park 하므로 실제 approver 는
-  항상 구별됨.
+- **idempotent** - 첫 terminal 결정이 park를 resolve하고, 중복은 no-op이며 상충 결정은
+  거부되므로 승인이 double-apply될 수 없습니다.
+- **approval ID claim** - parking은 ID와 requested audit record를 원자적으로 claim합니다. 동일 replay는 channel push 없이 기존 park를 반환하고 다른 content는 audited conflict가 됩니다.
+- **self-approval 금지** - `approver_oid == submitter_oid`는 실행 전에 거부되며, loop은
+  system submitter 신원으로 park하므로 실제 approver는 항상 구별됩니다.
 
 **Role-scoped 큐 + delegation (Scenario A).** parked HIL 항목은 개인별
 인박스가 아니라 **큐**다: `Capability.APPROVE_RUNTIME_HIL` 을 가진 어떤
@@ -776,14 +772,10 @@ ActionType migration record와 일치합니다.
   overloaded` 각각 반환; RiskGate 출력이 예상대로 변경.
 - **Executor path selection** - table-driven: ActionType.default vs
   forced_path; strict-order winner assert.
-- **Direct-API idempotency** - executor 의 dispatch 가 동일한
-  idempotency key 로 두 번 호출; substrate adapter 가 정확히 하나의
-  mutation 기록.
-- **Idempotency collision** - executor는 각 key를 deterministic action fingerprint에
-  binding합니다. 다른 action, target, rule version 또는 safety contract에 같은 key를
-  재사용하면 audited conflict로 fail closed하며 기존 성공 receipt를 교체하지 않습니다.
-  같은 key 요청은 서로 다른 resource를 대상으로 동시에 도착해도 resource lock보다 먼저
-  직렬화됩니다.
+- **Direct-API idempotency** - 동일 key로 dispatch를 두 번 호출해도 substrate adapter는
+  mutation을 하나만 기록합니다.
+- **Idempotency collision** - 각 key는 action fingerprint에 binding됩니다. 다른 action,
+  target, rule 또는 safety input은 conflict이고 같은 key 요청은 resource lock 전에 직렬화됩니다.
 - **PR-native + PR-manual auto-merge 정책** - adapter 가 emit 하는
   label set 에 대한 contract test; label 매트릭스 assert.
 - **RiskDecision 은 authority 를 upgrade 할 수 없음** - property test:

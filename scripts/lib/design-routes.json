@@ -245,11 +245,13 @@
         ".github/instructions/architecture.instructions.md",
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/decisioning/prompt-composition.md",
-        "docs/roadmap/interfaces/operator-console.md"
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/console-evidence-and-resilience.md"
       ],
       "docs_update": [
         "docs/roadmap/decisioning/prompt-composition.md",
         "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/console-evidence-and-resilience.md",
         "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ]
@@ -458,10 +460,12 @@
       "paths": ["console/**", "cli/**", "src/fdai/delivery/read_api/**"],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
-        "docs/roadmap/interfaces/operator-console.md"
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/console-evidence-and-resilience.md"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/console-evidence-and-resilience.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md"
       ]
     },

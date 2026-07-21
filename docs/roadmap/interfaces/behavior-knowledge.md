@@ -122,8 +122,9 @@ performs these steps:
 2. Require both a behavior subject and behavior-question intent before initializing or searching
   the server-owned index. Unrelated data, action, and operational prompts move to the next
   authority path. Runtime Incident state, count, and recency questions remain operational reads;
-  bare Issue or Incident definitions remain concept queries. A score below the retrieval floor
-  also moves to the next authority.
+  bare Issue or Incident definitions remain concept queries. Lexical retrieval adds Hangul
+  two-syllable tokens so Korean paraphrases survive spacing and particles; exact aliases still
+  outrank hybrid matches. A score below the retrieval floor also moves to the next authority.
 3. Skip unrelated operational, agent, tool, glossary, and web evidence paths.
 4. Use the deterministic evidence fast path instead of calling the narrator backend.
 5. Verify freshness, select a question focus, and render localized required sections.

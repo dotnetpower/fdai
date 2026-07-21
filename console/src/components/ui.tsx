@@ -75,7 +75,7 @@ export function AsyncBoundary<T>({
     return <>{idle ?? null}</>;
   }
   if (state.status === "loading") {
-    return <LoadingState label={t("ui.loadingResource", { resource: resourceLabel })} />;
+    return <LoadingState label={t("shared.loadingResource", { resource: resourceLabel })} />;
   }
   if (state.status === "unavailable") {
     return <UnavailableState message={state.message} />;
@@ -83,7 +83,7 @@ export function AsyncBoundary<T>({
   if (state.status === "error") {
     return (
       <ErrorState
-        message={t("ui.failedToLoadResource", { resource: resourceLabel, message: state.message })}
+        message={t("shared.loadFailed", { resource: resourceLabel, message: state.message })}
       />
     );
   }
@@ -94,7 +94,7 @@ export function AsyncBoundary<T>({
 // LoadingState / ErrorState / EmptyState / UnavailableState
 // ---------------------------------------------------------------------------
 
-export function LoadingState({ label = t("ui.loading") }: { readonly label?: string }) {
+export function LoadingState({ label = t("shared.loading") }: { readonly label?: string }) {
   return (
     <div class="state-block state-loading" role="status" aria-live="polite">
       <span class="state-spinner" aria-hidden="true" />
@@ -215,7 +215,7 @@ export function DataTable<Row>({
   if (rows.length === 0) {
     return (
       <div class="data-table-empty muted" role="status" aria-live="polite">
-        {empty ?? t("ui.noRows")}
+        {empty ?? t("shared.noRows")}
       </div>
     );
   }
@@ -397,7 +397,7 @@ export interface CopyButtonProps {
   readonly label?: string;
 }
 
-export function CopyButton({ text, label = t("ui.copy") }: CopyButtonProps) {
+export function CopyButton({ text, label = t("shared.copy") }: CopyButtonProps) {
   const [copied, showCopied] = useTransientFlag(1500);
   async function copy(): Promise<void> {
     try {
@@ -412,9 +412,9 @@ export function CopyButton({ text, label = t("ui.copy") }: CopyButtonProps) {
       type="button"
       class="btn btn-small copy-btn"
       onClick={copy}
-      aria-label={copied ? t("ui.copied") : label}
+      aria-label={copied ? t("shared.copied") : label}
     >
-      {copied ? t("ui.copied") : label}
+      {copied ? t("shared.copied") : label}
     </button>
   );
 }

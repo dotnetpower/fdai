@@ -104,14 +104,14 @@ export function MermaidDiagram({ source, ariaLabel, className }: Props) {
     return (
       <div class={`mermaid-diagram mermaid-diagram-loading ${className ?? ""}`}>
         <span class="state-spinner" aria-hidden="true" />
-        <span class="muted">{t("ui.renderingDiagram")}</span>
+        <span class="muted">{t("shared.diagramRendering")}</span>
       </div>
     );
   }
   if (state.kind === "error") {
     return (
       <div class={`mermaid-diagram mermaid-diagram-error ${className ?? ""}`} role="alert">
-        <div class="mermaid-diagram-error-title">{t("ui.diagramRenderFailed")}</div>
+        <div class="mermaid-diagram-error-title">{t("shared.diagramFailed")}</div>
         <div class="mermaid-diagram-error-body muted">{state.message}</div>
       </div>
     );
@@ -120,7 +120,7 @@ export function MermaidDiagram({ source, ariaLabel, className }: Props) {
     <div
       class={`mermaid-diagram ${className ?? ""}`}
       role="img"
-      aria-label={ariaLabel ?? t("ui.mermaidDiagram")}
+      aria-label={ariaLabel ?? t("shared.mermaidDiagram")}
       ref={wrapperRef}
       // mermaid.render returns trusted, sanitized SVG string when
       // securityLevel: 'strict' is set at init (documented behaviour).

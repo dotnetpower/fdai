@@ -77,7 +77,7 @@ function buildStages(
   }
   if (health?.router) {
     stages.push({
-      label: t("deck.retrieval.routeChose", { deployment: health.router.chose }),
+      label: t("deck.retrieval.routeChosen", { deployment: health.router.chose }),
       detail: health.router.reason,
       side: "route",
       done: true,
@@ -153,14 +153,14 @@ export function RetrievalTrace({
     <article class="deck-rt" aria-label={t("deck.retrieval.preparingAnswer")}>
       <span class="sr-only" role="status" aria-live="polite">
         {t("deck.retrieval.status", {
-          detail: progress?.label ?? t("deck.retrieval.readingCurrentScreenSources"),
+          detail: progress?.label ?? t("deck.retrieval.readingCurrentSources"),
         })}
       </span>
       <header class="deck-rt-head">
         <span class="deck-rt-spin" aria-hidden="true" />
         <span class="deck-rt-title">{t("deck.retrieval.preparingAnswer")}</span>
         <span class="deck-rt-sub muted">
-          {progress?.label ?? t("deck.retrieval.groundingReadOnlySources")}
+          {progress?.label ?? t("deck.retrieval.groundingReadOnly")}
         </span>
         <span class="deck-rt-elapsed muted" aria-hidden="true">
           {(elapsedMs / 1000).toFixed(1)}s

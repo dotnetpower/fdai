@@ -6,8 +6,8 @@
     "type": "chaos-experiment.novel",
     "props": {}
   },
-  "expected_control_loop_outcome": "t2_abstained",
-  "expected_decision": "hil",
+  "expected_control_loop_outcome": "abstained_routing",
+  "expected_decision": "abstain",
   "expected_citing_rule_id_present": null,
-  "note": "Exercises the no-rule T1 fallback and an abstaining T2 proposer. With no grounded candidate, the control loop fails closed to HIL and publishes no remediation PR."
+  "note": "Exercises the no-rule T1 fallback. With no grounded rule allowlist, the control loop does not invoke T2 and fails closed without publishing a remediation PR."
 }

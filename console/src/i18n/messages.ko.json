@@ -1183,7 +1183,12 @@
       "noCapabilities": "확정된 모델 기능이 없습니다."
     },
     "integrationsSubtitle": "ID, 전달 및 운영자 채널 통합의 읽기 전용 상태입니다.",
+    "integrationsPurpose": "런타임 설정을 변경하지 않고 ID 및 전달 통합 상태를 확인합니다.",
+    "authenticationHeadline": "인증 모드: {mode}.",
     "diagnosticsSubtitle": "현재 콘솔 세션의 런타임 및 인증 상세 정보입니다.",
+    "diagnosticsPurpose": "콘솔 활성 상태와 인증된 읽기 경로의 가용성을 확인합니다.",
+    "diagnosticsHeadline": "Read API: {health}; KPI 읽기 경로: {readPath}; 인증: {mode}.",
+    "invalidLivenessResponse": "Read API가 잘못된 활성 상태 응답을 반환했습니다.",
     "identity": "ID",
     "entra": "Microsoft Entra ID",
     "entraHint": "현재 테넌트의 OIDC 로그인 및 API App Role입니다.",

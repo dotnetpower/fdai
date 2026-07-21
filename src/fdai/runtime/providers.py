@@ -368,8 +368,6 @@ def _build_inventory_delta_projector() -> Any:
             return projector
         from fdai.delivery.inventory_cache_invalidation import (
             InvalidatingInventoryDeltaProjector,
-        )
-        from fdai.delivery.read_api.dev.azure_inventory_graph import (
             inventory_cache_path,
             inventory_invalidation_path,
         )

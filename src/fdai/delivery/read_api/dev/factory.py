@@ -64,13 +64,13 @@ from fdai.delivery.persistence.postgres_conversation_delivery import (  # noqa: 
     PostgresConversationDeliveryStore,
     PostgresConversationDeliveryStoreConfig,
 )
+from fdai.delivery.read_api.app.authoritative_proxy import (  # noqa: E402
+    AUTHORITATIVE_READ_API_ENV,
+    authoritative_read_proxy_from_env,
+)
 from fdai.delivery.read_api.auth import (  # noqa: E402
     UnsafeClaimsExtractor,
     build_authenticator,
-)
-from fdai.delivery.read_api.dev.authoritative_proxy import (  # noqa: E402
-    AUTHORITATIVE_READ_API_ENV,
-    authoritative_read_proxy_from_env,
 )
 from fdai.delivery.read_api.dev.azure_cli_identity import (  # noqa: E402
     resolve_azure_cli_identity,

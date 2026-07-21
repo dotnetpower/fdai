@@ -78,7 +78,7 @@ export function DigestList({ snapshot }: { readonly snapshot: ReturnType<typeof 
       ))}
       {recordCount > 0 ? (
         <p class="deck-digest-records muted">
-          {t("deck.digest.recordsAvailable", {
+          {t("deck.digest.records", {
             count: recordCount,
             breakdown: snapshot.records
               ? Object.entries(snapshot.records)

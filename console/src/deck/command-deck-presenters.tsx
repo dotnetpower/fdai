@@ -54,7 +54,7 @@ function routerTooltip(router: RouterSnapshot | undefined): string | undefined {
     const marker = candidate.deployment === router.chose ? "* " : "  ";
     return `${marker}${candidate.deployment} · p50 ${p50} · p95 ${p95} · n=${candidate.samples}`;
   });
-  return `${t("deck.backend.routerChoice", { reason: router.reason, deployment: router.chose })}\n${lines.join("\n")}`;
+  return `${t("deck.tooltip.routerChoice", { reason: router.reason, deployment: router.chose })}\n${lines.join("\n")}`;
 }
 
 export function DeckLayoutIcon({ mode }: { readonly mode: DeckLayoutMode }) {
@@ -314,8 +314,8 @@ export function BackendBadge({
       ? `LLM · auto(${routed.candidates.length}) · ${routed.chose}`
       : health.model
         ? `LLM · ${health.model}`
-        : t("deck.backend.llmReady");
-    const base = `${t("deck.backend.chatMode", { mode: health.mode })}${
+        : t("deck.backend.ready");
+      const base = `${t("deck.tooltip.chatMode", { mode: health.mode })}${
       health.endpoint ? ` · ${health.endpoint}` : ""
     }`;
     const tooltip = routed ? `${base}\n${routerTooltip(routed) ?? ""}` : base;

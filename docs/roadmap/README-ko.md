@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 10d5efaf465aa0981d58078168acb5d380c8c355
-translation_revised: 2026-07-21
+translation_source_sha: 7e5e162892b41b138c848b487a396a44e43fe769
+translation_revised: 2026-07-22
 ---
 
 # FDAI 로드맵
@@ -87,6 +87,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 17b | [escalation-and-standing-authority-ko.md](decisioning/escalation-and-standing-authority-ko.md) | `hil` verdict 후 아무도 응답하지 않을 때 무슨 일이 벌어지는가: 감독형 OODA 루프, 영향도 tier 별 시간 감쇠 에스컬레이션 사다리(채널 fallback 과 구별), 상시 권한(사전 승인·envelope 경계·가역 전용 조건부 자동 조치를 결정론적 risk-gate 입력으로) |
 | 18 | [dev-and-deploy-parity-ko.md](deployment/dev-and-deploy-parity-ko.md) | authoritative interactive local/deployed parity, 명시적 fixture profile, deployer-scoped LLM gate |
 | 19 | [operator-console-ko.md](interfaces/operator-console-ko.md) | 대화형 surface (CLI / Teams / Slack / web), 3-layer 아키텍처, tool 별 RBAC 매트릭스, LLM tier 모델, 세션 지속성 |
+| 19f | [console-evidence-and-resilience-ko.md](interfaces/console-evidence-and-resilience-ko.md) | 콘솔 evidence provenance, localization, durable replay, stream recovery 및 Architecture map resilience |
 | 19a | [document-ingestion-ko.md](interfaces/document-ingestion-ko.md) | Drop-zone UX, 대용량 및 보호 문서 처리, format extraction, private storage, 공유 가시성, retention, deletion 계약 |
 | 19b | [scheduled-result-continuations-ko.md](interfaces/scheduled-result-continuations-ko.md) | 정확한 예약 실행을 위한 범위 제한 대화 앵커, evidence provenance, channel thread, access, expiry, delivery ordering |
 | 19c | [skill-source-management-ko.md](interfaces/skill-source-management-ko.md) | Durable approved source, quarantine, ETag refresh, disabled-first approval, provenance-preserving revocation |

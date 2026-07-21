@@ -795,13 +795,12 @@ The manifest lifecycle controls exposure:
 - `retired` manifests leave navigation while existing audit and Process deep
   links remain readable.
 
-`WorkflowApp` ids and routes are permanent machine references. Labels and
-descriptions are localized presentation values and may change. The read API
-returns only manifests authorized for the principal; hiding an unauthorized app
-in the browser is not an access-control mechanism. A workflow that requires a
-new interaction model or executable frontend code follows the build-time
-`EXTRA_PANELS` plus injected `ReadPanel` path and a separate reviewed release. It
-is never generated or loaded as remote code from a conversation.
+`WorkflowApp` ids and routes are permanent machine references. The launchpad, catalog, detail,
+automation, chat, and Python-task views localize labels through parity-checked route catalogs with
+English fallback; workflow ids, serialized values, and validation results remain unchanged. The read
+API returns only manifests authorized for the principal; browser hiding is not access control. New
+interaction models or executable frontend code use build-time `EXTRA_PANELS`, an injected
+`ReadPanel`, and a separate reviewed release, never conversation-generated remote code.
 
 ## 9. Relationship to agent-workflows.md
 

@@ -5,8 +5,13 @@
  * We import the module and read the wire the sole way that keeps things
  * unit-testable: via mocked fetch that captures the request body.
  */
-import { describe, expect, test, vi, afterEach, beforeEach } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import type { ViewSnapshot } from "./context";
+import { askBackend } from "./backend";
+import { healthUrl, requestHeaders } from "./backend-endpoints";
+import { createBackendHealthProbe } from "./backend-health";
+import { parseRouter } from "./backend-normalizers";
+import { setChatAuth } from "./auth";
 
 async function callAskAndCaptureBody(
   snap: ViewSnapshot | null,
@@ -22,8 +27,7 @@ async function callAskAndCaptureBody(
     );
   });
   vi.stubGlobal("fetch", fetchMock);
-  const mod = await import("./backend");
-  await mod.askBackend("hi", snap, [], sessionId, binding);
+  await askBackend("hi", snap, [], sessionId, binding);
   return capture.body
     ? (JSON.parse(capture.body) as {
         view_context?: Record<string, unknown>;
@@ -43,11 +47,9 @@ function liveSnap(): ViewSnapshot {
 }
 
 describe("viewContextWithUser wiring", () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
   afterEach(() => {
     vi.unstubAllGlobals();
+    setChatAuth(null);
   });
 
   test("attaches _route_actions for a known route", async () => {
@@ -115,11 +117,9 @@ describe("viewContextWithUser wiring", () => {
 });
 
 describe("backend health probing", () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
   afterEach(() => {
     vi.unstubAllGlobals();
+    setChatAuth(null);
   });
 
   test("deduplicates concurrent and repeated probes", async () => {
@@ -131,10 +131,10 @@ describe("backend health probing", () => {
         ),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const mod = await import("./backend");
+    const probeBackend = createBackendHealthProbe(healthUrl, () => requestHeaders(), parseRouter);
 
-    const [first, second] = await Promise.all([mod.probeBackend(), mod.probeBackend()]);
-    const cached = await mod.probeBackend();
+    const [first, second] = await Promise.all([probeBackend(), probeBackend()]);
+    const cached = await probeBackend();
 
     expect(first.available).toBe(true);
     expect(second).toEqual(first);
@@ -151,16 +151,16 @@ describe("backend health probing", () => {
         ),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const mod = await import("./backend");
-    mod.setChatAuth({
+    setChatAuth({
       devMode: false,
       account: null,
       getAuthorizationHeader: async () => "Bearer test-token",
       signIn: async () => undefined,
       signOut: async () => undefined,
     });
+    const probeBackend = createBackendHealthProbe(healthUrl, () => requestHeaders(), parseRouter);
 
-    await mod.probeBackend();
+    await probeBackend();
 
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect((init.headers as Record<string, string>).authorization).toBe("Bearer test-token");

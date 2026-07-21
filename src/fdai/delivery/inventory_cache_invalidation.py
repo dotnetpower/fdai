@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import os
 import tempfile
@@ -12,6 +13,30 @@ from typing import Any
 
 InventoryDeltaProjector = Callable[[Mapping[str, Any]], Awaitable[Any]]
 _LOGGER = logging.getLogger(__name__)
+
+
+def inventory_cache_path(
+    *,
+    repo_root: Path,
+    subscription_id: str,
+    azure_config_dir: str | None,
+) -> tuple[Path, str]:
+    """Return a non-identifying cache path and its account-scope fingerprint."""
+    normalized_subscription = subscription_id.strip()
+    if not normalized_subscription:
+        raise ValueError("subscription_id MUST NOT be empty")
+    profile = (
+        str(Path(azure_config_dir).expanduser().resolve(strict=False))
+        if azure_config_dir
+        else "<default>"
+    )
+    fingerprint = hashlib.sha256(f"{profile}\0{normalized_subscription}".encode()).hexdigest()
+    return repo_root / ".fdai" / "cache" / "inventory" / f"{fingerprint}.json", fingerprint
+
+
+def inventory_invalidation_path(cache_path: Path) -> Path:
+    """Return the marker path paired with one account-scoped cache file."""
+    return cache_path.with_suffix(".invalidated")
 
 
 class InvalidatingInventoryDeltaProjector:
@@ -66,4 +91,8 @@ def _advance_marker(path: Path) -> None:
         temporary.unlink(missing_ok=True)
 
 
-__all__ = ["InvalidatingInventoryDeltaProjector"]
+__all__ = [
+    "InvalidatingInventoryDeltaProjector",
+    "inventory_cache_path",
+    "inventory_invalidation_path",
+]

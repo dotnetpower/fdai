@@ -247,6 +247,7 @@ class TestReadOnlyInvariant:
             "/incidents",
             "/kpi",
             "/rca",
+            "/system/data-sources",
         ]
 
 
@@ -817,6 +818,7 @@ class TestExtensionPanels:
             "/incidents",
             "/kpi",
             "/rca",
+            "/system/data-sources",
         ]
 
     def test_panel_registered_as_get_route(self, dev_env: None) -> None:

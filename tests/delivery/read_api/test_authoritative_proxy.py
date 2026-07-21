@@ -9,7 +9,7 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 from starlette.types import Message, Scope
 
-from fdai.delivery.read_api.dev.authoritative_proxy import (
+from fdai.delivery.read_api.app.authoritative_proxy import (
     AuthoritativeReadProxy,
     AuthoritativeReadProxyMiddleware,
 )

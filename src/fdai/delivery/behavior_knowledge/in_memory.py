@@ -59,6 +59,8 @@ def _normalized_tokens(value: str) -> tuple[str, ...]:
         token = raw[:-1] if raw.endswith("s") and len(raw) > 4 else raw
         if token and token not in _STOP_WORDS:
             normalized.append(token)
+        if re.fullmatch(r"[가-힣]+", raw):
+            normalized.extend(raw[index : index + 2] for index in range(len(raw) - 1))
     return tuple(normalized)
 
 

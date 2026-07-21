@@ -436,6 +436,11 @@ test_...` runs without a per-test marker.
 
 Every terminal path-including reject, HIL timeout, abstain, and deny-writes an audit entry.
 T2 output reaches the risk-gate only after clearing the quality-gate.
+Boundary hardening keeps that sequence fail-closed: ingest and routing normalize blank resource
+references before comparison, T1 rejects malformed reuse evidence, and a T2 proposal cannot bypass
+grounding authority when a provider fails. HIL approval ids and executor idempotency keys are
+claimed atomically, while per-resource locking serializes competing applies before any delivery
+adapter can mutate state.
 
 ```mermaid
 flowchart LR

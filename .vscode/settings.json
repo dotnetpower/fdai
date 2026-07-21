@@ -9,7 +9,6 @@
         "**/.terraform": true,
         "**/.vite": true,
         "**/node_modules": true,
-        ".fdai": true,
         ".venv": true,
         "console/playwright-report": true,
         "console/test-results": true,

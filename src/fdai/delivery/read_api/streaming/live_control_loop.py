@@ -46,7 +46,7 @@ from typing import Any
 import yaml
 
 from fdai.core.control_loop import ControlLoop
-from fdai.core.event_ingest import EventIngest
+from fdai.core.event_ingest import EventCorrelator, EventIngest
 from fdai.core.executor import (
     ResourceLockManager,
     ShadowExecutor,
@@ -286,6 +286,7 @@ class ControlLoopLiveEmitter(LiveEmitter):
         # binds its own composition root.
         return ControlLoop(
             event_ingest=EventIngest(validator=validator),
+            event_correlator=EventCorrelator(),
             trust_router=TrustRouter(index=index),
             t0_engine=T0Engine(index=index, evaluator=evaluator),
             action_builder=ActionBuilder(action_types_by_name=action_types_by_name),

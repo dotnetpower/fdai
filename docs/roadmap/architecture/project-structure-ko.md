@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 6350a73da4c0190fd413debe0b2947fb2fadc0dc
-translation_revised: 2026-07-21
+translation_source_sha: 2c4600fd9db7558bbd43a748d566aedbbf8a38f1
+translation_revised: 2026-07-22
 ---
 
 # 프로젝트 구조
@@ -429,6 +429,10 @@ phase 는 `core/` 를 편집하지 않고 composition root 에서 새 구현을 
 
 모든 종단 경로(reject, HIL timeout, abstain, deny 포함)는 감사 엔트리를 기록합니다. T2
 출력은 quality-gate를 통과한 후에만 risk-gate에 도달합니다.
+경계 강화는 이 순서를 fail-closed로 유지합니다. Ingest와 routing은 비교 전에 빈 resource
+reference를 정규화하고, T1은 잘못된 reuse evidence를 거부하며, provider가 실패하면 T2 proposal이
+grounding authority를 우회할 수 없습니다. HIL approval id와 executor idempotency key는 원자적으로
+claim되고, 리소스별 lock은 delivery adapter가 상태를 변경하기 전에 경합하는 apply를 직렬화합니다.
 
 ```mermaid
 flowchart LR

@@ -407,7 +407,7 @@ def build_app(
         )
 
     if resolved_config.authoritative_read_proxy is not None:
-        from fdai.delivery.read_api.dev.authoritative_proxy import (
+        from fdai.delivery.read_api.app.authoritative_proxy import (
             AuthoritativeReadProxyMiddleware,
         )
 

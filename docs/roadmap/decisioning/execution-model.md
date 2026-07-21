@@ -545,12 +545,8 @@ A later decision (a ChatOps callback or a poll) drives
   selection. An approval at or after expiry is atomically resolved as
   `TIMEOUT`, writes `hil.timeout`, and never executes. Expired records are
   excluded from the Reader HIL queue and `hil_pending` KPI projection.
-- **idempotent** - the park flips to `status=resolved` on the first
-  terminal decision; a duplicate decision is a no-op and a conflicting
-  decision is refused, so an approval can never double-apply.
-- **approval ID claim** - parking atomically claims the approval ID together with its requested
-  audit record. An exact request replay returns the existing park without another channel push;
-  different request content under the same ID is an audited conflict and cannot overwrite it.
+- **idempotent** - the first terminal decision resolves the park; duplicates are no-ops and conflicts are refused, so approval cannot double-apply.
+- **approval ID claim** - parking atomically claims the ID and audit record; exact replays reuse the park without another channel push, while different content conflicts.
 - **no self-approval** - `approver_oid == submitter_oid` is refused
   before any execution; the loop parks with a system submitter identity
   so any real approver is distinct.
@@ -803,10 +799,7 @@ migration record in [action-ontology.md § 10](action-ontology.md#10-migration-r
 - **Direct-API idempotency** - the executor's dispatch is called
   twice with the same idempotency key; the substrate adapter records
   exactly one mutation.
-- **Idempotency collision** - the executor binds each key to a deterministic action fingerprint.
-  Reusing a key with a different action, target, rule version, or safety contract fails closed as
-  an audited conflict and never replaces the original successful receipt. Same-key requests are
-  serialized before resource locking, including concurrent requests for different resources.
+- **Idempotency collision** - each key binds to an action fingerprint; changed input conflicts and same-key requests serialize before resource locking.
 - **PR-native + PR-manual auto-merge policy** - contract tests over
   the label sets the adapter emits; the label matrix is asserted.
 - **RiskDecision cannot upgrade authority** - property test:

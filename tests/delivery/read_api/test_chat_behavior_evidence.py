@@ -22,6 +22,7 @@ from fdai.delivery.read_api.routes.chat_behavior_evidence import (
     BehaviorEvidenceResolver,
     RepositoryBehaviorEvidenceResolver,
     behavior_evidence_refs,
+    is_behavior_question,
     render_behavior_answer,
 )
 from fdai.delivery.read_api.routes.chat_verification import verify_answer
@@ -40,6 +41,11 @@ class RecordingBackend:
 class StaleValidator:
     async def validate(self, source: BehaviorSource) -> BehaviorFreshness:
         return BehaviorFreshness(fresh=False, tracked=True, current_blob_sha="changed")
+
+
+def test_architecture_subject_question_uses_behavior_evidence() -> None:
+    assert is_behavior_question("idempotency key가 같은 요청이 경쟁하면 몇 번 publish해?")
+    assert not is_behavior_question("현재 pending Incident가 몇 개야?")
 
 
 @dataclass(frozen=True, slots=True)

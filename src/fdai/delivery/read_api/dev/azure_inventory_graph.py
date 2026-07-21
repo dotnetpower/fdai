@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 import math
@@ -19,6 +18,10 @@ from time import monotonic
 from typing import Any, Final, TypeGuard
 
 from fdai.core.views.architecture_graph import project_architecture_graph
+from fdai.delivery.inventory_cache_invalidation import (
+    inventory_cache_path,
+    inventory_invalidation_path,
+)
 from fdai.shared.providers.inventory import Inventory, ResourceRecord
 
 _ROOT_ID = "azure-subscription"
@@ -26,30 +29,6 @@ _LOGGER = logging.getLogger(__name__)
 _CACHE_VERSION: Final[int] = 2
 _MAX_CACHE_BYTES: Final[int] = 5_000_000
 _MAX_CLOCK_SKEW_SECONDS: Final[int] = 300
-
-
-def inventory_cache_path(
-    *,
-    repo_root: Path,
-    subscription_id: str,
-    azure_config_dir: str | None,
-) -> tuple[Path, str]:
-    """Return a non-identifying cache path and its account-scope fingerprint."""
-    normalized_subscription = subscription_id.strip()
-    if not normalized_subscription:
-        raise ValueError("subscription_id MUST NOT be empty")
-    profile = (
-        str(Path(azure_config_dir).expanduser().resolve(strict=False))
-        if azure_config_dir
-        else "<default>"
-    )
-    fingerprint = hashlib.sha256(f"{profile}\0{normalized_subscription}".encode()).hexdigest()
-    return repo_root / ".fdai" / "cache" / "inventory" / f"{fingerprint}.json", fingerprint
-
-
-def inventory_invalidation_path(cache_path: Path) -> Path:
-    """Return the marker path paired with one account-scoped cache file."""
-    return cache_path.with_suffix(".invalidated")
 
 
 @dataclass(slots=True)

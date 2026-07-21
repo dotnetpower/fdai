@@ -100,6 +100,22 @@ async def test_exact_alias_outranks_semantic_similarity() -> None:
     assert results[0].match_kind == "exact_alias"
 
 
+async def test_korean_paraphrase_matches_shared_syllable_pairs() -> None:
+    index = InMemoryBehaviorKnowledgeIndex()
+    await index.upsert(
+        _spec(
+            "trust-tier-routing",
+            subject_id="TrustRouter.route",
+            alias="라우터가 누락된 값을 추측하나요?",
+        )
+    )
+
+    results = await index.search("라우터는 누락 값을 추측해?")
+
+    assert results[0].spec.behavior_id == "trust-tier-routing"
+    assert results[0].match_kind == "hybrid"
+
+
 async def test_reindexing_identical_spec_is_idempotent() -> None:
     index = InMemoryBehaviorKnowledgeIndex(embedder=KeywordEmbedder())
     spec = _spec(

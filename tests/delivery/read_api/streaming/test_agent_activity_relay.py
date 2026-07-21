@@ -52,13 +52,14 @@ def _stage(
     correlation_id: str = "corr-1",
     detail: dict[str, object] | None = None,
 ) -> StageEvent:
+    stage_detail = {"incident_id": "incident-1", **(detail or {})}
     return StageEvent(
         event_id="evt-1",
         correlation_id=correlation_id,
         stage=stage,
         phase=phase,
         ts=_TS,
-        detail=detail or {},
+        detail=stage_detail,
     )
 
 
