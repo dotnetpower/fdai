@@ -12,7 +12,7 @@ function fmtDuration(seconds: number): string {
 }
 
 function improvementFactor(metric: MetricVsBaseline): number | null {
-  if (metric.baseline <= 0 || metric.value <= 0) return null;
+  if (metric.baseline === null || metric.value === null || metric.baseline <= 0 || metric.value <= 0) return null;
   return metric.direction === "higher"
     ? metric.value / metric.baseline
     : metric.baseline / metric.value;
@@ -126,7 +126,9 @@ export function ExecutiveStatus({
         <p class="overview-status-summary">
           {autonomy
             ? t(autonomy.synthetic ? "overview.status.simulatedSummary" : "overview.status.summary", {
-                rate: Math.round(autonomy.success.auto_resolution_rate.value * 100),
+                rate: autonomy.success.auto_resolution_rate.value === null
+                  ? t("overview.evidence.unavailable")
+                  : Math.round(autonomy.success.auto_resolution_rate.value * 100),
                 hil: kpi.hil_pending,
                 escapes: policyEscapes ?? t("overview.evidence.unavailable"),
               })
@@ -181,11 +183,11 @@ export function SuccessMetrics({
     synthetic ? "overview.evidence.simulated" : "overview.evidence.measured",
   );
   const metrics = [
-    ["autoRes", "auto-resolution", `${Math.round(success.auto_resolution_rate.value * 100)}%`, success.auto_resolution_rate, `${Math.round(success.auto_resolution_rate.baseline * 100)}%`],
-    ["touchpoints", "human-touchpoints", success.human_touchpoints_per_100.value.toFixed(1), success.human_touchpoints_per_100, success.human_touchpoints_per_100.baseline.toFixed(1)],
-    ["mttr", "mttr", fmtDuration(success.mttr_seconds.value), success.mttr_seconds, fmtDuration(success.mttr_seconds.baseline)],
-    ["leadTime", "change-lead-time", fmtDuration(success.change_lead_time_seconds.value), success.change_lead_time_seconds, fmtDuration(success.change_lead_time_seconds.baseline)],
-    ["cost", "cost-per-resolved-event", `$${success.cost_per_resolved_event_usd.value.toFixed(2)}`, success.cost_per_resolved_event_usd, `$${success.cost_per_resolved_event_usd.baseline.toFixed(2)}`],
+    ["autoRes", "auto-resolution", percentageMetric(success.auto_resolution_rate.value), success.auto_resolution_rate, percentageMetric(success.auto_resolution_rate.baseline)],
+    ["touchpoints", "human-touchpoints", decimalMetric(success.human_touchpoints_per_100.value), success.human_touchpoints_per_100, decimalMetric(success.human_touchpoints_per_100.baseline)],
+    ["mttr", "mttr", durationMetric(success.mttr_seconds.value), success.mttr_seconds, durationMetric(success.mttr_seconds.baseline)],
+    ["leadTime", "change-lead-time", durationMetric(success.change_lead_time_seconds.value), success.change_lead_time_seconds, durationMetric(success.change_lead_time_seconds.baseline)],
+    ["cost", "cost-per-resolved-event", currencyMetric(success.cost_per_resolved_event_usd.value), success.cost_per_resolved_event_usd, currencyMetric(success.cost_per_resolved_event_usd.baseline)],
   ] as const;
   return (
     <section class="overview-metrics" aria-label={t("overview.metric.groupLabel")}>
@@ -267,9 +269,9 @@ export function LeadingIndicators({
           >
             <KpiCard
               label={t(`overview.leading.${key}`)}
-              value={`${(metric.value * 100).toFixed(1)}%`}
-              hint={`${t("overview.metric.vsBaseline", { baseline: `${(metric.baseline * 100).toFixed(1)}%` })} - ${t("overview.evidence.source", { source: sourceName })}`}
-              tone={metric.value <= metric.baseline ? "positive" : "warning"}
+              value={percentageMetric(metric.value)}
+              hint={`${t("overview.metric.vsBaseline", { baseline: percentageMetric(metric.baseline) })} - ${t("overview.evidence.source", { source: sourceName })}`}
+              tone={metric.value === null || metric.baseline === null ? "default" : metric.value <= metric.baseline ? "positive" : "warning"}
             />
           </a>
         ))}
@@ -311,7 +313,9 @@ export function AgentOrganization({
           <h3 id="overview-organization-title">{t("overview.organization.title")}</h3>
           <p>
             {t(autonomy.synthetic ? "overview.organization.simulatedSummary" : "overview.organization.summary", {
-              rate: Math.round(autonomy.success.auto_resolution_rate.value * 100),
+              rate: autonomy.success.auto_resolution_rate.value === null
+                ? t("overview.evidence.unavailable")
+                : Math.round(autonomy.success.auto_resolution_rate.value * 100),
               hil: hilPending,
             })}
           </p>
@@ -341,4 +345,20 @@ export function AgentOrganization({
       </ol>
     </section>
   );
+}
+
+function percentageMetric(value: number | null): string {
+  return value === null ? t("overview.evidence.unavailable") : `${Math.round(value * 100)}%`;
+}
+
+function decimalMetric(value: number | null): string {
+  return value === null ? t("overview.evidence.unavailable") : value.toFixed(1);
+}
+
+function durationMetric(value: number | null): string {
+  return value === null ? t("overview.evidence.unavailable") : fmtDuration(value);
+}
+
+function currencyMetric(value: number | null): string {
+  return value === null ? t("overview.evidence.unavailable") : `$${value.toFixed(2)}`;
 }

@@ -79,6 +79,7 @@ function duration(seconds: number): string {
 }
 
 function metricValue(metric: MetricVsBaseline, key: OutcomeKey): string {
+  if (metric.value === null) return t("analytics.unavailable");
   if (key === "auto-resolution") return `${Math.round(metric.value * 100)}%`;
   if (key === "human-touchpoints") return metric.value.toFixed(1);
   if (key === "cost-per-resolved-event") return `$${metric.value.toFixed(2)}`;
@@ -86,6 +87,7 @@ function metricValue(metric: MetricVsBaseline, key: OutcomeKey): string {
 }
 
 function baselineValue(metric: MetricVsBaseline, key: OutcomeKey): string {
+  if (metric.baseline === null) return t("analytics.unavailable");
   return metricValue({ ...metric, value: metric.baseline }, key);
 }
 
@@ -458,17 +460,19 @@ function LeadingIndicatorTable({
   const rows = indicator === null ? allRows : allRows.filter((row) => row.key === indicator);
   const columns: readonly Column<(typeof allRows)[number]>[] = [
     { key: "indicator", header: t("analytics.routing.indicator"), render: (row) => t(`overview.leading.${row.key}`) },
-    { key: "current", header: t("analytics.current"), render: (row) => formatShare(row.metric.value), cellClass: "num" },
-    { key: "baseline", header: t("analytics.baseline"), render: (row) => formatShare(row.metric.baseline), cellClass: "num" },
+    { key: "current", header: t("analytics.current"), render: (row) => row.metric.value === null ? t("analytics.unavailable") : formatShare(row.metric.value), cellClass: "num" },
+    { key: "baseline", header: t("analytics.baseline"), render: (row) => row.metric.baseline === null ? t("analytics.unavailable") : formatShare(row.metric.baseline), cellClass: "num" },
     {
       key: "status",
       header: t("analytics.status"),
       render: (row) => autonomy.synthetic
         ? <StatusPill kind="neutral" label={t("analytics.simulatedStatus")} />
-        : <StatusPill
-            kind={row.metric.value <= row.metric.baseline ? "success" : "warning"}
-            label={row.metric.value <= row.metric.baseline ? t("analytics.passing") : t("analytics.outOfBand")}
-          />,
+        : row.metric.value === null || row.metric.baseline === null
+          ? <StatusPill kind="neutral" label={t("analytics.unavailable")} />
+          : <StatusPill
+              kind={row.metric.value <= row.metric.baseline ? "success" : "warning"}
+              label={row.metric.value <= row.metric.baseline ? t("analytics.passing") : t("analytics.outOfBand")}
+            />,
     },
   ];
   return (
