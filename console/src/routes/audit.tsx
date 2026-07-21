@@ -12,9 +12,9 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
-import { t } from "../i18n";
 import { currentRoute, routeHref } from "../router";
 import { appendAuditPage, resolveAuditEntry, type AuditData as Data } from "./audit.model";
+import { t } from "./i18n/evidence";
 
 interface Props {
   readonly client: ReadApiClient;
@@ -118,7 +118,7 @@ export function AuditRoute({ client }: Props) {
     if (filters.invalid.length > 0) {
       setState({
         status: "error",
-        message: `Invalid audit filter: ${filters.invalid.join(", ")}`,
+        message: t("evidence.audit.invalidFilter", { filters: filters.invalid.join(", ") }),
       });
       return;
     }
@@ -174,7 +174,7 @@ export function AuditRoute({ client }: Props) {
     <div class="stack">
       <PageHeader
         title={t("route.audit")}
-        subtitle="Append-only record of every terminal control-plane decision. Read-only; entries are never edited or deleted."
+        subtitle={t("evidence.audit.subtitle")}
       />
       {correlationId ? (
         <p class="muted footnote">
@@ -182,13 +182,13 @@ export function AuditRoute({ client }: Props) {
         </p>
       ) : null}
       {Object.entries(filters).some(([key, value]) => key !== "invalid" && value) ? (
-        <div class="filter-summary" aria-label="active audit filters">
+        <div class="filter-summary" aria-label={t("evidence.audit.activeFilters")}>
           {Object.entries(filters).filter(([key, value]) => key !== "invalid" && value).map(([key, value]) => (
-            <span key={key}>{key}: <strong>{value}</strong></span>
+            <span key={key}>{t(`evidence.audit.filter.${key}`)}: <strong>{value}</strong></span>
           ))}
         </div>
       ) : null}
-      <AsyncBoundary state={state} resourceLabel="audit log">
+      <AsyncBoundary state={state} resourceLabel={t("evidence.audit.resource")}>
         {(data) => (
           <AuditBody
             data={data}
@@ -248,11 +248,8 @@ function AuditBody({ data, loadingMore, pageError, onLoadMore }: BodyProps) {
   usePublishViewContext(
     () => ({
       routeId: "audit",
-      routeLabel: "Audit log",
-      purpose:
-        "The append-only record of every terminal control-plane decision - one " +
-        "row per event that reached a verdict. Read-only: entries are never " +
-        "edited or deleted, and each carries the recorded reason it happened.",
+      routeLabel: t("route.audit"),
+      purpose: t("evidence.audit.viewPurpose"),
       glossary: composeGlossary([
         TERMS.correlationId,
         TERMS.actionKind,
@@ -261,7 +258,10 @@ function AuditBody({ data, loadingMore, pageError, onLoadMore }: BodyProps) {
         TERMS.outcome,
         agentTerm(),
       ]),
-      headline: `${data.items.length} row(s) loaded${data.nextCursor === null ? " (end of log)" : " (more available)"}`,
+      headline: t(
+        data.nextCursor === null ? "evidence.audit.headlineEnd" : "evidence.audit.headlineMore",
+        { count: data.items.length },
+      ),
       capturedAt: new Date().toISOString(),
       facts: [
         { key: "loaded_rows", value: data.items.length, group: "page" },
@@ -298,32 +298,32 @@ function AuditBody({ data, loadingMore, pageError, onLoadMore }: BodyProps) {
       cellClass: "mono num",
       headerClass: "num",
     },
-    { key: "at", header: "Recorded at", render: (r) => r.recorded_at, cellClass: "mono" },
-    { key: "actor", header: "Actor", render: (r) => r.actor },
-    { key: "kind", header: "Action kind", render: (r) => r.action_kind, cellClass: "mono" },
+    { key: "at", header: t("evidence.audit.column.recordedAt"), render: (r) => r.recorded_at, cellClass: "mono" },
+    { key: "actor", header: t("evidence.audit.column.actor"), render: (r) => r.actor },
+    { key: "kind", header: t("evidence.audit.column.actionKind"), render: (r) => r.action_kind, cellClass: "mono" },
     {
       key: "mode",
-      header: "Mode",
+      header: t("evidence.audit.column.mode"),
       render: (r) => <StatusPill kind={modePill(r.mode)} label={r.mode} />,
     },
-    { key: "eid", header: "Event id", render: (r) => r.event_id, cellClass: "mono" },
+    { key: "eid", header: t("evidence.audit.column.eventId"), render: (r) => r.event_id, cellClass: "mono" },
     {
       key: "evidence",
-      header: "Evidence",
+      header: t("evidence.audit.column.evidence"),
       render: (r) => r.correlation_id ? (
         <span class="table-action-links">
-          <a href={routeHref("trace", { params: { correlation: r.correlation_id } })}>Trace</a>
-          <a href={routeHref("rca", { params: { correlation: r.correlation_id } })}>RCA</a>
-          <a href={routeHref("incidents", { params: { status: "all", correlation: r.correlation_id } })}>Incident</a>
+          <a href={routeHref("trace", { params: { correlation: r.correlation_id } })}>{t("evidence.audit.trace")}</a>
+          <a href={routeHref("rca", { params: { correlation: r.correlation_id } })}>{t("evidence.audit.rca")}</a>
+          <a href={routeHref("incidents", { params: { status: "all", correlation: r.correlation_id } })}>{t("evidence.audit.incident")}</a>
         </span>
       ) : <span class="muted">-</span>,
     },
     {
       key: "raw",
-      header: "Details",
+      header: t("evidence.audit.column.details"),
       render: (r) => (
         <details open={selectedSeq === r.seq}>
-          <summary class="details-summary">view JSON</summary>
+          <summary class="details-summary">{t("evidence.audit.viewJson")}</summary>
           <pre class="mono small entry-json">{JSON.stringify(r.entry, null, 2)}</pre>
         </details>
       ),
@@ -333,25 +333,25 @@ function AuditBody({ data, loadingMore, pageError, onLoadMore }: BodyProps) {
   return (
     <div class="stack">
       {entrySelection.status === "invalid" ? (
-        <p class="state-error-text" role="alert">Invalid audit entry: {entrySelection.value}</p>
+        <p class="state-error-text" role="alert">{t("evidence.audit.invalidEntry", { value: entrySelection.value })}</p>
       ) : null}
       {entrySelection.status === "pending" ? (
         <p class="state-block state-unavailable" role="status">
-          Audit entry #{entrySelection.seq} is not in the loaded rows. Load more to continue the search.
+          {t("evidence.audit.pendingEntry", { seq: entrySelection.seq })}
         </p>
       ) : null}
       {entrySelection.status === "unavailable" ? (
         <p class="state-block state-unavailable" role="alert">
-          Audit entry #{entrySelection.seq} is unavailable in this filtered audit result.
+          {t("evidence.audit.unavailableEntry", { seq: entrySelection.seq })}
         </p>
       ) : null}
       <DataTable
         columns={columns}
         rows={data.items}
         keyOf={(r) => r.seq}
-        empty="Audit log is empty."
+        empty={t("evidence.audit.empty")}
       />
-      {pageError ? <p class="state-error-text" role="alert">Failed to load more audit rows: {pageError}</p> : null}
+      {pageError ? <p class="state-error-text" role="alert">{t("evidence.audit.loadMoreError", { message: pageError })}</p> : null}
       {data.nextCursor !== null ? (
         <button
           type="button"
@@ -361,10 +361,10 @@ function AuditBody({ data, loadingMore, pageError, onLoadMore }: BodyProps) {
             void onLoadMore(data.nextCursor!);
           }}
         >
-          {loadingMore ? "Loading..." : "Load more"}
+          {loadingMore ? t("evidence.audit.loadingMore") : t("evidence.audit.loadMore")}
         </button>
       ) : (
-        <p class="muted footnote">End of log.</p>
+        <p class="muted footnote">{t("evidence.audit.end")}</p>
       )}
     </div>
   );

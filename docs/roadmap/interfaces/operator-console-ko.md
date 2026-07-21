@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 922e83ff517612b2dbeb997a4a902f6f95abcf6a
+translation_source_sha: 6444be29370b61dae4272a13b18e1739e0d62c2f
 translation_revised: 2026-07-21
 ---
 
@@ -16,7 +16,15 @@ Push 방향 (시스템 → 사람) 알림은
 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고,
 읽기 전용 콘솔 SPA는
 [project-structure.md § console/](../architecture/project-structure-ko.md#console-static-web-app)
-에 있음. 이 문서는 **pull 방향**을 다룬다 — 오퍼레이터가 묻고, 시뮬레이션
+에 있음.
+
+콘솔 SPA는 오퍼레이터의 콘솔 환경 설정에서 표시 locale을 결정하고, 재사용 가능한
+영어 원본 메시지를 메인 카탈로그 또는 완전한 route-local 영어/한국어 카탈로그 쌍으로
+렌더링합니다. Machine value, identifier, provider payload는 변경하지 않고 presentation
+helper가 알려진 값을 현지화된 label로 매핑합니다. Static key coverage, catalog parity,
+route-local fallback test, 전체 콘솔 test suite가 번역되지 않은 표시 문구의 재유입을 막습니다.
+
+이 문서는 **pull 방향**을 다룬다 — 오퍼레이터가 묻고, 시뮬레이션
 하고, 승인. 알림 문서가 이미 어댑터를 제공하는 모든 채널에 걸쳐. Push와
 pull은 같은 채널 credential과 같은 audit 계약을 공유하지만 서로 다른
 통합 surface 이다.

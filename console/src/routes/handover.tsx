@@ -95,9 +95,7 @@ export function HandoverRoute({ client }: Props) {
           if (isOptionalReadApiUnavailable(err)) {
             setState({
               status: "unavailable",
-              message:
-                "The stewardship endpoint is not wired on this deployment. " +
-                "Set ReadApiConfig.stewardship_map in the composition root to enable it.",
+              message: t("handover.unavailable"),
             });
           } else {
             setState({ status: "error", message });
@@ -115,9 +113,9 @@ export function HandoverRoute({ client }: Props) {
       <AgentWorkspaceNav />
       <PageHeader
         title={t("route.handover")}
-        subtitle="Who owns each of the 15 agents now that FDAI runs the control plane - stewards, maintainers, and handover coverage. Read-only."
+        subtitle={t("handover.subtitle")}
       />
-      <AsyncBoundary state={state} resourceLabel="handover">
+      <AsyncBoundary state={state} resourceLabel={t("route.handover")}>
         {(data) => <HandoverBody data={data} />}
       </AsyncBoundary>
     </div>
@@ -212,13 +210,10 @@ function HandoverBody({ data }: { readonly data: StewardshipResponse }) {
   usePublishViewContext(
     () => ({
       routeId: "handover",
-      routeLabel: "Handover",
-      purpose:
-        "Human <-> agent handover map. Which people are accountable for each of " +
-        "the 15 agents (escalation + review), plus the FDAI maintainers. " +
-        "Read-only; edits are governance draft PRs.",
+      routeLabel: t("route.handover"),
+      purpose: t("handover.subtitle"),
       glossary: composeGlossary([agentTerm(), TERMS.hil]),
-      headline: `${map.agents.length} agents - ${map.maintainer_count} maintainers`,
+      headline: `${map.agents.length} ${t("handover.agents")} - ${map.maintainer_count} ${t("handover.maintainers")}`,
       capturedAt: new Date().toISOString(),
       facts: [
         { key: "agent_count", value: map.agents.length, group: "handover" },
@@ -246,18 +241,18 @@ function HandoverBody({ data }: { readonly data: StewardshipResponse }) {
 
   const maintainerBanner =
     map.maintainer_count < 1
-      ? { level: "fail", text: "No maintainer configured - at least 1 is required." }
+      ? { level: "fail", text: t("handover.noMaintainer") }
       : map.maintainer_count === 1
-        ? { level: "warn", text: "Only 1 maintainer - 2 are recommended for succession safety." }
+        ? { level: "warn", text: t("handover.oneMaintainer") }
         : null;
 
   return (
     <div class="stack">
       <KpiGrid>
-        <KpiCard label="Agents" value={map.agents.length} />
-        <KpiCard label="Maintainers" value={map.maintainer_count} />
-        <KpiCard label="Autonomous" value={coverage.autonomous_agents} />
-        <KpiCard label="Coverage" value={coverage.is_clean ? "clean" : "review"} />
+        <KpiCard label={t("handover.agents")} value={map.agents.length} />
+        <KpiCard label={t("handover.maintainers")} value={map.maintainer_count} />
+        <KpiCard label={t("handover.autonomous")} value={coverage.autonomous_agents} />
+        <KpiCard label={t("handover.coverage")} value={t(coverage.is_clean ? "handover.clean" : "handover.review")} />
       </KpiGrid>
 
       {maintainerBanner ? (
@@ -267,22 +262,20 @@ function HandoverBody({ data }: { readonly data: StewardshipResponse }) {
       ) : null}
 
       <div class="callout">
-        <strong>Propose a change</strong> - editing the handover map is a governance draft
-        PR (Owner-gated). Edit <code>config/agent-stewardship.yaml</code> and open a PR; the
-        console never writes it directly. On merge, the affected agents' stewards and the
-        maintainer are notified and the change is recorded in the audit log.
+        <strong>{t("handover.proposeTitle")}</strong> - {t("handover.proposeLead")} {" "}
+        <code>config/agent-stewardship.yaml</code> {t("handover.proposeTail")}
       </div>
 
       <section class="stack">
-        <h3>Handover map</h3>
+        <h3>{t("handover.mapTitle")}</h3>
         <div class="data-table-wrap">
           <table class="cs-table">
           <thead>
             <tr>
-              <th>Agent</th>
-              <th>Stewards</th>
-              <th>Bus-factor</th>
-              <th>Mode</th>
+              <th>{t("handover.agent")}</th>
+              <th>{t("handover.owners")}</th>
+              <th>{t("handover.backupCoverage")}</th>
+              <th>{t("handover.mode")}</th>
             </tr>
           </thead>
           <tbody>
@@ -291,13 +284,13 @@ function HandoverBody({ data }: { readonly data: StewardshipResponse }) {
                 <td><a href={routeHref("agents", { params: { agent: a.name } })}>{a.name}</a></td>
                 <td>
                   {a.autonomous
-                    ? `autonomous (${a.accept_autonomous_reason ?? "no reason"})`
+                    ? `${t("handover.autonomous")} (${a.accept_autonomous_reason ?? t("handover.noReason")})`
                     : a.stewards
                         .map((s) => `${s.kind} / ${s.responsibility}`)
                         .join(", ") || "-"}
                 </td>
                 <td>{a.autonomous ? "-" : a.bus_factor}</td>
-                <td>{a.autonomous ? "autonomous" : "mapped"}</td>
+                <td>{t(a.autonomous ? "handover.autonomous" : "handover.mapped")}</td>
               </tr>
             ))}
           </tbody>
@@ -307,15 +300,15 @@ function HandoverBody({ data }: { readonly data: StewardshipResponse }) {
 
       {coverage.findings.length > 0 ? (
         <section class="stack">
-          <h3>Coverage findings</h3>
+          <h3>{t("handover.findingsTitle")}</h3>
           <div class="data-table-wrap">
             <table class="cs-table">
             <thead>
               <tr>
-                <th>Severity</th>
-                <th>Code</th>
-                <th>Agent</th>
-                <th>Message</th>
+                <th>{t("handover.severity")}</th>
+                <th>{t("handover.code")}</th>
+                <th>{t("handover.agent")}</th>
+                <th>{t("handover.message")}</th>
               </tr>
             </thead>
             <tbody>

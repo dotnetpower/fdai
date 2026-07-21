@@ -55,7 +55,7 @@ export function CommandDeckHeader({
             />
           </svg>
         </span>
-        <span>Command deck</span>
+        <span>{t("deck.label")}</span>
         <span class="deck-header-sep muted">·</span>
         <span class="deck-header-route">{routeLabel}</span>
         {sessionLabel && (
@@ -65,7 +65,7 @@ export function CommandDeckHeader({
             </Tooltip>
             <Tooltip content={t("deck.tooltip.backToGeneral")}>
               <button type="button" class="deck-session-exit" onClick={onOpenGeneral}>
-                General
+                {t("deck.general")}
               </button>
             </Tooltip>
           </>
@@ -127,7 +127,7 @@ export function CommandDeckHeader({
           </button>
         </Tooltip>
       </span>
-      <div class="deck-layout-controls" aria-label="Command deck layout">
+      <div class="deck-layout-controls" aria-label={t("deck.layout")}>
         <Tooltip content={t("deck.tooltip.floatingPanel")}>
           <button
             type="button"
@@ -162,7 +162,7 @@ export function CommandDeckHeader({
           </button>
         </Tooltip>
       </div>
-      <button type="button" class="deck-close" onClick={onClose} aria-label="Close">
+      <button type="button" class="deck-close" onClick={onClose} aria-label={t("deck.close")}>
         ×
       </button>
     </div>

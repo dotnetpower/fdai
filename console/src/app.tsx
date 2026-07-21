@@ -62,7 +62,7 @@ function PanelLoading({ title, subtitle }: { readonly title: string; readonly su
   return (
     <div class="stack panel-loading-shell" role="status" aria-live="polite">
       <PageHeader title={title} subtitle={subtitle} />
-      <span class="sr-only">Loading {title}...</span>
+      <span class="sr-only">{t("ui.loadingResource", { resource: title })}</span>
       <div class="panel-loading-summary" aria-hidden="true">
         <span />
         <span />
@@ -186,7 +186,7 @@ export function App() {
   if (state.status === "error") {
     return (
       <div class="empty error">
-        <p>Console failed to initialize.</p>
+        <p>{t("ui.consoleInitializationFailed")}</p>
         <p class="mono">{state.error}</p>
       </div>
     );
@@ -195,7 +195,7 @@ export function App() {
   if (state.status === "access-error") {
     const { auth, client, config } = state;
     if (!auth || !client || !config) {
-      return <div class="empty error">Internal state missing.</div>;
+      return <div class="empty error">{t("ui.internalStateMissing")}</div>;
     }
     return (
       <Suspense fallback={null}>
@@ -215,7 +215,7 @@ export function App() {
 
   const { auth, client } = state;
   if (!auth || !client) {
-    return <div class="empty error">Internal state missing.</div>;
+    return <div class="empty error">{t("ui.internalStateMissing")}</div>;
   }
 
   if (!auth.devMode && !auth.account) {

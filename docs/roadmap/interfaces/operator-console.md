@@ -14,6 +14,11 @@ Push-direction notifications (system → human) live in
 [channels-and-notifications.md](channels-and-notifications.md); the read-only
 console SPA lives under
 [project-structure.md § console/](../architecture/project-structure.md#console-static-web-app).
+The SPA resolves display locale from the operator's console preference and renders reusable
+English-source messages through the main catalog or a complete route-local English/Korean catalog
+pair. Machine values, identifiers, and provider payloads stay unchanged; presentation helpers map
+known values to localized labels. Static key coverage, catalog parity, route-local fallback tests,
+and the full console test suite prevent untranslated display text from returning.
 This doc covers the **pull direction** - the operator asks, simulates,
 approves - across every channel the notification doc already ships adapters
 for. Push and pull share the same channel credentials and the same audit

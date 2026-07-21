@@ -20,6 +20,7 @@
  */
 
 import { useEffect, useState } from "preact/hooks";
+import { t } from "../i18n";
 import type {
   BackendHealth,
   RetrievalSourcePreview,
@@ -68,7 +69,7 @@ function buildStages(
   const stages: Stage[] = [];
   if (snapshot) {
     stages.push({
-      label: "Read this screen",
+      label: t("deck.retrieval.readScreen"),
       detail: snapshot.routeLabel,
       side: "read",
       done: true,
@@ -76,22 +77,22 @@ function buildStages(
   }
   if (health?.router) {
     stages.push({
-      label: `Route - chose ${health.router.chose}`,
+      label: t("deck.retrieval.routeChose", { deployment: health.router.chose }),
       detail: health.router.reason,
       side: "route",
       done: true,
     });
   } else if (health?.model) {
-    stages.push({ label: "Route", detail: health.model, side: "route", done: true });
+    stages.push({ label: t("deck.retrieval.route"), detail: health.model, side: "route", done: true });
   }
   stages.push({
-    label: progress?.label ?? "Consult backend",
+    label: progress?.label ?? t("deck.retrieval.consultBackend"),
     detail:
       progress && progress.completed !== null && progress.total !== null
-        ? `${progress.completed}/${progress.total} checks`
+        ? t("deck.retrieval.checks", { completed: progress.completed, total: progress.total })
         : health
           ? health.mode
-          : "connecting",
+          : t("deck.retrieval.connecting"),
     side: progress?.phase === "generating" ? "route" : "read",
     done: false,
   });
@@ -149,15 +150,17 @@ export function RetrievalTrace({
   const visibleSources = sources.slice(0, shown);
 
   return (
-    <article class="deck-rt" aria-label="preparing answer">
+    <article class="deck-rt" aria-label={t("deck.retrieval.preparingAnswer")}>
       <span class="sr-only" role="status" aria-live="polite">
-        Preparing answer. {progress?.label ?? "Reading current screen sources"}.
+        {t("deck.retrieval.status", {
+          detail: progress?.label ?? t("deck.retrieval.readingCurrentScreenSources"),
+        })}
       </span>
       <header class="deck-rt-head">
         <span class="deck-rt-spin" aria-hidden="true" />
-        <span class="deck-rt-title">Preparing answer</span>
+        <span class="deck-rt-title">{t("deck.retrieval.preparingAnswer")}</span>
         <span class="deck-rt-sub muted">
-          {progress?.label ?? "grounding on read-only sources"}
+          {progress?.label ?? t("deck.retrieval.groundingReadOnlySources")}
         </span>
         <span class="deck-rt-elapsed muted" aria-hidden="true">
           {(elapsedMs / 1000).toFixed(1)}s
@@ -186,7 +189,7 @@ export function RetrievalTrace({
       {sourceCount > 0 ? (
         <div class="deck-rt-sources">
           <div class="deck-rt-sources-label muted">
-            <span>Reading sources</span>
+            <span>{t("deck.retrieval.readingSources")}</span>
             <span>{Math.min(shown, sourceCount)}/{sourceCount}</span>
           </div>
           <div class="deck-rt-slot">

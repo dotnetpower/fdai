@@ -27,6 +27,7 @@ import typescript from "highlight.js/lib/languages/typescript";
 import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
 import { useTransientFlag } from "../hooks/use-transient-flag";
+import { t } from "../i18n";
 import {
   parseAnswer,
   parseInline,
@@ -95,7 +96,7 @@ function InlineContent({ text }: { readonly text: string }) {
             href={run.href}
             target="_blank"
             rel="noreferrer noopener"
-            aria-label={`${run.s} (opens in a new tab)`}
+            aria-label={`${run.s} (${t("tooltip.opensNewTab")})`}
           >
             {run.s}
           </a>
@@ -207,10 +208,10 @@ function CodeBlock({
       <figcaption class="deck-code-head">
         <span class="deck-code-lang">{lang || "code"}</span>
         {pending ? (
-          <span class="deck-code-streaming">streaming</span>
+          <span class="deck-code-streaming">{t("deck.rich.streaming")}</span>
         ) : (
           <button type="button" class="deck-code-copy" onClick={copy}>
-            {copied ? "copied" : "copy"}
+            {copied ? t("deck.rich.copied") : t("deck.rich.copy")}
           </button>
         )}
       </figcaption>
@@ -270,7 +271,7 @@ function barColor(d: ChartDatum, i: number): string {
 
 function ChartPending() {
   return (
-    <figure class="deck-chart deck-chart-pending" aria-label="preparing chart">
+    <figure class="deck-chart deck-chart-pending" aria-label={t("deck.rich.preparingChart")}>
       <div class="deck-chart-bars">
         {[68, 42, 84].map((w, i) => (
           <div key={i} class="deck-chart-row">
@@ -281,7 +282,7 @@ function ChartPending() {
           </div>
         ))}
       </div>
-      <figcaption class="deck-chart-pending-cap">Preparing chart...</figcaption>
+      <figcaption class="deck-chart-pending-cap">{t("deck.rich.preparingChartEllipsis")}</figcaption>
     </figure>
   );
 }
@@ -353,7 +354,7 @@ function LineChart({ spec }: { readonly spec: ChartSpec }) {
   return (
     <figure class="deck-chart">
       {spec.title ? <figcaption class="deck-chart-title">{spec.title}</figcaption> : null}
-      <svg viewBox={`0 0 ${W} ${H}`} class="deck-line-svg" role="img" aria-label={spec.title ?? "line chart"}>
+      <svg viewBox={`0 0 ${W} ${H}`} class="deck-line-svg" role="img" aria-label={spec.title ?? t("deck.rich.lineChart")}>
         <polyline
           class="deck-line-path"
           points={pts}

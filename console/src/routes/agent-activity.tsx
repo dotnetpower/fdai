@@ -195,9 +195,9 @@ export function AgentActivityRoute({ client }: Props) {
       <AgentWorkspaceNav />
       <PageHeader
         title={t("route.agentActivity")}
-        subtitle="Per-agent runtime state and audit timeline - which agent did what, when, and how. Read-only projection with frame-owned source provenance."
+        subtitle={t("nav.panelSub.agentActivity")}
       />
-      <AsyncBoundary state={state} resourceLabel="agent activity">
+      <AsyncBoundary state={state} resourceLabel={t("route.agentActivity")}>
         {(data) => (
           <ActivityBody
             data={data}
@@ -355,12 +355,8 @@ function ActivityBody({
       const explanations = agentActivityExplanations(selected, selectedIncidents);
       return {
       routeId: "agent-activity",
-      routeLabel: "Agent activity",
-      purpose:
-        "Per-agent timeline reconstructed from the audit log - which pantheon " +
-        "agent did what, when, and why. Each correlation id groups one " +
-        "hand-off cascade: Huginn senses, Forseti judges, Thor opens a " +
-        "remediation PR, Var queues an approval, Saga records it. Read-only.",
+      routeLabel: t("route.agentActivity"),
+      purpose: t("nav.panelSub.agentActivity"),
       glossary: composeGlossary([
         TERMS.correlationId,
         TERMS.waterfall,
@@ -370,9 +366,7 @@ function ActivityBody({
         TERMS.outcome,
         agentTerm(),
       ]),
-      headline: `${data.items.length} audit row(s) across ${perAgent.length} agent(s)${
-        selected ? ` - filtered to ${selected}` : ""
-      }${data.olderAvailable ? " - older activity available" : ""}`,
+      headline: t("agentActivity.main.latestRows", { count: data.items.length }),
       capturedAt: new Date().toISOString(),
       facts: [
         { key: "rows", value: data.items.length, group: "page" },
@@ -442,13 +436,11 @@ function ActivityBody({
       />
       {provenanceCounts.sample > 0 ? (
         <div class="callout" role="status">
-          <strong>Local sample audit data</strong> - {provenanceCounts.sample} visible row(s)
-          are synthetic UI evidence. They remain available in Audit and Trace, but do not
-          represent live observation and do not create Incident roster entries.
+          <strong>{t("agentActivity.main.sampleTitle")}</strong> - {t("agentActivity.main.sampleBody", { count: provenanceCounts.sample })}
         </div>
       ) : null}
       {!selectionValid && selected ? (
-        <UnavailableState message={`Agent ${selected} is not in the fixed pantheon or the loaded audit activity.`} />
+        <UnavailableState message={t("agentActivity.main.unknownAgent", { agent: selected })} />
       ) : null}
       {presentation.showLiveSummary && selectedNode ? (
         <LiveAgentActivity
@@ -462,16 +454,16 @@ function ActivityBody({
       ) : null}
       <LiveActivityJournal events={liveActivity} selectedAgent={selected} />
       {data.olderAvailable ? (
-        <p class="muted footnote">Showing the latest {data.items.length} audit rows; older activity is available in the Audit log.</p>
+        <p class="muted footnote">{t("agentActivity.main.latestRows", { count: data.items.length })}</p>
       ) : null}
-      <div class="agent-filter" role="group" aria-label="Filter by agent">
+      <div class="agent-filter" role="group" aria-label={t("agentActivity.main.agentFilterLabel")}>
         <button
           type="button"
           class={`agent-chip ${selected === null ? "agent-chip-on" : ""}`}
           aria-pressed={selected === null}
           onClick={() => openActivity(null, view)}
         >
-          All
+          {t("agentActivity.filter.all")}
           <span class="agent-chip-count">{filtered.length}</span>
         </button>
         {perAgent.map(([agent, count]) => (
@@ -503,14 +495,14 @@ function ActivityBody({
         ) : null}
       </div>
 
-      <div class="view-toggle" role="group" aria-label="Activity view">
+      <div class="view-toggle" role="group" aria-label={t("agentActivity.main.viewLabel")}>
         <button
           type="button"
           class="view-toggle-btn"
           aria-pressed={view === "activity"}
           onClick={() => openActivity(selected, "activity")}
         >
-          Activity
+          {t("agents.workspace.activity")}
         </button>
         <button
           type="button"
@@ -518,22 +510,22 @@ function ActivityBody({
           aria-pressed={view === "waterfall"}
           onClick={() => openActivity(selected, "waterfall")}
         >
-          Waterfall
+          {t("agentActivity.main.waterfall")}
         </button>
       </div>
 
       {presentation.emptyKind !== null ? (
         <EmptyState
           title={presentation.emptyKind === "selected-audit" && selected
-            ? `No recorded audit activity for ${selected}`
+            ? t("agentActivity.main.noSelectedAudit", { agent: selected })
             : presentation.emptyKind === "all-audit"
-              ? "No durable agent audit activity yet"
-              : "No activity matches these filters"}
+              ? t("agentActivity.main.noAudit")
+              : t("agentActivity.main.noMatches")}
           body={presentation.emptyKind === "selected-audit"
             ? selectedAgentAuditEmptyBody(selectedNode, streamSource)
             : presentation.emptyKind === "all-audit"
-              ? "Live runtime state remains available for a selected agent. Audit events appear here only after the control loop records them."
-              : "Widen the window or clear the layer, verb, agent, and search filters."}
+              ? t("agentActivity.main.noAuditBody")
+              : t("agentActivity.main.noMatchesBody")}
         />
       ) : !selectionValid ? null : view === "activity" ? (
         <GroupedAgentActivity items={visible} agentOf={agentOf} layerOf={layerOf} />
@@ -561,50 +553,50 @@ function LiveAgentActivity({
   const role = AGENT_ROLE[node.name];
   const activeIncident = matchingLiveIncident(node.correlationId, incidents);
   return (
-    <section class="aa-selected-agent" aria-label={`${node.name} live activity`}>
+    <section class="aa-selected-agent" aria-label={t("agentActivity.main.liveActivityLabel", { agent: node.name })}>
       <header>
         <div>
-          <span>{node.observed ? "Live runtime evidence" : "Runtime not observed"}</span>
+          <span>{t(node.observed ? "agentActivity.main.liveEvidence" : "agentActivity.main.runtimeUnobserved")}</span>
           <h3>{node.name} <small>{role?.title ?? node.layer}</small></h3>
         </div>
         <span class={`aa-selected-state state-${agentStateClass(node)}`}>
           {agentStateLabel(node)}
         </span>
       </header>
-      <p><strong>Current work</strong><span>{currentTask(node)}</span></p>
+      <p><strong>{t("agents.card.currentWork")}</strong><span>{currentTask(node)}</span></p>
       <dl>
-        <div><dt>Runtime binding</dt><dd>{AGENT_RUNTIME_BINDING[node.name] ?? "Not configured"}</dd></div>
-        <div><dt>State since</dt><dd>{stateTime(node.since)}</dd></div>
-        <div><dt>Stream</dt><dd>{streamStatus} - {observationSourceLabel(streamSource)}</dd></div>
-        <div><dt>Active correlation</dt><dd>{node.correlationId ?? "None"}</dd></div>
-        <div><dt>Active incident</dt><dd>{activeIncident?.ticketId ?? "None"}</dd></div>
-        <div><dt>Live incidents</dt><dd>{incidents.length}</dd></div>
-        <div><dt>Operational audit</dt><dd>{operationalAuditCount}</dd></div>
-        <div><dt>Local samples</dt><dd>{sampleAuditCount}</dd></div>
+        <div><dt>{t("agents.card.runtimeBinding")}</dt><dd>{AGENT_RUNTIME_BINDING[node.name] ?? t("agents.common.notConfigured")}</dd></div>
+        <div><dt>{t("agents.card.stateSince")}</dt><dd>{stateTime(node.since)}</dd></div>
+        <div><dt>{t("agentActivity.main.stream")}</dt><dd>{streamStatus} - {observationSourceLabel(streamSource)}</dd></div>
+        <div><dt>{t("agentActivity.main.activeCorrelation")}</dt><dd>{node.correlationId ?? t("agents.common.none")}</dd></div>
+        <div><dt>{t("agents.card.activeIncident")}</dt><dd>{activeIncident?.ticketId ?? t("agents.common.none")}</dd></div>
+        <div><dt>{t("agentActivity.main.liveIncidents")}</dt><dd>{incidents.length}</dd></div>
+        <div><dt>{t("agentActivity.main.operationalAudit")}</dt><dd>{operationalAuditCount}</dd></div>
+        <div><dt>{t("agentActivity.main.localSamples")}</dt><dd>{sampleAuditCount}</dd></div>
       </dl>
-      <nav aria-label={`${node.name} evidence links`}>
+      <nav aria-label={t("agentActivity.main.evidenceLinks", { agent: node.name })}>
         <a href={routeHref("agents", { params: { view: "org", agent: node.name, correlation: node.correlationId } })}>
-          Open live detail
+          {t("agentActivity.main.openDetail")}
         </a>
         {node.correlationId ? (
           <>
             {activeIncident ? (
-              <a href={routeHref("incidents", { params: { status: "all", correlation: node.correlationId } })}>Incident</a>
+              <a href={routeHref("incidents", { params: { status: "all", correlation: node.correlationId } })}>{t("route.incidents")}</a>
             ) : null}
-            <a href={routeHref("trace", { params: { correlation: node.correlationId } })}>Trace</a>
+            <a href={routeHref("trace", { params: { correlation: node.correlationId } })}>{t("route.ruleTrace")}</a>
           </>
         ) : null}
       </nav>
       {incidents.length > 0 ? (
         <div class="aa-selected-incidents">
-          <strong>Recent live incidents</strong>
+          <strong>{t("agentActivity.main.recentIncidents")}</strong>
           <ul>
             {incidents.slice(0, 5).map((incident) => (
               <li key={incident.correlationId}>
                 <a href={routeHref("agents", {
                   params: { view: "org", agent: node.name, correlation: incident.correlationId },
                 })}>
-                  <span>{incident.ticketId || "Incident"}</span>
+                  <span>{incident.ticketId || t("route.incidents")}</span>
                   <span>{incident.title}</span>
                   <small>{incident.status}</small>
                 </a>
@@ -622,15 +614,19 @@ export function selectedAgentAuditEmptyBody(
   streamSource: ObservationSource,
 ): string {
   if (node === undefined) {
-    return "No live runtime node or attributed audit row is available for this selection.";
+    return t("agentActivity.main.noSelectionEvidence");
   }
   const liveState = node.observed
-    ? `${node.name} is ${agentStateLabel(node)} from ${observationSourceLabel(streamSource)} live runtime evidence.`
-    : `No runtime state frame has been observed for ${node.name}.`;
+    ? t("agentActivity.main.liveState", {
+        agent: node.name,
+        state: agentStateLabel(node),
+        source: observationSourceLabel(streamSource),
+      })
+    : t("agentActivity.main.noRuntimeFrame", { agent: node.name });
   const correlation = node.correlationId === null
-    ? "There is no active correlation or incident."
-    : `Correlation ${node.correlationId} has no attributed audit row in the current window.`;
-  return `${liveState} ${correlation} No durable audit row has been attributed to this agent in the current window.`;
+    ? t("agentActivity.main.noActiveCorrelation")
+    : t("agentActivity.main.noCorrelationAudit", { correlation: node.correlationId });
+  return `${liveState} ${correlation} ${t("agentActivity.main.noDurableAudit")}`;
 }
 
 export function matchingLiveIncident(

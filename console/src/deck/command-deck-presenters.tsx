@@ -54,7 +54,7 @@ function routerTooltip(router: RouterSnapshot | undefined): string | undefined {
     const marker = candidate.deployment === router.chose ? "* " : "  ";
     return `${marker}${candidate.deployment} · p50 ${p50} · p95 ${p95} · n=${candidate.samples}`;
   });
-  return `auto-router (${router.reason}) chose ${router.chose}\n${lines.join("\n")}`;
+  return `${t("deck.backend.routerChoice", { reason: router.reason, deployment: router.chose })}\n${lines.join("\n")}`;
 }
 
 export function DeckLayoutIcon({ mode }: { readonly mode: DeckLayoutMode }) {
@@ -270,7 +270,7 @@ export function TurnBubble({
         </div>
       )}
       {turn.followUps && turn.followUps.length > 0 ? (
-        <ul class="deck-followups" aria-label="suggested follow-ups">
+        <ul class="deck-followups" aria-label={t("deck.suggestedFollowUps")}>
           {turn.followUps.map((followUp) => (
             <li key={followUp}>
               <button
@@ -303,7 +303,7 @@ export function BackendBadge({
       <Tooltip content={t("deck.tooltip.backendProbing")}>
         <span class={`deck-backend deck-backend-${placement} deck-backend-probing`}>
           <span class="deck-backend-dot" />
-          <span class="deck-backend-label">probing</span>
+          <span class="deck-backend-label">{t("deck.backend.probing")}</span>
         </span>
       </Tooltip>
     );
@@ -314,8 +314,8 @@ export function BackendBadge({
       ? `LLM · auto(${routed.candidates.length}) · ${routed.chose}`
       : health.model
         ? `LLM · ${health.model}`
-        : "LLM ready";
-    const base = `chat mode ${health.mode}${
+        : t("deck.backend.llmReady");
+    const base = `${t("deck.backend.chatMode", { mode: health.mode })}${
       health.endpoint ? ` · ${health.endpoint}` : ""
     }`;
     const tooltip = routed ? `${base}\n${routerTooltip(routed) ?? ""}` : base;
@@ -332,7 +332,7 @@ export function BackendBadge({
     <Tooltip content={t("deck.tooltip.backendFallback", { mode: health.mode })}>
       <span class={`deck-backend deck-backend-${placement} deck-backend-fallback`}>
         <span class="deck-backend-dot" />
-        <span class="deck-backend-label">deterministic</span>
+        <span class="deck-backend-label">{t("deck.backend.deterministic")}</span>
       </span>
     </Tooltip>
   );
@@ -348,11 +348,7 @@ export function IntroPanel({
   const suggestions = introSuggestions(snapshot);
   return (
     <div class="deck-intro">
-      <p class="deck-intro-lead">
-        Ask about anything currently visible - tiles, KPIs, approvals, audit rows,
-        promotion status, blast radius, or ontology. I ground every answer in the
-        snapshot on the right.
-      </p>
+      <p class="deck-intro-lead">{t("deck.intro")}</p>
       <ul class="deck-intro-suggest">
         {suggestions.map((suggestion) => (
           <li key={suggestion}>

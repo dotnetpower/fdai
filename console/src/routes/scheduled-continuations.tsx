@@ -11,7 +11,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
-import { t } from "../i18n";
+import { t } from "./i18n/evidence";
 import {
   decodeUserContext,
   fetchUserContext,
@@ -41,7 +41,7 @@ export function ScheduledContinuationsRoute({ client: _client }: { readonly clie
       });
     return () => { cancelled = true; };
   }, []);
-  return <div class="stack"><PageHeader title={t("route.scheduledContinuations")} subtitle={t("nav.panelSub.scheduledContinuations")} /><AsyncBoundary state={state} resourceLabel="scheduled continuations">{(data) => <ContinuationBody data={data} />}</AsyncBoundary></div>;
+  return <div class="stack"><PageHeader title={t("route.scheduledContinuations")} subtitle={t("nav.panelSub.scheduledContinuations")} /><AsyncBoundary state={state} resourceLabel={t("evidence.continuations.resource")}>{(data) => <ContinuationBody data={data} />}</AsyncBoundary></div>;
 }
 
 export function decodeScheduledContinuations(value: unknown): ContinuationResponse {
@@ -49,24 +49,26 @@ export function decodeScheduledContinuations(value: unknown): ContinuationRespon
 }
 
 const columns: readonly Column<ScheduledContinuationPayload>[] = [
-  { key: "result", header: "Scheduled result", render: (item) => <div><strong>{item.result_summary.split("\n", 1)[0]}</strong><small>{item.run_id}</small></div> },
-  { key: "state", header: "State", render: (item) => <StatusPill kind={item.state === "active" ? "success" : "neutral"} label={item.state} /> },
-  { key: "scope", header: "Scope", render: (item) => <code>{item.scope_ref}</code> },
-  { key: "window", header: "Observation window", render: (item) => `${item.observation_started_at} - ${item.observation_ended_at}` },
-  { key: "origin", header: "Conversation origin", render: (item) => `${item.origin.channel_kind}:${item.origin.conversation_ref}${item.origin.thread_ref ? `:${item.origin.thread_ref}` : ""}` },
-  { key: "evidence", header: "Evidence", render: (item) => item.evidence_refs.length },
-  { key: "digest", header: "Result digest", render: (item) => <code>{item.result_digest.slice(0, 12)}</code> },
-  { key: "expiry", header: "Expires", render: (item) => item.expires_at },
+  { key: "result", header: t("evidence.continuations.column.result"), render: (item) => <div><strong>{item.result_summary.split("\n", 1)[0]}</strong><small>{item.run_id}</small></div> },
+  { key: "state", header: t("evidence.continuations.column.state"), render: (item) => <StatusPill kind={item.state === "active" ? "success" : "neutral"} label={item.state} /> },
+  { key: "scope", header: t("evidence.continuations.column.scope"), render: (item) => <code>{item.scope_ref}</code> },
+  { key: "window", header: t("evidence.continuations.column.window"), render: (item) => `${item.observation_started_at} - ${item.observation_ended_at}` },
+  { key: "origin", header: t("evidence.continuations.column.origin"), render: (item) => `${item.origin.channel_kind}:${item.origin.conversation_ref}${item.origin.thread_ref ? `:${item.origin.thread_ref}` : ""}` },
+  { key: "evidence", header: t("evidence.continuations.column.evidence"), render: (item) => item.evidence_refs.length },
+  { key: "digest", header: t("evidence.continuations.column.digest"), render: (item) => <code>{item.result_digest.slice(0, 12)}</code> },
+  { key: "expiry", header: t("evidence.continuations.column.expiry"), render: (item) => item.expires_at },
 ];
 
 function ContinuationBody({ data }: { readonly data: ContinuationResponse }) {
   usePublishViewContext(
     () => ({
       routeId: "scheduled-continuations",
-      routeLabel: "Scheduled continuations",
-      purpose: "Read-only anchors linking exact scheduled runs and evidence to authorized conversations.",
-      glossary: composeGlossary([], [{ term: "scheduled continuation", plain: "a scoped conversation anchor for one exact scheduled result", tech: "ScheduledConversationAnchor" }]),
-      headline: `${data.continuations.filter((item) => item.state === "active").length} active anchors`,
+      routeLabel: t("route.scheduledContinuations"),
+      purpose: t("evidence.continuations.viewPurpose"),
+      glossary: composeGlossary([], [{ term: t("evidence.continuations.glossaryTerm"), plain: t("evidence.continuations.glossaryPlain"), tech: "ScheduledConversationAnchor" }]),
+      headline: t("evidence.continuations.headline", {
+        count: data.continuations.filter((item) => item.state === "active").length,
+      }),
       capturedAt: new Date().toISOString(),
       facts: [
         { key: "anchor_count", value: data.continuations.length, group: "continuity" },
@@ -76,5 +78,5 @@ function ContinuationBody({ data }: { readonly data: ContinuationResponse }) {
     }),
     [data],
   );
-  return <div class="stack"><div class="governance-readonly-banner"><strong>Conversation anchors only.</strong><span>Opening or expiring an anchor requires an authenticated operator command.</span></div><DataTable rows={data.continuations} columns={columns} keyOf={(item) => item.anchor_id} empty={<EmptyState title="No continuable scheduled results" />} /></div>;
+  return <div class="stack"><div class="governance-readonly-banner"><strong>{t("evidence.continuations.bannerTitle")}</strong><span>{t("evidence.continuations.bannerBody")}</span></div><DataTable rows={data.continuations} columns={columns} keyOf={(item) => item.anchor_id} empty={<EmptyState title={t("evidence.continuations.empty")} />} /></div>;
 }

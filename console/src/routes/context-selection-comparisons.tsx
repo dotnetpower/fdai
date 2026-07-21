@@ -11,7 +11,7 @@ import {
   type AsyncState,
   type Column,
 } from "../components/ui";
-import { t } from "../i18n";
+import { t } from "./i18n/evidence";
 import {
   panelArray,
   panelBoolean,
@@ -57,7 +57,7 @@ export function ContextSelectionComparisonsRoute({ client }: { readonly client: 
       } catch (error) {
         if (cancelled) return;
         if (isOptionalReadApiUnavailable(error)) {
-          setState({ status: "unavailable", message: "Context policy evidence is not wired." });
+          setState({ status: "unavailable", message: t("evidence.contextSelection.unavailable") });
         } else {
           setState({ status: "error", message: error instanceof Error ? error.message : String(error) });
         }
@@ -70,9 +70,9 @@ export function ContextSelectionComparisonsRoute({ client }: { readonly client: 
     <div class="stack governance-route">
       <PageHeader
         title={t("route.contextSelectionComparisons")}
-        subtitle="Read-only baseline and shadow evidence. Promotion and rollback remain governed server-side."
+        subtitle={t("evidence.contextSelection.subtitle")}
       />
-      <AsyncBoundary state={state} resourceLabel="context policy comparisons">
+      <AsyncBoundary state={state} resourceLabel={t("evidence.contextSelection.resource")}>
         {(data) => <ComparisonBody data={data} />}
       </AsyncBoundary>
     </div>
@@ -139,25 +139,25 @@ function nullableString(value: unknown, label: string): string | null {
 
 function ComparisonBody({ data }: { readonly data: ComparisonResponse }) {
   const columns: readonly Column<ComparisonRow>[] = [
-    { key: "candidate", header: "Candidate", render: (row) => row.candidate_policy_ref, cellClass: "mono" },
-    { key: "tokens", header: "Tokens", render: (row) => `${row.baseline_tokens} / ${row.candidate_tokens ?? "-"}` },
-    { key: "overlap", header: "Overlap", render: (row) => row.evidence_overlap === null ? "-" : `${(row.evidence_overlap * 100).toFixed(1)}%` },
-    { key: "omissions", header: "Omissions", render: (row) => row.omissions.length ? row.omissions.join(", ") : "-" },
-    { key: "pinned", header: "Pinned", render: (row) => <StatusPill kind={row.pinned_preserved ? "success" : "danger"} label={row.pinned_preserved ? "preserved" : "missing"} /> },
-    { key: "latency", header: "Latency", render: (row) => `${row.latency_ms.toFixed(1)} ms`, cellClass: "num" },
-    { key: "failure", header: "Invariant result", render: (row) => row.failure_reason ? <StatusPill kind="danger" label={row.failure_reason} /> : <StatusPill kind="success" label="passed" /> },
+    { key: "candidate", header: t("evidence.contextSelection.column.candidate"), render: (row) => row.candidate_policy_ref, cellClass: "mono" },
+    { key: "tokens", header: t("evidence.contextSelection.column.tokens"), render: (row) => `${row.baseline_tokens} / ${row.candidate_tokens ?? "-"}` },
+    { key: "overlap", header: t("evidence.contextSelection.column.overlap"), render: (row) => row.evidence_overlap === null ? "-" : `${(row.evidence_overlap * 100).toFixed(1)}%` },
+    { key: "omissions", header: t("evidence.contextSelection.column.omissions"), render: (row) => row.omissions.length ? row.omissions.join(", ") : "-" },
+    { key: "pinned", header: t("evidence.contextSelection.column.pinned"), render: (row) => <StatusPill kind={row.pinned_preserved ? "success" : "danger"} label={t(row.pinned_preserved ? "evidence.status.preserved" : "evidence.status.missing")} /> },
+    { key: "latency", header: t("evidence.contextSelection.column.latency"), render: (row) => `${row.latency_ms.toFixed(1)} ms`, cellClass: "num" },
+    { key: "failure", header: t("evidence.contextSelection.column.invariantResult"), render: (row) => row.failure_reason ? <StatusPill kind="danger" label={row.failure_reason} /> : <StatusPill kind="success" label={t("evidence.status.passed")} /> },
   ];
   return (
     <div class="stack">
       <div class="governance-readonly-banner">
-        <strong>Comparison only.</strong>
-        <span>This view has no install, promotion, demotion, rollback, or kill-switch controls.</span>
+        <strong>{t("evidence.contextSelection.bannerTitle")}</strong>
+        <span>{t("evidence.contextSelection.bannerBody")}</span>
       </div>
       <KpiGrid>
-        <KpiCard label="Comparisons" value={data.count} />
-        <KpiCard label="Invariant failures" value={data.invariant_failures} tone={data.invariant_failures ? "warning" : "positive"} />
+        <KpiCard label={t("evidence.contextSelection.comparisons")} value={data.count} />
+        <KpiCard label={t("evidence.contextSelection.invariantFailures")} value={data.invariant_failures} tone={data.invariant_failures ? "warning" : "positive"} />
       </KpiGrid>
-      <DataTable columns={columns} rows={data.comparisons} keyOf={(row) => row.evaluation_id} empty="No shadow comparisons recorded." />
+      <DataTable columns={columns} rows={data.comparisons} keyOf={(row) => row.evaluation_id} empty={t("evidence.contextSelection.empty")} />
     </div>
   );
 }

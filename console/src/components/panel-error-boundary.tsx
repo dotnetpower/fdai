@@ -1,4 +1,5 @@
 import { Component, type ComponentChildren } from "preact";
+import { t } from "../i18n";
 
 interface Props {
   readonly children: ComponentChildren;
@@ -21,10 +22,10 @@ export class PanelErrorBoundary extends Component<Props, State> {
         <div class="state-block state-error" role="alert">
           <span class="state-icon" aria-hidden="true">!</span>
           <div>
-            <strong>Panel failed to load.</strong>
+            <strong>{t("ui.panelFailedToLoad")}</strong>
             <p class="muted small">{this.state.error.message}</p>
             <button type="button" class="btn" onClick={() => window.location.reload()}>
-              Reload console
+              {t("ui.reloadConsole")}
             </button>
           </div>
         </div>

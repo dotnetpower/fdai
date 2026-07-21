@@ -24,9 +24,9 @@ export function SettingsIntegrationsRoute({ auth }: Props) {
     () => ({
       routeId: "settings-integrations",
       routeLabel: t("route.settingsIntegrations"),
-      purpose: "Read-only connection status for identity, delivery, and operator integrations.",
+      purpose: t("settings.integrationsPurpose"),
       glossary: composeGlossary([TERMS.humanRbac]),
-      headline: `Authentication mode: ${authMode}`,
+      headline: t("settings.authenticationHeadline", { mode: authMode }),
       capturedAt: new Date().toISOString(),
       facts: [
         { key: "authentication_mode", value: authMode, group: "identity" },
@@ -63,7 +63,7 @@ export function SettingsIntegrationsRoute({ auth }: Props) {
             <StatusPill kind="neutral" label={t("settings.statusNotProbed")} />
           </SettingRow>
         </div>
-        <nav class="settings-integration-links" aria-label="Integration evidence">
+        <nav class="settings-integration-links" aria-label={t("settings.integrationEvidence")}>
           <a href={routeHref("settings-diagnostics")}>{t("route.settingsDiagnostics")}</a>
           <a href={routeHref("onboarding")}>{t("route.onboarding")}</a>
         </nav>
@@ -96,7 +96,7 @@ export function SettingsDiagnosticsRoute({ client, auth }: Props) {
       setHealth("unavailable");
       errors.push(liveness.status === "rejected"
         ? liveness.reason instanceof Error ? liveness.reason.message : String(liveness.reason)
-        : "Liveness response was invalid");
+        : t("settings.invalidLivenessResponse"));
     }
     if (kpiRead.status === "fulfilled") {
       setReadPath("available");
@@ -118,9 +118,13 @@ export function SettingsDiagnosticsRoute({ client, auth }: Props) {
     () => ({
       routeId: "settings-diagnostics",
       routeLabel: t("route.settingsDiagnostics"),
-      purpose: "Read-only runtime and authentication diagnostics for this console session.",
+      purpose: t("settings.diagnosticsPurpose"),
       glossary: composeGlossary([TERMS.humanRbac]),
-      headline: `Read API liveness: ${health}; KPI read path: ${readPath}; authentication mode: ${authMode}`,
+      headline: t("settings.diagnosticsHeadline", {
+        health,
+        readPath,
+        mode: authMode,
+      }),
       capturedAt: new Date().toISOString(),
       facts: [
         { key: "read_api_liveness", value: health, group: "runtime" },

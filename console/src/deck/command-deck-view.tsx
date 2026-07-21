@@ -146,7 +146,7 @@ export function CommandDeckView({
             type="button"
             class="deck-dock-resize-handle"
             role="separator"
-            aria-label="Resize right sidebar"
+            aria-label={t("deck.resizeRightSidebar")}
             aria-orientation="vertical"
             aria-valuemin={340}
             aria-valuemax={clampDockWidth(720, typeof window === "undefined" ? 1440 : window.innerWidth)}
@@ -191,7 +191,7 @@ export function CommandDeckView({
             <section
               class="deck-transcript"
               ref={scrollerRef}
-              aria-label="conversation"
+              aria-label={t("deck.conversation")}
               role="log"
               aria-live="polite"
               aria-relevant="additions"
@@ -228,16 +228,16 @@ export function CommandDeckView({
                   type="button"
                   class="deck-jump"
                   onClick={onJumpToLatest}
-                  aria-label="Jump to latest message"
+                  aria-label={t("deck.jumpToLatest")}
                 >
-                  Jump to latest ↓
+                  {t("deck.jumpToLatest")} ↓
                 </button>
               ) : null}
             </section>
 
-            <aside class="deck-digest" aria-label="what the deck sees">
+            <aside class="deck-digest" aria-label={t("deck.whatDeckSees")}>
               <div class="deck-digest-header">
-                <span class="deck-digest-title">What I see</span>
+                <span class="deck-digest-title">{t("deck.whatISee")}</span>
                 <span class="deck-digest-meta muted">
                   {snapshot ? new Date(snapshot.capturedAt).toLocaleTimeString() : "-"}
                 </span>
@@ -255,7 +255,7 @@ export function CommandDeckView({
             }}
           >
             {slashSuggestions.length > 0 ? (
-              <ul class="deck-slash-palette" aria-label="slash commands">
+              <ul class="deck-slash-palette" aria-label={t("deck.slashCommands")}>
                 {slashSuggestions.map((command, index) => (
                   <li key={command.name}>
                     <button
@@ -277,7 +277,7 @@ export function CommandDeckView({
             <textarea
               ref={inputRef}
               class="deck-input"
-              placeholder="Ask anything, or type / for commands"
+              placeholder={t("deck.inputPlaceholder")}
               value={draft}
               rows={1}
               onInput={(event) => onDraftInput((event.target as HTMLTextAreaElement).value)}
@@ -290,7 +290,7 @@ export function CommandDeckView({
                   class="deck-btn deck-btn-stop"
                   onClick={onStopStream}
                 >
-                  Stop
+                  {t("deck.stop")}
                 </button>
               ) : (
                 <button
@@ -298,7 +298,7 @@ export function CommandDeckView({
                   class="deck-btn deck-btn-primary"
                   disabled={draft.trim().length === 0}
                 >
-                  Send
+                  {t("deck.send")}
                 </button>
               )}
             </div>

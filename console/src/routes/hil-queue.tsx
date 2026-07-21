@@ -11,9 +11,9 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
-import { t } from "../i18n";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
+import { t } from "./i18n/governance";
 
 interface Props {
   readonly client: ReadApiClient;
@@ -75,7 +75,7 @@ export function HilQueueRoute({ client }: Props) {
         title={t("route.hilQueue")}
         subtitle={<>{t("approvals.subtitle")}</>}
         actions={
-          <StatusPill kind="neutral" label="read-only" />
+          <StatusPill kind="neutral" label={t("approvals.readOnly")} />
         }
       />
       <AsyncBoundary state={state} resourceLabel={t("approvals.resource")}>
@@ -116,12 +116,8 @@ function HilBody({
   usePublishViewContext(
     () => ({
       routeId: "hil-queue",
-      routeLabel: "Approvals",
-      purpose:
-        "High-risk actions the risk gate parked for a human approver instead of " +
-        "auto-executing. Read-only: approvals happen in Teams/ChatOps cards, " +
-        "never a console button, and never self-approval. Each item shows the " +
-        "recorded reason it needs a human.",
+      routeLabel: t("route.hilQueue"),
+      purpose: t("approvals.subtitle"),
       glossary: composeGlossary([
         TERMS.hil,
         TERMS.actionKind,
@@ -171,7 +167,7 @@ function HilBody({
 
   if (detailLevel === "count_only") {
     return (
-      <section class="approvals-count-only" aria-label="Pending approval count">
+      <section class="approvals-count-only" aria-label={t("approvals.pendingCount", { count: total })}>
         <StatusPill kind="hil" label={t("approvals.pendingCount", { count: total })} />
         <div>
           <h3>{t("approvals.detailsRoleTitle")}</h3>
@@ -189,12 +185,12 @@ function HilBody({
 
   return (
     <div class="stack approvals-view">
-      <section class="approvals-mechanics" aria-label="Approval mechanics">
+      <section class="approvals-mechanics" aria-label={t("approvals.mechanicsTitle")}>
         <strong>{t("approvals.mechanicsTitle")}</strong>
         <span>{t("approvals.mechanicsBody")}</span>
       </section>
       <div class="approvals-toolbar">
-        <div class="approvals-summary" aria-label="Approval queue summary">
+        <div class="approvals-summary" aria-label={t("approvals.resource")}>
           <StatusPill kind="hil" label={t("approvals.pendingCount", { count: total })} />
           <StatusPill kind="neutral" label={t("approvals.shownCount", { count: visibleItems.length })} />
           {expiredCount > 0 ? (

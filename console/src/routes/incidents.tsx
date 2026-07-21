@@ -19,9 +19,9 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { t } from "../i18n";
 import { currentRoute, navigate, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
+import { t } from "./i18n/evidence";
 
 const INCIDENT_DETAIL_ID = "incident-detail";
 
@@ -239,7 +239,7 @@ export function IncidentsRoute({ client }: Props) {
     <div class="stack">
       <PageHeader title={t("route.incidents")} subtitle={t("incidents.subtitle")} />
       {verticalFilter ? (
-        <div class="filter-summary"><span>vertical: <strong>{verticalFilter}</strong></span></div>
+        <div class="filter-summary"><span>{t("evidence.incidents.verticalFilter")}: <strong>{verticalFilter}</strong></span></div>
       ) : null}
       <div class="segmented-control" role="group" aria-label={t("incidents.filterLabel")}>
         {FILTERS.map((value) => (
@@ -391,10 +391,10 @@ function IncidentBody({
           <div class="state-block state-unavailable" role={data.nextCursor ? "status" : "alert"}>
             <span class="state-icon" aria-hidden="true">?</span>
             <span>
-              Incident <code>{selectedId}</code> is not in the loaded results.
+              {t("evidence.incidents.notLoaded", { id: selectedId })}
               {data.nextCursor
-                ? " Load more to continue the search."
-                : " It is unavailable in this filtered incident result."}
+                ? ` ${t("evidence.incidents.continueSearch")}`
+                : ` ${t("evidence.incidents.filteredUnavailable")}`}
             </span>
           </div>
         ) : <p class="muted">{t("incidents.select")}</p>
@@ -433,7 +433,7 @@ function IncidentDetail({
             : t("incidents.none")}
         />
       </KpiGrid>
-      <nav class="incident-evidence-links" aria-label="Incident evidence">
+      <nav class="incident-evidence-links" aria-label={t("evidence.incidents.evidence")}>
         <a href={routeHref("reports", {
           segments: ["incident-rca-dossier"],
           params: { correlation_id: incident.correlation_id },

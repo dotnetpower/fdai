@@ -3,8 +3,8 @@ import type { ReadApiClient } from "../api";
 import { AsyncBoundary, CopyButton, DataTable, KpiCard, KpiGrid, PageHeader, StatusPill, UnavailableState, type AsyncState, type Column } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { t } from "../i18n";
 import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
+import { t } from "./i18n/governance";
 import {
   panelArray,
   panelBoolean,
@@ -42,7 +42,7 @@ export function CapabilitiesRoute({ client }: { readonly client: ReadApiClient }
       .catch((error: unknown) => { if (!cancelled) setState({ status: "error", message: error instanceof Error ? error.message : String(error) }); });
     return () => { cancelled = true; };
   }, [client]);
-  return <div class="stack"><PageHeader title={t("route.capabilities")} subtitle={t("nav.panelSub.capabilities")} /><AsyncBoundary state={state} resourceLabel="capabilities">{(data) => <CapabilitiesBody data={data} />}</AsyncBoundary></div>;
+  return <div class="stack"><PageHeader title={t("route.capabilities")} subtitle={t("nav.panelSub.capabilities")} /><AsyncBoundary state={state} resourceLabel={t("governance.capabilities.resourceLabel")}>{(data) => <CapabilitiesBody data={data} />}</AsyncBoundary></div>;
 }
 
 export function decodeCapabilities(value: unknown): CapabilityResponse {
@@ -92,13 +92,13 @@ export function capabilityRouteStateFromSearch(search: URLSearchParams): Capabil
 }
 
 const columns: readonly Column<Capability>[] = [
-  { key: "id", header: "Capability id", render: (row) => <code>{row.capability_id}</code> },
-  { key: "name", header: "Name", render: (row) => row.name },
-  { key: "category", header: "Category", render: (row) => row.category },
-  { key: "effect", header: "Side-effect class", render: (row) => <StatusPill kind={row.side_effect_class === "read" ? "info" : "warning"} label={row.side_effect_class} /> },
-  { key: "mode", header: "Default mode", render: (row) => <StatusPill kind={row.default_mode === "shadow" ? "shadow" : "enforce"} label={row.default_mode} /> },
-  { key: "role", header: "Required role", render: (row) => row.required_role },
-  { key: "summary", header: "Summary", render: (row) => row.summary },
+  { key: "id", header: t("governance.capabilities.column.id"), render: (row) => <code>{row.capability_id}</code> },
+  { key: "name", header: t("governance.capabilities.column.name"), render: (row) => row.name },
+  { key: "category", header: t("governance.capabilities.column.category"), render: (row) => row.category },
+  { key: "effect", header: t("governance.capabilities.column.sideEffectClass"), render: (row) => <StatusPill kind={row.side_effect_class === "read" ? "info" : "warning"} label={row.side_effect_class} /> },
+  { key: "mode", header: t("governance.capabilities.column.defaultMode"), render: (row) => <StatusPill kind={row.default_mode === "shadow" ? "shadow" : "enforce"} label={row.default_mode} /> },
+  { key: "role", header: t("governance.capabilities.column.requiredRole"), render: (row) => row.required_role },
+  { key: "summary", header: t("governance.capabilities.column.summary"), render: (row) => row.summary },
 ];
 
 export function isMutatingCapability(sideEffectClass: string): boolean {
@@ -187,10 +187,14 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
   usePublishViewContext(
     () => ({
       routeId: "capabilities",
-      routeLabel: "Capabilities",
-      purpose: "Directory of declared operator capability contracts, required roles, side-effect classes, and default safety modes. Catalog presence does not grant execution eligibility.",
+      routeLabel: t("governance.capabilities.context.routeLabel"),
+      purpose: t("governance.capabilities.context.purpose"),
       glossary: composeGlossary([TERMS.actionType, TERMS.shadowMode, TERMS.humanRbac]),
-      headline: `${data.count} declarations across ${categories} categories; ${mutatingDeclarations} declare a mutating side-effect class`,
+      headline: t("governance.capabilities.context.headline", {
+        count: data.count,
+        categories,
+        mutating: mutatingDeclarations,
+      }),
       capturedAt: new Date().toISOString(),
       facts: [
         { key: "capability_count", value: data.count, group: "directory" },
@@ -209,54 +213,51 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
   return (
     <div class="stack capabilities-directory">
       <div class="governance-readonly-banner">
-        <strong>Catalog declarations only.</strong>
-        <span>
-          Source: {data.source}. Entries describe governed contracts; they do not prove provider
-          binding, runtime health, or execution eligibility.
-        </span>
+        <strong>{t("governance.capabilities.banner.title")}</strong>
+        <span>{t("governance.capabilities.banner.body", { source: data.source })}</span>
       </div>
       <KpiGrid>
-        <KpiCard label="Declarations" value={data.count.toLocaleString()} />
-        <KpiCard label="Categories" value={categories.toLocaleString()} />
-        <KpiCard label="Mutating declarations" value={mutatingDeclarations.toLocaleString()} />
-        <KpiCard label="Shown" value={visible.length.toLocaleString()} />
+        <KpiCard label={t("governance.capabilities.kpi.declarations")} value={data.count.toLocaleString()} />
+        <KpiCard label={t("governance.capabilities.kpi.categories")} value={categories.toLocaleString()} />
+        <KpiCard label={t("governance.capabilities.kpi.mutating")} value={mutatingDeclarations.toLocaleString()} />
+        <KpiCard label={t("governance.capabilities.kpi.shown")} value={visible.length.toLocaleString()} />
       </KpiGrid>
-      <section class="capabilities-filterbar" aria-label="Capability filters">
-        <input id="capability-search" type="search" aria-label="Filter capabilities" value={query} placeholder="Filter capability id, name, tag, or summary" onInput={(event) => updateRoute({ query: event.currentTarget.value, selectedId: null })} />
-        <CapabilitySelect label="Category" value={category} options={optionValues("category")} onChange={(value) => updateRoute({ category: value, selectedId: null })} />
-        <CapabilitySelect label="Side effect" value={effect} options={optionValues("side_effect_class")} onChange={(value) => updateRoute({ effect: value, selectedId: null })} />
-        <CapabilitySelect label="Role" value={role} options={optionValues("required_role")} onChange={(value) => updateRoute({ role: value, selectedId: null })} />
+      <section class="capabilities-filterbar" aria-label={t("governance.capabilities.filter.aria")}>
+        <input id="capability-search" type="search" aria-label={t("governance.capabilities.filter.searchAria")} value={query} placeholder={t("governance.capabilities.filter.searchPlaceholder")} onInput={(event) => updateRoute({ query: event.currentTarget.value, selectedId: null })} />
+        <CapabilitySelect label={t("governance.capabilities.filter.category")} value={category} options={optionValues("category")} onChange={(value) => updateRoute({ category: value, selectedId: null })} />
+        <CapabilitySelect label={t("governance.capabilities.filter.sideEffect")} value={effect} options={optionValues("side_effect_class")} onChange={(value) => updateRoute({ effect: value, selectedId: null })} />
+        <CapabilitySelect label={t("governance.capabilities.filter.role")} value={role} options={optionValues("required_role")} onChange={(value) => updateRoute({ role: value, selectedId: null })} />
       </section>
       <DataTable
         rows={visible}
         columns={columns}
         keyOf={(row) => row.capability_id}
-        empty="No capabilities match these filters"
+        empty={t("governance.capabilities.empty")}
         onRowClick={(row) => selectCapability(row.capability_id)}
         isRowActive={(row) => row.capability_id === selectedId}
-        rowActionLabel={(row) => `Open ${row.name}`}
+        rowActionLabel={(row) => t("governance.capabilities.openRow", { name: row.name })}
         rowActionControls="capability-detail"
       />
       {selectedId && !selected ? (
-        <UnavailableState message={`Capability ${selectedId} is not registered.`} />
+        <UnavailableState message={t("governance.capabilities.unregistered", { id: selectedId })} />
       ) : selected ? (
         <section id="capability-detail" class="capability-detail stack-section">
           <header class="section-header">
             <div><h3>{selected.name}</h3><code>{selected.capability_id}</code></div>
             <div class="cluster">
-              <CopyButton text={selected.capability_id} label="Copy id" />
-              <button type="button" onClick={() => selectCapability(null)}>Close</button>
+              <CopyButton text={selected.capability_id} label={t("governance.common.copyId")} />
+              <button type="button" onClick={() => selectCapability(null)}>{t("governance.common.close")}</button>
             </div>
           </header>
           <p>{selected.summary}</p>
           <dl>
-            <div><dt>Category</dt><dd>{selected.category}</dd></div>
-            <div><dt>Side effect</dt><dd>{selected.side_effect_class}</dd></div>
-            <div><dt>Default mode</dt><dd>{selected.default_mode}</dd></div>
-            <div><dt>Required role</dt><dd>{selected.required_role}</dd></div>
-            <div><dt>Tags</dt><dd>{selected.tags.join(", ") || "-"}</dd></div>
+            <div><dt>{t("governance.capabilities.detail.category")}</dt><dd>{selected.category}</dd></div>
+            <div><dt>{t("governance.capabilities.detail.sideEffect")}</dt><dd>{selected.side_effect_class}</dd></div>
+            <div><dt>{t("governance.capabilities.detail.defaultMode")}</dt><dd>{selected.default_mode}</dd></div>
+            <div><dt>{t("governance.capabilities.detail.requiredRole")}</dt><dd>{selected.required_role}</dd></div>
+            <div><dt>{t("governance.capabilities.detail.tags")}</dt><dd>{selected.tags.join(", ") || "-"}</dd></div>
           </dl>
-          <a href={routeHref(capabilityPanel(selected.category))}>Open related surface</a>
+          <a href={routeHref(capabilityPanel(selected.category))}>{t("governance.capabilities.detail.openRelated")}</a>
         </section>
       ) : null}
     </div>
@@ -269,7 +270,7 @@ function CapabilitySelect({ label, value, options, onChange }: {
   readonly options: readonly string[];
   readonly onChange: (value: string) => void;
 }) {
-  return <label><span>{label}</span><select value={value} onChange={(event) => onChange(event.currentTarget.value)}><option value="all">All</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
+  return <label><span>{label}</span><select value={value} onChange={(event) => onChange(event.currentTarget.value)}><option value="all">{t("governance.common.all")}</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
 }
 
 function capabilityPanel(category: string): string {

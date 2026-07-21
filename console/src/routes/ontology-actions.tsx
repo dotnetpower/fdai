@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
+import { t } from "./i18n/ontology";
 import {
   compactRecord,
   formatUnknown,
@@ -100,18 +101,18 @@ export function OntologyActionsView({
   const hiddenSelection = requested !== null && !filtered.includes(requested);
 
   if (actions.length === 0) {
-    return <div class="empty-state">ActionType projection is unavailable on this deployment.</div>;
+    return <div class="empty-state">{t("ontology.actions.unavailable")}</div>;
   }
 
   return (
     <section class="ontology-actions-view">
       <div class="ontology-action-toolbar">
         <label class="ontology-action-search">
-          <span>Search</span>
+          <span>{t("ontology.actions.search")}</span>
           <input
             type="search"
             value={query}
-            placeholder="ActionType name or operation"
+            placeholder={t("ontology.actions.searchPlaceholder")}
             onInput={(event) => updateFilters({
               ...filters,
               query: (event.target as HTMLInputElement).value,
@@ -119,24 +120,24 @@ export function OntologyActionsView({
           />
         </label>
         <ActionFilter
-          label="Category"
+          label={t("ontology.actions.category")}
           value={category}
           values={categories}
           onChange={(value) => updateFilters({ ...filters, category: value })}
         />
         <ActionFilter
-          label="Trigger"
+          label={t("ontology.actions.trigger")}
           value={trigger}
           values={triggers}
           onChange={(value) => updateFilters({ ...filters, trigger: value })}
         />
         <ActionFilter
-          label="Execution"
+          label={t("ontology.actions.execution")}
           value={execution}
           values={executions}
           onChange={(value) => updateFilters({ ...filters, execution: value })}
         />
-        <span class="ontology-action-result-count">{filtered.length} of {actions.length}</span>
+        <span class="ontology-action-result-count">{t("ontology.actions.resultCount", { filtered: filtered.length, total: actions.length })}</span>
       </div>
 
       <div class="ontology-action-workspace">
@@ -144,12 +145,12 @@ export function OntologyActionsView({
           <table class="ontology-action-table">
             <thead>
               <tr>
-                <th>ActionType</th>
-                <th>Category</th>
-                <th>Trigger</th>
-                <th>Execution</th>
-                <th>Rollback</th>
-                <th>Default</th>
+                <th>{t("ontology.actions.actionType")}</th>
+                <th>{t("ontology.actions.category")}</th>
+                <th>{t("ontology.actions.trigger")}</th>
+                <th>{t("ontology.actions.execution")}</th>
+                <th>{t("ontology.actions.rollback")}</th>
+                <th>{t("ontology.actions.default")}</th>
               </tr>
             </thead>
             <tbody>
@@ -173,16 +174,16 @@ export function OntologyActionsView({
               ))}
             </tbody>
           </table>
-          {filtered.length === 0 ? <div class="empty-state">No ActionTypes match these filters.</div> : null}
+          {filtered.length === 0 ? <div class="empty-state">{t("ontology.actions.noMatches")}</div> : null}
         </div>
 
         {selected ? <ActionInspector action={selected} /> : invalidSelection ? (
           <div class="state-block state-unavailable" role="alert">
-            ActionType <code>{selectedName}</code> is not registered. Choose an ActionType from the table.
+            {t("ontology.actions.invalid", { name: selectedName ?? "" })}
           </div>
         ) : hiddenSelection ? (
           <div class="state-block state-unavailable" role="status">
-            The selected ActionType is hidden by the current filters.
+            {t("ontology.actions.hidden")}
           </div>
         ) : null}
       </div>
@@ -205,7 +206,7 @@ function ActionFilter({
     <label class="ontology-action-filter">
       <span>{label}</span>
       <select value={value} onChange={(event) => onChange((event.target as HTMLSelectElement).value)}>
-        <option value={ALL}>All</option>
+        <option value={ALL}>{t("ontology.common.all")}</option>
         {values.map((item) => <option value={item} key={item}>{item}</option>)}
       </select>
     </label>
@@ -214,42 +215,42 @@ function ActionFilter({
 
 function ActionInspector({ action }: { readonly action: OntologyActionTypeRecord }) {
   return (
-    <aside class="ontology-action-inspector" aria-label="ActionType safety contract">
+    <aside class="ontology-action-inspector" aria-label={t("ontology.actions.safetyContractLabel")}>
       <header>
-        <span class="eyebrow">ActionType</span>
+        <span class="eyebrow">{t("ontology.actions.actionType")}</span>
         <h3><code>{action.name}</code></h3>
-        <p>{action.description ?? "No description recorded."}</p>
+        <p>{action.description ?? t("ontology.common.noDescription")}</p>
       </header>
 
       <section>
-        <h4>Identity and routing</h4>
+        <h4>{t("ontology.actions.identityRouting")}</h4>
         <dl class="ontology-action-facts">
-          <dt>Version</dt><dd>{action.version}</dd>
-          <dt>Operation</dt><dd><code>{action.operation}</code></dd>
-          <dt>Category</dt><dd>{action.category ?? "-"}</dd>
-          <dt>Trigger</dt><dd>{recordValue(action.trigger_kind, "kind") ?? "-"}</dd>
-          <dt>Execution</dt><dd><code>{action.execution_path ?? "-"}</code></dd>
-          <dt>Environment</dt><dd>{action.env_scope}</dd>
-          <dt>Interfaces</dt><dd>{action.interfaces.join(", ") || "-"}</dd>
+          <dt>{t("ontology.actions.version")}</dt><dd>{action.version}</dd>
+          <dt>{t("ontology.actions.operation")}</dt><dd><code>{action.operation}</code></dd>
+          <dt>{t("ontology.actions.category")}</dt><dd>{action.category ?? "-"}</dd>
+          <dt>{t("ontology.actions.trigger")}</dt><dd>{recordValue(action.trigger_kind, "kind") ?? "-"}</dd>
+          <dt>{t("ontology.actions.execution")}</dt><dd><code>{action.execution_path ?? "-"}</code></dd>
+          <dt>{t("ontology.actions.environment")}</dt><dd>{action.env_scope}</dd>
+          <dt>{t("ontology.actions.interfaces")}</dt><dd>{action.interfaces.join(", ") || "-"}</dd>
         </dl>
       </section>
 
       <section>
-        <h4>Safety contract</h4>
+        <h4>{t("ontology.actions.safetyContract")}</h4>
         <dl class="ontology-action-facts">
-          <dt>Rollback</dt><dd><code>{action.rollback_contract}</code></dd>
-          <dt>Irreversible</dt><dd>{action.irreversible ? "Yes" : "No"}</dd>
-          <dt>Default mode</dt><dd>{action.default_mode}</dd>
-          <dt>Blast radius</dt><dd>{action.blast_radius ? compactRecord(action.blast_radius) : "-"}</dd>
-          <dt>Live probe</dt><dd>{action.live_probe_ref ?? "-"}</dd>
+          <dt>{t("ontology.actions.rollback")}</dt><dd><code>{action.rollback_contract}</code></dd>
+          <dt>{t("ontology.actions.irreversible")}</dt><dd>{t(action.irreversible ? "ontology.common.yes" : "ontology.common.no")}</dd>
+          <dt>{t("ontology.actions.defaultMode")}</dt><dd>{action.default_mode}</dd>
+          <dt>{t("ontology.actions.impactScope")}</dt><dd>{action.blast_radius ? compactRecord(action.blast_radius) : "-"}</dd>
+          <dt>{t("ontology.actions.liveProbe")}</dt><dd>{action.live_probe_ref ?? "-"}</dd>
         </dl>
       </section>
 
-      <RecordList title="Preconditions" records={action.preconditions} />
-      <RecordList title="Stop conditions" records={action.stop_conditions} />
-      <RecordFacts title="Promotion gate" record={action.promotion_gate} />
+      <RecordList title={t("ontology.actions.preconditions")} records={action.preconditions} />
+      <RecordList title={t("ontology.actions.stopConditions")} records={action.stop_conditions} />
+      <RecordFacts title={t("ontology.actions.promotionGate")} record={action.promotion_gate} />
       {action.ceiling_by_tier ? <TierCeilings record={action.ceiling_by_tier} /> : null}
-      {action.prod_downgrade ? <RecordFacts title="Production downgrade" record={action.prod_downgrade} /> : null}
+      {action.prod_downgrade ? <RecordFacts title={t("ontology.actions.productionDowngrade")} record={action.prod_downgrade} /> : null}
     </aside>
   );
 }
@@ -258,7 +259,7 @@ function RecordList({ title, records }: { readonly title: string; readonly recor
   return (
     <section>
       <h4>{title} <span>{records.length}</span></h4>
-      {records.length === 0 ? <p class="muted">None declared.</p> : (
+      {records.length === 0 ? <p class="muted">{t("ontology.common.noneDeclared")}</p> : (
         <ul class="ontology-action-records">
           {records.map((record, index) => <li key={index}>{compactRecord(record)}</li>)}
         </ul>
@@ -283,7 +284,7 @@ function RecordFacts({ title, record }: { readonly title: string; readonly recor
 function TierCeilings({ record }: { readonly record: UnknownRecord }) {
   return (
     <section>
-      <h4>Tier ceilings</h4>
+      <h4>{t("ontology.actions.tierCeilings")}</h4>
       <div class="ontology-tier-grid">
         {Object.entries(record).map(([tier, value]) => (
           <div key={tier}>

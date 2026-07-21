@@ -8,6 +8,7 @@ import {
   StatusPill,
 } from "../components/ui";
 import { routeHref } from "../router";
+import { t } from "./i18n/governance";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
 import {
   SEVERITY_PILL,
@@ -65,40 +66,37 @@ export function RuleDetailDrawer({ detail, findings, onClose }: RuleDetailDrawer
         class="rule-drawer"
         role="dialog"
         aria-modal="true"
-        aria-label="Rule detail"
+        aria-label={t("governance.rules.detail.aria")}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={trapFocus}
       >
         <header class="rule-drawer-head">
           <h3 class="mono">
-            {detail.status === "ready" ? detail.data.id : "Rule detail"}
+            {detail.status === "ready" ? detail.data.id : t("governance.rules.detail.title")}
           </h3>
           <div class="rule-drawer-actions">
-            <CopyButton text={window.location.href} label="Copy link" />
-            <button type="button" class="btn" onClick={onClose} aria-label="Close">
-              Close
+            <CopyButton text={window.location.href} label={t("governance.common.copyLink")} />
+            <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>
+              {t("governance.common.close")}
             </button>
           </div>
         </header>
         <div class="rule-drawer-body">
           {detail.status === "loading" ? (
-            <LoadingState label="Loading rule detail..." />
+            <LoadingState label={t("governance.rules.detail.loading")} />
           ) : detail.status === "unavailable" ? (
             <div class="state-block state-unavailable rule-citation-unavailable" role="alert">
               <span class="state-icon" aria-hidden="true">?</span>
               <div>
-                <strong>Historical rule citation unavailable</strong>
-                <p>
-                  <code>{detail.ruleId}</code> is not in the current rule catalog. It may have
-                  been retired, renamed, or excluded from this deployment.
-                </p>
+                <strong>{t("governance.rules.detail.historicalUnavailable")}</strong>
+                <p>{t("governance.rules.detail.historicalBody", { id: detail.ruleId })}</p>
                 <a href={routeHref("rules", { params: { q: detail.ruleId } })}>
-                  Search current catalog
+                  {t("governance.rules.detail.searchCurrent")}
                 </a>
               </div>
             </div>
           ) : detail.status === "error" ? (
-            <ErrorState message={`Failed to load rule detail: ${detail.message}`} />
+            <ErrorState message={t("governance.rules.detail.loadFailed", { message: detail.message })} />
           ) : (
             <RuleDetailContent data={detail.data} findings={findings} />
           )}
@@ -128,15 +126,15 @@ function RuleDetailContent({
       <AffectedResources findings={findings} />
 
       <dl class="detail-grid">
-        <DetailRow label="Source" value={data.source} />
-        <DetailRow label="Resource type" value={data.resource_type} mono />
-        <DetailRow label="Version" value={data.version} mono />
-        <DetailRow label="Remediates" value={data.remediates} mono />
+        <DetailRow label={t("governance.rules.detail.source")} value={data.source} />
+        <DetailRow label={t("governance.rules.detail.resourceType")} value={data.resource_type} mono />
+        <DetailRow label={t("governance.common.version")} value={data.version} mono />
+        <DetailRow label={t("governance.rules.detail.remediates")} value={data.remediates} mono />
         {data.alternatives.length > 0 ? (
-          <DetailRow label="Alternatives" value={data.alternatives.join(", ")} mono />
+          <DetailRow label={t("governance.rules.detail.alternatives")} value={data.alternatives.join(", ")} mono />
         ) : null}
         <DetailRow
-          label="Cost impact / mo"
+          label={t("governance.rules.detail.costImpact")}
           value={
             data.remediation.cost_impact_monthly_usd == null
               ? "-"
@@ -146,7 +144,7 @@ function RuleDetailContent({
       </dl>
 
       <DetailSection
-        title="Check logic"
+        title={t("governance.rules.detail.checkLogic")}
         subtitle={`${data.check_logic.kind} - ${data.check_logic.reference}`}
         action={
           data.check_logic_body !== null ? <CopyButton text={data.check_logic_body} /> : null
@@ -156,13 +154,13 @@ function RuleDetailContent({
           <pre class="mono code-block drawer-code">{data.check_logic_body}</pre>
         ) : (
           <p class="muted footnote">
-            No inline body - this check is an external reference ({data.check_logic.kind}).
+            {t("governance.rules.detail.noCheckBody", { kind: data.check_logic.kind })}
           </p>
         )}
       </DetailSection>
 
       <DetailSection
-        title="Remediation"
+        title={t("governance.rules.detail.fix")}
         subtitle={data.remediation.template_ref}
         action={
           data.remediation_body !== null ? <CopyButton text={data.remediation_body} /> : null
@@ -171,39 +169,32 @@ function RuleDetailContent({
         {data.remediation_body !== null ? (
           <pre class="mono code-block drawer-code">{data.remediation_body}</pre>
         ) : (
-          <p class="muted footnote">No inline remediation template body available.</p>
+          <p class="muted footnote">{t("governance.rules.detail.noFixBody")}</p>
         )}
       </DetailSection>
 
       {Object.keys(data.parameters).length > 0 ? (
-        <DetailSection title="Parameters">
+        <DetailSection title={t("governance.rules.detail.parameters")}>
           <pre class="mono small entry-json">{JSON.stringify(data.parameters, null, 2)}</pre>
         </DetailSection>
       ) : null}
 
-      <DetailSection title="Provenance">
+      <DetailSection title={t("governance.rules.detail.provenance")}>
         <dl class="detail-grid">
           <DetailRow
-            label="Source URL"
+            label={t("governance.rules.detail.sourceUrl")}
             value={<ExternalLink href={data.provenance.source_url}>{data.provenance.source_url}</ExternalLink>}
           />
-          <DetailRow label="License" value={data.provenance.license} />
-          <DetailRow label="Redistribution" value={data.provenance.redistribution} />
-          <DetailRow label="Content hash" value={data.provenance.content_hash} mono />
-          <DetailRow label="Resolved ref" value={data.provenance.resolved_ref} mono />
-          <DetailRow label="Retrieved at" value={data.provenance.retrieved_at} mono />
+          <DetailRow label={t("governance.rules.detail.license")} value={data.provenance.license} />
+          <DetailRow label={t("governance.rules.detail.redistribution")} value={data.provenance.redistribution} />
+          <DetailRow label={t("governance.rules.detail.contentHash")} value={data.provenance.content_hash} mono />
+          <DetailRow label={t("governance.rules.detail.resolvedRef")} value={data.provenance.resolved_ref} mono />
+          <DetailRow label={t("governance.rules.detail.retrievedAt")} value={data.provenance.retrieved_at} mono />
         </dl>
       </DetailSection>
     </div>
   );
 }
-
-const SEVERITY_RISK: Readonly<Record<string, string>> = {
-  critical: "Critical - a violation is an immediate, high-impact exposure.",
-  high: "High - a violation is a serious risk that should be fixed promptly.",
-  medium: "Medium - a violation weakens posture and should be scheduled.",
-  low: "Low - a violation is a minor or best-practice gap.",
-};
 
 function RuleOverview({ data }: { readonly data: RuleDetailDto }) {
   const { explanation } = data;
@@ -213,14 +204,15 @@ function RuleOverview({ data }: { readonly data: RuleDetailDto }) {
     <section class="rule-overview">
       <h4 class="rule-overview-title">{heading}</h4>
       <p class={`risk-line risk-${data.severity}`}>
-        {SEVERITY_RISK[data.severity] ?? `Severity: ${data.severity}`}
+        {t(`governance.rules.severityRisk.${data.severity}`) === `governance.rules.severityRisk.${data.severity}`
+          ? t("governance.rules.detail.severityFallback", { severity: data.severity })
+          : t(`governance.rules.severityRisk.${data.severity}`)}
       </p>
       {explanation.description ? (
         <p class="rule-overview-desc">{explanation.description}</p>
       ) : (
         <p class="muted footnote">
-          No authored description for this rule. See the check logic and remediation below for
-          what it enforces and how to fix it.
+          {t("governance.rules.detail.noDescription")}
         </p>
       )}
       {detailEntries.length > 0 ? (
@@ -237,15 +229,15 @@ function RuleOverview({ data }: { readonly data: RuleDetailDto }) {
 function AffectedResources({ findings }: { readonly findings: FindingsState }) {
   if (findings.status === "loading") {
     return (
-      <DetailSection title="Affected resources">
-        <LoadingState label="Evaluating affected resources..." />
+      <DetailSection title={t("governance.rules.detail.affected")}>
+        <LoadingState label={t("governance.rules.detail.evaluatingAffected")} />
       </DetailSection>
     );
   }
   if (findings.status === "error") {
     return (
-      <DetailSection title="Affected resources">
-        <ErrorState message={`Failed to load affected resources: ${findings.message}`} />
+      <DetailSection title={t("governance.rules.detail.affected")}>
+        <ErrorState message={t("governance.rules.detail.affectedFailed", { message: findings.message })} />
       </DetailSection>
     );
   }
@@ -253,32 +245,28 @@ function AffectedResources({ findings }: { readonly findings: FindingsState }) {
   const { data } = findings;
   if (!data.evaluated) {
     return (
-      <DetailSection title="Affected resources">
-        <p class="muted footnote">
-          No inventory evaluation is wired on this deployment. When this rule runs against your
-          inventory, each affected resource and the exact attribute at fault (the deny reason)
-          appears here.
-        </p>
+      <DetailSection title={t("governance.rules.detail.affected")}>
+        <p class="muted footnote">{t("governance.rules.detail.inventoryUnavailable")}</p>
       </DetailSection>
     );
   }
   if (data.findings.length === 0) {
     return (
-      <DetailSection title="Affected resources">
-        <p class="muted footnote">No resources currently violate this rule.</p>
+      <DetailSection title={t("governance.rules.detail.affected")}>
+        <p class="muted footnote">{t("governance.rules.detail.noViolations")}</p>
       </DetailSection>
     );
   }
 
   return (
-    <DetailSection title={`Affected resources (${data.finding_count ?? data.findings.length})`}>
+    <DetailSection title={t("governance.rules.detail.affectedCount", { count: data.finding_count ?? data.findings.length })}>
       <ul class="finding-list">
         {data.findings.map((finding, index) => (
           <li key={finding.resource_id + index} class="finding-item">
             <div class="finding-head">
               <span class="mono finding-res">{finding.resource_name ?? finding.resource_id}</span>
               <a class="finding-architecture-link" href={architectureHref(finding.resource_id)}>
-                View on architecture
+                {t("governance.rules.detail.viewArchitecture")}
               </a>
               {finding.severity ? (
                 <StatusPill kind={SEVERITY_PILL[finding.severity] ?? "neutral"} label={finding.severity} />
