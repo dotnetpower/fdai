@@ -441,4 +441,3 @@ lookup routes graph-dependent actions to human review.
 - [ ] Cold-start policy: minimum baseline history per signal class before a detector may fire.
 - [ ] Backtesting cadence and the accuracy bar a forecaster must clear to leave shadow.
 - [ ] Change-window suppression: how anomalies are correlated with in-flight change events.
-- [ ] Whether RCA hypotheses are surfaced in the console (read-only) in P2 or P3.

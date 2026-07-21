@@ -163,7 +163,7 @@ not run in a generic deployment. A fork must configure the targets and cadence t
   (`azure_alert:<alertId>`); every sample of a
   `(resource, metric)` series shares one correlation id
   (`azure_metric_stream:<resource>:<metric>`). The trust router
-  closes incidents on the correlation id.
+  carries the grouping key; an incident-lifecycle consumer decides state transitions separately.
 
 ## Fork picking guide
 
@@ -174,8 +174,8 @@ not run in a generic deployment. A fork must configure the targets and cadence t
 | Prod with heavy metric authority in FDAI | Pull baseline + push path #2 for the resources that matter most; keep push #1 out of the way. |
 | Prod with strict cost cap on Event Hubs | Push path #1 only (bounded volume) + pull baseline. |
 
-None of the combinations require a code change - the fork's
-composition root chooses; the seams are already here.
+None of the combinations require an upstream core change, but they do require fork Terraform and
+composition binding, and path #1 also requires an authentication bridge.
 
 ## What is NOT yet shipped
 
@@ -191,4 +191,4 @@ composition root chooses; the seams are already here.
   materializes rules from the shipped rule catalog is a separate
   scope.
 
-Both are ready to be added once a fork picks the shape.
+All three are ready to be added once a fork picks the shape.

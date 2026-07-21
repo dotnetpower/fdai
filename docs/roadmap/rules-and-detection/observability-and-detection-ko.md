@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: c9714e7304f7158c125366b4710162ac6f5021b0
-translation_revised: 2026-07-20
+translation_source_sha: 9f130e83cdbe2941da84f870755a93112f7d8ef4
+translation_revised: 2026-07-21
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -413,4 +413,3 @@ Freshness lookup이 없거나 degraded 또는 stale이면 graph-dependent action
 - [ ] 콜드스타트 정책: 감지기가 발동하기 전 신호 클래스별 최소 베이스라인 히스토리.
 - [ ] Backtest 주기와 예보기가 shadow를 떠나기 위해 통과해야 할 정확도 바.
 - [ ] 변경 윈도우 억제: 이상이 in-flight 변경 이벤트와 어떻게 상관되는가.
-- [ ] RCA 가설이 콘솔에 표면화될지(읽기 전용) P2 또는 P3에서.
