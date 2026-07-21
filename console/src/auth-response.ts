@@ -34,7 +34,9 @@ export function observeUnauthorizedApiResponses(
 }
 
 function installObserver(): void {
-  if (observedFetch !== null) return;
+  if (observedFetch !== null && globalThis.fetch === observedFetch) return;
+  observedFetch = null;
+  originalFetch = null;
   originalFetch = globalThis.fetch;
   const fetchDelegate = originalFetch;
   observedFetch = async (input, init) => {
@@ -58,9 +60,9 @@ function uninstallObserverIfIdle(): void {
   if (subscriptions.size > 0 || observedFetch === null || originalFetch === null) return;
   if (globalThis.fetch === observedFetch) {
     globalThis.fetch = originalFetch;
-    observedFetch = null;
-    originalFetch = null;
   }
+  observedFetch = null;
+  originalFetch = null;
 }
 
 function isApiRequest(

@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 0d1e1a98468a4a3673fd2ebcafb6a6361dbc0e81
+translation_source_sha: 1adddae74258aa88c4ad00c6bb255a645d851393
 translation_revised: 2026-07-21
 ---
 
@@ -354,7 +354,9 @@ manifest template, 사람 OID와 GitHub 로그인 mapping provider 및 governanc
 - **만료된 API 세션**: 구성된 read 또는 ingestion API가 `401`을 반환하면 현재 data surface를
   닫고 전체 화면 sign-in recovery view로 전환합니다. Standard read, chat, workflow, command,
   SSE stream에 동일하게 적용합니다. Identity provider 요청과 `403` access decision은 이 전환을
-  시작하지 않습니다.
+  시작하지 않습니다. 하나의 shared fetch observer가 overlapping owner, idempotent cleanup 및 다른
+  owner가 global fetch function을 교체한 뒤의 재설치를 지원하며, cleanup은 해당 replacement를
+  덮어쓰지 않습니다.
 - **사인아웃**: `/logout?post_logout_redirect_uri=...` 이 콘솔 세션과 테넌트의 Entra 세션
   모두 클리어.
 
