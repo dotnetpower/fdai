@@ -72,7 +72,8 @@ The local factory starts all 15 agents by default. `FDAI_START_PANTHEON` is a di
 unset means enabled, while `0`, `false`, `no`, or `off` disables the runtime. When Event Hubs is
 configured, the agents use that Azure transport under a dedicated local consumer group. Otherwise,
 the local in-process EventBus carries real Pantheon messages and exposes the agent SSE snapshot. It
-does not create Azure evidence, durable state, or execution authority.
+does not create Azure evidence, durable state, or execution authority. If Kafka rejects a configured
+topic during startup, the Event Hubs adapter closes the failed consumer before surfacing the error.
 
 Workflow definitions use the same enforce allowlist as deployment, while each ActionType remains
 subject to its authoritative promotion and risk gates. Enforce workflows still require Azure event

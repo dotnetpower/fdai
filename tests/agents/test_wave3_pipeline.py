@@ -553,6 +553,9 @@ def test_thor_auto_verdict_executes_and_publishes_action_runs() -> None:
     assert "verdicted" in states_seen
     assert "executing" in states_seen
     assert "succeeded" in states_seen
+    assert [m.payload["idempotency_key"] for m in action_runs] == [
+        f"c:{state}" for state in states_seen
+    ]
 
 
 def test_thor_hil_verdict_waits_for_approval_then_executes() -> None:

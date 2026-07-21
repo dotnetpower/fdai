@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: d90321a13ea310e93cc7a9ee8b1ef089520284a5
+translation_source_sha: e90f02acea710825009d4898a3aa80dc32749932
 translation_revised: 2026-07-21
 ---
 
@@ -410,8 +410,8 @@ properties:
 
 ### 6.1 Typed port
 
-Object type 당 topic 하나, `object.<type>` 로 명명. 모든 메시지는
-`correlation_id`, `idempotency_key`, `producer_principal` 을 carry.
+Object type 당 topic 하나, `object.<type>` 로 명명. 모든 메시지는 `correlation_id`, `idempotency_key`,
+`producer_principal` 을 carry하며 Thor는 `correlation_id:state`로 재시도를 deduplicate하고 후속 transition을 유지합니다.
 
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|

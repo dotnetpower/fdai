@@ -431,8 +431,8 @@ Kafka protocol on Event Hubs `:9093`. No new infrastructure.
 
 ### 6.1 Typed port
 
-One topic per object type, named `object.<type>`. Every message carries
-`correlation_id`, `idempotency_key`, and `producer_principal`.
+One topic per object type, named `object.<type>`. Every message carries `correlation_id`, `idempotency_key`,
+and `producer_principal`; Thor uses `correlation_id:state` for `object.action-run` retries without suppressing later transitions.
 
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|

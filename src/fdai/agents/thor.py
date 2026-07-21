@@ -433,6 +433,7 @@ class Thor(Agent):
         payload = {
             "producer_principal": "Thor",
             "correlation_id": run.correlation_id,
+            "idempotency_key": f"{run.correlation_id}:{run.state.value}",
             "action_type": run.action_type,
             "resource_id": run.resource_id,
             "state": run.state.value,

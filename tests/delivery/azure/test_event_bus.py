@@ -18,6 +18,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+import fdai.delivery.azure.event_bus as event_bus_module
 from fdai.delivery.azure.event_bus import (
     EventHubsKafkaBus,
     EventHubsKafkaBusConfig,
@@ -25,6 +26,7 @@ from fdai.delivery.azure.event_bus import (
     _decode_key,  # type: ignore[attr-defined]
     _encode,  # type: ignore[attr-defined]
     _EntraTokenProvider,  # type: ignore[attr-defined]
+    _iter_consumer,  # type: ignore[attr-defined]
 )
 from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdentity
 
@@ -150,3 +152,34 @@ async def test_close_is_idempotent_before_start() -> None:
     # Never started a producer - close MUST not raise.
     await bus.close()
     await bus.close()
+
+
+@pytest.mark.asyncio
+async def test_consumer_start_failure_stops_consumer(monkeypatch: pytest.MonkeyPatch) -> None:
+    instances: list[_StartFailingConsumer] = []
+
+    class _StartFailingConsumer:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            self.stopped = False
+            instances.append(self)
+
+        async def start(self) -> None:
+            raise RuntimeError("topic unavailable")
+
+        async def stop(self) -> None:
+            self.stopped = True
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _StartFailingConsumer)
+    iterator = _iter_consumer(
+        topic="aw.control.canary",
+        group_id="fdai-canary",
+        config=_cfg(),
+        identity=_StaticIdentity(),
+        audience="https://evhns.servicebus.windows.net/.default",
+    )
+
+    with pytest.raises(RuntimeError, match="topic unavailable"):
+        await anext(iterator)
+
+    assert len(instances) == 1
+    assert instances[0].stopped is True

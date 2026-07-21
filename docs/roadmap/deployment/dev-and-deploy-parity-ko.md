@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 207983a29b1a3c7a8708a1bd66ce603eba89a562
+translation_source_sha: 93b923c5a8fe5b4dd6857dba6a76743e036baa08
 translation_revised: 2026-07-21
 ---
 
@@ -76,6 +76,7 @@ control입니다. 값이 없으면 활성화하고 `0`, `false`, `no`, `off`만 
 Event Hubs가 설정되면 agent는 전용 local consumer group으로 Azure transport를 사용합니다.
 설정되지 않으면 local in-process EventBus가 실제 Pantheon message를 전달하고 agent SSE snapshot을
 제공합니다. 이 adapter는 Azure evidence, durable state 또는 execution authority를 만들지 않습니다.
+Kafka가 구성된 topic을 startup 중 거부하면 Event Hubs adapter는 오류를 전달하기 전에 실패한 consumer를 닫습니다.
 
 Workflow definition은 deployment와 같은 enforce allowlist를 사용하며 각 ActionType은
 authoritative promotion 및 risk gate의 적용을 받습니다. Enforce workflow에는 계속 Azure event

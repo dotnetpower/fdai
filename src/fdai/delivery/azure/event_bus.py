@@ -234,8 +234,8 @@ async def _iter_consumer(
         enable_auto_commit=False,
         auto_offset_reset=config.auto_offset_reset,
     )
-    await consumer.start()
     try:
+        await consumer.start()
         async for message in consumer:
             key = _decode_key(message.key)
             payload = _decode(message.value, topic=message.topic, key=key)
