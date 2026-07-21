@@ -42,8 +42,8 @@ export function useArchitectureMapController({
 }: ControllerOptions) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cameraRef = useRef<Camera>({
-    yaw: 0,
-    pitch: 1.5,
+    yaw: Math.PI / 4,
+    pitch: .58,
     scale: 42,
     panX: 0,
     panY: 0,

@@ -29,6 +29,7 @@ export interface ArchitectureView {
 }
 
 export type ArchitectureCameraView = "iso" | "top" | "front";
+export const DEFAULT_ARCHITECTURE_CAMERA_VIEW: ArchitectureCameraView = "iso";
 
 export interface ArchitectureDisplayOptions {
   readonly showConnections: boolean;
@@ -426,8 +427,80 @@ export function graphSubset(
   };
 }
 
+export function expandSimpleResourceGroupPanels(
+  graph: InventoryGraphResponse,
+): InventoryGraphResponse {
+  const resources = new Map(graph.resources.map((resource) => [resource.id, resource]));
+  const regions = graph.resources.filter(isRegion);
+
+  for (const parent of regions.filter((resource) => resource.type === "subscription")) {
+    const groups = graph.resources
+      .filter((resource) => resource.type === "resource-group" && resource.parent_id === parent.id)
+      .sort((first, second) => (first.y ?? 0) - (second.y ?? 0) || (first.x ?? 0) - (second.x ?? 0));
+    if (groups.length < 3) continue;
+    const directChildren = groups.map((group) => graph.resources.filter(
+      (resource) => resource.parent_id === group.id,
+    ));
+    if (directChildren.some((children) => children.some(isRegion))) continue;
+
+    const parentX = parent.x ?? 0;
+    const parentY = parent.y ?? 0;
+    const parentWidth = parent.w ?? 0;
+    const parentHeight = parent.h ?? 0;
+    const columns = Math.min(2, groups.length);
+    const rows = Math.ceil(groups.length / columns);
+    const horizontalInset = .4;
+    const topInset = .75;
+    const bottomInset = .3;
+    const panelGap = .3;
+    const panelWidth = (
+      parentWidth - horizontalInset * 2 - panelGap * (columns - 1)
+    ) / columns;
+    const panelHeight = (
+      parentHeight - topInset - bottomInset - panelGap * (rows - 1)
+    ) / rows;
+    if (panelWidth < 1.6 || panelHeight < 1.4) continue;
+
+    groups.forEach((group, index) => {
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      const x = parentX + horizontalInset + column * (panelWidth + panelGap);
+      const y = parentY + topInset + row * (panelHeight + panelGap);
+      resources.set(group.id, { ...group, x, y, w: panelWidth, h: panelHeight });
+
+      const children = directChildren[index] ?? [];
+      const childColumns = Math.min(2, Math.max(1, Math.ceil(Math.sqrt(children.length))));
+      const childRows = Math.max(1, Math.ceil(children.length / childColumns));
+      const childInsetX = .3;
+      const childInsetTop = .55;
+      const childInsetBottom = .2;
+      const cellWidth = (panelWidth - childInsetX * 2) / childColumns;
+      const cellHeight = (panelHeight - childInsetTop - childInsetBottom) / childRows;
+      children
+        .sort((first, second) => (first.y ?? 0) - (second.y ?? 0) || (first.x ?? 0) - (second.x ?? 0))
+        .forEach((child, childIndex) => {
+          const geometry = SHAPE_GEOMETRY[shapeOf(child)];
+          const renderScale = Math.min(
+            1.25,
+            Math.max(.1, cellWidth - .25) / geometry.width,
+            Math.max(.1, cellHeight - .2) / geometry.depth,
+          );
+          resources.set(child.id, {
+            ...child,
+            render_scale: renderScale,
+            x: x + childInsetX + (childIndex % childColumns + .5) * cellWidth,
+            y: y + childInsetTop + (Math.floor(childIndex / childColumns) + .5) * cellHeight,
+          });
+        });
+    });
+  }
+
+  return { ...graph, resources: graph.resources.map((resource) => resources.get(resource.id)!) };
+}
+
 export function constrainGraph(graph: InventoryGraphResponse): InventoryGraphResponse {
-  const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
+  const expandedGraph = expandSimpleResourceGroupPanels(graph);
+  const byId = new Map(expandedGraph.resources.map((resource) => [resource.id, resource]));
   const resolved = new Map<string, InventoryResource>();
 
   function constrain(resource: InventoryResource, trail = new Set<string>()): InventoryResource {
@@ -464,7 +537,7 @@ export function constrainGraph(graph: InventoryGraphResponse): InventoryGraphRes
     const availableWidth = Math.max(.1, parentW - .12);
     const availableDepth = Math.max(.1, parentH - .12);
     const renderScale = Math.min(
-      1,
+      resource.render_scale ?? 1,
       availableWidth / geometry.width,
       availableDepth / geometry.depth,
     );
@@ -482,7 +555,10 @@ export function constrainGraph(graph: InventoryGraphResponse): InventoryGraphRes
     return constrained;
   }
 
-  return { ...graph, resources: graph.resources.map((resource) => constrain(resource)) };
+  return {
+    ...expandedGraph,
+    resources: expandedGraph.resources.map((resource) => constrain(resource)),
+  };
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

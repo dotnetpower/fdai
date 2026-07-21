@@ -3,9 +3,11 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
   architectureHref,
+  DEFAULT_ARCHITECTURE_CAMERA_VIEW,
   architectureViewKindLabel,
   architectureViewFromHash,
   constrainGraph,
+  expandSimpleResourceGroupPanels,
   geometryOf,
   graphSubset,
   hasExplicitVisualMapping,
@@ -37,6 +39,10 @@ const GRAPH: InventoryGraphResponse = {
 };
 
 describe("architecture map model", () => {
+  test("uses the isometric camera by default", () => {
+    expect(DEFAULT_ARCHITECTURE_CAMERA_VIEW).toBe("iso");
+  });
+
   test("maps resource types to visual layers", () => {
     expect(layerOf(GRAPH.resources[1]!)).toBe("runtime");
     expect(layerOf(GRAPH.resources[2]!)).toBe("data");
@@ -239,5 +245,69 @@ describe("architecture map model", () => {
     expect((gateway.x ?? 0) + geometry.width / 2).toBeLessThanOrEqual(.94);
     expect((gateway.y ?? 0) - geometry.depth / 2).toBeGreaterThanOrEqual(.06);
     expect((gateway.y ?? 0) + geometry.depth / 2).toBeLessThanOrEqual(.94);
+  });
+
+  test("widens simple resource-group panels and enlarges their resources", () => {
+    const groups = Array.from({ length: 6 }, (_, index) => ({
+      id: `group-${index}`,
+      type: "resource-group",
+      name: `group-${index}`,
+      status: "healthy",
+      parent_id: "subscription",
+      x: (index % 3) * 2.2,
+      y: Math.floor(index / 3) * 4,
+      w: 2,
+      h: 3.5,
+    }));
+    const children = groups.flatMap((group, groupIndex) => Array.from(
+      { length: 4 },
+      (_, childIndex) => ({
+        id: `resource-${groupIndex}-${childIndex}`,
+        type: "app-service",
+        name: `resource-${groupIndex}-${childIndex}`,
+        status: "healthy",
+        parent_id: group.id,
+      }),
+    ));
+    const expanded = constrainGraph({
+      ...GRAPH,
+      resources: [
+        { id: "subscription", type: "subscription", name: "subscription", status: "healthy", x: 0, y: 0, w: 17.3, h: 11.3 },
+        ...groups,
+        ...children,
+      ],
+    });
+    const expandedGroups = expanded.resources.filter((resource) => resource.type === "resource-group");
+    const expandedChildren = expanded.resources.filter((resource) => resource.type === "app-service");
+
+    expect(expandedGroups.every((group) => (group.w ?? 0) > 8)).toBe(true);
+    expect(expandedChildren.every((resource) => resource.render_scale === 1.25)).toBe(true);
+    expect(graphSubset(expanded, new Set(["runtime"])).resources.every(
+      (resource) => resource.render_scale === 1.25,
+    )).toBe(true);
+  });
+
+  test("preserves authored layouts that contain nested regions", () => {
+    const graph = {
+      ...GRAPH,
+      resources: [
+        { id: "subscription", type: "subscription", name: "subscription", status: "healthy", x: 0, y: 0, w: 17.3, h: 11.3 },
+        ...Array.from({ length: 3 }, (_, index) => ({
+          id: `group-${index}`,
+          type: "resource-group",
+          name: `group-${index}`,
+          status: "healthy",
+          parent_id: "subscription",
+          x: index * 5,
+          y: 1,
+          w: 4,
+          h: 8,
+        })),
+        { id: "network", type: "virtual-network", name: "network", status: "healthy", parent_id: "group-0", x: 1, y: 2, w: 3, h: 4 },
+      ],
+    };
+
+    expect(expandSimpleResourceGroupPanels(graph as InventoryGraphResponse).resources)
+      .toEqual(graph.resources);
   });
 });

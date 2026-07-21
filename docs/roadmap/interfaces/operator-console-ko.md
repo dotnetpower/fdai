@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: fa91f9b343af59732080d9f41aa1e2f266e4e641
+translation_source_sha: 922e83ff517612b2dbeb997a4a902f6f95abcf6a
 translation_revised: 2026-07-21
 ---
 
@@ -1389,7 +1389,7 @@ SPA는 bootstrap 중 콘솔 데이터를 열기 전에 인증된 `GET /iam/self`
 확인합니다. Transport failure가 발생하면 데이터를 계속 닫아 두고 전체 화면 sign-in recovery
 surface에서 access-check retry와 sign-in action을 제공합니다. Read API에 연결할 수 없을 때 redirect
 loop가 생기지 않도록 자동 sign-in redirect는 시작하지 않습니다.
-Architecture route는 inventory provenance와 resource, dependency, containment boundary, status unavailable resource의 사실 기반 count를 먼저 표시합니다. 기본 top-down map은 relationship 판독을 우선하며 isometric 및 front view는 optional display setting으로 유지합니다. Resource를 선택하면 inventory graph를 reload하지 않고 canonical deep link를 갱신하고, direct neighborhood를 강조하며, technical identifier보다 directional relationship을 먼저 표시합니다.
+Architecture route는 inventory provenance와 resource, dependency, containment boundary, status unavailable resource의 사실 기반 count를 먼저 표시합니다. 기본 isometric map은 containment와 resource shape을 보여 주며 top 및 front view는 optional display setting으로 유지합니다. 단순 inventory projection은 세 개 이상의 resource group을 최대 2열로 다시 배치하고 각 boundary를 넓히며 direct resource를 기본 크기의 최대 1.25배로 렌더링합니다. 중첩 boundary가 있는 authored layout은 제공된 geometry를 유지합니다. Resource를 선택하면 inventory graph를 reload하지 않고 canonical deep link를 갱신하고, direct neighborhood를 강조하며, technical identifier보다 directional relationship을 먼저 표시합니다.
 Map label은 node 및 label 충돌을 피하고 긴 이름을 canvas 내부 폭에 맞추며, 첫 zoom step부터 13px에서 최대 20px까지 커집니다. 선택된 label은 최대 22px까지 커집니다. Zoom-in과 zoom-out step은 서로 역연산이며 canvas palette는 활성 console theme을 따릅니다. Route는 main page scroll과 filtered canvas content에 동등한 keyboard-accessible resource 및 relationship index를 사용합니다. Truncated snapshot에는 partial-inventory notice를 표시하고 pointer interaction은 최소 44px target으로 resource node와 containment boundary를 선택합니다.
 
 

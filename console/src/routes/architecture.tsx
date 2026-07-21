@@ -5,8 +5,10 @@ import { ArchitectureMap, type ArchitectureMapHandle } from "../components/archi
 import { ArchitectureRelationIndex } from "../components/architecture-relation-index";
 import {
   ARCHITECTURE_LAYERS,
+  DEFAULT_ARCHITECTURE_CAMERA_VIEW,
   architectureHref,
   architectureViewFromHash,
+  constrainGraph,
   graphSubset,
   isRegion,
   layerOf,
@@ -82,7 +84,9 @@ export function ArchitectureRoute({ client }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(() => selectedResourceIdFromHash(window.location.search));
   const [visibleLayers, setVisibleLayers] = useState<Set<ArchitectureLayer>>(new Set(ARCHITECTURE_LAYERS));
   const [viewScope, setViewScope] = useState<string | null>(() => architectureViewFromHash(window.location.search));
-  const [cameraView, setCameraView] = useState<ArchitectureCameraView>("top");
+  const [cameraView, setCameraView] = useState<ArchitectureCameraView>(
+    DEFAULT_ARCHITECTURE_CAMERA_VIEW,
+  );
   const [zoomPercent, setZoomPercent] = useState(100);
   const [displayOptions, setDisplayOptions] = useState<ArchitectureDisplayOptions>({
     showConnections: true,
@@ -159,8 +163,8 @@ export function ArchitectureRoute({ client }: Props) {
             onSelect={selectResource}
             onToggleLayer={toggleLayer}
             onViewScopeChange={(scope) => {
-              mapRef.current?.setView("top");
-              setCameraView("top");
+              mapRef.current?.setView(DEFAULT_ARCHITECTURE_CAMERA_VIEW);
+              setCameraView(DEFAULT_ARCHITECTURE_CAMERA_VIEW);
               setSelectedId(null);
               setVisibleLayers(new Set(ARCHITECTURE_LAYERS));
               setViewScope(scope);
@@ -220,9 +224,10 @@ function ArchitectureBody({
     );
     return () => window.clearTimeout(timer);
   }, [graph.snapshot_at, now]);
+  const laidOutGraph = useMemo(() => constrainGraph(graph), [graph]);
   const filtered = useMemo(
-    () => graphSubset(graph, visibleLayers),
-    [graph, visibleLayers],
+    () => graphSubset(laidOutGraph, visibleLayers),
+    [laidOutGraph, visibleLayers],
   );
   const layerCounts = useMemo(
     () => new Map(ARCHITECTURE_LAYERS.map((layer) => [
