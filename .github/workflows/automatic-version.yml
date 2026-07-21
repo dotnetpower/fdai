@@ -1,0 +1,71 @@
+name: automatic-version
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      !startsWith(github.event.head_commit.message, 'chore(release): v')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.22"
+          enable-cache: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Create the next patch version
+        env:
+          MAX_PUSH_ATTEMPTS: "5"
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for attempt in $(seq 1 "$MAX_PUSH_ATTEMPTS"); do
+            git fetch --force origin main --tags
+            git checkout -B automatic-version origin/main
+
+            version="$(python3 scripts/automation/next-version.py)"
+            tag="v${version}"
+            echo "Preparing ${tag} (attempt ${attempt}/${MAX_PUSH_ATTEMPTS})"
+
+            uv version "$version" --no-sync
+            npm --prefix console version "$version" --no-git-tag-version --ignore-scripts
+            npm --prefix cli version "$version" --no-git-tag-version --ignore-scripts
+
+            git diff --check
+            git add \
+              pyproject.toml uv.lock \
+              console/package.json console/package-lock.json \
+              cli/package.json cli/package-lock.json
+            git commit -m "chore(release): ${tag}"
+            git tag -a "$tag" -m "release ${tag}"
+
+            if git push --atomic origin HEAD:main "$tag"; then
+              echo "Published ${tag}"
+              exit 0
+            fi
+
+            git tag -d "$tag"
+            echo "Remote advanced while publishing ${tag}; recalculating."
+          done
+
+          echo "Failed to publish a unique version after ${MAX_PUSH_ATTEMPTS} attempts." >&2
+          exit 1
