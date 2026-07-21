@@ -1,0 +1,274 @@
+---
+title: Azure 읽기 조사
+translation_of: azure-read-investigations.md
+translation_source_sha: 7139f8e9513574b187394552c932ce1074944d8e
+translation_revised: 2026-07-22
+---
+
+# Azure 읽기 조사
+
+이 문서는 operator 질문이 bounded read-only Azure 조사로 전환되는 방식을 정의합니다. Bragi는
+대화를 소유하고, Heimdall은 resource change 및 external actor 해석을 소유하며, provider adapter는
+Thor의 execution identity를 사용하지 않고 evidence를 수집합니다.
+
+> **범위:** 이 설계는 resource 조회, Activity Log attribution, Resource Health, guest log fallback,
+> 실행시간 예측, progress 전달 및 detached investigation session을 다룹니다. Azure 변경을 승인하거나
+> 실행하지 않습니다.
+
+## 설계 개요
+
+Read investigation은 mutation control loop 밖에 유지됩니다. Deterministic planner가 typed read tool을
+선택한 다음 측정된 tool latency를 기준으로 direct, streamed 또는 detached 실행 모드를 선택합니다.
+모든 답변은 normalized server-owned evidence를 인용하거나 evidence가 unavailable임을 보고합니다.
+
+```mermaid
+flowchart LR
+    USER[Operator] --> BRAGI[Bragi conversation]
+    BRAGI --> PLAN[Read investigation planner]
+    PLAN -->|direct or streamed| HEIMDALL[Heimdall investigation]
+    PLAN -->|detached| TASK[Durable background task]
+    TASK --> HEIMDALL
+    HEIMDALL --> GATEWAY[Attenuated read-tool gateway]
+    GATEWAY --> ARG[Resource Graph or inventory]
+    GATEWAY --> ACTIVITY[Activity Log]
+    GATEWAY --> HEALTH[Resource Health]
+    GATEWAY --> GUEST[Guest or Monitor logs]
+    GATEWAY --> EVIDENCE[Normalized evidence]
+    EVIDENCE --> BRAGI
+    BRAGI --> USER
+```
+
+## 소유권 및 경계
+
+| Component | 책임 | 수행하지 않는 작업 |
+|-----------|------|---------------------|
+| Bragi | Operator turn을 분류하고 conversation context를 보존하며 progress와 최종 답변을 operator locale로 렌더링합니다. | Privileged credential로 Azure를 조회하거나 변경 실행 가능 여부를 결정하지 않습니다. |
+| Heimdall | `resource_change_history` 및 `external_actor` 조사 의미를 소유하고 read evidence를 correlate하며 불확실성을 명시합니다. | Azure SDK를 import하거나 `az`를 spawn하거나 승인 또는 resource mutation을 수행하지 않습니다. |
+| Huginn | 전달된 Azure signal을 지속적으로 ingest하고 normalize하여 이후 correlation에 사용합니다. | Ad hoc conversational request를 제공하지 않습니다. |
+| Saga | 질문이 FDAI action에 관한 경우 FDAI audit chain에서 답합니다. | Correlation 없이 Azure Activity Log를 FDAI audit evidence로 취급하지 않습니다. |
+| Thor | 기존 `ActionRun` 상태를 보고하고 승인된 typed action을 실행합니다. | Inventory, Activity Log, Resource Health 또는 guest-log read를 실행하지 않습니다. |
+| Task worker | 격리된 depth-one attenuated read investigation 하나를 실행합니다. | Pantheon에 합류하거나 Pantheon object를 publish하거나 execution authority를 상속하지 않습니다. |
+
+Operator 질문은 `object.event`로 publish하지 않습니다. 해당 topic은 detection, judgment, risk 및
+execution processing으로 들어갑니다. Detached investigation은 optional wake signal을 내보내기 전에
+task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 delivery hint일 뿐입니다.
+
+## 기존 구현 기준선
+
+| Capability | 현재 상태 | 필요한 작업 |
+|------------|-----------|-------------|
+| Bragi responder registration 및 Heimdall question domain | 구현됨 | 영어와 한국어의 actor, shutdown 및 resource-history 표현에 대한 deterministic routing을 확장합니다. |
+| Azure inventory 및 VM state | 구현됨 | Bare resource name에 대한 exact resource resolution 및 ambiguity 처리를 추가합니다. |
+| Direct Activity Log recovery adapter | Inventory continuity 용도로 구현됨 | Operation, caller, time, status 및 correlation field를 유지하는 on-demand read projection을 추가합니다. |
+| Typed Azure CLI read broker | Resource, group, VM list 및 VM state command에 구현됨 | REST transport가 query를 충족하지 못할 때만 registered ARG 및 Activity Log plan을 추가합니다. |
+| Task-worker capability attenuation | 구현됨 | Azure read tool을 server-owned `background.read-only` profile에 등록합니다. |
+| Durable task state, lease, timeout, cancellation 및 progress SSE | 구현됨 | Narrator-only executor를 attenuated tool-capable investigation executor로 교체합니다. |
+| Command duration 및 task 시작/완료 timestamp | 부분 구현됨 | Provider-neutral tool receipt, durable latency profile 및 ETA policy를 추가합니다. |
+| Completion handoff | Conversation append 구현됨 | Process loss 후 origin-channel delivery를 위해 durable reply-ledger enqueue를 완료합니다. |
+
+## Investigation request 및 plan
+
+Planner는 eligible 질문을 immutable `ReadInvestigationRequest`로 변환합니다. Requester, conversation 및
+correlation reference, intent, resource selector, lookback, requested evidence, budget 및 idempotency key를
+전달합니다. Model이 tool description을 보기 전에 deterministic classification을 실행합니다.
+
+초기 intent vocabulary는 다음과 같습니다.
+
+- **`resource_state`**: Resource를 resolve하고 현재 observed state를 반환합니다.
+- **`change_attribution`**: Bounded resource operation의 control-plane actor를 식별합니다.
+- **`resource_change_history`**: Resolve된 resource 하나의 최근 allowlisted change를 반환합니다.
+- **`platform_health`**: Azure platform availability evidence를 설명합니다.
+- **`guest_shutdown`**: 구성된 guest log에서 operating-system shutdown event를 검색합니다.
+
+Planner는 history를 조회하기 전에 resource name을 resolve합니다. Match가 없으면 `not_found`를
+반환합니다. 여러 match는 bounded candidate와 함께 `ambiguous`를 반환하고 추가 cloud query를 하지
+않습니다. 단일 match는 이후 tool이 확장할 수 없는 exact provider resource reference를 생성합니다.
+
+## Read-tool catalog
+
+각 tool에는 Reader RBAC, `side_effect_class=read`, server-owned query template, 고정 timeout, output cap
+및 evidence schema가 있습니다.
+
+| Tool | Primary provider | 목적 |
+|------|------------------|------|
+| `resolve_resource` | Resource Graph 또는 promoted inventory | Name, type, resource group 및 configured scope를 resource reference 하나로 resolve합니다. |
+| `get_resource_state` | Resource provider instance view | 현재 resource state와 observation time을 확인합니다. |
+| `query_resource_activity` | Azure Activity Log REST 또는 configured `AzureActivity` projection | Bounded control-plane operation 및 caller attribution을 반환합니다. |
+| `query_resource_health` | Resource Health 또는 ARG `HealthResources` | Platform availability event와 customer operation을 구분합니다. |
+| `query_guest_shutdown_events` | Log Analytics guest-log projection | Diagnostic collection이 구성된 경우 operating-system shutdown evidence를 찾습니다. |
+
+REST 또는 SDK adapter가 production default입니다. Azure CLI는 기존 typed command broker 뒤의
+allowlisted fallback입니다. Model은 argv, KQL, ARG query, subscription id 또는 ARM URL을 생성하지
+않습니다. Registered tool 및 bounded enum argument만 선택합니다.
+
+## Evidence 계약
+
+Provider는 cloud-provider-neutral envelope을 반환합니다. Raw Azure response 및 raw CLI output은
+narrator context에 들어가지 않습니다.
+
+```json
+{
+  "status": "matched",
+  "authority": "azure.activity_log",
+  "resource_ref": "opaque-resource-ref",
+  "observed_at": "2026-07-22T00:00:00Z",
+  "freshness": "live",
+  "truncated": false,
+  "records": [
+    {
+      "operation_kind": "deallocate",
+      "status": "succeeded",
+      "actor_ref": "opaque-principal-ref",
+      "actor_kind": "user",
+      "occurred_at": "2026-07-21T23:58:00Z",
+      "correlation_ref": "opaque-correlation-ref"
+    }
+  ],
+  "evidence_refs": ["azure-activity:sha256:..."]
+}
+```
+
+`status`는 `matched`, `ambiguous`, `none`, `unavailable` 중 하나입니다. Server projection은 authorized
+caller label을 렌더링할 수 있지만 durable record 및 metric label은 opaque reference를 유지합니다.
+Evidence text는 untrusted data이며 approval 또는 execution eligibility를 부여할 수 없습니다.
+
+## Source 선택 및 fallback
+
+Investigation은 operator에게 비슷해 보이는 4개 질문을 구분합니다.
+
+1. **현재 상태:** Resource Graph 또는 inventory가 VM을 resolve하고 instance view가 `running`,
+   `stopped` 또는 `deallocated`를 확인합니다.
+2. **Control-plane actor:** Activity Log는 기록이 있는 경우 성공한 Stop, Power Off 또는 Deallocate
+   operation과 caller를 식별합니다.
+3. **Guest shutdown:** Control-plane operation이 없는 `stopped` VM은 Windows Event Log 또는 Linux
+   syslog evidence가 필요합니다. Guest diagnostic이 없으면 actor를 추측하지 않고 `unavailable`을
+   반환합니다.
+4. **Platform event:** Resource Health는 host, maintenance 또는 platform availability context를
+   제공합니다. 사용자가 event를 시작했다는 사실을 증명하지는 않습니다.
+
+Activity Log miss는 누구도 VM을 중지하지 않았음을 증명하지 않습니다. Retention, ingestion delay,
+guest shutdown 및 platform failure를 explicit caveat로 유지합니다. Heimdall은 지원되는 가장 강한
+결론을 명시하고 누락된 evidence를 나열합니다.
+
+## 실행 모드
+
+`InvestigationExecutionPolicy`는 측정된 plan estimate에서 하나의 모드를 선택합니다. Threshold는
+routing code의 literal이 아니라 configuration입니다.
+
+| Mode | 권장 초기 p95 구간 | 동작 |
+|------|--------------------|------|
+| `direct` | 최대 4초 | 현재 request에서 실행하고 답변 하나를 반환합니다. |
+| `streamed` | 4초 초과 15초 이하 | Chat stream을 열어 두고 bounded semantic progress를 보냅니다. |
+| `detached` | 15초 초과, multi-source fan-out 또는 explicit deep investigation | Durable background task를 만들고 task reference를 즉시 반환합니다. |
+
+이 값은 시작 configuration이며 performance claim이 아닙니다. Deployment owner는 target environment에서
+같은 scenario set을 측정한 후 값을 교체하는 것이 좋습니다. Detached work는 기존
+`queued -> claimed -> running -> terminal` state machine을 재사용합니다. Worker는 parent transcript,
+screen state, mutable memory, shell, executor identity 또는 mutation tool을 받지 않습니다.
+
+## Latency 측정 및 예측
+
+모든 provider call은 tool id, transport, operation class, status, queue 및 execution duration, result
+count, truncation, cache status, recorded time 및 trace reference가 있는 `ToolCallReceipt`를 내보냅니다.
+Metric dimension은 resource id, principal id, prompt 및 query text를 제외합니다.
+
+Durable latency profile은 `(tool_id, transport, operation_class)`별 bounded recent sample을 유지하고
+sample count, failure rate, p50 및 p95를 노출합니다. Sequential step은 step p95의 합으로, parallel
+fan-out은 최대 branch p95로 예측합니다. Detached work에는 queue delay를 추가합니다. Minimum sample
+count 전에는 catalog `latency_class`를 사용하고 거짓 정밀도 대신 넓은 범위를 보고합니다.
+
+Estimate는 cloud I/O 전에 execution mode를 선택합니다. Elapsed time이 안내된 상한을 넘으면 Bragi가
+delayed milestone 하나를 보내고 고정 wall-clock budget 안에서 계속합니다. Estimate는 timeout을
+연장하거나 tool budget을 늘리지 않습니다.
+
+## Progress 및 completion delivery
+
+Progress는 command 또는 raw provider output이 아니라 operator에게 의미 있는 milestone을 설명합니다.
+
+```text
+investigation.planned
+resource.resolving
+resource.resolved
+activity.querying
+activity.completed
+guest-log.unavailable
+evidence.correlating
+investigation.completed
+```
+
+기존 reporter는 event를 coalesce하고 개수를 제한합니다. SSE는 stored progress, heartbeat 및 terminal
+event 하나를 반환합니다. Detached completion은 immutable result를 먼저 commit한 다음 untrusted
+assistant turn을 append하고 durable reply ledger를 통해 enqueue합니다. Delivery failure는
+investigation을 다시 실행하거나 result를 다시 작성할 수 없습니다.
+
+Bragi는 operator experience가 달라질 때만 estimate를 전달합니다. 예:
+
+> 현재 VM 상태와 최근 Azure Activity Log를 확인하겠습니다. 측정된 provider latency를 기준으로 보통
+> 10-20초 정도 걸립니다.
+
+## Identity, authorization 및 audit
+
+Azure read는 configured resource group으로 scope가 제한된 dedicated `azure.reader` workload identity를
+사용합니다. Console, Heimdall, task worker 및 ChatOps는 Thor의 executor identity를 받지 않습니다.
+Identity에 실수로 더 넓은 permission이 있더라도 provider adapter는 resolved scope 밖의 resource를
+거부합니다.
+
+현재 detached-task API는 Contributor `author-draft-pr` capability를 사용합니다. Automatic read-only
+investigation은 per-principal concurrency, daily cost, tool-call 및 wall-clock quota가 있는 별도
+`start-read-investigation` capability를 사용하는 것이 좋습니다. Deployment는 read investigation을 PR
+authoring과 혼동하지 않고 이 capability를 받을 operator role을 결정할 수 있습니다.
+
+Audit record에는 requester, intent, selected tool, scope digest, task 또는 request id, duration, terminal
+status, evidence reference 및 delivery outcome이 포함됩니다. Bearer token, raw claim, raw CLI output,
+prompt 및 unredacted caller payload는 제외합니다.
+
+## 실패 동작
+
+- **Ambiguous resource:** History query 전에 bounded candidate를 반환하고 resource group 또는
+  subscription context를 요청합니다.
+- **Unauthorized scope:** Unavailable을 보고하고 denied provider operation class를 기록합니다.
+- **Provider throttling:** 원래 timeout 안에서 bounded retry와 jitter를 적용하며 scope 또는 wall-clock
+  budget을 확장하지 않습니다.
+- **Partial evidence:** 지원되는 fact를 반환하고 누락된 source를 명시합니다.
+- **Process loss:** 만료된 running attempt를 `unknown(process_lost)`로 표시하며 자동 replay하지
+  않습니다.
+- **Cancellation:** Pending provider work를 중지하고 `cancelled`를 commit하며 이미 작성된 completed
+  evidence reference를 유지합니다.
+- **Evidence의 prompt injection:** Provider string을 data로 취급하고 tool, scope, authorization 또는
+  execution mode를 변경하려는 output을 차단합니다.
+
+## 구현 순서
+
+1. Provider-neutral resource resolution, activity, health 및 guest-log contract를 추가합니다.
+2. Deterministic fixture와 함께 typed tool 및 normalized evidence projection을 추가합니다.
+3. Delivery code를 agent에 import하지 않고 Bragi routing 및 Heimdall composition을 확장합니다.
+4. Direct 및 streamed path를 구현하고 Thor와 mutation bus가 사용되지 않음을 증명합니다.
+5. `ToolCallReceipt`, durable latency profile 및 configuration-driven execution policy를 추가합니다.
+6. Narrator-only background executor를 attenuated tool-capable executor로 교체합니다.
+7. Progress rendering 및 durable origin-channel completion delivery를 완료합니다.
+8. Capability를 default로 활성화하기 전에 caller attribution, guest shutdown, Resource Health,
+   throttling 및 retention 부족 사례를 live Azure에서 검증합니다.
+
+## 검증
+
+- 영어 및 한국어 intent test가 actor, shutdown, resource history, health 및 ambiguity를 검증합니다.
+- Property test가 모든 investigation tool이 read-only이고 attenuation이 mutation, approval, shell,
+  nested-worker 및 arbitrary-query capability를 차단하는지 증명합니다.
+- Contract test가 REST 및 CLI fallback이 같은 bounded evidence envelope을 생성하는지 검증합니다.
+- Scenario test가 investigation이 `object.event`를 publish하지 않고 Thor를 호출하지 않음을 증명합니다.
+- Latency test가 cold profile, minimum sample, sequential 및 parallel estimate, threshold boundary, delayed
+  milestone 및 cross-replica persistence를 검증합니다.
+- Background test가 lease contention, cancellation, timeout, process loss, progress cap, terminal
+  immutability 및 durable reply handoff를 검증합니다.
+- Live Azure test가 resource mutation 없이 Activity Log caller attribution과 정직한 guest-log 및 Resource
+  Health fallback을 검증합니다.
+
+## 관련 문서
+
+| 알아볼 내용 | 문서 |
+|-------------|------|
+| Operator tool 및 chat tier | [Operator Console](operator-console-ko.md) |
+| Detached investigation lifecycle | [Durable Background Task Sessions](background-task-sessions-ko.md) |
+| Isolated tool attenuation | [Bounded Task Workers](../agents/bounded-task-workers-ko.md) |
+| Azure inventory boundary | [Cloud Provider Neutrality](../architecture/csp-neutrality-ko.md) |
+| Workload identity separation | [Security and Identity](../architecture/security-and-identity-ko.md) |
