@@ -18,6 +18,13 @@ shadow-before-enforce and safety invariants in
 > Customer-agnostic: all identifiers, scopes, and values below are synthetic placeholders per
 > [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md).
 
+> **Implementation status**: Effect/scope/assignment/rule-set domain models, strict YAML loaders,
+> the directory catalog loader, and effect/enforcement transition CI are implemented. T0 runtime
+> composition doesn't consume resolved assignments yet. Exemptions have a separate Azure-shaped
+> schema/loader and CLI, but aren't part of the governance directory loader and have no expiry job
+> or notification wiring. Override schema/loader/runtime resolution and governance PR OID/quorum CI
+> remain target design.
+
 ## Model (three layers, like Azure Policy)
 
 Azure Policy separates *definition* from *assignment* from *exemption*. FDAI mirrors that
@@ -29,7 +36,7 @@ so administrators get a familiar mental model:
 | initiative (policy set) | **rule set** | a named, versioned group of rules (e.g. a security baseline) |
 | assignment | **assignment** | a rule/rule-set applied to a scope, with parameters and an effect |
 | assignment `enforcementMode` | **enforcement flag** | `enforce` vs `do-not-enforce` (shadow); orthogonal to effect |
-| exemption (waiver / mitigated) | **exemption** | a time-boxed, justified, categorized waiver of an assignment on a scope |
+| exemption (waiver / mitigated) | **exemption** | a time-boxed, justified suppression of a rule on a bounded Azure scope; assignment/category metadata is future schema work |
 | effect (audit/deny/...) | **effect / mode** | what happens on violation (see Effects) |
 
 A rule is inert until an **assignment** binds it to a **scope** with an **effect**. This is the
@@ -190,8 +197,8 @@ flowchart LR
 Administrators can add **custom rules** alongside collected (built-in) rules, just as Azure Policy
 allows custom definitions beside built-ins:
 
-- A custom rule uses the same schema, with `source: custom` and full `provenance` (author,
-  created-at, rationale).
+- A custom rule uses the same schema, with `source: custom` and full shipped `provenance`
+  (`source_url`, immutable ref/hash, license/redistribution, retrieval time, and optional mapper).
 - **Precedence** when a custom and a built-in rule overlap follows the deterministic order in
   [phase-1-rule-catalog-t0.md](../phases/phase-1-rule-catalog-t0.md#deduplication-conflict-and-precedence)
   (severity, then source priority, ties → HIL). A custom source is given an explicit
@@ -210,18 +217,22 @@ allows custom definitions beside built-ins:
 
 An exemption waives an assignment for a scope, like an Azure Policy exemption:
 
-- Required fields: target assignment, scope, **justification**, **category** (`waiver` = accepted
-  risk, or `mitigated` = compensating control in place), **requester**, **approver** (distinct
-  from the requester - no self-exemption), and an **expiry** (exemptions are time-boxed; no
-  permanent silent waivers).
-- Expiry is bounded by a configured **maximum duration**; there is no auto-renew - extending an
-  exemption is a fresh PR with a fresh approval, so a waiver can never quietly become permanent.
-- On expiry the assignment re-applies automatically; expiring exemptions alert ahead of time via
-  ChatOps (not a console action).
+- Current required fields are `rule_id`, an Azure-shaped `scope` bounded to a resource group or
+  resource, **justification**, distinct `requested_by` / `approved_by` UUIDs, `state`, `created_at`,
+  and `expires_at`. The loader enforces no self-exemption and `expires_at > created_at`.
+- The current schema doesn't store an assignment reference or waiver/mitigated category and doesn't
+  enforce a configured maximum duration. That metadata and maximum-duration policy are follow-up
+  contracts.
+- Auto-renew isn't supported. Re-application on expiry and ahead-of-expiry ChatOps alerts are
+  unwired operational workflows; the CLI/review process currently updates artifact state.
 - Every exemption and its expiry is audited; an exemption never suppresses the audit record of the
   underlying finding - it records *why* it was accepted, not that it did not occur.
 
 ## Overrides
+
+> **Current status**: The override contract below isn't implemented. The repository has no
+> override-specific schema, catalog loader, or runtime resolver. Current supported relaxation
+> paths are time-boxed exemptions and catalog/rule retirement.
 
 An **override** is the human control surface *above* the automated quality gate: an operator
 declares that a rule is too aggressive in a specific environment and narrows, downgrades, or
@@ -320,8 +331,9 @@ and Owner-tier reviewer for loosening changes.
 
 ## Lifecycle and Versioning
 
-- Rules, rule-sets, assignments, and exemptions are all **versioned catalog-as-code**; any change
-  is revertible by reverting the PR.
+- Rules, rule-sets, and assignments are versioned catalog-as-code. Exemptions carry a stable id,
+  state, and creation/expiry timestamps but no artifact `version` in the current schema. Tracked
+  file changes remain revertible through their PR history.
 - Rule states: `draft → audit(shadow) ⇄ enforce(deny/remediate) → deprecated`, with `disabled`
   reachable from any active state and the `enforce → audit` demotion always available. Deprecation
   tombstones the rule (never a silent delete) so history stays reconstructable.
@@ -343,9 +355,9 @@ kind: rule-set
 id: ruleset.security-baseline
 version: 1.0.0
 members:
-  - { rule_id: object-storage.public-access.deny, version: 1.2.0, default_effect: deny }
-  - { rule_id: sql-database.encryption.tde-required, version: 1.0.0, default_effect: audit }
-  - { rule_id: postgresql-server.dr.pitr-and-geo-replica-required, version: 2.1.0, default_effect: audit }
+  - { rule_id: object-storage.public-access.deny, version: 1.0.0, default_effect: deny }
+  - { rule_id: sql-database.tde-required, version: 1.0.0, default_effect: audit }
+  - { rule_id: postgresql-server.point-in-time-restore, version: 1.0.0, default_effect: audit }
 provenance:
   created_at: 2026-07-03T00:00:00Z
   created_by: governance-team
@@ -371,8 +383,8 @@ enforcement: do-not-enforce
 effect_overrides:
   object-storage.public-access.deny: audit
 parameter_overrides:
-  postgresql-server.dr.pitr-and-geo-replica-required:
-    min_backup_retention_days: "14"
+  postgresql-server.point-in-time-restore:
+    min_retention_days: "14"
 provenance:
   created_at: 2026-07-03T00:00:00Z
   created_by: assignment-operator
@@ -381,21 +393,22 @@ provenance:
 ### Exemption
 
 ```yaml
+schema_version: 1.0.0
 id: exemption.legacy-store.public-access
-version: 1.0.0
-kind: exemption
-target_assignment: assignment.security-baseline.prod
-scope: scope://org/account-000/prod/resource-000
-rule: object-storage.public-access.deny
-justification: Documented migration in progress; compensating control in place.
-category: mitigated
-requested_by: assignment-operator
-approver: exemption-approver
+rule_id: object-storage.public-access.deny
+scope:
+  subscription_id: 00000000-0000-0000-0000-000000000000
+  resource_group: example-resource-group
+justification: Documented migration remains in progress with a compensating control.
+requested_by: <requester-entra-oid>
+approved_by: <distinct-approver-entra-oid>
+state: active
+created_at: 2026-07-03T00:00:00Z
 expires_at: 2026-09-30T00:00:00Z
-provenance:
-  created_at: 2026-07-03T00:00:00Z
-  created_by: assignment-operator
 ```
+
+`requested_by` and `approved_by` must be distinct UUIDs supplied by the deployment. Named
+placeholders avoid placing real tenant identifiers in this repository example.
 
 ### Override
 
@@ -403,11 +416,11 @@ provenance:
 id: override.pitr-relaxation.rg-analytics
 version: 1.0.0
 kind: override
-target_rule: postgresql-server.dr.pitr-required
+target_rule: postgresql-server.point-in-time-restore
 scope: scope://org/account-000/prod/rg-analytics
 mode: parameter-relaxation
 parameter_overrides:
-  min_backup_retention_days: 3
+  min_retention_days: 3
 justification: Non-critical analytics workloads with 3-day retention accepted by the data owner.
 requested_by: assignment-operator
 approver: override-approver
@@ -416,21 +429,20 @@ provenance:
   created_by: assignment-operator
 ```
 
-> `kind: rule-set | assignment | exemption | override` extends the catalog discriminator set from
-> [rule-catalog-collection.md](rule-catalog-collection.md); each has its own strict per-kind
-> JSON Schema (`additionalProperties: false`, applied to the parsed YAML document) validated in
-> CI. Each rule-set member pins a rule `version`; each `parameter_overrides` value is validated
-> against the type the target rule declares for that parameter (a type mismatch fails CI);
-> `requested_by` must differ from `approver`. The assignment above is intentionally held **fully
+> `rule-set` and `assignment` have strict schemas read by the governance catalog loader;
+> `exemption` has a separate strict schema/CLI. The `override` shape is a target example with no
+> loader yet. Each rule-set member pins a rule `version`. Typed validation of
+> `parameter_overrides` remains follow-up work; the current assignment schema accepts string
+> values. Exemption `requested_by` must differ from `approved_by`. The assignment above is intentionally held **fully
 > in shadow** - the rule set's `deny` default for `object-storage.public-access.deny` is
 > overridden to `audit` and `enforcement` is `do-not-enforce` until a separate promotion approval
 > flips it.
 
 ## Open Decisions
 
-- [ ] Scope URI grammar (`scope://...`) and its Azure resolution (non-Azure resolution is
-      TBD; see
-      [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
+- [ ] Adapter that resolves the implemented `scope://...` syntax against the Azure resource
+  hierarchy (non-Azure resolution is TBD; see
+  [Always-On Rules](../../../.github/copilot-instructions.md#always-on-rules-must)).
 - [ ] Whether the authoring UI ships in the console (draft-PR only) in P1 or P3.
 - [ ] The concrete parameter **type vocabulary** (int/string/enum/bool/array + range/pattern
       constraints) that CI validates `parameter_overrides` against.

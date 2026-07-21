@@ -30,14 +30,14 @@ Design contract: [scope-expansion.md § 3](../fork-and-sequencing/scope-expansio
 schema: [`shared/contracts/profile/schema.json`](../../../src/fdai/shared/contracts/profile/schema.json).
 
 - **Upstream ships three canonical profiles**:
-  - `baseline` - the minimum-safe posture, ~10 rules, ships to any
+  - `baseline` - the minimum-safe posture, 10 rules, ships to any
     Azure tenant with zero customization.
   - `recommended` `extends: [baseline]` - standard best-practice; adds
     diagnostic settings, private endpoints, purge protection, RBAC,
-    the full tag matrix. ~30 rules total.
+    the full tag matrix. The current resolved total is 44 rules.
   - `strict` `extends: [recommended]` - regulated / zero-trust; moves
-    security-critical rules from shadow to `enforce`. ~40 rules total.
-- **Upstream also ships ~225 auto-imported profiles** under
+    security-critical rules from shadow to `enforce`. The current resolved total is 45 rules.
+- **Upstream also ships 265 auto-imported profiles** under
   `rule-catalog/profiles/collected/` - one profile per Azure Policy
   built-in initiative (CIS Azure Foundations, NIST 800-53, PCI DSS,
   HIPAA HITRUST, ISO 27001, FedRAMP High / Moderate, GDPR, DORA,
@@ -83,9 +83,9 @@ The `parser` field names one of the parser plugins registered under
 
 | Source id | Origin | Parser | Rule count landed | Layout |
 |-----------|--------|--------|-------------------:|--------|
-| `fdai-p1-seed` | this repo | `rule-yaml` | 55 hand-authored | `rule-catalog/catalog/*.yaml` |
-| `azure-policy-builtin` | `Azure/azure-policy` | `azure-policy-json` | ~5000 | `rule-catalog/collected/azure-builtin/<Category>/*.yaml` |
-| `kube-bench` | `aquasecurity/kube-bench` | `kube-bench` | ~4800 | `rule-catalog/collected/kube-bench/<ruleset>/*.yaml` |
+| `fdai-p1-seed` | this repo | `rule-yaml` | 61 hand-authored | `rule-catalog/catalog/*.yaml` |
+| `azure-policy-builtin` | `Azure/azure-policy` | `azure-policy-json` | 3628 | `rule-catalog/collected/azure-builtin/<Category>/*.yaml` |
+| `kube-bench` | `aquasecurity/kube-bench` | `kube-bench` | 4859 | `rule-catalog/collected/kube-bench/<ruleset>/*.yaml` |
 | `gatekeeper-library` | `open-policy-agent/gatekeeper-library` | `rego` | (schema-only; collector wiring pending) | `rule-catalog/collected/gatekeeper/*.yaml` |
 
 ### Reserved-but-unimplemented parsers
@@ -122,11 +122,11 @@ Coverage as of this document:
 
 | Layer | Count |
 |-------|------:|
-| Hand-authored rules | 55 |
-| Imported (Azure Policy built-in) | ~5000 |
-| Imported (kube-bench CIS Kubernetes) | ~4800 |
+| Hand-authored rules | 61 |
+| Imported (Azure Policy built-in) | 3628 |
+| Imported (kube-bench CIS Kubernetes) | 4859 |
 | Profiles - upstream curated | 3 (`baseline`, `recommended`, `strict`) |
-| Profiles - auto-imported compliance frameworks | ~225 (CIS / NIST / HIPAA / PCI / ISO / FedRAMP / GDPR / DORA / ...) |
+| Profiles - auto-imported compliance frameworks | 265 (CIS / NIST / HIPAA / PCI / ISO / FedRAMP / GDPR / DORA / ...) |
 
 ## 4. Fork adoption playbook
 
@@ -148,15 +148,15 @@ rules:
     disabled: true                                      # customer-specific exemption
 ```
 
-The composition root reads `FDAI_PROFILE_ID=customer-a` and hands the
-resolved profile to `ControlLoop` / `T0Engine` / `RiskGate` at
-startup.
+The target composition contract reads `FDAI_PROFILE_ID=customer-a` and hands the resolved profile
+to `ControlLoop` / `T0Engine` / `RiskGate` at startup. The default composition doesn't implement
+that contract yet.
 
 > **Wiring status (2026-07):** the `ProfileRegistry` library
 > (`src/fdai/core/rule_catalog_profiles/`) is shipped and covered by
 > tests, but the composition root does not yet read `FDAI_PROFILE_ID`.
 > The `resolve()` call must be added to
-> [`src/fdai/composition.py`](../../../src/fdai/composition/__init__.py) before this
+> [`src/fdai/composition/`](../../../src/fdai/composition/) before this
 > knob has any runtime effect; fork maintainers who need the profile
 > layer today can bind their own resolved profile via a wrapping factory
 > until the upstream default binder wires it.

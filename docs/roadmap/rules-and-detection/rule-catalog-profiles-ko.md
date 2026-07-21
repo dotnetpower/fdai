@@ -1,8 +1,8 @@
 ---
 title: Rule-catalog profile 및 collector
 translation_of: rule-catalog-profiles.md
-translation_source_sha: f25351e1490394e9ce3569a84ec965c9e9917055
-translation_revised: 2026-07-11
+translation_source_sha: 688089122841b391395e69073e95024a104a4eb0
+translation_revised: 2026-07-21
 ---
 # Rule-catalog profile 및 collector
 
@@ -32,15 +32,14 @@ profile schema:
 [`shared/contracts/profile/schema.json`](../../../src/fdai/shared/contracts/profile/schema.json).
 
 - **Upstream 은 세 개의 canonical profile 을 ship**:
-  - `baseline` - 최소 안전 posture, ~10 rules, zero customization 으로
+  - `baseline` - 최소 안전 posture, 10 rules, zero customization 으로
     어느 Azure tenant 에든 ship.
   - `recommended` `extends: [baseline]` - 표준 best-practice; diagnostic
     settings, private endpoints, purge protection, RBAC, 전체 tag matrix
-    추가. 총 ~30 rules.
+    추가. 현재 resolved total 44 rules.
   - `strict` `extends: [recommended]` - regulated / zero-trust;
-    security-critical rule 을 shadow 에서 `enforce` 로 이동. 총 ~40
-    rules.
-- **Upstream 은 또한 ~225 개의 auto-imported profile 을 ship**
+    security-critical rule 을 shadow 에서 `enforce` 로 이동. 현재 resolved total 45 rules.
+- **Upstream 은 또한 265 개의 auto-imported profile 을 ship**
   `rule-catalog/profiles/collected/` 아래 - Azure Policy built-in
   initiative 당 하나 (CIS Azure Foundations, NIST 800-53, PCI DSS,
   HIPAA HITRUST, ISO 27001, FedRAMP High / Moderate, GDPR, DORA,
@@ -85,9 +84,9 @@ byte-stable.
 
 | Source id | Origin | Parser | Landed rule 수 | Layout |
 |-----------|--------|--------|----------------:|--------|
-| `fdai-p1-seed` | this repo | `rule-yaml` | 55 hand-authored | `rule-catalog/catalog/*.yaml` |
-| `azure-policy-builtin` | `Azure/azure-policy` | `azure-policy-json` | ~5000 | `rule-catalog/collected/azure-builtin/<Category>/*.yaml` |
-| `kube-bench` | `aquasecurity/kube-bench` | `kube-bench` | ~4800 | `rule-catalog/collected/kube-bench/<ruleset>/*.yaml` |
+| `fdai-p1-seed` | this repo | `rule-yaml` | 61 hand-authored | `rule-catalog/catalog/*.yaml` |
+| `azure-policy-builtin` | `Azure/azure-policy` | `azure-policy-json` | 3628 | `rule-catalog/collected/azure-builtin/<Category>/*.yaml` |
+| `kube-bench` | `aquasecurity/kube-bench` | `kube-bench` | 4859 | `rule-catalog/collected/kube-bench/<ruleset>/*.yaml` |
 | `gatekeeper-library` | `open-policy-agent/gatekeeper-library` | `rego` | (schema-only; collector wiring pending) | `rule-catalog/collected/gatekeeper/*.yaml` |
 
 ### Reserved-but-unimplemented parser
@@ -123,11 +122,11 @@ Upstream FDAI 는 산업에서 publish 하는 모든 policy 를 hand-author
 
 | Layer | Count |
 |-------|------:|
-| Hand-authored rules | 55 |
-| Imported (Azure Policy built-in) | ~5000 |
-| Imported (kube-bench CIS Kubernetes) | ~4800 |
+| Hand-authored rules | 61 |
+| Imported (Azure Policy built-in) | 3628 |
+| Imported (kube-bench CIS Kubernetes) | 4859 |
 | Profiles - upstream curated | 3 (`baseline`, `recommended`, `strict`) |
-| Profiles - auto-imported compliance frameworks | ~225 (CIS / NIST / HIPAA / PCI / ISO / FedRAMP / GDPR / DORA / ...) |
+| Profiles - auto-imported compliance frameworks | 265 (CIS / NIST / HIPAA / PCI / ISO / FedRAMP / GDPR / DORA / ...) |
 
 ## 4. Fork adoption playbook
 
@@ -149,15 +148,15 @@ rules:
     disabled: true                                      # customer-specific exemption
 ```
 
-Composition root 는 `FDAI_PROFILE_ID=customer-a` 를 읽고 resolved
-profile 을 startup 시 `ControlLoop` / `T0Engine` / `RiskGate` 에
-handoff.
+목표 composition contract는 `FDAI_PROFILE_ID=customer-a`를 읽고 resolved profile을 startup 시
+`ControlLoop` / `T0Engine` / `RiskGate`에 handoff합니다. Default composition은 아직 이 계약을
+구현하지 않습니다.
 
 > **배선 상태 (2026-07):** `ProfileRegistry` 라이브러리
 > (`src/fdai/core/rule_catalog_profiles/`) 는 shipped 되고 테스트
 > 커버 완료. 하지만 composition root 는 아직 `FDAI_PROFILE_ID` 를
 > 읽지 않는다. 이 knob 이 런타임에 효과를 내려면
-> [`src/fdai/composition.py`](../../../src/fdai/composition/__init__.py) 에
+> [`src/fdai/composition/`](../../../src/fdai/composition/) 에
 > `resolve()` 호출이 추가되어야 한다. 지금 당장 profile 레이어가
 > 필요한 fork 는 upstream default binder 가 배선되기 전까지
 > wrapping factory 로 자체 resolved profile 을 바인딩 가능.
