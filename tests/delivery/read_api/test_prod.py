@@ -169,6 +169,28 @@ def test_build_prod_app_returns_starlette_app() -> None:
     assert app.state.skill_disclosure.inspect()["installed_count"] == 0
 
 
+def test_build_prod_app_verifies_postgresql_before_runtime_startup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_callbacks: tuple[object, ...] = ()
+
+    def capture_build_app(**kwargs: object) -> Starlette:
+        nonlocal captured_callbacks
+        config = kwargs["config"]
+        captured_callbacks = config.startup_callbacks  # type: ignore[attr-defined]
+        return Starlette()
+
+    monkeypatch.setattr(
+        "fdai.delivery.read_api.production.factory.build_app",
+        capture_build_app,
+    )
+
+    build_prod_app(_GOOD_ENV)
+
+    assert captured_callbacks
+    assert getattr(captured_callbacks[0], "__name__", "") == "verify_connection"
+
+
 def test_build_prod_app_rejects_unimplemented_identity_provider() -> None:
     env = dict(_GOOD_ENV, FDAI_IAM_DIRECTORY_PROVIDER="aws-identity-center")
 

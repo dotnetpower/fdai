@@ -34,6 +34,9 @@ model from environment only. This doc covers the production entrypoint.
   a broken revision never binds a socket. A cold boot with an entirely
   unpopulated env yields ONE error that enumerates every missing slot,
   instead of eight sequential boot failures.
+- **Fail-fast on database readiness.** Before user context, skills, streams, or other runtime
+  services start, the Postgres read model executes a bounded `SELECT 1`. A connection failure
+  aborts lifespan startup, so `/healthz` never presents an unconnected revision as ready.
 - **Kafka-backed Live observation.** When the Kafka bootstrap endpoint is
   configured, the factory registers `/live/stream` and `/agents/stream`.
   Separate consumer groups read the shared `aw.pipeline.stages` topic and fan

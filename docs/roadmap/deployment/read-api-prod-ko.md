@@ -1,7 +1,7 @@
 ---
 title: 콘솔 read-API 프로덕션 배포
 translation_of: read-api-prod.md
-translation_source_sha: af8ec34c29aa9874b692d5d84d79e74400ddfae9
+translation_source_sha: c69976e3b1e04fc850c87ebb26847fdd8f85dcdc
 translation_revised: 2026-07-21
 ---
 # 콘솔 read-API 프로덕션 배포
@@ -34,6 +34,9 @@ pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic vie
   깨진 리비전은 절대 소켓을 바인딩하지 못한다. env가 통째로 비어있는
   콜드 부트에서는 누락된 슬롯 8개를 순차 실패로 겪는 대신 한 번의
   에러로 모두 열거되어 보인다.
+- **Database readiness는 즉시 실패.** User context, skill, stream 또는 다른 runtime service를
+  시작하기 전에 Postgres read model이 bounded `SELECT 1`을 실행합니다. 연결에 실패하면 lifespan
+  startup을 중단하므로 연결되지 않은 revision이 `/healthz`에서 ready로 표시되지 않습니다.
 - **Kafka 기반 실시간 관찰.** Kafka bootstrap endpoint가 구성되면 팩토리는
   `/live/stream`과 `/agents/stream`을 등록합니다. 별도 consumer group이 공유
   `aw.pipeline.stages` 토픽을 읽고 검증된 단계 레코드를 프로세스 내부 SSE sink로

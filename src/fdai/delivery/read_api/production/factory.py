@@ -545,7 +545,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             model_settings_configured=model_settings is not None,
             streams_configured=runtime.live_stream is not None,
         ),
-        startup_callbacks=runtime.startup_callbacks,
+        startup_callbacks=(read_model.verify_connection, *runtime.startup_callbacks),
         shutdown_callbacks=shutdown_callbacks,
     )
     application = build_app(authenticator=authenticator, read_model=read_model, config=config)
