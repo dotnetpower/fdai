@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 1d493ae339dde3712b9e65a00b7d5901ee662bdf
+translation_source_sha: 9997e6fdab05178d3eb8afcf2eb3ecda78192d10
 translation_revised: 2026-07-21
 ---
 
@@ -1401,7 +1401,9 @@ agent, provisioning SSE reader는 keepalive comment를 포함해 45초 동안 by
 기존 bounded reconnect path로 이동합니다. Provisioning은 event 전달이 실패해도 reader를 cancel합니다.
 Canvas
 visualization은 동등한 keyboard 및 screen-reader resource selector를 제공하고 composite tab widget은
-roving selection과 함께 DOM focus를 이동합니다.
+roving selection과 함께 DOM focus를 이동합니다. Command Deck은 SSE frame 또는 미완성 pending
+frame이 256 KiB를 넘으면 `data:` line 누적이나 JSON parsing 전에 거부하고 deterministic
+interrupted-stream fallback을 사용합니다.
 
 SPA는 bootstrap 중 콘솔 데이터를 열기 전에 인증된 `GET /iam/self`를 통해 로그인한 principal을
 확인합니다. Transport failure가 발생하면 데이터를 계속 닫아 두고 전체 화면 sign-in recovery

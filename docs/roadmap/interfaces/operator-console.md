@@ -1475,7 +1475,9 @@ without any bytes, including keepalive comments, and enter the existing bounded 
 Provisioning also cancels its reader when event delivery fails. Canvas
 visualizations provide an equivalent keyboard and screen-reader
 resource selector, and composite tab widgets move DOM focus together with
-roving selection.
+roving selection. The Command Deck rejects an SSE frame or incomplete pending frame above 256 KiB
+before accumulating `data:` lines or parsing JSON, then uses its deterministic interrupted-stream
+fallback.
 
 During bootstrap, the SPA verifies the signed-in principal through authenticated
 `GET /iam/self` before opening console data. A transport failure keeps data closed and renders the
