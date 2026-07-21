@@ -168,6 +168,7 @@ export interface FinOpsPayload {
 }
 
 /** One success metric measured against the reference-agent baseline.
+ * Null values mean the source has not observed the measurement.
  * `direction` says which way is better, so the console can render the
  * improvement factor correctly (higher-is-better vs lower-is-better). */
 export interface MetricVsBaseline {
