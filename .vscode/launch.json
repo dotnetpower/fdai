@@ -2,6 +2,19 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Console Web: Core Runtime",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "module": "fdai",
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "console: prepare full stack",
+      "envFile": "${workspaceFolder}/.fdai/local-runtime.env",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true
+    },
+    {
       "name": "Console Web: Read API",
       "type": "debugpy",
       "request": "launch",
@@ -17,11 +30,13 @@
         "--reload"
       ],
       "cwd": "${workspaceFolder}",
-      "envFile": "${workspaceFolder}/console/.env.local",
+      "preLaunchTask": "console: prepare full stack",
+      "envFile": "${workspaceFolder}/.fdai/local-runtime.env",
       "env": {
         "FDAI_READ_API_LOCAL_ENTRA": "1",
         "FDAI_READ_API_DEV_MODE": "0",
         "FDAI_READ_API_LOCAL_AZURE_CLI": "0",
+        "FDAI_READ_API_EMBED_PANTHEON": "0",
         "FDAI_LOCAL_AZURE_DISCOVERY": "1",
         "FDAI_LOCAL_SCENARIO_REPLAY": "0",
         "FDAI_NARRATOR_AUTO_OPEN_AOAI": "0",
@@ -79,6 +94,7 @@
     {
       "name": "Console Web: Full Stack",
       "configurations": [
+        "Console Web: Core Runtime",
         "Console Web: Read API",
         "Console Web: Frontend"
       ],

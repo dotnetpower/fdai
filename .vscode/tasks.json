@@ -49,9 +49,56 @@
       }
     },
     {
+      "label": "console: prepare local runtime env",
+      "type": "shell",
+      "command": "bash scripts/deployment/azure/prepare-local-runtime-env.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "close": true
+      }
+    },
+    {
+      "label": "console: prepare local state",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/prepare-console-state.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "close": true
+      }
+    },
+    {
+      "label": "console: prepare full stack",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "console: prepare local state",
+        "console: prepare local runtime env"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "console: core runtime (Azure transport, local PostgreSQL)",
+      "type": "shell",
+      "command": "set -a && source .fdai/local-runtime.env && set +a && env -u AZURE_CONFIG_DIR .venv/bin/python -m fdai",
+      "dependsOn": "console: prepare full stack",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack"
+      }
+    },
+    {
       "label": "console: read API (Local Entra)",
       "type": "shell",
-      "command": "set -a && source console/.env.local && set +a && env -u FDAI_READ_API_DEV_MODE -u FDAI_READ_API_LOCAL_AZURE_CLI FDAI_READ_API_LOCAL_ENTRA=1 FDAI_NARRATOR_AUTO_OPEN_AOAI=0 FDAI_READ_API_CORS_ALLOW_ORIGINS=http://127.0.0.1:5273,http://localhost:5273 .venv/bin/python -m uvicorn fdai.delivery.read_api.dev.local:app --factory --host 127.0.0.1 --port 8010",
+      "command": "set -a && source .fdai/local-runtime.env && set +a && env -u FDAI_READ_API_DEV_MODE -u FDAI_READ_API_LOCAL_AZURE_CLI FDAI_READ_API_LOCAL_ENTRA=1 FDAI_READ_API_EMBED_PANTHEON=0 FDAI_NARRATOR_AUTO_OPEN_AOAI=0 FDAI_READ_API_CORS_ALLOW_ORIGINS=http://127.0.0.1:5273,http://localhost:5273 .venv/bin/python -m uvicorn fdai.delivery.read_api.dev.local:app --factory --host 127.0.0.1 --port 8010",
+      "dependsOn": "console: prepare full stack",
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {
