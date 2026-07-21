@@ -12,10 +12,11 @@ usable against a real Postgres + Kafka backend without change.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 
 import pytest
 
-from fdai.agents._framework.bus_bridge import EventBusBridge
+from fdai.agents._framework.bus_bridge import AgentHandlerPhase, EventBusBridge
 from fdai.agents._framework.provider_adapters import (
     StateStoreAuditChainAdapter,
     StateStoreKvAdapter,
@@ -126,6 +127,87 @@ def test_bridge_run_dispatches_to_registered_subscriber() -> None:
     asyncio.run(_drive())
     assert len(received) == 1
     assert received[0]["event_type"] == "e"
+
+
+def test_bridge_observes_actual_handler_lifecycle() -> None:
+    reg = load_pantheon()
+    provider = InMemoryEventBus()
+    observed: list[tuple[str, str, AgentHandlerPhase, str]] = []
+
+    class Observer:
+        async def observe(
+            self,
+            *,
+            agent: str,
+            topic: str,
+            phase: AgentHandlerPhase,
+            payload: Mapping[str, object],
+            error_type: str | None = None,
+        ) -> None:
+            observed.append((agent, topic, phase, str(payload.get("correlation_id"))))
+
+    bridge = EventBusBridge(provider=provider, registry=reg, handler_observer=Observer())
+
+    async def handler(_topic: str, _payload: dict[str, object]) -> None:
+        return None
+
+    bridge.subscribe("object.event", "Heimdall", handler)
+
+    async def _drive() -> None:
+        await bridge.publish(
+            "Huginn",
+            "object.event",
+            {"correlation_id": "corr-observed", "event_type": "resource.changed"},
+        )
+        await bridge.run()
+
+    asyncio.run(_drive())
+
+    assert observed == [
+        ("Heimdall", "object.event", AgentHandlerPhase.STARTED, "corr-observed"),
+        ("Heimdall", "object.event", AgentHandlerPhase.COMPLETED, "corr-observed"),
+    ]
+
+
+def test_bridge_observer_failure_does_not_block_handler_delivery() -> None:
+    reg = load_pantheon()
+    provider = InMemoryEventBus()
+    delivered: list[str] = []
+
+    class FailingObserver:
+        async def observe(
+            self,
+            *,
+            agent: str,
+            topic: str,
+            phase: AgentHandlerPhase,
+            payload: Mapping[str, object],
+            error_type: str | None = None,
+        ) -> None:
+            raise RuntimeError("observer unavailable")
+
+    bridge = EventBusBridge(
+        provider=provider,
+        registry=reg,
+        handler_observer=FailingObserver(),
+    )
+
+    async def handler(_topic: str, payload: dict[str, object]) -> None:
+        delivered.append(str(payload["correlation_id"]))
+
+    bridge.subscribe("object.event", "Heimdall", handler)
+
+    async def _drive() -> None:
+        await bridge.publish(
+            "Huginn",
+            "object.event",
+            {"correlation_id": "corr-delivered", "event_type": "resource.changed"},
+        )
+        await bridge.run()
+
+    asyncio.run(_drive())
+
+    assert delivered == ["corr-delivered"]
 
 
 def test_bridge_dead_letters_on_handler_failure() -> None:

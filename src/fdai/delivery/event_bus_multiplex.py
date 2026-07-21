@@ -73,5 +73,11 @@ class MultiplexedEventBus:
     def subscribe(self, topic: str, group_id: str) -> AsyncIterator[EventEnvelope]:
         return self._subscribe(topic, group_id)
 
+    async def close(self) -> None:
+        """Close the underlying broker adapter when it owns a lifecycle."""
+        close = getattr(self.bus, "close", None)
+        if callable(close):
+            await close()
+
 
 __all__ = ["MultiplexedEventBus"]

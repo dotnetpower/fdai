@@ -4,6 +4,15 @@ from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 
+class _ClosableInMemoryEventBus(InMemoryEventBus):
+    def __init__(self) -> None:
+        super().__init__()
+        self.close_count = 0
+
+    async def close(self) -> None:
+        self.close_count += 1
+
+
 async def test_multiplex_round_trip_preserves_logical_topic() -> None:
     raw = InMemoryEventBus()
     bus = MultiplexedEventBus(
@@ -48,3 +57,16 @@ async def test_non_multiplexed_topic_passes_through() -> None:
 
     await bus.publish("aw.change.events", "one", {"kind": "raw"})
     assert (await anext(bus.subscribe("aw.change.events", "core"))).topic == ("aw.change.events")
+
+
+async def test_close_delegates_to_underlying_broker() -> None:
+    raw = _ClosableInMemoryEventBus()
+    bus = MultiplexedEventBus(
+        bus=raw,
+        logical_topics=frozenset({"object.event"}),
+        physical_topic="objects",
+    )
+
+    await bus.close()
+
+    assert raw.close_count == 1

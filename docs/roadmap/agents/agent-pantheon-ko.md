@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: e90f02acea710825009d4898a3aa80dc32749932
+translation_source_sha: 98733da189bfbde68d3104709cbaa9becaec9e6d
 translation_revised: 2026-07-21
 ---
 
@@ -403,10 +403,9 @@ properties:
 
 ## 6. 통신 계약
 
-판테온은
-[app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
-의 기존 wire (Event Hubs `:9093` 위 Kafka 프로토콜) 를 재사용한다. 새 인프라
-없음.
+판테온은 기존 `EventBus` wire를 사용합니다. Event Hubs `:9093`의 Kafka 또는 in-process
+local adapter를 사용합니다. Best-effort `AgentHandlerObserver`는 delivery, judgment 또는
+execution을 변경하지 않고 실제 handler lifecycle을 보고합니다.
 
 ### 6.1 Typed port
 

@@ -425,9 +425,9 @@ principal is checked by the schema registry: only the owner may publish.
 
 ## 6. Communication contract
 
-The pantheon reuses the existing wire in
-[app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md):
-Kafka protocol on Event Hubs `:9093`. No new infrastructure.
+The pantheon uses the existing `EventBus` wire: Kafka on Event Hubs `:9093`, or the in-process
+local adapter. A best-effort `AgentHandlerObserver` reports actual handler lifecycle without
+changing delivery, judgment, or execution.
 
 ### 6.1 Typed port
 

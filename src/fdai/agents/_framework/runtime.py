@@ -38,7 +38,7 @@ from typing import Any
 
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
-from fdai.agents._framework.bus_bridge import EventBusBridge
+from fdai.agents._framework.bus_bridge import AgentHandlerObserver, EventBusBridge
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import instantiate_pantheon
 from fdai.agents._framework.pantheon import HARD_DEPENDENCY_AGENTS, PANTHEON_NAMES
@@ -105,6 +105,7 @@ class PantheonRuntime:
         scenario_coverage_aggregator: ScenarioCoverageAggregator | None = None,
         post_turn_review: PostTurnReviewCoordinator | None = None,
         action_types: tuple[OntologyActionType, ...] = (),
+        handler_observer: AgentHandlerObserver | None = None,
     ) -> PantheonRuntime:
         """Instantiate + wire the pantheon against ``provider``.
 
@@ -164,6 +165,7 @@ class PantheonRuntime:
             provider=provider,
             registry=reg,
             consumer_group_prefix=consumer_group_prefix,
+            handler_observer=handler_observer,
         )
         instantiated = instantiate_pantheon()
         if discovery_projector is not None:

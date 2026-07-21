@@ -27,7 +27,8 @@ import random
 from collections import defaultdict
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from enum import StrEnum
+from typing import Any, Protocol
 
 from fdai.agents._framework.bus_metrics import BridgeMetrics
 from fdai.agents._framework.registry import PantheonRegistry
@@ -47,6 +48,28 @@ PayloadValidator = Callable[[str, Mapping[str, object]], None]
 """Optional publish-side contract check (topic, payload) -> None; raises on
 an invalid payload. Wire a ContractValidator-backed callable here to reject
 a malformed record at the publish boundary (fail closed)."""
+
+
+class AgentHandlerPhase(StrEnum):
+    """Lifecycle phase for one observed agent message delivery."""
+
+    STARTED = "started"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class AgentHandlerObserver(Protocol):
+    """Best-effort observer for actual Pantheon handler execution."""
+
+    async def observe(
+        self,
+        *,
+        agent: str,
+        topic: str,
+        phase: AgentHandlerPhase,
+        payload: Mapping[str, object],
+        error_type: str | None = None,
+    ) -> None: ...
 
 
 def _warn_unknown_topic(topic: str, agent_name: str) -> None:
@@ -86,6 +109,7 @@ class EventBusBridge:
     halt_ordered_topic_on_poison: bool = False
     handler_timeout: float | None = None
     payload_validator: PayloadValidator | None = None
+    handler_observer: AgentHandlerObserver | None = None
     _subs: dict[str, list[tuple[str, Handler]]] = field(default_factory=lambda: defaultdict(list))
     _tasks: list[asyncio.Task[None]] = field(default_factory=list)
     metrics: BridgeMetrics = field(default_factory=BridgeMetrics)
@@ -313,12 +337,31 @@ class EventBusBridge:
                         )
                         continue
                     try:
+                        await self._notify_handler_observer(
+                            agent=group_id.rsplit(".", 1)[-1],
+                            topic=topic,
+                            phase=AgentHandlerPhase.STARTED,
+                            payload=envelope.payload,
+                        )
                         await self._deliver(topic, handler, envelope.payload)
+                        await self._notify_handler_observer(
+                            agent=group_id.rsplit(".", 1)[-1],
+                            topic=topic,
+                            phase=AgentHandlerPhase.COMPLETED,
+                            payload=envelope.payload,
+                        )
                         self.metrics.delivered += 1
                         attempt = 0  # progress resets the backoff window
                     except asyncio.CancelledError:
                         raise
                     except Exception as exc:  # noqa: BLE001 - route to DLQ, keep loop alive
+                        await self._notify_handler_observer(
+                            agent=group_id.rsplit(".", 1)[-1],
+                            topic=topic,
+                            phase=AgentHandlerPhase.FAILED,
+                            payload=envelope.payload,
+                            error_type=type(exc).__name__,
+                        )
                         self.metrics.handler_errors += 1
                         _LOG.warning(
                             "pantheon_handler_error",
@@ -394,6 +437,39 @@ class EventBusBridge:
                 )
                 await asyncio.sleep(backoff)
                 # loop: re-subscribe, resuming from the committed offset.
+
+    async def _notify_handler_observer(
+        self,
+        *,
+        agent: str,
+        topic: str,
+        phase: AgentHandlerPhase,
+        payload: Payload,
+        error_type: str | None = None,
+    ) -> None:
+        observer = self.handler_observer
+        if observer is None:
+            return
+        try:
+            await observer.observe(
+                agent=agent,
+                topic=topic,
+                phase=phase,
+                payload=payload,
+                error_type=error_type,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - observation must not break delivery
+            _LOG.warning(
+                "pantheon_handler_observer_failed",
+                extra={
+                    "agent": agent,
+                    "topic": topic,
+                    "phase": phase.value,
+                    "error_type": type(exc).__name__,
+                },
+            )
 
     def _producer_authorized(self, topic: str, payload: Payload) -> bool:
         """Consumer-side single-writer check.

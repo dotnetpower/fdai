@@ -12,6 +12,7 @@ Design authority: `docs/roadmap/agents/agent-pantheon.md`.
 
 from fdai.agents._framework.base import Agent, AgentSpec, Layer
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.bus_bridge import AgentHandlerObserver, AgentHandlerPhase
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import instantiate_pantheon
 from fdai.agents._framework.pantheon import (
@@ -32,6 +33,8 @@ from fdai.agents.norns import Norns
 
 __all__ = [
     "Agent",
+    "AgentHandlerObserver",
+    "AgentHandlerPhase",
     "AgentSpec",
     "Layer",
     "Norns",
