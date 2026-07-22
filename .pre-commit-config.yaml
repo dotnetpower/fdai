@@ -63,22 +63,25 @@ repos:
         name: check-punctuation.sh
         entry: bash scripts/quality/repository/check-punctuation.sh
         language: system
-        pass_filenames: false
+        require_serial: true
       - id: check-guids
         name: check-guids.sh
         entry: bash scripts/quality/repository/check-guids.sh
         language: system
-        pass_filenames: false
+        require_serial: true
       - id: check-translations
         name: check-translations.sh
         entry: bash scripts/quality/localization/check-translations.sh
         language: system
         pass_filenames: false
+        files: ^(README(?:-ko)?\.md|docs/.*\.md)$
+        exclude: ^docs/internals/
       - id: check-core-imports
         name: check-core-imports.sh
         entry: bash scripts/quality/architecture/check-core-imports.sh
         language: system
         pass_filenames: false
+        files: ^src/fdai/core/
       - id: check-integrity
         name: check-integrity.sh (framework-surface signature, offline)
         entry: bash scripts/integrity/check-integrity.sh

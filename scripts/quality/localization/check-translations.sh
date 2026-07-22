@@ -29,7 +29,8 @@ report() { echo "check-translations: $*" >&2; errors=$((errors + 1)); }
 
 # Enumerate in-scope English markdown files (canonical sources).
 mapfile -t english_docs < <(
-  { echo "README.md"; find docs -type f -name '*.md' 2>/dev/null; } \
+  git ls-files 'README.md' 'docs' \
+    | grep -E '\.md$' \
     | grep -Ev '(^|/)[^/]+-ko\.md$' \
     | grep -Ev '^docs/internals/' \
     | sort -u
@@ -37,15 +38,7 @@ mapfile -t english_docs < <(
 
 # Enumerate all -ko.md files (to catch orphans).
 mapfile -t korean_docs < <(
-  find . -type f -name '*-ko.md' \
-    -not -path './.github/*' \
-    -not -path './mocks/*' \
-    -not -path './examples/*' \
-    -not -path './node_modules/*' \
-    -not -path './site/node_modules/*' \
-    -not -path './.git/*' \
-    | sed 's|^\./||' \
-    | sort -u
+  git ls-files '*-ko.md' | sort -u
 )
 
 # Rule 1 + 2 + 3: every English doc has a valid, up-to-date -ko.md.
