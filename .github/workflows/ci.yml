@@ -102,7 +102,8 @@ jobs:
       - name: Install OPA (Rego runner)
         run: |
           set -euo pipefail
-          curl -fsSL -o /tmp/opa \
+          curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors \
+            --retry-max-time 300 --connect-timeout 15 --max-time 120 -o /tmp/opa \
             "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"
           echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  /tmp/opa" \
             | sha256sum -c -
@@ -144,7 +145,8 @@ jobs:
       - name: Install OPA (Rego runner)
         run: |
           set -euo pipefail
-          curl -fsSL -o /tmp/opa \
+          curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors \
+            --retry-max-time 300 --connect-timeout 15 --max-time 120 -o /tmp/opa \
             "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"
           echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  /tmp/opa" \
             | sha256sum -c -
