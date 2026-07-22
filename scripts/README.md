@@ -58,6 +58,11 @@ layout, and mapped test paths that don't exist select the full suite. The
 focused runner doesn't collect coverage and doesn't replace `make test` or
 `bash scripts/verify.sh --full` before merging.
 
+The runner executes non-integration tests first. It executes selected
+`integration` tests only when `FDAI_DATABASE_URL` is set; otherwise it reports
+that those tests were skipped. An integration-only change without a database
+still exits successfully after confirming that integration tests were selected.
+
 ## Verification
 
 Run the fast repository checks after changing script wiring:

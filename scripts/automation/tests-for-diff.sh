@@ -199,5 +199,43 @@ if [[ $run_pytest -eq 1 ]]; then
         exit 2
     fi
     echo "--- running pytest on the paths above ---" >&2
-    exec uv run pytest -q --no-cov "${tests[@]}"
+
+    set +e
+    uv run pytest -q -m "not integration" --no-cov "${tests[@]}"
+    non_integration_status=$?
+    set -e
+    if [[ $non_integration_status -ne 0 && $non_integration_status -ne 5 ]]; then
+        exit "$non_integration_status"
+    fi
+
+    if [[ -n "${FDAI_DATABASE_URL:-}" ]]; then
+        set +e
+        uv run pytest -q -m integration --no-cov "${tests[@]}"
+        integration_status=$?
+        set -e
+        if [[ $integration_status -ne 0 && $integration_status -ne 5 ]]; then
+            exit "$integration_status"
+        fi
+        if [[ $non_integration_status -eq 5 && $integration_status -eq 5 ]]; then
+            echo "tests-for-diff.sh: no tests selected for the changed paths" >&2
+            exit 5
+        fi
+        exit 0
+    fi
+
+    if [[ $non_integration_status -eq 5 ]]; then
+        set +e
+        uv run pytest --collect-only -q -m integration --no-cov "${tests[@]}"
+        integration_collect_status=$?
+        set -e
+        if [[ $integration_collect_status -eq 5 ]]; then
+            echo "tests-for-diff.sh: no tests selected for the changed paths" >&2
+            exit 5
+        fi
+        if [[ $integration_collect_status -ne 0 ]]; then
+            exit "$integration_collect_status"
+        fi
+    fi
+
+    echo "tests-for-diff.sh: FDAI_DATABASE_URL unset; integration tests skipped" >&2
 fi

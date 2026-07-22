@@ -235,7 +235,7 @@ def test_run_uses_uv_managed_pytest(git_repo: Path) -> None:
     args_file = git_repo / "uv-args.txt"
     fake_uv = bin_dir / "uv"
     fake_uv.write_text(
-        '#!/usr/bin/env bash\nprintf "%s\\n" "$*" > "$UV_ARGS_FILE"\n',
+        '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$UV_ARGS_FILE"\n',
         encoding="utf-8",
     )
     fake_uv.chmod(0o755)
@@ -243,14 +243,79 @@ def test_run_uses_uv_managed_pytest(git_repo: Path) -> None:
         **os.environ,
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
         "UV_ARGS_FILE": str(args_file),
+        "FDAI_DATABASE_URL": "",
     }
 
     result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
 
     assert result.returncode == 0, result.stderr
-    assert args_file.read_text(encoding="utf-8").strip() == (
-        "run pytest -q --no-cov tests/scripts/test_changed.py"
+    assert args_file.read_text(encoding="utf-8").splitlines() == [
+        "run pytest -q -m not integration --no-cov tests/scripts/test_changed.py"
+    ]
+    assert "integration tests skipped" in result.stderr
+
+
+def test_run_accepts_integration_only_selection_without_database(git_repo: Path) -> None:
+    test_file = git_repo / "tests" / "scripts" / "test_changed.py"
+    test_file.write_text("def test_changed(): pass\n", encoding="utf-8")
+    bin_dir = git_repo / "bin"
+    bin_dir.mkdir()
+    args_file = git_repo / "uv-args.txt"
+    fake_uv = bin_dir / "uv"
+    fake_uv.write_text(
+        """#!/usr/bin/env bash
+printf "%s\\n" "$*" >> "$UV_ARGS_FILE"
+case "$*" in
+    *--collect-only*) exit 0 ;;
+    *) exit 5 ;;
+esac
+""",
+        encoding="utf-8",
     )
+    fake_uv.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "UV_ARGS_FILE": str(args_file),
+        "FDAI_DATABASE_URL": "",
+    }
+
+    result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
+
+    assert result.returncode == 0, result.stderr
+    assert args_file.read_text(encoding="utf-8").splitlines() == [
+        "run pytest -q -m not integration --no-cov tests/scripts/test_changed.py",
+        "run pytest --collect-only -q -m integration --no-cov tests/scripts/test_changed.py",
+    ]
+    assert "FDAI_DATABASE_URL unset; integration tests skipped" in result.stderr
+
+
+def test_run_executes_selected_integration_tests_with_database(git_repo: Path) -> None:
+    test_file = git_repo / "tests" / "scripts" / "test_changed.py"
+    test_file.write_text("def test_changed(): pass\n", encoding="utf-8")
+    bin_dir = git_repo / "bin"
+    bin_dir.mkdir()
+    args_file = git_repo / "uv-args.txt"
+    fake_uv = bin_dir / "uv"
+    fake_uv.write_text(
+        '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$UV_ARGS_FILE"\n',
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "UV_ARGS_FILE": str(args_file),
+        "FDAI_DATABASE_URL": "postgresql://example.invalid/fdai",
+    }
+
+    result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
+
+    assert result.returncode == 0, result.stderr
+    assert args_file.read_text(encoding="utf-8").splitlines() == [
+        "run pytest -q -m not integration --no-cov tests/scripts/test_changed.py",
+        "run pytest -q -m integration --no-cov tests/scripts/test_changed.py",
+    ]
 
 
 def test_makefile_exposes_changed_test_target() -> None:
