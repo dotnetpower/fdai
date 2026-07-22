@@ -20,6 +20,9 @@ from delivery.dev_operations_gateway.idempotency import IdempotencyError
 class _Ledger:
     def __init__(self) -> None:
         self.records: dict[str, tuple[str, Mapping[str, object] | None]] = {}
+        self.consumed_dry_runs: set[str] = set()
+        self.issued_dry_runs = 0
+        self.dry_run_digests: dict[str, str] = {}
 
     async def begin(self, idempotency_key: str, request_digest: str) -> Mapping[str, object] | None:
         existing = self.records.get(idempotency_key)
@@ -56,6 +59,22 @@ class _Ledger:
         assert resource_key
         assert lease_id == "lease-one"
 
+    async def issue_dry_run(self, request_digest: str) -> str:
+        assert request_digest
+        self.issued_dry_runs += 1
+        receipt = f"dry-run:issued-{self.issued_dry_runs}"
+        self.dry_run_digests[receipt] = request_digest
+        return receipt
+
+    async def consume_dry_run(self, receipt: str, request_digest: str) -> None:
+        assert request_digest
+        issued_digest = self.dry_run_digests.get(receipt)
+        if issued_digest is not None and issued_digest != request_digest:
+            raise IdempotencyError(409, "dry_run_invalid", "dry-run receipt is invalid")
+        if not receipt.startswith("dry-run:") or receipt in self.consumed_dry_runs:
+            raise IdempotencyError(409, "dry_run_invalid", "dry-run receipt is invalid")
+        self.consumed_dry_runs.add(receipt)
+
 
 class _Tokens:
     async def get_token(self, audience: str) -> str:
@@ -81,7 +100,7 @@ def _safety(idempotency_key: str = "operation:one") -> Mapping[str, object]:
     return {
         "idempotency_key": idempotency_key,
         "audit_ref": "audit:one",
-        "dry_run_receipt": "dry-run:one",
+        "dry_run_receipt": f"dry-run:{idempotency_key}",
         "stop_condition": "provisioning_state_terminal",
         "rollback_ref": "rollback:one",
         "max_resources": 1,
@@ -496,6 +515,19 @@ async def test_executor_requires_complete_safety_envelope() -> None:
                     },
                     principal,
                 )
+        missing_receipt = dict(_safety())
+        missing_receipt["dry_run_receipt"] = "caller-asserted"
+        with pytest.raises(GatewayError, match="dry-run receipt") as receipt_error:
+            await gateway.invoke(
+                "azure.compute.vm.start",
+                {
+                    "resource_group": "rg-example",
+                    "vm_name": "vm-app",
+                    "safety": missing_receipt,
+                },
+                principal,
+            )
+        assert receipt_error.value.status_code == 409
         result = await gateway.invoke(
             "azure.compute.vm.start",
             {"resource_group": "rg-example", "vm_name": "vm-app", "safety": _safety()},
@@ -504,6 +536,98 @@ async def test_executor_requires_complete_safety_envelope() -> None:
 
     assert result["status"] == "succeeded"
     assert calls == 1
+
+
+async def test_executor_plan_issues_receipt_for_matching_mutation() -> None:
+    methods: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        methods.append(request.method)
+        return httpx.Response(200, json={"status": "succeeded"})
+
+    ledger = _Ledger()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        gateway = OperationsGateway(
+            config=_config(),
+            reader_token_provider=_Tokens(),
+            executor_token_provider=_Tokens(),
+            http_client=client,
+            idempotency_ledger=ledger,
+        )
+        principal = GatewayPrincipal("principal-executor", frozenset())
+        arguments = {"resource_group": "rg-example", "vm_name": "vm-app"}
+        planned_safety = dict(_safety("operation:planned"))
+        planned_safety.pop("dry_run_receipt")
+        plan = await gateway.invoke(
+            "azure.operation.plan",
+            {
+                "operation_id": "azure.compute.vm.start",
+                "arguments": arguments,
+                "safety": planned_safety,
+            },
+            principal,
+        )
+        plan_result = cast(Mapping[str, object], plan["result"])
+        safety = dict(planned_safety)
+        safety["dry_run_receipt"] = plan_result["dry_run_receipt"]
+        applied = await gateway.invoke(
+            "azure.compute.vm.start",
+            {**arguments, "safety": safety},
+            principal,
+        )
+
+    assert plan_result["status"] == "planned"
+    assert applied["status"] == "succeeded"
+    assert methods == ["GET", "POST"]
+
+
+async def test_executor_plan_receipt_rejects_changed_safety_evidence() -> None:
+    ledger = _Ledger()
+    mutation_calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal mutation_calls
+        if request.method == "GET":
+            return httpx.Response(200, json={"status": "observed"})
+        mutation_calls += 1
+        return httpx.Response(500)
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        gateway = OperationsGateway(
+            config=_config(),
+            reader_token_provider=_Tokens(),
+            executor_token_provider=_Tokens(),
+            http_client=client,
+            idempotency_ledger=ledger,
+        )
+        principal = GatewayPrincipal("principal-executor", frozenset())
+        arguments = {"resource_group": "rg-example", "vm_name": "vm-app"}
+        planned_safety = dict(_safety("operation:changed"))
+        planned_safety.pop("dry_run_receipt")
+        plan = await gateway.invoke(
+            "azure.operation.plan",
+            {
+                "operation_id": "azure.compute.vm.start",
+                "arguments": arguments,
+                "safety": planned_safety,
+            },
+            principal,
+        )
+        plan_result = cast(Mapping[str, object], plan["result"])
+        changed_safety = dict(planned_safety)
+        changed_safety["rollback_ref"] = "rollback:different"
+        changed_safety["dry_run_receipt"] = plan_result["dry_run_receipt"]
+        with pytest.raises(GatewayError) as error:
+            await gateway.invoke(
+                "azure.compute.vm.start",
+                {**arguments, "safety": changed_safety},
+                principal,
+            )
+
+    assert error.value.status_code == 409
+    assert error.value.code == "dry_run_invalid"
+    assert mutation_calls == 0
 
 
 async def test_executor_mutation_is_idempotent_across_duplicate_delivery() -> None:

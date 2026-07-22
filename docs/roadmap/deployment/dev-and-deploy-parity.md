@@ -89,13 +89,16 @@ operations gateway URL and its Easy Auth audience, NSG and VNet peering question
 Azure CLI identity to call only the gateway's registered read operations. A missing pair disables
 the wrapper, while a configured gateway failure reports unavailable without a direct-ARM fallback.
 The gateway uses separate reader and executor managed identities and does not give the local read
-API an execution identity. Upstream Terraform sets `FDAI_DEV_GATEWAY_MUTATIONS_ENABLED=0`; the
-write handlers are not a shipped execution path while the direct-API contract cannot carry
-verified dry-run and rollback evidence. Their disabled contract tests still require a target-scoped
-Blob lease and durable idempotency claim. An ARM long-running operation remains `submitted`; only
-the executor can resolve its server-owned status URL through the original idempotency key. A stale
-pending claim is recovered with ETag compare-and-swap after its bounded timeout instead of
-remaining blocked indefinitely.
+API an execution identity. Upstream Terraform enables the development-only mutation operations for
+the configured executor principal. The executor must first request a server-issued dry-run receipt
+for the exact registered operation, arguments, and idempotency, audit, stop-condition, rollback,
+and impact evidence. The gateway confirms the target through a bounded reader-identity ARM GET,
+stores the receipt in private Blob storage for five minutes, and consumes it once with ETag
+compare-and-swap before taking the target-scoped resource lease and calling ARM. Caller-asserted,
+changed, expired, or replayed receipts fail before mutation. An ARM
+long-running operation remains `submitted`; only the executor can resolve its server-owned status
+URL through the original idempotency key. A stale pending claim is recovered with ETag
+compare-and-swap after its bounded timeout instead of remaining blocked indefinitely.
 
 The same read-investigation wiring constructs the bounded Azure subscription-health provider from
 the applied subscription and resource groups, so local development answers subscription-health

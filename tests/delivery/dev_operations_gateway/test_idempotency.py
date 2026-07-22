@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -229,3 +230,123 @@ async def test_stale_pending_claim_is_replaced_with_etag_cas() -> None:
     replacement = json.loads(requests[2].content)
     assert replacement["state"] == "pending"
     assert replacement["claimed_at"] != "2000-01-01T00:00:00+00:00"
+
+
+async def test_dry_run_receipt_is_hashed_and_consumed_with_etag_cas() -> None:
+    requests: list[httpx.Request] = []
+    request_digest = "request-digest"
+    expires_at = datetime.now(UTC) + timedelta(minutes=5)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if len(requests) == 1:
+            return httpx.Response(201)
+        if len(requests) == 2:
+            return httpx.Response(
+                200,
+                headers={"ETag": '"plan-etag"'},
+                json={
+                    "state": "ready",
+                    "request_digest": request_digest,
+                    "expires_at": expires_at.isoformat(),
+                },
+            )
+        return httpx.Response(201)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        ledger = AzureBlobIdempotencyLedger(
+            config=_config(), token_provider=_Tokens(), http_client=client
+        )
+        receipt = await ledger.issue_dry_run(request_digest)
+        await ledger.consume_dry_run(receipt, request_digest)
+
+    receipt_digest = hashlib.sha256(receipt.encode()).hexdigest()
+    assert requests[0].url.path.endswith(f"/dry-runs/{receipt_digest}.json")
+    assert receipt not in str(requests[0].url)
+    assert requests[0].headers["If-None-Match"] == "*"
+    assert requests[2].headers["If-Match"] == '"plan-etag"'
+    consumed = json.loads(requests[2].content)
+    assert consumed["state"] == "consumed"
+
+
+async def test_dry_run_receipt_rejects_mismatched_request() -> None:
+    expires_at = datetime.now(UTC) + timedelta(minutes=5)
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"ETag": '"plan-etag"'},
+            json={
+                "state": "ready",
+                "request_digest": "different-digest",
+                "expires_at": expires_at.isoformat(),
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        ledger = AzureBlobIdempotencyLedger(
+            config=_config(), token_provider=_Tokens(), http_client=client
+        )
+        with pytest.raises(IdempotencyError) as error:
+            await ledger.consume_dry_run("dry-run-receipt", "request-digest")
+
+    assert error.value.status_code == 409
+    assert error.value.code == "dry_run_invalid"
+
+
+async def test_dry_run_receipt_rejects_expired_record() -> None:
+    expired_at = datetime.now(UTC) - timedelta(seconds=1)
+    transport = httpx.MockTransport(
+        lambda _request: httpx.Response(
+            200,
+            headers={"ETag": '"plan-etag"'},
+            json={
+                "state": "ready",
+                "request_digest": "request-digest",
+                "expires_at": expired_at.isoformat(),
+            },
+        )
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        ledger = AzureBlobIdempotencyLedger(
+            config=_config(), token_provider=_Tokens(), http_client=client
+        )
+        with pytest.raises(IdempotencyError) as error:
+            await ledger.consume_dry_run("dry-run-receipt", "request-digest")
+
+    assert error.value.status_code == 409
+    assert error.value.code == "dry_run_invalid"
+
+
+async def test_completion_transport_loss_recovers_recorded_response() -> None:
+    requests: list[httpx.Request] = []
+    completed_response = {"status": "succeeded", "result": {"accepted": True}}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if len(requests) == 1:
+            return httpx.Response(201, headers={"ETag": '"claim-etag"'})
+        if len(requests) == 2:
+            raise httpx.ConnectError("response lost", request=request)
+        return httpx.Response(
+            200,
+            headers={"ETag": '"completed-etag"'},
+            json={
+                "state": "completed",
+                "request_digest": "request-digest",
+                "response": completed_response,
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        ledger = AzureBlobIdempotencyLedger(
+            config=_config(), token_provider=_Tokens(), http_client=client
+        )
+        await ledger.begin("operation:one", "request-digest")
+        await ledger.complete(
+            "operation:one",
+            "request-digest",
+            completed_response,
+        )
+
+    assert [request.method for request in requests] == ["PUT", "PUT", "GET"]

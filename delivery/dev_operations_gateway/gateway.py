@@ -30,6 +30,14 @@ _ARM_AUDIENCE = "https://management.azure.com"
 _NETWORK_API_VERSION = "2025-05-01"
 _COMPUTE_API_VERSION = "2025-04-01"
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}$")
+_MUTATION_OPERATIONS = frozenset(
+    {
+        "azure.network.nsg.rule.upsert",
+        "azure.network.nsg.rule.delete",
+        "azure.compute.vm.start",
+        "azure.compute.vm.deallocate",
+    }
+)
 
 
 class GatewayError(RuntimeError):
@@ -228,6 +236,10 @@ class OperationsGateway:
         principal: GatewayPrincipal,
     ) -> Mapping[str, object]:
         self._authorize_read(principal)
+        if operation_id == "azure.operation.plan":
+            if not self._config.mutations_enabled:
+                raise GatewayError(404, "operation_not_found", "operation is not registered")
+            return await self._operation_plan(payload, principal)
         if operation_id == "azure.operation.status":
             if not self._config.mutations_enabled:
                 raise GatewayError(404, "operation_not_found", "operation is not registered")
@@ -244,19 +256,14 @@ class OperationsGateway:
         handler = handlers.get(operation_id)
         if handler is None:
             raise GatewayError(404, "operation_not_found", "operation is not registered")
-        mutation = operation_id in {
-            "azure.network.nsg.rule.upsert",
-            "azure.network.nsg.rule.delete",
-            "azure.compute.vm.start",
-            "azure.compute.vm.deallocate",
-        }
+        mutation = operation_id in _MUTATION_OPERATIONS
         if mutation and not self._config.mutations_enabled:
             raise GatewayError(404, "operation_not_found", "operation is not registered")
         if not mutation:
             result = await handler(payload)
             return {"operation_id": operation_id, "status": "succeeded", "result": result}
 
-        idempotency_key = self._authorize_mutation(principal, payload)
+        idempotency_key, dry_run_receipt = self._authorize_mutation(principal, payload)
         if self._idempotency is None:
             raise GatewayError(
                 503,
@@ -270,6 +277,17 @@ class OperationsGateway:
             raise GatewayError(exc.status_code, exc.code, str(exc)) from exc
         if replay is not None:
             return _public_response(replay)
+        try:
+            await self._idempotency.consume_dry_run(
+                dry_run_receipt,
+                _mutation_digest(operation_id, payload),
+            )
+        except IdempotencyError as exc:
+            try:
+                await self._idempotency.abort(idempotency_key, request_digest)
+            except IdempotencyError as abort_error:
+                exc.add_note(f"idempotency claim cleanup also failed: {abort_error.code}")
+            raise GatewayError(exc.status_code, exc.code, str(exc)) from exc
         resource_key = self._mutation_resource_key(operation_id, payload)
         try:
             lease_id = await self._idempotency.acquire_resource(resource_key)
@@ -349,6 +367,43 @@ class OperationsGateway:
             "result": {"provider_status": provider_status, "status": normalized},
         }
 
+    async def _operation_plan(
+        self,
+        payload: Mapping[str, object],
+        principal: GatewayPrincipal,
+    ) -> Mapping[str, object]:
+        self._authorize_executor(principal)
+        if self._idempotency is None:
+            raise GatewayError(503, "idempotency_unavailable", "operation ledger is unavailable")
+        target_operation = _bounded(payload, "operation_id", maximum=128)
+        arguments = payload.get("arguments")
+        if not isinstance(arguments, Mapping):
+            raise GatewayError(400, "payload_invalid", "plan arguments MUST be an object")
+        safety = payload.get("safety")
+        if not isinstance(safety, Mapping):
+            raise GatewayError(400, "safety_missing", "plan safety envelope is required")
+        if target_operation not in _MUTATION_OPERATIONS:
+            raise GatewayError(404, "operation_not_found", "mutation operation is not registered")
+        self._validate_mutation_payload(target_operation, arguments)
+        self._validate_safety(safety, require_dry_run_receipt=False)
+        await self._preflight_mutation(target_operation, arguments)
+        try:
+            receipt = await self._idempotency.issue_dry_run(
+                _mutation_digest(target_operation, {**arguments, "safety": safety})
+            )
+        except IdempotencyError as exc:
+            raise GatewayError(exc.status_code, exc.code, str(exc)) from exc
+        return {
+            "operation_id": "azure.operation.plan",
+            "status": "succeeded",
+            "result": {
+                "target_operation": target_operation,
+                "status": "planned",
+                "dry_run_receipt": receipt,
+                "expires_in_seconds": 300,
+            },
+        }
+
     def _authorize_read(self, principal: GatewayPrincipal) -> None:
         if (
             self._config.contributor_group_id not in principal.groups
@@ -359,25 +414,35 @@ class OperationsGateway:
 
     def _authorize_mutation(
         self, principal: GatewayPrincipal, payload: Mapping[str, object]
-    ) -> str:
+    ) -> tuple[str, str]:
         if principal.object_id != self._config.executor_principal_id:
             raise GatewayError(403, "executor_required", "Thor executor identity is required")
         safety = payload.get("safety")
         if not isinstance(safety, Mapping):
             raise GatewayError(400, "safety_missing", "mutation safety envelope is required")
+        self._validate_safety(safety, require_dry_run_receipt=True)
+        return str(safety["idempotency_key"]), str(safety["dry_run_receipt"])
+
+    def _validate_safety(
+        self,
+        safety: Mapping[str, object],
+        *,
+        require_dry_run_receipt: bool,
+    ) -> None:
         if safety.get("max_resources") != 1:
             raise GatewayError(400, "blast_radius_invalid", "max_resources MUST equal 1")
-        for field in (
+        required_fields = [
             "idempotency_key",
             "audit_ref",
-            "dry_run_receipt",
             "stop_condition",
             "rollback_ref",
-        ):
+        ]
+        if require_dry_run_receipt:
+            required_fields.append("dry_run_receipt")
+        for field in required_fields:
             value = safety.get(field)
             if not isinstance(value, str) or not value.strip() or len(value) > 512:
                 raise GatewayError(400, "safety_invalid", f"safety.{field} MUST be bounded")
-        return str(safety["idempotency_key"])
 
     def _authorize_executor(self, principal: GatewayPrincipal) -> None:
         if principal.object_id != self._config.executor_principal_id:
@@ -396,6 +461,43 @@ class OperationsGateway:
                 f"nsg/{_identifier(payload, 'nsg_name')}/rule/{_identifier(payload, 'rule_name')}"
             )
         return f"{subscription}/{group}/{target}".casefold()
+
+    def _validate_mutation_payload(
+        self,
+        operation_id: str,
+        payload: Mapping[str, object],
+    ) -> None:
+        self._mutation_resource_key(operation_id, payload)
+        if operation_id == "azure.network.nsg.rule.upsert":
+            _nsg_rule_body(payload)
+
+    async def _preflight_mutation(
+        self,
+        operation_id: str,
+        payload: Mapping[str, object],
+    ) -> None:
+        subscription, group = self._scope(payload)
+        if operation_id.startswith("azure.compute.vm."):
+            vm_name = _identifier(payload, "vm_name")
+            path = (
+                f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
+                f"Microsoft.Compute/virtualMachines/{vm_name}"
+            )
+            api_version = _COMPUTE_API_VERSION
+        else:
+            nsg_name = _identifier(payload, "nsg_name")
+            path = (
+                f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
+                f"Microsoft.Network/networkSecurityGroups/{nsg_name}"
+            )
+            api_version = _NETWORK_API_VERSION
+        observed = await self._arm("GET", path, api_version=api_version)
+        if not isinstance(observed, Mapping):
+            raise GatewayError(
+                502,
+                "azure_response_invalid",
+                "Azure mutation preflight did not return a resource object",
+            )
 
     def _scope(self, payload: Mapping[str, object]) -> tuple[str, str]:
         resource_group = _identifier(payload, "resource_group")
@@ -528,21 +630,7 @@ class OperationsGateway:
         subscription, group = self._scope(payload)
         nsg_name = _identifier(payload, "nsg_name")
         rule_name = _identifier(payload, "rule_name")
-        rule = payload.get("rule")
-        if not isinstance(rule, Mapping):
-            raise GatewayError(400, "rule_invalid", "rule MUST be an object")
-        body = {
-            "properties": {
-                "access": _choice(rule, "access", {"Allow", "Deny"}),
-                "direction": _choice(rule, "direction", {"Inbound", "Outbound"}),
-                "protocol": _choice(rule, "protocol", {"Tcp", "Udp", "Icmp", "*"}),
-                "priority": _integer(rule, "priority", minimum=100, maximum=4096),
-                "sourceAddressPrefix": _bounded(rule, "source_address_prefix"),
-                "sourcePortRange": _bounded(rule, "source_port_range"),
-                "destinationAddressPrefix": _bounded(rule, "destination_address_prefix"),
-                "destinationPortRange": _bounded(rule, "destination_port_range"),
-            }
-        }
+        body = _nsg_rule_body(payload)
         return await self._arm(
             "PUT",
             f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
@@ -713,6 +801,16 @@ def _request_digest(operation_id: str, payload: Mapping[str, object]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _mutation_digest(operation_id: str, payload: Mapping[str, object]) -> str:
+    bound_payload = dict(payload)
+    safety = payload.get("safety")
+    if isinstance(safety, Mapping):
+        bound_payload["safety"] = {
+            key: value for key, value in safety.items() if key != "dry_run_receipt"
+        }
+    return _request_digest(operation_id, bound_payload)
+
+
 def _bounded(payload: Mapping[str, object], name: str, *, maximum: int = 256) -> str:
     value = payload.get(name)
     if not isinstance(value, str) or not value.strip() or len(value) > maximum:
@@ -752,6 +850,24 @@ def _integer(payload: Mapping[str, object], name: str, *, minimum: int, maximum:
     if not isinstance(value, int) or isinstance(value, bool) or not minimum <= value <= maximum:
         raise GatewayError(400, "argument_invalid", f"{name} is outside its allowed range")
     return value
+
+
+def _nsg_rule_body(payload: Mapping[str, object]) -> Mapping[str, object]:
+    rule = payload.get("rule")
+    if not isinstance(rule, Mapping):
+        raise GatewayError(400, "rule_invalid", "rule MUST be an object")
+    return {
+        "properties": {
+            "access": _choice(rule, "access", {"Allow", "Deny"}),
+            "direction": _choice(rule, "direction", {"Inbound", "Outbound"}),
+            "protocol": _choice(rule, "protocol", {"Tcp", "Udp", "Icmp", "*"}),
+            "priority": _integer(rule, "priority", minimum=100, maximum=4096),
+            "sourceAddressPrefix": _bounded(rule, "source_address_prefix"),
+            "sourcePortRange": _bounded(rule, "source_port_range"),
+            "destinationAddressPrefix": _bounded(rule, "destination_address_prefix"),
+            "destinationPortRange": _bounded(rule, "destination_port_range"),
+        }
+    }
 
 
 def _prefixes(payload: Mapping[str, object], singular: str, plural: str) -> str:

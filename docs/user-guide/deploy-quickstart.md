@@ -3,7 +3,7 @@ title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
 derives_from:
    - source: docs/roadmap/deployment/deploy-and-onboard.md
-     sha: 1c529e28eb06c3c26069214efdecca9e2d2f9df7
+     sha: 01e34174d4cc85856e7a1130b31710d545034021
 ---
 
 # Deploy Quickstart
@@ -81,8 +81,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
 3. **Verify the development operations gateway.** When enabled, confirm the protected source
    archive was deployed after Terraform apply, the current remote-build deployment succeeded,
    both Function triggers are registered, host and idempotency storage use the reader managed
-   identity, registered network reads succeed, and mutation operations return `operation_not_found`
-   while the upstream deployment keeps them disabled.
+   identity, and registered network reads succeed. With the executor principal, plan one bounded
+   mutation, submit it with the returned one-time receipt, verify replay doesn't make a second ARM
+   call, and poll the idempotency key when ARM reports `submitted`.
 4. **Onboard one bounded scope.** Start with a single resource-group-equivalent
    scope and name its owner.
 5. **Observe in observation mode.** Let FDAI judge and audit without mutating, and

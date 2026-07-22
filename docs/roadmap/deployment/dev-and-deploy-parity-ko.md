@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 38ca0ba89a4437abe6a383f275a1488dd4a784ed
+translation_source_sha: 7413cd97bf7a22410d7ebb65bb525d5df7aa4526
 translation_revised: 2026-07-22
 ---
 
@@ -92,12 +92,15 @@ Easy Auth audience를 모두 출력하면 NSG 및 VNet peering 질문은 local A
 registered read operation만 호출합니다. Pair가 없으면 wrapper를 비활성화하고 configured gateway가
 실패하면 direct ARM fallback 없이 unavailable을 보고합니다. Gateway는 reader/executor managed
 identity를 분리하며 local read API에 execution identity를 제공하지 않습니다. Mutation은 target-scoped
-Blob lease와 durable idempotency claim을 사용하지만 upstream Terraform은
-`FDAI_DEV_GATEWAY_MUTATIONS_ENABLED=0`으로 설정합니다. Direct-API contract가 검증된 dry-run 및
-rollback evidence를 전달할 수 있을 때까지 write handler는 shipped execution path가 아닙니다. Disabled
-contract test는 target-scoped Blob lease와 durable idempotency claim을 계속 요구합니다. ARM
-long-running operation은 `submitted` 상태로 유지되며 executor만 원래 idempotency key를 통해
-server-owned status URL을 조회할 수 있습니다.
+Blob lease와 durable idempotency claim을 사용하며 upstream Terraform은 configured executor
+principal에 development-only mutation operation을 활성화합니다. Executor는 정확한 registered
+operation, arguments, idempotency, audit, stop-condition, rollback 및 impact evidence에 대해
+server-issued dry-run receipt를 먼저 요청해야 합니다. Gateway는 bounded reader-identity ARM GET으로
+target을 확인하고 해당 receipt를 private Blob storage에 5분 동안 저장한 다음 target-scoped resource
+lease를 획득하여 ARM을 호출하기 전에 ETag compare-and-swap으로 한 번만 소비합니다. Caller가
+주장한 receipt, 변경된 payload, 만료되거나 replay된 receipt는 mutation 전에 실패합니다. ARM
+long-running operation은 `submitted` 상태로 유지되며
+executor만 원래 idempotency key를 통해 server-owned status URL을 조회할 수 있습니다.
 Stale pending claim은 계속 차단된 상태로 남지 않고 bounded timeout 이후 ETag compare-and-swap으로
 복구됩니다.
 

@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 세트 인벤토리를 Azure에 프로비저닝하는 방법. 동등한 두 경로(azd 턴키 또는 Terraform 직접 실행) 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 0ed2835ff1593d70a443d6ce4dc86245dd24867b
+translation_source_sha: 43e2c1555f7e96ade5bec2845d7b1ffae41721ee
 translation_revised: 2026-07-22
 ---
 
@@ -75,8 +75,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
 3. **Development operations gateway 검증.** 이 gateway를 사용하면 보호된 source archive가
    Terraform apply 후에 배포됐는지, 현재 remote-build deployment가 성공했는지, 두 Function
    trigger가 등록됐는지, host 및 idempotency storage가 reader managed identity를 사용하는지,
-   registered network read가 성공하는지, upstream deployment에서 mutation operation이 비활성화되어
-   `operation_not_found`를 반환하는지 확인합니다.
+   registered network read가 성공하는지 확인합니다. Executor principal로 bounded mutation 하나를
+   plan하고 반환된 일회용 receipt로 제출한 다음 replay가 두 번째 ARM 호출을 만들지 않는지 확인합니다.
+   ARM이 `submitted`를 반환하면 idempotency key로 상태를 조회합니다.
 4. **제한된 범위 하나 온보딩.** 리소스 그룹 수준과 동등한 범위 하나로 시작하고
    소유자를 지정합니다.
 5. **shadow 모드로 관찰.** FDAI가 변경을 적용하지 않고 판단과 감사만 수행하도록 두고,

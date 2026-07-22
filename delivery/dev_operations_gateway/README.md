@@ -7,10 +7,13 @@ URLs, ARM paths, commands, or query text.
 ## Contracts
 
 - Read operations require the configured Contributor group or the FDAI executor principal.
-- Write and execute handlers are present for contract hardening but remain disabled in upstream
-  Terraform with `FDAI_DEV_GATEWAY_MUTATIONS_ENABLED=0`. They are not a shipped execution path
-  until a governed direct-API adapter can provide verified dry-run, audit, stop-condition, and
-  rollback evidence instead of caller-asserted strings.
+- Write and execute operations are enabled in the upstream development deployment. Only the
+  configured FDAI executor principal can call them. The caller first invokes
+  `azure.operation.plan`; the gateway validates the registered operation, bounded scope, and
+  arguments plus the idempotency, audit, stop-condition, rollback, and impact evidence, then
+  confirms the target through a bounded reader-identity ARM GET and stores a five-minute one-time
+  dry-run receipt in private Blob storage. The matching mutation consumes that receipt with ETag
+  compare-and-swap before ARM is called.
 - Mutation idempotency keys are claimed in a private, Microsoft Entra-authenticated Blob
   container before Azure is called. A completed duplicate reuses the recorded response, a
   conflicting payload is blocked, and storage uncertainty fails closed. Stale pending claims can
@@ -34,11 +37,21 @@ URLs, ARM paths, commands, or query text.
 | `azure.network.nsg.read` | read | One configured development NSG |
 | `azure.network.peering.read` | read | Peerings for one configured development VNet |
 | `azure.private.http.probe` | read | One server-registered HTTPS private endpoint |
-| `azure.network.nsg.rule.upsert` | disabled write contract | One NSG security rule |
-| `azure.network.nsg.rule.delete` | disabled write contract | One NSG security rule |
-| `azure.compute.vm.start` | disabled execute contract | One VM |
-| `azure.compute.vm.deallocate` | disabled execute contract | One VM |
-| `azure.operation.status` | disabled execute status | One previously submitted mutation |
+| `azure.operation.plan` | mutation dry run | One registered mutation payload |
+| `azure.network.nsg.rule.upsert` | write | One NSG security rule |
+| `azure.network.nsg.rule.delete` | write | One NSG security rule |
+| `azure.compute.vm.start` | execute | One VM |
+| `azure.compute.vm.deallocate` | execute | One VM |
+| `azure.operation.status` | execute status | One previously submitted mutation |
+
+Mutation callers use this sequence:
+
+1. Call `azure.operation.plan` with `operation_id` and the exact mutation `arguments`.
+2. Put the returned `dry_run_receipt` in the mutation's `safety` envelope with its idempotency,
+  audit, stop-condition, rollback, and single-resource evidence.
+3. Submit the registered mutation. A changed payload, expired receipt, or second consumption is
+  rejected before ARM. Poll `azure.operation.status` by idempotency key when the mutation returns
+  `submitted`.
 
 ## Testing
 

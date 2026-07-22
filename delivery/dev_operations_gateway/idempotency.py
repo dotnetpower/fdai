@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -18,6 +19,7 @@ _STORAGE_API_VERSION = "2025-05-05"
 _MAX_RECORD_BYTES = 262_144
 _CLAIM_TIMEOUT = timedelta(seconds=90)
 _RESOURCE_LEASE_SECONDS = "60"
+_DRY_RUN_TTL = timedelta(minutes=5)
 
 
 class IdempotencyError(RuntimeError):
@@ -50,6 +52,10 @@ class IdempotencyLedger(Protocol):
     async def acquire_resource(self, resource_key: str) -> str: ...
 
     async def release_resource(self, resource_key: str, lease_id: str) -> None: ...
+
+    async def issue_dry_run(self, request_digest: str) -> str: ...
+
+    async def consume_dry_run(self, receipt: str, request_digest: str) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,6 +225,83 @@ class AzureBlobIdempotencyLedger:
         if response.status_code not in {200, 404, 409, 412}:
             self._raise_storage_error(response)
 
+    async def issue_dry_run(self, request_digest: str) -> str:
+        receipt = secrets.token_urlsafe(24)
+        expires_at = datetime.now(UTC) + _DRY_RUN_TTL
+        record = self._encode_record(
+            {
+                "state": "ready",
+                "request_digest": request_digest,
+                "expires_at": expires_at.isoformat(),
+            }
+        )
+        headers = await self._headers()
+        headers.update(
+            {
+                "Content-Type": "application/json",
+                "If-None-Match": "*",
+                "x-ms-blob-type": "BlockBlob",
+            }
+        )
+        response = await self._request(
+            "PUT",
+            self._dry_run_url(receipt),
+            headers=headers,
+            content=record,
+        )
+        if response.status_code != 201:
+            self._raise_storage_error(response)
+        return receipt
+
+    async def consume_dry_run(self, receipt: str, request_digest: str) -> None:
+        response = await self._request(
+            "GET",
+            self._dry_run_url(receipt),
+            headers=await self._headers(),
+        )
+        if response.status_code == 404:
+            raise IdempotencyError(409, "dry_run_invalid", "dry-run receipt was not found")
+        if response.status_code != 200:
+            self._raise_storage_error(response)
+        record, etag = self._decode_record(response)
+        expires_at = _parse_timestamp(record.get("expires_at"))
+        if (
+            record.get("state") != "ready"
+            or record.get("request_digest") != request_digest
+            or expires_at is None
+            or expires_at <= datetime.now(UTC)
+        ):
+            raise IdempotencyError(
+                409,
+                "dry_run_invalid",
+                "dry-run receipt is expired, consumed, or bound to another request",
+            )
+        consumed = self._encode_record(
+            {
+                "state": "consumed",
+                "request_digest": request_digest,
+                "expires_at": expires_at.isoformat(),
+            }
+        )
+        headers = await self._headers()
+        headers.update(
+            {
+                "Content-Type": "application/json",
+                "If-Match": etag,
+                "x-ms-blob-type": "BlockBlob",
+            }
+        )
+        updated = await self._request(
+            "PUT",
+            self._dry_run_url(receipt),
+            headers=headers,
+            content=consumed,
+        )
+        if updated.status_code in {409, 412}:
+            raise IdempotencyError(409, "dry_run_invalid", "dry-run receipt was already consumed")
+        if updated.status_code != 201:
+            self._raise_storage_error(updated)
+
     async def complete(
         self,
         idempotency_key: str,
@@ -247,13 +330,23 @@ class AzureBlobIdempotencyLedger:
                 "x-ms-blob-type": "BlockBlob",
             }
         )
-        result = await self._request(
-            "PUT",
-            self._blob_url(idempotency_key),
-            headers=headers,
-            content=record,
-        )
+        blob_url = self._blob_url(idempotency_key)
+        try:
+            result = await self._request(
+                "PUT",
+                blob_url,
+                headers=headers,
+                content=record,
+            )
+        except IdempotencyError as write_error:
+            if await self._completion_matches(blob_url, request_digest, response):
+                self._claims.pop(idempotency_key, None)
+                return
+            raise write_error
         if result.status_code != 201:
+            if await self._completion_matches(blob_url, request_digest, response):
+                self._claims.pop(idempotency_key, None)
+                return
             self._raise_storage_error(result)
         self._claims.pop(idempotency_key, None)
 
@@ -277,6 +370,22 @@ class AzureBlobIdempotencyLedger:
         if response.status_code != 200:
             self._raise_storage_error(response)
         return self._decode_record(response)
+
+    async def _completion_matches(
+        self,
+        blob_url: str,
+        request_digest: str,
+        response: Mapping[str, object],
+    ) -> bool:
+        try:
+            existing, _etag = await self._read(blob_url)
+        except IdempotencyError:
+            return False
+        return (
+            existing.get("state") == "completed"
+            and existing.get("request_digest") == request_digest
+            and existing.get("response") == response
+        )
 
     def _decode_record(self, response: httpx.Response) -> tuple[Mapping[str, object], str]:
         if len(response.content) > _MAX_RECORD_BYTES:
@@ -378,6 +487,10 @@ class AzureBlobIdempotencyLedger:
     def _lock_url(self, resource_key: str) -> str:
         key_digest = hashlib.sha256(resource_key.encode("utf-8")).hexdigest()
         return f"{self._container_url}/locks/{key_digest}.lock"
+
+    def _dry_run_url(self, receipt: str) -> str:
+        receipt_digest = hashlib.sha256(receipt.encode("utf-8")).hexdigest()
+        return f"{self._container_url}/dry-runs/{receipt_digest}.json"
 
     @staticmethod
     def _pending_record(request_digest: str) -> bytes:

@@ -768,7 +768,7 @@ resource "azurerm_function_app_flex_consumption" "dev_gateway" {
     FDAI_DEV_GATEWAY_READER_MI_CLIENT_ID       = module.dev_gateway_reader_identity[0].client_id
     FDAI_DEV_GATEWAY_EXECUTOR_MI_CLIENT_ID     = module.dev_gateway_executor_identity[0].client_id
     FDAI_DEV_GATEWAY_IDEMPOTENCY_CONTAINER_URL = "${azurerm_storage_account.dev_gateway[0].primary_blob_endpoint}${azurerm_storage_container.dev_gateway_idempotency[0].name}"
-    FDAI_DEV_GATEWAY_MUTATIONS_ENABLED         = "0"
+    FDAI_DEV_GATEWAY_MUTATIONS_ENABLED         = "1"
     FDAI_DEV_GATEWAY_PRIVATE_PROBES_JSON       = var.dev_operations_gateway_private_probes_json
   }
 
