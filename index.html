@@ -42,6 +42,12 @@
     .side .fam h3 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--cs-text-soft); font-weight: 700; }
     .side .fam .count { color: var(--cs-text-soft); font-size: 10.5px; opacity: .75; }
     .side .fam:first-of-type { margin-top: 2px; }
+    .side .console-groups { display: grid; gap: 4px; }
+    .side .nav-group { padding: 3px 0 7px; border-bottom: 1px solid var(--cs-hairline); }
+    .side .nav-group-head { display: flex; align-items: baseline; gap: 8px; margin: 0 8px 3px; }
+    .side .nav-group-head h3 { margin: 0; color: var(--cs-navy); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+    .side .nav-group-head .count { margin-left: auto; color: var(--cs-text-soft); font-size: 10.5px; opacity: .75; }
+    .side .nav-group ul { margin-left: 11px; padding-left: 7px; border-left: 1px solid var(--cs-hairline); }
     .side ul { list-style: none; margin: 0; padding: 0; }
     .side li { margin: 1px 0; }
     .side a { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--cs-radius-sm); font-size: 13px; color: var(--cs-text); }
@@ -67,6 +73,7 @@
 
     @media (max-width: 780px) {
       .app { grid-template-columns: 1fr; grid-template-rows: var(--hdr-h) auto 1fr; }
+      .hdr .now .path, .hdr .now .open { display: none; }
       .side { grid-row: 2 / 3; grid-column: 1; border-right: 0; border-bottom: 1px solid var(--cs-hairline); max-height: 45vh; }
       .preview { grid-row: 3 / 4; }
     }
@@ -84,33 +91,79 @@
     </header>
 
     <aside class="side" aria-label="Master navigation">
-      <div class="fam is-calm"><span class="swatch"></span><h3>Calm slate console</h3><span class="count">18 pages</span></div>
-      <ul>
-        <li><a data-page="mocks/ui/live.html"                 data-title="Live"><span class="dot"></span>Live</a></li>
-        <li><a data-page="mocks/ui/dashboard.html"            data-title="Overview"><span class="dot is-sage"></span>Overview</a></li>
-        <li><a data-page="mocks/ui/hil.html"                  data-title="HIL queue"><span class="dot is-terracotta"></span>HIL queue</a></li>
-        <li><a data-page="mocks/ui/promotion.html"            data-title="Promotion"><span class="dot is-teal"></span>Promotion</a></li>
-        <li><a data-page="mocks/ui/rules.html"                data-title="Rules"><span class="dot"></span>Rules</a></li>
-        <li><a data-page="mocks/ui/actions.html"              data-title="Actions (ontology)"><span class="dot is-plum"></span>Actions (ontology)</a></li>
-        <li><a data-page="mocks/ui/audit.html"                data-title="Audit"><span class="dot is-terracotta"></span>Audit</a></li>
-        <li><a data-page="mocks/ui/agents.html"               data-title="Fleet roster"><span class="dot is-sage"></span>Fleet roster</a></li>
-        <li><a data-page="mocks/ui/agents-constellation.html" data-title="Fleet - constellation"><span class="dot"></span>Fleet constellation</a></li>
-        <li><a data-page="mocks/ui/pantheon.html"             data-title="Pantheon"><span class="dot is-plum"></span>Pantheon</a></li>
-        <li><a data-page="mocks/ui/agent-activity.html"       data-title="Agent activity"><span class="dot"></span>Agent activity</a></li>
-        <li><a data-page="mocks/ui/blast-radius.html"         data-title="Blast radius"><span class="dot is-terracotta"></span>Blast radius</a></li>
-        <li><a data-page="mocks/ui/provision.html"            data-title="Provisioning"><span class="dot"></span>Provisioning</a></li>
-        <li><a data-page="mocks/ui/llm-cost.html"             data-title="LLM cost"><span class="dot is-teal"></span>LLM cost</a></li>
-        <li><a data-page="mocks/ui/ontology.html"             data-title="Ontology"><span class="dot is-plum"></span>Ontology</a></li>
-        <li><a data-page="mocks/ui/rule-trace.html"           data-title="Rule trace"><span class="dot is-teal"></span>Rule trace</a></li>
-        <li><a data-page="mocks/ui/workflow-builder.html"     data-title="Workflow builder"><span class="dot"></span>Workflow builder</a></li>
-        <li><a data-page="mocks/ui/deck.html"                 data-title="Command deck (chat)"><span class="dot is-plum"></span>Command deck</a></li>
-        <li><a data-page="mocks/ui/deck-sources.html"         data-title="Deck - sources / grounding"><span class="dot"></span>Deck sources</a></li>
-        <li><a data-page="mocks/ui/report.html"               data-title="Weekly report"><span class="dot is-terracotta"></span>Weekly report</a></li>
-        <li><a data-page="mocks/ui/components.html"           data-title="Component gallery"><span class="dot"></span>Components</a></li>
-        <li><a data-page="mocks/ui/agent-icons.html"          data-title="Agent icons (draft)"><span class="dot is-plum"></span>Agent icons</a></li>
-        <li><a data-page="mocks/ui/hcard-variants.html"       data-title="HIL card variants (design decision)"><span class="dot is-teal"></span>HIL card variants</a></li>
-        <li><a data-page="mocks/ui/index.html"                data-title="Kit landing (nav shell)"><span class="dot is-navy"></span>Kit landing shell</a></li>
-      </ul>
+      <div class="fam is-calm"><span class="swatch"></span><h3>Console navigation</h3><span class="count">29 pages</span></div>
+      <nav class="console-groups" aria-label="Console mock navigation">
+        <section class="nav-group">
+          <div class="nav-group-head"><h3>Overview</h3><span class="count">2</span></div>
+          <ul>
+            <li><a data-page="mocks/ui/dashboard.html" data-title="Dashboard"><span class="dot is-sage"></span>Dashboard</a></li>
+            <li><a data-page="mocks/ui/llm-cost.html" data-title="LLM usage"><span class="dot is-teal"></span>LLM usage</a></li>
+          </ul>
+        </section>
+
+        <section class="nav-group">
+          <div class="nav-group-head"><h3>Operations</h3><span class="count">4</span></div>
+          <ul>
+            <li><a data-page="mocks/ui/live.html" data-title="Live"><span class="dot"></span>Live</a></li>
+            <li><a data-page="mocks/ui/incidents.html" data-title="Incidents"><span class="dot is-dusty-red"></span>Incidents</a></li>
+            <li><a data-page="mocks/ui/hil.html" data-title="Approvals"><span class="dot is-terracotta"></span>Approvals</a></li>
+            <li><a data-page="mocks/ui/provision.html" data-title="Provisioning"><span class="dot"></span>Provisioning</a></li>
+          </ul>
+        </section>
+
+        <section class="nav-group">
+          <div class="nav-group-head"><h3>Agents</h3><span class="count">4</span></div>
+          <ul>
+            <li><a data-page="mocks/ui/agents.html" data-title="Agents"><span class="dot is-sage"></span>Agents</a></li>
+            <li><a data-page="mocks/ui/agents-constellation.html" data-title="Agents - constellation"><span class="dot"></span>Constellation</a></li>
+            <li><a data-page="mocks/ui/pantheon.html" data-title="Pantheon"><span class="dot is-plum"></span>Pantheon</a></li>
+            <li><a data-page="mocks/ui/agent-activity.html" data-title="Agent activity"><span class="dot"></span>Agent activity</a></li>
+          </ul>
+        </section>
+
+        <section class="nav-group">
+          <div class="nav-group-head"><h3>Governance</h3><span class="count">6</span></div>
+          <ul>
+            <li><a data-page="mocks/ui/rules.html" data-title="Rules"><span class="dot"></span>Rules</a></li>
+            <li><a data-page="mocks/ui/actions.html" data-title="Capabilities"><span class="dot is-plum"></span>Capabilities</a></li>
+            <li><a data-page="mocks/ui/ontology.html" data-title="Ontology"><span class="dot is-plum"></span>Ontology</a></li>
+            <li><a data-page="mocks/ui/workflow-builder.html" data-title="Workflow builder"><span class="dot"></span>Workflow builder</a></li>
+            <li><a data-page="mocks/ui/blast-radius.html" data-title="Impact scope"><span class="dot is-terracotta"></span>Impact scope</a></li>
+            <li><a data-page="mocks/ui/promotion.html" data-title="Promotion gates"><span class="dot is-teal"></span>Promotion gates</a></li>
+          </ul>
+        </section>
+
+        <section class="nav-group">
+          <div class="nav-group-head"><h3>Evidence</h3><span class="count">5</span></div>
+          <ul>
+            <li><a data-page="mocks/ui/audit.html" data-title="Audit log"><span class="dot is-terracotta"></span>Audit log</a></li>
+            <li><a data-page="mocks/ui/rule-trace.html" data-title="Trace"><span class="dot is-teal"></span>Trace</a></li>
+            <li><a data-page="mocks/ui/rca.html" data-title="RCA"><span class="dot is-teal"></span>RCA</a></li>
+            <li><a data-page="mocks/ui/report.html" data-title="Reports"><span class="dot is-terracotta"></span>Reports</a></li>
+            <li><a data-page="mocks/ui/rca-report.html" data-title="RCA report"><span class="dot is-teal"></span>RCA report</a></li>
+          </ul>
+        </section>
+
+        <section class="nav-group">
+          <div class="nav-group-head"><h3>Labs</h3><span class="count">7</span></div>
+          <ul>
+            <li><a data-page="mocks/ui/deck.html" data-title="Command deck"><span class="dot is-plum"></span>Command deck</a></li>
+            <li><a data-page="mocks/ui/deck-sources.html" data-title="Command deck sources"><span class="dot"></span>Command deck sources</a></li>
+            <li><a data-page="mocks/ui/components.html" data-title="Component gallery"><span class="dot"></span>Component gallery</a></li>
+            <li><a data-page="mocks/ui/agent-icons.html" data-title="Agent icons"><span class="dot is-plum"></span>Agent icons</a></li>
+            <li><a data-page="mocks/ui/hcard-variants.html" data-title="Approval card variants"><span class="dot is-teal"></span>Approval card variants</a></li>
+            <li><a data-page="mocks/ui/nav-redesign-v3.html" data-title="Navigation redesign"><span class="dot is-steel"></span>Navigation redesign</a></li>
+            <li><a data-page="mocks/ui/index.html" data-title="Kit navigation shell"><span class="dot is-navy"></span>Kit navigation shell</a></li>
+          </ul>
+        </section>
+
+        <section class="nav-group">
+          <div class="nav-group-head"><h3>Settings</h3><span class="count">1</span></div>
+          <ul>
+            <li><a data-page="mocks/ui/settings.html" data-title="General settings"><span class="dot is-steel"></span>General</a></li>
+          </ul>
+        </section>
+      </nav>
 
       <div class="fam is-webgl"><span class="swatch"></span><h3>WebGL drafts</h3><span class="count">4 pages</span></div>
       <ul>
