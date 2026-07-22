@@ -14,8 +14,9 @@ machine.
 > local `security audit` are available. The remote deployment contract, plan-only GitHub workflow
 > dispatch, and exact-plan apply guard are also implemented. Bounded live Azure Policy, Compute
 > quota, Resource Graph identity, value-blind Key Vault secret probes, and runner TLS egress
-> evidence are available. Signed bundle build/verify/release and production exact-plan apply
-> wiring are implemented. Signed wheel/mirror/disconnected delivery and teardown remain.
+> evidence are available. Read-only `provision inspect`, signed bundle build/verify/release, and
+> production exact-plan apply wiring are implemented. Signed wheel/mirror/disconnected delivery,
+> provisioning profile persistence, bootstrap orchestration, and teardown remain.
 >
 > **Execution boundary:** Terraform remains the infrastructure execution engine and source of
 > truth. `fdaictl` is a thin orchestration layer over validation, plan analysis, workflow
@@ -26,10 +27,8 @@ machine.
 
 ## Design at a glance
 
-Use `uv` to install `fdaictl` as an isolated tool. The CLI resolves a version-matched deployment
-bundle, checks the local toolchain and Azure environment, converts the Terraform plan to JSON,
-and passes it through the existing deployment preflight analyzer. A real apply runs only on the
-approved deployment runner, including for commands submitted from a laptop.
+Install `fdaictl` as an isolated `uv` tool. It verifies a version-matched bundle and the target
+environment before an approved execution host applies the exact Terraform plan.
 
 | Concern | Decision |
 |---------|----------|
@@ -43,16 +42,23 @@ approved deployment runner, including for commands submitted from a laptop.
 | Machine output | Stable JSON schema and documented exit codes |
 | Product language | English source catalog with locale fallback |
 
+## Provisioning execution profiles
+
+Provisioning selects connectivity, execution host, transport, and access independently. The
+[Provisioning Execution Profiles](provisioning-execution-profiles.md) document owns the read-only
+inspection contract, existing-host and managed-VM rules, online and offline delivery, access
+preference, one-person approval, and distinct workload-identity boundary.
+
 ## Why use a separate command
 
-The repository already has two distinct command surfaces:
+FDAI has three distinct command surfaces:
 
 - `python -m fdai` starts the headless control-plane process.
 - The `cli/` package is the read-only operator console.
+- `fdaictl` administers deployment.
 
-Deployment is a third responsibility. `fdaictl` keeps deployment administration separate from
-both the runtime process and the conversational console. This boundary also prevents a future
-operator-console feature from acquiring deployment credentials or becoming an execution surface.
+Keeping these surfaces separate prevents the operator console from acquiring deployment
+credentials or becoming an execution surface.
 
 ## Target operator experience
 
@@ -64,8 +70,7 @@ fdaictl version
 fdaictl doctor
 ```
 
-From a source checkout, run the implemented C1 commands with `uv run fdaictl`. A published wheel
-can use the persistent installation form above once release hardening is complete.
+From a source checkout, use `uv run fdaictl`. Published wheels use the pinned installation above.
 
 For a one-time run or a CI job, use an ephemeral environment:
 
@@ -73,10 +78,8 @@ For a one-time run or a CI job, use an ephemeral environment:
 uvx --from fdai==<version> fdaictl deploy preflight --environment dev
 ```
 
-`pipx` is the recommended fallback when `uv` is unavailable. A direct `pip install` remains
-supported inside a virtual environment, but installing into the system Python is not recommended.
-The installer does not silently install or upgrade Azure CLI, Terraform, GitHub CLI, or other
-system tools. `fdaictl doctor` reports missing and incompatible tools with corrective guidance.
+Use `pipx` when `uv` is unavailable, or install with `pip` inside a virtual environment. The
+installer never changes system tools; `fdaictl doctor` reports missing or incompatible tools.
 
 > `version`, `doctor`, `onboard init`, guarded `onboard guided`, portable `backup create` and
 > `backup restore`, `deploy preflight`, and plan-only `deploy plan` dispatch are implemented.
@@ -93,6 +96,7 @@ lead to a mutation makes the remote execution boundary visible.
 |---------|---------|----------------|
 | `fdaictl version` | Show CLI, bundle, schema, and compatibility versions | No |
 | `fdaictl doctor` | Check Python, Azure CLI, Terraform, GitHub CLI, authentication, and local config | No |
+| `fdaictl provision inspect` | Inspect online/offline, existing/managed host, transport, access, and workload-identity readiness | No |
 | `fdaictl onboard init` | Create a schema-validated, untracked environment configuration | No |
 | `fdaictl onboard guided` | Run doctor, private config creation, live preflight, plan-only runner submission, and a sanitized status post-check in order | No |
 | `fdaictl security audit` | Check runtime flag combinations, local config hygiene, and requested sandbox availability | No, unless `--fix-permissions` is explicit |

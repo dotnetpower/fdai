@@ -604,6 +604,32 @@
       ]
     },
     {
+      "id": "deployment-cli",
+      "paths": [
+        "src/fdai/deployment_cli/**",
+        "tests/deployment_cli/**",
+        "scripts/deployment/release/**",
+        "docs/roadmap/deployment/installable-deployment-cli*.md",
+        "docs/roadmap/deployment/provisioning-execution-profiles*.md"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/deployment/installable-deployment-cli.md",
+        "docs/roadmap/deployment/provisioning-execution-profiles.md",
+        "docs/roadmap/architecture/security-and-identity.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/installable-deployment-cli.md",
+        "docs/roadmap/deployment/provisioning-execution-profiles.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/deployment_cli",
+        "uv run ruff check src/fdai/deployment_cli tests/deployment_cli",
+        "uv run mypy src/fdai/deployment_cli"
+      ]
+    },
+    {
       "id": "deployment",
       "paths": ["infra/**", "azure.yaml", ".github/workflows/deploy-*.yml"],
       "must_read": [

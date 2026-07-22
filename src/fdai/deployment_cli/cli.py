@@ -45,6 +45,12 @@ from fdai.deployment_cli.preflight import (
     run_static_preflight,
     run_terraform_plan_preflight,
 )
+from fdai.deployment_cli.provision_inspect import (
+    Connectivity,
+    ExecutionHost,
+    ExecutionTransport,
+    inspect_provisioning,
+)
 from fdai.deployment_cli.release_channels import (
     RELEASE_RESULT_SCHEMA,
     ReleaseStateError,
@@ -75,6 +81,33 @@ def _build_parser() -> argparse.ArgumentParser:
     doctor_parser = subcommands.add_parser("doctor", help="check the deployment toolchain")
     doctor_parser.add_argument("--output", choices=("text", "json"), default="text")
     doctor_parser.add_argument("--config", type=Path, default=None)
+    provision_parser = subcommands.add_parser(
+        "provision", help="inspect and orchestrate guarded provisioning"
+    )
+    provision_commands = provision_parser.add_subparsers(dest="provision_command", required=True)
+    provision_inspect = provision_commands.add_parser(
+        "inspect", help="inspect execution profiles without changing resources"
+    )
+    provision_inspect.add_argument(
+        "--connectivity",
+        choices=tuple(item.value for item in Connectivity),
+        default=Connectivity.AUTO.value,
+    )
+    provision_inspect.add_argument(
+        "--host",
+        choices=tuple(item.value for item in ExecutionHost),
+        default=ExecutionHost.AUTO.value,
+    )
+    provision_inspect.add_argument(
+        "--transport",
+        choices=tuple(item.value for item in ExecutionTransport),
+        default=ExecutionTransport.AUTO.value,
+    )
+    provision_inspect.add_argument("--offline-kit", type=Path, default=None)
+    provision_inspect.add_argument("--internal-ssh", action="store_true")
+    provision_inspect.add_argument("--allow-temporary-public-ssh", action="store_true")
+    provision_inspect.add_argument("--bastion", action="store_true")
+    provision_inspect.add_argument("--output", choices=("text", "json"), default="text")
     onboard_parser = subcommands.add_parser("onboard", help="prepare local deployment config")
     onboard_commands = onboard_parser.add_subparsers(dest="onboard_command", required=True)
     onboard_init = onboard_commands.add_parser("init", help="create an environment config")
@@ -242,6 +275,36 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None) -> int:
                 print(f"{check.status.upper():4} {check.check_id}: {check.summary}", file=output)
             print("READY" if report.ready else "NOT READY", file=output)
         return 0 if report.ready else 4
+    if args.command == "provision" and args.provision_command == "inspect":
+        inspect_result = inspect_provisioning(
+            connectivity=Connectivity(args.connectivity),
+            execution_host=ExecutionHost(args.host),
+            transport=ExecutionTransport(args.transport),
+            offline_kit=args.offline_kit,
+            internal_ssh=args.internal_ssh,
+            allow_temporary_public_ssh=args.allow_temporary_public_ssh,
+            bastion=args.bastion,
+        )
+        if args.output == "json":
+            print(inspect_result.to_json(), file=output)
+        else:
+            for inspect_check in inspect_result.checks:
+                print(
+                    f"{inspect_check.status.upper():14} "
+                    f"{inspect_check.check_id}: {inspect_check.summary}",
+                    file=output,
+                )
+            print(
+                f"{inspect_result.status.upper()}: "
+                f"{inspect_result.connectivity.value} / "
+                f"{inspect_result.execution_host.value} / "
+                f"{inspect_result.transport.value}",
+                file=output,
+            )
+            if inspect_result.access_method is not None:
+                print(f"Access: {inspect_result.access_method}", file=output)
+            print("No resources were changed.", file=output)
+        return inspect_result.exit_code
     if args.command == "onboard" and args.onboard_command == "guided":
         try:
             guided_result = asyncio.run(

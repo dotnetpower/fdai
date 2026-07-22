@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 4f83c60cdb8b3b83f6f3c074a5d05c8cc3efb8f0
+translation_source_sha: 0cb7af05eb9f8571eb257d855065abd790180eae
 translation_revised: 2026-07-22
 ---
 
@@ -71,6 +71,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 20 | [deployment-preflight-ko.md](deployment/deployment-preflight-ko.md) | 배포 전 가능성 및 blocker 수집: 프로브 분류법, readiness 리포트, blocker-테라폼-토글 매핑 |
 | 20a | [preflight-active-reassembly-ko.md](deployment/preflight-active-reassembly-ko.md) | 능동 플랜 재조립: policy blocker를 capability-mode 토글로 재렌더된 terraform 플랜으로 바꿔 executor를 통해 remediation PR로 전달 (수렴 루프, stop-condition, 한계) |
 | 20b | [installable-deployment-cli-ko.md](deployment/installable-deployment-cli-ko.md) | 설치형 `fdaictl` facade: 격리된 `uv` 설치, 읽기 전용 preflight, 서명된 deployment bundle, private runner로 exact-plan 제출 |
+| 20c | [provisioning-execution-profiles-ko.md](deployment/provisioning-execution-profiles-ko.md) | Provisioning profile 선택: online/offline delivery, existing 또는 managed execution host, access preference, workload identity, exact-plan approval |
 | 21 | [assurance-twin-ko.md](operations/assurance-twin-ko.md) | 아키텍처 리뷰 / Q&A / assessment를 위한 질의가능 온톨로지 트윈: text-to-query, 선제 리뷰, 그래프 전체 what-if, shadow 제안 |
 | 22 | [operational-readiness-ko.md](operations/operational-readiness-ko.md) | dev-to-ops 핸드오프 게이트: ownership-transfer 트리거, 전체 scope RBAC / 정책 / 신뢰성 리뷰, ReadinessReport, environment-promotion 게이트 |
 | 22a | [operator-initiated-sre-and-arb-ko.md](operations/operator-initiated-sre-and-arb-ko.md) | 비인시던트 identity, 오퍼레이터 시작 SRE response, live stage progress, ARB 상태/수동 시작, workflow enforce, local/deployed parity |

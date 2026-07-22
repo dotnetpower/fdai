@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 334d36579b702d3144f625d1a733fe9c3b187025
+translation_source_sha: 863c7642303e9ba9954ba137eed7b7dbe83af499
 translation_revised: 2026-07-22
 ---
 # 설치형 배포 CLI
@@ -16,8 +16,10 @@ translation_revised: 2026-07-22
 > `security audit`을 사용할 수 있습니다. Remote deployment contract, plan-only GitHub workflow
 > dispatch, exact-plan apply guard도 구현되었습니다. Bounded live Azure Policy, Compute quota,
 > Resource Graph identity, value-blind Key Vault secret probe와 runner TLS egress evidence를
-> 사용할 수 있습니다. Signed bundle build/verify/release workflow와 production exact-plan
-> apply wiring도 구현됐습니다. Signed wheel/mirror/disconnected delivery와 teardown은 남았습니다.
+> 사용할 수 있습니다. 읽기 전용 `provision inspect`, signed bundle build/verify/release
+> workflow, production exact-plan apply wiring도 구현됐습니다. Signed
+> wheel/mirror/disconnected delivery, provisioning profile persistence, bootstrap orchestration,
+> teardown은 남았습니다.
 >
 > **실행 경계:** Terraform은 인프라 실행 엔진이자 source of truth로 유지됩니다. `fdaictl`은
 > validation, plan 분석, workflow 제출, 배포 후 검사를 위한 얇은 orchestration 계층입니다.
@@ -26,10 +28,8 @@ translation_revised: 2026-07-22
 
 ## 한눈에 보는 설계
 
-`uv`를 사용하여 `fdaictl`을 격리된 도구로 설치합니다. CLI는 버전이 일치하는 deployment
-bundle을 확인하고, 로컬 toolchain과 Azure 환경을 검사하고, Terraform plan을 JSON으로
-변환한 다음 기존 deployment preflight analyzer로 전달합니다. 실제 apply는 laptop에서
-명령을 제출하는 경우에도 승인된 deployment runner에서만 실행됩니다.
+`fdaictl`을 격리된 `uv` tool로 설치합니다. 승인된 execution host가 exact Terraform plan을
+apply하기 전에 version-matched bundle과 target environment를 검증합니다.
 
 | 관심사 | 결정 |
 |--------|------|
@@ -43,16 +43,23 @@ bundle을 확인하고, 로컬 toolchain과 Azure 환경을 검사하고, Terraf
 | 머신 출력 | 안정적인 JSON schema와 문서화된 exit code |
 | 제품 언어 | locale fallback이 있는 영어 source catalog |
 
+## Provisioning 실행 profile
+
+Provisioning은 connectivity, execution host, transport, access를 독립적으로 선택합니다.
+[Provisioning 실행 Profile](provisioning-execution-profiles-ko.md) 문서가 읽기 전용 inspection
+contract, existing-host 및 managed-VM rule, online 및 offline delivery, access preference,
+one-person approval, 별도 workload-identity 경계를 정의합니다.
+
 ## 별도 명령을 사용하는 이유
 
-저장소에는 이미 서로 다른 두 개의 command surface가 있습니다.
+FDAI에는 서로 다른 세 개의 command surface가 있습니다.
 
 - `python -m fdai`는 headless control-plane process를 시작합니다.
 - `cli/` package는 읽기 전용 operator console입니다.
+- `fdaictl`은 deployment를 관리합니다.
 
-배포는 세 번째 책임입니다. `fdaictl`은 배포 관리를 runtime process 및 conversational
-console과 분리합니다. 또한 이 경계는 향후 operator-console 기능이 배포 credential을
-획득하거나 execution surface가 되는 것을 방지합니다.
+이 surface를 분리하면 operator console이 deployment credential을 획득하거나 execution
+surface가 되는 것을 방지할 수 있습니다.
 
 ## 목표 운영자 경험
 
@@ -64,8 +71,8 @@ fdaictl version
 fdaictl doctor
 ```
 
-Source checkout에서는 구현된 C1 명령을 `uv run fdaictl`로 실행합니다. Release hardening이
-완료되면 게시된 wheel에 위의 영구 설치 형식을 사용할 수 있습니다.
+Source checkout에서는 `uv run fdaictl`을 사용합니다. 게시된 wheel은 위의 pinned 설치를
+사용합니다.
 
 일회성 실행 또는 CI job에는 임시 환경을 사용합니다.
 
@@ -73,11 +80,9 @@ Source checkout에서는 구현된 C1 명령을 `uv run fdaictl`로 실행합니
 uvx --from fdai==<version> fdaictl deploy preflight --environment dev
 ```
 
-`uv`를 사용할 수 없을 때는 `pipx`를 권장 fallback으로 사용합니다. Virtual environment
-안에서 직접 `pip install`하는 방식도 지원하지만 system Python에 설치하는 것은 권장하지
-않습니다. Installer는 Azure CLI, Terraform, GitHub CLI 또는 다른 system tool을 자동으로
-설치하거나 업그레이드하지 않습니다. `fdaictl doctor`는 누락되거나 호환되지 않는 tool과
-수정 방법을 보고합니다.
+`uv`를 사용할 수 없으면 `pipx`를 사용하거나 virtual environment 안에서 `pip`로 설치합니다.
+Installer는 system tool을 변경하지 않습니다. `fdaictl doctor`가 누락되거나 호환되지 않는
+tool을 보고합니다.
 
 > `version`, `doctor`, `onboard init`, guarded `onboard guided`, portable `backup create` 및
 > `backup restore`, `deploy preflight`, plan-only `deploy plan` dispatch는 구현되었습니다.
@@ -94,6 +99,7 @@ uvx --from fdai==<version> fdaictl deploy preflight --environment dev
 |------|------|----------------|
 | `fdaictl version` | CLI, bundle, schema, compatibility version 표시 | 없음 |
 | `fdaictl doctor` | Python, Azure CLI, Terraform, GitHub CLI, 인증, local config 검사 | 없음 |
+| `fdaictl provision inspect` | Online/offline, existing/managed host, transport, access, workload-identity readiness 검사 | 없음 |
 | `fdaictl onboard init` | Schema-validated, untracked environment configuration 생성 | 없음 |
 | `fdaictl onboard guided` | Doctor, private config 생성, live preflight, plan-only runner 제출, sanitized status post-check를 순서대로 실행 | 없음 |
 | `fdaictl security audit` | Runtime flag 조합, local config hygiene, 요청된 sandbox 가용성 검사 | 없음, `--fix-permissions`를 명시한 경우 제외 |
