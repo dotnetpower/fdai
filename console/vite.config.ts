@@ -26,6 +26,8 @@ export default defineConfig(({ mode }) => {
       assetsInlineLimit: 0,
       target: "es2022",
       manifest: true,
+      // Mermaid renderers are lazy; check:entry owns the stricter initial budget.
+      chunkSizeWarningLimit: 700,
     },
     server: {
       port: 5273,
@@ -36,12 +38,7 @@ export default defineConfig(({ mode }) => {
       // allowance and avoid saturating shared runners after the Python suite.
       testTimeout: 15_000,
       pool: "forks",
-      poolOptions: {
-        forks: {
-          minForks: 1,
-          maxForks: 4,
-        },
-      },
+      maxWorkers: 4,
     },
   };
 });

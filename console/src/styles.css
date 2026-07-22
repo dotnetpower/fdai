@@ -2695,7 +2695,6 @@ pre {
 }
 .loading-skeleton-cards span { min-height: 92px; }
 .loading-skeleton-panel { min-height: 152px; }
-}
 .panel-loading-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
