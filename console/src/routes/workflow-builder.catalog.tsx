@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { Tooltip } from "../components/tooltip";
 import { currentRoute, navigate, routeHref } from "../router";
 import type {
   ActionTypePaletteEntry,
@@ -113,15 +114,18 @@ export function BuiltInList({
         <button type="button" class="btn" onClick={onNew}>
           + {t("workflow.catalog.designNew")}
         </button>
-        <button
-          type="button"
-          class="btn"
-          onClick={onPython}
-          disabled={pythonTasks === null}
-          title={pythonTasks === null ? t("workflow.catalog.pythonUnavailable") : undefined}
+        <Tooltip
+          content={pythonTasks === null ? t("workflow.catalog.pythonUnavailable") : undefined}
         >
-          {t("workflow.catalog.authorPython")}
-        </button>
+          <button
+            type="button"
+            class="btn"
+            onClick={onPython}
+            disabled={pythonTasks === null}
+          >
+            {t("workflow.catalog.authorPython")}
+          </button>
+        </Tooltip>
         {pythonTasks === null ? (
           <span class="muted small" role="status">
             {t("workflow.catalog.pythonUnavailable")}

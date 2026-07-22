@@ -1,3 +1,4 @@
+import { Tooltip } from "../components/tooltip";
 import type { ActionTypePaletteEntry } from "../workflow/validate";
 import { cloneForm } from "./workflow-builder.chat.builders";
 import {
@@ -67,9 +68,15 @@ export function WorkflowDraftEditor({
             <div class="step-card-head">
               <strong>{t("workflow.editor.step", { number: index + 1 })}</strong>
               <div class="step-move">
-                <button type="button" class="btn btn-small" disabled={index === 0} title={t("workflow.editor.moveUp")} aria-label={t("workflow.editor.moveUp")} onClick={() => onChange(moveDraftStep(form, step.key, -1))}>&uarr;</button>
-                <button type="button" class="btn btn-small" disabled={index === form.steps.length - 1} title={t("workflow.editor.moveDown")} aria-label={t("workflow.editor.moveDown")} onClick={() => onChange(moveDraftStep(form, step.key, 1))}>&darr;</button>
-                <button type="button" class="btn btn-small btn-danger" title={t("workflow.editor.removeStep")} aria-label={t("workflow.editor.removeStep")} onClick={() => onChange(removeDraftStep(form, step.key))}>&times;</button>
+                <Tooltip content={t("workflow.editor.moveUp")}>
+                  <button type="button" class="btn btn-small" disabled={index === 0} aria-label={t("workflow.editor.moveUp")} onClick={() => onChange(moveDraftStep(form, step.key, -1))}>&uarr;</button>
+                </Tooltip>
+                <Tooltip content={t("workflow.editor.moveDown")}>
+                  <button type="button" class="btn btn-small" disabled={index === form.steps.length - 1} aria-label={t("workflow.editor.moveDown")} onClick={() => onChange(moveDraftStep(form, step.key, 1))}>&darr;</button>
+                </Tooltip>
+                <Tooltip content={t("workflow.editor.removeStep")}>
+                  <button type="button" class="btn btn-small btn-danger" aria-label={t("workflow.editor.removeStep")} onClick={() => onChange(removeDraftStep(form, step.key))}>&times;</button>
+                </Tooltip>
               </div>
             </div>
             <div class="wf-editor-grid">
@@ -153,7 +160,9 @@ function ParameterRow({
       ) : (
         <input class="form-input" aria-label={t("workflow.editor.parameterValue")} type={type === "number" ? "number" : "text"} value={String(value)} onInput={(event) => onChange(name, coerceDraftParam((event.target as HTMLInputElement).value, type))} />
       )}
-      <button type="button" class="btn btn-small btn-danger" title={t("workflow.editor.removeParameter")} aria-label={t("workflow.editor.removeParameter")} onClick={onRemove}>&times;</button>
+      <Tooltip content={t("workflow.editor.removeParameter")}>
+        <button type="button" class="btn btn-small btn-danger" aria-label={t("workflow.editor.removeParameter")} onClick={onRemove}>&times;</button>
+      </Tooltip>
     </div>
   );
 }
