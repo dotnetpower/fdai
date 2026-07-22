@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f7d476973d425ecf9209432fc146a974cafc4b36
+translation_source_sha: 79e8da01f71652754a2a76cb9263ac3ce6628520
 translation_revised: 2026-07-23
 ---
 
@@ -25,6 +25,10 @@ unavailable인 성과, 분포 legend, attention fact, vertical 통계 및 접힌
 datum을 소유하는 가장 좁은 analytical 또는 filtered-evidence 목적지로 연결됩니다. 섹션 제목과 설명
 문구만 비대화형으로 유지합니다. unavailable 값도 소유 view를 열어 누락된 source 또는 sample을
 확인할 수 있게 합니다.
+Unavailable metric 카드는 낮은 강조도의 전체 surface 배경, elevation shadow 없음 및 작고 muted한
+값 text를 사용해 측정 결과처럼 보이지 않게 합니다. 이 카드는 focus 가능한 drill-down link를
+유지하고 complete-border focus 또는 hover cue를 제공하며, 시각 표현에 disabled semantics를
+사용하지 않습니다.
 
 ## Localization 경계
 

@@ -275,8 +275,12 @@ function SuccessMetric({
   readonly href: string;
 }) {
   const factor = improvementFactor(metric);
+  const unavailable = metric.value === null;
   return (
-    <a href={href} class="card overview-metric overview-drill-card">
+    <a
+      href={href}
+      class={`card overview-metric overview-drill-card ${unavailable ? "is-unavailable" : ""}`}
+    >
       <span class="overview-metric-label">{label}</span>
       <span class="overview-metric-value">{value}</span>
       <span class="overview-metric-evidence">

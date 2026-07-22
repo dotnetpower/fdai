@@ -23,6 +23,9 @@ unavailable outcomes, distribution legends, attention facts, vertical statistics
 operational counts link to the narrowest analytical or filtered-evidence destination that owns the
 datum. Section headings and explanatory copy remain non-interactive. An unavailable value still
 opens its owner view so the operator can see which source or sample is missing.
+Unavailable metric cards use a subdued whole-surface background, no elevation shadow, and compact
+muted value text so they don't read as measured results. They remain focusable drill-down links and
+retain a complete-border focus or hover cue; the visual treatment never sets disabled semantics.
 
 ## Localization boundary
 

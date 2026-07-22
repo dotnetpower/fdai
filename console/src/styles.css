@@ -2958,6 +2958,20 @@ pre {
   transform: translateY(-1px);
   box-shadow: 0 6px 22px rgba(46, 54, 64, 0.1);
 }
+.overview-metric.is-unavailable {
+  background: var(--overview-shade);
+  box-shadow: none;
+}
+.overview-metric.is-unavailable:hover,
+.overview-metric.is-unavailable:focus-visible {
+  transform: none;
+  box-shadow: none;
+}
+.overview-metric.is-unavailable .overview-metric-value {
+  color: var(--overview-muted);
+  font-size: 16px;
+  line-height: 1.35;
+}
 .overview-metric-label {
   font-size: 13px;
   font-weight: 600;
@@ -2979,6 +2993,8 @@ pre {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.overview-metric.is-unavailable .overview-metric-evidence,
+.overview-metric.is-unavailable .overview-metric-sub { opacity: 0.78; }
 .overview-metric-factor {
   display: inline-flex;
   padding: 1px 7px;

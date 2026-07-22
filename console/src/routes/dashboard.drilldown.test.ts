@@ -14,7 +14,8 @@ describe("Dashboard drill-down contract", () => {
     expect(executive).toContain('class="overview-status-primary"');
     expect(executive).toContain("<EvidenceLink");
     expect(executive).toContain('class="overview-trend-link"');
-    expect(executive).toContain('<a href={href} class="card overview-metric overview-drill-card">');
+    expect(executive).toContain('unavailable ? "is-unavailable" : ""');
+    expect(executive).toContain("href={href}");
     expect(dashboard.match(/class="overview-unavailable-link"/g)?.length).toBeGreaterThanOrEqual(3);
   });
 
