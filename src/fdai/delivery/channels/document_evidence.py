@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -104,7 +105,7 @@ class ProtectedChannelAttachmentIngestor:
             for attachment in turn.attachments
         ):
             return _rejected("attachment exceeds the ingestion size limit")
-        evidence_refs: list[str] = []
+        upload_ids: list[UUID] = []
         for attachment in turn.attachments:
             try:
                 content = await fetcher.fetch(
@@ -146,10 +147,20 @@ class ProtectedChannelAttachmentIngestor:
                 actor_id=principal.id,
                 upload_id=session.upload_id,
             )
-            try:
-                version = await self._terminal_resolver.wait(session.upload_id)
-            except ChannelDocumentProcessingError:
-                return _rejected("attachment processing did not reach a terminal state")
+            upload_ids.append(session.upload_id)
+        waiters = [
+            asyncio.create_task(self._terminal_resolver.wait(upload_id)) for upload_id in upload_ids
+        ]
+        try:
+            versions = await asyncio.gather(*waiters)
+        except ChannelDocumentProcessingError:
+            await _cancel_waiters(waiters)
+            return _rejected("attachment processing did not reach a terminal state")
+        except BaseException:
+            await _cancel_waiters(waiters)
+            raise
+        evidence_refs: list[str] = []
+        for version in versions:
             if (
                 version.state
                 not in {
@@ -170,6 +181,13 @@ class ProtectedChannelAttachmentIngestor:
 
 async def _single_chunk(content: bytes) -> AsyncIterator[bytes]:
     yield content
+
+
+async def _cancel_waiters(waiters: list[asyncio.Task[DocumentVersion]]) -> None:
+    for waiter in waiters:
+        if not waiter.done():
+            waiter.cancel()
+    await asyncio.gather(*waiters, return_exceptions=True)
 
 
 def _rejected(reason: str) -> AttachmentIngestionResult:

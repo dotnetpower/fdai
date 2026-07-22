@@ -201,7 +201,9 @@ A message with multiple attachments creates one governed `UploadSession` per fil
 independent lifecycle, retention, and audit records; the channel message is not a storage
 transaction. If one file is held or fails, the turn returns no citations, while any sibling already
 accepted by the pipeline remains visible through document-ingestion operations rather than being
-silently deleted.
+silently deleted. After all files are sealed, terminal metadata waits run concurrently within the
+eight-file message cap and preserve input order in the returned citations. A typed waiter failure
+cancels and awaits its sibling waiters before the turn returns, so no background poll survives.
 
 ## Failure behavior
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -14,6 +15,7 @@ from fdai.delivery.channels import (
 from fdai.delivery.channels.document_evidence import (
     ChannelAttachmentFetchError,
     ChannelDocumentProcessingError,
+    ChannelDocumentTerminalResolver,
 )
 from fdai.shared.contracts import (
     IngestionCapabilities,
@@ -82,6 +84,38 @@ class _FailingTerminalResolver:
         raise ChannelDocumentProcessingError("agent pipeline unavailable")
 
 
+class _ConcurrentTerminalResolver:
+    def __init__(self, worker: DocumentIngestionWorker, *, expected: int) -> None:
+        self._worker = worker
+        self._expected = expected
+        self._started: list[UUID] = []
+        self._all_started = asyncio.Event()
+
+    async def wait(self, upload_id: UUID):
+        self._started.append(upload_id)
+        if len(self._started) == self._expected:
+            self._all_started.set()
+        await self._all_started.wait()
+        return await self._worker.process(upload_id)
+
+
+class _CancelSiblingTerminalResolver:
+    def __init__(self) -> None:
+        self._calls = 0
+        self.sibling_cancelled = asyncio.Event()
+
+    async def wait(self, upload_id: UUID):
+        self._calls += 1
+        if self._calls == 1:
+            await asyncio.sleep(0)
+            raise ChannelDocumentProcessingError("terminal failure")
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            self.sibling_cancelled.set()
+            raise
+
+
 def _bridge(
     content: bytes,
     *,
@@ -89,6 +123,8 @@ def _bridge(
     fetcher_enabled: bool = True,
     fetch_fails: bool = False,
     terminal_fails: bool = False,
+    concurrent_terminals: int = 0,
+    terminal_resolver: ChannelDocumentTerminalResolver | None = None,
 ) -> tuple[ProtectedChannelAttachmentIngestor, _Fetcher]:
     access = InMemoryDocumentAccessProvider(
         contributors={"channel-evidence": frozenset({"operator-example"})},
@@ -130,8 +166,15 @@ def _bridge(
     fetcher = _Fetcher(content)
     bridge = ProtectedChannelAttachmentIngestor(
         service=service,
-        terminal_resolver=(
-            _FailingTerminalResolver() if terminal_fails else _ImmediateTerminalResolver(worker)
+        terminal_resolver=terminal_resolver
+        or (
+            _FailingTerminalResolver()
+            if terminal_fails
+            else (
+                _ConcurrentTerminalResolver(worker, expected=concurrent_terminals)
+                if concurrent_terminals
+                else _ImmediateTerminalResolver(worker)
+            )
         ),
         fetchers=(
             {"slack": _FailingFetcher() if fetch_fails else fetcher} if fetcher_enabled else {}
@@ -259,6 +302,64 @@ async def test_all_attachment_sizes_are_checked_before_first_fetch() -> None:
     assert result.status == "rejected"
     assert result.reason == "attachment exceeds the ingestion size limit"
     assert fetcher.refs == []
+
+
+async def test_multiple_terminal_versions_are_waited_concurrently_in_input_order() -> None:
+    content = b"evidence"
+    bridge, _ = _bridge(content, concurrent_terminals=2)
+    turn = _turn(content)
+    second = ChannelAttachment(
+        source_ref="opaque-file-id-2",
+        name="evidence-2.txt",
+        size_bytes=len(content),
+        media_type_hint="text/plain",
+    )
+
+    result = await asyncio.wait_for(
+        bridge.ingest(
+            turn=InboundTurn(
+                channel_kind=turn.channel_kind,
+                channel_id=turn.channel_id,
+                message_id=turn.message_id,
+                sender_id=turn.sender_id,
+                text=turn.text,
+                attachments=(*turn.attachments, second),
+            ),
+            principal=Principal(id="operator-example", role=Role.READER),
+        ),
+        timeout=0.5,
+    )
+
+    assert result.status == "ready"
+    assert len(result.evidence_refs) == 2
+
+
+async def test_terminal_failure_cancels_and_awaits_sibling_waiters() -> None:
+    content = b"evidence"
+    resolver = _CancelSiblingTerminalResolver()
+    bridge, _ = _bridge(content, terminal_resolver=resolver)
+    turn = _turn(content)
+    second = ChannelAttachment(
+        source_ref="opaque-file-id-2",
+        name="evidence-2.txt",
+        size_bytes=len(content),
+        media_type_hint="text/plain",
+    )
+
+    result = await bridge.ingest(
+        turn=InboundTurn(
+            channel_kind=turn.channel_kind,
+            channel_id=turn.channel_id,
+            message_id=turn.message_id,
+            sender_id=turn.sender_id,
+            text=turn.text,
+            attachments=(*turn.attachments, second),
+        ),
+        principal=Principal(id="operator-example", role=Role.READER),
+    )
+
+    assert result.status == "rejected"
+    assert resolver.sibling_cancelled.is_set()
 
 
 async def test_explicit_handover_routes_to_handover_purpose() -> None:
