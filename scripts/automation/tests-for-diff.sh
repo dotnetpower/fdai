@@ -48,11 +48,11 @@ for arg in "$@"; do
 done
 
 if [[ -z "$diff_arg" ]]; then
-    tracked=$(git diff --name-only --diff-filter=ACMRTD HEAD)
+    tracked=$(git diff --name-only --no-renames --diff-filter=ACMRTD HEAD)
     untracked=$(git ls-files --others --exclude-standard)
     changed=$(printf '%s\n%s\n' "$tracked" "$untracked" | sort -u)
 else
-    changed=$(git diff --name-only --diff-filter=ACMRTD "$diff_arg")
+    changed=$(git diff --name-only --no-renames --diff-filter=ACMRTD "$diff_arg")
 fi
 
 declare -A seen=()

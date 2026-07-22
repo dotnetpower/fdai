@@ -124,6 +124,25 @@ def test_missing_mirrored_test_directory_falls_back_to_full_suite(git_repo: Path
     assert result.stdout.splitlines() == ["tests"]
 
 
+def test_cross_subsystem_rename_selects_old_and_new_tests(git_repo: Path) -> None:
+    old_source = git_repo / "src" / "fdai" / "core" / "risk_gate" / "moved.py"
+    old_source.write_text("VALUE = 1\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "add source").returncode == 0
+
+    new_source = git_repo / "src" / "fdai" / "delivery" / "dev_operations_gateway" / "moved.py"
+    new_source.parent.mkdir(parents=True)
+    assert _run(git_repo, "git", "mv", str(old_source), str(new_source)).returncode == 0
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "tests/core/risk_gate",
+        "tests/delivery/dev_operations_gateway",
+    ]
+
+
 def test_selects_catalog_tests_for_untracked_catalog_data(git_repo: Path) -> None:
     catalog = git_repo / "rule-catalog" / "catalog" / "rule.yaml"
     catalog.parent.mkdir(parents=True)

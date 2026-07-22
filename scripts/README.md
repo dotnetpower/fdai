@@ -38,7 +38,8 @@ Use the diff-scoped runner during the edit loop. It includes tracked, staged,
 and untracked working-tree changes, then maps source and repository data to the
 pytest paths that own them. Behavior-bearing script support data, including
 design routes, framework surface lists, baselines, and allowlists, maps to the
-script test suite:
+script test suite. Renames are evaluated as a deletion plus an addition so both
+the old and new owning test areas run:
 
 ```bash
 make test-changed
