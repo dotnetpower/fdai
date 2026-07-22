@@ -97,6 +97,14 @@ while IFS= read -r file; do
         continue
     fi
 
+    if [[ "$file" == *.py ]]; then
+        case "$file" in
+            src/fdai/*|delivery/*|scripts/*|tools/*)
+                python_sources+=("$file")
+                ;;
+        esac
+    fi
+
     # Test file changed directly - include it as-is.
     if [[ "$file" == tests/*.py ]]; then
         add_test "$file"
@@ -121,12 +129,6 @@ while IFS= read -r file; do
     esac
 
     [[ "$file" == *.py ]] || continue
-
-    case "$file" in
-        src/fdai/*|delivery/*|tools/*)
-            python_sources+=("$file")
-            ;;
-    esac
 
     # Developer-facing gateway packages live at the repository root instead
     # of under src/fdai, but retain the same mirrored delivery test layout.

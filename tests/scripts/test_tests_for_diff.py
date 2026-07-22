@@ -37,6 +37,7 @@ def git_repo(tmp_path: Path) -> Path:
         "src/fdai/core/risk_gate",
         "tests/composition",
         "tests/config",
+        "tests/conversation",
         "tests/core/risk_gate",
         "tests/delivery/dev_operations_gateway",
         "tests/persistence",
@@ -117,6 +118,10 @@ def test_selects_tests_for_top_level_delivery_source(git_repo: Path) -> None:
 
 
 def test_selects_tests_for_tool_source(git_repo: Path) -> None:
+    consumer = git_repo / "tests" / "conversation" / "test_tool_consumer.py"
+    consumer.write_text("from tools import baseline_run\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "add tool consumer").returncode == 0
     source = git_repo / "tools" / "baseline_run.py"
     source.parent.mkdir(parents=True)
     source.write_text("VALUE = 1\n", encoding="utf-8")
@@ -124,7 +129,10 @@ def test_selects_tests_for_tool_source(git_repo: Path) -> None:
     result = _run(git_repo, "bash", str(_SELECTOR))
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == ["tests/tools"]
+    assert result.stdout.splitlines() == [
+        "tests/conversation/test_tool_consumer.py",
+        "tests/tools",
+    ]
 
 
 def test_unknown_python_source_falls_back_to_full_suite(git_repo: Path) -> None:
