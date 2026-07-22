@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Onboarding readiness - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=sidebar-v5" />
+  <script src="assets/calm-slate.js?v=sidebar-v5" defer></script>
+  <style>
+    .ob-header { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+    .ob-header .cs-page-header { margin-bottom: 0; }
+    .ob-refresh { min-width: 118px; justify-content: center; }
+
+    .ob-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .ob-kpi {
+      min-height: 116px;
+      padding: 17px 18px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius);
+      background: var(--cs-card);
+      box-shadow: var(--cs-shadow);
+    }
+    .ob-kpi-label {
+      display: block;
+      color: var(--cs-text-soft);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .ob-kpi-value { display: block; margin-top: 12px; font-size: 25px; line-height: 1.1; font-weight: 700; color: var(--cs-navy); }
+    .ob-kpi-note { display: block; margin-top: 8px; color: var(--cs-text-soft); font-size: 11.5px; }
+    .ob-readiness { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: var(--cs-dusty-red); }
+    .ob-readiness::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--cs-dusty-red); }
+
+    .ob-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-shade);
+    }
+    .ob-actions strong { margin-right: auto; font-size: 12px; color: var(--cs-text-soft); }
+
+    .ob-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(520px, 1.2fr); gap: 28px; margin-top: 30px; }
+    .ob-section { min-width: 0; }
+    .ob-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--cs-hairline); }
+    .ob-section-head h2 { margin: 0; font-size: 15px; }
+    .ob-count { min-width: 25px; padding: 2px 8px; border-radius: 999px; background: var(--cs-shade); color: var(--cs-text-soft); font-size: 11px; font-weight: 700; text-align: center; }
+    .ob-list { list-style: none; margin: 0; padding: 0; }
+    .ob-list li { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 9px 2px; border-bottom: 1px solid var(--cs-hairline); }
+    .ob-list-icon { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 50%; background: rgba(172,90,90,.10); color: var(--cs-dusty-red); font-size: 13px; font-weight: 700; flex: 0 0 auto; }
+    .ob-list strong, .ob-role-main strong { display: block; font-size: 13px; font-weight: 600; }
+    .ob-list small, .ob-role-main small { display: block; margin-top: 2px; color: var(--cs-text-soft); font-size: 11.5px; }
+
+    .ob-role-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .ob-role-table th { padding: 9px 8px; border-bottom: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: 10.5px; letter-spacing: .05em; text-align: left; text-transform: uppercase; }
+    .ob-role-table td { padding: 12px 8px; border-bottom: 1px solid var(--cs-hairline); vertical-align: middle; }
+    .ob-role-table th:first-child, .ob-role-table td:first-child { padding-left: 2px; }
+    .ob-role-table code { white-space: nowrap; }
+    .ob-role-main { min-width: 180px; }
+
+    .ob-source {
+      display: flex;
+      align-items: start;
+      gap: 10px;
+      margin-top: 24px;
+      padding-top: 14px;
+      border-top: 1px solid var(--cs-hairline);
+      color: var(--cs-text-soft);
+      font-size: 12px;
+    }
+    .ob-source .cs-tag { flex: 0 0 auto; }
+
+    @media (max-width: 980px) {
+      .ob-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .ob-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .ob-header { align-items: stretch; flex-direction: column; }
+      .ob-refresh { align-self: start; }
+      .ob-summary { grid-template-columns: 1fr; }
+      .ob-actions { align-items: stretch; flex-direction: column; }
+      .ob-actions strong { margin-right: 0; }
+      .ob-role-table thead { display: none; }
+      .ob-role-table, .ob-role-table tbody, .ob-role-table tr, .ob-role-table td { display: block; width: 100%; }
+      .ob-role-table tr { padding: 11px 2px; border-bottom: 1px solid var(--cs-hairline); }
+      .ob-role-table td { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 8px; padding: 4px 0; border: 0; }
+      .ob-role-table td::before { content: attr(data-label); color: var(--cs-text-soft); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+      .ob-role-main { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="cs-container cs-page">
+    <div class="cs-subnav">
+      <a href="live.html">Live</a>
+      <a href="incidents.html">Incidents</a>
+      <a href="hil.html">Approvals</a>
+      <a href="provision.html">Provisioning</a>
+      <a href="onboarding.html" class="cs-active">Onboarding</a>
+    </div>
+
+    <div class="ob-header">
+      <div class="cs-page-header">
+        <div class="cs-eyebrow">Operations &middot; Azure readiness probe</div>
+        <h1>Onboarding readiness</h1>
+        <p class="cs-lead">Check whether the control plane has the resources and role assignments
+          required to operate. This is an observed Azure snapshot, not a setup wizard.</p>
+      </div>
+      <button class="cs-btn ob-refresh" type="button" id="refresh-button">
+        <span aria-hidden="true">&#8635;</span> Refresh snapshot
+      </button>
+    </div>
+
+    <div class="cs-readonly-banner" role="status">
+      <strong>Action required.</strong> The environment is reachable, but three resources and two
+      role assignments are still missing. Nothing on this screen grants access or creates resources.
+    </div>
+
+    <section class="ob-summary" aria-label="Onboarding readiness summary">
+      <div class="ob-kpi">
+        <span class="ob-kpi-label">Readiness</span>
+        <span class="ob-kpi-value ob-readiness">Blocked</span>
+        <span class="ob-kpi-note">5 requirements remain</span>
+      </div>
+      <div class="ob-kpi">
+        <span class="ob-kpi-label">Resources observed</span>
+        <span class="ob-kpi-value">8 / 11</span>
+        <span class="ob-kpi-note">Azure Resource Graph</span>
+      </div>
+      <div class="ob-kpi">
+        <span class="ob-kpi-label">Roles observed</span>
+        <span class="ob-kpi-value">6 / 8</span>
+        <span class="ob-kpi-note">Azure RBAC</span>
+      </div>
+      <div class="ob-kpi">
+        <span class="ob-kpi-label">Last checked</span>
+        <span class="ob-kpi-value" id="checked-at">09:42:18</span>
+        <span class="ob-kpi-note">22 Jul 2026 &middot; local time</span>
+      </div>
+    </section>
+
+    <nav class="ob-actions" aria-label="Onboarding drill-downs">
+      <strong>Resolve in the owning surface</strong>
+      <a class="cs-btn" href="provision.html">Open provisioning</a>
+      <a class="cs-btn" href="settings-iam.html">Review access</a>
+      <a class="cs-btn" href="#architecture">Inspect architecture</a>
+    </nav>
+
+    <div class="ob-grid">
+      <section class="ob-section" aria-labelledby="missing-resources-title">
+        <header class="ob-section-head">
+          <h2 id="missing-resources-title">Missing resources</h2>
+          <span class="ob-count">3</span>
+        </header>
+        <ul class="ob-list">
+          <li>
+            <span class="ob-list-icon" aria-hidden="true">!</span>
+            <div><strong>Audit state store</strong><small>PostgreSQL Flexible Server</small></div>
+          </li>
+          <li>
+            <span class="ob-list-icon" aria-hidden="true">!</span>
+            <div><strong>Event transport</strong><small>Event Hubs namespace with Kafka endpoint</small></div>
+          </li>
+          <li>
+            <span class="ob-list-icon" aria-hidden="true">!</span>
+            <div><strong>Executor identity</strong><small>User-assigned managed identity</small></div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="ob-section" aria-labelledby="missing-roles-title">
+        <header class="ob-section-head">
+          <h2 id="missing-roles-title">Missing role assignments</h2>
+          <span class="ob-count">2</span>
+        </header>
+        <table class="ob-role-table">
+          <thead>
+            <tr><th>Principal</th><th>Role</th><th>Target</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="ob-role-main" data-label="Principal"><div><strong>Core runtime identity</strong><small>Workload principal</small></div></td>
+              <td data-label="Role">Azure Event Hubs Data Receiver</td>
+              <td data-label="Target"><code>event transport</code></td>
+              <td data-label="Status"><span class="cs-tag is-terracotta">missing</span></td>
+            </tr>
+            <tr>
+              <td class="ob-role-main" data-label="Principal"><div><strong>Deployment runner</strong><small>Provisioning principal</small></div></td>
+              <td data-label="Role">Network Contributor</td>
+              <td data-label="Target"><code>private network</code></td>
+              <td data-label="Status"><span class="cs-tag is-terracotta">missing</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <div class="ob-source">
+      <span class="cs-tag is-teal">observed</span>
+      <span>Source: Azure resource and role probes through the read API. A failed or unconfigured
+        probe renders unavailable instead of inferring readiness in the browser.</span>
+    </div>
+  </main>
+
+  <script>
+    document.getElementById("refresh-button").addEventListener("click", function () {
+      const button = this;
+      button.disabled = true;
+      button.textContent = "Refreshing...";
+      window.setTimeout(function () {
+        document.getElementById("checked-at").textContent = new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        });
+        button.innerHTML = '<span aria-hidden="true">&#8635;</span> Refresh snapshot';
+        button.disabled = false;
+      }, 450);
+    });
+  </script>
+</body>
+</html>

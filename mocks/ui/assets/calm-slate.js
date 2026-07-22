@@ -22,6 +22,7 @@
       ["agent-activity.html", "Agent activity", ""],
       ["blast-radius.html", "Blast radius", "is-terracotta"],
       ["provision.html", "Provisioning", ""],
+      ["onboarding.html", "Onboarding", "is-dusty-red"],
       ["llm-cost.html", "LLM cost", "is-teal"]
     ]],
     ["Knowledge", [
