@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Operator memory - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-v2" />
+  <script src="assets/calm-slate.js?v=settings-v2" defer></script>
+</head>
+<body>
+  <main class="cs-container cs-page cs-settings-page">
+    <div class="cs-page-header cs-mb-24">
+      <div class="cs-eyebrow">Governed guidance</div>
+      <h1>Operator memory</h1>
+      <p class="cs-lead">Read-only review of durable, scope-bounded operator guidance and its provenance.</p>
+    </div>
+
+    <section class="cs-settings-section" aria-labelledby="memory-filter">
+      <header class="cs-settings-section-head">
+        <h2 id="memory-filter">Scope filter</h2>
+        <p>Filter without changing the stored records.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>Scope kind</strong><small>Limit results to one supported boundary.</small></div>
+          <select class="cs-settings-input" aria-label="Scope kind">
+            <option>All scope kinds</option>
+            <option>resource-group</option>
+            <option>resource</option>
+          </select>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Scope reference</strong><small>Optional exact scope reference.</small></div>
+          <input class="cs-settings-input" placeholder="Enter a scope reference" aria-label="Scope reference" />
+        </div>
+      </div>
+      <div class="cs-settings-actions"><button class="cs-btn" type="button">Apply filter</button></div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="memory-compactions">
+      <header class="cs-settings-section-head">
+        <h2 id="memory-compactions">Compaction candidates</h2>
+        <p>Proposals remain pending until human review.</p>
+      </header>
+      <div class="cs-table-wrap">
+        <table class="cs-table">
+          <thead><tr><th>Candidate</th><th>Evidence sources</th><th>Review</th><th>State</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Deployment window preference</strong><div class="cs-muted">Combine three overlapping guidance records.</div></td>
+              <td><code>change-104</code>, <code>change-117</code></td>
+              <td>Proposed by Mimir<div class="cs-muted">Reviewer unassigned</div></td>
+              <td><span class="cs-status wait">Pending</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="memory-entries">
+      <header class="cs-settings-section-head">
+        <h2 id="memory-entries">Memory entries</h2>
+        <p>Approved records with scope and provenance.</p>
+      </header>
+      <div class="cs-table-wrap">
+        <table class="cs-table">
+          <thead><tr><th>Memory</th><th>Scope</th><th>Provenance</th><th>Approval</th><th>State</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Prefer maintenance windows</strong><div class="cs-muted">Apply to non-urgent remediation planning.</div></td>
+              <td>resource-group<div class="cs-muted">example-scope</div></td>
+              <td><code>event-218</code><div class="cs-muted">operator note</div></td>
+              <td>Operator<div class="cs-muted">Approved by owner</div></td>
+              <td><span class="cs-status ok">Active</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

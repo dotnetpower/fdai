@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Models - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-v2" />
+  <script src="assets/calm-slate.js?v=settings-v2" defer></script>
+</head>
+<body>
+  <main class="cs-container cs-page cs-settings-page">
+    <div class="cs-page-header cs-mb-24">
+      <div class="cs-eyebrow">Runtime intelligence</div>
+      <h1>Models</h1>
+      <p class="cs-lead">Resolved model inventory, routing evidence, and governed operator preferences.</p>
+    </div>
+
+    <section class="cs-settings-section" aria-labelledby="models-automation">
+      <header class="cs-settings-section-head">
+        <h2 id="models-automation">Automation</h2>
+        <p>Resolved from the deployment inventory.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>Model discovery</strong><small>Catalog and deployment metadata are refreshed automatically.</small></div>
+          <span class="cs-status ok">Automatic - current</span>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Capability provisioning</strong><small>Bindings are evaluated against the required capability set.</small></div>
+          <span class="cs-status ok">12 resolved, 2 approval-only</span>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Deployment region</strong><small>Routing stays within the configured regional boundary.</small></div>
+          <code>Deployment policy</code>
+        </div>
+      </div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="models-t2-policy">
+      <header class="cs-settings-section-head">
+        <h2 id="models-t2-policy">T2 model policy</h2>
+        <p>Mixed-model verification remains mandatory.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>Primary reasoner</strong><small>Produces the initial grounded proposal.</small></div>
+          <select class="cs-settings-input" aria-label="Primary reasoner">
+            <option>gpt-5.2</option>
+            <option>gpt-5.1</option>
+          </select>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Secondary reasoner</strong><small>Must use a distinct publisher or model family.</small></div>
+          <select class="cs-settings-input" aria-label="Secondary reasoner">
+            <option>claude-opus-4.5</option>
+            <option>gpt-5.1</option>
+          </select>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Quorum readiness</strong><small>Selection changes generate a governance PR artifact; they are never applied from the console.</small></div>
+          <span class="cs-status ok">Pair valid</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="models-preferences">
+      <header class="cs-settings-section-head">
+        <h2 id="models-preferences">Operator preferences</h2>
+        <p>Personal choices do not alter system governance.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>Narrator model</strong><small>Used for final presentation when the selected deployment is healthy.</small></div>
+          <select class="cs-settings-input" aria-label="Narrator model">
+            <option>Auto - fastest healthy</option>
+            <option>gpt-5.1-chat</option>
+            <option>gpt-4.1-mini</option>
+          </select>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Web search</strong><small>Search remains constrained to the deployment allowlist.</small></div>
+          <label class="cs-settings-toggle">
+            <input type="checkbox" checked />
+            <span class="cs-settings-toggle-track" aria-hidden="true"></span>
+            <strong>Enabled</strong>
+          </label>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Allowed domains</strong><small>Deployment-wide domain boundary managed by an owner.</small></div>
+          <input class="cs-settings-input" value="learn.microsoft.com" aria-label="Allowed domains" />
+        </div>
+      </div>
+      <div class="cs-settings-actions"><button class="cs-btn is-primary" type="button">Save preferences</button></div>
+    </section>
+  </main>
+</body>
+</html>

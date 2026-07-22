@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diagnostics - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-v2" />
+  <script src="assets/calm-slate.js?v=settings-v2" defer></script>
+</head>
+<body>
+  <main class="cs-container cs-page cs-settings-page">
+    <div class="cs-page-header cs-mb-24">
+      <div class="cs-eyebrow">Runtime checks</div>
+      <h1>Diagnostics</h1>
+      <p class="cs-lead">Read-only health checks for the console data path and authentication context.</p>
+    </div>
+
+    <section class="cs-settings-section" aria-labelledby="diagnostics-runtime">
+      <header class="cs-settings-section-head">
+        <h2 id="diagnostics-runtime">Runtime</h2>
+        <p>Last checked moments ago.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>Read API liveness</strong><small>Confirms that the read-only console API is responding.</small></div>
+          <span class="cs-status ok">Available</span>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>KPI read path</strong><small>Confirms that dashboard projections can be loaded.</small></div>
+          <span class="cs-status ok">Available</span>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Authentication</strong><small>Current browser authentication mode.</small></div>
+          <code>Microsoft Entra ID</code>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Principal</strong><small>Signed-in human identity; never the executor identity.</small></div>
+          <code>operator@example.com</code>
+        </div>
+      </div>
+      <div class="cs-settings-actions"><button class="cs-btn" type="button">Run checks again</button></div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Identity and access - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-v2" />
+  <script src="assets/calm-slate.js?v=settings-v2" defer></script>
+</head>
+<body>
+  <main class="cs-container cs-page cs-settings-page">
+    <div class="cs-page-header cs-mb-24">
+      <div class="cs-eyebrow">Human access</div>
+      <h1>Identity and access</h1>
+      <p class="cs-lead">Review effective roles, capabilities, and governed access requests.</p>
+    </div>
+
+    <div class="cs-tabs" role="tablist" aria-label="Identity and access views">
+      <button class="cs-tab cs-active" type="button" role="tab" aria-selected="true">My access</button>
+      <button class="cs-tab" type="button" role="tab" aria-selected="false">Users</button>
+      <button class="cs-tab" type="button" role="tab" aria-selected="false">Roles</button>
+      <button class="cs-tab" type="button" role="tab" aria-selected="false">Requests</button>
+    </div>
+
+    <section class="cs-settings-section" aria-labelledby="iam-current-access">
+      <header class="cs-settings-section-head">
+        <h2 id="iam-current-access">Current access</h2>
+        <p>Effective rights from the signed-in human identity.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>Principal</strong><small>Microsoft Entra identity used by the console.</small></div>
+          <code>operator@example.com</code>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Assigned role</strong><small>Role claims are separate from the executor workload identity.</small></div>
+          <span class="cs-status ok">Operator</span>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Effective capabilities</strong><small>Read operations and human approval actions allowed by policy.</small></div>
+          <strong>Review, approve, reject</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="iam-role-definitions">
+      <header class="cs-settings-section-head">
+        <h2 id="iam-role-definitions">Role definitions</h2>
+        <p>Human App Roles never grant executor credentials.</p>
+      </header>
+      <div class="cs-table-wrap">
+        <table class="cs-table">
+          <thead><tr><th>Role</th><th>Purpose</th><th>Approval authority</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Reader</strong></td><td>Inspect operational evidence.</td><td><span class="cs-status idle">None</span></td></tr>
+            <tr><td><strong>Operator</strong></td><td>Review and respond to operational work.</td><td><span class="cs-status ok">Standard</span></td></tr>
+            <tr><td><strong>Owner</strong></td><td>Manage human access and governance settings.</td><td><span class="cs-status wait">Elevated</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

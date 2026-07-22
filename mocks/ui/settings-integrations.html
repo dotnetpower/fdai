@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Integrations - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-v2" />
+  <script src="assets/calm-slate.js?v=settings-v2" defer></script>
+</head>
+<body>
+  <main class="cs-container cs-page cs-settings-page">
+    <div class="cs-page-header cs-mb-24">
+      <div class="cs-eyebrow">Connected surfaces</div>
+      <h1>Integrations</h1>
+      <p class="cs-lead">Authentication and delivery adapters configured for this deployment.</p>
+    </div>
+
+    <section class="cs-settings-section" aria-labelledby="integrations-identity">
+      <header class="cs-settings-section-head">
+        <h2 id="integrations-identity">Identity</h2>
+        <p>Console authentication mode.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>Microsoft Entra ID</strong><small>Interactive human authentication for the operator console.</small></div>
+          <span class="cs-status ok">Connected</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="integrations-delivery">
+      <header class="cs-settings-section-head">
+        <h2 id="integrations-delivery">Delivery</h2>
+        <p>Live probing is reported under Diagnostics.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>GitHub App</strong><small>Governance PRs, remediation PRs, and review handoffs.</small></div>
+          <span class="cs-status idle">Not probed</span>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Microsoft Teams</strong><small>Approval notifications and governed ChatOps delivery.</small></div>
+          <span class="cs-status idle">Not probed</span>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
