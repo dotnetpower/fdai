@@ -101,7 +101,8 @@ existing typed command broker. The model never creates argv, KQL, an ARG query, 
 or an ARM URL. It selects a registered tool and bounded enum arguments only.
 The broker applies the registered plan's timeout and output cap. Complete JSON is returned only as
 ephemeral output to the typed adapter; the command receipt retains a bounded 4 KB diagnostic tail,
-so raw CLI output is not persisted or passed to narrator context.
+and the broker does not cache the full output after return. Raw CLI output is not persisted or
+passed to narrator context.
 
 ## Evidence contract
 

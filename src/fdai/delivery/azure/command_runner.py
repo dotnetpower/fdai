@@ -93,10 +93,22 @@ class AzureCliCommandRunner(CommandRunner):
     ) -> None:
         self._config: Final = config
         self._invoke: Final = invoker or _invoke_process
-        self._outputs: dict[str, CommandOutput] = {}
+        self._receipts: dict[str, CommandReceipt] = {}
 
     async def execute(self, plan: CommandPlan) -> CommandReceipt:
-        return (await self.execute_with_output(plan)).receipt
+        _validate_plan(plan, self._config)
+        prior = self._receipts.get(plan.idempotency_key)
+        if prior is not None:
+            return CommandReceipt(
+                status=CommandStatus.ALREADY_APPLIED,
+                receipt_ref=prior.receipt_ref,
+                exit_code=prior.exit_code,
+                already_existed=True,
+            )
+        receipt = (await self.execute_with_output(plan)).receipt
+        if receipt.status is CommandStatus.SUCCEEDED:
+            self._receipts[plan.idempotency_key] = receipt
+        return receipt
 
     async def execute_with_output(self, plan: CommandPlan) -> CommandOutput:
         _validate_plan(plan, self._config)
@@ -106,17 +118,6 @@ class AzureCliCommandRunner(CommandRunner):
                     status=CommandStatus.PLANNED,
                     receipt_ref=_receipt_ref("azure-command-plan", plan),
                 )
-            )
-        prior = self._outputs.get(plan.idempotency_key)
-        if prior is not None:
-            return CommandOutput(
-                receipt=CommandReceipt(
-                    status=CommandStatus.ALREADY_APPLIED,
-                    receipt_ref=prior.receipt.receipt_ref,
-                    exit_code=prior.receipt.exit_code,
-                    already_existed=True,
-                ),
-                stdout=prior.stdout,
             )
         started = time.monotonic()
         with tempfile.TemporaryDirectory(prefix="fdai-azure-cli-") as config_dir:
@@ -191,7 +192,6 @@ class AzureCliCommandRunner(CommandRunner):
             receipt=receipt,
             stdout=result.stdout.decode("utf-8", errors="replace"),
         )
-        self._outputs[plan.idempotency_key] = output
         return output
 
     async def _call(

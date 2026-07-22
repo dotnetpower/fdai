@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 794090bc4e3f2363dc5692c714988b97acc42d06
+translation_source_sha: 1a5f3378a7a12cf0bca52199c995750cd3a3f930
 translation_revised: 2026-07-22
 ---
 
@@ -101,8 +101,9 @@ REST 또는 SDK adapter가 production default입니다. Azure CLI는 기존 type
 allowlisted fallback입니다. Model은 argv, KQL, ARG query, subscription id 또는 ARM URL을 생성하지
 않습니다. Registered tool 및 bounded enum argument만 선택합니다.
 Broker는 registered plan의 timeout 및 output cap을 적용합니다. Complete JSON은 typed adapter에
-ephemeral output으로만 반환되고 command receipt는 bounded 4 KB diagnostic tail만 유지하므로 raw CLI
-output은 persist되거나 narrator context에 전달되지 않습니다.
+ephemeral output으로만 반환되고 command receipt는 bounded 4 KB diagnostic tail만 유지하며 broker는
+반환 후 full output을 cache하지 않습니다. Raw CLI output은 persist되거나 narrator context에 전달되지
+않습니다.
 
 ## Evidence 계약
 

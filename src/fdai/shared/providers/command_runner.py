@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
@@ -95,7 +95,7 @@ class CommandOutput:
     """Ephemeral full output for a typed consumer; never persist or log it."""
 
     receipt: CommandReceipt
-    stdout: str = ""
+    stdout: str = field(default="", repr=False)
 
 
 @runtime_checkable

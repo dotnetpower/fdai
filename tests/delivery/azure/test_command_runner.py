@@ -103,6 +103,30 @@ async def test_full_output_is_separate_from_bounded_receipt_tail() -> None:
 
     assert output.stdout == payload.decode()
     assert len(output.receipt.stdout_tail.encode()) == 4_096
+    assert "x" * 5_000 not in repr(output)
+
+
+async def test_full_output_is_not_retained_by_runner() -> None:
+    payload = b'[{"value":"' + (b"x" * 8_000) + b'"}]'
+
+    async def invoke(
+        argv: tuple[str, ...],
+        env: Mapping[str, str],  # noqa: ARG001
+        timeout: float,  # noqa: ARG001
+        cap: int,  # noqa: ARG001
+    ) -> AzureCliProcessResult:
+        if argv[1:3] == ("account", "show"):
+            return AzureCliProcessResult(0, b"subscription-example\n", b"")
+        if argv[1:3] == ("resource", "list"):
+            return AzureCliProcessResult(0, payload, b"")
+        return AzureCliProcessResult(0, b"", b"")
+
+    runner = AzureCliCommandRunner(_config(), invoker=invoke)
+    output = await runner.execute_with_output(_plan(dry_run=False))
+
+    assert len(output.stdout) > 4_096
+    assert vars(runner).get("_outputs") is None
+    assert all(payload.decode() not in repr(value) for value in vars(runner).values())
 
 
 async def test_subscription_override_is_rejected_before_login() -> None:

@@ -189,7 +189,7 @@ for the fork-locked role bindings and change contract.
 |---------|---------|--------|
 | contracts | Cross-package Pydantic contracts, including optional ObjectType lifecycle criteria | [src/fdai/shared/contracts/](../../../src/fdai/shared/contracts/) |
 | ontology | Domain ontology (ObjectType / LinkType / ActionType) | [src/fdai/shared/ontology/](../../../src/fdai/shared/ontology/) |
-| providers | Provider Protocols including `ExecutionBackend`, ephemeral typed-command output with bounded diagnostic receipts, process-local EventBus, bounded SSE, isolated programmatic pipeline runners, [access-scoped conversation search](../interfaces/conversation-search.md), and [structured behavior knowledge](../interfaces/behavior-knowledge.md) | [src/fdai/shared/providers/](../../../src/fdai/shared/providers/) |
+| providers | Provider Protocols including `ExecutionBackend`, non-cached ephemeral typed-command output with bounded diagnostic receipts, process-local EventBus, bounded SSE, isolated programmatic pipeline runners, [access-scoped conversation search](../interfaces/conversation-search.md), and [structured behavior knowledge](../interfaces/behavior-knowledge.md) | [src/fdai/shared/providers/](../../../src/fdai/shared/providers/) |
 | config | Config loader, schema, and shared runtime activation flags | [src/fdai/shared/config/](../../../src/fdai/shared/config/) |
 | streaming | Kafka / Event Hub abstraction | [src/fdai/shared/streaming/](../../../src/fdai/shared/streaming/) |
 | resilience | Retry / circuit-breaker helpers | [src/fdai/shared/resilience/](../../../src/fdai/shared/resilience/) |
