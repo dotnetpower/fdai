@@ -22,6 +22,7 @@ _METADATA_FIELDS = frozenset(
         "schema_version",
         "plan_id",
         "plan_digest",
+        "source_artifact_digest",
         "context_digest",
         "preflight_evidence_digest",
         "azure_preflight_evidence_digest",
@@ -42,6 +43,7 @@ class PlanVerificationError(RuntimeError):
 
 def verify_plan(
     plan_path: Path,
+    source_artifact_path: Path,
     metadata_path: Path,
     preflight_evidence_path: Path,
     azure_preflight_evidence_path: Path,
@@ -55,6 +57,7 @@ def verify_plan(
     """Raise unless the exact binary plan and metadata remain apply-eligible."""
     for path, label, maximum in (
         (plan_path, "plan", _MAX_PLAN_BYTES),
+        (source_artifact_path, "source artifact", _MAX_PLAN_BYTES),
         (metadata_path, "metadata", _MAX_METADATA_BYTES),
         (preflight_evidence_path, "preflight evidence", _MAX_METADATA_BYTES),
         (azure_preflight_evidence_path, "Azure preflight evidence", _MAX_METADATA_BYTES),
@@ -73,6 +76,14 @@ def verify_plan(
         raise PlanVerificationError("plan metadata schema version is unsupported")
     _expect(metadata, "plan_id", expected_plan_id, _PLAN_ID)
     _expect(metadata, "plan_digest", expected_plan_digest, _DIGEST)
+    source_artifact_digest = metadata.get("source_artifact_digest")
+    if (
+        not isinstance(source_artifact_digest, str)
+        or _DIGEST.fullmatch(source_artifact_digest) is None
+    ):
+        raise PlanVerificationError("plan metadata source artifact digest is invalid")
+    if _sha256(source_artifact_path) != source_artifact_digest:
+        raise PlanVerificationError("source artifact digest does not match metadata")
     _expect(metadata, "context_digest", expected_context_digest, _DIGEST)
     preflight_digest = metadata.get("preflight_evidence_digest")
     if not isinstance(preflight_digest, str) or _DIGEST.fullmatch(preflight_digest) is None:
@@ -137,6 +148,7 @@ def _sha256(path: Path) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--plan", type=Path, required=True)
+    parser.add_argument("--source-artifact", type=Path, required=True)
     parser.add_argument("--metadata", type=Path, required=True)
     parser.add_argument("--preflight-evidence", type=Path, required=True)
     parser.add_argument("--azure-preflight-evidence", type=Path, required=True)
@@ -148,6 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         verify_plan(
             args.plan,
+            args.source_artifact,
             args.metadata,
             args.preflight_evidence,
             args.azure_preflight_evidence,

@@ -39,10 +39,12 @@ def _write_artifacts(
     root: Path,
     *,
     expires_at: datetime,
-) -> tuple[Path, Path, Path, Path, str]:
+) -> tuple[Path, Path, Path, Path, Path, str]:
     plan = root / "terraform.plan"
     plan.write_bytes(b"deterministic-plan")
     digest = hashlib.sha256(plan.read_bytes()).hexdigest()
+    source_artifact = root / "source.zip"
+    source_artifact.write_bytes(b"deterministic-source")
     preflight = root / "preflight-evidence.json"
     preflight.write_text('{"schema":"egress.v1"}\n', encoding="utf-8")
     azure_preflight = root / "azure-preflight-evidence.json"
@@ -54,6 +56,7 @@ def _write_artifacts(
                 "schema_version": "fdai.deployment-plan.v1",
                 "plan_id": _PLAN_ID,
                 "plan_digest": digest,
+                "source_artifact_digest": hashlib.sha256(source_artifact.read_bytes()).hexdigest(),
                 "context_digest": _CONTEXT_DIGEST,
                 "preflight_evidence_digest": hashlib.sha256(preflight.read_bytes()).hexdigest(),
                 "azure_preflight_evidence_digest": hashlib.sha256(
@@ -70,12 +73,13 @@ def _write_artifacts(
         ),
         encoding="utf-8",
     )
-    return plan, metadata, preflight, azure_preflight, digest
+    return plan, source_artifact, metadata, preflight, azure_preflight, digest
 
 
 def _verify(
     module: ModuleType,
     plan: Path,
+    source_artifact: Path,
     metadata: Path,
     preflight: Path,
     azure_preflight: Path,
@@ -83,6 +87,7 @@ def _verify(
 ) -> None:
     module.verify_plan(
         plan,
+        source_artifact,
         metadata,
         preflight,
         azure_preflight,
@@ -95,37 +100,61 @@ def _verify(
 
 
 def test_matching_unexpired_plan_passes(verify_module: ModuleType, tmp_path: Path) -> None:
-    plan, metadata, preflight, azure_preflight, digest = _write_artifacts(
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
         tmp_path,
         expires_at=_NOW + timedelta(minutes=30),
     )
 
-    _verify(verify_module, plan, metadata, preflight, azure_preflight, digest)
+    _verify(
+        verify_module,
+        plan,
+        source_artifact,
+        metadata,
+        preflight,
+        azure_preflight,
+        digest,
+    )
 
 
 def test_binary_digest_mismatch_fails(verify_module: ModuleType, tmp_path: Path) -> None:
-    plan, metadata, preflight, azure_preflight, digest = _write_artifacts(
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
         tmp_path,
         expires_at=_NOW + timedelta(minutes=30),
     )
     plan.write_bytes(b"changed-plan")
 
     with pytest.raises(verify_module.PlanVerificationError, match="binary plan digest"):
-        _verify(verify_module, plan, metadata, preflight, azure_preflight, digest)
+        _verify(
+            verify_module,
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            digest,
+        )
 
 
 def test_expired_plan_fails(verify_module: ModuleType, tmp_path: Path) -> None:
-    plan, metadata, preflight, azure_preflight, digest = _write_artifacts(
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
         tmp_path,
         expires_at=_NOW - timedelta(seconds=1),
     )
 
     with pytest.raises(verify_module.PlanVerificationError, match="expired"):
-        _verify(verify_module, plan, metadata, preflight, azure_preflight, digest)
+        _verify(
+            verify_module,
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            digest,
+        )
 
 
 def test_context_mismatch_fails(verify_module: ModuleType, tmp_path: Path) -> None:
-    plan, metadata, preflight, azure_preflight, digest = _write_artifacts(
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
         tmp_path,
         expires_at=_NOW + timedelta(minutes=30),
     )
@@ -133,6 +162,7 @@ def test_context_mismatch_fails(verify_module: ModuleType, tmp_path: Path) -> No
     with pytest.raises(verify_module.PlanVerificationError, match="context_digest"):
         verify_module.verify_plan(
             plan,
+            source_artifact,
             metadata,
             preflight,
             azure_preflight,
@@ -145,7 +175,7 @@ def test_context_mismatch_fails(verify_module: ModuleType, tmp_path: Path) -> No
 
 
 def test_preflight_blocked_plan_fails(verify_module: ModuleType, tmp_path: Path) -> None:
-    plan, metadata, preflight, azure_preflight, digest = _write_artifacts(
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
         tmp_path,
         expires_at=_NOW + timedelta(minutes=30),
     )
@@ -154,18 +184,56 @@ def test_preflight_blocked_plan_fails(verify_module: ModuleType, tmp_path: Path)
     metadata.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(verify_module.PlanVerificationError, match="preflight"):
-        _verify(verify_module, plan, metadata, preflight, azure_preflight, digest)
+        _verify(
+            verify_module,
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            digest,
+        )
 
 
 def test_azure_preflight_evidence_digest_mismatch_fails(
     verify_module: ModuleType,
     tmp_path: Path,
 ) -> None:
-    plan, metadata, preflight, azure_preflight, digest = _write_artifacts(
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
         tmp_path,
         expires_at=_NOW + timedelta(minutes=30),
     )
     azure_preflight.write_text('{"schema":"tampered"}\n', encoding="utf-8")
 
     with pytest.raises(verify_module.PlanVerificationError, match="Azure preflight evidence"):
-        _verify(verify_module, plan, metadata, preflight, azure_preflight, digest)
+        _verify(
+            verify_module,
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            digest,
+        )
+
+
+def test_source_artifact_digest_mismatch_fails(
+    verify_module: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+    )
+    source_artifact.write_bytes(b"tampered-source")
+
+    with pytest.raises(verify_module.PlanVerificationError, match="source artifact digest"):
+        _verify(
+            verify_module,
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            digest,
+        )

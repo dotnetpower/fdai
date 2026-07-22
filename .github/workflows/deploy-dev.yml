@@ -123,6 +123,7 @@ jobs:
       TF_VAR_enable_console: ${{ inputs.deploy_console }}
       TF_VAR_enable_read_api: ${{ inputs.deploy_read_api }}
       TF_VAR_enable_dev_operations_gateway: ${{ inputs.environment == 'dev' && inputs.deploy_dev_operations_gateway }}
+      TF_CLI_ARGS_plan: ${{ inputs.deploy_dev_operations_gateway && '-target=azurerm_function_app_flex_consumption.dev_gateway[0]' || '' }}
       TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
       TF_VAR_enable_llm: ${{ inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' }}
@@ -327,6 +328,14 @@ jobs:
 
           import_if_missing 'azurerm_application_insights.core' \
             "$(resource_id "appi-fdai-${TF_VAR_env}-${TF_VAR_region_short}" 'Microsoft.Insights/components')"
+          if [ "${TF_VAR_enable_dev_operations_gateway}" = "true" ]; then
+            gateway_function_id="$(az resource list --resource-group "$rg" \
+              --resource-type 'Microsoft.Web/sites' \
+              --query "[?starts_with(name, 'func-fdai-${TF_VAR_env}-${TF_VAR_region_short}-devgw-')].id | [0]" \
+              -o tsv 2>/dev/null || true)"
+            import_if_missing 'azurerm_function_app_flex_consumption.dev_gateway[0]' \
+              "$gateway_function_id"
+          fi
           import_if_missing 'module.inventory_identity.azurerm_user_assigned_identity.primary' \
             "$(az identity show --resource-group "$rg" --name "id-fdai-${TF_VAR_env}-${TF_VAR_region_short}-inventory" --query id -o tsv 2>/dev/null || true)"
           import_if_missing 'module.compute.azurerm_container_app_job.inventory[0]' \
@@ -531,11 +540,17 @@ jobs:
           set -euo pipefail
           plan_id="plan-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           plan_digest="$(sha256sum dev.plan | cut -d' ' -f1)"
+          source_artifact="fdai-dev-operations-gateway.zip"
+          if [ ! -f "$source_artifact" ]; then
+            : > "$source_artifact"
+          fi
+          source_artifact_digest="$(sha256sum "$source_artifact" | cut -d' ' -f1)"
           preflight_evidence_digest="$(sha256sum runner-egress-evidence.json | cut -d' ' -f1)"
           azure_preflight_evidence_digest="$(sha256sum azure-preflight-evidence.json | cut -d' ' -f1)"
           created_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           expires_at="$(date -u -d '+1 hour' '+%Y-%m-%dT%H:%M:%SZ')"
           export PLAN_ID="$plan_id" PLAN_DIGEST="$plan_digest" \
+            SOURCE_ARTIFACT_DIGEST="$source_artifact_digest" \
             PREFLIGHT_EVIDENCE_DIGEST="$preflight_evidence_digest" CREATED_AT="$created_at" \
             AZURE_PREFLIGHT_EVIDENCE_DIGEST="$azure_preflight_evidence_digest" \
             EXPIRES_AT="$expires_at"
@@ -547,6 +562,7 @@ jobs:
               "schema_version": "fdai.deployment-plan.v1",
               "plan_id": os.environ["PLAN_ID"],
               "plan_digest": os.environ["PLAN_DIGEST"],
+              "source_artifact_digest": os.environ["SOURCE_ARTIFACT_DIGEST"],
               "context_digest": os.environ["PLAN_CONTEXT_DIGEST"],
               "preflight_evidence_digest": os.environ["PREFLIGHT_EVIDENCE_DIGEST"],
                 "azure_preflight_evidence_digest": os.environ[
@@ -577,6 +593,12 @@ jobs:
             --name "${blob_prefix}/metadata.json" \
             --file plan-metadata.json --auth-mode login --overwrite false --only-show-errors \
             --content-type application/json --output none
+          az storage blob upload \
+            --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
+            --container-name deployment-plans \
+            --name "${blob_prefix}/source-artifact.zip" \
+            --file "$source_artifact" --auth-mode login --overwrite false \
+            --only-show-errors --content-type application/zip --output none
           az storage blob upload \
             --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
             --container-name deployment-plans \
@@ -627,6 +649,12 @@ jobs:
           az storage blob download \
             --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
             --container-name deployment-plans \
+            --name "${blob_prefix}/source-artifact.zip" \
+            --file fdai-dev-operations-gateway.zip \
+            --auth-mode login --overwrite --only-show-errors --output none
+          az storage blob download \
+            --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
+            --container-name deployment-plans \
             --name "${blob_prefix}/preflight-evidence.json" \
             --file plan-preflight-evidence.json \
             --auth-mode login --overwrite --only-show-errors --output none
@@ -637,7 +665,8 @@ jobs:
             --file plan-azure-preflight-evidence.json \
             --auth-mode login --overwrite --only-show-errors --output none
           python3 ../scripts/deployment/azure/verify-deployment-plan.py \
-            --plan dev.plan --metadata plan-metadata.json \
+            --plan dev.plan --source-artifact fdai-dev-operations-gateway.zip \
+            --metadata plan-metadata.json \
             --preflight-evidence plan-preflight-evidence.json \
             --azure-preflight-evidence plan-azure-preflight-evidence.json \
             --plan-id "$APPLY_PLAN_ID" --plan-digest "$APPLY_PLAN_DIGEST" \

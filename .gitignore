@@ -158,6 +158,7 @@ activemq-data/
 .envrc
 .venv
 .fdai/
+/infra/fdai-dev-operations-gateway.zip
 /.improve/
 env/
 venv/

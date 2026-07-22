@@ -284,6 +284,11 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert '"$PLAN_COMMIT_SHA" != "$GITHUB_SHA"' in workflow
     assert "--name deployment-plans" in workflow
     assert "sha256sum dev.plan" in workflow
+    assert "TF_CLI_ARGS_plan:" in workflow
+    assert "-target=azurerm_function_app_flex_consumption.dev_gateway[0]" in workflow
+    assert "source_artifact_digest" in workflow
+    assert "source-artifact.zip" in workflow
+    assert "--source-artifact fdai-dev-operations-gateway.zip" in workflow
     assert "check-runner-egress.py" in workflow
     assert "preflight_evidence_digest" in workflow
     assert "DEPLOY_PREFLIGHT_INPUT_JSON is required for protected plans" in workflow

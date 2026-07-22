@@ -72,6 +72,10 @@ Key Vault privately. The runner is the terraform apply principal, so the existin
 `kv_officer_self` grant makes it `Key Vault Secrets Officer` on the app vault - it writes the
 DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../../.github/workflows/deploy-dev.yml)
 on the `[self-hosted, fdai-deploy]` runner (plan-only by default; the `apply` input enforces).
+Protected plans store the binary Terraform plan, bounded preflight evidence, and the Function
+source archive with separate SHA-256 digests. Exact apply downloads and verifies every artifact.
+When the development operations gateway is selected, Terraform targets that Function resource and
+its dependency graph so unrelated pending Event Hub or runtime changes stay outside the plan.
 Full runbook: [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 
 Scheduled drivers remain Terraform-owned through the `SCHEDULER_TICK_CRON_EXPRESSION` and

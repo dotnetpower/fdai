@@ -716,7 +716,7 @@ data "archive_file" "dev_gateway" {
   count       = var.enable_dev_operations_gateway ? 1 : 0
   type        = "zip"
   source_dir  = "${path.module}/../delivery/dev_operations_gateway"
-  output_path = "${path.module}/.terraform/fdai-dev-operations-gateway.zip"
+  output_path = "${path.module}/fdai-dev-operations-gateway.zip"
   excludes    = ["README.md", ".funcignore", "__pycache__"]
 }
 
