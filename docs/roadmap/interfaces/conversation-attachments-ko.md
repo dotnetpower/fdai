@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: d81b5078a787af72d587e901e440355fefa828b3
+translation_source_sha: 4dcae43747546cb2a58f7449f24cbee5332df1b6
 translation_revised: 2026-07-23
 title: 대화 첨부파일
 ---
@@ -104,6 +104,8 @@ Bot 또는 Graph state를 통해 URL 및 token audience가 포함된 `Attachment
 Fetcher는 다음을 수행합니다.
 
 - HTTPS 및 exact configured host를 요구합니다.
+- Token을 요청하기 전에 server-resolved token audience가
+  `FDAI_TEAMS_ATTACHMENT_AUDIENCES`와 exact match하도록 요구합니다.
 - URL credential과 redirect를 거부합니다.
 - Injected workload identity에서 audience-scoped token을 요청합니다.
 - Slack과 동일한 byte cap 안에서 stream합니다.
@@ -139,6 +141,10 @@ JSON 및 SSE route는 unique reference를 최대 8개 허용합니다. Productio
 authorize seam이 stable principal id는 제공하지만 complete collection group claim은 제공하지
 않으므로 collection sharing보다 의도적으로 좁습니다. 향후 resolver는 document access policy를
 재사용한다는 조건으로 wire contract 변경 없이 collection reader를 추가할 수 있습니다.
+
+Resolver는 요청된 각 citation을 동일한 순서와 exact canonical form인
+`doc:<document_id>:<version_id>`로 반환해야 합니다. Substituted, reordered, duplicate 또는 malformed
+provider result는 view context나 verification에 들어가기 전에 fail closed됩니다.
 
 Resolved ref는 server-owned view context와 terminal verification에 들어갑니다. Invalid UUID
 syntax는 400, resolver가 없는 deployment는 501을 반환합니다. Missing, unavailable, held, failed,
@@ -177,10 +183,15 @@ retention policy, vendor host allowlist 및 timeout을 소유합니다.
 `FDAI_CHANNEL_ATTACHMENTS_ENABLED=1`일 때만 활성화되며 partial configuration은 startup을
 실패시킵니다.
 
+Timeout은 positive finite number여야 하며 `NaN`과 infinity는 startup을 실패시킵니다. Vendor
+attachment name은 path separator, dot-only name 또는 control/formatting character가 없는 leaf
+name이어야 합니다.
+
 `build_production_attachment_ingestor()`는 enabled channel의 fetcher만 만듭니다. Teams에는 identity,
-resolver 및 host allowlist가 필요합니다. `ProductionChannelRuntime`은 Slack 또는 Teams consumer를
-시작하기 전에 생성된 ingestor를 attachment-aware `ConversationChannelGateway`에 bind합니다.
-Attachment가 설정됐지만 gateway가 이를 bind할 수 없으면 startup이 실패합니다.
+resolver, host allowlist 및 token audience allowlist가 필요합니다. `ProductionChannelRuntime`은 Slack
+또는 Teams consumer를 시작하기 전에 생성된 ingestor를 attachment-aware
+`ConversationChannelGateway`에 bind합니다. Attachment가 설정됐지만 gateway가 이를 bind할 수
+없으면 startup이 실패합니다.
 
 ## Failure behavior
 

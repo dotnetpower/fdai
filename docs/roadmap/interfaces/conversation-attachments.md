@@ -97,6 +97,8 @@ an `AttachmentDownloadLocation` containing a URL and token audience.
 The fetcher:
 
 - requires HTTPS and an exact configured host;
+- requires the server-resolved token audience to exactly match
+  `FDAI_TEAMS_ATTACHMENT_AUDIENCES` before requesting a token;
 - rejects URL credentials and redirects;
 - requests an audience-scoped token from the injected workload identity;
 - streams within the same byte cap as Slack;
@@ -133,6 +135,10 @@ is intentionally narrower than collection sharing because the chat authorize sea
 principal id but not full collection group claims. A future resolver may add collection readers
 without changing the wire contract, provided it reuses document access policy.
 
+The resolver must return each requested citation in the same order and exact canonical form,
+`doc:<document_id>:<version_id>`. A substituted, reordered, duplicate, or malformed provider result
+fails closed before it reaches view context or verification.
+
 Resolved refs enter server-owned view context and terminal verification. Invalid UUID syntax returns
 400; a deployment without a resolver returns 501. A missing, unavailable, held, failed, deleted, or
 another principal's version returns the same access denial so document existence is not disclosed.
@@ -167,10 +173,14 @@ that resource only. An empty endpoint keeps metadata-only behavior and provision
 retention policy, vendor host allowlists, and timeout. It is enabled only by
 `FDAI_CHANNEL_ATTACHMENTS_ENABLED=1`; partial configuration fails startup.
 
+Timeouts must be positive finite numbers; `NaN` and infinity fail startup. Vendor attachment names
+must be leaf names without path separators, dot-only names, or control and formatting characters.
+
 `build_production_attachment_ingestor()` builds only fetchers for enabled channels. Teams requires
-identity, resolver, and host allowlist. `ProductionChannelRuntime` binds the resulting ingestor to an
-attachment-aware `ConversationChannelGateway` before starting Slack or Teams consumers. A runtime
-configured with attachments and a gateway that cannot bind them fails startup.
+identity, resolver, host allowlist, and token audience allowlist. `ProductionChannelRuntime` binds
+the resulting ingestor to an attachment-aware `ConversationChannelGateway` before starting Slack or
+Teams consumers. A runtime configured with attachments and a gateway that cannot bind them fails
+startup.
 
 ## Failure behavior
 

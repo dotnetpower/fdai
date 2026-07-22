@@ -225,3 +225,12 @@ async def test_ocr_normalizes_identity_failure() -> None:
 
     with pytest.raises(AzureDocumentOcrError, match="identity token"):
         await ocr.extract(version=_version(), content=b"data")
+
+
+@pytest.mark.parametrize("timeout", (float("nan"), float("inf")))
+def test_ocr_config_rejects_nonfinite_timeout(timeout: float) -> None:
+    with pytest.raises(ValueError, match="limits"):
+        AzureDocumentOcrConfig(
+            endpoint="https://ocr.example.com",
+            timeout_seconds=timeout,
+        )

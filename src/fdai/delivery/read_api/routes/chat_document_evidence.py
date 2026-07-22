@@ -60,9 +60,12 @@ async def resolve_document_refs(
     if resolver is None:
         raise RuntimeError("web chat document evidence is unavailable")
     resolved = await resolver.resolve(principal_id=principal_id, references=references)
-    if len(resolved) != len(references) or any(not ref.startswith("doc:") for ref in resolved):
+    expected = tuple(
+        f"doc:{reference.document_id}:{reference.version_id}" for reference in references
+    )
+    if resolved != expected:
         raise RuntimeError("web chat document evidence resolver returned invalid citations")
-    return tuple(dict.fromkeys(resolved))
+    return resolved
 
 
 def with_document_evidence(

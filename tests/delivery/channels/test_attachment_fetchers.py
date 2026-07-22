@@ -210,7 +210,10 @@ async def test_teams_fetcher_uses_server_resolver_and_audience_token() -> None:
 
     identity = _Identity()
     fetcher = TeamsServerAttachmentFetcher(
-        config=TeamsAttachmentFetcherConfig(allowed_download_hosts=("attachments.example.com",)),
+        config=TeamsAttachmentFetcherConfig(
+            allowed_download_hosts=("attachments.example.com",),
+            allowed_audiences=("api://attachments.example.com",),
+        ),
         resolver=_TeamsResolver(),
         identity=identity,
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
@@ -218,3 +221,32 @@ async def test_teams_fetcher_uses_server_resolver_and_audience_token() -> None:
 
     assert await fetcher.fetch(_ATTACHMENT, max_bytes=10) == b"data"
     assert identity.audiences == ["api://attachments.example.com"]
+
+
+async def test_teams_fetcher_rejects_resolver_audience_outside_policy() -> None:
+    identity = _Identity()
+    fetcher = TeamsServerAttachmentFetcher(
+        config=TeamsAttachmentFetcherConfig(
+            allowed_download_hosts=("attachments.example.com",),
+            allowed_audiences=("api://expected.example.com",),
+        ),
+        resolver=_TeamsResolver(),
+        identity=identity,
+        http_client=httpx.AsyncClient(),
+    )
+
+    with pytest.raises(ChannelAttachmentFetchError, match="audience"):
+        await fetcher.fetch(_ATTACHMENT, max_bytes=10)
+    assert identity.audiences == []
+
+
+@pytest.mark.parametrize("timeout", (float("nan"), float("inf")))
+def test_attachment_fetcher_configs_reject_nonfinite_timeout(timeout: float) -> None:
+    with pytest.raises(ValueError, match="timeout"):
+        SlackAttachmentFetcherConfig(timeout_seconds=timeout)
+    with pytest.raises(ValueError, match="finite timeout"):
+        TeamsAttachmentFetcherConfig(
+            allowed_download_hosts=("attachments.example.com",),
+            allowed_audiences=("api://attachments.example.com",),
+            timeout_seconds=timeout,
+        )

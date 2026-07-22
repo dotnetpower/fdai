@@ -137,7 +137,8 @@ flowchart TD
     events, normalizes messages, and uses an injected publisher for replies.
   - Slack, Teams, and web attachment contracts converge through
     [conversation-attachments.md](conversation-attachments.md); web chat submits only already-ingested
-    immutable document refs. A dedicated WebSocket adapter remains optional future transport work.
+    immutable document refs, and the resolver must return the exact requested citations in order.
+    A dedicated WebSocket adapter remains optional future transport work.
 - Scheduler Runs, Automation Blueprints, Scheduled Continuations, [governed trajectory datasets](governed-trajectory-datasets.md), and [execution backend status](execution-backends.md) expose read-only metadata. These views have no enable, submit, retry, cancel, cleanup, execute, or approval controls; omit credentials and Thor's identity; and keep commands outside the SPA.
 - [`tools/chat.py`](../../../tools/chat.py) - headless JSONL development harness
   for the core coordinator. It is not a second policy implementation.

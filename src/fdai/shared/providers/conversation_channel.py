@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Protocol, cast, runtime_checkable
+from unicodedata import category
 
 MAX_CHANNEL_ID_CHARS = 200
 MAX_MESSAGE_ID_CHARS = 200
@@ -88,6 +89,11 @@ class ChannelAttachment:
         _bounded("attachment.source_ref", self.source_ref, MAX_ATTACHMENT_REF_CHARS)
         _bounded("attachment.name", self.name, MAX_ATTACHMENT_NAME_CHARS)
         _bounded("attachment.media_type_hint", self.media_type_hint, MAX_MEDIA_TYPE_CHARS)
+        if self.name in {".", ".."} or any(
+            character in {"/", "\\"} or category(character).startswith("C")
+            for character in self.name
+        ):
+            raise ValueError("ChannelAttachment.name MUST be a safe leaf name")
         if self.size_bytes < 1:
             raise ValueError("ChannelAttachment.size_bytes MUST be positive")
 

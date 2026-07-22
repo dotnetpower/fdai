@@ -47,6 +47,7 @@ from fdai.delivery.read_api.routes.chat import (
 )
 from fdai.delivery.read_api.routes.chat_evidence import OperationalEvidenceResolver
 from fdai.delivery.read_api.routes.chat_registration import append_chat_routes
+from fdai.shared.providers.conversation_channel import ChannelAttachment
 from fdai.shared.providers.document_ingestion import DocumentAccessDeniedError
 from fdai.shared.providers.testing.user_context import InMemoryConversationHistoryStore
 from fdai.shared.providers.workload_identity import IdentityToken
@@ -243,6 +244,52 @@ def test_chat_resolves_ingested_document_refs_into_verified_evidence() -> None:
     assert evidence_ref in response.json()["verification"]["evidence_refs"]
     assert backend.view_context is not None
     assert backend.view_context["_document_evidence"]["evidence_refs"] == [evidence_ref]
+
+
+def test_chat_rejects_resolver_citation_substitution() -> None:
+    class Resolver:
+        async def resolve(self, *, principal_id, references):
+            return (f"doc:{UUID(int=9)}:{UUID(int=10)}",)
+
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=_RecordingBackend(model="test", delay_ms=0),
+                authorize=_allow,
+                document_evidence_resolver=Resolver(),
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat",
+        json={
+            "prompt": "Read this",
+            "document_refs": [
+                {
+                    "document_id": str(UUID(int=1)),
+                    "version_id": str(UUID(int=2)),
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 501
+    assert "invalid citations" in response.text
+
+
+@pytest.mark.parametrize(
+    "name",
+    ("..", "../secret.txt", "folder/file.txt", "bad\nname.txt", "report\u202etxt.exe"),
+)
+def test_channel_attachment_rejects_unsafe_leaf_name(name: str) -> None:
+    with pytest.raises(ValueError, match="safe leaf"):
+        ChannelAttachment(
+            source_ref="file-1",
+            name=name,
+            size_bytes=1,
+            media_type_hint="text/plain",
+        )
 
 
 def test_chat_rejects_download_urls_in_document_refs() -> None:

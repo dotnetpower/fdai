@@ -8,6 +8,7 @@ validated against configured HTTPS hosts before any bytes are read.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 from typing import Protocol
 from urllib.parse import urlparse
 
@@ -105,11 +106,19 @@ class SlackPrivateFileFetcher:
 @dataclass(frozen=True, slots=True)
 class TeamsAttachmentFetcherConfig:
     allowed_download_hosts: tuple[str, ...]
+    allowed_audiences: tuple[str, ...]
     timeout_seconds: float = 30.0
 
     def __post_init__(self) -> None:
-        if not self.allowed_download_hosts or self.timeout_seconds <= 0:
-            raise ValueError("Teams attachment fetcher requires hosts and a positive timeout")
+        if (
+            not self.allowed_download_hosts
+            or not self.allowed_audiences
+            or not isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
+            raise ValueError(
+                "Teams attachment fetcher requires hosts, audiences, and a finite timeout"
+            )
 
 
 class TeamsServerAttachmentFetcher:
@@ -131,8 +140,8 @@ class TeamsServerAttachmentFetcher:
     async def fetch(self, attachment: ChannelAttachment, *, max_bytes: int) -> bytes:
         try:
             location = await self._resolver.resolve(attachment)
-            if not location.audience:
-                raise ChannelAttachmentFetchError("Teams attachment audience is unavailable")
+            if location.audience not in self._config.allowed_audiences:
+                raise ChannelAttachmentFetchError("Teams attachment audience is outside policy")
             _validate_download_url(location.url, self._config.allowed_download_hosts)
             token = await self._identity.get_token(location.audience)
             return await _bounded_download(
@@ -163,7 +172,7 @@ def _validate_fetch_config(
         raise ValueError("attachment API base MUST be an HTTPS URL without credentials or query")
     if not allowed_hosts or any(not _is_host_name(host) for host in allowed_hosts):
         raise ValueError("attachment download hosts MUST be non-empty host names")
-    if timeout_seconds <= 0:
+    if not isfinite(timeout_seconds) or timeout_seconds <= 0:
         raise ValueError("attachment fetch timeout MUST be positive")
 
 

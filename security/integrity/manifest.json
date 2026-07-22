@@ -160,7 +160,7 @@
     "src/fdai/core/conversation/busy_input_coordinator.py": "7e9a8d9f8443d9c9b79fa98fce6c904918975c3ac8e0cb2f3719bd13689913b9",
     "src/fdai/core/conversation/busy_input_store.py": "3b1e0aaf7e5ae68a164cf46d2f595f63a8ea00de0fbbd7f4023cd3c518a7a3ef",
     "src/fdai/core/conversation/channel_access.py": "4549300593ade7850b0eb2442b4efb8734da215c86e35bd81c307e035141322d",
-    "src/fdai/core/conversation/channel_gateway.py": "2a7f4e4546c1d69b81478966c9bcb2643c4b1284d6bac9151025af3277c2576b",
+    "src/fdai/core/conversation/channel_gateway.py": "737a49369f53b57db977bcb074e8c91c0cf1d2314d0a4946ad0ccd08fbb34456",
     "src/fdai/core/conversation/context_bridge.py": "934a22748fc9b755778bd5fefa1c391348bc4f9ef9e0a4a154b4d7dc96d4fe69",
     "src/fdai/core/conversation/coordinator.py": "fac39e3d016d62dcb464129e8409c96739c93fdb258a0cba1579cc5fda5465e9",
     "src/fdai/core/conversation/creation.py": "f220a81dc7636a6ac0ff57cc9981345119ee10152bd478ebbe5c01cc93c3410e",
@@ -653,7 +653,7 @@
     "src/fdai/shared/providers/change_feed.py": "ebfe441da9666134bcf9b31ff738bb87b86a969eaec42ebb5f2e1e8143723ec3",
     "src/fdai/shared/providers/code_workspace.py": "771ae67947f82224dce98a25c9bdbfa379f9993d42a660d36e6bb23e469ecc6b",
     "src/fdai/shared/providers/command_runner.py": "0281d98163be8b2cdd455c65f8994482bd57a48b6214df2c2770b91fef39b129",
-    "src/fdai/shared/providers/conversation_channel.py": "70b8944cfddd3496560ea2d3c4df48debe2be78bb1ceffeeeca79765daad6255",
+    "src/fdai/shared/providers/conversation_channel.py": "19467518789f66eb881af7e2bc16ece2bee60e52631cdb27e81fbf1c7c3f4e2f",
     "src/fdai/shared/providers/conversation_delivery.py": "5be21b78d088798cf377da50b45c793faca24d553ef69049e10a709d38e195be",
     "src/fdai/shared/providers/conversation_search.py": "f7b14807181eab596759be466eabd4d26bd656ba07f83a78dabd12ddcfff51ef",
     "src/fdai/shared/providers/conversation_search_text.py": "05a995e4369d9a8ccd4e84228ef9ca3387973de4d229b3723e987274a1be4d2d",
@@ -765,7 +765,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-22T17:01:26Z",
+  "generated_at": "2026-07-22T17:02:27Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from math import isfinite
 
 import httpx
 
@@ -37,6 +38,7 @@ class ProductionAttachmentConfig:
     slack_bot_token_ref: str = "slack-bot-token"  # noqa: S105 - reference name
     slack_allowed_hosts: tuple[str, ...] = ("files.slack.com",)
     teams_allowed_hosts: tuple[str, ...] = ()
+    teams_allowed_audiences: tuple[str, ...] = ()
     timeout_seconds: float = 30.0
 
     def __post_init__(self) -> None:
@@ -44,6 +46,7 @@ class ProductionAttachmentConfig:
             not self.collection_id
             or not self.access_descriptor_ref
             or not self.retention_policy_version
+            or not isfinite(self.timeout_seconds)
             or self.timeout_seconds <= 0
         ):
             raise ProductionAttachmentConfigError(
@@ -74,6 +77,7 @@ class ProductionAttachmentConfig:
             ),
             slack_allowed_hosts=_csv(environ.get("FDAI_SLACK_FILE_HOSTS", "files.slack.com")),
             teams_allowed_hosts=_csv(environ.get("FDAI_TEAMS_ATTACHMENT_HOSTS", "")),
+            teams_allowed_audiences=_csv(environ.get("FDAI_TEAMS_ATTACHMENT_AUDIENCES", "")),
             timeout_seconds=_positive_float(
                 environ.get("FDAI_CHANNEL_ATTACHMENT_TIMEOUT_SECONDS", ""),
                 30.0,
@@ -105,13 +109,19 @@ def build_production_attachment_ingestor(
             http_client=http_client,
         )
     if teams_enabled:
-        if teams_identity is None or teams_resolver is None or not config.teams_allowed_hosts:
+        if (
+            teams_identity is None
+            or teams_resolver is None
+            or not config.teams_allowed_hosts
+            or not config.teams_allowed_audiences
+        ):
             raise ProductionAttachmentConfigError(
-                "Teams attachments require identity, resolver, and allowed hosts"
+                "Teams attachments require identity, resolver, hosts, and audiences"
             )
         fetchers["teams"] = TeamsServerAttachmentFetcher(
             config=TeamsAttachmentFetcherConfig(
                 allowed_download_hosts=config.teams_allowed_hosts,
+                allowed_audiences=config.teams_allowed_audiences,
                 timeout_seconds=config.timeout_seconds,
             ),
             resolver=teams_resolver,
@@ -153,7 +163,7 @@ def _positive_float(raw: str, default: float) -> float:
         raise ProductionAttachmentConfigError(
             "channel attachment timeout MUST be a number"
         ) from exc
-    if value <= 0:
+    if not isfinite(value) or value <= 0:
         raise ProductionAttachmentConfigError("channel attachment timeout MUST be positive")
     return value
 

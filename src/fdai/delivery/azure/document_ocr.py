@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from math import isfinite
 from urllib.parse import urlparse
 
 import httpx
@@ -44,7 +45,9 @@ class AzureDocumentOcrConfig:
         if not self.api_version or not self.audience:
             raise ValueError("OCR API version and audience MUST be non-empty")
         if (
-            self.timeout_seconds <= 0
+            not isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+            or not isfinite(self.poll_interval_seconds)
             or self.poll_interval_seconds < 0
             or self.max_polls < 1
             or self.max_lines < 1
