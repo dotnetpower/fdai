@@ -42,10 +42,14 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         "#!/usr/bin/env bash\n"
         'if [[ "$*" == *"output -raw event_bus_kafka_bootstrap"* ]]; then\n'
         "  printf 'example.servicebus.windows.net:9093'\n"
+        'elif [[ "$*" == *"output -raw event_bus_operational_kafka_bootstrap"* ]]; then\n'
+        "  printf 'example-ops.servicebus.windows.net:9093'\n"
         'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
         '  printf \'["aw.finops.events","aw.change.events"]\'\n'
         'elif [[ "$*" == *"output -json event_bus_auxiliary_topics"* ]]; then\n'
-        '  printf \'["aw.pipeline.stages","aw.inventory.raw"]\'\n'
+        "  printf '[\"aw.pipeline.stages\"]'\n"
+        'elif [[ "$*" == *"output -json event_bus_operational_topics"* ]]; then\n'
+        '  printf \'["aw.control.canary","aw.control.canary.dlq","aw.inventory.raw"]\'\n'
         'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
         "  printf 'rg-example'\n"
         'elif [[ "$*" == *"output -raw dev_operations_gateway_url"* ]]; then\n'
@@ -101,6 +105,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         "AZURE_REGION=example-region",
         "KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093",
         "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093",
+        "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS=example-ops.servicebus.windows.net:9093",
         "KAFKA_TOPIC_EVENTS=aw.change.events",
         "FDAI_STAGE_TOPIC=aw.pipeline.stages",
         "FDAI_PANTHEON_OBJECT_TOPIC=aw.pantheon.objects",

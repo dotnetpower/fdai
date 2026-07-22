@@ -56,9 +56,8 @@ locals {
     "aw.dr.events",
     "aw.finops.events",
     "aw.pantheon.objects",
-    local.canary_topic,
   ]
-  event_auxiliary_topics = ["aw.hil.decisions", "aw.pipeline.stages", local.inventory_raw_topic]
+  event_auxiliary_topics = ["aw.hil.decisions", "aw.pipeline.stages"]
 }
 
 # -----------------------------------------------------------------------
@@ -433,7 +432,7 @@ resource "azurerm_role_assignment" "inventory_eventhubs_sender" {
 }
 
 resource "azurerm_role_assignment" "inventory_eventhubs_raw_sender" {
-  scope                = module.event_bus.auxiliary_topic_ids[local.inventory_raw_topic]
+  scope                = module.event_bus_auxiliary.auxiliary_topic_ids[local.inventory_raw_topic]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.inventory_identity.principal_id
 }
@@ -470,7 +469,7 @@ resource "azurerm_role_assignment" "canary_acr_pull" {
 }
 
 resource "azurerm_role_assignment" "canary_eventhubs_sender" {
-  scope                = module.event_bus.topic_ids[local.canary_topic]
+  scope                = module.event_bus_auxiliary.topic_ids[local.canary_topic]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.canary_identity.principal_id
 }
@@ -919,13 +918,30 @@ module "event_bus" {
   tags                = local.tags
 }
 
+# Standard namespaces are limited to ten Event Hub entities. Keep the four
+# governed ingress topics, their DLQs, and the two shared control topics on the
+# primary namespace. Canary and raw inventory traffic use this isolated
+# namespace so parser-specific consumers never share a physical topic.
+module "event_bus_auxiliary" {
+  source              = "./modules/event-bus/event-hubs-kafka"
+  name                = "evhns-${var.workload}${local.full_suffix}-ops"
+  location            = var.region
+  resource_group_name = module.resource_group.name
+  topics              = [local.canary_topic]
+  auxiliary_topics    = [local.inventory_raw_topic]
+  tags                = merge(local.tags, { "fdai:component" = "operational-signals" })
+}
+
 # Executor MI needs both send and receive on the namespace: the control
 # loop consumes ingress topics via the Kafka wire on :9093 AND publishes
 # DLQ / derived events. `Azure Event Hubs Data Owner` covers both without
 # splitting into two role assignments; the namespace has
 # `local_authentication_enabled = false` so this is the only path in.
 resource "azurerm_role_assignment" "executor_eventhubs_data_owner" {
-  for_each             = module.event_bus.all_topic_ids
+  for_each = merge(
+    module.event_bus.all_topic_ids,
+    module.event_bus_auxiliary.all_topic_ids,
+  )
   scope                = each.value
   role_definition_name = "Azure Event Hubs Data Owner"
   principal_id         = module.identity.principal_id
@@ -1069,16 +1085,17 @@ module "compute" {
 
   # Required config env vars - `EnvVarConfigProvider` fails-fast if any is
   # unset, so wire them all from the surrounding infra outputs.
-  azure_tenant_id         = var.tenant_id
-  azure_subscription_id   = data.azurerm_client_config.current.subscription_id
-  azure_resource_group    = module.resource_group.name
-  azure_region            = var.region
-  kafka_bootstrap_servers = module.event_bus.kafka_bootstrap
-  kafka_topic_events      = local.event_topics[0]
-  postgres_host           = module.state_store.fqdn
-  postgres_database       = module.state_store.database_name
-  runtime_env             = var.env == "" ? "dev" : var.env
-  autonomy_mode_default   = "shadow"
+  azure_tenant_id                     = var.tenant_id
+  azure_subscription_id               = data.azurerm_client_config.current.subscription_id
+  azure_resource_group                = module.resource_group.name
+  azure_region                        = var.region
+  kafka_bootstrap_servers             = module.event_bus.kafka_bootstrap
+  operational_kafka_bootstrap_servers = module.event_bus_auxiliary.kafka_bootstrap
+  kafka_topic_events                  = local.event_topics[0]
+  postgres_host                       = module.state_store.fqdn
+  postgres_database                   = module.state_store.database_name
+  runtime_env                         = var.env == "" ? "dev" : var.env
+  autonomy_mode_default               = "shadow"
   dev_operations_gateway_url = (
     var.enable_dev_operations_gateway
     ? "https://${azurerm_function_app_flex_consumption.dev_gateway[0].default_hostname}"

@@ -35,6 +35,7 @@ from fdai.__main__ import (
 from fdai.core.control_loop import ControlLoopOutcome, ControlLoopResult
 from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.notifications.router import ChannelRegistry
+from fdai.runtime.bootstrap import _operational_event_bus
 from fdai.runtime.delivery import _validate_incident_notification_route
 from fdai.shared.config import AppConfig
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
@@ -331,6 +332,14 @@ def test_canary_consumer_uses_dedicated_control_loop_entry_point() -> None:
 
     asyncio.run(_run())
     assert loop.payloads == [{"event_id": "canary-event", "idempotency_key": "canary-key"}]
+
+
+def test_operational_event_bus_prefers_isolated_auxiliary_bus() -> None:
+    primary = InMemoryEventBus()
+    auxiliary = InMemoryEventBus()
+
+    assert _operational_event_bus(primary, auxiliary) is auxiliary
+    assert _operational_event_bus(primary, None) is primary
 
 
 def test_consume_audits_and_dead_letters_before_committing() -> None:

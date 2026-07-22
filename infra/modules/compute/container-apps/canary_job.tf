@@ -42,7 +42,7 @@ resource "azurerm_container_app_job" "canary" {
 
       env {
         name  = "KAFKA_BOOTSTRAP_SERVERS"
-        value = var.kafka_bootstrap_servers
+        value = var.operational_kafka_bootstrap_servers
       }
       env {
         name  = "FDAI_CANARY_TOPIC"

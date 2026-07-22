@@ -298,6 +298,9 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "DEPLOY_PREFLIGHT_INPUT_JSON is required for protected plans" in workflow
     assert "runner preflight profile must require all Azure live categories" in workflow
     assert "Run complete Azure live preflight" in workflow
+    assert "Reject destructive protected plan" in workflow
+    assert 'if "delete" in change.get("change", {}).get("actions", [])' in workflow
+    assert "Protected plans reject delete or replacement actions" in workflow
     assert "uv sync --locked" in workflow
     assert "fdaictl deploy preflight" in workflow
     assert "azure_preflight_evidence_digest" in workflow
@@ -357,6 +360,12 @@ def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
     assert "AzureWebJobsStorage__clientId" in terraform
     assert 'resource "azurerm_storage_container" "dev_gateway_idempotency"' in terraform
     assert "FDAI_DEV_GATEWAY_IDEMPOTENCY_CONTAINER_URL" in terraform
+    assert 'module "event_bus_auxiliary"' in terraform
+    assert "topics              = [local.canary_topic]" in terraform
+    assert "auxiliary_topics    = [local.inventory_raw_topic]" in terraform
+    assert "module.event_bus_auxiliary.kafka_bootstrap" in terraform
+    assert "module.event_bus_auxiliary.topic_ids[local.canary_topic]" in terraform
+    assert "module.event_bus_auxiliary.auxiliary_topic_ids[local.inventory_raw_topic]" in terraform
     gateway_resource = terraform.split(
         'resource "azurerm_function_app_flex_consumption" "dev_gateway"',
         maxsplit=1,
@@ -404,6 +413,7 @@ def test_runner_live_preflight_workflow_is_structurally_executable() -> None:
     assert "DEPLOY_PREFLIGHT_INPUT_JSON is required for protected plans" in request_step["run"]
     script = step["run"]
     assert "Azure live preflight sanitized report" in script
+    assert "Azure live preflight incomplete" in script
     subprocess.run(  # noqa: S603 - static repository-owned script
         ["/usr/bin/bash", "-n"],
         input=script,
@@ -417,6 +427,22 @@ def test_runner_live_preflight_workflow_is_structurally_executable() -> None:
         source, separator, _remaining = section.partition("\nPY\n")
         assert separator, index
         compile(source, f"<runner-preflight-{index}>", "exec")
+
+    destructive_step = next(
+        item for item in steps if item.get("name") == "Reject destructive protected plan"
+    )
+    assert names.index("Terraform plan") < names.index("Reject destructive protected plan")
+    assert names.index("Reject destructive protected plan") < names.index(
+        "Run complete Azure live preflight"
+    )
+    subprocess.run(  # noqa: S603 - static repository-owned script
+        ["/usr/bin/bash", "-n"],
+        input=destructive_step["run"],
+        text=True,
+        check=True,
+    )
+    destructive_source = destructive_step["run"].split(marker, maxsplit=1)[1].partition("\nPY\n")[0]
+    compile(destructive_source, "<protected-plan-delete-gate>", "exec")
 
 
 def test_gateway_source_workflow_steps_are_structurally_executable() -> None:

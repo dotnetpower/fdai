@@ -21,8 +21,9 @@ elif [[ ! "$local_consumer_instance" =~ ^[a-z0-9][a-z0-9-]{0,19}$ ]]; then
 fi
 
 bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_kafka_bootstrap)"
+operational_bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_operational_kafka_bootstrap 2>/dev/null || true)"
 topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_topics)"
-auxiliary_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_auxiliary_topics 2>/dev/null || printf '[]')"
+operational_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_operational_topics 2>/dev/null || printf '[]')"
 resource_group="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw resource_group_name)"
 dev_operations_gateway_url="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw dev_operations_gateway_url 2>/dev/null || true)"
 dev_operations_gateway_audience="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw dev_operations_gateway_audience 2>/dev/null || true)"
@@ -47,7 +48,7 @@ if not isinstance(topics, list) or not topics or not all(isinstance(item, str) f
 preferred = "aw.change.events"
 print(preferred if preferred in topics else topics[0])
 ')"
-inventory_topic="$(printf '%s' "$auxiliary_topics_json" | "$REPO_ROOT/.venv/bin/python" -c '
+inventory_topic="$(printf '%s' "$operational_topics_json" | "$REPO_ROOT/.venv/bin/python" -c '
 import json, sys
 topics = json.load(sys.stdin)
 required = "aw.inventory.raw"
@@ -56,6 +57,10 @@ print(required if isinstance(topics, list) and required in topics else "")
 
 if [[ ! "$bootstrap" =~ ^[a-z0-9.-]+\.servicebus\.windows\.net:9093$ ]]; then
   echo "event_bus_kafka_bootstrap is not an Event Hubs Kafka endpoint" >&2
+  exit 1
+fi
+if [[ -n "$inventory_topic" && ! "$operational_bootstrap" =~ ^[a-z0-9.-]+\.servicebus\.windows\.net:9093$ ]]; then
+  echo "event_bus_operational_kafka_bootstrap is required for raw inventory" >&2
   exit 1
 fi
 if [[ ! "$event_topic" =~ ^[a-z0-9._-]+$ ]]; then
@@ -77,7 +82,7 @@ umask 077
 temp_env="$(mktemp "${OUTPUT_ENV}.XXXXXX")"
 trap 'rm -f "$temp_env"' EXIT
 
-grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|AUTONOMY_MODE_DEFAULT|FDAI_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_READ_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE)=' "$SOURCE_ENV" > "$temp_env" || true
+grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|AUTONOMY_MODE_DEFAULT|FDAI_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_READ_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE)=' "$SOURCE_ENV" > "$temp_env" || true
 {
   printf 'AZURE_TENANT_ID=%s\n' "$tenant_id"
   printf 'AZURE_SUBSCRIPTION_ID=%s\n' "$subscription_id"
@@ -85,6 +90,9 @@ grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REG
   printf 'AZURE_REGION=%s\n' "$region"
   printf 'KAFKA_BOOTSTRAP_SERVERS=%s\n' "$bootstrap"
   printf 'FDAI_KAFKA_BOOTSTRAP_SERVERS=%s\n' "$bootstrap"
+  if [[ -n "$operational_bootstrap" ]]; then
+    printf 'FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS=%s\n' "$operational_bootstrap"
+  fi
   printf 'KAFKA_TOPIC_EVENTS=%s\n' "$event_topic"
   printf 'FDAI_STAGE_TOPIC=aw.pipeline.stages\n'
   printf 'FDAI_PANTHEON_OBJECT_TOPIC=aw.pantheon.objects\n'

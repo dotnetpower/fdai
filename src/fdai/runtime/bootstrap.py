@@ -64,6 +64,13 @@ from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
+_AUXILIARY_KAFKA_BOOTSTRAP_ENV = "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS"
+
+
+def _operational_event_bus(primary: EventBus, auxiliary: EventBus | None) -> EventBus:
+    """Select the isolated bus for raw inventory and canary traffic when configured."""
+
+    return auxiliary or primary
 
 
 def _build_runtime_workload_identity(http_client: httpx.AsyncClient) -> WorkloadIdentity:
@@ -88,6 +95,7 @@ async def _run() -> int:
     http_client: httpx.AsyncClient | None = None
     identity: WorkloadIdentity | None = None
     bus: EventBus | None = None
+    auxiliary_bus: EventBus | None = None
     pantheon_runtime: PantheonRuntime | None = None
     runtime_state_publisher: AgentRuntimeStatePublisher | None = None
     pantheon_heartbeat: float | None = None
@@ -158,6 +166,16 @@ async def _run() -> int:
                     "FDAI_PANTHEON_OBJECT_TOPIC", "aw.pantheon.objects"
                 ).strip(),
             )
+            auxiliary_bootstrap = os.environ.get(_AUXILIARY_KAFKA_BOOTSTRAP_ENV, "").strip()
+            if auxiliary_bootstrap:
+                auxiliary_bus = EventHubsKafkaBus(
+                    identity=identity,
+                    config=EventHubsKafkaBusConfig(
+                        bootstrap_servers=auxiliary_bootstrap,
+                        dlq_suffix=container.config.kafka.topic_dlq_suffix,
+                    ),
+                )
+            operational_bus = _operational_event_bus(bus, auxiliary_bus)
             from fdai.delivery.read_api.streaming.agent_activity_broadcaster import (
                 DEFAULT_STAGE_TOPIC,
             )
@@ -404,7 +422,7 @@ async def _run() -> int:
             if inventory_raw_topic:
                 resource_change_task = asyncio.create_task(
                     _consume_resource_changes(
-                        bus=bus,
+                        bus=operational_bus,
                         raw_topic=inventory_raw_topic,
                         canonical_topic=container.config.kafka.topic_events,
                         resource_types=_load_resource_types(),
@@ -417,7 +435,7 @@ async def _run() -> int:
             if canary_topic:
                 canary_task = asyncio.create_task(
                     _consume_canaries(
-                        bus=bus,
+                        bus=operational_bus,
                         topic=canary_topic,
                         control_loop=control_loop,
                         stop=stop,
@@ -520,6 +538,13 @@ async def _run() -> int:
                 _LOGGER.warning("pantheon_stop_failed", exc_info=True)
         if runtime_state_publisher is not None:
             await runtime_state_publisher.stop()
+        if auxiliary_bus is not None:
+            close = getattr(auxiliary_bus, "close", None)
+            if callable(close):
+                try:
+                    await close()
+                except Exception:  # noqa: BLE001
+                    _LOGGER.warning("auxiliary_bus_close_failed", exc_info=True)
         if bus is not None:
             close = getattr(bus, "close", None)
             if callable(close):

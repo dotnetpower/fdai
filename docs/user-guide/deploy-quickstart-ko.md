@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 세트 인벤토리를 Azure에 프로비저닝하는 방법. 동등한 두 경로(azd 턴키 또는 Terraform 직접 실행) 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: e212a5baabf1928c65dd74593338bd920fd15d6a
+translation_source_sha: bfa1c6a54ad03eb594ff76e4062b4f7d08a98075
 translation_revised: 2026-07-22
 ---
 
@@ -66,8 +66,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
 
 1. **인벤토리 검증.** 리소스가 프로비저닝됐는지, 실행자(executor) 아이덴티티가 지정된
    범위에서 최소 권한만 갖는지 확인합니다. Subscription Event Grid delivery가 inventory
-   managed identity로 `aw.inventory.raw`에 도달하는지, Huginn이 test resource change를
-   project하는지, 6시간 ARG/ARM reconciliation Job이 예약되어 있는지 확인합니다.
+   managed identity로 operational Event Hubs shard의 `aw.inventory.raw`에 도달하는지, primary
+   shard가 Standard entity 10개 제한 안에 있는지, Huginn이 test resource change를 project하는지,
+   6시간 ARG/ARM reconciliation Job이 예약되어 있는지 확인합니다.
 2. **Runtime health 및 identity 검증.** 내부 core probe가 정상인지, 15개 agent가 모두 Pantheon
    health snapshot에 보고되는지, 즉시 실행한 canary publisher Job이 완료됐는지 확인합니다.
    Read API를 사용하면 browser Entra App Role을 검증하고 read/command credential이 Thor의

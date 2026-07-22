@@ -344,7 +344,7 @@ replica caps are still **deployment-specific** and tuned per environment; the sh
 | 1 | **Container Apps environment** | Consumption | shared serverless compute host | one environment shared by the core app and scheduled jobs; realizes the [Runtime contract](../architecture/csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest) |
 | 2 | **Container App** (unified core) | 1 app, `minReplicas: 1`, max 3 by default | one modular process composes `event-ingest`, `trust-router`, `executor`, and `audit` | Kafka-lag scale-to-zero remains deferred until credential-free scaler authentication is verified; see [Compute Shape](#compute-shape-single-modular-process) |
 | 3 | **Container Apps Job** | Consumption | scheduled probes and out-of-band change detection | replaces Azure Functions; shares the environment |
-| 4 | **Event Hubs namespace** | Standard (1 TU, auto-inflate off) | Kafka-wire event bus (endpoint on `:9093`) | realizes the [Event Bus contract](../architecture/csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol); DLQ is a Kafka `<topic>.dlq` convention, not a native DLQ resource |
+| 4 | **Event Hubs namespace shards** | 2 x Standard (1 TU, auto-inflate off) | Kafka-wire event bus (endpoints on `:9093`) | primary owns governed ingress, DLQs, HIL, and stages; operational owns canary + DLQ and raw inventory, keeping each namespace within the Standard 10-entity limit without mixing parser-specific payloads |
 | 5 | **Event Grid inventory subscription + Diagnostic Settings** | subscription event delivery / Log Analytics | send resource writes/deletes to `aw.inventory.raw` and platform diagnostics to the workspace | Event Grid publishes to Event Hubs with the inventory UAMI; the core sees Kafka only |
 | 6 | **PostgreSQL Flexible Server** | Dev: Burstable **B1ms**, HA disabled, 7-day backup; prod: zone-redundant HA, 35-day geo backup | audit + KPI + pattern library + **pgvector** T1 embeddings, single store | production plan fails unless `postgres_high_availability_mode=ZoneRedundant` |
 | 7 | **Key Vault** | Standard | secret backend consumed via **Container Apps native secret + Key Vault reference** - realizes the [Secret contract](../architecture/csp-neutrality.md#3-secret-contract--environment--k8s-secret) | Premium (HSM) not required; app never calls a secret SDK |
@@ -356,7 +356,6 @@ replica caps are still **deployment-specific** and tuned per environment; the sh
 | 13 | **Document ingestion Container App** (**opt-in**) | Consumption, gateway + ClamAV sidecar | authenticated bounded upload relay, safety scan, extraction, pgvector indexing, lifecycle events | dedicated UAMI; external HTTPS gateway cannot access executor permissions; durable worker consumes document lifecycle records from shared `aw.pipeline.stages` |
 | 14 | **Control-loop canary Job** | Consumption, every 5 minutes | publishes one idempotent event to `aw.control.canary` | dedicated UAMI has only ACR pull and Event Hubs send; the core records a no-op audit through a separate consumer path |
 | 15 | **Development operations Function App** (**opt-in**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | relays registered read, write, and execute operations from local development to private resources | dev and private-networking only; dedicated `/27` subnet, private AAD-only deployment and idempotency storage, Easy Auth, separate reader/executor UAMIs, one-time server-issued mutation plan receipts, and no arbitrary URL, ARM path, command, or query surface |
-
 Additional identity, channel, and console elements are deployment-owned or opt-in:
 
 - **App registrations × 3** - split audiences per
@@ -503,6 +502,7 @@ full expanded catalog and defaults are authored during the inventory PR.
 | `AZURE_SUBSCRIPTION_ID` | env | deployment | non-secret |
 | `AZURE_RESOURCE_GROUP` | env | deployment | target resource group |
 | `KAFKA_BOOTSTRAP_SERVERS` | env | deployment | Event Hubs Kafka endpoint (`<ns>.servicebus.windows.net:9093`); realizes the [Event Bus contract](../architecture/csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol) |
+| `FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS` | env | deployment | Operational Event Hubs Kafka endpoint used only by the core canary and raw inventory consumers; unset falls back to the primary endpoint for non-Azure adapters. |
 | `KAFKA_SECURITY_PROTOCOL` | env | deployment | `SASL_SSL` on Azure; provider-specific value elsewhere |
 | `KAFKA_SASL_MECHANISM` | env | deployment | `OAUTHBEARER` on Azure |
 | `FDAI_STATE_STORE_DSN` | KV ref | upstream | Postgres connection URI for audit + KPI; wired by `infra/main.tf` `azurerm_key_vault_secret.state_store_dsn` from `module.state_store.application_dsn`, exposed to the Container App via `secret{}` + `env{}` (see [project-structure.md](../architecture/project-structure.md) `infra/modules/compute/container-apps/`). Local/dev may use in-memory when absent; `RUNTIME_ENV=staging|prod` fails startup. |

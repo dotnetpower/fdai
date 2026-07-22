@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 7dede6c8713b51c64cae55a4434444cd4471180a
+translation_source_sha: 78213aaa36508684f25250f29b3abf93b01c14c0
 translation_revised: 2026-07-22
 ---
 
@@ -341,7 +341,7 @@ additional_tags = {
 | 1 | **Container Apps environment** | Consumption | 공유 서버리스 컴퓨트 호스트 | 코어 앱과 예약 작업이 하나의 environment를 공유하며 [Runtime 계약](../architecture/csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트)을 구현합니다. |
 | 2 | **Container App** (통합 코어) | 1 앱, `minReplicas: 1`, 기본 최대 3 | 하나의 모듈식 프로세스가 `event-ingest`, `trust-router`, `executor`, `audit`를 구성합니다. | 자격 증명 없는 scaler 인증을 검증할 때까지 Kafka lag 기반 scale-to-zero는 연기합니다. [Compute Shape](#compute-shape-single-modular-process)를 참조하세요. |
 | 3 | **Container Apps Job** | Consumption | 스케줄 프로브와 out-of-band 변경 감지 | Azure Functions 대체; environment 공유 |
-| 4 | **Event Hubs namespace** | Standard (1 TU, auto-inflate off) | Kafka-와이어 이벤트 버스 (`:9093` endpoint) | [이벤트버스 계약](../architecture/csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜) 구현; DLQ는 native DLQ 리소스가 아닌 Kafka `<topic>.dlq` 규약 |
+| 4 | **Event Hubs namespace shard** | Standard 2개 (각 1 TU, auto-inflate off) | Kafka-와이어 이벤트 버스 (`:9093` endpoint) | primary는 governed ingress, DLQ, HIL, stage를 소유하고 operational은 canary + DLQ와 raw inventory를 소유하여 parser별 payload를 섞지 않고 Standard의 namespace당 entity 10개 제한을 지킵니다. |
 | 5 | **Event Grid inventory subscription + Diagnostic Settings** | subscription event delivery / Log Analytics | Resource write/delete를 `aw.inventory.raw`로 보내고 플랫폼 진단을 workspace로 보냄 | Event Grid는 전용 inventory UAMI로 Event Hubs에 게시하며 코어는 Kafka만 봄 |
 | 6 | **PostgreSQL Flexible Server** | Dev: Burstable **B1ms**, HA 비활성, 7일 백업; prod: zone-redundant HA, 35일 geo backup | audit + KPI + 패턴 라이브러리 + **pgvector** T1 임베딩, 단일 저장 | `postgres_high_availability_mode=ZoneRedundant`가 아니면 production plan이 차단됩니다. |
 | 7 | **Key Vault** | Standard | **Container Apps native secret + Key Vault reference**로 소비되는 secret backend - [시크릿 계약](../architecture/csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) 구현 | Premium (HSM) 불필요; 앱은 secret SDK 호출 안 함 |
@@ -353,7 +353,6 @@ additional_tags = {
 | 13 | **Document ingestion Container App** (**opt-in**) | Consumption, gateway + ClamAV sidecar | 인증된 bounded upload relay, safety scan, extraction, pgvector indexing, lifecycle event | Dedicated UAMI를 사용하며 external HTTPS gateway에는 executor permission이 없습니다. Durable worker는 shared `aw.pipeline.stages`의 document lifecycle record를 consume합니다. |
 | 14 | **Control-loop canary Job** | Consumption, 5분마다 실행 | `aw.control.canary`에 멱등 이벤트 하나를 게시합니다. | 전용 UAMI에는 ACR pull과 Event Hubs send만 있으며, 코어는 별도 consumer 경로에서 no-op audit을 기록합니다. |
 | 15 | **Development operations Function App** (**opt-in**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | 로컬 개발에서 private resource로 registered read, write, execute operation을 relay합니다. | dev 및 private-networking 전용이며 전용 `/27` subnet, private AAD-only deployment 및 idempotency storage, Easy Auth, 분리된 reader/executor UAMI, 일회용 server-issued mutation plan receipt를 사용합니다. 임의 URL, ARM path, command, query surface는 제공하지 않습니다. |
-
 추가 identity/channel/console 요소는 deployment 또는 opt-in 기능이 소유합니다:
 
 - **App registration × 3** - 오디언스 분리
@@ -498,6 +497,7 @@ state를 제공합니다.
 | `AZURE_SUBSCRIPTION_ID` | env | deployment | 비-시크릿 |
 | `AZURE_RESOURCE_GROUP` | env | deployment | 대상 리소스 그룹 |
 | `KAFKA_BOOTSTRAP_SERVERS` | env | deployment | Event Hubs Kafka endpoint (`<ns>.servicebus.windows.net:9093`); [이벤트버스 계약](../architecture/csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜) 구현 |
+| `FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS` | env | deployment | Core의 canary 및 raw inventory consumer만 사용하는 operational Event Hubs Kafka endpoint입니다. 설정하지 않으면 비-Azure adapter에서 primary endpoint로 fallback합니다. |
 | `KAFKA_SECURITY_PROTOCOL` | env | deployment | Azure 에서 `SASL_SSL`; 다른 곳에서는 프로바이더별 값 |
 | `KAFKA_SASL_MECHANISM` | env | deployment | Azure 에서 `OAUTHBEARER` |
 | `FDAI_STATE_STORE_DSN` | KV ref | upstream | audit + KPI 용 Postgres 연결 URI. `infra/main.tf` 의 `azurerm_key_vault_secret.state_store_dsn` 이 `module.state_store.application_dsn` 으로부터 배선하고, Container App 은 `secret{}` + `env{}` 로 노출 ([project-structure-ko.md](../architecture/project-structure-ko.md) 의 `infra/modules/compute/container-apps/` 참조). Local/dev는 없을 때 in-memory를 사용할 수 있지만 `RUNTIME_ENV=staging|prod`는 시작을 차단합니다. |

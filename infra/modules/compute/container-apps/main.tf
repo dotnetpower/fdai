@@ -80,6 +80,9 @@ locals {
       FDAI_DEV_OPERATIONS_GATEWAY_URL      = var.dev_operations_gateway_url
       FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE = var.dev_operations_gateway_audience
     },
+    var.operational_kafka_bootstrap_servers == "" ? {} : {
+      FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS = var.operational_kafka_bootstrap_servers
+    },
   )
 }
 

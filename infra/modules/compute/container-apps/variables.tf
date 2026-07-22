@@ -85,6 +85,11 @@ variable "canary_topic" {
   type        = string
 }
 
+variable "operational_kafka_bootstrap_servers" {
+  description = "Kafka endpoint for isolated raw inventory and canary traffic."
+  type        = string
+}
+
 variable "canary_cron_expression" {
   description = "Cron for the full-loop synthetic canary. Empty disables the job."
   type        = string

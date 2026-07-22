@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 1846464f1f2b1e4c0a929eca7977d08ceb845af2
-translation_revised: 2026-07-21
+translation_source_sha: e89f4bb2fae596c5c06a51e967ad78ad9ab9eb0d
+translation_revised: 2026-07-22
 ---
 
 # CSP-중립성 계약
@@ -58,7 +58,7 @@ seam):
 
 | CSP / 벤더 | 관리형 Kafka endpoint | 인증 방식 | 비고 |
 |---|---|---|---|
-| Azure | **Event Hubs** (Kafka 1.0+ endpoint, `<ns>.servicebus.windows.net:9093`) | SASL/OAUTHBEARER + Entra 토큰 | 하나의 네임스페이스가 토픽 호스팅; Standard 1 TU 로 idle 비용 낮음 |
+| Azure | **Event Hubs** (Kafka 1.0+ endpoint, `<ns>.servicebus.windows.net:9093`) | SASL/OAUTHBEARER + Entra 토큰 | Standard 1-TU namespace shard로 governed ingress와 parser별 operational signal을 분리 |
 | AWS | **MSK Serverless** | SASL/OAUTHBEARER + AWS IAM SigV4 | 실제 serverless (partition-hour 과금) |
 | GCP | **Managed Service for Apache Kafka** (GA) | SASL/OAUTHBEARER + Google IAM 토큰 | broker fleet 는 항상 켜져있음; 최소 클러스터 사용 |
 | Multi-cloud | **Confluent Cloud** / **Redpanda Cloud** / **Aiven Kafka** | SASL/PLAIN 또는 SASL/OAUTHBEARER | 하이퍼스케일러에 대한 벤더 락인도 받아들일 수 없을 때의 escape hatch |

@@ -65,11 +65,14 @@ prod topology so shadow evaluation is representative.
     (replaces Azure Functions for runtime scheduling). An opt-in development-only FC1 Function
     App is the narrow exception: it relays registered operations to private resources and is not a
     scheduler or control-loop runtime.
-  - **Event Hubs** (Standard, 1 TU, auto-inflate off) consumed **only via its Kafka endpoint
-    on `:9093`** - the CSP-neutral event bus contract
+  - **Event Hubs** (two Standard 1-TU namespace shards, auto-inflate off) consumed **only via
+    Kafka endpoints on `:9093`** - the CSP-neutral event bus contract
     ([csp-neutrality.md § Event bus contract](../architecture/csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol)).
-    Subscription resource writes/deletes are forwarded to `aw.inventory.raw` by a
-    managed-identity Event Grid subscription. No Service Bus or custom Event Grid topic exists.
+    The primary shard owns governed ingress, its DLQs, HIL, and pipeline stages. The operational
+    shard owns `aw.control.canary`, its DLQ, and `aw.inventory.raw`. This stays within the Standard
+    tier's ten-entity namespace limit without mixing parser-specific payloads on one topic.
+    Subscription resource writes/deletes are forwarded to `aw.inventory.raw` by a managed-identity
+    Event Grid subscription. No Service Bus or custom Event Grid topic exists.
   - **PostgreSQL Flexible Server** (Burstable B1ms, 1 zone, 7-day backup) as the single store
     for audit + KPI + pattern library + **pgvector** T1 embeddings.
   - **Key Vault** as the secret backend, consumed by the app via **Container Apps native

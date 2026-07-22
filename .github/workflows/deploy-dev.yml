@@ -428,6 +428,29 @@ jobs:
         if: ${{ !inputs.apply }}
         run: terraform plan -input=false -lock-timeout=300s -out=dev.plan
 
+      - name: Reject destructive protected plan
+        if: ${{ !inputs.apply && inputs.request_id != '' }}
+        run: |
+          set -euo pipefail
+          terraform show -json dev.plan > dev.plan.review.json
+          trap 'rm -f dev.plan.review.json' EXIT
+          python3 - <<'PY'
+          import json
+
+          with open("dev.plan.review.json", encoding="utf-8") as stream:
+            plan = json.load(stream)
+          destructive = sorted(
+            str(change.get("address", "unknown"))
+            for change in plan.get("resource_changes", [])
+            if "delete" in change.get("change", {}).get("actions", [])
+          )
+          if destructive:
+            print("Protected plans reject delete or replacement actions:")
+            for address in destructive:
+              print(f"- {address}")
+            raise SystemExit(1)
+          PY
+
       - name: Install pinned uv for live preflight
         if: ${{ !inputs.apply && inputs.request_id != '' }}
         uses: astral-sh/setup-uv@v6
@@ -514,6 +537,11 @@ jobs:
             payload = json.load(stream)
           report = payload.get("report")
           if not isinstance(report, dict):
+            detail = payload.get("error")
+            if not isinstance(detail, str) or not detail or len(detail) > 512:
+              detail = "preflight did not return a bounded error"
+            detail = detail.replace("\r", " ").replace("\n", " ")
+            print(f"Azure live preflight incomplete: {detail}")
             raise SystemExit(
               "Azure live preflight report is missing "
               f"(CLI exit {os.environ['PREFLIGHT_EXIT']})"

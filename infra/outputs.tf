@@ -47,6 +47,11 @@ output "event_bus_kafka_bootstrap" {
   value       = module.event_bus.kafka_bootstrap
 }
 
+output "event_bus_operational_kafka_bootstrap" {
+  description = "Kafka bootstrap host:port for isolated canary and raw inventory traffic."
+  value       = module.event_bus_auxiliary.kafka_bootstrap
+}
+
 output "event_bus_topics" {
   description = "Provisioned primary topic names."
   value       = module.event_bus.topics
@@ -55,6 +60,11 @@ output "event_bus_topics" {
 output "event_bus_auxiliary_topics" {
   description = "Provisioned auxiliary topic names used by stage, approval, and inventory ingress."
   value       = keys(module.event_bus.auxiliary_topic_ids)
+}
+
+output "event_bus_operational_topics" {
+  description = "Provisioned canary, canary DLQ, and raw inventory topic names."
+  value       = keys(module.event_bus_auxiliary.all_topic_ids)
 }
 
 output "postgres_fqdn" {

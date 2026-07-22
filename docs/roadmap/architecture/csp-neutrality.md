@@ -56,7 +56,7 @@ same code path serve every target.
 
 | CSP / vendor | Managed Kafka endpoint | Auth mechanism | Notes |
 |---|---|---|---|
-| Azure | **Event Hubs** (Kafka 1.0+ endpoint, `<ns>.servicebus.windows.net:9093`) | SASL/OAUTHBEARER with Entra token | one namespace hosts topics; idle cost stays low on Standard 1 TU |
+| Azure | **Event Hubs** (Kafka 1.0+ endpoint, `<ns>.servicebus.windows.net:9093`) | SASL/OAUTHBEARER with Entra token | Standard 1-TU namespace shards keep governed ingress separate from parser-specific operational signals |
 | AWS | **MSK Serverless** | SASL/OAUTHBEARER with AWS IAM SigV4 | truly serverless (partition-hour billed) |
 | GCP | **Managed Service for Apache Kafka** (GA) | SASL/OAUTHBEARER with Google IAM token | broker fleet is always-on; use the smallest cluster |
 | Multi-cloud | **Confluent Cloud** / **Redpanda Cloud** / **Aiven Kafka** | SASL/PLAIN or SASL/OAUTHBEARER | escape hatch when vendor-lock even to a hyperscaler is unacceptable |
