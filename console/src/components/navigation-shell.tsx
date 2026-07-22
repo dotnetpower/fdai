@@ -134,17 +134,11 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
 
   function selectGroup(group: PanelGroup): void {
     const workspacePath = workspaceGroupNavigationPath(group, preferences);
-    if (workspacePath) {
-      setSelectedGroup(group);
-      navigate(workspacePath);
-      return;
-    }
-    if (group === selectedGroup && preferences.explorerOpen) {
-      setExplorerOpen(false);
-      return;
-    }
     setSelectedGroup(group);
     setExplorerOpen(true);
+    if (workspacePath) {
+      navigate(workspacePath);
+    }
   }
 
   function focusGroup(from: PanelGroup, delta: number): void {
@@ -249,17 +243,14 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
 
   const renderGroupButton = (group: (typeof PANEL_GROUPS)[number]) => {
     const selected = group.id === selectedGroup;
-    const label = selected && preferences.explorerOpen
-      ? t("nav.hideGroup", { group: group.label })
-      : group.label;
     return (
       <li key={group.id}>
-        <Tooltip content={label} placement="right">
+        <Tooltip content={group.label} placement="right">
           <button
             ref={(element) => { groupRefs.current.set(group.id, element); }}
             type="button"
             class={`activity-bar-button ${selected ? "active" : ""}`}
-            aria-label={label}
+            aria-label={group.label}
             aria-pressed={selected && preferences.explorerOpen}
             onClick={() => selectGroup(group.id)}
             onKeyDown={(event) => {
@@ -486,7 +477,9 @@ export function workspaceGroupNavigationPath(
   closeWorkspaceDeck: () => boolean = requestWorkspaceDeckCloseForNavigation,
 ): string | null {
   const firstPanel = firstVisiblePanelInGroup(group, preferences);
-  return firstPanel && closeWorkspaceDeck() ? panelPath(firstPanel.id) : null;
+  if (firstPanel === undefined) return null;
+  closeWorkspaceDeck();
+  return panelPath(firstPanel.id);
 }
 
 function isMobile(): boolean {

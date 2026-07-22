@@ -33,7 +33,7 @@ describe("navigation shell groups", () => {
   });
 
   test("uses the shared portal tooltip instead of native activity-bar titles", () => {
-    expect(source).toContain('<Tooltip content={label} placement="right">');
+    expect(source).toContain('<Tooltip content={group.label} placement="right">');
     expect(source).toContain('<Tooltip content={panel.label} placement="right">');
     expect(source).not.toContain("title=");
     expect(styles).toContain('.app-tooltip[data-state="delayed-open"]');
@@ -58,7 +58,7 @@ describe("navigation shell groups", () => {
     })?.id).toBe("live");
   });
 
-  test("navigates to the first child only when a workspace Deck closes", () => {
+  test("navigates to the first child whether or not a workspace Deck closes", () => {
     const accepted = vi.fn(() => true);
     const ignored = vi.fn(() => false);
 
@@ -71,7 +71,7 @@ describe("navigation shell groups", () => {
       "operations",
       DEFAULT_NAVIGATION_PREFERENCES,
       ignored,
-    )).toBeNull();
+    )).toBe("/live");
     expect(accepted).toHaveBeenCalledOnce();
     expect(ignored).toHaveBeenCalledOnce();
   });
