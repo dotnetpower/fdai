@@ -377,7 +377,7 @@
     "src/fdai/core/read_investigation/__init__.py": "16edb0ba0ace10d1e4e6c3352e6d47abe08a2695f2c6bf04cdb9ebcff54aa36d",
     "src/fdai/core/read_investigation/catalog.py": "73f0f0a9e12131b99408c079df4d191fb10d03c016498c7d6e2270c57c88f742",
     "src/fdai/core/read_investigation/execution_policy.py": "0ac98ac053de3a6a18b698af99c17bc6759ae02ab5c13a3e065f4c75a922d1a7",
-    "src/fdai/core/read_investigation/latency.py": "ce2354b983109953c406898e0951eb791742ef3c0ff42a5d286ae900d833ac20",
+    "src/fdai/core/read_investigation/latency.py": "67daa5a92cc4909ed2eafd81a05b7a26424cdfcff3b9b145ad76b6c052e3bdee",
     "src/fdai/core/read_investigation/models.py": "dc8ca58e73433e677fdf2405d2934a697ca417ad74f1f65d65808d2707634f0c",
     "src/fdai/core/read_investigation/planner.py": "83153413b73b2195241adccae6bdbabad44c1b5564cc2c4277a7d61ce990cf35",
     "src/fdai/core/read_investigation/progress.py": "97436bc107c1ade7699f79435fcd334839069df25f701b51cb0af5dc9e753b1e",
@@ -763,7 +763,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-22T02:19:10Z",
+  "generated_at": "2026-07-22T03:05:25Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

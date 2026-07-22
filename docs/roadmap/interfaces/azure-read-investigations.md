@@ -175,6 +175,9 @@ A durable latency profile keeps bounded recent samples per
 sequential steps, estimated p95 is the sum of step p95 values. For parallel fan-out, it is the
 maximum branch p95. Detached work adds queue delay. Before the minimum sample count is met, the
 planner uses a catalog `latency_class` and reports a broad range instead of false precision.
+The current executor resolves the resource and then queries each evidence source sequentially, so
+its plan estimate sums every selected source. The maximum-branch rule applies only after an
+executor introduces actual concurrent fan-out.
 
 The estimate selects execution mode before cloud I/O begins. If elapsed time crosses the announced
 upper range, Bragi emits one delayed milestone and continues inside the fixed wall-clock budget.

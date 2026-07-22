@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 398964d2660d4b65451c048e4a8e1f74d1892fc0
+translation_source_sha: 8e7ede1d27d589e70905157d2257412a9d96a48a
 translation_revised: 2026-07-22
 ---
 
@@ -176,6 +176,9 @@ Durable latency profile은 `(tool_id, transport, operation_class)`별 bounded re
 sample count, failure rate, p50 및 p95를 노출합니다. Sequential step은 step p95의 합으로, parallel
 fan-out은 최대 branch p95로 예측합니다. Detached work에는 queue delay를 추가합니다. Minimum sample
 count 전에는 catalog `latency_class`를 사용하고 거짓 정밀도 대신 넓은 범위를 보고합니다.
+현재 executor는 resource를 resolve한 후 각 evidence source를 순차로 query하므로 plan estimate에서
+선택한 모든 source를 합산합니다. 최대 branch 규칙은 executor가 실제 concurrent fan-out을 도입한
+이후에만 적용합니다.
 
 Estimate는 cloud I/O 전에 execution mode를 선택합니다. Elapsed time이 안내된 상한을 넘으면 Bragi가
 delayed milestone 하나를 보내고 고정 wall-clock budget 안에서 계속합니다. Estimate는 timeout을

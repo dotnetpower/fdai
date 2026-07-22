@@ -87,6 +87,23 @@ def test_plan_estimate_uses_sum_for_sequence_and_max_for_fanout() -> None:
     assert estimate_parallel_p95(profiles) == 500
 
 
+def test_multi_source_plan_estimate_matches_sequential_execution() -> None:
+    plan = _plan(ReadInvestigationIntent.CHANGE_ATTRIBUTION)
+    profiles = {
+        ReadToolId.RESOLVE_RESOURCE: ReadLatencyProfile(20, 0.0, 100, 200),
+        ReadToolId.QUERY_RESOURCE_ACTIVITY: ReadLatencyProfile(20, 0.0, 300, 500),
+        ReadToolId.QUERY_GUEST_SHUTDOWN_EVENTS: ReadLatencyProfile(20, 0.0, 500, 1_000),
+        ReadToolId.QUERY_RESOURCE_HEALTH: ReadLatencyProfile(20, 0.0, 400, 700),
+    }
+
+    estimate = estimate_plan_latency(plan, profiles, minimum_samples=20)
+
+    assert estimate.measured is True
+    assert estimate.multi_source is True
+    assert estimate.lower_ms == 1_300
+    assert estimate.upper_ms == 2_400
+
+
 def test_execution_policy_boundaries_and_forced_detach() -> None:
     policy = InvestigationExecutionPolicy(detach_on_multi_source=False)
     plan = _plan()

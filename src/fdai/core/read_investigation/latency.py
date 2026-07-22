@@ -82,8 +82,8 @@ def estimate_plan_latency(
     resolve_lower, resolve_upper, resolve_measured, resolve_samples = estimates[0]
     evidence = estimates[1:]
     if evidence:
-        evidence_lower = max(value[0] for value in evidence)
-        evidence_upper = max(value[1] for value in evidence)
+        evidence_lower = sum(value[0] for value in evidence)
+        evidence_upper = sum(value[1] for value in evidence)
     else:
         evidence_lower = evidence_upper = 0
     return PlanLatencyEstimate(
