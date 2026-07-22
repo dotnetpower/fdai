@@ -135,6 +135,26 @@ def test_selects_catalog_tests_for_untracked_catalog_data(git_repo: Path) -> Non
     assert result.stdout.splitlines() == ["tests/rule_catalog"]
 
 
+@pytest.mark.parametrize(
+    "path",
+    (
+        "scripts/lib/design-routes.json",
+        "scripts/lib/framework-surface.txt",
+        "scripts/quality/repository/punctuation-baseline.txt",
+        "scripts/quality/architecture/.check-subsystem-fanout.allowlist",
+    ),
+)
+def test_selects_script_tests_for_behavior_support_data(git_repo: Path, path: str) -> None:
+    support_file = git_repo / path
+    support_file.parent.mkdir(parents=True, exist_ok=True)
+    support_file.write_text("support\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["tests/scripts"]
+
+
 def test_global_test_configuration_falls_back_to_full_suite(git_repo: Path) -> None:
     (git_repo / "tests" / "conftest.py").write_text("GLOBAL = True\n", encoding="utf-8")
 

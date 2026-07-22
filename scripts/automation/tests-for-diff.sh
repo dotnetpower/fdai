@@ -108,7 +108,7 @@ while IFS= read -r file; do
             add_test "tests/rule_catalog"
             continue
             ;;
-        scripts/*.py|scripts/*.sh)
+        scripts/*.py|scripts/*.sh|scripts/lib/*|scripts/quality/*.txt|scripts/quality/*.allowlist)
             add_test "tests/scripts"
             continue
             ;;
