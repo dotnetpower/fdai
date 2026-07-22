@@ -340,8 +340,9 @@ deterministic-first, grounded, abstaining pipeline:
    agent). A line that hits a domain keyword, a person/team, and a
    responsibility marker yields a grounded `ExtractedMapping` **without a
   model**. The registration form uses the explicit structured form
-  `Agent: <name>; responsibility: <value>; subject: <kind>; identity: <display name>`;
-  unknown agent tags are ignored. This is the deterministic-first stage.
+  `Agent: <name>; responsibility: <value>; subject: <kind>; identity: <display name>`.
+  These fields are authoritative: identity text cannot add another agent or change responsibility,
+  and malformed or unknown structured assignments are ignored. This is the deterministic-first stage.
 2. **Model interpretation** (`interpreter.py`). What structure cannot resolve
    MAY be handed to a T2 `HandoverInterpreter` seam. Upstream ships
    `AbstainingInterpreter` (proposes nothing) so a deployment without an LLM

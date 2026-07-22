@@ -65,12 +65,12 @@ _TEAM_RE = re.compile(
 )
 _NAME_RE = re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b")
 _EMAIL_RE = re.compile(r"\b([a-z0-9._%+-]+)@[a-z0-9.-]+\.[a-z]{2,}\b", re.IGNORECASE)
-_AGENT_TAG_RE = re.compile(
-    rf"\bagent\s*:\s*({'|'.join(re.escape(name) for name in AGENT_NAMES)})\b",
-    re.IGNORECASE,
-)
-_SUBJECT_TAG_RE = re.compile(
-    r"\bsubject\s*:\s*(user|group)\s*;\s*identity\s*:\s*([^;\r\n]{1,256})",
+_STRUCTURED_PREFIX_RE = re.compile(r"^agent\s*:", re.IGNORECASE)
+_STRUCTURED_ASSIGNMENT_RE = re.compile(
+    r"^agent\s*:\s*([^;]+)\s*;\s*"
+    r"responsibility\s*:\s*(accountable|informed)\s*;\s*"
+    r"subject\s*:\s*(user|group)\s*;\s*"
+    r"identity\s*:\s*([^;\r\n]{1,256})\s*$",
     re.IGNORECASE,
 )
 _AGENT_NAME_BY_CASEFOLD = {name.casefold(): name for name in AGENT_NAMES}
@@ -92,11 +92,11 @@ class DeterministicExtractor:
     def _extract_line(
         self, document: HandoverDocument, line_no: int, line: str
     ) -> list[ExtractedMapping]:
+        if _STRUCTURED_PREFIX_RE.match(line):
+            mapping = self._extract_structured(document, line_no, line)
+            return [mapping] if mapping is not None else []
         lowered = line.casefold()
-        agent_hits = list(match_agents(lowered))
-        tagged_agent = _tagged_agent(line)
-        if tagged_agent is not None and all(hit[0] != tagged_agent for hit in agent_hits):
-            agent_hits.insert(0, (tagged_agent, 1.0, f"agent:{tagged_agent}"))
+        agent_hits = match_agents(lowered)
         if not agent_hits:
             return []
         person, explicit_person = self._extract_person(line)
@@ -121,17 +121,29 @@ class DeterministicExtractor:
         return results
 
     @staticmethod
+    def _extract_structured(
+        document: HandoverDocument, line_no: int, line: str
+    ) -> ExtractedMapping | None:
+        match = _STRUCTURED_ASSIGNMENT_RE.match(line)
+        if match is None:
+            return None
+        agent_name = _AGENT_NAME_BY_CASEFOLD.get(match.group(1).strip().casefold())
+        identity = _clean_name(match.group(4))
+        if agent_name is None or not identity:
+            return None
+        return ExtractedMapping(
+            agent_name=agent_name,
+            person=PersonRef(identity, StewardKind(match.group(3).casefold())),
+            responsibility=Responsibility(match.group(2).casefold()),
+            confidence=1.0,
+            source=MappingSource.DETERMINISTIC,
+            citations=(SourceSpan(doc_id=document.doc_id, line=line_no, quote=line[:_MAX_QUOTE]),),
+            rationale="explicit structured assignment",
+        )
+
+    @staticmethod
     def _extract_person(line: str) -> tuple[PersonRef | None, bool]:
         """Return ``(person, explicit)``; ``explicit`` marks a strong cue."""
-        subject_match = _SUBJECT_TAG_RE.search(line)
-        if subject_match:
-            return (
-                PersonRef(
-                    _clean_name(subject_match.group(2)),
-                    StewardKind(subject_match.group(1).casefold()),
-                ),
-                True,
-            )
         owner_match = _OWNER_NAME_RE.search(line)
         if owner_match:
             return PersonRef(_clean_name(owner_match.group(1)), StewardKind.USER), True
@@ -176,13 +188,6 @@ def _clean_name(raw: str) -> str:
     period; strip it so ``"Sam Lee."`` resolves as ``"Sam Lee"``.
     """
     return raw.strip().rstrip(" .,;:")
-
-
-def _tagged_agent(line: str) -> str | None:
-    match = _AGENT_TAG_RE.search(line)
-    if match is None:
-        return None
-    return _AGENT_NAME_BY_CASEFOLD[match.group(1).casefold()]
 
 
 __all__ = ["DeterministicExtractor"]

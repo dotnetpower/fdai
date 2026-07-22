@@ -105,6 +105,35 @@ def test_explicit_subject_tag_preserves_arbitrary_group_name() -> None:
     assert mappings[0].responsibility is Responsibility.INFORMED
 
 
+def test_structured_identity_cannot_add_agents_or_override_responsibility() -> None:
+    mappings = DeterministicExtractor().extract(
+        _doc(
+            "Agent: Odin; responsibility: accountable; "
+            "subject: group; identity: FinOps Monitoring Informed Team"
+        )
+    )
+
+    assert len(mappings) == 1
+    assert mappings[0].agent_name == "Odin"
+    assert mappings[0].person.display_name == "FinOps Monitoring Informed Team"
+    assert mappings[0].responsibility is Responsibility.ACCOUNTABLE
+
+
+def test_malformed_or_unknown_structured_assignment_fails_closed() -> None:
+    extractor = DeterministicExtractor()
+
+    assert (
+        extractor.extract(
+            _doc(
+                "Agent: Unknown; responsibility: accountable; "
+                "subject: group; identity: FinOps Monitoring Team"
+            )
+        )
+        == ()
+    )
+    assert extractor.extract(_doc("Agent: Odin; subject: user; identity: Monitoring Owner")) == ()
+
+
 def test_unknown_agent_tag_does_not_create_a_mapping() -> None:
     assert (
         DeterministicExtractor().extract(_doc("Agent: Unknown; accountable owner: Jane Kim.")) == ()

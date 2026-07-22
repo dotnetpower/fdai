@@ -102,7 +102,7 @@ the safety-core modules held to the >= 90% coverage floor.
 | reporting | Report composers + formatters | [src/fdai/core/reporting/](../../../src/fdai/core/reporting/) | [tests/core/reporting/](../../../tests/core/reporting/) |
 | views | Workflow-matched ViewSpec -> bounded RenderedView plus deterministic inventory architecture projection | [src/fdai/core/views/](../../../src/fdai/core/views/) | [tests/core/views/](../../../tests/core/views/) and read-API architecture-view tests |
 | rbac | Human RBAC for the read API | [src/fdai/core/rbac/](../../../src/fdai/core/rbac/) | [tests/core/](../../../tests/core/) |
-| stewardship | Human <-> agent handover map, explicit structured assignment extraction, deterministic diff/notification, scheduled identity health, persisted idempotent draft-PR receipt, and signed merge audit | [src/fdai/core/stewardship/](../../../src/fdai/core/stewardship/) and [src/fdai/delivery/stewardship/](../../../src/fdai/delivery/stewardship/) | [tests/core/stewardship/](../../../tests/core/stewardship/) and [tests/delivery/stewardship/](../../../tests/delivery/stewardship/) |
+| stewardship | Human <-> agent handover map, authoritative structured assignment extraction, deterministic diff/notification, scheduled identity health, persisted idempotent draft-PR receipt, and signed merge audit | [src/fdai/core/stewardship/](../../../src/fdai/core/stewardship/) and [src/fdai/delivery/stewardship/](../../../src/fdai/delivery/stewardship/) | [tests/core/stewardship/](../../../tests/core/stewardship/) and [tests/delivery/stewardship/](../../../tests/delivery/stewardship/) |
 
 ## Rule catalog, deploy, and platform
 

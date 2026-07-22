@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: f340ae052255b1c0834c3c622de5e13c28ee14cc
-translation_revised: 2026-07-22
+translation_source_sha: 5297541a12dcc8cba3d93bb1603386ef346bb778
+translation_revised: 2026-07-23
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -317,7 +317,9 @@ banner를 표시합니다.
    대조한다. 도메인 키워드 + 사람/팀 + 책임 마커를 맞춘 라인은 **모델 없이** 근거를 갖춘
   `ExtractedMapping`을 산출합니다. Registration form은
   `Agent: <name>; responsibility: <value>; subject: <kind>; identity: <display name>` structured
-  form을 사용하며 unknown agent tag는 무시합니다. 이것이 결정론 우선 단계입니다.
+  form을 사용합니다. 이 field들은 authoritative하므로 identity text가 다른 agent를 추가하거나
+  responsibility를 바꿀 수 없고 malformed 또는 unknown structured assignment는 무시됩니다. 이것이
+  결정론 우선 단계입니다.
 2. **모델 해석** (`interpreter.py`). 구조가 해결하지 못한 것은 T2 `HandoverInterpreter` 시임에
    넘길 수 있다. 업스트림은 `AbstainingInterpreter`(아무것도 제안하지 않음)를 기본 제공하므로
    LLM이 없는 배포는 절대 추측하지 않는다. fork는 mixed-model 근거 기반 구현을 바인딩한다
