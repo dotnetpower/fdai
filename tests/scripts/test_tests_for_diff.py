@@ -195,6 +195,17 @@ def test_root_config_change_falls_back_to_full_suite(git_repo: Path) -> None:
     assert result.stdout.splitlines() == ["tests"]
 
 
+def test_policy_change_falls_back_to_full_suite(git_repo: Path) -> None:
+    policy = git_repo / "policies" / "compute" / "deny.rego"
+    policy.parent.mkdir(parents=True)
+    policy.write_text("package fdai.test\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["tests"]
+
+
 @pytest.mark.parametrize(
     "path",
     (

@@ -82,7 +82,7 @@ while IFS= read -r file; do
             add_test "tests"
             continue
             ;;
-        config/*|rule-catalog/*)
+        config/*|policies/*|rule-catalog/*)
             add_test "tests"
             continue
             ;;
@@ -103,10 +103,6 @@ while IFS= read -r file; do
     case "$file" in
         alembic/*)
             add_test "tests/persistence"
-            continue
-            ;;
-        policies/*)
-            add_test "tests/core/risk_gate"
             continue
             ;;
         scripts/*.py|scripts/*.sh|scripts/lib/*|scripts/quality/*.txt|scripts/quality/*.allowlist)

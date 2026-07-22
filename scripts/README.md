@@ -53,11 +53,11 @@ make test-changed DIFF=origin/main...HEAD
 ```
 
 Changes to global Python test configuration, repository configuration data,
-composition wiring, rule catalog data or loaders, shared contracts and provider
-interfaces with cross-repository consumers, Python files outside a known source
-layout, and mapped test paths that don't exist select the full suite. The
-focused runner doesn't collect coverage and doesn't replace `make test` or
-`bash scripts/verify.sh --full` before merging.
+composition wiring, policy data, rule catalog data or loaders, shared contracts
+and provider interfaces with cross-repository consumers, Python files outside a
+known source layout, and mapped test paths that don't exist select the full
+suite. The focused runner doesn't collect coverage and doesn't replace
+`make test` or `bash scripts/verify.sh --full` before merging.
 
 The runner executes non-integration tests first. It executes selected
 `integration` tests only when `FDAI_DATABASE_URL` is set; otherwise it reports
