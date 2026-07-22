@@ -765,7 +765,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-22T17:02:27Z",
+  "generated_at": "2026-07-22T17:02:47Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
