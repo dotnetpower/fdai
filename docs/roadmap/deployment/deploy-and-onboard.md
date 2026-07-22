@@ -65,7 +65,7 @@ the durable hub that makes the deploy possible and survives app rebuilds:
 - a **self-hosted deploy runner VM** (no public IP) whose system-assigned managed identity
   holds `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on
   the ops RG, `Storage Blob Data Contributor` on the state account, and only `EventGrid
-  EventSubscription Contributor` at subscription scope for realtime inventory delivery. Each
+  Contributor` at subscription scope for realtime inventory system-topic and subscription delivery. Each
   workflow run clears the Azure CLI account cache before managed-identity login.
 The app config peers its spoke VNet to the ops hub (both directions) and links its private
 DNS zones to the ops VNet via the `extra_vnet_links` seam, so the runner resolves the app's

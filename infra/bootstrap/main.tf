@@ -240,11 +240,11 @@ resource "azurerm_role_assignment" "runner_app_uaa" {
 # Realtime inventory is a subscription-scoped Event Grid subscription. Keep
 # the runner's permission narrower than subscription Contributor: this built-in
 # role can manage Event Grid subscriptions but cannot mutate target resources.
-resource "azurerm_role_assignment" "runner_eventgrid_subscription_contributor" {
+resource "azurerm_role_assignment" "runner_eventgrid_contributor" {
   count                = var.create_runner_vm ? 1 : 0
-  name                 = uuidv5("url", "fdai.runner-eventgrid-subscription:${data.azurerm_subscription.current.id}:${azurerm_linux_virtual_machine.runner[0].identity[0].principal_id}")
+  name                 = uuidv5("url", "fdai.runner-eventgrid:${data.azurerm_subscription.current.id}:${azurerm_linux_virtual_machine.runner[0].identity[0].principal_id}")
   scope                = data.azurerm_subscription.current.id
-  role_definition_name = "EventGrid EventSubscription Contributor"
+  role_definition_name = "EventGrid Contributor"
   principal_id         = azurerm_linux_virtual_machine.runner[0].identity[0].principal_id
 }
 
