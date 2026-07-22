@@ -1579,12 +1579,14 @@
     "subtitle": "Browse and design catalog workflows, or author a governed Python VM task. YAML changes remain PR-native; Python source must validate and stage as an immutable artifact before a shadow plan, schedule, or typed run request."
   },
   "overview": {
-    "subtitle": "Operating posture, measured outcomes, control assurance, and required attention.",
+    "subtitle": "Decision-first posture, measured outcomes, control signals, and required attention.",
     "section": {
       "outcomes": "Operating outcomes",
-      "outcomesHint": "Results measured against the pinned baseline on the same evidence window.",
-      "assurance": "Control assurance",
-      "assuranceHint": "Guard evidence that permits, blocks, or holds autonomous operation.",
+      "outcomesHint": "Measured results and explicit evidence gaps over the same window.",
+      "routing": "Routing and control",
+      "routingHint": "How observed events were classified and which control path they entered.",
+      "attention": "Required attention",
+      "attentionHint": "Aggregated review, control, and evidence-quality signals.",
       "organization": "Agent organization",
       "organizationHint": "Accountable separation of sensing, judgment, approval, execution, and audit.",
       "verticals": "Vertical outcomes",
@@ -1603,9 +1605,21 @@
       "auditCurrent": "Latest audit record: {time}"
     },
     "evidence": {
+      "groupLabel": "Dashboard evidence metadata",
+      "stateLabel": "Open measurement state details",
+      "windowLabel": "Open evidence for the measurement window",
+      "sampleLabel": "Open the immutable audit sample",
+      "sourceLabel": "Open the measurement source evidence",
+      "baselineLabel": "Open baseline details",
+      "confidenceLabel": "Open confidence details",
+      "asOfLabel": "Open evidence as of this time",
+      "latestAuditLabel": "Open the latest audit evidence",
       "simulated": "Simulated",
       "measured": "Measured",
       "window": "{days} days",
+      "sample": "{samples} events",
+      "baselineConnected": "Baseline connected",
+      "baselineUnavailable": "Baseline unavailable",
       "simulatedWindow": "Simulated - {days} days - {samples} events",
       "measuredWindow": "Measured - {days} days - {samples} events",
       "unavailable": "Evidence unavailable",
@@ -1658,6 +1672,7 @@
       }
     },
     "attention": {
+      "groupLabel": "Required attention summaries",
       "label": "Requires attention",
       "title": "{count} signals require review",
       "clear": "No intervention required",
@@ -1673,7 +1688,31 @@
       "unknownHint": "The console does not infer a healthy state from missing guard data.",
       "clearTitle": "Guard evidence is clear",
       "clearHint": "No approval backlog, policy escape, or failed guard is recorded.",
-      "itemLabel": "{priority}: {title}"
+      "itemLabel": "{priority}: {title}",
+      "approvalKicker": "Human approval",
+      "approvalTitle": "Pending queue",
+      "approvalClear": "No approvals waiting",
+      "queueState": "Queue state",
+      "controlKicker": "Control assurance",
+      "controlTitle": "Release posture",
+      "evidenceKicker": "Evidence quality",
+      "evidenceTitle": "Measurement gaps",
+      "gapCount": "{count} gaps",
+      "fieldCount": "{count} fields",
+      "notConnected": "Not connected",
+      "evidenceComplete": "Required evidence",
+      "state": {
+        "attention": "Review",
+        "clear": "Clear",
+        "unknown": "Incomplete"
+      },
+      "evidenceGap": {
+        "baseline": "Baseline",
+        "confidence": "Confidence",
+        "guards": "Guard metrics",
+        "leading": "Leading indicators",
+        "outcomes": "Outcome metrics"
+      }
     },
     "organization": {
       "label": "Agent organization",
@@ -1707,6 +1746,7 @@
       "auto": "auto-resolved",
       "risks": "{count} need attention",
       "clear": "all clear",
+      "noObservations": "No observations",
       "monthlySavings": "{amount}/month"
     },
     "health": {
@@ -1758,6 +1798,28 @@
     },
     "operations": {
       "label": "Routing and learning signals"
+    },
+    "routing": {
+      "groupLabel": "Routing and control distributions",
+      "tierKicker": "Decision tier",
+      "tierTitle": "Trust tier mix",
+      "controlKicker": "Safety path",
+      "controlTitle": "Control outcomes",
+      "outcomeTitle": "Terminal decision",
+      "modeTitle": "Action mode",
+      "classified": "{count} classified",
+      "decisions": "{count} decisions",
+      "outcome": {
+        "auto": "Auto",
+        "approval": "Approval",
+        "held": "Held for review",
+        "deny": "Deny",
+        "other": "Other"
+      },
+      "mode": {
+        "shadow": "Shadow",
+        "enforce": "Enforce"
+      }
     },
     "drill": {
       "browse": "Browse catalog"

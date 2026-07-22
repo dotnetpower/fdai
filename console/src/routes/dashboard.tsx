@@ -29,15 +29,13 @@ import {
   overviewT0Share,
   type GatesSummary,
 } from "./dashboard.model";
+import { RequiredAttention, RoutingControl } from "./dashboard.distributions";
 import {
-  AgentOrganization,
   ExecutiveStatus,
-  LeadingIndicators,
   MeasurementUnavailable,
   SuccessMetrics,
 } from "./dashboard.executive";
-import { ExecutiveDecisionGrid } from "./dashboard.assurance";
-import { LivingRules, TierBands, VerticalCards } from "./dashboard.signals";
+import { LivingRules, VerticalCards } from "./dashboard.signals";
 
 interface Props {
   readonly client: ReadApiClient;
@@ -283,15 +281,15 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
             },
             {
               position: 2,
-              label: t("overview.section.assurance"),
-              detail: t("overview.section.assuranceHint"),
+              label: t("overview.section.routing"),
+              detail: t("overview.section.routingHint"),
               evidence_state: "available",
             },
             {
               position: 3,
-              label: t("overview.section.organization"),
-              detail: t("overview.section.organizationHint"),
-              evidence_state: autonomy === null ? "unavailable" : "available",
+              label: t("overview.section.attention"),
+              detail: t("overview.section.attentionHint"),
+              evidence_state: "available",
             },
             {
               position: 4,
@@ -352,44 +350,38 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
         description={t("overview.section.outcomesHint")}
       >
         {autonomy ? (
-          <div class="stack">
           <SuccessMetrics
             success={autonomy.success}
             synthetic={autonomy.synthetic}
             windowDays={autonomy.window_days}
             sourceName={autonomy.source.name}
           />
-            <LeadingIndicators leading={autonomy.leading} sourceName={autonomy.source.name} />
-          </div>
-        ) : <MeasurementUnavailable />}
+        ) : (
+          <a class="overview-unavailable-link" href={routeHref("operating-outcomes")}>
+            <MeasurementUnavailable />
+          </a>
+        )}
       </OverviewSection>
 
       <OverviewSection
         number="2"
-        title={t("overview.section.assurance")}
-        description={t("overview.section.assuranceHint")}
+        title={t("overview.section.routing")}
+        description={t("overview.section.routingHint")}
       >
-        <ExecutiveDecisionGrid
-          health={health}
-          kpi={kpi}
-          gates={gates}
-          autonomy={autonomy}
-          attentionCount={attentionCount}
-          policyEscapes={policyEscapes}
-        />
+        <RoutingControl kpi={kpi} />
       </OverviewSection>
 
       <OverviewSection
         number="3"
-        title={t("overview.section.organization")}
-        description={t("overview.section.organizationHint")}
+        title={t("overview.section.attention")}
+        description={t("overview.section.attentionHint")}
       >
-        {autonomy ? (
-          <AgentOrganization
-            autonomy={autonomy}
-            hilPending={kpi.hil_pending}
-          />
-        ) : <MeasurementUnavailable />}
+        <RequiredAttention
+          kpi={kpi}
+          gates={gates}
+          autonomy={autonomy}
+          policyEscapes={policyEscapes}
+        />
       </OverviewSection>
 
       <OverviewSection
@@ -399,19 +391,12 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
       >
         {autonomy ? (
           <VerticalCards verticals={autonomy.verticals} />
-        ) : <MeasurementUnavailable />}
+        ) : (
+          <a class="overview-unavailable-link" href={routeHref("verticals")}>
+            <MeasurementUnavailable />
+          </a>
+        )}
       </OverviewSection>
-
-      {autonomy ? (
-        <section class="overview-operating-signals" aria-label={t("overview.operations.label")}>
-          <TierBands tier={autonomy.tier} />
-          <LivingRules rules={autonomy.rules} provenance={autonomy} />
-        </section>
-      ) : (
-        <section class="overview-operating-signals" aria-label={t("overview.operations.label")}>
-          <MeasurementUnavailable />
-        </section>
-      )}
 
       <details class="advanced-details overview-details">
         <summary>
@@ -425,6 +410,14 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
             <a class="overview-kpi-link" href={routeHref("audit", { params: { ...sampleParams, mode: "enforce" } })}><KpiCard label={t("overview.detailMetric.enforce")} value={formatShare(kpi.enforce_share)} hint={t("overview.detailMetric.enforceHint")} /></a>
             <a class="overview-kpi-link" href={routeHref("hil-queue")}><KpiCard label={t("overview.detailMetric.approvals")} value={kpi.hil_pending} tone={kpi.hil_pending > 0 ? "warning" : "positive"} hint={kpi.hil_pending > 0 ? t("overview.detailMetric.approvalHint") : t("overview.detailMetric.approvalClear")} /></a>
           </KpiGrid>
+
+          {autonomy ? (
+            <LivingRules rules={autonomy.rules} provenance={autonomy} />
+          ) : (
+            <a class="overview-unavailable-link" href={routeHref("rules")}>
+              <MeasurementUnavailable />
+            </a>
+          )}
 
           <div class="two-col">
             <section class="stack-section">
@@ -489,7 +482,17 @@ function CountTable({
 
   const columns: readonly Column<KeyCount>[] = [
     { key: "k", header: keyLabel, render: (r) => <a href={routeHref("audit", { params: { ...sampleParams, [filterKey]: r.key } })}>{r.key}</a>, cellClass: "mono" },
-    { key: "c", header: t("overview.detailMetric.count"), render: (r) => r.count, cellClass: "num", headerClass: "num" },
+    {
+      key: "c",
+      header: t("overview.detailMetric.count"),
+      render: (r) => (
+        <a href={routeHref("audit", { params: { ...sampleParams, [filterKey]: r.key } })}>
+          {r.count}
+        </a>
+      ),
+      cellClass: "num",
+      headerClass: "num",
+    },
   ];
 
   return (

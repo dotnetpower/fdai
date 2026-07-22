@@ -1,8 +1,7 @@
 import type { AutonomyPayload, DashboardKpi, MetricVsBaseline } from "../types";
-import { KpiCard, KpiGrid } from "../components/ui";
 import { getLocale, t } from "../i18n";
 import { routeHref } from "../router";
-import type { OverviewHealth } from "./dashboard.model";
+import { auditSampleParams, type OverviewHealth } from "./dashboard.model";
 
 function fmtDuration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -97,6 +96,9 @@ export function ExecutiveStatus({
   readonly policyEscapes: number | null;
 }) {
   const trend = autonomy?.trend.auto_resolution_rate;
+  const sampleParams = auditSampleParams(kpi);
+  const auditHref = routeHref("audit", { params: sampleParams });
+  const outcomesHref = routeHref("operating-outcomes");
   const statusTitle =
     health === "healthy"
       ? t("overview.status.healthy")
@@ -105,67 +107,112 @@ export function ExecutiveStatus({
         : t("overview.status.unknown");
   const sampleLocale = getLocale() === "ko" ? "ko-KR" : "en-US";
   return (
-    <a
-      href={routeHref("control-assurance")}
+    <section
       class={`overview-status overview-status-${health}`}
-      aria-label={t("overview.status.linkLabel", {
-        state: statusTitle,
-        count: attentionCount,
-      })}
     >
       <div class="overview-status-copy">
-        <span class="overview-status-kicker">{t("overview.status.label")}</span>
-        <div class="overview-status-heading">
-          <h3>{statusTitle}</h3>
-          {attentionCount > 0 ? (
-            <span class="overview-attention-count">
-              {t("overview.status.signals", { count: attentionCount })}
-            </span>
-          ) : null}
-        </div>
-        <p class="overview-status-summary">
-          {autonomy
-            ? t(autonomy.synthetic ? "overview.status.simulatedSummary" : "overview.status.summary", {
-                rate: autonomy.success.auto_resolution_rate.value === null
-                  ? t("overview.evidence.unavailable")
-                  : Math.round(autonomy.success.auto_resolution_rate.value * 100),
-                hil: kpi.hil_pending,
-                escapes: policyEscapes ?? t("overview.evidence.unavailable"),
-              })
-            : t("overview.status.fallback", {
-                events: kpi.event_count,
-                hil: kpi.hil_pending,
-              })}
-        </p>
-        <div class="overview-status-meta">
+        <a
+          href={routeHref("control-assurance")}
+          class="overview-status-primary"
+          aria-label={t("overview.status.linkLabel", {
+            state: statusTitle,
+            count: attentionCount,
+          })}
+        >
+          <span class="overview-status-kicker">{t("overview.status.label")}</span>
+          <div class="overview-status-heading">
+            <h3>{statusTitle}</h3>
+            {attentionCount > 0 ? (
+              <span class="overview-attention-count">
+                {t("overview.status.signals", { count: attentionCount })}
+              </span>
+            ) : null}
+          </div>
+          <p class="overview-status-summary">
+            {autonomy
+              ? t(autonomy.synthetic ? "overview.status.simulatedSummary" : "overview.status.summary", {
+                  rate: autonomy.success.auto_resolution_rate.value === null
+                    ? t("overview.evidence.unavailable")
+                    : Math.round(autonomy.success.auto_resolution_rate.value * 100),
+                  hil: kpi.hil_pending,
+                  escapes: policyEscapes ?? t("overview.evidence.unavailable"),
+                })
+              : t("overview.status.fallback", {
+                  events: kpi.event_count,
+                  hil: kpi.hil_pending,
+                })}
+          </p>
+        </a>
+        <nav class="overview-status-meta" aria-label={t("overview.evidence.groupLabel")}>
           {autonomy ? (
-            <span class="overview-evidence-badge">
-              {t(
-                autonomy.synthetic
-                  ? "overview.evidence.simulatedWindow"
-                  : "overview.evidence.measuredWindow",
-                {
-                  days: autonomy.window_days,
-                  samples: autonomy.sample_size.toLocaleString(sampleLocale),
-                },
-              )}
-            </span>
+            <>
+              <EvidenceLink href={outcomesHref} label={t("overview.evidence.stateLabel")}>
+                <strong>{t(autonomy.synthetic ? "overview.evidence.simulated" : "overview.evidence.measured")}</strong>
+              </EvidenceLink>
+              <EvidenceLink
+                href={routeHref("audit", { params: { ...sampleParams, window: `${autonomy.window_days}d` } })}
+                label={t("overview.evidence.windowLabel")}
+              >
+                {t("overview.evidence.window", { days: autonomy.window_days })}
+              </EvidenceLink>
+              <EvidenceLink href={auditHref} label={t("overview.evidence.sampleLabel")}>
+                {t("overview.evidence.sample", { samples: autonomy.sample_size.toLocaleString(sampleLocale) })}
+              </EvidenceLink>
+              <EvidenceLink href={auditHref} label={t("overview.evidence.sourceLabel")}>
+                {t("overview.evidence.source", { source: autonomy.source.name })}
+              </EvidenceLink>
+              <EvidenceLink href={outcomesHref} label={t("overview.evidence.baselineLabel")}>
+                {t(
+                  Object.values(autonomy.success).some((metric) => metric.baseline !== null)
+                    ? "overview.evidence.baselineConnected"
+                    : "overview.evidence.baselineUnavailable",
+                )}
+              </EvidenceLink>
+            </>
           ) : (
-            <span class="overview-evidence-badge">{t("overview.evidence.unavailable")}</span>
+            <EvidenceLink href={outcomesHref} label={t("overview.evidence.stateLabel")}>
+              <strong>{t("overview.evidence.unavailable")}</strong>
+            </EvidenceLink>
           )}
           {autonomy?.confidence !== null && autonomy?.confidence !== undefined ? (
-            <span>{t("overview.hero.confidence", { pct: Math.round(autonomy.confidence * 100) })}</span>
+            <EvidenceLink href={outcomesHref} label={t("overview.evidence.confidenceLabel")}>
+              {t("overview.hero.confidence", { pct: Math.round(autonomy.confidence * 100) })}
+            </EvidenceLink>
+          ) : null}
+          {autonomy?.source.as_of ? (
+            <EvidenceLink href={auditHref} label={t("overview.evidence.asOfLabel")}>
+              {t("overview.evidence.asOf", { time: autonomy.source.as_of })}
+            </EvidenceLink>
           ) : null}
           {kpi.last_recorded_at ? (
-            <span>{t("overview.status.auditCurrent", { time: formatTimestamp(kpi.last_recorded_at) })}</span>
+            <EvidenceLink href={auditHref} label={t("overview.evidence.latestAuditLabel")}>
+              {t("overview.status.auditCurrent", { time: formatTimestamp(kpi.last_recorded_at) })}
+            </EvidenceLink>
           ) : null}
-        </div>
+        </nav>
       </div>
       {trend && trend.length >= 2 ? (
-        <TrendSpark series={trend} label={t("overview.trend.autoRes")} />
+        <a
+          href={routeHref("operating-outcomes", { segments: ["auto-resolution"] })}
+          class="overview-trend-link"
+        >
+          <TrendSpark series={trend} label={t("overview.trend.autoRes")} />
+        </a>
       ) : null}
-    </a>
+    </section>
   );
+}
+
+function EvidenceLink({
+  href,
+  label,
+  children,
+}: {
+  readonly href: string;
+  readonly label: string;
+  readonly children: preact.ComponentChildren;
+}) {
+  return <a href={href} aria-label={label}>{children}</a>;
 }
 
 export function SuccessMetrics({
@@ -245,105 +292,12 @@ function SuccessMetric({
   );
 }
 
-export function LeadingIndicators({
-  leading,
-  sourceName,
-}: {
-  readonly leading: AutonomyPayload["leading"];
-  readonly sourceName: string;
-}) {
-  const indicators = [
-    ["disagreement", leading.mixed_model_disagreement_rate],
-    ["verifier", leading.verifier_failure_rate],
-    ["divergence", leading.shadow_divergence_rate],
-  ] as const;
-  return (
-    <section class="stack-section" aria-labelledby="overview-leading-title">
-      <h3 id="overview-leading-title" class="section-title">{t("overview.leading.title")}</h3>
-      <KpiGrid>
-        {indicators.map(([key, metric]) => (
-          <a
-            key={key}
-            class="overview-kpi-link"
-            href={routeHref("trust-routing", { segments: ["t2"], params: { indicator: key } })}
-          >
-            <KpiCard
-              label={t(`overview.leading.${key}`)}
-              value={percentageMetric(metric.value)}
-              hint={`${t("overview.metric.vsBaseline", { baseline: percentageMetric(metric.baseline) })} - ${t("overview.evidence.source", { source: sourceName })}`}
-              tone={metric.value === null || metric.baseline === null ? "default" : metric.value <= metric.baseline ? "positive" : "warning"}
-            />
-          </a>
-        ))}
-      </KpiGrid>
-    </section>
-  );
-}
-
 export function MeasurementUnavailable() {
   return (
     <div class="state-block state-unavailable" role="status">
       <strong>{t("overview.evidence.unavailable")}</strong>
       <span>{t("overview.evidence.unavailableHint")}</span>
     </div>
-  );
-}
-
-export function AgentOrganization({
-  autonomy,
-  hilPending,
-}: {
-  readonly autonomy: AutonomyPayload;
-  readonly hilPending: number;
-}) {
-  const roles = [
-    ["sense", "Huginn"],
-    ["advise", t("overview.organization.specialists")],
-    ["arbitrate", "Odin"],
-    ["judge", "Forseti"],
-    ["approve", "Var"],
-    ["execute", "Thor"],
-    ["audit", "Saga"],
-  ] as const;
-  return (
-    <section class="overview-organization" aria-labelledby="overview-organization-title">
-      <div class="overview-organization-copy">
-        <span class="overview-panel-kicker">{t("overview.organization.label")}</span>
-        <a href={routeHref("agents")} class="overview-organization-summary">
-          <h3 id="overview-organization-title">{t("overview.organization.title")}</h3>
-          <p>
-            {t(autonomy.synthetic ? "overview.organization.simulatedSummary" : "overview.organization.summary", {
-              rate: autonomy.success.auto_resolution_rate.value === null
-                ? t("overview.evidence.unavailable")
-                : Math.round(autonomy.success.auto_resolution_rate.value * 100),
-              hil: hilPending,
-            })}
-          </p>
-        </a>
-        <span class="muted overview-organization-evidence">
-          {t(
-            autonomy.synthetic
-              ? "overview.organization.simulated"
-              : "overview.organization.measured",
-            { days: autonomy.window_days },
-          )}
-        </span>
-      </div>
-      <ol class="overview-role-chain" aria-label={t("overview.organization.roleChain")}>
-        {roles.map(([role, agent]) => (
-          <li key={role}>
-            <a
-              href={agent === t("overview.organization.specialists")
-                ? routeHref("agents")
-                : routeHref("agent-activity", { params: { agent } })}
-            >
-              <span>{t(`overview.organization.role.${role}`)}</span>
-              <strong>{agent}</strong>
-            </a>
-          </li>
-        ))}
-      </ol>
-    </section>
   );
 }
 

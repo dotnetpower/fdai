@@ -48,6 +48,15 @@ shape maps to environments and CI/CD.
   filtered evidence route. A detail page shows provenance, measurement window, baseline
   or threshold, breakdown, and supporting records when those projections exist; missing
   evidence renders unavailable rather than being inferred in the browser.
+- **Overview drill-down is the default for every data-bearing item.** Posture summaries,
+  evidence metadata, success metrics, unavailable metric states, distribution segments and
+  legends, attention facts, vertical statistics, and operational-evidence counts MUST each be
+  a native link or belong to one keyboard-accessible semantic link container. Section headings
+  and explanatory copy are the only non-data exceptions. A destination MUST preserve the
+  narrowest available metric, tier, mode, outcome, vertical, status, source, window, or audit
+  sample filter; a generic landing route is allowed only when no narrower owned route exists.
+  An unavailable datum still links to its owning detail route, where the missing source or
+  insufficient evidence is explained. Nested interactive controls are prohibited.
 - The **executor holds the only privileged identity** (user-assigned Managed Identity, scoped
   to an action whitelist). Console and ChatOps never share it.
 - **Approval and execution are distinct principals** - no self-approval. See

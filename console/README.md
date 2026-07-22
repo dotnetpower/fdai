@@ -103,16 +103,18 @@ The technical glossary still explains human approval when an operator asks expli
 inspects a raw decision.
 
 The Overview presents evidence in operating-owner order: current posture and
-evidence quality, four measured outcome metrics, control assurance, required
-human attention, agent-organization outcomes, and vertical results. Synthetic
-measurements are labeled as simulated instead of proven. The fixed agent role
-chain explains separation of duties without claiming live handoff metrics that
-the read model doesn't provide. Audit-level distributions remain available in
-a collapsed evidence section instead of competing with the executive summary.
+evidence metadata, five measured outcome metrics, routing and control
+distributions, required attention, and vertical results. Synthetic measurements
+are labeled as simulated instead of proven. Agent organization remains on its
+owned Agents routes. Audit-level counts and living-rule evidence stay in a
+collapsed section instead of competing with the executive summary.
 
-Every Overview datum is a drill-down link. Four analytical hubs explain the
-aggregate rather than repeating it: `/operating-outcomes/<metric>`,
-`/control-assurance`, `/verticals/<vertical>`, and `/trust-routing/<tier>`.
+Every data-bearing Overview item is a drill-down link, including evidence
+metadata, unavailable states, distribution segments and legends, attention
+facts, vertical statistics, and collapsed operational counts. Four analytical
+hubs explain the aggregate rather than repeating it:
+`/operating-outcomes/<metric>`, `/control-assurance`,
+`/verticals/<vertical>`, and `/trust-routing/<tier>`.
 Existing evidence routes remain the terminal detail surfaces: `/approvals`,
 `/agents`, `/agent-activity`, `/rules`, `/promotion-gates`, `/audit`, and
 `/trace`. Query filters are shareable, for example `/audit?mode=shadow` and
@@ -719,9 +721,9 @@ console/
     │   └── shell.tsx   - top bar + left rail shell
     └── routes/
       ├── dashboard.tsx             - Overview data loading + composition
-      ├── dashboard.executive.tsx   - posture, outcomes, agent role chain
-      ├── dashboard.assurance.tsx   - guard evidence + required attention
-      ├── dashboard.signals.tsx     - vertical, tier, and rule signals
+      ├── dashboard.executive.tsx   - posture, evidence metadata, and outcomes
+      ├── dashboard.distributions.tsx - routing/control + attention summaries
+      ├── dashboard.signals.tsx     - vertical and living-rule signals
       ├── analytics-data.ts         - shared read-only analytics loader
       ├── analytics-hubs.tsx        - four Overview drill-down hubs
         ├── audit.tsx

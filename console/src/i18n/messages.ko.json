@@ -1579,12 +1579,14 @@
     "subtitle": "카탈로그 워크플로우를 둘러보고 설계하거나 통제된 Python VM 작업을 작성합니다. YAML 변경은 PR 기반으로 유지되며, Python 소스는 shadow 계획, 일정, 유형 지정 실행 요청 전에 검증을 거쳐 변경 불가한 아티팩트로 스테이징되어야 합니다."
   },
   "overview": {
-    "subtitle": "운영 상태, 측정된 성과, 통제 보증, 개입 필요 항목을 요약합니다.",
+    "subtitle": "판정 중심 상태, 측정된 성과, 통제 신호 및 조치 필요 항목을 요약합니다.",
     "section": {
       "outcomes": "운영 성과",
-      "outcomesHint": "동일한 근거 기간에서 고정된 기준선과 비교한 결과입니다.",
-      "assurance": "통제 보증",
-      "assuranceHint": "자율 운영을 허용, 차단, 보류하는 가드 근거입니다.",
+      "outcomesHint": "동일한 기간의 측정 결과와 명시적인 근거 공백입니다.",
+      "routing": "라우팅 및 통제",
+      "routingHint": "관측된 이벤트의 분류와 진입한 통제 경로입니다.",
+      "attention": "조치 필요",
+      "attentionHint": "검토, 통제 및 근거 품질 신호를 집계합니다.",
       "organization": "에이전트 조직",
       "organizationHint": "감지, 판정, 승인, 실행, 감사의 책임 분리 구조입니다.",
       "verticals": "영역별 성과",
@@ -1603,9 +1605,21 @@
       "auditCurrent": "최근 감사 기록: {time}"
     },
     "evidence": {
+      "groupLabel": "Dashboard 근거 metadata",
+      "stateLabel": "측정 상태 상세 열기",
+      "windowLabel": "측정 기간 근거 열기",
+      "sampleLabel": "변경 불가능한 감사 표본 열기",
+      "sourceLabel": "측정 source 근거 열기",
+      "baselineLabel": "기준선 상세 열기",
+      "confidenceLabel": "신뢰도 상세 열기",
+      "asOfLabel": "해당 시각 기준 근거 열기",
+      "latestAuditLabel": "최근 감사 근거 열기",
       "simulated": "시뮬레이션",
       "measured": "실측",
       "window": "{days}일",
+      "sample": "이벤트 {samples}건",
+      "baselineConnected": "기준선 연결됨",
+      "baselineUnavailable": "기준선 없음",
       "simulatedWindow": "시뮬레이션 - {days}일 - 이벤트 {samples}건",
       "measuredWindow": "실측 - {days}일 - 이벤트 {samples}건",
       "unavailable": "근거 없음",
@@ -1658,6 +1672,7 @@
       }
     },
     "attention": {
+      "groupLabel": "조치 필요 요약",
       "label": "개입 필요",
       "title": "검토 신호 {count}건",
       "clear": "개입 불필요",
@@ -1673,7 +1688,31 @@
       "unknownHint": "가드 데이터가 없으면 정상 상태로 추정하지 않습니다.",
       "clearTitle": "가드 근거 정상",
       "clearHint": "승인 대기, 정책위반 탈출, 실패 가드가 기록되지 않았습니다.",
-      "itemLabel": "{priority}: {title}"
+      "itemLabel": "{priority}: {title}",
+      "approvalKicker": "사람 승인",
+      "approvalTitle": "승인 대기열",
+      "approvalClear": "승인 대기 없음",
+      "queueState": "대기열 상태",
+      "controlKicker": "통제 보증",
+      "controlTitle": "릴리스 상태",
+      "evidenceKicker": "근거 품질",
+      "evidenceTitle": "측정 공백",
+      "gapCount": "공백 {count}건",
+      "fieldCount": "필드 {count}개",
+      "notConnected": "연결되지 않음",
+      "evidenceComplete": "필수 근거",
+      "state": {
+        "attention": "검토",
+        "clear": "정상",
+        "unknown": "불완전"
+      },
+      "evidenceGap": {
+        "baseline": "기준선",
+        "confidence": "신뢰도",
+        "guards": "가드 지표",
+        "leading": "선행 지표",
+        "outcomes": "성과 지표"
+      }
     },
     "organization": {
       "label": "에이전트 조직",
@@ -1707,6 +1746,7 @@
       "auto": "자동 해결",
       "risks": "{count}건 조치 필요",
       "clear": "이상 없음",
+      "noObservations": "관측 없음",
       "monthlySavings": "{amount}/월"
     },
     "health": {
@@ -1758,6 +1798,28 @@
     },
     "operations": {
       "label": "라우팅 및 학습 신호"
+    },
+    "routing": {
+      "groupLabel": "라우팅 및 통제 분포",
+      "tierKicker": "판정 티어",
+      "tierTitle": "신뢰 티어 구성",
+      "controlKicker": "안전 경로",
+      "controlTitle": "통제 결과",
+      "outcomeTitle": "종단 판정",
+      "modeTitle": "작업 모드",
+      "classified": "{count}건 분류",
+      "decisions": "판정 {count}건",
+      "outcome": {
+        "auto": "자동",
+        "approval": "승인",
+        "held": "검토 보류",
+        "deny": "차단",
+        "other": "기타"
+      },
+      "mode": {
+        "shadow": "Shadow",
+        "enforce": "강제 적용"
+      }
     },
     "drill": {
       "browse": "카탈로그 보기"

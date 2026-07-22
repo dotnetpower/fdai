@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 836a466309fcbb04e87800442b2ac3c9d2b098e6
+translation_source_sha: f7d476973d425ecf9209432fc146a974cafc4b36
 translation_revised: 2026-07-23
 ---
 
@@ -19,6 +19,12 @@ full-workspace Deck은 route가 변경되기 전에 닫힙니다.
 
 공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께
 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.
+
+Dashboard의 모든 데이터 항목은 drill-down을 제공합니다. 운영 상태, evidence metadata, 측정되거나
+unavailable인 성과, 분포 legend, attention fact, vertical 통계 및 접힌 operational count는 해당
+datum을 소유하는 가장 좁은 analytical 또는 filtered-evidence 목적지로 연결됩니다. 섹션 제목과 설명
+문구만 비대화형으로 유지합니다. unavailable 값도 소유 view를 열어 누락된 source 또는 sample을
+확인할 수 있게 합니다.
 
 ## Localization 경계
 

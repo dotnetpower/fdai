@@ -5,7 +5,6 @@ import { describe, expect, test } from "vitest";
 
 const SOURCE_ROOT = join(import.meta.dirname, "..");
 const VISIBLE_TITLE_COMPONENTS = new Set([
-  "AttentionItem",
   "DetailSection",
   "EmptyState",
   "OverviewSection",

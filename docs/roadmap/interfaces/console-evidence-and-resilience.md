@@ -18,6 +18,12 @@ The shared page title renders the domain and panel labels when they differ, incl
 `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
 utility keep a single title.
 
+Every data-bearing item on Dashboard drills down. Posture, evidence metadata, measured or
+unavailable outcomes, distribution legends, attention facts, vertical statistics, and collapsed
+operational counts link to the narrowest analytical or filtered-evidence destination that owns the
+datum. Section headings and explanatory copy remain non-interactive. An unavailable value still
+opens its owner view so the operator can see which source or sample is missing.
+
 ## Localization boundary
 
 The SPA resolves display locale from the operator preference. Reusable strings come from the main

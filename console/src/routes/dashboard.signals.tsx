@@ -1,5 +1,4 @@
 import type { AutonomyPayload, VerticalSummary } from "../types";
-import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 import { routeHref } from "../router";
 import { formatUsd } from "./dashboard.model";
@@ -20,6 +19,7 @@ export function VerticalCards({
 
 function VerticalCard({ vertical }: { readonly vertical: VerticalSummary }) {
   const hasRisk = vertical.open_risks > 0;
+  const hasObservations = vertical.events > 0;
   const slug = vertical.key === "change_safety"
     ? "change-safety"
     : vertical.key === "cost"
@@ -32,7 +32,9 @@ function VerticalCard({ vertical }: { readonly vertical: VerticalSummary }) {
     >
       <div class="overview-vertical-head">
         <span class="overview-vertical-name">{t(`overview.vertical.${vertical.key}`)}</span>
-        {hasRisk ? (
+        {!hasObservations ? (
+          <span class="overview-vertical-clear muted">{t("overview.vertical.noObservations")}</span>
+        ) : hasRisk ? (
           <span class="overview-vertical-risk">
             {t("overview.vertical.risks", { count: vertical.open_risks })}
           </span>
@@ -54,33 +56,6 @@ function VerticalCard({ vertical }: { readonly vertical: VerticalSummary }) {
         ) : null}
       </div>
     </a>
-  );
-}
-
-export function TierBands({ tier }: { readonly tier: AutonomyPayload["tier"] }) {
-  const keys = ["t0", "t1", "t2"] as const;
-  return (
-    <section class="overview-tiers" aria-label={t("overview.tier.groupLabel")}>
-      <span class="overview-guards-label">{t("overview.tier.label")}</span>
-      {keys.map((key) => {
-        const share = measuredTierMix(tier.mix, key);
-        const band = tier.bands[key];
-        const inBand = share !== null && (band ? share >= band[0] && share <= band[1] : true);
-        const bandText = band
-          ? `${Math.round(band[0] * 100)}-${Math.round(band[1] * 100)}%`
-          : "";
-        return (
-          <Tooltip key={key} content={bandText ? t("overview.tier.band", { range: bandText }) : undefined}>
-            <a
-              href={routeHref("trust-routing", { segments: [key] })}
-              class={`overview-tier overview-tier-${key} ${inBand ? "ok" : "warn"}`}
-            >
-              {key.toUpperCase()} {share === null ? t("overview.evidence.unavailable") : `${Math.round(share * 100)}%`}
-            </a>
-          </Tooltip>
-        );
-      })}
-    </section>
   );
 }
 
@@ -112,13 +87,13 @@ export function LivingRules({
   return (
     <section class="overview-rules" aria-label={t("overview.rules.groupLabel")}>
       <span class="overview-guards-label">{t("overview.rules.label")}</span>
-      <span class="overview-rules-provenance">
+      <a class="overview-rules-provenance" href={routeHref("rules", { params: { source: evidence.source } })}>
         <strong>{t(`overview.evidence.${evidence.kind}`)}</strong>
         <small>
           {t("overview.evidence.source", { source: evidence.source })}
           {evidence.asOf ? ` - ${t("overview.evidence.asOf", { time: evidence.asOf })}` : ""}
         </small>
-      </span>
+      </a>
       <a class="overview-rules-stat" href={routeHref("rules", { params: { status: "active", origin: "active" } })}>
         <b>{rules.active}</b> {t("overview.rules.active")}
       </a>
