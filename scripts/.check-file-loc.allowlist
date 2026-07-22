@@ -1,0 +1,8 @@
+# Temporary: completion delivery and serialization split tracked in issue #55.
+src/fdai/delivery/persistence/postgres_background_task.py
+# Temporary: run-ledger serialization split tracked in issue #55.
+src/fdai/delivery/persistence/postgres_read_investigation_run.py
+# Temporary: optional production service composition split tracked in issue #55.
+src/fdai/delivery/read_api/production/factory.py
+# Temporary: investigation payload and execution orchestration split tracked in issue #55.
+src/fdai/delivery/read_api/routes/read_investigations.py

@@ -331,7 +331,6 @@ def test_run_uses_uv_managed_pytest(git_repo: Path) -> None:
         "UV_ARGS_FILE": str(args_file),
         "FDAI_DATABASE_URL": "",
     }
-
     result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
 
     assert result.returncode == 0, result.stderr
@@ -365,7 +364,6 @@ esac
         "UV_ARGS_FILE": str(args_file),
         "FDAI_DATABASE_URL": "",
     }
-
     result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
 
     assert result.returncode == 0, result.stderr
@@ -423,6 +421,7 @@ def test_run_parallelizes_broad_non_integration_selection(git_repo: Path) -> Non
         "UV_ARGS_FILE": str(args_file),
         "FDAI_DATABASE_URL": "",
     }
+    env.pop("FDAI_PYTEST_MAX_WORKERS", None)
 
     result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
 
@@ -449,6 +448,7 @@ def test_run_parallelizes_full_suite_fallback(git_repo: Path) -> None:
         "UV_ARGS_FILE": str(args_file),
         "FDAI_DATABASE_URL": "",
     }
+    env.pop("FDAI_PYTEST_MAX_WORKERS", None)
 
     result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
 
