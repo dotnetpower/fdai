@@ -78,9 +78,9 @@ source archive with separate SHA-256 digests. Exact apply downloads and verifies
 When the development operations gateway is selected, Terraform targets that Function resource,
 the core Container App that receives its URL and audience, the operational canary, realtime inventory
 publishers, and their dependency graphs. Unrelated runtime-resource changes stay outside the plan.
-Terraform configures `AzureWebJobsStorage` for the reader managed identity and disables shared-key
-host storage. That identity receives `Storage Blob Data Owner` for the host and a separate contributor
-grant for idempotency. Function `site_config` solely owns Application Insights to avoid duplicate drift.
+Terraform configures host and deployment storage for the reader managed identity; the workflow removes
+Flex-generated exact shared-key overrides before publishing. That identity receives `Storage Blob Data
+Owner` for the host and a separate contributor grant for idempotency. Function `site_config` solely owns Application Insights.
 After exact apply converges, the workflow remote-builds the verified source, retries trigger sync for
 a bounded interval, and requires both Function triggers before recording the apply receipt.
 Full runbook: [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).

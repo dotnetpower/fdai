@@ -416,8 +416,13 @@ def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
         "Deploy exact development operations gateway source"
     )
     deploy_step = workflow.index("Deploy exact development operations gateway source")
+    stale_setting_cleanup = workflow.index(
+        "--setting-names AzureWebJobsStorage DEPLOYMENT_STORAGE_CONNECTION_STRING"
+    )
     config_zip = workflow.index("az functionapp deployment source config-zip")
     assert workflow.index("verify-deployment-plan.py", deploy_step) < config_zip
+    assert deploy_step < stale_setting_cleanup < config_zip
+    assert workflow.index("az functionapp restart", stale_setting_cleanup) < config_zip
     assert "Function triggers synchronization failed" in workflow[config_zip:]
     assert "/syncfunctiontriggers?api-version=2024-04-01" in workflow[config_zip:]
     assert 'if [ "$triggers_registered" != "true" ]' in workflow[config_zip:]

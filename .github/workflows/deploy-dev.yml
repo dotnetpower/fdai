@@ -821,6 +821,11 @@ jobs:
             exit 1
           fi
           resource_id="$(az functionapp show --resource-group "$rg" --name "$app" --query id -o tsv)"
+          az functionapp config appsettings delete \
+            --resource-group "$rg" --name "$app" \
+            --setting-names AzureWebJobsStorage DEPLOYMENT_STORAGE_CONNECTION_STRING \
+            --only-show-errors --output none
+          az functionapp restart --resource-group "$rg" --name "$app" --only-show-errors
           started_epoch="$(date -u +%s)"
           set +e
           az functionapp deployment source config-zip \
