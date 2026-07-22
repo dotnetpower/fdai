@@ -45,6 +45,7 @@ def git_repo(tmp_path: Path) -> Path:
         "tests/shared/contracts",
         "tests/shared/providers",
         "tests/tools",
+        "tests/verticals",
     ):
         directory = tmp_path / path
         directory.mkdir(parents=True)
@@ -56,13 +57,20 @@ def git_repo(tmp_path: Path) -> Path:
 
 
 def test_selects_tests_for_untracked_python_source(git_repo: Path) -> None:
+    consumer = git_repo / "tests" / "verticals" / "test_risk_consumer.py"
+    consumer.write_text("from fdai.core.risk_gate import new_rule\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "add consumer").returncode == 0
     source = git_repo / "src" / "fdai" / "core" / "risk_gate" / "new_rule.py"
     source.write_text("VALUE = 1\n", encoding="utf-8")
 
     result = _run(git_repo, "bash", str(_SELECTOR))
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == ["tests/core/risk_gate"]
+    assert result.stdout.splitlines() == [
+        "tests/core/risk_gate",
+        "tests/verticals/test_risk_consumer.py",
+    ]
 
 
 def test_shared_contract_change_falls_back_to_full_suite(git_repo: Path) -> None:

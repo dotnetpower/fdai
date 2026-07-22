@@ -25,6 +25,7 @@
 
 set -euo pipefail
 
+selector_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
@@ -57,6 +58,7 @@ fi
 
 declare -A seen=()
 tests=()
+python_sources=()
 
 add_test() {
     local path="$1"
@@ -119,6 +121,12 @@ while IFS= read -r file; do
 
     [[ "$file" == *.py ]] || continue
 
+    case "$file" in
+        src/fdai/*|delivery/*|tools/*)
+            python_sources+=("$file")
+            ;;
+    esac
+
     # Developer-facing gateway packages live at the repository root instead
     # of under src/fdai, but retain the same mirrored delivery test layout.
     if [[ "$file" == delivery/* ]]; then
@@ -174,6 +182,15 @@ while IFS= read -r file; do
     # with no tests selected.
     add_test "tests"
 done <<< "$changed"
+
+if [[ ${#python_sources[@]} -gt 0 && -z "${seen[tests]:-}" ]]; then
+    while IFS= read -r impacted_test; do
+        add_test "$impacted_test"
+    done < <(
+        python3 "$selector_dir/resolve_test_impact.py" \
+            --root "$repo_root" "${python_sources[@]}"
+    )
+fi
 
 if [[ ${#tests[@]} -eq 0 ]]; then
     exit 0
