@@ -30,6 +30,21 @@ function initialFloatingPosition(): { readonly x: number; readonly y: number } {
   };
 }
 
+export function commandDeckLayoutStyle(
+  mode: DeckLayoutMode,
+  floatingPosition: { readonly x: number; readonly y: number },
+  dockWidth: number,
+): Record<string, string> | undefined {
+  if (mode === "floating") {
+    return {
+      left: `${floatingPosition.x}px`,
+      top: `${floatingPosition.y}px`,
+    };
+  }
+  if (mode === "dock") return { "--deck-dock-width": `${dockWidth}px` };
+  return undefined;
+}
+
 export function useCommandDeckLayout(open: boolean) {
   const [layoutMode, setLayoutMode] = useState<DeckLayoutMode>(() =>
     parseDeckLayoutMode(sessionStore()?.getItem(DECK_LAYOUT_KEY) ?? null));
@@ -49,14 +64,7 @@ export function useCommandDeckLayout(open: boolean) {
   }, []);
 
   const deckStyle = useMemo(() => {
-    if (layoutMode === "floating") {
-      return {
-        left: `${floatingPosition.x}px`,
-        top: `${floatingPosition.y}px`,
-      };
-    }
-    if (layoutMode === "dock") return { width: `${dockWidth}px` };
-    return undefined;
+    return commandDeckLayoutStyle(layoutMode, floatingPosition, dockWidth);
   }, [dockWidth, floatingPosition, layoutMode]);
 
   const startFloatingDrag = (event: MouseEvent) => {

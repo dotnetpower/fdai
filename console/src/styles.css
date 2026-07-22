@@ -4393,7 +4393,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-overlay-mode-dock {
   left: auto;
   right: 0;
-  width: min(440px, calc(100vw - 68px));
+  width: min(var(--deck-dock-width, 440px), calc(100vw - 68px));
   border-left: 1px solid var(--border);
   box-shadow: none;
 }
