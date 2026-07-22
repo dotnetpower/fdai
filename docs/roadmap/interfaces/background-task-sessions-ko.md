@@ -2,7 +2,7 @@
 title: 영구 Background Task Session
 translation_of: background-task-sessions.md
 translation_source: docs/roadmap/interfaces/background-task-sessions.md
-translation_source_sha: 90bfe2c847ef5bea1f077bd8eeea124e37904311
+translation_source_sha: af28cb4a0f8d8c65569495d86c3cdbc5d0c868bd
 translation_revised: 2026-07-22
 ---
 
@@ -64,7 +64,7 @@ attempt를 만듭니다.
 
 제공되는 executor는 다음 조건으로 typed read-investigation service를 실행합니다.
 
-- Server-owned scope, exact resource resolution, registered read tool 5개를 사용합니다.
+- Server-owned scope, exact resource resolution, registered read tool 7개를 사용합니다.
 - Narrator backend, parent screen state, transcript, hidden reasoning, mutable memory, event bus,
   Thor, executor identity를 전달하지 않습니다.
 - Raw provider output 대신 normalized evidence result와 bounded semantic progress를 반환합니다.

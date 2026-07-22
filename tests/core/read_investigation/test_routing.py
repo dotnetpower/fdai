@@ -19,6 +19,10 @@ from fdai.shared.providers.read_investigation import ReadInvestigationIntent
         ("게스트 운영체제 종료 이벤트를 찾아줘", ReadInvestigationIntent.GUEST_SHUTDOWN),
         ("What is the current VM state?", ReadInvestigationIntent.RESOURCE_STATE),
         ("가상 머신 현재 상태는?", ReadInvestigationIntent.RESOURCE_STATE),
+        ("Which ports are open on nsg-app?", ReadInvestigationIntent.NETWORK_SECURITY),
+        ("nsg-app에서 열린 포트를 보여줘", ReadInvestigationIntent.NETWORK_SECURITY),
+        ("How is vnet-hub peered?", ReadInvestigationIntent.NETWORK_PEERING),
+        ("vnet-hub의 피어링 연결 상태는?", ReadInvestigationIntent.NETWORK_PEERING),
     ],
 )
 def test_bilingual_read_intent_routing(question: str, expected: ReadInvestigationIntent) -> None:
@@ -28,3 +32,5 @@ def test_bilingual_read_intent_routing(question: str, expected: ReadInvestigatio
 def test_unrelated_or_mutating_question_abstains() -> None:
     assert classify_read_investigation_intent("Tell me a joke") is None
     assert classify_read_investigation_intent("Restart vm-01") is None
+    assert classify_read_investigation_intent("Open port 22 on nsg-app") is None
+    assert classify_read_investigation_intent("vnet-hub 피어링을 연결해줘") is None

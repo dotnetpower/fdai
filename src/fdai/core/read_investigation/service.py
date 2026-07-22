@@ -239,6 +239,10 @@ class ReadInvestigationService:
                 lookback_seconds=plan.request.lookback_seconds,
                 limits=limits,
             )
+        if step.tool_id is ReadToolId.QUERY_NETWORK_SECURITY:
+            return await self._provider.query_network_security(resource, limits=limits)
+        if step.tool_id is ReadToolId.QUERY_NETWORK_PEERINGS:
+            return await self._provider.query_network_peerings(resource, limits=limits)
         raise ValueError("resolve_resource cannot be dispatched as evidence")
 
     def _failed_receipt(

@@ -20,6 +20,14 @@ RESOURCE_ID = (
     "/subscriptions/sub-example/resourceGroups/rg-example/"
     "providers/Microsoft.Compute/virtualMachines/vm-01"
 )
+NSG_ID = (
+    "/subscriptions/sub-example/resourceGroups/rg-example/"
+    "providers/Microsoft.Network/networkSecurityGroups/nsg-app"
+)
+VNET_ID = (
+    "/subscriptions/sub-example/resourceGroups/rg-example/"
+    "providers/Microsoft.Network/virtualNetworks/vnet-hub"
+)
 LIMITS = ReadToolLimits(timeout_seconds=10, max_results=8, max_output_bytes=64_000)
 
 
@@ -46,7 +54,11 @@ def _config(*, max_attempts: int = 3) -> AzureReadRestConfig:
                 "workspace-example",
             ),
         ),
-        resource_type_map=(("Microsoft.Compute/virtualMachines", "compute.vm"),),
+        resource_type_map=(
+            ("Microsoft.Compute/virtualMachines", "compute.vm"),
+            ("Microsoft.Network/networkSecurityGroups", "network.nsg"),
+            ("Microsoft.Network/virtualNetworks", "network.vnet"),
+        ),
         max_attempts=max_attempts,
     )
 
@@ -225,6 +237,94 @@ async def test_resource_health_fallback_honors_lookback() -> None:
         )
 
     assert health == ()
+
+
+async def test_network_queries_project_only_bounded_server_owned_fields() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["api-version"] == "2025-05-01"
+        if request.url.path.endswith("/networkSecurityGroups/nsg-app"):
+            return httpx.Response(
+                200,
+                json={
+                    "properties": {
+                        "networkInterfaces": [{"id": f"{VNET_ID}/networkInterfaces/nic-app"}],
+                        "subnets": [{"id": f"{VNET_ID}/subnets/app"}],
+                        "securityRules": [
+                            {
+                                "name": "allow-https",
+                                "properties": {
+                                    "access": "Allow",
+                                    "direction": "Inbound",
+                                    "protocol": "Tcp",
+                                    "sourceAddressPrefix": "Internet",
+                                    "sourceAddressPrefixes": [],
+                                    "sourcePortRange": "*",
+                                    "sourcePortRanges": [],
+                                    "destinationAddressPrefix": "*",
+                                    "destinationAddressPrefixes": [],
+                                    "destinationPortRange": "443",
+                                    "destinationPortRanges": [],
+                                    "priority": 200,
+                                    "description": "must not leave the transport",
+                                },
+                            }
+                        ],
+                        "defaultSecurityRules": [],
+                    }
+                },
+            )
+        assert request.url.path.endswith("/virtualNetworks/vnet-hub/virtualNetworkPeerings")
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "name": "hub-to-spoke",
+                        "properties": {
+                            "peeringState": "Connected",
+                            "peeringSyncLevel": "FullyInSync",
+                            "remoteVirtualNetwork": {
+                                "id": VNET_ID.replace("vnet-hub", "vnet-spoke")
+                            },
+                            "remoteVirtualNetworkAddressSpace": {
+                                "addressPrefixes": ["10.20.0.0/16"]
+                            },
+                            "allowVirtualNetworkAccess": True,
+                            "allowForwardedTraffic": True,
+                            "allowGatewayTransit": True,
+                            "useRemoteGateways": False,
+                        },
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        transport = AzureRestReadTransport(
+            config=_config(), identity=_Identity(), http_client=client, clock=lambda: NOW
+        )
+        rules = await transport.query_network_security(NSG_ID, limits=LIMITS)
+        peerings = await transport.query_network_peerings(VNET_ID, limits=LIMITS)
+
+    assert rules == (
+        {
+            "observed_at": NOW.isoformat(),
+            "status": "Allow",
+            "rule_name": "allow-https",
+            "rule_kind": "custom",
+            "direction": "Inbound",
+            "protocol": "Tcp",
+            "source_prefixes": "Internet",
+            "source_ports": "*",
+            "destination_prefixes": "*",
+            "destination_ports": "443",
+            "priority": 200,
+            "associations": "nic:nic-app,subnet:app",
+        },
+    )
+    assert "description" not in rules[0]
+    assert peerings[0]["remote_vnet"] == "vnet-spoke"
+    assert peerings[0]["sync_level"] == "FullyInSync"
 
 
 async def test_throttling_retries_within_cap_and_output_overflow_fails_closed() -> None:

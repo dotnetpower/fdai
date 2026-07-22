@@ -20,6 +20,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _ARG_API_VERSION: Final = "2022-10-01"
 _ACTIVITY_API_VERSION: Final = "2015-04-01"
 _RESOURCE_HEALTH_API_VERSION: Final = "2025-05-01"
+_NETWORK_API_VERSION: Final = "2025-05-01"
 _MANAGEMENT_AUDIENCE: Final = "https://management.azure.com/.default"
 _LOGS_AUDIENCE: Final = "https://api.loganalytics.io/.default"
 
@@ -314,6 +315,127 @@ class AzureRestReadTransport:
         )
         return _log_rows(payload)
 
+    async def query_network_security(
+        self,
+        provider_ref: str,
+        *,
+        limits: ReadToolLimits,
+    ) -> Sequence[AzureRow]:
+        self._scope_for_resource(provider_ref)
+        if _resource_type(provider_ref) != "microsoft.network/networksecuritygroups":
+            raise AzureReadRestError("network security query requires an NSG resource")
+        payload = await self._json_request(
+            "GET",
+            f"{self._config.management_endpoint.rstrip('/')}{provider_ref}",
+            audience=_MANAGEMENT_AUDIENCE,
+            limits=limits,
+            params={"api-version": _NETWORK_API_VERSION},
+        )
+        properties = payload.get("properties")
+        if not isinstance(properties, Mapping):
+            raise AzureReadRestError("NSG response missing properties")
+        associations = _network_associations(properties)
+        observed_at = self._clock().isoformat()
+        rows: list[AzureRow] = []
+        for collection_name, rule_kind in (
+            ("securityRules", "custom"),
+            ("defaultSecurityRules", "default"),
+        ):
+            rules = properties.get(collection_name)
+            if not isinstance(rules, list):
+                continue
+            for rule in rules:
+                if not isinstance(rule, Mapping):
+                    continue
+                rule_properties = rule.get("properties")
+                if not isinstance(rule_properties, Mapping):
+                    continue
+                rows.append(
+                    {
+                        "observed_at": observed_at,
+                        "status": rule_properties.get("access"),
+                        "rule_name": rule.get("name"),
+                        "rule_kind": rule_kind,
+                        "direction": rule_properties.get("direction"),
+                        "protocol": rule_properties.get("protocol"),
+                        "source_prefixes": _joined_values(
+                            rule_properties,
+                            singular="sourceAddressPrefix",
+                            plural="sourceAddressPrefixes",
+                        ),
+                        "source_ports": _joined_values(
+                            rule_properties,
+                            singular="sourcePortRange",
+                            plural="sourcePortRanges",
+                        ),
+                        "destination_prefixes": _joined_values(
+                            rule_properties,
+                            singular="destinationAddressPrefix",
+                            plural="destinationAddressPrefixes",
+                        ),
+                        "destination_ports": _joined_values(
+                            rule_properties,
+                            singular="destinationPortRange",
+                            plural="destinationPortRanges",
+                        ),
+                        "priority": rule_properties.get("priority"),
+                        "associations": associations,
+                    }
+                )
+        if len(rows) > limits.max_results:
+            return (*rows[: limits.max_results], {"_truncated": True})
+        return tuple(rows)
+
+    async def query_network_peerings(
+        self,
+        provider_ref: str,
+        *,
+        limits: ReadToolLimits,
+    ) -> Sequence[AzureRow]:
+        self._scope_for_resource(provider_ref)
+        if _resource_type(provider_ref) != "microsoft.network/virtualnetworks":
+            raise AzureReadRestError("network peering query requires a virtual network resource")
+        payload = await self._json_request(
+            "GET",
+            f"{self._config.management_endpoint.rstrip('/')}{provider_ref}/virtualNetworkPeerings",
+            audience=_MANAGEMENT_AUDIENCE,
+            limits=limits,
+            params={"api-version": _NETWORK_API_VERSION},
+        )
+        values = payload.get("value")
+        if not isinstance(values, list):
+            raise AzureReadRestError("VNet peering response missing value array")
+        observed_at = self._clock().isoformat()
+        rows: list[AzureRow] = []
+        for peering in values[: limits.max_results]:
+            if not isinstance(peering, Mapping):
+                continue
+            properties = peering.get("properties")
+            if not isinstance(properties, Mapping):
+                continue
+            rows.append(
+                {
+                    "observed_at": observed_at,
+                    "status": properties.get("peeringState"),
+                    "peering_name": peering.get("name"),
+                    "remote_vnet": _resource_name(properties.get("remoteVirtualNetwork")),
+                    "sync_level": properties.get("peeringSyncLevel"),
+                    "allow_vnet_access": properties.get("allowVirtualNetworkAccess"),
+                    "allow_forwarded_traffic": properties.get("allowForwardedTraffic"),
+                    "allow_gateway_transit": properties.get("allowGatewayTransit"),
+                    "use_remote_gateways": properties.get("useRemoteGateways"),
+                    "remote_address_prefixes": _address_prefixes(
+                        properties.get("remoteVirtualNetworkAddressSpace")
+                        or properties.get("remoteAddressSpace")
+                    ),
+                    "local_subnets": _joined_strings(properties.get("localSubnetNames")),
+                    "remote_subnets": _joined_strings(properties.get("remoteSubnetNames")),
+                }
+            )
+        if len(values) > limits.max_results or isinstance(payload.get("nextLink"), str):
+            rows.append({"_truncated": True})
+        return tuple(rows)
+
     async def _arg(
         self,
         scope: AzureReadScopeBinding,
@@ -450,6 +572,67 @@ def _azure_timestamp(value: str) -> datetime | None:
     except ValueError:
         return None
     return parsed.astimezone(UTC) if parsed.tzinfo is not None else None
+
+
+def _resource_type(resource_id: str) -> str:
+    parts = resource_id.strip("/").split("/")
+    try:
+        provider_index = next(
+            index for index, part in enumerate(parts) if part.casefold() == "providers"
+        )
+        return f"{parts[provider_index + 1]}/{parts[provider_index + 2]}".casefold()
+    except (StopIteration, IndexError) as exc:
+        raise AzureReadRestError("resolved resource has an invalid provider type") from exc
+
+
+def _joined_values(
+    properties: Mapping[str, object],
+    *,
+    singular: str,
+    plural: str,
+) -> str:
+    many = properties.get(plural)
+    if isinstance(many, list):
+        rendered = _joined_strings(many)
+        if rendered != "none":
+            return rendered
+    one = properties.get(singular)
+    return one[:512] if isinstance(one, str) and one else "unknown"
+
+
+def _joined_strings(value: object) -> str:
+    if not isinstance(value, list):
+        return "none"
+    rendered = ",".join(item for item in value if isinstance(item, str) and item)
+    return rendered[:512] or "none"
+
+
+def _resource_name(value: object) -> str:
+    if not isinstance(value, Mapping):
+        return "unknown"
+    resource_id = value.get("id")
+    if not isinstance(resource_id, str) or not resource_id:
+        return "unknown"
+    return resource_id.rstrip("/").rsplit("/", maxsplit=1)[-1][:256]
+
+
+def _address_prefixes(value: object) -> str:
+    if not isinstance(value, Mapping):
+        return "none"
+    return _joined_strings(value.get("addressPrefixes"))
+
+
+def _network_associations(properties: Mapping[str, object]) -> str:
+    associations: list[str] = []
+    for collection, kind in (("networkInterfaces", "nic"), ("subnets", "subnet")):
+        values = properties.get(collection)
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            name = _resource_name(value)
+            if name != "unknown":
+                associations.append(f"{kind}:{name}")
+    return ",".join(associations)[:512] or "none"
 
 
 def _nested(row: Mapping[str, object], key: str) -> str | None:

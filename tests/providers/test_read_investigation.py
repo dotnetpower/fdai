@@ -82,6 +82,34 @@ def test_evidence_envelope_keeps_actor_and_refs_bounded() -> None:
             actor_ref="principal:opaque",
             occurred_at=NOW,
         )
+
+
+def test_network_evidence_details_are_bounded_and_unique() -> None:
+    record = ReadEvidenceRecord(
+        occurred_at=NOW,
+        status="allow",
+        details=(
+            ("direction", "inbound"),
+            ("protocol", "tcp"),
+            ("destination_ports", "443"),
+            ("source_prefixes", "Internet"),
+        ),
+    )
+    assert dict(record.details)["destination_ports"] == "443"
+
+    with pytest.raises(ValueError, match="detail names MUST be unique"):
+        ReadEvidenceRecord(
+            occurred_at=NOW,
+            status="allow",
+            details=(("direction", "inbound"), ("direction", "outbound")),
+        )
+
+    with pytest.raises(ValueError, match="details MUST contain <= 24"):
+        ReadEvidenceRecord(
+            occurred_at=NOW,
+            status="allow",
+            details=tuple((f"field_{index}", "value") for index in range(25)),
+        )
     with pytest.raises(ValueError, match="non-matched"):
         ReadEvidenceEnvelope(
             status=EvidenceStatus.NONE,

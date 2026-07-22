@@ -18,6 +18,7 @@ name: deploy-dev
 #       INGESTION_CORS_ALLOW_ORIGINS, CLAMAV_IMAGE,
 #       SCHEDULER_TICK_CRON_EXPRESSION, ANALYZER_TICK_CRON_EXPRESSION,
 #       ANALYZER_TARGETS_JSON, ANALYZER_WINDOW_SECONDS, ANALYZER_BUDGET_SECONDS,
+#       DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON (optional server-owned probe map),
 #       ENABLE_EMAIL_NOTIFICATIONS, NOTIFICATION_EMAIL_RECIPIENTS_JSON
 #       (required when deploy_document_ingestion=true; prod images use digests)
 #   - Repo secrets:
@@ -66,6 +67,10 @@ on:
         default: false
       deploy_read_api:
         description: "Provision the console read-API Container App + migration job (enable_read_api)."
+        type: boolean
+        default: false
+      deploy_dev_operations_gateway:
+        description: "Provision the dev-only private-resource operations Function gateway."
         type: boolean
         default: false
       deploy_document_ingestion:
@@ -117,6 +122,8 @@ jobs:
       TF_VAR_enable_private_postgres: ${{ inputs.environment == 'prod' }}
       TF_VAR_enable_console: ${{ inputs.deploy_console }}
       TF_VAR_enable_read_api: ${{ inputs.deploy_read_api }}
+      TF_VAR_enable_dev_operations_gateway: ${{ inputs.environment == 'dev' && inputs.deploy_dev_operations_gateway }}
+      TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
       TF_VAR_enable_llm: ${{ inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' }}
       TF_VAR_resolved_capabilities: "${{ vars.RESOLVED_CAPABILITIES_JSON }}"

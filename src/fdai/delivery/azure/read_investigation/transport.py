@@ -53,5 +53,19 @@ class AzureReadTransport(Protocol):
         limits: ReadToolLimits,
     ) -> Sequence[AzureRow]: ...
 
+    async def query_network_security(
+        self,
+        provider_ref: str,
+        *,
+        limits: ReadToolLimits,
+    ) -> Sequence[AzureRow]: ...
+
+    async def query_network_peerings(
+        self,
+        provider_ref: str,
+        *,
+        limits: ReadToolLimits,
+    ) -> Sequence[AzureRow]: ...
+
 
 __all__ = ["AzureReadTransport", "AzureRow"]

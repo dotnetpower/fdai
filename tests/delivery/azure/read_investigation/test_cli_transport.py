@@ -144,6 +144,10 @@ async def test_cli_transport_rejects_scope_widening_and_unsupported_sources() ->
             lookback_seconds=3_600,
             limits=LIMITS,
         )
+    with pytest.raises(AzureReadCliError, match="NSG rules"):
+        await transport.query_network_security(RESOURCE_ID, limits=LIMITS)
+    with pytest.raises(AzureReadCliError, match="VNet peerings"):
+        await transport.query_network_peerings(RESOURCE_ID, limits=LIMITS)
     assert runner.plans == []
 
 

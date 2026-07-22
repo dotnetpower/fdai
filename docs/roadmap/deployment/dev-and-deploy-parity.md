@@ -83,6 +83,13 @@ identity selected by `FDAI_MI_CLIENT_ID`. The workspace is server-configured and
 by the browser. If the workspace, identity, permission, or telemetry is unavailable, the query
 holds as unavailable without a fixture or model fallback.
 
+The local runtime environment generator also supplies the applied subscription and resource group
+to the bounded Azure read-investigation adapter. NSG and VNet peering questions use the current
+Azure CLI token against server-owned ARM paths. Private data-plane probes use the optional
+development operations gateway URL emitted by Terraform. The gateway accepts only registered
+operations, uses separate reader and executor managed identities, and does not give the local read
+API an execution identity.
+
 The local factory starts all 15 agents by default. `FDAI_START_PANTHEON` is a disable-only control:
 unset means enabled, while `0`, `false`, `no`, or `off` disables the runtime. When Event Hubs is
 configured, the agents use that Azure transport under a dedicated local consumer group. Otherwise,

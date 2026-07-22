@@ -124,6 +124,9 @@ from fdai.delivery.read_api.dev.iam_directory import (  # noqa: E402
     build_local_iam_directory,
 )
 from fdai.delivery.read_api.dev.model_wiring import build_local_model_wiring  # noqa: E402
+from fdai.delivery.read_api.dev.read_investigation import (  # noqa: E402
+    build_local_read_investigation,
+)
 from fdai.delivery.read_api.dev.runtime_wiring import (  # noqa: E402
     build_interactive_pantheon_wiring,
     build_local_runtime_wiring,
@@ -310,6 +313,7 @@ def build_local_app(
     workflow_execution = views.workflow_execution
     scope_source = _build_scope_view() if test_fixtures else None
     conversation_delivery_store = None
+    persistence = None
     durable_panels: tuple[ReadPanel, ...] = ()
     if local_database_configured and not test_fixtures:
         postgres_read_model = cast(PostgresConsoleReadModel, read_model)
@@ -371,6 +375,15 @@ def build_local_app(
         user_context = user_context_group.routes
         workflow_definitions = user_context_group.workflow_definitions
         user_context_startup_callbacks = (user_context_group.seed_callback,)
+
+    local_read_investigation = (
+        build_local_read_investigation(
+            state_store=persistence.state_store,
+            environ=os.environ,
+        )
+        if persistence is not None and not test_fixtures
+        else None
+    )
 
     command_transport = (
         None
@@ -623,7 +636,11 @@ def build_local_app(
             chat_web_search=models.web_search,
             chat_probe_interval_seconds=_chat_probe_interval_seconds(),
             chat_agent_delegate=(
-                PantheonChatDelegate(runtime.pantheon_runtime) if runtime is not None else None
+                local_read_investigation.chat_delegate
+                if local_read_investigation is not None
+                else PantheonChatDelegate(runtime.pantheon_runtime)
+                if runtime is not None
+                else None
             ),
             console_action=(
                 runtime.console_action
@@ -664,6 +681,7 @@ def build_local_app(
             )
             + ((command_transport.shutdown,) if command_transport is not None else ())
             + ((authoritative_read_proxy.aclose,) if authoritative_read_proxy is not None else ())
+            + ((local_read_investigation.close,) if local_read_investigation is not None else ())
             + log_query_shutdown_callbacks
             + iam.shutdown_callbacks,
         ),

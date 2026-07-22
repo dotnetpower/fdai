@@ -7,6 +7,7 @@ from fdai.core.read_investigation import (
     PlanLatencyEstimate,
     ReadInvestigationBudget,
     ReadInvestigationExecutionMode,
+    ReadInvestigationPlan,
     ReadInvestigationRequest,
     ReadLatencyProfile,
     estimate_parallel_p95,
@@ -29,7 +30,7 @@ def _plan(
     intent: ReadInvestigationIntent = ReadInvestigationIntent.RESOURCE_STATE,
     *,
     explicit_deep: bool = False,
-):  # type: ignore[no-untyped-def]
+) -> ReadInvestigationPlan:
     return plan_read_investigation(
         ReadInvestigationRequest(
             requester_ref="principal:one",

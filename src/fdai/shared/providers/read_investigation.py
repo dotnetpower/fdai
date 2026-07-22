@@ -21,6 +21,8 @@ class ReadInvestigationIntent(StrEnum):
     RESOURCE_CHANGE_HISTORY = "resource_change_history"
     PLATFORM_HEALTH = "platform_health"
     GUEST_SHUTDOWN = "guest_shutdown"
+    NETWORK_SECURITY = "network_security"
+    NETWORK_PEERING = "network_peering"
 
 
 class ReadToolId(StrEnum):
@@ -29,6 +31,8 @@ class ReadToolId(StrEnum):
     QUERY_RESOURCE_ACTIVITY = "query_resource_activity"
     QUERY_RESOURCE_HEALTH = "query_resource_health"
     QUERY_GUEST_SHUTDOWN_EVENTS = "query_guest_shutdown_events"
+    QUERY_NETWORK_SECURITY = "query_network_security"
+    QUERY_NETWORK_PEERINGS = "query_network_peerings"
 
 
 class ResourceResolutionStatus(StrEnum):
@@ -142,6 +146,7 @@ class ReadEvidenceRecord:
     correlation_ref: str | None = None
     state: str | None = None
     health_kind: str | None = None
+    details: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         _aware("evidence occurred_at", self.occurred_at)
@@ -155,8 +160,20 @@ class ReadEvidenceRecord:
         ):
             if value is not None:
                 _identifier(f"evidence {name}", value)
-        if all(value is None for value in (self.operation_kind, self.state, self.health_kind)):
-            raise ValueError("evidence record requires operation_kind, state, or health_kind")
+        if len(self.details) > 24:
+            raise ValueError("evidence record details MUST contain <= 24 values")
+        detail_names = tuple(name for name, _ in self.details)
+        if len(set(detail_names)) != len(detail_names):
+            raise ValueError("evidence record detail names MUST be unique")
+        for name, value in self.details:
+            _identifier("evidence detail name", name)
+            _label("evidence detail value", value)
+        if all(value is None for value in (self.operation_kind, self.state, self.health_kind)) and (
+            not self.details
+        ):
+            raise ValueError(
+                "evidence record requires operation_kind, state, health_kind, or details"
+            )
         if (self.actor_ref is None) != (self.actor_kind is None):
             raise ValueError("actor_ref and actor_kind MUST be set together")
 
@@ -287,6 +304,14 @@ class ReadInvestigationProvider(Protocol):
 
     async def query_guest_shutdown_events(
         self, resource: ResolvedResource, *, lookback_seconds: int, limits: ReadToolLimits
+    ) -> ReadEvidenceAttempt: ...
+
+    async def query_network_security(
+        self, resource: ResolvedResource, *, limits: ReadToolLimits
+    ) -> ReadEvidenceAttempt: ...
+
+    async def query_network_peerings(
+        self, resource: ResolvedResource, *, limits: ReadToolLimits
     ) -> ReadEvidenceAttempt: ...
 
 

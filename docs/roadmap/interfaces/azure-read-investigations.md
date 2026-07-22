@@ -9,7 +9,8 @@ Bragi owns the conversation, Heimdall owns resource-change and external-actor in
 provider adapters gather evidence without using Thor's execution identity.
 
 > **Scope:** This design covers resource lookup, Activity Log attribution, Resource Health, guest
-> log fallback, execution-time prediction, progress delivery, and detached investigation sessions.
+> log fallback, configured NSG rules, VNet peering topology, execution-time prediction, progress
+> delivery, and detached investigation sessions.
 > It does not authorize or execute an Azure change.
 
 ## Design at a glance
@@ -57,8 +58,8 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 |------------|---------------|----------|
 | Bragi and Heimdall routing | Implemented | Deterministic English and Korean actor, shutdown, history, health, and state routing selects Heimdall before generic scoring. |
 | Exact resource resolution | Implemented | `not_found`, bounded `ambiguous`, and one scope-bound exact reference stop history queries until resolution succeeds. |
-| Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, and guest logs. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
-| Read-tool attenuation | Implemented | `background.read-only` contains exactly the five Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
+| Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, guest logs, configured NSG rules, and VNet peering properties. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
+| Read-tool attenuation | Implemented | `background.read-only` contains exactly seven Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
 | Execution modes and progress | Implemented | Durable p50/p95 profiles select direct, streamed, or detached mode before cloud I/O. Semantic progress is bounded and terminal once. |
 | Detached execution and quotas | Implemented | The typed executor receives no narrator history, screen state, event bus, Thor, or executor identity. Per-principal concurrency, cost, wall-clock, and tool-call quotas are enforced at durable creation. |
 | Completion handoff | Implemented | Terminal result commit precedes the idempotent conversation turn and durable reply-ledger enqueue. Provider delivery remains a separate retryable concern. |
@@ -78,6 +79,9 @@ The initial intent vocabulary is:
 - **`resource_change_history`**: Return recent allowlisted changes for one resolved resource.
 - **`platform_health`**: Explain Azure platform availability evidence.
 - **`guest_shutdown`**: Search configured guest logs for an operating-system shutdown event.
+- **`network_security`**: Return configured NSG rules and their subnet or NIC associations.
+- **`network_peering`**: Return one VNet's peering state, sync level, address spaces, and traffic or
+  gateway flags.
 
 The planner resolves a resource name before querying history. Zero matches produce `not_found`.
 Multiple matches produce `ambiguous` with bounded candidates and no further cloud query. A single
@@ -95,6 +99,8 @@ an output cap, and an evidence schema.
 | `query_resource_activity` | Azure Activity Log REST or configured `AzureActivity` projection | Return bounded control-plane operations and caller attribution |
 | `query_resource_health` | Resource Health or ARG `HealthResources` | Distinguish platform availability events from customer operations |
 | `query_guest_shutdown_events` | Log Analytics guest-log projection | Find operating-system shutdown evidence when diagnostic collection is configured |
+| `query_network_security` | Network resource provider | Return bounded custom and default NSG rule fields and associations |
+| `query_network_peerings` | Network resource provider | Return bounded VNet peering state, synchronization, address-space, and routing flags |
 
 REST or SDK adapters are the production default. Azure CLI is an allowlisted fallback behind the
 existing typed command broker. The model never creates argv, KQL, an ARG query, a subscription id,
@@ -134,6 +140,11 @@ enter narrator context.
 `status` is one of `matched`, `ambiguous`, `none`, or `unavailable`. A server projection may
 render an authorized caller label, but durable records and metric labels retain opaque references.
 Evidence text is untrusted data and cannot grant approval or execution eligibility.
+
+An NSG `Allow` record is configured-rule evidence, not proof that a port is reachable end to end.
+The answer names that limitation. Effective NIC rules, Network Watcher IP Flow Verify, reciprocal
+peering reads, and effective routes remain additional evidence steps before FDAI can claim actual
+reachability or bidirectional connectivity.
 
 ## Source selection and fallbacks
 
@@ -225,6 +236,10 @@ Production registers the routes only when `FDAI_AZURE_READER_SUBSCRIPTION_ID`,
 `FDAI_AZURE_READER_CLIENT_ID`, and a non-empty comma-separated
 `FDAI_AZURE_READER_RESOURCE_GROUPS` allowlist are present. `FDAI_MONITOR_WORKSPACE_ID` is optional;
 without it, guest shutdown evidence reports `unavailable` while other sources remain usable.
+
+Interactive local uses the same server-owned scope with the current Azure CLI token. The local
+runtime environment generator supplies the applied subscription and resource group after checking
+that the active CLI subscription matches Terraform. It never gives that credential to Thor.
 
 The detached-task API uses the separate `start-read-investigation` capability. Contributor,
 Approver, and Owner roles receive it; Reader and Break-Glass do not. Per-principal concurrency,

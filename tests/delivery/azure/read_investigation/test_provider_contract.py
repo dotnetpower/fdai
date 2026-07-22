@@ -9,6 +9,7 @@ from fdai.delivery.azure.read_investigation import (
     AzureRow,
 )
 from fdai.shared.providers.read_investigation import (
+    ReadEvidenceEnvelope,
     ReadInvestigationProvider,
     ReadToolLimits,
     ResourceResolutionStatus,
@@ -93,6 +94,52 @@ class _Transport:
         del provider_ref, lookback_seconds, limits
         return [{"occurred_at": NOW.isoformat(), "status": "observed"}]
 
+    async def query_network_security(
+        self,
+        provider_ref: str,
+        *,
+        limits: ReadToolLimits,
+    ) -> Sequence[AzureRow]:
+        del provider_ref, limits
+        return [
+            {
+                "observed_at": NOW.isoformat(),
+                "status": "Allow",
+                "rule_name": "allow-https",
+                "rule_kind": "custom",
+                "direction": "Inbound",
+                "protocol": "Tcp",
+                "source_prefixes": "Internet",
+                "source_ports": "*",
+                "destination_prefixes": "*",
+                "destination_ports": "443",
+                "priority": 200,
+                "associations": "subnet:app",
+            }
+        ]
+
+    async def query_network_peerings(
+        self,
+        provider_ref: str,
+        *,
+        limits: ReadToolLimits,
+    ) -> Sequence[AzureRow]:
+        del provider_ref, limits
+        return [
+            {
+                "observed_at": NOW.isoformat(),
+                "status": "Connected",
+                "peering_name": "hub-to-spoke",
+                "remote_vnet": "vnet-spoke",
+                "sync_level": "FullyInSync",
+                "allow_vnet_access": True,
+                "allow_forwarded_traffic": True,
+                "allow_gateway_transit": True,
+                "use_remote_gateways": False,
+                "remote_address_prefixes": "10.20.0.0/16",
+            }
+        ]
+
 
 async def _normalized(adapter: ReadInvestigationProvider) -> tuple[object, ...]:
     resolution_attempt = await adapter.resolve_resource(
@@ -116,6 +163,8 @@ async def _normalized(adapter: ReadInvestigationProvider) -> tuple[object, ...]:
                 resource, lookback_seconds=3_600, limits=LIMITS
             )
         ).evidence,
+        (await adapter.query_network_security(resource, limits=LIMITS)).evidence,
+        (await adapter.query_network_peerings(resource, limits=LIMITS)).evidence,
     )
 
 
@@ -127,6 +176,12 @@ async def test_rest_and_typed_cli_produce_the_same_normalized_envelopes() -> Non
     assert rest_result == cli_result
     assert RAW_RESOURCE_ID not in repr(rest_result)
     assert RAW_CALLER not in repr(rest_result)
+    network_security = rest_result[-2]
+    network_peering = rest_result[-1]
+    assert isinstance(network_security, ReadEvidenceEnvelope)
+    assert isinstance(network_peering, ReadEvidenceEnvelope)
+    assert dict(network_security.records[0].details)["destination_ports"] == "443"
+    assert dict(network_peering.records[0].details)["sync_level"] == "FullyInSync"
 
 
 async def test_ambiguous_resolution_is_bounded_and_does_not_bind_a_resource() -> None:

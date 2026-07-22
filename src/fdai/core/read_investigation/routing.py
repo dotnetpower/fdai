@@ -35,6 +35,31 @@ _STATE = re.compile(
     r"(?:현재 상태|리소스 상태|가상 머신 상태|전원 상태|실행 중|중지됨|할당 해제)",
     re.IGNORECASE,
 )
+_NETWORK_MUTATION = re.compile(
+    r"\b(?:open|close|allow|deny|add|remove|change|update|create|delete|connect|disconnect)"
+    r"\s+(?:the\s+)?(?:port|rule|nsg|peering)\b|"
+    r"(?:포트|규칙|NSG|nsg|피어링).{0,20}"
+    r"(?:열어|닫아|허용해|차단해|추가해|삭제해|변경해|수정해|연결해|끊어)",
+    re.IGNORECASE,
+)
+_NETWORK_SECURITY = re.compile(
+    r"\b(?:nsg|network security group|effective security rules?)\b.{0,64}"
+    r"\b(?:open|opened|allowed?|port|rules?|effective)\b|"
+    r"\b(?:what|which)\b.{0,32}\bports?\b.{0,16}\b(?:open|allowed)\b.{0,32}"
+    r"\b(?:nsg|network security group)\b|"
+    r"\b(?:what|which|show|list)\b.{0,64}"
+    r"\b(?:open ports?|allowed ports?|nsg rules?|effective security rules?)\b|"
+    r"(?:NSG|nsg|네트워크 보안 그룹).{0,64}"
+    r"(?:열린|열려|허용된|포트|규칙|유효 규칙)",
+    re.IGNORECASE,
+)
+_NETWORK_PEERING = re.compile(
+    r"\b(?:vnet|virtual network)\b.{0,48}\bpeer(?:ing|ed)?\b|"
+    r"\bpeer(?:ing|ed)?\b.{0,48}\b(?:vnet|virtual network|connected|topology)\b|"
+    r"(?:VNet|vnet|가상 네트워크).{0,48}(?:피어링|연결 구조|연결 상태)|"
+    r"(?:피어링).{0,48}(?:구성|연결|상태|토폴로지)",
+    re.IGNORECASE,
+)
 _RESOURCE_TOKEN = re.compile(r"(?<![A-Za-z0-9_.()-])[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}")
 _RESOURCE_WORDS = frozenset(
     {
@@ -58,6 +83,8 @@ def classify_read_investigation_intent(question: str) -> ReadInvestigationIntent
     normalized = " ".join(question.split())
     if not normalized:
         return None
+    if _NETWORK_MUTATION.search(normalized):
+        return None
     if _ATTRIBUTION.search(normalized):
         return ReadInvestigationIntent.CHANGE_ATTRIBUTION
     if _GUEST.search(normalized):
@@ -68,6 +95,10 @@ def classify_read_investigation_intent(question: str) -> ReadInvestigationIntent
         return ReadInvestigationIntent.PLATFORM_HEALTH
     if _STATE.search(normalized):
         return ReadInvestigationIntent.RESOURCE_STATE
+    if _NETWORK_SECURITY.search(normalized):
+        return ReadInvestigationIntent.NETWORK_SECURITY
+    if _NETWORK_PEERING.search(normalized):
+        return ReadInvestigationIntent.NETWORK_PEERING
     return None
 
 

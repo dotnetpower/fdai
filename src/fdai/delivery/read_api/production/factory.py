@@ -505,7 +505,11 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                         workspace_id=env.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() or None,
                     ),
                 ),
-                resource_type_map=(("Microsoft.Compute/virtualMachines", "compute.vm"),),
+                resource_type_map=(
+                    ("Microsoft.Compute/virtualMachines", "compute.vm"),
+                    ("Microsoft.Network/networkSecurityGroups", "network.nsg"),
+                    ("Microsoft.Network/virtualNetworks", "network.vnet"),
+                ),
             ),
             identity=reader_identity,
             http_client=reader_http,

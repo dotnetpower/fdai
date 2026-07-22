@@ -93,6 +93,18 @@ class _Provider:
         del lookback_seconds, limits
         return self._attempt(ReadToolId.QUERY_GUEST_SHUTDOWN_EVENTS, resource)
 
+    async def query_network_security(
+        self, resource: ResolvedResource, *, limits: ReadToolLimits
+    ) -> ReadEvidenceAttempt:
+        del limits
+        return self._attempt(ReadToolId.QUERY_NETWORK_SECURITY, resource)
+
+    async def query_network_peerings(
+        self, resource: ResolvedResource, *, limits: ReadToolLimits
+    ) -> ReadEvidenceAttempt:
+        del limits
+        return self._attempt(ReadToolId.QUERY_NETWORK_PEERINGS, resource)
+
     def _attempt(self, tool_id: ReadToolId, resource: ResolvedResource) -> ReadEvidenceAttempt:
         self.calls.append(tool_id)
         if tool_id in self.raise_for:
@@ -114,6 +126,8 @@ class _Provider:
             ReadToolId.QUERY_RESOURCE_ACTIVITY: "control_plane_activity",
             ReadToolId.QUERY_RESOURCE_HEALTH: "platform_health",
             ReadToolId.QUERY_GUEST_SHUTDOWN_EVENTS: "guest_shutdown",
+            ReadToolId.QUERY_NETWORK_SECURITY: "network_security",
+            ReadToolId.QUERY_NETWORK_PEERINGS: "network_peering",
         }[tool_id]
         return ReadEvidenceAttempt(
             tool_id=tool_id,

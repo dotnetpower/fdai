@@ -191,6 +191,38 @@ class AzureReadInvestigationProvider:
             limits=limits,
         )
 
+    async def query_network_security(
+        self,
+        resource: ResolvedResource,
+        *,
+        limits: ReadToolLimits,
+    ) -> ReadEvidenceAttempt:
+        return await self._evidence(
+            ReadToolId.QUERY_NETWORK_SECURITY,
+            resource,
+            fetch=lambda provider_ref: self._transport.query_network_security(
+                provider_ref,
+                limits=limits,
+            ),
+            limits=limits,
+        )
+
+    async def query_network_peerings(
+        self,
+        resource: ResolvedResource,
+        *,
+        limits: ReadToolLimits,
+    ) -> ReadEvidenceAttempt:
+        return await self._evidence(
+            ReadToolId.QUERY_NETWORK_PEERINGS,
+            resource,
+            fetch=lambda provider_ref: self._transport.query_network_peerings(
+                provider_ref,
+                limits=limits,
+            ),
+            limits=limits,
+        )
+
     async def _evidence(
         self,
         tool_id: ReadToolId,
@@ -364,6 +396,46 @@ def _normalize_record(tool_id: ReadToolId, row: AzureRow) -> ReadEvidenceRecord 
             status=status,
             operation_kind="guest_shutdown",
         )
+    if tool_id is ReadToolId.QUERY_NETWORK_SECURITY:
+        return ReadEvidenceRecord(
+            occurred_at=occurred_at,
+            status=status,
+            details=_details(
+                row,
+                (
+                    "rule_name",
+                    "rule_kind",
+                    "direction",
+                    "protocol",
+                    "source_prefixes",
+                    "source_ports",
+                    "destination_prefixes",
+                    "destination_ports",
+                    "priority",
+                    "associations",
+                ),
+            ),
+        )
+    if tool_id is ReadToolId.QUERY_NETWORK_PEERINGS:
+        return ReadEvidenceRecord(
+            occurred_at=occurred_at,
+            status=status,
+            details=_details(
+                row,
+                (
+                    "peering_name",
+                    "remote_vnet",
+                    "sync_level",
+                    "allow_vnet_access",
+                    "allow_forwarded_traffic",
+                    "allow_gateway_transit",
+                    "use_remote_gateways",
+                    "remote_address_prefixes",
+                    "local_subnets",
+                    "remote_subnets",
+                ),
+            ),
+        )
     return None
 
 
@@ -376,7 +448,27 @@ def _authority(tool_id: ReadToolId) -> tuple[str, str]:
         ),
         ReadToolId.QUERY_RESOURCE_HEALTH: ("azure.resource_health", "platform_health"),
         ReadToolId.QUERY_GUEST_SHUTDOWN_EVENTS: ("azure.guest_log", "guest_shutdown"),
+        ReadToolId.QUERY_NETWORK_SECURITY: (
+            "azure.network_security",
+            "network_security",
+        ),
+        ReadToolId.QUERY_NETWORK_PEERINGS: ("azure.network_peering", "network_peering"),
     }[tool_id]
+
+
+def _details(row: AzureRow, names: tuple[str, ...]) -> tuple[tuple[str, str], ...]:
+    details: list[tuple[str, str]] = []
+    for name in names:
+        raw = row.get(name)
+        if isinstance(raw, bool):
+            value = str(raw).lower()
+        elif isinstance(raw, (str, int)) and not isinstance(raw, bool):
+            value = str(raw).strip()
+        else:
+            continue
+        if value:
+            details.append((name, value[:512]))
+    return tuple(details)
 
 
 def _operation(raw: object) -> str | None:
@@ -439,6 +531,7 @@ def _evidence_ref(authority: str, record: ReadEvidenceRecord) -> str:
             "correlation_ref": record.correlation_ref,
             "state": record.state,
             "health_kind": record.health_kind,
+            "details": record.details,
         },
         sort_keys=True,
         separators=(",", ":"),

@@ -20,12 +20,17 @@ _DEFAULT_EVIDENCE: dict[ReadInvestigationIntent, tuple[ReadToolId, ...]] = {
     ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY: (ReadToolId.QUERY_RESOURCE_ACTIVITY,),
     ReadInvestigationIntent.PLATFORM_HEALTH: (ReadToolId.QUERY_RESOURCE_HEALTH,),
     ReadInvestigationIntent.GUEST_SHUTDOWN: (ReadToolId.QUERY_GUEST_SHUTDOWN_EVENTS,),
+    ReadInvestigationIntent.NETWORK_SECURITY: (ReadToolId.QUERY_NETWORK_SECURITY,),
+    ReadInvestigationIntent.NETWORK_PEERING: (ReadToolId.QUERY_NETWORK_PEERINGS,),
 }
 
 
 def plan_read_investigation(request: ReadInvestigationRequest) -> ReadInvestigationPlan:
     requested = request.requested_evidence or _DEFAULT_EVIDENCE[request.intent]
-    if request.explicit_deep:
+    if request.explicit_deep and request.intent not in {
+        ReadInvestigationIntent.NETWORK_SECURITY,
+        ReadInvestigationIntent.NETWORK_PEERING,
+    }:
         requested = (
             ReadToolId.GET_RESOURCE_STATE,
             ReadToolId.QUERY_RESOURCE_ACTIVITY,

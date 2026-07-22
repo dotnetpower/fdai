@@ -76,6 +76,22 @@ READ_TOOL_SPECS: tuple[ReadToolSpec, ...] = (
         256_000,
         LatencyClass.SLOW,
     ),
+    ReadToolSpec(
+        ReadToolId.QUERY_NETWORK_SECURITY,
+        "network_security",
+        20.0,
+        64,
+        256_000,
+        LatencyClass.STANDARD,
+    ),
+    ReadToolSpec(
+        ReadToolId.QUERY_NETWORK_PEERINGS,
+        "network_peering",
+        20.0,
+        64,
+        256_000,
+        LatencyClass.STANDARD,
+    ),
 )
 
 _BY_ID = {spec.tool_id: spec for spec in READ_TOOL_SPECS}

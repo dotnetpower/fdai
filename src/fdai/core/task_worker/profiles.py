@@ -17,7 +17,7 @@ class TaskWorkerCapabilityProfile:
             raise ValueError("only the background.read-only profile is supported")
         expected = frozenset(tool.value for tool in ReadToolId)
         if self.allowed_tools != expected:
-            raise ValueError("background.read-only MUST contain the five investigation tools")
+            raise ValueError("background.read-only MUST contain the seven investigation tools")
 
 
 BACKGROUND_READ_ONLY_PROFILE = TaskWorkerCapabilityProfile(

@@ -19,8 +19,11 @@ resource "azurerm_virtual_network" "primary" {
   name                = var.name
   location            = var.location
   resource_group_name = var.resource_group_name
-  address_space       = [var.address_space]
-  tags                = var.tags
+  address_space = concat(
+    [var.address_space],
+    var.enable_functions_subnet ? [var.functions_address_space] : [],
+  )
+  tags = var.tags
 }
 
 resource "azurerm_subnet" "pe" {
@@ -61,6 +64,22 @@ resource "azurerm_subnet" "postgres" {
     name = "postgres-flex"
     service_delegation {
       name    = "Microsoft.DBforPostgreSQL/flexibleServers"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    }
+  }
+}
+
+resource "azurerm_subnet" "functions" {
+  count                = var.enable_functions_subnet ? 1 : 0
+  name                 = "snet-functions"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.primary.name
+  address_prefixes     = [var.functions_subnet_prefix]
+
+  delegation {
+    name = "function-flex"
+    service_delegation {
+      name    = "Microsoft.App/environments"
       actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
     }
   }

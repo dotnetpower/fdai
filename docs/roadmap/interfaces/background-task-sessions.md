@@ -60,7 +60,7 @@ explicitly retryable task kind or an operator-confirmed action.
 
 The shipped executor runs the typed read-investigation service with:
 
-- A server-owned scope, exact resource resolution, and the five registered read tools.
+- A server-owned scope, exact resource resolution, and the seven registered read tools.
 - No narrator backend, parent screen state, transcript, hidden reasoning, mutable memory, event bus,
   Thor, or executor identity.
 - A normalized evidence result and bounded semantic progress instead of raw provider output.

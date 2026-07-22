@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 5f430a341ff25300e93d53384aef14f49e19b494
+translation_source_sha: 146ca81ac773f9c983a1adc412ead8f5c6053a0b
 translation_revised: 2026-07-22
 ---
 
@@ -12,8 +12,8 @@ translation_revised: 2026-07-22
 Thor의 execution identity를 사용하지 않고 evidence를 수집합니다.
 
 > **범위:** 이 설계는 resource 조회, Activity Log attribution, Resource Health, guest log fallback,
-> 실행시간 예측, progress 전달 및 detached investigation session을 다룹니다. Azure 변경을 승인하거나
-> 실행하지 않습니다.
+> 구성된 NSG rule, VNet peering topology, 실행시간 예측, progress 전달 및 detached investigation
+> session을 다룹니다. Azure 변경을 승인하거나 실행하지 않습니다.
 
 ## 설계 개요
 
@@ -59,8 +59,8 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 |------------|-----------|------|
 | Bragi 및 Heimdall routing | 구현됨 | Deterministic 영어 및 한국어 actor, shutdown, history, health, state routing이 generic scoring 전에 Heimdall을 선택합니다. |
 | Exact resource resolution | 구현됨 | `not_found`, bounded `ambiguous`, scope-bound exact reference가 resolution 성공 전 history query를 중지합니다. |
-| Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log를 지원합니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
-| Read-tool attenuation | 구현됨 | `background.read-only`는 Reader tool 5개만 포함하고 mutation, approval, shell, arbitrary-query, nested-worker capability를 차단합니다. |
+| Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log, 구성된 NSG rule 및 VNet peering property를 지원합니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
+| Read-tool attenuation | 구현됨 | `background.read-only`는 Reader tool 7개만 포함하고 mutation, approval, shell, arbitrary-query, nested-worker capability를 차단합니다. |
 | Execution mode 및 progress | 구현됨 | Durable p50/p95 profile이 cloud I/O 전에 direct, streamed, detached mode를 선택합니다. Semantic progress는 제한되며 terminal event는 하나입니다. |
 | Detached execution 및 quota | 구현됨 | Typed executor는 narrator history, screen state, event bus, Thor, executor identity를 받지 않습니다. Per-principal concurrency, cost, wall-clock, tool-call quota는 durable creation에서 적용됩니다. |
 | Completion handoff | 구현됨 | Terminal result commit 후 idempotent conversation turn과 durable reply-ledger enqueue가 이어집니다. Provider delivery는 별도의 retryable concern으로 남습니다. |
@@ -79,6 +79,9 @@ correlation reference, intent, resource selector, lookback, requested evidence, 
 - **`resource_change_history`**: Resolve된 resource 하나의 최근 allowlisted change를 반환합니다.
 - **`platform_health`**: Azure platform availability evidence를 설명합니다.
 - **`guest_shutdown`**: 구성된 guest log에서 operating-system shutdown event를 검색합니다.
+- **`network_security`**: 구성된 NSG rule과 subnet 또는 NIC association을 반환합니다.
+- **`network_peering`**: VNet 하나의 peering state, sync level, address space 및 traffic 또는
+  gateway flag를 반환합니다.
 
 Planner는 history를 조회하기 전에 resource name을 resolve합니다. Match가 없으면 `not_found`를
 반환합니다. 여러 match는 bounded candidate와 함께 `ambiguous`를 반환하고 추가 cloud query를 하지
@@ -96,6 +99,8 @@ Planner는 history를 조회하기 전에 resource name을 resolve합니다. Mat
 | `query_resource_activity` | Azure Activity Log REST 또는 configured `AzureActivity` projection | Bounded control-plane operation 및 caller attribution을 반환합니다. |
 | `query_resource_health` | Resource Health 또는 ARG `HealthResources` | Platform availability event와 customer operation을 구분합니다. |
 | `query_guest_shutdown_events` | Log Analytics guest-log projection | Diagnostic collection이 구성된 경우 operating-system shutdown evidence를 찾습니다. |
+| `query_network_security` | Network resource provider | 제한된 custom/default NSG rule field와 association을 반환합니다. |
+| `query_network_peerings` | Network resource provider | 제한된 VNet peering state, synchronization, address-space 및 routing flag를 반환합니다. |
 
 REST 또는 SDK adapter가 production default입니다. Azure CLI는 기존 typed command broker 뒤의
 allowlisted fallback입니다. Model은 argv, KQL, ARG query, subscription id 또는 ARM URL을 생성하지
@@ -135,6 +140,11 @@ narrator context에 들어가지 않습니다.
 `status`는 `matched`, `ambiguous`, `none`, `unavailable` 중 하나입니다. Server projection은 authorized
 caller label을 렌더링할 수 있지만 durable record 및 metric label은 opaque reference를 유지합니다.
 Evidence text는 untrusted data이며 approval 또는 execution eligibility를 부여할 수 없습니다.
+
+NSG `Allow` record는 구성된 rule evidence이며 port가 end-to-end로 도달 가능하다는 증거가 아닙니다.
+답변은 이 제한을 명시합니다. FDAI가 실제 reachability 또는 양방향 연결을 주장하려면 effective NIC
+rule, Network Watcher IP Flow Verify, 반대편 peering read 및 effective route가 추가 evidence step으로
+필요합니다.
 
 ## Source 선택 및 fallback
 
@@ -226,6 +236,10 @@ Production은 `FDAI_AZURE_READER_SUBSCRIPTION_ID`, `FDAI_AZURE_READER_CLIENT_ID`
 comma-separated `FDAI_AZURE_READER_RESOURCE_GROUPS` allowlist가 모두 있을 때만 route를 등록합니다.
 `FDAI_MONITOR_WORKSPACE_ID`는 optional이며, 없으면 다른 source는 계속 사용할 수 있지만 guest shutdown
 evidence는 `unavailable`을 반환합니다.
+
+Interactive local은 현재 Azure CLI token과 같은 server-owned scope를 사용합니다. Local runtime
+environment generator는 active CLI subscription이 Terraform과 일치하는지 확인한 후 applied
+subscription 및 resource group을 제공합니다. 이 credential은 Thor에 전달되지 않습니다.
 
 Detached-task API는 별도의 `start-read-investigation` capability를 사용합니다. Contributor, Approver,
 Owner role은 이 capability를 받으며 Reader와 Break-Glass는 받지 않습니다. Per-principal concurrency,

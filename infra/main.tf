@@ -122,12 +122,13 @@ resource "azurerm_consumption_budget_resource_group" "monthly" {
 # public path never creates a VNet (see variables.tf).
 # -----------------------------------------------------------------------
 module "network" {
-  count               = var.enable_private_networking ? 1 : 0
-  source              = "./modules/network"
-  name                = "vnet-${var.workload}${local.full_suffix}"
-  location            = var.region
-  resource_group_name = module.resource_group.name
-  tags                = local.tags
+  count                   = var.enable_private_networking ? 1 : 0
+  source                  = "./modules/network"
+  name                    = "vnet-${var.workload}${local.full_suffix}"
+  location                = var.region
+  resource_group_name     = module.resource_group.name
+  enable_functions_subnet = var.enable_dev_operations_gateway
+  tags                    = local.tags
 }
 
 # -----------------------------------------------------------------------
@@ -232,6 +233,45 @@ module "command_api_identity" {
   resource_group_name = module.resource_group.name
   location            = var.region
   tags                = merge(local.tags, { "fdai:component" = "command-transport" })
+}
+
+module "dev_gateway_reader_identity" {
+  count               = var.enable_dev_operations_gateway ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-devgw-reader"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "dev-operations-gateway" })
+}
+
+module "dev_gateway_executor_identity" {
+  count               = var.enable_dev_operations_gateway ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-devgw-executor"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "dev-operations-gateway" })
+}
+
+resource "azurerm_role_assignment" "dev_gateway_reader" {
+  count                = var.enable_dev_operations_gateway ? 1 : 0
+  scope                = module.resource_group.id
+  role_definition_name = "Reader"
+  principal_id         = module.dev_gateway_reader_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "dev_gateway_executor_network" {
+  count                = var.enable_dev_operations_gateway ? 1 : 0
+  scope                = module.resource_group.id
+  role_definition_name = "Network Contributor"
+  principal_id         = module.dev_gateway_executor_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "dev_gateway_executor_vm" {
+  count                = var.enable_dev_operations_gateway ? 1 : 0
+  scope                = module.resource_group.id
+  role_definition_name = "Virtual Machine Contributor"
+  principal_id         = module.dev_gateway_executor_identity[0].principal_id
 }
 
 module "ingestion_identity" {
@@ -442,7 +482,7 @@ resource "azurerm_role_assignment" "canary_eventhubs_sender" {
 # another's identity). The executor MI above stays as the aggregate
 # "action-router" identity; individual verticals attach these MIs when
 # invoking their delivery adapters. Role assignments (per-vertical
-# action whitelists) land in fork-specific policy modules — this
+# action whitelists) land in fork-specific policy modules - this
 # module only guarantees the MI resources exist.
 # -----------------------------------------------------------------------
 module "identity_change" {
@@ -575,6 +615,193 @@ module "document_blob_private_endpoint" {
   private_dns_zone_name = "privatelink.blob.core.windows.net"
   extra_vnet_links      = {}
   tags                  = local.tags
+}
+
+# -----------------------------------------------------------------------
+# Development-only operations gateway - authenticated FC1 Function App.
+# -----------------------------------------------------------------------
+resource "azurerm_storage_account" "dev_gateway" {
+  count                    = var.enable_dev_operations_gateway ? 1 : 0
+  name                     = substr("st${var.workload}gw${local.acr_suffix}${local.storage_unique_suffix}", 0, 24)
+  resource_group_name      = module.resource_group.name
+  location                 = var.region
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  account_kind             = "StorageV2"
+
+  public_network_access_enabled   = false
+  shared_access_key_enabled       = false
+  default_to_oauth_authentication = true
+  allow_nested_items_to_be_public = false
+  min_tls_version                 = "TLS1_2"
+  tags                            = merge(local.tags, { "fdai:component" = "dev-operations-gateway" })
+}
+
+resource "azurerm_role_assignment" "dev_gateway_storage_deployer" {
+  count                = var.enable_dev_operations_gateway ? 1 : 0
+  scope                = azurerm_storage_account.dev_gateway[0].id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+resource "azurerm_role_assignment" "dev_gateway_storage_runtime" {
+  count                = var.enable_dev_operations_gateway ? 1 : 0
+  scope                = azurerm_storage_account.dev_gateway[0].id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = module.dev_gateway_reader_identity[0].principal_id
+}
+
+module "dev_gateway_blob_private_endpoint" {
+  count                 = var.enable_dev_operations_gateway && !var.enable_document_ingestion ? 1 : 0
+  source                = "./modules/private-endpoint"
+  name                  = "pe-devgw-blob-${var.workload}${local.full_suffix}"
+  location              = var.region
+  resource_group_name   = module.resource_group.name
+  subnet_id             = module.network[0].pe_subnet_id
+  vnet_id               = module.network[0].vnet_id
+  target_resource_id    = azurerm_storage_account.dev_gateway[0].id
+  subresource_name      = "blob"
+  private_dns_zone_name = "privatelink.blob.core.windows.net"
+  extra_vnet_links      = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}
+  tags                  = merge(local.tags, { "fdai:component" = "dev-operations-gateway" })
+}
+
+resource "azurerm_private_endpoint" "dev_gateway_blob_shared_dns" {
+  count               = var.enable_dev_operations_gateway && var.enable_document_ingestion ? 1 : 0
+  name                = "pe-devgw-blob-${var.workload}${local.full_suffix}"
+  location            = var.region
+  resource_group_name = module.resource_group.name
+  subnet_id           = module.network[0].pe_subnet_id
+  tags                = merge(local.tags, { "fdai:component" = "dev-operations-gateway" })
+
+  private_service_connection {
+    name                           = "pe-devgw-blob-${var.workload}${local.full_suffix}-psc"
+    private_connection_resource_id = azurerm_storage_account.dev_gateway[0].id
+    subresource_names              = ["blob"]
+    is_manual_connection           = false
+  }
+
+  private_dns_zone_group {
+    name                 = "default"
+    private_dns_zone_ids = [module.document_blob_private_endpoint[0].private_dns_zone_id]
+  }
+}
+
+resource "azurerm_storage_container" "dev_gateway_deployment" {
+  count                 = var.enable_dev_operations_gateway ? 1 : 0
+  name                  = "function-releases"
+  storage_account_id    = azurerm_storage_account.dev_gateway[0].id
+  container_access_type = "private"
+
+  depends_on = [
+    azurerm_role_assignment.dev_gateway_storage_deployer,
+    module.dev_gateway_blob_private_endpoint,
+    azurerm_private_endpoint.dev_gateway_blob_shared_dns,
+    azurerm_virtual_network_peering.spoke_to_hub,
+    azurerm_virtual_network_peering.hub_to_spoke,
+  ]
+}
+
+resource "azurerm_service_plan" "dev_gateway" {
+  count               = var.enable_dev_operations_gateway ? 1 : 0
+  name                = "asp-${var.workload}${local.full_suffix}-devgw"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  os_type             = "Linux"
+  sku_name            = "FC1"
+  tags                = merge(local.tags, { "fdai:component" = "dev-operations-gateway" })
+}
+
+data "archive_file" "dev_gateway" {
+  count       = var.enable_dev_operations_gateway ? 1 : 0
+  type        = "zip"
+  source_dir  = "${path.module}/../delivery/dev_operations_gateway"
+  output_path = "${path.module}/.terraform/fdai-dev-operations-gateway.zip"
+  excludes    = ["README.md", ".funcignore", "__pycache__"]
+}
+
+resource "azurerm_function_app_flex_consumption" "dev_gateway" {
+  count               = var.enable_dev_operations_gateway ? 1 : 0
+  name                = "func-${var.workload}${local.full_suffix}-devgw-${local.storage_unique_suffix}"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  service_plan_id     = azurerm_service_plan.dev_gateway[0].id
+
+  runtime_name                                   = "python"
+  runtime_version                                = "3.12"
+  storage_container_type                         = "blobContainer"
+  storage_container_endpoint                     = "${azurerm_storage_account.dev_gateway[0].primary_blob_endpoint}${azurerm_storage_container.dev_gateway_deployment[0].name}"
+  storage_authentication_type                    = "UserAssignedIdentity"
+  storage_user_assigned_identity_id              = module.dev_gateway_reader_identity[0].resource_id
+  virtual_network_subnet_id                      = module.network[0].functions_subnet_id
+  public_network_access_enabled                  = true
+  https_only                                     = true
+  maximum_instance_count                         = 2
+  instance_memory_in_mb                          = 2048
+  zip_deploy_file                                = data.archive_file.dev_gateway[0].output_path
+  webdeploy_publish_basic_authentication_enabled = false
+
+  identity {
+    type = "UserAssigned"
+    identity_ids = [
+      module.dev_gateway_reader_identity[0].resource_id,
+      module.dev_gateway_executor_identity[0].resource_id,
+    ]
+  }
+
+  app_settings = {
+    APPLICATIONINSIGHTS_CONNECTION_STRING  = azurerm_application_insights.core.connection_string
+    FDAI_ENV                               = "dev"
+    FDAI_DEV_GATEWAY_ENABLED               = "1"
+    FDAI_DEV_GATEWAY_SUBSCRIPTION_ID       = data.azurerm_client_config.current.subscription_id
+    FDAI_DEV_GATEWAY_RESOURCE_GROUPS       = module.resource_group.name
+    FDAI_DEV_GATEWAY_CONTRIBUTOR_GROUP_ID  = var.rbac_contributors_group_id
+    FDAI_DEV_GATEWAY_EXECUTOR_PRINCIPAL_ID = module.identity.principal_id
+    FDAI_DEV_GATEWAY_READER_MI_CLIENT_ID   = module.dev_gateway_reader_identity[0].client_id
+    FDAI_DEV_GATEWAY_EXECUTOR_MI_CLIENT_ID = module.dev_gateway_executor_identity[0].client_id
+    FDAI_DEV_GATEWAY_PRIVATE_PROBES_JSON   = var.dev_operations_gateway_private_probes_json
+  }
+
+  auth_settings_v2 {
+    auth_enabled           = true
+    require_authentication = true
+    require_https          = true
+    unauthenticated_action = "Return401"
+
+    login {
+      token_store_enabled = false
+    }
+
+    active_directory_v2 {
+      client_id            = trimprefix(var.read_api_audience, "api://")
+      tenant_auth_endpoint = "https://login.microsoftonline.com/${var.tenant_id}/v2.0"
+      allowed_audiences    = [var.read_api_audience]
+    }
+  }
+
+  site_config {
+    application_insights_connection_string = azurerm_application_insights.core.connection_string
+    health_check_path                      = "/api/health"
+    minimum_tls_version                    = "1.2"
+    remote_debugging_enabled               = false
+    vnet_route_all_enabled                 = true
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.env == "dev" && var.enable_private_networking
+      error_message = "enable_dev_operations_gateway requires env=dev and enable_private_networking=true."
+    }
+  }
+
+  depends_on = [
+    azurerm_role_assignment.dev_gateway_reader,
+    azurerm_role_assignment.dev_gateway_executor_network,
+    azurerm_role_assignment.dev_gateway_executor_vm,
+    azurerm_role_assignment.dev_gateway_storage_runtime,
+    module.dev_gateway_blob_private_endpoint,
+    azurerm_private_endpoint.dev_gateway_blob_shared_dns,
+  ]
 }
 
 resource "azurerm_private_dns_a_record" "document_blob_ops" {

@@ -39,7 +39,7 @@ def _request(
     )
 
 
-def test_catalog_registers_exactly_five_bounded_reader_tools() -> None:
+def test_catalog_registers_all_bounded_reader_tools() -> None:
     assert {spec.tool_id for spec in READ_TOOL_SPECS} == set(ReadToolId)
     assert all(spec.required_role == "Reader" for spec in READ_TOOL_SPECS)
     assert all(spec.side_effect_class == "read" for spec in READ_TOOL_SPECS)
@@ -77,11 +77,35 @@ def test_planner_never_widens_budget_or_accepts_client_resolution() -> None:
         )
 
 
-def test_explicit_deep_plan_is_still_bounded_to_the_five_tools() -> None:
+def test_explicit_deep_plan_is_still_bounded_to_the_vm_tools() -> None:
     plan = plan_read_investigation(
         _request(ReadInvestigationIntent.RESOURCE_STATE, explicit_deep=True)
     )
-    assert tuple(step.tool_id for step in plan.steps) == tuple(ReadToolId)
+    assert tuple(step.tool_id for step in plan.steps) == (
+        ReadToolId.RESOLVE_RESOURCE,
+        ReadToolId.GET_RESOURCE_STATE,
+        ReadToolId.QUERY_RESOURCE_ACTIVITY,
+        ReadToolId.QUERY_RESOURCE_HEALTH,
+        ReadToolId.QUERY_GUEST_SHUTDOWN_EVENTS,
+    )
+
+
+@pytest.mark.parametrize(
+    ("intent", "tool_id"),
+    [
+        (ReadInvestigationIntent.NETWORK_SECURITY, ReadToolId.QUERY_NETWORK_SECURITY),
+        (ReadInvestigationIntent.NETWORK_PEERING, ReadToolId.QUERY_NETWORK_PEERINGS),
+    ],
+)
+def test_network_intents_plan_one_bounded_tool(
+    intent: ReadInvestigationIntent,
+    tool_id: ReadToolId,
+) -> None:
+    plan = plan_read_investigation(_request(intent, explicit_deep=True))
+    assert tuple(step.tool_id for step in plan.steps) == (
+        ReadToolId.RESOLVE_RESOURCE,
+        tool_id,
+    )
 
 
 def test_request_budget_can_represent_resource_ambiguity() -> None:

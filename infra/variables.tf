@@ -19,6 +19,23 @@ variable "env" {
   }
 }
 
+variable "enable_dev_operations_gateway" {
+  description = "Provision the development-only Azure Functions operations gateway. Requires env=dev and private networking."
+  type        = bool
+  default     = false
+}
+
+variable "dev_operations_gateway_private_probes_json" {
+  description = "Server-owned private probe aliases as JSON. Values contain HTTPS url and managed-identity audience."
+  type        = string
+  default     = "{}"
+
+  validation {
+    condition     = can(jsondecode(var.dev_operations_gateway_private_probes_json))
+    error_message = "dev_operations_gateway_private_probes_json must be valid JSON."
+  }
+}
+
 variable "region" {
   description = "Azure region for every resource in the RG (e.g. 'koreacentral', 'westeurope')."
   type        = string

@@ -21,3 +21,8 @@ output "postgres_subnet_id" {
   description = "Delegated subnet for PostgreSQL Flexible Server private access."
   value       = azurerm_subnet.postgres.id
 }
+
+output "functions_subnet_id" {
+  description = "Dedicated Flex Consumption Function App VNet integration subnet."
+  value       = length(azurerm_subnet.functions) > 0 ? azurerm_subnet.functions[0].id : null
+}

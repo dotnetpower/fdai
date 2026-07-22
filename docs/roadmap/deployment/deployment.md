@@ -62,7 +62,9 @@ prod topology so shadow evaluation is representative.
     The core has no sidecar or ingress. The opt-in read API and ingestion gateway with its
     ClamAV sidecar are separate Container Apps.
   - **Container Apps Jobs** in the same environment for scheduled probes and light triggers
-    (replaces Azure Functions).
+    (replaces Azure Functions for runtime scheduling). An opt-in development-only FC1 Function
+    App is the narrow exception: it relays registered operations to private resources and is not a
+    scheduler or control-loop runtime.
   - **Event Hubs** (Standard, 1 TU, auto-inflate off) consumed **only via its Kafka endpoint
     on `:9093`** - the CSP-neutral event bus contract
     ([csp-neutrality.md § Event bus contract](../architecture/csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol)).
