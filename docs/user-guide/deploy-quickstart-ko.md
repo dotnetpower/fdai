@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 세트 인벤토리를 Azure에 프로비저닝하는 방법. 동등한 두 경로(azd 턴키 또는 Terraform 직접 실행) 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: ae1ba726b27409db25e78d53aa3a6ff693049986
+translation_source_sha: a75f027cb66fd35ae372068b31a409e8f570b15e
 translation_revised: 2026-07-22
 ---
 
@@ -25,6 +25,9 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)를 사용해 프로비저닝
    attested digest를 사용하세요. Terraform은 이전 Azure CLI placeholder를 차단합니다.
 - 배포 호스트에서 모든 private endpoint로 연결할 수 있어야 합니다. Private-only 환경에서는
    운영자 워크스테이션 대신 VNet에 연결된 배포 runner에서 Terraform을 실행하세요.
+- Protected remote plan은 non-secret `DEPLOY_PREFLIGHT_INPUT_JSON` repository variable에
+   required live category를 모두 설정해야 합니다. Profile이 없으면 Azure login 전에 중단하며,
+   probe가 차단되면 정제된 점검 결과만 로그에 출력합니다.
 
 ## 최소 세트 인벤토리 프로비저닝
 

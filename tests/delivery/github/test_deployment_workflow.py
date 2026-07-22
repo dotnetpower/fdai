@@ -332,12 +332,18 @@ def test_runner_live_preflight_workflow_is_structurally_executable() -> None:
     workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
     steps = workflow["jobs"]["terraform"]["steps"]
     names = [step.get("name") for step in steps]
+    assert names.index("Validate remote plan request") < names.index("Terraform init")
     assert names.index("Terraform plan") < names.index("Run complete Azure live preflight")
     assert names.index("Run complete Azure live preflight") < names.index(
         "Store protected plan artifact"
     )
     step = next(item for item in steps if item.get("name") == "Run complete Azure live preflight")
+    request_step = next(
+        item for item in steps if item.get("name") == "Validate remote plan request"
+    )
+    assert "DEPLOY_PREFLIGHT_INPUT_JSON is required for protected plans" in request_step["run"]
     script = step["run"]
+    assert "Azure live preflight sanitized report" in script
     subprocess.run(  # noqa: S603 - static repository-owned script
         ["/usr/bin/bash", "-n"],
         input=script,

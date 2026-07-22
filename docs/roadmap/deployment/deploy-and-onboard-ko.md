@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: aaac7027df5e87fa0817080f9709b1664d6360c4
+translation_source_sha: 73fc81c9dd2c02eb797c8272b63804548499a194
 translation_revised: 2026-07-22
 ---
 
@@ -179,9 +179,12 @@ provision 하며, alert 는 인간 신호일 뿐 자율 액션이 아니다.
 - **엔트리 명령**: `infra/`의 Terraform (HCL) 모듈에 대해 `terraform apply` - 이전 OD
   (`azd up` vs `terraform apply` vs wrapper 스크립트) 해결. 환경 값은 **깃에 커밋되지 않는**
   `*.tfvars` 파일로 공급 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)
-  준수). 계획된 [`fdaictl`](installable-deployment-cli-ko.md) wrapper는
-  `init -> plan -> preflight -> remote apply -> post-provision 체크`를 orchestration하며,
-  Terraform은 실행 엔진이자 infrastructure source of truth로 유지됩니다. Bicep과 OpenTofu는
+  준수). [`fdaictl`](installable-deployment-cli-ko.md) wrapper와 runner는
+  `request 검증 -> init -> plan -> live preflight -> exact remote apply -> post-provision 체크`를
+  순서대로 실행합니다. Protected plan에 완전한 non-secret preflight profile이 없으면 Azure
+  login 또는 Terraform initialization 전에 중단합니다. Live probe가 차단되면 workflow는
+  중단하기 전에 sanitized check과 finding만 출력합니다. Terraform은 실행 엔진이자
+  infrastructure source of truth로 유지됩니다. Bicep과 OpenTofu는
   [tech-stack-ko.md](../architecture/tech-stack-ko.md)에 따른 호환 대안으로 남습니다.
 - 같은 서명 이미지가 `dev → staging → prod` 승격; 환경별 재빌드 없음
   ([deployment-ko.md](deployment-ko.md)).

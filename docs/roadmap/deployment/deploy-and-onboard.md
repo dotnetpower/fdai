@@ -178,10 +178,13 @@ action.
   the previous OD (`azd up` vs `terraform apply` vs a wrapper). Environment values are supplied
   via `*.tfvars` files that are **never committed** (per
   [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md));
-  the planned [`fdaictl`](installable-deployment-cli.md) wrapper orchestrates
-  `init -> plan -> preflight -> remote apply -> post-provision checks`, while Terraform remains
-  the execution engine and infrastructure source of truth. Bicep and OpenTofu remain compatible
-  fallbacks per [tech-stack.md](../architecture/tech-stack.md).
+  the [`fdaictl`](installable-deployment-cli.md) wrapper and runner orchestrate
+  `validate request -> init -> plan -> live preflight -> exact remote apply -> post-provision
+  checks`. A protected plan without the complete non-secret preflight profile stops before Azure
+  login or Terraform initialization. A blocked live probe emits only its sanitized checks and
+  findings before the workflow stops. Terraform remains the execution engine and infrastructure
+  source of truth. Bicep and OpenTofu remain compatible fallbacks per
+  [tech-stack.md](../architecture/tech-stack.md).
 - Same signed image is promoted `dev → staging → prod`; nothing is rebuilt per environment
   ([deployment.md](deployment.md)).
 

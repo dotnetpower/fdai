@@ -189,6 +189,10 @@ jobs:
             echo "requested commit does not match the workflow checkout." >&2
             exit 1
           fi
+          if [[ -z "$DEPLOY_PREFLIGHT_INPUT_JSON" ]]; then
+            echo "DEPLOY_PREFLIGHT_INPUT_JSON is required for protected plans." >&2
+            exit 1
+          fi
 
       - name: Validate exact apply request
         if: ${{ inputs.apply }}
@@ -409,10 +413,6 @@ jobs:
           PREFLIGHT_REGION: ${{ vars.AZURE_REGION }}
         run: |
           set -euo pipefail
-          if [ -z "$DEPLOY_PREFLIGHT_INPUT_JSON" ]; then
-          echo "DEPLOY_PREFLIGHT_INPUT_JSON is required for protected plans." >&2
-          exit 1
-          fi
           printf '%s' "$DEPLOY_PREFLIGHT_INPUT_JSON" > runner-live-preflight-input.json
           created_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           export CREATED_AT="$created_at"
@@ -454,13 +454,18 @@ jobs:
           PY
           terraform show -json dev.plan > dev.plan.json
           trap 'rm -f dev.plan.json runner-live-preflight-input.json runner-environment.json' EXIT
+          set +e
           ../.venv/bin/fdaictl deploy preflight \
           --input runner-live-preflight-input.json \
           --terraform-plan dev.plan.json \
           --environment-config runner-environment.json \
           --output json > azure-preflight-evidence.json
+          preflight_exit=$?
+          set -e
+          export PREFLIGHT_EXIT="$preflight_exit"
           python3 - <<'PY'
           import json
+          import os
 
           required = {
             "identity_rbac",
@@ -472,7 +477,18 @@ jobs:
             payload = json.load(stream)
           report = payload.get("report")
           if not isinstance(report, dict):
-            raise SystemExit("Azure live preflight report is missing")
+            raise SystemExit(
+              "Azure live preflight report is missing "
+              f"(CLI exit {os.environ['PREFLIGHT_EXIT']})"
+            )
+          sanitized = {
+            "verdict": report.get("verdict"),
+            "blocks_deploy": report.get("blocks_deploy"),
+            "checks": report.get("checks"),
+            "findings": report.get("findings"),
+          }
+          print("Azure live preflight sanitized report:")
+          print(json.dumps(sanitized, sort_keys=True))
           checks = report.get("checks")
           if not isinstance(checks, list):
             raise SystemExit("Azure live preflight check coverage is missing")
