@@ -64,6 +64,10 @@ from fdai.delivery.persistence.postgres_conversation_delivery import (  # noqa: 
     PostgresConversationDeliveryStore,
     PostgresConversationDeliveryStoreConfig,
 )
+from fdai.delivery.persistence.postgres_read_investigation_run import (  # noqa: E402
+    PostgresReadInvestigationRunStore,
+    PostgresReadInvestigationRunStoreConfig,
+)
 from fdai.delivery.read_api.app.authoritative_proxy import (  # noqa: E402
     AUTHORITATIVE_READ_API_ENV,
     authoritative_read_proxy_from_env,
@@ -379,6 +383,13 @@ def build_local_app(
     local_read_investigation = (
         build_local_read_investigation(
             state_store=persistence.state_store,
+            run_store=PostgresReadInvestigationRunStore(
+                config=PostgresReadInvestigationRunStoreConfig(
+                    dsn=postgres_read_model._config.dsn,
+                    statement_timeout_ms=postgres_read_model._config.statement_timeout_ms,
+                    connect_timeout_s=postgres_read_model._config.connect_timeout_s,
+                )
+            ),
             environ=os.environ,
         )
         if persistence is not None and not test_fixtures

@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 5c6e15cf7a965d5868ce14ee111e68ef5029b92a
+translation_source_sha: 99d2b236b99245028a89ef7bfe1547af92f3ca0b
 translation_revised: 2026-07-22
 ---
 
@@ -63,7 +63,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log, 구성된 NSG rule 및 VNet peering property를 지원합니다. Interactive local은 executor identity를 받지 않고 registered development operations gateway를 통해 NSG 및 peering read를 전달할 수 있습니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
 | Read-tool attenuation | 구현됨 | `background.read-only`는 Reader tool 7개만 포함하고 mutation, approval, shell, arbitrary-query, nested-worker capability를 차단합니다. |
 | Execution mode 및 progress | 구현됨 | Durable p50/p95 profile이 cloud I/O 전에 direct, streamed, detached mode를 선택합니다. Exact resolution은 barrier이며 독립 evidence tool은 bounded parallel limit 안에서 실행됩니다. Streamed mode는 bounded progress와 SSE comment heartbeat를 전송하고, stream close는 provider work를 cancel하며, terminal event는 한 번만 발생합니다. |
-| Direct 및 streamed replay | 구현됨 | Owner-scoped PostgreSQL run ledger가 canonical request를 claim하고 lease를 renew하며 reclaim attempt를 제한합니다. Terminal usage를 보존하고 provider를 다시 호출하지 않고 completed result를 replay합니다. Command Deck direct read도 같은 executor를 사용합니다. |
+| Direct 및 streamed replay | 구현됨 | Owner-scoped PostgreSQL run ledger가 canonical request를 claim하고 lease를 renew하며 reclaim attempt를 제한합니다. Terminal usage를 보존하고 provider를 다시 호출하지 않고 completed result를 replay합니다. Command Deck direct read도 같은 executor를 사용합니다. Interactive local PostgreSQL profile도 같은 run store를 제공하며 in-memory replay path로 대체하지 않습니다. |
 | Detached execution 및 quota | 구현됨 | Typed executor는 narrator history, screen state, event bus, Thor, executor identity를 받지 않습니다. Per-principal concurrency, cost, wall-clock, tool-call quota는 durable creation에서 적용됩니다. |
 | Completion handoff | 구현됨 | Terminal result와 pending completion outbox가 원자적으로 commit됩니다. Bounded retry는 investigation을 다시 실행하지 않고 idempotent conversation 및 reply-ledger handoff를 replay합니다. |
 | Live Azure scenario evidence | 일부 검증됨 | Caller attribution, Resource Health, unauthorized scope 및 ambiguous name은 read-only live validation을 통과했습니다. Guest-event match와 실제 provider `429`는 release evidence gap으로 남습니다. |

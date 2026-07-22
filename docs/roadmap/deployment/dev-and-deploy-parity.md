@@ -126,6 +126,12 @@ questions through the identical Azure adapter that deployment uses. The local fa
 provider into the read API only when the read-investigation wiring is present, preserving the
 read-only, server-owned data-plane boundary.
 
+Direct Command Deck reads also use the same owner-scoped run-ledger executor in both profiles.
+Interactive local binds it to the configured local PostgreSQL database; deployment binds it to
+Azure PostgreSQL. Both persist the canonical request digest, lease, usage, and terminal result so a
+completed retry replays without another provider call. Browser input cannot select the ledger
+owner, widen the Azure scope, or replace the server-owned reader credential.
+
 The local factory starts all 15 agents by default. `FDAI_START_PANTHEON` is a disable-only control:
 unset means enabled, while `0`, `false`, `no`, or `off` disables the runtime. When Event Hubs is
 configured, the agents use that Azure transport under a dedicated local consumer group. Otherwise,

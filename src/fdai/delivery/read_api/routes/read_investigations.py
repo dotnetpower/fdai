@@ -11,7 +11,7 @@ import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any, Final
+from typing import Any, Final, Protocol
 
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -114,6 +114,32 @@ class ReadInvestigationRoutesConfig:
             raise ValueError("read investigation scope_ref MUST be bounded")
 
 
+class _ReadInvestigationExecutionConfig(Protocol):
+    @property
+    def service(self) -> ReadInvestigationService: ...
+
+    @property
+    def run_store(self) -> ReadInvestigationRunStore: ...
+
+    @property
+    def run_ledger(self) -> ReadInvestigationRunLedgerConfig: ...
+
+    @property
+    def clock(self) -> Callable[[], datetime]: ...
+
+    @property
+    def monotonic(self) -> Callable[[], float]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ReadInvestigationExecutorConfig:
+    service: ReadInvestigationService
+    run_store: ReadInvestigationRunStore
+    run_ledger: ReadInvestigationRunLedgerConfig = ReadInvestigationRunLedgerConfig()
+    clock: Callable[[], datetime] = lambda: datetime.now(UTC)
+    monotonic: Callable[[], float] = time.monotonic
+
+
 @dataclass(frozen=True, slots=True)
 class ReadInvestigationDirectExecution:
     result: ReadInvestigationResult
@@ -130,7 +156,7 @@ class ReadInvestigationRunRejectedError(RuntimeError):
 class IdempotentReadInvestigationExecutor:
     """Execute direct investigations through the durable owner-scoped run ledger."""
 
-    def __init__(self, config: ReadInvestigationRoutesConfig) -> None:
+    def __init__(self, config: _ReadInvestigationExecutionConfig) -> None:
         self._config = config
 
     @property
@@ -297,7 +323,7 @@ def make_read_investigation_routes(
 
 
 async def _execute_direct_idempotent(
-    config: ReadInvestigationRoutesConfig,
+    config: _ReadInvestigationExecutionConfig,
     plan: ReadInvestigationPlan,
     *,
     owner_principal_id: str,
@@ -572,7 +598,7 @@ async def _detached_replay_attempt(
 
 async def _execute_claimed(
     *,
-    config: ReadInvestigationRoutesConfig,
+    config: _ReadInvestigationExecutionConfig,
     plan: ReadInvestigationPlan,
     claimed: ReadInvestigationRunRecord,
     lease_token: str,
@@ -678,7 +704,7 @@ async def _execute_claimed(
 
 async def _fail_claimed(
     *,
-    config: ReadInvestigationRoutesConfig,
+    config: _ReadInvestigationExecutionConfig,
     run: ReadInvestigationRunRecord,
     lease_token: str,
     reason: str,
@@ -784,7 +810,11 @@ def _stream_existing_terminal(
     return StreamingResponse(events(), media_type="text/event-stream")
 
 
-async def _preflight_run_ledger(config: ReadInvestigationRoutesConfig, *, now: datetime) -> None:
+async def _preflight_run_ledger(
+    config: _ReadInvestigationExecutionConfig,
+    *,
+    now: datetime,
+) -> None:
     try:
         await config.run_store.reconcile_expired(
             now=now,
@@ -844,7 +874,7 @@ def _run_usage(
 
 
 def _effective_lease_window_seconds(
-    config: ReadInvestigationRoutesConfig,
+    config: _ReadInvestigationExecutionConfig,
     *,
     request: ReadInvestigationRequest,
 ) -> int:
@@ -853,7 +883,7 @@ def _effective_lease_window_seconds(
 
 
 def _effective_lease_seconds(
-    config: ReadInvestigationRoutesConfig,
+    config: _ReadInvestigationExecutionConfig,
     *,
     request: ReadInvestigationRequest,
 ) -> int:
@@ -863,7 +893,7 @@ def _effective_lease_seconds(
 
 
 def _lease_ceiling_at(
-    config: ReadInvestigationRoutesConfig,
+    config: _ReadInvestigationExecutionConfig,
     *,
     request: ReadInvestigationRequest,
     now: datetime,

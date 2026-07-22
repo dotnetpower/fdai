@@ -1,17 +1,26 @@
 from __future__ import annotations
 
+from fdai.core.read_investigation import InMemoryReadInvestigationRunStore
 from fdai.delivery.azure.read_investigation import AzureOperationsGatewayReadTransport
 from fdai.delivery.read_api.dev.read_investigation import build_local_read_investigation
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
 async def test_local_read_investigation_requires_server_owned_scope() -> None:
-    assert build_local_read_investigation(state_store=InMemoryStateStore(), environ={}) is None
+    assert (
+        build_local_read_investigation(
+            state_store=InMemoryStateStore(),
+            run_store=InMemoryReadInvestigationRunStore(),
+            environ={},
+        )
+        is None
+    )
 
 
 async def test_local_read_investigation_builds_network_delegate() -> None:
     wiring = build_local_read_investigation(
         state_store=InMemoryStateStore(),
+        run_store=InMemoryReadInvestigationRunStore(),
         environ={
             "FDAI_AZURE_READER_SUBSCRIPTION_ID": "sub-example",
             "FDAI_AZURE_READER_RESOURCE_GROUPS": "rg-example",
@@ -28,6 +37,7 @@ async def test_local_read_investigation_builds_network_delegate() -> None:
 async def test_local_read_investigation_binds_configured_operations_gateway() -> None:
     wiring = build_local_read_investigation(
         state_store=InMemoryStateStore(),
+        run_store=InMemoryReadInvestigationRunStore(),
         environ={
             "FDAI_AZURE_READER_SUBSCRIPTION_ID": "sub-example",
             "FDAI_AZURE_READER_RESOURCE_GROUPS": "rg-example",

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 8e3cc859d93677c0a140922cd5a570d5c1cf22e3
+translation_source_sha: d1af6f377e96b7a5563a0ed124923d279da622dd
 translation_revised: 2026-07-22
 ---
 
@@ -128,6 +128,12 @@ idempotency key가 필요합니다. ARM throttling은 최대 3회까지 bounded 
 subscription-health provider를 구성하므로, local 개발도 deployment와 동일한 Azure adapter를 통해
 subscription-health 질문에 답합니다. Local factory는 read-investigation wiring이 존재할 때만 해당
 provider를 read API에 주입하여 read-only, server-owned data-plane 경계를 유지합니다.
+
+Direct Command Deck read도 두 profile에서 동일한 owner-scoped run-ledger executor를 사용합니다.
+Interactive local은 configured local PostgreSQL database에 bind하고 deployment는 Azure PostgreSQL에
+bind합니다. 두 profile 모두 canonical request digest, lease, usage 및 terminal result를 persist하므로
+completed retry는 provider를 다시 호출하지 않고 replay됩니다. Browser input은 ledger owner를
+선택하거나 Azure scope를 넓히거나 server-owned reader credential을 바꿀 수 없습니다.
 
 Local factory는 15개 agent를 기본으로 모두 시작합니다. `FDAI_START_PANTHEON`은 disable-only
 control입니다. 값이 없으면 활성화하고 `0`, `false`, `no`, `off`만 runtime을 비활성화합니다.

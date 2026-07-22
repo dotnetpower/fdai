@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -10,8 +10,7 @@ import httpx
 
 from fdai.core.read_investigation import (
     InvestigationExecutionPolicy,
-    ReadInvestigationPlan,
-    ReadInvestigationProgressKind,
+    ReadInvestigationRunStore,
     ReadInvestigationService,
 )
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
@@ -33,30 +32,10 @@ from fdai.delivery.read_api.routes.read_investigation_responder import (
     HeimdallReadInvestigationChatDelegate,
     HeimdallReadInvestigationResponder,
 )
-from fdai.delivery.read_api.routes.read_investigations import ReadInvestigationDirectExecution
-
-
-class _LocalReadInvestigationExecutor:
-    """Bind local Azure reads to an authenticated owner without claiming durable replay."""
-
-    def __init__(self, service: ReadInvestigationService) -> None:
-        self._service = service
-
-    @property
-    def transport(self) -> str:
-        return self._service.transport
-
-    async def execute(
-        self,
-        plan: ReadInvestigationPlan,
-        *,
-        owner_principal_id: str,
-        progress_observer: Callable[[ReadInvestigationProgressKind], Awaitable[None]] | None = None,
-    ) -> ReadInvestigationDirectExecution:
-        if plan.request.requester_ref != owner_principal_id:
-            raise ValueError("read investigation requester does not match the authenticated owner")
-        result = await self._service.execute(plan, progress_observer=progress_observer)
-        return ReadInvestigationDirectExecution(result=result, replayed=False)
+from fdai.delivery.read_api.routes.read_investigations import (
+    IdempotentReadInvestigationExecutor,
+    ReadInvestigationExecutorConfig,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +52,7 @@ class LocalReadInvestigationWiring:
 def build_local_read_investigation(
     *,
     state_store: Any,
+    run_store: ReadInvestigationRunStore,
     environ: Mapping[str, str],
 ) -> LocalReadInvestigationWiring | None:
     subscription_id = environ.get("FDAI_AZURE_READER_SUBSCRIPTION_ID", "").strip()
@@ -134,7 +114,12 @@ def build_local_read_investigation(
     return LocalReadInvestigationWiring(
         chat_delegate=HeimdallReadInvestigationChatDelegate(
             responder=HeimdallReadInvestigationResponder(
-                executor=_LocalReadInvestigationExecutor(service),
+                executor=IdempotentReadInvestigationExecutor(
+                    ReadInvestigationExecutorConfig(
+                        service=service,
+                        run_store=run_store,
+                    )
+                ),
                 latency_store=latency_store,
                 scope_ref=scope_ref,
                 policy=InvestigationExecutionPolicy(
