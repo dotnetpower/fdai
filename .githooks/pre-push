@@ -13,6 +13,9 @@
 #           FDAI_SKIP_PUSH_CHECKS=1 git push
 set -uo pipefail
 
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$repo_root" || exit 1
+
 if [ "${FDAI_SKIP_PUSH_CHECKS:-0}" = "1" ]; then
   echo "pre-push: skipped (FDAI_SKIP_PUSH_CHECKS=1)"
   exit 0
@@ -36,7 +39,9 @@ if [ -n "$branch" ]; then
       echo "  Skip: FDAI_SKIP_PUSH_CHECKS=1 git push   (or: git push --no-verify)"
       exit 1
     fi
-    range="FETCH_HEAD..HEAD"
+    remote_head="$(git rev-parse FETCH_HEAD)"
+    local_head="$(git rev-parse HEAD)"
+    range="$remote_head..$local_head"
   else
     echo "pre-push: note - '$branch' not on $remote_name yet (new branch); skipping sync + diff checks."
   fi
@@ -54,6 +59,25 @@ if [ "${#changed[@]}" -eq 0 ]; then
   echo "pre-push: OK (no file changes to lint)"
   exit 0
 fi
+
+# Validate the committed snapshot, not the maintainer's working tree. A dirty
+# worktree may contain unrelated in-progress files that are absent from the
+# push; scanning those files can either block a valid push or validate content
+# that the remote will never receive.
+validation_parent="$(mktemp -d "${TMPDIR:-/tmp}/fdai-pre-push.XXXXXX")"
+validation_root="$validation_parent/worktree"
+cleanup_validation_worktree() {
+  cd "$repo_root" >/dev/null 2>&1 || true
+  git worktree remove --force "$validation_root" >/dev/null 2>&1 || true
+  rmdir "$validation_parent" >/dev/null 2>&1 || true
+}
+trap cleanup_validation_worktree EXIT
+if ! git worktree add --quiet --detach "$validation_root" HEAD; then
+  echo "pre-push: BLOCKED - failed to create isolated validation worktree."
+  exit 1
+fi
+cd "$validation_root" || exit 1
+echo "pre-push: validating committed HEAD in an isolated worktree..."
 
 # ---------------------------------------------------------------------------
 # 2. Merge-conflict marker guard.

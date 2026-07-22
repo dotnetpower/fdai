@@ -73,3 +73,13 @@ def test_pre_push_hook_invokes_all_structural_gates() -> None:
             f"pre-push hook no longer invokes {gate_path} - a routine push"
             " will now miss the structural gate locally. See tracker #14."
         )
+
+
+def test_pre_push_validates_an_isolated_committed_snapshot() -> None:
+    body = _PRE_PUSH.read_text()
+
+    assert 'git worktree add --quiet --detach "$validation_root" HEAD' in body
+    assert 'git worktree remove --force "$validation_root"' in body
+    assert body.index("git worktree add --quiet --detach") < body.index(
+        "# 2. Merge-conflict marker guard."
+    )
