@@ -29,8 +29,8 @@ fdai/
 │   │   ├── learning/           # consent-gated off-path turn eligibility, consensus, dedup ledger, and inert proposal routing
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, and offline validation
 │   │   ├── task_worker/        # isolated depth-one read-only workers: capability attenuation, lifecycle, durable state, and parent synthesis
-│   │   ├── background_task/    # durable detached read-only sessions: lease/CAS, progress, cancellation, process-loss, and completion handoff
-│   │   ├── read_investigation/ # exact-resource VM/network planning, evidence correlation, latency policy, and semantic progress; no cloud SDK or execution authority
+│   │   ├── background_task/    # durable detached reads: lease/CAS, atomic completion outbox, bounded retry, process-loss, and retention purge
+│   │   ├── read_investigation/ # exact-resource VM/network planning, evidence correlation, latency policy, SSE heartbeats, and stream-close cancellation; no cloud SDK or execution authority
 │   │   ├── briefing/           # deterministic opening/scheduled briefings over report-feed evidence
 │   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprints, and scoped continuations
 │   │   ├── document_ingestion/ # upload-session lifecycle + fail-closed scan/protection/extract/index worker

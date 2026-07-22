@@ -101,9 +101,9 @@ flowchart TD
   NARR -.tool call.-> INV
 ```
 
-- **Layer 3 (Channel)** is thin. Every channel adapter converts one turn
-  from the wire format (stdin / Teams Activity / Slack event / authenticated HTTP request and SSE)
-  frame) into a `ConversationTurn` and back. No judgment lives here.
+- **Layer 3 (Channel)** is thin. Every adapter converts one turn between its wire format and a
+  `ConversationTurn`; no judgment lives here. A streamed read sends SSE comment heartbeats while the
+  provider task is idle, without progress or evidence. Stream close cancels and awaits that task.
 - **Layer 2 (Coordinator)** owns intent classification, RBAC gating, tool
   dispatch, verifier re-check, and session bookkeeping. Core translation uses the `Narrator`
   Protocol; web generation uses the read API backend seam, so deployments can bind providers.

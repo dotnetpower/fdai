@@ -9,9 +9,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from fdai.core.background_task.models import (
+    MAX_COMPLETION_ATTEMPTS,
     TERMINAL_BACKGROUND_STATUSES,
     BackgroundTask,
     BackgroundTaskAttempt,
+    BackgroundTaskCompletion,
+    BackgroundTaskCompletionState,
     BackgroundTaskLease,
     BackgroundTaskProgress,
     BackgroundTaskResult,
@@ -121,6 +124,40 @@ class BackgroundTaskStore(Protocol):
         limit: int = 100,
     ) -> tuple[BackgroundTaskAttempt, ...]: ...
 
+    async def claim_completion(
+        self,
+        *,
+        coordinator: str,
+        lease_token: str,
+        now: datetime,
+        lease_seconds: int,
+    ) -> tuple[BackgroundTaskCompletion, BackgroundTaskAttempt] | None: ...
+
+    async def finish_completion(
+        self,
+        attempt_id: str,
+        *,
+        lease_token: str,
+        delivered: bool,
+        now: datetime,
+        retry_at: datetime | None = None,
+        error_code: str | None = None,
+    ) -> BackgroundTaskCompletion: ...
+
+    async def reconcile_completion_expired(
+        self,
+        *,
+        now: datetime,
+        limit: int = 100,
+    ) -> tuple[BackgroundTaskCompletion, ...]: ...
+
+    async def purge_retained(
+        self,
+        *,
+        now: datetime,
+        limit: int = 100,
+    ) -> tuple[str, ...]: ...
+
 
 class InMemoryBackgroundTaskStore:
     def __init__(self, *, clock: Callable[[], datetime] | None = None) -> None:
@@ -128,6 +165,7 @@ class InMemoryBackgroundTaskStore:
         self._attempt_by_task: dict[str, str] = {}
         self._idempotency: dict[tuple[str, str], str] = {}
         self._progress: dict[str, list[BackgroundTaskProgress]] = {}
+        self._completions: dict[str, BackgroundTaskCompletion] = {}
         self._lock = asyncio.Lock()
         self._clock = clock or (lambda: datetime.now(UTC))
 
@@ -331,6 +369,7 @@ class InMemoryBackgroundTaskStore:
                 result=result,
             )
             self._attempts[attempt_id] = updated
+            self._put_completion(updated, now=updated.updated_at)
             return updated
 
     async def cancel(
@@ -368,6 +407,7 @@ class InMemoryBackgroundTaskStore:
                 result=result,
             )
             self._attempts[attempt_id] = updated
+            self._put_completion(updated, now=updated.updated_at)
             return updated
 
     async def append_progress(
@@ -436,8 +476,198 @@ class InMemoryBackgroundTaskStore:
                     result=result,
                 )
                 self._attempts[current.attempt_id] = updated
+                self._put_completion(updated, now=updated.updated_at)
                 reconciled.append(updated)
             return tuple(reconciled)
+
+    async def claim_completion(
+        self,
+        *,
+        coordinator: str,
+        lease_token: str,
+        now: datetime,
+        lease_seconds: int,
+    ) -> tuple[BackgroundTaskCompletion, BackgroundTaskAttempt] | None:
+        _lease_input(coordinator, lease_token, now, lease_seconds)
+        async with self._lock:
+            candidates = sorted(
+                (
+                    completion
+                    for completion in self._completions.values()
+                    if completion.state
+                    in {
+                        BackgroundTaskCompletionState.PENDING,
+                        BackgroundTaskCompletionState.FAILED,
+                    }
+                    and completion.due_at <= now
+                    and completion.attempt_count < MAX_COMPLETION_ATTEMPTS
+                ),
+                key=lambda item: (item.due_at, item.attempt_id),
+            )
+            if not candidates:
+                return None
+            current = candidates[0]
+            claimed = replace(
+                current,
+                state=BackgroundTaskCompletionState.SENDING,
+                attempt_count=current.attempt_count + 1,
+                lease=BackgroundTaskLease(
+                    coordinator,
+                    lease_token,
+                    now + timedelta(seconds=lease_seconds),
+                ),
+                last_error_code=None,
+            )
+            self._completions[current.attempt_id] = claimed
+            return claimed, self._required(current.attempt_id)
+
+    async def finish_completion(
+        self,
+        attempt_id: str,
+        *,
+        lease_token: str,
+        delivered: bool,
+        now: datetime,
+        retry_at: datetime | None = None,
+        error_code: str | None = None,
+    ) -> BackgroundTaskCompletion:
+        async with self._lock:
+            current = self._completion_leased(attempt_id, lease_token=lease_token, now=now)
+            if delivered:
+                if retry_at is not None or error_code is not None:
+                    raise ValueError("delivered completion cannot carry retry details")
+                updated = replace(
+                    current,
+                    state=BackgroundTaskCompletionState.DELIVERED,
+                    lease=None,
+                    terminal_at=now,
+                )
+            else:
+                if retry_at is None or error_code is None:
+                    raise ValueError("failed completion requires retry_at and error_code")
+                _aware_input("completion retry_at", retry_at)
+                abandon = (
+                    current.attempt_count >= MAX_COMPLETION_ATTEMPTS
+                    or retry_at >= current.retention_until
+                )
+                updated = replace(
+                    current,
+                    state=(
+                        BackgroundTaskCompletionState.ABANDONED
+                        if abandon
+                        else BackgroundTaskCompletionState.FAILED
+                    ),
+                    due_at=min(retry_at, current.retention_until),
+                    lease=None,
+                    last_error_code=error_code,
+                    terminal_at=now if abandon else None,
+                )
+            self._completions[attempt_id] = updated
+            return updated
+
+    async def reconcile_completion_expired(
+        self,
+        *,
+        now: datetime,
+        limit: int = 100,
+    ) -> tuple[BackgroundTaskCompletion, ...]:
+        _limit(limit, 1_000)
+        async with self._lock:
+            candidates = sorted(
+                (
+                    completion
+                    for completion in self._completions.values()
+                    if completion.state is BackgroundTaskCompletionState.SENDING
+                    and completion.lease is not None
+                    and completion.lease.expires_at <= now
+                ),
+                key=lambda item: (item.lease.expires_at if item.lease else now, item.attempt_id),
+            )[:limit]
+            reconciled: list[BackgroundTaskCompletion] = []
+            for current in candidates:
+                abandon = (
+                    current.attempt_count >= MAX_COMPLETION_ATTEMPTS
+                    or now >= current.retention_until
+                )
+                updated = replace(
+                    current,
+                    state=(
+                        BackgroundTaskCompletionState.ABANDONED
+                        if abandon
+                        else BackgroundTaskCompletionState.FAILED
+                    ),
+                    due_at=min(now, current.retention_until),
+                    lease=None,
+                    last_error_code="process_lost",
+                    terminal_at=now if abandon else None,
+                )
+                self._completions[current.attempt_id] = updated
+                reconciled.append(updated)
+            return tuple(reconciled)
+
+    async def purge_retained(
+        self,
+        *,
+        now: datetime,
+        limit: int = 100,
+    ) -> tuple[str, ...]:
+        _limit(limit, 1_000)
+        async with self._lock:
+            candidates = sorted(
+                (
+                    attempt
+                    for attempt in self._attempts.values()
+                    if attempt.status in TERMINAL_BACKGROUND_STATUSES
+                    and attempt.task.retention_until <= now
+                    and (completion := self._completions.get(attempt.attempt_id)) is not None
+                    and completion.state.terminal
+                ),
+                key=lambda item: (item.task.retention_until, item.attempt_id),
+            )[:limit]
+            purged: list[str] = []
+            for attempt in candidates:
+                task = attempt.task
+                self._attempts.pop(attempt.attempt_id)
+                self._attempt_by_task.pop(task.task_id)
+                self._idempotency.pop((task.owner_principal_id, task.idempotency_key))
+                self._progress.pop(attempt.attempt_id)
+                self._completions.pop(attempt.attempt_id)
+                purged.append(task.task_id)
+            return tuple(purged)
+
+    def _put_completion(self, attempt: BackgroundTaskAttempt, *, now: datetime) -> None:
+        if attempt.status not in TERMINAL_BACKGROUND_STATUSES:
+            raise ValueError("completion outbox requires a terminal attempt")
+        if attempt.attempt_id in self._completions:
+            return
+        retention_until = max(attempt.task.retention_until, now)
+        self._completions[attempt.attempt_id] = BackgroundTaskCompletion(
+            attempt_id=attempt.attempt_id,
+            state=BackgroundTaskCompletionState.PENDING,
+            created_at=now,
+            due_at=now,
+            retention_until=retention_until,
+        )
+
+    def _completion_leased(
+        self,
+        attempt_id: str,
+        *,
+        lease_token: str,
+        now: datetime,
+    ) -> BackgroundTaskCompletion:
+        try:
+            current = self._completions[attempt_id]
+        except KeyError as exc:
+            raise LookupError(f"background completion {attempt_id!r} was not found") from exc
+        if (
+            current.state is not BackgroundTaskCompletionState.SENDING
+            or current.lease is None
+            or current.lease.token != lease_token
+            or current.lease.expires_at <= now
+        ):
+            raise BackgroundTaskConflictError("background completion lease conflict")
+        return current
 
     def _leased(
         self,
@@ -469,6 +699,11 @@ class InMemoryBackgroundTaskStore:
 def _lease_input(coordinator: str, lease_token: str, now: datetime, lease_seconds: int) -> None:
     if not coordinator or not lease_token or now.tzinfo is None or not 1 <= lease_seconds <= 300:
         raise ValueError("background task lease input is invalid")
+
+
+def _aware_input(name: str, value: datetime) -> None:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(f"{name} MUST be timezone-aware")
 
 
 def _limit(value: int, maximum: int) -> None:

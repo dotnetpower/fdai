@@ -7,13 +7,15 @@ import logging
 import secrets
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import Protocol
 
 from fdai.core.background_task.models import (
     BackgroundTask,
     BackgroundTaskAttempt,
+    BackgroundTaskCompletion,
+    BackgroundTaskCompletionState,
     BackgroundTaskProgress,
     BackgroundTaskResult,
     BackgroundTaskStatus,
@@ -48,6 +50,7 @@ class BackgroundTaskCoordinatorConfig:
     max_concurrency: int = 4
     lease_seconds: int = 30
     progress_interval_seconds: float = 1.0
+    completion_timeout_seconds: float | None = None
 
     def __post_init__(self) -> None:
         if not self.coordinator_id.strip():
@@ -58,6 +61,11 @@ class BackgroundTaskCoordinatorConfig:
             raise ValueError("lease_seconds MUST be in [2, 300]")
         if not 0.05 <= self.progress_interval_seconds <= 60:
             raise ValueError("progress_interval_seconds MUST be in [0.05, 60]")
+        if self.completion_timeout_seconds is not None:
+            if not 0.05 <= self.completion_timeout_seconds <= 300:
+                raise ValueError("completion_timeout_seconds MUST be in [0.05, 300]")
+            if self.completion_timeout_seconds > self.lease_seconds:
+                raise ValueError("completion_timeout_seconds MUST be <= lease_seconds")
 
 
 class BackgroundTaskCoordinator:
@@ -77,6 +85,8 @@ class BackgroundTaskCoordinator:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._active: dict[str, asyncio.Task[BackgroundTaskAttempt]] = {}
         self._ticks: set[asyncio.Task[tuple[BackgroundTaskAttempt, ...]]] = set()
+        self._completion_retry_due_at: datetime | None = None
+        self._completion_retry_task: asyncio.Task[None] | None = None
 
     def wake(self) -> None:
         tick = asyncio.create_task(self.run_once(), name="background-task-tick")
@@ -85,6 +95,8 @@ class BackgroundTaskCoordinator:
 
     async def run_once(self) -> tuple[BackgroundTaskAttempt, ...]:
         await self._store.reconcile_expired(now=self._clock(), limit=1_000)
+        await self._store.reconcile_completion_expired(now=self._clock(), limit=1_000)
+        await self._drain_completions()
         started: list[asyncio.Task[BackgroundTaskAttempt]] = []
         task_ids: list[str] = []
         while len(self._active) < self._config.max_concurrency:
@@ -105,8 +117,6 @@ class BackgroundTaskCoordinator:
             task.add_done_callback(partial(self._task_done, claimed.task.task_id))
             started.append(task)
             task_ids.append(claimed.task.task_id)
-        if not started:
-            return ()
         outcomes = await asyncio.gather(*started, return_exceptions=True)
         results: list[BackgroundTaskAttempt] = []
         for task_id, outcome in zip(task_ids, outcomes, strict=True):
@@ -120,6 +130,8 @@ class BackgroundTaskCoordinator:
                     continue
                 raise outcome
             results.append(outcome)
+        await self._drain_completions()
+        await self._store.purge_retained(now=self._clock(), limit=1_000)
         return tuple(results)
 
     async def cancel(self, task_id: str, *, actor: str, is_admin: bool = False) -> None:
@@ -136,7 +148,8 @@ class BackgroundTaskCoordinator:
     async def shutdown(self, *, drain_seconds: float = 10.0) -> None:
         if drain_seconds < 0:
             raise ValueError("drain_seconds MUST be non-negative")
-        active = (*self._ticks, *self._active.values())
+        delayed = (self._completion_retry_task,) if self._completion_retry_task is not None else ()
+        active = (*self._ticks, *self._active.values(), *delayed)
         if not active:
             return
         done, pending = await asyncio.wait(active, timeout=drain_seconds)
@@ -232,16 +245,116 @@ class BackgroundTaskCoordinator:
             result=result,
             now=max(result.finished_at, current.updated_at),
         )
-        if self._completion_sink is not None:
-            try:
-                await self._completion_sink.publish(completed)
-            except Exception:  # noqa: BLE001 - completion remains durable for later delivery
-                _LOG.warning(
-                    "background_task_completion_handoff_failed",
-                    extra={"task_id": completed.task.task_id},
-                    exc_info=True,
-                )
         return completed
+
+    async def _drain_completions(self) -> None:
+        while True:
+            claims = []
+            for _ in range(self._config.max_concurrency):
+                token = secrets.token_urlsafe(24)
+                claimed = await self._store.claim_completion(
+                    coordinator=self._config.coordinator_id,
+                    lease_token=token,
+                    now=self._clock(),
+                    lease_seconds=self._config.lease_seconds,
+                )
+                if claimed is None:
+                    break
+                claims.append((claimed, token))
+            if not claims:
+                return
+            await asyncio.gather(
+                *(self._publish_completion(claim, token) for claim, token in claims)
+            )
+            if len(claims) < self._config.max_concurrency:
+                return
+
+    async def _publish_completion(
+        self,
+        claim: tuple[BackgroundTaskCompletion, BackgroundTaskAttempt],
+        lease_token: str,
+    ) -> None:
+        completion, attempt = claim
+        try:
+            if self._completion_sink is not None:
+                async with asyncio.timeout(self._completion_publish_timeout_seconds):
+                    await self._completion_sink.publish(attempt)
+            await self._store.finish_completion(
+                attempt.attempt_id,
+                lease_token=lease_token,
+                delivered=True,
+                now=self._clock(),
+            )
+        except Exception as exc:  # noqa: BLE001 - outbox owns bounded retry
+            error_code = f"sink_error:{type(exc).__name__}"
+            now = self._clock()
+            retry_at = now + timedelta(seconds=min(300, 2 ** max(0, completion.attempt_count - 1)))
+            try:
+                finished = await self._store.finish_completion(
+                    attempt.attempt_id,
+                    lease_token=lease_token,
+                    delivered=False,
+                    now=now,
+                    retry_at=retry_at,
+                    error_code=error_code,
+                )
+                if finished.state is BackgroundTaskCompletionState.FAILED and finished.due_at > now:
+                    self._schedule_completion_retry(finished.due_at)
+            except BackgroundTaskConflictError:
+                pass
+            _LOG.warning(
+                "background_task_completion_handoff_failed",
+                extra={"task_id": attempt.task.task_id, "error_code": error_code},
+                exc_info=True,
+            )
+
+    def _schedule_completion_retry(self, due_at: datetime) -> None:
+        if due_at <= self._clock():
+            return
+        existing = self._completion_retry_task
+        existing_due = self._completion_retry_due_at
+        if (
+            existing is not None
+            and not existing.done()
+            and existing_due is not None
+            and existing_due <= due_at
+        ):
+            return
+        if existing is not None and not existing.done():
+            existing.cancel()
+        self._completion_retry_due_at = due_at
+        task = asyncio.create_task(
+            self._run_delayed_completion_retry(due_at),
+            name="background-task-completion-retry",
+        )
+        self._completion_retry_task = task
+        task.add_done_callback(self._completion_retry_done)
+
+    def _completion_retry_done(self, task: asyncio.Task[None]) -> None:
+        if self._completion_retry_task is task:
+            self._completion_retry_task = None
+            self._completion_retry_due_at = None
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            _LOG.warning(
+                "background_task_completion_retry_failed",
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
+
+    async def _run_delayed_completion_retry(self, due_at: datetime) -> None:
+        delay_seconds = max(0.0, (due_at - self._clock()).total_seconds())
+        if delay_seconds > 0:
+            await asyncio.sleep(delay_seconds)
+        await self.run_once()
+
+    @property
+    def _completion_publish_timeout_seconds(self) -> float:
+        configured = self._config.completion_timeout_seconds
+        if configured is not None:
+            return configured
+        return max(0.05, min(float(self._config.lease_seconds), 1.0))
 
 
 class _ProgressReporter:

@@ -126,7 +126,7 @@ async def test_completion_sink_appends_one_provenance_labeled_turn() -> None:
     assert turns[0].metadata["trusted"] == "false"
     assert turns[0].idempotency_key == "background-completion:background-one:1"
     audit_entries = tuple(audit.audit_entries)
-    assert len(audit_entries) == 2
+    assert len(audit_entries) == 1
     assert audit_entries[0]["entry"]["action_kind"] == "background-task.completed"
 
 
@@ -223,5 +223,5 @@ async def test_completion_sink_enqueues_one_verified_origin_delivery() -> None:
     assert outbound.responses[0].evidence_refs == ("evidence-one",)
     assert attempt.result == result
     actions = [entry["entry"]["action_kind"] for entry in audit.audit_entries]
-    assert actions[0] == "background-task.completed"
-    assert actions[1] == "background-task.delivery-enqueued"
+    assert actions.count("background-task.completed") == 1
+    assert actions.count("background-task.delivery-enqueued") == 1

@@ -61,9 +61,9 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 | Subscription health sweep | Implemented | The configured reader scope queries Resource Graph inventory and Resource Health in parallel, then checks representative metrics for up to 16 supported resources with concurrency limited to four. |
 | Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, guest logs, configured NSG rules, and VNet peering properties. Interactive local can route NSG and peering reads through the registered development operations gateway without receiving its executor identity. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
 | Read-tool attenuation | Implemented | `background.read-only` contains exactly seven Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
-| Execution modes and progress | Implemented | Durable p50/p95 profiles select direct, streamed, or detached mode before cloud I/O. Exact resolution is a barrier, independent evidence tools run under a bounded parallel limit, semantic progress is bounded, and the terminal event occurs once. |
+| Execution modes and progress | Implemented | Durable p50/p95 profiles select direct, streamed, or detached mode before cloud I/O. Exact resolution is a barrier, independent evidence tools run under a bounded parallel limit, streamed mode emits bounded progress and SSE comment heartbeats, stream close cancels provider work, and the terminal event occurs once. |
 | Detached execution and quotas | Implemented | The typed executor receives no narrator history, screen state, event bus, Thor, or executor identity. Per-principal concurrency, cost, wall-clock, and tool-call quotas are enforced at durable creation. |
-| Completion handoff | Implemented | Terminal result commit precedes the idempotent conversation turn and durable reply-ledger enqueue. Provider delivery remains a separate retryable concern. |
+| Completion handoff | Implemented | The terminal result and pending completion outbox commit atomically. Bounded retries replay idempotent conversation and reply-ledger handoff without rerunning the investigation. |
 | Live Azure scenario evidence | Partially validated | Caller attribution, Resource Health, unauthorized scope, and ambiguous names passed read-only live validation. Guest-event matching and an actual provider `429` remain release evidence gaps. |
 
 ## Investigation request and plan
@@ -246,12 +246,16 @@ investigation.completed
 The existing reporter coalesces events and caps their count. The direct Command Deck stream emits
 `activity` events as tools start and finish, plus bounded `milestone` messages when resource
 resolution and evidence collection materially change the operator experience. Activity follows
-actual completion order while the terminal evidence remains deterministic in plan order. Detached
-SSE returns stored progress, heartbeats, and one terminal event. Detached completion commits the
-immutable result first, then appends an untrusted assistant turn and enqueues it through the durable
-reply ledger. Delivery failure cannot rerun the investigation or rewrite its result.
+actual completion order while the terminal evidence remains deterministic in plan order. While a
+streamed provider call is idle, the route emits the standards-compliant SSE comment frame
+`: heartbeat` followed by a blank line. The heartbeat keeps the connection active without
+inventing a progress event, and the stream emits one terminal event after the provider task
+completes.
 Closing a streamed response cancels and awaits its in-flight investigation, so a disconnected
-client cannot leave provider reads running without a consumer.
+client cannot leave provider reads running without a consumer. Detached completion commits the
+immutable result first, then appends an untrusted assistant turn and enqueues it through the
+durable background completion outbox and reply ledger. Delivery failure cannot rerun the
+investigation or rewrite its result.
 
 Bragi communicates an estimate only when it changes the operator experience. Example:
 
@@ -342,6 +346,8 @@ produce those observations without an Azure change.
 - Scenario tests prove an investigation never publishes `object.event` and never invokes Thor.
 - Latency tests cover cold profiles, minimum samples, sequential and parallel estimates, threshold
   boundaries, delayed milestones, and cross-replica persistence.
+- Stream tests cover idle SSE comment heartbeats before terminal delivery and cancellation of the
+  in-flight provider task when the response closes.
 - Background tests cover lease contention, cancellation, timeout, process loss, progress caps,
   terminal immutability, and durable reply handoff.
 - Live Azure checks verify Activity Log caller attribution, Resource Health fallback, unauthorized

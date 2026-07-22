@@ -15,6 +15,7 @@ import pytest
 from fdai.core.background_task import (
     BackgroundTask,
     BackgroundTaskBudget,
+    BackgroundTaskCompletionState,
     BackgroundTaskConflictError,
     BackgroundTaskKind,
     BackgroundTaskOrigin,
@@ -111,6 +112,40 @@ def _result(*, started_at: datetime, finished_at: datetime) -> BackgroundTaskRes
         usage=BackgroundTaskUsage(tokens=21, cost_microusd=7, tool_calls=2),
         started_at=started_at,
         finished_at=finished_at,
+    )
+
+
+async def _complete_succeeded(
+    store: BackgroundTaskStore,
+    task: BackgroundTask,
+    *,
+    lease_token: str,
+    now: datetime,
+) -> None:
+    await store.create(task)
+    claimed = await store.claim_next(
+        coordinator=f"coordinator:{task.task_id}",
+        lease_token=lease_token,
+        now=now,
+        lease_seconds=30,
+    )
+    assert claimed is not None
+    running = await store.start(
+        claimed.attempt_id,
+        expected_revision=claimed.revision,
+        lease_token=lease_token,
+        now=now + timedelta(seconds=1),
+    )
+    await store.complete(
+        running.attempt_id,
+        expected_revision=running.revision,
+        lease_token=lease_token,
+        status=BackgroundTaskStatus.SUCCEEDED,
+        result=_result(
+            started_at=running.updated_at,
+            finished_at=now + timedelta(seconds=2),
+        ),
+        now=now + timedelta(seconds=2),
     )
 
 
@@ -396,3 +431,165 @@ async def test_expired_lease_reconciles_to_unknown_without_requeue(
         )
         is None
     )
+
+
+@pytest.mark.integration
+async def test_completion_claim_is_atomic_across_stores(database_url: str) -> None:
+    task = _task(f"background-completion-claim-{uuid.uuid4().hex}")
+    first = _store(database_url)
+    second = _store(database_url)
+    await _complete_succeeded(first, task, lease_token="lease:complete", now=_NOW)
+
+    claims = await asyncio.gather(
+        first.claim_completion(
+            coordinator="completion:first",
+            lease_token="lease:delivery:first",
+            now=_NOW + timedelta(seconds=3),
+            lease_seconds=30,
+        ),
+        second.claim_completion(
+            coordinator="completion:second",
+            lease_token="lease:delivery:second",
+            now=_NOW + timedelta(seconds=3),
+            lease_seconds=30,
+        ),
+    )
+
+    assert sum(claim is not None for claim in claims) == 1
+    claimed = next(claim for claim in claims if claim is not None)
+    assert claimed is not None
+    completion, attempt = claimed
+    assert completion.state is BackgroundTaskCompletionState.SENDING
+    assert completion.attempt_count == 1
+    assert attempt.attempt_id == completion.attempt_id
+
+
+@pytest.mark.integration
+async def test_completion_retry_then_delivery(database_url: str) -> None:
+    task = _task(f"background-completion-retry-{uuid.uuid4().hex}")
+    store = _store(database_url)
+    await _complete_succeeded(store, task, lease_token="lease:retry", now=_NOW)
+
+    claimed = await store.claim_completion(
+        coordinator="completion:retry",
+        lease_token="lease:retry:1",
+        now=_NOW + timedelta(seconds=3),
+        lease_seconds=30,
+    )
+    assert claimed is not None
+    failed = await store.finish_completion(
+        claimed[0].attempt_id,
+        lease_token="lease:retry:1",
+        delivered=False,
+        now=_NOW + timedelta(seconds=4),
+        retry_at=_NOW + timedelta(seconds=5),
+        error_code="transport_error",
+    )
+    assert failed.state is BackgroundTaskCompletionState.FAILED
+    assert failed.last_error_code == "transport_error"
+    assert failed.terminal_at is None
+
+    retried = await store.claim_completion(
+        coordinator="completion:retry",
+        lease_token="lease:retry:2",
+        now=_NOW + timedelta(seconds=5),
+        lease_seconds=30,
+    )
+    assert retried is not None
+    delivered = await store.finish_completion(
+        retried[0].attempt_id,
+        lease_token="lease:retry:2",
+        delivered=True,
+        now=_NOW + timedelta(seconds=6),
+    )
+    assert delivered.state is BackgroundTaskCompletionState.DELIVERED
+    assert delivered.attempt_count == 2
+    assert delivered.terminal_at == _NOW + timedelta(seconds=6)
+
+
+@pytest.mark.integration
+async def test_completion_expired_delivery_lease_recovers_to_failed(
+    database_url: str,
+) -> None:
+    task = _task(f"background-completion-expired-{uuid.uuid4().hex}")
+    store = _store(database_url)
+    await _complete_succeeded(store, task, lease_token="lease:expired-complete", now=_NOW)
+
+    claimed = await store.claim_completion(
+        coordinator="completion:expired",
+        lease_token="lease:expired:1",
+        now=_NOW + timedelta(seconds=3),
+        lease_seconds=1,
+    )
+    assert claimed is not None
+
+    recovered = await store.reconcile_completion_expired(now=_NOW + timedelta(seconds=4))
+    assert len(recovered) == 1
+    completion = recovered[0]
+    assert completion.state is BackgroundTaskCompletionState.FAILED
+    assert completion.last_error_code == "process_lost"
+    assert completion.terminal_at is None
+
+    claimed_again = await store.claim_completion(
+        coordinator="completion:expired",
+        lease_token="lease:expired:2",
+        now=_NOW + timedelta(seconds=4),
+        lease_seconds=30,
+    )
+    assert claimed_again is not None
+    assert claimed_again[0].attempt_count == 2
+
+
+@pytest.mark.integration
+async def test_completion_retention_blocks_then_allows_purge(database_url: str) -> None:
+    store = _store(database_url)
+    active_task = _task(f"background-completion-retain-active-{uuid.uuid4().hex}")
+    expired_task = replace(
+        _task(f"background-completion-retain-expired-{uuid.uuid4().hex}"),
+        created_at=_NOW - timedelta(days=2),
+        retention_until=_NOW - timedelta(days=1),
+    )
+    await _complete_succeeded(store, active_task, lease_token="lease:retain-active", now=_NOW)
+    await _complete_succeeded(
+        store,
+        expired_task,
+        lease_token="lease:retain-expired",
+        now=_NOW - timedelta(days=2),
+    )
+
+    active_claim = await store.claim_completion(
+        coordinator="completion:retain",
+        lease_token="lease:retain:active",
+        now=_NOW + timedelta(seconds=3),
+        lease_seconds=30,
+    )
+    assert active_claim is not None
+    await store.finish_completion(
+        active_claim[0].attempt_id,
+        lease_token="lease:retain:active",
+        delivered=True,
+        now=_NOW + timedelta(seconds=4),
+    )
+
+    expired_claim = await store.claim_completion(
+        coordinator="completion:retain",
+        lease_token="lease:retain:expired",
+        now=_NOW + timedelta(seconds=5),
+        lease_seconds=30,
+    )
+    assert expired_claim is not None
+    await store.finish_completion(
+        expired_claim[0].attempt_id,
+        lease_token="lease:retain:expired",
+        delivered=True,
+        now=_NOW + timedelta(seconds=6),
+    )
+
+    blocked = await store.purge_retained(now=_NOW, limit=10)
+    assert active_task.task_id not in blocked
+    assert expired_task.task_id in blocked
+
+    active_after = await store.get(active_task.task_id)
+    expired_after = await store.get(expired_task.task_id)
+    assert active_after is not None
+    assert expired_after is None

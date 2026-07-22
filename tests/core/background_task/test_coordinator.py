@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from time import perf_counter
 
 from fdai.core.background_task import (
     BackgroundTask,
@@ -39,11 +41,19 @@ def _task(task_id: str, *, wall_seconds: int = 30) -> BackgroundTask:
 
 
 class _Executor:
-    def __init__(self, *, delay: float = 0, fail: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        delay: float = 0,
+        fail: bool = False,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
         self.delay = delay
         self.fail = fail
+        self.clock = clock or (lambda: datetime.now(UTC))
         self.active = 0
         self.max_active = 0
+        self.calls = 0
 
     async def execute(
         self,
@@ -51,6 +61,7 @@ class _Executor:
         task: BackgroundTask,
         progress: ProgressCallback,
     ) -> BackgroundTaskResult:
+        self.calls += 1
         self.active += 1
         self.max_active = max(self.max_active, self.active)
         try:
@@ -64,7 +75,7 @@ class _Executor:
                 await asyncio.sleep(self.delay)
             if self.fail:
                 raise RuntimeError("failed")
-            now = datetime.now(UTC)
+            now = self.clock()
             return BackgroundTaskResult(
                 summary=f"Completed {task.task_id}.",
                 evidence_refs=("evidence:one",),
@@ -83,6 +94,29 @@ class _Sink:
 
     async def publish(self, attempt: BackgroundTaskAttempt) -> None:
         self.attempts.append(attempt)
+
+
+class _FlakySink(_Sink):
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls = 0
+        self.retried = asyncio.Event()
+
+    async def publish(self, attempt: BackgroundTaskAttempt) -> None:
+        self.calls += 1
+        if self.calls == 1:
+            raise RuntimeError("temporary delivery failure")
+        await super().publish(attempt)
+        self.retried.set()
+
+
+class _NeverReturningSink:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def publish(self, attempt: BackgroundTaskAttempt) -> None:
+        self.calls += 1
+        await asyncio.Future()
 
 
 async def test_coordinator_runs_bounded_tasks_and_persists_before_handoff() -> None:
@@ -113,6 +147,67 @@ async def test_coordinator_runs_bounded_tasks_and_persists_before_handoff() -> N
         stored = await store.get(attempt.task.task_id)
         assert stored == attempt and stored.result is not None
         assert len(await store.progress(attempt.task.task_id)) == 2
+
+
+async def test_completion_retry_does_not_rerun_terminal_task() -> None:
+    store = InMemoryBackgroundTaskStore()
+    await store.create(_task("background-retry"))
+    executor = _Executor()
+    sink = _FlakySink()
+    coordinator = BackgroundTaskCoordinator(
+        store=store,
+        executor=executor,
+        completion_sink=sink,
+        config=BackgroundTaskCoordinatorConfig(coordinator_id="coordinator-retry"),
+    )
+
+    completed = await coordinator.run_once()
+    assert completed[0].status is BackgroundTaskStatus.SUCCEEDED
+    assert executor.calls == 1 and sink.calls == 1
+
+    await asyncio.wait_for(sink.retried.wait(), timeout=2.0)
+    assert executor.calls == 1 and sink.calls == 2
+    assert sink.attempts == [completed[0]]
+    await coordinator.shutdown(drain_seconds=0)
+
+
+async def test_completion_handoff_timeout_is_bounded_and_retries_without_rerun() -> None:
+    now = _NOW
+
+    def clock() -> datetime:
+        return now
+
+    store = InMemoryBackgroundTaskStore(clock=clock)
+    await store.create(_task("background-timeout"))
+    executor = _Executor(clock=clock)
+    sink = _NeverReturningSink()
+    coordinator = BackgroundTaskCoordinator(
+        store=store,
+        executor=executor,
+        completion_sink=sink,
+        clock=clock,
+        config=BackgroundTaskCoordinatorConfig(
+            coordinator_id="coordinator-timeout",
+            completion_timeout_seconds=0.05,
+        ),
+    )
+
+    started = perf_counter()
+    completed = await coordinator.run_once()
+    elapsed = perf_counter() - started
+
+    assert completed[0].status is BackgroundTaskStatus.SUCCEEDED
+    assert elapsed < 0.25
+    assert executor.calls == 1 and sink.calls == 1
+
+    now += timedelta(seconds=1)
+    started = perf_counter()
+    assert await coordinator.run_once() == ()
+    elapsed = perf_counter() - started
+
+    assert elapsed < 0.25
+    assert executor.calls == 1
+    assert sink.calls == 2
 
 
 async def test_coordinator_failure_timeout_and_owner_cancel_are_terminal() -> None:

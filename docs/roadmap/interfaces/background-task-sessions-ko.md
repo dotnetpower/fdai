@@ -2,7 +2,7 @@
 title: 영구 Background Task Session
 translation_of: background-task-sessions.md
 translation_source: docs/roadmap/interfaces/background-task-sessions.md
-translation_source_sha: af28cb4a0f8d8c65569495d86c3cdbc5d0c868bd
+translation_source_sha: ad8683f000b555afc3a486bf81554c5aba11c1cd
 translation_revised: 2026-07-22
 ---
 
@@ -18,9 +18,9 @@ attempt state, lease, progress, cancellation, restart 동작, conversation hando
 ## 설계 요약
 
 Contributor가 제한된 task record를 만들면 실행을 기다리지 않고 `202`를 받습니다. Coordinator는
-lease로 queued attempt를 claim하고, 격리된 typed read service를 실행하고, terminal result를 저장하고,
-provenance label이 있는 conversation turn을 추가한 뒤 immutable reply를 durable conversation delivery
-ledger에 enqueue합니다.
+lease로 queued attempt를 claim하고, 격리된 typed read service를 실행하며, terminal result와 pending
+completion을 하나의 transaction으로 저장합니다. 별도의 leased completion outbox가 provenance label이
+있는 conversation turn을 추가하고 immutable reply를 durable conversation delivery ledger에 enqueue합니다.
 
 ```mermaid
 flowchart LR
@@ -28,8 +28,9 @@ flowchart LR
     CREATE --> CLAIM[CAS lease claim]
     CLAIM --> RUN[읽기 전용 executor]
     RUN --> PROGRESS[Coalesced progress]
-    RUN --> RESULT[영구 terminal result]
-    RESULT --> TURN[Idempotent conversation turn]
+    RUN --> RESULT[Atomic terminal result 및 pending completion]
+    RESULT --> OUTBOX[Leased completion outbox]
+    OUTBOX --> TURN[Idempotent conversation turn]
     TURN --> DELIVERY[Durable reply ledger]
 ```
 
@@ -48,6 +49,17 @@ queued -> claimed -> running -> succeeded | failed | cancelled | timed_out | unk
 Queued attempt에는 lease와 result가 없습니다. Claimed 및 running attempt에는 lease가 있고 result가
 없습니다. Terminal attempt에는 변경할 수 없는 result가 있고 lease가 없습니다. Constructor와 database
 constraint가 같은 규칙을 적용합니다.
+
+각 terminal attempt에는 다음 state machine을 사용하는 completion outbox row 하나가 있습니다.
+
+```text
+pending -> sending -> delivered
+                   -> failed -> sending
+                   -> abandoned
+```
+
+`sending`만 lease를 가집니다. Claim과 함께 delivery attempt count가 증가하며 최대 8회로 제한됩니다.
+`delivered`와 `abandoned`는 terminal completion state입니다.
 
 ## Claim, lease 및 restart 동작
 
@@ -97,22 +109,43 @@ Production read API는 dedicated Azure reader binding이 설정된 경우에만 
 Create와 cancel은 기존 hash-chained state-store audit 경계를 통해 기록됩니다. Request body와 budget은
 제한됩니다. Idempotency는 owner 및 key scope를 사용합니다.
 
-## 완료 순서
+## Completion outbox 및 retry
 
-Store는 completion sink가 실행되기 전에 terminal attempt를 기록합니다. Sink는 deterministic turn 및
-idempotency ID, `[Background task result: ...]` label, correlation metadata, `trusted=false`를 사용해 origin
-conversation에 assistant turn 하나를 추가합니다.
+Terminal attempt update와 `pending` completion insert는 하나의 PostgreSQL transaction으로 commit됩니다.
+Coordinator는 `FOR UPDATE SKIP LOCKED`로 due `pending` 또는 `failed` completion을 claim하고 row를
+`sending`으로 변경하며, 최종 compare-and-set update에 lease token을 요구합니다. Sink publish timeout은
+completion lease 이내로 제한됩니다.
 
-Sink failure는 result를 변경하거나 task를 다시 실행할 수 없습니다. Idempotent conversation turn 뒤에
-sink는 active verified channel binding 하나를 resolve하고 complete response를 durable reply ledger에
-enqueue합니다. Provider delivery는 기존 claim/lease/ack contract를 사용하며 외부 chat provider의
-exactly-once delivery는 보장하지 않습니다.
+Sink failure는 completion row만 변경합니다. Result를 다시 작성하거나 task execution을 다시 실행하지
+않습니다. Retry는 bounded exponential backoff를 사용하고 coordinator가 가장 가까운 due completion
+retry를 process 안에서 schedule합니다. External wake signal이나 새 task 생성을 기다리지 않습니다.
+8회 시도 후 또는 다음 retry가 retention deadline에 도달하면 completion은 `abandoned`가 됩니다.
+
+Process가 `sending` lease를 잃으면 reconciliation이 row를 due `failed`로 변경합니다. Attempt 또는
+retention bound가 소진된 경우에는 `abandoned`로 변경합니다. 이후 coordinator는 investigation을
+replay하지 않고 reconciled row를 claim할 수 있습니다.
+
+## 완료 순서 및 replay
+
+Completion audit, history turn 및 outbound-enqueue audit sequence는 안전하게 replay할 수 있습니다.
+Sink는
+`background-task.completed` 및 `background-task.delivery-enqueued` audit event를 durable state marker를
+통해 기록하며, marker와 audit entry는 원자적으로 commit됩니다. Attempt 및 action별 deterministic
+marker가 sink retry 중에도 해당 audit event를 한 번만 작성하게 합니다.
+
+Conversation turn은 deterministic turn 및 idempotency ID, `[Background task result: ...]` label,
+correlation metadata, `trusted=false`를 유지합니다. Outbound submit은 stable attempt origin을 재사용하므로
+durable reply ledger도 replay를 deduplicate합니다. Provider delivery는 별도의 claim/lease/ack concern으로
+남으며 외부 chat provider의 exactly-once delivery를 보장하지 않습니다.
 
 ## 운영 및 retention
 
 List 및 detail projection은 status, budget, lease expiry, usage, progress, duration input, terminal reason을
-표시합니다. 넓은 context를 제외하고 다른 principal의 task count를 노출하지 않습니다. Task 및 progress row는
-task retention policy에 따라 만료되며 progress row는 attempt와 함께 cascade됩니다.
+표시합니다. 넓은 context를 제외하고 다른 principal의 task count를 노출하지 않습니다. Retention purge는
+task attempt가 terminal이고 task retention deadline이 지났으며 completion이 `delivered` 또는
+`abandoned`인 경우에만 row를 선택합니다. Attempt를 삭제하면 progress 및 completion outbox row가
+cascade됩니다. 따라서 pending, sending 또는 retryable failed completion이 있으면 recovery를 위해 task
+history가 유지됩니다.
 
 Coordinator는 제한된 shutdown interval 동안 active work를 drain합니다. 남은 work는 process 안에서
 cancel되고 process loss 뒤 lease가 만료되면 `unknown`이 됩니다.
@@ -121,9 +154,10 @@ cancel되고 process loss 뒤 lease가 만료되면 `unknown`이 됩니다.
 
 검증 범위에는 contract bound, mutation-profile 차단, concurrent claim, stale revision 및 lease 차단,
 terminal immutability, owner 및 admin cancellation, progress sequence 및 cap, coalescing, bounded
-concurrency, timeout, shutdown, process-loss reconciliation, live PostgreSQL migration 및 restart, 즉시 HTTP
-response, RBAC, cross-owner hiding, SSE completion, 격리된 backend input, idempotent conversation handoff가
-포함됩니다.
+concurrency, timeout, shutdown, task 및 completion process-loss reconciliation, atomic
+terminal-plus-outbox commit, 8회 delivery bound, self-scheduled retry, retention purge predicate, live
+PostgreSQL migration 및 restart, 즉시 HTTP response, RBAC, cross-owner hiding, SSE completion, 격리된
+backend input, replay-idempotent conversation handoff가 포함됩니다.
 
 ## 관련 문서
 

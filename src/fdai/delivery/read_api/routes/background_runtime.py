@@ -117,8 +117,10 @@ class ConversationBackgroundTaskCompletionSink:
         if result is None:
             raise ValueError("background completion requires a terminal result")
         content = result.summary or f"Background task ended: {result.terminal_reason}"
-        await self._audit.append_audit_entry(
-            {
+        await self._append_audit_entry_once(
+            attempt=attempt,
+            action_kind="background-task.completed",
+            payload={
                 "action_kind": "background-task.completed",
                 "task_id": attempt.task.task_id,
                 "attempt_id": attempt.attempt_id,
@@ -130,7 +132,7 @@ class ConversationBackgroundTaskCompletionSink:
                 "cost_microusd": result.usage.cost_microusd,
                 "tool_calls": result.usage.tool_calls,
                 "finished_at": result.finished_at.isoformat(),
-            }
+            },
         )
         await self._history.append_turn(
             ConversationTurnRecord(
@@ -182,15 +184,36 @@ class ConversationBackgroundTaskCompletionSink:
             ),
             send_immediately=False,
         )
-        await self._audit.append_audit_entry(
-            {
+        await self._append_audit_entry_once(
+            attempt=attempt,
+            action_kind="background-task.delivery-enqueued",
+            payload={
                 "action_kind": "background-task.delivery-enqueued",
                 "task_id": attempt.task.task_id,
                 "attempt_id": attempt.attempt_id,
                 "correlation_id": attempt.task.correlation_id,
                 "delivery_id": delivery.delivery_id,
                 "delivery_state": delivery.state.value,
-            }
+            },
+        )
+
+    async def _append_audit_entry_once(
+        self,
+        *,
+        attempt: BackgroundTaskAttempt,
+        action_kind: str,
+        payload: dict[str, object],
+    ) -> None:
+        key = f"background-task:audit:{attempt.attempt_id}:{action_kind}"
+        await self._audit.write_state_with_audit_if_absent(
+            key,
+            {
+                "kind": "background-task.audit",
+                "action_kind": action_kind,
+                "task_id": attempt.task.task_id,
+                "attempt_id": attempt.attempt_id,
+            },
+            payload,
         )
 
 

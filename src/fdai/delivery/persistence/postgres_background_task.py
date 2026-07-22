@@ -8,16 +8,19 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any, Final
+from typing import Any, Final, NoReturn
 
 import psycopg
 from psycopg.rows import dict_row
 
 from fdai.core.background_task import (
+    MAX_COMPLETION_ATTEMPTS,
     TERMINAL_BACKGROUND_STATUSES,
     BackgroundTask,
     BackgroundTaskAttempt,
     BackgroundTaskBudget,
+    BackgroundTaskCompletion,
+    BackgroundTaskCompletionState,
     BackgroundTaskConflictError,
     BackgroundTaskKind,
     BackgroundTaskLease,
@@ -39,6 +42,10 @@ _ATTEMPT_COLUMNS: Final = (
     "result, parent_attempt_id"
 )
 _PROGRESS_COLUMNS: Final = "attempt_id, sequence, kind, message, at, usage"
+_COMPLETION_COLUMNS: Final = (
+    "attempt_id, state, created_at, due_at, retention_until, attempt_count, "
+    "lease_owner, lease_token, lease_expires_at, last_error_code, terminal_at"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -319,30 +326,36 @@ class PostgresBackgroundTaskStore:
     ) -> BackgroundTaskAttempt:
         if status not in TERMINAL_BACKGROUND_STATUSES:
             raise ValueError("completion status MUST be terminal")
-        row = await self._leased_update(
-            "UPDATE background_task_attempt SET status = %s, revision = revision + 1, "
-            "updated_at = %s, lease_owner = NULL, lease_token = NULL, "
-            "lease_expires_at = NULL, usage = %s::jsonb, result = %s::jsonb "
-            "WHERE attempt_id = %s AND revision = %s AND lease_token = %s "
-            "AND lease_expires_at > %s AND status = ANY(%s) "
-            f"RETURNING {_ATTEMPT_COLUMNS}",
-            (
-                status.value,
-                now,
-                json.dumps(_usage_to_dict(result.usage)),
-                json.dumps(_result_to_dict(result)),
-                attempt_id,
-                expected_revision,
-                lease_token,
-                now,
-                [
-                    BackgroundTaskStatus.CLAIMED.value,
-                    BackgroundTaskStatus.RUNNING.value,
-                ],
-            ),
-            attempt_id,
-        )
-        return _attempt(row)
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                "UPDATE background_task_attempt SET status = %s, revision = revision + 1, "
+                "updated_at = %s, lease_owner = NULL, lease_token = NULL, "
+                "lease_expires_at = NULL, usage = %s::jsonb, result = %s::jsonb "
+                "WHERE attempt_id = %s AND revision = %s AND lease_token = %s "
+                "AND lease_expires_at > %s AND status = ANY(%s) "
+                f"RETURNING {_ATTEMPT_COLUMNS}",
+                (
+                    status.value,
+                    now,
+                    json.dumps(_usage_to_dict(result.usage)),
+                    json.dumps(_result_to_dict(result)),
+                    attempt_id,
+                    expected_revision,
+                    lease_token,
+                    now,
+                    [
+                        BackgroundTaskStatus.CLAIMED.value,
+                        BackgroundTaskStatus.RUNNING.value,
+                    ],
+                ),
+            )
+            row = await cursor.fetchone()
+            if row is None:
+                await self._raise_attempt_conflict(connection, attempt_id)
+            completed = _attempt(row)
+            await self._insert_completion(connection, completed, now=now)
+            return completed
 
     async def cancel(
         self,
@@ -392,9 +405,11 @@ class PostgresBackgroundTaskStore:
                 ),
             )
             updated_row = await updated.fetchone()
-        if updated_row is None:  # pragma: no cover - row lock prevents this path
-            raise BackgroundTaskConflictError("background task cancellation conflict")
-        return _attempt(updated_row)
+            if updated_row is None:  # pragma: no cover - row lock prevents this path
+                raise BackgroundTaskConflictError("background task cancellation conflict")
+            completed = _attempt(updated_row)
+            await self._insert_completion(connection, completed, now=updated_at)
+            return completed
 
     async def append_progress(
         self,
@@ -527,8 +542,285 @@ class PostgresBackgroundTaskStore:
                 )
                 updated_row = await updated.fetchone()
                 if updated_row is not None:
-                    reconciled.append(_attempt(updated_row))
+                    completed = _attempt(updated_row)
+                    await self._insert_completion(
+                        connection,
+                        completed,
+                        now=completed.updated_at,
+                    )
+                    reconciled.append(completed)
         return tuple(reconciled)
+
+    async def claim_completion(
+        self,
+        *,
+        coordinator: str,
+        lease_token: str,
+        now: datetime,
+        lease_seconds: int,
+    ) -> tuple[BackgroundTaskCompletion, BackgroundTaskAttempt] | None:
+        _lease_input(coordinator, lease_token, now, lease_seconds)
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                "WITH candidate AS ("
+                "SELECT attempt_id FROM background_task_completion "
+                "WHERE state = ANY(%s) AND due_at <= %s AND attempt_count < %s "
+                "ORDER BY due_at, attempt_id FOR UPDATE SKIP LOCKED LIMIT 1"
+                ") UPDATE background_task_completion AS completion SET "
+                "state = %s, attempt_count = completion.attempt_count + 1, "
+                "lease_owner = %s, lease_token = %s, lease_expires_at = %s, "
+                "last_error_code = NULL FROM candidate "
+                "WHERE completion.attempt_id = candidate.attempt_id "
+                f"RETURNING {_qualified_completion_columns('completion')}",
+                (
+                    [
+                        BackgroundTaskCompletionState.PENDING.value,
+                        BackgroundTaskCompletionState.FAILED.value,
+                    ],
+                    now,
+                    MAX_COMPLETION_ATTEMPTS,
+                    BackgroundTaskCompletionState.SENDING.value,
+                    coordinator,
+                    lease_token,
+                    now + timedelta(seconds=lease_seconds),
+                ),
+            )
+            completion_row = await cursor.fetchone()
+            if completion_row is None:
+                return None
+            attempt_cursor = await connection.execute(
+                f"SELECT {_ATTEMPT_COLUMNS} FROM background_task_attempt WHERE attempt_id = %s",
+                (str(completion_row["attempt_id"]),),
+            )
+            attempt_row = await attempt_cursor.fetchone()
+            if attempt_row is None:  # pragma: no cover - foreign key keeps it present
+                raise RuntimeError("background completion references a missing attempt")
+            return _completion(completion_row), _attempt(attempt_row)
+
+    async def finish_completion(
+        self,
+        attempt_id: str,
+        *,
+        lease_token: str,
+        delivered: bool,
+        now: datetime,
+        retry_at: datetime | None = None,
+        error_code: str | None = None,
+    ) -> BackgroundTaskCompletion:
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            current = await self._completion_leased(
+                connection,
+                attempt_id,
+                lease_token=lease_token,
+                now=now,
+            )
+            if delivered:
+                if retry_at is not None or error_code is not None:
+                    raise ValueError("delivered completion cannot carry retry details")
+                cursor = await connection.execute(
+                    "UPDATE background_task_completion SET "
+                    "state = %s, lease_owner = NULL, lease_token = NULL, "
+                    "lease_expires_at = NULL, last_error_code = NULL, terminal_at = %s "
+                    "WHERE attempt_id = %s RETURNING "
+                    f"{_COMPLETION_COLUMNS}",
+                    (
+                        BackgroundTaskCompletionState.DELIVERED.value,
+                        now,
+                        attempt_id,
+                    ),
+                )
+            else:
+                if retry_at is None or error_code is None:
+                    raise ValueError("failed completion requires retry_at and error_code")
+                if retry_at.tzinfo is None or retry_at.utcoffset() is None:
+                    raise ValueError("completion retry_at MUST be timezone-aware")
+                abandon = (
+                    current.attempt_count >= MAX_COMPLETION_ATTEMPTS
+                    or retry_at >= current.retention_until
+                )
+                cursor = await connection.execute(
+                    "UPDATE background_task_completion SET "
+                    "state = %s, due_at = %s, lease_owner = NULL, lease_token = NULL, "
+                    "lease_expires_at = NULL, last_error_code = %s, terminal_at = %s "
+                    "WHERE attempt_id = %s RETURNING "
+                    f"{_COMPLETION_COLUMNS}",
+                    (
+                        (
+                            BackgroundTaskCompletionState.ABANDONED.value
+                            if abandon
+                            else BackgroundTaskCompletionState.FAILED.value
+                        ),
+                        min(retry_at, current.retention_until),
+                        error_code,
+                        now if abandon else None,
+                        attempt_id,
+                    ),
+                )
+            row = await cursor.fetchone()
+            if row is None:  # pragma: no cover - UPDATE RETURNING yields one row
+                raise RuntimeError("background completion update returned no row")
+            return _completion(row)
+
+    async def reconcile_completion_expired(
+        self,
+        *,
+        now: datetime,
+        limit: int = 100,
+    ) -> tuple[BackgroundTaskCompletion, ...]:
+        _limit(limit, 1_000)
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            candidates = await connection.execute(
+                f"SELECT {_COMPLETION_COLUMNS} FROM background_task_completion "
+                "WHERE state = %s AND lease_expires_at <= %s "
+                "ORDER BY lease_expires_at, attempt_id FOR UPDATE SKIP LOCKED LIMIT %s",
+                (
+                    BackgroundTaskCompletionState.SENDING.value,
+                    now,
+                    limit,
+                ),
+            )
+            rows = await candidates.fetchall()
+            reconciled: list[BackgroundTaskCompletion] = []
+            for row in rows:
+                current = _completion(row)
+                abandon = (
+                    current.attempt_count >= MAX_COMPLETION_ATTEMPTS
+                    or now >= current.retention_until
+                )
+                updated = await connection.execute(
+                    "UPDATE background_task_completion SET "
+                    "state = %s, due_at = %s, lease_owner = NULL, lease_token = NULL, "
+                    "lease_expires_at = NULL, last_error_code = %s, terminal_at = %s "
+                    "WHERE attempt_id = %s RETURNING "
+                    f"{_COMPLETION_COLUMNS}",
+                    (
+                        (
+                            BackgroundTaskCompletionState.ABANDONED.value
+                            if abandon
+                            else BackgroundTaskCompletionState.FAILED.value
+                        ),
+                        min(now, current.retention_until),
+                        "process_lost",
+                        now if abandon else None,
+                        current.attempt_id,
+                    ),
+                )
+                updated_row = await updated.fetchone()
+                if updated_row is None:  # pragma: no cover - row lock keeps it present
+                    continue
+                reconciled.append(_completion(updated_row))
+        return tuple(reconciled)
+
+    async def purge_retained(
+        self,
+        *,
+        now: datetime,
+        limit: int = 100,
+    ) -> tuple[str, ...]:
+        _limit(limit, 1_000)
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                "WITH candidate AS ("
+                "SELECT attempt.attempt_id, attempt.task_id "
+                "FROM background_task_attempt AS attempt "
+                "JOIN background_task_completion AS completion "
+                "ON completion.attempt_id = attempt.attempt_id "
+                "WHERE attempt.status = ANY(%s) "
+                "AND attempt.retention_until <= %s "
+                "AND completion.state = ANY(%s) "
+                "ORDER BY attempt.retention_until, attempt.attempt_id "
+                "FOR UPDATE OF attempt SKIP LOCKED LIMIT %s"
+                "), deleted AS ("
+                "DELETE FROM background_task_attempt AS attempt "
+                "USING candidate "
+                "WHERE attempt.attempt_id = candidate.attempt_id "
+                "RETURNING candidate.task_id"
+                ") SELECT task_id FROM deleted",
+                (
+                    [status.value for status in TERMINAL_BACKGROUND_STATUSES],
+                    now,
+                    [
+                        BackgroundTaskCompletionState.DELIVERED.value,
+                        BackgroundTaskCompletionState.ABANDONED.value,
+                    ],
+                    limit,
+                ),
+            )
+            rows = await cursor.fetchall()
+        return tuple(str(row["task_id"]) for row in rows)
+
+    async def _insert_completion(
+        self,
+        connection: psycopg.AsyncConnection[dict[str, Any]],
+        attempt: BackgroundTaskAttempt,
+        *,
+        now: datetime,
+    ) -> None:
+        if attempt.status not in TERMINAL_BACKGROUND_STATUSES:
+            raise ValueError("completion outbox requires a terminal attempt")
+        await connection.execute(
+            "INSERT INTO background_task_completion ("
+            f"{_COMPLETION_COLUMNS}) VALUES ("
+            "%s, %s, %s, %s, GREATEST(%s, %s), %s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (attempt_id) DO NOTHING",
+            (
+                attempt.attempt_id,
+                BackgroundTaskCompletionState.PENDING.value,
+                now,
+                now,
+                attempt.task.retention_until,
+                now,
+                0,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+        )
+
+    async def _raise_attempt_conflict(
+        self,
+        connection: psycopg.AsyncConnection[dict[str, Any]],
+        attempt_id: str,
+    ) -> NoReturn:
+        cursor = await connection.execute(
+            "SELECT 1 FROM background_task_attempt WHERE attempt_id = %s",
+            (attempt_id,),
+        )
+        if await cursor.fetchone() is not None:
+            raise BackgroundTaskConflictError("background task lease or revision conflict")
+        raise LookupError(f"background task attempt {attempt_id!r} was not found")
+
+    async def _completion_leased(
+        self,
+        connection: psycopg.AsyncConnection[dict[str, Any]],
+        attempt_id: str,
+        *,
+        lease_token: str,
+        now: datetime,
+    ) -> BackgroundTaskCompletion:
+        cursor = await connection.execute(
+            f"SELECT {_COMPLETION_COLUMNS} FROM background_task_completion "
+            "WHERE attempt_id = %s FOR UPDATE",
+            (attempt_id,),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            raise LookupError(f"background completion {attempt_id!r} was not found")
+        current = _completion(row)
+        if (
+            current.state is not BackgroundTaskCompletionState.SENDING
+            or current.lease is None
+            or current.lease.token != lease_token
+            or current.lease.expires_at <= now
+        ):
+            raise BackgroundTaskConflictError("background completion lease conflict")
+        return current
 
     async def _leased_update(
         self,
@@ -604,6 +896,31 @@ def _progress(row: dict[str, Any]) -> BackgroundTaskProgress:
         message=str(row["message"]),
         at=row["at"],
         usage=_usage(_mapping(row["usage"])),
+    )
+
+
+def _completion(row: dict[str, Any]) -> BackgroundTaskCompletion:
+    lease_owner = row["lease_owner"]
+    return BackgroundTaskCompletion(
+        attempt_id=str(row["attempt_id"]),
+        state=BackgroundTaskCompletionState(str(row["state"])),
+        created_at=row["created_at"],
+        due_at=row["due_at"],
+        retention_until=row["retention_until"],
+        attempt_count=int(row["attempt_count"]),
+        lease=(
+            BackgroundTaskLease(
+                owner=str(lease_owner),
+                token=str(row["lease_token"]),
+                expires_at=row["lease_expires_at"],
+            )
+            if lease_owner is not None
+            else None
+        ),
+        last_error_code=(
+            str(row["last_error_code"]) if row["last_error_code"] is not None else None
+        ),
+        terminal_at=row["terminal_at"],
     )
 
 
@@ -724,6 +1041,10 @@ def _mapping(value: Any) -> dict[str, Any]:
 
 def _qualified_attempt_columns(alias: str) -> str:
     return ", ".join(f"{alias}.{column.strip()}" for column in _ATTEMPT_COLUMNS.split(","))
+
+
+def _qualified_completion_columns(alias: str) -> str:
+    return ", ".join(f"{alias}.{column.strip()}" for column in _COMPLETION_COLUMNS.split(","))
 
 
 def _lease_input(coordinator: str, lease_token: str, now: datetime, lease_seconds: int) -> None:

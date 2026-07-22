@@ -8,6 +8,8 @@ from fdai.core.background_task import (
     BackgroundTask,
     BackgroundTaskAttempt,
     BackgroundTaskBudget,
+    BackgroundTaskCompletion,
+    BackgroundTaskCompletionState,
     BackgroundTaskKind,
     BackgroundTaskLease,
     BackgroundTaskOrigin,
@@ -119,4 +121,45 @@ def test_task_rejects_mutation_profile_or_invalid_retention() -> None:
             idempotency_key=task.idempotency_key,
             created_at=task.created_at,
             retention_until=task.created_at,
+        )
+
+
+def test_completion_outbox_requires_lease_and_terminal_timestamp() -> None:
+    lease = BackgroundTaskLease("coordinator-one", "lease-one", _NOW + timedelta(seconds=30))
+    sending = BackgroundTaskCompletion(
+        attempt_id="attempt-one",
+        state=BackgroundTaskCompletionState.SENDING,
+        created_at=_NOW,
+        due_at=_NOW,
+        retention_until=_NOW + timedelta(days=1),
+        attempt_count=1,
+        lease=lease,
+    )
+    delivered = BackgroundTaskCompletion(
+        attempt_id="attempt-one",
+        state=BackgroundTaskCompletionState.DELIVERED,
+        created_at=_NOW,
+        due_at=_NOW,
+        retention_until=_NOW + timedelta(days=1),
+        attempt_count=1,
+        terminal_at=_NOW,
+    )
+
+    assert sending.lease == lease
+    assert delivered.state.terminal is True
+    with pytest.raises(ValueError, match="carry a lease"):
+        BackgroundTaskCompletion(
+            attempt_id="attempt-one",
+            state=BackgroundTaskCompletionState.SENDING,
+            created_at=_NOW,
+            due_at=_NOW,
+            retention_until=_NOW + timedelta(days=1),
+        )
+    with pytest.raises(ValueError, match="terminal_at"):
+        BackgroundTaskCompletion(
+            attempt_id="attempt-one",
+            state=BackgroundTaskCompletionState.DELIVERED,
+            created_at=_NOW,
+            due_at=_NOW,
+            retention_until=_NOW + timedelta(days=1),
         )

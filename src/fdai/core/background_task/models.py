@@ -9,6 +9,7 @@ from enum import StrEnum
 _MAX_ID = 256
 _MAX_PROMPT = 4_000
 _MAX_PROGRESS = 1_000
+MAX_COMPLETION_ATTEMPTS = 8
 
 
 class BackgroundTaskKind(StrEnum):
@@ -24,6 +25,21 @@ class BackgroundTaskStatus(StrEnum):
     CANCELLED = "cancelled"
     TIMED_OUT = "timed_out"
     UNKNOWN = "unknown"
+
+
+class BackgroundTaskCompletionState(StrEnum):
+    PENDING = "pending"
+    SENDING = "sending"
+    FAILED = "failed"
+    DELIVERED = "delivered"
+    ABANDONED = "abandoned"
+
+    @property
+    def terminal(self) -> bool:
+        return self in {
+            BackgroundTaskCompletionState.DELIVERED,
+            BackgroundTaskCompletionState.ABANDONED,
+        }
 
 
 TERMINAL_BACKGROUND_STATUSES = frozenset(
@@ -123,6 +139,64 @@ class BackgroundTaskLease:
         _id("lease owner", self.owner)
         _id("lease token", self.token)
         _aware("lease expires_at", self.expires_at)
+
+
+@dataclass(frozen=True, slots=True)
+class BackgroundTaskCompletion:
+    attempt_id: str
+    state: BackgroundTaskCompletionState
+    created_at: datetime
+    due_at: datetime
+    retention_until: datetime
+    attempt_count: int = 0
+    lease: BackgroundTaskLease | None = None
+    last_error_code: str | None = None
+    terminal_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        _id("completion attempt_id", self.attempt_id)
+        for name, value in (
+            ("completion created_at", self.created_at),
+            ("completion due_at", self.due_at),
+            ("completion retention_until", self.retention_until),
+        ):
+            _aware(name, value)
+        if not self.created_at <= self.due_at <= self.retention_until:
+            raise ValueError("completion timestamps MUST be ordered")
+        if not 0 <= self.attempt_count <= MAX_COMPLETION_ATTEMPTS:
+            raise ValueError("completion attempt_count is outside the bounded range")
+        if self.state is BackgroundTaskCompletionState.SENDING:
+            if self.lease is None:
+                raise ValueError("sending completion MUST carry a lease")
+            if self.attempt_count < 1:
+                raise ValueError("sending completion MUST count its delivery attempt")
+        elif self.lease is not None:
+            raise ValueError("only sending completion can carry a lease")
+        if self.state.terminal != (self.terminal_at is not None):
+            raise ValueError("terminal completion MUST carry terminal_at")
+        if self.terminal_at is not None:
+            _aware("completion terminal_at", self.terminal_at)
+        if (
+            self.state
+            in {
+                BackgroundTaskCompletionState.FAILED,
+                BackgroundTaskCompletionState.ABANDONED,
+            }
+            and self.last_error_code is None
+        ):
+            raise ValueError("failed completion MUST carry last_error_code")
+        if (
+            self.state
+            in {
+                BackgroundTaskCompletionState.PENDING,
+                BackgroundTaskCompletionState.SENDING,
+                BackgroundTaskCompletionState.DELIVERED,
+            }
+            and self.last_error_code is not None
+        ):
+            raise ValueError("non-failed completion cannot carry last_error_code")
+        if self.last_error_code is not None:
+            _id("completion last_error_code", self.last_error_code)
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,10 +303,13 @@ def _aware(name: str, value: datetime) -> None:
 
 
 __all__ = [
+    "MAX_COMPLETION_ATTEMPTS",
     "TERMINAL_BACKGROUND_STATUSES",
     "BackgroundTask",
     "BackgroundTaskAttempt",
     "BackgroundTaskBudget",
+    "BackgroundTaskCompletion",
+    "BackgroundTaskCompletionState",
     "BackgroundTaskKind",
     "BackgroundTaskLease",
     "BackgroundTaskOrigin",

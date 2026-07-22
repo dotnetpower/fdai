@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 4c32ed68f3650c1973a70d5db45a529d6882193e
+translation_source_sha: 6df8275e4f21e93d713efb501ca613e32dc1b4e8
 translation_revised: 2026-07-22
 ---
 
@@ -99,9 +99,9 @@ flowchart TD
   NARR -.tool call.-> INV
 ```
 
-- **Layer 3 (Channel)**은 얇다. 각 채널 adapter는 wire 포맷 (stdin /
-  Teams Activity / Slack event / authenticated HTTP request와 SSE)의 한 turn을
-  `ConversationTurn`으로, 그리고 반대 방향으로 변환. 판단은 여기 없음.
+- **Layer 3 (Channel)**은 얇습니다. Adapter는 wire format과 `ConversationTurn` 사이에서 한 turn을
+  변환하며 판단하지 않습니다. Streamed read는 provider task가 idle인 동안 progress 또는 evidence가
+  없는 SSE comment heartbeat를 전송합니다. Stream을 닫으면 해당 task를 cancel하고 await합니다.
 - **Layer 2 (Coordinator)**는 intent classification, RBAC gating, tool
   dispatch, verifier re-check, 세션 bookkeeping을 소유합니다. Core translator는 `Narrator`
   Protocol, web generation은 read API backend seam이므로 deployment가 provider를 바인딩할 수 있습니다.

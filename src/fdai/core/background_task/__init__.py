@@ -8,10 +8,13 @@ from fdai.core.background_task.coordinator import (
     ProgressCallback,
 )
 from fdai.core.background_task.models import (
+    MAX_COMPLETION_ATTEMPTS,
     TERMINAL_BACKGROUND_STATUSES,
     BackgroundTask,
     BackgroundTaskAttempt,
     BackgroundTaskBudget,
+    BackgroundTaskCompletion,
+    BackgroundTaskCompletionState,
     BackgroundTaskKind,
     BackgroundTaskLease,
     BackgroundTaskOrigin,
@@ -38,6 +41,7 @@ from fdai.core.background_task.store import (
 
 __all__ = [
     "ACTIVE_BACKGROUND_STATUSES",
+    "MAX_COMPLETION_ATTEMPTS",
     "TERMINAL_BACKGROUND_STATUSES",
     "BackgroundTaskCompletionSink",
     "BackgroundTaskCoordinator",
@@ -47,6 +51,8 @@ __all__ = [
     "BackgroundTaskAudit",
     "BackgroundTaskAttempt",
     "BackgroundTaskBudget",
+    "BackgroundTaskCompletion",
+    "BackgroundTaskCompletionState",
     "BackgroundTaskConflictError",
     "BackgroundTaskKind",
     "BackgroundTaskLease",

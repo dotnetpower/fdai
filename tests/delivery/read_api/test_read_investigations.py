@@ -4,6 +4,7 @@ import asyncio
 from datetime import UTC, datetime
 
 from httpx import ASGITransport, AsyncClient
+from pytest import MonkeyPatch
 from starlette.applications import Starlette
 from starlette.requests import Request
 
@@ -18,6 +19,7 @@ from fdai.core.read_investigation import (
     ReadInvestigationService,
     plan_read_investigation,
 )
+from fdai.delivery.read_api.routes import read_investigations as read_investigation_routes
 from fdai.delivery.read_api.routes.background_tasks import BackgroundTaskRoutesConfig
 from fdai.delivery.read_api.routes.read_investigations import (
     ReadInvestigationRoutesConfig,
@@ -267,6 +269,72 @@ async def test_invalid_budget_returns_400_before_cloud_io() -> None:
     assert response.status_code == 400
     assert "max_tool_calls" in response.text
     assert provider.calls == []
+
+
+async def test_stream_heartbeat_precedes_terminal_without_restarting_provider(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class _SlowProvider(_Provider):
+        def __init__(self) -> None:
+            super().__init__()
+            self.resolve_calls = 0
+
+        async def resolve_resource(self, selector, *, limits):  # type: ignore[no-untyped-def]
+            self.resolve_calls += 1
+            started.set()
+            await release.wait()
+            return await super().resolve_resource(selector, limits=limits)
+
+    provider = _SlowProvider()
+    plan = plan_read_investigation(
+        ReadInvestigationRequest(
+            requester_ref="principal:one",
+            conversation_ref="conversation:one",
+            correlation_ref="correlation:one",
+            intent=ReadInvestigationIntent.RESOURCE_STATE,
+            selector=ResourceSelector(name="vm-01", scope_ref="scope:allowed"),
+            lookback_seconds=3_600,
+            requested_evidence=(),
+            budget=ReadInvestigationBudget(),
+            idempotency_key="request:stream-heartbeat",
+            created_at=NOW,
+        )
+    )
+    monkeypatch.setattr(
+        read_investigation_routes,
+        "_SSE_HEARTBEAT_INTERVAL_SECONDS",
+        0.01,
+    )
+    response = _stream(
+        ReadInvestigationService(
+            provider,
+            clock=lambda: NOW,
+            latency_store=_LatencyStore(measured=False),
+        ),
+        plan,
+        estimate=PlanLatencyEstimate(2_000, 8_000, False, 0, False),
+    )
+    iterator = response.body_iterator
+    frames = []
+
+    while ": heartbeat\n\n" not in frames:
+        frames.append(await asyncio.wait_for(anext(iterator), timeout=0.5))
+
+    assert started.is_set()
+    assert provider.resolve_calls == 1
+    release.set()
+    frames.extend([frame async for frame in iterator])
+
+    heartbeat_indexes = [index for index, frame in enumerate(frames) if frame == ": heartbeat\n\n"]
+    terminal_indexes = [index for index, frame in enumerate(frames) if "event: terminal" in frame]
+    assert heartbeat_indexes
+    assert terminal_indexes == [len(frames) - 1]
+    assert max(heartbeat_indexes) < terminal_indexes[0]
+    assert provider.resolve_calls == 1
+    assert provider.calls == [ReadToolId.RESOLVE_RESOURCE, ReadToolId.GET_RESOURCE_STATE]
 
 
 async def test_stream_close_cancels_inflight_investigation() -> None:

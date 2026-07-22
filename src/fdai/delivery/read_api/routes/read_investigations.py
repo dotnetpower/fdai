@@ -46,6 +46,7 @@ from fdai.shared.providers.read_investigation import (
 
 AuthorizePrincipal = Callable[[Request], Awaitable[Principal]]
 _MAX_BODY: Final = 16_000
+_SSE_HEARTBEAT_INTERVAL_SECONDS: Final = 15.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,8 +190,13 @@ def _stream(
         try:
             while not execution.done() or not queue.empty():
                 try:
-                    kind = await asyncio.wait_for(queue.get(), timeout=0.25)
+                    kind = await asyncio.wait_for(
+                        queue.get(),
+                        timeout=_SSE_HEARTBEAT_INTERVAL_SECONDS,
+                    )
                 except TimeoutError:
+                    if not execution.done():
+                        yield ": heartbeat\n\n"
                     continue
                 yield f"event: progress\ndata: {json.dumps({'kind': kind})}\n\n"
             result = await execution
