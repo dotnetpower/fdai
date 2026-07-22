@@ -17,7 +17,7 @@ Operator console (read-only). Overview / Now / History surfaces:
 | File | Purpose |
 |------|---------|
 | [live.html](live.html) | Live cockpit - activity swarm of tiles for control-plane events flowing through T0 / T1 / T2, KPI strip with sparkline, audit ticker |
-| [dashboard.html](dashboard.html) | Overview - success/guard KPIs, trust-tier + safety check distribution, mode mix, top human approval items, recent audit |
+| [dashboard.html](dashboard.html) | Overview - operating posture, evidence-qualified outcomes, routing/control distributions, aggregated attention, and vertical outcomes |
 | [incidents.html](incidents.html) | Incident-centric roster with active/resolved filtering, current disposition, and per-incident fix history |
 | [hil.html](hil.html) | Human approval queue - plain-first approval cards with safety facts, filters by risk / category / vertical |
 | [promotion.html](promotion.html) | Shadow to enforce candidates and the four gate checks (accuracy, escapes, guard budget, safety invariants) |

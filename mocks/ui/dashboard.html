@@ -6,319 +6,412 @@
   <title>Overview - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=sidebar-v5" />
   <script src="assets/calm-slate.js?v=sidebar-v5" defer></script>
+  <style>
+    .dashboard-v2 { --db-radius: 8px; }
+    .dashboard-v2 .cs-section { margin: 36px 0; }
+    .db-posture {
+      padding: 24px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--db-radius);
+      background: var(--cs-card);
+      box-shadow: var(--cs-shadow);
+    }
+    .db-posture-head,
+    .db-panel-head,
+    .db-vertical-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .db-kicker {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--cs-text-soft);
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .db-posture h2 { margin: 0; font-size: 25px; }
+    .db-posture-summary { margin: 8px 0 0; color: var(--cs-steel); font-weight: 600; }
+    .db-count {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 3px 10px;
+      border-radius: var(--cs-radius-pill);
+      color: #80502F;
+      background: rgba(188,116,73,.12);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .db-evidence-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--cs-hairline);
+      color: var(--cs-text-soft);
+      font-size: 12px;
+    }
+    .db-evidence-strip strong { color: var(--cs-text); font-weight: 600; }
+    .db-metric-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .db-metric {
+      min-height: 154px;
+      padding: 18px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--db-radius);
+      background: var(--cs-card);
+      box-shadow: var(--cs-shadow);
+    }
+    .db-metric.is-unavailable { background: var(--cs-shade); box-shadow: none; }
+    .db-metric-label { display: block; min-height: 42px; color: var(--cs-text-soft); font-size: 12.5px; }
+    .db-metric-value { display: block; margin: 8px 0 10px; font-size: 28px; font-weight: 600; line-height: 1.1; }
+    .db-metric.is-unavailable .db-metric-value { font-size: 16px; line-height: 1.35; }
+    .db-metric-foot { display: block; color: var(--cs-text-soft); font-size: 11.5px; line-height: 1.45; }
+    .db-signal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .db-panel {
+      padding: 20px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--db-radius);
+      background: var(--cs-card);
+      box-shadow: var(--cs-shadow);
+    }
+    .db-panel h3 { margin: 0; }
+    .db-panel-meta { color: var(--cs-text-soft); font-size: 12px; white-space: nowrap; }
+    .db-distribution { margin-top: 18px; }
+    .db-distribution + .db-distribution { margin-top: 22px; }
+    .db-distribution-label { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 7px; font-size: 12px; }
+    .db-distribution-label span:last-child { color: var(--cs-text-soft); }
+    .db-attention-grid,
+    .db-vertical-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .db-attention-card,
+    .db-vertical {
+      padding: 20px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--db-radius);
+      background: var(--cs-card);
+    }
+    .db-attention-card h3,
+    .db-vertical h3 { margin: 0; font-size: 16px; }
+    .db-attention-value { display: block; margin: 14px 0 8px; font-size: 28px; font-weight: 600; line-height: 1; }
+    .db-fact-list { margin: 12px 0 0; padding: 0; list-style: none; font-size: 12.5px; }
+    .db-fact-list li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--cs-hairline); }
+    .db-fact-list li:first-child { border-top: 0; }
+    .db-fact-list span { color: var(--cs-text-soft); }
+    .db-fact-list strong { text-align: right; font-weight: 600; }
+    .db-state {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: var(--cs-radius-pill);
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .db-state.measured { color: var(--cs-sage); background: rgba(94,130,89,.1); }
+    .db-state.attention { color: #80502F; background: rgba(188,116,73,.12); }
+    .db-state.unavailable { color: var(--cs-text-soft); background: var(--cs-shade); }
+    .db-vertical-stats { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 16px 0 0; }
+    .db-vertical-stats span { color: var(--cs-text-soft); font-size: 12px; }
+    .db-vertical-stats b { color: var(--cs-text); font-size: 17px; }
+    .db-unobserved { margin: 18px 0 0; color: var(--cs-text-soft); font-size: 13px; }
+    .db-detail {
+      border-top: 1px solid var(--cs-hairline);
+      border-bottom: 1px solid var(--cs-hairline);
+    }
+    .db-detail summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 0;
+      cursor: pointer;
+      list-style: none;
+      font-weight: 600;
+    }
+    .db-detail summary::-webkit-details-marker { display: none; }
+    .db-detail summary::after { content: "+"; color: var(--cs-text-soft); font-size: 20px; font-weight: 400; }
+    .db-detail[open] summary::after { content: "-"; }
+    .db-detail-body { padding: 0 0 18px; }
+    .db-detail-links { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 14px; font-size: 13px; }
+    @media (max-width: 1050px) {
+      .db-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 760px) {
+      .db-signal-grid,
+      .db-attention-grid,
+      .db-vertical-grid { grid-template-columns: 1fr; }
+      .db-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 500px) {
+      .db-posture-head { flex-direction: column; }
+      .db-posture { padding: 20px; }
+      .db-metric-grid { grid-template-columns: 1fr; }
+      .db-metric { min-height: 0; }
+      .db-metric-label { min-height: 0; }
+    }
+  </style>
 </head>
 <body>
-  <main class="cs-container cs-page">
+  <main class="cs-container cs-page dashboard-v2">
     <div class="cs-page-header cs-mb-16">
-      <div class="cs-eyebrow">Operator Console · Read-only</div>
-      <h1>Overview</h1>
-      <p class="cs-lead">One-screen state of the control plane: KPIs against a pinned reference,
-        trust-tier and risk-gate distribution, shadow / enforce mix, and the queue that needs a
-        human. Approvals happen in ChatOps or via a remediation PR - never here.</p>
+      <div class="cs-eyebrow">Overview / Dashboard</div>
+      <h1>Operating overview</h1>
+      <p class="cs-lead">Decision-first posture, measured outcomes, control signals, and the
+        work that requires human attention.</p>
     </div>
 
     <div class="cs-readonly-banner">
-      <strong>Read-only.</strong> This surface renders state. It never issues a privileged call;
-      the executor identity is not shared with the console.
+      <strong>Illustrative data.</strong> Values demonstrate the intended evidence contract and
+      make no operational claim. The production console remains read-only.
     </div>
 
-    <div class="cs-flex cs-wrap cs-gap-12 cs-mb-24">
-      <span class="cs-status ok">Core engine: healthy</span>
-      <span class="cs-status ok">Event bus: draining</span>
-      <span class="cs-status wait">HIL queue: 3 pending</span>
-      <span class="cs-status idle">Scale: idle (0 replicas)</span>
-      <span class="cs-tag">scenario-set <code>v2026.07</code></span>
-      <span class="cs-tag">reference-agent <code>ref-2026.06</code></span>
-      <span class="cs-tag">window <strong>30d</strong></span>
-    </div>
+    <section class="db-posture" aria-labelledby="posture-title">
+      <div class="db-posture-head">
+        <div>
+          <span class="db-kicker">Executive operating posture</span>
+          <h2 id="posture-title">Operations need attention</h2>
+          <p class="db-posture-summary">73% auto-resolution - 8 approvals pending - 0 policy escapes</p>
+        </div>
+        <span class="db-count">3 attention areas</span>
+      </div>
+      <div class="db-evidence-strip" aria-label="Measurement evidence">
+        <span><strong>Measured</strong> audit projection</span>
+        <span><strong>Window</strong> 30 days</span>
+        <span><strong>Sample</strong> 30 events</span>
+        <span><strong>Source</strong> postgres-audit</span>
+        <span><strong>Baseline</strong> not connected</span>
+        <span><strong>As of</strong> 2026-07-22T15:18Z</span>
+      </div>
+    </section>
 
-    <!-- Primary KPIs -->
     <section class="cs-section">
       <div class="cs-section-head">
         <span class="cs-badge-num">1</span>
-        <div class="cs-section-title"><h2>Success metrics</h2><p class="cs-desc">Measured against the pinned reference agent on the same scenario set. Targets, not guarantees.</p></div>
+        <div class="cs-section-title">
+          <h2>Operating outcomes</h2>
+          <p class="cs-desc">Measured results and explicit gaps over the same evidence window.</p>
+        </div>
       </div>
-      <div class="cs-grid cs-grid-4">
-        <div class="cs-card cs-kpi">
-          <span class="cs-kpi-label">Auto-resolution rate</span>
-          <span class="cs-kpi-value">87.4%</span>
-          <span class="cs-kpi-foot"><span class="cs-trend up">&#9650; 4.2×</span> vs reference</span>
+      <div class="db-metric-grid">
+        <div class="db-metric">
+          <span class="db-metric-label">Auto-resolution</span>
+          <strong class="db-metric-value">73%</strong>
+          <span class="db-metric-foot">Measured - n=30<br />Baseline unavailable</span>
         </div>
-        <div class="cs-card cs-kpi">
-          <span class="cs-kpi-label">MTTR (median / p90)</span>
-          <span class="cs-kpi-value">3m 12s <small class="cs-muted" style="font-size:14px;font-weight:500">/ 11m</small></span>
-          <span class="cs-kpi-foot"><span class="cs-trend up">&#9660; 0.28× baseline</span></span>
+        <div class="db-metric">
+          <span class="db-metric-label">Human touchpoints / 100</span>
+          <strong class="db-metric-value">6.7</strong>
+          <span class="db-metric-foot">Measured - n=30<br />Baseline unavailable</span>
         </div>
-        <div class="cs-card cs-kpi">
-          <span class="cs-kpi-label">Change lead time (median / p90)</span>
-          <span class="cs-kpi-value">4m 47s <small class="cs-muted" style="font-size:14px;font-weight:500">/ 18m</small></span>
-          <span class="cs-kpi-foot"><span class="cs-trend up">&#9660; 0.22× baseline</span></span>
+        <div class="db-metric is-unavailable">
+          <span class="db-metric-label">MTTR median / p90</span>
+          <strong class="db-metric-value">Insufficient evidence</strong>
+          <span class="db-metric-foot">4 resolved incidents<br />Minimum sample not met</span>
         </div>
-        <div class="cs-card cs-kpi">
-          <span class="cs-kpi-label">Human touchpoints / 100 events</span>
-          <span class="cs-kpi-value">1.9</span>
-          <span class="cs-kpi-foot"><span class="cs-trend up">&#9660; 0.19× baseline</span></span>
+        <div class="db-metric is-unavailable">
+          <span class="db-metric-label">Change lead time median / p90</span>
+          <strong class="db-metric-value">Unavailable</strong>
+          <span class="db-metric-foot">Merge timestamps not connected</span>
+        </div>
+        <div class="db-metric is-unavailable">
+          <span class="db-metric-label">Cost / resolved event</span>
+          <strong class="db-metric-value">Unavailable</strong>
+          <span class="db-metric-foot">Cost attribution not connected</span>
         </div>
       </div>
     </section>
 
-    <!-- Guard metrics -->
     <section class="cs-section">
       <div class="cs-section-head">
         <span class="cs-badge-num">2</span>
-        <div class="cs-section-title"><h2>Guard metrics</h2><p class="cs-desc">These must not regress. A breach demotes the offending action back to shadow automatically.</p></div>
+        <div class="cs-section-title">
+          <h2>Routing and control</h2>
+          <p class="cs-desc">How observed events were routed and which control path they entered.</p>
+        </div>
       </div>
-      <div class="cs-grid cs-grid-4">
-        <div class="cs-card cs-kpi">
-          <span class="cs-kpi-label">Change failure rate</span>
-          <span class="cs-kpi-value">2.1%</span>
-          <span class="cs-kpi-foot"><span class="cs-guard ok">&#8804; baseline</span></span>
+      <div class="db-signal-grid">
+        <div class="db-panel js-chartable"
+             data-chart-title="Trust tier distribution"
+             data-chart-sub="30 classified events in the 30-day window"
+             data-chart-columns='["Tier","Share","Events"]'
+             data-chart-rows='[["T0 deterministic","73%","22"],["T1 lightweight","20%","6"],["T2 reasoning","7%","2"]]'
+             data-chart-num-cols='[1,2]'
+             data-chart-source="Illustrative source: postgres-audit. Window: 30 days.">
+          <div class="db-panel-head">
+            <div><span class="db-kicker">Decision tier</span><h3>Trust tier mix</h3></div>
+            <span class="db-panel-meta">30 classified</span>
+          </div>
+          <div class="db-distribution">
+            <div class="cs-stackbar">
+              <span class="is-t0" style="width:73%"></span>
+              <span class="is-t1" style="width:20%"></span>
+              <span class="is-t2" style="width:7%"></span>
+            </div>
+            <div class="cs-stackbar-legend">
+              <span><span class="dot" style="background:var(--cs-sage)"></span><strong>73%</strong> T0</span>
+              <span><span class="dot" style="background:var(--cs-teal)"></span><strong>20%</strong> T1</span>
+              <span><span class="dot" style="background:var(--cs-plum)"></span><strong>7%</strong> T2</span>
+            </div>
+          </div>
         </div>
-        <div class="cs-card cs-kpi">
-          <span class="cs-kpi-label">False-positive rate</span>
-          <span class="cs-kpi-value">0.6%</span>
-          <span class="cs-kpi-foot"><span class="cs-guard ok">within budget</span></span>
-        </div>
-        <div class="cs-card cs-kpi">
-          <span class="cs-kpi-label">Rollback rate</span>
-          <span class="cs-kpi-value">0.4%</span>
-          <span class="cs-kpi-foot"><span class="cs-guard warn">+0.1pp vs baseline</span></span>
-        </div>
-        <div class="cs-card cs-kpi">
-          <span class="cs-kpi-label">Policy-violation escapes</span>
-          <span class="cs-kpi-value">0</span>
-          <span class="cs-kpi-foot"><span class="cs-guard ok">required for release</span></span>
+        <div class="db-panel js-chartable"
+             data-chart-title="Control-path distribution"
+             data-chart-sub="30 terminal decisions in the 30-day window"
+             data-chart-columns='["Path","Share","Decisions"]'
+             data-chart-rows='[["auto","73%","22"],["approval","7%","2"],["held for review","17%","5"],["deny","3%","1"]]'
+             data-chart-num-cols='[1,2]'
+             data-chart-source="Illustrative source: postgres-audit. Window: 30 days.">
+          <div class="db-panel-head">
+            <div><span class="db-kicker">Safety path</span><h3>Control outcomes</h3></div>
+            <span class="db-panel-meta">30 decisions</span>
+          </div>
+          <div class="db-distribution">
+            <div class="db-distribution-label"><strong>Terminal decision</strong><span>30 observed</span></div>
+            <div class="cs-stackbar">
+              <span class="is-auto" style="width:73%"></span>
+              <span class="is-hil" style="width:7%"></span>
+              <span class="is-abstain" style="width:17%"></span>
+              <span class="is-deny" style="width:3%"></span>
+            </div>
+            <div class="cs-stackbar-legend">
+              <span><span class="dot" style="background:var(--cs-sage)"></span><strong>73%</strong> auto</span>
+              <span><span class="dot" style="background:var(--cs-terracotta)"></span><strong>7%</strong> approval</span>
+              <span><span class="dot" style="background:var(--cs-plum)"></span><strong>17%</strong> held</span>
+              <span><span class="dot" style="background:var(--cs-dusty-red)"></span><strong>3%</strong> deny</span>
+            </div>
+          </div>
+          <div class="db-distribution">
+            <div class="db-distribution-label"><strong>Action mode</strong><span>eligible actions</span></div>
+            <div class="cs-stackbar">
+              <span class="is-abstain" style="width:80%"></span>
+              <span class="is-auto" style="width:20%"></span>
+            </div>
+            <div class="cs-stackbar-legend">
+              <span><span class="dot" style="background:var(--cs-plum)"></span><strong>80%</strong> shadow</span>
+              <span><span class="dot" style="background:var(--cs-sage)"></span><strong>20%</strong> enforce</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Trust-tier + risk-gate distribution -->
     <section class="cs-section">
       <div class="cs-section-head">
         <span class="cs-badge-num">3</span>
-        <div class="cs-section-title"><h2>Routing &amp; gate decisions</h2><p class="cs-desc">How the last 24h of events were resolved - by tier, and by risk-gate outcome.</p></div>
+        <div class="cs-section-title">
+          <h2>Required attention</h2>
+          <p class="cs-desc">Aggregated signals only. Sensitive approval details remain on the Approvals surface.</p>
+        </div>
       </div>
-      <div class="cs-grid" style="grid-template-columns: 1fr 1fr;">
-        <div class="cs-card js-chartable"
-             data-chart-title="Trust tier distribution"
-             data-chart-sub="12,480 events routed in the last 24h"
-             data-chart-columns='["Tier","Share","Events"]'
-             data-chart-rows='[["T0 deterministic","74%","9,235"],["T1 lightweight","19%","2,371"],["T2 reasoning","7%","874"]]'
-             data-chart-num-cols='[1,2]'
-             data-chart-source="Source: event-ingest / trust-router. Window: last 24h.">
-          <div class="cs-flex-between cs-mb-8"><h3 class="cs-mb-0">Trust tier</h3><span class="cs-muted">12,480 events</span></div>
-          <div class="cs-stackbar">
-            <span class="is-t0" style="width:74%"></span>
-            <span class="is-t1" style="width:19%"></span>
-            <span class="is-t2" style="width:7%"></span>
+      <div class="db-attention-grid">
+        <article class="db-attention-card">
+          <div class="db-panel-head">
+            <div><span class="db-kicker">Human approval</span><h3>Pending queue</h3></div>
+            <span class="db-state attention">Review</span>
           </div>
-          <div class="cs-stackbar-legend">
-            <span><span class="dot" style="background:var(--cs-sage)"></span><strong>74%</strong> T0 deterministic</span>
-            <span><span class="dot" style="background:var(--cs-teal)"></span><strong>19%</strong> T1 lightweight</span>
-            <span><span class="dot" style="background:var(--cs-plum)"></span><strong>7%</strong> T2 reasoning</span>
+          <strong class="db-attention-value">8</strong>
+          <ul class="db-fact-list">
+            <li><span>Risk mix</span><strong>2 critical / 4 high / 2 medium</strong></li>
+            <li><span>Oldest wait</span><strong>1h 04m</strong></li>
+          </ul>
+          <div class="db-detail-links"><a href="hil.html">Open approvals &rarr;</a></div>
+        </article>
+        <article class="db-attention-card">
+          <div class="db-panel-head">
+            <div><span class="db-kicker">Control assurance</span><h3>Release posture</h3></div>
+            <span class="db-state attention">Blocked</span>
           </div>
-        </div>
-        <div class="cs-card js-chartable"
-             data-chart-title="Risk-gate outcome"
-             data-chart-sub="5,842 gate decisions in the last 24h"
-             data-chart-columns='["Outcome","Share","Decisions"]'
-             data-chart-rows='[["auto","84%","4,907"],["HIL","11%","643"],["abstain","4%","234"],["deny","1%","58"]]'
-             data-chart-num-cols='[1,2]'
-             data-chart-source="Source: risk-gate. Window: last 24h.">
-          <div class="cs-flex-between cs-mb-8"><h3 class="cs-mb-0">Risk-gate outcome</h3><span class="cs-muted">last 24h</span></div>
-          <div class="cs-stackbar">
-            <span class="is-auto" style="width:84%"></span>
-            <span class="is-hil" style="width:11%"></span>
-            <span class="is-abstain" style="width:4%"></span>
-            <span class="is-deny" style="width:1%"></span>
+          <strong class="db-attention-value">2 gaps</strong>
+          <ul class="db-fact-list">
+            <li><span>Shadow coverage</span><strong>80% / target 95%</strong></li>
+            <li><span>Promotion ready</span><strong>0 of 44</strong></li>
+            <li><span>Policy escapes</span><strong>0 measured</strong></li>
+          </ul>
+          <div class="db-detail-links"><a href="promotion.html">Open control assurance &rarr;</a></div>
+        </article>
+        <article class="db-attention-card">
+          <div class="db-panel-head">
+            <div><span class="db-kicker">Evidence quality</span><h3>Measurement gaps</h3></div>
+            <span class="db-state unavailable">Incomplete</span>
           </div>
-          <div class="cs-stackbar-legend">
-            <span><span class="dot" style="background:var(--cs-sage)"></span><strong>84%</strong> auto</span>
-            <span><span class="dot" style="background:var(--cs-terracotta)"></span><strong>11%</strong> HIL</span>
-            <span><span class="dot" style="background:var(--cs-plum)"></span><strong>4%</strong> abstain</span>
-            <span><span class="dot" style="background:var(--cs-dusty-red)"></span><strong>1%</strong> deny</span>
-          </div>
-        </div>
+          <strong class="db-attention-value">4 fields</strong>
+          <ul class="db-fact-list">
+            <li><span>Insufficient</span><strong>MTTR p90</strong></li>
+            <li><span>Not connected</span><strong>Lead time / cost</strong></li>
+            <li><span>Missing</span><strong>Baseline / confidence</strong></li>
+          </ul>
+        </article>
       </div>
     </section>
 
-    <!-- Modes + queues -->
     <section class="cs-section">
       <div class="cs-section-head">
         <span class="cs-badge-num">4</span>
-        <div class="cs-section-title"><h2>Modes &amp; queues</h2><p class="cs-desc">Shadow vs enforce mix, and the HIL work waiting on a human. Detail on <a href="promotion.html">Promotion</a> and <a href="hil.html">HIL</a>.</p></div>
+        <div class="cs-section-title">
+          <h2>Vertical outcomes</h2>
+          <p class="cs-desc">Observed activity by initial AIOps vertical over the same 30-day window.</p>
+        </div>
       </div>
-      <div class="cs-grid cs-grid-3">
-        <div class="cs-card">
-          <h3 class="cs-mb-8">Action mode</h3>
-          <div class="cs-flex cs-wrap cs-gap-8 cs-mb-16">
-            <span class="cs-mode shadow">shadow <strong style="margin-left:6px">12</strong></span>
-            <span class="cs-mode enforce">enforce <strong style="margin-left:6px">31</strong></span>
-            <span class="cs-mode hil">HIL <strong style="margin-left:6px">3</strong></span>
+      <div class="db-vertical-grid">
+        <article class="db-vertical">
+          <div class="db-vertical-head">
+            <h3>Resilience</h3>
+            <span class="db-state unavailable">No observations</span>
           </div>
-          <p class="cs-help">New capabilities ship in shadow and are promoted explicitly per the promotion gate.</p>
-          <a href="promotion.html" class="cs-link">See promotion gate &rarr;</a>
-        </div>
-        <div class="cs-card">
-          <h3 class="cs-mb-8">HIL queue</h3>
-          <p class="cs-mb-8"><strong style="font-size:22px">3</strong> <span class="cs-muted">pending</span></p>
-          <div class="cs-flex cs-wrap cs-gap-8 cs-mb-16">
-            <span class="cs-risk critical">1 critical</span>
-            <span class="cs-risk high">1 high</span>
-            <span class="cs-risk medium">1 medium</span>
+          <p class="db-unobserved">No resilience events were observed. This does not establish an all-clear state.</p>
+        </article>
+        <article class="db-vertical">
+          <div class="db-vertical-head">
+            <h3>Change Safety</h3>
+            <span class="db-state attention">8 open risks</span>
           </div>
-          <p class="cs-help">Two approvers plus break-glass for HIGH+; self-approval is blocked.</p>
-          <a href="hil.html" class="cs-link">Open queue &rarr;</a>
-        </div>
-        <div class="cs-card">
-          <h3 class="cs-mb-8">Verticals</h3>
-          <div class="cs-flex cs-wrap cs-gap-8 cs-mb-16">
-            <span class="cs-vert resilience">Resilience &middot; 4.8k evt</span>
-            <span class="cs-vert change">Change safety &middot; 6.1k evt</span>
-            <span class="cs-vert cost">Cost governance &middot; 1.6k evt</span>
+          <div class="db-vertical-stats">
+            <span><b>30</b> events</span>
+            <span><b>14</b> auto-resolved</span>
+            <span><b>8</b> approval-bound</span>
           </div>
-          <p class="cs-help">Volumes over the measurement window per initial vertical.</p>
-        </div>
+        </article>
+        <article class="db-vertical">
+          <div class="db-vertical-head">
+            <h3>Cost Governance</h3>
+            <span class="db-state unavailable">No observations</span>
+          </div>
+          <p class="db-unobserved">No cost events or attributed savings were observed in this window.</p>
+        </article>
       </div>
     </section>
 
-    <!-- HIL queue summary (top 3) -->
-    <section class="cs-section">
-      <div class="cs-section-head">
-        <span class="cs-badge-num">5</span>
-        <div class="cs-section-title"><h2>Needs a human (top 3)</h2><p class="cs-desc">High-risk items handed to a human. Actioned in ChatOps or via a remediation PR, never here.</p></div>
-      </div>
-
-      <div class="cs-hcard is-critical">
-        <div class="cs-hcard-body">
-          <div class="cs-hcard-head">
-            <h3 class="cs-hcard-title">Enable point-in-time recovery on managed database</h3>
-            <span class="cs-risk critical">critical</span>
-            <span class="cs-tier t1">T1</span>
-            <span class="cs-cat remediation">remediation</span>
-            <span class="cs-vert resilience">resilience</span>
-          </div>
-          <p class="cs-mb-0 cs-muted">Similarity match with a prior incident (score 0.93); verifier passed schema + policy + what-if.</p>
-          <div class="cs-hcard-foot">
-            <span>waiting <strong style="color:var(--cs-text)">8m</strong></span>
-            <span>2 approvers &middot; break-glass allowed</span>
-            <span class="cs-mono">evt-01H7A4X-...</span>
-            <span style="margin-left:auto"><a class="cs-link" href="hil.html">details &rarr;</a></span>
-          </div>
+    <details class="db-detail">
+      <summary>Operational evidence <small>Audit-level counts and governed destinations</small></summary>
+      <div class="db-detail-body">
+        <div class="cs-meta">
+          <div><span>Audit events</span><span>30 observed</span></div>
+          <div><span>Shadow share</span><span>80%</span></div>
+          <div><span>Enforce share</span><span>20%</span></div>
+          <div><span>Active rules</span><span>61</span></div>
+        </div>
+        <div class="db-detail-links">
+          <a href="audit.html">Open audit &rarr;</a>
+          <a href="rules.html">Browse rules &rarr;</a>
+          <a href="promotion.html">Review promotion gates &rarr;</a>
         </div>
       </div>
-
-      <div class="cs-hcard is-high">
-        <div class="cs-hcard-body">
-          <div class="cs-hcard-head">
-            <h3 class="cs-hcard-title">Raise production autoscale floor from 2 to 4</h3>
-            <span class="cs-risk high">high</span>
-            <span class="cs-tier t2">T2</span>
-            <span class="cs-cat ops">ops</span>
-            <span class="cs-vert change">change safety</span>
-          </div>
-          <p class="cs-mb-0 cs-muted">T2 reasoning grounded on WAF-Reliability RL-08 and prior autoscale incident; mixed-model agreement.</p>
-          <div class="cs-hcard-foot">
-            <span>waiting <strong style="color:var(--cs-text)">21m</strong></span>
-            <span>2 approvers &middot; break-glass allowed</span>
-            <span class="cs-mono">evt-01H7A4Y-...</span>
-            <span style="margin-left:auto"><a class="cs-link" href="hil.html">details &rarr;</a></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="cs-hcard is-medium">
-        <div class="cs-hcard-body">
-          <div class="cs-hcard-head">
-            <h3 class="cs-hcard-title">Rotate expiring signing certificate</h3>
-            <span class="cs-risk medium">medium</span>
-            <span class="cs-tier t0">T0</span>
-            <span class="cs-cat remediation">remediation</span>
-            <span class="cs-vert change">change safety</span>
-          </div>
-          <p class="cs-mb-0 cs-muted">Deterministic rule <code>cert.expiry.30d</code>; awaiting owner review before enforce promotion.</p>
-          <div class="cs-hcard-foot">
-            <span>waiting <strong style="color:var(--cs-text)">1h 04m</strong></span>
-            <span>1 approver</span>
-            <span class="cs-mono">evt-01H7A4Z-...</span>
-            <span style="margin-left:auto"><a class="cs-link" href="hil.html">details &rarr;</a></span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Recent audit -->
-    <section class="cs-section">
-      <div class="cs-section-head">
-        <span class="cs-badge-num">6</span>
-        <div class="cs-section-title"><h2>Recent audit</h2><p class="cs-desc">Append-only. Every terminal path writes an entry - including reject, timeout, abstain, deny.</p></div>
-      </div>
-      <div class="cs-table-wrap">
-        <table class="cs-table">
-          <thead>
-            <tr><th class="cs-num" style="width:200px">Time (UTC)</th><th>Event</th><th>Tier</th><th>Decision</th><th>Mode</th><th>Actor</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="cs-muted cs-mono cs-num">2026-07-08T09:15:04Z</td>
-              <td>storage.public-blob.exposed <span class="cs-muted">(rg &lsquo;webapp&rsquo;)</span></td>
-              <td><span class="cs-tier t0">T0</span></td>
-              <td>remediation-pr opened</td>
-              <td><span class="cs-mode enforce">enforce</span></td>
-              <td class="cs-muted">executor / MI</td>
-            </tr>
-            <tr>
-              <td class="cs-muted cs-mono cs-num">2026-07-08T09:14:52Z</td>
-              <td>compute.autoscale.floor-drift</td>
-              <td><span class="cs-tier t1">T1</span></td>
-              <td>reused learned action</td>
-              <td><span class="cs-mode shadow">shadow</span></td>
-              <td class="cs-muted">shadow-judge</td>
-            </tr>
-            <tr>
-              <td class="cs-muted cs-mono cs-num">2026-07-08T09:14:31Z</td>
-              <td>network.firewall.rule-change</td>
-              <td><span class="cs-tier t2">T2</span></td>
-              <td>abstain &rarr; HIL</td>
-              <td><span class="cs-mode hil">HIL</span></td>
-              <td class="cs-muted">quality-gate</td>
-            </tr>
-            <tr>
-              <td class="cs-muted cs-mono cs-num">2026-07-08T09:13:58Z</td>
-              <td>cost.rightsizing.candidate</td>
-              <td><span class="cs-tier t0">T0</span></td>
-              <td>no-op (compliant)</td>
-              <td><span class="cs-mode na">n/a</span></td>
-              <td class="cs-muted">router</td>
-            </tr>
-            <tr>
-              <td class="cs-muted cs-mono cs-num">2026-07-08T09:13:21Z</td>
-              <td>k8s.rbac.privileged-scope</td>
-              <td><span class="cs-tier t0">T0</span></td>
-              <td>deny (policy)</td>
-              <td><span class="cs-mode deny">deny</span></td>
-              <td class="cs-muted">risk-gate</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="6">
-                <div class="cs-flex cs-flex-between cs-wrap">
-                  <span>Showing 5 of 1,842 entries.</span>
-                  <a href="audit.html" class="cs-link">Open full audit &rarr;</a>
-                </div>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </section>
+    </details>
   </main>
 
   <footer class="cs-footer">
     <div class="cs-container cs-flex-between cs-wrap">
-      <span>FDAI console mock - Calm Slate. Read-only surface, synthetic values, English-only.</span>
-      <span class="cs-muted">generic-scope &middot; no customer data</span>
+      <span>FDAI Dashboard mock - decision-first, evidence-aware, read-only.</span>
+      <span class="cs-muted">Illustrative values - no customer data</span>
     </div>
   </footer>
 </body>
