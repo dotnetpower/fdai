@@ -49,6 +49,34 @@
       }
     },
     {
+      "label": "design mocks: serve (5373)",
+      "type": "shell",
+      "command": "python3 -u -m http.server 5373 --bind 127.0.0.1",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "design-mocks",
+        "pattern": {
+          "regexp": "^(?!)$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^Serving HTTP on 127\\.0\\.0\\.1 port 5373",
+          "endsPattern": "^Serving HTTP on 127\\.0\\.0\\.1 port 5373"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "design-mocks"
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
       "label": "console: prepare local runtime env",
       "type": "shell",
       "command": "bash scripts/deployment/azure/prepare-local-runtime-env.sh",

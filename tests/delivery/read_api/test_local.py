@@ -151,6 +151,7 @@ async def test_interactive_local_event_streams_huginn_and_heimdall_activity() ->
 
 def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() -> None:
     launch = json.loads((_REPO_ROOT / ".vscode" / "launch.json").read_text(encoding="utf-8"))
+    settings = json.loads((_REPO_ROOT / ".vscode" / "settings.json").read_text(encoding="utf-8"))
     configs = {item["name"]: item for item in launch["configurations"]}
     api_env = configs["Console Web: Read API"]["env"]
     frontend_env = configs["Console Web: Frontend"]["env"]
@@ -167,6 +168,13 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     assert configs["Console Web: Read API"]["envFile"].endswith("/.fdai/local-runtime.env")
     assert frontend_env["VITE_DEV_MODE"] == "0"
     assert frontend_env["VITE_LOCAL_AZURE_CLI_AUTH"] == "0"
+    assert settings["liveServer.settings.host"] == "127.0.0.1"
+    assert settings["liveServer.settings.port"] == 5373
+    assert configs["Console Web: Frontend"]["command"].endswith("--port 5273 --strictPort")
+    read_api_args = configs["Console Web: Read API"]["args"]
+    ingestion_args = configs["Console Web: Ingestion Gateway"]["args"]
+    assert read_api_args[read_api_args.index("--port") + 1] == "8010"
+    assert ingestion_args[ingestion_args.index("--port") + 1] == "8011"
     assert compound["configurations"] == [
         "Console Web: Core Runtime",
         "Console Web: Read API",

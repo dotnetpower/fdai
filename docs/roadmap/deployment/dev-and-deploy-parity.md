@@ -59,6 +59,21 @@ contract through the real Starlette route and server-owned evidence resolver.
 | State store (integration tests) | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
 | Event bus (integration tests) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
 
+### Fixed workspace ports
+
+Committed VS Code settings keep each local web surface on one predictable port. The design mock
+site is static and separate from the authenticated Console full stack.
+
+| Surface | Default address | Workspace entry point |
+|---------|-----------------|-----------------------|
+| Design mocks | `http://127.0.0.1:5373` | `design mocks: serve (5373)` task or Live Server |
+| Console SPA | `http://127.0.0.1:5273` | `Console Web: Frontend` |
+| Read API | `http://127.0.0.1:8010` | `Console Web: Read API` |
+| Test ingestion gateway | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |
+
+The `Console Web: Full Stack` compound starts the core runtime, Console SPA, and read API. It does
+not start the static design mocks or the isolated test ingestion gateway.
+
 ### Workspace context hygiene
 
 The committed VS Code settings exclude dependency trees, caches, generated reports, local runtime

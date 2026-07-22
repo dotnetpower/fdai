@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: bfe4a32e5d5059df4ebf361fb901086985cf345b
+translation_source_sha: 91f612ccb5d85ca979d6477a300a5efe04a867a2
 translation_revised: 2026-07-22
 ---
 
@@ -61,6 +61,21 @@ Starlette route와 server-owned evidence resolver로 별도 검증합니다.
 |-----------|-------------|--------------|
 | State store (통합 테스트) | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
 | Event bus (통합 테스트) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
+
+### 고정 workspace port
+
+커밋된 VS Code 설정은 각 local web surface가 항상 같은 port를 사용하게 합니다. 정적 design mock
+site는 인증된 Console full stack과 분리되어 있습니다.
+
+| Surface | 기본 address | Workspace entry point |
+|---------|-------------|-----------------------|
+| Design mock | `http://127.0.0.1:5373` | `design mocks: serve (5373)` task 또는 Live Server |
+| Console SPA | `http://127.0.0.1:5273` | `Console Web: Frontend` |
+| Read API | `http://127.0.0.1:8010` | `Console Web: Read API` |
+| Test ingestion gateway | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |
+
+`Console Web: Full Stack` compound는 core runtime, Console SPA, read API를 시작합니다. 정적 design
+mock과 격리된 test ingestion gateway는 시작하지 않습니다.
 
 ### Workspace context 정리
 

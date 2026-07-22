@@ -1,4 +1,6 @@
 {
+    "liveServer.settings.host": "127.0.0.1",
+    "liveServer.settings.port": 5373,
     "makefile.configureOnOpen": false,
     "files.exclude": {
         "**/__pycache__": true,
