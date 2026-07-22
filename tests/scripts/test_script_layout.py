@@ -9,7 +9,12 @@ _SCRIPTS_ROOT = _REPO_ROOT / "scripts"
 def test_scripts_root_contains_only_stable_entrypoints() -> None:
     root_files = {path.name for path in _SCRIPTS_ROOT.iterdir() if path.is_file()}
 
-    assert root_files == {"README.md", "__init__.py", "verify.sh"}
+    assert root_files == {
+        ".check-file-loc.allowlist",
+        "README.md",
+        "__init__.py",
+        "verify.sh",
+    }
 
 
 def test_script_domains_are_present() -> None:
