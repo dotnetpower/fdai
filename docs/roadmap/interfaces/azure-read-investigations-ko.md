@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 146ca81ac773f9c983a1adc412ead8f5c6053a0b
+translation_source_sha: d57457c1710a3798496cb8e281008cf7aa6cf1ec
 translation_revised: 2026-07-22
 ---
 
@@ -61,7 +61,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Exact resource resolution | 구현됨 | `not_found`, bounded `ambiguous`, scope-bound exact reference가 resolution 성공 전 history query를 중지합니다. |
 | Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log, 구성된 NSG rule 및 VNet peering property를 지원합니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
 | Read-tool attenuation | 구현됨 | `background.read-only`는 Reader tool 7개만 포함하고 mutation, approval, shell, arbitrary-query, nested-worker capability를 차단합니다. |
-| Execution mode 및 progress | 구현됨 | Durable p50/p95 profile이 cloud I/O 전에 direct, streamed, detached mode를 선택합니다. Semantic progress는 제한되며 terminal event는 하나입니다. |
+| Execution mode 및 progress | 구현됨 | Durable p50/p95 profile이 cloud I/O 전에 direct, streamed, detached mode를 선택합니다. Exact resolution은 barrier이며 독립 evidence tool은 bounded parallel limit 안에서 실행되고 semantic progress와 terminal event는 제한됩니다. |
 | Detached execution 및 quota | 구현됨 | Typed executor는 narrator history, screen state, event bus, Thor, executor identity를 받지 않습니다. Per-principal concurrency, cost, wall-clock, tool-call quota는 durable creation에서 적용됩니다. |
 | Completion handoff | 구현됨 | Terminal result commit 후 idempotent conversation turn과 durable reply-ledger enqueue가 이어집니다. Provider delivery는 별도의 retryable concern으로 남습니다. |
 | Live Azure scenario evidence | 일부 검증됨 | Caller attribution, Resource Health, unauthorized scope 및 ambiguous name은 read-only live validation을 통과했습니다. Guest-event match와 실제 provider `429`는 release evidence gap으로 남습니다. |
@@ -189,12 +189,11 @@ count, truncation, cache status, recorded time 및 trace reference가 있는 `To
 Metric dimension은 resource id, principal id, prompt 및 query text를 제외합니다.
 
 Durable latency profile은 `(tool_id, transport, operation_class)`별 bounded recent sample을 유지하고
-sample count, failure rate, p50 및 p95를 노출합니다. Sequential step은 step p95의 합으로, parallel
-fan-out은 최대 branch p95로 예측합니다. Detached work에는 queue delay를 추가합니다. Minimum sample
-count 전에는 catalog `latency_class`를 사용하고 거짓 정밀도 대신 넓은 범위를 보고합니다.
-현재 executor는 resource를 resolve한 후 각 evidence source를 순차로 query하므로 plan estimate에서
-선택한 모든 source를 합산합니다. 최대 branch 규칙은 executor가 실제 concurrent fan-out을 도입한
-이후에만 적용합니다.
+sample count, failure rate, p50 및 p95를 노출합니다. Executor는 resource를 먼저 resolve한 다음 최대
+4개의 configured parallel limit 안에서 독립 evidence source를 query합니다. Plan estimate는 resolution
+p95와 evidence branch의 최대 p95를 더합니다. Detached work에는 queue delay를 추가합니다. Minimum
+sample count 전에는 catalog `latency_class`를 사용하고 거짓 정밀도 대신 넓은 범위를 보고합니다.
+Provider call이 다른 순서로 완료되어도 evidence와 receipt는 plan 순서를 유지합니다.
 
 Estimate는 cloud I/O 전에 execution mode를 선택합니다. Elapsed time이 안내된 상한을 넘으면 Bragi가
 delayed milestone 하나를 보내고 고정 wall-clock budget 안에서 계속합니다. Estimate는 timeout을
@@ -215,9 +214,12 @@ evidence.correlating
 investigation.completed
 ```
 
-기존 reporter는 event를 coalesce하고 개수를 제한합니다. SSE는 stored progress, heartbeat 및 terminal
-event 하나를 반환합니다. Detached completion은 immutable result를 먼저 commit한 다음 untrusted
-assistant turn을 append하고 durable reply ledger를 통해 enqueue합니다. Delivery failure는
+기존 reporter는 event를 coalesce하고 개수를 제한합니다. Direct Command Deck stream은 tool이 시작하고
+완료될 때 `activity` event를 보내고, resource resolution과 evidence collection이 operator 경험을
+실질적으로 바꿀 때 bounded `milestone` message를 보냅니다. Activity는 실제 완료 순서를 따르지만
+terminal evidence는 결정적인 plan 순서를 유지합니다. Detached SSE는 stored progress, heartbeat 및
+terminal event 하나를 반환합니다. Detached completion은 immutable result를 먼저 commit한 다음
+untrusted assistant turn을 append하고 durable reply ledger를 통해 enqueue합니다. Delivery failure는
 investigation을 다시 실행하거나 result를 다시 작성할 수 없습니다.
 
 Bragi는 operator experience가 달라질 때만 estimate를 전달합니다. 예:

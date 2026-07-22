@@ -39,6 +39,7 @@ from fdai.shared.providers.read_investigation import (
 from fdai.shared.providers.tool import ToolCallOutcome, ToolCallReceipt
 
 ProgressObserver = Callable[[ReadInvestigationProgressKind], Awaitable[None]]
+ProgressEmitter = Callable[[ReadInvestigationProgressKind], Awaitable[None]]
 Clock = Callable[[], datetime]
 Monotonic = Callable[[], float]
 _LOG = logging.getLogger(__name__)
@@ -54,11 +55,15 @@ class ReadInvestigationService:
         clock: Clock | None = None,
         monotonic: Monotonic | None = None,
         latency_store: ReadLatencyProfileStore | None = None,
+        max_parallel_evidence: int = 4,
     ) -> None:
+        if not 1 <= max_parallel_evidence <= 4:
+            raise ValueError("max_parallel_evidence MUST be in [1, 4]")
         self._provider = provider
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._monotonic = monotonic or time.monotonic
         self._latency_store = latency_store
+        self._max_parallel_evidence = max_parallel_evidence
 
     @property
     def transport(self) -> str:
@@ -106,26 +111,15 @@ class ReadInvestigationService:
             raise RuntimeError("matched resource resolution lost its resource")
         await emit(ReadInvestigationProgressKind.RESOURCE_RESOLVED)
 
-        timed_out = False
-        for step in plan.evidence_steps:
-            remaining = plan.request.budget.max_wall_seconds - (self._monotonic() - started_tick)
-            if remaining <= 0:
-                timed_out = True
-                break
-            await emit(querying_progress(step.tool_id))
-            attempt = await self._query(
-                plan,
-                step,
-                resource,
-                timeout_seconds=min(step.timeout_seconds, remaining),
-            )
+        attempts, timed_out = await self._run_evidence_steps(
+            plan,
+            resource,
+            started_tick=started_tick,
+            emit=emit,
+        )
+        for attempt in attempts:
             receipts.append(attempt.receipt)
-            await self._record_latency(attempt.receipt, plan)
             evidence.append(attempt.evidence)
-            if attempt.evidence.status is EvidenceStatus.UNAVAILABLE:
-                await emit(unavailable_progress(step.tool_id))
-            else:
-                await emit(completed_progress(step.tool_id))
 
         await emit(ReadInvestigationProgressKind.EVIDENCE_CORRELATING)
         await emit(ReadInvestigationProgressKind.COMPLETED)
@@ -139,6 +133,47 @@ class ReadInvestigationService:
             progress=progress,
             started_at=started_at,
         )
+
+    async def _run_evidence_steps(
+        self,
+        plan: ReadInvestigationPlan,
+        resource: ResolvedResource,
+        *,
+        started_tick: float,
+        emit: ProgressEmitter,
+    ) -> tuple[list[ReadEvidenceAttempt], bool]:
+        steps = plan.evidence_steps
+        results: list[ReadEvidenceAttempt | None] = [None] * len(steps)
+        timed_out = False
+        semaphore = asyncio.Semaphore(self._max_parallel_evidence)
+
+        async def run(index: int, step: ReadInvestigationStep) -> None:
+            nonlocal timed_out
+            async with semaphore:
+                remaining = plan.request.budget.max_wall_seconds - (
+                    self._monotonic() - started_tick
+                )
+                if remaining <= 0:
+                    timed_out = True
+                    return
+                await emit(querying_progress(step.tool_id))
+                attempt = await self._query(
+                    plan,
+                    step,
+                    resource,
+                    timeout_seconds=min(step.timeout_seconds, remaining),
+                )
+                await self._record_latency(attempt.receipt, plan)
+                results[index] = attempt
+                if attempt.evidence.status is EvidenceStatus.UNAVAILABLE:
+                    await emit(unavailable_progress(step.tool_id))
+                else:
+                    await emit(completed_progress(step.tool_id))
+
+        async with asyncio.TaskGroup() as group:
+            for index, step in enumerate(steps):
+                group.create_task(run(index, step))
+        return [attempt for attempt in results if attempt is not None], timed_out
 
     async def _resolve(
         self,

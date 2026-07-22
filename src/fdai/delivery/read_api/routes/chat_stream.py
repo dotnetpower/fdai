@@ -6,7 +6,8 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
+from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -327,13 +328,39 @@ def make_chat_stream_route(
                     evidence_resolver,
                     conversation_context=conversation_context,
                 )
-                enriched_context = await _with_agent_evidence(
-                    clean_prompt,
-                    enriched_context,
-                    agent_delegate,
-                    user_id=user_id,
-                    session_id=session_id,
+                progress_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=32)
+
+                async def observe_agent_progress(event: Mapping[str, Any]) -> None:
+                    await progress_queue.put(dict(event))
+
+                agent_task = asyncio.create_task(
+                    _with_agent_evidence(
+                        clean_prompt,
+                        enriched_context,
+                        agent_delegate,
+                        user_id=user_id,
+                        session_id=session_id,
+                        progress_observer=observe_agent_progress,
+                    )
                 )
+                try:
+                    while not agent_task.done() or not progress_queue.empty():
+                        try:
+                            progress_event = await asyncio.wait_for(
+                                progress_queue.get(),
+                                timeout=0.25,
+                            )
+                        except TimeoutError:
+                            continue
+                        event_name = progress_event.pop("event", None)
+                        if event_name in {"activity", "milestone"}:
+                            yield frame(event_name, progress_event)
+                    enriched_context = await agent_task
+                finally:
+                    if not agent_task.done():
+                        agent_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await agent_task
                 enriched_context = _with_concept_evidence(clean_prompt, enriched_context)
                 enriched_context = await _with_web_evidence(
                     clean_prompt,

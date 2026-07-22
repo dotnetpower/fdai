@@ -84,6 +84,7 @@ def build_local_read_investigation(
                 policy=InvestigationExecutionPolicy(
                     direct_max_ms=20_000,
                     streamed_max_ms=30_000,
+                    detach_on_multi_source=False,
                 ),
             )
         ),

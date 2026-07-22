@@ -30,7 +30,9 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         "KAFKA_TOPIC_EVENTS=stale.topic\n"
         "FDAI_CANARY_TOPIC=stale.canary\n"
         "FDAI_INVENTORY_RAW_TOPIC=stale.inventory\n"
-        "FDAI_HIL_DECISION_TOPIC=stale.hil\n",
+        "FDAI_HIL_DECISION_TOPIC=stale.hil\n"
+        "FDAI_AZURE_READER_SUBSCRIPTION_ID=stale-subscription\n"
+        "FDAI_AZURE_READER_RESOURCE_GROUPS=stale-group\n",
         encoding="utf-8",
     )
     terraform = tmp_path / "terraform"

@@ -88,7 +88,7 @@ def test_plan_estimate_uses_sum_for_sequence_and_max_for_fanout() -> None:
     assert estimate_parallel_p95(profiles) == 500
 
 
-def test_multi_source_plan_estimate_matches_sequential_execution() -> None:
+def test_multi_source_plan_estimate_matches_parallel_execution() -> None:
     plan = _plan(ReadInvestigationIntent.CHANGE_ATTRIBUTION)
     profiles = {
         ReadToolId.RESOLVE_RESOURCE: ReadLatencyProfile(20, 0.0, 100, 200),
@@ -101,8 +101,8 @@ def test_multi_source_plan_estimate_matches_sequential_execution() -> None:
 
     assert estimate.measured is True
     assert estimate.multi_source is True
-    assert estimate.lower_ms == 1_300
-    assert estimate.upper_ms == 2_400
+    assert estimate.lower_ms == 600
+    assert estimate.upper_ms == 1_200
 
 
 def test_execution_policy_boundaries_and_forced_detach() -> None:

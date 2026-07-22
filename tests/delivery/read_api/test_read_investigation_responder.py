@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, cast
 
+from fdai.core.read_investigation import ReadInvestigationProgressKind
 from fdai.delivery.read_api.routes.read_investigation_responder import (
     HeimdallReadInvestigationChatDelegate,
     HeimdallReadInvestigationResponder,
@@ -26,9 +27,19 @@ class _Service:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def execute(self, plan):  # type: ignore[no-untyped-def]
+    async def execute(self, plan, *, progress_observer=None):  # type: ignore[no-untyped-def]
         del plan
         self.calls += 1
+        if progress_observer is not None:
+            for kind in (
+                ReadInvestigationProgressKind.PLANNED,
+                ReadInvestigationProgressKind.RESOURCE_RESOLVED,
+                ReadInvestigationProgressKind.STATE_QUERYING,
+                ReadInvestigationProgressKind.STATE_COMPLETED,
+                ReadInvestigationProgressKind.EVIDENCE_CORRELATING,
+                ReadInvestigationProgressKind.COMPLETED,
+            ):
+                await progress_observer(kind)
         return SimpleNamespace(
             outcome=SimpleNamespace(value="matched"),
             evidence=(SimpleNamespace(authority="azure.resource_state", records=()),),
@@ -41,9 +52,11 @@ class _NetworkService(_Service):
         super().__init__()
         self._envelope = envelope
 
-    async def execute(self, plan):  # type: ignore[no-untyped-def]
+    async def execute(self, plan, *, progress_observer=None):  # type: ignore[no-untyped-def]
         del plan
         self.calls += 1
+        if progress_observer is not None:
+            await progress_observer(ReadInvestigationProgressKind.PLANNED)
         return SimpleNamespace(
             outcome=SimpleNamespace(value="matched"),
             evidence=(self._envelope,),
@@ -108,6 +121,36 @@ async def test_chat_delegate_executes_measured_fast_read_as_heimdall() -> None:
     assert _facts(result)["mode"] == "direct"
     assert _facts(result)["status"] == "matched"
     assert service.calls == 1
+
+
+async def test_chat_delegate_streams_activities_and_milestones() -> None:
+    service = _Service()
+    events: list[dict[str, object]] = []
+
+    async def observe(event: Any) -> None:
+        events.append(dict(event))
+
+    result = await _delegate(service).delegate_with_progress(
+        prompt="What is the current state of vm-01?",
+        user_id="principal-one",
+        session_id="session-one",
+        progress_observer=observe,
+    )
+
+    assert result is not None
+    assert result["primary_agent"] == "Heimdall"
+    assert [event["event"] for event in events] == [
+        "activity",
+        "activity",
+        "milestone",
+        "activity",
+        "activity",
+        "activity",
+        "milestone",
+        "activity",
+    ]
+    assert events[1]["activity_id"] == "resource"
+    assert events[3]["activity_id"] == "state"
 
 
 async def test_chat_delegate_hands_multi_source_work_off_before_cloud_io() -> None:

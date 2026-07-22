@@ -60,7 +60,7 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 | Exact resource resolution | Implemented | `not_found`, bounded `ambiguous`, and one scope-bound exact reference stop history queries until resolution succeeds. |
 | Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, guest logs, configured NSG rules, and VNet peering properties. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
 | Read-tool attenuation | Implemented | `background.read-only` contains exactly seven Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
-| Execution modes and progress | Implemented | Durable p50/p95 profiles select direct, streamed, or detached mode before cloud I/O. Semantic progress is bounded and terminal once. |
+| Execution modes and progress | Implemented | Durable p50/p95 profiles select direct, streamed, or detached mode before cloud I/O. Exact resolution is a barrier, independent evidence tools run under a bounded parallel limit, semantic progress is bounded, and the terminal event occurs once. |
 | Detached execution and quotas | Implemented | The typed executor receives no narrator history, screen state, event bus, Thor, or executor identity. Per-principal concurrency, cost, wall-clock, and tool-call quotas are enforced at durable creation. |
 | Completion handoff | Implemented | Terminal result commit precedes the idempotent conversation turn and durable reply-ledger enqueue. Provider delivery remains a separate retryable concern. |
 | Live Azure scenario evidence | Partially validated | Caller attribution, Resource Health, unauthorized scope, and ambiguous names passed read-only live validation. Guest-event matching and an actual provider `429` remain release evidence gaps. |
@@ -188,13 +188,12 @@ queue and execution duration, result count, truncation, cache status, recorded t
 reference. Metric dimensions exclude resource ids, principal ids, prompts, and query text.
 
 A durable latency profile keeps bounded recent samples per
-`(tool_id, transport, operation_class)` and exposes sample count, failure rate, p50, and p95. For
-sequential steps, estimated p95 is the sum of step p95 values. For parallel fan-out, it is the
-maximum branch p95. Detached work adds queue delay. Before the minimum sample count is met, the
-planner uses a catalog `latency_class` and reports a broad range instead of false precision.
-The current executor resolves the resource and then queries each evidence source sequentially, so
-its plan estimate sums every selected source. The maximum-branch rule applies only after an
-executor introduces actual concurrent fan-out.
+`(tool_id, transport, operation_class)` and exposes sample count, failure rate, p50, and p95. The
+executor resolves the resource first, then queries independent evidence sources under a configured
+parallel limit of at most four. Plan estimates add the resolution p95 to the maximum evidence-branch
+p95. Detached work adds queue delay. Before the minimum sample count is met, the planner uses a
+catalog `latency_class` and reports a broad range instead of false precision. Evidence and receipts
+retain plan order even when provider calls complete in a different order.
 
 The estimate selects execution mode before cloud I/O begins. If elapsed time crosses the announced
 upper range, Bragi emits one delayed milestone and continues inside the fixed wall-clock budget.
@@ -215,10 +214,13 @@ evidence.correlating
 investigation.completed
 ```
 
-The existing reporter coalesces events and caps their count. SSE returns stored progress,
-heartbeats, and one terminal event. Detached completion commits the immutable result first, then
-appends an untrusted assistant turn and enqueues it through the durable reply ledger. Delivery
-failure cannot rerun the investigation or rewrite its result.
+The existing reporter coalesces events and caps their count. The direct Command Deck stream emits
+`activity` events as tools start and finish, plus bounded `milestone` messages when resource
+resolution and evidence collection materially change the operator experience. Activity follows
+actual completion order while the terminal evidence remains deterministic in plan order. Detached
+SSE returns stored progress, heartbeats, and one terminal event. Detached completion commits the
+immutable result first, then appends an untrusted assistant turn and enqueues it through the durable
+reply ledger. Delivery failure cannot rerun the investigation or rewrite its result.
 
 Bragi communicates an estimate only when it changes the operator experience. Example:
 

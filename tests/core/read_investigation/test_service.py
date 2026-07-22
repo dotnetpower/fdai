@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 
 from fdai.core.read_investigation import (
@@ -145,6 +146,50 @@ class _Provider:
         )
 
 
+class _ParallelProvider(_Provider):
+    def __init__(self, resolution: ResourceResolution) -> None:
+        super().__init__(resolution)
+        self.active = 0
+        self.max_active = 0
+        self._release = asyncio.Event()
+
+    async def query_resource_activity(
+        self, resource: ResolvedResource, *, lookback_seconds: int, limits: ReadToolLimits
+    ) -> ReadEvidenceAttempt:
+        del lookback_seconds, limits
+        return await self._concurrent_attempt(ReadToolId.QUERY_RESOURCE_ACTIVITY, resource)
+
+    async def query_resource_health(
+        self, resource: ResolvedResource, *, lookback_seconds: int, limits: ReadToolLimits
+    ) -> ReadEvidenceAttempt:
+        del lookback_seconds, limits
+        return await self._concurrent_attempt(ReadToolId.QUERY_RESOURCE_HEALTH, resource)
+
+    async def query_guest_shutdown_events(
+        self, resource: ResolvedResource, *, lookback_seconds: int, limits: ReadToolLimits
+    ) -> ReadEvidenceAttempt:
+        del lookback_seconds, limits
+        return await self._concurrent_attempt(
+            ReadToolId.QUERY_GUEST_SHUTDOWN_EVENTS,
+            resource,
+        )
+
+    async def _concurrent_attempt(
+        self,
+        tool_id: ReadToolId,
+        resource: ResolvedResource,
+    ) -> ReadEvidenceAttempt:
+        self.active += 1
+        self.max_active = max(self.max_active, self.active)
+        if self.active == 3:
+            self._release.set()
+        try:
+            await asyncio.wait_for(self._release.wait(), timeout=0.5)
+            return self._attempt(tool_id, resource)
+        finally:
+            self.active -= 1
+
+
 def _resource(scope_ref: str = "scope:allowed") -> ResolvedResource:
     return ResolvedResource(
         resource_ref="resource:one",
@@ -238,6 +283,34 @@ async def test_attribution_keeps_activity_guest_and_health_evidence_separate() -
     assert len(result.receipts) == 4
     assert len(latency.samples) == 4
     assert sum(not sample.succeeded for sample in latency.samples) == 0
+
+
+async def test_attribution_queries_independent_evidence_sources_in_parallel() -> None:
+    provider = _ParallelProvider(
+        ResourceResolution(ResourceResolutionStatus.MATCHED, resource=_resource())
+    )
+
+    result = await ReadInvestigationService(provider, clock=lambda: NOW).execute(
+        plan_read_investigation(_request(ReadInvestigationIntent.CHANGE_ATTRIBUTION))
+    )
+
+    assert provider.max_active == 3
+    assert [item.authority for item in result.evidence] == [
+        "control_plane_activity",
+        "guest_shutdown",
+        "platform_health",
+    ]
+
+
+def test_parallel_evidence_limit_is_bounded() -> None:
+    provider = _Provider(ResourceResolution(ResourceResolutionStatus.MATCHED, resource=_resource()))
+    for invalid in (0, 5):
+        try:
+            ReadInvestigationService(provider, max_parallel_evidence=invalid)
+        except ValueError as exc:
+            assert "max_parallel_evidence" in str(exc)
+        else:  # pragma: no cover - assertion branch
+            raise AssertionError("invalid parallel evidence limit was accepted")
 
 
 async def test_provider_failure_emits_bounded_failed_receipt() -> None:

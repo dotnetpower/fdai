@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from inspect import Parameter, signature
 from typing import Any, Protocol
 
@@ -46,6 +46,9 @@ class AgentChatDelegate(Protocol):
         user_id: str,
         session_id: str,
     ) -> Mapping[str, Any] | None: ...
+
+
+AgentProgressObserver = Callable[[Mapping[str, Any]], Awaitable[None]]
 
 
 class ChatToolResolver(Protocol):
@@ -180,6 +183,7 @@ async def _with_agent_evidence(
     *,
     user_id: str,
     session_id: str,
+    progress_observer: AgentProgressObserver | None = None,
 ) -> dict[str, Any]:
     """Replace client-supplied delegation data with a server-owned result."""
 
@@ -197,10 +201,20 @@ async def _with_agent_evidence(
         or (_is_concept_query(prompt) and _CONCEPT_DOMAIN.search(prompt) and not explicit_agent)
     ):
         return enriched
-    evidence = await delegate.delegate(
-        prompt=prompt,
-        user_id=user_id,
-        session_id=session_id,
+    progressive = getattr(delegate, "delegate_with_progress", None)
+    evidence = (
+        await progressive(
+            prompt=prompt,
+            user_id=user_id,
+            session_id=session_id,
+            progress_observer=progress_observer,
+        )
+        if progress_observer is not None and callable(progressive)
+        else await delegate.delegate(
+            prompt=prompt,
+            user_id=user_id,
+            session_id=session_id,
+        )
     )
     if evidence is not None:
         enriched["_agent_evidence"] = dict(evidence)

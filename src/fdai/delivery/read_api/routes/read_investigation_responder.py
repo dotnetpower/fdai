@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 
 from fdai.agents import Bragi, Heimdall
@@ -10,6 +11,7 @@ from fdai.core.read_investigation import (
     InvestigationExecutionPolicy,
     ReadInvestigationBudget,
     ReadInvestigationExecutionMode,
+    ReadInvestigationProgressKind,
     ReadInvestigationRequest,
     ReadInvestigationService,
     classify_read_investigation_intent,
@@ -49,6 +51,8 @@ class HeimdallReadInvestigationResponder:
         self,
         question: str,
         context: dict[str, object],
+        *,
+        progress_observer: Callable[[ReadInvestigationProgressKind], Awaitable[None]] | None = None,
     ) -> dict[str, object] | None:
         intent = classify_read_investigation_intent(question)
         resource_name = resource_name_from_question(question)
@@ -105,7 +109,7 @@ class HeimdallReadInvestigationResponder:
                     "estimated_upper_ms": estimate.upper_ms,
                 },
             }
-        result = await self._service.execute(plan)
+        result = await self._service.execute(plan, progress_observer=progress_observer)
         answer = _render_answer(
             resource_name=resource_name,
             intent=intent,
@@ -211,6 +215,7 @@ class HeimdallReadInvestigationChatDelegate:
     """Expose only supported read investigations to Command Deck evidence enrichment."""
 
     def __init__(self, *, responder: HeimdallReadInvestigationResponder) -> None:
+        self._responder = responder
         self._bragi = Bragi()
         heimdall = Heimdall(read_investigation_hook=responder)
         self._bragi.register_responder("Heimdall", heimdall.on_conversation_turn)
@@ -245,6 +250,266 @@ class HeimdallReadInvestigationChatDelegate:
             "contributor_answers": [],
             "trace_ref": str(turn.answer.get("trace_ref") or "read-investigation")[:256],
         }
+
+    async def delegate_with_progress(
+        self,
+        *,
+        prompt: str,
+        user_id: str,
+        session_id: str,
+        progress_observer: Callable[[Mapping[str, object]], Awaitable[None]],
+    ) -> dict[str, object] | None:
+        intent = classify_read_investigation_intent(prompt)
+        resource_name = resource_name_from_question(prompt)
+        if intent is None or resource_name is None:
+            return await self.delegate(prompt=prompt, user_id=user_id, session_id=session_id)
+        korean = _is_korean(prompt)
+
+        async def observe(kind: ReadInvestigationProgressKind) -> None:
+            for event in _progress_events(kind, resource_name=resource_name, korean=korean):
+                await progress_observer(event)
+
+        result = await self._responder(
+            prompt,
+            {"user_id": user_id, "session_id": session_id},
+            progress_observer=observe,
+        )
+        if result is None:
+            return None
+        return {
+            "primary_agent": "Heimdall",
+            "answer": result["answer"],
+            "facts": result["facts"],
+            "contributors": [],
+            "contributor_answers": [],
+            "trace_ref": "read-investigation",
+        }
+
+
+_PROGRESS_ACTIVITY: dict[
+    ReadInvestigationProgressKind,
+    tuple[str, str, str],
+] = {
+    ReadInvestigationProgressKind.PLANNED: (
+        "plan",
+        "completed",
+        "Investigation planned",
+    ),
+    ReadInvestigationProgressKind.RESOURCE_RESOLVING: (
+        "resource",
+        "running",
+        "Resolving resource",
+    ),
+    ReadInvestigationProgressKind.RESOURCE_RESOLVED: (
+        "resource",
+        "completed",
+        "Resource resolved",
+    ),
+    ReadInvestigationProgressKind.RESOURCE_NOT_FOUND: (
+        "resource",
+        "unavailable",
+        "Resource not found",
+    ),
+    ReadInvestigationProgressKind.RESOURCE_AMBIGUOUS: (
+        "resource",
+        "unavailable",
+        "Resource is ambiguous",
+    ),
+    ReadInvestigationProgressKind.RESOURCE_UNAVAILABLE: (
+        "resource",
+        "unavailable",
+        "Resource lookup unavailable",
+    ),
+    ReadInvestigationProgressKind.STATE_QUERYING: (
+        "state",
+        "running",
+        "Checking resource state",
+    ),
+    ReadInvestigationProgressKind.STATE_COMPLETED: (
+        "state",
+        "completed",
+        "Resource state checked",
+    ),
+    ReadInvestigationProgressKind.STATE_UNAVAILABLE: (
+        "state",
+        "unavailable",
+        "Resource state unavailable",
+    ),
+    ReadInvestigationProgressKind.ACTIVITY_QUERYING: (
+        "activity-log",
+        "running",
+        "Checking Activity Log",
+    ),
+    ReadInvestigationProgressKind.ACTIVITY_COMPLETED: (
+        "activity-log",
+        "completed",
+        "Activity Log checked",
+    ),
+    ReadInvestigationProgressKind.ACTIVITY_UNAVAILABLE: (
+        "activity-log",
+        "unavailable",
+        "Activity Log unavailable",
+    ),
+    ReadInvestigationProgressKind.HEALTH_QUERYING: (
+        "resource-health",
+        "running",
+        "Checking Resource Health",
+    ),
+    ReadInvestigationProgressKind.HEALTH_COMPLETED: (
+        "resource-health",
+        "completed",
+        "Resource Health checked",
+    ),
+    ReadInvestigationProgressKind.HEALTH_UNAVAILABLE: (
+        "resource-health",
+        "unavailable",
+        "Resource Health unavailable",
+    ),
+    ReadInvestigationProgressKind.GUEST_QUERYING: (
+        "guest-log",
+        "running",
+        "Checking guest shutdown logs",
+    ),
+    ReadInvestigationProgressKind.GUEST_COMPLETED: (
+        "guest-log",
+        "completed",
+        "Guest shutdown logs checked",
+    ),
+    ReadInvestigationProgressKind.GUEST_UNAVAILABLE: (
+        "guest-log",
+        "unavailable",
+        "Guest shutdown logs unavailable",
+    ),
+    ReadInvestigationProgressKind.NETWORK_SECURITY_QUERYING: (
+        "network-security",
+        "running",
+        "Checking network security",
+    ),
+    ReadInvestigationProgressKind.NETWORK_SECURITY_COMPLETED: (
+        "network-security",
+        "completed",
+        "Network security checked",
+    ),
+    ReadInvestigationProgressKind.NETWORK_SECURITY_UNAVAILABLE: (
+        "network-security",
+        "unavailable",
+        "Network security unavailable",
+    ),
+    ReadInvestigationProgressKind.NETWORK_PEERING_QUERYING: (
+        "network-peering",
+        "running",
+        "Checking network peerings",
+    ),
+    ReadInvestigationProgressKind.NETWORK_PEERING_COMPLETED: (
+        "network-peering",
+        "completed",
+        "Network peerings checked",
+    ),
+    ReadInvestigationProgressKind.NETWORK_PEERING_UNAVAILABLE: (
+        "network-peering",
+        "unavailable",
+        "Network peerings unavailable",
+    ),
+    ReadInvestigationProgressKind.EVIDENCE_CORRELATING: (
+        "correlation",
+        "running",
+        "Correlating evidence",
+    ),
+    ReadInvestigationProgressKind.DELAYED: (
+        "delay",
+        "running",
+        "Investigation is taking longer than estimated",
+    ),
+    ReadInvestigationProgressKind.COMPLETED: (
+        "correlation",
+        "completed",
+        "Investigation completed",
+    ),
+}
+
+
+def _progress_events(
+    kind: ReadInvestigationProgressKind,
+    *,
+    resource_name: str,
+    korean: bool,
+) -> tuple[dict[str, object], ...]:
+    activity_id, status, label = _PROGRESS_ACTIVITY[kind]
+    localized_label = _korean_progress_label(kind) if korean else label
+    events: list[dict[str, object]] = [
+        {
+            "event": "activity",
+            "activity_id": activity_id,
+            "kind": kind.value,
+            "status": status,
+            "label": localized_label,
+            "detail": resource_name,
+            "completed": None,
+            "total": None,
+        }
+    ]
+    if kind is ReadInvestigationProgressKind.RESOURCE_RESOLVED:
+        events.append(
+            {
+                "event": "milestone",
+                "message_id": "resource-resolved",
+                "text": (
+                    f"{resource_name} 리소스를 확인했습니다. 관련 근거를 병렬로 조회합니다."
+                    if korean
+                    else (
+                        f"Resolved {resource_name}. I am checking its evidence sources in parallel."
+                    )
+                ),
+                "agent": "Bragi",
+            }
+        )
+    if kind is ReadInvestigationProgressKind.EVIDENCE_CORRELATING:
+        events.append(
+            {
+                "event": "milestone",
+                "message_id": "evidence-correlating",
+                "text": (
+                    "근거 수집을 마쳤습니다. 결과와 누락된 출처를 함께 정리합니다."
+                    if korean
+                    else "Evidence collection finished. I am correlating results and gaps."
+                ),
+                "agent": "Bragi",
+            }
+        )
+    return tuple(events)
+
+
+def _korean_progress_label(kind: ReadInvestigationProgressKind) -> str:
+    labels = {
+        ReadInvestigationProgressKind.PLANNED: "조사 계획 완료",
+        ReadInvestigationProgressKind.RESOURCE_RESOLVING: "리소스 확인 중",
+        ReadInvestigationProgressKind.RESOURCE_RESOLVED: "리소스 확인 완료",
+        ReadInvestigationProgressKind.RESOURCE_NOT_FOUND: "리소스를 찾을 수 없음",
+        ReadInvestigationProgressKind.RESOURCE_AMBIGUOUS: "리소스를 하나로 특정할 수 없음",
+        ReadInvestigationProgressKind.RESOURCE_UNAVAILABLE: "리소스 조회 불가",
+        ReadInvestigationProgressKind.STATE_QUERYING: "리소스 상태 확인 중",
+        ReadInvestigationProgressKind.STATE_COMPLETED: "리소스 상태 확인 완료",
+        ReadInvestigationProgressKind.STATE_UNAVAILABLE: "리소스 상태 조회 불가",
+        ReadInvestigationProgressKind.ACTIVITY_QUERYING: "Activity Log 확인 중",
+        ReadInvestigationProgressKind.ACTIVITY_COMPLETED: "Activity Log 확인 완료",
+        ReadInvestigationProgressKind.ACTIVITY_UNAVAILABLE: "Activity Log 조회 불가",
+        ReadInvestigationProgressKind.HEALTH_QUERYING: "Resource Health 확인 중",
+        ReadInvestigationProgressKind.HEALTH_COMPLETED: "Resource Health 확인 완료",
+        ReadInvestigationProgressKind.HEALTH_UNAVAILABLE: "Resource Health 조회 불가",
+        ReadInvestigationProgressKind.GUEST_QUERYING: "게스트 종료 로그 확인 중",
+        ReadInvestigationProgressKind.GUEST_COMPLETED: "게스트 종료 로그 확인 완료",
+        ReadInvestigationProgressKind.GUEST_UNAVAILABLE: "게스트 종료 로그 조회 불가",
+        ReadInvestigationProgressKind.NETWORK_SECURITY_QUERYING: "네트워크 보안 확인 중",
+        ReadInvestigationProgressKind.NETWORK_SECURITY_COMPLETED: "네트워크 보안 확인 완료",
+        ReadInvestigationProgressKind.NETWORK_SECURITY_UNAVAILABLE: "네트워크 보안 조회 불가",
+        ReadInvestigationProgressKind.NETWORK_PEERING_QUERYING: "네트워크 피어링 확인 중",
+        ReadInvestigationProgressKind.NETWORK_PEERING_COMPLETED: "네트워크 피어링 확인 완료",
+        ReadInvestigationProgressKind.NETWORK_PEERING_UNAVAILABLE: "네트워크 피어링 조회 불가",
+        ReadInvestigationProgressKind.EVIDENCE_CORRELATING: "근거 상관분석 중",
+        ReadInvestigationProgressKind.DELAYED: "예상보다 조사가 오래 걸리는 중",
+        ReadInvestigationProgressKind.COMPLETED: "조사 완료",
+    }
+    return labels[kind]
 
 
 __all__ = [
