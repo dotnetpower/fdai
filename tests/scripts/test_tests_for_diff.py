@@ -235,6 +235,24 @@ def test_global_test_configuration_falls_back_to_full_suite(git_repo: Path) -> N
     assert result.stdout.splitlines() == ["tests"]
 
 
+@pytest.mark.parametrize(
+    "path",
+    (
+        "tests/scenarios/fixture.json",
+        "src/fdai/delivery/read_api/schema.json",
+    ),
+)
+def test_python_resource_change_falls_back_to_full_suite(git_repo: Path, path: str) -> None:
+    resource = git_repo / path
+    resource.parent.mkdir(parents=True, exist_ok=True)
+    resource.write_text("{}\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["tests"]
+
+
 @pytest.mark.parametrize("path", sorted(_PYTHON_FILES))
 def test_ci_python_input_falls_back_to_full_suite(git_repo: Path, path: str) -> None:
     input_file = git_repo / path

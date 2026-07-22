@@ -58,6 +58,8 @@ and provider interfaces with cross-repository consumers, Python files outside a
 known source layout, and mapped test paths that don't exist select the full
 suite. The focused runner doesn't collect coverage and doesn't replace
 `make test` or `bash scripts/verify.sh --full` before merging.
+Non-Python fixtures under `tests/` and package resources under `src/` also
+select the full suite because their consumers can't be inferred from imports.
 
 The runner executes non-integration tests first. It executes selected
 `integration` tests only when `FDAI_DATABASE_URL` is set; otherwise it reports

@@ -92,6 +92,11 @@ while IFS= read -r file; do
             ;;
     esac
 
+    if [[ ("$file" == tests/* || "$file" == src/*) && "$file" != *.py ]]; then
+        add_test "tests"
+        continue
+    fi
+
     # Test file changed directly - include it as-is.
     if [[ "$file" == tests/*.py ]]; then
         add_test "$file"
