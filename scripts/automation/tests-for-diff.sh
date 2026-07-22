@@ -60,8 +60,10 @@ tests=()
 
 add_test() {
     local path="$1"
-    [[ -z "$path" ]] && return
-    [[ -e "$path" ]] || return
+    [[ -z "$path" ]] && return 0
+    if [[ ! -e "$path" ]]; then
+        path="tests"
+    fi
     if [[ -z "${seen[$path]:-}" ]]; then
         seen[$path]=1
         tests+=("$path")

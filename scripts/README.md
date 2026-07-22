@@ -49,9 +49,10 @@ make test-changed DIFF=origin/main...HEAD
 ```
 
 Changes to global Python test configuration, shared contracts with
-cross-repository consumers, and Python files outside a known source layout
-select the full suite. The focused runner doesn't collect coverage and doesn't
-replace `make test` or `bash scripts/verify.sh --full` before merging.
+cross-repository consumers, Python files outside a known source layout, and
+mapped test paths that don't exist select the full suite. The focused runner
+doesn't collect coverage and doesn't replace `make test` or
+`bash scripts/verify.sh --full` before merging.
 
 ## Verification
 

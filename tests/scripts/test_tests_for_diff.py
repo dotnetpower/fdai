@@ -101,6 +101,17 @@ def test_unknown_python_source_falls_back_to_full_suite(git_repo: Path) -> None:
     assert result.stdout.splitlines() == ["tests"]
 
 
+def test_missing_mirrored_test_directory_falls_back_to_full_suite(git_repo: Path) -> None:
+    source = git_repo / "src" / "fdai" / "new_area" / "module.py"
+    source.parent.mkdir(parents=True)
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["tests"]
+
+
 def test_selects_catalog_tests_for_untracked_catalog_data(git_repo: Path) -> None:
     catalog = git_repo / "rule-catalog" / "catalog" / "rule.yaml"
     catalog.parent.mkdir(parents=True)
