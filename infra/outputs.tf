@@ -82,6 +82,11 @@ output "dev_operations_gateway_url" {
   value       = length(azurerm_function_app_flex_consumption.dev_gateway) > 0 ? "https://${azurerm_function_app_flex_consumption.dev_gateway[0].default_hostname}" : ""
 }
 
+output "dev_operations_gateway_audience" {
+  description = "Microsoft Entra audience for the development operations gateway. Empty when disabled."
+  value       = length(azurerm_function_app_flex_consumption.dev_gateway) > 0 ? var.read_api_audience : ""
+}
+
 output "dev_operations_gateway_app_name" {
   description = "Development operations Function App name. Empty when disabled."
   value       = length(azurerm_function_app_flex_consumption.dev_gateway) > 0 ? azurerm_function_app_flex_consumption.dev_gateway[0].name : ""

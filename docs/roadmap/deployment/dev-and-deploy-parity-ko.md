@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: a89acd3bb26bf08cc558751bf6d6b2bb2fcc7fcb
+translation_source_sha: 468543c3d68ff5ef0274de36652495940f1571bd
 translation_revised: 2026-07-22
 ---
 
@@ -87,9 +87,10 @@ Workspace, identity, permission 또는 telemetry를 사용할 수 없으면 fixt
 unavailable로 보류합니다.
 
 Local runtime environment generator는 applied subscription 및 resource group도 bounded Azure
-read-investigation adapter에 제공합니다. NSG 및 VNet peering 질문은 현재 Azure CLI token으로
-server-owned ARM path를 조회합니다. Private data-plane probe는 Terraform이 출력한 optional development
-operations gateway URL을 사용합니다. Gateway는 registered operation만 허용하고 reader/executor managed
+read-investigation adapter에 제공합니다. Terraform이 optional development operations gateway URL과
+Easy Auth audience를 모두 출력하면 NSG 및 VNet peering 질문은 local Azure CLI identity로 gateway의
+registered read operation만 호출합니다. Pair가 없으면 wrapper를 비활성화하고 configured gateway가
+실패하면 direct ARM fallback 없이 unavailable을 보고합니다. Gateway는 reader/executor managed
 identity를 분리하며 local read API에 execution identity를 제공하지 않습니다. Mutation은 target-scoped
 Blob lease와 durable idempotency claim을 사용합니다. ARM long-running operation은 `submitted` 상태로
 유지되며 executor만 원래 idempotency key를 통해 server-owned status URL을 조회할 수 있습니다.

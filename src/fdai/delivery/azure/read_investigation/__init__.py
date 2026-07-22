@@ -9,6 +9,11 @@ from fdai.delivery.azure.read_investigation.cli_transport import (
     AzureReadCliConfig,
     AzureReadCliError,
 )
+from fdai.delivery.azure.read_investigation.gateway_transport import (
+    AzureOperationsGatewayReadConfig,
+    AzureOperationsGatewayReadError,
+    AzureOperationsGatewayReadTransport,
+)
 from fdai.delivery.azure.read_investigation.provider import AzureReadInvestigationProvider
 from fdai.delivery.azure.read_investigation.rest_transport import (
     AzureReadRestConfig,
@@ -24,6 +29,9 @@ __all__ = [
     "AzureReadCliConfig",
     "AzureReadCliError",
     "AzureReadInvestigationProvider",
+    "AzureOperationsGatewayReadConfig",
+    "AzureOperationsGatewayReadError",
+    "AzureOperationsGatewayReadTransport",
     "AzureReadRestConfig",
     "AzureReadRestError",
     "AzureReadScopeBinding",

@@ -84,10 +84,11 @@ by the browser. If the workspace, identity, permission, or telemetry is unavaila
 holds as unavailable without a fixture or model fallback.
 
 The local runtime environment generator also supplies the applied subscription and resource group
-to the bounded Azure read-investigation adapter. NSG and VNet peering questions use the current
-Azure CLI token against server-owned ARM paths. Private data-plane probes use the optional
-development operations gateway URL emitted by Terraform. The gateway accepts only registered
-operations, uses separate reader and executor managed identities, and does not give the local read
+to the bounded Azure read-investigation adapter. When Terraform emits both the optional development
+operations gateway URL and its Easy Auth audience, NSG and VNet peering questions use the local
+Azure CLI identity to call only the gateway's registered read operations. A missing pair disables
+the wrapper, while a configured gateway failure reports unavailable without a direct-ARM fallback.
+The gateway uses separate reader and executor managed identities and does not give the local read
 API an execution identity. Mutations use a target-scoped Blob lease and durable idempotency claim.
 An ARM long-running operation remains `submitted`; only the executor can resolve its server-owned
 status URL through the original idempotency key. A stale pending claim is recovered with ETag

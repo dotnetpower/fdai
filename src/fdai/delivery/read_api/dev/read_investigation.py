@@ -11,11 +11,14 @@ import httpx
 from fdai.core.read_investigation import InvestigationExecutionPolicy, ReadInvestigationService
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.read_investigation import (
+    AzureOperationsGatewayReadConfig,
+    AzureOperationsGatewayReadTransport,
     AzureReadRestConfig,
     AzureReadScopeBinding,
     AzureRestReadInvestigationAdapter,
     AzureRestReadTransport,
 )
+from fdai.delivery.azure.read_investigation.transport import AzureReadTransport
 from fdai.delivery.azure.subscription_health import (
     AzureSubscriptionHealthConfig,
     AzureSubscriptionHealthProvider,
@@ -31,6 +34,7 @@ from fdai.delivery.read_api.routes.read_investigation_responder import (
 class LocalReadInvestigationWiring:
     chat_delegate: HeimdallReadInvestigationChatDelegate
     subscription_health_provider: AzureSubscriptionHealthProvider
+    read_transport: AzureReadTransport
     http_client: httpx.AsyncClient
 
     async def close(self) -> None:
@@ -57,7 +61,7 @@ def build_local_read_investigation(
         timeout=httpx.Timeout(connect=5.0, read=35.0, write=10.0, pool=5.0)
     )
     identity = AsyncAzureCliWorkloadIdentity()
-    transport = AzureRestReadTransport(
+    direct_transport = AzureRestReadTransport(
         config=AzureReadRestConfig(
             scopes=(
                 AzureReadScopeBinding(
@@ -76,6 +80,23 @@ def build_local_read_investigation(
         identity=identity,
         http_client=http_client,
     )
+    gateway_url = environ.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip()
+    gateway_audience = environ.get("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", "").strip()
+    if bool(gateway_url) != bool(gateway_audience):
+        raise ValueError("operations gateway URL and audience MUST be configured together")
+    transport: AzureReadTransport = direct_transport
+    if gateway_url:
+        transport = AzureOperationsGatewayReadTransport(
+            config=AzureOperationsGatewayReadConfig(
+                base_url=gateway_url,
+                audience=gateway_audience,
+                subscription_id=subscription_id,
+                resource_groups=resource_groups,
+            ),
+            delegate=direct_transport,
+            identity=identity,
+            http_client=http_client,
+        )
     latency_store = StateStoreReadLatencyProfileStore(store=state_store)
     service = ReadInvestigationService(
         AzureRestReadInvestigationAdapter(transport),
@@ -102,6 +123,7 @@ def build_local_read_investigation(
             identity=identity,
             http_client=http_client,
         ),
+        read_transport=transport,
         http_client=http_client,
     )
 

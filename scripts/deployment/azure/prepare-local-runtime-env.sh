@@ -25,6 +25,7 @@ topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_t
 auxiliary_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_auxiliary_topics 2>/dev/null || printf '[]')"
 resource_group="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw resource_group_name)"
 dev_operations_gateway_url="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw dev_operations_gateway_url 2>/dev/null || true)"
+dev_operations_gateway_audience="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw dev_operations_gateway_audience 2>/dev/null || true)"
 executor_identity_resource_id="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw executor_identity_resource_id)"
 subscription_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" account show --query id -o tsv)"
 tenant_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" account show --query tenantId -o tsv)"
@@ -65,13 +66,18 @@ if [[ -z "$subscription_id" || -z "$tenant_id" || ! "$resource_group" =~ ^[A-Za-
   echo "Azure account or deployed resource-group metadata is incomplete" >&2
   exit 1
 fi
+if [[ -n "$dev_operations_gateway_url" && -z "$dev_operations_gateway_audience" ]] ||
+  [[ -z "$dev_operations_gateway_url" && -n "$dev_operations_gateway_audience" ]]; then
+  echo "development operations gateway URL and audience must be provisioned together" >&2
+  exit 1
+fi
 
 mkdir -p "$(dirname "$OUTPUT_ENV")"
 umask 077
 temp_env="$(mktemp "${OUTPUT_ENV}.XXXXXX")"
 trap 'rm -f "$temp_env"' EXIT
 
-grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|AUTONOMY_MODE_DEFAULT|FDAI_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_READ_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_DEV_OPERATIONS_GATEWAY_URL)=' "$SOURCE_ENV" > "$temp_env" || true
+grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|AUTONOMY_MODE_DEFAULT|FDAI_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_READ_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE)=' "$SOURCE_ENV" > "$temp_env" || true
 {
   printf 'AZURE_TENANT_ID=%s\n' "$tenant_id"
   printf 'AZURE_SUBSCRIPTION_ID=%s\n' "$subscription_id"
@@ -101,6 +107,7 @@ grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REG
   printf 'FDAI_AZURE_READER_RESOURCE_GROUPS=%s\n' "$resource_group"
   if [[ -n "$dev_operations_gateway_url" ]]; then
     printf 'FDAI_DEV_OPERATIONS_GATEWAY_URL=%s\n' "$dev_operations_gateway_url"
+    printf 'FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=%s\n' "$dev_operations_gateway_audience"
   fi
 } >> "$temp_env"
 

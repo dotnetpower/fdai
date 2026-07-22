@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: f293ca867adf6a6e9b67a256dd1d2c3a6a533fe0
+translation_source_sha: 1ed8950f17fbeddfd09a47c74d3693c4ef977406
 translation_revised: 2026-07-22
 ---
 
@@ -60,7 +60,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Bragi 및 Heimdall routing | 구현됨 | Deterministic 영어 및 한국어 actor, shutdown, history, health, state routing이 generic scoring 전에 Heimdall을 선택합니다. |
 | Exact resource resolution | 구현됨 | `not_found`, bounded `ambiguous`, scope-bound exact reference가 resolution 성공 전 history query를 중지합니다. |
 | Subscription health sweep | 구현됨 | Configured reader scope가 Resource Graph inventory와 Resource Health를 병렬 query한 다음 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인합니다. |
-| Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log, 구성된 NSG rule 및 VNet peering property를 지원합니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
+| Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log, 구성된 NSG rule 및 VNet peering property를 지원합니다. Interactive local은 executor identity를 받지 않고 registered development operations gateway를 통해 NSG 및 peering read를 전달할 수 있습니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
 | Read-tool attenuation | 구현됨 | `background.read-only`는 Reader tool 7개만 포함하고 mutation, approval, shell, arbitrary-query, nested-worker capability를 차단합니다. |
 | Execution mode 및 progress | 구현됨 | Durable p50/p95 profile이 cloud I/O 전에 direct, streamed, detached mode를 선택합니다. Exact resolution은 barrier이며 독립 evidence tool은 bounded parallel limit 안에서 실행되고 semantic progress와 terminal event는 제한됩니다. |
 | Detached execution 및 quota | 구현됨 | Typed executor는 narrator history, screen state, event bus, Thor, executor identity를 받지 않습니다. Per-principal concurrency, cost, wall-clock, tool-call quota는 durable creation에서 적용됩니다. |
@@ -110,6 +110,14 @@ Broker는 registered plan의 timeout 및 output cap을 적용합니다. Complete
 ephemeral output으로만 반환되고 command receipt는 bounded 4 KB diagnostic tail만 유지하며 broker는
 반환 후 full output을 cache하지 않습니다. Raw CLI output은 persist되거나 narrator context에 전달되지
 않습니다.
+
+`FDAI_DEV_OPERATIONS_GATEWAY_URL`과 별도로 출력되는
+`FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE`가 모두 구성되면 interactive local은 REST transport를
+read-only gateway transport로 감쌉니다. Exact resource resolution이 subscription 및
+resource-group-bound reference를 계속 제공합니다. 이 wrapper는 `azure.network.nsg.read`와
+`azure.network.peering.read`만 노출합니다. HTTP 전에 확장된 resource reference를 차단하고 고정 byte
+cap 안에서 response를 stream하며 gateway 실패 시 direct ARM으로 조용히 fallback하지 않고
+unavailable을 보고합니다.
 
 ### Subscription health sweep
 

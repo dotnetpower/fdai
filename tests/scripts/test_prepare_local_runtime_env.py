@@ -32,7 +32,9 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         "FDAI_INVENTORY_RAW_TOPIC=stale.inventory\n"
         "FDAI_HIL_DECISION_TOPIC=stale.hil\n"
         "FDAI_AZURE_READER_SUBSCRIPTION_ID=stale-subscription\n"
-        "FDAI_AZURE_READER_RESOURCE_GROUPS=stale-group\n",
+        "FDAI_AZURE_READER_RESOURCE_GROUPS=stale-group\n"
+        "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://stale.example.com\n"
+        "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=stale-audience\n",
         encoding="utf-8",
     )
     terraform = tmp_path / "terraform"
@@ -46,6 +48,10 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         '  printf \'["aw.pipeline.stages","aw.inventory.raw"]\'\n'
         'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
         "  printf 'rg-example'\n"
+        'elif [[ "$*" == *"output -raw dev_operations_gateway_url"* ]]; then\n'
+        "  printf 'https://gateway.example.com'\n"
+        'elif [[ "$*" == *"output -raw dev_operations_gateway_audience"* ]]; then\n'
+        "  printf 'api-application-id'\n"
         'elif [[ "$*" == *"output -raw executor_identity_resource_id"* ]]; then\n'
         f"  printf '{_EXECUTOR_RESOURCE_ID}'\n"
         "else\n"
@@ -113,6 +119,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         "FDAI_READ_API_CONSUMER_INSTANCE=fdai-local-developer-a-read-api",
         "FDAI_AZURE_READER_SUBSCRIPTION_ID=00000000-0000-0000-0000-000000000001",
         "FDAI_AZURE_READER_RESOURCE_GROUPS=rg-example",
+        "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://gateway.example.com",
+        "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=api-application-id",
     ]
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
 
