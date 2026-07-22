@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: e1350643936bfb835fd3b21445a0003ded8cb8d0
+translation_source_sha: 92dadca9511d9f9e0b4bcc80492af4195628d138
 translation_revised: 2026-07-22
 ---
 # Provisioning 실행 Profile
@@ -149,6 +149,22 @@ signed deployment bundle, Terraform binary 및 provider mirror, OPA, SBOM을 요
 root injection은 test와 release construction에서만 사용합니다. `fdaictl`은 `--release-root`
 override를 제공하지 않습니다. Public root가 wheel에 pin될 때까지 inspection은 `review`로
 유지됩니다.
+
+### Trust root 및 rotation
+
+최종 offline authority는 Python-TUF 7을 통해 The Update Framework (TUF) 1.0을 사용합니다.
+Wheel은 out-of-band trust bootstrap으로 initial signed `root.json`을 제공합니다. Root private
+key는 offline에 보관합니다. CI는 targets, snapshot, timestamp metadata용 delegated online key를
+사용할 수 있지만 root private key는 받지 않습니다.
+
+Client는 root metadata를 한 version씩 update하고 각 new root가 old root와 new root threshold를
+모두 만족하는지 확인합니다. TUF metadata expiry와 monotonic version은 freeze, rollback,
+mix-and-match 공격을 방어합니다. Metadata threshold와 key ceremony는 release-security
+policy이며 provisioning apply의 one-person approval과 독립적입니다.
+
+현재 exact-content verifier는 TUF가 target을 인증한 이후 defense in depth로 유지됩니다.
+Python-TUF integration과 첫 root ceremony는 offline root를 만들고 CI 외부에 backup할 때까지
+차단됩니다. Generated private key를 commit하거나 `fdaictl`을 통해 전달하지 않습니다.
 
 ## 승인 및 apply
 

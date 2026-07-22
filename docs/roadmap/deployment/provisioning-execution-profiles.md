@@ -145,6 +145,22 @@ wheel, signed deployment bundle, Terraform binary and provider mirror, OPA, and 
 root is injectable for tests and release construction only. `fdaictl` does not expose a
 `--release-root` override; inspection remains `review` until a public root is pinned in the wheel.
 
+### Trust root and rotation
+
+The final offline authority uses The Update Framework (TUF) 1.0 through Python-TUF 7. The wheel
+ships the initial signed `root.json` through an out-of-band trust bootstrap. Root private keys stay
+offline. CI may use delegated online keys for targets, snapshot, and timestamp metadata, but it
+never receives a root private key.
+
+Clients update root metadata one version at a time and require each new root to satisfy both the
+old and new root thresholds. TUF metadata expiry and monotonic versions provide freeze, rollback,
+and mix-and-match protection. The metadata threshold and key ceremony are release-security policy;
+they are independent from the one-person approval required for a provisioning apply.
+
+The current exact-content verifier remains defense in depth after TUF authenticates the target.
+Python-TUF integration and the first root ceremony remain blocked until the offline root is created
+and backed up outside CI. No generated private key is committed or transferred through `fdaictl`.
+
 ## Approval and apply
 
 Every operator-initiated infrastructure or role-assignment apply requires one authenticated human
