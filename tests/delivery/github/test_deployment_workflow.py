@@ -376,6 +376,8 @@ def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
     assert 'resource "azurerm_storage_container" "dev_gateway_idempotency"' in terraform
     assert "FDAI_DEV_GATEWAY_IDEMPOTENCY_CONTAINER_URL" in terraform
     assert 'module "event_bus_auxiliary"' in terraform
+    assert "defender_storage_data_scanner" in terraform
+    assert "Microsoft.Security/datascanners/StorageDataScanner" in terraform
     assert "topics              = [local.canary_topic]" in terraform
     assert "auxiliary_topics    = [local.inventory_raw_topic]" in terraform
     assert "module.event_bus_auxiliary.kafka_bootstrap" in terraform

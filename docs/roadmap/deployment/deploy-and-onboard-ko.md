@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 1800139f9087b697fe10bf4a85aaf1c5b0dfadfb
+translation_source_sha: 6e8543ac56f8ad583181fae6f31ffb83ff05b88f
 translation_revised: 2026-07-23
 ---
 
@@ -392,8 +392,8 @@ Terraform은 다음 항목을 프로비저닝합니다.
 
 - ACR pull, Key Vault DSN read, Event Hubs send, ADLS data, Azure OpenAI invoke 및 optional
   resource-scoped Document Intelligence OCR role만 가진 dedicated ingestion UAMI
-- HNS, `documents`와 `derived` filesystem, quarantine expiry, derived-data cool tiering, soft
-  delete, Shared Key 비활성화를 적용한 StorageV2 account
+- HNS, `documents`와 `derived` filesystem, lifecycle control, Shared Key 비활성화와
+  Terraform-owned Defender scanner private-link access를 적용한 StorageV2 account
 - `blob` 및 `dfs` private endpoint. App VNet은 endpoint zone에 link하고, ops runner는 기존
   central Blob zone의 A record로 Blob을 resolve합니다. DFS zone은 두 VNet에 link합니다.
   이 방식은 한 VNet을 같은 namespace의 중복 zone에 link하지 않습니다.

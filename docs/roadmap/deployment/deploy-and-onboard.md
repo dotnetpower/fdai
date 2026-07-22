@@ -396,8 +396,8 @@ ingestion CORS origins. Terraform then provisions:
 
 - a dedicated ingestion UAMI with only ACR pull, Key Vault DSN read, Event Hubs send, ADLS data,
   Azure OpenAI invoke, and optional resource-scoped Document Intelligence OCR roles;
-- a StorageV2 account with HNS, the `documents` and `derived` filesystems, quarantine expiry,
-  derived-data cool tiering, soft delete, and no Shared Key;
+- a StorageV2 account with HNS, the `documents` and `derived` filesystems, lifecycle controls,
+  no Shared Key, and Terraform-owned Defender scanner private-link access;
 - `blob` and `dfs` private endpoints. The app VNet links to the endpoint zones; the ops runner
   resolves Blob through an A record in its existing central Blob zone, while the DFS zone links
   to both VNets. This avoids linking one VNet to duplicate zones with the same namespace;

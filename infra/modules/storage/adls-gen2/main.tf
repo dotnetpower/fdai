@@ -39,6 +39,14 @@ resource "azurerm_storage_account" "documents" {
   network_rules {
     default_action = var.public_network_access_enabled ? "Allow" : "Deny"
     bypass         = ["AzureServices"]
+
+    dynamic "private_link_access" {
+      for_each = var.private_link_access
+      content {
+        endpoint_resource_id = private_link_access.value.endpoint_resource_id
+        endpoint_tenant_id   = private_link_access.value.endpoint_tenant_id
+      }
+    }
   }
 
   tags = var.tags
