@@ -273,9 +273,7 @@ class AzureRestReadTransport:
         if not isinstance(occurred_at, str) or not isinstance(status, str):
             return ()
         observed_at = _azure_timestamp(occurred_at)
-        if observed_at is None or observed_at < self._clock() - timedelta(
-            seconds=lookback_seconds
-        ):
+        if observed_at is None or observed_at < self._clock() - timedelta(seconds=lookback_seconds):
             return ()
         return (
             {
