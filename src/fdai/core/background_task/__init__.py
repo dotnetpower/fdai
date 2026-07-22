@@ -25,6 +25,7 @@ from fdai.core.background_task.quota import (
     BackgroundTaskQuotaExceededError,
     BackgroundTaskQuotaPolicy,
     BackgroundTaskQuotaUsage,
+    background_task_quota_time,
     background_task_quota_usage,
     enforce_background_task_quota,
 )
@@ -61,6 +62,7 @@ __all__ = [
     "BackgroundTaskUsage",
     "InMemoryBackgroundTaskStore",
     "ProgressCallback",
+    "background_task_quota_time",
     "background_task_quota_usage",
     "enforce_background_task_quota",
 ]

@@ -2,7 +2,7 @@
 title: 영구 Background Task Session
 translation_of: background-task-sessions.md
 translation_source: docs/roadmap/interfaces/background-task-sessions.md
-translation_source_sha: 6639695d068483833701fabe0fa4338b28be82c4
+translation_source_sha: 90bfe2c847ef5bea1f077bd8eeea124e37904311
 translation_revised: 2026-07-22
 ---
 
@@ -71,6 +71,9 @@ attempt를 만듭니다.
 
 Coordinator는 concurrency, wall time, token, cost, tool-call, progress, lease usage를 제한합니다. Timeout,
 cancellation, executor error는 각각 구분된 terminal reason을 생성합니다.
+Daily cost window는 task-provided timestamp가 아니라 store의 UTC clock을 사용합니다. Quota가 활성화된
+경우 server time과 300초 넘게 차이 나는 creation timestamp는 insert 전에 차단되므로 caller가 task를
+backdate 또는 future-date하여 다른 quota day를 선택할 수 없습니다.
 
 ## Progress 및 backpressure
 

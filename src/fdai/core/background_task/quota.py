@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from fdai.core.background_task.models import (
+    BackgroundTask,
     BackgroundTaskAttempt,
     BackgroundTaskBudget,
     BackgroundTaskStatus,
@@ -97,11 +98,29 @@ def background_task_quota_usage(
     )
 
 
+def background_task_quota_time(
+    task: BackgroundTask,
+    *,
+    now: datetime,
+    max_skew_seconds: int = 300,
+) -> datetime:
+    if now.tzinfo is None:
+        raise ValueError("background task store clock MUST be timezone-aware")
+    if max_skew_seconds < 0:
+        raise ValueError("max_skew_seconds MUST be non-negative")
+    if abs((task.created_at - now).total_seconds()) > max_skew_seconds:
+        raise ValueError(
+            f"background task created_at MUST be within {max_skew_seconds} seconds of server time"
+        )
+    return now
+
+
 __all__ = [
     "ACTIVE_BACKGROUND_STATUSES",
     "BackgroundTaskQuotaExceededError",
     "BackgroundTaskQuotaPolicy",
     "BackgroundTaskQuotaUsage",
+    "background_task_quota_time",
     "background_task_quota_usage",
     "enforce_background_task_quota",
 ]

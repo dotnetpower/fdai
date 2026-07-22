@@ -67,6 +67,9 @@ The shipped executor runs the typed read-investigation service with:
 
 The coordinator bounds concurrency, wall time, token, cost, tool-call, progress, and lease usage.
 Timeout, cancellation, and executor error each produce a distinct terminal reason.
+Daily cost windows use the store's UTC clock rather than a task-provided timestamp. When quota is
+enabled, a creation timestamp more than 300 seconds from server time is rejected before insertion,
+so a caller cannot select another quota day by backdating or future-dating a task.
 
 ## Progress and backpressure
 

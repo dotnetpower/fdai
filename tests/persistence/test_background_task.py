@@ -67,7 +67,10 @@ async def database_url() -> str:
 
 
 def _store(dsn: str) -> BackgroundTaskStore:
-    store = PostgresBackgroundTaskStore(config=PostgresBackgroundTaskStoreConfig(dsn=dsn))
+    store = PostgresBackgroundTaskStore(
+        config=PostgresBackgroundTaskStoreConfig(dsn=dsn),
+        clock=lambda: _NOW,
+    )
     protocol_store: BackgroundTaskStore = store
     return protocol_store
 
@@ -166,6 +169,20 @@ async def test_two_postgres_stores_enforce_owner_quota_atomically(
     retried, created = await store.create(stored_task, quota=policy)
     assert created is False
     assert retried.task == stored_task
+
+
+@pytest.mark.integration
+async def test_postgres_store_rejects_client_selected_quota_day(
+    database_url: str,
+) -> None:
+    task = replace(
+        _task(f"background-backdated-{uuid.uuid4().hex}"),
+        created_at=_NOW - timedelta(days=1),
+        retention_until=_NOW + timedelta(days=1),
+    )
+
+    with pytest.raises(ValueError, match="within 300 seconds of server time"):
+        await _store(database_url).create(task, quota=BackgroundTaskQuotaPolicy())
 
 
 @pytest.mark.integration

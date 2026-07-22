@@ -40,7 +40,7 @@ def _task(index: int, *, owner: str = "principal:one") -> BackgroundTask:
 
 
 async def test_store_enforces_concurrency_and_daily_reserved_cost_atomically() -> None:
-    store = InMemoryBackgroundTaskStore()
+    store = InMemoryBackgroundTaskStore(clock=lambda: NOW)
     policy = BackgroundTaskQuotaPolicy(
         max_active_tasks=2,
         max_daily_cost_microusd=1_000_000,
@@ -56,7 +56,7 @@ async def test_store_enforces_concurrency_and_daily_reserved_cost_atomically() -
 
 
 async def test_idempotent_retry_returns_existing_task_even_when_quota_is_full() -> None:
-    store = InMemoryBackgroundTaskStore()
+    store = InMemoryBackgroundTaskStore(clock=lambda: NOW)
     task = _task(1)
     policy = BackgroundTaskQuotaPolicy(max_active_tasks=1)
     first, created = await store.create(task, quota=policy)
@@ -67,7 +67,7 @@ async def test_idempotent_retry_returns_existing_task_even_when_quota_is_full() 
 
 
 async def test_store_rejects_per_task_wall_tool_and_daily_cost_budgets() -> None:
-    store = InMemoryBackgroundTaskStore()
+    store = InMemoryBackgroundTaskStore(clock=lambda: NOW)
     policy = BackgroundTaskQuotaPolicy(
         max_active_tasks=3,
         max_daily_cost_microusd=500_000,
@@ -93,3 +93,17 @@ async def test_store_rejects_per_task_wall_tool_and_daily_cost_budgets() -> None
     await store.create(_task(3), quota=policy)
     with pytest.raises(BackgroundTaskQuotaExceededError, match="daily cost"):
         await store.create(_task(4), quota=policy)
+
+
+async def test_store_rejects_client_selected_quota_day() -> None:
+    store = InMemoryBackgroundTaskStore(clock=lambda: NOW)
+
+    with pytest.raises(ValueError, match="within 300 seconds of server time"):
+        await store.create(
+            replace(
+                _task(1),
+                created_at=NOW - timedelta(days=1),
+                retention_until=NOW + timedelta(days=1),
+            ),
+            quota=BackgroundTaskQuotaPolicy(),
+        )

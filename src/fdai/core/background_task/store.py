@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from fdai.core.background_task.models import (
@@ -19,6 +20,7 @@ from fdai.core.background_task.models import (
 )
 from fdai.core.background_task.quota import (
     BackgroundTaskQuotaPolicy,
+    background_task_quota_time,
     background_task_quota_usage,
     enforce_background_task_quota,
 )
@@ -121,12 +123,13 @@ class BackgroundTaskStore(Protocol):
 
 
 class InMemoryBackgroundTaskStore:
-    def __init__(self) -> None:
+    def __init__(self, *, clock: Callable[[], datetime] | None = None) -> None:
         self._attempts: dict[str, BackgroundTaskAttempt] = {}
         self._attempt_by_task: dict[str, str] = {}
         self._idempotency: dict[tuple[str, str], str] = {}
         self._progress: dict[str, list[BackgroundTaskProgress]] = {}
         self._lock = asyncio.Lock()
+        self._clock = clock or (lambda: datetime.now(UTC))
 
     async def create(
         self,
@@ -147,6 +150,7 @@ class InMemoryBackgroundTaskStore:
             if task.task_id in self._attempt_by_task:
                 raise BackgroundTaskConflictError("background task id already exists")
             if quota is not None:
+                quota_now = background_task_quota_time(task, now=self._clock())
                 owner_attempts = tuple(
                     attempt
                     for attempt in self._attempts.values()
@@ -155,7 +159,7 @@ class InMemoryBackgroundTaskStore:
                 enforce_background_task_quota(
                     policy=quota,
                     budget=task.budget,
-                    usage=background_task_quota_usage(owner_attempts, now=task.created_at),
+                    usage=background_task_quota_usage(owner_attempts, now=quota_now),
                 )
             attempt = BackgroundTaskAttempt(
                 attempt_id=f"{task.task_id}:1",

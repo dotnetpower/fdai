@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
@@ -27,6 +28,7 @@ from fdai.core.background_task import (
     BackgroundTaskResult,
     BackgroundTaskStatus,
     BackgroundTaskUsage,
+    background_task_quota_time,
     enforce_background_task_quota,
 )
 
@@ -53,8 +55,14 @@ class PostgresBackgroundTaskStoreConfig:
 
 
 class PostgresBackgroundTaskStore:
-    def __init__(self, *, config: PostgresBackgroundTaskStoreConfig) -> None:
+    def __init__(
+        self,
+        *,
+        config: PostgresBackgroundTaskStoreConfig,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
         self._config = config
+        self._clock = clock or (lambda: datetime.now(UTC))
 
     async def create(
         self,
@@ -85,7 +93,8 @@ class PostgresBackgroundTaskStore:
                 created = False
             else:
                 if quota is not None:
-                    day_start = task.created_at.astimezone(UTC).replace(
+                    quota_now = background_task_quota_time(task, now=self._clock())
+                    day_start = quota_now.astimezone(UTC).replace(
                         hour=0,
                         minute=0,
                         second=0,
