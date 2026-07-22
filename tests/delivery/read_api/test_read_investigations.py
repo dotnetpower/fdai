@@ -543,6 +543,58 @@ async def test_service_failure_marks_failed_terminal_state() -> None:
     assert run.terminal_at == NOW
 
 
+async def test_streamed_service_execution_failure_emits_bounded_terminal() -> None:
+    class _FailingService:
+        transport = "rest"
+
+        async def execute(self, plan, *, progress_observer=None):  # type: ignore[no-untyped-def]
+            del plan, progress_observer
+            raise RuntimeError("sensitive provider failure")
+
+    run_store = InMemoryReadInvestigationRunStore()
+    background_store = InMemoryBackgroundTaskStore()
+    latency = _LatencyStore(measured=False)
+
+    async def authorize(_request: Request) -> Principal:
+        return Principal(oid="principal:one", roles=frozenset({Role.CONTRIBUTOR}))
+
+    config = ReadInvestigationRoutesConfig(
+        service=_FailingService(),  # type: ignore[arg-type]
+        run_store=run_store,
+        latency_store=latency,
+        background=BackgroundTaskRoutesConfig(
+            service=BackgroundTaskService(store=background_store, audit=_Audit()),
+            store=background_store,
+            coordinator=_Coordinator(),  # type: ignore[arg-type]
+        ),
+        scope_ref="scope:allowed",
+        clock=lambda: NOW,
+    )
+    app = Starlette(
+        routes=list(make_read_investigation_routes(config=config, authorize_principal=authorize))
+    )
+    client = AsyncClient(
+        transport=ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://test",
+    )
+    body = _body("resource_state")
+
+    async with client:
+        response = await client.post("/read-investigations", json=body)
+
+    run = await run_store.get(
+        owner_principal_id="principal:one",
+        idempotency_key=body["idempotency_key"],
+    )
+    assert response.status_code == 200
+    assert response.text.count("event: terminal") == 1
+    assert '"status": "failed"' in response.text
+    assert '"reason": "service_execution_failed"' in response.text
+    assert "sensitive provider failure" not in response.text
+    assert run is not None
+    assert run.state is ReadInvestigationRunState.FAILED
+
+
 async def test_same_key_retry_after_transient_failure_reexecutes_once() -> None:
     provider = _Provider()
     latency = _LatencyStore(measured=True)

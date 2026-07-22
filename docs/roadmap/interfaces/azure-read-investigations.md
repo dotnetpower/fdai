@@ -267,8 +267,8 @@ resolution and evidence collection materially change the operator experience. Ac
 actual completion order while the terminal evidence remains deterministic in plan order. While a
 streamed provider call is idle, the route emits the standards-compliant SSE comment frame
 `: heartbeat` followed by a blank line. The heartbeat keeps the connection active without
-inventing a progress event, and the stream emits one terminal event after the provider task
-completes.
+inventing a progress event. The stream emits one terminal event after the provider task succeeds
+or fails; failure terminals contain only a bounded reason and never raw provider error text.
 Closing a streamed response cancels and awaits its in-flight investigation, so a disconnected
 client cannot leave provider reads running without a consumer. Detached completion commits the
 immutable result first, then appends an untrusted assistant turn and enqueues it through the

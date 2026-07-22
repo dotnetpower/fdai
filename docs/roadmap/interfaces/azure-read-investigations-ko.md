@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 99d2b236b99245028a89ef7bfe1547af92f3ca0b
-translation_revised: 2026-07-22
+translation_source_sha: 472d65b3e2e1c1b287bb6a375cc06cd572f97562
+translation_revised: 2026-07-23
 ---
 
 # Azure 읽기 조사
@@ -264,8 +264,9 @@ investigation.completed
 실질적으로 바꿀 때 bounded `milestone` message를 보냅니다. Activity는 실제 완료 순서를 따르지만
 terminal evidence는 결정적인 plan 순서를 유지합니다. Streamed provider call이 idle인 동안 route는
 표준 SSE comment frame `: heartbeat` 뒤에 빈 줄을 전송합니다. Heartbeat는 progress event를 만들지 않고
-connection을 active 상태로 유지합니다. Provider task가 완료되면 stream은 terminal event 하나를
-전송합니다.
+connection을 active 상태로 유지합니다. Provider task가 성공하거나 실패하면 stream은 terminal event
+하나를 전송합니다. Failure terminal에는 제한된 reason만 포함하고 raw provider error text는 포함하지
+않습니다.
 Streamed response가 닫히면 in-flight investigation을 cancel하고 await하므로 disconnected client가
 consumer 없는 provider read를 계속 실행하도록 남겨 두지 않습니다. Detached completion은 immutable
 result를 먼저 commit한 다음 untrusted assistant turn을 append하고 durable background completion

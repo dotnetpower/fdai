@@ -547,7 +547,19 @@ def _stream_claimed(
                         yield ": heartbeat\n\n"
                     continue
                 yield f"event: progress\ndata: {json.dumps({'kind': kind})}\n\n"
-            result = await execution
+            try:
+                result = await execution
+            except Exception:
+                payload = {
+                    "mode": ReadInvestigationExecutionMode.STREAMED.value,
+                    "estimate": _estimate(estimate),
+                    "error": {
+                        "status": "failed",
+                        "reason": "service_execution_failed",
+                    },
+                }
+                yield f"event: terminal\ndata: {json.dumps(payload)}\n\n"
+                return
             payload = {
                 "mode": ReadInvestigationExecutionMode.STREAMED.value,
                 "estimate": _estimate(estimate),
