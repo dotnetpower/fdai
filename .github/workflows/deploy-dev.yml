@@ -847,12 +847,11 @@ jobs:
 
           source_deployed=false
           for _ in $(seq 1 30); do
-            latest="$(az rest --method get \
+            deployments="$(az rest --method get \
               --uri "https://management.azure.com${resource_id}/deployments?api-version=2024-04-01" \
-              --query 'sort_by(value, &properties.received_time)[-1].properties.{status:status,statusText:status_text,received_time:received_time,complete:complete,remoteBuild:remoteBuild}' \
               -o json 2>/dev/null || true)"
-            if LATEST_DEPLOYMENT="$latest" STARTED_EPOCH="$started_epoch" python3 -c \
-              'import json, os; from datetime import datetime; deployment = json.loads(os.environ["LATEST_DEPLOYMENT"]); received = datetime.fromisoformat(str(deployment["received_time"]).replace("Z", "+00:00")).timestamp(); status = deployment.get("status"); sync_only = status == 6 and str(deployment.get("statusText", "")).startswith("Function triggers synchronization failed"); valid = received >= int(os.environ["STARTED_EPOCH"]) - 5 and deployment.get("complete") is True and deployment.get("remoteBuild") is True and (status == 4 or sync_only); raise SystemExit(0 if valid else 1)' \
+            if DEPLOYMENTS="$deployments" STARTED_EPOCH="$started_epoch" python3 -c \
+              'import json, os, re; from datetime import datetime; payload, _ = json.JSONDecoder().raw_decode(os.environ["DEPLOYMENTS"].lstrip()); values = payload.get("value", []); latest = max(values, key=lambda item: item.get("properties", {}).get("received_time", "")); deployment = latest["properties"]; received_text = re.sub(r"(\.\d{6})\d+", r"\1", str(deployment["received_time"]).replace("Z", "+00:00")); received = datetime.fromisoformat(received_text).timestamp(); status = deployment.get("status"); sync_only = status == 6 and str(deployment.get("status_text", "")).startswith("Function triggers synchronization failed"); valid = received >= int(os.environ["STARTED_EPOCH"]) - 5 and deployment.get("complete") is True and deployment.get("remoteBuild") is True and (status == 4 or sync_only); raise SystemExit(0 if valid else 1)' \
               2>/dev/null; then
               source_deployed=true
               break

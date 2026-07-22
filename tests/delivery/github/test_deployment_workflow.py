@@ -410,6 +410,7 @@ def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
         r'AzureWebJobsStorage__credential\s*=\s*"managedidentity"',
         gateway_app_settings,
     )
+    assert "allowed_applications = [module.identity.client_id]" in gateway_resource
     assert "APPLICATIONINSIGHTS_CONNECTION_STRING" not in gateway_app_settings
     assert workflow.index("Restore and verify exact protected plan") < workflow.index(
         "Terraform apply"
@@ -428,6 +429,8 @@ def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
     assert workflow.index("az functionapp restart", stale_setting_cleanup) < publish_step
     assert "uses: Azure/functions-action@v1" in workflow[publish_step:verify_step]
     assert "remote-build: true" in workflow[publish_step:verify_step]
+    assert "json.JSONDecoder().raw_decode" in workflow[verify_step:]
+    assert 're.sub(r"(\\.\\d{6})\\d+"' in workflow[verify_step:]
     assert "Function triggers synchronization failed" in workflow[verify_step:]
     assert "/syncfunctiontriggers?api-version=2024-04-01" in workflow[verify_step:]
     assert 'if [ "$triggers_registered" != "true" ]' in workflow[verify_step:]

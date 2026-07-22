@@ -78,9 +78,9 @@ source archive with separate SHA-256 digests. Exact apply downloads and verifies
 When the development operations gateway is selected, Terraform targets that Function resource,
 the core Container App that receives its URL and audience, the operational canary, realtime inventory
 publishers, and their dependency graphs. Unrelated runtime-resource changes stay outside the plan.
-Terraform configures host and deployment storage for the reader managed identity; the workflow removes
-Flex-generated exact shared-key overrides before publishing. That identity receives `Storage Blob Data
-Owner` for the host and a separate contributor grant for idempotency. Function `site_config` solely owns Application Insights.
+Terraform uses the reader managed identity for host and deployment storage; the workflow removes
+Flex-generated shared-key overrides before publishing. It grants `Storage Blob Data Owner` for the host
+and a separate idempotency role. Easy Auth admits only the core executor client before principal checks.
 After exact apply converges, the official Flex One Deploy action remote-builds the verified source,
 retries bounded trigger sync, and requires both Function triggers before recording the apply receipt.
 Full runbook: [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).

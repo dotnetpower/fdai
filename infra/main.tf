@@ -852,6 +852,7 @@ resource "azurerm_function_app_flex_consumption" "dev_gateway" {
       client_id            = trimprefix(var.read_api_audience, "api://")
       tenant_auth_endpoint = "https://login.microsoftonline.com/${var.tenant_id}/v2.0"
       allowed_audiences    = [var.read_api_audience]
+      allowed_applications = [module.identity.client_id]
     }
   }
 
