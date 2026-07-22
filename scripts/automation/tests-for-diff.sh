@@ -76,7 +76,7 @@ while IFS= read -r file; do
     # These inputs can affect collection or every Python test. Selecting the
     # full suite is cheaper than silently missing a cross-cutting regression.
     case "$file" in
-        pyproject.toml|uv.lock|tests/conftest.py|src/fdai/composition/*|src/fdai/shared/contracts/*|src/fdai/shared/providers/*)
+        pyproject.toml|uv.lock|tests/conftest.py|rule-catalog/*|src/fdai/composition/*|src/fdai/rule_catalog/*|src/fdai/shared/contracts/*|src/fdai/shared/providers/*)
             add_test "tests"
             continue
             ;;
@@ -102,10 +102,6 @@ while IFS= read -r file; do
             ;;
         policies/*)
             add_test "tests/core/risk_gate"
-            continue
-            ;;
-        rule-catalog/*)
-            add_test "tests/rule_catalog"
             continue
             ;;
         scripts/*.py|scripts/*.sh|scripts/lib/*|scripts/quality/*.txt|scripts/quality/*.allowlist)
