@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: fc55d6626541b088e1b7f7dc887168cbf8489cb0
+translation_source_sha: c6a2b939e79a63494ea8b0e024b1f8b1ee9fcdb1
 translation_revised: 2026-07-23
 ---
 
@@ -98,6 +98,9 @@ credential을 보유할 수 없습니다. Draft PR 생성과 signed merge proces
 boundary에 유지되며 반환된 draft에는 persisted idempotent PR receipt가 포함됩니다.
 Browser는 receipt URL이 embedded credential 없는 absolute HTTPS URL일 때만 link로 렌더링하며,
 그 외에는 PR reference를 클릭할 수 없는 text로 표시합니다.
+Content upload는 same-origin ingestion proxy target에만 API bearer token을 유지합니다.
+Cross-origin direct-upload target에는 content header를 보내지만 read API credential은 전달하지
+않습니다.
 
 ## Stream recovery 및 authentication
 

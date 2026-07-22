@@ -100,7 +100,7 @@ export class IngestionApiClient {
       method: "PUT",
       headers: { "content-type": file.type || "application/octet-stream" },
       body: file,
-    });
+    }, { authorize: url.origin === new URL(this.#baseUrl).origin });
   }
 
   async completeUpload(uploadId: string): Promise<UploadSession> {
@@ -137,11 +137,17 @@ export class IngestionApiClient {
     }
   }
 
-  async #request(url: URL, init: RequestInit): Promise<Response> {
+  async #request(
+    url: URL,
+    init: RequestInit,
+    options: { readonly authorize?: boolean } = {},
+  ): Promise<Response> {
     const headers = new Headers(init.headers);
     headers.set("accept", "application/json");
-    const authorization = await this.#readClient.authorizationHeader();
-    if (authorization) headers.set("authorization", authorization);
+    if (options.authorize !== false) {
+      const authorization = await this.#readClient.authorizationHeader();
+      if (authorization) headers.set("authorization", authorization);
+    }
     const response = await fetch(url, { ...init, headers, credentials: "omit" });
     if (!response.ok) {
       let message = `HTTP ${response.status}`;
