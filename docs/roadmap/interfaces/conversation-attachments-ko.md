@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: f999496198f264e6e8c957f566cb453c986c0a01
+translation_source_sha: a199b8897ec4549e91719026854a6e06911d01b2
 translation_revised: 2026-07-23
 title: 대화 첨부파일
 ---
@@ -39,12 +39,12 @@ File source는 channel마다 다릅니다. Safety, storage, purpose, citation, r
 
 | Capability | 상태 | 구현 |
 |------------|------|------|
-| Slack attachment metadata | 구현됨 | Signed Events API adapter는 opaque file id, filename, size 및 media type만 유지합니다. |
-| Slack private download | 구현됨 | `SlackPrivateFileFetcher`는 server-authenticated `files.info`로 id를 resolve하고 HTTPS host allowlist를 validate한 뒤 byte cap 안에서 stream합니다. |
-| Teams attachment metadata | 구현됨 | Authenticated Bot Framework adapter는 opaque attachment id 및 bounded metadata만 유지합니다. |
-| Teams private download | 구현됨 | `TeamsServerAttachmentFetcher`는 server-owned endpoint resolver와 audience-scoped workload identity token을 사용합니다. |
-| Protected channel ingestion | 구현됨 | `ProtectedChannelAttachmentIngestor`는 모든 byte를 기존 scan, protection, extraction, indexing 및 access lifecycle로 전달합니다. |
-| Explicit ownership handover | 구현됨 | Leading `/handover`, `/attach handover` 또는 `인수인계 문서:` directive가 `handover_bootstrap`을 선택합니다. Content와 filename은 purpose를 선택하지 않습니다. |
+| Slack attachment metadata | Adapter 구현됨, deployment binding 대기 | Signed Events API adapter는 opaque file id, filename, size 및 media type만 유지합니다. |
+| Slack private download | Adapter 구현됨, deployment binding 대기 | `SlackPrivateFileFetcher`는 server-authenticated `files.info`로 id를 resolve하고 HTTPS host allowlist를 validate한 뒤 byte cap 안에서 stream합니다. |
+| Teams attachment metadata | Adapter 구현됨, deployment binding 대기 | Authenticated Bot Framework adapter는 opaque attachment id 및 bounded metadata만 유지합니다. |
+| Teams private download | Adapter 구현됨, deployment binding 대기 | `TeamsServerAttachmentFetcher`는 server-owned endpoint resolver와 audience-scoped workload identity token을 사용합니다. |
+| Protected channel ingestion | Composition 구현됨, deployment binding 대기 | `ProtectedChannelAttachmentIngestor`는 모든 byte를 기존 scan, protection, extraction, indexing 및 access lifecycle로 전달합니다. |
+| Explicit ownership handover | Contract 구현됨, Slack/Teams deployment binding 대기 | Leading `/handover`, `/attach handover` 또는 `인수인계 문서:` directive가 `handover_bootstrap`을 선택합니다. Content와 filename은 purpose를 선택하지 않습니다. |
 | Web chat document references | Backend contract 구현됨 | JSON 및 SSE chat은 immutable document/version id를 최대 8개 받습니다. Production resolver는 현재 principal이 upload한 ready version만 허용합니다. SPA file picker는 product UI 후속 작업입니다. |
 | Image OCR | 구현됨, opt-in | `ImageOcrProvider`를 standard extractor에 inject합니다. Azure production은 managed identity로 Document Intelligence `prebuilt-read`를 bind할 수 있습니다. |
 
@@ -199,6 +199,13 @@ resolver, host allowlist 및 token audience allowlist가 필요합니다. `Produ
 또는 Teams consumer를 시작하기 전에 생성된 ingestor를 attachment-aware
 `ConversationChannelGateway`에 bind합니다. Attachment가 설정됐지만 gateway가 이를 bind할 수
 없으면 startup이 실패합니다.
+
+Repository는 현재 이 composition component를 library boundary로 제공합니다. 아직
+`ProductionChannelRuntime`을 instantiate하는 standalone channel ASGI factory 또는 Terraform
+channel workload는 제공하지 않으며 read API와 headless core는 channel ingress route를 mount하지
+않습니다. 별도 process가 gateway, persistence, Teams resolver, identity, attachment ingestor 및
+lifecycle callback을 모두 제공할 때까지 deployment는 대기 상태입니다. Complete composition이
+없는 deployed workload에서는 attachment 또는 Slack/Teams channel enable flag를 설정하지 않습니다.
 
 Channel bridge는 각 upload를 seal하고 `document.received`를 publish하며
 `DocumentIngestionWorker.process()`를 직접 호출하지 않습니다.

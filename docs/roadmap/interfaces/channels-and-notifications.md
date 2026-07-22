@@ -182,8 +182,10 @@ string-to-string JSON object capped at 1000 entries. Missing, malformed, or unbo
 fails at startup. The Bot service token authenticates the channel service; it never substitutes
 for the operator's Entra principal or grants an FDAI role.
 
-`ProductionChannelRuntime` owns the standalone channel gateway process. It is not mounted into the
-read-only console API and never receives the executor identity. During ASGI startup it resolves
+`ProductionChannelRuntime` is the library runtime intended to own a standalone channel gateway
+process. It is not mounted into the read-only console API and never receives the executor identity.
+The repository does not yet ship the production ASGI factory or Terraform workload that
+instantiates this runtime. When a deployment supplies that separate composition, ASGI startup resolves
 Slack signing and bot-token references through the injected `SecretProvider`, builds fixed-endpoint
 Slack and workload-identity Teams publishers, registers only the enabled bounded ingress routes,
 and starts one `ConversationChannelGateway.run` consumer per adapter. Missing credentials, Teams

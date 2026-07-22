@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 93cdf00687826ae10debc400dcef7afcca01834b
-translation_revised: 2026-07-21
+translation_source_sha: eed8c5ff43845ad6f013fc59332e7baa383c7469
+translation_revised: 2026-07-23
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -182,8 +182,10 @@ string-to-string JSON object이며 최대 1000 entry입니다. Missing, malforme
 startup에서 실패합니다. Bot service token은 channel service를 인증하며 operator의 Entra
 principal을 대체하거나 FDAI role을 부여하지 않습니다.
 
-`ProductionChannelRuntime`은 standalone channel gateway process를 소유합니다. Read-only console
-API에 mount되지 않고 executor identity를 받지 않습니다. ASGI startup에서 injected
+`ProductionChannelRuntime`은 standalone channel gateway process를 소유하도록 설계된 library
+runtime입니다. Read-only console API에 mount되지 않고 executor identity를 받지 않습니다.
+Repository는 아직 이 runtime을 instantiate하는 production ASGI factory 또는 Terraform workload를
+제공하지 않습니다. Deployment가 별도 composition을 제공하면 ASGI startup에서 injected
 `SecretProvider`를 통해 Slack signing 및 bot-token reference를 resolve하고 fixed-endpoint Slack,
 workload-identity Teams publisher를 생성하며 enabled bounded ingress route만 등록하고 adapter별
 `ConversationChannelGateway.run` consumer를 하나씩 시작합니다. Credential, Teams identity,

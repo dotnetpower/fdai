@@ -35,12 +35,12 @@ The file source changes by channel. Safety, storage, purpose, citations, retenti
 
 | Capability | Status | Implementation |
 |------------|--------|----------------|
-| Slack attachment metadata | Implemented | The signed Events API adapter retains opaque file id, filename, size, and media type only. |
-| Slack private download | Implemented | `SlackPrivateFileFetcher` resolves the id through server-authenticated `files.info`, validates an HTTPS host allowlist, and streams within a byte cap. |
-| Teams attachment metadata | Implemented | The authenticated Bot Framework adapter retains an opaque attachment id and bounded metadata only. |
-| Teams private download | Implemented | `TeamsServerAttachmentFetcher` uses a server-owned endpoint resolver and audience-scoped workload identity token. |
-| Protected channel ingestion | Implemented | `ProtectedChannelAttachmentIngestor` sends all bytes through the existing scan, protection, extraction, indexing, and access lifecycle. |
-| Explicit ownership handover | Implemented | A leading `/handover`, `/attach handover`, or `인수인계 문서:` directive selects `handover_bootstrap`; content and filenames never select it. |
+| Slack attachment metadata | Adapter implemented; deployment binding pending | The signed Events API adapter retains opaque file id, filename, size, and media type only. |
+| Slack private download | Adapter implemented; deployment binding pending | `SlackPrivateFileFetcher` resolves the id through server-authenticated `files.info`, validates an HTTPS host allowlist, and streams within a byte cap. |
+| Teams attachment metadata | Adapter implemented; deployment binding pending | The authenticated Bot Framework adapter retains an opaque attachment id and bounded metadata only. |
+| Teams private download | Adapter implemented; deployment binding pending | `TeamsServerAttachmentFetcher` uses a server-owned endpoint resolver and audience-scoped workload identity token. |
+| Protected channel ingestion | Composition implemented; deployment binding pending | `ProtectedChannelAttachmentIngestor` sends all bytes through the existing scan, protection, extraction, indexing, and access lifecycle. |
+| Explicit ownership handover | Contract implemented; Slack/Teams deployment binding pending | A leading `/handover`, `/attach handover`, or `인수인계 문서:` directive selects `handover_bootstrap`; content and filenames never select it. |
 | Web chat document references | Implemented backend contract | JSON and SSE chat accept up to eight immutable document/version ids. The production resolver permits only ready versions uploaded by the current principal. The SPA file picker remains product UI work. |
 | Image OCR | Implemented, opt-in | `ImageOcrProvider` is injected into the standard extractor. Azure production can bind Document Intelligence `prebuilt-read` with managed identity. |
 
@@ -191,6 +191,13 @@ identity, resolver, host allowlist, and token audience allowlist. `ProductionCha
 the resulting ingestor to an attachment-aware `ConversationChannelGateway` before starting Slack or
 Teams consumers. A runtime configured with attachments and a gateway that cannot bind them fails
 startup.
+
+The repository currently ships these composition components as a library boundary. It does not yet
+ship a standalone channel ASGI factory or Terraform channel workload that instantiates
+`ProductionChannelRuntime`; the read API and headless core do not mount channel ingress routes.
+Deployment remains pending until that separate process supplies the gateway, persistence, Teams
+resolver, identities, attachment ingestor, and lifecycle callbacks. Do not set the attachment or
+Slack/Teams channel enable flags in a deployed workload that lacks that complete composition.
 
 The channel bridge seals each upload and publishes `document.received`; it never calls
 `DocumentIngestionWorker.process()` directly. `MetadataDocumentTerminalResolver` waits only for the
