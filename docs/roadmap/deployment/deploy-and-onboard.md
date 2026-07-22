@@ -75,9 +75,9 @@ DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../
 on the `[self-hosted, fdai-deploy]` runner (plan-only by default; the `apply` input enforces).
 Protected plans store the binary Terraform plan, bounded preflight evidence, and the Function
 source archive with separate SHA-256 digests. Exact apply downloads and verifies every artifact.
-When the development operations gateway is selected, Terraform targets that Function resource,
-the core Container App that receives its URL and audience, the operational canary, realtime inventory
-publishers, and their dependency graphs. Unrelated runtime-resource changes stay outside the plan.
+When the development operations gateway is selected, Terraform targets that Function, core, read API,
+ingestion, operational canary, realtime inventory publishers, and their dependency graphs. Unrelated
+runtime-resource changes stay outside the plan.
 Terraform uses the reader managed identity for host and deployment storage; the workflow removes
 Flex-generated shared-key overrides before publishing. It grants `Storage Blob Data Owner` for the host
 and a separate idempotency role. Easy Auth admits only the core executor client before principal checks.

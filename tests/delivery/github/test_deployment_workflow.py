@@ -289,6 +289,8 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "-target=azurerm_function_app_flex_consumption.dev_gateway[0]" in workflow
     assert "-target=module.compute.azurerm_container_app.core" in workflow
     assert "-target=module.compute.azurerm_container_app_job.canary[0]" in workflow
+    assert "-target=module.read_api[0]" in workflow
+    assert "-target=module.ingestion_gateway[0]" in workflow
     assert "-target=azurerm_role_assignment.inventory_eventhubs_raw_sender" in workflow
     assert (
         "-target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0]"

@@ -123,7 +123,7 @@ jobs:
       TF_VAR_enable_console: ${{ inputs.deploy_console }}
       TF_VAR_enable_read_api: ${{ inputs.deploy_read_api }}
       TF_VAR_enable_dev_operations_gateway: ${{ inputs.environment == 'dev' && inputs.deploy_dev_operations_gateway }}
-      TF_CLI_ARGS_plan: ${{ inputs.deploy_dev_operations_gateway && '-target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=module.compute.azurerm_container_app.core -target=module.compute.azurerm_container_app_job.canary[0] -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0]' || '' }}
+      TF_CLI_ARGS_plan: ${{ inputs.deploy_dev_operations_gateway && '-target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=module.compute.azurerm_container_app.core -target=module.compute.azurerm_container_app_job.canary[0] -target=module.read_api[0] -target=module.ingestion_gateway[0] -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0]' || '' }}
       TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
       TF_VAR_enable_llm: ${{ inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' }}
