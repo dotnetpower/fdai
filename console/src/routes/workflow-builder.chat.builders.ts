@@ -109,35 +109,37 @@ export function actionChips(
   return picks.slice(0, 6).map(actionOption);
 }
 
-/** Complementary actions for `offer_extra`: prefer a notification/tool step
- * if none is present, else spread across unused categories. */
+/** Complementary actions for `offer_extra`: keep suggestions tied to the
+ * stated goal, then offer only bounded communication follow-ups. Never fill
+ * the row with arbitrary mutations merely because they occupy another
+ * palette category. */
 export function extraChips(
   palette: readonly ActionTypePaletteEntry[],
   slots: ChatSlots,
 ): ChatOption[] {
   const used = new Set(realActions(slots.form).map((s) => s.action_type_ref));
   const out: ActionTypePaletteEntry[] = [];
-  const hasTool = realActions(slots.form).some((s) => {
-    const e = palette.find((p) => p.name === s.action_type_ref);
-    return e?.category === "tool";
-  });
-  if (!hasTool) {
-    const notify = palette.find(
-      (p) => p.category === "tool" && /notif|summary|card|issue|ticket/i.test(p.name),
-    );
-    if (notify) {
-      out.push(notify);
-      used.add(notify.name);
+
+  if (slots.goalText) {
+    const suggestion = suggestDraftFromText(slots.goalText, palette);
+    for (const step of suggestion?.form.steps ?? []) {
+      const entry = palette.find((candidate) => candidate.name === step.action_type_ref);
+      if (entry && !used.has(entry.name)) {
+        out.push(entry);
+        used.add(entry.name);
+      }
     }
   }
-  const byCat = new Map<string, ActionTypePaletteEntry>();
-  for (const p of palette) {
-    const cat = p.category ?? "other";
-    if (!used.has(p.name) && !byCat.has(cat)) byCat.set(cat, p);
-  }
-  for (const p of byCat.values()) {
+
+  for (const entry of palette) {
     if (out.length >= 4) break;
-    out.push(p);
+    if (
+      !used.has(entry.name)
+      && /(^|[.\-_])(notif|notify|summary|card|incident|issue|ticket)([.\-_]|$)/i.test(entry.name)
+    ) {
+      out.push(entry);
+      used.add(entry.name);
+    }
   }
   return out.slice(0, 4).map(actionOption);
 }

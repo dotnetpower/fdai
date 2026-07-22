@@ -36,6 +36,8 @@ const PALETTE: readonly ActionTypePaletteEntry[] = [
   entry("notify.publish-change-summary", "tool", "Post a change summary"),
   entry("ops.scale-out", "ops", "Scale a workload out"),
   entry("remediate.restart-service", "ops", "Restart a service"),
+  entry("governance.grant-exemption", "governance", "Grant an exemption"),
+  entry("ops.drain-connection", "ops", "Drain a connection"),
 ];
 
 function findValues(options: readonly { value: string }[]): string[] {
@@ -136,6 +138,21 @@ describe("workflow-builder chat engine", () => {
     expect(refs).toContain("remediate.right-size");
     expect(refs).toContain("notify.publish-change-summary");
     expect(t3.slots.extraOffered).toBe(true);
+  });
+
+  it("does not recommend unrelated mutations as extra steps", () => {
+    const start = startChat(PALETTE);
+    const planned = respondToChat(
+      start.slots,
+      "When cost spikes, right-size the resource and post a summary",
+      PALETTE,
+    );
+    const extras = respondToChat(planned.slots, "plan:keep", PALETTE);
+
+    expect(extras.slots.stage).toBe("offer_extra");
+    expect(findValues(extras.options)).not.toContain("action:governance.grant-exemption");
+    expect(findValues(extras.options)).not.toContain("action:ops.drain-connection");
+    expect(findValues(extras.options)).toContain("done");
   });
 
   it("restart returns a fresh welcome turn", () => {
