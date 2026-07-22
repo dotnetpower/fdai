@@ -196,6 +196,8 @@ data "azurerm_resource_group" "app" {
   name  = var.app_resource_group_name
 }
 
+data "azurerm_subscription" "current" {}
+
 # Only the runner needs data-plane access to the state account (Storage Blob
 # Data Contributor below). The bootstrap operator (laptop) reads the account
 # via a control-plane data source only, so no laptop blob-data grant is issued
@@ -232,6 +234,17 @@ resource "azurerm_role_assignment" "runner_app_uaa" {
   count                = var.create_runner_vm ? 1 : 0
   scope                = data.azurerm_resource_group.app[0].id
   role_definition_name = "User Access Administrator"
+  principal_id         = azurerm_linux_virtual_machine.runner[0].identity[0].principal_id
+}
+
+# Realtime inventory is a subscription-scoped Event Grid subscription. Keep
+# the runner's permission narrower than subscription Contributor: this built-in
+# role can manage Event Grid subscriptions but cannot mutate target resources.
+resource "azurerm_role_assignment" "runner_eventgrid_subscription_contributor" {
+  count                = var.create_runner_vm ? 1 : 0
+  name                 = uuidv5("url", "fdai.runner-eventgrid-subscription:${data.azurerm_subscription.current.id}:${azurerm_linux_virtual_machine.runner[0].identity[0].principal_id}")
+  scope                = data.azurerm_subscription.current.id
+  role_definition_name = "EventGrid EventSubscription Contributor"
   principal_id         = azurerm_linux_virtual_machine.runner[0].identity[0].principal_id
 }
 

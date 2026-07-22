@@ -64,8 +64,8 @@ the durable hub that makes the deploy possible and survives app rebuilds:
   endpoint on `privatelink.blob.core.windows.net` linked to the ops VNet;
 - a **self-hosted deploy runner VM** (no public IP) whose system-assigned managed identity
   holds `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on
-  the ops RG, and `Storage Blob Data Contributor` on the state account.
-
+  the ops RG, `Storage Blob Data Contributor` on the state account, and only `EventGrid
+  EventSubscription Contributor` at subscription scope for realtime inventory delivery.
 The app config peers its spoke VNet to the ops hub (both directions) and links its private
 DNS zones to the ops VNet via the `extra_vnet_links` seam, so the runner resolves the app's
 Key Vault privately. The runner is the terraform apply principal, so the existing

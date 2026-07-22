@@ -16,7 +16,7 @@ makes that possible, and it survives app rebuilds.
 | Blob private endpoint + `privatelink.blob.core.windows.net` | Private resolution of the state account from the ops VNet. |
 | NAT gateway + static public IP on `snet-runner` (`nat.tf`) | Explicit, durable outbound egress. The subnet originally relied on Azure "default outbound access", which is being retired: after a VM deallocate/start cycle the runner lost all outbound internet (GitHub + ARM + AAD all timed out) while the private state endpoint stayed reachable. A NAT gateway restores egress through one static IP while the VM keeps **no** public IP (no inbound exposure), and it survives deallocate/start cycles. |
 | Runner VM (no public IP) + system-assigned MI | The only host with line-of-sight to the app's private endpoints. |
-| Role assignments | Runner MI -> Contributor on the app RG + Storage Blob Data Contributor on the state account. |
+| Role assignments | Runner MI -> Contributor + User Access Administrator on the app RG, Network Contributor on the ops RG, Storage Blob Data Contributor on state, and EventGrid EventSubscription Contributor on the subscription. |
 
 The app config (`../`) peers its spoke VNet to `ops_vnet_id`, links its
 private DNS zones to the ops VNet, and grants `runner_principal_id` **Key Vault
@@ -73,7 +73,9 @@ no cloud credentials are stored on the box.
 
 ## Security notes
 
-- The runner MI is Contributor on the app RG only (impact scope = one env).
+- The runner MI uses app-RG Contributor for resource mutation. Its subscription-scope role is
+   limited to Event Grid subscription management for realtime inventory; it is not subscription
+   Contributor.
 - No public IP; access is Bastion / run-command / serial console.
 - The state account is private + versioned; a bad apply is recoverable.
 - `bootstrap.tfvars` and `*.tfstate` are gitignored - never commit them.
