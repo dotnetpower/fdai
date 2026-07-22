@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2c4600fd9db7558bbd43a748d566aedbbf8a38f1
+translation_source_sha: 5f47f83198d7c319b580ac556b1a9bfdd2a2eec2
 translation_revised: 2026-07-22
 ---
 
@@ -35,6 +35,7 @@ fdai/
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, offline validation
 │   │   ├── task_worker/        # 격리된 depth-one 읽기 전용 worker: capability 축소, lifecycle, 영구 state, parent synthesis
 │   │   ├── background_task/    # 영구 detached 읽기 전용 session: lease/CAS, progress, cancellation, process-loss, completion handoff
+│   │   ├── read_investigation/ # Exact-resource planning, evidence correlation, latency policy, semantic progress. Cloud SDK와 execution authority 없음
 │   │   ├── briefing/           # report-feed evidence 기반 결정적 opening/scheduled briefing
 │   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, 범위 제한 continuation
 │   │   ├── document_ingestion/ # upload-session lifecycle + fail-closed scan/protection/extract/index worker

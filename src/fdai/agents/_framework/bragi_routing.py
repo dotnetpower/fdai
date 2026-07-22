@@ -8,6 +8,10 @@ from collections.abc import Collection
 from fdai.agents._framework.bragi_models import RoutingDecision
 from fdai.agents._framework.introspection import leading_verb
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
+from fdai.core.read_investigation import (
+    classify_read_investigation_intent,
+    resource_name_from_question,
+)
 
 INTENT_ACTION: dict[str, str] = {
     "restart": "ops.restart-service",
@@ -32,6 +36,13 @@ def route_question(question: str, *, max_contributors: int) -> RoutingDecision:
             scores={name: 10.0 for name in explicit},
             tie_break="explicit_agent",
             contributors=tuple(explicit_contributors[:max_contributors]),
+        )
+    read_intent = classify_read_investigation_intent(question)
+    if read_intent is not None and resource_name_from_question(question) is not None:
+        return RoutingDecision(
+            primary_agent="Heimdall",
+            scores={"Heimdall": 3.0},
+            tie_break=f"read_investigation:{read_intent.value}",
         )
     tokens = _tokenize(question)
     scores: dict[str, float] = {}

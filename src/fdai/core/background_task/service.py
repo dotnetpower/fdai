@@ -13,6 +13,7 @@ from fdai.core.background_task.models import (
     BackgroundTaskKind,
     BackgroundTaskOrigin,
 )
+from fdai.core.background_task.quota import BackgroundTaskQuotaPolicy
 from fdai.core.background_task.store import BackgroundTaskStore
 
 
@@ -21,9 +22,16 @@ class BackgroundTaskAudit(Protocol):
 
 
 class BackgroundTaskService:
-    def __init__(self, *, store: BackgroundTaskStore, audit: BackgroundTaskAudit) -> None:
+    def __init__(
+        self,
+        *,
+        store: BackgroundTaskStore,
+        audit: BackgroundTaskAudit,
+        quota_policy: BackgroundTaskQuotaPolicy | None = None,
+    ) -> None:
         self._store = store
         self._audit = audit
+        self._quota_policy = quota_policy or BackgroundTaskQuotaPolicy()
 
     async def create(
         self,
@@ -55,7 +63,7 @@ class BackgroundTaskService:
             created_at=created_at,
             retention_until=created_at + timedelta(days=retention_days),
         )
-        attempt, created = await self._store.create(task)
+        attempt, created = await self._store.create(task, quota=self._quota_policy)
         if created:
             await self._audit.append(
                 {

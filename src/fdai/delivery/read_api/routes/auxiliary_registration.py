@@ -117,6 +117,18 @@ def append_auxiliary_routes(
             )
         )
 
+    if config.read_investigations is not None:
+        from fdai.delivery.read_api.routes.read_investigations import (
+            make_read_investigation_routes,
+        )
+
+        routes.extend(
+            make_read_investigation_routes(
+                config=config.read_investigations,
+                authorize_principal=authorize_principal,
+            )
+        )
+
     if config.trajectory_datasets is not None:
         from fdai.delivery.read_api.routes.trajectory_datasets import (
             make_trajectory_dataset_routes,

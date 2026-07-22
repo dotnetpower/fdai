@@ -287,7 +287,10 @@ class Bragi(Agent):
                     "abstain_reason": "responder_not_registered",
                 }
             else:
-                answer = await responder(question, {"session_id": session_id})
+                answer = await responder(
+                    question,
+                    {"session_id": session_id, "user_id": user_id},
+                )
                 answer.setdefault("primary_agent", decision.primary_agent)
                 contributor_answers, contributor_errors = await self._ask_contributors(
                     decision.contributors,

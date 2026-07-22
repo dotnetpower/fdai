@@ -32,6 +32,9 @@ AlerterHook = Callable[[dict[str, Any]], Awaitable[None]]
 IncidentCandidateHook = Callable[[dict[str, Any]], Awaitable[None]]
 """Composition-provided hook that validates and opens an incident candidate."""
 
+ReadInvestigationHook = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any] | None]]
+"""Composition-provided read-only investigation responder."""
+
 _LOG = logging.getLogger(__name__)
 
 #: The admin-card rate limit is per rolling hour. A limiter that never reset
@@ -74,6 +77,7 @@ class Heimdall(Agent):
         security_window_events: int = 100,
         alerter_hook: AlerterHook | None = None,
         incident_candidate_hook: IncidentCandidateHook | None = None,
+        read_investigation_hook: ReadInvestigationHook | None = None,
         alert_rate_per_hour: int = 5,
         clock: Callable[[], float] | None = None,
         action_semantics: ActionSemanticsCatalog | None = None,
@@ -88,6 +92,7 @@ class Heimdall(Agent):
         self._alert_counters: Counter[tuple[str, str]] = Counter()
         self._alerter_hook = alerter_hook
         self._incident_candidate_hook = incident_candidate_hook
+        self._read_investigation_hook = read_investigation_hook
         self._alert_rate_per_hour = alert_rate_per_hour
         # Per-initiator rolling-hour alert budget: (window_start, count).
         # Injected clock keeps the window deterministic under test; defaults
@@ -105,6 +110,10 @@ class Heimdall(Agent):
     def register_incident_candidate(self, hook: IncidentCandidateHook) -> None:
         """Bind the composition-owned incident candidate validator/writer."""
         self._incident_candidate_hook = hook
+
+    def register_read_investigation(self, hook: ReadInvestigationHook) -> None:
+        """Bind a provider-neutral conversational read responder."""
+        self._read_investigation_hook = hook
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.event":
@@ -243,6 +252,14 @@ class Heimdall(Agent):
         return self._alert_counters[(initiator, action)]
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
+        if self._read_investigation_hook is not None:
+            investigation = await self._read_investigation_hook(question, context)
+            if investigation is not None:
+                answer = investigation.get("answer")
+                facts = investigation.get("facts")
+                if not isinstance(answer, str) or not isinstance(facts, dict):
+                    raise ValueError("read investigation hook returned an invalid response")
+                return IntrospectionResult(answer=answer, facts=facts)
         facts = {
             **capability_facts(self.spec),
             "watched_resources": capped_list(sorted(self._recent_events)),
@@ -274,4 +291,9 @@ class Heimdall(Agent):
         return IntrospectionResult(answer=answer, facts=facts)
 
 
-__all__ = ["Heimdall", "AlerterHook", "IncidentCandidateHook"]
+__all__ = [
+    "Heimdall",
+    "AlerterHook",
+    "IncidentCandidateHook",
+    "ReadInvestigationHook",
+]

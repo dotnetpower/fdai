@@ -115,6 +115,42 @@
       "docs_update": ["docs/roadmap/agents/agent-pantheon.md"]
     },
     {
+      "id": "azure-read-investigations",
+      "paths": [
+        "src/fdai/core/read_investigation/**",
+        "src/fdai/shared/providers/read_investigation.py",
+        "src/fdai/delivery/azure/read_investigation/**",
+        "src/fdai/delivery/persistence/read_investigation_latency.py",
+        "src/fdai/delivery/read_api/routes/read_investigations.py",
+        "src/fdai/agents/heimdall.py",
+        "src/fdai/agents/_framework/bragi_routing.py",
+        "tests/**/*read_investigation*.py",
+        "tests/**/read_investigation/**",
+        "docs/roadmap/interfaces/azure-read-investigations*.md"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        "docs/roadmap/interfaces/azure-read-investigations.md",
+        "docs/roadmap/interfaces/background-task-sessions.md",
+        "docs/roadmap/agents/bounded-task-workers.md",
+        "docs/roadmap/architecture/security-and-identity.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/azure-read-investigations.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/read_api/test_read_investigations.py tests/agents/test_read_investigation_routing.py",
+        "uv run ruff check src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/read_api/routes/read_investigations.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/read_api/test_read_investigations.py tests/agents/test_read_investigation_routing.py",
+        "uv run mypy src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/read_api/routes/read_investigations.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/read_api/test_read_investigations.py tests/agents/test_read_investigation_routing.py"
+      ]
+    },
+    {
       "id": "bounded-task-workers",
       "paths": [
         "src/fdai/core/task_worker/**",

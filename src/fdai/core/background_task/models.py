@@ -43,6 +43,7 @@ class BackgroundTaskOrigin:
     channel_kind: str
     channel_id: str
     thread_id: str | None = None
+    message_id: str | None = None
 
     def __post_init__(self) -> None:
         _id("conversation_id", self.conversation_id)
@@ -50,6 +51,8 @@ class BackgroundTaskOrigin:
         _id("channel_id", self.channel_id)
         if self.thread_id is not None:
             _id("thread_id", self.thread_id)
+        if self.message_id is not None:
+            _id("message_id", self.message_id)
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,7 +60,7 @@ class BackgroundTaskBudget:
     max_wall_seconds: int = 300
     max_tokens: int = 4_096
     max_cost_microusd: int = 500_000
-    max_tool_calls: int = 8
+    max_tool_calls: int = 5
     max_progress_events: int = 32
 
     def __post_init__(self) -> None:

@@ -132,6 +132,7 @@ async def test_reader_cannot_create_and_cross_owner_is_hidden() -> None:
     async with reader:
         denied = await reader.post("/background-tasks", json=_body())
     assert denied.status_code == 403
+    assert denied.text == "start-read-investigation capability is required"
 
     async def authorize_other(_request: Request) -> Principal:
         return Principal(oid="operator-two", roles=frozenset({Role.CONTRIBUTOR}))

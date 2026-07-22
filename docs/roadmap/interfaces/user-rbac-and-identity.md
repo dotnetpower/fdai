@@ -47,7 +47,7 @@ more roles.
 | # | Role | Entra Security Group | Analog | May do |
 |---|------|----------------------|--------|--------|
 | 1 | **Reader** | `aw-readers` | Azure Reader | View console: KPI dashboard, audit log, shadow results, HIL queue |
-| 2 | **Contributor** | `aw-contributors` | Azure Contributor | All of Reader + author draft PRs for rules, rule-sets, assignments, exemptions, overrides |
+| 2 | **Contributor** | `aw-contributors` | Azure Contributor | All of Reader + author draft PRs and start bounded read investigations |
 | 3 | **Approver** | `aw-approvers` | (Reviewer) | All of Reader + review/approve governance PRs + approve runtime HIL requests + approve enforce promotions / exemptions / overrides (quorum applies to high-risk - see §5) |
 | 4 | **Owner** | `aw-owners` | Azure Owner | All of Approver + trigger kill-switch + manage Entra group membership + apply infra IaC |
 | - | **Break-Glass** | `aw-break-glass` | (separate emergency account) | Console view, kill-switch, and emergency access-grant capabilities only. It has no runtime HIL approval capability and isn't an Owner superset. |
@@ -76,6 +76,7 @@ more roles.
 | Action | Reader | Contributor | Approver | Owner | Break-Glass |
 |--------|:------:|:-----------:|:--------:|:-----:|:-----------:|
 | View console | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Start bounded read investigation | | ✓ | ✓ | ✓ | |
 | Author rule / rule-set draft PR | | ✓ | ✓ | ✓ | |
 | Author assignment / exemption / override draft PR | | ✓ | ✓ | ✓ | |
 | Review + approve standard governance PR | | | ✓ | ✓ | |

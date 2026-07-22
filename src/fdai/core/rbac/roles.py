@@ -55,6 +55,7 @@ class Capability(StrEnum):
 
     VIEW_CONSOLE = "view-console"
     AUTHOR_DRAFT_PR = "author-draft-pr"
+    START_READ_INVESTIGATION = "start-read-investigation"
     REVIEW_GOVERNANCE_PR = "review-governance-pr"
     APPROVE_QUORUM_PROMOTION = "approve-quorum-promotion"
     APPROVE_EXEMPTION = "approve-exemption"
@@ -74,7 +75,12 @@ class Capability(StrEnum):
 # together (see coding-conventions.instructions.md § Documentation).
 _READER_CAPS: Final = frozenset({Capability.VIEW_CONSOLE})
 
-_CONTRIBUTOR_CAPS: Final = _READER_CAPS | frozenset({Capability.AUTHOR_DRAFT_PR})
+_CONTRIBUTOR_CAPS: Final = _READER_CAPS | frozenset(
+    {
+        Capability.AUTHOR_DRAFT_PR,
+        Capability.START_READ_INVESTIGATION,
+    }
+)
 
 _APPROVER_CAPS: Final = _CONTRIBUTOR_CAPS | frozenset(
     {

@@ -27,6 +27,12 @@ from fdai.shared.providers.command_runner import (
 _RESOURCE_GROUP = re.compile(r"^[A-Za-z0-9_.()-]{1,90}$")
 _RESOURCE_NAME = re.compile(r"^[A-Za-z0-9_.()-]{1,128}$")
 _RESOURCE_TYPE = re.compile(r"^[A-Za-z0-9_.-]{1,128}(?:/[A-Za-z0-9_.-]{1,128})?$")
+_RESOURCE_ID = re.compile(
+    r"^/subscriptions/[A-Za-z0-9-]{1,64}/resourceGroups/[A-Za-z0-9_.()-]{1,90}/"
+    r"providers/[A-Za-z0-9_.()/-]{1,300}$"
+)
+_START_TIME = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.-]+Z$")
+_MAX_EVENTS = re.compile(r"^[1-8]$")
 _SUBSCRIPTION = re.compile(r"^[A-Za-z0-9-]{1,64}$")
 _CLIENT_ID = re.compile(r"^[A-Za-z0-9-]{1,128}$")
 _SECRET_MARKERS = (
@@ -217,6 +223,47 @@ def _validate_resource_list(argv: tuple[str, ...], subscription_id: str) -> None
     )
 
 
+def _validate_read_resource_resolve(argv: tuple[str, ...], subscription_id: str) -> None:
+    _validate_option_argv(
+        argv,
+        prefix=(
+            "resource",
+            "list",
+            "--only-show-errors",
+            "--query",
+            "[:9].{id:id,name:name,type:type,resourceGroup:resourceGroup}",
+            "--output",
+            "json",
+        ),
+        optional={"--resource-type": _RESOURCE_TYPE},
+        required={"--name": _RESOURCE_NAME, "--resource-group": _RESOURCE_GROUP},
+        subscription_id=subscription_id,
+    )
+
+
+def _validate_activity_log_list(argv: tuple[str, ...], subscription_id: str) -> None:
+    _validate_option_argv(
+        argv,
+        prefix=(
+            "monitor",
+            "activity-log",
+            "list",
+            "--only-show-errors",
+            "--query",
+            "[].{eventTimestamp:eventTimestamp,status:status,operationName:operationName,caller:caller,correlationId:correlationId}",
+            "--output",
+            "json",
+        ),
+        optional={},
+        required={
+            "--resource-id": _RESOURCE_ID,
+            "--start-time": _START_TIME,
+            "--max-events": _MAX_EVENTS,
+        },
+        subscription_id=subscription_id,
+    )
+
+
 def _validate_group_list(argv: tuple[str, ...], subscription_id: str) -> None:
     _validate_option_argv(
         argv,
@@ -282,6 +329,8 @@ def _validate_option_argv(
 
 _COMMAND_VALIDATORS: Final[dict[str, Callable[[tuple[str, ...], str], None]]] = {
     "azure.resource.list": _validate_resource_list,
+    "azure.read.resource.resolve": _validate_read_resource_resolve,
+    "azure.activity-log.list": _validate_activity_log_list,
     "azure.group.list": _validate_group_list,
     "azure.vm.list": _validate_vm_list,
     "azure.vm.status": _validate_vm_status,

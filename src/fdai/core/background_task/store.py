@@ -17,6 +17,11 @@ from fdai.core.background_task.models import (
     BackgroundTaskStatus,
     BackgroundTaskUsage,
 )
+from fdai.core.background_task.quota import (
+    BackgroundTaskQuotaPolicy,
+    background_task_quota_usage,
+    enforce_background_task_quota,
+)
 
 
 class BackgroundTaskConflictError(RuntimeError):
@@ -24,7 +29,12 @@ class BackgroundTaskConflictError(RuntimeError):
 
 
 class BackgroundTaskStore(Protocol):
-    async def create(self, task: BackgroundTask) -> tuple[BackgroundTaskAttempt, bool]: ...
+    async def create(
+        self,
+        task: BackgroundTask,
+        *,
+        quota: BackgroundTaskQuotaPolicy | None = None,
+    ) -> tuple[BackgroundTaskAttempt, bool]: ...
 
     async def get(
         self,
@@ -118,7 +128,12 @@ class InMemoryBackgroundTaskStore:
         self._progress: dict[str, list[BackgroundTaskProgress]] = {}
         self._lock = asyncio.Lock()
 
-    async def create(self, task: BackgroundTask) -> tuple[BackgroundTaskAttempt, bool]:
+    async def create(
+        self,
+        task: BackgroundTask,
+        *,
+        quota: BackgroundTaskQuotaPolicy | None = None,
+    ) -> tuple[BackgroundTaskAttempt, bool]:
         async with self._lock:
             dedup_key = (task.owner_principal_id, task.idempotency_key)
             prior_id = self._idempotency.get(dedup_key)
@@ -131,6 +146,17 @@ class InMemoryBackgroundTaskStore:
                 return prior, False
             if task.task_id in self._attempt_by_task:
                 raise BackgroundTaskConflictError("background task id already exists")
+            if quota is not None:
+                owner_attempts = tuple(
+                    attempt
+                    for attempt in self._attempts.values()
+                    if attempt.task.owner_principal_id == task.owner_principal_id
+                )
+                enforce_background_task_quota(
+                    policy=quota,
+                    budget=task.budget,
+                    usage=background_task_quota_usage(owner_attempts, now=task.created_at),
+                )
             attempt = BackgroundTaskAttempt(
                 attempt_id=f"{task.task_id}:1",
                 task=task,

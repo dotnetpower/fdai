@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 4d5647129ddfa5d3975bb1bd68e45eee13410679
+translation_source_sha: 8a549eaf223b6c965845d0b254bc6408c2d7786e
 translation_revised: 2026-07-22
 ---
 
@@ -752,7 +752,7 @@ pull adapter 추가. 콘솔은 이제:
 | Write/approval tools | simulate, HIL, runbook, proposal route가 제공됩니다. Break-glass는 §7.3의 pager/audit request receipt까지만 제공하며 elevation은 없습니다. |
 | Teams/Slack conversation | `ProductionChannelRuntime`, authenticated ingress, principal resolution, publisher, durable reply option이 제공됩니다. 실제 배포 enablement/credential은 environment-owned입니다. |
 | Web chat and memory | JSON/SSE chat, principal-scoped conversation history/preferences/memory, AnswerPlan 및 progressive verification이 제공됩니다. |
-| Observation/discovery | Azure observation tools와 recurrent-query hooks는 provider binding 및 measured evidence가 있을 때 사용합니다. Catalog presence만으로 provider health나 promotion을 주장하지 않습니다. |
+| Observation/discovery | `POST /read-investigations`는 Azure I/O 전에 durable latency evidence로 direct, streamed, detached execution을 선택합니다. Dedicated reader binding이 있을 때만 등록되며 catalog presence만으로 provider health나 promotion을 주장하지 않습니다. |
 
 Live Azure completion evidence와 capability promotion은 여전히 authoritative registry 및 deployment
 verification에서 판단하며 이 문서의 phase 이름으로 추론하지 않습니다.

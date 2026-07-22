@@ -19,7 +19,12 @@ _TEST_PATH = r"(?:tests|src/fdai)(?:/[A-Za-z0-9_.-]+)*"
 _RESOURCE_GROUP = r"[A-Za-z0-9_.()-]{1,90}"
 _RESOURCE_NAME = r"[A-Za-z0-9_.()-]{1,128}"
 _RESOURCE_TYPE = r"[A-Za-z0-9_.-]{1,128}(?:/[A-Za-z0-9_.-]{1,128})?"
+_RESOURCE_ID = (
+    r"/subscriptions/[A-Za-z0-9-]{1,64}/resourceGroups/[A-Za-z0-9_.()-]{1,90}/"
+    r"providers/[A-Za-z0-9_.()/-]{1,300}"
+)
 _SUBSCRIPTION = r"[A-Za-z0-9-]{1,64}"
+_TIMESTAMP = r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.-]+Z"
 
 
 def default_command_catalog() -> CommandCatalog:
@@ -116,6 +121,106 @@ def default_command_catalog() -> CommandCatalog:
                 execution_class=CommandExecutionClass.CLOUD_READ,
                 network_profile=CommandNetworkProfile.AZURE_CONTROL_PLANE,
                 output_format=CommandOutputFormat.JSON,
+                credential_profile="azure.reader",
+            ),
+            CommandSpec(
+                command_id="azure.read.resource.resolve",
+                version=1,
+                executable_ref="azure.cli",
+                fixed_argv=(
+                    "resource",
+                    "list",
+                    "--only-show-errors",
+                    "--query",
+                    "[:9].{id:id,name:name,type:type,resourceGroup:resourceGroup}",
+                    "--output",
+                    "json",
+                ),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="name",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--name",
+                        pattern=_RESOURCE_NAME,
+                    ),
+                    CommandArgumentSpec(
+                        name="resource_group",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--resource-group",
+                        pattern=_RESOURCE_GROUP,
+                    ),
+                    CommandArgumentSpec(
+                        name="resource_type",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--resource-type",
+                        pattern=_RESOURCE_TYPE,
+                        required=False,
+                    ),
+                    CommandArgumentSpec(
+                        name="subscription",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--subscription",
+                        pattern=_SUBSCRIPTION,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.CLOUD_READ,
+                network_profile=CommandNetworkProfile.AZURE_CONTROL_PLANE,
+                output_format=CommandOutputFormat.JSON,
+                timeout_seconds=60,
+                max_output_bytes=64_000,
+                credential_profile="azure.reader",
+            ),
+            CommandSpec(
+                command_id="azure.activity-log.list",
+                version=1,
+                executable_ref="azure.cli",
+                fixed_argv=(
+                    "monitor",
+                    "activity-log",
+                    "list",
+                    "--only-show-errors",
+                    "--query",
+                    "[].{eventTimestamp:eventTimestamp,status:status,operationName:operationName,caller:caller,correlationId:correlationId}",
+                    "--output",
+                    "json",
+                ),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="resource_id",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--resource-id",
+                        pattern=_RESOURCE_ID,
+                    ),
+                    CommandArgumentSpec(
+                        name="start_time",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--start-time",
+                        pattern=_TIMESTAMP,
+                    ),
+                    CommandArgumentSpec(
+                        name="max_events",
+                        kind=CommandArgumentKind.INTEGER,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--max-events",
+                        minimum=1,
+                        maximum=8,
+                    ),
+                    CommandArgumentSpec(
+                        name="subscription",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--subscription",
+                        pattern=_SUBSCRIPTION,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.CLOUD_READ,
+                network_profile=CommandNetworkProfile.AZURE_CONTROL_PLANE,
+                output_format=CommandOutputFormat.JSON,
+                timeout_seconds=60,
+                max_output_bytes=64_000,
                 credential_profile="azure.reader",
             ),
             CommandSpec(

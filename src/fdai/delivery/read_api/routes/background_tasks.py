@@ -20,6 +20,7 @@ from fdai.core.background_task import (
     BackgroundTaskBudget,
     BackgroundTaskCoordinator,
     BackgroundTaskOrigin,
+    BackgroundTaskQuotaExceededError,
     BackgroundTaskService,
     BackgroundTaskStore,
 )
@@ -44,8 +45,11 @@ def make_background_task_routes(
 ) -> tuple[Route, ...]:
     async def create_task(request: Request) -> Response:
         principal = await authorize_principal(request)
-        if not has_capability(principal.roles, Capability.AUTHOR_DRAFT_PR):
-            raise HTTPException(status_code=403, detail="author-draft-pr capability is required")
+        if not has_capability(principal.roles, Capability.START_READ_INVESTIGATION):
+            raise HTTPException(
+                status_code=403,
+                detail="start-read-investigation capability is required",
+            )
         body = await _body(request)
         prompt = _string(body, "prompt", maximum=4_000)
         conversation_id = _string(body, "conversation_id")
@@ -63,21 +67,25 @@ def make_background_task_routes(
                 sort_keys=True,
             ).encode()
         ).hexdigest()
-        attempt, created = await config.service.create(
-            owner_principal_id=principal.oid,
-            origin=BackgroundTaskOrigin(
-                conversation_id=conversation_id,
-                channel_kind=channel_kind,
-                channel_id=channel_id,
-                thread_id=_optional_string(body, "thread_id"),
-            ),
-            prompt=prompt,
-            context_digest=f"sha256:{context_digest}",
-            correlation_id=correlation_id,
-            idempotency_key=idempotency_key,
-            budget=_budget(body),
-            retention_days=_integer(body, "retention_days", default=30),
-        )
+        try:
+            attempt, created = await config.service.create(
+                owner_principal_id=principal.oid,
+                origin=BackgroundTaskOrigin(
+                    conversation_id=conversation_id,
+                    channel_kind=channel_kind,
+                    channel_id=channel_id,
+                    thread_id=_optional_string(body, "thread_id"),
+                    message_id=_optional_string(body, "message_id"),
+                ),
+                prompt=prompt,
+                context_digest=f"sha256:{context_digest}",
+                correlation_id=correlation_id,
+                idempotency_key=idempotency_key,
+                budget=_budget(body),
+                retention_days=_integer(body, "retention_days", default=30),
+            )
+        except BackgroundTaskQuotaExceededError as exc:
+            raise HTTPException(status_code=429, detail=str(exc)) from exc
         config.coordinator.wake()
         return JSONResponse(_attempt(attempt), status_code=202 if created else 200)
 
@@ -254,7 +262,7 @@ def _budget(body: dict[str, Any]) -> BackgroundTaskBudget:
         max_wall_seconds=int(raw.get("max_wall_seconds", 300)),
         max_tokens=int(raw.get("max_tokens", 4_096)),
         max_cost_microusd=int(raw.get("max_cost_microusd", 500_000)),
-        max_tool_calls=int(raw.get("max_tool_calls", 8)),
+        max_tool_calls=int(raw.get("max_tool_calls", 5)),
         max_progress_events=int(raw.get("max_progress_events", 32)),
     )
 

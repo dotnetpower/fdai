@@ -51,18 +51,18 @@ An operator question is not published as `object.event`. That topic enters detec
 risk, and execution processing. A detached investigation persists its task before an optional wake
 signal is emitted. PostgreSQL remains the source of truth; a wake signal is only a delivery hint.
 
-## Existing implementation baseline
+## Implementation status
 
-| Capability | Current state | Required work |
-|------------|---------------|---------------|
-| Bragi responder registration and Heimdall question domains | Implemented | Extend deterministic routing for actor, shutdown, and resource-history wording in English and Korean |
-| Azure inventory and VM state | Implemented | Add exact resource resolution and ambiguity handling for bare resource names |
-| Direct Activity Log recovery adapter | Implemented for inventory continuity | Add an on-demand read projection that retains operation, caller, time, status, and correlation fields |
-| Typed Azure CLI read broker | Implemented for resource, group, VM list, and VM state commands | Add only registered ARG and Activity Log plans if REST transport cannot satisfy the query |
-| Task-worker capability attenuation | Implemented | Register Azure read tools in a server-owned `background.read-only` profile |
-| Durable task state, lease, timeout, cancellation, and progress SSE | Implemented | Replace the narrator-only executor with an attenuated tool-capable investigation executor |
-| Command duration and task start/finish timestamps | Partially implemented | Add provider-neutral tool receipts, durable latency profiles, and an ETA policy |
-| Completion handoff | Conversation append is implemented | Complete durable reply-ledger enqueue for origin-channel delivery after process loss |
+| Capability | Current state | Evidence |
+|------------|---------------|----------|
+| Bragi and Heimdall routing | Implemented | Deterministic English and Korean actor, shutdown, history, health, and state routing selects Heimdall before generic scoring. |
+| Exact resource resolution | Implemented | `not_found`, bounded `ambiguous`, and one scope-bound exact reference stop history queries until resolution succeeds. |
+| Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, and guest logs. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
+| Read-tool attenuation | Implemented | `background.read-only` contains exactly the five Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
+| Execution modes and progress | Implemented | Durable p50/p95 profiles select direct, streamed, or detached mode before cloud I/O. Semantic progress is bounded and terminal once. |
+| Detached execution and quotas | Implemented | The typed executor receives no narrator history, screen state, event bus, Thor, or executor identity. Per-principal concurrency, cost, wall-clock, and tool-call quotas are enforced at durable creation. |
+| Completion handoff | Implemented | Terminal result commit precedes the idempotent conversation turn and durable reply-ledger enqueue. Provider delivery remains a separate retryable concern. |
+| Live Azure scenario evidence | Partially validated | Caller attribution, Resource Health, unauthorized scope, and ambiguous names passed read-only live validation. Guest-event matching and an actual provider `429` remain release evidence gaps. |
 
 ## Investigation request and plan
 
@@ -212,10 +212,15 @@ The console, Heimdall, task workers, and ChatOps never receive Thor's executor i
 adapters reject a resource outside the resolved scope even if the identity has broader permissions
 by mistake.
 
-The current detached-task API uses the Contributor `author-draft-pr` capability. Automatic
-read-only investigations should use a separate `start-read-investigation` capability with
-per-principal concurrency, daily cost, tool-call, and wall-clock quotas. Deployments decide which
-operator roles receive it without conflating read investigation with PR authoring.
+Production registers the routes only when `FDAI_AZURE_READER_SUBSCRIPTION_ID`,
+`FDAI_AZURE_READER_CLIENT_ID`, and a non-empty comma-separated
+`FDAI_AZURE_READER_RESOURCE_GROUPS` allowlist are present. `FDAI_MONITOR_WORKSPACE_ID` is optional;
+without it, guest shutdown evidence reports `unavailable` while other sources remain usable.
+
+The detached-task API uses the separate `start-read-investigation` capability. Contributor,
+Approver, and Owner roles receive it; Reader and Break-Glass do not. Per-principal concurrency,
+daily reserved or measured cost, tool-call, and wall-clock quotas are enforced atomically when the
+durable task is created, independently from PR-authoring authority.
 
 Audit records include requester, intent, selected tools, scope digest, task or request id, duration,
 terminal status, evidence references, and delivery outcome. They exclude bearer tokens, raw claims,
@@ -228,6 +233,8 @@ raw CLI output, prompts, and unredacted caller payloads.
 - **Unauthorized scope:** Report unavailable and record the denied provider operation class.
 - **Provider throttling:** Apply bounded retry with jitter inside the original timeout; never widen
   scope or wall-clock budget.
+- **Insufficient retention:** Return unavailable before cloud I/O when the requested Activity Log
+  lookback exceeds the adapter's configured retention, which defaults to 90 days.
 - **Partial evidence:** Return supported facts and name the missing source.
 - **Process loss:** Mark an expired running attempt `unknown(process_lost)`; do not replay it
   automatically.
@@ -236,17 +243,37 @@ raw CLI output, prompts, and unredacted caller payloads.
 - **Prompt injection in evidence:** Treat provider strings as data and deny output that attempts to
   change tools, scope, authorization, or execution mode.
 
-## Implementation sequence
+## Implementation sequence and release gate
 
-1. Add provider-neutral resource resolution, activity, health, and guest-log contracts.
-2. Add typed tools and normalized evidence projections with deterministic fixtures.
-3. Extend Bragi routing and Heimdall composition without importing delivery code into either agent.
-4. Implement direct and streamed paths; prove Thor and the mutation bus are untouched.
-5. Add `ToolCallReceipt`, durable latency profiles, and configuration-driven execution policy.
-6. Replace the narrator-only background executor with an attenuated tool-capable executor.
-7. Complete progress rendering and durable origin-channel completion delivery.
-8. Run live Azure validation for caller attribution, guest shutdown, Resource Health, throttling,
-   and insufficient-retention cases before enabling the capability by default.
+1. Provider-neutral contracts, typed tools, normalized evidence, and bilingual routing are
+  implemented.
+2. Direct, streamed, and detached execution, durable receipts and latency profiles, quotas,
+  semantic progress, and origin-channel completion enqueue are implemented.
+3. Structural tests prove the path does not import an executor, reference Thor, or publish
+  `object.event`.
+4. Read-only live validation covers caller attribution, Resource Health, unauthorized scope, and
+  ambiguous names. The capability remains configuration-gated until a dedicated validation
+  environment supplies a retained guest shutdown event and a naturally occurring provider `429`.
+
+## Release evidence
+
+The live checks use existing resources and a reader credential. They do not create, update, start,
+stop, or delete an Azure resource. Repository tests use synthetic, customer-neutral payloads for
+failure paths that are not safe to induce against a live subscription.
+
+| Scenario | Evidence class | Result |
+|----------|----------------|--------|
+| Successful caller attribution | Live | Passed. Exact resolution and projected Activity Log reads matched user and service-principal actors while retaining only opaque actor and correlation references. |
+| Resource Health | Live | Passed. An empty ARG projection fell back to the current Resource Health REST endpoint and returned normalized availability evidence. |
+| Unauthorized scope | Live | Passed. An inaccessible scope became `unavailable` with a failed bounded receipt. |
+| Ambiguous resource name | Live | Passed. One duplicate name returned four bounded candidates, no exact resource binding, and no history query. |
+| Guest OS shutdown | Live and contract | Incomplete. Sixteen accessible workspaces contained no retained Event or Syslog shutdown record across their available history. Live missing-workspace behavior returned `unavailable`; matched Event and Syslog normalization passed contract tests only. |
+| Provider throttling | Contract | Behavior passed. Synthetic `429` responses exercised bounded retry and terminal failure. An actual live `429` was not induced because deliberate throttling would violate the bounded-read policy. |
+| Insufficient retention | Contract | Passed. A lookback beyond configured Activity Log retention fails before HTTP and normalizes as unavailable through the provider boundary. |
+
+The incomplete guest-event row and missing naturally occurring live `429` remain release evidence,
+not implementation defects. Keep the issue open until the dedicated validation environment can
+produce those observations without an Azure change.
 
 ## Verification
 
@@ -259,8 +286,8 @@ raw CLI output, prompts, and unredacted caller payloads.
   boundaries, delayed milestones, and cross-replica persistence.
 - Background tests cover lease contention, cancellation, timeout, process loss, progress caps,
   terminal immutability, and durable reply handoff.
-- Live Azure tests verify Activity Log caller attribution and honest guest-log and Resource Health
-  fallback without mutating a resource.
+- Live Azure checks verify Activity Log caller attribution, Resource Health fallback, unauthorized
+  scope, ambiguous names, and honest guest-log absence without mutating a resource.
 
 ## Related docs
 

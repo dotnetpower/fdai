@@ -2,8 +2,8 @@
 title: 영구 Background Task Session
 translation_of: background-task-sessions.md
 translation_source: docs/roadmap/interfaces/background-task-sessions.md
-translation_source_sha: d59cc055e3de1548d609d69bc51af131ef2c43e7
-translation_revised: 2026-07-21
+translation_source_sha: 6639695d068483833701fabe0fa4338b28be82c4
+translation_revised: 2026-07-22
 ---
 
 # 영구 Background Task Session
@@ -18,9 +18,9 @@ attempt state, lease, progress, cancellation, restart 동작, conversation hando
 ## 설계 요약
 
 Contributor가 제한된 task record를 만들면 실행을 기다리지 않고 `202`를 받습니다. Coordinator는
-lease로 queued attempt를 claim하고, 격리된 narrator 요청을 실행하고, terminal result를 저장하고,
-provenance label이 있는 conversation turn을 추가합니다. Durable conversation delivery subsystem은
-배포됐고, background completion turn을 reply ledger에 enqueue하는 composition wiring은 남았습니다.
+lease로 queued attempt를 claim하고, 격리된 typed read service를 실행하고, terminal result를 저장하고,
+provenance label이 있는 conversation turn을 추가한 뒤 immutable reply를 durable conversation delivery
+ledger에 enqueue합니다.
 
 ```mermaid
 flowchart LR
@@ -30,7 +30,7 @@ flowchart LR
     RUN --> PROGRESS[Coalesced progress]
     RUN --> RESULT[영구 terminal result]
     RESULT --> TURN[Idempotent conversation turn]
-    TURN --> DELIVERY[Durable reply ledger - enqueue wiring pending]
+    TURN --> DELIVERY[Durable reply ledger]
 ```
 
 ## Contract 및 상태
@@ -62,12 +62,12 @@ attempt를 만듭니다.
 
 ## 실행 및 격리
 
-제공되는 executor는 다음 조건으로 configured narrator backend를 재사용합니다.
+제공되는 executor는 다음 조건으로 typed read-investigation service를 실행합니다.
 
-- Conversation history는 비어 있습니다.
-- Metadata-only task ID, correlation ID, context digest, capability profile만 전달합니다.
-- 하나의 읽기 전용 조사만 허용하고 action proposal 및 execution을 차단하는 prompt를 사용합니다.
-- Parent screen state, transcript, hidden reasoning, mutable memory, executor identity를 전달하지 않습니다.
+- Server-owned scope, exact resource resolution, registered read tool 5개를 사용합니다.
+- Narrator backend, parent screen state, transcript, hidden reasoning, mutable memory, event bus,
+  Thor, executor identity를 전달하지 않습니다.
+- Raw provider output 대신 normalized evidence result와 bounded semantic progress를 반환합니다.
 
 Coordinator는 concurrency, wall time, token, cost, tool-call, progress, lease usage를 제한합니다. Timeout,
 cancellation, executor error는 각각 구분된 terminal reason을 생성합니다.
@@ -84,9 +84,9 @@ task는 없는 task와 같은 404 response를 사용합니다.
 
 ## Command 및 authorization
 
-Production read API는 실제 narrator backend가 설정된 경우에만 route를 등록합니다.
+Production read API는 dedicated Azure reader binding이 설정된 경우에만 route를 등록합니다.
 
-- `POST /background-tasks`는 Contributor `author-draft-pr` capability가 필요하고 즉시 반환합니다.
+- `POST /background-tasks`는 Contributor `start-read-investigation` capability가 필요하고 즉시 반환합니다.
 - `GET /background-tasks` 및 `GET /background-tasks/{task_id}`는 owner scope를 적용합니다.
 - `GET /background-tasks/{task_id}/progress` 및 `/progress/stream`은 owner scope를 적용합니다.
 - `POST /background-tasks/{task_id}/cancel`은 owner 또는 FDAI Owner가 필요합니다.
@@ -100,9 +100,10 @@ Store는 completion sink가 실행되기 전에 terminal attempt를 기록합니
 idempotency ID, `[Background task result: ...]` label, correlation metadata, `trusted=false`를 사용해 origin
 conversation에 assistant turn 하나를 추가합니다.
 
-Sink failure는 result를 변경하거나 task를 다시 실행할 수 없습니다. Durable delivery contract는
-at-least-once claim/lease/ack를 제공하지만 background completion의 enqueue adapter는 아직 배선되지
-않았습니다. 외부 chat provider의 exactly-once delivery는 보장하지 않습니다.
+Sink failure는 result를 변경하거나 task를 다시 실행할 수 없습니다. Idempotent conversation turn 뒤에
+sink는 active verified channel binding 하나를 resolve하고 complete response를 durable reply ledger에
+enqueue합니다. Provider delivery는 기존 claim/lease/ack contract를 사용하며 외부 chat provider의
+exactly-once delivery는 보장하지 않습니다.
 
 ## 운영 및 retention
 

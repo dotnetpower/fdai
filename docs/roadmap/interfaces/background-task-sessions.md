@@ -14,10 +14,9 @@ conversation handoff, user delivery boundaries, and operator visibility.
 ## Design at a glance
 
 A Contributor creates a bounded task record and receives `202` without waiting for execution. A
-coordinator claims the queued attempt with a lease, runs an isolated narrator request, stores the
-terminal result, and appends a provenance-labeled conversation turn. The durable conversation
-delivery subsystem is shipped; composition still needs to enqueue background completion turns into
-its reply ledger.
+coordinator claims the queued attempt with a lease, runs the isolated typed read service, stores the
+terminal result, appends a provenance-labeled conversation turn, and enqueues the immutable reply
+through the durable conversation delivery ledger.
 
 ```mermaid
 flowchart LR
@@ -27,7 +26,7 @@ flowchart LR
     RUN --> PROGRESS[Coalesced progress]
     RUN --> RESULT[Durable terminal result]
     RESULT --> TURN[Idempotent conversation turn]
-    TURN --> DELIVERY[Durable reply ledger - enqueue wiring pending]
+    TURN --> DELIVERY[Durable reply ledger]
 ```
 
 ## Contracts and state
@@ -59,12 +58,12 @@ explicitly retryable task kind or an operator-confirmed action.
 
 ## Execution and isolation
 
-The shipped executor reuses the configured narrator backend with:
+The shipped executor runs the typed read-investigation service with:
 
-- An empty conversation history.
-- Metadata-only task ID, correlation ID, context digest, and capability profile.
-- A prompt that permits one read-only investigation and blocks action proposals and execution.
-- No parent screen state, transcript, hidden reasoning, mutable memory, or executor identity.
+- A server-owned scope, exact resource resolution, and the five registered read tools.
+- No narrator backend, parent screen state, transcript, hidden reasoning, mutable memory, event bus,
+  Thor, or executor identity.
+- A normalized evidence result and bounded semantic progress instead of raw provider output.
 
 The coordinator bounds concurrency, wall time, token, cost, tool-call, progress, and lease usage.
 Timeout, cancellation, and executor error each produce a distinct terminal reason.
@@ -82,9 +81,9 @@ closes. Cross-owner tasks use the same 404 response as missing tasks.
 
 ## Commands and authorization
 
-The production read API registers routes only when a real narrator backend is configured:
+The production read API registers routes only when a dedicated Azure reader binding is configured:
 
-- `POST /background-tasks` requires the Contributor `author-draft-pr` capability and returns
+- `POST /background-tasks` requires the Contributor `start-read-investigation` capability and returns
   immediately.
 - `GET /background-tasks` and `GET /background-tasks/{task_id}` are owner-scoped.
 - `GET /background-tasks/{task_id}/progress` and `/progress/stream` are owner-scoped.
@@ -99,9 +98,10 @@ The store writes the terminal attempt before the completion sink runs. The sink 
 assistant turn to the origin conversation with deterministic turn and idempotency IDs, a
 `[Background task result: ...]` label, correlation metadata, and `trusted=false`.
 
-A sink failure cannot rewrite the result or rerun the task. The durable delivery contract provides
-at-least-once claim/lease/ack, but the background-completion enqueue adapter is not wired yet. It
-does not claim exactly-once delivery from external chat providers.
+A sink failure cannot rewrite the result or rerun the task. After the idempotent conversation turn,
+the sink resolves one active verified channel binding and enqueues the complete response in the
+durable reply ledger. Provider delivery uses the existing claim/lease/ack contract and does not
+claim exactly-once delivery from external chat providers.
 
 ## Operations and retention
 

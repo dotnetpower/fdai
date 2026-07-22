@@ -368,6 +368,11 @@ class ReadApiConfig:
     background_tasks: Any = None
     """Optional durable read-only background investigation commands and projections."""
 
+    read_investigations: Any = None
+    """Optional bounded Azure read-investigation command with direct, streamed,
+    and detached modes. The binding uses a dedicated reader identity and never
+    exposes Thor's executor identity to the read API."""
+
     user_context_ontology_projector: Any = None
     """Optional metadata-only projector for Conversation, Turn, preference,
     memory, briefing, and workflow ownership records."""

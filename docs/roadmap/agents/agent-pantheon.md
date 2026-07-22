@@ -487,7 +487,7 @@ the requesting agent and threads the shared correlation trace.
 
 ### 6.3 NL query orchestration
 
-Bragi is the router, not the answerer. Routing runs deterministic-first:
+Bragi is the router, not the answerer. English and Korean Azure read intents route to Heimdall before generic domain scoring without adding a topic, agent identity, or execution authority:
 
 1. **Canonical glossary lookup.** A direct definition question for a shared
   ontology or control-loop term (for example `ActionType`, including a Korean

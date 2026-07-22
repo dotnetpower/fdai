@@ -20,6 +20,14 @@ from fdai.core.background_task.models import (
     BackgroundTaskStatus,
     BackgroundTaskUsage,
 )
+from fdai.core.background_task.quota import (
+    ACTIVE_BACKGROUND_STATUSES,
+    BackgroundTaskQuotaExceededError,
+    BackgroundTaskQuotaPolicy,
+    BackgroundTaskQuotaUsage,
+    background_task_quota_usage,
+    enforce_background_task_quota,
+)
 from fdai.core.background_task.service import BackgroundTaskAudit, BackgroundTaskService
 from fdai.core.background_task.store import (
     BackgroundTaskConflictError,
@@ -28,6 +36,7 @@ from fdai.core.background_task.store import (
 )
 
 __all__ = [
+    "ACTIVE_BACKGROUND_STATUSES",
     "TERMINAL_BACKGROUND_STATUSES",
     "BackgroundTaskCompletionSink",
     "BackgroundTaskCoordinator",
@@ -42,6 +51,9 @@ __all__ = [
     "BackgroundTaskLease",
     "BackgroundTaskOrigin",
     "BackgroundTaskProgress",
+    "BackgroundTaskQuotaExceededError",
+    "BackgroundTaskQuotaPolicy",
+    "BackgroundTaskQuotaUsage",
     "BackgroundTaskResult",
     "BackgroundTaskStatus",
     "BackgroundTaskStore",
@@ -49,4 +61,6 @@ __all__ = [
     "BackgroundTaskUsage",
     "InMemoryBackgroundTaskStore",
     "ProgressCallback",
+    "background_task_quota_usage",
+    "enforce_background_task_quota",
 ]

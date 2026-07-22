@@ -12,14 +12,22 @@ _FORBIDDEN_CAPABILITIES = frozenset(
         "create_schedule",
         "cancel_schedule",
         "activate_break_glass",
+        "approve_action",
         "run_runbook",
         "simulate_change",
         "submit_action",
         "propose_action",
+        "execute_action",
+        "execute_shell",
+        "shell",
+        "arbitrary_query",
+        "query_arbitrary",
         "write_memory",
         "create_memory",
         "clarify",
         "spawn_worker",
+        "nested_worker",
+        "delegate_worker",
     }
 )
 

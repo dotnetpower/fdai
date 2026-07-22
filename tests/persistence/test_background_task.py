@@ -19,6 +19,8 @@ from fdai.core.background_task import (
     BackgroundTaskKind,
     BackgroundTaskOrigin,
     BackgroundTaskProgress,
+    BackgroundTaskQuotaExceededError,
+    BackgroundTaskQuotaPolicy,
     BackgroundTaskResult,
     BackgroundTaskStatus,
     BackgroundTaskStore,
@@ -138,6 +140,32 @@ async def test_two_postgres_stores_claim_one_attempt_exactly_once(
     claimed = next(claim for claim in claims if claim is not None)
     assert claimed.status is BackgroundTaskStatus.CLAIMED
     assert claimed.revision == 2
+
+
+@pytest.mark.integration
+async def test_two_postgres_stores_enforce_owner_quota_atomically(
+    database_url: str,
+) -> None:
+    owner = f"{_OWNER_PREFIX}quota-{uuid.uuid4().hex}"
+    first_task = _task(f"background-quota-a-{uuid.uuid4().hex}", owner=owner)
+    second_task = _task(f"background-quota-b-{uuid.uuid4().hex}", owner=owner)
+    first = _store(database_url)
+    second = _store(database_url)
+    policy = BackgroundTaskQuotaPolicy(max_active_tasks=1)
+
+    outcomes = await asyncio.gather(
+        first.create(first_task, quota=policy),
+        second.create(second_task, quota=policy),
+        return_exceptions=True,
+    )
+
+    assert sum(isinstance(item, tuple) for item in outcomes) == 1
+    assert sum(isinstance(item, BackgroundTaskQuotaExceededError) for item in outcomes) == 1
+    stored_task = first_task if isinstance(outcomes[0], tuple) else second_task
+    store = first if stored_task is first_task else second
+    retried, created = await store.create(stored_task, quota=policy)
+    assert created is False
+    assert retried.task == stored_task
 
 
 @pytest.mark.integration

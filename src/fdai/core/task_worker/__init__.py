@@ -20,6 +20,11 @@ from fdai.core.task_worker.models import (
     isolated_context,
 )
 from fdai.core.task_worker.planning_executor import AnswerPlanningTaskWorkerExecutor
+from fdai.core.task_worker.profiles import (
+    BACKGROUND_READ_ONLY_PROFILE,
+    TaskWorkerCapabilityProfile,
+    task_worker_profile,
+)
 from fdai.core.task_worker.runtime import (
     TaskWorkerCancellationError,
     TaskWorkerCompletionSink,
@@ -45,10 +50,12 @@ from fdai.core.task_worker.tools import (
 )
 
 __all__ = [
+    "BACKGROUND_READ_ONLY_PROFILE",
     "TERMINAL_WORKER_STATUSES",
     "AttenuatedCapabilities",
     "AnswerPlanningTaskWorkerExecutor",
     "TaskWorkerBudget",
+    "TaskWorkerCapabilityProfile",
     "TaskWorkerContext",
     "TaskWorkerEvent",
     "TaskWorkerOutput",
@@ -75,5 +82,6 @@ __all__ = [
     "forbidden_worker_capabilities",
     "isolated_context",
     "synthesize_task_worker_results",
+    "task_worker_profile",
     "TaskWorkerCompletionSink",
 ]

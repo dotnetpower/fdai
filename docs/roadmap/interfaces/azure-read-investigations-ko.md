@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 7139f8e9513574b187394552c932ce1074944d8e
+translation_source_sha: 398964d2660d4b65451c048e4a8e1f74d1892fc0
 translation_revised: 2026-07-22
 ---
 
@@ -53,18 +53,18 @@ Operator 질문은 `object.event`로 publish하지 않습니다. 해당 topic은
 execution processing으로 들어갑니다. Detached investigation은 optional wake signal을 내보내기 전에
 task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 delivery hint일 뿐입니다.
 
-## 기존 구현 기준선
+## 구현 상태
 
-| Capability | 현재 상태 | 필요한 작업 |
-|------------|-----------|-------------|
-| Bragi responder registration 및 Heimdall question domain | 구현됨 | 영어와 한국어의 actor, shutdown 및 resource-history 표현에 대한 deterministic routing을 확장합니다. |
-| Azure inventory 및 VM state | 구현됨 | Bare resource name에 대한 exact resource resolution 및 ambiguity 처리를 추가합니다. |
-| Direct Activity Log recovery adapter | Inventory continuity 용도로 구현됨 | Operation, caller, time, status 및 correlation field를 유지하는 on-demand read projection을 추가합니다. |
-| Typed Azure CLI read broker | Resource, group, VM list 및 VM state command에 구현됨 | REST transport가 query를 충족하지 못할 때만 registered ARG 및 Activity Log plan을 추가합니다. |
-| Task-worker capability attenuation | 구현됨 | Azure read tool을 server-owned `background.read-only` profile에 등록합니다. |
-| Durable task state, lease, timeout, cancellation 및 progress SSE | 구현됨 | Narrator-only executor를 attenuated tool-capable investigation executor로 교체합니다. |
-| Command duration 및 task 시작/완료 timestamp | 부분 구현됨 | Provider-neutral tool receipt, durable latency profile 및 ETA policy를 추가합니다. |
-| Completion handoff | Conversation append 구현됨 | Process loss 후 origin-channel delivery를 위해 durable reply-ledger enqueue를 완료합니다. |
+| Capability | 현재 상태 | 근거 |
+|------------|-----------|------|
+| Bragi 및 Heimdall routing | 구현됨 | Deterministic 영어 및 한국어 actor, shutdown, history, health, state routing이 generic scoring 전에 Heimdall을 선택합니다. |
+| Exact resource resolution | 구현됨 | `not_found`, bounded `ambiguous`, scope-bound exact reference가 resolution 성공 전 history query를 중지합니다. |
+| Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log를 지원합니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
+| Read-tool attenuation | 구현됨 | `background.read-only`는 Reader tool 5개만 포함하고 mutation, approval, shell, arbitrary-query, nested-worker capability를 차단합니다. |
+| Execution mode 및 progress | 구현됨 | Durable p50/p95 profile이 cloud I/O 전에 direct, streamed, detached mode를 선택합니다. Semantic progress는 제한되며 terminal event는 하나입니다. |
+| Detached execution 및 quota | 구현됨 | Typed executor는 narrator history, screen state, event bus, Thor, executor identity를 받지 않습니다. Per-principal concurrency, cost, wall-clock, tool-call quota는 durable creation에서 적용됩니다. |
+| Completion handoff | 구현됨 | Terminal result commit 후 idempotent conversation turn과 durable reply-ledger enqueue가 이어집니다. Provider delivery는 별도의 retryable concern으로 남습니다. |
+| Live Azure scenario evidence | 일부 검증됨 | Caller attribution, Resource Health, unauthorized scope 및 ambiguous name은 read-only live validation을 통과했습니다. Guest-event match와 실제 provider `429`는 release evidence gap으로 남습니다. |
 
 ## Investigation request 및 plan
 
@@ -213,10 +213,15 @@ Azure read는 configured resource group으로 scope가 제한된 dedicated `azur
 Identity에 실수로 더 넓은 permission이 있더라도 provider adapter는 resolved scope 밖의 resource를
 거부합니다.
 
-현재 detached-task API는 Contributor `author-draft-pr` capability를 사용합니다. Automatic read-only
-investigation은 per-principal concurrency, daily cost, tool-call 및 wall-clock quota가 있는 별도
-`start-read-investigation` capability를 사용하는 것이 좋습니다. Deployment는 read investigation을 PR
-authoring과 혼동하지 않고 이 capability를 받을 operator role을 결정할 수 있습니다.
+Production은 `FDAI_AZURE_READER_SUBSCRIPTION_ID`, `FDAI_AZURE_READER_CLIENT_ID`, 비어 있지 않은
+comma-separated `FDAI_AZURE_READER_RESOURCE_GROUPS` allowlist가 모두 있을 때만 route를 등록합니다.
+`FDAI_MONITOR_WORKSPACE_ID`는 optional이며, 없으면 다른 source는 계속 사용할 수 있지만 guest shutdown
+evidence는 `unavailable`을 반환합니다.
+
+Detached-task API는 별도의 `start-read-investigation` capability를 사용합니다. Contributor, Approver,
+Owner role은 이 capability를 받으며 Reader와 Break-Glass는 받지 않습니다. Per-principal concurrency,
+daily reserved 또는 measured cost, tool-call, wall-clock quota는 durable task creation에서 원자적으로
+적용되며 PR-authoring authority와 분리됩니다.
 
 Audit record에는 requester, intent, selected tool, scope digest, task 또는 request id, duration, terminal
 status, evidence reference 및 delivery outcome이 포함됩니다. Bearer token, raw claim, raw CLI output,
@@ -229,6 +234,8 @@ prompt 및 unredacted caller payload는 제외합니다.
 - **Unauthorized scope:** Unavailable을 보고하고 denied provider operation class를 기록합니다.
 - **Provider throttling:** 원래 timeout 안에서 bounded retry와 jitter를 적용하며 scope 또는 wall-clock
   budget을 확장하지 않습니다.
+- **Retention 부족:** 요청한 Activity Log lookback이 기본 90일인 adapter configured retention을 넘으면
+  cloud I/O 전에 `unavailable`을 반환합니다.
 - **Partial evidence:** 지원되는 fact를 반환하고 누락된 source를 명시합니다.
 - **Process loss:** 만료된 running attempt를 `unknown(process_lost)`로 표시하며 자동 replay하지
   않습니다.
@@ -237,17 +244,36 @@ prompt 및 unredacted caller payload는 제외합니다.
 - **Evidence의 prompt injection:** Provider string을 data로 취급하고 tool, scope, authorization 또는
   execution mode를 변경하려는 output을 차단합니다.
 
-## 구현 순서
+## 구현 순서 및 release gate
 
-1. Provider-neutral resource resolution, activity, health 및 guest-log contract를 추가합니다.
-2. Deterministic fixture와 함께 typed tool 및 normalized evidence projection을 추가합니다.
-3. Delivery code를 agent에 import하지 않고 Bragi routing 및 Heimdall composition을 확장합니다.
-4. Direct 및 streamed path를 구현하고 Thor와 mutation bus가 사용되지 않음을 증명합니다.
-5. `ToolCallReceipt`, durable latency profile 및 configuration-driven execution policy를 추가합니다.
-6. Narrator-only background executor를 attenuated tool-capable executor로 교체합니다.
-7. Progress rendering 및 durable origin-channel completion delivery를 완료합니다.
-8. Capability를 default로 활성화하기 전에 caller attribution, guest shutdown, Resource Health,
-   throttling 및 retention 부족 사례를 live Azure에서 검증합니다.
+1. Provider-neutral contract, typed tool, normalized evidence 및 bilingual routing이 구현되었습니다.
+2. Direct, streamed, detached execution, durable receipt 및 latency profile, quota, semantic progress,
+  origin-channel completion enqueue가 구현되었습니다.
+3. Structural test는 이 경로가 executor를 import하지 않고 Thor를 참조하지 않으며 `object.event`를
+  publish하지 않음을 증명합니다.
+4. Read-only live validation은 caller attribution, Resource Health, unauthorized scope 및 ambiguous
+  name을 검증했습니다. Dedicated validation environment가 retained guest shutdown event와 자연스럽게
+  발생한 provider `429`를 제공할 때까지 capability는 configuration-gated 상태를 유지합니다.
+
+## Release evidence
+
+Live check는 existing resource와 reader credential을 사용합니다. Azure resource를 create, update,
+start, stop 또는 delete하지 않습니다. Live subscription에서 안전하게 유도할 수 없는 failure path는
+customer-neutral synthetic payload를 사용하는 repository test로 검증합니다.
+
+| Scenario | Evidence class | 결과 |
+|----------|----------------|------|
+| Successful caller attribution | Live | 통과했습니다. Exact resolution 및 projected Activity Log read가 user와 service-principal actor를 match했으며 opaque actor 및 correlation reference만 유지했습니다. |
+| Resource Health | Live | 통과했습니다. 비어 있는 ARG projection이 current Resource Health REST endpoint로 fallback하여 normalized availability evidence를 반환했습니다. |
+| Unauthorized scope | Live | 통과했습니다. 접근할 수 없는 scope가 failed bounded receipt와 함께 `unavailable`로 변환되었습니다. |
+| Ambiguous resource name | Live | 통과했습니다. Duplicate name 하나가 bounded candidate 4개, exact resource binding 없음 및 history query 없음으로 반환되었습니다. |
+| Guest OS shutdown | Live 및 contract | 완료되지 않았습니다. 접근 가능한 workspace 16개에는 available history 전체에서 retained Event 또는 Syslog shutdown record가 없었습니다. Live missing-workspace behavior는 `unavailable`을 반환했고 matched Event 및 Syslog normalization은 contract test만 통과했습니다. |
+| Provider throttling | Contract | 동작은 통과했습니다. Synthetic `429` response가 bounded retry 및 terminal failure를 검증했습니다. Deliberate throttling은 bounded-read policy를 위반하므로 실제 live `429`는 유도하지 않았습니다. |
+| Retention 부족 | Contract | 통과했습니다. Configured Activity Log retention을 넘는 lookback은 HTTP 전에 실패하고 provider boundary에서 unavailable로 normalize됩니다. |
+
+완료되지 않은 guest-event row와 자연스럽게 발생한 live `429` 부재는 implementation defect가 아니라
+release evidence로 남습니다. Dedicated validation environment가 Azure 변경 없이 해당 observation을
+제공할 때까지 issue를 open 상태로 유지합니다.
 
 ## 검증
 
@@ -260,8 +286,8 @@ prompt 및 unredacted caller payload는 제외합니다.
   milestone 및 cross-replica persistence를 검증합니다.
 - Background test가 lease contention, cancellation, timeout, process loss, progress cap, terminal
   immutability 및 durable reply handoff를 검증합니다.
-- Live Azure test가 resource mutation 없이 Activity Log caller attribution과 정직한 guest-log 및 Resource
-  Health fallback을 검증합니다.
+- Live Azure check가 resource mutation 없이 Activity Log caller attribution, Resource Health fallback,
+  unauthorized scope, ambiguous name 및 정직한 guest-log absence를 검증합니다.
 
 ## 관련 문서
 

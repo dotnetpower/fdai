@@ -45,7 +45,7 @@ from fdai.agents._framework.pantheon import HARD_DEPENDENCY_AGENTS, PANTHEON_NAM
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
 from fdai.agents.bragi import Bragi, Turn
 from fdai.agents.forseti import Forseti
-from fdai.agents.heimdall import Heimdall, IncidentCandidateHook
+from fdai.agents.heimdall import Heimdall, IncidentCandidateHook, ReadInvestigationHook
 from fdai.agents.huginn import DiscoveryProjector, Huginn
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga, compute_fingerprint
@@ -101,6 +101,7 @@ class PantheonRuntime:
         rollback_executors: dict[str, RollbackExecutor] | None = None,
         operator_rbac: dict[str, frozenset[str]] | None = None,
         incident_candidate_hook: IncidentCandidateHook | None = None,
+        read_investigation_hook: ReadInvestigationHook | None = None,
         discovery_projector: DiscoveryProjector | None = None,
         scenario_coverage_aggregator: ScenarioCoverageAggregator | None = None,
         post_turn_review: PostTurnReviewCoordinator | None = None,
@@ -190,6 +191,8 @@ class PantheonRuntime:
         if rollback_executors is not None:
             instantiated["Vidar"] = Vidar(executors=rollback_executors)
         heimdall = instantiated["Heimdall"]
+        if read_investigation_hook is not None and isinstance(heimdall, Heimdall):
+            heimdall.register_read_investigation(read_investigation_hook)
         norns = instantiated["Norns"]
         if (
             (incident_candidate_hook is not None or scenario_coverage_aggregator is not None)

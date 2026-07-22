@@ -72,6 +72,11 @@ Clarification, memory, schedule, approval, action proposal, governance, mutation
 delegation, and nested-worker capabilities are always denied before dispatch. A model request
 cannot widen this intersection.
 
+The detached `background.read-only` profile contains exactly `resolve_resource`,
+`get_resource_state`, `query_resource_activity`, `query_resource_health`, and
+`query_guest_shutdown_events`. Shell and arbitrary-query capabilities remain denied even if a
+registry entry is accidentally labeled `read`.
+
 ## Lifecycle and budgets
 
 The runtime uses these states:

@@ -63,6 +63,10 @@ import httpx
 from starlette.applications import Starlette
 
 from fdai.agents import OWNED_OBJECT_TOPICS
+from fdai.core.conversation.outbound_delivery import (
+    DurableOutboundDeliveryConfig,
+    DurableOutboundDeliveryCoordinator,
+)
 from fdai.core.rbac.access_request import AccessRequestService
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
@@ -77,6 +81,10 @@ from fdai.delivery.persistence.postgres_conversation_delivery import (
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventoryGraphProvider,
     PostgresInventorySnapshotStoreConfig,
+)
+from fdai.delivery.persistence.postgres_principal_binding import (
+    PostgresPrincipalConversationBindingStore,
+    PostgresPrincipalConversationBindingStoreConfig,
 )
 from fdai.delivery.persistence.postgres_scheduler_store import (
     PostgresScheduleStore,
@@ -428,17 +436,136 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             await log_query_http.aclose()
 
         shutdown_callbacks = (*shutdown_callbacks, _close_log_query_http)
+    conversation_delivery_store = PostgresConversationDeliveryStore(
+        config=PostgresConversationDeliveryStoreConfig(
+            dsn=read_model._config.dsn,
+            statement_timeout_ms=read_model._config.statement_timeout_ms,
+            connect_timeout_s=read_model._config.connect_timeout_s,
+        )
+    )
+    principal_binding_store = PostgresPrincipalConversationBindingStore(
+        config=PostgresPrincipalConversationBindingStoreConfig(
+            dsn=read_model._config.dsn,
+            statement_timeout_ms=read_model._config.statement_timeout_ms,
+            connect_timeout_s=read_model._config.connect_timeout_s,
+        )
+    )
+    background_outbound_delivery = DurableOutboundDeliveryCoordinator(
+        store=conversation_delivery_store,
+        channels={},
+        config=DurableOutboundDeliveryConfig(
+            worker_id=env.get("HOSTNAME", "fdai-background-delivery").strip()
+            or "fdai-background-delivery"
+        ),
+    )
+    background_executor = None
+    read_investigation_service = None
+    read_latency_store = None
+    reader_scope_ref = None
+    reader_subscription = env.get("FDAI_AZURE_READER_SUBSCRIPTION_ID", "").strip()
+    reader_client_id = env.get("FDAI_AZURE_READER_CLIENT_ID", "").strip()
+    reader_resource_groups = tuple(
+        dict.fromkeys(
+            value.strip()
+            for value in env.get("FDAI_AZURE_READER_RESOURCE_GROUPS", "").split(",")
+            if value.strip()
+        )
+    )
+    if reader_subscription and reader_client_id and reader_resource_groups:
+        from fdai.core.read_investigation import ReadInvestigationService
+        from fdai.delivery.azure.read_investigation import (
+            AzureReadRestConfig,
+            AzureReadScopeBinding,
+            AzureRestReadInvestigationAdapter,
+            AzureRestReadTransport,
+        )
+        from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+        from fdai.delivery.persistence import StateStoreReadLatencyProfileStore
+        from fdai.delivery.read_api.routes.background_executor import (
+            ReadInvestigationBackgroundTaskExecutor,
+            ServerOwnedReadInvestigationRequestFactory,
+        )
+
+        reader_scope_ref = "azure-reader-default"
+        reader_http = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=35.0, write=10.0, pool=5.0)
+        )
+        reader_identity = ManagedIdentityWorkloadIdentity.from_env(
+            http_client=reader_http,
+            env=env,
+            client_id_env="FDAI_AZURE_READER_CLIENT_ID",
+        )
+        reader_transport = AzureRestReadTransport(
+            config=AzureReadRestConfig(
+                scopes=(
+                    AzureReadScopeBinding(
+                        scope_ref=reader_scope_ref,
+                        subscription_id=reader_subscription,
+                        resource_groups=reader_resource_groups,
+                        workspace_id=env.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() or None,
+                    ),
+                ),
+                resource_type_map=(("Microsoft.Compute/virtualMachines", "compute.vm"),),
+            ),
+            identity=reader_identity,
+            http_client=reader_http,
+        )
+        read_latency_store = StateStoreReadLatencyProfileStore(store=state_store)
+        read_investigation_service = ReadInvestigationService(
+            AzureRestReadInvestigationAdapter(reader_transport),
+            latency_store=read_latency_store,
+        )
+        background_executor = ReadInvestigationBackgroundTaskExecutor(
+            service=read_investigation_service,
+            request_factory=ServerOwnedReadInvestigationRequestFactory(scope_ref=reader_scope_ref),
+        )
+
+        async def _close_reader_http() -> None:
+            await reader_http.aclose()
+
+        shutdown_callbacks = (*shutdown_callbacks, _close_reader_http)
     background_runtime = build_background_task_runtime(
-        chat=chat,
+        executor=background_executor,
         state_store=state_store,
         conversation_history=conversation_history_store,
         dsn=read_model._config.dsn,
         statement_timeout_ms=read_model._config.statement_timeout_ms,
         connect_timeout_s=read_model._config.connect_timeout_s,
         env=env,
+        outbound_delivery=background_outbound_delivery,
+        binding_store=principal_binding_store,
     )
     if background_runtime is not None:
         shutdown_callbacks = (*shutdown_callbacks, background_runtime.coordinator.shutdown)
+    read_investigation_routes = None
+    read_investigation_chat_delegate = None
+    if (
+        background_runtime is not None
+        and read_investigation_service is not None
+        and read_latency_store is not None
+        and reader_scope_ref is not None
+    ):
+        from fdai.delivery.read_api.routes.read_investigation_responder import (
+            HeimdallReadInvestigationChatDelegate,
+            HeimdallReadInvestigationResponder,
+        )
+        from fdai.delivery.read_api.routes.read_investigations import (
+            ReadInvestigationRoutesConfig,
+        )
+
+        read_investigation_routes = ReadInvestigationRoutesConfig(
+            service=read_investigation_service,
+            latency_store=read_latency_store,
+            background=background_runtime.routes,
+            scope_ref=reader_scope_ref,
+        )
+        read_investigation_chat_delegate = HeimdallReadInvestigationChatDelegate(
+            responder=HeimdallReadInvestigationResponder(
+                service=read_investigation_service,
+                latency_store=read_latency_store,
+                scope_ref=reader_scope_ref,
+            )
+        )
     busy_input_runtime = (
         build_postgres_busy_input_runtime(
             dsn=read_model._config.dsn,
@@ -475,16 +602,11 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         model_settings=model_settings,
         python_tasks=python_tasks,
         chat=chat,
+        chat_agent_delegate=read_investigation_chat_delegate,
         skill_disclosure=skill_runtime.disclosure,
         skill_sources=skill_sources.routes,
         busy_input_runtime=busy_input_runtime,
-        conversation_delivery_store=PostgresConversationDeliveryStore(
-            config=PostgresConversationDeliveryStoreConfig(
-                dsn=read_model._config.dsn,
-                statement_timeout_ms=read_model._config.statement_timeout_ms,
-                connect_timeout_s=read_model._config.connect_timeout_s,
-            )
-        ),
+        conversation_delivery_store=conversation_delivery_store,
         chat_web_search=chat_web_search,
         chat_probe_interval_seconds=_parse_positive_int(
             env,
@@ -504,6 +626,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             )
         ),
         background_tasks=(background_runtime.routes if background_runtime is not None else None),
+        read_investigations=read_investigation_routes,
         extra_panels=(
             *build_production_panels(
                 read_model=read_model,

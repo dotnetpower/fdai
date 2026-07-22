@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 83bef864b5e25adc7d708cce58d219d8a5e1994b
-translation_revised: 2026-07-21
+translation_source_sha: bf310d943d752b06497017b497102ad84f7a8964
+translation_revised: 2026-07-22
 ---
 # 코드 맵
 
@@ -76,6 +76,7 @@ shared 패키지를 커버한다.
 | trajectory | Authorization-first immutable source join, versioned observable envelope, deterministic JSONL export, offline validation/replay, retention/legal hold, reviewed-only Norns aggregate intake ([설계](../interfaces/governed-trajectory-datasets-ko.md)) | [src/fdai/core/trajectory/](../../../src/fdai/core/trajectory/) 및 [src/fdai/shared/providers/trajectory.py](../../../src/fdai/shared/providers/trajectory.py) | [tests/core/trajectory/](../../../tests/core/trajectory/), [tests/delivery/trajectory/](../../../tests/delivery/trajectory/), focused API/persistence/agent test |
 | task_worker | 축소된 capability, 영구 branch state, 신뢰되지 않은 parent synthesis를 사용하는 격리된 depth-one 읽기 전용 조사 ([설계](../agents/bounded-task-workers-ko.md)) | [src/fdai/core/task_worker/](../../../src/fdai/core/task_worker/) | [tests/core/task_worker/](../../../tests/core/task_worker/) |
 | background_task | Lease/CAS ownership, coalesced progress, 정직한 process-loss state, completion handoff를 사용하는 영구 detached 읽기 전용 session ([설계](../interfaces/background-task-sessions-ko.md)) | [src/fdai/core/background_task/](../../../src/fdai/core/background_task/) | [tests/core/background_task/](../../../tests/core/background_task/) |
+| read_investigation | Exact-resource-first Azure read planning, normalized evidence, durable latency profile, direct/streamed/detached policy ([설계](../interfaces/azure-read-investigations-ko.md)) | [src/fdai/core/read_investigation/](../../../src/fdai/core/read_investigation/) 및 [src/fdai/shared/providers/read_investigation.py](../../../src/fdai/shared/providers/read_investigation.py) | [tests/core/read_investigation/](../../../tests/core/read_investigation/), [tests/delivery/azure/read_investigation/](../../../tests/delivery/azure/read_investigation/), focused read API/persistence test |
 | briefing | Report feed 기반 결정적 opening 및 scheduled briefing | [src/fdai/core/briefing/](../../../src/fdai/core/briefing/) | [tests/core/briefing/](../../../tests/core/briefing/) |
 | busy_input | Web, Slack, Teams conversation이 공유하는 영구 queue, interrupt, safe-boundary steer arbitration ([설계](../interfaces/busy-input-modes-ko.md)) | [src/fdai/core/conversation/](../../../src/fdai/core/conversation/) | [tests/conversation/](../../../tests/conversation/) |
 | durable_delivery | Verified principal binding, persisted outbound response, bounded recovery 및 adapter breaker ([설계](../interfaces/durable-conversation-delivery-ko.md)) | [src/fdai/core/conversation/](../../../src/fdai/core/conversation/) | [tests/conversation/](../../../tests/conversation/) 및 [tests/persistence/](../../../tests/persistence/) |

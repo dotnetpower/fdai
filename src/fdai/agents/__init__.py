@@ -29,6 +29,8 @@ from fdai.agents._framework.topics import (
     topic_for_object_type,
 )
 from fdai.agents._framework.workflows import WORKFLOWS, WorkflowSpec
+from fdai.agents.bragi import Bragi
+from fdai.agents.heimdall import Heimdall
 from fdai.agents.norns import Norns
 
 __all__ = [
@@ -36,6 +38,8 @@ __all__ = [
     "AgentHandlerObserver",
     "AgentHandlerPhase",
     "AgentSpec",
+    "Bragi",
+    "Heimdall",
     "Layer",
     "Norns",
     "PantheonBus",

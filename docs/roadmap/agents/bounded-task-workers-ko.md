@@ -2,8 +2,8 @@
 title: 제한된 작업 워커
 translation_of: bounded-task-workers.md
 translation_source: docs/roadmap/agents/bounded-task-workers.md
-translation_source_sha: 26996649799cc167398263a0e59f9e7d4b6e8574
-translation_revised: 2026-07-20
+translation_source_sha: bdcd4fd3fe946951aae5cdeafa088e599f4c5331
+translation_revised: 2026-07-22
 ---
 
 # 제한된 작업 워커
@@ -75,6 +75,10 @@ provider 에이전트의 identity 또는 권한을 상속하지 않습니다.
 Clarification, memory, schedule, approval, action proposal, governance, mutation, execution,
 delegation, nested-worker capability는 dispatch 전에 항상 차단됩니다. 모델 요청은 이 교집합을
 확장할 수 없습니다.
+
+Detached `background.read-only` profile은 정확히 `resolve_resource`, `get_resource_state`,
+`query_resource_activity`, `query_resource_health`, `query_guest_shutdown_events`를 포함합니다.
+Registry entry가 실수로 `read` label을 가져도 shell 및 arbitrary-query capability는 계속 차단됩니다.
 
 ## 수명 주기 및 예산
 

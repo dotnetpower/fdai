@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 7e5e162892b41b138c848b487a396a44e43fe769
+translation_source_sha: 4f83c60cdb8b3b83f6f3c074a5d05c8cc3efb8f0
 translation_revised: 2026-07-22
 ---
 
@@ -104,6 +104,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 22a | [bounded-task-workers-ko.md](agents/bounded-task-workers-ko.md) | 고정 Pantheon 밖의 격리된 depth-one 읽기 전용 조사: capability 축소, 제한된 lifecycle, 영구 branch record, 신뢰되지 않은 parent synthesis, GET-only projection |
 | 22b | [background-task-sessions-ko.md](interfaces/background-task-sessions-ko.md) | 영구 detached operator 조사: 즉시 생성, lease/CAS ownership, 제한된 progress, process-loss reconciliation, conversation handoff, delivery 경계 |
 | 22c | [busy-input-modes-ko.md](interfaces/busy-input-modes-ko.md) | active web, Slack, Teams conversation을 위한 channel-neutral 영구 queue, interrupt, safe-boundary steer mode |
+| 22d | [azure-read-investigations-ko.md](interfaces/azure-read-investigations-ko.md) | Exact resource resolution, typed Azure read evidence, 측정 기반 direct/streamed/detached execution, dedicated reader identity, quota, durable completion delivery |
 | 23 | [agent-workflows-ko.md](agents/agent-workflows-ko.md) | 판테온이 제품 capability 로 조합하는 12개 cross-agent 워크플로우: cost-aware remediation, predictive scale, DR drill orchestration, override -> discovery, security escalation, handoff -> capability, agent health degradation, judgment coherence audit, rollback rehearsal, retrospective what-if, operational readiness handoff, scheduled governed Python task. 각 워크플로우는 trigger + sequence diagram + exit criteria + promotion gate 보유 |
 | 23b | [process-automation-ko.md](decisioning/process-automation-ko.md) | agent-workflows.md 의 머신-리더블 대응물: Workflow 카탈로그 스키마 (`rule-catalog/workflows/` 아래 catalog-as-code), `Process` ObjectType + `targets` / `advances` LinkType, compile-to-Runbook 컨트롤 루프 배선, saga 보상, shadow-first 거버넌스. 비즈니스 프로세스는 trust-router 가 한 번에 하나씩 dispatch 하는 `ActionType` 스텝의 순서 리스트다 |
 | 23c | [customer-workflow-automation-plan-ko.md](decisioning/customer-workflow-automation-plan-ko.md) | 도입 조직용 제공 계획: 준비도 기준선, 6개 rollout wave, 고객 adapter 경계, 승인 및 복구 작업, 동작 simulation, 승격 근거, 검증 matrix 및 production 완료 기준 |

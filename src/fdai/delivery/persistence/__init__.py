@@ -167,6 +167,11 @@ from fdai.delivery.persistence.postgres_workflow_definition import (
     PostgresWorkflowDefinitionStore,
     PostgresWorkflowDefinitionStoreConfig,
 )
+from fdai.delivery.persistence.read_investigation_latency import (
+    ReadLatencyStoreConflictError,
+    StateStoreReadLatencyConfig,
+    StateStoreReadLatencyProfileStore,
+)
 from fdai.delivery.persistence.state_store_action_promotion import (
     StateStoreActionPromotionRegistry,
 )
@@ -183,6 +188,9 @@ __all__ = [
     "PostgresAdvisoryResourceLockConfig",
     "PostgresBackgroundTaskStore",
     "PostgresBackgroundTaskStoreConfig",
+    "ReadLatencyStoreConflictError",
+    "StateStoreReadLatencyConfig",
+    "StateStoreReadLatencyProfileStore",
     "PostgresAutomationBlueprintStore",
     "PostgresAutomationBlueprintStoreConfig",
     "PostgresBusyInputStore",

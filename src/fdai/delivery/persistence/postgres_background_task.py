@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 import psycopg
@@ -22,9 +22,12 @@ from fdai.core.background_task import (
     BackgroundTaskLease,
     BackgroundTaskOrigin,
     BackgroundTaskProgress,
+    BackgroundTaskQuotaPolicy,
+    BackgroundTaskQuotaUsage,
     BackgroundTaskResult,
     BackgroundTaskStatus,
     BackgroundTaskUsage,
+    enforce_background_task_quota,
 )
 
 _ATTEMPT_COLUMNS: Final = (
@@ -53,54 +56,110 @@ class PostgresBackgroundTaskStore:
     def __init__(self, *, config: PostgresBackgroundTaskStoreConfig) -> None:
         self._config = config
 
-    async def create(self, task: BackgroundTask) -> tuple[BackgroundTaskAttempt, bool]:
+    async def create(
+        self,
+        task: BackgroundTask,
+        *,
+        quota: BackgroundTaskQuotaPolicy | None = None,
+    ) -> tuple[BackgroundTaskAttempt, bool]:
         attempt_id = f"{task.task_id}:1"
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
-            cursor = await connection.execute(
-                "INSERT INTO background_task_attempt ("
-                f"{_ATTEMPT_COLUMNS}) VALUES ("
-                "%s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s, "
-                "%s, %s, %s, %s::jsonb, %s::jsonb, %s) "
-                "ON CONFLICT DO NOTHING "
-                f"RETURNING {_ATTEMPT_COLUMNS}",
-                (
-                    attempt_id,
-                    task.task_id,
-                    task.owner_principal_id,
-                    task.idempotency_key,
-                    json.dumps(_task_to_dict(task)),
-                    1,
-                    BackgroundTaskStatus.QUEUED.value,
-                    1,
-                    task.created_at,
-                    task.retention_until,
-                    task.created_at,
-                    task.budget.max_progress_events,
-                    None,
-                    None,
-                    None,
-                    json.dumps(_usage_to_dict(BackgroundTaskUsage())),
-                    None,
-                    None,
-                ),
-            )
-            row = await cursor.fetchone()
-            created = row is not None
-            if row is None:
-                existing = await connection.execute(
-                    f"SELECT {_ATTEMPT_COLUMNS} FROM background_task_attempt "
-                    "WHERE task_id = %s OR "
-                    "(owner_principal_id = %s AND idempotency_key = %s) "
-                    "FOR UPDATE",
-                    (task.task_id, task.owner_principal_id, task.idempotency_key),
+            if quota is not None:
+                await connection.execute(
+                    "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                    (task.owner_principal_id,),
                 )
-                rows = await existing.fetchall()
-                if len(rows) != 1:
+            existing = await connection.execute(
+                f"SELECT {_ATTEMPT_COLUMNS} FROM background_task_attempt "
+                "WHERE task_id = %s OR "
+                "(owner_principal_id = %s AND idempotency_key = %s) "
+                "FOR UPDATE",
+                (task.task_id, task.owner_principal_id, task.idempotency_key),
+            )
+            rows = await existing.fetchall()
+            if len(rows) > 1:
+                raise BackgroundTaskConflictError("background task id or idempotency key conflict")
+            if rows:
+                row = rows[0]
+                created = False
+            else:
+                if quota is not None:
+                    day_start = task.created_at.astimezone(UTC).replace(
+                        hour=0,
+                        minute=0,
+                        second=0,
+                        microsecond=0,
+                    )
+                    active = [
+                        BackgroundTaskStatus.QUEUED.value,
+                        BackgroundTaskStatus.CLAIMED.value,
+                        BackgroundTaskStatus.RUNNING.value,
+                    ]
+                    quota_cursor = await connection.execute(
+                        "SELECT "
+                        "COUNT(*) FILTER (WHERE status = ANY(%s)) AS active_tasks, "
+                        "COALESCE(SUM(CASE WHEN status = ANY(%s) THEN "
+                        "COALESCE((task->'budget'->>'max_cost_microusd')::bigint, 0) "
+                        "ELSE COALESCE((usage->>'cost_microusd')::bigint, 0) END), 0) "
+                        "AS daily_cost_microusd "
+                        "FROM background_task_attempt "
+                        "WHERE owner_principal_id = %s AND created_at >= %s "
+                        "AND created_at < %s",
+                        (
+                            active,
+                            active,
+                            task.owner_principal_id,
+                            day_start,
+                            day_start + timedelta(days=1),
+                        ),
+                    )
+                    quota_row = await quota_cursor.fetchone()
+                    if quota_row is None:
+                        raise RuntimeError("background task quota aggregate returned no row")
+                    enforce_background_task_quota(
+                        policy=quota,
+                        budget=task.budget,
+                        usage=BackgroundTaskQuotaUsage(
+                            active_tasks=int(quota_row["active_tasks"]),
+                            daily_cost_microusd=int(quota_row["daily_cost_microusd"]),
+                        ),
+                    )
+                cursor = await connection.execute(
+                    "INSERT INTO background_task_attempt ("
+                    f"{_ATTEMPT_COLUMNS}) VALUES ("
+                    "%s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s, "
+                    "%s, %s, %s, %s::jsonb, %s::jsonb, %s) "
+                    "ON CONFLICT DO NOTHING "
+                    f"RETURNING {_ATTEMPT_COLUMNS}",
+                    (
+                        attempt_id,
+                        task.task_id,
+                        task.owner_principal_id,
+                        task.idempotency_key,
+                        json.dumps(_task_to_dict(task)),
+                        1,
+                        BackgroundTaskStatus.QUEUED.value,
+                        1,
+                        task.created_at,
+                        task.retention_until,
+                        task.created_at,
+                        task.budget.max_progress_events,
+                        None,
+                        None,
+                        None,
+                        json.dumps(_usage_to_dict(BackgroundTaskUsage())),
+                        None,
+                        None,
+                    ),
+                )
+                inserted_row = await cursor.fetchone()
+                if inserted_row is None:
                     raise BackgroundTaskConflictError(
                         "background task id or idempotency key conflict"
                     )
-                row = rows[0]
+                row = inserted_row
+                created = True
         attempt = _attempt(row)
         if attempt.task != task:
             raise BackgroundTaskConflictError(
@@ -548,6 +607,7 @@ def _task_to_dict(task: BackgroundTask) -> dict[str, Any]:
             "channel_kind": task.origin.channel_kind,
             "channel_id": task.origin.channel_id,
             "thread_id": task.origin.thread_id,
+            "message_id": task.origin.message_id,
         },
         "kind": task.kind.value,
         "prompt": task.prompt,
@@ -572,6 +632,7 @@ def _task(raw: dict[str, Any]) -> BackgroundTask:
     origin = _mapping(raw["origin"])
     budget = _mapping(raw["budget"])
     thread_id = origin.get("thread_id")
+    message_id = origin.get("message_id")
     return BackgroundTask(
         task_id=str(raw["task_id"]),
         owner_principal_id=str(raw["owner_principal_id"]),
@@ -580,6 +641,7 @@ def _task(raw: dict[str, Any]) -> BackgroundTask:
             channel_kind=str(origin["channel_kind"]),
             channel_id=str(origin["channel_id"]),
             thread_id=str(thread_id) if thread_id is not None else None,
+            message_id=str(message_id) if message_id is not None else None,
         ),
         kind=BackgroundTaskKind(str(raw["kind"])),
         prompt=str(raw["prompt"]),

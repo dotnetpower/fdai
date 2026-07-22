@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 629d2a99855395447e98322d792d721e67d82386
+translation_source_sha: ea1b8987823535d28f8f98d8874db7ae88a97ec2
 translation_revised: 2026-07-22
 ---
 
@@ -48,7 +48,7 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | # | 롤 | Entra 보안 그룹 | 유사 | 가능 |
 |---|-----|----------------|------|------|
 | 1 | **Reader** | `aw-readers` | Azure Reader | 콘솔 조회: KPI 대시보드, 감사 로그, shadow 결과, HIL 큐 |
-| 2 | **Contributor** | `aw-contributors` | Azure Contributor | Reader + 규칙, 룰셋, 할당, exemption, override 초안 PR 작성 |
+| 2 | **Contributor** | `aw-contributors` | Azure Contributor | Reader + 초안 PR 작성 및 bounded read investigation 시작 |
 | 3 | **Approver** | `aw-approvers` | (Reviewer) | Reader + governance PR 리뷰/승인 + 런타임 HIL 요청 승인 + enforce 승격 / exemption / override 승인 (고위험은 quorum - §5 참조) |
 | 4 | **Owner** | `aw-owners` | Azure Owner | Approver + kill-switch 트리거 + Entra 그룹 멤버십 관리 + 인프라 IaC 적용 |
 | - | **Break-Glass** | `aw-break-glass` | (별도 비상 계정) | Console 조회, kill-switch, 비상 access grant capability만 가집니다. Runtime HIL 승인 capability는 없으며 Owner의 superset이 아닙니다. |
@@ -76,6 +76,7 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | 액션 | Reader | Contributor | Approver | Owner | Break-Glass |
 |------|:------:|:-----------:|:--------:|:-----:|:-----------:|
 | 콘솔 조회 | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Bounded read investigation 시작 | | ✓ | ✓ | ✓ | |
 | 규칙 / 룰셋 draft PR 작성 | | ✓ | ✓ | ✓ | |
 | 할당 / exemption / override draft PR 작성 | | ✓ | ✓ | ✓ | |
 | 표준 governance PR 리뷰 + 승인 | | | ✓ | ✓ | |

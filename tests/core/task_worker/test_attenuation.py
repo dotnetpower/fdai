@@ -6,11 +6,13 @@ from datetime import UTC, datetime
 import pytest
 
 from fdai.core.task_worker import (
+    BACKGROUND_READ_ONLY_PROFILE,
     TaskWorkerBudget,
     TaskWorkerRequest,
     attenuate_capabilities,
     isolated_context,
 )
+from fdai.shared.providers.read_investigation import ReadToolId
 
 
 def test_attenuation_never_widens_parent_or_profile() -> None:
@@ -37,7 +39,17 @@ def test_attenuation_never_widens_parent_or_profile() -> None:
 
 
 def test_mutation_and_nested_worker_capabilities_are_denied() -> None:
-    requested = frozenset({"query_audit", "write_memory", "create_schedule", "spawn_worker"})
+    requested = frozenset(
+        {
+            "query_audit",
+            "write_memory",
+            "create_schedule",
+            "spawn_worker",
+            "execute_shell",
+            "arbitrary_query",
+            "approve_action",
+        }
+    )
     result = attenuate_capabilities(
         requested=requested,
         parent_visible=requested,
@@ -46,7 +58,24 @@ def test_mutation_and_nested_worker_capabilities_are_denied() -> None:
     )
 
     assert result.allowed_tools == frozenset({"query_audit"})
-    assert result.denied_tools == ("create_schedule", "spawn_worker", "write_memory")
+    assert result.denied_tools == (
+        "approve_action",
+        "arbitrary_query",
+        "create_schedule",
+        "execute_shell",
+        "spawn_worker",
+        "write_memory",
+    )
+
+
+def test_background_read_only_profile_contains_exactly_five_investigation_tools() -> None:
+    assert BACKGROUND_READ_ONLY_PROFILE.profile_id == "background.read-only"
+    assert BACKGROUND_READ_ONLY_PROFILE.allowed_tools == frozenset(
+        tool.value for tool in ReadToolId
+    )
+    assert not BACKGROUND_READ_ONLY_PROFILE.allowed_tools.intersection(
+        {"submit_action", "approve_action", "execute_shell", "spawn_worker", "arbitrary_query"}
+    )
 
 
 def test_isolated_context_projects_no_parent_history_or_identity() -> None:

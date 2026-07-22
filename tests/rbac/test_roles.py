@@ -53,6 +53,7 @@ class TestCapabilityMatrix:
         contributor = ROLE_CAPABILITIES[Role.CONTRIBUTOR]
         assert ROLE_CAPABILITIES[Role.READER] <= contributor
         assert Capability.AUTHOR_DRAFT_PR in contributor
+        assert Capability.START_READ_INVESTIGATION in contributor
         # Contributor MUST NOT hold approver-tier caps.
         assert Capability.REVIEW_GOVERNANCE_PR not in contributor
         assert Capability.APPROVE_QUORUM_PROMOTION not in contributor
@@ -99,6 +100,7 @@ class TestCapabilityMatrix:
         )
         # Break-glass MUST NOT be able to author or approve governance PRs.
         assert Capability.AUTHOR_DRAFT_PR not in bg
+        assert Capability.START_READ_INVESTIGATION not in bg
         assert Capability.REVIEW_GOVERNANCE_PR not in bg
         assert Capability.APPROVE_QUORUM_PROMOTION not in bg
         # Break-glass MUST NOT manage group membership or apply IaC.

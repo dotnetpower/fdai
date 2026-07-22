@@ -43,6 +43,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 from uuid import UUID
@@ -190,6 +191,41 @@ class ToolCallReceipt:
 
     detail: str | None = None
     """Human-readable one-line summary for the audit log (no secrets)."""
+
+    tool_id: str | None = None
+    transport: str | None = None
+    operation_class: str | None = None
+    queue_duration_ms: int = 0
+    execution_duration_ms: int = 0
+    result_count: int = 0
+    truncated: bool = False
+    cache_status: str | None = None
+    recorded_at: datetime | None = None
+    trace_ref: str | None = None
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("tool_id", self.tool_id),
+            ("transport", self.transport),
+            ("operation_class", self.operation_class),
+            ("cache_status", self.cache_status),
+            ("trace_ref", self.trace_ref),
+        ):
+            if value is not None and (
+                not value.strip() or len(value) > 256 or any(ord(char) < 32 for char in value)
+            ):
+                raise ValueError(f"{name} MUST be a bounded identifier")
+        if (
+            min(
+                self.queue_duration_ms,
+                self.execution_duration_ms,
+                self.result_count,
+            )
+            < 0
+        ):
+            raise ValueError("tool receipt measurements MUST be non-negative")
+        if self.recorded_at is not None and self.recorded_at.tzinfo is None:
+            raise ValueError("tool receipt recorded_at MUST be timezone-aware")
 
 
 @runtime_checkable
