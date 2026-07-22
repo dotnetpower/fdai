@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 7413cd97bf7a22410d7ebb65bb525d5df7aa4526
+translation_source_sha: 3cd0ede02ab05c3ee3125c719a7029daa0781d52
 translation_revised: 2026-07-22
 ---
 
@@ -103,6 +103,9 @@ long-running operation은 `submitted` 상태로 유지되며
 executor만 원래 idempotency key를 통해 server-owned status URL을 조회할 수 있습니다.
 Stale pending claim은 계속 차단된 상태로 남지 않고 bounded timeout 이후 ETag compare-and-swap으로
 복구됩니다.
+동일한 plan을 반복하면 소비되지 않은 같은 receipt를 반환합니다. 소비되거나 만료된 plan은 새
+idempotency key가 필요합니다. ARM throttling은 최대 3회까지 bounded `Retry-After`를 따르며 mutation
+`5xx` response는 결과가 ambiguous할 수 있으므로 자동으로 반복하지 않습니다.
 
 동일한 read-investigation wiring은 applied subscription 및 resource group으로 bounded Azure
 subscription-health provider를 구성하므로, local 개발도 deployment와 동일한 Azure adapter를 통해

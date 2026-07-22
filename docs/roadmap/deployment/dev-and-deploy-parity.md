@@ -99,6 +99,9 @@ changed, expired, or replayed receipts fail before mutation. An ARM
 long-running operation remains `submitted`; only the executor can resolve its server-owned status
 URL through the original idempotency key. A stale pending claim is recovered with ETag
 compare-and-swap after its bounded timeout instead of remaining blocked indefinitely.
+Repeated identical plans return the same unconsumed receipt. A consumed or expired plan needs a
+new idempotency key. ARM throttling honors a bounded `Retry-After` for at most three attempts, while
+mutation `5xx` responses remain ambiguous and aren't automatically repeated.
 
 The same read-investigation wiring constructs the bounded Azure subscription-health provider from
 the applied subscription and resource groups, so local development answers subscription-health

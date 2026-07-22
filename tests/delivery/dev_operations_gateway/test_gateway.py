@@ -630,6 +630,85 @@ async def test_executor_plan_receipt_rejects_changed_safety_evidence() -> None:
     assert mutation_calls == 0
 
 
+async def test_executor_plan_receipt_rejects_another_operation() -> None:
+    ledger = _Ledger()
+    mutation_calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal mutation_calls
+        if request.method == "GET":
+            return httpx.Response(200, json={"status": "observed"})
+        mutation_calls += 1
+        return httpx.Response(500)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        gateway = OperationsGateway(
+            config=_config(),
+            reader_token_provider=_Tokens(),
+            executor_token_provider=_Tokens(),
+            http_client=client,
+            idempotency_ledger=ledger,
+        )
+        principal = GatewayPrincipal("principal-executor", frozenset())
+        arguments = {"resource_group": "rg-example", "vm_name": "vm-app"}
+        planned_safety = dict(_safety("operation:cross"))
+        planned_safety.pop("dry_run_receipt")
+        plan = await gateway.invoke(
+            "azure.operation.plan",
+            {
+                "operation_id": "azure.compute.vm.start",
+                "arguments": arguments,
+                "safety": planned_safety,
+            },
+            principal,
+        )
+        plan_result = cast(Mapping[str, object], plan["result"])
+        safety = dict(planned_safety)
+        safety["dry_run_receipt"] = plan_result["dry_run_receipt"]
+        with pytest.raises(GatewayError) as error:
+            await gateway.invoke(
+                "azure.compute.vm.deallocate",
+                {**arguments, "safety": safety},
+                principal,
+            )
+
+    assert error.value.code == "dry_run_invalid"
+    assert mutation_calls == 0
+
+
+async def test_arm_retries_429_with_bounded_retry_after() -> None:
+    calls = 0
+    delays: list[float] = []
+
+    async def sleeper(delay: float) -> None:
+        delays.append(delay)
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(429, headers={"Retry-After": "2"})
+        return httpx.Response(200, json={"properties": {"securityRules": []}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        gateway = OperationsGateway(
+            config=_config(),
+            reader_token_provider=_Tokens(),
+            executor_token_provider=_Tokens(),
+            http_client=client,
+            sleep=sleeper,
+        )
+        result = await gateway.invoke(
+            "azure.network.nsg.read",
+            {"resource_group": "rg-example", "nsg_name": "nsg-app"},
+            GatewayPrincipal("principal-user", frozenset({"group-contributor"})),
+        )
+
+    assert result["status"] == "succeeded"
+    assert calls == 2
+    assert delays == [2.0]
+
+
 async def test_executor_mutation_is_idempotent_across_duplicate_delivery() -> None:
     calls = 0
 

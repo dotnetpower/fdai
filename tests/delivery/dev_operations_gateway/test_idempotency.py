@@ -269,6 +269,38 @@ async def test_dry_run_receipt_is_hashed_and_consumed_with_etag_cas() -> None:
     assert consumed["state"] == "consumed"
 
 
+async def test_repeated_dry_run_plan_returns_the_same_receipt() -> None:
+    requests: list[httpx.Request] = []
+    request_digest = "request-digest"
+    expires_at = datetime.now(UTC) + timedelta(minutes=5)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if len(requests) == 1:
+            return httpx.Response(201)
+        if len(requests) == 2:
+            return httpx.Response(412)
+        return httpx.Response(
+            200,
+            headers={"ETag": '"plan-etag"'},
+            json={
+                "state": "ready",
+                "request_digest": request_digest,
+                "expires_at": expires_at.isoformat(),
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        ledger = AzureBlobIdempotencyLedger(
+            config=_config(), token_provider=_Tokens(), http_client=client
+        )
+        first = await ledger.issue_dry_run(request_digest)
+        duplicate = await ledger.issue_dry_run(request_digest)
+
+    assert duplicate == first
+    assert requests[0].url == requests[1].url == requests[2].url
+
+
 async def test_dry_run_receipt_rejects_mismatched_request() -> None:
     expires_at = datetime.now(UTC) + timedelta(minutes=5)
 

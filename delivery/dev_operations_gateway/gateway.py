@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import ipaddress
 import json
 import os
 import re
 import sys
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 from urllib.parse import urlparse
@@ -222,12 +223,14 @@ class OperationsGateway:
         executor_token_provider: TokenProvider,
         http_client: httpx.AsyncClient,
         idempotency_ledger: IdempotencyLedger | None = None,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
         self._config = config
         self._reader_tokens = reader_token_provider
         self._executor_tokens = executor_token_provider
         self._http = http_client
         self._idempotency = idempotency_ledger
+        self._sleep = sleep
 
     async def invoke(
         self,
@@ -680,14 +683,18 @@ class OperationsGateway:
     ) -> object:
         token_provider = self._executor_tokens if executor else self._reader_tokens
         token = await token_provider.get_token(_ARM_AUDIENCE)
-        response = await self._http.request(
-            method,
-            f"https://management.azure.com{path}",
-            params={"api-version": api_version},
-            headers={"Authorization": f"Bearer {token}"},
-            json=json_body,
-            timeout=30.0,
-        )
+        for attempt in range(3):
+            response = await self._http.request(
+                method,
+                f"https://management.azure.com{path}",
+                params={"api-version": api_version},
+                headers={"Authorization": f"Bearer {token}"},
+                json=json_body,
+                timeout=30.0,
+            )
+            if response.status_code != 429 or attempt == 2:
+                break
+            await self._sleep(_retry_after_seconds(response))
         if response.status_code == 404:
             raise GatewayError(404, "azure_resource_not_found", "Azure resource was not found")
         if response.status_code == 429 or response.status_code >= 500:
@@ -724,11 +731,15 @@ class OperationsGateway:
     async def _poll_arm_status(self, status_url: str) -> str:
         self._validate_arm_status_url(status_url)
         token = await self._executor_tokens.get_token(_ARM_AUDIENCE)
-        response = await self._http.get(
-            status_url,
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=30.0,
-        )
+        for attempt in range(3):
+            response = await self._http.get(
+                status_url,
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=30.0,
+            )
+            if response.status_code != 429 or attempt == 2:
+                break
+            await self._sleep(_retry_after_seconds(response))
         if response.status_code == 404:
             raise GatewayError(
                 404,
@@ -836,6 +847,15 @@ def _normalize_provider_status(status: str) -> str:
     if normalized in {"failed", "canceled", "cancelled"}:
         return "failed"
     return "running"
+
+
+def _retry_after_seconds(response: httpx.Response) -> float:
+    raw = response.headers.get("Retry-After", "")
+    try:
+        delay = float(raw)
+    except ValueError:
+        return 1.0
+    return min(5.0, max(0.0, delay))
 
 
 def _choice(payload: Mapping[str, object], name: str, choices: set[str]) -> str:

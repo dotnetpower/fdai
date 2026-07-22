@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -226,7 +225,7 @@ class AzureBlobIdempotencyLedger:
             self._raise_storage_error(response)
 
     async def issue_dry_run(self, request_digest: str) -> str:
-        receipt = secrets.token_urlsafe(24)
+        receipt = hashlib.sha256(f"fdai-dev-gateway-plan-v1:{request_digest}".encode()).hexdigest()
         expires_at = datetime.now(UTC) + _DRY_RUN_TTL
         record = self._encode_record(
             {
@@ -249,6 +248,21 @@ class AzureBlobIdempotencyLedger:
             headers=headers,
             content=record,
         )
+        if response.status_code in {409, 412}:
+            existing, _etag = await self._read(self._dry_run_url(receipt))
+            existing_expires_at = _parse_timestamp(existing.get("expires_at"))
+            if (
+                existing.get("state") == "ready"
+                and existing.get("request_digest") == request_digest
+                and existing_expires_at is not None
+                and existing_expires_at > datetime.now(UTC)
+            ):
+                return receipt
+            raise IdempotencyError(
+                409,
+                "dry_run_invalid",
+                "existing dry-run plan is expired or already consumed",
+            )
         if response.status_code != 201:
             self._raise_storage_error(response)
         return receipt

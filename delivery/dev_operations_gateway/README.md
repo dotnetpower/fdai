@@ -14,6 +14,9 @@ URLs, ARM paths, commands, or query text.
   confirms the target through a bounded reader-identity ARM GET and stores a five-minute one-time
   dry-run receipt in private Blob storage. The matching mutation consumes that receipt with ETag
   compare-and-swap before ARM is called.
+- Retrying the same plan returns the same unconsumed receipt. A consumed or expired plan requires a
+  new idempotency key, so refreshes cannot create multiple simultaneously valid receipts for one
+  mutation intent.
 - Mutation idempotency keys are claimed in a private, Microsoft Entra-authenticated Blob
   container before Azure is called. A completed duplicate reuses the recorded response, a
   conflicting payload is blocked, and storage uncertainty fails closed. Stale pending claims can
@@ -23,6 +26,8 @@ URLs, ARM paths, commands, or query text.
 - ARM `202 Accepted` responses remain `submitted`, and the server-issued status URL stays private
   in the operation record. The executor can poll it only through `azure.operation.status` with the
   original idempotency key.
+- ARM `429` responses honor a bounded `Retry-After` delay for at most three attempts. Mutation
+  `5xx` responses aren't blindly retried because provider acceptance may be ambiguous.
 - Resource groups and private probe endpoints come from server configuration.
 - Private probe configuration rejects literal IP addresses, localhost, fragments, credentials,
   and control characters before any token is requested. Probe requests never follow redirects.
