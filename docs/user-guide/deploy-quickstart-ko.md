@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 세트 인벤토리를 Azure에 프로비저닝하는 방법. 동등한 두 경로(azd 턴키 또는 Terraform 직접 실행) 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: f378a1192785199dbff8b8f4ce2e1d03c4b54b16
+translation_source_sha: dab4eb808d13bdfb2315a28bafc76b528b921458
 translation_revised: 2026-07-23
 ---
 
