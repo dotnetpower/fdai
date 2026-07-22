@@ -71,6 +71,12 @@ class PostgresReadInvestigationRunStore:
     def __init__(self, *, config: PostgresReadInvestigationRunStoreConfig) -> None:
         self._config = config
 
+    async def verify_schema(self) -> None:
+        """Fail startup before traffic when the optional ledger migration is missing."""
+        async with await self._connect() as connection:
+            await self._timeout(connection)
+            await connection.execute("SELECT 1 FROM read_investigation_run LIMIT 0")
+
     async def claim(
         self,
         *,

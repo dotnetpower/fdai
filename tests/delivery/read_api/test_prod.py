@@ -221,6 +221,9 @@ def test_build_prod_app_wires_singleton_read_investigation_run_store(
     routes_config = captured_config.read_investigations  # type: ignore[attr-defined]
     assert routes_config is not None
     assert isinstance(routes_config.run_store, PostgresReadInvestigationRunStore)
+    startup_callbacks = captured_config.startup_callbacks  # type: ignore[attr-defined]
+    assert getattr(startup_callbacks[0], "__name__", "") == "verify_connection"
+    assert getattr(startup_callbacks[1], "__name__", "") == "verify_schema"
 
 
 def test_build_prod_app_rejects_unimplemented_identity_provider() -> None:

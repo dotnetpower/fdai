@@ -7,6 +7,7 @@ import sys
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import psycopg
 import pytest
@@ -108,6 +109,28 @@ def _request(
         idempotency_key=idempotency_key,
         created_at=_NOW,
     )
+
+
+async def test_postgres_schema_readiness_probe(database_url: str) -> None:
+    await _store(database_url).verify_schema()
+
+
+async def test_postgres_schema_readiness_probe_fails_when_table_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = _store("postgresql://unused")
+    connection = AsyncMock()
+    context = AsyncMock()
+    context.__aenter__.return_value = connection
+    connection.execute.side_effect = [None, psycopg.errors.UndefinedTable("missing ledger")]
+
+    async def connect() -> AsyncMock:
+        return context
+
+    monkeypatch.setattr(store, "_connect", connect)
+
+    with pytest.raises(psycopg.errors.UndefinedTable, match="missing ledger"):
+        await store.verify_schema()
 
 
 def _result(

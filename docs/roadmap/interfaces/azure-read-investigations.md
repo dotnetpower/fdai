@@ -290,7 +290,9 @@ by mistake.
 Production registers the routes only when `FDAI_AZURE_READER_SUBSCRIPTION_ID`,
 `FDAI_AZURE_READER_CLIENT_ID`, and a non-empty comma-separated
 `FDAI_AZURE_READER_RESOURCE_GROUPS` allowlist are present. `FDAI_MONITOR_WORKSPACE_ID` is optional;
-without it, guest shutdown evidence reports `unavailable` while other sources remain usable.
+without it, guest shutdown evidence reports `unavailable` while other sources remain usable. When
+the reader binding is enabled, startup probes the run-ledger table before accepting traffic and
+fails immediately if the required migration is missing.
 
 Interactive local uses the same server-owned scope with the current Azure CLI token. The local
 runtime environment generator supplies the applied subscription and resource group after checking

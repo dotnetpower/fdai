@@ -765,6 +765,11 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         ),
         startup_callbacks=(
             read_model.verify_connection,
+            *(
+                (read_investigation_run_store.verify_schema,)
+                if read_investigation_run_store is not None
+                else ()
+            ),
             *runtime.startup_callbacks,
             *stewardship_startup_callbacks,
         ),

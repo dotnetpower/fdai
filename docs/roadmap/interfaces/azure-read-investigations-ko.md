@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 3a85bf0bdad2f36889b379b6f7584831fc2b7d38
+translation_source_sha: 3af8aa26920417092ed4e5cbb85da53f378a3cb5
 translation_revised: 2026-07-23
 ---
 
@@ -288,7 +288,8 @@ Identity에 실수로 더 넓은 permission이 있더라도 provider adapter는 
 Production은 `FDAI_AZURE_READER_SUBSCRIPTION_ID`, `FDAI_AZURE_READER_CLIENT_ID`, 비어 있지 않은
 comma-separated `FDAI_AZURE_READER_RESOURCE_GROUPS` allowlist가 모두 있을 때만 route를 등록합니다.
 `FDAI_MONITOR_WORKSPACE_ID`는 optional이며, 없으면 다른 source는 계속 사용할 수 있지만 guest shutdown
-evidence는 `unavailable`을 반환합니다.
+evidence는 `unavailable`을 반환합니다. Reader binding이 활성화되면 startup은 traffic을 받기 전에
+run-ledger table을 probe하고 필요한 migration이 없으면 즉시 실패합니다.
 
 Interactive local은 현재 Azure CLI token과 같은 server-owned scope를 사용합니다. Local runtime
 environment generator는 active CLI subscription이 Terraform과 일치하는지 확인한 후 applied
