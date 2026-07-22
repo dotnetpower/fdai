@@ -432,6 +432,32 @@ def test_run_parallelizes_broad_non_integration_selection(git_repo: Path) -> Non
     assert "-m not integration" in command
 
 
+def test_run_parallelizes_full_suite_fallback(git_repo: Path) -> None:
+    (git_repo / "pyproject.toml").write_text("[tool.pytest.ini_options]\n", encoding="utf-8")
+    bin_dir = git_repo / "bin"
+    bin_dir.mkdir()
+    args_file = git_repo / "uv-args.txt"
+    fake_uv = bin_dir / "uv"
+    fake_uv.write_text(
+        '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$UV_ARGS_FILE"\n',
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "UV_ARGS_FILE": str(args_file),
+        "FDAI_DATABASE_URL": "",
+    }
+
+    result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
+
+    assert result.returncode == 0, result.stderr
+    command = args_file.read_text(encoding="utf-8").splitlines()[0]
+    assert "-n auto --maxprocesses=8 --dist=worksteal" in command
+    assert command.endswith(" tests")
+
+
 def test_run_rejects_invalid_parallel_threshold(git_repo: Path) -> None:
     test_file = git_repo / "tests" / "scripts" / "test_changed.py"
     test_file.write_text("def test_changed(): pass\n", encoding="utf-8")

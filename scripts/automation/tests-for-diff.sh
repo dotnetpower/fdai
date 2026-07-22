@@ -238,7 +238,8 @@ if [[ $run_pytest -eq 1 ]]; then
         echo "tests-for-diff.sh: FDAI_CHANGED_TEST_PARALLEL_THRESHOLD must be a positive integer" >&2
         exit 2
     fi
-    if [[ "${FDAI_PYTEST_XDIST:-1}" == "1" && ${#tests[@]} -ge $parallel_threshold ]]; then
+    if [[ "${FDAI_PYTEST_XDIST:-1}" == "1" ]] && \
+        [[ -n "${seen[tests]:-}" || ${#tests[@]} -ge $parallel_threshold ]]; then
         parallel_args=(
             -n auto
             --maxprocesses="${FDAI_PYTEST_MAX_WORKERS:-8}"
