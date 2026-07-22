@@ -62,6 +62,8 @@ The runner executes non-integration tests first. It executes selected
 `integration` tests only when `FDAI_DATABASE_URL` is set; otherwise it reports
 that those tests were skipped. An integration-only change without a database
 still exits successfully after confirming that integration tests were selected.
+The exact repository inputs that CI classifies as Python-impacting are covered
+by a regression test so local and CI selection can't drift silently.
 
 ## Verification
 

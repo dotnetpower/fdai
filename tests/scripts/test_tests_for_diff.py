@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from scripts.quality.ci.resolve_test_scope import _PYTHON_FILES
 
 _ROOT = Path(__file__).resolve().parents[2]
 _SELECTOR = _ROOT / "scripts" / "automation" / "tests-for-diff.sh"
@@ -38,6 +39,7 @@ def git_repo(tmp_path: Path) -> Path:
         "tests/config",
         "tests/core/risk_gate",
         "tests/delivery/dev_operations_gateway",
+        "tests/persistence",
         "tests/rule_catalog",
         "tests/scripts",
         "tests/shared/contracts",
@@ -207,6 +209,18 @@ def test_selects_script_tests_for_behavior_support_data(git_repo: Path, path: st
 
 def test_global_test_configuration_falls_back_to_full_suite(git_repo: Path) -> None:
     (git_repo / "tests" / "conftest.py").write_text("GLOBAL = True\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["tests"]
+
+
+@pytest.mark.parametrize("path", sorted(_PYTHON_FILES))
+def test_ci_python_input_falls_back_to_full_suite(git_repo: Path, path: str) -> None:
+    input_file = git_repo / path
+    input_file.parent.mkdir(parents=True, exist_ok=True)
+    input_file.write_text("input\n", encoding="utf-8")
 
     result = _run(git_repo, "bash", str(_SELECTOR))
 

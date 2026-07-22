@@ -76,7 +76,15 @@ while IFS= read -r file; do
     # These inputs can affect collection or every Python test. Selecting the
     # full suite is cheaper than silently missing a cross-cutting regression.
     case "$file" in
-        pyproject.toml|uv.lock|tests/conftest.py|config/*|rule-catalog/*|src/fdai/composition/*|src/fdai/rule_catalog/*|src/fdai/shared/contracts/*|src/fdai/shared/providers/*)
+        .github/workflows/ci.yml|Dockerfile|Makefile|alembic.ini|pyproject.toml|uv.lock|tests/conftest.py)
+            add_test "tests"
+            continue
+            ;;
+        config/*|rule-catalog/*)
+            add_test "tests"
+            continue
+            ;;
+        src/fdai/composition/*|src/fdai/rule_catalog/*|src/fdai/shared/contracts/*|src/fdai/shared/providers/*)
             add_test "tests"
             continue
             ;;
@@ -91,7 +99,7 @@ while IFS= read -r file; do
     # Data and automation paths have Python consumers even though the changed
     # files themselves are not Python modules.
     case "$file" in
-        alembic.ini|alembic/*)
+        alembic/*)
             add_test "tests/persistence"
             continue
             ;;
