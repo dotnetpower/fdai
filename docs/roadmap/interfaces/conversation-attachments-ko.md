@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 9efa748be0bf0ca95edac398a2e8c508268b7954
+translation_source_sha: 5ca3ddb88cb5def9ed20b254b361609376091444
 translation_revised: 2026-07-23
 title: 대화 첨부파일
 ---
@@ -83,11 +83,13 @@ Slack event payload URL은 untrusted이므로 폐기합니다. Fetcher는 다음
 1. Normalized opaque file id만 받습니다.
 2. Injected secret provider에서 bot token을 읽습니다.
 3. Credential, query, fragment 또는 redirect 없이 server-configured HTTPS Slack API
-  `files.info` endpoint를 호출하고 HTTP 200을 요구합니다.
+  `files.info` endpoint를 호출하고 HTTP 200을 요구하며 configured byte cap을 넘는 즉시 metadata
+  읽기를 중단합니다.
 4. Configured allowlist와 host가 정확히 일치하고 default HTTPS port를 사용하는 private download
   URL만 허용합니다.
 5. Validated host에만 bot token을 전송합니다.
-6. Redirect를 비활성화하고 `Content-Length`와 streamed-byte limit을 모두 적용합니다.
+6. Redirect를 비활성화하고 invalid 또는 negative `Content-Length`를 거부하며 decoded content에
+  streamed-byte limit을 적용합니다.
 7. Protected ingestion에 byte를 반환하며 ingestion은 SHA-256을 다시 계산하고 metadata size를
    확인합니다.
 
@@ -159,10 +161,11 @@ metadata-only image version을 유지합니다. `FDAI_OCR_ENDPOINT`를 설정하
 
 1. Configured Cognitive Services audience용 managed-identity token을 얻습니다.
 2. HTTPS로 image를 `prebuilt-read`에 제출합니다.
-3. `Operation-Location`이 exact configured origin인지 validate합니다.
+3. Implicit HTTPS port와 explicit `:443`을 동등하게 취급하면서 `Operation-Location`이 exact
+  configured origin인지 validate합니다.
 4. Configured attempt 및 time limit 안에서 poll합니다.
-5. 각 poll response를 parse하기 전에 `FDAI_OCR_MAX_RESPONSE_BYTES`를 적용한 다음 parsed result에
-  line 및 character limit을 적용합니다.
+5. 각 poll response를 streaming하는 동안 `FDAI_OCR_MAX_RESPONSE_BYTES`를 적용하고 later chunk를
+  읽기 전에 중단한 다음 parsed result에 line 및 character limit을 적용합니다.
 6. Bounded page line을 `page:1:line:2` 같은 locator를 가진 `StructuralUnit`으로 변환합니다.
 7. Redirect를 거부하고 identity, transport, malformed, failed, unknown, cross-origin 또는
   over-budget failure를 OCR provider error로 정규화합니다.

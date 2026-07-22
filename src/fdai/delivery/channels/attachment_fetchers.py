@@ -7,6 +7,7 @@ validated against configured HTTPS hosts before any bytes are read.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from math import isfinite
 from typing import Protocol
@@ -38,6 +39,7 @@ class SlackAttachmentFetcherConfig:
     api_base: str = "https://slack.com/api"
     allowed_download_hosts: tuple[str, ...] = ("files.slack.com",)
     timeout_seconds: float = 30.0
+    max_metadata_bytes: int = 64 * 1024
 
     def __post_init__(self) -> None:
         _validate_fetch_config(
@@ -47,6 +49,8 @@ class SlackAttachmentFetcherConfig:
         )
         if not self.bot_token_ref:
             raise ValueError("Slack attachment bot-token reference MUST be non-empty")
+        if self.max_metadata_bytes < 1:
+            raise ValueError("Slack attachment metadata byte limit MUST be positive")
 
 
 class SlackPrivateFileFetcher:
@@ -68,19 +72,14 @@ class SlackPrivateFileFetcher:
             token = await self._secrets.get(self._config.bot_token_ref)
             if not token:
                 raise ChannelAttachmentFetchError("Slack attachment credential is unavailable")
-            response = await self._http.get(
-                f"{self._config.api_base.rstrip('/')}/files.info",
+            payload = await _bounded_json_get(
+                client=self._http,
+                url=f"{self._config.api_base.rstrip('/')}/files.info",
                 params={"file": attachment.source_ref},
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=self._config.timeout_seconds,
-                follow_redirects=False,
+                max_bytes=self._config.max_metadata_bytes,
             )
-            if response.status_code != 200:
-                raise ChannelAttachmentFetchError(
-                    f"Slack files.info returned HTTP {response.status_code}"
-                )
-            response.raise_for_status()
-            payload = response.json()
         except ChannelAttachmentFetchError:
             raise
         except (httpx.HTTPError, ValueError) as exc:
@@ -236,6 +235,8 @@ async def _bounded_download(
                     raise ChannelAttachmentFetchError(
                         "attachment Content-Length is invalid"
                     ) from exc
+                if declared < 0:
+                    raise ChannelAttachmentFetchError("attachment Content-Length is invalid")
                 if declared > max_bytes:
                     raise ChannelAttachmentFetchError("attachment exceeds the download byte limit")
             async for chunk in response.aiter_bytes():
@@ -248,6 +249,47 @@ async def _bounded_download(
     except httpx.HTTPError as exc:
         raise ChannelAttachmentFetchError("attachment download failed") from exc
     return b"".join(chunks)
+
+
+async def _bounded_json_get(
+    *,
+    client: httpx.AsyncClient,
+    url: str,
+    params: dict[str, str],
+    headers: dict[str, str],
+    timeout: float,
+    max_bytes: int,
+) -> object:
+    chunks: list[bytes] = []
+    total = 0
+    try:
+        async with client.stream(
+            "GET",
+            url,
+            params=params,
+            headers=headers,
+            timeout=timeout,
+            follow_redirects=False,
+        ) as response:
+            if response.status_code != 200:
+                raise ChannelAttachmentFetchError(
+                    f"Slack files.info returned HTTP {response.status_code}"
+                )
+            async for chunk in response.aiter_bytes():
+                total += len(chunk)
+                if total > max_bytes:
+                    raise ChannelAttachmentFetchError(
+                        "Slack attachment metadata exceeds the byte limit"
+                    )
+                chunks.append(chunk)
+    except ChannelAttachmentFetchError:
+        raise
+    except httpx.HTTPError as exc:
+        raise ChannelAttachmentFetchError("Slack attachment metadata is unavailable") from exc
+    try:
+        return json.loads(b"".join(chunks))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ChannelAttachmentFetchError("Slack attachment metadata is invalid") from exc
 
 
 __all__ = [

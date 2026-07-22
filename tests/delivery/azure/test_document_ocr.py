@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -30,6 +31,17 @@ class _Identity:
 class _FailingIdentity:
     async def get_token(self, audience: str) -> IdentityToken:
         raise RuntimeError("identity unavailable")
+
+
+class _TrackingStream(httpx.AsyncByteStream):
+    def __init__(self, chunks: tuple[bytes, ...]) -> None:
+        self._chunks = chunks
+        self.yielded = 0
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        for chunk in self._chunks:
+            self.yielded += 1
+            yield chunk
 
 
 def _version() -> DocumentVersion:
@@ -117,6 +129,32 @@ async def test_ocr_rejects_operation_location_outside_configured_origin() -> Non
         await ocr.extract(version=_version(), content=b"data")
 
 
+async def test_ocr_accepts_explicit_default_https_port_for_same_origin() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(
+                202,
+                headers={"operation-location": "https://ocr.example.com:443/operations/1"},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "status": "succeeded",
+                "analyzeResult": {"pages": [{"pageNumber": 1, "lines": [{"content": "ready"}]}]},
+            },
+        )
+
+    ocr = AzureDocumentIntelligenceOcr(
+        config=AzureDocumentOcrConfig(endpoint="https://ocr.example.com"),
+        identity=_Identity(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    units = await ocr.extract(version=_version(), content=b"data")
+
+    assert units[0].text == "ready"
+
+
 async def test_ocr_rejects_output_over_line_limit() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST":
@@ -195,13 +233,15 @@ async def test_ocr_normalizes_malformed_poll_json() -> None:
 
 
 async def test_ocr_rejects_poll_payload_before_json_parse() -> None:
+    stream = _TrackingStream((b"12345678", b"9", b"never-read"))
+
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST":
             return httpx.Response(
                 202,
                 headers={"operation-location": "https://ocr.example.com/operations/1"},
             )
-        return httpx.Response(200, content=b"x" * 9)
+        return httpx.Response(200, stream=stream)
 
     ocr = AzureDocumentIntelligenceOcr(
         config=AzureDocumentOcrConfig(
@@ -214,6 +254,7 @@ async def test_ocr_rejects_poll_payload_before_json_parse() -> None:
 
     with pytest.raises(AzureDocumentOcrError, match="response exceeded"):
         await ocr.extract(version=_version(), content=b"data")
+    assert stream.yielded == 2
 
 
 async def test_ocr_normalizes_identity_failure() -> None:

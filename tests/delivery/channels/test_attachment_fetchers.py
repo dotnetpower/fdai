@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+
 import httpx
 import pytest
 
@@ -21,6 +23,17 @@ _ATTACHMENT = ChannelAttachment(
     size_bytes=4,
     media_type_hint="text/plain",
 )
+
+
+class _TrackingStream(httpx.AsyncByteStream):
+    def __init__(self, chunks: tuple[bytes, ...]) -> None:
+        self._chunks = chunks
+        self.yielded = 0
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        for chunk in self._chunks:
+            self.yielded += 1
+            yield chunk
 
 
 class _Identity:
@@ -169,6 +182,23 @@ async def test_slack_fetcher_rejects_files_info_redirect_from_redirecting_client
     assert len(requests) == 1
 
 
+async def test_slack_fetcher_stops_streaming_oversized_metadata() -> None:
+    stream = _TrackingStream((b"12345678", b"9", b"never-read"))
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, stream=stream)
+
+    fetcher = SlackPrivateFileFetcher(
+        config=SlackAttachmentFetcherConfig(max_metadata_bytes=8),
+        secrets=EnvSecretProvider(env={"slack-bot-token": "bot-token"}, prefix=""),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    with pytest.raises(ChannelAttachmentFetchError, match="metadata exceeds"):
+        await fetcher.fetch(_ATTACHMENT, max_bytes=10)
+    assert stream.yielded == 2
+
+
 @pytest.mark.parametrize(
     "api_base",
     (
@@ -199,6 +229,28 @@ async def test_slack_fetcher_rejects_allowed_host_on_nonstandard_port() -> None:
     )
 
     with pytest.raises(ChannelAttachmentFetchError, match="allowlist"):
+        await fetcher.fetch(_ATTACHMENT, max_bytes=10)
+
+
+async def test_slack_fetcher_rejects_negative_content_length() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/files.info"):
+            return httpx.Response(
+                200,
+                json={
+                    "ok": True,
+                    "file": {"url_private_download": "https://files.slack.com/private"},
+                },
+            )
+        return httpx.Response(200, content=b"data", headers={"Content-Length": "-1"})
+
+    fetcher = SlackPrivateFileFetcher(
+        config=SlackAttachmentFetcherConfig(),
+        secrets=EnvSecretProvider(env={"slack-bot-token": "bot-token"}, prefix=""),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    with pytest.raises(ChannelAttachmentFetchError, match="Content-Length is invalid"):
         await fetcher.fetch(_ATTACHMENT, max_bytes=10)
 
 

@@ -78,11 +78,13 @@ Slack event payload URLs are untrusted and discarded. The fetcher:
 1. Accepts only the normalized opaque file id.
 2. Reads the bot token from the injected secret provider.
 3. Calls the server-configured HTTPS Slack API `files.info` endpoint without credentials, query,
-  fragments, or redirects, and requires HTTP 200.
+  fragments, or redirects, requires HTTP 200, and stops reading metadata as soon as the configured
+  byte cap is exceeded.
 4. Accepts only a private download URL whose host exactly matches the configured allowlist and
   whose HTTPS port is the default port.
 5. Sends the bot token only to that validated host.
-6. Disables redirects and enforces both `Content-Length` and streamed-byte limits.
+6. Disables redirects, rejects invalid or negative `Content-Length`, and enforces streamed-byte
+  limits on decoded content.
 7. Returns bytes to protected ingestion, which recomputes SHA-256 and checks metadata size.
 
 The Slack app needs the narrow file-read permission required by the selected Slack API. Token values
@@ -151,10 +153,11 @@ the existing metadata-only image version. When `FDAI_OCR_ENDPOINT` is configured
 
 1. Obtain a managed-identity token for the configured Cognitive Services audience.
 2. Submit the image to `prebuilt-read` over HTTPS.
-3. Validate `Operation-Location` against the exact configured origin.
+3. Validate `Operation-Location` against the exact configured origin, treating the implicit HTTPS
+  port and explicit `:443` as equivalent.
 4. Poll within configured attempt and time limits.
-5. Enforce `FDAI_OCR_MAX_RESPONSE_BYTES` before parsing each poll response, then apply line and
-  character limits to the parsed result.
+5. Enforce `FDAI_OCR_MAX_RESPONSE_BYTES` while streaming each poll response and stop before reading
+  later chunks, then apply line and character limits to the parsed result.
 6. Convert bounded page lines into `StructuralUnit` values with locators such as
    `page:1:line:2`.
 7. Reject redirects and normalize identity, transport, malformed, failed, unknown, cross-origin,

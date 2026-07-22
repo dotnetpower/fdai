@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass
 from math import isfinite
 from urllib.parse import urlparse
@@ -81,14 +82,15 @@ class AzureDocumentIntelligenceOcr:
             raise AzureDocumentOcrError("OCR source is empty")
         try:
             token = await self._identity.get_token(self._config.audience)
-        except RuntimeError as exc:
+        except Exception as exc:  # noqa: BLE001 - identity details stay behind the adapter
             raise AzureDocumentOcrError("OCR identity token is unavailable") from exc
         analyze_url = (
             f"{self._config.endpoint.rstrip('/')}/documentintelligence/documentModels/"
             f"prebuilt-read:analyze?api-version={self._config.api_version}"
         )
         try:
-            response = await self._http.post(
+            async with self._http.stream(
+                "POST",
                 analyze_url,
                 content=content,
                 headers={
@@ -97,33 +99,37 @@ class AzureDocumentIntelligenceOcr:
                 },
                 timeout=self._config.timeout_seconds,
                 follow_redirects=False,
-            )
+            ) as response:
+                status_code = response.status_code
+                operation_url = response.headers.get("operation-location")
         except httpx.HTTPError as exc:
             raise AzureDocumentOcrError("OCR analyze request failed") from exc
-        if response.status_code != 202:
-            raise AzureDocumentOcrError(f"OCR analyze request returned HTTP {response.status_code}")
-        operation_url = response.headers.get("operation-location")
+        if status_code != 202:
+            raise AzureDocumentOcrError(f"OCR analyze request returned HTTP {status_code}")
         if not operation_url:
             raise AzureDocumentOcrError("OCR analyze response has no operation location")
         self._validate_operation_url(operation_url)
         for poll in range(self._config.max_polls):
             try:
-                result = await self._http.get(
+                async with self._http.stream(
+                    "GET",
                     operation_url,
                     headers={"Authorization": f"Bearer {token.token}"},
                     timeout=self._config.timeout_seconds,
                     follow_redirects=False,
-                )
-                if result.status_code != 200:
-                    raise AzureDocumentOcrError(
-                        f"OCR operation poll returned HTTP {result.status_code}"
+                ) as result:
+                    if result.status_code != 200:
+                        raise AzureDocumentOcrError(
+                            f"OCR operation poll returned HTTP {result.status_code}"
+                        )
+                    payload_bytes = await _read_bounded(
+                        result,
+                        max_bytes=self._config.max_response_bytes,
                     )
-                if len(result.content) > self._config.max_response_bytes:
-                    raise AzureDocumentOcrError("OCR operation response exceeded configured bounds")
-                payload = result.json()
+                payload = json.loads(payload_bytes)
             except AzureDocumentOcrError:
                 raise
-            except (httpx.HTTPError, ValueError) as exc:
+            except (httpx.HTTPError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 raise AzureDocumentOcrError("OCR operation poll failed") from exc
             status = payload.get("status") if isinstance(payload, dict) else None
             if status == "succeeded":
@@ -140,8 +146,8 @@ class AzureDocumentIntelligenceOcr:
         endpoint = urlparse(self._config.endpoint)
         operation = urlparse(operation_url)
         try:
-            endpoint_port = endpoint.port
-            operation_port = operation.port
+            endpoint_port = endpoint.port or 443
+            operation_port = operation.port or 443
         except ValueError as exc:
             raise AzureDocumentOcrError(
                 "OCR operation location is outside the configured origin"
@@ -193,6 +199,17 @@ class AzureDocumentIntelligenceOcr:
                     )
                 )
         return tuple(units)
+
+
+async def _read_bounded(response: httpx.Response, *, max_bytes: int) -> bytes:
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in response.aiter_bytes():
+        total += len(chunk)
+        if total > max_bytes:
+            raise AzureDocumentOcrError("OCR operation response exceeded configured bounds")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 __all__ = [
