@@ -77,8 +77,10 @@ Slack event payload URLs are untrusted and discarded. The fetcher:
 
 1. Accepts only the normalized opaque file id.
 2. Reads the bot token from the injected secret provider.
-3. Calls the server-configured HTTPS Slack API `files.info` endpoint.
-4. Accepts only a private download URL whose host exactly matches the configured allowlist.
+3. Calls the server-configured HTTPS Slack API `files.info` endpoint without credentials, query,
+  fragments, or redirects, and requires HTTP 200.
+4. Accepts only a private download URL whose host exactly matches the configured allowlist and
+  whose HTTPS port is the default port.
 5. Sends the bot token only to that validated host.
 6. Disables redirects and enforces both `Content-Length` and streamed-byte limits.
 7. Returns bytes to protected ingestion, which recomputes SHA-256 and checks metadata size.
@@ -131,9 +133,9 @@ is intentionally narrower than collection sharing because the chat authorize sea
 principal id but not full collection group claims. A future resolver may add collection readers
 without changing the wire contract, provided it reuses document access policy.
 
-Resolved refs enter server-owned view context and terminal verification. Invalid ids return 400;
-a deployment without a resolver returns 501; unavailable, held, failed, deleted, or another
-principal's version is denied.
+Resolved refs enter server-owned view context and terminal verification. Invalid UUID syntax returns
+400; a deployment without a resolver returns 501. A missing, unavailable, held, failed, deleted, or
+another principal's version returns the same access denial so document existence is not disclosed.
 
 ## Image OCR
 

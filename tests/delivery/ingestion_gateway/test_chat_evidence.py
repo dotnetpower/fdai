@@ -14,7 +14,10 @@ from fdai.shared.contracts import (
     DocumentVersion,
     RetentionPolicy,
 )
-from fdai.shared.providers.document_ingestion import DocumentAccessDeniedError
+from fdai.shared.providers.document_ingestion import (
+    DocumentAccessDeniedError,
+    DocumentNotFoundError,
+)
 
 
 class _Metadata:
@@ -25,6 +28,11 @@ class _Metadata:
         assert document_id == self.version.document_id
         assert version_id == self.version.version_id
         return self.version
+
+
+class _MissingMetadata:
+    async def get_version(self, document_id: UUID, version_id: UUID) -> DocumentVersion:
+        raise DocumentNotFoundError("document version was not found")
 
 
 def _version(*, uploader: str = "operator", available: bool = True) -> DocumentVersion:
@@ -80,4 +88,14 @@ async def test_uploader_resolver_denies_unavailable_version() -> None:
         await resolver.resolve(
             principal_id="operator",
             references=(ChatDocumentRef(version.document_id, version.version_id),),
+        )
+
+
+async def test_uploader_resolver_hides_missing_version_as_access_denied() -> None:
+    resolver = UploaderDocumentEvidenceResolver(metadata=_MissingMetadata())
+
+    with pytest.raises(DocumentAccessDeniedError):
+        await resolver.resolve(
+            principal_id="operator",
+            references=(ChatDocumentRef(UUID(int=1), UUID(int=2)),),
         )

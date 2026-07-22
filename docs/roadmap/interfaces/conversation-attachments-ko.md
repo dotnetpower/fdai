@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: da9fbff730e28670e850de804b35dcbdf78d8147
+translation_source_sha: a3ba8cbd7b72b048e751c2596c307e3e11cb8fe8
 translation_revised: 2026-07-23
 title: 대화 첨부파일
 ---
@@ -82,8 +82,10 @@ Slack event payload URL은 untrusted이므로 폐기합니다. Fetcher는 다음
 
 1. Normalized opaque file id만 받습니다.
 2. Injected secret provider에서 bot token을 읽습니다.
-3. Server-configured HTTPS Slack API `files.info` endpoint를 호출합니다.
-4. Configured allowlist와 host가 정확히 일치하는 private download URL만 허용합니다.
+3. Credential, query, fragment 또는 redirect 없이 server-configured HTTPS Slack API
+  `files.info` endpoint를 호출하고 HTTP 200을 요구합니다.
+4. Configured allowlist와 host가 정확히 일치하고 default HTTPS port를 사용하는 private download
+  URL만 허용합니다.
 5. Validated host에만 bot token을 전송합니다.
 6. Redirect를 비활성화하고 `Content-Length`와 streamed-byte limit을 모두 적용합니다.
 7. Protected ingestion에 byte를 반환하며 ingestion은 SHA-256을 다시 계산하고 metadata size를
@@ -138,9 +140,10 @@ authorize seam이 stable principal id는 제공하지만 complete collection gro
 않으므로 collection sharing보다 의도적으로 좁습니다. 향후 resolver는 document access policy를
 재사용한다는 조건으로 wire contract 변경 없이 collection reader를 추가할 수 있습니다.
 
-Resolved ref는 server-owned view context와 terminal verification에 들어갑니다. Invalid id는 400,
-resolver가 없는 deployment는 501을 반환합니다. Unavailable, held, failed, deleted 또는 다른
-principal의 version은 거부합니다.
+Resolved ref는 server-owned view context와 terminal verification에 들어갑니다. Invalid UUID
+syntax는 400, resolver가 없는 deployment는 501을 반환합니다. Missing, unavailable, held, failed,
+deleted 또는 다른 principal의 version은 document 존재 여부를 노출하지 않도록 동일한 access
+denial을 반환합니다.
 
 ## Image OCR
 

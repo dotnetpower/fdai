@@ -72,7 +72,12 @@ class SlackPrivateFileFetcher:
                 params={"file": attachment.source_ref},
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=self._config.timeout_seconds,
+                follow_redirects=False,
             )
+            if response.status_code != 200:
+                raise ChannelAttachmentFetchError(
+                    f"Slack files.info returned HTTP {response.status_code}"
+                )
             response.raise_for_status()
             payload = response.json()
         except ChannelAttachmentFetchError:
@@ -147,9 +152,16 @@ def _validate_fetch_config(
     *, api_base: str, allowed_hosts: tuple[str, ...], timeout_seconds: float
 ) -> None:
     parsed = urlparse(api_base)
-    if parsed.scheme != "https" or not parsed.hostname:
-        raise ValueError("attachment API base MUST be HTTPS")
-    if not allowed_hosts or any(not host or "/" in host for host in allowed_hosts):
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError("attachment API base MUST be an HTTPS URL without credentials or query")
+    if not allowed_hosts or any(not _is_host_name(host) for host in allowed_hosts):
         raise ValueError("attachment download hosts MUST be non-empty host names")
     if timeout_seconds <= 0:
         raise ValueError("attachment fetch timeout MUST be positive")
@@ -158,13 +170,29 @@ def _validate_fetch_config(
 def _validate_download_url(url: str, allowed_hosts: tuple[str, ...]) -> None:
     parsed = urlparse(url)
     host = (parsed.hostname or "").casefold()
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ChannelAttachmentFetchError(
+            "attachment download URL is outside the allowlist"
+        ) from exc
     if (
         parsed.scheme != "https"
         or parsed.username is not None
         or parsed.password is not None
+        or port not in {None, 443}
         or not any(host == allowed.casefold() for allowed in allowed_hosts)
     ):
         raise ChannelAttachmentFetchError("attachment download URL is outside the allowlist")
+
+
+def _is_host_name(value: str) -> bool:
+    parsed = urlparse(f"//{value}")
+    try:
+        port = parsed.port
+    except ValueError:
+        return False
+    return bool(parsed.hostname and parsed.hostname == value and port is None)
 
 
 async def _bounded_download(

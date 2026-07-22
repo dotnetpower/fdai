@@ -145,6 +145,63 @@ async def test_slack_fetcher_rejects_redirect_without_following_location() -> No
     assert len(requests) == 2
 
 
+async def test_slack_fetcher_rejects_files_info_redirect_from_redirecting_client() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            302,
+            headers={"Location": "https://example.com/metadata"},
+        )
+
+    fetcher = SlackPrivateFileFetcher(
+        config=SlackAttachmentFetcherConfig(),
+        secrets=EnvSecretProvider(env={"slack-bot-token": "bot-token"}, prefix=""),
+        http_client=httpx.AsyncClient(
+            transport=httpx.MockTransport(handler),
+            follow_redirects=True,
+        ),
+    )
+
+    with pytest.raises(ChannelAttachmentFetchError, match="HTTP 302"):
+        await fetcher.fetch(_ATTACHMENT, max_bytes=10)
+    assert len(requests) == 1
+
+
+@pytest.mark.parametrize(
+    "api_base",
+    (
+        "https://user@slack.com/api",
+        "https://slack.com/api?redirect=example.com",
+        "https://slack.com/api#fragment",
+    ),
+)
+def test_slack_fetcher_config_rejects_non_origin_api_base(api_base: str) -> None:
+    with pytest.raises(ValueError, match="without credentials or query"):
+        SlackAttachmentFetcherConfig(api_base=api_base)
+
+
+async def test_slack_fetcher_rejects_allowed_host_on_nonstandard_port() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "ok": True,
+                "file": {"url_private_download": "https://files.slack.com:8443/private"},
+            },
+        )
+
+    fetcher = SlackPrivateFileFetcher(
+        config=SlackAttachmentFetcherConfig(),
+        secrets=EnvSecretProvider(env={"slack-bot-token": "bot-token"}, prefix=""),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    with pytest.raises(ChannelAttachmentFetchError, match="allowlist"):
+        await fetcher.fetch(_ATTACHMENT, max_bytes=10)
+
+
 async def test_teams_fetcher_uses_server_resolver_and_audience_token() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.host == "attachments.example.com"
