@@ -437,6 +437,55 @@
     .dk-mention.is-evt     { color: var(--cs-steel);      background: rgba(68,104,142,.10);  border-color: rgba(68,104,142,.24); }
     .dk-mention.is-ticket  { color: var(--cs-terracotta); background: rgba(188,116,73,.10);  border-color: rgba(188,116,73,.24); }
     .dk-mention.is-workflow { color: var(--cs-teal);      background: rgba(79,132,126,.10);  border-color: rgba(79,132,126,.24); }
+
+    /* -------------------------------------------------------------------
+       Evidence attachments in the composer. The operator can attach a
+       file (log bundle, Terraform plan, screenshot, CSV) for Bragi to
+       ground its read-only answer on. Every upload is scanned (malware +
+       secret redaction) and stored as a session-scoped evidence blob;
+       attaching a file never executes anything. The tray sits above the
+       composer row; the paperclip lives inside it.
+       ------------------------------------------------------------------- */
+    .dk-attach-btn { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: var(--cs-radius-sm); border: 1px solid var(--cs-hairline); background: var(--cs-card); color: var(--cs-text-soft); cursor: pointer; font-size: 15px; line-height: 1; }
+    .dk-attach-btn:hover { color: var(--cs-text); background: var(--cs-shade); }
+    .dk-attach-btn:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 2px; }
+
+    /* Preview tray: one chip per attached file, above the input row. */
+    .dk-attach-tray { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+    .dk-attach-tray:empty { display: none; }
+    .dk-attach-item { position: relative; display: flex; align-items: center; gap: 9px; padding: 7px 10px 7px 8px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); min-width: 0; max-width: 260px; }
+    .dk-attach-thumb { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-family: "Cascadia Code","Consolas",monospace; font-size: 9.5px; font-weight: 700; letter-spacing: .03em; color: #fff; text-transform: uppercase; }
+    .dk-attach-thumb.is-log   { background: var(--cs-steel); }
+    .dk-attach-thumb.is-plan  { background: var(--cs-teal); }
+    .dk-attach-thumb.is-img   { background: var(--cs-plum); background-size: cover; background-position: center; }
+    .dk-attach-thumb.is-data  { background: var(--cs-sage); }
+    .dk-attach-thumb.is-doc   { background: var(--cs-terracotta); }
+    .dk-attach-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .dk-attach-name { font-size: 12.5px; font-weight: 600; color: var(--cs-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 168px; }
+    .dk-attach-meta { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--cs-text-soft); font-variant-numeric: tabular-nums; }
+    /* Per-file processing status. Scanning -> analyzing -> ready | redacted | blocked. */
+    .dk-attach-status { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: 0 6px; border-radius: 999px; }
+    .dk-attach-status.is-scanning { color: var(--cs-steel);     background: rgba(68,104,142,.10); }
+    .dk-attach-status.is-analyzing { color: var(--cs-teal);     background: rgba(79,132,126,.12); }
+    .dk-attach-status.is-ready    { color: var(--cs-sage);      background: rgba(94,130,89,.12); }
+    .dk-attach-status.is-redacted { color: var(--cs-terracotta); background: rgba(188,116,73,.12); }
+    .dk-attach-status.is-blocked  { color: var(--cs-dusty-red); background: rgba(172,90,90,.12); }
+    .dk-attach-status .dk-spin { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid currentColor; border-top-color: transparent; animation: dk-spin 0.7s linear infinite; opacity: .8; }
+    @keyframes dk-spin { to { transform: rotate(360deg); } }
+    .dk-attach-remove { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--cs-hairline); background: var(--cs-card); color: var(--cs-text-soft); font-size: 11px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(15,23,30,.12); }
+    .dk-attach-remove:hover { color: var(--cs-dusty-red); border-color: rgba(172,90,90,.35); }
+
+    /* Drag-and-drop overlay hint - shown while a file hovers over the
+       transcript. Static in the mock so the affordance is discoverable. */
+    .dk-dropzone { margin: 0 0 8px; padding: 10px 12px; border: 1px dashed rgba(68,104,142,.40); border-radius: var(--cs-radius-sm); background: rgba(68,104,142,.05); color: var(--cs-steel); font-size: 12px; display: flex; align-items: center; gap: 8px; }
+    .dk-dropzone::before { content: "\2B07"; font-size: 14px; opacity: .8; }
+
+    /* Attachment chip rendered inside an operator turn bubble. */
+    .dk-bubble-attach { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .dk-bubble-attach a { display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px 5px 7px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); text-decoration: none; color: var(--cs-text); font-size: 12px; font-weight: 500; }
+    .dk-bubble-attach a:hover { background: var(--cs-shade); }
+    .dk-bubble-attach .dk-attach-thumb { width: 24px; height: 24px; border-radius: 5px; font-size: 8.5px; }
+    .dk-bubble-attach .dk-af-size { color: var(--cs-text-soft); font-variant-numeric: tabular-nums; font-weight: 400; }
   </style>
 </head>
 <body>
@@ -607,6 +656,69 @@
                 <button type="button" class="is-up" title="Helpful - feeds Norns training set">&#128077;</button>
                 <button type="button" class="is-down" title="Not helpful - feeds Norns training set">&#128078;</button>
                 <button type="button" title="Retry with a different model">Retry</button>
+                <button type="button" title="Copy answer">Copy</button>
+                <button type="button" title="Permalink">Link</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Operator turn with an attached log file: READ intent. The upload
+               is scanned + stored as a session-scoped evidence blob and shows
+               up as a chip inside the bubble. Bragi grounds its next answer on
+               it as evidence source [5]. -->
+          <div class="dk-turn is-op">
+            <span class="dk-turn-avatar is-op" aria-hidden="true">Op</span>
+            <div class="dk-turn-body">
+              <span class="dk-turn-meta">
+                <strong>You</strong> &middot; <time>09:43</time>
+                <span class="dk-chip intent-read" title="Attaching a file for analysis is read-only">read</span>
+                <a class="dk-chip is-audit is-mono" href="audit.html" title="Upload sealed to the audit log with its content hash">aud-01H7A81b</a>
+                <span class="dk-chip is-redact" title="1 secret pattern was redacted from the upload before storage">1 redacted</span>
+              </span>
+              <div class="dk-bubble">
+                <p>Here's the raw pod log I pulled - can you tell me what actually
+                  crashed the container before the restart storm?</p>
+                <div class="dk-bubble-attach">
+                  <a href="#" title="evidence://sess-4471/aks-prod-krc-nginx-pods.log &middot; sha256 3f9c...a1 &middot; scanned clean">
+                    <span class="dk-attach-thumb is-log" aria-hidden="true">LOG</span>
+                    aks-prod-krc-nginx-pods.log <span class="dk-af-size">1.8 MB</span>
+                  </a>
+                </div>
+              </div>
+              <div class="dk-turn-actions" aria-label="Turn actions">
+                <button type="button" title="Copy text">Copy</button>
+                <button type="button" title="Permalink to this turn">Link</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bragi grounds its answer on the uploaded artifact (source [5]). -->
+          <div class="dk-turn">
+            <span class="dk-turn-avatar is-plum" aria-hidden="true">Br</span>
+            <div class="dk-turn-body">
+              <span class="dk-turn-meta"><strong>Bragi</strong> &middot; <time>09:43</time> &middot; grounded on 1 attached source<span class="dk-tokens" title="in 5.1k tokens / out 360 tokens"><b>5.5k</b></span></span>
+              <div class="dk-bubble">
+                <p>I parsed the upload (12,204 lines). The container exited
+                  <code>OOMKilled</code> at <code>09:35:58</code> - the JVM heap hit the
+                  <code>512Mi</code> memory limit right before Kubernetes restarted the pod [5].
+                  The restart storm that Heimdall flagged is the downstream effect, not the
+                  cause.</p>
+                <div class="dk-citations">
+                  <div class="dk-citations-label">Grounded on your attachment</div>
+                  <ol>
+                    <li><span class="dk-cite-num">[5]</span><span class="dk-cite-link">evidence://sess-4471/aks-prod-krc-nginx-pods.log#L8420</span><span class="dk-cite-note">- uploaded 09:43 &middot; scanned clean &middot; expires in 24h</span></li>
+                  </ol>
+                </div>
+                <details class="dk-tool-call">
+                  <summary>Bragi called <code class="dk-tool-name">analyze_attachment</code> &middot; 1 tool call <span class="dk-tool-latency">640 ms</span></summary>
+                  <pre>analyze_attachment(ref="evidence://sess-4471/aks-prod-krc-nginx-pods.log")
+   -> kind=text/log, lines=12204, redactions=1 (bearer token @L23)
+   -> extracted 3 error frames; top signal: "OOMKilled" x1, "Back-off restarting" x9</pre>
+                </details>
+              </div>
+              <div class="dk-turn-actions">
+                <button type="button" class="is-up" title="Helpful">&#128077;</button>
+                <button type="button" class="is-down" title="Not helpful">&#128078;</button>
                 <button type="button" title="Copy answer">Copy</button>
                 <button type="button" title="Permalink">Link</button>
               </div>
@@ -1090,12 +1202,55 @@
             </ul>
           </div>
 
+          <!-- Drag-and-drop hint (static in the mock; live only while a file
+               hovers). Reinforces that a dropped file is scanned + scoped. -->
+          <div class="dk-dropzone">Drop a file to attach it as read-only evidence &middot; scanned for malware and secrets, scoped to this session</div>
+
+          <!-- Attachment preview tray: one chip per attached file. Statuses
+               walk scanning -> analyzing -> ready | redacted | blocked. -->
+          <div class="dk-attach-tray" aria-label="Attached evidence files">
+            <div class="dk-attach-item">
+              <span class="dk-attach-thumb is-log" aria-hidden="true">LOG</span>
+              <span class="dk-attach-body">
+                <span class="dk-attach-name" title="aks-prod-krc-nginx-pods.log">aks-prod-krc-nginx-pods.log</span>
+                <span class="dk-attach-meta">1.8 MB &middot; <span class="dk-attach-status is-ready">ready</span></span>
+              </span>
+              <button type="button" class="dk-attach-remove" title="Remove attachment" aria-label="Remove aks-prod-krc-nginx-pods.log">&times;</button>
+            </div>
+            <div class="dk-attach-item">
+              <span class="dk-attach-thumb is-plan" aria-hidden="true">TF</span>
+              <span class="dk-attach-body">
+                <span class="dk-attach-name" title="widen-cadence.tfplan">widen-cadence.tfplan</span>
+                <span class="dk-attach-meta">42 KB &middot; <span class="dk-attach-status is-analyzing"><span class="dk-spin" aria-hidden="true"></span>analyzing</span></span>
+              </span>
+              <button type="button" class="dk-attach-remove" title="Remove attachment" aria-label="Remove widen-cadence.tfplan">&times;</button>
+            </div>
+            <div class="dk-attach-item">
+              <span class="dk-attach-thumb is-img" aria-hidden="true">IMG</span>
+              <span class="dk-attach-body">
+                <span class="dk-attach-name" title="grafana-restart-rate.png">grafana-restart-rate.png</span>
+                <span class="dk-attach-meta">310 KB &middot; <span class="dk-attach-status is-scanning"><span class="dk-spin" aria-hidden="true"></span>scanning</span></span>
+              </span>
+              <button type="button" class="dk-attach-remove" title="Remove attachment" aria-label="Remove grafana-restart-rate.png">&times;</button>
+            </div>
+            <div class="dk-attach-item" title="Blocked: the malware scan flagged this upload">
+              <span class="dk-attach-thumb is-doc" aria-hidden="true">ZIP</span>
+              <span class="dk-attach-body">
+                <span class="dk-attach-name" title="support-bundle.zip">support-bundle.zip</span>
+                <span class="dk-attach-meta">14 MB &middot; <span class="dk-attach-status is-blocked">blocked</span></span>
+              </span>
+              <button type="button" class="dk-attach-remove" title="Remove attachment" aria-label="Remove support-bundle.zip">&times;</button>
+            </div>
+          </div>
+
           <div class="dk-composer-row is-mentioning">
-            <textarea rows="1" placeholder="Ask Bragi, @mention any agent / rule / event, or type / for commands...">Hey @fo</textarea>
+            <input type="file" id="dk-file" multiple hidden />
+            <button type="button" class="dk-attach-btn" title="Attach a file as read-only evidence" aria-label="Attach a file">&#128206;</button>
+            <textarea rows="1" placeholder="Ask Bragi, @mention any agent / rule / event, attach a file, or type / for commands...">Hey @fo</textarea>
             <button type="button" class="dk-send">Send</button>
           </div>
           <div class="dk-composer-foot">
-            <span class="dk-tag">Type <kbd>@</kbd> to mention (agents / rules / events / workflows) &middot; <kbd>/</kbd> for slash commands</span>
+            <span class="dk-tag">Type <kbd>@</kbd> to mention (agents / rules / events / workflows) &middot; <kbd>/</kbd> for slash commands &middot; <kbd>&#128206;</kbd> to attach evidence</span>
             <span class="dk-draft-hint" title="Draft history - browse previous drafts with Up/Down"><kbd>&uarr;</kbd><kbd>&darr;</kbd> history <b>3 / 7</b></span>
             <span class="dk-tag" style="margin-left:auto">Locale <span class="dk-mode">EN</span></span>
             <span class="dk-tag">Mode <span class="dk-mode">read + propose</span></span>
