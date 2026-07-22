@@ -60,6 +60,20 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _LOGGER = logging.getLogger("fdai.startup")
 
 
+def _build_runtime_workload_identity(http_client: httpx.AsyncClient) -> WorkloadIdentity:
+    if (
+        os.environ.get("RUNTIME_ENV", "").strip().lower() == "dev"
+        and os.environ.get("FDAI_RUNTIME_LOCAL_AZURE_CLI", "").strip() == "1"
+    ):
+        from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
+
+        return AsyncAzureCliWorkloadIdentity()
+
+    from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+
+    return ManagedIdentityWorkloadIdentity(http_client=http_client)
+
+
 async def _run() -> int:
     container = default_container_from_env()
     summary = _summarize_config(container)
@@ -79,12 +93,8 @@ async def _run() -> int:
             or os.environ.get("FDAI_PROMETHEUS_ENDPOINT", "").strip()
         )
         if container.config.llm.mode == LlmMode.AZURE or telemetry_requested:
-            from fdai.delivery.azure.workload_identity import (
-                ManagedIdentityWorkloadIdentity,
-            )
-
             http_client = _new_http_client()
-            identity = ManagedIdentityWorkloadIdentity(http_client=http_client)
+            identity = _build_runtime_workload_identity(http_client)
 
         if container.config.llm.mode == LlmMode.AZURE:
             if http_client is None or identity is None:
@@ -120,13 +130,9 @@ async def _run() -> int:
             )
 
             if identity is None:
-                from fdai.delivery.azure.workload_identity import (
-                    ManagedIdentityWorkloadIdentity,
-                )
-
                 if http_client is None:
                     http_client = _new_http_client()
-                identity = ManagedIdentityWorkloadIdentity(http_client=http_client)
+                identity = _build_runtime_workload_identity(http_client)
 
             bus = EventHubsKafkaBus(
                 identity=identity,
