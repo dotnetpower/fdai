@@ -781,6 +781,7 @@ resource "azurerm_function_app_flex_consumption" "dev_gateway" {
 
   site_config {
     application_insights_connection_string = azurerm_application_insights.core.connection_string
+    health_check_eviction_time_in_min      = 2
     health_check_path                      = "/api/health"
     minimum_tls_version                    = "1.2"
     remote_debugging_enabled               = false

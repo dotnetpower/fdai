@@ -27,10 +27,11 @@ resource "azurerm_virtual_network" "primary" {
 }
 
 resource "azurerm_subnet" "pe" {
-  name                 = "snet-pe"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.primary.name
-  address_prefixes     = [var.pe_subnet_prefix]
+  name                            = "snet-pe"
+  resource_group_name             = var.resource_group_name
+  virtual_network_name            = azurerm_virtual_network.primary.name
+  address_prefixes                = [var.pe_subnet_prefix]
+  default_outbound_access_enabled = false
 
   # A private endpoint NIC cannot attach while endpoint network policies are
   # enforced on the subnet.
@@ -38,10 +39,11 @@ resource "azurerm_subnet" "pe" {
 }
 
 resource "azurerm_subnet" "infra" {
-  name                 = "snet-infra"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.primary.name
-  address_prefixes     = [var.infra_subnet_prefix]
+  name                            = "snet-infra"
+  resource_group_name             = var.resource_group_name
+  virtual_network_name            = azurerm_virtual_network.primary.name
+  address_prefixes                = [var.infra_subnet_prefix]
+  default_outbound_access_enabled = false
 
   # The Container App Environment claims this subnet as its infrastructure
   # subnet; Azure requires the delegation below.
@@ -55,10 +57,11 @@ resource "azurerm_subnet" "infra" {
 }
 
 resource "azurerm_subnet" "postgres" {
-  name                 = "snet-postgres"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.primary.name
-  address_prefixes     = [var.postgres_subnet_prefix]
+  name                            = "snet-postgres"
+  resource_group_name             = var.resource_group_name
+  virtual_network_name            = azurerm_virtual_network.primary.name
+  address_prefixes                = [var.postgres_subnet_prefix]
+  default_outbound_access_enabled = false
 
   delegation {
     name = "postgres-flex"
@@ -70,11 +73,12 @@ resource "azurerm_subnet" "postgres" {
 }
 
 resource "azurerm_subnet" "functions" {
-  count                = var.enable_functions_subnet ? 1 : 0
-  name                 = "snet-functions"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.primary.name
-  address_prefixes     = [var.functions_subnet_prefix]
+  count                           = var.enable_functions_subnet ? 1 : 0
+  name                            = "snet-functions"
+  resource_group_name             = var.resource_group_name
+  virtual_network_name            = azurerm_virtual_network.primary.name
+  address_prefixes                = [var.functions_subnet_prefix]
+  default_outbound_access_enabled = false
 
   delegation {
     name = "function-flex"
