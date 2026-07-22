@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 45c02c7563ab3789e20d21d710534f1b4e535978
+translation_source_sha: 350f6d9dd08f2417c4880c4b3616449cc8ac2484
 translation_revised: 2026-07-22
 ---
 
@@ -78,7 +78,11 @@ Protected plan은 binary Terraform plan, bounded preflight evidence, Function so
 각각 별도 SHA-256 digest와 함께 저장합니다. Exact apply는 모든 artifact를 download하고
 검증합니다. Development operations gateway를 선택하면 Terraform은 해당 Function resource와
 dependency graph만 target으로 사용하므로 관련 없는 pending Event Hub 또는 runtime 변경은 plan에서
-제외됩니다. 전체 런북:
+제외됩니다. Terraform은 Function 인프라를 프로비저닝하고 `AzureWebJobsStorage`가 기존 reader
+managed identity를 사용하도록 구성합니다. Shared-key host storage와 Terraform source publishing은
+비활성 상태로 유지합니다. Exact apply가 수렴한 후 workflow는 보호된 source archive를 다시
+검증하고 같은 archive를 Azure CLI remote build로 배포합니다. 현재의 성공한 deployment record와
+등록된 Function trigger를 확인한 후에만 apply receipt를 기록합니다. 전체 런북:
 [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 
 Scheduled driver는 `SCHEDULER_TICK_CRON_EXPRESSION` 및

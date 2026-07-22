@@ -2,7 +2,7 @@
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
 derives_from:
-   - {source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 45c02c7563ab3789e20d21d710534f1b4e535978}
+   - {source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 350f6d9dd08f2417c4880c4b3616449cc8ac2484}
 ---
 
 # Deploy Quickstart
@@ -77,11 +77,14 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    agents report through the Pantheon health snapshot, and the immediate canary publisher Job
    completed. When the read API is enabled, verify browser Entra App Roles and confirm its
    read/command credentials remain distinct from Thor's executor Managed Identity.
-3. **Onboard one bounded scope.** Start with a single resource-group-equivalent
+3. **Verify the development operations gateway.** When enabled, confirm the protected source
+   archive was deployed after Terraform apply, the current remote-build deployment succeeded,
+   both Function triggers are registered, and host storage uses the reader managed identity.
+4. **Onboard one bounded scope.** Start with a single resource-group-equivalent
    scope and name its owner.
-4. **Observe in observation mode.** Let FDAI judge and audit without mutating, and
+5. **Observe in observation mode.** Let FDAI judge and audit without mutating, and
    review its would-be actions.
-5. **Promote one action.** Turn on enforcement only for an action that clears its
+6. **Promote one action.** Turn on enforcement only for an action that clears its
    promotion gate, and leave the rest in shadow.
 
 The [Get started](get-started.md) guide covers this first safe rollout in

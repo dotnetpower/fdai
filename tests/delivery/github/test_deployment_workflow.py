@@ -286,6 +286,8 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "sha256sum dev.plan" in workflow
     assert "TF_CLI_ARGS_plan:" in workflow
     assert "-target=azurerm_function_app_flex_consumption.dev_gateway[0]" in workflow
+    assert "Build development operations gateway source artifact" in workflow
+    assert 'source = Path("../delivery/dev_operations_gateway")' in workflow
     assert "source_artifact_digest" in workflow
     assert "source-artifact.zip" in workflow
     assert "--source-artifact fdai-dev-operations-gateway.zip" in workflow
@@ -325,10 +327,44 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "if: ${{ !inputs.apply }}\n        run: terraform plan" in workflow
     assert "Verify Terraform convergence" in workflow
     assert "-detailed-exitcode" in workflow
+    assert "Deploy exact development operations gateway source" in workflow
+    assert "dev_operations_gateway_app_name" in workflow
+    assert "az functionapp deployment source config-zip" in workflow
+    assert "--build-remote true" in workflow
+    assert "functions?api-version=2024-04-01" in workflow
+    assert "az functionapp function list" not in workflow
     assert "Verify deployed health endpoints" in workflow
     assert "continue-on-error: true" not in workflow
     assert workflow.index("Verify deployed health endpoints") < workflow.index(
         "Record exact plan apply receipt"
+    )
+
+
+def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
+    root = Path(__file__).resolve().parents[3]
+    terraform = (root / "infra" / "main.tf").read_text(encoding="utf-8")
+    requirements = (root / "delivery" / "dev_operations_gateway" / "requirements.txt").read_text(
+        encoding="utf-8"
+    )
+    workflow = (root / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
+
+    assert "azure-functions==1.24.0" in requirements.splitlines()
+    assert 'data "archive_file" "dev_gateway"' not in terraform
+    assert "zip_deploy_file" not in terraform
+    assert "AzureWebJobsStorage__accountName" in terraform
+    assert 'AzureWebJobsStorage__credential         = "managedidentity"' in terraform
+    assert "AzureWebJobsStorage__clientId" in terraform
+    assert workflow.index("Restore and verify exact protected plan") < workflow.index(
+        "Terraform apply"
+    )
+    assert workflow.index("Verify Terraform convergence") < workflow.index(
+        "Deploy exact development operations gateway source"
+    )
+    deploy_step = workflow.index("Deploy exact development operations gateway source")
+    config_zip = workflow.index("az functionapp deployment source config-zip")
+    assert workflow.index("verify-deployment-plan.py", deploy_step) < config_zip
+    assert (
+        "inputs.apply && inputs.deploy_dev_operations_gateway" in workflow[deploy_step:config_zip]
     )
 
 
@@ -362,3 +398,33 @@ def test_runner_live_preflight_workflow_is_structurally_executable() -> None:
         source, separator, _remaining = section.partition("\nPY\n")
         assert separator, index
         compile(source, f"<runner-preflight-{index}>", "exec")
+
+
+def test_gateway_source_workflow_steps_are_structurally_executable() -> None:
+    workflow_path = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "deploy-dev.yml"
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["terraform"]["steps"]
+    build_step = next(
+        item
+        for item in steps
+        if item.get("name") == "Build development operations gateway source artifact"
+    )
+    deploy_step = next(
+        item
+        for item in steps
+        if item.get("name") == "Deploy exact development operations gateway source"
+    )
+
+    for step in (build_step, deploy_step):
+        subprocess.run(  # noqa: S603 - static repository-owned script
+            ["/usr/bin/bash", "-n"],
+            input=step["run"],
+            text=True,
+            check=True,
+        )
+    marker = "python3 - <<'PY'\n"
+    source, separator, _remaining = (
+        build_step["run"].split(marker, maxsplit=1)[1].partition("\nPY\n")
+    )
+    assert separator
+    compile(source, "<gateway-source-artifact>", "exec")

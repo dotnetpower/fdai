@@ -82,6 +82,11 @@ output "dev_operations_gateway_url" {
   value       = length(azurerm_function_app_flex_consumption.dev_gateway) > 0 ? "https://${azurerm_function_app_flex_consumption.dev_gateway[0].default_hostname}" : ""
 }
 
+output "dev_operations_gateway_app_name" {
+  description = "Development operations Function App name. Empty when disabled."
+  value       = length(azurerm_function_app_flex_consumption.dev_gateway) > 0 ? azurerm_function_app_flex_consumption.dev_gateway[0].name : ""
+}
+
 output "email_communication_service_id" {
   description = "ACS resource id for send-only A2/A4 notification delivery. Empty when email notifications are disabled."
   value       = length(azurerm_communication_service.notifications) > 0 ? azurerm_communication_service.notifications[0].id : ""

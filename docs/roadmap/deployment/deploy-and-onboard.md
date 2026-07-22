@@ -76,6 +76,11 @@ Protected plans store the binary Terraform plan, bounded preflight evidence, and
 source archive with separate SHA-256 digests. Exact apply downloads and verifies every artifact.
 When the development operations gateway is selected, Terraform targets that Function resource and
 its dependency graph so unrelated pending Event Hub or runtime changes stay outside the plan.
+Terraform provisions the Function infrastructure and configures `AzureWebJobsStorage` to use the
+existing reader managed identity; shared-key host storage and Terraform source publishing remain
+disabled. After exact apply converges, the workflow verifies the protected source archive again,
+deploys that same archive with an Azure CLI remote build, and confirms the current successful
+deployment record and registered Function triggers before recording the apply receipt.
 Full runbook: [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 
 Scheduled drivers remain Terraform-owned through the `SCHEDULER_TICK_CRON_EXPRESSION` and

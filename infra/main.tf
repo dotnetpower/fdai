@@ -712,14 +712,6 @@ resource "azurerm_service_plan" "dev_gateway" {
   tags                = merge(local.tags, { "fdai:component" = "dev-operations-gateway" })
 }
 
-data "archive_file" "dev_gateway" {
-  count       = var.enable_dev_operations_gateway ? 1 : 0
-  type        = "zip"
-  source_dir  = "${path.module}/../delivery/dev_operations_gateway"
-  output_path = "${path.module}/fdai-dev-operations-gateway.zip"
-  excludes    = ["README.md", ".funcignore", "__pycache__"]
-}
-
 resource "azurerm_function_app_flex_consumption" "dev_gateway" {
   count               = var.enable_dev_operations_gateway ? 1 : 0
   name                = "func-${var.workload}${local.full_suffix}-devgw-${local.storage_unique_suffix}"
@@ -738,7 +730,6 @@ resource "azurerm_function_app_flex_consumption" "dev_gateway" {
   https_only                                     = true
   maximum_instance_count                         = 2
   instance_memory_in_mb                          = 2048
-  zip_deploy_file                                = data.archive_file.dev_gateway[0].output_path
   webdeploy_publish_basic_authentication_enabled = false
 
   identity {
@@ -750,6 +741,9 @@ resource "azurerm_function_app_flex_consumption" "dev_gateway" {
   }
 
   app_settings = {
+    AzureWebJobsStorage__accountName       = azurerm_storage_account.dev_gateway[0].name
+    AzureWebJobsStorage__credential        = "managedidentity"
+    AzureWebJobsStorage__clientId          = module.dev_gateway_reader_identity[0].client_id
     APPLICATIONINSIGHTS_CONNECTION_STRING  = azurerm_application_insights.core.connection_string
     FDAI_ENV                               = "dev"
     FDAI_DEV_GATEWAY_ENABLED               = "1"

@@ -389,6 +389,34 @@ jobs:
       - name: Terraform validate
         run: terraform validate
 
+      - name: Build development operations gateway source artifact
+        if: ${{ !inputs.apply && inputs.deploy_dev_operations_gateway }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          source = Path("../delivery/dev_operations_gateway")
+          target = Path("fdai-dev-operations-gateway.zip")
+          excluded_names = {".funcignore", "README.md"}
+          with ZipFile(target, "w", compression=ZIP_DEFLATED) as archive:
+            for path in sorted(source.rglob("*")):
+              if (
+                not path.is_file()
+                or path.name in excluded_names
+                or path.suffix == ".pyc"
+                or "__pycache__" in path.parts
+              ):
+                continue
+              archive.write(path, path.relative_to(source).as_posix())
+          required = {"function_app.py", "gateway.py", "host.json", "requirements.txt"}
+          with ZipFile(target) as archive:
+            missing = required.difference(archive.namelist())
+          if missing:
+            raise SystemExit(f"gateway source artifact is missing: {sorted(missing)}")
+          PY
+
       - name: Run runner egress preflight
         run: |
           set -euo pipefail
@@ -735,6 +763,66 @@ jobs:
           fi
           if [ "$plan_exit" -eq 2 ]; then
             echo "post-apply Terraform state is not converged." >&2
+            exit 1
+          fi
+
+      - name: Deploy exact development operations gateway source
+        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway }}
+        env:
+          APPLY_CONTEXT_DIGEST: ${{ inputs.context_digest }}
+          APPLY_COMMIT_SHA: ${{ inputs.commit_sha }}
+          APPLY_PLAN_ID: ${{ inputs.plan_id }}
+          APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
+        run: |
+          set -euo pipefail
+          source_artifact="fdai-dev-operations-gateway.zip"
+          python3 ../scripts/deployment/azure/verify-deployment-plan.py \
+            --plan dev.plan --source-artifact "$source_artifact" \
+            --metadata plan-metadata.json \
+            --preflight-evidence plan-preflight-evidence.json \
+            --azure-preflight-evidence plan-azure-preflight-evidence.json \
+            --plan-id "$APPLY_PLAN_ID" --plan-digest "$APPLY_PLAN_DIGEST" \
+            --context-digest "$APPLY_CONTEXT_DIGEST" --commit-sha "$APPLY_COMMIT_SHA"
+
+          rg="$(terraform output -raw resource_group_name)"
+          app="$(terraform output -raw dev_operations_gateway_app_name)"
+          if [ -z "$rg" ] || [ -z "$app" ]; then
+            echo "gateway deployment outputs are empty after apply." >&2
+            exit 1
+          fi
+          resource_id="$(az functionapp show --resource-group "$rg" --name "$app" --query id -o tsv)"
+          started_epoch="$(date -u +%s)"
+          set +e
+          az functionapp deployment source config-zip \
+            --resource-group "$rg" --name "$app" --src "$source_artifact" \
+            --build-remote true --only-show-errors --output none
+          cli_exit=$?
+          set -e
+
+          deployment_verified=false
+          for _ in $(seq 1 30); do
+            latest="$(az rest --method get \
+              --uri "https://management.azure.com${resource_id}/deployments?api-version=2024-04-01" \
+              --query 'sort_by(value, &properties.received_time)[-1].properties.{status:status,received_time:received_time,complete:complete,remoteBuild:remoteBuild}' \
+              -o json 2>/dev/null || true)"
+            if LATEST_DEPLOYMENT="$latest" STARTED_EPOCH="$started_epoch" python3 -c \
+              'import json, os; from datetime import datetime; deployment = json.loads(os.environ["LATEST_DEPLOYMENT"]); received = datetime.fromisoformat(str(deployment["received_time"]).replace("Z", "+00:00")).timestamp(); valid = received >= int(os.environ["STARTED_EPOCH"]) - 5 and deployment.get("complete") is True and deployment.get("remoteBuild") is True and deployment.get("status") == 4; raise SystemExit(0 if valid else 1)' \
+              2>/dev/null; then
+              deployment_verified=true
+              break
+            fi
+            sleep 10
+          done
+          if [ "$deployment_verified" != "true" ]; then
+            echo "gateway remote build did not produce a current successful deployment record (CLI exit $cli_exit)." >&2
+            exit 1
+          fi
+
+          functions="$(az rest --method get \
+            --uri "https://management.azure.com${resource_id}/functions?api-version=2024-04-01" \
+            --query 'value[].name' -o tsv)"
+          if ! grep -q '/health$' <<<"$functions" || ! grep -q '/invoke$' <<<"$functions"; then
+            echo "gateway deployment completed without the required Function triggers." >&2
             exit 1
           fi
 

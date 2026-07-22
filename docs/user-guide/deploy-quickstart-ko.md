@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 세트 인벤토리를 Azure에 프로비저닝하는 방법. 동등한 두 경로(azd 턴키 또는 Terraform 직접 실행) 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 32b4a85d9045dbc6d67f395b03135edf72318f45
+translation_source_sha: a6580fb65874d08b15a300368d8c3849195a2556
 translation_revised: 2026-07-22
 ---
 
@@ -72,11 +72,14 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    health snapshot에 보고되는지, 즉시 실행한 canary publisher Job이 완료됐는지 확인합니다.
    Read API를 사용하면 browser Entra App Role을 검증하고 read/command credential이 Thor의
    executor Managed Identity와 분리됐는지 확인합니다.
-3. **제한된 범위 하나 온보딩.** 리소스 그룹 수준과 동등한 범위 하나로 시작하고
+3. **Development operations gateway 검증.** 이 gateway를 사용하면 보호된 source archive가
+   Terraform apply 후에 배포됐는지, 현재 remote-build deployment가 성공했는지, 두 Function
+   trigger가 등록됐는지, host storage가 reader managed identity를 사용하는지 확인합니다.
+4. **제한된 범위 하나 온보딩.** 리소스 그룹 수준과 동등한 범위 하나로 시작하고
    소유자를 지정합니다.
-4. **shadow 모드로 관찰.** FDAI가 변경을 적용하지 않고 판단과 감사만 수행하도록 두고,
+5. **shadow 모드로 관찰.** FDAI가 변경을 적용하지 않고 판단과 감사만 수행하도록 두고,
    실행됐을 액션을 검토합니다.
-5. **하나의 액션 승격.** 승격 게이트를 통과한 액션만 적용 모드로 전환하고, 나머지는
+6. **하나의 액션 승격.** 승격 게이트를 통과한 액션만 적용 모드로 전환하고, 나머지는
    shadow로 둡니다.
 
 [시작하기](get-started-ko.md) 가이드에서는 이 첫 번째 안전한 롤아웃을 자세히 다룹니다.
