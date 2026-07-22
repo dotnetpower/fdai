@@ -6363,7 +6363,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 /* Input row ------------------------------------------------------------ */
 .deck-input-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 10px;
   padding: 12px 20px 16px;
   border-top: 1px solid var(--border);
@@ -6470,6 +6470,146 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-btn-stop:hover:not(:disabled) {
   filter: brightness(1.08);
+}
+
+/* ---------------------------------------------------------------------------
+ * Composer attachments - the file-input affordance. A read-only evidence
+ * staging surface: the "+" button opens the picker, the tray previews staged
+ * files, and a rights-protected (RMS) upload is announced + abandoned. Nothing
+ * is uploaded from here; staging is composer-local client state.
+ * ------------------------------------------------------------------------- */
+.deck-attach-input { display: none; }
+.deck-attach-btn {
+  align-self: end;
+  width: 40px;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--fg-muted);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+}
+.deck-attach-btn:hover { color: var(--fg); border-color: var(--fg-muted); }
+.deck-attach-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent);
+}
+/* Tray spans the whole composer row, sitting above the input line. */
+.deck-attach-tray {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 2px;
+  padding: 0;
+  list-style: none;
+}
+.deck-attach-tray.is-dragging {
+  outline: 2px dashed color-mix(in oklab, var(--accent) 55%, transparent);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+.deck-attach-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+  min-width: 0;
+  max-width: 260px;
+}
+.deck-attach-item.is-abandoned { opacity: 0.74; border-style: dashed; }
+.deck-attach-item.is-abandoned .deck-attach-name {
+  text-decoration: line-through;
+  text-decoration-color: var(--fg-muted);
+}
+.deck-attach-thumb {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #fff;
+  text-transform: uppercase;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+}
+.deck-attach-thumb.is-log   { background: #4a6a86; }
+.deck-attach-thumb.is-plan  { background: #4f847e; }
+.deck-attach-thumb.is-image { background: #6f5f8f; }
+.deck-attach-thumb.is-data  { background: #5e8259; }
+.deck-attach-thumb.is-doc   { background: #b0774c; }
+.deck-attach-thumb.is-word  { background: #2b579a; }
+.deck-attach-thumb.is-excel { background: #217346; }
+.deck-attach-thumb.is-ppt   { background: #c43e1c; }
+.deck-attach-thumb.is-zip   { background: #5b6470; }
+.deck-attach-thumb.is-rms   { background: #7a4b52; }
+.deck-attach-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.deck-attach-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 168px;
+}
+.deck-attach-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.deck-attach-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--fg) 8%, transparent);
+}
+.deck-attach-status.is-scanning { color: #4a6a86; }
+.deck-attach-status.is-ready { color: #4f7a4a; }
+.deck-attach-status.is-abandoned { color: var(--fg-muted); }
+.deck-attach-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--fg-muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.deck-attach-remove:hover {
+  color: var(--danger, #b3261e);
+  border-color: color-mix(in oklab, var(--danger, #b3261e) 40%, transparent);
 }
 
 @media (max-width: 1100px) {

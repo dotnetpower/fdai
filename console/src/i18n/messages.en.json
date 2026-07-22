@@ -1489,6 +1489,15 @@
     "inputPlaceholder": "Ask anything, or type / for commands",
     "stop": "Stop",
     "send": "Send",
+    "attach": {
+      "button": "Attach a file",
+      "tray": "Attached files",
+      "remove": "Remove attachment",
+      "scanning": "scanning",
+      "ready": "ready",
+      "abandoned": "abandoned",
+      "rmsProtected": "RMS-protected"
+    },
     "suggestedFollowUps": "Suggested follow-ups",
     "intro": "Ask about anything currently visible - tiles, KPIs, approvals, audit rows, promotion status, impact scope, or ontology. I ground every answer in the snapshot on the right.",
     "backend": {

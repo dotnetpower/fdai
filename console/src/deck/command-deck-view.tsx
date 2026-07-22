@@ -10,6 +10,7 @@ import {
 import { DigestList } from "./command-deck-digest";
 import { CommandDeckLauncher } from "./command-deck-launcher";
 import { CommandDeckHeader } from "./command-deck-header";
+import { ComposerAttachments } from "./composer-attachments.view";
 import { clampDockWidth, type DeckLayoutMode } from "./command-deck-session";
 import type { DeckSlashCommand } from "./command-deck-slash";
 import type { ConversationSummary } from "./conversation-sessions";
@@ -274,6 +275,7 @@ export function CommandDeckView({
                 ))}
               </ul>
             ) : null}
+            <ComposerAttachments />
             <textarea
               ref={inputRef}
               class="deck-input"
