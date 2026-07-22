@@ -1025,6 +1025,28 @@ resource "azurerm_key_vault_secret" "chatops_webhook_secret" {
   depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
 }
 
+resource "azurerm_key_vault_secret" "gitops_token" {
+  count        = var.enable_stewardship_governance ? 1 : 0
+  name         = "fdai-gitops-token"
+  value        = var.gitops_token
+  key_vault_id = module.key_vault.id
+  content_type = "github-app-installation-token"
+  tags         = local.tags
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
+resource "azurerm_key_vault_secret" "github_webhook_secret" {
+  count        = var.enable_stewardship_governance ? 1 : 0
+  name         = "fdai-github-webhook-secret"
+  value        = var.github_webhook_secret
+  key_vault_id = module.key_vault.id
+  content_type = "github-webhook-hmac-secret"
+  tags         = local.tags
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
 resource "azurerm_key_vault_secret" "operator_memory_dsn" {
   name         = "fdai-operator-memory-dsn"
   value        = module.state_store.application_dsn
@@ -1390,16 +1412,19 @@ module "read_api" {
   chatops_webhook_secret_id = (
     var.enable_chatops_hil ? azurerm_key_vault_secret.chatops_webhook_secret[0].id : ""
   )
-  entra_tenant_id             = var.tenant_id
-  api_audience                = var.read_api_audience
-  rbac_readers_group_id       = var.rbac_readers_group_id
-  rbac_contributors_group_id  = var.rbac_contributors_group_id
-  rbac_approvers_group_id     = var.rbac_approvers_group_id
-  rbac_owners_group_id        = var.rbac_owners_group_id
-  rbac_break_glass_group_id   = var.rbac_break_glass_group_id
-  cors_allow_origins          = var.read_api_cors_allow_origins
-  iam_directory_provider      = var.read_api_iam_directory_provider
-  inventory_freshness_seconds = var.inventory_freshness_seconds
+  entra_tenant_id                    = var.tenant_id
+  api_audience                       = var.read_api_audience
+  rbac_readers_group_id              = var.rbac_readers_group_id
+  rbac_contributors_group_id         = var.rbac_contributors_group_id
+  rbac_approvers_group_id            = var.rbac_approvers_group_id
+  rbac_owners_group_id               = var.rbac_owners_group_id
+  rbac_break_glass_group_id          = var.rbac_break_glass_group_id
+  cors_allow_origins                 = var.read_api_cors_allow_origins
+  iam_directory_provider             = var.read_api_iam_directory_provider
+  stewardship_maintainers            = var.stewardship_maintainers
+  stewardship_agent_bindings         = var.stewardship_agent_bindings
+  stewardship_audit_interval_seconds = var.stewardship_audit_interval_seconds
+  inventory_freshness_seconds        = var.inventory_freshness_seconds
   python_task_author_endpoint = (
     var.enable_llm && var.python_task_author_capability != ""
     ? module.llm_azure_openai[0].endpoint
@@ -1444,6 +1469,20 @@ module "ingestion_gateway" {
   identity_id                    = module.ingestion_identity[0].resource_id
   identity_client_id             = module.ingestion_identity[0].client_id
   database_dsn_secret_id         = azurerm_key_vault_secret.state_store_dsn.id
+  stewardship_governance_enabled = var.enable_stewardship_governance
+  gitops_owner                   = var.gitops_owner
+  gitops_repo                    = var.gitops_repo
+  gitops_token_secret_id = (
+    var.enable_stewardship_governance ? azurerm_key_vault_secret.gitops_token[0].id : ""
+  )
+  github_webhook_secret_id = (
+    var.enable_stewardship_governance ? azurerm_key_vault_secret.github_webhook_secret[0].id : ""
+  )
+  chatops_webhook_url_secret_id = (
+    var.enable_stewardship_governance ? azurerm_key_vault_secret.chatops_webhook_url[0].id : ""
+  )
+  stewardship_maintainers        = var.stewardship_maintainers
+  stewardship_agent_bindings     = var.stewardship_agent_bindings
   entra_tenant_id                = var.tenant_id
   api_audience                   = var.read_api_audience
   rbac_readers_group_id          = var.rbac_readers_group_id
@@ -1478,6 +1517,8 @@ module "ingestion_gateway" {
     azurerm_role_assignment.ingestion_eventhubs_sender,
     azurerm_role_assignment.ingestion_eventhubs_receiver,
     azurerm_role_assignment.ingestion_kv_secrets_user,
+    azurerm_key_vault_secret.gitops_token,
+    azurerm_key_vault_secret.github_webhook_secret,
     azurerm_role_assignment.ingestion_document_data,
     module.document_blob_private_endpoint,
     module.document_dfs_private_endpoint,

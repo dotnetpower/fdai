@@ -96,7 +96,7 @@ fdai/
 │   │   ├── chaos/              # live chaos-inject adapters when a `Chaos` runbook step goes enforce: `live_injectors.py` (CSP-neutral primitive fan-out) + `chaos_mesh.py` (Chaos Mesh CRDs) + `mysql_load.py` (MySQL benchmark load)
 │   │   ├── remediation/        # concrete `DirectApiExecutor` for direct-API remediation (`live_direct_api.py`); the Protocol lives in `shared/providers/`
 │   │   ├── read_api/           # thin ASGI - `main.py` composes one module per HTTP surface under `routes/`, SSE fan-out under `streaming/`, and separate `dev/` / `production/` wiring. GET routes project bounded state; POST command routes submit governed records or typed proposals and never call a privileged executor directly
-│   │   ├── ingestion_gateway/  # dedicated content-write ASGI: scoped upload sessions, status, cancellation, version listing, governed deletion
+│   │   ├── ingestion_gateway/  # dedicated content-write ASGI: scoped uploads and governed deletion; optional handover governance binds idempotent draft PR delivery plus a signed GitHub merge webhook
 │   │   ├── provisioning/       # surface-A Genesis bootstrap: pure `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O injected, no subprocess)
 │   │   └── scheduler_tick_cli.py  # standalone entry point that drives the scheduler tick from a cron / Container Apps Job
 │   ├── rule_catalog/          # rule-catalog PIPELINE code

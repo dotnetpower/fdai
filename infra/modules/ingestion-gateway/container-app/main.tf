@@ -24,6 +24,33 @@ resource "azurerm_container_app" "ingestion" {
     key_vault_secret_id = var.database_dsn_secret_id
   }
 
+  dynamic "secret" {
+    for_each = var.stewardship_governance_enabled ? [1] : []
+    content {
+      name                = "gitops-token"
+      identity            = var.identity_id
+      key_vault_secret_id = var.gitops_token_secret_id
+    }
+  }
+
+  dynamic "secret" {
+    for_each = var.stewardship_governance_enabled ? [1] : []
+    content {
+      name                = "github-webhook-secret"
+      identity            = var.identity_id
+      key_vault_secret_id = var.github_webhook_secret_id
+    }
+  }
+
+  dynamic "secret" {
+    for_each = var.stewardship_governance_enabled ? [1] : []
+    content {
+      name                = "chatops-webhook-url"
+      identity            = var.identity_id
+      key_vault_secret_id = var.chatops_webhook_url_secret_id
+    }
+  }
+
   ingress {
     external_enabled           = true
     allow_insecure_connections = false
@@ -59,6 +86,69 @@ resource "azurerm_container_app" "ingestion" {
       env {
         name        = "FDAI_DATABASE_URL"
         secret_name = "database-dsn"
+      }
+      dynamic "env" {
+        for_each = var.stewardship_governance_enabled ? [1] : []
+        content {
+          name  = "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED"
+          value = "1"
+        }
+      }
+      dynamic "env" {
+        for_each = var.stewardship_governance_enabled ? [1] : []
+        content {
+          name        = "FDAI_GITOPS_TOKEN"
+          secret_name = "gitops-token"
+        }
+      }
+      dynamic "env" {
+        for_each = var.stewardship_governance_enabled ? [1] : []
+        content {
+          name        = "FDAI_GITHUB_WEBHOOK_SECRET"
+          secret_name = "github-webhook-secret"
+        }
+      }
+      dynamic "env" {
+        for_each = var.stewardship_governance_enabled ? [1] : []
+        content {
+          name        = "FDAI_CHATOPS_WEBHOOK_URL"
+          secret_name = "chatops-webhook-url"
+        }
+      }
+      dynamic "env" {
+        for_each = var.stewardship_governance_enabled ? [1] : []
+        content {
+          name  = "FDAI_GITOPS_OWNER"
+          value = var.gitops_owner
+        }
+      }
+      dynamic "env" {
+        for_each = var.stewardship_governance_enabled ? [1] : []
+        content {
+          name  = "FDAI_GITOPS_REPO"
+          value = var.gitops_repo
+        }
+      }
+      dynamic "env" {
+        for_each = var.stewardship_governance_enabled ? [1] : []
+        content {
+          name  = "FDAI_STEWARDSHIP_REQUIRE_BINDINGS"
+          value = "1"
+        }
+      }
+      dynamic "env" {
+        for_each = var.stewardship_governance_enabled ? [1] : []
+        content {
+          name  = "FDAI_MAINTAINERS"
+          value = var.stewardship_maintainers
+        }
+      }
+      dynamic "env" {
+        for_each = var.stewardship_governance_enabled ? var.stewardship_agent_bindings : {}
+        content {
+          name  = "FDAI_STEWARD_${upper(env.key)}"
+          value = env.value
+        }
       }
       env {
         name  = "RUNTIME_ENV"

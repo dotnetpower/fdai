@@ -427,6 +427,11 @@ class ReadApiConfig:
     console renders it; edits are governance draft PRs, never a console
     mutation. See :mod:`fdai.delivery.read_api.routes.stewardship`."""
 
+    stewardship_health_reader: Any = None
+    """Optional read-only source for the latest scheduled Entra liveness
+    snapshot. When present, ``GET /stewardship`` merges validated ``stale_oid``
+    findings into coverage; malformed state is reported unavailable."""
+
     workflow_authoring: Any = None
     """Opt-in custom workflow authoring routes. When set (a
     :class:`~fdai.delivery.read_api.routes.workflow_authoring.WorkflowAuthoringConfig`),

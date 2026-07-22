@@ -54,7 +54,7 @@ Optional (respect defaults):
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
 from typing import Final
@@ -69,6 +69,7 @@ from fdai.core.conversation.outbound_delivery import (
 )
 from fdai.core.rbac.access_request import AccessRequestService
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
+from fdai.core.stewardship import load_stewardship_from_yaml
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.delivery.persistence import (
     PostgresModelHealthTransitionSink,
@@ -129,6 +130,10 @@ from fdai.delivery.read_api.routes.post_turn_review import PostTurnReviewQueue
 from fdai.delivery.read_api.routes.python_tasks import (
     PythonTaskRoutesConfig,
     PythonTaskRunSubmitter,
+)
+from fdai.delivery.stewardship import (
+    HumanIdentityLivenessDirectory,
+    StewardshipHealthMonitor,
 )
 from fdai.shared.providers.local import EnvSecretProvider
 
@@ -592,6 +597,32 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         if chat is not None
         else None
     )
+    stewardship_map = load_stewardship_from_yaml(
+        _REPO_ROOT / "config" / "agent-stewardship.yaml",
+        environ=env,
+    )
+    require_stewardship_bindings = env.get(
+        "FDAI_STEWARDSHIP_REQUIRE_BINDINGS", ""
+    ).strip().casefold() in {"1", "true", "yes", "on"}
+    stewardship_startup_callbacks: tuple[Callable[[], Awaitable[None]], ...] = ()
+    if require_stewardship_bindings and iam_directory is None:
+        raise ProdReadApiConfigError(
+            "FDAI_STEWARDSHIP_REQUIRE_BINDINGS requires "
+            "FDAI_IAM_DIRECTORY_PROVIDER=entra for scheduled liveness checks"
+        )
+    if iam_directory is not None:
+        stewardship_health = StewardshipHealthMonitor(
+            stewardship_map=stewardship_map,
+            directory=HumanIdentityLivenessDirectory(iam_directory),
+            state_store=state_store,
+            interval_seconds=_parse_positive_int(
+                env,
+                _env.STEWARDSHIP_AUDIT_INTERVAL_ENV,
+                3600,
+            ),
+        )
+        stewardship_startup_callbacks = (stewardship_health.start,)
+        shutdown_callbacks = (stewardship_health.stop, *shutdown_callbacks)
     config = ReadApiConfig(
         dev_mode=False,
         cors_allow_origins=cors_origins,
@@ -616,6 +647,8 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         workflow_authoring=workflow_authoring,
         workflow_execution=workflow_execution,
         workflow_definitions=workflow_definitions,
+        stewardship_map=stewardship_map,
+        stewardship_health_reader=state_store,
         user_context=user_context,
         model_settings=model_settings,
         python_tasks=python_tasks,
@@ -686,7 +719,11 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             model_settings_configured=model_settings is not None,
             streams_configured=runtime.live_stream is not None,
         ),
-        startup_callbacks=(read_model.verify_connection, *runtime.startup_callbacks),
+        startup_callbacks=(
+            read_model.verify_connection,
+            *runtime.startup_callbacks,
+            *stewardship_startup_callbacks,
+        ),
         shutdown_callbacks=shutdown_callbacks,
     )
     application = build_app(authenticator=authenticator, read_model=read_model, config=config)

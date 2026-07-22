@@ -46,6 +46,8 @@ _UUID_RE = re.compile(
 )
 _PLACEHOLDER_PREFIX = "00000000-0000-0000-0000-"
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
+_FORBIDDEN_ROLE_FIELDS = frozenset({"initiators", "judge", "executor", "approver", "auditor"})
+_SUPPORTED_VERSION = 1
 
 
 def _requires_real_bindings(env: Mapping[str, str]) -> bool:
@@ -69,13 +71,15 @@ def _validate_oid(oid: str, *, where: str, require_real_bindings: bool) -> str:
     return oid
 
 
-def load_stewardship_from_yaml(path: Path) -> StewardshipMap:
+def load_stewardship_from_yaml(
+    path: Path, *, environ: Mapping[str, str] | None = None
+) -> StewardshipMap:
     """Read + validate ``config/agent-stewardship.yaml`` (or a fork override)."""
     with path.open("r", encoding="utf-8") as fh:
         raw = yaml.safe_load(fh)
     if not isinstance(raw, dict):
         raise StewardshipValidationError(f"stewardship file {path} MUST be a YAML mapping")
-    return load_stewardship_from_mapping(raw)
+    return load_stewardship_from_mapping(raw, environ=environ)
 
 
 def load_stewardship_from_mapping(
@@ -89,16 +93,27 @@ def load_stewardship_from_mapping(
     if not isinstance(root, Mapping):
         raise StewardshipValidationError("stewardship config: top-level 'stewardship' key missing")
 
-    version = root.get("version", 1)
-    if not isinstance(version, int) or version < 1:
-        raise StewardshipValidationError("stewardship config: 'version' MUST be a positive integer")
+    forbidden = _FORBIDDEN_ROLE_FIELDS.intersection(root)
+    if forbidden:
+        raise StewardshipValidationError(
+            "stewardship config: role fields are forbidden: " + ", ".join(sorted(forbidden))
+        )
+
+    version = root.get("version", _SUPPORTED_VERSION)
+    if isinstance(version, bool) or version != _SUPPORTED_VERSION:
+        raise StewardshipValidationError(
+            f"stewardship config: 'version' MUST be {_SUPPORTED_VERSION}"
+        )
 
     maintainers = _parse_maintainers(
         root.get("maintainers"),
         env=env,
         require_real_bindings=require_real_bindings,
     )
-    channels = _parse_channels(root.get("channels"))
+    channels = _parse_channels(
+        root.get("channels"),
+        require_real_bindings=require_real_bindings,
+    )
     hop_timeout = _parse_hop_timeout(root.get("escalation"))
     over_assigned_max = _parse_over_assigned_max(root.get("thresholds"))
     agents = _parse_agents(
@@ -148,21 +163,30 @@ def _parse_maintainers(
         )
         for i, o in enumerate(oids)
     )
+    if len(set(oids)) != len(oids) and any(not _is_placeholder(oid) for oid in oids):
+        raise StewardshipValidationError(
+            "stewardship config: maintainers MUST contain distinct Entra object ids"
+        )
     return validated
 
 
-def _parse_channels(raw: Any) -> dict[str, str]:
+def _parse_channels(raw: Any, *, require_real_bindings: bool) -> dict[str, str]:
     if raw is None:
         return {}
     if not isinstance(raw, Mapping):
         raise StewardshipValidationError("stewardship config: 'channels' MUST be a mapping")
     channels: dict[str, str] = {}
     for oid, channel_id in raw.items():
-        if not isinstance(oid, str) or not isinstance(channel_id, str) or not channel_id.strip():
+        if not isinstance(channel_id, str) or not channel_id.strip():
             raise StewardshipValidationError(
                 f"stewardship config: 'channels' entry {oid!r} MUST map to a non-empty channel-id"
             )
-        channels[oid] = channel_id
+        validated_oid = _validate_oid(
+            oid,
+            where=f"channels[{oid!r}]",
+            require_real_bindings=require_real_bindings,
+        )
+        channels[validated_oid] = channel_id.strip()
     return channels
 
 
@@ -279,6 +303,7 @@ def _parse_stewards(
             f"stewardship config: agent {agent!r} 'stewards' MUST be a list"
         )
     subjects: list[StewardSubject] = []
+    seen_subjects: set[tuple[StewardKind, str]] = set()
     for i, entry in enumerate(raw):
         if not isinstance(entry, Mapping):
             raise StewardshipValidationError(
@@ -291,6 +316,12 @@ def _parse_stewards(
             require_real_bindings=require_real_bindings,
         )
         resp = _parse_responsibility(agent, i, entry.get("responsibility"))
+        subject_key = (kind, oid)
+        if subject_key in seen_subjects:
+            raise StewardshipValidationError(
+                f"stewardship config: agent {agent!r} has duplicate steward {kind.value}:{oid}"
+            )
+        seen_subjects.add(subject_key)
         subjects.append(StewardSubject(kind=kind, id=oid, responsibility=resp))
     return tuple(subjects)
 
@@ -304,7 +335,7 @@ def _parse_steward_env_tokens(
         if not tok:
             continue
         parts = tok.split(":")
-        if len(parts) < 2:
+        if len(parts) not in (2, 3):
             raise StewardshipValidationError(
                 f"FDAI_STEWARD_{agent.upper()}: token {tok!r} MUST be 'user:<oid>' or "
                 "'group:<oid>' (optionally ':accountable'/':informed')"

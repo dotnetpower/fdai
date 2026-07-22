@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 93f63939ea6ef801bfbfbb88ed1a26098c749587
+translation_source_sha: a7973b7055f3ea9360c6cd8422a881b76b102c93
 translation_revised: 2026-07-22
 ---
 # 코드 맵
@@ -103,7 +103,7 @@ shared 패키지를 커버한다.
 | reporting | 리포트 컴포저 + 포매터 | [src/fdai/core/reporting/](../../../src/fdai/core/reporting/) | [tests/core/reporting/](../../../tests/core/reporting/) |
 | views | Workflow-matched ViewSpec -> bounded RenderedView 및 deterministic inventory architecture projection | [src/fdai/core/views/](../../../src/fdai/core/views/) | [tests/core/views/](../../../tests/core/views/) 및 read-API architecture-view test |
 | rbac | Read API 인간 RBAC | [src/fdai/core/rbac/](../../../src/fdai/core/rbac/) | [tests/core/](../../../tests/core/) |
-| stewardship | 인간 <-> 에이전트 인수인계 맵 (책임 + 에스컬레이션 오버레이) | [src/fdai/core/stewardship/](../../../src/fdai/core/stewardship/) | [tests/core/stewardship/](../../../tests/core/stewardship/) |
+| stewardship | 사람 <-> agent handover map, deterministic diff/notification, scheduled identity health, idempotent draft PR, signed merge audit | [src/fdai/core/stewardship/](../../../src/fdai/core/stewardship/) 및 [src/fdai/delivery/stewardship/](../../../src/fdai/delivery/stewardship/) | [tests/core/stewardship/](../../../tests/core/stewardship/) 및 [tests/delivery/stewardship/](../../../tests/delivery/stewardship/) |
 
 ## 룰 카탈로그, 배포, 플랫폼
 

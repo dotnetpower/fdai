@@ -2,6 +2,18 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Design Mocks: Static Site",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "python3 -u -m http.server 5373 --bind 127.0.0.1",
+      "cwd": "${workspaceFolder}",
+      "serverReadyAction": {
+        "pattern": "Serving HTTP on 127\\.0\\.0\\.1 port 5373",
+        "uriFormat": "http://127.0.0.1:5373",
+        "action": "debugWithChrome"
+      }
+    },
+    {
       "name": "Console Web: Core Runtime",
       "type": "debugpy",
       "request": "launch",

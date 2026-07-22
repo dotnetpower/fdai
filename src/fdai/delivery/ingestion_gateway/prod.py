@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Final
 
 import httpx
@@ -44,6 +45,9 @@ from fdai.delivery.pgvector.document_index import (
 from fdai.delivery.read_api.auth import build_authenticator
 from fdai.delivery.read_api.entra_verifier import EntraJwtVerifier
 from fdai.delivery.stewardship import GraphPersonDirectory
+from fdai.delivery.stewardship.production import (
+    build_production_stewardship_governance,
+)
 from fdai.shared.contracts import IngestionCapabilities, SourceStorageMode
 from fdai.shared.providers.local.document_ingestion import (
     SignatureProtectionInspector,
@@ -141,6 +145,12 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     )
     state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
     handover_drafts = StateStoreHandoverDraftStore(state_store=state_store)
+    stewardship_governance = build_production_stewardship_governance(
+        env=env,
+        repo_root=Path(__file__).resolve().parents[4],
+        http_client=http_client,
+        state_store=state_store,
+    )
     activity = DurableDocumentActivitySink(
         state_store=state_store,
         event_bus=event_bus,
@@ -182,6 +192,9 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             HandoverBootstrapConsumer(
                 bootstrapper=HandoverBootstrapper(directory=person_directory),
                 store=handover_drafts,
+                governance=(
+                    stewardship_governance.service if stewardship_governance is not None else None
+                ),
             ),
         ),
         indexing_stage_timeout_seconds=_positive_int(
@@ -203,6 +216,9 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         worker=worker,
         search_index=document_index,
         handover_drafts=handover_drafts,
+        stewardship_webhook=(
+            stewardship_governance.webhook if stewardship_governance is not None else None
+        ),
         config=IngestionGatewayConfig(
             proxy_upload=True,
             background_services=(worker_service.run, worker_service.reconcile),

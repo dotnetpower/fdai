@@ -134,6 +134,22 @@ def affected_agents_from_workflow(workflow_raw: Mapping[str, object]) -> frozens
     return frozenset(found)
 
 
+def affected_agents_from_stewardship_change(
+    before: StewardshipMap,
+    after: StewardshipMap,
+) -> frozenset[str]:
+    """Return agents affected by a validated stewardship-map replacement."""
+    global_change = (
+        before.maintainers != after.maintainers
+        or dict(before.channels) != dict(after.channels)
+        or before.hop_timeout_seconds != after.hop_timeout_seconds
+        or before.over_assigned_max != after.over_assigned_max
+    )
+    if global_change:
+        return AGENT_NAME_SET
+    return frozenset(name for name in AGENT_NAME_SET if before.agents[name] != after.agents[name])
+
+
 def stakeholders_for_change(
     mp: StewardshipMap, agents: Iterable[str]
 ) -> tuple[EscalationRecipient, ...]:
@@ -177,6 +193,7 @@ __all__ = [
     "EscalationPlan",
     "EscalationRecipient",
     "EscalationTier",
+    "affected_agents_from_stewardship_change",
     "affected_agents_from_workflow",
     "build_escalation_plan",
     "expand_group_recipients",

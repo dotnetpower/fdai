@@ -18,11 +18,12 @@ the two are resolved and validated independently.
 > (all-zero UUID). Deployment configuration supplies the real Entra values
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
-> **Implementation status.** Loader/validation, coverage, escalation, deterministic change
-> recipient/audit-payload primitives, the read-only console projection, handover document
-> ingestion, and Graph person resolution are shipped. Automatic production stewardship-map
-> binding, Terraform injection of `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`, GitHub App draft-PR
-> creation, and post-merge notification/audit hooks remain composition/deployment work.
+> **Implementation status.** The complete lifecycle is shipped: production map binding,
+> fail-closed Terraform identity injection, scheduled stale-OID transition audit, grounded
+> handover ingestion, idempotent GitHub draft-PR delivery, signed merge observation,
+> stakeholder notification, append-only audit, and the read-only console projection. See
+> [Agent operational ownership lifecycle](agent-stewardship-operations.md) for runtime,
+> deployment, recovery, and verification details.
 
 ## 1. Design principles
 
@@ -187,10 +188,12 @@ request), `core/stewardship` builds an ordered recipient list:
 2. then its `informed` stewards,
 3. then the maintainer set.
 
-Each hop has a `hop_timeout_seconds` budget. If no acknowledgement arrives, the
-next tier is notified. This reuses the notifications matrix `on_all_fail:
-hil_escalate` semantics (a message is never dropped) and extends it with the
-person-tier ordering.
+The plan carries a `hop_timeout_seconds` hint for each person tier. Stewardship owns recipient
+ordering, not a human non-response timer. Channel delivery failure uses the notifications matrix
+`on_all_fail: hil_escalate` path. A future timer that advances after successful delivery but no
+human decision belongs to the separate
+[escalation and standing authority](../decisioning/escalation-and-standing-authority.md)
+supervisor, which remains proposed.
 
 ### 6.2 Person -> channel bridge
 
@@ -221,12 +224,16 @@ Handover correctness is safety-relevant, so validation is layered.
 
 Hard errors (raise `StewardshipValidationError`, block a clean boot of the layer):
 
+- a schema `version` other than `1`,
 - fewer than 1 maintainer,
+- duplicate real maintainer OIDs or duplicate steward subjects,
 - an `agents:` block missing any of the 15 pantheon names, or naming an unknown
   agent,
 - an agent with neither an `accountable` steward nor `accept_autonomous`,
 - an `accept_autonomous` without a `reason`,
 - a malformed subject (`kind` not in {user, group}, id not a UUID shape),
+- a non-UUID personal-channel key, malformed environment token, or any forbidden
+  pantheon role field,
 - when `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`, any steward or maintainer id left at the
   all-zero placeholder. Every deployed environment that binds a stewardship map must set this
   flag explicitly; fork status is irrelevant.
@@ -245,7 +252,8 @@ An injected `IdentityDirectory` (Graph-backed in a fork, static in tests) is ask
 to confirm each maintainer/steward OID still resolves to an active account. A
 missing OID produces a `stale_oid` finding and the person is dropped from live
 escalation (falling through to the next tier / maintainer). This runs off the hot
-path (scheduled), never inline in the control loop.
+path (scheduled), never inline in the control loop. Production stores transition-only health and
+merges the latest validated stale findings into the read-only `/stewardship` coverage response.
 
 ### 7.4 CI gate (`scripts/governance/check-stewardship.sh`)
 
@@ -259,14 +267,15 @@ Runs in `scripts/verify.sh` and CI:
 - placeholder policy: tracked upstream config requires all-zero values; deployed environments
   require non-placeholder bindings through `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`.
 
-## 8. Workflow-change notification and audit (integration target)
+## 8. Workflow-change notification and audit
 
 A "defined workflow" is any governance artifact that encodes how work flows:
 `rule-catalog/workflows/*.yaml`, `config/agent-stewardship.yaml`,
 `config/notifications-matrix.yaml`. When a person wants to change one:
 
-The lifecycle below is the target contract. Recipient and audit-payload primitives in
-`core/stewardship/notify.py` are implemented; the GitHub App and merge hook are not wired yet.
+The lifecycle below is implemented. The ingestion gateway turns a grounded handover draft into an
+idempotent governance PR. Its signed GitHub webhook re-reads the changed files and merged YAML,
+then uses the core recipient and audit primitives to close the lifecycle.
 
 1. **Draft PR.** The change is authored as a draft PR by the GitHub App (console
    never mutates directly). Standard CODEOWNERS + no-self-approval + quorum apply.
@@ -274,7 +283,7 @@ The lifecycle below is the target contract. Recipient and audit-payload primitiv
    workflow file, the agents it references; for the stewardship file, the agents
    whose stewards changed) and notifies their `accountable` + `informed` stewards
    plus the maintainer: "person X requests a change to workflow Y".
-3. **Audit.** A Saga append-only `AuditEntry` records actor OID, artifact, before
+3. **Audit.** A Saga append-only `AuditEntry` records actor identity, artifact, before
    -> after summary, correlation id, timestamp, and the approval decision. The
    audit entry is L0 English and never suppressed.
 
@@ -291,10 +300,10 @@ The read-only Handover view at `console/src/routes/handover.tsx` contains two se
   (clean / warn / fail).
 - **Maintainers** - the maintainer list with the min-1/rec-2 status banner.
 
-The console currently shows "Propose a change" guidance and the config path; it provides no
-mutation button or GitHub App call. An Owner edits `config/agent-stewardship.yaml` and opens a
-draft PR. The loader rejects fewer than one maintainer; the console shows a recommendation banner
-below two.
+The console shows "Propose a change" guidance and the config path; it provides no mutation button
+or GitHub credential. An Owner can edit the file directly, or submit a `handover_bootstrap`
+document whose grounded result is delivered as a draft PR by the ingestion service. The loader
+rejects fewer than one maintainer; the console shows a recommendation banner below two.
 
 ## 10. Security and safety
 
@@ -364,9 +373,11 @@ Every emitted mapping cites its source span (`SourceSpan`), so nothing is
 ungrounded. `draft_yaml.py` renders the draft as `stewardship:`-shaped YAML that
 **round-trips through `load_stewardship_from_mapping`** (the same resolver and
 fail-fast gates), with inline citation comments and placeholder ids for
-unresolved people. The delivery layer surfaces that YAML as a governance draft
-PR a human reviews and merges - the console stays read-only, and no map is ever
-applied autonomously.
+unresolved people. When stewardship governance is enabled, the delivery layer publishes that YAML
+as one idempotent governance draft PR. A human reviews and merges it, and the signed merge webhook
+writes the merge audit and notifies the affected owners. The console stays read-only, and no map is
+ever applied autonomously. Full state, failure, and deployment contracts are in
+[agent-stewardship-operations.md](agent-stewardship-operations.md).
 
 The remaining fork binding is `HandoverInterpreter` for grounded T2 interpretation
 of structure the deterministic extractor cannot resolve. Upstream production keeps

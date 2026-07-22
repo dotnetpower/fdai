@@ -119,6 +119,7 @@ def append_projection_routes(
             make_stewardship_route(
                 stewardship_map=config.stewardship_map,
                 authorize=authorize,
+                health_reader=config.stewardship_health_reader,
             )
         )
 

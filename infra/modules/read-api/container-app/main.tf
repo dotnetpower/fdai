@@ -134,6 +134,25 @@ resource "azurerm_container_app" "read_api" {
           value = env.value
         }
       }
+      env {
+        name  = "FDAI_STEWARDSHIP_REQUIRE_BINDINGS"
+        value = "1"
+      }
+      env {
+        name  = "FDAI_MAINTAINERS"
+        value = var.stewardship_maintainers
+      }
+      dynamic "env" {
+        for_each = var.stewardship_agent_bindings
+        content {
+          name  = "FDAI_STEWARD_${upper(env.key)}"
+          value = env.value
+        }
+      }
+      env {
+        name  = "FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS"
+        value = tostring(var.stewardship_audit_interval_seconds)
+      }
       dynamic "env" {
         for_each = var.python_task_author_endpoint == "" ? [] : [var.python_task_author_endpoint]
         content {

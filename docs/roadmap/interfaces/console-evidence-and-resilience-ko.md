@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 97171e5827286d33722194b53b87313be56ada3e
+translation_source_sha: f99367d96c4fee087a7c326273d9c28839a1de8a
 translation_revised: 2026-07-22
 ---
 
@@ -62,6 +62,10 @@ failure 또는 escalation reason을 인용할 수 있지만, 완전한 root-caus
 경계에서 exact path 또는 descendant를 match한 뒤 가장 긴 owner를 선택합니다. 비슷한 prefix는
 ownership을 상속하지 않습니다. Owned route가 manifest에 하나라도 없으면 panel은 `unknown`이고,
 명시적으로 source-independent인 panel만 source status를 생략합니다.
+
+Production read API는 `GET /stewardship`을 등록하기 전에 operational ownership map을 load하고
+validate합니다. Console은 이 source를 read-only로 projection하며 draft PR 생성과 signed merge
+processing은 별도 ingestion/GitOps boundary에 유지됩니다.
 
 ## Stream recovery 및 authentication
 

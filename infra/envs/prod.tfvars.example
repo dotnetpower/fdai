@@ -67,6 +67,29 @@ rbac_contributors_group_id        = "00000000-0000-0000-0000-000000000000"
 rbac_approvers_group_id           = "00000000-0000-0000-0000-000000000000"
 rbac_owners_group_id              = "00000000-0000-0000-0000-000000000000"
 rbac_break_glass_group_id         = "00000000-0000-0000-0000-000000000000"
+read_api_iam_directory_provider   = "entra"
+stewardship_maintainers           = "00000000-0000-0000-0000-000000000000,00000000-0000-0000-0000-000000000000"
+stewardship_agent_bindings = {
+  Odin     = "user:00000000-0000-0000-0000-000000000000"
+  Thor     = "user:00000000-0000-0000-0000-000000000000"
+  Forseti  = "user:00000000-0000-0000-0000-000000000000"
+  Huginn   = "user:00000000-0000-0000-0000-000000000000"
+  Heimdall = "user:00000000-0000-0000-0000-000000000000"
+  Vidar    = "user:00000000-0000-0000-0000-000000000000"
+  Var      = "user:00000000-0000-0000-0000-000000000000"
+  Bragi    = "user:00000000-0000-0000-0000-000000000000"
+  Saga     = "user:00000000-0000-0000-0000-000000000000"
+  Mimir    = "user:00000000-0000-0000-0000-000000000000"
+  Muninn   = "user:00000000-0000-0000-0000-000000000000"
+  Norns    = "user:00000000-0000-0000-0000-000000000000"
+  Njord    = "user:00000000-0000-0000-0000-000000000000"
+  Freyr    = "user:00000000-0000-0000-0000-000000000000"
+}
+# Enable only after CI supplies gitops_token, github_webhook_secret, and the
+# existing ChatOps webhook values. Replace owner/repo in deployment tfvars.
+# enable_stewardship_governance = true
+# gitops_owner                  = "<github-owner>"
+# gitops_repo                   = "<github-repository>"
 ingestion_cors_allow_origins      = "https://console.example.com"
 document_storage_replication_type = "ZRS"
 

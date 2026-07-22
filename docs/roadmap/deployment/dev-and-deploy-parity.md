@@ -66,7 +66,7 @@ site is static and separate from the authenticated Console full stack.
 
 | Surface | Default address | Workspace entry point |
 |---------|-----------------|-----------------------|
-| Design mocks | `http://127.0.0.1:5373` | `design mocks: serve (5373)` task or Live Server |
+| Design mocks | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch, `design mocks: serve (5373)` task, or Live Server |
 | Console SPA | `http://127.0.0.1:5273` | `Console Web: Frontend` |
 | Read API | `http://127.0.0.1:8010` | `Console Web: Read API` |
 | Test ingestion gateway | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |

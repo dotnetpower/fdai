@@ -50,6 +50,40 @@ check "document_ingestion_requires_dependencies" {
   }
 }
 
+check "read_api_requires_stewardship_bindings" {
+  assert {
+    condition = !var.enable_read_api || (
+      trimspace(var.stewardship_maintainers) != "" &&
+      var.read_api_iam_directory_provider == "entra" &&
+      alltrue([
+        for agent in ["Odin", "Thor", "Forseti", "Huginn", "Heimdall", "Vidar", "Var", "Bragi", "Saga", "Mimir", "Muninn", "Norns", "Njord", "Freyr"] :
+        contains(keys(var.stewardship_agent_bindings), agent)
+      ])
+    )
+    error_message = "enable_read_api requires the Entra directory, stewardship_maintainers, and bindings for every non-autonomous pantheon agent."
+  }
+}
+
+check "stewardship_governance_requires_delivery" {
+  assert {
+    condition = !var.enable_stewardship_governance || (
+      var.enable_document_ingestion &&
+      var.enable_read_api &&
+      var.enable_chatops_hil &&
+      trimspace(var.gitops_owner) != "" &&
+      trimspace(var.gitops_repo) != "" &&
+      trimspace(nonsensitive(var.gitops_token)) != "" &&
+      length(nonsensitive(var.github_webhook_secret)) >= 32 &&
+      trimspace(var.stewardship_maintainers) != "" &&
+      alltrue([
+        for agent in ["Odin", "Thor", "Forseti", "Huginn", "Heimdall", "Vidar", "Var", "Bragi", "Saga", "Mimir", "Muninn", "Norns", "Njord", "Freyr"] :
+        contains(keys(var.stewardship_agent_bindings), agent)
+      ])
+    )
+    error_message = "stewardship governance requires document ingestion, read API, ChatOps, GitOps credentials, a 32+ character webhook secret, and complete stewardship bindings."
+  }
+}
+
 check "production_image_is_digest_pinned" {
   assert {
     condition = var.env != "prod" || (

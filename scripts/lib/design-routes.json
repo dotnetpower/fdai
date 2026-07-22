@@ -489,10 +489,25 @@
     },
     {
       "id": "stewardship",
-      "paths": ["config/agent-stewardship.yaml", "src/fdai/core/stewardship/**"],
+      "paths": [
+        "config/agent-stewardship.yaml",
+        "src/fdai/core/stewardship/**",
+        "src/fdai/delivery/stewardship/**",
+        "src/fdai/delivery/ingestion_gateway/handover.py",
+        "src/fdai/delivery/ingestion_gateway/prod.py"
+      ],
       "must_read": [
         ".github/instructions/agent-stewardship.instructions.md",
-        "docs/roadmap/interfaces/agent-stewardship-and-handover.md"
+        "docs/roadmap/interfaces/agent-stewardship-and-handover.md",
+        "docs/roadmap/interfaces/agent-stewardship-operations.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/agent-stewardship-and-handover.md",
+        "docs/roadmap/interfaces/agent-stewardship-operations.md"
+      ],
+      "validate": [
+        "bash scripts/governance/check-stewardship.sh",
+        "uv run pytest tests/core/stewardship tests/delivery/stewardship tests/delivery/ingestion_gateway/test_handover.py -q --no-cov"
       ]
     },
     {

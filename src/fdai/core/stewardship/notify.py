@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 
 from fdai.core.stewardship.escalation import EscalationRecipient, stakeholders_for_change
 from fdai.core.stewardship.model import StewardshipMap
@@ -30,6 +31,13 @@ from fdai.shared.providers.notifications.base import (
 # gate: it rides the A2 operational-alert lane. Reusing the existing category
 # means no new matrix route is required (a fork MAY add a dedicated route).
 CHANGE_CATEGORY = "operational_alert"
+
+
+class StewardshipChangePhase(StrEnum):
+    """Lifecycle phase of a governed stewardship change."""
+
+    REQUESTED = "requested"
+    MERGED = "merged"
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +57,7 @@ class StewardshipChangeEvent:
     affected_agents: tuple[str, ...]
     summary: str
     correlation_id: str
+    phase: StewardshipChangePhase = StewardshipChangePhase.REQUESTED
 
 
 def build_change_notification(
@@ -64,15 +73,16 @@ def build_change_notification(
     recipients = stakeholders_for_change(mp, event.affected_agents)
     steward_oids = tuple(r.id for r in recipients)
     agents_label = ", ".join(event.affected_agents) if event.affected_agents else "(none)"
+    verb = "requested" if event.phase is StewardshipChangePhase.REQUESTED else "merged"
     body = (
-        f"Change requested by {event.actor_oid} to `{event.artifact}`.\n\n"
+        f"Change {verb} by {event.actor_oid} for `{event.artifact}`.\n\n"
         f"Affected agents: {agents_label}.\n\n{event.summary}"
     )
     message = NotificationMessage(
         category=CHANGE_CATEGORY,
         trust_tier=TrustTier.A2_OPERATIONAL_ALERT,
         correlation_id=event.correlation_id,
-        title=f"Stewardship change: {event.artifact}",
+        title=f"Stewardship change {verb}: {event.artifact}",
         body_markdown=body,
         severity=Severity.WARN,
         metadata={
@@ -92,12 +102,12 @@ def build_change_audit_payload(event: StewardshipChangeEvent) -> dict[str, str]:
     record of the underlying finding.
     """
     return {
-        "event": "stewardship_change_requested",
+        "event": f"stewardship_change_{event.phase.value}",
         "actor_oid": event.actor_oid,
         "artifact": event.artifact,
         "affected_agents": ",".join(event.affected_agents),
         "correlation_id": event.correlation_id,
-        "requested_at": datetime.now(UTC).isoformat(),
+        "recorded_at": datetime.now(UTC).isoformat(),
         "summary": event.summary,
     }
 
@@ -105,6 +115,7 @@ def build_change_audit_payload(event: StewardshipChangeEvent) -> dict[str, str]:
 __all__ = [
     "CHANGE_CATEGORY",
     "StewardshipChangeEvent",
+    "StewardshipChangePhase",
     "build_change_audit_payload",
     "build_change_notification",
 ]

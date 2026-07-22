@@ -38,6 +38,7 @@ from fdai.core.stewardship.escalation import (
     EscalationPlan,
     EscalationRecipient,
     EscalationTier,
+    affected_agents_from_stewardship_change,
     affected_agents_from_workflow,
     build_escalation_plan,
     expand_group_recipients,
@@ -57,6 +58,7 @@ from fdai.core.stewardship.names import AGENT_NAME_SET, AGENT_NAMES
 from fdai.core.stewardship.notify import (
     CHANGE_CATEGORY,
     StewardshipChangeEvent,
+    StewardshipChangePhase,
     build_change_audit_payload,
     build_change_notification,
 )
@@ -87,6 +89,8 @@ __all__ = [
     "StewardshipMap",
     "StewardshipValidationError",
     "StewardshipChangeEvent",
+    "StewardshipChangePhase",
+    "affected_agents_from_stewardship_change",
     "affected_agents_from_workflow",
     "audit_stale_oids",
     "build_change_audit_payload",

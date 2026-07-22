@@ -60,6 +60,10 @@ paths or descendants on a path-segment boundary, and selects the longest owner. 
 not inherit ownership. A panel remains `unknown` when any owned route is absent from the manifest;
 only explicitly source-independent panels omit source status.
 
+The production read API loads and validates the operational ownership map before registering
+`GET /stewardship`. The console projects that source read-only; draft PR creation and signed merge
+processing remain on the separate ingestion/GitOps boundary.
+
 ## Stream recovery and authentication
 
 Authenticated live, agent, and provisioning SSE readers cancel after 45 seconds without bytes,

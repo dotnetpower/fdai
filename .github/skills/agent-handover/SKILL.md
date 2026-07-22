@@ -71,9 +71,11 @@ bus-factor 1).
    - each agent's `stewards:` with `kind` / `id` / `responsibility`,
    - `accept_autonomous: { reason: ... }` for any agent with no accountable human.
 4. **Validate (the verification step).** Work the checklist below until clean.
-5. **Land it as a governance PR.** The console never writes this file directly;
-   propose a draft PR (Owner-gated). Merging notifies the affected stewards +
-   maintainer and writes a Saga audit entry.
+5. **Land it as a governance PR.** The console never writes this file directly.
+   An Owner may edit the file, or upload a `handover_bootstrap` document. When
+   stewardship governance is enabled, the grounded draft opens one idempotent
+   draft PR. A signed merge webhook notifies affected stewards + maintainers and
+   writes the Saga merge audit.
 
 ## Verification checklist (must pass before handover is "done")
 
@@ -92,6 +94,11 @@ bus-factor 1).
 - [ ] Every agent is either mapped to an `accountable` steward or explicitly
       `accept_autonomous` with a reason - never silently unowned.
 - [ ] Two maintainers configured (1 is allowed but flagged).
+- [ ] In a deployment, `GET /stewardship` returns all 15 agents and the latest
+   `stewardship_health:current` snapshot is recent.
+- [ ] When governance delivery is enabled, reprocessing one synthetic handover
+   upload returns the same PR, and replaying one GitHub delivery id writes no
+   second merge audit or notification.
 
 ## Common gotchas
 

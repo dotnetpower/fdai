@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 from starlette.testclient import TestClient
@@ -116,6 +117,31 @@ def test_production_gateway_requires_auth_and_contributor_role() -> None:
         json=_body(b"text"),
     )
     assert response.status_code == 403
+
+
+def test_stewardship_webhook_uses_signed_handler_without_entra_auth() -> None:
+    class Webhook:
+        async def handle(self, *, headers, body):
+            assert headers["x-github-event"] == "pull_request"
+            assert body == b"{}"
+            return SimpleNamespace(accepted=True, reason="merge recorded", changed=True)
+
+    service, worker = _stack()
+    app = build_app(
+        authenticator=_authenticator(),
+        service=service,
+        worker=worker,
+        stewardship_webhook=Webhook(),
+    )
+
+    response = TestClient(app).post(
+        "/ingestion/webhooks/github/stewardship",
+        headers={"x-github-event": "pull_request"},
+        content=b"{}",
+    )
+
+    assert response.status_code == 202
+    assert response.json()["changed"] is True
 
 
 def test_dev_direct_upload_complete_process_versions_and_delete(monkeypatch) -> None:

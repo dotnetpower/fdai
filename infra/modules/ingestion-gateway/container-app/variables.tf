@@ -8,6 +8,23 @@ variable "clamav_image" { type = string }
 variable "identity_id" { type = string }
 variable "identity_client_id" { type = string }
 variable "database_dsn_secret_id" { type = string }
+variable "stewardship_governance_enabled" { type = bool }
+variable "gitops_owner" { type = string }
+variable "gitops_repo" { type = string }
+variable "gitops_token_secret_id" {
+  type      = string
+  sensitive = true
+}
+variable "github_webhook_secret_id" {
+  type      = string
+  sensitive = true
+}
+variable "chatops_webhook_url_secret_id" {
+  type      = string
+  sensitive = true
+}
+variable "stewardship_maintainers" { type = string }
+variable "stewardship_agent_bindings" { type = map(string) }
 variable "entra_tenant_id" { type = string }
 variable "api_audience" { type = string }
 variable "rbac_readers_group_id" { type = string }

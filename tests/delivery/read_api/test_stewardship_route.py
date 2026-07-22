@@ -20,13 +20,17 @@ def _dev_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FDAI_READ_API_DEV_MODE", "1")
 
 
-def _client(*, expose: bool) -> TestClient:
+def _client(*, expose: bool, health_reader=None) -> TestClient:
     auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None)
     stewardship = load_stewardship_from_yaml(_CONFIG) if expose else None
     app = build_app(
         authenticator=auth,
         read_model=InMemoryConsoleReadModel(),
-        config=ReadApiConfig(dev_mode=True, stewardship_map=stewardship),
+        config=ReadApiConfig(
+            dev_mode=True,
+            stewardship_map=stewardship,
+            stewardship_health_reader=health_reader,
+        ),
     )
     return TestClient(app)
 
@@ -52,3 +56,37 @@ def test_stewardship_marks_autonomous_agent() -> None:
     loki = next(a for a in body["map"]["agents"] if a["name"] == "Loki")
     assert loki["autonomous"] is True
     assert loki["accept_autonomous_reason"]
+
+
+def test_stewardship_merges_scheduled_stale_oid_findings() -> None:
+    class HealthReader:
+        async def read_state(self, key: str):
+            assert key == "stewardship_health:current"
+            return {
+                "checked_at": "2026-07-22T00:00:00+00:00",
+                "findings": [
+                    {
+                        "code": "stale_oid",
+                        "severity": "warn",
+                        "message": "Steward no longer resolves.",
+                        "agent": "Thor",
+                    }
+                ],
+            }
+
+    body = _client(expose=True, health_reader=HealthReader()).get("/stewardship").json()
+
+    assert body["identity_health"]["status"] == "warn"
+    assert any(item["code"] == "stale_oid" for item in body["coverage"]["findings"])
+    assert body["coverage"]["is_clean"] is False
+
+
+def test_stewardship_marks_malformed_health_unavailable() -> None:
+    class HealthReader:
+        async def read_state(self, _key: str):
+            return {"checked_at": 123, "findings": "bad"}
+
+    body = _client(expose=True, health_reader=HealthReader()).get("/stewardship").json()
+
+    assert body["identity_health"]["status"] == "unavailable"
+    assert not any(item["code"] == "stale_oid" for item in body["coverage"]["findings"])

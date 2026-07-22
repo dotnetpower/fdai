@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fdai.core.stewardship import (
     StewardshipChangeEvent,
+    StewardshipChangePhase,
     build_change_audit_payload,
     build_change_notification,
     load_stewardship_from_mapping,
@@ -51,7 +52,24 @@ def test_audit_payload_is_l0_and_complete() -> None:
     assert payload["artifact"] == "config/agent-stewardship.yaml"
     assert payload["affected_agents"] == "Thor,Njord"
     assert payload["correlation_id"] == "corr-1"
-    assert "requested_at" in payload
+    assert "recorded_at" in payload
+
+
+def test_merged_event_uses_distinct_notification_and_audit_phase(valid_raw: dict) -> None:
+    mp = load_stewardship_from_mapping(valid_raw)
+    event = StewardshipChangeEvent(
+        actor_oid="github:user",
+        artifact="config/agent-stewardship.yaml",
+        affected_agents=("Thor",),
+        summary="Governance PR merged.",
+        correlation_id="delivery-1",
+        phase=StewardshipChangePhase.MERGED,
+    )
+    message, _ = build_change_notification(mp, event)
+    payload = build_change_audit_payload(event)
+
+    assert "merged" in message.title
+    assert payload["event"] == "stewardship_change_merged"
 
 
 def test_no_affected_agents_still_notifies_maintainers(valid_raw: dict) -> None:

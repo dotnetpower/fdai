@@ -182,6 +182,20 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     ]
 
 
+def test_design_mock_launch_uses_fixed_static_server_port() -> None:
+    launch = json.loads((_REPO_ROOT / ".vscode" / "launch.json").read_text(encoding="utf-8"))
+    configs = {item["name"]: item for item in launch["configurations"]}
+    mock_site = configs["Design Mocks: Static Site"]
+
+    assert mock_site["command"] == "python3 -u -m http.server 5373 --bind 127.0.0.1"
+    assert mock_site["cwd"] == "${workspaceFolder}"
+    assert mock_site["serverReadyAction"] == {
+        "pattern": r"Serving HTTP on 127\.0\.0\.1 port 5373",
+        "uriFormat": "http://127.0.0.1:5373",
+        "action": "debugWithChrome",
+    }
+
+
 class TestLocalEntrypoint:
     def test_maps_local_vite_msal_settings_to_read_api_contract(self) -> None:
         env = local_entra_verifier_environment(

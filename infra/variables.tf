@@ -473,6 +473,38 @@ variable "chatops_webhook_secret" {
   sensitive   = true
 }
 
+variable "enable_stewardship_governance" {
+  description = "Enable automatic handover draft PR creation and signed GitHub merge audit on the ingestion gateway."
+  type        = bool
+  default     = false
+}
+
+variable "gitops_owner" {
+  description = "GitHub owner for stewardship governance draft PRs."
+  type        = string
+  default     = ""
+}
+
+variable "gitops_repo" {
+  description = "GitHub repository for stewardship governance draft PRs."
+  type        = string
+  default     = ""
+}
+
+variable "gitops_token" {
+  description = "GitHub App installation token or equivalent short-lived token for governance PR delivery."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "github_webhook_secret" {
+  description = "HMAC secret for the GitHub stewardship merge webhook."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "enable_email_notifications" {
   description = "Provision Azure Communication Services Email and bind the send-only A2/A4 notification channels."
   type        = bool
@@ -668,6 +700,37 @@ variable "read_api_iam_directory_provider" {
   validation {
     condition     = contains(["", "entra"], var.read_api_iam_directory_provider)
     error_message = "read_api_iam_directory_provider MUST be empty or entra."
+  }
+}
+
+variable "stewardship_maintainers" {
+  description = "Comma-separated FDAI maintainer Entra user object ids. Supplied through deployment configuration and exposed as FDAI_MAINTAINERS."
+  type        = string
+  default     = ""
+}
+
+variable "stewardship_agent_bindings" {
+  description = "Agent name to comma-separated user:<oid> or group:<oid> stewardship bindings. Supplied through deployment configuration and exposed as FDAI_STEWARD_<AGENT>."
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition = alltrue([
+      for agent, binding in var.stewardship_agent_bindings :
+      contains(["Odin", "Thor", "Forseti", "Huginn", "Heimdall", "Vidar", "Var", "Bragi", "Saga", "Mimir", "Muninn", "Norns", "Njord", "Freyr", "Loki"], agent) && trimspace(binding) != ""
+    ])
+    error_message = "stewardship_agent_bindings keys MUST be pantheon agent names and values MUST be non-empty."
+  }
+}
+
+variable "stewardship_audit_interval_seconds" {
+  description = "Interval for scheduled steward and maintainer Entra liveness checks."
+  type        = number
+  default     = 3600
+
+  validation {
+    condition     = var.stewardship_audit_interval_seconds >= 60
+    error_message = "stewardship_audit_interval_seconds MUST be >= 60."
   }
 }
 

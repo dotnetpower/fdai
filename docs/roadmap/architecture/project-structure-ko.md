@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 0f83c91a7ead4401bace88b8493551cf42f8f28f
+translation_source_sha: e6eb3a10f182c0d4a913c695acbbbde056722052
 translation_revised: 2026-07-22
 ---
 
@@ -101,7 +101,7 @@ fdai/
 │   │   ├── chaos/              # `Chaos` runbook 단계가 enforce로 갈 때 쓰는 라이브 카오스 주입 어댑터: `live_injectors.py` (CSP-중립 프리미티브 fan-out) + `chaos_mesh.py` (Chaos Mesh CRD) + `mysql_load.py` (MySQL 벤치마크 부하)
 │   │   ├── remediation/        # 직접 API 리메디에이션용 구체 `DirectApiExecutor` (`live_direct_api.py`); Protocol 은 `shared/providers/`에 있음
 │   │   ├── read_api/           # 얇은 ASGI - `main.py`가 `routes/`의 HTTP surface module, `streaming/`의 SSE fan-out, 분리된 `dev/` / `production/` wiring을 조립. GET route는 bounded state를 projection하고 POST command route는 governed record 또는 typed proposal을 제출하며 privileged executor를 직접 호출하지 않음
-│   │   ├── ingestion_gateway/  # 전용 content-write ASGI: scoped upload session, status, cancellation, version listing, governed deletion
+│   │   ├── ingestion_gateway/  # 전용 content-write ASGI: scoped upload 및 governed deletion; optional handover governance는 idempotent draft PR delivery와 signed GitHub merge webhook을 bind
 │   │   ├── provisioning/       # surface-A Genesis 부트스트랩: 순수 `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O 주입, subprocess 없음)
 │   │   └── scheduler_tick_cli.py  # cron / Container Apps Job에서 스케줄러 tick을 구동하는 독립 엔트리 포인트
 │   ├── rule_catalog/          # rule-catalog 파이프라인 코드

@@ -192,6 +192,21 @@ variable "iam_directory_provider" {
   default     = ""
 }
 
+variable "stewardship_maintainers" {
+  description = "Comma-separated FDAI maintainer Entra user object ids exposed as FDAI_MAINTAINERS."
+  type        = string
+}
+
+variable "stewardship_agent_bindings" {
+  description = "Agent name to FDAI stewardship env-token list."
+  type        = map(string)
+}
+
+variable "stewardship_audit_interval_seconds" {
+  description = "Interval for scheduled steward and maintainer liveness checks."
+  type        = number
+}
+
 variable "inventory_freshness_seconds" {
   description = "Maximum active inventory age before the graph is stale."
   type        = number

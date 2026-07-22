@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 91f612ccb5d85ca979d6477a300a5efe04a867a2
+translation_source_sha: 8e3cc859d93677c0a140922cd5a570d5c1cf22e3
 translation_revised: 2026-07-22
 ---
 
@@ -69,7 +69,7 @@ site는 인증된 Console full stack과 분리되어 있습니다.
 
 | Surface | 기본 address | Workspace entry point |
 |---------|-------------|-----------------------|
-| Design mock | `http://127.0.0.1:5373` | `design mocks: serve (5373)` task 또는 Live Server |
+| Design mock | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch, `design mocks: serve (5373)` task 또는 Live Server |
 | Console SPA | `http://127.0.0.1:5273` | `Console Web: Frontend` |
 | Read API | `http://127.0.0.1:8010` | `Console Web: Read API` |
 | Test ingestion gateway | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |

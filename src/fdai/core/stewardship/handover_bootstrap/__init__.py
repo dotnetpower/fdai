@@ -34,7 +34,10 @@ from fdai.core.stewardship.handover_bootstrap.contract import (
     SourceSpan,
     StewardMapDraft,
 )
-from fdai.core.stewardship.handover_bootstrap.draft_yaml import render_draft_yaml
+from fdai.core.stewardship.handover_bootstrap.draft_yaml import (
+    render_candidate_yaml,
+    render_draft_yaml,
+)
 from fdai.core.stewardship.handover_bootstrap.extractor import DeterministicExtractor
 from fdai.core.stewardship.handover_bootstrap.interpreter import (
     AbstainingInterpreter,
@@ -65,4 +68,5 @@ __all__ = [
     "StaticPersonDirectory",
     "StewardMapDraft",
     "render_draft_yaml",
+    "render_candidate_yaml",
 ]

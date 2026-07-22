@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
 
 from fdai.core.stewardship.handover_bootstrap import (
@@ -23,6 +23,9 @@ from fdai.core.stewardship.model import Responsibility, StewardKind
 from fdai.shared.contracts import DocumentEnvelope, DocumentPurpose, UploadSession
 from fdai.shared.providers import DocumentNotFoundError
 from fdai.shared.providers.state_store import StateStore
+
+if TYPE_CHECKING:
+    from fdai.delivery.stewardship.governance import HandoverDraftGovernance
 
 _KEY_PREFIX = "handover_draft:"
 
@@ -97,9 +100,11 @@ class HandoverBootstrapConsumer:
         *,
         bootstrapper: HandoverBootstrapper,
         store: HandoverDraftStore,
+        governance: HandoverDraftGovernance | None = None,
     ) -> None:
         self._bootstrapper = bootstrapper
         self._store = store
+        self._governance = governance
 
     async def consume(
         self, *, session: UploadSession, envelope: DocumentEnvelope
@@ -111,15 +116,16 @@ class HandoverBootstrapConsumer:
             text="\n".join(unit.text for unit in envelope.units),
         )
         draft = await self._bootstrapper.bootstrap((document,))
-        await self._store.put(
-            HandoverDraftArtifact(
-                upload_id=session.upload_id,
-                document_id=envelope.document_id,
-                version_id=envelope.version_id,
-                draft=draft,
-                yaml=render_draft_yaml(draft),
-            )
+        artifact = HandoverDraftArtifact(
+            upload_id=session.upload_id,
+            document_id=envelope.document_id,
+            version_id=envelope.version_id,
+            draft=draft,
+            yaml=render_draft_yaml(draft),
         )
+        await self._store.put(artifact)
+        if self._governance is not None:
+            await self._governance.propose(artifact=artifact, actor_oid=session.actor_id)
         return draft.warnings
 
 

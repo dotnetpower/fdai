@@ -5,6 +5,7 @@ from __future__ import annotations
 from fdai.core.stewardship import (
     EscalationTier,
     StaticGroupMembershipProvider,
+    affected_agents_from_stewardship_change,
     affected_agents_from_workflow,
     build_escalation_plan,
     load_stewardship_from_mapping,
@@ -64,6 +65,22 @@ def test_affected_agents_from_workflow() -> None:
         "note": "no agent here",
     }
     assert affected_agents_from_workflow(workflow) == frozenset({"Vidar", "Freyr"})
+
+
+def test_affected_agents_from_stewardship_change_is_precise(valid_raw: dict, oid) -> None:
+    before = load_stewardship_from_mapping(valid_raw)
+    valid_raw["stewardship"]["agents"]["Thor"]["stewards"][0]["id"] = oid(999)
+    after = load_stewardship_from_mapping(valid_raw)
+
+    assert affected_agents_from_stewardship_change(before, after) == frozenset({"Thor"})
+
+
+def test_global_stewardship_change_affects_every_agent(valid_raw: dict) -> None:
+    before = load_stewardship_from_mapping(valid_raw)
+    valid_raw["stewardship"]["escalation"]["hop_timeout_seconds"] = 120
+    after = load_stewardship_from_mapping(valid_raw)
+
+    assert len(affected_agents_from_stewardship_change(before, after)) == 15
 
 
 def test_stakeholders_for_change_unions_and_dedups(valid_raw: dict) -> None:

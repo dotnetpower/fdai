@@ -7,7 +7,7 @@ import os
 from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from pydantic import ValidationError
@@ -37,9 +37,13 @@ from fdai.shared.providers import (
     ProviderUnavailableError,
 )
 
+if TYPE_CHECKING:
+    from fdai.delivery.stewardship.github_webhook import GitHubStewardshipWebhook
+
 _DEV_MODE_ENV = "FDAI_INGESTION_GATEWAY_DEV_MODE"
 _READER_ROLES = (Role.READER, Role.CONTRIBUTOR, Role.APPROVER, Role.OWNER)
 _CONTRIBUTOR_ROLES = (Role.CONTRIBUTOR, Role.APPROVER, Role.OWNER)
+_GITHUB_WEBHOOK_MAX_BYTES = 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +66,7 @@ def build_app(
     worker: DocumentIngestionWorker,
     search_index: DocumentSearch | None = None,
     handover_drafts: HandoverDraftReader | None = None,
+    stewardship_webhook: GitHubStewardshipWebhook | None = None,
     config: IngestionGatewayConfig | None = None,
 ) -> Starlette:
     resolved = config or IngestionGatewayConfig()
@@ -276,6 +281,22 @@ def build_app(
     async def healthz(_request: Request) -> Response:
         return JSONResponse({"status": "ok"})
 
+    async def stewardship_merge_webhook(request: Request) -> Response:
+        if stewardship_webhook is None:
+            return _error(404, "not_found", "stewardship webhook is unavailable")
+        body = await _bounded_body(request, _GITHUB_WEBHOOK_MAX_BYTES)
+        result = await stewardship_webhook.handle(
+            headers={key.casefold(): value for key, value in request.headers.items()},
+            body=body,
+        )
+        if not result.accepted:
+            status = 401 if result.reason == "invalid signature" else 400
+            return _error(status, "webhook_rejected", result.reason)
+        return JSONResponse(
+            {"accepted": True, "reason": result.reason, "changed": result.changed},
+            status_code=202 if result.changed else 200,
+        )
+
     routes = [
         Route("/healthz", healthz, methods=["GET"]),
         Route("/ingestion/capabilities", capabilities, methods=["GET"]),
@@ -298,6 +319,14 @@ def build_app(
         ),
         Route("/documents/search", search_documents, methods=["GET"]),
     ]
+    if stewardship_webhook is not None:
+        routes.append(
+            Route(
+                "/ingestion/webhooks/github/stewardship",
+                stewardship_merge_webhook,
+                methods=["POST"],
+            )
+        )
     middleware: list[Middleware] = []
     if resolved.cors_allow_origins:
         middleware.append(

@@ -3,7 +3,7 @@ title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
 derives_from:
    - source: docs/roadmap/deployment/deploy-and-onboard.md
-     sha: c96f1958124e173e90a1dbbb763d8e35f13a11f4
+     sha: 07fff4f7168f34066cb83398314ec4c992980def
 ---
 
 # Deploy Quickstart

@@ -18,7 +18,12 @@ from fdai.core.stewardship.handover_bootstrap.contract import (
     ExtractedMapping,
     StewardMapDraft,
 )
-from fdai.core.stewardship.model import Responsibility
+from fdai.core.stewardship.model import (
+    AgentStewardship,
+    Responsibility,
+    StewardshipMap,
+    StewardSubject,
+)
 from fdai.core.stewardship.names import AGENT_NAMES
 
 _PLACEHOLDER_OID = "00000000-0000-0000-0000-000000000000"
@@ -50,6 +55,37 @@ def render_draft_yaml(draft: StewardMapDraft, *, maintainer_oids: tuple[str, ...
     lines.append("  agents:")
     for name in AGENT_NAMES:
         lines.extend(_agent_block(name, by_agent[name]))
+    return "\n".join(lines) + "\n"
+
+
+def render_candidate_yaml(draft: StewardMapDraft, *, base: StewardshipMap) -> str:
+    """Render an additive governance candidate over the current validated map.
+
+    Grounded draft mappings add or retag subjects. They never remove an existing
+    owner automatically; a reviewer must make removals explicitly in the PR.
+    """
+    by_agent: dict[str, list[ExtractedMapping]] = {name: [] for name in AGENT_NAMES}
+    for mapping in draft.mappings:
+        by_agent[mapping.agent_name].append(mapping)
+
+    lines = _header(draft)
+    lines.extend(("# Candidate is additive: existing ownership is preserved.", "#"))
+    lines.append("stewardship:")
+    lines.append(f"  version: {base.version}")
+    lines.extend(_maintainers(base.maintainer_oids))
+    lines.append("  channels:")
+    if base.channels:
+        for oid, channel_id in sorted(base.channels.items()):
+            lines.append(f'    "{oid}": "{channel_id}"')
+    else:
+        lines[-1] = "  channels: {}"
+    lines.append("  escalation:")
+    lines.append(f"    hop_timeout_seconds: {base.hop_timeout_seconds}")
+    lines.append("  thresholds:")
+    lines.append(f"    over_assigned_max: {base.over_assigned_max}")
+    lines.append("  agents:")
+    for name in AGENT_NAMES:
+        lines.extend(_candidate_agent_block(base.agent(name), by_agent[name]))
     return "\n".join(lines) + "\n"
 
 
@@ -120,4 +156,39 @@ def _steward_line(mapping: ExtractedMapping) -> str:
     )
 
 
-__all__ = ["render_draft_yaml"]
+def _candidate_agent_block(
+    existing: AgentStewardship,
+    additions: list[ExtractedMapping],
+) -> list[str]:
+    subjects: dict[tuple[str, str], StewardSubject | ExtractedMapping] = {
+        (subject.kind.value, subject.id): subject for subject in existing.stewards
+    }
+    for mapping in additions:
+        if mapping.person.oid is not None:
+            subjects[(mapping.person.kind.value, mapping.person.oid)] = mapping
+
+    lines = [f"    {existing.agent_name}:", "      stewards:"]
+    for subject in subjects.values():
+        if isinstance(subject, ExtractedMapping):
+            lines.append(_steward_line(subject))
+        else:
+            lines.append(
+                f'        - {{ kind: {subject.kind.value}, id: "{subject.id}", '
+                f"responsibility: {subject.responsibility.value} }}"
+            )
+    accountable = any(
+        (
+            subject.responsibility is Responsibility.ACCOUNTABLE
+            if isinstance(subject, ExtractedMapping)
+            else subject.is_accountable
+        )
+        for subject in subjects.values()
+    )
+    if not accountable:
+        reason = existing.accept_autonomous_reason or "review required: no accountable owner"
+        lines.append("      accept_autonomous:")
+        lines.append(f'        reason: "{reason}"')
+    return lines
+
+
+__all__ = ["render_candidate_yaml", "render_draft_yaml"]

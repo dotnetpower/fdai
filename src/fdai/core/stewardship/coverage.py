@@ -87,7 +87,8 @@ def build_coverage_report(mp: StewardshipMap) -> CoverageReport:
             )
             continue
 
-        bus_factor = len(agent.accountable)
+        accountable_units = {(subject.kind, subject.id) for subject in agent.accountable}
+        bus_factor = len(accountable_units)
         if bus_factor == 1:
             findings.append(
                 Finding(
@@ -97,9 +98,8 @@ def build_coverage_report(mp: StewardshipMap) -> CoverageReport:
                     agent=name,
                 )
             )
-        for subject in agent.accountable:
-            if subject.kind is StewardKind.USER:
-                user_load[subject.id] += 1
+        for oid in agent.accountable_user_ids:
+            user_load[oid] += 1
 
     for oid, count in sorted(user_load.items()):
         if count > mp.over_assigned_max:
