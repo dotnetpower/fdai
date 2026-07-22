@@ -8,6 +8,16 @@ This document owns the operator console contracts for evidence provenance, local
 stream recovery, durable replay, and Architecture-map resilience. The conversational tool and
 RBAC contract remains in [operator-console.md](operator-console.md).
 
+## Navigation context
+
+Selecting an Activity Bar domain opens its Explorer and navigates to the first visible panel under
+the operator's local order and visibility preferences. This navigation remains active when the
+Command Deck is closed or floating; a full-workspace Deck closes before the route changes.
+
+The shared page title renders the domain and panel labels when they differ, including
+`Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
+utility keep a single title.
+
 ## Localization boundary
 
 The SPA resolves display locale from the operator preference. Reusable strings come from the main

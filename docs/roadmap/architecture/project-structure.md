@@ -209,7 +209,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   (see [security-and-identity.md](security-and-identity.md)).
   The navigation shell uses an icon-only Activity Bar with five stable domains:
   `Overview`, `Operations`, `Agents`, `Governance`, and `Evidence`. The adjacent Explorer
-  renders the panels registered for the selected domain. English is the default display
+  renders the panels registered for the selected domain. Selecting a domain opens the Explorer
+  and navigates to its first visible panel, using the operator's local panel order and visibility
+  preferences. English is the default display
   language, and the Korean catalog provides `전체 현황`, `운영`, `에이전트`, `거버넌스`, and
   `감사·증적` without changing group ids, panel ids, or routes. An operator can reorder or hide
   panels in browser-local, account-scoped preferences. Icon-only shell controls expose their
@@ -219,8 +221,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   Hiding changes navigation display only;
   direct routes and search remain available, and the active panel cannot be hidden. Detail
   routes render a compact domain / panel hierarchy inside the shared page title so context
-  remains visible when the Explorer is collapsed. Domain roots and standalone utilities keep
-  a single title when hierarchy would only repeat it. The Agents domain also keeps a visible
+  remains visible when the Explorer is collapsed. Dashboard renders `Overview / Dashboard`;
+  domain roots whose panel title repeats the domain label and standalone utilities keep a single
+  title. The Agents domain also keeps a visible
   workspace tab row across its Roster, Organization, Activity, and Handover panels. Roster is
   the default agent view and projects current stream state, current work, incident association,
   reporting line, and evidence links without inventing metrics that the read API did not return.

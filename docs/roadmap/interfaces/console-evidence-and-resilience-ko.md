@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: e9f886a0dc0bae2cb37d9d2fc843bb64d683ea4d
-translation_revised: 2026-07-22
+translation_source_sha: 836a466309fcbb04e87800442b2ac3c9d2b098e6
+translation_revised: 2026-07-23
 ---
 
 # 콘솔 근거 및 복원력
@@ -10,6 +10,15 @@ translation_revised: 2026-07-22
 이 문서는 operator console의 evidence provenance, localization, stream recovery, durable replay
 및 Architecture map resilience 계약을 소유합니다. 대화형 tool 및 RBAC 계약은
 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
+
+## 탐색 컨텍스트
+
+Activity Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째
+visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며,
+full-workspace Deck은 route가 변경되기 전에 닫힙니다.
+
+공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께
+렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.
 
 ## Localization 경계
 

@@ -49,12 +49,13 @@ The GET-only `ReadApiClient` remains unchanged and never gains upload helpers.
 The panel registry in [`src/panels.tsx`](src/panels.tsx) groups the complete
 operator surface into five stable navigation domains: Overview, Operations,
 Agents, Governance, and Evidence. An icon-only Activity Bar selects a domain,
-and the adjacent Explorer shows its panels. Settings is a standalone global
-utility pinned to the bottom of the Activity Bar. Detail routes render a compact
-domain / panel hierarchy inside the shared page title (for example,
-`Overview / LLM cost`). Domain roots and Settings keep a single title to avoid
-repetition. In local dev mode, a `Labs` group appears immediately above Settings
-and links to development-only design tools such as the Logo lab.
+opens the adjacent Explorer, and navigates to that domain's first visible panel.
+Settings is pinned to the bottom of the Activity Bar and uses the same Explorer
+pattern. Page titles render a compact domain / panel hierarchy when the labels
+differ (for example, `Overview / Dashboard` and `Overview / LLM usage`). A root
+whose panel title repeats its domain label keeps a single title. In local dev
+mode, a `Labs` group appears immediately above Settings and links to
+development-only design tools such as the Logo lab.
 
 The production shell keeps this Activity Bar + Explorer hierarchy even though
 the static prototypes under [`mocks/ui/`](../mocks/ui/) use a single sidebar.
@@ -117,11 +118,11 @@ Existing evidence routes remain the terminal detail surfaces: `/approvals`,
 `/trace`. Query filters are shareable, for example `/audit?mode=shadow` and
 `/promotion-gates?status=blocked`.
 
-Drill-down routes are contextual destinations, not primary navigation items.
-The Overview rail group contains only Overview and opens it directly without a
-flyout. Operators reach outcomes, assurance, vertical, routing, and LLM-cost
-details from the data they are investigating; this avoids duplicating the
-Overview information hierarchy in the left rail.
+Drill-down routes remain contextual destinations from the data under
+investigation and are also available in the Overview Explorer. Selecting the
+Overview Activity Bar group opens Dashboard as its first visible panel; local
+panel order and visibility preferences determine the first destination for
+every group.
 
 The SPA uses clean History API URLs. User-facing paths are lowercase
 `kebab-case` with no spaces or underscores; internal API routes and serialized

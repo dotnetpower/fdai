@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 05c7e561da19af3a6d881b6a7e06d1cd492a9df5
-translation_revised: 2026-07-22
+translation_source_sha: b381deb06f1f427faa85bde9e3f1d016c307cb08
+translation_revised: 2026-07-23
 ---
 
 # 프로젝트 구조
@@ -212,7 +212,8 @@ fdai/
   ([security-and-identity-ko.md](security-and-identity-ko.md) 참조).
   탐색 셸은 아이콘 전용 Activity Bar와 다섯 개의 안정적인 영역인 `전체 현황`, `운영`,
   `에이전트`, `거버넌스`, `감사·증적`을 사용합니다. 인접한 Explorer는 선택한 영역에 등록된
-  패널을 렌더링합니다. 영어가 기본 표시 언어이며, 한국어 카탈로그는 group id, panel id,
+  패널을 렌더링합니다. 영역을 선택하면 Explorer를 열고 운영자의 로컬 패널 순서 및 표시
+  설정에 따라 첫 번째 visible 패널로 이동합니다. 영어가 기본 표시 언어이며, 한국어 카탈로그는 group id, panel id,
   route를 바꾸지 않고 한국어 레이블을 제공합니다. 운영자는 브라우저 로컬의 계정별 설정에서
   패널 순서를 바꾸거나 숨길 수 있습니다. 아이콘 전용 shell control은 키보드 focus에서 즉시
   열리고 pointer hover에서는 잠시 지연되는 공통 tooltip으로 현지화된 레이블을 표시합니다.
@@ -220,8 +221,9 @@ fdai/
   조정하며 reduced-motion 설정을 따르므로 브라우저 기본 `title` 표시에 의존하지 않습니다.
   숨김은 탐색 표시에만 적용되므로 직접 route와 검색은
   계속 사용할 수 있고, 현재 활성 패널은 숨길 수 없습니다. 세부 route는 공통 페이지 제목 안에
-  간결한 영역 / 패널 계층을 렌더링하여 Explorer를 접어도 맥락을 유지합니다. 영역 루트와 독립
-  유틸리티는 계층이 제목을 반복할 뿐인 경우 단일 제목을 유지합니다. 에이전트 영역은 Roster,
+  간결한 영역 / 패널 계층을 렌더링하여 Explorer를 접어도 맥락을 유지합니다. Dashboard는
+  `전체 현황 / Dashboard`를 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립
+  유틸리티는 단일 제목을 유지합니다. 에이전트 영역은 Roster,
   Organization, Activity, Handover 패널 전체에 표시되는 작업 공간 탭 행도 유지합니다. Roster는
   기본 에이전트 보기이며 read API가 반환하지 않은 지표를 만들지 않고 현재 스트림 상태, 현재 작업,
   인시던트 연결, 보고선, 증적 링크를 투영합니다. 필터와 검색은 브라우저 로컬 표시 제어이며,
