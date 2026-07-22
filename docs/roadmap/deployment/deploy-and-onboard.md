@@ -81,8 +81,8 @@ publishers, and their dependency graphs. Unrelated runtime-resource changes stay
 Terraform configures host and deployment storage for the reader managed identity; the workflow removes
 Flex-generated exact shared-key overrides before publishing. That identity receives `Storage Blob Data
 Owner` for the host and a separate contributor grant for idempotency. Function `site_config` solely owns Application Insights.
-After exact apply converges, the workflow remote-builds the verified source, retries trigger sync for
-a bounded interval, and requires both Function triggers before recording the apply receipt.
+After exact apply converges, the official Flex One Deploy action remote-builds the verified source,
+retries bounded trigger sync, and requires both Function triggers before recording the apply receipt.
 Full runbook: [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 Scheduled drivers remain Terraform-owned through the `SCHEDULER_TICK_CRON_EXPRESSION` and
 `ANALYZER_TICK_CRON_EXPRESSION` repository variables. Optional analyzer inputs use

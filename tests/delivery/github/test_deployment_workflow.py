@@ -341,10 +341,12 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "if: ${{ !inputs.apply }}\n        run: terraform plan" in workflow
     assert "Verify Terraform convergence" in workflow
     assert "-detailed-exitcode" in workflow
-    assert "Deploy exact development operations gateway source" in workflow
+    assert "Prepare exact development operations gateway source" in workflow
+    assert "Publish exact development operations gateway source" in workflow
+    assert "Verify exact development operations gateway source" in workflow
     assert "dev_operations_gateway_app_name" in workflow
-    assert "az functionapp deployment source config-zip" in workflow
-    assert "--build-remote true" in workflow
+    assert "uses: Azure/functions-action@v1" in workflow
+    assert "remote-build: true" in workflow
     assert "functions?api-version=2024-04-01" in workflow
     assert "az functionapp function list" not in workflow
     assert "Verify deployed health endpoints" in workflow
@@ -413,21 +415,24 @@ def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
         "Terraform apply"
     )
     assert workflow.index("Verify Terraform convergence") < workflow.index(
-        "Deploy exact development operations gateway source"
+        "Prepare exact development operations gateway source"
     )
-    deploy_step = workflow.index("Deploy exact development operations gateway source")
+    deploy_step = workflow.index("Prepare exact development operations gateway source")
     stale_setting_cleanup = workflow.index(
         "--setting-names AzureWebJobsStorage DEPLOYMENT_STORAGE_CONNECTION_STRING"
     )
-    config_zip = workflow.index("az functionapp deployment source config-zip")
-    assert workflow.index("verify-deployment-plan.py", deploy_step) < config_zip
-    assert deploy_step < stale_setting_cleanup < config_zip
-    assert workflow.index("az functionapp restart", stale_setting_cleanup) < config_zip
-    assert "Function triggers synchronization failed" in workflow[config_zip:]
-    assert "/syncfunctiontriggers?api-version=2024-04-01" in workflow[config_zip:]
-    assert 'if [ "$triggers_registered" != "true" ]' in workflow[config_zip:]
+    publish_step = workflow.index("Publish exact development operations gateway source")
+    verify_step = workflow.index("Verify exact development operations gateway source")
+    assert workflow.index("verify-deployment-plan.py", deploy_step) < publish_step
+    assert deploy_step < stale_setting_cleanup < publish_step < verify_step
+    assert workflow.index("az functionapp restart", stale_setting_cleanup) < publish_step
+    assert "uses: Azure/functions-action@v1" in workflow[publish_step:verify_step]
+    assert "remote-build: true" in workflow[publish_step:verify_step]
+    assert "Function triggers synchronization failed" in workflow[verify_step:]
+    assert "/syncfunctiontriggers?api-version=2024-04-01" in workflow[verify_step:]
+    assert 'if [ "$triggers_registered" != "true" ]' in workflow[verify_step:]
     assert (
-        "inputs.apply && inputs.deploy_dev_operations_gateway" in workflow[deploy_step:config_zip]
+        "inputs.apply && inputs.deploy_dev_operations_gateway" in workflow[deploy_step:publish_step]
     )
 
 
@@ -489,13 +494,23 @@ def test_gateway_source_workflow_steps_are_structurally_executable() -> None:
         for item in steps
         if item.get("name") == "Build development operations gateway source artifact"
     )
-    deploy_step = next(
+    prepare_step = next(
         item
         for item in steps
-        if item.get("name") == "Deploy exact development operations gateway source"
+        if item.get("name") == "Prepare exact development operations gateway source"
+    )
+    publish_step = next(
+        item
+        for item in steps
+        if item.get("name") == "Publish exact development operations gateway source"
+    )
+    verify_step = next(
+        item
+        for item in steps
+        if item.get("name") == "Verify exact development operations gateway source"
     )
 
-    for step in (build_step, deploy_step):
+    for step in (build_step, prepare_step, verify_step):
         subprocess.run(  # noqa: S603 - static repository-owned script
             ["/usr/bin/bash", "-n"],
             input=step["run"],
@@ -508,3 +523,5 @@ def test_gateway_source_workflow_steps_are_structurally_executable() -> None:
     )
     assert separator
     compile(source, "<gateway-source-artifact>", "exec")
+    assert publish_step["uses"] == "Azure/functions-action@v1"
+    assert publish_step["with"]["remote-build"] is True
