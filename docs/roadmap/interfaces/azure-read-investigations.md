@@ -58,6 +58,7 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 |------------|---------------|----------|
 | Bragi and Heimdall routing | Implemented | Deterministic English and Korean actor, shutdown, history, health, and state routing selects Heimdall before generic scoring. |
 | Exact resource resolution | Implemented | `not_found`, bounded `ambiguous`, and one scope-bound exact reference stop history queries until resolution succeeds. |
+| Subscription health sweep | Implemented | The configured reader scope queries Resource Graph inventory and Resource Health in parallel, then checks representative metrics for up to 16 supported resources with concurrency limited to four. |
 | Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, guest logs, configured NSG rules, and VNet peering properties. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
 | Read-tool attenuation | Implemented | `background.read-only` contains exactly seven Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
 | Execution modes and progress | Implemented | Durable p50/p95 profiles select direct, streamed, or detached mode before cloud I/O. Exact resolution is a barrier, independent evidence tools run under a bounded parallel limit, semantic progress is bounded, and the terminal event occurs once. |
@@ -109,6 +110,23 @@ The broker applies the registered plan's timeout and output cap. Complete JSON i
 ephemeral output to the typed adapter; the command receipt retains a bounded 4 KB diagnostic tail,
 and the broker does not cache the full output after return. Raw CLI output is not persisted or
 passed to narrator context.
+
+### Subscription health sweep
+
+The Command Deck tool `query_subscription_health` handles an operator request to inspect the
+configured Azure scope. Scope comes only from the server's subscription and resource-group
+allowlist. Browser input cannot widen it. The provider performs these bounded steps:
+
+1. Query Resource Graph inventory and `HealthResources` in parallel.
+2. Select up to 16 supported resources for representative Azure Monitor metrics.
+3. Query at most four metrics concurrently and compare them with server-owned thresholds.
+4. Return Resource Health, failed provisioning, and metric candidates with unsupported,
+   unavailable, and truncated counts.
+
+The initial metric map covers VM CPU, AKS node CPU, Storage availability, PostgreSQL/MySQL/SQL CPU,
+and Application Gateway healthy-host count. Unsupported resource types remain counted and visible.
+A metric failure produces `partial`, never a healthy conclusion. The response is deterministic and
+does not call the narrator model.
 
 ## Evidence contract
 

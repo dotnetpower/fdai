@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 2edb3bc57136c0a3daf469444c6b7fe1aa647f19
+translation_source_sha: 3a5bf14504298946bc7e3d034f10c7a93705238c
 translation_revised: 2026-07-22
 ---
 
@@ -169,6 +169,7 @@ method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 reso
 | `explore_catalog(query)` | Shipped rule 카탈로그 / action-type 카탈로그 / ontology 어휘를 id, keyword, 또는 resource_type으로 검색. | Reader | 로딩된 카탈로그 (I/O 없음) |
 | `query_audit(filters)` | 구조화된 audit query: event id, actor, decision, mode, 시간 window 별. Paginate. | Reader | `StateStore.query_audit()` |
 | `query_inventory(resource_type, filter)` | Server-owned Azure inventory-view count, list, type, location, resource-group, name, status, relationship query입니다. 제한된 allowlist field, active view, snapshot source/freshness만 반환하고 local VM 상태는 `az vm list --show-details`에서 읽으며 provider 실패는 unavailable로 표시합니다. | Reader | `InventoryGraphProvider` |
+| `query_subscription_health()` | Server-configured Azure reader scope에서 Resource Graph inventory와 Resource Health를 병렬 query한 다음 bounded representative metric을 확인합니다. Caller-supplied scope를 허용하지 않고 명시적인 finding, coverage gap, freshness 및 truncation을 반환합니다. | Reader | `SubscriptionHealthProvider` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | 정확한 server-owned policy 아래에서 credential이 없는 bounded capture를 submit합니다. Immutable artifact receipt를 반환하며 page 또는 interaction API를 반환하지 않습니다. | Reader | `BrowserEvidenceCaptureService` |
 
 **Reader-하한 tool은 증명 가능하게 side-effect-free.** `describe_event`는
@@ -360,6 +361,9 @@ class Narrator(Protocol):
 - `AzureOpenAINarratorModel`의 strict translator prompt는 현재 adapter code가 소유합니다.
 - Web `/chat` 및 `/chat/stream`은 AnswerPlan, evidence resolution, progressive verification을
   위한 별도 async backend를 사용하며 이 sync Protocol을 multi-turn generation API로 가장하지 않습니다.
+- 긴 read-only investigation은 verified terminal answer 전에 누적 `activity` row와 bounded Bragi
+  `milestone` message를 보냅니다. Activity row는 stable id로 update되고 narrator history에서 제외되며
+  완료된 summary는 tab reload 이후에도 유지됩니다.
 
 Upstream 기본은
 [`src/fdai/delivery/azure/llm/narrator.py`](../../../src/fdai/delivery/azure/llm/narrator.py)

@@ -172,6 +172,7 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 | `explore_catalog(query)` | Search the shipped rule catalog / action-type catalog / ontology vocabulary by id, keyword, or resource_type. | Reader | Loaded catalogs (no I/O) |
 | `query_audit(filters)` | Structured audit query: by event id, actor, decision, mode, time window. Paginated. | Reader | `StateStore.query_audit()` |
 | `query_inventory(resource_type, filter)` | Server-owned Azure inventory-view count, list, type, location, resource-group, name, status, and relationship queries. Returns bounded allowlisted fields plus active view and snapshot source/freshness; local VM state comes from `az vm list --show-details`; provider failure renders unavailable. | Reader | `InventoryGraphProvider` |
+| `query_subscription_health()` | Inspect the server-configured Azure reader scope with parallel Resource Graph inventory and Resource Health queries, then bounded representative metric checks. Returns explicit findings, coverage gaps, freshness, and truncation without allowing caller-supplied scope. | Reader | `SubscriptionHealthProvider` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | Submit a credential-free bounded capture under an exact server-owned policy. Returns an immutable artifact receipt; never returns a page or interaction API. | Reader | `BrowserEvidenceCaptureService` |
 
 **Reader-floor tools are provably side-effect-free.** `describe_event`
@@ -376,6 +377,9 @@ class Narrator(Protocol):
 - Web `/chat` and `/chat/stream` use a separate asynchronous backend for AnswerPlan, evidence
   resolution, generation, and progressive verification; the synchronous Protocol is not a
   multi-turn generation API.
+- Long read-only investigations emit cumulative `activity` rows and bounded Bragi `milestone`
+  messages before the verified terminal answer. Activity rows update by stable id, stay out of
+  narrator history, and preserve completed summaries across a tab reload.
 
 The upstream default is
 `AzureOpenAINarratorModel` under

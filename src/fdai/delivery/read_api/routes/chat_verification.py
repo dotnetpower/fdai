@@ -28,6 +28,10 @@ from fdai.delivery.read_api.routes.chat_log_query import (
     log_query_evidence_refs,
     render_log_query_answer,
 )
+from fdai.delivery.read_api.routes.chat_subscription_health import (
+    render_subscription_health_answer,
+    subscription_health_evidence_refs,
+)
 
 VerificationStatus = Literal["verified", "consistent", "corrected", "unverified"]
 
@@ -178,6 +182,44 @@ def verify_answer(
             checks_total=1,
             evidence_refs=inventory_refs,
             reason_code="inventory_evidence_unavailable",
+        )
+
+    if isinstance(tool, Mapping) and tool.get("tool") == "query_subscription_health":
+        health_answer = render_subscription_health_answer(tool, locale=locale)
+        if health_answer is None:
+            return AnswerVerification(
+                status="unverified",
+                answer="Azure subscription health evidence could not be rendered.",
+                authority="server_subscription_health",
+                checks_completed=0,
+                checks_total=1,
+                reason_code="subscription_health_evidence_invalid",
+            )
+        result = tool.get("result")
+        state = result.get("status") if isinstance(result, Mapping) else None
+        health_refs = subscription_health_evidence_refs(tool)
+        if state in {"matched", "partial"}:
+            return AnswerVerification(
+                status=_changed(provisional, health_answer),
+                answer=health_answer,
+                authority="server_subscription_health",
+                checks_completed=1 if state == "matched" else 0,
+                checks_total=1,
+                evidence_refs=health_refs,
+                reason_code=(
+                    "subscription_health_grounded"
+                    if state == "matched"
+                    else "subscription_health_partial"
+                ),
+            )
+        return AnswerVerification(
+            status="unverified",
+            answer=health_answer,
+            authority="server_subscription_health",
+            checks_completed=0,
+            checks_total=1,
+            evidence_refs=health_refs,
+            reason_code="subscription_health_unavailable",
         )
 
     behavior = view_context.get("_behavior_evidence")

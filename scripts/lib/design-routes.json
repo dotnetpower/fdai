@@ -120,12 +120,16 @@
         "src/fdai/core/read_investigation/**",
         "src/fdai/shared/providers/read_investigation.py",
         "src/fdai/delivery/azure/read_investigation/**",
+        "src/fdai/delivery/azure/subscription_health.py",
         "src/fdai/delivery/persistence/read_investigation_latency.py",
+        "src/fdai/delivery/read_api/routes/chat_subscription_health.py",
         "src/fdai/delivery/read_api/routes/read_investigations.py",
         "src/fdai/agents/heimdall.py",
         "src/fdai/agents/_framework/bragi_routing.py",
         "tests/**/*read_investigation*.py",
         "tests/**/read_investigation/**",
+        "tests/delivery/azure/test_subscription_health.py",
+        "tests/delivery/read_api/test_chat_subscription_health.py",
         "docs/roadmap/interfaces/azure-read-investigations*.md"
       ],
       "must_read": [
@@ -145,9 +149,9 @@
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/read_api/test_read_investigations.py tests/agents/test_read_investigation_routing.py",
-        "uv run ruff check src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/read_api/routes/read_investigations.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/read_api/test_read_investigations.py tests/agents/test_read_investigation_routing.py",
-        "uv run mypy src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/read_api/routes/read_investigations.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/read_api/test_read_investigations.py tests/agents/test_read_investigation_routing.py"
+        "uv run pytest -q --no-cov tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/read_api/test_read_investigations.py tests/delivery/read_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py",
+        "uv run ruff check src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/azure/subscription_health.py src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/read_api/routes/read_investigations.py src/fdai/delivery/read_api/routes/chat_subscription_health.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/read_api/test_read_investigations.py tests/delivery/read_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py",
+        "uv run mypy src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/azure/subscription_health.py src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/read_api/routes/read_investigations.py src/fdai/delivery/read_api/routes/chat_subscription_health.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/read_api/test_read_investigations.py tests/delivery/read_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py"
       ]
     },
     {

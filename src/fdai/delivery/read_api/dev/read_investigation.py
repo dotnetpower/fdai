@@ -16,6 +16,10 @@ from fdai.delivery.azure.read_investigation import (
     AzureRestReadInvestigationAdapter,
     AzureRestReadTransport,
 )
+from fdai.delivery.azure.subscription_health import (
+    AzureSubscriptionHealthConfig,
+    AzureSubscriptionHealthProvider,
+)
 from fdai.delivery.persistence import StateStoreReadLatencyProfileStore
 from fdai.delivery.read_api.routes.read_investigation_responder import (
     HeimdallReadInvestigationChatDelegate,
@@ -26,6 +30,7 @@ from fdai.delivery.read_api.routes.read_investigation_responder import (
 @dataclass(frozen=True, slots=True)
 class LocalReadInvestigationWiring:
     chat_delegate: HeimdallReadInvestigationChatDelegate
+    subscription_health_provider: AzureSubscriptionHealthProvider
     http_client: httpx.AsyncClient
 
     async def close(self) -> None:
@@ -51,6 +56,7 @@ def build_local_read_investigation(
     http_client = httpx.AsyncClient(
         timeout=httpx.Timeout(connect=5.0, read=35.0, write=10.0, pool=5.0)
     )
+    identity = AsyncAzureCliWorkloadIdentity()
     transport = AzureRestReadTransport(
         config=AzureReadRestConfig(
             scopes=(
@@ -67,7 +73,7 @@ def build_local_read_investigation(
                 ("Microsoft.Network/virtualNetworks", "network.vnet"),
             ),
         ),
-        identity=AsyncAzureCliWorkloadIdentity(),
+        identity=identity,
         http_client=http_client,
     )
     latency_store = StateStoreReadLatencyProfileStore(store=state_store)
@@ -87,6 +93,14 @@ def build_local_read_investigation(
                     detach_on_multi_source=False,
                 ),
             )
+        ),
+        subscription_health_provider=AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id=subscription_id,
+                resource_groups=resource_groups,
+            ),
+            identity=identity,
+            http_client=http_client,
         ),
         http_client=http_client,
     )

@@ -316,12 +316,38 @@ def make_chat_stream_route(
                     enriched_context,
                     behavior_resolver,
                 )
-                enriched_context = await _with_tool_evidence(
-                    clean_prompt,
-                    enriched_context,
-                    tool_resolver,
-                    principal_id=user_id,
+                tool_progress_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=64)
+
+                async def observe_tool_progress(event: Mapping[str, Any]) -> None:
+                    await tool_progress_queue.put(dict(event))
+
+                tool_task = asyncio.create_task(
+                    _with_tool_evidence(
+                        clean_prompt,
+                        enriched_context,
+                        tool_resolver,
+                        principal_id=user_id,
+                        progress_observer=observe_tool_progress,
+                    )
                 )
+                try:
+                    while not tool_task.done() or not tool_progress_queue.empty():
+                        try:
+                            progress_event = await asyncio.wait_for(
+                                tool_progress_queue.get(),
+                                timeout=0.25,
+                            )
+                        except TimeoutError:
+                            continue
+                        event_name = progress_event.pop("event", None)
+                        if event_name in {"activity", "milestone"}:
+                            yield frame(event_name, progress_event)
+                    enriched_context = await tool_task
+                finally:
+                    if not tool_task.done():
+                        tool_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await tool_task
                 enriched_context = await _with_operational_evidence(
                     clean_prompt,
                     enriched_context,

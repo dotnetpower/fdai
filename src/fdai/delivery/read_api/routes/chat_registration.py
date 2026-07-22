@@ -39,6 +39,10 @@ from fdai.delivery.read_api.routes.chat_evidence import OperationalEvidenceResol
 from fdai.delivery.read_api.routes.chat_inventory import InventoryChatTools
 from fdai.delivery.read_api.routes.chat_log_query import LogQueryChatTools
 from fdai.delivery.read_api.routes.chat_skills import RuntimeSkillChatTools
+from fdai.delivery.read_api.routes.chat_subscription_health import (
+    SubscriptionHealthChatTools,
+    SubscriptionHealthProvider,
+)
 from fdai.delivery.read_api.routes.chat_system_health import SystemHealthChatTools
 from fdai.delivery.read_api.routes.chat_tools import ReadModelChatTools
 from fdai.delivery.read_api.routes.data_sources import ReadDataSourceStatus
@@ -61,6 +65,7 @@ def append_chat_routes(
     conversation_history_store: ConversationHistoryStore | None = None,
     conversation_search: ConversationSearch | None = None,
     inventory_graph_provider: InventoryGraphProvider | None = None,
+    subscription_health_provider: SubscriptionHealthProvider | None = None,
     log_query_provider: Any = None,
     data_sources: tuple[ReadDataSourceStatus, ...] = (),
     answer_preference_store: UserPreferenceStore | None = None,
@@ -95,10 +100,18 @@ def append_chat_routes(
         if inventory_graph_provider is None
         else InventoryChatTools(inventory_graph_provider, fallback=log_tools)
     )
-    skill_tools = (
+    subscription_health_tools = (
         inventory_tools
+        if subscription_health_provider is None
+        else SubscriptionHealthChatTools(
+            subscription_health_provider,
+            fallback=inventory_tools,
+        )
+    )
+    skill_tools = (
+        subscription_health_tools
         if skill_disclosure is None
-        else RuntimeSkillChatTools(skill_disclosure, fallback=inventory_tools)
+        else RuntimeSkillChatTools(skill_disclosure, fallback=subscription_health_tools)
     )
     data_source_tools = DataSourceChatTools(data_sources, fallback=skill_tools)
     tools = SystemHealthChatTools(

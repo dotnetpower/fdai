@@ -197,6 +197,11 @@ class ReadApiConfig:
     Reader-gated ``GET /inventory/graph``. The provider reads the inventory
     projection only; the console never receives a cloud or executor identity."""
 
+    subscription_health_provider: Any = None
+    """Optional bounded read-only Azure scope health provider for ChatOps.
+    It owns subscription and resource-group scope, Resource Graph templates,
+    metric probe limits, and reader identity; the browser supplies no scope."""
+
     log_query_provider: Any = None
     """Optional bounded read-only log-query provider used by explicit
     ``query_log`` Command Deck commands. The provider owns workspace scope and

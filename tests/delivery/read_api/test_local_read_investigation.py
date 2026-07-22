@@ -19,5 +19,6 @@ async def test_local_read_investigation_builds_network_delegate() -> None:
     assert wiring is not None
     try:
         assert wiring.chat_delegate is not None
+        assert wiring.subscription_health_provider is not None
     finally:
         await wiring.close()

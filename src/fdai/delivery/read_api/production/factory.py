@@ -460,6 +460,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     )
     background_executor = None
     read_investigation_service = None
+    subscription_health_provider = None
     read_latency_store = None
     reader_scope_ref = None
     reader_subscription = env.get("FDAI_AZURE_READER_SUBSCRIPTION_ID", "").strip()
@@ -478,6 +479,10 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             AzureReadScopeBinding,
             AzureRestReadInvestigationAdapter,
             AzureRestReadTransport,
+        )
+        from fdai.delivery.azure.subscription_health import (
+            AzureSubscriptionHealthConfig,
+            AzureSubscriptionHealthProvider,
         )
         from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
         from fdai.delivery.persistence import StateStoreReadLatencyProfileStore
@@ -518,6 +523,14 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         read_investigation_service = ReadInvestigationService(
             AzureRestReadInvestigationAdapter(reader_transport),
             latency_store=read_latency_store,
+        )
+        subscription_health_provider = AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id=reader_subscription,
+                resource_groups=reader_resource_groups,
+            ),
+            identity=reader_identity,
+            http_client=reader_http,
         )
         background_executor = ReadInvestigationBackgroundTaskExecutor(
             service=read_investigation_service,
@@ -595,6 +608,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 connect_timeout_s=read_model._config.connect_timeout_s,
             )
         ),
+        subscription_health_provider=subscription_health_provider,
         scope_source=scope_source,
         log_query_provider=log_query_provider,
         reporting=reporting,

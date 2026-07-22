@@ -600,6 +600,11 @@ def build_local_app(
             model_settings=models.settings,
             workflow_definitions=workflow_definitions,
             inventory_graph_provider=_build_inventory_graph_provider(),
+            subscription_health_provider=(
+                local_read_investigation.subscription_health_provider
+                if local_read_investigation is not None
+                else None
+            ),
             log_query_provider=log_query_provider,
             rule_catalog_rules=tuple(rule_catalog_rules),
             rule_catalog_collected_rules=tuple(rule_catalog_collected),

@@ -17,6 +17,7 @@ from fdai.delivery.read_api.routes.chat_prompt import (
     _CONCEPT_DOMAIN,
     _is_concept_query,
 )
+from fdai.delivery.read_api.routes.chat_subscription_health import needs_subscription_health
 
 
 class OperationalEvidenceResolverProtocol(Protocol):
@@ -232,6 +233,7 @@ async def _with_tool_evidence(
     resolver: ChatToolResolver | None,
     *,
     principal_id: str,
+    progress_observer: AgentProgressObserver | None = None,
 ) -> dict[str, Any]:
     """Replace client-supplied tool output with a server-owned result."""
 
@@ -240,19 +242,31 @@ async def _with_tool_evidence(
     enriched.pop("_current_screen_tool", None)
     explicit_command = _is_explicit_tool_command(prompt)
     inventory_question = needs_inventory_evidence(prompt)
+    subscription_health_question = needs_subscription_health(prompt)
     read_source_question = needs_read_source_evidence(prompt)
     if resolver is None or (
         not explicit_command
         and not inventory_question
+        and not subscription_health_question
         and not read_source_question
         and ("_behavior_evidence" in enriched or "_operational_evidence" in enriched)
     ):
         return enriched
-    evidence = await resolver.resolve(prompt, principal_id=principal_id)
+    progressive = getattr(resolver, "resolve_with_progress", None)
+    evidence = (
+        await progressive(
+            prompt,
+            principal_id=principal_id,
+            progress_observer=progress_observer,
+        )
+        if progress_observer is not None and callable(progressive)
+        else await resolver.resolve(prompt, principal_id=principal_id)
+    )
     if evidence is not None:
         if explicit_command or evidence.get("tool") in {
             "describe_read_sources",
             "query_inventory",
+            "query_subscription_health",
         }:
             enriched.pop("_behavior_evidence", None)
             enriched.pop("_operational_evidence", None)
