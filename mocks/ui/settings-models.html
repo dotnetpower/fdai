@@ -7,18 +7,42 @@
   <link rel="stylesheet" href="assets/calm-slate.css?v=settings-v2" />
   <script src="assets/calm-slate.js?v=settings-v2" defer></script>
   <style>
-    .cs-model-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
+    .cs-settings-page { max-width: 1120px; }
+    .cs-discovery-panel { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr); gap: 20px; padding: 18px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); }
+    .cs-discovery-main { display: grid; gap: 14px; }
+    .cs-discovery-title { display: flex; align-items: flex-start; gap: 11px; }
+    .cs-discovery-title h2 { margin: 0 0 3px; font-size: 16px; }
+    .cs-discovery-title p { margin: 0; color: var(--cs-text-soft); font-size: 12.5px; }
+    .cs-discovery-icon { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 auto; border-radius: 7px; background: rgba(68,104,142,.12); color: var(--cs-steel); font-size: 18px; }
+    .cs-discovery-controls { display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 10px; }
+    .cs-discovery-controls label { display: grid; gap: 5px; color: var(--cs-text-soft); font-size: 11px; font-weight: 600; }
+    .cs-discovery-controls .cs-settings-input { width: 100%; min-height: 36px; }
+    .cs-discovery-side { display: grid; align-content: space-between; gap: 16px; padding-left: 20px; border-left: 1px solid var(--cs-hairline); }
+    .cs-discovery-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+    .cs-discovery-meta div { min-width: 0; }
+    .cs-discovery-meta dt { color: var(--cs-text-soft); font-size: 10px; text-transform: uppercase; }
+    .cs-discovery-meta dd { margin: 2px 0 0; font-size: 12.5px; font-weight: 600; }
+    .cs-discovery-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
+    .cs-discovery-result { color: var(--cs-text-soft); font-size: 11px; }
+    .cs-discovery-result.is-updated { color: var(--cs-sage); }
+    .cs-model-toolbar { display: grid; grid-template-columns: minmax(190px, 1fr) auto auto; align-items: center; gap: 9px 12px; margin: 12px 0; }
+    .cs-model-search { position: relative; grid-column: 1 / -1; }
+    .cs-model-search input { width: 100%; min-height: 36px; padding: 7px 10px 7px 32px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text); font: 13px var(--cs-font); }
+    .cs-model-search::before { content: ""; position: absolute; left: 11px; top: 10px; width: 9px; height: 9px; border: 1.5px solid var(--cs-text-soft); border-radius: 50%; }
+    .cs-model-search::after { content: ""; position: absolute; left: 20px; top: 20px; width: 5px; height: 1.5px; background: var(--cs-text-soft); transform: rotate(45deg); transform-origin: left center; }
+    .cs-model-search input:focus { outline: 2px solid rgba(68,104,142,.24); border-color: var(--cs-steel); }
     .cs-model-summary { margin-right: auto; color: var(--cs-text-soft); font-size: 13px; }
     .cs-model-summary strong { color: var(--cs-text); }
     .cs-model-legend { display: inline-flex; align-items: center; gap: 12px; color: var(--cs-text-soft); font-size: 12px; }
     .cs-model-legend span { display: inline-flex; align-items: center; gap: 5px; }
     .cs-model-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--cs-sage); }
     .cs-model-dot.is-unavailable { background: #B9B6B1; }
-    .cs-model-providers { border-top: 1px solid var(--cs-hairline); }
-    .cs-model-provider { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 18px; padding: 18px 0; border-bottom: 1px solid var(--cs-hairline); }
-    .cs-model-provider-head { display: flex; align-items: center; gap: 8px; }
+    .cs-model-providers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .cs-model-provider { min-width: 0; padding: 14px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); }
+    .cs-model-provider[hidden] { display: none; }
+    .cs-model-provider-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
     .cs-model-provider-head h3 { margin: 0; font-size: 14px; }
-    .cs-model-provider-head span { color: var(--cs-text-soft); font-size: 11px; }
+    .cs-model-provider-head > span:last-child { margin-left: auto; color: var(--cs-text-soft); font-size: 11px; }
     .cs-provider-mark { display: inline-grid; place-items: center; width: 26px; height: 26px; flex: 0 0 auto; border-radius: 6px; background: var(--cs-navy); }
     .cs-provider-mark img { width: 15px; height: 15px; filter: brightness(0) invert(1); }
     .cs-provider-mark.is-openai { background: #33403B; }
@@ -26,7 +50,7 @@
     .cs-provider-mark.is-gemini { background: #4169A8; }
     .cs-provider-mark.is-others { grid-template-columns: repeat(2, 4px); grid-template-rows: repeat(2, 4px); gap: 2px; background: #596979; }
     .cs-provider-mark.is-others i { width: 4px; height: 4px; border-radius: 1px; background: #FFFFFF; }
-    .cs-model-options { display: flex; flex-wrap: wrap; gap: 8px; }
+    .cs-model-options { display: flex; flex-wrap: wrap; gap: 7px; }
     .cs-model-option { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text-soft); font-size: 12.5px; cursor: pointer; transition: border-color .12s ease, background .12s ease, color .12s ease; }
     .cs-model-option:hover { border-color: #C9C6C1; color: var(--cs-text); }
     .cs-model-option:has(input:checked) { border-color: rgba(68,104,142,.42); background: rgba(68,104,142,.12); color: var(--cs-navy); font-weight: 600; }
@@ -34,10 +58,19 @@
     .cs-model-option:has(input:disabled) { background: var(--cs-shade); color: #92908C; cursor: not-allowed; opacity: .78; }
     .cs-model-option input { width: 14px; height: 14px; margin: 0; accent-color: var(--cs-steel); }
     .cs-model-option .cs-model-dot { width: 7px; height: 7px; }
-    .cs-model-actions { display: flex; gap: 7px; }
+    .cs-model-actions { display: flex; justify-content: flex-end; gap: 7px; }
+    .cs-model-empty { display: none; padding: 28px; border: 1px dashed var(--cs-hairline); border-radius: 8px; color: var(--cs-text-soft); text-align: center; }
+    .cs-model-empty.is-visible { display: block; }
+    .cs-settings-section { margin-top: 24px; }
+    .cs-settings-section-head { padding-top: 14px; }
     @media (max-width: 700px) {
-      .cs-model-toolbar { align-items: flex-start; flex-direction: column; }
-      .cs-model-provider { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+      .cs-discovery-panel, .cs-discovery-controls, .cs-model-toolbar, .cs-model-providers { grid-template-columns: minmax(0, 1fr); }
+      .cs-discovery-side { padding: 16px 0 0; border-top: 1px solid var(--cs-hairline); border-left: 0; }
+      .cs-discovery-actions { justify-content: flex-start; }
+      .cs-model-toolbar { align-items: stretch; }
+      .cs-model-search { grid-column: auto; }
+      .cs-model-legend { flex-wrap: wrap; }
+      .cs-model-actions { justify-content: flex-start; }
       .cs-model-options { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }
       .cs-model-option { width: 100%; }
     }
@@ -51,23 +84,38 @@
       <p class="cs-lead">Resolved model inventory, routing evidence, and governed operator preferences.</p>
     </div>
 
-    <section class="cs-settings-section" aria-labelledby="models-automation">
-      <header class="cs-settings-section-head">
-        <h2 id="models-automation">Automation</h2>
-        <p>Resolved from the deployment inventory.</p>
-      </header>
-      <div class="cs-settings-list">
-        <div class="cs-setting-row">
-          <div><strong>Model discovery</strong><small>Catalog and deployment metadata are refreshed automatically.</small></div>
-          <span class="cs-status ok">Automatic - current</span>
+    <section class="cs-discovery-panel" aria-labelledby="models-discovery">
+      <div class="cs-discovery-main">
+        <div class="cs-discovery-title">
+          <span class="cs-discovery-icon" aria-hidden="true">&#8635;</span>
+          <div><h2 id="models-discovery">Model discovery</h2><p>Keep the available-model inventory current as provider catalogs change.</p></div>
         </div>
-        <div class="cs-setting-row">
-          <div><strong>Capability provisioning</strong><small>Bindings are evaluated against the required capability set.</small></div>
-          <span class="cs-status ok">12 resolved, 2 approval-only</span>
+        <div class="cs-discovery-controls">
+          <label>Discovery mode
+            <select class="cs-settings-input" id="discovery-mode">
+              <option value="automatic">Automatic</option>
+              <option value="manual">Manual only</option>
+            </select>
+          </label>
+          <label>Automatic interval
+            <select class="cs-settings-input" id="discovery-interval">
+              <option>Every 6 hours</option>
+              <option>Every 12 hours</option>
+              <option>Daily</option>
+            </select>
+          </label>
         </div>
-        <div class="cs-setting-row">
-          <div><strong>Deployment region</strong><small>Routing stays within the configured regional boundary.</small></div>
-          <code>Deployment policy</code>
+      </div>
+      <div class="cs-discovery-side">
+        <dl class="cs-discovery-meta">
+          <div><dt>Catalog source</dt><dd>Provider registry</dd></div>
+          <div><dt>Last discovery</dt><dd id="last-discovery">12 min ago</dd></div>
+          <div><dt>Result</dt><dd>15 models found</dd></div>
+          <div><dt>Provisioning</dt><dd>12 ready, 3 unavailable</dd></div>
+        </dl>
+        <div class="cs-discovery-actions">
+          <span class="cs-discovery-result" id="discovery-result" role="status">Catalog is current</span>
+          <button class="cs-btn is-primary is-sm" id="discover-models" type="button">Discover now</button>
         </div>
       </div>
     </section>
@@ -75,9 +123,10 @@
     <section class="cs-settings-section" aria-labelledby="models-availability">
       <header class="cs-settings-section-head">
         <h2 id="models-availability">Available models</h2>
-        <p>Enable only the models this deployment may route to.</p>
+        <p>Choose which discovered models this deployment may route to.</p>
       </header>
       <div class="cs-model-toolbar">
+        <label class="cs-model-search"><input id="model-search" type="search" placeholder="Search models or providers" aria-label="Search models or providers" /></label>
         <div class="cs-model-summary" aria-live="polite">
           <strong id="model-enabled-count">8 enabled</strong>
           <span>of <span id="model-available-count">12</span> available - 3 unavailable</span>
@@ -144,6 +193,7 @@
           </div>
         </section>
       </div>
+      <div class="cs-model-empty" id="model-empty">No models match this search.</div>
     </section>
 
     <section class="cs-settings-section" aria-labelledby="models-t2-policy">
@@ -213,6 +263,12 @@
       var pairStatus = document.getElementById("model-pair-status");
       var primary = document.getElementById("primary-reasoner");
       var secondary = document.getElementById("secondary-reasoner");
+      var discoveryMode = document.getElementById("discovery-mode");
+      var discoveryInterval = document.getElementById("discovery-interval");
+      var discoverButton = document.getElementById("discover-models");
+      var discoveryResult = document.getElementById("discovery-result");
+      var modelSearch = document.getElementById("model-search");
+      var modelEmpty = document.getElementById("model-empty");
 
       function updateModelState() {
         var available = toggles.filter(function (toggle) { return !toggle.disabled; });
@@ -240,6 +296,41 @@
           toggles.forEach(function (toggle) { if (!toggle.disabled) toggle.checked = enabled; });
           updateModelState();
         });
+      });
+      discoveryMode.addEventListener("change", function () {
+        var automatic = discoveryMode.value === "automatic";
+        discoveryInterval.disabled = !automatic;
+        discoveryResult.textContent = automatic ? "Automatic discovery enabled" : "Manual discovery only";
+        discoveryResult.classList.remove("is-updated");
+      });
+      discoverButton.addEventListener("click", function () {
+        discoverButton.disabled = true;
+        discoverButton.textContent = "Discovering...";
+        discoveryResult.textContent = "Checking provider catalogs";
+        window.setTimeout(function () {
+          discoverButton.disabled = false;
+          discoverButton.textContent = "Discover now";
+          discoveryResult.textContent = "Discovery complete - no new models";
+          discoveryResult.classList.add("is-updated");
+          document.getElementById("last-discovery").textContent = "Just now";
+        }, 600);
+      });
+      modelSearch.addEventListener("input", function () {
+        var query = modelSearch.value.trim().toLowerCase();
+        var visible = 0;
+        document.querySelectorAll(".cs-model-provider").forEach(function (provider) {
+          var providerName = provider.querySelector("h3").textContent.toLowerCase();
+          var providerMatch = providerName.indexOf(query) !== -1;
+          var optionMatches = 0;
+          provider.querySelectorAll(".cs-model-option").forEach(function (option) {
+            var match = !query || providerMatch || option.textContent.toLowerCase().indexOf(query) !== -1;
+            option.hidden = !match;
+            if (match) optionMatches += 1;
+          });
+          provider.hidden = optionMatches === 0;
+          if (optionMatches > 0) visible += 1;
+        });
+        modelEmpty.classList.toggle("is-visible", visible === 0);
       });
       updateModelState();
     })();
