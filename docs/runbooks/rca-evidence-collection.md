@@ -22,7 +22,7 @@ deadline. Repeat collection when the scope or timeline materially changes.
 
 | Item | Required value |
 |------|----------------|
-| Investigation owner | Accountable person for scope, budget, and final evidence set |
+| Investigation owner | Final owner person for scope, budget, and final evidence set |
 | Reviewer | Person who verifies source identity, citations, and unsupported gaps |
 | Time boundary | Start and end timestamps, including justified lead-in time |
 | Resource boundary | Included resources, dependencies, regions, and explicit exclusions |
@@ -36,7 +36,7 @@ boundary before querying additional resources or time ranges.
 
 | Evidence class | What to collect | Reliability checks |
 |----------------|-----------------|--------------------|
-| Events and audit | Findings, state transitions, verdicts, approvals, actions | Producer, sequence, correlation ID, hash |
+| Events and audit | Detected issues, state transitions, decisions, approvals, actions | Producer, sequence, correlation ID, hash |
 | Changes | Deployments, configuration, catalog, policy, and ownership updates | Version, actor, scope, completion state |
 | Metrics | SLI, saturation, errors, latency, and dependency health | Source, aggregation, missing data, timestamp |
 | Logs and traces | Correlated execution and request records | Clock, sampling, redaction, trace continuity |

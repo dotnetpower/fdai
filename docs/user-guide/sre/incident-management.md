@@ -86,7 +86,7 @@ Startup replay retries rows without a checkpoint.
 
 Severity-based acknowledge and resolution targets can be evaluated from the
 transition stream. Event storms remain bounded by deterministic incident IDs,
-deduplication, and explicit remediation steps; they do not create unlimited
+deduplication, and explicit fix steps; they do not create unlimited
 parallel mutations.
 
 SLA targets are deployment policy, not hardcoded assumptions. The monitor stays
@@ -95,10 +95,10 @@ budgets. When enabled, it derives deadlines from ordered transition records and
 emits a stable operational notice once per breach. Resolved and closed incidents
 do not continue alerting.
 
-During a storm, deterministic sequencing orders proposed remediations by
-severity, then blast radius, then stable ID. A configured concurrency cap splits
+During a storm, deterministic sequencing orders proposed fixes by
+severity, then impact scope, then stable ID. A configured concurrency cap splits
 them into waves and can raise the approval bar while the storm is active. The
-storm coordinator advises the risk gate; it does not execute or hold authority.
+storm coordinator advises the safety check; it does not execute or hold authority.
 
 ## Next steps
 

@@ -91,7 +91,7 @@ audit 기반 행위 이력을, `Handover`는 사람의 accountability와 coverag
 | 19 | Agent chip count의 숫자에 screen-reader용 records label이 없습니다. | 후속 accessibility 개선입니다. |
 | 20 | Group collapse가 stream refresh마다 초기화된다는 가설은 component identity상 반증됐습니다. | 기각했습니다. 동일 mount의 state는 re-render에서 유지됩니다. |
 
-## Handover critiques
+## Ownership handover critiques
 
 | # | Critique | Disposition |
 |---:|----------|-------------|

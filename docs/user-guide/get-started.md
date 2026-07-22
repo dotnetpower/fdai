@@ -13,12 +13,12 @@ resolves the repeatable majority of operational events deterministically with
 rules, policies, and typed actions, and reserves LLM inference for the ambiguous
 residual that survives the deterministic gate. Every autonomous action is
 risk-classified, and anything above the safe threshold pauses for
-human-in-the-loop (HIL) approval.
+human approval.
 
 <div class="get-started-principles" role="list" aria-label="FDAI operating principles">
   <div class="get-started-principle" role="listitem"><span class="principle-index">01</span><strong>Rules before reasoning</strong><span>Known decisions stay deterministic, reviewable, and fast.</span></div>
-  <div class="get-started-principle" role="listitem"><span class="principle-index">02</span><strong>Shadow before enforce</strong><span>New actions prove their behavior before they can mutate anything.</span></div>
-  <div class="get-started-principle" role="listitem"><span class="principle-index">03</span><strong>Risk-gated autonomy</strong><span>High-risk and uncertain outcomes pause for human review.</span></div>
+  <div class="get-started-principle" role="listitem"><span class="principle-index">02</span><strong>Observe, then enable changes</strong><span>New actions prove their behavior before they can mutate anything.</span></div>
+  <div class="get-started-principle" role="listitem"><span class="principle-index">03</span><strong>Safety-gated autonomy</strong><span>High-risk and uncertain outcomes pause for human review.</span></div>
   <div class="get-started-principle" role="listitem"><span class="principle-index">04</span><strong>Separated authority</strong><span>Judgment, approval, execution, and audit use distinct principals.</span></div>
   <div class="get-started-principle" role="listitem"><span class="principle-index">05</span><strong>Evidence on every path</strong><span>Auto, deny, timeout, rollback, and no-op outcomes enter the audit trail.</span></div>
 </div>
@@ -29,7 +29,7 @@ catalog of rules, execute the safe majority, and escalate the risky few to you.
 You operate the whole system at the level of **approve or reject** - you are
 asked for decisions, not toil. Nothing runs the SRE handbook for you by
 guesswork: every action is an instance of a typed **ontology** entry that carries
-its own stop-condition, rollback path, blast-radius limit, and audit record.
+its own stop-condition, rollback path, impact scope limit, and audit record.
 
 The reference implementation targets Azure. The design keeps a cloud-neutral seam
 so other CSPs are additive rather than requiring a core rewrite, but no non-Azure
@@ -39,23 +39,23 @@ adapter ships today.
 
 FDAI ships three verticals under one event-driven core. Each loads its own
 rules and actions but shares the control loop, observability, audit log, and
-risk gate.
+safety check.
 
 ### Change Safety
 
 Rule-catalog-driven policy gates on every proposed change. Each candidate is
-dry-run against policy-as-code, blast-radius scoped, and either auto-merged or
-routed to HIL.
+dry-run against policy-as-code, impact scope scoped, and either auto-merged or
+routed to human approval.
 
-Example: an IaC PR proposes a public-egress NSG rule -> risk gate flags
-high-risk -> HIL approval card in Teams -> approver clicks approve -> executor
-merges the remediation PR + writes the audit entry.
+Example: an IaC PR proposes a public-egress NSG rule -> safety check flags
+high-risk -> human approval card in Teams -> approver clicks approve -> executor
+merges the fix PR + writes the audit entry.
 
 ### Resilience
 
-Scheduled DR drills, database DR exercises, and blast-radius-bounded chaos
+Scheduled DR drills, database DR exercises, and impact scope-bounded chaos
 experiments. Cadence, scope, and proof stay separated: scheduler owns cadence,
-risk gate owns scope, audit log owns proof.
+safety check owns scope, audit log owns proof.
 
 Example: a nightly job finds a PITR gap on a critical database -> agent schedules
 a paired restore drill in the exercise window -> restore succeeds against target
@@ -68,8 +68,8 @@ the low-risk subset (idle disk cleanup, unused public IP release, orphan NIC
 removal).
 
 Example: cost-anomaly detector fires on cache-tier over-provisioning -> T0 rule
-matches -> two-week shadow proves accuracy -> promotion to enforce -> right-size
-remediation PR ships with a rollback path.
+matches -> two-week shadow proves accuracy -> promotion to enforcement mode -> right-size
+fix PR ships with a rollback path.
 
 ## Works across your stack
 
@@ -80,13 +80,13 @@ what you already run:
   networking, identity, and Kubernetes are covered by the shipped rule catalog
   and action ontology.
 - **Event bus**: A Kafka-compatible stream (Event Hubs on the Kafka endpoint)
-  carries resource-change signals, activity-log events, and detector findings
+  carries resource-change signals, activity-log events, and detector detected issues
   into the loop.
 - **Policy-as-code**: Rules normalize to a cloud-provider-neutral schema and
   evaluate through OPA/Rego, so the deterministic tier runs on machine-readable
   policy.
-- **Delivery channels**: Actions ship as remediation pull requests (PRs that
-  apply a fix), and HIL approvals reach you as Teams or Slack Adaptive Cards.
+- **Delivery channels**: Actions ship as fix pull requests (PRs that
+  apply a fix), and human approval reach you as Teams or Slack Adaptive Cards.
   Git provides the change record and rollback reference.
 - **Operator console**: A read-only console and conversational narrator let you
   ask questions and review decisions without holding the executor's privileged
@@ -95,7 +95,7 @@ what you already run:
 ## How it works
 
 Three tiers, one loop. The trust router picks the lowest tier that can decide
-the event; the risk gate decides whether the resulting action auto-executes or
+the event; the safety check decides whether the resulting action auto-executes or
 waits for approval.
 
 1. **T0 (deterministic, ~70-80% target coverage)**: policy-as-code decisions
@@ -104,7 +104,7 @@ waits for approval.
    small-model classifiers over the audit log's history. Cheap, fast, and
    auditable.
 3. **T2 (deep reasoning, ~5-10%)**: frontier models with mixed-model
-   cross-check, deterministic verifier, and grounding checks. LLMs generate;
+   cross-check, deterministic verifier, and evidence check checks. LLMs generate;
    execution eligibility is granted by verifier, not by the model.
 
 ```text
@@ -154,7 +154,7 @@ flowchart TB
 - You have, or can construct, a baseline to measure autonomy gains against.
   FDAI never claims a multiplier without a paired measurement.
 - Your compliance regime tolerates auto-executed low-risk changes provided
-  every action has a stop-condition, rollback path, blast-radius limit, and
+  every action has a stop-condition, rollback path, impact scope limit, and
   audit-log entry.
 
 ## When FDAI doesn't fit (yet)
@@ -182,8 +182,8 @@ first rollout is to produce evidence, not to maximize automation on day one.
 3. **Capture the baseline.** Measure event volume, decision latency, operator
   touches, and rollback frequency using the
   [goals and metrics contract](../roadmap/architecture/goals-and-metrics.md).
-4. **Observe in shadow mode.** Let FDAI judge and audit without mutating. Review
-  false positives, HIL decisions, verifier failures, and would-be actions.
+4. **Observe in observation mode.** Let FDAI judge and audit without mutating. Review
+  false positives, human approval decisions, verifier failures, and would-be actions.
 5. **Promote one action independently.** Turn on enforcement only for an action
   whose frozen scenarios, rollback rehearsal, and policy checks meet its
   promotion gate. Leave every other action in shadow.
@@ -201,19 +201,19 @@ is not enough by itself.
 |----------|-------------------|----------------------|
 | Rule coverage and abstention rate | Whether deterministic rules cover the intended cases without guessing | Keep in shadow or expand the scenario set |
 | Policy, schema, and what-if results | Whether every proposed mutation passes the deterministic verifier | Block or continue toward promotion |
-| HIL approvals, rejections, and overrides | Where operator judgment still disagrees with the automated verdict | Revise thresholds, scope, or the rule |
+| human approval, rejections, and overrides | Where operator judgment still disagrees with the automated decision | Revise thresholds, scope, or the rule |
 | Rollback rehearsal | Whether the declared recovery path restores the prior state within the expected window | Permit or block enforcement |
 | Audit completeness | Whether every terminal path can be reconstructed from event to outcome | Accept the evidence record or hold release |
 
 ## Grows with your environment
 
-- **Day 1**: T0 rules run in shadow mode on your events. Every finding writes
+- **Day 1**: T0 rules run in observation mode on your events. Every detected issue writes
   an audit entry so you can see what it would have done.
 - **Week 1**: shadow metrics show which actions clear their promotion gate.
   T1 starts reusing patterns from resolved incidents; T2 stays a small share.
 - **Month 1**: promoted actions run autonomously with rollback paths. The
   discovery loop begins proposing catalog updates from your own operating
-  signals (HIL approvals, shadow drift, overrides).
+  signals (human approval, shadow drift, overrides).
 
 ## Get started
 
@@ -242,7 +242,7 @@ is not enough by itself.
 - [Risk tiers](concepts/risk-tiers.md) - The three trust tiers in depth.
 - [Ontology-driven automation](concepts/ontology-driven-automation.md) - How the action ontology drives automation.
 - [Agents and self-healing](concepts/agents-and-self-healing.md) - How agents collaborate and self-heal.
-- [Shadow then enforce](concepts/shadow-then-enforce.md) - Shadow-mode rollout and promotion.
+- [Shadow then enforce](concepts/shadow-then-enforce.md) - Observation mode rollout and promotion.
 - [Approve a change](guides/approve-change.md) - Approving a change on the operator side.
 - [Read the audit log](guides/read-audit-log.md) - Reading the audit log.
 - [Override a rule](guides/override-a-rule.md) - Narrowing a rule for one scope.

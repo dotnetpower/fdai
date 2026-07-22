@@ -10,7 +10,7 @@ derives_from:
 
 FDAI keeps your workloads recoverable and proves it on a schedule, not during an
 outage. It rehearses disaster recovery, exercises databases against their
-recovery targets, runs blast-radius-bounded chaos experiments, and self-heals the
+recovery targets, runs impact scope-bounded chaos experiments, and self-heals the
 failure patterns it has seen before - so the first time a recovery path runs is
 never the real incident.
 
@@ -21,7 +21,7 @@ never the real incident.
 - **Recovery-target verification.** Database exercises restore against your target
   RPO and RTO and flag gaps (for example, a point-in-time-restore gap) before they
   matter.
-- **Bounded chaos experiments.** Failure is injected within a strict blast-radius
+- **Bounded chaos experiments.** Failure is injected within a strict impact scope
   limit, so an experiment can never exceed its declared scope.
 - **Self-healing for known patterns.** Failures that match a resolved incident are
   remediated automatically; the novel minority escalates to you.
@@ -31,10 +31,10 @@ never the real incident.
 <!-- fdai:steps -->
 
 1. **Find the gap.** A scheduled job detects a resilience gap - say, a
-   point-in-time-restore gap on a critical database - and raises a finding.
+   point-in-time-restore gap on a critical database - and raises a detected issue.
 2. **Schedule the drill.** The agent schedules a paired restore drill inside the
    defined exercise window, never against live traffic unbounded.
-3. **Run within the blast radius.** The exercise executes under its scope, batch,
+3. **Run within the impact scope.** The exercise executes under its scope, batch,
    and rate caps - the same safety invariants every autonomous action carries.
 4. **Verify against targets.** The restore is checked against the target RPO and
    RTO; success and failure are both recorded.
@@ -53,7 +53,7 @@ Resilience is measured against a baseline, never asserted (see
 - **Rollback rate** and **false-negative rate** are guard metrics: neither may
   regress past its baseline threshold.
 
-Every drill and self-heal ships in [shadow mode](../concepts/shadow-then-enforce.md)
+Every drill and self-heal ships in [observation mode](../concepts/shadow-then-enforce.md)
 first and is promoted only after its measured accuracy holds.
 
 ## Related
@@ -64,6 +64,6 @@ first and is promoted only after its measured accuracy holds.
 - [Disaster recovery and drills](../sre/disaster-recovery-and-drills.md) - How recovery paths are isolated, measured, and audited.
 - [Chaos engineering](../sre/chaos-engineering.md) - How bounded fault scenarios prove recovery behavior.
 - [Agents and self-healing](../concepts/agents-and-self-healing.md) - How the agent organization resolves failures.
-- [Risk tiers](../concepts/risk-tiers.md) - How a recovery action is routed to auto, HIL, or deny.
+- [Risk tiers](../concepts/risk-tiers.md) - How a recovery action is routed to auto, human approval, or deny.
 - [Operational Readiness](../../roadmap/operations/operational-readiness.md) - The dev-to-ops readiness gate.
 - [Deploy and onboard](../../roadmap/deployment/deploy-and-onboard.md) - Bring FDAI into your environment.

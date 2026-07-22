@@ -13,7 +13,7 @@ route a mitigation, but it never executes one directly.
 ## Authoring gate
 
 Every plan starts as a draft. Activation checks that stop conditions, rollback,
-impact-scope bounds (blast radius), an approver, and a notification channel are
+impact-scope bounds (impact scope), an approver, and a notification channel are
 all declared and satisfied. Omitting a requirement does not bypass the gate; it
 leaves the plan inactive.
 
@@ -32,13 +32,13 @@ any referenced `ActionType`, lower its risk tier, or grant execution authority.
 |--------------|-----------------|--------------|
 | Stop, rollback, impact scope, approver, channel | Plan readiness gate | Keep the plan inactive |
 | Historical coverage | Pretest review | Record gaps; don't activate automatically |
-| Action safety and promotion | Action registry and risk gate | Shadow, HIL, or deny |
+| Action safety and promotion | Action registry and safety check | Shadow, human approval, or deny |
 | Runtime mutation | Executor checks | No-op, stop, or rollback |
 
 ## Alert response flow
 
 1. An alert starts a time-bounded investigation.
-2. The investigation returns findings and prioritized recommendations.
+2. The investigation returns detected issues and prioritized recommendations.
 3. The coordinator selects the highest grounded actionable recommendation.
 4. A mitigation proposal is sent to the configured approval gate.
 5. An approved proposal re-enters the typed trust and risk pipeline.
@@ -50,7 +50,7 @@ produces no action.
 ## Preserve separation of duties
 
 The plan coordinator selects a supported recommendation, but does not judge,
-approve, and execute it. Forseti produces the verdict, Var carries the approval
+approve, and execute it. Forseti produces the decision, Var carries the approval
 record, Thor is the privileged executor, Vidar owns rollback, and Saga appends
 the audit evidence. The requester, approver, and executor remain distinct where
 policy requires it. A chat message or successful notification delivery is not
@@ -59,7 +59,7 @@ an authenticated approval decision.
 ## Mitigation is not execution
 
 A response step names an `ActionType`; it does not call an executor. The normal
-pipeline still validates preconditions, stop conditions, blast radius,
+pipeline still validates preconditions, stop conditions, impact scope,
 rollback, mode, lock, identity, and policy. Rejection and timeout terminate as
 audited no-ops.
 
@@ -67,7 +67,7 @@ audited no-ops.
 
 | Failure point | Terminal behavior | Evidence retained |
 |---------------|-------------------|-------------------|
-| No grounded actionable finding | No proposal | Investigation result and gaps |
+| No grounded actionable detected issue | No proposal | Investigation result and gaps |
 | Investigation timeout or exception | No action | Partial report and unavailable evidence |
 | Approval rejection | Audited no-op | Rejecting principal and reason |
 | Approval timeout | Audited no-op or escalation | Expiry and ladder state |
@@ -76,8 +76,8 @@ audited no-ops.
 
 When a valid standing authorization applies after an unanswered escalation
 deadline, the plan still does not execute directly. The supervisor submits the
-pending typed action for a fresh risk-gate decision. An expired authorization,
-stale inventory, wider blast radius, or envelope mismatch ends as a no-op.
+pending typed action for a fresh safety check decision. An expired authorization,
+stale inventory, wider impact scope, or envelope mismatch ends as a no-op.
 
 ## Next steps
 

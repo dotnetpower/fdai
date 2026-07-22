@@ -2,8 +2,8 @@
 title: SLO Burn 대응 Runbook
 description: 발견된 오류 예산 소진 문제를 검증하고 통제된 대응으로 라우팅하는 템플릿입니다.
 translation_of: slo-burn-response.md
-translation_source_sha: b6165b4f1b729facd55ac723442c592711b6cf97
-translation_revised: 2026-07-20
+translation_source_sha: 2fc1abd5d40cb69d776c4e31eb9a547754d0fba6
+translation_revised: 2026-07-22
 ---
 
 # SLO Burn 대응 Runbook
@@ -18,7 +18,7 @@ response로 라우팅합니다.
 
 ## 진입 기준과 ownership
 
-Finding ID, SLO 및 service ID, evaluated window, source timestamp, configured route를 가지고
+발견된 문제 ID, SLO 및 service ID, evaluated window, source timestamp, configured route를 가지고
 시작합니다. Verification owner를 지정하고 더 깊은 investigation을 시작하기 전에 next
 decision deadline을 기록합니다.
 
@@ -31,17 +31,17 @@ decision deadline을 기록합니다.
 | Scope | Service, region, operation, dependency, explicit exclusion |
 | Context | Deployment, maintenance, capacity event, open incident |
 
-## Finding 검증
+## 발견된 문제 검증
 
-1. Finding이 현재 active SLO version을 참조하는지 확인합니다.
+1. 발견된 문제가 현재 active SLO version을 참조하는지 확인합니다.
 2. Objective의 measured signal인 service-level indicator (SLI)가 intended scope와 dimension을
 	사용하는지 확인합니다.
 3. Source health, ingestion delay, sampling, missing-data behavior를 검사합니다.
 4. 동일 source에서 configured window 두 개를 recompute하거나 독립적으로 검사합니다.
 5. Breach를 rounding으로 없애지 말고 threshold comparison과 remaining error budget을 확인합니다.
-6. Finding timestamp를 deployment, maintenance, capacity, incident와 비교합니다.
+6. 발견된 문제 timestamp를 deployment, maintenance, capacity, incident와 비교합니다.
 
-Finding이 invalid이면 이유를 기록하고 labeled case를 [alert tuning](alert-tuning-ko.md)으로
+발견된 문제가 invalid이면 이유를 기록하고 labeled case를 [alert tuning](alert-tuning-ko.md)으로
 라우팅합니다. 단순히 noise로 종료하지 않습니다.
 
 ## 대응 절차
@@ -54,7 +54,7 @@ Finding이 invalid이면 이유를 기록하고 labeled case를 [alert tuning](a
 	duration, scope에 적용합니다. Burn alert만으로 policy를 우회하지 않습니다.
 4. **지정하고 알립니다.** Configured owner를 선택하고 durable notification을 보내며
 	delivery 또는 fallback outcome을 확인합니다.
-5. **Context를 조사합니다.** Recent change, capacity, dependency, related finding에 대해
+5. **Context를 조사합니다.** Recent change, capacity, dependency, related 발견된 문제에 대해
 	bounded investigation을 시작합니다.
 6. **Mitigation을 준비합니다.** Proposed change마다 evidence, intended effect, scope,
 	what-if result, stop condition, rollback을 기록합니다.
@@ -64,13 +64,13 @@ Finding이 invalid이면 이유를 기록하고 labeled case를 [alert tuning](a
 
 ## 결정 분기
 
-| Finding state | 대응 |
+| 발견된 문제 state | 대응 |
 |---------------|------|
 | 두 window가 breach되고 impact가 확인됨 | 즉시 incident를 triage하거나 갱신합니다. |
 | Short window만 breach됨 | Next deadline까지 모니터링하고 acute context를 검사합니다. |
 | Short-window spike 없이 long window가 breach됨 | Sustained degradation과 budget trend를 조사합니다. |
-| Burn은 valid지만 visible user impact가 없음 | Finding을 active로 유지하고 budget exhaustion 전에 조사합니다. |
-| Source 또는 SLI scope가 invalid임 | Invalid finding을 기록하고 measured alert tuning을 시작합니다. |
+| Burn은 valid지만 visible user impact가 없음 | 발견된 문제를 active로 유지하고 budget exhaustion 전에 조사합니다. |
+| Source 또는 SLI scope가 invalid임 | Invalid 발견된 문제를 기록하고 measured alert tuning을 시작합니다. |
 | 기존 incident가 이미 scope를 포함함 | Duplicate를 생성하지 말고 해당 incident에 evidence를 추가합니다. |
 
 ## 중지 조건
@@ -94,15 +94,15 @@ rollback](incident-mitigation-and-rollback-ko.md)을 따릅니다.
 
 ## Evidence와 audit
 
-SLO version, window value, source timestamp, incident ID, proposal ID, verdict,
+SLO version, window value, source timestamp, incident ID, proposal ID, 결정,
 terminal outcome을 기록합니다. SLI dimension, source-health check, error-budget value,
 correlation context, notification outcome, recovery window도 기록합니다.
 
 ## 완료 기준
 
-Finding이 valid 또는 invalid로 분류되고 incident와 owner가 알려져 있으며 모든 proposal에
+발견된 문제가 valid 또는 invalid로 분류되고 incident와 owner가 알려져 있으며 모든 proposal에
 terminal verdict가 있고 SLO가 recovery window를 통과했거나 next decision deadline과 함께
-open 상태로 유지되면 response를 완료합니다. Invalid finding은 labeled tuning scenario로
+open 상태로 유지되면 response를 완료합니다. Invalid 발견된 문제는 labeled tuning scenario로
 보존합니다.
 
 ## 관련 runbook

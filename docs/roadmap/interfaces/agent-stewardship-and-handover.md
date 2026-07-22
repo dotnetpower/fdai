@@ -1,7 +1,7 @@
 ---
-title: Agent Stewardship and Handover
+title: Agent Operational ownership and Ownership handover
 ---
-# Agent Stewardship and Handover
+# Agent Operational ownership and Ownership handover
 
 How the humans who used to do operational work are mapped onto FDAI's 15-agent
 pantheon, so that when FDAI takes over a task there is a named, accountable human
@@ -160,7 +160,7 @@ carries its own canonical `AGENT_NAMES` tuple and a parity test
 pantheon can never drift. `core/` does not import `agents/` (module-boundary rule);
 the parity test bridges them at test time instead.
 
-## 5. Maintainer rules
+## 5. FDAI maintainer rules
 
 - **Floor (fail-fast):** 0 maintainers is a startup `ValueError`. FDAI does not
   boot the stewardship layer unowned.
@@ -204,7 +204,7 @@ The bridge resolves, in order:
 A group-objectId steward always resolves through the matrix category route (a
 group has no single personal channel).
 
-### 6.3 Group stewards
+### 6.3 Group accountable owners
 
 A `kind: group` steward means "whoever is in this Entra group is a steward". The
 resolver expands it to the group's members through an injected
@@ -231,7 +231,7 @@ Hard errors (raise `StewardshipValidationError`, block a clean boot of the layer
   all-zero placeholder. Every deployed environment that binds a stewardship map must set this
   flag explicitly; fork status is irrelevant.
 
-### 7.2 Non-blocking findings (warn, surfaced in the coverage report)
+### 7.2 Non-blocking detected issues (warn, surfaced in the coverage report)
 
 - exactly 1 maintainer (`maintainer_single`),
 - an agent whose bus-factor (distinct accountable humans) is 1 (`bus_factor_one`),
@@ -306,7 +306,7 @@ below two.
 - No customer-identifying value enters this repo; a fork supplies real OIDs, group
   ids, and channel ids via config or env.
 
-## 11. Handover bootstrap (document ingestion)
+## 11. Ownership handover bootstrap (document ingestion)
 
 Instead of hand-filling the map, an operator MAY upload existing operational
 documents (RACI matrices, on-call schedules, org charts, runbooks, handover

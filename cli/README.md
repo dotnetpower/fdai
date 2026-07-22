@@ -142,7 +142,7 @@ format to stdout from the same block IR.
 
   Say things like `overview`, `stream`, `pause`, `focus network`, `clear`. These
   are parsed locally because they change only terminal presentation. The active
-  view is shown as a badge in the header bar. Data lookup, diagnosis, grounding,
+  view is shown as a badge in the header bar. Data lookup, diagnosis, evidence check,
   and any multi-step tool flow remain server-owned.
 
   Unlike the briefing (which uses Ink), the live cockpit is a hand-rolled
@@ -162,7 +162,7 @@ format to stdout from the same block IR.
 
 Questions typed at the prompt go to `POST /chat` through
 [src/data/read-api.ts](src/data/read-api.ts). The Python read API owns intent
-routing, role-aware tool evidence, model selection, grounding, semantic shadow
+routing, role-aware tool evidence, model selection, evidence check, semantic shadow
 verification, response verification, and refusal behavior. The CLI contributes
 only a self-describing snapshot of what it currently renders and displays the
 returned answer.
@@ -202,7 +202,7 @@ Unknown, duplicate, empty, and malformed options exit with status 2.
 
 - `--surface=cli|text|slack|teams` - which renderer.
 - `--source=sample|api` - renderer fixture or shared live API.
-- `--mode=needs-me|all-clear` - which world state (HIL decisions pending, or nothing
+- `--mode=needs-me|all-clear` - which world state (human approval decisions pending, or nothing
   to sign off).
 - `--locale=en|ko` - which language the narration renders in (default `en`; also
   reads `FDAI_LOCALE`). Strings come from the message catalog in
@@ -241,11 +241,11 @@ tsx src/cli.tsx --surface=text --locale=ko
 
 ## Boundaries
 
-- **Read-only.** The console renders state and the HIL queue; it issues no
+- **Read-only.** The console renders state and the human approval queue; it issues no
   privileged calls. Nothing here executes or approves an action.
 - **Thin channel.** The CLI owns terminal input, screen state, Block IR, and
   rendering. Shared Python modules own data access, conversation policy,
-  grounding, verification, and cloud-provider adapters.
+  evidence check, verification, and cloud-provider adapters.
 - **Sample means presentation only.** `sample-briefing.ts` is a renderer fixture,
   not an alternate control plane or narrator.
 - **Same vocabulary** as the architecture (`T0`/`T1`/`T2`, `side_effect_class`,

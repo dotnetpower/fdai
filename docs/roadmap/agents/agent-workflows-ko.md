@@ -1,8 +1,8 @@
 ---
 title: 에이전트 워크플로우
 translation_of: agent-workflows.md
-translation_source_sha: e25405fb818ce3c7a6c3e56897a8bee4c4e38e22
-translation_revised: 2026-07-20
+translation_source_sha: ebf8990b4259dc6d44ed45320d5feb33a55a257a
+translation_revised: 2026-07-22
 ---
 
 # 에이전트 워크플로우
@@ -45,7 +45,7 @@ translation_revised: 2026-07-20
 `rule-catalog/vocabulary/object-types/` 의 object type 을 소비한다. 새
 type 이 필요한 워크플로우는 upstream doc PR 을 먼저 열라는 신호이다.
 
-## 1. Cost-aware remediation
+## 1. Cost-aware 수정
 
 **Purpose.** 모든 SRE remediation 이 cost impact 를 attach 해서 verdict 가
 reliability 와 finance 를 모두 반영. 자동화가 1달러 on-call 시간을 아끼려고

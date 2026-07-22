@@ -20,14 +20,14 @@ Every entry records the full lifecycle of one decision. At minimum:
 - **Tier** - T0 / T1 / T2, so you can tell at a glance whether the decision
   ran deterministically or reached the reasoning tier.
 - **Rule / policy / model refs** - for T0 and T1 the rule ids, for T2 the
-  model identifier and the cited grounding documents.
-- **Verdict** - AUTO / HIL / DENY, plus the classification that produced it.
+  model identifier and the cited evidence check documents.
+- **Decision** - AUTO / human approval / DENY, plus the classification that produced it.
 - **Decision evidence** - matched risk rule, catalog version, feature snapshot,
   required quorum, and the `resolved_ceiling` axis that limited autonomy.
 - **Actor identities** - the initiator, judge, approver when present, executor
   when a mutation ran, and auditor remain distinct fields.
 - **Timestamp** - RFC 3339, UTC.
-- **Shadow vs enforce mode** - every entry marks whether the capability was
+- **Shadow vs enforcement mode** - every entry marks whether the capability was
   in shadow at the time. Shadow entries carry the *would-have-been*
   action.
 - **Rollback reference** - the rollback plan or recovery evidence associated
@@ -49,10 +49,10 @@ unexpectedly) and walk backwards:
   event ID inside the audit stream to order tier, risk, approval, execution,
   delivery, rollback, and terminal records.
 4. Inspect `resolved_ceiling` and the matched risk rule. These fields explain
-  which input forced auto, HIL, shadow, or deny using the configuration that
+  which input forced auto, human approval, shadow, or deny using the configuration that
   existed at decision time.
 5. Cross-reference the shadow entries. Even actions that were never
-   executed show up in shadow mode with their would-have-been decision, so
+   executed show up in observation mode with their would-have-been decision, so
    you can see what FDAI proposed vs what a human actually did.
 
 ## Reading terminal outcomes
@@ -60,7 +60,7 @@ unexpectedly) and walk backwards:
 | Outcome | Mutation occurred? | What to verify |
 |---------|--------------------|----------------|
 | `auto` completed | Yes | Executor identity, delivery reference, stop-condition state, rollback reference |
-| HIL approved and completed | Yes | Approval ID, approver, quorum, action hash, executor and delivery records |
+| human approval approved and completed | Yes | Approval ID, approver, quorum, action hash, executor and delivery records |
 | Rejected or timed out | No | Reason, TTL, approver when present, terminal no-op |
 | `deny` | No | Matched hard rule, feature snapshot, catalog version |
 | `abstain` or `shadow_only` | No | Missing evidence or winning ceiling, would-have-been action |
@@ -89,7 +89,7 @@ error entry.
 
 | To learn about | Read |
 |----------------|------|
-| The operator interaction that writes HIL entries | [approve-change.md](approve-change.md) |
+| The operator interaction that writes human approval entries | [approve-change.md](approve-change.md) |
 | Why some entries carry `would-have-been` decisions | [../concepts/shadow-then-enforce.md](../concepts/shadow-then-enforce.md) |
 | How to narrow a rule that keeps auditing badly | [override-a-rule.md](override-a-rule.md) |
 | The audit-log storage and retention design | [../../roadmap/rules-and-detection/observability-and-detection.md](../../roadmap/rules-and-detection/observability-and-detection.md) |

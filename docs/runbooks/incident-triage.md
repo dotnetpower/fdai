@@ -17,7 +17,7 @@ a bounded investigation.
 
 Run triage for these events:
 
-- **New incident**: correlation creates an incident from one or more findings.
+- **New incident**: correlation creates an incident from one or more detected issues.
 - **Material update**: affected resources, user impact, or SLO burn changes.
 - **Ownership failure**: delivery fails or the assigned responder cannot accept the incident.
 - **Merged or split evidence**: correlation membership changes enough to alter scope.

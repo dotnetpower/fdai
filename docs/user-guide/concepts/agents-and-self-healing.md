@@ -46,14 +46,14 @@ graph TD
 | Agent | Role | In one line |
 |-------|------|-------------|
 | Odin | Master Planner | Arbitrates cross-vertical conflicts; final tie-breaker |
-| Forseti | Judge | Issues the verdict (auto / HIL / deny); never executes |
-| Thor | Responder | Dispatches verdicts; the sole privileged executor |
-| Var | Approver | Carries the human HIL approval; distinct from Thor |
+| Forseti | Judge | Issues the decision (auto / human approval / deny); never executes |
+| Thor | Responder | Dispatches decisions; the sole privileged executor |
+| Var | Approver | Carries human approval; distinct from Thor |
 | Vidar | Recovery | Owns rollback and DR failover |
 | Huginn | Event Collector / Resource Discovery | Owns real-time resource-change ingress and correlation |
 | Heimdall | Observer | Watches discovery freshness, coverage, drift, and resource change |
 | Njord / Freyr / Loki | Specialists | Advise on cost, capacity, chaos - they never execute |
-| Mimir / Norns / Muninn | Governance staff | Rule stewardship, learning, memory |
+| Mimir / Norns / Muninn | Governance staff | Rule ownership, learning, memory |
 | Saga | Auditor | Writes the append-only audit log |
 | Bragi | Narrator | Translates your questions to and from the pipeline |
 
@@ -78,10 +78,10 @@ You do not drive the agents task by task. The organization runs the loop and
 brings you decisions:
 
 - **Promoted low-risk actions can auto-resolve** with a stop-condition,
-  rollback path, blast-radius limit, and audit entry. New actions remain in
+  rollback path, impact scope limit, and audit entry. New actions remain in
   shadow until their evidence gate passes.
-- The **risky few pause for you.** A HIL card reaches you through the channel
-  you already use (Teams or Slack), and you approve or reject. Rejection and
+- The **risky few pause for you.** An approval card reaches you through the
+  channel you already use (Teams or Slack), and you approve or reject. Rejection and
   timeout are no-ops, and both are audited.
 - You can **ask questions** in natural language through Bragi ("why did this
   fail over?") and get a grounded answer, without ever holding the executor's
@@ -101,7 +101,7 @@ graph LR
   Njord -. advises .-> Forseti
   Freyr -. advises .-> Forseti
   Forseti -->|auto| Thor["Thor<br/>executes"]
-  Forseti -->|hil| Var["Var<br/>your approval"]
+  Forseti -->|human approval| Var["Var<br/>your approval"]
   Var --> Thor
   Thor --> Vidar["Vidar<br/>rollback / failover"]
   Vidar --> Saga["Saga<br/>audits"]
@@ -113,11 +113,11 @@ graph LR
   the periodic Inventory job reconciles missed changes, and Heimdall checks
   freshness and coverage before correlating one incident instead of an alert storm.
 2. **Judge.** Forseti scores the incident, consults the specialists for cost and
-   capacity trade-offs, and issues a verdict: auto, HIL, or deny.
+   capacity trade-offs, and issues a decision: auto, human approval, or deny.
 3. **Act.** Thor dispatches. Low-risk recovery runs autonomously; a high-risk
    failover pauses for Var to carry your approval.
 4. **Recover.** Vidar owns the rollback or DR failover, bounded by the action's
-   stop-conditions and blast-radius.
+   stop-conditions and impact scope.
 5. **Record and learn.** Saga writes the audit entry; Norns turns recurring
   patterns into inert catalog candidates. A candidate still needs provenance,
   review, regression testing, and shadow evidence before promotion.
@@ -133,12 +133,12 @@ it never allows another agent to absorb incompatible authority.
 
 | Unavailable role | Safe degradation |
 |------------------|------------------|
-| Forseti (judge) | No new verdict is issued; the case is held for HIL |
+| Forseti (judge) | No new decision is issued; the case is held for human approval |
 | Thor (executor) | Judgment and audit may continue, but no mutation runs |
-| Var (approver) | HIL requests remain queued; timeout is an audited no-op |
+| Var (approver) | Human approval requests remain queued; timeout is an audited no-op |
 | Vidar (recovery) | Actions that require rollback or failover cannot auto-execute |
 | Saga (auditor) | Mutation stops because no terminal path can satisfy the audit invariant |
-| Odin (arbitrator) | Cross-vertical conflicts go to HIL instead of choosing a winner |
+| Odin (arbitrator) | Cross-vertical conflicts go to human approval instead of choosing a winner |
 
 An agent does not silently impersonate a failed peer. Recovery restores the
 declared role and replays pending judgment only; it never re-executes an action
@@ -149,7 +149,7 @@ from conversation or an old delivery message.
 Useful health signals combine agent and control-loop outcomes:
 
 - event ingestion lag, dead-letter depth, and correlation backlog;
-- verdict latency, mixed-model disagreement, and HIL expiry rate;
+- decision latency, mixed-model disagreement, and human approval expiry rate;
 - execution success, stop-condition activation, and rollback rate;
 - audit completeness and time from terminal outcome to durable record;
 - per-agent degradation state and time spent below its normal autonomy ceiling.
@@ -162,7 +162,7 @@ autonomy when these signals degrade and makes the reason visible to operators.
 | To learn about | Read |
 |----------------|------|
 | How every action inherits its safety contract | [ontology-driven-automation.md](ontology-driven-automation.md) |
-| How verdicts become auto vs HIL | [risk-tiers.md](risk-tiers.md) |
+| How decisions become auto vs human approval | [risk-tiers.md](risk-tiers.md) |
 | Approving or rejecting a queued change | [../guides/approve-change.md](../guides/approve-change.md) |
 | Tracing a decision through the audit log | [../guides/read-audit-log.md](../guides/read-audit-log.md) |
 | The full pantheon design | [../../roadmap/agents/agent-pantheon.md](../../roadmap/agents/agent-pantheon.md) |

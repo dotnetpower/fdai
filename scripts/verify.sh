@@ -101,6 +101,7 @@ run_gate "design-routes" python3 scripts/quality/architecture/check-design-route
 run_gate "design-doc-impact" python3 scripts/quality/architecture/check-design-doc-impact.py
 run_gate "fork-runtime-independence" python3 scripts/quality/architecture/check-fork-runtime-independence.py
 run_gate "document-size" python3 scripts/quality/architecture/check-document-size.py
+run_gate "display-terminology" python3 scripts/quality/documentation/check-display-terminology.py
 
 run_gate "punctuation"  bash scripts/quality/repository/check-punctuation.sh
 run_gate "guids"        bash scripts/quality/repository/check-guids.sh

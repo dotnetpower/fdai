@@ -122,7 +122,7 @@ ownership-transfer event. Each finding keeps the same three required parts:
   (for the RBAC dimension, `remediate.right-size-role`) or to guidance when no
   autofix exists.
 
-### Verdict semantics
+### Decision semantics
 
 | Verdict | Meaning |
 |---------|---------|

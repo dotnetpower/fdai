@@ -19,7 +19,7 @@ by a deployment or downstream fork.
 
 ### Turn signal storms into incidents
 
-Correlate related resource events, telemetry findings, and changes into one
+Correlate related resource events, telemetry detected issues, and changes into one
 incident with stable membership and chronology.
 
 Example: five alerts share a deployment and resource key -> event correlation
@@ -28,10 +28,10 @@ opens one incident -> triage reads one timeline instead of five pages.
 ### Investigate before proposing a change
 
 Gather bounded evidence, produce grounded root-cause hypotheses, and keep every
-mitigation behind the trust router, risk gate, and approval policy.
+mitigation behind the trust router, safety check, and approval policy.
 
 Example: an error-rate alert -> investigation correlates a recent deployment ->
-RCA cites the change and telemetry -> a response plan proposes rollback -> HIL
+RCA cites the change and telemetry -> a response plan proposes rollback -> human approval
 approval decides whether the proposal may re-enter the action pipeline.
 
 ### Learn without hiding failures
@@ -50,14 +50,14 @@ promotion gates still apply.
   history, and service metrics enter through provider adapters.
 - **Telemetry systems**: metric, log, and trace providers supply evidence; they
   do not become a second execution path.
-- **Git and ChatOps**: remediation pull requests carry changes, while Teams or
+- **Git and ChatOps**: fix pull requests carry changes, while Teams or
   Slack carries approvals and operational notifications.
 - **Audit and reporting**: every terminal outcome remains reconstructable from
   the append-only audit record and correlation references.
 
 ## How it works
 
-1. **Observe and correlate.** Normalize events and findings, deduplicate them,
+1. **Observe and correlate.** Normalize events and detected issues, deduplicate them,
    and group related members into an incident.
 2. **Investigate and respond.** Build a bounded evidence set, derive a grounded
    RCA, and route any proposed mitigation through the governed action pipeline.
@@ -74,8 +74,8 @@ signals -> finding -> incident -> investigation -> RCA
 
 Trust routing and execution policy answer different questions. The trust router
 picks T0 (deterministic rules), T1 (verified reuse), or T2 (grounded reasoning)
-to produce a decision candidate. The risk gate then computes the strictest
-allowed outcome from policy, action type, blast radius, environment, evidence
+to produce a decision candidate. The safety check then computes the strictest
+allowed outcome from policy, action type, impact scope, environment, evidence
 freshness, identity, and promotion state.
 
 | Decision | Question | Possible result |
@@ -86,7 +86,7 @@ freshness, identity, and promotion state.
 
 A T0 match is not automatic permission to mutate, and a T2 proposal cannot
 grant itself authority. Every executable action still needs a dry run,
-stop condition, rollback path, blast-radius limit, fresh inventory,
+stop condition, rollback path, impact scope limit, fresh inventory,
 per-resource lock, idempotency key, authorized identity, and audit record.
 
 ## Degraded operation is an explicit state
@@ -112,7 +112,7 @@ incident transition.
 | On-call and escalation | [On-call and escalation](on-call-and-escalation.md) | Partial until a paging adapter and direct-message targeting are bound |
 | Post-incident learning | [Postmortems and learning](postmortems-and-learning.md) | Covered |
 | Outcome measurement | [Measuring SRE outcomes](measuring-sre-outcomes.md) | Covered when baseline and treatment windows exist |
-| Scenario evidence | [Scenario validation inventory](scenario-validation-inventory.md) | 18 demo, 10 live enforce, 9 frozen replay, 132 catalog scenarios |
+| Scenario evidence | [Scenario validation inventory](scenario-validation-inventory.md) | 18 demo, 10 live enforcement, 9 frozen replay, 132 catalog scenarios |
 | Disaster recovery | [Disaster recovery and drills](disaster-recovery-and-drills.md) | Covered for shipped drills and adapters |
 | Chaos engineering | [Chaos engineering](chaos-engineering.md) | Covered; every scenario starts in shadow |
 

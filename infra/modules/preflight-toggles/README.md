@@ -29,7 +29,7 @@ Keeping the toggles data-only means:
   module they already have, without editing this repo.
 - The Deployment Preflight analyzer (see
   `docs/roadmap/deployment/deployment-preflight.md`) can quote the module name +
-  the `mode` value verbatim in a `terraform_toggle` finding, and a
+  the `mode` value verbatim in a `terraform_toggle` detected issue, and a
   reviewer can apply the fix by changing exactly one variable.
 
 ## Layout
@@ -85,5 +85,5 @@ output block and picks the resource shape.
   copy-paste consumer pattern (validate-only reference).
 - Cross-toggle policy composition. A fork MAY combine multiple
   toggles behind a single "environment profile" variable; upstream
-  keeps each toggle isolated so a Preflight finding maps 1:1 to a
+  keeps each toggle isolated so a Preflight detected issue maps 1:1 to a
   variable override.

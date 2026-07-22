@@ -180,24 +180,40 @@ export default defineConfig({
                 securityLevel: 'strict',
                 fontFamily: 'inherit',
               });
+            let rendering = false;
+            let rerenderRequested = false;
             const renderAll = async () => {
-              const nodes = document.querySelectorAll('pre.mermaid');
-              nodes.forEach((el) => {
-                if (!el.dataset.mermaidSrc) el.dataset.mermaidSrc = el.textContent ?? '';
-                el.textContent = el.dataset.mermaidSrc;
-                el.removeAttribute('data-processed');
-              });
-              await mermaid.run({ nodes: [...nodes] });
+              if (rendering) {
+                rerenderRequested = true;
+                return;
+              }
+              rendering = true;
+              try {
+                do {
+                  rerenderRequested = false;
+                  configure();
+                  const nodes = document.querySelectorAll('pre.mermaid');
+                  nodes.forEach((el) => {
+                    if (!el.dataset.mermaidSrc) el.dataset.mermaidSrc = el.textContent ?? '';
+                    el.textContent = el.dataset.mermaidSrc;
+                    el.removeAttribute('data-processed');
+                  });
+                  await mermaid.run({ nodes: [...nodes] });
+                } while (rerenderRequested);
+              } finally {
+                rendering = false;
+              }
             };
-            configure();
+            const scheduleRender = () => {
+              renderAll().catch((error) => console.error('Mermaid render failed', error));
+            };
             if (document.readyState === 'loading') {
-              document.addEventListener('DOMContentLoaded', renderAll);
+              document.addEventListener('DOMContentLoaded', scheduleRender, { once: true });
             } else {
-              renderAll();
+              scheduleRender();
             }
             new MutationObserver(() => {
-              configure();
-              renderAll();
+              scheduleRender();
             }).observe(document.documentElement, {
               attributes: true,
               attributeFilter: ['data-theme'],

@@ -2,8 +2,8 @@
 title: 재해 복구와 훈련
 description: FDAI가 예약되고 격리되며 증거를 남기는 restore 및 failover exercise로 복구 경로를 증명하는 방법입니다.
 translation_of: disaster-recovery-and-drills.md
-translation_source_sha: e4b162be7fc989c171b47ca1e20be4267708b2ea
-translation_revised: 2026-07-17
+translation_source_sha: 0c211aa9fa5cc3648a95f0a018f7d3ba57db3495
+translation_revised: 2026-07-22
 ---
 
 # 재해 복구와 훈련
@@ -15,7 +15,7 @@ objective를 검증하고 cleanup 및 audit evidence를 기록합니다.
 ## 훈련 계획
 
 Drill은 protected workload, target RPO 및 RTO, exercise window, isolated destination,
-owner, stop condition, blast radius, cleanup plan, evidence requirement를 선언합니다.
+owner, stop condition, 영향 범위, cleanup plan, evidence requirement를 선언합니다.
 Verification restore는 production data를 덮어쓰지 않습니다.
 
 ## 훈련 라이프사이클
@@ -35,7 +35,7 @@ drill은 recovery gap의 증거이며 workload를 healthy로 표시할 이유가
 
 ## 승격과 주기
 
-새 drill automation은 shadow에서 시작합니다. Scheduler가 cadence를, risk-gate가 scope와
+새 drill automation은 shadow에서 시작합니다. Scheduler가 cadence를, 안전성 검토가 scope와
 execution eligibility를, audit log가 proof를 담당합니다. 승격에는 반복 가능한 성공과 정책
 위반 escape 0건이 필요합니다.
 

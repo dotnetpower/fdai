@@ -1,8 +1,8 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: cbef41dc1c98a1ea8f8fadb50e18225533e53767
-translation_revised: 2026-07-21
+translation_source_sha: 6d0f97185910f1eb612e5ce3b533856f56f552ee
+translation_revised: 2026-07-22
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 
@@ -126,7 +126,7 @@ ORR 은 scope 전체에 대해 적용 가능한 규칙 집합을 실행하지만
   차원의 경우 `remediate.right-size-role`) 또는 autofix 가 없을 때는 가이던스에
   매핑됩니다.
 
-### Verdict 의미
+### 결정 의미
 
 | Verdict | 의미 |
 |---------|------|

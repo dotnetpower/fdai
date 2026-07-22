@@ -20,7 +20,7 @@ Start only when all of these inputs exist:
 - **Incident**: current state, severity, affected scope, owner, and correlation ID.
 - **Proposal**: intended effect, evidence citations, and the condition it mitigates.
 - **Action contract**: registered `ActionType`, mode, preconditions, stop conditions,
-  blast radius (the scope a change can affect), and rollback contract.
+  impact scope (the scope a change can affect), and rollback contract.
 - **Authority**: expected judge, executor, approver, and auditor principals.
 - **Verification plan**: health, SLO, dependency, and configuration checks that prove effect.
 
@@ -32,8 +32,8 @@ collection](rca-evidence-collection.md) instead of executing.
 | Role | Responsibility |
 |------|----------------|
 | Incident owner | Confirms the response objective and accepts the final incident state |
-| Judge | Issues the typed verdict after required verification |
-| Approver | Reviews human-in-the-loop actions and remains distinct from the executor |
+| Judge | Issues the typed decision after required verification |
+| Approver | Reviews human approval actions and remains distinct from the executor |
 | Executor | Applies the authorized action through its declared delivery path |
 | Auditor | Records every decision, attempt, no-op, rollback, and terminal outcome |
 
@@ -41,8 +41,8 @@ collection](rca-evidence-collection.md) instead of executing.
 
 1. Refresh the incident state and confirm the proposal still addresses the measured impact.
 2. Revalidate evidence timestamps, target inventory, dependencies, and expected current state.
-3. Run policy, what-if, security, and blast-radius checks.
-4. Confirm the action is in the expected shadow or enforce mode.
+3. Run policy, what-if, security, and impact scope checks.
+4. Confirm the action is in the expected shadow or enforcement mode.
 5. Acquire the per-resource lock and verify the idempotency key has not completed before.
 6. Confirm stop conditions, rollback preconditions, rollback owner, and recovery checks.
 7. Verify the audit writer and delivery path are available.
@@ -53,7 +53,7 @@ Record a no-op and stop when preflight cannot establish a safe execution state.
 
 1. **Submit the typed proposal.** Include the incident, action, target scope,
 	evidence references, mode, idempotency key, and rollback reference.
-2. **Obtain a verdict.** Continue only when the registered judge accepts the
+2. **Obtain a decision.** Continue only when the registered judge accepts the
 	verified proposal. A deny or hold produces a terminal no-op audit record.
 3. **Obtain approval when required.** Confirm the approver is authorized and is
 	not the executor or requester where separation is required.
@@ -80,7 +80,7 @@ Record a no-op and stop when preflight cannot establish a safe execution state.
 
 1. Stop additional attempts and preserve the failed action reference.
 2. Confirm the rollback still targets the exact applied version and scope.
-3. Obtain any required rollback verdict and approval through the typed pipeline.
+3. Obtain any required rollback decision and approval through the typed pipeline.
 4. Execute the registered rollback contract with a distinct idempotency key.
 5. Verify the prior configuration, health, dependencies, and SLO state.
 6. Record whether rollback fully restored, partially restored, or failed to restore service.
@@ -103,11 +103,11 @@ Verification should prove both action effect and system safety:
 - **Scope**: only the approved resources and dependencies changed.
 - **Service**: health, SLO, and user-impact indicators pass for the observation window.
 - **State**: the expected configuration or delivery reference is active.
-- **Audit**: proposal, verdict, approval, execution, verification, and rollback are linked.
+- **Audit**: proposal, decision, approval, execution, verification, and rollback are linked.
 
 ## Evidence and completion
 
-Record dry-run output, verdict, approval, executor, delivery reference, health
+Record dry-run output, decision, approval, executor, delivery reference, health
 checks, rollback reference, and final incident state. Include timestamps and
 the baseline used for comparison.
 

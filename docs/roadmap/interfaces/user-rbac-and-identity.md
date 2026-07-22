@@ -226,7 +226,7 @@ made concrete without introducing an "elevated approver" group.
 - **Signed-commit / signed-trailer**: reviewer approvals are bound to the specific PR head
   commit; a force-push after approval invalidates and re-requests review.
 
-### 5.3 App-Level Justification (runtime HIL)
+### 5.3 App-Level Justification (runtime human approval)
 
 The target Adaptive Card approval contract requires `justification` and rejects missing or empty
 values with `400`. The current HMAC callback validates that `justification` is a string but allows
@@ -275,7 +275,7 @@ sequenceDiagram
 - The user's Entra OID ↔ GitHub login mapping is stored by the fork behind the
   `shared/providers/` interface. Missing mapping → the API rejects the draft with `403`.
 
-## 7. ChatOps HIL Flow
+## 7. ChatOps Human Approval Flow
 
 This is the identity view of the HIL approval hop. The **channel abstraction** behind it -
 categories, trust tiers, per-vendor rules, and fallback policy - lives in

@@ -25,7 +25,7 @@ Five loosely coupled layers communicate through typed events, versioned
 contracts, and Git rather than sharing one application process or identity.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-system-overview.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-system-overview.en.svg" alt="Azure changes, telemetry, operator requests, and scheduled probes enter Event Hubs through its Kafka endpoint on port 9093. The FDAI control plane selects a trust tier and verifies evidence and risk. Eligible actions reach the privileged executor, insufficient evidence is held for review, failed actions enter rollback, and every outcome reaches the audit store. Human approval, remediation pull requests, and the read-only console stay outside the control-plane boundary." loading="eager" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-system-overview.en.svg" alt="Azure changes, telemetry, operator requests, and scheduled probes enter Event Hubs through its Kafka endpoint on port 9093. The FDAI control plane selects a trust tier and verifies evidence and risk. Eligible actions reach the privileged executor, insufficient evidence is held for review, failed actions enter rollback, and every outcome reaches the audit store. human approval, remediation pull requests, and the read-only console stay outside the control-plane boundary." loading="eager" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 The console reads projections from the state and audit stores. It does not
@@ -36,7 +36,7 @@ share the executor identity, approve changes, or call Azure mutation APIs.
 | Layer | Responsibility | Primary boundary |
 |-------|----------------|------------------|
 | Headless control plane | Normalize events, select a trust tier, verify proposals, classify risk, and coordinate execution | No UI logic and no direct cloud SDK imports |
-| Action delivery | Render approved actions as remediation pull requests or registered provider calls | Every action keeps its typed safety contract and rollback reference |
+| Action delivery | Render approved actions as fix pull requests or registered provider calls | Every action keeps its typed safety contract and rollback reference |
 | Operator console | Show state, evidence, audit history, shadow results, and pending approvals | Read-only identity with no execution permission |
 | Human channel | Deliver approval requests and operational alerts through ChatOps | Approval principal stays distinct from the executor |
 | Rule catalog | Version rules, policies, action types, prompts, and promotion evidence as code | Catalog changes pass review, regression, and shadow evaluation |
@@ -77,8 +77,8 @@ flowchart TD
    evidence-backed incident patterns, and T2 handles only novel or ambiguous
    cases.
 3. **Verify before risk classification**: T2 proposals pass mixed-model
-   agreement, grounding, schema, policy, security, and what-if checks.
-4. **Apply the autonomy ceiling**: The risk gate combines action risk, scope,
+   agreement, evidence check, schema, policy, security, and what-if checks.
+4. **Apply the autonomy ceiling**: The safety check combines action risk, scope,
    system health, and policy. It returns auto, approval required, or deny.
 5. **Execute once and record every path**: The executor takes a per-resource
    lock, applies an idempotent action, and writes the result. Reject, timeout,
@@ -104,10 +104,10 @@ processes later would not change the typed topics or authority model.
 
 | Architecture function | Agents | Ownership in the control loop |
 |-----------------------|--------|-------------------------------|
-| Sense and observe | Huginn, Heimdall | Huginn owns normalized events and real-time resource discovery ingress. Heimdall owns anomaly, drift, and forecast findings. |
-| Judge and arbitrate | Forseti, Odin | Forseti issues verdicts. Odin resolves cross-vertical conflicts before Forseti finalizes a verdict. |
+| Sense and observe | Huginn, Heimdall | Huginn owns normalized events and real-time resource discovery ingress. Heimdall owns anomaly, drift, and forecast detected issues. |
+| Judge and arbitrate | Forseti, Odin | Forseti issues decisions. Odin resolves cross-vertical conflicts before Forseti finalizes a decision. |
 | Execute, approve, recover, and explain | Thor, Var, Vidar, Bragi | Thor is the sole privileged executor. Var carries human approval. Vidar owns rollback. Bragi translates operator conversations. |
-| Govern evidence and knowledge | Saga, Mimir, Norns, Muninn | Saga owns append-only audit. Mimir stewards rules. Norns proposes inert learning candidates. Muninn owns state snapshots and context indexes. |
+| Govern evidence and knowledge | Saga, Mimir, Norns, Muninn | Saga owns append-only audit. Mimir owns rules. Norns proposes inert learning candidates. Muninn owns state snapshots and context indexes. |
 | Supply domain evidence | Njord, Freyr, Loki | Cost, capacity, and chaos specialists advise judgment. They never execute. |
 
 The pantheon is fixed upstream so a fork cannot collapse incompatible roles or
@@ -163,7 +163,7 @@ flowchart LR
 
 This flow preserves a simple rule: information may fan out to many readers,
 but each authoritative object type has one writer. For example, several agents
-can consume a verdict, but only Forseti can publish `object.verdict`. The
+can consume a decision, but only Forseti can publish `object.verdict`. The
 publish-side registry checks ownership, and the event-bus bridge dead-letters a
 record whose declared producer principal conflicts with the topic owner.
 Missing principals are surfaced separately for boundary hardening. A topic name
@@ -228,7 +228,7 @@ the established control-loop consumer:
 
 > **Current implementation status:** The pantheon is opt-in and shadow by
 > default. Named ownership describes the fixed authority contract; it does not
-> mean every agent has been promoted for live mutation. Enforce mode remains
+> mean every agent has been promoted for live mutation. Enforcement mode remains
 > blocked until all durable safety bindings are present.
 
 - **Shared ingress, distinct consumers**: Both paths consume the same raw Kafka
@@ -311,7 +311,7 @@ set. Provider-specific calls remain in adapters.
 | Inventory | Resource graph contract | Azure Resource Graph plus activity deltas |
 | Observability | OpenTelemetry-compatible signals | Log Analytics and Application Insights |
 | Console | Static read-only application | Azure Static Web Apps |
-| Human approval | Typed approval message | Teams bot and Adaptive Cards |
+| human approval | Typed approval message | Teams bot and Adaptive Cards |
 
 The continuously running core currently keeps one replica until a
 credential-free Kafka-lag scaler is verified. Scheduled jobs and static
@@ -325,9 +325,9 @@ An action is incomplete unless its type declares four controls:
 
 - **Stop condition**: the measurable signal that halts execution.
 - **Rollback path**: the tested way to restore or move state forward safely.
-- **Blast-radius limit**: the maximum scope, batch, concurrency, or rate the
+- **Impact scope limit**: the maximum scope, batch, concurrency, or rate the
   action can affect.
-- **Audit record**: the evidence needed to reconstruct the event, verdict,
+- **Audit record**: the evidence needed to reconstruct the event, decision,
   authority, execution, and outcome.
 
 Execution also requires policy and what-if checks, a per-resource lock, and an
@@ -342,12 +342,12 @@ Consider a resource change that opens network access beyond policy:
 1. Azure emits a resource-change event through the Kafka-compatible event bus.
 2. Event ingest normalizes the payload, attaches inventory context, and finds
    the resource's correlation key.
-3. T0 matches a versioned network policy and proposes a typed remediation.
-4. What-if confirms the intended diff, while the risk gate detects that the
+3. T0 matches a versioned network policy and proposes a typed fix.
+4. What-if confirms the intended diff, while the safety check detects that the
    scope requires approval.
 5. ChatOps sends an approval card containing the rule, evidence, scope, stop
    condition, and rollback reference.
-6. After approval, the executor opens a remediation pull request rather than
+6. After approval, the executor opens a fix pull request rather than
    mutating the resource from the console.
 7. Delivery, approval, and terminal outcome are linked in the append-only audit
    trail and appear in the console as read-only evidence.
@@ -366,7 +366,7 @@ terminal branch changes.
 | Duplicate delivery | Idempotency and resource locks prevent duplicate mutation |
 | T2 models disagree | The competing evidence is preserved and the case moves to human review |
 | Rollback verification fails | The incident remains open and recovery escalates through the typed pipeline |
-| Forseti unavailable | No new agent verdict is issued; work remains held for review |
+| Forseti unavailable | No new agent decision is issued; work remains held for review |
 | Thor unavailable | Detection, judgment, and audit can continue, but no mutation runs |
 | Var unavailable | Approval-required work remains queued and timeout becomes an audited no-op |
 | Saga or Vidar unavailable | Enforce startup or mutation is blocked because audit and rollback are hard dependencies |

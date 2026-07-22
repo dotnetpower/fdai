@@ -157,7 +157,9 @@ action.
 
 - A **GitOps host** (GitHub or Azure DevOps organization) with an installed GitHub App or
   service connection scoped to the catalog + fork repos.
-- A **Teams tenant** with a group-connected team for HIL approvals (Teams is the default A1 primary - see [channels-and-notifications.md](../interfaces/channels-and-notifications.md)).
+- A **Teams tenant** with a group-connected team for human approval (the `hil` route). Teams is
+  the default A1 primary. See
+  [channels-and-notifications.md](../interfaces/channels-and-notifications.md).
 - A **Slack workspace** with the FDAI Slack app installed and the mandatory userId ↔ Entra OID mapping store provisioned; required for the P1 Slack A1 channel ([channels-and-notifications.md#7-channel-specific-notes](../interfaces/channels-and-notifications.md#7-channel-specific-notes)).
 - A **container registry** (ACR or an external registry) that supports signature +
   attestation storage.

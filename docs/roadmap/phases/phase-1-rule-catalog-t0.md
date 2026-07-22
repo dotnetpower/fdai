@@ -226,7 +226,7 @@ On violation the engine emits a **remediation PR** (see below) rather than execu
 audit, rollback, and approval come free from git. In Phase 1 every verdict is **shadow only** -
 no PR is merged and no state is mutated.
 
-## Remediation PR (shadow mode)
+## Fix PR (observation mode)
 
 Even though nothing merges in Phase 1, each generated PR MUST already carry the four safety
 invariants from

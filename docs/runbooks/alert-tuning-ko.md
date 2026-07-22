@@ -2,15 +2,15 @@
 title: Alert Tuning Runbook
 description: 측정된 rule 및 routing change로 alert noise와 missed detection을 줄이는 템플릿입니다.
 translation_of: alert-tuning.md
-translation_source_sha: 6c81258b02b08d54b1f2988edbd5ebe54afddd60
-translation_revised: 2026-07-18
+translation_source_sha: f285f73b104ed60d0d538a3ea0fe4eb44e41f366
+translation_revised: 2026-07-22
 ---
 
 # Alert Tuning Runbook
 
 False positive, false negative, duplicate incident 또는 오래된 routing으로 alert의
 유용성이 떨어질 때 이 runbook을 사용합니다. FDAI가 관찰하고 기록하지만 조치하지 않는
-shadow mode에서 동결된 baseline과 하나의 변경 제안을 비교해 tuning을 측정 가능하게
+관찰 모드에서 동결된 baseline과 하나의 변경 제안을 비교해 tuning을 측정 가능하게
 유지합니다.
 
 > 환경별 detector 이름, dashboard query, notification destination, promotion command는

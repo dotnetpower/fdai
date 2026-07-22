@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 1adddae74258aa88c4ad00c6bb255a645d851393
-translation_revised: 2026-07-21
+translation_source_sha: 629d2a99855395447e98322d792d721e67d82386
+translation_revised: 2026-07-22
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -222,7 +222,7 @@ Quorum-2는 "elevated approver" 그룹 도입 없이 구체화된 shadow→enfor
 - **서명 커밋 / 서명 trailer**: 리뷰어 승인은 특정 PR head 커밋에 바인딩; 승인 후 force-push는
   무효화하고 리뷰 재요청.
 
-### 5.3 앱 레벨 정당화 (런타임 HIL)
+### 5.3 앱 레벨 정당화 (런타임 사람 승인)
 
 목표 Adaptive Card 승인 계약은 `justification` 필드를 필수로 하고 `""` / 누락 값을 `400`으로
 거부합니다. 현재 HMAC callback은 `justification`을 문자열로 검증하지만 빈 문자열을 허용합니다.
@@ -268,7 +268,7 @@ sequenceDiagram
 - 사용자의 Entra OID ↔ GitHub 로그인 매핑은 `shared/providers/` 인터페이스 뒤에 포크가 저장.
   매핑 부재 → API가 draft를 `403` 으로 거부.
 
-## 7. ChatOps HIL 흐름
+## 7. ChatOps 사람 승인 흐름
 
 이것은 HIL 승인 hop의 아이덴티티 뷰. 그 뒤의 **채널 추상화** - 카테고리, 신뢰 티어, 벤더별
 규칙, fallback 정책 - 는 [channels-and-notifications-ko.md](channels-and-notifications-ko.md)

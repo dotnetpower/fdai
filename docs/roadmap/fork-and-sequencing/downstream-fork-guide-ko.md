@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: c70204044c0740d3ff4806f8b16a6e4b9a9c5144
-translation_revised: 2026-07-21
+translation_source_sha: 6a97e5c1869a84fa4f17b3aea92a3eb7d459f600
+translation_revised: 2026-07-22
 ---
 
 # Downstream Fork 가이드
@@ -352,7 +352,7 @@ root 또는 어댑터로 이동, sync 재실행.
 - **CI를 green으로 만들기 위해 upstream 테스트 비활성화**. Upstream
   테스트가 fork를 block하면 upstream 설계 변경이 필요하다는 신호 -
   issue 열기.
-- **shadow mode 없이 fork-added action을 자동 실행**. Shadow-before-
+- **관찰 모드 없이 fork-added action을 자동 실행**. Shadow-before-
   enforce invariant는 fork-added ActionType에도 upstream ActionType에
   적용되는 것과 정확히 동일하게 적용.
 - **고객 identity를 담은 변경을 back-contribute**. Fork에서 upstream으로

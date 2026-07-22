@@ -2,8 +2,8 @@
 title: 대응 계획과 완화
 description: FDAI가 action pipeline을 우회하지 않고 incident response plan을 작성, 사전 테스트, 승인, 라우팅하는 방법입니다.
 translation_of: response-plans-and-mitigation.md
-translation_source_sha: 078a0b69b0c79ce9a379d2b10eec9de15baf0b4c
-translation_revised: 2026-07-20
+translation_source_sha: dc86ae0d110cae21426fc19cb48d83fa559bf244
+translation_revised: 2026-07-22
 ---
 
 # 대응 계획과 완화
@@ -32,13 +32,13 @@ risk tier를 낮추거나 실행 권한을 부여하지 않습니다.
 |-------------|-----------|-------------|
 | Stop, rollback, 영향 범위, approver, channel | Plan readiness gate | Plan을 inactive로 유지 |
 | Historical coverage | Pretest review | Gap 기록, 자동 activate 금지 |
-| Action safety 및 promotion | Action registry 및 risk-gate | Shadow, HIL 또는 deny |
+| Action safety 및 promotion | Action registry 및 안전성 검토 | Shadow, 사람 승인 또는 deny |
 | Runtime mutation | Executor 검사 | No-op, 중지 또는 rollback |
 
 ## Alert 대응 흐름
 
 1. Alert가 시간 제한이 있는 investigation을 시작합니다.
-2. Investigation이 finding과 prioritized recommendation을 반환합니다.
+2. Investigation이 발견된 문제와 prioritized recommendation을 반환합니다.
 3. Coordinator가 grounded actionable recommendation 중 우선순위가 가장 높은 항목을 선택합니다.
 4. Mitigation proposal을 설정된 approval gate로 보냅니다.
 5. 승인된 proposal이 typed trust 및 risk pipeline에 다시 들어갑니다.
@@ -50,7 +50,7 @@ risk tier를 낮추거나 실행 권한을 부여하지 않습니다.
 ## 직무 분리 유지
 
 Plan coordinator는 근거 있는 recommendation을 선택하지만 judge, approve, execute를 모두
-수행하지 않습니다. Forseti는 verdict를 만들고, Var는 approval record를 전달하며, Thor는
+수행하지 않습니다. Forseti는 결정을 만들고, Var는 approval record를 전달하며, Thor는
 privileged executor이고, Vidar는 rollback을 소유하며, Saga는 audit evidence를 append합니다.
 Policy가 요구하는 경우 requester, approver, executor는 서로 다른 principal로 유지됩니다.
 Chat message나 성공한 notification delivery는 authenticated approval decision이 아닙니다.
@@ -58,14 +58,14 @@ Chat message나 성공한 notification delivery는 authenticated approval decisi
 ## 완화는 실행이 아님
 
 Response step은 `ActionType`을 지정하며 executor를 호출하지 않습니다. 일반 pipeline이
-precondition, stop condition, blast radius, rollback, mode, lock, identity, policy를 계속
+precondition, stop condition, 영향 범위, rollback, mode, lock, identity, policy를 계속
 검증합니다. Reject와 timeout은 감사되는 no-op으로 종료됩니다.
 
 ## 실패 동작
 
 | 실패 지점 | 최종 동작 | 유지되는 증거 |
 |-----------|-----------|---------------|
-| Grounded actionable finding 없음 | Proposal 없음 | Investigation result 및 gap |
+| Grounded actionable 발견된 문제 없음 | Proposal 없음 | Investigation result 및 gap |
 | Investigation timeout 또는 exception | Action 없음 | Partial report 및 unavailable evidence |
 | Approval reject | 감사되는 no-op | Rejecting principal 및 reason |
 | Approval timeout | 감사되는 no-op 또는 escalation | Expiry 및 ladder state |
@@ -73,8 +73,8 @@ precondition, stop condition, blast radius, rollback, mode, lock, identity, poli
 | 실행 중 stop condition | 중지 후 compensation policy 적용 | Step outcome 및 rollback reference |
 
 응답 없는 escalation deadline 이후 유효한 standing authorization이 적용되더라도 plan이 직접
-실행하지 않습니다. Supervisor는 pending typed action을 새 risk-gate 판단에 제출합니다.
-Expired authorization, stale inventory, 넓어진 blast radius, envelope mismatch는 no-op으로
+실행하지 않습니다. Supervisor는 pending typed action을 새 안전성 검토 판단에 제출합니다.
+Expired authorization, stale inventory, 넓어진 영향 범위, envelope mismatch는 no-op으로
 종료됩니다.
 
 ## 다음 단계

@@ -7,7 +7,7 @@ description: How FDAI runs catalog-driven fault experiments with bounded targets
 
 Chaos engineering tests whether a workload and its recovery controls behave as
 expected under a known fault. FDAI represents experiments as catalog entries
-with explicit targets, probes, blast radius, stop conditions, rollback, and
+with explicit targets, probes, impact scope, stop conditions, rollback, and
 audit evidence.
 
 ## Scenario contract
@@ -55,6 +55,6 @@ enforce validations, and the independent frozen control-loop scenarios.
 |----------------|------|
 | How recovery is rehearsed | [Disaster recovery and drills](disaster-recovery-and-drills.md) |
 | Every scenario and its evidence level | [Scenario validation inventory](scenario-validation-inventory.md) |
-| How blast radius is governed | [Risk tiers](../concepts/risk-tiers.md) |
+| How impact scope is governed | [Risk tiers](../concepts/risk-tiers.md) |
 | The operator procedure | [Chaos game day runbook](../../runbooks/chaos-game-day.md) |
 | The Resilience capability | [Resilience](../capabilities/resilience.md) |

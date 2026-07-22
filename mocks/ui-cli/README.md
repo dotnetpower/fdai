@@ -3,7 +3,7 @@
 A static, dependency-free mock of the FDAI **operator-console CLI**, rendered as a
 terminal that plays a JARVIS-style *streaming briefing*: boot banner, a narrated greeting,
 a throughput chart drawn left-to-right, trust-tier bars filling, then a branch into either
-the human-in-the-loop (**HIL**) approval cards or an all-clear free-chat prompt.
+the human-in-the-loop (**human approval**) approval cards or an all-clear free-chat prompt.
 
 > This is a design mock (plain HTML/CSS/JS, no build, no backend). It is English-only and
 > customer-agnostic; every value shown is synthetic. It is **not** the production console -
@@ -40,7 +40,7 @@ that answers "what happened, and what needs me?", never on a blank prompt.
 - **Branch on state** - toggle **view: needs me** vs **view: all clear**:
   - **needs me** - approval cards for items autonomy handed to a human. Each card reads
     plain-first (what it does, why, confidence, safety, how, who approves, checked) and shows
-    the risk, the four safety facts (blast radius, stop-condition, reversibility, logged
+    the risk, the four safety facts (impact scope, stop-condition, reversibility, logged
     reference), and that approval opens a pull request (two approvers + break-glass for HIGH,
     and you can't approve your own request).
   - **all clear** - nothing needs a sign-off, so it invites a read-only free-chat exchange.

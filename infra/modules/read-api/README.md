@@ -69,12 +69,12 @@ Web search stays disabled by default. To enable it, set
 `read_api_web_search_enabled=true` and provide exact public source hosts in
 `read_api_web_search_allowed_domains`. The module projects the result cap,
 request budget, narrator probe interval, and web-search probe interval into
-the Container App. Azure web search uses Grounding with Bing, so review its
+the Container App. Azure web search uses Evidence check with Bing, so review its
 external compliance and geography boundary before enabling it.
 
 ## Identity and write boundary
 
-The API projects audit / KPI / HIL-queue / ontology / views read-only from
+The API projects audit / KPI / human approval-queue / ontology / views read-only from
 Postgres. Its bounded write routes can stage immutable Python task artifacts,
 store cron bindings, and publish typed proposals. It cannot create an Azure VM
 Run Command: the dedicated identity receives ACR pull, state-store secret read,

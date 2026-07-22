@@ -18,7 +18,7 @@ denied operation.
 
 When preflight reports the blocker, the reassembly loop accumulates
 `disk_provisioning = "attach_existing"` (plus `existing_disk_ids`) as a tfvars
-override and opens it as a remediation PR through the
+override and opens it as a fix PR through the
 `remediate.apply-preflight-toggle` ActionType.
 
 ## Scope

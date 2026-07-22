@@ -1,8 +1,8 @@
 ---
 title: Hallucination Rubric Gate
 translation_of: hallucination-rubric-gate.md
-translation_source_sha: 70356a04cd024e729f02e39a118868ce6df81cb6
-translation_revised: 2026-07-15
+translation_source_sha: e1206b92c3516286c4de8d0134e561d54d56585e
+translation_revised: 2026-07-22
 ---
 # Hallucination Rubric Gate (환각 루브릭 게이트)
 
@@ -138,7 +138,7 @@ enforce로 전환 시 fail-closed 되도록.
 토큰 비용을 배가하므로 **cascade** 로 - 더 저렴한 신호가 약할 때만 - 실행되고, 매 T2
 호출마다 돌지 않는다. 단독으로 자격을 부여하지 않는다.
 
-## Shadow before enforce
+## 관찰 모드
 
 루브릭은 shadow-first로 출시한다. `QualityGateConfig.rubric_shadow` 가 기본 `True` 이고
 카탈로그 시드가 `default_mode: shadow` 라, 배선된 평가기는 judge-and-log만 한다:

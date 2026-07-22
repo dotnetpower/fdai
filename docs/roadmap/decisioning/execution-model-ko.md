@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: b4e685493759172c1351173e2d1d2d126ad08656
+translation_source_sha: dde57b97a69f6c1dd6c22c28a3d1a1d2e6b68d6d
 translation_revised: 2026-07-22
 ---
 
@@ -141,7 +141,7 @@ Trust router 로부터.
 ActionType 의 `ceiling_by_tier` 로부터
 ([action-ontology.md § 2](action-ontology-ko.md#2-스키마)).
 
-### 2.3 Axis D - Static blast radius
+### 2.3 Axis D - Static 영향 범위
 
 ActionType 의 `blast_radius` 블록. 두 계산 mode:
 
@@ -504,7 +504,7 @@ final_path = strictest(requested_path, forced_path)
 재사용. direct-API adapter 는 시도-및-실패한 call 을 그 key 하에 기록하여
 manual PR 경로가 동일 mutation 을 double-apply 할 수 없도록 함.
 
-### 5.5 HIL 승인 왕복 (park and resume)
+### 5.5 사람 승인 왕복 (park and resume)
 
 RiskGate 가 `hil` 을 반환하면 executor 는 실행되지 않고 control loop 은
 사람을 기다리며 block 하지 않는다. `HilResumeCoordinator`

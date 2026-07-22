@@ -2,8 +2,8 @@
 title: 온콜과 에스컬레이션
 description: FDAI가 대응의 최종 책임자를 선택하고 대기 중인 결정을 에스컬레이션하며 페이징 연동이 없을 때 안전하게 중단하는 방법입니다.
 translation_of: on-call-and-escalation.md
-translation_source_sha: 7f8474eff0520df0c0be4029bb8e41842095abd3
-translation_revised: 2026-07-20
+translation_source_sha: 55948d180c207d739b0628223dda4c19fd8a3f28
+translation_revised: 2026-07-22
 ---
 
 # 온콜과 에스컬레이션
@@ -32,10 +32,10 @@ Escalation ladder는 level, wait period, channel, role, stop condition을 정의
 decision은 scope와 severity에 따라 primary on-call에서 secondary, incident commander,
 owner로 이동할 수 있습니다.
 
-느린 supervisory loop는 기저 risk verdict를 직접 변경하지 않습니다. 책임 있는 approver를
+느린 supervisory loop는 기저 risk 결정을 직접 변경하지 않습니다. 책임 있는 approver를
 찾거나 request를 expire할 수 있지만 `deny`를 `auto`로 바꾸거나 사람 대신 승인할 수 없습니다.
 일치하는 standing authorization은 ladder deadline 이후 typed proposal을 새 판단을 위해
-risk-gate에 다시 넣을 수만 있습니다.
+안전성 검토에 다시 넣을 수만 있습니다.
 
 ## Delivery fallback과 authority escalation 구분
 
@@ -65,12 +65,12 @@ Noisy point estimate는 escalation을 가속할 수 없습니다. Urgency는 사
 
 Standing authorization은 operator-authored policy artifact입니다. Deterministic condition,
 resource-group-equivalent 이하 envelope, reversible action type, tested rollback contract,
-unanswered-ladder trigger를 식별합니다. Shadow mode에서 시작하고 자체 promotion gate를 따릅니다.
+unanswered-ladder trigger를 식별합니다. 관찰 모드에서 시작하고 자체 promotion gate를 따릅니다.
 
 Deadline 이후 supervisor는 authorization이 valid, unexpired, in-scope 상태이며 pending action을
 계속 포함하는지 확인합니다. 그런 다음 proposal을 typed pipeline에 다시 주입합니다. Forseti와
-risk-gate가 현재 inventory 및 policy를 다시 평가하고, 새 verdict가 `auto`인 경우에만 Thor가
-실행합니다. Irreversible action, stale evidence, 넓어진 blast radius, envelope miss는 감사되는
+안전성 검토가 현재 inventory 및 policy를 다시 평가하고, 새 결정이 `auto`인 경우에만 Thor가
+실행합니다. Irreversible action, stale evidence, 넓어진 영향 범위, envelope miss는 감사되는
 no-op으로 종료됩니다.
 
 | 최종 상태 | 의미 |

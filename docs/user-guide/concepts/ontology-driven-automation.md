@@ -40,7 +40,7 @@ execution path and a registered provider before it can become live.
 ## Anatomy of an ActionType
 
 An `ActionType` is not just a name - it declares its own guardrails. The safety
-invariants FDAI requires (stop-condition, rollback path, blast-radius limit,
+invariants FDAI requires (stop-condition, rollback path, impact scope limit,
 audit entry) live on the type, so every instance is born safe. A trimmed
 example:
 
@@ -93,7 +93,7 @@ flowchart LR
 ```
 
 - A **rule violation** at T0/T1/T2 constructs the instance from the matched
-  rule plus the finding - the resources, parameters, and scope come from the
+  rule plus the detected issue - the resources, parameters, and scope come from the
   event.
 - An **operator request** can construct the instance from the typed intent,
   principal, and arguments when the write-direction coordinator for that action
@@ -113,7 +113,7 @@ axis:
 - **`both`** - some actions belong to either surface. `ops.restart-service` can
   be triggered by an operator ("restart this") or by a health-probe rule.
 
-Nothing else in the schema is trigger-specific. The risk gate and audit contract
+Nothing else in the schema is trigger-specific. The safety check and audit contract
 are identical for both, so an operator-driven action gets the same safety
 contract as a rule-driven one. If the trigger coordinator or execution provider
 is not registered, the declaration remains available for validation and shadow
@@ -145,9 +145,9 @@ outcomes include:
   catalog loading;
 - invalid arguments or failed preconditions reject the action instance;
 - a missing dispatcher or provider leaves the declaration inert;
-- a stale required inventory graph causes the risk gate to deny;
+- a stale required inventory graph causes the safety check to deny;
 - a missing safety invariant makes the action incomplete and unable to ship;
-- an unsupported or ambiguous outcome is held for HIL with no mutation.
+- an unsupported or ambiguous outcome is held for human approval with no mutation.
 
 These are typed terminal outcomes, not silent drops. Each carries the event and
 correlation references needed to explain what did not run and why.
@@ -166,10 +166,10 @@ event -> event-ingest -> trust-router -> T0 | T1 | (T2 -> quality-gate)
 
 1. **Ingest** normalizes and correlates the signal into an incident.
 2. **Route** scores confidence and picks the cheapest competent tier.
-3. **Gate** reads the type's tier ceiling and rules auto, HIL, or deny.
+3. **Gate** reads the type's tier ceiling and rules auto, human approval, or deny.
 4. **Execute** applies the change only after preconditions pass and the
-   per-resource lock is held, honoring stop-conditions and blast-radius.
-5. **Deliver** ships the change as a remediation PR or a direct API call.
+   per-resource lock is held, honoring stop-conditions and impact scope.
+5. **Deliver** ships the change as a fix PR or a direct API call.
 6. **Audit** appends an immutable entry - including no-ops, rejects, and
    timeouts.
 
@@ -183,7 +183,7 @@ enforce is a measured, separately reviewed change against the type's
 The risk table and every applicable ceiling are combined by choosing the most
 restrictive result. The audit record exposes this as `resolved_ceiling`, which
 includes the matched risk rule, trust tier, `ActionType` ceiling, declared and
-live blast radius, caller role, environment, control-plane health, required
+live impact scope, caller role, environment, control-plane health, required
 quorum, and final execution path.
 
 That evidence is part of the ontology contract. It proves that an action did not
@@ -194,7 +194,7 @@ gain authority merely because a trigger existed or an operator requested it.
 | To learn about | Read |
 |----------------|------|
 | Which agents own each pipeline stage | [agents-and-self-healing.md](agents-and-self-healing.md) |
-| How the risk gate reads the tier ceiling | [risk-tiers.md](risk-tiers.md) |
+| How the safety check reads the tier ceiling | [risk-tiers.md](risk-tiers.md) |
 | How a new action earns the right to auto-run | [shadow-then-enforce.md](shadow-then-enforce.md) |
 | The full ontology schema and fork seams | [../../roadmap/decisioning/action-ontology.md](../../roadmap/decisioning/action-ontology.md) |
 | Runtime ceilings and provider paths | [../../roadmap/decisioning/execution-model.md](../../roadmap/decisioning/execution-model.md) |

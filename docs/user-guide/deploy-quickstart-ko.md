@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: FDAI 최소 세트 인벤토리를 Azure에 프로비저닝하는 방법. 동등한 두 경로(azd 턴키 또는 Terraform 직접 실행) 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 41e17fbc6d1ea1265195b6eadfc6b122d2bf441c
-translation_revised: 2026-07-21
+translation_source_sha: 170353978c61af2bf08022d6511ce73eea2379c6
+translation_revised: 2026-07-22
 ---
 
 # 배포 빠른 시작
@@ -73,7 +73,7 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    소유자를 지정합니다.
 4. **shadow 모드로 관찰.** FDAI가 변경을 적용하지 않고 판단과 감사만 수행하도록 두고,
    실행됐을 액션을 검토합니다.
-5. **하나의 액션 승격.** 승격 게이트를 통과한 액션만 enforce로 전환하고, 나머지는
+5. **하나의 액션 승격.** 승격 게이트를 통과한 액션만 적용 모드로 전환하고, 나머지는
    shadow로 둡니다.
 
 [시작하기](get-started-ko.md) 가이드에서는 이 첫 번째 안전한 롤아웃을 자세히 다룹니다.

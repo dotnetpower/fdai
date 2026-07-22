@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: f8da9a7f2b3ac87ccc49992565c93a809afb4fec
-translation_revised: 2026-07-21
+translation_source_sha: 34e9b43545527f05f650c976ea81807be44df192
+translation_revised: 2026-07-22
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -159,8 +159,9 @@ provision 하며, alert 는 인간 신호일 뿐 자율 액션이 아니다.
 
 - 카탈로그 + 포크 리포에 범위된 설치된 GitHub App 또는 서비스 커넥션을 가진 **GitOps 호스트**
   (GitHub 또는 Azure DevOps 조직).
-- HIL 승인을 위한 그룹-연결 팀이 있는 **Teams 테넌트** (Teams가 기본 A1 primary -
-  [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md) 참조).
+- 사람 승인(`hil` 경로)을 위한 그룹-연결 팀이 있는 **Teams 테넌트**. Teams가 기본 A1
+  primary입니다. 자세한 내용은
+  [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md)를 참조하세요.
 - FDAI Slack 앱이 설치되고 필수 Slack userId ↔ Entra OID 매핑 저장소가 프로비저닝된
   **Slack 워크스페이스**; P1 Slack A1 채널에 필요
   ([channels-and-notifications-ko.md#7-channel-specific-notes](../interfaces/channels-and-notifications-ko.md#7-channel-specific-notes)).

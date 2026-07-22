@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: eda3d56356f2c4213f23dc13b20266249a5a10b7
-translation_revised: 2026-07-21
+translation_source_sha: 334d36579b702d3144f625d1a733fe9c3b187025
+translation_revised: 2026-07-22
 ---
 # 설치형 배포 CLI
 
@@ -282,7 +282,7 @@ fdaictl deploy preflight \
 실패하거나 생략된 probe는 `clear` 결과를 만들지 않습니다. Report는 run을 incomplete로
 표시하고 고객 값이나 credential을 노출하지 않고 실패한 probe 이름을 제공합니다.
 
-### Finding category
+### 발견된 문제 category
 
 CLI는 deployment preflight에 이미 정의된 category를 표시합니다.
 

@@ -2,14 +2,14 @@
 title: 카오스 엔지니어링
 description: FDAI가 제한된 target, stop condition, recovery evidence를 사용해 catalog-driven fault experiment를 실행하는 방법입니다.
 translation_of: chaos-engineering.md
-translation_source_sha: 77012e1e503568e789d96e4462c3b29b89a75675
-translation_revised: 2026-07-17
+translation_source_sha: 3308e4fdc9c58ff63cf85ab53f4e673263a1dd61
+translation_revised: 2026-07-22
 ---
 
 # 카오스 엔지니어링
 
 카오스 엔지니어링은 알려진 fault에서 workload와 recovery control이 예상대로 작동하는지
-검증합니다. FDAI는 experiment를 명시적인 target, probe, blast radius, stop condition,
+검증합니다. FDAI는 experiment를 명시적인 target, probe, 영향 범위, stop condition,
 rollback, audit evidence가 있는 catalog entry로 표현합니다.
 
 ## 시나리오 계약
@@ -46,7 +46,7 @@ success, recovery time, unexpected impact를 추적합니다. Recovery가 검증
 injection은 성공한 experiment가 아닙니다.
 
 [시나리오 검증 인벤토리](scenario-validation-inventory-ko.md)는 catalog entry 132개,
-shadow-coverage pack 18개, live enforce validation 10개, 별도 frozen control-loop scenario를
+shadow-coverage pack 18개, live 적용 모드 validation 10개, 별도 frozen control-loop scenario를
 서로 구분합니다.
 
 ## 다음 단계
@@ -55,6 +55,6 @@ shadow-coverage pack 18개, live enforce validation 10개, 별도 frozen control
 |-----------|------|
 | 복구를 훈련하는 방법 | [재해 복구와 훈련](disaster-recovery-and-drills-ko.md) |
 | 모든 scenario와 evidence level | [시나리오 검증 인벤토리](scenario-validation-inventory-ko.md) |
-| Blast radius를 관리하는 방법 | [리스크 티어](../concepts/risk-tiers-ko.md) |
+| 영향 범위를 관리하는 방법 | [리스크 티어](../concepts/risk-tiers-ko.md) |
 | 운영자 절차 | [Chaos game day runbook](../../runbooks/chaos-game-day-ko.md) |
 | Resilience capability | [회복탄력성](../capabilities/resilience-ko.md) |

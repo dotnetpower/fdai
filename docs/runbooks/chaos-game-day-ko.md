@@ -2,8 +2,8 @@
 title: Chaos Game Day Runbook
 description: 범위가 제한된 chaos experiment를 계획, 승인, 실행, 복구하는 템플릿입니다.
 translation_of: chaos-game-day.md
-translation_source_sha: a109c047ca0525d1680c80139344bce62bc7e34d
-translation_revised: 2026-07-18
+translation_source_sha: 524a3237130a5075baf472f394e8ab3f8f905d6d
+translation_revised: 2026-07-22
 ---
 
 # Chaos Game Day Runbook
@@ -24,7 +24,7 @@ active incident를 진단하기 위해 game day를 사용하지 않습니다.
 일반적인 목표는 다음과 같습니다.
 
 - **Failover validation**: Dependency 또는 replica가 objective 안에 takeover할 수 있음을 입증합니다.
-- **Detection validation**: 예상 finding, incident, notification이 나타남을 입증합니다.
+- **Detection validation**: 예상 발견된 문제, incident, notification이 나타남을 입증합니다.
 - **Rollback validation**: Injected fault를 제거하고 steady state를 복원할 수 있음을 입증합니다.
 - **Human response validation**: Owner가 evidence를 받고 예상 handoff를 따름을 입증합니다.
 
@@ -36,7 +36,7 @@ active incident를 진단하기 위해 game day를 사용하지 않습니다.
 | Approver | Scope, risk, stop condition, rollback을 독립적으로 검토합니다. |
 | Operator | Authorized provider를 통해 approved scenario를 시작하고 중지합니다. |
 | Observer | Probe를 관찰하고 즉시 중지를 요청할 수 있습니다. |
-| Scenario | Versioned fault, target selector, duration, blast-radius limit입니다. |
+| Scenario | Versioned fault, target selector, duration, 영향 범위 limit입니다. |
 | Steady state | Experiment 중 유지돼야 하는 측정 가능한 상태입니다. |
 | Rollback | Fault를 제거하고 prior state를 복원하는 검증된 action입니다. |
 
@@ -126,4 +126,4 @@ Rollback이 완료되고 steady state가 검증되며 temporary access가 제거
 |-----------|------|
 | 예상하지 못한 service impact 분류 | [Incident triage](incident-triage-ko.md) |
 | Governed recovery action 적용 | [Incident mitigation과 rollback](incident-mitigation-and-rollback-ko.md) |
-| Exercise finding을 owner가 있는 개선으로 전환 | [Postmortem workflow](postmortem-workflow-ko.md) |
+| Exercise 발견된 문제를 owner가 있는 개선으로 전환 | [Postmortem workflow](postmortem-workflow-ko.md) |

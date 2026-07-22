@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: bd4d77c1273c205dbda0d5429691365c81f032d8
-translation_revised: 2026-07-21
+translation_source_sha: e4ab19d0dbcc92084526be101e09d2b83e6fbe7d
+translation_revised: 2026-07-22
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰

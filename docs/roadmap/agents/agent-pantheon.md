@@ -660,7 +660,7 @@ Idempotency keys are per-action (`action_run_id`) and per-attempt
 (`attempt_id`). A retried publish with the same key is a no-op at the
 executor; the audit records the duplicate.
 
-### 7.4 Blast-radius and batch semantics
+### 7.4 Impact scope and batch semantics
 
 An ActionType with `blast_radius > 1` fans out to one `ActionAttempt` per
 target resource. Attempts are partitioned by `resource_id` and executed

@@ -407,7 +407,7 @@ Follows F. Implements
 - A Reader-role principal can complete every Day-1 tool scenario from
   the CLI REPL against the deployed dev environment.
 
-### Wave W1 - Write set, Teams / Slack pull, HIL callback
+### Wave W1 - Write set, Teams / Slack pull, human approval callback
 
 Follows D1. Implements
 [operator-console.md § Week 1](../interfaces/operator-console.md#week-1) and the

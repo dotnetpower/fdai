@@ -15,7 +15,7 @@ what happens when an approval times out or every channel is down.
 The operator console is **read-only**: it renders state and the pending-approval
 queue but issues no privileged calls. You never approve by clicking a button in
 the console. Approvals travel through the channels you already use (Teams, Slack)
-or through a remediation PR - never through the console's identity.
+or through a fix PR - never through the console's identity.
 
 ## Four kinds of message
 
@@ -35,7 +35,7 @@ they carry information, never authority.
 
 ## How an approval reaches you
 
-When the risk gate classifies an action as **HIL** (see
+When the safety check classifies an action as **human approval** (see
 [risk-tiers.md](risk-tiers.md)), FDAI pauses execution and routes an approval
 request to an A1-capable channel. You approve or reject; only then does the
 executor act.
@@ -79,7 +79,7 @@ FDAI creates a new request instead of reusing consent for a different action.
 
 ## Park, decide, and resume safely
 
-HIL does not block the event consumer while a person thinks. FDAI persists the
+human approval does not block the event consumer while a person thinks. FDAI persists the
 pending action and returns to the event loop. A valid approval resumes that
 stored action exactly once after identity, hash, role, quorum, TTL, and replay
 checks pass.
@@ -115,7 +115,7 @@ answer.
   request is a **no-op** - the action does not run - and FDAI writes an audit
   entry plus an A2 alert. Fail-closed, never fail-open.
 - **Fallback stays inside the trust tier.** A failed Teams approval never drops
-  down to email. It falls to another A1-capable channel, or to the **HIL queue**
+  down to email. It falls to another A1-capable channel, or to the **human approval queue**
   if none are reachable.
 - **When every A1 channel is down**, the request queues and **pages the
   operational lane** (PagerDuty / Opsgenie / SMS) - it still never
@@ -142,7 +142,7 @@ stay outside the generic upstream repository.
 ## You stay at approve-or-reject
 
 - **Promoted low-risk actions can auto-resolve** with a stop-condition,
-  rollback path, blast-radius limit, and audit entry. Actual coverage is a
+  rollback path, impact scope limit, and audit entry. Actual coverage is a
   measured deployment result.
 - The **risky few pause for you**, and you decide in the channel you already
   use. Rejection and timeout are both no-ops, and both are audited.
@@ -154,6 +154,6 @@ stay outside the generic upstream repository.
 | To learn about | Read |
 |----------------|------|
 | The end-to-end approve/reject walkthrough | [../guides/approve-change.md](../guides/approve-change.md) |
-| How an action is classified AUTO / HIL / DENY | [risk-tiers.md](risk-tiers.md) |
+| How an action is classified AUTO / human approval / DENY | [risk-tiers.md](risk-tiers.md) |
 | Which agent carries your approval, and who executes | [agents-and-self-healing.md](agents-and-self-healing.md) |
 | The full channel abstraction, trust matrix, and routing policy | [../../roadmap/interfaces/channels-and-notifications.md](../../roadmap/interfaces/channels-and-notifications.md) |

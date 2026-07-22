@@ -21,10 +21,10 @@ scope. It is the right tool when *all* of the following hold:
 - The scope is narrowed to a resource group (or narrower).
 - There is a **plan** to remove the exemption - an exemption is a stall,
   not a fix.
-- The blast radius of leaving the rule off is understood and bounded.
+- The impact scope of leaving the rule off is understood and bounded.
 
 If the rule is wrong in general, retire the rule via the rule-catalog
-pipeline instead. If the wrong dimension is auto-vs-HIL, tune
+pipeline instead. If the wrong dimension is auto-vs-human approval, tune
 `risk-classification`, not the rule.
 
 ## Roles

@@ -145,7 +145,7 @@ CLI and ChatOps call the Contributor-gated `POST /workflows/run` route with:
   on retries. If `trigger_ts` is omitted, the server uses the request time and later retries are
   not guaranteed to be identical.
 
-## Shadow and enforce model
+## Shadow and enforcement model
 
 Workflow mode and ActionType mode are separate gates:
 

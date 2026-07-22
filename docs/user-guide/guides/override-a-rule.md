@@ -21,8 +21,8 @@ An override on a rule at a given scope can do exactly one of:
   runs in shadow (the audit log continues to record what the rule *would*
   have flagged), so the discovery loop can spot recurring override patterns.
 - **`severity-downgrade`** - the rule still fires but with a lower severity
-  (e.g. `critical -> medium`). The risk gate re-evaluates the resulting
-  finding; an override can lower or suppress execution for its scope, but it
+  (e.g. `critical -> medium`). The safety check re-evaluates the resulting
+  detected issue; an override can lower or suppress execution for its scope, but it
   cannot bypass a hard deny or raise autonomy.
 - **`parameter-relaxation`** - a widening of a threshold the rule itself
   declares (e.g. cost anomaly `> 20%` becomes `> 40%`). Only the rule's
@@ -32,8 +32,8 @@ Anything broader - a global disable across all scopes - is not an override.
 It is a rule retirement and must go through the catalog pipeline with its
 own review.
 
-Overrides are downgrade-only controls. They never turn HIL into AUTO, DENY
-into HIL, or shadow into enforce.
+Overrides are downgrade-only controls. They never turn human approval into AUTO, DENY
+into human approval, or shadow into enforce.
 
 ## Scope limits
 
@@ -55,7 +55,7 @@ Every override, regardless of mode, records:
 - **Actor** - the operator raising the override.
 - **Approver** - a distinct principal (no self-approval).
 - **Justification** - the reason this scope is different. This text is
-  audited and surfaces on any HIL request that the override would touch.
+  audited and surfaces on any human approval request that the override would touch.
 - **Target rule + scope + mode** - machine-readable so the discovery loop
   can find the entry.
 
@@ -65,7 +65,7 @@ discovery loop as a signal to propose a revision of the rule itself.
 
 ## What an override does *not* suppress
 
-- **The audit record.** Every finding that the override intercepted is
+- **The audit record.** Every detected issue that the override intercepted is
   still logged with the reason it was suppressed. Overrides never make an
   event invisible; they change what FDAI does about it.
 - **Rule updates from upstream.** Because the override is a separate
@@ -74,12 +74,12 @@ discovery loop as a signal to propose a revision of the rule itself.
 
 ## How to raise one
 
-1. Confirm the rule id and the current verdict (the audit log has both).
+1. Confirm the rule id and the current decision (the audit log has both).
 2. Draft the override artefact (mode, scope, justification) in the same
    repo you edit rules in.
 3. Open a PR. The reviewer must not be you.
 4. On merge, the override takes effect the next time the affected event
-   fires. The audit log shows both the underlying finding and the override
+   fires. The audit log shows both the underlying detected issue and the override
    intercepting it.
 
 ## Verify the override
@@ -88,7 +88,7 @@ After the PR merges, verify one fresh evaluation in the target scope:
 
 1. Confirm the audit entry names the expected rule ID, override ID, mode, and
   bounded scope.
-2. Confirm detection still records the underlying finding, including for a
+2. Confirm detection still records the underlying detected issue, including for a
   `disabled` override.
 3. Confirm the resulting severity, parameters, or execution suppression match
   the override without raising autonomy.
@@ -111,7 +111,7 @@ through the quality gate the same way any rule change does.
 
 | To learn about | Read |
 |----------------|------|
-| What severity and auto/HIL/DENY mean at execution | [../concepts/risk-tiers.md](../concepts/risk-tiers.md) |
+| What severity and auto/human approval/DENY mean at execution | [../concepts/risk-tiers.md](../concepts/risk-tiers.md) |
 | How to see whether your override is taking effect | [read-audit-log.md](read-audit-log.md) |
 | The exemption workflow (owner-approved, time-boxed) | [../../runbooks/exemption-workflow.md](../../runbooks/exemption-workflow.md) |
 | The full Human Override design | [../../../.github/instructions/architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) |

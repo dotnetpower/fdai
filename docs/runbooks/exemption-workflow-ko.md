@@ -1,7 +1,7 @@
 ---
 translation_of: exemption-workflow.md
-translation_source_sha: 4f6fc5d20e7de77dd69192e88b105feacf283d50
-translation_revised: 2026-07-18
+translation_source_sha: 4c89961ee25abd3d4e094831b687f504730a3f1b
+translation_revised: 2026-07-22
 title: 예외 워크플로
 owner: aw-owners (Owner-tier)
 sla: "PR 오픈으로부터 1 영업일 내 승인 결정"
@@ -21,10 +21,10 @@ sla: "PR 오픈으로부터 1 영업일 내 승인 결정"
 - Rule이 일반적으로는 옳지만 **이 스코프**에서는 틀리다.
 - 스코프가 리소스 그룹 (또는 더 좁은 범위)으로 좁혀진다.
 - **예외를 제거할 계획**이 존재한다 - 예외는 수정(fix)이 아니라 유예다.
-- Rule을 끈 채로 둘 때의 blast radius가 이해되어 있고 그 범위가 제한되어 있다.
+- Rule을 끈 채로 둘 때의 영향 범위가 이해되어 있고 그 범위가 제한되어 있다.
 
 Rule이 일반적으로 틀렸다면 대신 rule-catalog 파이프라인을 통해 **rule을 폐기**하세요.
-잘못된 차원이 auto-vs-HIL이라면 rule 자체가 아니라 **`risk-classification`을 조정**하세요.
+잘못된 차원이 auto-vs-사람 승인이라면 rule 자체가 아니라 **`risk-classification`을 조정**하세요.
 
 ## 역할
 
@@ -68,7 +68,7 @@ Owner는 active 예외를 다음과 같이 취소할 수 있습니다:
 1. 아티팩트를 `state=revoked`, `revoked_at`, `revoked_by`로 편집.
 2. 취소 PR 머지 - Owner-tier 리뷰, 자기 승인 금지.
 
-취소는 즉시 enforce로 되돌립니다 (카탈로그 파이프라인이 상태 변화를 관찰하는 순간).
+취소는 즉시 적용 모드로 되돌립니다 (카탈로그 파이프라인이 상태 변화를 관찰하는 순간).
 
 ## 에스컬레이션
 

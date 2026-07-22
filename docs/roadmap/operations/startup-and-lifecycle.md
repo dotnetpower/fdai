@@ -150,7 +150,7 @@ Rules that apply throughout:
   ([security-and-identity.md](../architecture/security-and-identity.md)).
 - The kill-switch is verified reachable before D+7 ends.
 
-## HIL Approver Bootstrap
+## Human Approval Role Bootstrap
 
 > **Current boundary**: The role/group resolver and Teams/Slack delivery adapters are implemented,
 > but Teams SSO OBO approval callbacks, group-connected audience derivation, governance PR quorum

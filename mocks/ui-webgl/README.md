@@ -19,7 +19,7 @@ progressive enhancement - never the sole interface (accessibility, forms, and ta
 | File | Purpose |
 |------|---------|
 | [index.html](index.html) | intro: title + KPI cards fade in (clean, particle-free) |
-| [dashboard.html](dashboard.html) | full-WebGL operator console: KPIs, trust-tier split, HIL queue, shadow results, audit log (wheel to scroll) |
+| [dashboard.html](dashboard.html) | full-WebGL operator console: KPIs, trust-tier split, human approval queue, shadow results, audit log (wheel to scroll) |
 
 Both are static demos (plain HTML + Three.js from a CDN), no DOM UI beyond a small nav.
 

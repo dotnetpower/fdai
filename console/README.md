@@ -66,7 +66,7 @@ preserving the documented navigation and clean History API URLs.
 
 The **Operations > Incidents** panel is the incident-centric entry point. It groups
 the append-only audit stream by `correlation_id`, shows lifecycle status and
-the latest remediation disposition, and loads one incident's audit history on
+the latest fix disposition, and loads one incident's audit history on
 selection. Active, Resolved, and All filters use server-side keyset
 pagination. Links open the existing Audit and Trace panels with the same
 correlation filter. The roster does not create a second incident source of
@@ -89,17 +89,17 @@ The Approvals route also enforces the visibility split in
 A Reader receives `detail_level=count_only`, an empty item array, and the
 authoritative queue total. A principal with the `approve-runtime-hil`
 capability receives `detail_level=full` plus the action's recorded target,
-mode, stop-condition, rollback reference, blast radius, citing rules, reasons,
+mode, stop-condition, rollback reference, impact scope, citing rules, reasons,
 and TTL. The server performs the redaction; the browser never decides whether
 sensitive approval intent is visible. Older park records remain readable and
 show `Not recorded` for safety fields that predate the enriched projection.
 
 Human-facing console copy uses **Approvals**, **Approval required**, and
 **Pending approval** instead of exposing the `HIL` acronym by default. The
-machine contract stays unchanged: the `hil` verdict, `/hil-queue` route,
+machine contract stays unchanged: the `hil` decision, `/hil-queue` route,
 TypeScript types, events, and audit values retain their canonical identifiers.
-The technical glossary still explains HIL when an operator asks explicitly or
-inspects a raw verdict.
+The technical glossary still explains human approval when an operator asks explicitly or
+inspects a raw decision.
 
 The Overview presents evidence in operating-owner order: current posture and
 evidence quality, four measured outcome metrics, control assurance, required
@@ -243,7 +243,7 @@ stored is shown.
 
 Beyond the three always-on routes above, the app factory registers several
 **opt-in** GET routes when their inputs are wired at the composition root
-(ontology graph, pantheon, blast-radius, promotion gates, rule-fire trace, and
+(ontology graph, pantheon, impact scope, promotion gates, rule-fire trace, and
 the inventory graph, and the rule catalog below). Each is reader-role gated and collision-checked; none
 ships enabled upstream unless its `ReadApiConfig` input is set.
 
@@ -259,7 +259,7 @@ mock and already owns a specialized inventory canvas.
   Links shows endpoint and cardinality contracts, and Actions provides a
   filterable ActionType safety-contract catalog. The Mermaid source remains an
   ObjectType fallback and evidence view.
-- **Rules** preserves server-side facets, paging, findings, and the detail
+- **Rules** preserves server-side facets, paging, detected issues, and the detail
   drawer. Facets render as count-bearing chips, while list rows expose only
   recorded provenance, category, source, affected count, and version. The UI
   does not invent shadow accuracy or override counts missing from the API.
@@ -268,7 +268,7 @@ mock and already owns a specialized inventory canvas.
   Inspector workspace backed by `GET /workflows/action-types` and
   `GET /workflows/catalog`; drag, direct publication, and execution remain
   unavailable.
-- **Blast radius** renders the actual simulation response as concentric depth
+- **Impact scope** renders the actual simulation response as concentric depth
   rings and an impact tree by default. The existing Architecture map and raw
   table remain alternate views. No resource, personnel, or connection cap is
   shown unless the response records it.
@@ -346,9 +346,9 @@ surfaces with face shading for depth; an outline appears only on the selected re
 interaction cue. On narrow canvases, the map keeps resource abbreviations but suppresses long
 labels to prevent overlap; selecting a resource still exposes its full name in the inspector.
 
-The same canvas is reused by **Safety > Blast radius** in a context mode that highlights
+The same canvas is reused by **Safety > Impact scope** in a context mode that highlights
 the target and reached resources while dimming the rest. Live activity scopes and rule
-findings deep-link into the full Architecture panel when they carry a resource reference.
+detected issues deep-link into the full Architecture panel when they carry a resource reference.
 
 ### Rule catalog panel (Knowledge)
 
@@ -360,12 +360,12 @@ violate it" over three GET routes
 | Route | Purpose |
 |-------|---------|
 | `GET /rules` | Paginated, faceted list over the active catalog + collected corpus, tagged `origin=active\|collected`. Server-side filter (`origin`/`category`/`severity`/`source`/`q`) + `limit`/`offset`. |
-| `GET /rules/{id}` | Full detail: sandboxed Rego + remediation template bodies, plus an `explanation` (why it matters / risk) parsed from the Rego `# METADATA` block or the `azure_policy` / `kube_bench` params - grounded, never fabricated. |
+| `GET /rules/{id}` | Full detail: sandboxed Rego + fix template bodies, plus an `explanation` (why it matters / risk) parsed from the Rego `# METADATA` block or the `azure_policy` / `kube_bench` params - grounded, never fabricated. |
 | `GET /rules/{id}/findings` | Affected resources (resource + the attribute at fault) behind a `findings_provider` seam. Upstream ships none -> honest `evaluated=false`; a fork wires an inventory-evaluation source. |
 
 The seams are `ReadApiConfig.rule_catalog_rules`, `_collected_rules`,
 `_policies_root`, `_remediation_root`, and `_findings_provider`. Interactive
-local development leaves findings unavailable until an Azure-backed inventory
+local development leaves detected issues unavailable until an Azure-backed inventory
 evaluation source is configured; it never evaluates a synthetic inventory. A selected rule is deep-linked into
 the URL hash (`#/rules?rule=<id>&origin=<origin>`), so a rule detail is
 shareable and the browser back button closes the drawer.
@@ -495,7 +495,7 @@ agent and what events is it working?" without leaving the live view.
 
 A **Chat with {agent}** button in the focus panel starts a conversation primed
 with that agent's recent work. It calls `openDeckWithContext`
-([`src/deck/open-deck.ts`](src/deck/open-deck.ts)) with a grounding note built by
+([`src/deck/open-deck.ts`](src/deck/open-deck.ts)) with a evidence check note built by
 `agentChatContext` ([`src/routes/agents.model.ts`](src/routes/agents.model.ts)) -
 the agent's role, live state, and recent incidents (with RCAs). The deck injects
 that note as an opening turn that **speaks as the agent** - its line icon + name
@@ -572,7 +572,7 @@ reply stays partial and is labelled as such.
 
 While a turn is pending, the deck renders a **retrieval trace**
 (`src/deck/retrieval-trace.tsx`) in place of a bare typing indicator. It streams
-the read-only sources the deck is grounding on in a slot-machine window. The
+the read-only sources the deck is evidence check on in a slot-machine window. The
 first SSE status frame previews the current `ViewSnapshot`; after evidence
 resolution, the server replaces that preview with a bounded list of the actual
 tool, operational, agent, or glossary sources it selected. The trace remains
@@ -676,7 +676,7 @@ Both halves ship a copy-paste reference that is **not** registered upstream
 in by registering both.
 
 Panels are read-only like the rest of the console: no action / approval button.
-Cost / change actions still flow through remediation PRs and ChatOps approvals.
+Cost / change actions still flow through fix PRs and ChatOps approvals.
 
 ## Tooltip contract
 

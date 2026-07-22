@@ -44,7 +44,7 @@ and a workload incident does not by itself prove FDAI is degraded.
 
 FDAI uses short and long windows together. A short spike alone can be noise; a
 long-window breach alone can react too slowly. Multi-window evaluation raises a
-finding only when the configured combination indicates sustained or urgent
+detected issue only when the configured combination indicates sustained or urgent
 budget consumption.
 
 The result records objective, attainment, remaining budget, evaluated windows,
@@ -54,7 +54,7 @@ does not become a healthy value.
 The catalog defines the short and long windows and their thresholds. The guide
 does not prescribe one universal numeric pair because service traffic and
 objectives differ. FDAI evaluates the configured pair deterministically and
-records both window results, including a no-finding outcome, so operators can
+records both window results, including a no-detected issue outcome, so operators can
 reproduce why an alert fired or held.
 
 ## From breach to response
@@ -63,15 +63,15 @@ reproduce why an alert fired or held.
 2. The burn-rate evaluator computes the configured windows.
 3. `SloBurnRunner` publishes an `slo.error_budget_burn` event.
 4. Event ingest deduplicates and correlates it with active changes or incidents.
-5. The trust router and risk gate decide whether to observe, notify, request
+5. The trust router and safety check decide whether to observe, notify, request
    approval, or route a typed mitigation.
 
-An SLO breach is a finding, not permission to roll back or scale. Any response
-still needs an `ActionType`, verification, blast-radius bounds, rollback, and
-the required verdict.
+An SLO breach is a detected issue, not permission to roll back or scale. Any response
+still needs an `ActionType`, verification, impact scope bounds, rollback, and
+the required decision.
 
 During active budget burn, policy can raise incident priority or lower the
-autonomy ceiling for risky changes. That policy is an explicit risk-gate input,
+autonomy ceiling for risky changes. That policy is an explicit safety check input,
 not an implicit side effect of the dashboard. Missing data cannot consume zero
 budget or authorize a change; it produces unavailable evidence and suppresses
 dependent decisions.
@@ -91,7 +91,7 @@ dependent decisions.
 
 | To learn about | Read |
 |----------------|------|
-| How telemetry becomes a finding | [Observability, detection, and forecasting](observability-detection-and-forecasting.md) |
+| How telemetry becomes a detected issue | [Observability, detection, and forecasting](observability-detection-and-forecasting.md) |
 | How a breach joins an incident | [Incident management](incident-management.md) |
 | How capacity evidence complements SLOs | [Capacity and performance](capacity-and-performance.md) |
 | The canonical outcome metrics | [Goals and metrics](../../roadmap/architecture/goals-and-metrics.md) |

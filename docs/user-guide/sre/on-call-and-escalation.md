@@ -30,10 +30,10 @@ An escalation ladder defines levels, wait periods, channels, roles, and stop
 conditions. A pending decision can move from primary on-call to secondary,
 incident commander, or owner according to scope and severity.
 
-The slower supervisory loop never changes the underlying risk verdict directly.
+The slower supervisory loop never changes the underlying risk decision directly.
 It can seek an accountable approver or expire the request, but cannot turn
 `deny` into `auto` or approve on behalf of a person. A matching standing
-authorization can only cause the typed proposal to re-enter the risk gate for a
+authorization can only cause the typed proposal to re-enter the safety check for a
 fresh decision after the ladder deadline.
 
 ## Distinguish delivery fallback from authority escalation
@@ -67,13 +67,13 @@ authority.
 A standing authorization is an operator-authored policy artifact. It identifies
 a deterministic condition, a resource-group-equivalent or narrower envelope,
 reversible action types, a tested rollback contract, and the unanswered-ladder
-trigger. It starts in shadow mode and follows its own promotion gate.
+trigger. It starts in observation mode and follows its own promotion gate.
 
 After the deadline, the supervisor verifies that the authorization is valid,
 unexpired, in scope, and still contains the pending action. It then re-injects
-the proposal into the typed pipeline. Forseti and the risk gate re-evaluate
-current inventory and policy; Thor executes only if the new verdict is `auto`.
-An irreversible action, stale evidence, widened blast radius, or envelope miss
+the proposal into the typed pipeline. Forseti and the safety check re-evaluate
+current inventory and policy; Thor executes only if the new decision is `auto`.
+An irreversible action, stale evidence, widened impact scope, or envelope miss
 ends as an audited no-op.
 
 | Terminal state | Meaning |

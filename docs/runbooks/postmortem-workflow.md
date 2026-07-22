@@ -31,7 +31,7 @@ analysis is the system, decision context, and control that did or did not work.
 ## Required inputs
 
 - **Incident record**: scope, severity history, members, owners, and state transitions.
-- **Audit trail**: findings, verdicts, approvals, actions, no-ops, retries, and rollback.
+- **Audit trail**: detected issues, decisions, approvals, actions, no-ops, retries, and rollback.
 - **Evidence set**: metrics, logs, traces, changes, notifications, and cited knowledge.
 - **Impact record**: affected capability, duration, population, and SLO effect.
 - **Recovery proof**: restored state, verification window, and residual risk.
@@ -65,9 +65,9 @@ can add context but should be labeled as a participant statement.
 | Checkpoint | What to capture |
 |------------|-----------------|
 | First impact | Earliest supported user or operation impact |
-| Detection | First finding and when it reached a durable route |
+| Detection | First detected issue and when it reached a durable route |
 | Triage | Severity, owner, scope, and first decision deadline |
-| Mitigation | Proposal, verdict, approval, execution, and observed effect |
+| Mitigation | Proposal, decision, approval, execution, and observed effect |
 | Rollback or recovery | Trigger, action, verification, and residual impact |
 | Stable service | Start and end of the recovery observation window |
 

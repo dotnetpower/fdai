@@ -29,7 +29,7 @@ Hubs send. When the read API is enabled, a read UAMI owns ACR, Key Vault, and
 Reader access while a separate command UAMI owns Event Hubs send/receive.
 
 Production plans also require PostgreSQL `ZoneRedundant` high availability,
-35-day geo-redundant backup, and signed HIL delivery. Supply the HIL URL and
+35-day geo-redundant backup, and signed human approval delivery. Supply the human approval URL and
 32+ character HMAC secret through CI secrets; Terraform stores them in Key
 Vault and never writes populated values to this repository.
 
@@ -201,10 +201,10 @@ roadmap synchronized whenever a module, environment parameter, or bootstrap stag
 ## Security scan baseline
 
 `infra-lint.yml` runs Trivy and Checkov as blocking checks. `infra/.checkov.baseline` records
-the reviewed day-zero findings that depend on a production-only setting, an external Azure
+the reviewed day-zero detected issues that depend on a production-only setting, an external Azure
 control, or an intentionally retained development path. The baseline is technical debt, not
-proof that a finding is fixed: each production-relevant item remains covered by the ARB
-blockers and `production-gates.tf`. A new finding fails CI. Removing or hardening a resource
+proof that a detected issue is fixed: each production-relevant item remains covered by the ARB
+blockers and `production-gates.tf`. A new detected issue fails CI. Removing or hardening a resource
 also removes its baseline entry; do not regenerate the whole file to absorb a new failure.
 
 The only Trivy inline exception is the Key Vault module's public development path. The

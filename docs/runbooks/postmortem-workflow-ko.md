@@ -2,8 +2,8 @@
 title: 포스트모템 Workflow Runbook
 description: 해결된 incident를 검토하고 evidence-backed follow-up을 제출하는 템플릿입니다.
 translation_of: postmortem-workflow.md
-translation_source_sha: 13bec0f5d5637fc6018f2df6827d6268d7974c6e
-translation_revised: 2026-07-18
+translation_source_sha: 92316b0c0ecb205a5adb30be10e5b34995f8ee30
+translation_revised: 2026-07-22
 ---
 
 # 포스트모템 Workflow Runbook
@@ -33,7 +33,7 @@ system, decision context, 작동했거나 작동하지 않은 control입니다.
 ## 필수 입력
 
 - **Incident record**: Scope, severity history, member, owner, state transition입니다.
-- **Audit trail**: Finding, verdict, approval, action, no-op, retry, rollback입니다.
+- **Audit trail**: 발견된 문제, 결정, approval, action, no-op, retry, rollback입니다.
 - **Evidence set**: Metric, log, trace, change, notification, cited knowledge입니다.
 - **Impact record**: Affected capability, duration, population, SLO effect입니다.
 - **Recovery proof**: Restored state, verification window, residual risk입니다.
@@ -67,9 +67,9 @@ Authoritative record가 있으면 chat recollection에서 시작하지 않습니
 | Checkpoint | 수집할 내용 |
 |------------|-------------|
 | First impact | 지원되는 최초 user 또는 operation impact입니다. |
-| Detection | First finding과 durable route에 도달한 시점입니다. |
+| Detection | First 발견된 문제와 durable route에 도달한 시점입니다. |
 | Triage | Severity, owner, scope, first decision deadline입니다. |
-| Mitigation | Proposal, verdict, approval, execution, observed effect입니다. |
+| Mitigation | Proposal, 결정, approval, execution, observed effect입니다. |
 | Rollback 또는 recovery | Trigger, action, verification, residual impact입니다. |
 | Stable service | Recovery observation window의 시작과 종료입니다. |
 

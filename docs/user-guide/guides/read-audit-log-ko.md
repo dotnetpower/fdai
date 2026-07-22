@@ -2,8 +2,8 @@
 title: 감사 로그 읽기
 description: 모든 자율 결정에 대해 append-only 감사 로그가 기록하는 내용과 증상에서 근본 이벤트까지 역추적하는 방법.
 translation_of: read-audit-log.md
-translation_source_sha: e37b6870d043d0d63457dd40b9584e28e9bf42ab
-translation_revised: 2026-07-17
+translation_source_sha: 21da06228b17d1681ecf29a6881f5024a8f30d35
+translation_revised: 2026-07-22
 ---
 
 # 감사 로그 읽기
@@ -24,7 +24,7 @@ translation_revised: 2026-07-17
   도달했는지 즉시 알 수 있습니다.
 - **규칙, 정책, 모델 참조** - T0 / T1은 규칙 ID를, T2는 모델 식별자와 인용된
   근거 문서를 기록합니다.
-- **판정** - AUTO / HIL / DENY와 해당 판정을 도출한 분류.
+- **판정** - AUTO / 사람 승인 / DENY와 해당 판정을 도출한 분류.
 - **판정 증거** - 일치한 리스크 규칙, 카탈로그 버전, feature snapshot, 필요한 정족수,
   자율성을 제한한 `resolved_ceiling` 축.
 - **실행 주체** - initiator, judge, approver, executor, auditor를 서로 다른 필드로
@@ -49,7 +49,7 @@ translation_revised: 2026-07-17
   안에서는 이벤트 ID로 티어, 리스크, 승인, 실행, 전달, 롤백, 종료 레코드의 순서를
   확인합니다.
 4. `resolved_ceiling`과 일치한 리스크 규칙을 확인합니다. 판정 당시 구성을 기준으로 어떤
-  입력 때문에 auto, HIL, shadow, deny 경로가 강제됐는지 알 수 있습니다.
+  입력 때문에 auto, 사람 승인, shadow, deny 경로가 강제됐는지 알 수 있습니다.
 5. Shadow 항목과 비교합니다. 실행되지 않은 액션도 shadow 모드에서 예상 판정과 함께
   나타나므로 FDAI의 제안과 운영자의 실제 조치를 비교할 수 있습니다.
 
@@ -58,7 +58,7 @@ translation_revised: 2026-07-17
 | 결과 | 변경 실행 여부 | 확인할 내용 |
 |------|----------------|-------------|
 | `auto` 완료 | 예 | executor 신원, 전달 참조, stop-condition 상태, 롤백 참조 |
-| HIL 승인 후 완료 | 예 | approval ID, 승인자, 정족수, action hash, executor 및 전달 레코드 |
+| 사람 승인 후 완료 | 예 | approval ID, 승인자, 정족수, action hash, executor 및 전달 레코드 |
 | 거부 또는 시간 초과 | 아니요 | 사유, TTL, 승인자가 있는 경우 승인자, 최종 no-op |
 | `deny` | 아니요 | 일치한 하드 규칙, feature snapshot, 카탈로그 버전 |
 | `abstain` 또는 `shadow_only` | 아니요 | 누락된 증거 또는 가장 엄격한 상한, 실행됐을 액션 |
@@ -85,7 +85,7 @@ ID를 담습니다.
 
 | 학습 대상 | 문서 |
 |-----------|------|
-| 여기서 읽게 될 HIL 항목을 생성하는 운영자 상호작용 | [approve-change-ko.md](approve-change-ko.md) |
+| 여기서 읽게 될 사람 승인 항목을 생성하는 운영자 상호작용 | [approve-change-ko.md](approve-change-ko.md) |
 | `would-have-been` 결정이 담기는 이유 | [../concepts/shadow-then-enforce-ko.md](../concepts/shadow-then-enforce-ko.md) |
 | 부적절한 결과가 반복 기록되는 규칙의 범위 좁히기 | [override-a-rule-ko.md](override-a-rule-ko.md) |
 | 감사 로그의 스토리지와 보존 설계 | [../../roadmap/rules-and-detection/observability-and-detection-ko.md](../../roadmap/rules-and-detection/observability-and-detection-ko.md) |

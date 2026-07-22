@@ -21,7 +21,7 @@ the live local projection, and browser checks at 1440 x 900, 944 x 664, and
 - The original contract hard-coded `t2_selection_scope=system-governed` and
   exposed no T2 candidate set or selection workflow.
 
-## Findings
+## Detected issues
 
 | # | Severity | Finding | Disposition |
 |---|----------|---------|-------------|

@@ -69,20 +69,20 @@ and are used consistently by every referring doc:
 
 ```mermaid
 flowchart TD
-  subgraph L3["Layer 3 — Channel (thin adapter)"]
+  subgraph L3["Layer 3 - Channel (thin adapter)"]
     CLI["CLI REPL"]
     TEAMS_PULL["Teams (pull)"]
     SLACK_PULL["Slack (pull)"]
     WEB["Web chat (Console SPA)"]
   end
-  subgraph L2["Layer 2 — Conversation Coordinator"]
+  subgraph L2["Layer 2 - Conversation Coordinator"]
     NARR["Narrator (LLM)\nt1.judge default\nt2.reasoner escalation"]
     INTENT["Intent classify\n(read | simulate | approve | breakglass)"]
     RBAC["RBAC gate\n(per-tool role floor)"]
     VERIF["Verifier re-check\n(no auto-execute)"]
     SESS["Session state\n(audit-log-backed)"]
   end
-  subgraph L1["Layer 1 — Existing deterministic core (unchanged)"]
+  subgraph L1["Layer 1 - Existing deterministic core (unchanged)"]
     CL["ControlLoop"]
     RULES["RuleIndex / T0Engine"]
     QG["QualityGate"]
@@ -665,7 +665,7 @@ larger adapter setting is rejected. This result is not an authorization grant re
 persistent store currently enforces session-end or expiry revocation. No downstream path may use
 the receipt as elevation evidence.
 
-### 7.4 HIL fall-through when the LLM proposes a write
+### 7.4 Human approval fall-through when the LLM proposes a write
 
 The narrator MAY, when the operator says "just fix it", emit a
 `tool_call` for `run_runbook(dry_run=false)` or `approve_hil`. On the
@@ -842,23 +842,23 @@ and the authoritative registry, never inferred from phase names in this document
 ```json
 {
   "action_kind": "console.turn",
-  "session_id": "…",
-  "turn_id": "…",
-  "principal": {"kind": "user|cli|bot", "id": "…", "role": "Reader|…"},
+  "session_id": "...",
+  "turn_id": "...",
+  "principal": {"kind": "user|cli|bot", "id": "...", "role": "Reader|..."},
   "channel": "cli|teams|slack|web",
   "direction": "inbound|outbound|tool_call|tool_result",
   "tier": "T0|T1|T2",
-  "escalation_trigger": "…",
-  "tool_name": "…",
-  "arguments": {…},
-  "result_preview": "…",
-  "evidence_refs": ["…"],
+  "escalation_trigger": "...",
+  "tool_name": "...",
+  "arguments": {...},
+  "result_preview": "...",
+  "evidence_refs": ["..."],
   "verifier_verdict": "pass|abstain|deny|n/a",
-  "model_deployment_id": "…",
+  "model_deployment_id": "...",
   "prompt_tokens": 0,
   "completion_tokens": 0,
-  "started_at": "…",
-  "finished_at": "…"
+  "started_at": "...",
+  "finished_at": "..."
 }
 ```
 
@@ -918,7 +918,7 @@ answer "why did this happen" without a per-screen answerer:
   "facts": [{ "key": "rows", "label": "Visible rows", "aliases": ["visible rows", "표시 행"], "value": 5, "group": "page" }],
   "records": {
     "activity": [
-      { "correlation_id": "corr-j", "detail": "…why this happened…", "outcome": "…" }
+      { "correlation_id": "corr-j", "detail": "...why this happened...", "outcome": "..." }
     ]
   },
   "capturedAt": "2026-07-06T11:12:30Z"
@@ -1253,7 +1253,7 @@ browser shows them as unavailable until that contract exists. CFR,
 false-positive rate, rollback rate, and policy-violation escapes belong in
 Control Assurance with their measurement window, baseline, and sample size.
 
-### 13.5 Incident roster and remediation history
+### 13.5 Incident roster and fix history
 
 The read-only SPA exposes a first-class **Now > Incidents** panel. It is the
 roster-first entry point for incident response: an operator can find active or

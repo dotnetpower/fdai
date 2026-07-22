@@ -31,7 +31,7 @@ unavailable, and unresolved hypotheses remain hypotheses.
 ## Learning loop
 
 The learning extractor can identify recurring correlation keys, root causes,
-successful action types, overrides, rollbacks, and HIL patterns. These become
+successful action types, overrides, rollbacks, and human approval patterns. These become
 inert candidates for rules, runbooks, or knowledge entries.
 
 A candidate must carry provenance and pass schema, review, regression, shadow,

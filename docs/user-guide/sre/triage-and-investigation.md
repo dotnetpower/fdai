@@ -13,10 +13,10 @@ operation into a hidden mutation path.
 
 An investigation request names the incident, target resources, time range, and
 latency budget. Resource analyzers read provider evidence and return structured
-findings. The coordinator builds a timeline, correlations, an optional
+detected issues. The coordinator builds a timeline, correlations, an optional
 root-cause hypothesis, and prioritized recommendations.
 
-The report is read-only. A recommendation naming a remediation is still only a
+The report is read-only. A recommendation naming a fix is still only a
 proposal and must re-enter the typed action pipeline.
 
 ## Bounded evidence gathering
@@ -30,11 +30,11 @@ proposal and must re-enter the typed action pipeline.
 
 Evidence availability is explicit rather than inferred from a missing field.
 Priority is local ordering inside the report; it is not severity, confidence,
-or an autonomy verdict unless a separate policy says so.
+or an autonomy decision unless a separate policy says so.
 
 | Evidence state | Meaning | Downstream behavior |
 |----------------|---------|---------------------|
-| Available | Provider returned bounded, fresh data | May support findings and hypotheses |
+| Available | Provider returned bounded, fresh data | May support detected issues and hypotheses |
 | Empty | Query succeeded with no matching records | Report absence with query scope |
 | Unavailable | Provider failed or dependency is unhealthy | Mark the gap and suppress dependent claims |
 | Stale | Data exists but exceeds its freshness policy | Hold dependent conclusions for review |
@@ -53,7 +53,7 @@ or an autonomy verdict unless a separate policy says so.
 
 | Section | Question it answers |
 |---------|---------------------|
-| Findings | What did each resource analyzer observe? |
+| Detected issues | What did each resource analyzer observe? |
 | Timeline | In what order did changes and symptoms occur? |
 | Correlations | Which observations move together? |
 | RCA hypothesis | What cause is supported by cited evidence? |
@@ -76,7 +76,7 @@ an action.
 Before using a recommendation, verify that its supporting analyzer completed,
 the cited evidence is fresh, and the recommendation remains within the declared
 resource and time scope. A high report priority can accelerate review, but it
-cannot bypass RCA grounding, risk classification, or approval.
+cannot bypass RCA evidence check, risk classification, or approval.
 
 ## Next steps
 

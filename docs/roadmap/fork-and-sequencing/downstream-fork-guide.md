@@ -363,7 +363,7 @@ Hard don'ts. Any of these is a merge-blocker:
 - **Disabling upstream tests to make a green CI**. If an upstream
   test blocks your fork, that is a signal upstream needs a design
   change - open an issue.
-- **Auto-executing a fork-added action without shadow mode first**.
+- **Auto-executing a fork-added action without observation mode first**.
   The shadow-before-enforce invariant applies to every fork-added
   ActionType exactly as it does to upstream ones.
 - **Contributing back a change that carries customer identity**.

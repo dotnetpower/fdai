@@ -22,8 +22,8 @@ does, and where to read the mechanism in depth.
 
 | SRE function | What it does in FDAI | Vertical / owner |
 |--------------|----------------------|------------------|
-| Monitoring and observability | Ingests resource-change signals, activity-log events, and detector findings; correlates them into incidents | Heimdall, Huginn |
-| Incident detection and response | Routes each signal by confidence, decides a verdict, and acts or escalates | trust-router, Forseti |
+| Monitoring and observability | Ingests resource-change signals, activity-log events, and detector detected issues; correlates them into incidents | Heimdall, Huginn |
+| Incident detection and response | Routes each signal by confidence, decides a decision, and acts or escalates | trust-router, Forseti |
 | Change management | Gates every proposed change against policy-as-code before it ships | Change Safety |
 | Capacity and performance | Detects sizing gaps and proposes or runs promoted scaling actions against measured demand | Freyr, Cost Governance |
 | Cost and efficiency | Detects spend anomalies and evaluates promoted waste-removal candidates | Njord, Cost Governance |
@@ -34,7 +34,7 @@ does, and where to read the mechanism in depth.
 ## Monitoring and observability
 
 FDAI is event-driven, not a polling dashboard. Resource changes, activity-log
-events, and anomaly or forecast findings arrive on the event bus. The sensing
+events, and anomaly or forecast detected issues arrive on the event bus. The sensing
 agents normalize, deduplicate, and correlate them into incidents so a single
 root event is not counted as ten symptoms.
 
@@ -47,25 +47,25 @@ Every correlated event is scored by the **trust router**, which picks the
 lowest tier competent to decide it (see
 [risk-tiers.md](risk-tiers.md)). Deterministic cases resolve at T0 with no model
 call; ambiguous cases escalate. Detection stays deterministic-first: an anomaly
-or a prediction raises a *finding* that the risk gate governs - it never
+or a prediction raises a *detected issue* that the safety check governs - it never
 auto-acts on its own.
 
-## A finding is not an action
+## A detected issue is not an action
 
 An anomaly, forecast, correlation, or root-cause result is evidence. It enters
-the same trust router and risk gate as any other event. It becomes an executable
+the same trust router and safety check as any other event. It becomes an executable
 action only when a valid `ActionType` supplies the safety contract and every
 verification, scope, lock, and approval requirement passes.
 
-Example: a forecast predicts capacity exhaustion -> Freyr emits a finding ->
-the router selects a tier -> the risk gate evaluates the proposed scaling
-action -> shadow, HIL, or promoted auto behavior follows. The prediction itself
+Example: a forecast predicts capacity exhaustion -> Freyr emits a detected issue ->
+the router selects a tier -> the safety check evaluates the proposed scaling
+action -> shadow, human approval, or promoted auto behavior follows. The prediction itself
 never scales the workload.
 
 ## Reasoning tier is not autonomy level
 
 FDAI makes two monotonic decisions. First, the trust router selects the lowest
-tier that can produce a supported candidate. Then the risk gate combines that
+tier that can produce a supported candidate. Then the safety check combines that
 tier with the matched policy, `ActionType` ceiling, static and live blast
 radius, environment, operator role, evidence freshness, and promotion state.
 Each input can lower autonomy; none can raise it above a stricter input.
@@ -76,14 +76,14 @@ Each input can lower autonomy; none can raise it above a stricter input.
 | T1 reuse | A prior pattern may apply after re-verification | Current scope and dependencies are unchanged |
 | T2 proposal | Grounded reasoning passed its quality gate | The proposal may execute |
 
-This separation explains why a deterministic finding can still route to human
+This separation explains why a deterministic detected issue can still route to human
 review and why a well-grounded T2 result can remain shadow-only.
 
 ## The runtime contract remains mandatory
 
 Before mutation, FDAI rechecks the proposed action against current inventory
 and policy. The executor proceeds only with a dry run, stop condition, rollback
-path, blast-radius limit, per-resource lock, stable idempotency key, authorized
+path, impact scope limit, per-resource lock, stable idempotency key, authorized
 workload identity, and writable audit path. If any required input becomes stale
 or unavailable, the action becomes an audited no-op, shadow result, or denial
 according to policy. A console button or notification reply cannot replace
@@ -91,11 +91,11 @@ these checks.
 
 ## Change management
 
-Before a change ships, it is dry-run against policy-as-code, blast-radius
-scoped, and either prepared for a configured PR-native policy or routed to HIL. Actions are delivered as
-**remediation PRs**, so review, approval, and rollback are inherited from git.
+Before a change ships, it is dry-run against policy-as-code, impact scope
+scoped, and either prepared for a configured PR-native policy or routed to human approval. Actions are delivered as
+**fix PRs**, so review, approval, and rollback are inherited from git.
 
-Example: an IaC PR proposes a public-egress rule -> the risk gate flags it
+Example: an IaC PR proposes a public-egress rule -> the safety check flags it
 high-risk -> an approval card reaches you in Teams -> you approve -> the
 PR-native merge policy or authorized approver completes delivery -> FDAI writes
 the audit entry.
@@ -111,8 +111,8 @@ that could degrade a live workload remains gated.
 ## Reliability and disaster recovery
 
 Reliability work is proactive here. Scheduled DR drills, database restore
-exercises, and blast-radius-bounded chaos experiments run on a cadence. Cadence,
-scope, and proof stay separated: the scheduler owns cadence, the risk gate owns
+exercises, and impact scope-bounded chaos experiments run on a cadence. Cadence,
+scope, and proof stay separated: the scheduler owns cadence, the safety check owns
 scope, and the audit log owns proof.
 
 ## Toil elimination
@@ -125,8 +125,8 @@ for the novel and the high-risk (see
 
 ## Postmortem and learning
 
-Every terminal decision - including no-ops, rejects, and HIL timeouts - writes
-an append-only audit entry. A learning loop watches those signals (HIL
+Every terminal decision - including no-ops, rejects, and human approval timeouts - writes
+an append-only audit entry. A learning loop watches those signals (human approval
 approvals, shadow drift, overrides) and proposes grounded catalog candidates.
 It never edits or promotes the catalog directly.
 
@@ -162,7 +162,7 @@ console or notification channel inheriting executor authority.
 | How incidents move from open to closed | [Incident management](../sre/incident-management.md) |
 | How FDAI produces grounded cause hypotheses | [Root-cause analysis](../sre/root-cause-analysis.md) |
 | Why the repeatable majority never reaches an LLM | [deterministic-first.md](deterministic-first.md) |
-| How verdicts become auto vs HIL | [risk-tiers.md](risk-tiers.md) |
+| How decisions become auto vs human approval | [risk-tiers.md](risk-tiers.md) |
 | How every action inherits a safety contract | [ontology-driven-automation.md](ontology-driven-automation.md) |
 | Which agents run each function and how they self-heal | [agents-and-self-healing.md](agents-and-self-healing.md) |
 | The three verticals end to end | [../get-started.md](../get-started.md) |

@@ -8,12 +8,12 @@ sidebar:
 # Observe, then enable changes
 
 New autonomous actions in FDAI never turn on all at once. Each rule,
-detector, and remediation ships in **shadow mode** first - it makes the same
+detector, and fix ships in **observation mode** first - it makes the same
 decision it *would* make in production, but the decision is recorded, not
 applied. Only after a measured comparison against the baseline does the
 action earn the right to execute for real.
 
-## What shadow mode records
+## What observation mode records
 
 While a new capability is in shadow, every event flows through it as if
 autonomy were on:
@@ -30,14 +30,14 @@ flowchart LR
   R -->|no| EN
 ```
 
-- The full trust-routing + risk-gate decision is computed.
+- The full trust-routing + safety check decision is computed.
 - The proposed action (what would have executed) is stored.
 - The *actual* human resolution (what operators eventually did) is captured
   from the audit log.
 - The delta between the two is the **shadow accuracy signal**.
 
 Nothing about production behaviour changes. Approvals still go to humans,
-remediations still ship the way they always did. The new capability is
+fixes still ship the way they always did. The new capability is
 watching, not steering.
 
 ## What promotion from shadow to enforce takes
@@ -52,7 +52,7 @@ comparison.
   their action-specific thresholds against the same scenario set.
 - **Zero policy-violation escapes**: No shadow action would have bypassed a
   deterministic policy denial. This guard metric is exactly zero.
-- **Safety readiness**: Preconditions, stop-conditions, blast-radius caps,
+- **Safety readiness**: Preconditions, stop-conditions, impact scope caps,
   idempotency, rollback rehearsal, and audit completeness all pass.
 - **Operational guard metrics**: Change-failure and rollback rates do not
   regress against the baseline.
@@ -126,7 +126,7 @@ Two consequences for anyone consuming the system:
 | To learn about | Read |
 |----------------|------|
 | The tiers shadow-then-enforce runs on | [deterministic-first.md](deterministic-first.md) |
-| What auto vs HIL means for the actions produced | [risk-tiers.md](risk-tiers.md) |
+| What auto vs human approval means for the actions produced | [risk-tiers.md](risk-tiers.md) |
 | Safety invariants required for every action | [../../../.github/instructions/coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md) |
 | The phase exit gates that promote capabilities | [../../roadmap/README.md](../../roadmap/README.md) |
 | Rule effects, assignments, and scoped overrides | [../../roadmap/rules-and-detection/rule-governance.md](../../roadmap/rules-and-detection/rule-governance.md) |

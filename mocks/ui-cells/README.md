@@ -82,7 +82,7 @@ Event types:
 | `phase` | state-machine transition (`auth`, `permission`, `discovery`, `evaluation`, `ready`, `error`) |
 | `permit` | permission-check result for a subscription |
 | `resource` | a discovered resource attaches to a resource-group cell |
-| `finding` | an evaluated rule produces a finding of a given severity |
+| `finding` | an evaluated rule produces a detected issue of a given severity |
 | `progress` | ambient fill-level tick for a group of cells |
 | `done` | terminal marker |
 

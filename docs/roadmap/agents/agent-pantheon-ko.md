@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 98733da189bfbde68d3104709cbaa9becaec9e6d
-translation_revised: 2026-07-21
+translation_source_sha: 84f1123a2f6f4b4289e3dac56c0523bdf31e37a3
+translation_revised: 2026-07-22
 ---
 
 # 에이전트 판테온
@@ -633,7 +633,7 @@ Idempotency key 는 action 당 (`action_run_id`) 과 attempt 당
 (`attempt_id`) 존재. 같은 key 로 재전송된 publish 는 executor 에서 no-op;
 audit 는 중복을 기록.
 
-### 7.4 Blast-radius 와 batch 시맨틱
+### 7.4 영향 범위 와 batch 시맨틱
 
 `blast_radius > 1` 인 ActionType 은 target 리소스당 하나의
 `ActionAttempt` 로 fan-out. Attempt 는 `resource_id` 로 partition 되어

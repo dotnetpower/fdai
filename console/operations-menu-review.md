@@ -20,7 +20,7 @@ The audit accepted a finding only when source code, a design statement, or an
 executable contract test could demonstrate it. Every finding below is marked
 resolved and points to the implementation area that changed.
 
-## Resolved findings
+## Resolved detected issues
 
 ### Navigation and routing
 

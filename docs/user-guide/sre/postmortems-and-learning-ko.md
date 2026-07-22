@@ -2,8 +2,8 @@
 title: 포스트모템과 학습
 description: FDAI가 증거 기반 postmortem draft를 만들고 교훈을 governed improvement candidate로 바꾸는 방법입니다.
 translation_of: postmortems-and-learning.md
-translation_source_sha: f2a020d6e98e7470e680c70638dc0f53183cf0cb
-translation_revised: 2026-07-17
+translation_source_sha: 14a2532379635094bcd65ac9de26a1d7983be48c
+translation_revised: 2026-07-22
 ---
 
 # 포스트모템과 학습
@@ -33,7 +33,7 @@ hypothesis로 유지합니다.
 ## 학습 루프
 
 Learning extractor는 반복되는 correlation key, root cause, 성공한 action type, override,
-rollback, HIL pattern을 식별할 수 있습니다. 결과는 rule, runbook, knowledge entry의 inert
+rollback, 사람 승인 pattern을 식별할 수 있습니다. 결과는 rule, runbook, knowledge entry의 inert
 candidate가 됩니다.
 
 Candidate는 provenance를 포함하고 schema, review, regression, shadow, promotion gate를

@@ -1,8 +1,8 @@
 ---
 title: 구현 계획 기록 (2026-07-06 표준 세트)
 translation_of: implementation-plan.md
-translation_source_sha: 66dfd60858263c88b4bac71f0dd96e5ed4830687
-translation_revised: 2026-07-21
+translation_source_sha: eaf2e92a37325359383f5c2c5c69a092d8a6dbf2
+translation_revised: 2026-07-22
 ---
 
 # 구현 계획 기록 (2026-07-06 표준 세트)
@@ -392,7 +392,7 @@ F 뒤. [operator-console.md § Day 1](../interfaces/operator-console.md#day-1-th
 - Reader 롤 principal이 배포된 dev 환경 상대로 CLI REPL에서 모든
   Day-1 툴 시나리오를 완주.
 
-### Wave W1 - 쓰기 세트, Teams / Slack pull, HIL 콜백
+### Wave W1 - 쓰기 세트, Teams / Slack pull, 사람 승인 콜백
 
 D1 뒤. [operator-console.md § Week 1](../interfaces/operator-console.md#week-1) 과
 prompt-composition Wave 3 step B pipeline slice 3 잔재

@@ -140,7 +140,7 @@ Comes from the trust router.
 From `ceiling_by_tier` on the ActionType (see
 [action-ontology.md § 2](action-ontology.md#2-schema)).
 
-### 2.3 Axis D - Static blast radius
+### 2.3 Axis D - Static impact scope
 
 The `blast_radius` block on the ActionType. Two computation modes:
 
@@ -519,7 +519,7 @@ call under that key so the manual PR path cannot double-apply the same
 mutation; a subsequent retry observes the key and is a no-op on whichever
 path already succeeded.
 
-### 5.5 HIL approval round-trip (park and resume)
+### 5.5 Human approval round-trip (park and resume)
 
 When the RiskGate returns `hil`, the executor does not run and the
 control loop does not block on a human. The `HilResumeCoordinator`

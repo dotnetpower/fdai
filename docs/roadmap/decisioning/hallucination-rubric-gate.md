@@ -150,7 +150,7 @@ lowers confidence. Sampling multiplies token cost, so it runs in a **cascade** -
 only when a cheaper signal is weak - not on every T2 call. It never grants
 eligibility on its own.
 
-## Shadow before enforce
+## Observe, then enable changes
 
 The rubric ships shadow-first. `QualityGateConfig.rubric_shadow` defaults to
 `True` and the catalog seed is `default_mode: shadow`, so a wired evaluator is

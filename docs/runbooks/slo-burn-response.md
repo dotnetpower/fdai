@@ -16,7 +16,7 @@ incident response without treating missing data as healthy.
 
 ## Entry criteria and ownership
 
-Start with the finding ID, SLO and service IDs, evaluated windows, source
+Start with the detected issue ID, SLO and service IDs, evaluated windows, source
 timestamp, and configured route. Assign an owner for verification and record
 the next decision deadline before beginning deeper investigation.
 
@@ -29,17 +29,17 @@ the next decision deadline before beginning deeper investigation.
 | Scope | Service, region, operation, dependency, and explicit exclusions |
 | Context | Deployments, maintenance, capacity events, and open incidents |
 
-## Validate the finding
+## Validate the detected issue
 
-1. Confirm the finding references the currently active SLO version.
+1. Confirm the detected issue references the currently active SLO version.
 2. Verify the service-level indicator (SLI), which is the measured signal behind
 	the objective, uses the intended scope and dimensions.
 3. Check source health, ingestion delay, sampling, and missing-data behavior.
 4. Recompute or independently inspect both configured windows from the same source.
 5. Confirm threshold comparisons and remaining error budget without rounding away a breach.
-6. Compare the finding timestamp with deployments, maintenance, capacity, and incidents.
+6. Compare the detected issue timestamp with deployments, maintenance, capacity, and incidents.
 
-If the finding is invalid, record why and route the labeled case to [alert
+If the detected issue is invalid, record why and route the labeled case to [alert
 tuning](alert-tuning.md). Do not simply close it as noise.
 
 ## Response procedure
@@ -53,7 +53,7 @@ tuning](alert-tuning.md). Do not simply close it as noise.
 4. **Assign and notify.** Select the configured owner, send durable notification,
 	and verify delivery or fallback outcome.
 5. **Investigate context.** Start a bounded investigation across recent changes,
-	capacity, dependencies, and related findings.
+	capacity, dependencies, and related detected issues.
 6. **Prepare mitigation.** For any proposed change, record evidence, intended
 	effect, scope, what-if result, stop conditions, and rollback.
 7. **Route the proposal.** Send the typed action through risk and approval policy.
@@ -62,13 +62,13 @@ tuning](alert-tuning.md). Do not simply close it as noise.
 
 ## Decision branches
 
-| Finding state | Response |
+| Detected issue state | Response |
 |---------------|----------|
 | Both windows breach and impact is confirmed | Triage or update the incident immediately |
 | Short window breaches but long window does not | Monitor to the next deadline and inspect acute context |
 | Long window breaches without a short-window spike | Investigate sustained degradation and budget trend |
-| Burn is valid but no user impact is yet visible | Keep the finding active and investigate before budget exhaustion |
-| Source or SLI scope is invalid | Record an invalid finding and begin measured alert tuning |
+| Burn is valid but no user impact is yet visible | Keep the detected issue active and investigate before budget exhaustion |
+| Source or SLI scope is invalid | Record an invalid detected issue and begin measured alert tuning |
 | Existing incident already covers the scope | Add evidence to that incident rather than opening a duplicate |
 
 ## Stop conditions
@@ -94,15 +94,15 @@ mitigation and rollback](incident-mitigation-and-rollback.md).
 ## Evidence and audit
 
 Record SLO version, window values, source timestamp, incident ID, proposal ID,
-verdict, and terminal outcome. Also record SLI dimensions, source-health checks,
+decision, and terminal outcome. Also record SLI dimensions, source-health checks,
 error-budget values, correlation context, notification outcome, and recovery window.
 
 ## Completion criteria
 
-Complete the response when the finding is classified as valid or invalid, the
-incident and owner are known, every proposal has a terminal verdict, and the
+Complete the response when the detected issue is classified as valid or invalid, the
+incident and owner are known, every proposal has a terminal decision, and the
 SLO has either passed its recovery window or remains open with a next decision
-deadline. Preserve invalid findings as labeled tuning scenarios.
+deadline. Preserve invalid detected issues as labeled tuning scenarios.
 
 ## Related runbooks
 

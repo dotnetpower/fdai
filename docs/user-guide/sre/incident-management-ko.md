@@ -2,8 +2,8 @@
 title: 인시던트 관리
 description: FDAI가 first-class incident를 생성하고 소유자를 지정하며 전환, 측정, 종료하는 방법입니다.
 translation_of: incident-management.md
-translation_source_sha: eaa7fd600c79a2079ef38cd52389b8d990dd641d
-translation_revised: 2026-07-20
+translation_source_sha: 9d0b821bc0a4d51abb8f65a5b6fbe1262fb495a6
+translation_revised: 2026-07-22
 ---
 
 # 인시던트 관리
@@ -83,7 +83,7 @@ single-claimer lease, sent checkpoint를 사용합니다. Startup replay는 chec
 ## SLA와 storm 처리
 
 Severity별 acknowledge 및 resolution target을 transition stream에서 평가할 수 있습니다.
-Event storm은 deterministic incident ID, deduplication, 명시적 remediation step으로 제한되며
+Event storm은 deterministic incident ID, deduplication, 명시적 수정 step으로 제한되며
 무제한 병렬 변경을 만들지 않습니다.
 
 SLA target은 hardcoded assumption이 아니라 deployment policy입니다. 모든 severity에 대해
@@ -91,9 +91,9 @@ acknowledgment 및 resolution budget이 구성되기 전까지 monitor는 disabl
 ordered transition record에서 deadline을 계산하고 breach마다 안정적인 operational notice를 한 번
 생성합니다. Resolved 및 closed incident는 alert를 계속 만들지 않습니다.
 
-Storm 중에는 결정론적 sequencing이 제안된 remediation을 severity, blast radius, stable ID
+Storm 중에는 결정론적 sequencing이 제안된 수정을 severity, 영향 범위, stable ID
 순으로 정렬합니다. 설정된 concurrency cap이 이를 wave로 나누고 storm이 active인 동안 approval
-bar를 높일 수 있습니다. Storm coordinator는 risk-gate에 조언할 뿐 실행하거나 권한을 가지지
+bar를 높일 수 있습니다. Storm coordinator는 안전성 검토에 조언할 뿐 실행하거나 권한을 가지지
 않습니다.
 
 ## 다음 단계

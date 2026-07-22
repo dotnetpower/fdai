@@ -3,7 +3,7 @@ title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
 derives_from:
   - source: docs/roadmap/deployment/deploy-and-onboard.md
-    sha: f8da9a7f2b3ac87ccc49992565c93a809afb4fec
+    sha: 34e9b43545527f05f650c976ea81807be44df192
 ---
 
 # Deploy Quickstart
@@ -76,7 +76,7 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    read/command credentials remain distinct from Thor's executor Managed Identity.
 3. **Onboard one bounded scope.** Start with a single resource-group-equivalent
    scope and name its owner.
-4. **Observe in shadow mode.** Let FDAI judge and audit without mutating, and
+4. **Observe in observation mode.** Let FDAI judge and audit without mutating, and
    review its would-be actions.
 5. **Promote one action.** Turn on enforcement only for an action that clears its
    promotion gate, and leave the rest in shadow.

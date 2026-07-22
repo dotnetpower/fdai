@@ -22,7 +22,7 @@ environment. Do not use a game day to diagnose an unexplained active incident.
 Common goals include:
 
 - **Failover validation**: prove a dependency or replica can take over within the objective.
-- **Detection validation**: prove the expected finding, incident, and notification appear.
+- **Detection validation**: prove the expected detected issue, incident, and notification appear.
 - **Rollback validation**: prove the injected fault can be removed and steady state restored.
 - **Human response validation**: prove owners receive evidence and follow the expected handoff.
 
@@ -34,7 +34,7 @@ Common goals include:
 | Approver | Reviews scope, risk, stop conditions, and rollback independently |
 | Operator | Starts and stops the approved scenario through the authorized provider |
 | Observer | Watches probes and can call an immediate stop |
-| Scenario | Versioned fault, target selectors, duration, and blast-radius limit |
+| Scenario | Versioned fault, target selectors, duration, and impact scope limit |
 | Steady state | Measurable conditions that should remain true during the experiment |
 | Rollback | Tested action that removes the fault and restores the prior state |
 
@@ -125,4 +125,4 @@ through the [postmortem workflow](postmortem-workflow.md).
 |------------------|------|
 | Triage unexpected service impact | [Incident triage](incident-triage.md) |
 | Apply a governed recovery action | [Incident mitigation and rollback](incident-mitigation-and-rollback.md) |
-| Turn exercise findings into owned improvements | [Postmortem workflow](postmortem-workflow.md) |
+| Turn exercise detected issues into owned improvements | [Postmortem workflow](postmortem-workflow.md) |

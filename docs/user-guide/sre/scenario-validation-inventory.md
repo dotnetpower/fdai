@@ -7,7 +7,7 @@ description: Every SRE scenario set FDAI uses, with separate evidence levels for
 
 FDAI uses several scenario sets for different questions. A catalog entry proves
 that a scenario is well-formed and connected to a known signal. A replay proves
-that the control loop reaches the expected result. A live enforce run proves
+that the control loop reaches the expected result. A live enforcement run proves
 that a real fault was injected, observed, and reverted on a disposable Azure
 substrate. These evidence levels are not interchangeable.
 
@@ -21,13 +21,13 @@ scenario IDs. The snapshot was recalculated from the repository on 2026-07-17.
 | SRE demo pack | 18 | 18/18 shadow coverage | Detect, route, RCA, governed response, and validation mapping exist |
 | Reference live-enforce sweep | 10 | 10/10 validated, detected, and reverted | Real injectors and probes worked on the disposable Azure substrate |
 | Frozen control-loop set `v2026.07` | 9 | 66 integrity and replay tests passed | Balanced Change, DR, and FinOps expected outcomes replay through the shipped loop |
-| Agent decision scenarios | 6 | Included in 22 agent scenario tests passed | Forseti returns expected auto, HIL, deny, or abstain outcomes |
+| Agent decision scenarios | 6 | Included in 22 agent scenario tests passed | Forseti returns expected auto, human approval, deny, or hold for review outcomes |
 | Agent pipeline scenarios | 8 | Included in 22 agent scenario tests passed | Forseti, Thor, Var, and Saga preserve cross-agent safety invariants |
 | Chaos catalog | 135 | 135/135 schema, signal, and symptom-index validation | Every catalog record is structurally valid and searchable |
 | Default-factory dispatch subset | 93 | 93/93 injector and probe pairs build in dry-run | Delivery wiring exists; this is not a live fault run |
 | Promoted catalog | 0 | No entries promoted | No collected entry has inherited enforce eligibility |
 
-> A separate 14-case Command Deck claim corpus validates answer grounding with
+> A separate 14-case Command Deck claim corpus validates answer evidence check with
 > zero unsupported escapes and zero clean rejections. It is a conversational
 > safety corpus, not an SRE operational scenario set, so it is not added to the
 > scenario totals on this page.
@@ -36,18 +36,18 @@ scenario IDs. The snapshot was recalculated from the repository on 2026-07-17.
 
 | ID | Scenario | Type | Validation |
 |----|----------|------|------------|
-| S1 | AKS pod kill | Fault | Shadow coverage; live enforce via `aks-pod-kill` |
-| S2 | AKS pod CPU stress | Fault | Shadow coverage; live enforce via `aks-pod-cpu-spike` |
-| S3 | AKS pod network latency | Fault | Shadow coverage; live enforce via `network-rtt-delay` |
-| S4 | AKS HTTP abort | Fault | Shadow coverage; live enforce via `aks-http-abort` |
-| S5 | VM CPU stress | Fault | Shadow coverage; live enforce via `vm-cpu-stress` |
-| S6 | VM memory stress | Fault | Shadow coverage; live enforce via `vm-mem-stress` |
-| S7 | VM network latency | Fault | Shadow coverage; live enforce via `network-rtt-delay` |
-| S8 | MySQL CPU-credit exhaustion | Fault | Shadow coverage; live enforce via `mysql-cpu-pressure` |
-| S9 | Azure OpenAI 429 from TPM pressure | Fault | Shadow coverage; live enforce via `aoai-tpm-throttle` |
-| S10 | Application Gateway backend first-byte latency | Fault | Shadow coverage; live enforce via `network-rtt-delay` |
-| S11 | Dependency outage cascade | Fault | Shadow coverage; live enforce via `appgw-backend-failure` |
-| S12 | Bad deployment and rollout stall | Fault | Shadow coverage; live enforce via `aks-bad-deploy` |
+| S1 | AKS pod kill | Fault | Shadow coverage; live enforcement via `aks-pod-kill` |
+| S2 | AKS pod CPU stress | Fault | Shadow coverage; live enforcement via `aks-pod-cpu-spike` |
+| S3 | AKS pod network latency | Fault | Shadow coverage; live enforcement via `network-rtt-delay` |
+| S4 | AKS HTTP abort | Fault | Shadow coverage; live enforcement via `aks-http-abort` |
+| S5 | VM CPU stress | Fault | Shadow coverage; live enforcement via `vm-cpu-stress` |
+| S6 | VM memory stress | Fault | Shadow coverage; live enforcement via `vm-mem-stress` |
+| S7 | VM network latency | Fault | Shadow coverage; live enforcement via `network-rtt-delay` |
+| S8 | MySQL CPU-credit exhaustion | Fault | Shadow coverage; live enforcement via `mysql-cpu-pressure` |
+| S9 | Azure OpenAI 429 from TPM pressure | Fault | Shadow coverage; live enforcement via `aoai-tpm-throttle` |
+| S10 | Application Gateway backend first-byte latency | Fault | Shadow coverage; live enforcement via `network-rtt-delay` |
+| S11 | Dependency outage cascade | Fault | Shadow coverage; live enforcement via `appgw-backend-failure` |
+| S12 | Bad deployment and rollout stall | Fault | Shadow coverage; live enforcement via `aks-bad-deploy` |
 | S13 | Knowledge ingestion and configuration drift | Non-fault | Scheduled governance and assurance seams |
 | S14 | Alert-driven automatic investigation trigger | Non-fault | Webhook, event ingest, and IRP seams |
 | C1 | Continuous-load baseline | Baseline | Shadow calibration coverage |
@@ -83,13 +83,13 @@ true cold-start latency.
 
 | Scenario ID | Domain | Expected tier | Expected decision | Expected action |
 |-------------|--------|---------------|-------------------|-----------------|
-| `change.drift-manual-portal-edit.003` | Change | T0 | HIL | No |
-| `change.nsg-allow-any-inbound.002` | Change | T0 | HIL | No |
+| `change.drift-manual-portal-edit.003` | Change | T0 | human approval | No |
+| `change.nsg-allow-any-inbound.002` | Change | T0 | human approval | No |
 | `change.tag-owner-missing.001` | Change | T0 | auto | Yes, shadow delivery |
 | `dr.backup-vault-restore-rehearsal.002` | DR | T0 | auto | Yes, shadow delivery |
-| `dr.chaos-experiment-novel.003` | DR | T2 | HIL | No |
-| `dr.replica-lag-degraded.001` | DR | T1 | HIL | No |
-| `finops.right-size-vm-high-monthly.002` | FinOps | T0 | HIL | No |
+| `dr.chaos-experiment-novel.003` | DR | T2 | human approval | No |
+| `dr.replica-lag-degraded.001` | DR | T1 | human approval | No |
+| `finops.right-size-vm-high-monthly.002` | FinOps | T0 | human approval | No |
 | `finops.stop-idle-dev-vm-off-hours.003` | FinOps | T1 | auto | Yes, shadow delivery |
 | `finops.unattached-public-ip.001` | FinOps | T0 | auto | Yes, shadow delivery |
 
@@ -100,10 +100,10 @@ true cold-start latency.
 | Scenario | Expected result |
 |----------|-----------------|
 | `auto_rule_fired` | auto |
-| `hil_rule_fired` | HIL |
+| `hil_rule_fired` | human approval |
 | `deny_irreversible` | deny with quorum two |
-| `hil_unknown_event_triage` | HIL because a concrete resource exists |
-| `abstain_no_resource_target` | abstain because no actionable target exists |
+| `hil_unknown_event_triage` | human approval because a concrete resource exists |
+| `abstain_no_resource_target` | hold for review because no actionable target exists |
 | `rbac_denied_operator` | deny and emit a security event |
 
 ### Cross-agent pipeline matrix: 8 scenario cases
@@ -111,11 +111,11 @@ true cold-start latency.
 | Scenario case | Invariant |
 |---------------|-----------|
 | Auto in shadow | Judged and audited without mutation |
-| HIL request | Exactly one pending approval ticket |
+| human approval request | Exactly one pending approval ticket |
 | Deny | Never reaches approval or execution |
-| Mixed stream | Verdict and dispatch counts remain equal |
+| Mixed stream | Decision and dispatch counts remain equal |
 | Duplicate delivery | One dispatch, one measured duplicate, no double execution |
-| Empty or junk event | Abstains and causes no downstream action |
+| Empty or junk event | Holds for review and causes no downstream action |
 | Self-approval attempt | Blocked and measured as a security signal |
 | Repeated self-approval | Retry does not inflate the security count |
 
@@ -312,7 +312,7 @@ scenario. All 135 remain under `collected/`; zero are under `promoted/`.
   probe pair with a complete context. It does not mean a live fault ran.
 - **Shadow covered** means the detection, routing, RCA, response, and safety
   mapping exists without mutation.
-- **Live enforce validated** means a disposable substrate recorded injection,
+- **Live enforcement validated** means a disposable substrate recorded injection,
   expected detection, and rollback for that scenario.
 - **Promoted** would mean the scenario passed its independent promotion gate.
   The current catalog has zero promoted entries.
@@ -322,6 +322,6 @@ scenario. All 135 remain under `collected/`; zero are under `promoted/`.
 | To learn about | Read |
 |----------------|------|
 | How a catalog scenario runs safely | [Chaos engineering](chaos-engineering.md) |
-| How findings and forecasts are validated | [Observability, detection, and forecasting](observability-detection-and-forecasting.md) |
+| How detected issues and forecasts are validated | [Observability, detection, and forecasting](observability-detection-and-forecasting.md) |
 | How outcome measurements are compared | [Measuring SRE outcomes](measuring-sre-outcomes.md) |
 | The internal scaling design | [Scaling the SRE Scenario Library](../../internals/sre-scenario-library-scaling.md) |

@@ -7,7 +7,7 @@ description: A template for reducing alert noise and missed detection through me
 
 Use this runbook when false positives, false negatives, duplicate incidents, or
 stale routing reduce the usefulness of an alert. It keeps tuning measurable by
-comparing one proposed change against a frozen baseline in shadow mode, where
+comparing one proposed change against a frozen baseline in observation mode, where
 FDAI observes and logs but does not act.
 
 > Keep environment-specific detector names, dashboard queries, notification

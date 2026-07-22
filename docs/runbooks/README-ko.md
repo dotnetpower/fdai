@@ -2,8 +2,8 @@
 title: SRE Runbook
 description: Incident response, recovery, governed automation을 위한 customer-neutral 운영자 절차와 템플릿입니다.
 translation_of: README.md
-translation_source_sha: 0600c47d1dc312548f3f6e0090089931752d18f7
-translation_revised: 2026-07-17
+translation_source_sha: dba5e386a1e6f3de67a84905abb6aaa6fe49da54
+translation_revised: 2026-07-22
 ---
 
 # SRE Runbook
@@ -17,7 +17,7 @@ resource name, owner, paging integration, rollback implementation을 제공합�
 | 절차 | 사용 시점 |
 |------|-----------|
 | [인시던트 분류](incident-triage-ko.md) | 새 incident의 scope, severity, ownership, investigation이 필요할 때 |
-| [SLO burn 대응](slo-burn-response-ko.md) | Multi-window error-budget burn이 finding을 생성할 때 |
+| [SLO burn 대응](slo-burn-response-ko.md) | Multi-window error-budget burn이 발견된 문제를 생성할 때 |
 | [RCA 증거 수집](rca-evidence-collection-ko.md) | Investigation에 범위와 citation이 있는 evidence set이 필요할 때 |
 | [인시던트 완화와 rollback](incident-mitigation-and-rollback-ko.md) | Response plan이 governed change를 제안할 때 |
 | [포스트모템 workflow](postmortem-workflow-ko.md) | Resolved incident에 review와 follow-up이 필요할 때 |

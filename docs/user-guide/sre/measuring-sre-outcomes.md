@@ -51,5 +51,5 @@ past its threshold.
 | Canonical formulas and windows | [Goals and metrics](../../roadmap/architecture/goals-and-metrics.md) |
 | The named scenario sets and evidence levels | [Scenario validation inventory](scenario-validation-inventory.md) |
 | How SLO burn measures workload impact | [SLOs and error budgets](slos-and-error-budgets.md) |
-| How shadow evidence controls promotion | [Shadow, then enforce](../concepts/shadow-then-enforce.md) |
+| How shadow evidence controls promotion | [Observe, then enable changes](../concepts/shadow-then-enforce.md) |
 | How audit evidence is reconstructed | [Read the audit log](../guides/read-audit-log.md) |

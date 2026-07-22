@@ -40,7 +40,7 @@ never hold the executor identity described below.
   creates `id-<workload><suffix>-executor`, `-change`, `-resilience`, and `-finops` identities.
   Fork-owned policy modules bind the vertical action whitelists; see
   [Identity Mapping](#identity-mapping) below.
-- Human approval identities (HIL) are distinct from execution identities; approval and
+- human approval identities (HIL) are distinct from execution identities; approval and
   execution are never the same principal, and no identity may assume another domain's identity
   (cross-domain assumption is denied, not just unused).
 - Execution identities are **non-interactive**: no interactive/console sign-in, no human
@@ -196,7 +196,7 @@ no-op".
   evidence window, and rollback target for promotion, and engage a per-policy kill switch on an
   invariant violation. See [Context Selection Policy](../decisioning/context-selection-policy.md).
 
-## HIL Approval Integrity
+## Human Approval Integrity
 
 - Approval and execution are distinct principals; **no self-approval**, and high-blast-radius
   actions require **quorum (multi-approver)** rather than a single approver.

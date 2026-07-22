@@ -279,7 +279,7 @@ The command runs these stages in order:
 A failed or skipped probe never produces a `clear` result. The report marks the run incomplete and
 provides the failed probe name without exposing customer values or credentials.
 
-### Finding categories
+### Detected issue categories
 
 The CLI presents the categories already defined by deployment preflight:
 

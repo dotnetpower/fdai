@@ -12,7 +12,7 @@ targets, verifies recovery objectives, and records cleanup and audit evidence.
 ## Plan the drill
 
 A drill declares the protected workload, target RPO and RTO, exercise window,
-isolated destination, owner, stop conditions, blast radius, cleanup plan, and
+isolated destination, owner, stop conditions, impact scope, cleanup plan, and
 evidence requirements. Production data is not overwritten by a verification
 restore.
 
@@ -34,7 +34,7 @@ reason to mark the workload healthy.
 
 ## Promotion and cadence
 
-New drill automation starts in shadow. A scheduler owns cadence, the risk gate
+New drill automation starts in shadow. A scheduler owns cadence, the safety check
 owns scope and execution eligibility, and the audit log owns proof. Promotion
 requires repeatable success and no policy-violation escape.
 

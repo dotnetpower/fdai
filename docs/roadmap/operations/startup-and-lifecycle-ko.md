@@ -1,8 +1,8 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: 51f012984d879e8d021a9ece830d5d70068ae781
-translation_revised: 2026-07-21
+translation_source_sha: 4a09a3b7e50d8b62186232f506302e5d27e34c03
+translation_revised: 2026-07-22
 ---
 
 # 시작과 라이프사이클(Startup and Lifecycle)
@@ -150,7 +150,7 @@ materialize하고 runtime/read API는 configured filesystem path를 읽습니다
   ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md)).
 - Kill-switch는 D+7 종료 전에 도달 가능성 검증.
 
-## HIL 승인자 부트스트랩
+## 사람 승인 담당자 부트스트랩
 
 > **현재 경계**: Role/group resolver와 Teams/Slack delivery adapter는 구현되어 있지만 Teams SSO
 > OBO approval callback, group-connected audience derivation, governance PR quorum CI 및 dry-run HIL

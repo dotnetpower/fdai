@@ -560,7 +560,7 @@ debate promotion for the ActionType entirely.
 4.5 delta-2b; when it lands this section will document the
 `RiskGate(overlay_path=...)` binding.
 
-### 5.10 Runtime failure modes and abstain contracts
+### 5.10 Runtime failure modes and hold for review contracts
 
 Every seam has a documented behaviour when its live adapter fails
 at runtime. A fork's adapters MUST honour these contracts so the

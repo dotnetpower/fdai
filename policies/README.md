@@ -60,12 +60,11 @@ timeout (default 5 s). It is bound at the composition root through the existing
   explicitly - auditable degradation, no silent no-op.
 - **Fail-close per rule**: subprocess timeout, non-zero exit, non-JSON stdout,
   or a missing / traversal-shaped policy reference raises `OpaEvaluatorError`.
-  The T0 engine converts that into an abstain **for that rule only**, so a
+  The T0 engine converts that into an hold for review **for that rule only**, so a
   single broken policy cannot silence the rest of the catalog.
 - **Package query**: given `rule.check_logic.reference == "policies/foo/bar.rego"`,
   the evaluator queries `data.fdai.foo.bar` and inspects `deny` /
-  `deny_reason`. An undefined query result is an abstain.
+  `deny_reason`. An undefined query result is an hold for review.
 - **CI installs OPA** ([.github/workflows/ci.yml](../.github/workflows/ci.yml))
   pinned to a checksummed version so the merge gate exercises the real
   subprocess path; local dev tests skip gracefully when `opa` is absent.
-

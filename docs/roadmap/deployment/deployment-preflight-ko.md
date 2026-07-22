@@ -1,8 +1,8 @@
 ---
 title: 배포 프리플라이트 (배포 가능성 및 blocker 수집)
 translation_of: deployment-preflight.md
-translation_source_sha: 0d87c7b2bf3366df92849bd9b1097004c5d73a00
-translation_revised: 2026-07-21
+translation_source_sha: 91114276cbd3287a11819989707c6d0f63457e21
+translation_revised: 2026-07-22
 ---
 # 배포 프리플라이트 (배포 가능성 및 blocker 수집)
 
@@ -77,7 +77,7 @@ finding은 하나의 `DeploymentReadinessReport`
   게이팅하지 않음).
 - **resolution** - 어떻게 해소하는지, 가능하면 구체적인 레버에 매핑됨 (아래 토글 표 참조).
 
-### Verdict 의미론
+### 결정 의미론
 
 | Verdict | 의미 |
 |---------|---------|

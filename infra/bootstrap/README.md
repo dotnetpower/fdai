@@ -73,7 +73,7 @@ no cloud credentials are stored on the box.
 
 ## Security notes
 
-- The runner MI is Contributor on the app RG only (blast radius = one env).
+- The runner MI is Contributor on the app RG only (impact scope = one env).
 - No public IP; access is Bastion / run-command / serial console.
 - The state account is private + versioned; a bad apply is recoverable.
 - `bootstrap.tfvars` and `*.tfstate` are gitignored - never commit them.

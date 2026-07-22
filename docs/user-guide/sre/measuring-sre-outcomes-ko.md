@@ -2,8 +2,8 @@
 title: SRE 성과 측정
 description: 자동화량을 신뢰성과 혼동하지 않고 paired baseline을 기준으로 FDAI SRE 성과를 측정하는 방법입니다.
 translation_of: measuring-sre-outcomes.md
-translation_source_sha: 7de998b8495614d9eeff0222f9ff50307848f02e
-translation_revised: 2026-07-17
+translation_source_sha: b0fa546247f5409d2b24e8243e9c8152321f82a8
+translation_revised: 2026-07-22
 ---
 
 # SRE 성과 측정

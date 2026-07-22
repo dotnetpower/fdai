@@ -15,7 +15,7 @@ names, owners, paging integrations, and rollback implementations.
 | Procedure | Use it when |
 |-----------|-------------|
 | [Incident triage](incident-triage.md) | A new incident needs scope, severity, ownership, and investigation |
-| [SLO burn response](slo-burn-response.md) | Multi-window error-budget burn raises a finding |
+| [SLO burn response](slo-burn-response.md) | Multi-window error-budget burn raises a detected issue |
 | [RCA evidence collection](rca-evidence-collection.md) | An investigation needs a bounded, cited evidence set |
 | [Incident mitigation and rollback](incident-mitigation-and-rollback.md) | A response plan proposes a governed change |
 | [Postmortem workflow](postmortem-workflow.md) | A resolved incident needs review and follow-up |

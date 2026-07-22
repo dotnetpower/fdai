@@ -1,8 +1,8 @@
 ---
 title: Fork Seam Recipe 조리서
 translation_of: downstream-fork-seam-recipes.md
-translation_source_sha: d21945961f1b5b6e960d1bf7769bacd17c4b6d56
-translation_revised: 2026-07-21
+translation_source_sha: 02c8a8d777a9f80ad0add87cf5086964bf4c4cff
+translation_revised: 2026-07-22
 ---
 
 # Fork Seam Recipes
@@ -536,7 +536,7 @@ override로 인코딩, 또는 `DebateRouterConfig`의
 **추적**: Overlay wire는 Wave 4.5 delta-2b의 follow-up으로 계획됨;
  landing되면 이 섹션에 `RiskGate(overlay_path=...)` 바인딩 문서화.
 
-### 5.10 런타임 실패 모드와 abstain 계약
+### 5.10 런타임 실패 모드와 판단 보류 계약
 
 모든 seam은 live 어댑터가 런타임에 실패할 때의 문서화된 동작을
 갖습니다. Fork의 어댑터는 컨트롤 루프가 게이트되지 않은 액션이 아니라

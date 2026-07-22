@@ -81,7 +81,7 @@ Each finding carries three required parts:
 - **resolution** - how to clear it, mapped to a concrete lever when possible
   (see the toggle table below).
 
-### Verdict Semantics
+### Decision Semantics
 
 | Verdict | Meaning |
 |---------|---------|
