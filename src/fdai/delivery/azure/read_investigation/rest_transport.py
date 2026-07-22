@@ -499,7 +499,16 @@ class AzureRestReadTransport:
             if response.status_code not in {429, 500, 502, 503, 504}:
                 break
             if attempt + 1 < self._config.max_attempts:
-                await _delay(attempt, deadline=deadline, monotonic=self._monotonic)
+                await _delay(
+                    attempt,
+                    deadline=deadline,
+                    monotonic=self._monotonic,
+                    retry_after=(
+                        _retry_after_seconds(response.headers.get("Retry-After"))
+                        if response.status_code == 429
+                        else None
+                    ),
+                )
         if response is None:
             raise AzureReadRestError("Azure read request timed out")
         if response.status_code >= 400:
@@ -546,11 +555,22 @@ async def _delay(
     *,
     deadline: float,
     monotonic: Callable[[], float],
+    retry_after: float | None = None,
 ) -> None:
     remaining = deadline - monotonic()
     if remaining > 0:
-        delay = min(0.25 * (2**attempt) + secrets.randbelow(101) / 1_000, 1.0)
+        delay = (
+            retry_after
+            if retry_after is not None
+            else min(0.25 * (2**attempt) + secrets.randbelow(101) / 1_000, 1.0)
+        )
         await asyncio.sleep(min(delay, remaining))
+
+
+def _retry_after_seconds(value: str | None) -> float | None:
+    if value is None or not value.isdigit():
+        return None
+    return float(value)
 
 
 def _bounded(name: str, value: str) -> None:

@@ -310,8 +310,8 @@ raw CLI output, prompts, and unredacted caller payloads.
 - **Ambiguous resource:** Return bounded candidates and request resource group or subscription
   context before any history query.
 - **Unauthorized scope:** Report unavailable and record the denied provider operation class.
-- **Provider throttling:** Apply bounded retry with jitter inside the original timeout; never widen
-  scope or wall-clock budget.
+- **Provider throttling:** Honor a numeric `Retry-After` value inside the original timeout. Missing
+  or malformed values use bounded jitter. Neither path widens scope or wall-clock budget.
 - **Insufficient retention:** Return unavailable before cloud I/O when a requested lookback exceeds
   its source-specific configured retention. Activity Log defaults to 90 days and guest logs default
   to 30 days; deployments can narrow either window to their actual retention.

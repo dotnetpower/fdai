@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 472d65b3e2e1c1b287bb6a375cc06cd572f97562
+translation_source_sha: 3a85bf0bdad2f36889b379b6f7584831fc2b7d38
 translation_revised: 2026-07-23
 ---
 
@@ -308,8 +308,9 @@ prompt 및 unredacted caller payload는 제외합니다.
 - **Ambiguous resource:** History query 전에 bounded candidate를 반환하고 resource group 또는
   subscription context를 요청합니다.
 - **Unauthorized scope:** Unavailable을 보고하고 denied provider operation class를 기록합니다.
-- **Provider throttling:** 원래 timeout 안에서 bounded retry와 jitter를 적용하며 scope 또는 wall-clock
-  budget을 확장하지 않습니다.
+- **Provider throttling:** 원래 timeout 안에서 numeric `Retry-After` 값을 따릅니다. 값이 없거나
+  malformed이면 bounded jitter를 사용합니다. 두 경로 모두 scope 또는 wall-clock budget을 확장하지
+  않습니다.
 - **Retention 부족:** 요청한 lookback이 source-specific configured retention을 넘으면 cloud I/O 전에
   `unavailable`을 반환합니다. Activity Log는 기본 90일, guest log는 기본 30일이며 deployment는 실제
   retention에 맞게 각 window를 더 좁힐 수 있습니다.

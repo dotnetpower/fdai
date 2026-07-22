@@ -207,6 +207,43 @@ async def test_scope_mismatch_is_rejected_before_http() -> None:
     assert calls == 0
 
 
+async def test_throttling_honors_retry_after_within_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    delays: list[float] = []
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(429, headers={"Retry-After": "4"})
+        return httpx.Response(200, json={"data": []})
+
+    async def capture_sleep(delay: float) -> None:
+        delays.append(delay)
+
+    monkeypatch.setattr(
+        "fdai.delivery.azure.read_investigation.rest_transport.asyncio.sleep",
+        capture_sleep,
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        transport = AzureRestReadTransport(
+            config=_config(max_attempts=2),
+            identity=_Identity(),
+            http_client=client,
+            clock=lambda: NOW,
+        )
+        result = await transport.resolve_resources(
+            ResourceSelector(name="vm-01", scope_ref="scope:allowed"),
+            limits=LIMITS,
+        )
+
+    assert result == []
+    assert calls == 2
+    assert delays == [4.0]
+
+
 async def test_resource_health_fallback_honors_lookback() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/providers/Microsoft.ResourceGraph/resources"):
