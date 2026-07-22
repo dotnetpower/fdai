@@ -197,6 +197,7 @@ class ToolCallReceipt:
     operation_class: str | None = None
     queue_duration_ms: int = 0
     execution_duration_ms: int = 0
+    cost_microusd: int | None = None
     result_count: int = 0
     truncated: bool = False
     cache_status: str | None = None
@@ -224,6 +225,8 @@ class ToolCallReceipt:
             < 0
         ):
             raise ValueError("tool receipt measurements MUST be non-negative")
+        if self.cost_microusd is not None and self.cost_microusd < 0:
+            raise ValueError("tool receipt cost_microusd MUST be non-negative")
         if self.recorded_at is not None and self.recorded_at.tzinfo is None:
             raise ValueError("tool receipt recorded_at MUST be timezone-aware")
 

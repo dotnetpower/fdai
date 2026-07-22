@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 760,
+  "file_count": 761,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "9c9896eb628da8e8d0c621938310546426d42c497ac45d6dac2afabe02a909e4",
     ".github/instructions/agent-stewardship.instructions.md": "a1d3657f05323259023fbb1abf304495ec923f6bb917be739ed49647171195ba",
@@ -374,9 +374,10 @@
     "src/fdai/core/rca/scenario_context.py": "e5b232617019e4cf19a5a287c7eef53d9b42ecab3dbed11469dd45f5f811f175",
     "src/fdai/core/rca/t0.py": "691c0234927a4553854ff744b34b1e6ec15244413a433cd834f7f6332a6516e9",
     "src/fdai/core/rca/t1.py": "7491f69abb78f0ae69e966188f33b2c8daa5691596db2707196f66f2086b3981",
-    "src/fdai/core/read_investigation/__init__.py": "16edb0ba0ace10d1e4e6c3352e6d47abe08a2695f2c6bf04cdb9ebcff54aa36d",
+    "src/fdai/core/read_investigation/__init__.py": "e4f5863dd8d84f5c34c3562fbf019d2e2a52ccfa7d886b1373fa303aa79105d6",
     "src/fdai/core/read_investigation/catalog.py": "e11dc50909ac4ba934c2a6ecf852588b25d6ed4e8ac24db46eb56d561d50c0f6",
     "src/fdai/core/read_investigation/execution_policy.py": "0ac98ac053de3a6a18b698af99c17bc6759ae02ab5c13a3e065f4c75a922d1a7",
+    "src/fdai/core/read_investigation/idempotency.py": "b4b96c09d07a281cebe48a2b3413aac02463746d7addd6061d5b91d1452ad775",
     "src/fdai/core/read_investigation/latency.py": "ce2354b983109953c406898e0951eb791742ef3c0ff42a5d286ae900d833ac20",
     "src/fdai/core/read_investigation/models.py": "dc8ca58e73433e677fdf2405d2934a697ca417ad74f1f65d65808d2707634f0c",
     "src/fdai/core/read_investigation/planner.py": "339dadc1c65acf2a29f45f1a524f07075a68a3e11b42801c4435a6d6b8db4a32",
@@ -755,7 +756,7 @@
     "src/fdai/shared/providers/testing/vm_task.py": "74d34c5d045fb0dd2be8cc6094ea9918a27456bbbe0b1397de2ceb662f6995a9",
     "src/fdai/shared/providers/testing/workflow_definition.py": "debdaede3b92c3760e31c3a13fc5ab6845b3f7be3a9d5d86b752ed6d561ad75a",
     "src/fdai/shared/providers/testing/workload_identity.py": "6ac1fc690b5e9f8da2e56187778133d39080f16c04b5530d4ba68e14afcd031e",
-    "src/fdai/shared/providers/tool.py": "3ab1afe1fd69498103ca0a2ff1ef71bcbbff8af8563c2a16da30f0e80855fe2d",
+    "src/fdai/shared/providers/tool.py": "b19db610e915211091a8b5804a5f621c8ccf07579f7852b6293574d24f9d42f8",
     "src/fdai/shared/providers/trace_query.py": "97688d3bfb542c94db6bdaf46364b55b5137fa55172fd4fe0b49f1670feee53c",
     "src/fdai/shared/providers/trajectory.py": "a3e25731c1023d2e2de1a493abe7e23af4d8eb2d39f549e602db1939a450b3e4",
     "src/fdai/shared/providers/user_context.py": "6856c9adfdb9b39a192889328fee765aeadfc2381d810f85a5afac068a085932",
@@ -763,7 +764,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-22T14:27:56Z",
+  "generated_at": "2026-07-22T14:37:07Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

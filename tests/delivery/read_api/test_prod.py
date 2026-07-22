@@ -13,6 +13,7 @@ from typing import Final
 import pytest
 from starlette.applications import Starlette
 
+from fdai.delivery.persistence import PostgresReadInvestigationRunStore
 from fdai.delivery.read_api.prod import (
     ProdReadApiConfigError,
     _parse_cors_origins,
@@ -190,6 +191,36 @@ def test_build_prod_app_verifies_postgresql_before_runtime_startup(
 
     assert captured_callbacks
     assert getattr(captured_callbacks[0], "__name__", "") == "verify_connection"
+
+
+def test_build_prod_app_wires_singleton_read_investigation_run_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_config = None
+
+    def capture_build_app(**kwargs: object) -> Starlette:
+        nonlocal captured_config
+        captured_config = kwargs["config"]
+        return Starlette()
+
+    monkeypatch.setattr(
+        "fdai.delivery.read_api.production.factory.build_app",
+        capture_build_app,
+    )
+    monkeypatch.setenv("IDENTITY_ENDPOINT", "http://localhost/identity")
+    monkeypatch.setenv("IDENTITY_HEADER", "test-header")
+
+    env = dict(_GOOD_ENV)
+    env["FDAI_AZURE_READER_SUBSCRIPTION_ID"] = "sub-example"
+    env["FDAI_AZURE_READER_CLIENT_ID"] = "reader-client"
+    env["FDAI_AZURE_READER_RESOURCE_GROUPS"] = "rg-one"
+
+    build_prod_app(env)
+
+    assert captured_config is not None
+    routes_config = captured_config.read_investigations  # type: ignore[attr-defined]
+    assert routes_config is not None
+    assert isinstance(routes_config.run_store, PostgresReadInvestigationRunStore)
 
 
 def test_build_prod_app_rejects_unimplemented_identity_provider() -> None:

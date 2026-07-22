@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
 from httpx import ASGITransport, AsyncClient
-from pytest import MonkeyPatch
+from pytest import MonkeyPatch, raises
 from starlette.applications import Starlette
 from starlette.requests import Request
 
@@ -12,10 +13,18 @@ from fdai.core.background_task import BackgroundTaskService, InMemoryBackgroundT
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
 from fdai.core.read_investigation import (
+    MAX_READ_INVESTIGATION_ATTEMPTS,
+    InMemoryReadInvestigationRunStore,
     PlanLatencyEstimate,
     ReadInvestigationBudget,
     ReadInvestigationProgressKind,
     ReadInvestigationRequest,
+    ReadInvestigationResult,
+    ReadInvestigationRunConflictError,
+    ReadInvestigationRunMode,
+    ReadInvestigationRunRecord,
+    ReadInvestigationRunState,
+    ReadInvestigationRunUsage,
     ReadInvestigationService,
     plan_read_investigation,
 )
@@ -23,7 +32,7 @@ from fdai.delivery.read_api.routes import read_investigations as read_investigat
 from fdai.delivery.read_api.routes.background_tasks import BackgroundTaskRoutesConfig
 from fdai.delivery.read_api.routes.read_investigations import (
     ReadInvestigationRoutesConfig,
-    _stream,
+    ReadInvestigationRunLedgerConfig,
     make_read_investigation_routes,
 )
 from fdai.shared.providers.read_investigation import (
@@ -90,6 +99,17 @@ class _LatencyStore:
             )
             for _ in range(20)
         )
+
+
+class _MutableClock:
+    def __init__(self, now: datetime) -> None:
+        self._now = now
+
+    def now(self) -> datetime:
+        return self._now
+
+    def advance(self, seconds: float) -> None:
+        self._now = self._now + timedelta(seconds=seconds)
 
 
 class _Provider:
@@ -173,6 +193,7 @@ def _receipt(
 async def _client(*, measured: bool, role: Role = Role.CONTRIBUTOR):
     provider = _Provider()
     latency = _LatencyStore(measured=measured)
+    run_store = InMemoryReadInvestigationRunStore()
     background_store = InMemoryBackgroundTaskStore()
     coordinator = _Coordinator()
 
@@ -186,9 +207,11 @@ async def _client(*, measured: bool, role: Role = Role.CONTRIBUTOR):
     )
     config = ReadInvestigationRoutesConfig(
         service=ReadInvestigationService(provider, clock=lambda: NOW, latency_store=latency),
+        run_store=run_store,
         latency_store=latency,
         background=background,
         scope_ref="scope:allowed",
+        clock=lambda: NOW,
     )
     app = Starlette(
         routes=list(
@@ -202,6 +225,7 @@ async def _client(*, measured: bool, role: Role = Role.CONTRIBUTOR):
         AsyncClient(transport=ASGITransport(app=app), base_url="http://test"),
         provider,
         coordinator,
+        run_store,
     )
 
 
@@ -219,7 +243,7 @@ def _body(intent: str) -> dict[str, object]:
 
 
 async def test_measured_fast_investigation_runs_direct() -> None:
-    client, provider, _ = await _client(measured=True)
+    client, provider, _, _ = await _client(measured=True)
     async with client:
         response = await client.post("/read-investigations", json=_body("resource_state"))
     assert response.status_code == 200
@@ -229,7 +253,7 @@ async def test_measured_fast_investigation_runs_direct() -> None:
 
 
 async def test_cold_single_source_investigation_streams_semantic_progress() -> None:
-    client, provider, _ = await _client(measured=False)
+    client, provider, _, _ = await _client(measured=False)
     async with client:
         response = await client.post("/read-investigations", json=_body("resource_state"))
     assert response.status_code == 200
@@ -240,7 +264,7 @@ async def test_cold_single_source_investigation_streams_semantic_progress() -> N
 
 
 async def test_multi_source_investigation_detaches_before_cloud_io() -> None:
-    client, provider, coordinator = await _client(measured=True)
+    client, provider, coordinator, _ = await _client(measured=True)
     async with client:
         response = await client.post(
             "/read-investigations",
@@ -253,7 +277,7 @@ async def test_multi_source_investigation_detaches_before_cloud_io() -> None:
 
 
 async def test_reader_cannot_start_investigation() -> None:
-    client, provider, _ = await _client(measured=True, role=Role.READER)
+    client, provider, _, _ = await _client(measured=True, role=Role.READER)
     async with client:
         response = await client.post("/read-investigations", json=_body("resource_state"))
     assert response.status_code == 403
@@ -261,7 +285,7 @@ async def test_reader_cannot_start_investigation() -> None:
 
 
 async def test_invalid_budget_returns_400_before_cloud_io() -> None:
-    client, provider, _ = await _client(measured=True)
+    client, provider, _, _ = await _client(measured=True)
     body = _body("resource_state")
     body["budget"] = {"max_tool_calls": 6}
     async with client:
@@ -269,6 +293,672 @@ async def test_invalid_budget_returns_400_before_cloud_io() -> None:
     assert response.status_code == 400
     assert "max_tool_calls" in response.text
     assert provider.calls == []
+
+
+async def test_direct_replay_returns_header_and_skips_provider_recall() -> None:
+    client, provider, _, run_store = await _client(measured=True)
+    body = _body("resource_state")
+    async with client:
+        first = await client.post("/read-investigations", json=body)
+        second = await client.post("/read-investigations", json=body)
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.headers.get("X-FDAI-Read-Investigation-Replay") == "1"
+    assert provider.calls == [ReadToolId.RESOLVE_RESOURCE, ReadToolId.GET_RESOURCE_STATE]
+    run = await run_store.get(
+        owner_principal_id="principal:one",
+        idempotency_key=str(body["idempotency_key"]),
+    )
+    assert run is not None and run.usage is not None
+    assert run.usage.reserved_cost_microusd == 100_000
+    assert run.usage.measured_cost_microusd is None
+
+
+async def test_direct_executor_rejects_requester_mismatch_before_store_io() -> None:
+    request = read_investigation_routes._request(
+        _body("resource_state"),
+        principal=Principal(oid="principal:one", roles=frozenset({Role.CONTRIBUTOR})),
+        scope_ref="scope:allowed",
+    )
+    executor = read_investigation_routes.IdempotentReadInvestigationExecutor(
+        None  # type: ignore[arg-type]
+    )
+
+    with raises(
+        read_investigation_routes.ReadInvestigationRunRejectedError,
+        match="requester does not match",
+    ):
+        await executor.execute(
+            plan_read_investigation(request),
+            owner_principal_id="principal:two",
+        )
+
+
+async def test_run_usage_sums_cost_only_when_every_receipt_is_measured() -> None:
+    client, _, _, run_store = await _client(measured=True)
+    body = _body("resource_state")
+    async with client:
+        response = await client.post("/read-investigations", json=body)
+    assert response.status_code == 200
+    run = await run_store.get(
+        owner_principal_id="principal:one",
+        idempotency_key=str(body["idempotency_key"]),
+    )
+    assert run is not None and run.result is not None
+
+    measured_result = replace(
+        run.result,
+        receipts=tuple(
+            replace(receipt, cost_microusd=100 + index)
+            for index, receipt in enumerate(run.result.receipts)
+        ),
+    )
+    measured = read_investigation_routes._run_usage(
+        request=run.request,
+        result=measured_result,
+        execution_duration_ms=200,
+    )
+    partial = read_investigation_routes._run_usage(
+        request=run.request,
+        result=replace(
+            measured_result,
+            receipts=(replace(measured_result.receipts[0], cost_microusd=None),)
+            + measured_result.receipts[1:],
+        ),
+        execution_duration_ms=200,
+    )
+
+    assert measured.reserved_cost_microusd == 100_000
+    assert measured.measured_cost_microusd == 201
+    assert partial.measured_cost_microusd is None
+
+
+async def test_stream_replay_emits_immediate_terminal_without_provider_recall() -> None:
+    client, provider, _, _ = await _client(measured=False)
+    body = _body("resource_state")
+    async with client:
+        first = await client.post("/read-investigations", json=body)
+        second = await client.post("/read-investigations", json=body)
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert "event: terminal" in second.text
+    assert "event: progress" not in second.text
+    assert provider.calls == [ReadToolId.RESOLVE_RESOURCE, ReadToolId.GET_RESOURCE_STATE]
+
+
+async def test_active_inflight_request_returns_409_with_retry_after() -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class _SlowProvider(_Provider):
+        async def get_resource_state(self, resource, *, limits):  # type: ignore[no-untyped-def]
+            started.set()
+            await release.wait()
+            return await super().get_resource_state(resource, limits=limits)
+
+    provider = _SlowProvider()
+    latency = _LatencyStore(measured=True)
+    run_store = InMemoryReadInvestigationRunStore()
+    background_store = InMemoryBackgroundTaskStore()
+    coordinator = _Coordinator()
+
+    async def authorize(_request: Request) -> Principal:
+        return Principal(oid="principal:one", roles=frozenset({Role.CONTRIBUTOR}))
+
+    config = ReadInvestigationRoutesConfig(
+        service=ReadInvestigationService(provider, clock=lambda: NOW, latency_store=latency),
+        run_store=run_store,
+        latency_store=latency,
+        background=BackgroundTaskRoutesConfig(
+            service=BackgroundTaskService(store=background_store, audit=_Audit()),
+            store=background_store,
+            coordinator=coordinator,  # type: ignore[arg-type]
+        ),
+        scope_ref="scope:allowed",
+        clock=lambda: NOW,
+    )
+    app = Starlette(
+        routes=list(make_read_investigation_routes(config=config, authorize_principal=authorize))
+    )
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    body = _body("resource_state")
+
+    async with client:
+        first_task = asyncio.create_task(client.post("/read-investigations", json=body))
+        await asyncio.wait_for(started.wait(), timeout=1.0)
+        second = await client.post("/read-investigations", json=body)
+        release.set()
+        first = await first_task
+
+    assert first.status_code == 200
+    assert second.status_code == 409
+    assert second.headers.get("Retry-After") is not None
+    assert provider.calls == [ReadToolId.RESOLVE_RESOURCE, ReadToolId.GET_RESOURCE_STATE]
+
+
+async def test_same_key_with_different_payload_returns_409() -> None:
+    client, provider, _, _ = await _client(measured=True)
+    first = _body("resource_state")
+    second = dict(first)
+    second["lookback_seconds"] = 7_200
+    async with client:
+        first_response = await client.post("/read-investigations", json=first)
+        second_response = await client.post("/read-investigations", json=second)
+    assert first_response.status_code == 200
+    assert second_response.status_code == 409
+    assert provider.calls == [ReadToolId.RESOLVE_RESOURCE, ReadToolId.GET_RESOURCE_STATE]
+
+
+async def test_owner_isolation_allows_same_key_for_different_principals() -> None:
+    provider = _Provider()
+    latency = _LatencyStore(measured=True)
+    run_store = InMemoryReadInvestigationRunStore()
+    background_store = InMemoryBackgroundTaskStore()
+    coordinator = _Coordinator()
+
+    async def authorize(request: Request) -> Principal:
+        owner = request.headers.get("x-owner", "principal:one")
+        return Principal(oid=owner, roles=frozenset({Role.CONTRIBUTOR}))
+
+    config = ReadInvestigationRoutesConfig(
+        service=ReadInvestigationService(provider, clock=lambda: NOW, latency_store=latency),
+        run_store=run_store,
+        latency_store=latency,
+        background=BackgroundTaskRoutesConfig(
+            service=BackgroundTaskService(store=background_store, audit=_Audit()),
+            store=background_store,
+            coordinator=coordinator,  # type: ignore[arg-type]
+        ),
+        scope_ref="scope:allowed",
+        clock=lambda: NOW,
+    )
+    app = Starlette(
+        routes=list(make_read_investigation_routes(config=config, authorize_principal=authorize))
+    )
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    body = _body("resource_state")
+
+    async with client:
+        first = await client.post("/read-investigations", json=body, headers={"x-owner": "a"})
+        second = await client.post("/read-investigations", json=body, headers={"x-owner": "b"})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert provider.calls == [
+        ReadToolId.RESOLVE_RESOURCE,
+        ReadToolId.GET_RESOURCE_STATE,
+        ReadToolId.RESOLVE_RESOURCE,
+        ReadToolId.GET_RESOURCE_STATE,
+    ]
+
+
+async def test_service_failure_marks_failed_terminal_state() -> None:
+    class _FailingService:
+        transport = "rest"
+
+        async def execute(self, plan, *, progress_observer=None):  # type: ignore[no-untyped-def]
+            del plan, progress_observer
+            raise RuntimeError("boom")
+
+    run_store = InMemoryReadInvestigationRunStore()
+    background_store = InMemoryBackgroundTaskStore()
+    coordinator = _Coordinator()
+    latency = _LatencyStore(measured=True)
+
+    async def authorize(_request: Request) -> Principal:
+        return Principal(oid="principal:one", roles=frozenset({Role.CONTRIBUTOR}))
+
+    config = ReadInvestigationRoutesConfig(
+        service=_FailingService(),  # type: ignore[arg-type]
+        run_store=run_store,
+        latency_store=latency,
+        background=BackgroundTaskRoutesConfig(
+            service=BackgroundTaskService(store=background_store, audit=_Audit()),
+            store=background_store,
+            coordinator=coordinator,  # type: ignore[arg-type]
+        ),
+        scope_ref="scope:allowed",
+        clock=lambda: NOW,
+    )
+    app = Starlette(
+        routes=list(make_read_investigation_routes(config=config, authorize_principal=authorize))
+    )
+    client = AsyncClient(
+        transport=ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://test",
+    )
+    body = _body("resource_state")
+
+    async with client:
+        response = await client.post("/read-investigations", json=body)
+
+    run = await run_store.get(
+        owner_principal_id="principal:one",
+        idempotency_key=body["idempotency_key"],
+    )
+    assert response.status_code == 500
+    assert run is not None
+    assert run.state is ReadInvestigationRunState.FAILED
+    assert run.failure_reason == "service_execution_failed"
+    assert run.terminal_at == NOW
+
+
+async def test_same_key_retry_after_transient_failure_reexecutes_once() -> None:
+    provider = _Provider()
+    latency = _LatencyStore(measured=True)
+    run_store = InMemoryReadInvestigationRunStore()
+    background_store = InMemoryBackgroundTaskStore()
+    service = ReadInvestigationService(provider, clock=lambda: NOW, latency_store=latency)
+
+    class _FlakyService:
+        transport = "rest"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def execute(self, plan, *, progress_observer=None):  # type: ignore[no-untyped-def]
+            self.calls += 1
+            result = await service.execute(plan, progress_observer=progress_observer)
+            if self.calls == 1:
+                raise RuntimeError("transient")
+            return result
+
+    flaky_service = _FlakyService()
+
+    async def authorize(_request: Request) -> Principal:
+        return Principal(oid="principal:one", roles=frozenset({Role.CONTRIBUTOR}))
+
+    config = ReadInvestigationRoutesConfig(
+        service=flaky_service,  # type: ignore[arg-type]
+        run_store=run_store,
+        latency_store=latency,
+        background=BackgroundTaskRoutesConfig(
+            service=BackgroundTaskService(store=background_store, audit=_Audit()),
+            store=background_store,
+            coordinator=_Coordinator(),  # type: ignore[arg-type]
+        ),
+        scope_ref="scope:allowed",
+        clock=lambda: NOW,
+    )
+    app = Starlette(
+        routes=list(make_read_investigation_routes(config=config, authorize_principal=authorize))
+    )
+    client = AsyncClient(
+        transport=ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://test",
+    )
+    body = _body("resource_state")
+
+    async with client:
+        first = await client.post("/read-investigations", json=body)
+        second = await client.post("/read-investigations", json=body)
+
+    run = await run_store.get(
+        owner_principal_id="principal:one",
+        idempotency_key=str(body["idempotency_key"]),
+    )
+    assert first.status_code == 500
+    assert second.status_code == 200
+    assert provider.calls == [
+        ReadToolId.RESOLVE_RESOURCE,
+        ReadToolId.GET_RESOURCE_STATE,
+        ReadToolId.RESOLVE_RESOURCE,
+        ReadToolId.GET_RESOURCE_STATE,
+    ]
+    assert run is not None
+    assert run.state is ReadInvestigationRunState.COMPLETED
+    assert run.attempt_count == 2
+
+
+async def test_same_key_retry_after_expired_reexecutes_once() -> None:
+    provider = _Provider()
+    latency = _LatencyStore(measured=True)
+    run_store = InMemoryReadInvestigationRunStore()
+    background_store = InMemoryBackgroundTaskStore()
+    body = _body("resource_state")
+    seeded_request = ReadInvestigationRequest(
+        requester_ref="principal:one",
+        conversation_ref=str(body["conversation_id"]),
+        correlation_ref=str(body["correlation_id"]),
+        intent=ReadInvestigationIntent.RESOURCE_STATE,
+        selector=ResourceSelector(name=str(body["resource_name"]), scope_ref="scope:allowed"),
+        lookback_seconds=3_600,
+        requested_evidence=(),
+        budget=ReadInvestigationBudget(),
+        idempotency_key=str(body["idempotency_key"]),
+        created_at=NOW,
+    )
+    claimed, _ = await run_store.claim(
+        owner_principal_id="principal:one",
+        request=seeded_request,
+        mode=ReadInvestigationRunMode.DIRECT,
+        lease_owner="read-api",
+        lease_token="lease:seed",
+        now=NOW,
+        lease_seconds=1,
+        retention_seconds=300,
+    )
+    await run_store.fail(
+        owner_principal_id="principal:one",
+        idempotency_key=seeded_request.idempotency_key,
+        expected_revision=claimed.revision,
+        lease_token="lease:seed",
+        failure_reason="client_stream_disconnected",
+        usage=ReadInvestigationRunUsage(tool_calls=0, execution_duration_ms=1),
+        now=NOW,
+        state=ReadInvestigationRunState.EXPIRED,
+    )
+
+    async def authorize(_request: Request) -> Principal:
+        return Principal(oid="principal:one", roles=frozenset({Role.CONTRIBUTOR}))
+
+    config = ReadInvestigationRoutesConfig(
+        service=ReadInvestigationService(provider, clock=lambda: NOW, latency_store=latency),
+        run_store=run_store,
+        latency_store=latency,
+        background=BackgroundTaskRoutesConfig(
+            service=BackgroundTaskService(store=background_store, audit=_Audit()),
+            store=background_store,
+            coordinator=_Coordinator(),  # type: ignore[arg-type]
+        ),
+        scope_ref="scope:allowed",
+        clock=lambda: NOW,
+    )
+    app = Starlette(
+        routes=list(make_read_investigation_routes(config=config, authorize_principal=authorize))
+    )
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+
+    async with client:
+        response = await client.post("/read-investigations", json=body)
+
+    run = await run_store.get(
+        owner_principal_id="principal:one",
+        idempotency_key=seeded_request.idempotency_key,
+    )
+    assert response.status_code == 200
+    assert provider.calls == [ReadToolId.RESOLVE_RESOURCE, ReadToolId.GET_RESOURCE_STATE]
+    assert run is not None
+    assert run.state is ReadInvestigationRunState.COMPLETED
+    assert run.attempt_count == 2
+
+
+async def test_concurrent_reclaim_runs_provider_once_and_loser_gets_409() -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class _SlowProvider(_Provider):
+        async def get_resource_state(self, resource, *, limits):  # type: ignore[no-untyped-def]
+            started.set()
+            await release.wait()
+            return await super().get_resource_state(resource, limits=limits)
+
+    provider = _SlowProvider()
+    latency = _LatencyStore(measured=True)
+    run_store = InMemoryReadInvestigationRunStore()
+    background_store = InMemoryBackgroundTaskStore()
+    body = _body("resource_state")
+    seeded_request = ReadInvestigationRequest(
+        requester_ref="principal:one",
+        conversation_ref=str(body["conversation_id"]),
+        correlation_ref=str(body["correlation_id"]),
+        intent=ReadInvestigationIntent.RESOURCE_STATE,
+        selector=ResourceSelector(name=str(body["resource_name"]), scope_ref="scope:allowed"),
+        lookback_seconds=3_600,
+        requested_evidence=(),
+        budget=ReadInvestigationBudget(),
+        idempotency_key=str(body["idempotency_key"]),
+        created_at=NOW,
+    )
+    claimed, _ = await run_store.claim(
+        owner_principal_id="principal:one",
+        request=seeded_request,
+        mode=ReadInvestigationRunMode.DIRECT,
+        lease_owner="read-api",
+        lease_token="lease:seed",
+        now=NOW,
+        lease_seconds=30,
+        retention_seconds=300,
+    )
+    await run_store.fail(
+        owner_principal_id="principal:one",
+        idempotency_key=seeded_request.idempotency_key,
+        expected_revision=claimed.revision,
+        lease_token="lease:seed",
+        failure_reason="service_execution_failed",
+        usage=ReadInvestigationRunUsage(tool_calls=0, execution_duration_ms=1),
+        now=NOW,
+    )
+
+    async def authorize(_request: Request) -> Principal:
+        return Principal(oid="principal:one", roles=frozenset({Role.CONTRIBUTOR}))
+
+    config = ReadInvestigationRoutesConfig(
+        service=ReadInvestigationService(provider, clock=lambda: NOW, latency_store=latency),
+        run_store=run_store,
+        latency_store=latency,
+        background=BackgroundTaskRoutesConfig(
+            service=BackgroundTaskService(store=background_store, audit=_Audit()),
+            store=background_store,
+            coordinator=_Coordinator(),  # type: ignore[arg-type]
+        ),
+        scope_ref="scope:allowed",
+        clock=lambda: NOW,
+    )
+    app = Starlette(
+        routes=list(make_read_investigation_routes(config=config, authorize_principal=authorize))
+    )
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+
+    async with client:
+        first_task = asyncio.create_task(client.post("/read-investigations", json=body))
+        await asyncio.wait_for(started.wait(), timeout=1.0)
+        second = await client.post("/read-investigations", json=body)
+        release.set()
+        first = await first_task
+
+    assert first.status_code == 200
+    assert second.status_code == 409
+    assert second.headers.get("Retry-After") is not None
+    assert provider.calls == [ReadToolId.RESOLVE_RESOURCE, ReadToolId.GET_RESOURCE_STATE]
+
+
+async def test_exhausted_retry_returns_non_retryable_409() -> None:
+    provider = _Provider()
+    latency = _LatencyStore(measured=True)
+    run_store = InMemoryReadInvestigationRunStore()
+    background_store = InMemoryBackgroundTaskStore()
+    body = _body("resource_state")
+    seeded_request = ReadInvestigationRequest(
+        requester_ref="principal:one",
+        conversation_ref=str(body["conversation_id"]),
+        correlation_ref=str(body["correlation_id"]),
+        intent=ReadInvestigationIntent.RESOURCE_STATE,
+        selector=ResourceSelector(name=str(body["resource_name"]), scope_ref="scope:allowed"),
+        lookback_seconds=3_600,
+        requested_evidence=(),
+        budget=ReadInvestigationBudget(),
+        idempotency_key=str(body["idempotency_key"]),
+        created_at=NOW,
+    )
+    current, _ = await run_store.claim(
+        owner_principal_id="principal:one",
+        request=seeded_request,
+        mode=ReadInvestigationRunMode.DIRECT,
+        lease_owner="read-api",
+        lease_token="lease:one",
+        now=NOW,
+        lease_seconds=30,
+        retention_seconds=300,
+    )
+    for attempt in range(2, MAX_READ_INVESTIGATION_ATTEMPTS + 1):
+        failed = await run_store.fail(
+            owner_principal_id="principal:one",
+            idempotency_key=seeded_request.idempotency_key,
+            expected_revision=current.revision,
+            lease_token=current.lease.token if current.lease is not None else "lease:unexpected",
+            failure_reason=f"failed:{attempt}",
+            usage=ReadInvestigationRunUsage(tool_calls=attempt, execution_duration_ms=attempt),
+            now=NOW,
+        )
+        current = await run_store.reclaim(
+            owner_principal_id="principal:one",
+            idempotency_key=seeded_request.idempotency_key,
+            request_digest=failed.request_digest,
+            mode=ReadInvestigationRunMode.DIRECT,
+            expected_revision=failed.revision,
+            lease_owner="read-api",
+            lease_token=f"lease:retry:{attempt}",
+            now=NOW,
+            lease_seconds=30,
+            retention_seconds=300,
+        )
+
+    await run_store.fail(
+        owner_principal_id="principal:one",
+        idempotency_key=seeded_request.idempotency_key,
+        expected_revision=current.revision,
+        lease_token=current.lease.token if current.lease is not None else "lease:unexpected",
+        failure_reason="terminal:max",
+        usage=ReadInvestigationRunUsage(tool_calls=0, execution_duration_ms=0),
+        now=NOW,
+    )
+
+    async def authorize(_request: Request) -> Principal:
+        return Principal(oid="principal:one", roles=frozenset({Role.CONTRIBUTOR}))
+
+    config = ReadInvestigationRoutesConfig(
+        service=ReadInvestigationService(provider, clock=lambda: NOW, latency_store=latency),
+        run_store=run_store,
+        latency_store=latency,
+        background=BackgroundTaskRoutesConfig(
+            service=BackgroundTaskService(store=background_store, audit=_Audit()),
+            store=background_store,
+            coordinator=_Coordinator(),  # type: ignore[arg-type]
+        ),
+        scope_ref="scope:allowed",
+        clock=lambda: NOW,
+    )
+    app = Starlette(
+        routes=list(make_read_investigation_routes(config=config, authorize_principal=authorize))
+    )
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+
+    async with client:
+        response = await client.post("/read-investigations", json=body)
+
+    assert response.status_code == 409
+    assert "exhausted" in response.text
+    assert response.headers.get("Retry-After") is not None
+    assert provider.calls == []
+
+
+async def test_stream_disconnect_marks_terminal_without_leaking_running_lease() -> None:
+    class _SlowService:
+        transport = "rest"
+
+        async def execute(self, plan, *, progress_observer=None):  # type: ignore[no-untyped-def]
+            del plan
+            if progress_observer is not None:
+                await progress_observer(ReadInvestigationProgressKind.PLANNED)
+            await asyncio.Future()
+
+    run_store = InMemoryReadInvestigationRunStore()
+    request = ReadInvestigationRequest(
+        requester_ref="principal:one",
+        conversation_ref="conversation:one",
+        correlation_ref="correlation:one",
+        intent=ReadInvestigationIntent.RESOURCE_STATE,
+        selector=ResourceSelector(name="vm-01", scope_ref="scope:allowed"),
+        lookback_seconds=3_600,
+        requested_evidence=(),
+        budget=ReadInvestigationBudget(),
+        idempotency_key="request:disconnect",
+        created_at=NOW,
+    )
+    plan = plan_read_investigation(request)
+    claimed, created = await run_store.claim(
+        owner_principal_id="principal:one",
+        request=request,
+        mode=read_investigation_routes.ReadInvestigationRunMode.STREAMED,
+        lease_owner="read-api",
+        lease_token="lease:one",
+        now=NOW,
+        lease_seconds=30,
+        retention_seconds=300,
+    )
+    assert created is True
+
+    config = ReadInvestigationRoutesConfig(
+        service=_SlowService(),  # type: ignore[arg-type]
+        run_store=run_store,
+        latency_store=_LatencyStore(measured=False),
+        background=BackgroundTaskRoutesConfig(
+            service=BackgroundTaskService(store=InMemoryBackgroundTaskStore(), audit=_Audit()),
+            store=InMemoryBackgroundTaskStore(),
+            coordinator=_Coordinator(),  # type: ignore[arg-type]
+        ),
+        scope_ref="scope:allowed",
+        clock=lambda: NOW,
+    )
+
+    response = read_investigation_routes._stream_claimed(
+        config=config,
+        plan=plan,
+        claimed=claimed,
+        lease_token="lease:one",
+        lease_seconds=30,
+        lease_ceiling_at=NOW + timedelta(seconds=60),
+        estimate=PlanLatencyEstimate(2_000, 8_000, False, 0, False),
+    )
+    iterator = response.body_iterator
+
+    frame = await anext(iterator)
+    assert "investigation.planned" in frame
+    await iterator.aclose()
+
+    run = await run_store.get(
+        owner_principal_id="principal:one",
+        idempotency_key=request.idempotency_key,
+    )
+    assert run is not None
+    assert run.state is ReadInvestigationRunState.EXPIRED
+    assert run.failure_reason == "client_stream_disconnected"
+    assert run.lease is None
+
+
+async def test_detached_same_payload_replays_existing_task_and_different_payload_409() -> None:
+    client, provider, coordinator, _ = await _client(measured=True)
+    body = _body("change_attribution")
+    different = dict(body)
+    different["resource_name"] = "vm-02"
+    async with client:
+        first = await client.post("/read-investigations", json=body)
+        replay = await client.post("/read-investigations", json=body)
+        conflict = await client.post("/read-investigations", json=different)
+
+    assert first.status_code == 202
+    assert replay.status_code == 200
+    assert replay.json()["task_id"] == first.json()["task_id"]
+    assert conflict.status_code == 409
+    assert provider.calls == []
+    assert coordinator.wakes == 1
+
+
+async def test_detached_same_key_with_different_budget_returns_409() -> None:
+    client, provider, coordinator, _ = await _client(measured=True)
+    first = _body("change_attribution")
+    different = dict(first)
+    different["budget"] = {"max_cost_microusd": 200_000}
+
+    async with client:
+        created = await client.post("/read-investigations", json=first)
+        conflict = await client.post("/read-investigations", json=different)
+
+    assert created.status_code == 202
+    assert conflict.status_code == 409
+    assert provider.calls == []
+    assert coordinator.wakes == 1
 
 
 async def test_stream_heartbeat_precedes_terminal_without_restarting_provider(
@@ -289,90 +979,320 @@ async def test_stream_heartbeat_precedes_terminal_without_restarting_provider(
             return await super().resolve_resource(selector, limits=limits)
 
     provider = _SlowProvider()
-    plan = plan_read_investigation(
-        ReadInvestigationRequest(
-            requester_ref="principal:one",
-            conversation_ref="conversation:one",
-            correlation_ref="correlation:one",
-            intent=ReadInvestigationIntent.RESOURCE_STATE,
-            selector=ResourceSelector(name="vm-01", scope_ref="scope:allowed"),
-            lookback_seconds=3_600,
-            requested_evidence=(),
-            budget=ReadInvestigationBudget(),
-            idempotency_key="request:stream-heartbeat",
-            created_at=NOW,
-        )
+    latency = _LatencyStore(measured=False)
+    run_store = InMemoryReadInvestigationRunStore()
+    background_store = InMemoryBackgroundTaskStore()
+    coordinator = _Coordinator()
+
+    async def authorize(_request: Request) -> Principal:
+        return Principal(oid="principal:one", roles=frozenset({Role.CONTRIBUTOR}))
+
+    config = ReadInvestigationRoutesConfig(
+        service=ReadInvestigationService(provider, clock=lambda: NOW, latency_store=latency),
+        run_store=run_store,
+        latency_store=latency,
+        background=BackgroundTaskRoutesConfig(
+            service=BackgroundTaskService(store=background_store, audit=_Audit()),
+            store=background_store,
+            coordinator=coordinator,  # type: ignore[arg-type]
+        ),
+        scope_ref="scope:allowed",
+        clock=lambda: NOW,
     )
+    app = Starlette(
+        routes=list(make_read_investigation_routes(config=config, authorize_principal=authorize))
+    )
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
     monkeypatch.setattr(
         read_investigation_routes,
         "_SSE_HEARTBEAT_INTERVAL_SECONDS",
         0.01,
     )
-    response = _stream(
-        ReadInvestigationService(
-            provider,
-            clock=lambda: NOW,
-            latency_store=_LatencyStore(measured=False),
-        ),
-        plan,
-        estimate=PlanLatencyEstimate(2_000, 8_000, False, 0, False),
-    )
-    iterator = response.body_iterator
-    frames = []
+    async with client:
+        request_task = asyncio.create_task(
+            client.post("/read-investigations", json=_body("resource_state"))
+        )
+        await asyncio.wait_for(started.wait(), timeout=1.0)
+        await asyncio.sleep(0.05)
+        release.set()
+        response = await request_task
 
-    while ": heartbeat\n\n" not in frames:
-        frames.append(await asyncio.wait_for(anext(iterator), timeout=0.5))
-
-    assert started.is_set()
-    assert provider.resolve_calls == 1
-    release.set()
-    frames.extend([frame async for frame in iterator])
-
-    heartbeat_indexes = [index for index, frame in enumerate(frames) if frame == ": heartbeat\n\n"]
-    terminal_indexes = [index for index, frame in enumerate(frames) if "event: terminal" in frame]
-    assert heartbeat_indexes
-    assert terminal_indexes == [len(frames) - 1]
-    assert max(heartbeat_indexes) < terminal_indexes[0]
+    assert response.status_code == 200
+    heartbeat_index = response.text.find(": heartbeat\n\n")
+    terminal_index = response.text.find("event: terminal")
+    assert heartbeat_index >= 0
+    assert terminal_index > heartbeat_index
     assert provider.resolve_calls == 1
     assert provider.calls == [ReadToolId.RESOLVE_RESOURCE, ReadToolId.GET_RESOURCE_STATE]
 
 
-async def test_stream_close_cancels_inflight_investigation() -> None:
-    cancelled = asyncio.Event()
+async def test_long_execution_survives_renew_and_reconcile() -> None:
+    class _LongProvider(_Provider):
+        def __init__(self, *, clock: _MutableClock) -> None:
+            super().__init__()
+            self._clock = clock
 
-    class _SlowService:
-        async def execute(self, plan, *, progress_observer):  # type: ignore[no-untyped-def]
-            del plan
-            await progress_observer(ReadInvestigationProgressKind.PLANNED)
-            try:
-                await asyncio.Future()
-            except asyncio.CancelledError:
-                cancelled.set()
-                raise
+        async def get_resource_state(self, resource, *, limits):  # type: ignore[no-untyped-def]
+            for _ in range(80):
+                await asyncio.sleep(0.02)
+                self._clock.advance(0.03)
+            return await super().get_resource_state(resource, limits=limits)
 
-    plan = plan_read_investigation(
-        ReadInvestigationRequest(
-            requester_ref="principal:one",
-            conversation_ref="conversation:one",
-            correlation_ref="correlation:one",
-            intent=ReadInvestigationIntent.RESOURCE_STATE,
-            selector=ResourceSelector(name="vm-01", scope_ref="scope:allowed"),
-            lookback_seconds=3_600,
-            requested_evidence=(),
-            budget=ReadInvestigationBudget(),
-            idempotency_key="request:stream-close",
-            created_at=NOW,
+    clock = _MutableClock(NOW)
+    provider = _LongProvider(clock=clock)
+    latency = _LatencyStore(measured=True)
+    run_store = InMemoryReadInvestigationRunStore()
+    background_store = InMemoryBackgroundTaskStore()
+    coordinator = _Coordinator()
+
+    async def authorize(_request: Request) -> Principal:
+        return Principal(oid="principal:one", roles=frozenset({Role.CONTRIBUTOR}))
+
+    config = ReadInvestigationRoutesConfig(
+        service=ReadInvestigationService(provider, clock=clock.now, latency_store=latency),
+        run_store=run_store,
+        latency_store=latency,
+        background=BackgroundTaskRoutesConfig(
+            service=BackgroundTaskService(store=background_store, audit=_Audit()),
+            store=background_store,
+            coordinator=coordinator,  # type: ignore[arg-type]
+        ),
+        scope_ref="scope:allowed",
+        run_ledger=ReadInvestigationRunLedgerConfig(
+            lease_seconds=2,
+            lease_max_window_seconds=30,
+            lease_budget_margin_seconds=5,
+            renew_interval_seconds=0.2,
+            retention_seconds=300,
+        ),
+        clock=clock.now,
+    )
+    app = Starlette(
+        routes=list(make_read_investigation_routes(config=config, authorize_principal=authorize))
+    )
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    done = asyncio.Event()
+
+    async def reconcile_loop() -> None:
+        while not done.is_set():
+            await run_store.reconcile_expired(now=clock.now(), limit=100)
+            await asyncio.sleep(0.01)
+
+    reconciler = asyncio.create_task(reconcile_loop())
+    body = _body("resource_state")
+    async with client:
+        response = await client.post("/read-investigations", json=body)
+    done.set()
+    await asyncio.gather(reconciler, return_exceptions=True)
+
+    run = await run_store.get(
+        owner_principal_id="principal:one",
+        idempotency_key=str(body["idempotency_key"]),
+    )
+    assert response.status_code == 200
+    assert response.json()["result"]["outcome"] == "matched"
+    assert run is not None
+    assert run.state is ReadInvestigationRunState.COMPLETED
+    assert run.lease is None
+    assert run.revision > 2
+
+
+class _CompleteConflictRunStore:
+    def __init__(self, inner: InMemoryReadInvestigationRunStore) -> None:
+        self._inner = inner
+
+    async def claim(
+        self,
+        *,
+        owner_principal_id: str,
+        request: ReadInvestigationRequest,
+        mode: ReadInvestigationRunMode,
+        lease_owner: str,
+        lease_token: str,
+        now: datetime,
+        lease_seconds: int,
+        retention_seconds: int,
+    ) -> tuple[ReadInvestigationRunRecord, bool]:
+        return await self._inner.claim(
+            owner_principal_id=owner_principal_id,
+            request=request,
+            mode=mode,
+            lease_owner=lease_owner,
+            lease_token=lease_token,
+            now=now,
+            lease_seconds=lease_seconds,
+            retention_seconds=retention_seconds,
         )
-    )
-    response = _stream(
-        _SlowService(),  # type: ignore[arg-type]
-        plan,
-        estimate=PlanLatencyEstimate(2_000, 8_000, False, 0, False),
-    )
-    iterator = response.body_iterator
 
-    first = await anext(iterator)
-    assert "investigation.planned" in first
-    await iterator.aclose()
+    async def get(
+        self,
+        *,
+        owner_principal_id: str,
+        idempotency_key: str,
+    ) -> ReadInvestigationRunRecord | None:
+        return await self._inner.get(
+            owner_principal_id=owner_principal_id,
+            idempotency_key=idempotency_key,
+        )
 
-    assert cancelled.is_set()
+    async def start(
+        self,
+        *,
+        owner_principal_id: str,
+        idempotency_key: str,
+        expected_revision: int,
+        lease_token: str,
+        now: datetime,
+    ) -> ReadInvestigationRunRecord:
+        return await self._inner.start(
+            owner_principal_id=owner_principal_id,
+            idempotency_key=idempotency_key,
+            expected_revision=expected_revision,
+            lease_token=lease_token,
+            now=now,
+        )
+
+    async def renew(
+        self,
+        *,
+        owner_principal_id: str,
+        idempotency_key: str,
+        expected_revision: int,
+        lease_token: str,
+        now: datetime,
+        lease_seconds: int,
+        lease_ceiling_at: datetime,
+    ) -> ReadInvestigationRunRecord:
+        return await self._inner.renew(
+            owner_principal_id=owner_principal_id,
+            idempotency_key=idempotency_key,
+            expected_revision=expected_revision,
+            lease_token=lease_token,
+            now=now,
+            lease_seconds=lease_seconds,
+            lease_ceiling_at=lease_ceiling_at,
+        )
+
+    async def complete(
+        self,
+        *,
+        owner_principal_id: str,
+        idempotency_key: str,
+        expected_revision: int,
+        lease_token: str,
+        result: ReadInvestigationResult,
+        usage: ReadInvestigationRunUsage,
+        now: datetime,
+    ) -> ReadInvestigationRunRecord:
+        del owner_principal_id, idempotency_key, expected_revision, lease_token, result, usage, now
+        raise ReadInvestigationRunConflictError("forced complete conflict")
+
+    async def fail(
+        self,
+        *,
+        owner_principal_id: str,
+        idempotency_key: str,
+        expected_revision: int,
+        lease_token: str,
+        failure_reason: str,
+        usage: ReadInvestigationRunUsage,
+        now: datetime,
+        state: ReadInvestigationRunState = ReadInvestigationRunState.FAILED,
+    ) -> ReadInvestigationRunRecord:
+        return await self._inner.fail(
+            owner_principal_id=owner_principal_id,
+            idempotency_key=idempotency_key,
+            expected_revision=expected_revision,
+            lease_token=lease_token,
+            failure_reason=failure_reason,
+            usage=usage,
+            now=now,
+            state=state,
+        )
+
+    async def reconcile_expired(
+        self,
+        *,
+        now: datetime,
+        limit: int = 100,
+    ) -> tuple[ReadInvestigationRunRecord, ...]:
+        return await self._inner.reconcile_expired(now=now, limit=limit)
+
+    async def purge_retained(
+        self,
+        *,
+        now: datetime,
+        limit: int = 100,
+    ) -> tuple[tuple[str, str], ...]:
+        return await self._inner.purge_retained(now=now, limit=limit)
+
+
+async def test_complete_conflict_still_returns_direct_result() -> None:
+    provider = _Provider()
+    latency = _LatencyStore(measured=True)
+    run_store = _CompleteConflictRunStore(InMemoryReadInvestigationRunStore())
+    background_store = InMemoryBackgroundTaskStore()
+    coordinator = _Coordinator()
+
+    async def authorize(_request: Request) -> Principal:
+        return Principal(oid="principal:one", roles=frozenset({Role.CONTRIBUTOR}))
+
+    config = ReadInvestigationRoutesConfig(
+        service=ReadInvestigationService(provider, clock=lambda: NOW, latency_store=latency),
+        run_store=run_store,  # type: ignore[arg-type]
+        latency_store=latency,
+        background=BackgroundTaskRoutesConfig(
+            service=BackgroundTaskService(store=background_store, audit=_Audit()),
+            store=background_store,
+            coordinator=coordinator,  # type: ignore[arg-type]
+        ),
+        scope_ref="scope:allowed",
+        clock=lambda: NOW,
+    )
+    app = Starlette(
+        routes=list(make_read_investigation_routes(config=config, authorize_principal=authorize))
+    )
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+
+    async with client:
+        response = await client.post("/read-investigations", json=_body("resource_state"))
+
+    assert response.status_code == 200
+    assert response.json()["mode"] == "direct"
+    assert response.json()["result"]["outcome"] == "matched"
+    assert provider.calls == [ReadToolId.RESOLVE_RESOURCE, ReadToolId.GET_RESOURCE_STATE]
+
+
+async def test_complete_conflict_still_returns_stream_terminal() -> None:
+    provider = _Provider()
+    latency = _LatencyStore(measured=False)
+    run_store = _CompleteConflictRunStore(InMemoryReadInvestigationRunStore())
+    background_store = InMemoryBackgroundTaskStore()
+    coordinator = _Coordinator()
+
+    async def authorize(_request: Request) -> Principal:
+        return Principal(oid="principal:one", roles=frozenset({Role.CONTRIBUTOR}))
+
+    config = ReadInvestigationRoutesConfig(
+        service=ReadInvestigationService(provider, clock=lambda: NOW, latency_store=latency),
+        run_store=run_store,  # type: ignore[arg-type]
+        latency_store=latency,
+        background=BackgroundTaskRoutesConfig(
+            service=BackgroundTaskService(store=background_store, audit=_Audit()),
+            store=background_store,
+            coordinator=coordinator,  # type: ignore[arg-type]
+        ),
+        scope_ref="scope:allowed",
+        clock=lambda: NOW,
+    )
+    app = Starlette(
+        routes=list(make_read_investigation_routes(config=config, authorize_principal=authorize))
+    )
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+
+    async with client:
+        response = await client.post("/read-investigations", json=_body("resource_state"))
+
+    assert response.status_code == 200
+    assert "event: terminal" in response.text
+    assert provider.calls == [ReadToolId.RESOLVE_RESOURCE, ReadToolId.GET_RESOURCE_STATE]

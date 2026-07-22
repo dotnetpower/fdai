@@ -74,6 +74,8 @@ from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.delivery.persistence import (
     PostgresModelHealthTransitionSink,
     PostgresModelHealthTransitionSinkConfig,
+    PostgresReadInvestigationRunStore,
+    PostgresReadInvestigationRunStoreConfig,
 )
 from fdai.delivery.persistence.postgres_conversation_delivery import (
     PostgresConversationDeliveryStore,
@@ -467,6 +469,8 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     read_investigation_service = None
     subscription_health_provider = None
     read_latency_store = None
+    read_investigation_run_store = None
+    read_investigation_ledger_config = None
     reader_scope_ref = None
     reader_subscription = env.get("FDAI_AZURE_READER_SUBSCRIPTION_ID", "").strip()
     reader_client_id = env.get("FDAI_AZURE_READER_CLIENT_ID", "").strip()
@@ -494,6 +498,40 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         from fdai.delivery.read_api.routes.background_executor import (
             ReadInvestigationBackgroundTaskExecutor,
             ServerOwnedReadInvestigationRequestFactory,
+        )
+        from fdai.delivery.read_api.routes.read_investigations import (
+            ReadInvestigationRunLedgerConfig,
+        )
+
+        read_investigation_run_store = PostgresReadInvestigationRunStore(
+            config=PostgresReadInvestigationRunStoreConfig(
+                dsn=read_model._config.dsn,
+                statement_timeout_ms=read_model._config.statement_timeout_ms,
+                connect_timeout_s=read_model._config.connect_timeout_s,
+            )
+        )
+        read_investigation_ledger_config = ReadInvestigationRunLedgerConfig(
+            lease_seconds=_parse_positive_int(env, _env.READ_INVESTIGATION_LEASE_SECONDS_ENV, 30),
+            retention_seconds=_parse_positive_int(
+                env,
+                _env.READ_INVESTIGATION_RETENTION_SECONDS_ENV,
+                3_600,
+            ),
+            retry_after_seconds=_parse_positive_int(
+                env,
+                _env.READ_INVESTIGATION_RETRY_AFTER_SECONDS_ENV,
+                3,
+            ),
+            reconcile_limit=_parse_positive_int(
+                env,
+                _env.READ_INVESTIGATION_RECONCILE_LIMIT_ENV,
+                25,
+            ),
+            purge_limit=_parse_positive_int(
+                env,
+                _env.READ_INVESTIGATION_PURGE_LIMIT_ENV,
+                25,
+            ),
         )
 
         reader_scope_ref = "azure-reader-default"
@@ -565,6 +603,8 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         background_runtime is not None
         and read_investigation_service is not None
         and read_latency_store is not None
+        and read_investigation_run_store is not None
+        and read_investigation_ledger_config is not None
         and reader_scope_ref is not None
     ):
         from fdai.delivery.read_api.routes.read_investigation_responder import (
@@ -572,20 +612,24 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             HeimdallReadInvestigationResponder,
         )
         from fdai.delivery.read_api.routes.read_investigations import (
+            IdempotentReadInvestigationExecutor,
             ReadInvestigationRoutesConfig,
         )
 
         read_investigation_routes = ReadInvestigationRoutesConfig(
             service=read_investigation_service,
+            run_store=read_investigation_run_store,
             latency_store=read_latency_store,
             background=background_runtime.routes,
             scope_ref=reader_scope_ref,
+            run_ledger=read_investigation_ledger_config,
         )
         read_investigation_chat_delegate = HeimdallReadInvestigationChatDelegate(
             responder=HeimdallReadInvestigationResponder(
-                service=read_investigation_service,
+                executor=IdempotentReadInvestigationExecutor(read_investigation_routes),
                 latency_store=read_latency_store,
                 scope_ref=reader_scope_ref,
+                policy=read_investigation_routes.execution_policy,
             )
         )
     busy_input_runtime = (

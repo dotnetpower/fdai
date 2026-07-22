@@ -429,7 +429,7 @@ availability source.
 | Write/approval tools | Simulation, HIL, runbook, and proposal routes ship. Break-glass stops at the pager/audit request receipt in §7.3 and grants no elevation. |
 | Teams/Slack conversation | `ProductionChannelRuntime`, authenticated ingress, principal resolution, publishers, and optional durable replies ship; environment-owned enablement and credentials remain required. |
 | Web chat and memory | JSON/SSE chat, principal-scoped history/preferences/memory, AnswerPlan, and progressive verification ship. |
-| Observation/discovery | `POST /read-investigations` selects direct, streamed, or detached execution from durable latency evidence before Azure I/O, and closing a streamed response cancels its in-flight read. It is registered only with a dedicated reader binding; catalog presence alone proves neither provider health nor promotion. |
+| Observation/discovery | `POST /read-investigations` selects direct, streamed, or detached execution from durable latency evidence before Azure I/O. Direct Command Deck and HTTP reads share an owner-scoped result-replay ledger; closing a streamed response cancels its in-flight read. The surface is registered only with a dedicated reader binding; catalog presence alone proves neither provider health nor promotion. |
 
 Live Azure completion evidence and capability promotion remain governed by deployment verification
 and the authoritative registry, never inferred from phase names in this document.

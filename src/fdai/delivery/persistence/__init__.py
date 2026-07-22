@@ -103,6 +103,10 @@ from fdai.delivery.persistence.postgres_programmatic_pipeline import (
     PostgresProgrammaticPipelineStore,
     PostgresProgrammaticPipelineStoreConfig,
 )
+from fdai.delivery.persistence.postgres_read_investigation_run import (
+    PostgresReadInvestigationRunStore,
+    PostgresReadInvestigationRunStoreConfig,
+)
 from fdai.delivery.persistence.postgres_report_signal import (
     PostgresReportSignalStore,
     PostgresReportSignalStoreConfig,
@@ -234,6 +238,8 @@ __all__ = [
     "PostgresPostTurnReviewLedgerConfig",
     "PostgresReportSignalStore",
     "PostgresReportSignalStoreConfig",
+    "PostgresReadInvestigationRunStore",
+    "PostgresReadInvestigationRunStoreConfig",
     "PostgresRpcIdempotencyStore",
     "PostgresRpcIdempotencyStoreConfig",
     "PostgresScheduleStore",

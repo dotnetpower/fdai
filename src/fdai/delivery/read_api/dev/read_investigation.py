@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
-from fdai.core.read_investigation import InvestigationExecutionPolicy, ReadInvestigationService
+from fdai.core.read_investigation import (
+    InvestigationExecutionPolicy,
+    ReadInvestigationPlan,
+    ReadInvestigationProgressKind,
+    ReadInvestigationService,
+)
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.read_investigation import (
     AzureOperationsGatewayReadConfig,
@@ -28,6 +33,30 @@ from fdai.delivery.read_api.routes.read_investigation_responder import (
     HeimdallReadInvestigationChatDelegate,
     HeimdallReadInvestigationResponder,
 )
+from fdai.delivery.read_api.routes.read_investigations import ReadInvestigationDirectExecution
+
+
+class _LocalReadInvestigationExecutor:
+    """Bind local Azure reads to an authenticated owner without claiming durable replay."""
+
+    def __init__(self, service: ReadInvestigationService) -> None:
+        self._service = service
+
+    @property
+    def transport(self) -> str:
+        return self._service.transport
+
+    async def execute(
+        self,
+        plan: ReadInvestigationPlan,
+        *,
+        owner_principal_id: str,
+        progress_observer: Callable[[ReadInvestigationProgressKind], Awaitable[None]] | None = None,
+    ) -> ReadInvestigationDirectExecution:
+        if plan.request.requester_ref != owner_principal_id:
+            raise ValueError("read investigation requester does not match the authenticated owner")
+        result = await self._service.execute(plan, progress_observer=progress_observer)
+        return ReadInvestigationDirectExecution(result=result, replayed=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,7 +134,7 @@ def build_local_read_investigation(
     return LocalReadInvestigationWiring(
         chat_delegate=HeimdallReadInvestigationChatDelegate(
             responder=HeimdallReadInvestigationResponder(
-                service=service,
+                executor=_LocalReadInvestigationExecutor(service),
                 latency_store=latency_store,
                 scope_ref=scope_ref,
                 policy=InvestigationExecutionPolicy(

@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: f8f18cdae12cfcdc54a6edb56f36d4740eae1026
+translation_source_sha: 5c6e15cf7a965d5868ce14ee111e68ef5029b92a
 translation_revised: 2026-07-22
 ---
 
@@ -63,6 +63,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log, 구성된 NSG rule 및 VNet peering property를 지원합니다. Interactive local은 executor identity를 받지 않고 registered development operations gateway를 통해 NSG 및 peering read를 전달할 수 있습니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
 | Read-tool attenuation | 구현됨 | `background.read-only`는 Reader tool 7개만 포함하고 mutation, approval, shell, arbitrary-query, nested-worker capability를 차단합니다. |
 | Execution mode 및 progress | 구현됨 | Durable p50/p95 profile이 cloud I/O 전에 direct, streamed, detached mode를 선택합니다. Exact resolution은 barrier이며 독립 evidence tool은 bounded parallel limit 안에서 실행됩니다. Streamed mode는 bounded progress와 SSE comment heartbeat를 전송하고, stream close는 provider work를 cancel하며, terminal event는 한 번만 발생합니다. |
+| Direct 및 streamed replay | 구현됨 | Owner-scoped PostgreSQL run ledger가 canonical request를 claim하고 lease를 renew하며 reclaim attempt를 제한합니다. Terminal usage를 보존하고 provider를 다시 호출하지 않고 completed result를 replay합니다. Command Deck direct read도 같은 executor를 사용합니다. |
 | Detached execution 및 quota | 구현됨 | Typed executor는 narrator history, screen state, event bus, Thor, executor identity를 받지 않습니다. Per-principal concurrency, cost, wall-clock, tool-call quota는 durable creation에서 적용됩니다. |
 | Completion handoff | 구현됨 | Terminal result와 pending completion outbox가 원자적으로 commit됩니다. Bounded retry는 investigation을 다시 실행하지 않고 idempotent conversation 및 reply-ledger handoff를 replay합니다. |
 | Live Azure scenario evidence | 일부 검증됨 | Caller attribution, Resource Health, unauthorized scope 및 ambiguous name은 read-only live validation을 통과했습니다. Guest-event match와 실제 provider `429`는 release evidence gap으로 남습니다. |
@@ -211,11 +212,26 @@ routing code의 literal이 아니라 configuration입니다.
 `queued -> claimed -> running -> terminal` state machine을 재사용합니다. Worker는 parent transcript,
 screen state, mutable memory, shell, executor identity 또는 mutation tool을 받지 않습니다.
 
+Direct 및 streamed request는 authenticated principal과 idempotency key로 식별하는 별도의 owner-scoped
+run ledger를 사용합니다. Ledger는 selector, lookback, evidence, 모든 budget field 및 explicit-deep flag를
+포함한 canonical request projection의 digest를 저장합니다. 일치하는 completed request는 immutable
+result를 replay합니다. Active request는 bounded retry interval을 반환하고 failed 또는 expired request는
+총 세 번까지 key를 reclaim할 수 있습니다. Lease는 원래 wall-clock ceiling 안에서만 renew되며 terminal
+row는 retention이 끝난 후에만 제거됩니다. Command Deck adapter도 ledger를 우회해 provider service를
+직접 호출하지 않고 같은 direct executor를 사용합니다.
+
+Detached creation은 context binding에도 같은 canonical request digest를 사용합니다. 따라서 budget 또는
+다른 request field가 달라진 상태에서 key를 재사용하면 다른 limit으로 생성된 task를 replay하지 않고
+conflict를 반환합니다.
+
 ## Latency 측정 및 예측
 
 모든 provider call은 tool id, transport, operation class, status, queue 및 execution duration, result
 count, truncation, cache status, recorded time 및 trace reference가 있는 `ToolCallReceipt`를 내보냅니다.
-Metric dimension은 resource id, principal id, prompt 및 query text를 제외합니다.
+Adapter에 authoritative measured cost가 있으면 receipt에 `cost_microusd`도 포함할 수 있습니다. Run usage는
+항상 reserved request budget을 기록합니다. 모든 receipt에 authoritative cost가 있을 때만 measured total을
+기록하며, 하나라도 없으면 0으로 보고하지 않고 measured value를 unavailable 상태로 유지합니다. Metric
+dimension은 resource id, principal id, prompt 및 query text를 제외합니다.
 
 Durable latency profile은 `(tool_id, transport, operation_class)`별 bounded recent sample을 유지하고
 sample count, failure rate, p50 및 p95를 노출합니다. Executor는 resource를 먼저 resolve한 다음 최대

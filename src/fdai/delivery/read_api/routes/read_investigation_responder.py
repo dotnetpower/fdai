@@ -5,21 +5,26 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
+from typing import Protocol
 
 from fdai.agents import Bragi, Heimdall
 from fdai.core.read_investigation import (
     InvestigationExecutionPolicy,
     ReadInvestigationBudget,
     ReadInvestigationExecutionMode,
+    ReadInvestigationPlan,
     ReadInvestigationProgressKind,
     ReadInvestigationRequest,
-    ReadInvestigationService,
     classify_read_investigation_intent,
     estimate_plan_latency,
     latency_profile,
     plan_read_investigation,
     read_tool_spec,
     resource_name_from_question,
+)
+from fdai.delivery.read_api.routes.read_investigations import (
+    ReadInvestigationDirectExecution,
+    ReadInvestigationRunRejectedError,
 )
 from fdai.shared.providers.read_investigation import (
     ReadEvidenceEnvelope,
@@ -29,20 +34,33 @@ from fdai.shared.providers.read_investigation import (
 )
 
 
+class ReadInvestigationDirectExecutor(Protocol):
+    @property
+    def transport(self) -> str: ...
+
+    def execute(
+        self,
+        plan: ReadInvestigationPlan,
+        *,
+        owner_principal_id: str,
+        progress_observer: Callable[[ReadInvestigationProgressKind], Awaitable[None]] | None = None,
+    ) -> Awaitable[ReadInvestigationDirectExecution]: ...
+
+
 class HeimdallReadInvestigationResponder:
     """Resolve measured-fast reads and hand longer work to the durable route."""
 
     def __init__(
         self,
         *,
-        service: ReadInvestigationService,
+        executor: ReadInvestigationDirectExecutor,
         latency_store: ReadLatencyProfileStore,
         scope_ref: str,
         policy: InvestigationExecutionPolicy | None = None,
     ) -> None:
         if not scope_ref.strip() or len(scope_ref) > 256:
             raise ValueError("scope_ref MUST be a bounded identifier")
-        self._service = service
+        self._executor = executor
         self._latency_store = latency_store
         self._scope_ref = scope_ref
         self._policy = policy or InvestigationExecutionPolicy()
@@ -84,7 +102,7 @@ class HeimdallReadInvestigationResponder:
             spec = read_tool_spec(step.tool_id)
             samples = await self._latency_store.recent(
                 tool_id=step.tool_id,
-                transport=self._service.transport,
+                transport=self._executor.transport,
                 operation_class=spec.operation_class,
                 limit=200,
             )
@@ -109,7 +127,24 @@ class HeimdallReadInvestigationResponder:
                     "estimated_upper_ms": estimate.upper_ms,
                 },
             }
-        result = await self._service.execute(plan, progress_observer=progress_observer)
+        try:
+            execution = await self._executor.execute(
+                plan,
+                owner_principal_id=user_id,
+                progress_observer=progress_observer,
+            )
+        except ReadInvestigationRunRejectedError as exc:
+            return {
+                "answer": "This read investigation is already active or cannot be replayed.",
+                "facts": {
+                    "status": "unavailable",
+                    "reason": "idempotency_rejected",
+                    "retry_after_seconds": exc.retry_after_seconds,
+                    "intent": intent.value,
+                    "resource_name": resource_name,
+                },
+            }
+        result = execution.result
         answer = _render_answer(
             resource_name=resource_name,
             intent=intent,
@@ -124,6 +159,7 @@ class HeimdallReadInvestigationResponder:
                 "mode": mode.value,
                 "intent": intent.value,
                 "resource_name": resource_name,
+                "replayed": execution.replayed,
                 "evidence_refs": result.evidence_refs,
                 "evidence_sources": tuple(item.authority for item in result.evidence),
                 "records": tuple(

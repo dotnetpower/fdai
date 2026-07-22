@@ -62,6 +62,7 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 | Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, guest logs, configured NSG rules, and VNet peering properties. Interactive local can route NSG and peering reads through the registered development operations gateway without receiving its executor identity. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
 | Read-tool attenuation | Implemented | `background.read-only` contains exactly seven Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
 | Execution modes and progress | Implemented | Durable p50/p95 profiles select direct, streamed, or detached mode before cloud I/O. Exact resolution is a barrier, independent evidence tools run under a bounded parallel limit, streamed mode emits bounded progress and SSE comment heartbeats, stream close cancels provider work, and the terminal event occurs once. |
+| Direct and streamed replay | Implemented | An owner-scoped PostgreSQL run ledger claims each canonical request, renews its lease, bounds reclaim attempts, retains terminal usage, and replays completed results without another provider call. Command Deck direct reads use the same executor. |
 | Detached execution and quotas | Implemented | The typed executor receives no narrator history, screen state, event bus, Thor, or executor identity. Per-principal concurrency, cost, wall-clock, and tool-call quotas are enforced at durable creation. |
 | Completion handoff | Implemented | The terminal result and pending completion outbox commit atomically. Bounded retries replay idempotent conversation and reply-ledger handoff without rerunning the investigation. |
 | Live Azure scenario evidence | Partially validated | Caller attribution, Resource Health, unauthorized scope, and ambiguous names passed read-only live validation. Guest-event matching and an actual provider `429` remain release evidence gaps. |
@@ -210,11 +211,28 @@ after measuring the same scenario set in the target environment. Detached work r
 `queued -> claimed -> running -> terminal` state machine. Its worker receives no parent transcript,
 screen state, mutable memory, shell, executor identity, or mutation tool.
 
+Direct and streamed requests use a separate owner-scoped run ledger keyed by the authenticated
+principal and idempotency key. The ledger stores a digest of the canonical request projection,
+including selector, lookback, evidence, every budget field, and the explicit-deep flag. A matching
+completed request replays its immutable result. An active request returns a bounded retry interval,
+and a failed or expired request can reclaim its key up to three total attempts. Leases renew only
+inside the original wall-clock ceiling, and terminal rows are removed only after retention expires.
+The Command Deck adapter uses this same direct executor instead of calling the provider service
+around the ledger.
+
+Detached creation uses the same canonical request digest in its context binding. Reusing a key
+with a different budget or other request field therefore returns a conflict instead of replaying a
+task created under different limits.
+
 ## Latency measurement and estimates
 
 Every provider call emits a `ToolCallReceipt` with tool id, transport, operation class, status,
 queue and execution duration, result count, truncation, cache status, recorded time, and trace
-reference. Metric dimensions exclude resource ids, principal ids, prompts, and query text.
+reference. A receipt can also carry `cost_microusd` when the adapter has an authoritative measured
+cost. Run usage always records the reserved request budget. It records a measured total only when
+every receipt has an authoritative cost; otherwise the measured value stays unavailable instead of
+being reported as zero. Metric dimensions exclude resource ids, principal ids, prompts, and query
+text.
 
 A durable latency profile keeps bounded recent samples per
 `(tool_id, transport, operation_class)` and exposes sample count, failure rate, p50, and p95. The
