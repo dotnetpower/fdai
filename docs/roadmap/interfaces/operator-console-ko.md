@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 5caaf892d9b3b5b992a50924483f3d7d18b8426a
+translation_source_sha: a20b6ccb80f24541fed383826131f5bb7fbf0a1d
 translation_revised: 2026-07-23
 ---
 
@@ -173,6 +173,9 @@ flowchart TD
     [conversation-attachments-ko.md](conversation-attachments-ko.md)를 통해 수렴합니다. Web chat은
     already-ingested immutable document ref만 제출하고 resolver는 요청된 exact citation을 순서대로
     반환해야 합니다. 전용 WebSocket adapter는 선택적입니다.
+- [`src/fdai/delivery/read_api/routes/chat_current_time.py`](../../../src/fdai/delivery/read_api/routes/chat_current_time.py)
+  - injected aware clock과 principal IANA timezone에서 current-time 질문을 resolve합니다. Deterministic
+    verification은 exact timestamp와 명시적 UTC fallback을 emit합니다.
 - Scheduler Runs, Automation Blueprints, Scheduled Continuations, [관리형 trajectory dataset](governed-trajectory-datasets-ko.md), [execution backend status](execution-backends-ko.md)는 read-only metadata를 제공합니다. 이 view에는 enable, submit, retry, cancel, cleanup, execute, approval control이 없고 credential 및 Thor identity를 제외하며 command는 SPA 밖에 유지됩니다.
 - [`tools/chat.py`](../../../tools/chat.py) - core coordinator를 위한 headless
   JSONL 개발 harness입니다. 별도 policy 구현이 아닙니다.

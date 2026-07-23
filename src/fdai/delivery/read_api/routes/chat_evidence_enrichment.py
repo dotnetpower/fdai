@@ -265,6 +265,7 @@ async def _with_tool_evidence(
     if evidence is not None:
         if explicit_command or evidence.get("tool") in {
             "describe_read_sources",
+            "get_current_time",
             "query_inventory",
             "query_subscription_health",
         }:

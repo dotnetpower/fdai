@@ -110,6 +110,8 @@ ambiguous-selection behavior.
 Generic public freshness terms such as `latest`, `recent`, or `최신` do not create incident scope
 without explicit incident, issue, outage, failure, problem, or cause semantics. A steer rerun keeps
 that original public-web versus operational boundary.
+A current-time steer rerun samples the injected server clock at the safe rerun boundary. A queued
+current-time turn samples it when that turn begins; neither path reuses an earlier timestamp.
 
 ## Queue behavior
 

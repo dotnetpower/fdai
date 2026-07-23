@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 3135151312027f5aa510af7e0322b6dc78038bfc
+translation_source_sha: 850780104ef6164009effaa84459f7ae745f5bf4
 translation_revised: 2026-07-23
 ---
 
@@ -112,6 +112,8 @@ route를 유지하고, queued next turn은 자신의 content를 분류합니다.
 `latest`, `recent`, `최신` 같은 generic public freshness term은 incident, issue, outage, failure,
 problem 또는 cause 의미가 명시되지 않으면 incident scope를 만들지 않습니다. Steer rerun도 원래의
 public-web와 operational 경계를 유지합니다.
+Current-time steer rerun은 safe rerun boundary에서 injected server clock을 샘플링합니다. Queued
+current-time turn은 해당 turn이 시작될 때 샘플링하며 어느 경로도 이전 timestamp를 재사용하지 않습니다.
 
 ## Queue 동작
 

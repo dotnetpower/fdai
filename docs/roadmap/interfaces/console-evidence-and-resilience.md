@@ -141,6 +141,10 @@ Generic recency words such as `latest`, `recent`, or `최신` do not create inci
 themselves. Operational lookup also requires explicit incident, issue, outage, failure, problem, or
 cause semantics. A public software version or release question therefore remains eligible for the
 bounded public-web path instead of producing a deterministic "no matching incident" answer.
+Current-time questions use an injected timezone-aware server clock and the principal's IANA
+timezone preference. The terminal answer is rendered deterministically with the exact timestamp and
+timezone. A missing preference falls back to explicitly labeled UTC; the narrator and browser clock
+are not time authorities.
 
 The Forecast Learning route reads only the server-owned PostgreSQL projection. Closure completeness
 uses due episodes as its denominator, and publication health separates future scheduled work from

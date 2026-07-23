@@ -178,6 +178,9 @@ flowchart TD
     [conversation-attachments.md](conversation-attachments.md); web chat submits only already-ingested
     immutable document refs, and the resolver must return the exact requested citations in order.
     A dedicated WebSocket adapter remains optional future transport work.
+- [`src/fdai/delivery/read_api/routes/chat_current_time.py`](../../../src/fdai/delivery/read_api/routes/chat_current_time.py)
+  - resolves current-time questions from an injected aware clock and principal IANA timezone;
+    deterministic verification emits the exact timestamp and an explicit UTC fallback.
 - Scheduler Runs, Automation Blueprints, Scheduled Continuations, [governed trajectory datasets](governed-trajectory-datasets.md), and [execution backend status](execution-backends.md) expose read-only metadata. These views have no enable, submit, retry, cancel, cleanup, execute, or approval controls; omit credentials and Thor's identity; and keep commands outside the SPA.
 - [`tools/chat.py`](../../../tools/chat.py) - headless JSONL development harness
   for the core coordinator. It is not a second policy implementation.

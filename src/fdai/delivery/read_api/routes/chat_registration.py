@@ -34,6 +34,7 @@ from fdai.delivery.read_api.routes.chat_answer_planning import compatible_planni
 from fdai.delivery.read_api.routes.chat_behavior_evidence import (
     RepositoryBehaviorEvidenceResolver,
 )
+from fdai.delivery.read_api.routes.chat_current_time import CurrentTimeChatTools
 from fdai.delivery.read_api.routes.chat_data_sources import DataSourceChatTools
 from fdai.delivery.read_api.routes.chat_document_evidence import ChatDocumentEvidenceResolver
 from fdai.delivery.read_api.routes.chat_evidence import OperationalEvidenceResolver
@@ -116,9 +117,13 @@ def append_chat_routes(
         else RuntimeSkillChatTools(skill_disclosure, fallback=subscription_health_tools)
     )
     data_source_tools = DataSourceChatTools(data_sources, fallback=skill_tools)
-    tools = SystemHealthChatTools(
+    system_health_tools = SystemHealthChatTools(
         read_model,
         data_source_tools,
+    )
+    tools = CurrentTimeChatTools(
+        preferences=answer_preference_store,
+        fallback=system_health_tools,
     )
     routes.extend(
         (

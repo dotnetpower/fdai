@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 4f18213c63b8d59bfa8c9d392510381a32165d12
+translation_source_sha: 28c4f6a03a7f63b0561674759dee555af40cf150
 translation_revised: 2026-07-23
 ---
 
@@ -141,6 +141,9 @@ membership 또는 absence claim을 바꿀 수 없습니다.
 Operational lookup에는 incident, issue, outage, failure, problem 또는 cause 의미가 명시적으로 함께
 있어야 합니다. 따라서 public software version 또는 release 질문은 deterministic "no matching incident"
 답변 대신 bounded public-web path 대상으로 유지됩니다.
+Current-time 질문은 injected timezone-aware server clock과 principal의 IANA timezone preference를
+사용합니다. Terminal answer는 exact timestamp와 timezone으로 결정론적으로 렌더링합니다. Preference가
+없으면 명시적으로 표시한 UTC로 fallback하며 narrator와 browser clock은 time authority가 아닙니다.
 
 Forecast Learning route는 server-owned PostgreSQL projection만 읽습니다. Closure completeness는
 due episode를 denominator로 사용하고 publication health는 미래 scheduled work를 due debt, failed

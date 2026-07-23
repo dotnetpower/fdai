@@ -17,6 +17,10 @@ from fdai.delivery.read_api.routes.chat_claims import (
     ScreenClaimResult,
     verify_screen_claims,
 )
+from fdai.delivery.read_api.routes.chat_current_time import (
+    current_time_evidence_refs,
+    render_current_time_answer,
+)
 from fdai.delivery.read_api.routes.chat_data_sources import (
     read_source_evidence_refs,
     render_read_source_answer,
@@ -110,6 +114,28 @@ def verify_answer(
         )
 
     tool = view_context.get("_tool_evidence")
+    if isinstance(tool, Mapping) and tool.get("tool") == "get_current_time":
+        time_answer = render_current_time_answer(tool, locale=locale)
+        if time_answer is None:
+            return AnswerVerification(
+                status="unverified",
+                answer="Server-clock evidence could not be rendered.",
+                authority="server_clock",
+                checks_completed=0,
+                checks_total=1,
+                reason_code="current_time_evidence_invalid",
+            )
+        time_refs = current_time_evidence_refs(tool)
+        return AnswerVerification(
+            status=_changed(provisional, time_answer),
+            answer=time_answer,
+            authority="server_clock",
+            checks_completed=1,
+            checks_total=1,
+            evidence_refs=time_refs,
+            reason_code="current_time_grounded",
+        )
+
     if isinstance(tool, Mapping) and tool.get("tool") == "describe_read_sources":
         source_answer = render_read_source_answer(tool, locale=locale)
         if source_answer is None:
