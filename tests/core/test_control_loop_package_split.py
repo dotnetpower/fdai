@@ -201,9 +201,10 @@ def test_facade_docstring_anchors_follow_up_scope() -> None:
 
 
 def test_subsystem_fanout_allowlist_has_orchestrator_entry() -> None:
-    allowlist_path = _REPO_ROOT / "scripts" / ".check-subsystem-fanout.allowlist"
-    if not allowlist_path.exists():
-        pytest.skip("allowlist not yet created (H12 lands the entry)")
+    allowlist_path = (
+        _REPO_ROOT / "scripts" / "quality" / "architecture" / ".check-subsystem-fanout.allowlist"
+    )
+    assert allowlist_path.is_file(), "subsystem fanout allowlist is missing"
     body = allowlist_path.read_text()
     assert "src/fdai/core/control_loop/orchestrator.py" in body, (
         "allowlist missing orchestrator.py entry - the Stage refactor "

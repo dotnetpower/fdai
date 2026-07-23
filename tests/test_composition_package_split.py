@@ -260,32 +260,27 @@ def test_facade_docstring_mentions_g3() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_default_container_smoke() -> None:
+def test_default_container_smoke(monkeypatch: pytest.MonkeyPatch) -> None:
     # Use the env-loader path with all-defaults so the pydantic AppConfig
     # required fields resolve. This is the actual bootstrap flow the CLI
     # uses; if it works there, it works here.
-    import os
-
     from fdai.composition import default_container_from_env
 
-    # Set the minimum env the config loader requires.
-    env_backup = {k: os.environ.get(k) for k in ("FDAI_SCHEMA_VERSION",)}
-    os.environ.setdefault("FDAI_SCHEMA_VERSION", "1.0.0")
-    try:
-        container = default_container_from_env()
-    except Exception:  # noqa: BLE001 - env config may need more; skip if so
-        import pytest as _pytest
+    required_env = {
+        "AZURE_TENANT_ID": "00000000-0000-0000-0000-000000000000",
+        "AZURE_SUBSCRIPTION_ID": "00000000-0000-0000-0000-000000000000",
+        "AZURE_REGION": "krc",
+        "KAFKA_BOOTSTRAP_SERVERS": "events.example.local:9093",
+        "KAFKA_TOPIC_EVENTS": "fdai.events",
+        "POSTGRES_HOST": "postgres.example.local",
+        "POSTGRES_DATABASE": "fdai",
+        "RUNTIME_ENV": "dev",
+        "LLM_MODE": "local-fake",
+    }
+    for key, value in required_env.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.delenv("LLM_RESOLVED_MODELS_PATH", raising=False)
 
-        _pytest.skip(
-            "default_container_from_env needs more env vars for this "
-            "environment; the G-3 split does not change that shape."
-        )
-    else:
-        assert container.config is not None
-        assert container.schema_registry is not None
-    finally:
-        for k, v in env_backup.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
+    container = default_container_from_env()
+    assert container.config is not None
+    assert container.schema_registry is not None
