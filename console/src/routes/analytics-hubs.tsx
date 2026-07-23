@@ -1,6 +1,5 @@
 import type { ReadApiClient } from "../api";
-import type { AutonomyPayload, MetricVsBaseline, VerticalSummary } from "../types";
-import { usePublishViewContext } from "../deck/context";
+import type { AutonomyPayload, VerticalSummary } from "../types";
 import {
   AsyncBoundary,
   DataTable,
@@ -16,18 +15,9 @@ import { t } from "./i18n/analytics";
 import { currentRoute, routeHref } from "../router";
 import { formatShare, formatUsd, overviewHealth } from "./dashboard.model";
 import { useAnalyticsData, type AnalyticsData } from "./analytics-data";
-import { buildOperatingOutcomeViewSnapshot } from "./analytics-hubs.view";
+import { OperatingOutcomeBody, OUTCOME_KEYS, type OutcomeKey } from "./operating-outcomes";
 
 interface Props { readonly client: ReadApiClient }
-
-const OUTCOME_KEYS = [
-  "auto-resolution",
-  "human-touchpoints",
-  "mttr",
-  "change-lead-time",
-  "cost-per-resolved-event",
-] as const;
-type OutcomeKey = (typeof OUTCOME_KEYS)[number];
 
 export function measuredTierValue(
   values: Readonly<Record<string, number>>,
@@ -64,33 +54,6 @@ export function guardDisplayState(
 ): "simulated" | "passing" | "blocked" {
   if (synthetic) return "simulated";
   return ok ? "passing" : "blocked";
-}
-
-function outcomeMetric(data: AutonomyPayload, key: OutcomeKey): MetricVsBaseline {
-  if (key === "auto-resolution") return data.success.auto_resolution_rate;
-  if (key === "human-touchpoints") return data.success.human_touchpoints_per_100;
-  if (key === "mttr") return data.success.mttr_seconds;
-  if (key === "cost-per-resolved-event") return data.success.cost_per_resolved_event_usd;
-  return data.success.change_lead_time_seconds;
-}
-
-function duration(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-  return `${(seconds / 3600).toFixed(1)}h`;
-}
-
-function metricValue(metric: MetricVsBaseline, key: OutcomeKey): string {
-  if (metric.value === null) return t("analytics.unavailable");
-  if (key === "auto-resolution") return `${Math.round(metric.value * 100)}%`;
-  if (key === "human-touchpoints") return metric.value.toFixed(1);
-  if (key === "cost-per-resolved-event") return `$${metric.value.toFixed(2)}`;
-  return duration(metric.value);
-}
-
-function baselineValue(metric: MetricVsBaseline, key: OutcomeKey): string {
-  if (metric.baseline === null) return t("analytics.unavailable");
-  return metricValue({ ...metric, value: metric.baseline }, key);
 }
 
 function HubTabs({
@@ -146,29 +109,6 @@ function EvidenceStrip({ autonomy }: { readonly autonomy: AutonomyPayload }) {
   );
 }
 
-function TrendChart({ values, label }: { readonly values: readonly number[]; readonly label: string }) {
-  if (values.length < 2) return <UnavailableState message={t("analytics.trendUnavailable")} />;
-  const maximum = Math.max(...values);
-  const minimum = Math.min(...values);
-  const range = maximum - minimum || 1;
-  const points = values.map((value, index) => {
-    const x = (index / (values.length - 1)) * 100;
-    const y = 36 - ((value - minimum) / range) * 32;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
-  return (
-    <figure class="analytics-trend">
-      <figcaption>{label}</figcaption>
-      <svg viewBox="0 0 100 40" role="img" aria-label={label} preserveAspectRatio="none">
-        <polyline points={points} fill="none" stroke="currentColor" stroke-width="1.5" />
-      </svg>
-      <div class="analytics-trend-range muted">
-        <span>{minimum.toFixed(2)}</span><span>{maximum.toFixed(2)}</span>
-      </div>
-    </figure>
-  );
-}
-
 export function OperatingOutcomesRoute({ client }: Props) {
   const state = useAnalyticsData(client);
   const segment = currentRoute().segments[0];
@@ -181,50 +121,9 @@ export function OperatingOutcomesRoute({ client }: Props) {
       <HubTabs panelId="operating-outcomes" values={OUTCOME_KEYS} active={active ?? ""} label={(key) => t(`analytics.metric.${key}`)} />
       {active === null ? <UnavailableState message={t("analytics.invalidDetail")} /> : (
         <AsyncBoundary state={state} resourceLabel={t("analytics.outcomes.title")}>
-          {(data) => data.autonomy ? <OutcomeBody data={data} active={active} /> : <UnavailableState message={t("analytics.autonomyUnavailable")} />}
+          {(data) => data.autonomy ? <OperatingOutcomeBody data={data} active={active} /> : <UnavailableState message={t("analytics.autonomyUnavailable")} />}
         </AsyncBoundary>
       )}
-    </div>
-  );
-}
-
-function OutcomeBody({ data, active }: { readonly data: AnalyticsData; readonly active: OutcomeKey }) {
-  const autonomy = data.autonomy!;
-  const metric = outcomeMetric(autonomy, active);
-  const routeLabel = t("analytics.outcomes.title");
-  const metricLabel = t(`analytics.metric.${active}`);
-  const unavailableLabel = t("analytics.unavailable");
-  const trend = autonomy.trend[active.replaceAll("-", "_")] ??
-    (active === "auto-resolution" ? autonomy.trend.auto_resolution_rate : undefined);
-  usePublishViewContext(
-    () => buildOperatingOutcomeViewSnapshot({
-      autonomy,
-      metric,
-      metricKey: active,
-      metricLabel,
-      unavailableLabel,
-      routeLabel,
-    }),
-    [active, autonomy, metric, metricLabel, routeLabel, unavailableLabel],
-  );
-  return (
-    <div class="stack">
-      <EvidenceStrip autonomy={autonomy} />
-      <KpiGrid>
-        <KpiCard label={t("analytics.current")} value={metricValue(metric, active)} />
-        <KpiCard label={t("analytics.baseline")} value={baselineValue(metric, active)} />
-        <KpiCard label={t("analytics.direction")} value={t(`analytics.${metric.direction}Better`)} />
-        <KpiCard label={t("analytics.sampleSize")} value={autonomy.sample_size.toLocaleString("en-US")} />
-      </KpiGrid>
-      <TrendChart values={trend ?? []} label={t("analytics.outcomes.trend", { metric: t(`analytics.metric.${active}`) })} />
-      <section class="analytics-panel">
-        <h3>{t("analytics.outcomes.breakdown")}</h3>
-        <VerticalTable verticals={autonomy.verticals} />
-      </section>
-      <EvidenceLinks links={[
-        [t("analytics.viewAudit"), routeHref("audit", { params: { window: `${autonomy.window_days}d` } })],
-        [t("analytics.viewIncidents"), routeHref("incidents")],
-      ]} />
     </div>
   );
 }

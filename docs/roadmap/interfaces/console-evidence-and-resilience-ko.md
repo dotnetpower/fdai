@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 9131d1d0c8a488b783c86ba45194bc09cb8c657f
+translation_source_sha: b16875de0df5695e72635acd5eaf38b791646d7a
 translation_revised: 2026-07-23
 ---
 
@@ -34,6 +34,14 @@ Operating Outcomes는 선택한 metric, current value, baseline, measurement win
 confidence, source provenance 및 vertical record를 bounded Command Deck view snapshot으로
 발행합니다. Narrator는 렌더링된 evidence fact만 수신하며 unavailable value를 추론하거나 route의
 authoritative source를 대체하지 않습니다.
+
+각 Operating Outcomes route는 metric별 analysis surface를 유지합니다. Auto-resolution은 관측된
+event 및 auto-resolved record 수, 영역별 비율 및 guard context를 보여줍니다. Human touchpoints, MTTR, change lead time 및
+cost per resolved event는 각각 고유한 analysis 및 breakdown 섹션을 유지합니다. Read projection이
+touchpoint type, latency percentile, delivery stage 또는 cost composition을 제공하지 않으면 관련 없는
+vertical table을 재사용하거나 browser에서 값을 파생하지 않고 unavailable로 렌더링합니다. Cost view는
+표시 금액이 표준 단가를 기준으로 하며 할인, 약정, credit, 세금, 환율 및 provider billing adjustment가
+반영된 실제 청구 금액과 다를 수 있다는 점도 안내합니다.
 
 ## 로딩 표현
 

@@ -42,6 +42,7 @@
   "viewApprovals": "승인 대기 보기",
   "viewRules": "근거 규칙 보기",
   "viewLlmCost": "모델 비용 및 사용량 보기",
+  "viewReports": "인시던트 보고서 보기",
   "health": {
     "healthy": "통제 정상",
     "attention": "조치 필요",
@@ -58,7 +59,61 @@
     "title": "운영 성과",
     "subtitle": "각 운영 성과의 측정값, 기준선, 추세, 근거를 보여줍니다.",
     "trend": "{metric} 추세",
-    "breakdown": "영역별 기여"
+    "breakdown": "영역별 기여",
+    "autoResolvedCount": "자동 해결 레코드",
+    "observedEventCount": "관측 레코드",
+    "guardBoundary": "품질 경계",
+    "guardUnavailable": "현재 측정 projection에 가드 근거가 없습니다.",
+    "costNoticeLabel": "비용 추정 기준",
+    "costNoticeTitle": "표준 단가 기준 추정치",
+    "costNoticeBody": "표시된 비용은 공개 표준 단가를 기준으로 계산됩니다. 실제 청구 금액은 계약 할인, 약정, 크레딧, 세금, 환율 및 공급자 청구 조정에 따라 달라질 수 있습니다. 청구서 대조가 아닌 참고용으로 사용하세요.",
+    "views": {
+      "auto-resolution": {
+        "title": "사람 개입 없이 올바르게 해결된 결과",
+        "description": "측정 기간 안에 사람 접점과 사후 rollback 없이 종료된 결과만 계산합니다.",
+        "currentLabel": "현재 비율",
+        "analysisTitle": "품질 경계",
+        "analysisUnavailable": "현재 측정 projection에 가드 근거가 없습니다.",
+        "breakdownTitle": "영역별 자동 해결",
+        "breakdownUnavailable": "현재 측정 projection에 영역별 자동 해결 근거가 없습니다."
+      },
+      "human-touchpoints": {
+        "title": "아직 남아 있는 운영자 작업",
+        "description": "사람의 결정이나 입력을 계산합니다. 읽기 전용 콘솔 조회는 접점으로 계산하지 않습니다.",
+        "currentLabel": "이벤트 100건당 접점",
+        "analysisTitle": "접점 유형",
+        "analysisUnavailable": "현재 projection은 승인, 수동 편집 및 수동 rollback을 구분하지 않습니다.",
+        "breakdownTitle": "영역별 사람 접점",
+        "breakdownUnavailable": "현재 projection은 사람 접점을 개별 영역에 귀속하지 않습니다."
+      },
+      "mttr": {
+        "title": "해결 지연 시간과 긴 꼬리 구간",
+        "description": "좋은 평균값이 느린 복구를 숨기지 않도록 평균, 중앙값 및 p90 근거가 필요합니다.",
+        "currentLabel": "평균",
+        "analysisTitle": "해결 시간 분포",
+        "analysisUnavailable": "현재 projection에 중앙값, p90, 미해결 및 무결성 제외 상세가 없습니다.",
+        "breakdownTitle": "심각도별 지연 시간",
+        "breakdownUnavailable": "현재 projection은 해결 지연 시간을 심각도별로 구분하지 않습니다."
+      },
+      "change-lead-time": {
+        "title": "요청부터 병합까지의 통제된 변경",
+        "description": "측정 성과와 승인 및 전달 단계를 구분하고 변경 가드를 함께 확인합니다.",
+        "currentLabel": "평균",
+        "analysisTitle": "단계별 기여 시간",
+        "analysisUnavailable": "현재 projection에 요청 검증, 정책, 승인 대기 및 병합 단계별 시간이 없습니다.",
+        "breakdownTitle": "전달 경로 비교",
+        "breakdownUnavailable": "현재 projection은 정책 통과 경로와 사람 승인 경로를 구분하지 않습니다."
+      },
+      "cost-per-resolved-event": {
+        "title": "해결 결과당 귀속 비용",
+        "description": "해결 결과에 귀속된 변동 비용을 추적하며 공유 고정 오버헤드는 성과 주장에 포함하지 않습니다.",
+        "currentLabel": "현재 해결 이벤트당 비용",
+        "analysisTitle": "귀속 비용 구성",
+        "analysisUnavailable": "현재 projection에 추론, 컴퓨팅, 스토리지 및 이벤트 버스 비용 구성이 없습니다.",
+        "breakdownTitle": "해결 단위별 비용",
+        "breakdownUnavailable": "현재 projection은 인시던트, 변경 및 최적화 단위 비용을 구분하지 않습니다."
+      }
+    }
   },
   "assurance": {
     "title": "통제 보증",

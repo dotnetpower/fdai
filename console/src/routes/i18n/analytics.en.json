@@ -42,6 +42,7 @@
   "viewApprovals": "View pending approvals",
   "viewRules": "View grounded rules",
   "viewLlmCost": "View model cost and usage",
+  "viewReports": "View incident reports",
   "health": {
     "healthy": "Under control",
     "attention": "Needs attention",
@@ -58,7 +59,61 @@
     "title": "Operating outcomes",
     "subtitle": "Measured results, baselines, trends, and the evidence behind each outcome.",
     "trend": "{metric} trend",
-    "breakdown": "Contribution by vertical"
+    "breakdown": "Contribution by vertical",
+    "autoResolvedCount": "Auto-resolved records",
+    "observedEventCount": "Observed records",
+    "guardBoundary": "Quality boundary",
+    "guardUnavailable": "Guard evidence is not present in the current measurement projection.",
+    "costNoticeLabel": "Cost estimate basis",
+    "costNoticeTitle": "Standard-price estimate",
+    "costNoticeBody": "Displayed costs use published standard prices. Actual billed amounts may differ because of negotiated discounts, commitments, credits, taxes, exchange rates, and provider billing adjustments. Use these values for reference, not invoice reconciliation.",
+    "views": {
+      "auto-resolution": {
+        "title": "Correct outcomes without human intervention",
+        "description": "Counts terminal outcomes with no human touchpoint and no later rollback in the measurement window.",
+        "currentLabel": "Current rate",
+        "analysisTitle": "Quality boundary",
+        "analysisUnavailable": "Guard evidence is not present in the current measurement projection.",
+        "breakdownTitle": "Vertical resolution",
+        "breakdownUnavailable": "Vertical resolution evidence is not present in the current measurement projection."
+      },
+      "human-touchpoints": {
+        "title": "Operator work that remains",
+        "description": "Counts decisions or input from a person. Read-only console views do not count as touchpoints.",
+        "currentLabel": "Touchpoints / 100 events",
+        "analysisTitle": "Touchpoint type",
+        "analysisUnavailable": "The current projection does not separate approvals, manual edits, and manual rollbacks.",
+        "breakdownTitle": "Touchpoints by vertical",
+        "breakdownUnavailable": "The current projection does not attribute touchpoints to individual verticals."
+      },
+      "mttr": {
+        "title": "Resolution latency and its tail",
+        "description": "Resolution time needs mean, median, and p90 evidence so a good average cannot hide slow recoveries.",
+        "currentLabel": "Mean",
+        "analysisTitle": "Resolution-time distribution",
+        "analysisUnavailable": "Median, p90, unresolved, and integrity-exclusion details are not present in the current projection.",
+        "breakdownTitle": "Latency by severity",
+        "breakdownUnavailable": "The current projection does not break resolution latency down by severity."
+      },
+      "change-lead-time": {
+        "title": "Governed change from request to merge",
+        "description": "Separates the measured outcome from approval and delivery stages while keeping change guards in view.",
+        "currentLabel": "Mean",
+        "analysisTitle": "Stage contribution",
+        "analysisUnavailable": "Request validation, policy, approval wait, and merge-stage durations are not present in the current projection.",
+        "breakdownTitle": "Delivery path comparison",
+        "breakdownUnavailable": "The current projection does not separate policy-cleared and human-approved delivery paths."
+      },
+      "cost-per-resolved-event": {
+        "title": "Attributable spend per resolved result",
+        "description": "Tracks variable spend attributed to resolved outcomes and keeps shared fixed overhead outside the claim.",
+        "currentLabel": "Current / resolved event",
+        "analysisTitle": "Attributed cost composition",
+        "analysisUnavailable": "Inference, compute, storage, and event-bus cost composition is not present in the current projection.",
+        "breakdownTitle": "Cost by resolved unit",
+        "breakdownUnavailable": "The current projection does not separate incident, change, and optimization unit costs."
+      }
+    }
   },
   "assurance": {
     "title": "Control assurance",

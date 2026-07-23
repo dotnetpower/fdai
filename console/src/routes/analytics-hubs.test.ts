@@ -9,6 +9,13 @@ import {
   verticalResolutionRate,
 } from "./analytics-hubs";
 import { buildOperatingOutcomeViewSnapshot } from "./analytics-hubs.view";
+import {
+  OUTCOME_KEYS,
+  autoResolutionCounts,
+  formatOutcomeMetric,
+  outcomeMetric,
+  outcomeViewContract,
+} from "./operating-outcomes";
 
 const AUTONOMY: AutonomyPayload = {
   synthetic: false,
@@ -44,6 +51,25 @@ const AUTONOMY: AutonomyPayload = {
 };
 
 describe("trust-routing measurements", () => {
+  it("gives every operating outcome an independent analysis contract", () => {
+    const contracts = OUTCOME_KEYS.map((key) => outcomeViewContract(key));
+    expect(new Set(contracts.map((contract) => contract.titleKey)).size).toBe(5);
+    expect(new Set(contracts.map((contract) => contract.analysisTitleKey)).size).toBe(5);
+    expect(contracts.filter((contract) => contract.measuredBreakdown)).toHaveLength(1);
+  });
+
+  it("selects and formats each outcome without inventing missing evidence", () => {
+    expect(outcomeMetric(AUTONOMY, "auto-resolution")).toBe(AUTONOMY.success.auto_resolution_rate);
+    expect(outcomeMetric(AUTONOMY, "cost-per-resolved-event")).toBe(AUTONOMY.success.cost_per_resolved_event_usd);
+    expect(formatOutcomeMetric(null, "mttr")).toBe("Unavailable");
+    expect(formatOutcomeMetric(540, "mttr")).toBe("9m");
+    expect(formatOutcomeMetric(0.125, "cost-per-resolved-event")).toBe("$0.13");
+  });
+
+  it("derives only the supported observed and auto-resolved record counts", () => {
+    expect(autoResolutionCounts(AUTONOMY.verticals)).toEqual({ observed: 34, resolved: 14 });
+  });
+
   it("publishes visible outcome evidence for Command Deck grounding", () => {
     const snapshot = buildOperatingOutcomeViewSnapshot({
       autonomy: AUTONOMY,
