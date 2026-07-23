@@ -24,6 +24,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { getLocale, t } from "../i18n";
 import type { PanelProps } from "../panels";
+import { routeHref } from "../router";
 
 interface FinOpsPayload {
   readonly vertical: string;
@@ -69,25 +70,25 @@ export function ExampleFinOpsPanel({ client }: PanelProps) {
   return (
     <div class="stack">
       <section class="grid">
-        <div class="card kpi">
+        <a class="card kpi" href={routeHref("audit", { params: { vertical: "cost" } })}>
           <span class="label">{t("finops.costActions")}</span>
           <span class="value">{data.total_actions.toLocaleString(getLocale() === "ko" ? "ko-KR" : "en-US")}</span>
-        </div>
-        <div class="card kpi">
+        </a>
+        <a class="card kpi" href={routeHref("verticals", { segments: ["cost-governance"] })}>
           <span class="label">{t("finops.monthlySavings")}</span>
           <span class="value">{new Intl.NumberFormat(getLocale() === "ko" ? "ko-KR" : "en-US", {
             style: "currency",
             currency: "USD",
           }).format(data.estimated_monthly_savings)}</span>
-        </div>
-        <div class="card kpi">
+        </a>
+        <a class="card kpi" href={routeHref("audit", { params: { vertical: "cost" } })}>
           <span class="label">{t("finops.sampledEvents")}</span>
           <span class="value">{data.sampled_events.toLocaleString(getLocale() === "ko" ? "ko-KR" : "en-US")}</span>
-        </div>
+        </a>
       </section>
 
       <section class="card">
-        <h2>{t("finops.actionsByKind")}</h2>
+        <h2><a href={routeHref("audit", { params: { vertical: "cost" } })}>{t("finops.actionsByKind")}</a></h2>
         <table>
           <tbody>
             {Object.entries(data.by_kind).map(([kind, count]) => (

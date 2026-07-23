@@ -369,6 +369,7 @@ function PromotionBody({
       ),
     },
   ];
+  const candidatesFragment = "#promotion-gate-candidates";
 
   return (
     <div class="stack">
@@ -377,20 +378,23 @@ function PromotionBody({
         <span>{t("governance.promotion.banner.body")}</span>
       </div>
       <KpiGrid>
-        <KpiCard label={t("governance.promotion.kpi.inShadow")} value={data.rows.length} hint={t("governance.promotion.kpi.inShadowHint")} />
+        <KpiCard href={`${routeHref("promotion-gates")}${candidatesFragment}`} label={t("governance.promotion.kpi.inShadow")} value={data.rows.length} hint={t("governance.promotion.kpi.inShadowHint")} />
         <KpiCard
+          href={`${routeHref("promotion-gates", { params: { status: "ready" } })}${candidatesFragment}`}
           label={t("governance.promotion.kpi.ready")}
           value={data.ready_count}
           tone={data.ready_count > 0 ? "positive" : "default"}
           hint={t("governance.promotion.kpi.readyHint")}
         />
         <KpiCard
+          href={`${routeHref("promotion-gates", { params: { status: "blocked" } })}${candidatesFragment}`}
           label={t("governance.common.blocked")}
           value={data.blocked_count}
           tone={data.blocked_count > 0 ? "warning" : "positive"}
           hint={t("governance.promotion.kpi.blockedHint")}
         />
         <KpiCard
+          href={`${routeHref("promotion-gates")}${candidatesFragment}`}
           label={t("governance.promotion.kpi.window")}
           value={data.window_days !== null
             ? t("governance.promotion.kpi.windowValue", { days: data.window_days })
@@ -433,7 +437,7 @@ function PromotionBody({
           <button type="button" class="btn btn-small" onClick={onClearReason}>{t("governance.common.clearFilter")}</button>
         </div>
       ) : null}
-      <section class="stack-section">
+      <section id="promotion-gate-candidates" class="stack-section">
         <h3 class="section-title">{t("governance.promotion.section", { count: rows.length })}</h3>
         <DataTable
           columns={columns}

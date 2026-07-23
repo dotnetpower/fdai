@@ -85,7 +85,7 @@ export function LoginRoute({
     <div class="login-cosmos">
       <NebulaBackground intensity={1.05} speed={1} class="login-nebula" />
 
-      <main class="login-card" role="main">
+      <main class="login-panel" role="main">
         <p class="login-eyebrow">
           {mode === "local" ? t("login.localEyebrow") : t("login.eyebrow")}
         </p>

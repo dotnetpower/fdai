@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 9935ce99b1b921814f28445e104fd178cb8600fa
-translation_revised: 2026-07-22
+translation_source_sha: f5cf03ca353e6028862601865dda17a19712eba0
+translation_revised: 2026-07-23
 ---
 
 # 프로세스 자동화(Process Automation)
@@ -274,6 +274,10 @@ malformed 워크플로는 첫 dispatch 가 아니라 부팅을 막는다.
 저작합니다. 이 표면은 bounded authoring 계약을 사용합니다. 검증, 미리보기 및
 시각화를 수행하며 명시적 save 는 principal 소유 private `draft` 만 만듭니다.
 Publish, binding, enable 및 execution 은 별도로 검토되는 경로로 유지됩니다.
+
+Step editor와 기타 authoring group은 data card가 아닌 structural panel입니다. Drill-down 목적지가
+없으므로 editor 또는 section semantics를 사용하며, data card는 소유 detail 또는 evidence view로
+연결되는 summary에만 사용합니다.
 
 뷰에는 두 모드가 있다. 기본은 **런치패드 + 빌트인 워크플로의 read-only
 목록**이다: `read-only 브라우즈 테이블`이 각 출시 프로세스를 trigger, step 수,

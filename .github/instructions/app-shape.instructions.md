@@ -130,6 +130,12 @@ shape maps to environments and CI/CD.
   they MUST expose one `role=status` / `aria-busy=true` loading label, hide decorative blocks from
   assistive technology, never resemble real values, and stop shimmer animation under
   `prefers-reduced-motion: reduce` while remaining visibly present.
+- Every console card with data, status, evidence, a count, or a summarized record **MUST drill
+  down** to its narrowest owning route or filtered evidence view. Prefer a whole-card native link;
+  a card with independent controls MUST expose a visible primary detail link. Unavailable values
+  still link to their owner, generic routes are fallback-only, and nested interactions are banned.
+- A container without a detail destination is not a card: groups, forms, editors, callouts, and
+  tools use section/panel semantics. Typed card APIs and contract tests MUST require destinations.
 - Console cards, panels, page sections, callouts, workflow nodes, table rows, and list rows
   **MUST NOT use a colored top edge or colored left edge as decoration or status**. This
   prohibition includes thick `border-top` / `border-left`, inset edge shadows, absolutely

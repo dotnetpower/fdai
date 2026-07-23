@@ -21,6 +21,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
+import { routeHref } from "../router";
 import { t } from "./i18n/evidence";
 
 /**
@@ -134,9 +135,10 @@ function ScopeBody({ data }: { readonly data: EffectiveScope }) {
         <span>{t("evidence.scope.bannerBody")}</span>
       </div>
       <KpiGrid>
-        <KpiCard label={t("evidence.scope.monitoringResources")} value={monitoringCount} hint={t("evidence.scope.monitoringHint")} />
-        <KpiCard label={t("evidence.scope.actionResources")} value={actionCount} hint={t("evidence.scope.actionHint")} />
+        <KpiCard href={`${routeHref("scope")}#scope-axis-monitoring`} label={t("evidence.scope.monitoringResources")} value={monitoringCount} hint={t("evidence.scope.monitoringHint")} />
+        <KpiCard href={`${routeHref("scope")}#scope-axis-action`} label={t("evidence.scope.actionResources")} value={actionCount} hint={t("evidence.scope.actionHint")} />
         <KpiCard
+          href={`${routeHref("scope")}#scope-executor-boundary`}
           label={t("evidence.scope.executorGroups")}
           value={data.executor_boundary.resource_groups.length}
           tone={data.executor_boundary.resource_groups.length > 0 ? "warning" : "default"}
@@ -180,7 +182,7 @@ function ScopeAxisTable({ axis }: { readonly axis: ScopeAxis }) {
     },
   ];
   return (
-    <section class="stack-section scope-axis-card">
+    <section id={`scope-axis-${axis.axis}`} class="stack-section scope-axis-section">
       <h3 class="section-title">{t(`scope.axis.${axis.axis}`)}</h3>
       <p class="muted footnote">{t(`scope.axisHint.${axis.axis}`)}</p>
       <DataTable
@@ -199,27 +201,25 @@ function ExecutorBoundaryCard({
   readonly boundary: EffectiveScope["executor_boundary"];
 }) {
   return (
-    <section class="stack-section scope-executor-card">
+    <section id="scope-executor-boundary" class="stack-section scope-executor-section">
       <h3 class="section-title">{t("scope.executor")}</h3>
       <p class="muted footnote">{t("scope.executorHint")}</p>
       <KpiGrid>
         <KpiCard
+          href={`${routeHref("scope")}#scope-executor-boundary`}
           label={t("scope.executorResourceGroups")}
-          value={
-            boundary.resource_groups.length === 0 ? (
-              t("scope.none")
-            ) : (
-              <span class="scope-boundary-links">
-                {boundary.resource_groups.map((resourceGroup) => (
-                  <a key={resourceGroup} class="mono small" href={architectureHref(undefined, resourceGroup)}>
-                    {resourceGroup}
-                  </a>
-                ))}
-              </span>
-            )
-          }
+          value={boundary.resource_groups.length === 0 ? t("scope.none") : boundary.resource_groups.length}
         />
       </KpiGrid>
+      {boundary.resource_groups.length > 0 ? (
+        <div class="scope-boundary-links">
+          {boundary.resource_groups.map((resourceGroup) => (
+            <a key={resourceGroup} class="mono small" href={architectureHref(undefined, resourceGroup)}>
+              {resourceGroup}
+            </a>
+          ))}
+        </div>
+      ) : null}
       {boundary.note ? <p class="muted footnote">{boundary.note}</p> : null}
     </section>
   );
@@ -298,7 +298,7 @@ function ScopeBuilder({ org }: { readonly org: string }) {
   }
 
   return (
-    <section class="stack-section scope-builder-card">
+    <section class="stack-section scope-builder-section">
       <div class="governance-readonly-banner">
         <strong>{t("evidence.scope.artifactBannerTitle")}</strong>
         <span>{t("evidence.scope.artifactBannerBody")}</span>

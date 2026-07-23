@@ -272,6 +272,12 @@ export function BlastRadiusRoute({ client }: Props) {
 }
 function ReportView({ data, client, architectureView }: { readonly data: BlastRadiusResponse; readonly client: ReadApiClient; readonly architectureView: string | null }) {
   const initialResult = currentRoute().search.get("result");
+  const evidenceHref = blastRadiusHref({
+    target: data.target,
+    depth: data.traversal_depth,
+    links: data.traversal_links,
+    architectureView,
+  }, "table");
   const [view, setView] = useState<"impact" | "map" | "table">(
     initialResult === "map" || initialResult === "table" ? initialResult : "impact",
   );
@@ -364,12 +370,18 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
       </div>
       <KpiGrid>
         <KpiCard
+          href={evidenceHref}
           label={t("ontology.blast.affectedResources")}
           value={formatNumber(data.affected_count)}
           tone={data.affected_count > 25 ? "warning" : "default"}
         />
-        <KpiCard label={t("ontology.blast.traversalDepth")} value={formatNumber(data.traversal_depth)} />
         <KpiCard
+          href={evidenceHref}
+          label={t("ontology.blast.traversalDepth")}
+          value={formatNumber(data.traversal_depth)}
+        />
+        <KpiCard
+          href={evidenceHref}
           label={t("ontology.blast.truncatedAtCap")}
           value={data.truncated_at_depth ? t("ontology.common.yes") : t("ontology.common.no")}
           tone={data.truncated_at_depth ? "warning" : "positive"}

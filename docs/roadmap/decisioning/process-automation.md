@@ -285,6 +285,10 @@ and uses a bounded authoring contract: it validates, previews, and visualizes;
 an explicit save creates only a principal-owned private `draft`. Publishing,
 binding, enabling, and execution remain separate reviewed paths.
 
+Step editors and other authoring groups are structural panels, not data cards. They use editor or
+section semantics because they have no drill-down destination; data cards remain reserved for
+summaries that link to an owned detail or evidence view.
+
 The view has two modes. The default is a **launchpad plus a read-only list of
 the built-in workflows**: a `read-only browse table` lists every shipped
 process with its trigger, step count, and mode, and a per-row detail panel

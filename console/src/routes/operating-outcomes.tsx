@@ -154,23 +154,53 @@ function OutcomeKpis({
   readonly contract: OutcomeViewContract;
 }) {
   const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
+  const auditHref = (outcome?: string) => routeHref("audit", {
+    params: { window: `${autonomy.window_days}d`, outcome },
+  });
   if (active === "auto-resolution") {
     const counts = autoResolutionCounts(autonomy.verticals);
     return (
       <KpiGrid>
-        <KpiCard label={t(contract.currentLabelKey)} value={formatOutcomeMetric(metric.value, active)} />
-        <KpiCard label={t("analytics.baseline")} value={formatOutcomeMetric(metric.baseline, active)} />
-        <KpiCard label={t("analytics.outcomes.autoResolvedCount")} value={counts.resolved.toLocaleString(locale)} />
-        <KpiCard label={t("analytics.outcomes.observedEventCount")} value={counts.observed.toLocaleString(locale)} />
+        <KpiCard href={auditHref("auto")} label={t(contract.currentLabelKey)} value={formatOutcomeMetric(metric.value, active)} />
+        <KpiCard href={auditHref("auto")} label={t("analytics.baseline")} value={formatOutcomeMetric(metric.baseline, active)} />
+        <KpiCard href={auditHref("auto")} label={t("analytics.outcomes.autoResolvedCount")} value={counts.resolved.toLocaleString(locale)} />
+        <KpiCard href={auditHref()} label={t("analytics.outcomes.observedEventCount")} value={counts.observed.toLocaleString(locale)} />
       </KpiGrid>
     );
   }
+  const hrefs: Readonly<Record<Exclude<OutcomeKey, "auto-resolution">, readonly [string, string, string, string]>> = {
+    "human-touchpoints": [
+      routeHref("hil-queue"),
+      auditHref("hil"),
+      routeHref("hil-queue"),
+      auditHref("hil"),
+    ],
+    mttr: [
+      routeHref("incidents", { params: { status: "resolved" } }),
+      routeHref("reports"),
+      routeHref("incidents", { params: { status: "resolved" } }),
+      routeHref("reports"),
+    ],
+    "change-lead-time": [
+      auditHref(),
+      auditHref(),
+      routeHref("promotion-gates"),
+      auditHref(),
+    ],
+    "cost-per-resolved-event": [
+      routeHref("llm-cost"),
+      auditHref(),
+      routeHref("llm-cost"),
+      auditHref(),
+    ],
+  };
+  const [currentHref, baselineHref, directionHref, sampleHref] = hrefs[active];
   return (
     <KpiGrid>
-      <KpiCard label={t(contract.currentLabelKey)} value={formatOutcomeMetric(metric.value, active)} />
-      <KpiCard label={t("analytics.baseline")} value={formatOutcomeMetric(metric.baseline, active)} />
-      <KpiCard label={t("analytics.direction")} value={t(`analytics.${metric.direction}Better`)} />
-      <KpiCard label={t("analytics.sampleSize")} value={autonomy.sample_size.toLocaleString(locale)} />
+      <KpiCard href={currentHref} label={t(contract.currentLabelKey)} value={formatOutcomeMetric(metric.value, active)} />
+      <KpiCard href={baselineHref} label={t("analytics.baseline")} value={formatOutcomeMetric(metric.baseline, active)} />
+      <KpiCard href={directionHref} label={t("analytics.direction")} value={t(`analytics.${metric.direction}Better`)} />
+      <KpiCard href={sampleHref} label={t("analytics.sampleSize")} value={autonomy.sample_size.toLocaleString(locale)} />
     </KpiGrid>
   );
 }

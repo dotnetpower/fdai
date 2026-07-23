@@ -1,6 +1,7 @@
 import { Fragment, type ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 import { ErrorState, KpiCard, KpiGrid, StatusPill } from "../components/ui";
+import { currentRoute } from "../router";
 import { displayValue, processTone, type RenderedWidget } from "./processes.model";
 import { GRAPH_WIDGET_TYPES, GraphWidget } from "./process-view-widgets.graphs";
 import { FLOW_WIDGET_TYPES, FlowWidget } from "./process-view-widgets.flows";
@@ -35,6 +36,7 @@ export function ProcessWidget({ widget, depth = 0 }: { readonly widget: Rendered
   if (widget.type === "query_value") {
     return (
       <KpiCard
+        href={widgetDrilldownHref()}
         label={widget.title}
         value={displayValue(widget.data["value"])}
         tone={toneForValue(widget.data["value"])}
@@ -49,7 +51,9 @@ export function ProcessWidget({ widget, depth = 0 }: { readonly widget: Rendered
   if (widget.type === "topology_map") return <TopologyWidget widget={widget} />;
   if (GRAPH_WIDGET_TYPES.has(widget.type)) return <GraphWidget widget={widget} />;
   if (FLOW_WIDGET_TYPES.has(widget.type)) return <FlowWidget widget={widget} />;
-  if (SUMMARY_WIDGET_TYPES.has(widget.type)) return <SummaryWidget widget={widget} />;
+  if (SUMMARY_WIDGET_TYPES.has(widget.type)) {
+    return <SummaryWidget widget={widget} href={widgetDrilldownHref(widget.id)} />;
+  }
   if (CONTENT_WIDGET_TYPES.has(widget.type)) return <ContentWidget widget={widget} />;
   if (WORKFLOW_WIDGET_TYPES.has(widget.type)) return <WorkflowPresentationWidget widget={widget} />;
   if (widget.type === "tabs") return <TabsWidget widget={widget} depth={depth} />;
@@ -189,16 +193,24 @@ export function barWidthPercent(value: number | null, maximum: number): number {
   return Math.min(100, (value / maximum) * 100);
 }
 
+export function widgetDrilldownHref(widgetId?: string): string {
+  const route = currentRoute();
+  const query = route.search.toString();
+  const anchor = widgetId ? `#${encodeURIComponent(`${widgetId}-title`)}` : "";
+  return `${route.canonicalPathname}${query ? `?${query}` : ""}${anchor}`;
+}
+
 function CheckStatusWidget({ widget }: { readonly widget: RenderedWidget }) {
   const summary = asRecord(widget.data["summary"]);
   const checks = asRows(widget.data["checks"]);
   return (
-    <section class="process-widget-section">
-      <h3>{widget.title}</h3>
+    <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}>
+      <h3 id={`${widget.id}-title`}>{widget.title}</h3>
       <KpiGrid>
         {(["ok", "warn", "fail", "unknown"] as const).map((status) => (
           <KpiCard
             key={status}
+            href={widgetDrilldownHref(widget.id)}
             label={statusLabel(status)}
             value={displayValue(summary[status])}
             tone={status === "ok" ? "positive" : status === "fail" ? "danger" : status === "warn" ? "warning" : "default"}

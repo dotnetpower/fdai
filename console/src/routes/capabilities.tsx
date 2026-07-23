@@ -146,6 +146,15 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
   const selected = selectedId
     ? data.capabilities.find((item) => item.capability_id === selectedId) ?? null
     : null;
+  const allCapabilitiesHref = `${routeHref("capabilities")}#capabilities-table`;
+  const visibleCapabilitiesHref = `${routeHref("capabilities", {
+    params: {
+      q: query || null,
+      category: category === "all" ? null : category,
+      effect: effect === "all" ? null : effect,
+      role: role === "all" ? null : role,
+    },
+  })}#capabilities-table`;
   const updateRoute = (next: {
     readonly query?: string;
     readonly category?: string;
@@ -217,10 +226,10 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
         <span>{t("governance.capabilities.banner.body", { source: data.source })}</span>
       </div>
       <KpiGrid>
-        <KpiCard label={t("governance.capabilities.kpi.declarations")} value={data.count.toLocaleString()} />
-        <KpiCard label={t("governance.capabilities.kpi.categories")} value={categories.toLocaleString()} />
-        <KpiCard label={t("governance.capabilities.kpi.mutating")} value={mutatingDeclarations.toLocaleString()} />
-        <KpiCard label={t("governance.capabilities.kpi.shown")} value={visible.length.toLocaleString()} />
+        <KpiCard href={allCapabilitiesHref} label={t("governance.capabilities.kpi.declarations")} value={data.count.toLocaleString()} />
+        <KpiCard href={allCapabilitiesHref} label={t("governance.capabilities.kpi.categories")} value={categories.toLocaleString()} />
+        <KpiCard href={allCapabilitiesHref} label={t("governance.capabilities.kpi.mutating")} value={mutatingDeclarations.toLocaleString()} />
+        <KpiCard href={visibleCapabilitiesHref} label={t("governance.capabilities.kpi.shown")} value={visible.length.toLocaleString()} />
       </KpiGrid>
       <section class="capabilities-filterbar" aria-label={t("governance.capabilities.filter.aria")}>
         <input id="capability-search" type="search" aria-label={t("governance.capabilities.filter.searchAria")} value={query} placeholder={t("governance.capabilities.filter.searchPlaceholder")} onInput={(event) => updateRoute({ query: event.currentTarget.value, selectedId: null })} />
@@ -228,16 +237,18 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
         <CapabilitySelect label={t("governance.capabilities.filter.sideEffect")} value={effect} options={optionValues("side_effect_class")} onChange={(value) => updateRoute({ effect: value, selectedId: null })} />
         <CapabilitySelect label={t("governance.capabilities.filter.role")} value={role} options={optionValues("required_role")} onChange={(value) => updateRoute({ role: value, selectedId: null })} />
       </section>
-      <DataTable
-        rows={visible}
-        columns={columns}
-        keyOf={(row) => row.capability_id}
-        empty={t("governance.capabilities.empty")}
-        onRowClick={(row) => selectCapability(row.capability_id)}
-        isRowActive={(row) => row.capability_id === selectedId}
-        rowActionLabel={(row) => t("governance.capabilities.openRow", { name: row.name })}
-        rowActionControls="capability-detail"
-      />
+      <div id="capabilities-table">
+        <DataTable
+          rows={visible}
+          columns={columns}
+          keyOf={(row) => row.capability_id}
+          empty={t("governance.capabilities.empty")}
+          onRowClick={(row) => selectCapability(row.capability_id)}
+          isRowActive={(row) => row.capability_id === selectedId}
+          rowActionLabel={(row) => t("governance.capabilities.openRow", { name: row.name })}
+          rowActionControls="capability-detail"
+        />
+      </div>
       {selectedId && !selected ? (
         <UnavailableState message={t("governance.capabilities.unregistered", { id: selectedId })} />
       ) : selected ? (

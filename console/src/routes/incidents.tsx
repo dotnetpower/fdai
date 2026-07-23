@@ -410,23 +410,39 @@ function IncidentDetail({
   readonly incident: IncidentSummary;
   readonly history: AsyncState<readonly AuditItem[]>;
 }) {
+  const route = currentRoute();
+  const currentStatus = route.search.get("status");
+  const incidentHref = routeHref("incidents", {
+    params: {
+      status: currentStatus === "resolved" || currentStatus === "all" ? currentStatus : null,
+      vertical: route.search.get("vertical") ?? incident.vertical,
+      correlation: incident.correlation_id,
+    },
+  });
+  const auditHref = routeHref("audit", { params: { correlation: incident.correlation_id } });
+  const traceHref = routeHref("trace", { params: { correlation: incident.correlation_id } });
+  const reportHref = routeHref("reports", {
+    segments: ["incident-rca-dossier"],
+    params: { correlation_id: incident.correlation_id },
+  });
   return (
     <section id={INCIDENT_DETAIL_ID} class="stack-section" aria-labelledby={`${INCIDENT_DETAIL_ID}-title`}>
       <h3 id={`${INCIDENT_DETAIL_ID}-title`} class="section-title">{t("incidents.detail")}</h3>
       <KpiGrid>
-        <KpiCard label={t("incidents.correlation")} value={<span class="mono small">{incident.correlation_id}</span>} />
-        <KpiCard label={t("incidents.incidentId")} value={<span class="mono small">{incident.incident_id ?? t("incidents.none")}</span>} />
-        <KpiCard label={t("incidents.ticketId")} value={<span class="mono small">{incident.ticket_id ?? t("incidents.none")}</span>} />
-        <KpiCard label={t("incidents.opened")} value={<span class="mono small">{formatConsoleTimestamp(incident.opened_at)}</span>} />
-        <KpiCard label={t("incidents.lastUpdated")} value={<span class="mono small">{formatConsoleTimestamp(incident.last_updated_at)}</span>} />
-        <KpiCard label={t("incidents.currentStatus")} value={<StatusPill kind={statusPill(incident.status)} label={localized("status", incident.status)} />} />
-        <KpiCard label={t("incidents.currentDisposition")} value={localized("disposition", incident.disposition)} />
-        <KpiCard label={t("incidents.currentVerdict")} value={<StatusPill kind={verdictPill(incident.verdict)} label={incident.verdict} />} />
-        <KpiCard label={t("incidents.verticalLabel")} value={localized("vertical", incident.vertical)} />
-        <KpiCard label={t("incidents.latestMode")} value={<StatusPill kind={incident.latest_mode} label={incident.latest_mode} />} />
-        <KpiCard label={t("incidents.statusSource")} value={<span class="mono small">{incident.status_source}</span>} />
-        <KpiCard label={t("incidents.history")} value={incident.history_count} />
+        <KpiCard href={auditHref} label={t("incidents.correlation")} value={<span class="mono small">{incident.correlation_id}</span>} />
+        <KpiCard href={reportHref} label={t("incidents.incidentId")} value={<span class="mono small">{incident.incident_id ?? t("incidents.none")}</span>} />
+        <KpiCard href={reportHref} label={t("incidents.ticketId")} value={<span class="mono small">{incident.ticket_id ?? t("incidents.none")}</span>} />
+        <KpiCard href={auditHref} label={t("incidents.opened")} value={<span class="mono small">{formatConsoleTimestamp(incident.opened_at)}</span>} />
+        <KpiCard href={auditHref} label={t("incidents.lastUpdated")} value={<span class="mono small">{formatConsoleTimestamp(incident.last_updated_at)}</span>} />
+        <KpiCard href={incidentHref} label={t("incidents.currentStatus")} value={<StatusPill kind={statusPill(incident.status)} label={localized("status", incident.status)} />} />
+        <KpiCard href={incidentHref} label={t("incidents.currentDisposition")} value={localized("disposition", incident.disposition)} />
+        <KpiCard href={traceHref} label={t("incidents.currentVerdict")} value={<StatusPill kind={verdictPill(incident.verdict)} label={incident.verdict} />} />
+        <KpiCard href={incidentHref} label={t("incidents.verticalLabel")} value={localized("vertical", incident.vertical)} />
+        <KpiCard href={routeHref("audit", { params: { correlation: incident.correlation_id, mode: incident.latest_mode } })} label={t("incidents.latestMode")} value={<StatusPill kind={incident.latest_mode} label={incident.latest_mode} />} />
+        <KpiCard href={auditHref} label={t("incidents.statusSource")} value={<span class="mono small">{incident.status_source}</span>} />
+        <KpiCard href={auditHref} label={t("incidents.history")} value={incident.history_count} />
         <KpiCard
+          href={traceHref}
           label={t("incidents.involvedAgents")}
           value={incident.involved_agents.length > 0
             ? incident.involved_agents.join(", ")
@@ -434,12 +450,9 @@ function IncidentDetail({
         />
       </KpiGrid>
       <nav class="incident-evidence-links" aria-label={t("evidence.incidents.evidence")}>
-        <a href={routeHref("reports", {
-          segments: ["incident-rca-dossier"],
-          params: { correlation_id: incident.correlation_id },
-        })}>{t("incidents.report")}</a>
-        <a href={routeHref("audit", { params: { correlation: incident.correlation_id } })}>{t("incidents.audit")}</a>
-        <a href={routeHref("trace", { params: { correlation: incident.correlation_id } })}>{t("incidents.trace")}</a>
+        <a href={reportHref}>{t("incidents.report")}</a>
+        <a href={auditHref}>{t("incidents.audit")}</a>
+        <a href={traceHref}>{t("incidents.trace")}</a>
         <a href={routeHref("rca", { params: { correlation: incident.correlation_id } })}>{t("incidents.rca")}</a>
       </nav>
       <AsyncBoundary state={history} resourceLabel={t("incidents.timeline")}>

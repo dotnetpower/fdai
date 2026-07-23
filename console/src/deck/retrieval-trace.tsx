@@ -29,7 +29,7 @@ import type {
 import type { ViewSnapshot } from "./context";
 
 /** Fixed card pitch: card height + gap. Keep in sync with styles.css
- *  (.deck-rt-card height + .deck-rt-strip gap). */
+ *  (.deck-rt-source height + .deck-rt-strip gap). */
 const CARD_PITCH_PX = 40;
 /** How many source cards stay in the slot window at once. */
 const VISIBLE = 3;
@@ -198,7 +198,7 @@ export function RetrievalTrace({
               style={{ transform: `translateY(${-rolled * CARD_PITCH_PX}px)` }}
             >
               {visibleSources.map((source, i) => (
-                <li key={`${source.kind}-${source.label}-${i}`} class="deck-rt-card">
+                <li key={`${source.kind}-${source.label}-${i}`} class="deck-rt-source">
                   <span class={`deck-rt-badge is-${source.kind}`}>{source.kind}</span>
                   <span class="deck-rt-txt">
                     <span class="deck-rt-k">{source.label}</span>

@@ -177,14 +177,16 @@ function AssuranceBody({
 }) {
   const escapes = data.gates?.rows.reduce((sum, row) => sum + row.policy_escapes, 0) ?? null;
   const health = overviewHealth(data.kpi, escapes, data.autonomy);
+  const context = searchParamsRecord(currentRoute().search);
+  const window = data.autonomy ? `${data.autonomy.window_days}d` : context["window"];
   return (
     <div class="stack">
       {data.autonomy ? <EvidenceStrip autonomy={data.autonomy} /> : null}
       <KpiGrid>
-        <KpiCard label={t("analytics.assurance.posture")} value={t(`analytics.health.${health}`)} tone={health === "healthy" ? "positive" : health === "attention" ? "warning" : "default"} />
-        <KpiCard label={t("analytics.assurance.escapes")} value={escapes ?? t("analytics.unavailable")} tone={escapes === null ? "default" : escapes === 0 ? "positive" : "warning"} />
-        <KpiCard label={t("analytics.assurance.shadow")} value={formatShare(data.kpi.shadow_share)} />
-        <KpiCard label={t("analytics.assurance.ready")} value={data.gates ? `${data.gates.ready_count}/${data.gates.rows.length}` : t("analytics.unavailable")} />
+        <KpiCard href={routeHref("control-assurance", { params: context })} label={t("analytics.assurance.posture")} value={t(`analytics.health.${health}`)} tone={health === "healthy" ? "positive" : health === "attention" ? "warning" : "default"} />
+        <KpiCard href={routeHref("promotion-gates", { params: { ...context, status: "blocked" } })} label={t("analytics.assurance.escapes")} value={escapes ?? t("analytics.unavailable")} tone={escapes === null ? "default" : escapes === 0 ? "positive" : "warning"} />
+        <KpiCard href={routeHref("audit", { params: { ...context, window, mode: "shadow" } })} label={t("analytics.assurance.shadow")} value={formatShare(data.kpi.shadow_share)} />
+        <KpiCard href={routeHref("promotion-gates", { params: { ...context, status: "ready" } })} label={t("analytics.assurance.ready")} value={data.gates ? `${data.gates.ready_count}/${data.gates.rows.length}` : t("analytics.unavailable")} />
       </KpiGrid>
       {data.autonomy ? (
         <GuardTable autonomy={data.autonomy} guardKey={guardKey} />
@@ -264,15 +266,22 @@ function VerticalBody({ data, active }: { readonly data: AnalyticsData; readonly
   const vertical = data.autonomy!.verticals.find((item) => item.key === verticalPayloadKey(active));
   if (!vertical) return <UnavailableState message={t("analytics.verticals.unavailable")} />;
   const resolution = verticalResolutionRate(vertical);
+  const context = searchParamsRecord(currentRoute().search);
+  const verticalKey = data.autonomy!.synthetic ? null : verticalPayloadKey(active);
+  const auditContext = {
+    ...context,
+    window: `${data.autonomy!.window_days}d`,
+    vertical: verticalKey,
+  };
   return (
     <div class="stack">
       <EvidenceStrip autonomy={data.autonomy!} />
       <KpiGrid>
-        <KpiCard label={t("analytics.events")} value={vertical.events} />
-        <KpiCard label={t("analytics.autoResolved")} value={vertical.auto_resolved} />
-        <KpiCard label={t("analytics.resolutionRate")} value={resolution === null ? t("analytics.unavailable") : formatShare(resolution)} />
-        <KpiCard label={t("analytics.openRisks")} value={vertical.open_risks} tone={vertical.open_risks > 0 ? "warning" : "positive"} />
-        <KpiCard label={t("analytics.monthlySavings")} value={formatMeasuredSavings(vertical.monthly_savings)} />
+        <KpiCard href={routeHref("audit", { params: auditContext })} label={t("analytics.events")} value={vertical.events} />
+        <KpiCard href={routeHref("audit", { params: { ...auditContext, outcome: "auto" } })} label={t("analytics.autoResolved")} value={vertical.auto_resolved} />
+        <KpiCard href={routeHref("audit", { params: { ...auditContext, outcome: "auto" } })} label={t("analytics.resolutionRate")} value={resolution === null ? t("analytics.unavailable") : formatShare(resolution)} />
+        <KpiCard href={routeHref("incidents", { params: { ...context, vertical: verticalKey } })} label={t("analytics.openRisks")} value={vertical.open_risks} tone={vertical.open_risks > 0 ? "warning" : "positive"} />
+        <KpiCard href={routeHref("audit", { params: auditContext })} label={t("analytics.monthlySavings")} value={formatMeasuredSavings(vertical.monthly_savings)} />
       </KpiGrid>
       <section class="analytics-panel">
         <h3>{t("analytics.verticals.comparison")}</h3>
@@ -362,14 +371,24 @@ function RoutingBody({
   const band = data.autonomy!.tier.bands[active];
   const count = measuredTierValue(data.kpi.by_tier, active);
   const inBand = band && share !== null ? share >= band[0] && share <= band[1] : null;
+  const context = searchParamsRecord(currentRoute().search);
+  const auditContext = {
+    ...context,
+    window: `${data.autonomy!.window_days}d`,
+    tier: active,
+  };
+  const routingHref = routeHref("trust-routing", {
+    segments: [active],
+    params: routingParamsForTier(active, currentRoute().search),
+  });
   return (
     <div class="stack">
       <EvidenceStrip autonomy={data.autonomy!} />
       <KpiGrid>
-        <KpiCard label={t("analytics.routing.share")} value={share === null ? t("analytics.unavailable") : formatShare(share)} />
-        <KpiCard label={t("analytics.routing.targetBand")} value={band ? `${Math.round(band[0] * 100)}-${Math.round(band[1] * 100)}%` : t("analytics.unavailable")} />
-        <KpiCard label={t("analytics.events")} value={count ?? t("analytics.unavailable")} />
-        <KpiCard label={t("analytics.status")} value={inBand === null ? t("analytics.unavailable") : inBand ? t("analytics.inBand") : t("analytics.outOfBand")} tone={inBand === null ? "default" : inBand ? "positive" : "warning"} />
+        <KpiCard href={routeHref("audit", { params: auditContext })} label={t("analytics.routing.share")} value={share === null ? t("analytics.unavailable") : formatShare(share)} />
+        <KpiCard href={routingHref} label={t("analytics.routing.targetBand")} value={band ? `${Math.round(band[0] * 100)}-${Math.round(band[1] * 100)}%` : t("analytics.unavailable")} />
+        <KpiCard href={routeHref("audit", { params: auditContext })} label={t("analytics.events")} value={count ?? t("analytics.unavailable")} />
+        <KpiCard href={routingHref} label={t("analytics.status")} value={inBand === null ? t("analytics.unavailable") : inBand ? t("analytics.inBand") : t("analytics.outOfBand")} tone={inBand === null ? "default" : inBand ? "positive" : "warning"} />
       </KpiGrid>
       <TierTable data={data} />
       {active === "t2" ? (

@@ -27,7 +27,7 @@ export function LiveTicker({
 }) {
   return (
     <aside
-      class={`live-ticker card${collapsed ? " live-ticker-collapsed" : ""}${paused ? " live-ticker-paused" : ""}`}
+      class={`live-ticker live-ticker-panel${collapsed ? " live-ticker-collapsed" : ""}${paused ? " live-ticker-paused" : ""}`}
       aria-label={t("live.outcomes.ariaLabel")}
     >
       <header class="live-ticker-header">

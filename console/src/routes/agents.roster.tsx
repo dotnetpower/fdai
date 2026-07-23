@@ -88,22 +88,25 @@ export function AgentRoster({
 
       <section class="agent-roster-summary" aria-label={t("agents.roster.summaryLabel")}>
         <RosterSummary
+          href={routeHref("agent-activity")}
           label={t("agents.roster.metric.bindings")}
           value={runtimeConsumerCount()}
           detail={t("agents.roster.metric.bindingsDetail")}
           kind="consumers"
         />
-        <RosterSummary label={t("agents.roster.metric.engaged")} value={active ?? "-"} detail={runtimeCurrent ? t("agents.roster.metric.workingNow") : t("agents.roster.metric.streamUnavailable")} kind="engaged" />
-        <RosterSummary label={t("agents.roster.metric.watching")} value={watching ?? "-"} detail={runtimeCurrent ? t("agents.roster.metric.sensingSignals") : t("agents.roster.metric.lastStateRetained")} kind="watching" />
-        <RosterSummary label={t("agents.roster.metric.idle")} value={idle ?? "-"} detail={runtimeCurrent ? t("agents.roster.metric.readyToWake") : t("agents.roster.metric.lastStateRetained")} kind="idle" />
-        <RosterSummary label={t("agents.roster.metric.unobserved")} value={unobserved} detail={t("agents.roster.metric.noRuntimeSignal")} kind="idle" />
+        <RosterSummary href={routeHref("agents", { params: { state: "engaged" } })} label={t("agents.roster.metric.engaged")} value={active ?? "-"} detail={runtimeCurrent ? t("agents.roster.metric.workingNow") : t("agents.roster.metric.streamUnavailable")} kind="engaged" />
+        <RosterSummary href={routeHref("agents", { params: { state: "watching" } })} label={t("agents.roster.metric.watching")} value={watching ?? "-"} detail={runtimeCurrent ? t("agents.roster.metric.sensingSignals") : t("agents.roster.metric.lastStateRetained")} kind="watching" />
+        <RosterSummary href={routeHref("agents", { params: { state: "idle" } })} label={t("agents.roster.metric.idle")} value={idle ?? "-"} detail={runtimeCurrent ? t("agents.roster.metric.readyToWake") : t("agents.roster.metric.lastStateRetained")} kind="idle" />
+        <RosterSummary href={routeHref("agents", { params: { state: "unobserved" } })} label={t("agents.roster.metric.unobserved")} value={unobserved} detail={t("agents.roster.metric.noRuntimeSignal")} kind="idle" />
         <RosterSummary
+          href={routeHref("incidents", { params: { status: "all" } })}
           label={t("agents.roster.metric.incidents")}
           value={state.incidentOrder.length}
           detail={t("agents.roster.metric.retainedCollaborations")}
           kind="incidents"
         />
         <RosterSummary
+          href={routeHref("agent-activity")}
           label={t("agents.roster.metric.recentTouches")}
           value={recentTouches}
           detail={t("agents.roster.metric.lastSignal", { time: latestSignal })}
@@ -233,22 +236,24 @@ export function AgentRoster({
 }
 
 function RosterSummary({
+  href,
   label,
   value,
   detail,
   kind,
 }: {
+  readonly href: string;
   readonly label: string;
   readonly value: number | string;
   readonly detail: string;
   readonly kind: string;
 }) {
   return (
-    <article class={`agent-roster-kpi kind-${kind}`}>
+    <a class={`agent-roster-kpi kind-${kind}`} href={href}>
       <span>{label}</span>
       <strong>{value}</strong>
       <small>{detail}</small>
-    </article>
+    </a>
   );
 }
 

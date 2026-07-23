@@ -64,8 +64,8 @@ export function WorkflowDraftEditor({
       </div>
       <div class="wf-editor-steps">
         {form.steps.map((step, index) => (
-          <div class="step-card" key={step.key}>
-            <div class="step-card-head">
+          <div class="step-editor" key={step.key}>
+            <div class="step-editor-head">
               <strong>{t("workflow.editor.step", { number: index + 1 })}</strong>
               <div class="step-move">
                 <Tooltip content={t("workflow.editor.moveUp")}>

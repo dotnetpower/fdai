@@ -260,10 +260,14 @@ function HandoverBody({
   return (
     <div class="stack">
       <KpiGrid>
-        <KpiCard label={t("handover.agents")} value={map.agents.length} />
-        <KpiCard label={t("handover.maintainers")} value={map.maintainer_count} />
-        <KpiCard label={t("handover.autonomous")} value={coverage.autonomous_agents} />
-        <KpiCard label={t("handover.coverage")} value={t(coverage.is_clean ? "handover.clean" : "handover.review")} />
+        <KpiCard href={routeHref("agents")} label={t("handover.agents")} value={map.agents.length} />
+        <KpiCard href={`${routeHref("handover")}#handover-map`} label={t("handover.maintainers")} value={map.maintainer_count} />
+        <KpiCard href={`${routeHref("handover")}#handover-map`} label={t("handover.autonomous")} value={coverage.autonomous_agents} />
+        <KpiCard
+          href={`${routeHref("handover")}#handover-coverage`}
+          label={t("handover.coverage")}
+          value={t(coverage.is_clean ? "handover.clean" : "handover.review")}
+        />
       </KpiGrid>
 
       {maintainerBanner ? (
@@ -274,7 +278,7 @@ function HandoverBody({
 
       <HandoverProposalEditor client={client} auth={auth} />
 
-      <section class="stack">
+      <section id="handover-map" class="stack">
         <h3>{t("handover.mapTitle")}</h3>
         <div class="data-table-wrap">
           <table class="cs-table">
@@ -307,7 +311,7 @@ function HandoverBody({
       </section>
 
       {coverage.findings.length > 0 ? (
-        <section class="stack">
+        <section id="handover-coverage" class="stack">
           <h3>{t("handover.findingsTitle")}</h3>
           <div class="data-table-wrap">
             <table class="cs-table">

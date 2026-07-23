@@ -29,6 +29,8 @@ tools without a detail destination use panel or section semantics rather than ca
 Unavailable metric cards use a subdued whole-surface background, no elevation shadow, and compact
 muted value text so they don't read as measured results. They remain focusable drill-down links and
 retain a complete-border focus or hover cue; the visual treatment never sets disabled semantics.
+The console card contract test checks shared KPI destinations, rejects nested whole-card links,
+requires raw data cards to expose a link or explicit detail control, and blocks structural card names.
 
 Operating Outcomes publishes the selected metric, current value, baseline, measurement window,
 sample size, confidence, and source provenance as a bounded Command Deck view snapshot. It includes

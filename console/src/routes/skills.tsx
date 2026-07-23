@@ -13,6 +13,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
+import { routeHref } from "../router";
 import { displayValue, formatNumber, t } from "./i18n/governance";
 import {
   panelArray,
@@ -344,6 +345,9 @@ function SkillsBody({ data }: { readonly data: RuntimeSkillsResponse }) {
     }),
     [data],
   );
+  const skillsHref = `${routeHref("skills")}#runtime-skills`;
+  const bundlesHref = `${routeHref("skills")}#runtime-skill-bundles`;
+  const diagnosticsHref = `${routeHref("skills")}#runtime-skill-diagnostics`;
   return (
     <div class="stack">
       <div class="governance-readonly-banner">
@@ -351,21 +355,21 @@ function SkillsBody({ data }: { readonly data: RuntimeSkillsResponse }) {
         <span>{t("governance.skills.banner.body")}</span>
       </div>
       <KpiGrid>
-        <KpiCard label={t("governance.skills.kpi.installed")} value={formatNumber(data.installed_count)} />
-        <KpiCard label={t("governance.skills.kpi.eligible")} value={formatNumber(data.eligible_count)} />
-        <KpiCard label={t("governance.skills.kpi.bundles")} value={formatNumber(data.installed_bundle_count)} />
-        <KpiCard label={t("governance.skills.kpi.eligibleBundles")} value={formatNumber(data.eligible_bundle_count)} />
-        <KpiCard label={t("governance.skills.kpi.diagnostics")} value={formatNumber(data.diagnostics.length)} />
+        <KpiCard href={skillsHref} label={t("governance.skills.kpi.installed")} value={formatNumber(data.installed_count)} />
+        <KpiCard href={skillsHref} label={t("governance.skills.kpi.eligible")} value={formatNumber(data.eligible_count)} />
+        <KpiCard href={bundlesHref} label={t("governance.skills.kpi.bundles")} value={formatNumber(data.installed_bundle_count)} />
+        <KpiCard href={bundlesHref} label={t("governance.skills.kpi.eligibleBundles")} value={formatNumber(data.eligible_bundle_count)} />
+        <KpiCard href={diagnosticsHref} label={t("governance.skills.kpi.diagnostics")} value={formatNumber(data.diagnostics.length)} />
       </KpiGrid>
-      <section class="stack-section" aria-label={t("governance.skills.section.installedAria")}>
+      <section id="runtime-skills" class="stack-section" aria-label={t("governance.skills.section.installedAria")}>
         <header class="section-header"><div><h3>{t("governance.skills.section.installedTitle")}</h3><p>{t("governance.skills.section.installedDescription", { agent: data.agent })}</p></div></header>
         <DataTable rows={data.skills} columns={skillColumns()} keyOf={(item) => item.name} empty={<EmptyState title={t("governance.skills.empty.skills")} />} />
       </section>
-      <section class="stack-section" aria-label={t("governance.skills.section.bundlesAria")}>
+      <section id="runtime-skill-bundles" class="stack-section" aria-label={t("governance.skills.section.bundlesAria")}>
         <header class="section-header"><div><h3>{t("governance.skills.section.bundlesTitle")}</h3><p>{t("governance.skills.section.bundlesDescription")}</p></div></header>
         <DataTable rows={data.bundles} columns={bundleColumns()} keyOf={(item) => item.name} empty={<EmptyState title={t("governance.skills.empty.bundles")} />} />
       </section>
-      <section class="stack-section" aria-label={t("governance.skills.section.diagnosticsAria")}>
+      <section id="runtime-skill-diagnostics" class="stack-section" aria-label={t("governance.skills.section.diagnosticsAria")}>
         <header class="section-header"><div><h3>{t("governance.skills.section.diagnosticsTitle")}</h3><p>{t("governance.skills.section.diagnosticsDescription")}</p></div></header>
         <DataTable rows={data.diagnostics} columns={diagnosticColumns()} keyOf={(item, index) => `${index}:${item.operation}:${item.name ?? "none"}`} empty={<EmptyState title={t("governance.skills.empty.diagnostics")} />} />
       </section>

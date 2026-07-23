@@ -11,6 +11,7 @@ import {
   type AsyncState,
   type Column,
 } from "../components/ui";
+import { routeHref } from "../router";
 import { t } from "./i18n/evidence";
 import {
   panelArray,
@@ -138,6 +139,7 @@ function nullableString(value: unknown, label: string): string | null {
 }
 
 function ComparisonBody({ data }: { readonly data: ComparisonResponse }) {
+  const comparisonsHref = `${routeHref("context-selection-comparisons")}#context-selection-comparisons`;
   const columns: readonly Column<ComparisonRow>[] = [
     { key: "candidate", header: t("evidence.contextSelection.column.candidate"), render: (row) => row.candidate_policy_ref, cellClass: "mono" },
     { key: "tokens", header: t("evidence.contextSelection.column.tokens"), render: (row) => `${row.baseline_tokens} / ${row.candidate_tokens ?? "-"}` },
@@ -154,10 +156,12 @@ function ComparisonBody({ data }: { readonly data: ComparisonResponse }) {
         <span>{t("evidence.contextSelection.bannerBody")}</span>
       </div>
       <KpiGrid>
-        <KpiCard label={t("evidence.contextSelection.comparisons")} value={data.count} />
-        <KpiCard label={t("evidence.contextSelection.invariantFailures")} value={data.invariant_failures} tone={data.invariant_failures ? "warning" : "positive"} />
+        <KpiCard href={comparisonsHref} label={t("evidence.contextSelection.comparisons")} value={data.count} />
+        <KpiCard href={comparisonsHref} label={t("evidence.contextSelection.invariantFailures")} value={data.invariant_failures} tone={data.invariant_failures ? "warning" : "positive"} />
       </KpiGrid>
-      <DataTable columns={columns} rows={data.comparisons} keyOf={(row) => row.evaluation_id} empty={t("evidence.contextSelection.empty")} />
+      <div id="context-selection-comparisons">
+        <DataTable columns={columns} rows={data.comparisons} keyOf={(row) => row.evaluation_id} empty={t("evidence.contextSelection.empty")} />
+      </div>
     </div>
   );
 }

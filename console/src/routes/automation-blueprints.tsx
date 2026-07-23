@@ -13,6 +13,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
+import { routeHref } from "../router";
 import { presentationLabel, t } from "./i18n/evidence";
 import {
   panelArray,
@@ -168,5 +169,6 @@ function BlueprintBody({ data }: { readonly data: AutomationBlueprintResponse })
     }),
     [data],
   );
-  return <div class="stack"><div class="governance-readonly-banner"><strong>{t("evidence.blueprints.bannerTitle")}</strong><span>{t("evidence.blueprints.bannerBody")}</span></div><KpiGrid><KpiCard label={t("evidence.blueprints.candidates")} value={data.count.toLocaleString()} /><KpiCard label={t("evidence.blueprints.accepted")} value={data.metrics.accepted.toLocaleString()} /><KpiCard label={t("evidence.blueprints.rejected")} value={data.metrics.rejected.toLocaleString()} /><KpiCard label={t("evidence.blueprints.realizedUsage")} value={data.metrics.realized_usage.toLocaleString()} /></KpiGrid><DataTable rows={data.candidates} columns={columns} keyOf={(item) => item.candidate_id} empty={<EmptyState title={t("evidence.blueprints.empty")} />} /></div>;
+  const candidatesHref = `${routeHref("automation-blueprints")}#automation-blueprint-candidates`;
+  return <div class="stack"><div class="governance-readonly-banner"><strong>{t("evidence.blueprints.bannerTitle")}</strong><span>{t("evidence.blueprints.bannerBody")}</span></div><KpiGrid><KpiCard href={candidatesHref} label={t("evidence.blueprints.candidates")} value={data.count.toLocaleString()} /><KpiCard href={candidatesHref} label={t("evidence.blueprints.accepted")} value={data.metrics.accepted.toLocaleString()} /><KpiCard href={candidatesHref} label={t("evidence.blueprints.rejected")} value={data.metrics.rejected.toLocaleString()} /><KpiCard href={candidatesHref} label={t("evidence.blueprints.realizedUsage")} value={data.metrics.realized_usage.toLocaleString()} /></KpiGrid><div id="automation-blueprint-candidates"><DataTable rows={data.candidates} columns={columns} keyOf={(item) => item.candidate_id} empty={<EmptyState title={t("evidence.blueprints.empty")} />} /></div></div>;
 }

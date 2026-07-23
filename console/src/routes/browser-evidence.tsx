@@ -12,6 +12,7 @@ import {
   type Column,
 } from "../components/ui";
 import { t } from "../i18n";
+import { routeHref } from "../router";
 import {
   panelArray,
   panelBoolean,
@@ -130,6 +131,7 @@ function decodeArtifact(value: unknown, index: number): BrowserEvidenceRow {
 }
 
 function BrowserEvidenceBody({ data }: { readonly data: BrowserEvidenceResponse }) {
+  const artifactsHref = `${routeHref("browser-evidence")}#browser-evidence-artifacts`;
   const columns: readonly Column<BrowserEvidenceRow>[] = [
     { key: "source", header: "Source", render: (row) => row.source_host },
     { key: "policy", header: "Policy", render: (row) => row.policy_ref, cellClass: "mono" },
@@ -147,15 +149,17 @@ function BrowserEvidenceBody({ data }: { readonly data: BrowserEvidenceResponse 
         <span>{t("browserEvidence.readOnlyBody")}</span>
       </div>
       <KpiGrid>
-        <KpiCard label={t("browserEvidence.artifacts")} value={data.count} />
-        <KpiCard label={t("browserEvidence.mode")} value={t("browserEvidence.shadow")} />
+        <KpiCard href={artifactsHref} label={t("browserEvidence.artifacts")} value={data.count} />
+        <KpiCard href={artifactsHref} label={t("browserEvidence.mode")} value={t("browserEvidence.shadow")} />
       </KpiGrid>
-      <DataTable
-        columns={columns}
-        rows={data.artifacts}
-        keyOf={(row) => row.artifact_id}
-        empty={t("browserEvidence.empty")}
-      />
+      <div id="browser-evidence-artifacts">
+        <DataTable
+          columns={columns}
+          rows={data.artifacts}
+          keyOf={(row) => row.artifact_id}
+          empty={t("browserEvidence.empty")}
+        />
+      </div>
     </div>
   );
 }

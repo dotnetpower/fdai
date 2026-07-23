@@ -161,10 +161,10 @@ function OnboardingBody({ data, checkedAt }: { readonly data: OnboardingResponse
         </div>
       ) : null}
       <KpiGrid>
-        <KpiCard label={t("onboardingView.readiness")} value={observed ? <StatusPill kind={data.ready ? "success" : "danger"} label={t(data.ready ? "onboardingView.ready" : "onboardingView.blocked")} /> : "-"} />
-        <KpiCard label={t("onboardingView.resourcesObserved")} value={observed ? data.present_resource_count.toLocaleString() : "-"} />
-        <KpiCard label={t("onboardingView.rolesObserved")} value={observed ? data.present_role_count.toLocaleString() : "-"} />
-        <KpiCard label={t("onboardingView.lastChecked")} value={formatConsoleTimestamp(checkedAt)} />
+        <KpiCard href={routeHref("provision")} label={t("onboardingView.readiness")} value={observed ? <StatusPill kind={data.ready ? "success" : "danger"} label={t(data.ready ? "onboardingView.ready" : "onboardingView.blocked")} /> : "-"} />
+        <KpiCard href={routeHref("architecture")} label={t("onboardingView.resourcesObserved")} value={observed ? data.present_resource_count.toLocaleString() : "-"} />
+        <KpiCard href={routeHref("settings-iam", { segments: ["requests"] })} label={t("onboardingView.rolesObserved")} value={observed ? data.present_role_count.toLocaleString() : "-"} />
+        <KpiCard href={routeHref("provision")} label={t("onboardingView.lastChecked")} value={formatConsoleTimestamp(checkedAt)} />
       </KpiGrid>
       <nav class="onboarding-actions" aria-label={t("onboardingView.drilldowns") }>
         <a href={routeHref("provision")}>{t("onboardingView.openProvisioning")}</a>

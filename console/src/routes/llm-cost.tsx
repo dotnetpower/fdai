@@ -14,7 +14,7 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
 import { t } from "./i18n/llm-cost";
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import {
   panelArray,
   panelBoolean,
@@ -206,6 +206,14 @@ function _recordColumns(locale: string): readonly Column<InvocationRecord>[] {
 
 function LlmCostBody({ data }: { readonly data: Response }) {
   const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
+  const auditContext = Object.fromEntries(currentRoute().search.entries());
+  const auditHref = routeHref("audit", { params: auditContext });
+  const latestRecord = data.records[0];
+  const latestHref = latestRecord
+    ? routeHref("audit", {
+        params: { ...auditContext, correlation: latestRecord.correlation_id },
+      })
+    : auditHref;
   usePublishViewContext(
     () => ({
       routeId: "llm-cost",
@@ -241,12 +249,13 @@ function LlmCostBody({ data }: { readonly data: Response }) {
   return (
     <div class="stack">
       <KpiGrid>
-        <KpiCard label={t("llmCost.calls")} value={data.invocations.toLocaleString(locale)} hint={`${t("llmCost.source")}: ${data.source}`} />
-        <KpiCard label={t("llmCost.totalTokens")} value={data.total.total_tokens.toLocaleString(locale)} />
-        <KpiCard label={t("llmCost.chatTokens")} value={data.chat.total_tokens.toLocaleString(locale)} />
-        <KpiCard label={t("llmCost.inputTokens")} value={data.total.prompt_tokens.toLocaleString(locale)} />
-        <KpiCard label={t("llmCost.outputTokens")} value={data.total.completion_tokens.toLocaleString(locale)} />
+        <KpiCard href={auditHref} label={t("llmCost.calls")} value={data.invocations.toLocaleString(locale)} hint={`${t("llmCost.source")}: ${data.source}`} />
+        <KpiCard href={auditHref} label={t("llmCost.totalTokens")} value={data.total.total_tokens.toLocaleString(locale)} />
+        <KpiCard href={auditHref} label={t("llmCost.chatTokens")} value={data.chat.total_tokens.toLocaleString(locale)} />
+        <KpiCard href={auditHref} label={t("llmCost.inputTokens")} value={data.total.prompt_tokens.toLocaleString(locale)} />
+        <KpiCard href={auditHref} label={t("llmCost.outputTokens")} value={data.total.completion_tokens.toLocaleString(locale)} />
         <KpiCard
+          href={latestHref}
           label={t("llmCost.latestInvocation")}
           value={data.latest_occurred_at ? new Date(data.latest_occurred_at).toLocaleString(locale) : t("llmCost.valueUnavailable")}
         />

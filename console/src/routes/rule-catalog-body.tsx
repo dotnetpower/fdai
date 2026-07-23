@@ -9,9 +9,10 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
+import { routeHref } from "../router";
 import { displayValue, t } from "./i18n/governance";
 import { FacetChips } from "./rule-catalog-components";
-import type { RuleFilters as Filters, RuleSelection as Selection } from "./rule-catalog-state";
+import { ruleCatalogHref, type RuleFilters as Filters, type RuleSelection as Selection } from "./rule-catalog-state";
 import {
   SEVERITY_PILL,
   type DetailState,
@@ -231,6 +232,7 @@ export function RuleCatalogBody({
   const pageEnd = Math.min(data.offset + data.limit, data.filtered_total);
   const hasPrev = data.offset > 0;
   const hasNext = data.offset + data.limit < data.filtered_total;
+  const tableFragment = "#rule-catalog-table";
 
   return (
     <div class="stack">
@@ -239,10 +241,10 @@ export function RuleCatalogBody({
         <span>{t("governance.rules.banner.body")}</span>
       </div>
       <KpiGrid>
-        <KpiCard label={t("governance.rules.kpi.total")} value={data.total} />
-        <KpiCard label={t("governance.rules.kpi.active")} value={active} hint={t("governance.rules.kpi.activeHint")} />
-        <KpiCard label={t("governance.rules.kpi.collected")} value={collected} hint={t("governance.rules.kpi.collectedHint")} />
-        <KpiCard label={t("governance.rules.kpi.resourceTypes")} value={data.resource_type_count} />
+        <KpiCard href={`${routeHref("rules")}${tableFragment}`} label={t("governance.rules.kpi.total")} value={data.total} />
+        <KpiCard href={`${ruleCatalogHref({ ...filters, origin: "active" }, 0, null)}${tableFragment}`} label={t("governance.rules.kpi.active")} value={active} hint={t("governance.rules.kpi.activeHint")} />
+        <KpiCard href={`${ruleCatalogHref({ ...filters, origin: "collected" }, 0, null)}${tableFragment}`} label={t("governance.rules.kpi.collected")} value={collected} hint={t("governance.rules.kpi.collectedHint")} />
+        <KpiCard href={`${routeHref("rules")}${tableFragment}`} label={t("governance.rules.kpi.resourceTypes")} value={data.resource_type_count} />
       </KpiGrid>
 
       <section class="stack-section">
@@ -284,7 +286,7 @@ export function RuleCatalogBody({
           </div>
         </div>
 
-        <div class={loading ? "is-refreshing" : undefined} aria-busy={loading}>
+        <div id="rule-catalog-table" class={loading ? "is-refreshing" : undefined} aria-busy={loading}>
           <DataTable<RuleDto>
             columns={columns}
             rows={data.rules}

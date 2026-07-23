@@ -380,12 +380,18 @@ function TraceView({ data }: { readonly data: TraceResponse }) {
   return (
     <div class="stack">
       <KpiGrid>
-        <KpiCard label={t("evidence.trace.steps")} value={data.step_count} />
         <KpiCard
+          href={routeHref("audit", { params: { correlation: data.correlation_id } })}
+          label={t("evidence.trace.steps")}
+          value={data.step_count}
+        />
+        <KpiCard
+          href={routeHref("audit", { params: { correlation: data.correlation_id } })}
           label={t("evidence.trace.terminalStage")}
           value={<span class="mono">{data.terminal_stage ?? "-"}</span>}
         />
         <KpiCard
+          href={routeHref("incidents", { params: { status: "all", correlation: data.correlation_id } })}
           label={t("evidence.trace.correlationId")}
           value={<span class="mono small">{data.correlation_id}</span>}
         />

@@ -31,11 +31,11 @@ export function formatCurrency(value: unknown, currency: unknown): string {
   }
 }
 
-export function SummaryWidget({ widget }: { readonly widget: RenderedWidget }) {
+export function SummaryWidget({ widget, href }: { readonly widget: RenderedWidget; readonly href: string }) {
   if (widget.type === "alert_status") return <AlertWidget widget={widget} />;
   if (widget.type === "event_stream") return <EventWidget widget={widget} />;
-  if (widget.type === "slo_summary") return <SloWidget widget={widget} />;
-  if (widget.type === "service_summary") return <ServiceWidget widget={widget} />;
+  if (widget.type === "slo_summary") return <SloWidget widget={widget} href={href} />;
+  if (widget.type === "service_summary") return <ServiceWidget widget={widget} href={href} />;
   if (widget.type === "cost_summary") return <CostWidget widget={widget} />;
   return <BudgetWidget widget={widget} />;
 }
@@ -52,18 +52,18 @@ function EventWidget({ widget }: { readonly widget: RenderedWidget }) {
   return <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}><h3 id={`${widget.id}-title`}>{widget.title}</h3><div class="report-status-counts">{SEVERITIES.map((severity) => <span key={severity}><StatusPill kind={severityTone(severity)} label={statusLabel(severity)} /><strong>{typeof counts[severity] === "number" ? formatNumber(counts[severity]) : displayValue(counts[severity])}</strong></span>)}</div><ol class="process-timeline">{items.map((item, index) => <li key={`${displayValue(item["id"] ?? item["event_id"])}-${index}`}><span class="process-timeline-marker" aria-hidden="true" /><div><strong>{displayValue(item["title"] ?? item["kind"] ?? item["action_kind"])}</strong><p class="muted small">{displayValue(item["resource"] ?? item["resource_id"])} / {formatDateTimeValue(item["at"] ?? item["recorded_at"])}</p></div></li>)}</ol>{items.length === 0 ? <p class="muted small">{t("workflow.process.noEvents")}</p> : null}</section>;
 }
 
-function SloWidget({ widget }: { readonly widget: RenderedWidget }) {
+function SloWidget({ widget, href }: { readonly widget: RenderedWidget; readonly href: string }) {
   const attainment = boundedRatio(widget.data["attainment"]);
   const target = boundedRatio(widget.data["target"]);
   const remaining = boundedRatio(widget.data["error_budget_remaining"]);
   const healthy = attainment !== null && target !== null && attainment >= target;
-  return <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}><h3 id={`${widget.id}-title`}>{widget.title}</h3><div class="report-summary-head"><div><strong>{displayValue(widget.data["objective"])}</strong><span class="muted small">{displayValue(widget.data["window"])}</span></div><StatusPill kind={healthy ? "success" : "warning"} label={t(healthy ? "workflow.process.onTarget" : "workflow.process.review")} /></div><KpiGrid><KpiCard label={t("workflow.process.attainment")} value={percent(attainment)} tone={healthy ? "positive" : "warning"} /><KpiCard label={t("workflow.process.target")} value={percent(target)} /><KpiCard label={t("workflow.process.budgetRemaining")} value={percent(remaining)} /><KpiCard label={t("workflow.process.burnRate")} value={displayValue(widget.data["burn_rate"])} /></KpiGrid></section>;
+  return <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}><h3 id={`${widget.id}-title`}>{widget.title}</h3><div class="report-summary-head"><div><strong>{displayValue(widget.data["objective"])}</strong><span class="muted small">{displayValue(widget.data["window"])}</span></div><StatusPill kind={healthy ? "success" : "warning"} label={t(healthy ? "workflow.process.onTarget" : "workflow.process.review")} /></div><KpiGrid><KpiCard href={href} label={t("workflow.process.attainment")} value={percent(attainment)} tone={healthy ? "positive" : "warning"} /><KpiCard href={href} label={t("workflow.process.target")} value={percent(target)} /><KpiCard href={href} label={t("workflow.process.budgetRemaining")} value={percent(remaining)} /><KpiCard href={href} label={t("workflow.process.burnRate")} value={displayValue(widget.data["burn_rate"])} /></KpiGrid></section>;
 }
 
-function ServiceWidget({ widget }: { readonly widget: RenderedWidget }) {
+function ServiceWidget({ widget, href }: { readonly widget: RenderedWidget; readonly href: string }) {
   const red = asRecord(widget.data["red"]);
   const health = displayValue(widget.data["health"]);
-  return <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}><div class="report-summary-head"><div><h3 id={`${widget.id}-title`}>{widget.title}</h3><strong>{displayValue(widget.data["service"])}</strong></div><StatusPill kind={healthTone(health)} label={statusLabel(health)} /></div><KpiGrid><KpiCard label={t("workflow.process.requestsPerSecond")} value={displayValue(red["requests_rps"])} /><KpiCard label={t("workflow.process.errorRate")} value={displayValue(red["error_rate"])} tone={processTone(displayValue(red["error_rate"])) === "danger" ? "danger" : "default"} /><KpiCard label={t("workflow.process.latencyP50")} value={displayValue(red["latency_p50"])} /><KpiCard label={t("workflow.process.latencyP99")} value={displayValue(red["latency_p99"])} /></KpiGrid></section>;
+  return <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}><div class="report-summary-head"><div><h3 id={`${widget.id}-title`}>{widget.title}</h3><strong>{displayValue(widget.data["service"])}</strong></div><StatusPill kind={healthTone(health)} label={statusLabel(health)} /></div><KpiGrid><KpiCard href={href} label={t("workflow.process.requestsPerSecond")} value={displayValue(red["requests_rps"])} /><KpiCard href={href} label={t("workflow.process.errorRate")} value={displayValue(red["error_rate"])} tone={processTone(displayValue(red["error_rate"])) === "danger" ? "danger" : "default"} /><KpiCard href={href} label={t("workflow.process.latencyP50")} value={displayValue(red["latency_p50"])} /><KpiCard href={href} label={t("workflow.process.latencyP99")} value={displayValue(red["latency_p99"])} /></KpiGrid></section>;
 }
 
 function CostWidget({ widget }: { readonly widget: RenderedWidget }) {

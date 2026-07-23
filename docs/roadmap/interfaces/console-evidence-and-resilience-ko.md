@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: ce2721510e80f4f0679acfffba0887e963b30bcf
+translation_source_sha: e01abce391788aa35bf407e063b07b5f64649683
 translation_revised: 2026-07-23
 ---
 
@@ -32,6 +32,8 @@ Unavailable metric 카드는 낮은 강조도의 전체 surface 배경, elevatio
 값 text를 사용해 측정 결과처럼 보이지 않게 합니다. 이 카드는 focus 가능한 drill-down link를
 유지하고 complete-border focus 또는 hover cue를 제공하며, 시각 표현에 disabled semantics를
 사용하지 않습니다.
+Console card contract test는 shared KPI 목적지를 확인하고, 중첩된 whole-card link를 차단하며, raw
+data card에 link 또는 명시적 detail control을 요구하고, structural card 이름을 차단합니다.
 
 Operating Outcomes는 선택한 metric, current value, baseline, measurement window, sample size,
 confidence 및 source provenance를 bounded Command Deck view snapshot으로 발행합니다. Vertical

@@ -206,7 +206,7 @@ export function LivePanels({
       </section>
 
       <section class="grid live-kpis">
-        <div class="card kpi live-kpi live-kpi-eps">
+        <a class="card kpi live-kpi live-kpi-eps" href={routeHref("audit")}>
           <span class="label">{t("live.kpi.events")}</span>
           <span class="live-kpi-value">
             {view.eps}<small>{t("live.kpi.average")}</small>
@@ -217,8 +217,8 @@ export function LivePanels({
             <span class="live-spark-key t1"><i />T1 <b>{sumBuckets(state.rateBuckets.t1)}</b></span>
             <span class="live-spark-key t2"><i />T2 <b>{sumBuckets(state.rateBuckets.t2)}</b></span>
           </div>
-        </div>
-        <div class="card kpi live-kpi">
+        </a>
+        <a class="card kpi live-kpi" href={routeHref("audit")}>
           <span class="label">{t("live.kpi.gateMix")}</span>
           <span class="live-kpi-value">
             {view.autoShare}% <small>{t("live.kpi.auto")}</small>
@@ -240,8 +240,8 @@ export function LivePanels({
               </span>
             ))}
           </div>
-        </div>
-        <div class="card kpi live-kpi">
+        </a>
+        <a class="card kpi live-kpi" href={routeHref("trust-routing")}>
           <span class="label">{t("live.kpi.tierMix")}</span>
           <div class="live-tier-summary">
             {(["t0", "t1", "t2"] as const).map((key) => (
@@ -260,7 +260,7 @@ export function LivePanels({
             total={view.tierTotal}
             showLegend={false}
           />
-        </div>
+        </a>
       </section>
 
       <section class="live-work-header">

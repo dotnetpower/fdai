@@ -155,19 +155,20 @@ export function UnavailableState({ message }: { readonly message: string }) {
 // ---------------------------------------------------------------------------
 
 export interface KpiCardProps {
+  readonly href: string;
   readonly label: string;
   readonly value: ComponentChildren;
   readonly hint?: ComponentChildren;
   readonly tone?: "default" | "positive" | "warning" | "danger";
 }
 
-export function KpiCard({ label, value, hint, tone = "default" }: KpiCardProps) {
+export function KpiCard({ href, label, value, hint, tone = "default" }: KpiCardProps) {
   return (
-    <div class={`card kpi-card kpi-tone-${tone}`}>
+    <a class={`card kpi-card kpi-tone-${tone}`} href={href}>
       <span class="kpi-card-label">{label}</span>
       <span class="kpi-card-value">{value}</span>
       {hint ? <span class="kpi-card-hint muted">{hint}</span> : null}
-    </div>
+    </a>
   );
 }
 

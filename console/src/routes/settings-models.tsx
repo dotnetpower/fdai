@@ -764,7 +764,7 @@ function CatalogModelCard({ model, onSelect }: {
 }) {
   const actionable = model.selectable && (model.deployed || model.provisionable);
   return (
-    <article class="settings-model-catalog-card">
+    <article class="settings-model-catalog-entry">
       <header>
         <div>
           <strong>{model.family}</strong>

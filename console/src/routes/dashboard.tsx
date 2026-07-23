@@ -406,10 +406,10 @@ function OverviewBody({ data }: { readonly data: OverviewData }) {
         </summary>
         <div class="stack overview-details-body">
           <KpiGrid>
-            <a class="overview-kpi-link" href={routeHref("audit", { params: sampleParams })}><KpiCard label={t("overview.detailMetric.events")} value={kpi.event_count} hint={t("overview.detailMetric.eventsHint")} /></a>
-            <a class="overview-kpi-link" href={routeHref("audit", { params: { ...sampleParams, mode: "shadow" } })}><KpiCard label={t("overview.detailMetric.shadow")} value={formatShare(kpi.shadow_share)} hint={t("overview.detailMetric.shadowHint")} tone={kpi.shadow_share > 0.95 ? "positive" : "default"} /></a>
-            <a class="overview-kpi-link" href={routeHref("audit", { params: { ...sampleParams, mode: "enforce" } })}><KpiCard label={t("overview.detailMetric.enforce")} value={formatShare(kpi.enforce_share)} hint={t("overview.detailMetric.enforceHint")} /></a>
-            <a class="overview-kpi-link" href={routeHref("hil-queue")}><KpiCard label={t("overview.detailMetric.approvals")} value={kpi.hil_pending} tone={kpi.hil_pending > 0 ? "warning" : "positive"} hint={kpi.hil_pending > 0 ? t("overview.detailMetric.approvalHint") : t("overview.detailMetric.approvalClear")} /></a>
+            <KpiCard href={routeHref("audit", { params: sampleParams })} label={t("overview.detailMetric.events")} value={kpi.event_count} hint={t("overview.detailMetric.eventsHint")} />
+            <KpiCard href={routeHref("audit", { params: { ...sampleParams, mode: "shadow" } })} label={t("overview.detailMetric.shadow")} value={formatShare(kpi.shadow_share)} hint={t("overview.detailMetric.shadowHint")} tone={kpi.shadow_share > 0.95 ? "positive" : "default"} />
+            <KpiCard href={routeHref("audit", { params: { ...sampleParams, mode: "enforce" } })} label={t("overview.detailMetric.enforce")} value={formatShare(kpi.enforce_share)} hint={t("overview.detailMetric.enforceHint")} />
+            <KpiCard href={routeHref("hil-queue")} label={t("overview.detailMetric.approvals")} value={kpi.hil_pending} tone={kpi.hil_pending > 0 ? "warning" : "positive"} hint={kpi.hil_pending > 0 ? t("overview.detailMetric.approvalHint") : t("overview.detailMetric.approvalClear")} />
           </KpiGrid>
 
           {autonomy ? (

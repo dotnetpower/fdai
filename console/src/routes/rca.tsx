@@ -193,7 +193,7 @@ function RcaBody({ data }: { readonly data: RcaView }) {
         ) : (
           <div class="stack">
             {data.hypotheses.map((hypothesis) => (
-              <HypothesisCard key={hypothesis.seq} hypothesis={hypothesis} />
+              <HypothesisCard key={hypothesis.seq} hypothesis={hypothesis} correlationId={data.correlation_id} />
             ))}
           </div>
         )}
@@ -204,6 +204,8 @@ function RcaBody({ data }: { readonly data: RcaView }) {
 
 function ResponsePlan({ data }: { readonly data: RcaView }) {
   const response = data.response;
+  const auditHref = routeHref("audit", { params: { correlation: data.correlation_id } });
+  const traceHref = routeHref("trace", { params: { correlation: data.correlation_id } });
   return (
     <section class="stack-section">
       <h3 class="section-title">{t("rca.response")}</h3>
@@ -212,15 +214,20 @@ function ResponsePlan({ data }: { readonly data: RcaView }) {
       ) : (
         <KpiGrid>
           <KpiCard
+            href={traceHref}
             label={t("rca.verdict")}
             value={<StatusPill kind={verdictPill(response.verdict)} label={response.verdict} />}
           />
-          <KpiCard label={t("rca.decision")} value={response.decision ?? t("rca.none")} />
+          <KpiCard href={traceHref} label={t("rca.decision")} value={response.decision ?? t("rca.none")} />
           <KpiCard
+            href={auditHref}
             label={t("rca.action")}
             value={<span class="mono small">{response.action_kind ?? t("rca.none")}</span>}
           />
           <KpiCard
+            href={response.mode === null
+              ? auditHref
+              : routeHref("audit", { params: { correlation: data.correlation_id, mode: response.mode } })}
             label={t("rca.modeColumn")}
             value={
               response.mode === null ? (
@@ -231,6 +238,7 @@ function ResponsePlan({ data }: { readonly data: RcaView }) {
             }
           />
           <KpiCard
+            href={auditHref}
             label={t("rca.rollback")}
             value={<span class="mono small">{response.rollback_reference ?? t("rca.none")}</span>}
           />
@@ -240,7 +248,10 @@ function ResponsePlan({ data }: { readonly data: RcaView }) {
   );
 }
 
-function HypothesisCard({ hypothesis }: { readonly hypothesis: RcaHypothesis }) {
+function HypothesisCard({ hypothesis, correlationId }: { readonly hypothesis: RcaHypothesis; readonly correlationId: string }) {
+  const auditEntryHref = routeHref("audit", {
+    params: { correlation: correlationId, entry: hypothesis.seq },
+  });
   return (
     <section class="stack-section">
       <div class="cluster">
@@ -253,14 +264,17 @@ function HypothesisCard({ hypothesis }: { readonly hypothesis: RcaHypothesis }) 
       </div>
       <KpiGrid>
         <KpiCard
+          href={auditEntryHref}
           label={t("rca.confidence")}
           value={hypothesis.confidence === null ? t("rca.none") : hypothesis.confidence.toFixed(2)}
         />
         <KpiCard
+          href={auditEntryHref}
           label={t("rca.recordedAt")}
           value={<span class="mono small">{hypothesis.recorded_at}</span>}
         />
         <KpiCard
+          href={auditEntryHref}
           label={t("rca.remediation")}
           value={<span class="mono small">{hypothesis.remediation_ref ?? t("rca.none")}</span>}
         />
