@@ -115,7 +115,13 @@ async def test_state_store_retention_tombstones_due_case_and_audits() -> None:
         )
         == deleted
     )
-    assert len(tuple(state.audit_entries)) == 3
+    entries = tuple(item["entry"] for item in state.audit_entries)
+    assert [entry["action_kind"] for entry in entries] == [
+        "case_history.revision.sealed",
+        "case_history.deletion_started",
+        "case_history.deleted",
+    ]
+    assert entries[-1]["actor"] == "Muninn"
 
 
 async def test_state_store_pending_deletion_blocks_new_revision() -> None:
@@ -145,6 +151,11 @@ async def test_state_store_legal_hold_is_not_due_or_deletable() -> None:
             revision=held.revision,
             deleted_at=held.deletion_due_at,
         )
+
+
+def test_case_history_legal_hold_requires_non_empty_authority_reference() -> None:
+    with pytest.raises(ValueError, match="reference its authority"):
+        replace(_record(), legal_hold=True, legal_hold_ref="")
 
 
 async def test_state_store_pages_beyond_legacy_five_thousand_row_cap() -> None:

@@ -165,7 +165,14 @@ class CaseHistoryAnalyzer:
             return None
         if not isinstance(document, dict):
             return None
-        if document.get("access_scope_digest") != record.access_scope_digest:
+        if (
+            document.get("case_id") != record.case_id
+            or document.get("revision") != record.revision
+            or document.get("correlation_id") != record.correlation_id
+            or document.get("purpose") != record.purpose
+            or document.get("access_scope_digest") != record.access_scope_digest
+            or document.get("parent_manifest_digest") != record.parent_manifest_digest
+        ):
             return None
         sources = document.get("sources")
         bounded_sources = sources[:4] if isinstance(sources, list) else []

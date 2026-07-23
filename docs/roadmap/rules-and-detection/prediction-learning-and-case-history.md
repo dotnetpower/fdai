@@ -119,10 +119,11 @@ legal hold. Customer-scoped artifacts never enter Git.
 
 ### Retrieval for analysis
 
-Retrieval authorizes purpose and access scope before searching. It applies deterministic filters
-for resource type, metric, detector version, outcome label, and time before pgvector ranking. The
-retriever returns bounded case cards plus source digests; a model cannot treat an embedding as
-source evidence.
+Retrieval authorizes purpose and access scope before searching and verifies the artifact's case,
+revision, correlation, purpose, scope, and parent identity against metadata. It applies
+deterministic filters for resource type, metric, detector version, outcome label, and time before
+pgvector ranking. The retriever returns bounded case cards plus source digests; a model cannot
+treat an embedding as source evidence.
 
 Norns receives failure cases together with matched correct and censored controls. This prevents
 survivorship bias and overly conservative threshold changes. Every analysis claim cites a case id,
@@ -142,7 +143,8 @@ and zero policy escapes. Regression returns the detector or policy to shadow aut
 
 ## Retention and deletion
 
-Each case carries purpose, access scope, retention, deletion due date, and legal-hold metadata.
+Each case carries purpose, access scope, retention, deletion due date, and legal-hold metadata with
+a non-empty authority reference when a hold is active.
 Deletion first commits a durable intent containing every revision artifact reference. Pending
 deletion blocks new revisions and analysis. Muninn then removes the complete artifact chain,
 chunks, and embeddings before tombstoning the hot index. Audit keeps a non-sensitive deletion

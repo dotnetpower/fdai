@@ -83,7 +83,9 @@ class CaseHistoryRevisionRecord:
             raise ValueError("case history cutoff, seal, and retention MUST be ordered")
         if self.retention_until > self.deletion_due_at:
             raise ValueError("case history deletion MUST NOT precede retention")
-        if self.legal_hold != (self.legal_hold_ref is not None):
+        if self.legal_hold and (self.legal_hold_ref is None or not self.legal_hold_ref.strip()):
+            raise ValueError("case history legal hold MUST reference its authority")
+        if not self.legal_hold and self.legal_hold_ref is not None:
             raise ValueError("case history legal hold metadata is inconsistent")
         if self.deletion_started_at is not None:
             if self.deletion_started_at.tzinfo is None:

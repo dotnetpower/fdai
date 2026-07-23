@@ -144,6 +144,37 @@ async def test_analyzer_denies_cross_scope_history() -> None:
     )
 
 
+async def test_analyzer_rejects_artifact_from_another_case_identity() -> None:
+    metadata, artifacts = await _seed()
+    original = await _record_for_correlation(metadata, "corr-0")
+    metadata._records[original.case_id][-1] = replace(  # noqa: SLF001
+        original,
+        case_id="forged-case-id",
+    )
+
+    class _NoCall:
+        async def review(self, review_input: PostTurnReviewInput):
+            raise AssertionError(f"reviewer must not run: {review_input.review_id}")
+
+    analyzer = CaseHistoryAnalyzer(
+        metadata=metadata,
+        artifacts=artifacts,
+        reviewer=_NoCall(),
+    )
+    assert (
+        await analyzer.analyze(
+            {
+                "kind": "forecast_case_history",
+                "access_scope_digest": "a" * 64,
+                "purpose": "forecast-error-analysis",
+                "detector_id": "capacity-linear",
+                "metric": "capacity_percent",
+            }
+        )
+        is None
+    )
+
+
 async def test_analyzer_abstains_when_artifact_is_missing() -> None:
     metadata, _artifacts = await _seed()
     analyzer = CaseHistoryAnalyzer(
