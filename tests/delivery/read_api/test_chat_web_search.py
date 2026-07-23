@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -12,7 +13,44 @@ from fdai.delivery.read_api.routes.chat import make_chat_health_route, make_chat
 from fdai.delivery.read_api.routes.chat_web_search import (
     ChatWebSearchConfig,
     ChatWebSearchResolver,
-    _web_novelty,
+    _classify_search_intent,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class SearchIntentRubricCase:
+    name: str
+    prompt: str
+    expected_route: str
+    expected_score: float
+
+
+SEARCH_INTENT_RUBRIC_CASES = (
+    SearchIntentRubricCase("explicit-ko", "MTTR 솔루션을 검색해줘", "web", 1.0),
+    SearchIntentRubricCase("natural-ko", "MTTR 도구 좀 찾아봐", "web", 1.0),
+    SearchIntentRubricCase("colloquial-ko", "Grafana 대안을 구글링해줘", "web", 1.0),
+    SearchIntentRubricCase("implicit-fresh-ko", "요즘 MTTR 도구 뭐가 좋아?", "web", 0.8),
+    SearchIntentRubricCase("web-context-ko", "웹에서 MTTR 솔루션 뭐가 있어?", "web", 1.0),
+    SearchIntentRubricCase("english-discovery", "Find current MTTR platforms", "web", 1.0),
+    SearchIntentRubricCase(
+        "latest-public",
+        "What is the latest Azure SDK release?",
+        "web",
+        0.8,
+    ),
+    SearchIntentRubricCase(
+        "screen-local",
+        "이 화면에서 MTTR 솔루션을 검색해줘",
+        "local",
+        0.0,
+    ),
+    SearchIntentRubricCase(
+        "audit-local",
+        "감사 로그에서 실패한 작업을 찾아봐",
+        "local",
+        0.0,
+    ),
+    SearchIntentRubricCase("definition", "MTTR이 뭐야?", "none", 0.0),
 )
 
 
@@ -101,14 +139,46 @@ async def test_explicit_search_can_fill_gap_after_internal_evidence() -> None:
 
 
 def test_natural_korean_public_discovery_requests_search_the_web() -> None:
-    assert _web_novelty("유사한 서비스가 있는지 검색해줄래?") == 1.0
-    assert _web_novelty("인터넷에서 유사한 서비스를 검색해줄래?") == 1.0
-    assert _web_novelty("MTTR 과 관련된 솔루션에 대해서 검색해봐") == 1.0
+    assert _classify_search_intent("유사한 서비스가 있는지 검색해줄래?").route == "web"
+    assert _classify_search_intent("인터넷에서 유사한 서비스를 검색해줄래?").route == "web"
+    assert _classify_search_intent("MTTR 과 관련된 솔루션에 대해서 검색해봐").route == "web"
 
 
 def test_current_screen_search_does_not_search_the_web() -> None:
-    assert _web_novelty("이 화면에서 실패한 작업을 검색해줄래?") == 0.0
-    assert _web_novelty("이 화면에서 MTTR 솔루션을 검색해줄래?") == 0.0
+    assert _classify_search_intent("이 화면에서 실패한 작업을 검색해줄래?").route == "local"
+    assert _classify_search_intent("이 화면에서 MTTR 솔루션을 검색해줄래?").route == "local"
+
+
+def test_public_database_tool_search_does_not_become_local_scope() -> None:
+    decision = _classify_search_intent("Search for database monitoring tools")
+
+    assert decision.route == "web"
+    assert decision.reason == "explicit_search_request"
+
+
+async def test_ten_copilot_reference_search_intents_score_ten_of_ten() -> None:
+    provider = _Provider()
+    resolver = _resolver(provider)
+    failures: list[str] = []
+    for case in SEARCH_INTENT_RUBRIC_CASES:
+        calls_before = len(provider.calls)
+        decision = _classify_search_intent(case.prompt)
+        evidence = await resolver.resolve(case.prompt, {})
+        expected_provider_calls = 1 if case.expected_route == "web" else 0
+        provider_calls = len(provider.calls) - calls_before
+        if (
+            decision.route != case.expected_route
+            or decision.novelty_score != case.expected_score
+            or provider_calls != expected_provider_calls
+            or (case.expected_route == "web") != (evidence is not None)
+        ):
+            failures.append(
+                f"{case.name}: expected {case.expected_route}/{case.expected_score}, "
+                f"got {decision.route}/{decision.novelty_score}, provider_calls={provider_calls}"
+            )
+
+    passed = len(SEARCH_INTENT_RUBRIC_CASES) - len(failures)
+    assert not failures, f"Copilot-reference search rubric {passed}/10\n" + "\n".join(failures)
 
 
 async def test_sensitive_query_is_blocked_before_provider_call() -> None:

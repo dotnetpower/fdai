@@ -9,7 +9,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Protocol
+from typing import Any, Final, Literal, NamedTuple, Protocol
 
 import httpx
 
@@ -45,27 +45,35 @@ _EXPLICIT_WEB_SEARCH = re.compile(
     "|(?:\uac80\uc0c9|\ucc3e\uc544|\uc870\uc0ac).{0,80}(?:\uc778\ud130\ub137|\uc6f9)",
     re.IGNORECASE,
 )
+_WEB_CONTEXT = re.compile(
+    r"\b(?:web|internet|online)\b|\uc778\ud130\ub137|\uc6f9|\uc628\ub77c\uc778",
+    re.IGNORECASE,
+)
+_EXPLICIT_SEARCH_REQUEST = re.compile(
+    r"\b(?:search|find|look\s+up|research|discover|google|browse)\b"
+    "|(?:\uac80\uc0c9|\uc870\uc0ac|\uad6c\uae00\ub9c1)\\s*(?:\ud574|\ud574\uc11c|\ud574\uc918|\ud574\ubd10|\ud574\uc904\ub798|\ud574\uc8fc\uc138\uc694|\ubd80\ud0c1)"
+    "|\ucc3e\uc544\\s*(?:\ubd10|\uc918|\uc904\ub798|\uc8fc\uc138\uc694)"
+    "|\uc54c\uc544\\s*(?:\ubd10|\uc918|\uc904\ub798|\uc8fc\uc138\uc694)",
+    re.IGNORECASE,
+)
 _PUBLIC_DISCOVERY_SUBJECT = re.compile(
-    r"(?:\b(?:similar|comparable|alternative|competing|competitor)\b.{0,40})?"
-    r"\b(?:service|product|tool|solution)s?\b"
-    "|(?:(?:\uc720\uc0ac\ud55c|\ube44\uc2b7\ud55c|\ub300\uc548|\uacbd\uc7c1).{0,24})?"
-    "(?:\uc11c\ube44\uc2a4|\uc81c\ud488|\ub3c4\uad6c|\uc194\ub8e8\uc158)",
+    r"\b(?:service|product|tool|solution|platform|alternative|competitor)s?\b"
+    "|\uc11c\ube44\uc2a4|\uc81c\ud488|\ub3c4\uad6c|\uc194\ub8e8\uc158|\ud50c\ub7ab\ud3fc|\ub300\uc548|\uacbd\uc7c1",
     re.IGNORECASE,
 )
-_DISCOVERY_REQUEST = re.compile(
-    r"\b(?:search|find|look\s+up|research|discover)\b"
-    "|\uac80\uc0c9|\ucc3e\uc544|\uc54c\uc544\ubd10|\uc870\uc0ac",
-    re.IGNORECASE,
-)
-_SCREEN_LOCAL_SEARCH = re.compile(
-    r"\b(?:this|current)\s+(?:screen|page|table|list)\b"
-    "|(?:\uc774|\ud604\uc7ac)\\s*(?:\ud654\uba74|\ud398\uc774\uc9c0|\ud45c|\ubaa9\ub85d)",
+_LOCAL_SEARCH_SCOPE = re.compile(
+    r"\b(?:this|current)\s+(?:screen|page|table|list|view)\b"
+    r"|\b(?:audit|activity)\s+logs?\b"
+    r"|\b(?:in|from|within)\s+(?:the\s+)?(?:inventory|catalog|database|db)\b"
+    "|(?:\uc774|\ud604\uc7ac)\\s*(?:\ud654\uba74|\ud398\uc774\uc9c0|\ud45c|\ubaa9\ub85d|\ubdf0)"
+    "|(?:\uac10\uc0ac|\ud65c\ub3d9)\\s*\ub85c\uadf8"
+    "|(?:\uc778\ubca4\ud1a0\ub9ac|\uce74\ud0c8\ub85c\uadf8|\ub370\uc774\ud130\ubca0\uc774\uc2a4|\ub514\ube44)(?:\uc5d0\uc11c|\\s*\uc548\uc5d0\uc11c|\\s*\ub0b4\uc5d0\uc11c)",
     re.IGNORECASE,
 )
 _FRESHNESS = re.compile(
-    r"\b(?:latest|newest|today|current\s+(?:release|version)|recently\s+released"
+    r"\b(?:latest|newest|today|recent|currently|now|trending|current\s+(?:release|version)|recently\s+released"
     r"|as\s+of\s+today|release\s+notes?)\b"
-    "|\ucd5c\uc2e0|\uc624\ub298|\ud604\uc7ac\\s*\ubc84\uc804|\ucd5c\uadfc\\s*\ubc1c\ud45c"
+    "|\ucd5c\uc2e0|\uc624\ub298|\uc694\uc998|\ucd5c\uadfc|\uc9c0\uae08|\ud604\uc7ac\\s*\ubc84\uc804|\ucd5c\uadfc\\s*\ubc1c\ud45c"
     "|\ub9b4\ub9ac\uc2a4\\s*\ub178\ud2b8",
     re.IGNORECASE,
 )
@@ -84,6 +92,12 @@ _SENSITIVE_QUERY = re.compile(
     re.IGNORECASE,
 )
 _DOMAIN = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$", re.IGNORECASE)
+
+
+class _SearchIntentDecision(NamedTuple):
+    route: Literal["web", "local", "none"]
+    novelty_score: float
+    reason: str
 
 
 class ChatWebSearchProvider(Protocol):
@@ -172,8 +186,8 @@ class ChatWebSearchResolver:
         prompt: str,
         view_context: Mapping[str, Any],
     ) -> Mapping[str, Any] | None:
-        novelty_score = _web_novelty(prompt)
-        if novelty_score == 0.0:
+        search_intent = _classify_search_intent(prompt)
+        if search_intent.route != "web":
             return None
         if _SENSITIVE_QUERY.search(prompt):
             _LOG.warning("chat.web_search_blocked_sensitive_query")
@@ -185,7 +199,7 @@ class ChatWebSearchResolver:
 
         signals = WebSearchSignals(
             is_reasoning_tier=True,
-            novelty_score=novelty_score,
+            novelty_score=search_intent.novelty_score,
             grounding_gap=True,
             allowlist_has_web_search=True,
             provider_available=True,
@@ -302,18 +316,23 @@ def chat_web_search_from_env(
     )
 
 
-def _web_novelty(prompt: str) -> float:
+def _classify_search_intent(prompt: str) -> _SearchIntentDecision:
     if _EXPLICIT_WEB_SEARCH.search(prompt):
-        return 1.0
-    if (
-        _PUBLIC_DISCOVERY_SUBJECT.search(prompt)
-        and _DISCOVERY_REQUEST.search(prompt)
-        and not _SCREEN_LOCAL_SEARCH.search(prompt)
+        return _SearchIntentDecision("web", 1.0, "explicit_web_search")
+    search_requested = _EXPLICIT_SEARCH_REQUEST.search(prompt) is not None
+    if _WEB_CONTEXT.search(prompt) and (
+        search_requested or _PUBLIC_DISCOVERY_SUBJECT.search(prompt)
     ):
-        return 1.0
-    if _FRESHNESS.search(prompt) and _PUBLIC_SUBJECT.search(prompt):
-        return 0.8
-    return 0.0
+        return _SearchIntentDecision("web", 1.0, "explicit_web_context")
+    if search_requested and _LOCAL_SEARCH_SCOPE.search(prompt):
+        return _SearchIntentDecision("local", 0.0, "explicit_local_scope")
+    if search_requested:
+        return _SearchIntentDecision("web", 1.0, "explicit_search_request")
+    if _FRESHNESS.search(prompt) and (
+        _PUBLIC_SUBJECT.search(prompt) or _PUBLIC_DISCOVERY_SUBJECT.search(prompt)
+    ):
+        return _SearchIntentDecision("web", 0.8, "fresh_public_subject")
+    return _SearchIntentDecision("none", 0.0, "no_search_intent")
 
 
 def _parse_enabled(raw: str | None) -> bool:
@@ -375,8 +394,4 @@ def _find_resolved_models(source: Mapping[str, str]) -> Path | None:
     return None
 
 
-__all__ = [
-    "ChatWebSearchConfig",
-    "ChatWebSearchResolver",
-    "chat_web_search_from_env",
-]
+__all__ = ["ChatWebSearchConfig", "ChatWebSearchResolver", "chat_web_search_from_env"]

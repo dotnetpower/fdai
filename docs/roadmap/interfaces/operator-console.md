@@ -247,9 +247,10 @@ invocation capability. The narrator sees only the same descriptors allowed by th
 Public web evidence is a deployment-level, read-only capability. It stays unavailable until the
 deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain allowlist.
 
-- **Eligibility:** The coordinator deterministically recognizes explicit web or internet search,
-  freshness questions about public technologies, and public discovery requests such as "find
-  similar services." A request to search the current screen doesn't leave FDAI.
+- **Eligibility:** An explicit operator request such as `search`, `find`, `look up`, `검색해줘`,
+  `찾아봐`, or `구글링해줘` selects public web search without requiring a particular subject noun.
+  Explicit web context and freshness questions about public technology also select it. A request
+  scoped to the current screen, page, audit log, inventory, or catalog stays inside FDAI.
 - **Retrieval:** An eligible turn routes to a search-capable Azure Responses model candidate. The
   provider sends the bounded operator query and domain allowlist, then returns a sanitized evidence
   snapshot. Bragi renders the answer with source URLs; it doesn't invent a replacement when search
@@ -257,6 +258,9 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
 - **Safety boundary:** Sensitive identifiers block retrieval before any provider call. Web snippets
   remain untrusted data, can't grant execution eligibility, and don't satisfy rule-catalog evidence
   requirements for an action.
+- **Regression rubric:** A frozen 10-case English and Korean corpus checks explicit, colloquial,
+  freshness, web-context, local-scope, and no-search intents. Each case passes only when both the
+  structured route and provider-call behavior match the expected result.
 
 ## 4-6. Runtime model (Narrator, DI seams, session model)
 
