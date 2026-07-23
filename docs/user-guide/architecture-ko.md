@@ -4,7 +4,7 @@ description: FDAI의 15-agent organization이 event-driven control plane에서 s
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 098f661a05d653cf59dfae6fcfe97709ec7dfd42
+translation_source_sha: 47b4c35acfee0062c4943a4ed93e6d104bf008b8
 translation_revised: 2026-07-23
 ---
 
@@ -163,13 +163,12 @@ flowchart LR
   BRA -->|typed action proposal| HUG
 ```
 
-Mermaid view를 사용하면 topic ownership을 빠르게 확인할 수 있습니다. 아래에서 생성 도구로
-만든 architecture view는 같은 topology를 사용하여 runtime invariant를 보여 줍니다. Agent는
-independent subscriber로 실행되고 work는 동시에 fan-out될 수 있으며 authoritative object는
-이를 소유한 agent만 publish합니다. Gateway와 worker는 event를 relay하며 숨겨진 decision
-maker가 되지 않습니다.
+Mermaid view를 사용하면 topic ownership을 빠르게 확인할 수 있습니다. 아래 상세 view는 같은
+topology를 사용하여 runtime invariant를 보여 줍니다. Agent는 independent subscriber로
+실행되고 work는 동시에 fan-out될 수 있으며 authoritative object는 이를 소유한 agent만
+publish합니다. Gateway와 worker는 event를 relay하며 숨겨진 decision maker가 되지 않습니다.
 
-#### 생성된 에이전트 주도 아키텍처
+#### 에이전트 주도 런타임
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-agent-driven-runtime.manifest.json" locale="ko" style="display:block">
   <img src="../../diagrams/generated/fdai-agent-driven-runtime.ko.svg" alt="외부 신호가 shared typed event bus로 들어와 Huginn에 도달합니다. Huginn이 발행한 normalized event는 Heimdall과 Forseti로 fan-out됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 finding, domain evidence, rule, context를 제공합니다. Forseti는 결정을 소유하고 cross-domain conflict의 arbitration을 Odin에 요청합니다. 실행 가능한 결정은 Thor에 도달하며 Var는 사람 승인을, Vidar는 rollback을 소유합니다. Forseti, Thor, Var, Vidar는 Saga에 audit evidence를 발행합니다. Saga outcome은 Norns로 전달되고 Norns는 inert rule candidate를 Mimir에 제안합니다. Bragi는 Muninn에서 context를 읽고 typed action proposal을 Huginn에 보내 conversation도 동일한 governed path를 사용하게 합니다." loading="lazy" style="display:block;width:100%;height:auto" />
