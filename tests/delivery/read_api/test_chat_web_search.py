@@ -8,6 +8,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.core.conversation.answer_plan import build_answer_plan
 from fdai.core.web_search import WebSearchQuery, WebSearchResult, WebSnippet
 from fdai.delivery.read_api.routes.chat import make_chat_health_route, make_chat_route
 from fdai.delivery.read_api.routes.chat_web_search import (
@@ -22,7 +23,7 @@ class SearchIntentRubricCase:
     name: str
     prompt: str
     expected_route: str
-    expected_score: float
+    expected_confidence: float
 
 
 SEARCH_INTENT_RUBRIC_CASES = (
@@ -42,15 +43,15 @@ SEARCH_INTENT_RUBRIC_CASES = (
         "screen-local",
         "이 화면에서 MTTR 솔루션을 검색해줘",
         "local",
-        0.0,
+        1.0,
     ),
     SearchIntentRubricCase(
         "audit-local",
         "감사 로그에서 실패한 작업을 찾아봐",
         "local",
-        0.0,
+        1.0,
     ),
-    SearchIntentRubricCase("definition", "MTTR이 뭐야?", "none", 0.0),
+    SearchIntentRubricCase("definition", "MTTR이 뭐야?", "none", 1.0),
 )
 
 
@@ -73,6 +74,17 @@ class _Provider:
                 ),
             ),
         )
+
+
+class _IntentClassifier:
+    def __init__(self, result: dict[str, object]) -> None:
+        self.result = result
+        self.calls: list[str] = []
+
+    async def classify_intent(self, prompt: str, *, budget_ms: int) -> dict[str, object]:
+        self.calls.append(prompt)
+        assert budget_ms >= 1
+        return dict(self.result)
 
 
 class _Backend:
@@ -138,6 +150,121 @@ async def test_explicit_search_can_fill_gap_after_internal_evidence() -> None:
     assert len(provider.calls) == 1
 
 
+async def test_semantic_classifier_routes_unlisted_english_search_request() -> None:
+    provider = _Provider()
+    classifier = _IntentClassifier(
+        {
+            "route": "web",
+            "confidence": 0.93,
+            "reason": "explicit_public_search",
+            "query": "current MTTR platforms",
+        }
+    )
+    resolver = ChatWebSearchResolver(
+        provider=provider,
+        intent_classifier=classifier,
+        config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
+    )
+
+    prompt = "Could you source current MTTR platforms?"
+    evidence = await resolver.resolve(prompt, {"_answer_plan": build_answer_plan(prompt).to_dict()})
+
+    assert evidence is not None
+    assert evidence["status"] == "matched"
+    assert classifier.calls == ["Could you source current MTTR platforms?"]
+    assert len(provider.calls) == 1
+    assert provider.calls[0].text == "current MTTR platforms"
+
+
+async def test_semantic_classifier_cannot_override_local_or_sensitive_boundaries() -> None:
+    provider = _Provider()
+    classifier = _IntentClassifier(
+        {
+            "route": "web",
+            "confidence": 0.99,
+            "reason": "explicit_public_search",
+            "query": "failed actions",
+        }
+    )
+    resolver = ChatWebSearchResolver(
+        provider=provider,
+        intent_classifier=classifier,
+        config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
+    )
+    context = {"_answer_plan": {"intent": "open_question"}}
+
+    local = await resolver.resolve("Search this screen for failures", context)
+    sensitive = await resolver.resolve(
+        "Could you source details for 00000000-0000-0000-0000-000000000000?",
+        context,
+    )
+
+    assert local is None
+    assert sensitive is None
+    assert classifier.calls == []
+    assert provider.calls == []
+
+
+async def test_semantic_classifier_fails_closed_on_local_low_confidence_or_malformed() -> None:
+    context = {"_answer_plan": {"intent": "open_question"}}
+    results = (
+        {"route": "local", "confidence": 0.95, "reason": "local_scope", "query": ""},
+        {
+            "route": "web",
+            "confidence": 0.69,
+            "reason": "ambiguous",
+            "query": "MTTR platforms",
+        },
+        {
+            "route": "web",
+            "confidence": "high",
+            "reason": "ambiguous",
+            "query": "MTTR platforms",
+        },
+    )
+
+    for result in results:
+        provider = _Provider()
+        resolver = ChatWebSearchResolver(
+            provider=provider,
+            intent_classifier=_IntentClassifier(result),
+            config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
+        )
+
+        evidence = await resolver.resolve("Recommend suitable MTTR platforms", context)
+
+        assert evidence is None
+        assert provider.calls == []
+
+
+async def test_semantic_normalized_query_is_rechecked_for_sensitive_identifiers() -> None:
+    provider = _Provider()
+    resolver = ChatWebSearchResolver(
+        provider=provider,
+        intent_classifier=_IntentClassifier(
+            {
+                "route": "web",
+                "confidence": 0.95,
+                "reason": "explicit_public_search",
+                "query": "subscription 00000000-0000-0000-0000-000000000000",
+            }
+        ),
+        config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
+    )
+
+    evidence = await resolver.resolve(
+        "Could you source the related service?",
+        {"_answer_plan": {"intent": "open_question"}},
+    )
+
+    assert evidence == {
+        "status": "skipped",
+        "reason": "query_not_public_safe",
+        "sources": [],
+    }
+    assert provider.calls == []
+
+
 def test_natural_korean_public_discovery_requests_search_the_web() -> None:
     assert _classify_search_intent("유사한 서비스가 있는지 검색해줄래?").route == "web"
     assert _classify_search_intent("인터넷에서 유사한 서비스를 검색해줄래?").route == "web"
@@ -168,13 +295,13 @@ async def test_ten_copilot_reference_search_intents_score_ten_of_ten() -> None:
         provider_calls = len(provider.calls) - calls_before
         if (
             decision.route != case.expected_route
-            or decision.novelty_score != case.expected_score
+            or decision.confidence != case.expected_confidence
             or provider_calls != expected_provider_calls
             or (case.expected_route == "web") != (evidence is not None)
         ):
             failures.append(
-                f"{case.name}: expected {case.expected_route}/{case.expected_score}, "
-                f"got {decision.route}/{decision.novelty_score}, provider_calls={provider_calls}"
+                f"{case.name}: expected {case.expected_route}/{case.expected_confidence}, "
+                f"got {decision.route}/{decision.confidence}, provider_calls={provider_calls}"
             )
 
     passed = len(SEARCH_INTENT_RUBRIC_CASES) - len(failures)

@@ -32,6 +32,13 @@ turn counts to the telemetry surface
 never asserted. `t1.judge` being "always active" means it is the fallback
 for non-T0 turns, not that the LLM runs when a confident T0 intent matches.
 
+Public-web intent uses the same tier shape. T0 keeps high-confidence explicit-search and local-scope
+patterns. For eligible turns that remain `none`, an Azure Responses candidate uses a dedicated
+system prompt plus strict JSON schema to return route, classification confidence, reason code, and
+a bounded English search query. It never receives the current screen snapshot or history. Invalid,
+low-confidence, or unavailable output stays `none`; it cannot override local or sensitive-data
+denials. This classifier prompt is separate from Bragi's answer-generation prompt.
+
 ### 4.2 Escalation triggers (T1 -> T2)
 
 The coordinator escalates to Chat T2 on any of:

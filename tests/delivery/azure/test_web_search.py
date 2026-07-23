@@ -31,11 +31,16 @@ class _Candidate:
         delay_ms: int,
         fail_search: bool = False,
         empty_search: bool = False,
+        fail_intent: bool = False,
+        intent_route: str = "none",
     ) -> None:
         self.delay_ms = delay_ms
         self.fail_search = fail_search
         self.empty_search = empty_search
+        self.fail_intent = fail_intent
+        self.intent_route = intent_route
         self.search_calls = 0
+        self.intent_calls = 0
         self.probe_calls = 0
 
     async def probe(self) -> None:
@@ -58,6 +63,22 @@ class _Candidate:
             fetched_at=datetime.now(tz=UTC),
         )
         return WebSearchResult(query=query, snippets=(snippet,))
+
+    async def classify_intent(
+        self,
+        prompt: str,  # noqa: ARG002
+        *,
+        budget_ms: int,  # noqa: ARG002
+    ) -> dict[str, object]:
+        self.intent_calls += 1
+        if self.fail_intent:
+            raise RuntimeError("intent candidate failed")
+        return {
+            "route": self.intent_route,
+            "confidence": 0.9,
+            "reason": "test_intent",
+            "query": "current MTTR platforms" if self.intent_route == "web" else "",
+        }
 
 
 async def test_latency_router_benchmarks_and_prefers_fastest_candidate() -> None:
@@ -106,6 +127,21 @@ async def test_latency_router_fails_over_when_fastest_candidate_has_no_snippets(
     assert empty.search_calls == 1
     assert healthy.search_calls == 1
     assert "model:healthy" in result.reasons
+
+
+async def test_latency_router_fails_over_when_intent_candidate_errors() -> None:
+    failing = _Candidate(delay_ms=1, fail_intent=True)
+    healthy = _Candidate(delay_ms=15, intent_route="web")
+    provider = LatencyRoutedWebSearchProvider(
+        candidates=[("failing", failing), ("healthy", healthy)]
+    )
+    await provider.benchmark()
+
+    result = await provider.classify_intent("source current MTTR platforms", budget_ms=1_000)
+
+    assert failing.intent_calls == 1
+    assert healthy.intent_calls == 1
+    assert result["route"] == "web"
 
 
 async def test_azure_candidate_enforces_filters_and_parses_citations() -> None:
@@ -170,3 +206,50 @@ async def test_azure_candidate_enforces_filters_and_parses_citations() -> None:
     assert body["tools"][0]["filters"]["allowed_domains"] == ["docs.example.com"]
     assert [snippet.url for snippet in result.snippets] == ["https://docs.example.com/release"]
     assert result.snippets[0].text == "Version 2 is the latest release."
+
+
+async def test_azure_candidate_classifies_multilingual_search_intent_as_strict_json() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "output_text": json.dumps(
+                    {
+                        "route": "web",
+                        "confidence": 0.94,
+                        "reason": "explicit_public_search",
+                        "query": "current Grafana alternatives",
+                    }
+                )
+            },
+        )
+
+    candidate = AzureResponsesWebSearchCandidate(
+        config=AzureResponsesWebSearchConfig(
+            endpoint="https://example.openai.azure.com",
+            deployment="mini-fast",
+        ),
+        identity=_Identity(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    result = await candidate.classify_intent(
+        "¿Puedes investigar alternativas a Grafana?",
+        budget_ms=1_000,
+    )
+
+    assert result == {
+        "route": "web",
+        "confidence": 0.94,
+        "reason": "explicit_public_search",
+        "query": "current Grafana alternatives",
+    }
+    body = captured["body"]
+    assert isinstance(body, dict)
+    assert body["text"]["format"]["type"] == "json_schema"
+    assert body["text"]["format"]["strict"] is True
+    assert body["input"][1]["role"] == "user"
+    assert "¿Puedes investigar alternativas a Grafana?" in body["input"][1]["content"]

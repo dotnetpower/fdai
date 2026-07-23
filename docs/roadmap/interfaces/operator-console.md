@@ -249,18 +249,24 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
 
 - **Eligibility:** An explicit operator request such as `search`, `find`, `look up`, `검색해줘`,
   `찾아봐`, or `구글링해줘` selects public web search without requiring a particular subject noun.
-  Explicit web context and freshness questions about public technology also select it. A request
-  scoped to the current screen, page, audit log, inventory, or catalog stays inside FDAI.
+  These high-confidence patterns are the T0 fast path. When T0 returns `none` for an eligible
+  open, list, comparison, proposal, or status question, a search-capable model returns strict JSON
+  with `web` / `local` / `none`, confidence, reason code, and a normalized query. Low-confidence,
+  malformed, or unavailable classification stays `none`. Current-screen, audit, inventory,
+  catalog, and sensitive-data boundaries are applied before this semantic fallback.
 - **Retrieval:** An eligible turn routes to a search-capable Azure Responses model candidate. The
-  provider sends the bounded operator query and domain allowlist, then returns a sanitized evidence
+  classifier converts multilingual public-search requests into a bounded English query; the search
+  provider receives only that query and the domain allowlist, then returns a sanitized evidence
   snapshot. Bragi renders the answer with source URLs; it doesn't invent a replacement when search
-  is unavailable.
+  is unavailable. Bragi's answer-generation system prompt is not the search-intent authority.
 - **Safety boundary:** Sensitive identifiers block retrieval before any provider call. Web snippets
   remain untrusted data, can't grant execution eligibility, and don't satisfy rule-catalog evidence
   requirements for an action.
 - **Regression rubric:** A frozen 10-case English and Korean corpus checks explicit, colloquial,
   freshness, web-context, local-scope, and no-search intents. Each case passes only when both the
-  structured route and provider-call behavior match the expected result.
+  structured route and provider-call behavior match the expected result. A separate live held-out
+  check measures semantic classification and query normalization with English, Spanish, French,
+  and Japanese prompts that aren't present in the T0 pattern set.
 
 ## 4-6. Runtime model (Narrator, DI seams, session model)
 

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 28a13f2918fed3844f8c166612a7c40423a66156
+translation_source_sha: 693fe7c4ceb0176462f639982c007d5390927101
 translation_revised: 2026-07-23
 ---
 
@@ -242,18 +242,23 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
 없습니다.
 
 - **대상 판별:** `search`, `find`, `look up`, `검색해줘`, `찾아봐`, `구글링해줘` 같은 명시적인
-  operator 요청은 특정 subject noun 없이도 공개 웹 검색을 선택합니다. 명시적인 웹 context와 공개
-  기술의 최신 정보 질문도 검색을 선택합니다. 현재 화면, 페이지, 감사 로그, inventory 또는 catalog
-  범위의 요청은 FDAI 내부에 유지됩니다.
+  operator 요청은 특정 subject noun 없이도 공개 웹 검색을 선택합니다. 이 high-confidence pattern은
+  T0 fast path입니다. T0가 대상 open, list, comparison, proposal 또는 status 질문에 `none`을 반환하면
+  검색 가능한 model이 `web` / `local` / `none`, confidence, reason code 및 normalized query를 strict
+  JSON으로 반환합니다. Low-confidence, malformed 또는 unavailable classification은 `none`을 유지합니다.
+  Current-screen, audit, inventory, catalog 및 sensitive-data 경계는 semantic fallback 전에 적용됩니다.
 - **검색:** 대상 turn은 검색 가능한 Azure Responses model candidate로 route됩니다. Provider는
-  제한된 operator query와 domain allowlist를 전송하고 정제된 evidence snapshot을 반환합니다.
-  Bragi는 source URL과 함께 답변하며 검색을 사용할 수 없을 때 대체 내용을 만들어 내지 않습니다.
+  multilingual public-search 요청을 bounded English query로 변환합니다. Search provider는 해당 query와
+  domain allowlist만 받고 정제된 evidence snapshot을 반환합니다. Bragi는 source URL과 함께 답변하며
+  검색을 사용할 수 없을 때 대체 내용을 만들어 내지 않습니다. Bragi answer-generation system prompt는
+  search-intent authority가 아닙니다.
 - **안전 경계:** 민감한 identifier가 있으면 provider 호출 전에 검색을 차단합니다. Web snippet은
   계속 untrusted data로 취급되며 execution eligibility를 부여하거나 action의 rule-catalog evidence
   요구를 충족할 수 없습니다.
 - **회귀 rubric:** 고정된 영어 및 한국어 10개 corpus가 명시적, 구어체, 최신성, 웹 context, local
   scope 및 no-search intent를 확인합니다. 각 case는 structured route와 provider-call behavior가 모두
-  예상 결과와 일치할 때만 통과합니다.
+  예상 결과와 일치할 때만 통과합니다. 별도의 live held-out check는 T0 pattern set에 없는 영어,
+  스페인어, 프랑스어 및 일본어 prompt로 semantic classification과 query normalization을 측정합니다.
 
 ## 4-6. 런타임 모델 (Narrator, DI seam, 세션 모델)
 

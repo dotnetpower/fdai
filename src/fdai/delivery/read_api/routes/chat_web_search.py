@@ -9,7 +9,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Literal, NamedTuple, Protocol
+from typing import Any, Final, Protocol
 
 import httpx
 
@@ -27,6 +27,14 @@ from fdai.delivery.azure.web_search import (
     LatencyRoutedWebSearchProvider,
     WebSearchModelCandidate,
 )
+from fdai.delivery.read_api.routes.chat_web_search_intent import (
+    SearchIntentDecision,
+    semantic_search_intent,
+    semantic_search_intent_eligible,
+)
+from fdai.delivery.read_api.routes.chat_web_search_intent import (
+    classify_search_intent as _classify_search_intent,
+)
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOG = logging.getLogger(__name__)
@@ -38,52 +46,6 @@ _BUDGET_MS_ENV: Final[str] = "FDAI_WEB_SEARCH_BUDGET_MS"
 _PROBE_INTERVAL_ENV: Final[str] = "FDAI_WEB_SEARCH_PROBE_INTERVAL_SECONDS"
 _RESOLVED_MODELS_ENV: Final[str] = "LLM_RESOLVED_MODELS_PATH"
 
-_EXPLICIT_WEB_SEARCH = re.compile(
-    r"\b(?:search|browse)\s+(?:the\s+)?(?:web|internet|online)\b"
-    r"|\b(?:web|internet)\s+search\b"
-    "|(?:\uc778\ud130\ub137|\uc6f9).{0,80}(?:\uac80\uc0c9|\ucc3e\uc544|\uc870\uc0ac)"
-    "|(?:\uac80\uc0c9|\ucc3e\uc544|\uc870\uc0ac).{0,80}(?:\uc778\ud130\ub137|\uc6f9)",
-    re.IGNORECASE,
-)
-_WEB_CONTEXT = re.compile(
-    r"\b(?:web|internet|online)\b|\uc778\ud130\ub137|\uc6f9|\uc628\ub77c\uc778",
-    re.IGNORECASE,
-)
-_EXPLICIT_SEARCH_REQUEST = re.compile(
-    r"\b(?:search|find|look\s+up|research|discover|google|browse)\b"
-    "|(?:\uac80\uc0c9|\uc870\uc0ac|\uad6c\uae00\ub9c1)\\s*(?:\ud574|\ud574\uc11c|\ud574\uc918|\ud574\ubd10|\ud574\uc904\ub798|\ud574\uc8fc\uc138\uc694|\ubd80\ud0c1)"
-    "|\ucc3e\uc544\\s*(?:\ubd10|\uc918|\uc904\ub798|\uc8fc\uc138\uc694)"
-    "|\uc54c\uc544\\s*(?:\ubd10|\uc918|\uc904\ub798|\uc8fc\uc138\uc694)",
-    re.IGNORECASE,
-)
-_PUBLIC_DISCOVERY_SUBJECT = re.compile(
-    r"\b(?:service|product|tool|solution|platform|alternative|competitor)s?\b"
-    "|\uc11c\ube44\uc2a4|\uc81c\ud488|\ub3c4\uad6c|\uc194\ub8e8\uc158|\ud50c\ub7ab\ud3fc|\ub300\uc548|\uacbd\uc7c1",
-    re.IGNORECASE,
-)
-_LOCAL_SEARCH_SCOPE = re.compile(
-    r"\b(?:this|current)\s+(?:screen|page|table|list|view)\b"
-    r"|\b(?:audit|activity)\s+logs?\b"
-    r"|\b(?:in|from|within)\s+(?:the\s+)?(?:inventory|catalog|database|db)\b"
-    "|(?:\uc774|\ud604\uc7ac)\\s*(?:\ud654\uba74|\ud398\uc774\uc9c0|\ud45c|\ubaa9\ub85d|\ubdf0)"
-    "|(?:\uac10\uc0ac|\ud65c\ub3d9)\\s*\ub85c\uadf8"
-    "|(?:\uc778\ubca4\ud1a0\ub9ac|\uce74\ud0c8\ub85c\uadf8|\ub370\uc774\ud130\ubca0\uc774\uc2a4|\ub514\ube44)(?:\uc5d0\uc11c|\\s*\uc548\uc5d0\uc11c|\\s*\ub0b4\uc5d0\uc11c)",
-    re.IGNORECASE,
-)
-_FRESHNESS = re.compile(
-    r"\b(?:latest|newest|today|recent|currently|now|trending|current\s+(?:release|version)|recently\s+released"
-    r"|as\s+of\s+today|release\s+notes?)\b"
-    "|\ucd5c\uc2e0|\uc624\ub298|\uc694\uc998|\ucd5c\uadfc|\uc9c0\uae08|\ud604\uc7ac\\s*\ubc84\uc804|\ucd5c\uadfc\\s*\ubc1c\ud45c"
-    "|\ub9b4\ub9ac\uc2a4\\s*\ub178\ud2b8",
-    re.IGNORECASE,
-)
-_PUBLIC_SUBJECT = re.compile(
-    r"\b(?:azure|microsoft|foundry|openai|python|kubernetes|aks|postgres(?:ql)?"
-    r"|cve|nvd|rfc|sdk|api|documentation|docs?|release|version|package|library)\b"
-    "|\uacf5\uc2dd\\s*\ubb38\uc11c|\ubcf4\uc548\\s*\uacf5\uc9c0"
-    "|\ucde8\uc57d\uc810|\ubc84\uc804|\ub9b4\ub9ac\uc2a4",
-    re.IGNORECASE,
-)
 _SENSITIVE_QUERY = re.compile(
     r"/subscriptions/|/resourceGroups/"
     r"|\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b"
@@ -94,14 +56,17 @@ _SENSITIVE_QUERY = re.compile(
 _DOMAIN = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$", re.IGNORECASE)
 
 
-class _SearchIntentDecision(NamedTuple):
-    route: Literal["web", "local", "none"]
-    novelty_score: float
-    reason: str
-
-
 class ChatWebSearchProvider(Protocol):
     async def search(self, query: WebSearchQuery) -> WebSearchResult: ...
+
+
+class ChatWebSearchIntentClassifier(Protocol):
+    async def classify_intent(
+        self,
+        prompt: str,
+        *,
+        budget_ms: int,
+    ) -> Mapping[str, object]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,9 +98,11 @@ class ChatWebSearchResolver:
         self,
         *,
         provider: ChatWebSearchProvider,
+        intent_classifier: ChatWebSearchIntentClassifier | None = None,
         config: ChatWebSearchConfig,
     ) -> None:
         self._provider = provider
+        self._intent_classifier = intent_classifier
         self._config = config
         self._policy = WebSearchPolicyConfig(enabled=True)
 
@@ -187,9 +154,20 @@ class ChatWebSearchResolver:
         view_context: Mapping[str, Any],
     ) -> Mapping[str, Any] | None:
         search_intent = _classify_search_intent(prompt)
+        if _SENSITIVE_QUERY.search(prompt):
+            if search_intent.route != "web":
+                return None
+            _LOG.warning("chat.web_search_blocked_sensitive_query")
+            return {
+                "status": "skipped",
+                "reason": "query_not_public_safe",
+                "sources": [],
+            }
+        if search_intent.route == "none":
+            search_intent = await self._semantic_search_intent(prompt, view_context)
         if search_intent.route != "web":
             return None
-        if _SENSITIVE_QUERY.search(prompt):
+        if _SENSITIVE_QUERY.search(search_intent.query):
             _LOG.warning("chat.web_search_blocked_sensitive_query")
             return {
                 "status": "skipped",
@@ -199,7 +177,7 @@ class ChatWebSearchResolver:
 
         signals = WebSearchSignals(
             is_reasoning_tier=True,
-            novelty_score=search_intent.novelty_score,
+            novelty_score=search_intent.confidence,
             grounding_gap=True,
             allowlist_has_web_search=True,
             provider_available=True,
@@ -211,7 +189,7 @@ class ChatWebSearchResolver:
             return None
 
         query = WebSearchQuery(
-            text=prompt[:1000],
+            text=search_intent.query[:1000],
             allowed_domains=self._config.allowed_domains,
             max_results=self._config.max_results,
             budget_ms=self._config.budget_ms,
@@ -246,6 +224,7 @@ class ChatWebSearchResolver:
         return {
             "status": "matched" if sanitized.wrapped else "unavailable",
             "reason": decision.reason,
+            "intent_reason": search_intent.reason,
             "snippets": list(sanitized.wrapped),
             "sources": sources,
             "dropped": [
@@ -255,6 +234,26 @@ class ChatWebSearchResolver:
             "provider_reasons": list(result.reasons),
             "router": self.descriptor()["router"],
         }
+
+    async def _semantic_search_intent(
+        self,
+        prompt: str,
+        view_context: Mapping[str, Any],
+    ) -> SearchIntentDecision:
+        if self._intent_classifier is None or not semantic_search_intent_eligible(view_context):
+            return SearchIntentDecision("none", 1.0, "no_search_intent", "")
+        try:
+            raw = await self._intent_classifier.classify_intent(
+                prompt[:1000],
+                budget_ms=min(self._config.budget_ms, 5_000),
+            )
+        except Exception as exc:  # noqa: BLE001 - classifier fails closed
+            _LOG.warning(
+                "chat.web_search_intent_failed",
+                extra={"error_type": type(exc).__name__},
+            )
+            return SearchIntentDecision("none", 1.0, "semantic_unavailable", "")
+        return semantic_search_intent(raw)
 
 
 def chat_web_search_from_env(
@@ -310,29 +309,12 @@ def chat_web_search_from_env(
         raise ValueError(
             "web search is enabled but resolved-models.json has no narrator candidates"
         )
+    provider = LatencyRoutedWebSearchProvider(candidates=candidates)
     return ChatWebSearchResolver(
-        provider=LatencyRoutedWebSearchProvider(candidates=candidates),
+        provider=provider,
+        intent_classifier=provider,
         config=config,
     )
-
-
-def _classify_search_intent(prompt: str) -> _SearchIntentDecision:
-    if _EXPLICIT_WEB_SEARCH.search(prompt):
-        return _SearchIntentDecision("web", 1.0, "explicit_web_search")
-    search_requested = _EXPLICIT_SEARCH_REQUEST.search(prompt) is not None
-    if _WEB_CONTEXT.search(prompt) and (
-        search_requested or _PUBLIC_DISCOVERY_SUBJECT.search(prompt)
-    ):
-        return _SearchIntentDecision("web", 1.0, "explicit_web_context")
-    if search_requested and _LOCAL_SEARCH_SCOPE.search(prompt):
-        return _SearchIntentDecision("local", 0.0, "explicit_local_scope")
-    if search_requested:
-        return _SearchIntentDecision("web", 1.0, "explicit_search_request")
-    if _FRESHNESS.search(prompt) and (
-        _PUBLIC_SUBJECT.search(prompt) or _PUBLIC_DISCOVERY_SUBJECT.search(prompt)
-    ):
-        return _SearchIntentDecision("web", 0.8, "fresh_public_subject")
-    return _SearchIntentDecision("none", 0.0, "no_search_intent")
 
 
 def _parse_enabled(raw: str | None) -> bool:
