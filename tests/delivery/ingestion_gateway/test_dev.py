@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
@@ -143,3 +144,58 @@ def test_dev_gateway_chunks_embeds_and_indexes_uploaded_document(
     assert response.status_code == 200
     assert len(response.json()["items"]) == 2
     assert {item["locator"] for item in response.json()["items"]} == {"line:1", "line:2"}
+
+
+def test_dev_gateway_persistent_backend_persists_to_disk_and_pgvector(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    dsn = "postgresql://fdai:devonly@127.0.0.1:5432/fdai"
+    psycopg = pytest.importorskip("psycopg")
+    try:
+        connection = psycopg.connect(dsn, connect_timeout=2)
+    except psycopg.Error:
+        pytest.skip("local PostgreSQL is not reachable")
+    with connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            "select to_regclass('public.knowledge_chunk'), to_regclass('public.document_version')"
+        )
+        if any(name is None for name in cursor.fetchone()):
+            pytest.skip("document ingestion schema is not migrated on the local database")
+
+    monkeypatch.setenv("FDAI_INGESTION_GATEWAY_DEV_MODE", "1")
+    monkeypatch.setenv("FDAI_INGESTION_GATEWAY_PERSISTENT", "1")
+    monkeypatch.setenv("FDAI_STATE_STORE_DSN", dsn)
+    store_dir = tmp_path / "document-store"
+    monkeypatch.setenv("FDAI_INGESTION_GATEWAY_LOCAL_STORE_DIR", str(store_dir))
+    client = TestClient(dev.app())
+    content = b"Persistent path\nBytes must land on disk and index in pgvector"
+    body = {
+        "source_name": "persistent.txt",
+        "collection_id": "shared-knowledge",
+        "media_type_hint": "text/plain",
+        "expected_size": len(content),
+        "expected_sha256": hashlib.sha256(content).hexdigest(),
+        "storage_mode": "managed_copy",
+        "purposes": ["knowledge_base"],
+        "access_descriptor_ref": "collection:shared-knowledge",
+        "retention_policy_version": "local-policy-v1",
+    }
+
+    created = client.post("/ingestion/uploads", json=body)
+    assert created.status_code == 201
+    upload_id = created.json()["session"]["upload_id"]
+    assert client.put(f"/ingestion/uploads/{upload_id}/content", content=content).status_code == 204
+    assert client.post(f"/ingestion/uploads/{upload_id}/complete").status_code == 202
+
+    status = client.get(f"/ingestion/uploads/{upload_id}")
+    assert status.json()["state"] in {"ready", "ready_with_warnings"}
+    stored = [path for path in store_dir.rglob("*") if path.is_file()]
+    assert stored, "source bytes were not written to the local disk object store"
+
+    response = client.get(
+        "/documents/search",
+        params={"q": "disk pgvector", "collection_id": "shared-knowledge", "limit": 2},
+    )
+    assert response.status_code == 200
+    assert response.json()["items"]

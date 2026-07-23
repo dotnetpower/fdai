@@ -82,6 +82,32 @@
       "subProcess": true
     },
     {
+      "name": "Console Web: Ingestion Gateway (persistent)",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "module": "uvicorn",
+      "args": [
+        "fdai.delivery.ingestion_gateway.dev:app",
+        "--factory",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8011",
+        "--reload"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "FDAI_INGESTION_GATEWAY_DEV_MODE": "1",
+        "FDAI_INGESTION_GATEWAY_PERSISTENT": "1",
+        "FDAI_STATE_STORE_DSN": "postgresql://fdai:devonly@127.0.0.1:5432/fdai",
+        "FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS": "http://127.0.0.1:5273,http://localhost:5273"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true
+    },
+    {
       "name": "Console Web: Frontend",
       "type": "node-terminal",
       "request": "launch",

@@ -80,6 +80,14 @@
     var heading = document.querySelector("main h1") || document.querySelector("body > header h1");
     if (!context || !heading || heading.querySelector(".cs-page-domain")) return;
 
+    var pageRoot = heading.closest("main") || document.body;
+    var titleBlock = heading;
+    while (titleBlock.parentElement && titleBlock.parentElement !== pageRoot) {
+      titleBlock = titleBlock.parentElement;
+    }
+    heading.parentElement.prepend(heading);
+    pageRoot.prepend(titleBlock);
+
     var current = document.createElement("span");
     current.className = "cs-page-title-current";
     while (heading.firstChild) current.appendChild(heading.firstChild);

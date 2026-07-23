@@ -453,6 +453,18 @@ standard local console ports `4173`, `5273`, `5180`, and `5190` on both `127.0.0
 `localhost`. For another port, set `FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS` on the gateway
 process to a comma-separated list of exact HTTP(S) origins.
 
+By default the local gateway keeps every provider in memory, so uploaded bytes and their
+metadata are lost when the process restarts. To make local uploads persist through the same
+providers the production gateway uses, set `FDAI_INGESTION_GATEWAY_PERSISTENT=1`. The gateway
+then writes source bytes to a local disk object store
+(`FDAI_INGESTION_GATEWAY_LOCAL_STORE_DIR`, default `.fdai/document-store`), records version
+metadata in the local PostgreSQL through `PostgresDocumentMetadataStore`, and indexes chunks
+in the same pgvector `knowledge_chunk` table with a deterministic local embedding model. It
+reads the psycopg DSN from `FDAI_STATE_STORE_DSN`, falling back to `FDAI_DATABASE_URL`. Run
+`alembic upgrade head` against the local database first. ClamAV and Azure OpenAI have no local
+equivalent, so the malware scan stays a deterministic stub and embeddings use the local model.
+The `Console Web: Ingestion Gateway (persistent)` launch profile wires this.
+
 The production gateway binds the `handover_bootstrap` consumer to a durable
 `PostgresStateStore` projection and resolves exact user/group display names through
 Microsoft Graph with the gateway managed identity. The identity needs the least

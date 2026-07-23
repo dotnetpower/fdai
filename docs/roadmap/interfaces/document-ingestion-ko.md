@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 2fe3c5d1fb7613091b996dbadc3deaa6702e3205
+translation_source_sha: 53b70a5a944e99f1c3be03b6cbf559f152937484
 translation_revised: 2026-07-23
 ---
 # 문서 인제스트와 Drop Zone
@@ -459,6 +459,18 @@ FDAI_INGESTION_GATEWAY_DEV_MODE=1 \
 `127.0.0.1`과 `localhost`의 로컬 콘솔 포트 `4173`, `5273`, `5180`, `5190`을 허용합니다.
 다른 포트를 사용하려면 gateway process의 `FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS`를
 쉼표로 구분한 정확한 HTTP(S) origin 목록으로 설정하세요.
+
+기본적으로 로컬 gateway는 모든 provider를 in-memory로 유지하므로 process를 재시작하면
+업로드된 byte와 metadata가 사라집니다. 로컬 업로드가 production gateway와 동일한 provider를
+통해 영속되도록하려면 `FDAI_INGESTION_GATEWAY_PERSISTENT=1`을 설정하세요. 그러면 gateway는
+source byte를 로컬 디스크 object store(`FDAI_INGESTION_GATEWAY_LOCAL_STORE_DIR`, 기본
+`.fdai/document-store`)에 쓰고, version metadata를 `PostgresDocumentMetadataStore`를 통해 로컬
+PostgreSQL에 기록하며, 동일한 pgvector `knowledge_chunk` 테이블에 deterministic 로컬 embedding
+모델로 chunk를 index합니다. psycopg DSN은 `FDAI_STATE_STORE_DSN`(없으면 `FDAI_DATABASE_URL`)에서
+읽습니다. 먼저 로컬 데이터베이스에 `alembic upgrade head`를 실행하세요. ClamAV와 Azure
+OpenAI는 로컬 대체가 없으므로 malware scan은 deterministic stub로 유지되고 embedding은 로컬
+모델을 사용합니다. `Console Web: Ingestion Gateway (persistent)` launch profile이 이를
+배선합니다.
 
 Production gateway는 `handover_bootstrap` consumer를 durable `PostgresStateStore`
 projection에 bind하고 gateway managed identity로 Microsoft Graph의 정확한 user/group display

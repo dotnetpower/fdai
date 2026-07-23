@@ -196,6 +196,7 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 .cs-page-domain { overflow: hidden; flex: 0 1 auto; color: var(--cs-steel); font-size: 13px; font-weight: 550; letter-spacing: 0; text-overflow: ellipsis; white-space: nowrap; }
 .cs-page-separator { flex: 0 0 auto; color: #A19D98; font-size: 14px; }
 .cs-page-title-current { min-width: 0; overflow-wrap: anywhere; }
+.cs-page-title + .cs-eyebrow { margin-top: 6px; }
 
 /* ----- Card ----- */
 .cs-card {
