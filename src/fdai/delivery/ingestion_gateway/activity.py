@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Final
 
+from fdai.delivery.ingestion_gateway.pantheon_events import EventBusDocumentIngestionIntake
+from fdai.shared.providers.document_ingestion import DocumentActivitySink
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
 
@@ -36,4 +38,40 @@ class DurableDocumentActivitySink:
             return
 
 
-__all__ = ["DurableDocumentActivitySink"]
+class PantheonDocumentActivitySink:
+    """Wrap a base sink and promote the ingress onto the agent control loop.
+
+    The inner sink keeps the durable audit trail and the worker-reconciliation
+    topic. This wrapper additionally publishes the *ingress* transition as
+    Huginn's owned ``object.event`` so an uploaded document genuinely enters the
+    pantheon control loop rather than being a standalone gateway side effect.
+    Only the ingress action is promoted; later stage transitions stay on the
+    durable trail until their owning agents drive them.
+    """
+
+    _INGRESS_ACTIONS: Final = frozenset({"document.received"})
+
+    def __init__(
+        self,
+        *,
+        inner: DocumentActivitySink,
+        ingress: EventBusDocumentIngestionIntake,
+    ) -> None:
+        self._inner: Final = inner
+        self._ingress: Final = ingress
+
+    async def audit(self, record: Mapping[str, object]) -> None:
+        await self._inner.audit(record)
+
+    async def publish(
+        self,
+        topic: str,
+        key: str,
+        payload: Mapping[str, object],
+    ) -> None:
+        await self._inner.publish(topic, key, payload)
+        if topic in self._INGRESS_ACTIONS:
+            await self._ingress.submit(action=topic, document_id=key, record=payload)
+
+
+__all__ = ["DurableDocumentActivitySink", "PantheonDocumentActivitySink"]

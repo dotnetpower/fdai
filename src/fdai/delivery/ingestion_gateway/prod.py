@@ -10,6 +10,7 @@ from typing import Final
 import httpx
 from starlette.applications import Starlette
 
+from fdai.agents import OWNED_OBJECT_TOPICS
 from fdai.core.document_ingestion import DocumentIngestionService, DocumentIngestionWorker
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
 from fdai.core.stewardship.handover_bootstrap import HandoverBootstrapper
@@ -28,13 +29,18 @@ from fdai.delivery.azure.llm.embeddings import (
     AzureOpenAIEmbeddingModelConfig,
 )
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.delivery.ingestion_gateway.access import ClaimsDocumentAccessProvider
-from fdai.delivery.ingestion_gateway.activity import DurableDocumentActivitySink
+from fdai.delivery.ingestion_gateway.activity import (
+    DurableDocumentActivitySink,
+    PantheonDocumentActivitySink,
+)
 from fdai.delivery.ingestion_gateway.handover import (
     HandoverBootstrapConsumer,
     StateStoreHandoverDraftStore,
 )
 from fdai.delivery.ingestion_gateway.main import IngestionGatewayConfig, build_app
+from fdai.delivery.ingestion_gateway.pantheon_events import EventBusDocumentIngestionIntake
 from fdai.delivery.ingestion_gateway.worker_service import DocumentIngestionEventConsumer
 from fdai.delivery.malware import ClamAvMalwareScanner, ClamAvScannerConfig
 from fdai.delivery.persistence.postgres import PostgresStateStore, PostgresStateStoreConfig
@@ -180,10 +186,19 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         http_client=http_client,
         state_store=state_store,
     )
-    activity = DurableDocumentActivitySink(
-        state_store=state_store,
-        event_bus=event_bus,
-        event_topic=env["FDAI_DOCUMENT_EVENT_TOPIC"].strip(),
+    activity = PantheonDocumentActivitySink(
+        inner=DurableDocumentActivitySink(
+            state_store=state_store,
+            event_bus=event_bus,
+            event_topic=env["FDAI_DOCUMENT_EVENT_TOPIC"].strip(),
+        ),
+        ingress=EventBusDocumentIngestionIntake(
+            bus=MultiplexedEventBus(
+                bus=event_bus,
+                logical_topics=OWNED_OBJECT_TOPICS,
+                physical_topic=env.get("FDAI_PANTHEON_OBJECT_TOPIC", "aw.pantheon.objects").strip(),
+            )
+        ),
     )
     access = ClaimsDocumentAccessProvider()
     capabilities = IngestionCapabilities(

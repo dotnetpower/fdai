@@ -50,6 +50,17 @@ The gateway and worker always express a stage transition as the owning agent's t
 transition without an owning agent and Saga audit entry is a defect. A conflict routes to Odin, and
 a bad or superseded version retains a Vidar rollback path.
 
+## Ingress implementation
+
+The ingress step is wired first. The gateway composition wraps the durable activity sink with a
+`PantheonDocumentActivitySink` that promotes the `document.received` transition onto the pantheon
+bus as Huginn's owned `object.event`. The `EventBusDocumentIngestionIntake` claims the Huginn
+`producer_principal`, partitions by `document_id`, and marks the payload `kind = document_ingestion`
+so Forseti and Heimdall (already `object.event` subscribers) receive the upload as a first-class
+event. The delivery layer never holds Thor's executor identity. Later stage transitions stay on the
+durable audit trail until their owning agents drive them; wiring Forseti admissibility, Var
+approval, Muninn indexing, and the Saga audit-entry seal as typed objects is the next increment.
+
 ## Related docs
 
 | To learn about | Read |

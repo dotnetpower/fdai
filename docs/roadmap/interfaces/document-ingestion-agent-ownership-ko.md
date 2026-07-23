@@ -1,6 +1,6 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: a7232be940063529c21bf64b6db9404de780ca94
+translation_source_sha: 6f7c5f748c9db64035e1637fcaa3fc4600ec7209
 translation_revised: 2026-07-23
 ---
 
@@ -55,6 +55,17 @@ capability에 적용하는 관찰 모드에서 적용 모드로의 규율과 같
 Gateway와 worker는 항상 소유 에이전트의 typed object로 단계 전이를 표현합니다. 소유 에이전트와
 Saga 감사 항목이 없는 전이는 결함입니다. 충돌은 Odin으로 라우팅하며 잘못되거나 superseded된
 version은 Vidar rollback 경로를 유지합니다.
+
+## Ingress 구현
+
+Ingress 단계를 먼저 배선합니다. Gateway 구성은 durable activity sink를
+`PantheonDocumentActivitySink`로 감싸 `document.received` 전이를 Huginn 소유 `object.event`로
+pantheon 버스에 승격합니다. `EventBusDocumentIngestionIntake`가 Huginn `producer_principal`을
+클레임하고 `document_id`로 파티션하며 payload를 `kind = document_ingestion`으로 표시하므로,
+이미 `object.event` 구독자인 Forseti와 Heimdall이 업로드를 일급 이벤트로 수신합니다. Delivery
+계층은 Thor의 executor identity를 보유하지 않습니다. 이후 단계 전이는 소유 에이전트가 구동하기
+전까지 durable 감사 트레일에 남으며, Forseti admissibility, Var 승인, Muninn 인덱싱, Saga
+audit-entry 봉인을 typed object로 배선하는 것은 다음 증분입니다.
 
 ## 관련 문서
 

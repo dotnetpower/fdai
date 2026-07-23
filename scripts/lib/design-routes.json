@@ -498,10 +498,15 @@
         "src/fdai/delivery/channels/**",
         "src/fdai/delivery/azure/document_ocr.py",
         "src/fdai/delivery/ingestion_gateway/chat_evidence.py",
+        "src/fdai/delivery/ingestion_gateway/pantheon_events.py",
+        "src/fdai/delivery/ingestion_gateway/activity.py",
+        "src/fdai/delivery/ingestion_gateway/prod.py",
         "src/fdai/delivery/read_api/routes/chat_document_evidence.py",
         "tests/delivery/channels/**",
         "tests/delivery/azure/test_document_ocr.py",
-        "tests/delivery/ingestion_gateway/test_chat_evidence.py"
+        "tests/delivery/ingestion_gateway/test_chat_evidence.py",
+        "tests/delivery/ingestion_gateway/test_pantheon_events.py",
+        "tests/delivery/ingestion_gateway/test_activity.py"
       ],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
@@ -529,8 +534,7 @@
         "config/agent-stewardship.yaml",
         "src/fdai/core/stewardship/**",
         "src/fdai/delivery/stewardship/**",
-        "src/fdai/delivery/ingestion_gateway/handover.py",
-        "src/fdai/delivery/ingestion_gateway/prod.py"
+        "src/fdai/delivery/ingestion_gateway/handover.py"
       ],
       "must_read": [
         ".github/instructions/agent-stewardship.instructions.md",
