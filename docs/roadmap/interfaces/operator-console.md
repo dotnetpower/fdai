@@ -259,6 +259,16 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   provider receives only that query and the domain allowlist, then returns a sanitized evidence
   snapshot. Bragi renders the answer with source URLs; it doesn't invent a replacement when search
   is unavailable. Bragi's answer-generation system prompt is not the search-intent authority.
+- **Alternative discovery:** The classifier identifies the comparison subject and two to eight
+  capabilities, then the coordinator deterministically rebuilds a capability-based query without
+  the subject name. Alternatives use medium search context and request at least three distinct
+  direct products so deterministic filtering can retain two. Results exclude self references,
+  generic vendor homepages, conceptual
+  frameworks or strategy guides, editorial or blog pages, generic documentation indexes, and
+  duplicate pages from one product identity. Fewer than two distinct product sources makes the
+  search unavailable. Bragi compares only cited capability
+  overlap, marks unsupported criteria unknown, and labels the comparison partial rather than
+  claiming functional equivalence or a winner.
 - **Safety boundary:** Sensitive identifiers block retrieval before any provider call. Web snippets
   remain untrusted data, can't grant execution eligibility, and don't satisfy rule-catalog evidence
   requirements for an action.
@@ -267,6 +277,8 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   structured route and provider-call behavior match the expected result. A separate live held-out
   check measures semantic classification and query normalization with English, Spanish, French,
   and Japanese prompts that aren't present in the T0 pattern set.
+  Alternative discovery adds ten observable relevance checks for goal, subject, capabilities,
+  candidate count and diversity, self exclusion, direct pages, and conceptual-content exclusion.
 
 ## 4-6. Runtime model (Narrator, DI seams, session model)
 

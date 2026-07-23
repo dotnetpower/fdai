@@ -29,6 +29,7 @@ from fdai.delivery.azure.web_search import (
 )
 from fdai.delivery.read_api.routes.chat_web_search_intent import (
     SearchIntentDecision,
+    alternative_search_requested,
     semantic_search_intent,
     semantic_search_intent_eligible,
 )
@@ -163,8 +164,17 @@ class ChatWebSearchResolver:
                 "reason": "query_not_public_safe",
                 "sources": [],
             }
+        alternative_requested = alternative_search_requested(prompt)
         if search_intent.route == "none":
             search_intent = await self._semantic_search_intent(prompt, view_context)
+        elif search_intent.route == "web":
+            enriched_intent = await self._semantic_search_intent(prompt, view_context)
+            if enriched_intent.route == "web":
+                search_intent = enriched_intent
+            elif alternative_requested:
+                return None
+        if alternative_requested and search_intent.goal != "alternatives":
+            return None
         if search_intent.route != "web":
             return None
         if _SENSITIVE_QUERY.search(search_intent.query):
@@ -193,7 +203,12 @@ class ChatWebSearchResolver:
             allowed_domains=self._config.allowed_domains,
             max_results=self._config.max_results,
             budget_ms=self._config.budget_ms,
-            metadata={"surface": "operator-console", "tier": "chat-t2"},
+            metadata={
+                "surface": "operator-console",
+                "tier": "chat-t2",
+                "goal": search_intent.goal,
+                "subject": search_intent.subject,
+            },
         )
         try:
             result = await self._provider.search(query)
@@ -225,6 +240,9 @@ class ChatWebSearchResolver:
             "status": "matched" if sanitized.wrapped else "unavailable",
             "reason": decision.reason,
             "intent_reason": search_intent.reason,
+            "goal": search_intent.goal,
+            "subject": search_intent.subject,
+            "capabilities": list(search_intent.capabilities),
             "snippets": list(sanitized.wrapped),
             "sources": sources,
             "dropped": [
@@ -241,7 +259,7 @@ class ChatWebSearchResolver:
         view_context: Mapping[str, Any],
     ) -> SearchIntentDecision:
         if self._intent_classifier is None or not semantic_search_intent_eligible(view_context):
-            return SearchIntentDecision("none", 1.0, "no_search_intent", "")
+            return SearchIntentDecision("none", 1.0, "no_search_intent", "", "none", "", ())
         try:
             raw = await self._intent_classifier.classify_intent(
                 prompt[:1000],
@@ -252,7 +270,7 @@ class ChatWebSearchResolver:
                 "chat.web_search_intent_failed",
                 extra={"error_type": type(exc).__name__},
             )
-            return SearchIntentDecision("none", 1.0, "semantic_unavailable", "")
+            return SearchIntentDecision("none", 1.0, "semantic_unavailable", "", "none", "", ())
         return semantic_search_intent(raw)
 
 

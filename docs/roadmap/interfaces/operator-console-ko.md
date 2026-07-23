@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 693fe7c4ceb0176462f639982c007d5390927101
+translation_source_sha: 6a7aba352ca4f5e4c80a408961d7b4ef6d1c7f90
 translation_revised: 2026-07-23
 ---
 
@@ -252,6 +252,15 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   domain allowlist만 받고 정제된 evidence snapshot을 반환합니다. Bragi는 source URL과 함께 답변하며
   검색을 사용할 수 없을 때 대체 내용을 만들어 내지 않습니다. Bragi answer-generation system prompt는
   search-intent authority가 아닙니다.
+- **대안 탐색:** Classifier가 comparison subject와 2-8개 capability를 식별하고 coordinator는 subject
+  이름을 제외한 capability-based query를 결정론적으로 다시 구성합니다. Alternative search는 medium
+  context를 사용하고 서로 다른 direct product를 최소 3개 요청하여 결정론적 filtering 후 2개를
+  유지할 여유를 확보합니다. 결과에서 self reference,
+  generic vendor homepage, conceptual framework 또는 strategy guide, editorial 또는 blog page, generic
+  documentation index, 동일 product identity의 중복 page를 제외합니다. 서로 다른 product source가
+  2개 미만이면 search를 unavailable로 처리합니다. Bragi는
+  citation으로 확인된 capability overlap만 비교하고 unsupported criterion은 unknown으로 표시하며,
+  functional equivalence 또는 winner를 주장하지 않고 partial comparison임을 밝힙니다.
 - **안전 경계:** 민감한 identifier가 있으면 provider 호출 전에 검색을 차단합니다. Web snippet은
   계속 untrusted data로 취급되며 execution eligibility를 부여하거나 action의 rule-catalog evidence
   요구를 충족할 수 없습니다.
@@ -259,6 +268,8 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   scope 및 no-search intent를 확인합니다. 각 case는 structured route와 provider-call behavior가 모두
   예상 결과와 일치할 때만 통과합니다. 별도의 live held-out check는 T0 pattern set에 없는 영어,
   스페인어, 프랑스어 및 일본어 prompt로 semantic classification과 query normalization을 측정합니다.
+  Alternative discovery는 goal, subject, capability, candidate count와 diversity, self exclusion, direct
+  page 및 conceptual-content exclusion에 대한 관측 가능한 relevance check 10개를 추가합니다.
 
 ## 4-6. 런타임 모델 (Narrator, DI seam, 세션 모델)
 

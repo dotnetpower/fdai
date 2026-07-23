@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
@@ -20,6 +21,11 @@ _INTENT_REASONS = frozenset(
         "ambiguous",
     }
 )
+_GENERIC_ALTERNATIVE_TITLE = re.compile(
+    r"\b(?:what is|framework|strategy|adoption|guide|documentation|how to operate)\b",
+    re.IGNORECASE,
+)
+_EDITORIAL_PATH_SEGMENTS = frozenset({"blog", "blogs"})
 
 
 def result_from_envelope(
@@ -50,6 +56,12 @@ def result_from_envelope(
             continue
         title = annotation.get("title")
         safe_title = title.strip() if isinstance(title, str) and title.strip() else host
+        if query.metadata.get("goal") == "alternatives" and not _alternative_source_allowed(
+            url,
+            safe_title,
+            subject=query.metadata.get("subject", ""),
+        ):
+            continue
         text = _citation_sentence(answer, annotation) or safe_title
         digest = hashlib.sha256(f"{url}\n{text}".encode()).hexdigest()
         snippets.append(
@@ -66,6 +78,11 @@ def result_from_envelope(
         if len(snippets) >= query.max_results:
             break
     reasons: tuple[str, ...] = ("provider:azure_responses", f"deployment:{deployment}")
+    if query.metadata.get("goal") == "alternatives":
+        snippets = _distinct_alternative_products(snippets)
+        if len(snippets) < 2:
+            snippets = []
+            reasons = (*reasons, "insufficient_comparable_sources")
     if not snippets:
         reasons = (*reasons, "no_allowlisted_citations")
     return WebSearchResult(query=query, snippets=tuple(snippets), reasons=reasons)
@@ -100,12 +117,23 @@ def intent_from_envelope(envelope: Mapping[str, Any]) -> dict[str, object]:
         raw = json.loads(response_text(envelope))
     except (TypeError, ValueError) as exc:
         raise RuntimeError("Azure search intent returned invalid JSON") from exc
-    if not isinstance(raw, Mapping) or set(raw) != {"route", "confidence", "reason", "query"}:
+    if not isinstance(raw, Mapping) or set(raw) != {
+        "route",
+        "confidence",
+        "reason",
+        "query",
+        "goal",
+        "subject",
+        "capabilities",
+    }:
         raise RuntimeError("Azure search intent returned an invalid object")
     route = raw.get("route")
     confidence = raw.get("confidence")
     reason = raw.get("reason")
     query = raw.get("query")
+    goal = raw.get("goal")
+    subject = raw.get("subject")
+    capabilities = raw.get("capabilities")
     if route not in {"web", "local", "none"}:
         raise RuntimeError("Azure search intent returned an invalid route")
     if (
@@ -123,11 +151,34 @@ def intent_from_envelope(envelope: Mapping[str, Any]) -> dict[str, object]:
         or (route != "web" and query)
     ):
         raise RuntimeError("Azure search intent returned an invalid query")
+    if goal not in {"alternatives", "current_fact", "research", "local", "none"}:
+        raise RuntimeError("Azure search intent returned an invalid goal")
+    if (
+        not isinstance(subject, str)
+        or len(subject) > 128
+        or (goal == "alternatives" and not subject.strip())
+        or (goal != "alternatives" and subject)
+    ):
+        raise RuntimeError("Azure search intent returned an invalid subject")
+    if (
+        not isinstance(capabilities, list)
+        or len(capabilities) > 8
+        or any(
+            not isinstance(capability, str) or not capability.strip() or len(capability) > 64
+            for capability in capabilities
+        )
+        or (goal == "alternatives" and len(capabilities) < 2)
+        or (goal != "alternatives" and capabilities)
+    ):
+        raise RuntimeError("Azure search intent returned invalid capabilities")
     return {
         "route": route,
         "confidence": float(confidence),
         "reason": reason,
         "query": query.strip(),
+        "goal": goal,
+        "subject": subject.strip(),
+        "capabilities": [capability.strip() for capability in capabilities],
     }
 
 
@@ -163,6 +214,40 @@ def _allowed_host(url: str, allowed_domains: tuple[str, ...]) -> str | None:
     host = (parsed.hostname or "").lower().rstrip(".")
     allowed = {domain.lower().rstrip(".") for domain in allowed_domains}
     return host if host in allowed else None
+
+
+def _alternative_source_allowed(url: str, title: str, *, subject: str) -> bool:
+    folded_subject = subject.strip().casefold()
+    if folded_subject and re.search(
+        rf"(?<![a-z0-9]){re.escape(folded_subject)}(?![a-z0-9])",
+        f"{url} {title}".casefold(),
+    ):
+        return False
+    if _GENERIC_ALTERNATIVE_TITLE.search(title):
+        return False
+    parsed = urlsplit(url)
+    segments = [segment.casefold() for segment in parsed.path.split("/") if segment]
+    if segments and len(segments[0]) in {2, 5} and segments[0].replace("-", "").isalpha():
+        segments = segments[1:]
+    if _EDITORIAL_PATH_SEGMENTS.intersection(segments):
+        return False
+    return bool(segments)
+
+
+def _distinct_alternative_products(snippets: list[WebSnippet]) -> list[WebSnippet]:
+    distinct: list[WebSnippet] = []
+    seen: set[str] = set()
+    for snippet in snippets:
+        parsed = urlsplit(snippet.url)
+        segments = [segment.casefold() for segment in parsed.path.split("/") if segment]
+        identity = snippet.domain
+        if snippet.domain == "github.com" and len(segments) >= 2:
+            identity = f"github.com/{segments[0]}/{segments[1]}"
+        if identity in seen:
+            continue
+        seen.add(identity)
+        distinct.append(snippet)
+    return distinct
 
 
 def _citation_sentence(text: str, annotation: Mapping[str, Any]) -> str:

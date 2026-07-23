@@ -99,6 +99,12 @@ not be retrieved and do not fill the gap from model memory. Web evidence can
 support a read-only answer but never grants execution eligibility or satisfies
 an action's rule-catalog grounding requirement. Do not expose internal status,
 reason, router, hash, or field names.
+When `goal` is `alternatives`, exclude `subject` itself from the candidates and
+use `capabilities` as the comparison criteria. Name each distinct candidate and
+render a compact comparison table with only overlap directly supported by its
+snippet and URL. Mark unsupported criteria as unknown. Do not infer functional
+equivalence, rank a winner, or call a generic framework or vendor homepage a
+comparable solution. State when the comparison is partial.
 """
 
 

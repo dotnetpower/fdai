@@ -31,6 +31,7 @@ from fdai.delivery.read_api.routes.chat import (
     _raise_upstream_error,
     _trim_view_context,
 )
+from fdai.delivery.read_api.routes.chat_prompt_content import _WEB_EVIDENCE_DIRECTIVE
 
 _GLOSSARY_MARKER = _GLOSSARY.splitlines()[0]
 """First line of the glossary block - present in the system message iff the
@@ -44,6 +45,29 @@ _CAPABILITY_MARKER = _CAPABILITIES.splitlines()[0]
 _LEAN_BASE_BUDGET = 1_900
 
 _SNAPSHOT_MARKER = "Current view snapshot (JSON):"
+
+
+def test_alternatives_web_evidence_injects_comparison_guardrails() -> None:
+    messages = _build_messages(
+        "Find alternatives",
+        {
+            "_web_evidence": {
+                "status": "matched",
+                "goal": "alternatives",
+                "subject": "FDAI",
+                "capabilities": ["incident response", "change safety"],
+                "snippets": [],
+                "sources": [],
+            }
+        },
+        [],
+    )
+    system_messages = [message["content"] for message in messages if message["role"] == "system"]
+
+    assert _WEB_EVIDENCE_DIRECTIVE in system_messages
+    assert "exclude `subject` itself" in _WEB_EVIDENCE_DIRECTIVE
+    assert "comparison table" in _WEB_EVIDENCE_DIRECTIVE
+    assert "Do not infer functional" in _WEB_EVIDENCE_DIRECTIVE
 
 
 def _system_of(messages: list[dict[str, str]]) -> str:

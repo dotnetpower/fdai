@@ -87,6 +87,33 @@ class _IntentClassifier:
         return dict(self.result)
 
 
+class _RubricIntentClassifier:
+    async def classify_intent(self, prompt: str, *, budget_ms: int) -> dict[str, object]:
+        assert budget_ms >= 1
+        if "Grafana" in prompt:
+            return {
+                "route": "web",
+                "confidence": 0.95,
+                "reason": "explicit_public_search",
+                "query": "Grafana alternatives",
+                "goal": "alternatives",
+                "subject": "Grafana",
+                "capabilities": [
+                    "metrics visualization",
+                    "observability dashboards",
+                ],
+            }
+        return {
+            "route": "none",
+            "confidence": 0.95,
+            "reason": "no_search_intent",
+            "query": "",
+            "goal": "none",
+            "subject": "",
+            "capabilities": [],
+        }
+
+
 class _Backend:
     def __init__(self) -> None:
         self.view_context: dict[str, Any] | None = None
@@ -158,6 +185,9 @@ async def test_semantic_classifier_routes_unlisted_english_search_request() -> N
             "confidence": 0.93,
             "reason": "explicit_public_search",
             "query": "current MTTR platforms",
+            "goal": "research",
+            "subject": "",
+            "capabilities": [],
         }
     )
     resolver = ChatWebSearchResolver(
@@ -176,6 +206,65 @@ async def test_semantic_classifier_routes_unlisted_english_search_request() -> N
     assert provider.calls[0].text == "current MTTR platforms"
 
 
+async def test_alternative_search_carries_goal_and_subject_to_provider() -> None:
+    provider = _Provider()
+    resolver = ChatWebSearchResolver(
+        provider=provider,
+        intent_classifier=_IntentClassifier(
+            {
+                "route": "web",
+                "confidence": 0.96,
+                "reason": "explicit_public_search",
+                "query": "solutions similar to FDAI",
+                "goal": "alternatives",
+                "subject": "FDAI",
+                "capabilities": [
+                    "autonomous cloud operations",
+                    "incident response automation",
+                    "change risk management",
+                    "FinOps cost optimization",
+                ],
+            }
+        ),
+        config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
+    )
+    prompt = "FDAI와 비슷한 솔루션을 검색해줘"
+
+    evidence = await resolver.resolve(prompt, {"_answer_plan": build_answer_plan(prompt).to_dict()})
+
+    assert evidence is not None
+    assert len(provider.calls) == 1
+    assert provider.calls[0].metadata["goal"] == "alternatives"
+    assert provider.calls[0].metadata["subject"] == "FDAI"
+    assert "FDAI" not in provider.calls[0].text
+    assert "incident response automation" in provider.calls[0].text
+
+
+async def test_alternative_search_does_not_fallback_to_raw_query() -> None:
+    provider = _Provider()
+    resolver = ChatWebSearchResolver(
+        provider=provider,
+        intent_classifier=_IntentClassifier(
+            {
+                "route": "none",
+                "confidence": 0.95,
+                "reason": "no_search_intent",
+                "query": "",
+                "goal": "none",
+                "subject": "",
+                "capabilities": [],
+            }
+        ),
+        config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
+    )
+    prompt = "FDAI와 비슷한 솔루션을 검색해줘"
+
+    evidence = await resolver.resolve(prompt, {"_answer_plan": build_answer_plan(prompt).to_dict()})
+
+    assert evidence is None
+    assert provider.calls == []
+
+
 async def test_semantic_classifier_cannot_override_local_or_sensitive_boundaries() -> None:
     provider = _Provider()
     classifier = _IntentClassifier(
@@ -184,6 +273,9 @@ async def test_semantic_classifier_cannot_override_local_or_sensitive_boundaries
             "confidence": 0.99,
             "reason": "explicit_public_search",
             "query": "failed actions",
+            "goal": "research",
+            "subject": "",
+            "capabilities": [],
         }
     )
     resolver = ChatWebSearchResolver(
@@ -208,18 +300,32 @@ async def test_semantic_classifier_cannot_override_local_or_sensitive_boundaries
 async def test_semantic_classifier_fails_closed_on_local_low_confidence_or_malformed() -> None:
     context = {"_answer_plan": {"intent": "open_question"}}
     results = (
-        {"route": "local", "confidence": 0.95, "reason": "local_scope", "query": ""},
+        {
+            "route": "local",
+            "confidence": 0.95,
+            "reason": "local_scope",
+            "query": "",
+            "goal": "local",
+            "subject": "",
+            "capabilities": [],
+        },
         {
             "route": "web",
             "confidence": 0.69,
             "reason": "ambiguous",
             "query": "MTTR platforms",
+            "goal": "research",
+            "subject": "",
+            "capabilities": [],
         },
         {
             "route": "web",
             "confidence": "high",
             "reason": "ambiguous",
             "query": "MTTR platforms",
+            "goal": "research",
+            "subject": "",
+            "capabilities": [],
         },
     )
 
@@ -247,6 +353,9 @@ async def test_semantic_normalized_query_is_rechecked_for_sensitive_identifiers(
                 "confidence": 0.95,
                 "reason": "explicit_public_search",
                 "query": "subscription 00000000-0000-0000-0000-000000000000",
+                "goal": "research",
+                "subject": "",
+                "capabilities": [],
             }
         ),
         config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
@@ -285,12 +394,19 @@ def test_public_database_tool_search_does_not_become_local_scope() -> None:
 
 async def test_ten_copilot_reference_search_intents_score_ten_of_ten() -> None:
     provider = _Provider()
-    resolver = _resolver(provider)
+    resolver = ChatWebSearchResolver(
+        provider=provider,
+        intent_classifier=_RubricIntentClassifier(),
+        config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
+    )
     failures: list[str] = []
     for case in SEARCH_INTENT_RUBRIC_CASES:
         calls_before = len(provider.calls)
         decision = _classify_search_intent(case.prompt)
-        evidence = await resolver.resolve(case.prompt, {})
+        evidence = await resolver.resolve(
+            case.prompt,
+            {"_answer_plan": build_answer_plan(case.prompt).to_dict()},
+        )
         expected_provider_calls = 1 if case.expected_route == "web" else 0
         provider_calls = len(provider.calls) - calls_before
         if (

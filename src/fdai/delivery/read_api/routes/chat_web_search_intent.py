@@ -6,12 +6,17 @@ import re
 from collections.abc import Mapping
 from typing import Final, Literal, NamedTuple, cast
 
+SearchGoal = Literal["alternatives", "current_fact", "research", "local", "none"]
+
 
 class SearchIntentDecision(NamedTuple):
     route: Literal["web", "local", "none"]
     confidence: float
     reason: str
     query: str
+    goal: SearchGoal
+    subject: str
+    capabilities: tuple[str, ...]
 
 
 _EXPLICIT_WEB_SEARCH: Final = re.compile(
@@ -30,6 +35,11 @@ _EXPLICIT_SEARCH_REQUEST: Final = re.compile(
     "|(?:\uac80\uc0c9|\uc870\uc0ac|\uad6c\uae00\ub9c1)\\s*(?:\ud574|\ud574\uc11c|\ud574\uc918|\ud574\ubd10|\ud574\uc904\ub798|\ud574\uc8fc\uc138\uc694|\ubd80\ud0c1)"
     "|\ucc3e\uc544\\s*(?:\ubd10|\uc918|\uc904\ub798|\uc8fc\uc138\uc694)"
     "|\uc54c\uc544\\s*(?:\ubd10|\uc918|\uc904\ub798|\uc8fc\uc138\uc694)",
+    re.IGNORECASE,
+)
+_ALTERNATIVE_COMPARISON: Final = re.compile(
+    r"\b(?:similar|comparable|alternative|competitor)s?\b"
+    "|\ube44\uc2b7|\uc720\uc0ac|\ub300\uc548|\uacbd\uc7c1",
     re.IGNORECASE,
 )
 _PUBLIC_DISCOVERY_SUBJECT: Final = re.compile(
@@ -64,21 +74,25 @@ _SEMANTIC_INTENTS: Final = frozenset({"open_question", "list", "comparison", "pr
 
 def classify_search_intent(prompt: str) -> SearchIntentDecision:
     if _EXPLICIT_WEB_SEARCH.search(prompt):
-        return SearchIntentDecision("web", 1.0, "explicit_web_search", prompt)
+        return SearchIntentDecision("web", 1.0, "explicit_web_search", prompt, "research", "", ())
     search_requested = _EXPLICIT_SEARCH_REQUEST.search(prompt) is not None
     if _WEB_CONTEXT.search(prompt) and (
         search_requested or _PUBLIC_DISCOVERY_SUBJECT.search(prompt)
     ):
-        return SearchIntentDecision("web", 1.0, "explicit_web_context", prompt)
+        return SearchIntentDecision("web", 1.0, "explicit_web_context", prompt, "research", "", ())
     if search_requested and _LOCAL_SEARCH_SCOPE.search(prompt):
-        return SearchIntentDecision("local", 1.0, "explicit_local_scope", "")
+        return SearchIntentDecision("local", 1.0, "explicit_local_scope", "", "local", "", ())
     if search_requested:
-        return SearchIntentDecision("web", 1.0, "explicit_search_request", prompt)
+        return SearchIntentDecision(
+            "web", 1.0, "explicit_search_request", prompt, "research", "", ()
+        )
     if _FRESHNESS.search(prompt) and (
         _PUBLIC_SUBJECT.search(prompt) or _PUBLIC_DISCOVERY_SUBJECT.search(prompt)
     ):
-        return SearchIntentDecision("web", 0.8, "fresh_public_subject", prompt)
-    return SearchIntentDecision("none", 1.0, "no_search_intent", "")
+        return SearchIntentDecision(
+            "web", 0.8, "fresh_public_subject", prompt, "current_fact", "", ()
+        )
+    return SearchIntentDecision("none", 1.0, "no_search_intent", "", "none", "", ())
 
 
 def semantic_search_intent_eligible(view_context: Mapping[str, object]) -> bool:
@@ -86,11 +100,18 @@ def semantic_search_intent_eligible(view_context: Mapping[str, object]) -> bool:
     return isinstance(plan, Mapping) and plan.get("intent") in _SEMANTIC_INTENTS
 
 
+def alternative_search_requested(prompt: str) -> bool:
+    return _ALTERNATIVE_COMPARISON.search(prompt) is not None
+
+
 def semantic_search_intent(raw: Mapping[str, object]) -> SearchIntentDecision:
     route = raw.get("route")
     confidence = raw.get("confidence")
     reason = raw.get("reason")
     query = raw.get("query")
+    goal = raw.get("goal")
+    subject = raw.get("subject")
+    capabilities = raw.get("capabilities")
     if (
         route not in {"web", "local", "none"}
         or not isinstance(confidence, int | float)
@@ -102,22 +123,45 @@ def semantic_search_intent(raw: Mapping[str, object]) -> SearchIntentDecision:
         or not isinstance(query, str)
         or len(query) > 1000
         or (route == "web" and not query.strip())
+        or goal not in {"alternatives", "current_fact", "research", "local", "none"}
+        or not isinstance(subject, str)
+        or len(subject) > 128
+        or (goal == "alternatives" and not subject.strip())
+        or not isinstance(capabilities, list)
+        or len(capabilities) > 8
+        or any(
+            not isinstance(capability, str) or not capability.strip() or len(capability) > 64
+            for capability in capabilities
+        )
+        or (goal == "alternatives" and len(capabilities) < 2)
+        or (goal != "alternatives" and capabilities)
     ):
-        return SearchIntentDecision("none", 1.0, "semantic_invalid", "")
+        return SearchIntentDecision("none", 1.0, "semantic_invalid", "", "none", "", ())
     if float(confidence) < 0.7:
-        return SearchIntentDecision("none", 1.0, "semantic_low_confidence", "")
+        return SearchIntentDecision("none", 1.0, "semantic_low_confidence", "", "none", "", ())
     typed_route = cast(Literal["web", "local", "none"], route)
+    typed_goal = cast(SearchGoal, goal)
+    normalized_capabilities = tuple(
+        dict.fromkeys(capability.strip() for capability in capabilities)
+    )
     normalized_query = query.strip() if typed_route == "web" else ""
+    if typed_goal == "alternatives":
+        normalized_query = f"{' '.join(normalized_capabilities)} AIOps platforms products"
     return SearchIntentDecision(
         typed_route,
         float(confidence),
         f"semantic:{reason}",
         normalized_query,
+        typed_goal,
+        subject.strip() if typed_goal == "alternatives" else "",
+        normalized_capabilities,
     )
 
 
 __all__ = [
     "SearchIntentDecision",
+    "SearchGoal",
+    "alternative_search_requested",
     "classify_search_intent",
     "semantic_search_intent",
     "semantic_search_intent_eligible",
