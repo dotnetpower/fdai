@@ -93,6 +93,14 @@ is confined to Azure adapters such as Resource Graph, Microsoft Graph, model dis
 Hubs. `FDAI_READ_API_LOCAL_AZURE_CLI=1` with `VITE_LOCAL_AZURE_CLI_AUTH=1` is an explicit
 CLI-principal debug alternative with a fixed role ceiling.
 
+The standard full-stack launch also leaves narrator endpoint reconciliation enabled. The read API
+always tries the configured Azure OpenAI narrator instead of forcing the Command Deck into its
+deterministic fallback. At startup, the local-only hook can add the current public IP to the
+account's restricted firewall when the active Azure CLI principal has permission. Automated tests
+set `FDAI_NARRATOR_AUTO_OPEN_AOAI=0` so they never call Azure CLI or change a firewall. A genuinely
+unconfigured, unauthorized, or unreachable model endpoint still fails safely to the deterministic
+answerer for that turn.
+
 When `FDAI_MONITOR_WORKSPACE_ID` is configured, explicit Command Deck `query_log` commands use
 the same bounded Azure Monitor Logs provider in both profiles. Interactive local obtains its data
 plane token from the current Azure CLI context; deployment uses the dedicated read-API managed

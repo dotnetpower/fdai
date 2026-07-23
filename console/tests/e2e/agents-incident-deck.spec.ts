@@ -128,6 +128,42 @@ async function installReadApiFixture(page: Page): Promise<{
   return { chatBody: () => capturedChatBody };
 }
 
+test("defaults to the right dock and restores the last display mode", async ({ page }) => {
+  await installReadApiFixture(page);
+  await page.goto(
+    `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
+  );
+
+  await page.getByRole("button", { name: "Open command deck" }).click();
+  let deck = page.getByRole("complementary", { name: "Command deck" });
+  await expect(deck).toHaveClass(/deck-overlay-mode-dock/);
+  await expect(deck.getByRole("button", { name: "Dock right" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  await deck.getByRole("button", { name: "Floating panel" }).click();
+  await expect(deck).toHaveClass(/deck-overlay-mode-floating/);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("fdai.deck.layout.v1")))
+    .toBe("floating");
+  await deck.getByRole("button", { name: "Close command deck" }).click();
+  await page.reload();
+  await page.getByRole("button", { name: "Open command deck" }).click();
+  deck = page.getByRole("complementary", { name: "Command deck" });
+  await expect(deck).toHaveClass(/deck-overlay-mode-floating/);
+
+  await deck.getByRole("button", { name: "Full workspace" }).click();
+  let workspace = page.getByRole("dialog", { name: "Command deck" });
+  await expect(workspace).toHaveClass(/deck-overlay-mode-workspace/);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("fdai.deck.layout.v1")))
+    .toBe("workspace");
+  await workspace.getByRole("button", { name: "Close command deck" }).click();
+  await page.reload();
+  await page.getByRole("button", { name: "Open command deck" }).click();
+  workspace = page.getByRole("dialog", { name: "Command deck" });
+  await expect(workspace).toHaveClass(/deck-overlay-mode-workspace/);
+});
+
 test("pins a Var incident through the deck and renders a grounded Bragi answer", async ({
   page,
 }) => {

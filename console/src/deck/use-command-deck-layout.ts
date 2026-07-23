@@ -8,9 +8,9 @@ import {
 const DECK_LAYOUT_KEY = "fdai.deck.layout.v1";
 const DECK_DOCK_WIDTH_KEY = "fdai.deck.dock-width.v1";
 
-function sessionStore(): Storage | null {
+function preferenceStore(): Storage | null {
   try {
-    return typeof window !== "undefined" ? window.sessionStorage : null;
+    return typeof window !== "undefined" ? window.localStorage : null;
   } catch {
     return null;
   }
@@ -18,7 +18,7 @@ function sessionStore(): Storage | null {
 
 function initialDockWidth(): number {
   if (typeof window === "undefined") return 440;
-  const stored = Number.parseInt(sessionStore()?.getItem(DECK_DOCK_WIDTH_KEY) ?? "", 10);
+  const stored = Number.parseInt(preferenceStore()?.getItem(DECK_DOCK_WIDTH_KEY) ?? "", 10);
   return clampDockWidth(Number.isFinite(stored) ? stored : 440, window.innerWidth);
 }
 
@@ -47,7 +47,7 @@ export function commandDeckLayoutStyle(
 
 export function useCommandDeckLayout(open: boolean) {
   const [layoutMode, setLayoutMode] = useState<DeckLayoutMode>(() =>
-    parseDeckLayoutMode(sessionStore()?.getItem(DECK_LAYOUT_KEY) ?? null));
+    parseDeckLayoutMode(preferenceStore()?.getItem(DECK_LAYOUT_KEY) ?? null));
   const [floatingPosition, setFloatingPosition] = useState(initialFloatingPosition);
   const [dockWidth, setDockWidth] = useState(initialDockWidth);
   const [dockResizing, setDockResizing] = useState(false);
@@ -57,7 +57,7 @@ export function useCommandDeckLayout(open: boolean) {
   const selectLayoutMode = useCallback((mode: DeckLayoutMode) => {
     setLayoutMode(mode);
     try {
-      sessionStore()?.setItem(DECK_LAYOUT_KEY, mode);
+      preferenceStore()?.setItem(DECK_LAYOUT_KEY, mode);
     } catch {
       /* best-effort preference */
     }
@@ -102,7 +102,7 @@ export function useCommandDeckLayout(open: boolean) {
 
   const saveDockWidth = (value: number) => {
     try {
-      sessionStore()?.setItem(DECK_DOCK_WIDTH_KEY, String(value));
+      preferenceStore()?.setItem(DECK_DOCK_WIDTH_KEY, String(value));
     } catch {
       /* best-effort preference */
     }

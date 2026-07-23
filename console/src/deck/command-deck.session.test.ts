@@ -22,12 +22,12 @@ describe("Deck scheduled work", () => {
 });
 
 describe("Deck layout mode", () => {
-  test("restores supported modes and defaults malformed values to floating", () => {
+  test("restores supported modes and defaults malformed values to the right dock", () => {
     expect(parseDeckLayoutMode("floating")).toBe("floating");
     expect(parseDeckLayoutMode("dock")).toBe("dock");
     expect(parseDeckLayoutMode("workspace")).toBe("workspace");
-    expect(parseDeckLayoutMode("unknown")).toBe("floating");
-    expect(parseDeckLayoutMode(null)).toBe("floating");
+    expect(parseDeckLayoutMode("unknown")).toBe("dock");
+    expect(parseDeckLayoutMode(null)).toBe("dock");
   });
 
   test("clamps right-sidebar width to a usable viewport range", () => {

@@ -151,6 +151,7 @@ async def test_interactive_local_event_streams_huginn_and_heimdall_activity() ->
 
 def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() -> None:
     launch = json.loads((_REPO_ROOT / ".vscode" / "launch.json").read_text(encoding="utf-8"))
+    tasks = (_REPO_ROOT / ".vscode" / "tasks.json").read_text(encoding="utf-8")
     settings = json.loads((_REPO_ROOT / ".vscode" / "settings.json").read_text(encoding="utf-8"))
     configs = {item["name"]: item for item in launch["configurations"]}
     api_env = configs["Console Web: Read API"]["env"]
@@ -164,6 +165,8 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     assert api_env["FDAI_READ_API_LOCAL_AZURE_CLI"] == "0"
     assert api_env[_EMBED_PANTHEON_ENV] == "0"
     assert _START_PANTHEON_ENV not in api_env
+    assert "FDAI_NARRATOR_AUTO_OPEN_AOAI" not in api_env
+    assert "FDAI_NARRATOR_AUTO_OPEN_AOAI=0" not in tasks
     assert configs["Console Web: Read API"]["preLaunchTask"] == "console: prepare full stack"
     assert configs["Console Web: Read API"]["envFile"].endswith("/.fdai/local-runtime.env")
     assert frontend_env["VITE_DEV_MODE"] == "0"

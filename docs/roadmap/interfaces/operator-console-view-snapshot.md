@@ -136,18 +136,18 @@ and chart blocks. Open code fences render as stable plain previews while
 streaming and are highlighted only after closure. Executable or otherwise
 unsafe link schemes remain plain text.
 
-The deck opens as a movable, resizable floating panel by default so operators
-can inspect the source screen while chatting. Dragging the header title moves
+The deck opens as a 440 px right sidebar when no display preference exists.
+Header controls preserve the same conversation while switching to a movable
+floating panel or the full workspace. Dragging the floating header title moves
 the panel. Its left and top edges keep a 12 px guard, while the right and bottom
-edges may move beyond the viewport. Header controls preserve the same
-conversation while switching to a right sidebar or to the full workspace. The
-sidebar starts at 440 px; its left separator supports pointer and arrow-key
-resizing from 340 to 720 px and stores the width for the tab. Right-sidebar
-mode reduces the shell body by that same current width, so it does not cover
-navigation or page content. Floating and dock modes remain non-modal and do
-not trap focus or block page interaction; full workspace retains the modal
-focus trap. The selected mode is tab-scoped, and compact mobile viewports use
-the full-screen geometry.
+edges may move beyond the viewport. The sidebar's left separator supports
+pointer and arrow-key resizing from 340 to 720 px. Right-sidebar mode reduces
+the shell body by that same current width, so it does not cover navigation or
+page content. Floating and dock modes remain non-modal and do not trap focus or
+block page interaction; full workspace retains the modal focus trap. The
+selected mode and sidebar width persist in browser local storage, so closing
+and reopening the deck or browser restores the last display. Compact mobile
+viewports use the full-screen geometry without replacing the stored preference.
 
 - `verified` means the terminal answer was rendered from server-owned
   operational or inventory evidence.

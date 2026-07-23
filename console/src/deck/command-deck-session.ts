@@ -16,7 +16,7 @@ export type DeckLayoutMode = "floating" | "dock" | "workspace";
 export function parseDeckLayoutMode(value: string | null): DeckLayoutMode {
   return value === "dock" || value === "workspace" || value === "floating"
     ? value
-    : "floating";
+    : "dock";
 }
 
 export function clampDockWidth(value: number, viewportWidth: number): number {

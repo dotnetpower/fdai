@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: d9073e206d1537813d0ac5cf3710bb2e17ee47db
+translation_source_sha: ef4dab230e76a816a3546c6797c5a61dc50c8421
 translation_revised: 2026-07-23
 ---
 
@@ -95,6 +95,14 @@ Canonical local read API는 `FDAI_READ_API_LOCAL_ENTRA=1`을 사용하고 deploy
 Resource Graph, Microsoft Graph, model discovery, Event Hubs 같은 Azure adapter로 제한됩니다.
 `FDAI_READ_API_LOCAL_AZURE_CLI=1`과 `VITE_LOCAL_AZURE_CLI_AUTH=1` 조합은 fixed role ceiling을
 사용하는 명시적 CLI-principal debug 대안입니다.
+
+Standard full-stack launch는 narrator endpoint reconciliation도 활성 상태로 유지합니다. Read API는
+Command Deck을 deterministic fallback으로 강제하지 않고 configured Azure OpenAI narrator를 항상
+먼저 시도합니다. Startup 시 local-only hook은 active Azure CLI principal에 권한이 있으면 현재 public
+IP를 account의 restricted firewall에 추가할 수 있습니다. Automated test는
+`FDAI_NARRATOR_AUTO_OPEN_AOAI=0`을 설정하므로 Azure CLI를 호출하거나 firewall을 변경하지 않습니다.
+Model endpoint가 실제로 미구성, 권한 없음 또는 unreachable 상태이면 해당 turn만 deterministic
+answerer로 안전하게 fallback합니다.
 
 `FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 profile에서
 같은 bounded Azure Monitor Logs provider를 사용합니다. Interactive local은 현재 Azure CLI
