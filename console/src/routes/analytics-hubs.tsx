@@ -1,5 +1,6 @@
 import type { ReadApiClient } from "../api";
 import type { AutonomyPayload, VerticalSummary } from "../types";
+import { usePublishViewContext } from "../deck/context";
 import {
   AsyncBoundary,
   DataTable,
@@ -15,7 +16,13 @@ import { t } from "./i18n/analytics";
 import { currentRoute, routeHref } from "../router";
 import { formatShare, formatUsd, overviewHealth } from "./dashboard.model";
 import { useAnalyticsData, type AnalyticsData } from "./analytics-data";
-import { OperatingOutcomeBody, OUTCOME_KEYS, type OutcomeKey } from "./operating-outcomes";
+import { buildOperatingOutcomeViewSnapshot } from "./analytics-hubs.view";
+import {
+  OperatingOutcomeBody,
+  OUTCOME_KEYS,
+  outcomeMetric,
+  type OutcomeKey,
+} from "./operating-outcomes";
 
 interface Props { readonly client: ReadApiClient }
 
@@ -121,11 +128,31 @@ export function OperatingOutcomesRoute({ client }: Props) {
       <HubTabs panelId="operating-outcomes" values={OUTCOME_KEYS} active={active ?? ""} label={(key) => t(`analytics.metric.${key}`)} />
       {active === null ? <UnavailableState message={t("analytics.invalidDetail")} /> : (
         <AsyncBoundary state={state} resourceLabel={t("analytics.outcomes.title")}>
-          {(data) => data.autonomy ? <OperatingOutcomeBody data={data} active={active} /> : <UnavailableState message={t("analytics.autonomyUnavailable")} />}
+          {(data) => data.autonomy ? <OutcomeBody data={data} active={active} /> : <UnavailableState message={t("analytics.autonomyUnavailable")} />}
         </AsyncBoundary>
       )}
     </div>
   );
+}
+
+function OutcomeBody({ data, active }: { readonly data: AnalyticsData; readonly active: OutcomeKey }) {
+  const autonomy = data.autonomy!;
+  const metric = outcomeMetric(autonomy, active);
+  const routeLabel = t("analytics.outcomes.title");
+  const metricLabel = t(`analytics.metric.${active}`);
+  const unavailableLabel = t("analytics.unavailable");
+  usePublishViewContext(
+    () => buildOperatingOutcomeViewSnapshot({
+      autonomy,
+      metric,
+      metricKey: active,
+      metricLabel,
+      unavailableLabel,
+      routeLabel,
+    }),
+    [active, autonomy, metric, metricLabel, routeLabel, unavailableLabel],
+  );
+  return <OperatingOutcomeBody data={data} active={active} />;
 }
 
 export function ControlAssuranceRoute({ client }: Props) {

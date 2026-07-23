@@ -1,5 +1,4 @@
 import type { AutonomyPayload, MetricVsBaseline, VerticalSummary } from "../types";
-import { usePublishViewContext } from "../deck/context";
 import {
   DataTable,
   KpiCard,
@@ -12,7 +11,6 @@ import { getLocale } from "../i18n";
 import { t } from "./i18n/analytics";
 import { currentRoute, routeHref } from "../router";
 import type { AnalyticsData } from "./analytics-data";
-import { buildOperatingOutcomeViewSnapshot } from "./analytics-hubs.view";
 
 export const OUTCOME_KEYS = [
   "auto-resolution",
@@ -92,23 +90,9 @@ export function OperatingOutcomeBody({
   const autonomy = data.autonomy!;
   const metric = outcomeMetric(autonomy, active);
   const contract = outcomeViewContract(active);
-  const routeLabel = t("analytics.outcomes.title");
   const metricLabel = t(`analytics.metric.${active}`);
-  const unavailableLabel = t("analytics.unavailable");
   const trend = autonomy.trend[active.replaceAll("-", "_")] ??
     (active === "auto-resolution" ? autonomy.trend.auto_resolution_rate : undefined);
-
-  usePublishViewContext(
-    () => buildOperatingOutcomeViewSnapshot({
-      autonomy,
-      metric,
-      metricKey: active,
-      metricLabel,
-      unavailableLabel,
-      routeLabel,
-    }),
-    [active, autonomy, metric, metricLabel, routeLabel, unavailableLabel],
-  );
 
   return (
     <div class="stack outcome-view">
@@ -127,13 +111,13 @@ export function OperatingOutcomeBody({
         {active === "auto-resolution" ? (
           <GuardBoundary autonomy={autonomy} />
         ) : (
-          <ProjectionGap title={t(contract.analysisTitleKey)} message={t(contract.analysisUnavailableKey)} />
+          <ProjectionGap heading={t(contract.analysisTitleKey)} message={t(contract.analysisUnavailableKey)} />
         )}
       </div>
       {contract.measuredBreakdown ? (
         <AutoResolutionBreakdown verticals={autonomy.verticals} />
       ) : (
-        <ProjectionGap title={t(contract.breakdownTitleKey)} message={t(contract.breakdownUnavailableKey)} />
+        <ProjectionGap heading={t(contract.breakdownTitleKey)} message={t(contract.breakdownUnavailableKey)} />
       )}
       <OutcomeEvidenceLinks active={active} windowDays={autonomy.window_days} />
     </div>
@@ -200,7 +184,7 @@ function TrendChart({
   readonly active: OutcomeKey;
   readonly label: string;
 }) {
-  if (values.length < 2) return <ProjectionGap title={label} message={t("analytics.trendUnavailable")} />;
+  if (values.length < 2) return <ProjectionGap heading={label} message={t("analytics.trendUnavailable")} />;
   const maximum = Math.max(...values);
   const minimum = Math.min(...values);
   const range = maximum - minimum || 1;
@@ -223,10 +207,10 @@ function TrendChart({
   );
 }
 
-function ProjectionGap({ title, message }: { readonly title: string; readonly message: string }) {
+function ProjectionGap({ heading, message }: { readonly heading: string; readonly message: string }) {
   return (
     <section class="analytics-panel outcome-projection-gap">
-      <h3>{title}</h3>
+      <h3>{heading}</h3>
       <UnavailableState message={message} />
     </section>
   );
@@ -234,7 +218,7 @@ function ProjectionGap({ title, message }: { readonly title: string; readonly me
 
 function GuardBoundary({ autonomy }: { readonly autonomy: AutonomyPayload }) {
   if (autonomy.guards.length === 0) {
-    return <ProjectionGap title={t("analytics.outcomes.guardBoundary")} message={t("analytics.outcomes.guardUnavailable")} />;
+    return <ProjectionGap heading={t("analytics.outcomes.guardBoundary")} message={t("analytics.outcomes.guardUnavailable")} />;
   }
   const columns: readonly Column<AutonomyPayload["guards"][number]>[] = [
     { key: "guard", header: t("analytics.guard"), render: (row) => t(`overview.guardFull.${row.key}`) },

@@ -33,13 +33,13 @@ snapshot. The narrator receives only these rendered evidence facts; it does not 
 values or replace the route's authoritative source.
 
 Each Operating Outcomes route keeps a metric-specific analysis surface. Auto-resolution shows its
-observed event and auto-resolved record counts, vertical rates, and guard context. Human touchpoints, MTTR, change
-lead time, and cost per resolved event each reserve their own analysis and breakdown sections. When
-the read projection does not provide touchpoint types, latency percentiles, delivery stages, or cost
-composition, the section renders unavailable instead of reusing an unrelated vertical table or
-deriving values in the browser. Cost views also state that displayed amounts use standard prices and
-can differ from billed amounts after discounts, commitments, credits, taxes, exchange rates, and
-provider billing adjustments.
+observed event and auto-resolved record counts, vertical rates, and guard context. Human touchpoints,
+MTTR, change lead time, and cost per resolved event each reserve their own analysis and breakdown
+sections. When the read projection does not provide touchpoint types, latency percentiles, delivery
+stages, or cost composition, the section renders unavailable instead of reusing an unrelated vertical
+table or deriving values in the browser. Cost views also state that displayed amounts use standard
+prices and can differ from billed amounts after discounts, commitments, credits, taxes, exchange
+rates, and provider billing adjustments.
 
 ## Loading presentation
 
