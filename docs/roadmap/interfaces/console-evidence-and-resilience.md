@@ -19,6 +19,9 @@ event, then activates its transcript. The Deck remains open without a transient 
 switch or close/reopen focus cycle. Same-screen and agent conversations switch without navigation.
 Reselecting the already active same-screen conversation is focus-only; it does not reload the
 sessionStorage transcript over newer in-memory turns.
+Removing the active cached conversation selects only a current-route default (including the legacy
+`screen` key) or current-route thread. If neither exists, the console creates a new current-route
+default instead of activating an unrelated-route or agent transcript.
 
 The shared page title renders the domain and panel labels when they differ, including
 `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone

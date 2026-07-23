@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 1ce54b6096241f983b33f940251583b44f28154d
+translation_source_sha: 9d0960712dca45cccde868b496068c0811467485
 translation_revised: 2026-07-23
 ---
 
@@ -22,6 +22,9 @@ Transient default-session switch 또는 close/reopen focus cycle 없이 Deck을 
 Same-screen 및 agent conversation은 navigation 없이 전환합니다.
 이미 active인 same-screen conversation을 다시 선택하면 focus만 복원하며 최신 in-memory turn 위에
 sessionStorage transcript를 다시 로드하지 않습니다.
+Active cached conversation을 제거하면 current-route default(legacy `screen` key 포함) 또는
+current-route thread만 선택합니다. 둘 다 없으면 unrelated-route 또는 agent transcript를 활성화하지
+않고 새 current-route default를 만듭니다.
 
 공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께
 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.

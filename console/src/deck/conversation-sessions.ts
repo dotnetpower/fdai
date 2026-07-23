@@ -215,6 +215,21 @@ export function conversationGroups(
   };
 }
 
+/** Select a safe current-route fallback after removing the active conversation. */
+export function conversationFallbackForRoute(
+  conversations: readonly ConversationSummary[],
+  userScope: string,
+  pathname: string,
+): ConversationSummary | undefined {
+  const currentPath = conversationPath(pathname);
+  const defaultKey = screenConversationKey(userScope, currentPath);
+  return conversations.find(
+    (item) => item.key === defaultKey ||
+      (item.kind === "screen-default" && item.originPath === currentPath),
+  ) ??
+    conversations.find((item) => item.kind !== "agent" && item.originPath === currentPath);
+}
+
 /** Deduplicate, sort newest-first, and cap the tab-scoped index. */
 export function upsertConversation(
   conversations: readonly ConversationSummary[],

@@ -3,6 +3,7 @@ import {
   conversationLabelForPrompt,
   conversationGroups,
   conversationIndexKeyFor,
+  conversationFallbackForRoute,
   conversationPath,
   conversationUserScope,
   conversationTitle,
@@ -97,6 +98,42 @@ describe("conversationGroups", () => {
         other: [other],
         agents: [agent],
       });
+  });
+});
+
+describe("conversation fallback", () => {
+  it("never selects an unrelated-route conversation", () => {
+    const otherRoute: ConversationSummary = {
+      ...GENERAL,
+      key: "screen:scope:/agents",
+      originPath: "/agents",
+      originLabel: "Agents",
+    };
+
+    expect(conversationFallbackForRoute([otherRoute], "scope", "/overview"))
+      .toBeUndefined();
+  });
+
+  it("prefers the default conversation for the current route", () => {
+    const currentThread: ConversationSummary = {
+      ...GENERAL,
+      key: "user:scope:conversation:1",
+      kind: "screen-thread",
+    };
+
+    expect(conversationFallbackForRoute([currentThread, GENERAL], "scope", "/overview"))
+      .toEqual(GENERAL);
+  });
+
+  it("uses a current-route thread when the default is absent", () => {
+    const currentThread: ConversationSummary = {
+      ...GENERAL,
+      key: "user:scope:conversation:1",
+      kind: "screen-thread",
+    };
+
+    expect(conversationFallbackForRoute([currentThread], "scope", "/overview"))
+      .toEqual(currentThread);
   });
 });
 

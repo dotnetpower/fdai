@@ -5,6 +5,7 @@ import { restoredTurn } from "./command-deck-session";
 import type { Turn } from "./command-deck-presenters";
 import {
   conversationIndexKeyFor,
+  conversationFallbackForRoute,
   conversationPath,
   manualConversationSummary,
   parseConversationIndex,
@@ -278,7 +279,11 @@ export function useCommandDeckSessionController({
     setConversations(remaining);
     if (removingActive) {
       const routeKey = screenConversationKey(userScope, currentPathname());
-      const fallback = remaining.find((item) => item.key === routeKey) ?? remaining[0];
+      const fallback = conversationFallbackForRoute(
+        remaining,
+        userScope,
+        currentPathname(),
+      );
       if (fallback) {
         switchSession(fallback.key, fallback.agent ?? null, undefined, fallback.label, fallback.kind);
       } else {
