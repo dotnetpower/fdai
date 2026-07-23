@@ -47,6 +47,28 @@ class _FailingReadTool(_ReadTool):
         raise ValueError("read provider rejected the query")
 
 
+class _StateReadTool(_ReadTool):
+    def __init__(
+        self,
+        name: str,
+        evidence_ref: str,
+        state: str,
+        resource_id: str = "vm-example",
+    ) -> None:
+        super().__init__(name, evidence_ref)
+        self.state = state
+        self.resource_id = resource_id
+
+    def call(self, *, arguments: Mapping[str, Any], principal: Principal) -> ToolResult:
+        self.calls.append(arguments)
+        return ToolResult(
+            status="ok",
+            data={"resource_id": self.resource_id, "state": self.state},
+            preview=f"{self.resource_id} state {self.state}",
+            evidence_refs=(self.evidence_ref,),
+        )
+
+
 class _PlanningNarrator:
     def __init__(self, commands: tuple[str, ...]) -> None:
         self.commands = commands
@@ -156,3 +178,48 @@ def test_failed_read_halts_remaining_plan_without_synthesis() -> None:
     assert catalog.calls == [{"query": "storage"}]
     assert inventory.calls == []
     assert narrator.render_calls == 0
+
+
+def test_conflicting_state_for_same_resource_blocks_synthesis() -> None:
+    catalog = _StateReadTool("explore_catalog", "evidence-one", "healthy")
+    inventory = _StateReadTool("query_inventory", "evidence-two", "unhealthy")
+    narrator = _PlanningNarrator(("explore_catalog storage", "query_inventory virtual-machine"))
+    coordinator = ConversationCoordinator(
+        tools=(catalog, inventory),
+        narrator=narrator,
+        narrator_tool_schemas=default_tool_schemas(),
+    )
+
+    result = coordinator.handle_turn(session=_session(), message="Compare both sources.")
+
+    assert isinstance(result, ToolResult)
+    assert result.status == "abstain"
+    assert result.data["conflicts"] == [
+        {
+            "identity_field": "resource_id",
+            "identity": "vm-example",
+            "field": "state",
+            "values": ["healthy", "unhealthy"],
+            "tools": ["explore_catalog", "query_inventory"],
+        }
+    ]
+    assert result.evidence_refs == ("evidence-one", "evidence-two")
+    assert narrator.render_calls == 0
+
+
+def test_different_resource_states_do_not_create_false_conflict() -> None:
+    catalog = _StateReadTool("explore_catalog", "evidence-one", "healthy", "vm-one")
+    inventory = _StateReadTool("query_inventory", "evidence-two", "unhealthy", "vm-two")
+    narrator = _PlanningNarrator(("explore_catalog storage", "query_inventory virtual-machine"))
+    coordinator = ConversationCoordinator(
+        tools=(catalog, inventory),
+        narrator=narrator,
+        narrator_tool_schemas=default_tool_schemas(),
+    )
+
+    result = coordinator.handle_turn(session=_session(), message="Compare both sources.")
+
+    assert isinstance(result, ToolResult)
+    assert result.status == "ok"
+    assert "conflicts" not in result.data
+    assert narrator.render_calls == 1

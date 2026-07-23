@@ -18,6 +18,9 @@ from fdai.core.conversation.tools import SystemConsoleTool, ToolResult
 MIN_READ_PLAN_STEPS = 2
 MAX_READ_PLAN_STEPS = 3
 MAX_READ_PLAN_COMMAND_CHARS = 2_000
+MAX_CONFLICT_RECORDS = 256
+_IDENTITY_FIELDS = ("resource_id", "scope_ref", "id")
+_CONFLICT_FIELDS = ("state", "status", "verdict", "mode", "health", "outcome")
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,10 +122,13 @@ def execute_read_plan(
     status: Literal["ok", "error", "abstain"] = next(
         (result.status for _, result in results if result.status != "ok"), "ok"
     )
+    conflicts = _conflicting_facts(results)
+    if status == "ok" and conflicts:
+        status = "abstain"
     evidence_refs = tuple(
         dict.fromkeys(reference for _, result in results for reference in result.evidence_refs)
     )
-    data = {
+    data: dict[str, object] = {
         "results": [
             {
                 "command": step.command,
@@ -135,9 +141,15 @@ def execute_read_plan(
             for step, result in results
         ]
     }
+    if conflicts:
+        data["conflicts"] = conflicts
     preview = "read plan: " + "; ".join(
         f"{step.tool.name}={result.preview}" for step, result in results
     )
+    if conflicts:
+        preview = "read plan evidence conflict: " + "; ".join(
+            f"{item['identity_field']}={item['identity']} {item['field']}" for item in conflicts
+        )
     return ToolResult(
         status=status,
         data=data,
@@ -146,7 +158,72 @@ def execute_read_plan(
     )
 
 
+def _conflicting_facts(
+    results: Sequence[tuple[ValidatedReadStep, ToolResult]],
+) -> list[dict[str, object]]:
+    observations: dict[tuple[str, str, str], list[tuple[str, object]]] = {}
+    for step, result in results:
+        for record in _bounded_records(result.data):
+            identity = next(
+                (
+                    (field, str(record[field]))
+                    for field in _IDENTITY_FIELDS
+                    if _scalar(record.get(field))
+                ),
+                None,
+            )
+            if identity is None:
+                continue
+            identity_field, identity_value = identity
+            for field in _CONFLICT_FIELDS:
+                value = record.get(field)
+                if not _scalar(value):
+                    continue
+                observations.setdefault((identity_field, identity_value, field), []).append(
+                    (step.tool.name, value)
+                )
+    conflicts: list[dict[str, object]] = []
+    for (identity_field, observed_identity, field), values in sorted(observations.items()):
+        distinct_values = sorted({str(value) for _, value in values})
+        distinct_tools = sorted({tool_name for tool_name, _ in values})
+        if len(distinct_values) < 2 or len(distinct_tools) < 2:
+            continue
+        conflicts.append(
+            {
+                "identity_field": identity_field,
+                "identity": observed_identity,
+                "field": field,
+                "values": distinct_values,
+                "tools": distinct_tools,
+            }
+        )
+    return conflicts
+
+
+def _bounded_records(value: object) -> tuple[Mapping[str, Any], ...]:
+    records: list[Mapping[str, Any]] = []
+
+    def visit(candidate: object) -> None:
+        if len(records) >= MAX_CONFLICT_RECORDS:
+            return
+        if isinstance(candidate, Mapping):
+            records.append(candidate)
+            for nested in candidate.values():
+                visit(nested)
+        elif isinstance(candidate, (list, tuple)):
+            for nested in candidate:
+                visit(nested)
+
+    visit(value)
+    return tuple(records)
+
+
+def _scalar(value: object) -> bool:
+    return value is not None and isinstance(value, (str, int, float, bool))
+
+
 __all__ = [
+    "MAX_CONFLICT_RECORDS",
     "MAX_READ_PLAN_COMMAND_CHARS",
     "MAX_READ_PLAN_STEPS",
     "MIN_READ_PLAN_STEPS",

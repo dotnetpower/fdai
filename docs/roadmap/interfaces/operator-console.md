@@ -128,6 +128,10 @@ flowchart TD
   `side_effect_class=read` before the first call. Invalid plans execute nothing. Valid reads run
   serially, retain one tool-call/result pair per step, aggregate evidence references, and use the
   same grounded presentation pass. A failed read stops the remaining plan and skips synthesis.
+  Before synthesis, the aggregator compares high-signal `state`, `status`, `verdict`, `mode`,
+  `health`, and `outcome` fields only when two tools name the same `resource_id`, `scope_ref`, or
+  `id`. Different values produce a structured conflict, preserve both evidence sets, change the
+  aggregate to `abstain`, and skip model rendering. Different identities are not compared.
 - **Layer 1 (Core)** is exactly the deterministic core that already ships.
   The console adds no new judgment path, no new persistence store, and no
   new execution vector. A console tool call resolves to a call the
@@ -137,7 +141,8 @@ flowchart TD
 
 - [`src/fdai/core/conversation/`](../../../src/fdai/core/conversation)
   - `coordinator.py` - `ConversationCoordinator` (Layer 2 orchestrator).
-  - `read_plan.py` - pure bounded-plan validation plus serial read execution and result aggregation.
+  - `read_plan.py` - pure bounded-plan validation, serial read execution, result aggregation, and
+    identity-scoped high-signal conflict detection.
   - `grounded_answer_validation.py` - conservative numeric, timestamp, freshness, and exact-ref
     checks over narrated output and immutable tool authority.
   - `tools.py` - `SystemConsoleTool` Protocol + per-tool implementations that

@@ -178,7 +178,7 @@
     "src/fdai/core/conversation/outbound_delivery.py": "12cd729b3aecd5703963d7dc9118716b1d41a66e23ff3078d441f23ec3b7b2ce",
     "src/fdai/core/conversation/policy_prompt.py": "b3d8227662dd6653f49ec2df41ef406010e10ec5e6582e904dc2b1770dba3a07",
     "src/fdai/core/conversation/principal_binding.py": "ce72cdc5254a5ea8eb5b81d0e7871355e2590b41ab8176e9e47bbb672ec4e948",
-    "src/fdai/core/conversation/read_plan.py": "3867465859d6b5feddd3e1a15b433bab4e19668fc20d2c4034827a34e07609cc",
+    "src/fdai/core/conversation/read_plan.py": "b59f249fb1690ab3f9dc3a8312104ccfa31d7f98d5fa6bdcdbe15aac8a8d5071",
     "src/fdai/core/conversation/session.py": "d4d9e2a6fa1fda4f309be7052e2fe656c14dc8461b9ed7ada9982a5442f0b45e",
     "src/fdai/core/conversation/skill_discovery.py": "b2fd7e846af0a8ad9e698d3932ba4a77549a1dd8cd4d5968cc48b1afe6fe72ef",
     "src/fdai/core/conversation/system_tools.py": "cdb2d5a6af14d3c691e77ee6b457fa6794c1a55f21ad4ef9600074864bd76486",
@@ -785,7 +785,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-23T08:56:49Z",
+  "generated_at": "2026-07-23T09:01:38Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

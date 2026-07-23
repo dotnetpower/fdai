@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 57cfcb5003e4012b21f157337995d3943a029175
+translation_source_sha: 31e24f1a54499803a65d285d715e1cc541fb184c
 translation_revised: 2026-07-23
 ---
 
@@ -64,7 +64,7 @@ fdai/
 │   │   ├── deploy_preflight/   # 배포 전 feasibility 프로브 → grounded readiness 리포트
 │   │   ├── readiness/          # 운영 handoff + deterministic startup contract, reducer, evidence expiry 및 authority ceiling
 │   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query 리뷰 / Q&A / assessment (제안만, 실행 안 함)
-│   │   ├── conversation/       # Operator console intent/tool 조정, bounded read plan, clarification, atomic-claim fallback dynamic grounded narration, safe attachment, per-turn isolation, durable delivery, adapter health 및 busy-input arbitration
+│   │   ├── conversation/       # Operator console intent/tool 조정, conflict-aware read plan, clarification, atomic-claim fallback dynamic grounded narration, safe attachment, per-turn isolation, durable delivery, adapter health 및 busy-input arbitration
 │   │   ├── user_context_projection.py  # principal context / workflow binding metadata만 runtime ontology에 projection
 │   │   ├── console_request/    # 오퍼레이터 콘솔 write-direction 재요청 정책 (Scenario B deny-override), 순수 함수 `evaluate_operator_rerequest` 하나
 │   │   ├── verticals/          # Resilience / Change Safety / Cost Governance (P3 통합 지점); 각 vertical 은 sub-package (G-6) 로 자체 orchestrator + 서브모듈 을 갖고, 공유 `Vertical` Protocol 은 `base.py`, `VerticalRegistry` seam 도 함께

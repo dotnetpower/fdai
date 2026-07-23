@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 7f8c9d06853d82717bfc25ab45747e73cbc1364e
+translation_source_sha: 1166f54174f3a7138c626fe12a727fc0f80b2d7f
 translation_revised: 2026-07-23
 ---
 
@@ -125,6 +125,10 @@ flowchart TD
   `side_effect_class=read`를 검증합니다. Invalid plan은 아무것도 실행하지 않습니다. Valid read는
   serial로 실행하고 step별 tool-call/result pair와 evidence reference를 보존한 뒤 같은 grounded
   presentation pass를 사용합니다. Read 하나가 실패하면 remaining plan을 중단하고 synthesis를 skip합니다.
+  Synthesis 전에 aggregator는 두 tool이 같은 `resource_id`, `scope_ref` 또는 `id`를 명시할 때만
+  high-signal `state`, `status`, `verdict`, `mode`, `health`, `outcome` field를 비교합니다. 값이 다르면
+  structured conflict와 양쪽 evidence를 보존하고 aggregate를 `abstain`으로 바꾼 뒤 model rendering을
+  skip합니다. 서로 다른 identity는 비교하지 않습니다.
 - **Layer 1 (Core)**은 이미 shipping 중인 deterministic core 그대로.
   콘솔은 새 판단 경로, 새 지속성 저장소, 새 execution vector를 추가하지
   않는다. 콘솔 tool call은 기존 pipeline이 이미 만드는 법을 아는 call
@@ -134,7 +138,8 @@ flowchart TD
 
 - [`src/fdai/core/conversation/`](../../../src/fdai/core/conversation)
   - `coordinator.py` - `ConversationCoordinator` (Layer 2 orchestrator).
-  - `read_plan.py` - bounded-plan 순수 검증, serial read 실행 및 result aggregation.
+  - `read_plan.py` - bounded-plan 순수 검증, serial read 실행, result aggregation 및 identity-scoped
+    high-signal conflict detection.
   - `grounded_answer_validation.py` - narrated output과 immutable tool authority 사이의 보수적 numeric,
     timestamp, freshness 및 exact-ref 검사.
   - `tools.py` - `ConsoleTool` Protocol + per-tool 구현체가 Layer 1
