@@ -557,7 +557,7 @@
     "src/fdai/core/tiers/t1_lightweight/README.md": "d49acc30037b900cfcd26023e02d67ff0a9791ddb0e87cc404b05934fa57f844",
     "src/fdai/core/tiers/t1_lightweight/__init__.py": "608ce7f8f459e43782b721cd26772758515aebdd0edf741b3ce7f0c3cc665b03",
     "src/fdai/core/tiers/t1_lightweight/testing.py": "84ca0e73d269ff04a18bcf7c6d08307393cad7d6afca3f04eb3bc01804788205",
-    "src/fdai/core/tiers/t1_lightweight/tier.py": "5bed524a7039a06e72073c043a190f5f79b01c775112384203d825d125a0b0d5",
+    "src/fdai/core/tiers/t1_lightweight/tier.py": "180db818d66c31088eb3ef477673ca9a7a423e8c112a36e39137d8037202dda8",
     "src/fdai/core/tiers/t2_reasoning/README.md": "d8ca8dd38e58849e0d2134196ded3994496a48c3b235b8535ee29fab680d2dda",
     "src/fdai/core/tiers/t2_reasoning/__init__.py": "4f4a1049f69fbd8f970e25ff52e97ed9be006cd6de4cd6a4f3bea31cd720036b",
     "src/fdai/core/tiers/t2_reasoning/testing.py": "1341efb181a4a4e28294e65bb77c55fdfdd4e7e5ff386ae24cde496481e27bfe",
@@ -786,7 +786,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-23T12:43:04Z",
+  "generated_at": "2026-07-23T12:53:28Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

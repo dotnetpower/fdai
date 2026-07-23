@@ -169,8 +169,22 @@ class T1Tier:
     async def evaluate(self, *, event: Event) -> T1Decision:
         """Return a :class:`T1Decision` for one event."""
         query_text = _event_text(event)
-        vector = await self._embed.embed(query_text)
-        matches = await self._library.search(vector, k=5)
+        try:
+            vector = await self._embed.embed(query_text)
+            matches = await self._library.search(vector, k=5)
+        except Exception as exc:  # noqa: BLE001 - provider boundary; fail closed
+            # An embedding-model or pattern-library failure MUST NOT crash the
+            # control loop. Abstain so the trust router escalates to T2,
+            # mirroring the T2 tier's fail-closed-to-ESCALATE handling of a
+            # model/provider boundary error.
+            return T1Decision(
+                outcome=T1Outcome.ABSTAIN,
+                event_id=str(event.event_id),
+                threshold=self._config.similarity_threshold,
+                best_match=None,
+                reason=f"t1_provider_error:{type(exc).__name__}",
+                reasons=(f"t1_provider_error:{type(exc).__name__}",),
+            )
 
         if not matches:
             return T1Decision(

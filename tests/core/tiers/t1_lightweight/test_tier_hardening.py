@@ -92,3 +92,39 @@ async def test_invalid_learned_action_evidence_abstains(
 
     assert decision.outcome is T1Outcome.ABSTAIN
     assert reason in decision.reasons
+
+
+class _RaisingEmbedding:
+    async def embed(self, text: str) -> tuple[float, ...]:
+        raise RuntimeError("embedding backend down")
+
+
+class _RaisingLibrary:
+    async def search(self, query_vector: Any, *, k: int = 5):  # type: ignore[no-untyped-def]
+        raise RuntimeError("pattern library down")
+
+
+async def test_embedding_provider_failure_abstains() -> None:
+    tier = T1Tier(
+        embedding_model=_RaisingEmbedding(),
+        pattern_library=_Library(SimilarityMatch(action=_action(), score=0.99)),
+    )
+
+    decision = await tier.evaluate(event=_event())
+
+    assert decision.outcome is T1Outcome.ABSTAIN
+    assert decision.reason == "t1_provider_error:RuntimeError"
+    assert decision.best_match is None
+
+
+async def test_pattern_library_failure_abstains() -> None:
+    tier = T1Tier(
+        embedding_model=DeterministicEmbeddingModel(),
+        pattern_library=_RaisingLibrary(),
+    )
+
+    decision = await tier.evaluate(event=_event())
+
+    assert decision.outcome is T1Outcome.ABSTAIN
+    assert decision.reason == "t1_provider_error:RuntimeError"
+    assert decision.best_match is None
