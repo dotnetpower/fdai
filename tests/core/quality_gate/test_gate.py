@@ -327,6 +327,28 @@ async def test_cross_check_agreement_below_quorum_still_disagrees() -> None:
     assert decision.outcome is QualityOutcome.DISAGREE
 
 
+@pytest.mark.asyncio
+async def test_cross_check_exception_fails_closed_to_disagree() -> None:
+    """A cross-check model failure must fail closed, never crash the gate."""
+
+    class _RaisingModel:
+        async def propose(self, candidate: QualityCandidate):
+            raise RuntimeError("cross-check transport down")
+
+    gate = QualityGate(
+        verifier=StaticVerifier(outcome=True),
+        cross_check_models=(_RaisingModel(),),
+        grounding=_grounding(),
+        config=QualityGateConfig(require_cross_check_quorum=1),
+    )
+    decision = await gate.evaluate(_candidate())
+    # The gate MUST NOT propagate the exception; the failure is treated as
+    # zero agreement (below quorum) so the disagreement path governs the
+    # outcome instead of failing open into an eligible result.
+    assert decision.outcome is QualityOutcome.DISAGREE
+    assert any("cross_check_failed:RuntimeError" in r for r in decision.reasons)
+
+
 # ---------------------------------------------------------------------------
 # Escalation ladder (shadow observation)
 # ---------------------------------------------------------------------------

@@ -362,7 +362,7 @@
     "src/fdai/core/quality_gate/debate.py": "9917bbb9204b6b6bfbae8d28b0e45f5e6bad88ac7e42c21173e9f6835faf1f3d",
     "src/fdai/core/quality_gate/debate_router.py": "f73efb22b82ce2d3921e55a1572df2a9d8a7d3c74f6b657e1a92dcea08ddbd5d",
     "src/fdai/core/quality_gate/escalation_ladder.py": "a53dad78cccfd354c5806e9f80d11d2cbc76262488bca24f4f2e6ba7b2488660",
-    "src/fdai/core/quality_gate/gate.py": "afad8210adbaa22c3a77ef0d4fe11fefaf48d460488745e0cb22503e744bd389",
+    "src/fdai/core/quality_gate/gate.py": "9f3e29fe03d46fd4b62eb474b9e68233a56550e4524aa39176a0c5e0d85ff29e",
     "src/fdai/core/quality_gate/judge.py": "20f80daa616db1870e13ba8b060bbcebc414926a88c578eb558c7c63a0d9e942",
     "src/fdai/core/quality_gate/rag_grounding.py": "278f5538f516e97cb3464360a097ce6070e2f7fc669282842ee37f16b2267c63",
     "src/fdai/core/quality_gate/rubric.py": "b008870fe723f16580ef8766d37f4c2764b6b534c31c0d8eaa68887948c9fe0f",
@@ -786,7 +786,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-23T09:38:39Z",
+  "generated_at": "2026-07-23T12:43:04Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

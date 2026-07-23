@@ -391,10 +391,22 @@ class QualityGate:
         reasons.extend(grounding_result.reasons)
 
         # 3. Mixed-model cross-check (agreement on action_type)
-        cross_check = await cross_check_candidate(candidate, self._models)
-        agree = cross_check.agree_count
-        votes = list(cross_check.votes)
-        first_proposer_output = cross_check.first_proposer_output
+        try:
+            cross_check = await cross_check_candidate(candidate, self._models)
+            agree = cross_check.agree_count
+            votes = list(cross_check.votes)
+            first_proposer_output = cross_check.first_proposer_output
+        except Exception as exc:  # noqa: BLE001 - fail closed, never crash the gate
+            # A cross-check transport/model failure MUST NOT crash the gate or
+            # fail open. Treat it as zero agreement (below quorum) so the
+            # disagreement path (debate -> HIL) governs, mirroring the rubric's
+            # fail-closed-to-HIL handling below. resolve_disagreement early
+            # returns on a None first_proposer_output, so the escalation stays
+            # unresolved and the outcome cannot rise above the abstain floor.
+            agree = 0
+            votes = []
+            first_proposer_output = None
+            reasons.append(f"cross_check_failed:{type(exc).__name__}")
         cross_check_below_quorum = agree < self._config.require_cross_check_quorum
         if cross_check_below_quorum:
             reasons.append(
