@@ -135,6 +135,15 @@ grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REG
   printf 'AUTONOMY_MODE_DEFAULT=shadow\n'
   printf 'FDAI_START_CONSUMER=1\n'
   printf 'FDAI_START_PANTHEON=1\n'
+  # Local Azure Event Hubs (Standard SKU) has no dedicated runtime.startup.probe
+  # hub (the namespace is at the 10-hub cap) and its consumer-group join is slow
+  # (~13s). Route the startup round-trip probe to an existing DLQ topic and widen
+  # settle/timeouts so startup readiness reaches "ready" instead of blocking the
+  # Pantheon on a probe deadline. Deployed runtimes join faster inside the VNet.
+  printf 'FDAI_STARTUP_KAFKA_PROBE_TOPIC=aw.change.events.dlq\n'
+  printf 'FDAI_STARTUP_KAFKA_SETTLE_SECONDS=20\n'
+  printf 'FDAI_STARTUP_PROBE_TIMEOUT_SECONDS=90\n'
+  printf 'FDAI_STARTUP_PHASE_TIMEOUT_SECONDS=180\n'
   printf 'FDAI_RUNTIME_LOCAL_AZURE_CLI=1\n'
   printf 'FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-%s-core\n' "$local_consumer_instance"
   printf 'FDAI_PANTHEON_CONSUMER_GROUP_PREFIX=fdai-local-%s-pantheon\n' "$local_consumer_instance"
