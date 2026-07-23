@@ -171,8 +171,8 @@ function ForecastLearningBody({ data }: { readonly data: ForecastLearningRespons
         <KpiCard
           href={anchor}
           label={t("evidence.forecastLearning.completeness")}
+          evidenceState={completeness === null ? "not-measured" : "measured"}
           value={completeness === null ? null : `${(completeness * 100).toFixed(1)}%`}
-          {...(completeness === null ? { evidenceState: "not-measured" as const } : {})}
         />
         <KpiCard
           href={anchor}

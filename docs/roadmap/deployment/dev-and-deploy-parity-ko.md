@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 75510b9749e4a480276a471a24c8169a5c97df26
-translation_revised: 2026-07-23
+translation_source_sha: a59038d4aa1055237788aa2716459256f13d79e4
+translation_revised: 2026-07-24
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
@@ -54,6 +54,15 @@ Operator browser E2E test는 명시적인 dev-test profile에서 실제 Vite SPA
 chat SSE response를 제공합니다. 이 fixture는 test runner 안에서만 존재하며 `Console Web: Full
 Stack`에서는 활성화되지 않습니다. Backend integration test는 같은 request contract를 실제
 Starlette route와 server-owned evidence resolver로 별도 검증합니다.
+
+이를 보완하는 `npm --prefix console run test:e2e:live` suite는 route interception 없이 신뢰할
+수 있는 local PostgreSQL 및 Azure CLI profile을 시작합니다. 등록된 모든 Console panel을 방문하고,
+panel boundary가 안정될 때까지 기다리며, browser exception과 read API `4xx`/`5xx` response를
+차단하고, test route inventory가 production registry와 계속 일치하는지 검증합니다. 또한 live
+Command Deck을 통해 결정론적 현재 시각 turn과 allowlist에 포함된 Microsoft Learn web search를
+제출하고, verified 또는 grounded terminal evidence를 요구합니다. CLI principal profile을 새로
+시작하는 대신 이미 인증된 stack을 재사용하려면 `FDAI_E2E_BASE_URL`과
+`FDAI_E2E_READ_API_URL`을 설정합니다.
 
 ### dev-up.sh 필요 (여전히 로컬)
 

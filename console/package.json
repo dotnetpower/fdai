@@ -10,9 +10,10 @@
     "check:entry": "node scripts/check-entry-bundle.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --exclude \"tests/e2e/**\"",
+    "test": "vitest run --exclude \"tests/e2e/**\" --exclude \"tests/live-e2e/**\"",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:live": "playwright test --config playwright.live.config.ts"
   },
   "dependencies": {
     "@azure/msal-browser": "^3.28.1",

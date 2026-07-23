@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
+import type { ReadDataSourcesPayload } from "../api";
 import type { ProvisionEvent } from "../hooks/use-provision-stream";
-import { INITIAL, reducer, safeHttpUrl } from "./provision";
+import { INITIAL, provisionSourceState, reducer, safeHttpUrl } from "./provision";
 
 /**
  * Provision route hardening regressions.
@@ -33,6 +34,39 @@ describe("safeHttpUrl", () => {
 
   test("rejects URLs that embed credentials", () => {
     expect(safeHttpUrl("https://user:password@example.com/console")).toBeNull();
+  });
+});
+
+describe("provision source gating", () => {
+  const payload = (availability: "available" | "unavailable" | "unknown"): ReadDataSourcesPayload => ({
+    surface: "read-data-sources",
+    sources: [{
+      key: "provisioning-stream",
+      source: availability === "unavailable" ? "not-configured" : "event-stream",
+      routes: ["/provision/stream"],
+      availability,
+      configured: availability !== "unavailable",
+      reachable: availability === "available" ? true : null,
+      authoritative: availability !== "unavailable",
+      durable: false,
+      synthetic: false,
+      reason: availability === "unavailable" ? "relay not configured" : null,
+      last_observed_at: null,
+    }],
+  });
+
+  test("connects only to declared authoritative stream sources", () => {
+    expect(provisionSourceState(payload("available")).status).toBe("ready");
+    expect(provisionSourceState(payload("unknown")).status).toBe("ready");
+  });
+
+  test("holds unavailable before fetch when the relay is absent or unowned", () => {
+    expect(provisionSourceState(payload("unavailable"))).toEqual({
+      status: "unavailable",
+      reason: "relay not configured",
+    });
+    expect(provisionSourceState({ surface: "read-data-sources", sources: [] }).status)
+      .toBe("unavailable");
   });
 });
 

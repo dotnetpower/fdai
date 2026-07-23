@@ -44,3 +44,7 @@ def test_production_manifest_distinguishes_configured_and_unavailable_sources() 
     assert sources["scope"].availability == "unavailable"
     assert sources["models"].availability == "unknown"
     assert sources["streams"].configured is False
+    assert sources["stewardship-config"].availability == "available"
+    assert sources["provisioning-stream"].availability == "unavailable"
+    assert sources["python-tasks"].availability == "unknown"
+    assert sources["runtime-skills"].availability == "unknown"

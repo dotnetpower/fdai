@@ -15,8 +15,8 @@
  * over spectacle.
  */
 
-import { useMemo, useReducer } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import { useEffect, useMemo, useReducer, useState } from "preact/hooks";
+import { sourceForRoute, type ReadApiClient, type ReadDataSourcesPayload } from "../api";
 import { PageHeader, StatusPill } from "../components/ui";
 import { loadConfig } from "../config";
 import { usePublishViewContext } from "../deck/context";
@@ -30,6 +30,11 @@ import { t } from "../i18n";
 
 interface Props {
   readonly client: ReadApiClient;
+}
+
+interface ProvisionSourceState {
+  readonly status: "loading" | "ready" | "unavailable";
+  readonly reason: string | null;
 }
 
 interface ProvisionState {
@@ -58,6 +63,23 @@ export const INITIAL: ProvisionState = {
 };
 
 const RECENT_CAP = 6;
+
+export function provisionSourceState(payload: ReadDataSourcesPayload): ProvisionSourceState {
+  const source = sourceForRoute(payload, "/provision/stream");
+  if (source === null) {
+    return {
+      status: "unavailable",
+      reason: "The provisioning stream has no declared read-source owner.",
+    };
+  }
+  if (source.availability === "unavailable" || !source.authoritative) {
+    return {
+      status: "unavailable",
+      reason: source.reason ?? "No authoritative provisioning stream relay is configured.",
+    };
+  }
+  return { status: "ready", reason: null };
+}
 
 /**
  * Return `url` only when it is an absolute `http(s)` URL, else `null`.
@@ -163,6 +185,29 @@ function statusLabel(status: ProvisionConnectionStatus): string {
 
 export function ProvisionRoute({ client }: Props) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
+  const [source, setSource] = useState<ProvisionSourceState>({
+    status: "loading",
+    reason: null,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    client.dataSources()
+      .then((payload) => {
+        if (!cancelled) setSource(provisionSourceState(payload));
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setSource({
+            status: "unavailable",
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
 
   const url = useMemo(() => {
     const cfg = loadConfig();
@@ -173,6 +218,7 @@ export function ProvisionRoute({ client }: Props) {
 
   const { status, lastError } = useProvisionStream({
     url,
+    enabled: source.status === "ready",
     getAuthorizationHeader: client.authorizationHeader,
     onEvent: (event) => dispatch(event),
   });
@@ -194,6 +240,8 @@ export function ProvisionRoute({ client }: Props) {
       capturedAt: new Date().toISOString(),
       facts: [
         { key: "connection_status", value: status, group: "stream" },
+        { key: "source_status", value: source.status, group: "stream" },
+        { key: "source_reason", value: source.reason, group: "stream" },
         { key: "observed", value: state.observed, group: "run" },
         { key: "progress_percent", value: pct, group: "run" },
         { key: "waiting_resource", value: state.waiting, group: "run" },
@@ -206,7 +254,7 @@ export function ProvisionRoute({ client }: Props) {
         recent_resources: state.recent.map((resource) => ({ resource })),
       },
     }),
-    [lastError, pct, state, status],
+    [lastError, pct, source, state, status],
   );
 
   return (
@@ -221,7 +269,11 @@ export function ProvisionRoute({ client }: Props) {
         {t("provision.readOnlyPrefix")} <code>GET /provision/stream</code>. {t("provision.readOnlySuffix")}
       </p>
 
-      {state.observed ? (
+      {source.status === "unavailable" ? (
+        <div class="state-block state-unavailable" role="status">
+          {t("provision.unavailable")}
+        </div>
+      ) : state.observed ? (
         <>
           <div
             class={`provision-meter${state.failed ? " is-failed" : ""}${

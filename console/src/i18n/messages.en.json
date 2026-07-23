@@ -777,6 +777,7 @@
     "readOnlyPrefix": "In-flight provisioning evidence streamed from",
     "readOnlySuffix": "This screen renders progress and never executes provisioning.",
     "progressLabel": "Provisioning progress",
+    "unavailable": "Provisioning progress is unavailable because no authoritative stream relay is configured.",
     "notObserved": "No provisioning run has been observed on this stream. A connected stream alone does not imply 0% progress.",
     "waitingOn": "Waiting on",
     "waitingSuffix": "The run remains on hold.",

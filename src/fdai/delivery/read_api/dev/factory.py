@@ -641,6 +641,7 @@ def build_local_app(
                     live_stream_config is not None and agent_activity_config is not None
                 ),
                 scope_configured=scope_source is not None,
+                python_tasks_configured=runtime is not None and runtime.python_tasks is not None,
             ),
             authoritative_read_proxy=authoritative_read_proxy,
             trace_reader=trace_reader if test_fixtures else None,
@@ -669,7 +670,7 @@ def build_local_app(
             iam_directory=iam.directory,
             iam_role_group_ids=iam.role_group_ids,
             expose_pantheon=True,
-            stewardship_map=_build_stewardship_map() if test_fixtures else None,
+            stewardship_map=_build_stewardship_map(),
             workflow_authoring=workflow_authoring,
             workflow_execution=workflow_execution,
             python_tasks=runtime.python_tasks if runtime is not None else None,

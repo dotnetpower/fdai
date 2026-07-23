@@ -162,7 +162,7 @@ CONVERSATIONAL_CASES = (
 )
 
 ADVERSARIAL_CASES = (
-    WeaknessCase("What’s in the DB?", True),
+    WeaknessCase("What's in the DB?", True),
     WeaknessCase("WHAT DATA IS IN THE DATABASE???", True),
     WeaknessCase("db안에뭐있어", True, korean=True),
     WeaknessCase("DB엔 뭐가 들어 있어?", True, korean=True),
@@ -286,16 +286,47 @@ def test_startup_verified_local_postgresql_sources_are_available() -> None:
     assert all(source.reachable is True for source in database_sources.values())
 
 
-def test_remote_manifest_owns_allowlisted_stewardship_route() -> None:
+def test_stewardship_manifest_uses_remote_or_repository_config() -> None:
+    local_sources = build_local_data_sources(test_fixtures=False)
     sources = build_local_data_sources(
         test_fixtures=False,
         authoritative_proxy_configured=True,
     )
 
+    local_stewardship = next(source for source in local_sources if "/stewardship" in source.routes)
     stewardship = next(source for source in sources if "/stewardship" in source.routes)
+    assert local_stewardship.source == "repository-config"
+    assert local_stewardship.availability == "available"
     assert stewardship.source == "remote-read-api"
     assert stewardship.authoritative is True
     assert stewardship.availability == "unknown"
+
+
+def test_unconfigured_provisioning_stream_has_an_explicit_owner() -> None:
+    sources = build_local_data_sources(test_fixtures=False)
+
+    provision = next(source for source in sources if "/provision/stream" in source.routes)
+    assert provision.availability == "unavailable"
+    assert provision.configured is False
+    assert provision.authoritative is False
+
+
+def test_optional_console_routes_have_explicit_source_owners() -> None:
+    sources = build_local_data_sources(test_fixtures=False)
+    owned_routes = {route for source in sources for route in source.routes}
+
+    assert {
+        "/forecast-learning",
+        "/me/context",
+        "/me/conversations/search",
+        "/python-tasks",
+        "/skills",
+        "/workflows/action-types",
+        "/workflows/definitions",
+    }.issubset(owned_routes)
+    python_tasks = next(source for source in sources if source.key == "python-tasks")
+    assert python_tasks.availability == "unavailable"
+    assert python_tasks.authoritative is False
 
 
 def test_local_runtime_stream_source_requires_composed_relays() -> None:

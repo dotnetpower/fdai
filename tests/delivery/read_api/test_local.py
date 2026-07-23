@@ -784,13 +784,15 @@ class TestLocalAzureCliHarness:
         assert "/simulate/blast-radius" not in paths
         assert "/scope" not in paths
         assert "/promotion-gates" not in paths
-        assert "/stewardship" not in paths
+        assert "/stewardship" in paths
         sources = {
             item["key"]: item for item in client.get("/system/data-sources").json()["sources"]
         }
         assert sources["operational-state"]["availability"] == "unavailable"
         assert sources["operational-state"]["authoritative"] is False
         assert sources["catalogs"]["availability"] == "available"
+        assert sources["stewardship-config"]["availability"] == "available"
+        assert sources["provisioning-stream"]["availability"] == "unavailable"
         assert sources["local-metering"]["durable"] is False
         assert client.get("/local-auth/me").json()["source"] == "azure-cli"
 

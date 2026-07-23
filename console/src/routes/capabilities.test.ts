@@ -19,12 +19,23 @@ describe("capability catalog provenance", () => {
     const decoded = decodeCapabilities({
       source: "static-catalog",
       execution_eligibility: false,
-      count: 0,
-      capabilities: [],
+      count: 1,
+      capabilities: [{
+        capability_id: "incident.inspect",
+        name: "Inspect incident",
+        category: "incident",
+        summary: "Inspect bounded incident evidence.",
+        side_effect_class: "read",
+        default_mode: "shadow",
+        required_role: "reader",
+        slide_ref: null,
+        tags: [],
+      }],
     });
 
     expect(decoded.source).toBe("static-catalog");
     expect(decoded.execution_eligibility).toBe(false);
+    expect(decoded.capabilities[0]?.slide_ref).toBeNull();
   });
 
   test("restores filters and selection from a canonical route", () => {
@@ -62,5 +73,7 @@ describe("capability catalog provenance", () => {
       .toThrow(/ids MUST be unique/);
     expect(() => decodeCapabilities({ ...root, capabilities: [{ ...item, capability_id: " " }] }))
       .toThrow(/MUST NOT be empty/);
+    expect(() => decodeCapabilities({ ...root, capabilities: [{ ...item, slide_ref: 8 }] }))
+      .toThrow(/slide_ref MUST be a string/);
   });
 });

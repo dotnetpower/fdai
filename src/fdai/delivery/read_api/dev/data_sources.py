@@ -13,6 +13,7 @@ def build_local_data_sources(
     local_database_startup_verified: bool = False,
     runtime_streams_configured: bool = False,
     scope_configured: bool = False,
+    python_tasks_configured: bool = False,
 ) -> tuple[ReadDataSourceStatus, ...]:
     """Describe local composition without probing providers or inventing evidence."""
 
@@ -62,6 +63,7 @@ def build_local_data_sources(
                 "/capabilities",
                 "/ontology/graph",
                 "/rules",
+                "/workflows/action-types",
                 "/workflows/catalog",
             ),
             availability="available",
@@ -69,6 +71,61 @@ def build_local_data_sources(
             reachable=True,
             authoritative=True,
             durable=True,
+            synthetic=False,
+        ),
+        ReadDataSourceStatus(
+            key="stewardship-config",
+            source="remote-read-api" if remote_state else "repository-config",
+            routes=("/stewardship",),
+            availability="unknown" if remote_state else "available",
+            configured=True,
+            reachable=None if remote_state else True,
+            authoritative=True,
+            durable=True,
+            synthetic=False,
+            reason=(
+                "Reachability and freshness are verified by each remote request."
+                if remote_state
+                else None
+            ),
+        ),
+        ReadDataSourceStatus(
+            key="provisioning-stream",
+            source="not-configured",
+            routes=("/provision/stream",),
+            availability="unavailable",
+            configured=False,
+            reachable=None,
+            authoritative=False,
+            durable=None,
+            synthetic=False,
+            reason="No authoritative provisioning stream relay is configured.",
+        ),
+        ReadDataSourceStatus(
+            key="python-tasks",
+            source="interactive-runtime" if python_tasks_configured else "not-configured",
+            routes=("/python-tasks",),
+            availability="available" if python_tasks_configured else "unavailable",
+            configured=python_tasks_configured,
+            reachable=True if python_tasks_configured else None,
+            authoritative=python_tasks_configured and not test_fixtures,
+            durable=False if python_tasks_configured else None,
+            synthetic=test_fixtures and python_tasks_configured,
+            reason=(
+                None
+                if python_tasks_configured
+                else "Governed Python task authoring is not configured for this runtime."
+            ),
+        ),
+        ReadDataSourceStatus(
+            key="runtime-skills",
+            source="runtime-skill-disclosure",
+            routes=("/skills",),
+            availability="available",
+            configured=True,
+            reachable=True,
+            authoritative=True,
+            durable=False,
             synthetic=False,
         ),
         ReadDataSourceStatus(
@@ -213,9 +270,12 @@ def build_local_data_sources(
                 "/browser-evidence",
                 "/context-selection-comparisons",
                 "/conversation-delivery",
+                "/forecast-learning",
+                "/me/context",
+                "/me/conversations/search",
                 "/operator-memory",
                 "/scheduler-runs",
-                "/stewardship",
+                "/workflows/definitions",
             ),
             availability=(
                 "available"

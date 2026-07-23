@@ -52,6 +52,8 @@ export type ProvisionConnectionStatus =
 export interface UseProvisionStreamOptions {
   /** Absolute or relative URL to the SSE endpoint. */
   readonly url: string;
+  /** Connect only after the read-source manifest declares an authoritative relay. */
+  readonly enabled?: boolean;
   /** Called for every decoded provision event. */
   readonly onEvent: (event: ProvisionEvent) => void;
   /** Optional connection-status observer. */
@@ -194,10 +196,15 @@ export function useProvisionStream(
   onStatusRef.current = options.onStatus;
 
   const url = options.url;
+  const enabled = options.enabled ?? true;
   const getAuthorizationHeader = options.getAuthorizationHeader;
 
   useEffect(() => {
-    if (typeof fetch === "undefined") return undefined;
+    if (!enabled || typeof fetch === "undefined") {
+      setStatus(enabled ? "unsupported" : "idle");
+      setLastError(null);
+      return undefined;
+    }
 
     let cancelled = false;
     let controller: AbortController | null = null;
@@ -301,7 +308,7 @@ export function useProvisionStream(
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       controller?.abort();
     };
-  }, [url, getAuthorizationHeader]);
+  }, [enabled, url, getAuthorizationHeader]);
 
   return { status, lastError };
 }

@@ -52,6 +52,15 @@ frames, and chat SSE response. These fixtures exist only inside the test runner 
 for `Console Web: Full Stack`. Backend integration tests separately exercise the same request
 contract through the real Starlette route and server-owned evidence resolver.
 
+The complementary `npm --prefix console run test:e2e:live` suite starts the authoritative local
+PostgreSQL and Azure CLI profile without route interception. It visits every registered Console
+panel, waits for the panel boundary to settle, rejects browser exceptions and read API `4xx`/`5xx`
+responses, and verifies that the tested route inventory remains synchronized with the production
+registry. It also submits a deterministic current-time turn and an allowlisted Microsoft Learn web
+search through the live Command Deck, then requires verified or grounded terminal evidence. Set
+`FDAI_E2E_BASE_URL` and `FDAI_E2E_READ_API_URL` to reuse an already authenticated stack instead of
+starting the CLI-principal profile.
+
 ### Backed by dev-up.sh (still local)
 
 | Subsystem | Local backend | Prod backend |

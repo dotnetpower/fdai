@@ -10,6 +10,7 @@ import {
   panelBoolean,
   panelNonEmptyString,
   panelNonNegativeInteger,
+  panelNullableString,
   panelRecord,
   panelStringArray,
 } from "./panel-decode";
@@ -22,7 +23,7 @@ interface Capability {
   readonly side_effect_class: string;
   readonly default_mode: string;
   readonly required_role: string;
-  readonly slide_ref: string;
+  readonly slide_ref: string | null;
   readonly tags: readonly string[];
 }
 
@@ -57,7 +58,7 @@ export function decodeCapabilities(value: unknown): CapabilityResponse {
         side_effect_class: panelNonEmptyString(item, "side_effect_class", "capability"),
         default_mode: panelNonEmptyString(item, "default_mode", "capability"),
         required_role: panelNonEmptyString(item, "required_role", "capability"),
-        slide_ref: panelNonEmptyString(item, "slide_ref", "capability"),
+        slide_ref: panelNullableString(item, "slide_ref", "capability"),
         tags: panelStringArray(item["tags"], "capability.tags"),
       };
     });
