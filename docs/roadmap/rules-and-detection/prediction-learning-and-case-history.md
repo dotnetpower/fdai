@@ -73,6 +73,9 @@ before dead-lettering; stable correlation and idempotency keys make replay safe.
 An actual breach without an eligible earlier prediction produces a false-negative outcome with no
 prediction id. At-least-once delivery deduplicates by the stable outcome id. Missing telemetry,
 maintenance overlap, and resource deletion never become successful predictions.
+Boundary validation requires the label-specific breach, intervention, observation, and interval
+evidence in both JSON Schema and the typed model. The typed model also rejects a magnitude error
+whose breach falls outside the declared forecast horizon.
 
 ## Case history model
 

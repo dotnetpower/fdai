@@ -158,6 +158,72 @@ def test_magnitude_error_requires_observation_outside_interval() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("actual_breach_at", "horizon_started_at"),
+    [
+        (T0 + timedelta(minutes=30), T0 + timedelta(minutes=45)),
+        (T0 + timedelta(hours=1, microseconds=1), T0),
+    ],
+)
+def test_magnitude_error_breach_must_fall_inside_horizon(
+    actual_breach_at: datetime,
+    horizon_started_at: datetime,
+) -> None:
+    with pytest.raises(ValidationError, match="inside the forecast horizon"):
+        ForecastOutcome.model_validate(
+            _payload(
+                label="magnitude_error",
+                actual_breach_at=actual_breach_at,
+                horizon_started_at=horizon_started_at,
+                observed_value=100.0,
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("label", "missing"),
+    [
+        ("true_positive", "actual_breach_at"),
+        ("late_breach", "actual_breach_at"),
+        ("false_negative", "actual_breach_at"),
+        ("intervention_censored", "intervention_refs"),
+        ("magnitude_error", "observed_value"),
+        ("magnitude_error", "interval_lower"),
+        ("magnitude_error", "interval_upper"),
+    ],
+)
+def test_json_schema_requires_label_specific_evidence(label: str, missing: str) -> None:
+    validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
+    raw = ForecastOutcome.model_validate(_payload()).model_dump(mode="json")
+    raw["label"] = label
+    if label == "false_negative":
+        raw.update(
+            {
+                "prediction_id": None,
+                "predicted_value": None,
+                "interval_lower": None,
+                "interval_upper": None,
+            }
+        )
+    elif label == "intervention_censored":
+        raw["actual_breach_at"] = None
+    elif label == "magnitude_error":
+        raw["observed_value"] = 100.0
+    raw.pop(missing)
+
+    with pytest.raises(ContractValidationError):
+        validator.validate("forecast-outcome", raw)
+
+
+def test_json_schema_requires_prediction_id_for_predicted_outcome() -> None:
+    validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
+    raw = ForecastOutcome.model_validate(_payload()).model_dump(mode="json")
+    raw.pop("prediction_id")
+
+    with pytest.raises(ContractValidationError):
+        validator.validate("forecast-outcome", raw)
+
+
 def test_json_schema_rejects_contradictory_terminal_labels() -> None:
     validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
     raw = ForecastOutcome.model_validate(_payload()).model_dump(mode="json")

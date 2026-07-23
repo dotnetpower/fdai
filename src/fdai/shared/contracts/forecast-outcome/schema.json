@@ -59,6 +59,7 @@
     {
       "if": {"properties": {"label": {"const": "false_negative"}}},
       "then": {
+        "required": ["actual_breach_at"],
         "properties": {
           "prediction_id": {"type": "null"},
           "predicted_value": {"type": "null"},
@@ -67,7 +68,21 @@
           "actual_breach_at": {"type": "string", "format": "date-time"}
         }
       },
-      "else": {"properties": {"prediction_id": {"type": "string", "format": "uuid"}}}
+      "else": {
+        "required": ["prediction_id"],
+        "properties": {"prediction_id": {"type": "string", "format": "uuid"}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "label": {"enum": ["true_positive", "late_breach", "magnitude_error"]}
+        }
+      },
+      "then": {
+        "required": ["actual_breach_at"],
+        "properties": {"actual_breach_at": {"type": "string", "format": "date-time"}}
+      }
     },
     {
       "if": {"properties": {"label": {"enum": ["false_positive", "intervention_censored"]}}},
@@ -75,7 +90,10 @@
     },
     {
       "if": {"properties": {"label": {"const": "intervention_censored"}}},
-      "then": {"properties": {"intervention_refs": {"minItems": 1}}}
+      "then": {
+        "required": ["intervention_refs"],
+        "properties": {"intervention_refs": {"minItems": 1}}
+      }
     },
     {
       "if": {"properties": {"label": {"const": "false_positive"}}},
@@ -92,6 +110,7 @@
     {
       "if": {"properties": {"label": {"const": "magnitude_error"}}},
       "then": {
+        "required": ["observed_value", "interval_lower", "interval_upper"],
         "properties": {
           "observed_value": {"type": "number"},
           "interval_lower": {"type": "number"},

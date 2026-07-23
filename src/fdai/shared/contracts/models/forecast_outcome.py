@@ -155,6 +155,10 @@ class ForecastOutcome(_Base):
                 or self.interval_upper is None
             ):
                 raise ValueError("magnitude-error outcome MUST carry observation and interval")
+            if self.actual_breach_at is not None and not (
+                self.horizon_started_at <= self.actual_breach_at <= self.horizon_ended_at
+            ):
+                raise ValueError("magnitude-error breach MUST fall inside the forecast horizon")
             if self.interval_lower <= self.observed_value <= self.interval_upper:
                 raise ValueError("magnitude-error observation MUST fall outside the interval")
         if (

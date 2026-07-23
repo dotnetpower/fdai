@@ -627,7 +627,7 @@
     "src/fdai/shared/contracts/action/schema.json": "21aab6f529342bb62bd251266cf6c362dd6791cbada4178ca22196710a82bb94",
     "src/fdai/shared/contracts/compatibility.py": "cc791d0b7367c49c461f45c24475814c02f6bef4c5742a52a7d18d8ef91e22a2",
     "src/fdai/shared/contracts/event/schema.json": "e460d0ad33203d6bcffd11dd3511fb7128b2062cdfb7795f1da1f7cd0d83a493",
-    "src/fdai/shared/contracts/forecast-outcome/schema.json": "25ed08e2b51cc29fbeeb563076deda8d2c0b5da2b47f16f7012993858a3a8785",
+    "src/fdai/shared/contracts/forecast-outcome/schema.json": "0718188003f300fb07e4a829ed2ea168dd6342190d54f9a86f962e7b0d80abba",
     "src/fdai/shared/contracts/incident/schema.json": "66ba53a7590f81bc3609787ce3b6d37fa0e6c784975d6a247e432574fac431b1",
     "src/fdai/shared/contracts/models/__init__.py": "7d5a7e0c57e6b9c151998029d40f461c29c8df9494ad2467ad0246174968a007",
     "src/fdai/shared/contracts/models/_base.py": "60a3b242e2987a7a347adb5de7877d99938e7568e1a92033dca97a0497e77a21",
@@ -635,7 +635,7 @@
     "src/fdai/shared/contracts/models/document.py": "6b7909812015156d2f3a5e183616836903ea2d35c56c6a7169a8d67cb8f471ee",
     "src/fdai/shared/contracts/models/enums.py": "b0e6ec4173fcd25e2dc1c50bd51fba85c877a251d8a3e8d9861a31b3840de2c7",
     "src/fdai/shared/contracts/models/event.py": "c5c1be441ff63d71bfa9c4b971f3d09e58f1ee855f43ef81a130a63bbe2f8fb6",
-    "src/fdai/shared/contracts/models/forecast_outcome.py": "b6fb317539cf2072197c76a383e5f06accf4e3a103f35d1fe0367ee7c2aa4b15",
+    "src/fdai/shared/contracts/models/forecast_outcome.py": "f3a81c9ea019bbc7abae81bed103de90c44da31028a360aa15d4dedae7b82455",
     "src/fdai/shared/contracts/models/incident.py": "8e52497b9ec47fd7b0eb72135e029b84ef5b8bcd1d474f05885ef5d4a50010f0",
     "src/fdai/shared/contracts/models/ontology.py": "632cca5663544e5d97f5a0ab17f6d9892375a24eaf1a4e32b7c5048d28527a6e",
     "src/fdai/shared/contracts/models/rule.py": "fec29b431dbeb3b8f25cb1e195b065cbd6aaa8863756de9066c75f1529b5b7e6",
@@ -774,7 +774,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-23T03:57:50Z",
+  "generated_at": "2026-07-23T04:10:50Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

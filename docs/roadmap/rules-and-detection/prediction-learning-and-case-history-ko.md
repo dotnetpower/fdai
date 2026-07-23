@@ -1,6 +1,6 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 339d8356a61dd301adbbc41520c3bc59c572cabb
+translation_source_sha: 33c9ba1d5b467c0ccab83fc9612f6aac0cba1f89
 translation_revised: 2026-07-23
 ---
 # 예측 학습 및 케이스 히스토리
@@ -76,6 +76,9 @@ object입니다. 다음을 기록합니다.
 적격한 선행 prediction이 없는 실제 breach는 prediction id 없는 false-negative outcome을
 만듭니다. At-least-once delivery는 안정 outcome id로 deduplicate합니다. 누락 telemetry,
 maintenance overlap 및 resource deletion은 성공한 prediction으로 바꾸지 않습니다.
+Boundary validation은 JSON Schema와 typed model 모두에서 label별 breach, intervention,
+observation 및 interval evidence를 요구합니다. Typed model은 breach가 선언된 forecast horizon
+밖에 있는 magnitude error도 거부합니다.
 
 ## Case history model
 
