@@ -112,6 +112,20 @@ class ClarificationNarrator(Protocol):
 
 
 @runtime_checkable
+class ReadPlanNarrator(Protocol):
+    """Propose two or three canonical read commands without invoking them."""
+
+    def propose_read_plan(
+        self,
+        *,
+        utterance: str,
+        tools: Sequence[ToolSchema],
+        prior_turns: Sequence[Turn],
+        principal_role: str,
+    ) -> tuple[str, ...] | None: ...
+
+
+@runtime_checkable
 class GroundedAnswerNarrator(Protocol):
     """Render one successful tool result without changing its authority.
 
@@ -496,6 +510,7 @@ __all__ = [
     "DeterministicKeywordNarrator",
     "GroundedAnswerNarrator",
     "Narrator",
+    "ReadPlanNarrator",
     "ToolSchema",
     "default_tool_schemas",
     "format_prompt_tool_list",

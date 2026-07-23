@@ -118,6 +118,12 @@ flowchart TD
   installed tool schemas visible to the principal and may return one bounded question. This path
   invokes no tool, guesses no argument, and falls back to the deterministic abstain response when
   the provider fails or the response is not one question.
+  For a compound request that misses direct T0 matching, an optional `ReadPlanNarrator` may propose
+  two or three canonical commands. The coordinator reparses every command with its own grammar and
+  validates the complete plan for installed-tool membership, RBAC, distinct commands, and
+  `side_effect_class=read` before the first call. Invalid plans execute nothing. Valid reads run
+  serially, retain one tool-call/result pair per step, aggregate evidence references, and use the
+  same grounded presentation pass. A failed read stops the remaining plan and skips synthesis.
 - **Layer 1 (Core)** is exactly the deterministic core that already ships.
   The console adds no new judgment path, no new persistence store, and no
   new execution vector. A console tool call resolves to a call the
@@ -127,11 +133,12 @@ flowchart TD
 
 - [`src/fdai/core/conversation/`](../../../src/fdai/core/conversation)
   - `coordinator.py` - `ConversationCoordinator` (Layer 2 orchestrator).
+  - `read_plan.py` - pure bounded-plan validation plus serial read execution and result aggregation.
   - `tools.py` - `SystemConsoleTool` Protocol + per-tool implementations that
     delegate to Layer 1 modules only.
-  - `narrator.py` - synchronous intent `Narrator`, zero-execution `ClarificationNarrator`, and
-    presentation-only `GroundedAnswerNarrator` Protocols, deterministic verb schemas, and
-    RBAC-scoped descriptors.
+  - `narrator.py` - synchronous intent `Narrator`, proposal-only `ReadPlanNarrator`, zero-execution
+    `ClarificationNarrator`, and presentation-only `GroundedAnswerNarrator` Protocols,
+    deterministic verb schemas, and RBAC-scoped descriptors.
   - `session.py` - disposable core/CLI `ConversationSession` projection. Principal-scoped
     `ConversationHistoryStore` owns production web transcripts.
 - [`cli/`](../../../cli)

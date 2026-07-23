@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 6bd44546db6c125186d35225500ba1db142e1088
+translation_source_sha: 77ce0edd64a56d83b27652b952aa7dce6fbf6dbe
 translation_revised: 2026-07-23
 ---
 
@@ -115,6 +115,12 @@ flowchart TD
   installed tool schema만 받고 bounded question 하나를 반환할 수 있습니다. 이 경로는 tool을 호출하지
   않고 argument를 추측하지 않으며 provider 실패 또는 one-question 형식 위반 시 deterministic abstain
   response로 fallback합니다.
+  Direct T0 matching에 실패한 compound request에서는 optional `ReadPlanNarrator`가 canonical command
+  두세 개를 제안할 수 있습니다. Coordinator는 첫 call 전에 모든 command를 자체 grammar로 다시
+  parsing하고 complete plan의 installed-tool membership, RBAC, command distinctness 및
+  `side_effect_class=read`를 검증합니다. Invalid plan은 아무것도 실행하지 않습니다. Valid read는
+  serial로 실행하고 step별 tool-call/result pair와 evidence reference를 보존한 뒤 같은 grounded
+  presentation pass를 사용합니다. Read 하나가 실패하면 remaining plan을 중단하고 synthesis를 skip합니다.
 - **Layer 1 (Core)**은 이미 shipping 중인 deterministic core 그대로.
   콘솔은 새 판단 경로, 새 지속성 저장소, 새 execution vector를 추가하지
   않는다. 콘솔 tool call은 기존 pipeline이 이미 만드는 법을 아는 call
@@ -124,11 +130,12 @@ flowchart TD
 
 - [`src/fdai/core/conversation/`](../../../src/fdai/core/conversation)
   - `coordinator.py` - `ConversationCoordinator` (Layer 2 orchestrator).
+  - `read_plan.py` - bounded-plan 순수 검증, serial read 실행 및 result aggregation.
   - `tools.py` - `ConsoleTool` Protocol + per-tool 구현체가 Layer 1
     모듈에만 delegate.
-  - `narrator.py` - sync intent `Narrator`, zero-execution `ClarificationNarrator` 및
-    presentation-only `GroundedAnswerNarrator` Protocol, deterministic verb schema와
-    RBAC-scoped descriptor.
+  - `narrator.py` - sync intent `Narrator`, proposal-only `ReadPlanNarrator`, zero-execution
+    `ClarificationNarrator` 및 presentation-only `GroundedAnswerNarrator` Protocol,
+    deterministic verb schema와 RBAC-scoped descriptor.
   - `session.py` - core/CLI용 disposable `ConversationSession` projection. Production web transcript는
     principal-scoped `ConversationHistoryStore`가 소유합니다.
 - [`cli/`](../../../cli)

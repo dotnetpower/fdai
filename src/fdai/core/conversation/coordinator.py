@@ -10,8 +10,10 @@ escalation path per operator-console.md § 4.2.
 Design invariants enforced here:
 
 - **The coordinator NEVER fabricates a tool call.** When no Chat T0
-  pattern matches with confidence >= threshold, ``handle_turn`` returns
-  an :class:`AbstainResult` and the CLI prints the tool inventory.
+    pattern matches with confidence >= threshold, an optional narrator may
+    propose a bounded read plan. The coordinator reparses and validates every
+    command before execution; invalid or unresolved input returns an
+    :class:`AbstainResult` and the CLI prints the tool inventory.
 - **RBAC floor is applied before the tool is invoked.** A principal
   under the tool's ``rbac_floor`` receives an abstain reason naming
   the missing role, not the tool's failure surface.
@@ -36,7 +38,13 @@ from fdai.core.conversation.narrator import (
     ClarificationNarrator,
     GroundedAnswerNarrator,
     Narrator,
+    ReadPlanNarrator,
     ToolSchema,
+)
+from fdai.core.conversation.read_plan import (
+    ParsedReadCommand,
+    execute_read_plan,
+    validate_read_plan,
 )
 from fdai.core.conversation.session import (
     ConversationSession,
@@ -53,6 +61,14 @@ from fdai.core.conversation.tools import (
 _LOGGER = logging.getLogger(__name__)
 _MAX_CLARIFICATION_CHARS = 512
 _MAX_RENDERED_ANSWER_CHARS = 12_000
+_READ_PLAN_SCHEMA = ToolSchema(
+    verb="read_plan",
+    tool_name="read_plan",
+    argument_hint="2-3 validated read commands",
+    summary="Combine two or three independently validated read-only tool results.",
+    rbac_floor="reader",
+    side_effect_class="read",
+)
 
 
 @dataclass(frozen=True)
@@ -223,6 +239,13 @@ class ConversationCoordinator:
 
         match = self._match_intent(message)
         if match is None or match.confidence < self._config.chat_t0_confidence_threshold:
+            planned = self._try_read_plan(
+                session=session,
+                utterance=message,
+                prior_turns=prior_turns,
+            )
+            if planned is not None:
+                return planned
             translated = self._narrator_translate(
                 message, principal_role=session.principal.role.value
             )
@@ -350,14 +373,14 @@ class ConversationCoordinator:
         tool_name: str,
         result: ToolResult,
         prior_turns: Sequence[Turn],
+        tool_schema: ToolSchema | None = None,
     ) -> ToolResult:
         """Improve a successful preview while preserving deterministic output."""
 
         if result.status != "ok" or not isinstance(self._narrator, GroundedAnswerNarrator):
             return result
-        schema = next(
-            (item for item in self._narrator_tool_schemas if item.tool_name == tool_name),
-            None,
+        schema = tool_schema or next(
+            (item for item in self._narrator_tool_schemas if item.tool_name == tool_name), None
         )
         if schema is None:
             return result
@@ -397,6 +420,78 @@ class ConversationCoordinator:
             )
         )
         return replace(result, preview=rendered)
+
+    def _try_read_plan(
+        self,
+        *,
+        session: ConversationSession,
+        utterance: str,
+        prior_turns: Sequence[Turn],
+    ) -> ToolResult | None:
+        if not isinstance(self._narrator, ReadPlanNarrator):
+            return None
+        visible_schemas = tuple(
+            schema
+            for schema in self._narrator_tool_schemas
+            if (tool := self._tools.get(schema.tool_name)) is not None
+            and tool.side_effect_class == "read"
+            and principal_has_role_at_least(session.principal.role, tool.rbac_floor)
+        )
+        if not visible_schemas:
+            return None
+        try:
+            commands = self._narrator.propose_read_plan(
+                utterance=utterance,
+                tools=visible_schemas,
+                prior_turns=prior_turns,
+                principal_role=session.principal.role.value,
+            )
+        except Exception:  # noqa: BLE001 - planning failure falls through to single translation
+            _LOGGER.warning(
+                "narrator_read_plan_failed",
+                extra={"principal_role": session.principal.role.value},
+                exc_info=True,
+            )
+            return None
+        if commands is None:
+            return None
+        steps = validate_read_plan(
+            commands,
+            parse=self._parse_read_command,
+            tools=self._tools,
+            principal=session.principal,
+            confidence_threshold=self._config.chat_t0_confidence_threshold,
+        )
+        if steps is None:
+            return None
+        session.append(
+            Turn(
+                turn_id=str(uuid.uuid4()),
+                direction="system",
+                content="narrator proposed read plan: " + "; ".join(step.command for step in steps),
+                tier="T0",
+            )
+        )
+        result = execute_read_plan(steps, session=session)
+        return self._render_grounded_answer(
+            session=session,
+            utterance=utterance,
+            tool_name="read_plan",
+            result=result,
+            prior_turns=prior_turns,
+            tool_schema=_READ_PLAN_SCHEMA,
+        )
+
+    def _parse_read_command(self, command: str) -> ParsedReadCommand | None:
+        match = self._match_intent(command)
+        if match is None:
+            return None
+        return ParsedReadCommand(
+            command=command,
+            tool_name=match.tool_name,
+            arguments=match.arguments,
+            confidence=match.confidence,
+        )
 
     def _clarify(
         self,
