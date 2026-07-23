@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { ReadApiClient } from "../api";
-import { AsyncBoundary, KpiCard, KpiGrid, PageHeader, StatusPill, type AsyncState } from "../components/ui";
+import { AsyncBoundary, ErrorState, KpiCard, KpiGrid, PageHeader, StatusPill, UnavailableState, kpiEvidenceLabel, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
@@ -149,22 +149,16 @@ function OnboardingBody({ data, checkedAt }: { readonly data: OnboardingResponse
   return (
     <div class="stack">
       {data.probe_mode === "not-configured" ? (
-        <div class="state-block state-unavailable" role="status">
-          <span class="state-icon" aria-hidden="true">?</span>
-          <span>{t("onboardingView.notConfigured")}</span>
-        </div>
+        <UnavailableState evidenceState="not-connected" message={t("onboardingView.notConfigured")} />
       ) : null}
       {data.error !== null ? (
-        <div class="state-block state-unavailable" role="alert">
-          <span class="state-icon" aria-hidden="true">!</span>
-          <span>{t("onboardingView.probeFailed")} {data.error}</span>
-        </div>
+        <ErrorState message={`${t("onboardingView.probeFailed")} ${data.error}`} />
       ) : null}
       <KpiGrid>
-        <KpiCard href={routeHref("provision")} label={t("onboardingView.readiness")} value={observed ? <StatusPill kind={data.ready ? "success" : "danger"} label={t(data.ready ? "onboardingView.ready" : "onboardingView.blocked")} /> : "-"} />
-        <KpiCard href={routeHref("architecture")} label={t("onboardingView.resourcesObserved")} value={observed ? data.present_resource_count.toLocaleString() : "-"} />
-        <KpiCard href={routeHref("settings-iam", { segments: ["requests"] })} label={t("onboardingView.rolesObserved")} value={observed ? data.present_role_count.toLocaleString() : "-"} />
-        <KpiCard href={routeHref("provision")} label={t("onboardingView.lastChecked")} value={formatConsoleTimestamp(checkedAt)} />
+        <KpiCard evidenceState={observed ? "measured" : "not-connected"} href={routeHref("provision")} label={t("onboardingView.readiness")} value={observed ? <StatusPill kind={data.ready ? "success" : "danger"} label={t(data.ready ? "onboardingView.ready" : "onboardingView.blocked")} /> : kpiEvidenceLabel("not-connected")} />
+        <KpiCard evidenceState={observed ? "measured" : "not-connected"} href={routeHref("architecture")} label={t("onboardingView.resourcesObserved")} value={observed ? data.present_resource_count.toLocaleString() : kpiEvidenceLabel("not-connected")} />
+        <KpiCard evidenceState={observed ? "measured" : "not-connected"} href={routeHref("settings-iam", { segments: ["requests"] })} label={t("onboardingView.rolesObserved")} value={observed ? data.present_role_count.toLocaleString() : kpiEvidenceLabel("not-connected")} />
+        <KpiCard evidenceState={!observed ? "not-connected" : checkedAt === null ? "not-measured" : "measured"} href={routeHref("provision")} label={t("onboardingView.lastChecked")} value={!observed ? kpiEvidenceLabel("not-connected") : checkedAt === null ? kpiEvidenceLabel("not-measured") : formatConsoleTimestamp(checkedAt)} />
       </KpiGrid>
       <nav class="onboarding-actions" aria-label={t("onboardingView.drilldowns") }>
         <a href={routeHref("provision")}>{t("onboardingView.openProvisioning")}</a>

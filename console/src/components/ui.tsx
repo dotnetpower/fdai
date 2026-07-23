@@ -141,10 +141,29 @@ export function EmptyState({ title, body }: EmptyStateProps) {
   );
 }
 
-export function UnavailableState({ message }: { readonly message: string }) {
+export type EvidenceState =
+  | "measured"
+  | "not-measured"
+  | "not-connected"
+  | "insufficient-sample"
+  | "not-applicable";
+
+type EvidenceGapState = Exclude<EvidenceState, "measured">;
+
+export function kpiEvidenceLabel(state: EvidenceGapState): string {
+  return t(`shared.evidenceState.${state}`);
+}
+
+export function UnavailableState({
+  message,
+  evidenceState = "not-measured",
+}: {
+  readonly message: string;
+  readonly evidenceState?: EvidenceGapState;
+}) {
   return (
-    <div class="state-block state-unavailable">
-      <span class="state-icon" aria-hidden="true">?</span>
+    <div class={`state-block state-unavailable state-evidence-${evidenceState}`} data-evidence-state={evidenceState}>
+      <span class="state-icon" aria-hidden="true">-</span>
       <span>{message}</span>
     </div>
   );
@@ -155,6 +174,7 @@ export function UnavailableState({ message }: { readonly message: string }) {
 // ---------------------------------------------------------------------------
 
 export interface KpiCardProps {
+  readonly evidenceState?: EvidenceState;
   readonly href: string;
   readonly label: string;
   readonly value: ComponentChildren;
@@ -162,9 +182,20 @@ export interface KpiCardProps {
   readonly tone?: "default" | "positive" | "warning" | "danger";
 }
 
-export function KpiCard({ href, label, value, hint, tone = "default" }: KpiCardProps) {
+export function KpiCard({
+  evidenceState = "measured",
+  href,
+  label,
+  value,
+  hint,
+  tone = "default",
+}: KpiCardProps) {
   return (
-    <a class={`card kpi-card kpi-tone-${tone}`} href={href}>
+    <a
+      class={`card kpi-card kpi-tone-${tone} kpi-evidence-${evidenceState}`}
+      data-evidence-state={evidenceState}
+      href={href}
+    >
       <span class="kpi-card-label">{label}</span>
       <span class="kpi-card-value">{value}</span>
       {hint ? <span class="kpi-card-hint muted">{hint}</span> : null}

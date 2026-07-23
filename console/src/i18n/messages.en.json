@@ -9,6 +9,20 @@
     "console": "Console",
     "devMode": "dev mode"
   },
+  "browserNotifications": {
+    "off": "Enable alerts",
+    "enabling": "Enabling alerts...",
+    "on": "Disable alerts",
+    "blocked": "Alerts blocked",
+    "unsupported": "Alerts unavailable",
+    "error": "Retry alerts",
+    "approvalTitle": "FDAI human approval required",
+    "approvalBody": "Open the Console to review the incident evidence.",
+    "deniedTitle": "FDAI action denied",
+    "deniedBody": "Open the Console to review the safety decision.",
+    "failedTitle": "FDAI operation failed",
+    "failedBody": "Open the Console to review the failure evidence."
+  },
   "shared": {
     "loading": "Loading...",
     "loadingResource": "Loading {resource}...",
@@ -20,7 +34,13 @@
     "reloadConsole": "Reload console",
     "diagramRendering": "Rendering diagram...",
     "diagramFailed": "Diagram render failed",
-    "mermaidDiagram": "Mermaid diagram"
+    "mermaidDiagram": "Mermaid diagram",
+    "evidenceState": {
+      "not-measured": "Not measured",
+      "not-connected": "Source not connected",
+      "insufficient-sample": "Insufficient sample",
+      "not-applicable": "Not applicable"
+    }
   },
   "tooltip": {
     "opensNewTab": "Opens in a new tab",

@@ -132,8 +132,8 @@ shape maps to environments and CI/CD.
   `prefers-reduced-motion: reduce` while remaining visibly present.
 - Every console card with data, status, evidence, a count, or a summarized record **MUST drill
   down** to its narrowest owning route or filtered evidence view. Prefer a whole-card native link;
-  a card with independent controls MUST expose a visible primary detail link. Unavailable values
-  still link to their owner, generic routes are fallback-only, and nested interactions are banned.
+  a card with independent controls MUST expose a visible primary detail link. Missing values use a
+  typed neutral evidence state and still link to their owner; only actual failures use error styling.
 - A container without a detail destination is not a card: groups, forms, editors, callouts, and
   tools use section/panel semantics. Typed card APIs and contract tests MUST require destinations.
 - Console cards, panels, page sections, callouts, workflow nodes, table rows, and list rows

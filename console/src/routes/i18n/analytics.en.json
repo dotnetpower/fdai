@@ -11,6 +11,10 @@
   "invalidDetail": "This detail key is not registered. Choose one of the available views above.",
   "invalidGuard": "This guard is not present in the current measurement projection.",
   "unavailable": "Unavailable",
+  "notMeasuredHint": "No measured value was reported for this window.",
+  "notConnectedHint": "The owning projection is not connected on this deployment.",
+  "notConfigured": "Not configured",
+  "insufficientSampleHint": "The current sample is too small to calculate this value.",
   "notApplicable": "Not applicable",
   "current": "Current",
   "baseline": "Baseline",
@@ -67,6 +71,8 @@
     "costNoticeLabel": "Cost estimate basis",
     "costNoticeTitle": "Standard-price estimate",
     "costNoticeBody": "Displayed costs use published standard prices. Actual billed amounts may differ because of negotiated discounts, commitments, credits, taxes, exchange rates, and provider billing adjustments. Use these values for reference, not invoice reconciliation.",
+    "noBaseline": "No baseline",
+    "noBaselineHint": "No paired baseline evidence was reported for this window.",
     "views": {
       "auto-resolution": {
         "title": "Correct outcomes without human intervention",

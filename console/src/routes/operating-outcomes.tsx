@@ -5,6 +5,7 @@ import {
   KpiGrid,
   StatusPill,
   UnavailableState,
+  kpiEvidenceLabel,
   type Column,
 } from "../components/ui";
 import { getLocale } from "../i18n";
@@ -161,8 +162,20 @@ function OutcomeKpis({
     const counts = autoResolutionCounts(autonomy.verticals);
     return (
       <KpiGrid>
-        <KpiCard href={auditHref("auto")} label={t(contract.currentLabelKey)} value={formatOutcomeMetric(metric.value, active)} />
-        <KpiCard href={auditHref("auto")} label={t("analytics.baseline")} value={formatOutcomeMetric(metric.baseline, active)} />
+        <KpiCard
+          evidenceState={metric.value === null ? "not-measured" : "measured"}
+          href={auditHref("auto")}
+          label={t(contract.currentLabelKey)}
+          value={metric.value === null ? kpiEvidenceLabel("not-measured") : formatOutcomeMetric(metric.value, active)}
+          hint={metric.value === null ? t("analytics.notMeasuredHint") : undefined}
+        />
+        <KpiCard
+          evidenceState={metric.baseline === null ? "not-measured" : "measured"}
+          href={auditHref("auto")}
+          label={t("analytics.baseline")}
+          value={metric.baseline === null ? t("analytics.outcomes.noBaseline") : formatOutcomeMetric(metric.baseline, active)}
+          hint={metric.baseline === null ? t("analytics.outcomes.noBaselineHint") : undefined}
+        />
         <KpiCard href={auditHref("auto")} label={t("analytics.outcomes.autoResolvedCount")} value={counts.resolved.toLocaleString(locale)} />
         <KpiCard href={auditHref()} label={t("analytics.outcomes.observedEventCount")} value={counts.observed.toLocaleString(locale)} />
       </KpiGrid>
@@ -197,8 +210,20 @@ function OutcomeKpis({
   const [currentHref, baselineHref, directionHref, sampleHref] = hrefs[active];
   return (
     <KpiGrid>
-      <KpiCard href={currentHref} label={t(contract.currentLabelKey)} value={formatOutcomeMetric(metric.value, active)} />
-      <KpiCard href={baselineHref} label={t("analytics.baseline")} value={formatOutcomeMetric(metric.baseline, active)} />
+      <KpiCard
+        evidenceState={metric.value === null ? "not-measured" : "measured"}
+        href={currentHref}
+        label={t(contract.currentLabelKey)}
+        value={metric.value === null ? kpiEvidenceLabel("not-measured") : formatOutcomeMetric(metric.value, active)}
+        hint={metric.value === null ? t("analytics.notMeasuredHint") : undefined}
+      />
+      <KpiCard
+        evidenceState={metric.baseline === null ? "not-measured" : "measured"}
+        href={baselineHref}
+        label={t("analytics.baseline")}
+        value={metric.baseline === null ? t("analytics.outcomes.noBaseline") : formatOutcomeMetric(metric.baseline, active)}
+        hint={metric.baseline === null ? t("analytics.outcomes.noBaselineHint") : undefined}
+      />
       <KpiCard href={directionHref} label={t("analytics.direction")} value={t(`analytics.${metric.direction}Better`)} />
       <KpiCard href={sampleHref} label={t("analytics.sampleSize")} value={autonomy.sample_size.toLocaleString(locale)} />
     </KpiGrid>

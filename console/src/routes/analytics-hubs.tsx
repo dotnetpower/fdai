@@ -9,6 +9,7 @@ import {
   PageHeader,
   StatusPill,
   UnavailableState,
+  kpiEvidenceLabel,
   type Column,
 } from "../components/ui";
 import { getLocale } from "../i18n";
@@ -184,9 +185,9 @@ function AssuranceBody({
       {data.autonomy ? <EvidenceStrip autonomy={data.autonomy} /> : null}
       <KpiGrid>
         <KpiCard href={routeHref("control-assurance", { params: context })} label={t("analytics.assurance.posture")} value={t(`analytics.health.${health}`)} tone={health === "healthy" ? "positive" : health === "attention" ? "warning" : "default"} />
-        <KpiCard href={routeHref("promotion-gates", { params: { ...context, status: "blocked" } })} label={t("analytics.assurance.escapes")} value={escapes ?? t("analytics.unavailable")} tone={escapes === null ? "default" : escapes === 0 ? "positive" : "warning"} />
+        <KpiCard evidenceState={escapes === null ? "not-measured" : "measured"} href={routeHref("promotion-gates", { params: { ...context, status: "blocked" } })} label={t("analytics.assurance.escapes")} value={escapes ?? kpiEvidenceLabel("not-measured")} hint={escapes === null ? t("analytics.notMeasuredHint") : undefined} tone={escapes === null ? "default" : escapes === 0 ? "positive" : "warning"} />
         <KpiCard href={routeHref("audit", { params: { ...context, window, mode: "shadow" } })} label={t("analytics.assurance.shadow")} value={formatShare(data.kpi.shadow_share)} />
-        <KpiCard href={routeHref("promotion-gates", { params: { ...context, status: "ready" } })} label={t("analytics.assurance.ready")} value={data.gates ? `${data.gates.ready_count}/${data.gates.rows.length}` : t("analytics.unavailable")} />
+        <KpiCard evidenceState={data.gates ? "measured" : "not-connected"} href={routeHref("promotion-gates", { params: { ...context, status: "ready" } })} label={t("analytics.assurance.ready")} value={data.gates ? `${data.gates.ready_count}/${data.gates.rows.length}` : kpiEvidenceLabel("not-connected")} hint={data.gates ? undefined : t("analytics.notConnectedHint")} />
       </KpiGrid>
       {data.autonomy ? (
         <GuardTable autonomy={data.autonomy} guardKey={guardKey} />
@@ -279,7 +280,7 @@ function VerticalBody({ data, active }: { readonly data: AnalyticsData; readonly
       <KpiGrid>
         <KpiCard href={routeHref("audit", { params: auditContext })} label={t("analytics.events")} value={vertical.events} />
         <KpiCard href={routeHref("audit", { params: { ...auditContext, outcome: "auto" } })} label={t("analytics.autoResolved")} value={vertical.auto_resolved} />
-        <KpiCard href={routeHref("audit", { params: { ...auditContext, outcome: "auto" } })} label={t("analytics.resolutionRate")} value={resolution === null ? t("analytics.unavailable") : formatShare(resolution)} />
+        <KpiCard evidenceState={resolution === null ? "insufficient-sample" : "measured"} href={routeHref("audit", { params: { ...auditContext, outcome: "auto" } })} label={t("analytics.resolutionRate")} value={resolution === null ? kpiEvidenceLabel("insufficient-sample") : formatShare(resolution)} hint={resolution === null ? t("analytics.insufficientSampleHint") : undefined} />
         <KpiCard href={routeHref("incidents", { params: { ...context, vertical: verticalKey } })} label={t("analytics.openRisks")} value={vertical.open_risks} tone={vertical.open_risks > 0 ? "warning" : "positive"} />
         <KpiCard href={routeHref("audit", { params: auditContext })} label={t("analytics.monthlySavings")} value={formatMeasuredSavings(vertical.monthly_savings)} />
       </KpiGrid>
@@ -385,10 +386,10 @@ function RoutingBody({
     <div class="stack">
       <EvidenceStrip autonomy={data.autonomy!} />
       <KpiGrid>
-        <KpiCard href={routeHref("audit", { params: auditContext })} label={t("analytics.routing.share")} value={share === null ? t("analytics.unavailable") : formatShare(share)} />
-        <KpiCard href={routingHref} label={t("analytics.routing.targetBand")} value={band ? `${Math.round(band[0] * 100)}-${Math.round(band[1] * 100)}%` : t("analytics.unavailable")} />
-        <KpiCard href={routeHref("audit", { params: auditContext })} label={t("analytics.events")} value={count ?? t("analytics.unavailable")} />
-        <KpiCard href={routingHref} label={t("analytics.status")} value={inBand === null ? t("analytics.unavailable") : inBand ? t("analytics.inBand") : t("analytics.outOfBand")} tone={inBand === null ? "default" : inBand ? "positive" : "warning"} />
+        <KpiCard evidenceState={share === null ? "not-measured" : "measured"} href={routeHref("audit", { params: auditContext })} label={t("analytics.routing.share")} value={share === null ? kpiEvidenceLabel("not-measured") : formatShare(share)} hint={share === null ? t("analytics.notMeasuredHint") : undefined} />
+        <KpiCard evidenceState={band ? "measured" : "not-connected"} href={routingHref} label={t("analytics.routing.targetBand")} value={band ? `${Math.round(band[0] * 100)}-${Math.round(band[1] * 100)}%` : t("analytics.notConfigured")} hint={band ? undefined : t("analytics.notConnectedHint")} />
+        <KpiCard evidenceState={count === null ? "not-measured" : "measured"} href={routeHref("audit", { params: auditContext })} label={t("analytics.events")} value={count ?? kpiEvidenceLabel("not-measured")} hint={count === null ? t("analytics.notMeasuredHint") : undefined} />
+        <KpiCard evidenceState={inBand === null ? "not-measured" : "measured"} href={routingHref} label={t("analytics.status")} value={inBand === null ? kpiEvidenceLabel("not-measured") : inBand ? t("analytics.inBand") : t("analytics.outOfBand")} hint={inBand === null ? t("analytics.notMeasuredHint") : undefined} tone={inBand === null ? "default" : inBand ? "positive" : "warning"} />
       </KpiGrid>
       <TierTable data={data} />
       {active === "t2" ? (

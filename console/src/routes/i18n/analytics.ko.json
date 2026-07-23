@@ -11,6 +11,10 @@
   "invalidDetail": "등록되지 않은 상세 키입니다. 위에서 사용 가능한 보기를 선택하세요.",
   "invalidGuard": "현재 측정 projection에 이 가드가 없습니다.",
   "unavailable": "근거 없음",
+  "notMeasuredHint": "이 기간에 보고된 측정값이 없습니다.",
+  "notConnectedHint": "이 배포에는 해당 projection이 연결되지 않았습니다.",
+  "notConfigured": "구성되지 않음",
+  "insufficientSampleHint": "현재 표본으로는 이 값을 계산할 수 없습니다.",
   "notApplicable": "해당 없음",
   "current": "현재",
   "baseline": "기준선",
@@ -67,6 +71,8 @@
     "costNoticeLabel": "비용 추정 기준",
     "costNoticeTitle": "표준 단가 기준 추정치",
     "costNoticeBody": "표시된 비용은 공개 표준 단가를 기준으로 계산됩니다. 실제 청구 금액은 계약 할인, 약정, 크레딧, 세금, 환율 및 공급자 청구 조정에 따라 달라질 수 있습니다. 청구서 대조가 아닌 참고용으로 사용하세요.",
+    "noBaseline": "기준선 없음",
+    "noBaselineHint": "이 기간에 보고된 paired baseline 근거가 없습니다.",
     "views": {
       "auto-resolution": {
         "title": "사람 개입 없이 올바르게 해결된 결과",

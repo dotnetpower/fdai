@@ -158,6 +158,41 @@ function kpiCardViolations(): readonly Finding[] {
   });
 }
 
+function kpiEvidenceStateViolations(): readonly Finding[] {
+  return sourceFiles(SOURCE_ROOT).flatMap((file) => {
+    const source = ts.createSourceFile(
+      file,
+      readFileSync(file, "utf8"),
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX,
+    );
+    const findings: Finding[] = [];
+    const visit = (node: ts.Node): void => {
+      if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && jsxTag(node, source) === "KpiCard") {
+        const evidenceState = node.attributes.properties.find(
+          (property) => ts.isJsxAttribute(property) && property.name.getText(source) === "evidenceState",
+        );
+        const value = node.attributes.properties.find(
+          (property) => ts.isJsxAttribute(property) && property.name.getText(source) === "value",
+        );
+        const valueText = value?.getText(source) ?? "";
+        const hasEvidenceGap = /unavailable|===\s*null|!==\s*null|kpiEvidenceLabel\(/i.test(valueText);
+        if (hasEvidenceGap && evidenceState === undefined) {
+          findings.push({
+            file: relative(SOURCE_ROOT, file),
+            line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+            tag: "KpiCard without evidenceState",
+          });
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+    return findings;
+  });
+}
+
 function forbiddenStructuralNames(): readonly string[] {
   const sourceNames = sourceFiles(SOURCE_ROOT).flatMap((file) => {
     const source = ts.createSourceFile(
@@ -189,6 +224,10 @@ function forbiddenStructuralNames(): readonly string[] {
 describe("console card drill-down contract", () => {
   test("requires every KpiCard to own its native drill-down link", () => {
     expect(kpiCardViolations()).toEqual([]);
+  });
+
+  test("requires nullable KPI values to declare a shared evidence state", () => {
+    expect(kpiEvidenceStateViolations()).toEqual([]);
   });
 
   test("requires raw data cards to expose a link or detail control", () => {

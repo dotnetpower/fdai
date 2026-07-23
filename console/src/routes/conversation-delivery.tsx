@@ -6,6 +6,7 @@ import {
   KpiGrid,
   PageHeader,
   StatusPill,
+  kpiEvidenceLabel,
   type AsyncState,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
@@ -129,5 +130,26 @@ function DeliveryBody({ data }: { readonly data: ConversationDeliveryResponse })
   );
   const breakerEntries = Object.entries(data.breaker_states);
   const evidenceHref = `${routeHref("conversation-delivery")}#conversation-delivery-evidence`;
-  return <div class="stack"><div class="governance-readonly-banner"><strong>{t("evidence.delivery.bannerTitle")}</strong><span>{t("evidence.delivery.bannerBody")}</span></div><KpiGrid><KpiCard href={evidenceHref} label={t("evidence.delivery.deliveries")} value={data.delivery_count.toLocaleString()} /><KpiCard href={evidenceHref} label={t("evidence.delivery.p95Latency")} value={data.delivery_latency_ms.p95 === null ? t("evidence.common.unavailable") : `${data.delivery_latency_ms.p95.toLocaleString()} ms`} /><KpiCard href={evidenceHref} label={t("evidence.delivery.duplicateRisk")} value={data.duplicate_risk_count.toLocaleString()} /><KpiCard href={evidenceHref} label={t("evidence.delivery.retries")} value={data.retry_count.toLocaleString()} /><KpiCard href={evidenceHref} label={t("evidence.delivery.abandoned")} value={data.abandonment_count.toLocaleString()} /><KpiCard href={evidenceHref} label={t("evidence.delivery.acknowledged")} value={data.acknowledgement_count.toLocaleString()} /></KpiGrid><div id="conversation-delivery-evidence" class="stack"><section class="stack"><h2>{t("evidence.delivery.states")}</h2><div class="status-list">{Object.entries(data.states).map(([name, count]) => <div key={name}><StatusPill kind={name === "delivered" ? "success" : name === "ambiguous" || name === "abandoned" ? "warning" : "neutral"} label={presentationLabel("status", name)} /><strong>{count.toLocaleString()}</strong></div>)}</div></section><section class="stack"><h2>{t("evidence.delivery.breakers")}</h2>{breakerEntries.length === 0 ? <p>{t("evidence.delivery.noBreakers")}</p> : <div class="status-list">{breakerEntries.map(([name, count]) => <div key={name}><StatusPill kind={name === "closed" ? "success" : "warning"} label={presentationLabel("status", name)} /><strong>{count.toLocaleString()}</strong></div>)}</div>}</section></div></div>;
+  return (
+    <div class="stack">
+      <div class="governance-readonly-banner"><strong>{t("evidence.delivery.bannerTitle")}</strong><span>{t("evidence.delivery.bannerBody")}</span></div>
+      <KpiGrid>
+        <KpiCard href={evidenceHref} label={t("evidence.delivery.deliveries")} value={data.delivery_count.toLocaleString()} />
+        <KpiCard
+          evidenceState={data.delivery_latency_ms.p95 === null ? "not-measured" : "measured"}
+          href={evidenceHref}
+          label={t("evidence.delivery.p95Latency")}
+          value={data.delivery_latency_ms.p95 === null ? kpiEvidenceLabel("not-measured") : `${data.delivery_latency_ms.p95.toLocaleString()} ms`}
+        />
+        <KpiCard href={evidenceHref} label={t("evidence.delivery.duplicateRisk")} value={data.duplicate_risk_count.toLocaleString()} />
+        <KpiCard href={evidenceHref} label={t("evidence.delivery.retries")} value={data.retry_count.toLocaleString()} />
+        <KpiCard href={evidenceHref} label={t("evidence.delivery.abandoned")} value={data.abandonment_count.toLocaleString()} />
+        <KpiCard href={evidenceHref} label={t("evidence.delivery.acknowledged")} value={data.acknowledgement_count.toLocaleString()} />
+      </KpiGrid>
+      <div id="conversation-delivery-evidence" class="stack">
+        <section class="stack"><h2>{t("evidence.delivery.states")}</h2><div class="status-list">{Object.entries(data.states).map(([name, count]) => <div key={name}><StatusPill kind={name === "delivered" ? "success" : name === "ambiguous" || name === "abandoned" ? "warning" : "neutral"} label={presentationLabel("status", name)} /><strong>{count.toLocaleString()}</strong></div>)}</div></section>
+        <section class="stack"><h2>{t("evidence.delivery.breakers")}</h2>{breakerEntries.length === 0 ? <p>{t("evidence.delivery.noBreakers")}</p> : <div class="status-list">{breakerEntries.map(([name, count]) => <div key={name}><StatusPill kind={name === "closed" ? "success" : "warning"} label={presentationLabel("status", name)} /><strong>{count.toLocaleString()}</strong></div>)}</div>}</section>
+      </div>
+    </div>
+  );
 }

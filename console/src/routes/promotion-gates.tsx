@@ -8,6 +8,7 @@ import {
   KpiGrid,
   PageHeader,
   StatusPill,
+  kpiEvidenceLabel,
   type AsyncState,
   type Column,
 } from "../components/ui";
@@ -394,11 +395,12 @@ function PromotionBody({
           hint={t("governance.promotion.kpi.blockedHint")}
         />
         <KpiCard
+          evidenceState={data.window_days === null ? "not-measured" : "measured"}
           href={`${routeHref("promotion-gates")}${candidatesFragment}`}
           label={t("governance.promotion.kpi.window")}
           value={data.window_days !== null
             ? t("governance.promotion.kpi.windowValue", { days: data.window_days })
-            : "-"}
+            : kpiEvidenceLabel("not-measured")}
         />
       </KpiGrid>
       <section class="governance-filterbar" aria-label={t("governance.promotion.filter.aria")}>

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { mobileColumnLabel, safeExternalHref } from "./ui";
+import { kpiEvidenceLabel, mobileColumnLabel, safeExternalHref } from "./ui";
 
 /**
  * ExternalLink is used to render URLs that originate on the read-API wire
@@ -34,5 +34,14 @@ describe("responsive data-table labels", () => {
       .toBe("Step");
     expect(mobileColumnLabel({ key: "seq", header: "Sequence", render: () => null })).toBe("Sequence");
     expect(mobileColumnLabel({ key: "seq", header: null, render: () => null })).toBe("seq");
+  });
+});
+
+describe("KPI evidence-state labels", () => {
+  test("uses neutral shared copy for non-error evidence gaps", () => {
+    expect(kpiEvidenceLabel("not-measured")).toBe("Not measured");
+    expect(kpiEvidenceLabel("not-connected")).toBe("Source not connected");
+    expect(kpiEvidenceLabel("insufficient-sample")).toBe("Insufficient sample");
+    expect(kpiEvidenceLabel("not-applicable")).toBe("Not applicable");
   });
 });

@@ -707,6 +707,17 @@ a:hover {
   color: var(--fg);
 }
 
+.topbar .principal .browser-notification-control.is-active {
+  color: var(--accent-strong);
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--border));
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+}
+
+.topbar .principal .browser-notification-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .theme-toggle {
   display: inline-flex;
   align-items: center;
@@ -2799,6 +2810,20 @@ pre {
 .kpi-tone-positive .kpi-card-value { color: var(--cs-sage); }
 .kpi-tone-warning  .kpi-card-value { color: var(--cs-terracotta); }
 .kpi-tone-danger   .kpi-card-value { color: var(--danger); }
+.card.kpi-card:not(.kpi-evidence-measured) {
+  border-color: var(--border);
+  background: var(--cs-shade);
+  box-shadow: none;
+}
+.card.kpi-card:not(.kpi-evidence-measured) .kpi-card-value {
+  color: var(--fg-muted);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.card.kpi-card:not(.kpi-evidence-measured) .kpi-card-hint { color: var(--fg-muted); }
+.card.kpi-card:not(.kpi-evidence-measured):hover,
+.card.kpi-card:not(.kpi-evidence-measured):focus-visible { border-color: var(--fg-muted); }
 
 /* Executive posture: current control state first, with evidence quality and
    freshness visible before any outcome metric. */

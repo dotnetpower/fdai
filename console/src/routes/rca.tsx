@@ -9,6 +9,7 @@ import {
   KpiGrid,
   StatusPill,
   PageHeader,
+  kpiEvidenceLabel,
   type AsyncState,
   type Column,
   type PillKind,
@@ -218,29 +219,32 @@ function ResponsePlan({ data }: { readonly data: RcaView }) {
             label={t("rca.verdict")}
             value={<StatusPill kind={verdictPill(response.verdict)} label={response.verdict} />}
           />
-          <KpiCard href={traceHref} label={t("rca.decision")} value={response.decision ?? t("rca.none")} />
+          <KpiCard evidenceState={response.decision === null ? "not-applicable" : "measured"} href={traceHref} label={t("rca.decision")} value={response.decision ?? kpiEvidenceLabel("not-applicable")} />
           <KpiCard
+            evidenceState={response.action_kind === null ? "not-applicable" : "measured"}
             href={auditHref}
             label={t("rca.action")}
-            value={<span class="mono small">{response.action_kind ?? t("rca.none")}</span>}
+            value={<span class="mono small">{response.action_kind ?? kpiEvidenceLabel("not-applicable")}</span>}
           />
           <KpiCard
+            evidenceState={response.mode === null ? "not-applicable" : "measured"}
             href={response.mode === null
               ? auditHref
               : routeHref("audit", { params: { correlation: data.correlation_id, mode: response.mode } })}
             label={t("rca.modeColumn")}
             value={
               response.mode === null ? (
-                t("rca.none")
+                kpiEvidenceLabel("not-applicable")
               ) : (
                 <StatusPill kind={response.mode} label={response.mode} />
               )
             }
           />
           <KpiCard
+            evidenceState={response.rollback_reference === null ? "not-applicable" : "measured"}
             href={auditHref}
             label={t("rca.rollback")}
-            value={<span class="mono small">{response.rollback_reference ?? t("rca.none")}</span>}
+            value={<span class="mono small">{response.rollback_reference ?? kpiEvidenceLabel("not-applicable")}</span>}
           />
         </KpiGrid>
       )}
@@ -264,9 +268,10 @@ function HypothesisCard({ hypothesis, correlationId }: { readonly hypothesis: Rc
       </div>
       <KpiGrid>
         <KpiCard
+          evidenceState={hypothesis.confidence === null ? "not-measured" : "measured"}
           href={auditEntryHref}
           label={t("rca.confidence")}
-          value={hypothesis.confidence === null ? t("rca.none") : hypothesis.confidence.toFixed(2)}
+          value={hypothesis.confidence === null ? kpiEvidenceLabel("not-measured") : hypothesis.confidence.toFixed(2)}
         />
         <KpiCard
           href={auditEntryHref}
@@ -274,9 +279,10 @@ function HypothesisCard({ hypothesis, correlationId }: { readonly hypothesis: Rc
           value={<span class="mono small">{hypothesis.recorded_at}</span>}
         />
         <KpiCard
+          evidenceState={hypothesis.remediation_ref === null ? "not-applicable" : "measured"}
           href={auditEntryHref}
           label={t("rca.remediation")}
-          value={<span class="mono small">{hypothesis.remediation_ref ?? t("rca.none")}</span>}
+          value={<span class="mono small">{hypothesis.remediation_ref ?? kpiEvidenceLabel("not-applicable")}</span>}
         />
       </KpiGrid>
       {!hypothesis.grounded ? (

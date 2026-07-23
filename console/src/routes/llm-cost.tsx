@@ -7,6 +7,7 @@ import {
   KpiCard,
   KpiGrid,
   PageHeader,
+  kpiEvidenceLabel,
   type AsyncState,
   type Column,
 } from "../components/ui";
@@ -255,9 +256,10 @@ function LlmCostBody({ data }: { readonly data: Response }) {
         <KpiCard href={auditHref} label={t("llmCost.inputTokens")} value={data.total.prompt_tokens.toLocaleString(locale)} />
         <KpiCard href={auditHref} label={t("llmCost.outputTokens")} value={data.total.completion_tokens.toLocaleString(locale)} />
         <KpiCard
+          evidenceState={data.latest_occurred_at ? "measured" : "not-measured"}
           href={latestHref}
           label={t("llmCost.latestInvocation")}
-          value={data.latest_occurred_at ? new Date(data.latest_occurred_at).toLocaleString(locale) : t("llmCost.valueUnavailable")}
+          value={data.latest_occurred_at ? new Date(data.latest_occurred_at).toLocaleString(locale) : kpiEvidenceLabel("not-measured")}
         />
       </KpiGrid>
 

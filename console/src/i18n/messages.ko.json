@@ -9,6 +9,20 @@
     "console": "콘솔",
     "devMode": "개발 모드"
   },
+  "browserNotifications": {
+    "off": "알림 켜기",
+    "enabling": "알림 켜는 중...",
+    "on": "알림 끄기",
+    "blocked": "알림 차단됨",
+    "unsupported": "알림 사용 불가",
+    "error": "알림 다시 시도",
+    "approvalTitle": "FDAI 사람 승인 필요",
+    "approvalBody": "콘솔에서 인시던트 근거를 검토하세요.",
+    "deniedTitle": "FDAI 작업 거부됨",
+    "deniedBody": "콘솔에서 안전성 결정을 검토하세요.",
+    "failedTitle": "FDAI 운영 실패",
+    "failedBody": "콘솔에서 실패 근거를 검토하세요."
+  },
   "shared": {
     "loading": "불러오는 중...",
     "loadingResource": "{resource} 불러오는 중...",
@@ -20,7 +34,13 @@
     "reloadConsole": "콘솔 새로고침",
     "diagramRendering": "다이어그램 렌더링 중...",
     "diagramFailed": "다이어그램 렌더링 실패",
-    "mermaidDiagram": "Mermaid 다이어그램"
+    "mermaidDiagram": "Mermaid 다이어그램",
+    "evidenceState": {
+      "not-measured": "아직 측정되지 않음",
+      "not-connected": "측정 소스 미연결",
+      "insufficient-sample": "표본 부족",
+      "not-applicable": "해당 없음"
+    }
   },
   "tooltip": {
     "opensNewTab": "새 탭에서 열림",
