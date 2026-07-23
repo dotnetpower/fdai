@@ -1027,13 +1027,14 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres_ops" {
 # Event Bus - Event Hubs (Kafka wire on :9093).
 # -----------------------------------------------------------------------
 module "event_bus" {
-  source              = "./modules/event-bus/event-hubs-kafka"
-  name                = "evhns-${var.workload}${local.full_suffix}"
-  location            = var.region
-  resource_group_name = module.resource_group.name
-  topics              = local.event_topics
-  auxiliary_topics    = local.event_auxiliary_topics
-  tags                = local.tags
+  source                        = "./modules/event-bus/event-hubs-kafka"
+  name                          = "evhns-${var.workload}${local.full_suffix}"
+  location                      = var.region
+  resource_group_name           = module.resource_group.name
+  topics                        = local.event_topics
+  auxiliary_topics              = local.event_auxiliary_topics
+  public_network_access_enabled = !var.enable_private_networking
+  tags                          = local.tags
 }
 
 # Standard namespaces are limited to ten Event Hub entities. Keep the four
@@ -1041,13 +1042,50 @@ module "event_bus" {
 # primary namespace. Canary and raw inventory traffic use this isolated
 # namespace so parser-specific consumers never share a physical topic.
 module "event_bus_auxiliary" {
-  source              = "./modules/event-bus/event-hubs-kafka"
-  name                = "evhns-${var.workload}${local.full_suffix}-ops"
+  source                        = "./modules/event-bus/event-hubs-kafka"
+  name                          = "evhns-${var.workload}${local.full_suffix}-ops"
+  location                      = var.region
+  resource_group_name           = module.resource_group.name
+  topics                        = [local.canary_topic]
+  auxiliary_topics              = [local.inventory_raw_topic]
+  public_network_access_enabled = !var.enable_private_networking
+  tags                          = merge(local.tags, { "fdai:component" = "operational-signals" })
+}
+
+module "event_bus_private_endpoint" {
+  count                 = var.enable_private_networking ? 1 : 0
+  source                = "./modules/private-endpoint"
+  name                  = "pe-evhns-${var.workload}${local.full_suffix}"
+  location              = var.region
+  resource_group_name   = module.resource_group.name
+  subnet_id             = module.network[0].pe_subnet_id
+  vnet_id               = module.network[0].vnet_id
+  target_resource_id    = module.event_bus.namespace_id
+  subresource_name      = "namespace"
+  private_dns_zone_name = "privatelink.servicebus.windows.net"
+  extra_vnet_links      = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}
+  tags                  = local.tags
+}
+
+resource "azurerm_private_endpoint" "event_bus_auxiliary_shared_dns" {
+  count               = var.enable_private_networking ? 1 : 0
+  name                = "pe-evhns-${var.workload}${local.full_suffix}-ops"
   location            = var.region
   resource_group_name = module.resource_group.name
-  topics              = [local.canary_topic]
-  auxiliary_topics    = [local.inventory_raw_topic]
+  subnet_id           = module.network[0].pe_subnet_id
   tags                = merge(local.tags, { "fdai:component" = "operational-signals" })
+
+  private_service_connection {
+    name                           = "pe-evhns-${var.workload}${local.full_suffix}-ops-psc"
+    private_connection_resource_id = module.event_bus_auxiliary.namespace_id
+    subresource_names              = ["namespace"]
+    is_manual_connection           = false
+  }
+
+  private_dns_zone_group {
+    name                 = "default"
+    private_dns_zone_ids = [module.event_bus_private_endpoint[0].private_dns_zone_id]
+  }
 }
 
 # Executor MI needs both send and receive on the namespace: the control
@@ -1089,6 +1127,24 @@ module "state_store" {
   private_dns_zone_id           = var.enable_private_postgres ? azurerm_private_dns_zone.postgres[0].id : null
 
   depends_on = [azurerm_private_dns_zone_virtual_network_link.postgres_app]
+}
+
+# Keep the dev/public Postgres server shape intact while providing private DNS
+# and runtime-subnet reachability. Delegated-subnet private Postgres already
+# owns its private DNS path and therefore does not need this endpoint.
+module "postgres_public_mode_private_endpoint" {
+  count                 = var.enable_private_networking && !var.enable_private_postgres ? 1 : 0
+  source                = "./modules/private-endpoint"
+  name                  = "pe-psql-${var.workload}${local.full_suffix}"
+  location              = var.region
+  resource_group_name   = module.resource_group.name
+  subnet_id             = module.network[0].pe_subnet_id
+  vnet_id               = module.network[0].vnet_id
+  target_resource_id    = module.state_store.id
+  subresource_name      = "postgresqlServer"
+  private_dns_zone_name = "privatelink.postgres.database.azure.com"
+  extra_vnet_links      = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}
+  tags                  = local.tags
 }
 
 # -----------------------------------------------------------------------

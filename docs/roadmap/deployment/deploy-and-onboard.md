@@ -40,17 +40,17 @@ All identifiers are synthetic per
 - Confirmed quota headroom (Container Apps cores, Event Hubs throughput units, PostgreSQL
   vCores, Key Vault operations).
 - Diagnostic Settings destination (Log Analytics workspace) - new or existing; ownership TBD.
-- **Private networking (policy-locked tenants).** Tenants that enforce "Key Vault public
-  network access disabled" (common in enterprise / managed tenants) set
-  `enable_private_networking = true`: the deploy provisions a VNet + a Key Vault private
-  endpoint on `privatelink.vaultcore.azure.net` with a linked private DNS zone, binds the
-  Container App Environment to a delegated infrastructure subnet, and locks the vault to
-  private access. Because a private-only vault is unreachable from an operator laptop,
+- **Private networking (policy-locked tenants).** Tenants that enforce private data services set
+  `enable_private_networking = true`: the deploy provisions a VNet, private endpoints, and linked
+  private DNS for Key Vault, both Event Hubs namespace shards, and public-mode PostgreSQL. Event
+  Hubs public access is disabled. The public-mode PostgreSQL endpoint is additive and preserves the
+  existing server; `enable_private_postgres = true` remains the separate delegated-subnet mode.
+  The deploy also binds the Container App Environment to a delegated infrastructure subnet and
+  locks Key Vault to private access. Because a private-only vault is unreachable from an operator laptop,
   `terraform apply` MUST then run from a host with VNet line-of-sight to the endpoint - a
   CI runner or a jumpbox inside the VNet (the executor writes the DSN secrets from there).
-  ACR / Event Hubs / Postgres private endpoints reuse the same generic
-  `modules/private-endpoint` module and are added the same way when a tenant restricts them
-  too.
+  ACR private endpoints reuse the same generic `modules/private-endpoint` module when a tenant
+  restricts the registry too.
 
 #### Ops/hub runner (private-everything tenants)
 
@@ -148,6 +148,12 @@ links a private DNS zone to the app and ops VNet, disables public access, and re
 that server, so review the plan and rehearse backup/restore before promotion. The assertions in
 `infra/production-gates.tf` block a production plan until the signed image digest, private
 networking, durability, alert destination, and cost budget minimums are supplied.
+
+When `enable_private_networking = true` and delegated-subnet PostgreSQL is off, Terraform adds a
+`postgresqlServer` private endpoint and links `privatelink.postgres.database.azure.com` to the app
+and ops VNets. Both Event Hubs shards share `privatelink.servicebus.windows.net`; each namespace
+has its own private endpoint, and public network access is disabled. This lets startup probes run
+from the Container Apps subnet or the peered runner without replacing the development database.
 
 An approved out-of-band ACS Email bootstrap can set
 `import_existing_email_notifications=true` for its first dev convergence plan. The import

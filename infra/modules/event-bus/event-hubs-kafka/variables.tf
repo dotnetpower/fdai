@@ -36,6 +36,12 @@ variable "sku" {
   default     = "Standard"
 }
 
+variable "public_network_access_enabled" {
+  description = "Whether the Event Hubs namespace accepts public network traffic. Private-networking deployments set false and attach a private endpoint."
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Tags."
   type        = map(string)
