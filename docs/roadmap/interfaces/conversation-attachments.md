@@ -42,6 +42,7 @@ The file source changes by channel. Safety, storage, purpose, citations, retenti
 | Protected channel ingestion | Composition implemented; deployment binding pending | `ProtectedChannelAttachmentIngestor` sends all bytes through the existing scan, protection, extraction, indexing, and access lifecycle. |
 | Explicit ownership handover | Contract implemented; Slack/Teams deployment binding pending | A leading `/handover`, `/attach handover`, or `인수인계 문서:` directive selects `handover_bootstrap`; content and filenames never select it. |
 | Web chat document references | Implemented backend contract | JSON and SSE chat accept up to eight immutable document/version ids. The production resolver permits only ready versions uploaded by the current principal. The SPA file picker remains product UI work. |
+| Web chat inline vision evidence | Implemented | The web chat `attachments` field accepts a bounded set of inline base64 images (raster allowlist png/jpeg/gif/webp, `data:` URLs only, declared media type must match the magic bytes, per-image size cap and per-turn count cap). Validated images escalate the turn to a vision-capable narrator as read-only evidence; they never grant execution eligibility. Distinct from the channel document-ingestion path, which still never trusts payload file bytes. |
 | Image OCR | Implemented, opt-in | `ImageOcrProvider` is injected into the standard extractor. Azure production can bind Document Intelligence `prebuilt-read` with managed identity. |
 
 ## Purpose and authorization

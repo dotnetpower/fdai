@@ -197,6 +197,12 @@ server emits `web_search_classifying` only when semantic search intent invokes t
 sanitized source count and previews after retrieval. The preparing-answer trace renders these
 stages immediately. A turn that doesn't perform a stage doesn't claim that stage.
 
+When a turn carries validated inline image attachments, the streaming route also emits read-only
+`vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with
+image source previews (name, media type, size) but never the base64 payload. The turn escalates to
+a vision-capable narrator, and the preparing-answer trace renders these stages the same way it
+renders web-search grounding.
+
 The interactive Live route pauses its SSE reader while the tab is hidden. An operator-enabled
 browser notification consumer is the bounded exception: it keeps the authenticated live reader open
 in the background, retries authentication failures with the existing capped backoff, and stops as
