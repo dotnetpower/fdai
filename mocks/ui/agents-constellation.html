@@ -57,11 +57,15 @@
     .fc-inc-id { color: var(--cs-text-soft); font-family: "Cascadia Code","Consolas",monospace; font-size: 11.5px; }
 
     .fc-actions { padding: 12px 14px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-top: 8px; }
-    .fc-ask { display: inline-block; padding: 6px 12px; border: 1px solid rgba(68,104,142,.35); background: rgba(68,104,142,.06); color: var(--cs-steel); border-radius: var(--cs-radius-sm); font-size: 12.5px; font-weight: 500; cursor: pointer; }
+    .fc-ask { display: inline-block; padding: 6px 0; border-bottom: 1px solid currentColor; color: var(--cs-text); font-size: 12.5px; font-weight: 600; }
+    .fc-ask:hover { text-decoration: none; }
     .fc-ask-note { color: var(--cs-text-soft); font-size: 12px; margin: 8px 0 10px; }
-    .fc-chipset { display: flex; flex-wrap: wrap; gap: 6px; }
-    .fc-chip { padding: 4px 10px; border-radius: var(--cs-radius-sm); font-size: 12px; font-weight: 500; border: 1px solid rgba(79,132,126,.30); color: var(--cs-teal); background: rgba(79,132,126,.06); cursor: pointer; }
-    .fc-chip:hover { background: rgba(79,132,126,.12); }
+    .fc-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; padding: 0; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); list-style: none; }
+    .fc-step { min-width: 0; padding: 7px 8px; border-right: 1px solid var(--cs-hairline); font-size: 11px; }
+    .fc-step:last-child { border-right: 0; }
+    .fc-step strong, .fc-step span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fc-step strong { font-size: 11.5px; font-weight: 650; }
+    .fc-step span { color: var(--cs-text-soft); }
 
     /* Agent-to-agent conversation strip. Sender identity is content-local. */
     .fc-convo { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -96,12 +100,12 @@
         <div class="cs-eyebrow">Fleet &middot; organization</div>
         <h1 style="margin:2px 0 6px">Org</h1>
         <p class="cs-muted" style="max-width:70ch; margin:0; font-size:13.5px;">
-          Reporting lines for the fixed 15-agent fleet and the agents engaged in the current
-          incident. Select an agent to inspect its active events. Wire: <code>GET /agents/stream</code>.
+          Reporting lines for the fixed 15-agent fleet and the agents engaged in this sample
+          incident. The production view reads <code>GET /agents/stream</code>.
         </p>
       </div>
       <div class="fc-controls">
-        <span class="fc-status">Open</span>
+        <span class="fc-status">Sample view</span>
         <span class="fc-engaged"><strong>1</strong> engaged</span>
       </div>
     </div>
@@ -259,21 +263,15 @@
           <span class="fc-inc-title">AKS pod restart storm on nginx workload</span>
           <span class="fc-inc-id">FDAI-8812</span>
         </div>
-        <div class="fc-inc">
-          <span class="fc-inc-status">Resolved</span>
-          <span class="fc-inc-title">AKS pod restart storm on nginx workload</span>
-          <span class="fc-inc-id">FDAI-8812</span>
-        </div>
-
         <div class="fc-actions">
-          <button class="fc-ask">Ask the deck about this incident</button>
-          <p class="fc-ask-note">Questions are read-only; a command opens a proposal (judged, never executed here).</p>
-          <div class="fc-chipset">
-            <button class="fc-chip">Detect</button>
-            <button class="fc-chip">Ticket</button>
-            <button class="fc-chip">RCA</button>
-            <button class="fc-chip">Resolve</button>
-          </div>
+          <a class="fc-ask" href="deck.html">Open Command deck</a>
+          <p class="fc-ask-note">Start a read-only question about the evidence. Any proposed action re-enters the governed pipeline.</p>
+          <ol class="fc-steps" aria-label="Incident progress">
+            <li class="fc-step"><strong>Detect</strong><span>complete</span></li>
+            <li class="fc-step"><strong>Ticket</strong><span>complete</span></li>
+            <li class="fc-step"><strong>RCA</strong><span>complete</span></li>
+            <li class="fc-step"><strong>Resolve</strong><span>complete</span></li>
+          </ol>
 
           <div class="fc-convo" aria-label="Agent-to-agent conversation for FDAI-8812">
             <div class="fc-turn from-heimdall">
