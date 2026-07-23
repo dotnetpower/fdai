@@ -136,6 +136,34 @@ class StaticStartupProbe:
         return _result(self.probe_id, perf_counter(), evidence={self._evidence_key: True})
 
 
+class EnvironmentInjectionStartupProbe:
+    """Verify required environment-backed secret references without reading values."""
+
+    def __init__(
+        self,
+        *,
+        probe_id: str,
+        environment: Mapping[str, str],
+        required_names: tuple[str, ...],
+    ) -> None:
+        self.probe_id = probe_id
+        self._environment = environment
+        self._required_names = required_names
+
+    async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
+        started_at = perf_counter()
+        missing = [
+            name for name in self._required_names if not self._environment.get(name, "").strip()
+        ]
+        if missing:
+            raise RuntimeError("required startup secret injection is unavailable")
+        return _result(
+            self.probe_id,
+            started_at,
+            evidence={"required_reference_count": len(self._required_names)},
+        )
+
+
 class WorkloadIdentityStartupProbe:
     """Prove one audience-scoped token without retaining token material."""
 
@@ -300,6 +328,7 @@ __all__ = [
     "CrossCheckModelStartupProbe",
     "DestinationChainProbe",
     "DestinationTarget",
+    "EnvironmentInjectionStartupProbe",
     "EmbeddingModel",
     "EmbeddingStartupProbe",
     "EventBusRoundTripStartupProbe",

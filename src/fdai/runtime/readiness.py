@@ -24,6 +24,7 @@ from fdai.delivery.startup_probe import (
     CrossCheckModelStartupProbe,
     EmbeddingModel,
     EmbeddingStartupProbe,
+    EnvironmentInjectionStartupProbe,
     EventBusRoundTripStartupProbe,
     KillSwitchStartupProbe,
     StateStoreStartupProbe,
@@ -195,7 +196,15 @@ def build_startup_readiness_runtime(
         StaticStartupProbe(probe_id="release.config", evidence_key="validated"),
         StaticStartupProbe(probe_id="catalog.load", evidence_key="loaded"),
         policy_compile_probe,
-        StaticStartupProbe(probe_id="secret.injection", evidence_key="injected"),
+        EnvironmentInjectionStartupProbe(
+            probe_id="secret.injection",
+            environment=environment,
+            required_names=(
+                ("FDAI_STATE_STORE_DSN",)
+                if environment.get("RUNTIME_ENV", "").strip().casefold() in {"staging", "prod"}
+                else ()
+            ),
+        ),
         WorkloadIdentityStartupProbe(
             probe_id="identity.token",
             identity=identity,

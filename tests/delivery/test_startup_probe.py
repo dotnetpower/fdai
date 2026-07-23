@@ -10,16 +10,22 @@ from typing import Any
 import pytest
 
 from fdai.delivery.startup_probe import (
+    AuditStartupProbe,
     CapabilityProofStartupProbe,
     CrossCheckModelStartupProbe,
+    DestinationChainProbe,
+    DestinationTarget,
     EmbeddingStartupProbe,
+    EnvironmentInjectionStartupProbe,
     EventBusRoundTripStartupProbe,
     KillSwitchStartupProbe,
     OpaCompileStartupProbe,
     StateStoreStartupProbe,
     StreamingModelStartupProbe,
+    WorkloadIdentityStartupProbe,
 )
 from fdai.shared.providers.local.event_bus import LocalEventBus
+from fdai.shared.providers.local.identity import LocalWorkloadIdentity
 from fdai.shared.providers.startup_probe import StartupProbeRequest
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai.shared.resilience.kill_switch import StateStoreKillSwitch
@@ -163,4 +169,122 @@ async def test_kill_switch_probe_rejects_malformed_state() -> None:
     )
 
     with pytest.raises(ValueError, match="boolean"):
+        await probe.run(_request())
+
+
+async def test_destination_chain_proves_dns_tcp_tls_auth_and_protocol(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: dict[str, Any] = {}
+
+    class _Loop:
+        async def getaddrinfo(self, host: str, port: int, *, type: int) -> list[tuple[Any, ...]]:
+            calls["dns"] = (host, port, type)
+            return [(2, 1, 6, "", ("10.0.0.4", port))]
+
+    class _Writer:
+        def close(self) -> None:
+            calls["closed"] = True
+
+        async def wait_closed(self) -> None:
+            calls["wait_closed"] = True
+
+    async def open_connection(host: str, port: int, **kwargs: Any) -> tuple[object, _Writer]:
+        calls["connect"] = (host, port, kwargs)
+        return object(), _Writer()
+
+    async def protocol_operation() -> None:
+        calls["protocol"] = True
+
+    monkeypatch.setattr("fdai.delivery.startup_probe.asyncio.get_running_loop", lambda: _Loop())
+    monkeypatch.setattr("fdai.delivery.startup_probe.asyncio.open_connection", open_connection)
+    probe = DestinationChainProbe(
+        probe_id="destination.chain",
+        target=DestinationTarget(
+            host="service.example.com",
+            port=443,
+            tls_server_name="service.example.com",
+            auth_audience="api://service/.default",
+        ),
+        identity=LocalWorkloadIdentity(),
+        protocol_operation=protocol_operation,
+    )
+
+    result = await probe.run(_request())
+
+    assert result.evidence == {
+        "dns": True,
+        "tcp": True,
+        "tls": True,
+        "auth": True,
+        "protocol": True,
+    }
+    assert calls["connect"][2]["server_hostname"] == "service.example.com"
+    assert calls["protocol"] is True
+
+
+async def test_workload_identity_probe_records_no_token_material() -> None:
+    probe = WorkloadIdentityStartupProbe(
+        probe_id="identity.token",
+        identity=LocalWorkloadIdentity(),
+        audience="api://startup/.default",
+    )
+
+    result = await probe.run(_request())
+
+    assert result.evidence == {"audience_scoped": True}
+    assert "fdai-local" not in result.model_dump_json()
+
+
+async def test_environment_injection_probe_fails_without_exposing_secret_name() -> None:
+    probe = EnvironmentInjectionStartupProbe(
+        probe_id="secret.injection",
+        environment={},
+        required_names=("FDAI_STATE_STORE_DSN",),
+    )
+
+    with pytest.raises(RuntimeError, match="unavailable") as captured:
+        await probe.run(_request())
+    assert "FDAI_STATE_STORE_DSN" not in str(captured.value)
+
+
+async def test_audit_probe_appends_only_in_synthetic_scope() -> None:
+    store = InMemoryStateStore()
+    probe = AuditStartupProbe(probe_id="audit.append", state_store=store)
+
+    with pytest.raises(RuntimeError, match="synthetic scope"):
+        await probe.run(_request())
+    result = await probe.run(_request(synthetic_scope=True))
+
+    assert result.evidence == {"append": True}
+    assert any(
+        entry.get("entry", {}).get("kind") == "startup_readiness.audit_probe"
+        for entry in store.audit_entries
+    )
+
+
+async def test_opa_compile_probe_accepts_successful_binary(tmp_path: Path) -> None:
+    binary = tmp_path / "opa"
+    binary.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    binary.chmod(0o700)
+    probe = OpaCompileStartupProbe(
+        probe_id="policy.compile",
+        policies_root=tmp_path,
+        opa_binary=str(binary),
+    )
+
+    result = await probe.run(_request())
+
+    assert result.evidence == {"compiled": True}
+
+
+async def test_event_bus_round_trip_rejects_non_synthetic_scope() -> None:
+    probe = EventBusRoundTripStartupProbe(
+        probe_id="kafka.round-trip",
+        event_bus=LocalEventBus(),
+        topic="runtime.startup.probe",
+        consumer_settle_seconds=0,
+    )
+
+    with pytest.raises(RuntimeError, match="synthetic scope"):
         await probe.run(_request())
