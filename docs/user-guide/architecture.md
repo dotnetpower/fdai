@@ -7,8 +7,10 @@ sidebar:
 
 # FDAI Architecture
 
-FDAI is a headless, event-driven control plane with a thin read-only console,
-pull-request-native delivery, and ChatOps approval. Its architecture separates
+FDAI uses an agent-driven architecture: independently runnable agents own
+bounded responsibilities and coordinate through schema-validated events. It is
+a headless, event-driven control plane with a thin read-only console,
+pull-request-native delivery, and ChatOps approval. The architecture separates
 the components that observe, decide, approve, execute, and audit so no single
 surface can silently turn a suggestion into a privileged change.
 
@@ -160,6 +162,18 @@ flowchart LR
   BRA -. question .-> MUN
   BRA -->|typed action proposal| HUG
 ```
+
+The Mermaid view keeps topic ownership easy to scan. The generated architecture
+view below uses the same topology to show the runtime invariant: agents run as
+independent subscribers, work can fan out concurrently, and only the owning
+agent publishes each authoritative object. Gateways and workers relay events;
+they do not become hidden decision makers.
+
+#### Generated agent-driven architecture
+
+<fdai-architecture-diagram manifest="../diagrams/generated/fdai-agent-driven-runtime.manifest.json" locale="en" style="display:block">
+  <img src="../diagrams/generated/fdai-agent-driven-runtime.en.svg" alt="External signals enter the shared typed event bus and reach Huginn. Huginn publishes normalized events that fan out to Heimdall and Forseti. Heimdall, Njord, Freyr, Loki, Mimir, and Muninn contribute findings, domain evidence, rules, and context without calling one another directly. Forseti owns decisions and asks Odin to arbitrate cross-domain conflicts. Eligible decisions reach Thor, while Var owns human approval and Vidar owns rollback. Forseti, Thor, Var, and Vidar publish audit evidence to Saga. Saga outcomes reach Norns, which proposes inert rule candidates to Mimir. Bragi reads context from Muninn and returns typed action proposals to Huginn so conversations use the same governed path." loading="lazy" style="display:block;width:100%;height:auto" />
+</fdai-architecture-diagram>
 
 This flow preserves a simple rule: information may fan out to many readers,
 but each authoritative object type has one writer. For example, several agents

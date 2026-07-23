@@ -4,7 +4,7 @@
   "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf",
   "sourceSha256": "194018e6b2b293a7964f037b25c0249ce1418bc9ab3c971060a03aa57861e252",
   "subset": "noto-sans-kr-diagrams.ttf",
-  "subsetSha256": "253c541deb0068727fdb7a831048a42f8e7fdc9a93affc4572ef83f96ef65579",
+  "subsetSha256": "4c5c6b30db9ce3d6a5b413955bd84d6029e04806b8bb5178d073ac71a9d0ddf8",
   "coverage": "U+0000-00FF plus glyphs used by docs/diagrams/*.diagram.yaml",
-  "generated": "2026-07-20"
+  "generated": "2026-07-23"
 }

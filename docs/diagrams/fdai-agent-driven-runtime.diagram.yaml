@@ -1,0 +1,230 @@
+id: fdai-agent-driven-runtime
+version: 1
+kind: data-flow
+updated: 2026-07-23
+locales:
+  en:
+    title: FDAI agent-driven runtime
+    description: Independently runnable agents coordinate through typed events while authority stays with one writer for each object type.
+    alt: External signals enter the shared typed event bus and reach Huginn. Huginn publishes normalized events that fan out to Heimdall and Forseti. Heimdall, Njord, Freyr, Loki, Mimir, and Muninn contribute findings, domain evidence, rules, and context without calling one another directly. Forseti owns decisions and asks Odin to arbitrate cross-domain conflicts. Eligible decisions reach Thor, while Var owns human approval and Vidar owns rollback. Forseti, Thor, Var, and Vidar publish audit evidence to Saga. Saga outcomes reach Norns, which proposes inert rule candidates to Mimir. Bragi reads context from Muninn and returns typed action proposals to Huginn so conversations use the same governed path.
+  ko:
+    title: FDAI 에이전트 주도 런타임
+    description: 독립 실행 가능한 에이전트가 typed event로 협업하고 각 object type의 권한은 single writer가 유지합니다.
+    alt: 외부 신호가 shared typed event bus로 들어와 Huginn에 도달합니다. Huginn이 발행한 normalized event는 Heimdall과 Forseti로 fan-out됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 finding, domain evidence, rule, context를 제공합니다. Forseti는 결정을 소유하고 cross-domain conflict의 arbitration을 Odin에 요청합니다. 실행 가능한 결정은 Thor에 도달하며 Var는 사람 승인을, Vidar는 rollback을 소유합니다. Forseti, Thor, Var, Vidar는 Saga에 audit evidence를 발행합니다. Saga outcome은 Norns로 전달되고 Norns는 inert rule candidate를 Mimir에 제안합니다. Bragi는 Muninn에서 context를 읽고 typed action proposal을 Huginn에 보내 conversation도 동일한 governed path를 사용하게 합니다.
+canvas:
+  width: 1200
+  height: 1800
+  direction: DOWN
+  padding: 40
+groups:
+  - id: agent-runtime
+    kind: system
+    label: { en: Schema-validated event-bus choreography, ko: Schema-validated event-bus choreography }
+    direction: DOWN
+nodes:
+  - id: external-signals
+    parent: agent-runtime
+    kind: external
+    label: { en: Signals and operator requests, ko: Signal 및 운영자 요청 }
+  - id: typed-event-bus
+    parent: agent-runtime
+    kind: service
+    label: { en: Shared typed event bus, ko: Shared typed event bus }
+    description: { en: "Schema validation, subscriber isolation, retry, dead-letter, and replay", ko: "Schema validation, subscriber isolation, retry, dead-letter 및 replay" }
+  - id: huginn
+    parent: agent-runtime
+    kind: agent
+    label: { en: Huginn - event owner, ko: Huginn - event owner }
+    description: { en: Normalizes and publishes object.event, ko: object.event를 normalize하고 publish합니다. }
+  - id: heimdall
+    parent: agent-runtime
+    kind: agent
+    label: { en: Heimdall - observer, ko: Heimdall - observer }
+    description: { en: "Anomaly, drift, and forecast findings", ko: "Anomaly, drift 및 forecast finding" }
+  - id: njord
+    parent: agent-runtime
+    kind: agent
+    label: { en: Njord - cost evidence, ko: Njord - cost evidence }
+  - id: freyr
+    parent: agent-runtime
+    kind: agent
+    label: { en: Freyr - capacity evidence, ko: Freyr - capacity evidence }
+  - id: loki
+    parent: agent-runtime
+    kind: agent
+    label: { en: Loki - chaos evidence, ko: Loki - chaos evidence }
+  - id: mimir
+    parent: agent-runtime
+    kind: agent
+    label: { en: Mimir - rules and policy, ko: Mimir - rule 및 policy }
+  - id: muninn
+    parent: agent-runtime
+    kind: agent
+    label: { en: Muninn - state and context, ko: Muninn - state 및 context }
+  - id: forseti
+    parent: agent-runtime
+    kind: agent
+    label: { en: Forseti - decision owner, ko: Forseti - decision owner }
+    description: { en: Sole writer of object.verdict, ko: object.verdict의 sole writer }
+  - id: odin
+    parent: agent-runtime
+    kind: agent
+    label: { en: Odin - arbitration owner, ko: Odin - arbitration owner }
+    description: { en: Resolves cross-domain conflicts, ko: Cross-domain conflict를 해결합니다. }
+  - id: thor
+    parent: agent-runtime
+    kind: agent
+    label: { en: Thor - action owner, ko: Thor - action owner }
+    description: { en: Sole privileged executor, ko: Sole privileged executor }
+  - id: var
+    parent: agent-runtime
+    kind: agent
+    label: { en: Var - approval owner, ko: Var - approval owner }
+  - id: vidar
+    parent: agent-runtime
+    kind: agent
+    label: { en: Vidar - rollback owner, ko: Vidar - rollback owner }
+  - id: saga
+    parent: agent-runtime
+    kind: agent
+    label: { en: Saga - audit owner, ko: Saga - audit owner }
+    description: { en: Append-only terminal evidence, ko: Append-only terminal evidence }
+  - id: norns
+    parent: agent-runtime
+    kind: agent
+    label: { en: Norns - learning candidate owner, ko: Norns - learning candidate owner }
+  - id: bragi
+    parent: agent-runtime
+    kind: agent
+    label: { en: Bragi - conversation translator, ko: Bragi - conversation translator }
+edges:
+  - id: signals-to-bus
+    from: external-signals
+    to: typed-event-bus
+    kind: event
+  - id: bus-to-huginn
+    from: typed-event-bus
+    to: huginn
+    kind: event
+    label: { en: validated event, ko: 검증된 event }
+  - id: huginn-to-heimdall
+    from: huginn
+    to: heimdall
+    kind: event
+    label: { en: concurrent fan-out, ko: concurrent fan-out }
+  - id: huginn-to-forseti
+    from: huginn
+    to: forseti
+    kind: event
+  - id: heimdall-to-forseti
+    from: heimdall
+    to: forseti
+    kind: event
+  - id: njord-to-forseti
+    from: njord
+    to: forseti
+    kind: read
+  - id: freyr-to-forseti
+    from: freyr
+    to: forseti
+    kind: read
+  - id: loki-to-forseti
+    from: loki
+    to: forseti
+    kind: read
+  - id: mimir-to-forseti
+    from: mimir
+    to: forseti
+    kind: read
+    label: { en: governed rules, ko: governed rule }
+  - id: muninn-to-forseti
+    from: muninn
+    to: forseti
+    kind: read
+    label: { en: correlated context, ko: correlated context }
+  - id: forseti-to-odin
+    from: forseti
+    to: odin
+    kind: request
+    label: { en: conflict, ko: conflict }
+  - id: odin-to-forseti
+    from: odin
+    to: forseti
+    kind: event
+    label: { en: arbitration, ko: arbitration }
+  - id: forseti-to-thor
+    from: forseti
+    to: thor
+    kind: request
+    label: { en: eligible decision, ko: 실행 가능한 결정 }
+  - id: thor-to-var
+    from: thor
+    to: var
+    kind: approval
+    label: { en: approval required, ko: 승인 필요 }
+  - id: var-to-thor
+    from: var
+    to: thor
+    kind: approval
+    label: { en: approved or rejected, ko: approved 또는 rejected }
+  - id: thor-to-vidar
+    from: thor
+    to: vidar
+    kind: rollback
+    label: { en: failed action, ko: failed action }
+  - id: vidar-to-thor
+    from: vidar
+    to: thor
+    kind: rollback
+    label: { en: rollback result, ko: rollback result }
+  - id: forseti-to-saga
+    from: forseti
+    to: saga
+    kind: audit
+  - id: thor-to-saga
+    from: thor
+    to: saga
+    kind: audit
+  - id: var-to-saga
+    from: var
+    to: saga
+    kind: audit
+  - id: vidar-to-saga
+    from: vidar
+    to: saga
+    kind: audit
+  - id: saga-to-norns
+    from: saga
+    to: norns
+    kind: event
+    label: { en: measured outcomes, ko: measured outcome }
+  - id: norns-to-mimir
+    from: norns
+    to: mimir
+    kind: write
+    label: { en: inert candidate, ko: inert candidate }
+  - id: bragi-to-muninn
+    from: bragi
+    to: muninn
+    kind: read
+    label: { en: read-only context, ko: read-only context }
+  - id: bragi-to-huginn
+    from: bragi
+    to: huginn
+    kind: request
+    label: { en: typed action proposal, ko: typed action proposal }
+legend:
+  - kind: event
+    label: { en: Typed event, ko: Typed event }
+  - kind: request
+    label: { en: Request, ko: Request }
+  - kind: read
+    label: { en: Evidence read, ko: Evidence read }
+  - kind: approval
+    label: { en: Human approval, ko: 사람 승인 }
+  - kind: rollback
+    label: { en: Rollback, ko: Rollback }
+  - kind: audit
+    label: { en: Audit, ko: Audit }
+  - kind: write
+    label: { en: Candidate, ko: Candidate }

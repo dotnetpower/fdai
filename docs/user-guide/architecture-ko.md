@@ -4,16 +4,17 @@ description: FDAI의 15-agent organization이 event-driven control plane에서 s
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: f3623d0f01da451ca708789bb2341d03403f00b9
-translation_revised: 2026-07-22
+translation_source_sha: 098f661a05d653cf59dfae6fcfe97709ec7dfd42
+translation_revised: 2026-07-23
 ---
 
 # FDAI 아키텍처
 
-FDAI는 thin read-only console, pull-request-native delivery, ChatOps approval을 갖춘
-headless event-driven control plane입니다. Architecture는 관찰, 판단, 승인, 실행, 감사를
-담당하는 component를 분리하여 하나의 surface가 제안을 privileged change로 조용히 바꾸지
-못하게 합니다.
+FDAI는 에이전트 주도 아키텍처를 사용합니다. 독립 실행 가능한 agent가 bounded
+responsibility를 소유하고 schema-validated event를 통해 협업합니다. FDAI는 thin read-only
+console, pull-request-native delivery, ChatOps approval을 갖춘 headless event-driven control
+plane입니다. Architecture는 관찰, 판단, 승인, 실행, 감사를 담당하는 component를 분리하여
+하나의 surface가 제안을 privileged change로 조용히 바꾸지 못하게 합니다.
 
 고정된 15-agent organization은 이러한 responsibility를 명시적으로 만듭니다. Agent는
 control plane 안에서 typed object와 lifecycle role을 소유하며 control loop를 대체하거나
@@ -161,6 +162,18 @@ flowchart LR
   BRA -. question .-> MUN
   BRA -->|typed action proposal| HUG
 ```
+
+Mermaid view를 사용하면 topic ownership을 빠르게 확인할 수 있습니다. 아래에서 생성 도구로
+만든 architecture view는 같은 topology를 사용하여 runtime invariant를 보여 줍니다. Agent는
+independent subscriber로 실행되고 work는 동시에 fan-out될 수 있으며 authoritative object는
+이를 소유한 agent만 publish합니다. Gateway와 worker는 event를 relay하며 숨겨진 decision
+maker가 되지 않습니다.
+
+#### 생성된 에이전트 주도 아키텍처
+
+<fdai-architecture-diagram manifest="../../diagrams/generated/fdai-agent-driven-runtime.manifest.json" locale="ko" style="display:block">
+  <img src="../../diagrams/generated/fdai-agent-driven-runtime.ko.svg" alt="외부 신호가 shared typed event bus로 들어와 Huginn에 도달합니다. Huginn이 발행한 normalized event는 Heimdall과 Forseti로 fan-out됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 finding, domain evidence, rule, context를 제공합니다. Forseti는 결정을 소유하고 cross-domain conflict의 arbitration을 Odin에 요청합니다. 실행 가능한 결정은 Thor에 도달하며 Var는 사람 승인을, Vidar는 rollback을 소유합니다. Forseti, Thor, Var, Vidar는 Saga에 audit evidence를 발행합니다. Saga outcome은 Norns로 전달되고 Norns는 inert rule candidate를 Mimir에 제안합니다. Bragi는 Muninn에서 context를 읽고 typed action proposal을 Huginn에 보내 conversation도 동일한 governed path를 사용하게 합니다." loading="lazy" style="display:block;width:100%;height:auto" />
+</fdai-architecture-diagram>
 
 이 flow는 간단한 rule을 유지합니다. Information은 여러 reader로 fan out할 수 있지만 각
 authoritative object type에는 writer가 하나뿐입니다. 예를 들어 여러 agent가 결정을
