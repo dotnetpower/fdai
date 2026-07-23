@@ -53,9 +53,13 @@ for target in "$@"; do
   fi
 
   if command -v dig >/dev/null 2>&1; then
-    direct_ip="$(dig +short "@${dns_resolver_ip}" "${host}" A | head -1)"
+    direct_ip="$(dig +short "@${dns_resolver_ip}" "${host}" A | awk '
+      /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ { answer = $0 }
+      END { print answer }
+    ')"
     if [[ "${direct_ip}" != "${resolved_ip}" ]]; then
       printf 'error: WSL DNS and Private DNS Resolver disagree for %s\n' "${host}" >&2
+      printf 'Run tools/dev-access/scripts/wsl-dns.sh apply after connecting the VPN.\n' >&2
       exit 1
     fi
   fi

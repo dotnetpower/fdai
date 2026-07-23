@@ -10,6 +10,7 @@ state so the access network can be removed without changing FDAI runtime resourc
 |------|---------|
 | `infra/` | Independent VPN Gateway, Private DNS Resolver, peering, and DNS links. |
 | `scripts/profile.sh` | Generates and validates an Azure VPN Client profile after apply. |
+| `scripts/wsl-dns.sh` | Applies or removes Resolver DNS on the current WSL VPN interface. |
 | `scripts/doctor.sh` | Verifies WSL networking, private DNS, routing, and optional TCP access. |
 
 ## Isolation boundary
@@ -87,6 +88,18 @@ tools/dev-access/scripts/profile.sh
 
 Import `tools/dev-access/.profiles/azurevpnconfig.xml` into Azure VPN Client, then connect with the
 Entra account authorized by the tenant's Conditional Access and MFA policy.
+
+WSL normally receives the VPN DNS policy through DNS tunneling. If the distribution manages
+`/etc/resolv.conf` itself or pins `systemd-resolved` to another DNS service, apply the Resolver to
+the mirrored VPN interface after each connection:
+
+```bash
+tools/dev-access/scripts/wsl-dns.sh apply
+```
+
+The setting belongs to the transient VPN interface. Disconnecting the VPN removes that interface
+and restores the distribution's existing DNS behavior. You can remove it before disconnecting with
+`tools/dev-access/scripts/wsl-dns.sh revert`.
 
 ## Verify private access
 

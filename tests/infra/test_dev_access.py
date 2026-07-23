@@ -56,6 +56,7 @@ def test_dev_access_owns_only_removable_fdai_connections() -> None:
 def test_dev_access_ships_repeatable_client_checks() -> None:
     profile = (_DEV_ACCESS / "scripts" / "profile.sh").read_text(encoding="utf-8")
     doctor = (_DEV_ACCESS / "scripts" / "doctor.sh").read_text(encoding="utf-8")
+    wsl_dns = (_DEV_ACCESS / "scripts" / "wsl-dns.sh").read_text(encoding="utf-8")
 
     assert "az network vnet-gateway vpn-client generate" in profile
     assert "terraform output -raw dns_resolver_inbound_ip" in profile
@@ -63,3 +64,7 @@ def test_dev_access_ships_repeatable_client_checks() -> None:
     assert "networkingMode=mirrored" in doctor
     assert "dnsTunneling=true" in doctor
     assert "getent ahostsv4" in doctor
+    assert "END { print answer }" in doctor
+    assert 'ACTION="${1:-apply}"' in wsl_dns
+    assert "resolvectl dnsovertls" in wsl_dns
+    assert "wsl.exe" in wsl_dns
