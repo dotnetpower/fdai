@@ -563,6 +563,9 @@ def _locale_directive(locale: str) -> str:
     """
     return (
         f"L3 rendering: answer in the operator's language (BCP-47 '{locale}'). "
+        "Use fluent standard spelling and silently proofread the final prose for "
+        "malformed words, accidental character sequences, duplicated fragments, "
+        "and accidental language mixing. "
         "Keep every id, number, tool output, code fragment, and column name "
         "verbatim in English - only the surrounding prose is localised."
     )

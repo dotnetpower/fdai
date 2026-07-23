@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 1703248bdfc9bfe452bc02998f169176c1e0d22f
-translation_revised: 2026-07-22
+translation_source_sha: ba3f666391d5e6348e5074c3e872e466ff4643a8
+translation_revised: 2026-07-23
 ---
 
 # Operator Console - Narrator, DI Seams, and Session Model
@@ -270,7 +270,10 @@ class ConversationSession:
   Full-workspace에서 Activity Bar group을 선택하면 Deck을 닫고 해당 group의 첫 visible
   하위 page를 열며, 그 외에는 명시적인 닫기 action 또는 `Escape`로 닫는다. L3 응답 언어는 현재 turn을 따름: console display
   locale이 영어여도 한국어 prompt에는 한국어로 답변. 그 외에는 operator가
-  설정한 locale이 응답 언어를 제어.
+  설정한 locale이 응답 언어를 제어. Localized prose를 반환하기 전에 narrator는
+  표준 철자를 사용하고 malformed 또는 nonsensical word, 우발적 character sequence,
+  duplicated fragment 및 우발적 language mixing을 제거합니다. Evidence value, identifier,
+  code 및 tool output은 verbatim으로 유지합니다.
   탐색 목록은 대화를 **현재 화면**, **다른 화면**, **에이전트**로 그룹화.
   각 pathname은 제거할 수 없는 기본 화면 대화 하나를 소유. **새 대화**는 현재
   pathname에 대한 빈 임시 thread를 만들고, 첫 operator turn을 보낸 뒤에만 해당

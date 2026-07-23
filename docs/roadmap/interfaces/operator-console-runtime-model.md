@@ -280,7 +280,10 @@ class ConversationSession:
   opens that group's first visible child page; otherwise explicit close or `Escape` dismisses it.
   L3 response language follows the current turn: a Korean prompt renders a
   Korean answer even when the console display locale is English. Otherwise,
-  the operator's configured locale controls the answer language.
+  the operator's configured locale controls the answer language. Before returning localized
+  prose, the narrator uses standard spelling and removes malformed or nonsensical words,
+  accidental character sequences, duplicated fragments, and accidental language mixing. It
+  preserves evidence values, identifiers, code, and tool output verbatim.
   The navigation list groups conversations as **Current screen**, **Other
   screens**, and **Agents**. Each pathname owns one non-removable default
   screen conversation. **New conversation** creates an ephemeral empty thread
