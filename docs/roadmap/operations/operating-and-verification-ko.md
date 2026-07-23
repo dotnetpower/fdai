@@ -1,8 +1,8 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: 70d7bf075657b0863c386f2c8ca754b1b9479f81
-translation_revised: 2026-07-21
+translation_source_sha: 9781f7d0881957685241611dea1d0b140c7cdf8c
+translation_revised: 2026-07-23
 ---
 
 # 운영과 검증(Operating and Verification)
@@ -44,6 +44,29 @@ translation_revised: 2026-07-21
 > deploy-time publisher smoke가 구현되어 있습니다. 전체 signal exporter, alert-rule mapping,
 > audit-freshness SLO 및 scheduled operational drill은 production readiness 작업으로 남아 있습니다.
 > 이 표는 필요한 health contract이며 모든 alert가 현재 provision되었다는 뜻은 아닙니다.
+
+### Startup Readiness 대응
+
+Process가 응답할 수 있는지는 `/live`로 확인하고 event를 처리할 수 있는지는 `/ready`로
+확인합니다. `503` response는 process-critical startup probe가 missing, stale, timed out, crashed
+또는 failed 상태임을 뜻합니다. `/ready`가 닫힌 동안 consumer나 Pantheon을 수동으로 다시 시작하지
+않는 것이 좋습니다.
+
+1. StateStore key `runtime:startup-readiness:latest`에서 정제된 latest report를 읽습니다. 먼저
+  `decision`, `missing_probe_ids`, `stale_probe_ids` 및 각 result의 `failure_class`를 확인합니다.
+2. 결정 변경을 `startup_readiness.transition` audit record 및 schema-validated
+  `readiness_transition` event와 연관시킵니다. Publish failure에는 별도
+  `startup_readiness.transition_publish_failed` audit record가 있습니다.
+3. 이름이 지정된 dependency 또는 capability를 FDAI process 밖에서 복구합니다. Provider error
+  text, endpoint value, token 또는 customer identifier를 report나 operator note에 넣지 않습니다.
+4. 구성된 periodic refresh를 기다립니다. 복구된 process-critical probe는 `/ready`를 다시 열고
+  guarded worker를 재시작합니다. 복구된 capability는 deployment promotion state보다 authority를
+  높이지 않습니다.
+
+`degraded`이면 `/ready`는 열어 두되 `authority_ceilings`를 확인합니다. `shadow`,
+`human_approval`, `deterministic_fallback` 및 `disabled`는 예상된 안전 대응이며 quality gate 또는
+promotion registry를 우회할 권한이 아닙니다. Probe budget과 registered-destination contract는
+[startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md#제공되는-runtime-경계)를 참조하세요.
 
 신호는 OpenTelemetry로 설정된 backend로 emit
 ([deployment-ko.md#observability-slos-and-alerting](../deployment/deployment-ko.md#observability-slos-and-alerting)).

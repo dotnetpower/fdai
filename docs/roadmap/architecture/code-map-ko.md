@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7a2df085a8b5400b493419126bd9f439a8fa6e73
+translation_source_sha: 44ec6e6b3cdc54dca338a5649a6b9e00f5a2197f
 translation_revised: 2026-07-23
 ---
 # 코드 맵
@@ -115,7 +115,7 @@ shared 패키지를 커버한다.
 | rule_catalog_profiles | 프로파일 / 팩 레이어 + `extends` 오버라이드 | [src/fdai/core/rule_catalog_profiles/](../../../src/fdai/core/rule_catalog_profiles/) | [tests/core/rule_catalog_profiles/](../../../tests/core/rule_catalog_profiles/) |
 | deploy_preflight | 배포 전 실현성 프로브 | [src/fdai/core/deploy_preflight/](../../../src/fdai/core/deploy_preflight/) | [tests/core/deploy_preflight/](../../../tests/core/deploy_preflight/) |
 | onboarding | 테넌트 / 환경 온보딩 흐름 | [src/fdai/core/onboarding/](../../../src/fdai/core/onboarding/) | [tests/core/](../../../tests/core/) |
-| readiness | grounding된 준비도 리포트 | [src/fdai/core/readiness/](../../../src/fdai/core/readiness/) | [tests/core/](../../../tests/core/) |
+| readiness | 운영 handoff와 deterministic startup probe contract, fail-closed reduction, authority ceiling, durable transition 및 runtime gating ([설계](../operations/startup-and-lifecycle-ko.md)) | [src/fdai/core/readiness/](../../../src/fdai/core/readiness/), [src/fdai/runtime/readiness.py](../../../src/fdai/runtime/readiness.py), [src/fdai/delivery/startup_probe.py](../../../src/fdai/delivery/startup_probe.py) 및 [src/fdai/delivery/startup_model_probe.py](../../../src/fdai/delivery/startup_model_probe.py) | [tests/core/readiness/](../../../tests/core/readiness/), [tests/runtime/test_readiness.py](../../../tests/runtime/test_readiness.py) 및 [tests/delivery/test_startup_probe.py](../../../tests/delivery/test_startup_probe.py) |
 | assurance_twin | Read-only 온톨로지 트윈 (실행 금지) | [src/fdai/core/assurance_twin/](../../../src/fdai/core/assurance_twin/) | [tests/core/assurance_twin/](../../../tests/core/assurance_twin/) |
 | architecture_review | Architecture-review manifest -> governed ontology projection | [src/fdai/core/architecture_review/](../../../src/fdai/core/architecture_review/) | [tests/core/architecture_review/](../../../tests/core/architecture_review/) |
 | workflow | Version-pinned WorkflowDefinition과 principal binding을 컴파일 및 실행하고 Process journal과 projection retry 관리 | [src/fdai/core/workflow/](../../../src/fdai/core/workflow/) | [tests/core/workflow/](../../../tests/core/workflow/) |

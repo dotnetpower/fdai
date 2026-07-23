@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c9fac0fa586382e88779c65731c058e6b393698a
+translation_source_sha: 14832d99dc3669b4b0bb02f043a25a25262d0f27
 translation_revised: 2026-07-23
 ---
 
@@ -62,6 +62,7 @@ fdai/
 │   │   ├── measurement/        # Phase-4 지속 측정 (regression, pattern growth, model tracking, latency budget, prompt probe, runners)
 │   │   ├── mscp_profile/       # 실행 authority 없는 순수 mscp-operational-v1 provenance, effect verification, cycle guard 및 runtime-integrity policy
 │   │   ├── deploy_preflight/   # 배포 전 feasibility 프로브 → grounded readiness 리포트
+│   │   ├── readiness/          # 운영 handoff + deterministic startup contract, reducer, evidence expiry 및 authority ceiling
 │   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query 리뷰 / Q&A / assessment (제안만, 실행 안 함)
 │   │   ├── conversation/       # Operator console 조정, safe attachment metadata, exact ref, per-turn processing/delivery isolation, post-ingestion dedup, durable delivery, adapter health 및 busy-input arbitration
 │   │   ├── user_context_projection.py  # principal context / workflow binding metadata만 runtime ontology에 projection
@@ -113,7 +114,7 @@ fdai/
 │   │   └── codegen/            # 저작 헬퍼 (`new_action_type`, `new_object_type`) - 스캐폴드 생성만, 라이브 카탈로그 변경 안 함
 │   ├── agents/                # 판테온 런타임 - 15개 이름있는 에이전트 모듈 (odin / thor / forseti / huginn / heimdall / ...), 타입드 토픽 + 버스, 어댑터 + 레지스트리; [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md) 참조
 │   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` (파사드 + `default_container` + `default_container_from_env`) + `_helpers.py` (Container / LlmBindings / LlmBindingsUnavailableError) + `wire_capabilities.py` (검증된 fork CapabilityBundle installer) + `wire_llm.py` (Azure OpenAI LLM 바인더) + `wire_azure.py` (fork-wire 컨테이너 + `AzureWireOverrides`) + `wire_change_feed.py` (Azure DevOps / GitHub change-feed 팩토리) + `wire_metric_provider.py` (MetricProvider 바인더; `FDAI_MONITOR_WORKSPACE_ID` 세팅 시 Azure Monitor Logs 자동 바인드 - LOC 상한 유지를 위해 `wire_azure`에서 분리, G-4)
-│   ├── runtime/               # Norns에 연결되는 durable post-turn review를 포함한 headless lifecycle 및 composition
+│   ├── runtime/               # Pantheon 전 startup readiness, continuous worker gating 및 Norns에 연결되는 durable post-turn review를 포함한 headless lifecycle/composition
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
 ├── rule-catalog/              # catalog-as-code 데이터 (YAML) - Python 아님; 파이프라인은 src/fdai/rule_catalog/ 에
 │   ├── schema/                 # JSON Schema 정의 (데이터)

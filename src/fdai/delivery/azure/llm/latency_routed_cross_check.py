@@ -172,6 +172,10 @@ class LatencyRoutedCrossCheckModel:
             for name, _ in self._candidates
         ]
 
+    def startup_candidates(self) -> tuple[CrossCheckModel, ...]:
+        """Expose every bound candidate for startup proof without deployment metadata."""
+        return tuple(model for _, model in self._candidates)
+
     async def propose(self, candidate: QualityCandidate) -> tuple[str, Mapping[str, Any]]:
         """Try same-publisher candidates in bounded latency order."""
         attempted: set[str] = set()

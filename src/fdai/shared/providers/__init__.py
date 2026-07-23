@@ -226,6 +226,7 @@ from .secret_provider import SecretNotFoundError, SecretProvider
 from .shell_checker import ShellCheckIssue, ShellCheckReport, ShellTaskChecker
 from .shell_task import ShellTaskFile, ShellTaskSpec
 from .sse import SseEvent, SseSink
+from .startup_probe import StartupProbe, StartupProbeRequest
 from .state_store import StateStore
 from .user_context import (
     ConversationHistoryStore,
@@ -433,6 +434,8 @@ __all__ = [
     "SseEvent",
     "SseSink",
     "StateStore",
+    "StartupProbe",
+    "StartupProbeRequest",
     "StaticHumanIdentityDirectory",
     "StoredObjectInfo",
     "UploadGrant",

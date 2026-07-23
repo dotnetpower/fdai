@@ -26,6 +26,7 @@ from ..core.quality_gate.gate import CrossCheckModel
 from ..core.quality_gate.judge import JudgeModel
 from ..core.quality_gate.rubric import RubricEvaluator
 from ..core.rca import RcaReasoner
+from ..core.readiness import StartupProbeResult, StartupProbeSpec
 from ..core.tiers.t1_lightweight.tier import EmbeddingModel
 from ..core.tiers.t2_reasoning import T2Proposer
 from ..core.trajectory import TrajectoryJoinService
@@ -47,6 +48,7 @@ from ..shared.providers.manual_classifier import (
 )
 from ..shared.providers.manual_source import EmptyManualSource, ManualSource
 from ..shared.providers.metric import MetricProvider, NoopMetricProvider
+from ..shared.providers.startup_probe import StartupProbe
 from ..shared.providers.trace_query import NoopTraceQueryProvider, TraceQueryProvider
 from ..shared.providers.trajectory import TrajectoryDatasetStore
 
@@ -149,6 +151,8 @@ class Container:
     event_validator: EventValidator
     exemption_registry: ExemptionRegistry
     feasibility_probes: tuple[FeasibilityProbe, ...] = ()
+    startup_probe_specs: tuple[StartupProbeSpec, ...] = ()
+    startup_probes: tuple[StartupProbe[StartupProbeResult], ...] = ()
     ontology_object_types: tuple[OntologyObjectType, ...] = ()
     ontology_link_types: tuple[OntologyLinkType, ...] = ()
     workflows: tuple[Workflow, ...] = ()

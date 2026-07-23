@@ -59,8 +59,11 @@ The following rules apply to future deployments that enable scale-to-zero:
 
 Before `/ready` opens, the runtime should evaluate a dependency-specific startup preflight, separate from provisioning-focused deployment preflight and active post-deploy smoke tests.
 
-> **Implementation status**: The individual checks exist, but the coordinator that assembles one
-> `StartupReadinessReport` and applies the rules below is not wired yet.
+> **Implementation status**: The headless runtime now assembles one deterministic
+> `StartupReadinessReport` before it starts the Pantheon or event consumers. The standard probe
+> inventory covers loaded config/catalog/policy, secret injection, workload identity, state,
+> audit, kill-switch, Kafka round trip, embeddings, and every bound T2 cross-check candidate.
+> Forks register enabled optional destinations through the same injected probe seam.
 
 ### Phases and decisions
 
@@ -114,6 +117,43 @@ transitions. Recovery can restore `ready`, never authority above the deployment'
 - **Authority-critical**: unreadable kill-switch, missing T2 verification, or unavailable approval forces shadow or Human approval. It never enables an unverified automatic action.
 - **Optional capability**: narrator, search, notification, or telemetry failure is `degraded` with a deterministic fallback or disabled state, never healthy.
 - **Probe safety**: checks are bounded, safe to retry, sanitized, and read-only except on dedicated synthetic resources. A partial required probe produces `blocked`, never `ready`.
+
+### Shipped runtime boundary
+
+The provider-neutral contracts and reducer live under `core/readiness`. Probe implementations
+live under `delivery`, while `runtime/readiness.py` composes four ordered phases. A phase runs with
+bounded concurrency, but the next phase does not start until the current phase completes. The
+coordinator enforces per-probe and phase deadlines, retries, a total startup cost limit, and at
+least two samples for each enabled model candidate.
+
+The runtime persists only sanitized evidence in `runtime:startup-readiness:latest`. A decision
+change appends an audit record and publishes a JSON-Schema-validated
+`readiness_transition` event. Provider error text, credentials, endpoint values, deployment names,
+and customer identifiers are not part of the report or transition payload.
+
+`/live` reports process liveness independently. `/ready` returns `503` for `blocked`; the core
+consumer, discovery, canary, Human approval, retention, runtime-state, and Pantheon tasks remain
+stopped. Periodic refresh cancels running tasks when a process-critical dependency becomes blocked
+and restarts them after recovery. Recovery reuses the deployment ceilings supplied at composition
+and cannot promote authority.
+
+You can tune the bounded runner with `FDAI_STARTUP_MAX_CONCURRENCY`,
+`FDAI_STARTUP_PROBE_TIMEOUT_SECONDS`, `FDAI_STARTUP_PHASE_TIMEOUT_SECONDS`,
+`FDAI_STARTUP_PROBE_RETRIES`, `FDAI_STARTUP_COST_LIMIT_USD`,
+`FDAI_STARTUP_MODEL_SAMPLE_COUNT`, and `FDAI_STARTUP_REFRESH_SECONDS`. Enabled optional adapters
+should register a `StartupProbeSpec` and `StartupProbe`; they should not add a blanket connectivity
+flag.
+
+### Live validation evidence
+
+On 2026-07-23, a VNet-integrated self-hosted runner performed bounded checks against the existing
+development dependencies. PostgreSQL resolved and accepted TCP plus a protocol-aware TLS
+handshake. Event Hubs resolved and accepted Kafka-port TCP/TLS. The configured model endpoint
+resolved to a private address and accepted TCP/TLS. A minimal managed-identity model operation
+returned `401`, so the probe correctly classified the model path as degraded instead of recording
+healthy capability evidence. A controlled refused destination reduced to `blocked` with a
+sanitized `ConnectionRefusedError` class. The temporary validation role was removed and the
+database and runner were returned to their prior stopped/deallocated states after the check.
 
 ## Initial Rule Catalog State
 

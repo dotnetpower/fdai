@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -21,7 +22,13 @@ _RESPONSE_NOT_FOUND: Final[bytes] = (
     b"Connection: close\r\n\r\n"
     b'{"status":"not-found"}'
 )
-_HEALTH_PATHS: Final[frozenset[bytes]] = frozenset({b"/live", b"/ready"})
+_RESPONSE_NOT_READY: Final[bytes] = (
+    b"HTTP/1.1 503 Service Unavailable\r\n"
+    b"Content-Type: application/json\r\n"
+    b"Content-Length: 24\r\n"
+    b"Connection: close\r\n\r\n"
+    b'{"status":"not-ready"}'
+)
 
 
 @dataclass(slots=True)
@@ -30,6 +37,7 @@ class RuntimeHealthServer:
 
     port: int
     host: str = "0.0.0.0"  # noqa: S104 - Container Apps probes connect through the pod IP
+    readiness: Callable[[], bool] = field(default=lambda: True, repr=False)
     _server: asyncio.Server | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -59,11 +67,13 @@ class RuntimeHealthServer:
                 response = _RESPONSE_NOT_FOUND
             else:
                 parts = line.split(b" ", 2)
-                response = (
-                    _RESPONSE_OK
-                    if len(parts) >= 2 and parts[0] == b"GET" and parts[1] in _HEALTH_PATHS
-                    else _RESPONSE_NOT_FOUND
-                )
+                is_get = len(parts) >= 2 and parts[0] == b"GET"
+                if is_get and parts[1] == b"/live":
+                    response = _RESPONSE_OK
+                elif is_get and parts[1] == b"/ready":
+                    response = _RESPONSE_OK if self.readiness() else _RESPONSE_NOT_READY
+                else:
+                    response = _RESPONSE_NOT_FOUND
             writer.write(response)
             await writer.drain()
         finally:

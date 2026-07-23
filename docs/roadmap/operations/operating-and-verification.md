@@ -43,6 +43,32 @@ Signals a healthy deployment MUST emit continuously. Every signal maps 1:1 to an
 > readiness work. This table is the required health contract, not a claim that every alert is
 > currently provisioned.
 
+### Startup readiness response
+
+Use `/live` to determine whether the process can answer, and use `/ready` to determine whether it
+may process events. A `503` response means a process-critical startup probe is missing, stale,
+timed out, crashed, or failed. Don't restart consumers or the Pantheon manually while `/ready`
+remains closed.
+
+1. Read the sanitized latest report at the StateStore key
+  `runtime:startup-readiness:latest`. Start with `decision`, `missing_probe_ids`,
+  `stale_probe_ids`, and each result's `failure_class`.
+2. Correlate a decision change with the `startup_readiness.transition` audit record and the
+  schema-validated `readiness_transition` event. A publish failure has its own
+  `startup_readiness.transition_publish_failed` audit record.
+3. Repair the named dependency or capability outside the FDAI process. Avoid placing provider
+  error text, endpoint values, tokens, or customer identifiers into the report or an operator
+  note.
+4. Wait for the configured periodic refresh. A recovered process-critical probe reopens `/ready`
+  and restarts guarded workers. A recovered capability does not raise authority above its
+  deployment promotion state.
+
+For `degraded`, keep `/ready` open but inspect `authority_ceilings`. `shadow`, `human_approval`,
+`deterministic_fallback`, and `disabled` are expected safety responses, not permission to bypass
+the quality gate or promotion registry. See
+[startup-and-lifecycle.md](startup-and-lifecycle.md#shipped-runtime-boundary) for probe budgets and
+the registered-destination contract.
+
 Signals emit via OpenTelemetry to the configured backend
 ([deployment.md#observability-slos-and-alerting](../deployment/deployment.md#observability-slos-and-alerting)).
 

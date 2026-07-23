@@ -27,12 +27,14 @@ from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
+from fdai.core.readiness import AuthorityCeiling
 from fdai.delivery.read_api.streaming.agent_activity_stream import (
     runtime_agent_state_snapshot,
 )
 from fdai.delivery.read_api.streaming.agent_runtime_state_publisher import (
     AgentRuntimeStatePublisher,
 )
+from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
     CaseHistoryRuntime,
@@ -46,6 +48,8 @@ from fdai.runtime.configuration import (
     _attach_runtime_metric_provider,
     _finalize_llm_bindings,
     _new_http_client,
+    _resolve_catalog_root,
+    _resolve_policies_root,
     _summarize_config,
 )
 from fdai.runtime.consumers import (
@@ -71,6 +75,10 @@ from fdai.runtime.providers import (
     _build_audit_store,
     _build_inventory_delta_projector,
     _build_operator_memory_store,
+)
+from fdai.runtime.readiness import (
+    StartupReadinessRuntime,
+    build_startup_readiness_runtime,
 )
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
@@ -159,6 +167,7 @@ async def _run() -> int:
     health_server: RuntimeHealthServer | None = None
     case_history_runtime: CaseHistoryRuntime | None = None
     case_history_retention_publisher: CaseHistoryRetentionTickPublisher | None = None
+    startup_readiness_runtime: StartupReadinessRuntime | None = None
 
     try:
         telemetry_requested = bool(
@@ -339,6 +348,31 @@ async def _run() -> int:
                     "group_id": "fdai-core",
                 },
             )
+            startup_readiness_runtime = build_startup_readiness_runtime(
+                state_store=incident_audit_store,
+                event_bus=bus,
+                event_validator=container.event_validator,
+                identity=identity,
+                embedding_model=container.require_llm_bindings().embedding_model,
+                policy_compile_probe=OpaCompileStartupProbe(
+                    probe_id="policy.compile",
+                    policies_root=_resolve_policies_root(_resolve_catalog_root()),
+                ),
+                cross_check_models=container.require_llm_bindings().cross_check_models,
+                environment=os.environ,
+                registered_specs=container.startup_probe_specs,
+                registered_probes=container.startup_probes,
+            )
+            startup_report = await startup_readiness_runtime.evaluate()
+            _LOGGER.info(
+                "startup_readiness_evaluated",
+                extra={
+                    "decision": startup_report.decision.value,
+                    "probe_count": len(startup_report.results),
+                    "missing_count": len(startup_report.missing_probe_ids),
+                    "stale_count": len(startup_report.stale_probe_ids),
+                },
+            )
 
             # Pantheon: the 15 named agents consume the same
             # ingress topic under distinct consumer groups (fan-out) and
@@ -354,6 +388,11 @@ async def _run() -> int:
                     "1",
                     "true",
                 )
+                if (
+                    startup_report.authority_ceilings.get("autonomous-action")
+                    is not AuthorityCeiling.DEPLOYMENT
+                ):
+                    pantheon_enforce = False
                 disabled_raw = os.environ.get("FDAI_PANTHEON_DISABLED_AGENTS", "").strip()
                 disabled_agents = (
                     frozenset(n.strip() for n in disabled_raw.split(",") if n.strip())
@@ -499,7 +538,12 @@ async def _run() -> int:
                 health_port = int(health_port_raw)
             except ValueError as port_error:
                 raise RuntimeError("FDAI_HEALTH_PORT MUST be an integer") from port_error
-            health_server = RuntimeHealthServer(port=health_port)
+            if startup_readiness_runtime is None:
+                raise RuntimeError("FDAI_HEALTH_PORT requires startup readiness composition")
+            health_server = RuntimeHealthServer(
+                port=health_port,
+                readiness=startup_readiness_runtime.state.is_ready,
+            )
             await health_server.start()
             _LOGGER.info("health_server_ready", extra={"port": health_port})
 
@@ -513,31 +557,41 @@ async def _run() -> int:
         for sig in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(sig, _signal_stop, sig.name)
 
-        if bus is not None and control_loop is not None:
+        if bus is not None and control_loop is not None and startup_readiness_runtime is not None:
+            readiness_refresh_task = asyncio.create_task(
+                startup_readiness_runtime.refresh_until_stopped(stop),
+                name="startup-readiness-refresh",
+            )
             consumer_task = asyncio.create_task(
-                _consume(
-                    bus=bus,
-                    topic=container.config.kafka.topic_events,
-                    group_id=os.environ.get(
-                        "FDAI_CORE_CONSUMER_GROUP_ID",
-                        "fdai-core",
-                    ).strip(),
-                    control_loop=control_loop,
-                    stop=stop,
-                    divergence=divergence_ledger,
-                    irp_handler=_build_irp_event_handler(container=container, bus=bus),
+                startup_readiness_runtime.run_when_ready(
+                    stop,
+                    lambda: _consume(
+                        bus=bus,
+                        topic=container.config.kafka.topic_events,
+                        group_id=os.environ.get(
+                            "FDAI_CORE_CONSUMER_GROUP_ID",
+                            "fdai-core",
+                        ).strip(),
+                        control_loop=control_loop,
+                        stop=stop,
+                        divergence=divergence_ledger,
+                        irp_handler=_build_irp_event_handler(container=container, bus=bus),
+                    ),
                 )
             )
             resource_change_task: asyncio.Task[None] | None = None
             inventory_raw_topic = os.environ.get("FDAI_INVENTORY_RAW_TOPIC", "").strip()
             if inventory_raw_topic:
                 resource_change_task = asyncio.create_task(
-                    _consume_resource_changes(
-                        bus=operational_bus,
-                        raw_topic=inventory_raw_topic,
-                        canonical_topic=container.config.kafka.topic_events,
-                        resource_types=_load_resource_types(),
-                        stop=stop,
+                    startup_readiness_runtime.run_when_ready(
+                        stop,
+                        lambda: _consume_resource_changes(
+                            bus=operational_bus,
+                            raw_topic=inventory_raw_topic,
+                            canonical_topic=container.config.kafka.topic_events,
+                            resource_types=_load_resource_types(),
+                            stop=stop,
+                        ),
                     ),
                     name="huginn-resource-discovery",
                 )
@@ -545,11 +599,14 @@ async def _run() -> int:
             canary_topic = os.environ.get("FDAI_CANARY_TOPIC", "").strip()
             if canary_topic:
                 canary_task = asyncio.create_task(
-                    _consume_canaries(
-                        bus=operational_bus,
-                        topic=canary_topic,
-                        control_loop=control_loop,
-                        stop=stop,
+                    startup_readiness_runtime.run_when_ready(
+                        stop,
+                        lambda: _consume_canaries(
+                            bus=operational_bus,
+                            topic=canary_topic,
+                            control_loop=control_loop,
+                            stop=stop,
+                        ),
                     ),
                     name="canary-consumer",
                 )
@@ -557,12 +614,19 @@ async def _run() -> int:
             if control_loop._hil_resume_coordinator is not None:
                 from fdai.delivery.chatops.hil_decision import DEFAULT_HIL_DECISION_TOPIC
 
+                hil_coordinator = control_loop._hil_resume_coordinator
                 hil_decision_task = asyncio.create_task(
-                    _consume_hil_decisions(
-                        bus=bus,
-                        topic=os.environ.get("FDAI_HIL_DECISION_TOPIC", DEFAULT_HIL_DECISION_TOPIC),
-                        coordinator=control_loop._hil_resume_coordinator,
-                        stop=stop,
+                    startup_readiness_runtime.run_when_ready(
+                        stop,
+                        lambda: _consume_hil_decisions(
+                            bus=bus,
+                            topic=os.environ.get(
+                                "FDAI_HIL_DECISION_TOPIC",
+                                DEFAULT_HIL_DECISION_TOPIC,
+                            ),
+                            coordinator=hil_coordinator,
+                            stop=stop,
+                        ),
                     ),
                     name="hil-decision-consumer",
                 )
@@ -578,22 +642,31 @@ async def _run() -> int:
             case_history_retention_task: asyncio.Task[None] | None = None
             if pantheon_runtime is not None:
                 pantheon_task = asyncio.create_task(
-                    pantheon_runtime.run(heartbeat_interval=pantheon_heartbeat),
+                    startup_readiness_runtime.run_when_ready(
+                        stop,
+                        lambda: pantheon_runtime.run(heartbeat_interval=pantheon_heartbeat),
+                    ),
                     name="pantheon-runtime",
                 )
                 pantheon_task.add_done_callback(_log_pantheon_exit)
             if runtime_state_publisher is not None:
                 runtime_state_task = asyncio.create_task(
-                    runtime_state_publisher.run(),
+                    startup_readiness_runtime.run_when_ready(
+                        stop,
+                        runtime_state_publisher.run,
+                    ),
                     name="pantheon-runtime-state",
                 )
             if case_history_retention_publisher is not None:
                 case_history_retention_task = asyncio.create_task(
-                    case_history_retention_publisher.run(stop=stop),
+                    startup_readiness_runtime.run_when_ready(
+                        stop,
+                        lambda: case_history_retention_publisher.run(stop=stop),
+                    ),
                     name="case-history-retention-ticks",
                 )
 
-            wait_set = {consumer_task, wait_task}
+            wait_set = {consumer_task, readiness_refresh_task, wait_task}
             if resource_change_task is not None:
                 wait_set.add(resource_change_task)
             if canary_task is not None:
@@ -607,6 +680,7 @@ async def _run() -> int:
                 return_when=asyncio.FIRST_COMPLETED,
             )
             consumer_task.cancel()
+            readiness_refresh_task.cancel()
             wait_task.cancel()
             if resource_change_task is not None:
                 resource_change_task.cancel()
@@ -625,7 +699,11 @@ async def _run() -> int:
             # before we tear down the bus / HTTP client in the outer
             # ``finally``. Without this a cancelled consumer can be
             # racing the aiokafka close and log noisy warnings on exit.
-            cleanup_tasks: list[asyncio.Task[Any]] = [consumer_task, wait_task]
+            cleanup_tasks: list[asyncio.Task[Any]] = [
+                consumer_task,
+                readiness_refresh_task,
+                wait_task,
+            ]
             if resource_change_task is not None:
                 cleanup_tasks.append(resource_change_task)
             if canary_task is not None:

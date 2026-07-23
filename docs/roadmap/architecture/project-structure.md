@@ -57,6 +57,7 @@ fdai/
 │   │   ├── measurement/        # Phase-4 continuous measurement (regression, pattern growth, model tracking, latency budget, prompt probe, runners)
 │   │   ├── mscp_profile/       # pure mscp-operational-v1 provenance, effect verification, cycle guard, and runtime-integrity policies; no execution authority
 │   │   ├── deploy_preflight/   # pre-deployment feasibility probes → grounded readiness report
+│   │   ├── readiness/          # operational handoff + deterministic startup contracts, reducer, evidence expiry, and authority ceilings
 │   │   ├── assurance_twin/     # read-only ontology twin: text-to-query review / Q&A / assessment (proposes, never executes)
 │   │   ├── conversation/       # operator-console coordination, safe attachment metadata, exact refs, per-turn processing/delivery isolation, post-ingestion dedup, durable delivery, adapter health, and busy-input arbitration
 │   │   ├── user_context_projection.py  # metadata-only principal context / workflow binding projection into runtime ontology
@@ -108,7 +109,7 @@ fdai/
 │   │   └── codegen/            # authoring helpers (`new_action_type`, `new_object_type`) - generate scaffolds, never mutate the live catalog
 │   ├── agents/                # pantheon runtime - 15 named agent modules (odin / thor / forseti / huginn / heimdall / ...), typed topics + bus, adapters + registry; see [agent-pantheon.md](../agents/agent-pantheon.md)
 │   ├── composition/           # composition root package (G-3, tracker #14): `__init__.py` (facade + `default_container` + `default_container_from_env`) + `_helpers.py` (Container / LlmBindings / LlmBindingsUnavailableError) + `wire_capabilities.py` (validated fork CapabilityBundle installer) + `wire_llm.py` (Azure OpenAI LLM binder) + `wire_azure.py` (fork-wire container + `AzureWireOverrides`) + `wire_change_feed.py` (Azure DevOps / GitHub change-feed factories) + `wire_metric_provider.py` (MetricProvider binder; Azure Monitor Logs auto-bind when `FDAI_MONITOR_WORKSPACE_ID` is set - split out of `wire_azure` to hold the LOC ceiling, G-4)
-│   ├── runtime/               # headless lifecycle and composition, including durable post-turn review wiring into Norns
+│   ├── runtime/               # headless lifecycle and composition, including pre-Pantheon startup readiness, continuous worker gating, and durable post-turn review wiring into Norns
 │   └── __main__.py            # entry point (starts the P1 control loop)
 ├── rule-catalog/              # catalog-as-code DATA (YAML) - no Python; pipeline lives in src/fdai/rule_catalog/
 │   ├── schema/                 # JSON Schema definitions (data)
