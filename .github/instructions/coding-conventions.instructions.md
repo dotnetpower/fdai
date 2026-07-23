@@ -70,6 +70,16 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
   is built until it is scoped in a future phase.
 - Make behavior configuration-driven; do not bury environment specifics in code. Configuration
   MUST be validated against a schema at startup and the process MUST fail fast on invalid config.
+- **Capability flags MUST separate `available`, `enabled`, and authority / `mode`.** Availability covers
+  prerequisites and terms; enabled is preference; authority controls observe / simulate / execute.
+- A complete user-facing capability SHOULD start enabled once available and MUST expose Settings
+  state, prerequisites, and an unavailable reason. Authorized changes use concurrency plus audit
+  without redeploy; env / IaC is a ceiling, not the only control. Hidden env-only flags are incomplete.
+- External-transfer or billed tools, secret-backed channels, privileged mutations, previews, and test
+  fakes stay unavailable until gated; then default enabled unless the owning design records why not.
+- Enabling MUST NOT raise autonomy: shadow promotion, RBAC, risk, approval, verification, rollback,
+  and kill switches stay authoritative. Flag tests MUST cover defaults, Settings authorization,
+  persistence / audit, unavailable degradation, and shadow / enforce independence.
 - Use distinct local variable names for unrelated types in separate branches. Strict mypy fixes
   the inferred type from the first assignment, so reusing one name for different page, result, or
   record types creates avoidable type-check failures.
