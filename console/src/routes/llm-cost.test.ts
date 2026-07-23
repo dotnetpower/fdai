@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { decodeLlmCost, llmUsageCorrelationHref } from "./llm-cost";
+import {
+  decodeLlmCost,
+  llmUsageCorrelationHref,
+  tokenShare,
+  usageTrendPoints,
+} from "./llm-cost";
 
 const summary = {
   key: "total",
@@ -51,5 +56,15 @@ describe("LLM usage provenance", () => {
     expect(decoded.by_model[0]?.key).toBe("gpt-4.1-mini");
     expect(decoded.records[0]?.usage_scope).toBe("operator_chat");
     expect(decoded.records[0]).not.toHaveProperty("cost");
+  });
+
+  test("derives presentation ratios and trends only from measured tokens", () => {
+    expect(tokenShare(25, 100)).toBe(0.25);
+    expect(tokenShare(0, 0)).toBeNull();
+    expect(usageTrendPoints([
+      { ...summary, key: "2026-07-22", total_tokens: 10 },
+      { ...summary, key: "2026-07-23", total_tokens: 20 },
+    ])).toBe("0.0,34.0 100.0,4.0");
+    expect(usageTrendPoints([{ ...summary, key: "2026-07-23" }])).toBeNull();
   });
 });

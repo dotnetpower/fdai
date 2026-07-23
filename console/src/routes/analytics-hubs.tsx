@@ -4,12 +4,9 @@ import { usePublishViewContext } from "../deck/context";
 import {
   AsyncBoundary,
   DataTable,
-  KpiCard,
-  KpiGrid,
   PageHeader,
   StatusPill,
   UnavailableState,
-  kpiEvidenceLabel,
   type Column,
 } from "../components/ui";
 import { getLocale } from "../i18n";
@@ -179,7 +176,16 @@ export function VerticalOutcomesRoute({ client }: Props) {
 
 const TIER_KEYS = ["t0", "t1", "t2"] as const;
 const LEADING_INDICATOR_KEYS = ["disagreement", "verifier", "divergence"] as const;
+type TierKey = (typeof TIER_KEYS)[number];
 type LeadingIndicatorKey = (typeof LEADING_INDICATOR_KEYS)[number];
+
+const T2_FLOW_STEPS = ["models", "verifier", "grounding", "risk", "approval", "audit"] as const;
+
+export function indicatorMeterPercent(value: number | null, baseline: number | null): number | null {
+  if (value === null || baseline === null) return null;
+  if (baseline <= 0) return value <= 0 ? 0 : 100;
+  return Math.min(100, Math.max(0, Math.round((value / baseline) * 100)));
+}
 
 export function TrustRoutingRoute({ client }: Props) {
   const state = useAnalyticsData(client);
@@ -190,9 +196,9 @@ export function TrustRoutingRoute({ client }: Props) {
     : LEADING_INDICATOR_KEYS.includes(indicatorParam as LeadingIndicatorKey)
       ? indicatorParam as LeadingIndicatorKey
       : undefined;
-  const active = segment === undefined
-    ? "t0"
-    : TIER_KEYS.includes(segment as (typeof TIER_KEYS)[number]) ? segment : null;
+  const active: TierKey | null = segment === undefined
+    ? "t2"
+    : TIER_KEYS.includes(segment as TierKey) ? segment as TierKey : null;
   return (
     <div class="stack analytics-route">
       <PageHeader title={t("analytics.routing.title")} subtitle={t("analytics.routing.subtitle")} />
@@ -200,7 +206,7 @@ export function TrustRoutingRoute({ client }: Props) {
         panelId="trust-routing"
         values={TIER_KEYS}
         active={active ?? ""}
-        label={(key) => key.toUpperCase()}
+        label={(key) => t(`analytics.routing.tier.${key}`)}
         paramsForValue={routingParamsForTier}
       />
       {active === null ? <UnavailableState message={t("analytics.invalidDetail")} /> : (
@@ -220,35 +226,23 @@ function RoutingBody({
   indicator,
 }: {
   readonly data: AnalyticsData;
-  readonly active: string;
+  readonly active: TierKey;
   readonly indicator: LeadingIndicatorKey | null | undefined;
 }) {
-  const share = measuredTierValue(data.autonomy!.tier.mix, active);
-  const band = data.autonomy!.tier.bands[active];
-  const count = measuredTierValue(data.kpi.by_tier, active);
-  const inBand = band && share !== null ? share >= band[0] && share <= band[1] : null;
   const context = searchParamsRecord(currentRoute().search);
-  const auditContext = {
-    ...context,
-    window: `${data.autonomy!.window_days}d`,
-    tier: active,
-  };
-  const routingHref = routeHref("trust-routing", {
-    segments: [active],
-    params: routingParamsForTier(active, currentRoute().search),
-  });
   return (
-    <div class="stack">
+    <div class="stack trust-routing-view">
+      <div class="routing-policy-banner">
+        <strong>{t("analytics.routing.policyTitle")}</strong>
+        <span>{t("analytics.routing.policyBody")}</span>
+      </div>
       <EvidenceStrip autonomy={data.autonomy!} />
-      <KpiGrid>
-        <KpiCard evidenceState={share === null ? "not-measured" : "measured"} href={routeHref("audit", { params: auditContext })} label={t("analytics.routing.share")} value={share === null ? kpiEvidenceLabel("not-measured") : formatShare(share)} hint={share === null ? t("analytics.notMeasuredHint") : undefined} />
-        <KpiCard evidenceState={band ? "measured" : "not-connected"} href={routingHref} label={t("analytics.routing.targetBand")} value={band ? `${Math.round(band[0] * 100)}-${Math.round(band[1] * 100)}%` : t("analytics.notConfigured")} hint={band ? undefined : t("analytics.notConnectedHint")} />
-        <KpiCard evidenceState={count === null ? "not-measured" : "measured"} href={routeHref("audit", { params: auditContext })} label={t("analytics.events")} value={count ?? kpiEvidenceLabel("not-measured")} hint={count === null ? t("analytics.notMeasuredHint") : undefined} />
-        <KpiCard evidenceState={inBand === null ? "not-measured" : "measured"} href={routingHref} label={t("analytics.status")} value={inBand === null ? kpiEvidenceLabel("not-measured") : inBand ? t("analytics.inBand") : t("analytics.outOfBand")} hint={inBand === null ? t("analytics.notMeasuredHint") : undefined} tone={inBand === null ? "default" : inBand ? "positive" : "warning"} />
-      </KpiGrid>
-      <TierTable data={data} />
+      <TierMap data={data} active={active} />
       {active === "t2" ? (
-        <LeadingIndicatorTable autonomy={data.autonomy!} indicator={indicator} />
+        <>
+          <T2ControlFlow />
+          <LeadingIndicatorPanel autonomy={data.autonomy!} indicator={indicator} context={context} />
+        </>
       ) : indicator !== null ? (
         <UnavailableState message={t("analytics.routing.indicatorT2Only")} />
       ) : null}
@@ -261,12 +255,72 @@ function RoutingBody({
   );
 }
 
-function LeadingIndicatorTable({
+function TierMap({ data, active }: { readonly data: AnalyticsData; readonly active: TierKey }) {
+  const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
+  const search = currentRoute().search;
+  return (
+    <section class="routing-tier-map" aria-label={t("analytics.routing.distributionLabel")}>
+      {TIER_KEYS.map((key) => {
+        const share = measuredTierValue(data.autonomy!.tier.mix, key);
+        const band = data.autonomy!.tier.bands[key];
+        const count = measuredTierValue(data.kpi.by_tier, key);
+        return (
+          <a
+            key={key}
+            class={`routing-tier-card card is-${key}${active === key ? " is-active" : ""}`}
+            href={routeHref("trust-routing", {
+              segments: [key],
+              params: routingParamsForTier(key, search),
+            })}
+            aria-current={active === key ? "page" : undefined}
+          >
+            <span class="routing-tier-code">{key.toUpperCase()}</span>
+            <strong class="routing-tier-share">{share === null ? t("analytics.unavailable") : formatShare(share)}</strong>
+            <span class="routing-tier-description">{t(`analytics.routing.description.${key}`)}</span>
+            <dl class="routing-tier-facts">
+              <div><dt>{t("analytics.events")}</dt><dd>{count === null ? t("analytics.unavailable") : count.toLocaleString(locale)}</dd></div>
+              <div><dt>{t("analytics.routing.targetBand")}</dt><dd>{band ? `${Math.round(band[0] * 100)}-${Math.round(band[1] * 100)}%` : t("analytics.notConfigured")}</dd></div>
+            </dl>
+          </a>
+        );
+      })}
+    </section>
+  );
+}
+
+function T2ControlFlow() {
+  return (
+    <section class="routing-control-panel" aria-labelledby="t2-control-flow-title">
+      <div class="routing-section-head">
+        <div>
+          <h3 id="t2-control-flow-title">{t("analytics.routing.controlFlowTitle")}</h3>
+          <p>{t("analytics.routing.controlFlowSubtitle")}</p>
+        </div>
+        <StatusPill kind="neutral" label={t("analytics.routing.mandatoryControls")} />
+      </div>
+      <div class="routing-control-flow">
+        {T2_FLOW_STEPS.map((step, index) => (
+          <div class="routing-control-group" key={step}>
+            <div class="routing-control-step">
+              <strong>{t(`analytics.routing.flow.${step}.title`)}</strong>
+              <span>{t(`analytics.routing.flow.${step}.body`)}</span>
+            </div>
+            {index < T2_FLOW_STEPS.length - 1 ? <span class="routing-control-arrow" aria-hidden="true">&rarr;</span> : null}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LeadingIndicatorPanel({
   autonomy,
   indicator,
+  context,
 }: {
   readonly autonomy: AutonomyPayload;
   readonly indicator: LeadingIndicatorKey | null | undefined;
+  readonly context: Readonly<Record<string, string>>;
 }) {
   if (indicator === undefined) return <UnavailableState message={t("analytics.routing.invalidIndicator")} />;
   const allRows = [
@@ -275,53 +329,44 @@ function LeadingIndicatorTable({
     { key: "divergence" as const, metric: autonomy.leading.shadow_divergence_rate },
   ];
   const rows = indicator === null ? allRows : allRows.filter((row) => row.key === indicator);
-  const columns: readonly Column<(typeof allRows)[number]>[] = [
-    { key: "indicator", header: t("analytics.routing.indicator"), render: (row) => t(`overview.leading.${row.key}`) },
-    { key: "current", header: t("analytics.current"), render: (row) => row.metric.value === null ? t("analytics.unavailable") : formatShare(row.metric.value), cellClass: "num" },
-    { key: "baseline", header: t("analytics.baseline"), render: (row) => row.metric.baseline === null ? t("analytics.unavailable") : formatShare(row.metric.baseline), cellClass: "num" },
-    {
-      key: "status",
-      header: t("analytics.status"),
-      render: (row) => autonomy.synthetic
-        ? <StatusPill kind="neutral" label={t("analytics.simulatedStatus")} />
-        : row.metric.value === null || row.metric.baseline === null
-          ? <StatusPill kind="neutral" label={t("analytics.unavailable")} />
-          : <StatusPill
-              kind={row.metric.value <= row.metric.baseline ? "success" : "warning"}
-              label={row.metric.value <= row.metric.baseline ? t("analytics.passing") : t("analytics.outOfBand")}
-            />,
-    },
-  ];
   return (
-    <section class="analytics-panel">
-      <h3>{t("analytics.routing.leadingIndicators")}</h3>
-      <DataTable columns={columns} rows={rows} keyOf={(row) => row.key} />
+    <section class="routing-indicators" aria-labelledby="routing-indicators-title">
+      <div class="routing-section-head">
+        <div>
+          <h3 id="routing-indicators-title">{t("analytics.routing.leadingIndicators")}</h3>
+          <p>{t("analytics.routing.leadingIndicatorsSubtitle")}</p>
+        </div>
+      </div>
+      <div class="routing-indicator-grid">
+        {rows.map((row) => {
+          const meter = indicatorMeterPercent(row.metric.value, row.metric.baseline);
+          const unavailable = row.metric.value === null || row.metric.baseline === null;
+          const passing = !unavailable && row.metric.value! <= row.metric.baseline!;
+          return (
+            <a
+              class={`routing-indicator${unavailable ? " is-unavailable" : ""}`}
+              href={routeHref("trust-routing", { segments: ["t2"], params: { ...context, indicator: row.key } })}
+              key={row.key}
+            >
+              <div class="routing-indicator-head">
+                <strong>{t(`overview.leading.${row.key}`)}</strong>
+                {autonomy.synthetic
+                  ? <StatusPill kind="neutral" label={t("analytics.simulatedStatus")} />
+                  : unavailable
+                    ? <StatusPill kind="neutral" label={t("analytics.unavailable")} />
+                    : <StatusPill kind={passing ? "success" : "warning"} label={passing ? t("analytics.passing") : t("analytics.outOfBand")} />}
+              </div>
+              <div class="routing-indicator-meter" aria-hidden="true"><span style={{ width: `${meter ?? 0}%` }} /></div>
+              <div class="routing-indicator-values">
+                <span>{t("analytics.current")}: <strong>{row.metric.value === null ? t("analytics.unavailable") : formatShare(row.metric.value)}</strong></span>
+                <span>{t("analytics.baseline")}: <strong>{row.metric.baseline === null ? t("analytics.unavailable") : formatShare(row.metric.baseline)}</strong></span>
+              </div>
+            </a>
+          );
+        })}
+      </div>
     </section>
   );
-}
-
-function TierTable({ data }: { readonly data: AnalyticsData }) {
-  const search = currentRoute().search;
-  const rows = TIER_KEYS.map((key) => ({
-    key,
-    share: measuredTierValue(data.autonomy!.tier.mix, key),
-    band: data.autonomy!.tier.bands[key],
-    count: measuredTierValue(data.kpi.by_tier, key),
-  }));
-  const columns: readonly Column<(typeof rows)[number]>[] = [
-    {
-      key: "tier",
-      header: t("analytics.tier"),
-      render: (row) => <a href={routeHref("trust-routing", {
-        segments: [row.key],
-        params: routingParamsForTier(row.key, search),
-      })}>{row.key.toUpperCase()}</a>,
-    },
-    { key: "share", header: t("analytics.routing.share"), render: (row) => row.share === null ? t("analytics.unavailable") : formatShare(row.share), cellClass: "num" },
-    { key: "band", header: t("analytics.routing.targetBand"), render: (row) => row.band ? `${Math.round(row.band[0] * 100)}-${Math.round(row.band[1] * 100)}%` : "-", cellClass: "num" },
-    { key: "events", header: t("analytics.events"), render: (row) => row.count ?? t("analytics.unavailable"), cellClass: "num" },
-  ];
-  return <DataTable columns={columns} rows={rows} keyOf={(row) => row.key} />;
 }
 
 function EvidenceLinks({ links }: { readonly links: readonly (readonly [string, string])[] }) {

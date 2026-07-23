@@ -223,9 +223,34 @@
   "routing": {
     "title": "Trust routing",
     "subtitle": "How work is distributed across deterministic, reuse, and grounded reasoning tiers.",
+    "tier": {
+      "t0": "T0 deterministic",
+      "t1": "T1 similarity",
+      "t2": "T2 reasoning"
+    },
+    "description": {
+      "t0": "Exact rules and policy verdicts",
+      "t1": "Similarity-assisted reuse",
+      "t2": "Governed residual reasoning"
+    },
+    "policyTitle": "T2 is a governed residual path.",
+    "policyBody": "Mixed-model agreement, verification, grounding, risk, and approval gates remain mandatory.",
+    "distributionLabel": "Trust tier distribution",
     "share": "Routed share",
     "targetBand": "Target band",
+    "controlFlowTitle": "T2 control flow",
+    "controlFlowSubtitle": "Each control remains mandatory before a reasoning verdict can reach an action decision.",
+    "mandatoryControls": "Mandatory controls",
+    "flow": {
+      "models": { "title": "Mixed models", "body": "Independent candidates" },
+      "verifier": { "title": "Verifier", "body": "Agreement checked" },
+      "grounding": { "title": "Grounding", "body": "Evidence attached" },
+      "risk": { "title": "Risk gate", "body": "Blast radius bounded" },
+      "approval": { "title": "Approval", "body": "Required when classified" },
+      "audit": { "title": "Audit", "body": "Decision recorded" }
+    },
     "leadingIndicators": "T2 leading indicators",
+    "leadingIndicatorsSubtitle": "Signals that can hold T2 routing before a policy failure occurs.",
     "indicator": "Indicator",
     "invalidIndicator": "This leading indicator is not registered.",
     "indicatorT2Only": "Leading indicators apply to the T2 detail view."

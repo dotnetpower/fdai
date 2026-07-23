@@ -223,9 +223,34 @@
   "routing": {
     "title": "신뢰 라우팅",
     "subtitle": "결정론, 재사용, 근거 기반 추론 티어에 작업이 분배된 결과입니다.",
+    "tier": {
+      "t0": "T0 결정론",
+      "t1": "T1 유사도",
+      "t2": "T2 추론"
+    },
+    "description": {
+      "t0": "정확한 규칙 및 정책 판정",
+      "t1": "유사도 기반 재사용",
+      "t2": "통제된 잔여 추론"
+    },
+    "policyTitle": "T2는 통제된 잔여 경로입니다.",
+    "policyBody": "혼합 모델 합의, 검증, 근거 연결, 위험 및 승인 가드는 항상 적용됩니다.",
+    "distributionLabel": "신뢰 티어 분포",
     "share": "라우팅 비율",
     "targetBand": "목표 범위",
+    "controlFlowTitle": "T2 통제 흐름",
+    "controlFlowSubtitle": "추론 판정이 조치 결정에 도달하려면 모든 통제를 통과해야 합니다.",
+    "mandatoryControls": "필수 통제",
+    "flow": {
+      "models": { "title": "혼합 모델", "body": "독립 후보 생성" },
+      "verifier": { "title": "검증기", "body": "합의 검증" },
+      "grounding": { "title": "근거 연결", "body": "근거 첨부" },
+      "risk": { "title": "위험 게이트", "body": "영향 범위 제한" },
+      "approval": { "title": "승인", "body": "분류에 따라 필수" },
+      "audit": { "title": "감사", "body": "결정 기록" }
+    },
     "leadingIndicators": "T2 선행 지표",
+    "leadingIndicatorsSubtitle": "정책 실패 전에 T2 라우팅을 보류할 수 있는 신호입니다.",
     "indicator": "지표",
     "invalidIndicator": "등록되지 않은 선행 지표입니다.",
     "indicatorT2Only": "선행 지표는 T2 상세 보기에 적용됩니다."

@@ -71,6 +71,20 @@ evidence; global confidence and trend values aren't relabeled as vertical-specif
 vertical has no inferred resolution rate, and synthetic evidence never creates an operational health
 label or a filtered runtime-evidence claim.
 
+Trust Routing presents T0 (deterministic rules), T1 (lightweight similarity reuse), and T2
+(grounded LLM reasoning) as one measured tier map. Routed share, event count, and target band come
+from the autonomy and audit KPI projections, and each tier links to its own analytical route. The T2
+control flow describes mandatory architecture checks rather than claiming that a run passed them.
+Leading indicators compare only reported current and baseline values. Missing values remain
+unavailable, and simulated values never create an operational pass or failure.
+
+LLM Cost leads with measured calls, tokens, chat share, and latest invocation evidence. Input and
+output composition, the seven-day trend, model attribution, and invocation records are derived only
+from the metering projection. When price attribution is not connected, the route states that boundary
+and doesn't estimate spend, budgets, per-call prices, or invoice amounts from token volume. Detailed
+workload, mode, day, and month rollups remain available in a secondary disclosure so the primary view
+stays scannable without hiding evidence.
+
 ## Loading presentation
 
 Every route, panel, and bounded content region renders a skeleton from its first loading frame.

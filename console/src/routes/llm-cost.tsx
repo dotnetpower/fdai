@@ -7,6 +7,7 @@ import {
   KpiCard,
   KpiGrid,
   PageHeader,
+  UnavailableState,
   kpiEvidenceLabel,
   type AsyncState,
   type Column,
@@ -79,6 +80,25 @@ interface Response {
 
 interface Props {
   readonly client: ReadApiClient;
+}
+
+export function tokenShare(part: number, total: number): number | null {
+  return total > 0 ? part / total : null;
+}
+
+export function usageTrendPoints(rows: readonly Summary[]): string | null {
+  if (rows.length < 2) return null;
+  const values = [...rows]
+    .sort((left, right) => left.key.localeCompare(right.key))
+    .map((row) => row.total_tokens);
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const range = maximum - minimum;
+  return values.map((value, index) => {
+    const x = (index / (values.length - 1)) * 100;
+    const y = range === 0 ? 18 : 34 - ((value - minimum) / range) * 30;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
 }
 
 export function LlmCostRoute({ client }: Props) {
@@ -215,6 +235,7 @@ function LlmCostBody({ data }: { readonly data: Response }) {
         params: { ...auditContext, correlation: latestRecord.correlation_id },
       })
     : auditHref;
+  const chatShare = tokenShare(data.chat.total_tokens, data.total.total_tokens);
   usePublishViewContext(
     () => ({
       routeId: "llm-cost",
@@ -248,13 +269,21 @@ function LlmCostBody({ data }: { readonly data: Response }) {
   );
 
   return (
-    <div class="stack">
+    <div class="stack llm-cost-view">
+      <div class="llm-cost-boundary">
+        <strong>{t("llmCost.boundaryTitle")}</strong>
+        <span>{t("llmCost.boundaryBody")}</span>
+      </div>
+      <div class="analytics-evidence llm-cost-evidence">
+        <strong>{t("llmCost.measuredUsage")}</strong>
+        <span>{t("llmCost.source")}: {data.source}</span>
+        <span>{t("llmCost.measuredCalls", { count: data.record_count.toLocaleString(locale) })}</span>
+        <span>{data.latest_occurred_at ? t("llmCost.asOf", { time: data.latest_occurred_at }) : t("llmCost.noInvocationEvidence")}</span>
+      </div>
       <KpiGrid>
         <KpiCard href={auditHref} label={t("llmCost.calls")} value={data.invocations.toLocaleString(locale)} hint={`${t("llmCost.source")}: ${data.source}`} />
         <KpiCard href={auditHref} label={t("llmCost.totalTokens")} value={data.total.total_tokens.toLocaleString(locale)} />
-        <KpiCard href={auditHref} label={t("llmCost.chatTokens")} value={data.chat.total_tokens.toLocaleString(locale)} />
-        <KpiCard href={auditHref} label={t("llmCost.inputTokens")} value={data.total.prompt_tokens.toLocaleString(locale)} />
-        <KpiCard href={auditHref} label={t("llmCost.outputTokens")} value={data.total.completion_tokens.toLocaleString(locale)} />
+        <KpiCard href={auditHref} label={t("llmCost.chatShare")} value={chatShare === null ? kpiEvidenceLabel("not-measured") : `${Math.round(chatShare * 100)}%`} evidenceState={chatShare === null ? "not-measured" : "measured"} hint={chatShare === null ? t("llmCost.noInvocationEvidence") : t("llmCost.chatTokensValue", { count: data.chat.total_tokens.toLocaleString(locale) })} />
         <KpiCard
           evidenceState={data.latest_occurred_at ? "measured" : "not-measured"}
           href={latestHref}
@@ -263,28 +292,28 @@ function LlmCostBody({ data }: { readonly data: Response }) {
         />
       </KpiGrid>
 
-      <section class="stack">
-        <h3>{t("llmCost.chatUsage")}</h3>
-        <DataTable
-          rows={data.chat_by_model}
-          columns={_summaryColumns(t("llmCost.column.model"))}
-          keyOf={(r) => r.key}
-          empty={t("llmCost.empty")}
-        />
-      </section>
+      <div class="llm-cost-analysis">
+        <TokenComposition data={data} auditHref={auditHref} locale={locale} />
+        <DailyUsageTrend rows={data.by_day} auditHref={auditHref} locale={locale} />
+      </div>
 
-      <section class="stack">
-        <h3>{t("llmCost.byModel")}</h3>
+      <section class="stack llm-cost-section" id="usage-by-model">
+        <div class="llm-cost-section-head">
+          <div><h3>{t("llmCost.byModel")}</h3><p>{t("llmCost.byModelSubtitle")}</p></div>
+          <a href={auditHref}>{t("llmCost.viewUsageAudit")}</a>
+        </div>
         <DataTable
           rows={data.by_model}
-          columns={_summaryColumns(t("llmCost.column.model"))}
+          columns={_summaryColumns(t("llmCost.column.model"), () => auditHref)}
           keyOf={(r) => r.key}
           empty={t("llmCost.empty")}
         />
       </section>
 
-      <section class="stack">
-        <h3>{t("llmCost.invocationLedger")}</h3>
+      <section class="stack llm-cost-section" id="invocation-ledger">
+        <div class="llm-cost-section-head">
+          <div><h3>{t("llmCost.invocationLedger")}</h3><p>{t("llmCost.invocationLedgerSubtitle")}</p></div>
+        </div>
         {data.records_truncated ? <p class="muted">{t("llmCost.recordsTruncated", { shown: data.records.length, total: data.record_count })}</p> : null}
         <DataTable
           rows={data.records}
@@ -294,25 +323,73 @@ function LlmCostBody({ data }: { readonly data: Response }) {
         />
       </section>
 
-      <section class="stack">
-        <h3>{t("llmCost.byMode")}</h3>
-        <DataTable
-          rows={data.by_mode}
-          columns={_summaryColumns(t("llmCost.column.mode"))}
-          keyOf={(r) => r.key}
-          empty={t("llmCost.empty")}
-        />
-      </section>
-
-      <section class="stack">
-        <h3>{t("llmCost.byDay")}</h3>
-        <DataTable rows={data.by_day} columns={_summaryColumns(t("llmCost.column.day"))} keyOf={(r) => r.key} empty={t("llmCost.empty")} />
-      </section>
-
-      <section class="stack">
-        <h3>{t("llmCost.byMonth")}</h3>
-        <DataTable rows={data.by_month} columns={_summaryColumns(t("llmCost.column.month"))} keyOf={(r) => r.key} empty={t("llmCost.empty")} />
-      </section>
+      <details class="llm-cost-rollups">
+        <summary>{t("llmCost.additionalRollups")}</summary>
+        <div class="stack llm-cost-rollups-body">
+          <RollupTable heading={t("llmCost.chatUsage")} rows={data.chat_by_model} keyHeader={t("llmCost.column.model")} empty={t("llmCost.empty")} href={() => auditHref} />
+          <RollupTable heading={t("llmCost.byScope")} rows={data.by_scope} keyHeader={t("llmCost.column.scope")} empty={t("llmCost.empty")} href={() => auditHref} />
+          <RollupTable heading={t("llmCost.byMode")} rows={data.by_mode} keyHeader={t("llmCost.column.mode")} empty={t("llmCost.empty")} href={(key) => routeHref("audit", { params: { ...auditContext, mode: key } })} />
+          <RollupTable heading={t("llmCost.byDay")} rows={data.by_day} keyHeader={t("llmCost.column.day")} empty={t("llmCost.empty")} href={() => auditHref} />
+          <RollupTable heading={t("llmCost.byMonth")} rows={data.by_month} keyHeader={t("llmCost.column.month")} empty={t("llmCost.empty")} href={() => auditHref} />
+        </div>
+      </details>
     </div>
+  );
+}
+
+function TokenComposition({ data, auditHref, locale }: { readonly data: Response; readonly auditHref: string; readonly locale: string }) {
+  const inputShare = tokenShare(data.total.prompt_tokens, data.total.total_tokens);
+  const outputShare = tokenShare(data.total.completion_tokens, data.total.total_tokens);
+  return (
+    <section class="llm-cost-panel" aria-labelledby="llm-token-composition-title">
+      <div class="llm-cost-panel-head">
+        <div><h3 id="llm-token-composition-title">{t("llmCost.tokenComposition")}</h3><p>{t("llmCost.tokenCompositionSubtitle")}</p></div>
+        <a href={auditHref}>{t("llmCost.viewEvidence")}</a>
+      </div>
+      {inputShare === null || outputShare === null ? <UnavailableState message={t("llmCost.noInvocationEvidence")} /> : (
+        <>
+          <div class="llm-token-mix" aria-hidden="true">
+            <span class="is-input" style={{ flexGrow: inputShare }} />
+            <span class="is-output" style={{ flexGrow: outputShare }} />
+          </div>
+          <div class="llm-token-legend">
+            <span><i class="is-input" />{t("llmCost.inputTokens")}<strong>{data.total.prompt_tokens.toLocaleString(locale)}</strong><small>{Math.round(inputShare * 100)}%</small></span>
+            <span><i class="is-output" />{t("llmCost.outputTokens")}<strong>{data.total.completion_tokens.toLocaleString(locale)}</strong><small>{Math.round(outputShare * 100)}%</small></span>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function DailyUsageTrend({ rows, auditHref, locale }: { readonly rows: readonly Summary[]; readonly auditHref: string; readonly locale: string }) {
+  const visibleRows = [...rows].sort((left, right) => left.key.localeCompare(right.key)).slice(-7);
+  const points = usageTrendPoints(visibleRows);
+  const values = visibleRows.map((row) => row.total_tokens);
+  return (
+    <section class="llm-cost-panel" aria-labelledby="llm-daily-trend-title">
+      <div class="llm-cost-panel-head">
+        <div><h3 id="llm-daily-trend-title">{t("llmCost.dailyTrend")}</h3><p>{t("llmCost.dailyTrendSubtitle")}</p></div>
+        <a href={auditHref}>{t("llmCost.viewEvidence")}</a>
+      </div>
+      {points === null ? <UnavailableState message={t("llmCost.trendUnavailable")} /> : (
+        <a class="llm-trend-chart" href={auditHref} aria-label={t("llmCost.dailyTrendAria")}>
+          <svg viewBox="0 0 100 38" role="img" aria-hidden="true" preserveAspectRatio="none">
+            <path class="llm-trend-grid" d="M0 8 H100 M0 19 H100 M0 30 H100" />
+            <polyline points={points} fill="none" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+          <span class="llm-trend-range"><span>{visibleRows[0]?.key}</span><strong>{Math.min(...values).toLocaleString(locale)}-{Math.max(...values).toLocaleString(locale)} {t("llmCost.tokensUnit")}</strong><span>{visibleRows.at(-1)?.key}</span></span>
+        </a>
+      )}
+    </section>
+  );
+}
+
+function RollupTable({ heading, rows, keyHeader, empty, href }: { readonly heading: string; readonly rows: readonly Summary[]; readonly keyHeader: string; readonly empty: string; readonly href: (key: string) => string }) {
+  return (
+    <section class="stack">
+      <h3>{heading}</h3>
+      <DataTable rows={rows} columns={_summaryColumns(keyHeader, href)} keyOf={(row) => row.key} empty={empty} />
+    </section>
   );
 }

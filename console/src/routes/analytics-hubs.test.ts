@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AutonomyPayload } from "../types";
 import {
   formatMeasuredSavings,
+  indicatorMeterPercent,
   measuredTierValue,
   routingParamsForTier,
   searchParamsRecord,
@@ -135,6 +136,13 @@ describe("trust-routing measurements", () => {
   it("distinguishes an observed zero from a missing tier", () => {
     expect(measuredTierValue({ t0: 0 }, "t0")).toBe(0);
     expect(measuredTierValue({ t0: 0 }, "t1")).toBeNull();
+  });
+
+  it("scales leading indicators against their measured baseline", () => {
+    expect(indicatorMeterPercent(0.04, 0.1)).toBe(40);
+    expect(indicatorMeterPercent(0.12, 0.1)).toBe(100);
+    expect(indicatorMeterPercent(null, 0.1)).toBeNull();
+    expect(indicatorMeterPercent(0, 0)).toBe(0);
   });
 
   it("does not infer a zero resolution rate from an empty vertical", () => {

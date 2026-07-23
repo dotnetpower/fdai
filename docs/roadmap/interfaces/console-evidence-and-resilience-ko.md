@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 71a0ed43ef104dd9bc19cf3ebba07781e5ac3156
+translation_source_sha: 50217b28f640cdad383d7fd46c94da53a7c6440f
 translation_revised: 2026-07-23
 ---
 
@@ -71,6 +71,19 @@ table에서만 영역별로 반복합니다. Change failure rate나 recovery dri
 read model이 귀속 evidence를 제공할 때까지 unavailable로 유지하며 global confidence와 trend value를
 vertical-specific claim으로 바꾸지 않습니다. 빈 영역에는 resolution rate를 추론하지 않으며
 synthetic evidence는 operational health label이나 filtered runtime-evidence claim을 만들지 않습니다.
+
+Trust Routing은 T0(결정론적 규칙), T1(경량 유사도 재사용), T2(근거 기반 LLM 추론)를 하나의 측정된
+tier map으로 표시합니다. Routing 비율, event 수 및 목표 범위는 autonomy 및 audit KPI projection에서
+가져오며 각 tier는 고유한 analysis route로 연결됩니다. T2 control flow는 실행이 통과했다고 주장하는
+상태가 아니라 필수 architecture check를 설명합니다. Leading indicator는 보고된 current 및 baseline
+value만 비교합니다. 누락된 값은 unavailable로 유지하고 simulated value는 operational pass 또는
+failure를 만들지 않습니다.
+
+LLM Cost는 측정된 호출, token, chat 비율 및 최근 호출 근거를 먼저 표시합니다. 입력 및 출력 구성,
+7일 trend, model 귀속 및 invocation record는 metering projection에서만 파생합니다. Price attribution이
+연결되지 않은 경우 route는 이 경계를 안내하고 token volume에서 지출, budget, 호출당 가격 또는 invoice
+금액을 추정하지 않습니다. Workload, mode, day 및 month 상세 rollup은 secondary disclosure에서 계속
+제공하므로 primary view의 탐색성을 유지하면서 근거를 숨기지 않습니다.
 
 ## 로딩 표현
 
