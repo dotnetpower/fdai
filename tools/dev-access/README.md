@@ -102,6 +102,9 @@ The setting belongs to the transient VPN interface. Disconnecting the VPN remove
 and restores the distribution's existing DNS behavior. You can remove it before disconnecting with
 `tools/dev-access/scripts/wsl-dns.sh revert`.
 
+The helper routes only the linked Azure service suffixes to the Private DNS Resolver. Public names,
+including Entra sign-in endpoints, continue to use the workstation's default DNS configuration.
+
 When VS Code opens the FDAI workspace, the `dev-access: configure VPN on folder open` task runs
 automatically. A checkout without local `infra/terraform.tfstate` is a quiet no-op. When the VPN is
 connected, the task applies WSL DNS without revealing a terminal. When it is disconnected, the task

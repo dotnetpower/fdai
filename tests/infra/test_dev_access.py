@@ -22,6 +22,7 @@ def test_dev_access_is_an_independent_terraform_root() -> None:
 
 def test_dev_access_uses_entra_openvpn_and_private_dns() -> None:
     main = (_DEV_ACCESS / "infra" / "main.tf").read_text(encoding="utf-8")
+    outputs = (_DEV_ACCESS / "infra" / "outputs.tf").read_text(encoding="utf-8")
 
     assert 'name                 = "GatewaySubnet"' in main
     assert 'name    = "Microsoft.Network/dnsResolvers"' in main
@@ -34,6 +35,8 @@ def test_dev_access_uses_entra_openvpn_and_private_dns() -> None:
     assert 'resource "azurerm_private_dns_resolver_inbound_endpoint" "dev_access"' in main
     assert 'resource "azurerm_virtual_network_dns_servers" "dev_access"' in main
     assert 'resource "azurerm_private_dns_zone_virtual_network_link" "fdai"' in main
+    assert '"vaultcore.azure.net"' in outputs
+    assert '"vault.azure.net"' in outputs
 
 
 def test_dev_access_owns_only_removable_fdai_connections() -> None:
@@ -69,6 +72,7 @@ def test_dev_access_ships_repeatable_client_checks() -> None:
     assert "END { print answer }" in doctor
     assert 'ACTION="${1:-apply}"' in wsl_dns
     assert "resolvectl dnsovertls" in wsl_dns
+    assert 'resolvectl default-route "${vpn_interface}" no' in wsl_dns
     assert "wsl.exe" in wsl_dns
     assert '"label": "dev-access: configure VPN on folder open"' in tasks
     assert '"command": "bash tools/dev-access/scripts/vscode-startup.sh"' in tasks

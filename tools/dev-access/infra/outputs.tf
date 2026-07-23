@@ -23,3 +23,14 @@ output "dev_access_vnet_id" {
   description = "Resource ID of the isolated development-access VNet."
   value       = azurerm_virtual_network.dev_access.id
 }
+
+output "fdai_private_dns_routing_domains" {
+  description = "Split-DNS routing suffixes derived from the linked private zones, with the privatelink prefix removed so the Resolver only receives FDAI private-service lookups. Public sign-in domains such as login.microsoftonline.com keep the workstation default resolver."
+  value = sort([
+    for zone in var.fdai_private_dns_zones : replace(
+      replace(zone.name, "privatelink.", ""),
+      "vaultcore.azure.net",
+      "vault.azure.net",
+    )
+  ])
+}

@@ -18,6 +18,7 @@ fi
 
 pushd "${INFRA_DIR}" >/dev/null
 dns_resolver_ip="$(terraform output -raw dns_resolver_inbound_ip)"
+routing_domains_json="$(terraform output -json fdai_private_dns_routing_domains)"
 popd >/dev/null
 
 route_line="$(ip route get "${dns_resolver_ip}" 2>/dev/null || true)"
@@ -43,8 +44,20 @@ fi
 
 case "${ACTION}" in
   apply)
+    # Route only the FDAI private-service suffixes to the Resolver. Public
+    # sign-in domains (login.microsoftonline.com and the rest) stay on the
+    # workstation default resolver, so a catch-all cannot poison them.
+    mapfile -t routing_domains < <(
+      printf '%s' "${routing_domains_json}" \
+        | python3 -c 'import json, sys; print("\n".join("~" + name for name in json.load(sys.stdin)))'
+    )
+    if [[ ${#routing_domains[@]} -eq 0 ]]; then
+      printf 'error: terraform output fdai_private_dns_routing_domains is empty\n' >&2
+      exit 1
+    fi
     wsl.exe -d "${WSL_DISTRO_NAME}" -u root -- resolvectl dns "${vpn_interface}" "${dns_resolver_ip}"
-    wsl.exe -d "${WSL_DISTRO_NAME}" -u root -- resolvectl domain "${vpn_interface}" '~.'
+    wsl.exe -d "${WSL_DISTRO_NAME}" -u root -- resolvectl domain "${vpn_interface}" "${routing_domains[@]}"
+    wsl.exe -d "${WSL_DISTRO_NAME}" -u root -- resolvectl default-route "${vpn_interface}" no
     wsl.exe -d "${WSL_DISTRO_NAME}" -u root -- resolvectl dnsovertls "${vpn_interface}" no
     wsl.exe -d "${WSL_DISTRO_NAME}" -u root -- resolvectl flush-caches
     ;;
