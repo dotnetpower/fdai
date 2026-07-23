@@ -101,7 +101,7 @@ graph TD
 The org chart is reporting lines. The relationship diagram is data flow.
 Sensing and specialists feed Forseti. Action verdicts feed Thor for dispatch to
 Vidar (recovery), Var (human approval), or execution; document-ingestion verdicts
-return to the ingestion plane and Thor ignores them. Saga audits gated decisions and terminal states;
+return to the ingestion plane and Thor ignores them. Var and Saga preserve the stable idempotency key through document HIL; Saga audits gated decisions and terminal states;
 Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
 
 ```mermaid

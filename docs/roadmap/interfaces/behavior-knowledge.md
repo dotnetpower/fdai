@@ -60,6 +60,9 @@ server-owned path and never treats retrieval content as approval or execution au
 Source bodies are not part of chat evidence. A normal answer may show the path, symbol, line range,
 blob hash, and indexed commit, but not raw code.
 
+When a cited test grows or moves, the seed updates its exact symbol line range in the same change;
+the freshness test rejects a stale range even when the path and blob are otherwise current.
+
 ## Retrieval and authority
 
 The reference index and PostgreSQL adapter use the same ordering contract:

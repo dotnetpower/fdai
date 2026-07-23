@@ -1,8 +1,8 @@
 ---
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
-translation_source_sha: 091c7f54b03a426c50d9830c0c8d72afeeca4cb7
-translation_revised: 2026-07-22
+translation_source_sha: 4b8029a7dd51e9fdef57a683d04eb202010b4d20
+translation_revised: 2026-07-23
 ---
 
 # Command Deck 행동 지식
@@ -62,6 +62,9 @@ flowchart LR
 
 소스 본문은 chat evidence에 포함되지 않습니다. 일반 답변은 path, symbol, line range, blob hash,
 indexed commit을 표시할 수 있지만 raw code는 표시하지 않습니다.
+
+인용한 test가 늘어나거나 이동하면 seed는 같은 변경에서 exact symbol line range를 갱신합니다.
+Freshness test는 path와 blob이 current여도 stale range를 reject합니다.
 
 ## 검색 및 권위
 

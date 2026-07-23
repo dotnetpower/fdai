@@ -121,6 +121,7 @@ class Saga(Agent):
                 "kind": "document_ingestion",
                 "audited_topic": "object.approval",
                 "correlation_id": correlation_id,
+                "idempotency_key": str(payload.get("idempotency_key") or ""),
                 "stage": str(payload.get("stage") or "protection_check"),
                 "decision": str(payload.get("state") or "rejected"),
                 "reason": "human_approval",

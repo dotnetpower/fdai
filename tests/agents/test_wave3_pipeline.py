@@ -465,6 +465,7 @@ def test_var_document_hil_blocks_uploader_and_emits_reviewer_approval() -> None:
                 "document_id": "doc-hil",
                 "upload_id": "upload-hil",
                 "initiator_principal": "uploader@example.com",
+                "idempotency_key": "document.inspected:version-hil",
             },
         )
     )
@@ -490,6 +491,7 @@ def test_var_document_hil_blocks_uploader_and_emits_reviewer_approval() -> None:
     assert approval["kind"] == "document_ingestion"
     assert approval["state"] == "approved"
     assert approval["document_id"] == "doc-hil"
+    assert approval["idempotency_key"] == "document.inspected:version-hil"
 
 
 def test_thor_ignores_document_approval() -> None:

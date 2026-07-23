@@ -35,6 +35,7 @@ class PendingHilTicket:
     document_id: str | None = None
     upload_id: str | None = None
     stage: str | None = None
+    idempotency_key: str = ""
     approvers: list[str] = field(default_factory=list)
     rejected: bool = False
 
@@ -132,6 +133,7 @@ class Var(Agent):
             document_id=document_id,
             upload_id=upload_id,
             stage="protection_check",
+            idempotency_key=str(payload.get("idempotency_key") or ""),
         )
         self.record_behavior("document_ticket_pending")
         _evict_oldest_ticket(self._pending, self._MAX_PENDING, keep=correlation)
@@ -198,6 +200,7 @@ class Var(Agent):
                         "stage": ticket.stage,
                         "document_id": ticket.document_id,
                         "upload_id": ticket.upload_id,
+                        "idempotency_key": ticket.idempotency_key,
                     }
                 )
             if self.bus is not None:

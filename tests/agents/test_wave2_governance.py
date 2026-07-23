@@ -95,6 +95,7 @@ def test_saga_seals_document_human_approval() -> None:
                 "document_id": "doc-hil",
                 "upload_id": "upload-hil",
                 "approvers": ["reviewer@example.com"],
+                "idempotency_key": "document.inspected:version-hil",
             },
         )
     )
@@ -103,6 +104,7 @@ def test_saga_seals_document_human_approval() -> None:
     assert entry["audited_topic"] == "object.approval"
     assert entry["decision"] == "approved"
     assert entry["approvers"] == ["reviewer@example.com"]
+    assert entry["idempotency_key"] == "document.inspected:version-hil"
 
 
 def test_saga_audit_chain_detects_tamper() -> None:

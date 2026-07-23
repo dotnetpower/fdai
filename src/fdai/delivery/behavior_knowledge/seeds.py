@@ -150,8 +150,8 @@ def build_seed_behavior_specs(
             "test",
             "tests/agents/test_wave2_governance.py",
             "test_saga_issue_dedup_creates_once_and_appends_comment_on_repeat",
-            127,
-            162,
+            129,
+            164,
         ),
         _source(
             blob_shas,
