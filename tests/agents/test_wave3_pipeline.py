@@ -342,6 +342,177 @@ def test_forseti_holds_malformed_document_ingress() -> None:
     assert verdict["reason"] == "invalid_ingress_envelope"
 
 
+def test_heimdall_emits_content_free_document_safety_signal() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    heimdall = Heimdall(bus=bus)
+    asyncio.run(
+        heimdall.on_typed_message(
+            "object.event",
+            {
+                "producer_principal": "Huginn",
+                "kind": "document_ingestion",
+                "event_type": "document.inspected",
+                "correlation_id": "upload-1",
+                "idempotency_key": "document.inspected:version-1",
+                "resource_id": "doc-1",
+                "document_id": "doc-1",
+                "record": {
+                    "upload_id": "upload-1",
+                    "malware_verdict": "clean",
+                    "protection_state": "none",
+                    "failure_code": "",
+                },
+            },
+        )
+    )
+
+    signal = bus.messages_on("object.anomaly")[0].payload
+    assert signal["producer_principal"] == "Heimdall"
+    assert signal["kind"] == "document_ingestion"
+    assert signal["stage"] == "protection_check"
+    assert signal["safety_status"] == "clear"
+    assert "record" not in signal
+
+
+def test_forseti_admits_clear_document_safety_signal() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    forseti = Forseti(bus=bus)
+    asyncio.run(
+        forseti.on_typed_message(
+            "object.anomaly",
+            {
+                "producer_principal": "Heimdall",
+                "kind": "document_ingestion",
+                "stage": "protection_check",
+                "correlation_id": "upload-1",
+                "idempotency_key": "document.inspected:version-1",
+                "resource_id": "doc-1",
+                "document_id": "doc-1",
+                "upload_id": "upload-1",
+                "safety_status": "clear",
+                "protection_state": "none",
+            },
+        )
+    )
+
+    verdict = bus.messages_on("object.verdict")[0].payload
+    assert verdict["stage"] == "protection_check"
+    assert verdict["decision"] == "admit"
+    assert verdict["reason"] == "safety_checks_passed"
+
+
+def test_forseti_holds_blocked_document_safety_signal() -> None:
+    forseti = Forseti(bus=None)
+
+    verdict = asyncio.run(
+        forseti.judge_document_safety(
+            {
+                "kind": "document_ingestion",
+                "stage": "protection_check",
+                "correlation_id": "upload-1",
+                "document_id": "doc-1",
+                "upload_id": "upload-1",
+                "safety_status": "blocked",
+                "failure_code": "malware_detected",
+            }
+        )
+    )
+
+    assert verdict["decision"] == "hold"
+    assert verdict["reason"] == "malware_detected"
+
+
+def test_forseti_routes_authoritative_document_to_hil() -> None:
+    forseti = Forseti(bus=None)
+
+    verdict = asyncio.run(
+        forseti.judge_document_safety(
+            {
+                "kind": "document_ingestion",
+                "stage": "protection_check",
+                "correlation_id": "upload-hil",
+                "document_id": "doc-hil",
+                "upload_id": "upload-hil",
+                "safety_status": "clear",
+                "protection_state": "none",
+                "purposes": ["handover_bootstrap"],
+                "initiator_principal": "uploader@example.com",
+            }
+        )
+    )
+
+    assert verdict["decision"] == "hil"
+    assert verdict["reason"] == "sensitive_or_authoritative_document"
+    assert verdict["initiator_principal"] == "uploader@example.com"
+
+
+def test_var_document_hil_blocks_uploader_and_emits_reviewer_approval() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    var = Var(bus=bus)
+    asyncio.run(
+        var.on_typed_message(
+            "object.audit-entry",
+            {
+                "producer_principal": "Saga",
+                "kind": "document_ingestion",
+                "audited_topic": "object.verdict",
+                "stage": "protection_check",
+                "decision": "hil",
+                "correlation_id": "upload-hil",
+                "document_id": "doc-hil",
+                "upload_id": "upload-hil",
+                "initiator_principal": "uploader@example.com",
+            },
+        )
+    )
+
+    assert var.pending_tickets()[0].kind == "document_ingestion"
+    with pytest.raises(ValueError, match="no self-approval"):
+        asyncio.run(
+            var.decide(
+                "upload-hil",
+                approver="uploader@example.com",
+                decision="approve",
+            )
+        )
+    approval = asyncio.run(
+        var.decide(
+            "upload-hil",
+            approver="reviewer@example.com",
+            decision="approve",
+        )
+    )
+
+    assert approval is not None
+    assert approval["kind"] == "document_ingestion"
+    assert approval["state"] == "approved"
+    assert approval["document_id"] == "doc-hil"
+
+
+def test_thor_ignores_document_approval() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    thor = Thor(bus=bus)
+
+    asyncio.run(
+        thor.on_typed_message(
+            "object.approval",
+            {
+                "producer_principal": "Var",
+                "kind": "document_ingestion",
+                "correlation_id": "upload-hil",
+                "state": "approved",
+            },
+        )
+    )
+
+    assert thor.action_runs == {}
+    assert thor.behavior_snapshot()["document_approval_ignored"] == 1
+
+
 def test_forseti_rbac_deny_emits_security_event() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)

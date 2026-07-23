@@ -49,7 +49,7 @@ class PantheonDocumentActivitySink:
     durable trail until their owning agents drive them.
     """
 
-    _INGRESS_ACTIONS: Final = frozenset({"document.received"})
+    _AGENT_EVENT_ACTIONS: Final = frozenset({"document.received", "document.inspected"})
 
     def __init__(
         self,
@@ -70,7 +70,7 @@ class PantheonDocumentActivitySink:
         payload: Mapping[str, object],
     ) -> None:
         await self._inner.publish(topic, key, payload)
-        if topic in self._INGRESS_ACTIONS:
+        if topic in self._AGENT_EVENT_ACTIONS:
             await self._ingress.submit(action=topic, document_id=key, record=payload)
 
 

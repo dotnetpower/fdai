@@ -495,6 +495,7 @@
         "src/fdai/shared/providers/conversation_channel.py",
         "src/fdai/shared/providers/document_ingestion.py",
         "src/fdai/shared/providers/local/document_ingestion.py",
+        "src/fdai/core/document_ingestion/**",
         "src/fdai/delivery/channels/**",
         "src/fdai/delivery/azure/document_ocr.py",
         "src/fdai/delivery/ingestion_gateway/chat_evidence.py",
@@ -508,7 +509,9 @@
         "tests/delivery/ingestion_gateway/test_chat_evidence.py",
         "tests/delivery/ingestion_gateway/test_pantheon_events.py",
         "tests/delivery/ingestion_gateway/test_activity.py",
-        "tests/delivery/ingestion_gateway/test_worker_service.py"
+        "tests/delivery/ingestion_gateway/test_worker_service.py",
+        "tests/core/document_ingestion/**",
+        "tests/agents/test_document_ingestion_agent_chain.py"
       ],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",

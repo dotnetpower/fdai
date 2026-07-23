@@ -218,6 +218,9 @@ class Thor(Agent):
                 return
             await self.dispatch_verdict(payload)
         elif topic == "object.approval":
+            if payload.get("kind") == "document_ingestion":
+                self.record_behavior("document_approval_ignored")
+                return
             await self._handle_approval(payload)
         elif topic == "object.rollback":
             await self._handle_rollback(payload)

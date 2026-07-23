@@ -103,10 +103,13 @@ class Forseti(Agent):
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
-        if topic in ("object.event", "object.anomaly", "object.drift"):
-            if topic == "object.event" and payload.get("kind") == "document_ingestion":
+        if payload.get("kind") == "document_ingestion":
+            if topic == "object.event" and payload.get("event_type") == "document.received":
                 await self.judge_document_ingestion(payload)
-                return
+            elif topic == "object.anomaly" and payload.get("stage") == "protection_check":
+                await self.judge_document_safety(payload)
+            return
+        if topic in ("object.event", "object.anomaly", "object.drift"):
             await self.maybe_request_arbitration(payload)
             await self.judge(payload)
         elif topic == "object.cost-anomaly":
@@ -246,6 +249,46 @@ class Forseti(Agent):
             "document_id": document_id,
             "upload_id": upload_id,
             "idempotency_key": str(event.get("idempotency_key") or ""),
+        }
+        if self.bus is not None:
+            await self.bus.publish("Forseti", "object.verdict", verdict)
+        return verdict
+
+    async def judge_document_safety(self, signal: dict[str, Any]) -> dict[str, Any]:
+        """Issue the protection verdict from Heimdall's normalized signal."""
+        complete = bool(
+            signal.get("correlation_id") and signal.get("document_id") and signal.get("upload_id")
+        )
+        clear = complete and signal.get("safety_status") == "clear"
+        purposes = {str(value) for value in signal.get("purposes") or []}
+        requires_approval = bool(signal.get("sensitivity_label")) or bool(
+            purposes & {"handover_bootstrap", "manual_distillation"}
+        )
+        decision = "hil" if clear and requires_approval else ("admit" if clear else "hold")
+        reason = (
+            "sensitive_or_authoritative_document"
+            if decision == "hil"
+            else "safety_checks_passed"
+            if decision == "admit"
+            else str(
+                signal.get("failure_code")
+                or signal.get("protection_state")
+                or "invalid_safety_signal"
+            )
+        )
+        self.record_behavior(f"document_safety:{decision}")
+        verdict = {
+            "producer_principal": "Forseti",
+            "kind": "document_ingestion",
+            "stage": "protection_check",
+            "decision": decision,
+            "reason": reason,
+            "correlation_id": str(signal.get("correlation_id") or ""),
+            "resource_id": str(signal.get("resource_id") or ""),
+            "document_id": str(signal.get("document_id") or ""),
+            "upload_id": str(signal.get("upload_id") or ""),
+            "initiator_principal": str(signal.get("initiator_principal") or ""),
+            "idempotency_key": str(signal.get("idempotency_key") or ""),
         }
         if self.bus is not None:
             await self.bus.publish("Forseti", "object.verdict", verdict)

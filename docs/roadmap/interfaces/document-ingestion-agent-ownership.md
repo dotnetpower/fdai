@@ -64,9 +64,19 @@ The delivery layer never holds Thor's executor identity. Saga consumes the docum
 appends it to the audit chain, and republishes a content-free `object.audit-entry`. The ingestion
 worker consumes only Saga's audited `stage = received`, `decision = admit` record. A plain
 `RECEIVED` document is excluded from reconciliation and remains fail-closed until both Forseti and
-the Saga hard dependency complete; post-admission states remain recoverable. Later stage
-transitions stay on the durable audit trail until their owning agents drive them; wiring Var
-approval and Muninn indexing as typed objects is the next increment.
+the Saga hard dependency complete. The worker then stops at `PROTECTION_CHECK` after scan and
+protection inspection. Huginn republishes the content-free inspection facts, Heimdall normalizes
+them as an `object.anomaly`, Forseti emits the protection verdict, and Saga seals it. A clear,
+audited decision reaches Muninn, which alone publishes the `object.context-index` command that
+unlocks extraction and indexing; a blocked decision moves the version to `HELD`. A clear document
+with a sensitivity label, `handover_bootstrap`, or `manual_distillation` purpose receives a `hil`
+verdict instead. Saga seals that verdict, Var creates a document approval ticket, and the uploader
+cannot approve their own document. Var's reviewer approval is sealed again by Saga before Muninn
+can unlock indexing; rejection moves the version to `HELD`. Thor ignores both document verdicts
+and approvals. Reconciliation
+replays `RECEIVED` and `PROTECTION_CHECK` events with stable idempotency keys but never advances
+those gated states. It resumes only post-decision work in `QUARANTINED`, `SCANNING`, `EXTRACTING`,
+or `INDEXING`.
 
 ## Related docs
 

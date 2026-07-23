@@ -137,7 +137,7 @@ _VAR = AgentSpec(
     owns=("Approval",),
     executes=("governance.notify-admin-privilege-violation",),
     initiates=(),
-    subscribes=("object.action-run",),  # picks up ActionRun state=hil_pending
+    subscribes=("object.action-run", "object.audit-entry"),  # action + document HIL
     question_domains=("hil_pending", "approval_backlog"),
     owns_code_paths=("src/fdai/agents/var.py",),
 )
@@ -206,7 +206,7 @@ _MUNINN = AgentSpec(
     owns=("StateSnapshot", "ContextIndex"),
     executes=(),
     initiates=(),
-    subscribes=("object.turn",),  # index turns for RAG
+    subscribes=("object.turn", "object.audit-entry"),  # turns + governed document index
     question_domains=("current_state", "bitemporal_state", "resource_context"),
     owns_code_paths=("src/fdai/agents/muninn.py",),
 )

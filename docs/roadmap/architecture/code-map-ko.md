@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 289bd10c1b4b346f0ccb4a6ed610c763003e9b38
+translation_source_sha: fdedeeb5d185e69ba46637c63ff69d591f150083
 translation_revised: 2026-07-23
 ---
 # 코드 맵
@@ -71,6 +71,7 @@ shared 패키지를 커버한다.
 | 서브시스템 | 책임 | 소스 | 테스트 |
 |-----------|------|------|--------|
 | knowledge | 장기 지식 저장소 seam | [src/fdai/core/knowledge/](../../../src/fdai/core/knowledge/) | [tests/core/knowledge/](../../../tests/core/knowledge/) |
+| document_ingestion | 에이전트 gate를 적용한 upload lifecycle: scan/protection inspection, Forseti/Saga decision, Var HIL, Muninn indexing, replay-only gated-state recovery ([설계](../interfaces/document-ingestion-agent-ownership-ko.md)) | [src/fdai/core/document_ingestion/](../../../src/fdai/core/document_ingestion/) 및 [src/fdai/delivery/ingestion_gateway/](../../../src/fdai/delivery/ingestion_gateway/) | [tests/core/document_ingestion/](../../../tests/core/document_ingestion/) 및 [tests/delivery/ingestion_gateway/](../../../tests/delivery/ingestion_gateway/) |
 | operator_memory | HIL 승인된 오퍼레이터 노트 저장소 | [src/fdai/core/operator_memory/](../../../src/fdai/core/operator_memory/) | [tests/core/operator_memory/](../../../tests/core/operator_memory/) |
 | learning | 동의 기반 off-path post-turn eligibility, mixed-family consensus, 중복 제거, 비활성 proposal routing ([설계](../decisioning/post-turn-improvement-review-ko.md)) | [src/fdai/core/learning/](../../../src/fdai/core/learning/) | [tests/core/learning/](../../../tests/core/learning/) |
 | trajectory | Authorization-first immutable source join, versioned observable envelope, deterministic JSONL export, offline validation/replay, retention/legal hold, reviewed-only Norns aggregate intake ([설계](../interfaces/governed-trajectory-datasets-ko.md)) | [src/fdai/core/trajectory/](../../../src/fdai/core/trajectory/) 및 [src/fdai/shared/providers/trajectory.py](../../../src/fdai/shared/providers/trajectory.py) | [tests/core/trajectory/](../../../tests/core/trajectory/), [tests/delivery/trajectory/](../../../tests/delivery/trajectory/), focused API/persistence/agent test |

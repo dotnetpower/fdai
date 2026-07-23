@@ -79,3 +79,23 @@ async def test_pantheon_sink_does_not_promote_non_ingress_actions() -> None:
 
     events = [envelope async for envelope in pantheon_bus.subscribe("object.event", "test")]
     assert events == []
+
+
+async def test_pantheon_sink_promotes_inspection_as_huginn_event() -> None:
+    sink, _state, pantheon_bus = _pantheon_sink()
+
+    await sink.publish(
+        "document.inspected",
+        "doc-1",
+        {
+            "upload_id": "upload-1",
+            "version_id": "version-1",
+            "malware_verdict": "clean",
+            "protection_state": "none",
+        },
+    )
+
+    events = [envelope async for envelope in pantheon_bus.subscribe("object.event", "test")]
+    assert len(events) == 1
+    assert events[0].payload["producer_principal"] == "Huginn"
+    assert events[0].payload["event_type"] == "document.inspected"

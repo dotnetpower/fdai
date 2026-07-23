@@ -32,6 +32,45 @@ class Muninn(Agent):
             turn_id = str(payload.get("turn_id") or payload.get("id", ""))
             if turn_id:
                 self.state_store.put("conversation_turns", turn_id, payload)
+        elif (
+            topic == "object.audit-entry"
+            and payload.get("kind") == "document_ingestion"
+            and payload.get("stage") == "protection_check"
+            and (
+                (
+                    payload.get("audited_topic") == "object.verdict"
+                    and payload.get("decision") == "admit"
+                )
+                or (
+                    payload.get("audited_topic") == "object.approval"
+                    and payload.get("decision") == "approved"
+                )
+            )
+        ):
+            await self._request_document_index(payload)
+
+    async def _request_document_index(self, audited: dict[str, Any]) -> None:
+        """Publish the content-free command that unlocks document indexing."""
+        upload_id = str(audited.get("upload_id") or "")
+        document_id = str(audited.get("document_id") or "")
+        correlation_id = str(audited.get("correlation_id") or "")
+        if not upload_id or not document_id or not correlation_id:
+            self.record_behavior("document_index:invalid")
+            return
+        command = {
+            "producer_principal": "Muninn",
+            "kind": "document_ingestion",
+            "stage": "indexing",
+            "command": "index",
+            "correlation_id": correlation_id,
+            "idempotency_key": str(audited.get("idempotency_key") or ""),
+            "resource_id": document_id,
+            "document_id": document_id,
+            "upload_id": upload_id,
+        }
+        self.record_behavior("document_index:requested")
+        if self.bus is not None:
+            await self.bus.publish("Muninn", "object.context-index", command)
 
     def get_context(self, bucket: str, key: str) -> Any | None:
         return self.state_store.get(bucket, key)

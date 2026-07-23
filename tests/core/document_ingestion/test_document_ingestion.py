@@ -371,6 +371,43 @@ async def test_safe_text_reaches_ready_and_indexes_line_citations() -> None:
     assert activity.events[-1][0] == "document.ready"
 
 
+async def test_inspect_stops_before_index_until_agent_decision() -> None:
+    service, worker, _, _, artifacts, index, activity = _dependencies()
+    session = await _upload(service, b"first\nsecond\n")
+
+    inspected = await worker.inspect(session.upload_id)
+
+    assert inspected.state is DocumentState.PROTECTION_CHECK
+    assert index.envelopes == {}
+    assert artifacts.envelopes == {}
+    assert activity.events[-1][0] == "document.inspected"
+
+    ready = await worker.apply_safety_decision(
+        session.upload_id,
+        decision="admit",
+        reason="safety_checks_passed",
+    )
+    assert ready.state is DocumentState.READY
+
+
+async def test_gated_state_replay_does_not_duplicate_audit() -> None:
+    service, worker, _, _, _, _, activity = _dependencies()
+    session = await _upload(service, b"replay\n")
+    audit_count = len(activity.audit_records)
+
+    await worker.republish_received(session.upload_id)
+    assert len(activity.audit_records) == audit_count
+    assert activity.events[-1][0] == "document.received"
+
+    await worker.inspect(session.upload_id)
+    audit_count = len(activity.audit_records)
+    await worker.republish_inspection(session.upload_id)
+
+    assert len(activity.audit_records) == audit_count
+    assert activity.events[-1][0] == "document.inspected"
+    assert activity.events[-1][2]["malware_verdict"] == "clean"
+
+
 async def test_hung_artifact_write_times_out_and_fails_closed() -> None:
     artifacts = _HangingArtifactStore()
     service, worker, _, _, _, index, _ = _dependencies(

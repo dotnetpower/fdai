@@ -82,11 +82,11 @@ MAY publish that object type's topic.
 | **Huginn** | Event Collector / real-time resource discovery ingress - normalize + dedup + correlate | pipeline | Event | `object.event` | (external ingress) | no | no |
 | **Heimdall** | Observer - anomaly/drift/forecast + security-severity correlation | pipeline | Anomaly, Drift, Forecast | `object.anomaly`, `object.drift`, `object.forecast` | `object.event`, `object.security-event`, `object.chaos-experiment` | no | no |
 | **Vidar** | Recovery - rollback + DR failover principal | pipeline | Rollback | `object.rollback` | `object.action-run` (failed) | no | **yes** |
-| **Var** | Approver - HIL principal; MUST stay distinct from Thor | pipeline | Approval | `object.approval` | `object.action-run` (hil) | no | no |
+| **Var** | Approver - HIL principal; MUST stay distinct from Thor | pipeline | Approval | `object.approval` | `object.action-run` (hil), `object.audit-entry` (document HIL) | no | no |
 | **Bragi** | Narrator - conversational-port translator ONLY | pipeline | Conversation, Turn, UserPreference | `object.conversation`, `object.turn`, `object.user-preference` | (operator console) | yes (translator only) | no |
 | **Saga** | Auditor - append-only chain + handoff-to-GitHub-issue | governance | AuditEntry, Issue | `object.audit-entry`, `object.issue` | (all terminal states, for audit) | no | **yes** |
 | **Mimir** | Rule Steward - promote/revoke rules through the quality gate | governance | Rule, Policy | `object.rule` | `object.rule-candidate`, `object.issue` | no | no |
-| **Muninn** | Memory - state snapshots + context index (RAG) | governance | StateSnapshot, ContextIndex | (state store) | `object.turn` | no | no |
+| **Muninn** | Memory - state snapshots + context index (RAG) | governance | StateSnapshot, ContextIndex | `object.context-index` | `object.turn`, `object.audit-entry` | no | no |
 | **Norns** | Learner - proposes inert RuleCandidates (never mutates catalog) | governance | RuleCandidate, PatternObservation | `object.rule-candidate` | `object.audit-entry`, `object.issue`, `object.approval`, consent-filtered `object.turn` review envelopes | off-path batch only | no |
 | **Njord** | Cost specialist - advisory to Forseti | domain | CostAnomaly, Budget | `object.cost-anomaly` | (cost adapter) | no | no |
 | **Freyr** | Capacity specialist - advisory to Forseti | domain | CapacityForecast, SizingRecommendation | `object.capacity-forecast` | (utilization adapter) | no | no |

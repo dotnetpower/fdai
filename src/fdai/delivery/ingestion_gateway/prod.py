@@ -264,7 +264,11 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         ),
         config=IngestionGatewayConfig(
             proxy_upload=True,
-            background_services=(worker_service.run, worker_service.reconcile),
+            background_services=(
+                worker_service.run,
+                worker_service.run_index_commands,
+                worker_service.reconcile,
+            ),
             cors_allow_origins=_origins(env["FDAI_INGESTION_CORS_ALLOW_ORIGINS"]),
             default_reader_groups=(env["FDAI_RBAC_READERS_GROUP_ID"].strip(),),
             allowed_collections=_collections(

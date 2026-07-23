@@ -79,6 +79,24 @@ class DocumentIngestionWorker:
         self._indexing_stage_timeout_seconds = indexing_stage_timeout_seconds
 
     async def process(self, upload_id: UUID) -> DocumentVersion:
+        """Run both phases for local/direct callers.
+
+        Production uses :meth:`inspect` and :meth:`index` independently so
+        Forseti/Saga/Muninn typed gates sit between inspection and indexing.
+        """
+        version = await self.inspect(upload_id)
+        if version.state in {
+            DocumentState.READY,
+            DocumentState.READY_WITH_WARNINGS,
+            DocumentState.HELD,
+            DocumentState.FAILED,
+            DocumentState.DELETED,
+        }:
+            return version
+        return await self.index(upload_id)
+
+    async def inspect(self, upload_id: UUID) -> DocumentVersion:
+        """Run quarantine, malware, and protection checks, then stop."""
         session = await self._metadata.get_upload(upload_id)
         version = await self._metadata.get_version(session.document_id, session.version_id)
         if version.state in {
@@ -89,15 +107,15 @@ class DocumentIngestionWorker:
             DocumentState.DELETED,
         }:
             return version
+        if version.state in {DocumentState.EXTRACTING, DocumentState.INDEXING}:
+            return version
         if version.state not in {
             DocumentState.RECEIVED,
             DocumentState.QUARANTINED,
             DocumentState.SCANNING,
             DocumentState.PROTECTION_CHECK,
-            DocumentState.EXTRACTING,
-            DocumentState.INDEXING,
         }:
-            raise ValueError("worker cannot process the current document state")
+            raise ValueError("worker cannot inspect the current document state")
 
         if version.state is DocumentState.RECEIVED:
             session, version = await self._advance(session, version, DocumentState.QUARANTINED)
@@ -105,36 +123,71 @@ class DocumentIngestionWorker:
             session, version = await self._advance(session, version, DocumentState.SCANNING)
         if version.state is DocumentState.SCANNING:
             try:
-                verdict = await self._malware.scan(self._objects.read(session.object_key))
+                malware_verdict = await self._malware.scan(self._objects.read(session.object_key))
             except Exception:  # noqa: BLE001 - mandatory provider failures hold content
-                return await self._hold(session, version, "malware_scanner_unavailable")
-            if verdict is MalwareVerdict.INFECTED:
-                return await self._hold(session, version, "malware_detected")
-            if verdict is not MalwareVerdict.CLEAN:
-                return await self._hold(session, version, "malware_scanner_unavailable")
-            session, version = await self._advance(session, version, DocumentState.PROTECTION_CHECK)
-        if version.state is DocumentState.PROTECTION_CHECK:
-            try:
-                inspection = await self._protection.inspect(
-                    source_name=session.source_name,
-                    media_type_hint=session.media_type_hint,
-                    chunks=self._objects.read(session.object_key),
-                )
-            except Exception:  # noqa: BLE001 - unknown protection never reaches extraction
-                return await self._hold(session, version, "protection_check_unavailable")
+                malware_verdict = MalwareVerdict.UNAVAILABLE
+            failure_code: str | None = None
+            if malware_verdict is MalwareVerdict.INFECTED:
+                failure_code = "malware_detected"
+            elif malware_verdict is not MalwareVerdict.CLEAN:
+                failure_code = "malware_scanner_unavailable"
+            inspection = None
+            if failure_code is None:
+                try:
+                    inspection = await self._protection.inspect(
+                        source_name=session.source_name,
+                        media_type_hint=session.media_type_hint,
+                        chunks=self._objects.read(session.object_key),
+                    )
+                except Exception:  # noqa: BLE001 - unknown protection never reaches extraction
+                    failure_code = "protection_check_unavailable"
+            if inspection is not None and inspection.state not in _EXTRACTABLE_PROTECTION:
+                failure_code = inspection.reason_code or inspection.state.value
             version = version.model_copy(
                 update={
-                    "protection_state": inspection.state,
-                    "observed_format": inspection.observed_format,
-                    "media_type": inspection.media_type,
-                    "sensitivity_label": inspection.sensitivity_label,
+                    "protection_state": (
+                        inspection.state if inspection is not None else ProtectionState.UNKNOWN
+                    ),
+                    "observed_format": (
+                        inspection.observed_format if inspection is not None else None
+                    ),
+                    "media_type": (
+                        inspection.media_type if inspection is not None else version.media_type
+                    ),
+                    "sensitivity_label": (
+                        inspection.sensitivity_label if inspection is not None else None
+                    ),
+                    "failure_code": failure_code,
                     "updated_at": self._clock(),
                 }
             )
-            await self._metadata.save_version(version)
-            if inspection.state not in _EXTRACTABLE_PROTECTION:
+            session, version = await self._advance(session, version, DocumentState.PROTECTION_CHECK)
+            await self._record(
+                session,
+                version,
+                "document.inspected",
+                extra={"malware_verdict": malware_verdict.value},
+            )
+        return version
+
+    async def index(self, upload_id: UUID) -> DocumentVersion:
+        """Extract and index one version after the agent-owned safety gate."""
+        session = await self._metadata.get_upload(upload_id)
+        version = await self._metadata.get_version(session.document_id, session.version_id)
+        if version.state in {
+            DocumentState.READY,
+            DocumentState.READY_WITH_WARNINGS,
+            DocumentState.HELD,
+            DocumentState.FAILED,
+            DocumentState.DELETED,
+        }:
+            return version
+        if version.state is DocumentState.PROTECTION_CHECK:
+            if version.failure_code or version.protection_state not in _EXTRACTABLE_PROTECTION:
                 return await self._hold(
-                    session, version, inspection.reason_code or inspection.state.value
+                    session,
+                    version,
+                    version.failure_code or version.protection_state.value,
                 )
             if session.storage_mode is SourceStorageMode.METADATA_ONLY:
                 session, version = await self._advance(session, version, DocumentState.READY)
@@ -143,6 +196,8 @@ class DocumentIngestionWorker:
                 await self._record(session, version, "document.ready")
                 return version
             session, version = await self._advance(session, version, DocumentState.EXTRACTING)
+        if version.state not in {DocumentState.EXTRACTING, DocumentState.INDEXING}:
+            raise ValueError("worker cannot index the current document state")
 
         try:
             envelope = await self._extractor.extract(
@@ -196,6 +251,70 @@ class DocumentIngestionWorker:
         if session.storage_mode is SourceStorageMode.EPHEMERAL_PROCESSING:
             await self._objects.delete(session.object_key)
         return version
+
+    async def apply_safety_decision(
+        self,
+        upload_id: UUID,
+        *,
+        decision: str,
+        reason: str,
+    ) -> DocumentVersion:
+        """Apply Forseti's audited protection decision without widening it."""
+        session = await self._metadata.get_upload(upload_id)
+        version = await self._metadata.get_version(session.document_id, session.version_id)
+        if version.state is not DocumentState.PROTECTION_CHECK:
+            if version.state in {
+                DocumentState.READY,
+                DocumentState.READY_WITH_WARNINGS,
+                DocumentState.HELD,
+                DocumentState.FAILED,
+                DocumentState.DELETED,
+            }:
+                return version
+            raise ValueError("safety decision requires protection_check state")
+        if decision != "admit":
+            return await self._hold(session, version, reason or "safety_hold")
+        return await self.index(upload_id)
+
+    async def republish_received(self, upload_id: UUID) -> None:
+        """Replay the ingress event without advancing the received state."""
+        session = await self._metadata.get_upload(upload_id)
+        version = await self._metadata.get_version(session.document_id, session.version_id)
+        if version.state is not DocumentState.RECEIVED:
+            return
+        await self._activity.publish(
+            "document.received",
+            str(version.document_id),
+            self._record_payload(
+                session,
+                version,
+                action="document.received",
+                actor_id="ingestion-reconciler",
+            ),
+        )
+
+    async def republish_inspection(self, upload_id: UUID) -> None:
+        """Replay persisted inspection facts without advancing the gate."""
+        session = await self._metadata.get_upload(upload_id)
+        version = await self._metadata.get_version(session.document_id, session.version_id)
+        if version.state is not DocumentState.PROTECTION_CHECK:
+            return
+        malware_verdict = "clean"
+        if version.failure_code == "malware_detected":
+            malware_verdict = "infected"
+        elif version.failure_code == "malware_scanner_unavailable":
+            malware_verdict = "unavailable"
+        await self._activity.publish(
+            "document.inspected",
+            str(version.document_id),
+            self._record_payload(
+                session,
+                version,
+                action="document.inspected",
+                actor_id="ingestion-reconciler",
+                extra={"malware_verdict": malware_verdict},
+            ),
+        )
 
     async def _run_indexing_stage(
         self,
@@ -303,7 +422,27 @@ class DocumentIngestionWorker:
         action: str,
         *,
         actor_id: str = "ingestion-worker",
+        extra: dict[str, object] | None = None,
     ) -> None:
+        record = self._record_payload(
+            session,
+            version,
+            action=action,
+            actor_id=actor_id,
+            extra=extra,
+        )
+        await self._activity.audit(record)
+        await self._activity.publish(action, str(version.document_id), record)
+
+    @staticmethod
+    def _record_payload(
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        action: str,
+        actor_id: str,
+        extra: dict[str, object] | None = None,
+    ) -> dict[str, object]:
         record: dict[str, object] = {
             "action": action,
             "actor_id": actor_id,
@@ -313,12 +452,16 @@ class DocumentIngestionWorker:
             "source_sha256": version.source_sha256,
             "state": version.state.value,
             "protection_state": version.protection_state.value,
+            "sensitivity_label": version.sensitivity_label or "",
+            "purposes": [purpose.value for purpose in version.purposes],
+            "uploader_id": version.uploader_id,
             "failure_code": version.failure_code or "",
             "policy_version": version.retention.policy_version,
             "access_descriptor_ref": version.access.reference,
         }
-        await self._activity.audit(record)
-        await self._activity.publish(action, str(version.document_id), record)
+        if extra:
+            record.update(extra)
+        return record
 
 
 __all__ = ["DocumentIngestionWorker"]

@@ -445,7 +445,7 @@ and `producer_principal`; Thor uses `correlation_id:state` for `object.action-ru
 | object.action-run | Thor | Vidar, Var, Saga |
 | object.approval | Var | Thor, Saga |
 | object.rollback | Vidar | Thor (ActionRun projection), Saga |
-| object.audit-entry | Saga | Norns |
+| object.audit-entry | Saga | Norns, Muninn (document index gate), Var (document HIL) |
 | object.issue | Saga | Norns, Mimir |
 | object.rule-candidate | Norns | Mimir |
 | object.rule | Mimir | Forseti (cache reload) |

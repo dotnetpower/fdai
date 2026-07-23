@@ -77,6 +77,34 @@ def test_saga_seals_document_admission_as_audit_entry() -> None:
     assert "record" not in entry
 
 
+def test_saga_seals_document_human_approval() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    saga = Saga()
+    saga.bind_bus(bus)
+
+    asyncio.run(
+        saga.on_typed_message(
+            "object.approval",
+            {
+                "producer_principal": "Var",
+                "kind": "document_ingestion",
+                "stage": "protection_check",
+                "state": "approved",
+                "correlation_id": "upload-hil",
+                "document_id": "doc-hil",
+                "upload_id": "upload-hil",
+                "approvers": ["reviewer@example.com"],
+            },
+        )
+    )
+
+    entry = bus.messages_on("object.audit-entry")[0].payload
+    assert entry["audited_topic"] == "object.approval"
+    assert entry["decision"] == "approved"
+    assert entry["approvers"] == ["reviewer@example.com"]
+
+
 def test_saga_audit_chain_detects_tamper() -> None:
     chain = InMemoryAuditChain()
     chain.append(principal="Thor", topic="object.action-run", correlation_id="c", payload={})
@@ -247,6 +275,83 @@ def test_muninn_indexes_conversation_turns() -> None:
     stored = muninn.get_context("conversation_turns", "t1")
     assert stored is not None
     assert stored["question"] == "hi"
+
+
+def test_muninn_requests_index_after_saga_sealed_document_admit() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    muninn = Muninn()
+    muninn.bind_bus(bus)
+
+    asyncio.run(
+        muninn.on_typed_message(
+            "object.audit-entry",
+            {
+                "producer_principal": "Saga",
+                "kind": "document_ingestion",
+                "audited_topic": "object.verdict",
+                "stage": "protection_check",
+                "decision": "admit",
+                "correlation_id": "upload-1",
+                "idempotency_key": "document.inspected:version-1",
+                "document_id": "doc-1",
+                "upload_id": "upload-1",
+            },
+        )
+    )
+
+    command = bus.messages_on("object.context-index")[0].payload
+    assert command["producer_principal"] == "Muninn"
+    assert command["kind"] == "document_ingestion"
+    assert command["stage"] == "indexing"
+    assert command["command"] == "index"
+    assert command["upload_id"] == "upload-1"
+
+
+def test_muninn_does_not_index_held_or_incomplete_documents() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    muninn = Muninn()
+    muninn.bind_bus(bus)
+
+    asyncio.run(
+        muninn.on_typed_message(
+            "object.audit-entry",
+            {
+                "kind": "document_ingestion",
+                "audited_topic": "object.verdict",
+                "stage": "protection_check",
+                "decision": "hold",
+            },
+        )
+    )
+
+    assert bus.messages_on("object.context-index") == []
+
+
+def test_muninn_requests_index_after_saga_sealed_human_approval() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    muninn = Muninn()
+    muninn.bind_bus(bus)
+
+    asyncio.run(
+        muninn.on_typed_message(
+            "object.audit-entry",
+            {
+                "producer_principal": "Saga",
+                "kind": "document_ingestion",
+                "audited_topic": "object.approval",
+                "stage": "protection_check",
+                "decision": "approved",
+                "correlation_id": "upload-hil",
+                "document_id": "doc-hil",
+                "upload_id": "upload-hil",
+            },
+        )
+    )
+
+    assert bus.messages_on("object.context-index")[0].payload["command"] == "index"
 
 
 def test_muninn_put_get_generic() -> None:

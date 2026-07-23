@@ -31,6 +31,10 @@ class PendingHilTicket:
     resource_id: str | None
     quorum_required: int
     initiator_principal: str | None = None
+    kind: str = "action"
+    document_id: str | None = None
+    upload_id: str | None = None
+    stage: str | None = None
     approvers: list[str] = field(default_factory=list)
     rejected: bool = False
 
@@ -79,6 +83,9 @@ class Var(Agent):
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.audit-entry":
+            self._ingest_document_hil(payload)
+            return
         if topic != "object.action-run":
             return
         if payload.get("state") != "hil_pending":
@@ -99,6 +106,34 @@ class Var(Agent):
             initiator_principal=payload.get("initiator_principal"),
         )
         self.record_behavior("ticket_pending")
+        _evict_oldest_ticket(self._pending, self._MAX_PENDING, keep=correlation)
+
+    def _ingest_document_hil(self, payload: dict[str, Any]) -> None:
+        if (
+            payload.get("producer_principal") != "Saga"
+            or payload.get("kind") != "document_ingestion"
+            or payload.get("audited_topic") != "object.verdict"
+            or payload.get("stage") != "protection_check"
+            or payload.get("decision") != "hil"
+        ):
+            return
+        correlation = str(payload.get("correlation_id") or "")
+        document_id = str(payload.get("document_id") or "")
+        upload_id = str(payload.get("upload_id") or "")
+        if not correlation or not document_id or not upload_id or correlation in self._pending:
+            return
+        self._pending[correlation] = PendingHilTicket(
+            correlation_id=correlation,
+            action_type="document.promote-authoritative",
+            resource_id=document_id,
+            quorum_required=1,
+            initiator_principal=str(payload.get("initiator_principal") or "") or None,
+            kind="document_ingestion",
+            document_id=document_id,
+            upload_id=upload_id,
+            stage="protection_check",
+        )
+        self.record_behavior("document_ticket_pending")
         _evict_oldest_ticket(self._pending, self._MAX_PENDING, keep=correlation)
 
     # ---- HIL decision --------------------------------------------------
@@ -149,13 +184,22 @@ class Var(Agent):
         if ticket.rejected or len(ticket.approvers) >= ticket.quorum_required:
             final = "rejected" if ticket.rejected else "approved"
             self.record_behavior(final)
-            approval = {
+            approval: dict[str, Any] = {
                 "producer_principal": "Var",
+                "kind": ticket.kind,
                 "correlation_id": correlation_id,
                 "action_type": ticket.action_type,
                 "state": final,
                 "approvers": list(ticket.approvers),
             }
+            if ticket.kind == "document_ingestion":
+                approval.update(
+                    {
+                        "stage": ticket.stage,
+                        "document_id": ticket.document_id,
+                        "upload_id": ticket.upload_id,
+                    }
+                )
             if self.bus is not None:
                 await self.bus.publish("Var", "object.approval", approval)
             del self._pending[correlation_id]

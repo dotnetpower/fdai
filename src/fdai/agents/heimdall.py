@@ -117,11 +117,53 @@ class Heimdall(Agent):
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.event":
+            if (
+                payload.get("kind") == "document_ingestion"
+                and payload.get("event_type") == "document.inspected"
+            ):
+                await self._emit_document_safety_signal(payload)
+                return
             await self._maybe_emit_anomaly(payload)
         elif topic == "object.security-event":
             severity = await self._maybe_classify_severity(payload)
             if severity in ("high", "critical") and self._alerter_hook is not None:
                 await self._maybe_send_admin_card(payload, severity)
+
+    async def _emit_document_safety_signal(self, event: dict[str, Any]) -> None:
+        """Normalize scanner/protection facts without making the verdict."""
+        record = event.get("record")
+        if not isinstance(record, dict):
+            record = {}
+        malware_verdict = str(record.get("malware_verdict") or "unavailable")
+        protection_state = str(record.get("protection_state") or "unknown")
+        failure_code = str(record.get("failure_code") or "")
+        safety_status = (
+            "clear"
+            if malware_verdict == "clean"
+            and not failure_code
+            and protection_state in {"none", "labeled_unencrypted", "rights_managed_accessible"}
+            else "blocked"
+        )
+        signal = {
+            "producer_principal": "Heimdall",
+            "kind": "document_ingestion",
+            "stage": "protection_check",
+            "correlation_id": str(event.get("correlation_id") or ""),
+            "idempotency_key": str(event.get("idempotency_key") or ""),
+            "resource_id": str(event.get("resource_id") or ""),
+            "document_id": str(event.get("document_id") or ""),
+            "upload_id": str(record.get("upload_id") or ""),
+            "malware_verdict": malware_verdict,
+            "protection_state": protection_state,
+            "sensitivity_label": str(record.get("sensitivity_label") or ""),
+            "purposes": list(record.get("purposes") or []),
+            "initiator_principal": str(record.get("uploader_id") or ""),
+            "failure_code": failure_code,
+            "safety_status": safety_status,
+        }
+        self.record_behavior(f"document_safety:{safety_status}")
+        if self.bus is not None:
+            await self.bus.publish("Heimdall", "object.anomaly", signal)
 
     async def _maybe_emit_anomaly(self, event: dict[str, Any]) -> None:
         resource_id = str(event.get("resource_id") or "")
