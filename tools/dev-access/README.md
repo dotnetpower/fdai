@@ -11,6 +11,7 @@ state so the access network can be removed without changing FDAI runtime resourc
 | `infra/` | Independent VPN Gateway, Private DNS Resolver, peering, and DNS links. |
 | `scripts/profile.sh` | Generates and validates an Azure VPN Client profile after apply. |
 | `scripts/wsl-dns.sh` | Applies or removes Resolver DNS on the current WSL VPN interface. |
+| `scripts/vscode-startup.sh` | Checks VPN state and restores WSL DNS when VS Code opens FDAI. |
 | `scripts/doctor.sh` | Verifies WSL networking, private DNS, routing, and optional TCP access. |
 
 ## Isolation boundary
@@ -100,6 +101,12 @@ tools/dev-access/scripts/wsl-dns.sh apply
 The setting belongs to the transient VPN interface. Disconnecting the VPN removes that interface
 and restores the distribution's existing DNS behavior. You can remove it before disconnecting with
 `tools/dev-access/scripts/wsl-dns.sh revert`.
+
+When VS Code opens the FDAI workspace, the `dev-access: configure VPN on folder open` task runs
+automatically. A checkout without local `infra/terraform.tfstate` is a quiet no-op. When the VPN is
+connected, the task applies WSL DNS without revealing a terminal. When it is disconnected, the task
+opens Azure VPN Client and exits with an actionable error so VS Code reveals the failed task. The
+task never connects without the developer's Entra sign-in and MFA.
 
 ## Verify private access
 

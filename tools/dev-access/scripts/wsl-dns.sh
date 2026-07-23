@@ -20,7 +20,13 @@ pushd "${INFRA_DIR}" >/dev/null
 dns_resolver_ip="$(terraform output -raw dns_resolver_inbound_ip)"
 popd >/dev/null
 
-vpn_interface="$(ip route get "${dns_resolver_ip}" | awk '
+route_line="$(ip route get "${dns_resolver_ip}" 2>/dev/null || true)"
+if [[ -z "${route_line}" || "${route_line}" == *" via "* ]]; then
+  printf 'error: no WSL VPN route to the Private DNS Resolver; connect Azure VPN Client first\n' >&2
+  exit 1
+fi
+
+vpn_interface="$(printf '%s\n' "${route_line}" | awk '
   NR == 1 {
     for (field_index = 1; field_index <= NF; field_index++) {
       if ($field_index == "dev") {

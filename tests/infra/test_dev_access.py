@@ -57,6 +57,8 @@ def test_dev_access_ships_repeatable_client_checks() -> None:
     profile = (_DEV_ACCESS / "scripts" / "profile.sh").read_text(encoding="utf-8")
     doctor = (_DEV_ACCESS / "scripts" / "doctor.sh").read_text(encoding="utf-8")
     wsl_dns = (_DEV_ACCESS / "scripts" / "wsl-dns.sh").read_text(encoding="utf-8")
+    startup = (_DEV_ACCESS / "scripts" / "vscode-startup.sh").read_text(encoding="utf-8")
+    tasks = (_ROOT / ".vscode" / "tasks.json").read_text(encoding="utf-8")
 
     assert "az network vnet-gateway vpn-client generate" in profile
     assert "terraform output -raw dns_resolver_inbound_ip" in profile
@@ -68,3 +70,13 @@ def test_dev_access_ships_repeatable_client_checks() -> None:
     assert 'ACTION="${1:-apply}"' in wsl_dns
     assert "resolvectl dnsovertls" in wsl_dns
     assert "wsl.exe" in wsl_dns
+    assert '"label": "dev-access: configure VPN on folder open"' in tasks
+    assert '"command": "bash tools/dev-access/scripts/vscode-startup.sh"' in tasks
+    assert '"runOn": "folderOpen"' in tasks
+    assert '"instanceLimit": 1' in tasks
+    assert "terraform.tfstate" in startup
+    assert '"${route_line}" == *" via "*' in startup
+    assert '"${route_line}" == *" via "*' in wsl_dns
+    assert 'wsl-dns.sh" apply' in startup
+    assert "Microsoft.AzureVpn" in startup
+    assert "exit 20" in startup

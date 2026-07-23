@@ -1,6 +1,7 @@
 {
-  // FDAI developer tasks. The two folderOpen tasks make trunk-based
-  // (no-branch) collaboration safe out of the box:
+  // FDAI developer tasks. The folderOpen tasks make trunk-based
+  // (no-branch) collaboration safe out of the box, and the optional
+  // dev-access task restores WSL private DNS when local VPN state exists:
   //   - "hooks: install" wires the shared pre-commit and pre-push gates.
   //   - "git: auto-pull" keeps local `main` close to the remote so
   //     conflicts surface early. It only rebases a clean working tree.
@@ -35,6 +36,23 @@
       },
       "runOptions": {
         "runOn": "folderOpen"
+      }
+    },
+    {
+      "label": "dev-access: configure VPN on folder open",
+      "type": "shell",
+      "command": "bash tools/dev-access/scripts/vscode-startup.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "dev-access",
+        "close": false,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "runOn": "folderOpen",
+        "instanceLimit": 1
       }
     },
     {

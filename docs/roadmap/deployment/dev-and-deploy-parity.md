@@ -85,6 +85,12 @@ of the same source file exist on disk. They are discovery preferences only: you 
 excluded path for an explicit task, and no exclusion selects an evidence profile, authentication
 mode, action lifecycle, or runtime adapter. Source, tests, and owning design docs remain searchable.
 
+The optional `dev-access: configure VPN on folder open` task activates only when the workstation
+has local state for the isolated P2S development-access stack. A connected VPN causes the task to
+restore the transient WSL Resolver binding without changing FDAI runtime resources. A disconnected
+VPN opens Azure VPN Client and reports a failed startup task; the developer still completes Entra
+sign-in and MFA. Workstations without local dev-access state receive no prompt or network change.
+
 ### Console data in local development
 
 The canonical local read API uses `FDAI_READ_API_LOCAL_ENTRA=1` and shares route-owned runtime helpers with deployment. The browser obtains the API token
