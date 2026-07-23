@@ -32,7 +32,12 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from fdai.core.conversation.answer_plan import build_answer_plan
-from fdai.core.conversation.narrator import GroundedAnswerNarrator, Narrator, ToolSchema
+from fdai.core.conversation.narrator import (
+    ClarificationNarrator,
+    GroundedAnswerNarrator,
+    Narrator,
+    ToolSchema,
+)
 from fdai.core.conversation.session import (
     ConversationSession,
     Principal,
@@ -46,6 +51,7 @@ from fdai.core.conversation.tools import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+_MAX_CLARIFICATION_CHARS = 512
 _MAX_RENDERED_ANSWER_CHARS = 12_000
 
 
@@ -237,22 +243,38 @@ class ConversationCoordinator:
 
         if match is None or match.confidence < self._config.chat_t0_confidence_threshold:
             visible = self.list_tools_for(session.principal)
+            fallback_reason = (
+                "no chat_t0 intent match; try one of the listed verbs"
+                if match is None
+                else f"chat_t0 intent match confidence={match.confidence:.2f} below threshold"
+            )
+            clarification = self._clarify(
+                utterance=message,
+                visible_tools=visible,
+                prior_turns=prior_turns,
+                principal_role=session.principal.role.value,
+            )
             abstain = AbstainResult(
-                reason=(
-                    "no chat_t0 intent match; try one of the listed verbs"
-                    if match is None
-                    else f"chat_t0 intent match confidence={match.confidence:.2f} below threshold"
-                ),
+                reason=clarification or fallback_reason,
                 tool_inventory=visible,
             )
             session.append(
                 Turn(
                     turn_id=str(uuid.uuid4()),
                     direction="system",
-                    content=abstain.reason,
+                    content=fallback_reason,
                     tier="T0",
                 )
             )
+            if clarification is not None:
+                session.append(
+                    Turn(
+                        turn_id=str(uuid.uuid4()),
+                        direction="outbound",
+                        content=clarification,
+                        tier="T1",
+                    )
+                )
             return abstain
 
         tool = self._tools.get(match.tool_name)
@@ -375,6 +397,48 @@ class ConversationCoordinator:
             )
         )
         return replace(result, preview=rendered)
+
+    def _clarify(
+        self,
+        *,
+        utterance: str,
+        visible_tools: tuple[str, ...],
+        prior_turns: Sequence[Turn],
+        principal_role: str,
+    ) -> str | None:
+        if not isinstance(self._narrator, ClarificationNarrator):
+            return None
+        visible = set(visible_tools)
+        schemas = tuple(
+            schema for schema in self._narrator_tool_schemas if schema.tool_name in visible
+        )
+        if not schemas:
+            return None
+        try:
+            answer = self._narrator.clarify(
+                utterance=utterance,
+                tools=schemas,
+                prior_turns=prior_turns,
+                principal_role=principal_role,
+            )
+        except Exception:  # noqa: BLE001 - clarification failure keeps deterministic abstain
+            _LOGGER.warning(
+                "narrator_clarification_failed",
+                extra={"principal_role": principal_role},
+                exc_info=True,
+            )
+            return None
+        if answer is None:
+            return None
+        question = answer.strip()
+        if (
+            not question
+            or len(question) > _MAX_CLARIFICATION_CHARS
+            or "\n" in question
+            or not question.endswith("?")
+        ):
+            return None
+        return question
 
     def _match_intent(self, message: str) -> _IntentMatch | None:
         """Regex-first, case-insensitive.

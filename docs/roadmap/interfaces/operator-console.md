@@ -114,6 +114,10 @@ flowchart TD
   and the presence of prior conversation context. The current inbound/tool/result transaction is
   excluded from that prior context. Web generation uses the read API backend seam, so deployments
   can bind providers.
+  When intent translation remains ambiguous, an optional `ClarificationNarrator` sees only the
+  installed tool schemas visible to the principal and may return one bounded question. This path
+  invokes no tool, guesses no argument, and falls back to the deterministic abstain response when
+  the provider fails or the response is not one question.
 - **Layer 1 (Core)** is exactly the deterministic core that already ships.
   The console adds no new judgment path, no new persistence store, and no
   new execution vector. A console tool call resolves to a call the
@@ -125,8 +129,9 @@ flowchart TD
   - `coordinator.py` - `ConversationCoordinator` (Layer 2 orchestrator).
   - `tools.py` - `SystemConsoleTool` Protocol + per-tool implementations that
     delegate to Layer 1 modules only.
-  - `narrator.py` - synchronous intent `Narrator` and presentation-only
-    `GroundedAnswerNarrator` Protocols, deterministic verb schemas, and RBAC-scoped descriptors.
+  - `narrator.py` - synchronous intent `Narrator`, zero-execution `ClarificationNarrator`, and
+    presentation-only `GroundedAnswerNarrator` Protocols, deterministic verb schemas, and
+    RBAC-scoped descriptors.
   - `session.py` - disposable core/CLI `ConversationSession` projection. Principal-scoped
     `ConversationHistoryStore` owns production web transcripts.
 - [`cli/`](../../../cli)

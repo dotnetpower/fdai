@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 7d59578aa11d1f3f8eb7d56137feae1778dda718
+translation_source_sha: 6bd44546db6c125186d35225500ba1db142e1088
 translation_revised: 2026-07-23
 ---
 
@@ -111,6 +111,10 @@ flowchart TD
   class, evidence-reference count 및 prior conversation context 유무에서 결정론적으로 조립합니다.
   현재 inbound/tool/result transaction은 prior context에서 제외합니다. Web generation은 read API
   backend seam이므로 deployment가 provider를 바인딩할 수 있습니다.
+  Intent translation이 계속 ambiguous하면 optional `ClarificationNarrator`가 principal에게 보이는
+  installed tool schema만 받고 bounded question 하나를 반환할 수 있습니다. 이 경로는 tool을 호출하지
+  않고 argument를 추측하지 않으며 provider 실패 또는 one-question 형식 위반 시 deterministic abstain
+  response로 fallback합니다.
 - **Layer 1 (Core)**은 이미 shipping 중인 deterministic core 그대로.
   콘솔은 새 판단 경로, 새 지속성 저장소, 새 execution vector를 추가하지
   않는다. 콘솔 tool call은 기존 pipeline이 이미 만드는 법을 아는 call
@@ -122,8 +126,9 @@ flowchart TD
   - `coordinator.py` - `ConversationCoordinator` (Layer 2 orchestrator).
   - `tools.py` - `ConsoleTool` Protocol + per-tool 구현체가 Layer 1
     모듈에만 delegate.
-  - `narrator.py` - sync intent `Narrator`와 presentation-only `GroundedAnswerNarrator`
-    Protocol, deterministic verb schema 및 RBAC-scoped descriptor.
+  - `narrator.py` - sync intent `Narrator`, zero-execution `ClarificationNarrator` 및
+    presentation-only `GroundedAnswerNarrator` Protocol, deterministic verb schema와
+    RBAC-scoped descriptor.
   - `session.py` - core/CLI용 disposable `ConversationSession` projection. Production web transcript는
     principal-scoped `ConversationHistoryStore`가 소유합니다.
 - [`cli/`](../../../cli)

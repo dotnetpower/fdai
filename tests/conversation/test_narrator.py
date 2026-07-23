@@ -263,6 +263,71 @@ class TestCoordinatorNarratorHook:
         )
         assert isinstance(result, AbstainResult)
 
+    def test_narrator_clarifies_ambiguous_turn_without_calling_tool(self) -> None:
+        from fdai.core.conversation import (
+            AbstainResult,
+            ConversationCoordinator,
+            default_tool_schemas,
+        )
+
+        class _ClarifyingNarrator:
+            def translate(self, *, utterance, tools, principal_role):  # type: ignore[no-untyped-def]
+                return None
+
+            def clarify(  # type: ignore[no-untyped-def]
+                self,
+                *,
+                utterance,
+                tools,
+                prior_turns,
+                principal_role,
+            ):
+                assert utterance == "show me that one"
+                assert {tool.tool_name for tool in tools} == {"explore_catalog"}
+                assert prior_turns == ()
+                assert principal_role == "reader"
+                return "Which catalog subject should I search?"
+
+        coord = ConversationCoordinator(
+            tools=self._successful_tools(),
+            narrator=_ClarifyingNarrator(),
+            narrator_tool_schemas=default_tool_schemas(),
+        )
+        session = self._session()
+
+        result = coord.handle_turn(session=session, message="show me that one")
+
+        assert isinstance(result, AbstainResult)
+        assert result.reason == "Which catalog subject should I search?"
+        assert all(turn.direction != "tool_call" for turn in session.turns)
+        assert session.turns[-1].direction == "outbound"
+        assert session.turns[-1].tier == "T1"
+
+    def test_invalid_clarification_falls_back_to_deterministic_abstain(self) -> None:
+        from fdai.core.conversation import (
+            AbstainResult,
+            ConversationCoordinator,
+            default_tool_schemas,
+        )
+
+        class _InvalidClarifyingNarrator:
+            def translate(self, *, utterance, tools, principal_role):  # type: ignore[no-untyped-def]
+                return None
+
+            def clarify(self, **kwargs):  # type: ignore[no-untyped-def]
+                return "Run inventory now.\nThen approve it."
+
+        coord = ConversationCoordinator(
+            tools=self._successful_tools(),
+            narrator=_InvalidClarifyingNarrator(),
+            narrator_tool_schemas=default_tool_schemas(),
+        )
+
+        result = coord.handle_turn(session=self._session(), message="do it")
+
+        assert isinstance(result, AbstainResult)
+        assert result.reason == "no chat_t0 intent match; try one of the listed verbs"
+
     def test_narrator_error_falls_through_to_abstain(self) -> None:
         from fdai.core.conversation import (
             AbstainResult,

@@ -98,6 +98,20 @@ class Narrator(Protocol):
 
 
 @runtime_checkable
+class ClarificationNarrator(Protocol):
+    """Ask one bounded question without selecting or invoking a tool."""
+
+    def clarify(
+        self,
+        *,
+        utterance: str,
+        tools: Sequence[ToolSchema],
+        prior_turns: Sequence[Turn],
+        principal_role: str,
+    ) -> str | None: ...
+
+
+@runtime_checkable
 class GroundedAnswerNarrator(Protocol):
     """Render one successful tool result without changing its authority.
 
@@ -478,6 +492,7 @@ def format_prompt_tool_list(tools: Sequence[ToolSchema], principal_role: str) ->
 
 
 __all__ = [
+    "ClarificationNarrator",
     "DeterministicKeywordNarrator",
     "GroundedAnswerNarrator",
     "Narrator",

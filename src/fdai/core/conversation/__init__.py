@@ -128,6 +128,7 @@ from fdai.core.conversation.identity_verification import (
     PrincipalScopeAuthorization,
 )
 from fdai.core.conversation.narrator import (
+    ClarificationNarrator,
     DeterministicKeywordNarrator,
     GroundedAnswerNarrator,
     Narrator,
@@ -236,6 +237,7 @@ __all__ = [
     "ChannelPrincipalAuthorizationMapping",
     "ChannelScopeResolver",
     "ChannelSenderKey",
+    "ClarificationNarrator",
     "CrossChannelIdentityLink",
     "CrossChannelIdentityLinkError",
     "CrossChannelIdentityLinkService",
