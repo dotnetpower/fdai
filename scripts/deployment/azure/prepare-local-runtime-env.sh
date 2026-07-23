@@ -40,6 +40,34 @@ if [[ "${subscription_id,,}" != "${deployment_subscription_id,,}" ]]; then
   exit 1
 fi
 region="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" group show --name "$resource_group" --query location -o tsv)"
+
+# When Terraform state does not surface the operations gateway (for example a
+# targeted apply provisioned it out of band, or this working tree reads a
+# different state), live-detect a deployed gateway Function App the active
+# Azure CLI session can already see in the resource group. The gateway app is
+# named ``func-<workload>...-devgw-<suffix>`` and its Microsoft Entra audience
+# is the App Service Authentication allowed audience. Every probe fails soft:
+# any lookup miss leaves the URL empty so the shadow-fake fallback still wins.
+if [[ -z "$dev_operations_gateway_url" ]]; then
+  gateway_app_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" functionapp list \
+    --resource-group "$resource_group" \
+    --query "[?contains(name, '-devgw-')] | [0].id" -o tsv 2>/dev/null || true)"
+  if [[ -n "$gateway_app_id" ]]; then
+    gateway_host="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" functionapp show \
+      --ids "$gateway_app_id" --query defaultHostName -o tsv 2>/dev/null || true)"
+    gateway_audience_live="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" rest --method post \
+      --uri "https://management.azure.com${gateway_app_id}/config/authsettingsV2/list?api-version=2023-12-01" \
+      --query "properties.identityProviders.azureActiveDirectory.validation.allowedAudiences[0]" \
+      -o tsv 2>/dev/null || true)"
+    if [[ "$gateway_host" =~ ^[A-Za-z0-9.-]+$ &&
+      "$gateway_audience_live" =~ ^[A-Za-z0-9:._/-]+$ &&
+      "${#gateway_audience_live}" -le 256 ]]; then
+      dev_operations_gateway_url="https://${gateway_host}"
+      dev_operations_gateway_audience="$gateway_audience_live"
+      echo "development operations gateway detected via Azure CLI; Terraform state does not surface it" >&2
+    fi
+  fi
+fi
 event_topic="$(printf '%s' "$topics_json" | "$REPO_ROOT/.venv/bin/python" -c '
 import json, sys
 topics = json.load(sys.stdin)

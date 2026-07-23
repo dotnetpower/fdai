@@ -296,3 +296,81 @@ def test_rejects_invalid_local_consumer_instance_before_provider_access(
     assert "FDAI_LOCAL_CONSUMER_INSTANCE MUST match" in completed.stderr
     assert "provider-access-must-not-run" not in completed.stderr
     assert not output.exists()
+
+
+def test_detects_gateway_via_azure_cli_when_terraform_state_omits_it(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / "infra").mkdir()
+    (repo / ".venv/bin").mkdir(parents=True)
+    (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
+    (repo / "console/.env.local").write_text("VITE_DEV_MODE=0\n", encoding="utf-8")
+    terraform = tmp_path / "terraform"
+    terraform.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ "$*" == *"output -raw event_bus_kafka_bootstrap"* ]]; then\n'
+        "  printf 'example.servicebus.windows.net:9093'\n"
+        'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
+        "  printf '[\"aw.change.events\"]'\n"
+        'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
+        "  printf 'rg-example'\n"
+        'elif [[ "$*" == *"output -raw executor_identity_resource_id"* ]]; then\n'
+        f"  printf '{_EXECUTOR_RESOURCE_ID}'\n"
+        "else\n"
+        "  exit 2\n"
+        "fi\n",
+        encoding="utf-8",
+    )
+    terraform.chmod(0o755)
+    gateway_app_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/"
+        "rg-example/providers/Microsoft.Web/sites/func-example-devgw-abc123"
+    )
+    az = tmp_path / "az"
+    az.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ "$*" == *"account show --query id"* ]]; then\n'
+        "  printf '00000000-0000-0000-0000-000000000001'\n"
+        'elif [[ "$*" == *"account show --query tenantId"* ]]; then\n'
+        "  printf '00000000-0000-0000-0000-000000000002'\n"
+        'elif [[ "$*" == *"group show"* ]]; then\n'
+        "  printf 'example-region'\n"
+        'elif [[ "$*" == *"functionapp list"* ]]; then\n'
+        f"  printf '{gateway_app_id}'\n"
+        'elif [[ "$*" == *"functionapp show"* ]]; then\n'
+        "  printf 'func-example-devgw-abc123.azurewebsites.net'\n"
+        'elif [[ "$*" == *"rest --method post"* ]]; then\n'
+        "  printf 'api://gateway-app-id'\n"
+        "else\n"
+        "  exit 2\n"
+        "fi\n",
+        encoding="utf-8",
+    )
+    az.chmod(0o755)
+    output = repo / ".fdai/local-runtime.env"
+
+    completed = subprocess.run(  # noqa: S603 - test-controlled binaries
+        [_BASH, str(_SCRIPT), str(output)],
+        check=True,
+        cwd=_REPO_ROOT,
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_TERRAFORM_BIN": str(terraform),
+            "FDAI_AZ_BIN": str(az),
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-d",
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    rendered = output.read_text(encoding="utf-8")
+    # Terraform state omits the gateway, so the URL/audience are recovered from
+    # the live Azure CLI probe and the shadow fake must NOT be wired.
+    assert (
+        "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://func-example-devgw-abc123.azurewebsites.net"
+        in rendered
+    )
+    assert "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=api://gateway-app-id" in rendered
+    assert "FDAI_DIRECT_API_FAKE=" not in rendered
+    assert "detected via Azure CLI" in completed.stderr
