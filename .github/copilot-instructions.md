@@ -12,33 +12,34 @@ This file is the small always-on contract. Detailed rules are loaded through
 `must_read` document selected by all matching routes. The workspace hook blocks edits when
 that context is missing or stale. A more specific instruction wins a conflict.
 
-## Always-On Rules (MUST)
+## Core Principles (MUST)
 
-1. Read the route-selected design docs before editing. Update affected docs in the same PR.
-2. Keep the repository customer-agnostic. Never commit secrets, tenant values, endpoints, or
-   customer identifiers.
-3. Resolve repeatable decisions deterministically. T2 output requires mixed-model,
-   verifier, grounding, risk, and approval gates.
-4. Every autonomous action needs a stop-condition, rollback, blast-radius limit, dry-run,
-   per-resource lock, idempotency key, and audit record.
-5. New capabilities start in shadow and use the authoritative promotion registry. Local,
-   dev, production, and fork status never promote or demote a capability.
-6. Human App Roles and the executor workload identity stay distinct. No self-approval.
-7. Azure is the implemented target. Keep provider contracts neutral; non-Azure adapters are
-   out of scope until explicitly approved.
-8. After a coherent user-requested change is complete and validated, commit it before reporting
-  completion unless the user says not to commit. Stage only files and hunks owned by that task;
-  never include unrelated worktree changes, and never commit failed or incomplete work.
-9. FDAI is agent-driven. Agents MUST be independently and concurrently runnable, and machine
-  workflow collaboration MUST use schema-validated event-bus pub/sub. Direct agent-to-agent
-  workflow calls, RPC, imports, or shared mutable workflow state are prohibited.
-10. During development, run the narrowest test that can falsify the current change. Run bare
-  `make test-changed` only when the worktree contains that session's batch alone. Parallel sessions
-  SHOULD use separate Git worktrees; in a shared dirty worktree, validate before commit with focused
-  checks, commit only owned paths, then run `make test-changed DIFF=<commit>^..<commit>` for that exact
-  commit. Never make every session retest unrelated dirty files. Run an unscoped whole-repository
-  suite only when explicitly requested, at a merge/release boundary, or on selector fallback, and
-  do not repeat a green result for an unchanged commit.
+1. **Agent-driven:** Every capability belongs to an independently and concurrently runnable agent.
+   Machine collaboration uses schema-validated event-bus pub/sub only; direct agent calls, RPC,
+   implementation imports, and shared mutable workflow state are prohibited.
+2. **Deterministic-first:** Resolve repeatable decisions with deterministic rules. Adaptive T2
+   decisions require mixed-model, verifier, grounding, risk, and approval gates.
+3. **Safe autonomy:** Every autonomous action requires a stop condition, rollback, blast-radius
+   limit, dry-run, per-resource lock, idempotency key, and audit record. New capabilities start in
+   shadow and change mode only through the authoritative promotion registry; runtime, environment,
+   and fork status never promote or demote them.
+4. **Evidence-governed:** Every decision and action is attributable, observable, and replayable.
+   Insufficient evidence results in abstention or escalation. Human App Roles and the executor
+   workload identity stay distinct; self-approval is prohibited.
+5. **Secure boundaries:** Keep the repository customer-agnostic and free of secrets, tenant values,
+   endpoints, and customer identifiers. Azure is the implemented target, provider contracts stay
+   neutral, and non-Azure adapters require explicit approval.
+
+## Agent Workflow (MUST)
+
+1. Read every route-selected design document before editing.
+2. Make the smallest coherent change, update affected contracts and docs, and never hand-edit
+   generated runtime artifacts.
+3. Run the narrowest executable check that can falsify the change. Follow the diff-scoped and
+   parallel-worktree rules in
+   [coding-conventions.instructions.md](instructions/coding-conventions.instructions.md).
+4. Commit each validated user-requested change before reporting completion unless the user says
+   not to commit. Stage only task-owned files and hunks; never commit failed or incomplete work.
 
 ## Issue Lifecycle (MUST)
 
@@ -68,9 +69,3 @@ machine-record keys stay ASCII/English as defined by
   [language.instructions.md](instructions/language.instructions.md) - docs and localization.
 - [ADR-0002](../docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md) - independent
   runtime, environment, evidence, autonomy, identity, and fork axes.
-
-## Verification
-
-Run `scripts/verify.sh` for fast gates, `--full <path>` for focused pytest, and `--all` only for an
-explicit whole-repository gate. Do not hand-edit generated runtime artifacts
-(`resolved-models*.json`, Terraform state/plan, migrations, or `__pycache__`).
