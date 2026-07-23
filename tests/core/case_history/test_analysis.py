@@ -262,11 +262,10 @@ async def test_analyzer_bounds_concurrent_artifact_fetches() -> None:
 async def test_analyzer_abstains_when_projection_returns_tombstone() -> None:
     metadata, artifacts = await _seed()
     record = await _record_for_correlation(metadata, "corr-0")
-    case_id = record.case_id
-    tombstone = await metadata.mark_deleted(
-        case_id,
-        access_scope_digest="a" * 64,
-        revision=record.revision,
+    tombstone = replace(
+        record,
+        storage_ref=None,
+        artifact_size=0,
         deleted_at=T0 + timedelta(days=61),
     )
 

@@ -21,6 +21,8 @@ class InMemoryCaseHistoryMetadataStore:
             raise ValueError("case history purpose cannot change")
         if records and records[-1].deleted_at is not None:
             raise PermissionError("deleted case history cannot accept revisions")
+        if records and records[-1].deletion_started_at is not None:
+            raise PermissionError("case history pending deletion cannot accept revisions")
         existing = next((item for item in records if item.revision == record.revision), None)
         if existing is not None:
             if existing != record:
@@ -61,6 +63,7 @@ class InMemoryCaseHistoryMetadataStore:
             if record.access_scope_digest == access_scope_digest
             and record.purpose == purpose
             and record.deleted_at is None
+            and record.deletion_started_at is None
             and (not outcome_labels or record.outcome_label in outcome_labels)
         )
         return tuple(
@@ -85,6 +88,38 @@ class InMemoryCaseHistoryMetadataStore:
         )
         return tuple(sorted(due, key=lambda item: (item.deletion_due_at, item.case_id))[:limit])
 
+    async def mark_deletion_started(
+        self,
+        case_id: str,
+        *,
+        access_scope_digest: str,
+        revision: int,
+        storage_refs: tuple[str, ...],
+        started_at: datetime,
+    ) -> CaseHistoryRevisionRecord:
+        records = self._records.get(case_id)
+        if not records or records[-1].access_scope_digest != access_scope_digest:
+            raise LookupError("case history was not found")
+        current = records[-1]
+        if current.legal_hold:
+            raise PermissionError("case history is under legal hold")
+        if current.revision != revision:
+            raise ValueError("case history deletion revision conflict")
+        if current.deleted_at is not None:
+            return current
+        if current.deletion_started_at is not None:
+            if current.deletion_storage_refs != storage_refs:
+                raise ValueError("case history deletion intent artifact conflict")
+            return current
+        pending = replace(
+            current,
+            state_revision=current.state_revision + 1,
+            deletion_started_at=started_at,
+            deletion_storage_refs=storage_refs,
+        )
+        records[-1] = pending
+        return pending
+
     async def mark_deleted(
         self,
         case_id: str,
@@ -103,7 +138,16 @@ class InMemoryCaseHistoryMetadataStore:
             raise ValueError("case history deletion revision conflict")
         if current.deleted_at is not None:
             return current
-        tombstone = replace(current, storage_ref=None, artifact_size=0, deleted_at=deleted_at)
+        if current.deletion_started_at is None:
+            raise ValueError("case history deletion intent is missing")
+        tombstone = replace(
+            current,
+            storage_ref=None,
+            artifact_size=0,
+            deleted_at=deleted_at,
+            state_revision=current.state_revision + 1,
+            deletion_storage_refs=(),
+        )
         records[-1] = tombstone
         return tombstone
 

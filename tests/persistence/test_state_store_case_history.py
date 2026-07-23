@@ -84,6 +84,15 @@ async def test_state_store_retention_tombstones_due_case_and_audits() -> None:
     await store.append_revision(record)
     due = await store.list_due(now=record.deletion_due_at, limit=10)
     assert due == (record,)
+    pending = await store.mark_deletion_started(
+        record.case_id,
+        access_scope_digest=record.access_scope_digest,
+        revision=record.revision,
+        storage_refs=(record.storage_ref or "",),
+        started_at=record.deletion_due_at,
+    )
+    assert pending.deletion_started_at == record.deletion_due_at
+    assert pending.state_revision == 2
     deleted = await store.mark_deleted(
         record.case_id,
         access_scope_digest=record.access_scope_digest,
@@ -92,6 +101,7 @@ async def test_state_store_retention_tombstones_due_case_and_audits() -> None:
     )
     assert deleted.storage_ref is None
     assert deleted.deleted_at == record.deletion_due_at
+    assert deleted.state_revision == 3
     assert (
         await store.latest(record.case_id, access_scope_digest=record.access_scope_digest)
         == deleted
@@ -105,7 +115,22 @@ async def test_state_store_retention_tombstones_due_case_and_audits() -> None:
         )
         == deleted
     )
-    assert len(tuple(state.audit_entries)) == 2
+    assert len(tuple(state.audit_entries)) == 3
+
+
+async def test_state_store_pending_deletion_blocks_new_revision() -> None:
+    store = StateStoreCaseHistoryMetadataStore(store=InMemoryStateStore())
+    first = _record()
+    await store.append_revision(first)
+    await store.mark_deletion_started(
+        first.case_id,
+        access_scope_digest=first.access_scope_digest,
+        revision=first.revision,
+        storage_refs=(first.storage_ref or "",),
+        started_at=first.deletion_due_at,
+    )
+    with pytest.raises(PermissionError, match="pending deletion"):
+        await store.append_revision(_record(revision=2, parent=first.manifest_digest))
 
 
 async def test_state_store_legal_hold_is_not_due_or_deletable() -> None:

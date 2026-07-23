@@ -49,6 +49,8 @@ class CaseHistoryMaterializer:
         )
         if latest is not None and latest.deleted_at is not None:
             raise PermissionError("deleted case history cannot be reopened")
+        if latest is not None and latest.deletion_started_at is not None:
+            raise PermissionError("case history pending deletion cannot be reopened")
         if latest is not None and latest.source_set_digest == source_set_digest:
             if (
                 latest.retention_until != retention_until
@@ -201,7 +203,18 @@ class CaseHistoryRetentionService:
                 raise PermissionError("case history due source returned a legal-hold record")
             if record.storage_ref is None:
                 raise RuntimeError("active case history record is missing storage_ref")
-            await self._artifacts.delete(record.storage_ref)
+            storage_refs = record.deletion_storage_refs
+            if record.deletion_started_at is None:
+                storage_refs = await self._revision_storage_refs(record)
+                record = await self._metadata.mark_deletion_started(
+                    record.case_id,
+                    access_scope_digest=record.access_scope_digest,
+                    revision=record.revision,
+                    storage_refs=storage_refs,
+                    started_at=now,
+                )
+            for storage_ref in storage_refs:
+                await self._artifacts.delete(storage_ref)
             await self._metadata.mark_deleted(
                 record.case_id,
                 access_scope_digest=record.access_scope_digest,
@@ -211,11 +224,59 @@ class CaseHistoryRetentionService:
             deleted.append(record.case_id)
         return tuple(deleted)
 
+    async def _revision_storage_refs(
+        self,
+        record: CaseHistoryRevisionRecord,
+    ) -> tuple[str, ...]:
+        storage_ref = record.storage_ref
+        if storage_ref is None:
+            raise RuntimeError("active case history record is missing storage_ref")
+        if storage_ref != _storage_ref(record.case_id, record.revision, record.manifest_digest):
+            raise ValueError("case history storage_ref does not match its revision identity")
+        refs: list[str] = []
+        revision = record.revision
+        digest = record.manifest_digest
+        while True:
+            current_ref = _storage_ref(record.case_id, revision, digest)
+            content = await self._artifacts.get(current_ref)
+            if content is None or hashlib.sha256(content).hexdigest() != digest:
+                raise ValueError("case history revision chain artifact is unavailable or invalid")
+            try:
+                document = json.loads(content)
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ValueError(
+                    "case history revision chain artifact is unavailable or invalid"
+                ) from exc
+            if (
+                not isinstance(document, dict)
+                or document.get("case_id") != record.case_id
+                or document.get("revision") != revision
+                or document.get("access_scope_digest") != record.access_scope_digest
+            ):
+                raise ValueError("case history revision chain identity is invalid")
+            parent = document.get("parent_manifest_digest")
+            if revision == record.revision and parent != record.parent_manifest_digest:
+                raise ValueError("case history revision chain parent does not match metadata")
+            refs.append(current_ref)
+            if revision == 1:
+                if parent is not None:
+                    raise ValueError("case history revision chain root has a parent")
+                break
+            if not isinstance(parent, str) or len(parent) != 64:
+                raise ValueError("case history revision chain parent is missing")
+            digest = parent
+            revision -= 1
+        return tuple(refs)
+
 
 def _case_id(outcome: ForecastOutcome, *, purpose: str) -> str:
     identity = outcome.prediction_id or outcome.outcome_id
     purpose_digest = hashlib.sha256(purpose.encode()).hexdigest()[:16]
     return f"prediction-{outcome.access_scope_digest}-{identity}-{purpose_digest}"
+
+
+def _storage_ref(case_id: str, revision: int, manifest_digest: str) -> str:
+    return f"case-history/{case_id}/{revision}/{manifest_digest}.json"
 
 
 def _outcome_source(outcome: ForecastOutcome) -> CaseSourceRecord:

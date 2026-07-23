@@ -223,6 +223,99 @@ async def test_retention_deletes_artifact_then_tombstones_metadata() -> None:
     assert tombstone.storage_ref is None
 
 
+async def test_retention_deletes_every_revision_artifact() -> None:
+    metadata = InMemoryCaseHistoryMetadataStore()
+    artifacts = InMemoryCaseHistoryArtifactStore()
+    materializer = CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)
+    await _seal(materializer)
+    extra = CaseSourceRecord(
+        record_type="postmortem",
+        record_id="review-1",
+        record_digest="c" * 64,
+        occurred_at=T0 + timedelta(hours=3),
+        payload={"finding": "seasonal baseline mismatch"},
+    )
+    latest = await _seal(materializer, sources=(extra,))
+    assert len(artifacts._records) == 2  # noqa: SLF001 - full-chain deletion assertion
+
+    retention = CaseHistoryRetentionService(metadata=metadata, artifacts=artifacts)
+    assert await retention.delete_due(now=latest.deletion_due_at) == (latest.case_id,)
+    assert artifacts._records == {}  # noqa: SLF001 - full-chain deletion assertion
+
+
+async def test_artifact_delete_failure_keeps_retryable_deletion_intent() -> None:
+    class _FailsOnceArtifacts(InMemoryCaseHistoryArtifactStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+
+        async def delete(self, storage_ref: str) -> None:
+            if not self.failed:
+                self.failed = True
+                raise RuntimeError("artifact delete unavailable")
+            await super().delete(storage_ref)
+
+    metadata = InMemoryCaseHistoryMetadataStore()
+    artifacts = _FailsOnceArtifacts()
+    materializer = CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)
+    record = await _seal(materializer)
+    retention = CaseHistoryRetentionService(metadata=metadata, artifacts=artifacts)
+
+    with pytest.raises(RuntimeError, match="artifact delete unavailable"):
+        await retention.delete_due(now=record.deletion_due_at)
+    pending = await metadata.latest(record.case_id, access_scope_digest=SCOPE)
+    assert pending is not None
+    assert pending.deleted_at is None
+    assert pending.deletion_started_at == record.deletion_due_at
+    assert (
+        await metadata.list_closed(
+            access_scope_digest=SCOPE,
+            purpose=record.purpose,
+            outcome_labels=(),
+            limit=10,
+        )
+        == ()
+    )
+
+    assert await retention.delete_due(now=record.deletion_due_at) == (record.case_id,)
+    tombstone = await metadata.latest(record.case_id, access_scope_digest=SCOPE)
+    assert tombstone is not None
+    assert tombstone.deleted_at == record.deletion_due_at
+
+
+async def test_metadata_tombstone_failure_retries_after_artifact_deletion() -> None:
+    class _FailsOnceMetadata(InMemoryCaseHistoryMetadataStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+
+        async def mark_deleted(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            if not self.failed:
+                self.failed = True
+                raise RuntimeError("metadata tombstone unavailable")
+            return await super().mark_deleted(*args, **kwargs)
+
+    metadata = _FailsOnceMetadata()
+    artifacts = InMemoryCaseHistoryArtifactStore()
+    materializer = CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)
+    record = await _seal(materializer)
+    retention = CaseHistoryRetentionService(metadata=metadata, artifacts=artifacts)
+
+    with pytest.raises(RuntimeError, match="metadata tombstone unavailable"):
+        await retention.delete_due(now=record.deletion_due_at)
+    assert record.storage_ref is not None
+    assert await artifacts.get(record.storage_ref) is None
+    pending = await metadata.latest(record.case_id, access_scope_digest=SCOPE)
+    assert pending is not None
+    assert pending.deleted_at is None
+    assert pending.deletion_storage_refs == (record.storage_ref,)
+
+    assert await retention.delete_due(now=record.deletion_due_at) == (record.case_id,)
+    tombstone = await metadata.latest(record.case_id, access_scope_digest=SCOPE)
+    assert tombstone is not None
+    assert tombstone.deleted_at == record.deletion_due_at
+
+
 async def test_metadata_failure_removes_newly_created_artifact() -> None:
     class _RejectingMetadata(InMemoryCaseHistoryMetadataStore):
         async def append_revision(self, record):  # type: ignore[no-untyped-def]

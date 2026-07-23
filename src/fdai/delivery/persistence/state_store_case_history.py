@@ -39,7 +39,7 @@ class StateStoreCaseHistoryMetadataStore:
             updated = await self._store.compare_and_set_state_with_audit(
                 key,
                 value,
-                expected_revision=record.revision - 1,
+                expected_revision=current.state_revision,
                 audit_entry=audit,
             )
             if updated:
@@ -86,6 +86,7 @@ class StateStoreCaseHistoryMetadataStore:
                 for raw in raw_records
                 if raw.get("purpose") == purpose
                 and raw.get("deleted_at") is None
+                and raw.get("deletion_started_at") is None
                 and (not outcome_labels or raw.get("outcome_label") in outcome_labels)
             )
             selected = nsmallest(
@@ -162,11 +163,20 @@ class StateStoreCaseHistoryMetadataStore:
             raise ValueError("case history deletion revision conflict")
         if current.deleted_at is not None:
             return current
-        tombstone = replace(current, storage_ref=None, artifact_size=0, deleted_at=deleted_at)
+        if current.deletion_started_at is None:
+            raise ValueError("case history deletion intent is missing")
+        tombstone = replace(
+            current,
+            storage_ref=None,
+            artifact_size=0,
+            deleted_at=deleted_at,
+            state_revision=current.state_revision + 1,
+            deletion_storage_refs=(),
+        )
         updated = await self._store.compare_and_set_state_with_audit(
             key,
             _to_mapping(tombstone),
-            expected_revision=revision,
+            expected_revision=current.state_revision,
             audit_entry={
                 "event_id": f"case-history-deletion:{case_id}:{revision}",
                 "correlation_id": current.correlation_id,
@@ -190,6 +200,69 @@ class StateStoreCaseHistoryMetadataStore:
             raise ValueError("case history deletion compare-and-set failed")
         return tombstone
 
+    async def mark_deletion_started(
+        self,
+        case_id: str,
+        *,
+        access_scope_digest: str,
+        revision: int,
+        storage_refs: tuple[str, ...],
+        started_at: datetime,
+    ) -> CaseHistoryRevisionRecord:
+        key = _key(case_id)
+        raw = await self._store.read_state(key)
+        if raw is None:
+            raise LookupError("case history was not found")
+        current = _from_mapping(raw)
+        if current.access_scope_digest != access_scope_digest:
+            raise LookupError("case history was not found")
+        if current.legal_hold:
+            raise PermissionError("case history is under legal hold")
+        if current.revision != revision:
+            raise ValueError("case history deletion revision conflict")
+        if current.deleted_at is not None:
+            return current
+        if current.deletion_started_at is not None:
+            if current.deletion_storage_refs != storage_refs:
+                raise ValueError("case history deletion intent artifact conflict")
+            return current
+        pending = replace(
+            current,
+            state_revision=current.state_revision + 1,
+            deletion_started_at=started_at,
+            deletion_storage_refs=storage_refs,
+        )
+        updated = await self._store.compare_and_set_state_with_audit(
+            key,
+            _to_mapping(pending),
+            expected_revision=current.state_revision,
+            audit_entry={
+                "event_id": f"case-history-deletion-started:{case_id}:{revision}",
+                "correlation_id": current.correlation_id,
+                "idempotency_key": f"case-history-deletion-started:{case_id}:{revision}",
+                "actor": "Muninn",
+                "action_kind": "case_history.deletion_started",
+                "mode": "shadow",
+                "case_id": case_id,
+                "revision": revision,
+                "manifest_digest": current.manifest_digest,
+                "recorded_at": started_at.isoformat(),
+            },
+        )
+        if updated:
+            return pending
+        replay = await self._store.read_state(key)
+        if replay is None:
+            raise RuntimeError("case history deletion intent CAS lost its record")
+        replay_record = _from_mapping(replay)
+        if (
+            replay_record.revision == revision
+            and replay_record.deletion_started_at is not None
+            and replay_record.deletion_storage_refs == storage_refs
+        ):
+            return replay_record
+        raise ValueError("case history deletion intent compare-and-set failed")
+
 
 def _key(case_id: str) -> str:
     return f"{_PREFIX}{case_id}"
@@ -205,12 +278,15 @@ def _validate_transition(
         raise ValueError("case history purpose cannot change")
     if existing.deleted_at is not None:
         raise PermissionError("deleted case history cannot accept revisions")
+    if existing.deletion_started_at is not None:
+        raise PermissionError("case history pending deletion cannot accept revisions")
     if existing.source_set_digest == incoming.source_set_digest:
         if existing != incoming:
             raise ValueError("case history source set was reused with different metadata")
         return True
     if (
         incoming.revision != existing.revision + 1
+        or incoming.state_revision != existing.state_revision + 1
         or incoming.parent_manifest_digest != existing.manifest_digest
     ):
         raise ValueError("case history revision or parent conflict")
@@ -235,9 +311,10 @@ def _audit_entry(record: CaseHistoryRevisionRecord) -> dict[str, object]:
 
 def _to_mapping(record: CaseHistoryRevisionRecord) -> dict[str, object]:
     return {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "case_id": record.case_id,
-        "revision": record.revision,
+        "revision": record.state_revision,
+        "case_revision": record.revision,
         "kind": record.kind,
         "correlation_id": record.correlation_id,
         "purpose": record.purpose,
@@ -259,15 +336,21 @@ def _to_mapping(record: CaseHistoryRevisionRecord) -> dict[str, object]:
         "legal_hold": record.legal_hold,
         "legal_hold_ref": record.legal_hold_ref,
         "deleted_at": record.deleted_at.isoformat() if record.deleted_at else None,
+        "deletion_started_at": (
+            record.deletion_started_at.isoformat() if record.deletion_started_at else None
+        ),
+        "deletion_storage_refs": list(record.deletion_storage_refs),
     }
 
 
 def _from_mapping(raw: Mapping[str, object]) -> CaseHistoryRevisionRecord:
-    if raw.get("schema_version") != "1.0.0":
+    schema_version = raw.get("schema_version")
+    if schema_version not in {"1.0.0", "1.1.0"}:
         raise ValueError("unsupported case history metadata schema")
+    legacy = schema_version == "1.0.0"
     return CaseHistoryRevisionRecord(
         case_id=str(raw["case_id"]),
-        revision=int(str(raw["revision"])),
+        revision=int(str(raw["revision"] if legacy else raw["case_revision"])),
         kind=str(raw["kind"]),
         correlation_id=str(raw["correlation_id"]),
         purpose=str(raw["purpose"]),
@@ -293,6 +376,13 @@ def _from_mapping(raw: Mapping[str, object]) -> CaseHistoryRevisionRecord:
         legal_hold=bool(raw.get("legal_hold", False)),
         legal_hold_ref=(str(raw["legal_hold_ref"]) if raw.get("legal_hold_ref") else None),
         deleted_at=(_timestamp(raw["deleted_at"]) if raw.get("deleted_at") is not None else None),
+        state_revision=int(str(raw["revision"])),
+        deletion_started_at=(
+            _timestamp(raw["deletion_started_at"])
+            if raw.get("deletion_started_at") is not None
+            else None
+        ),
+        deletion_storage_refs=_string_tuple(raw.get("deletion_storage_refs", ())),
     )
 
 
@@ -300,6 +390,14 @@ def _timestamp(value: object) -> datetime:
     if not isinstance(value, str):
         raise ValueError("case history timestamp MUST be an ISO string")
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _string_tuple(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)) or any(
+        not isinstance(item, str) or not item for item in value
+    ):
+        raise ValueError("case history deletion refs MUST be non-empty strings")
+    return tuple(value)
 
 
 __all__ = ["StateStoreCaseHistoryMetadataStore"]

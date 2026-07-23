@@ -143,9 +143,11 @@ and zero policy escapes. Regression returns the detector or policy to shadow aut
 ## Retention and deletion
 
 Each case carries purpose, access scope, retention, deletion due date, and legal-hold metadata.
-Deletion removes the artifact, chunks, and embeddings before tombstoning the hot index. Audit keeps
-a non-sensitive deletion record and digest. A failed artifact deletion remains retryable and does
-not claim completion. A mechanical scheduler publishes a bounded raw retention tick on the primary
+Deletion first commits a durable intent containing every revision artifact reference. Pending
+deletion blocks new revisions and analysis. Muninn then removes the complete artifact chain,
+chunks, and embeddings before tombstoning the hot index. Audit keeps a non-sensitive deletion
+record and digest. An artifact or final metadata failure leaves the intent retryable and does not
+claim completion. A mechanical scheduler publishes a bounded raw retention tick on the primary
 event bus. Huginn normalizes it, and Muninn alone consumes the typed `object.event` retention signal
 and applies due deletion. `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS` controls the cadence and
 defaults to one day; duplicate or replayed ticks are idempotent. A timestamp carried by the raw
