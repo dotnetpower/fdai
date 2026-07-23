@@ -235,6 +235,63 @@ capacity bottlenecks and service failures" use case - kept deterministic-first.
   estimate; an unknown confidence level is rejected rather than silently
   defaulted.
 
+### Forecast validation and outcome closure
+
+A forecast is not evidence of predictive quality until its horizon closes against an observed
+outcome. FDAI keeps prediction fidelity separate from response effectiveness so a preventive
+action that avoids a breach does not make a useful forecast look like a false positive.
+
+**Immutable prediction envelope.** Before publishing a forecast finding, record a stable
+`prediction_id`, detector and configuration version, target resource and metric, breach predicate,
+event-time feature cutoff, horizon, projected breach time, point estimate, uncertainty interval,
+and mode. The envelope is append-only. A later detector version creates a new prediction rather
+than rewriting the old one.
+
+**Outcome closure.** A scorer closes the prediction only after `horizon_end + telemetry_grace`.
+The grace period is configured from the measured ingestion-delay distribution. Labels use event
+time, not processing time, and follow these rules:
+
+| Observed episode | Prediction label | Treatment |
+|------------------|------------------|-----------|
+| The declared breach occurs within the horizon and no preventive action changed the target | true positive | Measure lead time from finding to breach. |
+| No declared breach occurs within the horizon, telemetry is complete, and no preventive action ran | false positive | Count against precision for that exact horizon. |
+| A declared breach occurs without an eligible earlier prediction | false negative | Create the denominator from actual breach episodes, not only emitted forecasts. |
+| A preventive action runs after the prediction and the breach does not occur | intervention-censored | Exclude from forecast precision; score the action in the response ledger. |
+| Telemetry is missing or stale, the resource is deleted, or an excluded maintenance window overlaps | unscorable | Count and report; never coerce to a true negative. |
+
+A breach after the declared horizon is not a true positive for that horizon. It remains evidence
+for horizon selection and can match a separate longer-horizon prediction. Duplicate observations
+join by the stable prediction and incident keys, so at-least-once delivery cannot score twice.
+
+**Two ledgers.** The prediction-fidelity ledger stores forecast-to-outcome joins. The response
+ledger stores the intervention, preconditions, expected effect, observed effect, verification,
+rollback, SLO recovery, and recurrence window. An intervened episode is never used as an untreated
+forecast label. For safety-critical actions FDAI does not withhold a proven response to manufacture
+a control group; use shadow-only predictions, naturally untreated episodes, matched historical
+cohorts, or a reviewed stepped rollout for counterfactual evidence.
+
+**Leakage-safe evaluation.** Backtests use rolling-origin time splits and group all events from
+one incident into one split. Features, topology, maintenance state, and labels are read only as of
+the prediction cutoff. The incumbent and candidate run over the same frozen replay and then the
+same live shadow events; the candidate cannot execute. Report each target and horizon separately,
+with sample size and confidence intervals, using precision, recall, false alerts per resource-day,
+PR-AUC, Brier score or calibration error, interval coverage, actionable lead-time distribution,
+abstention, cold-start, and unscorable rates. Aggregate accuracy alone is not a promotion metric.
+
+**Agent choreography.** Heimdall owns the forecast finding; Huginn supplies normalized actual
+observations; Saga records immutable prediction and terminal evidence; Norns performs off-path
+outcome closure and proposes inert detector/rule candidates; Mimir owns reviewed promotion.
+Forseti may judge and Thor may act on a finding, but neither may edit its prediction label. These
+agents consume typed events independently and may run in parallel; no direct agent call is part of
+the scoring path.
+
+Promotion requires a pre-registered minimum number of closed, scorable episodes and observation
+days, candidate improvement whose confidence interval clears the incumbent, no guard-metric
+regression, and zero policy escapes. Calibration, recall, interval coverage, or actionable lead
+time degradation automatically returns the detector to shadow. Until durable prediction-envelope,
+outcome-join, and intervention-censoring wiring exists, forecast findings remain shadow-only and
+must not be represented as continuously validated production predictions.
+
 ## 4. Root-Cause Analysis
 
 Make RCA a first-class output of the tiers instead of an implicit side effect.

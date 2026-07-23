@@ -29,6 +29,9 @@ that context is missing or stale. A more specific instruction wins a conflict.
 8. After a coherent user-requested change is complete and validated, commit it before reporting
   completion unless the user says not to commit. Stage only files and hunks owned by that task;
   never include unrelated worktree changes, and never commit failed or incomplete work.
+9. FDAI is agent-driven. Agents MUST be independently and concurrently runnable, and machine
+  workflow collaboration MUST use schema-validated event-bus pub/sub. Direct agent-to-agent
+  workflow calls, RPC, imports, or shared mutable workflow state are prohibited.
 
 ## Issue Lifecycle (MUST)
 

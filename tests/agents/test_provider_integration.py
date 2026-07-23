@@ -284,6 +284,46 @@ def test_bridge_isolates_crashed_consumer_from_siblings() -> None:
     assert bridge.metrics.delivered == 1
 
 
+def test_bridge_fanout_subscribers_run_concurrently() -> None:
+    """A slow subscriber MUST NOT serialize an independent sibling."""
+    reg = load_pantheon()
+    provider = InMemoryEventBus()
+    bridge = EventBusBridge(provider=provider, registry=reg)
+    slow_started = asyncio.Event()
+    release_slow = asyncio.Event()
+    slow_finished = asyncio.Event()
+    fast_finished = asyncio.Event()
+
+    async def slow(_topic: str, _payload: dict) -> None:
+        slow_started.set()
+        await release_slow.wait()
+        slow_finished.set()
+
+    async def fast(_topic: str, _payload: dict) -> None:
+        fast_finished.set()
+
+    bridge.subscribe("object.event", "Heimdall", slow)
+    bridge.subscribe("object.event", "Forseti", fast)
+
+    async def _drive() -> None:
+        await bridge.publish(
+            "Huginn",
+            "object.event",
+            {"correlation_id": "corr-fanout", "event_type": "resource.changed"},
+        )
+        run_task = asyncio.create_task(bridge.run())
+        try:
+            await asyncio.wait_for(fast_finished.wait(), timeout=1.0)
+            assert slow_started.is_set()
+            assert not slow_finished.is_set()
+        finally:
+            release_slow.set()
+            await run_task
+
+    asyncio.run(_drive())
+    assert bridge.metrics.delivered == 2
+
+
 def test_bridge_isolates_dead_letter_failure() -> None:
     """A DLQ write failing MUST NOT crash the consumer - it is counted and
     swallowed so the subscription keeps running."""

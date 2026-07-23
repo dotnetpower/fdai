@@ -30,7 +30,7 @@ multiplier without measuring baseline and treatment on the same scenario set.
    small minority of events (target ~5-10%; see Trust Routing).
 3. **Risk-gated autonomy** - low-risk actions auto-execute; high-risk actions require
    human-in-the-loop (HIL) approval. Autonomy is never unconditional.
-4. **Event-driven** - wake on events, scale to zero when idle. No constant polling.
+4. **Agent-driven event choreography** - independently runnable agents react to typed events, fan out work in parallel, and scale to zero when idle; no direct agent call chains.
 5. **Policy, state, and audit as code** - policy-as-code (OPA/Rego), tracked state, and a full
    append-only audit log for every autonomous action.
 6. **Living rules** - the rule catalog is continuously **collected, updated, and
@@ -47,6 +47,12 @@ multiplier without measuring baseline and treatment on the same scenario set.
    feed back into the discovery loop.
 8. **Fail toward safety** - any failure, low confidence, or budget/rate overflow degrades to
    HIL, never to an ungated auto-action.
+
+## Agent-Driven Runtime (MUST)
+- Every stage has one accountable pantheon agent; gateways, schedulers, adapters, and workers are mechanical relays, not hidden decision makers.
+- Agents MUST be independently schedulable and concurrent: typed pub/sub only, no direct workflow calls/RPC/imports or shared mutable workflow state. Slow, failed, or backpressured subscribers MUST NOT block unrelated work.
+- Explicit owners join correlated branches under deadlines/quorum/arbitration; ordering is causal/per-resource only. Bragi read-only introspection MUST NOT join, decide, approve, or execute.
+- Delivery is at-least-once with idempotency, per-subscriber retry/backpressure, dead-letter, replay, and local/deployed parity. Tests prove overlap, isolation, ownership, duplicate/reorder safety, and restart/replay.
 
 ## Document Ingestion Is Agent-Owned (MUST)
 Uploaded documents (drop zone, ChatOps, email-in, connector) enter the same agent-driven control loop as any event - Huginn ingress, Heimdall/Forseti admissibility, Var HIL, Muninn index, Saga audit, Norns/Mimir catalog growth, Bragi citation - not a standalone gateway side effect; the gateway is a mechanical relay without executor rights, and a stage that mutates ingestion state without an owning agent and a Saga audit entry is a defect. See [document-ingestion-agent-ownership.md](../../docs/roadmap/interfaces/document-ingestion-agent-ownership.md).
@@ -100,13 +106,7 @@ Every terminal path - including reject, HIL timeout, abstain, and deny - writes 
 
 ### Detection Signals (correlation, anomaly, prediction, RCA)
 
-Detection feeds the same loop; it is not a separate autonomy surface. `event-ingest` correlates
-related events into one incident (deterministic keys first, T1 similarity for fuzzy grouping).
-**Anomaly** and **predictive/forecast** detectors emit normalized findings that enter the trust
-router like any event, and **root-cause analysis** is a first-class tier output (T0 direct cause,
-T1 correlation to resolved incidents, T2 grounded reasoning). Detection stays deterministic-first,
-ships in shadow mode, and a prediction or anomaly **never auto-acts on its own** - it raises a
-finding the risk gate governs. Full design:
+Detection feeds the same loop, not a separate autonomy surface: `event-ingest` correlates incidents (deterministic keys, then T1 similarity); anomaly/forecast findings enter the trust router; RCA is a tier output (T0 direct, T1 prior-incident correlation, T2 grounded reasoning). Detection is deterministic-first, shadow-first, and never auto-acts; the risk gate governs its finding. Every prediction MUST carry immutable detector/version, target, breach predicate, feature cutoff, horizon, and uncertainty, then close against an actual outcome after horizon plus telemetry grace. Unobserved/intervened episodes are unscorable/censored, and action efficacy uses a separate ledger so prevention cannot manufacture a false positive. Full design:
 [observability-and-detection.md](../../docs/roadmap/rules-and-detection/observability-and-detection.md).
 
 ### Idempotency, Ordering, and Replay
