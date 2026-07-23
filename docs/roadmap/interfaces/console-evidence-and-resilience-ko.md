@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f75c9e54320ba0769f8d503cf66a52bdced82edd
+translation_source_sha: 0502bf096912b21b61bb7687ff653be3d83e0d9f
 translation_revised: 2026-07-23
 ---
 
@@ -19,6 +19,8 @@ full-workspace Deck은 route가 변경되기 전에 닫힙니다.
 다른 화면의 cached conversation 선택은 bounded exception입니다. Console은 conversation origin으로
 이동하고 transcript를 활성화한 뒤 synchronous route-close policy 실행 후 Deck을 다시 엽니다.
 Same-screen 및 agent conversation은 route navigation 없이 전환합니다.
+이미 active인 same-screen conversation을 다시 선택하면 focus만 복원하며 최신 in-memory turn 위에
+sessionStorage transcript를 다시 로드하지 않습니다.
 
 공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께
 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.

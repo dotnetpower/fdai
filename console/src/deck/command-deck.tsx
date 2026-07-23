@@ -321,7 +321,7 @@ export function CommandDeck() {
       onSelectLayout={selectLayoutMode}
       onRemoveConversation={removeCachedConversation}
       onSelectConversation={(conversation) => {
-        selectConversationWithRoute(conversation, currentPathname(), {
+        selectConversationWithRoute(conversation, currentPathname(), sessionKey, {
           navigate,
           activate: (selected) => switchSession(
             selected.key,

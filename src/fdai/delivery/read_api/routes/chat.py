@@ -148,7 +148,7 @@ from fdai.delivery.read_api.routes.chat_prompt import (
     _with_concept_evidence,
 )
 from fdai.delivery.read_api.routes.chat_route_common import (
-    DEFAULT_MAX_BODY_BYTES,
+    DEFAULT_MAX_CHAT_BODY_BYTES,
     DEFAULT_MAX_HISTORY_ITEMS,
     DEFAULT_MAX_SESSION_ID_CHARS,
     AnswerPreferenceResolver,
@@ -176,6 +176,7 @@ from fdai.delivery.read_api.routes.chat_stream_protocol import (
 )
 from fdai.delivery.read_api.routes.chat_system_health import render_system_health_answer
 from fdai.delivery.read_api.routes.chat_verification import verify_answer
+from fdai.delivery.read_api.routes.chat_vision_evidence import parse_vision_attachments
 from fdai.delivery.read_api.routes.post_turn_review import (
     PostTurnReviewSubmission,
     PostTurnReviewSubmitter,
@@ -238,7 +239,7 @@ def make_chat_route(
     busy_input_coordinator: BusyInputCoordinator | None = None,
     document_evidence_resolver: ChatDocumentEvidenceResolver | None = None,
     path: str = DEFAULT_ROUTE_PATH,
-    max_body_bytes: int = DEFAULT_MAX_BODY_BYTES,
+    max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
 ) -> Route:
     """Build the ``POST /chat`` route.
 
@@ -301,6 +302,15 @@ def make_chat_route(
         if not isinstance(view_context, dict):
             raise HTTPException(status_code=400, detail="view_context MUST be an object")
         view_context.pop("_answer_plan", None)
+        # `_attachments` is a server-owned, validated field: never trust a
+        # client-supplied one, then set it from the parsed inline images.
+        view_context.pop("_attachments", None)
+        try:
+            vision_attachments = parse_vision_attachments(body)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if vision_attachments:
+            view_context["_attachments"] = [a.to_view_dict() for a in vision_attachments]
         conversation_context = _conversation_context(body)
         history_raw = body.get("history", [])
         if not isinstance(history_raw, list):

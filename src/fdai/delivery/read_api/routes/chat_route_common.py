@@ -19,6 +19,13 @@ from fdai.shared.providers.briefing import ConversationPolicyStore
 DEFAULT_MAX_BODY_BYTES: Final[int] = 200_000
 
 
+# The chat routes accept up to DEFAULT_MAX_IMAGES inline base64 images as
+# read-only vision evidence, so their body cap is raised to fit that bounded
+# payload: DEFAULT_MAX_IMAGES (4) * DEFAULT_MAX_IMAGE_BYTES (4 MiB) * 4/3
+# (base64 expansion) plus headroom for the prompt, history, and JSON framing.
+DEFAULT_MAX_CHAT_BODY_BYTES: Final[int] = 26 * 1024 * 1024
+
+
 DEFAULT_MAX_HISTORY_ITEMS: Final[int] = 200
 
 

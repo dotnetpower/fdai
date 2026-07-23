@@ -16,6 +16,8 @@ Command Deck is closed or floating; a full-workspace Deck closes before the rout
 Selecting a cached conversation from another screen is the bounded exception: the console navigates
 to that conversation's origin, activates its transcript, and reopens the Deck after the synchronous
 route-close policy runs. Same-screen and agent conversations switch without route navigation.
+Reselecting the already active same-screen conversation is focus-only; it does not reload the
+sessionStorage transcript over newer in-memory turns.
 
 The shared page title renders the domain and panel labels when they differ, including
 `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone

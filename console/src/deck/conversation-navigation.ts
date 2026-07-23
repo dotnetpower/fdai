@@ -11,10 +11,15 @@ interface ConversationNavigationActions {
 export function selectConversationWithRoute(
   conversation: ConversationSummary,
   currentPathname: string,
+  activeKey: string,
   actions: ConversationNavigationActions,
 ): void {
   const changesRoute = conversation.kind !== "agent" &&
     conversation.originPath !== conversationPath(currentPathname);
+  if (!changesRoute && conversation.key === activeKey) {
+    actions.focus();
+    return;
+  }
   if (changesRoute) actions.navigate(conversation.originPath);
   actions.activate(conversation);
   if (changesRoute) actions.reopen();
