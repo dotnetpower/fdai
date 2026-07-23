@@ -34,7 +34,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         "FDAI_AZURE_READER_SUBSCRIPTION_ID=stale-subscription\n"
         "FDAI_AZURE_READER_RESOURCE_GROUPS=stale-group\n"
         "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://stale.example.com\n"
-        "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=stale-audience\n",
+        "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=stale-audience\n"
+        "FDAI_DIRECT_API_FAKE=1\n",
         encoding="utf-8",
     )
     terraform = tmp_path / "terraform"
@@ -196,6 +197,11 @@ def test_omits_inventory_invalidation_topic_until_provisioned(tmp_path: Path) ->
         encoding="utf-8"
     )
     assert "invalidation uses TTL refresh" in completed.stderr
+    # No operations gateway is provisioned here, so the governed direct-API
+    # executor must fall back to the in-memory shadow fake automatically.
+    assert "FDAI_DIRECT_API_FAKE=1" in output.read_text(encoding="utf-8")
+    assert "FDAI_DEV_OPERATIONS_GATEWAY_URL=" not in output.read_text(encoding="utf-8")
+    assert "uses the in-memory shadow fake" in completed.stderr
 
 
 def test_rejects_cli_subscription_that_differs_from_terraform(tmp_path: Path) -> None:

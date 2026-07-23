@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: d074816a039246d197bd96930f69314e05cbcf1a
+translation_source_sha: 3657672c5be68172313e37e5f0129a3ddb8d0d3c
 translation_revised: 2026-07-23
 ---
 
@@ -528,7 +528,7 @@ state를 제공합니다.
 | `FDAI_MI_CLIENT_ID` | env | upstream | 현재 process의 user-assigned MI client id. Core에는 executor id를 주입하고 inventory job에는 별도 read-only discovery id를 주입합니다. |
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | upstream / deployment | ACS Email A2/A4 채널을 활성화합니다. Terraform이 endpoint와 Azure-managed sender를 파생하고 전용 notification MI를 연결한 뒤 client id를 주입합니다. Deployment configuration은 `NOTIFICATION_EMAIL_RECIPIENTS_JSON`으로 수신자를 공급하며 앱에는 access key나 connection string이 들어가지 않습니다. 부분 설정은 startup을 차단합니다. |
 | `FDAI_MEASUREMENT_MODE` | env | upstream | `shadow` (기본) 또는 `enforce` - `infra/modules/measurement-runners/` 의 Container Apps Jobs 러너를 지배. |
-| `FDAI_DIRECT_API_FAKE` | env | test-only | Automated test에서 executor direct-API 경로를 in-memory fake로 바꿉니다. Interactive local startup은 executor를 연결하지 않습니다. |
+| `FDAI_DIRECT_API_FAKE` | env | test-only / dev-local | `1`이면 executor direct-API 경로를 in-memory shadow fake로 바꿉니다. Automated test는 명시적으로 설정하고, `prepare-local-runtime-env.sh`는 operations gateway가 프로비저닝되지 않은 interactive local dev에서 이를 자동 주입하여 live backend 없이도 `execution_path: direct_api` dispatch를 유지합니다. `FDAI_DEV_OPERATIONS_GATEWAY_URL`과 상호 배타적입니다. |
 | `FDAI_TOOL_CALL_FAKE` | env | test-only | Automated test에서 executor tool-call 경로를 `RecordingToolExecutor`로 바꿉니다. Interactive local startup은 executor를 연결하지 않습니다. |
 | `FDAI_WORKFLOW_SHADOW` | env | upstream | `1`이면 event-triggered catalog Workflow를 non-mutating shadow mode로 활성화합니다. Azure core app은 기본 설정입니다. |
 | `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` | env | deployment / local | Owner가 `mode=enforce`로 시작할 수 있는 Workflow 이름의 comma-separated 목록입니다. Event Hubs command transport가 필요하며 action step은 일반 promotion/risk/HIL/executor 경로로 재진입합니다. |
