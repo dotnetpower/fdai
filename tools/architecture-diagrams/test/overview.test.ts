@@ -36,7 +36,7 @@ test("canonical overview rounds routed corners while preserving direct hops", as
   const spec = parseDiagram(await readFile(overviewUrl, "utf8"));
   const layout = await layoutDiagram(spec);
   const svg = await renderSvg(spec, layout, "en");
-  const paths = [...svg.matchAll(/<path d="([^"]+)"[^>]*marker-end/g)].map(
+  const paths = [...svg.matchAll(/<path class="edge-path" d="([^"]+)"[^>]*marker-end/g)].map(
     (match) => match[1] ?? "",
   );
 
@@ -51,7 +51,7 @@ test("canonical overview rounds routed corners while preserving direct hops", as
 
   for (const edgeId of ["bus-to-ingest", "catalog-to-decision"]) {
     const match = svg.match(
-      new RegExp(`data-edge-id="${edgeId}"[\\s\\S]*?<path d="([^"]+)"`),
+      new RegExp(`data-edge-id="${edgeId}"[\\s\\S]*?<path class="edge-path" d="([^"]+)"`),
     );
     assert.ok(match);
     assert.equal(match[1]?.match(/[MLQ]/g)?.length, 2);
@@ -64,7 +64,7 @@ test("canonical overview rounds routed corners while preserving direct hops", as
     "audit-to-console",
   ]) {
     const match = svg.match(
-      new RegExp(`data-edge-id="${edgeId}"[\\s\\S]*?<path d="([^"]+)"`),
+      new RegExp(`data-edge-id="${edgeId}"[\\s\\S]*?<path class="edge-path" d="([^"]+)"`),
     );
     assert.ok(match);
     assert.match(match[1] ?? "", /C/);

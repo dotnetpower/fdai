@@ -117,6 +117,8 @@ toolbar and component-detail panel. Desktop starts with the full diagram at its
 native aspect ratio. Narrow screens start with a readable crop that leaves room
 to pan on both axes and provide a separate overview control. Arrow keys pan,
 `+` and `-` zoom, `0` resets the view, and `Escape` clears a selected component.
+Hovering a connector or its label emphasizes both, so a label remains traceable
+through dense crossings.
 The mouse wheel always keeps its normal page-scrolling behavior. Use the toolbar
 or keyboard controls to zoom the diagram.
 Relative URLs keep localhost, GitHub Pages, and downstream project base paths

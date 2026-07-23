@@ -264,7 +264,7 @@ function renderEdge(
     edge.route === "curve"
       ? smoothCurvePath(section.startPoint, section.endPoint, offsetX, offsetY)
       : roundedEdgePath(sectionPoints(section), offsetX, offsetY);
-  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}"><title>${escapeXml(accessibleLabel)}</title><path d="${path}" fill="none" stroke="${style.color}" stroke-width="${style.width}" stroke-dasharray="${style.dash}" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-${edge.kind})"/>${labelMarkup}</g>`;
+  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}"><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${style.width}" stroke-dasharray="${style.dash}" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-${edge.kind})"/>${labelMarkup}</g>`;
 }
 
 function renderLegend(spec: DiagramSpec, locale: Locale, y: number): string {
@@ -378,10 +378,17 @@ export async function renderSvg(
     .diagram-node:hover > rect, .diagram-node:focus > rect, .diagram-node.is-active > rect { stroke: var(--fdai-diagram-azure-dark, #005a9e); stroke-width: 3; }
     .diagram-node:focus { outline: none; }
     .node-label { font-size: 13px; font-weight: 650; fill: var(--fdai-diagram-text, #323130); letter-spacing: 0; }
-    .edge-label rect { fill: var(--fdai-diagram-label-surface, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); }
+    .edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+    .edge-path { pointer-events: stroke; transition: stroke-width 140ms ease, opacity 140ms ease; }
+    .edge-label { cursor: pointer; }
+    .edge-label rect { fill: var(--fdai-diagram-label-surface, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease; }
     .edge-label-text, .legend-item text { font-size: 12px; font-weight: 600; fill: var(--fdai-diagram-muted, #605e5c); }
+    .edge-label-text { transition: fill 140ms ease; }
     .diagram-edge.is-muted { opacity: 0.12; }
-    .diagram-edge.is-active path { stroke-width: 4; }
+    .diagram-edge.is-muted:hover { opacity: 1; }
+    .diagram-edge.is-active > .edge-path, .diagram-edge:hover > .edge-path { stroke-width: 4; opacity: 1; }
+    .diagram-edge:hover .edge-label rect { fill: var(--fdai-diagram-control-header, #deecf9); stroke: var(--fdai-diagram-azure-dark, #005a9e); stroke-width: 2; }
+    .diagram-edge:hover .edge-label-text { fill: var(--fdai-diagram-text, #323130); font-weight: 700; }
   </style>
   <rect class="diagram-background" width="${width}" height="${height}" fill="var(--fdai-diagram-canvas, #faf9f8)"/>
   <text class="diagram-title" x="48" y="45">${escapeXml(spec.locales[locale].title)}</text>

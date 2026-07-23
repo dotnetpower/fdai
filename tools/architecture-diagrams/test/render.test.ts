@@ -90,8 +90,14 @@ test("lays out nested groups and renders accessible SVG", async () => {
     assert.doesNotMatch(nodeMarkup(id), /class="(?:agent|generic)-icon"|<image /);
   }
   assert.match(svg, /marker-end="url\(#arrow-event\)"/);
+  assert.match(svg, /<path class="edge-hit"/);
+  assert.match(svg, /<path class="edge-path"/);
+  assert.match(svg, /\.edge-hit \{[^}]*cursor: pointer/);
+  assert.match(svg, /\.diagram-edge:hover > \.edge-path/);
+  assert.match(svg, /\.diagram-edge:hover \.edge-label rect/);
+  assert.match(svg, /\.diagram-edge:hover \.edge-label-text/);
   const internalStart = svg.match(
-    /data-edge-id="internal-flow"[\s\S]*?<path d="M([\d.]+) ([\d.]+)/,
+    /data-edge-id="internal-flow"[\s\S]*?<path class="edge-path" d="M([\d.]+) ([\d.]+)/,
   );
   const core = layout.groups.get("core");
   assert.ok(internalStart && core);
