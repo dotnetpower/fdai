@@ -58,6 +58,8 @@ class CaseHistoryMaterializer:
             ):
                 raise ValueError("case history governance cannot change on duplicate evidence")
             return latest
+        if latest is not None:
+            await self._validate_source_continuity(latest, sources)
         revision_number = 1 if latest is None else latest.revision + 1
         parent_digest = None if latest is None else latest.manifest_digest
         sealed_at = max((outcome.closed_at, *(source.occurred_at for source in sources)))
@@ -113,8 +115,11 @@ class CaseHistoryMaterializer:
                     case_id,
                     access_scope_digest=outcome.access_scope_digest,
                 )
-            except Exception:
-                committed = None
+            except Exception as verification_error:
+                raise ExceptionGroup(
+                    "case history metadata append failed and commit status could not be verified",
+                    [metadata_error, verification_error],
+                ) from metadata_error
             if committed == record:
                 return record
             if artifact_created:
@@ -135,6 +140,45 @@ class CaseHistoryMaterializer:
                 raise RuntimeError("case history idempotent append lost its stored revision")
             return existing
         return record
+
+    async def _validate_source_continuity(
+        self,
+        latest: CaseHistoryRevisionRecord,
+        sources: Sequence[CaseSourceRecord],
+    ) -> None:
+        if latest.storage_ref is None:
+            raise PermissionError("deleted case history cannot be revised")
+        content = await self._artifacts.get(latest.storage_ref)
+        if content is None or hashlib.sha256(content).hexdigest() != latest.manifest_digest:
+            raise ValueError("case history parent artifact is unavailable or invalid")
+        try:
+            document = json.loads(content)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("case history parent artifact is unavailable or invalid") from exc
+        if (
+            not isinstance(document, dict)
+            or document.get("case_id") != latest.case_id
+            or document.get("revision") != latest.revision
+            or document.get("access_scope_digest") != latest.access_scope_digest
+        ):
+            raise ValueError("case history parent artifact identity is invalid")
+        raw_sources = document.get("sources")
+        if not isinstance(raw_sources, list):
+            raise ValueError("case history parent artifact sources are invalid")
+        previous: dict[tuple[str, str], str] = {}
+        for raw in raw_sources:
+            if not isinstance(raw, dict):
+                raise ValueError("case history parent artifact sources are invalid")
+            identity = (str(raw.get("record_type") or ""), str(raw.get("record_id") or ""))
+            digest = str(raw.get("record_digest") or "")
+            if not all(identity) or identity in previous:
+                raise ValueError("case history parent artifact sources are invalid")
+            previous[identity] = digest
+        incoming = {
+            (source.record_type, source.record_id): source.record_digest for source in sources
+        }
+        if any(incoming.get(identity) != digest for identity, digest in previous.items()):
+            raise ValueError("case history revision MUST preserve prior source evidence")
 
 
 class CaseHistoryRetentionService:
@@ -171,7 +215,7 @@ class CaseHistoryRetentionService:
 def _case_id(outcome: ForecastOutcome, *, purpose: str) -> str:
     identity = outcome.prediction_id or outcome.outcome_id
     purpose_digest = hashlib.sha256(purpose.encode()).hexdigest()[:16]
-    return f"prediction-{identity}-{purpose_digest}"
+    return f"prediction-{outcome.access_scope_digest}-{identity}-{purpose_digest}"
 
 
 def _outcome_source(outcome: ForecastOutcome) -> CaseSourceRecord:

@@ -15,7 +15,8 @@ from urllib.parse import unquote
 _MAX_SOURCE_BYTES = 16 * 1024
 _MAX_ARTIFACT_BYTES = 1024 * 1024
 _FORBIDDEN_KEYS = frozenset(
-    {
+    re.sub(r"[^a-z0-9]", "", value)
+    for value in {
         "authorization",
         "api_key",
         "apikey",
@@ -44,7 +45,11 @@ _FORBIDDEN_KEYS = frozenset(
 )
 _FORBIDDEN_VALUE_PATTERNS = (
     re.compile(r"(?i)\bbearer\s+[a-z0-9._~+/=-]{16,}"),
-    re.compile(r"(?i)(?:^|[?&;])(?:sig|accountkey|client_secret|password)=[^&;\s]{8,}"),
+    re.compile(
+        r"(?i)(?:^|[?&;])(?:sig|accountkey|sharedaccesskey|sharedaccesssignature|"
+        r"client[_-]?secret|password)=[^&;\s]+"
+    ),
+    re.compile(r"(?i)\b[a-z][a-z0-9+.-]*://[^:/\s]+:[^@\s/]+@"),
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     re.compile(r"\b[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\b"),
 )
@@ -194,7 +199,7 @@ def _payload_keys(value: object) -> set[str]:
 
 
 def _normalize_key(value: object) -> str:
-    return str(value).strip().lower().replace("-", "_")
+    return re.sub(r"[^a-z0-9]", "", str(value).strip().lower())
 
 
 def _contains_forbidden_value(value: object) -> bool:

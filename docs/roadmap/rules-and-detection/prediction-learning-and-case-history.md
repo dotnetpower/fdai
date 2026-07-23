@@ -79,8 +79,10 @@ whose breach falls outside the declared forecast horizon.
 
 ## Case history model
 
-A case is a stable identity with append-only revisions. Reopening an incident or receiving late
-trusted evidence adds a revision instead of rewriting history.
+A case is a stable, access-scope-bound identity with append-only revisions. Reopening an incident
+or receiving late trusted evidence adds a revision instead of rewriting history. A revision must
+preserve every prior source identity and digest; it can add evidence but cannot replace or omit
+evidence already sealed.
 
 ### Target PostgreSQL hot index
 
@@ -104,7 +106,12 @@ Each revision contains prediction-time facts, versions, observations, interventi
 approvals, actions, rollback, RCA citations, SLO recovery, recurrence, and source-record digests.
 Raw cloud payloads, credentials, unrestricted tool output, prompts, and hidden reasoning are not
 stored. The seal boundary also rejects common plain-text and percent-encoded credential shapes
-under otherwise neutral field names.
+under otherwise neutral field names, credential-bearing URI user information, and common secret
+keys regardless of casing or separator style.
+
+Artifact creation precedes the metadata append. A definite metadata rejection removes only an
+artifact created by that attempt. If the append result cannot be verified, the artifact remains
+available for a safe retry and both the append and verification errors are preserved.
 
 The default Azure adapter uses a private Blob container with workload identity, public access and
 key authentication disabled, versioning, private networking, and deployment-approved retention or

@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from fdai.core.case_history import (
+    CaseHistoryRevision,
     CaseKind,
     CaseSourceRecord,
     build_case_history_revision,
@@ -26,7 +27,7 @@ def _source(record_id: str, *, value: float, seconds: int) -> CaseSourceRecord:
     )
 
 
-def _revision(sources: list[CaseSourceRecord]):
+def _revision(sources: list[CaseSourceRecord]) -> CaseHistoryRevision:
     return build_case_history_revision(
         case_id="case-1",
         revision=1,
@@ -70,8 +71,12 @@ def test_case_history_rejects_hidden_reasoning_recursively() -> None:
     "secret_key",
     [
         "access_token",
+        "AccessToken",
         "client-secret",
+        "client.secret",
         "connection_string",
+        "ConnectionString",
+        "connection string",
         "api_key",
         "password",
         "sas-token",
@@ -95,6 +100,8 @@ def test_case_history_rejects_common_secret_fields_recursively(secret_key: str) 
         "Bearer%20abcdefghijklmnopqrstuvwxyz012345",
         "https://storage.example/x?sv=1&sig=abcdefghijklmnopqrstuvwxyz",
         "https://storage.example/x?sv=1%26sig%3Dabcdefghijklmnopqrstuvwxyz",
+        "postgresql://operator:short-secret@db.example/app",
+        "Endpoint=sb://example/;SharedAccessKey=short",
         "aaaaaaaaaa.bbbbbbbbbb.cccccccccc",
         "-----BEGIN PRIVATE KEY-----\nnot-a-real-key",
     ],
