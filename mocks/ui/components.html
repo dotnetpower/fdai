@@ -108,10 +108,29 @@
         <div class="cs-alert is-success"><div class="cs-alert-bar"></div><div><h4>Promoted</h4><p>Action passed shadow evaluation with zero policy escapes.</p></div></div>
         <div class="cs-alert is-warn"><div class="cs-alert-bar"></div><div><h4>Awaiting HIL</h4><p>High-risk change queued for human approval.</p></div></div>
         <div class="cs-alert is-danger"><div class="cs-alert-bar"></div><div><h4>Regression</h4><p>Assignment auto-demoted back to shadow mode.</p></div></div>
-        <div class="cs-alert is-info" role="status" data-cs-dismissible>
-          <div class="cs-alert-bar"></div>
-          <div class="cs-alert-content"><h4>Dismissible guidance</h4><p>This local notice can be closed after it has been read.</p></div>
-          <button class="cs-alert-dismiss" type="button" aria-label="Dismiss guidance" data-cs-dismiss>&times;</button>
+      </div>
+      <div class="cs-dismissible-showcase">
+        <div class="cs-dismissible-showcase-head">
+          <h3>Dismissible guidance patterns</h3>
+          <p>Choose by message length and how much attention the guidance needs.</p>
+        </div>
+        <div class="cs-dismissible-grid">
+          <aside class="cs-notice is-soft" role="status" data-cs-dismissible>
+            <span class="cs-notice-icon" aria-hidden="true">i</span>
+            <div class="cs-notice-content"><span class="cs-notice-kicker">Option A - soft notice</span><h4>Evidence view updated</h4><p>The selected time window now includes delayed records.</p></div>
+            <button class="cs-notice-close" type="button" aria-label="Dismiss soft notice" data-cs-dismiss>&times;</button>
+          </aside>
+          <aside class="cs-notice is-guidance" role="note" data-cs-dismissible>
+            <span class="cs-notice-kicker">Option B - guidance card</span>
+            <h4>Why this result is read-only</h4>
+            <p>This view explains the recorded decision. Changes must follow the governed action workflow.</p>
+            <div class="cs-notice-detail">Best for guidance that needs a title, explanation, and supporting context.</div>
+            <button class="cs-notice-close" type="button" aria-label="Dismiss guidance card" data-cs-dismiss>&times;</button>
+          </aside>
+          <aside class="cs-notice is-compact" role="status" data-cs-dismissible>
+            <p><strong>Option C - compact banner.</strong> Filters are saved for this session.</p>
+            <button class="cs-notice-dismiss" type="button" data-cs-dismiss>Dismiss <span aria-hidden="true">&times;</span></button>
+          </aside>
         </div>
       </div>
     </section>

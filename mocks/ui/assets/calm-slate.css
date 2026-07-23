@@ -345,7 +345,6 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 .cs-alert.is-danger .cs-alert-bar { background: var(--cs-dusty-red); }
 .cs-alert h4 { margin: 0 0 2px; font-size: 14px; }
 .cs-alert p { margin: 0; color: var(--cs-text-soft); }
-.cs-alert-content { flex: 1; min-width: 0; }
 .cs-alert-dismiss {
   width: 30px; height: 30px; flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
@@ -355,6 +354,39 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 }
 .cs-alert-dismiss:hover { background: var(--cs-shade); color: var(--cs-text); }
 .cs-alert-dismiss:focus-visible { outline: 2px solid rgba(68,104,142,.42); outline-offset: 2px; }
+
+/* Dismissible guidance patterns - transient information, not system state. */
+.cs-dismissible-showcase { margin-top: 22px; }
+.cs-dismissible-showcase-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+.cs-dismissible-showcase-head h3 { margin: 0; font-size: 15px; }
+.cs-dismissible-showcase-head p { margin: 0; color: var(--cs-text-soft); font-size: 12.5px; }
+.cs-dismissible-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.cs-notice { position: relative; min-width: 0; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); }
+.cs-notice h4 { margin: 0 0 3px; font-size: 14px; }
+.cs-notice p { margin: 0; color: var(--cs-text-soft); font-size: 13px; line-height: 1.5; }
+.cs-notice-kicker { display: block; margin-bottom: 7px; color: var(--cs-steel); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.cs-notice-close {
+  width: 30px; height: 30px; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; border: 0; border-radius: 6px; background: transparent;
+  color: var(--cs-text-soft); font: 18px/1 var(--cs-font); cursor: pointer;
+}
+.cs-notice-close:hover { background: rgba(255,255,255,.72); color: var(--cs-text); }
+.cs-notice-close:focus-visible, .cs-notice-dismiss:focus-visible { outline: 2px solid rgba(68,104,142,.42); outline-offset: 2px; }
+.cs-notice.is-soft { display: flex; gap: 11px; padding: 15px 12px 15px 14px; border-color: rgba(68,104,142,.24); background: rgba(68,104,142,.07); }
+.cs-notice-icon { width: 24px; height: 24px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--cs-steel); color: #fff; font: 700 13px/1 Georgia, serif; }
+.cs-notice.is-soft .cs-notice-content { flex: 1; min-width: 0; }
+.cs-notice.is-soft .cs-notice-close { margin: -5px -4px 0 0; }
+.cs-notice.is-guidance { min-height: 164px; padding: 17px 18px 16px; box-shadow: var(--cs-shadow); }
+.cs-notice.is-guidance .cs-notice-close { position: absolute; top: 10px; right: 10px; }
+.cs-notice.is-guidance h4, .cs-notice.is-guidance p { padding-right: 24px; }
+.cs-notice-detail { margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: 11.5px; }
+.cs-notice.is-compact { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 11px 12px 11px 14px; background: var(--cs-shade); }
+.cs-notice.is-compact p { color: var(--cs-text); font-size: 12.5px; }
+.cs-notice-dismiss { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 4px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--cs-steel); font: 600 12px var(--cs-font); cursor: pointer; }
+.cs-notice-dismiss:hover { background: var(--cs-card); color: var(--cs-navy); }
+@media (max-width: 900px) { .cs-dismissible-grid { grid-template-columns: 1fr; } .cs-notice.is-guidance { min-height: 0; } }
+@media (max-width: 620px) { .cs-dismissible-showcase-head { align-items: flex-start; flex-direction: column; gap: 2px; } }
 
 /* ----- Forms ----- */
 .cs-field { margin-bottom: 16px; }
