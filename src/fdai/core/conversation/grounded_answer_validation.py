@@ -14,6 +14,10 @@ _TIMESTAMP_RE: Final = re.compile(
     r"\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})\b"
 )
 _NUMBER_RE: Final = re.compile(r"(?<![\w.-])[-+]?\d+(?:,\d{3})*(?:\.\d+)?%?(?![\w.-])")
+_IDENTIFIER_RE: Final = re.compile(
+    r"\b(?:ops|remediate|governance|tool)\.[a-z0-9]+(?:-[a-z0-9]+)+\b"
+    r"|\b(?:corr|evt|event|inc|incident|rule)-[A-Za-z0-9_.:-]*[A-Za-z0-9_]\b"
+)
 _FRESHNESS_RE: Final = re.compile(
     r"\b(?:current|currently|live|latest|now|as\s+of)\b|현재|실시간|최신|지금|기준",
     re.IGNORECASE,
@@ -35,6 +39,12 @@ def validate_grounded_answer(answer: str, result: ToolResult) -> GroundedAnswerV
     if authority is None:
         return GroundedAnswerValidation(False, "authority_not_serializable")
     answer_timestamps, answer_numbers = _atomic_values(answer)
+    answer_identifiers = frozenset(match.group(0) for match in _IDENTIFIER_RE.finditer(answer))
+    authority_identifiers = frozenset(
+        match.group(0) for match in _IDENTIFIER_RE.finditer(authority)
+    )
+    if not answer_identifiers.issubset(authority_identifiers):
+        return GroundedAnswerValidation(False, "unsupported_identifier")
     authority_timestamps, authority_numbers = _atomic_values(authority)
     if not answer_timestamps.issubset(authority_timestamps):
         return GroundedAnswerValidation(False, "unsupported_timestamp")

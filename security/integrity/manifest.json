@@ -171,7 +171,7 @@
     "src/fdai/core/conversation/contextual_translation.py": "70e7029bdd8983efefac50f260366195612722ddb52f483ca20d4d522275e321",
     "src/fdai/core/conversation/coordinator.py": "524a253f19f50ac9cda5324413db11b5e91db5fdce6ab0c5bd6bd90a7e9f9d30",
     "src/fdai/core/conversation/creation.py": "f220a81dc7636a6ac0ff57cc9981345119ee10152bd478ebbe5c01cc93c3410e",
-    "src/fdai/core/conversation/grounded_answer_validation.py": "4581f3a46fdaa7865ad7ba6a50795e0833200e0fdfc6a140066fdbc136cf302e",
+    "src/fdai/core/conversation/grounded_answer_validation.py": "412426de78e05190870cd5dd2f499a68f66d019b26a7c40fa23292a8f5a3234b",
     "src/fdai/core/conversation/identity_links.py": "3ace36998d2ed21a7f91fb195e78cac3d77b2366e4779cda7bc23cccce0ecbf7",
     "src/fdai/core/conversation/identity_verification.py": "42d9ae0d546d7302d3d8a252e6767895398eee0beb3e14962f52dcb19762232f",
     "src/fdai/core/conversation/learner_access.py": "ad85ad8c9d1b390598bc53f9e3e56bca4066d363964f270d0fa7fbba6e90b58d",
@@ -786,7 +786,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-23T09:09:28Z",
+  "generated_at": "2026-07-23T09:23:47Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

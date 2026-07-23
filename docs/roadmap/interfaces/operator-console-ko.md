@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 2272ed1f43d6614281e08bb462ce77b5553b193c
+translation_source_sha: 5caaf892d9b3b5b992a50924483f3d7d18b8426a
 translation_revised: 2026-07-23
 ---
 
@@ -111,9 +111,10 @@ flowchart TD
   class, evidence-reference count 및 prior conversation context 유무에서 결정론적으로 조립합니다.
   현재 inbound/tool/result transaction은 prior context에서 제외합니다. Web generation은 read API
   backend seam이므로 deployment가 provider를 바인딩할 수 있습니다.
-  Rendering 후 core validator가 immutable `ToolResult`에 없는 numeric value, percentage 또는 RFC3339
-  timestamp를 거부합니다. `current`, `live`, `latest` 같은 freshness 표현에는 해당 result의 exact
-  timestamp가 필요합니다. Markdown list ordinal과 identifier 내부 숫자는 formatting을 claim으로
+  Rendering 후 core validator가 immutable `ToolResult`에 없는 numeric value, percentage, RFC3339
+  timestamp 및 canonical rule, event, incident, correlation, ActionType identifier를 거부합니다.
+  `current`, `live`, `latest` 같은 freshness 표현에는 해당 result의 exact timestamp가 필요합니다.
+  Markdown list ordinal, ordinary resource alias 및 identifier 내부 숫자는 formatting을 claim으로
   오인하지 않도록 이 보수적 검사에서 제외합니다.
   Intent translation이 계속 ambiguous하면 optional `ClarificationNarrator`가 principal에게 보이는
   installed tool schema만 받고 bounded question 하나를 반환할 수 있습니다. 이 경로는 tool을 호출하지
@@ -146,8 +147,8 @@ flowchart TD
   - `read_plan.py` - bounded-plan 순수 검증, serial read 실행, result aggregation 및 identity-scoped
     high-signal conflict detection.
   - `contextual_translation.py` - 현재 및 prior turn text에 대한 순수 scalar argument provenance.
-  - `grounded_answer_validation.py` - narrated output과 immutable tool authority 사이의 보수적 numeric,
-    timestamp, freshness 및 exact-ref 검사.
+  - `grounded_answer_validation.py` - narrated output과 immutable tool authority 사이의 보수적
+    canonical-ID, numeric, timestamp, freshness 및 exact-ref 검사.
   - `tools.py` - `ConsoleTool` Protocol + per-tool 구현체가 Layer 1
     모듈에만 delegate.
   - `narrator.py` - sync intent `Narrator`, optional `ContextualNarrator`, proposal-only

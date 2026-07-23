@@ -59,7 +59,7 @@ fdai/
 │   │   ├── deploy_preflight/   # pre-deployment feasibility probes → grounded readiness report
 │   │   ├── readiness/          # operational handoff + deterministic startup contracts, reducer, evidence expiry, and authority ceilings
 │   │   ├── assurance_twin/     # read-only ontology twin: text-to-query review / Q&A / assessment (proposes, never executes)
-│   │   ├── conversation/       # operator-console contextual intent/tool coordination, conflict-aware read plans, clarification, dynamic grounded narration with atomic-claim fallback, safe attachments, per-turn isolation, durable delivery, adapter health, and busy-input arbitration
+│   │   ├── conversation/       # operator-console contextual intent/tool coordination, conflict-aware read plans, clarification, dynamic grounded narration with canonical/atomic-claim fallback, safe attachments, per-turn isolation, durable delivery, adapter health, and busy-input arbitration
 │   │   ├── user_context_projection.py  # metadata-only principal context / workflow binding projection into runtime ontology
 │   │   ├── console_request/    # operator-console write-direction re-request policy (Scenario B deny-override), a single pure `evaluate_operator_rerequest`
 │   │   ├── verticals/          # Resilience / Change Safety / Cost Governance (P3 integration surface); each is a sub-package (G-6) with its own orchestrator + submodules, plus the shared `Vertical` Protocol in `base.py` and the `VerticalRegistry` seam

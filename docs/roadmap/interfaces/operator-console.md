@@ -114,10 +114,12 @@ flowchart TD
   and the presence of prior conversation context. The current inbound/tool/result transaction is
   excluded from that prior context. Web generation uses the read API backend seam, so deployments
   can bind providers.
-  After rendering, a core validator rejects numeric values, percentages, or RFC3339 timestamps that
-  do not occur in the immutable `ToolResult`. Freshness words such as `current`, `live`, or `latest`
-  require an exact timestamp from that result. Markdown list ordinals and numbers embedded in
-  identifiers are excluded from this conservative check to avoid treating formatting as a claim.
+  After rendering, a core validator rejects numeric values, percentages, RFC3339 timestamps, and
+  canonical rule, event, incident, correlation, or ActionType identifiers that do not occur in the
+  immutable `ToolResult`. Freshness words such as `current`, `live`, or `latest` require an exact
+  timestamp from that result. Markdown list ordinals, ordinary resource aliases, and numbers
+  embedded in identifiers are excluded from this conservative check to avoid treating formatting
+  as a claim.
   When intent translation remains ambiguous, an optional `ClarificationNarrator` sees only the
   installed tool schemas visible to the principal and may return one bounded question. This path
   invokes no tool, guesses no argument, and falls back to the deterministic abstain response when
@@ -149,8 +151,8 @@ flowchart TD
   - `read_plan.py` - pure bounded-plan validation, serial read execution, result aggregation, and
     identity-scoped high-signal conflict detection.
   - `contextual_translation.py` - pure scalar argument provenance over current and prior turn text.
-  - `grounded_answer_validation.py` - conservative numeric, timestamp, freshness, and exact-ref
-    checks over narrated output and immutable tool authority.
+  - `grounded_answer_validation.py` - conservative canonical-ID, numeric, timestamp, freshness, and
+    exact-ref checks over narrated output and immutable tool authority.
   - `tools.py` - `SystemConsoleTool` Protocol + per-tool implementations that
     delegate to Layer 1 modules only.
   - `narrator.py` - synchronous intent `Narrator`, optional `ContextualNarrator`, proposal-only

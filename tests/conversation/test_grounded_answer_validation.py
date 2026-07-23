@@ -131,3 +131,56 @@ def test_mismatched_timestamp_claim_is_rejected() -> None:
 
     assert validation.valid is False
     assert validation.reason_code == "unsupported_timestamp"
+
+
+def test_invented_rule_identifier_is_rejected() -> None:
+    result = ToolResult(
+        status="ok",
+        data={"rule_id": "rule-example"},
+        preview="rule-example matched",
+        evidence_refs=("rule-example",),
+    )
+
+    validation = validate_grounded_answer(
+        "rule-example matched, and rule-invented also applies. [rule-example]",
+        result,
+    )
+
+    assert validation.valid is False
+    assert validation.reason_code == "unsupported_identifier"
+
+
+def test_invented_action_type_identifier_is_rejected() -> None:
+    result = ToolResult(
+        status="ok",
+        data={"action_type": "ops.restart-service"},
+        preview="ops.restart-service is available",
+    )
+
+    validation = validate_grounded_answer(
+        "Use ops.restart-service or ops.delete-storage.",
+        result,
+    )
+
+    assert validation.valid is False
+    assert validation.reason_code == "unsupported_identifier"
+
+
+def test_supported_identifier_subset_is_accepted() -> None:
+    result = ToolResult(
+        status="ok",
+        data={"rule_ids": ["rule-one", "rule-two"]},
+        preview="two rules matched",
+    )
+
+    validation = validate_grounded_answer("rule-one matched.", result)
+
+    assert validation.valid is True
+
+
+def test_ordinary_resource_alias_is_outside_canonical_identifier_check() -> None:
+    result = ToolResult(status="ok", data={"resource": "vm-example"}, preview="VM found")
+
+    validation = validate_grounded_answer("vm-example was found.", result)
+
+    assert validation.valid is True
