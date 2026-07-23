@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
+import type { ReadApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { t } from "../i18n";
 import {
@@ -11,17 +12,19 @@ import {
   type ConsolePreferences,
 } from "../preferences";
 import { panelPath } from "../router";
+import { BrowserNotificationControl } from "./browser-notification-control";
 import { NavigationShell } from "./navigation-shell";
 import { NavigationTitleProvider } from "./navigation-title";
 
 interface ShellProps {
   readonly activePanelId: string;
   readonly auth: AuthContext;
+  readonly client: ReadApiClient;
   readonly children: ComponentChildren;
   readonly onExitLocalSession?: () => void;
 }
 
-export function Shell({ activePanelId, auth, children, onExitLocalSession }: ShellProps) {
+export function Shell({ activePanelId, auth, client, children, onExitLocalSession }: ShellProps) {
   const [preferences, setPreferences] = useState<ConsolePreferences>(readConsolePreferences);
 
   useEffect(() => {
@@ -61,6 +64,10 @@ export function Shell({ activePanelId, auth, children, onExitLocalSession }: She
           <span class="brand-product">{t("shell.console")}</span>
         </a>
         <div class="principal">
+          <BrowserNotificationControl
+            client={client}
+            principalId={auth.account?.homeAccountId ?? null}
+          />
           {auth.localAzureCli && auth.account ? (
             <>
               <span>{auth.account.username}</span>

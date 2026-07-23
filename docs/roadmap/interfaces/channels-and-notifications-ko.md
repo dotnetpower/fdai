@@ -1,14 +1,14 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: eed8c5ff43845ad6f013fc59332e7baa383c7469
+translation_source_sha: 163c0b72712e8f7882ffa6eb9ba10f17cea3af5d
 translation_revised: 2026-07-23
 ---
 
 # 채널과 알림(Channels and Notifications)
 
-FDAI가 **비-웹-UI 채널** - Teams, Slack, email, webhook, paging 서비스, SMS -
-을 통해 사람과 소통하는 방법. 이 문서는 **채널 추상화, 신뢰 레벨, 카테고리 경계, 라우팅
+FDAI가 Teams, Slack, email, webhook, paging 서비스, SMS 및 opt-in browser notification을
+통해 사람과 소통하는 방법. 이 문서는 **채널 추상화, 신뢰 레벨, 카테고리 경계, 라우팅
 정책, 채널 특이 규칙**의 진실 원본입니다. [tech-stack-ko.md](../architecture/tech-stack-ko.md) 에서 힌트한
 "notifier 인터페이스" placeholder를 해결하고
 [operating-and-verification-ko.md](../operations/operating-and-verification-ko.md#alert-routing)의 Alert
@@ -16,8 +16,9 @@ Routing 조각들과
 [user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md#7-chatops-hil-flow)의 Teams-특이
 흐름을 통합.
 
-웹-UI(읽기 전용 콘솔)는 이 문서 범위 밖; 콘솔의 아이덴티티 흐름은
-[user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md)에 있음.
+읽기 전용 콘솔의 identity 및 interaction flow는 이 문서 범위 밖이고, outbound browser
+notification 경계만 이 문서가 소유합니다. 콘솔 identity는
+[user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md)에 있습니다.
 
 > **방향 범위.** Outbound notification, A1 approval, bidirectional conversation은 서로 다른
 > Protocol입니다. 이 문서는 공통 trust/category/routing 원칙과 outbound delivery를 소유하고,
@@ -243,6 +244,27 @@ scalar field만 project합니다. Missing field, container, oversized string, no
 publication 전에 fail합니다. Bounded session key는 명시적으로 선택된 scalar value의 SHA-256
 digest이므로 raw external identity value가 session id가 되지 않습니다. Projected event는 여전히
 event-ingest, trust routing, risk gating, audit에 진입하며 webhook은 action을 execute하지 않습니다.
+
+### 4.4 Browser system notification
+
+Console은 browser Notifications API와 origin-scoped service worker를 통해 opt-in A2 상태 알림을
+전달할 수 있습니다. Operator가 명시적인 Console control에서 기능을 활성화하며 FDAI는 page
+load 중 permission을 요청하지 않습니다. 활성화된 tab이 background 상태여도 authenticated
+`GET /live/stream` feed를 유지하고, 사람 승인, 거부, 실패 결과에만 notification을 emit합니다.
+Replay frame과 정상 성공 stage는 알림을 만들지 않습니다.
+
+Browser notification은 정보 제공 전용입니다. Localized generic text, opaque bounded event tag,
+server-derived same-origin read-only Incident view link만 포함합니다. Raw error, resource identifier,
+approval control, execution link는 포함하지 않습니다. 반복 frame은 동일 event notification을
+교체하며 opt-in preference는 로그인한 browser principal scope로 저장합니다. Principal-scoped
+browser ledger는 여러 tab에서 같은 event tag를 5분 동안 억제하고 system notification을 분당
+5건으로 제한합니다. 억제된 event도 audit 및 Incident view에는 그대로 남습니다.
+
+Service worker는 page가 background 상태일 때 notification rendering과 click handling을 유지하지만,
+현재 Console은 Push API subscription이나 server-side subscription store를 등록하지 않습니다.
+따라서 browser가 완전히 종료되면 notification을 받지 않습니다. Closed-browser Web Push를
+활성화하려면 별도로 인증된 write service, 암호화된 subscription storage, revocation, CSRF
+protection, delivery audit가 필요하며 read API에 속하지 않습니다.
 
 ## 5. Channel 인터페이스 (계약)
 

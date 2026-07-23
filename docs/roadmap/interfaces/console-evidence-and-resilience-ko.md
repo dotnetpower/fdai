@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: b032105d0f098c544c7bab8967d01145f985d6d5
+translation_source_sha: 52a511583ca171ce789ea9f3e78d17101853518c
 translation_revised: 2026-07-23
 ---
 
@@ -136,6 +136,13 @@ Cross-origin direct-upload target에는 content header를 보내지만 read API 
 cancel하고 bounded reconnect를 사용합니다. Provisioning은 event 전달 실패 시 reader도 cancel합니다.
 Agent stream의 `401`은 전체 화면 login recovery를 기다리고, `403`은 새 App Role을 page reload 없이
 반영할 수 있도록 reconnect합니다.
+
+Interactive Live route는 tab이 hidden 상태일 때 SSE reader를 pause합니다. Operator가 활성화한
+browser notification consumer만 bounded exception으로 background에서 authenticated live reader를
+유지하고, 기존 capped backoff로 authentication failure를 retry하며, notification permission 또는
+principal-scoped opt-in이 제거되면 즉시 중지합니다. Replay가 아닌 frame의 사람 승인, 거부, 실패
+결과만 emit합니다. Shared browser ledger는 여러 tab에서 같은 event tag를 5분 동안 억제하고 system
+notification delivery를 분당 5건으로 제한하지만 audit 또는 Incident evidence는 제거하지 않습니다.
 
 Agent stream은 local 및 deployed profile에서 같은 shared stage transport를 통해 실제 health에서
 파생한 `agent.runtime-state` heartbeat를 수신합니다. Heartbeat는 live agent의 현재 runtime 관찰을

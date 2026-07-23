@@ -3,8 +3,8 @@ title: Channels and Notifications
 ---
 # Channels and Notifications
 
-How FDAI talks to humans through **non-web-UI channels** - Teams, Slack, email,
-webhooks, paging services, SMS. This file is authoritative for the **channel abstraction,
+How FDAI talks to humans through Teams, Slack, email, webhooks, paging services, SMS,
+and opt-in browser notifications. This file is authoritative for the **channel abstraction,
 trust levels, category boundaries, routing policy, and channel-specific rules**. It
 resolves the placeholder "notifier interface" hinted at in
 [tech-stack.md](../architecture/tech-stack.md) and consolidates the Alert Routing fragments from
@@ -12,8 +12,9 @@ resolves the placeholder "notifier interface" hinted at in
 Teams-specific flows in
 [user-rbac-and-identity.md](user-rbac-and-identity.md#7-chatops-hil-flow).
 
-Web-UI (the read-only console) is out of scope for this doc; the console's identity flow
-lives in [user-rbac-and-identity.md](user-rbac-and-identity.md).
+The read-only console's identity and interaction flows remain out of scope; this document owns
+only its outbound browser-notification boundary. Console identity lives in
+[user-rbac-and-identity.md](user-rbac-and-identity.md).
 
 > **Direction scope.** Outbound notifications, A1 approvals, and bidirectional conversations use
 > separate Protocols. This document owns their shared trust/category/routing principles and
@@ -243,6 +244,28 @@ bounded scalar fields. Missing fields, containers, oversized strings, or non-all
 fail before publication. A bounded session key is the SHA-256 digest of explicitly selected scalar
 values, so raw external identity values do not become session ids. The projected event still
 enters event-ingest, trust routing, risk gating, and audit; the webhook never executes an action.
+
+### 4.4 Browser system notifications
+
+The Console can deliver opt-in A2 status notifications through the browser Notifications API and
+an origin-scoped service worker. The operator enables the feature from an explicit Console control;
+FDAI never requests permission during page load. The authenticated `GET /live/stream` feed stays
+connected while an enabled tab is in the background and emits notifications only for human approval,
+denial, or failure outcomes. Replay frames and routine successful stages remain silent.
+
+Browser notifications are informational. They contain localized generic text, an opaque bounded
+event tag, and a server-derived same-origin link to the read-only Incident view. They never include
+raw errors, resource identifiers, approval controls, or execution links. Repeated frames replace the
+same event notification, and the opt-in preference is scoped to the signed-in browser principal.
+A principal-scoped browser ledger suppresses duplicate event tags for five minutes across tabs and
+limits delivery to five system notifications per minute; suppressed events remain in the audit and
+Incident views.
+
+The service worker keeps notification rendering and click handling available while the page is
+backgrounded, but the current Console does not register a Push API subscription or a server-side
+subscription store. A fully closed browser therefore receives no notification. Closed-browser Web
+Push requires a separately authenticated write service, encrypted subscription storage, revocation,
+CSRF protection, and delivery audit before it can be enabled; it does not belong in the read API.
 
 ## 5. Channel Interfaces (contracts)
 

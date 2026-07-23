@@ -5,6 +5,8 @@ import {
   isPermanentLiveStreamFailure,
   liveReconnectDelay,
   liveStreamHeaders,
+  shouldPauseLiveStream,
+  shouldStopLiveStream,
   type LiveStageEvent,
 } from "./use-live-stream";
 
@@ -62,5 +64,18 @@ describe("live stream boundary", () => {
     expect(isPermanentLiveStreamFailure(503)).toBe(false);
     expect(liveReconnectDelay(0)).toBe(1000);
     expect(liveReconnectDelay(20)).toBe(30000);
+  });
+
+  test("keeps an opted-in background notification stream connected", () => {
+    expect(shouldPauseLiveStream(true, true)).toBe(true);
+    expect(shouldPauseLiveStream(true, false)).toBe(false);
+    expect(shouldPauseLiveStream(false, true)).toBe(false);
+  });
+
+  test("lets an opt-in stream retry after authentication expiry", () => {
+    expect(shouldStopLiveStream(401, false)).toBe(true);
+    expect(shouldStopLiveStream(403, false)).toBe(true);
+    expect(shouldStopLiveStream(401, true)).toBe(false);
+    expect(shouldStopLiveStream(503, false)).toBe(false);
   });
 });

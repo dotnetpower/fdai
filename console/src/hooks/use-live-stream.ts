@@ -62,6 +62,12 @@ export type LiveConnectionStatus =
 export interface UseLiveStreamOptions {
   /** Absolute or relative URL to the SSE endpoint. */
   readonly url: string;
+  /** Do not connect until the owning feature is explicitly enabled. */
+  readonly enabled?: boolean;
+  /** Disconnect while hidden. Browser notifications set this to false. */
+  readonly pauseWhenHidden?: boolean;
+  /** Retry 401/403 responses so a later token acquisition can recover. */
+  readonly retryAuthenticationFailures?: boolean;
   /** Called for every decoded stage event. */
   readonly onEvent: (event: LiveStageEvent) => void;
   /** Optional connection-status observer. */
@@ -119,6 +125,14 @@ export function isPermanentLiveStreamFailure(status: number): boolean {
   return status === 401 || status === 403;
 }
 
+export function shouldStopLiveStream(status: number, retryAuthenticationFailures: boolean): boolean {
+  return isPermanentLiveStreamFailure(status) && !retryAuthenticationFailures;
+}
+
+export function shouldPauseLiveStream(documentHidden: boolean, pauseWhenHidden: boolean): boolean {
+  return documentHidden && pauseWhenHidden;
+}
+
 export async function consumeLiveSse(
   response: Response,
   onEvent: (event: LiveStageEvent) => void,
@@ -163,10 +177,21 @@ export function useLiveStream(options: UseLiveStreamOptions): UseLiveStreamResul
   const onStatusRef = useRef(options.onStatus);
   onEventRef.current = options.onEvent;
   onStatusRef.current = options.onStatus;
-  const { url, getAuthorizationHeader } = options;
+  const {
+    url,
+    getAuthorizationHeader,
+    enabled = true,
+    pauseWhenHidden = true,
+    retryAuthenticationFailures = false,
+  } = options;
 
   useEffect(() => {
     if (typeof fetch === "undefined") return undefined;
+    if (!enabled) {
+      setStatus("idle");
+      setLastError(null);
+      return undefined;
+    }
     let cancelled = false;
     let controller: AbortController | null = null;
     let reconnectTimer: number | null = null;
@@ -176,7 +201,10 @@ export function useLiveStream(options: UseLiveStreamOptions): UseLiveStreamResul
       setStatus(next);
       onStatusRef.current?.(next);
     };
-    const isHidden = (): boolean => typeof document !== "undefined" && document.hidden;
+    const isHidden = (): boolean => shouldPauseLiveStream(
+      typeof document !== "undefined" && document.hidden,
+      pauseWhenHidden,
+    );
     const scheduleReconnect = (): void => {
       if (cancelled || permanentFailure || isHidden()) return;
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
@@ -202,7 +230,10 @@ export function useLiveStream(options: UseLiveStreamOptions): UseLiveStreamResul
           signal: active.signal,
         });
         if (!response.ok) {
-          permanentFailure = isPermanentLiveStreamFailure(response.status);
+          permanentFailure = shouldStopLiveStream(
+            response.status,
+            retryAuthenticationFailures,
+          );
           throw new Error(`live stream returned HTTP ${response.status}`);
         }
         publishStatus("open");
@@ -245,13 +276,13 @@ export function useLiveStream(options: UseLiveStreamOptions): UseLiveStreamResul
     };
     if (isHidden()) publishStatus("idle");
     else void connect();
-    document.addEventListener("visibilitychange", handleVisibility);
+    if (pauseWhenHidden) document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       cancelled = true;
-      document.removeEventListener("visibilitychange", handleVisibility);
+      if (pauseWhenHidden) document.removeEventListener("visibilitychange", handleVisibility);
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       controller?.abort();
     };
-  }, [url, getAuthorizationHeader]);
+  }, [url, getAuthorizationHeader, enabled, pauseWhenHidden, retryAuthenticationFailures]);
   return { status, lastError, source };
 }

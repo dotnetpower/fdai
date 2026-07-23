@@ -133,6 +133,14 @@ including keepalive comments, then use bounded reconnect. Provisioning also canc
 event delivery fails. Agent-stream `401` waits for full-screen login recovery; `403` reconnects so a
 new App Role can take effect without a page reload.
 
+The interactive Live route pauses its SSE reader while the tab is hidden. An operator-enabled
+browser notification consumer is the bounded exception: it keeps the authenticated live reader open
+in the background, retries authentication failures with the existing capped backoff, and stops as
+soon as notification permission or the principal-scoped opt-in is removed. It emits only human
+approval, denial, and failure outcomes from non-replay frames. A shared browser ledger suppresses
+the same event tag for five minutes across tabs and limits system notification delivery to five per
+minute without removing any audit or Incident evidence.
+
 The agent stream receives health-derived `agent.runtime-state` heartbeats through the same shared
 stage transport in local and deployed profiles. A heartbeat establishes current runtime observation
 for a live agent but isn't classified as work. Missing or malformed health frames never promote a

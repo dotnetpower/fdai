@@ -277,6 +277,7 @@ export function App() {
       <Shell
         activePanelId={panel.id}
         auth={auth}
+        client={client}
         {...(
           auth.devMode
           && state.config?.localLoginPrompt
