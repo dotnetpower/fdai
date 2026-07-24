@@ -104,10 +104,13 @@ export function useCommandDeckSubmit({
 }: UseCommandDeckSubmitOptions) {
   return useCallback(async (raw: string) => {
     const text = raw.trim();
-    // Drain any staged image attachments up front so exactly this turn owns
-    // them and a concurrent composer clear cannot race the payload away.
-    const attachments = takeComposerAttachments();
     if (text.length === 0 || pending || inFlightRef.current) return;
+    // Drain staged image attachments only once we know this turn will send, so
+    // a no-op empty/busy submit (e.g. Enter on an empty composer) never
+    // silently discards the operator's pending images. Draining here also means
+    // exactly this turn owns them, so a concurrent composer clear cannot race
+    // the payload away.
+    const attachments = takeComposerAttachments();
     const originSessionKey = sessionKeyRef.current;
     const controller = new AbortController();
     const action = detectActionIntent(text);
