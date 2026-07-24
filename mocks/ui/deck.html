@@ -361,6 +361,11 @@
     .dk-bubble.is-abstain { border-color: rgba(123,108,156,.35); background: rgba(123,108,156,.04); }
     .dk-bubble.is-handoff-issue { border-color: rgba(188,116,73,.35); background: rgba(188,116,73,.04); }
     .dk-bubble.is-self-block { border-color: rgba(172,90,90,.35); background: rgba(172,90,90,.04); }
+    .dk-bubble.is-delegation { background: rgba(79,132,126,.05); border-color: rgba(79,132,126,.28); }
+    .dk-delegation-route { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; color: var(--cs-text-soft); font-size: 10.5px; }
+    .dk-delegation-route strong { color: var(--cs-plum); }
+    .dk-delegation-route .dk-arrow { color: var(--cs-teal); font-size: 14px; line-height: 1; }
+    .dk-delegation-kind { padding: 1px 7px; border-radius: 999px; color: var(--cs-teal); background: rgba(79,132,126,.12); font-weight: 650; }
     .dk-bubble-label { display: inline-flex; align-items: center; gap: 5px; margin-bottom: 6px; padding: 1px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
     .dk-bubble.is-abstain       .dk-bubble-label { color: var(--cs-plum);       background: rgba(123,108,156,.12); }
     .dk-bubble.is-handoff-issue .dk-bubble-label { color: var(--cs-terracotta); background: rgba(188,116,73,.12); }
@@ -426,6 +431,8 @@
      .dk-exec-times dt { color: var(--cs-text-soft); }
      .dk-exec-times dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--cs-text); font-family: "JetBrains Mono","Consolas",monospace; }
      @media (max-width: 560px) {
+      .dk-turn.is-delegation-turn { display: block; max-width: 100%; width: 100%; }
+      .dk-turn.is-delegation-turn .dk-turn-avatar { display: none; }
       .dk-turn.is-execution { display: block; }
       .dk-turn.is-execution .dk-turn-avatar { display: none; }
       .dk-exec-redacted { display: none; }
@@ -686,12 +693,33 @@
             </div>
           </div>
 
+          <!-- Bragi owns the human conversation but delegates the observed
+               Azure read to Heimdall, the Observer. This handoff shares the
+               correlation trace and grants no mutation authority. -->
+          <div class="dk-turn is-delegation-turn">
+            <span class="dk-turn-avatar is-plum" aria-hidden="true">Br</span>
+            <div class="dk-turn-body">
+              <span class="dk-turn-meta"><strong>Bragi</strong> &middot; <time>09:43</time> &middot; routing the read investigation</span>
+              <div class="dk-bubble is-delegation">
+                <div class="dk-delegation-route" aria-label="Delegation from Bragi to Heimdall">
+                  <strong>Bragi</strong>
+                  <span class="dk-arrow" aria-hidden="true">&rarr;</span>
+                  <span class="dk-mention is-teal">@Heimdall</span>
+                  <span class="dk-delegation-kind">read observation</span>
+                </div>
+                <p><span class="dk-mention is-teal">@Heimdall</span>, please check the container
+                  restart evidence for <code>FDAI-8812</code>. Show the exact read command,
+                  bounded output, and timestamps.</p>
+              </div>
+            </div>
+          </div>
+
           <!-- Observed execution evidence from Heimdall's read runtime. The
                browser can inspect and copy the command, but cannot run it. -->
           <div class="dk-turn is-execution">
             <span class="dk-turn-avatar is-teal" aria-hidden="true">He</span>
             <div class="dk-turn-body">
-              <span class="dk-turn-meta"><strong>Heimdall</strong> &middot; <time>09:43</time> &middot; observed execution</span>
+              <span class="dk-turn-meta"><strong>Heimdall</strong> &middot; <time>09:43</time> &middot; replying to <span class="dk-mention is-plum">@Bragi</span> &middot; observed read</span>
               <details class="dk-exec" open>
                 <summary>
                   <span class="dk-exec-title">Querying container restart evidence</span>
