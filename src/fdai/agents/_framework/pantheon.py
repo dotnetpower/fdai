@@ -150,7 +150,7 @@ _BRAGI = AgentSpec(
     name="Bragi",
     layer=Layer.PIPELINE,
     reports_to="Thor",
-    owns=("Conversation", "Turn", "UserPreference"),
+    owns=("Conversation", "Turn", "UserPreference", "HandoffEscalation"),
     executes=(),
     initiates=("governance.escalate-to-github-issue",),
     subscribes=("object.verdict", "object.action-run"),  # for progress rendering
@@ -177,6 +177,7 @@ _SAGA = AgentSpec(
         "object.security-event",
         "object.issue",
         "object.forecast-outcome",
+        "object.handoff-escalation",
     ),
     question_domains=("fdai_action_history", "audit_log", "approval_history"),
     owns_code_paths=("src/fdai/agents/saga.py",),

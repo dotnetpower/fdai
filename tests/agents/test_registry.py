@@ -112,6 +112,7 @@ def test_publish_authorization_accepts_owner() -> None:
     reg.assert_can_publish("Thor", "object.action-run")
     reg.assert_can_publish("Forseti", "object.verdict")
     reg.assert_can_publish("Saga", "object.audit-entry")
+    reg.assert_can_publish("Bragi", "object.handoff-escalation")
 
 
 def test_publish_authorization_rejects_non_owner() -> None:

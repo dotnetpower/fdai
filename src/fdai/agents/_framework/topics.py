@@ -75,6 +75,7 @@ OWNED_OBJECT_TOPICS: frozenset[str] = frozenset(
         "object.conversation",
         "object.turn",
         "object.user-preference",
+        "object.handoff-escalation",
         # Governance
         "object.audit-entry",
         "object.issue",

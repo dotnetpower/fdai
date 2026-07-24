@@ -163,6 +163,28 @@ def test_saga_issue_dedup_creates_once_and_appends_comment_on_repeat() -> None:
     assert idx["occurrence_count"] == 2
 
 
+def test_saga_handoff_redelivery_is_idempotent() -> None:
+    saga = Saga()
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-1",
+        "escalation_id": "handoff-1",
+        "correlation_id": "corr-1",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    assert len(saga.github.issues) == 1
+    issue = next(iter(saga.github.issues.values()))
+    assert issue.comments == []
+    assert saga.behavior_snapshot()["handoff:duplicate"] == 1
+
+
 def test_saga_close_issue_records_promoting_pr() -> None:
     saga = Saga()
     fp = compute_fingerprint(

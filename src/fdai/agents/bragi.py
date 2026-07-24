@@ -15,8 +15,10 @@ conversational-port smoke tests.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai.agents._framework.base import Agent
@@ -219,6 +221,7 @@ class Bragi(Agent):
         question: str,
         initiator_role: str | None = None,
         allow_action_proposal: bool = True,
+        materialize_handoff: bool = True,
     ) -> Turn:
         """Route + call primary + record the turn.
 
@@ -322,7 +325,46 @@ class Bragi(Agent):
             decision=decision,
         )
         session.turns.append(turn)
+        if answer.get("handoff_needed") and materialize_handoff:
+            await self._publish_handoff(
+                session_id=session_id,
+                question=question,
+                turn_index=turn.turn_index,
+                reason=str(answer.get("abstain_reason") or "no_route"),
+            )
         return turn
+
+    async def _publish_handoff(
+        self,
+        *,
+        session_id: str,
+        question: str,
+        turn_index: int,
+        reason: str,
+    ) -> None:
+        if self.bus is None:
+            return
+        normalized = " ".join(question.split()).casefold()
+        selector_digest = hashlib.sha256(normalized.encode()).hexdigest()
+        escalation_id = hashlib.sha256(
+            f"{session_id}\0{turn_index}\0{reason}\0{selector_digest}".encode()
+        ).hexdigest()
+        await self.bus.publish(
+            "Bragi",
+            "object.handoff-escalation",
+            {
+                "producer_principal": "Bragi",
+                "id": f"handoff-{escalation_id[:32]}",
+                "escalation_id": f"handoff-{escalation_id[:32]}",
+                "correlation_id": session_id,
+                "idempotency_key": f"handoff:{escalation_id}",
+                "emitting_agent": "Bragi",
+                "intent_category": reason,
+                "normalized_selector": f"sha256:{selector_digest}",
+                "failure_reason_code": reason,
+                "emitted_at": datetime.now(UTC).isoformat(),
+            },
+        )
 
     async def _ask_contributors(
         self,

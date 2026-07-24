@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 5afaea8cea7b84af91c49d396852ea566ab23032
+translation_source_sha: d1bce9348b70f698ca6c610b18d06a7371ded585
 translation_revised: 2026-07-24
 ---
 
@@ -226,7 +226,7 @@ operations / interface), `3` = governance staff.
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, SecurityEvent | detect_anomaly, detect_drift, forecast, close_forecast_outcome, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
-| Bragi | Narrator | 2 | Conversation, Turn, UserPreference | translate_intent | yes (translator 만) |
+| Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation | translate_intent | yes (translator 만) |
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit, escalate_to_github_issue | no |
 | Mimir | Rule Steward | 3 | Rule, Policy | promote_rule, revoke_rule | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
@@ -531,9 +531,10 @@ handler를 직접 호출하지 않습니다. 모든 contribution은 계속 Bragi
 
 ### 6.4 Handoff 에스컬레이션 프로토콜
 
-에이전트가 소유 데이터, T0, T1, T2 (§8 의 LLM policy 에 따라) 로 요청을
-해결할 수 없을 때 `HandoffEscalation` object 를 발행. Saga 는
-`escalate_to_github_issue` action 을 통해 GitHub issue 로 materialize.
+에이전트가 소유 데이터, T0, T1, T2 (§8 의 LLM policy 에 따라) 로 대화 요청을
+해결할 수 없으면 Bragi에 abstention을 반환합니다. Bragi는 single writer로서
+`HandoffEscalation` object를 발행합니다. Saga는 이 event를 구독하고
+`escalate_to_github_issue` action을 통해 GitHub issue로 materialize합니다.
 
 중복 제거는 `problem_fingerprint` 사용:
 

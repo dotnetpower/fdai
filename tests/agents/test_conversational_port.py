@@ -61,9 +61,24 @@ def test_ask_handoff_when_no_route() -> None:
     assert turn.answer["handoff_needed"] is True
 
 
+def test_ask_handoff_publishes_bragi_owned_escalation() -> None:
+    provider = InMemoryEventBus()
+    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+
+    asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="zzzz qqqq wxyz"))
+
+    records = asyncio.run(_records(provider, "object.handoff-escalation"))
+    assert len(records) == 1
+    payload = records[0].payload
+    assert payload["producer_principal"] == "Bragi"
+    assert payload["emitting_agent"] == "Bragi"
+    assert payload["correlation_id"] == "s1"
+    assert payload["failure_reason_code"] == "no_route"
+
+
 def test_ask_handoff_escalates_to_saga_issue_and_dedups() -> None:
-    # An unanswerable question triggers the discovery-loop handoff: the runtime
-    # asks Saga to open a fingerprinted issue (governance.escalate-to-github-issue).
+    # An unanswerable question publishes Bragi's HandoffEscalation. Saga
+    # materializes it only after consuming its declared typed topic.
     from fdai.agents.saga import Saga
 
     runtime = _runtime()
@@ -71,11 +86,11 @@ def test_ask_handoff_escalates_to_saga_issue_and_dedups() -> None:
     assert isinstance(saga, Saga)
 
     asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="zzzz qqqq wxyz"))
-    assert len(saga.github.issues) == 1
+    asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="zzzz qqqq wxyz"))
+    asyncio.run(runtime.run())
 
     # A repeated identical ask deduplicates by fingerprint (comment, not a new
     # issue) so recurring unanswerable questions do not spam.
-    asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="zzzz qqqq wxyz"))
     assert len(saga.github.issues) == 1
     fingerprint = next(iter(saga.github.issues))
     assert len(saga.github.issues[fingerprint].comments) == 1  # second ask commented

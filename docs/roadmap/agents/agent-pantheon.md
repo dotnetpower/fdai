@@ -246,7 +246,7 @@ operations / interface), `3` = governance staff.
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, SecurityEvent | detect_anomaly, detect_drift, forecast, close_forecast_outcome, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
-| Bragi | Narrator | 2 | Conversation, Turn, UserPreference | translate_intent | yes (translator only) |
+| Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation | translate_intent | yes (translator only) |
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit, escalate_to_github_issue | no |
 | Mimir | Rule Steward | 3 | Rule, Policy | promote_rule, revoke_rule | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
@@ -555,9 +555,10 @@ boundary for every contribution.
 
 ### 6.4 Handoff escalation protocol
 
-When an agent cannot resolve a request through its owned data, T0, T1, or
-T2 (per its LLM policy in §8), it publishes a `HandoffEscalation` object.
-Saga materializes the escalation into a GitHub issue via the
+When an agent cannot resolve a conversational request through its owned data,
+T0, T1, or T2 (per its LLM policy in §8), it returns an abstention to Bragi.
+Bragi is the single writer that publishes the `HandoffEscalation` object.
+Saga consumes the event and materializes it into a GitHub issue via the
 `escalate_to_github_issue` action.
 
 Deduplication uses a `problem_fingerprint`:

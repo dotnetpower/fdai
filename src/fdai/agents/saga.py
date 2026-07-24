@@ -29,6 +29,7 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _SAGA
 
 _FINGERPRINT_BUCKET = "issue_fingerprint_index"
+_HANDOFF_RECEIPT_BUCKET = "handoff_escalation_receipts"
 
 
 class SagaAuditChain(Protocol):
@@ -101,6 +102,43 @@ class Saga(Agent):
             await self._republish_outcome(payload, correlation_id)
         if topic == "object.forecast-outcome":
             await self._republish_forecast_outcome(payload, correlation_id)
+        if topic == "object.handoff-escalation":
+            await self._materialize_handoff(payload, correlation_id)
+
+    async def _materialize_handoff(
+        self,
+        payload: dict[str, Any],
+        correlation_id: str,
+    ) -> None:
+        escalation_id = str(payload.get("escalation_id") or payload.get("id") or "")
+        emitting_agent = str(payload.get("emitting_agent") or "")
+        intent_category = str(payload.get("intent_category") or "")
+        failure_reason = str(payload.get("failure_reason_code") or "")
+        normalized_selector = str(payload.get("normalized_selector") or "")
+        if not all(
+            (escalation_id, correlation_id, emitting_agent, intent_category, failure_reason)
+        ):
+            self.record_behavior("handoff:invalid")
+            return
+        if self.state_store.get(_HANDOFF_RECEIPT_BUCKET, escalation_id) is not None:
+            self.record_behavior("handoff:duplicate")
+            return
+        fingerprint = compute_fingerprint(
+            intent_category=intent_category,
+            resource_type=str(payload.get("resource_type") or ""),
+            normalized_selector=normalized_selector,
+            primary_agent=emitting_agent,
+            failure_reason_code=failure_reason,
+        )
+        result = await self.escalate_to_github_issue(
+            fingerprint=fingerprint,
+            emitting_agent=emitting_agent,
+            intent_category=intent_category,
+            failure_reason_code=failure_reason,
+            correlation_id=correlation_id,
+        )
+        self.state_store.put(_HANDOFF_RECEIPT_BUCKET, escalation_id, result)
+        self.record_behavior("handoff:materialized")
 
     async def _republish_forecast_outcome(
         self,

@@ -1,7 +1,7 @@
 # Upstream built-in ObjectType: HandoffEscalation.
 #
-# A `HandoffEscalation` is the intent event any agent publishes when it
-# cannot resolve a request through T0 / T1 / T2. Saga executes
+# A `HandoffEscalation` is the Bragi-owned intent event published when a
+# conversational request cannot resolve through T0 / T1 / T2. Saga executes
 # `governance.escalate-to-github-issue` in response, materializing the
 # escalation as an Issue with fingerprint dedup. See agent-pantheon.md
 # § 6.4.
@@ -9,7 +9,7 @@ schema_version: "1.0.0"
 name: HandoffEscalation
 version: "1.0.0"
 key: id
-description: Intent event emitted by any agent that abstains; Saga materializes into an Issue.
+description: Bragi-owned intent event for an unresolved conversational request; Saga materializes it into an Issue.
 properties:
   id:
     type: string
