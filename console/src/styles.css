@@ -9027,7 +9027,8 @@ main { padding-bottom: 60px !important; }
 .aa-log-scroll {
   block-size: clamp(440px, 62vh, 680px);
   overflow: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   scrollbar-color: color-mix(in oklab, var(--fg-muted) 50%, transparent) transparent;
   scrollbar-width: thin;
 }

@@ -229,4 +229,16 @@ describe("agent live log controls", () => {
     expect(source).toContain('aria-rowcount={Math.max(visibleRows.length, 1) + 1}');
     expect(source).toContain('aria-colcount={visibleColumns.length}');
   });
+
+  it("allows vertical wheel input to chain to the page at log boundaries", () => {
+    const styles = readFileSync(
+      fileURLToPath(new URL("../styles.css", import.meta.url)),
+      "utf8",
+    );
+    const logBlock = styles.match(/\.aa-log-scroll\s*\{(?<body>[\s\S]*?)\}/)?.groups?.body;
+
+    expect(logBlock).toContain("overscroll-behavior-x: contain");
+    expect(logBlock).toContain("overscroll-behavior-y: auto");
+    expect(logBlock).not.toMatch(/overscroll-behavior:\s*contain/);
+  });
 });
