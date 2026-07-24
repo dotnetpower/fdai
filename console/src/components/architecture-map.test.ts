@@ -9,6 +9,7 @@ import {
   type Camera,
 } from "./architecture-map.geometry";
 import {
+  architectureLinkIsDrawable,
   architectureLabelFontSize,
   fitArchitectureLabel,
 } from "./architecture-map-renderer";
@@ -64,6 +65,29 @@ describe("architecture map zoom", () => {
     const initial = 42;
     expect(architectureZoomScale(architectureZoomScale(initial, "in"), "out"))
       .toBeCloseTo(initial, 10);
+  });
+});
+
+describe("architecture connections", () => {
+  it("draws containment and node-to-node semantic links", () => {
+    const region = { id: "rg", type: "resource-group", w: 4, h: 4 } as never;
+    const app = { id: "app", type: "compute.container-app" } as never;
+    const database = { id: "db", type: "postgresql-server" } as never;
+    expect(architectureLinkIsDrawable(
+      region,
+      app,
+      { source: "rg", target: "app", type: "contains" },
+    )).toBe(true);
+    expect(architectureLinkIsDrawable(
+      app,
+      database,
+      { source: "app", target: "db", type: "depends_on" },
+    )).toBe(true);
+    expect(architectureLinkIsDrawable(
+      region,
+      database,
+      { source: "rg", target: "db", type: "depends_on" },
+    )).toBe(false);
   });
 });
 

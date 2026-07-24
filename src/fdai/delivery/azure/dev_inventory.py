@@ -23,13 +23,14 @@ Why a dev adapter?
 Scope
 -----
 
-- Ships six neutral resource types today, including resource groups, data
-    services, AKS, storage, and VMs with live power state. Adding another type is one entry in
-  :data:`_NEUTRAL_TYPE_TO_AZ_ARGS` plus (optionally) a props extractor.
+- Interactive discovery maps every Azure ARM type declared in the canonical
+    resource-type registry. It combines one resource-group scan, one complete
+    resource scan, and one VM details scan so live power state does not require
+    serial calls for every type.
 - ``delta`` returns an empty final batch (Activity Log delta stream
   belongs to the production adapter).
-- Never emits links - CLI users querying "list resource groups" do
-  not need the container graph edges.
+- Emits bounded ``contains``, ``attached_to``, and ``depends_on`` links using
+    the same ARM projection helpers as production Resource Graph discovery.
 """
 
 from __future__ import annotations

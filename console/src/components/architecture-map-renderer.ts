@@ -20,6 +20,7 @@ import {
   type ArchitectureDisplayOptions,
   type ArchitectureNodeGeometry,
   type InventoryGraphResponse,
+  type InventoryLink,
   type InventoryResource,
 } from "./architecture-map.model";
 
@@ -263,10 +264,38 @@ function drawLinks(
   highlightedIds?: ReadonlySet<string>,
 ): void {
   const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
-  for (const link of graph.links.filter((item) => item.type !== "contains")) {
+  for (const link of graph.links) {
     const source = byId.get(link.source);
     const target = byId.get(link.target);
-    if (!source || !target || isRegion(source) || isRegion(target)) continue;
+    if (!source || !target || !architectureLinkIsDrawable(source, target, link)) continue;
+    if (link.type === "contains") {
+      const start = project(
+        camera, width, height,
+        (source.x ?? 0) + (source.w ?? 0) / 2,
+        (source.y ?? 0) + (source.h ?? 0) / 2,
+        .025,
+      );
+      const end = project(
+        camera, width, height,
+        (target.x ?? 0) + (target.w ?? 0) / 2,
+        (target.y ?? 0) + (target.h ?? 0) / 2,
+        .025,
+      );
+      const edgeActive = !highlightedIds || (
+        highlightedIds.has(source.id) && highlightedIds.has(target.id)
+      );
+      context.save();
+      context.globalAlpha = edgeActive ? .3 : .06;
+      context.strokeStyle = "#6f7f89";
+      context.lineWidth = 1.1;
+      context.setLineDash([3, 4]);
+      context.beginPath();
+      context.moveTo(start.x, start.y);
+      context.lineTo(end.x, end.y);
+      context.stroke();
+      context.restore();
+      continue;
+    }
     const start = project(
       camera, width, height, source.x ?? 0, source.y ?? 0,
       LIFT + geometryOf(source).height * .7,
@@ -299,6 +328,14 @@ function drawLinks(
     }
     context.restore();
   }
+}
+
+export function architectureLinkIsDrawable(
+  source: InventoryResource,
+  target: InventoryResource,
+  link: InventoryLink,
+): boolean {
+  return link.type === "contains" || (!isRegion(source) && !isRegion(target));
 }
 
 function drawArrowHead(

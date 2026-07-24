@@ -247,7 +247,7 @@ or adding an approval endpoint.
 
 | Subsystem | Status | Gap |
 |-----------|--------|-----|
-| Azure Resource Graph inventory | Production reads the promoted PostgreSQL snapshot plus Huginn's real-time delta overlay | Full-stack local uses read-only `AzureCliInventory` with a `.fdai/cache/inventory` snapshot isolated by subscription and Azure CLI profile fingerprint; synthetic opt-out is rejected |
+| Azure Resource Graph inventory | Production reads the promoted PostgreSQL snapshot plus Huginn's real-time delta overlay | Full-stack local maps every registered Azure ARM type through read-only `AzureCliInventory`, enriches VM state, and stores a `.fdai/cache/inventory` snapshot isolated by subscription and Azure CLI profile fingerprint; synthetic opt-out is rejected |
 | Azure Monitor Logs KQL | Production and local adapters share `AzureLogAnalyticsQueryProvider` | Requires server-owned `FDAI_MONITOR_WORKSPACE_ID`; explicit `query_log` fails closed when unavailable |
 | Managed Identity token (`WorkloadIdentity`) | Deployed adapter exists | interactive local publishes to the deployed executor; fixture tests may use a local issuer |
 | Governed execution backend | Provider-neutral Protocol, profile registry, durable PostgreSQL ledger, bubblewrap/VM adapters, and Azure Container Apps Job adapter exist | profiles are disabled by default; local interactive has no executor binding, and live Azure Job evidence remains required before promotion |
@@ -271,10 +271,15 @@ create mode-`0600` files, cap serialized bytes before replace, and fsync the dir
 and cached graphs reject duplicate resources or links, dangling/self links, non-finite or out-of-
 world geometry, invalid roots or parent cycles, future timestamps, invalid envelopes, and counts
 beyond the configured limit.
+The local graph default is 500 resources plus the synthetic subscription root. Larger inventories
+set `truncated=true` instead of silently claiming complete coverage.
 Local projection preserves discovered relationships only when the link type is registered, both
 endpoint ids are selected, and the endpoint types match their resource records. Unknown,
 mismatched, dangling, self, duplicate, and over-limit links are dropped with a count-only warning;
 the complete resource snapshot remains available and reports `truncated=true`.
+The local Architecture projection accepts up to 500 discovered resources by default. This bound
+covers the control plane and provider-managed resource groups while retaining an explicit partial
+inventory state for larger scopes.
 
 ## Parity Contract (MUST)
 

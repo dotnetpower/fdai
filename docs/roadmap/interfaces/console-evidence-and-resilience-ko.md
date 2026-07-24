@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: fc12ddb8ca2d21eac97071c03cdbdf9c4b138389
+translation_source_sha: 40c3fd18cdda97d8d921a7f0a84de2ea234a8f6f
 translation_revised: 2026-07-24
 ---
 
@@ -256,7 +256,9 @@ unreachable일 때 redirect loop가 생기므로 자동 redirect는 시작하지
 ## Architecture map resilience
 
 Architecture route는 inventory provenance와 factual count를 먼저 표시합니다. 기본 isometric map은
-containment와 resource shape을 보여 주며 top 및 front view는 optional입니다. 단순 projection은 세 개
+Reflections와 Connections가 활성화된 상태로 시작합니다. Containment는 흐린 dashed link로,
+attachment 및 dependency는 각각의 directional style로 표시하고 resource shape을 렌더링합니다.
+Top 및 front view는 optional입니다. 단순 projection은 세 개
 이상의 resource group을 최대 2열로 reflow하고, authored nested layout은 supplied geometry를
 유지합니다. Selection은 inventory를 reload하지 않고 canonical deep link를 갱신하며 technical
 identifier보다 directional relationship을 먼저 표시합니다.
@@ -266,6 +268,9 @@ label은 22 px까지 커질 수 있습니다. Zoom step은 reciprocal이고 색�
 keyboard-accessible resource 및 relationship index는 filtered canvas와 동등합니다. Pointer target은
 containment boundary를 포함해 최소 44 px입니다. Truncated snapshot은 partial-inventory notice를
 명시합니다.
+Canvas는 containment를 subdued dashed center-to-center edge로 렌더링합니다. Semantic relationship은
+directional node-to-node arrow를 사용하며 resource-group region을 operational endpoint로 연결하지
+않습니다.
 Local projection은 선택된 endpoint id와 resource type이 일치하는 registered relationship type만
 표시합니다. Malformed 또는 over-limit vendor relationship은 drop하고 snapshot을 truncated로 표시하며,
 신뢰할 수 없는 edge를 렌더링하지 않고 마지막 complete resource graph를 유지합니다.

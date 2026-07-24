@@ -257,7 +257,9 @@ does not start an automatic redirect because an unreachable read API would cause
 ## Architecture-map resilience
 
 The Architecture route leads with inventory provenance and factual counts. The default isometric
-map shows containment and resource shape; top and front views are optional. Simple projections
+map starts with Reflections and Connections enabled. It shows containment as subtle dashed links,
+shows attachment and dependency links with their directional styles, and renders each resource
+shape; top and front views are optional. Simple projections
 reflow three or more resource groups into at most two columns, while authored nested layouts keep
 their supplied geometry. Selection updates the canonical deep link without reloading inventory and
 exposes directional relationships before technical identifiers.
@@ -267,6 +269,8 @@ selected label may reach 22 px. Zoom steps are reciprocal, colors follow the con
 keyboard-accessible resource and relationship index is equivalent to the filtered canvas. Pointer
 targets are at least 44 px and include containment boundaries. Truncated snapshots show an explicit
 partial-inventory notice.
+The canvas renders containment as subdued dashed center-to-center edges. Semantic relationships use
+directional node-to-node arrows and do not connect resource-group regions as operational endpoints.
 The local projection shows only registered relationship types whose selected endpoint ids and
 resource types agree. It drops malformed or over-limit vendor relationships, marks the snapshot
 truncated, and keeps the last complete resource graph rather than rendering an untrusted edge.

@@ -39,7 +39,7 @@ class AzureCliInventoryGraphProvider:
     inventory: Inventory
     cache_ttl_seconds: float = 60.0
     refresh_timeout_seconds: float = 240.0
-    max_resources: int = 120
+    max_resources: int = 500
     cache_path: Path | None = None
     cache_identity: str | None = None
     invalidation_path: Path | None = None

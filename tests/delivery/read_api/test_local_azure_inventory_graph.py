@@ -287,6 +287,12 @@ def test_filters_links_and_marks_truncation() -> None:
     assert graph["links"] == []
 
 
+def test_default_graph_capacity_covers_large_control_plane_inventory() -> None:
+    provider = AzureCliInventoryGraphProvider(inventory=_Inventory())
+
+    assert provider.max_resources == 500
+
+
 def test_rejects_unknown_named_view() -> None:
     provider = AzureCliInventoryGraphProvider(inventory=_Inventory())
 
