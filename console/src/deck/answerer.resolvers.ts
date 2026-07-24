@@ -53,7 +53,7 @@ export function resolveRecentAgentWork(
 ): Answer | null {
   const asksAboutWork =
     /\b(what|which).*(working on|worked on|been doing|doing now)\b|\b(current|recent|latest) (work|activity|incident)\b/.test(q) ||
-    /\uCD5C\uADFC|\uC694\uC998|\uD604\uC7AC|\uBB34\uC2A8 \uC77C|\uD558\uACE0 \uC788/.test(q);
+    /최근|요즘|현재|무슨 일|하고 있/.test(q);
   if (!asksAboutWork) return null;
 
   const context = [...history]
@@ -143,7 +143,7 @@ export function resolveGlossary(q: string, snapshot: ViewSnapshot): Answer | nul
   // what / which-thing / meaning / explain / sense.
   const asking =
     /\bwhat\b|\bwhich\b|\bexplain\b|\bdefine\b|\bmean(s|ing)?\b|\bwhats\b|\bwhat's\b/.test(q) ||
-    /\uBB34\uC5C7|\uBB50|\uBB54|\uBB34\uC2A8|\uC124\uBA85|\uC758\uBBF8|\uB73B/.test(q);
+    /무엇|뭐|뭔|무슨|설명|의미|뜻/.test(q);
   if (!asking) return null;
   for (const term of glossary) {
     const names = [term.term.toLowerCase(), term.tech?.toLowerCase()].filter(
@@ -164,7 +164,7 @@ export function resolveGlossary(q: string, snapshot: ViewSnapshot): Answer | nul
 export function resolveStaticGlossary(q: string): Answer | null {
   const asking =
     /\bwhat\b|\bwhich\b|\bexplain\b|\bdefine\b|\bmean(s|ing)?\b|\bwhats\b|\bwhat's\b/.test(q) ||
-    /\uBB34\uC5C7|\uBB50|\uBB54|\uBB34\uC2A8|\uC124\uBA85|\uC758\uBBF8|\uB73B/.test(q);
+    /무엇|뭐|뭔|무슨|설명|의미|뜻/.test(q);
   if (!asking) return null;
   for (const term of STATIC_GLOSSARY) {
     const names = [term.term.toLowerCase(), term.tech?.toLowerCase()].filter(
@@ -253,7 +253,7 @@ export function resolveDeckMeta(q: string, snapshot: ViewSnapshot): Answer | nul
 export function resolveList(q: string): Answer | null {
   const listVerb =
     /\blist\b|\bshow\b|\bwhat are (the |all )?/.test(q) ||
-    /\ubaa9\ub85d|\ubcf4\uc5ec\uc918/.test(q); // KO: list / show
+    /목록|보여줘/.test(q); // KO: list / show
   if (!listVerb) return null;
 
   // Unambiguous, FDAI-specific catalog tokens fire without a scope word.
@@ -273,19 +273,19 @@ export function resolveList(q: string): Answer | null {
   const scoped = /\bthe\b|\ball\b|\bevery\b|\b15\b|\b5\b|\bfour\b|\bthree\b/.test(q);
   if (!scoped) return null;
 
-  if (/\bagent(s)?\b|\uc5d0\uc774\uc804\ud2b8/.test(q)) {
+  if (/\bagent(s)?\b|에이전트/.test(q)) {
     return listAnswer("The 15 pantheon agents", PANTHEON_AGENTS);
   }
-  if (/\btier(s)?\b|\bt0\b|\bt1\b|\bt2\b|\ud2f0\uc5b4/.test(q)) {
+  if (/\btier(s)?\b|\bt0\b|\bt1\b|\bt2\b|티어/.test(q)) {
     return listAnswer("The three trust tiers", TRUST_TIERS);
   }
-  if (/\brole(s)?\b|\bpermission(s)?\b|\uc5ed\ud560/.test(q)) {
+  if (/\brole(s)?\b|\bpermission(s)?\b|역할/.test(q)) {
     return listAnswer("The RBAC roles (Entra App Roles, cumulative)", RBAC_ROLES);
   }
-  if (/\bvertical(s)?\b|\ubc84\ud2f0\uceec/.test(q)) {
+  if (/\bvertical(s)?\b|버티컬/.test(q)) {
     return listAnswer("The three initial verticals", VERTICALS);
   }
-  if (/\bsafety\b|\binvariant(s)?\b|\uc548\uc804/.test(q)) {
+  if (/\bsafety\b|\binvariant(s)?\b|안전/.test(q)) {
     return listAnswer("The four safety invariants", SAFETY_INVARIANTS);
   }
   return null;
@@ -307,7 +307,7 @@ export function resolveCausal(q: string, snapshot: ViewSnapshot): Answer | null 
   // occur / start.
   const causal =
     /\bwhy\b|\bcause[ds]?\b|\breason\b|\btrigger(ed)?\b|\bstart(ed)?\b|\bhappen(ed)?\b/.test(q) ||
-    /\uC65C|\uC6D0\uC778|\uC774\uC720|\uBC1C\uC0DD|\uC2DC\uC791/.test(q);
+    /왜|원인|이유|발생|시작/.test(q);
   if (!causal) return null;
   const rows = causalTargetRows(q, snapshot);
   if (rows.length === 0) return null;

@@ -10,6 +10,7 @@ export async function buildViewerArtifact(): Promise<DiagramArtifact> {
     format: "esm",
     minify: true,
     target: "es2022",
+    charset: "utf8",
     write: false,
     legalComments: "none",
   });

@@ -166,7 +166,7 @@ def test_supports_numeric_and_percentage_string_facts() -> None:
 
 def test_supports_headline_number_and_korean_percentage_suffix() -> None:
     result = verify_screen_claims(
-        "1200 events, T2\ub294 5%\uc785\ub2c8\ub2e4.",
+        "1200 events, T2는 5%입니다.",
         {
             **_context(facts=[{"key": "tier.t2", "value": "5%"}]),
             "headline": "1200 events - 5% T2",
@@ -179,7 +179,7 @@ def test_supports_headline_number_and_korean_percentage_suffix() -> None:
 
 def test_supports_decimal_followed_by_korean_suffix() -> None:
     result = verify_screen_claims(
-        "\ud604\uc7ac \uc815\ud655\ub3c4\ub294 0.8\uc785\ub2c8\ub2e4.",
+        "현재 정확도는 0.8입니다.",
         _context(facts=[{"key": "accuracy", "value": 0.8}]),
     )
 

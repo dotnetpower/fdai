@@ -222,6 +222,7 @@ local development, verification, and session hand-off consistent.
 | Path | Purpose |
 |------|---------|
 | [scripts/verify.sh](../../../scripts/verify.sh) | Single local gate: fast text/lint and clean-checkout contracts by default; `--full <path>` runs focused pytest, while explicit `--all` adds whole-repository coverage plus console and CLI verification. |
+| [check-readable-hangul.py](../../../scripts/quality/localization/check-readable-hangul.py) | Rejects opaque Hangul escapes in source, offers a mechanical UTF-8 fixer, and permits only exact rationale-bearing code-point exceptions. |
 | [tools/architecture-diagrams/](../../../tools/architecture-diagrams/) | Bilingual YAML-to-SVG/PNG architecture compiler plus the progressive site viewer; canonical specs live in [docs/diagrams/](../../diagrams/). |
 | [scripts/lib/design-routes.json](../../../scripts/lib/design-routes.json) | Machine-readable path -> required instructions/design docs -> owning docs -> focused validation routes. |
 | [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) / [.github/hooks/design-context.json](../../../.github/hooks/design-context.json) | Records successful design-document reads per agent session and blocks edits when required context is missing or stale. |

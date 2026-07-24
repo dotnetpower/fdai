@@ -115,6 +115,7 @@ run_gate "document-size" python3 scripts/quality/architecture/check-document-siz
 run_gate "display-terminology" python3 scripts/quality/documentation/check-display-terminology.py
 
 run_gate "punctuation"  bash scripts/quality/repository/check-punctuation.sh
+run_gate "readable-hangul" python3 scripts/quality/localization/check-readable-hangul.py
 run_gate "guids"        bash scripts/quality/repository/check-guids.sh
 run_gate "translations" bash scripts/quality/localization/check-translations.sh
 

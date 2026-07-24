@@ -133,7 +133,7 @@ def _done_event(body: str) -> dict[str, Any]:
 async def test_broad_health_query_uses_server_metrics_from_any_screen() -> None:
     resolver = SystemHealthChatTools(_model())
     context = await _with_tool_evidence(
-        "\uc804\ubc18\uc801\uc778 \ub3d9\uc791\uc774 \uc798 \ud558\uace0 \uc788\uc5b4?",
+        "전반적인 동작이 잘 하고 있어?",
         {
             "routeId": "documents",
             "facts": [{"key": "selected_files", "value": 0}],
@@ -149,10 +149,8 @@ async def test_broad_health_query_uses_server_metrics_from_any_screen() -> None:
 
     answer = render_system_health_answer(context, locale="ko")
     assert answer is not None
-    assert "\uac10\uc0ac \uc774\ubca4\ud2b8 \uc218(event count) 1\uac74" in answer
-    assert (
-        "\ubaa8\ub4e0 \uad6c\uc131\uc694\uc18c\uac00 \uc815\uc0c1\uc774\ub77c\uace0 \ub2e8\uc815"
-    ) in answer
+    assert "감사 이벤트 수(event count) 1건" in answer
+    assert ("모든 구성요소가 정상이라고 단정") in answer
 
     verification = verify_screen_claims(
         answer,
@@ -240,10 +238,7 @@ def test_stream_route_returns_canonical_health_without_model_call() -> None:
     response = TestClient(app).post(
         "/chat/stream",
         json={
-            "prompt": (
-                "\uc804\uccb4 \uc2dc\uc2a4\ud15c\uc774 \uc815\uc0c1 "
-                "\uc791\ub3d9\ud558\uace0 \uc788\uc5b4?"
-            ),
+            "prompt": ("전체 시스템이 정상 작동하고 있어?"),
             "view_context": {"routeId": "documents", "facts": []},
         },
     )

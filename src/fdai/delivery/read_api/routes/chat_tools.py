@@ -18,28 +18,28 @@ _AGENT_TOKEN: Final = re.compile(r"[A-Za-z][A-Za-z0-9-]*")
 
 _KPI: Final = re.compile(
     r"\b(kpi|dashboard metrics?|tier mix|shadow share|enforce share|event count)\b"
-    "|\uc9c0\ud45c|\ud2f0\uc5b4 \ube44\uc728|shadow \ube44\uc728|\uc774\ubca4\ud2b8 \uc218",
+    "|지표|티어 비율|shadow 비율|이벤트 수",
     re.IGNORECASE,
 )
 _HIL: Final = re.compile(
     r"\b(hil queue|pending approvals?|approval backlog|awaiting approval)\b"
-    "|\uc2b9\uc778 \ub300\uae30|\ub300\uae30 \uc911\uc778 \uc2b9\uc778|\uc2b9\uc778 \ud050",
+    "|승인 대기|대기 중인 승인|승인 큐",
     re.IGNORECASE,
 )
 _AUDIT: Final = re.compile(
     r"\b(recent audit|latest audit|audit log|action history|execution history)\b"
-    "|\ucd5c\uadfc \uac10\uc0ac|\uac10\uc0ac \ub85c\uadf8"
-    "|\uc561\uc158 \uc774\ub825|\uc2e4\ud589 \uc774\ub825",
+    "|최근 감사|감사 로그"
+    "|액션 이력|실행 이력",
     re.IGNORECASE,
 )
 _INCIDENTS: Final = re.compile(
     r"\b(list|show|how many)\s+(?:recent\s+|active\s+)?incidents?\b"
-    "|\uc778\uc2dc\ub358\ud2b8 \ubaa9\ub85d|\uc778\uc2dc\ub358\ud2b8 \uba87",
+    "|인시던트 목록|인시던트 몇",
     re.IGNORECASE,
 )
 _CONVERSATION_SEARCH: Final = re.compile(
     r"^\s*(?:search[_\s-]?conversations?|conversation history|prior conversations)\s+(.*)$"
-    r"|^\s*(?:\ub300\ud654 \uac80\uc0c9|\uc774\uc804 \ub300\ud654)\s+(.+)$",
+    r"|^\s*(?:대화 검색|이전 대화)\s+(.+)$",
     re.IGNORECASE,
 )
 

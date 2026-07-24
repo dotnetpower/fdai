@@ -117,7 +117,7 @@ class TestTranslate:
 
         n = _make_narrator(handler_fn=handler)
         out = n.translate(
-            utterance="\ub9ac\uc18c\uc2a4 \uadf8\ub8f9 \ubaa9\ub85d",
+            utterance="리소스 그룹 목록",
             tools=default_tool_schemas(),
             principal_role="reader",
         )

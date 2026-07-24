@@ -126,6 +126,8 @@ that remain are about tooling and structure, not about which language you write:
 - **`check-punctuation.sh`** - ASCII punctuation only (no em-dash / en-dash /
   smart quotes / ellipsis char / no-break space), everywhere including `-ko.md`
   and `.ko.json`.
+- **`check-readable-hangul.py`** - readable NFC UTF-8 Korean in source. Hangul
+  escapes require an exact rationale-bearing semantic exception.
 - **`check-translations.sh`** - `foo.md` <-> `foo-ko.md` SHA parity for the L1
   doc-pair convention.
 - **`check-catalog-parity.sh`** - `ko` keys are a subset of `en` keys.
@@ -166,10 +168,10 @@ and cross-fork search - localize the labels around it, not the record itself.
   match the `translation_source_sha` in `foo-ko.md`. Update the
   Korean file to reflect the English edit, then run
   `refresh-translation-sha.py`.
-- **English-only failure**: Hangul or CJK appeared in a `.py` / `.ts`
-  / `.yaml` / test file. Move it to the correct `.ko.json` or
-  `-ko.md` sibling, or escape it (`\uXXXX`) if it is a literal
-  fixture that must stay in code.
+- **Readable-Hangul failure**: Korean prose was encoded as opaque Hangul
+  escapes. Use literal NFC UTF-8 Korean, or add a narrow rationale-bearing
+  allowlist entry only when the code explicitly tests code points, character
+  ranges, malformed text, or normalization behavior.
 - **Punctuation failure**: an em-dash or smart quote snuck in via
   copy-paste. Run `normalize-punctuation.py`.
 

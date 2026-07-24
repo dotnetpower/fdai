@@ -14,10 +14,10 @@ _SYSTEM_HEALTH: Final = re.compile(
     r"\b(health|healthy|working|running|operating|status)\b"
     r"|\b(is|are)\s+(?:the\s+)?(?:system|control plane|everything)\s+"
     r"(?:working|running|operating)\b"
-    "|\uc804\ubc18\uc801(?:\uc778|\uc73c\ub85c)?.{0,20}(?:\ub3d9\uc791|\uc791\ub3d9|\uc0c1\ud0dc)"
-    "|\uc804\uccb4(?:\uc801\uc73c\ub85c|\\s*\uc2dc\uc2a4\ud15c)?.{0,20}"
-    "(?:\uc798\\s*(?:\ub3d9\uc791|\uc791\ub3d9)|\uc815\uc0c1\\s*(?:\ub3d9\uc791|\uc791\ub3d9)|\uc0c1\ud0dc)"
-    "|\uc2dc\uc2a4\ud15c.{0,20}(?:\uac74\uac15|\uc815\uc0c1|\uc0c1\ud0dc|\uc798\\s*(?:\ub3d9\uc791|\uc791\ub3d9))",
+    "|전반적(?:인|으로)?.{0,20}(?:동작|작동|상태)"
+    "|전체(?:적으로|\\s*시스템)?.{0,20}"
+    "(?:잘\\s*(?:동작|작동)|정상\\s*(?:동작|작동)|상태)"
+    "|시스템.{0,20}(?:건강|정상|상태|잘\\s*(?:동작|작동))",
     re.IGNORECASE,
 )
 _NON_HEALTH_CONTEXT: Final = re.compile(

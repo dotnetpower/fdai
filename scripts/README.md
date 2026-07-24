@@ -10,7 +10,7 @@ entry point; place other scripts in the domain directories below.
 |------|----------------|
 | `verify.sh` | Stable facade for the fast and full repository gate suites. |
 | `quality/architecture/` | Source-boundary, file-size, and subsystem fan-out gates. |
-| `quality/localization/` | Translation, message-catalog, and derived-document checks and fixers. |
+| `quality/localization/` | Translation, readable Korean, message-catalog, and derived-document checks and fixers. |
 | `quality/repository/` | Repository-wide punctuation, GUID, and Markdown-link hygiene. |
 | `integrity/` | Framework-surface protection, manifest generation, signing, and offline verification. |
 | `governance/` | Architecture review, agent stewardship, governance transitions, and exemption expiry. |

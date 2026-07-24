@@ -244,7 +244,7 @@ def _render_peering(details: tuple[tuple[str, str], ...], status: str) -> str:
 
 
 def _is_korean(value: str) -> bool:
-    return any("\uac00" <= character <= "\ud7a3" for character in value)
+    return any("가" <= character <= "힣" for character in value)
 
 
 class HeimdallReadInvestigationChatDelegate:

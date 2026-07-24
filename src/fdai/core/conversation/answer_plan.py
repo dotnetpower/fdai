@@ -204,15 +204,15 @@ _INTENT_PATTERNS: Final[tuple[tuple[AnswerIntent, re.Pattern[str]], ...]] = (
         re.compile(
             r"^[\s\W]*(?:"
             r"annyeong|"
-            r"\uc548\ub155(?:\ud558\uc138\uc694|\ud558\uc2ed\ub2c8\uae4c|\ud558\uc154\uc694)?|"
-            r"\ubc18\uac00\uc6cc(?:\uc694)?|\ubc18\uac11\uc2b5\ub2c8\ub2e4|"
-            r"\ud558\uc774|\ud5ec\ub85c|"
+            r"안녕(?:하세요|하십니까|하셔요)?|"
+            r"반가워(?:요)?|반갑습니다|"
+            r"하이|헬로|"
             r"hello|hi|hey|good\s+(?:morning|afternoon|evening)|"
-            r"\uace0\ub9d9\uc2b5\ub2c8\ub2e4|\uace0\ub9c8\uc6cc(?:\uc694)?|"
-            r"\uac10\uc0ac(?:\ud569\ub2c8\ub2e4|\ud574\uc694|\ub4dc\ub824\uc694)?|"
+            r"고맙습니다|고마워(?:요)?|"
+            r"감사(?:합니다|해요|드려요)?|"
             r"thank\s*you|thanks|"
-            r"\uc798\s*\uc9c0\ub0b4(?:\uc138\uc694|\uc154\uc5b4\uc694)?|"
-            r"\uc88b\uc740\s*(?:\uc544\uce68|\ud558\ub8e8)"
+            r"잘\s*지내(?:세요|셔어요)?|"
+            r"좋은\s*(?:아침|하루)"
             r")[\s\W]*$",
             re.I,
         ),

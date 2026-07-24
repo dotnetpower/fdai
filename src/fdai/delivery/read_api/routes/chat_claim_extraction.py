@@ -20,20 +20,20 @@ from fdai.delivery.read_api.routes.chat_claim_text import (
 MAX_CLAIMS: Final = 64
 CAUSAL_RE: Final = re.compile(
     r"\b(?:because|due to|caused by|resulted from|reason is)\b"
-    r"|\ub54c\ubb38|\uc6d0\uc778\uc740|\uc6d0\uc778\uc774|\uc774\uc720\ub294",
+    r"|때문|원인은|원인이|이유는",
     re.IGNORECASE,
 )
 SCOPE_RE: Final = re.compile(
-    r"\b(?:no|none)\b|\uc5c6\uc2b5\ub2c8\ub2e4|\uc5c6\ub2e4",
+    r"\b(?:no|none)\b|없습니다|없다",
     re.IGNORECASE,
 )
 SCREEN_ABSENCE_RE: Final = re.compile(
     r"\b(?:does not|doesn't|do not|don't)\s+(?:show|provide|include|contain)\b"
     r"|\bno\s+.{1,80}?\s+(?:are\s+|is\s+)?(?:shown|provided|included|present|visible)\b"
     r"|\bnot\s+(?:shown|provided|included|present|visible)\b"
-    "|\ubcf4\uc774\uc9c0 \uc54a|\ud45c\uc2dc\ub418\uc9c0 \uc54a"
-    "|\uc81c\uacf5\ub418\uc9c0 \uc54a|\ud3ec\ud568\ub418\uc9c0 \uc54a"
-    "|\ud3ec\ud568\ub418\uc5b4 \uc788\uc9c0 \uc54a",
+    "|보이지 않|표시되지 않"
+    "|제공되지 않|포함되지 않"
+    "|포함되어 있지 않",
     re.IGNORECASE,
 )
 

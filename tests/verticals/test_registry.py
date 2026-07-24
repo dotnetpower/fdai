@@ -94,11 +94,11 @@ def test_empty_id_is_rejected() -> None:
 
 def test_non_ascii_id_is_rejected() -> None:
     reg = VerticalRegistry()
-    # "\uBCF4\uC548" is Korean text (non-ASCII) - the literal subject under
+    # "보안" is Korean text (non-ASCII) - the literal subject under
     # test: an id that must be rejected because config/audit/metrics keys
     # MUST be ASCII (encoded per language.instructions.md fixture rule).
     with pytest.raises(VerticalRegistrationError, match="ASCII"):
-        reg.register(_descriptor("\ubcf4\uc548"))
+        reg.register(_descriptor("보안"))
 
 
 def test_enabled_without_rule_source_is_rejected() -> None:

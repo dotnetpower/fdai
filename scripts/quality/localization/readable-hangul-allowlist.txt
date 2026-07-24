@@ -1,0 +1,10 @@
+# Unicode block boundaries are the behavior under test, not hidden Korean prose.
+src/fdai/delivery/read_api/routes/chat_answer_quality.py	[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]
+# Unicode block boundaries keep word-token extraction explicit and reviewable.
+src/fdai/delivery/read_api/routes/chat_claim_text.py	[\uac00-\ud7a3]
+# Unicode block boundaries classify Korean script independently of display wording.
+src/fdai/delivery/read_api/routes/chat_prompt.py	[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]
+# Unicode block boundaries select Korean locale without embedding a prose token.
+src/fdai/delivery/read_api/routes/chat_subscription_health.py	[\uac00-\ud7a3]
+# This test guards the complete Hangul and CJK scenario-file exclusion ranges.
+tests/scenarios/test_frozen.py	[\uac00-\ud7a3\u1100-\u11ff\u4e00-\u9fff]

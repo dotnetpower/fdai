@@ -62,10 +62,7 @@ def test_ontology_browse_question_uses_snapshot_without_narrator() -> None:
             "action_types": [{"name": "restart-service"}],
         },
     }
-    prompt = (
-        "\uc628\ud1a8\ub85c\uc9c0 \ub370\uc774\ud130\ub97c "
-        "\uc870\ud68c\ud560\uc218 \uc788\ub294 \ubc29\ubc95\uc774 \uc788\uc5b4?"
-    )
+    prompt = "온톨로지 데이터를 조회할수 있는 방법이 있어?"
 
     with TestClient(app) as client:
         response = client.post(
@@ -82,9 +79,9 @@ def test_ontology_browse_question_uses_snapshot_without_narrator() -> None:
     done = _done_event(stream_response.text)
     assert payload["model"] == "ontology-snapshot"
     assert payload["source"] == "evidence:ontology-snapshot"
-    assert "ObjectType 28\uac1c" in payload["answer"]
-    assert "LinkType 45\uac1c" in payload["answer"]
-    assert "ActionType 40\uac1c" in payload["answer"]
+    assert "ObjectType 28개" in payload["answer"]
+    assert "LinkType 45개" in payload["answer"]
+    assert "ActionType 40개" in payload["answer"]
     assert "Agent" in payload["answer"]
     assert payload["answer"] == done["answer"]
     assert done["model"] == "ontology-snapshot"

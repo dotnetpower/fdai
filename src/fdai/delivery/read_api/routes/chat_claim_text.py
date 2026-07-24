@@ -18,7 +18,7 @@ TIMESTAMP_RE: Final = re.compile(
     r"\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})\b"
 )
 PERCENT_RE: Final = re.compile(
-    r"(?<![\w.])[-+]?\d+(?:\.\d+)?\s*(?:%|percent(?:age)?\b|\ud37c\uc13c\ud2b8)",
+    r"(?<![\w.])[-+]?\d+(?:\.\d+)?\s*(?:%|percent(?:age)?\b|퍼센트)",
     re.IGNORECASE,
 )
 NUMBER_RE: Final = re.compile(
@@ -50,7 +50,7 @@ def normalize_claim_value(kind: str, raw: str) -> str | None:
     if kind == "timestamp":
         return normalize_timestamp(raw)
     if kind == "percentage":
-        value = re.sub(r"(?:%|percent(?:age)?|\ud37c\uc13c\ud2b8)", "", raw, flags=re.I)
+        value = re.sub(r"(?:%|percent(?:age)?|퍼센트)", "", raw, flags=re.I)
         return normalize_number(value)
     if kind == "number":
         return normalize_number(raw)

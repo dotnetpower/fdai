@@ -108,8 +108,8 @@ def _seed_memory_incident(
 
 def test_detects_cross_screen_operational_question_but_not_current_screen_cause() -> None:
     assert needs_operational_evidence("what caused the recent memory issue?") is True
-    korean_recent = "\ucd5c\uadfc \uba54\ubaa8\ub9ac \uc774\uc288 \uc6d0\uc778\uc774 \ubb50\uc57c?"
-    korean_screen = "\uc774 \ud654\uba74\uc758 \uc774 \uc218\uce58\ub294 \uc65c \uc774\ub798?"
+    korean_recent = "최근 메모리 이슈 원인이 뭐야?"
+    korean_screen = "이 화면의 이 수치는 왜 이래?"
     assert needs_operational_evidence(korean_recent) is True
     assert needs_operational_evidence("why is this screen showing attention?") is False
     assert needs_operational_evidence(korean_screen) is False
@@ -159,9 +159,7 @@ async def test_resolves_recent_memory_incident_with_grounded_rca() -> None:
     model = InMemoryConsoleReadModel()
     _seed_memory_incident(model)
 
-    evidence = await OperationalEvidenceResolver(model).resolve(
-        "\ucd5c\uadfc \uba54\ubaa8\ub9ac \uc774\uc288 \uc6d0\uc778\uc774 \ubb50\uc57c?"
-    )
+    evidence = await OperationalEvidenceResolver(model).resolve("최근 메모리 이슈 원인이 뭐야?")
 
     assert evidence is not None
     assert evidence["status"] == "matched"
@@ -244,9 +242,7 @@ async def test_summary_request_returns_all_matching_incidents_without_selection(
     _seed_memory_incident(model, "corr-memory-a")
     _seed_memory_incident(model, "corr-memory-b")
 
-    evidence = await OperationalEvidenceResolver(model).resolve(
-        "\uc778\uc2dc\ub358\ud2b8\ub97c \uc694\uc57d\ud574\uc918"
-    )
+    evidence = await OperationalEvidenceResolver(model).resolve("인시던트를 요약해줘")
 
     assert evidence is not None
     assert evidence["status"] == "summary"

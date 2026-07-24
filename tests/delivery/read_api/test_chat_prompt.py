@@ -98,17 +98,17 @@ CONCEPT_QUERIES: list[str] = [
     "how does the risk gate work?",
     "what's the difference between auto and hil?",
     "what is the purpose of a rule catalog?",
-    "\uc124\uba85\ud574\uc918 T2\uac00 \ubb50\uc57c",  # "explain, what is T2"
-    "HIL\uc774 \ubb54\uc9c0?",  # "what is HIL?"
-    "shadow mode\uc758 \uc758\ubbf8\uac00 \ubb54\uc57c?",  # "what does shadow mode mean?"
-    "\uac1c\ub150 \uc124\uba85 \ud574\uc918",  # "explain the concept"
-    "abstain \uc815\uc758",  # "abstain definition"
-    "T0\ub780 \ubb34\uc5c7\uc778\uac00",  # "what is T0"
-    "\uc774\uac78 \uc65c \uc4f0\ub294\uac70\uc57c?",  # "why do we use this?" (screenshot case)
-    "T2\ub294 \uc5b4\ub5bb\uac8c \ub3d9\uc791\ud574?",  # "how does T2 work?"
-    "shadow\ub791 enforce \ucc28\uc774\uac00 \ubb50\uc57c",  # difference: shadow vs enforce
-    "HIL \uc5ed\ud560\uc774 \ubb54\uc9c0",  # "what is HIL's role"
-    "\ubb34\uc2a8 \ub73b\uc774\uc57c abstain",  # "what does abstain mean"
+    "설명해줘 T2가 뭐야",  # "explain, what is T2"
+    "HIL이 뭔지?",  # "what is HIL?"
+    "shadow mode의 의미가 뭔야?",  # "what does shadow mode mean?"
+    "개념 설명 해줘",  # "explain the concept"
+    "abstain 정의",  # "abstain definition"
+    "T0란 무엇인가",  # "what is T0"
+    "이걸 왜 쓰는거야?",  # "why do we use this?" (screenshot case)
+    "T2는 어떻게 동작해?",  # "how does T2 work?"
+    "shadow랑 enforce 차이가 뭐야",  # difference: shadow vs enforce
+    "HIL 역할이 뭔지",  # "what is HIL's role"
+    "무슨 뜻이야 abstain",  # "what does abstain mean"
     # Broader intent verbs: compare / example / summary / describe /
     # walk-through / tell-me-about / when-should + KO equivalents.
     "compare shadow and enforce",
@@ -123,11 +123,11 @@ CONCEPT_QUERIES: list[str] = [
     "when to escalate to HIL",
     "what kind of events go to T2?",
     "what type of decisions does the gate make?",
-    "T2 \uc608\uc2dc \uc904\ub798?",  # "give a T2 example"
-    "shadow enforce \ube44\uad50\ud574\uc918",  # "compare shadow and enforce"
-    "\ud2f0\uc5b4 \uc694\uc57d\ud574\uc918",  # "summarize the tiers"
-    "\uc815\ub9ac\ud574\uc918 HIL",  # "arrange/summarize HIL"
-    "\uc5b8\uc81c HIL\ub85c \uac00\uc57c \ud574?",  # "when should we go HIL?"
+    "T2 예시 줄래?",  # "give a T2 example"
+    "shadow enforce 비교해줘",  # "compare shadow and enforce"
+    "티어 요약해줘",  # "summarize the tiers"
+    "정리해줘 HIL",  # "arrange/summarize HIL"
+    "언제 HIL로 가야 해?",  # "when should we go HIL?"
 ]
 
 # Data / screen questions -> glossary MUST be omitted (lean prompt). Note the
@@ -145,10 +145,10 @@ DATA_QUERIES: list[str] = [
     "what is the current EPS?",
     "how many ObjectTypes are registered?",
     "was the traversal truncated?",
-    "\ud65c\uc131 \ub8f0\uc774 \uba87 \uac1c\uc57c?",  # "how many active rules?" (count marker)
-    "\ub300\uae30 \uc911\uc778 \ud56d\ubaa9 \uac1c\uc218",  # "count of pending items"
-    "nsg \uad00\ub828 \ub8f0 \ubcf4\uc5ec\uc918",  # "show nsg-related rules"
-    "\uc2dc\ub098\ub9ac\uc624 \ubaa9\ub85d",  # "list scenarios"
+    "활성 룰이 몇 개야?",  # "how many active rules?" (count marker)
+    "대기 중인 항목 개수",  # "count of pending items"
+    "nsg 관련 룰 보여줘",  # "show nsg-related rules"
+    "시나리오 목록",  # "list scenarios"
 ]
 
 
@@ -175,8 +175,8 @@ PRECISION_DATA_QUERIES: list[str] = [
     "how many are pending?",
     "what is the number of failed tiles?",
     "how many rows are loaded?",
-    "\ucd1d \uac1c\uc218\uac00 \uba87 \uac1c\uc57c?",  # "what is the total count?"
-    "\uba87 \uac1c\uc778\uc9c0 \uc54c\ub824\uc918",  # "tell me how many"
+    "총 개수가 몇 개야?",  # "what is the total count?"
+    "몇 개인지 알려줘",  # "tell me how many"
 ]
 
 
@@ -193,17 +193,17 @@ CAPABILITY_QUERIES: list[str] = [
     "what are my permissions?",
     "what is my role?",
     "can I approve this?",
-    "\ub0b4\uac00 \ubb50 \ud560 \uc218 \uc788\uc5b4?",  # "what can I do?"
-    "\ub0b4 \uad8c\ud55c\uc774 \ubb54\uc9c0?",  # "what are my permissions?"
-    "\ub0b4 \uc5ed\ud560\uc774 \ubb54\uc57c?",  # "what is my role?"
+    "내가 뭐 할 수 있어?",  # "what can I do?"
+    "내 권한이 뭔지?",  # "what are my permissions?"
+    "내 역할이 뭔야?",  # "what is my role?"
     # Role-identity questions ("who is the Owner / admin", "who can approve")
     # also route to the capability block - they ask about the RBAC role model.
     "who is the owner?",
     "who can approve items?",
     "who can trigger the kill-switch?",
-    "Owner\uac00 \ub204\uad6c\uc57c?",  # "who is the Owner?"
-    "\uc2dc\uc2a4\ud15c \uad00\ub9ac\uc790\ub294 \ub204\uad6c\uc57c?",  # "who is the system admin?"
-    "approver\ub294 \ub204\uad6c\uc778\uac00\uc694?",  # "who is the approver?"
+    "Owner가 누구야?",  # "who is the Owner?"
+    "시스템 관리자는 누구야?",  # "who is the system admin?"
+    "approver는 누구인가요?",  # "who is the approver?"
     # Role-description questions ("what does an Owner do", "explain the
     # Approver") also route to capability - the RBAC role model is the right
     # place to answer, not the generic FDAI glossary.
@@ -219,11 +219,11 @@ CAPABILITY_QUERIES: list[str] = [
     "list all permissions",
     "what roles exist?",
     "what permissions are there?",
-    "Owner\ub294 \ubb50 \ud574?",  # "what does the Owner do?"
-    "approver\ub294 \ubb50 \ud558\ub294 \uc5ed\ud560?",  # "what role does approver do?"
-    "\uad8c\ud55c \ubaa9\ub85d \ubcf4\uc5ec\uc918",  # "show the permission list"
-    "\uc5ed\ud560 \ubaa9\ub85d",  # "role list"
-    "owner \uad8c\ud55c \uc5b4\ub5bb\uac8c \uc5bb\uc5b4?",  # "how do I get owner permission?"
+    "Owner는 뭐 해?",  # "what does the Owner do?"
+    "approver는 뭐 하는 역할?",  # "what role does approver do?"
+    "권한 목록 보여줘",  # "show the permission list"
+    "역할 목록",  # "role list"
+    "owner 권한 어떻게 얻어?",  # "how do I get owner permission?"
 ]
 
 CAPABILITY_NON_QUERIES: list[str] = [
@@ -234,7 +234,7 @@ CAPABILITY_NON_QUERIES: list[str] = [
     # question - it must stay lean (no capability block).
     "who approved this action?",
     # "who approved this action?" (KO)
-    "\ub204\uac00 \uc774 \uc561\uc158\uc744 \uc2b9\uc778\ud588\uc5b4?",
+    "누가 이 액션을 승인했어?",
 ]
 
 
@@ -377,7 +377,7 @@ def test_screen_explanation_uses_sections_controls_and_constraints() -> None:
 def test_korean_screen_explanation_gets_concise_walkthrough_without_control_records() -> None:
     system = _system_of(
         _build_messages(
-            "\uc774 \ud654\uba74\uc5d0 \ub300\ud574\uc11c \uc124\uba85\ud574\uc918",
+            "이 화면에 대해서 설명해줘",
             {
                 "routeId": "operating-outcomes",
                 "purpose": "Inspect measured operating outcomes.",
@@ -413,7 +413,7 @@ def test_metric_question_does_not_get_screen_walkthrough_directive() -> None:
         "Tell me about this screen",
         "What does this screen show?",
         "Explain\nthis screen",
-        "\uc774 \ud654\uba74\uc5d0 \ub300\ud574\uc11c\n\uc124\uba85\ud574\uc918",
+        "이 화면에 대해서\n설명해줘",
     ],
 )
 def test_screen_walkthrough_intent_accepts_common_and_multiline_requests(prompt: str) -> None:
@@ -427,7 +427,7 @@ def test_screen_walkthrough_intent_accepts_common_and_multiline_requests(prompt:
     [
         "Do not explain this screen",
         "Never summarize the current page",
-        "\uc774 \ud654\uba74 \uc124\uba85\ud558\uc9c0 \ub9c8",
+        "이 화면 설명하지 마",
     ],
 )
 def test_screen_walkthrough_intent_rejects_explicit_negation(prompt: str) -> None:
@@ -763,13 +763,11 @@ def test_ontology_browse_prompt_projects_verbose_records_without_mutating_snapsh
 
     trimmed = _trim_view_context(
         context,
-        prompt="\uc628\ud1a8\ub85c\uc9c0 \ub370\uc774\ud130\ub97c "
-        "\uc870\ud68c\ud560\uc218 \uc788\ub294 \ubc29\ubc95\uc774 \uc788\uc5b4?",
+        prompt="온톨로지 데이터를 조회할수 있는 방법이 있어?",
     )
     system = _system_of(
         _build_messages(
-            "\uc628\ud1a8\ub85c\uc9c0 \ub370\uc774\ud130\ub97c "
-            "\uc870\ud68c\ud560\uc218 \uc788\ub294 \ubc29\ubc95\uc774 \uc788\uc5b4?",
+            "온톨로지 데이터를 조회할수 있는 방법이 있어?",
             context,
             [],
         )
@@ -861,14 +859,14 @@ def test_non_english_locale_prepends_second_system_directive() -> None:
 
 
 def test_korean_prompt_forces_korean_when_console_locale_is_english() -> None:
-    prompt = "\uc774 \ud654\uba74\uc744 \ud55c \ubb38\uc7a5\uc73c\ub85c \uc694\uc57d\ud574\uc918"
+    prompt = "이 화면을 한 문장으로 요약해줘"
     msgs = _messages(prompt, {"_locale": "en"}, [])
     assert [m["role"] for m in msgs] == ["system", "system", "user"]
     assert "'ko'" in msgs[1]["content"]
 
 
 def test_current_korean_prompt_wins_over_other_operator_locale() -> None:
-    prompt = "\ud604\uc7ac \uc0c1\ud0dc\uac00 \uc5b4\ub54c?"
+    prompt = "현재 상태가 어때?"
     msgs = _messages(prompt, {"_locale": "ja"}, [])
     assert "'ko'" in msgs[1]["content"]
     assert "'ja'" not in msgs[1]["content"]
@@ -915,8 +913,7 @@ def test_operational_directive_only_appears_with_server_evidence() -> None:
 
 def test_concept_directive_prioritizes_selected_glossary_over_screen() -> None:
     messages = _messages(
-        "\uc5d0\uc774\uc804\ud2b8\uac00 \uc2a4\uc2a4\ub85c "
-        "\ub3d9\uc791\ud558\ub294\uac70 \uc544\ub2cc\uac00?",
+        "에이전트가 스스로 동작하는거 아닌가?",
         {
             "routeId": "ontology",
             "_concept_evidence": {
@@ -1029,8 +1026,8 @@ def test_chunk_answer_for_stream_preserves_multibyte() -> None:
 
     # A Korean greeting used as a multibyte fixture. Kept as `\uXXXX`
     # escapes so the exact code points under test are unambiguous:
-    # "\uc548\ub155\ud558\uc138\uc694 \ubc18\uac11\uc2b5\ub2c8\ub2e4".
-    text = "\uc548\ub155\ud558\uc138\uc694 \ubc18\uac11\uc2b5\ub2c8\ub2e4"
+    # "안녕하세요 반갑습니다".
+    text = "안녕하세요 반갑습니다"
     chunks = _chunk_answer_for_stream(text)
     assert "".join(chunks) == text
     assert len(chunks) >= 2
@@ -1152,7 +1149,7 @@ def test_locale_directive_accepts_valid_bcp47_tags(locale: str) -> None:
         "a" * 500,
         "1234",
         "  ",
-        "\uac00",  # a Hangul syllable - not a language TAG
+        "가",  # a Hangul syllable - not a language TAG
     ],
 )
 def test_locale_directive_rejects_injection_attempts(bogus: str) -> None:

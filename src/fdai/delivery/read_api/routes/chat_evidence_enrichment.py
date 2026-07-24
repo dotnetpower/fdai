@@ -76,7 +76,7 @@ class ChatWebSearchEvidenceResolver(Protocol):
 _VIEW_EXPLANATION_INTENT = re.compile(
     r"\b(connect(?:ed|s|ion)?|relationship|relate[ds]?|create[ds]?|creation|criteri(?:a|on)|"
     r"owner|ownership|dedup(?:e|lication)?|repeat|close[ds]?|closure|provenance|source|why)\b"
-    "|\uc5f0\uacb0|\uad00\uacc4|\uc0dd\uc131|\uae30\uc900|\uc18c\uc720|\ub2f4\ub2f9|\uc911\ubcf5|\ubc18\ubcf5|\uc885\ub8cc|\ub2eb|\ucd9c\ucc98|\uadfc\uac70|\uc65c",
+    "|연결|관계|생성|기준|소유|담당|중복|반복|종료|닫|출처|근거|왜",
     re.IGNORECASE,
 )
 _EXPLICIT_TOOL_VERBS = frozenset(schema.verb for schema in default_tool_schemas())

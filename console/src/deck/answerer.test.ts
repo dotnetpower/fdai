@@ -77,7 +77,7 @@ describe("value-chip resolution (what is corr-j)", () => {
   });
 
   test("Korean phrasing resolves the same chip", () => {
-    const a = answer("corr-j\uac00 \ubb50\uc57c", agentActivitySnapshot());
+    const a = answer("corr-j가 뭐야", agentActivitySnapshot());
     expect(a.text).toMatch(/correlation id/i);
     expect(a.text).toContain("corr-j");
   });
@@ -97,7 +97,7 @@ describe("causal resolution (why did this start)", () => {
   });
 
   test("Korean causal phrasing works", () => {
-    const a = answer("\uc65c \uc774\uac8c \uc2dc\uc791\ub410\uc5b4", agentActivitySnapshot());
+    const a = answer("왜 이게 시작됐어", agentActivitySnapshot());
     expect(a.text).toMatch(/logical corruption/);
   });
 
@@ -285,7 +285,7 @@ describe("no-snapshot fallback (static universal glossary)", () => {
   });
 
   test("Korean 'what is HIL' resolves with no snapshot", () => {
-    const a = answer("HIL\uc774 \ubb54\uc9c0?", null);
+    const a = answer("HIL이 뭔지?", null);
     expect(a.text.toLowerCase()).toContain("human-in-the-loop");
   });
 

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 66c39293b5d1d3b74c69d5608a65a292af0cd265
+translation_source_sha: e146a09d2ea92ed0e639e70f6df254ee07a8a192
 translation_revised: 2026-07-24
 ---
 
@@ -182,6 +182,11 @@ flowchart TD
     vision, history, answer-plan validation을 소유합니다.
   - `chat_vision_prompt.py`는 검증된 inline image를 narrator content로 projection하고,
     `chat_verification_text.py`는 Unicode normalization과 answer-text integrity 검사를 소유합니다.
+
+이 layer의 영어 및 한국어 presentation literal은 NFC UTF-8로 작성합니다. Repository gate는 escape된
+Hangul prose와 matching token을 차단하며, code-point behavior에는 정확한 rationale이 있는 예외만
+허용합니다. 이 source representation은 machine value, evidence authority, locale selection 또는 typed
+pipeline decision을 변경하지 않습니다.
 - Scheduler Runs, Automation Blueprints, Scheduled Continuations, [관리형 trajectory dataset](governed-trajectory-datasets-ko.md), [execution backend status](execution-backends-ko.md)는 read-only metadata를 제공합니다. 이 view에는 enable, submit, retry, cancel, cleanup, execute, approval control이 없고 credential 및 Thor identity를 제외하며 command는 SPA 밖에 유지됩니다.
 - [`tools/chat.py`](../../../tools/chat.py) - core coordinator를 위한 headless
   JSONL 개발 harness입니다. 별도 policy 구현이 아닙니다.

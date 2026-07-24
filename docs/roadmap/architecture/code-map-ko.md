@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 02d88b840a94fa6199db5b2d3bcbd1d571910405
+translation_source_sha: cf762a8d6687da299165e7ae75e6545525bf5734
 translation_revised: 2026-07-24
 ---
 # 코드 맵
@@ -223,6 +223,7 @@ shared 패키지를 커버한다.
 | 경로 | 목적 |
 |------|------|
 | [scripts/verify.sh](../../../scripts/verify.sh) | 단일 로컬 게이트: 기본은 fast text/lint와 clean-checkout 계약을 실행합니다. `--full <path>`는 지정한 pytest 대상만 실행하고, 명시적 `--all`은 전체 리포지토리 coverage와 console/CLI 검증을 추가합니다. |
+| [check-readable-hangul.py](../../../scripts/quality/localization/check-readable-hangul.py) | Source의 불투명한 Hangul escape를 차단하고 UTF-8 기계적 fixer를 제공하며, 정확한 rationale이 있는 code-point 예외만 허용합니다. |
 | [tools/architecture-diagrams/](../../../tools/architecture-diagrams/) | Bilingual YAML을 SVG/PNG architecture diagram으로 컴파일하고 progressive site viewer를 생성합니다. Canonical spec은 [docs/diagrams/](../../diagrams/)에 있습니다. |
 | [scripts/lib/design-routes.json](../../../scripts/lib/design-routes.json) | Machine-readable path -> required instruction/design doc -> owning doc -> focused validation route입니다. |
 | [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) / [.github/hooks/design-context.json](../../../.github/hooks/design-context.json) | Agent session별 design-document read 성공을 기록하고 required context가 없거나 stale이면 edit를 차단합니다. |

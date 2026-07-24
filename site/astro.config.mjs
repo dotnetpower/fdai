@@ -89,7 +89,7 @@ export default defineConfig({
       defaultLocale: "root",
       locales: {
         root: { label: "English", lang: "en" },
-        ko: { label: "\ud55c\uad6d\uc5b4", lang: "ko" },
+        ko: { label: "한국어", lang: "ko" },
       },
       social: [
         {
@@ -235,26 +235,26 @@ export default defineConfig({
       sidebar: [
         {
           label: "Get started",
-          translations: { ko: "\uc2dc\uc791\ud558\uae30" },
+          translations: { ko: "시작하기" },
           link: "/get-started/",
         },
         {
           label: "Architecture",
-          translations: { ko: "\uc544\ud0a4\ud14d\ucc98" },
+          translations: { ko: "아키텍처" },
           link: "/architecture/",
         },
         {
           label: "How FDAI decides",
-          translations: { ko: "FDAI\uc758 \ud310\ub2e8 \ubc29\uc2dd" },
+          translations: { ko: "FDAI의 판단 방식" },
           items: [
             {
               label: "Deterministic first",
-              translations: { ko: "\uacb0\uc815\ub860 \uc6b0\uc120" },
+              translations: { ko: "결정론 우선" },
               link: "/concepts/deterministic-first/",
             },
             {
               label: "Trust tiers (T0/T1/T2)",
-              translations: { ko: "\uc2e0\ub8b0 \ud2f0\uc5b4" },
+              translations: { ko: "신뢰 티어" },
               link: "/concepts/risk-tiers/",
             },
             {
@@ -266,21 +266,21 @@ export default defineConfig({
         },
         {
           label: "The operating model",
-          translations: { ko: "\uc6b4\uc601 \ubaa8\ub378" },
+          translations: { ko: "운영 모델" },
           items: [
             {
               label: "Ontology-driven automation",
-              translations: { ko: "\uc628\ud1a0\ub85c\uc9c0 \uae30\ubc18 \uc790\ub3d9\ud654" },
+              translations: { ko: "온토로지 기반 자동화" },
               link: "/concepts/ontology-driven-automation/",
             },
             {
               label: "Workflows & processes",
-              translations: { ko: "\uc6cc\ud06c\ud50c\ub85c\uc640 \ud504\ub85c\uc138\uc2a4" },
+              translations: { ko: "워크플로와 프로세스" },
               link: "/reference/roadmap/agents/agent-workflows/",
             },
             {
               label: "The agent organization",
-              translations: { ko: "\uc5d0\uc774\uc804\ud2b8 \uc870\uc9c1" },
+              translations: { ko: "에이전트 조직" },
               link: "/concepts/agents-and-self-healing/",
             },
           ],
@@ -392,58 +392,58 @@ export default defineConfig({
         },
         {
           label: "Capabilities",
-          translations: { ko: "\uae30\ub2a5" },
+          translations: { ko: "기능" },
           items: [
             {
               label: "Change Safety",
-              translations: { ko: "\ubcc0\uacbd \uc548\uc804\uc131" },
+              translations: { ko: "변경 안전성" },
               link: "/capabilities/change-safety/",
             },
             {
               label: "Cost Governance",
-              translations: { ko: "\ube44\uc6a9 \uac70\ubc84\ub10c\uc2a4" },
+              translations: { ko: "비용 거버넌스" },
               link: "/capabilities/cost-governance/",
             },
             {
               label: "Resilience",
-              translations: { ko: "\ud68c\ubcf5\ud0c4\ub825\uc131" },
+              translations: { ko: "회복탄력성" },
               link: "/capabilities/resilience/",
             },
             {
               label: "Operational Readiness (dev to ops)",
-              translations: { ko: "\uc6b4\uc601 \uc900\ube44\uc131 \uac80\ud1a0" },
+              translations: { ko: "운영 준비성 검토" },
               link: "/reference/roadmap/operations/operational-readiness/",
             },
           ],
         },
         {
           label: "Deploy & onboard",
-          translations: { ko: "\ubc30\ud3ec\uc640 \uc628\ubcf4\ub529" },
+          translations: { ko: "배포와 온보딩" },
           items: [
             {
               label: "Deploy Quickstart",
-              translations: { ko: "\ubc30\ud3ec Quickstart" },
+              translations: { ko: "배포 Quickstart" },
               link: "/deploy-quickstart/",
             },
             {
               label: "Preflight",
-              translations: { ko: "\uc0ac\uc804 \uc810\uac80" },
+              translations: { ko: "사전 점검" },
               link: "/reference/roadmap/deployment/deployment-preflight/",
             },
             {
               label: "Deploy and onboard",
-              translations: { ko: "\ubc30\ud3ec\uc640 \uc628\ubcf4\ub529" },
+              translations: { ko: "배포와 온보딩" },
               link: "/reference/roadmap/deployment/deploy-and-onboard/",
             },
           ],
         },
         {
           label: "Operate",
-          translations: { ko: "\uc6b4\uc601" },
+          translations: { ko: "운영" },
           items: [
             {
               label: "Operator console",
-              translations: { ko: "\uc6b4\uc601\uc790 \ucf58\uc194" },
+              translations: { ko: "운영자 콘솔" },
               link: "/reference/roadmap/interfaces/operator-console/",
             },
             {
@@ -499,63 +499,63 @@ export default defineConfig({
             },
             {
               label: "Approvals & channels",
-              translations: { ko: "\uc2b9\uc778\uacfc \ucc44\ub110" },
+              translations: { ko: "승인과 채널" },
               link: "/concepts/approvals-and-channels/",
             },
             {
               label: "Notification channels",
-              translations: { ko: "\uc54c\ub9bc \ucc44\ub110" },
+              translations: { ko: "알림 채널" },
               link: "/reference/roadmap/interfaces/channels-and-notifications/",
             },
             {
               label: "Approve a change",
-              translations: { ko: "\ubcc0\uacbd \uc2b9\uc778" },
+              translations: { ko: "변경 승인" },
               link: "/guides/approve-change/",
             },
             {
               label: "Read the audit log",
-              translations: { ko: "\uac10\uc0ac \ub85c\uadf8 \uc77d\uae30" },
+              translations: { ko: "감사 로그 읽기" },
               link: "/guides/read-audit-log/",
             },
             {
               label: "Override a rule",
-              translations: { ko: "\uaddc\uce59 \uc624\ubc84\ub77c\uc774\ub4dc" },
+              translations: { ko: "규칙 오버라이드" },
               link: "/guides/override-a-rule/",
             },
           ],
         },
         {
           label: "Reference",
-          translations: { ko: "\ub808\ud37c\ub7f0\uc2a4" },
+          translations: { ko: "레퍼런스" },
           items: [
             {
               label: "Goals & metrics",
-              translations: { ko: "\ubaa9\ud45c\uc640 \uba54\ud2b8\ub9ad" },
+              translations: { ko: "목표와 메트릭" },
               link: "/reference/roadmap/architecture/goals-and-metrics/",
             },
             {
               label: "Risk classification",
-              translations: { ko: "\ub9ac\uc2a4\ud06c \ubd84\ub958" },
+              translations: { ko: "리스크 분류" },
               link: "/reference/roadmap/decisioning/risk-classification/",
             },
             {
               label: "Architecture Review Board",
-              translations: { ko: "\uc544\ud0a4\ud14d\ucc98 \uac80\ud1a0 \ubcf4\ub4dc" },
+              translations: { ko: "아키텍처 검토 보드" },
               link: "/reference/roadmap/architecture/architecture-review-board/",
             },
             {
               label: "Implementation plan",
-              translations: { ko: "\uad6c\ud604 \uacc4\ud68d" },
+              translations: { ko: "구현 계획" },
               link: "/reference/roadmap/fork-and-sequencing/implementation-plan/",
             },
             {
               label: "Preflight active reassembly",
-              translations: { ko: "\uc0ac\uc804\uc810\uac80 \ub2a5\ub3d9 \uc7ac\uc870\ub9bd" },
+              translations: { ko: "사전점검 능동 재조립" },
               link: "/reference/roadmap/deployment/preflight-active-reassembly/",
             },
             {
               label: "Full roadmap",
-              translations: { ko: "\uc804\uccb4 \ub85c\ub4dc\ub9f5" },
+              translations: { ko: "전체 로드맵" },
               link: "/reference/roadmap/",
             },
           ],

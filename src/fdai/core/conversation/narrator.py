@@ -30,7 +30,7 @@ Upstream ships:
 - :class:`DeterministicKeywordNarrator` - a fake / seed narrator used
   by tests and by ``tools/chat.py`` when no LLM binding is wired. It
   looks for keyword hints in the utterance (e.g. Korean 'audit'
-  '\uac10\uc0ac \ub85c\uadf8', English 'runbook' / 'audit log') and emits a
+  '감사 로그', English 'runbook' / 'audit log') and emits a
   matching verb, or abstains.
 
 The real Azure OpenAI-backed narrator is a delivery-layer adapter
@@ -176,39 +176,39 @@ _KEYWORD_TABLE: tuple[tuple[str, str], ...] = (
     ("search_conversations", "search_conversations"),
     ("conversation history", "search_conversations"),
     ("prior conversations", "search_conversations"),
-    ("\ub300\ud654 \uac80\uc0c9", "search_conversations"),
-    ("\uc774\uc804 \ub300\ud654", "search_conversations"),
+    ("대화 검색", "search_conversations"),
+    ("이전 대화", "search_conversations"),
     # explore_catalog
     ("explore_catalog", "explore_catalog"),
     ("list_rules", "explore_catalog"),
-    ("\uce74\ud0c8\ub85c\uadf8", "explore_catalog"),
-    ("\uaddc\uce59 \ubaa9\ub85d", "explore_catalog"),
+    ("카탈로그", "explore_catalog"),
+    ("규칙 목록", "explore_catalog"),
     # query_inventory
     ("query_inventory", "query_inventory"),
     ("list_resources", "query_inventory"),
-    ("\uc778\ubca4\ud1a0\ub9ac", "query_inventory"),
-    ("\ub9ac\uc18c\uc2a4 \uadf8\ub8f9 \ubaa9\ub85d", "query_inventory resource-group"),
-    ("\ub9ac\uc18c\uc2a4 \ubaa9\ub85d", "query_inventory"),
+    ("인벤토리", "query_inventory"),
+    ("리소스 그룹 목록", "query_inventory resource-group"),
+    ("리소스 목록", "query_inventory"),
     # query_audit
     ("query_audit", "query_audit"),
     ("audit_log", "query_audit"),
-    ("\uac10\uc0ac \ub85c\uadf8", "query_audit"),
-    ("\uac10\uc0ac \ub0b4\uc5ed", "query_audit"),
+    ("감사 로그", "query_audit"),
+    ("감사 내역", "query_audit"),
     # list_hil
     ("list_hil", "list_hil"),
     ("pending_approvals", "list_hil"),
-    ("\uc2b9\uc778 \ub300\uae30", "list_hil"),
+    ("승인 대기", "list_hil"),
     # query_operator_memory
     ("query_operator_memory", "query_operator_memory"),
     ("operator_memory", "query_operator_memory"),
-    ("\uc624\ud37c\ub808\uc774\ud130 \uba54\ubaa8\ub9ac", "query_operator_memory"),
+    ("오퍼레이터 메모리", "query_operator_memory"),
     # query_log / metric / deployments / correlate
     ("query_log", "query_log"),
-    ("\ub85c\uadf8 \uc870\ud68c", "query_log"),
+    ("로그 조회", "query_log"),
     ("query_metric", "query_metric"),
-    ("\uba54\ud2b8\ub9ad", "query_metric"),
+    ("메트릭", "query_metric"),
     ("query_deployments", "query_deployments"),
-    ("\ubc30\ud3ec \uc774\ub825", "query_deployments"),
+    ("배포 이력", "query_deployments"),
     ("correlate_incident", "correlate_incident"),
 )
 

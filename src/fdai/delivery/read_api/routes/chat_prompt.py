@@ -76,9 +76,9 @@ _CONCEPT_INTENT: Final = re.compile(
     r"|describe|walk (me|us) through|tell me about)\b"
     r"|\bwhy\b|\brole of\b"
     r"|\bwhen (should|do i|to)\b"
-    "|\uc124\uba85|\uc758\ubbf8|\ub73b|\uac1c\ub150|\uc815\uc758"
-    "|\uc5ed\ud560|\ucc28\uc774|\uc6a9\ub3c4|\uc65c"
-    "|\uc608\uc2dc|\ube44\uad50|\uc694\uc57d|\uc815\ub9ac|\uc5b8\uc81c",
+    "|설명|의미|뜻|개념|정의"
+    "|역할|차이|용도|왜"
+    "|예시|비교|요약|정리|언제",
     re.IGNORECASE,
 )
 
@@ -86,7 +86,7 @@ _CONCEPT_INTENT: Final = re.compile(
 _CONCEPT_PHRASING: Final = re.compile(
     r"\bwhat\s+(is|are|does|do|kind|type)\b|\bwhats\b|\bwhat's\b"
     r"|\bhow\s+(does|do|is|are|to)\b"
-    "|\ubb34\uc5c7|\ubb50|\ubb54|\uc5b4\ub5bb\uac8c|\ubb34\uc2a8|\uc544\ub2cc\uac00|\uc544\ub2c8\uc57c",
+    "|무엇|뭐|뭔|어떻게|무슨|아닌가|아니야",
     re.IGNORECASE,
 )
 
@@ -95,7 +95,7 @@ _DATA_WORD: Final = re.compile(
     # Trailing escapes decode to Korean count markers: how-many / count.
     r"how many|number of|count|share|total|pending|rate|eps|mix"
     r"|distribution|many|loaded|affected|depth|step"
-    "|\uba87|\uac1c\uc218",
+    "|몇|개수",
     re.IGNORECASE,
 )
 
@@ -105,7 +105,7 @@ _CONCEPT_DOMAIN: Final = re.compile(
     r"idempotency|kill-switch|ontology|override|pantheon|promotion gate|quality gate|"
     r"remediation pr|rollback contract|safety invariants?|shadow|trust router|"
     r"two-port|agent autonomy|autonomous agents?|t0|t1|t2|verifier|verticals?|what-if)"
-    r"(?![A-Za-z0-9_])|\uc2a4\uc2a4\ub85c|\uc790\uc728|\ud310\ud14c\uc628",
+    r"(?![A-Za-z0-9_])|스스로|자율|판테온",
     re.IGNORECASE,
 )
 
@@ -120,8 +120,8 @@ _SCREEN_EXPLANATION_QUERY: Final = re.compile(
     r"|\bwhat(?:'s| is)\b[\s\S]{0,20}\b(?:on|in)\s+(?:this|the current)\s+"
     r"(?:screen|page|view)\b"
     r"|\bwhat\s+does\s+(?:this|the current)\s+(?:screen|page|view)\s+show\b"
-    r"|(?:\uc774|\ud604\uc7ac)\s*(?:\ud654\uba74|\ud398\uc774\uc9c0|\ubdf0)[\s\S]{0,40}"
-    r"(?:\uc124\uba85|\uc694\uc57d|\uc54c\ub824|\ubb34\uc5c7|\ubb50)",
+    r"|(?:이|현재)\s*(?:화면|페이지|뷰)[\s\S]{0,40}"
+    r"(?:설명|요약|알려|무엇|뭐)",
     re.IGNORECASE,
 )
 
@@ -130,8 +130,8 @@ _SCREEN_EXPLANATION_NEGATION: Final = re.compile(
     r"\b(?:do not|don't|never|no need to)\s+"
     r"(?:explain|describe|summarize|walk me through|tell me about)\b[\s\S]{0,40}"
     r"\b(?:this|current)\s+(?:screen|page|view)\b"
-    r"|(?:\uc774|\ud604\uc7ac)\s*(?:\ud654\uba74|\ud398\uc774\uc9c0|\ubdf0)[\s\S]{0,40}"
-    r"(?:\uc124\uba85|\uc694\uc57d)[\s\S]{0,12}(?:\ud558\uc9c0\s*\ub9c8|\ud558\uc9c0\s*\ub9d0)",
+    r"|(?:이|현재)\s*(?:화면|페이지|뷰)[\s\S]{0,40}"
+    r"(?:설명|요약)[\s\S]{0,12}(?:하지\s*마|하지\s*말)",
     re.IGNORECASE,
 )
 
@@ -145,8 +145,8 @@ _GLOSSARY_ALIASES: Final = {
     "two-port model": re.compile(
         r"\bagents?\b.*\b(?:autonom\w*|convers\w*|operate|run|work)\b"
         r"|\b(?:autonom\w*|convers\w*)\b.*\bagents?\b"
-        "|\uc5d0\uc774\uc804\ud2b8.*(?:\ub300\ud654|\uc2a4\uc2a4\ub85c|\uc790\uc728|\ub3d9\uc791)"
-        "|(?:\ub300\ud654|\uc2a4\uc2a4\ub85c|\uc790\uc728|\ub3d9\uc791).*\uc5d0\uc774\uc804\ud2b8",
+        "|에이전트.*(?:대화|스스로|자율|동작)"
+        "|(?:대화|스스로|자율|동작).*에이전트",
         re.IGNORECASE,
     ),
 }
@@ -267,9 +267,9 @@ _CAPABILITY_INTENT: Final = re.compile(
     r"(role|permission|access|capabilit\w+)\b"
     r"|\blist (my |the |all )?(role|permission|capabilit\w+)s?\b"
     r"|\bwhat (roles?|permissions?|capabilit\w+) (are|exist|do|does)\b"
-    "|\uad8c\ud55c|\uc5ed\ud560|\ud560 \uc218 \uc788"
-    "|\uc5ed\ud560 \ubaa9\ub85d|\uad8c\ud55c \ubaa9\ub85d"
-    "|\uad8c\ud55c\uc744 \uc5b4\ub5bb\uac8c|\uad8c\ud55c \uc5b4\ub5bb\uac8c",
+    "|권한|역할|할 수 있"
+    "|역할 목록|권한 목록"
+    "|권한을 어떻게|권한 어떻게",
     re.IGNORECASE,
 )
 
@@ -277,14 +277,14 @@ _CAPABILITY_INTENT: Final = re.compile(
 _ROLE_TOKEN: Final = re.compile(
     r"\bowner|\badmin(istrator)?|\bapprover|\breader|\bcontributor|\bbreak.?glass"
     r"|\brbac\b|\brole (matrix|model|list)\b"
-    "|\uc624\ub108|\uc18c\uc720\uc790|\uad00\ub9ac\uc790|\uc6b4\uc601\uc790"
-    "|\uc2b9\uc778\uc790|\uc2b9\uc778 \uad8c\ud55c",
+    "|오너|소유자|관리자|운영자"
+    "|승인자|승인 권한",
     re.IGNORECASE,
 )
 
 
 _WHO_TOKEN: Final = re.compile(
-    r"\bwho (is|are|can|has|have|holds?)\b|\ub204\uad6c|\ub204\uac00",
+    r"\bwho (is|are|can|has|have|holds?)\b|누구|누가",
     re.IGNORECASE,
 )
 
@@ -292,14 +292,14 @@ _WHO_TOKEN: Final = re.compile(
 _ROLE_EXPLAIN_INTENT: Final = re.compile(
     r"\b(explain|describe|what does|what do|what is|what are"
     r"|role of|purpose of|kind of)\b"
-    "|\ubb50 \ud574|\ubb50 \ud558\ub294|\uc5b4\ub5a4 \uc77c|\uc124\uba85",
+    "|뭐 해|뭐 하는|어떤 일|설명",
     re.IGNORECASE,
 )
 
 
 _HOW_TO_GET_INTENT: Final = re.compile(
     r"\bhow (do|can) i (get|obtain|request|earn|receive|become)\b"
-    "|\uc5b4\ub5bb\uac8c \uc5bb|\uc5b4\ub5bb\uac8c \ubc1b",
+    "|어떻게 얻|어떻게 받",
     re.IGNORECASE,
 )
 

@@ -61,8 +61,8 @@ _CONTENT_FILTER_MARKERS: Final[tuple[str, ...]] = (
 _DIRECT_OVERRIDE: Final = re.compile(
     r"\bignore\s+(?:all\s+)?(?:previous\s+)?(?:instructions?|rules?|system)\b"
     r"|\bdisregard\s+(?:all\s+)?(?:previous\s+)?(?:instructions?|rules?|system)\b"
-    "|\ubaa8\ub4e0\\s+\uc9c0\uc2dc\\s+\ubb34\uc2dc"
-    "|\uc774\uc804\\s+\uc9c0\uc2dc\\s+\ubb34\uc2dc",
+    "|모든\\s+지시\\s+무시"
+    "|이전\\s+지시\\s+무시",
     re.IGNORECASE,
 )
 

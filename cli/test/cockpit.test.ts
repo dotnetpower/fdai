@@ -75,8 +75,8 @@ describe("cockpit.parseScreenCommand", () => {
   });
 
   it("accepts Korean input and still returns the (en) reply by default", () => {
-    // "\uba48\ucdb0" = a Korean 'pause' verb; input parses, reply is en source.
-    const pause = parseScreenCommand("\uba48\ucdb0", "en");
+    // "멈춰" = a Korean 'pause' verb; input parses, reply is en source.
+    const pause = parseScreenCommand("멈춰", "en");
     expect(pause?.patch.paused).toBe(true);
     expect(pause?.reply).toContain("Paused");
   });

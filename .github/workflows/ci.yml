@@ -278,6 +278,16 @@ jobs:
       - name: check-punctuation.sh
         run: bash scripts/quality/repository/check-punctuation.sh
 
+  readable-hangul:
+    name: Readable UTF-8 Korean source literals
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: check-readable-hangul.py
+        run: python3 scripts/quality/localization/check-readable-hangul.py
+
   guids:
     name: No customer/personal GUIDs (generic-scope guard)
     runs-on: ubuntu-24.04

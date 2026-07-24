@@ -31,7 +31,7 @@ class TestDeterministicKeywordNarrator:
         # the plain "resource list" prefix).
         assert (
             n.translate(
-                utterance="\ub9ac\uc18c\uc2a4 \uadf8\ub8f9 \ubaa9\ub85d",
+                utterance="리소스 그룹 목록",
                 tools=default_tool_schemas(),
                 principal_role="reader",
             )
@@ -42,7 +42,7 @@ class TestDeterministicKeywordNarrator:
         n = DeterministicKeywordNarrator()
         assert (
             n.translate(
-                utterance="\ucd5c\uadfc \uac10\uc0ac \ub85c\uadf8 \ubcf4\uc5ec\uc918",
+                utterance="최근 감사 로그 보여줘",
                 tools=default_tool_schemas(),
                 principal_role="reader",
             )
@@ -56,11 +56,7 @@ class TestDeterministicKeywordNarrator:
         # longer one so we never emit a narrower verb than intended.
         assert (
             n.translate(
-                utterance=(
-                    "\ud504\ub85c\uc81d\ud2b8 "
-                    "\ub9ac\uc18c\uc2a4 \uadf8\ub8f9 \ubaa9\ub85d "
-                    "\uc785\ub2c8\ub2e4"
-                ),
+                utterance=("프로젝트 리소스 그룹 목록 입니다"),
                 tools=default_tool_schemas(),
                 principal_role="reader",
             )
@@ -214,7 +210,7 @@ class TestCoordinatorNarratorHook:
         )
 
         coord = ConversationCoordinator(tools=self._tools())
-        result = coord.handle_turn(session=self._session(), message="\ubb50\uac00 \uc788\ub098")
+        result = coord.handle_turn(session=self._session(), message="뭐가 있나")
         assert isinstance(result, AbstainResult)
 
     def test_narrator_hits_when_regex_misses(self) -> None:
@@ -231,13 +227,13 @@ class TestCoordinatorNarratorHook:
             narrator_tool_schemas=default_tool_schemas(),
         )
         # Korean utterance no regex would match; narrator translates it
-        # via the "\uce74\ud0c8\ub85c\uadf8" keyword to `explore_catalog`, coordinator
+        # via the "카탈로그" keyword to `explore_catalog`, coordinator
         # re-runs the regex, ExploreCatalogTool fires (tool call happens
         # regardless of whether the empty query succeeds - the point is
         # the narrator routed a Korean prompt into a tool dispatch).
         result = coord.handle_turn(
             session=self._session(),
-            message="\uce74\ud0c8\ub85c\uadf8\uc5d0\uc11c \ubcf4\uc5ec\uc918",
+            message="카탈로그에서 보여줘",
         )
         # Coordinator DID reach a tool (any status), not an abstain.
         assert isinstance(result, ToolResult)
@@ -259,7 +255,7 @@ class TestCoordinatorNarratorHook:
         )
         result = coord.handle_turn(
             session=self._session(),
-            message="\uc774\uac74 \uc544\ubb34\uac83\ub3c4 \uc548 \ub9de\ub294 \ub9d0",
+            message="이건 아무것도 안 맞는 말",
         )
         assert isinstance(result, AbstainResult)
 
@@ -343,9 +339,7 @@ class TestCoordinatorNarratorHook:
             narrator=_BoomNarrator(),
             narrator_tool_schemas=[],
         )
-        result = coord.handle_turn(
-            session=self._session(), message="\uc544\ubb34\ub7f0 \uc785\ub825"
-        )
+        result = coord.handle_turn(session=self._session(), message="아무런 입력")
         assert isinstance(result, AbstainResult)
 
     def test_narrator_translation_logged_as_system_turn(self) -> None:
@@ -363,7 +357,7 @@ class TestCoordinatorNarratorHook:
         session = self._session()
         coord.handle_turn(
             session=session,
-            message="\uce74\ud0c8\ub85c\uadf8\uc5d0\uc11c \ubcf4\uc5ec\uc918",
+            message="카탈로그에서 보여줘",
         )
         # Should have a system turn recording the narrator translation.
         system_turns = [t.content for t in session.turns if t.direction == "system"]

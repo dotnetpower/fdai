@@ -86,7 +86,7 @@ def test_config_rejects_unsafe_table_name() -> None:
 def test_config_rejects_non_ascii_table_name() -> None:
     # str.isalnum() accepts non-ASCII letters; the strict regex must not.
     with pytest.raises(ValueError, match="identifier"):
-        PgvectorKnowledgeConfig(dsn_secret="db/dsn", table="\ud14c\uc774\ube14")
+        PgvectorKnowledgeConfig(dsn_secret="db/dsn", table="테이블")
     with pytest.raises(ValueError, match="identifier"):
         PgvectorKnowledgeConfig(dsn_secret="db/dsn", table="1bad")  # leading digit
 

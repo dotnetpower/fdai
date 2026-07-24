@@ -77,8 +77,21 @@ record's own stable keys or a serialized enum value.
 ## Specific constraints
 
 Identifiers and paths stay ASCII. Machine records SHOULD stay English for replay. Encode non-English
-parser fixtures explicitly when clarity benefits, and never hand-edit generated or vendored code.
+parser fixtures as readable UTF-8 when clarity benefits, and never hand-edit generated or vendored code.
 Emoji may appear in prose only when it adds meaning.
+
+### Readable Korean source literals
+
+Korean prose, labels, matching tokens, tests, fixtures, and regular-expression alternatives MUST
+use readable NFC UTF-8 text instead of Hangul `\uXXXX` escapes. Escaped Korean makes debugging,
+review, search, and translation maintenance unnecessarily opaque without changing runtime value.
+
+An escape MAY remain only when the code explicitly reasons about Unicode code points, character
+block boundaries, malformed input, or normalization behavior. Every retained Hangul escape MUST
+be an exact, rationale-bearing entry in
+`scripts/quality/localization/readable-hangul-allowlist.txt`. Generated artifacts MUST be fixed at
+their generator and regenerated, never hand-edited. Run
+`python3 scripts/quality/localization/check-readable-hangul.py --fix` for mechanical conversion.
 
 ## User-Facing Doc Translations (`-ko.md`)
 
@@ -195,6 +208,7 @@ Use canonical English identifiers and the shared vocabulary (`T0`, `T1`, `T2`, `
 CI enforces ASCII punctuation, translation pairs, and catalog key parity through:
 
 - `scripts/quality/repository/check-punctuation.sh`
+- `scripts/quality/localization/check-readable-hangul.py`
 - `scripts/quality/localization/check-translations.sh`
 - `scripts/quality/localization/check-catalog-parity.sh`
 

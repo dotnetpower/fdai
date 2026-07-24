@@ -64,6 +64,11 @@ repos:
         entry: bash scripts/quality/repository/check-punctuation.sh
         language: system
         require_serial: true
+      - id: check-readable-hangul
+        name: check-readable-hangul.py
+        entry: python3 scripts/quality/localization/check-readable-hangul.py
+        language: system
+        require_serial: true
       - id: check-guids
         name: check-guids.sh
         entry: bash scripts/quality/repository/check-guids.sh

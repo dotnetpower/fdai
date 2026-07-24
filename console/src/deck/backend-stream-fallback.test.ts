@@ -273,7 +273,7 @@ describe("askBackendStream fallback typewriter", () => {
   test("flushes a UTF-8 code point split across network chunks", async () => {
     const prefix = new TextEncoder().encode('event: token\ndata: {"delta":"');
     const suffix = new TextEncoder().encode('"}\n\nevent: done\ndata: {"answer":"ok","model":"gpt-test"}\n\n');
-    const glyph = new TextEncoder().encode("\uD55C");
+    const glyph = new TextEncoder().encode("한");
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(new Uint8Array([...prefix, ...glyph.slice(0, 2)]));
@@ -288,7 +288,7 @@ describe("askBackendStream fallback typewriter", () => {
     const deltas: string[] = [];
     await mod.askBackendStream("q", snap(), [], { onToken: (delta) => deltas.push(delta) });
 
-    expect(deltas.join("")).toBe("\uD55C");
+    expect(deltas.join("")).toBe("한");
   });
 
   test("labels tokens followed by an error frame as a partial answer", async () => {

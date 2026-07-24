@@ -138,19 +138,19 @@ def test_answer_integrity_allows_layout_and_script_shaping_characters() -> None:
 
 def test_invalid_answer_character_abstention_follows_korean_locale() -> None:
     result = verify_answer(
-        "\uae68\uc9c4 \ufffd \uc751\ub2f5",
+        "깨진 \ufffd 응답",
         {"routeId": "dashboard", "facts": []},
         locale="ko",
     )
 
     assert result.status == "unverified"
     assert result.reason_code == "answer_text_invalid"
-    assert "\uc720\ud6a8\ud558\uc9c0 \uc54a\uc740 \ubb38\uc790" in result.answer
+    assert "유효하지 않은 문자" in result.answer
     assert "\ufffd" not in result.answer
 
 
 def test_canonically_equivalent_korean_text_does_not_trigger_correction() -> None:
-    canonical = "\ud55c\uae00 \ub2f5\ubcc0"
+    canonical = "한글 답변"
     decomposed = unicodedata.normalize("NFD", canonical)
 
     assert decomposed != canonical
@@ -158,8 +158,8 @@ def test_canonically_equivalent_korean_text_does_not_trigger_correction() -> Non
 
 
 def test_unicode_normalization_does_not_hide_real_text_changes() -> None:
-    canonical = "\ud55c\uae00 \ub2f5\ubcc0"
-    different = unicodedata.normalize("NFD", "\ud55c\uae00 \uc218\uc815")
+    canonical = "한글 답변"
+    different = unicodedata.normalize("NFD", "한글 수정")
 
     assert _changed(different, canonical) == "corrected"
 
@@ -222,9 +222,9 @@ def test_korean_dashboard_explanation_disambiguates_repeated_zero_facts() -> Non
 
 def test_glossary_answer_removes_unsupported_screen_scope_addition() -> None:
     answer = (
-        "\uc5d0\uc774\uc804\ud2b8\ub294 typed port\uc640 conversational port\ub97c "
-        "\uac01\uac01 \uc0ac\uc6a9\ud569\ub2c8\ub2e4. \uc774 \ud654\uba74\uc5d0\ub294 "
-        "\uc790\ub3d9 \uc2e4\ud589 \uc870\uac74\uc774 \uc5c6\uc2b5\ub2c8\ub2e4."
+        "에이전트는 typed port와 conversational port를 "
+        "각각 사용합니다. 이 화면에는 "
+        "자동 실행 조건이 없습니다."
     )
     result = verify_answer(
         answer,
@@ -250,12 +250,12 @@ def test_glossary_answer_removes_unsupported_screen_scope_addition() -> None:
     assert result.authority == "fdai_glossary"
     assert result.reason_code == "concept_scope_claims_removed"
     assert "typed port" in result.answer
-    assert "\uc790\ub3d9 \uc2e4\ud589 \uc870\uac74" not in result.answer
+    assert "자동 실행 조건" not in result.answer
 
 
 def test_none_state_corrects_to_bounded_absence_claim_in_korean() -> None:
     result = verify_answer(
-        "\uad00\ub828 \uc7a5\uc560\ub294 \uc804\ud600 \uc5c6\uc2b5\ub2c8\ub2e4.",
+        "관련 장애는 전혀 없습니다.",
         _context(
             {
                 "status": "none",
@@ -267,9 +267,9 @@ def test_none_state_corrects_to_bounded_absence_claim_in_korean() -> None:
     )
 
     assert result.status == "corrected"
-    assert "11\uac74" in result.answer
-    assert "\uc81c\ud55c\ub41c" in result.answer
-    assert "\uba54\ubaa8\ub9ac" in result.answer
+    assert "11건" in result.answer
+    assert "제한된" in result.answer
+    assert "메모리" in result.answer
     assert "memory" not in result.answer
     assert result.evidence_refs == ("incident-search:recent:11",)
 
@@ -336,7 +336,7 @@ def test_summary_state_renders_all_incidents_without_requesting_selection() -> N
 
 def test_summary_state_renders_korean_answer_without_requesting_selection() -> None:
     result = verify_answer(
-        "\uc778\uc2dc\ub358\ud2b8\ub97c \uc120\ud0dd\ud574 \uc8fc\uc138\uc694.",
+        "인시던트를 선택해 주세요.",
         _context(
             {
                 "status": "summary",
@@ -357,8 +357,8 @@ def test_summary_state_renders_korean_answer_without_requesting_selection() -> N
     )
 
     assert result.reason_code == "incident_summary"
-    assert "\ucd5c\uadfc \uc778\uc2dc\ub358\ud2b8 1\uac74 \uc694\uc57d" in result.answer
-    assert "\uc120\ud0dd\ud574 \uc8fc\uc138\uc694" not in result.answer
+    assert "최근 인시던트 1건 요약" in result.answer
+    assert "선택해 주세요" not in result.answer
 
 
 def test_grounded_match_renders_canonical_cause_and_refs() -> None:

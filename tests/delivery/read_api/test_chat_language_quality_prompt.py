@@ -25,7 +25,7 @@ def test_base_prompt_requires_proofread_standard_prose() -> None:
 
 def test_korean_locale_directive_proofreads_without_rewriting_evidence() -> None:
     system = _system_text(
-        "\uc774 \ud654\uba74\uc744 \uc124\uba85\ud574\uc918",
+        "이 화면을 설명해줘",
         {"routeId": "dashboard", "_locale": "ko"},
     )
 

@@ -116,7 +116,7 @@ def verify_scope(
                 "screen_absence_contradicted",
             )
         return claim(claim_id, draft, "supported", (), None)
-    absence = bool(re.search(r"\b(?:no|none)\b|\uc5c6\uc2b5\ub2c8\ub2e4|\uc5c6\ub2e4", lower))
+    absence = bool(re.search(r"\b(?:no|none)\b|없습니다|없다", lower))
     if absence:
         zero = tuple(
             entry

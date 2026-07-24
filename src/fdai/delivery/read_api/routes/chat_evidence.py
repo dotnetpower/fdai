@@ -24,28 +24,28 @@ _LOG = logging.getLogger(__name__)
 
 _OPERATIONAL_INTENT: Final = re.compile(
     r"\b(incidents?|issue|outage|failure|problem|root cause|cause|why did)\b"
-    "|\uc778\uc2dc\ub358\ud2b8|\uc774\uc288|\uc7a5\uc560"
-    "|\uc2e4\ud328|\ubb38\uc81c|\uc6d0\uc778|\uadfc\ubcf8 \uc6d0\uc778",
+    "|인시던트|이슈|장애"
+    "|실패|문제|원인|근본 원인",
     re.IGNORECASE,
 )
 _EXPLICIT_OPERATIONAL_CONTEXT: Final = re.compile(
     r"\b(recent|latest|last|incidents?|outage|failure|root cause|cause|why did)\b"
-    "|\ucd5c\uadfc|\ucd5c\uc2e0|\uc9c1\uc804|\uc778\uc2dc\ub358\ud2b8|\uc7a5\uc560"
-    "|\uc2e4\ud328|\uc6d0\uc778|\uadfc\ubcf8 \uc6d0\uc778",
+    "|최근|최신|직전|인시던트|장애"
+    "|실패|원인|근본 원인",
     re.IGNORECASE,
 )
 _CURRENT_SCREEN_ONLY: Final = re.compile(
     r"\b(this screen|this page|this tile|selected|on screen|shown here)\b"
-    "|\uc774 \ud654\uba74|\uc774 \ud398\uc774\uc9c0|\uc774 \ud0c0\uc77c|\uc120\ud0dd\ud55c"
-    "|\ud654\uba74\uc5d0",
+    "|이 화면|이 페이지|이 타일|선택한"
+    "|화면에",
     re.IGNORECASE,
 )
 _RECENCY_INTENT: Final = re.compile(
-    r"\b(recent|latest|last|newest)\b|\ucd5c\uadfc|\ucd5c\uc2e0|\uc9c1\uc804",
+    r"\b(recent|latest|last|newest)\b|최근|최신|직전",
     re.IGNORECASE,
 )
 _SUMMARY_INTENT: Final = re.compile(
-    r"\b(summarize|summarise|summary|recap|overview)\b|\uc694\uc57d|\uc815\ub9ac",
+    r"\b(summarize|summarise|summary|recap|overview)\b|요약|정리",
     re.IGNORECASE,
 )
 _WORD: Final = re.compile(r"[a-z][a-z0-9_-]{2,}", re.IGNORECASE)
@@ -90,16 +90,16 @@ _TOPIC_ALIASES: Final[dict[str, tuple[str, ...]]] = {
         "host_memory",
         "member_hotspot",
         "gpu_vram",
-        "\uba54\ubaa8\ub9ac",
+        "메모리",
     ),
-    "cpu": ("cpu", "processor", "compute", "\uc2dc\ud53c\uc720"),
-    "latency": ("latency", "slow", "timeout", "\uc9c0\uc5f0", "\ub290\ub9bc"),
-    "network": ("network", "dns", "connection", "nsg", "\ub124\ud2b8\uc6cc\ud06c"),
-    "database": ("database", "postgres", "sql", "db", "\ub370\uc774\ud130\ubca0\uc774\uc2a4"),
-    "storage": ("storage", "disk", "volume", "\uc2a4\ud1a0\ub9ac\uc9c0", "\ub514\uc2a4\ud06c"),
-    "deployment": ("deployment", "release", "rollout", "\ubc30\ud3ec"),
-    "quota": ("quota", "throttle", "rate limit", "tpm", "\ud560\ub2f9\ub7c9"),
-    "cost": ("cost", "spend", "billing", "\ube44\uc6a9"),
+    "cpu": ("cpu", "processor", "compute", "시피유"),
+    "latency": ("latency", "slow", "timeout", "지연", "느림"),
+    "network": ("network", "dns", "connection", "nsg", "네트워크"),
+    "database": ("database", "postgres", "sql", "db", "데이터베이스"),
+    "storage": ("storage", "disk", "volume", "스토리지", "디스크"),
+    "deployment": ("deployment", "release", "rollout", "배포"),
+    "quota": ("quota", "throttle", "rate limit", "tpm", "할당량"),
+    "cost": ("cost", "spend", "billing", "비용"),
 }
 _AUDIT_FIELDS: Final = (
     "summary",
@@ -226,9 +226,9 @@ def _is_memory_incident_text(text: str) -> bool:
         "host_memory",
         "out of memory",
         "working set",
-        "\uba54\ubaa8\ub9ac \uc774\uc288",
-        "\uba54\ubaa8\ub9ac \ub204\uc218",
-        "\uba54\ubaa8\ub9ac \uc555\ub825",
+        "메모리 이슈",
+        "메모리 누수",
+        "메모리 압력",
     )
     return any(phrase in text for phrase in phrases) or bool(
         re.search(r"\b(?:oom|rss|heap)\b", text)
