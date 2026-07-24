@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -248,19 +249,38 @@ async def test_environment_injection_probe_fails_without_exposing_secret_name() 
     assert "FDAI_STATE_STORE_DSN" not in str(captured.value)
 
 
-async def test_audit_probe_appends_only_in_synthetic_scope() -> None:
+async def test_audit_probe_appends_once_per_process_only_in_synthetic_scope() -> None:
     store = InMemoryStateStore()
     probe = AuditStartupProbe(probe_id="audit.append", state_store=store)
 
     with pytest.raises(RuntimeError, match="synthetic scope"):
         await probe.run(_request())
-    result = await probe.run(_request(synthetic_scope=True))
+    first = await probe.run(_request(synthetic_scope=True))
+    refreshed = await probe.run(_request(synthetic_scope=True))
 
-    assert result.evidence == {"append": True}
-    assert any(
-        entry.get("entry", {}).get("kind") == "startup_readiness.audit_probe"
-        for entry in store.audit_entries
+    assert first.evidence == {"append": True, "previously_proven": False}
+    assert refreshed.evidence == {"append": False, "previously_proven": True}
+    assert (
+        sum(
+            entry.get("entry", {}).get("kind") == "startup_readiness.audit_probe"
+            for entry in store.audit_entries
+        )
+        == 1
     )
+
+
+async def test_audit_probe_retries_after_append_failure() -> None:
+    store = InMemoryStateStore()
+    probe = AuditStartupProbe(probe_id="audit.append", state_store=store)
+    append = AsyncMock(side_effect=[RuntimeError("transient"), None])
+
+    with patch.object(store, "append_audit_entry", append):
+        with pytest.raises(RuntimeError, match="transient"):
+            await probe.run(_request(synthetic_scope=True))
+        result = await probe.run(_request(synthetic_scope=True))
+
+    assert result.evidence == {"append": True, "previously_proven": False}
+    assert append.await_count == 2
 
 
 async def test_opa_compile_probe_accepts_successful_binary(tmp_path: Path) -> None:

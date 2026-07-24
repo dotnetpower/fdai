@@ -117,6 +117,26 @@ describe("agent activity filters", () => {
     expect(filterAgentActivityLog(rows, "Forseti", "old but", agentOf)).toEqual([]);
   });
 
+  test("excludes synthetic readiness proofs from Activity but not Waterfall filtering", () => {
+    const readiness = item(
+      1,
+      "runtime.startup",
+      "startup_readiness.audit_probe",
+      "2026-07-15T11:00:00Z",
+    );
+    const operational = item(
+      2,
+      "Forseti",
+      "risk_gate.decision",
+      "2026-07-15T11:00:01Z",
+    );
+
+    expect(filterAgentActivityLog([readiness, operational], null, "", agentOf))
+      .toEqual([operational]);
+    expect(filterAgentActivity([readiness, operational], BASE_FILTERS, agentOf))
+      .toEqual([readiness, operational]);
+  });
+
   test("includes recorded conversation recipients and message text in Activity evidence filters", () => {
     const row = item(1, "Odin", "plan.review", "2026-07-15T11:00:00Z", {
       conversation: [

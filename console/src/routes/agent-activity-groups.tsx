@@ -135,6 +135,7 @@ export function filterAgentActivityLog(
 ): readonly AuditItem[] {
   const normalizedQuery = normalizeSearch(query);
   return items.filter((item) => {
+    if (item.action_kind === "startup_readiness.audit_probe") return false;
     const agent = agentOf(item);
     const conversation = entryConversation(item) ?? [];
     const participants = new Set([

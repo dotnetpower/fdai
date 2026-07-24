@@ -109,7 +109,9 @@ token before the deadline is unavailable. T2 still requires mixed-model and veri
 miss lowers the case to Human approval.
 
 Evidence expires after the configured interval. Periodic probes refresh the report and append only
-transitions. Recovery can restore `ready`, never authority above the deployment's promotion state.
+transitions. The audit durability smoke appends once after the first successful proof in each runtime
+process; later refreshes reuse that proof, while a failed append remains retryable. Recovery can
+restore `ready`, never authority above the deployment's promotion state.
 
 ### Failure and authority rules
 

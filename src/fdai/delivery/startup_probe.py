@@ -241,32 +241,46 @@ class KillSwitchStartupProbe:
 
 
 class AuditStartupProbe:
-    """Append one bounded synthetic audit record to prove audit durability."""
+    """Append one synthetic audit proof per runtime process."""
 
     def __init__(self, *, probe_id: str, state_store: StateStore) -> None:
         self.probe_id = probe_id
         self._state_store = state_store
+        self._append_proven = False
+        self._lock = asyncio.Lock()
 
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
         if not request.synthetic_scope:
             raise RuntimeError("audit startup probe requires synthetic scope")
         started_at = perf_counter()
-        probe_run = uuid4().hex
-        await self._state_store.append_audit_entry(
-            {
-                "kind": "startup_readiness.audit_probe",
-                "event_id": f"startup-audit-{probe_run}",
-                "correlation_id": None,
-                "tier": "t0",
-                "decision": "probe",
-                "idempotency_key": f"startup-audit:{probe_run}",
-                "actor_identity": "runtime.startup",
-                "timestamp": _utc_now().isoformat(),
-                "mode": "shadow",
-                "rollback_reference": None,
-            }
+        async with self._lock:
+            if self._append_proven:
+                return _result(
+                    self.probe_id,
+                    started_at,
+                    evidence={"append": False, "previously_proven": True},
+                )
+            probe_run = uuid4().hex
+            await self._state_store.append_audit_entry(
+                {
+                    "kind": "startup_readiness.audit_probe",
+                    "event_id": f"startup-audit-{probe_run}",
+                    "correlation_id": None,
+                    "tier": "t0",
+                    "decision": "probe",
+                    "idempotency_key": f"startup-audit:{probe_run}",
+                    "actor_identity": "runtime.startup",
+                    "timestamp": _utc_now().isoformat(),
+                    "mode": "shadow",
+                    "rollback_reference": None,
+                }
+            )
+            self._append_proven = True
+        return _result(
+            self.probe_id,
+            started_at,
+            evidence={"append": True, "previously_proven": False},
         )
-        return _result(self.probe_id, started_at, evidence={"append": True})
 
 
 class EventBusRoundTripStartupProbe:

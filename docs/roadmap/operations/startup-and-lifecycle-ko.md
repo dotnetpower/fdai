@@ -1,8 +1,8 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: 12d5582040ad91b3b05a5ef2e5fa0d200c9ec62e
-translation_revised: 2026-07-23
+translation_source_sha: 3f89268dbea91d333c14c8c3176bd48e0a43bc15
+translation_revised: 2026-07-24
 ---
 
 # 시작과 라이프사이클(Startup and Lifecycle)
@@ -112,7 +112,9 @@ deadline 전 valid first token 부재는 unavailable입니다. T2는 계속 mixe
 요구하며 deadline miss는 case를 사람 승인으로 낮춥니다.
 
 Evidence는 설정된 interval 이후 만료됩니다. Periodic probe는 report를 refresh하고 transition만
-append합니다. Recovery는 `ready`를 복원할 수 있지만 promotion state보다 권한을 높일 수 없습니다.
+append합니다. Audit durability smoke는 각 runtime process에서 첫 successful proof 후 한 번만
+append하며 이후 refresh는 해당 proof를 재사용합니다. Append가 실패하면 retry할 수 있습니다.
+Recovery는 `ready`를 복원할 수 있지만 promotion state보다 권한을 높일 수 없습니다.
 
 ### 실패와 권한 규칙
 
