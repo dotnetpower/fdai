@@ -228,6 +228,10 @@ Concrete publishers map that intent as follows:
 | Reaction | `reactions.add` against the inbound message | `messageReaction` activity against the inbound message | New thread reply with a `Reaction:` label |
 | Agent activity | Block Kit sections in handoff, plain-text command/result, Bragi-answer order; posts, stream updates, and edits preserve the same blocks | Adaptive Card blocks in the same order under a 24,000-byte card budget; omitted activities are counted | Bounded text with the same agent attribution and redaction markers |
 
+Observed output uses explicit provenance markers. `[UPSTREAM OUTPUT TRUNCATED]` means the evidence
+producer supplied partial output; `[CHANNEL OUTPUT TRUNCATED]` means the adapter clipped output to
+the vendor presentation limit. Both markers appear when both conditions apply.
+
 The concrete Slack and Teams configurations own capability flags for mentions, streaming, edits,
 and reactions. A disabled capability never causes the core to guess a vendor payload; the publisher
 uses the documented text fallback instead. Thread context is preserved during every fallback.

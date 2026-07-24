@@ -110,7 +110,8 @@ flowchart TD
   blocks for command and output bodies so markup characters cannot change the observed command,
   and preserves those blocks across posts, stream updates, and edits.
   Teams keeps the Adaptive Card under 24,000 bytes, counts omitted activities, and always retains
-  the final Bragi answer.
+  the final Bragi answer. Renderers distinguish producer-side partial evidence with
+  `[UPSTREAM OUTPUT TRUNCATED]` from vendor-limit clipping with `[CHANNEL OUTPUT TRUNCATED]`.
 - **Layer 2 (Coordinator)** owns intent classification, RBAC gating, tool
   dispatch, verifier re-check, and session bookkeeping. Core translation uses the `Narrator`
   Protocol. A narrator that also implements `GroundedAnswerNarrator` receives a completed

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: ff6851ddd4ad50134e8861b79c11d74ac5214a9e
+translation_source_sha: 4edeb218d72796f27676afaf01da2732210bade4
 translation_revised: 2026-07-24
 ---
 
@@ -108,7 +108,9 @@ flowchart TD
   plain-text activity block을 사용하여 markup character가 observed command를 바꾸지 못하게 하며,
   post, stream update 및 edit에서 해당 block을 보존합니다.
   Teams는 Adaptive Card를 24,000 byte 이하로 유지하고 생략된 activity 수를 표시하며 최종 Bragi
-  answer를 항상 보존합니다.
+  answer를 항상 보존합니다. Renderer는 producer-side partial evidence를
+  `[UPSTREAM OUTPUT TRUNCATED]`로, vendor-limit clipping을 `[CHANNEL OUTPUT TRUNCATED]`로
+  구분합니다.
 - **Layer 2 (Coordinator)**는 intent classification, RBAC gating, tool
   dispatch, verifier re-check, 세션 bookkeeping을 소유합니다. Core translator는 `Narrator`
   Protocol을 사용합니다. `GroundedAnswerNarrator`도 구현하는 narrator는 완료된 성공

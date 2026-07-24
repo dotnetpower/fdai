@@ -19,6 +19,7 @@ from fdai.shared.providers.conversation_channel import (
     ChannelThreadMode,
     ConversationActivity,
     ConversationChannelKind,
+    ObservedExecutionActivity,
     OutboundResponse,
 )
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -511,7 +512,7 @@ def _activity_fallback(response: OutboundResponse) -> str:
             )
         )
         if activity.output:
-            lines.append(f"Output: {_bounded_text(activity.output, 1_000)}")
+            lines.append(f"Output: {_activity_output_text(activity, 1_000)}")
     return "\n".join(lines)
 
 
@@ -536,7 +537,9 @@ def _slack_activity_blocks(response: OutboundResponse, answer: str) -> list[dict
         )
         blocks.append(_slack_plain_section("Command", activity.command, 2_800))
         if activity.output:
-            blocks.append(_slack_plain_section("Output", activity.output, 2_800))
+            blocks.append(
+                _slack_plain_section("Output", _activity_output_text(activity, 2_800), 2_800)
+            )
     blocks.append(_slack_section(f"*Bragi*\n{_slack_escape(answer)}"))
     return blocks
 
@@ -625,7 +628,7 @@ def _teams_activity_blocks(activity: ConversationActivity) -> list[dict[str, obj
         blocks.append(
             {
                 "type": "TextBlock",
-                "text": _bounded_text(activity.output, 4_000),
+                "text": _activity_output_text(activity, 4_000),
                 "fontType": "Monospace",
                 "wrap": True,
                 "separator": True,
@@ -663,6 +666,16 @@ def _bounded_text(value: str, limit: int) -> str:
         return value
     suffix = "\n[TRUNCATED]"
     return f"{value[: max(0, limit - len(suffix))]}{suffix}"
+
+
+def _activity_output_text(activity: ObservedExecutionActivity, limit: int) -> str:
+    markers = ["[UPSTREAM OUTPUT TRUNCATED]"] if activity.output_truncated else []
+    marker_suffix = "" if not markers else f"\n{' '.join(markers)}"
+    if len(activity.output) + len(marker_suffix) <= limit:
+        return f"{activity.output}{marker_suffix}"
+    markers.append("[CHANNEL OUTPUT TRUNCATED]")
+    suffix = f"\n{' '.join(markers)}"
+    return f"{activity.output[: max(0, limit - len(suffix))]}{suffix}"
 
 
 def _activity_endpoint(base: str, message_id: str) -> str:

@@ -257,6 +257,57 @@ async def test_teams_activity_card_stays_under_byte_budget() -> None:
     assert len(str(captured["text"])) <= 4_000
 
 
+async def test_activity_output_distinguishes_upstream_and_channel_truncation() -> None:
+    slack_body: dict[str, object] = {}
+    teams_body: dict[str, object] = {}
+    upstream_activity = ObservedExecutionActivity(
+        agent="Heimdall",
+        label="Partial evidence",
+        tool="query_log",
+        command="query_log --scope <redacted>",
+        status=ConversationExecutionStatus.COMPLETED,
+        redacted=True,
+        output="partial evidence",
+        output_truncated=True,
+    )
+    both_activity = ObservedExecutionActivity(
+        agent="Heimdall",
+        label="Large partial evidence",
+        tool="query_log",
+        command="query_log --scope <redacted>",
+        status=ConversationExecutionStatus.COMPLETED,
+        redacted=True,
+        output="x" * 5_000,
+        output_truncated=True,
+    )
+
+    def slack_handler(request: httpx.Request) -> httpx.Response:
+        slack_body.update(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True, "ts": "2.0"})
+
+    def teams_handler(request: httpx.Request) -> httpx.Response:
+        teams_body.update(json.loads(request.content))
+        return httpx.Response(201, json={"id": "activity-2"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(slack_handler)) as client:
+        await SlackWebApiReplyPublisher(
+            config=SlackReplyPublisherConfig(), token="app-token", http_client=client
+        ).publish(_response(ConversationChannelKind.SLACK, activities=(upstream_activity,)))
+    async with httpx.AsyncClient(transport=httpx.MockTransport(teams_handler)) as client:
+        await TeamsBotFrameworkReplyPublisher(
+            config=TeamsReplyPublisherConfig(),
+            identity=_Identity(),
+            endpoint_resolver=lambda _: "https://bot.example.com/conversations/1/activities",
+            http_client=client,
+        ).publish(_response(ConversationChannelKind.TEAMS, activities=(both_activity,)))
+
+    assert "[UPSTREAM OUTPUT TRUNCATED]" in str(slack_body["blocks"])
+    assert "[CHANNEL OUTPUT TRUNCATED]" not in str(slack_body["blocks"])
+    teams_card = teams_body["attachments"][0]["content"]  # type: ignore[index]
+    assert "[UPSTREAM OUTPUT TRUNCATED]" in str(teams_card)
+    assert "[CHANNEL OUTPUT TRUNCATED]" in str(teams_card)
+
+
 async def test_teams_dedicated_thread_starts_without_reply_target() -> None:
     captured: dict[str, object] = {}
 
