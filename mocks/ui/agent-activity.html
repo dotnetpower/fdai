@@ -119,6 +119,8 @@
     .aal-event-count { color: #68747D; font-family: "Cascadia Code","Consolas",monospace; }
     .aal-follow, .aal-control { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 4px 9px; border: 1px solid #CDD3D8; border-radius: 6px; background: #FFFFFF; color: #42515C; font-family: "Cascadia Code","Consolas",monospace; font-size: 10.5px; font-weight: 650; cursor: pointer; }
     .aal-follow:hover, .aal-control:hover { background: #EEF2F4; }
+    .aal-follow[aria-pressed="true"] { border-color: rgba(94,130,89,.34); background: rgba(94,130,89,.10); color: #466B43; }
+    .aal-follow[aria-pressed="true"] .aal-follow-icon { box-shadow: 0 0 0 3px rgba(94,130,89,.12); }
     .aal-control-icon { color: #667680; font-size: 13px; line-height: 1; }
     .aal-log-scroll { block-size: clamp(440px, 62vh, 680px); background: #FFFFFF; color: #34424C; scrollbar-color: #AEB8BF #F6F7F8; }
     .aal-log-grid { min-width: 980px; font-family: "Cascadia Code","Consolas",monospace; }
@@ -496,8 +498,10 @@
       follow.type = "button";
       follow.id = "activityFollow";
       follow.setAttribute("aria-pressed", "true");
+      follow.setAttribute("aria-label", "Disable live tail");
+      follow.title = "Live tail is on. New events scroll into view automatically.";
       follow.appendChild(element("span", "aal-follow-icon"));
-      follow.appendChild(element("span", "aal-follow-label", "Following latest"));
+      follow.appendChild(element("span", "aal-follow-label", "Live tail on"));
       var columnConfig = [
         { id: "time", label: "Time", width: "78px", visible: true },
         { id: "route", label: "Route", width: "126px", visible: true },
@@ -627,7 +631,11 @@
       function updateFollow(next) {
         following = next;
         follow.setAttribute("aria-pressed", String(following));
-        follow.querySelector(".aal-follow-label").textContent = following ? "Following latest" : "Resume live";
+        follow.setAttribute("aria-label", following ? "Disable live tail" : "Resume live tail");
+        follow.title = following
+          ? "Live tail is on. New events scroll into view automatically."
+          : "Live tail is paused. Resume automatic scrolling.";
+        follow.querySelector(".aal-follow-label").textContent = following ? "Live tail on" : "Resume tail";
         if (following) log.scrollTop = log.scrollHeight;
       }
       follow.addEventListener("click", function () { updateFollow(!following); });
@@ -756,7 +764,7 @@
       startStream();
 
       updateVisibleEvents();
-      window.requestAnimationFrame(function () { updateFollow(true); });
+      updateFollow(true);
     }());
   </script>
 </body>
