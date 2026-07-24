@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 6c84dfa5b1e6e3db202705efd44902e78d8a2cd0
+translation_source_sha: fafb0467fc96e11523618b53372f90284a9d1af3
 translation_revised: 2026-07-24
 ---
 
@@ -211,7 +211,9 @@ conversation router인 Bragi와 책임 observer를 표시하고, observed execut
 server tool, 정제된 command, 안전한 result summary, status, authority 및 timing을 기록합니다. 전체
 sequence는 durable response replay에 포함되며 channel adapter에 tool 또는 execution authority를
 부여하지 않습니다. Per-field limit 외에도 전체 activity sequence에 48,000자 budget을 적용하여
-허용된 response 하나가 durable 또는 vendor payload ceiling을 넘지 않게 합니다.
+허용된 response 하나가 durable 또는 vendor payload ceiling을 넘지 않게 합니다. Command, output,
+label, tool 및 authority field는 모두 같은 high-signal secret scanner를 통과하며, Bearer credential은
+whitespace 및 일반적인 separator form에서 차단됩니다.
 
 Concrete publisher는 해당 intent를 다음과 같이 mapping합니다.
 

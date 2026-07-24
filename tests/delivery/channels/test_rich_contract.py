@@ -112,7 +112,12 @@ def test_outbound_response_rejects_aggregate_activity_payload_over_budget() -> N
     (
         {"redacted": False},
         {"command": "Bearer secret-token"},
+        {"command": "Authorization: bearer:secret-token"},
+        {"command": "Authorization=bearer_secret-token"},
         {"output": "/subscriptions/00000000-0000-0000-0000-000000000000"},
+        {"label": "token=secret-token"},
+        {"tool": "bearer:secret-token"},
+        {"authority": "Bearer secret-token"},
     ),
 )
 def test_execution_activity_rejects_unredacted_or_sensitive_content(

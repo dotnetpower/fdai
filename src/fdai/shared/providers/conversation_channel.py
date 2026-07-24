@@ -30,7 +30,7 @@ MAX_ACTIVITY_OUTPUT_CHARS = 12_000
 MAX_ACTIVITY_TOTAL_CHARS = 48_000
 
 _SENSITIVE_ACTIVITY_TEXT = re.compile(
-    r"(?i)\bbearer\s+[a-z0-9._~+/=-]+"
+    r"(?i)\bbearer(?:\s+|[:=_-]+)[a-z0-9._~+/=-]{6,}"
     r"|\b(?:password|secret|token|api[_-]?key)\s*[:=]\s*"
     r"(?!\[redacted\]|<redacted>)[^\s,;]{6,}"
     r"|\beyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\b"
@@ -103,8 +103,8 @@ class ObservedExecutionActivity:
 
     def __post_init__(self) -> None:
         _bounded("activity.agent", self.agent, MAX_ACTIVITY_AGENT_CHARS)
-        _bounded("activity.label", self.label, MAX_ACTIVITY_LABEL_CHARS)
-        _bounded("activity.tool", self.tool, MAX_ACTIVITY_TOOL_CHARS)
+        _safe_bounded("activity.label", self.label, MAX_ACTIVITY_LABEL_CHARS)
+        _safe_bounded("activity.tool", self.tool, MAX_ACTIVITY_TOOL_CHARS)
         _safe_bounded("activity.command", self.command, MAX_ACTIVITY_COMMAND_CHARS)
         if self.redacted is not True:
             raise ValueError("ObservedExecutionActivity.redacted MUST be true")
@@ -117,10 +117,11 @@ class ObservedExecutionActivity:
         for name, value in (
             ("started_at", self.started_at),
             ("completed_at", self.completed_at),
-            ("authority", self.authority),
         ):
             if value is not None:
                 _bounded(f"activity.{name}", value, MAX_ACTIVITY_LABEL_CHARS)
+        if self.authority is not None:
+            _safe_bounded("activity.authority", self.authority, MAX_ACTIVITY_LABEL_CHARS)
 
 
 ConversationActivity = AgentHandoffActivity | ObservedExecutionActivity
