@@ -2,6 +2,7 @@ import type { Ref } from "preact";
 import { useEffect, useImperativeHandle, useRef } from "preact/hooks";
 import {
   applyCameraView,
+  architectureWorldSize,
   architectureZoomScale,
   clamp,
   fitCamera,
@@ -49,6 +50,7 @@ export function useArchitectureMapController({
     panY: 0,
   });
   const fitScaleRef = useRef(42);
+  const layoutFrameRef = useRef("");
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -139,6 +141,7 @@ export function useArchitectureMapController({
       canvas.height = Math.round(height * ratio);
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       fitCamera(cameraRef.current, width, height, stateRef.current.graph);
+      layoutFrameRef.current = architectureLayoutFrame(stateRef.current.graph);
       fitScaleRef.current = cameraRef.current.scale;
       draw();
       notifyZoom();
@@ -223,13 +226,33 @@ export function useArchitectureMapController({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !drawRef.current) return;
-    fitCamera(cameraRef.current, canvas.clientWidth, canvas.clientHeight, stateRef.current.graph);
-    fitScaleRef.current = cameraRef.current.scale;
+    const layoutFrame = architectureLayoutFrame(stateRef.current.graph);
+    if (layoutFrame !== layoutFrameRef.current) {
+      fitCamera(cameraRef.current, canvas.clientWidth, canvas.clientHeight, stateRef.current.graph);
+      layoutFrameRef.current = layoutFrame;
+      fitScaleRef.current = cameraRef.current.scale;
+      notifyZoom();
+    }
     drawRef.current();
-    notifyZoom();
   }, [graph]);
 
   return canvasRef;
+}
+
+export function architectureLayoutFrame(graph: InventoryGraphResponse): string {
+  const world = architectureWorldSize(graph);
+  const regions = graph.resources
+    .filter((resource) => resource.w !== undefined && resource.h !== undefined)
+    .map((resource) => [
+      resource.id,
+      resource.x ?? 0,
+      resource.y ?? 0,
+      resource.w ?? 0,
+      resource.h ?? 0,
+    ].join(":"))
+    .sort()
+    .join("|");
+  return `${world.width}:${world.height}:${regions}`;
 }
 
 function architectureMapPalette(canvas: HTMLCanvasElement): ArchitectureMapPalette {

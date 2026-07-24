@@ -422,6 +422,10 @@ export function resourceColorOf(resource: InventoryResource): string {
   return RESOURCE_COLOR_TOKENS[resourceColorTokenOf(resource)].color;
 }
 
+export function resourceTypeLabelOf(resource: InventoryResource): string {
+  return RESOURCE_COLOR_TOKENS[resourceColorTokenOf(resource)].label;
+}
+
 export function relatedResourceIds(
   graph: Pick<InventoryGraphResponse, "resources" | "links">,
   selectedId: string | null,

@@ -276,7 +276,9 @@ smaller than the standard Event Grid topic block. The world and canvas grow with
 authored nested layouts keep their supplied geometry. The map uses the full workspace width and
 places inspection details below it. Narrow viewports preserve node size and use map panning instead
 of shrinking boxes into unreadable marks. Selection updates the canonical deep link without
-reloading inventory and exposes directional relationships before technical identifiers.
+reloading inventory and exposes directional relationships before technical identifiers. Selection
+preserves the camera and every common resource coordinate while auxiliary neighbors appear. It
+does not dim unrelated resources; selection uses the chosen outline and inspection details only.
 
 The factual counts and inspection index continue to use the complete authoritative inventory. The
 isometric overview applies a presentation-only projection that collapses auxiliary resources such
@@ -286,11 +288,12 @@ direct auxiliary children and semantic neighbors without requesting or inventing
 Virtual networks and subnets render as low floor lanes so compute, data, and gateway nodes remain
 readable above the network plane; floor lanes do not render reflections.
 
-Labels avoid collisions, fit long names, and scale from 13 px to 20 px as the operator zooms; the
-selected label may reach 22 px. Zoom steps are reciprocal, colors follow the console theme, and a
-keyboard-accessible resource and relationship index is equivalent to the filtered canvas. Pointer
-targets are at least 44 px and include containment boundaries. Truncated snapshots show an explicit
-partial-inventory notice.
+Labels avoid collisions, fit long names, and pair each resource name with its plain resource type.
+The compact acronym on the block is a secondary cue, not the only way to identify the resource.
+Labels scale from 13 px to 20 px as the operator zooms; the selected label may reach 22 px. Zoom
+steps are reciprocal, colors follow the console theme, and a keyboard-accessible resource and
+relationship index is equivalent to the filtered canvas. Pointer targets are at least 44 px and
+include containment boundaries. Truncated snapshots show an explicit partial-inventory notice.
 The canvas renders containment as subdued dashed center-to-center edges. Semantic relationships use
 directional node-to-node arrows and do not connect resource-group regions as operational endpoints.
 The local projection shows only registered relationship types whose selected endpoint ids and

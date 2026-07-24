@@ -15,7 +15,6 @@ import {
   graphSubset,
   isRegion,
   layerOf,
-  relatedResourceIds,
   selectedResourceIdFromHash,
   type ArchitectureCameraView,
   type ArchitectureDisplayOptions,
@@ -263,14 +262,14 @@ function ArchitectureBody({
     );
     return () => window.clearTimeout(timer);
   }, [graph.snapshot_at, now]);
+  const laidOutGraph = useMemo(() => constrainGraph(graph), [graph]);
   const presentedGraph = useMemo(
-    () => architecturePresentationGraph(graph, selectedId),
-    [graph, selectedId],
+    () => architecturePresentationGraph(laidOutGraph, selectedId),
+    [laidOutGraph, selectedId],
   );
-  const laidOutGraph = useMemo(() => constrainGraph(presentedGraph), [presentedGraph]);
   const filtered = useMemo(
-    () => graphSubset(laidOutGraph, visibleLayers),
-    [laidOutGraph, visibleLayers],
+    () => graphSubset(presentedGraph, visibleLayers),
+    [presentedGraph, visibleLayers],
   );
   const layerCounts = useMemo(
     () => new Map(ARCHITECTURE_LAYERS.map((layer) => [
@@ -283,10 +282,6 @@ function ArchitectureBody({
     ? selectedId
     : null;
   const selected = filtered.resources.find((resource) => resource.id === visibleSelectedId) ?? null;
-  const highlightedIds = useMemo(
-    () => relatedResourceIds(filtered, visibleSelectedId),
-    [filtered, visibleSelectedId],
-  );
   const requestedViewExists = architectureViewExists(graph, requestedView);
   const requestedResourceExists = architectureResourceExists(graph.resources, selectedId);
   const dependencyCount = graph.links.filter((link) => link.type !== "contains").length;
@@ -447,7 +442,6 @@ function ArchitectureBody({
             ref={mapRef}
             graph={filtered}
             selectedId={visibleSelectedId}
-            {...(highlightedIds ? { highlightedIds } : {})}
             onSelect={onSelect}
             options={displayOptions}
             onZoomChange={onZoomChange}

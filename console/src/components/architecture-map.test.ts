@@ -16,6 +16,7 @@ import {
   architectureLabelFontSize,
   fitArchitectureLabel,
 } from "./architecture-map-renderer";
+import { architectureLayoutFrame } from "./use-architecture-map-controller";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
 
@@ -68,6 +69,38 @@ describe("architecture map zoom", () => {
     const initial = 42;
     expect(architectureZoomScale(architectureZoomScale(initial, "in"), "out"))
       .toBeCloseTo(initial, 10);
+  });
+});
+
+describe("architecture selection camera", () => {
+  it("keeps the camera frame when selection reveals resources inside the same regions", () => {
+    const region = {
+      id: "rg", type: "resource-group", name: "rg", status: "healthy",
+      x: 0, y: 0, w: 8, h: 8,
+    };
+    const overview = {
+      resources: [region, { id: "vm", type: "compute.vm", x: 2, y: 2 }],
+    } as never;
+    const selected = {
+      resources: [
+        region,
+        { id: "vm", type: "compute.vm", x: 2, y: 2 },
+        { id: "nic", type: "network.interface", x: 3, y: 2 },
+      ],
+    } as never;
+
+    expect(architectureLayoutFrame(selected)).toBe(architectureLayoutFrame(overview));
+  });
+
+  it("changes the camera frame when the owning region geometry changes", () => {
+    const graph = (width: number) => ({
+      resources: [{
+        id: "rg", type: "resource-group", name: "rg", status: "healthy",
+        x: 0, y: 0, w: width, h: 8,
+      }],
+    }) as never;
+
+    expect(architectureLayoutFrame(graph(12))).not.toBe(architectureLayoutFrame(graph(8)));
   });
 });
 

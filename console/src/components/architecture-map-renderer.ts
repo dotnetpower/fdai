@@ -15,6 +15,7 @@ import {
   geometryOf,
   isRegion,
   resourceColorOf,
+  resourceTypeLabelOf,
   shapeOf,
   DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   type ArchitectureDisplayOptions,
@@ -658,6 +659,7 @@ function drawNodeOverlay(
       occupiedLabels,
       selected,
       palette,
+      resourceTypeLabelOf(node),
     );
   }
   context.restore();
@@ -719,7 +721,9 @@ function drawLabel(
   occupiedLabels?: LabelBounds[],
   force = false,
   palette: ArchitectureMapPalette = DEFAULT_ARCHITECTURE_MAP_PALETTE,
+  subtitle?: string,
 ): void {
+  const subtitleSize = Math.max(10, size * .72);
   context.font = `600 ${size}px Aptos, Segoe UI, sans-serif`;
   const maximumTextWidth = Math.max(72, Math.min(320, context.canvas.clientWidth - 36));
   const fittedText = fitArchitectureLabel(
@@ -727,8 +731,11 @@ function drawLabel(
     maximumTextWidth,
     (value) => context.measureText(value).width,
   );
-  const labelWidth = context.measureText(fittedText).width + 12;
-  const labelHeight = size + 8;
+  const textWidth = context.measureText(fittedText).width;
+  context.font = `600 ${subtitleSize}px Aptos, Segoe UI, sans-serif`;
+  const subtitleWidth = subtitle ? context.measureText(subtitle).width : 0;
+  const labelWidth = Math.max(textWidth, subtitleWidth) + 12;
+  const labelHeight = size + (subtitle ? subtitleSize + 3 : 0) + 8;
   const labelX = clamp(
     point.x,
     labelWidth / 2 + 8,
@@ -756,7 +763,14 @@ function drawLabel(
   context.fillStyle = color;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(fittedText, labelX, labelY);
+  const nameY = subtitle ? labelY - subtitleSize / 2 - 1 : labelY;
+  context.font = `600 ${size}px Aptos, Segoe UI, sans-serif`;
+  context.fillText(fittedText, labelX, nameY);
+  if (subtitle) {
+    context.font = `600 ${subtitleSize}px Aptos, Segoe UI, sans-serif`;
+    context.fillStyle = rgba(color, .72);
+    context.fillText(subtitle, labelX, labelY + size / 2 + 1);
+  }
 }
 
 function labelsOverlap(first: LabelBounds, second: LabelBounds): boolean {

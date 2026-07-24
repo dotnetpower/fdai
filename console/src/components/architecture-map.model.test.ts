@@ -16,6 +16,7 @@ import {
   layerOf,
   relatedResourceIds,
   resourceColorTokenOf,
+  resourceTypeLabelOf,
   resourceColorOf,
   selectedResourceIdFromHash,
   shapeOf,
@@ -232,6 +233,26 @@ describe("architecture map model", () => {
     ]);
     expect(focused.links).toContainEqual({ source: "vm", target: "nic", type: "attached_to" });
     expect(focused.resources.some((resource) => resource.id === "identity")).toBe(false);
+
+    const laidOut = constrainGraph(graph);
+    const laidOutOverview = architecturePresentationGraph(laidOut, null);
+    const laidOutFocused = architecturePresentationGraph(laidOut, "vm");
+    for (const resource of laidOutOverview.resources) {
+      const focusedResource = laidOutFocused.resources.find(
+        (candidate) => candidate.id === resource.id,
+      );
+      expect(focusedResource?.x).toBe(resource.x);
+      expect(focusedResource?.y).toBe(resource.y);
+      expect(focusedResource?.w).toBe(resource.w);
+      expect(focusedResource?.h).toBe(resource.h);
+    }
+  });
+
+  test("uses a plain resource type label instead of requiring acronym decoding", () => {
+    expect(resourceTypeLabelOf({ id: "vm", type: "compute.vm" } as never))
+      .toBe("Virtual machines");
+    expect(resourceTypeLabelOf({ id: "pip", type: "network.public-ip" } as never))
+      .toBe("Public IP");
   });
 
   test("reveals direct auxiliary children when a boundary is selected", () => {

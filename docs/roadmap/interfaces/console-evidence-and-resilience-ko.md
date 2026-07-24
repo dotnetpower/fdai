@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: bc1bb3acd6339be8acf3a30fa528cd7e0e31ec5c
+translation_source_sha: 1415d50e9cf2a3e17d48cdeae3652377124872e8
 translation_revised: 2026-07-24
 ---
 
@@ -275,7 +275,9 @@ block보다 작게 렌더링되지 않습니다. Inventory에 맞춰 world와 ca
 layout은 supplied geometry를 유지합니다. Map은 workspace 전체 너비를 사용하고 inspection detail은
 아래에 배치합니다. 좁은 viewport에서는 box를 읽을 수 없게 줄이는 대신 node 크기를 유지하고 map
 panning을 사용합니다. Selection은 inventory를 reload하지 않고 canonical deep link를 갱신하며
-technical identifier보다 directional relationship을 먼저 표시합니다.
+technical identifier보다 directional relationship을 먼저 표시합니다. Selection 중에는 camera와 모든
+공통 resource coordinate를 유지하면서 auxiliary neighbor만 표시합니다. 관련 없는 resource는 흐리게
+처리하지 않으며 선택된 outline과 inspection detail만 사용해 selection을 나타냅니다.
 
 Factual count와 inspection index는 계속 complete authoritative inventory를 사용합니다. Isometric
 overview는 network interface, managed disk, diagnostic, certificate 및 provider helper resource 같은
@@ -285,11 +287,12 @@ auxiliary resource를 접는 presentation-only projection을 적용합니다. �
 lane으로 렌더링하므로 compute, data 및 gateway node를 network plane 위에서 읽을 수 있습니다. Floor
 lane은 reflection을 렌더링하지 않습니다.
 
-Label은 collision을 피하고 긴 이름을 맞추며 zoom에 따라 13 px에서 20 px까지 커집니다. 선택된
-label은 22 px까지 커질 수 있습니다. Zoom step은 reciprocal이고 색상은 console theme을 따르며,
-keyboard-accessible resource 및 relationship index는 filtered canvas와 동등합니다. Pointer target은
-containment boundary를 포함해 최소 44 px입니다. Truncated snapshot은 partial-inventory notice를
-명시합니다.
+Label은 collision을 피하고 긴 이름을 맞추며 각 resource name과 읽기 쉬운 resource type을 함께
+표시합니다. Block의 compact acronym은 보조 cue이며 resource를 식별하는 유일한 방법이 아닙니다.
+Label은 zoom에 따라 13 px에서 20 px까지 커지고 선택된 label은 22 px까지 커질 수 있습니다. Zoom
+step은 reciprocal이고 색상은 console theme을 따르며, keyboard-accessible resource 및 relationship
+index는 filtered canvas와 동등합니다. Pointer target은 containment boundary를 포함해 최소 44 px입니다.
+Truncated snapshot은 partial-inventory notice를 명시합니다.
 Canvas는 containment를 subdued dashed center-to-center edge로 렌더링합니다. Semantic relationship은
 directional node-to-node arrow를 사용하며 resource-group region을 operational endpoint로 연결하지
 않습니다.
