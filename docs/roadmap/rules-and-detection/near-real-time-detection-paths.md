@@ -155,10 +155,11 @@ snapshot as an authority ceiling. The first pass is partial because no previous 
 exists. A later pass can prove pipeline continuity.
 
 All six observations in one target tick share a deterministic `pass_id` and the target resource
-partition key. Event Hubs ordering and the Heimdall consumer group therefore deliver one complete
-pass to one consumer even when the runtime has multiple replicas. Heimdall accepts dimensions in
-any order but publishes no drift until all six from the same pass arrive. An incomplete newer pass
-does not replace the last complete snapshot.
+partition key. Event Hubs ordering and the Heimdall consumer group therefore deliver each target to
+one consumer even when the runtime has multiple replicas. Heimdall accepts dimensions in any order,
+tracks overlapping pass IDs independently, and publishes no drift until all six from one pass
+arrive. An incomplete pass neither erases another collecting pass nor replaces the last complete
+snapshot.
 
 The reduction is fail-closed. Missing, stale, unavailable, or unauthorized evidence never becomes
 ready. New readiness capability remains `shadow` even when all six dimensions pass, so it cannot

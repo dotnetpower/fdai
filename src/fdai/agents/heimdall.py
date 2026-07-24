@@ -126,7 +126,7 @@ class Heimdall(Agent):
         self._alert_windows: dict[str, tuple[float, int]] = {}
         self._detection_readiness: dict[str, dict[str, DetectionReadinessObservation]] = {}
         self._detection_readiness_pending: dict[
-            str, tuple[str, dict[str, DetectionReadinessObservation]]
+            tuple[str, str], dict[str, DetectionReadinessObservation]
         ] = {}
 
     def bind_bus(self, bus: PantheonBus) -> None:
@@ -202,20 +202,16 @@ class Heimdall(Agent):
             self.record_behavior("detection_readiness:invalid")
             return
 
-        pending = self._detection_readiness_pending.get(resource_id)
-        if pending is None or pending[0] != pass_id:
-            observations: dict[str, DetectionReadinessObservation] = {}
-            self._detection_readiness_pending[resource_id] = (pass_id, observations)
-        else:
-            observations = pending[1]
-        _evict_oldest(self._detection_readiness_pending, _MAX_TRACKED_KEYS, keep=resource_id)
+        pending_key = (resource_id, pass_id)
+        observations = self._detection_readiness_pending.setdefault(pending_key, {})
+        _evict_oldest(self._detection_readiness_pending, _MAX_TRACKED_KEYS, keep=pending_key)
         observations[observation.dimension.value] = observation
         if len(observations) != len(DetectionReadinessDimension):
             self.record_behavior("detection_readiness:collecting")
             return
         self._detection_readiness[resource_id] = dict(observations)
         _evict_oldest(self._detection_readiness, _MAX_TRACKED_KEYS, keep=resource_id)
-        del self._detection_readiness_pending[resource_id]
+        del self._detection_readiness_pending[pending_key]
         snapshot = reduce_detection_readiness(
             tuple(observations.values()),
             resource_ref=resource_id,

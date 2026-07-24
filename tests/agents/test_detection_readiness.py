@@ -103,6 +103,25 @@ def test_incomplete_new_pass_does_not_replace_completed_snapshot() -> None:
     assert bus.messages_on("object.drift")[-1].payload == first
 
 
+def test_overlapping_pass_does_not_discard_earlier_partial_collection() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    heimdall = Heimdall(bus=bus, forecast_clock=lambda: _NOW)
+    huginn = Huginn(bus=bus)
+    bus.subscribe("object.event", "Heimdall", heimdall.on_typed_message)
+    dimensions = tuple(DetectionReadinessDimension)
+    for index, dimension in enumerate(dimensions[:-1]):
+        asyncio.run(huginn.ingest(_raw_observation(dimension, index)))
+    overlapping = _raw_observation(DetectionReadinessDimension.DISCOVERED, 99)
+    overlapping["attributes"]["pass_id"] = "b" * 64
+    asyncio.run(huginn.ingest(overlapping))
+
+    asyncio.run(huginn.ingest(_raw_observation(dimensions[-1], len(dimensions) - 1)))
+
+    drifts = bus.messages_on("object.drift")
+    assert len(drifts) == 1
+    assert drifts[0].payload["decision"] == "ready"
+
+
 def test_muninn_persists_snapshot_and_saga_audits_transition() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     durable = InMemoryStateStore()

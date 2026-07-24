@@ -1,7 +1,7 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 3cef80240f1e08fd5d79a6d1cf7eb0358f2d1420
+translation_source_sha: a1b69fbf2922e5670c740d4e5b6a663d20c6db7b
 translation_revised: 2026-07-24
 ---
 
@@ -152,10 +152,10 @@ Saga는 전환을 감사하고, Forseti는 스냅샷을 권한 상한으로 사�
 스냅샷이 없으므로 partial이며, 이후 pass에서 pipeline 연속성을 증명할 수 있습니다.
 
 한 target tick의 6개 관측은 결정론적 `pass_id`와 target resource partition key를 공유합니다.
-따라서 runtime replica가 여러 개여도 Event Hubs ordering과 Heimdall consumer group이 하나의
-완전한 pass를 한 consumer에 전달합니다. Heimdall은 차원을 어떤 순서로든 받지만 같은 pass의
-6개가 모두 도착하기 전에는 drift를 발행하지 않습니다. 불완전한 새 pass는 마지막 완전한
-스냅샷을 교체하지 않습니다.
+따라서 runtime replica가 여러 개여도 Event Hubs ordering과 Heimdall consumer group이 각 대상을
+한 consumer에 전달합니다. Heimdall은 차원을 어떤 순서로든 받고 겹친 pass ID를 독립적으로
+추적하며, 한 pass의 6개가 모두 도착하기 전에는 drift를 발행하지 않습니다. 불완전한 pass는
+수집 중인 다른 pass를 지우거나 마지막 완전한 스냅샷을 교체하지 않습니다.
 
 축약은 fail-closed입니다. 누락, stale, unavailable, unauthorized 근거는 ready가 되지 않습니다.
 6개 차원이 모두 통과해도 새 readiness capability는 `shadow`로 유지되므로 ActionType을 승격하거나

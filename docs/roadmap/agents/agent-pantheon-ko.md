@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 6fb261cbddafa67669644d38143fed731f70b194
+translation_source_sha: 7060647c33dee98c0dce091a6a2ac4b73f703f80
 translation_revised: 2026-07-24
 ---
 
@@ -403,8 +403,8 @@ properties:
 
 ## 6. 통신 계약
 
-판테온은 기존 `EventBus` wire를 사용합니다. Event Hubs `:9093`의 Kafka 또는 in-process
-local adapter를 사용합니다. Best-effort `AgentHandlerObserver`는 delivery, judgment 또는
+판테온은 기존 `EventBus` wire를 사용합니다. Event Hubs `:9093`의 Kafka 또는 in-process local adapter를 사용합니다. Heimdall은 겹친 감지 준비도 pass ID를 독립적으로 수집하고 한 pass의
+6개 dimension이 모두 도착한 후에만 Drift를 게시합니다. Best-effort `AgentHandlerObserver`는 delivery, judgment 또는
 execution을 변경하지 않고 실제 handler lifecycle을 보고합니다. Local composition은 SSE sink에
 직접 게시하고 deployed composition은 `started`, `completed`, `failed` handler state를 shared stage
 topic에 게시합니다. Read API는 이 state를 Agent Activity로 relay합니다.
