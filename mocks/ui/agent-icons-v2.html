@@ -8,20 +8,21 @@
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
   <style>
     :root {
-      --page: #f3f5f6;
-      --surface: #ffffff;
-      --surface-muted: #edf1f3;
-      --ink: #18232c;
-      --muted: #687680;
-      --faint: #8b969d;
-      --line: #dce2e5;
-      --line-strong: #c8d0d4;
+      --page: #eef2f3;
+      --surface: #fdfefe;
+      --surface-muted: #e9eef0;
+      --ink: #15242d;
+      --muted: #60717b;
+      --faint: #84929a;
+      --line: #d7dfe2;
+      --line-strong: #bec9ce;
       --command: #9a6a16;
       --operations: #b95f24;
       --judgment: #2876a4;
       --sensing: #167a72;
       --governance: #70579c;
       --domain: #3d7454;
+      --chaos: #b52f46;
       --icon-size: 32px;
     }
 
@@ -31,8 +32,9 @@
       margin: 0;
       min-width: 320px;
       background:
-        linear-gradient(#dfe4e6 1px, transparent 1px),
-        linear-gradient(90deg, #dfe4e6 1px, transparent 1px),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.86), transparent 34%),
+        linear-gradient(rgba(91, 111, 121, 0.09) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(91, 111, 121, 0.09) 1px, transparent 1px),
         var(--page);
       background-size: 32px 32px;
       color: var(--ink);
@@ -123,6 +125,7 @@
       border-radius: 8px;
       overflow: hidden;
       background: var(--surface);
+      box-shadow: 0 10px 30px rgba(28, 45, 55, 0.06), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
     }
 
     .context-heading,
@@ -193,7 +196,7 @@
       border-color: var(--line-strong);
       background: var(--surface);
       color: var(--ink);
-      box-shadow: 0 1px 2px rgba(24, 35, 44, 0.06);
+      box-shadow: 0 5px 16px rgba(24, 35, 44, 0.08), 0 1px 0 rgba(255, 255, 255, 0.85) inset;
     }
 
     .size-label {
@@ -222,10 +225,11 @@
       overflow: hidden;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.94);
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 250, 0.96));
       color: var(--ink);
       text-align: left;
       cursor: pointer;
+      box-shadow: 0 1px 2px rgba(29, 44, 52, 0.035), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
       transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
     }
 
@@ -242,7 +246,7 @@
     .agent-card:hover,
     .agent-card:focus-visible {
       border-color: var(--line-strong);
-      box-shadow: 0 8px 24px rgba(33, 46, 54, 0.08);
+      box-shadow: 0 14px 30px rgba(28, 43, 51, 0.1), 0 1px 0 rgba(255, 255, 255, 0.92) inset;
       outline: none;
       transform: translateY(-1px);
     }
@@ -258,7 +262,8 @@
       height: 68px;
       border: 1px solid color-mix(in srgb, currentColor 20%, var(--line));
       border-radius: 8px;
-      background: color-mix(in srgb, currentColor 7%, #ffffff);
+      background: linear-gradient(145deg, color-mix(in srgb, currentColor 9%, #ffffff), color-mix(in srgb, currentColor 4%, #ffffff));
+      box-shadow: 0 7px 16px color-mix(in srgb, currentColor 7%, transparent), 0 1px 0 rgba(255, 255, 255, 0.88) inset;
     }
 
     .icon-tile svg {
@@ -293,6 +298,7 @@
       height: 6px;
       border-radius: 50%;
       background: currentColor;
+      box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 12%, transparent);
     }
 
     .agent-role,
@@ -311,6 +317,12 @@
     .sensing { color: var(--sensing); }
     .governance { color: var(--governance); }
     .domain { color: var(--domain); }
+    .chaos { color: var(--chaos); border-color: color-mix(in srgb, var(--chaos) 25%, var(--line)); }
+    .chaos::before { opacity: 0.72; }
+    .chaos .icon-tile {
+      background: linear-gradient(145deg, color-mix(in srgb, var(--chaos) 12%, #ffffff), color-mix(in srgb, var(--chaos) 5%, #ffffff));
+      box-shadow: 0 8px 18px color-mix(in srgb, var(--chaos) 10%, transparent), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+    }
 
     .board-footer {
       display: flex;
@@ -430,7 +442,7 @@
       { name: 'Muninn', role: 'Memory', group: 'governance', symbol: 'Raven and recall', svg: '<path d="M3 15.5c4.2-.2 6.7-2.4 8.2-6.3 1.8 2.2 4.4 3.5 7.8 3.7-2.5 1.9-5.3 2.8-8.4 2.3-2.7-.4-5.2-.3-7.6.3Z"/><path d="m11.2 9.2 1.3-2.1 2.2.7-2 1.4"/><circle cx="17" cy="6" r="1"/><circle cx="20" cy="8" r=".7"/>' },
       { name: 'Njord', role: 'Cost', group: 'domain', symbol: 'Coin and current', svg: '<circle cx="12" cy="9" r="5"/><path d="M12 6.5v5M10.3 7.5h2.8a1 1 0 0 1 0 2h-2.2a1 1 0 0 0 0 2h2.8M4 18c2-1.3 4-1.3 6 0s4 1.3 6 0 3-.9 4-.4"/>' },
       { name: 'Freyr', role: 'Capacity', group: 'domain', symbol: 'Growth and headroom', svg: '<path d="M5 20v-6M10 20V9M15 20v-4"/><circle cx="18" cy="6" r="2.3"/><path d="M18 2.5v1M18 8.5v1M14.5 6h1M20.5 6h1"/>' },
-      { name: 'Loki', role: 'Chaos', group: 'domain', symbol: 'Disruption and test', svg: '<path d="M12 3c3 3.1 5 5.3 5 9a5 5 0 0 1-10 0c0-2 .8-3.5 2.2-4.8.2 1.8 1.2 2.7 2.1 2.7 1.2 0 1.8-1.4.7-3.6.7.2 1.3-.8 0-3.3Z"/><path d="M12 20a2.6 2.6 0 0 0 2.6-2.6c0-1.5-1.3-2.6-2.6-4.1"/>' }
+      { name: 'Loki', role: 'Chaos', group: 'domain', tone: 'chaos', symbol: 'Disruption and test', svg: '<path d="M12 3c3 3.1 5 5.3 5 9a5 5 0 0 1-10 0c0-2 .8-3.5 2.2-4.8.2 1.8 1.2 2.7 2.1 2.7 1.2 0 1.8-1.4.7-3.6.7.2 1.3-.8 0-3.3Z"/><path d="M12 20a2.6 2.6 0 0 0 2.6-2.6c0-1.5-1.3-2.6-2.6-4.1"/>' }
     ];
 
     function iconMarkup(agent, size) {
@@ -441,7 +453,7 @@
     agents.forEach((agent) => {
       const card = document.createElement('button');
       card.type = 'button';
-      card.className = `agent-card ${agent.group}`;
+      card.className = `agent-card ${agent.tone || agent.group}`;
       card.dataset.group = agent.group;
       card.setAttribute('aria-label', `${agent.name}, ${agent.role}, ${agent.symbol}`);
       card.innerHTML = `<span class="icon-tile">${iconMarkup(agent, 'var(--icon-size)')}</span><span class="agent-copy"><span class="agent-heading"><span class="agent-name">${agent.name}</span><span class="group-dot" aria-hidden="true"></span></span><span class="agent-role">${agent.role}</span><span class="agent-symbol">${agent.symbol}</span></span>`;
