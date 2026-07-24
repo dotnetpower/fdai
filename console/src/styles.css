@@ -1377,6 +1377,9 @@ pre {
   gap: 8px;
   flex-wrap: wrap;
 }
+.live .page-header { flex-wrap: wrap; }
+.live .page-header-text { flex: 1 1 280px; }
+.live .page-header-actions { min-width: 0; max-width: 100%; }
 .live-control-btn {
   display: inline-flex;
   align-items: center;
@@ -1782,6 +1785,7 @@ pre {
 
 @media (max-width: 760px) {
   .live .page-header { align-items: flex-start; flex-direction: column; }
+  .live .page-header-text { flex: 0 1 auto; width: 100%; }
   .live .page-header-actions { width: 100%; min-width: 0; flex-shrink: 1; }
   .live-header-right { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
   .live-filterbar { border-radius: 8px; }
