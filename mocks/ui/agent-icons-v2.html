@@ -325,6 +325,11 @@
       filter: drop-shadow(0 1px 0.4px rgba(46, 60, 68, 0.34));
       stroke-width: 1.85;
     }
+    .operations .icon-tile svg,
+    .sensing .icon-tile svg,
+    .governance .icon-tile svg,
+    .domain .icon-tile svg,
+    .chaos .icon-tile svg { filter: drop-shadow(0 1px 0.3px rgba(35, 49, 57, 0.16)); }
     .gold .group-dot { background: linear-gradient(135deg, #f5d77b, #8c5b0c); }
     .silver .group-dot { background: linear-gradient(135deg, #f2f6f7, #64747d); }
     .bronze .group-dot { background: linear-gradient(135deg, #dda06b, #774027); }
@@ -428,7 +433,7 @@
 
     <footer class="board-footer">
       <span><strong>Shared geometry:</strong> 24 x 24 viewBox, 1.7 stroke, round caps and joins.</span>
-      <span><code>stroke: currentColor</code> / no fixed fills</span>
+      <span><code>stroke: currentColor / gradient</code> / no fixed fills</span>
     </footer>
   </main>
 
@@ -438,7 +443,18 @@
       gold: ['#7a4c08', '#e1bd50', '#fff0a3', '#9a620e'],
       mutedGold: ['#80611f', '#b99a45', '#ddc77d', '#8f6c24'],
       silver: ['#3e4e57', '#8998a0', '#cad4d8', '#465a64'],
-      bronze: ['#713a22', '#c77d49', '#efb17d', '#844328']
+      bronze: ['#713a22', '#c77d49', '#efb17d', '#844328'],
+      softOperations: ['#95552f', '#b87750', '#d5a17e', '#a35f39'],
+      softSensing: ['#126a65', '#478f89', '#8ab8b3', '#2f7872'],
+      softGovernance: ['#5d4a7f', '#806c9e', '#aca0bf', '#69568a'],
+      softDomain: ['#326449', '#59886a', '#9bb9a5', '#47765a'],
+      chaos: ['#92283a', '#b94c5f', '#d98a99', '#a33347']
+    };
+    const softMetalByGroup = {
+      operations: 'softOperations',
+      sensing: 'softSensing',
+      governance: 'softGovernance',
+      domain: 'softDomain'
     };
     const agents = [
       { name: 'Odin', role: 'Master Planner', group: 'command', tone: 'gold', symbol: 'Sight and direction', svg: '<path d="M3 12s3.2-4.5 9-4.5 9 4.5 9 4.5-3.2 4.5-9 4.5S3 12 3 12Z"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3v2M5.6 5.5 7 6.9M18.4 5.5 17 6.9"/>' },
@@ -459,7 +475,7 @@
     ];
 
     function iconMarkup(agent, size) {
-      const palette = metalPalettes[agent.metal || agent.tone];
+      const palette = metalPalettes[agent.metal || agent.tone || softMetalByGroup[agent.group]];
       const gradientId = `metal-${agent.name.toLowerCase()}-${String(size).replace(/[^a-z0-9]/gi, '')}`;
       const gradient = palette
         ? `<defs><linearGradient id="${gradientId}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${palette[0]}"/><stop offset="0.38" stop-color="${palette[1]}"/><stop offset="0.58" stop-color="${palette[2]}"/><stop offset="1" stop-color="${palette[3]}"/></linearGradient></defs>`
