@@ -145,6 +145,20 @@ export function isNearLogBottom(
   return scrollHeight - scrollTop - clientHeight < 24;
 }
 
+export type AgentLogFullscreenAction = "exit-native" | "enter-native" | "enter-fallback";
+
+export function agentLogFullscreenAction(
+  hasFullscreenElement: boolean,
+  requestFullscreenAvailable: boolean,
+): AgentLogFullscreenAction {
+  if (hasFullscreenElement) return "exit-native";
+  return requestFullscreenAvailable ? "enter-native" : "enter-fallback";
+}
+
+export function fallbackAfterFullscreenFailure(action: AgentLogFullscreenAction): boolean {
+  return action === "enter-native";
+}
+
 function liveKind(event: LiveAgentActivityEvent): AgentLogRow["kind"] {
   if (event.kind === "incident.ticket") return "incident";
   if (event.kind === "conversation.turn") return "handoff";

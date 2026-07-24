@@ -3,9 +3,11 @@ import type { AuditItem } from "../types";
 import type { LiveAgentActivityEvent } from "./agents.model";
 import {
   AGENT_LOG_LIMIT,
+  agentLogFullscreenAction,
   buildAgentLogRows,
   DEFAULT_AGENT_LOG_COLUMNS,
   filterAgentLogRows,
+  fallbackAfterFullscreenFailure,
   isNearLogBottom,
   toggleAgentLogColumn,
 } from "./agent-activity-log-model";
@@ -161,5 +163,16 @@ describe("agent live log controls", () => {
   it("uses a small bottom threshold for live-tail pause decisions", () => {
     expect(isNearLogBottom(1000, 380, 600)).toBe(true);
     expect(isNearLogBottom(1000, 300, 600)).toBe(false);
+  });
+
+  it("never layers fallback fullscreen over a failed native fullscreen exit", () => {
+    const exitAction = agentLogFullscreenAction(true, true);
+    const enterAction = agentLogFullscreenAction(false, true);
+
+    expect(exitAction).toBe("exit-native");
+    expect(fallbackAfterFullscreenFailure(exitAction)).toBe(false);
+    expect(enterAction).toBe("enter-native");
+    expect(fallbackAfterFullscreenFailure(enterAction)).toBe(true);
+    expect(agentLogFullscreenAction(false, false)).toBe("enter-fallback");
   });
 });

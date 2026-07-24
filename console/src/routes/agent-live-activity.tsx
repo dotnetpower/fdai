@@ -10,9 +10,11 @@ import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import {
   AGENT_LOG_LIMIT,
+  agentLogFullscreenAction,
   buildAgentLogRows,
   DEFAULT_AGENT_LOG_COLUMNS,
   filterAgentLogRows,
+  fallbackAfterFullscreenFailure,
   isNearLogBottom,
   toggleAgentLogColumn,
   type AgentLogColumn,
@@ -66,6 +68,9 @@ export function LiveActivityJournal({
   const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
+  const fullscreenButtonRef = useRef<HTMLButtonElement>(null);
+  const fallbackFullscreenRef = useRef(false);
+  const nativeFullscreenRef = useRef(false);
   const rows = useMemo(() => buildAgentLogRows(events, auditItems), [events, auditItems]);
   const visibleRows = useMemo(
     () => filterAgentLogRows(rows, selectedAgent, query),
@@ -86,9 +91,20 @@ export function LiveActivityJournal({
   }, [tailing, latestRowId, selectedAgent, query]);
 
   useEffect(() => {
-    const sync = () => setNativeFullscreen(document.fullscreenElement === panelRef.current);
+    const restoreFocus = () => {
+      window.requestAnimationFrame(() => fullscreenButtonRef.current?.focus());
+    };
+    const sync = () => {
+      const active = document.fullscreenElement === panelRef.current;
+      const wasActive = nativeFullscreenRef.current;
+      nativeFullscreenRef.current = active;
+      setNativeFullscreen(active);
+      if (wasActive && !active) restoreFocus();
+    };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && fallbackFullscreen) setFallbackFullscreen(false);
+      if (event.key === "Escape" && fallbackFullscreenRef.current) {
+        setFallbackFullscreen(false);
+      }
     };
     document.addEventListener("fullscreenchange", sync);
     document.addEventListener("keydown", onKeyDown);
@@ -96,11 +112,18 @@ export function LiveActivityJournal({
       document.removeEventListener("fullscreenchange", sync);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [fallbackFullscreen]);
+  }, []);
 
   useEffect(() => {
+    const wasActive = fallbackFullscreenRef.current;
+    fallbackFullscreenRef.current = fallbackFullscreen;
     document.body.classList.toggle("aa-log-fullscreen-fallback", fallbackFullscreen);
-    return () => document.body.classList.remove("aa-log-fullscreen-fallback");
+    if (wasActive && !fallbackFullscreen) {
+      window.requestAnimationFrame(() => fullscreenButtonRef.current?.focus());
+    }
+    return () => {
+      document.body.classList.remove("aa-log-fullscreen-fallback");
+    };
   }, [fallbackFullscreen]);
 
   const toggleFullscreen = async (): Promise<void> => {
@@ -110,15 +133,19 @@ export function LiveActivityJournal({
       setFallbackFullscreen(false);
       return;
     }
-    if (document.fullscreenElement !== null) {
+    const action = agentLogFullscreenAction(
+      document.fullscreenElement !== null,
+      panel.requestFullscreen !== undefined,
+    );
+    if (action === "exit-native") {
       try {
         await document.exitFullscreen();
       } catch {
-        setFallbackFullscreen(true);
+        return;
       }
       return;
     }
-    if (panel.requestFullscreen === undefined) {
+    if (action === "enter-fallback") {
       setFallbackFullscreen(true);
       return;
     }
@@ -126,7 +153,7 @@ export function LiveActivityJournal({
       await panel.requestFullscreen({ navigationUI: "hide" });
       setNativeFullscreen(true);
     } catch {
-      setFallbackFullscreen(true);
+      if (fallbackAfterFullscreenFailure(action)) setFallbackFullscreen(true);
     }
   };
 
@@ -153,6 +180,7 @@ export function LiveActivityJournal({
             {t("agentActivity.log.rows", { count: visibleRows.length })}
           </span>
           <button
+            ref={fullscreenButtonRef}
             type="button"
             class="aa-log-control aa-log-tail"
             aria-pressed={tailing}
