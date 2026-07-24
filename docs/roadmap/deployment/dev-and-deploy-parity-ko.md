@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 07bcc57a549139c7643075ec0daa5b6dcffb1f9a
+translation_source_sha: a5fbd238ba9a120301fb5a3426b58b9ac565263d
 translation_revised: 2026-07-24
 ---
 
@@ -85,6 +85,9 @@ site는 인증된 Console full stack과 분리되어 있습니다.
 
 `Console Web: Full Stack` compound는 core runtime, Console SPA, read API를 시작합니다. 정적 design
 mock과 격리된 test ingestion gateway는 시작하지 않습니다.
+Core, read API, debugger 및 local migration command는 현재 workspace의 `src` directory를 Python
+import path의 첫 위치에 명시합니다. 따라서 다른 worktree가 virtual environment의 editable-install
+metadata를 변경해도 오래된 FDAI source를 시작할 수 없습니다.
 
 ### Workspace context 정리
 

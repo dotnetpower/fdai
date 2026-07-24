@@ -154,12 +154,15 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     tasks = (_REPO_ROOT / ".vscode" / "tasks.json").read_text(encoding="utf-8")
     settings = json.loads((_REPO_ROOT / ".vscode" / "settings.json").read_text(encoding="utf-8"))
     configs = {item["name"]: item for item in launch["configurations"]}
+    core_env = configs["Console Web: Core Runtime"]["env"]
     api_env = configs["Console Web: Read API"]["env"]
     frontend_env = configs["Console Web: Frontend"]["env"]
     compound = next(
         item for item in launch["compounds"] if item["name"] == "Console Web: Full Stack"
     )
 
+    assert core_env["PYTHONPATH"] == "${workspaceFolder}/src"
+    assert api_env["PYTHONPATH"] == "${workspaceFolder}/src"
     assert api_env["FDAI_READ_API_LOCAL_ENTRA"] == "1"
     assert api_env["FDAI_READ_API_DEV_MODE"] == "0"
     assert api_env["FDAI_READ_API_LOCAL_AZURE_CLI"] == "0"
@@ -167,6 +170,7 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     assert _START_PANTHEON_ENV not in api_env
     assert "FDAI_NARRATOR_AUTO_OPEN_AOAI" not in api_env
     assert "FDAI_NARRATOR_AUTO_OPEN_AOAI=0" not in tasks
+    assert 'PYTHONPATH=\\"$PWD/src${PYTHONPATH:+:$PYTHONPATH}\\"' in tasks
     assert configs["Console Web: Read API"]["preLaunchTask"] == "console: prepare full stack"
     assert configs["Console Web: Read API"]["envFile"].endswith("/.fdai/local-runtime.env")
     assert frontend_env["VITE_DEV_MODE"] == "0"

@@ -22,6 +22,9 @@
       "cwd": "${workspaceFolder}",
       "preLaunchTask": "console: prepare full stack",
       "envFile": "${workspaceFolder}/.fdai/local-runtime.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
       "console": "integratedTerminal",
       "justMyCode": true,
       "subProcess": true
@@ -45,6 +48,7 @@
       "preLaunchTask": "console: prepare full stack",
       "envFile": "${workspaceFolder}/.fdai/local-runtime.env",
       "env": {
+        "PYTHONPATH": "${workspaceFolder}/src",
         "FDAI_READ_API_LOCAL_ENTRA": "1",
         "FDAI_READ_API_DEV_MODE": "0",
         "FDAI_READ_API_LOCAL_AZURE_CLI": "0",

@@ -82,6 +82,9 @@ site is static and separate from the authenticated Console full stack.
 
 The `Console Web: Full Stack` compound starts the core runtime, Console SPA, and read API. It does
 not start the static design mocks or the isolated test ingestion gateway.
+Core, read API, debugger, and local migration commands explicitly place the current workspace
+`src` directory first on the Python import path. A virtual environment whose editable-install
+metadata was changed by another worktree therefore cannot launch stale FDAI source.
 
 ### Workspace context hygiene
 
