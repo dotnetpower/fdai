@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { Tooltip } from "../components/tooltip";
 import type { AuditItem } from "../types";
 import type { AgentStreamStatus } from "../hooks/use-agent-stream";
 import {
@@ -191,10 +192,12 @@ export function LiveActivityJournal({
             {t(tailing ? "agentActivity.log.tailOn" : "agentActivity.log.resumeTail")}
           </button>
           <details class="aa-log-columns">
-            <summary class="aa-log-control" title={t("agentActivity.log.columns")}>
-              <span aria-hidden="true">☷</span>
-              <span>{t("agentActivity.log.columns")}</span>
-            </summary>
+            <Tooltip content={t("agentActivity.log.columns")}>
+              <summary class="aa-log-control">
+                <span aria-hidden="true">☷</span>
+                <span>{t("agentActivity.log.columns")}</span>
+              </summary>
+            </Tooltip>
             <div class="aa-log-column-menu">
               {COLUMN_ORDER.map((column) => (
                 <label key={column}>
@@ -208,16 +211,17 @@ export function LiveActivityJournal({
               ))}
             </div>
           </details>
-          <button
-            type="button"
-            class="aa-log-control"
-            aria-pressed={fullscreen}
-            title={t(fullscreen ? "agentActivity.log.exitFullscreen" : "agentActivity.log.fullscreen")}
-            onClick={() => void toggleFullscreen()}
-          >
-            <span aria-hidden="true">{fullscreen ? "×" : "⛶"}</span>
-            <span>{t(fullscreen ? "agentActivity.log.exitFullscreen" : "agentActivity.log.fullscreen")}</span>
-          </button>
+          <Tooltip content={t(fullscreen ? "agentActivity.log.exitFullscreen" : "agentActivity.log.fullscreen")}>
+            <button
+              type="button"
+              class="aa-log-control"
+              aria-pressed={fullscreen}
+              onClick={() => void toggleFullscreen()}
+            >
+              <span aria-hidden="true">{fullscreen ? "×" : "⛶"}</span>
+              <span>{t(fullscreen ? "agentActivity.log.exitFullscreen" : "agentActivity.log.fullscreen")}</span>
+            </button>
+          </Tooltip>
         </div>
       </header>
 
@@ -299,15 +303,16 @@ function AgentLogRowView({
   return (
     <div class={`aa-log-row kind-${row.kind}`} role="row">
       {visibleColumns.includes("time") ? (
-        <time
-          role="cell"
-          data-column="time"
-          dateTime={row.timestampValid ? row.timestamp : undefined}
-          aria-invalid={row.timestampValid ? undefined : "true"}
-          title={row.timestampValid ? undefined : row.timestamp}
-        >
-          {formatConsoleTimestamp(row.timestamp)}
-        </time>
+        <Tooltip content={row.timestampValid ? undefined : row.timestamp}>
+          <time
+            role="cell"
+            data-column="time"
+            dateTime={row.timestampValid ? row.timestamp : undefined}
+            aria-invalid={row.timestampValid ? undefined : "true"}
+          >
+            {formatConsoleTimestamp(row.timestamp)}
+          </time>
+        </Tooltip>
       ) : null}
       {visibleColumns.includes("route") ? (
         <span role="cell" data-column="route" class="aa-log-route">
