@@ -60,6 +60,9 @@ changes presentation only. The Time column shows clock time only in the browser'
 including `KST` for `Asia/Seoul`; the machine-readable row retains the complete timestamp. The
 Waterfall view remains the durable audit master-detail surface for lifecycle, inputs, outputs,
 recorded conversations, and hashes.
+Principal-scoped Command Deck turns and shadow answer-planning contributions stay in conversation
+history and never enter the shared Agent Activity stream. Agent Activity shows operational
+object-topic handoffs and other runtime activity that is safe for every authorized Reader.
 
 Every data-bearing card across the console drills down. The complete card surface uses a native
 keyboard-accessible link to the narrowest analytical or filtered-evidence destination that owns the

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2aaf3c5f070761f237418afddca66df55d4a4add
+translation_source_sha: 1943fd59564b8dcfe960bfcc937a5be116dac136
 translation_revised: 2026-07-24
 ---
 
@@ -62,6 +62,9 @@ Fullscreen은 presentation만 변경합니다. 시간 열은 browser의 IANA tim
 `Asia/Seoul`에서는 `KST`를 사용합니다. Machine-readable row에는 전체 timestamp를 유지합니다.
 Waterfall view는 lifecycle, input, output, 기록된 conversation 및 hash를 확인하는 durable audit
 master-detail surface로 유지합니다.
+Principal-scoped Command Deck turn과 shadow answer-planning contribution은 conversation history에
+유지하며 shared Agent Activity stream에 게시하지 않습니다. Agent Activity는 권한 있는 모든 Reader에게
+안전한 operational object-topic handoff와 기타 runtime activity만 표시합니다.
 
 콘솔의 모든 data-bearing card는 drill-down을 제공합니다. 전체 card surface는 해당 datum을 소유하는
 가장 좁은 analytical 또는 filtered-evidence 목적지로 이동하는 keyboard-accessible native link를

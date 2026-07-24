@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from unittest.mock import AsyncMock, patch
 
 from fdai.agents import PantheonRuntime
 from fdai.delivery.read_api.routes.chat_agent_delegate import PantheonChatDelegate
@@ -73,6 +74,28 @@ def test_action_and_no_route_return_no_agent_evidence() -> None:
 
     assert action is None
     assert unknown is None
+
+
+def test_delegate_does_not_materialize_principal_scoped_chat_as_global_activity() -> None:
+    delegate = _delegate()
+    ask = AsyncMock(return_value=None)
+
+    with patch.object(delegate.runtime, "ask", ask):
+        result = asyncio.run(
+            delegate.delegate(
+                prompt="cost breakdown",
+                user_id="operator-1",
+                session_id="conversation-1",
+            )
+        )
+
+    assert result is None
+    call = ask.await_args.kwargs
+    assert call["session_id"].startswith("web-")
+    assert call["user_id"] == "operator-1"
+    assert call["question"] == "cost breakdown"
+    assert call["allow_action_proposal"] is False
+    assert call["materialize_handoff"] is False
 
 
 def test_shadow_planning_route_is_deterministic_and_excludes_norns_and_odin() -> None:
