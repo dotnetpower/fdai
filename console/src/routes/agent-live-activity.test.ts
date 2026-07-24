@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { AuditItem } from "../types";
 import type { LiveAgentActivityEvent } from "./agents.model";
@@ -193,5 +195,17 @@ describe("agent live log controls", () => {
     expect(enterAction).toBe("enter-native");
     expect(fallbackAfterFullscreenFailure(enterAction)).toBe(true);
     expect(agentLogFullscreenAction(false, false)).toBe("enter-fallback");
+  });
+
+  it("owns row semantics with an ARIA table and explicit dimensions", () => {
+    const source = readFileSync(
+      fileURLToPath(new URL("./agent-live-activity.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(source).toContain('role="log"');
+    expect(source).toContain('role="table"');
+    expect(source).toContain('aria-rowcount={Math.max(visibleRows.length, 1) + 1}');
+    expect(source).toContain('aria-colcount={visibleColumns.length}');
   });
 });

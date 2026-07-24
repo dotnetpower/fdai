@@ -257,7 +257,14 @@ export function LiveActivityJournal({
           )) setTailing(false);
         }}
       >
-        <div class="aa-log-grid" style={`--aa-log-template:${template}`}>
+        <div
+          class="aa-log-grid"
+          role="table"
+          aria-label={t("agentActivity.log.title")}
+          aria-rowcount={Math.max(visibleRows.length, 1) + 1}
+          aria-colcount={visibleColumns.length}
+          style={`--aa-log-template:${template}`}
+        >
           <div class="aa-log-header" role="row">
             {COLUMN_ORDER.filter((column) => visibleColumns.includes(column)).map((column) => (
               <span key={column} role="columnheader" data-column={column}>
@@ -266,7 +273,9 @@ export function LiveActivityJournal({
             ))}
           </div>
           {visibleRows.length === 0 ? (
-            <p class="aa-log-empty">{t("agentActivity.log.noRows")}</p>
+            <div class="aa-log-empty" role="row">
+              <span role="cell">{t("agentActivity.log.noRows")}</span>
+            </div>
           ) : visibleRows.map((row) => (
             <AgentLogRowView key={row.id} row={row} visibleColumns={visibleColumns} />
           ))}
