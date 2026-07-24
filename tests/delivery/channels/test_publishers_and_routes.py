@@ -155,7 +155,41 @@ async def test_slack_publisher_renders_agent_activity_blocks() -> None:
     assert isinstance(blocks, list)
     assert "*Bragi* -> *@Heimdall*" in str(blocks[0])
     assert "query_metric" in str(blocks[1])
-    assert "point_count" in str(blocks[2])
+    assert blocks[2]["text"] == {
+        "type": "plain_text",
+        "text": "Command\nquery_metric --metric <redacted> --window <redacted>",
+    }
+    assert "point_count" in str(blocks[3])
+
+
+async def test_slack_activity_preserves_command_backticks_verbatim() -> None:
+    captured: dict[str, object] = {}
+    command = "printf '%s' `date -u`"
+    activity = ObservedExecutionActivity(
+        agent="Heimdall",
+        label="Inspect clock evidence",
+        tool="query_log",
+        command=command,
+        status=ConversationExecutionStatus.COMPLETED,
+        redacted=True,
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True, "ts": "2.0"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        publisher = SlackWebApiReplyPublisher(
+            config=SlackReplyPublisherConfig(), token="app-token", http_client=client
+        )
+        await publisher.publish(_response(ConversationChannelKind.SLACK, activities=(activity,)))
+
+    blocks = captured["blocks"]
+    assert isinstance(blocks, list)
+    assert blocks[1]["text"] == {
+        "type": "plain_text",
+        "text": f"Command\n{command}",
+    }
 
 
 async def test_teams_publisher_renders_agent_activity_adaptive_card() -> None:

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: f4f050a225e520e118052c5c9d795dfd5bf8d422
+translation_source_sha: db25f311566bd6294e7c443f88c2b8cfa7f9cdea
 translation_revised: 2026-07-24
 ---
 
@@ -104,7 +104,8 @@ flowchart TD
   없는 SSE comment heartbeat를 전송합니다. Stream을 닫으면 해당 task를 cancel하고 await합니다.
   Web, Slack 및 Teams는 같은 ordered agent-activity 계약을 렌더링합니다. Bragi는 handoff를 표시하고,
   책임 observer는 canonical command/result evidence를 표시하며, Bragi는 최종 human-facing narrator로
-  유지됩니다. Vendor adapter는 presentation만 변경합니다.
+  유지됩니다. Vendor adapter는 presentation만 변경합니다. Slack은 command 및 output body에
+  plain-text activity block을 사용하여 markup character가 observed command를 바꾸지 못하게 합니다.
 - **Layer 2 (Coordinator)**는 intent classification, RBAC gating, tool
   dispatch, verifier re-check, 세션 bookkeeping을 소유합니다. Core translator는 `Narrator`
   Protocol을 사용합니다. `GroundedAnswerNarrator`도 구현하는 narrator는 완료된 성공

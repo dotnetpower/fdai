@@ -106,7 +106,8 @@ flowchart TD
   provider task is idle, without progress or evidence. Stream close cancels and awaits that task.
   Web, Slack, and Teams render the same ordered agent-activity contract: Bragi shows the handoff,
   the accountable observer shows canonical command/result evidence, and Bragi remains the final
-  human-facing narrator. Vendor adapters change presentation only.
+  human-facing narrator. Vendor adapters change presentation only. Slack uses plain-text activity
+  blocks for command and output bodies so markup characters cannot change the observed command.
 - **Layer 2 (Coordinator)** owns intent classification, RBAC gating, tool
   dispatch, verifier re-check, and session bookkeeping. Core translation uses the `Narrator`
   Protocol. A narrator that also implements `GroundedAnswerNarrator` receives a completed

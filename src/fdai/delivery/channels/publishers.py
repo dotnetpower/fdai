@@ -513,12 +513,12 @@ def _slack_activity_blocks(response: OutboundResponse, answer: str) -> list[dict
             _slack_section(
                 f"*{_slack_escape(activity.agent)} - {_slack_escape(activity.label)}* "
                 f"`{activity.status.value}`\n"
-                f"*{_slack_escape(activity.tool)}*\n"
-                f"```{_slack_code(activity.command, 1_800)}```"
+                f"*{_slack_escape(activity.tool)}*"
             )
         )
+        blocks.append(_slack_plain_section("Command", activity.command, 2_800))
         if activity.output:
-            blocks.append(_slack_section(f"*Output*\n```{_slack_code(activity.output, 2_400)}```"))
+            blocks.append(_slack_plain_section("Output", activity.output, 2_800))
     blocks.append(_slack_section(f"*Bragi*\n{_slack_escape(answer)}"))
     return blocks
 
@@ -530,12 +530,18 @@ def _slack_section(text: str) -> dict[str, object]:
     }
 
 
+def _slack_plain_section(title: str, value: str, limit: int) -> dict[str, object]:
+    return {
+        "type": "section",
+        "text": {
+            "type": "plain_text",
+            "text": f"{title}\n{_bounded_text(value, limit)}",
+        },
+    }
+
+
 def _slack_escape(value: str) -> str:
     return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-def _slack_code(value: str, limit: int) -> str:
-    return _slack_escape(_bounded_text(value.replace("`", "'"), limit))
 
 
 def _teams_activity_card(response: OutboundResponse, answer: str) -> dict[str, object]:
