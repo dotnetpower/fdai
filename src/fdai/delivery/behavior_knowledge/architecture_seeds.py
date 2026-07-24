@@ -652,14 +652,14 @@ def build_architecture_behavior_specs(
                 ),
             ),
             sources=(
-                _source(blob_shas, "code", "src/fdai/agents/bragi.py", "Bragi.ask", 214, 252),
+                _source(blob_shas, "code", "src/fdai/agents/bragi.py", "Bragi.ask", 237, 286),
                 _source(
                     blob_shas,
                     "test",
                     "tests/agents/test_conversational_port.py",
                     "test_ask_refuses_action_intent_and_routes_to_typed_pipeline",
-                    110,
-                    125,
+                    144,
+                    160,
                 ),
             ),
             indexed_commit=indexed_commit,
