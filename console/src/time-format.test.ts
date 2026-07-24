@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "vitest";
 import { setLocale } from "./i18n";
-import { formatConsoleTimestamp, isRfc3339Timestamp } from "./time-format";
+import { formatConsoleTime, formatConsoleTimestamp, isRfc3339Timestamp } from "./time-format";
 
 afterEach(() => setLocale("en"));
 
@@ -23,5 +23,14 @@ describe("console evidence timestamps", () => {
   test("uses the active product locale", () => {
     setLocale("ko");
     expect(formatConsoleTimestamp("2026-07-17T08:00:00Z")).toMatch(/2026/);
+  });
+
+  test("formats Agent Activity time only in the operator timezone", () => {
+    expect(formatConsoleTime("2026-07-24T04:33:12Z", "Asia/Seoul"))
+      .toBe("13:33:12 KST");
+    expect(formatConsoleTime("2026-07-24T04:33:12Z", "UTC"))
+      .toBe("04:33:12 UTC");
+    expect(formatConsoleTime("not-a-timestamp", "Asia/Seoul"))
+      .toBe("not-a-timestamp");
   });
 });

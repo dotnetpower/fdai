@@ -8,7 +8,7 @@ import {
 } from "../hooks/observation-source";
 import { t } from "../i18n";
 import { routeHref } from "../router";
-import { formatConsoleTimestamp } from "../time-format";
+import { formatConsoleTime } from "../time-format";
 import {
   AGENT_LOG_LIMIT,
   agentLogFullscreenAction,
@@ -32,7 +32,7 @@ const COLUMN_ORDER: readonly AgentLogColumn[] = [
   "correlation",
 ];
 const COLUMN_WIDTH: Readonly<Record<AgentLogColumn, string>> = {
-  time: "150px",
+  time: "112px",
   route: "150px",
   type: "96px",
   detail: "minmax(300px, 1fr)",
@@ -65,10 +65,12 @@ export function LiveActivityJournal({
     DEFAULT_AGENT_LOG_COLUMNS,
   );
   const [tailing, setTailing] = useState(true);
+  const [columnsOpen, setColumnsOpen] = useState(false);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
+  const columnsRef = useRef<HTMLDivElement>(null);
   const fullscreenButtonRef = useRef<HTMLButtonElement>(null);
   const fallbackFullscreenRef = useRef(false);
   const nativeFullscreenRef = useRef(false);
@@ -126,6 +128,22 @@ export function LiveActivityJournal({
       document.body.classList.remove("aa-log-fullscreen-fallback");
     };
   }, [fallbackFullscreen]);
+
+  useEffect(() => {
+    if (!columnsOpen) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!columnsRef.current?.contains(event.target as Node | null)) setColumnsOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setColumnsOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [columnsOpen]);
 
   const toggleFullscreen = async (): Promise<void> => {
     const panel = panelRef.current;
@@ -191,14 +209,20 @@ export function LiveActivityJournal({
             <span class="aa-log-live-dot" aria-hidden="true" />
             {t(tailing ? "agentActivity.log.tailOn" : "agentActivity.log.resumeTail")}
           </button>
-          <details class="aa-log-columns">
+          <div ref={columnsRef} class="aa-log-columns">
             <Tooltip content={t("agentActivity.log.columns")}>
-              <summary class="aa-log-control">
+              <button
+                type="button"
+                class="aa-log-control"
+                aria-haspopup="menu"
+                aria-expanded={columnsOpen}
+                onClick={() => setColumnsOpen((current) => !current)}
+              >
                 <span aria-hidden="true">☷</span>
                 <span>{t("agentActivity.log.columns")}</span>
-              </summary>
+              </button>
             </Tooltip>
-            <div class="aa-log-column-menu">
+            {columnsOpen ? <div class="aa-log-column-menu" role="menu">
               {COLUMN_ORDER.map((column) => (
                 <label key={column}>
                   <input
@@ -209,8 +233,8 @@ export function LiveActivityJournal({
                   <span>{t(`agentActivity.log.column.${column}`)}</span>
                 </label>
               ))}
-            </div>
-          </details>
+            </div> : null}
+          </div>
           <Tooltip content={t(fullscreen ? "agentActivity.log.exitFullscreen" : "agentActivity.log.fullscreen")}>
             <button
               type="button"
@@ -310,7 +334,7 @@ function AgentLogRowView({
             dateTime={row.timestampValid ? row.timestamp : undefined}
             aria-invalid={row.timestampValid ? undefined : "true"}
           >
-            {formatConsoleTimestamp(row.timestamp)}
+            {formatConsoleTime(row.timestamp)}
           </time>
         </Tooltip>
       ) : null}

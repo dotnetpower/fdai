@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 0fda177f295805a6689acdea46c7a0b2200a744d
+translation_source_sha: 6e4686979cff801b2348135e0d7bd75ebfe080f9
 translation_revised: 2026-07-24
 ---
 
@@ -58,8 +58,10 @@ repository credential, recipient 또는 managed identity value는 렌더링하�
 `from -> to` 행으로 렌더링합니다. Log는 렌더링된 행을 최대 200개 유지하고 live tail을 기본으로
 활성화합니다. 운영자가 위로 scroll하면 tailing을 일시 중지하며 agent 및 keyword filter를
 제공합니다. 시간, 경로, 유형, 상세 및 상관관계 열을 선택할 수 있고 유형은 기본적으로 숨깁니다.
-Fullscreen은 presentation만 변경합니다. Waterfall view는 lifecycle, input, output, 기록된 conversation
-및 hash를 확인하는 durable audit master-detail surface로 유지합니다.
+Fullscreen은 presentation만 변경합니다. 시간 열은 browser의 IANA timezone에 따른 시각만 표시하며
+`Asia/Seoul`에서는 `KST`를 사용합니다. Machine-readable row에는 전체 timestamp를 유지합니다.
+Waterfall view는 lifecycle, input, output, 기록된 conversation 및 hash를 확인하는 durable audit
+master-detail surface로 유지합니다.
 
 콘솔의 모든 data-bearing card는 drill-down을 제공합니다. 전체 card surface는 해당 datum을 소유하는
 가장 좁은 analytical 또는 filtered-evidence 목적지로 이동하는 keyboard-accessible native link를

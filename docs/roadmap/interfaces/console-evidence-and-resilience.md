@@ -56,8 +56,10 @@ evidence. Recorded and live agent-to-agent turns render as individual `from -> t
 full bounded message text. The log retains at most 200 rendered rows, starts with live tail enabled,
 pauses tailing when the operator scrolls upward, and supports agent and keyword filters. Time,
 route, type, detail, and correlation columns are configurable; type is hidden by default. Fullscreen
-changes presentation only. The Waterfall view remains the durable audit master-detail surface for
-lifecycle, inputs, outputs, recorded conversations, and hashes.
+changes presentation only. The Time column shows clock time only in the browser's IANA timezone,
+including `KST` for `Asia/Seoul`; the machine-readable row retains the complete timestamp. The
+Waterfall view remains the durable audit master-detail surface for lifecycle, inputs, outputs,
+recorded conversations, and hashes.
 
 Every data-bearing card across the console drills down. The complete card surface uses a native
 keyboard-accessible link to the narrowest analytical or filtered-evidence destination that owns the

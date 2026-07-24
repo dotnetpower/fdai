@@ -230,6 +230,17 @@ describe("agent live log controls", () => {
     expect(source).toContain('aria-colcount={visibleColumns.length}');
   });
 
+  it("uses an explicit localized menu button instead of a browser-generated details label", () => {
+    const source = readFileSync(
+      fileURLToPath(new URL("./agent-live-activity.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(source).not.toContain('<details class="aa-log-columns">');
+    expect(source).toContain('aria-haspopup="menu"');
+    expect(source).toContain('t("agentActivity.log.columns")');
+  });
+
   it("allows vertical wheel input to chain to the page at log boundaries", () => {
     const styles = readFileSync(
       fileURLToPath(new URL("../styles.css", import.meta.url)),
