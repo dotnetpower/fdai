@@ -64,7 +64,6 @@ import {
   activityFiltersFromSearch,
   ActivityToolbar,
   filterAgentActivity,
-  GroupedAgentActivity,
   type ActivityFilters,
   type ActivityLayer,
   type ActivityVerb,
@@ -75,7 +74,6 @@ import {
   AGENT_RUNTIME_BINDING,
   AGENT_ROLE,
   incidentsForAgent,
-  liveActivityForAgent,
   makeInitialState,
   reducer,
   type AgentNode,
@@ -334,10 +332,6 @@ function ActivityBody({
     () => selected ? incidentsForAgent(runtime, selected) : [],
     [runtime, selected],
   );
-  const liveActivity = useMemo(
-    () => liveActivityForAgent(runtime.liveActivity, selected),
-    [runtime.liveActivity, selected],
-  );
   const provenanceCounts = useMemo(
     () => activityProvenanceCounts(visible),
     [visible],
@@ -425,15 +419,35 @@ function ActivityBody({
 
   return (
     <div class="stack">
-      <ActivityToolbar
-        filters={filters}
-        onChange={openFilters}
-        streamStatus={streamStatus}
-        streamSource={streamSource}
-        liveAgents={liveAgents}
-        lastEventAt={lastEventAt}
-        refreshing={refreshing}
-      />
+      {view === "waterfall" ? (
+        <ActivityToolbar
+          filters={filters}
+          onChange={openFilters}
+          streamStatus={streamStatus}
+          streamSource={streamSource}
+          liveAgents={liveAgents}
+          lastEventAt={lastEventAt}
+          refreshing={refreshing}
+        />
+      ) : null}
+      <div class="view-toggle" role="group" aria-label={t("agentActivity.main.viewLabel")}>
+        <button
+          type="button"
+          class="view-toggle-btn"
+          aria-pressed={view === "activity"}
+          onClick={() => openActivity(selected, "activity")}
+        >
+          {t("agents.workspace.activity")}
+        </button>
+        <button
+          type="button"
+          class="view-toggle-btn"
+          aria-pressed={view === "waterfall"}
+          onClick={() => openActivity(selected, "waterfall")}
+        >
+          {t("agentActivity.main.waterfall")}
+        </button>
+      </div>
       {provenanceCounts.sample > 0 ? (
         <div class="callout" role="status">
           <strong>{t("agentActivity.main.sampleTitle")}</strong> - {t("agentActivity.main.sampleBody", { count: provenanceCounts.sample })}
@@ -452,11 +466,23 @@ function ActivityBody({
           streamSource={streamSource}
         />
       ) : null}
-      <LiveActivityJournal events={liveActivity} selectedAgent={selected} />
-      {data.olderAvailable ? (
+      {view === "activity" ? (
+        <LiveActivityJournal
+          events={runtime.liveActivity}
+          auditItems={data.items}
+          selectedAgent={selected}
+          query={filters.query}
+          streamStatus={streamStatus}
+          streamSource={streamSource}
+          onSelectedAgentChange={(agent) => openActivity(agent, "activity")}
+          onQueryChange={(query) => openFilters({ ...filters, query })}
+        />
+      ) : null}
+      {view === "activity" && data.olderAvailable ? (
         <p class="muted footnote">{t("agentActivity.main.latestRows", { count: data.items.length })}</p>
       ) : null}
-      <div class="agent-filter" role="group" aria-label={t("agentActivity.main.agentFilterLabel")}>
+      {view === "waterfall" ? (
+        <div class="agent-filter" role="group" aria-label={t("agentActivity.main.agentFilterLabel")}>
         <button
           type="button"
           class={`agent-chip ${selected === null ? "agent-chip-on" : ""}`}
@@ -493,28 +519,10 @@ function ActivityBody({
             <span class="agent-chip-count">0</span>
           </button>
         ) : null}
-      </div>
+        </div>
+      ) : null}
 
-      <div class="view-toggle" role="group" aria-label={t("agentActivity.main.viewLabel")}>
-        <button
-          type="button"
-          class="view-toggle-btn"
-          aria-pressed={view === "activity"}
-          onClick={() => openActivity(selected, "activity")}
-        >
-          {t("agents.workspace.activity")}
-        </button>
-        <button
-          type="button"
-          class="view-toggle-btn"
-          aria-pressed={view === "waterfall"}
-          onClick={() => openActivity(selected, "waterfall")}
-        >
-          {t("agentActivity.main.waterfall")}
-        </button>
-      </div>
-
-      {presentation.emptyKind !== null ? (
+      {view !== "waterfall" ? null : presentation.emptyKind !== null ? (
         <EmptyState
           title={presentation.emptyKind === "selected-audit" && selected
             ? t("agentActivity.main.noSelectedAudit", { agent: selected })
@@ -527,9 +535,7 @@ function ActivityBody({
               ? t("agentActivity.main.noAuditBody")
               : t("agentActivity.main.noMatchesBody")}
         />
-      ) : !selectionValid ? null : view === "activity" ? (
-        <GroupedAgentActivity items={visible} agentOf={agentOf} layerOf={layerOf} />
-      ) : (
+      ) : !selectionValid ? null : (
         <ActivityWaterfall items={waterfallItems} selected={selected} />
       )}
     </div>

@@ -316,6 +316,31 @@
       "handoff": "Handoff",
       "state": "State"
     },
+    "log": {
+      "title": "Agent activity log",
+      "rows": "{count} row(s)",
+      "tailOn": "Live tail on",
+      "disableTail": "Disable live tail",
+      "resumeTail": "Resume tail",
+      "columns": "Columns",
+      "column": {
+        "time": "Time",
+        "route": "Route",
+        "type": "Type",
+        "detail": "Detail",
+        "correlation": "Correlation"
+      },
+      "fullscreen": "Full screen",
+      "exitFullscreen": "Exit full screen",
+      "agent": "Agent",
+      "allAgents": "All agents",
+      "find": "Find",
+      "searchPlaceholder": "message, action, resource, or correlation",
+      "noRows": "No matching agent activity.",
+      "retention": "Showing at most the newest {count} audit and runtime rows in memory.",
+      "openAudit": "Open full audit",
+      "activity": "Activity"
+    },
     "main": {
       "auditUnavailable": "Durable audit unavailable",
       "runtimeStillConnected": "Live runtime activity remains connected below.",

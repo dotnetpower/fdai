@@ -1,77 +1,310 @@
-import { observationSourceLabel } from "../hooks/observation-source";
-import { t } from "../i18n";
-import { formatConsoleTimestamp } from "../time-format";
-import { routeHref } from "../router";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import type { AuditItem } from "../types";
+import type { AgentStreamStatus } from "../hooks/use-agent-stream";
 import {
-  isLiveWorkActivity,
-  type LiveAgentActivityEvent,
-} from "./agents.model";
+  observationSourceLabel,
+  type ObservationSource,
+} from "../hooks/observation-source";
+import { t } from "../i18n";
+import { routeHref } from "../router";
+import { formatConsoleTimestamp } from "../time-format";
+import {
+  AGENT_LOG_LIMIT,
+  buildAgentLogRows,
+  DEFAULT_AGENT_LOG_COLUMNS,
+  filterAgentLogRows,
+  isNearLogBottom,
+  toggleAgentLogColumn,
+  type AgentLogColumn,
+  type AgentLogRow,
+  type AgentLogSource,
+} from "./agent-activity-log-model";
+import type { LiveAgentActivityEvent } from "./agents.model";
 
-const DISPLAY_LIMIT = 20;
+const COLUMN_ORDER: readonly AgentLogColumn[] = [
+  "time",
+  "route",
+  "type",
+  "detail",
+  "correlation",
+];
+const COLUMN_WIDTH: Readonly<Record<AgentLogColumn, string>> = {
+  time: "150px",
+  route: "150px",
+  type: "96px",
+  detail: "minmax(300px, 1fr)",
+  correlation: "190px",
+};
+
 
 interface Props {
   readonly events: readonly LiveAgentActivityEvent[];
+  readonly auditItems: readonly AuditItem[];
   readonly selectedAgent: string | null;
+  readonly query: string;
+  readonly streamStatus: AgentStreamStatus;
+  readonly streamSource: ObservationSource;
+  readonly onSelectedAgentChange: (agent: string | null) => void;
+  readonly onQueryChange: (query: string) => void;
 }
 
-export function LiveActivityJournal({ events, selectedAgent }: Props) {
-  const visible = events.slice(0, DISPLAY_LIMIT);
-  const workCount = events.filter(isLiveWorkActivity).length;
-  const subject = selectedAgent ?? t("agentActivity.live.pantheon");
+export function LiveActivityJournal({
+  events,
+  auditItems,
+  selectedAgent,
+  query,
+  streamStatus,
+  streamSource,
+  onSelectedAgentChange,
+  onQueryChange,
+}: Props) {
+  const [visibleColumns, setVisibleColumns] = useState<readonly AgentLogColumn[]>(
+    DEFAULT_AGENT_LOG_COLUMNS,
+  );
+  const [tailing, setTailing] = useState(true);
+  const [nativeFullscreen, setNativeFullscreen] = useState(false);
+  const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
+  const panelRef = useRef<HTMLElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
+  const rows = useMemo(() => buildAgentLogRows(events, auditItems), [events, auditItems]);
+  const visibleRows = useMemo(
+    () => filterAgentLogRows(rows, selectedAgent, query),
+    [rows, selectedAgent, query],
+  );
+  const agents = useMemo(() => {
+    const names = new Set<string>();
+    rows.forEach((row) => row.route.forEach((agent) => names.add(agent)));
+    if (selectedAgent !== null) names.add(selectedAgent);
+    return [...names].sort((left, right) => left.localeCompare(right));
+  }, [rows, selectedAgent]);
+  const latestRowId = visibleRows.at(-1)?.id ?? null;
+  const fullscreen = nativeFullscreen || fallbackFullscreen;
+
+  useLayoutEffect(() => {
+    if (!tailing || logRef.current === null) return;
+    logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [tailing, latestRowId, selectedAgent, query]);
+
+  useEffect(() => {
+    const sync = () => setNativeFullscreen(document.fullscreenElement === panelRef.current);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && fallbackFullscreen) setFallbackFullscreen(false);
+    };
+    document.addEventListener("fullscreenchange", sync);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [fallbackFullscreen]);
+
+  useEffect(() => {
+    document.body.classList.toggle("aa-log-fullscreen-fallback", fallbackFullscreen);
+    return () => document.body.classList.remove("aa-log-fullscreen-fallback");
+  }, [fallbackFullscreen]);
+
+  const toggleFullscreen = async (): Promise<void> => {
+    const panel = panelRef.current;
+    if (panel === null) return;
+    if (fallbackFullscreen) {
+      setFallbackFullscreen(false);
+      return;
+    }
+    if (document.fullscreenElement !== null) {
+      try {
+        await document.exitFullscreen();
+      } catch {
+        setFallbackFullscreen(true);
+      }
+      return;
+    }
+    if (panel.requestFullscreen === undefined) {
+      setFallbackFullscreen(true);
+      return;
+    }
+    try {
+      await panel.requestFullscreen({ navigationUI: "hide" });
+      setNativeFullscreen(true);
+    } catch {
+      setFallbackFullscreen(true);
+    }
+  };
+
+  const template = COLUMN_ORDER
+    .filter((column) => visibleColumns.includes(column))
+    .map((column) => COLUMN_WIDTH[column])
+    .join(" ");
 
   return (
-    <section class="aa-live-journal" aria-labelledby="aa-live-journal-title">
+    <section
+      ref={panelRef}
+      class={`aa-live-journal aa-agent-log ${fallbackFullscreen ? "is-fullscreen-fallback" : ""}`}
+      aria-labelledby="aa-live-journal-title"
+    >
       <header>
         <div>
-          <span>{t("agentActivity.live.session")}</span>
-          <h3 id="aa-live-journal-title">{t("agentActivity.live.title")}</h3>
+          <span>
+            {t("agentActivity.live.session")} - {t(`agents.connection.${streamStatus}`)} - {observationSourceLabel(streamSource)}
+          </span>
+          <h3 id="aa-live-journal-title">{t("agentActivity.log.title")}</h3>
         </div>
-        <span>{t("agentActivity.live.counts", { frames: events.length, events: workCount })}</span>
+        <div class="aa-log-actions">
+          <span class="aa-log-count" aria-live="polite">
+            {t("agentActivity.log.rows", { count: visibleRows.length })}
+          </span>
+          <button
+            type="button"
+            class="aa-log-control aa-log-tail"
+            aria-pressed={tailing}
+            aria-label={t(tailing ? "agentActivity.log.disableTail" : "agentActivity.log.resumeTail")}
+            onClick={() => setTailing((current) => !current)}
+          >
+            <span class="aa-log-live-dot" aria-hidden="true" />
+            {t(tailing ? "agentActivity.log.tailOn" : "agentActivity.log.resumeTail")}
+          </button>
+          <details class="aa-log-columns">
+            <summary class="aa-log-control" title={t("agentActivity.log.columns")}>
+              <span aria-hidden="true">☷</span>
+              <span>{t("agentActivity.log.columns")}</span>
+            </summary>
+            <div class="aa-log-column-menu">
+              {COLUMN_ORDER.map((column) => (
+                <label key={column}>
+                  <input
+                    type="checkbox"
+                    checked={visibleColumns.includes(column)}
+                    onChange={() => setVisibleColumns((current) => toggleAgentLogColumn(current, column))}
+                  />
+                  <span>{t(`agentActivity.log.column.${column}`)}</span>
+                </label>
+              ))}
+            </div>
+          </details>
+          <button
+            type="button"
+            class="aa-log-control"
+            aria-pressed={fullscreen}
+            title={t(fullscreen ? "agentActivity.log.exitFullscreen" : "agentActivity.log.fullscreen")}
+            onClick={() => void toggleFullscreen()}
+          >
+            <span aria-hidden="true">{fullscreen ? "×" : "⛶"}</span>
+            <span>{t(fullscreen ? "agentActivity.log.exitFullscreen" : "agentActivity.log.fullscreen")}</span>
+          </button>
+        </div>
       </header>
 
-      {workCount === 0 ? (
-        <p class="aa-live-waiting">
-          <strong>{t("agentActivity.live.noWork")}</strong>
-          <span>{t("agentActivity.live.waiting", { subject })}</span>
-        </p>
-      ) : null}
+      <div class="aa-log-filters">
+        <label>
+          <span>{t("agentActivity.log.agent")}</span>
+          <select
+            value={selectedAgent ?? ""}
+            onChange={(event) => onSelectedAgentChange(event.currentTarget.value || null)}
+          >
+            <option value="">{t("agentActivity.log.allAgents")}</option>
+            {agents.map((agent) => <option key={agent} value={agent}>{agent}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>{t("agentActivity.log.find")}</span>
+          <input
+            type="search"
+            value={query}
+            placeholder={t("agentActivity.log.searchPlaceholder")}
+            onInput={(event) => onQueryChange(event.currentTarget.value)}
+          />
+        </label>
+      </div>
 
-      {visible.length === 0 ? (
-        <p class="aa-live-empty">{t("agentActivity.live.noFrames")}</p>
-      ) : (
-        <ol class="aa-live-events">
-          {visible.map((event, index) => (
-            <li key={`${event.kind}:${event.ts}:${event.agent}:${event.correlationId ?? "none"}:${index}`}>
-              <time dateTime={event.ts}>{formatConsoleTimestamp(event.ts)}</time>
-              <span class={`aa-live-kind ${isLiveWorkActivity(event) ? "is-work" : ""}`}>
-                {eventKindLabel(event)}
+      <div
+        ref={logRef}
+        class="aa-log-scroll"
+        role="log"
+        aria-live="off"
+        aria-label={t("agentActivity.log.title")}
+        onScroll={(event) => {
+          if (tailing && !isNearLogBottom(
+            event.currentTarget.scrollHeight,
+            event.currentTarget.scrollTop,
+            event.currentTarget.clientHeight,
+          )) setTailing(false);
+        }}
+      >
+        <div class="aa-log-grid" style={`--aa-log-template:${template}`}>
+          <div class="aa-log-header" role="row">
+            {COLUMN_ORDER.filter((column) => visibleColumns.includes(column)).map((column) => (
+              <span key={column} role="columnheader" data-column={column}>
+                {t(`agentActivity.log.column.${column}`)}
               </span>
-              <div>
-                <strong>{event.agents.join(" -> ") || event.agent}</strong>
-                <span>{event.summary}</span>
-                {event.detail && event.detail !== event.summary ? <small>{event.detail}</small> : null}
-              </div>
-              <div class="aa-live-evidence">
-                <span>{observationSourceLabel(event.source)}</span>
-                {event.correlationId ? (
-                  <a href={routeHref("trace", { params: { correlation: event.correlationId } })}>
-                    {event.correlationId}
-                  </a>
-                ) : <span>{t("agentActivity.live.noCorrelation")}</span>}
-              </div>
-            </li>
+            ))}
+          </div>
+          {visibleRows.length === 0 ? (
+            <p class="aa-log-empty">{t("agentActivity.log.noRows")}</p>
+          ) : visibleRows.map((row) => (
+            <AgentLogRowView key={row.id} row={row} visibleColumns={visibleColumns} />
           ))}
-        </ol>
-      )}
-      {events.length > DISPLAY_LIMIT ? (
-        <p class="aa-live-retention">{t("agentActivity.live.retention", { count: DISPLAY_LIMIT, total: events.length })}</p>
-      ) : null}
+        </div>
+      </div>
+      <footer class="aa-log-footer">
+        <span>{t("agentActivity.log.retention", { count: AGENT_LOG_LIMIT })}</span>
+        <a href={routeHref("audit")}>{t("agentActivity.log.openAudit")}</a>
+      </footer>
     </section>
   );
 }
 
-function eventKindLabel(event: LiveAgentActivityEvent): string {
-  if (event.kind === "incident.ticket") return t("agentActivity.live.incident");
-  if (event.kind === "conversation.turn") return t("agentActivity.live.handoff");
-  return event.state ? t(`agents.state.${event.state}`) : t("agentActivity.live.state");
+function AgentLogRowView({
+  row,
+  visibleColumns,
+}: {
+  readonly row: AgentLogRow;
+  readonly visibleColumns: readonly AgentLogColumn[];
+}) {
+  return (
+    <div class={`aa-log-row kind-${row.kind}`} role="row">
+      {visibleColumns.includes("time") ? (
+        <time role="cell" data-column="time" dateTime={row.timestamp}>
+          {formatConsoleTimestamp(row.timestamp)}
+        </time>
+      ) : null}
+      {visibleColumns.includes("route") ? (
+        <span role="cell" data-column="route" class="aa-log-route">
+          {row.route.join(" -> ")}
+        </span>
+      ) : null}
+      {visibleColumns.includes("type") ? (
+        <span role="cell" data-column="type" class="aa-log-kind">
+          {kindLabel(row.kind)}
+        </span>
+      ) : null}
+      {visibleColumns.includes("detail") ? (
+        <span role="cell" data-column="detail" class="aa-log-detail">
+          <strong>{row.detail}</strong>
+          <small>{row.context ? `${row.context} - ` : ""}{sourceLabel(row.source)}</small>
+        </span>
+      ) : null}
+      {visibleColumns.includes("correlation") ? (
+        <span role="cell" data-column="correlation" class="aa-log-correlation">
+          {row.correlationId ? (
+            <a href={routeHref("trace", { params: { correlation: row.correlationId } })}>
+              {row.correlationId}
+            </a>
+          ) : <code>{row.eventId ?? t("agentActivity.live.noCorrelation")}</code>}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function kindLabel(kind: AgentLogRow["kind"]): string {
+  if (kind === "incident") return t("agentActivity.live.incident");
+  if (kind === "handoff") return t("agentActivity.live.handoff");
+  if (kind === "state") return t("agentActivity.live.state");
+  if (kind === "activity") return t("agentActivity.log.activity");
+  return t(`agentActivity.filter.${kind}`);
+}
+
+function sourceLabel(source: AgentLogSource): string {
+  if (source === "audit-operational") return t("agentActivity.detail.operationalAudit");
+  if (source === "audit-sample") return t("agentActivity.detail.localSample");
+  return observationSourceLabel(source);
 }

@@ -316,6 +316,31 @@
       "handoff": "인계",
       "state": "상태"
     },
+    "log": {
+      "title": "에이전트 활동 로그",
+      "rows": "행 {count}개",
+      "tailOn": "라이브 테일 켜짐",
+      "disableTail": "라이브 테일 끄기",
+      "resumeTail": "테일 재개",
+      "columns": "열",
+      "column": {
+        "time": "시간",
+        "route": "경로",
+        "type": "유형",
+        "detail": "상세",
+        "correlation": "상관관계"
+      },
+      "fullscreen": "전체 화면",
+      "exitFullscreen": "전체 화면 종료",
+      "agent": "에이전트",
+      "allAgents": "모든 에이전트",
+      "find": "찾기",
+      "searchPlaceholder": "메시지, 작업, 리소스 또는 상관관계",
+      "noRows": "일치하는 에이전트 활동이 없습니다.",
+      "retention": "메모리에서 최신 감사 및 런타임 행을 최대 {count}개 표시합니다.",
+      "openAudit": "전체 감사 열기",
+      "activity": "활동"
+    },
     "main": {
       "auditUnavailable": "영구 감사 사용 불가",
       "runtimeStillConnected": "아래의 실시간 런타임 활동은 계속 연결되어 있습니다.",

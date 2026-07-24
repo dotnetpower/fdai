@@ -174,10 +174,14 @@ authority.
 The **History > Agent activity** panel
 ([`src/routes/agent-activity.tsx`](src/routes/agent-activity.tsx)) reuses the
 same `GET /audit` route - no new backend route. It reconstructs a per-agent
-view (which pantheon agent did what, when, and how) by grouping audit rows on
-their `actor`, and offers two toggled layouts: a mock-aligned **Activity** view
-(per-agent groups, semantic verb rows, time/layer/verb/search filters) and a
-**Waterfall** master-detail. The waterfall's left column is a
+view (which pantheon agent did what, when, and how) and offers two toggled
+layouts. **Activity** is a bounded chronological log that combines durable
+audit rows with browser-session runtime frames while labeling each source.
+It expands recorded and live agent-to-agent turns into detailed `from -> to`
+rows, supports agent and keyword filters, configurable columns, fullscreen,
+and live tailing that starts enabled. The rendered log is capped at 200 rows;
+the runtime reducer separately caps retained stream frames at 100. **Waterfall**
+remains the durable audit master-detail view. Its left column is a
 compact, collapsible incident tree (grouped by `correlation_id`); selecting a
 step opens a large detail pane on the right that renders the append-only entry
 verbatim - a lifecycle stepper (event sent -> received -> work started ->
@@ -186,15 +190,17 @@ agent-to-agent conversation (the conversational-port turns exchanged while
 doing the work, shown as `from -> to` bubbles), its structured inputs /
 outputs, and the full record (tier, mode, outcome, decision, hashes). A small
 speech-bubble badge on a left row marks the steps that carry a conversation.
-Agent chips (coloured by cognitive layer) filter both layouts, and every entry
-deep-links to its full pipeline trace via `/trace?correlation=<id>`.
+Agent chips filter Waterfall, while the Activity log uses its compact agent
+selector. Every correlated entry deep-links to its full pipeline trace via
+`/trace?correlation=<id>`.
 
 The panel also subscribes to `GET /agents/stream`. A bounded stream signal
 updates the current connection/engaged indicators and triggers a background
 refresh of the authoritative audit projection at most once per 1.5 seconds.
-The stream message itself is never rendered as an audit row. This preserves
-the append-only ledger as the source of truth while allowing a visible tab to
-update without polling. The hook closes the SSE connection while the tab is
+The stream message appears only as a source-labeled runtime row; it is never
+reclassified as durable audit evidence. This preserves the append-only ledger
+as the source of truth while allowing a visible tab to update without polling.
+The hook closes the SSE connection while the tab is
 hidden and reconnects when it becomes visible. The dev
 read-API seed
 ([`src/fdai/delivery/read_api/_local.py`](../src/fdai/delivery/read_api/dev/local.py))

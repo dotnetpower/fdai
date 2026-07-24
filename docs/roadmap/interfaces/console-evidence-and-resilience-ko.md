@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 58f75f0c8c815678abf625011bbb473ee0bf59b4
-translation_revised: 2026-07-23
+translation_source_sha: d909791d95afcffdeed4f36087ef1fae0433db0f
+translation_revised: 2026-07-24
 ---
 
 # 콘솔 근거 및 복원력
@@ -39,6 +39,15 @@ status가 계속 표시됩니다.
 기존 link가 계속 동작하도록 stable `/pantheon` path는 조직 compatibility route로 유지하고,
 navigation에는 별도의 Pantheon directory를 두지 않습니다. 담당자 인수인계는 자체 governed proposal
 workflow가 있으므로 별도 Explorer panel로 유지합니다.
+
+활동 view는 durable audit 행과 browser-session runtime frame을 하나의 bounded chronological log로
+표시합니다. 각 행은 source label을 유지하므로 runtime frame을 durable audit evidence로 표시하지
+않습니다. 기록된 agent 간 turn과 live agent 간 turn은 전체 bounded message text를 포함한 개별
+`from -> to` 행으로 렌더링합니다. Log는 렌더링된 행을 최대 200개 유지하고 live tail을 기본으로
+활성화합니다. 운영자가 위로 scroll하면 tailing을 일시 중지하며 agent 및 keyword filter를
+제공합니다. 시간, 경로, 유형, 상세 및 상관관계 열을 선택할 수 있고 유형은 기본적으로 숨깁니다.
+Fullscreen은 presentation만 변경합니다. Waterfall view는 lifecycle, input, output, 기록된 conversation
+및 hash를 확인하는 durable audit master-detail surface로 유지합니다.
 
 콘솔의 모든 data-bearing card는 drill-down을 제공합니다. 전체 card surface는 해당 datum을 소유하는
 가장 좁은 analytical 또는 filtered-evidence 목적지로 이동하는 keyboard-accessible native link를

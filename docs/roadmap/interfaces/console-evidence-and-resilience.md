@@ -38,6 +38,15 @@ The stable `/pantheon` path remains a compatibility route for Org, so existing l
 resolve without keeping a second Pantheon directory in navigation. Ownership Handover remains a
 separate Explorer panel because it has its own governed proposal workflow.
 
+Activity uses one bounded chronological log for durable audit rows and browser-session runtime
+frames. Each row keeps its source label, so a runtime frame is never presented as durable audit
+evidence. Recorded and live agent-to-agent turns render as individual `from -> to` rows with their
+full bounded message text. The log retains at most 200 rendered rows, starts with live tail enabled,
+pauses tailing when the operator scrolls upward, and supports agent and keyword filters. Time,
+route, type, detail, and correlation columns are configurable; type is hidden by default. Fullscreen
+changes presentation only. The Waterfall view remains the durable audit master-detail surface for
+lifecycle, inputs, outputs, recorded conversations, and hashes.
+
 Every data-bearing card across the console drills down. The complete card surface uses a native
 keyboard-accessible link to the narrowest analytical or filtered-evidence destination that owns the
 datum. A card with independent controls exposes a visible primary detail link instead. Dashboard
