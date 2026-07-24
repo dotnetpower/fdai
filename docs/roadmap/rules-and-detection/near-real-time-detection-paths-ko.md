@@ -1,7 +1,7 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: a1b69fbf2922e5670c740d4e5b6a663d20c6db7b
+translation_source_sha: cacaecb4e5330d8cad05e8c6071a6e4a618ee271
 translation_revised: 2026-07-24
 ---
 
@@ -160,6 +160,8 @@ Saga는 전환을 감사하고, Forseti는 스냅샷을 권한 상한으로 사�
 축약은 fail-closed입니다. 누락, stale, unavailable, unauthorized 근거는 ready가 되지 않습니다.
 6개 차원이 모두 통과해도 새 readiness capability는 `shadow`로 유지되므로 ActionType을 승격하거나
 변경을 실행할 수 없습니다. Read API와 콘솔은 Muninn 판정을 projection하며 다시 계산하지 않습니다.
+Muninn은 `generated_at`이 엄격히 더 새로운 경우에만 대상의 최신 snapshot을 교체하므로 순서가 바뀌거나
+재전달된 Drift가 durable 준비도를 과거로 되돌릴 수 없습니다.
 
 ## 조합 규칙
 

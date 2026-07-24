@@ -7,7 +7,7 @@ persistent backend (Postgres, pgvector).
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -24,6 +24,17 @@ from fdai.core.case_history import CaseHistoryMaterializer, CaseHistoryRetention
 from fdai.core.readiness import DetectionReadinessSnapshot, detection_readiness_state_key
 from fdai.shared.contracts.models import ForecastOutcome
 from fdai.shared.providers.state_store import StateStore
+
+
+def _readiness_generated_at(record: Mapping[str, Any]) -> datetime | None:
+    raw = record.get("generated_at")
+    if not isinstance(raw, str):
+        return None
+    try:
+        generated_at = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return generated_at if generated_at.tzinfo is not None else None
 
 
 class Muninn(Agent):
@@ -115,6 +126,13 @@ class Muninn(Agent):
         if isinstance(prior, dict) and prior.get("idempotency_key") == idempotency_key:
             self.record_behavior("detection_readiness:duplicate")
             return
+        if (
+            isinstance(prior, dict)
+            and (prior_generated_at := _readiness_generated_at(prior)) is not None
+            and prior_generated_at >= snapshot.generated_at
+        ):
+            self.record_behavior("detection_readiness:stale")
+            return
         key = detection_readiness_state_key(snapshot.resource_ref)
         if self._durable_state_store is not None:
             durable_prior = await self._durable_state_store.read_state(key)
@@ -128,6 +146,18 @@ class Muninn(Agent):
                     dict(durable_prior),
                 )
                 self.record_behavior("detection_readiness:duplicate")
+                return
+            if (
+                durable_prior is not None
+                and (durable_generated_at := _readiness_generated_at(durable_prior)) is not None
+                and durable_generated_at >= snapshot.generated_at
+            ):
+                self.state_store.put(
+                    "detection_readiness",
+                    snapshot.resource_ref,
+                    dict(durable_prior),
+                )
+                self.record_behavior("detection_readiness:stale")
                 return
             await self._durable_state_store.write_state(key, record)
         self.state_store.put("detection_readiness", snapshot.resource_ref, record)

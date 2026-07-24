@@ -164,7 +164,8 @@ snapshot.
 The reduction is fail-closed. Missing, stale, unavailable, or unauthorized evidence never becomes
 ready. New readiness capability remains `shadow` even when all six dimensions pass, so it cannot
 promote an ActionType or execute a change. The read API and console project Muninn's decision and
-do not recompute it.
+do not recompute it. Muninn replaces the latest target snapshot only when `generated_at` is
+strictly newer, so reordered or replayed Drift delivery cannot roll durable readiness backward.
 
 ## Composition rules
 

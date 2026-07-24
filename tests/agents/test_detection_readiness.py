@@ -11,7 +11,11 @@ from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
 from fdai.agents.muninn import Muninn
 from fdai.agents.saga import Saga
-from fdai.core.readiness import DETECTION_READINESS_STATE_PREFIX, DetectionReadinessDimension
+from fdai.core.readiness import (
+    DETECTION_READINESS_STATE_PREFIX,
+    DetectionReadinessDimension,
+    detection_readiness_state_key,
+)
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 7, 24, 1, 0, tzinfo=UTC)
@@ -163,6 +167,35 @@ def test_muninn_deduplicates_same_readiness_snapshot() -> None:
 
     assert len(bus.messages_on("object.state-snapshot")) == 1
     assert muninn.behavior_snapshot()["detection_readiness:duplicate"] == 1
+
+
+def test_muninn_rejects_older_readiness_snapshot_delivered_late() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    durable = InMemoryStateStore()
+    muninn = Muninn(durable_state_store=durable)
+    muninn.bind_bus(bus)
+    heimdall = Heimdall(bus=bus, forecast_clock=lambda: _NOW)
+    huginn = Huginn(bus=bus)
+    bus.subscribe("object.event", "Heimdall", heimdall.on_typed_message)
+    for index, dimension in enumerate(DetectionReadinessDimension):
+        asyncio.run(huginn.ingest(_raw_observation(dimension, index)))
+    older = bus.messages_on("object.drift")[0].payload
+    newer = {
+        **older,
+        "generated_at": (_NOW + timedelta(minutes=1)).isoformat(),
+        "idempotency_key": "detection-readiness:newer",
+    }
+
+    asyncio.run(muninn.on_typed_message("object.drift", newer))
+    restarted = Muninn(durable_state_store=durable)
+    restarted.bind_bus(bus)
+    asyncio.run(restarted.on_typed_message("object.drift", older))
+
+    stored = asyncio.run(durable.read_state(detection_readiness_state_key("cluster/example")))
+    assert stored is not None
+    assert stored["idempotency_key"] == "detection-readiness:newer"
+    assert len(bus.messages_on("object.state-snapshot")) == 1
+    assert restarted.behavior_snapshot()["detection_readiness:stale"] == 1
 
 
 def test_forseti_records_readiness_without_creating_a_verdict() -> None:

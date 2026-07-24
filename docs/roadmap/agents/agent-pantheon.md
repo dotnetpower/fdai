@@ -426,7 +426,7 @@ principal is checked by the schema registry: only the owner may publish.
 ## 6. Communication contract
 
 The pantheon uses the existing `EventBus` wire: Kafka on Event Hubs `:9093`, or the in-process local adapter. Heimdall independently collects overlapping detection-readiness pass IDs and emits
-Drift only after one pass has all six dimensions. A best-effort `AgentHandlerObserver` reports actual handler lifecycle without
+Drift only after one pass has all six dimensions; Muninn replaces readiness state only with a strictly newer snapshot. A best-effort `AgentHandlerObserver` reports actual handler lifecycle without
 changing delivery, judgment, or execution. Local composition publishes directly to the SSE sink;
 deployed composition publishes `started`, `completed`, and `failed` handler states onto the shared
 stage topic, where the read API relays them to Agent Activity.
