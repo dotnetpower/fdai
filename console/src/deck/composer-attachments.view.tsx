@@ -124,6 +124,11 @@ export function ComposerAttachments() {
           } else {
             void fileToDataUrl(file)
               .then((raw) => {
+                // The tile may have been removed, or a send may have drained
+                // and cleared the tray, while this read was in flight. Do not
+                // stage a now-orphaned image - that would leak it invisibly
+                // into a later turn.
+                if (!itemsRef.current.some((entry) => entry.id === id)) return;
                 const dataUrl = normalizeImageDataUrl(raw, media);
                 if (dataUrl === null) {
                   patch(id, { status: "abandoned", note: t("deck.attach.readFailed") });
