@@ -657,7 +657,7 @@ a:hover {
   text-decoration: none;
 }
 .brand-lockup:hover { color: var(--fg); }
-.brand-logo { width: 26px; height: 26px; display: block; flex: 0 0 auto; filter: grayscale(1); }
+.brand-logo { width: 26px; height: 26px; display: block; flex: 0 0 auto; }
 .brand-wordmark { font-size: 13px; font-weight: 760; letter-spacing: 0.055em; }
 .brand-separator { width: 1px; height: 16px; margin-left: 2px; background: var(--border); }
 .brand-product { color: var(--fg-muted); font-size: 12px; font-weight: 560; }

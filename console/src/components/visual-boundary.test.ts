@@ -3,6 +3,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
+const brandLogo = readFileSync(
+  fileURLToPath(new URL("../../public/brand/concepts/fdai-cloud-aperture.svg", import.meta.url)),
+  "utf8",
+);
 const contentSurfaceStyles = styles
   .replace(/\.ontology-graph-key i\s*\{[^}]*\}/g, "")
   .replace(/\.architecture-edge-legend \.is-(?:dependency|attachment)\s*\{[^}]*\}/g, "");
@@ -12,6 +16,11 @@ const approvalRoute = readFileSync(
 );
 
 describe("console visual boundary", () => {
+  test("keeps the brand logo in its source color", () => {
+    expect(brandLogo).toContain('fill="#2B7FE0"');
+    expect(styles).not.toMatch(/\.brand-logo\s*\{[^}]*filter:\s*grayscale/);
+  });
+
   test("content surfaces do not use thick colored top or left edges", () => {
     expect(contentSurfaceStyles).not.toMatch(/border-left:\s*[2-9](?:px|rem|em)/);
     expect(contentSurfaceStyles).not.toMatch(/border-top:\s*[2-9](?:px|rem|em)/);
