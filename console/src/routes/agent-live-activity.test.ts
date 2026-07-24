@@ -145,6 +145,22 @@ describe("agent live log projection", () => {
       timestampValid: false,
     });
   });
+
+  it("bounds projection while expanding a large recorded conversation", () => {
+    const turns = Array.from({ length: 1000 }, (_, index) => ({
+      from: "Odin",
+      to: "Forseti",
+      text: `turn-${index}`,
+    }));
+
+    const rows = buildAgentLogRows([], [
+      auditItem(1, { summary: "base", conversation: turns }),
+    ]);
+
+    expect(rows).toHaveLength(AGENT_LOG_LIMIT);
+    expect(rows[0]?.detail).toBe("turn-800");
+    expect(rows.at(-1)?.detail).toBe("turn-999");
+  });
 });
 
 describe("agent live log controls", () => {

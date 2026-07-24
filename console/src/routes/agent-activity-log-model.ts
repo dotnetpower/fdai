@@ -52,7 +52,7 @@ export function buildAgentLogRows(
     const identity = liveEventIdentity(event);
     if (seenLiveEvents.has(identity)) return;
     seenLiveEvents.add(identity);
-    rows.push({
+    addBoundedRow(rows, {
       id: `live:${event.kind}:${event.ts}:${event.agent}:${event.correlationId ?? "none"}:${stableHash(identity)}`,
       timestamp: event.ts,
       timestampValid: timestamp(event.ts) !== null,
@@ -72,7 +72,7 @@ export function buildAgentLogRows(
     const summary = entryStr(item, "summary") || entryStr(item, "detail") ||
       entryStr(item, "reason") || item.action_kind;
     const target = entryStr(item, "resource_ref") || entryStr(item, "target_resource_ref");
-    rows.push({
+    addBoundedRow(rows, {
       id: `audit:${item.seq}`,
       timestamp: item.recorded_at,
       timestampValid: timestamp(item.recorded_at) !== null,
@@ -86,7 +86,7 @@ export function buildAgentLogRows(
       sortOrder: [1, item.seq, 0],
     });
     entryConversation(item)?.forEach((turn, index) => {
-      rows.push({
+      addBoundedRow(rows, {
         id: `audit:${item.seq}:conversation:${index}`,
         timestamp: item.recorded_at,
         timestampValid: timestamp(item.recorded_at) !== null,
@@ -101,9 +101,7 @@ export function buildAgentLogRows(
       });
     });
   });
-  rows.sort((left, right) => compareTimestamp(left.timestamp, right.timestamp) ||
-    compareOrder(left.sortOrder, right.sortOrder) || left.id.localeCompare(right.id));
-  return rows.slice(-AGENT_LOG_LIMIT);
+  return rows;
 }
 
 export function filterAgentLogRows(
@@ -170,6 +168,17 @@ function compareOrder(
   right: readonly [number, number, number],
 ): number {
   return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
+}
+
+function addBoundedRow(rows: AgentLogRow[], row: AgentLogRow): void {
+  rows.push(row);
+  rows.sort(compareRows);
+  if (rows.length > AGENT_LOG_LIMIT) rows.shift();
+}
+
+function compareRows(left: AgentLogRow, right: AgentLogRow): number {
+  return compareTimestamp(left.timestamp, right.timestamp) ||
+    compareOrder(left.sortOrder, right.sortOrder) || left.id.localeCompare(right.id);
 }
 
 function liveEventIdentity(event: LiveAgentActivityEvent): string {
