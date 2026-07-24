@@ -218,6 +218,45 @@ async def test_teams_publisher_renders_agent_activity_adaptive_card() -> None:
     assert "point_count" in str(card["body"])
 
 
+async def test_teams_activity_card_stays_under_byte_budget() -> None:
+    captured: dict[str, object] = {}
+    activities = tuple(
+        ObservedExecutionActivity(
+            agent="Heimdall",
+            label=f"Large evidence {index}",
+            tool="query_log",
+            command="q" * 7_000,
+            status=ConversationExecutionStatus.COMPLETED,
+            redacted=True,
+            output="o" * 8_000,
+        )
+        for index in range(3)
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return httpx.Response(201, json={"id": "activity-2"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        publisher = TeamsBotFrameworkReplyPublisher(
+            config=TeamsReplyPublisherConfig(),
+            identity=_Identity(),
+            endpoint_resolver=lambda _: "https://bot.example.com/conversations/1/activities",
+            http_client=client,
+        )
+        await publisher.publish(
+            _response(ConversationChannelKind.TEAMS, activities=activities, text="a" * 16_000)
+        )
+
+    attachments = captured["attachments"]
+    assert isinstance(attachments, list)
+    card = attachments[0]["content"]
+    assert len(json.dumps(card, separators=(",", ":")).encode("utf-8")) <= 24_000
+    assert "additional activity" in str(card)
+    assert "**Bragi**" in str(card["body"][-1])
+    assert len(str(captured["text"])) <= 4_000
+
+
 async def test_teams_dedicated_thread_starts_without_reply_target() -> None:
     captured: dict[str, object] = {}
 
