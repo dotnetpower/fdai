@@ -38,10 +38,22 @@ describe("composer-attachment-store", () => {
   });
 
   it("never exceeds the per-turn cap", () => {
+    const accepted: boolean[] = [];
     for (let i = 0; i < MAX_ATTACHMENTS + 3; i += 1) {
-      stageComposerAttachment(`id-${i}`, att(i));
+      accepted.push(stageComposerAttachment(`id-${i}`, att(i)));
     }
     expect(stagedComposerAttachmentCount()).toBe(MAX_ATTACHMENTS);
+    // The first MAX are accepted, the overflow is rejected so the composer can
+    // mark those tiles non-sendable.
+    expect(accepted.slice(0, MAX_ATTACHMENTS).every((v) => v)).toBe(true);
+    expect(accepted.slice(MAX_ATTACHMENTS).every((v) => !v)).toBe(true);
+  });
+
+  it("replacing an existing id at the cap is still accepted", () => {
+    for (let i = 0; i < MAX_ATTACHMENTS; i += 1) {
+      stageComposerAttachment(`id-${i}`, att(i));
+    }
+    expect(stageComposerAttachment("id-0", att(99))).toBe(true);
   });
 
   it("clear drops everything", () => {

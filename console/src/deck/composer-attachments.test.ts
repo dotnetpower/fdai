@@ -5,6 +5,7 @@ import {
   formatSize,
   isRightsProtected,
   newAttachmentId,
+  normalizeImageDataUrl,
   thumbLabel,
 } from "./composer-attachments";
 
@@ -65,5 +66,21 @@ describe("composer-attachments", () => {
 
   it("mints unique attachment ids", () => {
     expect(newAttachmentId()).not.toBe(newAttachmentId());
+  });
+
+  it("rebuilds an image data URL with the validated media type", () => {
+    // A blank or non-image MIME from FileReader is corrected to the real type.
+    expect(normalizeImageDataUrl("data:;base64,AAAB", "image/png")).toBe(
+      "data:image/png;base64,AAAB",
+    );
+    expect(
+      normalizeImageDataUrl("data:application/octet-stream;base64,QUJD", "image/jpeg"),
+    ).toBe("data:image/jpeg;base64,QUJD");
+  });
+
+  it("rejects a data URL with no body or no comma", () => {
+    expect(normalizeImageDataUrl("data:image/png;base64,", "image/png")).toBeNull();
+    expect(normalizeImageDataUrl("not-a-data-url", "image/png")).toBeNull();
+    expect(normalizeImageDataUrl("data:image/png;base64,   ", "image/png")).toBeNull();
   });
 });

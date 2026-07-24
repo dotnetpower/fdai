@@ -18,6 +18,7 @@ import {
   formatSize,
   isRightsProtected,
   newAttachmentId,
+  normalizeImageDataUrl,
   thumbLabel,
   type StagedAttachment,
 } from "./composer-attachments";
@@ -110,22 +111,37 @@ export function ComposerAttachments() {
             .catch(() => patch(id, { status: "ready" }));
         } else if (kind === "image") {
           // Stage the image as send-ready vision evidence: read it as a base64
-          // data URL into the external store the submit path drains. Oversized
-          // or unsupported rasters stay visible but are not sent.
+          // data URL (rebuilt with the validated media type so a blank
+          // file.type cannot produce a non-image URL the server rejects) into
+          // the external store the submit path drains. Anything that cannot be
+          // sent is marked non-sendable with a reason instead of a false
+          // "ready", so the operator is never misled about what will be sent.
           const media = imageMediaType(file);
-          if (media !== null && file.size <= MAX_IMAGE_BYTES) {
+          if (media === null) {
+            patch(id, { status: "abandoned", note: t("deck.attach.unsupportedImage") });
+          } else if (file.size > MAX_IMAGE_BYTES) {
+            patch(id, { status: "abandoned", note: t("deck.attach.tooLarge") });
+          } else {
             void fileToDataUrl(file)
-              .then((dataUrl) => {
-                stageComposerAttachment(id, {
+              .then((raw) => {
+                const dataUrl = normalizeImageDataUrl(raw, media);
+                if (dataUrl === null) {
+                  patch(id, { status: "abandoned", note: t("deck.attach.readFailed") });
+                  return;
+                }
+                const accepted = stageComposerAttachment(id, {
                   name: file.name,
                   media_type: media,
                   data_url: dataUrl,
                 });
+                patch(
+                  id,
+                  accepted
+                    ? { status: "ready" }
+                    : { status: "abandoned", note: t("deck.attach.tooMany") },
+                );
               })
-              .catch(() => undefined)
-              .finally(() => patch(id, { status: "ready" }));
-          } else {
-            patch(id, { status: "ready" });
+              .catch(() => patch(id, { status: "abandoned", note: t("deck.attach.readFailed") }));
           }
         } else {
           patch(id, { status: "ready" });
@@ -237,7 +253,7 @@ export function ComposerAttachments() {
                 </Tooltip>
                 <span class="deck-attach-meta">
                   {entry.status === "abandoned"
-                    ? t("deck.attach.rmsProtected")
+                    ? (entry.note ?? t("deck.attach.rmsProtected"))
                     : formatSize(entry.size)}{" "}
                   ·{" "}
                   <span class={`deck-attach-status is-${entry.status}`}>

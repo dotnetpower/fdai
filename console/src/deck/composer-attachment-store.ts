@@ -37,11 +37,14 @@ export function subscribeComposerAttachmentDrain(listener: () => void): () => vo
   };
 }
 
-/** Stage (or replace) one attachment by its composer id. Ignored once the
- *  per-turn cap is reached so the browser cannot exceed the server bound. */
-export function stageComposerAttachment(id: string, attachment: ChatAttachment): void {
-  if (!staged.has(id) && staged.size >= MAX_ATTACHMENTS) return;
+/** Stage (or replace) one attachment by its composer id. Returns whether it
+ *  was accepted; a new id is rejected (false) once the per-turn cap is reached
+ *  so the browser cannot exceed the server bound and the composer can mark the
+ *  overflow tile as non-sendable. */
+export function stageComposerAttachment(id: string, attachment: ChatAttachment): boolean {
+  if (!staged.has(id) && staged.size >= MAX_ATTACHMENTS) return false;
   staged.set(id, attachment);
+  return true;
 }
 
 /** Remove one staged attachment by composer id. */

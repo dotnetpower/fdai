@@ -33,6 +33,10 @@ export interface StagedAttachment {
   readonly status: AttachmentStatus;
   /** Object URL for an image preview; caller revokes it on removal. */
   readonly previewUrl?: string;
+  /** Human reason a file was abandoned for something other than RMS
+   *  (too large, unsupported raster, over the per-turn cap, or a read
+   *  failure), shown in place of the RMS-protected label. */
+  readonly note?: string;
 }
 
 const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "heic", "avif"]);
@@ -109,4 +113,20 @@ export function formatSize(bytes: number): string {
 
 export function newAttachmentId(): string {
   return `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * Rebuild an image data URL with the validated media type, keeping only the
+ * base64 body. `FileReader.readAsDataURL` labels the payload with the file's
+ * `type`, which some platforms leave blank - yielding `data:;base64,...` or
+ * `data:application/octet-stream;base64,...`. The server accepts only
+ * `data:image/...`, so a correctly-typed data URL is rebuilt here or the
+ * attachment is rejected (null). Pure and DOM-free for testing.
+ */
+export function normalizeImageDataUrl(dataUrl: string, mediaType: string): string | null {
+  const comma = dataUrl.indexOf(",");
+  if (comma < 0) return null;
+  const body = dataUrl.slice(comma + 1).trim();
+  if (!body) return null;
+  return `data:${mediaType};base64,${body}`;
 }
