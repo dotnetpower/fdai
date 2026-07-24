@@ -81,6 +81,7 @@
     "settings": "설정",
     "settingsGeneral": "일반",
     "settingsModels": "모델",
+    "settingsRuntime": "런타임 정책",
     "settingsIam": "ID 및 액세스",
     "settingsIntegrations": "통합",
     "settingsDiagnostics": "진단",
@@ -171,6 +172,7 @@
       "settings": "설정",
       "settingsGeneral": "일반",
       "settingsModels": "모델",
+      "settingsRuntime": "런타임 정책",
       "settingsIam": "ID 및 액세스",
       "settingsIntegrations": "통합",
       "settingsDiagnostics": "진단",
@@ -220,6 +222,7 @@
       "settings": "표시, 접근성 및 로컬 콘솔 환경 설정",
       "settingsGeneral": "표시, 접근성 및 브라우저 로컬 환경 설정",
       "settingsModels": "T1 및 T2 모델, 프로비저닝, 지연 시간 및 개인 라우팅",
+      "settingsRuntime": "감사되는 런타임 동작, 예산, 최신성, 보존 및 로깅",
       "settingsIam": "사용자 역할, 기능 및 통제된 액세스 요청",
       "settingsIntegrations": "ID, 전달 및 운영자 채널 연결",
       "settingsDiagnostics": "읽기 전용 런타임 및 인증 진단",
@@ -1202,6 +1205,84 @@
     "recentBriefings": "최근 briefing",
     "briefingRunSummary": "{status} - 항목 {count}개 - 근거 참조 {evidence}개",
     "noBriefingRuns": "아직 브리핑 실행이 없습니다.",
+    "runtimePolicies": {
+      "subtitle": "지속형 override, revision 검사 및 감사 추적을 적용하는 allowlist 런타임 동작입니다.",
+      "loading": "런타임 정책을 불러오는 중...",
+      "boundaryLabel": "런타임 설정 경계",
+      "boundary": "이 control은 control-plane 정책만 업데이트합니다. Executor identity를 받거나, action 또는 workflow를 승격하거나, 안전성 검사를 약화하거나, secret과 endpoint를 노출하지 않습니다.",
+      "revision": "Revision {revision}",
+      "lastUpdated": "{actor}가 {time}에 마지막으로 업데이트했습니다.",
+      "neverUpdated": "기록된 지속형 override가 없습니다. Environment 값이 적용됩니다.",
+      "readOnly": "런타임 정책을 변경하려면 Owner 역할이 필요합니다. Current 및 effective 값은 계속 볼 수 있습니다.",
+      "environment": "Environment",
+      "effective": "Effective",
+      "source": "소스",
+      "sourceEnvironment": "Environment",
+      "sourceOverride": "지속형 override",
+      "restartRequired": "재시작 필요",
+      "unavailable": "사용 불가",
+      "reset": "Environment 값 사용",
+      "save": "런타임 정책 저장",
+      "saving": "저장 중...",
+      "saved": "런타임 정책을 저장했습니다.",
+      "conflict": "다른 세션에서 런타임 정책이 변경되었습니다. 최신 값을 불러왔으니 다시 저장하기 전에 검토하세요.",
+      "conflictReloadFailed": "다른 세션에서 런타임 정책이 변경되었으며 최신 값을 불러오지 못했습니다.",
+      "groups": {
+        "investigation": "인시던트 조사",
+        "inventory": "인벤토리 최신성",
+        "analysis": "Analyzer 제한",
+        "retention": "Case history 보존",
+        "diagnostics": "진단"
+      },
+      "fields": {
+        "irp": {
+          "enabled": {
+            "label": "인시던트 대응 조사",
+            "hint": "Alert 형태 event를 제한된 조사로 처리한 뒤 typed proposal이 표준 safety pipeline에 다시 진입하도록 합니다."
+          },
+          "budget_seconds": {
+            "label": "조사 시간 예산",
+            "hint": "인시던트 대응 조사 한 건에 사용할 수 있는 최대 초입니다."
+          }
+        },
+        "inventory": {
+          "freshness_seconds": {
+            "label": "인벤토리 최신성 제한",
+            "hint": "Graph 기반 autonomy를 사람 검토로 전환하기 전까지 허용하는 active snapshot의 최대 age입니다."
+          }
+        },
+        "analyzer": {
+          "window_seconds": {
+            "label": "Analyzer 관찰 window",
+            "hint": "예약된 각 analyzer tick이 평가하는 telemetry window입니다."
+          },
+          "budget_seconds": {
+            "label": "Analyzer 시간 예산",
+            "hint": "예약된 analyzer 조사 한 건에 사용할 수 있는 최대 초입니다."
+          }
+        },
+        "case_history": {
+          "retention_days": {
+            "label": "Active case 보존",
+            "hint": "새로 seal된 case가 active 상태로 조회 가능한 기간입니다. 재시작 후 적용됩니다."
+          },
+          "deletion_days": {
+            "label": "Case 삭제 예정일",
+            "hint": "새로 seal된 case가 삭제 대상이 되기까지의 일수입니다. Active retention보다 이를 수 없습니다."
+          },
+          "retention_tick_seconds": {
+            "label": "보존 평가 주기",
+            "hint": "Muninn이 처리하는 idempotent retention tick 사이의 초입니다."
+          }
+        },
+        "logging": {
+          "level": {
+            "label": "런타임 로그 수준",
+            "hint": "런타임 재시작 후 적용되는 최소 Python log severity입니다."
+          }
+        }
+      }
+    },
     "models": {
       "subtitle": "확정된 T1 및 T2 모델, 라이프사이클 상태, 지연 시간 근거, narrator 선호 및 검토용 T2 정책 초안을 보여줍니다.",
       "loading": "모델 설정을 불러오는 중...",
@@ -1295,7 +1376,36 @@
     "deploymentManaged": "배포에서 관리",
     "statusUnknown": "확인되지 않음",
     "statusNotProbed": "상태 확인 안 함",
+    "statusReady": "준비됨",
+    "statusIncomplete": "구성 미완료",
+    "statusNotConfigured": "구성 안 됨",
     "integrationProbeUnavailable": "이 배포에는 전달 상태 어댑터가 등록되지 않았습니다. 이 화면은 설정만으로 상태를 추론하지 않습니다.",
+    "integrationStatusResource": "통합 준비 상태",
+    "integrationMode": "모드: {mode}",
+    "integrationModes": {
+      "disabled": "비활성화",
+      "enabled": "활성화",
+      "shadow": "관찰",
+      "enforce": "적용"
+    },
+    "integrations": {
+      "chatops": {
+        "label": "ChatOps 승인",
+        "hint": "Webhook 전달과 선택적 signed approval callback 상태입니다. 값과 secret은 노출하지 않습니다."
+      },
+      "email": {
+        "label": "Email 알림",
+        "hint": "Managed identity email 전달, sender 및 recipient 구성 상태입니다."
+      },
+      "gitops": {
+        "label": "GitOps 변경 전달",
+        "hint": "Repository credential을 노출하지 않는 governed pull-request publisher 구성입니다."
+      },
+      "jira": {
+        "label": "Jira 인시던트 티켓",
+        "hint": "Durable ticket tool 구성과 현재 observation 또는 enforcement ceiling입니다."
+      }
+    },
     "integrationEvidence": "통합 근거",
     "retry": "다시 시도",
     "health": {
@@ -1308,6 +1418,42 @@
     "authenticationHint": "현재 콘솔 세션에 사용되는 ID 원본입니다.",
     "principal": "로그인 주체",
     "principalHint": "표시용 ID입니다. 권한 부여는 안정적인 Entra 개체 ID와 App Role을 사용합니다.",
+    "runtimePolicyStatus": "Control-plane 런타임",
+    "runtimeStatusResource": "런타임 상태",
+    "runtimeDiagnostics": {
+      "environment": {
+        "label": "배포 환경",
+        "hint": "정제된 runtime environment 분류입니다. 임의 deployment 이름은 노출하지 않습니다."
+      },
+      "stateStore": {
+        "label": "Durable state store",
+        "hint": "Revisioned setting과 audit record가 durable StateStore를 사용하는지 표시합니다."
+      },
+      "autonomyDefault": {
+        "label": "기본 action lifecycle",
+        "hint": "읽기 전용 safety invariant입니다. Promotion은 ActionType 및 Workflow별로 유지됩니다."
+      },
+      "pantheon": {
+        "label": "Pantheon 런타임",
+        "hint": "고정된 15개 agent runtime이 이 process에서 시작되는지 표시합니다."
+      },
+      "workflowObservation": {
+        "label": "Workflow 관찰",
+        "hint": "Event-triggered catalog workflow가 변경을 적용하지 않고 평가되는지 표시합니다."
+      },
+      "primaryTransport": {
+        "label": "Primary event transport",
+        "hint": "Configured 상태만 표시합니다. Bootstrap endpoint와 credential은 노출하지 않습니다."
+      },
+      "auxiliaryTransport": {
+        "label": "Operational event transport",
+        "hint": "Canary와 raw inventory traffic을 위한 configured 상태입니다."
+      },
+      "caseHistory": {
+        "label": "Case history storage",
+        "hint": "Private artifact store와 전용 identity의 configured 상태입니다."
+      }
+    },
     "unavailable": "사용할 수 없음",
     "iam": {
       "subtitle": "사용자 ID 역할과 유효 기능입니다. 액세스 변경은 승인을 거치며 브라우저에서 Microsoft Graph를 직접 호출하지 않습니다.",

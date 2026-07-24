@@ -65,6 +65,7 @@ def build_production_data_sources(
                 "/me/context",
                 "/me/conversations/search",
                 "/operator-memory",
+                "/runtime/settings",
                 "/scheduler-runs",
                 "/workflows/definitions",
             ),

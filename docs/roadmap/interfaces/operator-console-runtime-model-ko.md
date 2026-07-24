@@ -1,13 +1,33 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: a768986796a378e40da913f0c2431a521a3e193c
-translation_revised: 2026-07-23
+translation_source_sha: 57f5ea4215aa33f1380b2ef2a67b3c6baa09aaf4
+translation_revised: 2026-07-24
 ---
 
 # Operator Console - Narrator, DI Seams, and Session Model
 
-> [operator-console-ko.md](operator-console-ko.md) section 4-6에서 분리한 focused owner 문서입니다.
+> [operator-console-ko.md](operator-console-ko.md) section 1.2 및 4-6에서 분리한 focused owner 문서입니다.
+
+## 런타임 설정 경계
+
+Settings는 콘솔을 실행 surface로 바꾸지 않고 제한된 런타임 정책을 관리할 수 있습니다.
+Reader는 availability, 환경 ceiling, 저장된 override 및 effective value의 정제된 projection을
+확인할 수 있습니다. Owner는 optimistic revision check를 통해 allowlist된 policy field만
+업데이트할 수 있습니다. 수락된 각 업데이트는 새 상태와 audit entry를 원자적으로 기록합니다.
+
+Settings route는 executor identity를 받지 않으며 cloud resource를 변경하지 않습니다. Dynamic
+configuration을 지원하는 runtime consumer는 동작을 적용하기 전에 동일한 durable policy를
+읽습니다. Environment 및 infrastructure value는 ceiling으로 유지됩니다. 저장된 preference는
+사용할 수 없는 capability를 활성화하거나, ActionType 또는 Workflow를 승격하거나, risk 및
+approval check를 약화하거나, test-only adapter를 선택할 수 없습니다. Secret, endpoint, tenant
+identifier 및 managed identity identifier는 configured 또는 unavailable 상태로만 표시합니다.
+
+초기 allowlist는 제한된 investigation, inventory freshness, analyzer budget, case history
+retention 및 logging detail을 포함합니다. 각 field는 type, minimum과 maximum, restart requirement
+및 unavailable reason을 선언합니다. 콘솔은 current, proposed 및 effective value, revision, 마지막
+actor와 update time, validation conflict를 표시합니다. Stale revision은 conflict를 반환하며
+operator가 재시도 전에 최신 상태를 검토하도록 합니다.
 
 ## 4. Narrator - LLM tier 모델
 

@@ -63,6 +63,7 @@ class Capability(StrEnum):
     APPROVE_RUNTIME_HIL = "approve-runtime-hil"
     TRIGGER_KILL_SWITCH = "trigger-kill-switch"
     GRANT_EMERGENCY_ACCESS = "grant-emergency-access"
+    MANAGE_RUNTIME_SETTINGS = "manage-runtime-settings"
     MANAGE_GROUP_MEMBERSHIP = "manage-group-membership"
     APPLY_INFRA_IAC = "apply-infra-iac"
 
@@ -95,6 +96,7 @@ _APPROVER_CAPS: Final = _CONTRIBUTOR_CAPS | frozenset(
 _OWNER_CAPS: Final = _APPROVER_CAPS | frozenset(
     {
         Capability.TRIGGER_KILL_SWITCH,
+        Capability.MANAGE_RUNTIME_SETTINGS,
         Capability.MANAGE_GROUP_MEMBERSHIP,
         Capability.APPLY_INFRA_IAC,
     }

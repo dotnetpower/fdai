@@ -375,7 +375,7 @@
     "src/fdai/core/rbac/enforcer.py": "deca02d4d2c7c320fb5553ac1b0e19993c6ff5a4a559bd2342f7e745f335b1d2",
     "src/fdai/core/rbac/kill_switch_command.py": "2c18809d81a16b7120734dfc72549ba13093a7d91cfd96f8f443e83f54d579aa",
     "src/fdai/core/rbac/resolver.py": "bd150c6a3c3a85b25c4891b8e4c04a56673b366f6c64840c7521531e3396d48c",
-    "src/fdai/core/rbac/roles.py": "a99cfc753e5a223f523002ec47bf154882d1b8e108dd7826c847bafc921d2a4c",
+    "src/fdai/core/rbac/roles.py": "cfb8607becb33241772bca69054df666bfd48e8ca8340456410447706271464b",
     "src/fdai/core/rca/__init__.py": "92f21a5a580f8340d15f6d75b77e3ef820537d298a953b5ec1fa5779ae607a91",
     "src/fdai/core/rca/causal_chain.py": "f93ab60bed0822849aeb689947522597c6c590bbb4c46ae39b3f087ee00684be",
     "src/fdai/core/rca/change_evidence.py": "80cfd7affbdb4992232da7ff16196f8b5943afeb946c4c0f1755ee3fd0f0ab13",
@@ -787,7 +787,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-24T02:17:36Z",
+  "generated_at": "2026-07-24T03:31:29Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

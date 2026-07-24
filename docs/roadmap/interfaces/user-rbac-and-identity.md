@@ -49,7 +49,7 @@ more roles.
 | 1 | **Reader** | `aw-readers` | Azure Reader | View console: KPI dashboard, audit log, shadow results, HIL queue |
 | 2 | **Contributor** | `aw-contributors` | Azure Contributor | All of Reader + author draft PRs and start bounded read investigations |
 | 3 | **Approver** | `aw-approvers` | (Reviewer) | All of Reader + review/approve governance PRs + approve runtime HIL requests + approve enforce promotions / exemptions / overrides (quorum applies to high-risk - see §5) |
-| 4 | **Owner** | `aw-owners` | Azure Owner | All of Approver + trigger kill-switch + manage Entra group membership + apply infra IaC |
+| 4 | **Owner** | `aw-owners` | Azure Owner | All of Approver + trigger kill-switch + manage runtime settings and Entra group membership + apply infra IaC |
 | - | **Break-Glass** | `aw-break-glass` | (separate emergency account) | Console view, kill-switch, and emergency access-grant capabilities only. It has no runtime HIL approval capability and isn't an Owner superset. |
 
 **Rules that keep the model safe without adding tiers**
@@ -87,6 +87,7 @@ more roles.
 | Approve runtime HIL request (emergency) | | | | | |
 | Trigger global kill-switch | | | | ✓ | ✓ |
 | Grant emergency scoped access | | | | | ✓ |
+| Manage bounded runtime settings | | | | ✓ | |
 | Manage `aw-*` group membership | | | | ✓ | |
 | Apply infra IaC (deployer) | | | | ✓ | |
 | Hold the executor Managed Identity | (never) - the MI is non-human |||||
@@ -505,13 +506,14 @@ Human users never hold PATs or long-lived secrets:
 
 ## 11. Console Settings and Access Requests
 
-The Settings activity-bar group gives operators six stable routes without widening the
+The Settings activity-bar group gives operators seven stable routes without widening the
 console's cloud permissions:
 
 | Route | Purpose |
 |-------|---------|
 | `/settings/general` | Browser-local display, language, motion, and answer-verification preferences. |
 | `/settings/models` | Resolved T1/T2 models, lifecycle and latency evidence, the signed-in user's T1 narrator preference, and a distinct-publisher T2 catalog draft builder that never changes runtime state. |
+| `/settings/runtime-policies` | Sanitized environment, durable override, and effective values for allowlisted runtime policy. Readers inspect; Owners update through revision and audit checks. |
 | `/settings/memory` | Durable operator guidance when a provider is registered; otherwise an explicit unavailable state. |
 | `/settings/iam` | Signed-in principal, App Roles, effective capabilities, referenced users, and access requests. |
 | `/settings/integrations` | Read-only identity, delivery, and operator-channel connection status. |

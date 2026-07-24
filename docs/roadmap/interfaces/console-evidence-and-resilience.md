@@ -38,6 +38,15 @@ The stable `/pantheon` path remains a compatibility route for Org, so existing l
 resolve without keeping a second Pantheon directory in navigation. Ownership Handover remains a
 separate Explorer panel because it has its own governed proposal workflow.
 
+Settings includes a Runtime policies route backed by the authoritative StateStore. The route shows
+sanitized environment, override, and effective values without exposing secrets, endpoints, tenant
+identifiers, or workload identity identifiers. Reader access is observational. Owner updates use a
+revision check and an atomic state-plus-audit write. The browser labels startup-bound values as
+restart required and never presents a saved value as an action promotion or cloud-resource change.
+Integrations and Diagnostics consume the same projection. They expose only configured, ready,
+incomplete, mode, and boolean runtime status. They never render endpoint, secret, tenant, resource,
+repository credential, recipient, or managed identity values.
+
 Activity uses one bounded chronological log for durable audit rows and browser-session runtime
 frames. Each row keeps its source label, so a runtime frame is never presented as durable audit
 evidence. Recorded and live agent-to-agent turns render as individual `from -> to` rows with their

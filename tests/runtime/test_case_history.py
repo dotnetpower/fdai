@@ -7,6 +7,7 @@ import pytest
 
 from fdai.core.case_history.dual_write import DualWriteCaseHistoryMetadataStore
 from fdai.core.learning import NoImprovement, PostTurnReviewInput
+from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
     build_case_history_runtime,
@@ -110,6 +111,29 @@ async def test_retention_tick_publishes_bounded_raw_ingress_event() -> None:
     assert envelope.key == f"case-history-retention:{int(now.timestamp()) // 60}"
     assert envelope.payload["event_type"] == "case_history.retention_due"
     assert envelope.payload["attributes"] == {"as_of": now.isoformat()}
+
+
+async def test_retention_tick_uses_latest_runtime_interval() -> None:
+    bus = InMemoryEventBus()
+    store = InMemoryStateStore()
+    settings = RuntimeSettingsService(store=store, env={})
+    publisher = CaseHistoryRetentionTickPublisher(
+        bus=bus,
+        topic="raw.events",
+        interval_seconds=60,
+        runtime_settings=settings,
+    )
+    await settings.update(
+        actor_id="owner-1",
+        changes={"case_history.retention_tick_seconds": 300},
+        expected_revision=0,
+    )
+    now = datetime(2026, 7, 1, tzinfo=UTC)
+
+    await publisher.publish_once(now=now)
+
+    envelope = await anext(bus.subscribe("raw.events", "retention-settings-test"))
+    assert envelope.key == f"case-history-retention:{int(now.timestamp()) // 300}"
 
 
 def test_case_history_retention_tick_interval_validation() -> None:

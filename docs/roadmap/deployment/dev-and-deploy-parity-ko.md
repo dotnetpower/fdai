@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: a59038d4aa1055237788aa2716459256f13d79e4
+translation_source_sha: 1438debd6967d5538d8c62de28c1a67ae23fae88
 translation_revised: 2026-07-24
 ---
 
@@ -111,6 +111,15 @@ Canonical local read API는 `FDAI_READ_API_LOCAL_ENTRA=1`을 사용하고 deploy
 Resource Graph, Microsoft Graph, model discovery, Event Hubs 같은 Azure adapter로 제한됩니다.
 `FDAI_READ_API_LOCAL_AZURE_CLI=1`과 `VITE_LOCAL_AZURE_CLI_AUTH=1` 조합은 fixed role ceiling을
 사용하는 명시적 CLI-principal debug 대안입니다.
+
+Runtime policies는 deployment와 local PostgreSQL이 구성된 경우 동일한 StateStore record를
+사용합니다. Durable local state가 없으면 source manifest는 persistence를 주장하지 않고 settings
+store를 unavailable 또는 non-durable로 표시합니다. Reader는 정제된 environment, durable override 및
+effective value projection을 확인합니다. Owner는 optimistic revision 및 원자적 audit check를 통해
+allowlist만 업데이트할 수 있습니다. IRP 변경은 다음 eligible alert에 적용되고 analyzer, inventory 및
+retention cadence 변경은 다음 Job 또는 tick에 적용됩니다. Logging level과 case retention/deletion day
+변경은 restart required로 표시되며 headless runtime이 시작될 때 로드됩니다. 어떤 setting도 local read
+API에 executor identity를 부여하거나 ActionType 및 Workflow promotion state를 변경하지 않습니다.
 
 Standard full-stack launch는 narrator endpoint reconciliation도 활성 상태로 유지합니다. Read API는
 Command Deck을 deterministic fallback으로 강제하지 않고 configured Azure OpenAI narrator를 항상

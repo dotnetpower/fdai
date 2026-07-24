@@ -42,15 +42,16 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   skills: ["/skills"],
   "settings-general": ["/me/context"],
   "settings-models": ["/models/settings"],
+  "settings-runtime": ["/runtime/settings"],
   "settings-memory": ["/operator-memory"],
   "settings-iam": ["/iam"],
+  "settings-integrations": ["/runtime/settings"],
+  "settings-diagnostics": ["/runtime/settings"],
 };
 
 const SEPARATE_CLIENT_PANELS = new Set(["documents"]);
 const SOURCE_INDEPENDENT_PANELS = new Set([
   "labs",
-  "settings-diagnostics",
-  "settings-integrations",
 ]);
 
 export type PanelSourceClassification = "read-api" | "separate-client" | "independent";

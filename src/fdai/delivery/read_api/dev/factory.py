@@ -583,6 +583,13 @@ def build_local_app(
             *arb_status_panels,
         )
     )
+    from fdai.delivery.runtime_settings import RuntimeSettingsService
+
+    runtime_settings = RuntimeSettingsService(
+        store=persistence.state_store if persistence is not None else models.settings.store,
+        env=os.environ,
+        durable=persistence is not None,
+    )
     application = build_app(
         authenticator=authenticator,
         read_model=read_model,
@@ -609,6 +616,7 @@ def build_local_app(
             post_turn_review_submitter=post_turn_review_queue,
             user_context=user_context,
             model_settings=models.settings,
+            runtime_settings=runtime_settings,
             workflow_definitions=workflow_definitions,
             inventory_graph_provider=_build_inventory_graph_provider(),
             subscription_health_provider=(

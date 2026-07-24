@@ -1,12 +1,22 @@
 import type { ReadApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { PageHeader, StatusPill } from "../components/ui";
+import {
+  AsyncBoundary,
+  type AsyncState,
+  PageHeader,
+  StatusPill,
+} from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { routeHref } from "../router";
 import { SettingRow } from "./settings";
+import {
+  decodeRuntimeSettings,
+  type RuntimeIntegrationView,
+  type RuntimeSettingsView,
+} from "./settings-runtime.model";
 
 interface Props {
   readonly client: ReadApiClient;
@@ -17,8 +27,9 @@ export function isCurrentDiagnosticCheck(current: number, candidate: number): bo
   return current === candidate;
 }
 
-export function SettingsIntegrationsRoute({ auth }: Props) {
+export function SettingsIntegrationsRoute({ client, auth }: Props) {
   const authMode = authenticationMode(auth);
+  const runtimeSettings = useRuntimeSettings(client);
 
   usePublishViewContext(
     () => ({
@@ -33,9 +44,11 @@ export function SettingsIntegrationsRoute({ auth }: Props) {
         { key: "github_app_status", value: "not-probed", group: "delivery" },
         { key: "teams_status", value: "not-probed", group: "delivery" },
       ],
-      records: {},
+      records: runtimeSettings.status === "ready"
+        ? { integrations: runtimeSettings.data.integrations.map((item) => ({ ...item })) }
+        : {},
     }),
-    [authMode],
+    [authMode, runtimeSettings],
   );
 
   return (
@@ -54,15 +67,18 @@ export function SettingsIntegrationsRoute({ auth }: Props) {
       </section>
       <section class="settings-section" aria-labelledby="settings-delivery-integrations">
         <h3 id="settings-delivery-integrations">{t("settings.delivery")}</h3>
-        <p class="muted small">{t("settings.integrationProbeUnavailable")}</p>
-        <div class="settings-list">
-          <SettingRow label={t("settings.githubApp")} hint={t("settings.githubAppHint")}>
-            <StatusPill kind="neutral" label={t("settings.statusNotProbed")} />
-          </SettingRow>
-          <SettingRow label={t("settings.teams")} hint={t("settings.teamsHint")}>
-            <StatusPill kind="neutral" label={t("settings.statusNotProbed")} />
-          </SettingRow>
-        </div>
+        <AsyncBoundary
+          state={runtimeSettings}
+          resourceLabel={t("settings.integrationStatusResource")}
+        >
+          {(runtime) => (
+            <div class="settings-list">
+              {runtime.integrations.map((integration) => (
+                <IntegrationRow key={integration.key} integration={integration} />
+              ))}
+            </div>
+          )}
+        </AsyncBoundary>
         <nav class="settings-integration-links" aria-label={t("settings.integrationEvidence")}>
           <a href={routeHref("settings-diagnostics")}>{t("route.settingsDiagnostics")}</a>
           <a href={routeHref("onboarding")}>{t("route.onboarding")}</a>
@@ -78,6 +94,7 @@ export function SettingsDiagnosticsRoute({ client, auth }: Props) {
   const [readPath, setReadPath] = useState<"checking" | "available" | "unavailable">("checking");
   const [healthError, setHealthError] = useState<string | null>(null);
   const checkGeneration = useRef(0);
+  const runtimeSettings = useRuntimeSettings(client);
 
   const checkHealth = async () => {
     const generation = ++checkGeneration.current;
@@ -170,7 +187,101 @@ export function SettingsDiagnosticsRoute({ client, auth }: Props) {
           </SettingRow>
         </div>
       </section>
+      <section class="settings-section" aria-labelledby="settings-runtime-policy-status">
+        <h3 id="settings-runtime-policy-status">{t("settings.runtimePolicyStatus")}</h3>
+        <AsyncBoundary
+          state={runtimeSettings}
+          resourceLabel={t("settings.runtimeStatusResource")}
+        >
+          {(view) => <RuntimeDiagnosticRows view={view} />}
+        </AsyncBoundary>
+      </section>
       {healthError ? <div class="error" role="alert">{healthError}</div> : null}
+    </div>
+  );
+}
+
+function useRuntimeSettings(client: ReadApiClient): AsyncState<RuntimeSettingsView> {
+  const [state, setState] = useState<AsyncState<RuntimeSettingsView>>({ status: "loading" });
+  useEffect(() => {
+    let active = true;
+    setState({ status: "loading" });
+    void client.panel<unknown>("/runtime/settings").then(
+      (value) => {
+        if (active) setState({ status: "ready", data: decodeRuntimeSettings(value) });
+      },
+      (reason) => {
+        if (active) {
+          setState({
+            status: "error",
+            message: reason instanceof Error ? reason.message : String(reason),
+          });
+        }
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [client]);
+  return state;
+}
+
+function IntegrationRow({ integration }: { readonly integration: RuntimeIntegrationView }) {
+  const status = integration.ready
+    ? t("settings.statusReady")
+    : integration.configured
+      ? t("settings.statusIncomplete")
+      : t("settings.statusNotConfigured");
+  return (
+    <SettingRow
+      label={t(`settings.integrations.${integration.key}.label`)}
+      hint={t(`settings.integrations.${integration.key}.hint`)}
+    >
+      <span class="settings-integration-status">
+        <StatusPill
+          kind={integration.ready ? "success" : integration.configured ? "warning" : "neutral"}
+          label={status}
+        />
+        <small class="muted">
+          {t("settings.integrationMode", {
+            mode: t(`settings.integrationModes.${integration.mode}`),
+          })}
+        </small>
+      </span>
+    </SettingRow>
+  );
+}
+
+function RuntimeDiagnosticRows({ view }: { readonly view: RuntimeSettingsView }) {
+  const runtime = view.runtime;
+  const rows = [
+    ["environment", runtime.environment],
+    ["stateStore", runtime.stateStoreDurable],
+    ["autonomyDefault", runtime.autonomyDefault],
+    ["pantheon", runtime.pantheonEnabled],
+    ["workflowObservation", runtime.workflowObservationEnabled],
+    ["primaryTransport", runtime.primaryTransportConfigured],
+    ["auxiliaryTransport", runtime.auxiliaryTransportConfigured],
+    ["caseHistory", runtime.caseHistoryConfigured],
+  ] as const;
+  return (
+    <div class="settings-list">
+      {rows.map(([key, value]) => (
+        <SettingRow
+          key={key}
+          label={t(`settings.runtimeDiagnostics.${key}.label`)}
+          hint={t(`settings.runtimeDiagnostics.${key}.hint`)}
+        >
+          {typeof value === "boolean" ? (
+            <StatusPill
+              kind={value ? "success" : "neutral"}
+              label={value ? t("settings.enabled") : t("settings.disabled")}
+            />
+          ) : (
+            <code class="settings-runtime-value">{value}</code>
+          )}
+        </SettingRow>
+      ))}
     </div>
   );
 }

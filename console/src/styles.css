@@ -11404,6 +11404,10 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 .capability-detail dt { color: var(--fg-muted); font-size: 10px; text-transform: uppercase; }
 .capability-detail dd { margin: 3px 0 0; overflow-wrap: anywhere; }
 .settings-integration-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.settings-integration-status { display: grid; justify-items: end; gap: 5px; }
+@media (max-width: 700px) {
+  .settings-integration-status { justify-items: start; }
+}
 @media (max-width: 900px) {
   .capabilities-filterbar,
   .scheduler-runs-filter,
@@ -12048,6 +12052,27 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
   text-align: right;
 }
 .settings-actions { display: flex; justify-content: flex-end; padding-top: 8px; }
+.settings-runtime-boundary {
+  display: grid;
+  gap: 6px;
+  padding: 14px 0 18px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-runtime-boundary p { margin: 0; max-width: 78ch; line-height: 1.55; }
+.settings-runtime-row { align-items: center; gap: 24px; }
+.settings-runtime-copy { min-width: 0; display: grid; gap: 4px; }
+.settings-runtime-meta { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 5px; color: var(--fg-muted); font-size: 10px; }
+.settings-runtime-control { display: grid; grid-template-columns: auto minmax(128px, 180px) auto; align-items: center; justify-content: end; gap: 8px; min-width: min(100%, 360px); }
+.settings-runtime-control input[type="number"],
+.settings-runtime-control select { width: 100%; min-width: 0; max-width: 100%; min-height: 34px; }
+.settings-runtime-flags { min-height: 24px; display: inline-flex; align-items: center; justify-content: flex-end; }
+.settings-runtime-reset { max-width: 100%; white-space: normal; }
+.settings-runtime-actions { padding: 12px 0; border-top: 1px solid var(--border); }
+@media (max-width: 760px) {
+  .settings-runtime-row { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+  .settings-runtime-control { width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr) auto; justify-content: stretch; }
+  .settings-runtime-flags { grid-column: 1 / -1; justify-content: flex-start; }
+}
 .settings-route .btn,
 .settings-route button.secondary {
   min-height: 38px;

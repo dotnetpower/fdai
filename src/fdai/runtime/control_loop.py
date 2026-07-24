@@ -451,18 +451,20 @@ def _build_control_loop(
     )
 
 
-def _build_irp_event_handler(*, container: Container, bus: EventBus) -> Any | None:
+def _build_irp_event_handler(
+    *,
+    container: Container,
+    bus: EventBus,
+    runtime_settings: Any | None = None,
+) -> Any | None:
     """Build the alert-to-investigation bridge when explicitly enabled."""
-    if os.environ.get("FDAI_IRP_ENABLED", "").strip() != "1":
-        return None
-    budget_raw = os.environ.get("FDAI_IRP_BUDGET_SECONDS", "").strip()
-    try:
-        budget_seconds = float(budget_raw) if budget_raw else 60.0
-    except ValueError as exc:
-        raise RuntimeError("FDAI_IRP_BUDGET_SECONDS MUST be a number") from exc
     from fdai.core.investigation import InvestigationCoordinator, default_analyzers
     from fdai.core.irp import IrpCoordinator
-    from fdai.delivery.irp import EventBusIrpProposalRouter, IrpEventHandler
+    from fdai.delivery.irp import (
+        EventBusIrpProposalRouter,
+        IrpEventHandler,
+        RuntimeSettingsIrpEventHandler,
+    )
 
     signal_writer = None
     dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
@@ -473,14 +475,30 @@ def _build_irp_event_handler(*, container: Container, bus: EventBus) -> Any | No
         )
 
         signal_writer = PostgresReportSignalStore(config=PostgresReportSignalStoreConfig(dsn=dsn))
-    coordinator = IrpCoordinator(
-        investigator=InvestigationCoordinator(
-            analyzers=default_analyzers(container.metric_provider)
-        ),
-        proposal_router=EventBusIrpProposalRouter(
-            bus=bus,
-            topic=container.config.kafka.topic_events,
-        ),
-        investigation_budget_seconds=budget_seconds,
-    )
-    return IrpEventHandler(coordinator=coordinator, signal_writer=signal_writer)
+
+    def build_handler(budget_seconds: float) -> IrpEventHandler:
+        coordinator = IrpCoordinator(
+            investigator=InvestigationCoordinator(
+                analyzers=default_analyzers(container.metric_provider)
+            ),
+            proposal_router=EventBusIrpProposalRouter(
+                bus=bus,
+                topic=container.config.kafka.topic_events,
+            ),
+            investigation_budget_seconds=budget_seconds,
+        )
+        return IrpEventHandler(coordinator=coordinator, signal_writer=signal_writer)
+
+    if runtime_settings is not None:
+        return RuntimeSettingsIrpEventHandler(
+            settings=runtime_settings,
+            handler_factory=build_handler,
+        )
+    if os.environ.get("FDAI_IRP_ENABLED", "").strip() != "1":
+        return None
+    budget_raw = os.environ.get("FDAI_IRP_BUDGET_SECONDS", "").strip()
+    try:
+        budget_seconds = float(budget_raw) if budget_raw else 60.0
+    except ValueError as exc:
+        raise RuntimeError("FDAI_IRP_BUDGET_SECONDS MUST be a number") from exc
+    return build_handler(budget_seconds)

@@ -771,6 +771,7 @@ class TestLocalAzureCliHarness:
         paths = {route.path for route in client.app.routes}
         assert "/inventory/graph" in paths
         assert "/models/settings" in paths
+        assert "/runtime/settings" in paths
         assert "/capabilities" in paths
         assert "/onboarding" in paths
         assert "/kpi/llm-cost" in paths

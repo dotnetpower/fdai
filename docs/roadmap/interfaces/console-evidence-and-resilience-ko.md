@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: d909791d95afcffdeed4f36087ef1fae0433db0f
+translation_source_sha: de161c7144c19ee03103cf20e697e870b4b991f3
 translation_revised: 2026-07-24
 ---
 
@@ -39,6 +39,15 @@ status가 계속 표시됩니다.
 기존 link가 계속 동작하도록 stable `/pantheon` path는 조직 compatibility route로 유지하고,
 navigation에는 별도의 Pantheon directory를 두지 않습니다. 담당자 인수인계는 자체 governed proposal
 workflow가 있으므로 별도 Explorer panel로 유지합니다.
+
+Settings에는 authoritative StateStore를 사용하는 Runtime policies route가 포함됩니다. 이 route는
+secret, endpoint, tenant identifier 또는 workload identity identifier를 노출하지 않고 정제된
+environment, override 및 effective value를 표시합니다. Reader access는 관찰 전용입니다. Owner update는
+revision check와 원자적인 state 및 audit write를 사용합니다. Browser는 startup-bound value를 restart
+required로 표시하며 저장된 값을 action promotion 또는 cloud-resource 변경으로 나타내지 않습니다.
+Integrations와 Diagnostics는 동일한 projection을 사용합니다. 이 화면은 configured, ready,
+incomplete, mode 및 boolean runtime status만 표시합니다. Endpoint, secret, tenant, resource,
+repository credential, recipient 또는 managed identity value는 렌더링하지 않습니다.
 
 활동 view는 durable audit 행과 browser-session runtime frame을 하나의 bounded chronological log로
 표시합니다. 각 행은 source label을 유지하므로 runtime frame을 durable audit evidence로 표시하지

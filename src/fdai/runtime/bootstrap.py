@@ -51,8 +51,6 @@ from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
     CaseHistoryRuntime,
     build_case_history_runtime,
-    case_history_retention_days,
-    case_history_retention_tick_seconds,
 )
 from fdai.runtime.configuration import (
     _attach_runtime_github_change_feed,
@@ -257,6 +255,15 @@ async def _run() -> int:
             from fdai.shared.contracts.models import IncidentSeverity
 
             incident_audit_store = _build_audit_store()
+            from fdai.delivery.runtime_settings import RuntimeSettingsService
+
+            runtime_settings = RuntimeSettingsService(
+                store=incident_audit_store,
+                env=os.environ,
+                durable=bool(os.environ.get("FDAI_STATE_STORE_DSN", "").strip()),
+            )
+            runtime_values = await runtime_settings.effective_values()
+            logging.getLogger().setLevel(str(runtime_values["logging.level"]))
             incident_registry = IncidentRegistry(state_store=incident_audit_store)
             incident_entries = await incident_audit_store.read_incident_transitions()
             incident_registry.rehydrate(incident_entries)
@@ -449,13 +456,19 @@ async def _run() -> int:
                     case_history_retention_publisher = CaseHistoryRetentionTickPublisher(
                         bus=bus,
                         topic=container.config.kafka.topic_events,
-                        interval_seconds=case_history_retention_tick_seconds(
-                            os.environ.get("FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS")
+                        interval_seconds=_runtime_positive_integer(
+                            runtime_values,
+                            "case_history.retention_tick_seconds",
                         ),
+                        runtime_settings=runtime_settings,
                     )
-                case_retention_days, case_deletion_days = case_history_retention_days(
-                    os.environ.get("FDAI_CASE_HISTORY_RETENTION_DAYS"),
-                    os.environ.get("FDAI_CASE_HISTORY_DELETION_DAYS"),
+                case_retention_days = _runtime_positive_integer(
+                    runtime_values,
+                    "case_history.retention_days",
+                )
+                case_deletion_days = _runtime_positive_integer(
+                    runtime_values,
+                    "case_history.deletion_days",
                 )
                 pantheon_runtime = PantheonRuntime.build(
                     provider=bus,
@@ -588,7 +601,11 @@ async def _run() -> int:
                         control_loop=control_loop,
                         stop=stop,
                         divergence=divergence_ledger,
-                        irp_handler=_build_irp_event_handler(container=container, bus=bus),
+                        irp_handler=_build_irp_event_handler(
+                            container=container,
+                            bus=bus,
+                            runtime_settings=runtime_settings,
+                        ),
                     ),
                 )
             )
@@ -768,6 +785,13 @@ async def _run() -> int:
                 await http_client.aclose()
             except Exception:  # noqa: BLE001
                 _LOGGER.warning("http_client_close_failed", exc_info=True)
+
+
+def _runtime_positive_integer(values: dict[str, object], key: str) -> int:
+    value = values.get(key)
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise RuntimeError(f"effective runtime setting {key} is invalid")
+    return value
 
 
 def main() -> int:

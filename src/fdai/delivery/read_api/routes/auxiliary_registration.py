@@ -164,6 +164,16 @@ def append_auxiliary_routes(
             )
         )
 
+    if config.runtime_settings is not None:
+        from fdai.delivery.read_api.routes.runtime_settings import make_runtime_settings_routes
+
+        routes.extend(
+            make_runtime_settings_routes(
+                service=config.runtime_settings,
+                authorize_principal=authorize_principal,
+            )
+        )
+
     if config.workflow_definitions is not None:
         from fdai.delivery.read_api.routes.workflow_definitions import (
             make_workflow_definition_routes,

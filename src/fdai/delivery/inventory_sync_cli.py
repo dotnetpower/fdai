@@ -69,7 +69,12 @@ class InventoryJobConfig:
     declarative_sha256: str | None = None
 
     @classmethod
-    def from_env(cls, env: Mapping[str, str] | None = None) -> InventoryJobConfig:
+    def from_env(
+        cls,
+        env: Mapping[str, str] | None = None,
+        *,
+        runtime_values: Mapping[str, object] | None = None,
+    ) -> InventoryJobConfig:
         source = env if env is not None else os.environ
         dsn = source.get("FDAI_INVENTORY_DSN", "").strip()
         default_scope = source.get("AZURE_SUBSCRIPTION_ID", "").strip()
@@ -83,10 +88,16 @@ class InventoryJobConfig:
             "FDAI_INVENTORY_MANAGEMENT_AUDIENCE",
             "https://management.azure.com/.default",
         ).strip()
-        try:
-            freshness = int(source.get("FDAI_INVENTORY_FRESHNESS_SECONDS", "86400"))
-        except ValueError as exc:
-            raise ValueError("FDAI_INVENTORY_FRESHNESS_SECONDS MUST be an integer") from exc
+        if runtime_values is not None:
+            freshness_value = runtime_values.get("inventory.freshness_seconds")
+            if not isinstance(freshness_value, int) or isinstance(freshness_value, bool):
+                raise ValueError("effective inventory freshness setting MUST be an integer")
+            freshness = freshness_value
+        else:
+            try:
+                freshness = int(source.get("FDAI_INVENTORY_FRESHNESS_SECONDS", "86400"))
+            except ValueError as exc:
+                raise ValueError("FDAI_INVENTORY_FRESHNESS_SECONDS MUST be an integer") from exc
         path_value = source.get("FDAI_INVENTORY_DECLARATIVE_PATH", "").strip()
         sha = source.get("FDAI_INVENTORY_DECLARATIVE_SHA256", "").strip() or None
         recovery_delta = _bool_env(source, "FDAI_INVENTORY_RECOVERY_DELTA", False)
@@ -319,10 +330,17 @@ def _bool_env(source: Mapping[str, str], key: str, default: bool) -> bool:
     raise ValueError(f"{key} MUST be one of 1, 0, true, false")
 
 
-def main() -> None:
-    config = InventoryJobConfig.from_env()
-    source = asyncio.run(run(config))
+async def _main() -> None:
+    from fdai.delivery.runtime_settings import runtime_settings_service_from_env
+
+    runtime_values = await runtime_settings_service_from_env(os.environ).effective_values()
+    config = InventoryJobConfig.from_env(runtime_values=runtime_values)
+    source = await run(config)
     print(f"inventory snapshot promoted from {source}")
+
+
+def main() -> None:
+    asyncio.run(_main())
 
 
 if __name__ == "__main__":

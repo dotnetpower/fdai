@@ -26,6 +26,7 @@ from fdai.delivery.persistence.postgres_case_history import (
 from fdai.delivery.persistence.state_store_case_history import (
     StateStoreCaseHistoryMetadataStore,
 )
+from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.shared.providers.case_history import CaseHistoryMetadataStore
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
@@ -49,6 +50,7 @@ class CaseHistoryRetentionTickPublisher:
         bus: EventBus,
         topic: str,
         interval_seconds: int = 86_400,
+        runtime_settings: RuntimeSettingsService | None = None,
     ) -> None:
         if not topic.strip():
             raise ValueError("case history retention topic MUST be non-empty")
@@ -57,11 +59,18 @@ class CaseHistoryRetentionTickPublisher:
         self._bus = bus
         self._topic = topic
         self._interval_seconds = interval_seconds
+        self._runtime_settings = runtime_settings
 
-    async def publish_once(self, *, now: datetime) -> None:
+    async def publish_once(
+        self,
+        *,
+        now: datetime,
+        interval_seconds: int | None = None,
+    ) -> None:
         if now.tzinfo is None:
             raise ValueError("case history retention tick MUST be timezone-aware")
-        bucket = int(now.timestamp()) // self._interval_seconds
+        interval = interval_seconds or await self._effective_interval_seconds()
+        bucket = int(now.timestamp()) // interval
         tick_id = f"case-history-retention:{bucket}"
         await self._bus.publish(
             self._topic,
@@ -78,11 +87,21 @@ class CaseHistoryRetentionTickPublisher:
 
     async def run(self, *, stop: asyncio.Event) -> None:
         while not stop.is_set():
-            await self.publish_once(now=datetime.now(UTC))
+            interval = await self._effective_interval_seconds()
+            await self.publish_once(now=datetime.now(UTC), interval_seconds=interval)
             try:
-                await asyncio.wait_for(stop.wait(), timeout=self._interval_seconds)
+                await asyncio.wait_for(stop.wait(), timeout=interval)
             except TimeoutError:
                 continue
+
+    async def _effective_interval_seconds(self) -> int:
+        if self._runtime_settings is None:
+            return self._interval_seconds
+        effective = await self._runtime_settings.effective_values()
+        interval = effective["case_history.retention_tick_seconds"]
+        if not isinstance(interval, int) or isinstance(interval, bool) or interval < 1:
+            raise RuntimeError("effective case history retention interval is invalid")
+        return interval
 
 
 def build_case_history_runtime(

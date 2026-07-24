@@ -69,6 +69,7 @@ import json
 import logging
 import os
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from uuid import NAMESPACE_URL, uuid5
 
@@ -155,6 +156,7 @@ async def _run_tick(
     targets: tuple[_Target, ...],
     *,
     event_bus: EventBus | None = None,
+    runtime_values: Mapping[str, object] | None = None,
 ) -> int:
     """Invoke the reference analyzers against ``targets`` once."""
     if isinstance(container.metric_provider, NoopMetricProvider):
@@ -178,8 +180,18 @@ async def _run_tick(
     request = InvestigationRequest(
         requested_by="analyzer-tick",
         resources=tuple((t.resource_ref, t.resource_kind) for t in targets),
-        window_seconds=_positive_float(_ENV_WINDOW, _DEFAULT_WINDOW_SECONDS),
-        budget_seconds=_positive_float(_ENV_BUDGET, _DEFAULT_BUDGET_SECONDS),
+        window_seconds=_runtime_number(
+            runtime_values,
+            "analyzer.window_seconds",
+            _ENV_WINDOW,
+            _DEFAULT_WINDOW_SECONDS,
+        ),
+        budget_seconds=_runtime_number(
+            runtime_values,
+            "analyzer.budget_seconds",
+            _ENV_BUDGET,
+            _DEFAULT_BUDGET_SECONDS,
+        ),
     )
     report = await coordinator.investigate(request)
     await _persist_report_signals(report)
@@ -271,6 +283,9 @@ async def _tick() -> int:
             extra={"reason": f"{_ENV_TARGETS} and active inventory are empty"},
         )
         return 0
+    from fdai.delivery.runtime_settings import runtime_settings_service_from_env
+
+    runtime_values = await runtime_settings_service_from_env(os.environ).effective_values()
     container = default_container_from_env()
     monitor_workspace_id = os.environ.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() or None
     prometheus_base_url = os.environ.get("FDAI_PROMETHEUS_ENDPOINT", "").strip() or None
@@ -296,10 +311,29 @@ async def _tick() -> int:
                 prometheus_audience=prometheus_audience,
             )
         async with EventPublisherContext(kafka=container.config.kafka) as event_bus:
-            return await _run_tick(container, targets, event_bus=event_bus)
+            return await _run_tick(
+                container,
+                targets,
+                event_bus=event_bus,
+                runtime_values=runtime_values,
+            )
     finally:
         if http_client is not None:
             await http_client.aclose()
+
+
+def _runtime_number(
+    values: Mapping[str, object] | None,
+    key: str,
+    env_name: str,
+    default: float,
+) -> float:
+    if values is None:
+        return _positive_float(env_name, default)
+    value = values.get(key)
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+        raise RuntimeError(f"effective runtime setting {key} is invalid")
+    return float(value)
 
 
 async def _load_inventory_targets() -> tuple[_Target, ...]:

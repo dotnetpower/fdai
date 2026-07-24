@@ -457,6 +457,8 @@ class ReadApiConfig:
     briefing routes under ``/me``."""
     model_settings: Any = None
     """Opt-in sanitized model catalog, runtime latency, and per-user narrator preference."""
+    runtime_settings: Any = None
+    """Opt-in sanitized, revisioned, and audited runtime policy settings."""
     python_tasks: Any = None
     """Opt-in governed Python task author, plan, schedule, and proposal routes."""
     reporting: Any = None

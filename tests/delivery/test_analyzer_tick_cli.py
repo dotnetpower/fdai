@@ -15,6 +15,7 @@ from fdai.delivery.analyzer_tick_cli import (
     _load_targets,
     _positive_float,
     _run_tick,
+    _runtime_number,
     _targets_from_inventory,
     main,
 )
@@ -128,6 +129,22 @@ def test_positive_float_rejects_non_numeric(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setenv(_ENV_BUDGET, "abc")
     with pytest.raises(ValueError, match="MUST be a positive number"):
         _positive_float(_ENV_BUDGET, 7.0)
+
+
+def test_runtime_number_prefers_durable_effective_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(_ENV_BUDGET, "99")
+
+    assert (
+        _runtime_number(
+            {"analyzer.budget_seconds": 12.5},
+            "analyzer.budget_seconds",
+            _ENV_BUDGET,
+            7.0,
+        )
+        == 12.5
+    )
 
 
 async def test_run_tick_with_noop_provider_logs_warning_and_exits_zero(

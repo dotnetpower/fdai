@@ -81,6 +81,7 @@
     "settings": "Settings",
     "settingsGeneral": "General",
     "settingsModels": "Models",
+    "settingsRuntime": "Runtime policies",
     "settingsIam": "Identity and access",
     "settingsIntegrations": "Integrations",
     "settingsDiagnostics": "Diagnostics",
@@ -171,6 +172,7 @@
       "settings": "Settings",
       "settingsGeneral": "General",
       "settingsModels": "Models",
+      "settingsRuntime": "Runtime policies",
       "settingsIam": "Identity and access",
       "settingsIntegrations": "Integrations",
       "settingsDiagnostics": "Diagnostics",
@@ -220,6 +222,7 @@
       "settings": "Display, accessibility, and local console preferences",
       "settingsGeneral": "Display, accessibility, and browser-local preferences",
       "settingsModels": "T1 and T2 models, provisioning, latency, and personal routing",
+      "settingsRuntime": "Audited runtime behavior, budgets, freshness, retention, and logging",
       "settingsIam": "Human roles, capabilities, and governed access requests",
       "settingsIntegrations": "Identity, delivery, and operator-channel connections",
       "settingsDiagnostics": "Read-only runtime and authentication diagnostics",
@@ -1202,6 +1205,84 @@
     "recentBriefings": "Recent briefings",
     "briefingRunSummary": "{status} - {count} items - {evidence} evidence refs",
     "noBriefingRuns": "No briefing runs yet.",
+    "runtimePolicies": {
+      "subtitle": "Allowlisted runtime behavior with durable overrides, revision checks, and an audit trail.",
+      "loading": "Loading runtime policies...",
+      "boundaryLabel": "Runtime settings boundary",
+      "boundary": "These controls update control-plane policy only. They never receive the executor identity, promote actions or workflows, weaken safety checks, or expose secrets and endpoints.",
+      "revision": "Revision {revision}",
+      "lastUpdated": "Last updated by {actor} at {time}.",
+      "neverUpdated": "No durable override has been recorded. Environment values are effective.",
+      "readOnly": "Owner role is required to change runtime policies. Current and effective values remain visible.",
+      "environment": "Environment",
+      "effective": "Effective",
+      "source": "Source",
+      "sourceEnvironment": "Environment",
+      "sourceOverride": "Durable override",
+      "restartRequired": "Restart required",
+      "unavailable": "Unavailable",
+      "reset": "Use environment value",
+      "save": "Save runtime policies",
+      "saving": "Saving...",
+      "saved": "Runtime policies saved.",
+      "conflict": "Runtime policies changed in another session. The latest values were loaded; review them before saving again.",
+      "conflictReloadFailed": "Runtime policies changed in another session, and the latest values could not be loaded.",
+      "groups": {
+        "investigation": "Incident investigation",
+        "inventory": "Inventory freshness",
+        "analysis": "Analyzer bounds",
+        "retention": "Case history retention",
+        "diagnostics": "Diagnostics"
+      },
+      "fields": {
+        "irp": {
+          "enabled": {
+            "label": "Incident response investigation",
+            "hint": "Process alert-shaped events through bounded investigation before a typed proposal re-enters the standard safety pipeline."
+          },
+          "budget_seconds": {
+            "label": "Investigation time budget",
+            "hint": "Maximum seconds available to one incident response investigation."
+          }
+        },
+        "inventory": {
+          "freshness_seconds": {
+            "label": "Inventory freshness limit",
+            "hint": "Maximum active snapshot age before graph-dependent autonomy moves to human review."
+          }
+        },
+        "analyzer": {
+          "window_seconds": {
+            "label": "Analyzer observation window",
+            "hint": "Telemetry window evaluated by each scheduled analyzer tick."
+          },
+          "budget_seconds": {
+            "label": "Analyzer time budget",
+            "hint": "Maximum seconds available to one scheduled analyzer investigation."
+          }
+        },
+        "case_history": {
+          "retention_days": {
+            "label": "Active case retention",
+            "hint": "Days a newly sealed case remains active and queryable. Applies after restart."
+          },
+          "deletion_days": {
+            "label": "Case deletion due date",
+            "hint": "Days before a newly sealed case becomes due for deletion. It cannot be earlier than active retention."
+          },
+          "retention_tick_seconds": {
+            "label": "Retention evaluation interval",
+            "hint": "Seconds between idempotent retention ticks processed by Muninn."
+          }
+        },
+        "logging": {
+          "level": {
+            "label": "Runtime log level",
+            "hint": "Minimum Python log severity after the runtime restarts."
+          }
+        }
+      }
+    },
     "models": {
       "subtitle": "Resolved T1 and T2 models, lifecycle health, latency evidence, narrator preference, and governed T2 policy drafts.",
       "loading": "Loading model settings...",
@@ -1295,7 +1376,36 @@
     "deploymentManaged": "Deployment managed",
     "statusUnknown": "Not verified",
     "statusNotProbed": "Not probed",
+    "statusReady": "Ready",
+    "statusIncomplete": "Incomplete",
+    "statusNotConfigured": "Not configured",
     "integrationProbeUnavailable": "No delivery status adapter is registered on this deployment. This page does not infer health from configuration alone.",
+    "integrationStatusResource": "integration readiness",
+    "integrationMode": "Mode: {mode}",
+    "integrationModes": {
+      "disabled": "Disabled",
+      "enabled": "Enabled",
+      "shadow": "Observation",
+      "enforce": "Enforcement"
+    },
+    "integrations": {
+      "chatops": {
+        "label": "ChatOps approvals",
+        "hint": "Webhook delivery and optional signed approval callbacks. Values and secrets are never exposed."
+      },
+      "email": {
+        "label": "Email notifications",
+        "hint": "Managed-identity email delivery, sender, and recipient configuration status."
+      },
+      "gitops": {
+        "label": "GitOps change delivery",
+        "hint": "Governed pull-request publisher configuration without exposing repository credentials."
+      },
+      "jira": {
+        "label": "Jira incident tickets",
+        "hint": "Durable ticket-tool configuration and its current observation or enforcement ceiling."
+      }
+    },
     "integrationEvidence": "Integration evidence",
     "retry": "Retry",
     "health": {
@@ -1308,6 +1418,42 @@
     "authenticationHint": "The identity source used for this console session.",
     "principal": "Signed-in principal",
     "principalHint": "Display identity only. Authorization uses the stable Entra object id and App Roles.",
+    "runtimePolicyStatus": "Control-plane runtime",
+    "runtimeStatusResource": "runtime status",
+    "runtimeDiagnostics": {
+      "environment": {
+        "label": "Deployment environment",
+        "hint": "Sanitized runtime environment class. Arbitrary deployment names are not exposed."
+      },
+      "stateStore": {
+        "label": "Durable state store",
+        "hint": "Whether revisioned settings and audit records use the durable StateStore."
+      },
+      "autonomyDefault": {
+        "label": "Default action lifecycle",
+        "hint": "Read-only safety invariant. Promotion remains per ActionType and Workflow."
+      },
+      "pantheon": {
+        "label": "Pantheon runtime",
+        "hint": "Whether the fixed 15-agent runtime starts in this process."
+      },
+      "workflowObservation": {
+        "label": "Workflow observation",
+        "hint": "Whether event-triggered catalog workflows evaluate without applying changes."
+      },
+      "primaryTransport": {
+        "label": "Primary event transport",
+        "hint": "Configured status only. Bootstrap endpoints and credentials are not exposed."
+      },
+      "auxiliaryTransport": {
+        "label": "Operational event transport",
+        "hint": "Configured status for canary and raw inventory traffic only."
+      },
+      "caseHistory": {
+        "label": "Case history storage",
+        "hint": "Configured status for the private artifact store and its dedicated identity."
+      }
+    },
     "unavailable": "Unavailable",
     "iam": {
       "subtitle": "Human identity roles and effective capabilities. Access changes remain approval-gated and never call Microsoft Graph from the browser.",

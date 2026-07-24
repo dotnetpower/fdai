@@ -35,6 +35,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   "llm-cost": "/llm-cost",
   "settings-general": "/settings/general",
   "settings-models": "/settings/models",
+  "settings-runtime": "/settings/runtime-policies",
   "settings-memory": "/settings/memory",
   "settings-iam": "/settings/iam",
   "settings-integrations": "/settings/integrations",

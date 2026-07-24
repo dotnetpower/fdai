@@ -44,10 +44,10 @@ describe("panel source availability", () => {
 
   test("classifies every registered console panel by source ownership", () => {
     const panels = resolvePanels();
-    expect(panels).toHaveLength(46);
+    expect(panels).toHaveLength(47);
     expect(panels.filter((panel) => panelSourceClassification(panel.id) === null))
       .toEqual([]);
     expect(panelSourceClassification("documents")).toBe("separate-client");
-    expect(panelSourceClassification("settings-diagnostics")).toBe("independent");
+    expect(panelSourceClassification("settings-diagnostics")).toBe("read-api");
   });
 });

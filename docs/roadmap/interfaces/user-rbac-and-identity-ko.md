@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: ea1b8987823535d28f8f98d8874db7ae88a97ec2
-translation_revised: 2026-07-22
+translation_source_sha: 5e5fa3b4c6829bd329aca80b04e8d689567b9af5
+translation_revised: 2026-07-24
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -87,6 +87,7 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | 런타임 HIL 요청 승인 (비상) | | | | | |
 | 글로벌 kill-switch 트리거 | | | | ✓ | ✓ |
 | 비상 스코프 접근 부여 | | | | | ✓ |
+| 제한된 런타임 설정 관리 | | | | ✓ | |
 | `aw-*` 그룹 멤버십 관리 | | | | ✓ | |
 | 인프라 IaC 적용 (deployer) | | | | ✓ | |
 | Executor Managed Identity 보유 | (절대) - MI는 비-사람 |||||
@@ -490,13 +491,14 @@ Teams SSO OBO 승인에 대한 목표 계약은 다음과 같습니다:
 
 ## 11. 콘솔 설정 및 액세스 요청
 
-Settings activity bar 그룹은 콘솔의 클라우드 권한을 넓히지 않고 여섯 개의 안정적인 경로를
+Settings activity bar 그룹은 콘솔의 클라우드 권한을 넓히지 않고 일곱 개의 안정적인 경로를
 제공합니다.
 
 | 경로 | 목적 |
 |------|------|
 | `/settings/general` | 브라우저 로컬 표시, 언어, 모션 및 답변 검증 환경 설정입니다. |
 | `/settings/models` | 해결된 T1/T2 모델, 라이프사이클 및 지연 시간 근거, 로그인 사용자의 T1 narrator 선호, runtime state를 변경하지 않는 distinct-publisher T2 catalog 초안 builder입니다. |
+| `/settings/runtime-policies` | Allowlist된 런타임 정책의 정제된 environment, durable override 및 effective value를 표시합니다. Reader는 조회하고 Owner는 revision 및 audit 검사를 통해 업데이트합니다. |
 | `/settings/memory` | Provider가 등록된 경우 durable operator guidance를 표시하고, 그렇지 않으면 명시적인 unavailable 상태를 표시합니다. |
 | `/settings/iam` | 로그인 principal, App Role, 유효 기능, 참조된 사용자 및 액세스 요청입니다. |
 | `/settings/integrations` | ID, 전달 및 운영자 채널 연결의 읽기 전용 상태입니다. |

@@ -164,6 +164,7 @@ def test_build_prod_app_returns_starlette_app() -> None:
     assert "/skills" in paths
     assert "/onboarding" in paths
     assert "/stewardship" in paths
+    assert "/runtime/settings" in paths
     assert "/kpi/llm-cost" in paths
     assert "/chat/busy-input" not in paths
     assert "/chat/busy-input/mode" not in paths

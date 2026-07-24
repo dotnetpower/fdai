@@ -41,6 +41,7 @@ def test_production_manifest_distinguishes_configured_and_unavailable_sources() 
     assert sources["operational-state"].authoritative is True
     assert sources["overview-measurement"].durable is True
     assert "/conversation-delivery" in sources["durable-governance"].routes
+    assert "/runtime/settings" in sources["durable-governance"].routes
     assert sources["scope"].availability == "unavailable"
     assert sources["models"].availability == "unknown"
     assert sources["streams"].configured is False

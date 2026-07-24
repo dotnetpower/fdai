@@ -69,6 +69,7 @@ const VerticalOutcomesRoute = lazy(async () => ({ default: (await import("./rout
 const TrustRoutingRoute = lazy(async () => ({ default: (await import("./routes/analytics-hubs")).TrustRoutingRoute }));
 const SettingsGeneralRoute = lazy(async () => ({ default: (await import("./routes/settings")).SettingsGeneralRoute }));
 const SettingsModelsRoute = lazy(async () => ({ default: (await import("./routes/settings-models")).SettingsModelsRoute }));
+const SettingsRuntimeRoute = lazy(async () => ({ default: (await import("./routes/settings-runtime")).SettingsRuntimeRoute }));
 const OperatorMemoryRoute = lazy(async () => ({ default: (await import("./routes/operator-memory")).OperatorMemoryRoute }));
 const SettingsIamRoute = lazy(async () => ({ default: (await import("./routes/settings-iam")).SettingsIamRoute }));
 const SettingsIntegrationsRoute = lazy(async () => ({ default: (await import("./routes/settings-system")).SettingsIntegrationsRoute }));
@@ -444,6 +445,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.settingsModels"),
     group: "settings",
     component: SettingsModelsRoute,
+  },
+  {
+    id: "settings-runtime",
+    label: t("nav.panel.settingsRuntime"),
+    subtitle: t("nav.panelSub.settingsRuntime"),
+    group: "settings",
+    component: SettingsRuntimeRoute,
   },
   {
     id: "settings-memory",

@@ -179,6 +179,9 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     persistence = build_production_persistence(read_model)
     state_store_config = persistence.state_store_config
     state_store = persistence.state_store
+    from fdai.delivery.runtime_settings import RuntimeSettingsService
+
+    runtime_settings = RuntimeSettingsService(store=state_store, env=env, durable=True)
     identity = build_production_identity(env)
     authenticator = identity.authenticator
     group_mapping = identity.group_mapping
@@ -643,6 +646,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         stewardship_health_reader=state_store,
         user_context=user_context,
         model_settings=model_settings,
+        runtime_settings=runtime_settings,
         python_tasks=python_tasks,
         chat=chat,
         chat_document_evidence=UploaderDocumentEvidenceResolver(

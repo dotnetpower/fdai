@@ -378,6 +378,13 @@ All values MUST come from env vars or Key Vault refs at runtime. **No environmen
 committed to this repo.** The list below is the **schema of keys** the deployment expects; the
 full expanded catalog and defaults are authored during the inventory PR.
 
+The Console projects a safe subset through Settings > Runtime policies. Readers can compare the
+environment, durable override, and effective value. Owners can change only the documented
+allowlist through revision and audit checks. IRP, analyzer, inventory freshness, and retention tick
+changes apply dynamically at their next event or Job boundary. Logging level and case retention or
+deletion day changes require a headless runtime restart. Deployment identity, transport, endpoint,
+secret, promotion, and test-only keys remain outside the editable surface.
+
 | Key | Source | Owner | Notes |
 |-----|--------|-------|-------|
 | `AZURE_TENANT_ID` | env | deployment | non-secret |
@@ -415,7 +422,7 @@ full expanded catalog and defaults are authored during the inventory PR.
 | `FDAI_POLICIES_ROOT` | env | deployment | absolute path to the OPA / Rego bundle root consumed by T0 and the verifier. Defaults to the in-repo `policies/` when unset. |
 | `FDAI_MI_CLIENT_ID` | env | upstream | User-assigned MI client id for the current process. The core receives the executor id; the inventory job receives its distinct read-only discovery id. |
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | upstream / deployment | Enables the ACS Email A2/A4 channels. Terraform derives the endpoint and Azure-managed sender, attaches a dedicated notification MI, and injects the client id. Deployment configuration supplies recipients through `NOTIFICATION_EMAIL_RECIPIENTS_JSON`; no access key or connection string enters the app. Partial configuration fails startup. |
-| `FDAI_MEASUREMENT_MODE` | env | upstream | `shadow` (default) or `enforce` - governs the Container Apps Jobs runners in `infra/modules/measurement-runners/`. |
+| `FDAI_MEASUREMENT_MODE` | env | upstream | Selects the Container Apps Job entry point in `infra/modules/measurement-runners/`: `baseline` runs frozen-scenario regression measurement and `growth` drains reviewed outcomes into pattern-growth intake. Action authority remains governed independently by promotion and risk gates. |
 | `FDAI_DIRECT_API_FAKE` | env | test-only / dev-local | `1` swaps the executor direct-API path for the in-memory shadow fake. Automated tests set it explicitly; `prepare-local-runtime-env.sh` auto-injects it for interactive local dev only when no operations gateway is found - neither surfaced by Terraform state nor recovered from a live Azure CLI probe of the resource group (`func-*-devgw-*` plus its App Service Authentication audience) - so the `execution_path: direct_api` dispatch stays live without a live backend. Mutually exclusive with `FDAI_DEV_OPERATIONS_GATEWAY_URL`. |
 | `FDAI_TOOL_CALL_FAKE` | env | test-only | `1` swaps the executor tool-call path for `RecordingToolExecutor` in automated tests. Interactive local startup does not wire an executor. |
 | `FDAI_WORKFLOW_SHADOW` | env | upstream | `1` enables event-triggered catalog Workflows in non-mutating shadow mode. The Azure core app sets it by default. |

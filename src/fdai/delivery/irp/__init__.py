@@ -1,5 +1,9 @@
 """Delivery adapters for incident-response-plan routing."""
 
-from fdai.delivery.irp.event_router import EventBusIrpProposalRouter, IrpEventHandler
+from fdai.delivery.irp.event_router import (
+    EventBusIrpProposalRouter,
+    IrpEventHandler,
+    RuntimeSettingsIrpEventHandler,
+)
 
-__all__ = ["EventBusIrpProposalRouter", "IrpEventHandler"]
+__all__ = ["EventBusIrpProposalRouter", "IrpEventHandler", "RuntimeSettingsIrpEventHandler"]

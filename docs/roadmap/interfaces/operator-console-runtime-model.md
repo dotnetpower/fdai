@@ -4,7 +4,28 @@ title: Operator Console - Narrator, DI Seams, and Session Model
 
 # Operator Console - Narrator, DI Seams, and Session Model
 
-> Focused owner document extracted from [operator-console.md](operator-console.md) sections 4-6.
+> Focused owner document extracted from [operator-console.md](operator-console.md) sections 1.2 and 4-6.
+
+## Runtime settings boundary
+
+Settings can manage a bounded runtime policy without turning the console into an execution
+surface. Readers can inspect a sanitized projection of availability, the environment ceiling,
+the persisted override, and the effective value. Owners can update only allowlisted policy fields
+through an optimistic revision check. Each accepted update writes the new state and its audit entry
+atomically.
+
+The settings route never receives the executor identity and never changes cloud resources. A
+runtime consumer reads the same durable policy before applying a behavior that supports dynamic
+configuration. Environment and infrastructure values remain a ceiling: a stored preference cannot
+enable an unavailable capability, promote an ActionType or Workflow, weaken risk or approval
+checks, or select a test-only adapter. Secrets, endpoints, tenant identifiers, and managed identity
+identifiers are represented only by configured or unavailable status.
+
+The initial allowlist covers bounded investigation, inventory freshness, analyzer budgets, case
+history retention, and logging detail. Each field declares its type, minimum and maximum, restart
+requirement, and availability reason. The console shows current, proposed, and effective values,
+the revision, the last actor and update time, and any validation conflict. A stale revision returns
+a conflict and requires the operator to review the latest state before retrying.
 
 ## 4. Narrator - LLM tier model
 

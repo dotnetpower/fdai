@@ -86,6 +86,7 @@ fdai/
 │   │   ├── chatops/            # channel adapters (Teams / Slack / email / webhook / pager / SMS)
 │   │   ├── notifications/      # per-channel senders; sibling `incident_platform/` provides PagerDuty/ServiceNow lifecycle and PagerDuty roster adapters
 │   │   ├── persistence/        # Postgres / pgvector stores, including forecast episodes/outbox and relational case-history backfill
+│   │   ├── runtime_settings.py  # allowlisted env defaults + revisioned StateStore overrides; no executor identity or promotion authority
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, and built-in behavior seeds
 │   │   ├── pgvector/           # persistent document and behavior vector indexes
 │   │   ├── azure/              # Azure-specific adapters, including bounded logs/metrics/App Insights trace evidence (the only tree allowed to import `azure-*`)

@@ -71,6 +71,7 @@ class TestCapabilityMatrix:
             assert cap in approver
         # Approver MUST NOT hold owner-tier caps.
         assert Capability.TRIGGER_KILL_SWITCH not in approver
+        assert Capability.MANAGE_RUNTIME_SETTINGS not in approver
         assert Capability.MANAGE_GROUP_MEMBERSHIP not in approver
         assert Capability.APPLY_INFRA_IAC not in approver
 
@@ -78,6 +79,7 @@ class TestCapabilityMatrix:
         owner = ROLE_CAPABILITIES[Role.OWNER]
         assert ROLE_CAPABILITIES[Role.APPROVER] <= owner
         assert Capability.TRIGGER_KILL_SWITCH in owner
+        assert Capability.MANAGE_RUNTIME_SETTINGS in owner
         assert Capability.MANAGE_GROUP_MEMBERSHIP in owner
         assert Capability.APPLY_INFRA_IAC in owner
         # Owner alone does NOT grant emergency access - that stays with
@@ -104,6 +106,7 @@ class TestCapabilityMatrix:
         assert Capability.REVIEW_GOVERNANCE_PR not in bg
         assert Capability.APPROVE_QUORUM_PROMOTION not in bg
         # Break-glass MUST NOT manage group membership or apply IaC.
+        assert Capability.MANAGE_RUNTIME_SETTINGS not in bg
         assert Capability.MANAGE_GROUP_MEMBERSHIP not in bg
         assert Capability.APPLY_INFRA_IAC not in bg
 

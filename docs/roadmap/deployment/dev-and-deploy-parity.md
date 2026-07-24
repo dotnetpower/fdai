@@ -109,6 +109,16 @@ is confined to Azure adapters such as Resource Graph, Microsoft Graph, model dis
 Hubs. `FDAI_READ_API_LOCAL_AZURE_CLI=1` with `VITE_LOCAL_AZURE_CLI_AUTH=1` is an explicit
 CLI-principal debug alternative with a fixed role ceiling.
 
+Runtime policies use the same StateStore record in deployment and when local PostgreSQL is
+configured. Without durable local state, the source manifest reports the settings store as
+unavailable or non-durable instead of claiming persistence. Readers see the sanitized environment,
+durable override, and effective value projection. Owners can update only the allowlist through
+optimistic revision and atomic audit checks. IRP changes apply to the next eligible alert; analyzer,
+inventory, and retention cadence changes apply to the next Job or tick. Logging level and case
+retention/deletion day changes are labeled restart required and are loaded when the headless runtime
+starts. No setting grants the local read API an executor identity or changes ActionType and Workflow
+promotion state.
+
 The standard full-stack launch also leaves narrator endpoint reconciliation enabled. The read API
 always tries the configured Azure OpenAI narrator instead of forcing the Command Deck into its
 deterministic fallback. At startup, the local-only hook can add the current public IP to the

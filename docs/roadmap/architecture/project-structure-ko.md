@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: bd799538f05204411ec03cc1dc0f88e4bb69222e
+translation_source_sha: 915b0df135d4d73b57208257d314c9bb385179e1
 translation_revised: 2026-07-24
 ---
 
@@ -91,6 +91,7 @@ fdai/
 │   │   ├── chatops/            # 채널 어댑터 (Teams / Slack / email / webhook / pager / SMS)
 │   │   ├── notifications/      # 채널별 sender; sibling `incident_platform/`은 PagerDuty/ServiceNow lifecycle 및 PagerDuty roster adapter 제공
 │   │   ├── persistence/        # Forecast episode/outbox 및 relational case-history backfill을 포함한 Postgres / pgvector store
+│   │   ├── runtime_settings.py  # allowlist된 env default + revisioned StateStore override; executor identity 또는 promotion authority 없음
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, built-in behavior seed
 │   │   ├── pgvector/           # persistent document 및 behavior vector index
 │   │   ├── azure/              # bounded log/metric/App Insights trace evidence를 포함한 Azure 전용 adapter (`azure-*` import 허용 트리)

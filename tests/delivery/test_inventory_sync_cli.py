@@ -22,6 +22,19 @@ def test_job_config_defaults_to_arg_then_arm() -> None:
     assert config.management_audience == "https://management.azure.com/.default"
 
 
+def test_job_config_prefers_durable_freshness_setting() -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_INVENTORY_FRESHNESS_SECONDS": "86400",
+        },
+        runtime_values={"inventory.freshness_seconds": 600},
+    )
+
+    assert config.freshness_budget_seconds == 600
+
+
 def test_job_config_rejects_unsigned_declarative_fallback() -> None:
     with pytest.raises(ValueError, match="requires"):
         InventoryJobConfig.from_env(

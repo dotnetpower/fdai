@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from fdai.core.irp import Alert, IrpCoordinator, IrpResult, MitigationProposal
 from fdai.core.report_feed import signal_from_irp, signals_from_investigation
 from fdai.core.report_feed.models import ReportSignal
+from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.shared.providers.event_bus import EventBus
 
 _ALERT_EVENT_TYPES = frozenset({"azure.monitor.alert", "monitor.alert"})
@@ -77,6 +78,31 @@ class IrpEventHandler:
         return result
 
 
+class RuntimeSettingsIrpEventHandler:
+    """Resolve enablement and budget from durable settings per alert."""
+
+    def __init__(
+        self,
+        *,
+        settings: RuntimeSettingsService,
+        handler_factory: Callable[[float], IrpEventHandler],
+    ) -> None:
+        self._settings = settings
+        self._handler_factory = handler_factory
+
+    async def handle(self, payload: Mapping[str, Any]) -> IrpResult | None:
+        event_type = str(payload.get("event_type") or "")
+        if not (event_type.startswith("analyzer.") or event_type in _ALERT_EVENT_TYPES):
+            return None
+        effective = await self._settings.effective_values()
+        if effective["irp.enabled"] is not True:
+            return None
+        budget_seconds = effective["irp.budget_seconds"]
+        if not isinstance(budget_seconds, (int, float)) or isinstance(budget_seconds, bool):
+            raise RuntimeError("effective IRP budget is invalid")
+        return await self._handler_factory(float(budget_seconds)).handle(payload)
+
+
 def _to_alert(payload: Mapping[str, Any], *, event_type: str) -> Alert:
     nested_payload = payload.get("payload")
     body = nested_payload if isinstance(nested_payload, Mapping) else payload
@@ -119,4 +145,9 @@ def _timestamp(value: object) -> datetime:
     return datetime.now(tz=UTC)
 
 
-__all__ = ["EventBusIrpProposalRouter", "IrpEventHandler", "ReportSignalWriter"]
+__all__ = [
+    "EventBusIrpProposalRouter",
+    "IrpEventHandler",
+    "ReportSignalWriter",
+    "RuntimeSettingsIrpEventHandler",
+]
