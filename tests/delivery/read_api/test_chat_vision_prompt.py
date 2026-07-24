@@ -58,6 +58,18 @@ def test_vision_user_content_ignores_non_data_urls() -> None:
     assert content == "x"
 
 
+def test_vision_user_content_skips_non_dict_items() -> None:
+    # A non-dict entry in the list is skipped; a valid image alongside it still
+    # produces an image part.
+    content = _vision_user_content("q", ["not-a-dict", {"data_url": _DATA_URL}])
+    assert isinstance(content, list)
+    assert content[1] == {"type": "image_url", "image_url": {"url": _DATA_URL}}
+
+
+def test_vision_user_content_non_list_returns_text() -> None:
+    assert _vision_user_content("q", "not-a-list") == "q"
+
+
 def test_build_messages_attaches_image_and_directive() -> None:
     messages = _build_messages("how many people are in this photo?", _attachment_context(), [])
     # Vision directive is present as a system message.
