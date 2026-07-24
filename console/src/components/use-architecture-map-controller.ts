@@ -6,6 +6,7 @@ import {
   architectureZoomScale,
   clamp,
   fitCamera,
+  focusCamera,
   pickResource,
   type Camera,
 } from "./architecture-map.geometry";
@@ -51,6 +52,7 @@ export function useArchitectureMapController({
   });
   const fitScaleRef = useRef(42);
   const layoutFrameRef = useRef("");
+  const animationFrameRef = useRef<number | null>(null);
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -87,6 +89,22 @@ export function useArchitectureMapController({
         stateRef.current.graph,
       );
       fitScaleRef.current = cameraRef.current.scale;
+      drawRef.current?.();
+      notifyZoom();
+    },
+    focus(resourceId) {
+      const canvas = canvasRef.current;
+      const resource = stateRef.current.graph.resources.find(
+        (candidate) => candidate.id === resourceId,
+      );
+      if (!canvas || !resource) return;
+      focusCamera(
+        cameraRef.current,
+        canvas.clientWidth,
+        canvas.clientHeight,
+        resource,
+        fitScaleRef.current,
+      );
       drawRef.current?.();
       notifyZoom();
     },
@@ -129,9 +147,16 @@ export function useArchitectureMapController({
         state.graph,
         state.selectedId,
         state.highlightedIds,
-        state.options,
+        architectureInteractionOptions(state.options, dragRef.current !== null),
         architectureMapPalette(canvas),
       );
+    };
+    const scheduleDraw = () => {
+      if (animationFrameRef.current !== null) return;
+      animationFrameRef.current = window.requestAnimationFrame(() => {
+        animationFrameRef.current = null;
+        draw();
+      });
     };
     const resize = () => {
       const ratio = window.devicePixelRatio || 1;
@@ -173,11 +198,12 @@ export function useArchitectureMapController({
       cameraRef.current.panX += current.x - previous.lastX;
       cameraRef.current.panY += current.y - previous.lastY;
       dragRef.current = { ...previous, lastX: current.x, lastY: current.y };
-      draw();
+      scheduleDraw();
     };
     const pointerUp = (event: PointerEvent) => {
       const previous = dragRef.current;
       dragRef.current = null;
+      scheduleDraw();
       const point = localPoint(event);
       if (!previous || Math.hypot(point.x - previous.startX, point.y - previous.startY) > 6) {
         return;
@@ -194,6 +220,7 @@ export function useArchitectureMapController({
     };
     const pointerCancel = () => {
       dragRef.current = null;
+      scheduleDraw();
     };
     const wheel = (event: WheelEvent) => {
       event.preventDefault();
@@ -201,7 +228,7 @@ export function useArchitectureMapController({
         cameraRef.current.scale,
         event.deltaY < 0 ? "in" : "out",
       );
-      draw();
+      scheduleDraw();
       notifyZoom();
     };
     canvas.addEventListener("pointerdown", pointerDown);
@@ -218,6 +245,10 @@ export function useArchitectureMapController({
       canvas.removeEventListener("pointerup", pointerUp);
       canvas.removeEventListener("pointercancel", pointerCancel);
       canvas.removeEventListener("wheel", wheel);
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
       drawRef.current = null;
     };
   }, []);
@@ -237,6 +268,14 @@ export function useArchitectureMapController({
   }, [graph]);
 
   return canvasRef;
+}
+
+export function architectureInteractionOptions(
+  options: ArchitectureDisplayOptions,
+  interacting: boolean,
+): ArchitectureDisplayOptions {
+  if (!interacting) return options;
+  return { ...options, showReflections: false, showLabels: false };
 }
 
 export function architectureLayoutFrame(graph: InventoryGraphResponse): string {

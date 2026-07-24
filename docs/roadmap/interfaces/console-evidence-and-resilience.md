@@ -281,14 +281,19 @@ authored nested layouts keep their supplied geometry. The map uses the full work
 places inspection details below it. Narrow viewports preserve node size and use map panning instead
 of shrinking boxes into unreadable marks. Selection updates the canonical deep link without
 reloading inventory and exposes directional relationships before technical identifiers. Selection
-preserves the camera and every common resource coordinate while auxiliary neighbors appear. It
-does not dim unrelated resources; selection uses the chosen outline and inspection details only.
+preserves every common resource coordinate while auxiliary neighbors appear. It does not dim
+unrelated resources; selection uses the chosen outline and inspection details only. A selected VM
+is the deliberate camera exception: the map centers it at 180% of fit scale and redraws its reserved
+NIC and disk slots. Other resource selections preserve the current camera.
 
 The factual counts and inspection index continue to use the complete authoritative inventory. The
 isometric overview applies a presentation-only projection that collapses auxiliary resources such
 as network interfaces, managed disks, diagnostics, certificates, and provider helper resources.
 Each visible owner shows a `+N` badge for its collapsed neighbors. Selecting a resource reveals its
 direct auxiliary children and semantic neighbors without requesting or inventing new inventory.
+The overview packs only visible resources, orders children by layer and type, reserves up to two
+satellite slots beside a collapsed owner, and places larger resource-group panels first in wide
+rows. Hidden auxiliaries therefore do not create empty grid holes or inflate the world.
 Virtual networks and subnets render as low floor lanes so compute, data, and gateway nodes remain
 readable above the network plane; floor lanes do not render reflections.
 
@@ -297,9 +302,13 @@ The compact acronym on the block is a secondary cue, not the only way to identif
 Labels scale from 13 px to 20 px as the operator zooms; the selected label may reach 22 px. Zoom
 steps are reciprocal, colors follow the console theme, and a keyboard-accessible resource and
 relationship index is equivalent to the filtered canvas. Pointer targets are at least 44 px and
-include containment boundaries. Truncated snapshots show an explicit partial-inventory notice.
+include containment boundaries. The selected label is the final canvas overlay so no block glyph,
+relationship, or neighboring label can cover it. Truncated snapshots show an explicit
+partial-inventory notice.
 The canvas renders containment as subdued dashed center-to-center edges. Semantic relationships use
-directional node-to-node arrows and do not connect resource-group regions as operational endpoints.
+directional node-to-node arrows above the connected block tops and do not connect resource-group
+regions as operational endpoints. Drag input coalesces to one draw per animation frame and omits
+reflections and labels only while the pointer is moving; pointer release restores full quality.
 The local projection shows only registered relationship types whose selected endpoint ids and
 resource types agree. It drops malformed or over-limit vendor relationships, marks the snapshot
 truncated, and keeps the last complete resource graph rather than rendering an untrusted edge.

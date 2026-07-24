@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 98a90dd98cf5828242fed3716aabe94c63637c42
+translation_source_sha: 5669a3e31bdbc8a2387f49bce79264a7c4b1f02b
 translation_revised: 2026-07-24
 ---
 
@@ -279,15 +279,20 @@ block보다 작게 렌더링되지 않습니다. Inventory에 맞춰 world와 ca
 layout은 supplied geometry를 유지합니다. Map은 workspace 전체 너비를 사용하고 inspection detail은
 아래에 배치합니다. 좁은 viewport에서는 box를 읽을 수 없게 줄이는 대신 node 크기를 유지하고 map
 panning을 사용합니다. Selection은 inventory를 reload하지 않고 canonical deep link를 갱신하며
-technical identifier보다 directional relationship을 먼저 표시합니다. Selection 중에는 camera와 모든
-공통 resource coordinate를 유지하면서 auxiliary neighbor만 표시합니다. 관련 없는 resource는 흐리게
-처리하지 않으며 선택된 outline과 inspection detail만 사용해 selection을 나타냅니다.
+technical identifier보다 directional relationship을 먼저 표시합니다. Selection 중에는 모든 공통
+resource coordinate를 유지하면서 auxiliary neighbor만 표시합니다. 관련 없는 resource는 흐리게
+처리하지 않으며 선택된 outline과 inspection detail만 사용해 selection을 나타냅니다. 선택된 VM은
+의도적인 camera 예외입니다. Map은 VM을 fit scale의 180%로 가운데에 놓고 예약된 NIC 및 disk slot을
+다시 그립니다. 다른 resource selection은 현재 camera를 유지합니다.
 
 Factual count와 inspection index는 계속 complete authoritative inventory를 사용합니다. Isometric
 overview는 network interface, managed disk, diagnostic, certificate 및 provider helper resource 같은
 auxiliary resource를 접는 presentation-only projection을 적용합니다. 표시된 각 owner는 접힌 neighbor
 수에 해당하는 `+N` badge를 표시합니다. Resource를 선택하면 새 inventory를 요청하거나 만들어 내지
-않고 direct auxiliary child와 semantic neighbor를 표시합니다. Virtual network와 subnet은 낮은 floor
+않고 direct auxiliary child와 semantic neighbor를 표시합니다. Overview는 표시된 resource만 packing하고
+child를 layer 및 type 순서로 정렬하며 접힌 owner 옆에 최대 두 개의 satellite slot을 예약합니다. 큰
+resource-group panel을 wide row에 먼저 배치하므로 숨겨진 auxiliary가 빈 grid hole을 만들거나 world를
+부풀리지 않습니다. Virtual network와 subnet은 낮은 floor
 lane으로 렌더링하므로 compute, data 및 gateway node를 network plane 위에서 읽을 수 있습니다. Floor
 lane은 reflection을 렌더링하지 않습니다.
 
@@ -296,10 +301,12 @@ Label은 collision을 피하고 긴 이름을 맞추며 각 resource name과 읽
 Label은 zoom에 따라 13 px에서 20 px까지 커지고 선택된 label은 22 px까지 커질 수 있습니다. Zoom
 step은 reciprocal이고 색상은 console theme을 따르며, keyboard-accessible resource 및 relationship
 index는 filtered canvas와 동등합니다. Pointer target은 containment boundary를 포함해 최소 44 px입니다.
-Truncated snapshot은 partial-inventory notice를 명시합니다.
+선택된 label은 마지막 canvas overlay이므로 block glyph, relationship 또는 인접 label이 가릴 수
+없습니다. Truncated snapshot은 partial-inventory notice를 명시합니다.
 Canvas는 containment를 subdued dashed center-to-center edge로 렌더링합니다. Semantic relationship은
-directional node-to-node arrow를 사용하며 resource-group region을 operational endpoint로 연결하지
-않습니다.
+연결된 block top보다 높은 directional node-to-node arrow를 사용하며 resource-group region을 operational
+endpoint로 연결하지 않습니다. Drag input은 animation frame마다 한 번만 draw하고 pointer가 이동하는
+동안에만 reflection과 label을 생략합니다. Pointer release는 full quality를 복원합니다.
 Local projection은 선택된 endpoint id와 resource type이 일치하는 registered relationship type만
 표시합니다. Malformed 또는 over-limit vendor relationship은 drop하고 snapshot을 truncated로 표시하며,
 신뢰할 수 없는 edge를 렌더링하지 않고 마지막 complete resource graph를 유지합니다.

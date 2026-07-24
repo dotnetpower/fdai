@@ -98,6 +98,26 @@ export function fitCamera(
   camera.panY = 6;
 }
 
+export function focusCamera(
+  camera: Camera,
+  width: number,
+  height: number,
+  resource: InventoryResource,
+  fitScale: number,
+): void {
+  camera.scale = clamp(Math.max(fitScale * 1.8, 46), 18, 84);
+  const target = project(
+    camera,
+    width,
+    height,
+    resource.x ?? 0,
+    resource.y ?? 0,
+    LIFT + geometryOf(resource).height / 2,
+  );
+  camera.panX += width / 2 - target.x;
+  camera.panY += height * .44 - target.y;
+}
+
 export function project(
   camera: Camera,
   width: number,

@@ -2,21 +2,28 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { architectureResourceFromValue } from "./architecture-map";
+import { geometryOf } from "./architecture-map.model";
 import {
   architectureCanvasHeight,
   architectureZoomScale,
   architectureWorldSize,
   fitCamera,
+  focusCamera,
   pickResource,
   project,
   type Camera,
 } from "./architecture-map.geometry";
 import {
   architectureLinkIsDrawable,
+  architectureLinkElevation,
+  architectureOverlayOrder,
   architectureLabelFontSize,
   fitArchitectureLabel,
 } from "./architecture-map-renderer";
-import { architectureLayoutFrame } from "./use-architecture-map-controller";
+import {
+  architectureInteractionOptions,
+  architectureLayoutFrame,
+} from "./use-architecture-map-controller";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
 
@@ -62,6 +69,16 @@ describe("architecture map labels", () => {
     expect(measure(fitted)).toBeLessThanOrEqual(112);
     expect(fitArchitectureLabel("short-name", 112, measure)).toBe("short-name");
   });
+
+  it("paints the selected label after every other node overlay", () => {
+    const nodes = [
+      { id: "selected", type: "compute.vm" },
+      { id: "neighbor", type: "disk" },
+      { id: "other", type: "postgresql-server" },
+    ] as never;
+    expect(architectureOverlayOrder(nodes, "selected").map((node) => node.id))
+      .toEqual(["neighbor", "other", "selected"]);
+  });
 });
 
 describe("architecture map zoom", () => {
@@ -92,6 +109,27 @@ describe("architecture selection camera", () => {
     expect(architectureLayoutFrame(selected)).toBe(architectureLayoutFrame(overview));
   });
 
+  it("zooms and centers an explicitly focused VM", () => {
+    const camera: Camera = {
+      yaw: Math.PI / 4, pitch: .58, scale: 24, panX: 0, panY: 0,
+      worldWidth: 18, worldHeight: 12,
+    };
+    const vm = {
+      id: "vm", type: "compute.vm", name: "vm", status: "healthy", x: 3, y: 4,
+    } as never;
+
+    focusCamera(camera, 1000, 780, vm, 24);
+
+    expect(camera.scale).toBe(46);
+    const point = project(camera, 1000, 780, 3, 4, .27);
+    expect(point.x).toBeCloseTo(500, 8);
+    expect(point.y).toBeCloseTo(780 * .44, 8);
+
+    camera.scale = 80;
+    focusCamera(camera, 1000, 780, vm, 24);
+    expect(camera.scale).toBe(46);
+  });
+
   it("changes the camera frame when the owning region geometry changes", () => {
     const graph = (width: number) => ({
       resources: [{
@@ -101,6 +139,25 @@ describe("architecture selection camera", () => {
     }) as never;
 
     expect(architectureLayoutFrame(graph(12))).not.toBe(architectureLayoutFrame(graph(8)));
+  });
+});
+
+describe("architecture drag rendering", () => {
+  it("keeps blocks and connections while deferring expensive reflections and labels", () => {
+    const options = {
+      showConnections: true,
+      showReflections: true,
+      showLabels: true,
+      showGrid: true,
+    };
+
+    expect(architectureInteractionOptions(options, true)).toEqual({
+      showConnections: true,
+      showReflections: false,
+      showLabels: false,
+      showGrid: true,
+    });
+    expect(architectureInteractionOptions(options, false)).toBe(options);
   });
 });
 
@@ -142,6 +199,13 @@ describe("architecture connections", () => {
       database,
       { source: "rg", target: "db", type: "depends_on" },
     )).toBe(false);
+  });
+
+  it("raises semantic links above the connected block tops", () => {
+    const vm = { id: "vm", type: "compute.vm" } as never;
+    expect(architectureLinkElevation(vm)).toBeGreaterThan(
+      .1 + geometryOf(vm).height,
+    );
   });
 });
 

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { layoutArchitecturePresentation } from "./architecture-map-layout";
 import {
   DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   architecturePresentationGraph,
@@ -267,6 +268,52 @@ describe("architecture map model", () => {
 
     expect(architecturePresentationGraph(graph, "rg").resources.map((resource) => resource.id))
       .toEqual(["rg", "identity"]);
+  });
+
+  test("keeps a compact overview and gives revealed VM auxiliaries distinct slots", () => {
+    const graph: InventoryGraphResponse = {
+      ...GRAPH,
+      resources: [
+        { id: "sub", type: "subscription", name: "sub", status: "healthy", x: 0, y: 0, w: 18, h: 12 },
+        ...Array.from({ length: 3 }, (_, index) => ({
+          id: `rg-${index}`,
+          type: "resource-group",
+          name: `rg-${index}`,
+          status: "healthy",
+          parent_id: "sub",
+          x: index * 5,
+          y: 1,
+          w: 4,
+          h: 4,
+        })),
+        { id: "vm", type: "compute.vm", name: "vm", status: "healthy", parent_id: "rg-0" },
+        { id: "nic", type: "network.interface", name: "nic", status: "healthy", parent_id: "rg-0" },
+        { id: "disk", type: "disk", name: "disk", status: "healthy", parent_id: "rg-0" },
+        ...Array.from({ length: 8 }, (_, index) => ({
+          id: `identity-${index}`,
+          type: "managed-identity",
+          name: `identity-${index}`,
+          status: "healthy",
+          parent_id: "rg-0",
+        })),
+      ],
+      links: [
+        { source: "vm", target: "nic", type: "attached_to" },
+        { source: "vm", target: "disk", type: "attached_to" },
+      ],
+    };
+
+    const overview = layoutArchitecturePresentation(graph, null);
+    const focused = layoutArchitecturePresentation(graph, "vm");
+    const overviewVm = overview.resources.find((resource) => resource.id === "vm")!;
+    const focusedVm = focused.resources.find((resource) => resource.id === "vm")!;
+    const revealed = focused.resources.filter((resource) => ["nic", "disk"].includes(resource.id));
+
+    expect(overview.resources.some((resource) => resource.id === "nic")).toBe(false);
+    expect(focusedVm).toMatchObject({ x: overviewVm.x, y: overviewVm.y });
+    expect(new Set(revealed.map((resource) => `${resource.x}:${resource.y}`)).size).toBe(2);
+    expect(revealed.every((resource) => resource.x !== overviewVm.x || resource.y !== overviewVm.y))
+      .toBe(true);
   });
 
   test("predefines every canonical resource vocabulary color", () => {

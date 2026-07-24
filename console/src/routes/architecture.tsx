@@ -3,15 +3,14 @@ import { isOptionalReadApiUnavailable, ReadApiError, type ReadApiClient } from "
 import { ArchitectureInspector } from "../components/architecture-inspector";
 import { ArchitectureMap, type ArchitectureMapHandle } from "../components/architecture-map";
 import { architectureCanvasHeight } from "../components/architecture-map.geometry";
+import { layoutArchitecturePresentation } from "../components/architecture-map-layout";
 import { ArchitectureRelationIndex } from "../components/architecture-relation-index";
 import {
   ARCHITECTURE_LAYERS,
   DEFAULT_ARCHITECTURE_CAMERA_VIEW,
   DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   architectureHref,
-  architecturePresentationGraph,
   architectureViewFromHash,
-  constrainGraph,
   graphSubset,
   isRegion,
   layerOf,
@@ -166,6 +165,7 @@ export function ArchitectureRoute({ client }: Props) {
   function selectResource(resource: InventoryResource | null): void {
     setSelectedId(resource?.id ?? null);
     replaceRouteState(architectureHref(resource?.id, viewScope));
+    if (resource?.type === "compute.vm") mapRef.current?.focus(resource.id);
   }
 
   function toggleLayer(layer: ArchitectureLayer): void {
@@ -262,10 +262,9 @@ function ArchitectureBody({
     );
     return () => window.clearTimeout(timer);
   }, [graph.snapshot_at, now]);
-  const laidOutGraph = useMemo(() => constrainGraph(graph), [graph]);
   const presentedGraph = useMemo(
-    () => architecturePresentationGraph(laidOutGraph, selectedId),
-    [laidOutGraph, selectedId],
+    () => layoutArchitecturePresentation(graph, selectedId),
+    [graph, selectedId],
   );
   const filtered = useMemo(
     () => graphSubset(presentedGraph, visibleLayers),

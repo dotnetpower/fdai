@@ -567,6 +567,42 @@ export function architecturePresentationGraph(
   };
 }
 
+interface ArchitectureChildPlacement {
+  readonly child: InventoryResource;
+  readonly column: number;
+  readonly row: number;
+  readonly span: number;
+}
+
+function packArchitectureChildren(
+  children: readonly InventoryResource[],
+  columns: number,
+): { readonly placements: readonly ArchitectureChildPlacement[]; readonly rows: number } {
+  const placements: ArchitectureChildPlacement[] = [];
+  let slot = 0;
+  for (const child of children) {
+    const span = shapeOf(child) === "lane"
+      ? 2
+      : 1 + Math.min(2, child.collapsed_count ?? 0);
+    if (slot % columns + span > columns) slot += columns - slot % columns;
+    placements.push({ child, column: slot % columns, row: Math.floor(slot / columns), span });
+    slot += span;
+  }
+  return { placements, rows: Math.max(1, Math.ceil(slot / columns)) };
+}
+
+function compareArchitectureChildren(
+  first: InventoryResource,
+  second: InventoryResource,
+): number {
+  const layerDifference = ARCHITECTURE_LAYERS.indexOf(layerOf(first)) -
+    ARCHITECTURE_LAYERS.indexOf(layerOf(second));
+  if (layerDifference !== 0) return layerDifference;
+  const laneDifference = Number(shapeOf(second) === "lane") - Number(shapeOf(first) === "lane");
+  if (laneDifference !== 0) return laneDifference;
+  return first.type.localeCompare(second.type) || first.name.localeCompare(second.name);
+}
+
 export function expandSimpleResourceGroupPanels(
   graph: InventoryGraphResponse,
 ): InventoryGraphResponse {
@@ -578,9 +614,9 @@ export function expandSimpleResourceGroupPanels(
       .filter((resource) => resource.type === "resource-group" && resource.parent_id === parent.id)
       .sort((first, second) => (first.y ?? 0) - (second.y ?? 0) || (first.x ?? 0) - (second.x ?? 0));
     if (groups.length < 3) continue;
-    const directChildren = groups.map((group) => graph.resources.filter(
-      (resource) => resource.parent_id === group.id,
-    ));
+    const directChildren = groups.map((group) => graph.resources
+      .filter((resource) => resource.parent_id === group.id)
+      .sort(compareArchitectureChildren));
     if (directChildren.some((children) => children.some(isRegion))) continue;
 
     const parentX = parent.x ?? 0;
@@ -596,22 +632,30 @@ export function expandSimpleResourceGroupPanels(
     const cellHeight = 1.2;
     const panels = groups.map((group, index) => {
       const children = directChildren[index] ?? [];
-      const childColumns = Math.min(6, Math.max(2, Math.ceil(Math.sqrt(children.length))));
-      const childRows = Math.max(1, Math.ceil(children.length / childColumns));
+      const occupiedSlots = children.reduce(
+        (total, child) => total + (shapeOf(child) === "lane"
+          ? 2
+          : 1 + Math.min(2, child.collapsed_count ?? 0)),
+        0,
+      );
+      const childColumns = Math.min(6, Math.max(2, Math.ceil(Math.sqrt(occupiedSlots))));
+      const packed = packArchitectureChildren(children, childColumns);
       return {
         group,
-        children,
+        placements: packed.placements,
         childColumns,
         width: Math.max(4.8, childInsetX * 2 + childColumns * cellWidth),
         height: Math.max(
           3.4,
-          childInsetTop + childInsetBottom + childRows * cellHeight,
+          childInsetTop + childInsetBottom + packed.rows * cellHeight,
         ),
       };
-    });
+    }).sort((first, second) =>
+      second.width * second.height - first.width * first.height ||
+      first.group.name.localeCompare(second.group.name));
     const targetContentWidth = Math.max(
       ...panels.map((panel) => panel.width),
-      Math.sqrt(panels.reduce((total, panel) => total + panel.width * panel.height, 0)) * 1.5,
+      Math.sqrt(panels.reduce((total, panel) => total + panel.width * panel.height, 0)) * 1.9,
     );
     const innerX = parentX + parentInsetX;
     let x = innerX;
@@ -633,15 +677,13 @@ export function expandSimpleResourceGroupPanels(
         w: panel.width,
         h: panel.height,
       });
-      panel.children
-        .sort((first, second) =>
-          (first.y ?? 0) - (second.y ?? 0) || (first.x ?? 0) - (second.x ?? 0))
-        .forEach((child, childIndex) => {
+      panel.placements.forEach(({ child, column, row, span }) => {
+          const centerOffset = shapeOf(child) === "lane" ? span / 2 : .5;
           resources.set(child.id, {
             ...child,
             render_scale: Math.max(1, child.render_scale ?? 1),
-            x: x + childInsetX + (childIndex % panel.childColumns + .5) * cellWidth,
-            y: y + childInsetTop + (Math.floor(childIndex / panel.childColumns) + .5) * cellHeight,
+            x: x + childInsetX + (column + centerOffset) * cellWidth,
+            y: y + childInsetTop + (row + .5) * cellHeight,
           });
         });
       maximumRight = Math.max(maximumRight, x + panel.width);

@@ -113,11 +113,15 @@ export function renderMap(
   const ordered = [...nodes].sort((first, second) =>
     project(camera, width, height, second.x ?? 0, second.y ?? 0).depth -
     project(camera, width, height, first.x ?? 0, first.y ?? 0).depth);
-  if (options.showConnections) drawLinks(context, width, height, camera, graph, highlightedIds);
+  if (options.showConnections) {
+    drawLinks(context, width, height, camera, graph, highlightedIds, "containment");
+  }
   for (const node of ordered) drawNodeBody(context, width, height, camera, node, selectedId, highlightedIds);
+  if (options.showConnections) {
+    drawLinks(context, width, height, camera, graph, highlightedIds, "semantic");
+  }
   const labelBounds = ordered.map((node) => nodeLabelObstacle(camera, width, height, node));
-  const overlayOrder = [...ordered].sort((first, second) =>
-    Number(second.id === selectedId) - Number(first.id === selectedId));
+  const overlayOrder = architectureOverlayOrder(ordered, selectedId);
   for (const node of overlayOrder) {
     drawNodeOverlay(
       context,
@@ -146,6 +150,14 @@ export function renderMap(
       );
     }
   }
+}
+
+export function architectureOverlayOrder(
+  nodes: readonly InventoryResource[],
+  selectedId: string | null,
+): InventoryResource[] {
+  return [...nodes].sort((first, second) =>
+    Number(first.id === selectedId) - Number(second.id === selectedId));
 }
 
 function drawGrid(context: CanvasRenderingContext2D, width: number, height: number, camera: Camera): void {
@@ -266,12 +278,14 @@ function drawLinks(
   camera: Camera,
   graph: InventoryGraphResponse,
   highlightedIds?: ReadonlySet<string>,
+  pass: "containment" | "semantic" = "semantic",
 ): void {
   const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
   for (const link of graph.links) {
     const source = byId.get(link.source);
     const target = byId.get(link.target);
     if (!source || !target || !architectureLinkIsDrawable(source, target, link)) continue;
+    if ((link.type === "contains") !== (pass === "containment")) continue;
     if (link.type === "contains") {
       const start = project(
         camera, width, height,
@@ -302,11 +316,11 @@ function drawLinks(
     }
     const start = project(
       camera, width, height, source.x ?? 0, source.y ?? 0,
-      LIFT + geometryOf(source).height * .7,
+      architectureLinkElevation(source),
     );
     const end = project(
       camera, width, height, target.x ?? 0, target.y ?? 0,
-      LIFT + geometryOf(target).height * .7,
+      architectureLinkElevation(target),
     );
     const edgeActive = !highlightedIds || (highlightedIds.has(source.id) && highlightedIds.has(target.id));
     context.save();
@@ -332,6 +346,10 @@ function drawLinks(
     }
     context.restore();
   }
+}
+
+export function architectureLinkElevation(resource: InventoryResource): number {
+  return LIFT + geometryOf(resource).height + .16;
 }
 
 export function architectureLinkIsDrawable(
