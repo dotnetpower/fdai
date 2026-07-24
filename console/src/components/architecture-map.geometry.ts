@@ -15,6 +15,8 @@ export interface Camera {
   scale: number;
   panX: number;
   panY: number;
+  worldWidth?: number;
+  worldHeight?: number;
 }
 
 export interface Point {
@@ -49,8 +51,49 @@ export function applyCameraView(camera: Camera, view: ArchitectureCameraView): v
   else { camera.yaw = Math.PI / 4; camera.pitch = .58; }
 }
 
-export function fitCamera(camera: Camera, width: number, height: number): void {
-  camera.scale = clamp(Math.min(width / 20, height / 13), 22, 64);
+export function architectureWorldSize(
+  graph: Pick<InventoryGraphResponse, "resources">,
+): { width: number; height: number } {
+  return graph.resources.filter(isRegion).reduce(
+    (world, resource) => ({
+      width: Math.max(world.width, (resource.x ?? 0) + (resource.w ?? 0)),
+      height: Math.max(world.height, (resource.y ?? 0) + (resource.h ?? 0)),
+    }),
+    { ...WORLD },
+  );
+}
+
+export function architectureCanvasHeight(
+  graph: Pick<InventoryGraphResponse, "resources">,
+): number {
+  return clamp(Math.round(architectureWorldSize(graph).height * 28), 780, 1400);
+}
+
+export function cameraWorldSize(camera: Camera): { width: number; height: number } {
+  return {
+    width: camera.worldWidth ?? WORLD.width,
+    height: camera.worldHeight ?? WORLD.height,
+  };
+}
+
+export function fitCamera(
+  camera: Camera,
+  width: number,
+  height: number,
+  graph?: Pick<InventoryGraphResponse, "resources">,
+): void {
+  const world = graph ? architectureWorldSize(graph) : cameraWorldSize(camera);
+  camera.worldWidth = world.width;
+  camera.worldHeight = world.height;
+  const horizontalSpan = Math.abs(world.width * Math.cos(camera.yaw)) +
+    Math.abs(world.height * Math.sin(camera.yaw));
+  const depthSpan = Math.abs(world.width * Math.sin(camera.yaw)) +
+    Math.abs(world.height * Math.cos(camera.yaw));
+  const verticalSpan = depthSpan * Math.sin(camera.pitch) + 1.2 * Math.cos(camera.pitch);
+  camera.scale = clamp(Math.min(
+    Math.max(1, width - 56) / Math.max(1, horizontalSpan),
+    Math.max(1, height - 72) / Math.max(1, verticalSpan),
+  ), 18, 64);
   camera.panX = 0;
   camera.panY = 6;
 }
@@ -63,8 +106,9 @@ export function project(
   y: number,
   z = 0,
 ): Point {
-  const offsetX = x - WORLD.width / 2;
-  const offsetY = y - WORLD.height / 2;
+  const world = cameraWorldSize(camera);
+  const offsetX = x - world.width / 2;
+  const offsetY = y - world.height / 2;
   const rotatedX = offsetX * Math.cos(camera.yaw) - offsetY * Math.sin(camera.yaw);
   const rotatedY = offsetX * Math.sin(camera.yaw) + offsetY * Math.cos(camera.yaw);
   return {

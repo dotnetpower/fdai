@@ -82,6 +82,7 @@ export function useArchitectureMapController({
         cameraRef.current,
         canvasRef.current?.clientWidth ?? 1,
         canvasRef.current?.clientHeight ?? 1,
+        stateRef.current.graph,
       );
       fitScaleRef.current = cameraRef.current.scale;
       drawRef.current?.();
@@ -102,6 +103,7 @@ export function useArchitectureMapController({
         cameraRef.current,
         canvasRef.current?.clientWidth ?? 1,
         canvasRef.current?.clientHeight ?? 1,
+        stateRef.current.graph,
       );
       fitScaleRef.current = cameraRef.current.scale;
       drawRef.current?.();
@@ -136,7 +138,7 @@ export function useArchitectureMapController({
       canvas.width = Math.round(width * ratio);
       canvas.height = Math.round(height * ratio);
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
-      fitCamera(cameraRef.current, width, height);
+      fitCamera(cameraRef.current, width, height, stateRef.current.graph);
       fitScaleRef.current = cameraRef.current.scale;
       draw();
       notifyZoom();
@@ -221,7 +223,7 @@ export function useArchitectureMapController({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !drawRef.current) return;
-    fitCamera(cameraRef.current, canvas.clientWidth, canvas.clientHeight);
+    fitCamera(cameraRef.current, canvas.clientWidth, canvas.clientHeight, stateRef.current.graph);
     fitScaleRef.current = cameraRef.current.scale;
     drawRef.current();
     notifyZoom();

@@ -270,7 +270,7 @@ describe("architecture map model", () => {
     expect((gateway.y ?? 0) + geometry.depth / 2).toBeLessThanOrEqual(.94);
   });
 
-  test("widens simple resource-group panels and enlarges their resources", () => {
+  test("sizes simple resource-group panels around EGT-scale resources", () => {
     const groups = Array.from({ length: 6 }, (_, index) => ({
       id: `group-${index}`,
       type: "resource-group",
@@ -303,11 +303,48 @@ describe("architecture map model", () => {
     const expandedGroups = expanded.resources.filter((resource) => resource.type === "resource-group");
     const expandedChildren = expanded.resources.filter((resource) => resource.type === "app-service");
 
-    expect(expandedGroups.every((group) => (group.w ?? 0) > 8)).toBe(true);
-    expect(expandedChildren.every((resource) => resource.render_scale === 1.25)).toBe(true);
+    expect(expandedGroups.every((group) => (group.w ?? 0) >= 4.8)).toBe(true);
+    expect(expandedChildren.every((resource) => (resource.render_scale ?? 0) >= 1)).toBe(true);
     expect(graphSubset(expanded, new Set(["runtime"])).resources.every(
-      (resource) => resource.render_scale === 1.25,
+      (resource) => (resource.render_scale ?? 0) >= 1,
     )).toBe(true);
+  });
+
+  test("expands a dense resource group instead of shrinking its nodes", () => {
+    const children = Array.from({ length: 80 }, (_, index) => ({
+      id: `resource-${index}`,
+      type: index === 0 ? "event-grid-topic" : "managed-identity",
+      name: `resource-${index}`,
+      status: "healthy",
+      parent_id: "group-0",
+    }));
+    const expanded = constrainGraph({
+      ...GRAPH,
+      resources: [
+        { id: "subscription", type: "subscription", name: "subscription", status: "healthy", x: 0, y: 0, w: 17.3, h: 11.3 },
+        ...Array.from({ length: 3 }, (_, index) => ({
+          id: `group-${index}`,
+          type: "resource-group",
+          name: `group-${index}`,
+          status: "healthy",
+          parent_id: "subscription",
+          x: index * 5,
+          y: 1,
+          w: 4,
+          h: 8,
+        })),
+        ...children,
+      ],
+    });
+    const subscription = expanded.resources[0]!;
+    const group = expanded.resources.find((resource) => resource.id === "group-0")!;
+    const denseChildren = expanded.resources.filter((resource) => resource.parent_id === "group-0");
+
+    expect(subscription.h).toBeGreaterThan(11.3);
+    expect(group.h).toBeGreaterThan(16);
+    expect(denseChildren.every((resource) => (resource.render_scale ?? 0) >= 1)).toBe(true);
+    expect(new Set(denseChildren.map((resource) => `${resource.x}:${resource.y}`)).size)
+      .toBe(denseChildren.length);
   });
 
   test("preserves authored layouts that contain nested regions", () => {

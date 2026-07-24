@@ -61,15 +61,16 @@
   color: var(--fg-muted); font-size: 10px; line-height: 1.25;
 }
 .architecture-color-legend i { width: 10px; height: 10px; flex: 0 0 auto; border-radius: 2px; outline: 1px solid color-mix(in oklab, currentColor 25%, transparent); }
-.architecture-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 340px); min-height: 0; }
-.architecture-canvas-shell { position: relative; isolation: isolate; min-width: 0; min-height: 620px; overflow: hidden; background: var(--architecture-map-background); }
+.architecture-stage { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; }
+.architecture-canvas-shell { position: relative; isolation: isolate; min-width: 0; min-height: 720px; overflow: hidden; background: var(--architecture-map-background); }
 .architecture-map-frame { position: relative; z-index: 0; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .architecture-map { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
 .architecture-map:active { cursor: grabbing; }
 .architecture-resource-picker { position: absolute; top: 12px; left: 12px; z-index: 4; width: min(300px, calc(100% - 76px)); }
 .architecture-resource-picker select { width: 100%; min-height: 32px; border: 1px solid var(--border); border-radius: 5px; background: color-mix(in oklab, var(--bg-elevated) 96%, transparent); color: var(--fg); padding: 0 30px 0 9px; font-size: 11px; box-shadow: 0 3px 10px rgba(29,42,56,.08); }
 .architecture-inspector {
-  padding: 20px; background: var(--bg-elevated); border-left: 1px solid var(--border);
+  display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, .6fr); gap: 32px;
+  padding: 20px; background: var(--bg-elevated); border-top: 1px solid var(--border);
   overflow: visible;
 }
 .architecture-camera-control { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; border: 1px solid var(--border); background: var(--bg-subtle); border-radius: 6px; }
@@ -79,7 +80,7 @@
 .architecture-display-options label { display: flex; align-items: center; gap: 6px; min-height: 30px; color: var(--fg-muted); font-size: 11px; }
 .architecture-display-options input { margin: 0; accent-color: #146c77; }
 .architecture-display-options input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.architecture-selection-section { min-height: 260px; }
+.architecture-selection-section { min-height: 0; }
 .architecture-selection-section > .eyebrow { display: block; }
 .architecture-zoom-controls {
   position: absolute; right: 12px; bottom: 12px; display: grid; gap: 4px; z-index: 4;
@@ -120,6 +121,7 @@
 .architecture-relationships p { color: var(--fg-muted); font-size: 11px; }
 .architecture-technical-details,
 .architecture-map-settings { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 13px; }
+.architecture-inspector > .architecture-map-settings { margin-top: 0; border-top: 0; padding-top: 0; }
 .architecture-technical-details summary,
 .architecture-map-settings summary,
 .architecture-relation-index > summary { color: var(--fg); font-size: 12px; font-weight: 700; cursor: pointer; }
@@ -249,8 +251,7 @@
   .architecture-toolbar { grid-template-columns: minmax(0, 1fr); align-items: start; }
   .architecture-provenance { justify-items: start; }
   .architecture-stage { grid-template-columns: minmax(0, 1fr); }
-  .architecture-canvas-shell { min-height: 540px; }
-  .architecture-inspector { border-left: 0; border-top: 1px solid var(--border); }
+  .architecture-inspector { grid-template-columns: minmax(0, 1fr); }
   .architecture-selection-section { min-height: 0; }
 }
 @media (max-width: 620px) {
@@ -265,7 +266,6 @@
   .architecture-layer-bar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .architecture-layer-bar button { justify-content: center; min-width: 0; }
   .architecture-filter-summary { grid-column: 1 / -1; margin-left: 0; text-align: center; }
-  .architecture-canvas-shell { min-height: 430px; }
   .architecture-resource-picker { width: calc(100% - 24px); }
   .architecture-edge-legend { right: 58px; max-width: none; }
   .architecture-edge-legend span:nth-child(3) { display: none; }

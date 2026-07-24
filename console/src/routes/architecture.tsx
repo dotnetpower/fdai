@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalReadApiUnavailable, ReadApiError, type ReadApiClient } from "../api";
 import { ArchitectureInspector } from "../components/architecture-inspector";
 import { ArchitectureMap, type ArchitectureMapHandle } from "../components/architecture-map";
+import { architectureCanvasHeight } from "../components/architecture-map.geometry";
 import { ArchitectureRelationIndex } from "../components/architecture-relation-index";
 import {
   ARCHITECTURE_LAYERS,
@@ -427,7 +428,10 @@ function ArchitectureBody({
         </output>
       </div>
       <div class={`architecture-stage${selected ? " has-selection" : ""}`}>
-        <div class="architecture-canvas-shell">
+        <div
+          class="architecture-canvas-shell"
+          style={{ minHeight: `${architectureCanvasHeight(filtered)}px` }}
+        >
           <p id="architecture-map-description" class="sr-only">
             {t("mapDescription", {
               resources: filtered.resources.length,

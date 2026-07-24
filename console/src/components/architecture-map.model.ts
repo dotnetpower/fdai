@@ -500,53 +500,74 @@ export function expandSimpleResourceGroupPanels(
 
     const parentX = parent.x ?? 0;
     const parentY = parent.y ?? 0;
-    const parentWidth = parent.w ?? 0;
-    const parentHeight = parent.h ?? 0;
-    const columns = Math.min(2, groups.length);
-    const rows = Math.ceil(groups.length / columns);
-    const horizontalInset = .4;
-    const topInset = .75;
-    const bottomInset = .3;
-    const panelGap = .3;
-    const panelWidth = (
-      parentWidth - horizontalInset * 2 - panelGap * (columns - 1)
-    ) / columns;
-    const panelHeight = (
-      parentHeight - topInset - bottomInset - panelGap * (rows - 1)
-    ) / rows;
-    if (panelWidth < 1.6 || panelHeight < 1.4) continue;
-
-    groups.forEach((group, index) => {
-      const column = index % columns;
-      const row = Math.floor(index / columns);
-      const x = parentX + horizontalInset + column * (panelWidth + panelGap);
-      const y = parentY + topInset + row * (panelHeight + panelGap);
-      resources.set(group.id, { ...group, x, y, w: panelWidth, h: panelHeight });
-
+    const panelGap = .45;
+    const parentInsetX = .45;
+    const parentInsetTop = .85;
+    const parentInsetBottom = .4;
+    const childInsetX = .45;
+    const childInsetTop = .75;
+    const childInsetBottom = .35;
+    const cellWidth = 1.65;
+    const cellHeight = 1.2;
+    const panels = groups.map((group, index) => {
       const children = directChildren[index] ?? [];
-      const childColumns = Math.min(2, Math.max(1, Math.ceil(Math.sqrt(children.length))));
+      const childColumns = Math.min(6, Math.max(2, Math.ceil(Math.sqrt(children.length))));
       const childRows = Math.max(1, Math.ceil(children.length / childColumns));
-      const childInsetX = .3;
-      const childInsetTop = .55;
-      const childInsetBottom = .2;
-      const cellWidth = (panelWidth - childInsetX * 2) / childColumns;
-      const cellHeight = (panelHeight - childInsetTop - childInsetBottom) / childRows;
-      children
-        .sort((first, second) => (first.y ?? 0) - (second.y ?? 0) || (first.x ?? 0) - (second.x ?? 0))
+      return {
+        group,
+        children,
+        childColumns,
+        width: Math.max(4.8, childInsetX * 2 + childColumns * cellWidth),
+        height: Math.max(
+          3.4,
+          childInsetTop + childInsetBottom + childRows * cellHeight,
+        ),
+      };
+    });
+    const targetContentWidth = Math.max(
+      ...panels.map((panel) => panel.width),
+      Math.sqrt(panels.reduce((total, panel) => total + panel.width * panel.height, 0)) * 1.5,
+    );
+    const innerX = parentX + parentInsetX;
+    let x = innerX;
+    let y = parentY + parentInsetTop;
+    let rowHeight = 0;
+    let maximumRight = innerX;
+    let maximumBottom = y;
+
+    for (const panel of panels) {
+      if (x > innerX && x + panel.width > innerX + targetContentWidth) {
+        x = innerX;
+        y += rowHeight + panelGap;
+        rowHeight = 0;
+      }
+      resources.set(panel.group.id, {
+        ...panel.group,
+        x,
+        y,
+        w: panel.width,
+        h: panel.height,
+      });
+      panel.children
+        .sort((first, second) =>
+          (first.y ?? 0) - (second.y ?? 0) || (first.x ?? 0) - (second.x ?? 0))
         .forEach((child, childIndex) => {
-          const geometry = SHAPE_GEOMETRY[shapeOf(child)];
-          const renderScale = Math.min(
-            1.25,
-            Math.max(.1, cellWidth - .25) / geometry.width,
-            Math.max(.1, cellHeight - .2) / geometry.depth,
-          );
           resources.set(child.id, {
             ...child,
-            render_scale: renderScale,
-            x: x + childInsetX + (childIndex % childColumns + .5) * cellWidth,
-            y: y + childInsetTop + (Math.floor(childIndex / childColumns) + .5) * cellHeight,
+            render_scale: Math.max(1, child.render_scale ?? 1),
+            x: x + childInsetX + (childIndex % panel.childColumns + .5) * cellWidth,
+            y: y + childInsetTop + (Math.floor(childIndex / panel.childColumns) + .5) * cellHeight,
           });
         });
+      maximumRight = Math.max(maximumRight, x + panel.width);
+      maximumBottom = Math.max(maximumBottom, y + panel.height);
+      rowHeight = Math.max(rowHeight, panel.height);
+      x += panel.width + panelGap;
+    }
+    resources.set(parent.id, {
+      ...parent,
+      w: Math.max(parent.w ?? 0, maximumRight - parentX + parentInsetX),
+      h: Math.max(parent.h ?? 0, maximumBottom - parentY + parentInsetBottom),
     });
   }
 

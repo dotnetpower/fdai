@@ -259,10 +259,13 @@ does not start an automatic redirect because an unreachable read API would cause
 The Architecture route leads with inventory provenance and factual counts. The default isometric
 map starts with Reflections and Connections enabled. It shows containment as subtle dashed links,
 shows attachment and dependency links with their directional styles, and renders each resource
-shape; top and front views are optional. Simple projections
-reflow three or more resource groups into at most two columns, while authored nested layouts keep
-their supplied geometry. Selection updates the canonical deep link without reloading inventory and
-exposes directional relationships before technical identifiers.
+shape; top and front views are optional. Simple projections size each resource-group panel from its
+observed child count and pack those panels into a balanced world. A resource node never renders
+smaller than the standard Event Grid topic block. The world and canvas grow with inventory while
+authored nested layouts keep their supplied geometry. The map uses the full workspace width and
+places inspection details below it. Narrow viewports preserve node size and use map panning instead
+of shrinking boxes into unreadable marks. Selection updates the canonical deep link without
+reloading inventory and exposes directional relationships before technical identifiers.
 
 Labels avoid collisions, fit long names, and scale from 13 px to 20 px as the operator zooms; the
 selected label may reach 22 px. Zoom steps are reciprocal, colors follow the console theme, and a

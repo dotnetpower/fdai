@@ -3,7 +3,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { architectureResourceFromValue } from "./architecture-map";
 import {
+  architectureCanvasHeight,
   architectureZoomScale,
+  architectureWorldSize,
+  fitCamera,
   pickResource,
   project,
   type Camera,
@@ -68,6 +71,24 @@ describe("architecture map zoom", () => {
   });
 });
 
+describe("architecture world sizing", () => {
+  it("fits a content-sized world and grows the canvas with it", () => {
+    const graph = {
+      resources: [
+        { id: "sub", type: "subscription", x: 0, y: 0, w: 24, h: 30 },
+      ],
+    } as never;
+    const camera: Camera = { yaw: Math.PI / 4, pitch: .58, scale: 42, panX: 0, panY: 0 };
+
+    expect(architectureWorldSize(graph)).toEqual({ width: 24, height: 30 });
+    expect(architectureCanvasHeight(graph)).toBe(840);
+    fitCamera(camera, 1000, 960, graph);
+    expect(camera.worldWidth).toBe(24);
+    expect(camera.worldHeight).toBe(30);
+    expect(camera.scale).toBeGreaterThanOrEqual(18);
+  });
+});
+
 describe("architecture connections", () => {
   it("draws containment and node-to-node semantic links", () => {
     const region = { id: "rg", type: "resource-group", w: 4, h: 4 } as never;
@@ -92,6 +113,15 @@ describe("architecture connections", () => {
 });
 
 describe("architecture responsive layout", () => {
+  it("gives the map the full workspace width before the inspector", () => {
+    expect(styles).toMatch(
+      /\.architecture-stage\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/,
+    );
+    expect(styles).toMatch(
+      /\.architecture-inspector\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1\.4fr\)/,
+    );
+  });
+
   it("uses the page scroll instead of fixed workspace or inspector scroll regions", () => {
     expect(styles).not.toMatch(/\.architecture-workspace\s*\{[^}]*100vh/s);
     expect(styles).not.toMatch(/\.architecture-inspector\s*\{[^}]*max-height/s);

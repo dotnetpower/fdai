@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 40c3fd18cdda97d8d921a7f0a84de2ea234a8f6f
+translation_source_sha: 0fda177f295805a6689acdea46c7a0b2200a744d
 translation_revised: 2026-07-24
 ---
 
@@ -258,10 +258,13 @@ unreachable일 때 redirect loop가 생기므로 자동 redirect는 시작하지
 Architecture route는 inventory provenance와 factual count를 먼저 표시합니다. 기본 isometric map은
 Reflections와 Connections가 활성화된 상태로 시작합니다. Containment는 흐린 dashed link로,
 attachment 및 dependency는 각각의 directional style로 표시하고 resource shape을 렌더링합니다.
-Top 및 front view는 optional입니다. 단순 projection은 세 개
-이상의 resource group을 최대 2열로 reflow하고, authored nested layout은 supplied geometry를
-유지합니다. Selection은 inventory를 reload하지 않고 canonical deep link를 갱신하며 technical
-identifier보다 directional relationship을 먼저 표시합니다.
+Top 및 front view는 optional입니다. 단순 projection은 관찰된 child 수에 따라 각 resource-group
+panel 크기를 정하고 균형 잡힌 world에 panel을 배치합니다. Resource node는 표준 Event Grid topic
+block보다 작게 렌더링되지 않습니다. Inventory에 맞춰 world와 canvas가 커지며 authored nested
+layout은 supplied geometry를 유지합니다. Map은 workspace 전체 너비를 사용하고 inspection detail은
+아래에 배치합니다. 좁은 viewport에서는 box를 읽을 수 없게 줄이는 대신 node 크기를 유지하고 map
+panning을 사용합니다. Selection은 inventory를 reload하지 않고 canonical deep link를 갱신하며
+technical identifier보다 directional relationship을 먼저 표시합니다.
 
 Label은 collision을 피하고 긴 이름을 맞추며 zoom에 따라 13 px에서 20 px까지 커집니다. 선택된
 label은 22 px까지 커질 수 있습니다. Zoom step은 reciprocal이고 색상은 console theme을 따르며,

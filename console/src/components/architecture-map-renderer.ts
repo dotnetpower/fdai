@@ -1,6 +1,6 @@
 import {
   LIFT,
-  WORLD,
+  cameraWorldSize,
   circlePoints,
   clamp,
   convexHull,
@@ -91,7 +91,8 @@ export function renderMap(
   context.clearRect(0, 0, width, height);
   context.fillStyle = palette.background;
   context.fillRect(0, 0, width, height);
-  const plate = rectangle(camera, width, height, 0, 0, WORLD.width, WORLD.height, 0);
+  const world = cameraWorldSize(camera);
+  const plate = rectangle(camera, width, height, 0, 0, world.width, world.height, 0);
   fillPolygon(context, plate, palette.surface, palette.surfaceBorder);
   if (options.showGrid) drawGrid(context, width, height, camera);
 
@@ -147,10 +148,11 @@ export function renderMap(
 }
 
 function drawGrid(context: CanvasRenderingContext2D, width: number, height: number, camera: Camera): void {
+  const world = cameraWorldSize(camera);
   context.save();
   context.fillStyle = "rgba(68,86,101,.18)";
-  for (let x = 1; x < WORLD.width; x += 1) {
-    for (let y = 1; y < WORLD.height; y += 1) {
+  for (let x = 1; x < world.width; x += 1) {
+    for (let y = 1; y < world.height; y += 1) {
       const point = project(camera, width, height, x, y, .003);
       context.beginPath();
       context.arc(point.x, point.y, .7, 0, Math.PI * 2);
