@@ -154,6 +154,7 @@ def test_scheduled_continuations_are_owner_scoped_openable_and_expirable() -> No
         ),
         continuations=anchors,
         continuation_service=service,
+        clock=lambda: NOW,
     )
 
     async def authorize(request: Request) -> str:

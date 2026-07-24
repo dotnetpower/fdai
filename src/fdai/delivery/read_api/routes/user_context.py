@@ -60,6 +60,10 @@ from fdai.shared.providers.user_context import (
 AuthorizeFn = Callable[[Request], Awaitable[str]]
 
 
+def _utc_now() -> datetime:
+    return datetime.now(tz=UTC)
+
+
 def _same_subscription_intent(
     existing: BriefingSubscription,
     requested: BriefingSubscription,
@@ -91,6 +95,7 @@ class UserContextRoutesConfig:
     ontology_projector: UserContextOntologyProjector | None = None
     continuations: ScheduledConversationAnchorStore | None = None
     continuation_service: ScheduledContinuationService | None = None
+    clock: Callable[[], datetime] = _utc_now
 
 
 def make_user_context_routes(
@@ -98,7 +103,7 @@ def make_user_context_routes(
 ) -> tuple[Route, ...]:
     async def context(request: Request) -> Response:
         principal_id = await authorize(request)
-        now = datetime.now(tz=UTC)
+        now = config.clock()
         preference = await config.preferences.get(principal_id=principal_id)
         memories = await config.memories.list_active(principal_id=principal_id, now=now)
         policies = await config.policies.list_for_principal(principal_id=principal_id)
@@ -165,7 +170,7 @@ def make_user_context_routes(
                     "share_with_learner",
                     default=False,
                 ),
-                updated_at=datetime.now(tz=UTC),
+                updated_at=config.clock(),
             )
             stored = await config.preferences.put(record, expected_revision=expected)
             if config.ontology_projector is not None:
@@ -275,7 +280,7 @@ def make_user_context_routes(
         )
         if not any(turn.turn_id == source_turn_id for turn in turns):
             raise HTTPException(status_code=404, detail="source turn not found")
-        now = datetime.now(tz=UTC)
+        now = config.clock()
         category_raw = _required_text(body, "category")
         try:
             category = UserMemoryCategory(category_raw)
@@ -331,7 +336,7 @@ def make_user_context_routes(
                 kind=kind,
                 enabled=_optional_bool(body, "enabled", default=True),
                 revision=0,
-                confirmed_at=datetime.now(tz=UTC),
+                confirmed_at=config.clock(),
                 source_turn_id=_required_text(body, "source_turn_id"),
                 briefing_spec=briefing_spec,
                 response_defaults={str(key): str(value) for key, value in defaults.items()},
@@ -366,7 +371,7 @@ def make_user_context_routes(
     async def create_subscription(request: Request) -> Response:
         principal_id = await authorize(request)
         body = await _confirmed_body(request)
-        now = datetime.now(tz=UTC)
+        now = config.clock()
         idempotency_key = _required_text(body, "idempotency_key")
         if len(idempotency_key) > 200:
             raise HTTPException(status_code=400, detail="idempotency_key MUST be bounded")
@@ -482,7 +487,7 @@ def make_user_context_routes(
             anchor = await service.resolve(
                 anchor_id=request.path_params["anchor_id"],
                 access=ContinuationAccess(principal_id=principal_id),
-                now=datetime.now(tz=UTC),
+                now=config.clock(),
             )
         except ContinuationAccessDeniedError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -503,7 +508,7 @@ def make_user_context_routes(
             anchor = await service.expire(
                 anchor_id=request.path_params["anchor_id"],
                 access=ContinuationAccess(principal_id=principal_id),
-                now=datetime.now(tz=UTC),
+                now=config.clock(),
             )
         except ContinuationAccessDeniedError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
