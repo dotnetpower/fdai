@@ -36,6 +36,7 @@ from fdai.delivery.read_api.streaming.agent_activity_stream import (
 )
 from fdai.delivery.read_api.streaming.agent_runtime_state_publisher import (
     AgentRuntimeStatePublisher,
+    EventBusPantheonActivityObserver,
 )
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime.bootstrap_bindings import (
@@ -514,6 +515,10 @@ async def _run() -> int:
                         forecast_learning_runtime.store
                         if forecast_learning_runtime is not None
                         else None
+                    ),
+                    handler_observer=EventBusPantheonActivityObserver(
+                        event_bus=bus,
+                        topic=stage_topic,
                     ),
                     action_types=control_loop.action_types,
                 )

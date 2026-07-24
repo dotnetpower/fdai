@@ -256,7 +256,9 @@ The agent stream receives health-derived `agent.runtime-state` heartbeats throug
 stage transport in local and deployed profiles. A heartbeat establishes current runtime observation
 for a live agent but isn't classified as work. Missing or malformed health frames never promote a
 declared subscriber binding into an observed state. Each read API replica uses an instance-scoped
-consumer group so every connected console receives the complete heartbeat set.
+consumer group so every connected console receives the complete heartbeat set. The deployed
+Pantheon also publishes handler `started`, `completed`, and `failed` transitions through this
+transport; these transitions are runtime activity, not durable audit evidence.
 
 The Command Deck rejects a complete or pending SSE frame above 256 KiB before accumulating `data:`
 lines or parsing JSON, then uses the deterministic interrupted-stream fallback. Correlation-filtered

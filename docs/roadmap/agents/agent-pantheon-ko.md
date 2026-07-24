@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: d22762ba872ba92174f256931e489356ddf3ac5a
-translation_revised: 2026-07-23
+translation_source_sha: 32d30416f131f6b29948386391c695795edf2154
+translation_revised: 2026-07-24
 ---
 
 # 에이전트 판테온
@@ -405,7 +405,9 @@ properties:
 
 판테온은 기존 `EventBus` wire를 사용합니다. Event Hubs `:9093`의 Kafka 또는 in-process
 local adapter를 사용합니다. Best-effort `AgentHandlerObserver`는 delivery, judgment 또는
-execution을 변경하지 않고 실제 handler lifecycle을 보고합니다.
+execution을 변경하지 않고 실제 handler lifecycle을 보고합니다. Local composition은 SSE sink에
+직접 게시하고 deployed composition은 `started`, `completed`, `failed` handler state를 shared stage
+topic에 게시합니다. Read API는 이 state를 Agent Activity로 relay합니다.
 
 ### 6.1 Typed port
 

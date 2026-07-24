@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 5669a3e31bdbc8a2387f49bce79264a7c4b1f02b
+translation_source_sha: 2aaf3c5f070761f237418afddca66df55d4a4add
 translation_revised: 2026-07-24
 ---
 
@@ -255,7 +255,9 @@ Agent stream은 local 및 deployed profile에서 같은 shared stage transport�
 파생한 `agent.runtime-state` heartbeat를 수신합니다. Heartbeat는 live agent의 현재 runtime 관찰을
 증명하지만 work로 분류되지 않습니다. 누락되거나 malformed인 health frame은 선언된 subscriber
 binding을 observed state로 승격하지 않습니다. 각 read API replica는 instance-scoped consumer
-group을 사용하므로 연결된 모든 console이 완전한 heartbeat set을 수신합니다.
+group을 사용하므로 연결된 모든 console이 완전한 heartbeat set을 수신합니다. Deployed Pantheon도
+handler `started`, `completed`, `failed` transition을 이 transport로 게시합니다. 이 transition은
+runtime activity이며 durable audit evidence가 아닙니다.
 
 Command Deck은 complete 또는 pending SSE frame이 256 KiB를 넘으면 `data:` line 누적이나 JSON parse
 전에 거부하고 deterministic interrupted-stream fallback을 사용합니다. Correlation-filtered action

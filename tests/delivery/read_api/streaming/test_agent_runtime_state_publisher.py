@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import pytest
 
+from fdai.agents import AgentHandlerPhase
 from fdai.delivery.read_api.streaming.agent_activity_stream import (
     runtime_agent_state_snapshot,
 )
 from fdai.delivery.read_api.streaming.agent_runtime_state_publisher import (
     AgentRuntimeStatePublisher,
+    EventBusPantheonActivityObserver,
 )
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
@@ -52,6 +54,51 @@ async def test_does_not_publish_when_consumers_are_not_live() -> None:
     )
 
     assert await publisher.publish_once() == 0
+
+
+async def test_publishes_real_handler_lifecycle_to_shared_stage_topic() -> None:
+    event_bus = InMemoryEventBus()
+    observer = EventBusPantheonActivityObserver(event_bus=event_bus)
+    payload = {
+        "correlation_id": "corr-1",
+        "ts": "2026-07-24T04:00:00+00:00",
+    }
+
+    await observer.observe(
+        agent="Forseti",
+        topic="object.anomaly",
+        phase=AgentHandlerPhase.STARTED,
+        payload=payload,
+    )
+    await observer.observe(
+        agent="Forseti",
+        topic="object.anomaly",
+        phase=AgentHandlerPhase.COMPLETED,
+        payload=payload,
+    )
+    await observer.observe(
+        agent="Thor",
+        topic="object.verdict",
+        phase=AgentHandlerPhase.FAILED,
+        payload=payload,
+        error_type="RuntimeError",
+    )
+    frames = [
+        envelope.payload
+        async for envelope in event_bus.subscribe("aw.pipeline.stages", "test-reader")
+    ]
+
+    assert [frame["agent"] for frame in frames] == ["Forseti", "Forseti", "Thor"]
+    assert [frame["state"] for frame in frames] == ["deciding", "idle", "idle"]
+    assert [frame["detail"] for frame in frames] == [
+        "Processing object.anomaly",
+        "Processed object.anomaly",
+        "Failed object.verdict (RuntimeError)",
+    ]
+    assert frames[0]["correlation_id"] == "corr-1"
+    assert frames[1]["correlation_id"] is None
+    assert all(frame["type"] == "agent.runtime-state" for frame in frames)
+    assert all(frame["source"] == "runtime-observed" for frame in frames)
 
 
 @pytest.mark.parametrize("interval", [0.0, -1.0, float("nan"), float("inf")])

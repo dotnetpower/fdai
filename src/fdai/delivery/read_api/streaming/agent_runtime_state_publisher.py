@@ -1,20 +1,103 @@
-"""Publish observed Pantheon health as cross-process runtime-state snapshots."""
+"""Publish observed Pantheon health and handler activity across processes."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 
-from fdai.delivery.read_api.streaming.agent_activity_stream import AgentStateEvent
+from fdai.agents import AgentHandlerPhase
+from fdai.delivery.read_api.streaming.agent_activity_stream import (
+    AgentState,
+    AgentStateEvent,
+)
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.stage_publisher import ObservationSource
 
 DEFAULT_RUNTIME_STATE_TOPIC = "aw.pipeline.stages"
 DEFAULT_RUNTIME_STATE_INTERVAL_SECONDS = 15.0
 DEFAULT_RUNTIME_STATE_STARTUP_RETRY_SECONDS = 0.25
 
 _LOGGER = logging.getLogger(__name__)
+
+_ACTIVE_STATE: dict[str, AgentState] = {
+    "Odin": AgentState.DECIDING,
+    "Thor": AgentState.EXECUTING,
+    "Forseti": AgentState.DECIDING,
+    "Huginn": AgentState.COLLECTING,
+    "Heimdall": AgentState.ANALYZING,
+    "Vidar": AgentState.EXECUTING,
+    "Var": AgentState.APPROVING,
+    "Bragi": AgentState.ANALYZING,
+    "Saga": AgentState.AUDITING,
+    "Mimir": AgentState.DECIDING,
+    "Muninn": AgentState.COLLECTING,
+    "Norns": AgentState.ANALYZING,
+    "Njord": AgentState.ANALYZING,
+    "Freyr": AgentState.ANALYZING,
+    "Loki": AgentState.ANALYZING,
+}
+_SENSING_AGENTS = frozenset({"Huginn", "Heimdall"})
+
+
+class EventBusPantheonActivityObserver:
+    """Publish actual Pantheon handler transitions onto the shared stage topic."""
+
+    def __init__(
+        self,
+        *,
+        event_bus: EventBus,
+        topic: str = DEFAULT_RUNTIME_STATE_TOPIC,
+    ) -> None:
+        if not topic:
+            raise ValueError("topic MUST be non-empty")
+        self._event_bus = event_bus
+        self._topic = topic
+
+    async def observe(
+        self,
+        *,
+        agent: str,
+        topic: str,
+        phase: AgentHandlerPhase,
+        payload: Mapping[str, object],
+        error_type: str | None = None,
+    ) -> None:
+        correlation_id = str(payload.get("correlation_id") or "") or None
+        if phase is AgentHandlerPhase.STARTED:
+            state = _ACTIVE_STATE.get(agent, AgentState.ANALYZING)
+            detail = f"Processing {topic}"
+        else:
+            state = AgentState.WATCHING if agent in _SENSING_AGENTS else AgentState.IDLE
+            detail = (
+                f"Failed {topic} ({error_type or 'handler error'})"
+                if phase is AgentHandlerPhase.FAILED
+                else f"Processed {topic}"
+            )
+            correlation_id = None
+        event = AgentStateEvent(
+            agent=agent,
+            state=state,
+            ts=_event_timestamp(payload),
+            correlation_id=correlation_id,
+            detail=detail,
+            source=ObservationSource.RUNTIME_OBSERVED,
+        )
+        event_payload = event.to_payload()
+        event_payload["type"] = "agent.runtime-state"
+        await self._event_bus.publish(self._topic, agent, event_payload)
+
+
+def _event_timestamp(payload: Mapping[str, object]) -> str:
+    value = payload.get("ts")
+    return value if isinstance(value, str) and value else _iso_ts_utc()
+
+
+def _iso_ts_utc() -> str:
+    from fdai.delivery.read_api.streaming.sse_protocol import iso_ts_utc
+
+    return iso_ts_utc()
 
 
 class AgentRuntimeStatePublisher:
@@ -86,4 +169,5 @@ __all__ = [
     "DEFAULT_RUNTIME_STATE_STARTUP_RETRY_SECONDS",
     "DEFAULT_RUNTIME_STATE_TOPIC",
     "AgentRuntimeStatePublisher",
+    "EventBusPantheonActivityObserver",
 ]

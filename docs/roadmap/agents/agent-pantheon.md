@@ -427,7 +427,9 @@ principal is checked by the schema registry: only the owner may publish.
 
 The pantheon uses the existing `EventBus` wire: Kafka on Event Hubs `:9093`, or the in-process
 local adapter. A best-effort `AgentHandlerObserver` reports actual handler lifecycle without
-changing delivery, judgment, or execution.
+changing delivery, judgment, or execution. Local composition publishes directly to the SSE sink;
+deployed composition publishes `started`, `completed`, and `failed` handler states onto the shared
+stage topic, where the read API relays them to Agent Activity.
 
 ### 6.1 Typed port
 
