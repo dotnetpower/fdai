@@ -100,28 +100,22 @@ class SlackWebApiReplyPublisher:
             visible += chunk
             await self._call(
                 self._config.update_api_url,
-                {
-                    "channel": response.channel_id,
-                    "ts": message_id,
-                    "text": _render_slack_text(
-                        response,
-                        visible,
-                        native_mentions=self._config.supports_mentions,
-                    ),
-                },
+                _slack_update_body(
+                    response,
+                    message_id=message_id,
+                    text=visible,
+                    native_mentions=self._config.supports_mentions,
+                ),
             )
         if visible != response.text:
             await self._call(
                 self._config.update_api_url,
-                {
-                    "channel": response.channel_id,
-                    "ts": message_id,
-                    "text": _render_slack_text(
-                        response,
-                        response.text,
-                        native_mentions=self._config.supports_mentions,
-                    ),
-                },
+                _slack_update_body(
+                    response,
+                    message_id=message_id,
+                    text=response.text,
+                    native_mentions=self._config.supports_mentions,
+                ),
             )
         return _receipt(
             response,
@@ -135,15 +129,12 @@ class SlackWebApiReplyPublisher:
             raise ValueError("Slack edit requires edit_message_id")
         await self._call(
             self._config.update_api_url,
-            {
-                "channel": response.channel_id,
-                "ts": message_id,
-                "text": _render_slack_text(
-                    response,
-                    response.text,
-                    native_mentions=self._config.supports_mentions,
-                ),
-            },
+            _slack_update_body(
+                response,
+                message_id=message_id,
+                text=response.text,
+                native_mentions=self._config.supports_mentions,
+            ),
         )
         return _receipt(
             response,
@@ -436,6 +427,24 @@ def _render_slack_text(
     elif include_operation_fallback and response.edit_message_id is not None:
         rendered = f"Update: {rendered}"
     return rendered
+
+
+def _slack_update_body(
+    response: OutboundResponse,
+    *,
+    message_id: str,
+    text: str,
+    native_mentions: bool,
+) -> dict[str, object]:
+    rendered = _render_slack_text(response, text, native_mentions=native_mentions)
+    body: dict[str, object] = {
+        "channel": response.channel_id,
+        "ts": message_id,
+        "text": rendered,
+    }
+    if response.activities:
+        body["blocks"] = _slack_activity_blocks(response, rendered)
+    return body
 
 
 def _operation_fallback_text(response: OutboundResponse) -> str:

@@ -107,7 +107,8 @@ flowchart TD
   Web, Slack, and Teams render the same ordered agent-activity contract: Bragi shows the handoff,
   the accountable observer shows canonical command/result evidence, and Bragi remains the final
   human-facing narrator. Vendor adapters change presentation only. Slack uses plain-text activity
-  blocks for command and output bodies so markup characters cannot change the observed command.
+  blocks for command and output bodies so markup characters cannot change the observed command,
+  and preserves those blocks across posts, stream updates, and edits.
   Teams keeps the Adaptive Card under 24,000 bytes, counts omitted activities, and always retains
   the final Bragi answer.
 - **Layer 2 (Coordinator)** owns intent classification, RBAC gating, tool

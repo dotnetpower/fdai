@@ -226,7 +226,7 @@ Concrete publishers map that intent as follows:
 | Streaming | Initial `chat.postMessage`, then cumulative `chat.update` | Initial activity `POST`, then cumulative activity `PUT` | One final text reply |
 | Edit | `chat.update` for the declared message id | Activity `PUT` for the declared activity id | New thread reply prefixed with `Update:` |
 | Reaction | `reactions.add` against the inbound message | `messageReaction` activity against the inbound message | New thread reply with a `Reaction:` label |
-| Agent activity | Block Kit sections in handoff, plain-text command/result, Bragi-answer order | Adaptive Card blocks in the same order under a 24,000-byte card budget; omitted activities are counted | Bounded text with the same agent attribution and redaction markers |
+| Agent activity | Block Kit sections in handoff, plain-text command/result, Bragi-answer order; posts, stream updates, and edits preserve the same blocks | Adaptive Card blocks in the same order under a 24,000-byte card budget; omitted activities are counted | Bounded text with the same agent attribution and redaction markers |
 
 The concrete Slack and Teams configurations own capability flags for mentions, streaming, edits,
 and reactions. A disabled capability never causes the core to guess a vendor payload; the publisher

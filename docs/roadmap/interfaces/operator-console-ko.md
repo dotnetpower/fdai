@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 95ae567255037c710ffe84bfde248c92a97cba24
+translation_source_sha: ff6851ddd4ad50134e8861b79c11d74ac5214a9e
 translation_revised: 2026-07-24
 ---
 
@@ -105,7 +105,8 @@ flowchart TD
   Web, Slack 및 Teams는 같은 ordered agent-activity 계약을 렌더링합니다. Bragi는 handoff를 표시하고,
   책임 observer는 canonical command/result evidence를 표시하며, Bragi는 최종 human-facing narrator로
   유지됩니다. Vendor adapter는 presentation만 변경합니다. Slack은 command 및 output body에
-  plain-text activity block을 사용하여 markup character가 observed command를 바꾸지 못하게 합니다.
+  plain-text activity block을 사용하여 markup character가 observed command를 바꾸지 못하게 하며,
+  post, stream update 및 edit에서 해당 block을 보존합니다.
   Teams는 Adaptive Card를 24,000 byte 이하로 유지하고 생략된 activity 수를 표시하며 최종 Bragi
   answer를 항상 보존합니다.
 - **Layer 2 (Coordinator)**는 intent classification, RBAC gating, tool

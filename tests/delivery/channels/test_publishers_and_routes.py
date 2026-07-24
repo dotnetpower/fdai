@@ -348,6 +348,56 @@ async def test_slack_native_rich_operations_return_acknowledgements() -> None:
     )
 
 
+async def test_slack_stream_and_edit_updates_preserve_activity_blocks() -> None:
+    calls: list[tuple[str, dict[str, object]]] = []
+    activity = ObservedExecutionActivity(
+        agent="Heimdall",
+        label="Inspect health",
+        tool="query_resource_health",
+        command="az resource show --ids <redacted-resource>",
+        status=ConversationExecutionStatus.COMPLETED,
+        redacted=True,
+        output="state: Available",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        calls.append((request.url.path, body))
+        if request.url.path.endswith("chat.postMessage"):
+            return httpx.Response(200, json={"ok": True, "ts": "2.0"})
+        return httpx.Response(200, json={"ok": True})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        publisher = SlackWebApiReplyPublisher(
+            config=SlackReplyPublisherConfig(),
+            token="app-token",
+            http_client=client,
+        )
+        await publisher.publish(
+            _response(
+                ConversationChannelKind.SLACK,
+                text="final answer",
+                stream_chunks=("partial",),
+                activities=(activity,),
+            )
+        )
+        await publisher.publish(
+            _response(
+                ConversationChannelKind.SLACK,
+                text="corrected",
+                edit_message_id="2.0",
+                activities=(activity,),
+            )
+        )
+
+    update_bodies = [body for path, body in calls if path.endswith("chat.update")]
+    assert len(update_bodies) == 2
+    assert all("blocks" in body for body in update_bodies)
+    assert all("Heimdall" in str(body["blocks"]) for body in update_bodies)
+    assert "final answer" in str(update_bodies[0]["blocks"])
+    assert "corrected" in str(update_bodies[1]["blocks"])
+
+
 async def test_slack_rich_features_degrade_to_thread_text() -> None:
     bodies: list[dict[str, object]] = []
 

@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 3364b38e60f8bff3e776a7e80271c307c6d7f6f6
+translation_source_sha: 48bc86ae56bf883709afc97d54cfee86fbfda4c2
 translation_revised: 2026-07-24
 ---
 
@@ -226,7 +226,7 @@ Concrete publisher는 해당 intent를 다음과 같이 mapping합니다.
 | Streaming | 최초 `chat.postMessage` 후 cumulative `chat.update` | 최초 activity `POST` 후 cumulative activity `PUT` | 최종 text reply 하나 |
 | Edit | 선언된 message id에 `chat.update` | 선언된 activity id에 activity `PUT` | `Update:` prefix가 있는 새 thread reply |
 | Reaction | inbound message에 `reactions.add` | inbound message에 `messageReaction` activity | `Reaction:` label이 있는 새 thread reply |
-| Agent activity | handoff, plain-text command/result, Bragi answer 순서의 Block Kit section | 24,000-byte card budget 안의 같은 순서 Adaptive Card block; 생략된 activity 수를 표시 | 같은 agent attribution 및 redaction marker가 있는 bounded text |
+| Agent activity | handoff, plain-text command/result, Bragi answer 순서의 Block Kit section; post, stream update, edit에서 같은 block을 보존 | 24,000-byte card budget 안의 같은 순서 Adaptive Card block; 생략된 activity 수를 표시 | 같은 agent attribution 및 redaction marker가 있는 bounded text |
 
 Concrete Slack 및 Teams configuration은 mention, streaming, edit, reaction capability flag를
 소유합니다. Disabled capability가 core에서 vendor payload를 추측하게 하지 않으며 publisher가
