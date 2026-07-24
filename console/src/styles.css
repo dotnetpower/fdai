@@ -6236,6 +6236,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   mask-size: contain;
 }
 .deck-turn-source {
+  max-width: min(60%, 420px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: 1px 6px;
   border-radius: 4px;
   border: 1px solid var(--border);

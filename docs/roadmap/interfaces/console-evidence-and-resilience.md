@@ -269,6 +269,11 @@ disclosure identifies the deterministic answerer and preserves a recorded fallba
 an unavailable backend or content-policy block, so a model outage never looks like an undisclosed
 model response.
 
+The browser accepts an LLM disclosure only when the recorded model identifier and optional latency
+or token metrics match the bounded source-descriptor contract. Empty, oversized, control-character,
+duplicate-metric, and free-form metric values don't create an LLM escalation claim. The raw source
+badge remains width-bounded so malformed metadata can't displace the reply header.
+
 When a turn carries validated inline image attachments, the streaming route also emits read-only
 `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with
 image source previews (name, media type, size) but never the base64 payload. The turn escalates to

@@ -45,6 +45,14 @@ describe("parseReplySource", () => {
     });
   });
 
+  it("accepts a canonical descriptor with token usage but no latency", () => {
+    expect(parseReplySource("llm:narrator-gpt-4-1-mini · 8.1k tok")).toEqual({
+      kind: "llm",
+      model: "narrator-gpt-4-1-mini",
+      timing: "8.1k tok",
+    });
+  });
+
   it("splits an llm descriptor into model and timing", () => {
     expect(parseReplySource("llm:gpt-4o-mini - 240ms")).toEqual({
       kind: "llm",
@@ -76,6 +84,18 @@ describe("parseReplySource", () => {
     ["deterministic (stream interrupted)", "stream interrupted"],
   ])("recognises a reason-bearing fallback: %s", (source, reason) => {
     expect(parseReplySource(source)).toEqual({ kind: "deterministic", reason });
+  });
+
+  it.each([
+    "llm:",
+    "llm: · 10ms",
+    "llm:model · eventually",
+    "llm:model · 1ms · 2ms",
+    `llm:${"m".repeat(129)}`,
+    "llm:model\nforged",
+    `deterministic (${"r".repeat(161)})`,
+  ])("rejects a malformed or oversized descriptor: %s", (source) => {
+    expect(parseReplySource(source)).toEqual({ kind: "other", raw: source });
   });
 
   it("returns null for an absent or blank source", () => {

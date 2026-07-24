@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: fdb00708eb7ca0273a8964f8ec65821e7c451cff
+translation_source_sha: 7f61cd8c11618b23220be267eba541b575fbf7de
 translation_revised: 2026-07-24
 ---
 
@@ -265,6 +265,11 @@ verification stage는 검사가 수행되었음을 나타내며, unverified resu
 완료된 deterministic turn은 LLM label 없이 동일한 processing disclosure를 사용합니다. Disclosure는
 결정론적 응답기를 식별하고 사용할 수 없는 backend 또는 content-policy block 같은 기록된 fallback
 reason을 유지하므로 model outage가 공개되지 않은 model response처럼 보이지 않습니다.
+
+Browser는 기록된 model identifier와 optional latency 또는 token metric이 bounded source-descriptor
+contract와 일치할 때만 LLM disclosure를 표시합니다. Empty, oversized, control-character,
+duplicate-metric 및 free-form metric value는 LLM escalation claim을 만들지 않습니다. Raw source
+badge는 width가 제한되므로 malformed metadata가 reply header를 밀어내지 않습니다.
 
 Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에
 read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source

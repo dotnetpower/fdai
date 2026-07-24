@@ -17,6 +17,12 @@
 import type { AnswerVerification } from "./backend";
 import type { Citation } from "./citations";
 
+const MAX_MODEL_DESCRIPTOR_CHARS = 128;
+const MAX_SOURCE_DETAIL_CHARS = 160;
+const MODEL_DESCRIPTOR = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const LATENCY_DESCRIPTOR = /^\d+(?:\.\d+)?ms$/;
+const TOKEN_DESCRIPTOR = /^\d+(?:\.\d+)?k? tok$/;
+
 /** Fixed badge palette. Each tone maps to a `.deck-src-badge.is-<tone>` class
  *  in styles.css. Codes are category tokens (like the mock's WAF / CIS / OPA
  *  badges), not localized prose. */
@@ -86,6 +92,7 @@ export function parseReplySource(source: string | undefined): ReplySource | null
   const deterministic = /^deterministic \(([^()]*)\)$/.exec(trimmed);
   if (deterministic) {
     const reason = deterministic[1]?.trim() ?? "";
+    if (!validSourceDetail(reason)) return { kind: "other", raw: trimmed };
     return { kind: "deterministic", reason: reason.length > 0 ? reason : null };
   }
   if (trimmed.startsWith("llm:")) {
@@ -93,21 +100,57 @@ export function parseReplySource(source: string | undefined): ReplySource | null
     const canonicalParts = rest.split(" · ").map((part) => part.trim());
     if (canonicalParts.length > 1) {
       const [model, ...metrics] = canonicalParts;
+      if (!validModelDescriptor(model ?? "") || !validMetrics(metrics)) {
+        return { kind: "other", raw: trimmed };
+      }
       return {
         kind: "llm",
         model: model ?? "",
-        timing: metrics.filter(Boolean).join(" · ") || null,
+        timing: metrics.join(" · "),
       };
     }
     const sep = rest.indexOf(" - ");
     if (sep >= 0) {
       const model = rest.slice(0, sep).trim();
       const timing = rest.slice(sep + 3).trim();
+      if (!validModelDescriptor(model) || !LATENCY_DESCRIPTOR.test(timing)) {
+        return { kind: "other", raw: trimmed };
+      }
       return { kind: "llm", model, timing: timing.length > 0 ? timing : null };
     }
+    if (!validModelDescriptor(rest)) return { kind: "other", raw: trimmed };
     return { kind: "llm", model: rest, timing: null };
   }
   return { kind: "other", raw: trimmed };
+}
+
+function validModelDescriptor(model: string): boolean {
+  return model.length <= MAX_MODEL_DESCRIPTOR_CHARS && MODEL_DESCRIPTOR.test(model);
+}
+
+function validMetrics(metrics: readonly string[]): boolean {
+  if (metrics.length === 0 || metrics.length > 2) return false;
+  let sawLatency = false;
+  let sawTokens = false;
+  for (const metric of metrics) {
+    if (!validSourceDetail(metric)) return false;
+    if (LATENCY_DESCRIPTOR.test(metric)) {
+      if (sawLatency) return false;
+      sawLatency = true;
+      continue;
+    }
+    if (TOKEN_DESCRIPTOR.test(metric)) {
+      if (sawTokens) return false;
+      sawTokens = true;
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+function validSourceDetail(value: string): boolean {
+  return value.length <= MAX_SOURCE_DETAIL_CHARS && !/[\u0000-\u001f\u007f]/.test(value);
 }
 
 /** Categorise a source into a badge code + tone from whatever hints it carries
