@@ -70,19 +70,9 @@ export function DetectionReadinessRoute({ client }: { readonly client: ReadApiCl
   const [state, setState] = useState<AsyncState<DetectionReadinessView>>({ status: "loading" });
   useEffect(() => {
     let active = true;
-    void client.panel<unknown>("/detection-readiness").then(
-      (value) => {
-        if (active) setState({ status: "ready", data: decodeDetectionReadiness(value) });
-      },
-      (error: unknown) => {
-        if (!active) return;
-        setState(
-          isOptionalReadApiUnavailable(error)
-            ? { status: "unavailable", message: t("unavailable") }
-            : { status: "error", message: error instanceof Error ? error.message : String(error) },
-        );
-      },
-    );
+    void loadDetectionReadinessState(client).then((nextState) => {
+      if (active) setState(nextState);
+    });
     return () => { active = false; };
   }, [client]);
 
@@ -94,6 +84,19 @@ export function DetectionReadinessRoute({ client }: { readonly client: ReadApiCl
       </AsyncBoundary>
     </div>
   );
+}
+
+export async function loadDetectionReadinessState(
+  client: ReadApiClient,
+): Promise<AsyncState<DetectionReadinessView>> {
+  try {
+    const value = await client.panel<unknown>("/detection-readiness");
+    return { status: "ready", data: decodeDetectionReadiness(value) };
+  } catch (error) {
+    return isOptionalReadApiUnavailable(error)
+      ? { status: "unavailable", message: t("unavailable") }
+      : { status: "error", message: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 export function decodeDetectionReadiness(value: unknown): DetectionReadinessView {

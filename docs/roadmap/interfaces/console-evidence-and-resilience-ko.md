@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 7f61cd8c11618b23220be267eba541b575fbf7de
-translation_revised: 2026-07-24
+translation_source_sha: ffb15a92f8ac8d7a915751d04c4684a89f36c242
+translation_revised: 2026-07-25
 ---
 
 # 콘솔 근거 및 복원력
@@ -55,7 +55,8 @@ repository credential, recipient 또는 managed identity value는 렌더링하�
 Operations에는 Muninn의 durable StateSnapshot만 사용하는 감지 준비도 route가 있습니다.
 이 화면은 Heimdall 판정, 6개 근거 차원, 공백, 권한 상한, 원본, 관찰 시각을 표시합니다.
 브라우저는 AKS를 probe하거나 대체 판정을 만들지 않습니다. 각 target은 Architecture resource로,
-promotion 관련 count는 Promotion gates로 연결됩니다.
+promotion 관련 count는 Promotion gates로 연결됩니다. 성공한 HTTP 응답이 strict decoding을
+통과하지 못하면 loading skeleton에 머물지 않고 error를 렌더링합니다.
 
 활동 view는 durable audit 행과 browser-session runtime frame을 하나의 bounded chronological log로
 표시합니다. 각 행은 source label을 유지하므로 runtime frame을 durable audit evidence로 표시하지
@@ -269,7 +270,9 @@ reason을 유지하므로 model outage가 공개되지 않은 model response처�
 Browser는 기록된 model identifier와 optional latency 또는 token metric이 bounded source-descriptor
 contract와 일치할 때만 LLM disclosure를 표시합니다. Empty, oversized, control-character,
 duplicate-metric 및 free-form metric value는 LLM escalation claim을 만들지 않습니다. Raw source
-badge는 width가 제한되므로 malformed metadata가 reply header를 밀어내지 않습니다.
+badge는 width가 제한되므로 malformed metadata가 reply header를 밀어내지 않습니다. Browser가 token
+usage를 표시하려면 token total과 prompt 및 completion component가 각각 finite nonnegative value여야
+합니다.
 
 Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에
 read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source

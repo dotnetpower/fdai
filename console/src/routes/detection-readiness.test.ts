@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { decodeDetectionReadiness } from "./detection-readiness";
+import type { ReadApiClient } from "../api";
+import { decodeDetectionReadiness, loadDetectionReadinessState } from "./detection-readiness";
 
 const RESPONSE = {
   source: "muninn-state-snapshot",
@@ -35,5 +36,16 @@ describe("detection readiness decoder", () => {
       ...RESPONSE,
       targets: [{ ...target, observations: [target.observations[0], target.observations[0]] }],
     })).toThrow(/duplicate detection readiness dimension/);
+  });
+
+  test("turns a malformed successful response into an error state", async () => {
+    const client = {
+      panel: async () => ({ ...RESPONSE, target_count: 2 }),
+    } as unknown as ReadApiClient;
+
+    await expect(loadDetectionReadinessState(client)).resolves.toEqual({
+      status: "error",
+      message: "invalid read API response: detection readiness totals do not reconcile",
+    });
   });
 });

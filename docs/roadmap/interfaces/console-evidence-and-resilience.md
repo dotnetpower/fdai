@@ -53,7 +53,9 @@ repository credential, recipient, or managed identity values.
 Operations includes a Detection readiness route backed only by Muninn's durable StateSnapshots.
 It shows Heimdall's decision, the six evidence dimensions, gaps, authority ceiling, source, and
 observation time. The browser does not probe AKS or derive a replacement decision. Each target
-links to its Architecture resource, and promotion-related counts link to Promotion gates.
+links to its Architecture resource, and promotion-related counts link to Promotion gates. A
+successful HTTP response that fails strict decoding renders an error instead of remaining in the
+loading skeleton.
 
 Activity uses one bounded chronological log for durable audit rows and browser-session runtime
 frames. Each row keeps its source label, so a runtime frame is never presented as durable audit
@@ -272,7 +274,9 @@ model response.
 The browser accepts an LLM disclosure only when the recorded model identifier and optional latency
 or token metrics match the bounded source-descriptor contract. Empty, oversized, control-character,
 duplicate-metric, and free-form metric values don't create an LLM escalation claim. The raw source
-badge remains width-bounded so malformed metadata can't displace the reply header.
+badge remains width-bounded so malformed metadata can't displace the reply header. Token totals and
+their prompt and completion components must each be finite and nonnegative before the browser
+renders token usage.
 
 When a turn carries validated inline image attachments, the streaming route also emits read-only
 `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with
