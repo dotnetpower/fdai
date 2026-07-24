@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 6368ea9b7a37ce52f005b3f7c3189e0af7ac5a10
+translation_source_sha: c5b866f16dd6ab5ae7b07870cf397b0a7f35e9bb
 translation_revised: 2026-07-24
 ---
 
@@ -258,7 +258,9 @@ public-web provider 호출 직전에만 `web_search_searching`을 emit하며, re
 retrieval, model reasoning, specialist consultation, evidence binding 및 verification을 LLM escalation
 disclosure에 계속 표시합니다. 새 citation이 없는 follow-up turn도 model reasoning 단계를 표시하고
 별도 source가 첨부되지 않았음을 명시합니다. 이전 citation을 새로 조회한 것처럼 재사용하지 않습니다.
-Evidence value와 path는 잘리지 않고 줄바꿈되며, source detail은 별도로 펼쳐 확인할 수 있습니다.
+Evidence value와 path는 잘리지 않고 줄바꿈되며, source detail은 별도로 펼쳐 확인할 수 있습니다. 완료된
+verification stage는 검사가 수행되었음을 나타내며, unverified result는 성공 check 대신 attention mark를
+사용합니다.
 
 Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에
 read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source

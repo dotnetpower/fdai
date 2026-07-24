@@ -322,8 +322,10 @@ function GroundingTrace({ stages }: { readonly stages: readonly TraceStage[] }) 
   return (
     <ol class="deck-gr-trace" aria-label={t("deck.grounded.traceLabel")}>
       {stages.map((stage, i) => (
-        <li key={`${stage.label}-${i}`} class="deck-gr-trace-row">
-          <span class="deck-gr-trace-mark" aria-hidden="true">{"\u2713"}</span>
+        <li key={`${stage.label}-${i}`} class={`deck-gr-trace-row is-${stage.status}`}>
+          <span class="deck-gr-trace-mark" aria-hidden="true">
+            {stage.status === "attention" ? "!" : "\u2713"}
+          </span>
           <span class="deck-gr-trace-copy">
             <span class="deck-gr-trace-label">
               {t(`deck.grounded.stage.${stage.action}`, { model: stage.model ?? "" })}

@@ -1705,7 +1705,11 @@
       "scanning": "scanning",
       "ready": "ready",
       "abandoned": "abandoned",
-      "rmsProtected": "RMS-protected"
+      "rmsProtected": "RMS-protected",
+      "tooLarge": "too large to send",
+      "unsupportedImage": "unsupported image type",
+      "tooMany": "attachment limit reached",
+      "readFailed": "could not read file"
     },
     "suggestedFollowUps": "Suggested follow-ups",
     "intro": "Ask about anything currently visible - tiles, KPIs, approvals, audit rows, promotion status, impact scope, or ontology. I ground every answer in the snapshot on the right.",
@@ -1761,7 +1765,7 @@
         "deterministic": "Used deterministic answerer",
         "consult": "Consulted specialist agents",
         "ground": "Bound answer to evidence",
-        "verify": "Verified answer"
+        "verify": "Checked answer"
       },
       "side": {
         "read": "retrieve",

@@ -173,6 +173,13 @@ describe("groundingStages", () => {
       agents: ["Forseti"],
     });
     expect(stages.map((s) => s.side)).toEqual(["read", "route", "read", "ground", "verify"]);
+    expect(stages.map((s) => s.status)).toEqual([
+      "complete",
+      "complete",
+      "complete",
+      "complete",
+      "complete",
+    ]);
     expect(stages[1]).toMatchObject({
       action: "infer",
       label: "Reasoned with gpt-4o-mini",
@@ -199,8 +206,32 @@ describe("groundingStages", () => {
       label: "Reasoned with gpt-4o-mini",
       detail: "95ms",
       side: "route",
+      status: "complete",
       model: "gpt-4o-mini",
     }]);
+  });
+
+  it("marks an unverified answer check as requiring attention", () => {
+    const verification = {
+      ...manifestVerification([]),
+      status: "unverified" as const,
+      checks_completed: 1,
+      checks_total: 2,
+    };
+
+    expect(
+      groundingStages({
+        sources: [],
+        source: "llm:gpt-4o-mini",
+        verification,
+        agents: [],
+      }).at(-1),
+    ).toMatchObject({
+      action: "verify",
+      label: "Checked answer",
+      detail: "1/2 checks",
+      status: "attention",
+    });
   });
 
   it("returns nothing when the reply carries no grounding metadata", () => {

@@ -6863,6 +6863,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   font-size: 12.5px;
 }
 .deck-gr-trace-mark { color: var(--tier-t0, #4dab7a); font-weight: 800; }
+.deck-gr-trace-row.is-attention .deck-gr-trace-mark { color: var(--warning, #8a5a00); }
 .deck-gr-trace-label { font-weight: 600; color: var(--fg); }
 .deck-gr-trace-copy { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .deck-gr-trace-detail { color: var(--fg-muted); overflow-wrap: anywhere; line-height: 1.4; }

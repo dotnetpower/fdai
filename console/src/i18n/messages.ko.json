@@ -1705,7 +1705,11 @@
       "scanning": "검사 중",
       "ready": "준비됨",
       "abandoned": "폐기됨",
-      "rmsProtected": "RMS 보호"
+      "rmsProtected": "RMS 보호",
+      "tooLarge": "전송하기에 너무 큼",
+      "unsupportedImage": "지원하지 않는 이미지 형식",
+      "tooMany": "첨부 한도 도달",
+      "readFailed": "파일을 읽지 못함"
     },
     "suggestedFollowUps": "추천 후속 질문",
     "intro": "현재 표시된 타일, KPI, 승인, 감사 행, 프로모션 상태, 영향 범위 또는 온톨로지에 관해 질문하세요. 모든 답변은 오른쪽 스냅샷을 근거로 합니다.",
@@ -1761,7 +1765,7 @@
         "deterministic": "결정론적 응답기 사용",
         "consult": "전문 에이전트 의견 조회",
         "ground": "답변과 근거 연결",
-        "verify": "답변 검증"
+        "verify": "답변 검사 수행"
       },
       "side": {
         "read": "조회",

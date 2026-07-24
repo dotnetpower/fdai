@@ -260,7 +260,9 @@ and the stages supported by that turn's recorded metadata: evidence retrieval, m
 specialist consultation, evidence binding, and verification. A follow-up turn without new citations
 still shows the model reasoning step and states that no separate source was attached; it doesn't
 reuse earlier citations as if they were newly retrieved. Evidence values and paths wrap instead of
-being truncated, and source details remain independently expandable for inspection.
+being truncated, and source details remain independently expandable for inspection. A completed
+verification stage reports that checks ran; an unverified result uses an attention mark instead of
+a success check.
 
 When a turn carries validated inline image attachments, the streaming route also emits read-only
 `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with

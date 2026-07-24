@@ -66,6 +66,7 @@ export interface TraceStage {
   readonly label: string;
   readonly detail: string;
   readonly side: "read" | "route" | "ground" | "verify";
+  readonly status: "complete" | "attention";
   readonly model?: string;
 }
 
@@ -240,6 +241,7 @@ export function groundingStages(input: {
       label: "Retrieved grounding sources",
       detail: `${input.sources.length} read-only`,
       side: "read",
+      status: "complete",
     });
   }
   const parsed = parseReplySource(input.source);
@@ -249,6 +251,7 @@ export function groundingStages(input: {
       label: `Reasoned with ${parsed.model}`,
       detail: parsed.timing ?? "narrator",
       side: "route",
+      status: "complete",
       model: parsed.model,
     });
   } else if (parsed?.kind === "deterministic") {
@@ -257,6 +260,7 @@ export function groundingStages(input: {
       label: "Used deterministic answerer",
       detail: "no model",
       side: "route",
+      status: "complete",
     });
   }
   if (input.agents.length > 0) {
@@ -265,6 +269,7 @@ export function groundingStages(input: {
       label: "Consulted specialist agents",
       detail: input.agents.join(", "),
       side: "read",
+      status: "complete",
     });
   }
   const verification = input.verification;
@@ -276,14 +281,16 @@ export function groundingStages(input: {
         label: "Bound answer to evidence",
         detail: `${refs} reference${refs === 1 ? "" : "s"}`,
         side: "ground",
+        status: "complete",
       });
     }
     if (verification.checks_total > 0) {
       stages.push({
         action: "verify",
-        label: "Verified answer",
+        label: "Checked answer",
         detail: `${verification.checks_completed}/${verification.checks_total} checks`,
         side: "verify",
+        status: verification.status === "unverified" ? "attention" : "complete",
       });
     }
   }
