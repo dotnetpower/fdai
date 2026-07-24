@@ -62,8 +62,10 @@ export {
 import { ActivityWaterfall } from "./agent-activity-waterfall";
 import {
   activityFiltersFromSearch,
+  activityRouteFilterParams,
   ActivityToolbar,
   filterAgentActivity,
+  filterAgentActivityLog,
   type ActivityFilters,
   type ActivityLayer,
   type ActivityVerb,
@@ -129,6 +131,18 @@ export function agentActivityExplanations(
 }
 
 type ActivityView = "activity" | "waterfall";
+
+function agentCounts(items: readonly AuditItem[]): readonly (readonly [string, number])[] {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const agent = agentOf(item);
+    counts.set(agent, (counts.get(agent) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((left, right) => {
+    const rankDifference = agentActivityRank(left[0]) - agentActivityRank(right[0]);
+    return rankDifference || right[1] - left[1];
+  });
+}
 
 function activityFiltersFromRoute(): ActivityFilters {
   return activityFiltersFromSearch(currentRoute().search);
@@ -271,10 +285,7 @@ function ActivityBody({
         agent,
         view: nextView === "activity" ? null : nextView,
         step: nextView === "waterfall" ? currentRoute().search.get("step") : null,
-        window: filters.window === "24h" ? null : filters.window,
-        layer: filters.layer === "all" ? null : filters.layer,
-        verb: filters.verb === "all" ? null : filters.verb,
-        q: filters.query || null,
+        ...activityRouteFilterParams(filters, nextView === "waterfall"),
       },
     }));
   };
@@ -284,10 +295,7 @@ function ActivityBody({
         agent: selected,
         view: view === "activity" ? null : view,
         step: view === "waterfall" ? currentRoute().search.get("step") : null,
-        window: next.window === "24h" ? null : next.window,
-        layer: next.layer === "all" ? null : next.layer,
-        verb: next.verb === "all" ? null : next.verb,
-        q: next.query || null,
+        ...activityRouteFilterParams(next, view === "waterfall"),
       },
     });
     if (next.query !== filters.query) {
@@ -300,21 +308,9 @@ function ActivityBody({
 
   // Newest first: the audit projection already returns newest-first, so
   // preserve that order for the timeline.
-  const perAgent = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const item of filtered) {
-      const agent = agentOf(item);
-      counts.set(agent, (counts.get(agent) ?? 0) + 1);
-    }
-    // Order: known pantheon agents first (by count), then service producers
-    // (by count), then the System catch-all last.
-    return [...counts.entries()].sort((a, b) => {
-      const ra = agentActivityRank(a[0]);
-      const rb = agentActivityRank(b[0]);
-      if (ra !== rb) return ra - rb;
-      return b[1] - a[1];
-    });
-  }, [filtered]);
+  // Order: known pantheon agents first (by count), then service producers
+  // (by count), then the System catch-all last.
+  const perAgent = useMemo(() => agentCounts(filtered), [filtered]);
 
   const visible = useMemo(
     () =>
@@ -323,9 +319,19 @@ function ActivityBody({
         : filtered.filter((item) => agentOf(item) === selected),
     [filtered, selected],
   );
+  const activityAudit = useMemo(
+    () => filterAgentActivityLog(data.items, selected, filters.query, agentOf),
+    [data.items, selected, filters.query],
+  );
+  const activityAgentCounts = useMemo(
+    () => agentCounts(filterAgentActivityLog(data.items, null, filters.query, agentOf)),
+    [data.items, filters.query],
+  );
+  const presentedAudit = view === "activity" ? activityAudit : visible;
+  const presentedAgentCounts = view === "activity" ? activityAgentCounts : perAgent;
   const selectionValid = isAgentActivitySelectionValid(
     selected,
-    perAgent.map(([agent]) => agent),
+    [...new Set(data.items.map(agentOf))],
   );
   const selectedNode = selected ? runtime.agents[selected] : undefined;
   const selectedIncidents = useMemo(
@@ -333,12 +339,12 @@ function ActivityBody({
     [runtime, selected],
   );
   const provenanceCounts = useMemo(
-    () => activityProvenanceCounts(visible),
-    [visible],
+    () => activityProvenanceCounts(presentedAudit),
+    [presentedAudit],
   );
   const presentation = activityPresentationState({
     totalAuditCount: data.items.length,
-    visibleAuditCount: visible.length,
+    visibleAuditCount: presentedAudit.length,
     selected,
     selectionValid,
     hasSelectedNode: selectedNode !== undefined,
@@ -364,7 +370,7 @@ function ActivityBody({
       capturedAt: new Date().toISOString(),
       facts: [
         { key: "rows", value: data.items.length, group: "page" },
-        { key: "agents", value: perAgent.length, group: "page" },
+        { key: "agents", value: presentedAgentCounts.length, group: "page" },
         { key: "filter", value: selected ?? "all", group: "page" },
         { key: "older_available", value: data.olderAvailable, group: "page" },
         { key: "stream_status", value: streamStatus, group: "runtime" },
@@ -377,14 +383,14 @@ function ActivityBody({
         { key: "verb", value: filters.verb, group: "filters" },
       ],
       records: {
-        by_agent: perAgent.map(([agent, count]) => ({ agent, count })),
+        by_agent: presentedAgentCounts.map(([agent, count]) => ({ agent, count })),
         // The visible timeline rows (respecting the agent filter) so the deck
         // can answer "what did this agent do / what happened when / why did
         // this start?" from real activity. The causal fields (`summary`,
         // `detail`, `reason`, `tier`, `outcome`) are kept - NOT projected away -
         // so the narrator can quote the recorded "why" instead of shrugging.
         // Newest-first; capped so the snapshot stays lean.
-        activity: visible.slice(0, 40).map((item) => ({
+        activity: presentedAudit.slice(0, 40).map((item) => ({
           agent: agentOf(item),
           action_kind: item.action_kind,
           mode: item.mode,
@@ -405,10 +411,10 @@ function ActivityBody({
     [
       data.items,
       data.olderAvailable,
-      perAgent,
+      presentedAgentCounts,
       selected,
       selectedIncidents,
-      visible,
+      presentedAudit,
       streamStatus,
       streamSource,
       liveAgents,

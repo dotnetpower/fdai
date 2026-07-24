@@ -24,6 +24,18 @@ export interface ActivityFilters {
   readonly query: string;
 }
 
+export function activityRouteFilterParams(
+  filters: ActivityFilters,
+  includeWaterfallFilters: boolean,
+): Readonly<Record<string, string | null>> {
+  return {
+    window: includeWaterfallFilters && filters.window !== "24h" ? filters.window : null,
+    layer: includeWaterfallFilters && filters.layer !== "all" ? filters.layer : null,
+    verb: includeWaterfallFilters && filters.verb !== "all" ? filters.verb : null,
+    q: filters.query || null,
+  };
+}
+
 export function activityFiltersFromSearch(search: URLSearchParams): ActivityFilters {
   const window = search.get("window");
   const layer = search.get("layer");
@@ -108,6 +120,20 @@ export function filterAgentActivity(
     if (filters.verb !== "all" && activityVerb(item) !== filters.verb) return false;
     if (query && !normalizeSearch(activitySearchText(item, agent)).includes(query)) return false;
     return true;
+  });
+}
+
+export function filterAgentActivityLog(
+  items: readonly AuditItem[],
+  selectedAgent: string | null,
+  query: string,
+  agentOf: (item: AuditItem) => string,
+): readonly AuditItem[] {
+  const normalizedQuery = normalizeSearch(query);
+  return items.filter((item) => {
+    const agent = agentOf(item);
+    if (selectedAgent !== null && agent !== selectedAgent) return false;
+    return !normalizedQuery || normalizeSearch(activitySearchText(item, agent)).includes(normalizedQuery);
   });
 }
 

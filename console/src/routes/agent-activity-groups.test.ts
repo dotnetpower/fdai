@@ -2,8 +2,10 @@ import { describe, expect, test } from "vitest";
 import type { AuditItem } from "../types";
 import {
   activityFiltersFromSearch,
+  activityRouteFilterParams,
   activityVerb,
   filterAgentActivity,
+  filterAgentActivityLog,
   pantheonLayerOf,
   type ActivityFilters,
 } from "./agent-activity-groups";
@@ -101,5 +103,39 @@ describe("agent activity filters", () => {
     ], { ...BASE_FILTERS, query: "restrict network" }, agentOf)).toHaveLength(1);
     expect(filterAgentActivity(rows, { ...BASE_FILTERS, query: "not-recorded" }, agentOf))
       .toEqual([]);
+  });
+
+  test("uses only agent and keyword filters for the Activity log", () => {
+    const rows = [
+      item(1, "Thor", "action.execute", "2026-06-01T00:00:00Z", {
+        summary: "Old but still loaded",
+      }),
+      item(2, "Forseti", "verdict.issue", "2026-07-15T11:00:00Z"),
+    ];
+
+    expect(filterAgentActivityLog(rows, "Thor", "old but", agentOf)).toEqual([rows[0]]);
+    expect(filterAgentActivityLog(rows, "Forseti", "old but", agentOf)).toEqual([]);
+  });
+
+  test("removes Waterfall-only route filters from Activity links", () => {
+    const filters: ActivityFilters = {
+      window: "15m",
+      layer: "pipeline",
+      verb: "execute",
+      query: "storage",
+    };
+
+    expect(activityRouteFilterParams(filters, false)).toEqual({
+      window: null,
+      layer: null,
+      verb: null,
+      q: "storage",
+    });
+    expect(activityRouteFilterParams(filters, true)).toEqual({
+      window: "15m",
+      layer: "pipeline",
+      verb: "execute",
+      q: "storage",
+    });
   });
 });
