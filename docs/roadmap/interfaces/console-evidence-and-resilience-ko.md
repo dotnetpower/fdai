@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2e1ad39f95560e091e5a25b9ea566ca610c2414e
+translation_source_sha: fc12ddb8ca2d21eac97071c03cdbdf9c4b138389
 translation_revised: 2026-07-24
 ---
 
@@ -266,6 +266,9 @@ label은 22 px까지 커질 수 있습니다. Zoom step은 reciprocal이고 색�
 keyboard-accessible resource 및 relationship index는 filtered canvas와 동등합니다. Pointer target은
 containment boundary를 포함해 최소 44 px입니다. Truncated snapshot은 partial-inventory notice를
 명시합니다.
+Local projection은 선택된 endpoint id와 resource type이 일치하는 registered relationship type만
+표시합니다. Malformed 또는 over-limit vendor relationship은 drop하고 snapshot을 truncated로 표시하며,
+신뢰할 수 없는 edge를 렌더링하지 않고 마지막 complete resource graph를 유지합니다.
 
 Subscription-scoped cached snapshot은 즉시 렌더링됩니다. Expired 또는 change-invalidated snapshot은
 background refresh 동안 stale로 표시됩니다. Browser는 read API가 완료된 refresh를 원자적으로

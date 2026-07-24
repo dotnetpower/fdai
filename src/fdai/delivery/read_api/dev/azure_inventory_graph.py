@@ -22,13 +22,14 @@ from fdai.delivery.inventory_cache_invalidation import (
     inventory_cache_path,
     inventory_invalidation_path,
 )
-from fdai.shared.providers.inventory import Inventory, ResourceRecord
+from fdai.shared.providers.inventory import Inventory, LinkRecord, ResourceRecord
 
 _ROOT_ID = "azure-subscription"
 _LOGGER = logging.getLogger(__name__)
-_CACHE_VERSION: Final[int] = 2
+_CACHE_VERSION: Final[int] = 3
 _MAX_CACHE_BYTES: Final[int] = 5_000_000
 _MAX_CLOCK_SKEW_SECONDS: Final[int] = 300
+_ALLOWED_LINK_TYPES: Final[frozenset[str]] = frozenset({"contains", "attached_to", "depends_on"})
 
 
 @dataclass(slots=True)
@@ -108,6 +109,7 @@ class AzureCliInventoryGraphProvider:
                 return self._cache_payload(status="fresh")
             refresh_started_at = datetime.now(tz=UTC)
             records: list[ResourceRecord] = []
+            discovered_links: list[LinkRecord] = []
             final_seen = False
             cursor: str | None = None
             async with asyncio.timeout(self.refresh_timeout_seconds):
@@ -121,9 +123,15 @@ class AzureCliInventoryGraphProvider:
                         final_seen = True
                         continue
                     records.extend(batch.resources)
+                    discovered_links.extend(batch.links)
             if not final_seen:
                 raise RuntimeError("local Azure inventory ended without a final fence")
-            graph = _project_graph(records, max_resources=self.max_resources, cursor=cursor)
+            graph = _project_graph(
+                records,
+                discovered_links=discovered_links,
+                max_resources=self.max_resources,
+                cursor=cursor,
+            )
             if not _valid_cached_graph(graph, self.max_resources):
                 raise RuntimeError("local Azure inventory projected an invalid graph")
             self._cached = graph
@@ -334,7 +342,7 @@ def _valid_cached_graph(graph: Mapping[str, Any], max_resources: int) -> bool:
     if (
         not resources
         or len(resources) > max_resources + 1
-        or len(links) > max_resources
+        or len(links) > max_resources * 4
         or graph.get("source") != "azure-cli-local"
         or graph.get("freshness") != "fresh"
         or not isinstance(graph.get("truncated"), bool)
@@ -374,7 +382,7 @@ def _valid_cached_graph(graph: Mapping[str, Any], max_resources: int) -> bool:
             not isinstance(source, str)
             or not isinstance(target, str)
             or not isinstance(link_type, str)
-            or link_type not in {"contains", "attached_to", "depends_on"}
+            or link_type not in _ALLOWED_LINK_TYPES
             or source == target
             or source not in resource_ids
             or target not in resource_ids
@@ -450,6 +458,7 @@ def _has_parent_cycle(resource_ids: set[str], parent_by_id: Mapping[str, str]) -
 def _project_graph(
     records: list[ResourceRecord],
     *,
+    discovered_links: list[LinkRecord],
     max_resources: int,
     cursor: str | None,
 ) -> dict[str, Any]:
@@ -544,13 +553,40 @@ def _project_graph(
         )
         links.append({"source": _ROOT_ID, "target": resource.resource_id, "type": "contains"})
 
+    selected_types = {resource["id"]: resource["type"] for resource in resources}
+    link_ids = {(link["source"], link["type"], link["target"]) for link in links}
+    maximum_links = max_resources * 4
+    dropped_links = 0
+    for link in sorted(
+        discovered_links,
+        key=lambda item: (item.from_id, item.link_type, item.to_id),
+    ):
+        identity = (link.from_id, link.link_type, link.to_id)
+        if (
+            link.link_type not in _ALLOWED_LINK_TYPES
+            or selected_types.get(link.from_id) != link.from_type
+            or selected_types.get(link.to_id) != link.to_type
+            or link.from_id == link.to_id
+            or identity in link_ids
+            or len(links) >= maximum_links
+        ):
+            dropped_links += 1
+            continue
+        link_ids.add(identity)
+        links.append({"source": link.from_id, "target": link.to_id, "type": link.link_type})
+    if dropped_links:
+        _LOGGER.warning(
+            "azure_cli_inventory_links_dropped",
+            extra={"count": dropped_links},
+        )
+
     return {
         "snapshot_at": datetime.now(UTC).isoformat(),
         "freshness": "fresh",
         "source": "azure-cli-local",
         "resources": resources,
         "links": links,
-        "truncated": truncated,
+        "truncated": truncated or dropped_links > 0,
         "cursor": cursor,
     }
 

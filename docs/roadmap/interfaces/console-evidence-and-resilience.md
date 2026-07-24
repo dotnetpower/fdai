@@ -267,6 +267,9 @@ selected label may reach 22 px. Zoom steps are reciprocal, colors follow the con
 keyboard-accessible resource and relationship index is equivalent to the filtered canvas. Pointer
 targets are at least 44 px and include containment boundaries. Truncated snapshots show an explicit
 partial-inventory notice.
+The local projection shows only registered relationship types whose selected endpoint ids and
+resource types agree. It drops malformed or over-limit vendor relationships, marks the snapshot
+truncated, and keeps the last complete resource graph rather than rendering an untrusted edge.
 
 A subscription-scoped cached snapshot renders immediately. Expired or change-invalidated snapshots
 are marked stale while a background refresh runs. The browser polls only until the read API

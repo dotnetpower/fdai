@@ -191,6 +191,90 @@ class TestFullSnapshot:
         # Fence still last.
         assert batches[-1].final is True
 
+    def test_discover_all_maps_registered_network_resources_and_links(self) -> None:
+        group_payload = json.dumps(
+            [
+                {
+                    "id": "/subscriptions/x/resourceGroups/rg-example",
+                    "name": "rg-example",
+                    "tags": {"fdai:managed": "true", "fdai:workload": "fdai"},
+                }
+            ]
+        )
+        public_ip_id = (
+            "/subscriptions/x/resourceGroups/rg-example/providers/"
+            "Microsoft.Network/publicIPAddresses/pip-example"
+        )
+        resources_payload = json.dumps(
+            [
+                {
+                    "id": (
+                        "/subscriptions/x/resourceGroups/rg-example/providers/"
+                        "Microsoft.Network/loadBalancers/lb-example"
+                    ),
+                    "type": "Microsoft.Network/loadBalancers",
+                    "name": "lb-example",
+                    "resourceGroup": "rg-example",
+                    "properties": {
+                        "frontendIPConfigurations": [
+                            {"properties": {"publicIPAddress": {"id": public_ip_id}}}
+                        ]
+                    },
+                },
+                {
+                    "id": public_ip_id,
+                    "type": "Microsoft.Network/publicIPAddresses",
+                    "name": "pip-example",
+                    "resourceGroup": "rg-example",
+                },
+                {
+                    "id": "/subscriptions/x/resourceGroups/rg-example/providers/Other/type/x",
+                    "type": "Other/type",
+                    "name": "unsupported",
+                },
+            ]
+        )
+        inventory = AzureCliInventory(
+            resource_types=("resource-group", "network.load-balancer", "network.public-ip"),
+            azure_arm_types={
+                "resource-group": "Microsoft.Resources/resourceGroups",
+                "network.load-balancer": "Microsoft.Network/loadBalancers",
+                "network.public-ip": "Microsoft.Network/publicIPAddresses",
+            },
+            discover_all=True,
+        )
+
+        def _discover_all_response(argv, **_kwargs):  # type: ignore[no-untyped-def]
+            command = tuple(argv[1:3])
+            if command == ("group", "list"):
+                return _completed(group_payload)
+            if command == ("resource", "list"):
+                return _completed(resources_payload)
+            if command == ("vm", "list"):
+                return _completed("[]")
+            raise AssertionError(f"unexpected Azure CLI command: {argv}")
+
+        with patch(
+            "fdai.delivery.azure.dev_inventory.subprocess.run",
+            side_effect=_discover_all_response,
+        ):
+            batches = asyncio.run(_drain(inventory))
+
+        resource_batch, final = batches
+        assert {record.type for record in resource_batch.resources} == {
+            "resource-group",
+            "network.load-balancer",
+            "network.public-ip",
+        }
+        assert {
+            (link.link_type, link.from_type, link.to_type) for link in resource_batch.links
+        } >= {
+            ("contains", "resource-group", "network.load-balancer"),
+            ("contains", "resource-group", "network.public-ip"),
+            ("attached_to", "network.load-balancer", "network.public-ip"),
+        }
+        assert final.final is True
+
     def test_subscription_id_forwarded_as_arg(self) -> None:
         captured: dict[str, list[str]] = {}
 

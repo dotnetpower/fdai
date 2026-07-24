@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any, Final
 
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
@@ -93,6 +93,10 @@ _ATTACHED_TO_PROPERTY_KEYS: Final[tuple[str, ...]] = (
     "networkSecurityGroup",
     "publicIPAddress",
 )
+_ATTACHED_TO_COLLECTION_KEYS: Final[tuple[str, ...]] = (
+    "frontendIPConfigurations",
+    "ipConfigurations",
+)
 
 
 def build_arm_to_neutral_map(registry: ResourceTypeRegistry) -> dict[str, str]:
@@ -133,34 +137,49 @@ def extract_attached_to_links_from_row(
 
     seen: set[tuple[str, str, str]] = set()
     links: list[LinkRecord] = []
-    for key in _ATTACHED_TO_PROPERTY_KEYS:
-        nested = properties.get(key)
-        if not isinstance(nested, Mapping):
-            continue
-        ref_id = nested.get("id")
-        if not isinstance(ref_id, str) or not ref_id:
-            continue
-        arm_type = arm_id_to_type(ref_id)
-        if arm_type is None:
-            continue
-        to_type = arm_to_neutral.get(arm_type.lower())
-        if to_type is None:
-            continue
-        target_neutral = to_neutral_id(ref_id)
-        dedup_key = (child.resource_id, "attached_to", target_neutral)
-        if dedup_key in seen:
-            continue
-        seen.add(dedup_key)
-        links.append(
-            LinkRecord(
-                from_id=child.resource_id,
-                from_type=child.type,
-                link_type="attached_to",
-                to_id=target_neutral,
-                to_type=to_type,
+    for attachment_properties in _attachment_property_maps(properties):
+        for key in _ATTACHED_TO_PROPERTY_KEYS:
+            nested = attachment_properties.get(key)
+            if not isinstance(nested, Mapping):
+                continue
+            ref_id = nested.get("id")
+            if not isinstance(ref_id, str) or not ref_id:
+                continue
+            arm_type = arm_id_to_type(ref_id)
+            if arm_type is None:
+                continue
+            to_type = arm_to_neutral.get(arm_type.lower())
+            if to_type is None:
+                continue
+            target_neutral = to_neutral_id(ref_id)
+            dedup_key = (child.resource_id, "attached_to", target_neutral)
+            if dedup_key in seen:
+                continue
+            seen.add(dedup_key)
+            links.append(
+                LinkRecord(
+                    from_id=child.resource_id,
+                    from_type=child.type,
+                    link_type="attached_to",
+                    to_id=target_neutral,
+                    to_type=to_type,
+                )
             )
-        )
     return tuple(links)
+
+
+def _attachment_property_maps(properties: Mapping[str, Any]) -> Iterable[Mapping[str, Any]]:
+    yield properties
+    for collection_key in _ATTACHED_TO_COLLECTION_KEYS:
+        collection = properties.get(collection_key)
+        if not isinstance(collection, Sequence) or isinstance(collection, (str, bytes)):
+            continue
+        for entry in collection:
+            if not isinstance(entry, Mapping):
+                continue
+            nested = entry.get("properties")
+            if isinstance(nested, Mapping):
+                yield nested
 
 
 _DEPENDS_ON_ID_PROPERTY_KEYS: Final[tuple[str, ...]] = ("storageAccount",)

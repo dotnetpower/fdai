@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
+  DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   architectureHref,
   DEFAULT_ARCHITECTURE_CAMERA_VIEW,
   architectureViewKindLabel,
@@ -19,6 +20,28 @@ import {
   shapeOf,
   type InventoryGraphResponse,
 } from "./architecture-map.model";
+
+describe("architecture display defaults", () => {
+  test("shows resource reflections and connections by default", () => {
+    expect(DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS.showReflections).toBe(true);
+    expect(DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS.showConnections).toBe(true);
+  });
+});
+
+describe("architecture Azure discovery mappings", () => {
+  test.each([
+    ["compute.container-app-job", "runtime"],
+    ["network.interface", "network"],
+    ["network.private-dns-zone", "network"],
+    ["container-registry", "data"],
+    ["event-hub", "messaging"],
+    ["application-insights", "observability"],
+  ] as const)("maps %s to the %s layer", (resourceType, layer) => {
+    const resource = { id: resourceType, type: resourceType } as never;
+    expect(layerOf(resource)).toBe(layer);
+    expect(hasExplicitVisualMapping(resourceType)).toBe(true);
+  });
+});
 
 const GRAPH: InventoryGraphResponse = {
   snapshot_at: "2026-07-13T00:00:00Z",

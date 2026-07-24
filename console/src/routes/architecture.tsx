@@ -6,6 +6,7 @@ import { ArchitectureRelationIndex } from "../components/architecture-relation-i
 import {
   ARCHITECTURE_LAYERS,
   DEFAULT_ARCHITECTURE_CAMERA_VIEW,
+  DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   architectureHref,
   architectureViewFromHash,
   constrainGraph,
@@ -97,10 +98,7 @@ export function ArchitectureRoute({ client }: Props) {
   );
   const [zoomPercent, setZoomPercent] = useState(100);
   const [displayOptions, setDisplayOptions] = useState<ArchitectureDisplayOptions>({
-    showConnections: true,
-    showReflections: false,
-    showLabels: true,
-    showGrid: false,
+    ...DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   });
   const mapRef = useRef<ArchitectureMapHandle>(null);
   const cachePollAttemptRef = useRef(0);

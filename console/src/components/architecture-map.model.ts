@@ -38,6 +38,13 @@ export interface ArchitectureDisplayOptions {
   readonly showGrid: boolean;
 }
 
+export const DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS: ArchitectureDisplayOptions = {
+  showConnections: true,
+  showReflections: true,
+  showLabels: true,
+  showGrid: false,
+};
+
 export interface InventoryGraphResponse {
   readonly snapshot_at: string;
   readonly freshness: "fresh" | "stale" | "unknown";
@@ -146,7 +153,11 @@ const TYPE_LAYER: Readonly<Record<string, ArchitectureLayer>> = {
   "l4-load-balancer": "network",
   "app-service": "runtime",
   "container-app": "runtime",
+  "compute.container-app-job": "runtime",
+  "compute.container-app-environment": "runtime",
   "function-app": "runtime",
+  "app-service-plan": "runtime",
+  "static-web-app": "runtime",
   "aks-cluster": "runtime",
   postgresql: "data",
   "postgresql-server": "data",
@@ -171,21 +182,35 @@ const TYPE_LAYER: Readonly<Record<string, ArchitectureLayer>> = {
   "network.vnet": "network",
   "network.subnet": "network",
   "network.nsg": "security",
+  "network.interface": "network",
   "network.private-endpoint": "network",
   "network.load-balancer": "network",
   "network.application-gateway": "network",
   "api-gateway": "network",
   "network.dns-zone": "network",
   "network.public-ip": "network",
+  "network.nat-gateway": "network",
+  "network.private-dns-zone": "network",
+  "network.private-dns-zone-link": "network",
+  "network.dns-resolver": "network",
+  "network.dns-resolver-inbound-endpoint": "network",
+  "network.virtual-network-gateway": "network",
   "diagnostic-settings": "observability",
   "file-share": "data",
   disk: "data",
+  "container-registry": "data",
   "nosql-database": "data",
   cache: "data",
+  "redis-enterprise": "data",
   "managed-identity": "security",
   certificate: "security",
   "log-workspace": "observability",
   "metrics-workspace": "observability",
+  "application-insights": "observability",
+  "event-grid-topic": "messaging",
+  "communication-service": "messaging",
+  "email-service": "messaging",
+  "email-domain": "messaging",
 };
 
 const TYPE_COLOR_TOKEN: Readonly<Record<string, ArchitectureResourceColorToken>> = {
@@ -206,7 +231,11 @@ const TYPE_COLOR_TOKEN: Readonly<Record<string, ArchitectureResourceColorToken>>
   "secret-store": "key-vault",
   "app-service": "app-service",
   "container-app": "container-app",
+  "compute.container-app-job": "container-app",
+  "compute.container-app-environment": "container-app",
   "function-app": "function-app",
+  "app-service-plan": "app-service",
+  "static-web-app": "app-service",
   "aks-cluster": "aks",
   postgresql: "database",
   "postgresql-server": "database",
@@ -231,21 +260,35 @@ const TYPE_COLOR_TOKEN: Readonly<Record<string, ArchitectureResourceColorToken>>
   "network.vnet": "virtual-network",
   "network.subnet": "subnet",
   "network.nsg": "network-security",
+  "network.interface": "virtual-network",
   "network.private-endpoint": "private-endpoint",
   "network.load-balancer": "load-balancer",
   "network.application-gateway": "application-gateway",
   "api-gateway": "application-gateway",
   "network.dns-zone": "dns-zone",
   "network.public-ip": "public-ip",
+  "network.nat-gateway": "load-balancer",
+  "network.private-dns-zone": "dns-zone",
+  "network.private-dns-zone-link": "dns-zone",
+  "network.dns-resolver": "dns-zone",
+  "network.dns-resolver-inbound-endpoint": "dns-zone",
+  "network.virtual-network-gateway": "application-gateway",
   "diagnostic-settings": "diagnostic-settings",
   "file-share": "file-share",
   disk: "disk",
+  "container-registry": "storage",
   "nosql-database": "cosmos-db",
   cache: "redis",
+  "redis-enterprise": "redis",
   "managed-identity": "managed-identity",
   certificate: "certificate",
   "log-workspace": "log-analytics",
   "metrics-workspace": "azure-monitor",
+  "application-insights": "azure-monitor",
+  "event-grid-topic": "event-hub",
+  "communication-service": "service-bus",
+  "email-service": "service-bus",
+  "email-domain": "service-bus",
 };
 
 export const RESOURCE_COLOR_TOKENS: Readonly<
@@ -303,6 +346,8 @@ const GATEWAY_TYPES = new Set([
   "network.load-balancer",
   "network.application-gateway",
   "api-gateway",
+  "network.nat-gateway",
+  "network.virtual-network-gateway",
 ]);
 const SLAB_TYPES = new Set(["storage-account", "object-storage", "file-share", "disk"]);
 const HEXAGON_TYPES = new Set([
@@ -322,6 +367,11 @@ const COMPACT_TYPES = new Set([
   "network.nsg",
   "network.private-endpoint",
   "network.public-ip",
+  "network.interface",
+  "network.private-dns-zone",
+  "network.private-dns-zone-link",
+  "network.dns-resolver",
+  "network.dns-resolver-inbound-endpoint",
   "managed-identity",
   "certificate",
 ]);

@@ -271,6 +271,10 @@ create mode-`0600` files, cap serialized bytes before replace, and fsync the dir
 and cached graphs reject duplicate resources or links, dangling/self links, non-finite or out-of-
 world geometry, invalid roots or parent cycles, future timestamps, invalid envelopes, and counts
 beyond the configured limit.
+Local projection preserves discovered relationships only when the link type is registered, both
+endpoint ids are selected, and the endpoint types match their resource records. Unknown,
+mismatched, dangling, self, duplicate, and over-limit links are dropped with a count-only warning;
+the complete resource snapshot remains available and reports `truncated=true`.
 
 ## Parity Contract (MUST)
 

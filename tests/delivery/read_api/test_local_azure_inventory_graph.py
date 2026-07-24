@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import stat
 import threading
 import time
@@ -19,7 +20,7 @@ from fdai.delivery.read_api.dev.azure_inventory_graph import (
 )
 from fdai.delivery.read_api.dev.helpers import build_inventory_graph_provider
 from fdai.delivery.read_api.routes.inventory_graph import InventoryGraphViewNotFoundError
-from fdai.shared.providers.inventory import InventoryBatch, ResourceRecord
+from fdai.shared.providers.inventory import InventoryBatch, LinkRecord, ResourceRecord
 
 
 class _Inventory:
@@ -73,6 +74,85 @@ class _InventoryAfterFinal(_Inventory):
         async for batch in super().full_snapshot(since):
             yield batch
         yield InventoryBatch(resources=(), cursor="late", final=False)
+
+
+class _InventoryWithLinks(_Inventory):
+    async def full_snapshot(self, since: str | None = None):  # type: ignore[no-untyped-def]
+        async for batch in super().full_snapshot(since):
+            if batch.final:
+                yield batch
+                continue
+            group, vm = batch.resources
+            yield InventoryBatch(
+                resources=batch.resources,
+                links=(
+                    LinkRecord(
+                        from_id=vm.resource_id,
+                        from_type=vm.type,
+                        link_type="depends_on",
+                        to_id=group.resource_id,
+                        to_type=group.type,
+                    ),
+                ),
+                cursor=batch.cursor,
+            )
+
+
+class _InventoryWithInvalidLinks(_Inventory):
+    async def full_snapshot(self, since: str | None = None):  # type: ignore[no-untyped-def]
+        async for batch in super().full_snapshot(since):
+            if batch.final:
+                yield batch
+                continue
+            group, vm = batch.resources
+            yield InventoryBatch(
+                resources=batch.resources,
+                links=(
+                    LinkRecord(
+                        from_id=vm.resource_id,
+                        from_type=vm.type,
+                        link_type="depends_on",
+                        to_id=group.resource_id,
+                        to_type=group.type,
+                    ),
+                    LinkRecord(
+                        from_id=vm.resource_id,
+                        from_type=vm.type,
+                        link_type="depends_on",
+                        to_id=group.resource_id,
+                        to_type=group.type,
+                    ),
+                    LinkRecord(
+                        from_id=vm.resource_id,
+                        from_type=vm.type,
+                        link_type="unknown_link",
+                        to_id=group.resource_id,
+                        to_type=group.type,
+                    ),
+                    LinkRecord(
+                        from_id=vm.resource_id,
+                        from_type="wrong-type",
+                        link_type="attached_to",
+                        to_id=group.resource_id,
+                        to_type=group.type,
+                    ),
+                    LinkRecord(
+                        from_id=vm.resource_id,
+                        from_type=vm.type,
+                        link_type="attached_to",
+                        to_id="missing-resource",
+                        to_type="compute.disk",
+                    ),
+                    LinkRecord(
+                        from_id=vm.resource_id,
+                        from_type=vm.type,
+                        link_type="attached_to",
+                        to_id=vm.resource_id,
+                        to_type=vm.type,
+                    ),
+                ),
+                cursor=batch.cursor,
+            )
 
 
 class _InventoryInvalidatedDuringFirstScan(_Inventory):
@@ -156,6 +236,46 @@ def test_projects_contains_graph_without_provider_refs_and_caches() -> None:
             "type": "contains",
         },
     ]
+
+
+def test_preserves_discovered_links_with_present_endpoints() -> None:
+    provider = AzureCliInventoryGraphProvider(inventory=_InventoryWithLinks())
+
+    graph = asyncio.run(provider(None, 4, ("depends_on",)))
+
+    assert graph["links"] == [
+        {
+            "source": (
+                "resourcegroups/rg-example/providers/microsoft.compute/virtualmachines/vm-example"
+            ),
+            "target": "resourcegroups/rg-example",
+            "type": "depends_on",
+        }
+    ]
+
+
+def test_drops_invalid_discovered_links_without_discarding_snapshot(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    provider = AzureCliInventoryGraphProvider(inventory=_InventoryWithInvalidLinks())
+
+    with caplog.at_level(logging.WARNING):
+        graph = asyncio.run(provider(None, 4, ("attached_to", "depends_on")))
+
+    assert graph["links"] == [
+        {
+            "source": (
+                "resourcegroups/rg-example/providers/microsoft.compute/virtualmachines/vm-example"
+            ),
+            "target": "resourcegroups/rg-example",
+            "type": "depends_on",
+        }
+    ]
+    assert graph["truncated"] is True
+    warning = next(
+        record for record in caplog.records if record.message == "azure_cli_inventory_links_dropped"
+    )
+    assert warning.count == 5
 
 
 def test_filters_links_and_marks_truncation() -> None:

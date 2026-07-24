@@ -117,24 +117,42 @@ def build_inventory_graph_provider() -> Any:
         os.environ.get(LOCAL_AZURE_SUBSCRIPTION_ENV, "").strip()
         or os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
     )
+    import yaml
+
     from fdai.delivery.azure.dev_inventory import AzureCliInventory
     from fdai.delivery.read_api.dev.azure_inventory_graph import (
         AzureCliInventoryGraphProvider,
         inventory_cache_path,
         inventory_invalidation_path,
     )
+    from fdai.rule_catalog.schema.resource_type import (
+        load_resource_type_registry_from_mapping,
+    )
 
     config_dir = os.environ.get(LOCAL_AZURE_CONFIG_DIR_ENV, "").strip() or None
+    repo_root = Path(__file__).resolve().parents[5]
+    vocabulary_file = repo_root / "rule-catalog" / "vocabulary" / "resource-types.yaml"
+    resource_types = load_resource_type_registry_from_mapping(
+        yaml.safe_load(vocabulary_file.read_text(encoding="utf-8"))
+    )
+    azure_arm_types = {
+        entry.id: entry.azure_arm_type
+        for entry in resource_types
+        if entry.azure_arm_type is not None
+    }
     cache_path = None
     cache_identity = None
     if subscription_id:
         cache_path, cache_identity = inventory_cache_path(
-            repo_root=Path(__file__).resolve().parents[5],
+            repo_root=repo_root,
             subscription_id=subscription_id,
             azure_config_dir=config_dir,
         )
     return AzureCliInventoryGraphProvider(
         inventory=AzureCliInventory(
+            resource_types=tuple(azure_arm_types),
+            azure_arm_types=azure_arm_types,
+            discover_all=True,
             subscription_id=subscription_id or None,
             azure_config_dir=config_dir,
         ),

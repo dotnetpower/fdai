@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 1438debd6967d5538d8c62de28c1a67ae23fae88
+translation_source_sha: 628ce8f575c4f1dae1c881580cbc446e054175e6
 translation_revised: 2026-07-24
 ---
 
@@ -272,6 +272,10 @@ Write는 cache directory를 mode `0700`으로 교정하고 mode `0600` file을 �
 byte를 제한하고 directory를 fsync합니다. Live graph와 cached graph 모두 duplicate resource 또는 link,
 dangling/self link, non-finite 또는 world 밖 geometry, invalid root 또는 parent cycle, 미래 timestamp,
 invalid envelope, configured limit 초과 count를 거부합니다.
+Local projection은 link type이 등록되어 있고 두 endpoint id가 모두 선택되며 endpoint type이 resource
+record와 일치할 때만 discovered relationship을 보존합니다. Unknown, mismatched, dangling, self,
+duplicate 및 over-limit link는 count-only warning과 함께 drop합니다. Complete resource snapshot은
+유지되고 `truncated=true`를 보고합니다.
 
 ## Parity 컨트랙트 (MUST)
 

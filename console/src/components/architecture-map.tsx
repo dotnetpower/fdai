@@ -2,6 +2,7 @@ import { forwardRef } from "preact/compat";
 import { architectureResourceFromValue } from "./architecture-map.geometry";
 import {
   ARCHITECTURE_LAYERS,
+  DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   RESOURCE_COLOR_TOKENS,
   layerOf,
   resourceColorTokenOf,
@@ -33,13 +34,6 @@ export interface ArchitectureMapHandle {
   readonly fit: () => void;
 }
 
-const DEFAULT_OPTIONS: ArchitectureDisplayOptions = {
-  showConnections: true,
-  showReflections: false,
-  showLabels: true,
-  showGrid: false,
-};
-
 const LAYER_LABELS: Readonly<Record<ArchitectureLayer, string>> = {
   scope: "Scope and boundaries",
   network: "Network",
@@ -56,7 +50,7 @@ export const ArchitectureMap = forwardRef<ArchitectureMapHandle, Props>(function
   highlightedIds,
   onSelect,
   className = "",
-  options = DEFAULT_OPTIONS,
+  options = DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   onZoomChange,
   descriptionId,
 }, forwardedRef) {

@@ -22,7 +22,7 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.1.0"
+version: "0.2.0"
 types:
   # ── compute ───────────────────────────────────────────────────────────
   - id: compute.vm
@@ -40,10 +40,30 @@ types:
     description: Serverless container running an OCI image + Knative-compatible manifest subset.
     azure_arm_type: Microsoft.App/containerApps
     typical_parents: [resource-group]
+  - id: compute.container-app-job
+    category: compute
+    description: Bounded serverless container job triggered on demand or by schedule.
+    azure_arm_type: Microsoft.App/jobs
+    typical_parents: [compute.container-app-environment]
+  - id: compute.container-app-environment
+    category: compute
+    description: Shared runtime and network boundary for serverless container apps and jobs.
+    azure_arm_type: Microsoft.App/managedEnvironments
+    typical_parents: [resource-group]
   - id: compute.function
     category: compute
     description: Function-as-a-service unit; single event trigger.
     azure_arm_type: Microsoft.Web/sites
+    typical_parents: [resource-group]
+  - id: app-service-plan
+    category: compute
+    description: Shared compute plan that hosts web and function applications.
+    azure_arm_type: Microsoft.Web/serverFarms
+    typical_parents: [resource-group]
+  - id: static-web-app
+    category: compute
+    description: Managed static web application and edge delivery surface.
+    azure_arm_type: Microsoft.Web/staticSites
     typical_parents: [resource-group]
   - id: kubernetes-cluster
     category: compute
@@ -71,6 +91,11 @@ types:
     category: network
     description: Network security group (stateful L4 firewall rules).
     azure_arm_type: Microsoft.Network/networkSecurityGroups
+    typical_parents: [resource-group]
+  - id: network.interface
+    category: network
+    description: Virtual network interface attached to compute or private-link resources.
+    azure_arm_type: Microsoft.Network/networkInterfaces
     typical_parents: [resource-group]
   - id: network.private-endpoint
     category: network
@@ -102,6 +127,36 @@ types:
     description: Public IP address; typically attached to a load-balancer, NIC, or NAT gateway.
     azure_arm_type: Microsoft.Network/publicIPAddresses
     typical_parents: [resource-group]
+  - id: network.nat-gateway
+    category: network
+    description: Managed outbound network address translation gateway.
+    azure_arm_type: Microsoft.Network/natGateways
+    typical_parents: [resource-group]
+  - id: network.private-dns-zone
+    category: network
+    description: Private DNS namespace visible through linked virtual networks.
+    azure_arm_type: Microsoft.Network/privateDnsZones
+    typical_parents: [resource-group]
+  - id: network.private-dns-zone-link
+    category: network
+    description: Binding between a private DNS zone and a virtual network.
+    azure_arm_type: Microsoft.Network/privateDnsZones/virtualNetworkLinks
+    typical_parents: [network.private-dns-zone]
+  - id: network.dns-resolver
+    category: network
+    description: Managed recursive DNS resolver attached to a virtual network.
+    azure_arm_type: Microsoft.Network/dnsResolvers
+    typical_parents: [resource-group]
+  - id: network.dns-resolver-inbound-endpoint
+    category: network
+    description: Inbound endpoint that exposes a managed DNS resolver to a virtual network.
+    azure_arm_type: Microsoft.Network/dnsResolvers/inboundEndpoints
+    typical_parents: [network.dns-resolver]
+  - id: network.virtual-network-gateway
+    category: network
+    description: VPN or ExpressRoute gateway attached to a virtual network.
+    azure_arm_type: Microsoft.Network/virtualNetworkGateways
+    typical_parents: [resource-group]
   - id: diagnostic-settings
     category: observability
     description: Binding routing platform logs / metrics of a target to a log-workspace.
@@ -113,6 +168,11 @@ types:
     category: storage
     description: Object / blob storage account.
     azure_arm_type: Microsoft.Storage/storageAccounts
+    typical_parents: [resource-group]
+  - id: container-registry
+    category: storage
+    description: Registry for OCI container images and related artifacts.
+    azure_arm_type: Microsoft.ContainerRegistry/registries
     typical_parents: [resource-group]
   - id: file-share
     category: storage
@@ -151,6 +211,11 @@ types:
     description: In-memory cache (Redis, Memcached).
     azure_arm_type: Microsoft.Cache/redis
     typical_parents: [resource-group]
+  - id: redis-enterprise
+    category: database
+    description: Enterprise managed Redis-compatible cache and data service.
+    azure_arm_type: Microsoft.Cache/redisEnterprise
+    typical_parents: [resource-group]
 
   # ── security / identity ──────────────────────────────────────────────
   - id: secret-store
@@ -180,11 +245,41 @@ types:
     description: Prometheus-style metrics workspace bound to a log-workspace.
     azure_arm_type: Microsoft.Monitor/accounts
     typical_parents: [resource-group]
+  - id: application-insights
+    category: observability
+    description: Application performance and distributed telemetry resource.
+    azure_arm_type: Microsoft.Insights/components
+    typical_parents: [resource-group]
   - id: llm-endpoint
     category: compute
     description: Managed language-model inference endpoint with quota and rate limits.
     azure_arm_type: Microsoft.CognitiveServices/accounts
     typical_parents: [resource-group]
+  - id: event-hub
+    category: compute
+    description: Managed event-streaming namespace used for durable message ingress and delivery.
+    azure_arm_type: Microsoft.EventHub/namespaces
+    typical_parents: [resource-group]
+  - id: event-grid-topic
+    category: compute
+    description: Managed topic that forwards provider resource-change events.
+    azure_arm_type: Microsoft.EventGrid/systemTopics
+    typical_parents: [resource-group]
+  - id: communication-service
+    category: compute
+    description: Managed communication API resource for operator notifications.
+    azure_arm_type: Microsoft.Communication/CommunicationServices
+    typical_parents: [resource-group]
+  - id: email-service
+    category: compute
+    description: Managed email delivery resource for operator notifications.
+    azure_arm_type: Microsoft.Communication/EmailServices
+    typical_parents: [resource-group]
+  - id: email-domain
+    category: compute
+    description: Sender domain attached to a managed email service.
+    azure_arm_type: Microsoft.Communication/EmailServices/Domains
+    typical_parents: [email-service]
 
   # ── governance / scope ───────────────────────────────────────────────
   - id: resource-group

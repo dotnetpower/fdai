@@ -16,6 +16,7 @@ import {
   isRegion,
   resourceColorOf,
   shapeOf,
+  DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   type ArchitectureDisplayOptions,
   type ArchitectureNodeGeometry,
   type InventoryGraphResponse,
@@ -23,13 +24,6 @@ import {
 } from "./architecture-map.model";
 
 type CanvasPaint = string | CanvasGradient | CanvasPattern;
-
-const DEFAULT_OPTIONS: ArchitectureDisplayOptions = {
-  showConnections: true,
-  showReflections: false,
-  showLabels: true,
-  showGrid: false,
-};
 
 interface LabelBounds {
   readonly left: number;
@@ -89,7 +83,7 @@ export function renderMap(
   graph: InventoryGraphResponse,
   selectedId: string | null,
   highlightedIds?: ReadonlySet<string>,
-  options: ArchitectureDisplayOptions = DEFAULT_OPTIONS,
+  options: ArchitectureDisplayOptions = DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   palette: ArchitectureMapPalette = DEFAULT_ARCHITECTURE_MAP_PALETTE,
 ): void {
   const showLabels = options.showLabels;

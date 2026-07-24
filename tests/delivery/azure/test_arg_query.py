@@ -929,6 +929,36 @@ def test_extract_attached_to_from_nsg_reference() -> None:
     assert edge.to_type == "network.nsg"
 
 
+def test_extract_attached_to_from_load_balancer_frontend_public_ip() -> None:
+    from fdai.delivery.azure.arg_query import (
+        _build_arm_to_neutral_map,
+        _extract_attached_to_links_from_row,
+    )
+
+    reverse = _build_arm_to_neutral_map(_vocab())
+    public_ip_arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Network/publicIPAddresses/pip-1"
+    )
+    child = ResourceRecord(
+        resource_id="resource-group/rg-a/providers/microsoft.network/loadbalancers/lb-1",
+        type="network.load-balancer",
+        provider_ref="/subscriptions/.../loadBalancers/lb-1",
+    )
+    row = {
+        "properties": {
+            "frontendIPConfigurations": [
+                {"properties": {"publicIPAddress": {"id": public_ip_arm_id}}}
+            ]
+        }
+    }
+
+    (edge,) = _extract_attached_to_links_from_row(row, child=child, arm_to_neutral=reverse)
+
+    assert edge.to_type == "network.public-ip"
+    assert edge.link_type == "attached_to"
+
+
 def test_extract_attached_to_drops_reference_to_unmapped_type() -> None:
     """A referenced ARM type not in the vocabulary is dropped, not
     emitted with an unknown to_type."""
