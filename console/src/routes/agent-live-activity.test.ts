@@ -112,6 +112,24 @@ describe("agent live log projection", () => {
     expect(after.find((row) => row.detail === existing.detail)?.id).toBe(before[0]?.id);
     expect(new Set(after.map((row) => row.id)).size).toBe(after.length);
   });
+
+  it("preserves numeric audit sequence and conversation turn order at equal timestamps", () => {
+    const turns = Array.from({ length: 12 }, (_, index) => ({
+      from: "Odin",
+      to: "Forseti",
+      text: `turn-${index}`,
+    }));
+    const recordedAt = "2026-07-24T10:00:00Z";
+    const rows = buildAgentLogRows([], [
+      auditItem(10, { summary: "seq-10" }, recordedAt),
+      auditItem(2, { summary: "seq-2", conversation: turns }, recordedAt),
+    ]);
+
+    expect(rows.filter((row) => row.kind === "activity").map((row) => row.detail))
+      .toEqual(["seq-2", "seq-10"]);
+    expect(rows.filter((row) => row.kind === "handoff").map((row) => row.detail))
+      .toEqual(turns.map((turn) => turn.text));
+  });
 });
 
 describe("agent live log controls", () => {

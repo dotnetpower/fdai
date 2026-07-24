@@ -38,6 +38,7 @@ export interface AgentLogRow {
   readonly correlationId: string | null;
   readonly eventId: string | null;
   readonly source: AgentLogSource;
+  readonly sortOrder: readonly [number, number, number];
 }
 
 export function buildAgentLogRows(
@@ -46,7 +47,7 @@ export function buildAgentLogRows(
 ): readonly AgentLogRow[] {
   const rows: AgentLogRow[] = [];
   const seenLiveEvents = new Set<string>();
-  events.forEach((event) => {
+  events.forEach((event, index) => {
     const identity = liveEventIdentity(event);
     if (seenLiveEvents.has(identity)) return;
     seenLiveEvents.add(identity);
@@ -60,6 +61,7 @@ export function buildAgentLogRows(
       correlationId: event.correlationId,
       eventId: null,
       source: event.source,
+      sortOrder: [0, 0, events.length - index],
     });
   });
   auditItems.forEach((item) => {
@@ -78,6 +80,7 @@ export function buildAgentLogRows(
       correlationId: item.correlation_id,
       eventId: item.event_id,
       source: provenance === "sample" ? "audit-sample" : "audit-operational",
+      sortOrder: [1, item.seq, 0],
     });
     entryConversation(item)?.forEach((turn, index) => {
       rows.push({
@@ -90,11 +93,12 @@ export function buildAgentLogRows(
         correlationId: item.correlation_id,
         eventId: item.event_id,
         source: provenance === "sample" ? "audit-sample" : "audit-operational",
+        sortOrder: [1, item.seq, index + 1],
       });
     });
   });
   rows.sort((left, right) => timestamp(left.timestamp) - timestamp(right.timestamp) ||
-    left.id.localeCompare(right.id));
+    compareOrder(left.sortOrder, right.sortOrder) || left.id.localeCompare(right.id));
   return rows.slice(-AGENT_LOG_LIMIT);
 }
 
@@ -141,6 +145,13 @@ function liveKind(event: LiveAgentActivityEvent): AgentLogRow["kind"] {
   if (event.kind === "incident.ticket") return "incident";
   if (event.kind === "conversation.turn") return "handoff";
   return "state";
+}
+
+function compareOrder(
+  left: readonly [number, number, number],
+  right: readonly [number, number, number],
+): number {
+  return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
 }
 
 function liveEventIdentity(event: LiveAgentActivityEvent): string {
