@@ -117,6 +117,19 @@ describe("agent activity filters", () => {
     expect(filterAgentActivityLog(rows, "Forseti", "old but", agentOf)).toEqual([]);
   });
 
+  test("includes recorded conversation recipients and message text in Activity evidence filters", () => {
+    const row = item(1, "Odin", "plan.review", "2026-07-15T11:00:00Z", {
+      conversation: [
+        { from: "Odin", to: "Forseti", text: "Verify rollback evidence." },
+      ],
+    });
+
+    expect(filterAgentActivityLog([row], "Forseti", "rollback evidence", agentOf))
+      .toEqual([row]);
+    expect(filterAgentActivityLog([row], "Thor", "rollback evidence", agentOf))
+      .toEqual([]);
+  });
+
   test("removes Waterfall-only route filters from Activity links", () => {
     const filters: ActivityFilters = {
       window: "15m",

@@ -4,7 +4,11 @@ import type { AgentStreamStatus } from "../hooks/use-agent-stream";
 import { observationSourceLabel, type ObservationSource } from "../hooks/observation-source";
 import { t } from "../i18n";
 import { routeHref } from "../router";
-import { activityProvenanceCounts, auditProvenanceOf } from "./agent-activity-semantics";
+import {
+  activityProvenanceCounts,
+  auditProvenanceOf,
+  entryConversation,
+} from "./agent-activity-semantics";
 
 export type ActivityWindow = "15m" | "1h" | "24h" | "7d";
 export type ActivityLayer = "all" | "governance" | "pipeline" | "domain";
@@ -132,8 +136,18 @@ export function filterAgentActivityLog(
   const normalizedQuery = normalizeSearch(query);
   return items.filter((item) => {
     const agent = agentOf(item);
-    if (selectedAgent !== null && agent !== selectedAgent) return false;
-    return !normalizedQuery || normalizeSearch(activitySearchText(item, agent)).includes(normalizedQuery);
+    const conversation = entryConversation(item) ?? [];
+    const participants = new Set([
+      agent,
+      ...conversation.flatMap((turn) => [turn.from, turn.to]),
+    ]);
+    if (selectedAgent !== null && !participants.has(selectedAgent)) return false;
+    const conversationText = conversation
+      .flatMap((turn) => [turn.from, turn.to, turn.text])
+      .join(" ");
+    return !normalizedQuery || normalizeSearch(
+      `${activitySearchText(item, agent)} ${conversationText}`,
+    ).includes(normalizedQuery);
   });
 }
 
