@@ -137,19 +137,29 @@ def test_renders_supported_screen_data(
 
 
 @pytest.mark.parametrize(
-    ("prompt", "locale", "marker"),
+    ("prompt", "context", "locale", "marker"),
     (
-        ("what is the database CPU usage?", "en", "does not show"),
-        ("이 리소스 월 비용이 얼마야?", "ko", "없습니다"),
-        ("which Azure region is this deployed in?", "en", "does not show"),
-        ("who approved this trace?", "en", "does not show"),
-        ("영향받은 리소스 소유자가 누구야?", "ko", "없습니다"),
+        ("what is the database CPU usage?", {}, "en", "does not show"),
+        ("이 리소스 월 비용이 얼마야?", {}, "ko", "없습니다"),
+        ("which Azure region is this deployed in?", {}, "en", "does not show"),
+        ("who approved this trace?", {}, "en", "does not show"),
+        (
+            "영향받은 리소스 소유자가 누구야?",
+            {"facts": [{"key": "affected_count", "value": 12}]},
+            "ko",
+            "없습니다",
+        ),
     ),
 )
-def test_absent_screen_fields_fail_closed(prompt: str, locale: str, marker: str) -> None:
+def test_absent_screen_fields_fail_closed(
+    prompt: str,
+    context: dict[str, object],
+    locale: str,
+    marker: str,
+) -> None:
     answer = render_screen_data_answer(
         prompt,
-        {"facts": [], "_screen_scope": _SCOPE},
+        {**context, "_screen_scope": _SCOPE},
         locale=locale,
     )
 

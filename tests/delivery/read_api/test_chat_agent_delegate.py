@@ -111,6 +111,11 @@ def test_screen_data_questions_stay_with_bragi_t0() -> None:
     assert delegate.should_delegate("몇 개가 주의가 필요해?", context) is False
     assert delegate.should_delegate("what is the T2 tier share?", context) is False
     assert delegate.should_delegate("그럼 T2는?", context) is False
+    assert delegate.should_delegate("who logged the latest audit entry?", context) is False
+    assert delegate.should_delegate("가장 흔한 액션이 뭐야?", context) is False
+    assert delegate.should_delegate("which ActionType is ready to promote?", context) is False
+    assert delegate.should_delegate("이 리소스 월 비용이 얼마야?", context) is False
+    assert delegate.should_delegate("which Azure region is this deployed in?", context) is False
     assert delegate.should_delegate("cost breakdown", context) is True
 
 

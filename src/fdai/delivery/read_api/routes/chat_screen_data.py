@@ -19,12 +19,42 @@ _KEY_PATTERNS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = (
     (re.compile(r"\bterminal\s+stage\b|최종\s*단계", re.I), ("terminal_stage",)),
 )
 
-_ABSENT_TOPICS: tuple[tuple[re.Pattern[str], str, str, str], ...] = (
-    (re.compile(r"\bcpu\b", re.I), "CPU usage", "CPU 사용률", "CPU 使用率"),
-    (re.compile(r"\bmonthly cost\b|월\s*비용", re.I), "monthly cost", "월 비용", "月額コスト"),
-    (re.compile(r"\bregion\b|리전", re.I), "Azure region", "Azure 리전", "Azure リージョン"),
-    (re.compile(r"\bowner\b|소유자", re.I), "resource owner", "리소스 소유자", "リソース所有者"),
-    (re.compile(r"\bwho approved\b|누가\s*승인", re.I), "approver", "승인자", "承認者"),
+_SPECIFIC_TOPICS: tuple[tuple[re.Pattern[str], tuple[str, ...], str, str, str], ...] = (
+    (
+        re.compile(r"\bcpu\b", re.I),
+        ("cpu_usage", "cpu.usage"),
+        "CPU usage",
+        "CPU 사용률",
+        "CPU 使用率",
+    ),
+    (
+        re.compile(r"\bmonthly cost\b|월\s*비용", re.I),
+        ("monthly_cost", "cost.monthly"),
+        "monthly cost",
+        "월 비용",
+        "月額コスト",
+    ),
+    (
+        re.compile(r"\bregion\b|리전", re.I),
+        ("region", "location"),
+        "Azure region",
+        "Azure 리전",
+        "Azure リージョン",
+    ),
+    (
+        re.compile(r"\bowner\b|소유자", re.I),
+        ("owner", "resource_owner"),
+        "resource owner",
+        "리소스 소유자",
+        "リソース所有者",
+    ),
+    (
+        re.compile(r"\bwho approved\b|누가\s*승인", re.I),
+        ("approver", "approved_by"),
+        "approver",
+        "승인자",
+        "承認者",
+    ),
 )
 
 
@@ -39,6 +69,17 @@ def render_screen_data_answer(
     if not isinstance(view_context.get("_screen_scope"), Mapping):
         return None
     facts = _facts(view_context)
+    for pattern, keys, english, korean, japanese in _SPECIFIC_TOPICS:
+        if not pattern.search(prompt):
+            continue
+        match = next((facts[key] for key in keys if key in facts), None)
+        if match is not None:
+            key, value = match
+            return _fact_answer(key, value, locale=locale)
+        return _absence_answer(
+            _localized(english, korean, japanese, locale=locale),
+            locale=locale,
+        )
     for pattern, keys in _KEY_PATTERNS:
         if not pattern.search(prompt):
             continue
@@ -57,12 +98,6 @@ def render_screen_data_answer(
         if answer is not None:
             return answer
 
-    for pattern, english, korean, japanese in _ABSENT_TOPICS:
-        if pattern.search(prompt):
-            return _absence_answer(
-                _localized(english, korean, japanese, locale=locale),
-                locale=locale,
-            )
     return None
 
 

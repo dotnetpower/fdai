@@ -71,8 +71,10 @@ _CONTRIBUTOR_TIMEOUT_SECONDS = 2.0
 
 _CURRENT_SCREEN_DATA_INTENT = re.compile(
     r"\b(?:how many|count|share|rate|eps|attention|failed|mode|terminal\s+stage|"
-    r"affected|cpu\s+usage|approved|owner|t0|t1|t2)\b"
-    r"|몇\s*개|개수|비율|주의|실패|모드|최종\s*단계|영향|사용률|승인|소유자|그럼\s*T[012]",
+    r"affected|cpu\s+usage|approved|owner|region|monthly\s+cost|latest|recent|logged|"
+    r"top|most\s+common|common\s+action|promot\w*|ready|t0|t1|t2)\b"
+    r"|몇\s*개|개수|비율|주의|실패|모드|최종\s*단계|영향|사용률|승인|소유자|리전|"
+    r"월\s*비용|최근|가장\s*흔한\s*액션|준비|승격|그럼\s*T[012]",
     re.IGNORECASE,
 )
 
