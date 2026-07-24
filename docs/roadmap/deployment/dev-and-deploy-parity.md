@@ -247,7 +247,7 @@ or adding an approval endpoint.
 
 | Subsystem | Status | Gap |
 |-----------|--------|-----|
-| Azure Resource Graph inventory | Production reads the promoted PostgreSQL snapshot plus Huginn's real-time delta overlay | Full-stack local maps every registered Azure ARM type through read-only `AzureCliInventory`, enriches VM state, and stores a `.fdai/cache/inventory` snapshot isolated by subscription and Azure CLI profile fingerprint; synthetic opt-out is rejected |
+| Azure Resource Graph inventory | Production reads the promoted PostgreSQL snapshot plus Huginn's real-time delta overlay | Full-stack local maps every registered Azure ARM type through read-only `AzureCliInventory`, prefers bounded `az graph query` properties for relationships, enriches VM state, and stores a `.fdai/cache/inventory` snapshot isolated by subscription and Azure CLI profile fingerprint; synthetic opt-out is rejected |
 | Azure Monitor Logs KQL | Production and local adapters share `AzureLogAnalyticsQueryProvider` | Requires server-owned `FDAI_MONITOR_WORKSPACE_ID`; explicit `query_log` fails closed when unavailable |
 | Managed Identity token (`WorkloadIdentity`) | Deployed adapter exists | interactive local publishes to the deployed executor; fixture tests may use a local issuer |
 | Governed execution backend | Provider-neutral Protocol, profile registry, durable PostgreSQL ledger, bubblewrap/VM adapters, and Azure Container Apps Job adapter exist | profiles are disabled by default; local interactive has no executor binding, and live Azure Job evidence remains required before promotion |
@@ -277,9 +277,9 @@ Local projection preserves discovered relationships only when the link type is r
 endpoint ids are selected, and the endpoint types match their resource records. Unknown,
 mismatched, dangling, self, duplicate, and over-limit links are dropped with a count-only warning;
 the complete resource snapshot remains available and reports `truncated=true`.
-The local Architecture projection accepts up to 500 discovered resources by default. This bound
-covers the control plane and provider-managed resource groups while retaining an explicit partial
-inventory state for larger scopes.
+If the Resource Graph CLI extension or ARG request is unavailable, local discovery falls back to
+core `az resource list`. The fallback preserves registered resource coverage but may report a
+partial graph because that command does not return relationship-bearing properties for every type.
 
 ## Parity Contract (MUST)
 

@@ -2,10 +2,10 @@
 
 Zero-dep alternative to :class:`~fdai.delivery.azure.inventory.AzureResourceGraphInventory`
 for the operator console CLI. Instead of holding an :class:`httpx.AsyncClient`
-+ :class:`WorkloadIdentity` and running Kusto queries against Azure
-Resource Graph, this adapter shells out to well-known ``az`` commands
-(``az group list``, ``az resource list``, ``az vm list --show-details``) and folds the JSON back
-into :class:`ResourceRecord` shapes.
++ :class:`WorkloadIdentity`, this adapter shells out through the operator's
+authenticated ``az`` session. It prefers a bounded ``az graph query`` for
+relationship-bearing properties and combines that with ``az group list`` and
+``az vm list --show-details`` before folding rows into :class:`ResourceRecord` shapes.
 
 Why a dev adapter?
 ------------------
@@ -16,9 +16,9 @@ Why a dev adapter?
   ``httpx.AsyncClient`` + subscription-scope config + a
   :class:`ResourceTypeRegistry`. The CLI REPL is sync per turn; a
   simpler surface keeps the composition root readable.
-- The ``resource-graph`` az CLI extension is not installed by default -
-  ``az group list`` + ``az resource list`` are core CLI commands and
-  work on any freshly-installed ``az``.
+- When the ``resource-graph`` az CLI extension or ARG is unavailable, the
+    adapter falls back to core ``az resource list`` discovery. Resource coverage
+    remains available while relationships without returned properties stay partial.
 
 Scope
 -----
@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import subprocess
 from collections.abc import AsyncIterator, Mapping, Sequence
@@ -48,6 +49,7 @@ from fdai.delivery.azure.arg_projection import (
     extract_attached_to_links_from_row,
     extract_depends_on_links_from_row,
     extract_rg_contains_links,
+    to_neutral_id,
     truncate_props,
 )
 from fdai.shared.providers.inventory import (
@@ -58,6 +60,9 @@ from fdai.shared.providers.inventory import (
 
 _AZ_TIMEOUT_SECONDS: Final[float] = 30.0
 _MAX_PROPS_BYTES: Final[int] = 64 * 1024
+_ARG_PAGE_SIZE: Final[int] = 1000
+_ARG_MAX_PAGES: Final[int] = 32
+_LOGGER = logging.getLogger(__name__)
 
 
 class AzureCliInventoryError(RuntimeError):
@@ -204,7 +209,7 @@ class AzureCliInventory:
                 argv.extend(("--subscription", self.subscription_id))
         groups, resource_rows, vm_rows = await asyncio.gather(
             self._fetch_rows(group_args, "resource-group"),
-            self._fetch_rows(resource_args, "registered resources"),
+            self._fetch_registered_rows(resource_args),
             self._fetch_rows(vm_args, "compute.vm"),
         )
         vm_by_id = {
@@ -240,6 +245,57 @@ class AzureCliInventory:
             links=_dedupe_links(links),
             cursor="az-cli:registered-resources",
         )
+
+    async def _fetch_registered_rows(
+        self,
+        fallback_args: Sequence[str],
+    ) -> list[dict[str, Any]]:
+        try:
+            return await self._fetch_arg_rows()
+        except AzureCliInventoryError as exc:
+            _LOGGER.warning(
+                "azure_cli_inventory_arg_fallback",
+                extra={"error_type": type(exc).__name__},
+            )
+            return await self._fetch_rows(fallback_args, "registered resources")
+
+    async def _fetch_arg_rows(self) -> list[dict[str, Any]]:
+        query = (
+            "Resources | project id, type, name, location, kind, sku, tags, properties, "
+            "resourceGroup, subscriptionId"
+        )
+        rows: list[dict[str, Any]] = []
+        skip_token: str | None = None
+        for _page in range(_ARG_MAX_PAGES):
+            argv = [
+                self.executable,
+                "graph",
+                "query",
+                "--graph-query",
+                query,
+                "--first",
+                str(_ARG_PAGE_SIZE),
+                "--output",
+                "json",
+            ]
+            if self.subscription_id:
+                argv.extend(("--subscriptions", self.subscription_id))
+            if skip_token:
+                argv.extend(("--skip-token", skip_token))
+            proc = await asyncio.to_thread(_run_az, argv, self.azure_config_dir)
+            try:
+                payload = json.loads(proc.stdout or "{}")
+            except json.JSONDecodeError as exc:
+                raise AzureCliInventoryError("az graph returned non-JSON") from exc
+            if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+                raise AzureCliInventoryError("az graph returned an invalid page")
+            page_rows = [row for row in payload["data"] if isinstance(row, dict)]
+            rows.extend(page_rows)
+            raw_skip_token = payload.get("skip_token") or payload.get("$skipToken")
+            skip_token = raw_skip_token if isinstance(raw_skip_token, str) else None
+            if not page_rows or not skip_token:
+                return rows
+        raise AzureCliInventoryError("az graph pagination exceeded the page limit")
 
     async def _fetch_rows(
         self,
@@ -379,15 +435,10 @@ def _dedupe_links(links: Sequence[LinkRecord]) -> tuple[LinkRecord, ...]:
 
 
 def _neutral_id(arm_id: str) -> str:
-    """Strip ``/subscriptions/...`` and lowercase - matches arg_query."""
+    """Return the same subscription-scoped neutral id as production ARG."""
     if not arm_id:
         return ""
-    lowered = arm_id.lower()
-    marker = "/resourcegroups/"
-    idx = lowered.find(marker)
-    if idx < 0:
-        return lowered.strip("/")
-    return lowered[idx + 1 :].strip("/")
+    return to_neutral_id(arm_id)
 
 
 def _resource_group_from_arm_id(arm_id: str) -> str | None:

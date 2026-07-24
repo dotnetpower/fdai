@@ -66,7 +66,7 @@ class TestFullSnapshot:
         assert len(rg_batch.resources) == 1
         rec = rg_batch.resources[0]
         assert rec.type == "resource-group"
-        assert rec.resource_id == "resourcegroups/rg-example"
+        assert rec.resource_id.endswith("/resource-group/rg-example")
         assert (
             rec.provider_ref
             == "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example"
@@ -248,8 +248,15 @@ class TestFullSnapshot:
             command = tuple(argv[1:3])
             if command == ("group", "list"):
                 return _completed(group_payload)
-            if command == ("resource", "list"):
-                return _completed(resources_payload)
+            if command == ("graph", "query"):
+                return _completed(
+                    json.dumps(
+                        {
+                            "data": json.loads(resources_payload),
+                            "skip_token": None,
+                        }
+                    )
+                )
             if command == ("vm", "list"):
                 return _completed("[]")
             raise AssertionError(f"unexpected Azure CLI command: {argv}")
@@ -273,7 +280,65 @@ class TestFullSnapshot:
             ("contains", "resource-group", "network.public-ip"),
             ("attached_to", "network.load-balancer", "network.public-ip"),
         }
+        resource_ids = {record.resource_id for record in resource_batch.resources}
+        assert all(
+            link.from_id in resource_ids and link.to_id in resource_ids
+            for link in resource_batch.links
+        )
         assert final.final is True
+
+    def test_discover_all_falls_back_when_arg_is_unavailable(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        group_payload = json.dumps(
+            [{"id": "/subscriptions/x/resourceGroups/rg-example", "name": "rg-example"}]
+        )
+        resources_payload = json.dumps(
+            [
+                {
+                    "id": (
+                        "/subscriptions/x/resourceGroups/rg-example/providers/"
+                        "Microsoft.Network/publicIPAddresses/pip-example"
+                    ),
+                    "type": "Microsoft.Network/publicIPAddresses",
+                    "name": "pip-example",
+                    "resourceGroup": "rg-example",
+                }
+            ]
+        )
+        inventory = AzureCliInventory(
+            resource_types=("resource-group", "network.public-ip"),
+            azure_arm_types={
+                "resource-group": "Microsoft.Resources/resourceGroups",
+                "network.public-ip": "Microsoft.Network/publicIPAddresses",
+            },
+            discover_all=True,
+        )
+
+        def _fallback_response(argv, **_kwargs):  # type: ignore[no-untyped-def]
+            command = tuple(argv[1:3])
+            if command == ("group", "list"):
+                return _completed(group_payload)
+            if command == ("graph", "query"):
+                return _completed("", returncode=1, stderr="extension unavailable")
+            if command == ("resource", "list"):
+                return _completed(resources_payload)
+            if command == ("vm", "list"):
+                return _completed("[]")
+            raise AssertionError(f"unexpected Azure CLI command: {argv}")
+
+        with patch(
+            "fdai.delivery.azure.dev_inventory.subprocess.run",
+            side_effect=_fallback_response,
+        ):
+            batches = asyncio.run(_drain(inventory))
+
+        assert {record.type for record in batches[0].resources} == {
+            "resource-group",
+            "network.public-ip",
+        }
+        assert "azure_cli_inventory_arg_fallback" in caplog.text
 
     def test_subscription_id_forwarded_as_arg(self) -> None:
         captured: dict[str, list[str]] = {}

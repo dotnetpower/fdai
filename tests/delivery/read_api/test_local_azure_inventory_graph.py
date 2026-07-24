@@ -197,6 +197,30 @@ class _OversizedInventory(_Inventory):
         yield InventoryBatch(cursor="done", final=True)
 
 
+class _LargeInventory(_Inventory):
+    async def full_snapshot(self, since: str | None = None):  # type: ignore[no-untyped-def]
+        del since
+        group = ResourceRecord(
+            resource_id="resourcegroups/rg-example",
+            type="resource-group",
+            props={
+                "name": "rg-example",
+                "resourceGroup": "rg-example",
+                "tags": {"fdai:managed": "true", "fdai:workload": "fdai"},
+            },
+        )
+        children = tuple(
+            ResourceRecord(
+                resource_id=f"resourcegroups/rg-example/providers/example/items/item-{index}",
+                type="managed-identity",
+                props={"name": f"item-{index}", "resourceGroup": "rg-example"},
+            )
+            for index in range(180)
+        )
+        yield InventoryBatch(resources=(group, *children), cursor="page-1")
+        yield InventoryBatch(cursor="done", final=True)
+
+
 def test_projects_contains_graph_without_provider_refs_and_caches() -> None:
     inventory = _Inventory()
     provider = AzureCliInventoryGraphProvider(inventory=inventory, cache_ttl_seconds=60)
@@ -291,6 +315,15 @@ def test_default_graph_capacity_covers_large_control_plane_inventory() -> None:
     provider = AzureCliInventoryGraphProvider(inventory=_Inventory())
 
     assert provider.max_resources == 500
+
+
+def test_dense_resource_group_stays_inside_graph_bounds() -> None:
+    provider = AzureCliInventoryGraphProvider(inventory=_LargeInventory())
+
+    graph = asyncio.run(provider(None, 4, ("contains",)))
+
+    assert len(graph["resources"]) == 182
+    assert graph["truncated"] is False
 
 
 def test_rejects_unknown_named_view() -> None:

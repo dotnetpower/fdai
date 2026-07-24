@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: c6be5cc82509c23e74a73735a1ceb7bbc7392066
+translation_source_sha: 9896b3bff2fd05876622154eba430ae9d87daf60
 translation_revised: 2026-07-24
 ---
 
@@ -249,7 +249,7 @@ analyzing, deciding, executing, approving, auditing, Incident 및 handoff frame�
 
 | 서브시스템 | 상태 | 갭 |
 |-----------|------|-----|
-| Azure Resource Graph inventory | Production은 promoted PostgreSQL snapshot과 Huginn의 real-time delta overlay를 읽습니다. | Full-stack local은 읽기 전용 `AzureCliInventory`를 통해 등록된 모든 Azure ARM type을 매핑하고 VM state를 보강하며 subscription 및 Azure CLI profile fingerprint로 격리한 `.fdai/cache/inventory` snapshot을 저장합니다. Synthetic opt-out은 거부합니다. |
+| Azure Resource Graph inventory | Production은 promoted PostgreSQL snapshot과 Huginn의 real-time delta overlay를 읽습니다. | Full-stack local은 읽기 전용 `AzureCliInventory`를 통해 등록된 모든 Azure ARM type을 매핑하고 relationship을 위해 bounded `az graph query` property를 우선 사용하며 VM state를 보강합니다. Snapshot은 subscription 및 Azure CLI profile fingerprint로 격리한 `.fdai/cache/inventory`에 저장하고 synthetic opt-out은 거부합니다. |
 | Azure Monitor Logs KQL | Production과 local adapter가 `AzureLogAnalyticsQueryProvider`를 공유합니다. | Server-owned `FDAI_MONITOR_WORKSPACE_ID`가 필요하며 명시적 `query_log`는 unavailable일 때 fail closed합니다. |
 | Managed Identity 토큰 (`WorkloadIdentity`) | Deployed adapter 존재 | interactive local은 deployed executor로 publish하며 fixture test만 local issuer 사용 |
 | Governed execution backend | Provider-neutral Protocol, profile registry, durable PostgreSQL ledger, bubblewrap/VM adapter, Azure Container Apps Job adapter가 존재합니다. | Profile은 기본적으로 disabled이고 local interactive에는 executor binding이 없으며 promotion 전에 live Azure Job evidence가 필요합니다. |
@@ -278,9 +278,9 @@ Local projection은 link type이 등록되어 있고 두 endpoint id가 모두 �
 record와 일치할 때만 discovered relationship을 보존합니다. Unknown, mismatched, dangling, self,
 duplicate 및 over-limit link는 count-only warning과 함께 drop합니다. Complete resource snapshot은
 유지되고 `truncated=true`를 보고합니다.
-Local Architecture projection은 기본적으로 discovered resource를 최대 500개까지 수용합니다. 이
-상한은 control plane과 provider-managed resource group을 포함하며, 더 큰 scope는 명시적인 partial
-inventory 상태를 유지합니다.
+Resource Graph CLI extension 또는 ARG request를 사용할 수 없으면 local discovery는 core
+`az resource list`로 fallback합니다. 이 fallback은 등록된 resource coverage를 보존하지만 해당
+command가 모든 type의 relationship property를 반환하지 않으므로 partial graph를 보고할 수 있습니다.
 
 ## Parity 컨트랙트 (MUST)
 

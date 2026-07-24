@@ -26,7 +26,7 @@ from fdai.shared.providers.inventory import Inventory, LinkRecord, ResourceRecor
 
 _ROOT_ID = "azure-subscription"
 _LOGGER = logging.getLogger(__name__)
-_CACHE_VERSION: Final[int] = 3
+_CACHE_VERSION: Final[int] = 5
 _MAX_CACHE_BYTES: Final[int] = 5_000_000
 _MAX_CLOCK_SKEW_SECONDS: Final[int] = 300
 _ALLOWED_LINK_TYPES: Final[frozenset[str]] = frozenset({"contains", "attached_to", "depends_on"})
@@ -530,8 +530,8 @@ def _project_graph(
         group_children = children[group.resource_id]
         child_columns = min(3, max(1, math.ceil(math.sqrt(max(1, len(group_children))))))
         child_rows = max(1, math.ceil(len(group_children) / child_columns))
-        child_width = max(0.25, (group_width - 0.3) / child_columns)
-        child_height = max(0.2, (group_height - 0.45) / child_rows)
+        child_width = max(0.01, (group_width - 0.3) / child_columns)
+        child_height = max(0.01, (group_height - 0.45) / child_rows)
         for child_index, child in enumerate(group_children):
             child_x = x + 0.15 + (child_index % child_columns + 0.5) * child_width
             child_y = y + 0.35 + (child_index // child_columns + 0.5) * child_height
