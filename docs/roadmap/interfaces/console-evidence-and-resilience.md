@@ -259,7 +259,9 @@ consumer group so every connected console receives the complete heartbeat set.
 The Command Deck rejects a complete or pending SSE frame above 256 KiB before accumulating `data:`
 lines or parsing JSON, then uses the deterministic interrupted-stream fallback. Correlation-filtered
 action progress treats a terminal audit frame as completion, reports the 120-second deadline as a
-timeout, and propagates other authentication or transport failures.
+timeout, and propagates other authentication or transport failures. Investigation rows advance
+from pending to running to one terminal state; stale backward frames and terminal replacements are
+ignored so a completed, failed, or unavailable operation cannot return to a spinner.
 
 Before opening console data, bootstrap verifies the principal through authenticated
 `GET /iam/self`. Transport failure keeps data closed and offers access-check retry and sign-in. It

@@ -9,7 +9,19 @@ export function upsertInvestigationActivity(
 ): readonly InvestigationActivity[] {
   const index = activities.findIndex((item) => item.activityId === incoming.activityId);
   if (index < 0) return [...activities, incoming];
+  const existing = activities[index];
+  if (existing && !canAdvanceActivity(existing.status, incoming.status)) return activities;
   return activities.map((item, itemIndex) => itemIndex === index ? incoming : item);
+}
+
+function canAdvanceActivity(
+  current: InvestigationActivity["status"],
+  incoming: InvestigationActivity["status"],
+): boolean {
+  if (current === "completed" || current === "unavailable" || current === "failed") {
+    return false;
+  }
+  return current !== "running" || incoming !== "pending";
 }
 
 function statusMark(status: InvestigationActivity["status"]): string {

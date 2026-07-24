@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 1415d50e9cf2a3e17d48cdeae3652377124872e8
+translation_source_sha: 01ce8bbe10b531fceb4cadbed8aaf58fc2d647f5
 translation_revised: 2026-07-24
 ---
 
@@ -258,7 +258,9 @@ group을 사용하므로 연결된 모든 console이 완전한 heartbeat set을 
 Command Deck은 complete 또는 pending SSE frame이 256 KiB를 넘으면 `data:` line 누적이나 JSON parse
 전에 거부하고 deterministic interrupted-stream fallback을 사용합니다. Correlation-filtered action
 progress는 terminal audit frame을 완료로 처리하고 120초 deadline을 timeout으로 보고하며, 그 밖의
-authentication 또는 transport failure는 전달합니다.
+authentication 또는 transport failure는 전달합니다. Investigation row는 pending에서 running을 거쳐
+terminal state 하나로 진행합니다. Stale backward frame과 terminal replacement는 무시하므로 completed,
+failed 또는 unavailable operation이 spinner로 돌아가지 않습니다.
 
 Console data를 열기 전에 bootstrap은 인증된 `GET /iam/self`로 principal을 확인합니다. Transport
 failure는 data를 닫힌 상태로 유지하고 access-check retry 및 sign-in을 제공합니다. Read API가
