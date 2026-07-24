@@ -197,7 +197,7 @@ class Norns(Agent):
             # Var publishes the final HIL decision (approved / rejected); the
             # approval-pattern learner scores recurring rejections from it.
             self._observe_approval(payload)
-        elif topic == "object.turn":
+        elif topic == "object.post-turn-review":
             await self._observe_post_turn_review(payload)
         elif topic == "object.context-index":
             await self._observe_forecast_case(payload)

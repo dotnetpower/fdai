@@ -1,0 +1,27 @@
+# Upstream built-in ObjectType: PostTurnReview.
+#
+# A `PostTurnReview` is a consent-filtered, off-path learning envelope owned
+# by Bragi. Norns consumes it after the operator and assistant turns have been
+# persisted; it is separate from the immutable `Turn` conversation record.
+schema_version: "1.0.0"
+name: PostTurnReview
+version: "1.0.0"
+key: id
+description: Consent-filtered post-turn learning envelope owned by Bragi and consumed by Norns.
+properties:
+  id:
+    type: string
+    required: true
+    description: Stable review identifier.
+  principal_scope:
+    type: string
+    required: true
+    access_scope: owner
+    purpose_binding: [learning]
+    description: Opaque principal scope used for consent and retention enforcement.
+  review:
+    type: object
+    required: true
+    access_scope: owner
+    purpose_binding: [learning]
+    description: Consent-filtered review input; raw bodies are absent unless the operator opted in.

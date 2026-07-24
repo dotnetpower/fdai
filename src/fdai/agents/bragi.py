@@ -16,6 +16,7 @@ conversational-port smoke tests.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
@@ -325,6 +326,7 @@ class Bragi(Agent):
             decision=decision,
         )
         session.turns.append(turn)
+        await self._publish_turn(session_id=session_id, turn=turn)
         if answer.get("handoff_needed") and materialize_handoff:
             await self._publish_handoff(
                 session_id=session_id,
@@ -333,6 +335,57 @@ class Bragi(Agent):
                 reason=str(answer.get("abstain_reason") or "no_route"),
             )
         return turn
+
+    async def _publish_turn(self, *, session_id: str, turn: Turn) -> None:
+        if self.bus is None:
+            return
+        session_digest = hashlib.sha256(session_id.encode()).hexdigest()
+        question_digest = hashlib.sha256(turn.question.encode()).hexdigest()
+        answer_json = json.dumps(
+            turn.answer,
+            sort_keys=True,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            default=str,
+        )
+        answer_digest = hashlib.sha256(answer_json.encode()).hexdigest()
+        turn_key = f"{session_digest}:{turn.turn_index}"
+        turn_id = f"turn-{hashlib.sha256(turn_key.encode()).hexdigest()[:32]}"
+        primary_agent = turn.primary_agent or "Bragi"
+        contributors = turn.answer.get("contributors")
+        safe_contributors = (
+            [item for item in contributors[:_MAX_CONTRIBUTORS] if isinstance(item, str)]
+            if isinstance(contributors, list)
+            else []
+        )
+        await self.bus.publish(
+            "Bragi",
+            "object.turn",
+            {
+                "producer_principal": "Bragi",
+                "id": turn_id,
+                "turn_id": turn_id,
+                "correlation_id": str(turn.answer.get("trace_ref") or session_id),
+                "idempotency_key": f"turn:{session_digest}:{turn.turn_index}",
+                "session_id": session_id,
+                "turn_index": turn.turn_index,
+                "question_ref": (
+                    f"bragi-session:sha256:{session_digest}:turn:{turn.turn_index}:question"
+                ),
+                "question_sha256": question_digest,
+                "primary_agent": primary_agent,
+                "contributors": safe_contributors,
+                "answer_ref": (
+                    f"bragi-session:sha256:{session_digest}:turn:{turn.turn_index}:answer"
+                ),
+                "answer_sha256": answer_digest,
+                "score_breakdown": {
+                    "scores": dict(turn.decision.scores),
+                    "tie_break": turn.decision.tie_break,
+                },
+                "trace_ref": str(turn.answer.get("trace_ref") or session_id),
+            },
+        )
 
     async def _publish_handoff(
         self,

@@ -83,7 +83,7 @@ async def test_norns_consumes_only_bragi_owned_post_turn_envelope() -> None:
     norns = Norns(post_turn_review=coordinator)  # type: ignore[arg-type]
 
     await norns.on_typed_message(
-        "object.turn",
+        "object.post-turn-review",
         {
             "producer_principal": "Bragi",
             "kind": "post_turn_review",
@@ -100,7 +100,7 @@ async def test_norns_rejects_post_turn_envelope_from_another_producer() -> None:
 
     with pytest.raises(ValueError, match="published by Bragi"):
         await norns.on_typed_message(
-            "object.turn",
+            "object.post-turn-review",
             {
                 "producer_principal": "Thor",
                 "kind": "post_turn_review",

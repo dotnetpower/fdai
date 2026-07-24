@@ -150,7 +150,13 @@ _BRAGI = AgentSpec(
     name="Bragi",
     layer=Layer.PIPELINE,
     reports_to="Thor",
-    owns=("Conversation", "Turn", "UserPreference", "HandoffEscalation"),
+    owns=(
+        "Conversation",
+        "Turn",
+        "UserPreference",
+        "HandoffEscalation",
+        "PostTurnReview",
+    ),
     executes=(),
     initiates=("governance.escalate-to-github-issue",),
     subscribes=("object.verdict", "object.action-run"),  # for progress rendering
@@ -233,7 +239,7 @@ _NORNS = AgentSpec(
         "object.audit-entry",
         "object.issue",
         "object.approval",
-        "object.turn",
+        "object.post-turn-review",
         "object.context-index",
     ),
     question_domains=("pattern", "recurring_issue", "discovery_status"),

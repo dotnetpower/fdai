@@ -246,7 +246,7 @@ operations / interface), `3` = governance staff.
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, SecurityEvent | detect_anomaly, detect_drift, forecast, close_forecast_outcome, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
-| Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation | translate_intent | yes (translator only) |
+| Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent | yes (translator only) |
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit, escalate_to_github_issue | no |
 | Mimir | Rule Steward | 3 | Rule, Policy | promote_rule, revoke_rule | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
@@ -454,7 +454,8 @@ and `producer_principal`; Thor uses `correlation_id:state` for `object.action-ru
 | object.rule | Mimir | Forseti (cache reload) |
 | object.context-index | Muninn | Norns (sealed case-history intake) |
 | object.conversation | Bragi | (session index) |
-| object.turn | Bragi | Muninn, Norns (consent-filtered post-turn review only) |
+| object.turn | Bragi | Muninn |
+| object.post-turn-review | Bragi | Norns (consent-filtered off-path review only) |
 | object.user-preference | Bragi | Muninn |
 | object.cost-anomaly | Njord | Forseti |
 | object.capacity-forecast | Freyr | Forseti |
@@ -586,11 +587,13 @@ only); detailed values live only in the fork's issue tracker.
 
 ### 6.5 Conversation state and per-user context
 
-Bragi owns `Conversation`, `Turn`, and `UserPreference`. State is
-partitioned by `user_id`:
+Bragi owns `Conversation`, `Turn`, `UserPreference`, and `PostTurnReview`.
+State is partitioned by `user_id`:
 
 - **Session.** A `Conversation` starts on first turn and ends after 30
   minutes of inactivity; every turn is appended immutably as a `Turn`.
+  `object.turn` carries body references, SHA-256 digests, routing metadata,
+  and the correlation trace. It never carries the raw question or answer.
 - **Multi-turn context.** Bragi passes the last N turns to the primary
   agent as `prior_turns_ref`, scoped to the requesting `user_id`.
 - **RBAC.** Muninn refuses cross-user reads; a primary agent that tries to
@@ -599,7 +602,9 @@ partitioned by `user_id`:
 - **Learner boundary.** Norns is limited to metadata by default
   (`share_with_learner: false` per `UserPreference`). Opt-in surfaces the
   turn body for pattern extraction; opt-out is the default. Batch trajectory intake accepts only
-  reviewed aggregates, never raw turn or trajectory bodies.
+  reviewed aggregates, never raw turn or trajectory bodies. A completed,
+  consent-filtered exchange enters Norns on `object.post-turn-review`; it is
+  not encoded as a second shape on `object.turn`.
 - **Retention.** Active conversation: 30 days. Cold storage: 60 additional
   days. Total: 90 days, then delete. Aggregated anonymized metrics survive
   in Saga's own audit stream.

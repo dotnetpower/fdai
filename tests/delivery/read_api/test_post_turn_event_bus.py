@@ -8,10 +8,10 @@ from fdai.delivery.read_api.routes.post_turn_event_bus import EventBusPostTurnRe
 from fdai.shared.providers.testing import InMemoryEventBus
 
 
-async def test_intake_publishes_bragi_owned_object_turn() -> None:
+async def test_intake_publishes_bragi_owned_post_turn_review() -> None:
     bus = InMemoryEventBus()
     intake = EventBusPostTurnReviewIntake(bus=bus)
-    iterator = bus.subscribe("object.turn", "test-consumer")
+    iterator = bus.subscribe("object.post-turn-review", "test-consumer")
     review_input = PostTurnReviewInput(
         review_id="review-1",
         principal_scope="principal-hash-1",
@@ -24,6 +24,10 @@ async def test_intake_publishes_bragi_owned_object_turn() -> None:
     envelope = await anext(iterator)
 
     assert envelope.payload["producer_principal"] == "Bragi"
+    assert envelope.payload["id"] == "review-1"
+    assert envelope.payload["correlation_id"] == "turn-assistant-1"
+    assert envelope.payload["idempotency_key"] == "post-turn-review:review-1"
+    assert envelope.payload["principal_scope"] == "principal-hash-1"
     assert envelope.payload["kind"] == "post_turn_review"
     assert envelope.payload["review"]["review_id"] == "review-1"
 
@@ -32,11 +36,11 @@ async def test_intake_round_trips_through_shared_physical_topic() -> None:
     physical_bus = InMemoryEventBus()
     object_bus = MultiplexedEventBus(
         bus=physical_bus,
-        logical_topics=frozenset({"object.turn"}),
+        logical_topics=frozenset({"object.post-turn-review"}),
         physical_topic="pantheon.objects",
     )
     intake = EventBusPostTurnReviewIntake(bus=object_bus)
-    iterator = object_bus.subscribe("object.turn", "norns")
+    iterator = object_bus.subscribe("object.post-turn-review", "norns")
 
     await intake.submit(
         PostTurnReviewInput(
@@ -49,5 +53,5 @@ async def test_intake_round_trips_through_shared_physical_topic() -> None:
     )
     envelope = await anext(iterator)
 
-    assert envelope.topic == "object.turn"
+    assert envelope.topic == "object.post-turn-review"
     assert envelope.payload["review"]["review_id"] == "review-multiplex-1"

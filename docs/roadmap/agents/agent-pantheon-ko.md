@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: d1bce9348b70f698ca6c610b18d06a7371ded585
+translation_source_sha: fb1887c78e6b5949a948bdb2f5aac9b2faf26f01
 translation_revised: 2026-07-24
 ---
 
@@ -226,7 +226,7 @@ operations / interface), `3` = governance staff.
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, SecurityEvent | detect_anomaly, detect_drift, forecast, close_forecast_outcome, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
-| Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation | translate_intent | yes (translator 만) |
+| Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent | yes (translator 만) |
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit, escalate_to_github_issue | no |
 | Mimir | Rule Steward | 3 | Rule, Policy | promote_rule, revoke_rule | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
@@ -432,7 +432,8 @@ Object type 당 topic 하나, `object.<type>` 로 명명. 모든 메시지는 `c
 | object.rule | Mimir | Forseti (cache reload) |
 | object.context-index | Muninn | Norns (봉인된 case-history intake) |
 | object.conversation | Bragi | (session index) |
-| object.turn | Bragi | Muninn, Norns(동의가 확인된 post-turn 검토만) |
+| object.turn | Bragi | Muninn |
+| object.post-turn-review | Bragi | Norns(동의가 확인된 off-path 검토만) |
 | object.user-preference | Bragi | Muninn |
 | object.cost-anomaly | Njord | Forseti |
 | object.capacity-forecast | Freyr | Forseti |
@@ -560,11 +561,13 @@ hash 만); 상세 값은 fork 의 issue tracker 에만 존재.
 
 ### 6.5 Conversation 상태와 사용자별 컨텍스트
 
-Bragi 는 `Conversation`, `Turn`, `UserPreference` 를 소유. 상태는 `user_id`
-로 partition:
+Bragi는 `Conversation`, `Turn`, `UserPreference`, `PostTurnReview`를
+소유합니다. 상태는 `user_id`로 partition합니다.
 
 - **Session.** `Conversation` 은 첫 turn 에 시작하고 30분 유휴 후 종료; 매
-  turn 은 `Turn` 으로 immutable 하게 append.
+  turn 은 `Turn` 으로 immutable 하게 append합니다. `object.turn`에는 body
+  reference, SHA-256 digest, routing metadata, correlation trace만 포함하며 raw
+  question 또는 answer는 포함하지 않습니다.
 - **Multi-turn context.** Bragi 는 요청 `user_id` 로 스코프된 최근 N 개
   turn 을 `prior_turns_ref` 로 primary agent 에 전달.
 - **RBAC.** Muninn 은 cross-user read 를 거부; primary agent 가 다른 사용자
@@ -573,6 +576,8 @@ Bragi 는 `Conversation`, `Turn`, `UserPreference` 를 소유. 상태는 `user_i
   (`UserPreference.share_with_learner: false`). Opt-in 하면 pattern
   extraction 을 위해 turn body 노출; opt-out 이 기본입니다. Batch trajectory intake는 reviewed
   aggregate만 허용하고 raw turn 또는 trajectory body는 허용하지 않습니다.
+  완료된 consent-filtered exchange는 `object.post-turn-review`를 통해 Norns에
+  전달하며 `object.turn`의 두 번째 형태로 인코딩하지 않습니다.
 - **Retention.** Active conversation: 30일. Cold storage: 60일 추가. 총
   90일 후 삭제. Aggregated anonymized metric 은 Saga 의 자체 audit stream 에
   살아남음.

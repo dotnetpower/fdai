@@ -34,6 +34,25 @@ def test_ask_tracks_session_turns() -> None:
     assert turn2.turn_index == 1
 
 
+def test_ask_publishes_canonical_bragi_turn_without_raw_bodies() -> None:
+    provider = InMemoryEventBus()
+    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+
+    asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="cost breakdown"))
+
+    records = asyncio.run(_records(provider, "object.turn"))
+    assert len(records) == 1
+    payload = records[0].payload
+    assert payload["producer_principal"] == "Bragi"
+    assert payload["primary_agent"] == "Njord"
+    assert payload["question_ref"].startswith("bragi-session:sha256:")
+    assert payload["answer_ref"].startswith("bragi-session:sha256:")
+    assert len(payload["question_sha256"]) == 64
+    assert len(payload["answer_sha256"]) == 64
+    assert "question" not in payload
+    assert "answer" not in payload
+
+
 def test_ask_enforces_user_ownership() -> None:
     runtime = _runtime()
     asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="action status"))

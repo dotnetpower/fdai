@@ -36,7 +36,7 @@ def test_shipped_object_types_load() -> None:
     catalog = load_object_type_catalog(CATALOG_ROOT, schema_registry=_registry())
     names = object_type_names(catalog)
     # Four control-loop built-ins plus the ChangeSummary reference plus the
-    # eight pantheon object types
+    # nine pantheon object types
     # (docs/roadmap/agents/agent-pantheon.md § 5,
     #  docs/roadmap/agents/agent-pantheon-implementation.md Wave 0)
     # plus the Process runtime object (docs/roadmap/decisioning/process-automation.md 3.1).
@@ -55,6 +55,7 @@ def test_shipped_object_types_load() -> None:
         "Issue",
         "RuleCandidate",
         "HandoffEscalation",
+        "PostTurnReview",
         # Process automation (docs/roadmap/decisioning/process-automation.md)
         "Process",
         # Governed Python task execution on managed compute.

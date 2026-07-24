@@ -191,7 +191,7 @@ def test_runtime_injects_post_turn_review_into_norns() -> None:
 
     async def _drive() -> None:
         await provider.publish(
-            "object.turn",
+            "object.post-turn-review",
             "principal-hash-1",
             {
                 "producer_principal": "Bragi",
