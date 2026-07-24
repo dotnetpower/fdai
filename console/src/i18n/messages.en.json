@@ -1756,9 +1756,13 @@
       "traceLabel": "Retrieval trace",
       "sourceAria": "Source",
       "llmEscalation": "LLM escalation",
+      "deterministicPath": "Deterministic processing",
+      "deterministicAnswerer": "Deterministic answerer",
       "processingTime": "Processing time {timing}",
       "llmGroundedSummary": "{model} reasoned over the retrieved evidence and composed this answer.",
       "llmContextSummary": "{model} reasoned over the conversation context and composed this answer. No separate source was attached to this turn.",
+      "deterministicSummary": "No LLM was used. The deterministic answerer composed this answer.",
+      "deterministicReasonSummary": "No LLM was used. The deterministic answerer composed this answer. Reason: {reason}.",
       "stage": {
         "retrieve": "Retrieved grounding sources",
         "infer": "Reasoned with {model}",
