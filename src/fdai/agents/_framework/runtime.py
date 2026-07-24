@@ -43,7 +43,7 @@ from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import instantiate_pantheon
 from fdai.agents._framework.pantheon import HARD_DEPENDENCY_AGENTS, PANTHEON_NAMES
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
-from fdai.agents.bragi import Bragi, Turn
+from fdai.agents.bragi import Bragi, RoutingDecision, Turn
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall, IncidentCandidateHook, ReadInvestigationHook
 from fdai.agents.huginn import DiscoveryProjector, Huginn
@@ -421,6 +421,29 @@ class PantheonRuntime:
         if materialize_handoff:
             await self._maybe_escalate_handoff(turn, question=question, session_id=session_id)
         return turn
+
+    def route_conversation(self, question: str) -> RoutingDecision | None:
+        """Return Bragi's deterministic route without exposing agent instances."""
+        if self._bragi is None:
+            return None
+        return self._bragi.route(question)
+
+    async def contribute_conversation(
+        self,
+        agent_name: str,
+        question: str,
+        *,
+        requester: str = "Bragi",
+    ) -> dict[str, Any] | None:
+        """Collect one read-only contribution through Bragi's A2A boundary."""
+        if self._bragi is None:
+            return None
+        return await self._bragi.introspect_agent(
+            agent_name,
+            question,
+            requester=requester,
+            context={"answer_planning": "shadow", "nested_round": False},
+        )
 
     async def _maybe_escalate_handoff(self, turn: Turn, *, question: str, session_id: str) -> None:
         """Materialize a Saga handoff issue for an unresolved conversational turn.

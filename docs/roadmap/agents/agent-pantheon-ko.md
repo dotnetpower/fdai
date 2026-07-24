@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 32d30416f131f6b29948386391c695795edf2154
+translation_source_sha: 5afaea8cea7b84af91c49d396852ea566ab23032
 translation_revised: 2026-07-24
 ---
 
@@ -523,6 +523,11 @@ Shipping limit은 contributor 2명, round 1회, `1200 ms`, estimated added token
 `800`입니다. Nested round는 비활성화합니다. Contributor failure는 primary-only
 answer와 bounded metadata로 degrade하며 지원 가능한 read-only answer를 HIL로 보내지
 않습니다.
+
+Command Deck은 공개 `PantheonRuntime` conversation method를 통해 이 round에
+접근합니다. Delivery adapter는 runtime agent map을 검사하거나 agent의 conversational
+handler를 직접 호출하지 않습니다. 모든 contribution은 계속 Bragi routing 경계를
+통과합니다.
 
 ### 6.4 Handoff 에스컬레이션 프로토콜
 

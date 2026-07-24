@@ -146,6 +146,21 @@ def test_no_cross_pantheon_imports() -> None:
     )
 
 
+def test_delivery_does_not_bypass_pantheon_conversation_boundary() -> None:
+    offenders: list[tuple[str, str]] = []
+    for path in _REPO_ROOT.glob("src/fdai/delivery/**/*.py"):
+        body = path.read_text(encoding="utf-8")
+        for line in body.splitlines():
+            if "runtime.agents" in line or ".on_conversation_turn(" in line:
+                offenders.append((str(path.relative_to(_REPO_ROOT)), line.strip()))
+
+    assert not offenders, (
+        "Delivery adapters are mechanical relays and must use the public "
+        "PantheonRuntime conversational API instead of inspecting agent "
+        "instances or invoking their handlers directly. Offenders: " + str(offenders)
+    )
+
+
 # ---------------------------------------------------------------------------
 # H5: file LOC ceiling inside _framework/ (own drift guard - _framework
 # is a growth area; keep it split).

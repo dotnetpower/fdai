@@ -548,6 +548,11 @@ added tokens. Nested rounds are disabled. Contributor failure degrades to the
 primary-only answer and bounded metadata; it never routes a supported read-only
 answer to HIL.
 
+The Command Deck reaches this round through the public `PantheonRuntime`
+conversation methods. Delivery adapters do not inspect the runtime agent map or
+invoke an agent's conversational handler directly. Bragi remains the routing
+boundary for every contribution.
+
 ### 6.4 Handoff escalation protocol
 
 When an agent cannot resolve a request through its owned data, T0, T1, or

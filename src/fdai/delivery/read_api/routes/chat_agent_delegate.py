@@ -69,11 +69,9 @@ class PantheonChatDelegate:
 
     def route_answer_planning(self, prompt: str) -> AnswerPlanningRoute:
         """Return a deterministic, read-only contributor route for shadow planning."""
-        bragi = self.runtime.agents.get("Bragi")
-        route = getattr(bragi, "route", None)
-        if not callable(route):
+        decision = self.runtime.route_conversation(prompt)
+        if decision is None:
             return AnswerPlanningRoute(primary_agent=None, candidates=())
-        decision = route(prompt)
         primary = getattr(decision, "primary_agent", None)
         scores = getattr(decision, "scores", {})
         if not isinstance(scores, dict):
@@ -103,16 +101,9 @@ class PantheonChatDelegate:
         """Collect one typed contribution from an agent's read-only port."""
         if not _planning_candidate_allowed(agent, prompt):
             return None
-        responder = self.runtime.agents.get(agent)
-        if responder is None:
-            return None
-        result = await responder.on_conversation_turn(
+        result = await self.runtime.contribute_conversation(
+            agent,
             prompt,
-            {
-                "answer_planning": "shadow",
-                "contributor": True,
-                "nested_round": False,
-            },
         )
         if not isinstance(result, dict) or result.get("requires_typed_pipeline") is True:
             return None
